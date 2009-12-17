@@ -26,6 +26,7 @@
       'dependencies': [
         '../base/base.gyp:*',
         'sym_util/sym_util.gyp:*',
+        'viewer/viewer.gyp:*',
       ],
     }
   ]
