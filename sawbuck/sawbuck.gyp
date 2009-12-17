@@ -25,6 +25,7 @@
       'type': 'none',
       'dependencies': [
         '../base/base.gyp:*',
+        'installer/installer.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
       ],

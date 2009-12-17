@@ -1,0 +1,155 @@
+<?xml version='1.0'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+  <!-- TODO(siggi): fix product version -->
+  <Product Id='*'
+      Name='Sawbuck'
+      Language='1033'
+      Version='0.9.0.0'
+      Manufacturer='Google Inc'
+      UpgradeCode='{EC758BD3-1E77-4b54-A464-38824F53BCAF}' >
+    <Package Description='The Chrome log viewer.'
+             Comments='Comments'
+             Manufacturer='Google Inc'
+             InstallerVersion='200'
+             Compressed='yes' />
+
+    <Media Id='1' Cabinet='product.cab' EmbedCab='yes' />
+
+    <!-- Define our program files foler -->
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='ProgramFilesFolder'>
+        <Directory Id='SawbuckApplicationDirectory' Name='Sawbuck'/>
+      </Directory>
+
+      <!-- Define our application files folder -->
+      <Directory Id='ProgramMenuFolder'>
+        <Directory Id='SawbuckProgramsDirectory' Name='Sawbuck'/>
+      </Directory>
+    </Directory>
+
+    <!-- Search for a DbgHelp.dll and a SymSrv.dll within the program files
+      directory. If found, we copy those to our program directory in some
+      of the component declarations below. -->
+    <Property Id='DBG_HELP_DLL'>
+      <DirectorySearch Id='DbgHelpDllSearch'
+          Path='[ProgramFilesFolder]'
+          Depth='2'>
+        <FileSearch Name='dbghelp.dll' MinVersion='6.0.0.0'/>
+      </DirectorySearch>
+    </Property>
+    <Property Id='SYM_SRV_DLL'>
+      <DirectorySearch Id='SymSrvDllSearch'
+          Path='[ProgramFilesFolder]'
+          Depth='2'>
+        <FileSearch Name='symsrv.dll' MinVersion='6.0.0.0'/>
+      </DirectorySearch>
+    </Property>
+
+    <!-- Component for the application start menu shortcut -->
+    <DirectoryRef Id='SawbuckProgramsDirectory'>
+      <Component Id='SawbuckShortcutComponent'
+          Guid='{CECB7B52-78A8-4638-BD25-0CFD2F0044DF}'>
+        <Shortcut Id='ApplicationStartMenuShortcut'
+                  Name='Sawbuck'
+                  Description='The Chrome log viewer.'
+                  Target='[SawbuckApplicationDirectory]Sawbuck.exe'
+                  WorkingDirectory='SawbuckApplicationDirectory'/>
+        <RemoveFolder Id='SawbuckProgramsDirectory' On='uninstall'/>
+        <!-- This is apparently necessary so the component has
+            a "key" item.
+        -->
+        <RegistryValue
+            Root='HKCU'
+            Key='Software\Google\Sawbuck'
+            Name='installed'
+            Type='integer'
+            Value='1'
+            KeyPath='yes'/>
+        <!-- Put an uninstall shortcut in there as well. -->
+        <Shortcut Id='UninstallSawbuckShortcut'
+                  Name='Uninstall Sawbuck'
+                  Target='[System64Folder]msiexec.exe'
+                  Arguments='/x [ProductCode]'
+                  Description='Uninstalls Sawbuck' />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Provider registration component. -->
+    <DirectoryRef Id='TARGETDIR'>
+      <Component Id='ProviderRegistryComponent'
+          Guid='{1161AE44-89DE-4144-882A-E98C389C4F07}'>
+        <RegistryKey
+            Root='HKLM'
+            Key='Software\Google\Sawbuck\Providers'
+            Action='createAndRemoveOnUninstall'>
+          <!-- Chrome -->
+          <RegistryKey
+              Key='{7FE69228-633E-4f06-80C1-527FEA23E3A7}'>
+            <RegistryValue Type='string' Value='Chrome' />
+          </RegistryKey>
+          <!-- Chrome Frame -->
+          <RegistryKey
+              Key='{0562BFC3-2550-45b4-BD8E-A310583D3A6F}'>
+            <RegistryValue Type='string' Value='Chrome Frame' />
+          </RegistryKey>
+          <!-- Sawbuck -->
+          <RegistryKey
+              Key='{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'>
+            <RegistryValue Type='string' Value='Sawbuck' />
+          </RegistryKey>
+          <!-- Add other providers here. -->
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Component for the application's EXE -->
+    <DirectoryRef Id='SawbuckApplicationDirectory'>
+      <Component Id='SawbuckExeComponent'
+          Guid='{8F825656-7F0D-4aa6-A22C-759F82D47E38}'>
+        <File Id='SawbuckExeFile'
+            Name='Sawbuck.exe'
+            DiskId='1'
+            Source='$(var.SAWBUCK_EXE_PATH)' />
+        <!-- We set this environment variable system-wide to ensure
+             Chrome uses ETW logging.
+          Note: the user may need to log out and back in before this
+            takes effect.
+        -->
+        <Environment Id='ChromeEtwLoggingEnvVar'
+            Action='create'
+            System='yes'
+            Name='CHROME_ETW_LOGGING'
+            Value='1' />
+      </Component>
+      <Component Id='DbgHelpDllComponent'
+          Guid='{CDDFC08A-5814-4375-9971-2B35A039B72F}'>
+        <!-- Copy the DbgHelp we found to the program directory -->
+        <CopyFile Id='CopyDbgHelp'
+            SourceProperty='DBG_HELP_DLL'
+            DestinationDirectory='SawbuckApplicationDirectory' />
+        <RemoveFile Id='RemoveDbgHelp'
+            On='uninstall'
+            Name='dbghelp.dll'/>
+      </Component>
+      <Component Id='SymSrvDllComponent'
+          Guid='{04FFB025-E3C9-4ecd-8255-ED7E63EFC948}'>
+        <!-- Copy the SymSrv we found to the program directory -->
+        <CopyFile Id='CopySymSrv'
+            SourceProperty='SYM_SRV_DLL'
+            DestinationDirectory='SawbuckApplicationDirectory' />
+        <RemoveFile Id='RemoveSymSrv'
+            On='uninstall'
+            Name='symsrv.dll'/>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Just one feature. No muss no fuss, no UI. -->
+    <Feature Id='Sawbuck' Title='Sawbuck Log Viewer' Level='1'>
+      <ComponentRef Id='SawbuckExeComponent' />
+      <ComponentRef Id='SawbuckShortcutComponent' />
+      <ComponentRef Id='ProviderRegistryComponent' />
+      <ComponentRef Id='DbgHelpDllComponent' />
+      <ComponentRef Id='SymSrvDllComponent' />
+    </Feature>
+  </Product>
+</Wix>
