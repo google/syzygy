@@ -30,6 +30,40 @@
   },
   'targets': [
     {
+      'target_name': 'sawbuck_version',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'version.gen.template',
+      ],
+      'actions': [
+        {
+          'action_name': 'make_version_gen',
+          'inputs': [
+            '../tools/template_replace.py',
+            '../VERSION',
+            'version.gen.template',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/version.gen',
+          ],
+          'action': [
+            'python',
+            '../tools/template_replace.py',
+            '--input', 'version.gen.template',
+            '--output', '<(SHARED_INTERMEDIATE_DIR)/version.gen',
+            '../VERSION',
+          ],
+          'process_outputs_as_sources': 1,
+        },
+      ],
+      'all_dependent_settings': {
+        'include_dirs': [
+          '<(SHARED_INTERMEDIATE_DIR)',
+        ],
+      },
+    },
+    {
       'target_name': 'log_view_lib',
       'type': 'static_library',
       'sources': [
@@ -47,7 +81,6 @@
         'stack_trace_list_view.cc',
         'viewer_window.cc',
         'viewer_window.h',
-        'viewer.rc',
       ],
       'dependencies': [
         '../sym_util/sym_util.gyp:sym_util',
@@ -62,9 +95,11 @@
         'viewer_module.cc',
         'viewer_module.h',
         'viewer.rc',
+        'version.rc',
       ],
       'dependencies': [
         'log_view_lib',
+        'sawbuck_version',
         '../../base/base.gyp:base',
       ],
       'msvs_settings': {

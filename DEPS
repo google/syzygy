@@ -17,50 +17,51 @@
 
 vars = {
   "chrome_revision": "33066",
+  "chrome_base": "http://src.chromium.org/svn/trunk",
 }
 
 deps = {
   "src/base":
-    "svn://svn.chromium.org/chrome/trunk/src/base@" + Var("chrome_revision"),
+    Var("chrome_base") + "/src/base@" + Var("chrome_revision"),
 
   # Ugh, there's a dependency from base to this.
   "src/chrome/third_party/wtl":
-    "svn://svn.chromium.org/chrome/trunk/src/chrome/third_party/wtl@" +
+    Var("chrome_base") + "/src/chrome/third_party/wtl@" +
         Var("chrome_revision"),
   
   "src/skia":
-    "svn://svn.chromium.org/chrome/trunk/src/skia@" + Var("chrome_revision"),
+    Var("chrome_base") + "/src/skia@" + Var("chrome_revision"),
 
   "src/third_party/skia":
     "http://skia.googlecode.com/svn/trunk@364",
     
   "src/third_party/zlib":
-    "svn://svn.chromium.org/chrome/trunk/src/third_party/zlib@" + 
+    Var("chrome_base") + "/src/third_party/zlib@" + 
         Var("chrome_revision"),
   "src/third_party/libevent":
-    "svn://svn.chromium.org/chrome/trunk/src/third_party/libevent@" + 
+    Var("chrome_base") + "/src/third_party/libevent@" + 
         Var("chrome_revision"),
   "src/third_party/libjpeg":
-    "svn://svn.chromium.org/chrome/trunk/src/third_party/libjpeg@" + 
+    Var("chrome_base") + "/src/third_party/libjpeg@" + 
         Var("chrome_revision"),
   "src/third_party/icu":
-    "svn://svn.chromium.org/chrome/trunk/deps/third_party/icu42@" + 
+    Var("chrome_base") + "/deps/third_party/icu42@" + 
         Var("chrome_revision"),
   "src/third_party/sqlite":
-    "svn://svn.chromium.org/chrome/trunk/src/third_party/sqlite@" + 
+    Var("chrome_base") + "/src/third_party/sqlite@" + 
         Var("chrome_revision"),
   "src/third_party/modp_b64":
-    "svn://svn.chromium.org/chrome/trunk/src/third_party/modp_b64@" + 
+    Var("chrome_base") + "/src/third_party/modp_b64@" + 
         Var("chrome_revision"),
     
   "src/third_party/python_24":
-    "svn://svn.chromium.org/chrome/trunk/deps/third_party/python_24@22967",
+    Var("chrome_base") + "/deps/third_party/python_24@22967",
 
   "src/build":
-    "svn://svn.chromium.org/chrome/trunk/src/build@" + Var("chrome_revision"),
+    Var("chrome_base") + "/src/build@" + Var("chrome_revision"),
 
   "src/testing":
-    "svn://svn.chromium.org/chrome/trunk/src/testing@" + Var("chrome_revision"),
+    Var("chrome_base") + "/src/testing@" + Var("chrome_revision"),
   "src/testing/gtest":
     "http://googletest.googlecode.com/svn/trunk@336",
 

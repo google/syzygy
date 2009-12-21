@@ -27,6 +27,7 @@
       'type': 'none',
       'sources': [
         'sawbuck.wxs',
+        'version.wxi.template',
       ],
       'dependencies': [
         '../viewer/viewer.gyp:Sawbuck',
@@ -34,16 +35,37 @@
       'msvs_cygwin_shell': 0,
       'actions': [
         {
+          'action_name': 'make_version_wxi',
+          'inputs': [
+            '../tools/template_replace.py',
+            '../VERSION',
+            'version.wxi.template',
+          ],
+          'outputs': [
+            '<(INTERMEDIATE_DIR)/version.wxi',
+          ],
+          'action': [
+            'python',
+            '../tools/template_replace.py',
+            '--input', 'version.wxi.template',
+            '--output', '<(INTERMEDIATE_DIR)/version.wxi',
+            '../VERSION',
+          ],
+          'process_outputs_as_sources': 1,
+        },
+        {
           'action_name': 'candle',
           'inputs': [
             'sawbuck.wxs',
+            '<(INTERMEDIATE_DIR)/version.wxi',
           ],
           'outputs': [
             '<(INTERMEDIATE_DIR)/sawbuck.wixobj',
           ],
           'action': [
             '<(candle_exe)',
-            '<(_inputs)',
+            '-I<(INTERMEDIATE_DIR)',
+            'sawbuck.wxs',
             '-out',
             '<@(_outputs)',
             '-dSAWBUCK_EXE_PATH=<(PRODUCT_DIR)\\Sawbuck.exe',

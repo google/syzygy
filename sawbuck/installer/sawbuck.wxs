@@ -1,10 +1,12 @@
 <?xml version='1.0'?>
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
-  <!-- TODO(siggi): fix product version -->
+  <!-- Version information -->
+  <?include 'version.wxi' ?>
+
   <Product Id='*'
       Name='Sawbuck'
       Language='1033'
-      Version='0.9.0.0'
+      Version='$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)'
       Manufacturer='Google Inc'
       UpgradeCode='{EC758BD3-1E77-4b54-A464-38824F53BCAF}' >
     <Package Description='The Chrome log viewer.'
