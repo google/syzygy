@@ -83,9 +83,12 @@ LRESULT LogListView::OnCreate(UINT msg,
                            LVS_EX_DOUBLEBUFFER);
 
   // Pick up the log size if we have one already.
-  if (log_view_ != NULL)
-    SetItemCountEx(log_view_->GetNumRows(),
-                   LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+  if (log_view_ != NULL) {
+    int num_rows = log_view_->GetNumRows();
+    SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+    // We initially want to show the latest items
+    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
+  }
 
   if (log_view_ != NULL)
     log_view_->Register(this, &event_cookie_);
@@ -107,8 +110,16 @@ LRESULT LogListView::OnNotifyLogChanged(UINT msg,
     notification_pending_ = false;
   }
 
-  SetItemCountEx(log_view_->GetNumRows(),
-                 LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+  // Check if last item was previously visible...
+  BOOL is_last_item_visible = ListView_IsItemVisible(m_hWnd,
+                                                     GetItemCount() - 1);
+  int num_rows = log_view_->GetNumRows();
+  SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+
+  // We want to show the latest items if the previously latest one was visible.
+  if (is_last_item_visible)
+    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
+
   return 0;
 }
 
@@ -118,43 +129,43 @@ LRESULT LogListView::OnGetDispInfo(LPNMHDR pnmh) {
   size_t row = info->item.iItem;
 
   switch (col) {
-   case COL_SEVERITY:
-    item_text_ = L"";
-    if (info->item.mask & LVIF_IMAGE)
-      info->item.iImage =
-          GetImageIndexForSeverity(log_view_->GetSeverity(row));
-    break;
-   case COL_PROCESS:
-    item_text_ = StringPrintf(L"%d", log_view_->GetProcessId(row));
-    break;
-   case COL_THREAD:
-    item_text_ = StringPrintf(L"%d", log_view_->GetThreadId(row));
-    break;
-   case COL_TIME:
-    {
-      // TODO(siggi): Find a saner way to format the time.
-      FILETIME time = log_view_->GetTime(row).ToFileTime();
-      SYSTEMTIME sys_time;
-      // Convert to local time.
-      ::FileTimeToLocalFileTime(&time, &time);
-      ::FileTimeToSystemTime(&time, &sys_time);
+    case COL_SEVERITY:
+      item_text_ = L"";
+      if (info->item.mask & LVIF_IMAGE)
+        info->item.iImage =
+            GetImageIndexForSeverity(log_view_->GetSeverity(row));
+      break;
+    case COL_PROCESS:
+      item_text_ = StringPrintf(L"%d", log_view_->GetProcessId(row));
+      break;
+    case COL_THREAD:
+      item_text_ = StringPrintf(L"%d", log_view_->GetThreadId(row));
+      break;
+    case COL_TIME:
+      {
+        // TODO(siggi): Find a saner way to format the time.
+        FILETIME time = log_view_->GetTime(row).ToFileTime();
+        SYSTEMTIME sys_time;
+        // Convert to local time.
+        ::FileTimeToLocalFileTime(&time, &time);
+        ::FileTimeToSystemTime(&time, &sys_time);
 
-      item_text_ = StringPrintf(L"%02d:%02d:%02d-%03d",
-                                sys_time.wHour,
-                                sys_time.wMinute,
-                                sys_time.wSecond,
-                                sys_time.wMilliseconds);
-    }
-    break;
-   case COL_FILE:
-    item_text_ = UTF8ToWide(log_view_->GetFileName(row));
-    break;
-   case COL_LINE:
-    item_text_ = StringPrintf(L"%d", log_view_->GetLine(row));
-    break;
-   case COL_MESSAGE:
-    item_text_ = UTF8ToWide(log_view_->GetMessage(row));
-    break;
+        item_text_ = StringPrintf(L"%02d:%02d:%02d-%03d",
+                                  sys_time.wHour,
+                                  sys_time.wMinute,
+                                  sys_time.wSecond,
+                                  sys_time.wMilliseconds);
+      }
+      break;
+    case COL_FILE:
+      item_text_ = UTF8ToWide(log_view_->GetFileName(row));
+      break;
+    case COL_LINE:
+      item_text_ = StringPrintf(L"%d", log_view_->GetLine(row));
+      break;
+    case COL_MESSAGE:
+      item_text_ = UTF8ToWide(log_view_->GetMessage(row));
+      break;
   }
 
   if (info->item.mask & LVIF_TEXT)
