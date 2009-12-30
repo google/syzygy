@@ -27,6 +27,11 @@
 #include "sawbuck/viewer/log_list_view.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
+// Forward decl.
+namespace WTL {
+class CUpdateUIBase;
+};
+
 // The log viewer window plays host to a listview, taking care of handling
 // its notification requests etc.
 class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
@@ -37,10 +42,11 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   BEGIN_MSG_MAP_EX(ViewerWindow)
     MSG_WM_CREATE(OnCreate)
     REFLECT_NOTIFICATIONS()
+    MESSAGE_HANDLER(WM_COMMAND, OnCommand)
     CHAIN_MSG_MAP(Super)
   END_MSG_MAP()
 
-  LogViewer();
+  explicit LogViewer(CUpdateUIBase* update_ui);
   ~LogViewer();
 
   void SetLogView(ILogView* log_view) {
@@ -52,6 +58,7 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
 
  private:
   int OnCreate(LPCREATESTRUCT create_struct);
+  LRESULT OnCommand(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
 
   // The list view that displays the log.
   LogListView log_list_view_;
@@ -61,6 +68,9 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
 
   // The list that displays the stack trace for the currently selected log.
   StackTraceListView stack_trace_list_view_;
+
+  // Used to update our UI.
+  CUpdateUIBase* update_ui_;
 };
 
 #endif  // SAWBUCK_VIEWER_LOG_VIEWER_H_

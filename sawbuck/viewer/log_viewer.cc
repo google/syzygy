@@ -14,9 +14,12 @@
 //
 // Log viewer window implementation.
 #include "sawbuck/viewer/log_viewer.h"
+
+#include <atlframe.h>
 #include "base/string_util.h"
 
-LogViewer::LogViewer() {
+LogViewer::LogViewer(CUpdateUIBase* update_ui) : log_list_view_(update_ui),
+    update_ui_(update_ui) {
 }
 
 LogViewer::~LogViewer() {
@@ -37,9 +40,18 @@ int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
 
   log_list_view_.SetStackTraceView(&stack_trace_list_view_);
 
+  SetDefaultActivePane(SPLIT_PANE_TOP);
   SetSplitterPanes(log_list_view_.m_hWnd, stack_trace_list_view_.m_hWnd);
   SetSplitterExtendedStyle(SPLIT_BOTTOMALIGNED);
 
   SetMsgHandled(FALSE);
   return 1;
+}
+
+LRESULT LogViewer::OnCommand(UINT msg,
+                             WPARAM wparam,
+                             LPARAM lparam,
+                             BOOL& handled) {
+  HWND window = GetSplitterPane(GetActivePane());
+  return ::SendMessage(window, msg, wparam, lparam);
 }

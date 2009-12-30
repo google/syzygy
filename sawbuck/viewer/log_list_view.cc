@@ -15,6 +15,7 @@
 // Log viewer window implementation.
 #include "sawbuck/viewer/log_list_view.h"
 
+#include <atlframe.h>
 #include <wmistr.h>
 #include <evntrace.h>
 #include "base/string_util.h"
@@ -35,8 +36,10 @@ const wchar_t* kLogViewColumns[] = {
 
 }  // namespace
 
-LogListView::LogListView() : log_view_(NULL), event_cookie_(0),
-    notification_pending_(false), stack_trace_view_(NULL) {
+LogListView::LogListView(CUpdateUIBase* update_ui)
+    : log_view_(NULL), event_cookie_(0),
+      notification_pending_(false), update_ui_(update_ui),
+      stack_trace_view_(NULL) {
   COMPILE_ASSERT(arraysize(kLogViewColumns) == COL_MAX,
                  wrong_number_of_column_names);
 }
@@ -194,6 +197,8 @@ LRESULT LogListView::OnItemChanged(LPNMHDR pnmh) {
     }
   }
 
+  UpdateCommandStatus(true);
+
   return 0;
 }
 
@@ -201,6 +206,25 @@ int LogListView::GetImageIndexForSeverity(int severity) {
   if (image_indexes_.size() > static_cast<size_t>(severity))
     return image_indexes_[severity];
   return -1;
+}
+
+void LogListView::OnCopyCommand(UINT code, int id, CWindow window) {
+  // TODO(siggi): implement copy.
+  ::MessageBeep(MB_OK);
+}
+
+void LogListView::OnSetFocus(CWindow window) {
+  UpdateCommandStatus(true);
+
+  // Give the list view a chance at the message.
+  SetMsgHandled(FALSE);
+}
+
+void LogListView::OnKillFocus(CWindow window) {
+  UpdateCommandStatus(false);
+
+  // Give the list view a chance at the message.
+  SetMsgHandled(FALSE);
 }
 
 void LogListView::LogViewChanged() {
@@ -212,4 +236,10 @@ void LogListView::LogViewChanged() {
       ::PostMessage(m_hWnd, WM_NOTIFY_LOG_CHANGED, 0, 0);
     }
   }
+}
+
+void LogListView::UpdateCommandStatus(bool has_focus) {
+  bool has_selection = GetSelectedCount() != 0;
+
+  update_ui_->UIEnable(ID_EDIT_COPY, has_focus && has_selection);
 }

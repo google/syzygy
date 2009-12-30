@@ -63,6 +63,7 @@ BEGIN
         MENUITEM "Cut",                         ID_EDIT_CUT
         MENUITEM "Copy",                        ID_EDIT_COPY
         MENUITEM "Paste",                       ID_EDIT_PASTE
+        MENUITEM "Clear",                       ID_EDIT_CLEAR
     END
     POPUP "Log"
     BEGIN
@@ -74,6 +75,7 @@ BEGIN
         MENUITEM "About",                       ID_APP_ABOUT
     END
 END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //

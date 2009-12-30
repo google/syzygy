@@ -65,7 +65,8 @@ void ViewerWindow::CompileAsserts() {
 }
 
 ViewerWindow::ViewerWindow() : log_message_size_dirty_(false),
-  symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1) {
+  symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1),
+  log_viewer_(this) {
 
   symbol_lookup_worker_.Start();
 
@@ -322,9 +323,14 @@ BOOL ViewerWindow::PreTranslateMessage(MSG* msg) {
 int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   // TODO(siggi): Make the toolbar useful.
   // CreateSimpleToolBar();
-  CreateSimpleStatusBar();
+  // Edit menu is disabled by default.
+  UIEnable(ID_EDIT_CUT, false);
+  UIEnable(ID_EDIT_COPY, false);
+  UIEnable(ID_EDIT_PASTE, false);
+  UIEnable(ID_EDIT_CLEAR, false);
 
-  SetWindowText(L"Log Viewer");
+  CreateSimpleStatusBar();
+  SetWindowText(L"Sawbuck Log Viewer");
 
   log_viewer_.SetLogView(this);
   log_viewer_.SetSymbolLookupService(this);

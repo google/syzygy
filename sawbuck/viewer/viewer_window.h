@@ -65,12 +65,18 @@ class ViewerWindow
     COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAbout)
     COMMAND_ID_HANDLER(ID_LOG_CONFIGUREPROVIDERS, OnConfigureProviders)
     COMMAND_ID_HANDLER(ID_LOG_CAPTURE, OnToggleCapture)
+    // Forward other commands to the client window.
+    CHAIN_CLIENT_COMMANDS()
     CHAIN_MSG_MAP(CUpdateUI<ViewerWindow>);
     CHAIN_MSG_MAP(SuperFrame);
   END_MSG_MAP()
 
   BEGIN_UPDATE_UI_MAP(ViewerWindow)
     UPDATE_ELEMENT(ID_LOG_CAPTURE, UPDUI_MENUBAR)
+    UPDATE_ELEMENT(ID_EDIT_CUT, UPDUI_MENUBAR)
+    UPDATE_ELEMENT(ID_EDIT_COPY, UPDUI_MENUBAR)
+    UPDATE_ELEMENT(ID_EDIT_PASTE, UPDUI_MENUBAR)
+    UPDATE_ELEMENT(ID_EDIT_CLEAR, UPDUI_MENUBAR)
   END_UPDATE_UI_MAP()
 
   ViewerWindow();
@@ -173,7 +179,6 @@ class ViewerWindow
   typedef std::vector<sym_util::ModuleCache::ModuleLoadStateId> LoadStateVector;
   LoadStateVector lru_module_id_;
   SymbolCacheMap symbol_caches_;
-
 
   // The list view control that displays log_messages_.
   LogViewer log_viewer_;

@@ -53,8 +53,11 @@ class ILogView {
   virtual void Unregister(int registration_cookie) = 0;
 };
 
-// Fwd.
+// Forward decls.
 class StackTraceListView;
+namespace WTL {
+class CUpdateUIBase;
+};
 
 // Traits specialization for log list view.
 typedef CWinTraits<WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
@@ -76,13 +79,16 @@ class LogListView
   BEGIN_MSG_MAP_EX(LogList)
     MESSAGE_HANDLER(WM_CREATE, OnCreate)
     MSG_WM_DESTROY(OnDestroy)
+    MSG_WM_SETFOCUS(OnSetFocus)
+    MSG_WM_KILLFOCUS(OnKillFocus)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
     MESSAGE_HANDLER(WM_NOTIFY_LOG_CHANGED, OnNotifyLogChanged)
     DEFAULT_REFLECTION_HANDLER()
   END_MSG_MAP()
 
-  LogListView();
+  explicit LogListView(CUpdateUIBase* update_ui);
 
   void SetLogView(ILogView* log_view);
   void SetStackTraceView(StackTraceListView* stack_trace_view);
@@ -113,6 +119,14 @@ class LogListView
 
   LRESULT OnGetDispInfo(LPNMHDR notification);
   LRESULT OnItemChanged(LPNMHDR notification);
+  void OnCopyCommand(UINT code, int id, CWindow window);
+  void OnSetFocus(CWindow window);
+  void OnKillFocus(CWindow window);
+
+  // Updates the UI status for commands we support, disables
+  // all our commands unless we have focus.
+  // @param has_focus true iff this window has the focus.
+  void UpdateCommandStatus(bool has_focus);
 
   // The stack trace view that displays our stack trace.
   StackTraceListView* stack_trace_view_;
@@ -125,7 +139,10 @@ class LogListView
   int GetImageIndexForSeverity(int severity);
 
   Lock lock_;
+  // True after posting an update notification message, until it's processed.
   bool notification_pending_;  // Under lock_.
+
+  CUpdateUIBase* update_ui_;
 
   // Temporary storage for strings returned from OnGetDispInfo.
   std::wstring item_text_;
