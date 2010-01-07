@@ -15,24 +15,65 @@
 // Log viewer window implementation.
 #include "sawbuck/viewer/log_list_view.h"
 
+#include <atlalloc.h>
 #include <atlframe.h>
 #include <wmistr.h>
 #include <evntrace.h>
 #include "base/string_util.h"
 #include "sawbuck/sym_util/symbol_cache.h"
+#include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
 namespace {
 
-const wchar_t* kLogViewColumns[] = {
-  L"",  // Severity is an icon
-  L"Process ID",
-  L"Thread ID",
-  L"Time",
-  L"File",
-  L"Line",
-  L"Message",
+struct ColumnInfo {
+  int width;
+  const wchar_t* title;
 };
+
+const ColumnInfo kLogViewColumns[] = {
+  { 24, L"" },  // Severity is an icon
+  { 42, L"Process ID" },
+  { 42, L"Thread ID" },
+  { 80, L"Time" },
+  { 180, L"File" },
+  { 30, L"Line" },
+  { 640, L"Message", }
+};
+
+const wchar_t* GetSeverityText(UCHAR severity) {
+  switch (severity)  {
+    case TRACE_LEVEL_NONE:
+      return L"NONE";
+    case TRACE_LEVEL_FATAL:
+      return L"FATAL";
+    case TRACE_LEVEL_ERROR:
+      return L"ERROR";
+    case TRACE_LEVEL_WARNING:
+      return L"WARNING";
+    case TRACE_LEVEL_INFORMATION:
+      return L"INFORMATION";
+    case TRACE_LEVEL_VERBOSE:
+      return L"VERBOSE";
+    case TRACE_LEVEL_RESERVED6:
+      return L"RESERVED6";
+    case TRACE_LEVEL_RESERVED7:
+      return L"RESERVED7";
+    case TRACE_LEVEL_RESERVED8:
+      return L"RESERVED8";
+    case TRACE_LEVEL_RESERVED9:
+      return L"RESERVED9";
+  }
+
+  return L"UNKNOWN";
+}
+
+// Returns true iff state indicates a selected listview item.
+bool IsSelected(UINT state) {
+  return (state & LVIS_SELECTED) == LVIS_SELECTED;
+}
+
+const int kNoItem = -1;
 
 }  // namespace
 
@@ -41,7 +82,7 @@ LogListView::LogListView(CUpdateUIBase* update_ui)
       notification_pending_(false), update_ui_(update_ui),
       stack_trace_view_(NULL) {
   COMPILE_ASSERT(arraysize(kLogViewColumns) == COL_MAX,
-                 wrong_number_of_column_names);
+                 wrong_number_of_column_info);
 }
 
 void LogListView::SetLogView(ILogView* log_view) {
@@ -76,8 +117,37 @@ LRESULT LogListView::OnCreate(UINT msg,
 
   SetImageList(image_list, LVSIL_SMALL);
 
-  for (int i = 0; i < COL_MAX; ++i)
-    AddColumn(kLogViewColumns[i], i, -1);
+  for (int col = 0; col < COL_MAX; ++col) {
+    AddColumn(kLogViewColumns[col].title, col);
+    SetColumnWidth(col, kLogViewColumns[col].width);
+  }
+
+  // Restore column order and column widths.
+  // Note we fallback to HKLM for initial settings.
+  CRegKey settings;
+  if (ERROR_SUCCESS == settings.Open(HKEY_CURRENT_USER,
+                                     config::kSettingsKey,
+                                     KEY_READ)) {
+    std::vector<int> cols;
+    cols.resize(COL_MAX);
+
+    ULONG len = cols.size() * sizeof(cols[0]);
+    if (ERROR_SUCCESS == settings.QueryBinaryValue(config::kLogViewColumnOrder,
+                                                   &cols[0],
+                                                   &len) &&
+        len == cols.size() * sizeof(cols[0])) {
+      SetColumnOrderArray(cols.size(), &cols[0]);
+    }
+
+    len = cols.size() * sizeof(cols[0]);
+    if (ERROR_SUCCESS == settings.QueryBinaryValue(
+          config::kLogViewColumnWidths, &cols[0], &len) &&
+        len == cols.size() * sizeof(cols[0])) {
+      for (int col = 0; col < COL_MAX; ++col) {
+        SetColumnWidth(col, cols[col]);
+      }
+    }
+  }
 
   // Tune our extended styles.
   SetExtendedListViewStyle(LVS_EX_HEADERDRAGDROP |
@@ -102,6 +172,27 @@ LRESULT LogListView::OnCreate(UINT msg,
 void LogListView::OnDestroy() {
   if (log_view_ != NULL)
     log_view_->Unregister(event_cookie_);
+
+  // Save column order and widths.
+  CRegKey settings;
+  if (ERROR_SUCCESS == settings.Create(HKEY_CURRENT_USER,
+                                       config::kSettingsKey)) {
+    std::vector<int> cols;
+    cols.resize(COL_MAX);
+
+    if (GetColumnOrderArray(cols.size(), &cols[0])) {
+      settings.SetBinaryValue(config::kLogViewColumnOrder,
+                              &cols[0],
+                              cols.size() * sizeof(cols[0]));
+    }
+
+    for (int col = 0; col < COL_MAX; ++col)
+      cols[col] = GetColumnWidth(col);
+
+    settings.SetBinaryValue(config::kLogViewColumnWidths,
+                            &cols[0],
+                            cols.size() * sizeof(cols[0]));
+  }
 }
 
 LRESULT LogListView::OnNotifyLogChanged(UINT msg,
@@ -126,7 +217,7 @@ LRESULT LogListView::OnNotifyLogChanged(UINT msg,
   return 0;
 }
 
-LRESULT LogListView::OnGetDispInfo(LPNMHDR pnmh) {
+LRESULT LogListView::OnGetDispInfo(NMHDR* pnmh) {
   NMLVDISPINFO* info = reinterpret_cast<NMLVDISPINFO*>(pnmh);
   int col = info->item.iSubItem;
   size_t row = info->item.iItem;
@@ -137,6 +228,8 @@ LRESULT LogListView::OnGetDispInfo(LPNMHDR pnmh) {
       if (info->item.mask & LVIF_IMAGE)
         info->item.iImage =
             GetImageIndexForSeverity(log_view_->GetSeverity(row));
+
+      item_text_ = GetSeverityText(log_view_->GetSeverity(row));
       break;
     case COL_PROCESS:
       item_text_ = StringPrintf(L"%d", log_view_->GetProcessId(row));
@@ -171,28 +264,35 @@ LRESULT LogListView::OnGetDispInfo(LPNMHDR pnmh) {
       break;
   }
 
+  TrimWhitespace(item_text_, TRIM_TRAILING, &item_text_);
+
   if (info->item.mask & LVIF_TEXT)
     info->item.pszText = const_cast<LPWSTR>(item_text_.c_str());
 
   return 0;
 }
 
-LRESULT LogListView::OnItemChanged(LPNMHDR pnmh) {
-  LPNMLISTVIEW info = reinterpret_cast<LPNMLISTVIEW>(pnmh);
+LRESULT LogListView::OnItemChanged(NMHDR* pnmh) {
+  NMLISTVIEW* info = reinterpret_cast<NMLISTVIEW*>(pnmh);
+
   int row = info->iItem;
 
   if (stack_trace_view_ != NULL) {
-    int item = info->iItem;
-    if (info->uNewState & LVIS_SELECTED) {
-      std::vector<void*> trace;
-      log_view_->GetStackTrace(row, &trace);
-      stack_trace_view_->SetStackTrace(log_view_->GetProcessId(row),
-                                       log_view_->GetTime(row),
-                                       trace.size(),
-                                       trace.size() ? &trace[0] : NULL);
+    if (IsSelected(info->uNewState) && !IsSelected(info->uOldState)) {
+      // Set the stack trace for a single row selection only.
+      if (row != kNoItem) {
+        std::vector<void*> trace;
+        log_view_->GetStackTrace(row, &trace);
 
-    } else {
+        DCHECK(stack_trace_view_ != NULL);
+        stack_trace_view_->SetStackTrace(log_view_->GetProcessId(row),
+                                         log_view_->GetTime(row),
+                                         trace.size(),
+                                         trace.size() ? &trace[0] : NULL);
+      }
+    } else if (!IsSelected(info->uNewState) && IsSelected(info->uOldState)) {
       // Clear the trace.
+      DCHECK(stack_trace_view_ != NULL);
       stack_trace_view_->SetStackTrace(0, base::Time::Now(), 0, NULL);
     }
   }
@@ -209,8 +309,64 @@ int LogListView::GetImageIndexForSeverity(int severity) {
 }
 
 void LogListView::OnCopyCommand(UINT code, int id, CWindow window) {
-  // TODO(siggi): implement copy.
-  ::MessageBeep(MB_OK);
+  std::wstringstream selection;
+
+  int item = GetNextItem(kNoItem, LVNI_SELECTED);
+  for (; item != kNoItem; item = GetNextItem(item, LVNI_SELECTED)) {
+    NMLVDISPINFO info = {};
+
+    info.hdr.hwndFrom = m_hWnd;
+    info.item.iItem = item;
+    info.item.mask = LVIF_TEXT;
+
+    for (int col = COL_SEVERITY; col < COL_MAX; ++col) {
+      info.item.iSubItem = col;
+
+      OnGetDispInfo(&info.hdr);
+
+      // Tab separate the columns.
+      if (col != COL_SEVERITY)
+        selection << L'\t';
+      selection << info.item.pszText;
+    }
+
+    // Clipboard has CRLF separated lines.
+    selection << L"\r\n";
+  }
+
+  // Copy the sstring to a global pointer for the clipboard.
+  CHeapPtr<wchar_t, CGlobalAllocator> data;
+
+  if (!data.Allocate(selection.str().length() + 1)) {
+    LOG(ERROR) << "Unable to allocate clipboard data";
+    return;
+  }
+
+  // Copy the string and the terminating zero.
+  memcpy(data.m_pData,
+         &selection.str()[0],
+         (selection.str().length() + 1) * sizeof(wchar_t));
+
+  if (::OpenClipboard(m_hWnd)) {
+    ::EmptyClipboard();
+
+    if (::SetClipboardData(CF_UNICODETEXT, data.m_pData)) {
+      // The clipboard has taken ownership now.
+      data.Detach();
+    } else {
+      LOG(ERROR) << "Unable to set clipboard data, error  "
+          << ::GetLastError();
+    }
+
+    ::CloseClipboard();
+  } else  {
+    LOG(ERROR) << "Unable to open clipboard, error " << ::GetLastError();
+  }
+}
+
+void LogListView::OnSelectAll(UINT code, int id, CWindow window) {
+  // Select all items.
+  SetItemState(kNoItem, LVIS_SELECTED, LVIS_SELECTED);
 }
 
 void LogListView::OnSetFocus(CWindow window) {
@@ -242,4 +398,5 @@ void LogListView::UpdateCommandStatus(bool has_focus) {
   bool has_selection = GetSelectedCount() != 0;
 
   update_ui_->UIEnable(ID_EDIT_COPY, has_focus && has_selection);
+  update_ui_->UIEnable(ID_EDIT_SELECT_ALL, has_focus);
 }

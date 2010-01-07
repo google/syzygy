@@ -21,6 +21,7 @@
 #include "base/string_util.h"
 #include "base/logging.h"
 #include "sawbuck/sym_util/symbol_cache.h"
+#include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/provider_dialog.h"
 #include "sawbuck/viewer/viewer_module.h"
 #include <initguid.h>  // NOLINT
@@ -50,10 +51,6 @@ bool Is64BitSystem() {
 
   return is_wow_64 != FALSE;
 }
-
-const wchar_t kRootSettingsKey[] = L"Software\\Google\\SawBuck";
-const wchar_t kProviderNamesKey[] = L"Software\\Google\\SawBuck\\Providers";
-const wchar_t kProviderLevelsKey[] = L"Software\\Google\\SawBuck\\Levels";
 
 }  // namespace
 
@@ -186,6 +183,10 @@ void ViewerWindow::OnLogMessage(UCHAR level,
                                 size_t length,
                                 const char* message) {
   AutoLock lock(list_lock_);
+
+  // Trim trailing zeros off the message.
+  while (length && message[length] == '\0')
+    --length;
 
   log_messages_.push_back(LogMessage());
   LogMessage& msg = log_messages_.back();
@@ -328,6 +329,7 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   UIEnable(ID_EDIT_COPY, false);
   UIEnable(ID_EDIT_PASTE, false);
   UIEnable(ID_EDIT_CLEAR, false);
+  UIEnable(ID_EDIT_SELECT_ALL, false);
 
   CreateSimpleStatusBar();
   SetWindowText(L"Sawbuck Log Viewer");
@@ -347,11 +349,11 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   // Retrieve our placement from registry if available, and
   // place our window to the last saved placement if so.
   CRegKey key;
-  ULONG err = key.Open(HKEY_CURRENT_USER, L"Software\\Google\\Sawbuck");
+  ULONG err = key.Open(HKEY_CURRENT_USER, config::kSettingsKey);
   if (err == ERROR_SUCCESS) {
     WINDOWPLACEMENT placement = { 0 };
     ULONG size = sizeof(placement);
-    err = key.QueryBinaryValue(L"window_pos", &placement, &size);
+    err = key.QueryBinaryValue(config::kWindowPosValue, &placement, &size);
     if (err == ERROR_SUCCESS && size == sizeof(placement))
       SetWindowPlacement(&placement);
   }
@@ -373,9 +375,11 @@ void ViewerWindow::OnDestroy() {
   if (GetWindowPlacement(&placement)) {
     CRegKey key;
 
-    ULONG err = key.Create(HKEY_CURRENT_USER, L"Software\\Google\\Sawbuck");
+    ULONG err = key.Create(HKEY_CURRENT_USER, config::kSettingsKey);
     if (err == ERROR_SUCCESS)
-      key.SetBinaryValue(L"window_pos", &placement, sizeof(placement));
+      key.SetBinaryValue(config::kWindowPosValue,
+                         &placement,
+                         sizeof(placement));
   }
 
   // Wind up this program.
@@ -496,7 +500,9 @@ void ViewerWindow::ReadProviderSettings(
   ProviderNamesMap provider_names;
 
   CRegKey providers;
-  LONG err = providers.Open(HKEY_LOCAL_MACHINE, kProviderNamesKey, KEY_READ);
+  LONG err = providers.Open(HKEY_LOCAL_MACHINE,
+                            config::kProviderNamesKey,
+                            KEY_READ);
   if (err != ERROR_SUCCESS) {
     LOG(ERROR) << "Failed to open provider names key";
     return;

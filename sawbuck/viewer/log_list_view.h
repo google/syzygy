@@ -82,6 +82,7 @@ class LogListView
     MSG_WM_SETFOCUS(OnSetFocus)
     MSG_WM_KILLFOCUS(OnKillFocus)
     COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
     MESSAGE_HANDLER(WM_NOTIFY_LOG_CHANGED, OnNotifyLogChanged)
@@ -119,7 +120,9 @@ class LogListView
 
   LRESULT OnGetDispInfo(LPNMHDR notification);
   LRESULT OnItemChanged(LPNMHDR notification);
+
   void OnCopyCommand(UINT code, int id, CWindow window);
+  void OnSelectAll(UINT code, int id, CWindow window);
   void OnSetFocus(CWindow window);
   void OnKillFocus(CWindow window);
 
