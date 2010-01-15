@@ -19,27 +19,13 @@
 #include <atlframe.h>
 #include <wmistr.h>
 #include <evntrace.h>
+#include "base/logging.h"
 #include "base/string_util.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
 namespace {
-
-struct ColumnInfo {
-  int width;
-  const wchar_t* title;
-};
-
-const ColumnInfo kLogViewColumns[] = {
-  { 24, L"" },  // Severity is an icon
-  { 42, L"Process ID" },
-  { 42, L"Thread ID" },
-  { 80, L"Time" },
-  { 180, L"File" },
-  { 30, L"Line" },
-  { 640, L"Message", }
-};
 
 const wchar_t* GetSeverityText(UCHAR severity) {
   switch (severity)  {
@@ -77,11 +63,29 @@ const int kNoItem = -1;
 
 }  // namespace
 
+const LogListView::ColumnInfo LogListView::kColumns[] = {
+  { 24, L"" },  // Severity is an icon
+  { 42, L"Process ID" },
+  { 42, L"Thread ID" },
+  { 80, L"Time" },
+  { 180, L"File" },
+  { 30, L"Line" },
+  { 640, L"Message", }
+};
+
+const wchar_t* LogListView::kConfigKeyName =
+    config::kSettingsKey;
+const wchar_t* LogListView::kColumnOrderValueName =
+    config::kLogViewColumnOrder;
+const wchar_t* LogListView::kColumnWidthValueName =
+    config::kLogViewColumnWidths;
+
+
 LogListView::LogListView(CUpdateUIBase* update_ui)
     : log_view_(NULL), event_cookie_(0),
       notification_pending_(false), update_ui_(update_ui),
       stack_trace_view_(NULL) {
-  COMPILE_ASSERT(arraysize(kLogViewColumns) == COL_MAX,
+  COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
                  wrong_number_of_column_info);
 }
 
@@ -116,38 +120,7 @@ LRESULT LogListView::OnCreate(UINT msg,
       image_list.AddIcon(::LoadIcon(NULL, MAKEINTRESOURCE(IDI_QUESTION)));
 
   SetImageList(image_list, LVSIL_SMALL);
-
-  for (int col = 0; col < COL_MAX; ++col) {
-    AddColumn(kLogViewColumns[col].title, col);
-    SetColumnWidth(col, kLogViewColumns[col].width);
-  }
-
-  // Restore column order and column widths.
-  // Note we fallback to HKLM for initial settings.
-  CRegKey settings;
-  if (ERROR_SUCCESS == settings.Open(HKEY_CURRENT_USER,
-                                     config::kSettingsKey,
-                                     KEY_READ)) {
-    std::vector<int> cols;
-    cols.resize(COL_MAX);
-
-    ULONG len = cols.size() * sizeof(cols[0]);
-    if (ERROR_SUCCESS == settings.QueryBinaryValue(config::kLogViewColumnOrder,
-                                                   &cols[0],
-                                                   &len) &&
-        len == cols.size() * sizeof(cols[0])) {
-      SetColumnOrderArray(cols.size(), &cols[0]);
-    }
-
-    len = cols.size() * sizeof(cols[0]);
-    if (ERROR_SUCCESS == settings.QueryBinaryValue(
-          config::kLogViewColumnWidths, &cols[0], &len) &&
-        len == cols.size() * sizeof(cols[0])) {
-      for (int col = 0; col < COL_MAX; ++col) {
-        SetColumnWidth(col, cols[col]);
-      }
-    }
-  }
+  AddColumns();
 
   // Tune our extended styles.
   SetExtendedListViewStyle(LVS_EX_HEADERDRAGDROP |
@@ -170,29 +143,10 @@ LRESULT LogListView::OnCreate(UINT msg,
 }
 
 void LogListView::OnDestroy() {
-  if (log_view_ != NULL)
+  if (log_view_ != NULL) {
     log_view_->Unregister(event_cookie_);
-
-  // Save column order and widths.
-  CRegKey settings;
-  if (ERROR_SUCCESS == settings.Create(HKEY_CURRENT_USER,
-                                       config::kSettingsKey)) {
-    std::vector<int> cols;
-    cols.resize(COL_MAX);
-
-    if (GetColumnOrderArray(cols.size(), &cols[0])) {
-      settings.SetBinaryValue(config::kLogViewColumnOrder,
-                              &cols[0],
-                              cols.size() * sizeof(cols[0]));
-    }
-
-    for (int col = 0; col < COL_MAX; ++col)
-      cols[col] = GetColumnWidth(col);
-
-    settings.SetBinaryValue(config::kLogViewColumnWidths,
-                            &cols[0],
-                            cols.size() * sizeof(cols[0]));
   }
+  SaveColumns();
 }
 
 LRESULT LogListView::OnNotifyLogChanged(UINT msg,

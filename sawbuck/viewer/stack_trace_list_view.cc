@@ -17,21 +17,25 @@
 
 #include "base/string_util.h"
 #include "sawbuck/sym_util/symbol_cache.h"
+#include "sawbuck/viewer/const_config.h"
 
-namespace {
-
-const wchar_t* kStackTraceColumns[] = {
-  L"Address",
-  L"Module",
-  L"File",
-  L"Line",
-  L"Function",
+const StackTraceListView::ColumnInfo StackTraceListView::kColumns[] = {
+  { 72, L"Address" },
+  { 90, L"Module" },
+  { 180, L"File" },
+  { 42, L"Line" },
+  { 180, L"Function" },
 };
 
-}  // namespace
+const wchar_t* StackTraceListView::kConfigKeyName =
+    config::kSettingsKey;
+const wchar_t* StackTraceListView::kColumnOrderValueName =
+    config::kStackTraceColumnOrder;
+const wchar_t* StackTraceListView::kColumnWidthValueName =
+    config::kStackTraceColumnWidths;
 
 StackTraceListView::StackTraceListView() : lookup_service_(NULL), pid_(0) {
-  COMPILE_ASSERT(arraysize(kStackTraceColumns) == COL_MAX,
+  COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
                  wrong_number_of_column_names);
 }
 
@@ -71,8 +75,7 @@ LRESULT StackTraceListView::OnCreate(UINT msg,
   // Call through to the original window class first.
   LRESULT ret = DefWindowProc(msg, wparam, lparam);
 
-  for (int i = 0; i < COL_MAX; ++i)
-    AddColumn(kStackTraceColumns[i], i, -1);
+  AddColumns();
 
   // Tweak our extended styles.
   SetExtendedListViewStyle(LVS_EX_HEADERDRAGDROP |
@@ -84,6 +87,7 @@ LRESULT StackTraceListView::OnCreate(UINT msg,
 }
 
 void StackTraceListView::OnDestroy() {
+  SaveColumns();
 }
 
 LRESULT StackTraceListView::OnGetDispInfo(NMHDR* pnmh) {

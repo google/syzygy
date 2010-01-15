@@ -26,6 +26,9 @@ const wchar_t kWindowPosValue[] = L"window_pos";
 const wchar_t kLogViewColumnOrder[] = L"log_view_column_order";
 const wchar_t kLogViewColumnWidths[] = L"log_view_column_widths";
 
+const wchar_t kStackTraceColumnOrder[] = L"stack_trace_column_order";
+const wchar_t kStackTraceColumnWidths[] = L"stack_trace_column_widths";
+
 }  // namespace config
 
 #endif  // SAWBUCK_VIEWER_CONST_CONFIG_H_

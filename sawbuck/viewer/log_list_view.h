@@ -24,8 +24,10 @@
 #include <string>
 #include <vector>
 #include "base/lock.h"
+#include "base/logging.h"
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
+#include "sawbuck/viewer/list_view_base.h"
 
 class ILogViewEvents {
  public:
@@ -66,10 +68,10 @@ typedef CWinTraits<WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
 
 // List view control subclass that manages the log view.
 class LogListView
-    : public CWindowImpl<LogListView, CListViewCtrl, LogListViewTraits>,
+    : public ListViewBase<LogListView, LogListViewTraits>,
       public ILogViewEvents {
  public:
-  typedef CWindowImpl<LogListView, CListViewCtrl> WindowBase;
+  typedef ListViewBase<LogListView, LogListViewTraits> WindowBase;
   DECLARE_WND_SUPERCLASS(NULL, WindowBase::GetWndClassName())
 
   enum {
@@ -96,8 +98,16 @@ class LogListView
 
   virtual void LogViewChanged();
 
+  // Our column definitions and config data to satisfy our contract
+  // to the ListViewImpl superclass.
+  static const ColumnInfo kColumns[];
+  static const wchar_t* kConfigKeyName;
+  static const wchar_t* kColumnOrderValueName;
+  static const wchar_t* kColumnWidthValueName;
+
  private:
   // The columns our list view displays.
+  // @note COL_MAX must be equal to arraysize(kColumns).
   enum Columns {
     COL_SEVERITY,
     COL_PROCESS,
