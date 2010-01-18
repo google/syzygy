@@ -1,0 +1,17 @@
+URL: http://sourceforge.net/projects/pcre/files/pcre/8.00/pcre-8.00.zip/download
+Version: 8.0
+License: BSD
+License File: files\LICENSE
+
+Description:
+This is version 8.0 of the PCRE regular expression matching library from
+http://www.pcre.org/
+
+Local Modifications:
+Hand-massaged the following header files from their corresponding .in files
+to allow PCRE to compile with the desired options:
+
+config.h
+pcrecpparg.h
+pcre_stringpiece.h
+pcre_stringpiece.h
