@@ -15,6 +15,7 @@
 // Log viewer window implementation.
 #include "sawbuck/viewer/viewer_window.h"
 
+#include "pcrecpp.h"  // NOLINT
 #include "base/basictypes.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/file_util.h"
@@ -27,6 +28,10 @@
 #include <initguid.h>  // NOLINT
 
 namespace {
+
+// A regular expression that matches "[<stuff>:<file>(<line>)]:message"
+// and extracts the file/line/message parts.
+const pcrecpp::RE kFileRe("^\\[.*\\:([^:]+)\\((\\d+)\\)\\]\\:(.*)$");
 
 const wchar_t kSessionName[] = L"Sawbuck Log Session";
 
@@ -196,29 +201,9 @@ void ViewerWindow::OnLogMessage(UCHAR level,
   msg.time_stamp =
       base::Time::FromFileTime(reinterpret_cast<FILETIME&>(time_stamp));
 
-  // Look for "[<stuff>:<file>(<line>)]".
-  std::string tmp_msg(message, length);
-  size_t match_end = std::string::npos;
-  size_t file_begin = std::string::npos;
-  if (tmp_msg.find('[') == 0 &&
-      (match_end = tmp_msg.find(']')) != std::string::npos  &&
-      (file_begin = tmp_msg.rfind(':', match_end)) != std::string::npos) {
-    char file_name[1024] = {0};
-    int line = 0;
-    // TODO(siggi): Use regexp matching instead of scanf.
-    int fields = _snscanf_s(tmp_msg.c_str() + file_begin + 1,
-                            match_end - file_begin,
-                            "%[^(](%d)",
-                            &file_name, arraysize(file_name),
-                            &line);
-
-    if (fields == 2) {
-      msg.file = file_name;
-      msg.line = line;
-    }
-
-    // Skip the trailing "]:".
-    msg.message = tmp_msg.substr(match_end + 2);
+  if (!kFileRe.FullMatch(pcrecpp::StringPiece(message, length),
+                         &msg.file, &msg.line, &msg.message)) {
+    msg.message.assign(message, length);
   }
 
   for (size_t i = 0; i < num_traces; ++i)
