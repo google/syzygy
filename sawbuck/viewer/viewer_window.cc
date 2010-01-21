@@ -29,9 +29,10 @@
 
 namespace {
 
-// A regular expression that matches "[<stuff>:<file>(<line>)]:message"
+// A regular expression that matches "[<stuff>:<file>(<line>)].message"
 // and extracts the file/line/message parts.
-const pcrecpp::RE kFileRe("^\\[.*\\:([^:]+)\\((\\d+)\\)\\]\\:(.*)$");
+const pcrecpp::RE kFileRe("\\[[^\\]]*\\:([^:]+)\\((\\d+)\\)\\].(.*\\w).*",
+                          PCRE_NEWLINE_ANYCRLF | PCRE_DOTALL | PCRE_UTF8);
 
 const wchar_t kSessionName[] = L"Sawbuck Log Session";
 
@@ -189,7 +190,7 @@ void ViewerWindow::OnLogMessage(UCHAR level,
                                 const char* message) {
   AutoLock lock(list_lock_);
 
-  // Trim trailing zeros off the message.
+  // Trim trailing zeros and WS off the message.
   while (length && message[length] == '\0')
     --length;
 
@@ -201,8 +202,12 @@ void ViewerWindow::OnLogMessage(UCHAR level,
   msg.time_stamp =
       base::Time::FromFileTime(reinterpret_cast<FILETIME&>(time_stamp));
 
+  // Use regular expression matching to extract the
+  // file/line/message from the log string, which is of
+  // format "[<stuff>:<file>(<line>)] <message><ws>".
   if (!kFileRe.FullMatch(pcrecpp::StringPiece(message, length),
                          &msg.file, &msg.line, &msg.message)) {
+    // As fallback, just slurp the entire string.
     msg.message.assign(message, length);
   }
 

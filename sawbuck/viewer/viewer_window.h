@@ -147,6 +147,9 @@ class ViewerWindow
   void WriteProviderSettings(const std::vector<ProviderSettings>& settings);
 
   struct LogMessage {
+    LogMessage() : level(0), process_id(0), thread_id(0), line(0) {
+    }
+
     UCHAR level;
     DWORD process_id;
     DWORD thread_id;
