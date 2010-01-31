@@ -83,8 +83,10 @@ const wchar_t* LogListView::kColumnWidthValueName =
 
 LogListView::LogListView(CUpdateUIBase* update_ui)
     : log_view_(NULL), event_cookie_(0),
-      notification_pending_(false), update_ui_(update_ui),
-      stack_trace_view_(NULL) {
+      update_ui_(update_ui), stack_trace_view_(NULL) {
+#ifndef NDEBUG
+  ui_loop_ = MessageLoop::current();
+#endif  // NDEBUG
   COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
                  wrong_number_of_column_info);
 }
@@ -147,28 +149,6 @@ void LogListView::OnDestroy() {
     log_view_->Unregister(event_cookie_);
   }
   SaveColumns();
-}
-
-LRESULT LogListView::OnNotifyLogChanged(UINT msg,
-                                        WPARAM wparam,
-                                        LPARAM lparam,
-                                        BOOL& handled) {
-  {
-    AutoLock lock(lock_);
-    notification_pending_ = false;
-  }
-
-  // Check if last item was previously visible...
-  BOOL is_last_item_visible = ListView_IsItemVisible(m_hWnd,
-                                                     GetItemCount() - 1);
-  int num_rows = log_view_->GetNumRows();
-  SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
-
-  // We want to show the latest items if the previously latest one was visible.
-  if (is_last_item_visible)
-    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
-
-  return 0;
 }
 
 LRESULT LogListView::OnGetDispInfo(NMHDR* pnmh) {
@@ -338,14 +318,17 @@ void LogListView::OnKillFocus(CWindow window) {
 }
 
 void LogListView::LogViewChanged() {
-  if (IsWindow()) {
-    AutoLock lock(lock_);
+  DCHECK_EQ(MessageLoop::current(), ui_loop_);
 
-    if (!notification_pending_) {
-      notification_pending_ = true;
-      ::PostMessage(m_hWnd, WM_NOTIFY_LOG_CHANGED, 0, 0);
-    }
-  }
+  // Check if last item was previously visible...
+  BOOL is_last_item_visible = ListView_IsItemVisible(m_hWnd,
+                                                     GetItemCount() - 1);
+  int num_rows = log_view_->GetNumRows();
+  SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+
+  // We want to show the latest items if the previously latest one was visible.
+  if (is_last_item_visible)
+    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
 }
 
 void LogListView::UpdateCommandStatus(bool has_focus) {

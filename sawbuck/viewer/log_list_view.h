@@ -25,16 +25,19 @@
 #include <vector>
 #include "base/lock.h"
 #include "base/logging.h"
+#include "base/message_loop.h"
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/list_view_base.h"
 
+// Callback interface for ILogView.
 class ILogViewEvents {
  public:
+  // Called on the UI thread.
   virtual void LogViewChanged() = 0;
 };
 
-// Provides a view on a log, the view may be filtered or sorted
+// Provides a view on a log, the view may be filtered or sorted.
 class ILogView {
  public:
   // Returns the number of rows in this view.
@@ -49,7 +52,8 @@ class ILogView {
   virtual std::string GetMessage(int row) = 0;
   virtual void GetStackTrace(int row, std::vector<void*>* trace) = 0;
 
-  // Register for change notifications.
+  // Register for change notifications. Notifications will be issued
+  // on the thread where the registration was made.
   virtual void Register(ILogViewEvents* event_sink,
                         int* registration_cookie) = 0;
   virtual void Unregister(int registration_cookie) = 0;
@@ -74,10 +78,6 @@ class LogListView
   typedef ListViewBase<LogListView, LogListViewTraits> WindowBase;
   DECLARE_WND_SUPERCLASS(NULL, WindowBase::GetWndClassName())
 
-  enum {
-    WM_NOTIFY_LOG_CHANGED = WM_USER + 0x137
-  };
-
   BEGIN_MSG_MAP_EX(LogList)
     MESSAGE_HANDLER(WM_CREATE, OnCreate)
     MSG_WM_DESTROY(OnDestroy)
@@ -87,7 +87,6 @@ class LogListView
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
-    MESSAGE_HANDLER(WM_NOTIFY_LOG_CHANGED, OnNotifyLogChanged)
     DEFAULT_REFLECTION_HANDLER()
   END_MSG_MAP()
 
@@ -123,10 +122,6 @@ class LogListView
 
   LRESULT OnCreate(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
   void OnDestroy();
-  LRESULT OnNotifyLogChanged(UINT msg,
-                             WPARAM wparam,
-                             LPARAM lparam,
-                             BOOL& handled);
 
   LRESULT OnGetDispInfo(LPNMHDR notification);
   LRESULT OnItemChanged(LPNMHDR notification);
@@ -151,14 +146,16 @@ class LogListView
   std::vector<int> image_indexes_;
   int GetImageIndexForSeverity(int severity);
 
-  Lock lock_;
-  // True after posting an update notification message, until it's processed.
-  bool notification_pending_;  // Under lock_.
-
+  // Used to update our command state.
   CUpdateUIBase* update_ui_;
 
   // Temporary storage for strings returned from OnGetDispInfo.
   std::wstring item_text_;
+
+#ifndef NDEBUG
+  // Asserting on correct threading.
+  MessageLoop* ui_loop_;
+#endif  // NDEBUG
 };
 
 #endif  // SAWBUCK_VIEWER_LOG_LIST_VIEW_H_

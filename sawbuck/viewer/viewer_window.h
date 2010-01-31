@@ -123,7 +123,9 @@ class ViewerWindow
   bool StartCapturing();
 
  private:
-  // Fwd.
+  // Called on UI thread to dispatch notifications to listeners.
+  void NotifyLogViewChanged();
+
   void OnLogMessage(UCHAR level,
                     DWORD process_id,
                     DWORD thread_id,
@@ -166,11 +168,16 @@ class ViewerWindow
   Lock list_lock_;
   typedef std::vector<LogMessage> LogMessageList;
   LogMessageList log_messages_;  // Under list_lock_.
-  bool log_message_size_dirty_;  // Under list_lock_.
+  // True iff there is a pending task to notify event sinks on the UI thread.
+  bool log_messages_dirty_;  // Under list_lock_.
+
+  // The message loop we're instantiated on, used to signal
+  // back to the main thread from workers.
+  MessageLoop* ui_loop_;
 
   typedef std::map<int, ILogViewEvents*> EventSinkMap;
-  EventSinkMap event_sinks_;  // Under list_lock_.
-  int next_sink_cookie_;  // Under list_lock_.
+  EventSinkMap event_sinks_;
+  int next_sink_cookie_;
 
   Lock symbol_lock_;
   sym_util::ModuleCache module_cache_;  // Under symbol_lock_.
@@ -181,8 +188,8 @@ class ViewerWindow
   // load state id with an lru replacement policy.
   static const size_t kMaxCacheSize = 10;
   typedef std::vector<sym_util::ModuleCache::ModuleLoadStateId> LoadStateVector;
-  LoadStateVector lru_module_id_;
-  SymbolCacheMap symbol_caches_;
+  LoadStateVector lru_module_id_;  // Under symbol_lock_.
+  SymbolCacheMap symbol_caches_;  // Under symbol_lock_.
 
   // The list view control that displays log_messages_.
   LogViewer log_viewer_;

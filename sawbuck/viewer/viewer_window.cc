@@ -29,6 +29,23 @@
 
 namespace {
 
+// We know the lifetime of the ViewerWindow exceeds the worker threads,
+// so noop for retain is safe for the ViewerWindow.
+template <>
+struct RunnableMethodTraits<ViewerWindow> {
+  RunnableMethodTraits() {
+  }
+
+  ~RunnableMethodTraits() {
+  }
+
+  void RetainCallee(ViewerWindow* window) {
+  }
+
+  void ReleaseCallee(ViewerWindow* window) {
+  }
+};
+
 // A regular expression that matches "[<stuff>:<file>(<line>)].message"
 // and extracts the file/line/message parts.
 const pcrecpp::RE kFileRe("\\[[^\\]]*\\:([^:]+)\\((\\d+)\\)\\].(.*\\w).*",
@@ -67,9 +84,12 @@ bool operator < (const GUID& a, const GUID& b) {
 void ViewerWindow::CompileAsserts() {
 }
 
-ViewerWindow::ViewerWindow() : log_message_size_dirty_(false),
+ViewerWindow::ViewerWindow() : log_messages_dirty_(false),
   symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1),
-  log_viewer_(this) {
+  log_viewer_(this), ui_loop_(NULL) {
+
+  ui_loop_ = MessageLoop::current();
+  DCHECK(ui_loop_ != NULL);
 
   symbol_lookup_worker_.Start();
 
@@ -213,6 +233,28 @@ void ViewerWindow::OnLogMessage(UCHAR level,
 
   for (size_t i = 0; i < num_traces; ++i)
     msg.trace.push_back(trace[i]);
+
+  if (!log_messages_dirty_) {
+    CancelableTask* task =
+        NewRunnableMethod(this, &ViewerWindow::NotifyLogViewChanged);
+    DCHECK(task != NULL);
+
+    if (task != NULL) {
+      ui_loop_->PostTask(FROM_HERE, task);
+
+      // Notification is pending.
+      log_messages_dirty_ = true;
+    }
+  }
+}
+
+void ViewerWindow::NotifyLogViewChanged() {
+  {
+    AutoLock lock(list_lock_);
+
+    // Notification no longer pending.
+    log_messages_dirty_ = false;
+  }
 
   EventSinkMap::iterator it(event_sinks_.begin());
   for (; it != event_sinks_.end(); ++it) {

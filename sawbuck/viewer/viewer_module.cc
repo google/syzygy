@@ -18,6 +18,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
+#include "base/message_loop.h"
 #include "sawbuck/viewer/viewer_window.h"
 #include <initguid.h>
 
@@ -57,6 +58,46 @@ void SawbuckAppModule::Term() {
 
 SawbuckAppModule g_sawbuck_app_module;
 
+// This class is a Frankenstein wedding between the WTL and the Chrome
+// base message loop classes. Dispatching events through the Chrome base
+// message loop from the main UI thread allows us to use the very nice
+// task primitives to dispatch work back to the UI thread. WTL on
+// the other hand, requires a CMessageLoop (derivative) to dispatch
+// Window events, which is how we get this ... well ... abomination.
+class HybridMessageLoop
+    : public CMessageLoop,
+      public MessageLoopForUI,
+      public MessageLoop::Dispatcher {
+ public:
+  using MessageLoopForUI::Run;
+
+  HybridMessageLoop() {
+  }
+
+  virtual bool DoWork() {
+    return MessageLoopForUI::DoWork();
+  }
+
+  virtual bool Dispatch(const MSG& msg) {
+    if (msg.message == WM_QUIT)
+      return false;
+
+    m_msg = msg;
+    if (!PreTranslateMessage(&m_msg)) {
+      ::TranslateMessage(&m_msg);
+      ::DispatchMessage(&m_msg);
+    }
+
+    return true;
+  }
+
+  bool DoIdleWork() {
+    if (OnIdle(0))
+      return true;
+
+    return MessageLoopForUI::DoIdleWork();
+  }
+};
 
 int APIENTRY wWinMain(HINSTANCE instance,
                       HINSTANCE prev_instance,
@@ -77,21 +118,21 @@ int APIENTRY wWinMain(HINSTANCE instance,
 
   g_sawbuck_app_module.Init(NULL, instance, NULL);
 
-  CMessageLoop msg_loop;
-  g_sawbuck_app_module.AddMessageLoop(&msg_loop);
+  HybridMessageLoop hybrid;
+  g_sawbuck_app_module.AddMessageLoop(&hybrid);
 
   ViewerWindow window;
   window.CreateEx();
   window.ShowWindow(show);
   window.UpdateWindow();
 
-  int ret = msg_loop.Run();
+  hybrid.Run(&hybrid);
 
   g_sawbuck_app_module.RemoveMessageLoop();
 
   g_sawbuck_app_module.Term();
 
-  return ret;
+  return 0;
 }
 
 // TODO(siggi): figure a better way to do this.
