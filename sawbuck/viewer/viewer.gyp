@@ -67,6 +67,8 @@
       'target_name': 'log_view_lib',
       'type': 'static_library',
       'sources': [
+        'filtered_log_view.cc',
+        'filtered_log_view.h',
         'provider_dialog.cc',
         'provider_dialog.h',
         'kernel_log_consumer.cc',
@@ -86,6 +88,19 @@
         '../sym_util/sym_util.gyp:sym_util',
         '../../base/base.gyp:base',
         '../../third_party/pcre/pcre.gyp:pcre',
+      ],
+    },
+    {
+      'target_name': 'log_view_unittest',
+      'type': 'executable',
+      'sources': [
+        'filtered_log_view_unittest.cc',
+      ],
+      'dependencies': [
+        'log_view_lib',
+        '../../base/base.gyp:base',
+        '../../testing/gmock.gyp:gmock',
+        '../../testing/gtest.gyp:gtest',
       ],
     },
     {
