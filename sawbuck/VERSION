@@ -16,7 +16,6 @@
 # publishing a build.
 
 MAJOR=0
-MINOR=5
-BUILD=2
+MINOR=6
+BUILD=0
 PATCH=0
-
