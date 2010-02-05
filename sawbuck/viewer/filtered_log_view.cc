@@ -124,7 +124,7 @@ void FilteredLogView::Unregister(int registration_cookie) {
 }
 
 bool FilteredLogView::SetInclusionRegexp(const char* regexpr) {
-  scoped_ptr<pcrecpp::RE> include(new pcrecpp::RE(regexpr));
+  scoped_ptr<pcrecpp::RE> include(new pcrecpp::RE(regexpr, PCRE_UTF8));
 
   if (!include->error().empty())
     return false;
@@ -137,7 +137,7 @@ bool FilteredLogView::SetInclusionRegexp(const char* regexpr) {
 }
 
 bool FilteredLogView::SetExclusionRegexp(const char* regexpr) {
-  scoped_ptr<pcrecpp::RE> exclude(new pcrecpp::RE(regexpr));
+  scoped_ptr<pcrecpp::RE> exclude(new pcrecpp::RE(regexpr, PCRE_UTF8));
 
   if (!exclude->error().empty())
     return false;

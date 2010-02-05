@@ -465,8 +465,6 @@ void ViewerWindow::GetStackTrace(int row, std::vector<void*>* trace) {
 
 void ViewerWindow::Register(ILogViewEvents* event_sink,
                             int* registration_cookie) {
-  AutoLock lock(list_lock_);
-
   int cookie = next_sink_cookie_++;
 
   event_sinks_.insert(std::make_pair(cookie, event_sink));
@@ -474,8 +472,6 @@ void ViewerWindow::Register(ILogViewEvents* event_sink,
 }
 
 void ViewerWindow::Unregister(int registration_cookie) {
-  AutoLock lock(list_lock_);
-
   event_sinks_.erase(registration_cookie);
 }
 

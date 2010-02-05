@@ -25,12 +25,14 @@
 #include "base/lock.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/log_list_view.h"
+#include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
 // Forward decl.
 namespace WTL {
 class CUpdateUIBase;
 };
+class FilteredLogView;
 
 // The log viewer window plays host to a listview, taking care of handling
 // its notification requests etc.
@@ -42,6 +44,7 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   BEGIN_MSG_MAP_EX(ViewerWindow)
     MSG_WM_CREATE(OnCreate)
     REFLECT_NOTIFICATIONS()
+    COMMAND_ID_HANDLER_EX(ID_LOG_FILTER, OnLogFilter)
     MESSAGE_HANDLER(WM_COMMAND, OnCommand)
     CHAIN_MSG_MAP(Super)
   END_MSG_MAP()
@@ -50,6 +53,9 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   ~LogViewer();
 
   void SetLogView(ILogView* log_view) {
+    DCHECK(log_view_ == NULL);
+
+    log_view_ = log_view;
     log_list_view_.SetLogView(log_view);
   }
   void SetSymbolLookupService(ISymbolLookupService* symbol_lookup_service) {
@@ -59,6 +65,17 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
  private:
   int OnCreate(LPCREATESTRUCT create_struct);
   LRESULT OnCommand(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
+  void OnLogFilter(UINT code, int id, CWindow window);
+
+  // Filtering regular expressions.
+  std::string include_re_;
+  std::string exclude_re_;
+
+  // Non-null iff filtering is enabled.
+  scoped_ptr<FilteredLogView> filtered_log_view_;
+
+  // The original log view we're handed.
+  ILogView* log_view_;
 
   // The list view that displays the log.
   LogListView log_list_view_;

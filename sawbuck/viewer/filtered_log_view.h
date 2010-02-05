@@ -66,16 +66,16 @@ class FilteredLogView
   void FilterChunk();
   void RestartFiltering();
 
-  // Every row from original_ matching this include_re_ will be included,
-  // unless it also matches exclude_re_.
-  // If include_re_ is NULL, everything is included.
-  // If exclude_re_ is NULL, nothing is excluded.
+  // Every row from |original_| matching |include_re_| will be included,
+  // unless it also matches |exclude_re_|.
+  // If |include_re_| is NULL, everything is included.
+  // If |exclude_re_| is NULL, nothing is excluded.
   scoped_ptr<pcrecpp::RE> include_re_;
   scoped_ptr<pcrecpp::RE> exclude_re_;
 
   // The included rows we have filtered.
   std::vector<int> included_rows_;
-  // Row number of last row in the |original_| that we've processed.
+  // Row number of last row in |original_| that we've processed.
   int filtered_rows_;
   // Non-NULL if there's a task pending to process additional rows.
   CancelableTask* task_;
@@ -89,6 +89,5 @@ class FilteredLogView
 
   DISALLOW_COPY_AND_ASSIGN(FilteredLogView);
 };
-
 
 #endif  // SAWBUCK_VIEWER_FILTERED_LOG_VIEW_H_

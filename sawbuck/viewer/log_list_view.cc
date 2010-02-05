@@ -92,7 +92,29 @@ LogListView::LogListView(CUpdateUIBase* update_ui)
 }
 
 void LogListView::SetLogView(ILogView* log_view) {
+  if (log_view_ == log_view)
+    return;
+
+  // Unregister from old log view.
+  if (log_view_ != NULL) {
+    log_view_->Unregister(event_cookie_);
+    event_cookie_ = 0;
+  }
+
+  // Store the new one.
   log_view_ = log_view;
+
+  // Adjust our size if we've been created already.
+  if (IsWindow()) {
+    int num_rows = log_view_->GetNumRows();
+    SetItemCountEx(num_rows, 0);  // Invalidate the whole list.
+    // We initially want to show the latest items
+    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
+  }
+
+  // Register for event notifications.
+  if (log_view_ != NULL)
+    log_view_->Register(this, &event_cookie_);
 }
 
 void LogListView::SetStackTraceView(StackTraceListView* stack_trace_view) {
@@ -130,16 +152,10 @@ LRESULT LogListView::OnCreate(UINT msg,
                            LVS_EX_INFOTIP |
                            LVS_EX_DOUBLEBUFFER);
 
-  // Pick up the log size if we have one already.
-  if (log_view_ != NULL) {
-    int num_rows = log_view_->GetNumRows();
-    SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
-    // We initially want to show the latest items
-    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
-  }
-
-  if (log_view_ != NULL)
-    log_view_->Register(this, &event_cookie_);
+  int num_rows = log_view_->GetNumRows();
+  SetItemCountEx(num_rows, 0);
+  // We initially want to show the latest items
+  EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
 
   return ret;
 }
@@ -320,15 +336,18 @@ void LogListView::OnKillFocus(CWindow window) {
 void LogListView::LogViewChanged() {
   DCHECK_EQ(MessageLoop::current(), ui_loop_);
 
-  // Check if last item was previously visible...
-  BOOL is_last_item_visible = ListView_IsItemVisible(m_hWnd,
-                                                     GetItemCount() - 1);
-  int num_rows = log_view_->GetNumRows();
-  SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+  if (IsWindow()) {
+    // Check if last item was previously visible...
+    BOOL is_last_item_visible = ListView_IsItemVisible(m_hWnd,
+                                                       GetItemCount() - 1);
+    int num_rows = log_view_->GetNumRows();
+    SetItemCountEx(num_rows, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
 
-  // We want to show the latest items if the previously latest one was visible.
-  if (is_last_item_visible)
-    EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
+    // We want to show the latest items if the
+    // previously latest one was visible.
+    if (is_last_item_visible)
+      EnsureVisible(num_rows - 1, TRUE /* PartialOK */);
+  }
 }
 
 void LogListView::UpdateCommandStatus(bool has_focus) {
