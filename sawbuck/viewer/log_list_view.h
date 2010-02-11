@@ -152,10 +152,8 @@ class LogListView
   // Temporary storage for strings returned from OnGetDispInfo.
   std::wstring item_text_;
 
-#ifndef NDEBUG
   // Asserting on correct threading.
   MessageLoop* ui_loop_;
-#endif  // NDEBUG
 };
 
 #endif  // SAWBUCK_VIEWER_LOG_LIST_VIEW_H_

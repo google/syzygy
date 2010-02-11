@@ -84,9 +84,8 @@ const wchar_t* LogListView::kColumnWidthValueName =
 LogListView::LogListView(CUpdateUIBase* update_ui)
     : log_view_(NULL), event_cookie_(0),
       update_ui_(update_ui), stack_trace_view_(NULL) {
-#ifndef NDEBUG
   ui_loop_ = MessageLoop::current();
-#endif  // NDEBUG
+
   COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
                  wrong_number_of_column_info);
 }
