@@ -36,6 +36,7 @@
 #include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/kernel_log_consumer.h"
 #include "sawbuck/viewer/log_consumer.h"
+#include "sawbuck/viewer/symbol_lookup_service.h"
 
 
 // Log level settings for a provider.
@@ -47,10 +48,8 @@ struct ProviderSettings {
 
 class ViewerWindow
     : public CFrameWindowImpl<ViewerWindow>,
-      public KernelModuleEvents,
       public LogEvents,
       public ILogView,
-      public ISymbolLookupService,
       public CIdleHandler,
       public CMessageFilter,
       public CUpdateUI<ViewerWindow> {
@@ -99,12 +98,6 @@ class ViewerWindow
                         int* registration_cookie);
   virtual void Unregister(int registration_cookie);
 
-  // ISymbolLookupService implementation
-  virtual bool ResolveAddress(sym_util::ProcessId process_id,
-                              const base::Time& time,
-                              sym_util::Address address,
-                              sym_util::Symbol* symbol);
-
  private:
   LRESULT OnExit(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
   LRESULT OnAbout(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
@@ -135,15 +128,6 @@ class ViewerWindow
                     void** trace,
                     size_t length,
                     const char* message);
-  virtual void OnModuleIsLoaded(DWORD process_id,
-                                const base::Time& time,
-                                const ModuleInformation& module_info);
-  virtual void OnModuleUnload(DWORD process_id,
-                              const base::Time& time,
-                              const ModuleInformation& module_info);
-  virtual void OnModuleLoad(DWORD process_id,
-                            const base::Time& time,
-                            const ModuleInformation& module_info);
 
   void EnableProviders(const std::vector<ProviderSettings>& settings);
   void ReadProviderSettings(std::vector<ProviderSettings>* settings);
@@ -180,17 +164,7 @@ class ViewerWindow
   EventSinkMap event_sinks_;
   int next_sink_cookie_;
 
-  Lock symbol_lock_;
-  sym_util::ModuleCache module_cache_;  // Under symbol_lock_.
-  typedef std::map<sym_util::ModuleCache::ModuleLoadStateId,
-      sym_util::SymbolCache> SymbolCacheMap;
-
-  // We keep a cache of symbol cache instances keyed on module
-  // load state id with an lru replacement policy.
-  static const size_t kMaxCacheSize = 10;
-  typedef std::vector<sym_util::ModuleCache::ModuleLoadStateId> LoadStateVector;
-  LoadStateVector lru_module_id_;  // Under symbol_lock_.
-  SymbolCacheMap symbol_caches_;  // Under symbol_lock_.
+  SymbolLookupService symbol_lookup_service_;
 
   // The list view control that displays log_messages_.
   LogViewer log_viewer_;

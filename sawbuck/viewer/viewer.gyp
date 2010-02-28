@@ -81,6 +81,8 @@
         'log_list_view.cc',
         'stack_trace_list_view.h',
         'stack_trace_list_view.cc',
+        'symbol_lookup_service.h',
+        'symbol_lookup_service.cc',
         'viewer_window.cc',
         'viewer_window.h',
       ],
@@ -95,6 +97,7 @@
       'type': 'executable',
       'sources': [
         'filtered_log_view_unittest.cc',
+        'symbol_lookup_service_unittest.cc',
       ],
       'dependencies': [
         'log_view_lib',

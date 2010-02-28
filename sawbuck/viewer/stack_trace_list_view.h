@@ -23,20 +23,13 @@
 #include <atlmisc.h>
 #include <string>
 #include <vector>
+#include "base/task.h"
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/list_view_base.h"
 
-class ISymbolLookupService {
- public:
-  // Resolve an address from a given process at a given time to
-  // a symbol.
-  // @returns true iff successful.
-  virtual bool ResolveAddress(sym_util::ProcessId process_id,
-                              const base::Time& time,
-                              sym_util::Address address,
-                              sym_util::Symbol* symbol) = 0;
-};
+// Fwd.
+class ISymbolLookupService;
 
 typedef CWinTraits<WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
     LVS_REPORT> StackTraceListViewTraits;

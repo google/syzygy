@@ -92,6 +92,10 @@ ViewerWindow::ViewerWindow() : log_messages_dirty_(false),
   DCHECK(ui_loop_ != NULL);
 
   symbol_lookup_worker_.Start();
+  DCHECK(symbol_lookup_worker_.message_loop() != NULL);
+
+  symbol_lookup_service_.set_background_thread(
+      symbol_lookup_worker_.message_loop());
 
   ReadProviderSettings(&settings_);
 }
@@ -173,7 +177,7 @@ bool ViewerWindow::StartCapturing() {
   // And open a consumer on it.
   kernel_consumer_.reset(new KernelLogConsumer());
   ATLASSERT(NULL != kernel_consumer_.get());
-  kernel_consumer_->set_module_event_sink(this);
+  kernel_consumer_->set_module_event_sink(&symbol_lookup_service_);
   kernel_consumer_->set_is_64_bit_log(Is64BitSystem());
   hr = kernel_consumer_->OpenRealtimeSession(KERNEL_LOGGER_NAME);
   if (FAILED(hr))
@@ -262,46 +266,6 @@ void ViewerWindow::NotifyLogViewChanged() {
   }
 }
 
-void ViewerWindow::OnModuleIsLoaded(DWORD process_id,
-                                    const base::Time& time,
-                                    const ModuleInformation& module_info) {
-  return OnModuleLoad(process_id, time, module_info);
-}
-void ViewerWindow::OnModuleUnload(DWORD process_id,
-                                  const base::Time& time,
-                                  const ModuleInformation& module_info) {
-  AutoLock lock(symbol_lock_);
-  module_cache_.ModuleUnloaded(process_id, time, module_info);
-}
-
-void ViewerWindow::OnModuleLoad(DWORD process_id,
-                                const base::Time& time,
-                                const ModuleInformation& module_info) {
-  AutoLock lock(symbol_lock_);
-
-  std::wstring file_path(module_info.image_file_name);
-  // Map device paths to drive paths.
-  DWORD drives = ::GetLogicalDrives();
-  char drive = 'A';
-  for (; drives != 0; drives >>= 1, ++drive) {
-    if (drives & 1) {
-      wchar_t device_path[1024] = {};
-      wchar_t device[] = { drive, L':', L'\0' };
-      if (::QueryDosDevice(device, device_path, arraysize(device_path)) &&
-          file_path.find(device_path) == 0) {
-        std::wstring new_path = device;
-        new_path += file_path.substr(wcslen(device_path));
-        file_path = new_path;
-      }
-    }
-  }
-
-  ModuleInformation& info = const_cast<ModuleInformation&>(module_info);
-
-  info.image_file_name = file_path;
-  module_cache_.ModuleLoaded(process_id, time, module_info);
-}
-
 LRESULT ViewerWindow::OnConfigureProviders(WORD code,
                                            LPARAM lparam,
                                            HWND wnd,
@@ -367,7 +331,7 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   SetWindowText(L"Sawbuck Log Viewer");
 
   log_viewer_.SetLogView(this);
-  log_viewer_.SetSymbolLookupService(this);
+  log_viewer_.SetSymbolLookupService(&symbol_lookup_service_);
 
   log_viewer_.Create(m_hWnd,
                      NULL,
@@ -473,52 +437,6 @@ void ViewerWindow::Register(ILogViewEvents* event_sink,
 
 void ViewerWindow::Unregister(int registration_cookie) {
   event_sinks_.erase(registration_cookie);
-}
-
-bool ViewerWindow::ResolveAddress(sym_util::ProcessId pid,
-                                  const base::Time& time,
-                                  sym_util::Address address,
-                                  sym_util::Symbol* symbol) {
-  AutoLock lock(symbol_lock_);
-
-  using sym_util::ModuleCache;
-  using sym_util::SymbolCache;
-
-  ModuleCache::ModuleLoadStateId id = module_cache_.GetStateId(pid, time);
-
-  SymbolCacheMap::iterator it = symbol_caches_.find(id);
-  if (it == symbol_caches_.end()) {
-    if (symbol_caches_.size() == kMaxCacheSize) {
-      // Evict the least recently used element.
-      ModuleCache::ModuleLoadStateId to_evict = lru_module_id_.front();
-      lru_module_id_.erase(lru_module_id_.begin());
-      symbol_caches_.erase(to_evict);
-    }
-
-    std::pair<SymbolCacheMap::iterator, bool> inserted =
-        symbol_caches_.insert(std::make_pair(id, SymbolCache()));
-
-    DCHECK_EQ(inserted.second, true);
-    SymbolCache& cache = inserted.first->second;
-
-    std::vector<ModuleInformation> modules;
-    module_cache_.GetProcessModuleState(pid, time, &modules);
-    cache.Initialize(modules.size(), modules.size() ? &modules[0] : NULL);
-
-    it = inserted.first;
-  } else {
-    // Manage the LRU by removing our ID.
-    lru_module_id_.erase(
-        std::find(lru_module_id_.begin(), lru_module_id_.end(), id));
-  }
-
-  // Push our id to the back of the lru list.
-  lru_module_id_.push_back(id);
-
-  DCHECK(it != symbol_caches_.end());
-  SymbolCache& cache = it->second;
-
-  return cache.GetSymbolForAddress(address, symbol);
 }
 
 void ViewerWindow::ReadProviderSettings(

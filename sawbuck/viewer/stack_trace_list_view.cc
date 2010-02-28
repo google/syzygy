@@ -18,6 +18,7 @@
 #include "base/string_util.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
+#include "sawbuck/viewer/symbol_lookup_service.h"
 
 const StackTraceListView::ColumnInfo StackTraceListView::kColumns[] = {
   { 72, L"Address" },
