@@ -54,7 +54,7 @@ const pcrecpp::RE kFileRe("\\[[^\\]]*\\:([^:]+)\\((\\d+)\\)\\].(.*\\w).*",
 const wchar_t kSessionName[] = L"Sawbuck Log Session";
 
 bool Is64BitSystem() {
-  if (sizeof(void*) == 8)
+  if (sizeof(void*) == 8)  // NOLINT
     return true;
 
   HMODULE kernel32 = ::GetModuleHandle(L"kernel32.dll");
@@ -85,9 +85,8 @@ void ViewerWindow::CompileAsserts() {
 }
 
 ViewerWindow::ViewerWindow() : log_messages_dirty_(false),
-  symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1),
-  log_viewer_(this), ui_loop_(NULL) {
-
+    symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1),
+    log_viewer_(this), ui_loop_(NULL) {
   ui_loop_ = MessageLoop::current();
   DCHECK(ui_loop_ != NULL);
 
@@ -350,8 +349,15 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
     WINDOWPLACEMENT placement = { 0 };
     ULONG size = sizeof(placement);
     err = key.QueryBinaryValue(config::kWindowPosValue, &placement, &size);
-    if (err == ERROR_SUCCESS && size == sizeof(placement))
+    if (err == ERROR_SUCCESS && size == sizeof(placement)) {
+      // If we were closed invisible, minimized, or any other weird show state,
+      // we don't want to get back in that state. Force normal or maximized.
+      if (placement.showCmd != SW_SHOWNORMAL &&
+          placement.showCmd != SW_SHOWMAXIMIZED) {
+        placement.showCmd = SW_SHOWNORMAL;
+      }
       SetWindowPlacement(&placement);
+    }
   }
 
   UpdateLayout();
@@ -504,5 +510,4 @@ void ViewerWindow::ReadProviderSettings(
 
 void ViewerWindow::WriteProviderSettings(
     const std::vector<ProviderSettings>& settings) {
-
 }
