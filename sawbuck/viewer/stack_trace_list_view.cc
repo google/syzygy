@@ -51,9 +51,15 @@ void StackTraceListView::SetStackTrace(sym_util::ProcessId pid,
                                        void* traces[]) {
   pid_ = pid;
   time_ = time;
+
+  // Cancel any in-progress symbol resolutions.
+  TraceList::iterator it(trace_.begin());
+  for (; it != trace_.end(); ++it)
+    CancelResolution(&*it);
+
   trace_.clear();
   for (size_t i = 0; i < num_traces; ++i)
-    trace_.push_back(reinterpret_cast<sym_util::Address>(traces[i]));
+    trace_.push_back(TraceItem(traces[i]));
 
   DeleteAllItems();
 
@@ -96,45 +102,26 @@ LRESULT StackTraceListView::OnGetDispInfo(NMHDR* pnmh) {
   int col = info->item.iSubItem;
   size_t row = info->item.iItem;
 
-  sym_util::Address address = trace_[row];
+  sym_util::Address address = trace_[row].address_;
 
   if (col == COL_ADDRESS) {
     item_text_ = StringPrintf(L"0x%08llX", address);
   } else {
-    sym_util::Symbol symbol;
-    if (lookup_service_ != NULL) {
-      // Note that even when this fails, it may return e.g. module information.
-      lookup_service_->ResolveAddress(pid_, time_, address, &symbol);
-    }
+    EnsureResolution(&trace_[row]);
 
     switch (col) {
       case COL_MODULE:
-        item_text_ = symbol.module.c_str();
+        item_text_ = L"Resolving...";
         break;
+
       case COL_FILE:
-        item_text_ = symbol.file.c_str();
-        break;
-
       case COL_LINE:
-        if (symbol.line != 0) {
-          item_text_ = StringPrintf(L"%d", symbol.line);
-        } else {
-          item_text_.clear();
-        }
-        break;
-
       case COL_SYMBOL:
-        if (!symbol.name.empty() && symbol.offset != 0) {
-          item_text_ = StringPrintf(L"%ls+0x%X",
-                                    symbol.name.c_str(),
-                                    symbol.offset);
-        } else {
-          item_text_ = symbol.name.c_str();
-        }
+        item_text_ = L"...";
         break;
 
       default:
-        item_text_ = L"UNKNOWN COLUMN";
+        NOTREACHED();
         break;
     }
   }
@@ -150,4 +137,74 @@ LRESULT StackTraceListView::OnGetDispInfo(NMHDR* pnmh) {
 
 LRESULT StackTraceListView::OnItemChanged(NMHDR* pnmh) {
   return 0;
+}
+
+void StackTraceListView::EnsureResolution(TraceItem* item) {
+  DCHECK(item != NULL);
+  if (item->lookup_handle_ != ISymbolLookupService::kInvalidHandle)
+    return;
+
+  DCHECK(lookup_service_ != NULL);
+  item->lookup_handle_ = lookup_service_->ResolveAddress(
+      pid_, time_, item->address_,
+      NewCallback(this, &StackTraceListView::SymbolResolved));
+}
+
+void StackTraceListView::CancelResolution(TraceItem* item) {
+  DCHECK(item != NULL);
+  if (item->lookup_handle_ == ISymbolLookupService::kInvalidHandle)
+    return;
+
+  DCHECK(lookup_service_ != NULL);
+  lookup_service_->CancelRequest(item->lookup_handle_);
+  item->lookup_handle_ = ISymbolLookupService::kInvalidHandle;
+}
+
+void StackTraceListView::SymbolResolved(sym_util::ProcessId pid,
+    base::Time time, sym_util::Address address,
+    ISymbolLookupService::Handle handle, const sym_util::Symbol& symbol) {
+
+  size_t row = 0;
+  for (; row < trace_.size(); ++row) {
+    if (trace_[row].lookup_handle_ == handle)
+      break;
+  }
+
+  // We should always find our associated handle.
+  DCHECK(trace_[row].lookup_handle_ == handle);
+  // No longer pending, make sure we don't cancel it later.
+  trace_[row].lookup_handle_ = ISymbolLookupService::kInvalidHandle;
+
+  for (int col = COL_MODULE; col < COL_MAX; ++col) {
+    std::wstring item_text;
+    switch (col) {
+      case COL_MODULE:
+        item_text = symbol.module.c_str();
+        break;
+      case COL_FILE:
+        item_text = symbol.file.c_str();
+        break;
+
+      case COL_LINE:
+        if (symbol.line != 0)
+          item_text = StringPrintf(L"%d", symbol.line);
+        break;
+
+      case COL_SYMBOL:
+        if (!symbol.name.empty() && symbol.offset != 0) {
+          item_text = StringPrintf(L"%ls+0x%X",
+                                    symbol.name.c_str(),
+                                    symbol.offset);
+        } else {
+          item_text = symbol.name.c_str();
+        }
+        break;
+
+      default:
+        NOTREACHED();
+        break;
+    }
+
+    SetItemText(row, col, item_text.c_str());
+  }
 }

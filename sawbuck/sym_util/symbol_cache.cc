@@ -95,6 +95,10 @@ bool SymbolCache::GetSymbolForAddress(Address address, Symbol *symbol) {
     return true;
   }
 
+  IMAGEHLP_MODULE64 module = { sizeof(module) };
+  if (::SymGetModuleInfo64(process_handle_, address, &module))
+    symbol->module = module.ImageName;
+
   DWORD64 offset = 0;
   SymbolInfo<1024> sym_info;
   if (!::SymFromAddr(process_handle_, address, &offset, sym_info.get()))
@@ -102,10 +106,6 @@ bool SymbolCache::GetSymbolForAddress(Address address, Symbol *symbol) {
 
   symbol->name = sym_info.get()->Name;
   symbol->offset = static_cast<size_t>(offset);
-
-  IMAGEHLP_MODULE64 module = { sizeof(module) };
-  if (::SymGetModuleInfo64(process_handle_, address, &module))
-    symbol->module = module.ImageName;
 
   IMAGEHLP_LINE64 line_info = { sizeof(line_info) };
   DWORD line_displacement = 0;

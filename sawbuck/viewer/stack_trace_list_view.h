@@ -27,6 +27,7 @@
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/list_view_base.h"
+#include "sawbuck/viewer/symbol_lookup_service.h"
 
 // Fwd.
 class ISymbolLookupService;
@@ -84,13 +85,36 @@ class StackTraceListView
   LRESULT OnGetDispInfo(NMHDR* notification);
   LRESULT OnItemChanged(NMHDR* notification);
 
+  struct TraceItem {
+    explicit TraceItem(void* address)
+        : lookup_handle_(ISymbolLookupService::kInvalidHandle),
+          address_(reinterpret_cast<sym_util::Address>(address)) {
+    }
+
+    // The lookup handle while a lookup is pending for address_.
+    ISymbolLookupService::Handle lookup_handle_;
+    sym_util::Address address_;
+  };
+
+  // Start resolving the address in item, unless it's already being resolved.
+  void EnsureResolution(TraceItem* item);
+  // Cancel any resolution pending for item.
+  void CancelResolution(TraceItem* item);
+
+  // Callback for symbol resolution.
+  void SymbolResolved(sym_util::ProcessId pid, base::Time time,
+      sym_util::Address address, ISymbolLookupService::Handle handle,
+      const sym_util::Symbol& symbol);
+
+
   // The symbol lookup service we avail ourselves of.
   ISymbolLookupService* lookup_service_;
 
   // The current stack trace we're displaying.
   sym_util::ProcessId pid_;
   base::Time time_;
-  std::vector<sym_util::Address> trace_;
+  typedef std::vector<TraceItem> TraceList;
+  TraceList trace_;
 
   // Temporary storage for strings returned from OnGetDispInfo.
   std::wstring item_text_;

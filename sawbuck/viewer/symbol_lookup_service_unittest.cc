@@ -25,6 +25,13 @@
 #include "gmock/gmock.h"
 
 namespace {
+void Foo() {
+  NOTREACHED() << "This function is only here for an address to resolve";
+}
+
+void QuitMessageLoop(MessageLoop* loop) {
+  loop->PostTask(FROM_HERE, new MessageLoop::QuitTask());
+}
 
 class SymbolLookupServiceTest: public testing::Test {
  public:
@@ -67,11 +74,29 @@ class SymbolLookupServiceTest: public testing::Test {
     } while (::Module32Next(snap, &module));
   }
 
-  void SymbolResolved(sym_util::ProcessId pid, base::Time time,
+  void ResolveAll() {
+    // Chase the symbol lookups on the background thread
+    // by posting a quit message to this message loop.
+    background_thread_.message_loop()->PostTask(FROM_HERE,
+        NewRunnableFunction(QuitMessageLoop, MessageLoop::current()));
+
+    // And run our loop.
+    message_loop_.Run();
+  }
+  void FooResolved(sym_util::ProcessId pid, base::Time time,
       sym_util::Address add, SymbolLookupService::Handle handle,
       const sym_util::Symbol& symbol) {
     EXPECT_EQ(&message_loop_, MessageLoop::current());
     EXPECT_PRED_FORMAT2(testing::IsSubstring, L"Foo", symbol.name);
+
+    resolved_.push_back(handle);
+  }
+
+  void FooNotResolved(sym_util::ProcessId pid, base::Time time,
+      sym_util::Address add, SymbolLookupService::Handle handle,
+      const sym_util::Symbol& symbol) {
+    EXPECT_EQ(&message_loop_, MessageLoop::current());
+    EXPECT_STREQ(L"", symbol.name.c_str());
 
     resolved_.push_back(handle);
   }
@@ -84,57 +109,43 @@ class SymbolLookupServiceTest: public testing::Test {
   SymbolLookupService service_;
 };
 
-void Foo() {
-  NOTREACHED() << "This function is only here for an address to resolve";
-}
-
-TEST_F(SymbolLookupServiceTest, LookupEmpty) {
+TEST_F(SymbolLookupServiceTest, LookupNoModules) {
   sym_util::Symbol symbol;
-  EXPECT_FALSE(service_.ResolveAddress(
-      ::GetCurrentProcessId(), base::Time::Now(),
-      reinterpret_cast<sym_util::Address>(&Foo), &symbol));
+
+  SymbolLookupService::Handle h =
+      service_.ResolveAddress(
+          ::GetCurrentProcessId(), base::Time::Now(),
+          reinterpret_cast<sym_util::Address>(&Foo),
+          NewCallback(static_cast<SymbolLookupServiceTest*>(this),
+                      &SymbolLookupServiceTest::FooNotResolved));
+
+  ASSERT_NE(SymbolLookupService::kInvalidHandle, h);
+
+  ResolveAll();
+
+  ASSERT_EQ(1, resolved_.size());
 }
 
 TEST_F(SymbolLookupServiceTest, LookupFoo) {
   LoadModules();
 
-  sym_util::Symbol symbol;
-  EXPECT_TRUE(service_.ResolveAddress(
-      ::GetCurrentProcessId(), base::Time::Now(),
-      reinterpret_cast<sym_util::Address>(&Foo), &symbol));
-
-  EXPECT_PRED_FORMAT2(testing::IsSubstring, L"Foo", symbol.name);
-}
-
-void QuitMessageLoop(MessageLoop* loop) {
-  loop->PostTask(FROM_HERE, new MessageLoop::QuitTask());
-}
-
-TEST_F(SymbolLookupServiceTest, LookupFooAsync) {
-  LoadModules();
-
   for (int i = 0; i < 10; ++i) {
     SymbolLookupService::Handle h =
         service_.ResolveAddress(
             ::GetCurrentProcessId(), base::Time::Now(),
             reinterpret_cast<sym_util::Address>(&Foo),
             NewCallback(static_cast<SymbolLookupServiceTest*>(this),
-                        &SymbolLookupServiceTest::SymbolResolved));
+                        &SymbolLookupServiceTest::FooResolved));
 
     ASSERT_NE(SymbolLookupService::kInvalidHandle, h);
   }
 
-  // Chase the symbol lookups on the background thread
-  // by posting a quit message to this message loop.
-  background_thread_.message_loop()->PostTask(FROM_HERE,
-      NewRunnableFunction(QuitMessageLoop, MessageLoop::current()));
-
-  message_loop_.Run();
+  ResolveAll();
 
   ASSERT_EQ(10, resolved_.size());
 }
 
-TEST_F(SymbolLookupServiceTest, LookupFooAsyncCancel) {
+TEST_F(SymbolLookupServiceTest, LookupFooCancel) {
   LoadModules();
 
   for (int i = 0; i < 10; ++i) {
@@ -143,7 +154,7 @@ TEST_F(SymbolLookupServiceTest, LookupFooAsyncCancel) {
             ::GetCurrentProcessId(), base::Time::Now(),
             reinterpret_cast<sym_util::Address>(&Foo),
             NewCallback(static_cast<SymbolLookupServiceTest*>(this),
-                        &SymbolLookupServiceTest::SymbolResolved));
+                        &SymbolLookupServiceTest::FooResolved));
 
     ASSERT_NE(SymbolLookupService::kInvalidHandle, h);
 
@@ -151,12 +162,7 @@ TEST_F(SymbolLookupServiceTest, LookupFooAsyncCancel) {
       service_.CancelRequest(h);
   }
 
-  // Chase the symbol lookups on the background thread
-  // by posting a quit message to this message loop.
-  background_thread_.message_loop()->PostTask(FROM_HERE,
-      NewRunnableFunction(QuitMessageLoop, MessageLoop::current()));
-
-  message_loop_.Run();
+  ResolveAll();
 
   ASSERT_EQ(5, resolved_.size());
 }

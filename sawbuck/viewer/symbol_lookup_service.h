@@ -27,15 +27,6 @@
 
 class ISymbolLookupService {
  public:
-  // Resolve an address from a given process at a given time to
-  // a symbol.
-  // @returns true iff successful.
-  // TODO(siggi): Remove this once the lookups have moved to async.
-  virtual bool ResolveAddress(sym_util::ProcessId process_id,
-                              const base::Time& time,
-                              sym_util::Address address,
-                              sym_util::Symbol* symbol) = 0;
-
   // Cancellation handle type for an async symbol resolution.
   typedef int Handle;
   static const Handle kInvalidHandle = -1;
@@ -84,10 +75,6 @@ class SymbolLookupService
   }
 
   // ISymboLookupService implementation.
-  virtual bool ResolveAddress(sym_util::ProcessId process_id,
-                              const base::Time& time,
-                              sym_util::Address address,
-                              sym_util::Symbol* symbol);
   virtual Handle ResolveAddress(sym_util::ProcessId process_id,
                                 const base::Time& time,
                                 sym_util::Address address,
@@ -106,25 +93,28 @@ class SymbolLookupService
                             const ModuleInformation& module_info);
 
  private:
+  virtual bool ResolveAddressImpl(sym_util::ProcessId process_id,
+                                  const base::Time& time,
+                                  sym_util::Address address,
+                                  sym_util::Symbol* symbol);
+
   void ResolveCallback();
   void IssueCallbacks();
 
   Lock module_lock_;
   sym_util::ModuleCache module_cache_;  // Under module_lock_.
-  typedef std::map<sym_util::ModuleCache::ModuleLoadStateId,
-      sym_util::SymbolCache> SymbolCacheMap;
 
   // We keep a cache of symbol cache instances keyed on module
   // load state id with an lru replacement policy.
-  // TODO(siggi): drop the lock once all symbol lookups are from a
-  //    worker thread.
-  Lock symbol_lock_;
+  typedef std::map<sym_util::ModuleCache::ModuleLoadStateId,
+      sym_util::SymbolCache> SymbolCacheMap;
   static const size_t kMaxCacheSize = 10;
   typedef std::vector<sym_util::ModuleCache::ModuleLoadStateId>
       LoadStateVector;
-  LoadStateVector lru_module_id_;  // Under symbol_lock_.
-  SymbolCacheMap symbol_caches_;  // Under symbol_lock_.
+  LoadStateVector lru_module_id_;
+  SymbolCacheMap symbol_caches_;
 
+  Lock resolution_lock_;
   struct Request {
     sym_util::ProcessId process_id_;
     base::Time time_;
@@ -132,19 +122,19 @@ class SymbolLookupService
     SymbolResolvedCallback* callback_;
     sym_util::Symbol resolved_;
   };
-  // Under symbol_lock_.
+  // Under resolution_lock_.
   typedef std::map<Handle, Request> RequestMap;
 
   // This map contains pending and completed requests.
   RequestMap requests_;
   // Next request id issued.
-  Handle next_request_id_;  // Under symbol_lock_.
+  Handle next_request_id_;  // Under resolution_lock_.
   // The id of the largest-id unprocessed request.
-  Handle unprocessed_id_;  // Under symbol_lock_.
+  Handle unprocessed_id_;  // Under resolution_lock_.
 
   // These two store any enqueued or processing task.
-  Task* resolve_task_;  // Under symbol_lock_.
-  Task* callback_task_;  // Under symbol_lock_.
+  Task* resolve_task_;  // Under resolution_lock_.
+  Task* callback_task_;  // Under resolution_lock_.
 
   // The background thread where we do our processing.
   MessageLoop* background_thread_;

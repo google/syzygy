@@ -39,13 +39,89 @@ SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
     callback_task_(NULL), next_request_id_(0), unprocessed_id_(0) {
 }
 
-bool SymbolLookupService::ResolveAddress(sym_util::ProcessId pid,
-                                         const base::Time& time,
-                                         sym_util::Address address,
-                                         sym_util::Symbol* symbol) {
-  // Hold the symbol cache lock over the whole shebang.
-  AutoLock lock(symbol_lock_);
+SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
+    sym_util::ProcessId process_id, const base::Time& time,
+    sym_util::Address address, SymbolResolvedCallback* callback) {
+  DCHECK_EQ(foreground_thread_, MessageLoop::current());
+  DCHECK(callback != NULL);
 
+  AutoLock lock(resolution_lock_);
+  Handle request_id = next_request_id_++;
+  DCHECK(requests_.end() == requests_.find(request_id));
+  Request& request = requests_[request_id];
+  request.process_id_ = process_id;
+  request.time_ = time;
+  request.address_ = address;
+  request.callback_ = callback;
+
+  // Post a task to do the symbol resolution unless one is already pending,
+  // or currently executing. The task will NULL this field as it exits
+  // on an empty queue.
+  if (!resolve_task_) {
+    resolve_task_ = NewRunnableMethod(this,
+                                      &SymbolLookupService::ResolveCallback);
+    background_thread_->PostTask(FROM_HERE, resolve_task_);
+  }
+
+  return request_id;
+}
+
+void SymbolLookupService::CancelRequest(Handle request_handle) {
+  DCHECK_EQ(foreground_thread_, MessageLoop::current());
+  AutoLock lock(resolution_lock_);
+
+  RequestMap::iterator it = requests_.find(request_handle);
+  DCHECK(it != requests_.end());
+  delete it->second.callback_;
+  requests_.erase(it);
+}
+
+void SymbolLookupService::OnModuleIsLoaded(
+    DWORD process_id, const base::Time& time,
+    const ModuleInformation& module_info) {
+  return OnModuleLoad(process_id, time, module_info);
+}
+
+void SymbolLookupService::OnModuleUnload(
+    DWORD process_id, const base::Time& time,
+    const ModuleInformation& module_info) {
+  AutoLock lock(module_lock_);
+  module_cache_.ModuleUnloaded(process_id, time, module_info);
+}
+
+void SymbolLookupService::OnModuleLoad(
+    DWORD process_id, const base::Time& time,
+    const ModuleInformation& module_info) {
+  std::wstring file_path(module_info.image_file_name);
+  // Map device paths to drive paths.
+  DWORD drives = ::GetLogicalDrives();
+  char drive = 'A';
+  for (; drives != 0; drives >>= 1, ++drive) {
+    if (drives & 1) {
+      wchar_t device_path[1024] = {};
+      wchar_t device[] = { drive, L':', L'\0' };
+      if (::QueryDosDevice(device, device_path, arraysize(device_path)) &&
+          file_path.find(device_path) == 0) {
+        std::wstring new_path = device;
+        new_path += file_path.substr(wcslen(device_path));
+        file_path = new_path;
+      }
+    }
+  }
+
+  ModuleInformation& info = const_cast<ModuleInformation&>(module_info);
+  info.image_file_name = file_path;
+
+  AutoLock lock(module_lock_);
+
+  module_cache_.ModuleLoaded(process_id, time, module_info);
+}
+
+bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
+                                             const base::Time& time,
+                                             sym_util::Address address,
+                                             sym_util::Symbol* symbol) {
+  DCHECK_EQ(background_thread_, MessageLoop::current());
   using sym_util::ModuleCache;
   using sym_util::SymbolCache;
 
@@ -97,88 +173,14 @@ bool SymbolLookupService::ResolveAddress(sym_util::ProcessId pid,
   return cache.GetSymbolForAddress(address, symbol);
 }
 
-SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
-    sym_util::ProcessId process_id, const base::Time& time,
-    sym_util::Address address, SymbolResolvedCallback* callback) {
-  DCHECK_EQ(foreground_thread_, MessageLoop::current());
-  DCHECK(callback != NULL);
-
-  AutoLock lock(symbol_lock_);
-  Handle request_id = next_request_id_++;
-  DCHECK(requests_.end() == requests_.find(request_id));
-  Request& request = requests_[request_id];
-  request.process_id_ = process_id;
-  request.time_ = time;
-  request.address_ = address;
-  request.callback_ = callback;
-
-  if (!resolve_task_) {
-    resolve_task_ = NewRunnableMethod(this,
-                                      &SymbolLookupService::ResolveCallback);
-    background_thread_->PostTask(FROM_HERE, resolve_task_);
-  }
-
-  return request_id;
-}
-
-void SymbolLookupService::CancelRequest(Handle request_handle) {
-  DCHECK_EQ(foreground_thread_, MessageLoop::current());
-  AutoLock lock(symbol_lock_);
-
-  RequestMap::iterator it = requests_.find(request_handle);
-  DCHECK(it != requests_.end());
-  delete it->second.callback_;
-  requests_.erase(it);
-}
-
-void SymbolLookupService::OnModuleIsLoaded(
-    DWORD process_id, const base::Time& time,
-    const ModuleInformation& module_info) {
-  return OnModuleLoad(process_id, time, module_info);
-}
-
-void SymbolLookupService::OnModuleUnload(
-    DWORD process_id, const base::Time& time,
-    const ModuleInformation& module_info) {
-  AutoLock lock(module_lock_);
-  module_cache_.ModuleUnloaded(process_id, time, module_info);
-}
-
-void SymbolLookupService::OnModuleLoad(
-    DWORD process_id, const base::Time& time,
-    const ModuleInformation& module_info) {
-  std::wstring file_path(module_info.image_file_name);
-  // Map device paths to drive paths.
-  DWORD drives = ::GetLogicalDrives();
-  char drive = 'A';
-  for (; drives != 0; drives >>= 1, ++drive) {
-    if (drives & 1) {
-      wchar_t device_path[1024] = {};
-      wchar_t device[] = { drive, L':', L'\0' };
-      if (::QueryDosDevice(device, device_path, arraysize(device_path)) &&
-          file_path.find(device_path) == 0) {
-        std::wstring new_path = device;
-        new_path += file_path.substr(wcslen(device_path));
-        file_path = new_path;
-      }
-    }
-  }
-
-  ModuleInformation& info = const_cast<ModuleInformation&>(module_info);
-  info.image_file_name = file_path;
-
-  AutoLock lock(module_lock_);
-
-  module_cache_.ModuleLoaded(process_id, time, module_info);
-}
-
 void SymbolLookupService::ResolveCallback() {
   while (true) {
     Handle request_id;
     Request request;
 
+    // Find the next unresolved request.
     {
-      AutoLock lock(symbol_lock_);
+      AutoLock lock(resolution_lock_);
 
       RequestMap::iterator it = requests_.lower_bound(unprocessed_id_);
       if (it == requests_.end()) {
@@ -190,14 +192,17 @@ void SymbolLookupService::ResolveCallback() {
       request = it->second;
     }
 
+    // Don't hold the lock over the symbol resolution proper.
     sym_util::Symbol symbol;
-    ResolveAddress(request.process_id_,
-                   request.time_,
-                   request.address_,
-                   &symbol);
+    ResolveAddressImpl(request.process_id_,
+                       request.time_,
+                       request.address_,
+                       &symbol);
 
+    // Store the result, mindfully of the fact that the request
+    // might have been cancelled while we did the resolution.
     {
-      AutoLock lock(symbol_lock_);
+      AutoLock lock(resolution_lock_);
 
       RequestMap::iterator it = requests_.find(request_id);
       if (it != requests_.end()) {
@@ -222,7 +227,7 @@ void SymbolLookupService::IssueCallbacks() {
 
     // Find the lowest request that has been processed.
     {
-      AutoLock lock(symbol_lock_);
+      AutoLock lock(resolution_lock_);
 
       RequestMap::iterator it = requests_.begin();
       if (it == requests_.end() || it->first >= unprocessed_id_) {
