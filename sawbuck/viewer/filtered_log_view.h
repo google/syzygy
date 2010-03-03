@@ -17,6 +17,7 @@
 #define SAWBUCK_VIEWER_FILTERED_LOG_VIEW_H_
 
 #include <map>
+#include <string>
 #include <vector>
 
 #include "base/scoped_ptr.h"
@@ -37,11 +38,13 @@ class FilteredLogView
   ~FilteredLogView();
 
   // ILogViewEvents implementation.
-  virtual void LogViewChanged();
+  virtual void LogViewNewItems();
+  virtual void LogViewCleared();
 
   // ILogView implementation;
   // @{
   virtual int GetNumRows();
+  virtual void ClearAll();
   virtual int GetSeverity(int row);
   virtual DWORD GetProcessId(int row);
   virtual DWORD GetThreadId(int row);
@@ -64,7 +67,7 @@ class FilteredLogView
  protected:
   void PostFilteringTask();
   void FilterChunk();
-  void RestartFiltering();
+  virtual void RestartFiltering();
 
   // Every row from |original_| matching |include_re_| will be included,
   // unless it also matches |exclude_re_|.

@@ -79,6 +79,7 @@
         'log_viewer.cc',
         'log_list_view.h',
         'log_list_view.cc',
+        'sawbuck_guids.h',
         'stack_trace_list_view.h',
         'stack_trace_list_view.cc',
         'symbol_lookup_service.h',
@@ -97,7 +98,10 @@
       'type': 'executable',
       'sources': [
         'filtered_log_view_unittest.cc',
+        'sawbuck_guids.h',
         'symbol_lookup_service_unittest.cc',
+        'unittest_main.cc',
+        'viewer_window_unittest.cc',
       ],
       'dependencies': [
         'log_view_lib',

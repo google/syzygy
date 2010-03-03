@@ -28,6 +28,7 @@
         'installer/installer.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
+        '../third_party/pcre/pcre.gyp:*',
       ],
     }
   ]

@@ -8,7 +8,8 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "afxres.h"
-#include "atlres.h"
+#include "atlres.h"
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -64,6 +65,7 @@ BEGIN
         MENUITEM "Paste",                       ID_EDIT_PASTE
         MENUITEM "Clear",                       ID_EDIT_CLEAR
         MENUITEM SEPARATOR
+        MENUITEM "Clear All",                   ID_EDIT_CLEAR_ALL
         MENUITEM "Select All",                  ID_EDIT_SELECT_ALL
     END
     POPUP "Log"
@@ -185,7 +187,8 @@ END
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
-
+
+
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
 

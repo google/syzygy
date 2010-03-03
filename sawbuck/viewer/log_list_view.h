@@ -34,7 +34,8 @@
 class ILogViewEvents {
  public:
   // Called on the UI thread.
-  virtual void LogViewChanged() = 0;
+  virtual void LogViewNewItems() = 0;
+  virtual void LogViewCleared() = 0;
 };
 
 // Provides a view on a log, the view may be filtered or sorted.
@@ -42,6 +43,9 @@ class ILogView {
  public:
   // Returns the number of rows in this view.
   virtual int GetNumRows() = 0;
+
+  // Clear all the items in this view.
+  virtual void ClearAll() = 0;
 
   virtual int GetSeverity(int row) = 0;
   virtual DWORD GetProcessId(int row) = 0;
@@ -84,6 +88,7 @@ class LogListView
     MSG_WM_SETFOCUS(OnSetFocus)
     MSG_WM_KILLFOCUS(OnKillFocus)
     COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_CLEAR_ALL, OnClearAll)
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
@@ -95,7 +100,8 @@ class LogListView
   void SetLogView(ILogView* log_view);
   void SetStackTraceView(StackTraceListView* stack_trace_view);
 
-  virtual void LogViewChanged();
+  virtual void LogViewNewItems();
+  virtual void LogViewCleared();
 
   // Our column definitions and config data to satisfy our contract
   // to the ListViewImpl superclass.
@@ -104,7 +110,7 @@ class LogListView
   static const wchar_t* kColumnOrderValueName;
   static const wchar_t* kColumnWidthValueName;
 
- private:
+ protected:
   // The columns our list view displays.
   // @note COL_MAX must be equal to arraysize(kColumns).
   enum Columns {
@@ -127,6 +133,7 @@ class LogListView
   LRESULT OnItemChanged(LPNMHDR notification);
 
   void OnCopyCommand(UINT code, int id, CWindow window);
+  virtual void OnClearAll(UINT code, int id, CWindow window);
   void OnSelectAll(UINT code, int id, CWindow window);
   void OnSetFocus(CWindow window);
   void OnKillFocus(CWindow window);
@@ -135,6 +142,12 @@ class LogListView
   // all our commands unless we have focus.
   // @param has_focus true iff this window has the focus.
   void UpdateCommandStatus(bool has_focus);
+
+  // To help unittest mocking.
+  virtual BOOL DeleteAllItems() {
+    return ListViewBase<LogListView, LogListViewTraits>::DeleteAllItems();
+  }
+
 
   // The stack trace view that displays our stack trace.
   StackTraceListView* stack_trace_view_;

@@ -55,12 +55,23 @@ FilteredLogView::~FilteredLogView() {
   original_->Unregister(registration_cookie_);
 }
 
-void FilteredLogView::LogViewChanged() {
+void FilteredLogView::LogViewNewItems() {
   PostFilteringTask();
+}
+
+void FilteredLogView::LogViewCleared() {
+  RestartFiltering();
+  EventSinkMap::iterator it(event_sinks_.begin());
+  for (; it != event_sinks_.end(); ++it)
+    it->second->LogViewCleared();
 }
 
 int FilteredLogView::GetNumRows() {
   return included_rows_.size();
+}
+
+void FilteredLogView::ClearAll() {
+  original_->ClearAll();
 }
 
 int FilteredLogView::GetSeverity(int row) {
@@ -179,7 +190,7 @@ void FilteredLogView::FilterChunk() {
   if (starting_rows != GetNumRows()) {
     EventSinkMap::iterator it(event_sinks_.begin());
     for (; it != event_sinks_.end(); ++it)
-      it->second->LogViewChanged();
+      it->second->LogViewNewItems();
   }
 }
 

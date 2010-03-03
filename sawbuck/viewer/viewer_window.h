@@ -24,6 +24,7 @@
 #include <atlmisc.h>
 #include <atlres.h>
 #include <atlstr.h>
+#include <map>
 #include <string>
 #include <vector>
 #include "base/event_trace_controller_win.h"
@@ -77,6 +78,7 @@ class ViewerWindow
     UPDATE_ELEMENT(ID_EDIT_COPY, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_EDIT_PASTE, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_EDIT_CLEAR, UPDUI_MENUBAR)
+    UPDATE_ELEMENT(ID_EDIT_CLEAR_ALL, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_EDIT_SELECT_ALL, UPDUI_MENUBAR)
   END_UPDATE_UI_MAP()
 
@@ -85,6 +87,7 @@ class ViewerWindow
 
   // ILogView implementation
   virtual int GetNumRows();
+  virtual void ClearAll();
   virtual int GetSeverity(int row);
   virtual DWORD GetProcessId(int row);
   virtual DWORD GetThreadId(int row);
@@ -118,7 +121,8 @@ class ViewerWindow
 
  private:
   // Called on UI thread to dispatch notifications to listeners.
-  void NotifyLogViewChanged();
+  void NotifyLogViewNewItems();
+  void NotifyLogViewCleared();
 
   void OnLogMessage(UCHAR level,
                     DWORD process_id,

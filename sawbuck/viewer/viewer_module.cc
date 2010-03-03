@@ -20,26 +20,9 @@
 #include "base/logging_win.h"
 #include "base/message_loop.h"
 #include "sawbuck/viewer/viewer_window.h"
-#include <initguid.h>
 
-//
-// SystemTraceControlGuid. Used to specify event tracing for kernel
-//
-DEFINE_GUID( /* 9e814aad-3204-11d2-9a82-006008a86939 */
-    SystemTraceControlGuid,
-    0x9e814aad,
-    0x3204,
-    0x11d2,
-    0x9a, 0x82, 0x00, 0x60, 0x08, 0xa8, 0x69, 0x39
-  );
-
-// {C43B1318-C63D-465b-BCF4-7A89A369F8ED}
-DEFINE_GUID(kSawbuckLogProvider,
-    0xc43b1318,
-    0xc63d,
-    0x465b,
-    0xbc, 0xf4, 0x7a, 0x89, 0xa3, 0x69, 0xf8, 0xed
-  );
+#include <initguid.h>  // NOLINT
+#include "sawbuck/viewer/sawbuck_guids.h"  // NOLINT
 
 HRESULT SawbuckAppModule::Init(ATL::_ATL_OBJMAP_ENTRY* obj_map,
                                HINSTANCE instance,

@@ -13,11 +13,10 @@
 // limitations under the License.
 #include "sawbuck/viewer/filtered_log_view.h"
 
-#include "base/at_exit.h"
-#include "base/command_line.h"
 #include "base/message_loop.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "sawbuck/viewer/mock_log_view_interfaces.h"
 
 namespace {
 
@@ -27,6 +26,7 @@ using testing::Return;
 using testing::SetArgumentPointee;
 using testing::StrictMock;
 
+
 class TestingFilteredLogView: public FilteredLogView {
  public:
   explicit TestingFilteredLogView(ILogView* original)
@@ -34,29 +34,6 @@ class TestingFilteredLogView: public FilteredLogView {
   }
 
   CancelableTask* task() const { return task_; }
-};
-
-class MockILogViewEvents: public ILogViewEvents {
- public:
-  MOCK_METHOD0(LogViewChanged, void());
-};
-
-class MockILogView: public ILogView {
- public:
-  MOCK_METHOD0(GetNumRows, int());
-
-  MOCK_METHOD1(GetSeverity, int(int row));
-  MOCK_METHOD1(GetProcessId, DWORD(int row));
-  MOCK_METHOD1(GetThreadId, DWORD(int row));
-  MOCK_METHOD1(GetTime, base::Time(int row));
-  MOCK_METHOD1(GetFileName, std::string(int row));
-  MOCK_METHOD1(GetLine, int(int row));
-  MOCK_METHOD1(GetMessage, std::string(int row));
-  MOCK_METHOD2(GetStackTrace, void(int row, std::vector<void*>* trace));
-
-  MOCK_METHOD2(Register, void(ILogViewEvents* event_sink,
-                              int* registration_cookie));
-  MOCK_METHOD1(Unregister, void(int registration_cookie));
 };
 
 class FilteredLogViewTest: public testing::Test {
@@ -76,8 +53,8 @@ class FilteredLogViewTest: public testing::Test {
 
  protected:
   MessageLoop message_loop_;
-  StrictMock<MockILogView> mock_view_;
-  StrictMock<MockILogViewEvents> mock_view_events_;
+  StrictMock<testing::MockILogView> mock_view_;
+  StrictMock<testing::MockILogViewEvents> mock_view_events_;
 };
 
 TEST_F(FilteredLogViewTest, Construction) {
@@ -108,7 +85,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
   {
     TestingFilteredLogView filtered(&mock_view_);
     EXPECT_TRUE(filtered.task() == NULL);
-    filtered.LogViewChanged();
+    filtered.LogViewNewItems();
     EXPECT_TRUE(filtered.task() != NULL);
 
     ExpectUnregistration();
@@ -141,11 +118,11 @@ TEST_F(FilteredLogViewTest, IdentityFilter) {
   const int kNumRows = 12345;
   EXPECT_CALL(mock_view_, GetNumRows())
       .WillRepeatedly(Return(kNumRows));
-  EXPECT_CALL(mock_view_events_, LogViewChanged())
+  EXPECT_CALL(mock_view_events_, LogViewNewItems())
       .Times(AtLeast(1));
 
   EXPECT_EQ(0, filtered.GetNumRows());
-  filtered.LogViewChanged();
+  filtered.LogViewNewItems();
   EXPECT_EQ(0, filtered.GetNumRows());
 
   EXPECT_CALL(mock_view_, GetMessage(_))
@@ -201,13 +178,46 @@ TEST_F(FilteredLogViewTest, Filtering) {
   ExpectUnregistration();
 }
 
-}  // namespace
+class MockFilteredLogView : public TestingFilteredLogView {
+ public:
+  explicit MockFilteredLogView(ILogView* original)
+      : TestingFilteredLogView(original) {
+  }
+  MOCK_METHOD0(RestartFiltering, void());
+};
 
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
+TEST_F(FilteredLogViewTest, ClearAll) {
+  ExpectCreation(0);
+  StrictMock<MockFilteredLogView> filtered(&mock_view_);
 
-  base::AtExitManager at_exit;
-  CommandLine::Init(argc, argv);
+  EXPECT_CALL(mock_view_, ClearAll()).Times(1);
+  filtered.ClearAll();
 
-  RUN_ALL_TESTS();
+  int reg_cookie = 0;
+  filtered.Register(&mock_view_events_, &reg_cookie);
+
+  EXPECT_CALL(mock_view_events_, LogViewCleared()).Times(1);
+  EXPECT_CALL(filtered, RestartFiltering()).Times(1);
+  filtered.LogViewCleared();
+
+  int other_reg_cookie = 0;
+  StrictMock<testing::MockILogViewEvents> other_mock_view_events;
+  filtered.Register(&other_mock_view_events, &other_reg_cookie);
+
+  EXPECT_CALL(other_mock_view_events, LogViewCleared()).Times(1);
+  EXPECT_CALL(mock_view_events_, LogViewCleared()).Times(1);
+  EXPECT_CALL(filtered, RestartFiltering()).Times(1);
+  filtered.LogViewCleared();
+
+  filtered.Unregister(reg_cookie);
+  EXPECT_CALL(other_mock_view_events, LogViewCleared()).Times(1);
+  EXPECT_CALL(filtered, RestartFiltering()).Times(1);
+  filtered.LogViewCleared();
+
+  filtered.Unregister(other_reg_cookie);
+  EXPECT_CALL(filtered, RestartFiltering()).Times(1);
+  filtered.LogViewCleared();
+  ExpectUnregistration();
 }
+
+}  // namespace

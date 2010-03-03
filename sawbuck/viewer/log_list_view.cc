@@ -318,6 +318,11 @@ void LogListView::OnSelectAll(UINT code, int id, CWindow window) {
   SetItemState(kNoItem, LVIS_SELECTED, LVIS_SELECTED);
 }
 
+void LogListView::OnClearAll(UINT code, int id, CWindow window) {
+  // Clear all items from the log view and then wait for change notifications.
+  log_view_->ClearAll();
+}
+
 void LogListView::OnSetFocus(CWindow window) {
   UpdateCommandStatus(true);
 
@@ -332,8 +337,8 @@ void LogListView::OnKillFocus(CWindow window) {
   SetMsgHandled(FALSE);
 }
 
-void LogListView::LogViewChanged() {
-  DCHECK_EQ(MessageLoop::current(), ui_loop_);
+void LogListView::LogViewNewItems() {
+  DCHECK_EQ(ui_loop_, MessageLoop::current());
 
   if (IsWindow()) {
     // Check if last item was previously visible...
@@ -349,9 +354,15 @@ void LogListView::LogViewChanged() {
   }
 }
 
+void LogListView::LogViewCleared() {
+  DCHECK_EQ(ui_loop_, MessageLoop::current());
+  DeleteAllItems();
+}
+
 void LogListView::UpdateCommandStatus(bool has_focus) {
   bool has_selection = GetSelectedCount() != 0;
 
   update_ui_->UIEnable(ID_EDIT_COPY, has_focus && has_selection);
   update_ui_->UIEnable(ID_EDIT_SELECT_ALL, has_focus);
+  update_ui_->UIEnable(ID_EDIT_CLEAR_ALL, has_focus);
 }

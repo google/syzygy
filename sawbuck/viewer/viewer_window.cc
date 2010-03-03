@@ -239,7 +239,7 @@ void ViewerWindow::OnLogMessage(UCHAR level,
 
   if (!log_messages_dirty_) {
     CancelableTask* task =
-        NewRunnableMethod(this, &ViewerWindow::NotifyLogViewChanged);
+        NewRunnableMethod(this, &ViewerWindow::NotifyLogViewNewItems);
     DCHECK(task != NULL);
 
     if (task != NULL) {
@@ -251,7 +251,8 @@ void ViewerWindow::OnLogMessage(UCHAR level,
   }
 }
 
-void ViewerWindow::NotifyLogViewChanged() {
+void ViewerWindow::NotifyLogViewNewItems() {
+  DCHECK_EQ(ui_loop_, MessageLoop::current());
   {
     AutoLock lock(list_lock_);
 
@@ -261,7 +262,15 @@ void ViewerWindow::NotifyLogViewChanged() {
 
   EventSinkMap::iterator it(event_sinks_.begin());
   for (; it != event_sinks_.end(); ++it) {
-    it->second->LogViewChanged();
+    it->second->LogViewNewItems();
+  }
+}
+
+void ViewerWindow::NotifyLogViewCleared() {
+  DCHECK_EQ(ui_loop_, MessageLoop::current());
+  EventSinkMap::iterator it(event_sinks_.begin());
+  for (; it != event_sinks_.end(); ++it) {
+    it->second->LogViewCleared();
   }
 }
 
@@ -324,6 +333,7 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   UIEnable(ID_EDIT_COPY, false);
   UIEnable(ID_EDIT_PASTE, false);
   UIEnable(ID_EDIT_CLEAR, false);
+  UIEnable(ID_EDIT_CLEAR_ALL, false);
   UIEnable(ID_EDIT_SELECT_ALL, false);
 
   CreateSimpleStatusBar();
@@ -391,6 +401,14 @@ void ViewerWindow::OnDestroy() {
 int ViewerWindow::GetNumRows() {
   AutoLock lock(list_lock_);
   return log_messages_.size();
+}
+
+void ViewerWindow::ClearAll() {
+  {
+    AutoLock lock(list_lock_);
+    log_messages_.clear();
+  }
+  NotifyLogViewCleared();
 }
 
 int ViewerWindow::GetSeverity(int row) {
