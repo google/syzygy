@@ -321,6 +321,9 @@ void LogListView::OnSelectAll(UINT code, int id, CWindow window) {
 void LogListView::OnClearAll(UINT code, int id, CWindow window) {
   // Clear all items from the log view and then wait for change notifications.
   log_view_->ClearAll();
+  // And clear the stack trace as well.
+  if (stack_trace_view_)
+    stack_trace_view_->SetStackTrace(0, base::Time::Now(), 0, NULL);
 }
 
 void LogListView::OnSetFocus(CWindow window) {
