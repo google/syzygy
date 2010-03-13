@@ -14,6 +14,44 @@
 # limitations under the License.
 #
 # Presubmit script for Sawbuck.
+import os
+
+UNITTEST_MESSAGE_ = '''\
+Your %s unittests must succeed before submitting.
+To clear this presubmit error, build the sawbuck/run_unittests target
+in the solution file sawbuck/sawbuck.sln, or run sawbuck/run_all_tests.bat
+'''
+
+def CheckUnittestsRan(input_api, output_api, committing, configuration):
+  '''Checks that the unittests success file is newer than any modified file'''
+  success_path = "sawbuck/%s/unittest_success.txt" % configuration
+  def MakeResult(message, modified_files=[]):
+    if committing:
+      return output_api.PresubmitError(message, modified_files)
+    else:
+      return output_api.PresubmitNotifyResult(message, modified_files)
+  os_path = input_api.os_path
+  success_path = os_path.join(input_api.PresubmitLocalPath(),
+                              success_path)
+
+  if not os_path.exists(success_path):
+    return [MakeResult(UNITTEST_MESSAGE_ % configuration)]
+
+  success_time = os.stat(success_path).st_mtime
+  modified_files = []
+  for f in input_api.AffectedFiles(include_deletes = False):
+    file_time = os.stat(f.AbsoluteLocalPath()).st_mtime
+    if file_time > success_time:
+      modified_files.append(f.LocalPath())
+
+  result = []
+  if modified_files:
+    result.append(MakeResult('These files have been modified since %s '
+                             'unittests ran last' % configuration,
+                             modified_files))
+
+  return result
+
 
 def CheckChange(input_api, output_api, committing):
   # The list of (canned) checks we perform on all changes.
@@ -31,6 +69,9 @@ def CheckChange(input_api, output_api, committing):
   results = []
   for check in checks:
     results += check(input_api, output_api)
+
+  results += CheckUnittestsRan(input_api, output_api, committing, "Debug")
+  results += CheckUnittestsRan(input_api, output_api, committing, "Release")
 
   return results
 

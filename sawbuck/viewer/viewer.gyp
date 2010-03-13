@@ -94,7 +94,7 @@
       ],
     },
     {
-      'target_name': 'log_view_unittest',
+      'target_name': 'log_view_unittests',
       'type': 'executable',
       'sources': [
         'filtered_log_view_unittest.cc',

@@ -28,7 +28,47 @@
         'installer/installer.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
-        '../third_party/pcre/pcre.gyp:*',
+      ],
+    },
+    {
+      # Add new unittests to this target as inputs.
+      'target_name': 'run_unittests',
+      'type': 'none',
+      'variables': {
+        # The file that marks success of all unittests.
+        'success_file': '<(PRODUCT_DIR)/unittest_success.txt',
+
+        # Add all unit test targets here.
+        'unittest_targets': [
+          '<(DEPTH)/sawbuck/sym_util/sym_util.gyp:sym_util_unittests',
+          '<(DEPTH)/sawbuck/viewer/viewer.gyp:log_view_unittests',
+        ],
+      },
+      'dependencies': [
+        '<@(unittest_targets)',
+      ],
+      'actions': [
+        {
+          'action_name': 'run_unittests',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            'tools/run_unittests.py',
+            'tools/verifier.py',
+            '<(PRODUCT_DIR)/sym_util_unittests.exe',
+            '<(PRODUCT_DIR)/log_view_unittests.exe',
+          ],
+          'outputs': [
+            # Created only if all unittests succeed
+            '<(success_file)',
+          ],
+          'action': [
+            'python',
+            'tools/run_unittests.py',
+            '--exe-dir=<(PRODUCT_DIR)',
+            '--success-file=<(success_file)',
+            '<@(unittest_targets)',
+          ],
+        },
       ],
     }
   ]
