@@ -1,0 +1,13 @@
+URL: http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=36a2630f-5d56-43b5-b996-7633f2ec14ff
+Version: 6.12.2.633
+License: Redistribution
+License File: files\LICENSE.txt
+
+Description:
+Version 6.12.2.633 of the redistributable DLLs dbghelp, symsrv and srcsrv from
+Debugging Tools for Windows, as distributed with WDK 7.1.
+
+Local Modifications:
+The files above were extracted from the Debugging Tools for Windows program
+directory, after installing them by running the the \Debuggers\setup_x86.exe
+program from the WDK 7.1 SDK.
