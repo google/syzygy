@@ -15,12 +15,52 @@
              InstallerVersion='200'
              Compressed='yes' />
 
+    <!-- 
+      Use the install dir UI which allows the user to pick the install location
+    -->
+    <Property Id='WIXUI_INSTALLDIR' Value='SAWBUCKAPPLICATIONDIRECTORY' />
+    <UI>
+      <UIRef Id='WixUI_InstallDir' />
+      <Publish Dialog="ExitDialog"
+          Control="Finish"
+          Event="DoAction"
+          Value="LaunchApplication">
+        WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
+      </Publish>
+    </UI>
+
+    <!--
+      Specify our license file.
+    -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+    <!-- 
+      Add an option to launch Sawbuck at the end of installation.
+      This is all boilerplate from WiX docs.
+    -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT"
+        Value="Launch Sawbuck" />
+
+    <Property Id="WixShellExecTarget" Value="[#SawbuckExeFile]" />
+    <CustomAction Id="LaunchApplication"
+        BinaryKey="WixCA"
+        DllEntry="WixShellExec"
+        Impersonate="yes" />
+
     <Media Id='1' Cabinet='product.cab' EmbedCab='yes' />
+
+    <!--
+      Declare our Add/Remove Programs icon.
+    -->
+    <Icon Id="icon.ico" SourceFile="..\viewer\sawbuck.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
     <!-- Define our program files foler -->
     <Directory Id='TARGETDIR' Name='SourceDir'>
       <Directory Id='ProgramFilesFolder'>
-        <Directory Id='SawbuckApplicationDirectory' Name='Sawbuck'/>
+        <Directory Id='ProgramFilesGoogleFolder' Name='Google'>
+          <Directory Id='SAWBUCKAPPLICATIONDIRECTORY' Name='Sawbuck'/>
+        </Directory>
       </Directory>
 
       <!-- Define our application files folder -->
@@ -29,24 +69,6 @@
       </Directory>
     </Directory>
 
-    <!-- Search for a DbgHelp.dll and a SymSrv.dll within the program files
-      directory. If found, we copy those to our program directory in some
-      of the component declarations below. -->
-    <Property Id='DBG_HELP_DLL'>
-      <DirectorySearch Id='DbgHelpDllSearch'
-          Path='[ProgramFilesFolder]'
-          Depth='2'>
-        <FileSearch Name='dbghelp.dll' MinVersion='6.0.0.0'/>
-      </DirectorySearch>
-    </Property>
-    <Property Id='SYM_SRV_DLL'>
-      <DirectorySearch Id='SymSrvDllSearch'
-          Path='[ProgramFilesFolder]'
-          Depth='2'>
-        <FileSearch Name='symsrv.dll' MinVersion='6.0.0.0'/>
-      </DirectorySearch>
-    </Property>
-
     <!-- Component for the application start menu shortcut -->
     <DirectoryRef Id='SawbuckProgramsDirectory'>
       <Component Id='SawbuckShortcutComponent'
@@ -54,11 +76,11 @@
         <Shortcut Id='ApplicationStartMenuShortcut'
                   Name='Sawbuck'
                   Description='The Chrome log viewer.'
-                  Target='[SawbuckApplicationDirectory]Sawbuck.exe'
-                  WorkingDirectory='SawbuckApplicationDirectory'/>
+                  Target='[SAWBUCKAPPLICATIONDIRECTORY]Sawbuck.exe'
+                  WorkingDirectory='SAWBUCKAPPLICATIONDIRECTORY'/>
         <RemoveFolder Id='SawbuckProgramsDirectory' On='uninstall'/>
         <!-- This is apparently necessary so the component has
-            a "key" item.
+            a 'key' item.
         -->
         <RegistryValue
             Root='HKCU'
@@ -105,7 +127,7 @@
     </DirectoryRef>
 
     <!-- Component for the application's EXE -->
-    <DirectoryRef Id='SawbuckApplicationDirectory'>
+    <DirectoryRef Id='SAWBUCKAPPLICATIONDIRECTORY'>
       <Component Id='SawbuckExeComponent'
           Guid='{8F825656-7F0D-4aa6-A22C-759F82D47E38}'>
         <File Id='SawbuckExeFile'
@@ -125,23 +147,17 @@
       </Component>
       <Component Id='DbgHelpDllComponent'
           Guid='{CDDFC08A-5814-4375-9971-2B35A039B72F}'>
-        <!-- Copy the DbgHelp we found to the program directory -->
-        <CopyFile Id='CopyDbgHelp'
-            SourceProperty='DBG_HELP_DLL'
-            DestinationDirectory='SawbuckApplicationDirectory' />
-        <RemoveFile Id='RemoveDbgHelp'
-            On='uninstall'
-            Name='dbghelp.dll'/>
+        <File Id='DbgHelpDllFile'
+            Name='DbgHelp.dll'
+            DiskId='1'
+            Source='..\..\third_party\debugging_tools\files\DbgHelp.dll'/>
       </Component>
       <Component Id='SymSrvDllComponent'
           Guid='{04FFB025-E3C9-4ecd-8255-ED7E63EFC948}'>
-        <!-- Copy the SymSrv we found to the program directory -->
-        <CopyFile Id='CopySymSrv'
-            SourceProperty='SYM_SRV_DLL'
-            DestinationDirectory='SawbuckApplicationDirectory' />
-        <RemoveFile Id='RemoveSymSrv'
-            On='uninstall'
-            Name='symsrv.dll'/>
+        <File Id='SymSrvDllFile'
+            Name='SymSrv.dll'
+            DiskId='1'
+            Source='..\..\third_party\debugging_tools\files\SymSrv.dll'/>
       </Component>
     </DirectoryRef>
 

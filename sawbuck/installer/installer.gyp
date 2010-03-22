@@ -26,6 +26,7 @@
       'target_name': 'sawbuck',
       'type': 'none',
       'sources': [
+        'license.rtf',
         'sawbuck.wxs',
         'version.wxi.template',
       ],
@@ -85,8 +86,9 @@
           'action': [
             '<(light_exe)',
             '<(INTERMEDIATE_DIR)/sawbuck.wixobj',
-            '-out',
-            '<@(_outputs)',
+            '-ext', 'WixUIExtension',
+            '-ext', 'WixUtilExtension',
+            '-out', '<@(_outputs)',
           ],
           'process_outputs_as_sources': 1,
         },
