@@ -33,13 +33,14 @@ typedef DWORD ProcessId;
 
 // This is the information we pass around for a module.
 struct ModuleInformation {
+  bool operator < (const ModuleInformation& o) const;
+  bool operator == (const ModuleInformation& o) const;
+
   ModuleBase base_address;
   ModuleSize module_size;
   ModuleChecksum image_checksum;
   ModuleTimeDateStamp time_date_stamp;
   std::wstring image_file_name;
-
-  bool operator < (const ModuleInformation& o) const;
 };
 
 // A resolved symbol.

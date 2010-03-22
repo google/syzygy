@@ -12,21 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "sawbuck/sym_util/types.h"
+#include "base/logging.h"
 
 namespace sym_util {
 
 bool ModuleInformation::operator < (const ModuleInformation& o) const {
-  if (image_file_name < o.image_file_name)
+  if (base_address < o.base_address)
     return true;
-  if (image_file_name == o.image_file_name) {
-    // Do a binary comparison of the two structures up to the name field
-    // to define a somewhat arbitrary, but consistent, ordering on them.
-    return memcmp(this,
-                  &o,
-                  FIELD_OFFSET(ModuleInformation, image_file_name)) < 0;
-  }
+  if (base_address > o.base_address)
+    return false;
+  DCHECK(base_address == o.base_address);
 
-  return false;
+  if (module_size < o.module_size)
+    return true;
+  if (module_size > o.module_size)
+    return false;
+  DCHECK(module_size == o.module_size);
+
+  if (image_checksum < o.image_checksum)
+    return true;
+  if (image_checksum > o.image_checksum)
+    return false;
+  DCHECK(image_checksum == o.image_checksum);
+
+  if (time_date_stamp < o.time_date_stamp)
+    return true;
+  if (time_date_stamp > o.time_date_stamp)
+    return false;
+  DCHECK(time_date_stamp == o.time_date_stamp);
+
+  return image_file_name < o.image_file_name;
+}
+
+bool ModuleInformation::operator == (const ModuleInformation& o) const {
+  return base_address == o.base_address &&
+         module_size == o.module_size &&
+         image_checksum == o.image_checksum &&
+         time_date_stamp == o.time_date_stamp &&
+         image_file_name == o.image_file_name;
 }
 
 }  // namespace sym_util

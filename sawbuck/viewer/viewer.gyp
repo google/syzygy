@@ -94,17 +94,58 @@
       ],
     },
     {
+      'target_name': 'test_common',
+      'type': 'static_library',
+      'sources': [
+        'kernel_log_unittest_data.h',
+        'kernel_log_unittest_data.cc',
+      ],
+      'dependencies': [
+        '../../base/base.gyp:base',
+      ],      
+    },
+    {
+      'target_name': 'make_test_data',
+      'type': 'executable',
+      'sources': [
+        'make_test_data.cc',
+      ],
+      'dependencies': [
+        'test_common',
+        '../../base/base.gyp:base',
+        '../../testing/gtest.gyp:gtest',
+      ],      
+    },
+    {
+      # Our tests and Sawbuck.exe need the dbghelp and symsrv
+      # DLLs in their parent directory, this copies them there.
+      'target_name': 'copy_dlls',
+      'type': 'none',
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            '../../third_party/debugging_tools/files/dbghelp.dll',
+            '../../third_party/debugging_tools/files/symsrv.dll',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'log_view_unittests',
       'type': 'executable',
       'sources': [
         'filtered_log_view_unittest.cc',
+        'kernel_log_consumer_unittest.cc',
         'sawbuck_guids.h',
         'symbol_lookup_service_unittest.cc',
         'unittest_main.cc',
         'viewer_window_unittest.cc',
       ],
       'dependencies': [
+        'copy_dlls',
         'log_view_lib',
+        'test_common',
         '../../base/base.gyp:base',
         '../../testing/gmock.gyp:gmock',
         '../../testing/gtest.gyp:gtest',
@@ -121,6 +162,7 @@
         'version.rc',
       ],
       'dependencies': [
+        'copy_dlls',
         'log_view_lib',
         'sawbuck_version',
         '../../base/base.gyp:base',

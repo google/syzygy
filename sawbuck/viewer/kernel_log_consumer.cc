@@ -15,84 +15,12 @@
 // Kernel log consumer implementation.
 #include "sawbuck/viewer/kernel_log_consumer.h"
 #include "base/logging.h"
-#include <initguid.h>  // NOLINT - must be last include.
+#include <initguid.h>  // NOLINT - must precede kernel_log_types.
+#include "sawbuck/viewer/kernel_log_types.h"  // NOLINT - must be last
 
 namespace {
-// These structures and GUIDs are gleaned from the system.tfm file
-// that ships with Debugging Tools For Windows. In some cases the
-// formats declared there are not in strict accordance with reality
-// in which case there has been some sleauthing around hex dumps of
-// the messages to infer the real truth.
 
-DEFINE_GUID(kEventTraceEventClass,
-  0x68fdd900, 0x4a3e, 0x11d1, 0x84, 0xf4, 0x00, 0x00, 0xf8, 0x04, 0x64, 0xe3);
-
-enum {
-  kLogFileHeaderEvent = 0,
-};
-
-struct LogFileHeader32 {
-  ULONG BufferSize;
-  ULONG Version;
-  ULONG BuildNumber;
-  ULONG NumProc;
-  ULONGLONG EndTime;
-  ULONG TimerResolution;
-  ULONG MaxFileSize;
-  ULONG LogFileMode;
-  ULONG BuffersWritten;
-  ULONG StartBuffers;
-  ULONG PointerSize;
-  ULONG EventsLost;
-  ULONG CPUSpeed;
-  ULONG LoggerName;
-  ULONG LogFileName;
-  char TimeZone[176];
-  ULONGLONG BootTime;
-  ULONGLONG PerfFrequency;
-  ULONGLONG StartTime;
-  ULONG ReservedFlags;
-  ULONG BuffersLost;
-};
-
-struct LogFileHeader64 {
-  ULONG BufferSize;
-  ULONG Version;
-  ULONG BuildNumber;
-  ULONG NumProc;
-  ULONGLONG EndTime;
-  ULONG TimerResolution;
-  ULONG MaxFileSize;
-  ULONG LogFileMode;
-  ULONG BuffersWritten;
-  ULONG StartBuffers;
-  ULONG PointerSize;
-  ULONG EventsLost;
-  ULONG CPUSpeed;
-  ULONGLONG LoggerName;
-  ULONGLONG LogFileName;
-  char TimeZone[176];
-  ULONGLONG BootTime;
-  ULONGLONG PerfFrequency;
-  ULONGLONG StartTime;
-  ULONG ReservedFlags;
-  ULONG BuffersLost;
-};
-
-DEFINE_GUID(kImageLoadEventClass,
-  0x2cb15d1d, 0x5fc1, 0x11d2, 0xab, 0xe1, 0x00, 0xa0, 0xc9, 0x11, 0xf5, 0x18);
-
-enum {
-  kImageNotifyUnloadEvent = 2,
-  kImageNotifyIsLoadedEvent = 3,
-  kImageNotifyLoadEvent = 10,
-};
-
-struct ImageLoad32V0 {
-  ULONG BaseAddress;
-  ULONG ModuleSize;
-  wchar_t ImageFileName[1];
-};
+using namespace kernel_log_types;
 
 // The functions named ConvertModuleInformationFromLogEvent below all serve
 // the purpose of parsing a particular version and bitness of an NT Kernel
@@ -114,12 +42,6 @@ bool ConvertModuleInformationFromLogEvent(
   return true;
 }
 
-struct ImageLoad64V0 {
-  ULONGLONG BaseAddress;
-  ULONG ModuleSize;
-  wchar_t ImageFileName[1];
-};
-
 bool ConvertModuleInformationFromLogEvent(
     const ImageLoad64V0* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
@@ -136,13 +58,6 @@ bool ConvertModuleInformationFromLogEvent(
 
   return true;
 }
-
-struct ImageLoad32V1 {
-  ULONG BaseAddress;
-  ULONG ModuleSize;
-  ULONG ProcessId;
-  wchar_t ImageFileName[1];
-};
 
 bool ConvertModuleInformationFromLogEvent(
     const ImageLoad32V1* data, size_t data_len, DWORD* process_id,
@@ -162,13 +77,6 @@ bool ConvertModuleInformationFromLogEvent(
   return true;
 }
 
-struct ImageLoad64V1 {
-  ULONGLONG BaseAddress;
-  ULONG ModuleSize;
-  ULONG ProcessId;
-  wchar_t ImageFileName[1];
-};
-
 bool ConvertModuleInformationFromLogEvent(
     const ImageLoad64V1* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
@@ -186,21 +94,6 @@ bool ConvertModuleInformationFromLogEvent(
 
   return true;
 }
-
-struct ImageLoad32V2 {
-  ULONG BaseAddress;
-  ULONG ModuleSize;
-  ULONG ProcessId;
-  ULONG ImageChecksum;
-  ULONG TimeDateStamp;
-  ULONG Reserved0;
-  ULONG DefaultBase;
-  ULONG Reserved1;
-  ULONG Reserved2;
-  ULONG Reserved3;
-  ULONG Reserved4;
-  wchar_t ImageFileName[1];
-};
 
 bool ConvertModuleInformationFromLogEvent(
     const ImageLoad32V2* data, size_t data_len, DWORD* process_id,
@@ -221,21 +114,6 @@ bool ConvertModuleInformationFromLogEvent(
 
   return true;
 }
-
-struct ImageLoad64V2 {
-  ULONGLONG BaseAddress;
-  ULONG ModuleSize;
-  ULONG ProcessId;
-  ULONG Reserved0;
-  ULONG ImageChecksum;
-  ULONG TimeDateStamp;
-  ULONGLONG DefaultBase;
-  ULONG Reserved1;
-  ULONG Reserved2;
-  ULONG Reserved3;
-  ULONG Reserved4;
-  wchar_t ImageFileName[1];
-};
 
 bool ConvertModuleInformationFromLogEvent(
     const ImageLoad64V2* data, size_t data_len, DWORD* process_id,
@@ -289,28 +167,34 @@ KernelLogConsumer::~KernelLogConsumer() {
   }
 
 void KernelLogConsumer::ProcessOneEvent(EVENT_TRACE* event) {
-  base::Time time;
-  time.FromFileTime(reinterpret_cast<FILETIME&>(event->Header.TimeStamp));
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   if (event->Header.Guid == kImageLoadEventClass) {
     if (is_64_bit_log_) {
       EVENT_HANDLER(kImageNotifyUnloadEvent, 0, ImageLoad64V0, OnModuleUnload)
-      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 0, ImageLoad64V0, OnModuleLoad)
+      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 0, ImageLoad64V0,
+          OnModuleIsLoaded)
       EVENT_HANDLER(kImageNotifyLoadEvent, 0, ImageLoad64V0, OnModuleLoad);
       EVENT_HANDLER(kImageNotifyUnloadEvent, 1, ImageLoad64V1, OnModuleUnload)
-      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 1, ImageLoad64V1, OnModuleLoad)
+      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 1, ImageLoad64V1,
+          OnModuleIsLoaded)
       EVENT_HANDLER(kImageNotifyLoadEvent, 1, ImageLoad64V1, OnModuleLoad);
       EVENT_HANDLER(kImageNotifyUnloadEvent, 2, ImageLoad64V2, OnModuleUnload)
-      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 2, ImageLoad64V2, OnModuleLoad)
+      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 2, ImageLoad64V2,
+          OnModuleIsLoaded)
       EVENT_HANDLER(kImageNotifyLoadEvent, 2, ImageLoad64V2, OnModuleLoad);
     } else {
       EVENT_HANDLER(kImageNotifyUnloadEvent, 0, ImageLoad32V0, OnModuleUnload)
-      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 0, ImageLoad32V0, OnModuleLoad)
+      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 0, ImageLoad32V0,
+          OnModuleIsLoaded)
       EVENT_HANDLER(kImageNotifyLoadEvent, 0, ImageLoad32V0, OnModuleLoad);
       EVENT_HANDLER(kImageNotifyUnloadEvent, 1, ImageLoad32V1, OnModuleUnload)
-      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 1, ImageLoad32V1, OnModuleLoad)
+      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 1, ImageLoad32V1,
+          OnModuleIsLoaded)
       EVENT_HANDLER(kImageNotifyLoadEvent, 1, ImageLoad32V1, OnModuleLoad);
       EVENT_HANDLER(kImageNotifyUnloadEvent, 2, ImageLoad32V2, OnModuleUnload)
-      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 2, ImageLoad32V2, OnModuleLoad)
+      EVENT_HANDLER(kImageNotifyIsLoadedEvent, 2, ImageLoad32V2,
+          OnModuleIsLoaded)
       EVENT_HANDLER(kImageNotifyLoadEvent, 2, ImageLoad32V2, OnModuleLoad);
     }
   } else if (event->Header.Guid == kEventTraceEventClass) {

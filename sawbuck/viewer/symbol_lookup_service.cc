@@ -18,6 +18,8 @@
 #include <algorithm>
 #include "base/message_loop.h"
 
+// We mandate that we outlive the background thread and the
+// UI thread we live on, so noop retention is safe.
 template <>
 struct RunnableMethodTraits<SymbolLookupService> {
   RunnableMethodTraits() {
@@ -33,10 +35,15 @@ struct RunnableMethodTraits<SymbolLookupService> {
   }
 };
 
-
 SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
     foreground_thread_(MessageLoop::current()), resolve_task_(NULL),
     callback_task_(NULL), next_request_id_(0), unprocessed_id_(0) {
+}
+
+SymbolLookupService::~SymbolLookupService() {
+  // Make sure there aren't any tasks pending for this object.
+  DCHECK(resolve_task_ == NULL);
+  DCHECK(callback_task_ == NULL);
 }
 
 SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
@@ -79,7 +86,15 @@ void SymbolLookupService::CancelRequest(Handle request_handle) {
 void SymbolLookupService::OnModuleIsLoaded(
     DWORD process_id, const base::Time& time,
     const ModuleInformation& module_info) {
-  return OnModuleLoad(process_id, time, module_info);
+  // This is a notification of a module that was loaded at the time
+  // logging was started. Instead of recording the event's issue time as
+  // the load time, we instead pretend the module was loaded from the
+  // beginning of time, which it might as well have been from our
+  // perspective.
+  // Note: on a system running the usual complement of processes and
+  // services, the OnModuleIsLoaded notification events have been
+  // observed to lag the starting time of the trace by minutes.
+  return OnModuleLoad(process_id, base::Time(), module_info);
 }
 
 void SymbolLookupService::OnModuleUnload(

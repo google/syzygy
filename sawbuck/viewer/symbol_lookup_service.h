@@ -67,8 +67,10 @@ class SymbolLookupService
       public KernelModuleEvents {
  public:
   SymbolLookupService();
+  ~SymbolLookupService();
 
   // Accessors for our background thread message loop.
+  // Note: This object must outlive the background thread.
   MessageLoop* background_thread() const { return background_thread_; }
   void set_background_thread(MessageLoop* background_thread) {
     background_thread_ = background_thread;
