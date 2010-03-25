@@ -133,9 +133,10 @@ class ViewerWindow
                     size_t length,
                     const char* message);
 
-  void EnableProviders(const std::vector<ProviderSettings>& settings);
-  void ReadProviderSettings(std::vector<ProviderSettings>* settings);
-  void WriteProviderSettings(const std::vector<ProviderSettings>& settings);
+  typedef std::vector<ProviderSettings> ProviderSettingsList;
+  void EnableProviders(const ProviderSettingsList& settings);
+  void ReadProviderSettings(ProviderSettingsList* settings);
+  void WriteProviderSettings(const ProviderSettingsList& settings);
 
   struct LogMessage {
     LogMessage() : level(0), process_id(0), thread_id(0), line(0) {

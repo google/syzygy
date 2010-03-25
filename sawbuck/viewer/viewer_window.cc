@@ -124,24 +124,70 @@ void ViewerWindow::StopCapturing() {
   kernel_controller_.Stop(NULL);
   if (log_consumer_thread_ != NULL) {
     DWORD ret = ::WaitForSingleObject(log_consumer_thread_, INFINITE);
-    ATLASSERT(ret == WAIT_OBJECT_0);
+    DCHECK_EQ(WAIT_OBJECT_0, ret);
     log_consumer_thread_.Close();
   }
   log_consumer_.reset();
 
   if (kernel_consumer_thread_ != NULL) {
     DWORD ret = ::WaitForSingleObject(kernel_consumer_thread_, INFINITE);
-    ATLASSERT(ret == WAIT_OBJECT_0);
+    DCHECK_EQ(WAIT_OBJECT_0, ret);
     kernel_consumer_thread_.Close();
   }
   kernel_consumer_.reset();
 }
 
+static bool TestAndOfferToStopSession(HWND parent,
+                                      const wchar_t* session_name) {
+  // Try and query the session properties.
+  // This can only succeed if the session exists.
+  EtwTraceProperties props;
+  HRESULT hr = EtwTraceController::Query(session_name, &props);
+  if (SUCCEEDED(hr)) {
+    std::wstring str;
+    str = StringPrintf(L"The log trace session \"%s\" is already in use. "
+        L"You may have another copy of Sawbuck running already, or some other "
+        L"application may be using the session, or (shudder) Sawbuck may have "
+        L"crashed previously.\n"
+        L"Press OK to close the session and start capturing.",
+            session_name);
+
+    int result = ::MessageBox(parent,
+                              str.c_str(),
+                              L"Trace Session in use",
+                              MB_OKCANCEL);
+
+    if (result == IDOK) {
+      // User pressed OK, attempt to stop the session.
+      hr = EtwTraceController::Stop(session_name, &props);
+      if (FAILED(hr)) {
+        str = StringPrintf(L"Failed to stop trace session \"%s\".",
+                           session_name);
+        ::MessageBox(parent, str.c_str(), L"Error", MB_OK);
+        return false;
+      }
+    } else {
+      // User cancelled.
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool ViewerWindow::StartCapturing() {
-  ATLASSERT(NULL == log_controller_.session());
-  ATLASSERT(NULL == kernel_controller_.session());
-  ATLASSERT(NULL == log_consumer_.get());
-  ATLASSERT(NULL == kernel_consumer_.get());
+  DCHECK(NULL == log_controller_.session());
+  DCHECK(NULL == kernel_controller_.session());
+  DCHECK(NULL == log_consumer_.get());
+  DCHECK(NULL == kernel_consumer_.get());
+
+  // Preflight the start operation by seeing whether one of the log sessions
+  // we're going to establish are already in use, and offer to stop them if so.
+  if (!TestAndOfferToStopSession(m_hWnd, kSessionName) ||
+      !TestAndOfferToStopSession(m_hWnd, KERNEL_LOGGER_NAME)) {
+    // One or both log sessions still in use.
+    return false;
+  }
 
   // Open a session for our log message capturing.
   HRESULT hr = log_controller_.StartRealtimeSession(kSessionName, 1024);
@@ -175,7 +221,7 @@ bool ViewerWindow::StartCapturing() {
 
   // And open a consumer on it.
   kernel_consumer_.reset(new KernelLogConsumer());
-  ATLASSERT(NULL != kernel_consumer_.get());
+  DCHECK(NULL != kernel_consumer_.get());
   kernel_consumer_->set_module_event_sink(&symbol_lookup_service_);
   kernel_consumer_->set_is_64_bit_log(Is64BitSystem());
   hr = kernel_consumer_->OpenRealtimeSession(KERNEL_LOGGER_NAME);
@@ -196,7 +242,7 @@ bool ViewerWindow::StartCapturing() {
 }
 
 void ViewerWindow::EnableProviders(
-    const std::vector<ProviderSettings>& settings) {
+    const ProviderSettingsList& settings) {
   for (size_t i = 0; i < settings.size(); ++i) {
     log_controller_.EnableProvider(
         settings[i].provider_guid, settings[i].log_level);
@@ -279,12 +325,13 @@ LRESULT ViewerWindow::OnConfigureProviders(WORD code,
                                            HWND wnd,
                                            BOOL& handled) {
   // Make a copy of our settings.
-  std::vector<ProviderSettings> settings(settings_);
+  ProviderSettingsList settings(settings_);
   ProviderDialog dialog(settings.size(),
                         settings.size() ? &settings[0] : NULL);
   if (dialog.DoModal(m_hWnd) == IDOK) {
     settings_ = settings;
     EnableProviders(settings_);
+    WriteProviderSettings(settings_);
   }
 
   return 0;
@@ -295,8 +342,8 @@ LRESULT ViewerWindow::OnToggleCapture(WORD code,
                                       HWND wnd,
                                       BOOL& handled) {
   bool capturing = log_controller_.session() != NULL;
-  ATLASSERT(capturing ==
-      ((UIGetState(ID_LOG_CAPTURE) & UPDUI_CHECKED) == UPDUI_CHECKED));
+  DCHECK_EQ(capturing,
+            ((UIGetState(ID_LOG_CAPTURE) & UPDUI_CHECKED) == UPDUI_CHECKED));
 
   if (capturing) {
     StopCapturing();
@@ -374,7 +421,7 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   UIAddMenuBar(m_hWnd);
 
   CMessageLoop* loop = g_sawbuck_app_module.GetMessageLoop();
-  ATLASSERT(loop != NULL);
+  DCHECK(loop != NULL);
   loop->AddMessageFilter(this);
   loop->AddIdleHandler(this);
 
@@ -464,7 +511,7 @@ void ViewerWindow::Unregister(int registration_cookie) {
 }
 
 void ViewerWindow::ReadProviderSettings(
-    std::vector<ProviderSettings>* settings) {
+    ProviderSettingsList* settings) {
   // Storage for the GUID->name mapping.
   typedef std::map<GUID, std::wstring> ProviderNamesMap;
   ProviderNamesMap provider_names;
@@ -514,7 +561,11 @@ void ViewerWindow::ReadProviderSettings(
 
   settings->clear();
 
-  // TODO(siggi): read the settings from registry.
+  // Read the provider names from registry, and attempt to read
+  // the trace level for each, defaulting to INFO.
+  CRegKey levels_key;
+  LONG error = levels_key.Open(HKEY_CURRENT_USER, config::kProviderLevelsKey);
+
   ProviderNamesMap::const_iterator it(provider_names.begin());
   for (; it != provider_names.end(); ++it) {
     ProviderSettings setting;
@@ -522,10 +573,44 @@ void ViewerWindow::ReadProviderSettings(
     setting.provider_guid = it->first;
     setting.provider_name = it->second;
 
+    if (levels_key != NULL) {
+      wchar_t value_name[40] = {};
+      CHECK(::StringFromGUID2(setting.provider_guid,
+                              value_name,
+                              arraysize(value_name)));
+      DWORD log_level = 0;
+      error = levels_key.QueryDWORDValue(value_name, log_level);
+      if (error == ERROR_SUCCESS)
+        setting.log_level = static_cast<UCHAR>(log_level);
+    }
+
     settings->push_back(setting);
   }
 }
 
 void ViewerWindow::WriteProviderSettings(
-    const std::vector<ProviderSettings>& settings) {
+    const ProviderSettingsList& settings) {
+  CRegKey levels_key;
+  LONG error = levels_key.Create(HKEY_CURRENT_USER,
+                                 config::kProviderLevelsKey,
+                                 0,
+                                 0,
+                                 KEY_WRITE);
+  if (error != ERROR_SUCCESS) {
+    LOG(ERROR) << "Error saving provider log levels: " << error;
+
+    return;
+  }
+
+  for (size_t i = 0; i < settings.size(); ++i) {
+    wchar_t value_name[40] = {};
+    CHECK(::StringFromGUID2(settings[i].provider_guid,
+                            value_name,
+                            arraysize(value_name)));
+
+    error = levels_key.SetDWORDValue(value_name, settings[i].log_level);
+    if (error != ERROR_SUCCESS)
+      LOG(ERROR) << "Error writing log level for provider " <<
+          settings[i].provider_name << ", error: " << error;
+  }
 }
