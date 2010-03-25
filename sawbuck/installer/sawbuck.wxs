@@ -3,20 +3,59 @@
   <!-- Version information -->
   <?include 'version.wxi' ?>
 
+  <?define ProductVersion="$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)" ?>
+  <?define RTMProductVersion="0.5.0.0" ?>
+  <?define UpgradeCode="{EC758BD3-1E77-4b54-A464-38824F53BCAF}" ?>
+
   <Product Id='*'
       Name='Sawbuck'
       Language='1033'
-      Version='$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)'
+      Version='$(var.ProductVersion)'
       Manufacturer='Google Inc'
-      UpgradeCode='{EC758BD3-1E77-4b54-A464-38824F53BCAF}' >
-    <Package Description='The Chrome log viewer.'
-             Comments='Comments'
+      UpgradeCode='$(var.UpgradeCode)' >
+    <Package Description='The Chrome Log Viewer.'
              Manufacturer='Google Inc'
              InstallerVersion='200'
              Compressed='yes' />
 
+    <!--
+      Boilerplate code to make sure we upgrade previous versions,
+      and to prevent downgrades for good measure.
+    -->
+    <Upgrade Id="$(var.UpgradeCode)">
+      <UpgradeVersion Minimum="$(var.ProductVersion)"
+                      IncludeMinimum="no"
+                      OnlyDetect="yes"
+                      Language="1033"
+                      Property="NEWPRODUCTFOUND" />
+      <UpgradeVersion Minimum="$(var.RTMProductVersion)"
+                      IncludeMinimum="yes"
+                      Maximum="$(var.ProductVersion)"
+                      IncludeMaximum="no"
+                      Language="1033"
+                      Property="UPGRADEFOUND" />
+    </Upgrade>
+
     <!-- 
-      Use the install dir UI which allows the user to pick the install location
+      Prevent downgrading.
+    -->
+    <CustomAction Id="PreventDowngrading"
+                  Error="Newer version already installed." />
+
+    <InstallExecuteSequence>
+      <Custom Action="PreventDowngrading"
+              After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
+      <RemoveExistingProducts After="InstallFinalize" />
+    </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Custom Action="PreventDowngrading"
+              After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
+    </InstallUISequence>
+
+    <!-- 
+      Use the install dir UI which displays our license agreement,
+      and also allows the user to pick the install location.
     -->
     <Property Id='WIXUI_INSTALLDIR' Value='SAWBUCKAPPLICATIONDIRECTORY' />
     <UI>
