@@ -19,6 +19,50 @@
 #include "base/logging_win.h"
 #include <initguid.h>  // NOLINT - must be last include.
 
+LogParser::LogParser() : log_event_sink_(NULL) {
+}
+
+LogParser::~LogParser() {
+}
+
+bool LogParser::ProcessOneEvent(PEVENT_TRACE event) {
+  // Is it a log message?
+  if (event->Header.Guid == logging::kLogEventId) {
+    if (event->Header.Class.Type == logging::LOG_MESSAGE &&
+        event->Header.Class.Version == 0) {
+      log_event_sink_->OnLogMessage(
+          event->Header.Class.Level, event->Header.ProcessId,
+          event->Header.ThreadId, event->Header.TimeStamp,
+          0, NULL, event->MofLength,
+          reinterpret_cast<const char*>(event->MofData));
+
+      // We processed the event.
+      return true;
+    } else if (event->Header.Class.Type ==
+        logging::LOG_MESSAGE_WITH_STACKTRACE &&
+        event->Header.Class.Version == 0) {
+      // The format of the binary log message is:
+      // 1. A DWORD containing the stack trace depth.
+      DWORD* depth = reinterpret_cast<DWORD*>(event->MofData);
+      // 2. The stack trace as an array of "depth" void pointers.
+      void** backtrace = reinterpret_cast<void**>(depth + 1);
+      // 3. Followed lastly by the ascii string message, which should
+      //    be zero-terminated, though we don't rely on that.
+      const char* msg = reinterpret_cast<const char*>(&backtrace[*depth]);
+      size_t trace_len = sizeof(depth) + sizeof(backtrace[0]) * *depth;
+      log_event_sink_->OnLogMessage(
+          event->Header.Class.Level, event->Header.ProcessId,
+          event->Header.ThreadId, event->Header.TimeStamp,
+          *depth, backtrace, event->MofLength - trace_len, msg);
+
+      // We processed the event.
+      return true;
+    }
+  }
+
+  return false;
+}
+
 LogConsumer* LogConsumer::current_ = NULL;
 
 LogConsumer::LogConsumer() {
@@ -31,34 +75,6 @@ LogConsumer::~LogConsumer() {
   DCHECK(current_ == this);
   current_ = NULL;
 }
-
-void LogConsumer::ProcessOneEvent(PEVENT_TRACE event) {
-    // Is it a log message?
-    if (event->Header.Guid == logging::kLogEventId) {
-      if (event->Header.Class.Type == logging::LOG_MESSAGE) {
-        log_event_sink_->OnLogMessage(
-            event->Header.Class.Level, event->Header.ProcessId,
-            event->Header.ThreadId, event->Header.TimeStamp,
-            0, NULL, event->MofLength,
-            reinterpret_cast<const char*>(event->MofData));
-      } else if (event->Header.Class.Type ==
-          logging::LOG_MESSAGE_WITH_STACKTRACE) {
-        // The format of the binary log message is:
-        // 1. A DWORD containing the stack trace depth.
-        DWORD* depth = reinterpret_cast<DWORD*>(event->MofData);
-        // 2. The stack trace as an array of "depth" void pointers.
-        void** backtrace = reinterpret_cast<void**>(depth + 1);
-        // 3. Followed lastly by the ascii string message, which should
-        //    be zero-terminated, though we don't rely on that.
-        const char* msg = reinterpret_cast<const char*>(&backtrace[*depth]);
-        size_t trace_len = sizeof(depth) + sizeof(backtrace[0]) * *depth;
-        log_event_sink_->OnLogMessage(
-            event->Header.Class.Level, event->Header.ProcessId,
-            event->Header.ThreadId, event->Header.TimeStamp,
-            *depth, backtrace, event->MofLength - trace_len, msg);
-      }
-    }
-  }
 
 void LogConsumer::ProcessEvent(PEVENT_TRACE event) {
   DCHECK(current_ != NULL);

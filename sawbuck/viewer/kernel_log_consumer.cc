@@ -137,17 +137,11 @@ bool ConvertModuleInformationFromLogEvent(
 
 }  // namespace
 
-KernelLogConsumer* KernelLogConsumer::current_ = NULL;
-
-KernelLogConsumer::KernelLogConsumer() : module_event_sink_(NULL),
+KernelLogParser::KernelLogParser() : module_event_sink_(NULL),
     is_64_bit_log_(false) {
-  DCHECK(current_ == NULL);
-  current_ = this;
 }
 
-KernelLogConsumer::~KernelLogConsumer() {
-  DCHECK(current_ == this);
-  current_ = NULL;
+KernelLogParser::~KernelLogParser() {
 }
 
 #define EVENT_HANDLER(type, version, event_type, handler) \
@@ -163,10 +157,11 @@ KernelLogConsumer::~KernelLogConsumer() {
       if (process_id == 0) \
         process_id = event->Header.ProcessId; \
       module_event_sink_->handler(process_id, time, info); \
+      return true; \
     } \
   }
 
-void KernelLogConsumer::ProcessOneEvent(EVENT_TRACE* event) {
+bool KernelLogParser::ProcessOneEvent(EVENT_TRACE* event) {
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   if (event->Header.Guid == kImageLoadEventClass) {
@@ -206,7 +201,22 @@ void KernelLogConsumer::ProcessOneEvent(EVENT_TRACE* event) {
         is_64_bit_log_ = true;
       }
     }
+    return true;
   }
+
+  return false;
+}
+
+KernelLogConsumer* KernelLogConsumer::current_ = NULL;
+
+KernelLogConsumer::KernelLogConsumer() {
+  DCHECK(current_ == NULL);
+  current_ = this;
+}
+
+KernelLogConsumer::~KernelLogConsumer() {
+  DCHECK(current_ == this);
+  current_ = NULL;
 }
 
 void KernelLogConsumer::ProcessEvent(EVENT_TRACE* event) {

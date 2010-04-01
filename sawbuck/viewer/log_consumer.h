@@ -36,24 +36,32 @@ class LogEvents {
                             const char* message) = 0;
 };
 
-class LogConsumer
-    : public EtwTraceConsumerBase<LogConsumer> {
+class LogParser {
  public:
-  LogConsumer();
-  ~LogConsumer();
+  LogParser();
+  ~LogParser();
 
   void set_event_sink(LogEvents* log_event_sink){
     log_event_sink_ = log_event_sink;
   }
 
+  bool ProcessOneEvent(EVENT_TRACE* event);
+
+ private:
+  // Our log event sink.
+  LogEvents* log_event_sink_;
+};
+
+class LogConsumer
+    : public EtwTraceConsumerBase<LogConsumer>,
+      public LogParser {
+ public:
+  LogConsumer();
+  ~LogConsumer();
+
   static DWORD WINAPI ThreadProc(LPVOID param);
   static void ProcessEvent(EVENT_TRACE* event);
  private:
-  void ProcessOneEvent(EVENT_TRACE* event);
-
-  // Our module event sink.
-  LogEvents* log_event_sink_;
-
   static LogConsumer* current_;
 };
 

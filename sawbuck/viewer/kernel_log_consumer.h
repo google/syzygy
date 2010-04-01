@@ -40,11 +40,10 @@ class KernelModuleEvents {
                             const ModuleInformation& module_info) = 0;
 };
 
-class KernelLogConsumer
-    : public EtwTraceConsumerBase<KernelLogConsumer> {
+class KernelLogParser {
  public:
-  KernelLogConsumer();
-  ~KernelLogConsumer();
+  KernelLogParser();
+  ~KernelLogParser();
 
   void set_is_64_bit_log(bool is_64_bit_log) {
     is_64_bit_log_ = is_64_bit_log;
@@ -54,19 +53,31 @@ class KernelLogConsumer
     module_event_sink_ = module_event_sink;
   }
 
-  static DWORD WINAPI ThreadProc(void* param);
-  static void ProcessEvent(EVENT_TRACE* event);
+  // Process an event, issue callbacks to event sinks as appropriate.
+  // @param event the event to process.
+  // @returns true iff the event resulted in a notification, false otherwise.
+  bool ProcessOneEvent(EVENT_TRACE* event);
 
  private:
-  void ProcessOneEvent(EVENT_TRACE* event);
-
   // Our module event sink.
   KernelModuleEvents* module_event_sink_;
 
   // True iff we've evidence that the log we're consuming
   // originates from a 64 bit machine.
   bool is_64_bit_log_;
+};
 
+class KernelLogConsumer
+    : public EtwTraceConsumerBase<KernelLogConsumer>,
+      public KernelLogParser {
+ public:
+  KernelLogConsumer();
+  ~KernelLogConsumer();
+
+  static DWORD WINAPI ThreadProc(void* param);
+  static void ProcessEvent(EVENT_TRACE* event);
+
+ private:
   static KernelLogConsumer* current_;
 };
 

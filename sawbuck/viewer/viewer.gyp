@@ -137,6 +137,7 @@
       'sources': [
         'filtered_log_view_unittest.cc',
         'kernel_log_consumer_unittest.cc',
+        'log_consumer_unittest.cc',
         'sawbuck_guids.h',
         'symbol_lookup_service_unittest.cc',
         'unittest_main.cc',
