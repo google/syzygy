@@ -40,8 +40,6 @@ class ISymbolLookupService {
   // @param process_id the process where @address was observed.
   // @param time the time when @p address was observed.
   // @param address the address to lookup.
-  // @param context an arbitrary context that will be provided back to
-  //    @p callback on resolution.
   // @param callback a callback object which gets invoked when resolution
   //    completes.
   // @returns the request handle on success, or kInvalidHandle on error.

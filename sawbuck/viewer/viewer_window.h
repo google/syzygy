@@ -20,14 +20,15 @@
 #include <atlcrack.h>
 #include <atlapp.h>
 #include <atlctrls.h>
+#include <atldlgs.h>
 #include <atlframe.h>
 #include <atlmisc.h>
 #include <atlres.h>
-#include <atlstr.h>
 #include <map>
 #include <string>
 #include <vector>
 #include "base/event_trace_controller_win.h"
+#include "base/file_path.h"
 #include "base/scoped_ptr.h"
 #include "base/lock.h"
 #include "base/thread.h"
@@ -61,6 +62,7 @@ class ViewerWindow
   BEGIN_MSG_MAP_EX(ViewerWindow)
     MSG_WM_CREATE(OnCreate)
     MSG_WM_DESTROY(OnDestroy)
+    COMMAND_ID_HANDLER(ID_FILE_IMPORT, OnImport)
     COMMAND_ID_HANDLER(ID_FILE_EXIT, OnExit)
     COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAbout)
     COMMAND_ID_HANDLER(ID_LOG_CONFIGUREPROVIDERS, OnConfigureProviders)
@@ -72,6 +74,7 @@ class ViewerWindow
   END_MSG_MAP()
 
   BEGIN_UPDATE_UI_MAP(ViewerWindow)
+    UPDATE_ELEMENT(ID_FILE_IMPORT, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_LOG_CAPTURE, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_LOG_FILTER, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_EDIT_CUT, UPDUI_MENUBAR)
@@ -102,6 +105,7 @@ class ViewerWindow
   virtual void Unregister(int registration_cookie);
 
  private:
+  LRESULT OnImport(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
   LRESULT OnExit(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
   LRESULT OnAbout(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
   LRESULT OnConfigureProviders(WORD code, LPARAM lparam, HWND wnd,
@@ -120,6 +124,9 @@ class ViewerWindow
   bool StartCapturing();
 
  private:
+  // Consumes the logs in paths.
+  void ImportLogFiles(const std::vector<FilePath>& paths);
+
   // Called on UI thread to dispatch notifications to listeners.
   void NotifyLogViewNewItems();
   void NotifyLogViewCleared();
@@ -186,8 +193,8 @@ class ViewerWindow
   // NULL until StartConsuming. Valid until StopConsuming.
   scoped_ptr<LogConsumer> log_consumer_;
   scoped_ptr<KernelLogConsumer> kernel_consumer_;
-  CHandle log_consumer_thread_;
-  CHandle kernel_consumer_thread_;
+  base::Thread log_consumer_thread_;
+  base::Thread kernel_consumer_thread_;
 };
 
 #endif  // SAWBUCK_VIEWER_VIEWER_WINDOW_H_

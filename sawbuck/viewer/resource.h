@@ -27,16 +27,17 @@
 #define IDC_EXCLUDE_RE                  1003
 #define IDC_INCLUDE_RE                  1004
 #define ID_FILE_EXIT                    4001
-#define ID_LOG_CAPTURE                  4002
-#define ID_LOG_CONFIGUREPROVIDERS       4003
-#define ID_LOG_FILTER                   4004
+#define ID_FILE_IMPORT                  4002
+#define ID_LOG_CAPTURE                  4003
+#define ID_LOG_CONFIGUREPROVIDERS       4004
+#define ID_LOG_FILTER                   4005
 
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        105
-#define _APS_NEXT_COMMAND_VALUE         4005
+#define _APS_NEXT_COMMAND_VALUE         4006
 #define _APS_NEXT_CONTROL_VALUE         1005
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

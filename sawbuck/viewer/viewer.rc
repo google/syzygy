@@ -56,6 +56,8 @@ IDR_MAIN_FRAME MENU
 BEGIN
     POPUP "File"
     BEGIN
+        MENUITEM "&Import Log..."               ID_FILE_IMPORT
+        MENUITEM SEPARATOR
         MENUITEM "E&xit",                       ID_FILE_EXIT
     END
     POPUP "Edit"

@@ -33,16 +33,28 @@ namespace {
 // so noop for retain is safe for the ViewerWindow.
 template <>
 struct RunnableMethodTraits<ViewerWindow> {
-  RunnableMethodTraits() {
-  }
-
-  ~RunnableMethodTraits() {
-  }
-
   void RetainCallee(ViewerWindow* window) {
   }
 
   void ReleaseCallee(ViewerWindow* window) {
+  }
+};
+
+template <>
+struct RunnableMethodTraits<LogConsumer> {
+  void RetainCallee(LogConsumer* window) {
+  }
+
+  void ReleaseCallee(LogConsumer* window) {
+  }
+};
+
+template <>
+struct RunnableMethodTraits<KernelLogConsumer> {
+  void RetainCallee(KernelLogConsumer* window) {
+  }
+
+  void ReleaseCallee(KernelLogConsumer* window) {
   }
 };
 
@@ -86,7 +98,9 @@ void ViewerWindow::CompileAsserts() {
 
 ViewerWindow::ViewerWindow() : log_messages_dirty_(false),
     symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1),
-    log_viewer_(this), ui_loop_(NULL) {
+    log_viewer_(this), ui_loop_(NULL),
+    log_consumer_thread_("Event log consumer"),
+    kernel_consumer_thread_("Kernel log consumer") {
   ui_loop_ = MessageLoop::current();
   DCHECK(ui_loop_ != NULL);
 
@@ -106,6 +120,112 @@ ViewerWindow::~ViewerWindow() {
   symbol_lookup_worker_.Stop();
 }
 
+namespace {
+
+class ImportLogConsumer
+    : public EtwTraceConsumerBase<ImportLogConsumer>,
+      public LogParser,
+      public KernelLogParser {
+ public:
+  ImportLogConsumer();
+  ~ImportLogConsumer();
+
+  static void ProcessEvent(PEVENT_TRACE event);
+
+ private:
+  static ImportLogConsumer* current_;
+};
+
+ImportLogConsumer* ImportLogConsumer::current_ = NULL;
+
+ImportLogConsumer::ImportLogConsumer() {
+  DCHECK(current_ == NULL);
+  current_ = this;
+}
+
+ImportLogConsumer::~ImportLogConsumer() {
+  DCHECK(current_ == this);
+  current_ = NULL;
+}
+
+void ImportLogConsumer::ProcessEvent(PEVENT_TRACE event) {
+  DCHECK(current_ != NULL);
+
+  if (!current_->LogParser::ProcessOneEvent(event) &&
+      !current_->KernelLogParser::ProcessOneEvent(event)) {
+    LOG(INFO) << "Unknown event";
+  }
+}
+
+}  // namespace
+
+void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
+  ImportLogConsumer import_consumer;
+
+  // Open all the log files.
+  for (size_t i = 0; i < paths.size(); ++i) {
+    HRESULT hr = import_consumer.OpenFileSession(paths[i].value().c_str());
+
+    if (FAILED(hr)) {
+      std::wstring msg =
+          StringPrintf(L"Failed to open log file \"%ls\", error 0x%08X",
+                       paths[i].value(),
+                       hr);
+
+      ::MessageBox(m_hWnd, msg.c_str(), L"Error Importing Logs", MB_OK);
+      return;
+    }
+  }
+
+  // Attach our event sinks to the consumer.
+  import_consumer.set_event_sink(this);
+  import_consumer.set_module_event_sink(&symbol_lookup_service_);
+
+  // Consume the files.
+  // TODO(siggi): Report progress here.
+  HRESULT hr = import_consumer.Consume();
+  if (FAILED(hr)) {
+    std::wstring msg =
+        StringPrintf(L"Import failed with error 0x%08X",
+                     hr);
+    ::MessageBox(m_hWnd, msg.c_str(), L"Error Importing Logs", MB_OK);
+  }
+}
+
+const wchar_t kLogFileFilter[] =
+    L"Event Trace Files\0*.etl\0"
+    L"All Files\n\0*.*\0";
+
+LRESULT ViewerWindow::OnImport(
+    WORD code, LPARAM lparam, HWND wnd, BOOL& handled) {
+  CMultiFileDialog dialog(NULL, NULL, 0, kLogFileFilter, m_hWnd);
+
+  if (dialog.DoModal() == IDOK) {
+    std::vector<FilePath> paths;
+
+    std::wstring path;
+    int len = dialog.GetFirstPathName(NULL, 0);
+    DCHECK(len != 0);
+    path.resize(len);
+    len = dialog.GetFirstPathName(&path[0], path.size());
+    DCHECK(len != 0);
+
+    do {
+      paths.push_back(FilePath(path));
+
+      len = dialog.GetNextPathName(NULL, 0);
+      if (len != 0) {
+        path.resize(len);
+        len = dialog.GetNextPathName(&path[0], path.size());
+      }
+    } while (len != 0);
+
+    ImportLogFiles(paths);
+  }
+
+  return 0;
+}
+
 LRESULT ViewerWindow::OnExit(
     WORD code, LPARAM lparam, HWND wnd, BOOL& handled) {
   PostMessage(WM_CLOSE);
@@ -122,18 +242,10 @@ LRESULT ViewerWindow::OnAbout(
 void ViewerWindow::StopCapturing() {
   log_controller_.Stop(NULL);
   kernel_controller_.Stop(NULL);
-  if (log_consumer_thread_ != NULL) {
-    DWORD ret = ::WaitForSingleObject(log_consumer_thread_, INFINITE);
-    DCHECK_EQ(WAIT_OBJECT_0, ret);
-    log_consumer_thread_.Close();
-  }
+  log_consumer_thread_.Stop();
   log_consumer_.reset();
 
-  if (kernel_consumer_thread_ != NULL) {
-    DWORD ret = ::WaitForSingleObject(kernel_consumer_thread_, INFINITE);
-    DCHECK_EQ(WAIT_OBJECT_0, ret);
-    kernel_consumer_thread_.Close();
-  }
+  kernel_consumer_thread_.Stop();
   kernel_consumer_.reset();
 }
 
@@ -145,7 +257,7 @@ static bool TestAndOfferToStopSession(HWND parent,
   HRESULT hr = EtwTraceController::Query(session_name, &props);
   if (SUCCEEDED(hr)) {
     std::wstring str;
-    str = StringPrintf(L"The log trace session \"%s\" is already in use. "
+    str = StringPrintf(L"The log trace session \"%ls\" is already in use. "
         L"You may have another copy of Sawbuck running already, or some other "
         L"application may be using the session, or (shudder) Sawbuck may have "
         L"crashed previously.\n"
@@ -161,7 +273,7 @@ static bool TestAndOfferToStopSession(HWND parent,
       // User pressed OK, attempt to stop the session.
       hr = EtwTraceController::Stop(session_name, &props);
       if (FAILED(hr)) {
-        str = StringPrintf(L"Failed to stop trace session \"%s\".",
+        str = StringPrintf(L"Failed to stop trace session \"%ls\".",
                            session_name);
         ::MessageBox(parent, str.c_str(), L"Error", MB_OK);
         return false;
@@ -202,8 +314,9 @@ bool ViewerWindow::StartCapturing() {
     return false;
 
   // Consume it in a new thread.
-  log_consumer_thread_.Attach(::CreateThread(
-      NULL, 0, LogConsumer::ThreadProc, log_consumer_.get(), 0, NULL));
+  CHECK(log_consumer_thread_.Start());
+  log_consumer_thread_.message_loop()->PostTask(FROM_HERE,
+      NewRunnableMethod(log_consumer_.get(), &LogConsumer::Consume));
 
   // Start the kernel logger session.
   EtwTraceProperties prop;
@@ -229,11 +342,9 @@ bool ViewerWindow::StartCapturing() {
     return false;
 
   // Consume it in a new thread.
-  kernel_consumer_thread_.Attach(::CreateThread(
-      NULL, 0, KernelLogConsumer::ThreadProc,
-      kernel_consumer_.get(), 0, NULL));
-  if (kernel_consumer_thread_ == NULL)
-    hr = AtlHresultFromLastError();
+  CHECK(kernel_consumer_thread_.Start());
+  kernel_consumer_thread_.message_loop()->PostTask(FROM_HERE,
+      NewRunnableMethod(kernel_consumer_.get(), &KernelLogConsumer::Consume));
 
   if (SUCCEEDED(hr))
     EnableProviders(settings_);
@@ -356,6 +467,8 @@ LRESULT ViewerWindow::OnToggleCapture(WORD code,
     }
   }
 
+  // Only allow import when not capturing.
+  UIEnable(ID_FILE_IMPORT, !capturing);
   UISetCheck(ID_LOG_CAPTURE, capturing);
 
   return 0;
@@ -375,6 +488,10 @@ BOOL ViewerWindow::PreTranslateMessage(MSG* msg) {
 int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   // TODO(siggi): Make the toolbar useful.
   // CreateSimpleToolBar();
+
+  // Import is enabled, except when capturing.
+  UIEnable(ID_FILE_IMPORT, true);
+
   // Edit menu is disabled by default.
   UIEnable(ID_EDIT_CUT, false);
   UIEnable(ID_EDIT_COPY, false);
