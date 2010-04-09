@@ -104,6 +104,8 @@ class ViewerWindow
                         int* registration_cookie);
   virtual void Unregister(int registration_cookie);
 
+  virtual void SetCapture(bool capture);
+
  private:
   LRESULT OnImport(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
   LRESULT OnExit(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);

@@ -196,6 +196,24 @@ const wchar_t kLogFileFilter[] =
     L"Event Trace Files\0*.etl\0"
     L"All Files\n\0*.*\0";
 
+void ViewerWindow::SetCapture(bool capture) {
+  bool capturing = (log_controller_.session() != NULL);
+  if (capturing != capture) {
+    if (capture) {
+      if (!StartCapturing()) {
+        capture = false;
+        StopCapturing();
+      }
+    } else {
+      StopCapturing();
+    }
+  }
+
+  // Only allow import when not capturing.
+  UIEnable(ID_FILE_IMPORT, !capture);
+  UISetCheck(ID_LOG_CAPTURE, capture);
+}
+
 LRESULT ViewerWindow::OnImport(
     WORD code, LPARAM lparam, HWND wnd, BOOL& handled) {
   CMultiFileDialog dialog(NULL, NULL, 0, kLogFileFilter, m_hWnd);
@@ -453,23 +471,9 @@ LRESULT ViewerWindow::OnToggleCapture(WORD code,
                                       HWND wnd,
                                       BOOL& handled) {
   bool capturing = log_controller_.session() != NULL;
-  DCHECK_EQ(capturing,
+  DCHECK_EQ(capturing, 
             ((UIGetState(ID_LOG_CAPTURE) & UPDUI_CHECKED) == UPDUI_CHECKED));
-
-  if (capturing) {
-    StopCapturing();
-    capturing = false;
-  } else {
-    if (StartCapturing()) {
-      capturing = true;
-    } else {
-      StopCapturing();
-    }
-  }
-
-  // Only allow import when not capturing.
-  UIEnable(ID_FILE_IMPORT, !capturing);
-  UISetCheck(ID_LOG_CAPTURE, capturing);
+  SetCapture(!capturing);
 
   return 0;
 }

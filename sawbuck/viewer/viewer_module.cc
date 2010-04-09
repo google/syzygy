@@ -109,6 +109,10 @@ int APIENTRY wWinMain(HINSTANCE instance,
   window.ShowWindow(show);
   window.UpdateWindow();
 
+  if (CommandLine::ForCurrentProcess()->HasSwitch("start-capture")) {
+    window.SetCapture(true);
+  }
+
   hybrid.Run(&hybrid);
 
   g_sawbuck_app_module.RemoveMessageLoop();

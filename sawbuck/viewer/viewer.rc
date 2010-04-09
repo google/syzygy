@@ -56,7 +56,7 @@ IDR_MAIN_FRAME MENU
 BEGIN
     POPUP "File"
     BEGIN
-        MENUITEM "&Import Log..."               ID_FILE_IMPORT
+        MENUITEM "&Import Log...",              ID_FILE_IMPORT
         MENUITEM SEPARATOR
         MENUITEM "E&xit",                       ID_FILE_EXIT
     END
@@ -93,10 +93,10 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "Filter Log"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,175,84,38,14
-    PUSHBUTTON      "Cancel",IDCANCEL,219,84,38,14
     EDITTEXT        IDC_INCLUDE_RE,54,31,189,14,ES_AUTOHSCROLL
     EDITTEXT        IDC_EXCLUDE_RE,54,53,189,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,175,84,38,14
+    PUSHBUTTON      "Cancel",IDCANCEL,219,84,38,14
     LTEXT           "Enter regular expressions",IDC_STATIC,20,15,86,8
     LTEXT           "Include:",IDC_STATIC,20,34,28,8
     LTEXT           "Exclude:",IDC_STATIC,20,56,28,8
@@ -144,6 +144,7 @@ BEGIN
     "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
     VK_DELETE,      ID_EDIT_CLEAR,          VIRTKEY, NOINVERT
     "A",            ID_EDIT_SELECT_ALL,     VIRTKEY, CONTROL, NOINVERT
+    "F",            ID_LOG_FILTER,          VIRTKEY, CONTROL, NOINVERT
 END
 
 
