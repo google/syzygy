@@ -84,7 +84,7 @@ class HybridMessageLoop
 
 int APIENTRY wWinMain(HINSTANCE instance,
                       HINSTANCE prev_instance,
-                      LPTSTR cmd_line,
+                      LPTSTR /*cmd_line*/,
                       int show) {
   CommandLine::Init(0, NULL);
   base::AtExitManager at_exit;
@@ -109,7 +109,15 @@ int APIENTRY wWinMain(HINSTANCE instance,
   window.ShowWindow(show);
   window.UpdateWindow();
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch("start-capture")) {
+  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  if (cmd_line->HasSwitch("import")) {
+    std::vector<std::wstring> files(cmd_line->GetLooseValues());
+    std::vector<FilePath> paths;
+    for (size_t i = 0; i < files.size(); ++i) {
+      paths.push_back(FilePath(files[i]));
+    }
+    window.ImportLogFiles(paths);
+  } else if (cmd_line->HasSwitch("start-capture")) {
     window.SetCapture(true);
   }
 
@@ -121,6 +129,3 @@ int APIENTRY wWinMain(HINSTANCE instance,
 
   return 0;
 }
-
-// TODO(siggi): figure a better way to do this.
-#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")  // NOLINT

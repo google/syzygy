@@ -104,7 +104,11 @@ class ViewerWindow
                         int* registration_cookie);
   virtual void Unregister(int registration_cookie);
 
+  // Turn capturing on or off.
   virtual void SetCapture(bool capture);
+
+  // Consumes the logs in paths.
+  void ImportLogFiles(const std::vector<FilePath>& paths);
 
  private:
   LRESULT OnImport(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
@@ -126,9 +130,6 @@ class ViewerWindow
   bool StartCapturing();
 
  private:
-  // Consumes the logs in paths.
-  void ImportLogFiles(const std::vector<FilePath>& paths);
-
   // Called on UI thread to dispatch notifications to listeners.
   void NotifyLogViewNewItems();
   void NotifyLogViewCleared();

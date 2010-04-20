@@ -67,6 +67,8 @@
       'target_name': 'log_view_lib',
       'type': 'static_library',
       'sources': [
+        'buffer_parser.cc',
+        'buffer_parser.h',
         'filtered_log_view.cc',
         'filtered_log_view.h',
         'provider_dialog.cc',
@@ -135,6 +137,7 @@
       'target_name': 'log_view_unittests',
       'type': 'executable',
       'sources': [
+        'buffer_parser_unittest.cc',
         'filtered_log_view_unittest.cc',
         'kernel_log_consumer_unittest.cc',
         'log_consumer_unittest.cc',
@@ -171,7 +174,11 @@
       'msvs_settings': {
         'VCLinkerTool': {
           'SubSystem': 2,
+          # 2 is requireAdministrator UAC level.
           'UACExecutionLevel': 2,
+        },
+        'VCManifestTool': {
+          'AdditionalManifestFiles': '$(ProjectDir)\\sawbuck.exe.manifest',
         },
       },
     },

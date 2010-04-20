@@ -169,7 +169,7 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
     if (FAILED(hr)) {
       std::wstring msg =
           StringPrintf(L"Failed to open log file \"%ls\", error 0x%08X",
-                       paths[i].value(),
+                       paths[i].value().c_str(),
                        hr);
 
       ::MessageBox(m_hWnd, msg.c_str(), L"Error Importing Logs", MB_OK);
@@ -471,7 +471,7 @@ LRESULT ViewerWindow::OnToggleCapture(WORD code,
                                       HWND wnd,
                                       BOOL& handled) {
   bool capturing = log_controller_.session() != NULL;
-  DCHECK_EQ(capturing, 
+  DCHECK_EQ(capturing,
             ((UIGetState(ID_LOG_CAPTURE) & UPDUI_CHECKED) == UPDUI_CHECKED));
   SetCapture(!capturing);
 
