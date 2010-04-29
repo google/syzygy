@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "base/basictypes.h"
+#include "base/logging.h"
 #include "base/pe_image.h"
 #include "base/string_util.h"
 #include "base/sys_info.h"
@@ -143,64 +144,35 @@ BOOL CALLBACK SymbolCache::SymbolCallback(HANDLE process,
 
   switch (action) {
     case CBA_DEBUG_INFO:
-      ATLTRACE(L"CBA_DEBUG_INFO(%s)\n", reinterpret_cast<const char*>(data));
+      LOG(INFO) << "CBA_DEBUG_INFO(" << reinterpret_cast<const wchar_t*>(data)
+          << ")";
       break;
 
     case CBA_DEFERRED_SYMBOL_LOAD_CANCEL:
-      ATLTRACE(L"CBA_DEFERRED_SYMBOL_LOAD_CANCEL\n");
+      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_CANCEL";
       break;
 
     case CBA_DEFERRED_SYMBOL_LOAD_COMPLETE: {
       IMAGEHLP_DEFERRED_SYMBOL_LOAD64* loaded =
           reinterpret_cast<IMAGEHLP_DEFERRED_SYMBOL_LOAD64*>(data);
-      ATLTRACE(L"CBA_DEFERRED_SYMBOL_LOAD_COMPLETE(%s)\n", loaded->FileName);
+      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_COMPLETE(" << loaded->FileName
+          << ")";
       break;
     }
 
     case CBA_DEFERRED_SYMBOL_LOAD_FAILURE: {
       IMAGEHLP_DEFERRED_SYMBOL_LOAD64* loaded =
           reinterpret_cast<IMAGEHLP_DEFERRED_SYMBOL_LOAD64*>(data);
-      ATLTRACE(L"CBA_DEFERRED_SYMBOL_LOAD_FAILURE(0x%p)\n",
-          loaded->BaseOfImage);
-
-      // Translate \SystemRoot.
-      std::wstring file_name(loaded->FileName);
-      const wchar_t kSystemRoot[] = L"\\SystemRoot\\";
-      if (StartsWith(file_name, kSystemRoot, false)) {
-        std::wstring system_root(base::SysInfo::GetEnvVar(L"SYSTEMROOT"));
-        if (!system_root.empty()) {
-          file_name = system_root +
-              file_name.substr(arraysize(kSystemRoot) - 2);
-
-          wcsncpy_s(loaded->FileName, file_name.c_str(), _TRUNCATE);
-          loaded->Reparse = TRUE;
-          return TRUE;
-        }
-      }
-
-      // See if symsrv can supply the executable.
-      ModuleInformation info;
-      if (cache->GetModuleInformation(loaded->BaseOfImage, &info)) {
-        wchar_t found_file[MAX_PATH] = {};
-        BOOL found = ::SymFindFileInPath(cache->process_handle_,
-            NULL, loaded->FileName,
-            reinterpret_cast<void*>(info.time_date_stamp),
-            info.module_size, NULL, SSRVOPT_DWORD,
-            found_file, NULL, NULL);
-
-        if (found) {
-          wcsncpy_s(loaded->FileName, found_file, arraysize(found_file));
-          loaded->Reparse = TRUE;
-          return TRUE;
-        }
-      }
+      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_FAILURE(0x\n" <<
+          loaded->BaseOfImage << ")";
       break;
     }
 
     case CBA_DEFERRED_SYMBOL_LOAD_PARTIAL: {
       IMAGEHLP_DEFERRED_SYMBOL_LOAD64* loaded =
           reinterpret_cast<IMAGEHLP_DEFERRED_SYMBOL_LOAD64*>(data);
-      ATLTRACE(L"CBA_DEFERRED_SYMBOL_LOAD_PARTIAL(%s)\n", loaded->FileName);
+      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_PARTIAL(" << loaded->FileName
+          << ")";
 
       ModuleInformation info;
       if (cache->GetModuleInformation(loaded->BaseOfImage, &info)) {
@@ -215,30 +187,33 @@ BOOL CALLBACK SymbolCache::SymbolCallback(HANDLE process,
     case CBA_DEFERRED_SYMBOL_LOAD_START: {
       IMAGEHLP_DEFERRED_SYMBOL_LOAD64* loaded =
           reinterpret_cast<IMAGEHLP_DEFERRED_SYMBOL_LOAD64*>(data);
-      ATLTRACE(L"CBA_DEFERRED_SYMBOL_LOAD_START(0x%p)\n", loaded->BaseOfImage);
+      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_START(0x" << loaded->BaseOfImage
+          << ")\n";
       break;
     }
 
     case CBA_DUPLICATE_SYMBOL:
-      ATLTRACE(L"CBA_DUPLICATE_SYMBOL\n");
+      LOG(INFO) << "CBA_DUPLICATE_SYMBOL";
       break;
 
     case CBA_EVENT: {
       IMAGEHLP_CBA_EVENT* event = reinterpret_cast<IMAGEHLP_CBA_EVENT*>(data);
-      ATLTRACE(L"CBA_EVENT(0x%08X, %s)\n", event->code, event->desc);
+      LOG(INFO) << "CBA_EVENT(" << std::hex << event->code << ", "
+          << event->desc << ")";
       break;
     }
 
     case CBA_READ_MEMORY: {
       IMAGEHLP_CBA_READ_MEMORY* read_mem =
           reinterpret_cast<IMAGEHLP_CBA_READ_MEMORY*>(data);
-      ATLTRACE(L"CBA_READ_MEMORY(0x%08X, %d)\n",
-          reinterpret_cast<char*>(read_mem->addr), read_mem->bytes);
+      LOG(INFO) << "CBA_READ_MEMORY("
+          << reinterpret_cast<void*>(read_mem->addr) << ", "
+          << read_mem->bytes;
       break;
     }
 
     case CBA_SET_OPTIONS:
-      ATLTRACE(L"CBA_SET_OPTIONS\n");
+      LOG(INFO) << "CBA_SET_OPTIONS";
       break;
 
 // The SDK does not (yet) define these constants and structures.
@@ -256,7 +231,7 @@ BOOL CALLBACK SymbolCache::SymbolCallback(HANDLE process,
 #endif
 
     case CBA_SYMBOLS_UNLOADED:
-      ATLTRACE(L"CBA_SYMBOLS_UNLOADED\n");
+      LOG(INFO) << "CBA_SYMBOLS_UNLOADED";
       break;
   }
 
@@ -274,6 +249,5 @@ bool SymbolCache::GetModuleInformation(Address load_address,
 
   return false;
 }
-
 
 }  // namespace sym_util

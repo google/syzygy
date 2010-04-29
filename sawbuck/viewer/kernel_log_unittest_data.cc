@@ -18,7 +18,7 @@
 
 namespace testing {
 
-sym_util::ModuleInformation module_list[] = {
+const sym_util::ModuleInformation module_list[] = {
   {
     0x01160000, // base_address
     0x0019E000, // module_size
@@ -193,5 +193,65 @@ sym_util::ModuleInformation module_list[] = {
 };
 
 const size_t kNumModules = arraysize(module_list);
+
+const KernelProcessEvents::ProcessInfo process_list[] = {
+  {
+    0,  // process_id
+    0,  // parent_id
+    4294967295,  // session_id
+    {
+      1,  // Revision
+      1,  // SubAuthorityCount
+      { 0, 0, 0, 0, 0, 5 },  // IdentifierAuthority
+      { 18 },  // SubAuthority
+    },  // user_sid
+    "Idle",  // image_name
+    L"",  // command_line
+  },
+  {
+    4,  // process_id
+    0,  // parent_id
+    4294967295,  // session_id
+    {
+      1,  // Revision
+      1,  // SubAuthorityCount
+      { 0, 0, 0, 0, 0, 5 },  // IdentifierAuthority
+      { 18 },  // SubAuthority
+    },  // user_sid
+    "System",  // image_name
+    L"",  // command_line
+  },
+  {
+    264,  // process_id
+    4,  // parent_id
+    4294967295,  // session_id
+    {
+      1,  // Revision
+      1,  // SubAuthorityCount
+      { 0, 0, 0, 0, 0, 5 },  // IdentifierAuthority
+      { 18 },  // SubAuthority
+    },  // user_sid
+    "smss.exe",  // image_name
+    L"\\SystemRoot\\System32\\smss.exe",  // command_line
+  },
+  {
+    1776,  // process_id
+    988,  // parent_id
+    1,  // session_id
+    {
+      {
+        1,  // Revision
+        5,  // SubAuthorityCount
+        { 0, 0, 0, 0, 0, 5 },  // IdentifierAuthority
+        { 21 },  // SubAuthority
+      },  // user_sid
+      { 753675414, 103939432, 3550797041, 1000 },  // more_sids
+    },
+    "notepad.exe",  // image_name
+    L"\"C:\\Windows\\system32\\notepad.exe\" ",  // command_line
+  },
+};
+
+const size_t kNumProcesses = arraysize(process_list);
 
 }  // namespace testing

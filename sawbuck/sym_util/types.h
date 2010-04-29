@@ -24,6 +24,8 @@ namespace sym_util {
 // We use 64 bit addreses throughout.
 typedef ULONGLONG Address;
 typedef ULONGLONG ModuleBase;
+typedef ULONGLONG Offset;
+typedef DWORD ByteCount;
 
 typedef DWORD ModuleSize;
 typedef DWORD ModuleTimeDateStamp;

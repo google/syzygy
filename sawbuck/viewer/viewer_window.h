@@ -51,6 +51,7 @@ struct ProviderSettings {
 class ViewerWindow
     : public CFrameWindowImpl<ViewerWindow>,
       public LogEvents,
+      public KernelProcessEvents,
       public ILogView,
       public CIdleHandler,
       public CMessageFilter,
@@ -134,6 +135,18 @@ class ViewerWindow
   void NotifyLogViewNewItems();
   void NotifyLogViewCleared();
 
+
+  // KernelProcessEvents implementation.
+  void OnProcessIsRunning(const base::Time& time,
+                          const ProcessInfo& process_info);
+
+  void OnProcessStarted(const base::Time& time,
+                        const ProcessInfo& process_info);
+  void OnProcessEnded(const base::Time& time,
+                      const ProcessInfo& process_info,
+                      ULONG exit_status);
+
+  // LogEvents implementation.
   void OnLogMessage(UCHAR level,
                     DWORD process_id,
                     DWORD thread_id,

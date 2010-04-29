@@ -179,6 +179,7 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
 
   // Attach our event sinks to the consumer.
   import_consumer.set_event_sink(this);
+  import_consumer.set_process_event_sink(this);
   import_consumer.set_module_event_sink(&symbol_lookup_service_);
 
   // Consume the files.
@@ -342,8 +343,8 @@ bool ViewerWindow::StartCapturing() {
   p->Wnode.Guid = SystemTraceControlGuid;
   p->LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
   p->MaximumFileSize = 100;  // 100 M file size.
-  // Get image load events.
-  p->EnableFlags = EVENT_TRACE_FLAG_IMAGE_LOAD;
+  // Get image load and process events.
+  p->EnableFlags = EVENT_TRACE_FLAG_IMAGE_LOAD | EVENT_TRACE_FLAG_PROCESS;
   p->FlushTimer = 1;  // flush every second.
   p->BufferSize = 16;  // 16 K buffers.
   hr = kernel_controller_.Start(KERNEL_LOGGER_NAME, &prop);
@@ -354,6 +355,7 @@ bool ViewerWindow::StartCapturing() {
   kernel_consumer_.reset(new KernelLogConsumer());
   DCHECK(NULL != kernel_consumer_.get());
   kernel_consumer_->set_module_event_sink(&symbol_lookup_service_);
+  kernel_consumer_->set_process_event_sink(this);
   kernel_consumer_->set_is_64_bit_log(Is64BitSystem());
   hr = kernel_consumer_->OpenRealtimeSession(KERNEL_LOGGER_NAME);
   if (FAILED(hr))
@@ -629,6 +631,27 @@ void ViewerWindow::Register(ILogViewEvents* event_sink,
 
 void ViewerWindow::Unregister(int registration_cookie) {
   event_sinks_.erase(registration_cookie);
+}
+
+void ViewerWindow::OnProcessIsRunning(const base::Time& time,
+                                      const ProcessInfo& process_info) {
+  // TODO(siggi): Writeme.
+  LOG(INFO) << "Process is running: " << process_info.command_line;
+}
+
+void ViewerWindow::OnProcessStarted(const base::Time& time,
+                                    const ProcessInfo& process_info) {
+  // TODO(siggi): Writeme.
+  LOG(INFO) << "Process started: " << process_info.command_line;
+}
+
+void ViewerWindow::OnProcessEnded(const base::Time& time,
+                                  const ProcessInfo& process_info,
+                                  ULONG exit_status) {
+  // TODO(siggi): Writeme.
+
+  LOG(INFO) << "Exit code: " << exit_status <<
+      "Process ended: " << process_info.command_line;
 }
 
 void ViewerWindow::ReadProviderSettings(

@@ -143,6 +143,152 @@ struct ImageLoad64V2 {
   wchar_t ImageFileName[1];
 };
 
+DEFINE_GUID(kPageFaultEventClass,
+  0x3d6fa8d3, 0xfe05, 0x11d0, 0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c);
+
+enum {
+  kTransitionFaultEvent = 10,
+  kDemandZeroFaultEvent = 11,
+  kCopyOnWriteEvent = 12,
+  kGlobalPageFaultEvent = 13,
+  kHardEvent = 14,
+
+  kHardPageFaultEvent = 32,
+};
+
+struct PageFault32V0 {
+  ULONG VirtualAddress;
+  ULONG ProgramCounter;
+};
+
+struct PageFault64V0 {
+  ULONGLONG VirtualAddress;
+  ULONGLONG ProgramCounter;
+};
+
+struct HardPageFault32V0 {
+  ULONGLONG InitialTime;
+  ULONGLONG ReadOffset;
+  ULONG VirtualAddress;
+  ULONG FileObject;
+  ULONG ThreadId;
+  ULONG ByteCount;
+};
+
+struct HardPageFault64V0 {
+  ULONGLONG InitialTime;
+  ULONGLONG ReadOffset;
+  ULONGLONG VirtualAddress;
+  ULONGLONG FileObject;
+  ULONG ThreadId;
+  ULONG ByteCount;
+};
+
+
+// Process-related events.
+
+enum {
+  kProcessStartEvent = 1,
+  kProcessEndEvent = 2,
+  kProcessIsRunningEvent = 3,
+  kProcessCollectionEnded = 4,
+};
+
+DEFINE_GUID(kProcessEventClass,
+  0x3d6fa8d0, 0xfe05, 0x11d0, 0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c);
+
+// Unverified.
+struct ProcessInfo32V0 {
+  ULONG ProcessId;  // ItemPtr
+  ULONG ParentId;  // ItemPtr
+  // UserSID: ItemKSid
+  // ImageFileName: ItemString
+};
+
+// Verified from XP32 SP3 logs.
+struct ProcessInfo32V1 {
+  ULONG PageDirectoryBase;  // ItemPtr
+  ULONG ProcessId;  // ItemULong
+  ULONG ParentId;  // ItemULong
+  ULONG SessionId;  // ItemULong
+  ULONG ExitStatus;  // ItemUlong
+  ULONG Unknown1;  // ??? - ItemPtr
+  ULONG Unknown2;  // ???
+  SID UserSID;  // ItemKSid
+  // ImageName, ItemAString
+};
+
+// Unverified.
+struct ProcessInfo64V1 {
+  ULONGLONG PageDirectoryBase;  // ItemPtr
+  ULONG ProcessId;  // ItemULong
+  ULONG ParentId;  // ItemULong
+  ULONG SessionId;  // ItemULong
+  ULONG ExitStatus;  // ItemUlong
+  ULONGLONG Unknown1;  // ??? - ItemPtr
+  ULONGLONG Unknown2;  // ???
+  SID UserSID;   // ItemKSid
+  // ImageFileName, ItemString
+};
+
+// Verified from Vista32 SP1 logs.
+struct ProcessInfo32V2 {
+  ULONG UniqueProcessKey;  // ItemPtr
+  ULONG ProcessId;  // ItemULong
+  ULONG ParentId;  // ItemULong
+  ULONG SessionId;  // ItemULong
+  ULONG ExitStatus;  // ItemUlong
+  ULONG PageTable;  // ??? - ItemPtr
+  ULONG Unknown;  // ???
+  SID UserSID;  // ItemKSid
+  // ImageName, ItemAString
+  // ImageFileName, ItemString
+};
+
+// Verified from Vista64 SP1 logs.
+struct ProcessInfo64V2 {
+  ULONGLONG UniqueProcessKey;  // ItemPtr
+  ULONG ProcessId;  // ItemULong
+  ULONG ParentId;  // ItemULong
+  ULONG SessionId;  // ItemULong
+  ULONG ExitStatus;  // ItemUlong
+  ULONGLONG PageTable;  // ??? - ItemPtr
+  ULONGLONG Unknown;  // ???
+  SID UserSID;  // ItemKSid
+  // ImageName, ItemAString
+  // ImageFileName, ItemWString
+};
+
+// Verified from Win7 32 bit logs.
+struct ProcessInfo32V3 {
+  ULONG UniqueProcessKey;  // ItemPtr
+  ULONG ProcessId;  // ItemULong
+  ULONG ParentId;  // ItemULong
+  ULONG SessionId;  // ItemULong
+  ULONG ExitStatus;  // ItemUlong
+  ULONG PageTable;  // ItemPtr
+  ULONG Unknown1;
+  ULONG Unknown2;
+  SID UserSID;  // ItemKSid
+  // ImageName, ItemAString
+  // ImageFileName, ItemWString
+};
+
+// Verified from Win7 64 bit logs.
+struct ProcessInfo64V3 {
+  ULONGLONG UniqueProcessKey;  // ItemPtr
+  ULONG ProcessId;  // ItemULong
+  ULONG ParentId;  // ItemULong
+  ULONG SessionId;  // ItemULong
+  ULONG ExitStatus;  // ItemUlong
+  ULONGLONG PageTable;  // ItemPtr
+  ULONGLONG Unknown1;
+  ULONGLONG Unknown2;
+  SID UserSID;  // ItemKSid
+  // ImageName, ItemAString
+  // ImageFileName, ItemWString
+};
+
 }  // namespace kernel_log_types
 
 #endif  // SAWBUCK_VIEWER_KERNEL_LOG_TYPES_H_

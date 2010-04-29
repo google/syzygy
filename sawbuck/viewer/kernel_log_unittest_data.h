@@ -15,11 +15,15 @@
 #define SAWBUCK_VIEWER_KERNEL_LOG_UNITTEST_DATA_H_
 
 #include "sawbuck/sym_util/types.h"
+#include "sawbuck/viewer/kernel_log_consumer.h"
 
 namespace testing {
 
-extern sym_util::ModuleInformation module_list[];
+extern const sym_util::ModuleInformation module_list[];
 extern const size_t kNumModules;
+
+extern const KernelProcessEvents::ProcessInfo process_list[];
+extern const size_t kNumProcesses;
 
 }  // namespace testing
 

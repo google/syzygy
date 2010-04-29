@@ -81,6 +81,8 @@
         'log_viewer.cc',
         'log_list_view.h',
         'log_list_view.cc',
+        'process_info_service.cc',
+        'process_info_service.h',
         'sawbuck_guids.h',
         'stack_trace_list_view.h',
         'stack_trace_list_view.cc',
@@ -141,6 +143,7 @@
         'filtered_log_view_unittest.cc',
         'kernel_log_consumer_unittest.cc',
         'log_consumer_unittest.cc',
+        'process_info_service_unittest.cc',
         'sawbuck_guids.h',
         'symbol_lookup_service_unittest.cc',
         'unittest_main.cc',
@@ -154,6 +157,17 @@
         '../../testing/gmock.gyp:gmock',
         '../../testing/gtest.gyp:gtest',
       ],
+    },
+    {
+      'target_name': 'dump_logs',
+      'type': 'executable',
+      'sources': [
+        'dump_logs_main.cc',
+      ],
+      'dependencies': [
+        'log_view_lib',
+        '../../base/base.gyp:base',
+      ],          
     },
     {
       'target_name': 'Sawbuck',

@@ -49,7 +49,8 @@ class MakeTestData: public testing::Test {
 
   virtual void SetUp() {
     // Stop any dangling trace session from previous, crashing runs.
-    EtwTraceController::Stop(kTestSessionName, NULL);
+    EtwTraceProperties prop;
+    EtwTraceController::Stop(kTestSessionName, &prop);
   }
 
   virtual void TearDown() {
@@ -85,8 +86,8 @@ class MakeTestData: public testing::Test {
     ASSERT_EQ(ERROR_SUCCESS, provider_.Register());
   }
 
-  void Log32V0Event(const sym_util::ModuleInformation& module,
-                  EtwEventType event_type) {
+  void Log32V0ImageEvent(const sym_util::ModuleInformation& module,
+                         EtwEventType event_type) {
     kernel_log_types::ImageLoad32V0 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -104,8 +105,8 @@ class MakeTestData: public testing::Test {
     provider_.Log(evt.get());
   }
 
-  void Log32V1Event(const sym_util::ModuleInformation& module,
-                  EtwEventType event_type) {
+  void Log32V1ImageEvent(const sym_util::ModuleInformation& module,
+                         EtwEventType event_type) {
     kernel_log_types::ImageLoad32V1 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -124,8 +125,8 @@ class MakeTestData: public testing::Test {
     provider_.Log(evt.get());
   }
 
-  void Log32V2Event(const sym_util::ModuleInformation& module,
-                  EtwEventType event_type) {
+  void Log32V2ImageEvent(const sym_util::ModuleInformation& module,
+                         EtwEventType event_type) {
     kernel_log_types::ImageLoad32V2 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -146,8 +147,8 @@ class MakeTestData: public testing::Test {
     provider_.Log(evt.get());
   }
 
-  void Log64V0Event(const sym_util::ModuleInformation& module,
-                  EtwEventType event_type) {
+  void Log64V0ImageEvent(const sym_util::ModuleInformation& module,
+                         EtwEventType event_type) {
     kernel_log_types::ImageLoad64V0 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -165,8 +166,8 @@ class MakeTestData: public testing::Test {
     provider_.Log(evt.get());
   }
 
-  void Log64V1Event(const sym_util::ModuleInformation& module,
-                  EtwEventType event_type) {
+  void Log64V1ImageEvent(const sym_util::ModuleInformation& module,
+                         EtwEventType event_type) {
     kernel_log_types::ImageLoad64V1 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -185,8 +186,8 @@ class MakeTestData: public testing::Test {
     provider_.Log(evt.get());
   }
 
-  void Log64V2Event(const sym_util::ModuleInformation& module,
-                  EtwEventType event_type) {
+  void Log64V2ImageEvent(const sym_util::ModuleInformation& module,
+                         EtwEventType event_type) {
     kernel_log_types::ImageLoad64V2 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -207,16 +208,122 @@ class MakeTestData: public testing::Test {
     provider_.Log(evt.get());
   }
 
+  template <class ProcessInfoType, int version>
+  void LogProcessEvent(const KernelProcessEvents::ProcessInfo& process,
+                       DWORD exit_status,
+                       EtwEventType event_type) {
+    ProcessInfoType info = {};
+
+    info.ProcessId = process.process_id;
+    info.ParentId = process.parent_id;
+    info.SessionId = process.session_id;
+    info.ExitStatus = exit_status;
+    EtwMofEvent<4> evt(kernel_log_types::kProcessEventClass,
+                       event_type,
+                       version,
+                       TRACE_LEVEL_INFORMATION);
+    evt.SetField(0, FIELD_OFFSET(ProcessInfoType, UserSID), &info);
+    size_t sid_len = ::GetLengthSid(const_cast<SID*>(&process.user_sid));
+    evt.SetField(1, sid_len, &process.user_sid);
+    evt.SetField(2,
+                 process.image_name.length() + 1,
+                 process.image_name.c_str());
+
+    // For version 2 and better, the command line is also provided.
+    if (version > 1) {
+      evt.SetField(3,
+                   (process.command_line.length() + 1) * sizeof(wchar_t),
+                   process.command_line.c_str());
+    }
+
+    provider_.Log(evt.get());
+  }
+
+  void Log32V1ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
+                           DWORD exit_status,
+                           EtwEventType event_type) {
+    LogProcessEvent<kernel_log_types::ProcessInfo32V1, 1>(process,
+                                                          exit_status,
+                                                          event_type);
+  }
+
+  void Log32V2ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
+                           DWORD exit_status,
+                           EtwEventType event_type) {
+    LogProcessEvent<kernel_log_types::ProcessInfo32V2, 2>(process,
+                                                          exit_status,
+                                                          event_type);
+  }
+
+  void Log64V2ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
+                           DWORD exit_status,
+                           EtwEventType event_type) {
+    LogProcessEvent<kernel_log_types::ProcessInfo64V2, 2>(process,
+                                                          exit_status,
+                                                          event_type);
+  }
+
+  void Log32V3ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
+                           DWORD exit_status,
+                           EtwEventType event_type) {
+    LogProcessEvent<kernel_log_types::ProcessInfo32V3, 3>(process,
+                                                          exit_status,
+                                                          event_type);
+  }
+
+  void Log64V3ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
+                           DWORD exit_status,
+                           EtwEventType event_type) {
+    LogProcessEvent<kernel_log_types::ProcessInfo64V3, 3>(process,
+                                                          exit_status,
+                                                          event_type);
+  }
+
+  typedef void (MakeTestData::*LogProcessEventFunc)(
+      const KernelProcessEvents::ProcessInfo& process,
+      DWORD exit_status, EtwEventType event_type);
+
+  void LogProcessEvents(LogProcessEventFunc event_func) {
+    // Enumerate all but the last process as "is running".
+    for (size_t i = 0; i < testing::kNumProcesses - 1; ++i) {
+      const KernelProcessEvents::ProcessInfo& process =
+          testing::process_list[i];
+      (this->*event_func)(process,
+                        STILL_ACTIVE,
+                        kernel_log_types::kProcessIsRunningEvent);
+    }
+
+    // Make as if the last process started, then stopped ~1000 ms later.
+    const KernelProcessEvents::ProcessInfo& process =
+        testing::process_list[testing::kNumProcesses - 1];
+    (this->*event_func)(process,
+                        STILL_ACTIVE,
+                        kernel_log_types::kProcessStartEvent);
+    ::Sleep(1000);
+    (this->*event_func)(process,
+                        ERROR_SUCCESS,
+                        kernel_log_types::kProcessEndEvent);
+
+    // Issue end-of collection notifications for all remaining.
+    for (size_t i = 0; i < testing::kNumProcesses - 1; ++i) {
+      const KernelProcessEvents::ProcessInfo& process =
+          testing::process_list[i];
+      (this->*event_func)(process,
+                          STILL_ACTIVE,
+                          kernel_log_types::kProcessCollectionEnded);
+    }
+  }
+
   EtwTraceProvider provider_;
   EtwTraceController controller_;
 };
 
-TEST_F(MakeTestData, Make32Version0Data) {
-  StartFileSession(L"test_data_32_v0.etl");
+TEST_F(MakeTestData, ImageData32Version0) {
+  StartFileSession(L"image_data_32_v0.etl");
 
   // Make as if all modules were loaded at log start.
   for (size_t i = 0; i < testing::kNumModules; ++i) {
-    Log32V0Event(testing::module_list[i],
+    Log32V0ImageEvent(testing::module_list[i],
                kernel_log_types::kImageNotifyIsLoadedEvent);
   }
 
@@ -225,101 +332,141 @@ TEST_F(MakeTestData, Make32Version0Data) {
   // time of the log event, and we want to space those a little for
   // an extra bit of realism.
   ::Sleep(1000);
-  Log32V0Event(testing::module_list[0],
+  Log32V0ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyUnloadEvent);
   ::Sleep(1000);
-  Log32V0Event(testing::module_list[0],
+  Log32V0ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyLoadEvent);
 }
 
-TEST_F(MakeTestData, Make32Version1Data) {
-  StartFileSession(L"test_data_32_v1.etl");
+TEST_F(MakeTestData, ImageData32Version1) {
+  StartFileSession(L"image_data_32_v1.etl");
 
   // Make as if all modules were loaded at log start.
   for (size_t i = 0; i < testing::kNumModules; ++i) {
-    Log32V1Event(testing::module_list[i],
+    Log32V1ImageEvent(testing::module_list[i],
                kernel_log_types::kImageNotifyIsLoadedEvent);
   }
 
   // Now make as if the first module is unloaded, then reloaded.
   ::Sleep(1000);
-  Log32V1Event(testing::module_list[0],
+  Log32V1ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyUnloadEvent);
   ::Sleep(1000);
-  Log32V1Event(testing::module_list[0],
+  Log32V1ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyLoadEvent);
 }
 
-TEST_F(MakeTestData, Make32Version2Data) {
-  StartFileSession(L"test_data_32_v2.etl");
+TEST_F(MakeTestData, ImageData32Version2) {
+  StartFileSession(L"image_data_32_v2.etl");
 
   // Make as if all modules were loaded at log start.
   for (size_t i = 0; i < testing::kNumModules; ++i) {
-    Log32V2Event(testing::module_list[i],
+    Log32V2ImageEvent(testing::module_list[i],
                kernel_log_types::kImageNotifyIsLoadedEvent);
   }
 
   // Now make as if the first module is unloaded, then reloaded.
   ::Sleep(1000);
-  Log32V2Event(testing::module_list[0],
+  Log32V2ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyUnloadEvent);
   ::Sleep(1000);
-  Log32V2Event(testing::module_list[0],
+  Log32V2ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyLoadEvent);
 }
 
-TEST_F(MakeTestData, Make64Version0Data) {
-  StartFileSession(L"test_data_64_v0.etl");
+TEST_F(MakeTestData, ImageData64Version0) {
+  StartFileSession(L"image_data_64_v0.etl");
 
   // Make as if all modules were loaded at log start.
   for (size_t i = 0; i < testing::kNumModules; ++i) {
-    Log64V0Event(testing::module_list[i],
+    Log64V0ImageEvent(testing::module_list[i],
                kernel_log_types::kImageNotifyIsLoadedEvent);
   }
 
   // Now make as if the first module is unloaded, then reloaded.
   ::Sleep(1000);
-  Log64V0Event(testing::module_list[0],
+  Log64V0ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyUnloadEvent);
   ::Sleep(1000);
-  Log64V0Event(testing::module_list[0],
+  Log64V0ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyLoadEvent);
 }
 
-TEST_F(MakeTestData, Make64Version1Data) {
-  StartFileSession(L"test_data_64_v1.etl");
+TEST_F(MakeTestData, ImageData64Version1) {
+  StartFileSession(L"image_data_64_v1.etl");
 
   // Make as if all modules were loaded at log start.
   for (size_t i = 0; i < testing::kNumModules; ++i) {
-    Log64V1Event(testing::module_list[i],
+    Log64V1ImageEvent(testing::module_list[i],
                kernel_log_types::kImageNotifyIsLoadedEvent);
   }
 
   // Now make as if the first module is unloaded, then reloaded.
   ::Sleep(1000);
-  Log64V1Event(testing::module_list[0],
+  Log64V1ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyUnloadEvent);
   ::Sleep(1000);
-  Log64V1Event(testing::module_list[0],
+  Log64V1ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyLoadEvent);
 }
 
-TEST_F(MakeTestData, Make64Version2Data) {
-  StartFileSession(L"test_data_64_v2.etl");
+TEST_F(MakeTestData, ImageData64Version2) {
+  StartFileSession(L"image_data_64_v2.etl");
 
   // Make as if all modules were loaded at log start.
   for (size_t i = 0; i < testing::kNumModules; ++i) {
-    Log64V2Event(testing::module_list[i],
+    Log64V2ImageEvent(testing::module_list[i],
                kernel_log_types::kImageNotifyIsLoadedEvent);
   }
 
   // Now make as if the first module is unloaded, then reloaded.
   ::Sleep(1000);
-  Log64V2Event(testing::module_list[0],
+  Log64V2ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyUnloadEvent);
   ::Sleep(1000);
-  Log64V2Event(testing::module_list[0],
+  Log64V2ImageEvent(testing::module_list[0],
              kernel_log_types::kImageNotifyLoadEvent);
+}
+
+TEST_F(MakeTestData, ProcessInfo32Version1) {
+  StartFileSession(L"process_data_32_v1.etl");
+
+  // For the version 1 logs, we don't get any "is running" notifications,
+  // so we only log the last process as starting/ending.
+  const KernelProcessEvents::ProcessInfo& process =
+      testing::process_list[testing::kNumProcesses - 1];
+  Log32V1ProcessEvent(process,
+                      STILL_ACTIVE,
+                      kernel_log_types::kProcessStartEvent);
+  ::Sleep(1000);
+  Log32V1ProcessEvent(process,
+                      ERROR_SUCCESS,
+                      kernel_log_types::kProcessEndEvent);
+}
+
+TEST_F(MakeTestData, ProcessInfo32Version2) {
+  StartFileSession(L"process_data_32_v2.etl");
+
+  LogProcessEvents(&MakeTestData::Log32V2ProcessEvent);
+}
+
+TEST_F(MakeTestData, ProcessInfo64Version2) {
+  StartFileSession(L"process_data_64_v2.etl");
+
+  LogProcessEvents(&MakeTestData::Log64V2ProcessEvent);
+}
+
+TEST_F(MakeTestData, ProcessInfo32Version3) {
+  StartFileSession(L"process_data_32_v3.etl");
+
+  LogProcessEvents(&MakeTestData::Log32V3ProcessEvent);
+}
+
+TEST_F(MakeTestData, ProcessInfo64Version3) {
+  StartFileSession(L"process_data_64_v3.etl");
+
+  LogProcessEvents(&MakeTestData::Log64V3ProcessEvent);
 }
 
 }  // namespace

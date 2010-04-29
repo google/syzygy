@@ -42,16 +42,26 @@ class MockKernelModuleEvents: public KernelModuleEvents {
                                   const ModuleInformation& module_info));
 };
 
+class MockKernelProcessEvents: public KernelProcessEvents{
+ public:
+  MOCK_METHOD2(OnProcessIsRunning, void (const base::Time& time,
+                                         const ProcessInfo& process_info));
+  MOCK_METHOD2(OnProcessStarted, void (const base::Time& time,
+                                       const ProcessInfo& process_info));
+  MOCK_METHOD3(OnProcessEnded, void (const base::Time& time,
+                                     const ProcessInfo& process_info,
+                                     ULONG exit_status));
+};
+
 class KernelLogConsumerTest: public testing::Test {
  public:
   KernelLogConsumerTest() {
   }
 
   virtual void SetUp() {
-    consumer_.set_module_event_sink(&events_);
     FilePath src_root;
     ASSERT_TRUE(PathService::Get(base::DIR_SOURCE_ROOT, &src_root));
-    test_data_dir_ = src_root.AppendASCII("sawbuck\\viewer\\test_data");
+    image_data_dir_ = src_root.AppendASCII("sawbuck\\viewer\\test_data");
 
     modules_.assign(testing::module_list,
         testing::module_list + testing::kNumModules);
@@ -67,22 +77,65 @@ class KernelLogConsumerTest: public testing::Test {
   }
 
   void ExpectModules() {
+    // We want the module callbacks ordered in the sequence we do the expects.
     InSequence in;
 
     for (size_t i = 0; i < modules_.size(); ++i) {
-      EXPECT_CALL(events_, OnModuleIsLoaded(_, _, Eq(ByRef(modules_[i]))))
+      EXPECT_CALL(module_events_,
+                  OnModuleIsLoaded(_, _, Eq(ByRef(modules_[i]))))
           .Times(1);
     }
 
-    EXPECT_CALL(events_, OnModuleUnload(_, _, modules_[0]))
+    EXPECT_CALL(module_events_, OnModuleUnload(_, _, modules_[0]))
         .Times(1);
-    EXPECT_CALL(events_, OnModuleLoad(_, _, modules_[0]))
+    EXPECT_CALL(module_events_, OnModuleLoad(_, _, modules_[0]))
         .Times(1);
 
+    // Hook up the module event sink.
+    consumer_.set_module_event_sink(&module_events_);
+  }
+
+  void ExpectProcessStartStop(bool has_command_line) {
+    // We want the process callback ordered in the sequence we do the expects.
+    InSequence in;
+
+    KernelProcessEvents::ProcessInfo process =
+        testing::process_list[testing::kNumProcesses - 1];
+
+    if (!has_command_line)
+      process.command_line = L"";
+
+    EXPECT_CALL(process_events_, OnProcessStarted(_, process))
+        .Times(1);
+    EXPECT_CALL(process_events_, OnProcessEnded(_, process, ERROR_SUCCESS))
+        .Times(1);
+
+    // Hook up the module event sink.
+    consumer_.set_process_event_sink(&process_events_);
+  }
+
+  void ExpectProcesses() {
+    // We want the process callbacks in the sequence we do the expects.
+    InSequence in;
+
+    for (size_t i = 0; i < testing::kNumProcesses - 1; ++i) {
+      const KernelProcessEvents::ProcessInfo& process =
+          testing::process_list[i];
+
+      EXPECT_CALL(process_events_, OnProcessIsRunning(_, process))
+          .Times(1);
+    }
+
+    ExpectProcessStartStop(true);
   }
 
   void Consume(const wchar_t* file_name) {
-    FilePath file_path = test_data_dir_.Append(file_name);
+    FilePath file_path = image_data_dir_.Append(file_name);
+
+    // We don't want to sniff the artificially created
+    // test logs for their bitness, as that restricts
+    // where we can create those logs.
+    consumer_.set_infer_bitness_from_log(false);
 
     ASSERT_HRESULT_SUCCEEDED(
         consumer_.OpenFileSession(file_path.value().c_str()));
@@ -93,46 +146,78 @@ class KernelLogConsumerTest: public testing::Test {
  protected:
   typedef std::vector<KernelModuleEvents::ModuleInformation> ModuleInfoList;
 
-  StrictMock<MockKernelModuleEvents> events_;
+  StrictMock<MockKernelModuleEvents> module_events_;
+  StrictMock<MockKernelProcessEvents> process_events_;
   KernelLogConsumer consumer_;
-  FilePath test_data_dir_;
+  FilePath image_data_dir_;
   ModuleInfoList modules_;
 };
 
-TEST_F(KernelLogConsumerTest, Log32Version0) {
+TEST_F(KernelLogConsumerTest, ImageEventsLog32Version0) {
   consumer_.set_is_64_bit_log(false);
   ExpectWaterDownModules();
-  Consume(L"test_data_32_v0.etl");
+  Consume(L"image_data_32_v0.etl");
 }
 
-TEST_F(KernelLogConsumerTest, Log32Version1) {
+TEST_F(KernelLogConsumerTest, ImageEventsLog32Version1) {
   consumer_.set_is_64_bit_log(false);
   ExpectWaterDownModules();
-  Consume(L"test_data_32_v1.etl");
+  Consume(L"image_data_32_v1.etl");
 }
 
-TEST_F(KernelLogConsumerTest, Log32Version2) {
+TEST_F(KernelLogConsumerTest, ImageEventsLog32Version2) {
   consumer_.set_is_64_bit_log(false);
   ExpectModules();
-  Consume(L"test_data_32_v2.etl");
+  Consume(L"image_data_32_v2.etl");
 }
 
-TEST_F(KernelLogConsumerTest, Log64Version0) {
+TEST_F(KernelLogConsumerTest, ImageEventsLog64Version0) {
   consumer_.set_is_64_bit_log(true);
   ExpectWaterDownModules();
-  Consume(L"test_data_64_v0.etl");
+  Consume(L"image_data_64_v0.etl");
 }
 
-TEST_F(KernelLogConsumerTest, Log64Version1) {
+TEST_F(KernelLogConsumerTest, ImageEventsLog64Version1) {
   consumer_.set_is_64_bit_log(true);
   ExpectWaterDownModules();
-  Consume(L"test_data_64_v1.etl");
+  Consume(L"image_data_64_v1.etl");
 }
 
-TEST_F(KernelLogConsumerTest, Log64Version2) {
+TEST_F(KernelLogConsumerTest, ImageEventsLog64Version2) {
   consumer_.set_is_64_bit_log(true);
   ExpectModules();
-  Consume(L"test_data_64_v2.etl");
+  Consume(L"image_data_64_v2.etl");
+}
+
+TEST_F(KernelLogConsumerTest, ProcessEventsLog32Version1) {
+  consumer_.set_is_64_bit_log(false);
+  // This is the XP case, where we only get process start/stop events.
+  ExpectProcessStartStop(false);
+  Consume(L"process_data_32_v1.etl");
+}
+
+TEST_F(KernelLogConsumerTest, ProcessEventsLog32Version2) {
+  consumer_.set_is_64_bit_log(false);
+  ExpectProcesses();
+  Consume(L"process_data_32_v2.etl");
+}
+
+TEST_F(KernelLogConsumerTest, ProcessEventsLog64Version2) {
+  consumer_.set_is_64_bit_log(true);
+  ExpectProcesses();
+  Consume(L"process_data_64_v2.etl");
+}
+
+TEST_F(KernelLogConsumerTest, ProcessEventsLog32Version3) {
+  consumer_.set_is_64_bit_log(false);
+  ExpectProcesses();
+  Consume(L"process_data_32_v3.etl");
+}
+
+TEST_F(KernelLogConsumerTest, ProcessEventsLog64Version3) {
+  consumer_.set_is_64_bit_log(true);
+  ExpectProcesses();
+  Consume(L"process_data_64_v3.etl");
 }
 
 }  // namespace
