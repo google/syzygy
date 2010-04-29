@@ -21,49 +21,47 @@ import datetime
 import optparse
 import os
 import os.path
+import re
 import subprocess
 import sys
 import time
 import verifier
 
 
-def FilterAppVerifierExceptions(exe_path, errors):
+def FilterAppVerifierExceptions(errors, exceptions):
   '''Filters 'errors' for allowed (exception) App Verifier errors.
 
     Returns: a filtered list of 'errors'.
   '''
-  module, ext = os.path.splitext(os.path.basename(exe_path))
-
-  def ModuleInTrace(module, error):
-    module = module.lower()
+  def RegexpInTrace(regexp, error):
+    '''Returns True iff regexp matches any stack trace entry in error.'''
     for entry in error.trace:
-      if entry.module.lower() == module:
+      if regexp.search(str(entry)):
         return True
 
     return False
 
-  def IsNotAppVerifierException(error):
-    # SAV has an App Verifier problem  where it abandons a
-    # critical section on unloading. Unfortunately there's not
-    # much we can specifically identify this error on, so we go
-    # heuristic. Test that the module under testing does not
-    # appear in the stack trace :(.
-    if error.stopcode == '0x201' and error.layer == 'Locks':
-      return ModuleInTrace(module, error)
+  def IsNotInExceptions(error):
+    '''Returns True iff error matches no exception in exceptions.'''
+    for (regexp, layer, stopcode) in exceptions:
+      if error.layer == layer and error.stopcode == stopcode:
+        return not RegexpInTrace(regexp, error)
 
     # No exception, this is an error.
     return True
 
-  return filter(IsNotAppVerifierException, errors)
+  return filter(IsNotInExceptions, errors)
 
 
-def RunOneTest(exe_path, target):
+def RunOneTest(exe_path, target, exceptions):
   '''Runs a single unittest executable, specified by target, in exe_path.
 
     Args:
       exe_path: path to the directory where the target is to be found.
       target: GYP target specification for the unittest executable,
           e.g. "../foo/bar/xyz.gyp:some_unittests".
+      exceptions: a list of exception triplets [(regexp, layer, error), ...]
+          describing app verifier errors that should not cause a failure.
 
     Returns:
       True iff the unittest returned exit code 0.
@@ -77,7 +75,7 @@ def RunOneTest(exe_path, target):
     print "running test with appverifier ", target
     (retval, errors) = verifier.RunTestWithVerifier(test_path)
 
-    errors = FilterAppVerifierExceptions(test_path, errors)
+    errors = FilterAppVerifierExceptions(errors, exceptions)
     if errors and len(errors):
       print "Application Verifier errors:\n\n"
       for error in errors:
@@ -109,6 +107,13 @@ def GetOptionParser():
                     dest = 'exe_dir',
                     help = 'the directory where the unittest '
                            'executables are found')
+  parser.add_option('--exception',
+                    dest = 'exceptions',
+                    action = 'append',
+                    help = 'a string describing an app verifier error that '
+                      'shouldn\'t generate an error. The format is '
+                      '"regexp, layer, stopcode", e.g. '
+                      '"foo!.*bar.*,Lock,0x201".')
   return parser
 
 
@@ -121,9 +126,21 @@ def Main():
   if not options.exe_dir:
     parser.error('you must provide an exe dir')
 
+  exceptions = []
+  if options.exceptions:
+    for exception in options.exceptions:
+      try:
+        (regexp, layer, stopcode) = exception.split(',')
+        stopcode = int(stopcode, 0)
+        regexp = re.compile(regexp)
+        exceptions.append((regexp, layer, stopcode))
+      except:
+        parser.error('each exception must be of the format '
+            '"regexp, layer, stopcode"')
+
   succeeded = True
   for test in args:
-    if not RunOneTest(options.exe_dir, test):
+    if not RunOneTest(options.exe_dir, test, exceptions):
       succeeded = False
 
   if succeeded:

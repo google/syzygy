@@ -72,16 +72,16 @@ class LogTrace:
 
 class LogEntry:
   def __init__(self, stopcode, layer, severity):
-    self.stopcode = stopcode
+    self.stopcode = int(stopcode, 0)
     self.layer = layer
     self.severity = severity
     self.message = ''
     self.trace = []
 
   def __str__(self):
-    return "%s: %s\n\t%s" % (self.severity,
-                             self.message,
-                             '\n\t'.join(map(str,self.trace)))
+    return "%s(%s, %s): %s\n\t%s" % (self.severity,
+        self.layer, self.stopcode, self.message,
+        '\n\t'.join(map(str,self.trace)))
 
 
 class VerifierSaxHandler(xml.sax.handler.ContentHandler):

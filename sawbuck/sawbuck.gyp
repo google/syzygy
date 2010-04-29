@@ -66,6 +66,9 @@
             'tools/run_unittests.py',
             '--exe-dir=<(PRODUCT_DIR)',
             '--success-file=<(success_file)',
+            # SymSrv.dll abandons a critical section on
+            # unlock on 32 bit systems
+            '--exception="dbghelp!SymCleanup,Locks,0x201"',
             '<@(unittest_targets)',
           ],
         },
