@@ -22,7 +22,7 @@
   'target_defaults': {
     'include_dirs': [
       '../..',
-      '../../chrome/third_party/wtl/include',
+      '../../third_party/wtl/include',
     ],
     'defines': [
       '_WTL_NO_CSTRING',
@@ -154,6 +154,7 @@
         'log_view_lib',
         'test_common',
         '../../base/base.gyp:base',
+        '../../base/base.gyp:base_i18n',
         '../../testing/gmock.gyp:gmock',
         '../../testing/gtest.gyp:gtest',
       ],
@@ -184,6 +185,8 @@
         'log_view_lib',
         'sawbuck_version',
         '../../base/base.gyp:base',
+        '../../base/base.gyp:base_i18n',
+        '../../third_party/icu/icu.gyp:icudata',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

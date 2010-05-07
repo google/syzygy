@@ -38,6 +38,7 @@
 #include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/kernel_log_consumer.h"
 #include "sawbuck/viewer/log_consumer.h"
+#include "sawbuck/viewer/process_info_service.h"
 #include "sawbuck/viewer/symbol_lookup_service.h"
 
 
@@ -51,7 +52,6 @@ struct ProviderSettings {
 class ViewerWindow
     : public CFrameWindowImpl<ViewerWindow>,
       public LogEvents,
-      public KernelProcessEvents,
       public ILogView,
       public CIdleHandler,
       public CMessageFilter,
@@ -135,17 +135,6 @@ class ViewerWindow
   void NotifyLogViewNewItems();
   void NotifyLogViewCleared();
 
-
-  // KernelProcessEvents implementation.
-  void OnProcessIsRunning(const base::Time& time,
-                          const ProcessInfo& process_info);
-
-  void OnProcessStarted(const base::Time& time,
-                        const ProcessInfo& process_info);
-  void OnProcessEnded(const base::Time& time,
-                      const ProcessInfo& process_info,
-                      ULONG exit_status);
-
   // LogEvents implementation.
   void OnLogMessage(UCHAR level,
                     DWORD process_id,
@@ -193,6 +182,9 @@ class ViewerWindow
   int next_sink_cookie_;
 
   SymbolLookupService symbol_lookup_service_;
+
+  // Takes care of sinking KernelProcessEvents for us.
+  ProcessInfoService process_info_service_;
 
   // The list view control that displays log_messages_.
   LogViewer log_viewer_;

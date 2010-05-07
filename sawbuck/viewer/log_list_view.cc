@@ -19,10 +19,13 @@
 #include <atlframe.h>
 #include <wmistr.h>
 #include <evntrace.h>
+#include "base/i18n/time_formatting.h"
 #include "base/logging.h"
 #include "base/string_util.h"
+#include "base/utf_string_conversions.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
+#include "sawbuck/viewer/process_info_service.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
 namespace {
@@ -83,7 +86,8 @@ const wchar_t* LogListView::kColumnWidthValueName =
 
 LogListView::LogListView(CUpdateUIBase* update_ui)
     : log_view_(NULL), event_cookie_(0),
-      update_ui_(update_ui), stack_trace_view_(NULL) {
+      update_ui_(update_ui), stack_trace_view_(NULL),
+      process_info_service_(NULL) {
   ui_loop_ = MessageLoop::current();
 
   COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
@@ -114,10 +118,6 @@ void LogListView::SetLogView(ILogView* log_view) {
   // Register for event notifications.
   if (log_view_ != NULL)
     log_view_->Register(this, &event_cookie_);
-}
-
-void LogListView::SetStackTraceView(StackTraceListView* stack_trace_view) {
-  stack_trace_view_ = stack_trace_view;
 }
 
 LRESULT LogListView::OnCreate(UINT msg,
@@ -247,6 +247,36 @@ LRESULT LogListView::OnItemChanged(NMHDR* pnmh) {
   }
 
   UpdateCommandStatus(true);
+
+  return 0;
+}
+
+LRESULT LogListView::OnGetInfoTip(NMHDR* pnmh) {
+  NMLVGETINFOTIP* info_tip = reinterpret_cast<NMLVGETINFOTIP*>(pnmh);
+  size_t row = info_tip->iItem;
+
+  if (process_info_service_ != NULL) {
+    DWORD pid = log_view_->GetProcessId(row);
+    base::Time time = log_view_->GetTime(row);
+
+    IProcessInfoService::ProcessInfo info = {};
+    if (process_info_service_->GetProcessInfo(pid, time, &info)) {
+      std::wstringstream text;
+
+      text << L"Process: " << info.command_line_ << std::endl;
+      if (info.started_ != base::Time()) {
+        text << L"Started: "
+            << base::TimeFormatShortDateAndTime(info.started_) << std::endl;
+      }
+      if (info.ended_ != base::Time()) {
+        text << L"Ended: "
+            << base::TimeFormatShortDateAndTime(info.ended_) << std::endl
+            << L"Exit code: " << info.exit_code_ << std::endl;
+      }
+
+      wcscpy_s(info_tip->pszText, info_tip->cchTextMax, text.str().c_str());
+    }
+  }
 
   return 0;
 }

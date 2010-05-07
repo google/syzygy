@@ -16,6 +16,7 @@
 #include "sawbuck/viewer/viewer_module.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/i18n/icu_util.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
 #include "base/message_loop.h"
@@ -88,6 +89,9 @@ int APIENTRY wWinMain(HINSTANCE instance,
                       int show) {
   CommandLine::Init(0, NULL);
   base::AtExitManager at_exit;
+
+  // Initialize ICU.
+  icu_util::Initialize();
 
   // Init logging to no file logging.
   logging::InitLogging(NULL,

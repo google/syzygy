@@ -179,7 +179,7 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
 
   // Attach our event sinks to the consumer.
   import_consumer.set_event_sink(this);
-  import_consumer.set_process_event_sink(this);
+  import_consumer.set_process_event_sink(&process_info_service_);
   import_consumer.set_module_event_sink(&symbol_lookup_service_);
 
   // Consume the files.
@@ -355,7 +355,7 @@ bool ViewerWindow::StartCapturing() {
   kernel_consumer_.reset(new KernelLogConsumer());
   DCHECK(NULL != kernel_consumer_.get());
   kernel_consumer_->set_module_event_sink(&symbol_lookup_service_);
-  kernel_consumer_->set_process_event_sink(this);
+  kernel_consumer_->set_process_event_sink(&process_info_service_);
   kernel_consumer_->set_is_64_bit_log(Is64BitSystem());
   hr = kernel_consumer_->OpenRealtimeSession(KERNEL_LOGGER_NAME);
   if (FAILED(hr))
@@ -385,7 +385,7 @@ void ViewerWindow::OnLogMessage(UCHAR level,
                                 DWORD thread_id,
                                 LARGE_INTEGER time_stamp,
                                 size_t num_traces,
-                                void** trace,
+                                const void** trace,
                                 size_t length,
                                 const char* message) {
   AutoLock lock(list_lock_);
@@ -511,6 +511,7 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
 
   log_viewer_.SetLogView(this);
   log_viewer_.SetSymbolLookupService(&symbol_lookup_service_);
+  log_viewer_.SetProcessInfoService(&process_info_service_);
 
   log_viewer_.Create(m_hWnd,
                      NULL,
@@ -631,27 +632,6 @@ void ViewerWindow::Register(ILogViewEvents* event_sink,
 
 void ViewerWindow::Unregister(int registration_cookie) {
   event_sinks_.erase(registration_cookie);
-}
-
-void ViewerWindow::OnProcessIsRunning(const base::Time& time,
-                                      const ProcessInfo& process_info) {
-  // TODO(siggi): Writeme.
-  LOG(INFO) << "Process is running: " << process_info.command_line;
-}
-
-void ViewerWindow::OnProcessStarted(const base::Time& time,
-                                    const ProcessInfo& process_info) {
-  // TODO(siggi): Writeme.
-  LOG(INFO) << "Process started: " << process_info.command_line;
-}
-
-void ViewerWindow::OnProcessEnded(const base::Time& time,
-                                  const ProcessInfo& process_info,
-                                  ULONG exit_status) {
-  // TODO(siggi): Writeme.
-
-  LOG(INFO) << "Exit code: " << exit_status <<
-      "Process ended: " << process_info.command_line;
 }
 
 void ViewerWindow::ReadProviderSettings(

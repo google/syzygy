@@ -17,6 +17,7 @@
 
 #include <atlframe.h>
 #include "base/string_util.h"
+#include "base/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/viewer/filtered_log_view.h"
 
@@ -42,7 +43,7 @@ int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
   // Create the stack trace list view.
   stack_trace_list_view_.Create(m_hWnd);
 
-  log_list_view_.SetStackTraceView(&stack_trace_list_view_);
+  log_list_view_.set_stack_trace_view(&stack_trace_list_view_);
 
   SetDefaultActivePane(SPLIT_PANE_TOP);
   SetSplitterPanes(log_list_view_.m_hWnd, stack_trace_list_view_.m_hWnd);

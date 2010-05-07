@@ -33,6 +33,7 @@ namespace WTL {
 class CUpdateUIBase;
 };
 class FilteredLogView;
+class IProcessInfoService;
 
 // The log viewer window plays host to a listview, taking care of handling
 // its notification requests etc.
@@ -60,6 +61,9 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   }
   void SetSymbolLookupService(ISymbolLookupService* symbol_lookup_service) {
     stack_trace_list_view_.SetSymbolLookupService(symbol_lookup_service);
+  }
+  void SetProcessInfoService(IProcessInfoService* process_info_service) {
+    log_list_view_.set_process_info_service(process_info_service);
   }
 
  private:

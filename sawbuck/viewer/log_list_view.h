@@ -65,6 +65,7 @@ class ILogView {
 
 // Forward decls.
 class StackTraceListView;
+class IProcessInfoService;
 namespace WTL {
 class CUpdateUIBase;
 };
@@ -92,13 +93,20 @@ class LogListView
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
+    REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETINFOTIP, OnGetInfoTip)
     DEFAULT_REFLECTION_HANDLER()
   END_MSG_MAP()
 
   explicit LogListView(CUpdateUIBase* update_ui);
 
+  void set_stack_trace_view(StackTraceListView* stack_trace_view) {
+    stack_trace_view_ = stack_trace_view;
+  }
+  void set_process_info_service(IProcessInfoService* process_info_service) {
+    process_info_service_ = process_info_service;
+  }
+
   void SetLogView(ILogView* log_view);
-  void SetStackTraceView(StackTraceListView* stack_trace_view);
 
   virtual void LogViewNewItems();
   virtual void LogViewCleared();
@@ -131,6 +139,7 @@ class LogListView
 
   LRESULT OnGetDispInfo(LPNMHDR notification);
   LRESULT OnItemChanged(LPNMHDR notification);
+  LRESULT OnGetInfoTip(LPNMHDR notification);
 
   void OnCopyCommand(UINT code, int id, CWindow window);
   virtual void OnClearAll(UINT code, int id, CWindow window);
@@ -145,12 +154,14 @@ class LogListView
 
   // To help unittest mocking.
   virtual BOOL DeleteAllItems() {
-    return ListViewBase<LogListView, LogListViewTraits>::DeleteAllItems();
+    return WindowBase::DeleteAllItems();
   }
-
 
   // The stack trace view that displays our stack trace.
   StackTraceListView* stack_trace_view_;
+
+  // Our process info service, if any.
+  IProcessInfoService* process_info_service_;
 
   ILogView* log_view_;
   int event_cookie_;
