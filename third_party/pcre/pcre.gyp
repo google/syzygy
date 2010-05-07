@@ -28,7 +28,7 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalOptions': '/wd4018 /wd4996',
+          'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
     },      
@@ -97,7 +97,7 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalOptions': '/wd4018 /wd4996',
+          'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
       'all_dependent_settings': {
@@ -151,7 +151,7 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalOptions': '/wd4018 /wd4996',
+          'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
     },      
@@ -166,7 +166,7 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalOptions': '/wd4018 /wd4996',
+          'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
     },      
@@ -181,7 +181,7 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalOptions': '/wd4018 /wd4996',
+          'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
     },      

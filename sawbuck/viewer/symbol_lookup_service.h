@@ -18,6 +18,7 @@
 
 #include <string>
 #include <vector>
+#include "base/callback.h"
 #include "base/lock.h"
 #include "base/task.h"
 #include "base/time.h"

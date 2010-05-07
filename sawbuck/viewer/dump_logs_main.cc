@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/logging.h"
+#include "base/utf_string_conversions.h"
 #include "sawbuck/viewer/kernel_log_consumer.h"
 #include "sawbuck/viewer/log_consumer.h"
 
