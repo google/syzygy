@@ -385,7 +385,7 @@ void ViewerWindow::OnLogMessage(UCHAR level,
                                 DWORD thread_id,
                                 LARGE_INTEGER time_stamp,
                                 size_t num_traces,
-                                const void** trace,
+                                void** trace,
                                 size_t length,
                                 const char* message) {
   AutoLock lock(list_lock_);

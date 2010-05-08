@@ -34,6 +34,10 @@ deps = {
     Var("chrome_base") + "/src/third_party/wtl@" +
         Var("chrome_revision"),
 
+  # NSS, for SSLClientSocketNSS.
+  "src/third_party/nss":
+    Var("chrome_base") + "/deps/third_party/nss@45059",
+
   "src/third_party/zlib":
     Var("chrome_base") + "/src/third_party/zlib@" + 
         Var("chrome_revision"),
