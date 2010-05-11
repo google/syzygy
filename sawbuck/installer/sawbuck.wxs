@@ -150,6 +150,10 @@
               Key='{7FE69228-633E-4f06-80C1-527FEA23E3A7}'>
             <RegistryValue Type='string' Value='Chrome' />
           </RegistryKey>
+          <RegistryKey
+              Key='{3DADA31D-19EF-4dc1-B345-037927193422}'>
+            <RegistryValue Type='string' Value='Chrome Perf Traces' />
+          </RegistryKey>
           <!-- Chrome Frame -->
           <RegistryKey
               Key='{0562BFC3-2550-45b4-BD8E-A310583D3A6F}'>
@@ -160,7 +164,20 @@
               Key='{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'>
             <RegistryValue Type='string' Value='Sawbuck' />
           </RegistryKey>
-          <!-- Add other providers here. -->
+          <!-- CEEE -->
+          <RegistryKey
+              Key='{6E3D6168-1DD2-4edb-A183-584C2C66E96D}'>
+            <RegistryValue Type='string' Value='CEEE Broker' />
+          </RegistryKey>
+          <RegistryKey
+              Key='{73213C1A-C369-4740-A75C-FA849E6CE540}'>
+            <RegistryValue Type='string' Value='CEEE' />
+          </RegistryKey>
+          <!-- IE Toolbar -->
+          <RegistryKey
+              Key='{79FDF710-2D7F-488f-B00C-C6EFAE507169}'>
+            <RegistryValue Type='string' Value='IE Toolbar' />
+          </RegistryKey>
         </RegistryKey>
       </Component>
     </DirectoryRef>
@@ -184,6 +201,14 @@
             Name='CHROME_ETW_LOGGING'
             Value='1' />
       </Component>
+      <Component Id='Icu42DllComponent'
+          Guid='{EB7E0455-236A-4954-A2C3-85F9B080A68B}'>
+        <File Id='Icu42DllComponent'
+            Name='icudt42.dll'
+            DiskId='1'
+            Source='..\..\third_party\icu\icudt42.dll'/>
+      </Component>
+
       <Component Id='DbgHelpDllComponent'
           Guid='{CDDFC08A-5814-4375-9971-2B35A039B72F}'>
         <File Id='DbgHelpDllFile'
@@ -203,6 +228,7 @@
     <!-- Just one feature. No muss no fuss, no UI. -->
     <Feature Id='Sawbuck' Title='Sawbuck Log Viewer' Level='1'>
       <ComponentRef Id='SawbuckExeComponent' />
+      <ComponentRef Id='Icu42DllComponent' />
       <ComponentRef Id='SawbuckShortcutComponent' />
       <ComponentRef Id='ProviderRegistryComponent' />
       <ComponentRef Id='DbgHelpDllComponent' />
