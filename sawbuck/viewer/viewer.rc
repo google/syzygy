@@ -9,7 +9,6 @@
 //
 #include "afxres.h"
 #include "atlres.h"
-
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -79,6 +78,15 @@ BEGIN
     POPUP "Help"
     BEGIN
         MENUITEM "About",                       ID_APP_ABOUT
+    END
+END
+
+IDR_LIST_VIEW_CONTEXT_MENU MENU 
+BEGIN
+    POPUP "Context"
+    BEGIN
+        MENUITEM "&Set Base Time",              ID_SET_TIME_ZERO
+        MENUITEM "&Reset Base Time",            ID_RESET_BASE_TIME
     END
 END
 
@@ -190,7 +198,6 @@ END
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
-
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED

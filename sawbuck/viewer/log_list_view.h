@@ -29,6 +29,7 @@
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/list_view_base.h"
+#include "sawbuck/viewer/resource.h"
 
 // Callback interface for ILogView.
 class ILogViewEvents {
@@ -85,12 +86,15 @@ class LogListView
 
   BEGIN_MSG_MAP_EX(LogList)
     MESSAGE_HANDLER(WM_CREATE, OnCreate)
+    MSG_WM_CONTEXTMENU(OnContextMenu)
     MSG_WM_DESTROY(OnDestroy)
     MSG_WM_SETFOCUS(OnSetFocus)
     MSG_WM_KILLFOCUS(OnKillFocus)
     COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
     COMMAND_ID_HANDLER_EX(ID_EDIT_CLEAR_ALL, OnClearAll)
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
+    COMMAND_ID_HANDLER_EX(ID_SET_TIME_ZERO, OnSetBaseTime)
+    COMMAND_ID_HANDLER_EX(ID_RESET_BASE_TIME, OnResetBaseTime)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETINFOTIP, OnGetInfoTip)
@@ -146,6 +150,11 @@ class LogListView
   void OnSelectAll(UINT code, int id, CWindow window);
   void OnSetFocus(CWindow window);
   void OnKillFocus(CWindow window);
+  void OnContextMenu(CWindow wnd, CPoint point);
+
+  // Context menu command handlers.
+  void OnSetBaseTime(UINT code, int id, CWindow window);
+  void OnResetBaseTime(UINT code, int id, CWindow window);
 
   // Updates the UI status for commands we support, disables
   // all our commands unless we have focus.
@@ -178,6 +187,16 @@ class LogListView
 
   // Asserting on correct threading.
   MessageLoop* ui_loop_;
+
+  // Our context menu.
+  CMenu context_menu_bar_;
+  CMenu context_menu_;
+
+  // Row on which the context menu was last clicked.
+  int last_context_menu_row_;
+
+  // The time delta subtracted from the displayed time stamp in each row.
+  base::Time base_time_;
 };
 
 #endif  // SAWBUCK_VIEWER_LOG_LIST_VIEW_H_

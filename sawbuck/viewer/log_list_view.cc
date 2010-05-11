@@ -26,6 +26,7 @@
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/process_info_service.h"
+#include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
 namespace {
@@ -89,6 +90,9 @@ LogListView::LogListView(CUpdateUIBase* update_ui)
       update_ui_(update_ui), stack_trace_view_(NULL),
       process_info_service_(NULL) {
   ui_loop_ = MessageLoop::current();
+
+  context_menu_bar_.LoadMenu(IDR_LIST_VIEW_CONTEXT_MENU);
+  context_menu_ = context_menu_bar_.GetSubMenu(0);
 
   COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
                  wrong_number_of_column_info);
@@ -188,18 +192,42 @@ LRESULT LogListView::OnGetDispInfo(NMHDR* pnmh) {
       break;
     case COL_TIME:
       {
-        // TODO(siggi): Find a saner way to format the time.
-        FILETIME time = log_view_->GetTime(row).ToFileTime();
-        SYSTEMTIME sys_time;
-        // Convert to local time.
-        ::FileTimeToLocalFileTime(&time, &time);
-        ::FileTimeToSystemTime(&time, &sys_time);
+        if (!base_time_.is_null()) {
+          base::Time row_time = log_view_->GetTime(row);
+          base::TimeDelta time_delta = row_time - base_time_;
+          bool is_negative = false;
 
-        item_text_ = StringPrintf(L"%02d:%02d:%02d-%03d",
-                                  sys_time.wHour,
-                                  sys_time.wMinute,
-                                  sys_time.wSecond,
-                                  sys_time.wMilliseconds);
+          if (time_delta.ToInternalValue() < 0) {
+            is_negative = true;
+            time_delta = base_time_ - row_time;
+          }
+
+          int64 hours = time_delta.InHours();
+          int64 minutes = time_delta.InMinutes() % 60;
+          int64 seconds = time_delta.InSeconds() % 60;
+          int64 milliseconds = time_delta.InMilliseconds() % 1000;
+
+          if (is_negative) {
+            item_text_ = StringPrintf(L"-%02lld:%02lld:%02lld-%03lld",
+                                      hours, minutes, seconds, milliseconds);
+          } else {
+            item_text_ = StringPrintf(L"%02lld:%02lld:%02lld-%03lld",
+                                      hours, minutes, seconds, milliseconds);
+          }
+        } else {
+          // TODO(siggi): Find a saner way to format the time.
+          FILETIME time = log_view_->GetTime(row).ToFileTime();
+          SYSTEMTIME sys_time;
+          // Convert to local time.
+          ::FileTimeToLocalFileTime(&time, &time);
+          ::FileTimeToSystemTime(&time, &sys_time);
+
+          item_text_ = StringPrintf(L"%02d:%02d:%02d-%03d",
+                                    sys_time.wHour,
+                                    sys_time.wMinute,
+                                    sys_time.wSecond,
+                                    sys_time.wMilliseconds);
+        }
       }
       break;
     case COL_FILE:
@@ -234,10 +262,11 @@ LRESULT LogListView::OnItemChanged(NMHDR* pnmh) {
         log_view_->GetStackTrace(row, &trace);
 
         DCHECK(stack_trace_view_ != NULL);
-        stack_trace_view_->SetStackTrace(log_view_->GetProcessId(row),
-                                         log_view_->GetTime(row),
-                                         trace.size(),
-                                         trace.size() ? &trace[0] : NULL);
+        stack_trace_view_->SetStackTrace(
+            log_view_->GetProcessId(row),
+            log_view_->GetTime(row),
+            trace.size(),
+            trace.size() ? &trace[0] : NULL);
       }
     } else if (!IsSelected(info->uNewState) && IsSelected(info->uOldState)) {
       // Clear the trace.
@@ -368,6 +397,52 @@ void LogListView::OnKillFocus(CWindow window) {
 
   // Give the list view a chance at the message.
   SetMsgHandled(FALSE);
+}
+
+void LogListView::OnContextMenu(CWindow wnd, CPoint point) {
+  // First make sure that we clicked on an item:
+  CPoint client_point(point);
+  ScreenToClient(&client_point);
+
+  int row = HitTest(client_point, NULL);
+
+  if (row == -1) {
+    context_menu_.EnableMenuItem(ID_SET_TIME_ZERO, MF_BYCOMMAND | MF_GRAYED);
+  } else {
+    context_menu_.EnableMenuItem(ID_SET_TIME_ZERO, MF_BYCOMMAND | MF_ENABLED);
+  }
+
+  if (base_time_.ToInternalValue() == 0) {
+    context_menu_.EnableMenuItem(ID_RESET_BASE_TIME, MF_BYCOMMAND | MF_GRAYED);
+  } else {
+    context_menu_.EnableMenuItem(ID_RESET_BASE_TIME, MF_BYCOMMAND | MF_ENABLED);
+  }
+
+  // Save the row for the command handlers.
+  last_context_menu_row_ = row;
+
+  const UINT menu_flags = TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON |
+                          TPM_HORPOSANIMATION | TPM_VERPOSANIMATION;
+  context_menu_.TrackPopupMenu(0, point.x, point.y, wnd);
+}
+
+void LogListView::OnSetBaseTime(UINT code, int id, CWindow window) {
+  // Get the index of the item at the point where the last context menu was
+  // opened.
+  DCHECK(last_context_menu_row_ > -1);
+
+  // Get the corresponding time.
+  base_time_ = log_view_->GetTime(last_context_menu_row_);
+
+  // Refresh the list.
+  RedrawItems(0, GetItemCount());
+}
+
+void LogListView::OnResetBaseTime(UINT code, int id, CWindow window) {
+  base_time_ = base::Time();
+
+  // Refresh the list.
+  RedrawItems(0, GetItemCount());
 }
 
 void LogListView::LogViewNewItems() {

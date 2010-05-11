@@ -148,6 +148,7 @@
         'symbol_lookup_service_unittest.cc',
         'unittest_main.cc',
         'viewer_window_unittest.cc',
+        'viewer.rc',
       ],
       'dependencies': [
         'copy_dlls',
