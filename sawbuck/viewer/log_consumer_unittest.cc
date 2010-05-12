@@ -27,22 +27,18 @@ DEFINE_GUID(kRandomGuid,
     0x2e79e967, 0xbb99,
         0x4c42, 0xb8, 0x88, 0x79, 0x2e, 0xed, 0x6c, 0xeb, 0x98);
 
-
 using testing::_;
+using testing::AllOf;
 using testing::ElementsAreArray;
+using testing::Field;
+using testing::IsNull;
 using testing::NotNull;
 using testing::StrictMock;
+using testing::StrEq;
 
 class MockLogEvents: public LogEvents {
  public:
-  MOCK_METHOD8(OnLogMessage, void(UCHAR level,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            LARGE_INTEGER time_stamp,
-                            size_t num_traces,
-                            void** stack_trace,
-                            size_t length,
-                            const char* message));
+  MOCK_METHOD1(OnLogMessage, void(const LogEvents::LogMessage& msg));
 };
 
 class EventTrace: public EVENT_TRACE {
@@ -109,14 +105,18 @@ TEST_F(LogParserTest, ParseOtherEventVersion) {
 }
 
 TEST_F(LogParserTest, ParseLogEvent) {
-  EXPECT_CALL(events_, OnLogMessage(TRACE_LEVEL_INFORMATION,
-                                    ::GetCurrentProcessId(),
-                                    ::GetCurrentThreadId(),
-                                    _,
-                                    0, NULL,
-                                    sizeof(kMsgText),
-                                    testing::StrEq(kMsgText)))
-      .Times(1);
+  typedef LogEvents::LogMessage Msg;
+  EXPECT_CALL(events_, OnLogMessage(AllOf(
+      AllOf(
+          Field(&Msg::level, TRACE_LEVEL_INFORMATION),
+          Field(&Msg::process_id, ::GetCurrentProcessId()),
+          Field(&Msg::thread_id, ::GetCurrentThreadId())),
+      AllOf(
+          Field(&Msg::trace_depth, 0),
+          Field(&Msg::traces, IsNull()),
+          Field(&Msg::message_len, strlen(kMsgText)),
+          Field(&Msg::message, StrEq(kMsgText))))))
+              .Times(1);
 
   EXPECT_TRUE(parser_.ProcessOneEvent(&log_msg_));
 }
@@ -147,13 +147,17 @@ TEST_F(LogParserTest, ParseLogEventWithStackTrace) {
   log_msg_.MofLength = ptr - buffer;
 
   // Now set up the expectation.
-  EXPECT_CALL(events_, OnLogMessage(TRACE_LEVEL_INFORMATION,
-                                    ::GetCurrentProcessId(),
-                                    ::GetCurrentThreadId(),
-                                    _,
-                                    depth, NotNull(),
-                                    sizeof(kMsgText),
-                                    testing::StrEq(kMsgText)))
+  typedef LogEvents::LogMessage Msg;
+  EXPECT_CALL(events_, OnLogMessage(AllOf(
+      AllOf(
+          Field(&Msg::level, TRACE_LEVEL_INFORMATION),
+          Field(&Msg::process_id, ::GetCurrentProcessId()),
+          Field(&Msg::thread_id, ::GetCurrentThreadId())),
+      AllOf(
+          Field(&Msg::trace_depth, depth),
+          Field(&Msg::traces, NotNull()),
+          Field(&Msg::message_len, strlen(kMsgText)),
+          Field(&Msg::message, StrEq(kMsgText))))))
       .Times(1);
 
   EXPECT_TRUE(parser_.ProcessOneEvent(&log_msg_));

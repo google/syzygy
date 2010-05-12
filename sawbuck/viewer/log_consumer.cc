@@ -15,49 +15,136 @@
 // Log consumer implementation.
 #include "sawbuck/viewer/log_consumer.h"
 
+#include <sstream>
 #include "base/logging.h"
 #include "base/logging_win.h"
+#include "base/trace_event_win.h"
+#include "sawbuck/viewer/buffer_parser.h"
 #include <initguid.h>  // NOLINT - must be last include.
 
-LogParser::LogParser() : log_event_sink_(NULL) {
+LogParser::LogParser() : log_event_sink_(NULL), trace_event_sink_(NULL) {
 }
 
 LogParser::~LogParser() {
 }
 
-bool LogParser::ProcessOneEvent(PEVENT_TRACE event) {
+bool LogParser::ProcessOneEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+
   // Is it a log message?
   if (event->Header.Guid == logging::kLogEventId) {
-    if (event->Header.Class.Type == logging::LOG_MESSAGE &&
-        event->Header.Class.Version == 0) {
-      log_event_sink_->OnLogMessage(
-          event->Header.Class.Level, event->Header.ProcessId,
-          event->Header.ThreadId, event->Header.TimeStamp,
-          0, NULL, event->MofLength,
-          reinterpret_cast<const char*>(event->MofData));
+    return ParseLogEvent(event);
+  } else if (event->Header.Guid == base::kTraceEventClass32) {
+    return ParseTraceEvent(event);
+  }
 
-      // We processed the event.
-      return true;
-    } else if (event->Header.Class.Type ==
-        logging::LOG_MESSAGE_WITH_STACKTRACE &&
-        event->Header.Class.Version == 0) {
-      // The format of the binary log message is:
-      // 1. A DWORD containing the stack trace depth.
-      DWORD* depth = reinterpret_cast<DWORD*>(event->MofData);
-      // 2. The stack trace as an array of "depth" void pointers.
-      void** backtrace = reinterpret_cast<void**>(depth + 1);
-      // 3. Followed lastly by the ascii string message, which should
-      //    be zero-terminated, though we don't rely on that.
-      const char* msg = reinterpret_cast<const char*>(&backtrace[*depth]);
-      size_t trace_len = sizeof(depth) + sizeof(backtrace[0]) * *depth;
-      log_event_sink_->OnLogMessage(
-          event->Header.Class.Level, event->Header.ProcessId,
-          event->Header.ThreadId, event->Header.TimeStamp,
-          *depth, backtrace, event->MofLength - trace_len, msg);
+  return false;
+}
 
-      // We processed the event.
-      return true;
+bool LogParser::ParseLogEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+
+  // Don't perform any work unless there's a listener.
+  if (log_event_sink_ == NULL)
+    return false;
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  LogEvents::LogMessage msg;
+
+  msg.time = base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp));
+  msg.level = event->Header.Class.Level;
+  msg.process_id = event->Header.ProcessId;
+  msg.thread_id = event->Header.ThreadId;
+
+  if (event->Header.Class.Type == logging::LOG_MESSAGE &&
+      event->Header.Class.Version == 0) {
+    if (reader.ReadString(&msg.message, &msg.message_len)) {
+      log_event_sink_->OnLogMessage(msg);
+    } else {
+      DLOG(ERROR) << "Failed to read message from event";
     }
+    // We processed the event.
+    return true;
+  } else if (event->Header.Class.Type ==
+      logging::LOG_MESSAGE_WITH_STACKTRACE &&
+      event->Header.Class.Version == 0) {
+    // The format of the binary log message is:
+    // 1. A DWORD containing the stack trace depth.
+    // 2. The trace, "depth" in number.
+    // 3. The log message as a zero-terminated string.
+    const DWORD* depth = NULL;
+    if (reader.Read(&depth) &&
+        reader.Read(*depth * sizeof(void*), &msg.traces) &&
+        reader.ReadString(&msg.message, &msg.message_len)) {
+      msg.trace_depth = *depth;
+      log_event_sink_->OnLogMessage(msg);
+    } else {
+      DLOG(ERROR) << "Failed to read stack trace or message from event";
+    }
+
+    // We processed the event.
+    return true;
+  }
+
+  return false;
+}
+
+bool LogParser::ParseTraceEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+
+  // Don't perform any work unless there's a listener.
+  if (trace_event_sink_ == NULL)
+    return false;
+
+  switch (event->Header.Class.Type) {
+    case base::kTraceEventTypeBegin:
+    case base::kTraceEventTypeEnd:
+    case base::kTraceEventTypeInstant:
+      // It's a known type, parse it.
+      break;
+
+    default:
+      LOG(ERROR) << "Unknown event type " << event->Header.Class.Type;
+      return false;
+  }
+
+  if (event->Header.Class.Version != 0) {
+    LOG(ERROR) << "Unknown event version " << event->Header.Class.Version;
+    return false;
+  }
+
+  TraceEvents::TraceMessage trace;
+
+  trace.time = base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp));
+  trace.level = event->Header.Class.Level;
+  trace.process_id = event->Header.ProcessId;
+  trace.thread_id = event->Header.ThreadId;
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+
+  void* const* id;
+  if (reader.ReadString(&trace.name, &trace.name_len) &&
+      reader.Read(&id),
+      reader.ReadString(&trace.extra, &trace.extra_len)) {
+    trace.id = *id;
+
+    switch (event->Header.Class.Type) {
+      case base::kTraceEventTypeBegin:
+        trace_event_sink_->OnTraceEventBegin(trace);
+        break;
+      case base::kTraceEventTypeEnd:
+        trace_event_sink_->OnTraceEventEnd(trace);
+        break;
+      case base::kTraceEventTypeInstant:
+        trace_event_sink_->OnTraceEventInstant(trace);
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
+
+    return true;
   }
 
   return false;

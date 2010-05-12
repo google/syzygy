@@ -96,11 +96,13 @@ bool operator < (const GUID& a, const GUID& b) {
 void ViewerWindow::CompileAsserts() {
 }
 
-ViewerWindow::ViewerWindow() : log_messages_dirty_(false),
-    symbol_lookup_worker_("Symbol Lookup Worker"), next_sink_cookie_(1),
-    log_viewer_(this), ui_loop_(NULL),
-    log_consumer_thread_("Event log consumer"),
-    kernel_consumer_thread_("Kernel log consumer") {
+ViewerWindow::ViewerWindow()
+     : notify_log_view_new_items_(NULL),
+       symbol_lookup_worker_("Symbol Lookup Worker"),
+       next_sink_cookie_(1),
+       log_viewer_(this), ui_loop_(NULL),
+       log_consumer_thread_("Event log consumer"),
+       kernel_consumer_thread_("Kernel log consumer") {
   ui_loop_ = MessageLoop::current();
   DCHECK(ui_loop_ != NULL);
 
@@ -118,6 +120,11 @@ ViewerWindow::~ViewerWindow() {
   StopCapturing();
 
   symbol_lookup_worker_.Stop();
+
+  if (notify_log_view_new_items_ != NULL) {
+    notify_log_view_new_items_->Cancel();
+    notify_log_view_new_items_ = NULL;
+  }
 }
 
 namespace {
@@ -179,6 +186,7 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
 
   // Attach our event sinks to the consumer.
   import_consumer.set_event_sink(this);
+  import_consumer.set_trace_sink(this);
   import_consumer.set_process_event_sink(&process_info_service_);
   import_consumer.set_module_event_sink(&symbol_lookup_service_);
 
@@ -328,6 +336,7 @@ bool ViewerWindow::StartCapturing() {
   // And open a consumer on it.
   log_consumer_.reset(new LogConsumer());
   log_consumer_->set_event_sink(this);
+  log_consumer_->set_trace_sink(this);
   hr = log_consumer_->OpenRealtimeSession(kSessionName);
   if (FAILED(hr))
     return false;
@@ -380,50 +389,85 @@ void ViewerWindow::EnableProviders(
   }
 }
 
-void ViewerWindow::OnLogMessage(UCHAR level,
-                                DWORD process_id,
-                                DWORD thread_id,
-                                LARGE_INTEGER time_stamp,
-                                size_t num_traces,
-                                void** trace,
-                                size_t length,
-                                const char* message) {
-  AutoLock lock(list_lock_);
 
-  // Trim trailing zeros and WS off the message.
-  while (length && message[length] == '\0')
-    --length;
-
-  log_messages_.push_back(LogMessage());
-  LogMessage& msg = log_messages_.back();
-  msg.level = level;
-  msg.process_id = process_id;
-  msg.thread_id = thread_id;
-  msg.time_stamp =
-      base::Time::FromFileTime(reinterpret_cast<FILETIME&>(time_stamp));
+void ViewerWindow::OnLogMessage(const LogEvents::LogMessage& log_message) {
+  ViewerWindow::LogMessage msg;
+  msg.level = log_message.level;
+  msg.process_id = log_message.process_id;
+  msg.thread_id = log_message.thread_id;
+  msg.time_stamp = log_message.time;
 
   // Use regular expression matching to extract the
   // file/line/message from the log string, which is of
   // format "[<stuff>:<file>(<line>)] <message><ws>".
-  if (!kFileRe.FullMatch(pcrecpp::StringPiece(message, length),
-                         &msg.file, &msg.line, &msg.message)) {
+  if (!kFileRe.FullMatch(
+      pcrecpp::StringPiece(log_message.message, log_message.message_len),
+      &msg.file, &msg.line, &msg.message)) {
     // As fallback, just slurp the entire string.
-    msg.message.assign(message, length);
+    msg.message.assign(log_message.message, log_message.message_len);
   }
 
-  for (size_t i = 0; i < num_traces; ++i)
-    msg.trace.push_back(trace[i]);
+  for (size_t i = 0; i < log_message.trace_depth; ++i)
+    msg.trace.push_back(log_message.traces[i]);
 
-  if (!log_messages_dirty_) {
-    CancelableTask* task =
+  AutoLock lock(list_lock_);
+  log_messages_.push_back(msg);
+
+  ScheduleNewItemsNotification();
+}
+
+void ViewerWindow::OnTraceEventBegin(
+    const TraceEvents::TraceMessage& trace_message) {
+  AddTraceEventToLog("BEGIN", trace_message);
+}
+
+void ViewerWindow::OnTraceEventEnd(
+    const TraceEvents::TraceMessage& trace_message) {
+  AddTraceEventToLog("END", trace_message);
+}
+
+void ViewerWindow::OnTraceEventInstant(
+    const TraceEvents::TraceMessage& trace_message) {
+  AddTraceEventToLog("INSTANT", trace_message);
+}
+
+void ViewerWindow::AddTraceEventToLog(const char* type,
+    const TraceEvents::TraceMessage& trace_message) {
+  ViewerWindow::LogMessage msg;
+  msg.level = trace_message.level;
+  msg.process_id = trace_message.process_id;
+  msg.thread_id = trace_message.thread_id;
+  msg.time_stamp = trace_message.time;
+
+  // The message will be of form "{BEGIN|END|INSTANT}(<name>, 0x<id>): <extra>"
+  msg.message = StringPrintf("%s(%*s, 0x%08X): %*s",
+                             type,
+                             trace_message.name_len,
+                             trace_message.name,
+                             trace_message.id,
+                             trace_message.extra_len,
+                             trace_message.extra);
+
+  for (size_t i = 0; i < trace_message.trace_depth; ++i)
+    msg.trace.push_back(trace_message.traces[i]);
+
+  AutoLock lock(list_lock_);
+  log_messages_.push_back(msg);
+
+  ScheduleNewItemsNotification();
+}
+
+void ViewerWindow::ScheduleNewItemsNotification() {
+  // The list lock must be held.
+  list_lock_.AssertAcquired();
+
+  if (notify_log_view_new_items_ == NULL) {
+    notify_log_view_new_items_ =
         NewRunnableMethod(this, &ViewerWindow::NotifyLogViewNewItems);
-    DCHECK(task != NULL);
+    DCHECK(notify_log_view_new_items_ != NULL);
 
-    if (task != NULL) {
-      ui_loop_->PostTask(FROM_HERE, task);
-
-      // Notification is pending.
-      log_messages_dirty_ = true;
+    if (notify_log_view_new_items_ != NULL) {
+      ui_loop_->PostTask(FROM_HERE, notify_log_view_new_items_ );
     }
   }
 }
@@ -434,7 +478,7 @@ void ViewerWindow::NotifyLogViewNewItems() {
     AutoLock lock(list_lock_);
 
     // Notification no longer pending.
-    log_messages_dirty_ = false;
+    notify_log_view_new_items_ = NULL;
   }
 
   EventSinkMap::iterator it(event_sinks_.begin());

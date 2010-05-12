@@ -130,14 +130,15 @@ class LogDumpHandler
                               ULONG exit_status);
 
   // LogEvents implementation.
-  virtual void OnLogMessage(UCHAR level,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            LARGE_INTEGER time_stamp,
-                            size_t num_traces,
-                            void** stack_trace,
-                            size_t length,
-                            const char* message);
+  virtual void OnLogMessage(const LogEvents::LogMessage& msg);
+
+  // TraceEvents implementation.
+  virtual void OnTraceEventBegin(
+      const TraceEvents::TraceMessage& trace_message);
+  virtual void OnTraceEventEnd(
+      const TraceEvents::TraceMessage& trace_message);
+  virtual void OnTraceEventInstant(
+      const TraceEvents::TraceMessage& trace_message);
 };
 
 void LogDumpHandler::OnModuleIsLoaded(DWORD process_id,
@@ -264,14 +265,22 @@ void LogDumpHandler::OnProcessEnded(const base::Time& time,
 }
 
 // LogEvents implementation.
-void LogDumpHandler::OnLogMessage(UCHAR level,
-                          DWORD process_id,
-                          DWORD thread_id,
-                          LARGE_INTEGER time_stamp,
-                          size_t num_traces,
-                          void** stack_trace,
-                          size_t length,
-                          const char* message) {
+void LogDumpHandler::OnLogMessage(const LogEvents::LogMessage& log_msg) {
+  // TODO(siggi): implement me.
+}
+
+void LogDumpHandler::OnTraceEventBegin(
+    const TraceEvents::TraceMessage& trace_message) {
+  // TODO(siggi): implement me.
+}
+
+void LogDumpHandler::OnTraceEventEnd(
+      const TraceEvents::TraceMessage& trace_message) {
+  // TODO(siggi): implement me.
+}
+
+void LogDumpHandler::OnTraceEventInstant(
+      const TraceEvents::TraceMessage& trace_message) {
   // TODO(siggi): implement me.
 }
 

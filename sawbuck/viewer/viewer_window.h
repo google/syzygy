@@ -52,6 +52,7 @@ struct ProviderSettings {
 class ViewerWindow
     : public CFrameWindowImpl<ViewerWindow>,
       public LogEvents,
+      public TraceEvents,
       public ILogView,
       public CIdleHandler,
       public CMessageFilter,
@@ -136,14 +137,20 @@ class ViewerWindow
   void NotifyLogViewCleared();
 
   // LogEvents implementation.
-  void OnLogMessage(UCHAR level,
-                    DWORD process_id,
-                    DWORD thread_id,
-                    LARGE_INTEGER time_stamp,
-                    size_t num_traces,
-                    void** trace,
-                    size_t length,
-                    const char* message);
+  void OnLogMessage(const LogEvents::LogMessage& log_message);
+
+  // TraceEvents implementation.
+  void OnTraceEventBegin(const TraceEvents::TraceMessage& trace_message);
+  void OnTraceEventEnd(const TraceEvents::TraceMessage& trace_message);
+  void OnTraceEventInstant(const TraceEvents::TraceMessage& trace_message);
+
+  // Adds a trace event to the log.
+  void AddTraceEventToLog(const char* type,
+                          const TraceEvents::TraceMessage& trace_message);
+
+  // Schedule a notification of new items on UI thread.
+  // Must be called under list_lock_.
+  void ScheduleNewItemsNotification();
 
   typedef std::vector<ProviderSettings> ProviderSettingsList;
   void EnableProviders(const ProviderSettingsList& settings);
@@ -170,8 +177,8 @@ class ViewerWindow
   Lock list_lock_;
   typedef std::vector<LogMessage> LogMessageList;
   LogMessageList log_messages_;  // Under list_lock_.
-  // True iff there is a pending task to notify event sinks on the UI thread.
-  bool log_messages_dirty_;  // Under list_lock_.
+  // Keeps the task pending to notify event sinks on the UI thread.
+  CancelableTask* notify_log_view_new_items_;  // Under list_lock_.
 
   // The message loop we're instantiated on, used to signal
   // back to the main thread from workers.

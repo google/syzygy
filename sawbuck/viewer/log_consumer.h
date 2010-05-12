@@ -22,18 +22,57 @@
 #include "sawbuck/sym_util/types.h"
 #include <string>
 
-// Implemented by clients of EventTraceConsumer to get module load
-// event notifications.
+struct LogMessageBase {
+  LogMessageBase() : level(0), process_id(0), thread_id(0), trace_depth(0),
+      traces(NULL) {
+  }
+
+  base::Time time;
+  UCHAR level;
+  DWORD process_id;
+  DWORD thread_id;
+
+  size_t trace_depth;
+  void* const* traces;
+};
+
+// Implemented by clients of LogParser to receive log message notifications.
 class LogEvents {
  public:
-  virtual void OnLogMessage(UCHAR level,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            LARGE_INTEGER time_stamp,
-                            size_t num_traces,
-                            void** stack_trace,
-                            size_t length,
-                            const char* message) = 0;
+  struct LogMessage : public LogMessageBase {
+    LogMessage() : message_len(0), message(NULL) {
+    }
+
+    size_t message_len;
+    const char* message;
+  };
+
+  // Issued for log messages.
+  // Note: log_message is not valid beyond the call, any strings
+  //    you need to hold on to must be copied.
+  virtual void OnLogMessage(const LogMessage& log_message) = 0;
+};
+
+// Implemented by clients of LogParser to receive trace message notifications.
+class TraceEvents {
+ public:
+  struct TraceMessage : public LogMessageBase {
+    TraceMessage() : name_len(0), name(NULL), id(0), extra(0), extra_len(0) {
+    }
+
+    size_t name_len;
+    const char* name;
+    void* id;
+    size_t extra_len;
+    const char* extra;
+  };
+
+  // Issued for trace events.
+  // Note: trace_message is not valid beyond the call, any strings
+  //    you need to hold on to must be copied.
+  virtual void OnTraceEventBegin(const TraceMessage& trace_message) = 0;
+  virtual void OnTraceEventEnd(const TraceMessage& trace_message) = 0;
+  virtual void OnTraceEventInstant(const TraceMessage& trace_message) = 0;
 };
 
 class LogParser {
@@ -44,12 +83,21 @@ class LogParser {
   void set_event_sink(LogEvents* log_event_sink){
     log_event_sink_ = log_event_sink;
   }
+  void set_trace_sink(TraceEvents* trace_event_sink){
+    trace_event_sink_ = trace_event_sink;
+  }
 
   bool ProcessOneEvent(EVENT_TRACE* event);
 
  private:
+  bool ParseLogEvent(EVENT_TRACE* event);
+  bool ParseTraceEvent(EVENT_TRACE* event);
+
   // Our log event sink.
   LogEvents* log_event_sink_;
+
+  // Our trace event sink.
+  TraceEvents* trace_event_sink_;
 };
 
 class LogConsumer
