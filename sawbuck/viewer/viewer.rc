@@ -62,18 +62,18 @@ BEGIN
     POPUP "Edit"
     BEGIN
         MENUITEM "Cut",                         ID_EDIT_CUT
-        MENUITEM "Copy",                        ID_EDIT_COPY
-        MENUITEM "Paste",                       ID_EDIT_PASTE
+        MENUITEM "Copy\tCtrl+C",                ID_EDIT_COPY
+        MENUITEM "Paste\tCtrl+V",               ID_EDIT_PASTE
         MENUITEM "Clear",                       ID_EDIT_CLEAR
         MENUITEM SEPARATOR
-        MENUITEM "Clear All",                   ID_EDIT_CLEAR_ALL
-        MENUITEM "Select All",                  ID_EDIT_SELECT_ALL
+        MENUITEM "Clear All\tCtrl+X",           ID_EDIT_CLEAR_ALL
+        MENUITEM "Select All\tCtrl+A",          ID_EDIT_SELECT_ALL
     END
     POPUP "Log"
     BEGIN
         MENUITEM "Filter...",                   ID_LOG_FILTER
         MENUITEM "Configure Providers...",      ID_LOG_CONFIGUREPROVIDERS
-        MENUITEM "Capture",                     ID_LOG_CAPTURE
+        MENUITEM "Capture\tCtrl+L",             ID_LOG_CAPTURE
     END
     POPUP "Help"
     BEGIN
@@ -148,11 +148,12 @@ IDR_MAIN_FRAME          ICON                    "sawbuck.ico"
 IDR_MAIN_FRAME ACCELERATORS 
 BEGIN
     "C",            ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
-    "X",            ID_EDIT_CUT,            VIRTKEY, CONTROL, NOINVERT
+    "X",            ID_EDIT_CLEAR_ALL,      VIRTKEY, CONTROL, NOINVERT
     "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
     VK_DELETE,      ID_EDIT_CLEAR,          VIRTKEY, NOINVERT
     "A",            ID_EDIT_SELECT_ALL,     VIRTKEY, CONTROL, NOINVERT
     "F",            ID_LOG_FILTER,          VIRTKEY, CONTROL, NOINVERT
+    "L",            ID_LOG_CAPTURE,         VIRTKEY, CONTROL, NOINVERT
 END
 
 
