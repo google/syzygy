@@ -400,11 +400,27 @@ void LogListView::OnKillFocus(CWindow window) {
 }
 
 void LogListView::OnContextMenu(CWindow wnd, CPoint point) {
-  // First make sure that we clicked on an item:
-  CPoint client_point(point);
-  ScreenToClient(&client_point);
-
-  int row = HitTest(client_point, NULL);
+  int row = -1;
+  if (point.x == -1 && point.y == -1) {
+    // On shift-F10, the point is (-1, -1)
+    row = GetNextItem(-1, LVIS_FOCUSED);
+    if (row != -1) {
+      // Set the point to the middle of the label of the found item.
+      CRect rc;
+      GetItemRect(row, &rc, LVIR_LABEL);
+      point.x = (rc.left + rc.right) / 2;
+      point.y = (rc.bottom + rc.top) / 2;
+    } else {
+      // If no found item, backoff to the top-left of our client area.
+      point.x = point.y = 0;
+    }
+    ClientToScreen(&point);
+  } else {
+    // Hit test to make sure that we clicked on an item.
+    CPoint client_point(point);
+    ScreenToClient(&client_point);
+    row = HitTest(client_point, NULL);
+  }
 
   if (row == -1) {
     context_menu_.EnableMenuItem(ID_SET_TIME_ZERO, MF_BYCOMMAND | MF_GRAYED);
@@ -412,27 +428,27 @@ void LogListView::OnContextMenu(CWindow wnd, CPoint point) {
     context_menu_.EnableMenuItem(ID_SET_TIME_ZERO, MF_BYCOMMAND | MF_ENABLED);
   }
 
-  if (base_time_.ToInternalValue() == 0) {
+  if (base_time_.is_null()) {
     context_menu_.EnableMenuItem(ID_RESET_BASE_TIME, MF_BYCOMMAND | MF_GRAYED);
   } else {
     context_menu_.EnableMenuItem(ID_RESET_BASE_TIME, MF_BYCOMMAND | MF_ENABLED);
   }
 
-  // Save the row for the command handlers.
-  last_context_menu_row_ = row;
-
-  const UINT menu_flags = TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON |
+  const UINT kMenuFlags = TPM_LEFTALIGN | TPM_VCENTERALIGN | TPM_RIGHTBUTTON |
                           TPM_HORPOSANIMATION | TPM_VERPOSANIMATION;
   context_menu_.TrackPopupMenu(0, point.x, point.y, wnd);
 }
 
 void LogListView::OnSetBaseTime(UINT code, int id, CWindow window) {
-  // Get the index of the item at the point where the last context menu was
-  // opened.
-  DCHECK(last_context_menu_row_ > -1);
+  // Get the focused item.
+  int row = GetNextItem(-1, LVIS_FOCUSED);
+  if (row == -1) {
+    NOTREACHED() << "No focused element";
+    return;
+  }
 
   // Get the corresponding time.
-  base_time_ = log_view_->GetTime(last_context_menu_row_);
+  base_time_ = log_view_->GetTime(row);
 
   // Refresh the list.
   RedrawItems(0, GetItemCount());

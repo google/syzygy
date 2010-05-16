@@ -192,9 +192,6 @@ class LogListView
   CMenu context_menu_bar_;
   CMenu context_menu_;
 
-  // Row on which the context menu was last clicked.
-  int last_context_menu_row_;
-
   // The time delta subtracted from the displayed time stamp in each row.
   base::Time base_time_;
 };
