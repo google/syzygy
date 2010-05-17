@@ -14,7 +14,8 @@
 //
 // Provider dialog implementation.
 #include "sawbuck/viewer/provider_dialog.h"
-#include <wmistr.h>
+#include <atltheme.h>
+#include <wmistr.h>  // NOLINT. wmistr must precede evntrace.h.
 #include <evntrace.h>
 #include "base/string_util.h"
 #include "sawbuck/viewer/viewer_window.h"
@@ -49,13 +50,17 @@ int CALLBACK SortByFirstColumn(LPARAM a, LPARAM b, LPARAM wnd) {
 
 ProviderDialog::ProviderDialog(size_t num_providers,
                                ProviderSettings* settings) :
-    num_providers_(num_providers), settings_(settings) {
+    pushed_row_(-1), num_providers_(num_providers), settings_(settings) {
 }
 
 BOOL ProviderDialog::OnInitDialog(CWindow focus, LPARAM init_param) {
   CenterWindow();
 
   providers_.Attach(GetDlgItem(IDC_PROVIDERS));
+
+  const DWORD kStyles =
+      LVS_EX_ONECLICKACTIVATE | LVS_EX_DOUBLEBUFFER | LVS_EX_FULLROWSELECT;
+  providers_.SetExtendedListViewStyle(kStyles, kStyles);
   providers_.AddColumn(L"Provider", 0);
   providers_.AddColumn(L"Log Level", 1);
 
@@ -84,20 +89,28 @@ LRESULT ProviderDialog::OnOkCancel(WORD code,
   return 0;
 }
 
-LRESULT ProviderDialog::OnProviderClick(NMHDR* pnmh) {
-  NMITEMACTIVATE* item = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
+void ProviderDialog::OnContextMenu(CWindow wnd, CPoint point) {
+  if (wnd != providers_)
+    return;
 
-  // Hit test to find the item/subitem hit;
-  LVHITTESTINFO hit_test = {};
-  hit_test.pt = item->ptAction;
-  if (providers_.SubItemHitTest(&hit_test) == -1)
-    return 0;
+  int focused = providers_.GetNextItem(-1, LVNI_FOCUSED);
+  if (focused == -1)
+    return;
 
-  // We hit an item.
+  DoPopupMenu(focused);
+}
+
+void ProviderDialog::DoPopupMenu(int item) {
+  // Redraw the hit row as pushed.
+  pushed_row_ = item;
+  providers_.RedrawItems(item, item);
+  providers_.UpdateWindow();
+
+  // We hit an item in column 1, let's do a popup menu.
   CMenu menu;
   menu.CreatePopupMenu();
   wchar_t curr_text[256];
-  providers_.GetItemText(hit_test.iItem, 1, curr_text, arraysize(curr_text));
+  providers_.GetItemText(item, 1, curr_text, arraysize(curr_text));
 
   // We offset our item IDs from zero by an arbitrary constant to
   // be able to distinguish the no selection case from TrackPopupMenu.
@@ -110,14 +123,22 @@ LRESULT ProviderDialog::OnProviderClick(NMHDR* pnmh) {
       menu.CheckMenuItem(kCommandOffset + i, MF_CHECKED);
   }
 
-  POINT pt = item->ptAction;
-  ClientToScreen(&pt);
-  int id = menu.TrackPopupMenu(TPM_TOPALIGN | TPM_RETURNCMD,
-                               pt.x, pt.y, m_hWnd);
+  // We display the popupmenu flush with the lower-right hand edge
+  // of the item, so make something like a combobox.
+  RECT rc = {};
+  providers_.GetSubItemRect(item,
+                            1,
+                            LVIR_BOUNDS,
+                            &rc);
+
+  CPoint pt(rc.right, rc.bottom);
+  providers_.ClientToScreen(&pt);
+  const UINT kFlags = TPM_TOPALIGN | TPM_RIGHTALIGN | TPM_RETURNCMD |
+      TPM_NONOTIFY;
+  int id = menu.TrackPopupMenu(kFlags, pt.x, pt.y, m_hWnd);
 
   if (id) {
     id -= kCommandOffset;
-    int item = hit_test.iItem;
     providers_.SetItemText(item, 1, kLogLevels[id].name);
 
     ProviderSettings* settings =
@@ -126,5 +147,71 @@ LRESULT ProviderDialog::OnProviderClick(NMHDR* pnmh) {
     settings->log_level = id;
   }
 
+  // Redraw the hit row as non-pushed.
+  pushed_row_ = -1;
+  providers_.RedrawItems(item, item);
+  providers_.UpdateWindow();
+}
+
+LRESULT ProviderDialog::OnProviderClick(NMHDR* pnmh) {
+  NMITEMACTIVATE* item = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
+
+  // Hit test to find the item/subitem hit;
+  LVHITTESTINFO hit_test = {};
+  hit_test.pt = item->ptAction;
+  if (providers_.SubItemHitTest(&hit_test) == -1 || hit_test.iSubItem != 1)
+    return 0;
+
+  DoPopupMenu(hit_test.iItem);
+
   return 0;
+}
+
+DWORD ProviderDialog::OnPrePaint(int id, NMCUSTOMDRAW* cust) {
+  if (id != IDC_PROVIDERS)
+    return CDRF_DODEFAULT;
+
+  // We draw the dropdown arrow after other painting is done.
+  return CDRF_NOTIFYITEMDRAW;
+}
+
+DWORD ProviderDialog::OnItemPrePaint(int id, NMCUSTOMDRAW* cust) {
+  if (id != IDC_PROVIDERS)
+    return CDRF_DODEFAULT;
+
+  // We draw the dropdown arrow after other painting is done.
+  return CDRF_NOTIFYPOSTPAINT;
+}
+
+void ProviderDialog::DrawDropDown(NMLVCUSTOMDRAW* lv_cust) {
+  CDCHandle dc = lv_cust->nmcd.hdc;
+
+  // Calculate the dropdown rect size.
+  int dropdown_width = ::GetSystemMetrics(SM_CXVSCROLL);
+  int item = lv_cust->nmcd.dwItemSpec;
+  RECT rc = {};
+  providers_.GetSubItemRect(item, 1, LVIR_BOUNDS, &rc);
+  rc.left = rc.right - dropdown_width;
+
+  CTheme theme;
+  theme.OpenThemeData(providers_, VSCLASS_COMBOBOX);
+
+  bool is_pushed = item == pushed_row_;
+  if (theme.IsThemeNull()) {
+    dc.DrawFrameControl(&rc,
+                        DFC_SCROLL,
+                        DFCS_SCROLLDOWN | (is_pushed ? DFCS_PUSHED : 0));
+  } else {
+    int state = is_pushed ? CBXS_PRESSED : CBXS_NORMAL;
+    theme.DrawThemeBackground(dc, CP_DROPDOWNBUTTON, state, &rc);
+  }
+}
+
+DWORD ProviderDialog::OnItemPostPaint(int id, NMCUSTOMDRAW* cust) {
+  DCHECK_EQ(IDC_PROVIDERS, id);
+  NMLVCUSTOMDRAW* lv_cust = reinterpret_cast<NMLVCUSTOMDRAW*>(cust);
+
+  DrawDropDown(lv_cust);
+
+  return CDRF_DODEFAULT;
 }

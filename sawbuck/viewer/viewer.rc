@@ -9,6 +9,7 @@
 //
 #include "afxres.h"
 #include "atlres.h"
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -125,9 +126,9 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "Dialog"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
+    CONTROL         "",IDC_PROVIDERS,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,248,139,WS_EX_LEFTSCROLLBAR
     DEFPUSHBUTTON   "OK",IDOK,143,159,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,205,159,50,14
-    CONTROL         "",IDC_PROVIDERS,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,248,139,WS_EX_LEFTSCROLLBAR
 END
 
 
@@ -199,6 +200,7 @@ END
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
+
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
