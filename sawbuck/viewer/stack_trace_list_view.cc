@@ -15,10 +15,17 @@
 // Log viewer window implementation.
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
+#include <atlframe.h>
 #include "base/string_util.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/symbol_lookup_service.h"
+
+namespace {
+
+const int kNoItem = -1;
+
+};
 
 const StackTraceListView::ColumnInfo StackTraceListView::kColumns[] = {
   { 72, L"Address" },
@@ -35,7 +42,8 @@ const wchar_t* StackTraceListView::kColumnOrderValueName =
 const wchar_t* StackTraceListView::kColumnWidthValueName =
     config::kStackTraceColumnWidths;
 
-StackTraceListView::StackTraceListView() : lookup_service_(NULL), pid_(0) {
+StackTraceListView::StackTraceListView(CUpdateUIBase* update_ui)
+    : update_ui_(update_ui), lookup_service_(NULL), pid_(0) {
   COMPILE_ASSERT(arraysize(kColumns) == COL_MAX,
                  wrong_number_of_column_names);
 }
@@ -207,4 +215,79 @@ void StackTraceListView::SymbolResolved(sym_util::ProcessId pid,
 
     SetItemText(row, col, item_text.c_str());
   }
+}
+
+void StackTraceListView::OnCopyCommand(UINT code, int id, CWindow window) {
+  std::wstringstream selection;
+
+  int item = GetNextItem(kNoItem, LVNI_SELECTED);
+  for (; item != kNoItem; item = GetNextItem(item, LVNI_SELECTED)) {
+    for (int col = COL_ADDRESS; col < COL_MAX; ++col) {
+      wchar_t text[1024];
+      GetItemText(item, col, text, arraysize(text));
+
+      // Tab separate the columns.
+      if (col != COL_ADDRESS)
+        selection << L'\t';
+      selection << text;
+    }
+
+    // Clipboard has CRLF separated lines.
+    selection << L"\r\n";
+  }
+
+  // Copy the string to a global pointer for the clipboard.
+  CHeapPtr<wchar_t, CGlobalAllocator> data;
+
+  if (!data.Allocate(selection.str().length() + 1)) {
+    LOG(ERROR) << "Unable to allocate clipboard data";
+    return;
+  }
+
+  // Copy the string and the terminating zero.
+  memcpy(data.m_pData,
+         &selection.str()[0],
+         (selection.str().length() + 1) * sizeof(wchar_t));
+
+  if (::OpenClipboard(m_hWnd)) {
+    ::EmptyClipboard();
+
+    if (::SetClipboardData(CF_UNICODETEXT, data.m_pData)) {
+      // The clipboard has taken ownership now.
+      data.Detach();
+    } else {
+      LOG(ERROR) << "Unable to set clipboard data, error  "
+          << ::GetLastError();
+    }
+
+    ::CloseClipboard();
+  } else  {
+    LOG(ERROR) << "Unable to open clipboard, error " << ::GetLastError();
+  }
+}
+
+void StackTraceListView::OnSelectAll(UINT code, int id, CWindow window) {
+  // Select all items.
+  SetItemState(kNoItem, LVIS_SELECTED, LVIS_SELECTED);
+}
+
+void StackTraceListView::UpdateCommandStatus(bool has_focus) {
+  bool has_selection = GetSelectedCount() != 0;
+
+  update_ui_->UIEnable(ID_EDIT_COPY, has_focus && has_selection);
+  update_ui_->UIEnable(ID_EDIT_SELECT_ALL, has_focus);
+}
+
+void StackTraceListView::OnSetFocus(CWindow window) {
+  UpdateCommandStatus(true);
+
+  // Give the list view a chance at the message.
+  SetMsgHandled(FALSE);
+}
+
+void StackTraceListView::OnKillFocus(CWindow window) {
+  UpdateCommandStatus(false);
+
+  // Give the list view a chance at the message.
+  SetMsgHandled(FALSE);
 }

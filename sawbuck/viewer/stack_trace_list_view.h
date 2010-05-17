@@ -32,6 +32,10 @@
 // Fwd.
 class ISymbolLookupService;
 
+namespace WTL {
+class CUpdateUIBase;
+};
+
 typedef CWinTraits<WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
     LVS_REPORT> StackTraceListViewTraits;
 
@@ -45,12 +49,16 @@ class StackTraceListView
   BEGIN_MSG_MAP_EX(LogList)
     MESSAGE_HANDLER(WM_CREATE, OnCreate)
     MSG_WM_DESTROY(OnDestroy)
+    MSG_WM_SETFOCUS(OnSetFocus)
+    MSG_WM_KILLFOCUS(OnKillFocus)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_ITEMCHANGED, OnItemChanged)
     DEFAULT_REFLECTION_HANDLER()
   END_MSG_MAP()
 
-  StackTraceListView();
+  explicit StackTraceListView(CUpdateUIBase* update_ui);
 
   void SetSymbolLookupService(ISymbolLookupService* lookup_service);
   void SetStackTrace(sym_util::ProcessId pid,
@@ -81,6 +89,12 @@ class StackTraceListView
 
   LRESULT OnCreate(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
   void OnDestroy();
+  void OnCopyCommand(UINT code, int id, CWindow window);
+  void OnSelectAll(UINT code, int id, CWindow window);
+  void OnSetFocus(CWindow window);
+  void OnKillFocus(CWindow window);
+
+  void UpdateCommandStatus(bool has_focus);
 
   LRESULT OnGetDispInfo(NMHDR* notification);
   LRESULT OnItemChanged(NMHDR* notification);
@@ -106,6 +120,7 @@ class StackTraceListView
       sym_util::Address address, ISymbolLookupService::Handle handle,
       const sym_util::Symbol& symbol);
 
+  CUpdateUIBase* update_ui_;
 
   // The symbol lookup service we avail ourselves of.
   ISymbolLookupService* lookup_service_;

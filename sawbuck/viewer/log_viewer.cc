@@ -21,8 +21,11 @@
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/viewer/filtered_log_view.h"
 
-LogViewer::LogViewer(CUpdateUIBase* update_ui) : log_list_view_(update_ui),
-    log_view_(NULL), update_ui_(update_ui) {
+LogViewer::LogViewer(CUpdateUIBase* update_ui)
+    : log_list_view_(update_ui),
+      stack_trace_list_view_(update_ui),
+      log_view_(NULL),
+      update_ui_(update_ui) {
   include_re_ = ".*";
   exclude_re_ = "";
 }
