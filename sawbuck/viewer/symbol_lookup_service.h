@@ -68,6 +68,11 @@ class SymbolLookupService
   SymbolLookupService();
   ~SymbolLookupService();
 
+  typedef Callback1<const wchar_t*>::Type StatusCallback;
+  void set_status_callback(StatusCallback* status_callback) {
+    status_callback_ = status_callback;
+  }
+
   // Accessors for our background thread message loop.
   // Note: This object must outlive the background thread.
   MessageLoop* background_thread() const { return background_thread_; }
@@ -132,6 +137,9 @@ class SymbolLookupService
   Handle next_request_id_;  // Under resolution_lock_.
   // The id of the largest-id unprocessed request.
   Handle unprocessed_id_;  // Under resolution_lock_.
+
+  // Invoked on the worker thread on status changes.
+  StatusCallback* status_callback_;
 
   // These two store any enqueued or processing task.
   Task* resolve_task_;  // Under resolution_lock_.

@@ -21,6 +21,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include "base/callback.h"
 #include "sawbuck/sym_util/types.h"
 
 namespace sym_util {
@@ -30,6 +31,11 @@ class SymbolCache {
  public:
   SymbolCache();
   ~SymbolCache();
+
+  typedef Callback1<const wchar_t*>::Type StatusCallback;
+  void set_status_callback(StatusCallback* status_callback) {
+    status_callback_ = status_callback;
+  }
 
   bool GetSymbolForAddress(Address address, Symbol *symbol);
 
@@ -53,6 +59,9 @@ class SymbolCache {
   // True iff we've successfully SymInitialized and not
   // called SymCleanup.
   bool initialized_;
+
+  // Callback we invoke on on status updates.
+  StatusCallback* status_callback_;
 
   // We keep a cache of previously resolved symbols.
   // TODO(siggi): does this make sense?

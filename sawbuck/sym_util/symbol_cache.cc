@@ -45,7 +45,7 @@ class SymbolInfo {
 
 namespace sym_util {
 
-SymbolCache::SymbolCache() : initialized_(false) {
+SymbolCache::SymbolCache() : initialized_(false), status_callback_(NULL) {
   // We use our own this pointer as process handle to ensure uniqueness
   // of handles passed to SymInitialize within our process.
   process_handle_ = reinterpret_cast<HANDLE>(this);
@@ -149,14 +149,18 @@ BOOL CALLBACK SymbolCache::SymbolCallback(HANDLE process,
       break;
 
     case CBA_DEFERRED_SYMBOL_LOAD_CANCEL:
-      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_CANCEL";
+      // This is invoked a lot to query whether we'd like to cancel
+      // out of the current symbol download.
       break;
 
     case CBA_DEFERRED_SYMBOL_LOAD_COMPLETE: {
       IMAGEHLP_DEFERRED_SYMBOL_LOAD64* loaded =
           reinterpret_cast<IMAGEHLP_DEFERRED_SYMBOL_LOAD64*>(data);
-      LOG(INFO) << "CBA_DEFERRED_SYMBOL_LOAD_COMPLETE(" << loaded->FileName
-          << ")";
+      if (cache->status_callback_ != NULL) {
+        std::wstring status(L"Loaded ");
+        status.append(loaded->FileName);
+        cache->status_callback_->Run(status.c_str());
+      }
       break;
     }
 
@@ -200,6 +204,8 @@ BOOL CALLBACK SymbolCache::SymbolCallback(HANDLE process,
       IMAGEHLP_CBA_EVENT* event = reinterpret_cast<IMAGEHLP_CBA_EVENT*>(data);
       LOG(INFO) << "CBA_EVENT(" << std::hex << event->code << ", "
           << event->desc << ")";
+      if (cache->status_callback_)
+        cache->status_callback_->Run(event->desc);
       break;
     }
 

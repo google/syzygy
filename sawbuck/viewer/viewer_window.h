@@ -27,6 +27,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "base/callback.h"
 #include "base/event_trace_controller_win.h"
 #include "base/file_path.h"
 #include "base/scoped_ptr.h"
@@ -85,6 +86,7 @@ class ViewerWindow
     UPDATE_ELEMENT(ID_EDIT_CLEAR, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_EDIT_CLEAR_ALL, UPDUI_MENUBAR)
     UPDATE_ELEMENT(ID_EDIT_SELECT_ALL, UPDUI_MENUBAR)
+    UPDATE_ELEMENT(0, UPDUI_STATUSBAR)
   END_UPDATE_UI_MAP()
 
   ViewerWindow();
@@ -139,6 +141,11 @@ class ViewerWindow
   // LogEvents implementation.
   void OnLogMessage(const LogEvents::LogMessage& log_message);
 
+  // Invoked on the background thread by the symbol service.
+  void OnStatusUpdate(const wchar_t* status);
+  // Invoked on the UI thread to update our status.
+  void UpdateStatus();
+
   // TraceEvents implementation.
   void OnTraceEventBegin(const TraceEvents::TraceMessage& trace_message);
   void OnTraceEventEnd(const TraceEvents::TraceMessage& trace_message);
@@ -188,7 +195,14 @@ class ViewerWindow
   EventSinkMap event_sinks_;
   int next_sink_cookie_;
 
+  // The symbol lookup service we provide to the log list view.
   SymbolLookupService symbol_lookup_service_;
+  typedef Callback1<const wchar_t*>::Type StatusCallback;
+  scoped_ptr<StatusCallback> status_callback_;
+
+  Lock status_lock_;
+  std::wstring status_;  // Under status_lock_.
+  CancelableTask* update_status_task_;  // Under status_lock_;
 
   // Takes care of sinking KernelProcessEvents for us.
   ProcessInfoService process_info_service_;

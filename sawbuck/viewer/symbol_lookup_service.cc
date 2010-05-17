@@ -36,8 +36,9 @@ struct RunnableMethodTraits<SymbolLookupService> {
 };
 
 SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
-    foreground_thread_(MessageLoop::current()), resolve_task_(NULL),
-    callback_task_(NULL), next_request_id_(0), unprocessed_id_(0) {
+    foreground_thread_(MessageLoop::current()), status_callback_(NULL),
+    resolve_task_(NULL), callback_task_(NULL), next_request_id_(0),
+    unprocessed_id_(0) {
 }
 
 SymbolLookupService::~SymbolLookupService() {
@@ -163,6 +164,7 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
 
       DCHECK_EQ(inserted.second, true);
       SymbolCache& cache = inserted.first->second;
+      cache.set_status_callback(status_callback_);
 
       std::vector<ModuleInformation> modules;
       module_cache_.GetProcessModuleState(pid, time, &modules);
@@ -185,7 +187,13 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
 
   // This can take a long time, so it's important not to
   // hold the module lock over this operation.
-  return cache.GetSymbolForAddress(address, symbol);
+  bool ret = cache.GetSymbolForAddress(address, symbol);
+
+  // Clear the last status we posted.
+  if (status_callback_)
+    status_callback_->Run(L"Ready\r\n");
+
+  return ret;
 }
 
 void SymbolLookupService::ResolveCallback() {

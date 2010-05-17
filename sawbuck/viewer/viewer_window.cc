@@ -100,7 +100,9 @@ ViewerWindow::ViewerWindow()
      : notify_log_view_new_items_(NULL),
        symbol_lookup_worker_("Symbol Lookup Worker"),
        next_sink_cookie_(1),
-       log_viewer_(this), ui_loop_(NULL),
+       update_status_task_(NULL),
+       log_viewer_(this),
+       ui_loop_(NULL),
        log_consumer_thread_("Event log consumer"),
        kernel_consumer_thread_("Kernel log consumer") {
   ui_loop_ = MessageLoop::current();
@@ -108,6 +110,9 @@ ViewerWindow::ViewerWindow()
 
   symbol_lookup_worker_.Start();
   DCHECK(symbol_lookup_worker_.message_loop() != NULL);
+
+  status_callback_.reset(NewCallback(this, &ViewerWindow::OnStatusUpdate));
+  symbol_lookup_service_.set_status_callback(status_callback_.get());
 
   symbol_lookup_service_.set_background_thread(
       symbol_lookup_worker_.message_loop());
@@ -167,6 +172,9 @@ void ImportLogConsumer::ProcessEvent(PEVENT_TRACE event) {
 }  // namespace
 
 void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
+  UISetText(0, L"Importing");
+  UIUpdateStatusBar();
+
   ImportLogConsumer import_consumer;
 
   // Open all the log files.
@@ -199,6 +207,8 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
                      hr);
     ::MessageBox(m_hWnd, msg.c_str(), L"Error Importing Logs", MB_OK);
   }
+
+  UISetText(0, L"Ready");
 }
 
 const wchar_t kLogFileFilter[] =
@@ -389,7 +399,6 @@ void ViewerWindow::EnableProviders(
   }
 }
 
-
 void ViewerWindow::OnLogMessage(const LogEvents::LogMessage& log_message) {
   ViewerWindow::LogMessage msg;
   msg.level = log_message.level;
@@ -402,7 +411,7 @@ void ViewerWindow::OnLogMessage(const LogEvents::LogMessage& log_message) {
   // format "[<stuff>:<file>(<line>)] <message><ws>".
   if (!kFileRe.FullMatch(
       pcrecpp::StringPiece(log_message.message, log_message.message_len),
-      &msg.file, &msg.line, &msg.message)) {
+                           &msg.file, &msg.line, &msg.message)) {
     // As fallback, just slurp the entire string.
     msg.message.assign(log_message.message, log_message.message_len);
   }
@@ -414,6 +423,42 @@ void ViewerWindow::OnLogMessage(const LogEvents::LogMessage& log_message) {
   log_messages_.push_back(msg);
 
   ScheduleNewItemsNotification();
+}
+
+void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
+  AutoLock lock(status_lock_);
+  if (status_.find_first_of(L"\r\n") == std::wstring::npos) {
+    // No EOL in current status, backup for every backspace char.
+    for (; *status != L'\0'; ++status) {
+      const wchar_t kBackSpace = 0x08;
+      if (*status == 0x08) {
+        if (status_.length() > 0)
+          status_.resize(status_.length() - 1);
+      } else {
+        status_ += *status;
+      }
+    }
+  } else {
+    // EOL in current status, just replace it.
+    status_ = status;
+  }
+
+  // Post a task to update the status on the UI thread, unless
+  // there's a task already pending.
+  if (update_status_task_ == NULL) {
+    update_status_task_ = NewRunnableMethod(this,
+                                           &ViewerWindow::UpdateStatus);
+    if (update_status_task_ != NULL)
+      ui_loop_->PostTask(FROM_HERE, update_status_task_);
+  }
+}
+
+void ViewerWindow::UpdateStatus() {
+  DCHECK_EQ(MessageLoop::current(), ui_loop_);
+
+  AutoLock lock(status_lock_);
+  update_status_task_ = NULL;
+  UISetText(0, status_.c_str());
 }
 
 void ViewerWindow::OnTraceEventBegin(
@@ -526,7 +571,7 @@ LRESULT ViewerWindow::OnToggleCapture(WORD code,
 
 BOOL ViewerWindow::OnIdle() {
   UIUpdateMenuBar();
-  UIUpdateToolBar();
+  UIUpdateStatusBar();
 
   return TRUE;
 }
@@ -551,6 +596,9 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   UIEnable(ID_EDIT_SELECT_ALL, false);
 
   CreateSimpleStatusBar();
+  UIAddStatusBar(m_hWndStatusBar);
+
+  // Set the main window title.
   SetWindowText(L"Sawbuck Log Viewer");
 
   log_viewer_.SetLogView(this);
