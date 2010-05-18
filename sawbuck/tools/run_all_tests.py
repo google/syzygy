@@ -29,21 +29,20 @@ _TEST_PROJECT = os.path.abspath(
 
 
 def BuildProjectConfig(builder, config, project):
-  '''Builds a given project in a given configuration, exits on error.
+  '''Builds a given project in a given configuration.
 
   Args:
     builder: a Visual Studio SolutionBuild object.
     config: the name of the configuration to build, f.ex. "Release".
     project: the path of a solution to build, relative to the builder's
         solution directory.
+
+  Returns: the number of errors during the build.
   '''
   print 'Building project "%s" in "%s" configuration' % (project, config)
   builder.BuildProject(config, project, True)
-  errors = builder.LastBuildInfo
 
-  if errors != 0:
-    print '%d errors while building config %s.' % (errors, config)
-    sys.exit(errors)
+  return builder.LastBuildInfo
 
 
 def Main():
@@ -51,8 +50,30 @@ def Main():
   solution = win32com.client.GetObject(_SAWBUCK_SOLUTION)
   builder = solution.SolutionBuild
 
-  BuildProjectConfig(builder, 'Debug', _TEST_PROJECT)
-  BuildProjectConfig(builder, 'Release', _TEST_PROJECT)
+  # Force the output window to show and give it focus.
+  autohides = None
+  try:
+    dte = solution.DTE
+    dte.MainWindow.Visible = True
+    output = dte.Windows['Output']
+    autohides = output.AutoHides
+    output.AutoHides = False
+    output.SetFocus()
+  except:
+    pass
+
+  errors = BuildProjectConfig(builder, 'Debug', _TEST_PROJECT)
+  if errors == 0:
+    errors = BuildProjectConfig(builder, 'Release', _TEST_PROJECT)
+
+  # Restore the output window autohide status.
+  if autohides != None:
+    try:
+      output.AutoHides = autohides
+    except:
+      pass
+
+  return errors
 
 
 if __name__ == "__main__":
