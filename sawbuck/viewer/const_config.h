@@ -18,9 +18,32 @@
 
 namespace config {
 
-const wchar_t kSettingsKey[] = L"Software\\Google\\SawBuck";
+// Name of key under HKLM that stores provider configuration.
 const wchar_t kProviderNamesKey[] = L"Software\\Google\\SawBuck\\Providers";
+
+// Per-provider DWORD value for default enable flags value.
+const wchar_t kProviderDefaultFlagsValue[] = L"default_flags";
+// Per-provider DWORD value for default log level value.
+const wchar_t kProviderDefaultLevelValue[] = L"default_level";
+// Per-provider key name for storing name/mask enable flag data.
+const wchar_t kProviderFlagsKey[] = L"Flags";
+
+// Top-level settings key under HKCU.
+const wchar_t kSettingsKey[] = L"Software\\Google\\SawBuck";
+
+// Key that stores provider levels under HKCU.
 const wchar_t kProviderLevelsKey[] = L"Software\\Google\\SawBuck\\Levels";
+// Per-provider DWORD value for current log level.
+const wchar_t kProviderLevelValue[] = L"log_level";
+// Per-provider DWORD value for current enable flags.
+const wchar_t kProviderEnableFlagsValue[] = L"enable_flags";
+
+// Symbol path value.
+const wchar_t kSymPathValue[] = L"symbol_path";
+
+// Include and exclude regular expression value names.
+const wchar_t kIncludeReValue[] = L"include_re";
+const wchar_t kExcludeReValue[] = L"exclude_re";
 
 const wchar_t kWindowPosValue[] = L"window_pos";
 const wchar_t kLogViewColumnOrder[] = L"log_view_column_order";

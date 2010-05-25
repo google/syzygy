@@ -25,10 +25,8 @@
 #include <vector>
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "resource.h"
-
-// Forward declaration.
-struct ProviderSettings;
+#include "sawbuck/viewer/provider_configuration.h"
+#include "resource.h"  // NOLINT
 
 // The log viewer window plays host to a listview, taking care of handling
 // its notification requests etc.
@@ -48,30 +46,40 @@ class ProviderDialog
     CHAIN_MSG_MAP(CCustomDraw<ProviderDialog>)
   END_MSG_MAP()
 
-  ProviderDialog(size_t num_providers, ProviderSettings* settings);
+  explicit ProviderDialog(ProviderConfiguration* settings);
 
-  // We draw a dropdown arrow on item post-paint.
+  // We draw the dropdown arrows on item post-paint.
   DWORD OnPrePaint(int id, NMCUSTOMDRAW* cust);
   DWORD OnItemPrePaint(int id, NMCUSTOMDRAW* cust);
   DWORD OnItemPostPaint(int id, NMCUSTOMDRAW* cust);
 
  private:
+  enum Columns {
+    COL_NAME = 0,
+    COL_LEVEL,
+    COL_ENABLE_BITS,
+    COL_MAX
+  };
+
   BOOL OnInitDialog(CWindow focus, LPARAM init_param);
   LRESULT OnOkCancel(WORD code, WORD id, HWND window, BOOL& handled);
   LRESULT OnProviderClick(NMHDR* pnmh);
   void OnContextMenu(CWindow wnd, CPoint point);
-  void DrawDropDown(NMLVCUSTOMDRAW* lv_cust);
-  void DoPopupMenu(int item);
+  void DrawDropDowns(NMLVCUSTOMDRAW* lv_cust);
+  void DrawDropDown(NMLVCUSTOMDRAW* lv_cust, int col);
+  void DoPopupMenu(int item, int col);
+  void DoProviderPopupMenu(int item);
+  void DoEnableBitsPopupMenu(int item);
 
   // The list view control that displays the providers.
   CListViewCtrl providers_;
 
-  // The row that's currently displaying a popup menu.
+  // The row and col currently displaying a popup menu.
   int pushed_row_;
-
+  int pushed_col_;
   // Number of providers pointed to by settings_.
   size_t num_providers_;
-  ProviderSettings* settings_;
+  ProviderConfiguration* settings_;
 };
 
 #endif  // SAWBUCK_VIEWER_PROVIDER_DIALOG_H_

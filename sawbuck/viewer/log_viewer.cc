@@ -15,19 +15,23 @@
 // Log viewer window implementation.
 #include "sawbuck/viewer/log_viewer.h"
 
+#include <atlbase.h>
 #include <atlframe.h>
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/viewer/filtered_log_view.h"
+#include "sawbuck/viewer/const_config.h"
+#include "sawbuck/viewer/preferences.h"
 
 LogViewer::LogViewer(CUpdateUIBase* update_ui)
     : log_list_view_(update_ui),
       stack_trace_list_view_(update_ui),
       log_view_(NULL),
       update_ui_(update_ui) {
-  include_re_ = ".*";
-  exclude_re_ = "";
+  Preferences prefs;
+  prefs.ReadStringValue(config::kIncludeReValue, &include_re_, ".*");
+  prefs.ReadStringValue(config::kExcludeReValue, &exclude_re_, "");
 }
 
 LogViewer::~LogViewer() {
@@ -155,11 +159,18 @@ void FilterDialog::OnIdCancel(UINT notify_code, int id, CWindow window) {
 void LogViewer::OnLogFilter(UINT code, int id, CWindow window) {
   FilterDialog dialog(include_re_, exclude_re_);
 
-  if (dialog.DoModal(window) == IDOK) {
+  if (dialog.DoModal(m_hWnd) == IDOK) {
     scoped_ptr<FilteredLogView> new_view(new FilteredLogView(log_view_));
 
     include_re_ = dialog.include_re();
     exclude_re_ = dialog.exclude_re();
+
+    Preferences prefs;
+    if (!prefs.WriteStringValue(config::kIncludeReValue, include_re_) ||
+        !prefs.WriteStringValue(config::kExcludeReValue, exclude_re_)) {
+      LOG(ERROR) << "Failed to write regular expression settings.";
+    }
+
     bool ret = new_view->SetInclusionRegexp(include_re_.c_str());
     DCHECK(ret) << "Invalid regular expression from FilterDialog";
     if (!exclude_re_.empty()) {

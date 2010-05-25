@@ -53,6 +53,9 @@ class ISymbolLookupService {
   // @param request_handle a request handle previously returned from
   //    ResolveAddress, whose callback has not yet been invoked.
   virtual void CancelRequest(Handle request_handle) = 0;
+
+  // Change the symbol path to @p symbol_path.
+  virtual void SetSymbolPath(const wchar_t* symbol_path) = 0;
 };
 
 // Fwd.
@@ -86,6 +89,7 @@ class SymbolLookupService
                                 sym_util::Address address,
                                 SymbolResolvedCallback* callback);
   virtual void CancelRequest(Handle request_handle);
+  virtual void SetSymbolPath(const wchar_t* symbol_path);
 
   // KernelModuleEvents implementation.
   virtual void OnModuleIsLoaded(DWORD process_id,
@@ -104,6 +108,7 @@ class SymbolLookupService
                                   sym_util::Address address,
                                   sym_util::Symbol* symbol);
 
+  void SetSymbolPathCallback(const std::wstring& path);
   void ResolveCallback();
   void IssueCallbacks();
 
@@ -119,6 +124,7 @@ class SymbolLookupService
       LoadStateVector;
   LoadStateVector lru_module_id_;
   SymbolCacheMap symbol_caches_;
+  std::wstring symbol_path_;
 
   Lock resolution_lock_;
   struct Request {

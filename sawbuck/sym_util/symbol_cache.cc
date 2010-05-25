@@ -62,7 +62,11 @@ SymbolCache::~SymbolCache() {
 
 bool SymbolCache::Initialize(size_t num_modules,
                              ModuleInformation* modules) {
-  if (!::SymInitialize(process_handle_, NULL, FALSE))
+  const wchar_t* symbol_path = NULL;
+  if (!symbol_path_.empty())
+    symbol_path = symbol_path_.c_str();
+
+  if (!::SymInitialize(process_handle_, symbol_path, FALSE))
     return false;
 
   ::SymRegisterCallback64(process_handle_,
@@ -127,6 +131,21 @@ void SymbolCache::Cleanup() {
     ::SymCleanup(process_handle_);
 
   initialized_ = false;
+}
+
+void SymbolCache::SetSymbolPath(const wchar_t* symbol_path) {
+  if (symbol_path != NULL)
+    symbol_path_ = symbol_path;
+  else
+    symbol_path_ = L"";
+
+  if (initialized_) {
+    // Switch the symbol path to the newly supplied one.
+    ::SymSetSearchPath(process_handle_, symbol_path);
+
+    // And flush the cache.
+    cache_.clear();
+  }
 }
 
 // TODO(siggi): This callback needs cleaning up. Firstly anytime it sees

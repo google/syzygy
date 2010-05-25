@@ -1,4 +1,4 @@
-<?xml version='1.0'?>
+<?xml version='1.0' encoding='utf-8'?>
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
   <!-- Version information -->
   <?include 'version.wxi' ?>
@@ -91,20 +91,20 @@
     <!--
       Declare our Add/Remove Programs icon.
     -->
-    <Icon Id="icon.ico" SourceFile="..\viewer\sawbuck.ico"/>
+    <Icon Id="icon.ico" SourceFile="..\viewer\sawbuck.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
     <!-- Define our program files foler -->
     <Directory Id='TARGETDIR' Name='SourceDir'>
       <Directory Id='ProgramFilesFolder'>
         <Directory Id='ProgramFilesGoogleFolder' Name='Google'>
-          <Directory Id='SAWBUCKAPPLICATIONDIRECTORY' Name='Sawbuck'/>
+          <Directory Id='SAWBUCKAPPLICATIONDIRECTORY' Name='Sawbuck' />
         </Directory>
       </Directory>
 
       <!-- Define our application files folder -->
       <Directory Id='ProgramMenuFolder'>
-        <Directory Id='SawbuckProgramsDirectory' Name='Sawbuck'/>
+        <Directory Id='SawbuckProgramsDirectory' Name='Sawbuck' />
       </Directory>
     </Directory>
 
@@ -116,8 +116,8 @@
                   Name='Sawbuck'
                   Description='The Chrome log viewer.'
                   Target='[SAWBUCKAPPLICATIONDIRECTORY]Sawbuck.exe'
-                  WorkingDirectory='SAWBUCKAPPLICATIONDIRECTORY'/>
-        <RemoveFolder Id='SawbuckProgramsDirectory' On='uninstall'/>
+                  WorkingDirectory='SAWBUCKAPPLICATIONDIRECTORY' />
+        <RemoveFolder Id='SawbuckProgramsDirectory' On='uninstall' />
         <!-- This is apparently necessary so the component has
             a 'key' item.
         -->
@@ -127,7 +127,7 @@
             Name='installed'
             Type='integer'
             Value='1'
-            KeyPath='yes'/>
+            KeyPath='yes' />
         <!-- Put an uninstall shortcut in there as well. -->
         <Shortcut Id='UninstallSawbuckShortcut'
                   Name='Uninstall Sawbuck'
@@ -145,38 +145,155 @@
             Root='HKLM'
             Key='Software\Google\Sawbuck\Providers'
             Action='createAndRemoveOnUninstall'>
+          <!-- Chrome Perf trace provider -->
+          <RegistryKey
+              Key='{3DADA31D-19EF-4dc1-B345-037927193422}'>
+            <RegistryValue
+                Type='string'
+                Value='Chrome Perf Traces' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='0' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='0' />
+          </RegistryKey>
           <!-- Chrome -->
           <RegistryKey
               Key='{7FE69228-633E-4f06-80C1-527FEA23E3A7}'>
-            <RegistryValue Type='string' Value='Chrome' />
-          </RegistryKey>
-          <RegistryKey
-              Key='{3DADA31D-19EF-4dc1-B345-037927193422}'>
-            <RegistryValue Type='string' Value='Chrome Perf Traces' />
+            <RegistryValue 
+                Type='string'
+                Value='Chrome' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='4' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='1' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+            </RegistryKey>
           </RegistryKey>
           <!-- Chrome Frame -->
           <RegistryKey
               Key='{0562BFC3-2550-45b4-BD8E-A310583D3A6F}'>
-            <RegistryValue Type='string' Value='Chrome Frame' />
+            <RegistryValue
+                Type='string' 
+                Value='Chrome Frame' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='4' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='1' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+            </RegistryKey>
           </RegistryKey>
           <!-- Sawbuck -->
           <RegistryKey
               Key='{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'>
             <RegistryValue Type='string' Value='Sawbuck' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='3' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='1' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+            </RegistryKey>
           </RegistryKey>
           <!-- CEEE -->
           <RegistryKey
               Key='{6E3D6168-1DD2-4edb-A183-584C2C66E96D}'>
             <RegistryValue Type='string' Value='CEEE Broker' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='4' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='1' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+            </RegistryKey>
           </RegistryKey>
           <RegistryKey
               Key='{73213C1A-C369-4740-A75C-FA849E6CE540}'>
             <RegistryValue Type='string' Value='CEEE' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='4' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='1' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+            </RegistryKey>
           </RegistryKey>
           <!-- IE Toolbar -->
           <RegistryKey
               Key='{79FDF710-2D7F-488f-B00C-C6EFAE507169}'>
             <RegistryValue Type='string' Value='IE Toolbar' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='4' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='1' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+            </RegistryKey>
           </RegistryKey>
         </RegistryKey>
       </Component>
@@ -206,7 +323,7 @@
         <File Id='Icu42DllComponent'
             Name='icudt42.dll'
             DiskId='1'
-            Source='..\..\third_party\icu\icudt42.dll'/>
+            Source='..\..\third_party\icu\icudt42.dll' />
       </Component>
 
       <Component Id='DbgHelpDllComponent'
@@ -214,14 +331,14 @@
         <File Id='DbgHelpDllFile'
             Name='DbgHelp.dll'
             DiskId='1'
-            Source='..\..\third_party\debugging_tools\files\DbgHelp.dll'/>
+            Source='..\..\third_party\debugging_tools\files\DbgHelp.dll' />
       </Component>
       <Component Id='SymSrvDllComponent'
           Guid='{04FFB025-E3C9-4ecd-8255-ED7E63EFC948}'>
         <File Id='SymSrvDllFile'
             Name='SymSrv.dll'
             DiskId='1'
-            Source='..\..\third_party\debugging_tools\files\SymSrv.dll'/>
+            Source='..\..\third_party\debugging_tools\files\SymSrv.dll' />
       </Component>
     </DirectoryRef>
 

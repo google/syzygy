@@ -17,12 +17,16 @@
 
 #include "pcrecpp.h"  // NOLINT
 #include "base/basictypes.h"
+#include "base/env_var.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
 #include "base/logging.h"
+#include "base/path_service.h"
+#include "base/string_util.h"
+#include "base/utf_string_conversions.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
+#include "sawbuck/viewer/preferences.h"
 #include "sawbuck/viewer/provider_dialog.h"
 #include "sawbuck/viewer/viewer_module.h"
 #include <initguid.h>  // NOLINT
@@ -117,7 +121,11 @@ ViewerWindow::ViewerWindow()
   symbol_lookup_service_.set_background_thread(
       symbol_lookup_worker_.message_loop());
 
-  ReadProviderSettings(&settings_);
+  InitSymbolPath();
+  symbol_lookup_service_.SetSymbolPath(symbol_path_.c_str());
+
+  settings_.ReadProviders();
+  settings_.ReadSettings();
 }
 
 ViewerWindow::~ViewerWindow() {
@@ -392,10 +400,11 @@ bool ViewerWindow::StartCapturing() {
 }
 
 void ViewerWindow::EnableProviders(
-    const ProviderSettingsList& settings) {
-  for (size_t i = 0; i < settings.size(); ++i) {
+    const ProviderConfiguration& settings) {
+  for (size_t i = 0; i < settings.settings().size(); ++i) {
     log_controller_.EnableProvider(
-        settings[i].provider_guid, settings[i].log_level);
+        settings.settings()[i].provider_guid,
+        settings.settings()[i].log_level);
   }
 }
 
@@ -545,13 +554,15 @@ LRESULT ViewerWindow::OnConfigureProviders(WORD code,
                                            HWND wnd,
                                            BOOL& handled) {
   // Make a copy of our settings.
-  ProviderSettingsList settings(settings_);
-  ProviderDialog dialog(settings.size(),
-                        settings.size() ? &settings[0] : NULL);
+  ProviderConfiguration settings_copy;
+
+  settings_copy.Copy(settings_);
+
+  ProviderDialog dialog(&settings_copy);
   if (dialog.DoModal(m_hWnd) == IDOK) {
-    settings_ = settings;
+    settings_.Copy(settings_copy);
     EnableProviders(settings_);
-    WriteProviderSettings(settings_);
+    settings_.WriteSettings();
   }
 
   return 0;
@@ -565,6 +576,65 @@ LRESULT ViewerWindow::OnToggleCapture(WORD code,
   DCHECK_EQ(capturing,
             ((UIGetState(ID_LOG_CAPTURE) & UPDUI_CHECKED) == UPDUI_CHECKED));
   SetCapture(!capturing);
+
+  return 0;
+}
+
+namespace {
+
+class SymbolPathDialog: public CDialogImpl<SymbolPathDialog> {
+ public:
+  BEGIN_MSG_MAP(SymbolPathDialog)
+    MSG_WM_INITDIALOG(OnInitDialog)
+    COMMAND_RANGE_HANDLER(IDOK, IDNO, OnCloseCmd)
+  END_MSG_MAP()
+
+  static const int IDD = IDD_SYMBOLPATH;
+
+  explicit SymbolPathDialog(std::wstring* symbol_path)
+      : symbol_path_(symbol_path) {
+    DCHECK(symbol_path != NULL);
+  }
+
+ private:
+  BOOL OnInitDialog(CWindow focus, LPARAM init_param) {
+    SetDlgItemText(IDC_SYMBOLPATH, symbol_path_->c_str());
+    CenterWindow(GetParent());
+    return TRUE;
+  }
+
+  LRESULT OnCloseCmd(WORD code, WORD id, HWND ctl, BOOL& handled) {
+    ::EndDialog(m_hWnd, id);
+
+    // Stash the new symbol path to the string we were handed on IDOK.
+    HWND item = GetDlgItem(IDC_SYMBOLPATH);
+    if (id == IDOK && item != NULL) {
+      int length = ::GetWindowTextLength(item);
+      symbol_path_->resize(length);
+      length = ::GetWindowText(item, &(*symbol_path_)[0], length + 1);
+      symbol_path_->resize(length);
+    }
+
+    return 0;
+  }
+
+  std::wstring* symbol_path_;
+};
+
+}  // namespace
+
+LRESULT ViewerWindow::OnSymbolPath(WORD code,
+                                   LPARAM lparam,
+                                   HWND wnd,
+                                   BOOL& handled) {
+  SymbolPathDialog dialog(&symbol_path_);
+
+  if (IDOK == dialog.DoModal(m_hWnd)) {
+    Preferences pref;
+    pref.WriteStringValue(config::kSymPathValue, symbol_path_);
+
+    symbol_lookup_service_.SetSymbolPath(symbol_path_.c_str());
+  }
 
   return 0;
 }
@@ -726,107 +796,37 @@ void ViewerWindow::Unregister(int registration_cookie) {
   event_sinks_.erase(registration_cookie);
 }
 
-void ViewerWindow::ReadProviderSettings(
-    ProviderSettingsList* settings) {
-  // Storage for the GUID->name mapping.
-  typedef std::map<GUID, std::wstring> ProviderNamesMap;
-  ProviderNamesMap provider_names;
-
-  CRegKey providers;
-  LONG err = providers.Open(HKEY_LOCAL_MACHINE,
-                            config::kProviderNamesKey,
-                            KEY_READ);
-  if (err != ERROR_SUCCESS) {
-    LOG(ERROR) << "Failed to open provider names key";
-    return;
+void ViewerWindow::InitSymbolPath() {
+  {
+    // Attempt to read our current preference if one exists.
+    Preferences pref;
+    if (pref.ReadStringValue(config::kSymPathValue, &symbol_path_, NULL))
+      return;
   }
 
-  for (DWORD index = 0; true; ++index) {
-    wchar_t tmp_string[256];
-    DWORD tmp_len = arraysize(tmp_string);
-    err = providers.EnumKey(index, tmp_string, &tmp_len);
-    if (err == ERROR_NO_MORE_ITEMS) {
-      break;
-    } else if (err != ERROR_SUCCESS) {
-      LOG(ERROR) << "Error enumerating provider names" << err;
-      continue;
-    }
+  // No preference, see if there's a fallback in the environment.
+  scoped_ptr<base::EnvVarGetter> env(base::EnvVarGetter::Create());
+  std::string nt_symbol_path;
+  if (!env.get() || !env->GetEnv("_NT_SYMBOL_PATH", &nt_symbol_path)) {
+    // We have no symbol path, make one up!
+    FilePath temp_dir;
+    if (!PathService::Get(base::DIR_TEMP, &temp_dir))
+      return;
 
-    GUID provider_name = {};
-    if (FAILED(::CLSIDFromString(tmp_string, &provider_name))) {
-      LOG(ERROR) << "Non-GUID provider \"" << tmp_string << "\"";
-      continue;
-    }
+    FilePath sym_dir(temp_dir.Append(L"symbols"));
+    if (!file_util::CreateDirectory(sym_dir))
+      return;
 
-    CRegKey subkey;
-    err = subkey.Open(providers, tmp_string);
-    if (err != ERROR_SUCCESS) {
-      LOG(ERROR) << "Error opening provider key " << tmp_string << ", " << err;
-      continue;
-    }
+    symbol_path_ =
+        StringPrintf(L"SRV*%ls*http://msdl.microsoft.com/download/;"
+                     L"SRV*%ls*http://build.chromium.org/buildbot/symsrv",
+                     sym_dir.value().c_str(),
+                     sym_dir.value().c_str());
 
-    tmp_len = arraysize(tmp_string);
-    err = subkey.QueryStringValue(NULL, tmp_string, &tmp_len);
-    if (err != ERROR_SUCCESS) {
-      LOG(ERROR) << "Error reading provider name " << err;
-      continue;
-    }
-
-    provider_names.insert(std::make_pair(provider_name, tmp_string));
-  }
-
-  settings->clear();
-
-  // Read the provider names from registry, and attempt to read
-  // the trace level for each, defaulting to INFO.
-  CRegKey levels_key;
-  LONG error = levels_key.Open(HKEY_CURRENT_USER, config::kProviderLevelsKey);
-
-  ProviderNamesMap::const_iterator it(provider_names.begin());
-  for (; it != provider_names.end(); ++it) {
-    ProviderSettings setting;
-    setting.log_level = TRACE_LEVEL_INFORMATION;
-    setting.provider_guid = it->first;
-    setting.provider_name = it->second;
-
-    if (levels_key != NULL) {
-      wchar_t value_name[40] = {};
-      CHECK(::StringFromGUID2(setting.provider_guid,
-                              value_name,
-                              arraysize(value_name)));
-      DWORD log_level = 0;
-      error = levels_key.QueryDWORDValue(value_name, log_level);
-      if (error == ERROR_SUCCESS)
-        setting.log_level = static_cast<UCHAR>(log_level);
-    }
-
-    settings->push_back(setting);
-  }
-}
-
-void ViewerWindow::WriteProviderSettings(
-    const ProviderSettingsList& settings) {
-  CRegKey levels_key;
-  LONG error = levels_key.Create(HKEY_CURRENT_USER,
-                                 config::kProviderLevelsKey,
-                                 0,
-                                 0,
-                                 KEY_WRITE);
-  if (error != ERROR_SUCCESS) {
-    LOG(ERROR) << "Error saving provider log levels: " << error;
-
-    return;
-  }
-
-  for (size_t i = 0; i < settings.size(); ++i) {
-    wchar_t value_name[40] = {};
-    CHECK(::StringFromGUID2(settings[i].provider_guid,
-                            value_name,
-                            arraysize(value_name)));
-
-    error = levels_key.SetDWORDValue(value_name, settings[i].log_level);
-    if (error != ERROR_SUCCESS)
-      LOG(ERROR) << "Error writing log level for provider " <<
-          settings[i].provider_name << ", error: " << error;
+    // Write the newly fabricated path to our preferences.
+    Preferences pref;
+    pref.WriteStringValue(config::kSymPathValue, symbol_path_);
+  } else {
+    symbol_path_ = UTF8ToWide(nt_symbol_path);
   }
 }

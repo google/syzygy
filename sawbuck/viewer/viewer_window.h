@@ -35,20 +35,14 @@
 #include "base/thread.h"
 #include "sawbuck/sym_util/module_cache.h"
 #include "sawbuck/sym_util/symbol_cache.h"
-#include "sawbuck/viewer/log_viewer.h"
-#include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/kernel_log_consumer.h"
+#include "sawbuck/viewer/log_viewer.h"
 #include "sawbuck/viewer/log_consumer.h"
 #include "sawbuck/viewer/process_info_service.h"
+#include "sawbuck/viewer/provider_configuration.h"
+#include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/symbol_lookup_service.h"
 
-
-// Log level settings for a provider.
-struct ProviderSettings {
-  GUID provider_guid;
-  std::wstring provider_name;
-  UCHAR log_level;
-};
 
 class ViewerWindow
     : public CFrameWindowImpl<ViewerWindow>,
@@ -70,6 +64,7 @@ class ViewerWindow
     COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAbout)
     COMMAND_ID_HANDLER(ID_LOG_CONFIGUREPROVIDERS, OnConfigureProviders)
     COMMAND_ID_HANDLER(ID_LOG_CAPTURE, OnToggleCapture)
+    COMMAND_ID_HANDLER(ID_LOG_SYMBOLPATH, OnSymbolPath)
     // Forward other commands to the client window.
     CHAIN_CLIENT_COMMANDS()
     CHAIN_MSG_MAP(CUpdateUI<ViewerWindow>);
@@ -121,6 +116,7 @@ class ViewerWindow
   LRESULT OnConfigureProviders(WORD code, LPARAM lparam, HWND wnd,
       BOOL& handled);
   LRESULT OnToggleCapture(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
+  LRESULT OnSymbolPath(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);
 
   virtual BOOL OnIdle();
   virtual BOOL PreTranslateMessage(MSG* pMsg);
@@ -134,6 +130,9 @@ class ViewerWindow
   bool StartCapturing();
 
  private:
+  // Initializes the symbol path.
+  void InitSymbolPath();
+
   // Called on UI thread to dispatch notifications to listeners.
   void NotifyLogViewNewItems();
   void NotifyLogViewCleared();
@@ -159,10 +158,10 @@ class ViewerWindow
   // Must be called under list_lock_.
   void ScheduleNewItemsNotification();
 
-  typedef std::vector<ProviderSettings> ProviderSettingsList;
-  void EnableProviders(const ProviderSettingsList& settings);
-  void ReadProviderSettings(ProviderSettingsList* settings);
-  void WriteProviderSettings(const ProviderSettingsList& settings);
+  void EnableProviders(const ProviderConfiguration& settings);
+
+  // The currently configured symbol path.
+  std::wstring symbol_path_;
 
   struct LogMessage {
     LogMessage() : level(0), process_id(0), thread_id(0), line(0) {
@@ -214,7 +213,7 @@ class ViewerWindow
   EtwTraceController log_controller_;
 
   // Log level settings for the providers we know of.
-  std::vector<ProviderSettings> settings_;
+  ProviderConfiguration settings_;
 
   // Controller for the kernel logging session.
   EtwTraceController kernel_controller_;

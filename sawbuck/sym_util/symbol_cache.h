@@ -43,6 +43,9 @@ class SymbolCache {
   bool Initialize(size_t num_modules, ModuleInformation* modules);
   void Cleanup();
 
+  // Sets a new symbol path, flushes the current cache.
+  void SetSymbolPath(const wchar_t* symbol_path);
+
  private:
   // We handle symbol callbacks to provide more information about images,
   // such as checksums and timestamps.
@@ -55,6 +58,9 @@ class SymbolCache {
 
   // The process handle we provide SymInitialize.
   HANDLE process_handle_;
+
+  // Our symbol path.
+  std::wstring symbol_path_;
 
   // True iff we've successfully SymInitialized and not
   // called SymCleanup.

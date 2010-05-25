@@ -37,8 +37,10 @@ const LogLevelInfo kLogLevels[] = {
 };
 
 int CALLBACK SortByFirstColumn(LPARAM a, LPARAM b, LPARAM wnd) {
-  ProviderSettings* settings_a = reinterpret_cast<ProviderSettings*>(a);
-  ProviderSettings* settings_b = reinterpret_cast<ProviderSettings*>(b);
+  const ProviderConfiguration::Settings* settings_a =
+      reinterpret_cast<ProviderConfiguration::Settings*>(a);
+  const ProviderConfiguration::Settings* settings_b =
+      reinterpret_cast<ProviderConfiguration::Settings*>(b);
 
   return ::CompareString(LOCALE_NEUTRAL,
                          NORM_IGNORECASE,
@@ -48,9 +50,8 @@ int CALLBACK SortByFirstColumn(LPARAM a, LPARAM b, LPARAM wnd) {
 
 }  // namespace
 
-ProviderDialog::ProviderDialog(size_t num_providers,
-                               ProviderSettings* settings) :
-    pushed_row_(-1), num_providers_(num_providers), settings_(settings) {
+ProviderDialog::ProviderDialog(ProviderConfiguration* settings)
+    : pushed_row_(-1), pushed_col_(-1), settings_(settings) {
 }
 
 BOOL ProviderDialog::OnInitDialog(CWindow focus, LPARAM init_param) {
@@ -61,18 +62,22 @@ BOOL ProviderDialog::OnInitDialog(CWindow focus, LPARAM init_param) {
   const DWORD kStyles =
       LVS_EX_ONECLICKACTIVATE | LVS_EX_DOUBLEBUFFER | LVS_EX_FULLROWSELECT;
   providers_.SetExtendedListViewStyle(kStyles, kStyles);
-  providers_.AddColumn(L"Provider", 0);
-  providers_.AddColumn(L"Log Level", 1);
+  providers_.AddColumn(L"Provider", COL_NAME);
+  providers_.AddColumn(L"Log Level", COL_LEVEL);
+  providers_.AddColumn(L"Enable Mask", COL_ENABLE_BITS);
 
   CRect rect;
   providers_.GetClientRect(&rect);
-  providers_.SetColumnWidth(0, rect.Width() / 2);
-  providers_.SetColumnWidth(1, rect.Width() / 2);
+  for (int col = COL_NAME; col < COL_MAX; ++col)
+    providers_.SetColumnWidth(col, rect.Width() / COL_MAX);
 
-  for (size_t i = 0; i < num_providers_; ++i) {
-    providers_.InsertItem(i, settings_[i].provider_name.c_str());
-    providers_.SetItemText(i, 1, kLogLevels[settings_[i].log_level].name);
-    providers_.SetItemData(i, reinterpret_cast<DWORD_PTR>(&settings_[i]));
+  for (size_t i = 0; i < settings_->settings().size(); ++i) {
+    const ProviderConfiguration::Settings* settings = &settings_->settings()[i];
+    providers_.InsertItem(i, settings->provider_name.c_str());
+    providers_.SetItemText(i, COL_LEVEL, kLogLevels[settings->log_level].name);
+    providers_.SetItemText(i, COL_ENABLE_BITS,
+        StringPrintf(L"0x%08X", settings->enable_flags).c_str());
+    providers_.SetItemData(i, reinterpret_cast<DWORD_PTR>(settings));
   }
 
   providers_.SortItems(SortByFirstColumn,
@@ -93,24 +98,60 @@ void ProviderDialog::OnContextMenu(CWindow wnd, CPoint point) {
   if (wnd != providers_)
     return;
 
+  // Find the focused element.
   int focused = providers_.GetNextItem(-1, LVNI_FOCUSED);
   if (focused == -1)
     return;
 
-  DoPopupMenu(focused);
+  int col = COL_LEVEL;
+  if (point.x != -1 && point.y != -1) {
+    // We have a valid point, hit test to find the column.
+    LVHITTESTINFO hit_test = {};
+    hit_test.pt = point;
+    providers_.ScreenToClient(&hit_test.pt);
+    if (providers_.SubItemHitTest(&hit_test) != -1)
+      col = hit_test.iSubItem;
+  }
+
+  DoPopupMenu(focused, col);
 }
 
-void ProviderDialog::DoPopupMenu(int item) {
+void ProviderDialog::DoPopupMenu(int item, int col) {
   // Redraw the hit row as pushed.
   pushed_row_ = item;
+  pushed_col_ = col;
   providers_.RedrawItems(item, item);
   providers_.UpdateWindow();
 
-  // We hit an item in column 1, let's do a popup menu.
+  switch (col) {
+    case COL_NAME:
+      // No popup for name column.
+      break;
+
+    case COL_LEVEL:
+      DoProviderPopupMenu(item);
+      break;
+    case COL_ENABLE_BITS:
+      DoEnableBitsPopupMenu(item);
+      break;
+    default:
+      NOTREACHED() << "Impossible column";
+      break;
+  }
+
+  // Redraw the hit row as non-pushed.
+  pushed_row_ = -1;
+  pushed_col_ = -1;
+  providers_.RedrawItems(item, item);
+  providers_.UpdateWindow();
+}
+
+void ProviderDialog::DoProviderPopupMenu(int item) {
+  // We hit an item in the provider column, let's do a popup menu.
   CMenu menu;
   menu.CreatePopupMenu();
   wchar_t curr_text[256];
-  providers_.GetItemText(item, 1, curr_text, arraysize(curr_text));
+  providers_.GetItemText(item, COL_LEVEL, curr_text, arraysize(curr_text));
 
   // We offset our item IDs from zero by an arbitrary constant to
   // be able to distinguish the no selection case from TrackPopupMenu.
@@ -127,7 +168,7 @@ void ProviderDialog::DoPopupMenu(int item) {
   // of the item, so make something like a combobox.
   RECT rc = {};
   providers_.GetSubItemRect(item,
-                            1,
+                            COL_LEVEL,
                             LVIR_BOUNDS,
                             &rc);
 
@@ -139,18 +180,83 @@ void ProviderDialog::DoPopupMenu(int item) {
 
   if (id) {
     id -= kCommandOffset;
-    providers_.SetItemText(item, 1, kLogLevels[id].name);
+    providers_.SetItemText(item, COL_LEVEL, kLogLevels[id].name);
 
-    ProviderSettings* settings =
-        reinterpret_cast<ProviderSettings*>(providers_.GetItemData(item));
+    ProviderConfiguration::Settings* settings =
+        reinterpret_cast<ProviderConfiguration::Settings*>(
+            providers_.GetItemData(item));
 
     settings->log_level = id;
   }
+}
 
-  // Redraw the hit row as non-pushed.
-  pushed_row_ = -1;
-  providers_.RedrawItems(item, item);
-  providers_.UpdateWindow();
+void ProviderDialog::DoEnableBitsPopupMenu(int item) {
+  CMenu menu;
+  menu.CreatePopupMenu();
+
+  ProviderConfiguration::Settings* settings =
+      reinterpret_cast<ProviderConfiguration::Settings*>(
+          providers_.GetItemData(item));
+
+  const UINT_PTR kSelectAll = 0x001;
+  const UINT_PTR kSelectNone = 0x002;
+  // We offset our item IDs from zero by an arbitrary constant to
+  // be able to distinguish the no selection case from TrackPopupMenu.
+  const UINT_PTR kMaskOffset = 0x100;
+
+  menu.AppendMenu(MF_STRING, kSelectAll, L"All");
+  menu.AppendMenu(MF_STRING, kSelectNone, L"None");
+
+  for (size_t i = 0; i < settings->flag_names.size(); ++i) {
+    UINT_PTR command = kMaskOffset + i;
+    menu.AppendMenu(MF_STRING, command, settings->flag_names[i].first.c_str());
+    EtwEventFlags flags = settings->flag_names[i].second;
+    if (flags == (flags & settings->enable_flags))
+      menu.CheckMenuItem(command, MF_CHECKED);
+  }
+
+  // We display the popupmenu flush with the lower-right hand edge
+  // of the item, so make something like a combobox.
+  RECT rc = {};
+  providers_.GetSubItemRect(item,
+                            COL_ENABLE_BITS,
+                            LVIR_BOUNDS,
+                            &rc);
+
+  CPoint pt(rc.right, rc.bottom);
+  providers_.ClientToScreen(&pt);
+  const UINT kFlags = TPM_TOPALIGN | TPM_RIGHTALIGN | TPM_RETURNCMD |
+      TPM_NONOTIFY;
+  int id = menu.TrackPopupMenu(kFlags, pt.x, pt.y, m_hWnd);
+
+  switch (id) {
+    case 0:
+      // Nothing was selected.
+      break;
+    case kSelectAll:
+      settings->enable_flags = 0xFFFFFFFF;
+      break;
+    case kSelectNone:
+      settings->enable_flags = 0x00000000;
+      break;
+
+    default:
+      DCHECK(id >= kMaskOffset);
+      id -= kMaskOffset;
+      DCHECK(static_cast<size_t>(id) < settings->flag_names.size());
+      EtwEventFlags selected_flags = settings->flag_names[id].second;
+      if (selected_flags == (settings->enable_flags & selected_flags)) {
+        // All set, toggle them off.
+        settings->enable_flags &= ~selected_flags;
+      } else {
+        // Some off, toggle them on.
+        settings->enable_flags |= selected_flags;
+      }
+      break;
+  }
+
+  providers_.SetItemText(item, COL_ENABLE_BITS,
+      StringPrintf(L"0x%08X", settings->enable_flags).c_str());
 }
 
 LRESULT ProviderDialog::OnProviderClick(NMHDR* pnmh) {
@@ -159,10 +265,15 @@ LRESULT ProviderDialog::OnProviderClick(NMHDR* pnmh) {
   // Hit test to find the item/subitem hit;
   LVHITTESTINFO hit_test = {};
   hit_test.pt = item->ptAction;
-  if (providers_.SubItemHitTest(&hit_test) == -1 || hit_test.iSubItem != 1)
+  if (providers_.SubItemHitTest(&hit_test) == -1)
     return 0;
 
-  DoPopupMenu(hit_test.iItem);
+  switch (hit_test.iSubItem) {
+    case COL_LEVEL:
+    case COL_ENABLE_BITS:
+      DoPopupMenu(hit_test.iItem, hit_test.iSubItem);
+      break;
+  }
 
   return 0;
 }
@@ -183,20 +294,25 @@ DWORD ProviderDialog::OnItemPrePaint(int id, NMCUSTOMDRAW* cust) {
   return CDRF_NOTIFYPOSTPAINT;
 }
 
-void ProviderDialog::DrawDropDown(NMLVCUSTOMDRAW* lv_cust) {
+void ProviderDialog::DrawDropDowns(NMLVCUSTOMDRAW* lv_cust) {
+  DrawDropDown(lv_cust, COL_LEVEL);
+  DrawDropDown(lv_cust, COL_ENABLE_BITS);
+}
+
+void ProviderDialog::DrawDropDown(NMLVCUSTOMDRAW* lv_cust, int col) {
   CDCHandle dc = lv_cust->nmcd.hdc;
 
   // Calculate the dropdown rect size.
   int dropdown_width = ::GetSystemMetrics(SM_CXVSCROLL);
   int item = lv_cust->nmcd.dwItemSpec;
   RECT rc = {};
-  providers_.GetSubItemRect(item, 1, LVIR_BOUNDS, &rc);
+  providers_.GetSubItemRect(item, col, LVIR_BOUNDS, &rc);
   rc.left = rc.right - dropdown_width;
 
   CTheme theme;
   theme.OpenThemeData(providers_, VSCLASS_COMBOBOX);
 
-  bool is_pushed = item == pushed_row_;
+  bool is_pushed = item == pushed_row_ && col == pushed_col_;
   if (theme.IsThemeNull()) {
     dc.DrawFrameControl(&rc,
                         DFC_SCROLL,
@@ -211,7 +327,7 @@ DWORD ProviderDialog::OnItemPostPaint(int id, NMCUSTOMDRAW* cust) {
   DCHECK_EQ(IDC_PROVIDERS, id);
   NMLVCUSTOMDRAW* lv_cust = reinterpret_cast<NMLVCUSTOMDRAW*>(cust);
 
-  DrawDropDown(lv_cust);
+  DrawDropDowns(lv_cust);
 
   return CDRF_DODEFAULT;
 }

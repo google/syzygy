@@ -24,9 +24,11 @@
 #define IDD_PROVIDERDIALOG              103
 #define IDD_FILTERDIALOG                104
 #define IDR_LIST_VIEW_CONTEXT_MENU      105
+#define IDD_SYMBOLPATH                  106
 #define IDC_PROVIDERS                   1002
 #define IDC_EXCLUDE_RE                  1003
 #define IDC_INCLUDE_RE                  1004
+#define IDC_SYMBOLPATH                  1005
 #define ID_FILE_EXIT                    4001
 #define ID_FILE_IMPORT                  4002
 #define ID_LOG_CAPTURE                  4003
@@ -35,14 +37,15 @@
 #define ID_SETTIME0_ITEM1               4006
 #define ID_SET_TIME_ZERO                4007
 #define ID_RESET_BASE_TIME              4008
+#define ID_LOG_SYMBOLPATH               4009
 
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        106
-#define _APS_NEXT_COMMAND_VALUE         4009
-#define _APS_NEXT_CONTROL_VALUE         1005
+#define _APS_NEXT_RESOURCE_VALUE        107
+#define _APS_NEXT_COMMAND_VALUE         4010
+#define _APS_NEXT_CONTROL_VALUE         1006
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

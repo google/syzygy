@@ -84,6 +84,13 @@ void SymbolLookupService::CancelRequest(Handle request_handle) {
   requests_.erase(it);
 }
 
+void SymbolLookupService::SetSymbolPath(const wchar_t* symbol_path) {
+  Task* task = NewRunnableMethod(this,
+                                 &SymbolLookupService::SetSymbolPathCallback,
+                                 symbol_path);
+  background_thread_->PostTask(FROM_HERE, task);
+}
+
 void SymbolLookupService::OnModuleIsLoaded(
     DWORD process_id, const base::Time& time,
     const ModuleInformation& module_info) {
@@ -168,6 +175,7 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
 
       std::vector<ModuleInformation> modules;
       module_cache_.GetProcessModuleState(pid, time, &modules);
+      cache.SetSymbolPath(symbol_path_.c_str());
       cache.Initialize(modules.size(), modules.size() ? &modules[0] : NULL);
 
       it = inserted.first;
@@ -197,6 +205,8 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
 }
 
 void SymbolLookupService::ResolveCallback() {
+  DCHECK_EQ(background_thread_, MessageLoop::current());
+
   while (true) {
     Handle request_id;
     Request request;
@@ -241,6 +251,15 @@ void SymbolLookupService::ResolveCallback() {
       unprocessed_id_ = request_id + 1;
     }
   }
+}
+
+void SymbolLookupService::SetSymbolPathCallback(const std::wstring& path) {
+  DCHECK_EQ(background_thread_, MessageLoop::current());
+
+  symbol_path_ = path;
+  SymbolCacheMap::iterator it(symbol_caches_.begin());
+  for (; it != symbol_caches_.end(); ++it)
+    it->second.SetSymbolPath(symbol_path_.c_str());
 }
 
 void SymbolLookupService::IssueCallbacks() {

@@ -86,6 +86,7 @@
           'action': [
             '<(light_exe)',
             '<(INTERMEDIATE_DIR)/sawbuck.wixobj',
+            '-sice:ICE49',  # suppress the 'default value is not string' ICE
             '-ext', 'WixUIExtension',
             '-ext', 'WixUtilExtension',
             '-out', '<@(_outputs)',
