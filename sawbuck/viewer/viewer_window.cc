@@ -664,6 +664,8 @@ int ViewerWindow::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   UIEnable(ID_EDIT_CLEAR, false);
   UIEnable(ID_EDIT_CLEAR_ALL, false);
   UIEnable(ID_EDIT_SELECT_ALL, false);
+  UIEnable(ID_EDIT_FIND, false);
+  UIEnable(ID_EDIT_FIND_NEXT, false);
 
   CreateSimpleStatusBar();
   UIAddStatusBar(m_hWndStatusBar);

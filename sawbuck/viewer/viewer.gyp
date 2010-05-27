@@ -72,6 +72,8 @@
         'const_config.h',
         'filtered_log_view.cc',
         'filtered_log_view.h',
+        'find_dialog.cc',
+        'find_dialog.h',
         'preferences.cc',
         'preferences.h',
         'provider_configuration.cc',

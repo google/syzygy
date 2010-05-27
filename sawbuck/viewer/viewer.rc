@@ -54,32 +54,35 @@ END
 
 IDR_MAIN_FRAME MENU 
 BEGIN
-    POPUP "File"
+    POPUP "&File"
     BEGIN
         MENUITEM "&Import Log...",              ID_FILE_IMPORT
         MENUITEM SEPARATOR
         MENUITEM "E&xit",                       ID_FILE_EXIT
     END
-    POPUP "Edit"
+    POPUP "&Edit"
     BEGIN
-        MENUITEM "Cut",                         ID_EDIT_CUT
-        MENUITEM "Copy\tCtrl+C",                ID_EDIT_COPY
-        MENUITEM "Paste\tCtrl+V",               ID_EDIT_PASTE
-        MENUITEM "Clear",                       ID_EDIT_CLEAR
+        MENUITEM "Cu&t",                        ID_EDIT_CUT
+        MENUITEM "&Copy\tCtrl+C",               ID_EDIT_COPY
+        MENUITEM "&Paste\tCtrl+V",              ID_EDIT_PASTE
+        MENUITEM "C&lear",                      ID_EDIT_CLEAR
         MENUITEM SEPARATOR
-        MENUITEM "Clear All\tCtrl+X",           ID_EDIT_CLEAR_ALL
-        MENUITEM "Select All\tCtrl+A",          ID_EDIT_SELECT_ALL
+        MENUITEM "&Find...\tCtrl+F",            ID_EDIT_FIND
+        MENUITEM "Find &Next...\tF3",           ID_EDIT_FIND_NEXT
+        MENUITEM SEPARATOR
+        MENUITEM "Cl&ear All\tCtrl+X",          ID_EDIT_CLEAR_ALL
+        MENUITEM "Select &All\tCtrl+A",         ID_EDIT_SELECT_ALL
     END
-    POPUP "Log"
+    POPUP "&Log"
     BEGIN
-        MENUITEM "Symbol Path..."               ID_LOG_SYMBOLPATH
-        MENUITEM "Filter...",                   ID_LOG_FILTER
-        MENUITEM "Configure Providers...",      ID_LOG_CONFIGUREPROVIDERS
-        MENUITEM "Capture\tCtrl+L",             ID_LOG_CAPTURE
+        MENUITEM "&Symbol Path..."              ID_LOG_SYMBOLPATH
+        MENUITEM "&Filter...\tCtrl+L",          ID_LOG_FILTER
+        MENUITEM "Configure &Providers...",     ID_LOG_CONFIGUREPROVIDERS
+        MENUITEM "&Capture\tCtrl+E",            ID_LOG_CAPTURE
     END
-    POPUP "Help"
+    POPUP "&Help"
     BEGIN
-        MENUITEM "About",                       ID_APP_ABOUT
+        MENUITEM "&About",                      ID_APP_ABOUT
     END
 END
 
@@ -91,7 +94,6 @@ BEGIN
         MENUITEM "&Reset Base Time",            ID_RESET_BASE_TIME
     END
 END
-
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -132,6 +134,22 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,205,159,50,14
 END
 
+IDD_FINDDIALOG DIALOGEX 0, 0, 278, 60
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_CONTROLPARENT
+CAPTION "Find"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    EDITTEXT        IDC_FIND_TEXT,51,7,154,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "&Find Next",IDOK,221,7,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,221,24,50,14
+    CONTROL         "Match &case",IDC_MATCH_CASE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,24,52,10
+    GROUPBOX        "Direction",IDC_STATIC,85,24,119,24
+    CONTROL         "&Down",IDC_DIRECTION_DOWN,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,101,34,34,10
+    CONTROL         "&Up",IDC_DIRECTION_UP,"Button",BS_AUTORADIOBUTTON,155,34,38,10
+    LTEXT           "Fi&nd what:",IDC_STATIC,6,7,35,8
+END
+
 IDD_SYMBOLPATH DIALOGEX 0, 0, 316, 134
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Symbol Path"
@@ -161,12 +179,14 @@ IDR_MAIN_FRAME          ICON                    "sawbuck.ico"
 IDR_MAIN_FRAME ACCELERATORS 
 BEGIN
     "C",            ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    "F",            ID_EDIT_FIND,           VIRTKEY, CONTROL, NOINVERT
+    VK_F3,          ID_EDIT_FIND_NEXT,      VIRTKEY, NOINVERT
     "X",            ID_EDIT_CLEAR_ALL,      VIRTKEY, CONTROL, NOINVERT
     "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
     VK_DELETE,      ID_EDIT_CLEAR,          VIRTKEY, NOINVERT
     "A",            ID_EDIT_SELECT_ALL,     VIRTKEY, CONTROL, NOINVERT
-    "F",            ID_LOG_FILTER,          VIRTKEY, CONTROL, NOINVERT
-    "L",            ID_LOG_CAPTURE,         VIRTKEY, CONTROL, NOINVERT
+    "L",            ID_LOG_FILTER,          VIRTKEY, CONTROL, NOINVERT
+    "E",            ID_LOG_CAPTURE,         VIRTKEY, CONTROL, NOINVERT
 END
 
 

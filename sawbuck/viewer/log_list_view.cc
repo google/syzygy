@@ -23,6 +23,7 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "pcrecpp.h"  // NOLINT
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/process_info_service.h"
@@ -439,6 +440,51 @@ void LogListView::OnContextMenu(CWindow wnd, CPoint point) {
   context_menu_.TrackPopupMenu(0, point.x, point.y, wnd);
 }
 
+void LogListView::OnFind(UINT code, int id, CWindow window) {
+  FindDialog find(find_params_);
+  if (find.DoModal(m_hWnd) == IDOK) {
+    find_params_ = find.find_params();
+    FindNext();
+  }
+}
+
+void LogListView::OnFindNext(UINT code, int id, CWindow window) {
+  if (!find_params_.expression_.empty())
+    FindNext();
+}
+
+void LogListView::FindNext() {
+  pcrecpp::RE_Options options = PCRE_UTF8;
+  options.set_caseless(!find_params_.match_case_);
+  pcrecpp::RE expression(find_params_.expression_, options);
+
+  int start = GetNextItem(-1, LVIS_FOCUSED);
+  int num_rows = log_view_->GetNumRows();
+  bool down = find_params_.direction_down_;
+  int i = down ? start + 1 : start - 1;
+  if (i < 0)
+    i = 0;  // in case start == -1.
+
+  for (; down ? i < num_rows : i >= 0; down ? ++i : --i) {
+    std::string message(log_view_->GetMessage(i));
+    if (expression.PartialMatch(message))
+      break;
+  }
+
+  if (i >= 0 && i < num_rows) {
+    // Clear the existing selection.
+    if (start >= 0)
+      SetItemState(start, 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+    // Select and focus the new item.
+    SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED,
+                 LVIS_SELECTED | LVIS_FOCUSED);
+    EnsureVisible(i, false);
+  } else {
+    MessageBox(L"The specified text was not found.");
+  }
+}
+
 void LogListView::OnSetBaseTime(UINT code, int id, CWindow window) {
   // Get the focused item.
   int row = GetNextItem(-1, LVIS_FOCUSED);
@@ -489,4 +535,7 @@ void LogListView::UpdateCommandStatus(bool has_focus) {
   update_ui_->UIEnable(ID_EDIT_COPY, has_focus && has_selection);
   update_ui_->UIEnable(ID_EDIT_SELECT_ALL, has_focus);
   update_ui_->UIEnable(ID_EDIT_CLEAR_ALL, has_focus);
+  update_ui_->UIEnable(ID_EDIT_FIND, has_focus);
+  update_ui_->UIEnable(ID_EDIT_FIND_NEXT, has_focus &&
+                       !find_params_.expression_.empty());
 }

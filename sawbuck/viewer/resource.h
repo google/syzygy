@@ -25,10 +25,15 @@
 #define IDD_FILTERDIALOG                104
 #define IDR_LIST_VIEW_CONTEXT_MENU      105
 #define IDD_SYMBOLPATH                  106
+#define IDD_FINDDIALOG                  107
 #define IDC_PROVIDERS                   1002
 #define IDC_EXCLUDE_RE                  1003
 #define IDC_INCLUDE_RE                  1004
 #define IDC_SYMBOLPATH                  1005
+#define IDC_FIND_TEXT                   1006
+#define IDC_MATCH_CASE                  1007
+#define IDC_DIRECTION_DOWN              1008
+#define IDC_DIRECTION_UP                1009
 #define ID_FILE_EXIT                    4001
 #define ID_FILE_IMPORT                  4002
 #define ID_LOG_CAPTURE                  4003
@@ -38,6 +43,7 @@
 #define ID_SET_TIME_ZERO                4007
 #define ID_RESET_BASE_TIME              4008
 #define ID_LOG_SYMBOLPATH               4009
+#define ID_EDIT_FIND_NEXT               4010
 
 // Next default values for new objects
 //

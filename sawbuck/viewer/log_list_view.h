@@ -28,6 +28,7 @@
 #include "base/message_loop.h"
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
+#include "sawbuck/viewer/find_dialog.h"
 #include "sawbuck/viewer/list_view_base.h"
 #include "sawbuck/viewer/resource.h"
 
@@ -93,6 +94,8 @@ class LogListView
     COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
     COMMAND_ID_HANDLER_EX(ID_EDIT_CLEAR_ALL, OnClearAll)
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_FIND, OnFind)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_FIND_NEXT, OnFindNext)
     COMMAND_ID_HANDLER_EX(ID_SET_TIME_ZERO, OnSetBaseTime)
     COMMAND_ID_HANDLER_EX(ID_RESET_BASE_TIME, OnResetBaseTime)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
@@ -151,6 +154,8 @@ class LogListView
   void OnSetFocus(CWindow window);
   void OnKillFocus(CWindow window);
   void OnContextMenu(CWindow wnd, CPoint point);
+  void OnFind(UINT code, int id, CWindow window);
+  void OnFindNext(UINT code, int id, CWindow window);
 
   // Context menu command handlers.
   void OnSetBaseTime(UINT code, int id, CWindow window);
@@ -160,6 +165,10 @@ class LogListView
   // all our commands unless we have focus.
   // @param has_focus true iff this window has the focus.
   void UpdateCommandStatus(bool has_focus);
+
+  // Finds the next item matching with the current find parameters.
+  // See |find_params_|.
+  void FindNext();
 
   // To help unittest mocking.
   virtual BOOL DeleteAllItems() {
@@ -184,6 +193,9 @@ class LogListView
 
   // Temporary storage for strings returned from OnGetDispInfo.
   std::wstring item_text_;
+
+  // The last piece of text we searched for.
+  FindParameters find_params_;
 
   // Asserting on correct threading.
   MessageLoop* ui_loop_;
