@@ -91,6 +91,7 @@ class LogListView
     MSG_WM_DESTROY(OnDestroy)
     MSG_WM_SETFOCUS(OnSetFocus)
     MSG_WM_KILLFOCUS(OnKillFocus)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_AUTOSIZE_COLUMNS, OnAutoSizeColumns)
     COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
     COMMAND_ID_HANDLER_EX(ID_EDIT_CLEAR_ALL, OnClearAll)
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
@@ -156,6 +157,7 @@ class LogListView
   void OnContextMenu(CWindow wnd, CPoint point);
   void OnFind(UINT code, int id, CWindow window);
   void OnFindNext(UINT code, int id, CWindow window);
+  void OnAutoSizeColumns(UINT code, int id, CWindow window);
 
   // Context menu command handlers.
   void OnSetBaseTime(UINT code, int id, CWindow window);

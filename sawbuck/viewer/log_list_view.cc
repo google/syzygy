@@ -453,6 +453,13 @@ void LogListView::OnFindNext(UINT code, int id, CWindow window) {
     FindNext();
 }
 
+void LogListView::OnAutoSizeColumns(UINT code, int id, CWindow window) {
+  int columns = GetHeader().GetItemCount();
+  // Skip resizing the severity column.
+  for (int i = 1; i < columns; ++i)
+    SetColumnWidth(i, LVSCW_AUTOSIZE);
+}
+
 void LogListView::FindNext() {
   pcrecpp::RE_Options options = PCRE_UTF8;
   options.set_caseless(!find_params_.match_case_);
@@ -538,4 +545,6 @@ void LogListView::UpdateCommandStatus(bool has_focus) {
   update_ui_->UIEnable(ID_EDIT_FIND, has_focus);
   update_ui_->UIEnable(ID_EDIT_FIND_NEXT, has_focus &&
                        !find_params_.expression_.empty());
+  update_ui_->UIEnable(ID_EDIT_AUTOSIZE_COLUMNS,
+                       has_focus && log_view_->GetNumRows());
 }

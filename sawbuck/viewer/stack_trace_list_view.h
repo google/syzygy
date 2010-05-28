@@ -27,6 +27,7 @@
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/list_view_base.h"
+#include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/symbol_lookup_service.h"
 
 // Fwd.
@@ -51,6 +52,7 @@ class StackTraceListView
     MSG_WM_DESTROY(OnDestroy)
     MSG_WM_SETFOCUS(OnSetFocus)
     MSG_WM_KILLFOCUS(OnKillFocus)
+    COMMAND_ID_HANDLER_EX(ID_EDIT_AUTOSIZE_COLUMNS, OnAutoSizeColumns)
     COMMAND_ID_HANDLER_EX(ID_EDIT_COPY, OnCopyCommand)
     COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
     REFLECTED_NOTIFY_CODE_HANDLER_EX(LVN_GETDISPINFO, OnGetDispInfo)
@@ -93,6 +95,7 @@ class StackTraceListView
   void OnSelectAll(UINT code, int id, CWindow window);
   void OnSetFocus(CWindow window);
   void OnKillFocus(CWindow window);
+  void OnAutoSizeColumns(UINT code, int id, CWindow window);
 
   void UpdateCommandStatus(bool has_focus);
 

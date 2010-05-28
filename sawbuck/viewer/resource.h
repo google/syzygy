@@ -44,6 +44,7 @@
 #define ID_RESET_BASE_TIME              4008
 #define ID_LOG_SYMBOLPATH               4009
 #define ID_EDIT_FIND_NEXT               4010
+#define ID_EDIT_AUTOSIZE_COLUMNS        4011
 
 // Next default values for new objects
 //

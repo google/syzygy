@@ -72,6 +72,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Cl&ear All\tCtrl+X",          ID_EDIT_CLEAR_ALL
         MENUITEM "Select &All\tCtrl+A",         ID_EDIT_SELECT_ALL
+        MENUITEM "Auto &Size Columns\tF12"      ID_EDIT_AUTOSIZE_COLUMNS
     END
     POPUP "&Log"
     BEGIN
@@ -187,6 +188,7 @@ BEGIN
     "A",            ID_EDIT_SELECT_ALL,     VIRTKEY, CONTROL, NOINVERT
     "L",            ID_LOG_FILTER,          VIRTKEY, CONTROL, NOINVERT
     "E",            ID_LOG_CAPTURE,         VIRTKEY, CONTROL, NOINVERT
+    VK_F12,         ID_EDIT_AUTOSIZE_COLUMNS, VIRTKEY, NOINVERT
 END
 
 

@@ -276,6 +276,7 @@ void StackTraceListView::UpdateCommandStatus(bool has_focus) {
 
   update_ui_->UIEnable(ID_EDIT_COPY, has_focus && has_selection);
   update_ui_->UIEnable(ID_EDIT_SELECT_ALL, has_focus);
+  update_ui_->UIEnable(ID_EDIT_AUTOSIZE_COLUMNS, has_focus && trace_.size());
 }
 
 void StackTraceListView::OnSetFocus(CWindow window) {
@@ -290,4 +291,10 @@ void StackTraceListView::OnKillFocus(CWindow window) {
 
   // Give the list view a chance at the message.
   SetMsgHandled(FALSE);
+}
+
+void StackTraceListView::OnAutoSizeColumns(UINT code, int id, CWindow window) {
+  int columns = GetHeader().GetItemCount();
+  for (int i = 0; i < columns; ++i)
+    SetColumnWidth(i, LVSCW_AUTOSIZE);
 }
