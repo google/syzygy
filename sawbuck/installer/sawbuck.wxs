@@ -208,6 +208,102 @@
               </RegistryKey>
             </RegistryKey>
           </RegistryKey>
+          <!-- Omaha -->
+          <RegistryKey 
+              Key='{9B18BFF9-915E-4cc1-9C3E-F4AC112CB36C}'>
+            <RegistryValue
+                Type='string'
+                Value='Omaha' />
+            <RegistryValue
+                Name='default_level'
+                Type='integer'
+                Value='4' />
+            <RegistryValue
+                Name='default_flags'
+                Type='integer'
+                Value='4095' />
+            <RegistryKey
+                Key='Flags'>
+              <RegistryKey
+                  Key='Stack Trace'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_LOGGING'>
+                <RegistryValue
+                    Type='integer'
+                    Value='2' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_UTIL'>
+                <RegistryValue
+                    Type='integer'
+                    Value='4' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_SETUP'>
+                <RegistryValue
+                    Type='integer'
+                    Value='8' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_SHELL'>
+                <RegistryValue
+                    Type='integer'
+                    Value='16' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_CORE'>
+                <RegistryValue
+                    Type='integer'
+                    Value='32' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_JS'>
+                <RegistryValue
+                    Type='integer'
+                    Value='64' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_PLUGIN'>
+                <RegistryValue
+                    Type='integer'
+                    Value='128' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_SERVICE'>
+                <RegistryValue
+                    Type='integer'
+                    Value='256' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_OPT'>
+                <RegistryValue
+                    Type='integer'
+                    Value='512' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_NET'>
+                <RegistryValue
+                    Type='integer'
+                    Value='1024' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_REPORT'>
+                <RegistryValue
+                    Type='integer'
+                    Value='2048' />
+              </RegistryKey>
+              <RegistryKey
+                  Key='LC_ALL'>
+                <RegistryValue
+                    Type='integer'
+                    Value='4094' />
+              </RegistryKey>
+            </RegistryKey>
+          </RegistryKey>
           <!-- Sawbuck -->
           <RegistryKey
               Key='{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'>
