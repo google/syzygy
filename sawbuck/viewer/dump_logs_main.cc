@@ -61,8 +61,8 @@ void DumpLogConsumer::ProcessEvent(EVENT_TRACE* event) {
 }
 
 void DumpLogConsumer::ProcessOneEvent(EVENT_TRACE* event) {
-  if (!KernelLogParser::ProcessOneEvent(event) ||
-      !LogParser::ProcessOneEvent(event)) {
+  if (!LogParser::ProcessOneEvent(event) &&
+      !KernelLogParser::ProcessOneEvent(event)) {
     LOG(INFO) << "Unhandled event";
   }
 }
@@ -302,7 +302,7 @@ int wmain(int argc, const wchar_t** argv) {
 
     if (FAILED(hr))
       return Error(StringPrintf(L"Error 0x%08X, opening file \"%ls\"",
-                                hr, args[i]));
+                                hr, args[i].c_str()));
   }
 
   LogDumpHandler handler;

@@ -217,6 +217,7 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
   }
 
   UISetText(0, L"Ready");
+  UIUpdateStatusBar();
 }
 
 const wchar_t kLogFileFilter[] =
