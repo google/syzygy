@@ -16,9 +16,6 @@
   'variables': {
     'chromium_code': 1,
   },
-  'includes': [
-    '../../build/common.gypi',
-  ],
   'target_defaults': {
     'include_dirs': [
       '../..',
@@ -91,8 +88,8 @@
       'dependencies': [
         '../log_lib/log_lib.gyp:log_lib',
         '../sym_util/sym_util.gyp:sym_util',
-        '../../base/base.gyp:base',
-        '../../third_party/pcre/pcre.gyp:pcre',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre',
       ],
     },
     {
@@ -104,8 +101,8 @@
         {
           'destination': '<(PRODUCT_DIR)',
           'files': [
-            '../../third_party/debugging_tools/files/dbghelp.dll',
-            '../../third_party/debugging_tools/files/symsrv.dll',
+            '<(DEPTH)/third_party/debugging_tools/files/dbghelp.dll',
+            '<(DEPTH)/third_party/debugging_tools/files/symsrv.dll',
           ],
         },
       ],
@@ -124,9 +121,9 @@
         'copy_dlls',
         'sawbuck_version',
         'viewer',
-        '../../base/base.gyp:base',
-        '../../base/base.gyp:base_i18n',
-        '../../third_party/icu/icu.gyp:icudata',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base_i18n',
+        '<(DEPTH)/third_party/icu/icu.gyp:icudata',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -156,10 +153,10 @@
       'dependencies': [
         'copy_dlls',
         'viewer',
-        '../../base/base.gyp:base',
-        '../../base/base.gyp:base_i18n',
-        '../../testing/gmock.gyp:gmock',
-        '../../testing/gtest.gyp:gtest',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base_i18n',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },
   ]

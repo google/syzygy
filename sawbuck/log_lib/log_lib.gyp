@@ -16,9 +16,6 @@
   'variables': {
     'chromium_code': 1,
   },
-  'includes': [
-    '../../build/common.gypi',
-  ],
   'target_defaults': {
     'include_dirs': [
       '../..',
@@ -41,7 +38,7 @@
         'symbol_lookup_service.h',
       ],
       'dependencies': [
-        '../../base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base',
       ],
     },
     {
@@ -52,7 +49,7 @@
         'kernel_log_unittest_data.cc',
       ],
       'dependencies': [
-        '../../base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base',
       ],      
     },
     {
@@ -63,8 +60,8 @@
       ],
       'dependencies': [
         'test_common',
-        '../../base/base.gyp:base',
-        '../../testing/gtest.gyp:gtest',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
       ],      
     },
     {
@@ -82,9 +79,9 @@
         'log_lib',
         'test_common',
         '../sym_util/sym_util.gyp:sym_util',
-        '../../base/base.gyp:base',
-        '../../testing/gmock.gyp:gmock',
-        '../../testing/gtest.gyp:gtest',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -95,7 +92,7 @@
       ],
       'dependencies': [
         'log_lib',
-        '../../base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base',
       ],          
     },
     {
@@ -105,7 +102,7 @@
         'test_logger.cc',
       ],
       'dependencies': [
-        '../../base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base',
       ],
     },
   ]

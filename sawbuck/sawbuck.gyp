@@ -16,15 +16,12 @@
   'variables': {
     'chromium_code': 1,
   },
-  'includes': [
-    '../build/common.gypi',
-  ],
   'targets': [
     {
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
-        '../base/base.gyp:*',
+        '<(DEPTH)/base/base.gyp:*',
         'installer/installer.gyp:*',
         'log_lib/log_lib.gyp:*',
         'sym_util/sym_util.gyp:*',
@@ -65,7 +62,7 @@
             '<(success_file)',
           ],
           'action': [
-            '../third_party/python_24/python',
+            '<(DEPTH)/third_party/python_24/python',
             'tools/run_unittests.py',
             '--exe-dir=<(PRODUCT_DIR)',
             '--success-file=<(success_file)',

@@ -16,9 +16,6 @@
   'variables': {
     'chromium_code': 1,
   },
-  'includes': [
-    '../../build/common.gypi',
-  ],
   'target_defaults': {
     'include_dirs': [
       '../..',
@@ -41,7 +38,7 @@
         'types.h',
       ],
       'dependencies': [
-        '../../base/base.gyp:base',
+        '<(DEPTH)/base/base.gyp:base',
       ],
     },
     {
@@ -52,8 +49,8 @@
       ],
       'dependencies': [
         'sym_util',
-        '../../base/base.gyp:base',
-        '../../testing/gtest.gyp:gtest',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },
   ]
