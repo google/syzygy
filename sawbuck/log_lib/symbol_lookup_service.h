@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Symbol lookup service implementation.
-#ifndef SAWBUCK_VIEWER_SYMBOL_LOOKUP_SERVICE_H_
-#define SAWBUCK_VIEWER_SYMBOL_LOOKUP_SERVICE_H_
+#ifndef SAWBUCK_LOG_LIB_SYMBOL_LOOKUP_SERVICE_H_
+#define SAWBUCK_LOG_LIB_SYMBOL_LOOKUP_SERVICE_H_
 
 #include <string>
 #include <vector>
@@ -22,9 +22,9 @@
 #include "base/lock.h"
 #include "base/task.h"
 #include "base/time.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/sym_util/module_cache.h"
 #include "sawbuck/sym_util/symbol_cache.h"
-#include "sawbuck/viewer/kernel_log_consumer.h"
 
 class ISymbolLookupService {
  public:
@@ -158,4 +158,4 @@ class SymbolLookupService
   MessageLoop* foreground_thread_;
 };
 
-#endif  // SAWBUCK_VIEWER_SYMBOL_LOOKUP_SERVICE_H_
+#endif  // SAWBUCK_LOG_LIB_SYMBOL_LOOKUP_SERVICE_H_

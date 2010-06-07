@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_VIEWER_KERNEL_LOG_UNITTEST_DATA_H_
-#define SAWBUCK_VIEWER_KERNEL_LOG_UNITTEST_DATA_H_
+#ifndef SAWBUCK_LOG_LIB_KERNEL_LOG_UNITTEST_DATA_H_
+#define SAWBUCK_LOG_LIB_KERNEL_LOG_UNITTEST_DATA_H_
 
 #include "sawbuck/sym_util/types.h"
-#include "sawbuck/viewer/kernel_log_consumer.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
 
 namespace testing {
 
@@ -27,4 +27,4 @@ extern const size_t kNumProcesses;
 
 }  // namespace testing
 
-#endif  // SAWBUCK_VIEWER_KERNEL_LOG_UNITTEST_DATA_H_
+#endif  // SAWBUCK_LOG_LIB_KERNEL_LOG_UNITTEST_DATA_H_

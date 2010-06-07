@@ -27,11 +27,11 @@
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/pe_image.h"
-#include "sawbuck/viewer/kernel_log_unittest_data.h"
+#include "sawbuck/log_lib/kernel_log_unittest_data.h"
 #include "gtest/gtest.h"
 
 #include <initguid.h>  // NOLINT - must precede only kernel_log_types.h.
-#include "sawbuck/viewer/kernel_log_types.h"
+#include "sawbuck/log_lib/kernel_log_types.h"
 
 namespace {
 

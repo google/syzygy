@@ -26,6 +26,7 @@
       'dependencies': [
         '../base/base.gyp:*',
         'installer/installer.gyp:*',
+        'log_lib/log_lib.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
       ],
@@ -40,8 +41,9 @@
 
         # Add all unit test targets here.
         'unittest_targets': [
+          '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib_unittests',
           '<(DEPTH)/sawbuck/sym_util/sym_util.gyp:sym_util_unittests',
-          '<(DEPTH)/sawbuck/viewer/viewer.gyp:log_view_unittests',
+          '<(DEPTH)/sawbuck/viewer/viewer.gyp:viewer_unittests',
         ],
       },
       'dependencies': [
@@ -54,21 +56,23 @@
           'inputs': [
             'tools/run_unittests.py',
             'tools/verifier.py',
+            '<(PRODUCT_DIR)/log_lib_unittests.exe',
             '<(PRODUCT_DIR)/sym_util_unittests.exe',
-            '<(PRODUCT_DIR)/log_view_unittests.exe',
+            '<(PRODUCT_DIR)/viewer_unittests.exe',
           ],
           'outputs': [
             # Created only if all unittests succeed
             '<(success_file)',
           ],
           'action': [
-            'python',
+            '../third_party/python_24/python',
             'tools/run_unittests.py',
             '--exe-dir=<(PRODUCT_DIR)',
             '--success-file=<(success_file)',
             # SymSrv.dll abandons a critical section on
             # unlock on 32 bit systems
             '--exception="dbghelp!SymCleanup,Locks,0x201"',
+            '--exception="dbghelp!SymCleanup,Locks,0x211"',
             '<@(unittest_targets)',
           ],
         },

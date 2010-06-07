@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // NT Kernel log structures.
-#ifndef SAWBUCK_VIEWER_KERNEL_LOG_TYPES_H_
-#define SAWBUCK_VIEWER_KERNEL_LOG_TYPES_H_
+#ifndef SAWBUCK_LOG_LIB_KERNEL_LOG_TYPES_H_
+#define SAWBUCK_LOG_LIB_KERNEL_LOG_TYPES_H_
 
 namespace kernel_log_types {
 // These structures and GUIDs are gleaned from the system.tfm file
@@ -291,4 +291,4 @@ struct ProcessInfo64V3 {
 
 }  // namespace kernel_log_types
 
-#endif  // SAWBUCK_VIEWER_KERNEL_LOG_TYPES_H_
+#endif  // SAWBUCK_LOG_LIB_KERNEL_LOG_TYPES_H_

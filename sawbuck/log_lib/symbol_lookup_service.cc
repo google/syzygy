@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Symbol lookup service implementation.
-#include "sawbuck/viewer/symbol_lookup_service.h"
+#include "sawbuck/log_lib/symbol_lookup_service.h"
 
 #include <algorithm>
 #include "base/message_loop.h"

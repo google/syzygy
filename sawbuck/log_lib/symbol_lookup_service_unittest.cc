@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Symbol lookup service unittest.
-#include "sawbuck/viewer/symbol_lookup_service.h"
+#include "sawbuck/log_lib/symbol_lookup_service.h"
 
 #include <vector>
 #include <tlhelp32.h>

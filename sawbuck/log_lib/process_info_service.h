@@ -13,13 +13,13 @@
 // limitations under the License.
 //
 // Symbol information service declaration.
-#ifndef SAWBUCK_VIEWER_PROCESS_INFO_SERVICE_H_
-#define SAWBUCK_VIEWER_PROCESS_INFO_SERVICE_H_
+#ifndef SAWBUCK_LOG_LIB_PROCESS_INFO_SERVICE_H_
+#define SAWBUCK_LOG_LIB_PROCESS_INFO_SERVICE_H_
 
 #include <map>
 #include "base/lock.h"
 #include "base/task.h"
-#include "sawbuck/viewer/kernel_log_consumer.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
 
 class IProcessInfoService {
  public:
@@ -77,4 +77,4 @@ class ProcessInfoService
   ProcessInfoMap process_info_;  // Under lock_.
 };
 
-#endif  // SAWBUCK_VIEWER_PROCESS_INFO_SERVICE_H_
+#endif  // SAWBUCK_LOG_LIB_PROCESS_INFO_SERVICE_H_

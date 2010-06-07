@@ -35,13 +35,13 @@
 #include "base/thread.h"
 #include "sawbuck/sym_util/module_cache.h"
 #include "sawbuck/sym_util/symbol_cache.h"
-#include "sawbuck/viewer/kernel_log_consumer.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
+#include "sawbuck/log_lib/log_consumer.h"
+#include "sawbuck/log_lib/process_info_service.h"
+#include "sawbuck/log_lib/symbol_lookup_service.h"
 #include "sawbuck/viewer/log_viewer.h"
-#include "sawbuck/viewer/log_consumer.h"
-#include "sawbuck/viewer/process_info_service.h"
 #include "sawbuck/viewer/provider_configuration.h"
 #include "sawbuck/viewer/resource.h"
-#include "sawbuck/viewer/symbol_lookup_service.h"
 
 
 class ViewerWindow

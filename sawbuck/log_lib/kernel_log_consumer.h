@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Kernel log consumer declaration.
-#ifndef SAWBUCK_VIEWER_KERNEL_LOG_CONSUMER_H_
-#define SAWBUCK_VIEWER_KERNEL_LOG_CONSUMER_H_
+#ifndef SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_
+#define SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_
 
 #include "base/basictypes.h"
 #include "base/event_trace_consumer_win.h"
@@ -175,4 +175,4 @@ class KernelLogConsumer
   static KernelLogConsumer* current_;
 };
 
-#endif  // SAWBUCK_VIEWER_KERNEL_LOG_CONSUMER_H_
+#endif  // SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_

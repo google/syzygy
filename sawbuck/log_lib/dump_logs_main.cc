@@ -18,8 +18,8 @@
 #include "base/event_trace_consumer_win.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
-#include "sawbuck/viewer/kernel_log_consumer.h"
-#include "sawbuck/viewer/log_consumer.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
+#include "sawbuck/log_lib/log_consumer.h"
 
 
 // The log consumer class we use to parse the logs on our behalf.

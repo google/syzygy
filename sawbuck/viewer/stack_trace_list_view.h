@@ -25,10 +25,10 @@
 #include <vector>
 #include "base/task.h"
 #include "base/time.h"
+#include "sawbuck/log_lib/symbol_lookup_service.h"
 #include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/list_view_base.h"
 #include "sawbuck/viewer/resource.h"
-#include "sawbuck/viewer/symbol_lookup_service.h"
 
 // Fwd.
 class ISymbolLookupService;

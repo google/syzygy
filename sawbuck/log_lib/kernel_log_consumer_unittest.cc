@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/viewer/kernel_log_consumer.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
 
 #include <vector>
 #include <tlhelp32.h>
@@ -19,7 +19,7 @@
 #include "base/path_service.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
-#include "sawbuck/viewer/kernel_log_unittest_data.h"
+#include "sawbuck/log_lib/kernel_log_unittest_data.h"
 
 namespace {
 
@@ -61,7 +61,7 @@ class KernelLogConsumerTest: public testing::Test {
   virtual void SetUp() {
     FilePath src_root;
     ASSERT_TRUE(PathService::Get(base::DIR_SOURCE_ROOT, &src_root));
-    image_data_dir_ = src_root.AppendASCII("sawbuck\\viewer\\test_data");
+    image_data_dir_ = src_root.AppendASCII("sawbuck\\log_lib\\test_data");
 
     modules_.assign(testing::module_list,
         testing::module_list + testing::kNumModules);

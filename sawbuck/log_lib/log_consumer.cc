@@ -13,13 +13,13 @@
 // limitations under the License.
 //
 // Log consumer implementation.
-#include "sawbuck/viewer/log_consumer.h"
+#include "sawbuck/log_lib/log_consumer.h"
 
 #include <sstream>
 #include "base/logging.h"
 #include "base/logging_win.h"
 #include "base/trace_event_win.h"
-#include "sawbuck/viewer/buffer_parser.h"
+#include "sawbuck/log_lib/buffer_parser.h"
 #include <initguid.h>  // NOLINT - must be last include.
 
 LogParser::LogParser() : log_event_sink_(NULL), trace_event_sink_(NULL) {

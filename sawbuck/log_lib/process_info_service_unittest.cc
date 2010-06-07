@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Symbol information service unittests.
-#include "sawbuck/viewer/process_info_service.h"
+#include "sawbuck/log_lib/process_info_service.h"
 #include <atlsecurity.h>
 #include "gtest/gtest.h"
 

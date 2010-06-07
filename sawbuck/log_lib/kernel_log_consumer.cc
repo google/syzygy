@@ -13,11 +13,12 @@
 // limitations under the License.
 //
 // Kernel log consumer implementation.
-#include "sawbuck/viewer/kernel_log_consumer.h"
+#include "sawbuck/log_lib/kernel_log_consumer.h"
+
 #include "base/logging.h"
-#include "sawbuck/viewer/buffer_parser.h"
+#include "sawbuck/log_lib/buffer_parser.h"
 #include <initguid.h>  // NOLINT - must precede kernel_log_types.
-#include "sawbuck/viewer/kernel_log_types.h"  // NOLINT - must be last
+#include "sawbuck/log_lib/kernel_log_types.h"  // NOLINT - must be last
 
 namespace {
 
