@@ -25,7 +25,6 @@
 #include "base/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/log_lib/process_info_service.h"
-#include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"

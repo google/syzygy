@@ -14,7 +14,6 @@
 //
 // Test logger implementation.
 #include "base/event_trace_provider_win.h"
-#include "base/basictypes.h"
 #include <cguid.h>
 #include <initguid.h>
 

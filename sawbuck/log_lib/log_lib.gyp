@@ -18,7 +18,7 @@
   },
   'target_defaults': {
     'include_dirs': [
-      '../..',
+      '<(DEPTH)',
     ],
   },
   'targets': [
@@ -39,6 +39,7 @@
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
+        '../sym_util/sym_util.gyp:sym_util',
       ],
     },
     {
@@ -47,10 +48,7 @@
       'sources': [
         'kernel_log_unittest_data.h',
         'kernel_log_unittest_data.cc',
-      ],
-      'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-      ],      
+      ],   
     },
     {
       'target_name': 'make_test_data',
@@ -78,7 +76,6 @@
       'dependencies': [
         'log_lib',
         'test_common',
-        '../sym_util/sym_util.gyp:sym_util',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',

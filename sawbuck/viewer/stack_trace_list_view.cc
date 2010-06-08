@@ -17,8 +17,6 @@
 
 #include <atlframe.h>
 #include "base/string_util.h"
-#include "sawbuck/sym_util/symbol_cache.h"
-#include "sawbuck/log_lib/symbol_lookup_service.h"
 #include "sawbuck/viewer/const_config.h"
 
 namespace {

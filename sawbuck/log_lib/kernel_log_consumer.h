@@ -16,12 +16,9 @@
 #ifndef SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_
 #define SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_
 
-#include "base/basictypes.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/time.h"
 #include "sawbuck/sym_util/types.h"
-#include <string>
-#include <windows.h>
 
 // Implemented by clients of EventTraceConsumer to get module load
 // event notifications.

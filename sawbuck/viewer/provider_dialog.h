@@ -21,10 +21,6 @@
 #include <atlcrack.h>
 #include <atlctrls.h>
 #include <atlmisc.h>
-#include <string>
-#include <vector>
-#include "base/basictypes.h"
-#include "base/logging.h"
 #include "sawbuck/viewer/provider_configuration.h"
 #include "resource.h"  // NOLINT
 

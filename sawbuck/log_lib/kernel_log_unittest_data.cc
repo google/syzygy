@@ -14,7 +14,6 @@
 //
 // Test data for kernel log unittest.
 #include "sawbuck/log_lib/kernel_log_unittest_data.h"
-#include "base/basictypes.h"
 
 namespace testing {
 

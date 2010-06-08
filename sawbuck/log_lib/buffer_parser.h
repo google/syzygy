@@ -16,8 +16,7 @@
 #ifndef SAWBUCK_LOG_LIB_BUFFER_PARSER_H_
 #define SAWBUCK_LOG_LIB_BUFFER_PARSER_H_
 
-#include <string>
-#include "base/logging.h"
+#include "base/basictypes.h"
 
 // A binary buffer parser
 class BinaryBufferParser {

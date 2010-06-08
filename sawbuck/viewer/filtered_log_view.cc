@@ -16,7 +16,6 @@
 #include "sawbuck/viewer/filtered_log_view.h"
 
 #include "base/logging.h"
-#include "base/message_loop.h"
 #include "pcrecpp.h"  // NOLINT
 
 namespace {

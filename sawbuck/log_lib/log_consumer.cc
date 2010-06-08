@@ -15,7 +15,6 @@
 // Log consumer implementation.
 #include "sawbuck/log_lib/log_consumer.h"
 
-#include <sstream>
 #include "base/logging.h"
 #include "base/logging_win.h"
 #include "base/trace_event_win.h"

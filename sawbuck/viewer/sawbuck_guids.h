@@ -15,11 +15,9 @@
 #ifndef SAWBUCK_VIEWER_SAWBUCK_GUIDS_H_
 #define SAWBUCK_VIEWER_SAWBUCK_GUIDS_H_
 
-
-//
-// SystemTraceControlGuid. Used to specify event tracing for kernel
-//
-DEFINE_GUID( /* 9e814aad-3204-11d2-9a82-006008a86939 */
+// SystemTraceControlGuid. Used to specify event tracing for kernel.
+// {9E814AAD-3204-11D2-9A82-006008A86939}
+DEFINE_GUID(
     SystemTraceControlGuid,
     0x9e814aad,
     0x3204,
@@ -27,7 +25,8 @@ DEFINE_GUID( /* 9e814aad-3204-11d2-9a82-006008a86939 */
     0x9a, 0x82, 0x00, 0x60, 0x08, 0xa8, 0x69, 0x39);
 
 // {C43B1318-C63D-465b-BCF4-7A89A369F8ED}
-DEFINE_GUID(kSawbuckLogProvider,
+DEFINE_GUID(
+    kSawbuckLogProvider,
     0xc43b1318,
     0xc63d,
     0x465b,

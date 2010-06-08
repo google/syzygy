@@ -18,9 +18,6 @@
     'candle_exe': '<(DEPTH)\\third_party\\wix\\files\\candle.exe',
     'light_exe': '<(DEPTH)\\third_party\\wix\\files\\light.exe',
   },
-  'includes': [
-    '../../build/common.gypi',
-  ],
   'targets': [
     {
       'target_name': 'sawbuck',

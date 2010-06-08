@@ -18,7 +18,7 @@
   },
   'target_defaults': {
     'include_dirs': [
-      '../..',
+      '<(DEPTH)',
     ],
     'defines': [
       # Wide char debug help.

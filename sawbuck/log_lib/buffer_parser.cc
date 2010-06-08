@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "sawbuck/log_lib/buffer_parser.h"
 
+#include "base/logging.h"
+
 namespace {
 
 template <class CharType>

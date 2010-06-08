@@ -16,7 +16,6 @@
 #include "sawbuck/viewer/viewer_window.h"
 
 #include "pcrecpp.h"  // NOLINT
-#include "base/basictypes.h"
 #include "base/env_var.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/file_util.h"
@@ -24,7 +23,6 @@
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/preferences.h"
 #include "sawbuck/viewer/provider_dialog.h"

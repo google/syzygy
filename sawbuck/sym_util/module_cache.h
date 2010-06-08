@@ -23,7 +23,6 @@
 #include <vector>
 #include "sawbuck/sym_util/types.h"
 
-
 namespace sym_util {
 
 // Keeps a cache of the module load state of a set of processes over time.

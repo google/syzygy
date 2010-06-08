@@ -18,8 +18,8 @@
   },
   'target_defaults': {
     'include_dirs': [
-      '../..',
-      '../../third_party/wtl/include',
+      '<(DEPTH)',
+      '<(DEPTH)/third_party/wtl/include',
     ],
     'defines': [
       '_WTL_NO_CSTRING',
@@ -87,7 +87,6 @@
       ],
       'dependencies': [
         '../log_lib/log_lib.gyp:log_lib',
-        '../sym_util/sym_util.gyp:sym_util',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/third_party/pcre/pcre.gyp:pcre',
       ],

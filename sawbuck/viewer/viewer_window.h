@@ -33,8 +33,6 @@
 #include "base/scoped_ptr.h"
 #include "base/lock.h"
 #include "base/thread.h"
-#include "sawbuck/sym_util/module_cache.h"
-#include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/log_lib/log_consumer.h"
 #include "sawbuck/log_lib/process_info_service.h"

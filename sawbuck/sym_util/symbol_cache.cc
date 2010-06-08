@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "sawbuck/sym_util/symbol_cache.h"
-#include "base/basictypes.h"
-#include "base/logging.h"
-#include "base/pe_image.h"
+
 #include "base/string_util.h"
-#include "base/sys_info.h"
 #include <dbghelp.h>
 #include <atlbase.h>
 

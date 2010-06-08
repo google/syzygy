@@ -14,11 +14,11 @@
 //
 // Provider dialog implementation.
 #include "sawbuck/viewer/provider_dialog.h"
+
 #include <atltheme.h>
 #include <wmistr.h>  // NOLINT. wmistr must precede evntrace.h.
 #include <evntrace.h>
 #include "base/string_util.h"
-#include "sawbuck/viewer/viewer_window.h"
 
 namespace {
 

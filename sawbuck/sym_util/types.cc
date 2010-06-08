@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "sawbuck/sym_util/types.h"
+
 #include "base/logging.h"
 
 namespace sym_util {

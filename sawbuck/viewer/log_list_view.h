@@ -23,11 +23,7 @@
 #include <atlmisc.h>
 #include <string>
 #include <vector>
-#include "base/lock.h"
-#include "base/logging.h"
 #include "base/message_loop.h"
-#include "base/time.h"
-#include "sawbuck/sym_util/types.h"
 #include "sawbuck/viewer/find_dialog.h"
 #include "sawbuck/viewer/list_view_base.h"
 #include "sawbuck/viewer/resource.h"

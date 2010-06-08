@@ -16,11 +16,8 @@
 #ifndef SAWBUCK_LOG_LIB_LOG_CONSUMER_H_
 #define SAWBUCK_LOG_LIB_LOG_CONSUMER_H_
 
-#include "base/basictypes.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/time.h"
-#include "sawbuck/sym_util/types.h"
-#include <string>
 
 struct LogMessageBase {
   LogMessageBase() : level(0), process_id(0), thread_id(0), trace_depth(0),
