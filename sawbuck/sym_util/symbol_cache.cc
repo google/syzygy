@@ -15,7 +15,6 @@
 
 #include "base/string_util.h"
 #include <dbghelp.h>
-#include <atlbase.h>
 
 namespace {
 
