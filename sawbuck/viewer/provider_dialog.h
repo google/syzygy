@@ -20,6 +20,7 @@
 #include <atlapp.h>
 #include <atlcrack.h>
 #include <atlctrls.h>
+#include <atlframe.h>
 #include <atlmisc.h>
 #include "sawbuck/viewer/provider_configuration.h"
 #include "resource.h"  // NOLINT
@@ -28,6 +29,7 @@
 // its notification requests etc.
 class ProviderDialog
     : public CDialogImpl<ProviderDialog>,
+      public CDialogResize<ProviderDialog>,
       public CCustomDraw<ProviderDialog> {
  public:
   typedef CDialogImpl<ProviderDialog> SuperDialog;
@@ -39,8 +41,15 @@ class ProviderDialog
     MSG_WM_CONTEXTMENU(OnContextMenu)
     NOTIFY_HANDLER_EX(IDC_PROVIDERS, NM_CLICK, OnProviderClick)
     MSG_WM_INITDIALOG(OnInitDialog)
+    CHAIN_MSG_MAP(CDialogResize<ProviderDialog>)
     CHAIN_MSG_MAP(CCustomDraw<ProviderDialog>)
   END_MSG_MAP()
+
+  BEGIN_DLGRESIZE_MAP(ProviderDialog)
+    DLGRESIZE_CONTROL(IDC_PROVIDERS, DLSZ_SIZE_X | DLSZ_SIZE_Y)
+    DLGRESIZE_CONTROL(IDOK, DLSZ_MOVE_X | DLSZ_MOVE_Y)
+    DLGRESIZE_CONTROL(IDCANCEL, DLSZ_MOVE_X | DLSZ_MOVE_Y)
+  END_DLGRESIZE_MAP()
 
   explicit ProviderDialog(ProviderConfiguration* settings);
 

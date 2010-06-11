@@ -55,6 +55,7 @@ ProviderDialog::ProviderDialog(ProviderConfiguration* settings)
 }
 
 BOOL ProviderDialog::OnInitDialog(CWindow focus, LPARAM init_param) {
+  DlgResize_Init();
   CenterWindow();
 
   providers_.Attach(GetDlgItem(IDC_PROVIDERS));
