@@ -22,6 +22,7 @@
       'type': 'none',
       'dependencies': [
         '<(DEPTH)/base/base.gyp:*',
+        'call_trace/call_trace.gyp:*',
         'installer/installer.gyp:*',
         'log_lib/log_lib.gyp:*',
         'sym_util/sym_util.gyp:*',

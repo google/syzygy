@@ -50,9 +50,18 @@ struct Symbol {
   Symbol() : offset(0), line(0) {
   }
 
+  // The module name.
   std::wstring module;
+  // The module base address.
+  ModuleBase module_base;
+
+  // Symbol name.
   std::wstring name;
+  // Offset from the lookup address.
   size_t offset;
+  // Symbol size.
+  size_t size;
+  // Source file and line number, if available.
   std::wstring file;
   size_t line;
 };
