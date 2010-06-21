@@ -57,6 +57,9 @@ struct Symbol {
 
   // Symbol name.
   std::wstring name;
+
+  // Mangled symbol name.
+  std::wstring mangled_name;
   // Offset from the lookup address.
   size_t offset;
   // Symbol size.

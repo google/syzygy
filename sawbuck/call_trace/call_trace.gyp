@@ -28,6 +28,8 @@
       'sources': [
         'call_trace_defs.h',
         'call_trace_defs.cc',
+        'call_trace_parser.h',
+        'call_trace_parser.cc',
       ],
     },
     {

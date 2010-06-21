@@ -49,7 +49,6 @@ SymbolCache::SymbolCache() : initialized_(false), status_callback_(NULL) {
 
   // Defer loading symbols until they're needed.
   options |= SYMOPT_DEFERRED_LOADS | SYMOPT_EXACT_SYMBOLS | SYMOPT_DEBUG;
-  options &= ~SYMOPT_UNDNAME;
   ::SymSetOptions(options);
 }
 
@@ -111,6 +110,13 @@ bool SymbolCache::GetSymbolForAddress(Address address, Symbol *symbol) {
   symbol->name = sym_info.get()->Name;
   symbol->offset = static_cast<size_t>(offset);
   symbol->size = sym_info.get()->Size;
+
+  // Lookup the unmagled name.
+  DWORD options = ::SymGetOptions();
+  ::SymSetOptions((options | SYMOPT_PUBLICS_ONLY) & ~SYMOPT_UNDNAME);
+  if (::SymFromAddr(process_handle_, address, &offset, sym_info.get()))
+    symbol->mangled_name = sym_info.get()->Name;
+  ::SymSetOptions(options);
 
   IMAGEHLP_LINE64 line_info = { sizeof(line_info) };
   DWORD line_displacement = 0;

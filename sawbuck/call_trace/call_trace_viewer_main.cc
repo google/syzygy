@@ -18,6 +18,7 @@
 #include "base/event_trace_consumer_win.h"
 #include "base/event_trace_controller_win.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
+#include "sawbuck/call_trace/call_trace_parser.h"
 #include "sawbuck/sym_util/module_cache.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/log_lib/buffer_parser.h"
@@ -31,11 +32,11 @@ using sym_util::ModuleCache;
 using sym_util::SymbolCache;
 using sym_util::Symbol;
 
-std::ostream &operator << (std::ostream &str, const Symbol &sym) {
+std::ostream &operator<<(std::ostream& str, const Symbol& sym) {
   if (sym.file != L"")
     str << sym.file << "(" << sym.line << "): ";
 
-  str << sym.name;
+  str << sym.mangled_name;
   if (sym.offset)
     str << " + 0x" << std::hex << sym.offset;
 
@@ -44,15 +45,20 @@ std::ostream &operator << (std::ostream &str, const Symbol &sym) {
 
 class ViewerTraceConsumer
     : public EtwTraceConsumerBase<ViewerTraceConsumer>,
-      public KernelModuleEvents {
+      public KernelModuleEvents,
+      public CallTraceEvents {
  public:
-  ViewerTraceConsumer(bool print_call_trace, bool print_args, bool print_retval,
-      DWORD process_id, DWORD thread_id) :
+  ViewerTraceConsumer(bool print_call_trace,
+                      bool print_args,
+                      bool print_retval,
+                      DWORD process_id,
+                      DWORD thread_id) :
       print_call_trace_(print_call_trace), print_args_(print_args),
       print_retval_(print_retval), process_id_(process_id),
       thread_id_(thread_id), last_time_(0), events_(0), buffers_(0) {
     consumer_ = this;
     kernel_log_parser_.set_module_event_sink(this);
+    call_trace_parser_.set_call_trace_event_sink(this);
   }
 
   ~ViewerTraceConsumer() {
@@ -65,15 +71,54 @@ class ViewerTraceConsumer
                         const ModuleInformation& module_info) {
     module_cache_.ModuleLoaded(process_id, base::Time(), module_info);
   }
+
   void OnModuleUnload(DWORD process_id,
                       const base::Time& time,
                       const ModuleInformation& module_info) {
     module_cache_.ModuleUnloaded(process_id, time, module_info);
   }
+
   void OnModuleLoad(DWORD process_id,
                     const base::Time& time,
                     const ModuleInformation& module_info) {
     module_cache_.ModuleLoaded(process_id, time, module_info);
+  }
+
+  // CallTraceEvents implementation.
+  void OnTraceEntry(base::Time time,
+                    DWORD process_id,
+                    DWORD thread_id,
+                    const TraceEnterExitEventData* data) {
+    OnTraceEntryExit(data, TRACE_ENTER_EVENT, time, process_id, thread_id);
+  }
+
+  void OnTraceExit(base::Time time,
+                   DWORD process_id,
+                   DWORD thread_id,
+                   const TraceEnterExitEventData* data) {
+    OnTraceEntryExit(data, TRACE_EXIT_EVENT, time, process_id, thread_id);
+  }
+
+  virtual void OnTraceBatchEnter(base::Time time,
+                                 DWORD process_id,
+                                 DWORD thread_id,
+                                 const TraceBatchEnterData* data) {
+    for (size_t i = 0; i < data->num_functions; ++i) {
+      Symbol symbol;
+      Address address =
+          reinterpret_cast<Address>(data->functions[i]);
+      std::wcout << process_id << L'\t'
+          << thread_id << L'\t';
+      if (Resolve(process_id, time, address, &symbol)) {
+        std::wcout
+            << address - symbol.module_base << L'(' << symbol.size << L")\t"
+            << symbol.mangled_name;
+      } else {
+        std::wcout << data->functions[i] << L"(***UNKNOWN***)\t"
+            << L"***UNKNOWN***";
+      }
+      std::wcout << std::endl;
+    }
   }
 
   bool Resolve(DWORD process_id,
@@ -101,24 +146,12 @@ class ViewerTraceConsumer
     return it->second.GetSymbolForAddress(address, symbol);
   }
 
-  void OnTraceEntryExit(PEVENT_TRACE event,
+  void OnTraceEntryExit(const TraceEnterExitEventData* data,
                         TraceEventType type,
                         base::Time time,
                         DWORD process_id,
                         DWORD thread_id) {
-    BinaryBufferReader reader(event->MofData, event->MofLength);
-    const TraceEnterExitEventData *data = NULL;
-
-    if (!reader.Read(FIELD_OFFSET(TraceEnterExitEventData, traces), &data)) {
-      LOG(ERROR) << "Short event header.";
-      return;
-    }
-    if (!reader.Consume(data->num_traces * sizeof(data->traces[0]))) {
-      LOG(ERROR) << "Short trace tail.";
-      return;
-    }
-
-    const char *msg = type == TRACE_ENTER_EVENT ? "> " : "< ";
+    const char* msg = type == TRACE_ENTER_EVENT ? "> " : "< ";
 
     base::Time::Exploded exploded = {};
     time.LocalExplode(&exploded);
@@ -162,56 +195,23 @@ class ViewerTraceConsumer
       std::cout << " => " << "0x" << data->retval;
     }
 
-#if 0
     if (print_call_trace_) {
       for (size_t i = 0; i < data->num_traces; ++i) {
         std::cout << "\n\t";
 
         Symbol symbol;
-        if (symbol_cache_.GetSymbolForAddress(process_id,
-              data->traces[i], &symbol)) {
+        if (Resolve(process_id,
+                    time,
+                    reinterpret_cast<Address>(data->traces[i]),
+                    &symbol)) {
           std::cout << '[' << symbol << ']';
         } else {
           std::cout << data->traces[i];
         }
       }
     }
-#endif
+
     std::wcout << std::endl;
-  }
-
-  void OnTraceBatchEnter(EVENT_TRACE* event,
-                         base::Time time,
-                         DWORD process_id,
-                         DWORD thread_id) {
-    BinaryBufferReader reader(event->MofData, event->MofLength);
-    const TraceBatchEnterData *data = NULL;
-    if (!reader.Read(sizeof(data->num_functions), &data)) {
-      LOG(ERROR) << "Empty batch event.";
-      return;
-    }
-
-    if (!reader.Consume(data->num_functions * sizeof(data->functions[0]))) {
-      LOG(ERROR) << "Short batch event data.";
-      return;
-    }
-
-    for (size_t i = 0; i < data->num_functions; ++i) {
-      Symbol symbol;
-      Address address =
-          reinterpret_cast<Address>(data->functions[i]);
-      std::wcout << process_id << L'\t'
-          << thread_id << L'\t';
-      if (Resolve(process_id, time, address, &symbol)) {
-        std::wcout
-            << address - symbol.module_base << L'(' << symbol.size << L")\t"
-            << symbol.name;
-      } else {
-        std::wcout << data->functions[i] << L"(***UNKNOWN***)\t"
-            << L"***UNKNOWN***";
-      }
-      std::wcout << std::endl;
-    }
   }
 
   void OnEvent(PEVENT_TRACE event) {
@@ -225,36 +225,8 @@ class ViewerTraceConsumer
         (thread_id_ && thread_id_ != thread_id))
       return;
 
-    if (kCallTraceEventClass == event->Header.Guid) {
-      TraceEventType type =
-          static_cast<TraceEventType>(event->Header.Class.Type);
-      base::Time time(base::Time::FromFileTime(
-          reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
-
-      switch (type) {
-        case TRACE_ENTER_EVENT:
-        case TRACE_EXIT_EVENT:
-          OnTraceEntryExit(event, type, time, process_id, thread_id);
-          break;
-        case TRACE_BATCH_ENTER:
-          OnTraceBatchEnter(event, time, process_id, thread_id);
-          break;
-
-        case TRACE_PROCESS_ATTACH_EVENT:
-        case TRACE_PROCESS_DETACH_EVENT:
-        case TRACE_THREAD_ATTACH_EVENT:
-        case TRACE_THREAD_DETACH_EVENT:
-        case TRACE_MODULE_EVENT:
-          // TODO(siggi): Handle these.
-          break;
-
-        default:
-          NOTREACHED() << "Unknown event type encountered.";
-          break;
-      }
-    } else {
+    if (!call_trace_parser_.ProcessOneEvent(event))
       kernel_log_parser_.ProcessOneEvent(event);
-    }
   }
 
   bool OnBuffer(PEVENT_TRACE_LOGFILE buffer) {
@@ -287,18 +259,19 @@ class ViewerTraceConsumer
   SymbolCacheMap symbol_caches_;
   ModuleCache module_cache_;
   KernelLogParser kernel_log_parser_;
+  CallTraceParser call_trace_parser_;
 
   LONGLONG last_time_;
   size_t events_;
   size_t buffers_;
 
-  static ViewerTraceConsumer *consumer_;  // There shall be only one!
+  static ViewerTraceConsumer* consumer_;  // There shall be only one!
 };
 
-ViewerTraceConsumer *ViewerTraceConsumer::consumer_ = NULL;
+ViewerTraceConsumer* ViewerTraceConsumer::consumer_ = NULL;
 
 
-int Usage(const wchar_t *prog) {
+int Usage(const wchar_t* prog) {
   std::wcout << L"Usage: " << prog << L"[options] <logfile>*\n"
     << L"A specialized trace viewer to interpret trace logs captured\n"
     << L"with the CallTrace DLL.\n"
@@ -313,7 +286,7 @@ int Usage(const wchar_t *prog) {
   return 1;
 }
 
-int wmain(int argc, wchar_t **argv) {
+int wmain(int argc, wchar_t** argv) {
   base::AtExitManager at_exit;
   CommandLine::Init(0, NULL);
 
@@ -349,8 +322,6 @@ int wmain(int argc, wchar_t **argv) {
         << "\", error: " << hr << std::endl;
     return hr;
   }
-
-
 
   for (StringVector::iterator it = files.begin(); it < files.end(); ++it) {
     HRESULT hr = consumer.OpenFileSession(it->c_str());
