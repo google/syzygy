@@ -143,6 +143,8 @@ struct ImageLoad64V2 {
   wchar_t ImageFileName[1];
 };
 
+// These are documented-ish at
+// http://msdn.microsoft.com/en-us/library/dd765153(VS.85).aspx
 DEFINE_GUID(kPageFaultEventClass,
   0x3d6fa8d3, 0xfe05, 0x11d0, 0x9d, 0xda, 0x00, 0xc0, 0x4f, 0xd7, 0xba, 0x7c);
 
@@ -150,23 +152,26 @@ enum {
   kTransitionFaultEvent = 10,
   kDemandZeroFaultEvent = 11,
   kCopyOnWriteEvent = 12,
-  kGlobalPageFaultEvent = 13,
+  kGuardPageFaultEvent = 13,
   kHardEvent = 14,
+  kAccessViolationEvent = 15,
 
   kHardPageFaultEvent = 32,
 };
 
-struct PageFault32V0 {
+// Verified on Vista 32.
+struct PageFault32V2 {
   ULONG VirtualAddress;
   ULONG ProgramCounter;
 };
 
-struct PageFault64V0 {
+struct PageFault64V2 {
   ULONGLONG VirtualAddress;
   ULONGLONG ProgramCounter;
 };
 
-struct HardPageFault32V0 {
+// Verified on Vista 32.
+struct HardPageFault32V2 {
   ULONGLONG InitialTime;
   ULONGLONG ReadOffset;
   ULONG VirtualAddress;
@@ -175,7 +180,7 @@ struct HardPageFault32V0 {
   ULONG ByteCount;
 };
 
-struct HardPageFault64V0 {
+struct HardPageFault64V2 {
   ULONGLONG InitialTime;
   ULONGLONG ReadOffset;
   ULONGLONG VirtualAddress;

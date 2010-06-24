@@ -53,30 +53,37 @@ class KernelPageFaultEvents {
                                  const base::Time& time,
                                  sym_util::Address address,
                                  sym_util::Address program_counter) = 0;
-  virtual void OnCopyOnWrite(DWORD process_id,
-                             DWORD thread_id,
-                             const base::Time& time,
-                             sym_util::Address address,
-                             sym_util::Address program_counter) = 0;
-  virtual void OnGlobalPageFault(DWORD process_id,
+  virtual void OnCopyOnWriteFault(DWORD process_id,
                                  DWORD thread_id,
                                  const base::Time& time,
                                  sym_util::Address address,
                                  sym_util::Address program_counter) = 0;
-  virtual void OnHard(DWORD process_id,
-                      DWORD thread_id,
-                      const base::Time& time,
-                      sym_util::Address address,
-                      sym_util::Address program_counter) = 0;
+  virtual void OnGuardPageFault(DWORD process_id,
+                                DWORD thread_id,
+                                const base::Time& time,
+                                sym_util::Address address,
+                                sym_util::Address program_counter) = 0;
+  virtual void OnHardFault(DWORD process_id,
+                           DWORD thread_id,
+                           const base::Time& time,
+                           sym_util::Address address,
+                           sym_util::Address program_counter) = 0;
+  virtual void OnAccessViolationFault(DWORD process_id,
+                                      DWORD thread_id,
+                                      const base::Time& time,
+                                      sym_util::Address address,
+                                      sym_util::Address program_counter) = 0;
 
-  virtual void OnHardPageFault(DWORD process_id,
-                               DWORD thread_id,
+  // This event seems to be generated on the trailing edge of the
+  // page fault handler. The process id and thread id in the event
+  // header are bogus, and only the thread id in the event body allows
+  // associating with the faulting process.
+  virtual void OnHardPageFault(DWORD thread_id,
                                const base::Time& time,
                                const base::Time& initial_time,
                                sym_util::Offset offset,
                                sym_util::Address address,
                                sym_util::Address file_object,
-                               DWORD thread_id2,
                                sym_util::ByteCount byte_count) = 0;
 };
 

@@ -294,31 +294,142 @@ bool KernelLogParser::ProcessPageFaultEvent(EVENT_TRACE* event) {
   if (page_fault_event_sink_ == NULL)
     return false;
 
-  if (event->Header.Class.Version != 0)
+  if (event->Header.Class.Version != 2)
     return false;
 
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
 
+  BinaryBufferReader reader(event->MofData, event->MofLength);
   if (event->Header.Class.Type == kHardPageFaultEvent) {
-    if (event->MofLength < sizeof(HardPageFault32V0))
-      return false;
+    if (is_64_bit_log()) {
+      const HardPageFault64V2* data = NULL;
+      if (!reader.Read(&data)) {
+        LOG(ERROR) << "Short hard fault event";
+        return false;
+      }
 
-    HardPageFault32V0* data =
-        reinterpret_cast<HardPageFault32V0*>(event->MofData);
+      // TODO(siggi): Is this right?
+      base::Time initial_time(base::Time::FromFileTime(
+          reinterpret_cast<const FILETIME&>(data->InitialTime)));
 
-    // TODO(siggi): is this right?
-    base::Time initial_time(base::Time::FromFileTime(
-        reinterpret_cast<FILETIME&>(data->InitialTime)));
+      page_fault_event_sink_->OnHardPageFault(
+          data->ThreadId, time, initial_time, data->ReadOffset,
+          data->VirtualAddress, data->FileObject, data->ByteCount);
+    } else {
+      const HardPageFault32V2* data = NULL;
+      if (!reader.Read(&data)) {
+        LOG(ERROR) << "Short hard fault event";
+        return false;
+      }
 
-    page_fault_event_sink_->OnHardPageFault(
-        event->Header.ProcessId, event->Header.ThreadId, time, initial_time,
-        data->ReadOffset, data->VirtualAddress, data->FileObject,
-        data->ThreadId, data->ByteCount);
+      // TODO(siggi): Is this right?
+      base::Time initial_time(base::Time::FromFileTime(
+          reinterpret_cast<const FILETIME&>(data->InitialTime)));
+
+      page_fault_event_sink_->OnHardPageFault(
+          data->ThreadId, time, initial_time, data->ReadOffset,
+          data->VirtualAddress, data->FileObject, data->ByteCount);
+    }
     return true;
   } else {
-    // TODO(siggi): fixme.
-    NOTREACHED() << "Implementing non-hard faults not implemented yet.";
+    // Check the event type.
+    switch (event->Header.Class.Type) {
+      case kTransitionFaultEvent:
+      case kDemandZeroFaultEvent:
+      case kCopyOnWriteEvent:
+      case kGuardPageFaultEvent:
+      case kHardEvent:
+      case kAccessViolationEvent:
+        break;
+
+      default:
+        LOG(ERROR) << "Unknown page fault event type: "
+            << static_cast<int>(event->Header.Class.Type);
+        return false;
+    }
+
+    // Read the data with the right bitness.
+    sym_util::Address virtual_address = 0;
+    sym_util::Address program_counter = 0;
+    if (is_64_bit_log()) {
+      const PageFault64V2* data = NULL;
+      if (!reader.Read(&data)) {
+        LOG(ERROR) << "Short page fault event";
+        return false;
+      }
+
+      virtual_address = data->VirtualAddress;
+      program_counter = data->ProgramCounter;
+    } else {
+      const PageFault32V2* data = NULL;
+      if (!reader.Read(&data)) {
+        LOG(ERROR) << "Short page fault event";
+        return false;
+      }
+
+      virtual_address = data->VirtualAddress;
+      program_counter = data->ProgramCounter;
+    }
+
+    // And dispatch the callback.
+    switch (event->Header.Class.Type) {
+      case kTransitionFaultEvent:
+        page_fault_event_sink_->OnTransitionFault(process_id,
+                                                  thread_id,
+                                                  time,
+                                                  virtual_address,
+                                                  program_counter);
+        break;
+
+      case kDemandZeroFaultEvent:
+        page_fault_event_sink_->OnDemandZeroFault(process_id,
+                                                  thread_id,
+                                                  time,
+                                                  virtual_address,
+                                                  program_counter);
+        break;
+
+      case kCopyOnWriteEvent:
+        page_fault_event_sink_->OnCopyOnWriteFault(process_id,
+                                                   thread_id,
+                                                   time,
+                                                   virtual_address,
+                                                   program_counter);
+        break;
+
+      case kGuardPageFaultEvent:
+        page_fault_event_sink_->OnGuardPageFault(process_id,
+                                                 thread_id,
+                                                 time,
+                                                 virtual_address,
+                                                 program_counter);
+        break;
+
+      case kHardEvent:
+        page_fault_event_sink_->OnHardFault(process_id,
+                                            thread_id,
+                                            time,
+                                            virtual_address,
+                                            program_counter);
+        break;
+
+      case kAccessViolationEvent:
+        page_fault_event_sink_->OnAccessViolationFault(process_id,
+                                                       thread_id,
+                                                       time,
+                                                       virtual_address,
+                                                       program_counter);
+        break;
+
+      default:
+        NOTREACHED() << "Impossible page fault type";
+        break;
+    }
+
+    return true;
   }
 
   return false;
