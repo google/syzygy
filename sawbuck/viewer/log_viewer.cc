@@ -24,17 +24,32 @@
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/preferences.h"
 
+
+const char kDefaultIncludeRe[] = ".*";
+const char kDefaultExcludeRe[] = "";
+
 LogViewer::LogViewer(CUpdateUIBase* update_ui)
     : log_list_view_(update_ui),
       stack_trace_list_view_(update_ui),
       log_view_(NULL),
       update_ui_(update_ui) {
   Preferences prefs;
-  prefs.ReadStringValue(config::kIncludeReValue, &include_re_, ".*");
-  prefs.ReadStringValue(config::kExcludeReValue, &exclude_re_, "");
+  prefs.ReadStringValue(config::kIncludeReValue,
+                        &include_re_,
+                        kDefaultIncludeRe);
+  prefs.ReadStringValue(config::kExcludeReValue,
+                        &exclude_re_,
+                        kDefaultExcludeRe);
 }
 
 LogViewer::~LogViewer() {
+}
+
+void LogViewer::SetLogView(ILogView* log_view) {
+  DCHECK(log_view_ == NULL);
+
+  log_view_ = log_view;
+  ApplyFilterExpressions();
 }
 
 int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
@@ -160,8 +175,6 @@ void LogViewer::OnLogFilter(UINT code, int id, CWindow window) {
   FilterDialog dialog(include_re_, exclude_re_);
 
   if (dialog.DoModal(m_hWnd) == IDOK) {
-    scoped_ptr<FilteredLogView> new_view(new FilteredLogView(log_view_));
-
     include_re_ = dialog.include_re();
     exclude_re_ = dialog.exclude_re();
 
@@ -171,11 +184,21 @@ void LogViewer::OnLogFilter(UINT code, int id, CWindow window) {
       LOG(ERROR) << "Failed to write regular expression settings.";
     }
 
+    ApplyFilterExpressions();
+  }
+}
+
+void LogViewer::ApplyFilterExpressions() {
+  if (include_re_ == kDefaultIncludeRe && exclude_re_ == kDefaultExcludeRe) {
+    log_list_view_.SetLogView(log_view_);
+  } else {
+    scoped_ptr<FilteredLogView> new_view(new FilteredLogView(log_view_));
+
     bool ret = new_view->SetInclusionRegexp(include_re_.c_str());
-    DCHECK(ret) << "Invalid regular expression from FilterDialog";
+    DCHECK(ret) << "Invalid inclusion regular expression";
     if (!exclude_re_.empty()) {
       ret = new_view->SetExclusionRegexp(exclude_re_.c_str());
-      DCHECK(ret) << "Invalid regular expression from FilterDialog";
+      DCHECK(ret) << "Invalid exclusion regular expression";
     }
 
     log_list_view_.SetLogView(new_view.get());
