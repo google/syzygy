@@ -52,6 +52,11 @@ const wchar_t kLogViewColumnWidths[] = L"log_view_column_widths";
 const wchar_t kStackTraceColumnOrder[] = L"stack_trace_column_order";
 const wchar_t kStackTraceColumnWidths[] = L"stack_trace_column_widths";
 
+const wchar_t kFilterViewColumnOrder[] = L"filter_view_column_order";
+const wchar_t kFilterViewColumnWidths[] = L"filter_view_column_widths";
+
+const wchar_t kFilterValues[] = L"filter_values";
+
 }  // namespace config
 
 #endif  // SAWBUCK_VIEWER_CONST_CONFIG_H_

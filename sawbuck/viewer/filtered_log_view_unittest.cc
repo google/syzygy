@@ -29,8 +29,9 @@ using testing::StrictMock;
 
 class TestingFilteredLogView: public FilteredLogView {
  public:
-  explicit TestingFilteredLogView(ILogView* original)
-      : FilteredLogView(original) {
+  explicit TestingFilteredLogView(ILogView* original,
+                                  const std::vector<Filter>& filters)
+      : FilteredLogView(original, filters) {
   }
 
   CancelableTask* task() const { return task_; }
@@ -43,8 +44,6 @@ class FilteredLogViewTest: public testing::Test {
   void ExpectCreation(int num_rows) {
     EXPECT_CALL(mock_view_, Register(_, _))
         .WillOnce(SetArgumentPointee<1>(kRegCookie));
-    EXPECT_CALL(mock_view_, GetNumRows())
-        .WillOnce(Return(num_rows));
   }
 
   void ExpectUnregistration() {
@@ -52,6 +51,7 @@ class FilteredLogViewTest: public testing::Test {
   }
 
  protected:
+  std::vector<Filter> filters_;
   MessageLoop message_loop_;
   StrictMock<testing::MockILogView> mock_view_;
   StrictMock<testing::MockILogViewEvents> mock_view_events_;
@@ -59,9 +59,8 @@ class FilteredLogViewTest: public testing::Test {
 
 TEST_F(FilteredLogViewTest, Construction) {
   ExpectCreation(0);
-  TestingFilteredLogView filtered(&mock_view_);
+  TestingFilteredLogView filtered(&mock_view_, filters_);
 
-  EXPECT_TRUE(filtered.task() == NULL);
   EXPECT_EQ(0, filtered.GetNumRows());
 
   ExpectUnregistration();
@@ -69,7 +68,7 @@ TEST_F(FilteredLogViewTest, Construction) {
 
 TEST_F(FilteredLogViewTest, Register) {
   ExpectCreation(0);
-  TestingFilteredLogView filtered(&mock_view_);
+  TestingFilteredLogView filtered(&mock_view_, filters_);
 
   int cookie = 0;
   filtered.Register(&mock_view_events_, &cookie);
@@ -83,9 +82,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
 
   // Create a short-lived view on an empty view.
   {
-    TestingFilteredLogView filtered(&mock_view_);
-    EXPECT_TRUE(filtered.task() == NULL);
-    filtered.LogViewNewItems();
+    TestingFilteredLogView filtered(&mock_view_, filters_);
     EXPECT_TRUE(filtered.task() != NULL);
 
     ExpectUnregistration();
@@ -98,7 +95,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
 
   // Create a short-lived view on a non-empty view.
   {
-    TestingFilteredLogView filtered(&mock_view_);
+    TestingFilteredLogView filtered(&mock_view_, filters_);
     EXPECT_TRUE(filtered.task() != NULL);
 
     ExpectUnregistration();
@@ -110,7 +107,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
 
 TEST_F(FilteredLogViewTest, IdentityFilter) {
   ExpectCreation(0);
-  TestingFilteredLogView filtered(&mock_view_);
+  TestingFilteredLogView filtered(&mock_view_, filters_);
 
   int cookie = 0;
   filtered.Register(&mock_view_events_, &cookie);
@@ -136,38 +133,59 @@ TEST_F(FilteredLogViewTest, IdentityFilter) {
 }
 
 TEST_F(FilteredLogViewTest, Filtering) {
-  const int kNumRows = 12345;
+  const int kNumRows = 3;
   ExpectCreation(kNumRows);
 
-  TestingFilteredLogView filtered(&mock_view_);
+  TestingFilteredLogView filtered(&mock_view_, filters_);
   EXPECT_EQ(0, filtered.GetNumRows());
 
   EXPECT_CALL(mock_view_, GetNumRows())
       .WillRepeatedly(Return(kNumRows));
-  EXPECT_CALL(mock_view_, GetMessage(_))
+  EXPECT_CALL(mock_view_, GetMessage(0))
       .WillRepeatedly(Return("I'm not included"));
-  EXPECT_CALL(mock_view_, GetMessage(kNumRows / 3))
+  EXPECT_CALL(mock_view_, GetMessage(1))
       .WillRepeatedly(Return("I'm Included"));
-  EXPECT_CALL(mock_view_, GetMessage(kNumRows / 2))
+  EXPECT_CALL(mock_view_, GetMessage(2))
       .WillRepeatedly(Return("I'm Included but also Excluded"));
 
   // Run the identity filter to start with.
   message_loop_.RunAllPending();
   EXPECT_EQ(kNumRows, filtered.GetNumRows());
 
-  // Set the exlusion regexpr and test that we reset the view.
-  filtered.SetInclusionRegexp("Included");
+  // Define some filters.
+  std::vector<Filter> filters;
+  Filter include_nothing(Filter::MESSAGE, Filter::CONTAINS, Filter::INCLUDE,
+                         L"NothingIncluded");
+  Filter include(Filter::MESSAGE, Filter::CONTAINS, Filter::INCLUDE,
+                 L"I'm incl");
+  Filter exclude(Filter::MESSAGE, Filter::CONTAINS, Filter::EXCLUDE,
+                 L"Excluded");
+
+  // Include nothing.
+  filters.push_back(include_nothing);
+  filtered.SetFilters(filters);
+  EXPECT_EQ(0, filtered.GetNumRows());
+
+  // Run the filter.
+  message_loop_.RunAllPending();
+  ASSERT_EQ(0, filtered.GetNumRows());
+
+  // Also include some:
+  filters.push_back(include);
+  filtered.SetFilters(filters);
   EXPECT_EQ(0, filtered.GetNumRows());
 
   // Run the filter.
   message_loop_.RunAllPending();
   ASSERT_EQ(2, filtered.GetNumRows());
+
   EXPECT_STREQ("I'm Included", filtered.GetMessage(0).c_str());
   EXPECT_STREQ("I'm Included but also Excluded",
                filtered.GetMessage(1).c_str());
 
   // Now add the exclusion regexpr and test for reset.
-  filtered.SetExclusionRegexp("Excluded");
+  filters.push_back(exclude);
+  filtered.SetFilters(filters);
   EXPECT_EQ(0, filtered.GetNumRows());
 
   // Run the filter.
@@ -180,15 +198,16 @@ TEST_F(FilteredLogViewTest, Filtering) {
 
 class MockFilteredLogView : public TestingFilteredLogView {
  public:
-  explicit MockFilteredLogView(ILogView* original)
-      : TestingFilteredLogView(original) {
+  explicit MockFilteredLogView(ILogView* original,
+                               const std::vector<Filter>& filters)
+      : TestingFilteredLogView(original, filters) {
   }
   MOCK_METHOD0(RestartFiltering, void());
 };
 
 TEST_F(FilteredLogViewTest, ClearAll) {
   ExpectCreation(0);
-  StrictMock<MockFilteredLogView> filtered(&mock_view_);
+  StrictMock<MockFilteredLogView> filtered(&mock_view_, filters_);
 
   EXPECT_CALL(mock_view_, ClearAll()).Times(1);
   filtered.ClearAll();

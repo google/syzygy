@@ -37,13 +37,13 @@ struct RunnableMethodTraits<FilteredLogView> {
 };
 }  // namespace
 
-FilteredLogView::FilteredLogView(ILogView* original) : filtered_rows_(0),
-    task_(NULL), original_(original), registration_cookie_(0),
-    next_sink_cookie_(1) {
+FilteredLogView::FilteredLogView(ILogView* original,
+                                 const std::vector<Filter>& filters) :
+    filtered_rows_(0), task_(NULL), original_(original),
+    registration_cookie_(0), next_sink_cookie_(1) {
   DCHECK(original_ != NULL);
   original_->Register(this, &registration_cookie_);
-  if (original_->GetNumRows() != 0)
-    PostFilteringTask();
+  SetFilters(filters);
 }
 
 FilteredLogView::~FilteredLogView() {
@@ -133,30 +133,15 @@ void FilteredLogView::Unregister(int registration_cookie) {
   event_sinks_.erase(registration_cookie);
 }
 
-bool FilteredLogView::SetInclusionRegexp(const char* regexpr) {
-  scoped_ptr<pcrecpp::RE> include(new pcrecpp::RE(regexpr, PCRE_UTF8));
-
-  if (!include->error().empty())
-    return false;
-
-  include_re_.reset(include.release());
-
-  RestartFiltering();
-
-  return true;
-}
-
-bool FilteredLogView::SetExclusionRegexp(const char* regexpr) {
-  scoped_ptr<pcrecpp::RE> exclude(new pcrecpp::RE(regexpr, PCRE_UTF8));
-
-  if (!exclude->error().empty())
-    return false;
-
-  exclude_re_.reset(exclude.release());
-
-  RestartFiltering();
-
-  return true;
+bool FilteredLogView::MatchesFilterList(const std::vector<Filter>& list,
+                                        int index) {
+  std::vector<Filter>::const_iterator iter(list.begin());
+  for (; iter != list.end(); ++iter) {
+    if (iter->Matches(original_, index)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void FilteredLogView::FilterChunk() {
@@ -170,11 +155,24 @@ void FilteredLogView::FilterChunk() {
   int start = filtered_rows_;
   int end = std::min(filtered_rows_ + kMaxFilterRows, original_->GetNumRows());
 
-  for (int i = start; i < end; ++i) {
-    std::string message(original_->GetMessage(i));
-    if (include_re_ == NULL || include_re_->PartialMatch(message)) {
-      if (exclude_re_ == NULL || !exclude_re_->PartialMatch(message))
+
+  if (inclusion_filters_.empty()) {
+    // If the inclusion_filters_ list is empty, show all rows that do not match
+    // a filter in the exclusion list
+    for (int i = start; i < end; ++i) {
+      // Run the exclusion filters here..
+      if (!MatchesFilterList(exclusion_filters_, i)) {
         included_rows_.push_back(i);
+      }
+    }
+  } else {
+    // Otherwise, show all rows that match a filter in the inclusion list but
+    // match no rows in the exclusion list.
+    for (int i = start; i < end; ++i) {
+      if (MatchesFilterList(inclusion_filters_, i) &&
+          !MatchesFilterList(exclusion_filters_, i)) {
+        included_rows_.push_back(i);
+      }
     }
   }
 
@@ -191,6 +189,24 @@ void FilteredLogView::FilterChunk() {
     for (; it != event_sinks_.end(); ++it)
       it->second->LogViewNewItems();
   }
+}
+
+void FilteredLogView::SetFilters(const std::vector<Filter>& filters) {
+  inclusion_filters_.clear();
+  exclusion_filters_.clear();
+
+  std::vector<Filter>::const_iterator iter(filters.begin());
+  for (; iter != filters.end(); ++iter) {
+    if (iter->action() == Filter::INCLUDE) {
+      inclusion_filters_.push_back(*iter);
+    } else if (iter->action() == Filter::EXCLUDE) {
+      exclusion_filters_.push_back(*iter);
+    } else {
+      NOTREACHED();
+    }
+  }
+
+  RestartFiltering();
 }
 
 void FilteredLogView::RestartFiltering() {

@@ -21,20 +21,19 @@
 #include <vector>
 
 #include "base/scoped_ptr.h"
+#include "sawbuck/viewer/filter.h"
 #include "sawbuck/viewer/log_list_view.h"
 
 // Forward decl.
 class CancelableTask;
-namespace pcrecpp {
-class RE;
-}
 
 // Provides a filtered view on a log.
 class FilteredLogView
     : public ILogViewEvents,
       public ILogView {
  public:
-  explicit FilteredLogView(ILogView* original);
+  explicit FilteredLogView(ILogView* original,
+                           const std::vector<Filter>& filters);
   ~FilteredLogView();
 
   // ILogViewEvents implementation.
@@ -58,23 +57,21 @@ class FilteredLogView
   virtual void Unregister(int registration_cookie);
   // @}
 
-  // Change a regular expression to provided string.
-  // @return true iff successful, in particular iff |regexpr| parses.
-  // @note this will re-initiate filtering on success.
-  bool SetInclusionRegexp(const char* regexpr);
-  bool SetExclusionRegexp(const char* regexpr);
+ void SetFilters(const std::vector<Filter>& filters);
 
  protected:
   void PostFilteringTask();
   void FilterChunk();
   virtual void RestartFiltering();
 
-  // Every row from |original_| matching |include_re_| will be included,
-  // unless it also matches |exclude_re_|.
-  // If |include_re_| is NULL, everything is included.
-  // If |exclude_re_| is NULL, nothing is excluded.
-  scoped_ptr<pcrecpp::RE> include_re_;
-  scoped_ptr<pcrecpp::RE> exclude_re_;
+  // Returns true if the item at |index| would match a filter in |list|,
+  // false otherwise.
+  bool MatchesFilterList(const std::vector<Filter>& list, int index);
+
+  // The filters we are using. We break them into two lists, one that contains
+  // inclusion filters, the other exclusion filters.
+  std::vector<Filter> inclusion_filters_;
+  std::vector<Filter> exclusion_filters_;
 
   // The included rows we have filtered.
   std::vector<int> included_rows_;

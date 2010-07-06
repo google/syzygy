@@ -65,6 +65,10 @@
       'type': 'static_library',
       'sources': [
         'const_config.h',
+        'filter.cc',
+        'filter.h',
+        'filter_dialog.cc',
+        'filter_dialog.h',
         'filtered_log_view.cc',
         'filtered_log_view.h',
         'find_dialog.cc',
@@ -139,6 +143,7 @@
       'target_name': 'viewer_unittests',
       'type': 'executable',
       'sources': [
+        'filter_unittest.cc',
         'filtered_log_view_unittest.cc',
         'preferences_unittest.cc',
         'provider_configuration_unittest.cc',

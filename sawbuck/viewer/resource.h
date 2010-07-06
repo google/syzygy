@@ -26,6 +26,7 @@
 #define IDR_LIST_VIEW_CONTEXT_MENU      105
 #define IDD_SYMBOLPATH                  106
 #define IDD_FINDDIALOG                  107
+#define IDD_FILTERDIALOG2               108
 #define IDC_PROVIDERS                   1002
 #define IDC_EXCLUDE_RE                  1003
 #define IDC_INCLUDE_RE                  1004
@@ -34,6 +35,15 @@
 #define IDC_MATCH_CASE                  1007
 #define IDC_DIRECTION_DOWN              1008
 #define IDC_DIRECTION_UP                1009
+#define IDC_FILTER_COLUMN               1010
+#define IDC_FILTER_RELATION             1011
+#define IDC_FILTER_TEXT                 1012
+#define IDC_FILTER_ACTION               1013
+#define IDC_FILTER_LIST                 1014
+#define IDC_FILTER_RESET                1015
+#define IDC_FILTER_ADD                  1016
+#define IDC_FILTER_REMOVE               1017
+#define IDC_FILTER_STATIC               1018
 #define ID_FILE_EXIT                    4001
 #define ID_FILE_IMPORT                  4002
 #define ID_LOG_CAPTURE                  4003
@@ -50,9 +60,9 @@
 //
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        107
+#define _APS_NEXT_RESOURCE_VALUE        109
 #define _APS_NEXT_COMMAND_VALUE         4010
-#define _APS_NEXT_CONTROL_VALUE         1006
+#define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
