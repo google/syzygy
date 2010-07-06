@@ -38,6 +38,11 @@ LogViewer::LogViewer(CUpdateUIBase* update_ui)
 LogViewer::~LogViewer() {
 }
 
+void LogViewer::SetLogView(ILogView* log_view) {
+  DCHECK(log_view_ == NULL);
+  log_view_ = log_view;
+}
+
 int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
   BOOL bHandled = TRUE;
   Super::OnCreate(WM_CREATE,
