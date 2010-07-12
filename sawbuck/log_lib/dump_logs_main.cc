@@ -95,29 +95,32 @@ class LogDumpHandler
                                  const base::Time& time,
                                  sym_util::Address address,
                                  sym_util::Address program_counter);
-  virtual void OnCopyOnWrite(DWORD process_id,
-                             DWORD thread_id,
-                             const base::Time& time,
-                             sym_util::Address address,
-                             sym_util::Address program_counter);
-  virtual void OnGlobalPageFault(DWORD process_id,
+  virtual void OnCopyOnWriteFault(DWORD process_id,
                                  DWORD thread_id,
                                  const base::Time& time,
                                  sym_util::Address address,
                                  sym_util::Address program_counter);
-  virtual void OnHard(DWORD process_id,
-                      DWORD thread_id,
-                      const base::Time& time,
-                      sym_util::Address address,
-                      sym_util::Address program_counter);
-  virtual void OnHardPageFault(DWORD process_id,
-                               DWORD thread_id,
+  virtual void OnGuardPageFault(DWORD process_id,
+                                DWORD thread_id,
+                                const base::Time& time,
+                                sym_util::Address address,
+                                sym_util::Address program_counter);
+  virtual void OnHardFault(DWORD process_id,
+                           DWORD thread_id,
+                           const base::Time& time,
+                           sym_util::Address address,
+                           sym_util::Address program_counter);
+  virtual void OnAccessViolationFault(DWORD process_id,
+                                      DWORD thread_id,
+                                      const base::Time& time,
+                                      sym_util::Address address,
+                                      sym_util::Address program_counter);
+  virtual void OnHardPageFault(DWORD thread_id,
                                const base::Time& time,
                                const base::Time& initial_time,
                                sym_util::Offset offset,
                                sym_util::Address address,
                                sym_util::Address file_object,
-                               DWORD thread_id2,
                                sym_util::ByteCount byte_count);
 
   // KernelProcessEvents implementation.
@@ -144,19 +147,19 @@ class LogDumpHandler
 void LogDumpHandler::OnModuleIsLoaded(DWORD process_id,
                                       const base::Time& time,
                                       const ModuleInformation& module_info) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 void LogDumpHandler::OnModuleUnload(DWORD process_id,
                                     const base::Time& time,
                                     const ModuleInformation& module_info) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 void LogDumpHandler::OnModuleLoad(DWORD process_id,
                                   const base::Time& time,
                                   const ModuleInformation& module_info) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 
@@ -177,38 +180,42 @@ void LogDumpHandler::OnDemandZeroFault(DWORD process_id,
   // TODO(siggi): implement me.
 }
 
-void LogDumpHandler::OnCopyOnWrite(DWORD process_id,
-                                   DWORD thread_id,
-                                   const base::Time& time,
-                                   sym_util::Address address,
-                                   sym_util::Address program_counter) {
+void LogDumpHandler::OnCopyOnWriteFault(DWORD process_id,
+                                        DWORD thread_id,
+                                        const base::Time& time,
+                                        sym_util::Address address,
+                                        sym_util::Address program_counter) {
   // TODO(siggi): implement me.
 }
 
-void LogDumpHandler::OnGlobalPageFault(DWORD process_id,
-                                       DWORD thread_id,
-                                       const base::Time& time,
-                                       sym_util::Address address,
-                                       sym_util::Address program_counter) {
+void LogDumpHandler::OnGuardPageFault(DWORD process_id,
+                                      DWORD thread_id,
+                                      const base::Time& time,
+                                      sym_util::Address address,
+                                      sym_util::Address program_counter) {
   // TODO(siggi): implement me.
 }
 
-void LogDumpHandler::OnHard(DWORD process_id,
-                            DWORD thread_id,
-                            const base::Time& time,
-                            sym_util::Address address,
-                            sym_util::Address program_counter) {
+void LogDumpHandler::OnHardFault(DWORD process_id,
+                                 DWORD thread_id,
+                                 const base::Time& time,
+                                 sym_util::Address address,
+                                 sym_util::Address program_counter) {
   // TODO(siggi): implement me.
 }
 
-void LogDumpHandler::OnHardPageFault(DWORD process_id,
-                                     DWORD thread_id,
+void LogDumpHandler::OnAccessViolationFault(
+    DWORD process_id, DWORD thread_id, const base::Time& time,
+    sym_util::Address address, sym_util::Address program_counter) {
+  // TODO(siggi): implement me.
+}
+
+void LogDumpHandler::OnHardPageFault(DWORD thread_id,
                                      const base::Time& time,
                                      const base::Time& initial_time,
                                      sym_util::Offset offset,
                                      sym_util::Address address,
                                      sym_util::Address file_object,
-                                     DWORD thread_id2,
                                      sym_util::ByteCount byte_count) {
   // TODO(siggi): implement me.
 }
@@ -266,22 +273,22 @@ void LogDumpHandler::OnProcessEnded(const base::Time& time,
 
 // LogEvents implementation.
 void LogDumpHandler::OnLogMessage(const LogEvents::LogMessage& log_msg) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 void LogDumpHandler::OnTraceEventBegin(
     const TraceEvents::TraceMessage& trace_message) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 void LogDumpHandler::OnTraceEventEnd(
       const TraceEvents::TraceMessage& trace_message) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 void LogDumpHandler::OnTraceEventInstant(
       const TraceEvents::TraceMessage& trace_message) {
-  // TODO(siggi): implement me.
+  // TODO(siggi): implement me..
 }
 
 int Error(const std::wstring& error) {
