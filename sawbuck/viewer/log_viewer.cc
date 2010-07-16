@@ -30,9 +30,6 @@ LogViewer::LogViewer(CUpdateUIBase* update_ui)
       stack_trace_list_view_(update_ui),
       log_view_(NULL),
       update_ui_(update_ui) {
-  Preferences prefs;
-  prefs.ReadStringValue(config::kIncludeReValue, &include_re_, ".*");
-  prefs.ReadStringValue(config::kExcludeReValue, &exclude_re_, "");
 }
 
 LogViewer::~LogViewer() {
@@ -41,9 +38,12 @@ LogViewer::~LogViewer() {
 void LogViewer::SetLogView(ILogView* log_view) {
   DCHECK(log_view_ == NULL);
   log_view_ = log_view;
+  log_list_view_.SetLogView(log_view);
 }
 
 int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
+  DCHECK(log_view_ != NULL) << "SetLogView not called before window creation.";
+
   BOOL bHandled = TRUE;
   Super::OnCreate(WM_CREATE,
                   NULL,
@@ -64,6 +64,20 @@ int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
 
   // This is enabled so long as we live.
   update_ui_->UIEnable(ID_LOG_FILTER, true);
+
+  // Read in any previously set filters.
+  std::wstring filter_string;
+  Preferences prefs;
+  prefs.ReadStringValue(config::kFilterValues, &filter_string, L"");
+  if (!filter_string.empty()) {
+    std::vector<Filter> filters(Filter::DeserializeFilters(filter_string));
+    if (!filters.empty()) {
+      scoped_ptr<FilteredLogView> new_view(new FilteredLogView(log_view_,
+                                                               filters));
+      log_list_view_.SetLogView(new_view.get());
+      filtered_log_view_.reset(new_view.release());
+    }
+  }
 
   SetMsgHandled(FALSE);
   return 1;
@@ -91,7 +105,6 @@ void LogViewer::OnLogFilter(UINT code, int id, CWindow window) {
     scoped_ptr<FilteredLogView> new_view(new FilteredLogView(log_view_,
                                                              filters));
     log_list_view_.SetLogView(new_view.get());
-
     filtered_log_view_.reset(new_view.release());
   }
 }

@@ -52,7 +52,9 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   explicit LogViewer(CUpdateUIBase* update_ui);
   ~LogViewer();
 
+  // This must be called before the log window viewer is created.
   void SetLogView(ILogView* log_view);
+
   void SetSymbolLookupService(ISymbolLookupService* symbol_lookup_service) {
     stack_trace_list_view_.SetSymbolLookupService(symbol_lookup_service);
   }
@@ -64,11 +66,6 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   int OnCreate(LPCREATESTRUCT create_struct);
   LRESULT OnCommand(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
   void OnLogFilter(UINT code, int id, CWindow window);
-  void ApplyFilterExpressions();
-
-  // Filtering regular expressions.
-  std::string include_re_;
-  std::string exclude_re_;
 
   // Non-null iff filtering is enabled.
   scoped_ptr<FilteredLogView> filtered_log_view_;
