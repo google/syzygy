@@ -17,9 +17,14 @@
 #include "sawbuck/viewer/filter.h"
 
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "sawbuck/viewer/log_list_view.h"
+
+using base::IntToString;
+using base::IntToString16;
+using base::StringToInt;
 
 const wchar_t kSeparator[] = L"|";
 
@@ -88,7 +93,8 @@ bool Filter::Matches(ILogView* log_view, int row_index) const {
 bool Filter::ValueMatchesInt(int check_value) const {
   bool matches = false;
   if (relation_ == IS) {
-    int filter_int = StringToInt(value_);
+    int filter_int;
+    StringToInt(value_, &filter_int);
     if (check_value == filter_int) {
       matches = true;
     }
@@ -114,11 +120,11 @@ bool Filter::ValueMatchesString(const std::string& check_string) const {
 
 std::wstring Filter::Serialize() const {
   std::wstring serialized;
-  serialized += IntToWString(column_);
+  serialized += IntToString16(column_);
   serialized += kSeparator;
-  serialized += IntToWString(relation_);
+  serialized += IntToString16(relation_);
   serialized += kSeparator;
-  serialized += IntToWString(action_);
+  serialized += IntToString16(action_);
   serialized += kSeparator;
   serialized += value();
   return serialized;
@@ -136,9 +142,17 @@ bool Filter::Deserialize(const std::wstring& serialized) {
     return false;
   }
 
-  column_ = static_cast<Column>(StringToInt(pieces[0]));
-  relation_ = static_cast<Relation>(StringToInt(pieces[1]));
-  action_ = static_cast<Action>(StringToInt(pieces[2]));
+  int col;
+  StringToInt(pieces[0], &col);
+  column_ = static_cast<Column>(col);
+
+  int rel;
+  StringToInt(pieces[1], &rel);
+  relation_ = static_cast<Relation>(rel);
+
+  int act;
+  StringToInt(pieces[2], &act);
+  action_ = static_cast<Action>(act);
 
   std::wstring wide_value;
   for (size_t i = 3; i < num_pieces; i++) {
@@ -199,7 +213,7 @@ std::wstring Filter::SerializeFilters(const std::vector<Filter>& filters) {
   std::vector<Filter>::const_iterator iter(filters.begin());
   for (; iter != filters.end(); ++iter) {
     std::wstring filter_string(iter->Serialize());
-    serialized_string += IntToWString(filter_string.length());
+    serialized_string += IntToString16(filter_string.length());
     serialized_string += kSeparator;
     serialized_string += filter_string;
   }

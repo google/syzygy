@@ -301,7 +301,7 @@ bool PEImageFile::WriteSections(FILE* file) {
 }
 
 bool PEImageFile::ReadHeaders(FILE* file) {
-  DCHECK_EQ(0, header_.size());
+  DCHECK_EQ(0U, header_.size());
 
   // Read the DOS header.
   IMAGE_DOS_HEADER dos_header = {};
@@ -601,7 +601,7 @@ bool PEImageFile::DecodeImportSection(ImportDllVector* imports) {
 
       // Are we at the end of the table?
       if (int_thunk.u1.Function == 0) {
-        DCHECK_EQ(0, iat_thunk.u1.Function);
+        DCHECK_EQ(0U, iat_thunk.u1.Function);
         break;
       }
 

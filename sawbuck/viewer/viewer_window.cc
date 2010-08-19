@@ -16,7 +16,7 @@
 #include "sawbuck/viewer/viewer_window.h"
 
 #include "pcrecpp.h"  // NOLINT
-#include "base/env_var.h"
+#include "base/environment.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -806,9 +806,9 @@ void ViewerWindow::InitSymbolPath() {
   }
 
   // No preference, see if there's a fallback in the environment.
-  scoped_ptr<base::EnvVarGetter> env(base::EnvVarGetter::Create());
+  scoped_ptr<base::Environment> env(base::Environment::Create());
   std::string nt_symbol_path;
-  if (!env.get() || !env->GetEnv("_NT_SYMBOL_PATH", &nt_symbol_path)) {
+  if (!env.get() || !env->GetVar("_NT_SYMBOL_PATH", &nt_symbol_path)) {
     // We have no symbol path, make one up!
     FilePath temp_dir;
     if (!PathService::Get(base::DIR_TEMP, &temp_dir))

@@ -17,6 +17,8 @@
 #include "base/command_line.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/logging.h"
+#include "base/stringprintf.h"
+#include "base/string_piece.h"
 #include "base/utf_string_conversions.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/log_lib/log_consumer.h"
@@ -302,7 +304,7 @@ int wmain(int argc, const wchar_t** argv) {
   CommandLine::Init(0, NULL);
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
-  std::vector<std::wstring> args = cmd_line->GetLooseValues();
+  std::vector<std::wstring> args = cmd_line->args();
   DumpLogConsumer consumer;
   for (size_t i = 0; i < args.size(); ++i) {
     HRESULT hr = consumer.OpenFileSession(args[i].c_str());

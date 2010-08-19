@@ -115,7 +115,7 @@ int APIENTRY wWinMain(HINSTANCE instance,
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch("import")) {
-    std::vector<std::wstring> files(cmd_line->GetLooseValues());
+    std::vector<std::wstring> files(cmd_line->args());
     std::vector<FilePath> paths;
     for (size_t i = 0; i < files.size(); ++i) {
       paths.push_back(FilePath(files[i]));

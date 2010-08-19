@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/event_trace_controller_win.h"
+#include "base/string_number_conversions.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/call_trace_parser.h"
 #include "sawbuck/sym_util/module_cache.h"
@@ -300,12 +301,14 @@ int wmain(int argc, wchar_t** argv) {
   bool print_args = cmd_line->HasSwitch("print_args");
   bool print_retval = cmd_line->HasSwitch("print_retval");
 
-  int only_process = StringToInt(cmd_line->GetSwitchValue("only_process"));
-  int only_thread = StringToInt(cmd_line->GetSwitchValue("only_thread"));
+  int only_process;
+  base::StringToInt(cmd_line->GetSwitchValue("only_process"), &only_process);
+  int only_thread;
+  base::StringToInt(cmd_line->GetSwitchValue("only_thread"), &only_thread);
 
   std::wstring session = cmd_line->GetSwitchValue("session");
   typedef std::vector<std::wstring> StringVector;
-  StringVector files = cmd_line->GetLooseValues();
+  StringVector files = cmd_line->args();
   if (session.empty() && files.empty()) {
     return Usage(argv[0]);
   }
