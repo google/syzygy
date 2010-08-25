@@ -25,6 +25,7 @@
         'call_trace/call_trace.gyp:*',
         'installer/installer.gyp:*',
         'log_lib/log_lib.gyp:*',
+        'log_timer/log_timer.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
       ],
