@@ -16,6 +16,7 @@
   'target_defaults': {
     'include_dirs': [
       '<(DEPTH)',
+      '../..',
     ],
   },
   'targets': [
