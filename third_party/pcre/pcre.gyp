@@ -21,7 +21,7 @@
   },
   'targets': [
     {
-      'target_name': 'dftables',
+      'target_name': 'dftables_exe',
       'type': 'executable',
       'sources': [
         'files/dftables.c',
@@ -36,27 +36,27 @@
       'target_name': 'make_tables',
       'type': 'none',
       'dependencies': [
-        'dftables',
+        'dftables_exe',
       ],
       'actions': [
         {
           'action_name': 'make_pcre_chartables',
           'msvs_cygwin_shell': 0,
           'inputs': [
-            '<(PRODUCT_DIR)/dftables.exe',
+            '<(PRODUCT_DIR)/dftables_exe.exe',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
           ],
           'action': [
-            '<(PRODUCT_DIR)/dftables.exe',
+            '<(PRODUCT_DIR)/dftables_exe.exe',
             '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
           ],
         },
       ],
     },      
     {
-      'target_name': 'pcre',
+      'target_name': 'pcre_lib',
       'type': 'static_library',
       'dependencies': [
         'make_tables',
@@ -114,7 +114,7 @@
       'target_name': 'pcrecpp_unittest',
       'type': 'executable',
       'dependencies': [
-        'pcre',
+        'pcre_lib',
       ],
       'sources': [
         'files/pcrecpp_unittest.cc',
@@ -124,7 +124,7 @@
       'target_name': 'pcre_scanner_unittest',
       'type': 'executable',
       'dependencies': [
-        'pcre',
+        'pcre_lib',
       ],
       'sources': [
         'files/pcre_scanner_unittest.cc',
@@ -134,7 +134,7 @@
       'target_name': 'pcre_stringpiece_unittest',
       'type': 'executable',
       'dependencies': [
-        'pcre',
+        'pcre_lib',
       ],
       'sources': [
         'files/pcre_stringpiece_unittest.cc',
@@ -147,7 +147,7 @@
         'files/pcredemo.c',
       ],
       'dependencies': [
-        'pcre',
+        'pcre_lib',
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
@@ -162,7 +162,7 @@
         'files/pcregrep.c',
       ],
       'dependencies': [
-        'pcre',
+        'pcre_lib',
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
@@ -177,7 +177,7 @@
         'files/pcretest.c',
       ],
       'dependencies': [
-        'pcre',
+        'pcre_lib',
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {

@@ -92,7 +92,7 @@
       'dependencies': [
         '../log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre',
+        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
     },
     {
