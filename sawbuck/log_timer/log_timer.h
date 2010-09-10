@@ -37,6 +37,8 @@ class LogTimer {
     GUID guid;
     base::Time time;
 
+    Event() : guid(GUID_NULL) {}
+
     bool operator==(const Event& e) {
       // Note that we purposely don't compare time.
       return provider.compare(e.provider) == 0 &&
