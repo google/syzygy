@@ -109,6 +109,7 @@ class TraceController(object):
 
     session = self.session
     self._session = evntrace.TRACEHANDLE()
+    self._session_name = ""
     evntrace.ControlTrace(session,
                           None,
                           properties.get(),
