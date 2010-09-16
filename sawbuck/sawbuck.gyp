@@ -23,6 +23,7 @@
       'dependencies': [
         '<(DEPTH)/base/base.gyp:*',
         'call_trace/call_trace.gyp:*',
+        'image_util/image_util.gyp:*',
         'installer/installer.gyp:*',
         'log_lib/log_lib.gyp:*',
         'log_timer/log_timer.gyp:*',
@@ -41,6 +42,7 @@
         # Add all unit test targets here.
         'unittest_targets': [
           '<(DEPTH)/sawbuck/call_trace/call_trace.gyp:call_trace_unittests',
+          '<(DEPTH)/sawbuck/image_util/image_util.gyp:image_util_unittests',
           '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib_unittests',
           '<(DEPTH)/sawbuck/sym_util/sym_util.gyp:sym_util_unittests',
           '<(DEPTH)/sawbuck/viewer/viewer.gyp:viewer_unittests',
@@ -57,6 +59,7 @@
             'tools/run_unittests.py',
             'tools/verifier.py',
             '<(PRODUCT_DIR)/call_trace_unittests.exe',
+            '<(PRODUCT_DIR)/image_util_unittests.exe',
             '<(PRODUCT_DIR)/log_lib_unittests.exe',
             '<(PRODUCT_DIR)/sym_util_unittests.exe',
             '<(PRODUCT_DIR)/viewer_unittests.exe',
