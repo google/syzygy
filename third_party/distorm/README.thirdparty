@@ -1,0 +1,11 @@
+URL: http://code.google.com/p/distorm/
+Version: 3
+License: GNU General Public License v3
+License File: LICENSE.txt
+
+Description:
+This directory contains build configuration for distorm, a super-nice and easy
+to use disassembler library.
+
+Local Modifications:
+None

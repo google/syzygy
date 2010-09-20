@@ -39,24 +39,27 @@ deps = {
     Var("chrome_base") + "/deps/third_party/nss@45059",
 
   "src/third_party/zlib":
-    Var("chrome_base") + "/src/third_party/zlib@" + 
+    Var("chrome_base") + "/src/third_party/zlib@" +
         Var("chrome_revision"),
   "src/third_party/libevent":
-    Var("chrome_base") + "/src/third_party/libevent@" + 
+    Var("chrome_base") + "/src/third_party/libevent@" +
         Var("chrome_revision"),
   "src/third_party/libjpeg":
-    Var("chrome_base") + "/src/third_party/libjpeg@" + 
+    Var("chrome_base") + "/src/third_party/libjpeg@" +
         Var("chrome_revision"),
   "src/third_party/icu":
-    Var("chrome_base") + "/deps/third_party/icu42@" + 
+    Var("chrome_base") + "/deps/third_party/icu42@" +
         Var("chrome_revision"),
   "src/third_party/sqlite":
-    Var("chrome_base") + "/src/third_party/sqlite@" + 
+    Var("chrome_base") + "/src/third_party/sqlite@" +
         Var("chrome_revision"),
   "src/third_party/modp_b64":
-    Var("chrome_base") + "/src/third_party/modp_b64@" + 
+    Var("chrome_base") + "/src/third_party/modp_b64@" +
         Var("chrome_revision"),
-    
+
+  "src/third_party/distorm/files":
+    "http://distorm.googlecode.com/svn/trunk@54",
+
   "src/third_party/python_24":
     Var("chrome_base") + "/deps/third_party/python_24@22967",
 
