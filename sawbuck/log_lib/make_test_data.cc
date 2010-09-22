@@ -62,7 +62,7 @@ class MakeTestData: public testing::Test {
     CHECK(PathService::Get(base::DIR_SOURCE_ROOT, &source_root));
 
     // Create the destination directory if it doesn't exist already.
-    FilePath dest_dir(source_root.Append(L"sawbuck\\viewer\\test_data"));
+    FilePath dest_dir(source_root.Append(L"sawbuck\\log_lib\\test_data"));
     ASSERT_TRUE(file_util::CreateDirectory(dest_dir));
 
     // Construct the file path and delete any
@@ -73,14 +73,14 @@ class MakeTestData: public testing::Test {
     // Start a new file session.
     ASSERT_HRESULT_SUCCEEDED(
         controller_.StartFileSession(kTestSessionName,
-                                    dest_file.value().c_str(),
-                                    false));
+                                     dest_file.value().c_str(),
+                                     false));
 
     // And enable our test provider.
     ASSERT_HRESULT_SUCCEEDED(
         controller_.EnableProvider(kTestProviderName,
-                                  TRACE_LEVEL_VERBOSE,
-                                  0xFFFFFFFF));
+                                   TRACE_LEVEL_VERBOSE,
+                                   0xFFFFFFFF));
 
     // Then register the provider.
     ASSERT_EQ(ERROR_SUCCESS, provider_.Register());
