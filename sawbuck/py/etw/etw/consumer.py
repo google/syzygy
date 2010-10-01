@@ -172,9 +172,7 @@ class TraceConsumer(object):
     event_class = event.EventClass.Get(guid, version, type)
     if handler and event_class:
       try:
-        event_obj = event_class(event_trace.contents.MofData,
-                                event_trace.contents.MofLength,
-                                self._is_64_bit_log)
+        event_obj = event_class(event_trace, self._is_64_bit_log)
         handler(self, event_obj)
       except RuntimeError, e:
         logging.error(e)

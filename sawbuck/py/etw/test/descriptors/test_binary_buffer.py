@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from etw.descriptors.binary_buffer import BinaryBuffer, BufferOverflowError, \
-    BinaryBufferReader
+from etw.descriptors import binary_buffer
 import ctypes
 import unittest
 
@@ -21,7 +20,7 @@ import unittest
 class BinaryBufferTest(unittest.TestCase):
   def testContains(self):
     """Test buffer Contains."""
-    buffer = BinaryBuffer(0, 10)
+    buffer = binary_buffer.BinaryBuffer(0, 10)
 
     self.assertFalse(buffer.Contains(-1, 5))  # pos < 0
     self.assertFalse(buffer.Contains(11, 5))  # pos > buffer length
@@ -43,22 +42,25 @@ class BinaryBufferTest(unittest.TestCase):
 
   def testGetAt(self):
     """Test buffer GetAt."""
-    buffer = BinaryBuffer(20, 10)
+    buffer = binary_buffer.BinaryBuffer(20, 10)
 
     self.assertEqual(20, buffer.GetAt(0, 0))
     self.assertEqual(20, buffer.GetAt(0, 5))
     self.assertEqual(22, buffer.GetAt(2, 5))
     self.assertEqual(28, buffer.GetAt(8, 2))
 
-    self.assertRaises(BufferOverflowError, buffer.GetAt, 0, 11)
-    self.assertRaises(BufferOverflowError, buffer.GetAt, 5, 10)
-    self.assertRaises(BufferOverflowError, buffer.GetAt, 7, 15)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      buffer.GetAt, 0, 11)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      buffer.GetAt, 5, 10)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      buffer.GetAt, 7, 15)
 
   def testGetTypeAt(self):
     """Test buffer GetTypeAt."""
     data = ctypes.c_buffer(8)
     ptr = ctypes.cast(data, ctypes.c_void_p)
-    buffer = BinaryBuffer(ptr.value, ctypes.sizeof(data))
+    buffer = binary_buffer.BinaryBuffer(ptr.value, ctypes.sizeof(data))
 
     # char
     data.value = 'hello'
@@ -86,43 +88,46 @@ class BinaryBufferTest(unittest.TestCase):
     self.assertEqual(-123456789, buffer.GetTypeAt(0, ctypes.c_longlong))
 
     # error
-    self.assertRaises(BufferOverflowError, buffer.GetTypeAt, 4,
-                      ctypes.c_longlong)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      buffer.GetTypeAt, 4, ctypes.c_longlong)
 
   def testGetStringAt(self):
     """Test buffer GetStringAt."""
     # non-wide
     data = ctypes.create_string_buffer('Hello!')
-    buffer = BinaryBuffer(ctypes.cast(data, ctypes.c_void_p).value,
-                          ctypes.sizeof(data))
+    buffer = binary_buffer.BinaryBuffer(
+        ctypes.cast(data, ctypes.c_void_p).value, ctypes.sizeof(data))
     self.assertEqual('Hello!', buffer.GetStringAt(0))
     self.assertEqual('lo!', buffer.GetStringAt(3))
 
     # wide
     data = ctypes.create_unicode_buffer('Hello!')
-    buffer = BinaryBuffer(ctypes.cast(data, ctypes.c_void_p).value,
-                          ctypes.sizeof(data))
+    buffer = binary_buffer.BinaryBuffer(
+        ctypes.cast(data, ctypes.c_void_p).value, ctypes.sizeof(data))
     self.assertEqual(u'Hello!', buffer.GetWStringAt(0))
     self.assertEqual(u'lo!', buffer.GetWStringAt(6))
 
     #error
-    self.assertRaises(BufferOverflowError, buffer.GetStringAt, 20)
-    self.assertRaises(BufferOverflowError, buffer.GetWStringAt, 20)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      buffer.GetStringAt, 20)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      buffer.GetWStringAt, 20)
 
 
 class BinaryBufferReaderTest(unittest.TestCase):
   def testConsume(self):
     """Test buffer reader Consume."""
-    reader = BinaryBufferReader(0, 10)
+    reader = binary_buffer.BinaryBufferReader(0, 10)
     reader.Consume(5)
     self.assertEquals(5, reader._pos)
-    self.assertRaises(BufferOverflowError, reader.Consume, 6)
+    self.assertRaises(binary_buffer.BufferOverflowError,
+                      reader.Consume, 6)
 
   def testRead(self):
     """Test buffer reader Read."""
     data = ctypes.c_buffer(4)
-    reader = BinaryBufferReader(ctypes.cast(data, ctypes.c_void_p).value,
-                                ctypes.sizeof(data))
+    reader = binary_buffer.BinaryBufferReader(
+        ctypes.cast(data, ctypes.c_void_p).value, ctypes.sizeof(data))
 
     int = ctypes.cast(data, ctypes.POINTER(ctypes.c_int))
     int.contents.value = -4321
@@ -132,13 +137,13 @@ class BinaryBufferReaderTest(unittest.TestCase):
   def testReadString(self):
     """Test buffer reader ReaderString."""
     data = ctypes.create_string_buffer('Hello!')
-    reader = BinaryBufferReader(ctypes.cast(data, ctypes.c_void_p).value,
-                                ctypes.sizeof(data))
+    reader = binary_buffer.BinaryBufferReader(
+        ctypes.cast(data, ctypes.c_void_p).value, ctypes.sizeof(data))
     self.assertEqual('Hello!', reader.ReadString())
 
     data = ctypes.create_unicode_buffer('Hello!')
-    reader = BinaryBufferReader(ctypes.cast(data, ctypes.c_void_p).value,
-                                ctypes.sizeof(data))
+    reader = binary_buffer.BinaryBufferReader(
+        ctypes.cast(data, ctypes.c_void_p).value, ctypes.sizeof(data))
     self.assertEqual(u'Hello!', reader.ReadWString())
 
   POINTER_SIZE_32 = 4
@@ -157,7 +162,7 @@ class BinaryBufferReaderTest(unittest.TestCase):
         ctypes.windll.advapi32.CreateWellKnownSid(self.WIN_WORLD_SID, None,
                                                   sidPtr, ctypes.byref(size)))
 
-    reader = BinaryBufferReader(ptr.value, ctypes.sizeof(data))
+    reader = binary_buffer.BinaryBufferReader(ptr.value, ctypes.sizeof(data))
     sid = reader.ReadSid(False)
     self.assertTrue(sid.IsValid())
 

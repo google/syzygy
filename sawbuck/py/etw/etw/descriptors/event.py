@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """EventClass and EventCategory base classes for Event descriptors."""
-from binary_buffer import BinaryBufferReader
+from etw.descriptors import binary_buffer
+import datetime
 import inspect
 
 
@@ -34,11 +35,32 @@ class EventClass(object):
   define the _event_types_ list so that it will be registered in the
   EventCategory event class map.
   """
+  # The number of seconds between 01-01-1601 and 01-01-1970
+  _EPOCH_DELTA_S = 11644473600
+
   _subclass_map = {}
 
-  def __init__(self, buffer, length, is_64_bit_log):
-    """Initialize the class by reading its buffer to populate its fields."""
-    reader = BinaryBufferReader(buffer, length)
+  def __init__(self, event_trace, is_64_bit_log):
+    """Initialize by extracting event trace header and MOF data.
+
+    Args:
+      event_trace: a POINTER(EVENT_TRACE) for the current event.
+      is_64_bit_log: whether the log is from a 64 bit system.
+    """
+    header = event_trace.contents.Header
+    self.process_id = header.ProcessId
+    self.thread_id = header.ThreadId
+
+    # The header TimeStamp field is a 64 bit integer that represents
+    # the number of 100 nanosecond lapses since 01-01-1601. We convert
+    # this value to seconds and then change the epoch to be relative to
+    # 01-01-1970 which makes it compatible with time.time().
+    time_stamp_100ns = header.TimeStamp
+    time_stamp_s = float(time_stamp_100ns) / 10000000
+    self.time_stamp = time_stamp_s - self._EPOCH_DELTA_S
+
+    reader = binary_buffer.BinaryBufferReader(event_trace.contents.MofData,
+                                              event_trace.contents.MofLength)
     for (name, field) in self._fields_:
       setattr(self, name, field(reader, is_64_bit_log))
 
