@@ -87,8 +87,7 @@ class DescriptorGenerator(object):
     lines.append('#')
     lines.append(DO_NOT_EDIT_HEADER % guid)
     lines.append('')
-    lines.append('from etw.descriptors import event')
-    lines.append('from etw.descriptors import field')
+    lines.append('from etw.descriptors import event, field')
 
     categories = self._GetCategories(guid)
     lines.append('')

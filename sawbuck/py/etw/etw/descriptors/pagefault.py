@@ -17,8 +17,7 @@
 # sawbuck/py/generate_descriptor.py. It contains event descriptions for
 # MOF GUID {3d6fa8d3-fe05-11d0-9dda-00c04fd7ba7c}.
 
-from etw.descriptors import event
-from etw.descriptors import field
+from etw.descriptors import event, field
 
 
 class Event(object):
