@@ -16,7 +16,7 @@
 Event Tracing for Windows. The classes implement an ETW controller, consumer
 and provider.
 """
-from consumer import TraceConsumer
+from consumer import TraceConsumer, EventHandler
 from controller import TraceController, TraceProperties
 from provider import TraceProvider, MofEvent
 from guiddef import GUID
@@ -25,5 +25,6 @@ __all__ = ['GUID',
            'TraceProvider',
            'MofEvent',
            'TraceConsumer',
+           'EventHandler',
            'TraceController',
            'TraceProperties']

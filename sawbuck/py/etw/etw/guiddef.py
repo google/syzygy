@@ -38,7 +38,7 @@ class GUID(ctypes.Structure):
               ("Data4", ctypes.c_ubyte * 8)]
 
   def __str__(self):
-    return "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}" % \
+    return "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}" % \
             (self.Data1, self.Data2, self.Data3,
              self.Data4[0], self.Data4[1],
              self.Data4[2], self.Data4[3], self.Data4[4],
