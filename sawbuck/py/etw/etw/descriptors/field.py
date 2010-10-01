@@ -24,6 +24,15 @@ The arguments passed to each function are the same:
   is_64_bit_log: Whether the log is for a 64 bit machine.
 """
 
+def Boolean(reader, is_64_bit_log):
+  return reader.ReadBoolean()
+
+def Int8(reader, is_64_bit_log):
+  return reader.ReadInt8()
+
+def UInt8(reader, is_64_bit_log):
+  return reader.ReadUInt8()
+
 def Int16(reader, is_64_bit_log):
   return reader.ReadInt16()
 

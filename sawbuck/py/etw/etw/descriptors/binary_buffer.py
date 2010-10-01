@@ -113,6 +113,15 @@ class BinaryBufferReader(object):
     self.Consume(ctypes.sizeof(type))
     return val
 
+  def ReadBoolean(self):
+    return self.Read(ctypes.c_byte) != 0
+
+  def ReadInt8(self):
+    return self.Read(ctypes.c_byte)
+
+  def ReadUInt8(self):
+    return self.Read(ctypes.c_ubyte)
+
   def ReadInt16(self):
     return self.Read(ctypes.c_short)
 

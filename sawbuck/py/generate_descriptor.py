@@ -197,9 +197,15 @@ class DescriptorGenerator(object):
   def _GetFieldType(self, field):
     """Gets the buffer reader function to call for the given property."""
     const = win32com.client.constants
-    if field.CIMType == const.wbemCimtypeSint16:
+    if field.CIMType == const.wbemCimtypeBoolean:
+      return 'Boolean'
+    elif field.CIMType == const.wbemCimtypeSint8:
+      return 'Int8'
+    elif field.CIMType == const.wbemCimtypeUint8:
+      return 'UInt8'
+    elif field.CIMType == const.wbemCimtypeSint16:
       return 'Int16'
-    if field.CIMType == const.wbemCimtypeUint16:
+    elif field.CIMType == const.wbemCimtypeUint16:
       return 'UInt16'
     elif field.CIMType == const.wbemCimtypeSint32:
       return 'Int32'
