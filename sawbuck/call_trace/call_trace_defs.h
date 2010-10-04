@@ -83,6 +83,14 @@ struct TraceModuleData {
   wchar_t module_exe[MAX_PATH];
 };
 
+struct FuncCall {
+  union {
+    DWORD tick_count;
+    DWORD ticks_ago;
+  };
+  FuncAddr function;
+};
+
 // The structure traced for batch entry traces.
 struct TraceBatchEnterData {
   // The thread ID from which these traces originate. This can differ
@@ -91,10 +99,10 @@ struct TraceBatchEnterData {
   DWORD thread_id;
 
   // Number of function entries.
-  size_t num_functions;
+  size_t num_calls;
 
-  // Back-to-back function addresses, one for each entry.
-  FuncAddr functions[1];
+  // Back-to-back function calls, one for each entry.
+  FuncCall calls[1];
 };
 
 #endif  // SAWBUCK_CALL_TRACE_CALL_TRACE_DEFS_H_

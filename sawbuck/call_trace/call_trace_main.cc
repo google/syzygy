@@ -104,6 +104,47 @@ extern "C" void __declspec(naked) _cdecl _penter() {
   }
 }
 
+// The calling convention to this function is non-conventional.
+// This function is invoked by a generated stub that does
+// push <original function>
+// jmp _indirect_penter
+// This function will trace the entry to <original function>,
+// and then on exit, will organize to jump to that function
+// to execute it.
+extern "C" void __declspec(naked) _cdecl _indirect_penter() {
+  __asm {
+    // Stash volatile registers.
+    push eax
+    push ecx
+    push edx
+
+    // Retrieve the address pushed by our caller.
+    mov eax, DWORD PTR[esp + 0x0C]
+    push eax
+
+    // Calculate the position of the return address on stack, and
+    // push it. This becomes the EntryFrame argument.
+    lea eax, DWORD PTR[esp + 0x14]
+    push eax
+    call TracerModule::TraceEntry
+
+    // Restore volatile registers.
+    pop edx
+    pop ecx
+    pop eax
+
+    // Return to the address pushed by our caller.
+    ret
+  }
+}
+
+extern bool _cdecl wait_til_enabled() {
+  return module.WaitTilEnabled();
+}
+extern bool _cdecl wait_til_disabled() {
+  return module.WaitTilDisabled();
+}
+
 class TracerModule::ThreadLocalData {
  public:
   explicit ThreadLocalData(TracerModule* module);
@@ -119,7 +160,7 @@ class TracerModule::ThreadLocalData {
   // buffer to store kNumBatchTraceEntries.
   union {
     TraceBatchEnterData data_;
-    char buf_[FIELD_OFFSET(TraceBatchEnterData, functions) +
+    char buf_[FIELD_OFFSET(TraceBatchEnterData, calls) +
               kBatchEntriesBufferSize];
   };
 
@@ -129,7 +170,8 @@ class TracerModule::ThreadLocalData {
 
 TracerModule::TracerModule()
     : EtwTraceProvider(kCallTraceProvider),
-      tls_index_(::TlsAlloc()) {
+      tls_index_(::TlsAlloc()),
+      enabled_event_(NULL){
   // Initialize ETW logging for ourselves.
   logging::LogEventProvider::Initialize(kCallTraceLogProvider);
 
@@ -167,38 +209,112 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 }
 
 void TracerModule::OnEventsEnabled() {
-  if (!IsTracing(TRACE_FLAG_LOAD_EVENTS))
-    return;
+  if (IsTracing(TRACE_FLAG_LOAD_EVENTS)) {
+    CHandle snap(::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,
+                 ::GetCurrentProcessId()));
 
-  CHandle snap(::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,
-               ::GetCurrentProcessId()));
+    if (NULL != snap.m_h) {
+      MODULEENTRY32 module = { sizeof(module) };
 
-  if (NULL != snap.m_h) {
-    MODULEENTRY32 module = { sizeof(module) };
+      if (!Module32First(snap, &module))
+        return;
 
-    if (!Module32First(snap, &module))
-      return;
+      do {
+        TraceModule(module.modBaseAddr, module.modBaseSize,
+                    module.szModule,
+                    module.szExePath);
+      } while (::Module32Next(snap, &module));
+    }
+  }
 
-    do {
-      TraceModule(module.modBaseAddr, module.modBaseSize,
-                  module.szModule,
-                  module.szExePath);
-    } while (::Module32Next(snap, &module));
+  UpdateEvents(IsTracing(TRACE_FLAG_BATCH_ENTER));
+}
+
+void TracerModule::UpdateEvents(bool is_tracing) {
+  if (is_tracing) {
+    if (enabled_event_ != NULL)
+      ::SetEvent(enabled_event_);
+    if (disabled_event_ != NULL)
+      ::ResetEvent(disabled_event_);
+  } else {
+    if (enabled_event_ != NULL)
+      ::ResetEvent(enabled_event_);
+    if (disabled_event_ != NULL)
+      ::SetEvent(disabled_event_);
   }
 }
 
 void TracerModule::OnEventsDisabled() {
+  {
+    AutoLock lock(lock_);
+    // Last gasp logging for this session.
+    // While we do all of the below under a lock, this is still racy,
+    // in that the other threads in the process will still be running,
+    // and may be adding data to the buffers and/or trying to unqueue
+    // them as we go.
+    if (!IsListEmpty(&thread_data_list_head_)) {
+      ThreadLocalData* data = CONTAINING_RECORD(thread_data_list_head_.Flink,
+                                                ThreadLocalData,
+                                                thread_data_list_);
+
+      while (true) {
+        if (data->data_.num_calls != 0) {
+          FlushBatchEntryTraces(data);
+          DCHECK(data->data_.num_calls == 0);
+        }
+
+        // Bail the loop if we're at the end of the list.
+        if (data->thread_data_list_.Flink == &thread_data_list_head_)
+          break;
+
+        // Walk forward.
+        data = CONTAINING_RECORD(data->thread_data_list_.Flink,
+                                 ThreadLocalData,
+                                 thread_data_list_);
+      }
+    }
+  }
+
+  UpdateEvents(false);
+}
+
+bool TracerModule::WaitTilDisabled() {
+  if (disabled_event_ == NULL)
+    return false;
+
+  return WAIT_OBJECT_0 == ::WaitForSingleObject(disabled_event_, INFINITE) &&
+      !module.IsTracing(TRACE_FLAG_BATCH_ENTER);
+}
+
+bool TracerModule::WaitTilEnabled() {
+  if (enabled_event_ == NULL)
+    return false;
+
+  return WAIT_OBJECT_0 == ::WaitForSingleObject(enabled_event_, INFINITE) &&
+      module.IsTracing(TRACE_FLAG_BATCH_ENTER);
 }
 
 void TracerModule::OnProcessAttach() {
   Register();
+
+  enabled_event_.Set(::CreateEvent(NULL, TRUE, FALSE, NULL));
+  disabled_event_.Set(::CreateEvent(NULL, TRUE, FALSE, NULL));
+
   if (IsTracing(TRACE_FLAG_LOAD_EVENTS))
     TraceEvent(TRACE_PROCESS_ATTACH_EVENT);
+
+  UpdateEvents(IsTracing(TRACE_FLAG_BATCH_ENTER));
 }
 
 void TracerModule::OnProcessDetach() {
   if (IsTracing(TRACE_FLAG_LOAD_EVENTS))
     TraceEvent(TRACE_PROCESS_DETACH_EVENT);
+
+  if (enabled_event_ != NULL)
+    ::SetEvent(enabled_event_);
+
+  if (disabled_event_ != NULL)
+    ::SetEvent(disabled_event_);
 
   OnThreadDetach();
 
@@ -223,7 +339,7 @@ void TracerModule::OnProcessDetach() {
       RemoveHeadList(&thread_data_list_head_);
     }
 
-    if (data->data_.num_functions != 0)
+    if (data->data_.num_calls != 0)
       FlushBatchEntryTraces(data);
 
     // Clear the list so the destructor won't mess up.
@@ -377,27 +493,42 @@ void TracerModule::TraceBatchEnter(FuncAddr function) {
   if (data == NULL)
     return;
 
-  DCHECK(data->data_.num_functions < kNumBatchTraceEntries);
-  data->data_.functions[data->data_.num_functions++] = function;
+  DCHECK(data->data_.num_calls < kNumBatchTraceEntries);
+  data->data_.calls[data->data_.num_calls].function = function;
+  data->data_.calls[data->data_.num_calls].tick_count = ::GetTickCount();
+  ++data->data_.num_calls;
 
-  if (data->data_.num_functions == kNumBatchTraceEntries)
+  if (data->data_.num_calls == kNumBatchTraceEntries)
     FlushBatchEntryTraces(data);
 }
 
 void TracerModule::FlushBatchEntryTraces(ThreadLocalData* data) {
   DCHECK(data != NULL);
 
+  if (data->data_.num_calls == 0) {
+    return;
+  }
+
+  // The logged call times are relative to the current time.
+  // This makes life easier on the user, who can use the event
+  // time as the base time for all entries.
+  DWORD current_tick_count = ::GetTickCount();
+  for (size_t i = 0; i < data->data_.num_calls; ++i) {
+    data->data_.calls[i].ticks_ago =
+        current_tick_count - data->data_.calls[i].tick_count;
+  }
+
   EtwMofEvent<1> batch_event(kCallTraceEventClass,
                              TRACE_BATCH_ENTER,
                              CALL_TRACE_LEVEL);
 
-  size_t len = FIELD_OFFSET(TraceBatchEnterData, functions) +
-        sizeof(data->data_.functions[0]) * data->data_.num_functions;
+  size_t len = FIELD_OFFSET(TraceBatchEnterData, calls) +
+        sizeof(data->data_.calls[0]) * data->data_.num_calls;
   batch_event.SetField(0, len, &data->data_);
 
   Log(batch_event.get());
 
-  data->data_.num_functions = 0;
+  data->data_.num_calls = 0;
 }
 
 void TracerModule::FixupBackTrace(const ReturnStack& stack,
@@ -450,6 +581,9 @@ void TracerModule::FreeThreadLocalData() {
   if (data == NULL)
     return;
 
+  if (data->data_.num_calls)
+    FlushBatchEntryTraces(data);
+
   delete data;
   ::TlsSetValue(tls_index_, NULL);
 }
@@ -458,7 +592,7 @@ TracerModule::ThreadLocalData::ThreadLocalData(TracerModule* module)
     : module_(module) {
   AutoLock lock(module_->lock_);
   data_.thread_id = ::GetCurrentThreadId();
-  data_.num_functions = 0;
+  data_.num_calls = 0;
   InsertTailList(&module->thread_data_list_head_, &thread_data_list_);
 }
 

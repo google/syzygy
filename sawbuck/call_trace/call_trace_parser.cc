@@ -69,12 +69,12 @@ bool CallTraceParser::ProcessBatchEnterEvent(EVENT_TRACE* event) {
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceBatchEnterData* data = NULL;
-  if (!reader.Read(sizeof(data->num_functions), &data)) {
+  if (!reader.Read(sizeof(data->num_calls), &data)) {
     LOG(ERROR) << "Short or empty batch event.";
     return false;
   }
 
-  if (!reader.Consume(data->num_functions * sizeof(data->functions[0]))) {
+  if (!reader.Consume(data->num_calls * sizeof(data->calls[0]))) {
     LOG(ERROR) << "Short batch event data.";
     return false;
   }

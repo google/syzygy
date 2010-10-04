@@ -18,6 +18,7 @@
 #include <vector>
 #include "base/event_trace_provider_win.h"
 #include "base/lock.h"
+#include "base/scoped_handle.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/dlist.h"
 
@@ -26,7 +27,10 @@
 // exit. These respetively invoke TracerModule::TraceEntry and
 // TracerModule::TraceExit.
 extern "C" void _cdecl _penter();
+extern "C" void _cdecl _indirect_penter();
 extern void pexit();
+extern bool wait_til_enabled();
+extern bool wait_til_disabled();
 
 class TracerModule: public EtwTraceProvider {
  public:
@@ -38,6 +42,8 @@ class TracerModule: public EtwTraceProvider {
  protected:
   friend void _penter();
   friend void pexit();
+  friend bool wait_til_enabled();
+  friend bool wait_til_disabled();
 
   // This structure is overlaid on the entry frame to access and modify it.
   struct EntryFrame {
@@ -63,12 +69,15 @@ class TracerModule: public EtwTraceProvider {
   virtual void OnEventsEnabled();
   virtual void OnEventsDisabled();
 
+  bool WaitTilEnabled();
+  bool WaitTilDisabled();
  private:
   void OnProcessAttach();
   void OnProcessDetach();
   void OnThreadAttach();
   void OnThreadDetach();
 
+  void UpdateEvents(bool is_tracing);
   bool IsTracing();
   bool IsTracing(TraceEventFlags flags);
   void TraceModule(ModuleAddr base,
@@ -90,7 +99,7 @@ class TracerModule: public EtwTraceProvider {
   static const size_t kBatchEntriesBufferSize =
       (TRACE_MESSAGE_MAXIMUM_SIZE - 256);
   static const size_t kNumBatchTraceEntries =
-      kBatchEntriesBufferSize / sizeof(FuncAddr);
+      kBatchEntriesBufferSize / sizeof(FuncCall);
 
   // We keep a structure of this type for each thread.
   class ThreadLocalData;
@@ -108,6 +117,9 @@ class TracerModule: public EtwTraceProvider {
 
   ThreadLocalData *GetThreadData();
   ThreadLocalData *GetOrAllocateThreadData();
+
+  ScopedHandle enabled_event_;
+  ScopedHandle disabled_event_;
 
   bool SetThreadLocalData(ThreadLocalData *data);
   void FreeThreadLocalData();

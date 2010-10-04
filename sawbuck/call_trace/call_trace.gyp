@@ -23,20 +23,6 @@
   },
   'targets': [
     {
-      'target_name': 'test_image1',
-      'type': 'loadable_module',
-      'sources': [
-        'test_image1.cc',
-      ],
-    },
-    {
-      'target_name': 'test_image2',
-      'type': 'loadable_module',
-      'sources': [
-        'test_image2.cc',
-      ],
-    },
-    {
       'target_name': 'call_trace_lib',
       'type': 'static_library',
       'sources': [
@@ -44,24 +30,22 @@
         'call_trace_defs.cc',
         'call_trace_parser.h',
         'call_trace_parser.cc',
-        'pe_image_file.h',
-        'pe_image_file.cc',
       ],
     },
     {
       'target_name': 'call_trace_unittests',
       'type': 'executable',
       'sources': [
+        'call_trace_dll_unittest.cc',
         'call_trace_unittests_main.cc',
-        'pe_image_file_unittest.cc',
       ],
       'dependencies': [
         'call_trace_lib',
-        'test_image1',
-        'test_image2',
+        'CallTrace',
         '../log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
       ],      
     },
     {

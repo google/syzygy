@@ -14,11 +14,17 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "gtest/gtest.h"
+#include <objbase.h>
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
 
   CommandLine::Init(argc, argv);
   base::AtExitManager at_exit;
+
+  ::CoInitialize(NULL);
+
   RUN_ALL_TESTS();
+
+  ::CoUninitialize();
 }

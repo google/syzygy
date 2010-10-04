@@ -22,9 +22,10 @@ set clock_type=
 
 :main
 :: Create a kernel logger session and make it log image events to the file kernel.etl.
-logman create trace -ets "NT Kernel Logger" %clock_type% -mode globalsequence -o kernel.etl -p "Windows Kernel Trace" (img,process)
+logman create trace -ets "NT Kernel Logger" %clock_type% -mode globalsequence -bs 10240 -nb 25 50 -o kernel.etl -p "Windows Kernel Trace" (img,process,thread,pf,hf)
 
 :: Create the call trace logger session.
-logman create trace -ets "Call Trace Session" %clock_type% -mode globalsequence -o call_trace.etl
+logman create trace -ets "call_trace" %clock_type% -mode globalsequence -bs 10240 -nb 25 50 -o call_trace.etl
+
 :: Turn on the CallTrace provider with batch entry logging enabled
-logman update trace -ets "Call Trace Session" -p {06255E36-14B0-4e57-8964-2E3D675A0E77} 0x0020 4
+logman update trace -ets "call_trace" -p {06255E36-14B0-4e57-8964-2E3D675A0E77} 0x0020 4

@@ -18,3 +18,11 @@ LIBRARY CallTrace.dll
 EXPORTS
   ; Our profile hook function.
   _penter
+  
+  ; API
+  wait_til_enabled
+  wait_til_disabled
+
+  ; And the indirect profile hook function we
+  ; invoke through machine instrumentation.
+  _indirect_penter
