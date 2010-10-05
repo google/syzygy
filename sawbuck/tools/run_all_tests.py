@@ -17,6 +17,7 @@ It exits with non-zero exit status on error.
 '''
 #!python
 import os.path
+import optparse
 import sys
 import win32com.client
 
@@ -45,9 +46,26 @@ def BuildProjectConfig(builder, config, project):
   return builder.LastBuildInfo
 
 
+def GetOptionParser():
+  '''Creates and returns an option parser for this script.'''
+  parser = optparse.OptionParser(usage='%prog [options]')
+  parser.add_option('-s', '--solution',
+                    dest='solution',
+                    default=_SAWBUCK_SOLUTION,
+                    help='Use a specific solution file.')
+
+  return parser
+
+
 def Main():
   '''Runs the unittests in Debug and Release.'''
-  solution = win32com.client.GetObject(_SAWBUCK_SOLUTION)
+  parser = GetOptionParser()
+  (options, args) = parser.parse_args()
+
+  if args:
+    parser.error('This script takes no arguments')
+
+  solution = win32com.client.GetObject(os.path.abspath(options.solution))
   builder = solution.SolutionBuild
 
   # Force the output window to show and give it focus.
