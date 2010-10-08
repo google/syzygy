@@ -20,6 +20,7 @@
 #include <vector>
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/file_path.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -28,7 +29,7 @@
 
 pcrecpp::RE kEventRe("([^/]+)/([^/]+)/([^/]+)(/([^/]+))?");
 
-bool ParseCommandLine(std::wstring* logfile_path,
+bool ParseCommandLine(FilePath* logfile_path,
                       std::vector<LogTimer::Event>* events) {
   CommandLine::Init(0, NULL);
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
@@ -37,7 +38,7 @@ bool ParseCommandLine(std::wstring* logfile_path,
     LOG(ERROR) << "No log file specified (--log-file).";
     return false;
   }
-  *logfile_path = cmd_line->GetSwitchValue("log-file");
+  *logfile_path = cmd_line->GetSwitchValuePath("log-file");
 
   std::vector<CommandLine::StringType> args = cmd_line->args();
   if (args.size() == 0) {
@@ -82,7 +83,7 @@ bool ParseCommandLine(std::wstring* logfile_path,
 void wmain() {
   base::AtExitManager at_exit;
 
-  std::wstring logfile_path;
+  FilePath logfile_path;
   std::vector<LogTimer::Event> events;
   if (!ParseCommandLine(&logfile_path, &events))
     return;
@@ -92,5 +93,5 @@ void wmain() {
     timer.AddEvent(events[i]);
   }
 
-  timer.ProcessLog(logfile_path);
+  timer.ProcessLog(logfile_path.value());
 }
