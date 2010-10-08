@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "base/event_trace_consumer_win.h"
 #include "base/event_trace_controller_win.h"
+#include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/call_trace_parser.h"
@@ -33,7 +34,7 @@ using sym_util::ModuleCache;
 using sym_util::SymbolCache;
 using sym_util::Symbol;
 
-std::ostream &operator<<(std::ostream& str, const Symbol& sym) {
+std::wostream &operator<<(std::wostream& str, const Symbol& sym) {
   if (sym.file != L"")
     str << sym.file << "(" << sym.line << "): ";
 
@@ -104,10 +105,10 @@ class ViewerTraceConsumer
                                  DWORD process_id,
                                  DWORD thread_id,
                                  const TraceBatchEnterData* data) {
-    for (size_t i = 0; i < data->num_functions; ++i) {
+    for (size_t i = 0; i < data->num_calls; ++i) {
       Symbol symbol;
       Address address =
-          reinterpret_cast<Address>(data->functions[i]);
+          reinterpret_cast<Address>(data->calls[i].function);
       std::wcout << process_id << L'\t'
           << thread_id << L'\t';
       if (Resolve(process_id, time, address, &symbol)) {
@@ -115,7 +116,7 @@ class ViewerTraceConsumer
             << address - symbol.module_base << L'(' << symbol.size << L")\t"
             << symbol.mangled_name;
       } else {
-        std::wcout << data->functions[i] << L"(***UNKNOWN***)\t"
+        std::wcout << data->calls[i].function << L"(***UNKNOWN***)\t"
             << L"***UNKNOWN***";
       }
       std::wcout << std::endl;
@@ -177,7 +178,7 @@ class ViewerTraceConsumer
                 time,
                 reinterpret_cast<Address>(data->function),
                 &symbol)) {
-      std::cout << symbol;
+      std::wcout << symbol;
     } else {
       std::cout << data->function;
     }
@@ -205,7 +206,7 @@ class ViewerTraceConsumer
                     time,
                     reinterpret_cast<Address>(data->traces[i]),
                     &symbol)) {
-          std::cout << '[' << symbol << ']';
+          std::wcout << '[' << symbol << ']';
         } else {
           std::cout << data->traces[i];
         }
@@ -302,11 +303,13 @@ int wmain(int argc, wchar_t** argv) {
   bool print_retval = cmd_line->HasSwitch("print_retval");
 
   int only_process;
-  base::StringToInt(cmd_line->GetSwitchValue("only_process"), &only_process);
+  base::StringToInt(cmd_line->GetSwitchValueNative("only_process"),
+                    &only_process);
   int only_thread;
-  base::StringToInt(cmd_line->GetSwitchValue("only_thread"), &only_thread);
+  base::StringToInt(cmd_line->GetSwitchValueNative("only_thread"),
+                    &only_thread);
 
-  std::wstring session = cmd_line->GetSwitchValue("session");
+  std::wstring session(cmd_line->GetSwitchValueNative("session"));
   typedef std::vector<std::wstring> StringVector;
   StringVector files = cmd_line->args();
   if (session.empty() && files.empty()) {

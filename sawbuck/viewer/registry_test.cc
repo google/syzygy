@@ -42,8 +42,8 @@ void RegistryTest::SetUp() {
   EXPECT_TRUE(err == ERROR_SUCCESS || err == ERROR_FILE_NOT_FOUND);
 
   // Create the keys we're redirecting HKCU and HKLM to.
-  ASSERT_TRUE(hkcu_.Create(HKEY_CURRENT_USER, kHKCUReplacement));
-  ASSERT_TRUE(hklm_.Create(HKEY_CURRENT_USER, kHKLMReplacement));
+  ASSERT_TRUE(hkcu_.Create(HKEY_CURRENT_USER, kHKCUReplacement, KEY_READ));
+  ASSERT_TRUE(hklm_.Create(HKEY_CURRENT_USER, kHKLMReplacement, KEY_READ));
 
   // And do the switcharoo.
   ASSERT_EQ(ERROR_SUCCESS,
