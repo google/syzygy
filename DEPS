@@ -16,7 +16,7 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "61952",
+  "chrome_revision": "62405",
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
 
