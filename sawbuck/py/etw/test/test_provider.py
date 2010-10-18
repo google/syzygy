@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from etw import MofEvent, TraceConsumer
+from etw import MofEvent, TraceEventSource
 from etw import TraceController, TraceProperties, TraceProvider
 import ctypes
 import etw.evntrace as evn
@@ -78,7 +78,7 @@ class TraceProviderTest(unittest.TestCase):
 
     self._controller.Stop()
 
-    class TestConsumer(TraceConsumer):
+    class TestConsumer(TraceEventSource):
       def ProcessEvent(self, event):
         print event
 

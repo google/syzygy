@@ -1,4 +1,3 @@
-#!python
 # Copyright 2010 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,25 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Implements a trace consumer utility class."""
-from ctypes import addressof, byref, cast, c_void_p, POINTER, sizeof
+from collections import defaultdict
+from ctypes import byref, cast, POINTER, sizeof
 from etw import evntrace
 from etw.descriptors import event
+import logging
 
 
-def EventHandler(event_info):
+def _BindHandler(handler_func, handler_instance):
+  def BoundHandler(event):
+    handler_func(handler_instance, event)
+  return BoundHandler
+
+
+def EventHandler(*event_infos):
   """EventHandler decorator factory.
 
-  This decorator factory assigns the event_info value passed in as a property
+  This decorator factory assigns the event_infos value passed in as a property
   of the decorated function. This is used by the Consumer class to
   populate an event handler map with the decorated functions.
   """
   def wrapper(func):
-    func.event_info = event_info
+    func.event_infos = event_infos[:]
     return func
   return wrapper
 
 
-class MetaTraceConsumer(type):
+class MetaEventConsumer(type):
   """Meta class for TraceConsumer.
 
   The purpose of this metaclass is to populate an event handler map for a
@@ -41,55 +48,77 @@ class MetaTraceConsumer(type):
   of consumers and will register event handlers defined in parent classes
   for the given sub class.
   """
-  def __new__(meta_class, name, bases, dict):
+  def __new__(cls, name, bases, dict):
     """Create a new TraceConsumer class type."""
-    event_handler_map = {}
+    event_handler_map = defaultdict(list)
     for base in bases:
       base_map = getattr(base, 'event_handler_map', None)
       if base_map:
         event_handler_map.update(base_map)
     for v in dict.values():
-      event_info = getattr(v, 'event_info', None)
-      if event_info:
-        event_handler_map[event_info] = v
-    new_type = type.__new__(meta_class, name, bases, dict)
+      event_infos = getattr(v, 'event_infos', [])
+      for event_info in event_infos:
+        event_handler_map[event_info].append(v)
+    new_type = type.__new__(cls, name, bases, dict)
     new_type.event_handler_map = event_handler_map
     return new_type
 
 
-class TraceConsumer(object):
-  """An Event Tracing for Windows consumer base class.
+class EventConsumer(object):
+  """An Event Tracing for Windows event handler base class.
 
-  Inherit from this class, and define event handlers like so:
+  Derive your handlers from this class, and define event handlers like so:
 
   @EventHandler(module.Event.EventName)
-  def handler(self, event):
+  def OnEventName(self, event):
     pass
 
-  to handle events. Optionally override ProcessBuffer as well.
+  to handle events. One or more event handler instances can then be passed to a
+  LogConsumer, which will dispatch log events to them during log consumption.
 
-  To use, instantiate your subclass, then call OpenRealtimeSession and/or
-  OpenFileSession to open the trace sessions you want to consume, before
-  calling Consume. Note that ETW only allows each consumer to consume zero
-  or one realtime sessions, but you can otherwise consumer open up to 31
-  sessions concurrently.
-
-  When you're done with the sessions, call Close() to close them all.
+  Note that if any handler raises an exception, the exception will be logged,
+  and log parsing will be terminated as soon as possible.
   """
-  __metaclass__ = MetaTraceConsumer
+  __metaclass__ = MetaEventConsumer
 
-  def __init__(self):
-    """Creates an idle consumer."""
+
+class TraceEventSource(object):
+  """An Event Tracing for Windows consumer class.
+
+  To consume a log, derive one or more handler classes from EventConsumer
+  and define
+  """
+
+  def __init__(self, handlers=[]):
+    """Creates an idle consumer.
+
+    Args:
+      handlers: an optional list of handlers to consume the log(s).
+          Each handler should be an object derived from EventConsumer.
+    """
+    self._stop = False
+    self._handlers = handlers[:]
     self._is_64_bit_log = False
     self._trace_handles = []
     self._buffer_callback = evntrace.EVENT_TRACE_BUFFER_CALLBACK(
         self._ProcessBufferCallback)
     self._event_callback = evntrace.EVENT_CALLBACK(
         self._ProcessEventCallback)
+    self._handler_cache = dict()
 
   def __del__(self):
     """Clean up any trace sessions we have open."""
     self.Close()
+
+  def AddHandler(self, handler):
+    """Add a new handler to this consumer.
+
+    Args:
+      handler: the handler to add.
+    """
+    self._handlers.append(handler)
+    # Clear our handler cache.
+    self._handler_cache.clear()
 
   def OpenRealtimeSession(self, name):
     """Open a trace session named "name".
@@ -168,14 +197,13 @@ class TraceConsumer(object):
         self._is_64_bit_log = True
 
     # Look for a handler and EventClass for the event.
-    handler = self.event_handler_map.get((guid, type), None)
     event_class = event.EventClass.Get(guid, version, type)
-    if handler and event_class:
-      try:
+    if event_class:
+      handlers = self._GetHandlers(guid, type)
+      if handlers:
         event_obj = event_class(event_trace, self._is_64_bit_log)
-        handler(self, event_obj)
-      except RuntimeError, e:
-        logging.error(e)
+        for handler in handlers:
+          handler(event_obj)
 
   def ProcessBuffer(self, buffer):
     """Process a buffer.
@@ -189,11 +217,38 @@ class TraceConsumer(object):
     try:
       self.ProcessBuffer(buffer)
     except:
-      # terminate parsing on exception
-      return 0
+      # Terminate parsing on exception.
+      logging.exception("Exception in ProcessBuffer, terminating parsing")
+      self._stop = True
 
-    # keep going
-    return 1
+    if self._stop:
+      return 0
+    else:
+      return 1
 
   def _ProcessEventCallback(self, event):
-    self.ProcessEvent(event)
+    # Don't process the event if we're stopping. Note that we can only
+    # terminate the processing once a whole buffer has been processed.
+    if self._stop:
+      return
+
+    try:
+      self.ProcessEvent(event)
+    except:
+      # Terminate parsing on exception.
+      logging.exception("Exception in ProcessEvent, terminating parsing")
+      self._stop = True
+
+  def _GetHandlers(self, guid, type):
+    key = (guid, type)
+    handler_list = self._handler_cache.get(key, None)
+    if handler_list != None:
+      return handler_list
+
+    # We didn't cache this already.
+    handler_list = []
+    for handler_instance in self._handlers:
+      for handler_func in handler_instance.event_handler_map.get(key, []):
+        handler_list.append(_BindHandler(handler_func, handler_instance))
+
+    return handler_list
