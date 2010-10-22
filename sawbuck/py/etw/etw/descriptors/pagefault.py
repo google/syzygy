@@ -44,7 +44,7 @@ class PageFault_V2(event.EventCategory):
   VERSION = 2
 
   class PageFault_HardFault(event.EventClass):
-    _event_types_ = [32]
+    _event_types_ = [Event.HardFault]
     _fields_ = [('InitialTime', field.UInt64),
                 ('ReadOffset', field.UInt64),
                 ('VirtualAddress', field.Pointer),
@@ -53,43 +53,50 @@ class PageFault_V2(event.EventCategory):
                 ('ByteCount', field.UInt32)]
 
   class PageFault_VirtualAlloc(event.EventClass):
-    _event_types_ = [98, 99]
+    _event_types_ = [Event.VirtualAlloc,
+                     Event.VirtualFree]
     _fields_ = [('BaseAddress', field.Pointer),
                 ('RegionSize', field.Int32),
                 ('ProcessId', field.UInt32),
                 ('Flags', field.UInt32)]
 
   class PageFault_HeapRangeRundown_V2(event.EventClass):
-    _event_types_ = [100]
+    _event_types_ = [Event.HRRundown]
     _fields_ = [('HeapHandle', field.Pointer),
                 ('HRFlags', field.UInt32),
                 ('HRPid', field.UInt32),
                 ('HRRangeCount', field.UInt32)]
 
   class PageFault_HeapRangeDestroy(event.EventClass):
-    _event_types_ = [104]
+    _event_types_ = [Event.HRDestroy]
     _fields_ = [('HeapHandle', field.Pointer)]
 
   class PageFault_TypeGroup1(event.EventClass):
-    _event_types_ = [10, 11, 12, 13, 14, 15]
+    _event_types_ = [Event.AccessViolation,
+                     Event.CopyOnWrite,
+                     Event.DemandZeroFault,
+                     Event.GuardPageFault,
+                     Event.HardPageFault,
+                     Event.TransitionFault]
     _fields_ = [('VirtualAddress', field.Pointer),
                 ('ProgramCounter', field.Pointer)]
 
   class PageFault_ImageLoadBacked(event.EventClass):
-    _event_types_ = [105]
+    _event_types_ = [Event.ImageLoadBacked]
     _fields_ = [('FileObject', field.Pointer),
                 ('DeviceChar', field.UInt32),
                 ('FileChar', field.UInt16),
                 ('LoadFlags', field.UInt16)]
 
   class PageFault_HeapRangeTypeGroup(event.EventClass):
-    _event_types_ = [102, 103]
+    _event_types_ = [Event.HRRelease,
+                     Event.HRReserve]
     _fields_ = [('HeapHandle', field.Pointer),
                 ('HRAddress', field.Pointer),
                 ('HRSize', field.Int32)]
 
   class PageFault_HeapRangeCreate(event.EventClass):
-    _event_types_ = [101]
+    _event_types_ = [Event.HRCreate]
     _fields_ = [('HeapHandle', field.Pointer),
                 ('FirstRangeSize', field.Int32),
                 ('HRCreateFlags', field.UInt32)]
@@ -100,7 +107,7 @@ class PageFault(event.EventCategory):
   VERSION = 3
 
   class PageFault_HeapRangeRundown(event.EventClass):
-    _event_types_ = [100]
+    _event_types_ = [Event.HRRundown]
     _fields_ = [('HeapHandle', field.Pointer),
                 ('HRFlags', field.UInt32),
                 ('HRPid', field.UInt32),

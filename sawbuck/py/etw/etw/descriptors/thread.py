@@ -42,13 +42,13 @@ class Thread_V2(event.EventCategory):
   VERSION = 2
 
   class WorkerThread(event.EventClass):
-    _event_types_ = [57]
+    _event_types_ = [Event.WorkerThread]
     _fields_ = [('TThreadId', field.UInt32),
                 ('StartTime', field.UInt64),
                 ('ThreadRoutine', field.Pointer)]
 
   class CSwitch(event.EventClass):
-    _event_types_ = [36]
+    _event_types_ = [Event.CSwitch]
     _fields_ = [('NewThreadId', field.UInt32),
                 ('OldThreadId', field.UInt32),
                 ('NewThreadPriority', field.Int8),
@@ -63,18 +63,18 @@ class Thread_V2(event.EventCategory):
                 ('Reserved', field.UInt32)]
 
   class ThreadAffinity(event.EventClass):
-    _event_types_ = [53]
+    _event_types_ = [Event.ThreadAffinity]
     _fields_ = [('Affinity', field.Pointer),
                 ('ThreadId', field.UInt32),
                 ('Group', field.UInt16),
                 ('Reserved', field.UInt16)]
 
   class CompCS(event.EventClass):
-    _event_types_ = [37]
+    _event_types_ = [Event.CompCS]
     _fields_ = []
 
   class ReadyThread(event.EventClass):
-    _event_types_ = [50]
+    _event_types_ = [Event.ReadyThread]
     _fields_ = [('TThreadId', field.UInt32),
                 ('AdjustReason', field.Int8),
                 ('AdjustIncrement', field.Int8),
@@ -82,7 +82,10 @@ class Thread_V2(event.EventCategory):
                 ('Reserved', field.Int8)]
 
   class Thread_V2_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('ProcessId', field.UInt32),
                 ('TThreadId', field.UInt32),
                 ('StackBase', field.Pointer),
@@ -100,7 +103,10 @@ class Thread(event.EventCategory):
   VERSION = 3
 
   class Thread_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('ProcessId', field.UInt32),
                 ('TThreadId', field.UInt32),
                 ('StackBase', field.Pointer),
@@ -117,7 +123,10 @@ class Thread(event.EventCategory):
                 ('ThreadFlags', field.UInt8)]
 
   class ThreadPriority(event.EventClass):
-    _event_types_ = [48, 49, 51, 52]
+    _event_types_ = [Event.SetBasePriority,
+                     Event.SetIoPriority,
+                     Event.SetPagePriority,
+                     Event.SetPriority]
     _fields_ = [('ThreadId', field.UInt32),
                 ('OldPriority', field.UInt8),
                 ('NewPriority', field.UInt8),
@@ -129,7 +138,10 @@ class Thread_V0(event.EventCategory):
   VERSION = 0
 
   class Thread_V0_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('TThreadId', field.UInt32),
                 ('ProcessId', field.UInt32)]
 
@@ -139,12 +151,14 @@ class Thread_V1(event.EventCategory):
   VERSION = 1
 
   class Thread_V1_TypeGroup2(event.EventClass):
-    _event_types_ = [2, 4]
+    _event_types_ = [Event.DCEnd,
+                     Event.End]
     _fields_ = [('ProcessId', field.UInt32),
                 ('TThreadId', field.UInt32)]
 
   class Thread_V1_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 3]
+    _event_types_ = [Event.DCStart,
+                     Event.Start]
     _fields_ = [('ProcessId', field.UInt32),
                 ('TThreadId', field.UInt32),
                 ('StackBase', field.Pointer),
@@ -156,7 +170,7 @@ class Thread_V1(event.EventCategory):
                 ('WaitMode', field.Int8)]
 
   class CSwitch_V1(event.EventClass):
-    _event_types_ = [36]
+    _event_types_ = [Event.CSwitch]
     _fields_ = [('NewThreadId', field.UInt32),
                 ('OldThreadId', field.UInt32),
                 ('NewThreadPriority', field.Int8),
@@ -170,7 +184,7 @@ class Thread_V1(event.EventCategory):
                 ('NewThreadWaitTime', field.UInt32)]
 
   class WorkerThread_V1(event.EventClass):
-    _event_types_ = [57]
+    _event_types_ = [Event.WorkerThread]
     _fields_ = [('TThreadId', field.UInt32),
                 ('StartTime', field.UInt64),
                 ('ThreadRoutine', field.Pointer)]

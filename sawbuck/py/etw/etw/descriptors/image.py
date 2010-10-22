@@ -34,7 +34,7 @@ class Image_V0(event.EventCategory):
   VERSION = 0
 
   class Image_V0_Load(event.EventClass):
-    _event_types_ = [10]
+    _event_types_ = [Event.Load]
     _fields_ = [('BaseAddress', field.Pointer),
                 ('ModuleSize', field.UInt32),
                 ('ImageFileName', field.WString)]
@@ -45,7 +45,7 @@ class Image_V1(event.EventCategory):
   VERSION = 1
 
   class Image_V1_Load(event.EventClass):
-    _event_types_ = [10]
+    _event_types_ = [Event.Load]
     _fields_ = [('ImageBase', field.Pointer),
                 ('ImageSize', field.Pointer),
                 ('ProcessId', field.UInt32),
@@ -57,7 +57,10 @@ class Image(event.EventCategory):
   VERSION = 2
 
   class Image_Load(event.EventClass):
-    _event_types_ = [2, 3, 4, 10]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.Load,
+                     Event.UnLoad]
     _fields_ = [('ImageBase', field.Pointer),
                 ('ImageSize', field.Pointer),
                 ('ProcessId', field.UInt32),
@@ -72,5 +75,5 @@ class Image(event.EventCategory):
                 ('FileName', field.WString)]
 
   class KernelImageBase(event.EventClass):
-    _event_types_ = [33]
+    _event_types_ = [Event.KernelBase]
     _fields_ = [('ImageBase', field.Pointer)]

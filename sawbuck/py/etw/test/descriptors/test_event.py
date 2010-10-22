@@ -118,10 +118,14 @@ class EventCategoryTest(unittest.TestCase):
       VERSION = 1
 
       class TestEventClass1(event.EventClass):
-        _event_types_ = [1, 3, 5]
+        _event_types_ = [('a', 1),
+                         ('a', 3),
+                         ('a', 5)]
 
       class TestEventClass2(event.EventClass):
-        _event_types_ = [2, 4, 6]
+        _event_types_ = [('a', 2),
+                         ('a', 4),
+                         ('a', 6)]
 
     # Passing cases.
     self.assertNotEqual(event.EventClass.Get('a', 1, 1), None)

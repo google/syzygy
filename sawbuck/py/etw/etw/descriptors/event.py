@@ -87,7 +87,7 @@ class MetaEventCategory(type):
     for v in dict.values():
       if inspect.isclass(v) and issubclass(v, EventClass):
         for event_type in v._event_types_:
-          key = (dict['GUID'], dict['VERSION'], event_type)
+          key = (dict['GUID'], dict['VERSION'], event_type[1])
           EventClass._subclass_map[key] = v
     return type.__new__(meta_class, name, bases, dict)
 

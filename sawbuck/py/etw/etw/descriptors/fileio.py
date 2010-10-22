@@ -47,7 +47,8 @@ class FileIo(event.EventCategory):
   VERSION = 2
 
   class FileIo_ReadWrite(event.EventClass):
-    _event_types_ = [67, 68]
+    _event_types_ = [Event.Read,
+                     Event.Write]
     _fields_ = [('Offset', field.UInt64),
                 ('IrpPtr', field.Pointer),
                 ('TTID', field.Pointer),
@@ -57,7 +58,7 @@ class FileIo(event.EventCategory):
                 ('IoFlags', field.UInt32)]
 
   class FileIo_Create(event.EventClass):
-    _event_types_ = [64]
+    _event_types_ = [Event.Create]
     _fields_ = [('IrpPtr', field.Pointer),
                 ('TTID', field.Pointer),
                 ('FileObject', field.Pointer),
@@ -67,12 +68,19 @@ class FileIo(event.EventCategory):
                 ('OpenPath', field.WString)]
 
   class FileIo_Name(event.EventClass):
-    _event_types_ = [0, 32, 35, 36]
+    _event_types_ = [Event.FileCreate,
+                     Event.FileDelete,
+                     Event.FileRundown,
+                     Event.Name]
     _fields_ = [('FileObject', field.Pointer),
                 ('FileName', field.WString)]
 
   class FileIo_Info(event.EventClass):
-    _event_types_ = [69, 70, 71, 74, 75]
+    _event_types_ = [Event.Delete,
+                     Event.FSControl,
+                     Event.QueryInfo,
+                     Event.Rename,
+                     Event.SetInfo]
     _fields_ = [('IrpPtr', field.Pointer),
                 ('TTID', field.Pointer),
                 ('FileObject', field.Pointer),
@@ -81,14 +89,17 @@ class FileIo(event.EventCategory):
                 ('InfoClass', field.UInt32)]
 
   class FileIo_SimpleOp(event.EventClass):
-    _event_types_ = [65, 66, 73]
+    _event_types_ = [Event.Cleanup,
+                     Event.Close,
+                     Event.Flush]
     _fields_ = [('IrpPtr', field.Pointer),
                 ('TTID', field.Pointer),
                 ('FileObject', field.Pointer),
                 ('FileKey', field.Pointer)]
 
   class FileIo_DirEnum(event.EventClass):
-    _event_types_ = [72, 77]
+    _event_types_ = [Event.DirEnum,
+                     Event.DirNotify]
     _fields_ = [('IrpPtr', field.Pointer),
                 ('TTID', field.Pointer),
                 ('FileObject', field.Pointer),
@@ -99,7 +110,7 @@ class FileIo(event.EventCategory):
                 ('FileName', field.WString)]
 
   class FileIo_OpEnd(event.EventClass):
-    _event_types_ = [76]
+    _event_types_ = [Event.OperationEnd]
     _fields_ = [('IrpPtr', field.Pointer),
                 ('ExtraInfo', field.Pointer),
                 ('NtStatus', field.UInt32)]
@@ -110,7 +121,7 @@ class FileIo_V0(event.EventCategory):
   VERSION = 0
 
   class FileIo_V0_Name(event.EventClass):
-    _event_types_ = [0]
+    _event_types_ = [Event.Name]
     _fields_ = [('FileObject', field.Pointer),
                 ('FileName', field.WString)]
 
@@ -120,6 +131,7 @@ class FileIo_V1(event.EventCategory):
   VERSION = 1
 
   class FileIo_V1_Name(event.EventClass):
-    _event_types_ = [0, 32]
+    _event_types_ = [Event.FileCreate,
+                     Event.Name]
     _fields_ = [('FileObject', field.Pointer),
                 ('FileName', field.WString)]

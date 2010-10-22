@@ -54,11 +54,11 @@ class Registry(event.EventCategory):
   VERSION = 2
 
   class Registry_Config(event.EventClass):
-    _event_types_ = [35]
+    _event_types_ = [Event.Config]
     _fields_ = [('CurrentControlSet', field.UInt32)]
 
   class Registry_Counters(event.EventClass):
-    _event_types_ = [34]
+    _event_types_ = [Event.Counters]
     _fields_ = [('Counter1', field.UInt64),
                 ('Counter2', field.UInt64),
                 ('Counter3', field.UInt64),
@@ -72,7 +72,26 @@ class Registry(event.EventCategory):
                 ('Counter11', field.UInt64)]
 
   class Registry_TypeGroup1(event.EventClass):
-    _event_types_ = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    _event_types_ = [Event.Close,
+                     Event.Create,
+                     Event.Delete,
+                     Event.DeleteValue,
+                     Event.EnumerateKey,
+                     Event.EnumerateValueKey,
+                     Event.Flush,
+                     Event.KCBCreate,
+                     Event.KCBDelete,
+                     Event.KCBRundownBegin,
+                     Event.KCBRundownEnd,
+                     Event.Open,
+                     Event.Query,
+                     Event.QueryMultipleValue,
+                     Event.QuerySecurity,
+                     Event.QueryValue,
+                     Event.SetInformation,
+                     Event.SetSecurity,
+                     Event.SetValue,
+                     Event.Virtualize]
     _fields_ = [('InitialTime', field.Int64),
                 ('Status', field.UInt32),
                 ('Index', field.UInt32),
@@ -80,7 +99,9 @@ class Registry(event.EventCategory):
                 ('KeyName', field.WString)]
 
   class Registry_TxR(event.EventClass):
-    _event_types_ = [30, 31, 32]
+    _event_types_ = [Event.TxRCommit,
+                     Event.TxRPrepare,
+                     Event.TxRRollback]
     _fields_ = [('TxrGUID', field.UInt8),
                 ('Status', field.UInt32),
                 ('UowCount', field.UInt32),
@@ -93,7 +114,18 @@ class Registry_V0(event.EventCategory):
   VERSION = 0
 
   class Registry_V0_TypeGroup1(event.EventClass):
-    _event_types_ = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+    _event_types_ = [Event.Create,
+                     Event.Delete,
+                     Event.DeleteValue,
+                     Event.EnumerateKey,
+                     Event.EnumerateValueKey,
+                     Event.Flush,
+                     Event.Open,
+                     Event.Query,
+                     Event.QueryMultipleValue,
+                     Event.QueryValue,
+                     Event.SetInformation,
+                     Event.SetValue]
     _fields_ = [('Status', field.Pointer),
                 ('KeyHandle', field.Pointer),
                 ('ElapsedTime', field.Int64),
@@ -105,7 +137,19 @@ class Registry_V1(event.EventCategory):
   VERSION = 1
 
   class Registry_V1_TypeGroup1(event.EventClass):
-    _event_types_ = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+    _event_types_ = [Event.Create,
+                     Event.Delete,
+                     Event.DeleteValue,
+                     Event.EnumerateKey,
+                     Event.EnumerateValueKey,
+                     Event.Flush,
+                     Event.Open,
+                     Event.Query,
+                     Event.QueryMultipleValue,
+                     Event.QueryValue,
+                     Event.RunDown,
+                     Event.SetInformation,
+                     Event.SetValue]
     _fields_ = [('Status', field.Pointer),
                 ('KeyHandle', field.Pointer),
                 ('ElapsedTime', field.Int64),

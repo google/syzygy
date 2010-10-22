@@ -161,10 +161,10 @@ class DescriptorGenerator(object):
 
   def _GenerateEventTypes(self, event):
     """Generates the event types as a comma delimited string for event."""
-    eventTypes = self._GetEventTypes(event).keys()
+    eventTypes = self._GetEventTypes(event).values()
     eventTypes.sort()
-    eventTypes = [str(eventType) for eventType in eventTypes]
-    return ', '.join(eventTypes)
+    eventTypes = ['Event.%s' % str(eventType) for eventType in eventTypes]
+    return ',\n                     '.join(eventTypes)
 
   def _GenerateFields(self, event):
     """Generates the fields as comma delimited tuples for event."""

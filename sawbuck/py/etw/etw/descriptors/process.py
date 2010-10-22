@@ -37,7 +37,10 @@ class Process_V1(event.EventCategory):
   VERSION = 1
 
   class Process_V1_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('PageDirectoryBase', field.Pointer),
                 ('ProcessId', field.UInt32),
                 ('ParentId', field.UInt32),
@@ -52,7 +55,10 @@ class Process_V0(event.EventCategory):
   VERSION = 0
 
   class Process_V0_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('ProcessId', field.Pointer),
                 ('ParentId', field.Pointer),
                 ('UserSID', field.Sid),
@@ -64,7 +70,11 @@ class Process(event.EventCategory):
   VERSION = 3
 
   class Process_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4, 39]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.Defunct,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('UniqueProcessKey', field.Pointer),
                 ('ProcessId', field.UInt32),
                 ('ParentId', field.UInt32),
@@ -81,7 +91,8 @@ class Process_V2(event.EventCategory):
   VERSION = 2
 
   class Process_V2_TypeGroup2(event.EventClass):
-    _event_types_ = [32, 33]
+    _event_types_ = [Event.PerfCtr,
+                     Event.PerfCtrRundown]
     _fields_ = [('ProcessId', field.UInt32),
                 ('PageFaultCount', field.UInt32),
                 ('HandleCount', field.UInt32),
@@ -99,7 +110,11 @@ class Process_V2(event.EventCategory):
                 ('PrivatePageCount', field.Int32)]
 
   class Process_V2_TypeGroup1(event.EventClass):
-    _event_types_ = [1, 2, 3, 4, 39]
+    _event_types_ = [Event.DCEnd,
+                     Event.DCStart,
+                     Event.Defunct,
+                     Event.End,
+                     Event.Start]
     _fields_ = [('UniqueProcessKey', field.Pointer),
                 ('ProcessId', field.UInt32),
                 ('ParentId', field.UInt32),
@@ -110,6 +125,6 @@ class Process_V2(event.EventCategory):
                 ('CommandLine', field.WString)]
 
   class Process_V2_TypeGroup3(event.EventClass):
-    _event_types_ = [35]
+    _event_types_ = [Event.InSwap]
     _fields_ = [('DirectoryTableBase', field.Pointer),
                 ('ProcessId', field.UInt32)]
