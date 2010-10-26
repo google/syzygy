@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from etw import evntrace
+from etw import util
 from etw.descriptors import field
 from etw.descriptors import binary_buffer
 from etw.descriptors import event
@@ -37,6 +38,15 @@ class MockEventTrace(object):
     self.contents.Header = MockEventTrace.MockHeader(header_dict)
     self.contents.MofData = mof_data
     self.contents.MofLength = mof_length
+
+
+class MockSession(object):
+  """This class mocks a _TraceLogSession object."""
+  def __init__(self):
+    self.is_64_bit_log = False
+
+  def SessionTimeToTime(self, session_time):
+    return util.FileTimeToTime(session_time)
 
 
 class EventClassTest(unittest.TestCase):
@@ -79,7 +89,8 @@ class EventClassTest(unittest.TestCase):
 
     mock_event_trace = MockEventTrace(header_dict, ptr.value,
                                       ctypes.sizeof(data))
-    obj = TestEventClass(mock_event_trace, False)
+    mock_session = MockSession()
+    obj = TestEventClass(mock_session, mock_event_trace)
     self.assertEqual(obj.process_id, 5678)
     self.assertEqual(obj.thread_id, 8765)
     self.assertEqual(obj.time_stamp, time_s)
@@ -106,8 +117,9 @@ class EventClassTest(unittest.TestCase):
 
     mock_event_trace = MockEventTrace(header_dict, ptr.value,
                                       ctypes.sizeof(data))
+    mock_session = MockSession()
     self.assertRaises(binary_buffer.BufferOverflowError, TestEventClass,
-                      mock_event_trace, False)
+                      mock_session, mock_event_trace)
 
 
 class EventCategoryTest(unittest.TestCase):

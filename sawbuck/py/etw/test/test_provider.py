@@ -79,7 +79,7 @@ class TraceProviderTest(unittest.TestCase):
     self._controller.Stop()
 
     class TestConsumer(TraceEventSource):
-      def ProcessEvent(self, event):
+      def ProcessEvent(self, session, event):
         print event
 
     consumer = TestConsumer()

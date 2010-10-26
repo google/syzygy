@@ -576,7 +576,7 @@ EVENT_TRACE_LOGFILE._fields_ = [
     ('LoggerName', ct.c_wchar_p),
     ('CurrentTime', ct.c_longlong),
     ('BuffersRead', ct.c_ulong),
-    ('LogFileMode', ct.c_ulong),
+    ('ProcessTraceMode', ct.c_ulong),
     ('CurrentEvent', EVENT_TRACE),
     ('LogfileHeader', TRACE_LOGFILE_HEADER),
     ('BufferCallback', EVENT_TRACE_BUFFER_CALLBACK),

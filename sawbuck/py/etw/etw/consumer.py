@@ -14,7 +14,9 @@
 """Implements a trace consumer utility class."""
 from collections import defaultdict
 from ctypes import byref, cast, POINTER, sizeof
+from etw import evntcons
 from etw import evntrace
+from etw import util
 from etw.descriptors import event
 import logging
 
@@ -82,28 +84,144 @@ class EventConsumer(object):
   __metaclass__ = MetaEventConsumer
 
 
+class _TraceLogSession(object):
+  """An internal implementation class that wraps an open event trace session.
+
+  The purpose of this class is to maintain per-session state, such as
+  the ETW time to wall-clock conversion state, the event handle, etc.
+  """
+  def __init__(self, event_source, raw_time):
+    self._event_source = event_source
+    self._raw_time = raw_time
+    # Assume FILETIME conversion until we get other data.
+    self._time_epoch_delta = util.FILETIME_EPOCH_DELTA_S
+    self._time_multiplier = util.FILETIME_TO_SECONDS_MULTIPLIER
+
+    self._buffer_callback = evntrace.EVENT_TRACE_BUFFER_CALLBACK(
+        self._ProcessBufferCallback)
+    self._event_callback = evntrace.EVENT_CALLBACK(
+        self._ProcessEventCallback)
+    self._handle = None
+    self.is_64_bit_log = False
+
+  def SessionTimeToTime(self, session_time):
+    """Convert a raw time value from this session to a python time value.
+
+    Args:
+      session_time: a time value read from a event header or event field
+          in this session.
+
+    Returns: a floating point time value in seconds, with zero at 1.1.1970.
+    """
+    return session_time * self._time_multiplier - self._time_epoch_delta
+
+  def Close(self):
+    """Close this session."""
+    try:
+      evntrace.CloseTrace(self._handle)
+    except:
+      logging.exception("Exception closing session.")
+
+  def OpenRealtimeSession(self, name):
+    """Open a real time trace session named "name".
+
+    Args:
+      name: name of the session to open.
+    """
+    # TODO(siggi): We know there won't be any headers for this session,
+    #    so this function needs to figure out the bitness.
+    logfile = evntrace.EVENT_TRACE_LOGFILE()
+    logfile.LoggerName = name
+    logfile.ProcessTraceMode = evntcons.PROCESS_TRACE_MODE_REAL_TIME
+    if self._raw_time:
+      logfile.ProcessTraceMode = evntcons.PROCESS_TRACE_MODE_RAW_TIMESTAMP
+    logfile.BufferCallback = self._buffer_callback
+    logfile.EventCallback = self._event_callback
+    self._handle = evntrace.OpenTrace(byref(logfile))
+
+  def OpenFileSession(self, path):
+    """Open a file session for the file at "path".
+
+    Args:
+      path: relative or absolute path to the file to open.
+    """
+    logfile = evntrace.EVENT_TRACE_LOGFILE()
+    logfile.LogFileName = path
+    if self._raw_time:
+      logfile.ProcessTraceMode = evntcons.PROCESS_TRACE_MODE_RAW_TIMESTAMP
+    logfile.BufferCallback = self._buffer_callback
+    logfile.EventCallback = self._event_callback
+    self._handle = evntrace.OpenTrace(byref(logfile))
+
+  def _ProcessHeader(self, event, logfile_header):
+    if logfile_header.contents.PointerSize == 8:
+      self.is_64_bit_log = True
+
+    if self._raw_time:
+      mode = logfile_header.contents.ReservedFlags
+      start_time = util.FileTimeToTime(logfile_header.contents.StartTime)
+      ticks_sec = None
+      if mode == 1:  # QPC timer resolution
+        ticks_sec = logfile_header.contents.PerfFreq
+      elif mode == 2:  # System time
+        ticks_sec = 1000  # TODO(siggi): verify this is milliseconds
+      elif mode == 3:  # CPU cycle counter
+        ticks_sec = logfile_header.contents.CpuSpeedInMHz * 1000000.0
+
+      self._time_multiplier = 1.0 / ticks_sec
+      self._time_epoch_delta = (
+        event.contents.Header.TimeStamp * self._time_multiplier - start_time)
+
+  def _ProcessBufferCallback(self, buffer):
+    return self._event_source._ProcessBufferCallback(self, buffer)
+
+  def _ProcessEventCallback(self, event_trace):
+    try:
+      header = event_trace.contents.Header
+
+      # Check for the event trace event GUID so that we can tease out whether
+      # we're parsing a 64 bit log.
+      if (str(header.Guid)== str(evntrace.EventTraceGuid) and
+          header.Class.Type == 0 and
+          event_trace.contents.MofLength >=
+              sizeof(evntrace.TRACE_LOGFILE_HEADER)):
+        self._ProcessHeader(event_trace,
+                            cast(event_trace.contents.MofData,
+                                 POINTER(evntrace.TRACE_LOGFILE_HEADER)))
+
+      self._event_source._ProcessEventCallback(self, event_trace)
+    except:
+      logging.exception('Exception in _ProcessEventCallback')
+
 class TraceEventSource(object):
   """An Event Tracing for Windows consumer class.
 
-  To consume a log, derive one or more handler classes from EventConsumer
-  and define
+  To consume one or more logs, derive one or more handler classes from
+  EventConsumer and declare a set of event handlers per the documentation
+  of that class. Then instantiate one or more consumers and pass them into the
+  TraceEventSource constructor, or add them to the list of handlers with
+  AddHandler.
+  Then proceed to open one or more sessions with OpenRealtimeSession and/or
+  OpenFileSession, and lastly call Consume to consume the open sessions.
+  This will fire events at the EventConsumers as the log is consumed.
+
+  Note that each TraceEventSource can at most consume a single real time
+  session, and no more than 63 sessions overall.
   """
 
-  def __init__(self, handlers=[]):
+  def __init__(self, handlers=[], raw_time=False):
     """Creates an idle consumer.
 
     Args:
       handlers: an optional list of handlers to consume the log(s).
           Each handler should be an object derived from EventConsumer.
+      raw_time: if True, consume logs with the raw time option. This allows
+          converting stamps recorded in events to wall-clock time.
     """
     self._stop = False
     self._handlers = handlers[:]
-    self._is_64_bit_log = False
-    self._trace_handles = []
-    self._buffer_callback = evntrace.EVENT_TRACE_BUFFER_CALLBACK(
-        self._ProcessBufferCallback)
-    self._event_callback = evntrace.EVENT_CALLBACK(
-        self._ProcessEventCallback)
+    self._raw_time = raw_time
+    self._trace_sessions = []
     self._handler_cache = dict()
 
   def __del__(self):
@@ -126,12 +244,9 @@ class TraceEventSource(object):
     Args:
       name: name of the session to open.
     """
-    logfile = evntrace.EVENT_TRACE_LOGFILE()
-    logfile.LoggerName = name
-    logfile.BufferCallback = self._buffer_callback
-    logfile.EventCallback = self._event_callback
-    trace = evntrace.OpenTrace(byref(logfile))
-    self._trace_handles.append(trace)
+    session = _TraceLogSession(self, self._raw_time)
+    session.OpenRealtimeSession(name)
+    self._trace_sessions.append(session)
 
   def OpenFileSession(self, path):
     """Open a file session for the file at "path".
@@ -139,13 +254,9 @@ class TraceEventSource(object):
     Args:
       path: relative or absolute path to the file to open.
     """
-    logfile = evntrace.EVENT_TRACE_LOGFILE()
-    logfile.LogFileName = path
-    logfile.BufferCallback = self._buffer_callback
-    logfile.EventCallback = self._event_callback
-
-    trace = evntrace.OpenTrace(byref(logfile))
-    self._trace_handles.append(trace)
+    session = _TraceLogSession(self, self._raw_time)
+    session.OpenFileSession(path)
+    self._trace_sessions.append(session)
 
   def Consume(self):
     """Consume all open sessions.
@@ -154,23 +265,23 @@ class TraceEventSource(object):
       will not return until Close() is called to close the realtime session.
     """
     handles = (evntrace.TRACEHANDLE *
-               len(self._trace_handles))()
+               len(self._trace_sessions))()
 
-    for i in range(len(self._trace_handles)):
-      handles[i] = self._trace_handles[i]
+    for i in range(len(self._trace_sessions)):
+      handles[i] = self._trace_sessions[i]._handle
 
     evntrace.ProcessTrace(cast(handles, POINTER(evntrace.TRACEHANDLE)),
-                          len(self._trace_handles),
+                          len(handles),
                           None,
                           None)
 
   def Close(self):
     """Close all open trace sessions."""
-    while len(self._trace_handles):
-      handle = self._trace_handles.pop()
-      evntrace.CloseTrace(handle)
+    while len(self._trace_sessions):
+      session = self._trace_sessions.pop()
+      session.Close()
 
-  def ProcessEvent(self, event_trace):
+  def ProcessEvent(self, session, event_trace):
     """Process a single event.
 
     Retrieve the guid, version and type from the event and try to find a handler
@@ -178,6 +289,7 @@ class TraceEventSource(object):
     dispatch the event object to the handler.
 
     Args:
+      session: the _TraceLogSession on which this event occurred.
       event_trace: a POINTER(EVENT_TRACE) for the current event.
     """
     header = event_trace.contents.Header
@@ -185,37 +297,27 @@ class TraceEventSource(object):
     version = header.Class.Version
     type = header.Class.Type
 
-    # Check for the event trace event GUID so that we can tease out whether
-    # we're parsing a 64 bit log.
-    if (guid == str(evntrace.EventTraceGuid) and type == 0 and
-        event_trace.contents.MofLength >=
-            sizeof(evntrace.TRACE_LOGFILE_HEADER)):
-      trace_logfile_header = cast(
-          event_trace.contents.MofData,
-          POINTER(evntrace.TRACE_LOGFILE_HEADER))
-      if trace_logfile_header.contents.PointerSize == 8:
-        self._is_64_bit_log = True
-
     # Look for a handler and EventClass for the event.
     event_class = event.EventClass.Get(guid, version, type)
     if event_class:
       handlers = self._GetHandlers(guid, type)
       if handlers:
-        event_obj = event_class(event_trace, self._is_64_bit_log)
+        event_obj = event_class(session, event_trace)
         for handler in handlers:
           handler(event_obj)
 
-  def ProcessBuffer(self, buffer):
+  def ProcessBuffer(self, session, buffer):
     """Process a buffer.
 
     Args:
+      session: the _TraceLogSession on which this event occurred.
       event: a POINTER(TRACE_EVENT) for the current event.
     """
     pass
 
-  def _ProcessBufferCallback(self, buffer):
+  def _ProcessBufferCallback(self, session, buffer):
     try:
-      self.ProcessBuffer(buffer)
+      self.ProcessBuffer(session, buffer)
     except:
       # Terminate parsing on exception.
       logging.exception("Exception in ProcessBuffer, terminating parsing")
@@ -226,14 +328,14 @@ class TraceEventSource(object):
     else:
       return 1
 
-  def _ProcessEventCallback(self, event):
+  def _ProcessEventCallback(self, session, event):
     # Don't process the event if we're stopping. Note that we can only
     # terminate the processing once a whole buffer has been processed.
     if self._stop:
       return
 
     try:
-      self.ProcessEvent(event)
+      self.ProcessEvent(session, event)
     except:
       # Terminate parsing on exception.
       logging.exception("Exception in ProcessEvent, terminating parsing")

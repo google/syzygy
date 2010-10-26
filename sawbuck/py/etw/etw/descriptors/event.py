@@ -14,7 +14,6 @@
 # limitations under the License.
 """EventClass and EventCategory base classes for Event descriptors."""
 from etw.descriptors import binary_buffer
-import datetime
 import inspect
 
 
@@ -35,12 +34,9 @@ class EventClass(object):
   define the _event_types_ list so that it will be registered in the
   EventCategory event class map.
   """
-  # The number of seconds between 01-01-1601 and 01-01-1970
-  _EPOCH_DELTA_S = 11644473600
-
   _subclass_map = {}
 
-  def __init__(self, event_trace, is_64_bit_log):
+  def __init__(self, log_session, event_trace):
     """Initialize by extracting event trace header and MOF data.
 
     Args:
@@ -51,14 +47,9 @@ class EventClass(object):
     self.process_id = header.ProcessId
     self.thread_id = header.ThreadId
 
-    # The header TimeStamp field is a 64 bit integer that represents
-    # the number of 100 nanosecond lapses since 01-01-1601. We convert
-    # this value to seconds and then change the epoch to be relative to
-    # 01-01-1970 which makes it compatible with time.time().
-    time_stamp_100ns = header.TimeStamp
-    time_stamp_s = float(time_stamp_100ns) / 10000000
-    self.time_stamp = time_stamp_s - self._EPOCH_DELTA_S
-
+    self.raw_time_stamp = header.TimeStamp
+    self.time_stamp = log_session.SessionTimeToTime(header.TimeStamp)
+    is_64_bit_log = log_session.is_64_bit_log
     reader = binary_buffer.BinaryBufferReader(event_trace.contents.MofData,
                                               event_trace.contents.MofLength)
     for (name, field) in self._fields_:
@@ -82,14 +73,14 @@ class MetaEventCategory(type):
   is accessed statically through the EventClass.Get method to retrieve a defined
   EventClass.
   """
-  def __new__(meta_class, name, bases, dict):
+  def __new__(cls, name, bases, dict):
     """Create a new EventCategory class."""
     for v in dict.values():
       if inspect.isclass(v) and issubclass(v, EventClass):
         for event_type in v._event_types_:
           key = (dict['GUID'], dict['VERSION'], event_type[1])
           EventClass._subclass_map[key] = v
-    return type.__new__(meta_class, name, bases, dict)
+    return type.__new__(cls, name, bases, dict)
 
 
 class EventCategory(object):

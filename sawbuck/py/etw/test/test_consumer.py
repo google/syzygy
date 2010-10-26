@@ -26,8 +26,8 @@ class TraceConsumerTest(unittest.TestCase):
       os.path.join(_SRC_DIR,
                    'sawbuck/log_lib/test_data/image_data_32_v2.etl'))
 
-  def _Consume(self, log_file, handlers):
-    log_consumer = TraceEventSource(handlers)
+  def _Consume(self, log_file, handlers, raw_time=False):
+    log_consumer = TraceEventSource(handlers, raw_time)
     log_consumer.OpenFileSession(log_file)
     log_consumer.Consume()
 
@@ -134,6 +134,25 @@ class TraceConsumerTest(unittest.TestCase):
                       self._TEST_LOG,
                       [consumer])
 
+  def testRawTimeConsuming(self):
+    """Test that consuming events with raw times produces the same results."""
+    class TestConsumer(EventConsumer):
+      def __init__(self, times):
+        self._times = times
+
+      @EventHandler(image.Event.Load)
+      def OnImageStartLoad(self, event_data):
+        self._times.append(event_data.time_stamp)
+
+    cooked_times = []
+    consumer = TestConsumer(cooked_times)
+    self._Consume(self._TEST_LOG, [consumer])
+
+    raw_times = []
+    consumer = TestConsumer(raw_times)
+    self._Consume(self._TEST_LOG, [consumer], raw_time=True)
+
+    self.assertEqual(cooked_times, raw_times)
 
 if __name__ == '__main__':
   unittest.main()
