@@ -45,7 +45,7 @@ class PageFault_V2(event.EventCategory):
 
   class PageFault_HardFault(event.EventClass):
     _event_types_ = [Event.HardFault]
-    _fields_ = [('InitialTime', field.UInt64),
+    _fields_ = [('InitialTime', field.WmiTime),
                 ('ReadOffset', field.UInt64),
                 ('VirtualAddress', field.Pointer),
                 ('FileObject', field.Pointer),
