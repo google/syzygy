@@ -20,48 +20,54 @@ used with event descriptor field definitions. See event.EventClass for
 how fields are defined using these field types.
 
 The arguments passed to each function are the same:
+  session: The _TraceLogSession instance the event arrived on.
+    This has a session-related properties and functionality, such as
+    the is_64_bit_log property and the SessionTimeToTime member that
+    will convert a time stamp in the session's units to a python time.
   reader: A binary buffer reader to read the field type from.
-  is_64_bit_log: Whether the log is for a 64 bit machine.
 """
 
-def Boolean(reader, is_64_bit_log):
+def Boolean(session, reader):
   return reader.ReadBoolean()
 
-def Int8(reader, is_64_bit_log):
+def Int8(session, reader):
   return reader.ReadInt8()
 
-def UInt8(reader, is_64_bit_log):
+def UInt8(session, reader):
   return reader.ReadUInt8()
 
-def Int16(reader, is_64_bit_log):
+def Int16(session, reader):
   return reader.ReadInt16()
 
-def UInt16(reader, is_64_bit_log):
+def UInt16(session, reader):
   return reader.ReadUInt16()
 
-def Int32(reader, is_64_bit_log):
+def Int32(session, reader):
   return reader.ReadInt32()
 
-def UInt32(reader, is_64_bit_log):
+def UInt32(session, reader):
   return reader.ReadUInt32()
 
-def Int64(reader, is_64_bit_log):
+def Int64(session, reader):
   return reader.ReadInt64()
 
-def UInt64(reader, is_64_bit_log):
+def UInt64(session, reader):
   return reader.ReadUInt64()
 
-def Pointer(reader, is_64_bit_log):
-  return reader.ReadUInt64() if is_64_bit_log else reader.ReadUInt32()
+def Pointer(session, reader):
+  if session.is_64_bit_log:
+    return reader.ReadUInt64()
+  else:
+    return reader.ReadUInt32()
 
-def String(reader, is_64_bit_log):
+def String(session, reader):
   return reader.ReadString()
 
-def WString(reader, is_64_bit_log):
+def WString(session, reader):
   return reader.ReadWString()
 
-def Sid(reader, is_64_bit_log):
-  return reader.ReadSid(is_64_bit_log)
+def Sid(session, reader):
+  return reader.ReadSid(session.is_64_bit_log)
 
-def WmiTime(reader, is_64_bit_log):
-  return reader.ReadUInt64()
+def WmiTime(session, reader):
+  return session.SessionTimeToTime(reader.ReadUInt64())

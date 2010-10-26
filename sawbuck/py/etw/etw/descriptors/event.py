@@ -53,7 +53,7 @@ class EventClass(object):
     reader = binary_buffer.BinaryBufferReader(event_trace.contents.MofData,
                                               event_trace.contents.MofLength)
     for (name, field) in self._fields_:
-      setattr(self, name, field(reader, is_64_bit_log))
+      setattr(self, name, field(log_session, reader))
 
   @staticmethod
   def Get(guid, version, type):

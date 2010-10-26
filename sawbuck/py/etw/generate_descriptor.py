@@ -141,8 +141,12 @@ class DescriptorGenerator(object):
     lines = []
     lines.append('class %s(event.EventCategory):' % category.Path_.Class)
     lines.append('  GUID = Event.GUID')
-    lines.append('  VERSION = %d' %
-                 category.Qualifiers_.Item('EventVersion').Value)
+    try:
+      lines.append('  VERSION = %d' %
+                   category.Qualifiers_.Item('EventVersion').Value)
+    except pywintypes.com_error:
+      # Assume the version is zero if none is specified.
+      lines.append('  VERSION = 0')
 
     for event in self._GetEvents(category):
       lines.append('')
@@ -231,7 +235,7 @@ class DescriptorGenerator(object):
       elif ext == 'SizeT':
         return 'Int32'
       elif ext == 'WmiTime':
-        return 'UInt64'
+        return 'WmiTime'
       raise ValueError('Field %s is of unhandled object type: %s' %
                        (field.Name, ext))
 
