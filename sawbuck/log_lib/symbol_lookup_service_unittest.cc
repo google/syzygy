@@ -18,9 +18,9 @@
 #include <vector>
 #include <tlhelp32.h>
 #include "base/message_loop.h"
-#include "base/pe_image.h"
 #include "base/scoped_handle.h"
 #include "base/thread.h"
+#include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
@@ -55,7 +55,7 @@ class SymbolLookupServiceTest: public testing::Test {
     MODULEENTRY32 module = { sizeof(module) };
     ASSERT_TRUE(::Module32First(snap, &module));
     do {
-      PEImage image(module.hModule);
+      base::win::PEImage image(module.hModule);
       ASSERT_TRUE(image.VerifyMagic());
 
       sym_util::ModuleInformation module_info;

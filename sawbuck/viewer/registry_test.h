@@ -16,7 +16,7 @@
 #ifndef SAWBUCK_VIEWER_REGISTRY_TEST_H_
 #define SAWBUCK_VIEWER_REGISTRY_TEST_H_
 
-#include "base/registry.h"
+#include "base/win/registry.h"
 #include "gtest/gtest.h"
 
 namespace testing {
@@ -37,8 +37,8 @@ class RegistryTest : public testing::Test {
   bool Register(const wchar_t* reg_file);
 
  private:
-  RegKey hkcu_;
-  RegKey hklm_;
+  base::win::RegKey hkcu_;
+  base::win::RegKey hklm_;
 };
 
 }  // namespace testing

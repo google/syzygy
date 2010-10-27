@@ -26,7 +26,6 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
-#include "base/pe_image.h"
 #include "sawbuck/log_lib/kernel_log_unittest_data.h"
 #include "gtest/gtest.h"
 

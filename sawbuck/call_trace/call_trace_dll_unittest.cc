@@ -18,7 +18,7 @@
 #include "base/logging.h"
 #include "base/scoped_handle.h"
 #include "base/simple_thread.h"
-#include "base/win_util.h"
+#include "base/win/windows_version.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "sawbuck/call_trace/call_trace_parser.h"
@@ -128,7 +128,7 @@ class CallTraceDllTest: public testing::Test {
     HRESULT hr = controller_.StartFileSession(kTestSessionName,
                                              temp_file_.value().c_str());
     if (hr == E_ACCESSDENIED &&
-        win_util::GetWinVersion() >= win_util::WINVERSION_VISTA) {
+        base::win::GetVersion() >= base::win::VERSION_VISTA) {
       // Try a private session if we're running on Vista or better.
       EtwTraceProperties prop;
       prop.SetLoggerFileName(temp_file_.value().c_str());

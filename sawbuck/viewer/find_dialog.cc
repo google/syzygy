@@ -17,9 +17,9 @@
 
 #include <richedit.h>
 
-#include "base/scoped_bstr_win.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "base/win/scoped_bstr.h"
 
 FindDialog::FindDialog(const FindParameters& defaults) : params_(defaults) {
 }
@@ -44,7 +44,7 @@ LRESULT FindDialog::OnInitDialog(CWindow focus_window, LPARAM init_param) {
 
 LRESULT FindDialog::OnFind(UINT notify_code, int id, CWindow window) {
   CWindow text_wnd(GetDlgItem(IDC_FIND_TEXT));
-  ScopedBstr text;
+  base::win::ScopedBstr text;
   text_wnd.GetWindowText(text.Receive());
   if (text.Length()) {
     params_.match_case_ = (IsDlgButtonChecked(IDC_MATCH_CASE) == BST_CHECKED);
