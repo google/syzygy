@@ -1,4 +1,19 @@
 <?xml version='1.0' encoding='utf-8'?>
+<!-- 
+Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
   <!-- Version information -->
   <?include 'version.wxi' ?>
@@ -36,7 +51,7 @@
                       Property="UPGRADEFOUND" />
     </Upgrade>
 
-    <!-- 
+    <!--
       Prevent downgrading.
     -->
     <CustomAction Id="PreventDowngrading"
@@ -53,7 +68,7 @@
               After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
     </InstallUISequence>
 
-    <!-- 
+    <!--
       Use the install dir UI which displays our license agreement,
       and also allows the user to pick the install location.
     -->
@@ -73,7 +88,7 @@
     -->
     <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
 
-    <!-- 
+    <!--
       Add an option to launch Sawbuck at the end of installation.
       This is all boilerplate from WiX docs.
     -->
@@ -145,6 +160,35 @@
             Root='HKLM'
             Key='Software\Google\Sawbuck\Providers'
             Action='createAndRemoveOnUninstall'>
+          <!--
+              All the log providers that use Chrome base logging are
+              defined with single common include file.
+          -->
+          <!-- Chrome -->
+          <?define LogProviderName = 'Chrome'?>
+          <?define LogProviderGUID = '{7FE69228-633E-4f06-80C1-527FEA23E3A7}'?>
+          <?include chrome_log_provider.wxi?>
+
+          <!-- Chrome Frame -->
+          <?define LogProviderName = 'Chrome Frame'?>
+          <?define LogProviderGUID = '{0562BFC3-2550-45b4-BD8E-A310583D3A6F}'?>
+          <?include chrome_log_provider.wxi?>
+
+          <!-- Sawbuck, we default to ERROR level only for -->
+          <?define LogProviderDefaultLevel = '1'?>
+          <?define LogProviderName = 'Sawbuck'?>
+          <?define LogProviderGUID = '{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'?>
+          <?include chrome_log_provider.wxi?>
+
+          <!-- CEEE -->
+          <?define LogProviderName = 'CEEE Broker'?>
+          <?define LogProviderGUID = '{6E3D6168-1DD2-4edb-A183-584C2C66E96D}'?>
+          <?include chrome_log_provider.wxi?>
+          <!-- CEEE Broker -->
+          <?define LogProviderName = 'CEEE'?>
+          <?define LogProviderGUID = '{73213C1A-C369-4740-A75C-FA849E6CE540}'?>
+          <?include chrome_log_provider.wxi?>
+
           <!-- Chrome Perf trace provider -->
           <RegistryKey
               Key='{3DADA31D-19EF-4dc1-B345-037927193422}'>
@@ -160,56 +204,8 @@
                 Type='integer'
                 Value='0' />
           </RegistryKey>
-          <!-- Chrome -->
-          <RegistryKey
-              Key='{7FE69228-633E-4f06-80C1-527FEA23E3A7}'>
-            <RegistryValue 
-                Type='string'
-                Value='Chrome' />
-            <RegistryValue
-                Name='default_level'
-                Type='integer'
-                Value='4' />
-            <RegistryValue
-                Name='default_flags'
-                Type='integer'
-                Value='1' />
-            <RegistryKey
-                Key='Flags'>
-              <RegistryKey
-                  Key='Stack Trace'>
-                <RegistryValue
-                    Type='integer'
-                    Value='1' />
-              </RegistryKey>
-            </RegistryKey>
-          </RegistryKey>
-          <!-- Chrome Frame -->
-          <RegistryKey
-              Key='{0562BFC3-2550-45b4-BD8E-A310583D3A6F}'>
-            <RegistryValue
-                Type='string' 
-                Value='Chrome Frame' />
-            <RegistryValue
-                Name='default_level'
-                Type='integer'
-                Value='4' />
-            <RegistryValue
-                Name='default_flags'
-                Type='integer'
-                Value='1' />
-            <RegistryKey
-                Key='Flags'>
-              <RegistryKey
-                  Key='Stack Trace'>
-                <RegistryValue
-                    Type='integer'
-                    Value='1' />
-              </RegistryKey>
-            </RegistryKey>
-          </RegistryKey>
           <!-- Omaha -->
-          <RegistryKey 
+          <RegistryKey
               Key='{9B18BFF9-915E-4cc1-9C3E-F4AC112CB36C}'>
             <RegistryValue
                 Type='string'
@@ -304,71 +300,7 @@
               </RegistryKey>
             </RegistryKey>
           </RegistryKey>
-          <!-- Sawbuck -->
-          <RegistryKey
-              Key='{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'>
-            <RegistryValue Type='string' Value='Sawbuck' />
-            <RegistryValue
-                Name='default_level'
-                Type='integer'
-                Value='3' />
-            <RegistryValue
-                Name='default_flags'
-                Type='integer'
-                Value='1' />
-            <RegistryKey
-                Key='Flags'>
-              <RegistryKey
-                  Key='Stack Trace'>
-                <RegistryValue
-                    Type='integer'
-                    Value='1' />
-              </RegistryKey>
-            </RegistryKey>
-          </RegistryKey>
-          <!-- CEEE -->
-          <RegistryKey
-              Key='{6E3D6168-1DD2-4edb-A183-584C2C66E96D}'>
-            <RegistryValue Type='string' Value='CEEE Broker' />
-            <RegistryValue
-                Name='default_level'
-                Type='integer'
-                Value='4' />
-            <RegistryValue
-                Name='default_flags'
-                Type='integer'
-                Value='1' />
-            <RegistryKey
-                Key='Flags'>
-              <RegistryKey
-                  Key='Stack Trace'>
-                <RegistryValue
-                    Type='integer'
-                    Value='1' />
-              </RegistryKey>
-            </RegistryKey>
-          </RegistryKey>
-          <RegistryKey
-              Key='{73213C1A-C369-4740-A75C-FA849E6CE540}'>
-            <RegistryValue Type='string' Value='CEEE' />
-            <RegistryValue
-                Name='default_level'
-                Type='integer'
-                Value='4' />
-            <RegistryValue
-                Name='default_flags'
-                Type='integer'
-                Value='1' />
-            <RegistryKey
-                Key='Flags'>
-              <RegistryKey
-                  Key='Stack Trace'>
-                <RegistryValue
-                    Type='integer'
-                    Value='1' />
-              </RegistryKey>
-            </RegistryKey>
-          </RegistryKey>
+
           <!-- IE Toolbar -->
           <RegistryKey
               Key='{79FDF710-2D7F-488f-B00C-C6EFAE507169}'>

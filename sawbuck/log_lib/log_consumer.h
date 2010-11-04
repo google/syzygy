@@ -37,11 +37,17 @@ struct LogMessageBase {
 class LogEvents {
  public:
   struct LogMessage : public LogMessageBase {
-    LogMessage() : message_len(0), message(NULL) {
+    LogMessage() : message_len(0), message(NULL), file_len(0), file(NULL),
+        line(0) {
     }
 
     size_t message_len;
     const char* message;
+
+    // File/line information, if available.
+    size_t file_len;
+    const char* file;
+    int line;
   };
 
   // Issued for log messages.

@@ -1,0 +1,58 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- 
+Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Include>
+  <RegistryKey
+      Key='$(var.LogProviderGUID)'>
+    <RegistryValue 
+        Type='string'
+        Value='$(var.LogProviderName)' />
+<?ifdef $(var.LogProviderDefaultLevel)?>
+    <RegistryValue
+        Name='default_level'
+        Type='integer'
+        Value='$(var.LogProviderDefaultLevel)' />
+  <?undef LogProviderDefaultLevel?>
+<?else?>
+    <RegistryValue
+        Name='default_level'
+        Type='integer'
+        Value='4' />
+<?endif?>
+    <RegistryValue
+        Name='default_flags'
+        Type='integer'
+        Value='1' />
+    <RegistryKey
+        Key='Flags'>
+      <RegistryKey
+          Key='Stack Trace'>
+        <RegistryValue
+            Type='integer'
+            Value='1' />
+      </RegistryKey>
+      <RegistryKey
+          Key='Text Only'>
+        <RegistryValue
+            Type='integer'
+            Value='2' />
+      </RegistryKey>
+    </RegistryKey>
+  </RegistryKey>
+  <!-- Undefine the variables that act as parameters to this file -->
+  <?undef LogProviderName?>
+  <?undef LogProviderGUID?>
+</Include>

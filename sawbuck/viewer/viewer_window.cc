@@ -424,8 +424,18 @@ void ViewerWindow::OnLogMessage(const LogEvents::LogMessage& log_message) {
     msg.message.assign(log_message.message, log_message.message_len);
   }
 
-  for (size_t i = 0; i < log_message.trace_depth; ++i)
-    msg.trace.push_back(log_message.traces[i]);
+  // If the message carried file information, use that
+  // in preference to the above.
+  if (log_message.file_len != 0) {
+    msg.file.assign(log_message.file, log_message.file_len);
+    msg.line = log_message.line;
+  }
+
+  if (log_message.trace_depth > 0) {
+    msg.trace.insert(msg.trace.begin(),
+                     &log_message.traces[0],
+                     &log_message.traces[log_message.trace_depth - 1]);
+  }
 
   AutoLock lock(list_lock_);
   log_messages_.push_back(msg);

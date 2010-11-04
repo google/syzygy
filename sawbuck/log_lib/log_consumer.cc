@@ -84,6 +84,31 @@ bool LogParser::ParseLogEvent(EVENT_TRACE* event) {
 
     // We processed the event.
     return true;
+  } else if (event->Header.Class.Type == logging::LOG_MESSAGE_FULL &&
+             event->Header.Class.Version == 0) {
+    // The format of the binary log message is:
+    // 1. A DWORD containing the stack trace depth.
+    // 2. The trace, "depth" in number.
+    // 3. The line as a 4 byte integer value.
+    // 4. The file as a zero-terminated string.
+    // 5. The log message as a zero-terminated string.
+    const DWORD* depth = NULL;
+    const DWORD* line = NULL;
+    if (reader.Read(&depth) &&
+        reader.Read(*depth * sizeof(void*), &msg.traces) &&
+        reader.Read(&line) &&
+        reader.ReadString(&msg.file, &msg.file_len) &&
+        reader.ReadString(&msg.message, &msg.message_len)) {
+      msg.trace_depth = *depth;
+      msg.line = *line;
+
+      log_event_sink_->OnLogMessage(msg);
+
+      // Event is handled.
+      return true;
+    } else {
+      DLOG(ERROR) << "Failed to read event";
+    }
   }
 
   return false;
