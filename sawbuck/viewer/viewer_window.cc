@@ -403,7 +403,8 @@ void ViewerWindow::EnableProviders(
   for (size_t i = 0; i < settings.settings().size(); ++i) {
     log_controller_.EnableProvider(
         settings.settings()[i].provider_guid,
-        settings.settings()[i].log_level);
+        settings.settings()[i].log_level,
+        settings.settings()[i].enable_flags);
   }
 }
 
