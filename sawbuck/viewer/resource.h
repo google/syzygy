@@ -55,13 +55,15 @@
 #define ID_LOG_SYMBOLPATH               4009
 #define ID_EDIT_FIND_NEXT               4010
 #define ID_EDIT_AUTOSIZE_COLUMNS        4011
+#define ID_INCLUDE_COLUMN               4012
+#define ID_EXCLUDE_COLUMN               4013
 
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        109
-#define _APS_NEXT_COMMAND_VALUE         4010
+#define _APS_NEXT_COMMAND_VALUE         4013
 #define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

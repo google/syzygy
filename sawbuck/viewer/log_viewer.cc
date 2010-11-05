@@ -108,3 +108,11 @@ void LogViewer::OnLogFilter(UINT code, int id, CWindow window) {
     filtered_log_view_.reset(new_view.release());
   }
 }
+
+void LogViewer::OnIncludeColumn(UINT code, int id, CWindow window) {
+  // TODO(siggi): write me.
+}
+
+void LogViewer::OnExcludeColumn(UINT code, int id, CWindow window) {
+  // TODO(siggi): write me.
+}

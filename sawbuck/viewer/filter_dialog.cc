@@ -42,15 +42,9 @@ FilterListView::FilterListView() {
                  wrong_number_of_column_info);
 }
 
-LRESULT FilterListView::OnCreate(UINT msg, WPARAM wparam, LPARAM lparam,
-                                 BOOL& handled) {
-  // Call through to the original window class first.
-  LRESULT ret = DefWindowProc(msg, wparam, lparam);
-  return ret;
-}
-
 // Filter dialog control constants:
 const wchar_t* FilterDialog::kColumns[] = {
+  L"Severity",
   L"Process ID",
   L"Thread ID",
   L"Time",
@@ -85,6 +79,10 @@ BOOL FilterDialog::OnInitDialog(CWindow focus_window, LPARAM init_param) {
   HWND hwnd_list = GetDlgItem(IDC_FILTER_LIST);
   filter_list_view_.Attach(hwnd_list);
   filter_list_view_.AddColumns();
+  // Set the extended styles we desire.
+  const DWORD kStyles =
+      LVS_EX_ONECLICKACTIVATE | LVS_EX_DOUBLEBUFFER | LVS_EX_FULLROWSELECT;
+  filter_list_view_.SetExtendedListViewStyle(kStyles, kStyles);
 
   column_dropdown_.Attach(GetDlgItem(IDC_FILTER_COLUMN));
   PopulateCombobox(&column_dropdown_, kColumns);

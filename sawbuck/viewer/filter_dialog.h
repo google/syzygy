@@ -29,19 +29,16 @@
 
 // Traits specialization for filter list view.
 typedef CWinTraits<WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-    LVS_REPORT | LVS_SHOWSELALWAYS | LVS_EX_FULLROWSELECT, 0>
+    LVS_REPORT | LVS_SHOWSELALWAYS, 0>
         FilterListViewTraits;
 
 // Class that wraps the list view on the filter dialog.
 class FilterListView : public ListViewBase<FilterListView,
                                            FilterListViewTraits> {
   BEGIN_MSG_MAP_EX(FilterListView)
-    MESSAGE_HANDLER(WM_CREATE, OnCreate)
   END_MSG_MAP()
 
   FilterListView();
-
-  LRESULT OnCreate(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
 
  public:
   // Our column definitions and config data to satisfy our contract

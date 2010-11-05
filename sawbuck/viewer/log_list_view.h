@@ -61,6 +61,36 @@ class ILogView {
   virtual void Unregister(int registration_cookie) = 0;
 };
 
+class LogViewFormatter {
+ public:
+  enum Column {
+    SEVERITY,
+    PROCESS_ID,
+    THREAD_ID,
+    TIME,
+    FILE,
+    LINE,
+    MESSAGE,
+
+    // Must be last.
+    NUM_COLUMNS
+  };
+
+  LogViewFormatter();
+
+  bool FormatColumn(ILogView* log_view,
+                    int row,
+                    Column col,
+                    std::string* str);
+
+  base::Time base_time() const { return base_time_; }
+  void set_base_time(base::Time base_time) { base_time_ = base_time; }
+
+ private:
+  // The time delta subtracted from the displayed time stamp in each row.
+  base::Time base_time_;
+};
+
 // Forward decls.
 class StackTraceListView;
 class IProcessInfoService;
@@ -126,13 +156,13 @@ class LogListView
   // The columns our list view displays.
   // @note COL_MAX must be equal to arraysize(kColumns).
   enum Columns {
-    COL_SEVERITY,
-    COL_PROCESS,
-    COL_THREAD,
-    COL_TIME,
-    COL_FILE,
-    COL_LINE,
-    COL_MESSAGE,
+    COL_SEVERITY = LogViewFormatter::SEVERITY,
+    COL_PROCESS = LogViewFormatter::PROCESS_ID,
+    COL_THREAD = LogViewFormatter::THREAD_ID,
+    COL_TIME = LogViewFormatter::TIME,
+    COL_FILE = LogViewFormatter::FILE,
+    COL_LINE = LogViewFormatter::LINE,
+    COL_MESSAGE = LogViewFormatter::MESSAGE,
 
     // Must be last.
     COL_MAX,
@@ -202,8 +232,8 @@ class LogListView
   CMenu context_menu_bar_;
   CMenu context_menu_;
 
-  // The time delta subtracted from the displayed time stamp in each row.
-  base::Time base_time_;
+  // Used to format the text we display.
+  LogViewFormatter formatter_;
 };
 
 #endif  // SAWBUCK_VIEWER_LOG_LIST_VIEW_H_

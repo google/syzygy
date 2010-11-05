@@ -45,6 +45,8 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
     MSG_WM_CREATE(OnCreate)
     REFLECT_NOTIFICATIONS()
     COMMAND_ID_HANDLER_EX(ID_LOG_FILTER, OnLogFilter)
+    COMMAND_ID_HANDLER_EX(ID_INCLUDE_COLUMN, OnIncludeColumn)
+    COMMAND_ID_HANDLER_EX(ID_EXCLUDE_COLUMN, OnExcludeColumn)
     MESSAGE_HANDLER(WM_COMMAND, OnCommand)
     CHAIN_MSG_MAP(Super)
   END_MSG_MAP()
@@ -66,6 +68,8 @@ class LogViewer : public CSplitterWindowImpl<LogViewer, false> {
   int OnCreate(LPCREATESTRUCT create_struct);
   LRESULT OnCommand(UINT msg, WPARAM wparam, LPARAM lparam, BOOL& handled);
   void OnLogFilter(UINT code, int id, CWindow window);
+  void OnIncludeColumn(UINT code, int id, CWindow window);
+  void OnExcludeColumn(UINT code, int id, CWindow window);
 
   // Non-null iff filtering is enabled.
   scoped_ptr<FilteredLogView> filtered_log_view_;

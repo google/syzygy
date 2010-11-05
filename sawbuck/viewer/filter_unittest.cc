@@ -103,6 +103,10 @@ TEST_F(FilterTest, TestPIDMatching) {
   }
 }
 
+TEST_F(FilterTest, TestTimeMatching) {
+  // TODO(siggi): Test time filtering.
+}
+
 TEST_F(FilterTest, TestSingleSerialization) {
   Filter filter_array[] = {
     Filter(Filter::MESSAGE, Filter::CONTAINS, Filter::INCLUDE, L""),
@@ -136,7 +140,7 @@ TEST_F(FilterTest, TestMultipleSerialization) {
   }
 
   std::wstring serialized_filters(Filter::SerializeFilters(filters));
-  EXPECT_STREQ(L"14|5|1|0|Panic!!!8|0|0|1|4213|3|0|1|w00t.cc",
+  EXPECT_STREQ(L"14|6|1|0|Panic!!!8|1|0|1|4213|4|0|1|w00t.cc",
                serialized_filters.c_str());
 
   std::vector<Filter> deserialized_filters = Filter::DeserializeFilters(

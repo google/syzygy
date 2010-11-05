@@ -31,31 +31,31 @@
 
 namespace {
 
-const wchar_t* GetSeverityText(UCHAR severity) {
+const char* GetSeverityText(UCHAR severity) {
   switch (severity)  {
     case TRACE_LEVEL_NONE:
-      return L"NONE";
+      return "NONE";
     case TRACE_LEVEL_FATAL:
-      return L"FATAL";
+      return "FATAL";
     case TRACE_LEVEL_ERROR:
-      return L"ERROR";
+      return "ERROR";
     case TRACE_LEVEL_WARNING:
-      return L"WARNING";
+      return "WARNING";
     case TRACE_LEVEL_INFORMATION:
-      return L"INFORMATION";
+      return "INFORMATION";
     case TRACE_LEVEL_VERBOSE:
-      return L"VERBOSE";
+      return "VERBOSE";
     case TRACE_LEVEL_RESERVED6:
-      return L"RESERVED6";
+      return "RESERVED6";
     case TRACE_LEVEL_RESERVED7:
-      return L"RESERVED7";
+      return "RESERVED7";
     case TRACE_LEVEL_RESERVED8:
-      return L"RESERVED8";
+      return "RESERVED8";
     case TRACE_LEVEL_RESERVED9:
-      return L"RESERVED9";
+      return "RESERVED9";
   }
 
-  return L"UNKNOWN";
+  return "UNKNOWN";
 }
 
 // Returns true iff state indicates a selected listview item.
@@ -68,7 +68,7 @@ const int kNoItem = -1;
 }  // namespace
 
 const LogListView::ColumnInfo LogListView::kColumns[] = {
-  { 24, L"" },  // Severity is an icon
+  { 24, L"Severity" },
   { 42, L"Process ID" },
   { 42, L"Thread ID" },
   { 80, L"Time" },
@@ -84,6 +84,86 @@ const wchar_t* LogListView::kColumnOrderValueName =
 const wchar_t* LogListView::kColumnWidthValueName =
     config::kLogViewColumnWidths;
 
+
+LogViewFormatter::LogViewFormatter() {
+}
+
+bool LogViewFormatter::FormatColumn(ILogView* log_view,
+                                    int row,
+                                    Column col,
+                                    std::string* str) {
+  DCHECK(log_view != NULL);
+  DCHECK(str != NULL);
+
+  switch (col) {
+    case SEVERITY:
+      *str = GetSeverityText(log_view->GetSeverity(row));
+      break;
+
+    case PROCESS_ID:
+      *str = StringPrintf("%d", log_view->GetProcessId(row));
+      break;
+
+    case THREAD_ID:
+      *str = StringPrintf("%d", log_view->GetThreadId(row));
+      break;
+
+    case TIME:
+      {
+        if (!base_time_.is_null()) {
+          base::Time row_time = log_view->GetTime(row);
+          base::TimeDelta time_delta = row_time - base_time_;
+          bool is_negative = false;
+
+          if (time_delta.ToInternalValue() < 0) {
+            is_negative = true;
+            time_delta = -time_delta;
+          }
+
+          int64 hours = time_delta.InHours();
+          int64 minutes = time_delta.InMinutes() % 60;
+          int64 seconds = time_delta.InSeconds() % 60;
+          int64 milliseconds = time_delta.InMilliseconds() % 1000;
+
+          if (is_negative) {
+            *str = StringPrintf("-%02lld:%02lld:%02lld-%03lld",
+                                hours, minutes, seconds, milliseconds);
+          } else {
+            *str = StringPrintf("%02lld:%02lld:%02lld-%03lld",
+                                hours, minutes, seconds, milliseconds);
+          }
+        } else {
+          base::Time time = log_view->GetTime(row);
+          base::Time::Exploded exploded;
+          time.LocalExplode(&exploded);
+          *str = StringPrintf("%02d:%02d:%02d-%03d",
+                              exploded.hour,
+                              exploded.minute,
+                              exploded.second,
+                              exploded.millisecond);
+        }
+      }
+      break;
+
+    case FILE:
+      *str = log_view->GetFileName(row);
+      break;
+
+    case LINE:
+      *str = StringPrintf("%d", log_view->GetLine(row));
+      break;
+
+    case MESSAGE:
+      *str = log_view->GetMessage(row);
+      break;
+
+    default:
+      return false;
+      break;
+  }
+
+  return true;
+}
 
 LogListView::LogListView(CUpdateUIBase* update_ui)
     : log_view_(NULL), event_cookie_(0),
@@ -175,72 +255,18 @@ LRESULT LogListView::OnGetDispInfo(NMHDR* pnmh) {
   int col = info->item.iSubItem;
   size_t row = info->item.iItem;
 
-  switch (col) {
-    case COL_SEVERITY:
-      item_text_ = L"";
-      if (info->item.mask & LVIF_IMAGE)
-        info->item.iImage =
-            GetImageIndexForSeverity(log_view_->GetSeverity(row));
-
-      item_text_ = GetSeverityText(log_view_->GetSeverity(row));
-      break;
-    case COL_PROCESS:
-      item_text_ = StringPrintf(L"%d", log_view_->GetProcessId(row));
-      break;
-    case COL_THREAD:
-      item_text_ = StringPrintf(L"%d", log_view_->GetThreadId(row));
-      break;
-    case COL_TIME:
-      {
-        if (!base_time_.is_null()) {
-          base::Time row_time = log_view_->GetTime(row);
-          base::TimeDelta time_delta = row_time - base_time_;
-          bool is_negative = false;
-
-          if (time_delta.ToInternalValue() < 0) {
-            is_negative = true;
-            time_delta = base_time_ - row_time;
-          }
-
-          int64 hours = time_delta.InHours();
-          int64 minutes = time_delta.InMinutes() % 60;
-          int64 seconds = time_delta.InSeconds() % 60;
-          int64 milliseconds = time_delta.InMilliseconds() % 1000;
-
-          if (is_negative) {
-            item_text_ = StringPrintf(L"-%02lld:%02lld:%02lld-%03lld",
-                                      hours, minutes, seconds, milliseconds);
-          } else {
-            item_text_ = StringPrintf(L"%02lld:%02lld:%02lld-%03lld",
-                                      hours, minutes, seconds, milliseconds);
-          }
-        } else {
-          // TODO(siggi): Find a saner way to format the time.
-          FILETIME time = log_view_->GetTime(row).ToFileTime();
-          SYSTEMTIME sys_time;
-          // Convert to local time.
-          ::FileTimeToLocalFileTime(&time, &time);
-          ::FileTimeToSystemTime(&time, &sys_time);
-
-          item_text_ = StringPrintf(L"%02d:%02d:%02d-%03d",
-                                    sys_time.wHour,
-                                    sys_time.wMinute,
-                                    sys_time.wSecond,
-                                    sys_time.wMilliseconds);
-        }
-      }
-      break;
-    case COL_FILE:
-      item_text_ = UTF8ToWide(log_view_->GetFileName(row));
-      break;
-    case COL_LINE:
-      item_text_ = StringPrintf(L"%d", log_view_->GetLine(row));
-      break;
-    case COL_MESSAGE:
-      item_text_ = UTF8ToWide(log_view_->GetMessage(row));
-      break;
+  if (col == COL_SEVERITY && info->item.mask & LVIF_IMAGE) {
+    info->item.iImage =
+        GetImageIndexForSeverity(log_view_->GetSeverity(row));
   }
 
+  std::string temp_text;
+  formatter_.FormatColumn(log_view_,
+                          row,
+                          static_cast<LogViewFormatter::Column>(col),
+                          &temp_text);
+
+  item_text_ = UTF8ToWide(temp_text);
   TrimWhitespace(item_text_, TRIM_TRAILING, &item_text_);
 
   if (info->item.mask & LVIF_TEXT)
@@ -401,6 +427,7 @@ void LogListView::OnKillFocus(CWindow window) {
 
 void LogListView::OnContextMenu(CWindow wnd, CPoint point) {
   int row = -1;
+  int col = -1;
   if (point.x == -1 && point.y == -1) {
     // On shift-F10, the point is (-1, -1)
     row = GetNextItem(-1, LVIS_FOCUSED);
@@ -419,24 +446,50 @@ void LogListView::OnContextMenu(CWindow wnd, CPoint point) {
     // Hit test to make sure that we clicked on an item.
     CPoint client_point(point);
     ScreenToClient(&client_point);
-    row = HitTest(client_point, NULL);
+    LVHITTESTINFO hit_test = { client_point };
+    row = SubItemHitTest(&hit_test);
+    col = hit_test.iSubItem;
   }
 
-  if (row == -1) {
-    context_menu_.EnableMenuItem(ID_SET_TIME_ZERO, MF_BYCOMMAND | MF_GRAYED);
-  } else {
-    context_menu_.EnableMenuItem(ID_SET_TIME_ZERO, MF_BYCOMMAND | MF_ENABLED);
+  CMenu menu;
+  if (!menu.CreatePopupMenu()) {
+    LOG(ERROR) << "Unable to create popup menu";
+    return;
   }
 
-  if (base_time_.is_null()) {
-    context_menu_.EnableMenuItem(ID_RESET_BASE_TIME, MF_BYCOMMAND | MF_GRAYED);
-  } else {
-    context_menu_.EnableMenuItem(ID_RESET_BASE_TIME, MF_BYCOMMAND | MF_ENABLED);
+  menu.AppendMenu(row == -1 ? MF_GRAYED : MF_ENABLED,
+                  ID_SET_TIME_ZERO,
+                  L"&Set Base Time");
+
+  menu.AppendMenu(formatter_.base_time().is_null() ? MF_GRAYED : MF_ENABLED,
+                  ID_RESET_BASE_TIME,
+                  L"&Reset Base Time");
+
+  // TODO(siggi): Implement popup menu items to include/exclude
+  //      the clicked column by its value.
+#if 0
+  if (row != -1 && col != -1) {
+    std::wstring column = kColumns[col].title;
+    StringToLowerASCII(column);
+    std::wstring item_text = StringPrintf(L"&Include %ls \"%ls\"",
+                                          column.c_str(),
+                                          L"foo");
+    menu.AppendMenu(MF_ENABLED,
+                    ID_INCLUDE_COLUMN,
+                    item_text.c_str());
+
+    item_text = StringPrintf(L"&Exclude %ls \"%ls\"",
+                             column.c_str(),
+                             L"foo");
+    menu.AppendMenu(MF_ENABLED,
+                    ID_EXCLUDE_COLUMN,
+                    item_text.c_str());
   }
+#endif
 
   const UINT kMenuFlags = TPM_LEFTALIGN | TPM_VCENTERALIGN | TPM_RIGHTBUTTON |
                           TPM_HORPOSANIMATION | TPM_VERPOSANIMATION;
-  context_menu_.TrackPopupMenu(0, point.x, point.y, wnd);
+  menu.TrackPopupMenu(0, point.x, point.y, wnd);
 }
 
 void LogListView::OnFind(UINT code, int id, CWindow window) {
@@ -500,14 +553,14 @@ void LogListView::OnSetBaseTime(UINT code, int id, CWindow window) {
   }
 
   // Get the corresponding time.
-  base_time_ = log_view_->GetTime(row);
+  formatter_.set_base_time(log_view_->GetTime(row));
 
   // Refresh the list.
   RedrawItems(0, GetItemCount());
 }
 
 void LogListView::OnResetBaseTime(UINT code, int id, CWindow window) {
-  base_time_ = base::Time();
+  formatter_.set_base_time(base::Time());
 
   // Refresh the list.
   RedrawItems(0, GetItemCount());

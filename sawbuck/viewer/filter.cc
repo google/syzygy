@@ -44,9 +44,14 @@ Filter::Filter(const std::wstring& serialized) : match_re_("") {
 }
 
 void Filter::BuildRegExp() {
-  if (column_ == FILE || column_ == MESSAGE) {
-    match_re_ = pcrecpp::RE(value_.c_str(),
-        PCRE_NEWLINE_ANYCRLF | PCRE_DOTALL | PCRE_UTF8 | PCRE_CASELESS);
+  switch (column_) {
+    case SEVERITY:
+    case TIME:
+    case FILE:
+    case MESSAGE:
+      match_re_ = pcrecpp::RE(value_.c_str(),
+          PCRE_NEWLINE_ANYCRLF | PCRE_DOTALL | PCRE_UTF8 | PCRE_CASELESS);
+      break;
   }
 }
 
@@ -67,9 +72,15 @@ bool Filter::Matches(ILogView* log_view, int row_index) const {
       matches = ValueMatchesInt(log_view->GetThreadId(row_index));
       break;
     }
+    case SEVERITY:
     case TIME: {
-      base::Time time = log_view->GetTime(row_index);
-      // TODO(robertshield): Implement me.
+      LogViewFormatter formatter;
+      std::string col_str;
+      formatter.FormatColumn(log_view,
+                             row_index,
+                             static_cast<LogViewFormatter::Column>(column_),
+                             &col_str);
+      matches = ValueMatchesString(col_str);
       break;
     }
     case FILE: {

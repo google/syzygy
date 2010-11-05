@@ -20,12 +20,8 @@
 
 #include <string>
 #include <vector>
-
+#include "sawbuck/viewer/log_list_view.h"
 #include "pcrecpp.h"  // NOLINT
-
-// Forward declaration
-class Filter;
-class ILogView;
 
 // Represents a single filter entered by the user. Also provides a matching
 // function to see if the filter matches a certain element in an ILogView as
@@ -36,13 +32,15 @@ class ILogView;
 // numeric.
 class Filter {
  public:
+  // Make this synonymous to the logview formatters enum.
   enum Column {
-    PROCESS_ID,
-    THREAD_ID,
-    TIME,
-    FILE,
-    LINE,
-    MESSAGE,
+    SEVERITY = LogViewFormatter::SEVERITY,
+    PROCESS_ID = LogViewFormatter::PROCESS_ID,
+    THREAD_ID = LogViewFormatter::THREAD_ID,
+    TIME = LogViewFormatter::TIME,
+    FILE = LogViewFormatter::FILE,
+    LINE = LogViewFormatter::LINE,
+    MESSAGE = LogViewFormatter::MESSAGE,
     NUM_COLUMNS
   };
 
@@ -58,7 +56,10 @@ class Filter {
     NUM_ACTIONS
   };
 
-  Filter(Column column, Relation relation, Action action, const wchar_t* value);
+  Filter(Column column,
+         Relation relation,
+         Action action,
+         const wchar_t* value);
   explicit Filter(const std::wstring& serialized);
 
   // Returns true if the Filter is correctly constructed, false otherwise.
