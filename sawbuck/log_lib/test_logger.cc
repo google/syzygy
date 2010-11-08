@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Test logger implementation.
-#include "base/event_trace_provider_win.h"
+#include "base/win/event_trace_provider.h"
 #include <cguid.h>
 #include <initguid.h>
 
@@ -33,13 +33,13 @@ enum LogMessageTypes {
 };
 
 int main(int argc, char **argv) {
-  EtwTraceProvider provider(kChromeTraceProviderName);
+  base::win::EtwTraceProvider provider(kChromeTraceProviderName);
   provider.Register();
 
   for (int i = 1; i < argc; ++i) {
-    EtwMofEvent<3> event(kLogEventId,
-                         LOG_MESSAGE_WITH_STACKTRACE,
-                         TRACE_LEVEL_ERROR);
+    base::win::EtwMofEvent<3> event(kLogEventId,
+                                    LOG_MESSAGE_WITH_STACKTRACE,
+                                    TRACE_LEVEL_ERROR);
     void* stack_trace[32];
     const DWORD depth = ::CaptureStackBackTrace(0,
                                                 arraysize(stack_trace),

@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "base/event_trace_consumer_win.h"
-#include "base/event_trace_controller_win.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/scoped_handle.h"
 #include "base/simple_thread.h"
+#include "base/win/event_trace_consumer.h"
+#include "base/win/event_trace_controller.h"
 #include "base/win/windows_version.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -32,7 +32,7 @@ typedef std::multiset<FuncAddr> CalledAddresses;
 typedef std::multiset<Call> Calls;
 
 class TestCallTraceConsumer
-    : public EtwTraceConsumerBase<TestCallTraceConsumer>,
+    : public base::win::EtwTraceConsumerBase<TestCallTraceConsumer>,
       public CallTraceEvents {
  public:
   TestCallTraceConsumer() : process_id_(::GetCurrentProcessId()) {
@@ -118,8 +118,8 @@ class CallTraceDllTest: public testing::Test {
   }
 
   virtual void SetUp() {
-    EtwTraceProperties properties;
-    EtwTraceController::Stop(kTestSessionName, &properties);
+    base::win::EtwTraceProperties properties;
+    base::win::EtwTraceController::Stop(kTestSessionName, &properties);
     // Construct a temp file name.
     ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
     ASSERT_EQ(NULL, ::GetModuleHandle(L"CallTrace.dll"));
@@ -130,7 +130,7 @@ class CallTraceDllTest: public testing::Test {
     if (hr == E_ACCESSDENIED &&
         base::win::GetVersion() >= base::win::VERSION_VISTA) {
       // Try a private session if we're running on Vista or better.
-      EtwTraceProperties prop;
+      base::win::EtwTraceProperties prop;
       prop.SetLoggerFileName(temp_file_.value().c_str());
       EVENT_TRACE_PROPERTIES& p = *prop.get();
       p.Wnode.ClientContext = 1;  // QPC timer accuracy.
@@ -153,8 +153,8 @@ class CallTraceDllTest: public testing::Test {
 
   virtual void TearDown() {
     EXPECT_TRUE(file_util::Delete(temp_file_, false));
-    EtwTraceProperties properties;
-    EtwTraceController::Stop(kTestSessionName, &properties);
+    base::win::EtwTraceProperties properties;
+    base::win::EtwTraceController::Stop(kTestSessionName, &properties);
     UnloadCallTraceDll();
   }
 
@@ -223,7 +223,7 @@ class CallTraceDllTest: public testing::Test {
   WaitFuncType wait_til_enabled_;
   WaitFuncType wait_til_disabled_;
 
-  EtwTraceController controller_;
+  base::win::EtwTraceController controller_;
   CalledAddresses called_addresses_;
   Calls calls_;
 

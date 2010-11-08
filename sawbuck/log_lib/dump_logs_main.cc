@@ -15,11 +15,11 @@
 #include <iostream>
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/event_trace_consumer_win.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/string_piece.h"
 #include "base/utf_string_conversions.h"
+#include "base/win/event_trace_consumer.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/log_lib/log_consumer.h"
 
@@ -27,7 +27,7 @@
 // The log consumer class we use to parse the logs on our behalf.
 // There can only be one instance of this class in existence at a time.
 class DumpLogConsumer
-    : public EtwTraceConsumerBase<DumpLogConsumer>,
+    : public base::win::EtwTraceConsumerBase<DumpLogConsumer>,
       public KernelLogParser,
       public LogParser {
  public:

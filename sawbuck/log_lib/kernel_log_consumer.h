@@ -17,8 +17,8 @@
 #define SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_
 
 #include <string>
-#include "base/event_trace_consumer_win.h"
 #include "base/time.h"
+#include "base/win/event_trace_consumer.h"
 #include "sawbuck/sym_util/types.h"
 
 // Implemented by clients of EventTraceConsumer to get module load
@@ -167,7 +167,7 @@ class KernelLogParser {
 };
 
 class KernelLogConsumer
-    : public EtwTraceConsumerBase<KernelLogConsumer>,
+    : public base::win::EtwTraceConsumerBase<KernelLogConsumer>,
       public KernelLogParser {
  public:
   KernelLogConsumer();

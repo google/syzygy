@@ -82,7 +82,7 @@ bool ProviderConfiguration::ReadProviders() {
     Settings& settings = settings_.back();
     settings.provider_guid = provider_guid;
     settings.provider_name = tmp_string;
-    settings.log_level = static_cast<EtwEventLevel>(default_level);
+    settings.log_level = static_cast<base::win::EtwEventLevel>(default_level);
     settings.enable_flags = default_flags;
 
     // Read the flags names and value.
@@ -148,7 +148,7 @@ bool ProviderConfiguration::ReadSettings() {
     DWORD log_level = 0;
     err = settings_key.QueryDWORDValue(config::kProviderLevelValue, log_level);
     if (err == ERROR_SUCCESS)
-      settings_[i].log_level = static_cast<EtwEventLevel>(log_level);
+      settings_[i].log_level = static_cast<base::win::EtwEventLevel>(log_level);
 
     DWORD enable_flags = 0;
     err = settings_key.QueryDWORDValue(config::kProviderEnableFlagsValue,

@@ -28,11 +28,11 @@
 #include <string>
 #include <vector>
 #include "base/callback.h"
-#include "base/event_trace_controller_win.h"
 #include "base/file_path.h"
 #include "base/scoped_ptr.h"
 #include "base/lock.h"
 #include "base/thread.h"
+#include "base/win/event_trace_controller.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/log_lib/log_consumer.h"
 #include "sawbuck/log_lib/process_info_service.h"
@@ -211,13 +211,13 @@ class ViewerWindow
   LogViewer log_viewer_;
 
   // Controller for the logging session.
-  EtwTraceController log_controller_;
+  base::win::EtwTraceController log_controller_;
 
   // Log level settings for the providers we know of.
   ProviderConfiguration settings_;
 
   // Controller for the kernel logging session.
-  EtwTraceController kernel_controller_;
+  base::win::EtwTraceController kernel_controller_;
 
   // NULL until StartConsuming. Valid until StopConsuming.
   scoped_ptr<LogConsumer> log_consumer_;

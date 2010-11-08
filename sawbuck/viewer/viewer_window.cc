@@ -17,12 +17,12 @@
 
 #include "pcrecpp.h"  // NOLINT
 #include "base/environment.h"
-#include "base/event_trace_consumer_win.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "base/win/event_trace_consumer.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/preferences.h"
 #include "sawbuck/viewer/provider_dialog.h"
@@ -141,7 +141,7 @@ ViewerWindow::~ViewerWindow() {
 namespace {
 
 class ImportLogConsumer
-    : public EtwTraceConsumerBase<ImportLogConsumer>,
+    : public base::win::EtwTraceConsumerBase<ImportLogConsumer>,
       public LogParser,
       public KernelLogParser {
  public:
@@ -297,8 +297,8 @@ static bool TestAndOfferToStopSession(HWND parent,
                                       const wchar_t* session_name) {
   // Try and query the session properties.
   // This can only succeed if the session exists.
-  EtwTraceProperties props;
-  HRESULT hr = EtwTraceController::Query(session_name, &props);
+  base::win::EtwTraceProperties props;
+  HRESULT hr = base::win::EtwTraceController::Query(session_name, &props);
   if (SUCCEEDED(hr)) {
     std::wstring str;
     str = StringPrintf(L"The log trace session \"%ls\" is already in use. "
@@ -315,7 +315,7 @@ static bool TestAndOfferToStopSession(HWND parent,
 
     if (result == IDOK) {
       // User pressed OK, attempt to stop the session.
-      hr = EtwTraceController::Stop(session_name, &props);
+      hr = base::win::EtwTraceController::Stop(session_name, &props);
       if (FAILED(hr)) {
         str = StringPrintf(L"Failed to stop trace session \"%ls\".",
                            session_name);
@@ -364,7 +364,7 @@ bool ViewerWindow::StartCapturing() {
       NewRunnableMethod(log_consumer_.get(), &LogConsumer::Consume));
 
   // Start the kernel logger session.
-  EtwTraceProperties prop;
+  base::win::EtwTraceProperties prop;
   EVENT_TRACE_PROPERTIES* p = prop.get();
   p->Wnode.Guid = SystemTraceControlGuid;
   p->LogFileMode = EVENT_TRACE_REAL_TIME_MODE;

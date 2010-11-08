@@ -16,9 +16,9 @@
 
 #include <atlbase.h>
 #include <vector>
-#include "base/event_trace_provider_win.h"
 #include "base/lock.h"
 #include "base/scoped_handle.h"
+#include "base/win/event_trace_provider.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/dlist.h"
 
@@ -32,7 +32,7 @@ extern void pexit();
 extern bool wait_til_enabled();
 extern bool wait_til_disabled();
 
-class TracerModule: public EtwTraceProvider {
+class TracerModule: public base::win::EtwTraceProvider {
  public:
   TracerModule();
   ~TracerModule();

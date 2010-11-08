@@ -15,10 +15,9 @@
 // A minimal viewer for call trace ETW logs.
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/event_trace_consumer_win.h"
-#include "base/event_trace_controller_win.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
+#include "base/win/event_trace_consumer.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/call_trace_parser.h"
 #include "sawbuck/sym_util/module_cache.h"
@@ -46,7 +45,7 @@ std::wostream &operator<<(std::wostream& str, const Symbol& sym) {
 }
 
 class ViewerTraceConsumer
-    : public EtwTraceConsumerBase<ViewerTraceConsumer>,
+    : public base::win::EtwTraceConsumerBase<ViewerTraceConsumer>,
       public KernelModuleEvents,
       public CallTraceEvents {
  public:

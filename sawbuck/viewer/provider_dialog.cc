@@ -211,7 +211,7 @@ void ProviderDialog::DoEnableBitsPopupMenu(int item) {
   for (size_t i = 0; i < settings->flag_names.size(); ++i) {
     UINT_PTR command = kMaskOffset + i;
     menu.AppendMenu(MF_STRING, command, settings->flag_names[i].first.c_str());
-    EtwEventFlags flags = settings->flag_names[i].second;
+    base::win::EtwEventFlags flags = settings->flag_names[i].second;
     if (flags == (flags & settings->enable_flags))
       menu.CheckMenuItem(command, MF_CHECKED);
   }
@@ -245,7 +245,7 @@ void ProviderDialog::DoEnableBitsPopupMenu(int item) {
       DCHECK(id >= kMaskOffset);
       id -= kMaskOffset;
       DCHECK(static_cast<size_t>(id) < settings->flag_names.size());
-      EtwEventFlags selected_flags = settings->flag_names[id].second;
+      base::win::EtwEventFlags selected_flags = settings->flag_names[id].second;
       if (selected_flags == (settings->enable_flags & selected_flags)) {
         // All set, toggle them off.
         settings->enable_flags &= ~selected_flags;

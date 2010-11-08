@@ -169,7 +169,7 @@ class TracerModule::ThreadLocalData {
 };
 
 TracerModule::TracerModule()
-    : EtwTraceProvider(kCallTraceProvider),
+    : base::win::EtwTraceProvider(kCallTraceProvider),
       tls_index_(::TlsAlloc()),
       enabled_event_(NULL){
   // Initialize ETW logging for ourselves.
@@ -372,7 +372,7 @@ bool TracerModule::IsTracing(TraceEventFlags flag) {
 
 void TracerModule::TraceEnterExit(TraceEventType type,
                                   const TraceEnterExitEventData& data) {
-  EtwMofEvent<1> event(kCallTraceEventClass, type, CALL_TRACE_LEVEL);
+  base::win::EtwMofEvent<1> event(kCallTraceEventClass, type, CALL_TRACE_LEVEL);
   size_t data_len = offsetof(TraceEnterExitEventData, traces) +
       data.num_traces * sizeof(void *);
 
@@ -383,9 +383,9 @@ void TracerModule::TraceEnterExit(TraceEventType type,
 void TracerModule::TraceModule(ModuleAddr base, size_t size,
     const wchar_t *name, const wchar_t *exe) {
   // TODO(siggi): Trace using the NT Kernel trace event format.
-  EtwMofEvent<2> event(kCallTraceEventClass,
-                       TRACE_MODULE_EVENT,
-                       CALL_TRACE_LEVEL);
+  base::win::EtwMofEvent<2> event(kCallTraceEventClass,
+                                  TRACE_MODULE_EVENT,
+                                  CALL_TRACE_LEVEL);
   TraceModuleData data = { base, size };
   wcsncpy_s(data.module_name, name, ARRAYSIZE(data.module_name));
   event.SetField(0, offsetof(TraceModuleData, module_exe), &data);
@@ -394,7 +394,7 @@ void TracerModule::TraceModule(ModuleAddr base, size_t size,
 }
 
 void TracerModule::TraceEvent(TraceEventType flag) {
-  EtwMofEvent<1> event(kCallTraceEventClass, flag, CALL_TRACE_LEVEL);
+  base::win::EtwMofEvent<1> event(kCallTraceEventClass, flag, CALL_TRACE_LEVEL);
   Log(event.get());
 }
 
@@ -518,9 +518,9 @@ void TracerModule::FlushBatchEntryTraces(ThreadLocalData* data) {
         current_tick_count - data->data_.calls[i].tick_count;
   }
 
-  EtwMofEvent<1> batch_event(kCallTraceEventClass,
-                             TRACE_BATCH_ENTER,
-                             CALL_TRACE_LEVEL);
+  base::win::EtwMofEvent<1> batch_event(kCallTraceEventClass,
+                                        TRACE_BATCH_ENTER,
+                                        CALL_TRACE_LEVEL);
 
   size_t len = FIELD_OFFSET(TraceBatchEnterData, calls) +
         sizeof(data->data_.calls[0]) * data->data_.num_calls;

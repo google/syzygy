@@ -18,14 +18,14 @@
 #include <tlhelp32.h>
 #include <stdio.h>
 
-#include "base/event_trace_controller_win.h"
-#include "base/event_trace_provider_win.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/win/event_trace_controller.h"
+#include "base/win/event_trace_provider.h"
 #include "sawbuck/log_lib/kernel_log_unittest_data.h"
 #include "gtest/gtest.h"
 
@@ -48,8 +48,8 @@ class MakeTestData: public testing::Test {
 
   virtual void SetUp() {
     // Stop any dangling trace session from previous, crashing runs.
-    EtwTraceProperties prop;
-    EtwTraceController::Stop(kTestSessionName, &prop);
+    base::win::EtwTraceProperties prop;
+    base::win::EtwTraceController::Stop(kTestSessionName, &prop);
   }
 
   virtual void TearDown() {
@@ -86,15 +86,15 @@ class MakeTestData: public testing::Test {
   }
 
   void Log32V0ImageEvent(const sym_util::ModuleInformation& module,
-                         EtwEventType event_type) {
+                         base::win::EtwEventType event_type) {
     kernel_log_types::ImageLoad32V0 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
 
-    EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
-                       event_type,
-                       0,  // version
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
+                                  event_type,
+                                  0,  // version
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0,
                  FIELD_OFFSET(kernel_log_types::ImageLoad32V0, ImageFileName),
                  &load);
@@ -105,16 +105,16 @@ class MakeTestData: public testing::Test {
   }
 
   void Log32V1ImageEvent(const sym_util::ModuleInformation& module,
-                         EtwEventType event_type) {
+                         base::win::EtwEventType event_type) {
     kernel_log_types::ImageLoad32V1 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
     load.ProcessId = ::GetCurrentProcessId();
 
-    EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
-                       event_type,
-                       1,  // version
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
+                                  event_type,
+                                  1,  // version
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0,
                  FIELD_OFFSET(kernel_log_types::ImageLoad32V1, ImageFileName),
                  &load);
@@ -125,7 +125,7 @@ class MakeTestData: public testing::Test {
   }
 
   void Log32V2ImageEvent(const sym_util::ModuleInformation& module,
-                         EtwEventType event_type) {
+                         base::win::EtwEventType event_type) {
     kernel_log_types::ImageLoad32V2 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -133,10 +133,10 @@ class MakeTestData: public testing::Test {
     load.ImageChecksum = module.image_checksum;
     load.TimeDateStamp = module.time_date_stamp;
 
-    EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
-                       event_type,
-                       2,  // version
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
+                                  event_type,
+                                  2,  // version
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0,
                  FIELD_OFFSET(kernel_log_types::ImageLoad32V2, ImageFileName),
                  &load);
@@ -147,15 +147,15 @@ class MakeTestData: public testing::Test {
   }
 
   void Log64V0ImageEvent(const sym_util::ModuleInformation& module,
-                         EtwEventType event_type) {
+                         base::win::EtwEventType event_type) {
     kernel_log_types::ImageLoad64V0 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
 
-    EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
-                       event_type,
-                       0,  // version
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
+                                  event_type,
+                                  0,  // version
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0,
                  FIELD_OFFSET(kernel_log_types::ImageLoad64V0, ImageFileName),
                  &load);
@@ -166,16 +166,16 @@ class MakeTestData: public testing::Test {
   }
 
   void Log64V1ImageEvent(const sym_util::ModuleInformation& module,
-                         EtwEventType event_type) {
+                         base::win::EtwEventType event_type) {
     kernel_log_types::ImageLoad64V1 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
     load.ProcessId = ::GetCurrentProcessId();
 
-    EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
-                       event_type,
-                       1,  // version
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
+                                  event_type,
+                                  1,  // version
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0,
                  FIELD_OFFSET(kernel_log_types::ImageLoad64V1, ImageFileName),
                  &load);
@@ -186,7 +186,7 @@ class MakeTestData: public testing::Test {
   }
 
   void Log64V2ImageEvent(const sym_util::ModuleInformation& module,
-                         EtwEventType event_type) {
+                         base::win::EtwEventType event_type) {
     kernel_log_types::ImageLoad64V2 load = {};
     load.BaseAddress = static_cast<ULONG>(module.base_address);
     load.ModuleSize = module.module_size;
@@ -194,10 +194,10 @@ class MakeTestData: public testing::Test {
     load.ImageChecksum = module.image_checksum;
     load.TimeDateStamp = module.time_date_stamp;
 
-    EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
-                       event_type,
-                       2,  // version
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<2> evt(kernel_log_types::kImageLoadEventClass,
+                                  event_type,
+                                  2,  // version
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0,
                  FIELD_OFFSET(kernel_log_types::ImageLoad64V2, ImageFileName),
                  &load);
@@ -210,17 +210,17 @@ class MakeTestData: public testing::Test {
   template <class ProcessInfoType, int version>
   void LogProcessEvent(const KernelProcessEvents::ProcessInfo& process,
                        DWORD exit_status,
-                       EtwEventType event_type) {
+                       base::win::EtwEventType event_type) {
     ProcessInfoType info = {};
 
     info.ProcessId = process.process_id;
     info.ParentId = process.parent_id;
     info.SessionId = process.session_id;
     info.ExitStatus = exit_status;
-    EtwMofEvent<4> evt(kernel_log_types::kProcessEventClass,
-                       event_type,
-                       version,
-                       TRACE_LEVEL_INFORMATION);
+    base::win::EtwMofEvent<4> evt(kernel_log_types::kProcessEventClass,
+                                  event_type,
+                                  version,
+                                  TRACE_LEVEL_INFORMATION);
     evt.SetField(0, FIELD_OFFSET(ProcessInfoType, UserSID), &info);
     size_t sid_len = ::GetLengthSid(const_cast<SID*>(&process.user_sid));
     evt.SetField(1, sid_len, &process.user_sid);
@@ -240,7 +240,7 @@ class MakeTestData: public testing::Test {
 
   void Log32V1ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
                            DWORD exit_status,
-                           EtwEventType event_type) {
+                           base::win::EtwEventType event_type) {
     LogProcessEvent<kernel_log_types::ProcessInfo32V1, 1>(process,
                                                           exit_status,
                                                           event_type);
@@ -248,7 +248,7 @@ class MakeTestData: public testing::Test {
 
   void Log32V2ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
                            DWORD exit_status,
-                           EtwEventType event_type) {
+                           base::win::EtwEventType event_type) {
     LogProcessEvent<kernel_log_types::ProcessInfo32V2, 2>(process,
                                                           exit_status,
                                                           event_type);
@@ -256,7 +256,7 @@ class MakeTestData: public testing::Test {
 
   void Log64V2ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
                            DWORD exit_status,
-                           EtwEventType event_type) {
+                           base::win::EtwEventType event_type) {
     LogProcessEvent<kernel_log_types::ProcessInfo64V2, 2>(process,
                                                           exit_status,
                                                           event_type);
@@ -264,7 +264,7 @@ class MakeTestData: public testing::Test {
 
   void Log32V3ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
                            DWORD exit_status,
-                           EtwEventType event_type) {
+                           base::win::EtwEventType event_type) {
     LogProcessEvent<kernel_log_types::ProcessInfo32V3, 3>(process,
                                                           exit_status,
                                                           event_type);
@@ -272,7 +272,7 @@ class MakeTestData: public testing::Test {
 
   void Log64V3ProcessEvent(const KernelProcessEvents::ProcessInfo& process,
                            DWORD exit_status,
-                           EtwEventType event_type) {
+                           base::win::EtwEventType event_type) {
     LogProcessEvent<kernel_log_types::ProcessInfo64V3, 3>(process,
                                                           exit_status,
                                                           event_type);
@@ -280,7 +280,7 @@ class MakeTestData: public testing::Test {
 
   typedef void (MakeTestData::*LogProcessEventFunc)(
       const KernelProcessEvents::ProcessInfo& process,
-      DWORD exit_status, EtwEventType event_type);
+      DWORD exit_status, base::win::EtwEventType event_type);
 
   void LogProcessEvents(LogProcessEventFunc event_func) {
     // Enumerate all but the last process as "is running".
@@ -313,8 +313,8 @@ class MakeTestData: public testing::Test {
     }
   }
 
-  EtwTraceProvider provider_;
-  EtwTraceController controller_;
+  base::win::EtwTraceProvider provider_;
+  base::win::EtwTraceController controller_;
 };
 
 TEST_F(MakeTestData, ImageData32Version0) {

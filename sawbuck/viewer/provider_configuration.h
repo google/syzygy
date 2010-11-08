@@ -17,7 +17,7 @@
 #define SAWBUCK_VIEWER_PROVIDER_CONFIGURATION_H_
 
 #include <vector>
-#include "base/event_trace_provider_win.h"
+#include "base/win/event_trace_provider.h"
 
 class ProviderConfiguration {
  public:
@@ -33,7 +33,8 @@ class ProviderConfiguration {
   bool ReadSettings();
   bool WriteSettings();
 
-  typedef std::vector<std::pair<std::wstring, EtwEventFlags>> FlagNameList;
+  typedef std::vector<std::pair<std::wstring, base::win::EtwEventFlags>>
+      FlagNameList;
 
   // Log level settings for a provider.
   struct Settings {
@@ -42,9 +43,9 @@ class ProviderConfiguration {
     // The provider's name.
     std::wstring provider_name;
     // The current log level.
-    EtwEventLevel log_level;
+    base::win::EtwEventLevel log_level;
     // The current enable flags.
-    EtwEventFlags enable_flags;
+    base::win::EtwEventFlags enable_flags;
     // A list of (name, mask) pairs, where mask may have
     // one or more bit set, and the associated name.
     FlagNameList flag_names;
