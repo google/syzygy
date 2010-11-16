@@ -189,6 +189,11 @@ limitations under the License.
           <?define LogProviderGUID = '{73213C1A-C369-4740-A75C-FA849E6CE540}'?>
           <?include chrome_log_provider.wxi?>
 
+          <!-- Chrome Setup -->
+          <?define LogProviderName = 'Chrome Setup'?>
+          <?define LogProviderGUID = '{93BCE0BF-3FAF-43b1-9E28-BEB6FAB5ECE7}'?>
+          <?include chrome_log_provider.wxi?>
+
           <!-- Chrome Perf trace provider -->
           <RegistryKey
               Key='{3DADA31D-19EF-4dc1-B345-037927193422}'>
