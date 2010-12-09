@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python2.6
 # Copyright 2010 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,19 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from etw import evntrace
-from etw import util
-from etw.descriptors import field
-from etw.descriptors import binary_buffer
-from etw.descriptors import event
+"""Unit test for the etw.descriptors.event module."""
 import ctypes
 import datetime
 import time
 import unittest
+from etw import evntrace
+from etw import util
+from etw.descriptors import binary_buffer
+from etw.descriptors import event
+from etw.descriptors import field
 
 
 class MockEventTrace(object):
   """This class mocks the EVENT_TRACE structure."""
+
   class MockContents(object):
     pass
 
@@ -70,11 +72,7 @@ class EventClassTest(unittest.TestCase):
     time_stamp <<= 32
     time_stamp |= file_time.dwLowDateTime
 
-    header_dict = dict(
-      ProcessId=5678,
-      ThreadId=8765,
-      TimeStamp=time_stamp
-    )
+    header_dict = {'ProcessId': 5678, 'ThreadId': 8765, 'TimeStamp': time_stamp}
 
     data = ctypes.c_buffer(18)
     data.value = 'Hello'
@@ -104,11 +102,7 @@ class EventClassTest(unittest.TestCase):
       _fields_ = [('FieldA', field.Int32),
                   ('FieldB', field.Int32)]
 
-    header_dict = dict(
-      ProcessId=5678,
-      ThreadId=8765,
-      TimeStamp=123456789
-    )
+    header_dict = {'ProcessId': 5678, 'ThreadId': 8765, 'TimeStamp': 123456789}
 
     data = ctypes.c_buffer(4)
     ptr = ctypes.cast(data, ctypes.c_void_p)
@@ -126,6 +120,9 @@ class EventCategoryTest(unittest.TestCase):
   def testCreation(self):
     """Test creation of a subclass of EventCategory."""
     class TestEventCategory(event.EventCategory):
+      # Although it may look like this class isn't used, it is actually
+      # being registered in the EventClass map by the EventCategory
+      # meta class.
       GUID = 'a'
       VERSION = 1
 

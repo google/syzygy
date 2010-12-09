@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python2.6
 # Copyright 2010 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Helper classes for reading binary buffers."""
 import ctypes
 import pywintypes
 
@@ -21,12 +22,10 @@ ctypes.windll.advapi32.GetLengthSid.argtypes = [ctypes.c_void_p]
 
 class BufferOverflowError(RuntimeError):
   """A custom error to throw when a buffer overflow occurs."""
-  pass
 
 
 class BufferDataError(RuntimeError):
   """A custom error to throw when the buffer contains invalid data."""
-  pass
 
 
 class BinaryBuffer(object):
@@ -36,81 +35,132 @@ class BinaryBuffer(object):
   reading types from the buffer while checking to make sure accesses
   do not overflow the buffer.
   """
-  def __init__(self, data, length):
+
+  def __init__(self, start, length):
     """Create a new binary buffer.
 
     Args:
-      data: Integer start address of the buffer.
+      start: Integer start address of the buffer.
       length: Length of the buffer.
     """
-    self._data = data
+    self._start = start
     self._length = length
 
-  def Contains(self, pos, length):
-    """Tests whether the current buffer contains the specified section.
+  def Contains(self, offset, length):
+    """Tests whether the current buffer contains the specified segment.
 
     Args:
-      pos: Start position of range.
-      length: Length of range.
-    """
-    if pos < 0 or pos > self._length:
-      return False
-    if length < 0 or length > self._length:
-      return False
-    return pos + length <= self._length
+      offset: Offset of the segment from the start of the buffer.
+      length: Length of the segment.
 
-  def GetAt(self, pos, length):
-    """Gets the address of a position in the buffer checking for overflow.
+    Returns:
+      Whether the buffer contains the segment.
+    """
+    if offset < 0:
+      return False
+    if length < 0:
+      return False
+    return offset + length <= self._length
+
+  def GetAt(self, offset, length):
+    """Gets the address of a segment in the buffer checking for overflow.
 
     Args:
-      pos: Start position of range.
-      length: Length of range.
+      offset: Offset of the segment from the start of the buffer.
+      length: Length of the segment.
+
+    Returns:
+      The address of the segment in the buffer.
+
+    Raises:
+      BufferOverflowError: The position and length specifies a segment that
+      overflows the buffer.
     """
-    if not self.Contains(pos, length):
+    if not self.Contains(offset, length):
       raise BufferOverflowError()
-    return self._data + pos
+    return self._start + offset
 
-  def GetTypeAt(self, pos, type):
-    """Gets the desired type from the desired position in the buffer."""
-    return ctypes.cast(self.GetAt(pos, ctypes.sizeof(type)),
-                       ctypes.POINTER(type)).contents.value
+  def GetTypeAt(self, offset, data_type):
+    """Gets a data type from an offset in the buffer.
 
-  def GetStringAt(self, pos):
-    """Gets a string from the desired position in the buffer."""
-    return ctypes.string_at(self.GetAt(pos, ctypes.sizeof(ctypes.c_char)))
+    Args:
+      offset: Offset of the data type from the start of the buffer.
+      data_type: A ctypes type that specifies the data type to get from
+        the buffer.
 
-  def GetWStringAt(self, pos):
-    """Gets a wide string from the desired position in the buffer."""
-    return ctypes.wstring_at(self.GetAt(pos, ctypes.sizeof(ctypes.c_wchar)))
+    Returns:
+      The value of the data type at the offset within the buffer.
+    """
+    return ctypes.cast(self.GetAt(offset, ctypes.sizeof(data_type)),
+                       ctypes.POINTER(data_type)).contents.value
+
+  def GetStringAt(self, offset):
+    """Gets a string from an offset in the buffer.
+
+    Args:
+      offset: Offset of the string from the start of the buffer.
+
+    Returns:
+      The string starting at position offset within the buffer.
+    """
+    return ctypes.string_at(self.GetAt(offset, ctypes.sizeof(ctypes.c_char)))
+
+  def GetWStringAt(self, offset):
+    """Gets a string from an offset in the buffer.
+
+    Args:
+      offset: Offset of the string from the start of the buffer.
+
+    Returns:
+      The string starting at position offset within the buffer.
+    """
+    return ctypes.wstring_at(self.GetAt(offset, ctypes.sizeof(ctypes.c_wchar)))
 
 
 class BinaryBufferReader(object):
   """A utility class to help read values from a buffer.
 
   This class wraps a binary buffer and maintains a current position so that
-  consecutive values can be read out of the buffer. It provies methods
+  consecutive values can be read out of the buffer. It provides methods
   for reading specific types and consuming data while checking for overflow.
   """
-  def __init__(self, data, length):
+
+  def __init__(self, start, length):
     """Creates a new binary buffer reader.
 
     Args:
-      data: Integer start address of the buffer.
+      start: Integer start address of the buffer.
       length: Length of the buffer.
     """
-    self._buffer = BinaryBuffer(data, length)
-    self._pos = 0
+    self._buffer = BinaryBuffer(start, length)
+    self._offset = 0
 
   def Consume(self, length):
-    """Advances the current position in the buffer by length."""
-    if not self._buffer.Contains(self._pos, length):
-      raise BufferOverflowError()
-    self._pos += length
+    """Advances the current offset in the buffer by length.
 
-  def Read(self, type):
-    """Gets the specified type from the current position in the buffer."""
-    val = self._buffer.GetTypeAt(self._pos, type)
-    self.Consume(ctypes.sizeof(type))
+    Args:
+      length: The length to consume.
+
+    Raises:
+      BufferOverflowError: Consuming the specified length will overflow
+      the buffer.
+    """
+    if not self._buffer.Contains(self._offset, length):
+      raise BufferOverflowError()
+    self._offset += length
+
+  def Read(self, data_type):
+    """Reads the value of the data type from the current offset in the buffer.
+
+    Args:
+      data_type: A ctypes type that specifies the data type to get from
+        the buffer.
+
+    Returns:
+      The value of the data type at the current offset in the buffer.
+    """
+    val = self._buffer.GetTypeAt(self._offset, data_type)
+    self.Consume(ctypes.sizeof(data_type))
     return val
 
   def ReadBoolean(self):
@@ -141,30 +191,42 @@ class BinaryBufferReader(object):
     return self.Read(ctypes.c_ulonglong)
 
   def ReadString(self):
-    val = self._buffer.GetStringAt(self._pos)
+    val = self._buffer.GetStringAt(self._offset)
     self.Consume(len(val) + ctypes.sizeof(ctypes.c_char))
     return val
 
   def ReadWString(self):
-    val = self._buffer.GetWStringAt(self._pos)
+    val = self._buffer.GetWStringAt(self._offset)
     self.Consume(len(val) + ctypes.sizeof(ctypes.c_wchar))
     return val
 
-  MIN_SID_SIZE = 8
-  POINTER_SIZE_32 = 4
-  POINTER_SIZE_64 = 8
+  _MINIMUM_SID_SIZE = 8
+  _POINTER_SIZE_32 = 4
+  _POINTER_SIZE_64 = 8
 
   def ReadSid(self, is_64_bit_ptrs):
+    """Reads a SID from the current offset in the buffer.
+
+    Args:
+      is_64_bit_ptrs: Whether the current buffer contains 64 bit pointers.
+
+    Returns:
+      The SID at the current offset in the buffer.
+
+    Raises:
+      BufferDataError: Raised if the buffer does not contain a valid SID at
+      this offset.
+    """
     # Two pointers are included before the SID, so skip them.
-    pointer_size = self.POINTER_SIZE_64 if is_64_bit_ptrs else \
-        self.POINTER_SIZE_32
+    pointer_size = (self._POINTER_SIZE_64 if is_64_bit_ptrs else
+        self._POINTER_SIZE_32)
     self.Consume(2 * pointer_size)
 
-    data = self._buffer.GetAt(self._pos, self.MIN_SID_SIZE)
+    data = self._buffer.GetAt(self._offset, self._MINIMUM_SID_SIZE)
     if not ctypes.windll.advapi32.IsValidSid(data):
       raise BufferDataError('Invalid SID.')
-    len = ctypes.windll.advapi32.GetLengthSid(data)
-    self.Consume(len)
+    sid_len = ctypes.windll.advapi32.GetLengthSid(data)
+    self.Consume(sid_len)
 
-    sid_buffer = ctypes.string_at(data, len)
+    sid_buffer = ctypes.string_at(data, sid_len)
     return pywintypes.SID(sid_buffer)

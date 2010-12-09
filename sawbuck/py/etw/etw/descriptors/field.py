@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python2.6
 # Copyright 2010 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,43 +16,63 @@
 """Function definitions for callable field types.
 
 The functions defined here are meant to be used as callable field types
-used with event descriptor field definitions. See event.EventClass for
-how fields are defined using these field types.
+used with event descriptor field definitions. EventClass subclasses are
+defined like:
 
-The arguments passed to each function are the same:
+class MyEventClass(EventClass):
+  _fields_ = [('IntField', field.Int32),
+              ('StringField', field.String)]
+
+When a log event is parsed, the EventClass is created, and each callable
+field type is invoked. The return value is assigned to the EventClass using
+the name provided in the _fields_ list.
+
+To add a new field type, define a function that takes these arguments:
   session: The _TraceLogSession instance the event arrived on.
     This has a session-related properties and functionality, such as
     the is_64_bit_log property and the SessionTimeToTime member that
     will convert a time stamp in the session's units to a python time.
-  reader: A binary buffer reader to read the field type from.
+  reader: An instance of the BinaryBufferReader class to read from.
+and returns a mixed value. If the BinaryBufferReader doesn't already have
+a function to read a certain type, it will need to be added as well.
 """
 
-def Boolean(session, reader):
+
+def Boolean(unused_session, reader):
   return reader.ReadBoolean()
 
-def Int8(session, reader):
+
+def Int8(unused_session, reader):
   return reader.ReadInt8()
 
-def UInt8(session, reader):
+
+def UInt8(unused_session, reader):
   return reader.ReadUInt8()
 
-def Int16(session, reader):
+
+def Int16(unused_session, reader):
   return reader.ReadInt16()
 
-def UInt16(session, reader):
+
+def UInt16(unused_session, reader):
   return reader.ReadUInt16()
 
-def Int32(session, reader):
+
+def Int32(unused_session, reader):
   return reader.ReadInt32()
 
-def UInt32(session, reader):
+
+def UInt32(unused_session, reader):
   return reader.ReadUInt32()
 
-def Int64(session, reader):
+
+def Int64(unused_session, reader):
   return reader.ReadInt64()
 
-def UInt64(session, reader):
+
+def UInt64(unused_session, reader):
   return reader.ReadUInt64()
+
 
 def Pointer(session, reader):
   if session.is_64_bit_log:
@@ -60,14 +80,18 @@ def Pointer(session, reader):
   else:
     return reader.ReadUInt32()
 
-def String(session, reader):
+
+def String(unused_session, reader):
   return reader.ReadString()
 
-def WString(session, reader):
+
+def WString(unused_session, reader):
   return reader.ReadWString()
+
 
 def Sid(session, reader):
   return reader.ReadSid(session.is_64_bit_log)
+
 
 def WmiTime(session, reader):
   return session.SessionTimeToTime(reader.ReadUInt64())
