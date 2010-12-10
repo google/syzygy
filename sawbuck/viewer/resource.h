@@ -44,6 +44,9 @@
 #define IDC_FILTER_ADD                  1016
 #define IDC_FILTER_REMOVE               1017
 #define IDC_FILTER_STATIC               1018
+#define IDC_FILTER_SAVE                 1019
+#define IDC_BUTTON2                     1020
+#define IDC_FILTER_LOAD                 1021
 #define ID_FILE_EXIT                    4001
 #define ID_FILE_IMPORT                  4002
 #define ID_LOG_CAPTURE                  4003
@@ -64,7 +67,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        109
 #define _APS_NEXT_COMMAND_VALUE         4013
-#define _APS_NEXT_CONTROL_VALUE         1019
+#define _APS_NEXT_CONTROL_VALUE         1022
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

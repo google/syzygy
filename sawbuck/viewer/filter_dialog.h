@@ -74,6 +74,8 @@ class FilterDialog: public CDialogImpl<FilterDialog>,
     COMMAND_ID_HANDLER_EX(IDC_FILTER_RESET, OnFilterReset)
     COMMAND_ID_HANDLER_EX(IDOK, OnIdOk)
     COMMAND_ID_HANDLER_EX(IDCANCEL, OnIdCancel)
+    COMMAND_ID_HANDLER_EX(IDC_FILTER_SAVE, OnFilterSave)
+    COMMAND_ID_HANDLER_EX(IDC_FILTER_LOAD, OnFilterLoad)
     CHAIN_MSG_MAP(CDialogResize<FilterDialog>)
   END_MSG_MAP()
 
@@ -86,6 +88,8 @@ class FilterDialog: public CDialogImpl<FilterDialog>,
     DLGRESIZE_CONTROL(IDC_FILTER_ACTION, DLSZ_MOVE_X)
     DLGRESIZE_CONTROL(IDC_FILTER_LIST, DLSZ_SIZE_X | DLSZ_SIZE_Y)
     DLGRESIZE_CONTROL(IDC_FILTER_STATIC, DLSZ_MOVE_X)
+    DLGRESIZE_CONTROL(IDC_FILTER_SAVE, DLSZ_MOVE_X | DLSZ_MOVE_Y)
+    DLGRESIZE_CONTROL(IDC_FILTER_LOAD, DLSZ_MOVE_X | DLSZ_MOVE_Y)
   END_DLGRESIZE_MAP()
 
   static const int IDD = IDD_FILTERDIALOG;
@@ -105,6 +109,9 @@ class FilterDialog: public CDialogImpl<FilterDialog>,
   void OnFilterAdd(UINT notify_code, int id, CWindow window);
   void OnFilterRemove(UINT notify_code, int id, CWindow window);
   void OnFilterReset(UINT notify_code, int id, CWindow window);
+
+  void OnFilterSave(UINT notify_code, int id, CWindow window);
+  void OnFilterLoad(UINT notify_code, int id, CWindow window);
 
   void PopulateFilterList();
 

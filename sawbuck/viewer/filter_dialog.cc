@@ -16,6 +16,9 @@
 
 #include "sawbuck/viewer/filter_dialog.h"
 
+#include <atldlgs.h>
+
+#include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
@@ -103,8 +106,8 @@ BOOL FilterDialog::OnInitDialog(CWindow focus_window, LPARAM init_param) {
   DCHECK(reset_filter_button_.m_hWnd);
 
   Preferences pref;
-  std::wstring stored;
-  if (pref.ReadStringValue(config::kFilterValues, &stored, L"")) {
+  std::string stored;
+  if (pref.ReadStringValue(config::kFilterValues, &stored, "")) {
     filters_ = Filter::DeserializeFilters(stored);
   }
 
@@ -126,7 +129,7 @@ void FilterDialog::PopulateFilterList() {
     filter_list_view_.AddItem(item, 0, FilterDialog::kColumns[iter->column()]);
     filter_list_view_.AddItem(item, 1,
                               FilterDialog::kRelations[iter->relation()]);
-    filter_list_view_.AddItem(item, 2, iter->value().c_str());
+    filter_list_view_.AddItem(item, 2, UTF8ToWide(iter->value()).c_str());
     filter_list_view_.AddItem(item, 3, FilterDialog::kActions[iter->action()]);
   }
 }
@@ -207,5 +210,54 @@ void FilterDialog::OnFilterReset(UINT notify_code, int id, CWindow window) {
     filters_.clear();
     PopulateFilterList();
     reset_filter_button_.EnableWindow(FALSE);
+  }
+}
+
+_COMDLG_FILTERSPEC kFilterSpec[] = { {L"Sawbuck Filter File", L"*.flt"} };
+
+void FilterDialog::OnFilterSave(UINT notify_code, int id, CWindow window) {
+  CShellFileSaveDialog dialog(L"filters",
+                              FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST |
+                                  FOS_OVERWRITEPROMPT | FOS_DONTADDTORECENT,
+                              L"flt",
+                              &kFilterSpec[0],
+                              1);
+  if (dialog.DoModal() == IDOK) {
+    std::wstring file_path;
+    file_path.resize(MAX_PATH);
+    if (SUCCEEDED(dialog.GetFilePath(&file_path[0], MAX_PATH - 1))) {
+      std::string filter_string = Filter::SerializeFilters(filters_);
+      if (file_util::WriteFile(file_path,
+                               &filter_string[0],
+                               filter_string.size()) == -1) {
+        LOG(ERROR) << "Failed to save filter file to:" << file_path;
+        ::MessageBox(m_hWnd, L"Failed to save filter file.",
+                     L"File save error.", MB_OK | MB_ICONWARNING);
+      }
+    }
+  }
+}
+
+void FilterDialog::OnFilterLoad(UINT notify_code, int id, CWindow window) {
+  CShellFileOpenDialog dialog(L"filters",
+                              FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST |
+                                  FOS_OVERWRITEPROMPT | FOS_DONTADDTORECENT,
+                              L"flt",
+                              &kFilterSpec[0],
+                              1);
+  if (dialog.DoModal() == IDOK) {
+    std::wstring file_path;
+    file_path.resize(MAX_PATH);
+    if (SUCCEEDED(dialog.GetFilePath(&file_path[0], MAX_PATH - 1))) {
+      std::string file_contents;
+      if (file_util::ReadFileToString(FilePath(file_path), &file_contents)) {
+        filters_ = Filter::DeserializeFilters(file_contents);
+        PopulateFilterList();
+      } else {
+        LOG(ERROR) << "Failed to read filter file from:" << file_path;
+        ::MessageBox(m_hWnd, L"Failed to read filter file.",
+                     L"File read error.", MB_OK | MB_ICONWARNING);
+      }
+    }
   }
 }

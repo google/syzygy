@@ -16,6 +16,9 @@
 
 #include "sawbuck/viewer/filter.h"
 
+#include "base/values.h"
+#include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
@@ -38,7 +41,8 @@ Filter::Filter(Column column, Relation relation, Action action,
   BuildRegExp();
 }
 
-Filter::Filter(const std::wstring& serialized) : match_re_("") {
+
+Filter::Filter(const DictionaryValue* const serialized) : match_re_("") {
   is_valid_ = Deserialize(serialized);
   BuildRegExp();
 }
@@ -55,8 +59,8 @@ void Filter::BuildRegExp() {
   }
 }
 
-std::wstring Filter::value() const {
-  return UTF8ToWide(value_);
+std::string Filter::value() const {
+  return value_;
 }
 
 bool Filter::Matches(ILogView* log_view, int row_index) const {
@@ -129,108 +133,105 @@ bool Filter::ValueMatchesString(const std::string& check_string) const {
   return matches;
 }
 
-std::wstring Filter::Serialize() const {
-  std::wstring serialized;
-  serialized += IntToString16(column_);
-  serialized += kSeparator;
-  serialized += IntToString16(relation_);
-  serialized += kSeparator;
-  serialized += IntToString16(action_);
-  serialized += kSeparator;
-  serialized += value();
-  return serialized;
+DictionaryValue* Filter::Serialize() const {
+  scoped_ptr<DictionaryValue> filter_dict(new DictionaryValue());
+  filter_dict->SetInteger("column", column_);
+  filter_dict->SetInteger("relation", relation_);
+  filter_dict->SetInteger("action", action_);
+  filter_dict->SetString("value", value_);
+  return filter_dict.release();
 }
 
-// TODO(robertshield): Don't really need separators and the like. Simplify this.
-bool Filter::Deserialize(const std::wstring& serialized) {
-  std::vector<std::wstring> pieces;
-  size_t num_pieces = Tokenize(serialized, kSeparator, &pieces);
-
-  // Note that we allow things of the form "1|1|0|", which will leave
-  // value_ empty.
-  if (num_pieces < 3) {
-    LOG(WARNING) << "Error deserializing filter string: " << serialized;
+bool Filter::Deserialize(const DictionaryValue* const serialized) {
+  // I wish I could make this data-driven. The static_casts needed because of
+  // the use of enums makes this hard.
+  if (!serialized->GetStringASCII("value", &value_)) {
+    LOG(ERROR) << "Bad filter, no field named value.";
     return false;
   }
 
-  int col;
-  StringToInt(pieces[0], &col);
-  column_ = static_cast<Column>(col);
-
-  int rel;
-  StringToInt(pieces[1], &rel);
-  relation_ = static_cast<Relation>(rel);
-
-  int act;
-  StringToInt(pieces[2], &act);
-  action_ = static_cast<Action>(act);
-
-  std::wstring wide_value;
-  for (size_t i = 3; i < num_pieces; i++) {
-    wide_value += pieces[i];
-    if (i < num_pieces - 1) {
-      wide_value += kSeparator;
-    }
+  int column = -1;
+  if (serialized->GetInteger("column", &column) &&
+      column > -1 && column < NUM_COLUMNS) {
+    column_ = static_cast<Column>(column);
+  } else {
+    LOG(ERROR) << "Bad Filter, no column field.";
+    return false;
   }
 
-  value_ = WideToUTF8(wide_value);
+  int relation = -1;
+  if (serialized->GetInteger("relation", &relation) &&
+      relation > -1 && relation < NUM_RELATIONS) {
+    relation_ = static_cast<Relation>(relation);
+  } else {
+    LOG(ERROR) << "Bad Filter, no relation field.";
+    return false;
+  }
+
+  int action = -1;
+  if (serialized->GetInteger("action", &action) &&
+      action > -1 && action < NUM_ACTIONS) {
+    action_ = static_cast<Action>(action);
+  } else {
+    LOG(ERROR) << "Bad Filter, no action field.";
+    return false;
+  }
 
   return true;
 }
 
-// TODO(robertshield): Consider separating filter strings with newlines instead
-// of length-prefixing them.
-std::vector<Filter> Filter::DeserializeFilters(const std::wstring& stored) {
+// static
+std::vector<Filter> Filter::DeserializeFilters(const std::string& stored) {
   std::vector<Filter> filters;
 
+  scoped_ptr<ListValue> filter_list_value;
+
   if (!stored.empty()) {
-    size_t offset = 0;
-    size_t next_filter_start;
-    while ((next_filter_start = stored.find(kSeparator, offset)) !=
-           std::wstring::npos) {
-      int length = 0;
-      bool success = StringToInt(
-          std::wstring(stored.begin() + offset,
-                       stored.begin() + next_filter_start), &length);
-      if (!success || length + offset > stored.length()) {
-        LOG(ERROR) << "Corrupt filter string!";
-        return std::vector<Filter>();
-      }
+    scoped_ptr<Value> parsed_value(base::JSONReader::Read(stored, true));
+    if (parsed_value.get() && parsed_value->IsType(Value::TYPE_LIST)) {
+      filter_list_value.reset(static_cast<ListValue*>(parsed_value.release()));
+    } else {
+      LOG(ERROR) << "Failed to parse filter list: " << stored;
+    }
+  }
 
-      // Skip the leading separator character.
-      next_filter_start++;
-
-      std::wstring filter_string(
-          stored.begin() + next_filter_start,
-          stored.begin() + next_filter_start + length);
-      Filter f(filter_string);
-      if (f.IsValid()) {
-        filters.push_back(f);
+  if (filter_list_value.get() && filter_list_value->GetSize() > 0) {
+    ListValue::const_iterator filter_iter(filter_list_value->begin());
+    for (; filter_iter != filter_list_value->end(); ++filter_iter) {
+      if ((*filter_iter)->IsType(Value::TYPE_DICTIONARY)) {
+        Filter filter(static_cast<DictionaryValue*>(*filter_iter));
+        if (filter.IsValid()) {
+          filters.push_back(filter);
+        }
       } else {
-        LOG(ERROR) << "Corrupt filter!";
-        return std::vector<Filter>();
+        LOG(ERROR) << "Unexpected filter type in filter list, type: "
+                   << (*filter_iter)->GetType() << ", string: " << stored;
       }
-
-      offset = next_filter_start + length;
     }
   }
 
   return filters;
 }
 
-std::wstring Filter::SerializeFilters(const std::vector<Filter>& filters) {
-  std::wstring serialized_string;
-
-  std::vector<Filter>::const_iterator iter(filters.begin());
-  for (; iter != filters.end(); ++iter) {
-    std::wstring filter_string(iter->Serialize());
-    serialized_string += IntToString16(filter_string.length());
-    serialized_string += kSeparator;
-    serialized_string += filter_string;
-  }
-
+// static
+std::string Filter::SerializeFilters(const std::vector<Filter>& filters) {
+  scoped_ptr<ListValue> filters_list(SerializeFiltersToListValue(filters));
+  std::string serialized_string;
+  base::JSONWriter::Write(filters_list.get(), true, &serialized_string);
   return serialized_string;
 }
+
+// static
+ListValue* Filter::SerializeFiltersToListValue(
+    const std::vector<Filter>& filters) {
+  scoped_ptr<ListValue> filters_list(new ListValue);
+  std::vector<Filter>::const_iterator iter(filters.begin());
+  for (; iter != filters.end(); ++iter) {
+    filters_list->Append(iter->Serialize());
+  }
+  return filters_list.release();
+}
+
 
 bool Filter::operator==(const Filter& other) const{
   return other.column_ == column_ &&

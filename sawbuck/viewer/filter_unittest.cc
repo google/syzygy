@@ -117,7 +117,7 @@ TEST_F(FilterTest, TestSingleSerialization) {
     filters.push_back(filter_array[i]);
   }
 
-  std::wstring serialized_filters(Filter::SerializeFilters(filters));
+  std::string serialized_filters(Filter::SerializeFilters(filters));
 
   std::vector<Filter> deserialized_filters = Filter::DeserializeFilters(
       serialized_filters);
@@ -139,9 +139,26 @@ TEST_F(FilterTest, TestMultipleSerialization) {
     filters.push_back(filter_array[i]);
   }
 
-  std::wstring serialized_filters(Filter::SerializeFilters(filters));
-  EXPECT_STREQ(L"14|6|1|0|Panic!!!8|1|0|1|4213|4|0|1|w00t.cc",
-               serialized_filters.c_str());
+  const char kExpectedSerializedString[] =
+      "[ {\r\n"
+      "   \"action\": 0,\r\n"
+      "   \"column\": 6,\r\n"
+      "   \"relation\": 1,\r\n"
+      "   \"value\": \"Panic!!!\"\r\n"
+      "}, {\r\n"
+      "   \"action\": 1,\r\n"
+      "   \"column\": 1,\r\n"
+      "   \"relation\": 0,\r\n"
+      "   \"value\": \"42\"\r\n"
+      "}, {\r\n"
+      "   \"action\": 1,\r\n"
+      "   \"column\": 4,\r\n"
+      "   \"relation\": 0,\r\n"
+      "   \"value\": \"w00t.cc\"\r\n"
+      "} ]\r\n";
+
+  std::string serialized_filters(Filter::SerializeFilters(filters));
+  EXPECT_STREQ(kExpectedSerializedString, serialized_filters.c_str());
 
   std::vector<Filter> deserialized_filters = Filter::DeserializeFilters(
       serialized_filters);
@@ -152,9 +169,9 @@ TEST_F(FilterTest, TestMultipleSerialization) {
 }
 
 TEST_F(FilterTest, TestEmptySerialization) {
-  std::wstring serialized_filters(
+  std::string serialized_filters(
       Filter::SerializeFilters(std::vector<Filter>()));
-  EXPECT_STREQ(L"", serialized_filters.c_str());
+  EXPECT_STREQ("[  ]\r\n", serialized_filters.c_str());
 
   std::vector<Filter> deserialized_filters = Filter::DeserializeFilters(
       serialized_filters);

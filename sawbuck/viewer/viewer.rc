@@ -164,6 +164,8 @@ BEGIN
     PUSHBUTTON      "&Add",IDC_FILTER_ADD,217,31,50,14
     PUSHBUTTON      "&Remove",IDC_FILTER_REMOVE,273,31,50,14
     CONTROL         "",IDC_FILTER_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,9,54,314,120
+    PUSHBUTTON      "&Save Filters...",IDC_FILTER_SAVE,11,195,56,14
+    PUSHBUTTON      "&Load Filters...",IDC_FILTER_LOAD,70,195,56,14
 END
 
 
@@ -216,14 +218,6 @@ BEGIN
         TOPMARGIN, 7
         BOTTOMMARGIN, 127
     END
-
-    IDD_FILTERDIALOG2, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 329
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 209
-    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -254,7 +248,6 @@ END
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
-
-/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
 
