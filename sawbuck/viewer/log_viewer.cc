@@ -66,9 +66,9 @@ int LogViewer::OnCreate(LPCREATESTRUCT create_struct) {
   update_ui_->UIEnable(ID_LOG_FILTER, true);
 
   // Read in any previously set filters.
-  std::wstring filter_string;
+  std::string filter_string;
   Preferences prefs;
-  prefs.ReadStringValue(config::kFilterValues, &filter_string, L"");
+  prefs.ReadStringValue(config::kFilterValues, &filter_string, "");
   if (!filter_string.empty()) {
     std::vector<Filter> filters(Filter::DeserializeFilters(filter_string));
     if (!filters.empty()) {
