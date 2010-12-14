@@ -113,16 +113,9 @@ typedef AddressImpl<kAbsoluteAddressType> AbsoluteAddress;
 // A file offset within an image file.
 typedef AddressImpl<kFileOffsetAddressType> FileOffsetAddress;
 
-// Host function for compile asserts.
-inline void CompileAsserts() {
-  COMPILE_ASSERT(sizeof(RelativeAddress) == sizeof(uint32),
-                 relative_address_must_be_4_byte);
-  COMPILE_ASSERT(sizeof(AbsoluteAddress) == sizeof(uint32),
-                 absolute_address_must_be_4_byte);
-  COMPILE_ASSERT(sizeof(FileOffsetAddress) == sizeof(uint32),
-                 file_offset_must_be_4_byte);
-}
-
+std::ostream& operator<<(std::ostream& str, const RelativeAddress& addr);
+std::ostream& operator<<(std::ostream& str, const AbsoluteAddress& addr);
+std::ostream& operator<<(std::ostream& str, const FileOffsetAddress& addr);
 
 } // namespace image_util
 

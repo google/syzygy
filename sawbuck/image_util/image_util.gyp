@@ -27,6 +27,7 @@
       'type': 'static_library',
       'sources': [
         'address.h',
+        'address.cc',
         'address_space.h',
         'address_space.cc',
         'disassembler.h',
