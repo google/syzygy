@@ -30,14 +30,8 @@ class AddressSpace {
   typedef AddressRange<AddressType, SizeType> Range;
   typedef std::map<Range, ItemType> RangeMap;
 
-  // Create an address space that's constrained to the empty range.
+  // Create an empy address space.
   AddressSpace();
-
-  // Create an address space that's constrained to range.
-  explicit AddressSpace(const Range& range);
-
-  // Create an address space that's constrained to Range(start, size).
-  AddressSpace(const AddressType& start, const SizeType &size);
 
   // Insert @p range mapping to @p item unless @p range intersects
   // an existing range.
@@ -53,10 +47,6 @@ class AddressSpace {
   // Returns true iff @p range is removed.
   bool Remove(const Range& range);
 
-  // Accessors.
-  Range range() const { return range_; }
-  void set_range(const Range& range) { range_ = range; }
-
   const RangeMap& ranges() const { return ranges_; }
 
   // Finds the first contained range that intersects @p range.
@@ -70,11 +60,7 @@ class AddressSpace {
   typename RangeMap::iterator FindContaining(const Range& range);
 
  private:
-  // The range we're constrained to.
-  Range range_;
-
   // Our ranges and their associated items.
-  // Each range in this map is contained in range_;
   RangeMap ranges_;
 };
 
@@ -146,23 +132,10 @@ AddressSpace<AddressType, SizeType, ItemType>::AddressSpace() {
 }
 
 template <typename AddressType, typename SizeType, typename ItemType>
-AddressSpace<AddressType, SizeType, ItemType>::AddressSpace(const Range& range)
-    : range_(range) {
-}
-
-template <typename AddressType, typename SizeType, typename ItemType>
-AddressSpace<AddressType, SizeType, ItemType>::AddressSpace(
-    const AddressType& start, const SizeType &size) : range_(start, size) {
-}
-
-template <typename AddressType, typename SizeType, typename ItemType>
 bool AddressSpace<AddressType, SizeType, ItemType>::Insert(
     const Range& range,
     const ItemType& item,
     typename RangeMap::iterator* ret_it) {
-  if (!range_.Contains(range))
-    return false;
-
   // Is there an intersecting block?
   RangeMap::iterator it = FindFirstIntersection(range);
   if (it != ranges_.end())

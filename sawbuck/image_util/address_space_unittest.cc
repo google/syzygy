@@ -67,20 +67,13 @@ typedef AddressSpace<const uint8*, size_t, void*> PointerAddressSpace;
 typedef AddressSpace<size_t, size_t, void*> IntegerAddressSpace;
 
 TEST(AddressSpaceTest, Create) {
-  PointerAddressSpace pointer_space(NULL, std::numeric_limits<size_t>::max());
-  IntegerAddressSpace integer_space(0, std::numeric_limits<size_t>::max());
+  PointerAddressSpace pointer_space;
+  IntegerAddressSpace integer_space;
 }
 
 TEST(AddressSpaceTest, Insert) {
-  IntegerAddressSpace address_space(100, 200);
+  IntegerAddressSpace address_space;
   void* item = "Something to point at";
-
-  // No insertions outside the range.
-  EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(0, 100), item));
-  EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(99, 1), item));
-  EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(99, 2), item));
-  EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(300, 1), item));
-  EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(299, 2), item));
 
   // Non-overlapping insertions should work.
   EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
@@ -95,7 +88,7 @@ TEST(AddressSpaceTest, Insert) {
 }
 
 TEST(AddressSpaceTest, Remove) {
-  IntegerAddressSpace address_space(100, 200);
+  IntegerAddressSpace address_space;
   void* item = "Something to point at";
 
   // Insert some items.
@@ -116,5 +109,18 @@ TEST(AddressSpaceTest, Remove) {
   ASSERT_FALSE(address_space.Remove(IntegerAddressSpace::Range(100, 10)));
   ASSERT_FALSE(address_space.Remove(IntegerAddressSpace::Range(110, 5)));
 }
+
+TEST(AddressSpaceTest, FindFirstIntersection) {
+  // TODO(siggi): writeme.
+
+}
+
+TEST(AddressSpaceTest, FindContaining) {
+  // TODO(siggi): writeme.
+
+  // typename RangeMap::const_iterator FindContaining(const Range& range) const;
+  // typename RangeMap::iterator FindContaining(const Range& range);
+}
+
 
 }  // namespace image_util

@@ -44,7 +44,7 @@ PEFile::~PEFile() {
 bool PEFile::Init(const FilePath& path) {
   FILE* file = file_util::OpenFile(path, "rb");
   if (file == NULL) {
-    LOG(ERROR) << "Failed to open file " << path.value();
+    LOG(ERROR) << "Failed to open file " << path.value().c_str();
     return false;
   }
 
@@ -72,12 +72,6 @@ bool PEFile::ReadHeaders(FILE* file) {
     LOG(ERROR) << "Unable to read NT headers";
     return false;
   }
-
-  // We know the image size, so let's expand our original (empty) range
-  // to accomodate.
-  ImageAddressSpace::Range
-      image_range(RelativeAddress(0), nt_headers.OptionalHeader.SizeOfImage);
-  image_data_.set_range(image_range);
 
   // We now know how large the headers are, so create a range for them.
   size_t header_size = nt_headers.OptionalHeader.SizeOfHeaders;
