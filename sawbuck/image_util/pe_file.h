@@ -82,6 +82,11 @@ class PEFile {
   uint8* GetImageData(RelativeAddress rel, size_t len);
   uint8* GetImageData(AbsoluteAddress abs, size_t len);
 
+  // Check whether or not a given address range is inside the
+  // address space of the PE image.
+  bool Contains(RelativeAddress rel, size_t len) const;
+  bool Contains(AbsoluteAddress abs, size_t len) const;
+
   // Accessors.
   const IMAGE_DOS_HEADER* dos_header() const {
     return dos_header_;

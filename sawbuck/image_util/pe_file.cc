@@ -57,6 +57,16 @@ bool PEFile::Init(const FilePath& path) {
   return success;
 }
 
+bool PEFile::Contains(RelativeAddress rel, size_t len) const {
+  const ImageAddressSpace::Range range(rel, len);
+  return image_data_.FindContaining(range) != image_data_.ranges().end();
+}
+
+bool PEFile::Contains(AbsoluteAddress abs, size_t len) const {
+  RelativeAddress rel;
+  return Translate(abs, &rel) && Contains(rel, len);
+}
+
 bool PEFile::ReadHeaders(FILE* file) {
   // Read the DOS header.
   IMAGE_DOS_HEADER dos_header = {};

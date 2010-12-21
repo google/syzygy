@@ -117,6 +117,32 @@ TEST_F(PEFileTest, ReadImage) {
   }
 }
 
+TEST_F(PEFileTest, Contains) {
+  RelativeAddress relative_base(0);
+  AbsoluteAddress absolute_base;
+  size_t image_size = image_file_.nt_headers()->OptionalHeader.SizeOfImage;
+  RelativeAddress relative_end(image_size);
+  AbsoluteAddress absolute_end;
+
+  ASSERT_TRUE(image_file_.Translate(relative_base, &absolute_base));
+  ASSERT_TRUE(image_file_.Contains(relative_base, 1));
+  ASSERT_TRUE(image_file_.Contains(absolute_base, 1));
+  ASSERT_FALSE(image_file_.Contains(absolute_base - 1, 1));
+  ASSERT_TRUE(image_file_.Translate(relative_end, &absolute_end));
+  ASSERT_EQ(absolute_end, absolute_base + image_size);
+  ASSERT_FALSE(image_file_.Contains(absolute_end, 1));
+  ASSERT_FALSE(image_file_.Contains(relative_end, 1));
+
+  // TODO(rogerm): test for inclusion at the end of the address space
+  //    The way the address space is built only captures the ranges
+  //    specified as sections in the headers, not the overall image size.
+  //    Either the test needs to be more invasive or the data structure
+  //    needs to be more broadly representative.  Note sure which, but
+  //    it's not critical.
+
+  // ASSERT_TRUE(image_file_.Contains(absolute_end - 1, 1));
+}
+
 TEST_F(PEFileTest, DecodeRelocs) {
   PEFile::RelocSet relocs;
   ASSERT_TRUE(image_file_.DecodeRelocs(&relocs));
@@ -124,7 +150,22 @@ TEST_F(PEFileTest, DecodeRelocs) {
   PEFile::RelocMap reloc_values;
   ASSERT_TRUE(image_file_.ReadRelocs(relocs, &reloc_values));
 
-  // TODO(siggi): Assert that all addresses and values are in the image.
+  // We expect to have some relocs to validate and we expect that
+  // all relocation table entries and their corresponding values
+  // fall within the image's address space
+  ASSERT_TRUE(!reloc_values.empty());
+  PEFile::RelocMap::const_iterator i = reloc_values.begin();
+  for (;i != reloc_values.end(); ++i) {
+    // Note:
+    //  i->first is a relative pointer yielded by the relocation table
+    //  i->second is the absolute value of that pointer (i.e., the relocation)
+
+    const RelativeAddress &pointer_location(i->first);
+    const AbsoluteAddress &pointer_value(i->second);
+
+    ASSERT_TRUE(image_file_.Contains(pointer_location, sizeof(pointer_value)));
+    ASSERT_TRUE(image_file_.Contains(pointer_value, 1));
+  }
 }
 
 TEST_F(PEFileTest, DecodeExports) {
