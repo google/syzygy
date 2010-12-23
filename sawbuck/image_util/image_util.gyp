@@ -36,6 +36,8 @@
         'disassembler.cc',
         'pe_file.h',
         'pe_file.cc',
+        'pe_file_parser.h',
+        'pe_file_parser.cc',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -53,6 +55,7 @@
         'disassembler_unittest.cc',
         'image_util_unittests_main.cc',
         'pe_file_unittest.cc',
+        'pe_file_parser_unittest.cc',
       ],
       'dependencies': [
         'image_util',

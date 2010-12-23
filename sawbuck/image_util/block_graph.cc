@@ -73,9 +73,15 @@ bool BlockGraph::AddressSpace::InsertBlock(RelativeAddress addr, Block* block) {
   return InsertImpl(addr, block);
 }
 
+// TODO(siggi): Remove this method?
 BlockGraph::Block* BlockGraph::AddressSpace::GetBlockByAddress(
     RelativeAddress addr) const {
-  AddressSpaceImpl::Range range(addr, 1);
+  return GetContainingBlock(addr, 1);
+}
+
+BlockGraph::Block* BlockGraph::AddressSpace::GetContainingBlock(
+    RelativeAddress addr, Size size) const {
+  AddressSpaceImpl::Range range(addr, size);
   AddressSpaceImpl::RangeMap::const_iterator it =
       address_space_.FindFirstIntersection(range);
   if (it == address_space_.ranges().end())

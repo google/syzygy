@@ -239,7 +239,12 @@ class BlockGraph::AddressSpace {
 
   // Returns a pointer to the block containing address, or NULL
   // if no block contains address.
-  Block* GetBlockByAddress(RelativeAddress address) const;
+  Block* GetBlockByAddress(RelativeAddress addr) const;
+
+  // Returns a pointer to the block containing the address range
+  // [address, address + size), or NULL if no block contains that
+  // range.
+  Block* GetContainingBlock(RelativeAddress addr, Size size) const;
 
   // Finds the first block, if any that intersects
   // [@p address, @p address + @p size).
