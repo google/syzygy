@@ -49,7 +49,7 @@ class PEFileParserTest: public testing::Test {
   virtual void TearDown() {
     if (loaded_image_ != NULL)
       base::UnloadNativeLibrary(loaded_image_);
-    loaded_image_ = NULL;     
+    loaded_image_ = NULL;
   }
 
   void AddReference(RelativeAddress src,
@@ -74,15 +74,15 @@ class PEFileParserTest: public testing::Test {
 
     void* function = base::GetFunctionPointerFromNativeLibrary(
         loaded_image_, function_name_or_ordinal);
-    
-    RelativeAddress addr(reinterpret_cast<const char*>(function) - 
+
+    RelativeAddress addr(reinterpret_cast<const char*>(function) -
                          reinterpret_cast<const char*>(loaded_image_));
-  
+
     ReferenceMap::const_iterator it(references_.begin());
     for (; it != references_.end(); ++it) {
       if (it->second.dst == addr)
         return true;
-    }    
+    }
 
     return false;
   }
@@ -120,7 +120,7 @@ namespace image_util {
 TEST_F(PEFileParserTest, ParseImageHeader) {
   PEFileParser parser(image_file_, &address_space_, add_reference_.get());
 
-  PEFileParser::PEHeader header = {};
+  PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
 
   // Check that the DOS header was read succssfully.
@@ -192,7 +192,7 @@ TEST_F(PEFileParserTest, ParseImageHeader) {
 TEST_F(PEFileParserTest, ParseExportDirectory) {
   PEFileParser parser(image_file_, &address_space_, add_reference_.get());
 
-  PEFileParser::PEHeader header = {};
+  PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
   EXPECT_TRUE(parser.ParseExportDirectory(
       header.data_directory[IMAGE_DIRECTORY_ENTRY_EXPORT]));

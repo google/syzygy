@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#ifndef SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
+#define SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
+
 #include "base/callback.h"
 #include "sawbuck/image_util/address.h"
 #include "sawbuck/image_util/block_graph.h"
@@ -37,12 +40,16 @@ class PEFileParser {
                AddReferenceCallback* add_reference);
 
   struct PEHeader {
+    PEHeader() {
+      memset(this, 0, sizeof(this));
+    }
+
     // The block that describes the DOS header.
     BlockGraph::Block* dos_header;
 
     // The block that describes the DOS stub (if any).
     BlockGraph::Block* dos_stub;
-    
+
     // The block that describes the NT headers.
     BlockGraph::Block* nt_headers;
 
@@ -91,3 +98,5 @@ class PEFileParser {
 };
 
 }  // namespace image_util
+
+#endif  // SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
