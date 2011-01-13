@@ -1,4 +1,4 @@
-# Copyright 2010 Google Inc.
+# Copyright 2011 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,36 @@
   },
   'targets': [
     {
+      # This target servese the purpose of making it easy to
+      # propagate the settings required for users of the DIA SDK.
+      'target_name': 'dia_sdk',
+      'type': 'none',
+      # We copy the msdia90.dll into the build directory for conveninence.
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            '$(VSInstallDir)/DIA SDK/bin/msdia90.dll',
+          ],
+        },
+      ],
+      'all_dependent_settings': {
+        'include_dirs': [
+          '$(VSInstallDir)/DIA SDK/include',
+        ],
+        'libraries': [
+          'diaguids.lib',
+        ],
+        'msvs_settings': {
+          'VCLinkerTool': {
+            'AdditionalLibraryDirectories': [
+              '$(VSInstallDir)/DIA SDK/lib',
+            ],
+          },
+        },
+      },
+    },
+    {
       'target_name': 'image_util',
       'type': 'static_library',
       'sources': [
@@ -32,6 +62,8 @@
         'address_space.cc',
         'block_graph.h',
         'block_graph.cc',
+        'decomposer.h',
+        'decomposer.cc',
         'disassembler.h',
         'disassembler.cc',
         'pe_file.h',
@@ -40,6 +72,7 @@
         'pe_file_parser.cc',
       ],
       'dependencies': [
+        'dia_sdk',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
@@ -51,6 +84,7 @@
         'address_unittest.cc',
         'address_space_unittest.cc',
         'block_graph_unittest.cc',
+        'decomposer_unittest.cc',
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
         'image_util_unittests_main.cc',
@@ -122,6 +156,18 @@
       'sources': [
         'export_dll.cc',
         'export_dll.def',
+      ],
+    },
+    {
+      'target_name': 'DecomposeImageToText',
+      'type': 'executable',
+      'sources': [
+        'decompose_image_to_text.cc',
+      ],
+      'dependencies': [
+        'image_util',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
     }
   ]

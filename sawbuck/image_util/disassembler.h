@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ namespace image_util {
 
 class Disassembler {
  public:
-  typedef std::set<RelativeAddress> AddressSet;
+  typedef std::set<AbsoluteAddress> AddressSet;
 
   // The instruction callback is invoked for each instruction the disassembler
   // encounters. The callback receives three parameters:
@@ -54,7 +54,7 @@ class Disassembler {
 
   Disassembler(const uint8* code,
                size_t code_size,
-               RelativeAddress code_addr,
+               AbsoluteAddress code_addr,
                InstructionCallback* on_instruction);
 
   // Attempts to walk function from unvisted addresses.
@@ -67,13 +67,15 @@ class Disassembler {
   // Add addr to unvisited set.
   // @returns true iff addr is unvisited.
   // @pre IsInCode(addr, 1).
-  bool Unvisited(RelativeAddress addr);
+  bool Unvisited(AbsoluteAddress addr);
 
   // @return true iff the range [addr ... addr + len) is in the function.
-  bool IsInCode(RelativeAddress addr, size_t len) const;
+  bool IsInCode(AbsoluteAddress addr, size_t len) const;
 
+  // Accessors.
   const AddressSet& unvisited() const { return unvisited_; }
   const AddressSet& visited() const { return visited_; }
+  const AddressSet& data_locations() const { return data_locations_; }
   size_t disassembled_bytes() const { return disassembled_bytes_; }
 
  private:
@@ -84,17 +86,30 @@ class Disassembler {
   size_t code_size_;
 
   // The original address of the first byte of code_.
-  RelativeAddress code_addr_;
+  AbsoluteAddress code_addr_;
 
   // Invoke this callback on every instruction.
   InstructionCallback* on_instruction_;
 
-  // Each unvisited instruction location before and during a Walk.
+  // Unvisited instruction locations before and during a walk.
+  // This is seeded by the code entry point(s), and will also contain
+  // branch targets during disassembly.
   AddressSet unvisited_;
-  // Each instruction location we've visited during Walk.
+  // Each instruction location we've visited during walk.
   AddressSet visited_;
 
-  // Number of bytes disassembled to this point during Walk.
+  // Contains the locations of data within the function. We can identify
+  // portions of a function as data when e.g. the function contains a
+  // switch statement implemented as a jump table. Each time we encounter
+  // a loads or computed branches that refer to an absolute location within
+  // the function, we assume that location is data, and take care to avoid
+  // disassembling the data.
+  // There seem to be cases where we would otherwise chase control flow into
+  // data, such as e.g. when the compiler generates a call to a non-returning
+  // function as last instruction in the function prior to a jump table.
+  AddressSet data_locations_;
+
+  // Number of bytes disassembled to this point during walk.
   size_t disassembled_bytes_;
 };
 

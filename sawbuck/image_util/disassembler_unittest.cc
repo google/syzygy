@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,10 +26,17 @@ using testing::SetArgumentPointee;
 extern "C" {
 
 // functions and labels exposed from our .asm test stub.
-extern int assembly_start();
 extern int assembly_func();
 extern int internal_label();
-extern int assembly_end();
+extern int assembly_func_end();
+
+extern int assembly_switch();
+extern int case_0();
+extern int case_1();
+extern int case_default();
+extern int jump_table();
+extern int lookup_table();
+extern int assembly_switch_end();
 
 // Functions invoked or referred by the .asm test stub.
 int func1() {
@@ -60,8 +67,12 @@ class DisassemblerTest: public testing::Test {
 
   MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&, bool*));
 
-  static RelativeAddress AddressOf(const void* ptr) {
-    return RelativeAddress(reinterpret_cast<size_t>(ptr));
+  static AbsoluteAddress AddressOf(const void* ptr) {
+    return AbsoluteAddress(reinterpret_cast<size_t>(ptr));
+  }
+
+  static const uint8* PointerTo(const void* ptr) {
+    return reinterpret_cast<const uint8*>(ptr);
   }
 
   void RecordFunctionEncounter(const Disassembler& disasm,
@@ -77,7 +88,7 @@ class DisassemblerTest: public testing::Test {
           ASSERT_EQ(32, inst.ops[0].size);
           ASSERT_EQ(5, inst.size);
           functions_.push_back(
-              RelativeAddress(
+              AbsoluteAddress(
                   static_cast<size_t>(inst.addr + inst.size + inst.imm.addr)));
         }
         break;
@@ -87,33 +98,17 @@ class DisassemblerTest: public testing::Test {
   }
 
  protected:
-  static uint8 const *const kBegin;
-  static uint8 const *const kEnd;
-  static uint8 const *const kFunc;
-  static uint8 const *const kLabel;
-  static const RelativeAddress kStartAddress;
-
-  std::vector<RelativeAddress> functions_;
+  std::vector<AbsoluteAddress> functions_;
 
   scoped_ptr<Disassembler::InstructionCallback> on_instruction_;
 };
 
-uint8 const *const DisassemblerTest::kBegin =
-    reinterpret_cast<const uint8*>(&assembly_start);
-uint8 const *const DisassemblerTest::kEnd =
-    reinterpret_cast<const uint8*>(assembly_end);
-uint8 const *const DisassemblerTest::kFunc =
-    reinterpret_cast<const uint8*>(&assembly_func);
-uint8 const *const DisassemblerTest::kLabel =
-    reinterpret_cast<const uint8*>(&internal_label);
-const RelativeAddress DisassemblerTest::kStartAddress(AddressOf(kBegin));
-
 TEST_F(DisassemblerTest, Terminate) {
-  Disassembler disasm(kBegin,
-                      kEnd - kBegin,
-                      kStartAddress,
+  Disassembler disasm(PointerTo(&assembly_func),
+                      PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
+                      AddressOf(&assembly_func),
                       on_instruction_.get());
-  ASSERT_TRUE(disasm.Unvisited(kStartAddress));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
 
   // Terminate the walk on first visit.
   EXPECT_CALL(*this, OnInstruction(_, _, _))
@@ -123,28 +118,30 @@ TEST_F(DisassemblerTest, Terminate) {
 }
 
 TEST_F(DisassemblerTest, DisassemblePartial) {
-  Disassembler disasm(kBegin,
-                      kEnd - kBegin,
-                      kStartAddress,
+  Disassembler disasm(PointerTo(&assembly_func),
+                      PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
+                      AddressOf(&assembly_func),
                       on_instruction_.get());
-  ASSERT_TRUE(disasm.Unvisited(kStartAddress));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
 
   // We should hit 6 instructions.
   EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(6);
 
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
-  // We should have disassembled everything save one call to func3.
-  ASSERT_EQ(kEnd - kBegin - 5, disasm.disassembled_bytes());
+  // We should have disassembled everything save one call to func3 and
+  // the jump/lookup tables.
+  ASSERT_EQ(PointerTo(&assembly_func_end) - PointerTo(&assembly_func) - 5,
+      disasm.disassembled_bytes());
 }
 
 TEST_F(DisassemblerTest, DisassembleFull) {
-  Disassembler disasm(kBegin,
-                      kEnd - kBegin,
-                      kStartAddress,
+  Disassembler disasm(PointerTo(&assembly_func),
+                      PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
+                      AddressOf(&assembly_func),
                       on_instruction_.get());
-  ASSERT_TRUE(disasm.Unvisited(kStartAddress));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
   // Mark the internal label as well.
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(kLabel)));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&internal_label)));
 
   // We should hit 7 instructions.
   EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(7);
@@ -152,17 +149,18 @@ TEST_F(DisassemblerTest, DisassembleFull) {
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
 
   // We should have disassembled everything.
-  ASSERT_EQ(kEnd - kBegin, disasm.disassembled_bytes());
+  ASSERT_EQ(PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
+      disasm.disassembled_bytes());
 }
 
 TEST_F(DisassemblerTest, EnounterFunctions) {
-  Disassembler disasm(kBegin,
-                      kEnd - kBegin,
-                      kStartAddress,
+  Disassembler disasm(PointerTo(&assembly_func),
+                      PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
+                      AddressOf(&assembly_func),
                       on_instruction_.get());
-  ASSERT_TRUE(disasm.Unvisited(kStartAddress));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
   // Mark the internal label as well.
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(kLabel)));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&internal_label)));
 
   // Record the functions we encounter along the way.
   EXPECT_CALL(*this, OnInstruction(_, _, _))
@@ -171,13 +169,39 @@ TEST_F(DisassemblerTest, EnounterFunctions) {
 
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
 
-  std::vector<RelativeAddress> expected;
+  std::vector<AbsoluteAddress> expected;
   expected.push_back(AddressOf(func1));
   expected.push_back(AddressOf(func2));
   expected.push_back(AddressOf(func3));
   expected.push_back(AddressOf(func4));
 
   EXPECT_THAT(functions_, testing::ContainerEq(expected));
+}
+
+TEST_F(DisassemblerTest, IdentifiesData) {
+  Disassembler disasm(
+      PointerTo(&assembly_switch),
+      PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
+      AddressOf(&assembly_switch), on_instruction_.get());
+
+  // Mark the entry and the cases we jump to as
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_switch)));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_0)));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_1)));
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
+
+  // We expect to hit all the instructions in the function.
+  EXPECT_CALL(*this, OnInstruction(_, _, _))
+      .Times(10);
+
+  // We expect an incomplete walk from this.
+  ASSERT_EQ(Disassembler::kWalkIncomplete, disasm.Walk());
+
+  std::set<AbsoluteAddress> expected;
+  expected.insert(AddressOf(&jump_table));
+  expected.insert(AddressOf(&lookup_table));
+
+  EXPECT_THAT(disasm.data_locations(), testing::ContainerEq(expected));
 }
 
 }  // namespace image_util
