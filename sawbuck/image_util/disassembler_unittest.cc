@@ -192,7 +192,7 @@ TEST_F(DisassemblerTest, IdentifiesData) {
 
   // We expect to hit all the instructions in the function.
   EXPECT_CALL(*this, OnInstruction(_, _, _))
-      .Times(10);
+      .Times(9);
 
   // We expect an incomplete walk from this.
   ASSERT_EQ(Disassembler::kWalkIncomplete, disasm.Walk());
