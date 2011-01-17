@@ -257,9 +257,9 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
 
   // Chunk the NT headers.
   BlockGraph::Block* nt_headers = AddBlock(BlockGraph::DATA_BLOCK,
-                                      nt_headers_address,
-                                      sizeof(IMAGE_NT_HEADERS),
-                                      "NT Headers");
+                                           nt_headers_address,
+                                           sizeof(IMAGE_NT_HEADERS),
+                                           "NT Headers");
   if (nt_headers == NULL) {
     LOG(ERROR) << "Unable to add NT Headers block";
     return false;
@@ -312,10 +312,9 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
     return false;
   }
 
-  BlockGraph::Block* image_section_headers = AddBlock(BlockGraph::DATA_BLOCK,
-                                                 image_section_header_address,
-                                                 image_section_header_size,
-                                                 "BlockGraph section headers");
+  BlockGraph::Block* image_section_headers = AddBlock(
+      BlockGraph::DATA_BLOCK, image_section_header_address,
+      image_section_header_size, "Image section headers");
 
   if (image_section_headers == NULL) {
     LOG(ERROR) << "Unable to create image section headers block";

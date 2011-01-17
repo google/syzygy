@@ -263,6 +263,7 @@ BlockGraph::Block::~Block() {
 
 bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
   DCHECK(ref.referenced() != NULL);
+  DCHECK(offset + ref.size() <= size());
 
   // Did we have an earlier reference at this location?
   ReferenceMap::iterator it(references_.find(offset));

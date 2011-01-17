@@ -190,7 +190,8 @@ TEST_F(DisassemblerTest, IdentifiesData) {
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_1)));
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
 
-  // We expect to hit all the instructions in the function.
+  // We expect to hit all the instructions in the function
+  // "assembly_switch" from disassembler_test_code.asm.
   EXPECT_CALL(*this, OnInstruction(_, _, _))
       .Times(9);
 

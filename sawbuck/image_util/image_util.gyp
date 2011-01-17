@@ -70,6 +70,8 @@
         'pe_file.cc',
         'pe_file_parser.h',
         'pe_file_parser.cc',
+        'pe_file_writer.h',
+        'pe_file_writer.cc',
       ],
       'dependencies': [
         'dia_sdk',
@@ -90,10 +92,12 @@
         'image_util_unittests_main.cc',
         'pe_file_unittest.cc',
         'pe_file_parser_unittest.cc',
+        'pe_file_writer_unittest.cc',
       ],
       'dependencies': [
         'image_util',
         'test_dll',
+        '../log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',

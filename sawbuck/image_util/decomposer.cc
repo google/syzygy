@@ -831,7 +831,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (added) {
       // Look up the destination block, which must exist and be a code block.
       BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
-      CHECK(block != NULL && block->type() == BlockGraph::CODE_BLOCK);
+      DCHECK(block != NULL && block->type() == BlockGraph::CODE_BLOCK);
 
       // No special action if the reference is to the current block,
       // we're already covered by the disassembly process.
@@ -891,10 +891,13 @@ bool Decomposer::FinalizeIntermediateReferences() {
     }
 
     RelativeAddress src_start;
-    DCHECK(image_->GetAddressOf(src, &src_start));
-
     RelativeAddress dst_start;
-    DCHECK(image_->GetAddressOf(dst, &dst_start));
+    if (!image_->GetAddressOf(src, &src_start) ||
+        !image_->GetAddressOf(dst, &dst_start)) {
+      LOG(ERROR) << "No address for src or dst block";
+      return false;
+    }
+
     BlockGraph::Reference ref(it->second.type,
                               it->second.size,
                               dst,
