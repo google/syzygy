@@ -27,8 +27,6 @@
       'target_name': 'log_lib',
       'type': 'static_library',
       'sources': [
-        'buffer_parser.cc',
-        'buffer_parser.h',
         'kernel_log_consumer.cc',
         'kernel_log_consumer.h',
         'log_consumer.cc',
@@ -40,6 +38,7 @@
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
+        '../common/common.gyp:common',
         '../sym_util/sym_util.gyp:sym_util',
       ],
     },
@@ -67,7 +66,6 @@
       'target_name': 'log_lib_unittests',
       'type': 'executable',
       'sources': [
-        'buffer_parser_unittest.cc',
         'kernel_log_consumer_unittest.cc',
         'log_consumer_unittest.cc',
         'log_lib_unittest_main.cc',

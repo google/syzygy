@@ -16,7 +16,7 @@
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 
 #include "base/logging.h"
-#include "sawbuck/log_lib/buffer_parser.h"
+#include "sawbuck/common/buffer_parser.h"
 #include <initguid.h>  // NOLINT - must precede kernel_log_types.
 #include "sawbuck/log_lib/kernel_log_types.h"  // NOLINT - must be last
 

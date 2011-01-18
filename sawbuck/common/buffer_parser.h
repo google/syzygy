@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // A utility class for safe and easy parsing of binary buffers.
-#ifndef SAWBUCK_LOG_LIB_BUFFER_PARSER_H_
-#define SAWBUCK_LOG_LIB_BUFFER_PARSER_H_
+#ifndef SAWBUCK_COMMON_BUFFER_PARSER_H_
+#define SAWBUCK_COMMON_BUFFER_PARSER_H_
 
 #include "base/basictypes.h"
 
@@ -141,4 +141,4 @@ class BinaryBufferReader {
   size_t pos_;
 };
 
-#endif  // SAWBUCK_LOG_LIB_BUFFER_PARSER_H_
+#endif  // SAWBUCK_COMMON_BUFFER_PARSER_H_

@@ -20,9 +20,9 @@
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/call_trace_parser.h"
+#include "sawbuck/common/buffer_parser.h"
 #include "sawbuck/sym_util/module_cache.h"
 #include "sawbuck/sym_util/symbol_cache.h"
-#include "sawbuck/log_lib/buffer_parser.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include <iostream>
 #include <string>

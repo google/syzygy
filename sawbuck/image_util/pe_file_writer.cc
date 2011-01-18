@@ -17,7 +17,7 @@
 #include <winnt.h>
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "sawbuck/log_lib/buffer_parser.h"
+#include "sawbuck/common/buffer_parser.h"
 
 namespace {
 template <class Type>

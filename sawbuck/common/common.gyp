@@ -61,6 +61,8 @@
         '<(DEPTH)/testing/gmock.gyp:gmock',
       ],
       'sources': [
+        'buffer_parser.cc',
+        'buffer_parser.h',
         'com_utils.cc',
         'com_utils.h',
         'initializing_coclass.h',
@@ -70,6 +72,7 @@
       'target_name': 'common_unittests',
       'type': 'executable',
       'sources': [
+        'buffer_parser_unittest.cc',
         'com_utils_unittest.cc',
         'common_unittest_main.cc',
         'initializing_coclass_unittest.cc',

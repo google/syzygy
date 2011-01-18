@@ -23,7 +23,7 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/string_util.h"
-#include "sawbuck/log_lib/buffer_parser.h"
+#include "sawbuck/common/buffer_parser.h"
 
 LogTimer* LogTimer::instance_ = NULL;
 

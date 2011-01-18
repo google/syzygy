@@ -18,7 +18,7 @@
 #include "base/debug/trace_event_win.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
-#include "sawbuck/log_lib/buffer_parser.h"
+#include "sawbuck/common/buffer_parser.h"
 #include <initguid.h>  // NOLINT - must be last include.
 
 LogParser::LogParser() : log_event_sink_(NULL), trace_event_sink_(NULL) {

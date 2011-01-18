@@ -18,7 +18,6 @@
 #include "base/native_library.h"
 #include "gtest/gtest.h"
 #include "sawbuck/image_util/decomposer.h"
-#include "sawbuck/log_lib/buffer_parser.h"
 #include <algorithm>
 #include <map>
 #include <set>

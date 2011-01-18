@@ -15,7 +15,7 @@
 // Implementation of call trace log parsing.
 #include "sawbuck/call_trace/call_trace_parser.h"
 #include "base/logging.h"
-#include "sawbuck/log_lib/buffer_parser.h"
+#include "sawbuck/common/buffer_parser.h"
 
 CallTraceParser::CallTraceParser() : call_trace_events_(NULL) {
 }
