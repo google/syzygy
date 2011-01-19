@@ -153,7 +153,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
 
   // Bail if there are no intersections.
   if (intersecting.empty())
-    return false;
+    return NULL;
 
   DCHECK(!intersecting.empty());
 

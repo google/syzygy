@@ -55,6 +55,17 @@ class AddressSpace {
   typename RangeMap::iterator FindFirstIntersection(
       const Range& range);
 
+  // Returns a pair of iterators that iterate over all ranges
+  // intersecting @p range.
+  typedef std::pair<typename RangeMap::const_iterator,
+                    typename RangeMap::const_iterator>
+      RangeMapConstIterPair;
+  typedef std::pair<typename RangeMap::iterator, typename RangeMap::iterator>
+      RangeMapIterPair;
+
+  RangeMapConstIterPair FindIntersecting(const Range& range) const;
+  RangeMapIterPair FindIntersecting(const Range& range);
+
   // Finds the range that contains @p range.
   typename RangeMap::const_iterator FindContaining(const Range& range) const;
   typename RangeMap::iterator FindContaining(const Range& range);
@@ -164,28 +175,7 @@ template <typename AddressType, typename SizeType, typename ItemType>
 typename AddressSpace<AddressType, SizeType, ItemType>::RangeMap::const_iterator
 AddressSpace<AddressType, SizeType, ItemType>::FindFirstIntersection(
     const Range& range) const {
-  RangeMap::const_iterator it(ranges_.lower_bound(range));
-
-  // There are three cases we need to handle here:
-  // 1. An exact match.
-  if (it != ranges_.end() && it->first == range)
-    return it;
-
-  // 2. Intersection with the next earlier (lower address or shorter) range.
-  // Back up one if we can and test for intersection.
-  if (it != ranges_.begin()) {
-    RangeMap::const_iterator prev(it);
-    --prev;
-
-    if (prev->first.Intersects(range))
-      return prev;
-  }
-
-  // 3. Intersection to a/the found block.
-  if (it != ranges_.end() && it->first.Intersects(range))
-    return it;
-
-  return ranges_.end();
+  return const_cast<AddressSpace*>(this)->FindFirstIntersection(range);
 }
 
 template <typename AddressType, typename SizeType, typename ItemType>
@@ -214,6 +204,31 @@ AddressSpace<AddressType, SizeType, ItemType>::FindFirstIntersection(
     return it;
 
   return ranges_.end();
+}
+
+template <typename AddressType, typename SizeType, typename ItemType>
+typename AddressSpace<AddressType, SizeType, ItemType>::RangeMapConstIterPair
+AddressSpace<AddressType, SizeType, ItemType>::FindIntersecting(
+    const Range& range) const {
+  return const_cast<AddressSpace*>(this)->FindIntersecting(range);
+}
+
+template <typename AddressType, typename SizeType, typename ItemType>
+typename AddressSpace<AddressType, SizeType, ItemType>::RangeMapIterPair
+AddressSpace<AddressType, SizeType, ItemType>::FindIntersecting(
+    const Range& range) {
+  // Find the start of the range first.
+  RangeMap::iterator begin(FindFirstIntersection(range));
+
+  // Then the end.
+  RangeMap::iterator end(ranges_.lower_bound(
+      Range(range.start() + range.size(), 1)));
+
+  // Since we search for the first range that starts at or after the end
+  // of the input range, the range we find should never be intersecting.
+  DCHECK(end == ranges_.end() || !end->first.Intersects(range));
+
+  return std::make_pair(begin, end);
 }
 
 template <typename AddressType, typename SizeType, typename ItemType>

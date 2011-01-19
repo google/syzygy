@@ -111,16 +111,92 @@ TEST(AddressSpaceTest, Remove) {
 }
 
 TEST(AddressSpaceTest, FindFirstIntersection) {
-  // TODO(siggi): writeme.
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
 
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  IntegerAddressSpace::RangeMap::iterator it =
+      address_space.FindFirstIntersection(IntegerAddressSpace::Range(0, 99));
+  EXPECT_TRUE(it == address_space.ranges().end());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(0, 100));
+  EXPECT_TRUE(it == address_space.ranges().end());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(0, 130));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(100, it->first.start());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(110, 10));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(110, it->first.start());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(105, 30));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(100, it->first.start());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(110, 30));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(110, it->first.start());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(115, 5));
+  EXPECT_TRUE(it == address_space.ranges().end());
+
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(130, 30));
+  EXPECT_TRUE(it == address_space.ranges().end());
 }
 
 TEST(AddressSpaceTest, FindContaining) {
-  // TODO(siggi): writeme.
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
 
-  // typename RangeMap::const_iterator FindContaining(const Range& range) const;
-  // typename RangeMap::iterator FindContaining(const Range& range);
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  IntegerAddressSpace::RangeMap::iterator it =
+      address_space.FindContaining(IntegerAddressSpace::Range(110, 5));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(110, it->first.start());
+
+  it = address_space.FindContaining(IntegerAddressSpace::Range(110, 2));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(110, it->first.start());
+
+  it = address_space.FindContaining(IntegerAddressSpace::Range(113, 2));
+  ASSERT_TRUE(it != address_space.ranges().end());
+  EXPECT_EQ(110, it->first.start());
+
+  it = address_space.FindContaining(IntegerAddressSpace::Range(109, 5));
+  EXPECT_TRUE(it == address_space.ranges().end());
+
+  it = address_space.FindContaining(IntegerAddressSpace::Range(111, 5));
+  EXPECT_TRUE(it == address_space.ranges().end());
+
+  it = address_space.FindContaining(IntegerAddressSpace::Range(109, 7));
+  EXPECT_TRUE(it == address_space.ranges().end());
 }
 
+TEST(AddressSpaceTest, FindIntersecting) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  EXPECT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  IntegerAddressSpace::RangeMapIterPair it_pair =
+      address_space.FindIntersecting(IntegerAddressSpace::Range(0, 130));
+  EXPECT_TRUE(it_pair.first == address_space.ranges().begin());
+  EXPECT_TRUE(it_pair.second == address_space.ranges().end());
+
+  it_pair = address_space.FindIntersecting(IntegerAddressSpace::Range(100, 15));
+  ASSERT_TRUE(it_pair.first != address_space.ranges().end());
+  ASSERT_TRUE(it_pair.second != address_space.ranges().end());
+  EXPECT_EQ(100, it_pair.first->first.start());
+  EXPECT_EQ(120, it_pair.second->first.start());
+}
 
 }  // namespace image_util
