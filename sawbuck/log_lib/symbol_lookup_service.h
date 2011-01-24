@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 #include "base/callback.h"
-#include "base/lock.h"
+#include "base/synchronization/lock.h"
 #include "base/task.h"
 #include "base/time.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
@@ -112,7 +112,7 @@ class SymbolLookupService
   void ResolveCallback();
   void IssueCallbacks();
 
-  Lock module_lock_;
+  base::Lock module_lock_;
   sym_util::ModuleCache module_cache_;  // Under module_lock_.
 
   // We keep a cache of symbol cache instances keyed on module
@@ -126,7 +126,7 @@ class SymbolLookupService
   SymbolCacheMap symbol_caches_;
   std::wstring symbol_path_;
 
-  Lock resolution_lock_;
+  base::Lock resolution_lock_;
   struct Request {
     sym_util::ProcessId process_id_;
     base::Time time_;

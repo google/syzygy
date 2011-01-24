@@ -97,7 +97,8 @@ int APIENTRY wWinMain(HINSTANCE instance,
   logging::InitLogging(NULL,
                        logging::LOG_NONE,
                        logging::DONT_LOCK_LOG_FILE,
-                       logging::DELETE_OLD_LOG_FILE);
+                       logging::DELETE_OLD_LOG_FILE,
+                       logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
   logging::LogEventProvider::Initialize(kSawbuckLogProvider);
 
   ::OleInitialize(NULL);

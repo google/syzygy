@@ -19,7 +19,7 @@
 #include <tlhelp32.h>
 #include "base/message_loop.h"
 #include "base/scoped_handle.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -48,8 +48,8 @@ class SymbolLookupServiceTest: public testing::Test {
   }
 
   void LoadModules() {
-    ScopedHandle snap(::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,
-                                            ::GetCurrentProcessId()));
+    base::win::ScopedHandle snap(
+        ::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, ::GetCurrentProcessId()));
     base::Time now(base::Time::Now());
 
     MODULEENTRY32 module = { sizeof(module) };

@@ -16,9 +16,9 @@
 
 #include <atlbase.h>
 #include <vector>
-#include "base/lock.h"
-#include "base/scoped_handle.h"
+#include "base/synchronization/lock.h"
 #include "base/win/event_trace_provider.h"
+#include "base/win/scoped_handle.h"
 #include "sawbuck/call_trace/call_trace_defs.h"
 #include "sawbuck/call_trace/dlist.h"
 
@@ -118,14 +118,14 @@ class TracerModule: public base::win::EtwTraceProvider {
   ThreadLocalData *GetThreadData();
   ThreadLocalData *GetOrAllocateThreadData();
 
-  ScopedHandle enabled_event_;
-  ScopedHandle disabled_event_;
+  base::win::ScopedHandle enabled_event_;
+  base::win::ScopedHandle disabled_event_;
 
   bool SetThreadLocalData(ThreadLocalData *data);
   void FreeThreadLocalData();
 
   // Protects our thread local data list.
-  Lock lock_;
+  base::Lock lock_;
   // We keep all thread local data blocks in a double linked list,
   // to allow us to clean up and log dangling data on process exit.
   LIST_ENTRY thread_data_list_head_;  // Under lock_

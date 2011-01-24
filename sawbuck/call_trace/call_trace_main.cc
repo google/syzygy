@@ -246,7 +246,7 @@ void TracerModule::UpdateEvents(bool is_tracing) {
 
 void TracerModule::OnEventsDisabled() {
   {
-    AutoLock lock(lock_);
+    base::AutoLock lock(lock_);
     // Last gasp logging for this session.
     // While we do all of the below under a lock, this is still racy,
     // in that the other threads in the process will still be running,
@@ -325,7 +325,7 @@ void TracerModule::OnProcessDetach() {
 
     // Get next remaining buffer under the lock, if any.
     {
-      AutoLock lock(lock_);
+      base::AutoLock lock(lock_);
       if (IsListEmpty(&thread_data_list_head_)) {
         // We're done, break out of the loop.
         break;
@@ -590,14 +590,14 @@ void TracerModule::FreeThreadLocalData() {
 
 TracerModule::ThreadLocalData::ThreadLocalData(TracerModule* module)
     : module_(module) {
-  AutoLock lock(module_->lock_);
+  base::AutoLock lock(module_->lock_);
   data_.thread_id = ::GetCurrentThreadId();
   data_.num_calls = 0;
   InsertTailList(&module->thread_data_list_head_, &thread_data_list_);
 }
 
 TracerModule::ThreadLocalData::~ThreadLocalData() {
-  AutoLock lock(module_->lock_);
+  base::AutoLock lock(module_->lock_);
 
   RemoveEntryList(&thread_data_list_);
 }

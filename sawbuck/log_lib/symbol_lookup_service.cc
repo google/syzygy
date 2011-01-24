@@ -53,7 +53,7 @@ SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
   DCHECK_EQ(foreground_thread_, MessageLoop::current());
   DCHECK(callback != NULL);
 
-  AutoLock lock(resolution_lock_);
+  base::AutoLock lock(resolution_lock_);
   Handle request_id = next_request_id_++;
   DCHECK(requests_.end() == requests_.find(request_id));
   Request& request = requests_[request_id];
@@ -76,7 +76,7 @@ SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
 
 void SymbolLookupService::CancelRequest(Handle request_handle) {
   DCHECK_EQ(foreground_thread_, MessageLoop::current());
-  AutoLock lock(resolution_lock_);
+  base::AutoLock lock(resolution_lock_);
 
   RequestMap::iterator it = requests_.find(request_handle);
   DCHECK(it != requests_.end());
@@ -108,7 +108,7 @@ void SymbolLookupService::OnModuleIsLoaded(
 void SymbolLookupService::OnModuleUnload(
     DWORD process_id, const base::Time& time,
     const ModuleInformation& module_info) {
-  AutoLock lock(module_lock_);
+  base::AutoLock lock(module_lock_);
   module_cache_.ModuleUnloaded(process_id, time, module_info);
 }
 
@@ -135,7 +135,7 @@ void SymbolLookupService::OnModuleLoad(
   ModuleInformation& info = const_cast<ModuleInformation&>(module_info);
   info.image_file_name = file_path;
 
-  AutoLock lock(module_lock_);
+  base::AutoLock lock(module_lock_);
 
   module_cache_.ModuleLoaded(process_id, time, module_info);
 }
@@ -153,7 +153,7 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
 
   {
     // Hold the module lock only while accessing the module cache.
-    AutoLock lock(module_lock_);
+    base::AutoLock lock(module_lock_);
 
     id = module_cache_.GetStateId(pid, time);
     it = symbol_caches_.find(id);
@@ -213,7 +213,7 @@ void SymbolLookupService::ResolveCallback() {
 
     // Find the next unresolved request.
     {
-      AutoLock lock(resolution_lock_);
+      base::AutoLock lock(resolution_lock_);
 
       RequestMap::iterator it = requests_.lower_bound(unprocessed_id_);
       if (it == requests_.end()) {
@@ -235,7 +235,7 @@ void SymbolLookupService::ResolveCallback() {
     // Store the result, mindfully of the fact that the request
     // might have been cancelled while we did the resolution.
     {
-      AutoLock lock(resolution_lock_);
+      base::AutoLock lock(resolution_lock_);
 
       RequestMap::iterator it = requests_.find(request_id);
       if (it != requests_.end()) {
@@ -269,7 +269,7 @@ void SymbolLookupService::IssueCallbacks() {
 
     // Find the lowest request that has been processed.
     {
-      AutoLock lock(resolution_lock_);
+      base::AutoLock lock(resolution_lock_);
 
       RequestMap::iterator it = requests_.begin();
       if (it == requests_.end() || it->first >= unprocessed_id_) {

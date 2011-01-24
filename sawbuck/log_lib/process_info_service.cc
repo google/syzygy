@@ -65,7 +65,7 @@ ProcessInfoService::ProcessInfoMap::iterator ProcessInfoService::FindProcess(
 
 bool ProcessInfoService::GetProcessInfo(DWORD process_id,
     const base::Time& time, IProcessInfoService::ProcessInfo* info) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
 
   DCHECK(info != NULL);
   ProcessInfoMap::iterator it(FindProcess(process_id, time));
@@ -86,7 +86,7 @@ void ProcessInfoService::OnProcessIsRunning(const base::Time& time,
 
 void ProcessInfoService::OnProcessStarted(const base::Time& time,
       const KernelProcessEvents::ProcessInfo& process_info) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
 
    // See whether we have a record of this pid/time already.
   ProcessInfoMap::iterator it(
@@ -135,7 +135,7 @@ void ProcessInfoService::OnProcessStarted(const base::Time& time,
 void ProcessInfoService::OnProcessEnded(const base::Time& time,
       const KernelProcessEvents::ProcessInfo& process_info,
       ULONG exit_status) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
 
   // See whether we have a record of this pid/time already.
   ProcessInfoMap::iterator it(

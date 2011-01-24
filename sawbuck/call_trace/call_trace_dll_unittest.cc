@@ -14,10 +14,10 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/scoped_handle.h"
-#include "base/simple_thread.h"
+#include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
+#include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -298,8 +298,8 @@ class FunctionThread : public base::DelegateSimpleThread::Delegate {
   int invocation_count_;
   void (*f_)(void);
   DWORD delay_;
-  ScopedHandle exit_event_;
-  ScopedHandle done_event_;
+  base::win::ScopedHandle exit_event_;
+  base::win::ScopedHandle done_event_;
 };
 
 }  // namespace

@@ -438,14 +438,14 @@ void ViewerWindow::OnLogMessage(const LogEvents::LogMessage& log_message) {
                      &log_message.traces[log_message.trace_depth - 1]);
   }
 
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   log_messages_.push_back(msg);
 
   ScheduleNewItemsNotification();
 }
 
 void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
-  AutoLock lock(status_lock_);
+  base::AutoLock lock(status_lock_);
   if (status_.find_first_of(L"\r\n") == std::wstring::npos) {
     // No EOL in current status, backup for every backspace char.
     for (; *status != L'\0'; ++status) {
@@ -475,7 +475,7 @@ void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
 void ViewerWindow::UpdateStatus() {
   DCHECK_EQ(MessageLoop::current(), ui_loop_);
 
-  AutoLock lock(status_lock_);
+  base::AutoLock lock(status_lock_);
   update_status_task_ = NULL;
   UISetText(0, status_.c_str());
 }
@@ -515,7 +515,7 @@ void ViewerWindow::AddTraceEventToLog(const char* type,
   for (size_t i = 0; i < trace_message.trace_depth; ++i)
     msg.trace.push_back(trace_message.traces[i]);
 
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   log_messages_.push_back(msg);
 
   ScheduleNewItemsNotification();
@@ -539,7 +539,7 @@ void ViewerWindow::ScheduleNewItemsNotification() {
 void ViewerWindow::NotifyLogViewNewItems() {
   DCHECK_EQ(ui_loop_, MessageLoop::current());
   {
-    AutoLock lock(list_lock_);
+    base::AutoLock lock(list_lock_);
 
     // Notification no longer pending.
     notify_log_view_new_items_ = NULL;
@@ -744,55 +744,55 @@ void ViewerWindow::OnDestroy() {
 }
 
 int ViewerWindow::GetNumRows() {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_.size();
 }
 
 void ViewerWindow::ClearAll() {
   {
-    AutoLock lock(list_lock_);
+    base::AutoLock lock(list_lock_);
     log_messages_.clear();
   }
   NotifyLogViewCleared();
 }
 
 int ViewerWindow::GetSeverity(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].level;
 }
 
 DWORD ViewerWindow::GetProcessId(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].process_id;
 }
 
 DWORD ViewerWindow::GetThreadId(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].thread_id;
 }
 
 base::Time ViewerWindow::GetTime(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].time_stamp;
 }
 
 std::string ViewerWindow::GetFileName(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].file;
 }
 
 int ViewerWindow::GetLine(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].line;
 }
 
 std::string ViewerWindow::GetMessage(int row) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   return log_messages_[row].message;
 }
 
 void ViewerWindow::GetStackTrace(int row, std::vector<void*>* trace) {
-  AutoLock lock(list_lock_);
+  base::AutoLock lock(list_lock_);
   *trace = log_messages_[row].trace;
 }
 
