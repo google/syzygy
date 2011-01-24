@@ -173,6 +173,16 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
-    }
+    },
+    {
+      'target_name': 'RecomposePDB',
+      'type': 'executable',
+      'sources': [
+        'recompose_pdb.cc',
+      ],
+      'dependencies': [
+        '<(DEPTH)/base/base.gyp:base',
+      ],
+    },
   ]
 }
