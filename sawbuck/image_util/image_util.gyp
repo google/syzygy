@@ -184,5 +184,20 @@
         '<(DEPTH)/base/base.gyp:base',
       ],
     },
+    {
+      'target_name': 'pdb_lib',
+      'type': 'static_library',
+      'sources': [
+        'pdb_reader.cc',
+        'pdb_reader.h',
+        'pdb_stream.cc',
+        'pdb_stream.h',
+        'pdb_writer.cc',
+        'pdb_writer.h',
+      ],
+      'dependencies': [
+        '<(DEPTH)/base/base.gyp:base',
+      ],
+    },
   ]
 }
