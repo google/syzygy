@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,26 +14,52 @@
 #ifndef SAWBUCK_IMAGE_UTIL_PDB_STREAM_H_
 #define SAWBUCK_IMAGE_UTIL_PDB_STREAM_H_
 
+#include <stdio.h>
 #include <vector>
 #include "base/basictypes.h"
-#include "base/ref_counted.h"
-#include "base/scoped_ptr.h"
+#include "base/logging.h"
 
-class PdbStream : public base::RefCounted<PdbStream> {
+// This class represents a stream in PDB file. It has a stream like interface
+// that allows invoking successive reads through the stream.
+class PdbStream {
  public:
-  PdbStream(uint8* stream, uint32 size);
-  ~PdbStream();
+  explicit PdbStream(size_t length);
+  virtual ~PdbStream();
 
-  uint8* stream() const { return stream_.get(); }
-  uint32 size() const { return size_; }
+  // Read @p count chunks of size @p size into the destination buffer. The
+  // caller is responsible for ensuring that the destination buffer has enough
+  // space to receive the data.
+  // @returns the number of chunks of size @p size read on success, 0 when the
+  // end of the stream is reached, or -1 on error.
+  template <typename ItemType>
+  size_t Read(ItemType* dest, size_t count) {
+    size_t size = sizeof(ItemType);
+    size_t bytes_read = ReadBytes(dest, size * count);
+    if (bytes_read == -1)
+      return -1;
 
- private:
-  friend base::RefCounted<PdbStream>;
+    DCHECK_EQ(0U, bytes_read % size);
+    return bytes_read / size;
+  }
 
-  scoped_array<uint8> stream_;
-  uint32 size_;
+  // Set the current read position.
+  bool Seek(size_t pos);
+
+  // Get the stream's length.
+  size_t length() const { return length_; }
+
+ protected:
+  // Read @p count bytes of data into the destination buffer. The caller is
+  // responsible for ensuring that the destination buffer has enough space to
+  // receive the data. Returns the number of bytes read on success, 0 when the
+  // end of the stream is reached, or -1 on error.
+  virtual size_t ReadBytes(void* dest, size_t count) = 0;
+
+  // The length of the stream.
+  const size_t length_;
+
+  // The read position within the stream.
+  size_t pos_;
 };
-
-typedef std::vector<scoped_refptr<PdbStream> > PdbStreamList;
 
 #endif  // SAWBUCK_IMAGE_UTIL_PDB_STREAM_H_

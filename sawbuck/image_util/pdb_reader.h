@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,61 +14,52 @@
 #ifndef SAWBUCK_IMAGE_UTIL_PDB_READER_H_
 #define SAWBUCK_IMAGE_UTIL_PDB_READER_H_
 
-#include <iostream>
+#include <vector>
 #include "base/file_path.h"
+#include "base/file_util.h"
+#include "sawbuck/image_util/pdb_constants.h"
 #include "sawbuck/image_util/pdb_stream.h"
 
-// This class is used to read a pdb file and load its streams into memory.
-// It is able to parse the pdb header and directory data, but only the stream
-// data is available outside the class.
-// TODO(ericdingle): This can be memory intensive for large pdb files. We should
-// allow for streams to be created that refer to an open file and be able to
-// read the stream data from there. This would include having some properties
-// from the header (e.g. page_size) as class members.
+// This class is used to read a pdb file and provide access to the file's
+// symbol streams.
 class PdbReader {
  public:
+  // Construct a PdbReader for the given pdb path.
   PdbReader();
   ~PdbReader();
 
-  // Read a pdb file into memory. pdb_path is the file path relative to the
-  // current working directory, and pdb_streams is a pointer to an already
-  // instantiated PdbStreamList which will contain a list of PdbStreams on
-  // a successful file read.
-  bool Read(const FilePath& pdb_path, PdbStreamList* pdb_streams);
+  // Read the pdb file. Load the file's header and directory into memory and
+  // construct a list of PdbStreams that can be used to read the file's streams.
+  // @p pdb_path is the path to the pdb file to be read, and @p pdb_streams is
+  // a pointer to an already instantiated vector of PdbStream pointers which
+  // will contain a list of PdbStreams on a successful file read.
+  // @note The PdbStream pointers returned by this method are owned by the
+  // PdbReader and are invalid once Read is called again or the PdbReader goes
+  // out of scope.
+  bool Read(const FilePath& pdb_path, std::vector<PdbStream*>* streams);
 
  private:
-  // Multi-Stream Format (MSF) Header
-  // See http://code.google.com/p/pdbparser/wiki/MSF_Format
-  struct PdbFileHeader {
-    uint8 magic_string[32];
-    uint32 page_size;
-    uint32 free_page_map;
-    uint32 num_pages;
-    uint32 directory_size;
-    uint32 reserved;
-    uint32 root_pages[73];
-  };
-
   // Get the file size in bytes for an already opened file handle.
   // Will set stream cursor to end of file.
-  bool GetFileSize(FILE* file, uint32* size);
-
-  // Read a given page from file into the destination buffer.
-  bool ReadBytesFromPage(void* dest,
-                         FILE* file,
-                         uint32 num_bytes,
-                         uint32 page_num,
-                         uint32 page_size);
+  bool GetFileSize(FILE* file, uint32* size) const;
 
   // Get the number of pages required to store specified number of bytes.
-  uint32 GetNumPages(uint32 num_bytes, uint32 page_size);
+  uint32 GetNumPages(uint32 num_bytes) const;
 
-  // Load a stream into memory.
-  bool LoadStream(void* dest,
-                  FILE* file,
-                  uint32 num_bytes,
-                  const uint32* const pages,
-                  uint32 page_size);
+  // Free any allocated PDB streams.
+  void FreeStreams();
+
+  // The current file handle open for reading.
+  file_util::ScopedFILE file_;
+
+  // The pdb file's header.
+  PdbHeader header_;
+
+  // The pdb file's directory.
+  scoped_array<uint32> directory_;
+
+  // The list of pdb streams in the pdb file.
+  std::vector<PdbStream*> streams_;
 };
 
 #endif  // SAWBUCK_IMAGE_UTIL_PDB_READER_H_
