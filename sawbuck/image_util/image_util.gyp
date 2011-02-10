@@ -93,9 +93,13 @@
         'pe_file_unittest.cc',
         'pe_file_parser_unittest.cc',
         'pe_file_writer_unittest.cc',
+        'pdb_file_stream_unittest.cc',
+        'pdb_reader_unittest.cc',
+        'pdb_stream_unittest.cc',
       ],
       'dependencies': [
         'image_util',
+        'pdb_lib',
         'test_dll',
         '../log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/base/base.gyp:base',

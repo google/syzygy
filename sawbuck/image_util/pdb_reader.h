@@ -38,7 +38,7 @@ class PdbReader {
   // out of scope.
   bool Read(const FilePath& pdb_path, std::vector<PdbStream*>* streams);
 
- private:
+ protected:
   // Get the file size in bytes for an already opened file handle.
   // Will set stream cursor to end of file.
   bool GetFileSize(FILE* file, uint32* size) const;

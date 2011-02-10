@@ -33,11 +33,11 @@ class PdbFileStream : public PdbStream {
   // PdbStream implementation.
   size_t ReadBytes(void* dest, size_t count);
 
- private:
   // Read @p count bytes from @p offset byte offset from page @p page_num and
   // store them in dest.
   bool ReadFromPage(void* dest, uint32 page_num, size_t offset, size_t count);
 
+ private:
   // The handle to the open pdb file. The PdbFileStream does not own this
   // handle.
   FILE* file_;
