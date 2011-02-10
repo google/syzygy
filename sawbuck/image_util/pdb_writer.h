@@ -32,11 +32,11 @@ class PdbWriter {
   // PdbStreamList that contains the streams to be written to the file.
   bool Write(const FilePath& pdb_path, const std::vector<PdbStream*>& streams);
 
- private:
+ protected:
   // Info about a stream that's been written to the file.
   struct StreamInfo {
-    uint32 offset;  // Byte offset into the file.
-    uint32 size;    // Size in bytes of the stream.
+    uint32 offset;    // Byte offset into the file.
+    uint32 length;    // Length of the stream in bytes.
   };
   typedef std::vector<StreamInfo> StreamInfoList;
 

@@ -96,6 +96,7 @@
         'pdb_file_stream_unittest.cc',
         'pdb_reader_unittest.cc',
         'pdb_stream_unittest.cc',
+        'pdb_writer_unittest.cc',
       ],
       'dependencies': [
         'image_util',

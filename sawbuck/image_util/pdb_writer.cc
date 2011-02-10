@@ -166,10 +166,10 @@ bool PdbWriter::WriteDirectory(const StreamInfoList& stream_info_list,
     return false;
   byte_count += sizeof(uint32);
 
-  // Write the size of each stream.
+  // Write the length of each stream.
   for (StreamInfoList::const_iterator iter = stream_info_list.begin();
        iter != stream_info_list.end(); ++iter) {
-    if (!WriteUint32(func, "stream size", iter->size))
+    if (!WriteUint32(func, "stream length", iter->length))
       return false;
     byte_count += sizeof(uint32);
   }
@@ -178,9 +178,9 @@ bool PdbWriter::WriteDirectory(const StreamInfoList& stream_info_list,
   for (StreamInfoList::const_iterator iter = stream_info_list.begin();
        iter != stream_info_list.end(); ++iter) {
     DCHECK_EQ(0U, iter->offset % kPdbPageSize);
-    for (uint32 size = 0, page_number = iter->offset / kPdbPageSize;
-         size < iter->size;
-         size += kPdbPageSize, ++page_number) {
+    for (uint32 length = 0, page_number = iter->offset / kPdbPageSize;
+         length < iter->length;
+         length += kPdbPageSize, ++page_number) {
       if (!WriteUint32(func, "page offset", page_number))
         return false;
       byte_count += sizeof(uint32);

@@ -96,16 +96,16 @@ bool PdbReader::Read(const FilePath& pdb_path,
 
   // Iterate through the streams and construct PdbStreams.
   const uint32& num_streams = directory_[0];
-  const uint32* stream_sizes = &(directory_[1]);
+  const uint32* stream_lengths = &(directory_[1]);
   const uint32* stream_pages = &(directory_[1 + num_streams]);
 
   uint32 page_index = 0;
   for (uint32 stream_index = 0; stream_index < num_streams; ++stream_index) {
     streams_.push_back(new PdbFileStream(file_.get(),
-                                         stream_sizes[stream_index],
+                                         stream_lengths[stream_index],
                                          stream_pages + page_index,
                                          header_.page_size));
-    page_index += GetNumPages(stream_sizes[stream_index]);
+    page_index += GetNumPages(stream_lengths[stream_index]);
   }
 
   *streams = streams_;
