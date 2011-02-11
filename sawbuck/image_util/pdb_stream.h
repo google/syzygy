@@ -19,8 +19,8 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 
-// This class represents a stream in PDB file. It has a stream like interface
-// that allows invoking successive reads through the stream.
+// This class represents a PDB stream. It has a stream like interface that
+// allows invoking successive reads through the stream and seeking.
 class PdbStream {
  public:
   explicit PdbStream(size_t length);
@@ -56,7 +56,7 @@ class PdbStream {
   virtual size_t ReadBytes(void* dest, size_t count) = 0;
 
   // The length of the stream.
-  const size_t length_;
+  size_t length_;
 
   // The read position within the stream.
   size_t pos_;

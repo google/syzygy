@@ -119,15 +119,3 @@ TEST_F(PdbFileStreamTest, ReadBytes) {
     }
   }
 }
-
-TEST_F(PdbFileStreamTest, Read) {
-  // Test that we can read the header from the file using various page sizes.
-  PdbHeader header = { 0 };
-  for (size_t page_size = 32; page_size <= 512; page_size *= 2) {
-    size_t pages[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    PdbFileStream stream(file_.get(), sizeof(PdbHeader), pages, page_size);
-    EXPECT_EQ(1, stream.Read(&header, 1));
-    EXPECT_EQ(0, memcmp(header.magic_string, kPdbHeaderMagicString,
-                        sizeof(kPdbHeaderMagicString)));
-  }
-}

@@ -15,12 +15,10 @@
 #define SAWBUCK_IMAGE_UTIL_PDB_FILE_STREAM_H_
 
 #include <stdio.h>
-#include <vector>
 #include "base/basictypes.h"
 #include "sawbuck/image_util/pdb_stream.h"
 
-// This class represents a stream in PDB file. It has a stream like interface
-// that allows for seeking and reading.
+// This class represents a PDB stream on disk.
 class PdbFileStream : public PdbStream {
  public:
   PdbFileStream(FILE* file,
