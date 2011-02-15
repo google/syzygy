@@ -237,11 +237,12 @@ class BlockGraph::AddressSpace {
  public:
   typedef image_util::AddressSpace<RelativeAddress, BlockGraph::Size, Block*>
       AddressSpaceImpl;
-  typedef AddressSpaceImpl::RangeMap RangeMap;
   typedef AddressSpaceImpl::Range Range;
-  typedef AddressSpaceImpl::RangeMapIterPair RangeMapIterPair;
+  typedef AddressSpaceImpl::RangeMap RangeMap;
   typedef AddressSpaceImpl::RangeMapIter RangeMapIter;
   typedef AddressSpaceImpl::RangeMapConstIter RangeMapConstIter;
+  typedef AddressSpaceImpl::RangeMapIterPair RangeMapIterPair;
+  typedef AddressSpaceImpl::RangeMapConstIterPair RangeConstMapIterPair;
 
   // Constructs a new empty address space.
   // @p start to @p start + @p size on @p graph.
