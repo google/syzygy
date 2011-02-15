@@ -216,9 +216,11 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   DWORD rva = 0;
   ULONGLONG length = 0;
   ScopedBstr name;
+  BOOL no_return = FALSE;
   if (FAILED(function->get_relativeVirtualAddress(&rva)) ||
       FAILED(function->get_length(&length)) ||
-      FAILED(function->get_name(name.Receive()))) {
+      FAILED(function->get_name(name.Receive())) ||
+      FAILED(function->get_noReturn(&no_return))) {
     LOG(ERROR) << "Failed to retrieve function information";
     return false;
   }
@@ -237,7 +239,11 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   if (block == NULL)
     return false;
 
+  DCHECK(block->data() != NULL);
+
   block->SetLabel(0, block_name.c_str());
+  if (no_return == TRUE)
+    block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
 
   return CreateLabelsForFunction(function, block);
 }
@@ -698,13 +704,33 @@ bool Decomposer::CreateCodeReferences() {
   // as if disassembly turns up a PC-relative reference to another function
   // (block) at a location that didn't already have a label, it'll label that
   // location and re-queue the destination function for disassembly.
+  DCHECK(to_merge_.empty());
   while (!to_disassemble_.empty()) {
-    BlockSet::iterator it = to_disassemble_.begin();
-    BlockGraph::Block* block = *it;
-    to_disassemble_.erase(it);
+    while (!to_disassemble_.empty()) {
+      BlockSet::iterator it = to_disassemble_.begin();
+      BlockGraph::Block* block = *it;
+      to_disassemble_.erase(it);
 
-    if (!CreateCodeReferencesForBlock(block, on_instruction.get())) {
-      return false;
+      if (!CreateCodeReferencesForBlock(block, on_instruction.get())) {
+        return false;
+      }
+    }
+
+    DCHECK(to_disassemble_.empty());
+
+    // Merge any ranges scheduled for merging, then re-schedule the
+    // merged blocks for disassembly. Doing this outside the above loop
+    // avoids orphaning scheduled blocks as we merge them together,
+    // and is slightly more efficient as we may merge larger clusters
+    // of blocks and avoid some disassembly/merging iterations.
+    if (!to_merge_.empty()) {
+      RangeSet::const_iterator it = to_merge_.begin();
+      BlockGraph::AddressSpace::Range range(*it);
+      to_merge_.erase(it);
+
+      BlockGraph::Block* merged = image_->MergeIntersectingBlocks(range);
+      DCHECK(merged != NULL);
+      to_disassemble_.insert(merged);
     }
   }
 
@@ -753,6 +779,15 @@ bool Decomposer::CreateCodeReferencesForBlock(
   // TODO(siggi): Tally functions and instruction bytes.
   return (result == Disassembler::kWalkSuccess ||
       result == Disassembler::kWalkIncomplete);
+}
+
+void Decomposer::ScheduleForMerging(BlockGraph::Block* block1,
+                                    BlockGraph::Block* block2) {
+  RelativeAddress start(std::min(block1->addr(), block2->addr()));
+  RelativeAddress end(std::max(block1->addr() + block1->size(),
+                               block2->addr() + block2->size()));
+
+  to_merge_.insert(BlockGraph::AddressSpace::Range(start, end - start));
 }
 
 BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
@@ -811,6 +846,10 @@ void Decomposer::OnInstruction(const Disassembler& walker,
         instruction.ops[0].size == 32);
     // Distorm gives us size in bits, we want bytes.
     BlockGraph::Size size = instruction.ops[0].size / 8;
+
+    // Get the reference's address. Note we assume it's in the instruction's
+    // tail end - I don't know of a case where a PC-relative offset in a branch
+    // or call is not the very last thing in an x86 instruction.
     AbsoluteAddress abs_src(
         static_cast<size_t>(instruction.addr) + instruction.size - size);
     AbsoluteAddress abs_dst(
@@ -849,8 +888,47 @@ void Decomposer::OnInstruction(const Disassembler& walker,
           // disassembled.
           to_disassemble_.insert(block);
         }
+
+        // For short references across blocks, we want to make sure we merge
+        // the two blocks. AFAICT, this only occurs in hand-coded assembly in
+        // the CRT, and the "functions" involved are not independent.
+        if (size != sizeof(RelativeAddress))
+          ScheduleForMerging(current_block_, block);
       }
     }
+  }
+
+  // We want to find function blocks where control flow runs off the end
+  // of the function into the immediately adjoining block, and schedule
+  // the two for merging. AFAICT, this again only occurs in hand-crafted
+  // assembly in the CRT.
+  if (fc != FC_RET && fc != FC_BRANCH && fc != FC_INT) {
+    AbsoluteAddress instruction_start_abs(
+        static_cast<size_t>(instruction.addr));
+    RelativeAddress instruction_start;
+    if (!image_file_.Translate(instruction_start_abs, &instruction_start)) {
+      LOG(ERROR) << "Unable to translate absolute to relative addresses";
+      *terminate_walk = true;
+      return;
+    }
+
+    RelativeAddress instruction_end(instruction_start + instruction.size);
+    RelativeAddress block_end(current_block_->addr() + current_block_->size());
+    if  (instruction_end == block_end) {
+      // Find the following block.
+      BlockGraph::Block* next_block =
+          image_->GetFirstItersectingBlock(block_end, 1);
+      DCHECK(next_block != NULL);
+
+      // And schedule the two for merging.
+      ScheduleForMerging(current_block_, next_block);
+    }
+  }
+
+  if (fc == FC_CALL) {
+    // TODO(siggi): For call instructions, see whether they call a non-returning
+    //     function. Instruct the disassembler not to continue disassembly past
+    //     the instruction in that case - this needs a new return value.
   }
 }
 
@@ -868,6 +946,24 @@ bool Decomposer::CreatePEImageBlocksAndReferences(
   if (!parser.ParseExportDirectory(
       header->data_directory[IMAGE_DIRECTORY_ENTRY_EXPORT])) {
     LOG(ERROR) << "Unable to parse export directory";
+    return false;
+  }
+
+  if (!parser.ParseLoadConfig(
+      header->data_directory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG])) {
+    LOG(ERROR) << "Unable to parse load config";
+    return false;
+  }
+
+  if (!parser.ParseTlsDirectory(
+      header->data_directory[IMAGE_DIRECTORY_ENTRY_TLS])) {
+    LOG(ERROR) << "Unable to parse tls directory";
+    return false;
+  }
+
+  if (!parser.ParseDebugDirectory(
+      header->data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
+    LOG(ERROR) << "Unable to parse debug directory";
     return false;
   }
 

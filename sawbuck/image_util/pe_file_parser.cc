@@ -23,7 +23,6 @@ const char* kDirEntryNames[] = {
     "IMAGE_DIRECTORY_ENTRY_SECURITY",
     "IMAGE_DIRECTORY_ENTRY_BASERELOC",
     "IMAGE_DIRECTORY_ENTRY_DEBUG",
-    "IMAGE_DIRECTORY_ENTRY_COPYRIGHT",
     "IMAGE_DIRECTORY_ENTRY_ARCHITECTURE",
     "IMAGE_DIRECTORY_ENTRY_GLOBALPTR",
     "IMAGE_DIRECTORY_ENTRY_TLS",
@@ -362,6 +361,7 @@ template <typename ItemType>
 bool PEFileParser::AddRelative(const PEFileStructPtr<ItemType>& structure,
                                const DWORD* item,
                                const char* name) {
+  DCHECK(item != NULL);
   if (*item == 0)
     return true;
 
@@ -376,6 +376,7 @@ template <typename ItemType>
 bool PEFileParser::AddAbsolute(const PEFileStructPtr<ItemType>& structure,
                                const DWORD* item,
                                const char* name) {
+  DCHECK(item != NULL);
   if (*item == 0)
     return true;
 
@@ -383,6 +384,25 @@ bool PEFileParser::AddAbsolute(const PEFileStructPtr<ItemType>& structure,
   RelativeAddress rel;
 
   return image_file_.Translate(abs, &rel) &&
+      AddReference(structure.AddressOf(item),
+                   BlockGraph::ABSOLUTE_REF,
+                   sizeof(*item),
+                   rel,
+                   name);
+}
+
+template <typename ItemType>
+bool PEFileParser::AddFileOffset(const PEFileStructPtr<ItemType>& structure,
+                                 const DWORD* item,
+                                 const char* name) {
+  DCHECK(item != NULL);
+  if (*item == 0)
+    return true;
+
+  FileOffsetAddress offs(*item);
+  RelativeAddress rel;
+
+  return image_file_.Translate(offs, &rel) &&
       AddReference(structure.AddressOf(item),
                    BlockGraph::ABSOLUTE_REF,
                    sizeof(*item),
@@ -476,6 +496,87 @@ bool PEFileParser::ParseExportDirectory(BlockGraph::Block* export_dir_block) {
       return false;
     }
   }
+
+  return true;
+}
+
+bool PEFileParser::ParseTlsDirectory(BlockGraph::Block* tls_directory_block) {
+  if (tls_directory_block == NULL)
+    return true;
+
+  PEFileStructPtr<IMAGE_TLS_DIRECTORY> tls_directory;
+  if (!tls_directory.Set(tls_directory_block)) {
+    LOG(ERROR) << "Unable to read the TLS directory";
+    return false;
+  }
+
+  const IMAGE_TLS_DIRECTORY* dir = tls_directory.ptr();
+
+  return true;
+}
+
+bool PEFileParser::ParseLoadConfig(BlockGraph::Block* load_config_block) {
+  PEFileStructPtr<IMAGE_LOAD_CONFIG_DIRECTORY> load_config;
+
+  // We read the load config directory directly from the image, because
+  // it appears the data directory entry is 8 bytes short for some reason.
+  if (!load_config.Read(image_file_, load_config_block->addr())) {
+    LOG(ERROR) << "Unable to the load config directory";
+    return false;
+  }
+
+  if (!AddAbsolute(
+          load_config, &load_config->LockPrefixTable, "LockPrefixTable") ||
+      !AddAbsolute(load_config, &load_config->EditList, "EditList") ||
+      !AddAbsolute(
+          load_config, &load_config->SecurityCookie, "SecurityCookie") ||
+      !AddAbsolute(
+          load_config, &load_config->SEHandlerTable, "SEHandlerTable")) {
+    LOG(ERROR) << "Unable to add load config directory references";
+    return false;
+  }
+
+  // Iterate the exception handlers and add references for them.
+  RelativeAddress seh_handler;
+  PEFileStructPtr<DWORD> seh_handlers;
+  if (!image_file_.Translate(AbsoluteAddress(load_config->SEHandlerTable),
+                             &seh_handler) ||
+      !seh_handlers.Read(image_file_, seh_handler,
+                         load_config->SEHandlerCount * sizeof(DWORD))) {
+    LOG(ERROR) << "Unable to read SEH handler table";
+    return false;
+  }
+
+  for (size_t i = 0; i < load_config->SEHandlerCount; ++i) {
+    if (!AddRelative(seh_handlers, seh_handlers.ptr() + i, "SEH Handler")) {
+      LOG(ERROR) << "Unable to add SEH handler reference";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool PEFileParser::ParseDebugDirectory(
+    BlockGraph::Block* debug_directory_block) {
+  if (debug_directory_block == NULL)
+    return true;
+
+  PEFileStructPtr<IMAGE_DEBUG_DIRECTORY> debug_directory;
+  if (!debug_directory.Set(debug_directory_block)) {
+    LOG(ERROR) << "Unable to the debug directory";
+    return false;
+  }
+
+  do {
+    if (!AddRelative(debug_directory, &debug_directory->AddressOfRawData) ||
+        !AddFileOffset(debug_directory, &debug_directory->PointerToRawData)) {
+      LOG(ERROR) << "Failed to add debug directory references";
+      return false;
+    }
+
+    // TODO(siggi): Does it make sense to chunk the data itself?
+  } while(debug_directory.Next());
 
   return true;
 }

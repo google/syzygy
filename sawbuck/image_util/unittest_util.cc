@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "sawbuck/image_util/unittest_util.h"
 
+#include "base/logging.h"
 #include "base/path_service.h"
 #include "base/stringprintf.h"
 #include "base/win/pe_image.h"

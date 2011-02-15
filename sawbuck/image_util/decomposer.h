@@ -99,6 +99,9 @@ class Decomposer {
       BlockGraph::Block* block,
       Disassembler::InstructionCallback *on_instruction);
 
+  // Schedules the address range covering block1 and block2 for merging.
+  void ScheduleForMerging(BlockGraph::Block* block1, BlockGraph::Block* block2);
+
   // Parses the PE BlockGraph header and other important PE structures,
   // adds them as blocks to the image, and creates the references
   // they contain.
@@ -132,8 +135,8 @@ class Decomposer {
   // During decomposition we collect references in this format, e.g.
   // address->address. After thunking up the entire image into blocks,
   // we convert them to block->block references.
-  // TODO(siggi): Is there reason to keep these in an address space to avoid
-  //    getting overlapping references?
+  // TODO(siggi): Is there reason to keep these in an address space to guard
+  //     against overlapping references?
   struct IntermediateReference {
     BlockGraph::ReferenceType type;
     BlockGraph::Size size;
@@ -146,10 +149,17 @@ class Decomposer {
 
   // Disassembly state.
   typedef std::set<BlockGraph::Block*> BlockSet;
+  typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
+
   // The block we're currently disassembling.
   BlockGraph::Block* current_block_;
   // This set keeps track of which blocks we've yet to disassemble.
   BlockSet to_disassemble_;
+  // This set keeps track of address ranges that we want to merge because
+  // we've found control flow from one block to another within the range,
+  // either through short branches or by execution continuing past the tail
+  // of a block.
+  RangeSet to_merge_;
 };
 
 // The results of the decomposition process are stored in this class.

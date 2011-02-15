@@ -60,15 +60,33 @@ class PEFileParser {
     BlockGraph::Block* data_directory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
   };
 
-  // Parse the image header, chunk the various blocks it refers and
-  // invoke the AddReferenceCallback for all references encountered.
+  // Parses the image header, chunks the various blocks it refers and
+  // invokes the AddReferenceCallback for all references encountered.
   bool ParseImageHeader(PEHeader* pe_header);
 
-  // Parse export directory and invoke the AddReferenceCallback for all
+  // Parses the export directory and invokes the AddReferenceCallback for all
   // references encountered.
   // @param export_dir_block a block referencing a valid export
-  //      directory from a PE image.
+  //     directory from a PE image.
   bool ParseExportDirectory(BlockGraph::Block* export_dir_block);
+
+  // Parses the load config and invokes AddReferenceCallback for all
+  // references encountered.
+  // @param load_config_block a block referencing a valid export
+  //     directory from a PE image.
+  bool ParseLoadConfig(BlockGraph::Block* load_config_block);
+
+  // Parses the TLS directory and invokes AddReferenceCallback for all
+  // references encountered.
+  // @param load_config_block a block referencing a valid TLS
+  //     directory from a PE image.
+  bool ParseTlsDirectory(BlockGraph::Block* tls_directory_block);
+
+  // Parses the debug directory and invokes AddReferenceCallback for the
+  // sole reference in there.
+  // @param debug_directory_block a block referencing a valid debug
+  //     directory from a PE image.
+  bool ParseDebugDirectory(BlockGraph::Block* debug_directory_block);
 
  private:
   BlockGraph::Block* AddBlock(BlockGraph::BlockType type,
@@ -91,6 +109,11 @@ class PEFileParser {
   bool AddAbsolute(const PEFileStructPtr<ItemType>& structure,
                    const DWORD* item,
                    const char* name = NULL);
+
+  template <typename ItemType>
+  bool AddFileOffset(const PEFileStructPtr<ItemType>& structure,
+                     const DWORD* item,
+                     const char* name = NULL);
 
   const PEFile& image_file_;
   BlockGraph::AddressSpace* address_space_;

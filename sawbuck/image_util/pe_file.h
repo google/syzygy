@@ -66,6 +66,7 @@ class PEFile {
   // Translate between relative and absolute addresses.
   bool Translate(RelativeAddress rel, AbsoluteAddress* abs) const;
   bool Translate(AbsoluteAddress abs, RelativeAddress* rel) const;
+  bool Translate(FileOffsetAddress offs, RelativeAddress* rel) const;
 
   // Read len bytes from image at offset offs to data.
   bool ReadImage(RelativeAddress rel, void* data, size_t len) const;

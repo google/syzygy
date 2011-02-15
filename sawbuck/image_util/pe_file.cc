@@ -140,16 +140,36 @@ bool PEFile::ReadSections(FILE* file) {
   return true;
 }
 
-bool PEFile::Translate(RelativeAddress in, AbsoluteAddress* abs) const {
+bool PEFile::Translate(RelativeAddress rel, AbsoluteAddress* abs) const {
   DCHECK(abs != NULL);
-  abs->set_value(in.value() + nt_headers_->OptionalHeader.ImageBase);
+  abs->set_value(rel.value() + nt_headers_->OptionalHeader.ImageBase);
   return true;
 }
 
-bool PEFile::Translate(AbsoluteAddress in, RelativeAddress* rel) const {
+bool PEFile::Translate(AbsoluteAddress abs, RelativeAddress* rel) const {
   DCHECK(rel != NULL);
-  rel->set_value(in.value() - nt_headers_->OptionalHeader.ImageBase);
+  rel->set_value(abs.value() - nt_headers_->OptionalHeader.ImageBase);
   return true;
+}
+
+bool PEFile::Translate(FileOffsetAddress offs, RelativeAddress* rel) const {
+  DCHECK(rel != NULL);
+
+  // The first "previous segment" is the headers.
+  RelativeAddress previous_segment_start(0);
+  FileOffsetAddress previous_segment_file_start(0);
+  for (size_t i = 0; i < nt_headers_->FileHeader.NumberOfSections; ++i) {
+    if (offs.value() < section_headers_[i].PointerToRawData) {
+      size_t file_offs = offs - previous_segment_file_start;
+      *rel =  previous_segment_start + file_offs;
+      return true;
+    }
+
+    previous_segment_start.set_value(section_headers_[i].VirtualAddress);
+    previous_segment_file_start.set_value(section_headers_[i].PointerToRawData);
+  }
+
+  return false;
 }
 
 const uint8* PEFile::GetImageData(RelativeAddress rel, size_t len) const {
