@@ -99,6 +99,8 @@
         'pe_file_unittest.cc',
         'pe_file_parser_unittest.cc',
         'pe_file_writer_unittest.cc',
+        'unittest_util.h',
+        'unittest_util.cc',
       ],
       'dependencies': [
         'image_util',

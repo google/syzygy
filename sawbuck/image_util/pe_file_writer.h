@@ -26,37 +26,41 @@ namespace image_util {
 class PEFileWriter {
  public:
   // @param image_data the data in the image.
-  // @param header PE header information for the image.
+  // @param nt_headers the NT header information for the image.
+  // @param section_headers the image section headers for the image,
+  //     must point to an array of nt_headers->FileHeader.NumberOfSections
+  //     elements.
   // @note the @p image_data must conform to the information in
-  //      @p header, in that all data must reside within the sections
-  //      defined in the header.
+  //     @p header, in that all data must reside within the sections
+  //     defined in the header.
   PEFileWriter(const BlockGraph::AddressSpace& image_data,
-               const PEFileParser::PEHeader& header);
+               const IMAGE_NT_HEADERS* nt_headers,
+               const IMAGE_SECTION_HEADER* section_headers);
 
   // Writes the image to path.
   bool WriteImage(const FilePath& path);
 
  protected:
-  bool InitializeSectionAddressSpace();
+  bool InitializeSectionFileAddressSpace();
   bool WriteBlocks(FILE* file);
   bool WriteOneBlock(AbsoluteAddress image_base,
                      const BlockGraph::Block* block,
                      FILE* file);
 
-  // Validate and return the NT headers from header_.
-  const IMAGE_NT_HEADERS* GetNTHeaders() const;
-
-  // Validate and return the section headers from header_.
-  const IMAGE_SECTION_HEADER* GetSectionHeaders() const;
-
   // Maps from the relative offset to the start of a section to
   // the file offset for the start of that same section.
   typedef AddressSpace<RelativeAddress, size_t, FileOffsetAddress>
+      SectionFileAddressSpace;
+  SectionFileAddressSpace section_file_offsets_;
+
+  // Maps from section virtual address range to section index.
+  typedef AddressSpace<RelativeAddress, size_t, size_t>
       SectionAddressSpace;
-  SectionAddressSpace section_offsets_;
+  SectionAddressSpace sections_;
 
   const BlockGraph::AddressSpace& image_;
-  const PEFileParser::PEHeader& header_;
+  const IMAGE_NT_HEADERS* nt_headers_;
+  const IMAGE_SECTION_HEADER* section_headers_;
 };
 
 }  // namespace image_util

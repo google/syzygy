@@ -69,3 +69,12 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
         function1() + function2() + function3() + atoi("7"));
   }
 }
+
+DWORD WINAPI TestExport(size_t buf_len, char* buf) {
+  static const char kTestString[] =
+      "The quick brown fox jumped over the lazy dog";
+
+  strncpy(buf, kTestString, buf_len);
+
+  return 0;
+}

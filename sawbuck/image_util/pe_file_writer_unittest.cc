@@ -15,34 +15,20 @@
 
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/native_library.h"
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 #include "sawbuck/image_util/decomposer.h"
-#include <algorithm>
-#include <map>
-#include <set>
-#include <vector>
+#include "sawbuck/image_util/pe_file.h"
+#include "sawbuck/image_util/unittest_util.h"
 
 namespace {
 
-using image_util::RelativeAddress;
 using image_util::Decomposer;
-using image_util::BlockGraph;
 using image_util::PEFile;
-typedef std::vector<uint8> SectionBuffer;
-
-FilePath GetExeRelativePath(const wchar_t* image_name) {
-  FilePath exe_dir;
-  PathService::Get(base::DIR_EXE, &exe_dir);
-
-  return exe_dir.Append(image_name);
-}
-
-const wchar_t kDllName[] = L"test_dll.dll";
 
 class PEFileWriterTest: public testing::Test {
  public:
-  PEFileWriterTest() {
+  PEFileWriterTest() : nt_headers_(NULL), section_headers_(NULL) {
   }
 
   void SetUp() {
@@ -50,11 +36,22 @@ class PEFileWriterTest: public testing::Test {
     ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
 
     // Decompose the original test image.
-    FilePath image_path(GetExeRelativePath(kDllName));
+    FilePath image_path(testing::GetExeRelativePath(testing::kDllName));
     ASSERT_TRUE(image_file_.Init(image_path));
 
     Decomposer decomposer(image_file_, image_path);
     ASSERT_TRUE(decomposer.Decompose(&decomposed_image_));
+
+    ASSERT_EQ(sizeof(IMAGE_NT_HEADERS),
+        decomposed_image_.header.nt_headers->data_size());
+    nt_headers_ = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+        decomposed_image_.header.nt_headers->data());
+
+    ASSERT_EQ(
+        sizeof(IMAGE_SECTION_HEADER) * nt_headers_->FileHeader.NumberOfSections,
+        decomposed_image_.header.image_section_headers->data_size());
+    section_headers_ = reinterpret_cast<const IMAGE_SECTION_HEADER*>(
+        decomposed_image_.header.image_section_headers->data());
   }
 
   void TearDown() {
@@ -66,6 +63,8 @@ class PEFileWriterTest: public testing::Test {
   FilePath temp_file_;
   PEFile image_file_;
   Decomposer::DecomposedImage decomposed_image_;
+  const IMAGE_NT_HEADERS* nt_headers_;
+  const IMAGE_SECTION_HEADER* section_headers_;
 };
 
 }  // namespace
@@ -75,22 +74,16 @@ namespace image_util {
 TEST_F(PEFileWriterTest, LoadOriginalImage) {
   // This test baselines the other test(s) that operate on mutated, copied
   // versions of the DLLs.
-  FilePath image_path(GetExeRelativePath(kDllName));
-  HMODULE loaded = ::LoadLibrary(image_path.value().c_str());
-  ASSERT_TRUE(loaded != NULL);
-  ::FreeLibrary(loaded);
+  FilePath image_path(testing::GetExeRelativePath(testing::kDllName));
+  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(image_path));
 }
 
 TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   PEFileWriter writer(decomposed_image_.address_space,
-                      decomposed_image_.header);
+                      nt_headers_,
+                      section_headers_);
   ASSERT_TRUE(writer.WriteImage(temp_file_));
-
-  HMODULE loaded = ::LoadLibrary(temp_file_.value().c_str());
-  ASSERT_TRUE(loaded != NULL);
-  ::FreeLibrary(loaded);
-
-  // TODO(siggi): Excercise the exports etc.
+  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
 }
 
 }  // namespace image_util

@@ -20,6 +20,7 @@
 #include "sawbuck/common/buffer_parser.h"
 
 namespace {
+
 template <class Type>
 bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
   BinaryBufferParser parser(&data->at(0), data->size());
@@ -39,8 +40,13 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
 namespace image_util {
 
 PEFileWriter::PEFileWriter(const BlockGraph::AddressSpace& image,
-                           const PEFileParser::PEHeader& header)
-    : image_(image), header_(header) {
+                           const IMAGE_NT_HEADERS* nt_headers_,
+                           const IMAGE_SECTION_HEADER* section_headers_)
+    : image_(image),
+      nt_headers_(nt_headers_),
+      section_headers_(section_headers_) {
+  DCHECK(nt_headers_ != NULL);
+  DCHECK(section_headers_ != NULL);
 }
 
 bool PEFileWriter::WriteImage(const FilePath& path) {
@@ -56,7 +62,7 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
   //    Check that there's a DOS stub, and its length.
   //    Check that the NT headers start at the right offset.
   //    Check that the section headers start immediately after the NT headers.
-  if (!InitializeSectionAddressSpace())
+  if (!InitializeSectionFileAddressSpace())
     return false;
 
   if (!WriteBlocks(file.get()))
@@ -65,26 +71,12 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
   return true;
 }
 
-bool PEFileWriter::InitializeSectionAddressSpace() {
-  // Retrieve the NT headers.
-  const IMAGE_NT_HEADERS* nt_headers = GetNTHeaders();
-  if (nt_headers == NULL) {
-    LOG(ERROR) << "Missing or corrupt NT headers";
-    return false;
-  }
-
-  // And the section headers.
-  const IMAGE_SECTION_HEADER* section_headers = GetSectionHeaders();
-  if (section_headers == NULL) {
-    LOG(ERROR) << "Missing or corrupt image section headers";
-    return false;
-  }
-
+bool PEFileWriter::InitializeSectionFileAddressSpace() {
   // Now set up the address mappings from RVA to disk offset for the entire
-  // image. The first mapping starts at zero, and coveres the header(s).
-  SectionAddressSpace::Range header_range(
-      RelativeAddress(0), nt_headers->OptionalHeader.SizeOfHeaders);
-  section_offsets_.Insert(header_range, FileOffsetAddress(0));
+  // image. The first mapping starts at zero, and covers the header(s).
+  SectionFileAddressSpace::Range header_range(
+      RelativeAddress(0), nt_headers_->OptionalHeader.SizeOfHeaders);
+  section_file_offsets_.Insert(header_range, FileOffsetAddress(0));
 
   // The remainder of the mappings are for the sections. While we run through
   // and set up the section mappings, we also make sure they're sane by
@@ -96,40 +88,40 @@ bool PEFileWriter::InitializeSectionAddressSpace() {
       header_range.start() + header_range.size());
   FileOffsetAddress previous_section_file_end(previous_section_end.value());
 
-  for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
-    RelativeAddress section_start(section_headers[i].VirtualAddress);
-    size_t section_size = section_headers[i].Misc.VirtualSize;
-    FileOffsetAddress section_file_start(section_headers[i].PointerToRawData);
-    size_t section_file_size = section_headers[i].SizeOfRawData;
+  for (size_t i = 0; i < nt_headers_->FileHeader.NumberOfSections; ++i) {
+    RelativeAddress section_start(section_headers_[i].VirtualAddress);
+    size_t section_size = section_headers_[i].Misc.VirtualSize;
+    FileOffsetAddress section_file_start(section_headers_[i].PointerToRawData);
+    size_t section_file_size = section_headers_[i].SizeOfRawData;
 
     if (section_start < previous_section_end ||
         section_file_start < previous_section_file_end) {
-      LOG(ERROR) << "Section " << section_headers[i].Name <<
+      LOG(ERROR) << "Section " << section_headers_[i].Name <<
           " runs into previous section (or header).";
       return false;
     }
 
     if ((section_start.value() %
-            nt_headers->OptionalHeader.SectionAlignment) != 0 ||
+            nt_headers_->OptionalHeader.SectionAlignment) != 0 ||
         (section_file_start.value() %
-            nt_headers->OptionalHeader.FileAlignment) != 0) {
-      LOG(ERROR) << "Section " << section_headers[i].Name <<
+            nt_headers_->OptionalHeader.FileAlignment) != 0) {
+      LOG(ERROR) << "Section " << section_headers_[i].Name <<
           " has incorrect alignment.";
       return false;
     }
 
     if ((section_start - previous_section_end > static_cast<ptrdiff_t>(
-            nt_headers->OptionalHeader.SectionAlignment)) ||
+            nt_headers_->OptionalHeader.SectionAlignment)) ||
         (section_file_start - previous_section_file_end >
-            static_cast<ptrdiff_t>(nt_headers->OptionalHeader.FileAlignment))) {
-      LOG(ERROR) << "Section " << section_headers[i].Name <<
+            static_cast<ptrdiff_t>(nt_headers_->OptionalHeader.FileAlignment))) {
+      LOG(ERROR) << "Section " << section_headers_[i].Name <<
           " leaves a gap from previous section.";
       return false;
     }
 
     // Ok, it all passes inspection so far, record the mapping.
-    SectionAddressSpace::Range range(section_start, section_size);
-    section_offsets_.Insert(range, section_file_start);
+    SectionFileAddressSpace::Range file_range(section_start, section_size);
+    section_file_offsets_.Insert(file_range, section_file_start);
 
     previous_section_end = section_start + section_size;
     previous_section_file_end = section_file_start + section_file_size;
@@ -139,15 +131,7 @@ bool PEFileWriter::InitializeSectionAddressSpace() {
 }
 
 bool PEFileWriter::WriteBlocks(FILE* file) {
-  // Retrieve the NT headers, we need the image base to
-  // correctly rewrite absolute references.
-  const IMAGE_NT_HEADERS* nt_headers = GetNTHeaders();
-  if (nt_headers == NULL) {
-    LOG(ERROR) << "Missing or corrupt NT headers";
-    return false;
-  }
-
-  AbsoluteAddress image_base(nt_headers->OptionalHeader.ImageBase);
+  AbsoluteAddress image_base(nt_headers_->OptionalHeader.ImageBase);
 
   // Iterate through all blocks in the address space.
   BlockGraph::AddressSpace::RangeMap::const_iterator it(
@@ -165,17 +149,16 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
   }
 
   // Now round the file to the required size.
-  const IMAGE_SECTION_HEADER* section_headers = GetSectionHeaders();
-  if (section_headers == NULL) {
+  if (section_headers_ == NULL) {
     LOG(ERROR) << "Missing or corrupt image section headers";
     return false;
   }
 
   const IMAGE_SECTION_HEADER* last_section =
-      &section_headers[nt_headers->FileHeader.NumberOfSections - 1];
+      &section_headers_[nt_headers_->FileHeader.NumberOfSections - 1];
   size_t file_size =
       last_section->PointerToRawData + last_section->SizeOfRawData;
-  DCHECK((file_size % nt_headers->OptionalHeader.FileAlignment) == 0);
+  DCHECK((file_size % nt_headers_->OptionalHeader.FileAlignment) == 0);
   if (last_section->SizeOfRawData > last_section->Misc.VirtualSize) {
     if (fseek(file, file_size - 1, SEEK_SET) != 0 ||
         fwrite("\0", 1, 1, file) != 1) {
@@ -197,8 +180,11 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   DCHECK(file != NULL);
 
   // If the block has no data, there's nothing to write.
-  if (block->data() == NULL)
+  if (block->data() == NULL) {
+    // A block with no data can't have references to anything else.
+    DCHECK(block->references().empty());
     return true;
+  }
 
   RelativeAddress addr;
   if (!image_.GetAddressOf(block, &addr)) {
@@ -207,10 +193,10 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   }
 
   // Find the section that contains this block.
-  SectionAddressSpace::RangeMap::const_iterator it(
-      section_offsets_.FindContaining(
-          SectionAddressSpace::Range(addr, block->data_size())));
-  if (it == section_offsets_.ranges().end()) {
+  SectionFileAddressSpace::RangeMap::const_iterator it(
+      section_file_offsets_.FindContaining(
+          SectionFileAddressSpace::Range(addr, block->data_size())));
+  if (it == section_file_offsets_.ranges().end()) {
     LOG(ERROR) << "Block outside defined sections at: " << addr;
     return false;
   }
@@ -246,8 +232,14 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     // Compute the new value of the reference.
     uint32 value = 0;
     switch (ref.type()) {
-      case BlockGraph::ABSOLUTE_REF:
-        value = image_base.value() + dst_addr.value();
+      case BlockGraph::ABSOLUTE_REF: {
+          value = image_base.value() + dst_addr.value();
+#ifndef NDEBUG
+          DCHECK(value >= nt_headers_->OptionalHeader.ImageBase);
+          DCHECK(value < nt_headers_->OptionalHeader.ImageBase +
+              nt_headers_->OptionalHeader.SizeOfImage);
+#endif
+        }
         break;
 
       case BlockGraph::PC_RELATIVE_REF:
@@ -291,36 +283,6 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     return false;
   }
   return true;
-}
-
-const IMAGE_NT_HEADERS* PEFileWriter::GetNTHeaders() const {
-  // Sanity check and retrieve the NT headers.
-  BlockGraph::Block* block = header_.nt_headers;
-  if (block == NULL || block->data() == NULL ||
-      block->data_size() != block->size() ||
-      block->data_size() != sizeof(IMAGE_NT_HEADERS)) {
-    return NULL;
-  }
-
-  return reinterpret_cast<const IMAGE_NT_HEADERS*>(block->data());
-}
-
-const IMAGE_SECTION_HEADER* PEFileWriter::GetSectionHeaders() const {
-  const IMAGE_NT_HEADERS* nt_headers = GetNTHeaders();
-  if (nt_headers == NULL)
-    return NULL;
-
-  size_t expected_size =
-      sizeof(IMAGE_SECTION_HEADER) * nt_headers->FileHeader.NumberOfSections;
-  // Sanity check and retrieve the section headers.
-  BlockGraph::Block* block = header_.image_section_headers;
-  if (block == NULL || block->data() == NULL ||
-      block->data_size() != block->size() ||
-      block->data_size() != expected_size) {
-    return NULL;
-  }
-
-  return reinterpret_cast<const IMAGE_SECTION_HEADER*>(block->data());
 }
 
 }  // namespace image_util
