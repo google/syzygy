@@ -27,8 +27,13 @@ template <typename AddressType, typename SizeType> class AddressRange;
 template <typename AddressType, typename SizeType, typename ItemType>
 class AddressSpace {
  public:
+  // Typedef we use for convenience throughout.
   typedef AddressRange<AddressType, SizeType> Range;
   typedef std::map<Range, ItemType> RangeMap;
+  typedef typename std::map<Range, ItemType>::iterator RangeMapIter;
+  typedef typename std::map<Range, ItemType>::const_iterator RangeMapConstIter;
+  typedef std::pair<RangeMapConstIter, RangeMapConstIter> RangeMapConstIterPair;
+  typedef std::pair<RangeMapIter, RangeMapIter> RangeMapIterPair;
 
   // Create an empy address space.
   AddressSpace();
@@ -50,19 +55,11 @@ class AddressSpace {
   const RangeMap& ranges() const { return ranges_; }
 
   // Finds the first contained range that intersects @p range.
-  typename RangeMap::const_iterator FindFirstIntersection(
-      const Range& range) const;
-  typename RangeMap::iterator FindFirstIntersection(
-      const Range& range);
+  RangeMapConstIter FindFirstIntersection(const Range& range) const;
+  RangeMapIter FindFirstIntersection(const Range& range);
 
   // Returns a pair of iterators that iterate over all ranges
   // intersecting @p range.
-  typedef std::pair<typename RangeMap::const_iterator,
-                    typename RangeMap::const_iterator>
-      RangeMapConstIterPair;
-  typedef std::pair<typename RangeMap::iterator, typename RangeMap::iterator>
-      RangeMapIterPair;
-
   RangeMapConstIterPair FindIntersecting(const Range& range) const;
   RangeMapIterPair FindIntersecting(const Range& range);
 

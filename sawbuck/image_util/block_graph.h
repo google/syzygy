@@ -41,6 +41,12 @@ class BlockGraph {
   typedef size_t BlockId;
   typedef size_t Size;
   typedef ptrdiff_t Offset;
+  typedef uint32 BlockAttributes;
+
+  enum BlockAttributeEnum {
+    // Set for functions declared non-returning.
+    NON_RETURN_FUNCTION = 0x1,
+  };
 
   enum BlockType {
     CODE_BLOCK,
@@ -134,10 +140,27 @@ class BlockGraph::Block {
   size_t segment() const { return segment_; }
   void set_segment(size_t segment) { segment_ = segment; }
 
+  // The block attributes are a bitmask. You can set them wholesale,
+  // or set and clear them individually by bitmasking.
+  BlockAttributes attributes() const { return attributes_; }
+  void set_attributes(BlockAttributes attributes) { attributes_ = attributes; }
+
+  // Set or clear one or more attributes.
+  void set_attribute(BlockAttributes attribute) { attributes_ |= attribute; }
+  void clear_attribute(BlockAttributes attribute) {
+    attributes_ &= ~attribute;
+  }
+
   // This is true iff data_ is in the ownership of the block.
   // When true, the block will delete [] data_ on destruction.
   bool owns_data() const { return owns_data_; }
   void set_owns_data(bool owns_data) { owns_data_ = owns_data; }
+
+  // Allocates and returns new data of the given size.
+  uint8* AllocateData(size_t size);
+
+  // Makes a copy of data, returns a pointer to the copy.
+  uint8* CopyData(size_t size, const void* data);
 
   // The data bytes the block refers to.
   const uint8* data() const { return data_; }
@@ -159,6 +182,11 @@ class BlockGraph::Block {
   // @param ref the reference to add.
   // @returns true iff this inserts a new reference.
   bool SetReference(Offset offset, const Reference& ref);
+
+  // Retrieve the reference at @p offset if one exists.
+  // @param reference on success returns the reference @p offset.
+  // @returns true iff there was a reference at @p offset.
+  bool GetReference(Offset offset, Reference* reference) const;
 
   // Remove the reference at @p offset.
   // @returns true iff there was a reference at @p offset.
@@ -187,6 +215,7 @@ class BlockGraph::Block {
   RelativeAddress original_addr_;
 
   size_t segment_;
+  BlockAttributes attributes_;
 
   ReferenceMap references_;
   RefererSet referers_;
@@ -210,6 +239,9 @@ class BlockGraph::AddressSpace {
       AddressSpaceImpl;
   typedef AddressSpaceImpl::RangeMap RangeMap;
   typedef AddressSpaceImpl::Range Range;
+  typedef AddressSpaceImpl::RangeMapIterPair RangeMapIterPair;
+  typedef AddressSpaceImpl::RangeMapIter RangeMapIter;
+  typedef AddressSpaceImpl::RangeMapConstIter RangeMapConstIter;
 
   // Constructs a new empty address space.
   // @p start to @p start + @p size on @p graph.
@@ -250,6 +282,10 @@ class BlockGraph::AddressSpace {
   // [@p address, @p address + @p size).
   Block* GetFirstItersectingBlock(RelativeAddress address, Size size);
 
+  // Locates all blocks that intersect [@p address, @p address + @p size).
+  // @returns a pair of iterators that iterate over the found blocks.
+  RangeMapIterPair GetIntersectingBlocks(RelativeAddress address, Size size);
+
   // Retrieve the address off @p block.
   // @param block the block in question.
   // @param addr on success, returns the address of @p block in this
@@ -278,6 +314,9 @@ class BlockGraph::AddressSpace {
 // Represents a reference from one block to another.
 class BlockGraph::Reference {
  public:
+  Reference() : type_(RELATIVE_REF), size_(0), referenced_(NULL), offset_(0) {
+  }
+
   // @param type type of reference.
   // @param size size of reference.
   // @param referenced the referenced block.

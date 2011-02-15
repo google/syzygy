@@ -101,6 +101,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::GetFirstItersectingBlock(
   return it->second;
 }
 
+BlockGraph::AddressSpace::RangeMapIterPair
+BlockGraph::AddressSpace::GetIntersectingBlocks(RelativeAddress address,
+                                                Size size) {
+  return address_space_.FindIntersecting(Range(address, size));
+}
+
 bool BlockGraph::AddressSpace::GetAddressOf(const Block* block,
                                             RelativeAddress* addr) const {
   DCHECK(block != NULL);
@@ -151,9 +157,13 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
                                           address_it->second));
   }
 
-  // Bail if there are no intersections.
+  // Bail if the intersection doesn't cover at least two blocks.
   if (intersecting.empty())
     return NULL;
+
+  // In case of single-block intersection, we're done.
+  if (intersecting.size() == 1)
+    return intersecting[0].second;
 
   DCHECK(!intersecting.empty());
 
@@ -174,10 +184,19 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
 
   // Remove the found blocks from the address space, and make
   // sure they're all of the same type as the first block.
+  // Merge the data from all the blocks as we go along.
+  std::vector<uint8> merged_data(end - begin);
+  bool have_data = false;
   for (size_t i = 0; i < intersecting.size(); ++i) {
     RelativeAddress addr = intersecting[i].first;
     BlockGraph::Block* block = intersecting[i].second;
     DCHECK_EQ(block_type, block->type());
+
+    if (block->data() != NULL) {
+      have_data = true;
+      memcpy(&merged_data.at(addr - begin), block->data(), block->data_size());
+    }
+
     bool removed = address_space_.Remove(Range(addr, block->size()));
     DCHECK(removed);
     size_t num_removed = block_addresses_.erase(intersecting[i].second);
@@ -188,6 +207,13 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
                                           begin, end - begin,
                                           block_name);
   DCHECK(new_block != NULL);
+  if (have_data) {
+    uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
+    if (data == NULL) {
+      LOG(ERROR) << "Unable to copy merged data";
+      return false;
+    }
+  }
 
   // Now move all labels and references to the new block.
   for (size_t i = 0; i < intersecting.size(); ++i) {
@@ -225,9 +251,9 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
 
       // Redirect the reference to the new block with the adjusted offset.
       BlockGraph::Reference new_ref(ref.type(),
-                               ref.size(),
-                               new_block,
-                               ref.offset() + start_offset);
+                                    ref.size(),
+                                    new_block,
+                                    ref.offset() + start_offset);
       referer.first->SetReference(referer.second, new_ref);
     }
 
@@ -251,6 +277,7 @@ BlockGraph::Block::Block(BlockId id,
       addr_(kInvalidAddress),
       original_addr_(kInvalidAddress),
       segment_(kInvalidSegment),
+      attributes_(0),
       owns_data_(false),
       data_(NULL),
       data_size_(0) {
@@ -259,6 +286,33 @@ BlockGraph::Block::Block(BlockId id,
 BlockGraph::Block::~Block() {
   if (owns_data_)
     delete [] data_;
+}
+
+uint8* BlockGraph::Block::AllocateData(size_t size) {
+  DCHECK(size > 0 && size <= size_);
+  uint8* new_data = new uint8[size];
+  if (!new_data)
+    return NULL;
+
+  if (owns_data()) {
+    DCHECK(data_ != NULL);
+    delete data_;
+  }
+
+  data_ = new_data;
+  data_size_ = size;
+  owns_data_ = true;
+
+  return new_data;
+}
+
+uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
+  uint8* new_data = AllocateData(size);
+  if (new_data == NULL)
+    return NULL;
+
+  memcpy(new_data, data, size);
+  return new_data;
 }
 
 bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
@@ -287,6 +341,17 @@ bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
   ref.referenced()->referers_.insert(std::make_pair(this, offset));
 
   return inserted;
+}
+
+bool BlockGraph::Block::GetReference(Offset offset,
+                                     Reference* reference) const {
+  DCHECK(reference != NULL);
+  ReferenceMap::const_iterator it(references_.find(offset));
+  if (it == references_.end())
+    return false;
+
+  *reference = it->second;
+  return true;
 }
 
 bool BlockGraph::Block::RemoveReference(Offset offset) {

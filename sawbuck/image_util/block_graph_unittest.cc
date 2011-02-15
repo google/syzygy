@@ -35,9 +35,17 @@ TEST(BlockGraphTest, AddBlock) {
   ASSERT_EQ(kInvalidAddress, block->addr());
   ASSERT_EQ(kInvalidAddress, block->original_addr());
   ASSERT_EQ(kInvalidSegment, block->segment());
+  ASSERT_EQ(0, block->attributes());
   ASSERT_EQ(NULL, block->data());
   ASSERT_EQ(0, block->data_size());
   ASSERT_FALSE(block->owns_data());
+
+  block->set_attribute(0x20);
+  ASSERT_EQ(0x20, block->attributes());
+  block->set_attribute(0x10);
+  ASSERT_EQ(0x30, block->attributes());
+  block->clear_attribute(0x20);
+  ASSERT_EQ(0x10, block->attributes());
 
   // Test accessors.
   static const uint8 kTestData[] = "who's your daddy?";
@@ -347,7 +355,7 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   ASSERT_TRUE(block1->SetReference(0x6,
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block3, 0x0)));
   ASSERT_TRUE(block2->SetReference(0x1,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block1, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, block1, 0x4)));
   ASSERT_TRUE(block2->SetReference(0x6,
       BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block3, 0x4)));
   ASSERT_TRUE(block3->SetReference(0x1,
@@ -357,6 +365,8 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
       BlockGraph::AddressSpace::Range(RelativeAddress(0x1014), 0x30));
 
   ASSERT_TRUE(merged != NULL);
+  ASSERT_EQ(RelativeAddress(0x1010), merged->addr());
+  ASSERT_EQ(0x34, merged->size());
 
   BlockGraph::Block::LabelMap expected_labels;
   expected_labels.insert(std::make_pair(0x00, "0x1010"));
@@ -367,7 +377,7 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
 
   BlockGraph::Block::ReferenceMap expected_refs;
   expected_refs.insert(std::make_pair(0x1,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block1, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, block1, 0x4)));
   expected_refs.insert(std::make_pair(0x6,
       BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, merged, 0x24)));
   expected_refs.insert(std::make_pair(0x21,
