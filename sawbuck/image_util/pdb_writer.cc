@@ -16,6 +16,7 @@
 
 #include "base/logging.h"
 #include "sawbuck/image_util/pdb_constants.h"
+#include "sawbuck/image_util/pdb_data.h"
 
 const uint32 kZeroBuffer[kPdbPageSize] = { 0 };
 

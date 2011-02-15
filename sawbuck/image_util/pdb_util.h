@@ -11,15 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pdb_constants.h"
+#ifndef SAWBUCK_IMAGE_UTIL_PDB_UTIL_H_
+#define SAWBUCK_IMAGE_UTIL_PDB_UTIL_H_
 
-const uint32 kDbiStream = 3;
+#include "sawbuck/image_util/pdb_data.h"
 
-const uint8 kPdbHeaderMagicString[] = {
-  0x4D, 0x69, 0x63, 0x72, 0x6F, 0x73, 0x6F, 0x66,  // "Microsof"
-  0x74, 0x20, 0x43, 0x2F, 0x43, 0x2B, 0x2B, 0x20,  // "t C/C++ "
-  0x4D, 0x53, 0x46, 0x20, 0x37, 0x2E, 0x30, 0x30,  // "MSF 7.00"
-  0x0D, 0x0A, 0x1A, 0x44, 0x53, 0x00, 0x00, 0x00   // "^^^DS^^^"
-};
+namespace pdb_util {
 
-const uint32 kPdbMaxDirPages = 0x49;
+// Get the DbiDbgHeader offset within the Dbi info stream. For some reason,
+// the EC info data comes before the Dbi debug header despite that the Dbi
+// debug header size comes before the EC info size in the Dbi header struct.
+uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header);
+
+}  // namespace pdb_util
+
+#endif  // SAWBUCK_IMAGE_UTIL_PDB_UTIL_H_

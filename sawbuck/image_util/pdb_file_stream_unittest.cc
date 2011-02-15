@@ -16,6 +16,7 @@
 #include "base/path_service.h"
 #include "gtest/gtest.h"
 #include "sawbuck/image_util/pdb_constants.h"
+#include "sawbuck/image_util/pdb_data.h"
 
 namespace {
 

@@ -18,6 +18,7 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "sawbuck/image_util/pdb_constants.h"
+#include "sawbuck/image_util/pdb_data.h"
 #include "sawbuck/image_util/pdb_stream.h"
 
 // This class is used to read a pdb file and provide access to the file's

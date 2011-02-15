@@ -26,6 +26,9 @@ class PdbByteStream : public PdbStream {
   // Initialize the stream from the contents of another PdbStream.
   bool Init(PdbStream* stream);
 
+  // Get the stream's data pointer.
+  uint8* data() { return data_.get(); }
+
  protected:
   // PdbStream implementation.
   size_t ReadBytes(void* dest, size_t count);

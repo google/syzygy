@@ -11,15 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pdb_constants.h"
+#include "sawbuck/image_util/pdb_util.h"
 
-const uint32 kDbiStream = 3;
+namespace pdb_util {
 
-const uint8 kPdbHeaderMagicString[] = {
-  0x4D, 0x69, 0x63, 0x72, 0x6F, 0x73, 0x6F, 0x66,  // "Microsof"
-  0x74, 0x20, 0x43, 0x2F, 0x43, 0x2B, 0x2B, 0x20,  // "t C/C++ "
-  0x4D, 0x53, 0x46, 0x20, 0x37, 0x2E, 0x30, 0x30,  // "MSF 7.00"
-  0x0D, 0x0A, 0x1A, 0x44, 0x53, 0x00, 0x00, 0x00   // "^^^DS^^^"
-};
+uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
+  uint32 offset = sizeof(DbiHeader);
+  offset += dbi_header.gp_modi_size;
+  offset += dbi_header.section_contribution_size;
+  offset += dbi_header.section_map_size;
+  offset += dbi_header.file_info_size;
+  offset += dbi_header.ts_map_size;
+  offset += dbi_header.ec_info_size;  // Unexpected, but necessary.
+  return offset;
+}
 
-const uint32 kPdbMaxDirPages = 0x49;
+}  // namespace pdb_util

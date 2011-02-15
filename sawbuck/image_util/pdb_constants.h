@@ -16,6 +16,9 @@
 
 #include "base/basictypes.h"
 
+// The index of the Dbi info stream.
+extern const uint32 kDbiStream;
+
 // This is the magic value found at the start of all MSF v7.00 files.
 extern const uint8 kPdbHeaderMagicString[32];
 
@@ -26,17 +29,5 @@ extern const uint32 kPdbMaxDirPages;
 // This is the Multi-Stream Format (MSF) page size generally used for PDB
 // files. Check bytes 32 through 35 (little endian) of any PDB file.
 const uint32 kPdbPageSize = 1024;
-
-// Multi-Stream Format (MSF) Header
-// See http://code.google.com/p/pdbparser/wiki/MSF_Format
-struct PdbHeader {
-  uint8 magic_string[32];
-  uint32 page_size;
-  uint32 free_page_map;
-  uint32 num_pages;
-  uint32 directory_size;
-  uint32 reserved;
-  uint32 root_pages[73];
-};
 
 #endif  // SAWBUCK_IMAGE_UTIL_PDB_CONSTANTS_H_
