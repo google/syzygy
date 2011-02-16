@@ -514,10 +514,9 @@ int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
 
-  if (!logging::InitLogging(L"",
-                            logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-                            logging::DONT_LOCK_LOG_FILE,
-                            logging::APPEND_TO_OLD_LOG_FILE)) {
+  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
+      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
+      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
     std::cerr << "Failed to initialize logging!" << std::endl;
     return 1;
   }
