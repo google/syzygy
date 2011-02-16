@@ -21,8 +21,6 @@ class TestPdbByteStream : public PdbByteStream {
   TestPdbByteStream() : PdbByteStream() {
   }
 
-  uint8* data() { return data_.get(); }
-
   using PdbByteStream::ReadBytes;
 };
 
@@ -46,10 +44,25 @@ class TestPdbStream : public PdbStream {
 
 }  // namespace
 
-TEST(PdbByteStreamTest, Init) {
+TEST(PdbByteStreamTest, InitFromByteArray) {
+  uint8 data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+
+  PdbByteStream stream;
+  EXPECT_TRUE(stream.Init(data, arraysize(data)));
+  EXPECT_EQ(arraysize(data), stream.length());
+  EXPECT_TRUE(stream.data() != NULL);
+
+  for (uint32 i = 0; i < stream.length(); ++i) {
+    uint8 num = 0;
+    EXPECT_EQ(1, stream.Read(&num, 1));
+    EXPECT_EQ(data[i], num);
+  }
+}
+
+TEST(PdbByteStreamTest, InitFromPdbStream) {
   TestPdbStream test_stream(64);
 
-  TestPdbByteStream stream;
+  PdbByteStream stream;
   EXPECT_TRUE(stream.Init(&test_stream));
   EXPECT_EQ(test_stream.length(), stream.length());
   EXPECT_TRUE(stream.data() != NULL);

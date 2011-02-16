@@ -23,6 +23,9 @@ class PdbByteStream : public PdbStream {
   PdbByteStream();
   ~PdbByteStream();
 
+  // Initialize the stream from the contents of a byte array.
+  bool Init(const uint8* data, size_t length);
+
   // Initialize the stream from the contents of another PdbStream.
   bool Init(PdbStream* stream);
 

@@ -14,6 +14,10 @@
 #ifndef SAWBUCK_IMAGE_UTIL_PDB_UTIL_H_
 #define SAWBUCK_IMAGE_UTIL_PDB_UTIL_H_
 
+#include <windows.h>
+#include <dbghelp.h>
+#include <vector>
+#include "base/file_path.h"
 #include "sawbuck/image_util/pdb_data.h"
 
 namespace pdb_util {
@@ -22,6 +26,13 @@ namespace pdb_util {
 // the EC info data comes before the Dbi debug header despite that the Dbi
 // debug header size comes before the EC info size in the Dbi header struct.
 uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header);
+
+// Add Omap stream data to an existing Pdb file and write it as a new Pdb file.
+// The Omap vector arguments must already be sorted in ascending order by rva.
+bool AddOmapStreamToPdbFile(const FilePath& input_file,
+                            const FilePath& output_file,
+                            const std::vector<OMAP>& omap_to_list,
+                            const std::vector<OMAP>& omap_from_list);
 
 }  // namespace pdb_util
 

@@ -118,6 +118,7 @@ bool PdbWriter::AppendStream(PdbStream* stream, uint32* bytes_written) {
   DCHECK(bytes_written != NULL);
 
   // Append the contents of source to output file.
+  stream->Seek(0);
   uint8 buffer[1 << 16];
   while (true) {
     uint32 bytes_read = stream->Read(buffer, sizeof(buffer));

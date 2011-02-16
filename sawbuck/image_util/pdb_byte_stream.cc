@@ -21,6 +21,18 @@ PdbByteStream::PdbByteStream() : PdbStream(0) {
 PdbByteStream::~PdbByteStream() {
 }
 
+bool PdbByteStream::Init(const uint8* data, size_t length) {
+  length_ = length;
+  data_.reset(new uint8[length_]);
+  if (data_.get() == NULL) {
+    LOG(ERROR) << "Failed to allocate byte stream";
+    return false;
+  }
+
+  memcpy(data_.get(), data, length_);
+  return true;
+}
+
 bool PdbByteStream::Init(PdbStream* stream) {
   // Init data members.
   length_ = stream->length();
