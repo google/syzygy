@@ -16,7 +16,7 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "72328",
+  "chrome_revision": "75254",
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
 
@@ -68,8 +68,10 @@ deps = {
 
   "src/testing":
     Var("chrome_base") + "/src/testing@" + Var("chrome_revision"),
+  "src/testing/gmock":
+    "http://googlemock.googlecode.com/svn/trunk@300",
   "src/testing/gtest":
-    "http://googletest.googlecode.com/svn/trunk@489",
+    "http://googletest.googlecode.com/svn/trunk@492",
 
   "src/tools/gyp":
     "http://gyp.googlecode.com/svn/trunk@818",
