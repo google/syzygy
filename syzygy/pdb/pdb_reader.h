@@ -11,15 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PDB_READER_H_
-#define SAWBUCK_IMAGE_UTIL_PDB_READER_H_
+#ifndef SYZYGY_PDB_PDB_READER_H_
+#define SYZYGY_PDB_PDB_READER_H_
 
 #include <vector>
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "sawbuck/image_util/pdb_constants.h"
-#include "sawbuck/image_util/pdb_data.h"
-#include "sawbuck/image_util/pdb_stream.h"
+#include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 // This class is used to read a pdb file and provide access to the file's
 // symbol streams.
@@ -63,4 +63,4 @@ class PdbReader {
   std::vector<PdbStream*> streams_;
 };
 
-#endif  // SAWBUCK_IMAGE_UTIL_PDB_READER_H_
+#endif  // SYZYGY_PDB_PDB_READER_H_

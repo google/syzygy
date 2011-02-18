@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PDB_WRITER_H_
-#define SAWBUCK_IMAGE_UTIL_PDB_WRITER_H_
+#ifndef SYZYGY_PDB_PDB_WRITER_H_
+#define SYZYGY_PDB_PDB_WRITER_H_
 
 #include <vector>
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "sawbuck/image_util/pdb_stream.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 // This class is used to write a pdb file to disk given a list of PdbStreams.
 // It will create a header and directory inside the pdb file that describe
@@ -78,4 +78,4 @@ class PdbWriter {
   file_util::ScopedFILE file_;
 };
 
-#endif  // SAWBUCK_IMAGE_UTIL_PDB_WRITER_H_
+#endif  // SYZYGY_PDB_PDB_WRITER_H_

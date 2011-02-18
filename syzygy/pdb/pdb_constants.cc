@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pdb_constants.h"
+#include "syzygy/pdb/pdb_constants.h"
 
 const uint32 kDbiStream = 3;
 

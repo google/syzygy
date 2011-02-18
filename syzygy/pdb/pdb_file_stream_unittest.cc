@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pdb_file_stream.h"
+#include "syzygy/pdb/pdb_file_stream.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "gtest/gtest.h"
-#include "sawbuck/image_util/pdb_constants.h"
-#include "sawbuck/image_util/pdb_data.h"
+#include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_data.h"
 
 namespace {
 

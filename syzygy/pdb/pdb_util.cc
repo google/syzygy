@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pdb_util.h"
+#include "syzygy/pdb/pdb_util.h"
 
 #include <algorithm>
 #include "sawbuck/common/buffer_parser.h"
-#include "sawbuck/image_util/pdb_byte_stream.h"
-#include "sawbuck/image_util/pdb_reader.h"
-#include "sawbuck/image_util/pdb_writer.h"
+#include "syzygy/pdb/pdb_byte_stream.h"
+#include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_writer.h"
 
 namespace pdb_util {
 

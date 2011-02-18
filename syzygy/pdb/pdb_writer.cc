@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sawbuck/image_util/pdb_writer.h"
+#include "syzygy/pdb/pdb_writer.h"
 
 #include "base/logging.h"
-#include "sawbuck/image_util/pdb_constants.h"
-#include "sawbuck/image_util/pdb_data.h"
+#include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_data.h"
 
 const uint32 kZeroBuffer[kPdbPageSize] = { 0 };
 

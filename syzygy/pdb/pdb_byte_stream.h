@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PDB_BYTE_STREAM_H_
-#define SAWBUCK_IMAGE_UTIL_PDB_BYTE_STREAM_H_
+#ifndef SYZYGY_PDB_PDB_BYTE_STREAM_H_
+#define SYZYGY_PDB_PDB_BYTE_STREAM_H_
 
 #include "base/scoped_ptr.h"
-#include "sawbuck/image_util/pdb_stream.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 // This class represents a PDB stream in memory.
 class PdbByteStream : public PdbStream {
@@ -40,4 +40,4 @@ class PdbByteStream : public PdbStream {
   scoped_array<uint8> data_;
 };
 
-#endif  // SAWBUCK_IMAGE_UTIL_PDB_BYTE_STREAM_H_
+#endif  // SYZYGY_PDB_PDB_BYTE_STREAM_H_

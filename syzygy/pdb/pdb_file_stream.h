@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PDB_FILE_STREAM_H_
-#define SAWBUCK_IMAGE_UTIL_PDB_FILE_STREAM_H_
+#ifndef SYZYGY_PDB_PDB_FILE_STREAM_H_
+#define SYZYGY_PDB_PDB_FILE_STREAM_H_
 
 #include <stdio.h>
 #include "base/basictypes.h"
-#include "sawbuck/image_util/pdb_stream.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 // This class represents a PDB stream on disk.
 class PdbFileStream : public PdbStream {
@@ -48,4 +48,4 @@ class PdbFileStream : public PdbStream {
   size_t page_size_;
 };
 
-#endif  // SAWBUCK_IMAGE_UTIL_PDB_FILE_STREAM_H_
+#endif  // SYZYGY_PDB_PDB_FILE_STREAM_H_

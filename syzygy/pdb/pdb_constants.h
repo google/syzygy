@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PDB_CONSTANTS_H_
-#define SAWBUCK_IMAGE_UTIL_PDB_CONSTANTS_H_
+#ifndef SYZYGY_PDB_PDB_CONSTANTS_H_
+#define SYZYGY_PDB_PDB_CONSTANTS_H_
 
 #include "base/basictypes.h"
 
@@ -30,4 +30,4 @@ extern const uint32 kPdbMaxDirPages;
 // files. Check bytes 32 through 35 (little endian) of any PDB file.
 const uint32 kPdbPageSize = 1024;
 
-#endif  // SAWBUCK_IMAGE_UTIL_PDB_CONSTANTS_H_
+#endif  // SYZYGY_PDB_PDB_CONSTANTS_H_
