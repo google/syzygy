@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/block_graph.h"
+#include "syzygy/core/block_graph.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-namespace image_util {
+namespace core {
 
 TEST(BlockGraphTest, Create) {
   BlockGraph image;
@@ -392,4 +392,4 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   EXPECT_THAT(block1->references(), testing::ContainerEq(expected_refs));
 }
 
-}  // namespace image_util
+}  // namespace core

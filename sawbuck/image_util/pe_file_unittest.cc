@@ -55,6 +55,9 @@ class PEFileTest: public testing::Test {
 
 namespace image_util {
 
+using core::AbsoluteAddress;
+using core::RelativeAddress;
+
 TEST_F(PEFileTest, Create) {
   PEFile image_file;
 
@@ -230,4 +233,4 @@ TEST_F(PEFileTest, DecodeImports) {
   }
 }
 
-} // namespace image_util
+}  // namespace image_util

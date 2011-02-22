@@ -21,17 +21,22 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <dia2.h>
+#include <map>
 #include <set>
+#include <string>
 #include "base/file_path.h"
-#include "sawbuck/image_util/block_graph.h"
 #include "sawbuck/image_util/disassembler.h"
 #include "sawbuck/image_util/pe_file.h"
 #include "sawbuck/image_util/pe_file_parser.h"
+#include "syzygy/core/block_graph.h"
 
 namespace image_util {
 
 class Decomposer {
  public:
+  typedef core::BlockGraph BlockGraph;
+  typedef core::RelativeAddress RelativeAddress;
+
   // Initializes the decomposer for a given image file and path.
   Decomposer(const PEFile& image_file, const FilePath& file_path);
 

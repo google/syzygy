@@ -15,9 +15,9 @@
 #define SAWBUCK_IMAGE_UTIL_PE_FILE_WRITER_H_
 
 #include "base/file_path.h"
-#include "sawbuck/image_util/address_space.h"
-#include "sawbuck/image_util/block_graph.h"
 #include "sawbuck/image_util/pe_file_parser.h"
+#include "syzygy/core/address_space.h"
+#include "syzygy/core/block_graph.h"
 
 namespace image_util {
 
@@ -25,6 +25,11 @@ namespace image_util {
 // to a PE image file.
 class PEFileWriter {
  public:
+  typedef core::AbsoluteAddress AbsoluteAddress;
+  typedef core::BlockGraph BlockGraph;
+  typedef core::FileOffsetAddress FileOffsetAddress;
+  typedef core::RelativeAddress RelativeAddress;
+
   // @param image_data the data in the image.
   // @param nt_headers the NT header information for the image.
   // @param section_headers the image section headers for the image,
@@ -49,12 +54,12 @@ class PEFileWriter {
 
   // Maps from the relative offset to the start of a section to
   // the file offset for the start of that same section.
-  typedef AddressSpace<RelativeAddress, size_t, FileOffsetAddress>
+  typedef core::AddressSpace<RelativeAddress, size_t, FileOffsetAddress>
       SectionFileAddressSpace;
   SectionFileAddressSpace section_file_offsets_;
 
   // Maps from section virtual address range to section index.
-  typedef AddressSpace<RelativeAddress, size_t, size_t>
+  typedef core::AddressSpace<RelativeAddress, size_t, size_t>
       SectionAddressSpace;
   SectionAddressSpace sections_;
 

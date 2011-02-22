@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-#include "gtest/gtest.h"
-#include "sawbuck/image_util/address_space.h"
+#include "syzygy/core/address_space.h"
 #include <limits>
+#include "gtest/gtest.h"
 
-namespace image_util {
+namespace core {
 
 typedef AddressRange<const uint8*, size_t> PointerRange;
 typedef AddressRange<size_t, size_t> IntegerRange;
@@ -199,4 +199,4 @@ TEST(AddressSpaceTest, FindIntersecting) {
   EXPECT_EQ(120, it_pair.second->first.start());
 }
 
-}  // namespace image_util
+}  // namespace core

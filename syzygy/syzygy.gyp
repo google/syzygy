@@ -21,6 +21,7 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
+        'core/core.gyp:*',
         'pdb/pdb.gyp:*',
       ],
     },
@@ -34,6 +35,7 @@
 
         # Add all unit test targets here.
         'unittest_targets': [
+          '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
           '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
         ],
       },

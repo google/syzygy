@@ -15,9 +15,9 @@
 #define SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
 
 #include "base/callback.h"
-#include "sawbuck/image_util/address.h"
-#include "sawbuck/image_util/block_graph.h"
 #include "sawbuck/image_util/pe_file.h"
+#include "syzygy/core/address.h"
+#include "syzygy/core/block_graph.h"
 
 namespace image_util {
 
@@ -28,6 +28,9 @@ template <class ItemType> class PEFileStructPtr;
 // the image header and various other PE image sections to an address space.
 class PEFileParser {
  public:
+  typedef core::BlockGraph BlockGraph;
+  typedef core::RelativeAddress RelativeAddress;
+
   typedef Callback5<RelativeAddress,
                     BlockGraph::ReferenceType,
                     BlockGraph::Size,
@@ -90,9 +93,9 @@ class PEFileParser {
 
  private:
   BlockGraph::Block* AddBlock(BlockGraph::BlockType type,
-                         RelativeAddress addr,
-                         BlockGraph::Size size,
-                         const char* name);
+                              RelativeAddress addr,
+                              BlockGraph::Size size,
+                              const char* name);
 
   bool AddReference(RelativeAddress src,
                     BlockGraph::ReferenceType type,

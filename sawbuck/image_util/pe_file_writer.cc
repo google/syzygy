@@ -39,12 +39,17 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
 
 namespace image_util {
 
+using core::AbsoluteAddress;
+using core::BlockGraph;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
+
 PEFileWriter::PEFileWriter(const BlockGraph::AddressSpace& image,
-                           const IMAGE_NT_HEADERS* nt_headers_,
-                           const IMAGE_SECTION_HEADER* section_headers_)
+                           const IMAGE_NT_HEADERS* nt_headers,
+                           const IMAGE_SECTION_HEADER* section_headers)
     : image_(image),
-      nt_headers_(nt_headers_),
-      section_headers_(section_headers_) {
+      nt_headers_(nt_headers),
+      section_headers_(section_headers) {
   DCHECK(nt_headers_ != NULL);
   DCHECK(section_headers_ != NULL);
 }
@@ -113,7 +118,8 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
     if ((section_start - previous_section_end > static_cast<ptrdiff_t>(
             nt_headers_->OptionalHeader.SectionAlignment)) ||
         (section_file_start - previous_section_file_end >
-            static_cast<ptrdiff_t>(nt_headers_->OptionalHeader.FileAlignment))) {
+            static_cast<ptrdiff_t>(
+                nt_headers_->OptionalHeader.FileAlignment))) {
       LOG(ERROR) << "Section " << section_headers_[i].Name <<
           " leaves a gap from previous section.";
       return false;
@@ -158,7 +164,7 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
       &section_headers_[nt_headers_->FileHeader.NumberOfSections - 1];
   size_t file_size =
       last_section->PointerToRawData + last_section->SizeOfRawData;
-  DCHECK((file_size % nt_headers_->OptionalHeader.FileAlignment) == 0);
+  DCHECK_EQ(0U, file_size % nt_headers_->OptionalHeader.FileAlignment);
   if (last_section->SizeOfRawData > last_section->Misc.VirtualSize) {
     if (fseek(file, file_size - 1, SEEK_SET) != 0 ||
         fwrite("\0", 1, 1, file) != 1) {
@@ -204,7 +210,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   // Calculate the offset from the start of the section to
   // the start of the block, and the block's file offset.
   BlockGraph::Offset offs = addr - it->first.start();
-  DCHECK(offs >= 0);
+  DCHECK_GE(offs, 0);
   FileOffsetAddress file_offs = it->second + offs;
 
   // Copy the block data.

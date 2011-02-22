@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_ADDRESS_SPACE_H_
-#define SAWBUCK_IMAGE_UTIL_ADDRESS_SPACE_H_
+#ifndef SYZYGY_CORE_ADDRESS_SPACE_H_
+#define SYZYGY_CORE_ADDRESS_SPACE_H_
 
-#include "base/logging.h"
 #include <map>
+#include "base/logging.h"
 
-namespace image_util {
+namespace core {
 
 // Forward declaration.
 template <typename AddressType, typename SizeType> class AddressRange;
@@ -83,12 +83,12 @@ class AddressRange {
 
   AddressRange(const AddressType &start, const SizeType& size)
       : start_(start), size_(size) {
-    DCHECK(size_ > 0);
+    DCHECK_GT(size_, 0U);
   }
 
   AddressRange(const AddressRange &other)
       : start_(other.start_), size_(other.size_) {
-    DCHECK(size_ > 0);
+    DCHECK_GT(size_, 0U);
   }
 
   void operator=(const AddressRange &other) {
@@ -252,6 +252,6 @@ AddressSpace<AddressType, SizeType, ItemType>::FindContaining(
   return ranges_.end();
 }
 
-} // namespace image_util
+}  // namespace core
 
-#endif  // SAWBUCK_IMAGE_UTIL_ADDRESS_SPACE_H_
+#endif  // SYZYGY_CORE_ADDRESS_SPACE_H_

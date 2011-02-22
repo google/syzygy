@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/address.h"
+#include "syzygy/core/address.h"
 #include "gtest/gtest.h"
 
-namespace image_util {
+namespace core {
 
 TEST(AddressTest, DefaultInitialization) {
   EXPECT_EQ(0, RelativeAddress().value());
@@ -64,4 +64,4 @@ TEST(AddressTest, Operators) {
   EXPECT_TRUE(addr == kTwo);
 }
 
-} // namespace image_util
+}  // namespace core

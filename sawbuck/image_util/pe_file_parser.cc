@@ -15,6 +15,11 @@
 
 namespace image_util {
 
+using core::AbsoluteAddress;
+using core::BlockGraph;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
+
 const char* kDirEntryNames[] = {
     "IMAGE_DIRECTORY_ENTRY_EXPORT",
     "IMAGE_DIRECTORY_ENTRY_IMPORT",
@@ -576,7 +581,7 @@ bool PEFileParser::ParseDebugDirectory(
     }
 
     // TODO(siggi): Does it make sense to chunk the data itself?
-  } while(debug_directory.Next());
+  } while (debug_directory.Next());
 
   return true;
 }

@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_ADDRESS_H_
-#define SAWBUCK_IMAGE_UTIL_ADDRESS_H_
+#ifndef SYZYGY_CORE_ADDRESS_H_
+#define SYZYGY_CORE_ADDRESS_H_
 
-#include "base/basictypes.h"
 #include <iosfwd>
+#include "base/basictypes.h"
 
-namespace image_util {
+namespace core {
 
 enum AddressType {
   kRelativeAddressType,
@@ -117,6 +117,6 @@ std::ostream& operator<<(std::ostream& str, const RelativeAddress& addr);
 std::ostream& operator<<(std::ostream& str, const AbsoluteAddress& addr);
 std::ostream& operator<<(std::ostream& str, const FileOffsetAddress& addr);
 
-} // namespace image_util
+}  // namespace core
 
-#endif  // SAWBUCK_IMAGE_UTIL_ADDRESS_H_
+#endif  // SYZYGY_CORE_ADDRESS_H_

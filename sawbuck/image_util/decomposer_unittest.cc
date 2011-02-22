@@ -17,8 +17,6 @@
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "gtest/gtest.h"
-#include "sawbuck/image_util/block_graph.h"
-#include "sawbuck/image_util/pe_file.h"
 
 namespace {
 

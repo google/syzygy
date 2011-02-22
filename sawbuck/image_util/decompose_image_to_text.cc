@@ -13,16 +13,19 @@
 // limitations under the License.
 //
 // Decomposes an image, then dumps the blocks and references to stdout.
+#include <iostream>
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/string_util.h"
-#include "sawbuck/image_util/block_graph.h"
 #include "sawbuck/image_util/decomposer.h"
 #include "sawbuck/image_util/pe_file.h"
-#include <iostream>
+#include "syzygy/core/block_graph.h"
 
-using namespace image_util;
+using core::BlockGraph;
+using core::RelativeAddress;
+using image_util::Decomposer;
+using image_util::PEFile;
 
 bool DumpImageToText(const FilePath& image_path, std::ostream& str) {
   // Load the image file.

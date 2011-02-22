@@ -17,16 +17,19 @@
 #include <windows.h>
 #include <winnt.h>
 #include <vector>
-#include "sawbuck/image_util/block_graph.h"
 #include "sawbuck/image_util/pe_file_parser.h"
+#include "syzygy/core/block_graph.h"
 
 namespace image_util {
 
 class PEFileBuilder {
  public:
+  typedef core::BlockGraph BlockGraph;
+  typedef core::RelativeAddress RelativeAddress;
+
   typedef std::vector<IMAGE_SECTION_HEADER> ImageSectionHeaderVector;
 
-  PEFileBuilder(BlockGraph* block_graph);
+  explicit PEFileBuilder(BlockGraph* block_graph);
 
   // Accessors.
   IMAGE_NT_HEADERS& nt_headers() { return nt_headers_; }

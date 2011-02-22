@@ -18,6 +18,8 @@
 
 namespace image_util {
 
+using core::AbsoluteAddress;
+
 Disassembler::Disassembler(const uint8* code,
                            size_t code_size,
                            AbsoluteAddress code_addr,

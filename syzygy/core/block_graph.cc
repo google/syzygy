@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-#include "sawbuck/image_util/block_graph.h"
+#include "syzygy/core/block_graph.h"
+
 #include "base/logging.h"
 
-namespace image_util {
+namespace core {
 
 const RelativeAddress kInvalidAddress(0xFFFFFFFF);
 const size_t kInvalidSegment = -1;
@@ -381,4 +382,4 @@ bool BlockGraph::Block::HasLabel(Offset offset) {
   return labels_.find(offset) != labels_.end();
 }
 
-}  // namespace image_util
+}  // namespace core

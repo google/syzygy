@@ -66,6 +66,10 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
 
 namespace image_util {
 
+using core::AbsoluteAddress;
+using core::BlockGraph;
+using core::RelativeAddress;
+
 Decomposer::Decomposer(const PEFile& image_file,
                        const FilePath& file_path)
     : image_(NULL),

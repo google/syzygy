@@ -23,7 +23,10 @@
 
 namespace {
 
-using namespace image_util;
+using core::BlockGraph;
+using core::RelativeAddress;
+using image_util::PEFile;
+using image_util::PEFileParser;
 
 FilePath GetExeRelativePath(const wchar_t* image_name) {
   FilePath exe_dir;
@@ -206,4 +209,4 @@ TEST_F(PEFileParserTest, ParseExportDirectory) {
   ASSERT_TRUE(ExportIsReferenced("function3"));
 }
 
-} // namespace image_util
+}  // namespace image_util

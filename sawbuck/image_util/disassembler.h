@@ -16,16 +16,17 @@
 #ifndef SAWBUCK_IMAGE_UTIL_DISASSEMBLER_H_
 #define SAWBUCK_IMAGE_UTIL_DISASSEMBLER_H_
 
+#include <set>
 #include "base/basictypes.h"
 #include "base/callback.h"
-#include "sawbuck/image_util/address.h"
+#include "syzygy/core/address.h"
 #include "distorm.h"  // NOLINT
-#include <set>
 
 namespace image_util {
 
 class Disassembler {
  public:
+  typedef core::AbsoluteAddress AbsoluteAddress;
   typedef std::set<AbsoluteAddress> AddressSet;
 
   // The instruction callback is invoked for each instruction the disassembler
@@ -79,7 +80,7 @@ class Disassembler {
   size_t disassembled_bytes() const { return disassembled_bytes_; }
 
  private:
-   bool OnInstruction(const _DInst& inst);
+  bool OnInstruction(const _DInst& inst);
 
   // The code we refer to.
   const uint8* code_;

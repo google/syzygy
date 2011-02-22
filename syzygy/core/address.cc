@@ -11,11 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/address.h"
-#include "base/stringprintf.h"
-#include <iostream>
+#include "syzygy/core/address.h"
 
-namespace image_util {
+#include <iostream>
+#include "base/stringprintf.h"
+
+namespace core {
 
 // Host function for compile asserts.
 void CompileAsserts() {
@@ -42,4 +43,4 @@ std::ostream& operator<<(std::ostream& str, const FileOffsetAddress& addr) {
   return str;
 }
 
-} // namespace image_util
+}  // namespace core

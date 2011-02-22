@@ -17,8 +17,8 @@
 
 namespace {
 
-using image_util::BlockGraph;
-using image_util::RelativeAddress;
+using core::BlockGraph;
+using core::RelativeAddress;
 typedef std::vector<uint8> ByteVector;
 
 // A utility class to help with formatting the relocations section.
@@ -68,7 +68,7 @@ class RelocWriter {
   void ClosePage() {
     size_t block_len = buf_.size() - curr_header_offset_;
     if (block_len % 4 != 0) {
-      DCHECK(block_len % 2 == 0);
+      DCHECK_EQ(0U, block_len % 2);
       WORD filler = IMAGE_REL_BASED_ABSOLUTE << 12;
       Append(&filler, sizeof(filler));
       block_len += sizeof(filler);
@@ -269,7 +269,7 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
   DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
   DCHECK(IsValidReference(address_space_, entry));
   DCHECK(entry.type() == BlockGraph::RELATIVE_REF);
-  DCHECK(entry_size != 0);
+  DCHECK_NE(0U, entry_size);
 
   data_directory_[entry_index].ref_ = entry;
   data_directory_[entry_index].size_ = entry_size;

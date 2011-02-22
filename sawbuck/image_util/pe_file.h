@@ -14,18 +14,24 @@
 #ifndef SAWBUCK_IMAGE_UTIL_PE_FILE_H_
 #define SAWBUCK_IMAGE_UTIL_PE_FILE_H_
 
-#include "base/file_path.h"
-#include "sawbuck/image_util/address.h"
-#include "sawbuck/image_util/address_space.h"
 #include <windows.h>
 #include <winnt.h>
+#include <map>
 #include <set>
+#include <string>
 #include <vector>
+#include "base/file_path.h"
+#include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 
 namespace image_util {
 
 class PEFile {
  public:
+  typedef core::AbsoluteAddress AbsoluteAddress;
+  typedef core::FileOffsetAddress FileOffsetAddress;
+  typedef core::RelativeAddress RelativeAddress;
+
   // Contains relocation addresses.
   typedef std::set<RelativeAddress> RelocSet;
 
@@ -118,7 +124,7 @@ class PEFile {
   const IMAGE_SECTION_HEADER* section_headers_;
 
   typedef std::vector<uint8> SectionBuffer;
-  typedef AddressSpace<RelativeAddress, size_t, SectionBuffer>
+  typedef core::AddressSpace<RelativeAddress, size_t, SectionBuffer>
       ImageAddressSpace;
 
   // Contains all data in the image. The address space has a range defined

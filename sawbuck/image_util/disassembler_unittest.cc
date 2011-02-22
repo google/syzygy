@@ -14,10 +14,11 @@
 //
 // Implementation of disassembler.
 #include "sawbuck/image_util/disassembler.h"
+
+#include <vector>
 #include "base/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <vector>
 
 using testing::_;
 using testing::Invoke;
@@ -58,6 +59,8 @@ int func4() {
 }  // extern "C"
 
 namespace image_util {
+
+using core::AbsoluteAddress;
 
 class DisassemblerTest: public testing::Test {
  public:

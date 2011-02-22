@@ -16,19 +16,19 @@
 // a type, a size and a few other properties.
 // Each block represents either code or data, and blocks can reference
 // one another through references of various types.
-#ifndef SAWBUCK_IMAGE_UTIL_BLOCK_GRAPH_H_
-#define SAWBUCK_IMAGE_UTIL_BLOCK_GRAPH_H_
+#ifndef SYZYGY_CORE_BLOCK_GRAPH_H_
+#define SYZYGY_CORE_BLOCK_GRAPH_H_
 
-#include "base/basictypes.h"
-#include "sawbuck/image_util/address.h"
-#include "sawbuck/image_util/address_space.h"
-#include <map>
 #include <hash_map>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
+#include "base/basictypes.h"
+#include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 
-namespace image_util {
+namespace core {
 
 // The invalid address can never occur in an graph, it's used as default
 // value for block addresses.
@@ -235,7 +235,7 @@ class BlockGraph::Block {
 // address space. No two blocks may overlap in an address space.
 class BlockGraph::AddressSpace {
  public:
-  typedef image_util::AddressSpace<RelativeAddress, BlockGraph::Size, Block*>
+  typedef core::AddressSpace<RelativeAddress, BlockGraph::Size, Block*>
       AddressSpaceImpl;
   typedef AddressSpaceImpl::Range Range;
   typedef AddressSpaceImpl::RangeMap RangeMap;
@@ -368,6 +368,6 @@ class BlockGraph::Reference {
   Offset offset_;
 };
 
-}  // namespace image_util
+}  // namespace core
 
-#endif  // SAWBUCK_IMAGE_UTIL_BLOCK_GRAPH_H_
+#endif  // SYZYGY_CORE_BLOCK_GRAPH_H_

@@ -32,6 +32,10 @@ bool ReadAt(FILE* file, size_t pos, void* buf, size_t len) {
 
 namespace image_util {
 
+using core::AbsoluteAddress;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
+
 PEFile::PEFile()
     : dos_header_(NULL),
       nt_headers_(NULL),
@@ -181,7 +185,7 @@ const uint8* PEFile::GetImageData(RelativeAddress rel, size_t len) const {
 
   if (it != image_data_.ranges().end()) {
     ptrdiff_t offs = rel - it->first.start();
-    DCHECK(offs >= 0);
+    DCHECK_GE(offs, 0);
 
     const SectionBuffer& buf = it->second;
     if (offs + len <= buf.size())
@@ -238,7 +242,7 @@ bool PEFile::ReadImageString(RelativeAddress rel, std::string* str) const {
 
   if (it != image_data_.ranges().end()) {
     ptrdiff_t offs = rel - it->first.start();
-    DCHECK(offs >= 0);
+    DCHECK_GE(offs, 0);
     // Stash the start position.
     const SectionBuffer& buf = it->second;
     const char* begin = reinterpret_cast<const char*>(&buf.at(offs));

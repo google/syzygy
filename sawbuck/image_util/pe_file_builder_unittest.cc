@@ -36,11 +36,11 @@ const uint8 kInt3Padding[] = {
     0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
 };
 
-using image_util::BlockGraph;
+using core::BlockGraph;
+using core::RelativeAddress;
 using image_util::Decomposer;
 using image_util::PEFile;
 using image_util::PEFileBuilder;
-using image_util::RelativeAddress;
 
 class PEFileBuilderTest: public testing::Test {
  public:
@@ -151,6 +151,8 @@ class PEFileBuilderTest: public testing::Test {
 }  // namespace
 
 namespace image_util {
+
+using core::AddressRange;
 
 TEST_F(PEFileBuilderTest, Accessors) {
   PEFileBuilder builder(&decomposed_.image);
@@ -263,7 +265,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
 
   unsigned int seed = static_cast<unsigned int>(time(NULL));
   srand(seed);
-  std::cout << "Random seed: " << seed;
+  std::cout << "Random seed: " << seed << std::endl;
 
   // Now reorder the code blocks and insert them into a new
   // code segment at the end of the binary.
@@ -317,4 +319,4 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
 }
 
-} // namespace image_util
+}  // namespace image_util

@@ -56,12 +56,6 @@
       'target_name': 'image_util',
       'type': 'static_library',
       'sources': [
-        'address.h',
-        'address.cc',
-        'address_space.h',
-        'address_space.cc',
-        'block_graph.h',
-        'block_graph.cc',
         'decomposer.h',
         'decomposer.cc',
         'disassembler.h',
@@ -78,6 +72,7 @@
       'dependencies': [
         'dia_sdk',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
     },
@@ -85,9 +80,6 @@
       'target_name': 'image_util_unittests',
       'type': 'executable',
       'sources': [
-        'address_unittest.cc',
-        'address_space_unittest.cc',
-        'block_graph_unittest.cc',
         'decomposer_unittest.cc',
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
