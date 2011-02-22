@@ -13,12 +13,11 @@
 // limitations under the License.
 //
 // Implementation of disassembler.
-#include "sawbuck/image_util/disassembler.h"
+#include "syzygy/core/disassembler.h"
+
 #include "base/logging.h"
 
-namespace image_util {
-
-using core::AbsoluteAddress;
+namespace core {
 
 Disassembler::Disassembler(const uint8* code,
                            size_t code_size,

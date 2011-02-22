@@ -58,8 +58,6 @@
       'sources': [
         'decomposer.h',
         'decomposer.cc',
-        'disassembler.h',
-        'disassembler.cc',
         'pe_file.h',
         'pe_file.cc',
         'pe_file_builder.h',
@@ -81,8 +79,6 @@
       'type': 'executable',
       'sources': [
         'decomposer_unittest.cc',
-        'disassembler_test_code.asm',
-        'disassembler_unittest.cc',
         'image_util_unittests_main.cc',
         'pe_file_builder_unittest.cc',
         'pe_file_unittest.cc',
@@ -99,25 +95,6 @@
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
-      ],
-      'rules': [
-        {
-          'rule_name': 'Assemble',
-          'msvs_cygwin_shell': 0,
-          'extension': 'asm',
-          'inputs': [],
-          'outputs': [
-            '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
-          ],
-          'action': [
-            'ml',
-            '-safeseh',
-            '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
-            '-c', '<(RULE_INPUT_PATH)',
-          ],
-          'process_outputs_as_sources': 0,
-          'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
-        },
       ],
     },
     {

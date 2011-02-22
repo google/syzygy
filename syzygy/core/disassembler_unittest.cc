@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Implementation of disassembler.
-#include "sawbuck/image_util/disassembler.h"
+#include "syzygy/core/disassembler.h"
 
 #include <vector>
 #include "base/scoped_ptr.h"
@@ -58,9 +58,7 @@ int func4() {
 
 }  // extern "C"
 
-namespace image_util {
-
-using core::AbsoluteAddress;
+namespace core {
 
 class DisassemblerTest: public testing::Test {
  public:

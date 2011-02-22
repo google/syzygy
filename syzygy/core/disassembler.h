@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // A class that attempts to disassemble a function.
-#ifndef SAWBUCK_IMAGE_UTIL_DISASSEMBLER_H_
-#define SAWBUCK_IMAGE_UTIL_DISASSEMBLER_H_
+#ifndef SYZYGY_CORE_DISASSEMBLER_H_
+#define SYZYGY_CORE_DISASSEMBLER_H_
 
 #include <set>
 #include "base/basictypes.h"
@@ -22,11 +22,10 @@
 #include "syzygy/core/address.h"
 #include "distorm.h"  // NOLINT
 
-namespace image_util {
+namespace core {
 
 class Disassembler {
  public:
-  typedef core::AbsoluteAddress AbsoluteAddress;
   typedef std::set<AbsoluteAddress> AddressSet;
 
   // The instruction callback is invoked for each instruction the disassembler
@@ -116,4 +115,4 @@ class Disassembler {
 
 }  // namespace image_util
 
-#endif  // SAWBUCK_IMAGE_UTIL_DISASSEMBLER_H_
+#endif  // SYZYGY_CORE_DISASSEMBLER_H_

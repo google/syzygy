@@ -32,9 +32,12 @@
         'address_space.h',
         'block_graph.cc',
         'block_graph.h',
+        'disassembler.cc',
+        'disassembler.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
     },
     {
@@ -45,12 +48,34 @@
         'address_space_unittest.cc',
         'block_graph_unittest.cc',
         'core_unittests_main.cc',
+        'disassembler_test_code.asm',
+        'disassembler_unittest.cc',
       ],
       'dependencies': [
         'core_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
+      ],
+      'rules': [
+        {
+          'rule_name': 'Assemble',
+          'msvs_cygwin_shell': 0,
+          'extension': 'asm',
+          'inputs': [],
+          'outputs': [
+            '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
+          ],
+          'action': [
+            'ml',
+            '-safeseh',
+            '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
+            '-c', '<(RULE_INPUT_PATH)',
+          ],
+          'process_outputs_as_sources': 0,
+          'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
+        },
       ],
     },
   ],
