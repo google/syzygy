@@ -18,6 +18,10 @@
 
 namespace {
 
+using pdb::PdbHeader;
+using pdb::PdbReader;
+using pdb::PdbStream;
+
 const wchar_t* kTestDllFilePath =
     L"sawbuck\\image_util\\test_data\\test_dll.pdb";
 

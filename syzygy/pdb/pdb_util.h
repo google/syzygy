@@ -20,7 +20,7 @@
 #include "base/file_path.h"
 #include "syzygy/pdb/pdb_data.h"
 
-namespace pdb_util {
+namespace pdb {
 
 // Get the DbiDbgHeader offset within the Dbi info stream. For some reason,
 // the EC info data comes before the Dbi debug header despite that the Dbi
@@ -34,6 +34,6 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
                             const std::vector<OMAP>& omap_to_list,
                             const std::vector<OMAP>& omap_from_list);
 
-}  // namespace pdb_util
+}  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_UTIL_H_

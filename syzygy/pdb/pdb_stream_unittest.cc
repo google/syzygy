@@ -14,6 +14,10 @@
 #include "syzygy/pdb/pdb_stream.h"
 #include "gtest/gtest.h"
 
+namespace {
+
+using pdb::PdbStream;
+
 class TestPdbStream : public PdbStream {
  public:
   explicit TestPdbStream(size_t length) : PdbStream(length) {
@@ -33,6 +37,8 @@ class TestPdbStream : public PdbStream {
     return count;
   }
 };
+
+}  // namespace
 
 TEST(PdbStreamTest, Constructor) {
   TestPdbStream stream(5);

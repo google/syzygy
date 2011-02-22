@@ -19,6 +19,8 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 
+namespace pdb {
+
 // This class represents a PDB stream. It has a stream like interface that
 // allows invoking successive reads through the stream and seeking.
 class PdbStream {
@@ -60,6 +62,11 @@ class PdbStream {
 
   // The read position within the stream.
   size_t pos_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(PdbStream);
 };
+
+}  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_STREAM_H_

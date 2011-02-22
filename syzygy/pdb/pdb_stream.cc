@@ -13,8 +13,9 @@
 // limitations under the License.
 #include "syzygy/pdb/pdb_stream.h"
 
-PdbStream::PdbStream(size_t length)
-    : length_(length), pos_(0) {
+namespace pdb {
+
+PdbStream::PdbStream(size_t length) : length_(length), pos_(0) {
 }
 
 PdbStream::~PdbStream() {
@@ -27,3 +28,5 @@ bool PdbStream::Seek(size_t pos) {
   pos_ = pos;
   return true;
 }
+
+}  // namespace pdb

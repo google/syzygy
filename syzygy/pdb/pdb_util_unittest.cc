@@ -58,6 +58,8 @@ class PdbUtilTest : public testing::Test {
 
 }  // namespace
 
+namespace pdb {
+
 TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
   // Test the test_dll.pdb doesn't have Omap information.
   PdbReader reader;
@@ -68,7 +70,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
   DbiHeader dbi_header;
   EXPECT_EQ(1, dbi_stream->Read(&dbi_header, 1));
 
-  uint32 offset = pdb_util::GetDbiDbgHeaderOffset(dbi_header);
+  uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
   EXPECT_TRUE(dbi_stream->Seek(offset));
@@ -89,7 +91,7 @@ TEST_F(PdbUtilTest, DISABLED_GetDbiDbgHeaderOffsetKernel32) {
   DbiHeader dbi_header;
   EXPECT_EQ(1, dbi_stream->Read(&dbi_header, 1));
 
-  uint32 offset = pdb_util::GetDbiDbgHeaderOffset(dbi_header);
+  uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
   EXPECT_TRUE(dbi_stream->Seek(offset));
@@ -148,10 +150,10 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
                                    omap_from_data + arraysize(omap_from_data));
 
   FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestDllPdbFilePath);
-  EXPECT_TRUE(pdb_util::AddOmapStreamToPdbFile(test_dll_pdb_file_path,
-                                               temp_pdb_file_path_,
-                                               omap_to_list,
-                                               omap_from_list));
+  EXPECT_TRUE(AddOmapStreamToPdbFile(test_dll_pdb_file_path,
+                                     temp_pdb_file_path_,
+                                     omap_to_list,
+                                     omap_from_list));
 
   DWORD64 base_address =
       ::SymLoadModuleExW(process_,
@@ -182,3 +184,5 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
 
   EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
 }
+
+}  // namespace pdb

@@ -18,6 +18,8 @@
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
 
+namespace pdb {
+
 const uint32 kZeroBuffer[kPdbPageSize] = { 0 };
 
 PdbWriter::PdbWriter() {
@@ -272,3 +274,5 @@ bool PdbWriter::WriteHeader(uint32 file_size,
 
   return true;
 }
+
+}  // namespace pdb

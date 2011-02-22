@@ -19,7 +19,7 @@
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_writer.h"
 
-namespace pdb_util {
+namespace pdb {
 
 uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
   uint32 offset = sizeof(DbiHeader);
@@ -61,7 +61,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
 
   // Point the Dbi debug header into the existing byte stream.
   BinaryBufferParser parser(dbi_stream.data(), dbi_stream.length());
-  uint32 offset = pdb_util::GetDbiDbgHeaderOffset(dbi_header);
+  uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
   DbiDbgHeader* dbi_dbg_header;
   if (!parser.GetAt(offset,
                     const_cast<const DbiDbgHeader**>(&dbi_dbg_header))) {
@@ -102,4 +102,4 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
   return true;
 }
 
-}  // namespace pdb_util
+}  // namespace pdb

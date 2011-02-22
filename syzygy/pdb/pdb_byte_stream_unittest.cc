@@ -16,6 +16,9 @@
 
 namespace {
 
+using pdb::PdbByteStream;
+using pdb::PdbStream;
+
 class TestPdbByteStream : public PdbByteStream {
  public:
   TestPdbByteStream() : PdbByteStream() {

@@ -16,6 +16,8 @@
 
 #include "base/basictypes.h"
 
+namespace pdb {
+
 // The index of the Dbi info stream.
 extern const uint32 kDbiStream;
 
@@ -29,5 +31,7 @@ extern const uint32 kPdbMaxDirPages;
 // This is the Multi-Stream Format (MSF) page size generally used for PDB
 // files. Check bytes 32 through 35 (little endian) of any PDB file.
 const uint32 kPdbPageSize = 1024;
+
+}  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_CONSTANTS_H_

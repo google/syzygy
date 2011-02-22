@@ -16,6 +16,8 @@
 
 #include "base/basictypes.h"
 
+namespace pdb {
+
 // Dbi Info Stream Header
 // See http://code.google.com/p/pdbparser/wiki/DBI_Format
 struct DbiHeader {
@@ -70,5 +72,7 @@ struct PdbHeader {
   uint32 reserved;
   uint32 root_pages[73];
 };
+
+}  // namespace
 
 #endif  // SYZYGY_PDB_PDB_DATA_H_

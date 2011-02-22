@@ -17,6 +17,8 @@
 #include "base/string_util.h"
 #include "syzygy/pdb/pdb_file_stream.h"
 
+namespace pdb {
+
 PdbReader::PdbReader() {
 }
 
@@ -143,3 +145,5 @@ void PdbReader::FreeStreams() {
 
   streams_.clear();
 }
+
+}  // namespace pdb

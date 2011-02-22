@@ -20,6 +20,8 @@
 
 namespace {
 
+using pdb::PdbFileStream;
+
 FilePath GetSrcRelativePath(const wchar_t* path) {
   FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
@@ -52,6 +54,8 @@ class PdbFileStreamTest : public testing::Test {
 };
 
 }  // namespace
+
+using pdb::PdbHeader;
 
 TEST_F(PdbFileStreamTest, Constructor) {
   size_t pages[] = {1, 2, 3};

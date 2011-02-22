@@ -21,6 +21,8 @@
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_stream.h"
 
+namespace pdb {
+
 // This class is used to read a pdb file and provide access to the file's
 // symbol streams.
 class PdbReader {
@@ -61,6 +63,11 @@ class PdbReader {
 
   // The list of pdb streams in the pdb file.
   std::vector<PdbStream*> streams_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(PdbReader);
 };
+
+}  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_READER_H_
