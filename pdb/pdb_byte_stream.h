@@ -17,6 +17,8 @@
 #include "base/scoped_ptr.h"
 #include "syzygy/pdb/pdb_stream.h"
 
+namespace pdb {
+
 // This class represents a PDB stream in memory.
 class PdbByteStream : public PdbStream {
  public:
@@ -38,6 +40,10 @@ class PdbByteStream : public PdbStream {
 
   // The stream's data.
   scoped_array<uint8> data_;
+
+  DISALLOW_COPY_AND_ASSIGN(PdbByteStream);
 };
+
+}  // namespace
 
 #endif  // SYZYGY_PDB_PDB_BYTE_STREAM_H_

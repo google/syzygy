@@ -18,6 +18,8 @@
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_stream.h"
 
+namespace pdb {
+
 // This class represents a PDB stream on disk.
 class PdbFileStream : public PdbStream {
  public:
@@ -46,6 +48,10 @@ class PdbFileStream : public PdbStream {
 
   // The size of pages within the stream.
   size_t page_size_;
+
+  DISALLOW_COPY_AND_ASSIGN(PdbFileStream);
 };
+
+}  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_FILE_STREAM_H_

@@ -19,8 +19,11 @@
 
 namespace {
 
+using pdb::PdbStream;
+using pdb::PdbWriter;
+
 uint32 GetNumPages(uint32 num_bytes) {
-  return (num_bytes + kPdbPageSize - 1) / kPdbPageSize;
+  return (num_bytes + pdb::kPdbPageSize - 1) / pdb::kPdbPageSize;
 }
 
 class TestPdbWriter : public PdbWriter {
@@ -61,6 +64,11 @@ class TestPdbStream : public PdbStream {
 };
 
 }  // namespace
+
+using pdb::kPdbHeaderMagicString;
+using pdb::kPdbPageSize;
+using pdb::PdbHeader;
+using pdb::PdbReader;
 
 TEST(PdbWriterTest, Write) {
   TestPdbStream test_streams[] = {

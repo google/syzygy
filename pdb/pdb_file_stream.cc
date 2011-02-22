@@ -15,6 +15,8 @@
 
 #include "base/logging.h"
 
+namespace pdb {
+
 PdbFileStream::PdbFileStream(FILE* file,
                              size_t length,
                              const uint32* pages,
@@ -72,3 +74,5 @@ bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
 
   return true;
 }
+
+}  // namespace pdb

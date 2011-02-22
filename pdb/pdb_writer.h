@@ -19,6 +19,8 @@
 #include "base/file_util.h"
 #include "syzygy/pdb/pdb_stream.h"
 
+namespace pdb {
+
 // This class is used to write a pdb file to disk given a list of PdbStreams.
 // It will create a header and directory inside the pdb file that describe
 // the page layout of the streams in the file.
@@ -76,6 +78,11 @@ class PdbWriter {
 
   // The current file handle open for writing.
   file_util::ScopedFILE file_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(PdbWriter);
 };
+
+}  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_WRITER_H_

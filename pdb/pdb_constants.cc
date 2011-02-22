@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "syzygy/pdb/pdb_constants.h"
 
+namespace pdb {
+
 const uint32 kDbiStream = 3;
 
 const uint8 kPdbHeaderMagicString[] = {
@@ -23,3 +25,5 @@ const uint8 kPdbHeaderMagicString[] = {
 };
 
 const uint32 kPdbMaxDirPages = 0x49;
+
+}  // namespace pdb

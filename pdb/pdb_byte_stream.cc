@@ -15,6 +15,8 @@
 
 #include "base/logging.h"
 
+namespace pdb {
+
 PdbByteStream::PdbByteStream() : PdbStream(0) {
 }
 
@@ -71,3 +73,5 @@ size_t PdbByteStream::ReadBytes(void* dest, size_t count) {
 
   return bytes_read;
 }
+
+}  // namespace pdb
