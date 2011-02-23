@@ -18,14 +18,14 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/string_util.h"
-#include "sawbuck/image_util/decomposer.h"
-#include "sawbuck/image_util/pe_file.h"
 #include "syzygy/core/block_graph.h"
+#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_file.h"
 
 using core::BlockGraph;
 using core::RelativeAddress;
-using image_util::Decomposer;
-using image_util::PEFile;
+using pe::Decomposer;
+using pe::PEFile;
 
 bool DumpImageToText(const FilePath& image_path, std::ostream& str) {
   // Load the image file.

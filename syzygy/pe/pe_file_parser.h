@@ -11,15 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
-#define SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
+#ifndef SYZYGY_PE_PE_FILE_PARSER_H_
+#define SYZYGY_PE_PE_FILE_PARSER_H_
 
 #include "base/callback.h"
-#include "sawbuck/image_util/pe_file.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/block_graph.h"
+#include "syzygy/pe/pe_file.h"
 
-namespace image_util {
+namespace pe {
 
 // Forward declaration.
 template <class ItemType> class PEFileStructPtr;
@@ -123,6 +123,6 @@ class PEFileParser {
   AddReferenceCallback* add_reference_;
 };
 
-}  // namespace image_util
+}  // namespace pe
 
-#endif  // SAWBUCK_IMAGE_UTIL_PE_FILE_PARSER_H_
+#endif  // SYZYGY_PE_PE_FILE_PARSER_H_

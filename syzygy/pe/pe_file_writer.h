@@ -11,15 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PE_FILE_WRITER_H_
-#define SAWBUCK_IMAGE_UTIL_PE_FILE_WRITER_H_
+#ifndef SYZYGY_PE_PE_FILE_WRITER_H_
+#define SYZYGY_PE_PE_FILE_WRITER_H_
 
 #include "base/file_path.h"
-#include "sawbuck/image_util/pe_file_parser.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/block_graph.h"
+#include "syzygy/pe/pe_file_parser.h"
 
-namespace image_util {
+namespace pe {
 
 // Given an address space and header information, writes a BlockGraph out
 // to a PE image file.
@@ -68,6 +68,6 @@ class PEFileWriter {
   const IMAGE_SECTION_HEADER* section_headers_;
 };
 
-}  // namespace image_util
+}  // namespace pe
 
-#endif  // SAWBUCK_IMAGE_UTIL_PE_FILE_WRITER_H_
+#endif  // SYZYGY_PE_PE_FILE_WRITER_H_

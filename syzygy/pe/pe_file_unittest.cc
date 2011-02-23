@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file.h"
+#include "syzygy/pe/pe_file.h"
+
 #include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
@@ -47,13 +48,13 @@ class PEFileTest: public testing::Test {
   }
 
  protected:
-  image_util::PEFile image_file_;
+  pe::PEFile image_file_;
   base::NativeLibrary test_dll_;
 };
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 using core::AbsoluteAddress;
 using core::RelativeAddress;
@@ -233,4 +234,4 @@ TEST_F(PEFileTest, DecodeImports) {
   }
 }
 
-}  // namespace image_util
+}  // namespace pe

@@ -15,8 +15,8 @@
 // The decomposer decomposes a given image file into a series of blocks
 // and references by reference to the image's symbols and disassembled
 // executable code.
-#ifndef SAWBUCK_IMAGE_UTIL_DECOMPOSER_H_
-#define SAWBUCK_IMAGE_UTIL_DECOMPOSER_H_
+#ifndef SYZYGY_PE_DECOMPOSER_H_
+#define SYZYGY_PE_DECOMPOSER_H_
 
 #include <windows.h>
 #include <dbghelp.h>
@@ -25,12 +25,12 @@
 #include <set>
 #include <string>
 #include "base/file_path.h"
-#include "sawbuck/image_util/pe_file.h"
-#include "sawbuck/image_util/pe_file_parser.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
+#include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_file_parser.h"
 
-namespace image_util {
+namespace pe {
 
 class Decomposer {
  public:
@@ -180,6 +180,6 @@ class Decomposer::DecomposedImage {
   PEFileParser::PEHeader header;
 };
 
-}  // namespace image_util
+}  // namespace pe
 
-#endif  // SAWBUCK_IMAGE_UTIL_DECOMPOSER_H_
+#endif  // SYZYGY_PE_DECOMPOSER_H_

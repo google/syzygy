@@ -23,7 +23,7 @@ using pdb::PdbReader;
 using pdb::PdbStream;
 
 const wchar_t* kTestDllFilePath =
-    L"sawbuck\\image_util\\test_data\\test_dll.pdb";
+    L"syzygy\\pdb\\test_data\\test_dll.pdb";
 
 FilePath GetSrcRelativePath(const wchar_t* path) {
   FilePath src_dir;

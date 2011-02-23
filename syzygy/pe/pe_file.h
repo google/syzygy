@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PE_FILE_H_
-#define SAWBUCK_IMAGE_UTIL_PE_FILE_H_
+#ifndef SYZYGY_PE_PE_FILE_H_
+#define SYZYGY_PE_PE_FILE_H_
 
 #include <windows.h>
 #include <winnt.h>
@@ -24,7 +24,7 @@
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 
-namespace image_util {
+namespace pe {
 
 class PEFile {
  public:
@@ -201,6 +201,6 @@ struct PEFile::ImportDll {
   ImportInfoVector functions;
 };
 
-}  // namespace image_util
+}  // namespace pe
 
-#endif  // SAWBUCK_IMAGE_UTIL_PE_FILE_H_
+#endif  // SYZYGY_PE_PE_FILE_H_

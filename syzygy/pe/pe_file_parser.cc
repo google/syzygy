@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file_parser.h"
+#include "syzygy/pe/pe_file_parser.h"
 
-namespace image_util {
+namespace pe {
 
 using core::AbsoluteAddress;
 using core::BlockGraph;
@@ -586,4 +586,4 @@ bool PEFileParser::ParseDebugDirectory(
   return true;
 }
 
-}  // namespace image_util
+}  // namespace pe

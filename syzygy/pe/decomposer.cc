@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-#include "sawbuck/image_util/decomposer.h"
+#include "syzygy/pe/decomposer.h"
 
 #include <cvconst.h>
 #include <diacreate.h>
@@ -25,8 +25,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
-#include "sawbuck/image_util/pe_file_parser.h"
 #include "sawbuck/sym_util/types.h"
+#include "syzygy/pe/pe_file_parser.h"
 
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
@@ -64,7 +64,7 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 using core::AbsoluteAddress;
 using core::BlockGraph;
@@ -1008,4 +1008,4 @@ bool Decomposer::FinalizeIntermediateReferences() {
   return true;
 }
 
-}  // namespace image_util
+}  // namespace pe

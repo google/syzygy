@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file_writer.h"
+#include "syzygy/pe/pe_file_writer.h"
 
 #include <windows.h>
 #include <winnt.h>
@@ -37,7 +37,7 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 using core::AbsoluteAddress;
 using core::BlockGraph;
@@ -291,4 +291,4 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   return true;
 }
 
-}  // namespace image_util
+}  // namespace pe

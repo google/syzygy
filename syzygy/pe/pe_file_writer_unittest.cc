@@ -11,20 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file_writer.h"
+#include "syzygy/pe/pe_file_writer.h"
 
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
-#include "sawbuck/image_util/decomposer.h"
-#include "sawbuck/image_util/pe_file.h"
-#include "sawbuck/image_util/unittest_util.h"
+#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace {
 
-using image_util::Decomposer;
-using image_util::PEFile;
+using pe::Decomposer;
+using pe::PEFile;
 
 class PEFileWriterTest: public testing::Test {
  public:
@@ -69,7 +69,7 @@ class PEFileWriterTest: public testing::Test {
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 TEST_F(PEFileWriterTest, LoadOriginalImage) {
   // This test baselines the other test(s) that operate on mutated, copied
@@ -86,4 +86,4 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
 }
 
-}  // namespace image_util
+}  // namespace pe

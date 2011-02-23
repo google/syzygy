@@ -20,10 +20,10 @@
 namespace {
 
 const wchar_t* kTestDllPdbFilePath =
-    L"sawbuck\\image_util\\test_data\\test_dll.pdb";
+    L"syzygy\\pdb\\test_data\\test_dll.pdb";
 
 const wchar_t* kKernel32PdbFilePath =
-    L"sawbuck\\image_util\\test_data\\kernel32.pdb";
+    L"syzygy\\pdb\\test_data\\kernel32.pdb";
 
 const wchar_t* kTempPdbFileName = L"temp.pdb";
 

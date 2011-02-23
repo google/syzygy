@@ -53,7 +53,7 @@
       },
     },
     {
-      'target_name': 'image_util',
+      'target_name': 'pe_lib',
       'type': 'static_library',
       'sources': [
         'decomposer.h',
@@ -70,27 +70,27 @@
       'dependencies': [
         'dia_sdk',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
     },
     {
-      'target_name': 'image_util_unittests',
+      'target_name': 'pe_unittests',
       'type': 'executable',
       'sources': [
         'decomposer_unittest.cc',
-        'image_util_unittests_main.cc',
         'pe_file_builder_unittest.cc',
         'pe_file_unittest.cc',
         'pe_file_parser_unittest.cc',
         'pe_file_writer_unittest.cc',
+        'pe_unittests_main.cc',
         'unittest_util.h',
         'unittest_util.cc',
       ],
       'dependencies': [
-        'image_util',
+        'pe_lib',
         'test_dll',
-        '../log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
@@ -143,7 +143,7 @@
         'decompose_image_to_text.cc',
       ],
       'dependencies': [
-        'image_util',
+        'pe_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],

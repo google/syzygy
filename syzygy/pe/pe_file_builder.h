@@ -11,16 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_PE_FILE_BUILDER_H_
-#define SAWBUCK_IMAGE_UTIL_PE_FILE_BUILDER_H_
+#ifndef SYZYGY_PE_PE_FILE_BUILDER_H_
+#define SYZYGY_PE_PE_FILE_BUILDER_H_
 
 #include <windows.h>
 #include <winnt.h>
 #include <vector>
-#include "sawbuck/image_util/pe_file_parser.h"
 #include "syzygy/core/block_graph.h"
+#include "syzygy/pe/pe_file_parser.h"
 
-namespace image_util {
+namespace pe {
 
 class PEFileBuilder {
  public:
@@ -118,6 +118,6 @@ class PEFileBuilder {
   DataDirectoryEntry data_directory_[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
 };
 
-}  // namespace image_util
+}  // namespace pe
 
-#endif  // SAWBUCK_IMAGE_UTIL_PE_FILE_BUILDER_H_
+#endif  // SYZYGY_PE_PE_FILE_BUILDER_H_

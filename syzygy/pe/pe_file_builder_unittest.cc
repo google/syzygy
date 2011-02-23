@@ -11,16 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file_builder.h"
+#include "syzygy/pe/pe_file_builder.h"
 
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include "base/file_util.h"
 #include "gtest/gtest.h"
-#include "sawbuck/image_util/decomposer.h"
-#include "sawbuck/image_util/pe_file_writer.h"
-#include "sawbuck/image_util/unittest_util.h"
+#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_file_writer.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace {
 
@@ -38,9 +38,9 @@ const uint8 kInt3Padding[] = {
 
 using core::BlockGraph;
 using core::RelativeAddress;
-using image_util::Decomposer;
-using image_util::PEFile;
-using image_util::PEFileBuilder;
+using pe::Decomposer;
+using pe::PEFile;
+using pe::PEFileBuilder;
 
 class PEFileBuilderTest: public testing::Test {
  public:
@@ -150,7 +150,7 @@ class PEFileBuilderTest: public testing::Test {
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 using core::AddressRange;
 
@@ -319,4 +319,4 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
 }
 
-}  // namespace image_util
+}  // namespace pe

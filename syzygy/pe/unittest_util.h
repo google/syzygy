@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_IMAGE_UTIL_UNITTEST_UTIL_H_
-#define SAWBUCK_IMAGE_UTIL_UNITTEST_UTIL_H_
+#ifndef SYZYGY_PE_UNITTEST_UTIL_H_
+#define SYZYGY_PE_UNITTEST_UTIL_H_
 
 #include <windows.h>
 #include "base/file_path.h"
@@ -31,4 +31,4 @@ void CheckTestDll(const FilePath& path);
 
 }  // namespace testing
 
-#endif  // SAWBUCK_IMAGE_UTIL_UNITTEST_UTIL_H_
+#endif  // SYZYGY_PE_UNITTEST_UTIL_H_

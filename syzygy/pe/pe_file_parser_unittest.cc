@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file_parser.h"
+#include "syzygy/pe/pe_file_parser.h"
+
 #include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
@@ -25,8 +26,8 @@ namespace {
 
 using core::BlockGraph;
 using core::RelativeAddress;
-using image_util::PEFile;
-using image_util::PEFileParser;
+using pe::PEFile;
+using pe::PEFileParser;
 
 FilePath GetExeRelativePath(const wchar_t* image_name) {
   FilePath exe_dir;
@@ -118,7 +119,7 @@ class PEFileParserTest: public testing::Test {
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 TEST_F(PEFileParserTest, ParseImageHeader) {
   PEFileParser parser(image_file_, &address_space_, add_reference_.get());
@@ -209,4 +210,4 @@ TEST_F(PEFileParserTest, ParseExportDirectory) {
   ASSERT_TRUE(ExportIsReferenced("function3"));
 }
 
-}  // namespace image_util
+}  // namespace pe

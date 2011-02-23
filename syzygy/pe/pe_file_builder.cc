@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "sawbuck/image_util/pe_file_builder.h"
+#include "syzygy/pe/pe_file_builder.h"
 
 #include <ctime>
 
@@ -130,7 +130,7 @@ bool IsValidReference(const BlockGraph::AddressSpace& addr_space,
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
     : next_section_address_(kDefaultSectionAlignment),
@@ -425,4 +425,4 @@ bool PEFileBuilder::FinalizeHeaders() {
   return true;
 }
 
-}  // namespace image_util
+}  // namespace pe

@@ -11,8 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-#include "sawbuck/image_util/decomposer.h"
+#include "syzygy/pe/decomposer.h"
 
 #include "base/path_service.h"
 #include "base/string_util.h"
@@ -31,7 +30,7 @@ const wchar_t kDllName[] = L"test_dll.dll";
 
 }  // namespace
 
-namespace image_util {
+namespace pe {
 
 TEST(DecomposerTest, Decompose) {
   FilePath image_path(GetExeRelativePath(kDllName));
@@ -74,4 +73,4 @@ TEST(DecomposerTest, Decompose) {
 
 // TODO(siggi): More tests.
 
-}  // namespace image_util
+}  // namespace pe

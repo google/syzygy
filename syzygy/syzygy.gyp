@@ -23,6 +23,7 @@
       'dependencies': [
         'core/core.gyp:*',
         'pdb/pdb.gyp:*',
+        'pe/pe.gyp:*',
       ],
     },
     {
@@ -37,6 +38,7 @@
         'unittest_targets': [
           '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
           '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
+          '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
         ],
       },
       'dependencies': [
@@ -49,7 +51,9 @@
           'inputs': [
             '../sawbuck/tools/run_unittests.py',
             '../sawbuck/tools/verifier.py',
+            '<(PRODUCT_DIR)/core_unittests.exe',
             '<(PRODUCT_DIR)/pdb_unittests.exe',
+            '<(PRODUCT_DIR)/pe_unittests.exe',
           ],
           'outputs': [
             # Created only if all unittests succeed
