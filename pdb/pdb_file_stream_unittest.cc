@@ -45,8 +45,8 @@ class PdbFileStreamTest : public testing::Test {
  public:
   virtual void SetUp() {
     file_.reset(file_util::OpenFile(GetSrcRelativePath(
-        L"sawbuck\\image_util\\test_data\\test_dll.pdb"), "rb"));
-    EXPECT_TRUE(file_.get() != NULL);
+        L"syzygy\\pdb\\test_data\\test_dll.pdb"), "rb"));
+    ASSERT_TRUE(file_.get() != NULL);
   }
 
  protected:
