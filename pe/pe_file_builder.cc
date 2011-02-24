@@ -17,6 +17,11 @@
 
 namespace {
 
+// Reference to the associated .asm file that constructs the DOS stub.
+extern "C" void begin_dos_stub();
+extern "C" void end_dos_stub();
+
+
 using core::BlockGraph;
 using core::RelativeAddress;
 typedef std::vector<uint8> ByteVector;
@@ -135,8 +140,7 @@ namespace pe {
 PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
     : next_section_address_(kDefaultSectionAlignment),
       address_space_(block_graph),
-      dos_header_(NULL),
-      dos_stub_(NULL) {
+      dos_header_(NULL) {
 
   memset(&nt_headers_, 0, sizeof(nt_headers_));
 
@@ -167,7 +171,7 @@ PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
   nt_headers_.OptionalHeader.SizeOfHeaders = kDefaultHeaderSize;
 
   nt_headers_.OptionalHeader.CheckSum = 0;
-  nt_headers_.OptionalHeader.Subsystem = IMAGE_SUBSYSTEM_WINDOWS_GUI;
+  nt_headers_.OptionalHeader.Subsystem = IMAGE_SUBSYSTEM_WINDOWS_CUI;
 
   nt_headers_.OptionalHeader.DllCharacteristics =
       IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE |
@@ -213,38 +217,6 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
   return section_base;
 }
 
-bool PEFileBuilder::SetDosHeader(BlockGraph::Block* dos_header) {
-  DCHECK(dos_header != NULL);
-  DCHECK_EQ(sizeof(IMAGE_DOS_HEADER), dos_header->size());
-  DCHECK_EQ(sizeof(IMAGE_DOS_HEADER), dos_header->data_size());
-
-  if (!address_space_.InsertBlock(RelativeAddress(0), dos_header)) {
-    LOG(ERROR) << "Unable to insert DOS header in image";
-    return false;
-  }
-
-  dos_header_ = dos_header;
-  return true;
-}
-
-bool PEFileBuilder::SetDosStub(BlockGraph::Block* dos_stub) {
-  DCHECK(dos_stub != NULL);
-
-  if (dos_header_ == NULL) {
-    LOG(ERROR) << "No DOS header in image.";
-    return false;
-  }
-
-  RelativeAddress dos_stub_addr(dos_header_->size());
-  if (!address_space_.InsertBlock(dos_stub_addr, dos_stub)) {
-    LOG(ERROR) << "Unable to insert DOS stub in image";
-    return false;
-  }
-
-  dos_stub_ = dos_stub;
-  return true;
-}
-
 bool PEFileBuilder::SetEntryPoint(const BlockGraph::Reference& entry_point) {
   entry_point_ = entry_point;
 
@@ -268,8 +240,8 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
                                           size_t entry_size) {
   DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
   DCHECK(IsValidReference(address_space_, entry));
-  DCHECK(entry.type() == BlockGraph::RELATIVE_REF);
-  DCHECK_NE(0U, entry_size);
+  DCHECK_EQ(BlockGraph::RELATIVE_REF, entry.type());
+  DCHECK(entry_size != NULL);
 
   data_directory_[entry_index].ref_ = entry;
   data_directory_[entry_index].size_ = entry_size;
@@ -337,11 +309,13 @@ bool PEFileBuilder::CreateRelocsSection() {
 }
 
 bool PEFileBuilder::FinalizeHeaders() {
-  if (dos_header_ == NULL || dos_stub_ == NULL) {
-    LOG(ERROR) << "Attempting to finalize headers before setting "
-        "dos header and/or stub";
+  // The DOS header should not be set at this point.
+  DCHECK(dos_header_ == NULL);
+  if (!CreateDosHeader()) {
+    LOG(ERROR) << "Unable to create DOS header";
     return false;
   }
+  DCHECK(dos_header_ != NULL);
 
   nt_headers_.FileHeader.NumberOfSections = section_headers_.size();
 
@@ -350,20 +324,20 @@ bool PEFileBuilder::FinalizeHeaders() {
     const IMAGE_SECTION_HEADER& hdr = section_headers_[i];
 
     if (hdr.Characteristics & IMAGE_SCN_CNT_CODE) {
-      nt_headers_.OptionalHeader.SizeOfCode += hdr.Misc.VirtualSize;
+      nt_headers_.OptionalHeader.SizeOfCode += hdr.SizeOfRawData;
       if (nt_headers_.OptionalHeader.BaseOfCode == 0) {
         nt_headers_.OptionalHeader.BaseOfCode = hdr.VirtualAddress;
       }
     }
     if (hdr.Characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
-      nt_headers_.OptionalHeader.SizeOfInitializedData += hdr.Misc.VirtualSize;
+      nt_headers_.OptionalHeader.SizeOfInitializedData += hdr.SizeOfRawData;
 
       if (nt_headers_.OptionalHeader.BaseOfData == 0)
         nt_headers_.OptionalHeader.BaseOfData = hdr.VirtualAddress;
     }
     if (hdr.Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
       nt_headers_.OptionalHeader.SizeOfUninitializedData +=
-          hdr.Misc.VirtualSize;
+          hdr.SizeOfRawData;
       if (nt_headers_.OptionalHeader.BaseOfData == 0)
         nt_headers_.OptionalHeader.BaseOfData = hdr.VirtualAddress;
     }
@@ -379,7 +353,7 @@ bool PEFileBuilder::FinalizeHeaders() {
   // Add the NT headers block.
   BlockGraph::Block* nt_headers_block =
       address_space_.AddBlock(BlockGraph::DATA_BLOCK,
-                              dos_stub_->addr() + dos_stub_->size(),
+                              dos_header_->addr() + dos_header_->size(),
                               sizeof(nt_headers_),
                               "NT Headers");
   if (nt_headers_block == NULL ||
@@ -387,6 +361,13 @@ bool PEFileBuilder::FinalizeHeaders() {
     LOG(ERROR) << "Unable to add NT headers block";
     return false;
   }
+
+  // Insert the reference from the DOS headers to the NT header.
+  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF,
+                            sizeof(WORD),
+                            nt_headers_block,
+                            0);
+  dos_header_->SetReference(FIELD_OFFSET(IMAGE_DOS_HEADER, e_lfanew), ref);
 
   // Now add the references for the entry point and data
   // directory to the headers block.
@@ -422,6 +403,63 @@ bool PEFileBuilder::FinalizeHeaders() {
     return false;
   }
 
+  return true;
+}
+
+bool PEFileBuilder::CreateDosHeader() {
+  const uint8* begin_dos_stub_ptr =
+      reinterpret_cast<const uint8*>(&begin_dos_stub);
+  const uint8* end_dos_stub_ptr =
+      reinterpret_cast<const uint8*>(&end_dos_stub);
+
+  size_t dos_header_size = sizeof(IMAGE_DOS_HEADER) +
+      end_dos_stub_ptr - begin_dos_stub_ptr;
+  // The DOS has to be a multiple of 16 bytes for historic reasons.
+  dos_header_size = AlignUp(dos_header_size, 16);
+
+  BlockGraph::Block* dos_header =
+      address_space_.AddBlock(BlockGraph::DATA_BLOCK,
+                              RelativeAddress(0),
+                              dos_header_size,
+                              "DOS Header");
+  if (dos_header == NULL) {
+    LOG(ERROR) << "Unable to insert DOS header in image.";
+    return false;
+  }
+
+  IMAGE_DOS_HEADER* dos_header_ptr =
+      reinterpret_cast<IMAGE_DOS_HEADER*>(
+          dos_header->AllocateData(dos_header_size));
+  if (dos_header_ptr == NULL) {
+    LOG(ERROR) << "Unable to allocate DOS header data.";
+    return false;
+  }
+
+  memset(dos_header_ptr, 0, sizeof(*dos_header_ptr));
+  memcpy(dos_header_ptr + 1,
+         begin_dos_stub_ptr,
+         end_dos_stub_ptr - begin_dos_stub_ptr);
+
+  dos_header_ptr->e_magic = IMAGE_DOS_SIGNATURE;
+  // Calculate the number of bytes used on the last DOS executable "page".
+  dos_header_ptr->e_cblp = dos_header_size % 512;
+  // Calculate the number of pages used by the DOS executable.
+  dos_header_ptr->e_cp = dos_header_size / 512;
+  // Count the last page if we didn't have an even multiple
+  if (dos_header_ptr->e_cblp != 0)
+    dos_header_ptr->e_cp++;
+
+  // Header length in "paragraphs".
+  dos_header_ptr->e_cparhdr = sizeof(*dos_header_ptr) / 16;
+
+  // Set this to max allowed, just because.
+  dos_header_ptr->e_maxalloc = 0xFFFF;
+
+  // Location of relocs - our header has zero relocs, but we set this anyway.
+  dos_header_ptr->e_lfarlc = sizeof(*dos_header_ptr);
+
+  // Store the dos header block.
+  dos_header_ = dos_header;
   return true;
 }
 

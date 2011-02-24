@@ -46,7 +46,6 @@ TEST(DecomposerTest, Decompose) {
 
   EXPECT_TRUE(decomposed.header.dos_header != NULL);
   EXPECT_TRUE(decomposed.header.nt_headers != NULL);
-  EXPECT_TRUE(decomposed.header.image_section_headers != NULL);
 
   EXPECT_TRUE(
       decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_EXPORT]

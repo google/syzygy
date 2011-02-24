@@ -225,31 +225,19 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
     return false;
   }
 
-  // Chunk out the DOS header.
-  BlockGraph::Block* dos_header = AddBlock(BlockGraph::DATA_BLOCK,
-                                           RelativeAddress(0),
-                                           sizeof(IMAGE_DOS_HEADER),
-                                           "DOS Header");
-  if (dos_header == NULL) {
-    LOG(ERROR) << "Unable to add DOS header block";
-    return false;
-  }
-
   // Calculate the address of the NT headers.
   RelativeAddress nt_headers_address(
       reinterpret_cast<const uint8*>(image_file_.nt_headers()) -
           header_start);
-
   DCHECK(nt_headers_address.value() > sizeof(IMAGE_DOS_HEADER));
 
-  // Chunk the DOS Stub.
-  RelativeAddress dos_stub_address(sizeof(IMAGE_DOS_HEADER));
-  BlockGraph::Block* dos_stub = AddBlock(BlockGraph::CODE_BLOCK,
-                                         dos_stub_address,
-                                         nt_headers_address - dos_stub_address,
-                                         "DOS Stub");
-  if (dos_stub == NULL) {
-    LOG(ERROR) << "Unable to add DOS stub block";
+  // Chunk out the DOS header and stub.
+  BlockGraph::Block* dos_header = AddBlock(BlockGraph::DATA_BLOCK,
+                                           RelativeAddress(0),
+                                           nt_headers_address.value(),
+                                           "DOS Header");
+  if (dos_header == NULL) {
+    LOG(ERROR) << "Unable to add DOS header block";
     return false;
   }
 
@@ -259,10 +247,14 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
     return false;
   }
 
-  // Chunk the NT headers.
+  // Calculate the size of the NT headers and section headers.
+  size_t nt_headers_size = sizeof(IMAGE_NT_HEADERS) +
+      nt_headers_ptr->FileHeader.NumberOfSections *
+          sizeof(IMAGE_SECTION_HEADER);
+  // And check the two .
   BlockGraph::Block* nt_headers = AddBlock(BlockGraph::DATA_BLOCK,
                                            nt_headers_address,
-                                           sizeof(IMAGE_NT_HEADERS),
+                                           nt_headers_size,
                                            "NT Headers");
   if (nt_headers == NULL) {
     LOG(ERROR) << "Unable to add NT Headers block";
@@ -305,31 +297,9 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
     }
   }
 
-  // Chunk out the image section headers.
-  RelativeAddress image_section_header_address(
-      nt_headers_address + sizeof(IMAGE_NT_HEADERS));
-  BlockGraph::Size image_section_header_size = sizeof(IMAGE_SECTION_HEADER) *
-      nt_headers_ptr->FileHeader.NumberOfSections;
-  if (image_file_.GetImageData(image_section_header_address,
-                               image_section_header_size) == NULL) {
-    LOG(ERROR) << "Unable to read image section headers";
-    return false;
-  }
-
-  BlockGraph::Block* image_section_headers = AddBlock(
-      BlockGraph::DATA_BLOCK, image_section_header_address,
-      image_section_header_size, "Image section headers");
-
-  if (image_section_headers == NULL) {
-    LOG(ERROR) << "Unable to create image section headers block";
-    return false;
-  }
-
   if (header != NULL) {
     header->dos_header = dos_header;
-    header->dos_stub = dos_stub;
     header->nt_headers = nt_headers;
-    header->image_section_headers = image_section_headers;
     for (int i = 0; i < arraysize(data_directory); ++i)
       header->data_directory[i] = data_directory[i];
   }
@@ -409,7 +379,7 @@ bool PEFileParser::AddFileOffset(const PEFileStructPtr<ItemType>& structure,
 
   return image_file_.Translate(offs, &rel) &&
       AddReference(structure.AddressOf(item),
-                   BlockGraph::ABSOLUTE_REF,
+                   BlockGraph::FILE_OFFSET_REF,
                    sizeof(*item),
                    rel,
                    name);

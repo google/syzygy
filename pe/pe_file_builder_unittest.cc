@@ -62,17 +62,19 @@ class PEFileBuilderTest: public testing::Test {
     ASSERT_TRUE(decomposer.Decompose(&decomposed_));
 
     // Retrieve the original image headers.
-    ASSERT_EQ(sizeof(IMAGE_NT_HEADERS),
-        decomposed_.header.nt_headers->data_size());
+    ASSERT_GE(decomposed_.header.nt_headers->data_size(),
+              sizeof(IMAGE_NT_HEADERS));
     nt_headers_ = reinterpret_cast<const IMAGE_NT_HEADERS*>(
         decomposed_.header.nt_headers->data());
 
     // Retrieve the original section headers.
     num_sections_ = nt_headers_->FileHeader.NumberOfSections;
-    ASSERT_EQ(sizeof(IMAGE_SECTION_HEADER) * num_sections_,
-              decomposed_.header.image_section_headers->size());
+    ASSERT_EQ(
+        sizeof(IMAGE_SECTION_HEADER) * num_sections_ + sizeof(*nt_headers_),
+        decomposed_.header.nt_headers->size());
+
     section_headers_ = reinterpret_cast<const IMAGE_SECTION_HEADER*>(
-        decomposed_.header.image_section_headers->data());
+        nt_headers_ + 1);
 
     // We expect the last image segment to be the base relocations.
     ASSERT_EQ(0, strcmp(
@@ -87,10 +89,6 @@ class PEFileBuilderTest: public testing::Test {
 
   void CopyHeaderInfoFromDecomposed(PEFileBuilder* builder) {
     ASSERT_TRUE(builder != NULL);
-
-    // Copy the DOS header and stub over from the old image.
-    ASSERT_TRUE(builder->SetDosHeader(decomposed_.header.dos_header));
-    ASSERT_TRUE(builder->SetDosStub(decomposed_.header.dos_stub));
 
     // TODO(siggi): Retrieving the entry point from the decomposed image
     //     is pretty awkward - fix the decomposer to provide it more
@@ -205,6 +203,8 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
 
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
+  ASSERT_TRUE(decomposed_.header.dos_header->
+      TransferReferers(0, builder.dos_header()));
 
   PEFileWriter writer(builder.address_space(),
                       &builder.nt_headers(),
@@ -310,6 +310,8 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
 
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
+  ASSERT_TRUE(decomposed_.header.dos_header->
+      TransferReferers(0, builder.dos_header()));
 
   PEFileWriter writer(builder.address_space(),
                       &builder.nt_headers(),

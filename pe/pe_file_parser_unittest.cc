@@ -129,40 +129,32 @@ TEST_F(PEFileParserTest, ParseImageHeader) {
 
   // Check that the DOS header was read succssfully.
   ASSERT_TRUE(header.dos_header != NULL);
-  ASSERT_EQ(sizeof(IMAGE_DOS_HEADER), header.dos_header->size());
+  ASSERT_GE(header.dos_header->size(), sizeof(IMAGE_DOS_HEADER));
   ASSERT_EQ(BlockGraph::DATA_BLOCK, header.dos_header->type());
   // Check the underlying data.
-  ASSERT_EQ(sizeof(IMAGE_DOS_HEADER), header.dos_header->data_size());
+  ASSERT_GE(header.dos_header->data_size(), sizeof(IMAGE_DOS_HEADER));
   const IMAGE_DOS_HEADER* dos_header =
       reinterpret_cast<const IMAGE_DOS_HEADER*>(header.dos_header->data());
   ASSERT_TRUE(dos_header != NULL);
   ASSERT_EQ(IMAGE_DOS_SIGNATURE, dos_header->e_magic);
 
-  // Check the DOS stub.
-  ASSERT_TRUE(header.dos_stub != NULL);
-  ASSERT_NE(0U, header.dos_stub->size());
-  ASSERT_EQ(BlockGraph::CODE_BLOCK, header.dos_stub->type());
-  ASSERT_EQ(header.dos_stub->size(), header.dos_stub->data_size());
-  ASSERT_TRUE(header.dos_stub->data() != NULL);
-
   // Check the NT headers.
   ASSERT_TRUE(header.nt_headers != NULL);
-  ASSERT_EQ(sizeof(IMAGE_NT_HEADERS), header.nt_headers->size());
+  ASSERT_GT(header.nt_headers->size(), sizeof(IMAGE_NT_HEADERS));
+  ASSERT_EQ(header.nt_headers->data_size(), header.nt_headers->size());
   ASSERT_EQ(BlockGraph::DATA_BLOCK, header.nt_headers->type());
-  ASSERT_EQ(sizeof(IMAGE_NT_HEADERS), header.nt_headers->data_size());
   const IMAGE_NT_HEADERS* nt_headers =
       reinterpret_cast<const IMAGE_NT_HEADERS*>(header.nt_headers->data());
   ASSERT_TRUE(nt_headers != NULL);
   ASSERT_EQ(IMAGE_NT_OPTIONAL_HDR32_MAGIC, nt_headers->OptionalHeader.Magic);
 
-  // Check the image section headers.
-  ASSERT_TRUE(header.image_section_headers != NULL);
-  ASSERT_EQ(
-      sizeof(IMAGE_SECTION_HEADER) * nt_headers->FileHeader.NumberOfSections,
-      header.image_section_headers->size());
-  ASSERT_EQ(BlockGraph::DATA_BLOCK, header.image_section_headers->type());
-  ASSERT_EQ(header.image_section_headers->size(),
-      header.image_section_headers->data_size());
+  const IMAGE_SECTION_HEADER* section_headers = NULL;
+  // Check that the data accounts for the image section headers.
+  ASSERT_EQ(nt_headers->FileHeader.NumberOfSections * sizeof(*section_headers) +
+      sizeof(*nt_headers), header.nt_headers->data_size());
+
+  section_headers =
+      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
 
   // Now check the various data directory sections we expect to be non NULL.
   // We know the test dll has exports.

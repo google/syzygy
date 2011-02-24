@@ -36,6 +36,7 @@ class PEFileBuilder {
   IMAGE_SECTION_HEADER* section_headers() { return &section_headers_.at(0); }
   BlockGraph::AddressSpace& address_space() { return address_space_; }
   RelativeAddress next_section_address() const { return next_section_address_; }
+  BlockGraph::Block* dos_header() const { return dos_header_; }
 
   // Allocates a new segment.
   // @param name the name of the new segment, must be 8 characters
@@ -48,12 +49,6 @@ class PEFileBuilder {
                              size_t size,
                              size_t data_size,
                              uint32 characteristics);
-
-  // Set the DOS header for the image.
-  bool SetDosHeader(BlockGraph::Block* dos_header);
-
-  // Set the DOS stub for the image.
-  bool SetDosStub(BlockGraph::Block* dos_stub);
 
   // Sets the entry ploint for the image.
   bool SetEntryPoint(const BlockGraph::Reference& entry_point);
@@ -82,6 +77,9 @@ class PEFileBuilder {
   static const size_t kDefaultFileAlignment = 0x200;
 
  private:
+  // Create the DOS header for the image.
+  bool CreateDosHeader();
+
   // The NT headers for the image we're building, we set the fields here
   // to default values that may need changing depending on the particulars
   // of the image file to write.
@@ -98,9 +96,6 @@ class PEFileBuilder {
 
   // The block that describes the DOS header.
   BlockGraph::Block* dos_header_;
-
-  // The block that describes the DOS stub.
-  BlockGraph::Block* dos_stub_;
 
   // A reference to the entrypoint of our image.
   BlockGraph::Reference entry_point_;

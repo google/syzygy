@@ -21,6 +21,27 @@
       '<(DEPTH)',
     ],
   },
+  'target_defaults': {
+    'rules': [
+      {
+        'rule_name': 'Assemble',
+        'msvs_cygwin_shell': 0,
+        'extension': 'asm',
+        'inputs': [],
+        'outputs': [
+          '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
+        ],
+        'action': [
+          'ml',
+          '-safeseh',
+          '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
+          '-c', '<(RULE_INPUT_PATH)',
+        ],
+        'process_outputs_as_sources': 0,
+        'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
+      },
+    ],
+  },
   'targets': [
     {
       # This target servese the purpose of making it easy to
@@ -40,13 +61,17 @@
         'include_dirs': [
           '$(VSInstallDir)/DIA SDK/include',
         ],
-        'libraries': [
-          'diaguids.lib',
-        ],
         'msvs_settings': {
           'VCLinkerTool': {
             'AdditionalLibraryDirectories': [
               '$(VSInstallDir)/DIA SDK/lib',
+            ],
+            # GYP has a bug or misfeature whereby a library dependency used
+            # from another GYP file in a different directory picks up the path
+            # to that directory, so instead of using 'library', we specify the
+            # library dependency here.
+            'AdditionalDependencies': [
+              'diaguids.lib',
             ],
           },
         },
@@ -58,6 +83,7 @@
       'sources': [
         'decomposer.h',
         'decomposer.cc',
+        'dos_stub.asm',
         'pe_file.h',
         'pe_file.cc',
         'pe_file_builder.h',
