@@ -102,6 +102,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::GetFirstItersectingBlock(
   return it->second;
 }
 
+BlockGraph::AddressSpace::RangeMapConstIterPair
+BlockGraph::AddressSpace::GetIntersectingBlocks(RelativeAddress address,
+                                                Size size) const {
+  return address_space_.FindIntersecting(Range(address, size));
+}
+
 BlockGraph::AddressSpace::RangeMapIterPair
 BlockGraph::AddressSpace::GetIntersectingBlocks(RelativeAddress address,
                                                 Size size) {
@@ -238,25 +244,8 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
       new_block->SetReference(start_offset + ref_it->first, ref_it->second);
     }
 
-    // Redirect all referers to the new block, we copy the referer set
-    // because it is otherwise mutated during iteration.
-    BlockGraph::Block::RefererSet referers = block->referers();
-    BlockGraph::Block::RefererSet::const_iterator referer_it(referers.begin());
-    for (; referer_it != referers.end(); ++referer_it) {
-      // Get the original reference.
-      BlockGraph::Block::Referer referer = *referer_it;
-      BlockGraph::Block::ReferenceMap::const_iterator found_ref(
-          referer.first->references().find(referer.second));
-      DCHECK(found_ref != referer.first->references().end());
-      BlockGraph::Reference ref(found_ref->second);
-
-      // Redirect the reference to the new block with the adjusted offset.
-      BlockGraph::Reference new_ref(ref.type(),
-                                    ref.size(),
-                                    new_block,
-                                    ref.offset() + start_offset);
-      referer.first->SetReference(referer.second, new_ref);
-    }
+    // Redirect all referers to the new block.
+    block->TransferReferers(start_offset, new_block);
 
     // Check that we've removed all references and
     // referrers from the original block.
@@ -318,6 +307,8 @@ uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
 
 bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
   DCHECK(ref.referenced() != NULL);
+  DCHECK(ref.offset() >= 0 &&
+      static_cast<size_t>(ref.offset()) <= ref.referenced()->size());
   DCHECK(offset + ref.size() <= size());
 
   // Did we have an earlier reference at this location?
@@ -380,6 +371,36 @@ bool BlockGraph::Block::HasLabel(Offset offset) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
   return labels_.find(offset) != labels_.end();
+}
+
+bool BlockGraph::Block::TransferReferers(Offset offset,
+                                         Block* new_block) {
+  // Redirect all referers to the new block, we copy the referer set
+  // because it is otherwise mutated during iteration.
+  BlockGraph::Block::RefererSet referers = referers_;
+  BlockGraph::Block::RefererSet::const_iterator referer_it(referers.begin());
+
+  for (; referer_it != referers.end(); ++referer_it) {
+    // Get the original reference.
+    BlockGraph::Block::Referer referer = *referer_it;
+    BlockGraph::Block::ReferenceMap::const_iterator found_ref(
+        referer.first->references().find(referer.second));
+    DCHECK(found_ref != referer.first->references().end());
+    BlockGraph::Reference ref(found_ref->second);
+
+    Offset new_offset = ref.offset() + offset;
+    if (new_offset < 0 || static_cast<size_t>(new_offset) > new_block->size())
+      return false;
+
+    // Redirect the reference to the new block with the adjusted offset.
+    BlockGraph::Reference new_ref(ref.type(),
+                                  ref.size(),
+                                  new_block,
+                                  new_offset);
+    referer.first->SetReference(referer.second, new_ref);
+  }
+
+  return true;
 }
 
 }  // namespace core

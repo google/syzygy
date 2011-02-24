@@ -200,11 +200,18 @@ class BlockGraph::Block {
   // of the jump destinations.
   // @returns true iff a new label is inserted.
   // @note that only one label can exist at each offset, and the first
-  //    label set at any offset will stay there.
+  //     label set at any offset will stay there.
   bool SetLabel(Offset offset, const char* name);
 
   // Returns true iff the block has a label at @p offset.
   bool HasLabel(Offset offset);
+
+  // Change all references to this block to refer to @p new_block instead,
+  // while offsetting each reference by @p offset.
+  // @note this fails if any of the transferred references end up with offsets
+  //     less than zero, or greater than new_block->size().
+  // @returns true iff all references were transferred successfully.
+  bool TransferReferers(Offset offset, Block* new_block);
 
  private:
   BlockId id_;
@@ -242,7 +249,7 @@ class BlockGraph::AddressSpace {
   typedef AddressSpaceImpl::RangeMapIter RangeMapIter;
   typedef AddressSpaceImpl::RangeMapConstIter RangeMapConstIter;
   typedef AddressSpaceImpl::RangeMapIterPair RangeMapIterPair;
-  typedef AddressSpaceImpl::RangeMapConstIterPair RangeConstMapIterPair;
+  typedef AddressSpaceImpl::RangeMapConstIterPair RangeMapConstIterPair;
 
   // Constructs a new empty address space.
   // @p start to @p start + @p size on @p graph.
@@ -251,7 +258,7 @@ class BlockGraph::AddressSpace {
   // Add a block of type @p type and @p size at @p address to our associated
   // graph, and return the new block.
   // @returns the new block, or NULL if the new block would overlap
-  //    an existing block.
+  //     an existing block.
   Block* AddBlock(BlockType type,
                   RelativeAddress addr,
                   Size size,
@@ -262,12 +269,12 @@ class BlockGraph::AddressSpace {
   // merged block, and changes referring blocks to refer to the new,
   // merged block.
   // @returns the new, merged block if there was at least one intersecting
-  //    block in @p range, or NULL otherwise.
+  //     block in @p range, or NULL otherwise.
   Block* MergeIntersectingBlocks(const Range& range);
 
   // Insert existing block @p block at @p address.
   // @returns true on succes, or false if the @p block would overlap
-  //    an existing block.
+  //     an existing block.
   bool InsertBlock(RelativeAddress addr, Block* block);
 
   // Returns a pointer to the block containing address, or NULL
@@ -285,18 +292,28 @@ class BlockGraph::AddressSpace {
 
   // Locates all blocks that intersect [@p address, @p address + @p size).
   // @returns a pair of iterators that iterate over the found blocks.
+  RangeMapConstIterPair GetIntersectingBlocks(RelativeAddress address,
+                                              Size size) const;
   RangeMapIterPair GetIntersectingBlocks(RelativeAddress address, Size size);
 
   // Retrieve the address off @p block.
   // @param block the block in question.
   // @param addr on success, returns the address of @p block in this
-  //    address space.
+  //     address space.
   // @returns true on success, false if @p block is not in this
-  //    address space.
+  //     address space.
   bool GetAddressOf(const Block* block, RelativeAddress* addr) const;
 
   // Accessor.
   BlockGraph* graph() const { return graph_; }
+
+  RangeMapConstIter begin() const {
+    return address_space_.ranges().begin();
+  }
+
+  RangeMapConstIter end() const {
+    return address_space_.ranges().end();
+  }
 
   const AddressSpaceImpl& address_space_impl() const {
     return address_space_;
