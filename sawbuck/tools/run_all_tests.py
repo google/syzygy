@@ -53,6 +53,10 @@ def GetOptionParser():
                     dest='solution',
                     default=_SAWBUCK_SOLUTION,
                     help='Use a specific solution file.')
+  parser.add_option('-p', '--project',
+                    dest='project',
+                    default=_TEST_PROJECT,
+                    help='Test project to build')
 
   return parser
 
@@ -80,9 +84,10 @@ def Main():
   except:
     pass
 
-  errors = BuildProjectConfig(builder, 'Debug', _TEST_PROJECT)
+  project = os.path.abspath(options.project)
+  errors = BuildProjectConfig(builder, 'Debug', project)
   if errors == 0:
-    errors = BuildProjectConfig(builder, 'Release', _TEST_PROJECT)
+    errors = BuildProjectConfig(builder, 'Release', project)
 
   # Restore the output window autohide status.
   if autohides != None:

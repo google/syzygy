@@ -13,18 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Presubmit script for Sawbuck.
+# Presubmit script for Syzygy.
 import os
 
 UNITTEST_MESSAGE_ = '''\
 Your %s unittests must succeed before submitting.
-To clear this presubmit error, build the sawbuck/run_unittests target
-in the solution file sawbuck/sawbuck.sln, or run sawbuck/run_all_tests.bat
+To clear this presubmit error, build the syzygy/run_unittests target
+in the solution file syzygy/syzygy.sln, or run syzygy/run_all_tests.bat
 '''
 
 def CheckUnittestsRan(input_api, output_api, committing, configuration):
   '''Checks that the unittests success file is newer than any modified file'''
-  success_path = "sawbuck/%s/unittest_success.txt" % configuration
+  success_path = "%s/unittest_success.txt" % configuration
   def MakeResult(message, modified_files=[]):
     if committing:
       return output_api.PresubmitError(message, modified_files)
