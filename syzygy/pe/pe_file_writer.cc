@@ -256,6 +256,17 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
         value = dst_addr.value();
         break;
 
+      case BlockGraph::FILE_OFFSET_REF: {
+          // Find the section that contains the destination address.
+          SectionFileAddressSpace::RangeMap::const_iterator it(
+              section_file_offsets_.FindContaining(
+                  SectionFileAddressSpace::Range(dst_addr, 1)));
+          DCHECK(it != section_file_offsets_.ranges().end());
+
+          value = it->second.value() + (dst_addr - it->first.start());
+        }
+        break;
+
       default:
         LOG(ERROR) << "Impossible reference type";
         return false;
@@ -266,6 +277,11 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     switch (ref.size()) {
       case sizeof(uint8):
         if (!UpdateReference(start, static_cast<uint8>(value), &data))
+          return false;
+        break;
+
+      case sizeof(uint16):
+        if (!UpdateReference(start, static_cast<uint16>(value), &data))
           return false;
         break;
 

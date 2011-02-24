@@ -47,17 +47,11 @@ class PEFileParser {
       memset(this, 0, sizeof(this));
     }
 
-    // The block that describes the DOS header.
+    // The block that describes the DOS header, including the DOS stub.
     BlockGraph::Block* dos_header;
 
-    // The block that describes the DOS stub (if any).
-    BlockGraph::Block* dos_stub;
-
-    // The block that describes the NT headers.
+    // The block that describes the NT and the section headers.
     BlockGraph::Block* nt_headers;
-
-    // The block that describes the image section headers.
-    BlockGraph::Block* image_section_headers;
 
     // The blocks that describe the data directory chunks.
     BlockGraph::Block* data_directory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];

@@ -42,16 +42,16 @@ class PEFileWriterTest: public testing::Test {
     Decomposer decomposer(image_file_, image_path);
     ASSERT_TRUE(decomposer.Decompose(&decomposed_image_));
 
-    ASSERT_EQ(sizeof(IMAGE_NT_HEADERS),
-        decomposed_image_.header.nt_headers->data_size());
+    ASSERT_GE(decomposed_image_.header.nt_headers->data_size(),
+              sizeof(IMAGE_NT_HEADERS));
     nt_headers_ = reinterpret_cast<const IMAGE_NT_HEADERS*>(
         decomposed_image_.header.nt_headers->data());
 
-    ASSERT_EQ(
-        sizeof(IMAGE_SECTION_HEADER) * nt_headers_->FileHeader.NumberOfSections,
-        decomposed_image_.header.image_section_headers->data_size());
+    ASSERT_EQ(sizeof(*nt_headers_) + sizeof(IMAGE_SECTION_HEADER) *
+        nt_headers_->FileHeader.NumberOfSections,
+            decomposed_image_.header.nt_headers->data_size());
     section_headers_ = reinterpret_cast<const IMAGE_SECTION_HEADER*>(
-        decomposed_image_.header.image_section_headers->data());
+        nt_headers_ + 1);
   }
 
   void TearDown() {
