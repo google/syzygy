@@ -34,6 +34,7 @@ uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
 
 bool AddOmapStreamToPdbFile(const FilePath& input_file,
                             const FilePath& output_file,
+                            const GUID& output_guid,
                             const std::vector<OMAP>& omap_to_list,
                             const std::vector<OMAP>& omap_from_list) {
   // Read the input Pdb's streams.
@@ -46,11 +47,31 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
 
   // Copy the Dbi stream into memory and overwrite it in the stream list.
   PdbByteStream dbi_stream;
-  if (streams.size() > kDbiStream && !dbi_stream.Init(streams[kDbiStream])) {
+  if (streams.size() <= kDbiStream || !dbi_stream.Init(streams[kDbiStream])) {
     LOG(ERROR) << "Failed to initialize Dbi byte stream";
     return false;
   }
   streams[kDbiStream] = &dbi_stream;
+
+  // Copy the Pdb header info stream into memory and adjust the header info.
+  PdbByteStream pdb_info_stream;
+  if (streams.size() <= kPdbHeaderInfoStream ||
+      !pdb_info_stream.Init(streams[kPdbHeaderInfoStream])) {
+    LOG(ERROR) << "Failed to initialize Pdb info byte stream";
+    return false;
+  }
+
+  if (pdb_info_stream.length() < sizeof(PdbInfoHeader70)) {
+    LOG(ERROR) << "Pdb info stream too short";
+    return false;
+  }
+
+  PdbInfoHeader70* info_header =
+      reinterpret_cast<PdbInfoHeader70*>(pdb_info_stream.data());
+  info_header->signature = output_guid;
+  info_header->timetamp = static_cast<uint32>(time(NULL));
+
+  streams[kPdbHeaderInfoStream] = &pdb_info_stream;
 
   // Read the Dbi header.
   DbiHeader dbi_header;
