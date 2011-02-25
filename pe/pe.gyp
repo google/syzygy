@@ -118,7 +118,6 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
     },
     {
@@ -169,7 +168,6 @@
       'dependencies': [
         'pe_lib',
         '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
     },
     {

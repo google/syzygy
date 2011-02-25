@@ -33,7 +33,6 @@
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
       ],
       'run_as': {
         'action': [

@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_byte_stream.h"
 
+#include <algorithm>
 #include "base/logging.h"
 
 namespace pdb {
@@ -63,15 +65,13 @@ size_t PdbByteStream::ReadBytes(void* dest, size_t count) {
     return 0;
 
   // Don't read beyond the end of the known stream length.
-  if (pos_ + count > length_)
-    count = length_ - pos_;
-  size_t bytes_read = count;
+  count = std::min(count, length_ - pos_);
 
   // Read the stream.
   memcpy(dest, data_.get() + pos_, count);
   pos_ += count;
 
-  return bytes_read;
+  return count;
 }
 
 }  // namespace pdb
