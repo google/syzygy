@@ -40,7 +40,7 @@
         'files/src/x86defs.c',
         'files/src/x86defs.h',
       ],
-      'direct_dependent_settings': {
+      'all_dependent_settings': {
         'include_dirs': [
           'files',
         ],
