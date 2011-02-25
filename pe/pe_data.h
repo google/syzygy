@@ -11,17 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/pdb/pdb_constants.h"
+#ifndef SYZYGY_PE_PE_DATA_H_
+#define SYZYGY_PE_PE_DATA_H_
 
-namespace pdb {
+#include <windows.h>
+#include "base/basictypes.h"
 
-const uint8 kPdbHeaderMagicString[] = {
-  0x4D, 0x69, 0x63, 0x72, 0x6F, 0x73, 0x6F, 0x66,  // "Microsof"
-  0x74, 0x20, 0x43, 0x2F, 0x43, 0x2B, 0x2B, 0x20,  // "t C/C++ "
-  0x4D, 0x53, 0x46, 0x20, 0x37, 0x2E, 0x30, 0x30,  // "MSF 7.00"
-  0x0D, 0x0A, 0x1A, 0x44, 0x53, 0x00, 0x00, 0x00   // "^^^DS^^^"
+namespace pe {
+
+// This reads 'RSDS' in memory.
+const uint32 kPdb70Signature = 0x53445352;
+
+// This is the structure referenced by the debug directory for
+// CV info where the debug info is in a PDB 7 file.
+struct CvInfoPdb70 {
+  uint32 cv_signature;
+  GUID signature;
+  uint32 pdb_age;
+  wchar_t pdb_file_name[1];
 };
 
-const uint32 kPdbMaxDirPages = 0x49;
+}  // namespace pe
 
-}  // namespace pdb
+#endif  // SYZYGY_PE_PE_DATA_H_
