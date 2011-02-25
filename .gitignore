@@ -9,11 +9,16 @@
 # Ignore compiled Python files.
 *.pyc
 
+# Ignore build output directories
+sawbuck/Debug/
+sawbuck/Release
+syzygy/Debug/
+syzygy/Release
+
 # Ignore directories gclient syncs.
 base/
 build/
-sawbuck/Debug/
-sawbuck/Release
+
 skia/
 testing/
 third_party/distorm/
