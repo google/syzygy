@@ -21,27 +21,6 @@
       '<(DEPTH)',
     ],
   },
-  'target_defaults': {
-    'rules': [
-      {
-        'rule_name': 'Assemble',
-        'msvs_cygwin_shell': 0,
-        'extension': 'asm',
-        'inputs': [],
-        'outputs': [
-          '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
-        ],
-        'action': [
-          'ml',
-          '-safeseh',
-          '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
-          '-c', '<(RULE_INPUT_PATH)',
-        ],
-        'process_outputs_as_sources': 0,
-        'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
-      },
-    ],
-  },
   'targets': [
     {
       # This target servese the purpose of making it easy to
@@ -99,6 +78,25 @@
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
+      ],
+      'rules': [
+        {
+          'rule_name': 'Assemble',
+          'msvs_cygwin_shell': 0,
+          'extension': 'asm',
+          'inputs': [],
+          'outputs': [
+            '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
+          ],
+          'action': [
+            'ml',
+            '-safeseh',
+            '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
+            '-c', '<(RULE_INPUT_PATH)',
+          ],
+          'process_outputs_as_sources': 0,
+          'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
+        },
       ],
     },
     {
