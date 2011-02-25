@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/pdb/pdb_util.h"
+
+#include <objbase.h>
 #include "base/path_service.h"
 #include "base/scoped_native_library.h"
 #include "base/win/pe_image.h"
@@ -110,11 +112,11 @@ TEST_F(PdbUtilTest, DISABLED_GetDbiDbgHeaderOffsetKernel32) {
 
 TEST_F(PdbUtilTest, TestDllHasNoOmap) {
   // Test that test_dll.pdb has no Omap information.
-  FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
+  FilePath test_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
   DWORD64 base_address =
       ::SymLoadModuleExW(process_,
                          NULL,
-                         test_dll_pdb_file_path.value().c_str(),
+                         test_pdb_file_path.value().c_str(),
                          NULL,
                          1,
                          1,
@@ -155,22 +157,32 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
   std::vector<OMAP> omap_from_list(omap_from_data,
                                    omap_from_data + arraysize(omap_from_data));
 
-  FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
-  EXPECT_TRUE(AddOmapStreamToPdbFile(test_dll_pdb_file_path,
+  FilePath test_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
+  GUID new_guid = { 0 };
+  ASSERT_HRESULT_SUCCEEDED(::CoCreateGuid(&new_guid));
+  EXPECT_TRUE(AddOmapStreamToPdbFile(test_pdb_file_path,
                                      temp_pdb_file_path_,
+                                     new_guid,
                                      omap_to_list,
                                      omap_from_list));
 
+  DWORD64 module_base = 0x10000000;
+  DWORD module_size = 0x100000;
   DWORD64 base_address =
       ::SymLoadModuleExW(process_,
                          NULL,
                          temp_pdb_file_path_.value().c_str(),
                          NULL,
-                         1,
-                         1,
+                         module_base,
+                         module_size,
                          NULL,
                          0);
   EXPECT_NE(0, base_address);
+
+  // Get the module info to verify that the new PDB has the GUID we specified.
+  IMAGEHLP_MODULEW64 module_info = { sizeof(module_info) };
+  EXPECT_TRUE(::SymGetModuleInfoW64(process_, base_address, &module_info));
+  EXPECT_EQ(new_guid, module_info.PdbSig70);
 
   OMAP* omap_to = NULL;
   DWORD64 omap_to_length = 0;
@@ -197,8 +209,8 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   EXPECT_TRUE(reader.Read(GetSrcRelativePath(kTestPdbFilePath), &streams));
 
   PdbInfoHeader70 header = { 0 };
-  ASSERT_GE(streams.size(), kPdbHeaderStream);
-  EXPECT_TRUE(streams[kPdbHeaderStream]->Read(&header, 1));
+  ASSERT_GE(streams.size(), kPdbHeaderInfoStream);
+  EXPECT_TRUE(streams[kPdbHeaderInfoStream]->Read(&header, 1));
   EXPECT_EQ(header.version, kPdbCurrentVersion);
 
   base::NativeLibrary test_dll =

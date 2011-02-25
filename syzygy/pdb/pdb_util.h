@@ -27,10 +27,13 @@ namespace pdb {
 // debug header size comes before the EC info size in the Dbi header struct.
 uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header);
 
-// Add Omap stream data to an existing Pdb file and write it as a new Pdb file.
+// Add Omap stream data to an existing Pdb file and write it as a new Pdb file,
+// while updating the Pdb header to a new GUID and timestamp.
 // The Omap vector arguments must already be sorted in ascending order by rva.
+// @param output_guid a new GUID to assign to the output_file.
 bool AddOmapStreamToPdbFile(const FilePath& input_file,
                             const FilePath& output_file,
+                            const GUID& output_guid,
                             const std::vector<OMAP>& omap_to_list,
                             const std::vector<OMAP>& omap_from_list);
 

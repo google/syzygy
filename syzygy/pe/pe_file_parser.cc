@@ -550,7 +550,12 @@ bool PEFileParser::ParseDebugDirectory(
       return false;
     }
 
-    // TODO(siggi): Does it make sense to chunk the data itself?
+    // Chunk the data referenced by the debug directory entry.
+    BlockGraph::Block* debug_data =
+        AddBlock(BlockGraph::DATA_BLOCK,
+                 RelativeAddress(debug_directory->AddressOfRawData),
+                 debug_directory->SizeOfData,
+                 "Debug Info");
   } while (debug_directory.Next());
 
   return true;

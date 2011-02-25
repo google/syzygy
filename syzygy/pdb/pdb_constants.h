@@ -19,7 +19,7 @@
 namespace pdb {
 
 // The index of the Pdb info header stream.
-const size_t kPdbHeaderStream = 1;
+const size_t kPdbHeaderInfoStream = 1;
 
 // The version we've observed in the Pdb info header.
 const uint32 kPdbCurrentVersion = 20000404;

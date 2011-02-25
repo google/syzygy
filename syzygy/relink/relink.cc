@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <objbase.h>
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -24,6 +25,7 @@
 #include "base/logging_win.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_writer.h"
 
@@ -95,10 +97,6 @@ void AddOmapForAllSections(size_t num_sections,
 
 // This class keeps track of data we need around during reordering
 // and after reordering for PDB rewriting.
-// TODO(siggi): Allocate a new GUID and stomp it into both the new image
-//     and the rewritten PDB file, to allow the two to match up correctly.
-// TODO(siggi): The rewritten PDB file also needs to contain the new image's
-//     linker timestamp.
 // TODO(siggi): Move this to a separate file.
 class Relinker {
  public:
@@ -108,6 +106,10 @@ class Relinker {
   // TODO(siggi): document me.
   bool Initialize(const BlockGraph::Block* original_nt_headers);
   bool RandomlyReorderCode(unsigned int seed);
+
+  // Updates the debug information in the debug directory with our new GUID.
+  bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block);
+
   bool CopyDataDirectory(PEFileParser::PEHeader* original_header);
   bool FinalizeImageHeaders(BlockGraph::Block* original_dos_header);
   bool WriteImage(const FilePath& output_path);
@@ -132,6 +134,9 @@ class Relinker {
   size_t original_num_sections_;
   const IMAGE_SECTION_HEADER* original_sections_;
   const BlockGraph::AddressSpace& original_addr_space_;
+
+  // The GUID we stamp into the new image and Pdb file.
+  GUID new_image_guid_;
 
   // The builder that we use to construct the new image.
   PEFileBuilder builder_;
@@ -182,6 +187,67 @@ bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
     LOG(ERROR) << "Unable to set entrypoint.";
     return false;
   }
+
+  if (FAILED(::CoCreateGuid(&new_image_guid_))) {
+    LOG(ERROR) << "Oh, no, we're fresh out of GUIDs! "
+        "Quick, hand me an IPv6 address...";
+    return false;
+  }
+
+  return true;
+}
+
+bool Relinker::UpdateDebugInformation(
+    BlockGraph::Block* debug_directory_block) {
+  // TODO(siggi): This is a bit of a hack, but in the interest of expediency
+  //     we simply reallocate the data the existing debug directory references,
+  //     and update the GUID and timestamp therein.
+  //     It would be better to simply junk the debug info block, and replace it
+  //     with a block that contains the new GUID, timestamp and PDB path.
+  IMAGE_DEBUG_DIRECTORY debug_dir;
+  if (debug_directory_block->data_size() != sizeof(debug_dir)) {
+    LOG(ERROR) << "Debug directory is unexpected size.";
+    return false;
+  }
+  memcpy(&debug_dir, debug_directory_block->data(), sizeof(debug_dir));
+  if (debug_dir.Type != IMAGE_DEBUG_TYPE_CODEVIEW) {
+    LOG(ERROR) << "Debug directory with unexpected type.";
+    return false;
+  }
+
+  // Update the timestamp.
+  debug_dir.TimeDateStamp = static_cast<uint32>(time(NULL));
+  if (debug_directory_block->CopyData(sizeof(debug_dir), &debug_dir) == NULL) {
+    LOG(ERROR) << "Unable to copy debug directory data";
+    return false;
+  }
+
+  // Now get the contents.
+  BlockGraph::Reference ref;
+  if (!debug_directory_block->GetReference(
+          FIELD_OFFSET(IMAGE_DEBUG_DIRECTORY, AddressOfRawData), &ref) ||
+      ref.offset() != 0 ||
+      ref.referenced()->size() < sizeof(pe::CvInfoPdb70)) {
+    LOG(ERROR) << "Unexpected or no data in debug directory.";
+    return false;
+  }
+
+  BlockGraph::Block* debug_info_block = ref.referenced();
+  DCHECK(debug_info_block != NULL);
+
+  // Copy the debug info data.
+  pe::CvInfoPdb70* debug_info =
+      reinterpret_cast<pe::CvInfoPdb70*>(
+          debug_info_block->CopyData(debug_info_block->data_size(),
+                                     debug_info_block->data()));
+
+  if (debug_info == NULL) {
+    LOG(ERROR) << "Unable to copy debug info";
+    return false;
+  }
+
+  // Stash the new GUID.
+  debug_info->signature = new_image_guid_;
 
   return true;
 }
@@ -338,11 +404,9 @@ bool Relinker::WritePDBFile(const BlockGraph::AddressSpace& original,
                         builder_.address_space(),
                         &omap_from);
 
-  // TODO(siggi): Assign a new GUID to the PDB and record the new image
-  //    checksum and link date in it.
-  // TODO(siggi): Rewrite the debug directory with the new PDB GUID and path.
   if (!pdb::AddOmapStreamToPdbFile(input_path,
                                    output_path,
+                                   new_image_guid_,
                                    omap_to,
                                    omap_from)) {
     LOG(ERROR) << "Unable to add OMAP data to PDB";
@@ -416,6 +480,10 @@ int main(int argc, char** argv) {
   unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
   if (!relinker.RandomlyReorderCode(seed)) {
     return Usage("Unable reorder the input image.");
+  }
+  if (!relinker.UpdateDebugInformation(
+          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
+    return Usage("Unable to update debug information.");
   }
   if (!relinker.CopyDataDirectory(&decomposed.header)) {
     return Usage("Unable to copy the input image's data directory.");
