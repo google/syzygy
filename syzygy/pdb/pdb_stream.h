@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #ifndef SYZYGY_PDB_PDB_STREAM_H_
 #define SYZYGY_PDB_PDB_STREAM_H_
 
@@ -22,14 +21,14 @@
 
 namespace pdb {
 
-// This class represents a PDB stream. It has a stream-like interface that
+// This class represents a PDB stream. It has a stream like interface that
 // allows invoking successive reads through the stream and seeking.
 class PdbStream {
  public:
   explicit PdbStream(size_t length);
   virtual ~PdbStream();
 
-  // Reads @p count chunks of size @p size into the destination buffer. The
+  // Read @p count chunks of size @p size into the destination buffer. The
   // caller is responsible for ensuring that the destination buffer has enough
   // space to receive the data.
   // @returns the number of chunks of size @p size read on success, 0 when the
@@ -45,17 +44,14 @@ class PdbStream {
     return bytes_read / size;
   }
 
-  // Sets the current read position.
+  // Set the current read position.
   bool Seek(size_t pos);
 
-  // Gets the stream's length.
+  // Get the stream's length.
   size_t length() const { return length_; }
 
-  // Gets the stream's read position.
-  size_t pos() const { return pos_; }
-
  protected:
-  // Reads @p count bytes of data into the destination buffer. The caller is
+  // Read @p count bytes of data into the destination buffer. The caller is
   // responsible for ensuring that the destination buffer has enough space to
   // receive the data. Returns the number of bytes read on success, 0 when the
   // end of the stream is reached, or -1 on error.
