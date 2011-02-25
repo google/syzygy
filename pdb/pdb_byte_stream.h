@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #ifndef SYZYGY_PDB_PDB_BYTE_STREAM_H_
 #define SYZYGY_PDB_PDB_BYTE_STREAM_H_
 
@@ -26,26 +25,25 @@ class PdbByteStream : public PdbStream {
   PdbByteStream();
   ~PdbByteStream();
 
-  // Initializes the stream from the contents of a byte array.
+  // Initialize the stream from the contents of a byte array.
   bool Init(const uint8* data, size_t length);
 
-  // Initializes the stream from the contents of another PdbStream.
+  // Initialize the stream from the contents of another PdbStream.
   bool Init(PdbStream* stream);
 
-  // Gets the stream's data pointer.
+  // Get the stream's data pointer.
   uint8* data() { return data_.get(); }
 
  protected:
   // PdbStream implementation.
   size_t ReadBytes(void* dest, size_t count);
 
- private:
   // The stream's data.
   scoped_array<uint8> data_;
 
   DISALLOW_COPY_AND_ASSIGN(PdbByteStream);
 };
 
-}  // namespace pdb
+}  // namespace
 
 #endif  // SYZYGY_PDB_PDB_BYTE_STREAM_H_
