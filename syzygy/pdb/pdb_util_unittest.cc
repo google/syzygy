@@ -13,14 +13,20 @@
 // limitations under the License.
 #include "syzygy/pdb/pdb_util.h"
 #include "base/path_service.h"
+#include "base/scoped_native_library.h"
+#include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pe/pe_data.h"
 
 namespace {
 
-const wchar_t* kTestDllPdbFilePath =
+const wchar_t* kTestPdbFilePath =
     L"syzygy\\pdb\\test_data\\test_dll.pdb";
+
+const wchar_t* kTestDllFilePath =
+    L"syzygy\\pdb\\test_data\\test_dll.dll";
 
 const wchar_t* kKernel32PdbFilePath =
     L"syzygy\\pdb\\test_data\\kernel32.pdb";
@@ -64,7 +70,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
   // Test the test_dll.pdb doesn't have Omap information.
   PdbReader reader;
   std::vector<PdbStream*> streams;
-  EXPECT_TRUE(reader.Read(GetSrcRelativePath(kTestDllPdbFilePath), &streams));
+  EXPECT_TRUE(reader.Read(GetSrcRelativePath(kTestPdbFilePath), &streams));
 
   PdbStream* dbi_stream = streams[kDbiStream];
   DbiHeader dbi_header;
@@ -104,7 +110,7 @@ TEST_F(PdbUtilTest, DISABLED_GetDbiDbgHeaderOffsetKernel32) {
 
 TEST_F(PdbUtilTest, TestDllHasNoOmap) {
   // Test that test_dll.pdb has no Omap information.
-  FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestDllPdbFilePath);
+  FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
   DWORD64 base_address =
       ::SymLoadModuleExW(process_,
                          NULL,
@@ -149,7 +155,7 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
   std::vector<OMAP> omap_from_list(omap_from_data,
                                    omap_from_data + arraysize(omap_from_data));
 
-  FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestDllPdbFilePath);
+  FilePath test_dll_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
   EXPECT_TRUE(AddOmapStreamToPdbFile(test_dll_pdb_file_path,
                                      temp_pdb_file_path_,
                                      omap_to_list,
@@ -183,6 +189,45 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
   EXPECT_EQ(0, memcmp(omap_from_data, omap_from, sizeof(omap_from_data)));
 
   EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
+}
+
+TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
+  PdbReader reader;
+  std::vector<PdbStream*> streams;
+  EXPECT_TRUE(reader.Read(GetSrcRelativePath(kTestPdbFilePath), &streams));
+
+  PdbInfoHeader70 header = { 0 };
+  ASSERT_GE(streams.size(), kPdbHeaderStream);
+  EXPECT_TRUE(streams[kPdbHeaderStream]->Read(&header, 1));
+  EXPECT_EQ(header.version, kPdbCurrentVersion);
+
+  base::NativeLibrary test_dll =
+      base::LoadNativeLibrary(GetSrcRelativePath(kTestDllFilePath));
+  ASSERT_TRUE(test_dll != NULL);
+
+  // Make sure the DLL is unloaded on exit.
+  base::ScopedNativeLibrary test_dll_keeper(test_dll);
+  base::win::PEImage image(test_dll);
+
+  // Retrieve the NT headers to make it easy to look at them in debugger.
+  const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
+
+  ASSERT_EQ(sizeof(IMAGE_DEBUG_DIRECTORY),
+            image.GetImageDirectoryEntrySize(IMAGE_DIRECTORY_ENTRY_DEBUG));
+  const IMAGE_DEBUG_DIRECTORY* debug_directory =
+      reinterpret_cast<const IMAGE_DEBUG_DIRECTORY*>(
+          image.GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_DEBUG));
+
+  ASSERT_EQ(IMAGE_DEBUG_TYPE_CODEVIEW, debug_directory->Type);
+  ASSERT_GE(debug_directory->SizeOfData, sizeof(pe::CvInfoPdb70));
+
+  const pe::CvInfoPdb70* cv_info =
+      reinterpret_cast<const pe::CvInfoPdb70*>(
+          image.RVAToAddr(debug_directory->AddressOfRawData));
+
+  ASSERT_EQ(pe::kPdb70Signature, cv_info->cv_signature);
+  ASSERT_EQ(header.signature, cv_info->signature);
+  ASSERT_EQ(header.pdb_age, cv_info->pdb_age);
 }
 
 }  // namespace pdb

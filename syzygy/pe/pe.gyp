@@ -63,6 +63,7 @@
         'decomposer.h',
         'decomposer.cc',
         'dos_stub.asm',
+        'pe_data.h',
         'pe_file.h',
         'pe_file.cc',
         'pe_file_builder.h',

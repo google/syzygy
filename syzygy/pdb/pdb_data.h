@@ -18,7 +18,19 @@
 
 namespace pdb {
 
-// Dbi Info Stream Header
+// Pdb Info Stream Header, this is at the start of stream #1.
+struct PdbInfoHeader70 {
+  // Equal to kPdbCurrentVersion for PDBs seen from VS 9.0.
+  uint32 version;
+  // This looks to be the time of the PDB file creation.
+  uint32 timetamp;
+  // Updated every time the PDB file is written.
+  uint32 pdb_age;
+  // This must match the GUID stored off the image's debug directory.
+  GUID signature;
+};
+
+// Dbi Info Stream Header, this is at the start of stream #3.
 // See http://code.google.com/p/pdbparser/wiki/DBI_Format
 struct DbiHeader {
   int32 signature;

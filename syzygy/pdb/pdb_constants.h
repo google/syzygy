@@ -18,8 +18,14 @@
 
 namespace pdb {
 
+// The index of the Pdb info header stream.
+const size_t kPdbHeaderStream = 1;
+
+// The version we've observed in the Pdb info header.
+const uint32 kPdbCurrentVersion = 20000404;
+
 // The index of the Dbi info stream.
-extern const uint32 kDbiStream;
+const size_t kDbiStream = 3;
 
 // This is the magic value found at the start of all MSF v7.00 files.
 extern const uint8 kPdbHeaderMagicString[32];
