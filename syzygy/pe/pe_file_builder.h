@@ -22,21 +22,33 @@
 
 namespace pe {
 
+// A helper class that assists in assigning address space to PE image sections,
+// building self-consistent PE image headers etc.
 class PEFileBuilder {
  public:
   typedef core::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
 
-  typedef std::vector<IMAGE_SECTION_HEADER> ImageSectionHeaderVector;
-
+  // Constructs a new PE file builder on the supplied block graph.
+  // The block graph must outlive the file builder.
   explicit PEFileBuilder(BlockGraph* block_graph);
 
-  // Accessors.
+  // Non-const accessors.
   IMAGE_NT_HEADERS& nt_headers() { return nt_headers_; }
   IMAGE_SECTION_HEADER* section_headers() { return &section_headers_.at(0); }
   BlockGraph::AddressSpace& address_space() { return address_space_; }
+  BlockGraph::Block* dos_header() { return dos_header_; }
+
+  // Const accessors.
+  const IMAGE_NT_HEADERS& nt_headers() const { return nt_headers_; }
+  const IMAGE_SECTION_HEADER* section_headers() const {
+    return &section_headers_.at(0);
+  }
+  const BlockGraph::Block* dos_header() const { return dos_header_; }
+  const BlockGraph::AddressSpace& address_space() const {
+    return address_space_;
+  }
   RelativeAddress next_section_address() const { return next_section_address_; }
-  BlockGraph::Block* dos_header() const { return dos_header_; }
 
   // Allocates a new segment.
   // @param name the name of the new segment, must be 8 characters
@@ -77,6 +89,8 @@ class PEFileBuilder {
   static const size_t kDefaultFileAlignment = 0x200;
 
  private:
+  typedef std::vector<IMAGE_SECTION_HEADER> ImageSectionHeaderVector;
+
   // Create the DOS header for the image.
   bool CreateDosHeader();
 

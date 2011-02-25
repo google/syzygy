@@ -24,6 +24,7 @@
         'core/core.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
+        'relink/relink.gyp:*',
       ],
     },
     {
