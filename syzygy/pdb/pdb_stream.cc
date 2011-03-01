@@ -11,17 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
 
-PdbStream::PdbStream(size_t length) : length_(length), pos_(0) {
+PdbStream::PdbStream(int length) : length_(length), pos_(0) {
 }
 
 PdbStream::~PdbStream() {
 }
 
-bool PdbStream::Seek(size_t pos) {
+bool PdbStream::Seek(int pos) {
   if (pos > length_)
     return false;
 

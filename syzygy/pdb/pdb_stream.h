@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PDB_PDB_STREAM_H_
 #define SYZYGY_PDB_PDB_STREAM_H_
 
@@ -21,49 +22,55 @@
 
 namespace pdb {
 
-// This class represents a PDB stream. It has a stream like interface that
+// This class represents a PDB stream. It has a stream-like interface that
 // allows invoking successive reads through the stream and seeking.
 class PdbStream {
  public:
-  explicit PdbStream(size_t length);
+  explicit PdbStream(int length);
   virtual ~PdbStream();
 
-  // Read @p count chunks of size @p size into the destination buffer. The
+  // Reads @p count chunks of size @p size into the destination buffer. The
   // caller is responsible for ensuring that the destination buffer has enough
   // space to receive the data.
   // @returns the number of chunks of size @p size read on success, 0 when the
   // end of the stream is reached, or -1 on error.
   template <typename ItemType>
-  size_t Read(ItemType* dest, size_t count) {
-    size_t size = sizeof(ItemType);
-    size_t bytes_read = ReadBytes(dest, size * count);
+  int Read(ItemType* dest, int count) {
+    int size = sizeof(ItemType);
+    int bytes_read = ReadBytes(dest, size * count);
     if (bytes_read == -1)
       return -1;
 
-    DCHECK_EQ(0U, bytes_read % size);
+    DCHECK_EQ(0, bytes_read % size);
     return bytes_read / size;
   }
 
-  // Set the current read position.
-  bool Seek(size_t pos);
+  // Sets the current read position.
+  bool Seek(int pos);
 
-  // Get the stream's length.
-  size_t length() const { return length_; }
+  // Gets the stream's length.
+  int length() const { return length_; }
 
  protected:
-  // Read @p count bytes of data into the destination buffer. The caller is
+  // Reads @p count bytes of data into the destination buffer. The caller is
   // responsible for ensuring that the destination buffer has enough space to
   // receive the data. Returns the number of bytes read on success, 0 when the
   // end of the stream is reached, or -1 on error.
-  virtual size_t ReadBytes(void* dest, size_t count) = 0;
+  virtual int ReadBytes(void* dest, int count) = 0;
 
-  // The length of the stream.
-  size_t length_;
+  // Sets the stream's length.
+  void set_length(int length) { length_ = length; }
 
-  // The read position within the stream.
-  size_t pos_;
+  // Gets the stream's read position.
+  int pos() const { return pos_; }
 
  private:
+  // The length of the stream.
+  int length_;
+
+  // The read position within the stream.
+  int pos_;
+
   DISALLOW_COPY_AND_ASSIGN(PdbStream);
 };
 
