@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_file_stream.h"
 
 #include "base/logging.h"
@@ -18,9 +19,9 @@
 namespace pdb {
 
 PdbFileStream::PdbFileStream(FILE* file,
-                             size_t length,
+                             int length,
                              const uint32* pages,
-                             size_t page_size)
+                             int page_size)
     : PdbStream(length),
       file_(file),
       pages_(pages),
@@ -30,34 +31,34 @@ PdbFileStream::PdbFileStream(FILE* file,
 PdbFileStream::~PdbFileStream() {
 }
 
-size_t PdbFileStream::ReadBytes(void* dest, size_t count) {
+int PdbFileStream::ReadBytes(void* dest, int count) {
   // Return 0 once we've reached the end of the stream.
-  if (pos_ == length_)
+  if (pos() == length())
     return 0;
 
   // Don't read beyond the end of the known stream length.
-  if (pos_ + count > length_)
-    count = length_ - pos_;
+  if (pos() + count > length())
+    count = length() - pos();
   size_t bytes_read = count;
 
   // Read the stream.
   while (count > 0) {
-    size_t page_index = pos_ / page_size_;
-    size_t offset = pos_ % page_size_;
-    size_t chunk_size = std::min(count, page_size_ - (pos_ % page_size_));
+    int page_index = pos() / page_size_;
+    int offset = pos() % page_size_;
+    int chunk_size = std::min(count, page_size_ - (pos() % page_size_));
     if (!ReadFromPage(dest, pages_[page_index], offset, chunk_size))
       return -1;
 
     count -= chunk_size;
-    pos_ += chunk_size;
+    Seek(pos() + chunk_size);
     dest = reinterpret_cast<uint8*>(dest) + chunk_size;
   }
 
   return bytes_read;
 }
 
-bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
-                                 size_t count) {
+bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, int offset,
+                                 int count) {
   DCHECK(dest != NULL);
   DCHECK(offset + count <= page_size_);
 
@@ -67,7 +68,7 @@ bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
     return false;
   }
 
-  if (fread(dest, 1, count, file_) != count) {
+  if (fread(dest, 1, count, file_) != static_cast<size_t>(count)) {
     LOG(ERROR) << "Page read failed";
     return false;
   }
