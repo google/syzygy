@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_byte_stream.h"
 
+#include <algorithm>
 #include "base/logging.h"
 
 namespace pdb {
@@ -23,22 +25,22 @@ PdbByteStream::PdbByteStream() : PdbStream(0) {
 PdbByteStream::~PdbByteStream() {
 }
 
-bool PdbByteStream::Init(const uint8* data, size_t length) {
-  length_ = length;
-  data_.reset(new uint8[length_]);
+bool PdbByteStream::Init(const uint8* data, int length) {
+  set_length(length);
+  data_.reset(new uint8[length]);
   if (data_.get() == NULL) {
     LOG(ERROR) << "Failed to allocate byte stream";
     return false;
   }
 
-  memcpy(data_.get(), data, length_);
+  memcpy(data_.get(), data, length);
   return true;
 }
 
 bool PdbByteStream::Init(PdbStream* stream) {
   // Init data members.
-  length_ = stream->length();
-  data_.reset(new uint8[length_]);
+  set_length(stream->length());
+  data_.reset(new uint8[length()]);
   if (data_.get() == NULL) {
     LOG(ERROR) << "Failed to allocate byte stream";
     return false;
@@ -49,7 +51,7 @@ bool PdbByteStream::Init(PdbStream* stream) {
     LOG(ERROR) << "Failed to seek in pdb file stream";
     return false;
   }
-  if (stream->Read(data_.get(), length_) != length_) {
+  if (stream->Read(data_.get(), length()) != length()) {
     LOG(ERROR) << "Failed to read pdb file stream";
     return false;
   }
@@ -57,21 +59,19 @@ bool PdbByteStream::Init(PdbStream* stream) {
   return true;
 }
 
-size_t PdbByteStream::ReadBytes(void* dest, size_t count) {
+int PdbByteStream::ReadBytes(void* dest, int count) {
   // Return 0 once we've reached the end of the stream.
-  if (pos_ == length_)
+  if (pos() == length())
     return 0;
 
   // Don't read beyond the end of the known stream length.
-  if (pos_ + count > length_)
-    count = length_ - pos_;
-  size_t bytes_read = count;
+  count = std::min(count, length() - pos());
 
   // Read the stream.
-  memcpy(dest, data_.get() + pos_, count);
-  pos_ += count;
+  memcpy(dest, data_.get() + pos(), count);
+  Seek(pos() + count);
 
-  return bytes_read;
+  return count;
 }
 
 }  // namespace pdb

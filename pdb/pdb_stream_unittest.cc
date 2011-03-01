@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_stream.h"
 #include "gtest/gtest.h"
 
@@ -20,20 +21,20 @@ using pdb::PdbStream;
 
 class TestPdbStream : public PdbStream {
  public:
-  explicit TestPdbStream(size_t length) : PdbStream(length) {
+  explicit TestPdbStream(int length) : PdbStream(length) {
   }
 
-  size_t pos() const { return pos_; }
+  using PdbStream::pos;
 
  protected:
   // A simple implementation of ReadBytes.
-  size_t ReadBytes(void* dest, size_t count) {
-    if (pos_ == length_)
+  int ReadBytes(void* dest, int count) {
+    if (pos() == length())
       return 0;
-    else if (pos_ + count > length_)
+    else if (count > length() - pos())
       return -1;
 
-    pos_ += count;
+    Seek(pos() + count);
     return count;
   }
 };
