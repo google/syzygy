@@ -11,11 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/pdb/pdb_reader.h"
+
 #include "syzygy/pdb/pdb_writer.h"
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_reader.h"
 
 namespace {
 
@@ -51,14 +52,14 @@ class TestPdbStream : public PdbStream {
   }
 
  protected:
-  size_t ReadBytes(void* dest, size_t count) {
-    if (pos_ == length_)
+  int ReadBytes(void* dest, int count) {
+    if (pos() == length())
       return 0;
-    else if (pos_ + count > length_)
-      count = length_ - pos_;
 
+    count = std::min(count, length() - pos());
     memset(dest, 0xFF, count);
-    pos_ += count;
+    Seek(pos() + count);
+
     return count;
   }
 };

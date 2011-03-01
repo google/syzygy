@@ -68,7 +68,7 @@ bool PdbReader::Read(const FilePath& pdb_path,
   // itself written across multiple root pages). To do this we need to know how
   // many pages are required to represent the directory, then we load a stream
   // containing that many page pointers from the root pages array.
-  uint32 num_dir_pages = GetNumPages(header_.directory_size);
+  int num_dir_pages = static_cast<int>(GetNumPages(header_.directory_size));
   PdbFileStream dir_page_stream(file_.get(), num_dir_pages * sizeof(uint32),
                                 header_.root_pages, header_.page_size);
   scoped_array<uint32> dir_pages(new uint32[num_dir_pages]);
@@ -83,7 +83,7 @@ bool PdbReader::Read(const FilePath& pdb_path,
   }
 
   // Load the actual directory.
-  uint32 dir_size = header_.directory_size / sizeof(uint32);
+  int dir_size = static_cast<int>(header_.directory_size / sizeof(uint32));
   PdbFileStream dir_stream(file_.get(), header_.directory_size,
                            dir_pages.get(), header_.page_size);
   directory_.reset(new uint32[dir_size]);

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PDB_PDB_FILE_STREAM_H_
 #define SYZYGY_PDB_PDB_FILE_STREAM_H_
 
@@ -24,18 +25,18 @@ namespace pdb {
 class PdbFileStream : public PdbStream {
  public:
   PdbFileStream(FILE* file,
-                size_t length,
+                int length,
                 const uint32* pages,
-                size_t page_size);
+                int page_size);
   ~PdbFileStream();
 
  protected:
   // PdbStream implementation.
-  size_t ReadBytes(void* dest, size_t count);
+  int ReadBytes(void* dest, int count);
 
   // Read @p count bytes from @p offset byte offset from page @p page_num and
   // store them in dest.
-  bool ReadFromPage(void* dest, uint32 page_num, size_t offset, size_t count);
+  bool ReadFromPage(void* dest, uint32 page_num, int offset, int count);
 
  private:
   // The handle to the open pdb file. The PdbFileStream does not own this
@@ -47,7 +48,7 @@ class PdbFileStream : public PdbStream {
   const uint32* pages_;
 
   // The size of pages within the stream.
-  size_t page_size_;
+  int page_size_;
 
   DISALLOW_COPY_AND_ASSIGN(PdbFileStream);
 };
