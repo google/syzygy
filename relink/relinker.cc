@@ -12,28 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/relink/relinker.h"
 #include <algorithm>
-#include <cstdlib>
 #include <ctime>
-#include <iostream>
 #include <objbase.h>
-#include "base/at_exit.h"
-#include "base/command_line.h"
-#include "base/file_path.h"
-#include "base/file_util.h"
-#include "base/logging.h"
-#include "base/logging_win.h"
 #include "syzygy/pdb/pdb_util.h"
-#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_data.h"
-#include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_writer.h"
 
 using core::BlockGraph;
 using core::RelativeAddress;
-using pe::Decomposer;
-using pe::PEFileBuilder;
-using pe::PEFileParser;
 using pe::PEFileWriter;
 
 namespace {
@@ -94,53 +82,6 @@ void AddOmapForAllSections(size_t num_sections,
 }
 
 }  // namespace
-
-// This class keeps track of data we need around during reordering
-// and after reordering for PDB rewriting.
-// TODO(siggi): Move this to a separate file.
-class Relinker {
- public:
-  explicit Relinker(const BlockGraph::AddressSpace& original_addr_space,
-                    BlockGraph* block_graph);
-
-  // TODO(siggi): document me.
-  bool Initialize(const BlockGraph::Block* original_nt_headers);
-  bool RandomlyReorderCode(unsigned int seed);
-
-  // Updates the debug information in the debug directory with our new GUID.
-  bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block);
-
-  bool CopyDataDirectory(PEFileParser::PEHeader* original_header);
-  bool FinalizeImageHeaders(BlockGraph::Block* original_dos_header);
-  bool WriteImage(const FilePath& output_path);
-
-  // Call after relinking and finalizing image to create a PDB file that
-  // matches the reordered image.
-  bool WritePDBFile(const BlockGraph::AddressSpace& original,
-                    const FilePath& input_path,
-                    const FilePath& output_path);
-
-  PEFileBuilder& builder() { return builder_; }
-
- private:
-  typedef BlockGraph::AddressSpace AddressSpace;
-
-  // Copies the blocks identified by iter_pair from the new image into
-  // the new one, inserting them in order from insert_at.
-  bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
-                  RelativeAddress insert_at);
-
-  // Information from the original image.
-  size_t original_num_sections_;
-  const IMAGE_SECTION_HEADER* original_sections_;
-  const BlockGraph::AddressSpace& original_addr_space_;
-
-  // The GUID we stamp into the new image and Pdb file.
-  GUID new_image_guid_;
-
-  // The builder that we use to construct the new image.
-  PEFileBuilder builder_;
-};
 
 Relinker::Relinker(const BlockGraph::AddressSpace& original_addr_space,
                    BlockGraph* block_graph)
@@ -414,92 +355,4 @@ bool Relinker::WritePDBFile(const BlockGraph::AddressSpace& original,
   }
 
   return true;
-}
-
-// {E6FF7BFB-34FE-42a3-8993-1F477DC36247}
-const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
-    { 0x89, 0x93, 0x1f, 0x47, 0x7d, 0xc3, 0x62, 0x47 } };
-
-static const char kUsage[] =
-  "Usage: relink [options]\n"
-  "  Required Options:\n"
-  "    --input-dll=<path> the input DLL to relink\n"
-  "    --input-pdb=<path> the PDB file associated with the input DLL\n"
-  "    --output-dll=<path> the relinked output DLL\n"
-  "    --output-pdb=<path> the rewritten PDB file for the output DLL\n"
-  "  Optional Options:\n"
-  "    --seed=<integer> provides a seed for the random reordering strategy\n";
-
-static int Usage(const char* message) {
-  std::cerr << message << std::endl << kUsage;
-
-  return 1;
-}
-
-int main(int argc, char** argv) {
-  base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
-
-  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
-    return 1;
-  }
-  logging::LogEventProvider::Initialize(kRelinkLogProviderName);
-
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
-  DCHECK(cmd_line != NULL);
-
-  FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
-  FilePath input_pdb_path = cmd_line->GetSwitchValuePath("input-pdb");
-  FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
-  FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
-
-  if (input_dll_path.empty() || input_pdb_path.empty() ||
-      output_dll_path.empty() || output_pdb_path.empty()) {
-    return Usage("You must provide input and output file names.");
-  }
-
-  // Read and decompose the input image for starters.
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path))
-    return Usage("Unable to read input image");
-
-  Decomposer decomposer(input_dll, input_dll_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed))
-    return Usage("Unable to decompose input image");
-
-  // Construct and initialize our relinker.
-  Relinker relinker(decomposed.address_space, &decomposed.image);
-  if (!relinker.Initialize(decomposed.header.nt_headers)) {
-    return Usage("Unable to initialize relinker.");
-  }
-
-  // Randomize and write the image.
-  unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
-  if (!relinker.RandomlyReorderCode(seed)) {
-    return Usage("Unable reorder the input image.");
-  }
-  if (!relinker.UpdateDebugInformation(
-          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
-    return Usage("Unable to update debug information.");
-  }
-  if (!relinker.CopyDataDirectory(&decomposed.header)) {
-    return Usage("Unable to copy the input image's data directory.");
-  }
-  if (!relinker.FinalizeImageHeaders(decomposed.header.dos_header)) {
-    return Usage("Unable to finalize image headers.");
-  }
-  if (!relinker.WriteImage(output_dll_path)) {
-    return Usage("Unable to write the ouput image.");
-  }
-
-  if (!relinker.WritePDBFile(decomposed.address_space,
-                             input_pdb_path,
-                             output_pdb_path)) {
-    return Usage("Unable to write new PDB file.");
-  }
-
-  return 0;
 }
