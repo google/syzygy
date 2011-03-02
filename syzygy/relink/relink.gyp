@@ -21,17 +21,26 @@
       '<(DEPTH)',
     ],
   },
-  'targets': [
-    {
-      'target_name': 'relink',
-      'type': 'executable',
+  'targets': [{
+      'target_name': 'relink_lib',
+      'type': 'static_library',
       'sources': [
-        'relink.cc',
+        'relinker.cc',
+        'relinker.h',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+      ],
+    }, {
+      'target_name': 'relink',
+      'type': 'executable',
+      'sources': [
+        'relink_main.cc',
+      ],
+      'dependencies': [
+        'relink_lib',
         '<(DEPTH)/base/base.gyp:base',
       ],
       'run_as': {
