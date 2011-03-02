@@ -11,10 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#include <objbase.h>
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "gtest/gtest.h"
-#include <objbase.h>
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

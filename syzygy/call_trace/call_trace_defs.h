@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_CALL_TRACE_CALL_TRACE_DEFS_H_
-#define SAWBUCK_CALL_TRACE_CALL_TRACE_DEFS_H_
+
+#ifndef SYZYGY_CALL_TRACE_CALL_TRACE_DEFS_H_
+#define SYZYGY_CALL_TRACE_CALL_TRACE_DEFS_H_
 
 #include <windows.h>
 #include <wmistr.h>
@@ -105,4 +106,4 @@ struct TraceBatchEnterData {
   FuncCall calls[1];
 };
 
-#endif  // SAWBUCK_CALL_TRACE_CALL_TRACE_DEFS_H_
+#endif  // SYZYGY_CALL_TRACE_CALL_TRACE_DEFS_H_

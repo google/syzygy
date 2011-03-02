@@ -13,20 +13,21 @@
 // limitations under the License.
 //
 // A minimal viewer for call trace ETW logs.
+
+#include <iostream>
+#include <string>
+#include <map>
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "base/win/event_trace_consumer.h"
-#include "sawbuck/call_trace/call_trace_defs.h"
-#include "sawbuck/call_trace/call_trace_parser.h"
 #include "sawbuck/common/buffer_parser.h"
 #include "sawbuck/sym_util/module_cache.h"
 #include "sawbuck/sym_util/symbol_cache.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
-#include <iostream>
-#include <string>
-#include <map>
+#include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/call_trace_parser.h"
 
 using sym_util::Address;
 using sym_util::ModuleCache;

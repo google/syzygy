@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 // Implementation of call trace log parsing.
-#include "sawbuck/call_trace/call_trace_parser.h"
+
+#include "syzygy/call_trace/call_trace_parser.h"
 #include "base/logging.h"
 #include "sawbuck/common/buffer_parser.h"
 

@@ -4,7 +4,8 @@
 // Author: siggi@google.com (Sigurdur Asgeirsson)
 //
 // GUID definitions for the call tracer.
-#include "sawbuck/call_trace/call_trace_defs.h"
+
+#include "syzygy/call_trace/call_trace_defs.h"
 
 // {06255E36-14B0-4e57-8964-2E3D675A0E77}
 const GUID kCallTraceProvider = {

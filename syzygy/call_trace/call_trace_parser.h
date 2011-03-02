@@ -13,11 +13,12 @@
 // limitations under the License.
 //
 // Call trace event parsing classes.
-#ifndef SAWBUCK_CALL_TRACE_CALL_TRACE_PARSER_H_
-#define SAWBUCK_CALL_TRACE_CALL_TRACE_PARSER_H_
+
+#ifndef SYZYGY_CALL_TRACE_CALL_TRACE_PARSER_H_
+#define SYZYGY_CALL_TRACE_CALL_TRACE_PARSER_H_
 
 #include "base/time.h"
-#include "sawbuck/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/call_trace_defs.h"
 
 // Implemented by clients of CallTraceParser to
 // receive trace event notifications.
@@ -63,4 +64,4 @@ class CallTraceParser {
   CallTraceEvents* call_trace_events_;
 };
 
-#endif  // SAWBUCK_CALL_TRACE_CALL_TRACE_PARSER_H_
+#endif  // SYZYGY_CALL_TRACE_CALL_TRACE_PARSER_H_

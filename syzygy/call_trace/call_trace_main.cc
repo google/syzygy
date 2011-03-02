@@ -13,16 +13,16 @@
 // limitations under the License.
 //
 // Implementation of the CallTrace call tracing DLL.
-#include "sawbuck/call_trace/call_trace_main.h"
+
+#include "syzygy/call_trace/call_trace_main.h"
 #include <windows.h>
 #include <tlhelp32.h>
 #include <vector>
 #include "base/at_exit.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
-#include "sawbuck/call_trace/call_trace_defs.h"
-#include "sawbuck/call_trace/dlist.h"
-
+#include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/dlist.h"
 
 namespace {
 
@@ -171,7 +171,7 @@ class TracerModule::ThreadLocalData {
 TracerModule::TracerModule()
     : base::win::EtwTraceProvider(kCallTraceProvider),
       tls_index_(::TlsAlloc()),
-      enabled_event_(NULL){
+      enabled_event_(NULL) {
   // Initialize ETW logging for ourselves.
   logging::LogEventProvider::Initialize(kCallTraceLogProvider);
 
@@ -260,7 +260,7 @@ void TracerModule::OnEventsDisabled() {
       while (true) {
         if (data->data_.num_calls != 0) {
           FlushBatchEntryTraces(data);
-          DCHECK(data->data_.num_calls == 0);
+          DCHECK_EQ(0U, data->data_.num_calls);
         }
 
         // Bail the loop if we're at the end of the list.

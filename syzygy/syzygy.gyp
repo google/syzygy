@@ -21,6 +21,7 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
+        'call_trace/call_trace.gyp:*',
         'core/core.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
@@ -37,6 +38,7 @@
 
         # Add all unit test targets here.
         'unittest_targets': [
+          '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_unittests',
           '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
           '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
           '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
@@ -52,6 +54,7 @@
           'inputs': [
             '../sawbuck/tools/run_unittests.py',
             '../sawbuck/tools/verifier.py',
+            '<(PRODUCT_DIR)/call_trace_unittests.exe',
             '<(PRODUCT_DIR)/core_unittests.exe',
             '<(PRODUCT_DIR)/pdb_unittests.exe',
             '<(PRODUCT_DIR)/pe_unittests.exe',

@@ -41,15 +41,15 @@
       ],
       'dependencies': [
         'call_trace_lib',
-        'CallTrace',
-        '../log_lib/log_lib.gyp:log_lib',
+        'call_trace',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
       ],      
     },
     {
-      'target_name': 'CallTrace',
+      'target_name': 'call_trace',
       'type': 'shared_library',
       'sources': [
         'call_trace.def',
@@ -63,7 +63,7 @@
       ],      
     },
     {
-      'target_name': 'CallTraceViewer',
+      'target_name': 'call_trace_viewer',
       'type': 'executable',
       'sources': [
         'call_trace_defs.h',
@@ -72,7 +72,7 @@
       'dependencies': [
         'call_trace_lib',
         '<(DEPTH)/base/base.gyp:base',
-        '../log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
       ],      
     }
   ]

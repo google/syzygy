@@ -16,8 +16,9 @@
 // declared in the Platform SDK.
 //
 // The macros below are copied verbatim from msputils.h for convenience.
-#ifndef SAWBUCK_CALL_TRACE_DLIST_H_
-#define SAWBUCK_CALL_TRACE_DLIST_H_
+
+#ifndef SYZYGY_CALL_TRACE_DLIST_H_
+#define SYZYGY_CALL_TRACE_DLIST_H_
 
 #include <winnt.h>
 
@@ -135,4 +136,4 @@ BOOL IsNodeOnList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry);
 
 #endif  // InitializeListHead
 
-#endif  // SAWBUCK_CALL_TRACE_DLIST_H_
+#endif  // SYZYGY_CALL_TRACE_DLIST_H_

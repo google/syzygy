@@ -11,17 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SAWBUCK_CALL_TRACE_CALL_TRACE_MAIN_H_
-#define SAWBUCK_CALL_TRACE_CALL_TRACE_MAIN_H_
+
+#ifndef SYZYGY_CALL_TRACE_CALL_TRACE_MAIN_H_
+#define SYZYGY_CALL_TRACE_CALL_TRACE_MAIN_H_
 
 #include <atlbase.h>
+#include <utility>
 #include <vector>
 #include "base/synchronization/lock.h"
 #include "base/win/event_trace_provider.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/call_trace/call_trace_defs.h"
-#include "sawbuck/call_trace/dlist.h"
-
+#include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/dlist.h"
 
 // Assembly stubs to convert calling conventions on function entry and
 // exit. These respetively invoke TracerModule::TraceEntry and
@@ -134,4 +135,4 @@ class TracerModule: public base::win::EtwTraceProvider {
   DWORD tls_index_;
 };
 
-#endif  // SAWBUCK_CALL_TRACE_CALL_TRACE_MAIN_H_
+#endif  // SYZYGY_CALL_TRACE_CALL_TRACE_MAIN_H_

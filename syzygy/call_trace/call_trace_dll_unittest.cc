@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#include <windows.h>
+#include <map>
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -21,9 +24,7 @@
 #include "base/win/windows_version.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "sawbuck/call_trace/call_trace_parser.h"
-#include <map>
-#include <windows.h>
+#include "syzygy/call_trace/call_trace_parser.h"
 
 namespace {
 
@@ -110,11 +111,11 @@ const wchar_t* const kTestSessionName = L"TestLogSession";
 // the content comes through.
 class CallTraceDllTest: public testing::Test {
  public:
-   CallTraceDllTest()
-       : module_(NULL),
-         wait_til_disabled_(NULL),
-         wait_til_enabled_(NULL),
-         is_private_session_(false) {
+  CallTraceDllTest()
+      : module_(NULL),
+        wait_til_disabled_(NULL),
+        wait_til_enabled_(NULL),
+        is_private_session_(false) {
   }
 
   virtual void SetUp() {
@@ -122,7 +123,7 @@ class CallTraceDllTest: public testing::Test {
     base::win::EtwTraceController::Stop(kTestSessionName, &properties);
     // Construct a temp file name.
     ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
-    ASSERT_EQ(NULL, ::GetModuleHandle(L"CallTrace.dll"));
+    ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace.dll"));
 
     // Set up a file session.
     HRESULT hr = controller_.StartFileSession(kTestSessionName,
@@ -191,8 +192,8 @@ class CallTraceDllTest: public testing::Test {
   }
 
   void LoadCallTraceDll() {
-    ASSERT_EQ(NULL, ::GetModuleHandle(L"CallTrace.dll"));
-    module_ = ::LoadLibrary(L"CallTrace.dll");
+    ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace.dll"));
+    module_ = ::LoadLibrary(L"call_trace.dll");
     ASSERT_TRUE(module_ != NULL);
     _indirect_penter_ = GetProcAddress(module_, "_indirect_penter");
     wait_til_enabled_ = reinterpret_cast<WaitFuncType>(
@@ -238,7 +239,7 @@ class CallTraceDllTest: public testing::Test {
 FARPROC CallTraceDllTest::_indirect_penter_ = 0;
 
 TEST(CallTraceDllLoadUnloadTest, ProcessAttach) {
-  HMODULE module = ::LoadLibrary(L"CallTrace.dll");
+  HMODULE module = ::LoadLibrary(L"call_trace.dll");
   ASSERT_TRUE(module != NULL);
   ASSERT_TRUE(::FreeLibrary(module));
 }
@@ -389,11 +390,11 @@ TEST_F(CallTraceDllTest, TicksAgo) {
       base::DelegateSimpleThread(&runners[4], "thread 4"),
       base::DelegateSimpleThread(&runners[5], "thread 5")};
 
-  for ( size_t i = 0; i < sizeof(threads) / sizeof(threads[0]); ++i ){
+  for (size_t i = 0; i < sizeof(threads) / sizeof(threads[0]); ++i) {
     threads[i].Start();
     runners[i].Wait();
     ::Sleep(20);
-    if ( i == 1 || i == 3 ){
+    if (i == 1 || i == 3) {
       runners[i].Exit();
       threads[i].Join();
     }
