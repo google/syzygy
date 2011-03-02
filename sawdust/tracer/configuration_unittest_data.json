@@ -1,0 +1,144 @@
+[
+  {  // The classic, with real-looking data free of errors. Should always pass.
+    "parses-ok": true,
+    "have-dirs": ["C:\\fake_but_nice_looking"],
+    "test-data": {
+      "IsKernelLoggingEnabled": true,
+      "GetLogFileSizeCapMb": 100,
+      "GetKernelLogFileSizeCapMb": 50,
+      "GetLogFileName": "C:\\fake_but_nice_looking\\chrome_events.etl",
+      "GetKernelLogFileName": "C:\\fake_but_nice_looking\\kernel_events.etl",
+      "GetTracedApplication": "Chrome",
+      "GetDeclaredApplicationVersion": "8.0.552.237",
+      "ActionOnExit": 3,
+      "GetParameterWord": {
+        "prod": "Chrome",
+        "type": "log",
+        "module": "chrome.exe",
+        "version": "8.0.552.237",
+      },
+      "GetUploadPath": ["http://that_looks_like_url.com/", true],
+      "HarvestEnvVariables": true,
+    },
+    "test-case": {
+      "providers": [
+        {
+          "guid": "{0562BFC3-2550-45b4-BD8E-A310583D3A6F}",
+          "name": "Chrome Frame",
+          "level": "information",
+          "flags": 1
+        },
+        {
+          "guid": "{7FE69228-633E-4f06-80C1-527FEA23E3A7}",
+          "name": "Chrome",
+          "level": "information",
+          "flags": 1
+        },
+        {
+          "guid": "{6E3D6168-1DD2-4edb-A183-584C2C66E96D}",
+          "name": "CEEE Broker",
+          "level": "information",
+          "flags": 1
+        },
+        {
+          "guid": "{73213C1A-C369-4740-A75C-FA849E6CE540}",
+          "name": "CEEE",
+          "level": "information",
+          "flags": 1
+        },
+        {
+          "guid": "{79FDF710-2D7F-488f-B00C-C6EFAE507169}",
+          "name": "IE Toolbar",
+          "level": "information",
+          "flags": 2
+        }
+      ],
+      "report" : {
+        "target": "http://that_looks_like_url.com/",
+        "exit_handler": "auto",
+        "parameters": {
+          "prod": "Chrome",
+          "type": "log",
+          "module": "chrome.exe",
+          "version": "8.0.552.237",
+        },
+      },
+      "other": {
+        "kernel_trace": true,
+        "kernel_event_file": "C:\\fake_but_nice_looking\\kernel_events.etl",
+        "chrome_event_file": "C:\\fake_but_nice_looking\\chrome_events.etl",
+        "kernel_file_size": 50,
+        "chrome_file_size": 100,
+      }
+    }
+  },
+  {  // Options for upload to the local file, modified options. Should pass.
+    "parses-ok": true,
+    "have-dirs": ["C:\\fake_but_nice_looking"],
+    "test-data": {
+      "IsKernelLoggingEnabled": false,
+      "GetLogFileName": "C:\\fake_but_nice_looking\\chrome_events.etl",
+      "GetTracedApplication": "Chrome",
+      "GetDeclaredApplicationVersion": "8.0.552.237",
+      "ActionOnExit": 2,
+      "GetUploadPath": ["C:\\fake_but_nice_looking\\compress.zip", false],
+      "HarvestEnvVariables": true,
+    },
+    "test-case": {
+      "providers": [
+        {
+          "guid": "{79FDF710-2D7F-488f-B00C-C6EFAE507169}",
+          "name": "IE Toolbar",
+          "level": "information",
+          "flags": 2
+        }
+      ],
+      "report" : {
+        "target": "C:\\fake_but_nice_looking\\compress.zip",
+        "exit_handler": "clear",
+        "parameters": {
+          "prod": "Chrome",
+          "type": "log",
+          "module": "chrome.exe",
+          "version": "8.0.552.237",
+        },
+      },
+      "other": {
+        "kernel_trace": false,
+        "chrome_event_file": "C:\\fake_but_nice_looking\\chrome_events.etl",
+      }
+    }
+  },
+  {  // Malformed GUID is the only known error. Should fail.
+    "parses-ok": false,
+    "test-data": { },
+    "test-case": {
+      "providers": [
+        {
+          "guid": "{0562BFC3-2550-45b4-BD8EX-A310583D3A6F}",
+          "name": "Chrome Frame",
+          "level": "information",
+          "flags": 1
+        }
+      ],
+      "report" : {
+        "target": "http://that_looks_like_url.com/",
+        "exit_handler": "auto",
+        "parameters": {
+          "prod": "Chrome",
+          "type": "log",
+          "module": "chrome.exe",
+          "version": "8.0.552.237",
+        },
+      },
+      "other": {
+        "kernel_trace": true,
+        "kernel_event_file": "C:\\fake_but_nice_looking\\kernel_events.etl",
+        "chrome_event_file": "C:\\fake_but_nice_looking\\chrome_events.etl",
+        "kernel_file_size": 50,
+        "chrome_file_size": 100,
+      }
+    }
+  }
+
+]

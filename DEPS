@@ -18,6 +18,7 @@
 vars = {
   "chrome_revision": "75254",
   "chrome_base": "http://src.chromium.org/svn/trunk",
+  "googlecode_url": "",
 }
 
 deps = {
@@ -29,6 +30,9 @@ deps = {
 
   "src/third_party/skia":
     "http://skia.googlecode.com/svn/trunk@364",
+
+  "src/googleurl":
+    "http://google-url.googlecode.com/svn/trunk@151",
 
   "src/third_party/wtl":
     Var("chrome_base") + "/src/third_party/wtl@" +

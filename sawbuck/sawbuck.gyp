@@ -28,6 +28,7 @@
         'log_lib/log_lib.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
+        '../sawdust/sawdust.gyp:*',
       ],
     },
     {

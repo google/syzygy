@@ -1,0 +1,96 @@
+[
+  {  // A simple pattern that works.
+    "expression": "My name is {last-name}, {first-name} {last-name}!",
+    "keywords":
+      {
+        "first-name": "James",
+        "last-name": "Bond"
+      },
+    "result": "My name is Bond, James Bond!"
+  },
+  {  // A life-like URL with some spurious keywords.
+    "expression":
+        "http://localhost:8080/cr/report?prod={prod}&ver={version}&type={type}",
+    "keywords": {
+      "prod": "Chrome",
+      "type": "log",
+      "module": "chrome.exe",
+      "version": "8.0.552.237",
+      "bogus": "This variable is bogus."
+    },
+    "result":
+        "http://localhost:8080/cr/report?prod=Chrome&ver=8.0.552.237&type=log"
+  },
+  {  // A piece-by-piece url. Works.
+    "expression":
+        "{protocol}://{host}{port}/{path}?prod={prod}&ver={version}&type={type}",
+    "keywords": {
+      "prod": "chrome",
+      "type": "unknown",
+      "version": "8.0.BBB.AAA",
+      "host": "www.google.com",
+      "port": "",
+      "path": "cr/report",
+      "protocol": "https",
+      "bogus": "This variable is bogus."
+    },
+    "result":
+        "https://www.google.com/cr/report?prod=chrome&ver=8.0.BBB.AAA&type=unknown"
+  },
+  {  // Will fail due to incorrect dictionary entry type.
+    "expression": "My name is {last-name}, {first-name} {last-name}!",
+    "keywords": {
+      "first-name": 12,
+      "last-name": "Bond"
+    },
+    "result": false
+  },
+  {  // Will fail due to a missing dictionary entry.
+    "expression": "My name is {last-name}, {first-name} {last-name}!",
+    "keywords": {
+      "bogus": "We miss you, James.",
+      "last-name": "Bond"
+    },
+    "result": false
+  },
+  {  // Will fail due to a syntax error in the pattern (missing brace).
+    "expression": "My name is {last-name, {first-name} {last-name}!",
+    "keywords": {
+      "first-name": "James",
+      "last-name": "Bond"
+    },
+    "result": false
+  },
+  {  // Will fail due to a syntax error in the pattern (nested braces).
+    "expression": "My name is {{last-name}}, {first-name} {last-name}!",
+    "keywords": {
+      "first-name": "James",
+      "last-name": "Bond"
+    },
+    "result": false
+  },
+  {  // Will fail due to a syntax error in the pattern (no opening braces).
+    "expression": "My name is }last-name}",
+    "keywords": {
+      "first-name": "James",
+      "last-name": "Bond"
+    },
+    "result": false
+  },
+  {  // Will fail due to a syntax error in the pattern (unbalanced brace).
+    "expression": "My name is {last-name},{first-name}}",
+    "keywords": {
+      "first-name": "James",
+      "last-name": "Bond"
+    },
+    "result": false
+  },
+  {  // Will succeed. Empty variable names are allowed and evaluate to "".
+    "expression": "My name is {}",
+    "keywords": {
+      "james": "James",
+      "bond": "Bond"
+    },
+    "result": "My name is "
+  }
+]
