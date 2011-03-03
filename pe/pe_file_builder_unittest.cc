@@ -204,7 +204,7 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
   ASSERT_TRUE(decomposed_.header.dos_header->
-      TransferReferers(0, builder.dos_header()));
+      TransferReferrers(0, builder.dos_header()));
 
   PEFileWriter writer(builder.address_space(),
                       &builder.nt_headers(),
@@ -311,7 +311,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
   ASSERT_TRUE(decomposed_.header.dos_header->
-      TransferReferers(0, builder.dos_header()));
+      TransferReferrers(0, builder.dos_header()));
 
   PEFileWriter writer(builder.address_space(),
                       &builder.nt_headers(),

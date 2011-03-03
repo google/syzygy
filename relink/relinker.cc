@@ -306,7 +306,7 @@ bool Relinker::FinalizeImageHeaders(BlockGraph::Block* original_dos_header) {
 
   // Make sure everyone who previously referred the original
   // DOS header is redirected to the new one.
-  if (!original_dos_header->TransferReferers(0, builder_.dos_header())) {
+  if (!original_dos_header->TransferReferrers(0, builder_.dos_header())) {
     LOG(ERROR) << "Unable to redirect DOS header references.";
     return false;
   }

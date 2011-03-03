@@ -69,11 +69,11 @@ TEST(BlockGraphTest, References) {
   ASSERT_TRUE(b1 != NULL && b2 != NULL);
 
   ASSERT_TRUE(b1->references().empty());
-  ASSERT_TRUE(b1->referers().empty());
+  ASSERT_TRUE(b1->referrers().empty());
   ASSERT_TRUE(b2->references().empty());
-  ASSERT_TRUE(b2->referers().empty());
+  ASSERT_TRUE(b2->referrers().empty());
   ASSERT_TRUE(b3->references().empty());
-  ASSERT_TRUE(b3->referers().empty());
+  ASSERT_TRUE(b3->referrers().empty());
 
   // Add the first reference, and test that we get a backref.
   BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
@@ -83,10 +83,10 @@ TEST(BlockGraphTest, References) {
   ASSERT_EQ(9, r_pc.offset());
 
   ASSERT_TRUE(b1->SetReference(0, r_pc));
-  EXPECT_THAT(b2->referers(), testing::Contains(std::make_pair(b1, 0)));
+  EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b1, 0)));
 
   ASSERT_TRUE(b1->SetReference(1, r_pc));
-  EXPECT_THAT(b2->referers(), testing::Contains(std::make_pair(b1, 1)));
+  EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b1, 1)));
 
   BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 1, b2, 13);
   ASSERT_FALSE(b1->SetReference(1, r_abs));
@@ -105,12 +105,12 @@ TEST(BlockGraphTest, References) {
 
   // Test reference transfer.
   // This should fail, as all the references will fall outside b3.
-  ASSERT_FALSE(b2->TransferReferers(b3->size(), b3));
+  ASSERT_FALSE(b2->TransferReferrers(b3->size(), b3));
 
   // Now move the references from b2 to b3
-  ASSERT_TRUE(b2->TransferReferers(0, b3));
-  // Test that b2 no longer has referers.
-  EXPECT_THAT(b2->referers(), BlockGraph::Block::RefererSet());
+  ASSERT_TRUE(b2->TransferReferrers(0, b3));
+  // Test that b2 no longer has referrers.
+  EXPECT_THAT(b2->referrers(), BlockGraph::Block::ReferrerSet());
 
   // Test that the references transferred as expected.
   expected.clear();
@@ -131,7 +131,7 @@ TEST(BlockGraphTest, References) {
   ASSERT_TRUE(b1->RemoveReference(4));
   EXPECT_THAT(b1->references(), BlockGraph::Block::ReferenceMap());
 
-  EXPECT_THAT(b2->referers(), BlockGraph::Block::RefererSet());
+  EXPECT_THAT(b2->referrers(), BlockGraph::Block::ReferrerSet());
 }
 
 TEST(BlockGraphTest, Labels) {
