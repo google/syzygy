@@ -104,8 +104,8 @@ class BlockGraph::Block {
   // This is keyed on block and source offset (not destination offset),
   // to allow easily locate and remove the backreferences on change or
   // deletion.
-  typedef std::pair<Block*, Offset> Referer;
-  typedef std::set<Referer> RefererSet;
+  typedef std::pair<Block*, Offset> Referrer;
+  typedef std::set<Referrer> ReferrerSet;
   typedef std::map<Offset, Reference> ReferenceMap;
   typedef std::map<Offset, std::string> LabelMap;
 
@@ -173,7 +173,7 @@ class BlockGraph::Block {
   void set_data_size(size_t data_size) { data_size_ = data_size; }
 
   const ReferenceMap& references() const { return references_; }
-  const RefererSet& referers() const { return referers_; }
+  const ReferrerSet& referrers() const { return referrers_; }
   const LabelMap& labels() const { return labels_; }
 
   // Set the reference at @p offset to @p ref.
@@ -211,7 +211,7 @@ class BlockGraph::Block {
   // @note this fails if any of the transferred references end up with offsets
   //     less than zero, or greater than new_block->size().
   // @returns true iff all references were transferred successfully.
-  bool TransferReferers(Offset offset, Block* new_block);
+  bool TransferReferrers(Offset offset, Block* new_block);
 
  private:
   BlockId id_;
@@ -225,7 +225,7 @@ class BlockGraph::Block {
   BlockAttributes attributes_;
 
   ReferenceMap references_;
-  RefererSet referers_;
+  ReferrerSet referrers_;
   LabelMap labels_;
 
   // True iff data_ is ours to deallocate with delete [].
