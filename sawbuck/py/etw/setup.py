@@ -29,6 +29,6 @@ setup(name = 'ETW',
       author_email = 'siggi@chromium.org',
       url = 'http://code.google.com/p/sawbuck',
       packages = ['etw', 'etw.descriptors'],
-      tests_require = ["nose>=0.9.2", "ctypes"],
+      tests_require = ["nose>=0.9.2"],
       test_suite = 'nose.collector',
       license = 'Apache 2.0')

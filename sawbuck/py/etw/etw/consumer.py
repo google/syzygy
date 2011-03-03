@@ -102,6 +102,8 @@ class _TraceLogSession(object):
     self._event_callback = evntrace.EVENT_CALLBACK(
         self._ProcessEventCallback)
     self._handle = None
+    self._start_time = None
+    self._processed_first_event = False
     self.is_64_bit_log = False
 
   def SessionTimeToTime(self, session_time):
@@ -128,8 +130,6 @@ class _TraceLogSession(object):
     Args:
       name: name of the session to open.
     """
-    # TODO(siggi): We know there won't be any headers for this session,
-    #    so this function needs to figure out the bitness.
     logfile = evntrace.EVENT_TRACE_LOGFILE()
     logfile.LoggerName = name
     logfile.ProcessTraceMode = evntcons.PROCESS_TRACE_MODE_REAL_TIME
@@ -138,6 +138,7 @@ class _TraceLogSession(object):
     logfile.BufferCallback = self._buffer_callback
     logfile.EventCallback = self._event_callback
     self._handle = evntrace.OpenTrace(byref(logfile))
+    self._ProcessHeader(logfile.LogfileHeader)
 
   def OpenFileSession(self, path):
     """Open a file session for the file at "path".
@@ -152,42 +153,41 @@ class _TraceLogSession(object):
     logfile.BufferCallback = self._buffer_callback
     logfile.EventCallback = self._event_callback
     self._handle = evntrace.OpenTrace(byref(logfile))
+    self._ProcessHeader(logfile.LogfileHeader)
 
-  def _ProcessHeader(self, event, logfile_header):
-    if logfile_header.contents.PointerSize == 8:
+  def _ProcessHeader(self, logfile_header):
+    if logfile_header.PointerSize == 8:
       self.is_64_bit_log = True
 
     if self._raw_time:
-      mode = logfile_header.contents.ReservedFlags
-      start_time = util.FileTimeToTime(logfile_header.contents.StartTime)
+      mode = logfile_header.ReservedFlags
+      self._start_time = util.FileTimeToTime(logfile_header.StartTime)
       ticks_sec = None
       if mode == 1:  # QPC timer resolution
-        ticks_sec = logfile_header.contents.PerfFreq
+        ticks_sec = logfile_header.PerfFreq
       elif mode == 2:  # System time
         ticks_sec = 1000  # TODO(siggi): verify this is milliseconds
       elif mode == 3:  # CPU cycle counter
-        ticks_sec = logfile_header.contents.CpuSpeedInMHz * 1000000.0
+        ticks_sec = logfile_header.CpuSpeedInMHz * 1000000.0
 
       self._time_multiplier = 1.0 / ticks_sec
+
+  def _ProcessFirstEvent(self, event):
+    if self._raw_time:
       self._time_epoch_delta = (
-        event.contents.Header.TimeStamp * self._time_multiplier - start_time)
+        event.contents.Header.TimeStamp * self._time_multiplier -
+            self._start_time)
 
   def _ProcessBufferCallback(self, buffer):
     return self._event_source._ProcessBufferCallback(self, buffer)
 
   def _ProcessEventCallback(self, event_trace):
     try:
-      header = event_trace.contents.Header
-
-      # Check for the event trace event GUID so that we can tease out whether
-      # we're parsing a 64 bit log.
-      if (str(header.Guid)== str(evntrace.EventTraceGuid) and
-          header.Class.Type == 0 and
-          event_trace.contents.MofLength >=
-              sizeof(evntrace.TRACE_LOGFILE_HEADER)):
-        self._ProcessHeader(event_trace,
-                            cast(event_trace.contents.MofData,
-                                 POINTER(evntrace.TRACE_LOGFILE_HEADER)))
+      # When in raw time mode, we need special processing
+      # for the first event to calibrate the session start time.
+      if not self._processed_first_event:
+        self._ProcessFirstEvent(event_trace)
+        self._processed_first_event = True
 
       self._event_source._ProcessEventCallback(self, event_trace)
     except:
