@@ -19,28 +19,74 @@
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_parser.h"
 
-// This class keeps track of data we need around during reordering
-// and after reordering for PDB rewriting.
-class Relinker {
+// This base class is used to help track data required for relinking a binary.
+// TODO(ericdingle): Find a better place and/or name for this.
+class RelinkerBase {
  public:
   typedef core::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
   typedef pe::PEFileBuilder PEFileBuilder;
   typedef pe::PEFileParser PEFileParser;
 
-  explicit Relinker(const BlockGraph::AddressSpace& original_addr_space,
-                    BlockGraph* block_graph);
+  RelinkerBase(const BlockGraph::AddressSpace& original_addr_space,
+               BlockGraph* block_graph);
+  virtual ~RelinkerBase();
 
   // TODO(siggi): document me.
+  virtual bool Initialize(const BlockGraph::Block* original_nt_headers);
+
+  bool CopyDataDirectory(PEFileParser::PEHeader* original_header);
+
+  bool FinalizeImageHeaders(BlockGraph::Block* original_dos_header);
+  bool WriteImage(const FilePath& output_path);
+
+ protected:
+  typedef BlockGraph::AddressSpace AddressSpace;
+
+  // Copies a section from the old image into the new one.
+  bool CopySection(const IMAGE_SECTION_HEADER& section);
+
+  // Copies the blocks identified by iter_pair from the old image into
+  // the new one, inserting them in order from insert_at.
+  bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
+                  RelativeAddress insert_at);
+
+  size_t original_num_sections() { return original_num_sections_; }
+  const IMAGE_SECTION_HEADER* original_sections() { return original_sections_; }
+  const BlockGraph::AddressSpace& original_addr_space() {
+    return original_addr_space_;
+  }
+  PEFileBuilder& builder() { return builder_; }
+
+ private:
+  // Information from the original image.
+  size_t original_num_sections_;
+  const IMAGE_SECTION_HEADER* original_sections_;
+  const BlockGraph::AddressSpace& original_addr_space_;
+
+  // The builder that we use to construct the new image.
+  PEFileBuilder builder_;
+
+  DISALLOW_COPY_AND_ASSIGN(RelinkerBase);
+};
+
+// This class keeps track of data we need around during reordering
+// and after reordering for PDB rewriting.
+class Relinker : public RelinkerBase {
+ public:
+  typedef core::BlockGraph BlockGraph;
+
+  Relinker(const BlockGraph::AddressSpace& original_addr_space,
+           BlockGraph* block_graph);
+  ~Relinker();
+
   bool Initialize(const BlockGraph::Block* original_nt_headers);
+
+  // Randomly reorder code blocks.
   bool RandomlyReorderCode(unsigned int seed);
 
   // Updates the debug information in the debug directory with our new GUID.
   bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block);
-
-  bool CopyDataDirectory(PEFileParser::PEHeader* original_header);
-  bool FinalizeImageHeaders(BlockGraph::Block* original_dos_header);
-  bool WriteImage(const FilePath& output_path);
 
   // Call after relinking and finalizing image to create a PDB file that
   // matches the reordered image.
@@ -48,26 +94,11 @@ class Relinker {
                     const FilePath& input_path,
                     const FilePath& output_path);
 
-  PEFileBuilder& builder() { return builder_; }
-
  private:
-  typedef BlockGraph::AddressSpace AddressSpace;
-
-  // Copies the blocks identified by iter_pair from the new image into
-  // the new one, inserting them in order from insert_at.
-  bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
-                  RelativeAddress insert_at);
-
-  // Information from the original image.
-  size_t original_num_sections_;
-  const IMAGE_SECTION_HEADER* original_sections_;
-  const BlockGraph::AddressSpace& original_addr_space_;
-
   // The GUID we stamp into the new image and Pdb file.
   GUID new_image_guid_;
 
-  // The builder that we use to construct the new image.
-  PEFileBuilder builder_;
+  DISALLOW_COPY_AND_ASSIGN(Relinker);
 };
 
 #endif  // SYZYGY_RELINK_RELINKER_H_

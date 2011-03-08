@@ -217,12 +217,6 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
   return section_base;
 }
 
-bool PEFileBuilder::SetEntryPoint(const BlockGraph::Reference& entry_point) {
-  entry_point_ = entry_point;
-
-  return true;
-}
-
 bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
                                           BlockGraph::Block* block) {
   DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));

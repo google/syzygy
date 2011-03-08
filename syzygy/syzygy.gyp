@@ -23,6 +23,7 @@
       'dependencies': [
         'call_trace/call_trace.gyp:*',
         'core/core.gyp:*',
+        'instrument/instrument.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
         'relink/relink.gyp:*',

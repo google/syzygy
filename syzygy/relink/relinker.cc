@@ -83,8 +83,8 @@ void AddOmapForAllSections(size_t num_sections,
 
 }  // namespace
 
-Relinker::Relinker(const BlockGraph::AddressSpace& original_addr_space,
-                   BlockGraph* block_graph)
+RelinkerBase::RelinkerBase(const BlockGraph::AddressSpace& original_addr_space,
+                           BlockGraph* block_graph)
     : original_num_sections_(NULL),
       original_sections_(NULL),
       original_addr_space_(original_addr_space),
@@ -92,7 +92,10 @@ Relinker::Relinker(const BlockGraph::AddressSpace& original_addr_space,
   DCHECK_EQ(block_graph, original_addr_space.graph());
 }
 
-bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
+RelinkerBase::~RelinkerBase() {
+}
+
+bool RelinkerBase::Initialize(const BlockGraph::Block* original_nt_headers) {
   // Retrieve the NT and image section headers.
   if (original_nt_headers == NULL ||
       original_nt_headers->size() < sizeof(IMAGE_NT_HEADERS) ||
@@ -123,16 +126,190 @@ bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
   BlockGraph::Reference entry_point;
   size_t entrypoint_offset =
       FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint);
-  if (!original_nt_headers->GetReference(entrypoint_offset, &entry_point) ||
-      !builder_.SetEntryPoint(entry_point)) {
-    LOG(ERROR) << "Unable to set entrypoint.";
+  if (!original_nt_headers->GetReference(entrypoint_offset, &entry_point)) {
+    LOG(ERROR) << "Unable to get entrypoint.";
     return false;
   }
+  builder_.set_entry_point(entry_point);
+
+  return true;
+}
+
+bool RelinkerBase::CopyDataDirectory(PEFileParser::PEHeader* original_header) {
+  DCHECK(original_header != NULL);
+
+  // Copy the data directory from the old image.
+  for (size_t i = 0; i < arraysize(original_header->data_directory); ++i) {
+    BlockGraph::Block* block = original_header->data_directory[i];
+
+    // We don't want to copy the relocs entry over as the relocs are recreated.
+    if (block != NULL && i != IMAGE_DIRECTORY_ENTRY_BASERELOC) {
+      if (!builder_.SetDataDirectoryEntry(i, block)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool RelinkerBase::FinalizeImageHeaders(
+    BlockGraph::Block* original_dos_header) {
+  if (!builder_.CreateRelocsSection())  {
+    LOG(ERROR) << "Unable to create new relocations section";
+    return false;
+  }
+
+  if (!builder_.FinalizeHeaders()) {
+    LOG(ERROR) << "Unable to finalize header information";
+    return false;
+  }
+
+  // Make sure everyone who previously referred the original
+  // DOS header is redirected to the new one.
+  if (!original_dos_header->TransferReferrers(0, builder_.dos_header())) {
+    LOG(ERROR) << "Unable to redirect DOS header references.";
+    return false;
+  }
+
+  return true;
+}
+
+bool RelinkerBase::WriteImage(const FilePath& output_path) {
+  PEFileWriter writer(builder_.address_space(),
+                      &builder_.nt_headers(),
+                      builder_.section_headers());
+
+  if (!writer.WriteImage(output_path)) {
+    LOG(ERROR) << "Unable to write new executable";
+    return false;
+  }
+
+  return true;
+}
+
+bool RelinkerBase::CopySection(const IMAGE_SECTION_HEADER& section) {
+  BlockGraph::AddressSpace::Range section_range(
+      RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
+  const char* name = reinterpret_cast<const char*>(section.Name);
+  std::string name_str(name, strnlen(name, arraysize(section.Name)));
+
+  // Duplicate the section in the new image.
+  RelativeAddress start = builder().AddSegment(name_str.c_str(),
+                                               section.Misc.VirtualSize,
+                                               section.SizeOfRawData,
+                                               section.Characteristics);
+  BlockGraph::AddressSpace::RangeMapConstIterPair section_blocks =
+      original_addr_space().GetIntersectingBlocks(section_range.start(),
+                                                  section_range.size());
+
+  // Copy the blocks.
+  if (!CopyBlocks(section_blocks, start)) {
+    LOG(ERROR) << "Unable to copy blocks to new image";
+    return false;
+  }
+
+  return true;
+}
+
+bool RelinkerBase::CopyBlocks(
+    const AddressSpace::RangeMapConstIterPair& iter_pair,
+    RelativeAddress insert_at) {
+  AddressSpace::RangeMapConstIter it = iter_pair.first;
+  const AddressSpace::RangeMapConstIter& end = iter_pair.second;
+  for (; it != end; ++it) {
+    BlockGraph::Block* block = it->second;
+    if (!builder().address_space().InsertBlock(insert_at, block)) {
+      LOG(ERROR) << "Failed to insert block '" << block->name() <<
+          "' at " << insert_at;
+      return false;
+    }
+
+    insert_at += block->size();
+  }
+
+  return true;
+}
+
+Relinker::Relinker(const BlockGraph::AddressSpace& original_addr_space,
+                   BlockGraph* block_graph)
+    : RelinkerBase(original_addr_space, block_graph) {
+}
+
+Relinker::~Relinker() {
+}
+
+bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
+  if (!RelinkerBase::Initialize(original_nt_headers))
+    return false;
 
   if (FAILED(::CoCreateGuid(&new_image_guid_))) {
     LOG(ERROR) << "Oh, no, we're fresh out of GUIDs! "
         "Quick, hand me an IPv6 address...";
     return false;
+  }
+
+  return true;
+}
+
+bool Relinker::RandomlyReorderCode(unsigned int seed) {
+  // We use a private pseudo random number generator to allow consistent
+  // results across different CRTs and CRT versions.
+  RandomNumberGenerator random_generator(seed);
+
+  // Copy the sections from the decomposed image to the new one, save for
+  // the .relocs section. Code sections are passed through a reordering
+  // phase before copying.
+  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = original_sections()[i];
+    BlockGraph::AddressSpace::Range section_range(
+        RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
+    const char* name = reinterpret_cast<const char*>(section.Name);
+    std::string name_str(name, strnlen(name, arraysize(section.Name)));
+
+    // Duplicate the section in the new image.
+    RelativeAddress start = builder().AddSegment(name_str.c_str(),
+                                                 section.Misc.VirtualSize,
+                                                 section.SizeOfRawData,
+                                                 section.Characteristics);
+    AddressSpace::RangeMapConstIterPair section_blocks =
+        original_addr_space().GetIntersectingBlocks(section_range.start(),
+                                                    section_range.size());
+
+    if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
+      // Hold back the blocks within the section for reordering.
+      // typedef BlockGraph::AddressSpace AddressSpace;
+
+      AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
+      const AddressSpace::RangeMapConstIter& section_end =
+          section_blocks.second;
+      std::vector<BlockGraph::Block*> code_blocks;
+      for (; section_it != section_end; ++section_it) {
+        BlockGraph::Block* block = section_it->second;
+        DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+        code_blocks.push_back(block);
+      }
+
+      // Now reorder the code blocks and insert them into the
+      // code segment in the new order.
+      std::random_shuffle(code_blocks.begin(),
+                          code_blocks.end(),
+                          random_generator);
+      RelativeAddress insert_at = start;
+      for (size_t i = 0; i < code_blocks.size(); ++i) {
+        BlockGraph::Block* block = code_blocks[i];
+
+        if (!builder().address_space().InsertBlock(insert_at, block)) {
+          LOG(ERROR) << "Unable to insert block '" << block->name()
+              << "' at " << insert_at;
+        }
+
+        insert_at += block->size();
+      }
+    } else if (!CopyBlocks(section_blocks, start)) {
+      LOG(ERROR) << "Unable to copy blocks to new image";
+      return false;
+    }
   }
 
   return true;
@@ -193,156 +370,22 @@ bool Relinker::UpdateDebugInformation(
   return true;
 }
 
-bool Relinker::CopyBlocks(
-    const AddressSpace::RangeMapConstIterPair& iter_pair,
-    RelativeAddress insert_at) {
-  AddressSpace::RangeMapConstIter it = iter_pair.first;
-  const AddressSpace::RangeMapConstIter& end = iter_pair.second;
-  for (; it != end; ++it) {
-    BlockGraph::Block* block = it->second;
-    if (!builder_.address_space().InsertBlock(insert_at, block)) {
-      LOG(ERROR) << "Failed to insert block '" << block->name() <<
-          "' at " << insert_at;
-      return false;
-    }
-
-    insert_at += block->size();
-  }
-
-  return true;
-}
-
-bool Relinker::RandomlyReorderCode(unsigned int seed) {
-  // We use a private pseudo random number generator to allow consistent
-  // results across different CRTs and CRT versions.
-  RandomNumberGenerator random_generator(seed);
-
-  // Copy the sections from the decomposed image to the new one, save for
-  // the .relocs section. Code sections are passed through a reordering
-  // phase before copying.
-  for (size_t i = 0; i < original_num_sections_ - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections_[i];
-    BlockGraph::AddressSpace::Range section_range(
-        RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
-    const char* name = reinterpret_cast<const char*>(section.Name);
-    std::string name_str(name, strnlen(name, arraysize(section.Name)));
-
-    // Duplicate the section in the new image.
-    RelativeAddress start = builder_.AddSegment(name_str.c_str(),
-                                                section.Misc.VirtualSize,
-                                                section.SizeOfRawData,
-                                                section.Characteristics);
-    AddressSpace::RangeMapConstIterPair section_blocks =
-        original_addr_space_.GetIntersectingBlocks(section_range.start(),
-                                                   section_range.size());
-
-    if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
-      // Hold back the blocks within the section for reordering.
-      // typedef BlockGraph::AddressSpace AddressSpace;
-
-      AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
-      const AddressSpace::RangeMapConstIter& section_end =
-          section_blocks.second;
-      std::vector<BlockGraph::Block*> code_blocks;
-      for (; section_it != section_end; ++section_it) {
-        BlockGraph::Block* block = section_it->second;
-        DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-        code_blocks.push_back(block);
-      }
-
-      // Now reorder the code blocks and insert them into the
-      // code segment in the new order.
-      std::random_shuffle(code_blocks.begin(),
-                          code_blocks.end(),
-                          random_generator);
-      RelativeAddress insert_at = start;
-      for (size_t i = 0; i < code_blocks.size(); ++i) {
-        BlockGraph::Block* block = code_blocks[i];
-
-        if (!builder_.address_space().InsertBlock(insert_at, block)) {
-          LOG(ERROR) << "Unable to insert block '" << block->name()
-              << "' at " << insert_at;
-        }
-
-        insert_at += block->size();
-      }
-    } else if (!CopyBlocks(section_blocks, start)) {
-      LOG(ERROR) << "Unable to copy blocks to new image";
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool Relinker::CopyDataDirectory(PEFileParser::PEHeader* original_header) {
-  DCHECK(original_header != NULL);
-
-  // Copy the data directory from the old image.
-  for (size_t i = 0; i < arraysize(original_header->data_directory); ++i) {
-    BlockGraph::Block* block = original_header->data_directory[i];
-
-    // We don't want to copy the relocs entry over as the relocs are recreated.
-    if (block != NULL && i != IMAGE_DIRECTORY_ENTRY_BASERELOC) {
-      if (!builder_.SetDataDirectoryEntry(i, block)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-bool Relinker::FinalizeImageHeaders(BlockGraph::Block* original_dos_header) {
-  if (!builder_.CreateRelocsSection())  {
-    LOG(ERROR) << "Unable to create new relocations section";
-    return false;
-  }
-
-  if (!builder_.FinalizeHeaders()) {
-    LOG(ERROR) << "Unable to finalize header information";
-    return false;
-  }
-
-  // Make sure everyone who previously referred the original
-  // DOS header is redirected to the new one.
-  if (!original_dos_header->TransferReferrers(0, builder_.dos_header())) {
-    LOG(ERROR) << "Unable to redirect DOS header references.";
-    return false;
-  }
-
-  return true;
-}
-
-bool Relinker::WriteImage(const FilePath& output_path) {
-  PEFileWriter writer(builder_.address_space(),
-                      &builder_.nt_headers(),
-                      builder_.section_headers());
-
-  if (!writer.WriteImage(output_path)) {
-    LOG(ERROR) << "Unable to write new executable";
-    return false;
-  }
-
-  return true;
-}
-
 bool Relinker::WritePDBFile(const BlockGraph::AddressSpace& original,
                             const FilePath& input_path,
                             const FilePath& output_path) {
   // Generate the map data for both directions.
   std::vector<OMAP> omap_to;
-  AddOmapForAllSections(builder_.nt_headers().FileHeader.NumberOfSections - 1,
-                        builder_.section_headers(),
-                        builder_.address_space(),
+  AddOmapForAllSections(builder().nt_headers().FileHeader.NumberOfSections - 1,
+                        builder().section_headers(),
+                        builder().address_space(),
                         original,
                         &omap_to);
 
   std::vector<OMAP> omap_from;
-  AddOmapForAllSections(original_num_sections_ - 1,
-                        original_sections_,
+  AddOmapForAllSections(original_num_sections() - 1,
+                        original_sections(),
                         original,
-                        builder_.address_space(),
+                        builder().address_space(),
                         &omap_from);
 
   if (!pdb::AddOmapStreamToPdbFile(input_path,
