@@ -49,6 +49,12 @@ class PEFileBuilder {
     return address_space_;
   }
   RelativeAddress next_section_address() const { return next_section_address_; }
+  const BlockGraph::Reference& entry_point() const { return entry_point_; }
+
+  // Mutators.
+  void set_entry_point(const BlockGraph::Reference& entry_point) {
+    entry_point_ = entry_point;
+  }
 
   // Allocates a new segment.
   // @param name the name of the new segment, must be 8 characters
@@ -61,9 +67,6 @@ class PEFileBuilder {
                              size_t size,
                              size_t data_size,
                              uint32 characteristics);
-
-  // Sets the entry ploint for the image.
-  bool SetEntryPoint(const BlockGraph::Reference& entry_point);
 
   // Set a data directory entry to refer a block.
   bool SetDataDirectoryEntry(size_t entry_index, BlockGraph::Block* block);

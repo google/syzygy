@@ -23,35 +23,33 @@
   },
   'targets': [
     {
-      'target_name': 'relink_lib',
+      'target_name': 'instrument_lib',
       'type': 'static_library',
       'sources': [
-        'relinker.cc',
-        'relinker.h',
+        'instrumenter.cc',
+        'instrumenter.h',
       ],
       'dependencies': [
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '../pe/pe.gyp:pe_lib',
+        '../relink/relink.gyp:relink_lib',
+        '<(DEPTH)/base/base.gyp:base',
       ],
     },
     {
-      'target_name': 'relink',
+      'target_name': 'instrument',
       'type': 'executable',
       'sources': [
-        'relink_main.cc',
+        'instrument_main.cc',
       ],
       'dependencies': [
-        'relink_lib',
+        'instrument_lib',
         '<(DEPTH)/base/base.gyp:base',
       ],
       'run_as': {
         'action': [
           '$(TargetPath)',
           '--input-dll=$(OutDir)\\test_dll.dll',
-          '--input-pdb=$(OutDir)\\test_dll.pdb',
-          '--output-dll=$(OutDir)\\randomized_test_dll.dll',
-          '--output-pdb=$(OutDir)\\randomized_test_dll.pdb',
+          '--output-dll=$(OutDir)\\instrumented_test_dll.dll',
         ]
       },
     },

@@ -27,14 +27,14 @@ const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
     { 0x89, 0x93, 0x1f, 0x47, 0x7d, 0xc3, 0x62, 0x47 } };
 
 static const char kUsage[] =
-  "Usage: relink [options]\n"
-  "  Required Options:\n"
-  "    --input-dll=<path> the input DLL to relink\n"
-  "    --input-pdb=<path> the PDB file associated with the input DLL\n"
-  "    --output-dll=<path> the relinked output DLL\n"
-  "    --output-pdb=<path> the rewritten PDB file for the output DLL\n"
-  "  Optional Options:\n"
-  "    --seed=<integer> provides a seed for the random reordering strategy\n";
+    "Usage: relink [options]\n"
+    "  Required Options:\n"
+    "    --input-dll=<path> the input DLL to relink\n"
+    "    --input-pdb=<path> the PDB file associated with the input DLL\n"
+    "    --output-dll=<path> the relinked output DLL\n"
+    "    --output-pdb=<path> the rewritten PDB file for the output DLL\n"
+    "  Optional Options:\n"
+    "    --seed=<integer> provides a seed for the random reordering strategy\n";
 
 static int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
