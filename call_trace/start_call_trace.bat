@@ -22,7 +22,14 @@ set clock_type=
 
 :main
 :: Create a kernel logger session and make it log image events to the file kernel.etl.
-logman create trace -ets "NT Kernel Logger" %clock_type% -mode globalsequence -bs 10240 -nb 25 50 -o kernel.etl -p "Windows Kernel Trace" (img,process,thread,pf,hf)
+:: "img" enables module load and unload events.
+:: "process" enables process start/stop/rundown events.
+:: "thread" enables thread start/stop/rundown events.
+:: "hf" enables hard page faults.
+:: "pf" enables all other (minor) page faults.
+:: "file" enables file object -> name mappings through "Name" & "Rundown" events
+:: "fileio" enables file io events, e.g. creates, deletes, reads, writes.
+logman create trace -ets "NT Kernel Logger" %clock_type% -mode globalsequence -bs 10240 -nb 25 50 -o kernel.etl -p "Windows Kernel Trace" (img,process,thread,pf,hf,file,fileio)
 
 :: Create the call trace logger session.
 logman create trace -ets "call_trace" %clock_type% -mode globalsequence -bs 10240 -nb 25 50 -o call_trace.etl
