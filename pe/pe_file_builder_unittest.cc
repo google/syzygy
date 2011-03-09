@@ -98,7 +98,7 @@ class PEFileBuilderTest: public testing::Test {
         FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint),
         &entry_point));
 
-    builder->set_entry_point(entry_point);
+    ASSERT_TRUE(builder->SetEntryPoint(entry_point));
   }
 
   void CopyBlockRange(const BlockGraph::AddressSpace::Range& section_range,
