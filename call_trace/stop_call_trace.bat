@@ -17,4 +17,4 @@
 logman stop -ets "NT Kernel Logger"
 
 :: Stop the call trace logger session.
-logman stop -ets "Call Trace Session"
+logman stop -ets "call_trace"
