@@ -70,7 +70,7 @@ bool CallTraceParser::ProcessBatchEnterEvent(EVENT_TRACE* event) {
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceBatchEnterData* data = NULL;
-  if (!reader.Read(sizeof(data->num_calls), &data)) {
+  if (!reader.Read(FIELD_OFFSET(TraceBatchEnterData, calls), &data)) {
     LOG(ERROR) << "Short or empty batch event.";
     return false;
   }
@@ -83,7 +83,7 @@ bool CallTraceParser::ProcessBatchEnterEvent(EVENT_TRACE* event) {
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   DWORD process_id = event->Header.ProcessId;
-  DWORD thread_id = event->Header.ThreadId;
+  DWORD thread_id = data->thread_id;
   call_trace_events_->OnTraceBatchEnter(time, process_id, thread_id, data);
 
   return true;

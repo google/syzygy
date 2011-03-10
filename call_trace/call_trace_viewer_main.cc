@@ -109,14 +109,14 @@ class ViewerTraceConsumer
       Symbol symbol;
       Address address =
           reinterpret_cast<Address>(data->calls[i].function);
-      std::wcout << process_id << L'\t'
-          << thread_id << L'\t';
+      std::wcout << process_id << L'\t' << thread_id << L'\t';
       if (Resolve(process_id, time, address, &symbol)) {
         std::wcout
             << address - symbol.module_base << L'(' << symbol.size << L")\t"
             << symbol.mangled_name;
       } else {
-        std::wcout << data->calls[i].function << L"(***UNKNOWN***)\t"
+        std::wcout << data->calls[i].tick_count << L'\t'
+            << data->calls[i].function << L"(***UNKNOWN***)\t"
             << L"***UNKNOWN***";
       }
       std::wcout << std::endl;
@@ -324,9 +324,11 @@ int wmain(int argc, wchar_t** argv) {
 
   if (!session.empty()) {
     HRESULT hr = consumer.OpenRealtimeSession(session.c_str());
-    std::wcout << "Failed to open realtime session \"" << session
-        << "\", error: " << hr << std::endl;
-    return hr;
+    if (FAILED(hr)) {
+      std::wcout << "Failed to open realtime session \"" << session
+          << "\", error: " << hr << std::endl;
+      return hr;
+    }
   }
 
   for (StringVector::iterator it = files.begin(); it < files.end(); ++it) {
@@ -334,7 +336,6 @@ int wmain(int argc, wchar_t** argv) {
     if (FAILED(hr)) {
       std::wcout << "Failed to open file \"" << *it << "\", error: "
           << hr << std::endl;
-
       return hr;
     }
   }
