@@ -29,6 +29,10 @@
       'sources': [
         'configuration.h',
         'configuration.cc',
+        'registry.h',
+        'registry.cc',
+        'system_info.h',
+        'system_info.cc',
         'upload.h',
         'upload.cc',
       ],
@@ -43,7 +47,11 @@
         'configuration_unittest.cc',
         'configuration_unittest_data.json',
         'configuration_unittest_expressions.json',
+        'registry_unittest.cc',
+        'system_info_unittest.cc',
         'tracer_unittest_main.cc',
+        'tracer_unittest_util.h',
+        'tracer_unittest_util.cc',
         'upload_unittest.cc',
       ],
       'dependencies': [
