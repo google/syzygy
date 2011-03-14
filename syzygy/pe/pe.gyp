@@ -161,23 +161,13 @@
       ],
     },
     {
-      'target_name': 'DecomposeImageToText',
+      'target_name': 'decompose_image_to_text',
       'type': 'executable',
       'sources': [
         'decompose_image_to_text.cc',
       ],
       'dependencies': [
         'pe_lib',
-        '<(DEPTH)/base/base.gyp:base',
-      ],
-    },
-    {
-      'target_name': 'RecomposePDB',
-      'type': 'executable',
-      'sources': [
-        'recompose_pdb.cc',
-      ],
-      'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
       ],
     },
