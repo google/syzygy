@@ -82,6 +82,9 @@ class Relinker : public RelinkerBase {
 
   bool Initialize(const BlockGraph::Block* original_nt_headers);
 
+  // Order code blocks using the ordering specified in the order file.
+  bool ReorderCode(const FilePath& order_file_path);
+
   // Randomly reorder code blocks.
   bool RandomlyReorderCode(unsigned int seed);
 

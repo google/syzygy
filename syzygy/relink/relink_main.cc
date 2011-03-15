@@ -60,6 +60,7 @@ int main(int argc, char** argv) {
   FilePath input_pdb_path = cmd_line->GetSwitchValuePath("input-pdb");
   FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
   FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
+  FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
 
   if (input_dll_path.empty() || input_pdb_path.empty() ||
       output_dll_path.empty() || output_pdb_path.empty()) {
@@ -82,10 +83,16 @@ int main(int argc, char** argv) {
     return Usage("Unable to initialize relinker.");
   }
 
-  // Randomize and write the image.
-  unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
-  if (!relinker.RandomlyReorderCode(seed)) {
-    return Usage("Unable reorder the input image.");
+  // Reorder the image, update the debug info and copy the data directory.
+  if (!order_file_path.empty()) {
+    if (!relinker.ReorderCode(order_file_path)) {
+      return Usage("Unable to reorder the input image.");
+    }
+  } else {
+    unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
+    if (!relinker.RandomlyReorderCode(seed)) {
+      return Usage("Unable randomly reorder the input image.");
+    }
   }
   if (!relinker.UpdateDebugInformation(
           decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
@@ -94,6 +101,8 @@ int main(int argc, char** argv) {
   if (!relinker.CopyDataDirectory(&decomposed.header)) {
     return Usage("Unable to copy the input image's data directory.");
   }
+
+  // Finalize the headers and write the image and pdb.
   if (!relinker.FinalizeImageHeaders(decomposed.header.dos_header)) {
     return Usage("Unable to finalize image headers.");
   }
