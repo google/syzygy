@@ -16,6 +16,9 @@
 #include <algorithm>
 #include <ctime>
 #include <objbase.h>
+#include "base/file_util.h"
+#include "base/json/json_reader.h"
+#include "base/values.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/pe_file_writer.h"
@@ -247,6 +250,99 @@ bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
     LOG(ERROR) << "Oh, no, we're fresh out of GUIDs! "
         "Quick, hand me an IPv6 address...";
     return false;
+  }
+
+  return true;
+}
+
+bool Relinker::ReorderCode(const FilePath& order_file_path) {
+  std::string file_string;
+  if (!file_util::ReadFileToString(order_file_path, &file_string)) {
+    LOG(ERROR) << "Unable to read order file to string";
+    return false;
+  }
+
+  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
+  ListValue* order;
+  if (value.get() == NULL || !value->GetAsList(&order)) {
+    LOG(ERROR) << "Order file does not contain a valid JSON list";
+    return false;
+  }
+
+  RelativeAddress start = builder().next_section_address();
+  RelativeAddress insert_at = start;
+  std::set<BlockGraph::Block*> inserted_blocks;
+
+  // Insert the ordered blocks into the new address space.
+  for (ListValue::iterator iter = order->begin(); iter < order->end(); ++iter) {
+    int address;
+    if (!(*iter)->GetAsInteger(&address)) {
+      LOG(ERROR) << "Unable to read address value from order list";
+      return false;
+    }
+
+    BlockGraph::Block* block = original_addr_space().GetBlockByAddress(
+        RelativeAddress(address));
+    if (!block) {
+      LOG(ERROR) << "Unable to get block at address " << address;
+      return false;
+    }
+    // Two separate RVAs may point to the same block, so make sure we only
+    // insert each block once.
+    if (inserted_blocks.find(block) != inserted_blocks.end())
+      continue;
+
+    if (!builder().address_space().InsertBlock(insert_at, block)) {
+      LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
+          << insert_at;
+    }
+    insert_at += block->size();
+    inserted_blocks.insert(block);
+  }
+
+  // Insert the remaining unordered blocks into the new address space.
+  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = original_sections()[i];
+    if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
+      BlockGraph::AddressSpace::Range section_range(
+          RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
+      AddressSpace::RangeMapConstIterPair section_blocks =
+          original_addr_space().GetIntersectingBlocks(section_range.start(),
+                                                      section_range.size());
+
+      AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
+      for (; section_it != section_blocks.second; ++section_it) {
+        BlockGraph::Block* block = section_it->second;
+        if (inserted_blocks.find(block) != inserted_blocks.end())
+          continue;
+
+        if (!builder().address_space().InsertBlock(insert_at, block)) {
+          LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
+              << insert_at;
+        }
+        insert_at += block->size();
+        inserted_blocks.insert(block);
+      }
+    }
+  }
+
+  // Create the code section.
+  uint32 code_size = insert_at - start;
+  builder().AddSegment(".text",
+                       code_size,
+                       code_size,
+                       IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE |
+                       IMAGE_SCN_MEM_READ);
+
+  // Copy the non-code sections, skipping the .relocs section.
+  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = original_sections()[i];
+    if (!(section.Characteristics & IMAGE_SCN_CNT_CODE)) {
+      if (!CopySection(section)) {
+        LOG(ERROR) << "Unable to copy section";
+        return false;
+      }
+    }
   }
 
   return true;
