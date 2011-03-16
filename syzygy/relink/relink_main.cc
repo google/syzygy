@@ -34,7 +34,8 @@ static const char kUsage[] =
     "    --output-dll=<path> the relinked output DLL\n"
     "    --output-pdb=<path> the rewritten PDB file for the output DLL\n"
     "  Optional Options:\n"
-    "    --seed=<integer> provides a seed for the random reordering strategy\n";
+    "    --seed=<integer> provides a seed for the random reordering strategy\n"
+    "    --order-file=<path> path to a JSON file containing the new order\n";
 
 static int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
