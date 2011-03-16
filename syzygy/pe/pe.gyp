@@ -99,6 +99,19 @@
           'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
         },
       ],
+      'all_dependent_settings': {
+        'msvs_settings': {
+          'VCLinkerTool': {
+            # GYP has a bug or misfeature whereby a library dependency used
+            # from another GYP file in a different directory picks up the path
+            # to that directory, so instead of using 'library', we specify the
+            # library dependency here.
+            'AdditionalDependencies': [
+              'imagehlp.lib',
+            ],
+          },
+        },
+      },
     },
     {
       'target_name': 'pe_unittests',

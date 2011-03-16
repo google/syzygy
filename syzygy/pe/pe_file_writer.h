@@ -45,6 +45,9 @@ class PEFileWriter {
   // Writes the image to path.
   bool WriteImage(const FilePath& path);
 
+  // Updates the checksum for the image @p path.
+  static bool PEFileWriter::UpdateFileChecksum(const FilePath& path);
+
  protected:
   bool InitializeSectionFileAddressSpace();
   bool WriteBlocks(FILE* file);

@@ -15,8 +15,10 @@
 
 #include <windows.h>
 #include <winnt.h>
+#include <imagehlp.h>
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/win/scoped_handle.h"
 #include "sawbuck/common/buffer_parser.h"
 
 namespace {
@@ -71,6 +73,66 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
     return false;
 
   if (!WriteBlocks(file.get()))
+    return false;
+
+  // Close the file.
+  file.reset();
+
+  return UpdateFileChecksum(path);
+}
+
+// TODO(siggi): This function deserves a unit test.
+bool PEFileWriter::UpdateFileChecksum(const FilePath& path) {
+  // Open the image file for exclusive write.
+  base::win::ScopedHandle image_handle(
+      ::CreateFile(path.value().c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                   NULL, OPEN_EXISTING, 0, NULL));
+
+  if (!image_handle.IsValid()) {
+    LOG(ERROR) << "Failed to open file " << path.value();
+    return false;
+  }
+
+  size_t file_size = ::GetFileSize(image_handle.Get(), NULL);
+
+  // Create an anonymous read/write mapping on the file.
+  base::win::ScopedHandle image_mapping(::CreateFileMapping(image_handle.Get(),
+                                                            NULL,
+                                                            PAGE_READWRITE,
+                                                            0,
+                                                            0,
+                                                            NULL));
+  // Map the entire file read/write to memory.
+  void* image_ptr = NULL;
+
+  if (image_mapping.IsValid()) {
+    image_ptr = ::MapViewOfFile(image_mapping.Get(),
+                                FILE_MAP_WRITE,
+                                0,
+                                0,
+                                file_size);
+  }
+
+  if (image_ptr == NULL) {
+    LOG(ERROR) << "Failed to create image mapping.";
+    return false;
+  }
+
+  // Calculate the image checksum.
+  DWORD original_checksum = 0;
+  DWORD new_checksum = 0;
+  IMAGE_NT_HEADERS* nt_headers = ::CheckSumMappedFile(image_ptr,
+                                                      file_size,
+                                                      &original_checksum,
+                                                      &new_checksum);
+
+  // On success, we write the checksum back to the file header.
+  if (nt_headers != NULL) {
+    nt_headers->OptionalHeader.CheckSum = new_checksum;
+  }
+  CHECK(::UnmapViewOfFile(image_ptr));
+
+  if (nt_headers == NULL)
     return false;
 
   return true;
