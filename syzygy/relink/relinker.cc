@@ -120,6 +120,42 @@ bool RelinkerBase::Initialize(const BlockGraph::Block* original_nt_headers) {
     return false;
   }
 
+  // Grab the image characteristics, base and other properties from the
+  // original image and propagate them to the new image headers.
+  builder_.nt_headers().FileHeader.Characteristics =
+      nt_headers->FileHeader.Characteristics;
+
+  builder_.nt_headers().OptionalHeader.ImageBase =
+      nt_headers->OptionalHeader.ImageBase;
+  builder_.nt_headers().OptionalHeader.MajorOperatingSystemVersion =
+      nt_headers->OptionalHeader.MajorOperatingSystemVersion;
+  builder_.nt_headers().OptionalHeader.MinorOperatingSystemVersion =
+      nt_headers->OptionalHeader.MinorOperatingSystemVersion;
+  builder_.nt_headers().OptionalHeader.MajorImageVersion =
+      nt_headers->OptionalHeader.MajorImageVersion;
+  builder_.nt_headers().OptionalHeader.MinorImageVersion =
+      nt_headers->OptionalHeader.MinorImageVersion;
+  builder_.nt_headers().OptionalHeader.MajorSubsystemVersion =
+      nt_headers->OptionalHeader.MajorSubsystemVersion;
+  builder_.nt_headers().OptionalHeader.MinorSubsystemVersion =
+      nt_headers->OptionalHeader.MinorSubsystemVersion;
+  builder_.nt_headers().OptionalHeader.Win32VersionValue =
+      nt_headers->OptionalHeader.Win32VersionValue;
+  builder_.nt_headers().OptionalHeader.Subsystem =
+      nt_headers->OptionalHeader.Subsystem;
+  builder_.nt_headers().OptionalHeader.DllCharacteristics =
+      nt_headers->OptionalHeader.DllCharacteristics;
+  builder_.nt_headers().OptionalHeader.SizeOfStackReserve =
+      nt_headers->OptionalHeader.SizeOfStackReserve;
+  builder_.nt_headers().OptionalHeader.SizeOfStackCommit =
+      nt_headers->OptionalHeader.SizeOfStackCommit;
+  builder_.nt_headers().OptionalHeader.SizeOfHeapReserve =
+      nt_headers->OptionalHeader.SizeOfHeapReserve;
+  builder_.nt_headers().OptionalHeader.SizeOfHeapCommit =
+      nt_headers->OptionalHeader.SizeOfHeapCommit;
+  builder_.nt_headers().OptionalHeader.LoaderFlags =
+      nt_headers->OptionalHeader.LoaderFlags;
+
   // Store the number of sections and the section headers in the original image.
   original_num_sections_ = num_sections;
   original_sections_ =
