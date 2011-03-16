@@ -24,6 +24,49 @@
         '<(DEPTH)/base/base.gyp:*',        
         'tracer/tracer.gyp:*',
       ],
+    },
+    {
+      # Add new unittests to this target as inputs.
+      'target_name': 'run_unittests',
+      'type': 'none',
+      'variables': {
+        # The file that marks success of all unittests.
+        'success_file': '<(PRODUCT_DIR)/unittest_success.txt',
+
+        # Add all unit test targets here.
+        'unittest_targets': [
+          '<(DEPTH)/sawdust/tracer/tracer.gyp:tracer_lib_unittests',
+        ],
+      },
+      'dependencies': [
+        '<@(unittest_targets)',
+      ],
+      'actions': [
+        {
+          'action_name': 'run_unittests',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            '../sawbuck/tools/run_unittests.py',
+            '../sawbuck/tools/verifier.py',
+            '<(PRODUCT_DIR)/tracer_lib_unittests.exe',
+          ],
+          'outputs': [
+            # Created only if all unittests succeed
+            '<(success_file)',
+          ],
+          'action': [
+            '<(DEPTH)/third_party/python_24/python',
+            '../sawbuck/tools/run_unittests.py',
+            '--exe-dir=<(PRODUCT_DIR)',
+            '--success-file=<(success_file)',
+            # SymSrv.dll abandons a critical section on
+            # unlock on 32 bit systems
+            '--exception="dbghelp!SymCleanup,Locks,0x201"',
+            '--exception="dbghelp!SymCleanup,Locks,0x211"',
+            '<@(unittest_targets)',
+          ],
+        },
+      ],
     }
   ]
 }
