@@ -175,7 +175,7 @@ class TraceProvider(object):
     if self._registration_handle.value != 0:
       evntrace.UnregisterTraceGuids(self._registration_handle)
 
-  def _ControlCallback(self, request, context, reserved, buffer):
+  def _ControlCallback(self, request, unused_context, unused_reserved, buffer):
     if request == evntrace.WMI_ENABLE_EVENTS:
       return self._EnableEvents(buffer)
     elif request == evntrace.WMI_DISABLE_EVENTS:

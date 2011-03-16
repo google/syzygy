@@ -13,7 +13,7 @@
 # limitations under the License.
 """Implements a trace consumer utility class."""
 from collections import defaultdict
-from ctypes import byref, cast, POINTER, sizeof
+from ctypes import byref, cast, POINTER
 from etw import evntcons
 from etw import evntrace
 from etw import util
@@ -295,12 +295,12 @@ class TraceEventSource(object):
     header = event_trace.contents.Header
     guid = str(header.Guid)
     version = header.Class.Version
-    type = header.Class.Type
+    kind = header.Class.Type
 
     # Look for a handler and EventClass for the event.
-    event_class = event.EventClass.Get(guid, version, type)
+    event_class = event.EventClass.Get(guid, version, kind)
     if event_class:
-      handlers = self._GetHandlers(guid, type)
+      handlers = self._GetHandlers(guid, kind)
       if handlers:
         event_obj = event_class(session, event_trace)
         for handler in handlers:
@@ -341,8 +341,8 @@ class TraceEventSource(object):
       logging.exception("Exception in ProcessEvent, terminating parsing")
       self._stop = True
 
-  def _GetHandlers(self, guid, type):
-    key = (guid, type)
+  def _GetHandlers(self, guid, kind):
+    key = (guid, kind)
     handler_list = self._handler_cache.get(key, None)
     if handler_list != None:
       return handler_list

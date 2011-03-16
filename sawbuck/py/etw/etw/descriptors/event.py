@@ -113,7 +113,7 @@ class MetaEventCategory(type):
   EventClass.
   """
 
-  def __new__(mcs, name, bases, attrs):
+  def __new__(cls, name, bases, attrs):
     """Create a new EventCategory class.
 
     Args:
@@ -128,7 +128,7 @@ class MetaEventCategory(type):
       if inspect.isclass(value) and issubclass(value, EventClass):
         for event_type in value.GetEventTypes():
           EventClass.Set(attrs['GUID'], attrs['VERSION'], event_type[1], value)
-    return type.__new__(mcs, name, bases, attrs)
+    return type.__new__(cls, name, bases, attrs)
 
 
 class EventCategory(object):
