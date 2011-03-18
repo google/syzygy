@@ -356,7 +356,7 @@ int RegistryExtractor::Initialize(
   return pass_counter;
 }
 
-std::istream& RegistryExtractor::data() {
+std::istream& RegistryExtractor::Data() {
   DCHECK(own_data_stream_.rdbuf() == current_streambuff_.get());
   return own_data_stream_;
 }

@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 // Configuration of the tracer (event sources, upload target and so on).
+
 #ifndef SAWDUST_TRACER_CONFIGURATION_H_
 #define SAWDUST_TRACER_CONFIGURATION_H_
 

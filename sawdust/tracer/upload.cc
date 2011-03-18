@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 // Upload result logs to the crash server.
+
 #include "sawdust/tracer/upload.h"
 
 #include <atlstr.h>
@@ -21,6 +22,7 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "third_party/zlib/contrib/minizip/zip.h"
 #include "third_party/zlib/contrib/minizip/iowin32.h"
 
@@ -40,9 +42,7 @@ const unsigned kZipBufferSize = 8192;
 // the allocated structure is owned by the caller (minizip library, that is).
 // This a bit opaque, but: the return value is always treated as a stream handle
 // (see struct layout), but released by free in win32_close_file_func.
-void* ZipOpenFunc(void *opaque, const char* filename, int mode) {
-  DWORD desired_access, creation_disposition;
-  DWORD share_mode, flags_and_attributes;
+void* ZipOpenFunc(void* opaque, const char* filename, int mode) {
   HANDLE file = 0;
   void* ret = NULL;
   const ReportUploader* invocation_origin =
@@ -54,7 +54,10 @@ void* ZipOpenFunc(void *opaque, const char* filename, int mode) {
     return NULL;
   }
 
-  desired_access = share_mode = flags_and_attributes = 0;
+  DWORD desired_access = 0;
+  DWORD creation_disposition = GENERIC_READ;
+  DWORD share_mode = 0;
+  DWORD flags_and_attributes = 0;
 
   if ((mode & ZLIB_FILEFUNC_MODE_READWRITEFILTER) == ZLIB_FILEFUNC_MODE_READ) {
     desired_access = GENERIC_READ;
@@ -70,7 +73,7 @@ void* ZipOpenFunc(void *opaque, const char* filename, int mode) {
 
   if ((!path_obj.empty()) && (desired_access != 0)) {
     file = CreateFile(path_obj.value().c_str(), desired_access, share_mode,
-      NULL, creation_disposition, flags_and_attributes, NULL);
+                      NULL, creation_disposition, flags_and_attributes, NULL);
   }
 
   if (file == INVALID_HANDLE_VALUE)
@@ -91,8 +94,9 @@ void* ZipOpenFunc(void *opaque, const char* filename, int mode) {
 }
 
 ReportUploader::ReportUploader(const std::wstring& target, bool local)
-    : uri_target_(target), remote_upload_(!local),
-      in_process_(false), abort_(false) {
+    : uri_target_(target),
+      remote_upload_(!local),
+      abort_(false) {
 }
 
 // The destructor will remove the temporary archive.
@@ -102,9 +106,6 @@ ReportUploader::~ReportUploader() {
 
 HRESULT ReportUploader::Upload(IReportContent* content) {
   DCHECK(content != NULL);
-  if (content == NULL)
-    return E_INVALIDARG;
-
   if (!MakeTemporaryPath(&temp_archive_path_))
     return E_ACCESSDENIED;
 
@@ -196,18 +197,23 @@ HRESULT ReportUploader::WriteEntryIntoZip(void* zip_vhandle,
   // The purpose of shenanigans with the parameter type here is to avoid
   // including a third_party header into upload.h.
   zipFile zip_file = zip_vhandle;
-  if (ZIP_OK != zipOpenNewFileInZip(zip_file, entry->title(),
-      NULL, NULL, 0u, NULL, 0u, NULL,
-      // file info, extrafield local, length,
-      // extrafield global, length, comment
-      Z_DEFLATED, Z_DEFAULT_COMPRESSION)) {
-    LOG(ERROR) << "Could not open zip file entry " << entry->title();
+  if (ZIP_OK != zipOpenNewFileInZip(zip_file,
+                                    entry->Title(),
+                                    NULL,  // No file info.
+                                    NULL,  // No extrafield_local.
+                                    0u,    // Size of extrafield_local (none).
+                                    NULL,  // No extrafield_global.
+                                    0u,    // Size of extrafield_global (none).
+                                    NULL,  // No comment.
+                                    Z_DEFLATED,  // Compression method.
+                                    Z_DEFAULT_COMPRESSION)) {  // Level.
+    LOG(ERROR) << "Could not open zip file entry " << entry->Title();
     return E_FAIL;
   }
 
   HRESULT hr = S_OK;
   // Write the content using provided stream.
-  std::istream& data = entry->data();
+  std::istream& data = entry->Data();
 
   char buffer[kZipBufferSize];
 
@@ -216,8 +222,8 @@ HRESULT ReportUploader::WriteEntryIntoZip(void* zip_vhandle,
     std::streamsize bytes_read = data.read(buffer, sizeof(buffer)).gcount();
 
     if (data.bad()) {
-      LOG(ERROR) << "Reading from source stream " << entry->title() <<
-        " failed.";
+      LOG(ERROR) << "Reading from source stream " << entry->Title()
+          << " failed.";
       hr = E_FAIL;
       keep_zipping = false;
     } else if (abort_) {
@@ -225,7 +231,7 @@ HRESULT ReportUploader::WriteEntryIntoZip(void* zip_vhandle,
       hr = E_ABORT;
     } else {
       if (ZIP_OK != zipWriteInFileInZip(zip_file, buffer, bytes_read)) {
-        LOG(ERROR) << "Could not write data to zip for path " << entry->title();
+        LOG(ERROR) << "Could not write data to zip for path " << entry->Title();
         hr = E_FAIL;
         keep_zipping = false;
       } else {
@@ -235,7 +241,7 @@ HRESULT ReportUploader::WriteEntryIntoZip(void* zip_vhandle,
   } while (keep_zipping);
 
   if (ZIP_OK != zipCloseFileInZip(zip_file)) {
-    LOG(ERROR) << "Could not close zip file entry " << entry->title();
+    LOG(ERROR) << "Could not close zip file entry " << entry->Title();
     return E_FAIL;
   }
 
@@ -246,6 +252,10 @@ HRESULT ReportUploader::WriteEntryIntoZip(void* zip_vhandle,
 HRESULT ReportUploader::UploadToCrashServer(const wchar_t* file_path,
                                             const wchar_t* url,
                                             std::wstring* response) {
+  DCHECK(file_path != NULL);
+  DCHECK(url != NULL);
+  DCHECK(response != NULL);
+
   HRESULT hr = ::CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
   DCHECK(SUCCEEDED(hr));
 
@@ -275,11 +285,8 @@ HRESULT ReportUploader::UploadToCrashServer(const wchar_t* file_path,
   int64 file_size = 0;
   if (file_util::GetFileSize(FilePath(file_path), &file_size) &&
       file_size > 0) {
-    char itoa_buffer[64];
-    if (_i64toa_s(file_size, itoa_buffer, sizeof(itoa_buffer), 10) == 0) {
-      request->setRequestHeader(CComBSTR("Content-Length"),
-                                CComBSTR(itoa_buffer));
-    }
+    request->setRequestHeader(CComBSTR("Content-Length"),
+                              CComBSTR(base::Int64ToString(file_size).c_str()));
   }
 
   // Send the file.
@@ -287,33 +294,25 @@ HRESULT ReportUploader::UploadToCrashServer(const wchar_t* file_path,
   if (FAILED(hr))
     return hr;
 
-#ifdef _DEBUG
-  const bool kDebug = true;
-#else
-  const bool kDebug = false;
-#endif
+  long response_code = 0;  // NOLINT - used as in interface declaration.
+  hr = request->get_status(&response_code);
+  if (FAILED(hr))
+    return hr;
+  if (response_code < 200 || response_code >= 300)
+    return AtlHresultFromWin32(ERROR_HTTP_INVALID_SERVER_RESPONSE);
+  CComBSTR bresponse;
+  hr = request->get_responseText(&bresponse);
+  if (SUCCEEDED(hr) && NULL != response)
+    *response = static_cast<const wchar_t*>(bresponse);
 
-  if (kDebug || NULL != response) {
-    long response_code = 0;  // NOLINT - used as in interface declaration.
-    hr = request->get_status(&response_code);
-    if (FAILED(hr))
-      return hr;
-    if (response_code < 200 || response_code >= 300)
-      return AtlHresultFromWin32(ERROR_HTTP_INVALID_SERVER_RESPONSE);
-    CComBSTR bresponse;
-    hr = request->get_responseText(&bresponse);
-    if (SUCCEEDED(hr) && NULL != response)
-      *response = static_cast<const wchar_t*>(bresponse);
-  }
   return hr;
 }
 
 void ReportUploader::ClearTemporaryData() {
   if (!temp_archive_path_.empty() &&
       file_util::PathExists(temp_archive_path_)) {
-    if (!file_util::Delete(temp_archive_path_, false)) {
+    if (!file_util::Delete(temp_archive_path_, false))
       LOG(ERROR) << "Cannot delete file " << temp_archive_path_.value();
-    }
   }
 }
 

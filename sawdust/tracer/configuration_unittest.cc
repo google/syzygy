@@ -25,9 +25,7 @@
 #include "base/values.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-
 #include "sawdust/tracer/configuration.h"
-
 
 namespace {
 
@@ -53,7 +51,8 @@ class TestingTracerConfiguration : public TracerConfiguration {
  public:
   explicit TestingTracerConfiguration(
       const std::set<std::wstring>* allowed_dirs)
-          : TracerConfiguration(), allowed_dirs_(allowed_dirs) {
+      : TracerConfiguration(),
+        allowed_dirs_(allowed_dirs) {
   }
 
   static bool CallExpandBracketPattern(const std::wstring& pattern,
@@ -63,8 +62,10 @@ class TestingTracerConfiguration : public TracerConfiguration {
   }
 
   static std::pair<bool, Value*>
-      CallExtractValue(DictionaryValue* parent, const char* key,
-                       bool required, Value::ValueType expected_type) {
+      CallExtractValue(DictionaryValue* parent,
+                       const char* key,
+                       bool required,
+                       Value::ValueType expected_type) {
     Value* retrieved_value = NULL;
     HRESULT hr = S_OK;
     if (required) {
@@ -84,11 +85,16 @@ class TestingTracerConfiguration : public TracerConfiguration {
             allowed_dirs_->end());
   }
   const std::set<std::wstring>* allowed_dirs_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestingTracerConfiguration);
 };
 
 // The base class for running tests from a canned JSON containing test cases.
 class TracerConfigurationTest : public testing::Test {
  public:
+  TracerConfigurationTest() {
+  }
+
   virtual void SetUp() {
 #define ADD_TO_MAP(map_obj, method_name)\
     (map_obj)[#method_name] = &TracerConfigurationTest::Verify##method_name;
@@ -138,12 +144,12 @@ class TracerConfigurationTest : public testing::Test {
         ASSERT_TRUE(test_case->GetDictionary("test-data", &test_case_data));
         if (test_case->GetList("have-dirs", &dirs_to_spoof) &&
             dirs_to_spoof != NULL) {
-              for (ListValue::const_iterator dir_it = dirs_to_spoof->begin();
-                   dir_it != dirs_to_spoof->end(); ++dir_it) {
-                std::wstring directory;
-                if ((*dir_it)->GetAsString(&directory))
-                  known_existing_dirs_.insert(directory);
-              }
+          for (ListValue::const_iterator dir_it = dirs_to_spoof->begin();
+               dir_it != dirs_to_spoof->end(); ++dir_it) {
+            std::wstring directory;
+            if ((*dir_it)->GetAsString(&directory))
+              known_existing_dirs_.insert(directory);
+          }
         }
         VerifyConfiguration(*test_case_data);
       }
@@ -188,11 +194,11 @@ class TracerConfigurationTest : public testing::Test {
 
   // Helper retrieval functions (polymorphism used to cut down on boilerplate
   // in CheckResultEqualDirect<> expansions.
-  static bool SafeRetrieveValue(bool* ret, const Value& test_value) {
+  static bool SafeRetrieveValue(const Value& test_value, bool* ret) {
     return test_value.GetAsBoolean(ret);
   }
 
-  static bool SafeRetrieveValue(unsigned* ret, const Value& test_value) {
+  static bool SafeRetrieveValue(const Value& test_value, unsigned* ret) {
     int retrieved = 0;
     if (test_value.GetAsInteger(&retrieved)) {
       DCHECK_GE(retrieved, 0);  // Hard check, test data must make sense.
@@ -202,8 +208,8 @@ class TracerConfigurationTest : public testing::Test {
     return false;
   }
 
-  static bool SafeRetrieveValue(TracerConfiguration::ExitAction* ret,
-                                const Value& test_value) {
+  static bool SafeRetrieveValue(const Value& test_value,
+                                TracerConfiguration::ExitAction* ret) {
     int retrieved = 0;
     if (test_value.GetAsInteger(&retrieved)) {
       // Hard check, test data must make sense.
@@ -216,7 +222,7 @@ class TracerConfigurationTest : public testing::Test {
     return false;
   }
 
-  static bool SafeRetrieveValue(FilePath* ret, const Value& test_value) {
+  static bool SafeRetrieveValue(const Value& test_value, FilePath* ret) {
     // Note that direct path comparisons will work only for absolute paths.
     // Path creation logic must be exercised separately in a unit test.
     std::wstring path_as_str;
@@ -228,29 +234,29 @@ class TracerConfigurationTest : public testing::Test {
     return true;
   }
 
-  static bool SafeRetrieveValue(std::wstring* ret, const Value& test_value) {
+  static bool SafeRetrieveValue(const Value& test_value, std::wstring* ret) {
     return test_value.GetAsString(ret);
   }
 
-  // Compare the _RT-typed value stored in test_value with whatever method
+  // Compare the RT-typed value stored in test_value with whatever method
   // invoked on object returns.
-  template<typename _RT>
+  template<typename RT>
   bool CheckResultEqualDirect(const TracerConfiguration* object,
-                              _RT (TracerConfiguration::*method)(void) const,
+                              RT (TracerConfiguration::*method)(void) const,
                               const Value& test_value) const {
-    _RT test_typed_value = _RT();
-    if (!SafeRetrieveValue(&test_typed_value, test_value))
+    RT test_typed_value = RT();
+    if (!SafeRetrieveValue(test_value, &test_typed_value))
       return false;
     return (object->*method)() == test_typed_value;
   }
 
-  template<typename _RT>
+  template<typename RT>
   bool CheckResultEqualIndirect(const TracerConfiguration* object,
-      bool (TracerConfiguration::*method)(_RT*) const,  // NOLINT - not a cast.
+      bool (TracerConfiguration::*method)(RT*) const,  // NOLINT - not a cast.
           const Value& test_value) const {
-    _RT test_typed_value = _RT();
-    _RT config_typed_value = _RT();
-    bool in_test = SafeRetrieveValue(&test_typed_value, test_value);
+    RT test_typed_value = RT();
+    RT config_typed_value = RT();
+    bool in_test = SafeRetrieveValue(test_value, &test_typed_value);
     bool in_config = (object->*method)(&config_typed_value);
     // The indirect comparison is 'true' if the value is present neither in the
     // instance under test nor in test data.
@@ -365,6 +371,9 @@ class TracerConfigurationTest : public testing::Test {
   scoped_ptr<TracerConfiguration> tested_object_;
   VerificationMapType verification_map_;
   std::set<std::wstring> known_existing_dirs_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TracerConfigurationTest);
 };
 
 // And here the real test invocation for canned JSON data.

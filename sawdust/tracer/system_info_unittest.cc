@@ -68,7 +68,7 @@ class TestingSystemInfoExtractor : public SystemInfoExtractor {
 
   void GetData(std::string* ret_data) {
     const TestingSystemInfoExtractor::StreamType& real_data =
-        static_cast<const TestingSystemInfoExtractor::StreamType&>(data());
+        static_cast<const TestingSystemInfoExtractor::StreamType&>(Data());
 
     *ret_data = real_data.str();
   }

@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 // Configuration reader for sawbuck (reads from a JSON string).
+
 #include "sawdust/tracer/configuration.h"
 
 #include <Objbase.h>

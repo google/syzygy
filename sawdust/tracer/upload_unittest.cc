@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "sawdust/tracer/upload.h"
 
 #include <stdlib.h>
@@ -73,10 +74,10 @@ class ContentFromText : public IReportContentEntry {
       : title_(title), content_(data) {
   }
 
-  ~ContentFromText() { }
+  ~ContentFromText() {}
 
-  std::istream& data() { return content_; }
-  const char * title() const { return title_.c_str(); }
+  std::istream& Data() { return content_; }
+  const char* Title() const { return title_.c_str(); }
 
   void MarkCompleted() { content_.seekg(0); }
 
@@ -107,19 +108,21 @@ class ContentWithAbortCall : public ContentFromText {
 class ContentFromNothing : public IReportContentEntry {
  public:
   ContentFromNothing(const char* title, unsigned int total_char_count)
-      : title_(title), streambuff_(total_char_count), content_(NULL) {
+      : title_(title),
+        streambuff_(total_char_count),
+        content_(NULL) {
     content_.rdbuf(&streambuff_);
   }
 
   ~ContentFromNothing() {}
 
-  std::istream& data() { return content_; }
-  const char * title() const { return title_.c_str(); }
+  std::istream& Data() { return content_; }
+  const char* Title() const { return title_.c_str(); }
 
-  void MarkCompleted() { }  // Noop.
+  void MarkCompleted() {}  // Noop.
 
  private:
-  class RandomDataBuff: public std::streambuf {
+  class RandomDataBuff : public std::streambuf {
    public:
     explicit RandomDataBuff(int total_count) : counter_(total_count) {
     }
@@ -206,7 +209,8 @@ class TestContentContainer : public IReportContent {
 class TestingReportUploader : public ReportUploader {
  public:
   TestingReportUploader(const std::wstring& target, bool local)
-      : ReportUploader(target, local), fail_upload_(false) {
+      : ReportUploader(target, local),
+        fail_upload_(false) {
   }
 
   void AssignTemporaryStoragePath(const FilePath& path) {

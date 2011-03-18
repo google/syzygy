@@ -13,10 +13,11 @@
 // limitations under the License.
 //
 // The tool for uploading tracer's result to the crash server.
+
 #ifndef SAWDUST_TRACER_UPLOAD_H_
 #define SAWDUST_TRACER_UPLOAD_H_
 
-#include <Windows.h>
+#include <windows.h>
 #include <iostream>  // NOLINT - streams used as abstracts, without formatting.
 
 #include "base/file_path.h"
@@ -27,11 +28,20 @@
 // through operators and serve only as carriers of buffers.
 class IReportContentEntry {
  public:
-  virtual std::istream& data() = 0;
-  virtual const char * title() const = 0;
-  virtual void MarkCompleted() = 0;
+  virtual ~IReportContentEntry() {}
 
-  virtual ~IReportContentEntry() = 0 {}
+  // A data stream. The client should hold and read the reference until it is
+  // done and then call 'MarkCompleted'.
+  virtual std::istream& Data() = 0;
+
+  // The file name that should be associated with the stream when it is sent to
+  // its destination.
+  virtual const char * Title() const = 0;
+
+  // Signals to the object that the client who requested the data stream (Data
+  // call) is done with it. Implementation is now free to do whatever it feels
+  // appropriate with data underlying the stream returned by Data.
+  virtual void MarkCompleted() = 0;
 };
 
 // Iterator-container serving subsequent streams. The protocol of GetNextEntry
@@ -41,8 +51,10 @@ class IReportContentEntry {
 // *entry alone.
 class IReportContent {
  public:
+  virtual ~IReportContent() {}
+
+  // An implementation of IReportContent retains the ownership of *|entry|.
   virtual HRESULT GetNextEntry(IReportContentEntry** entry) = 0;
-  virtual ~IReportContent() = 0 {}
 };
 
 class ReportUploader {
@@ -63,8 +75,6 @@ class ReportUploader {
   // Sets the 'abort' flag and returns immediately.
   void SignalAbort();
 
-  bool IsProcessing() const { return in_process_; }
-
  protected:
   // Write the entire |content| into zip file at temp_archive_path_.
   HRESULT ZipContent(IReportContent* content);
@@ -79,14 +89,16 @@ class ReportUploader {
 
   // A test seam.
   virtual bool MakeTemporaryPath(FilePath* tmp_file_path) const;
+
  private:
   HRESULT WriteEntryIntoZip(void* zip_handle, IReportContentEntry* entry);
-  std::wstring uri_target_;
-  bool remote_upload_;
 
-  FilePath temp_archive_path_;
-  bool in_process_;
-  bool abort_;
+  std::wstring uri_target_;  // Upload target path.
+  bool remote_upload_;  // Is uri_target_ a HTTP location or a local path.
+  FilePath temp_archive_path_;  // Points at the zip archive while created.
+  bool abort_;  // Signals that compression and upload is to be abandoned.
+
+  DISALLOW_COPY_AND_ASSIGN(ReportUploader);
 };
 
 #endif  // SAWDUST_TRACER_UPLOAD_H_

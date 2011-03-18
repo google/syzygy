@@ -350,7 +350,7 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
     ASSERT_EQ(init_list.size(), harvester.Initialize(init_list));
 
     // Retrieve data and check that it is correct.
-    std::string all_content(std::istreambuf_iterator<char>(harvester.data()),
+    std::string all_content(std::istreambuf_iterator<char>(harvester.Data()),
                             std::istreambuf_iterator<char>());
     std::vector<std::string> file_lines;
     base::SplitString(all_content, '\n', &file_lines);
@@ -377,7 +377,7 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
     ASSERT_EQ(init_list.size(), harvester.Initialize(init_list));
 
     // Retrieve data and check that it is correct.
-    std::string all_content(std::istreambuf_iterator<char>(harvester.data()),
+    std::string all_content(std::istreambuf_iterator<char>(harvester.Data()),
                             std::istreambuf_iterator<char>());
     std::vector<std::string> file_lines;
     base::SplitString(all_content, '\n', &file_lines);
@@ -421,7 +421,7 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
     ASSERT_EQ(init_list.size(), harvester.Initialize(init_list));
 
     // Retrieve data and check that it is correct.
-    std::string all_content(std::istreambuf_iterator<char>(harvester.data()),
+    std::string all_content(std::istreambuf_iterator<char>(harvester.Data()),
                             std::istreambuf_iterator<char>());
     std::vector<std::string> file_lines;
     base::SplitString(all_content, '\n', &file_lines);
@@ -455,7 +455,7 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
     ASSERT_EQ(headers.size(), harvester.Initialize(init_list));
 
     // Retrieve data and check that it is correct.
-    std::string all_content(std::istreambuf_iterator<char>(harvester.data()),
+    std::string all_content(std::istreambuf_iterator<char>(harvester.Data()),
                             std::istreambuf_iterator<char>());
     std::vector<std::string> file_lines;
     base::SplitString(all_content, '\n', &file_lines);
@@ -542,7 +542,7 @@ TEST_F(RegistryExtractorTest, RecursiveDescent) {
   RegistryExtractor harvester;
   ASSERT_EQ(harvester.Initialize(init_box), 2);
 
-  std::string all_content(std::istreambuf_iterator<char>(harvester.data()),
+  std::string all_content(std::istreambuf_iterator<char>(harvester.Data()),
                           std::istreambuf_iterator<char>());
   std::vector<std::string> file_lines;
   base::SplitString(all_content, '\n', &file_lines);

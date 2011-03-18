@@ -59,10 +59,10 @@ class RegistryExtractor : public IReportContentEntry {
   // (which will be recursed) or a value.
   int Initialize(const std::vector<std::wstring>& input_container);
 
-  std::istream& data();
+  std::istream& Data();
   void MarkCompleted();
 
-  const char* title() const { return "RegistryExtract.txt"; }
+  const char* Title() const { return "RegistryExtract.txt"; }
 
   // Formats the content of the buffer with a REG_MULTI_SZ value (double-null
   // terminated array of null-terminated strings) into \n separated utf8 string.

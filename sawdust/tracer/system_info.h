@@ -33,10 +33,10 @@ class SystemInfoExtractor : public IReportContentEntry {
   // Appending env-vars is optional (|include_env_variables|).
   void Initialize(bool include_env_variables);
 
-  std::istream& data() { return data_as_stream_; }
+  std::istream& Data() { return data_as_stream_; }
   void MarkCompleted() { data_as_stream_.seekg(0); }
 
-  const char* title() const { return "BasicSystemInformation.txt"; }
+  const char* Title() const { return "BasicSystemInformation.txt"; }
 
   // Reformats |string_table| (output of GetEnvironmentStrings call) and
   // formats this nicely into a \n separated list of values in |out_string|.
