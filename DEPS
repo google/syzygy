@@ -16,7 +16,7 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "75254",
+  "chrome_revision": "78680",
   "chrome_base": "http://src.chromium.org/svn/trunk",
   "googlecode_url": "",
 }
@@ -95,6 +95,13 @@ hooks = [
     "action": ["python",
                "src/build/gyp_chromium",
                "src/sawbuck/sawbuck.gyp"],
+  },
+  {
+    # A change to a .gyp, .gypi, or to GYP itself should run the generator.
+    "pattern": ".",
+    "action": ["python",
+               "src/build/gyp_chromium",
+               "src/sawdust/sawdust.gyp"],
   },
   {
     # A change to a .gyp, .gypi, or to GYP itself should run the generator.
