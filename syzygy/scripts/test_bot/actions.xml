@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<CommandList>
+  <command seed="8694445243182572588">
+    <clearbrowsingdata/>
+    <openwindow/>
+    <navigate url="http://www.craigslist.com"/>
+    <findinpage/>
+    <navigate url="http://www.google.com"/>
+    <back/>
+    <forward/>
+    <pagedown/>
+    <pageup/>
+    <newtab/>
+    <navigate url="http://www.bing.com"/>
+    <navigate url="http://www.google.com"/>
+    <dragtabout/>
+    <closetab/>
+    <restoretab/>
+    <newtab/>
+    <selectnexttab/>
+    <selectprevtab/>
+    <navigate url="http://www.yahoo.com"/>
+    <zoomplus/>
+    <zoomminus/>
+    <viewsource/>
+    <reload/>
+    <dragtableft/>
+    <dragtabright/>
+    <closetab/>    
+    <showbookmarks/>
+    <downloads/>
+    <history/>
+    <testeditsearchengines/>
+    <testclearbrowsingdata/>
+    <closetab/>
+    <testoptions/>
+    <testimportsettings/>
+    <testviewpasswords/>
+    <testtaskmanager/>
+  </command>
+</CommandList>
