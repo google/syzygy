@@ -15,6 +15,9 @@
 #include "base/command_line.h"
 #include "gtest/gtest.h"
 
+#include <InitGuid.h>  // NOLINT - both required to link.
+#include "sawdust_guids.h"  // NOLINT
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
 

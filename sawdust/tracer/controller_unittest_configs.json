@@ -1,0 +1,91 @@
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+{
+  "all-default": {
+    "providers": [
+      {
+        "guid": "{0562BFC3-2550-45b4-BD8E-A310583D3A6F}",
+        "name": "Chrome Frame",
+        "level": "information",
+        "flags": 1
+      },
+      {
+        "guid": "{7FE69228-633E-4f06-80C1-527FEA23E3A7}",
+        "name": "Chrome",
+        "level": "information",
+        "flags": 1
+      },
+      {
+        "guid": "{6E3D6168-1DD2-4edb-A183-584C2C66E96D}",
+        "name": "CEEE Broker",
+        "level": "information",
+        "flags": 1
+      }
+    ]
+  },
+  "kernel-enabled": {
+    "providers": [
+      {
+        "guid": "{0562BFC3-2550-45b4-BD8E-A310583D3A6F}",
+        "name": "Chrome Frame",
+        "level": "information",
+        "flags": 1
+      },
+      {
+        "guid": "{7FE69228-633E-4f06-80C1-527FEA23E3A7}",
+        "name": "Chrome",
+        "level": "information",
+        "flags": 1
+      },
+      {
+        "guid": "{6E3D6168-1DD2-4edb-A183-584C2C66E96D}",
+        "name": "CEEE Broker",
+        "level": "information",
+        "flags": 1
+      },
+      {
+        "guid": "{73213C1A-C369-4740-A75C-FA849E6CE540}",
+        "name": "CEEE",
+        "level": "information",
+        "flags": 1
+      },
+      {
+        "guid": "{79FDF710-2D7F-488f-B00C-C6EFAE507169}",
+        "name": "IE Toolbar",
+        "level": "information",
+        "flags": 2
+      }
+    ],
+    "other": {
+      "kernel_trace": true,
+    }
+  },
+  "complete-definition": {
+    "providers": [
+      {
+        "guid": "{0562BFC3-2550-45b4-BD8E-A310583D3A6F}",
+        "name": "Chrome Frame",
+        "level": "information",
+        "flags": 1
+      }
+    ],
+    "other": {
+      "kernel_trace": true,
+      "kernel_event_file": "C:\\fake_but_nice_looking\\kernel_events.etl",
+      "chrome_event_file": "C:\\fake_but_nice_looking\\chrome_events.etl",
+      "kernel_file_size": 50,
+      "chrome_file_size": 100,
+    }
+  }
+}

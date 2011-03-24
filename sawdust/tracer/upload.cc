@@ -26,6 +26,8 @@
 #include "third_party/zlib/contrib/minizip/zip.h"
 #include "third_party/zlib/contrib/minizip/iowin32.h"
 
+#include "sawdust/tracer/com_utils.h"
+
 namespace {
 // This function is derived from third_party/minizip/iowin32.c.
 // Its only difference is that it treats the char* as UTF8 and
@@ -110,6 +112,7 @@ HRESULT ReportUploader::Upload(IReportContent* content) {
     return E_ACCESSDENIED;
 
   HRESULT hr = ZipContent(content);  // Always into temp_archive_path_.
+
   if (FAILED(hr)) {
     // Try to remove the invalid file.
     LOG(ERROR) << "Failed to create the archive. The file will be deleted.";
@@ -149,6 +152,7 @@ HRESULT ReportUploader::ZipContent(IReportContent* content) {
       hr = E_ABORT;
     else
       hr = WriteEntryIntoZip(archive_handle, entry);
+
     if (SUCCEEDED(hr)) {
       entry->MarkCompleted();
       hr = content->GetNextEntry(&entry);
@@ -160,6 +164,7 @@ HRESULT ReportUploader::ZipContent(IReportContent* content) {
   if (close_file_code != ZIP_OK) {
     LOG(ERROR) << "Failed to properly close the zip archive. Code=" <<
         close_file_code;
+
     if (SUCCEEDED(hr))
       hr = E_UNEXPECTED;
   }
@@ -171,7 +176,7 @@ HRESULT ReportUploader::UploadArchive() {
     std::wstring reponse;
     HRESULT hr = UploadToCrashServer(temp_archive_path_.value().c_str(),
                                      uri_target_.c_str(), &reponse);
-    LOG_IF(ERROR, FAILED(hr)) << "Upload failed. hr=0x" << std::hex << hr;
+    LOG_IF(ERROR, FAILED(hr)) << "Upload failed. " << com::LogHr(hr);
     LOG_IF(INFO, !reponse.empty()) << "Server response: " << reponse;
     return hr;
   } else {
@@ -263,12 +268,14 @@ HRESULT ReportUploader::UploadToCrashServer(const wchar_t* file_path,
 
   // Create the http request object.
   hr = request.CoCreateInstance(CLSID_XMLHTTPRequest);
+
   if (FAILED(hr))
     return hr;
 
   // Open a stream to the file.
   CComPtr<IStream> stream;
   hr = SHCreateStreamOnFile(file_path, STGM_READ, &stream);
+
   if (FAILED(hr))
     return hr;
 
@@ -291,17 +298,20 @@ HRESULT ReportUploader::UploadToCrashServer(const wchar_t* file_path,
 
   // Send the file.
   hr = request->send(CComVariant(stream));
+
   if (FAILED(hr))
     return hr;
 
   long response_code = 0;  // NOLINT - used as in interface declaration.
   hr = request->get_status(&response_code);
+
   if (FAILED(hr))
     return hr;
   if (response_code < 200 || response_code >= 300)
     return AtlHresultFromWin32(ERROR_HTTP_INVALID_SERVER_RESPONSE);
   CComBSTR bresponse;
   hr = request->get_responseText(&bresponse);
+
   if (SUCCEEDED(hr) && NULL != response)
     *response = static_cast<const wchar_t*>(bresponse);
 

@@ -27,10 +27,15 @@
       'target_name': 'tracer_lib',
       'type': 'static_library',
       'sources': [
+        'com_utils.h',
+        'com_utils.cc',
         'configuration.h',
         'configuration.cc',
+        'controller.h',
+        'controller.cc',
         'registry.h',
         'registry.cc',
+        'sawdust_guids.h',
         'system_info.h',
         'system_info.cc',
         'upload.h',
@@ -47,6 +52,8 @@
         'configuration_unittest.cc',
         'configuration_unittest_data.json',
         'configuration_unittest_expressions.json',
+        'controller_unittest.cc',
+        'controller_unittest_configs.json',
         'registry_unittest.cc',
         'system_info_unittest.cc',
         'tracer_unittest_main.cc',
@@ -67,7 +74,8 @@
           'destination': '<(PRODUCT_DIR)',
           'files': [
             'configuration_unittest_data.json',
-            'configuration_unittest_expressions.json'
+            'configuration_unittest_expressions.json',
+            'controller_unittest_configs.json'
           ]
         },
       ],

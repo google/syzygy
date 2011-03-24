@@ -11,40 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "sawdust/tracer/configuration.h"
 
 #include <map>
 #include <set>
 
 #include "base/file_path.h"
-#include "base/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
-#include "base/path_service.h"
 #include "base/scoped_ptr.h"
 #include "base/values.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "sawdust/tracer/configuration.h"
+
+#include "sawdust/tracer/tracer_unittest_util.h"
+
 
 namespace {
-
-// Retrieves a resource stored in a JSON file (file name is 'resource_title')
-// accompanying the executable. If the retrieval fails for whatever reason,
-// NULL is returned.
-static Value* LoadJsonResource(const std::wstring& resource_title) {
-  FilePath exe_location;
-  PathService::Get(base::FILE_EXE, &exe_location);
-  FilePath test_data_path = exe_location.DirName().Append(resource_title);
-  Value* return_value = NULL;
-  std::string json_content;
-  if (file_util::PathExists(test_data_path) &&
-      file_util::ReadFileToString(test_data_path, &json_content)) {
-    return_value = base::JSONReader::Read(json_content, true);
-  }
-
-  return return_value;
-}
 
 // A derivative of the tested class with some functions mocked-out.
 class TestingTracerConfiguration : public TracerConfiguration {
@@ -119,7 +103,7 @@ class TracerConfigurationTest : public testing::Test {
   }
 
   void RunTestOnLocalFile(std::wstring file_title) {
-    scoped_ptr<Value> test_data(LoadJsonResource(file_title));
+    scoped_ptr<Value> test_data(LoadJsonDataFile(file_title));
     ASSERT_TRUE(test_data != NULL && test_data->IsType(Value::TYPE_LIST));
 
     // test_data contains a list of test cases which we will now execute.
@@ -398,7 +382,7 @@ TEST(ConfigurationTest, InvalidJsonData) {
 // Tests the simple path customization mechanism embedded in the config handler.
 TEST(ConfigurationTest, ExpandingUrlTest) {
   scoped_ptr<Value> test_data(
-      LoadJsonResource(L"configuration_unittest_expressions.json"));
+      LoadJsonDataFile(L"configuration_unittest_expressions.json"));
   ASSERT_TRUE(test_data != NULL && test_data->IsType(Value::TYPE_LIST));
 
   const ListValue& test_cases = static_cast<const ListValue&>(*test_data);

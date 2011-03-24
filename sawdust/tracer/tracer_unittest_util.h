@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "base/values.h"
+
 // Create a double-null terminated wide-char string from a multi-line
 // (\n separated) text.
 wchar_t* CreateNullNullTerminatedDescription(const std::string& in_table,
@@ -29,5 +31,9 @@ wchar_t* CreateNullNullTerminatedDescription(const std::string& in_table,
 void SplitStringFromDblNullTerminated(const wchar_t* dbl_null_term,
     std::vector<std::wstring>* parsed_out_strings);
 
-#endif  // SAWDUST_TRACER_TRACER_UNITTEST_UTIL_H_
+// Retrieves a resource stored in a JSON file (file name is 'resource_title')
+// accompanying the executable. If the retrieval fails for whatever reason,
+// NULL is returned.
+Value* LoadJsonDataFile(const std::wstring& resource_title);
 
+#endif  // SAWDUST_TRACER_TRACER_UNITTEST_UTIL_H_

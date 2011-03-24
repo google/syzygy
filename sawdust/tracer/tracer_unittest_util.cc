@@ -14,7 +14,11 @@
 
 #include <algorithm>
 
+#include "base/file_path.h"
+#include "base/file_util.h"
+#include "base/json/json_reader.h"
 #include "base/logging.h"
+#include "base/path_service.h"
 #include "base/scoped_ptr.h"
 #include "sawdust/tracer/tracer_unittest_util.h"
 
@@ -48,7 +52,6 @@ wchar_t* CreateNullNullTerminatedDescription(const std::string& in_table,
   return string_table.release();
 }
 
-
 void SplitStringFromDblNullTerminated(const wchar_t* dbl_null_term,
     std::vector<std::wstring>* parsed_out_strings) {
   // string_table is a table of 0-separated strings terminated by an empty
@@ -68,4 +71,18 @@ void SplitStringFromDblNullTerminated(const wchar_t* dbl_null_term,
     DCHECK_EQ(*next_zero, 0);
     string_table = next_zero + 1;
   }
+}
+
+Value* LoadJsonDataFile(const std::wstring& resource_title) {
+  FilePath exe_location;
+  PathService::Get(base::FILE_EXE, &exe_location);
+  FilePath test_data_path = exe_location.DirName().Append(resource_title);
+  Value* return_value = NULL;
+  std::string json_content;
+  if (file_util::PathExists(test_data_path) &&
+      file_util::ReadFileToString(test_data_path, &json_content)) {
+    return_value = base::JSONReader::Read(json_content, true);
+  }
+
+  return return_value;
 }
