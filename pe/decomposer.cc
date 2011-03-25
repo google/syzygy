@@ -697,7 +697,7 @@ bool Decomposer::CreateCodeReferences() {
       BlockGraph::Offset offs = ref.destination - dst_block->addr();
       if (!dst_block->HasLabel(offs)) {
         // If it had no label here, we add one.
-        std::string label(base::StringPrintf("From 0x08X",
+        std::string label(base::StringPrintf("From 0x%08X",
                                              ref_it->first.value()));
         dst_block->SetLabel(offs, label.c_str());
       }
@@ -883,7 +883,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
         BlockGraph::Offset offs = dst - block->addr();
         if (!block->HasLabel(offs)) {
           // If it had no label here, we add one.
-          std::string label(base::StringPrintf("From 0x08X", src.value()));
+          std::string label(base::StringPrintf("From 0x%08X", src.value()));
 
           block->SetLabel(offs, label.c_str());
 
