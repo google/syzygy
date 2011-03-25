@@ -53,7 +53,7 @@ goto done
 :setup
 call "C:\Program Files (x86)\Microsoft Visual Studio 9.0\Common7\Tools\vsvars32.bat"
 set THISDIR=%~dp0
-set SOLUTION=%SYZYGY%\src\syzygy\syzygy.sln
+set SOLUTION=%SYZYGY%\src\syzygy\relink\relink.sln
 set DOWNLOAD_PY=%THISDIR%chrome_repo.py
 set REORDER_PY=%THISDIR%reorder.py
 set SEND_MAIL_PY=%THISDIR%send_mail.py
