@@ -155,7 +155,10 @@ PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
   nt_headers_.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR32_MAGIC;
 
   // TODO(siggi): These should reflect Syzygy version.
-  nt_headers_.OptionalHeader.MajorLinkerVersion = 1;
+  // Imagehlp.dll does not like major linker version less than 3 for
+  // some reason. It refuses to bind or rebase images unless the
+  // linker major version is better than 3. Seven is arbitrarily chosen.
+  nt_headers_.OptionalHeader.MajorLinkerVersion = 7;
   nt_headers_.OptionalHeader.MinorLinkerVersion = 0;
 
   nt_headers_.OptionalHeader.ImageBase = kDefaultImageBase;
