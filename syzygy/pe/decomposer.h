@@ -126,7 +126,7 @@ class Decomposer {
   // Called through a callback during function disassembly.
   void OnInstruction(const Disassembler& disassembler,
                      const _DInst& instruction,
-                     bool* terminate_walk);
+                     Disassembler::CallbackDirective* directive);
 
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;

@@ -43,6 +43,9 @@ Disassembler::WalkResult Disassembler::Walk() {
     AbsoluteAddress addr(*it);
     unvisited_.erase(it);
 
+    // This continues disassembly along a contiguous path until we run out
+    // of code, jump somewhere else, or are requested to terminate the path
+    // by the OnInstruction callback.
     bool terminate = false;
     _DInst inst = {};
     for (; addr != AbsoluteAddress(0) && !terminate; addr += inst.size) {
@@ -66,8 +69,17 @@ Disassembler::WalkResult Disassembler::Walk() {
         // Tally the code bytes we just disassembled.
         disassembled_bytes_ += inst.size;
 
-        if (!OnInstruction(inst))
-          return kWalkTerminated;
+        // Invoke the callback and terminate if need be
+        switch (OnInstruction(inst)) {
+          case kDirectiveTerminateWalk:
+            return kWalkTerminated;
+
+          case kDirectiveTerminatePath:
+            terminate = true;
+
+          default:
+            break;
+        }
 
         // Check the arguments for data references to the function.
         for (size_t i = 0; i < arraysize(inst.ops); ++i) {
@@ -198,14 +210,15 @@ bool Disassembler::Unvisited(AbsoluteAddress addr) {
   return unvisited_.insert(addr).second;
 }
 
-bool Disassembler::OnInstruction(const _DInst& inst) {
+Disassembler::CallbackDirective Disassembler::OnInstruction(
+    const _DInst& inst) {
   if (on_instruction_) {
-    bool continue_walk = true;
-    on_instruction_->Run(*this, inst, &continue_walk);
-    return continue_walk;
+    CallbackDirective directive = kDirectiveContinue;
+    on_instruction_->Run(*this, inst, &directive);
+    return directive;
   }
 
-  return true;
+  return kDirectiveContinue;
 }
 
 bool Disassembler::IsInCode(AbsoluteAddress addr, size_t len) const {

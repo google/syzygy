@@ -835,7 +835,7 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
 
 void Decomposer::OnInstruction(const Disassembler& walker,
                                const _DInst& instruction,
-                               bool* terminate_walk) {
+                               Disassembler::CallbackDirective* directive) {
   int fc = META_GET_FC(instruction.meta);
   // For all branches, calls and conditional branches to PC-relative
   // addresses, record a PC-relative reference.
@@ -864,18 +864,35 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (!image_file_.Translate(abs_src, &src) ||
         !image_file_.Translate(abs_dst, &dst)) {
       LOG(ERROR) << "Unable to translate absolute to relative addresses";
-      *terminate_walk = true;
+      *directive = Disassembler::kDirectiveTerminateWalk;
       return;
+    }
+
+    // Get the block associated with the destination address. It must exist
+    // and be a code block.
+    BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
+    DCHECK(block != NULL && block->type() == BlockGraph::CODE_BLOCK);
+
+    // If this is a call and the destination is a non-returning function,
+    // then indicate that we should terminate this disassembly path.
+    if (fc == FC_CALL &&
+        (block->attributes() & BlockGraph::NON_RETURN_FUNCTION)) {
+      // TODO(chrisha): For now, we enforce that the call be to the beginning
+      //    of the function.  This may not be necessary, but better safe than
+      //    sorry for now.
+      if (block->addr() != dst) {
+        LOG(ERROR) << "Calling inside the body of non-returning function "
+            << block->name();
+        *directive = Disassembler::kDirectiveTerminateWalk;
+        return;
+      }
+      *directive = Disassembler::kDirectiveTerminatePath;
     }
 
     // Add the reference. If it's new, make sure to try and add a label
     // and reschedule the block for disassembly again.
     bool added = AddReference(src, BlockGraph::PC_RELATIVE_REF, size, dst, "");
     if (added) {
-      // Look up the destination block, which must exist and be a code block.
-      BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
-      DCHECK(block != NULL && block->type() == BlockGraph::CODE_BLOCK);
-
       // No special action if the reference is to the current block,
       // we're already covered by the disassembly process.
       if (block != current_block_) {
@@ -912,7 +929,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     RelativeAddress instruction_start;
     if (!image_file_.Translate(instruction_start_abs, &instruction_start)) {
       LOG(ERROR) << "Unable to translate absolute to relative addresses";
-      *terminate_walk = true;
+      *directive = Disassembler::kDirectiveTerminateWalk;
       return;
     }
 
@@ -930,9 +947,14 @@ void Decomposer::OnInstruction(const Disassembler& walker,
   }
 
   if (fc == FC_CALL) {
-    // TODO(siggi): For call instructions, see whether they call a non-returning
-    //     function. Instruct the disassembler not to continue disassembly past
-    //     the instruction in that case - this needs a new return value.
+    // TODO(chrisha): For call instructions, see whether they call a
+    //     non-returning function. Instruct the disassembler not to continue
+    //     disassembly past the instruction in that case.
+    //     The case where the address is PC-relative is handled in the above
+    //     code.  However, the called function could also be at an
+    //     indirect absolute address when invoking imported symbols. We do not
+    //     currently have meta-data regarding these symbols, so do not know if
+    //     they are non-returning.
   }
 }
 
