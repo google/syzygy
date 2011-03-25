@@ -13,9 +13,11 @@
 // limitations under the License.
 #include "syzygy/pe/unittest_util.h"
 
+#include <imagehlp.h>
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -34,6 +36,15 @@ FilePath GetExeRelativePath(const wchar_t* image_name) {
 static void CheckLoadedTestDll(HMODULE module);
 
 void CheckTestDll(const FilePath& path) {
+  LOADED_IMAGE loaded_image = {};
+  ASSERT_TRUE(::MapAndLoad(WideToUTF8(path.value()).c_str(),
+                           NULL,
+                           &loaded_image,
+                           FALSE,
+                           FALSE));
+
+  EXPECT_TRUE(UnMapAndLoad(&loaded_image));
+
   HMODULE loaded = ::LoadLibrary(path.value().c_str());
   ASSERT_TRUE(loaded != NULL);
   CheckLoadedTestDll(loaded);
