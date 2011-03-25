@@ -28,12 +28,25 @@ class Disassembler {
  public:
   typedef std::set<AbsoluteAddress> AddressSet;
 
+  enum CallbackDirective {
+    // Indicates that the disassembler should continue
+    kDirectiveContinue,
+
+    // Indicates that the disassembler should terminate its current
+    // path in the walk, and continue at the next unvisited location.
+    kDirectiveTerminatePath,
+
+    // Indicates that the disassembler should halt all disassembly
+    kDirectiveTerminateWalk
+  };
+
   // The instruction callback is invoked for each instruction the disassembler
   // encounters. The callback receives three parameters:
   // 1. const Disassembler& disasm the disassembler.
   // 2. const _DInst& inst the current instruction.
-  // 3. bool* continue_walk if set to false, terminates the current disassembly.
-  typedef Callback3<const Disassembler&, const _DInst&, bool*>::Type
+  // 3. CallbackDirective* directive tells the disassembler how to proceed.
+  typedef Callback3<const Disassembler&, const _DInst&,
+                    CallbackDirective*>::Type
       InstructionCallback;
 
   enum WalkResult {
@@ -79,7 +92,7 @@ class Disassembler {
   size_t disassembled_bytes() const { return disassembled_bytes_; }
 
  private:
-  bool OnInstruction(const _DInst& inst);
+  CallbackDirective OnInstruction(const _DInst& inst);
 
   // The code we refer to.
   const uint8* code_;

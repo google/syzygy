@@ -66,7 +66,8 @@ class DisassemblerTest: public testing::Test {
     on_instruction_.reset(NewCallback(this, &DisassemblerTest::OnInstruction));
   }
 
-  MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&, bool*));
+  MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&,
+                                   Disassembler::CallbackDirective*));
 
   static AbsoluteAddress AddressOf(const void* ptr) {
     return AbsoluteAddress(reinterpret_cast<size_t>(ptr));
@@ -78,7 +79,7 @@ class DisassemblerTest: public testing::Test {
 
   void RecordFunctionEncounter(const Disassembler& disasm,
                                const _DInst& inst,
-                               bool* continue_walk) {
+                               Disassembler::CallbackDirective* directive) {
     switch (META_GET_FC(inst.meta)) {
       case FC_CALL:
       case FC_BRANCH:
@@ -113,7 +114,8 @@ TEST_F(DisassemblerTest, Terminate) {
 
   // Terminate the walk on first visit.
   EXPECT_CALL(*this, OnInstruction(_, _, _))
-      .WillRepeatedly(SetArgumentPointee<2>(false));
+      .WillRepeatedly(SetArgumentPointee<2>(
+          Disassembler::kDirectiveTerminateWalk));
 
   ASSERT_EQ(Disassembler::kWalkTerminated, disasm.Walk());
 }
@@ -154,7 +156,7 @@ TEST_F(DisassemblerTest, DisassembleFull) {
       disasm.disassembled_bytes());
 }
 
-TEST_F(DisassemblerTest, EnounterFunctions) {
+TEST_F(DisassemblerTest, EncounterFunctions) {
   Disassembler disasm(PointerTo(&assembly_func),
                       PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
                       AddressOf(&assembly_func),
@@ -204,6 +206,54 @@ TEST_F(DisassemblerTest, IdentifiesData) {
   expected.insert(AddressOf(&lookup_table));
 
   EXPECT_THAT(disasm.data_locations(), testing::ContainerEq(expected));
+}
+
+TEST_F(DisassemblerTest, RunOverDataWhenNoTerminatePathGiven) {
+  Disassembler disasm(
+      PointerTo(&assembly_switch),
+      PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
+      AddressOf(&assembly_switch), on_instruction_.get());
+
+  // Mark the entry of the case that calls a non-returning function
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
+
+  // We expect the disassembly to walk into the data section which starts
+  // immediately after "case_default".
+  EXPECT_CALL(*this, OnInstruction(_, _, _))
+      .Times(3)
+      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveContinue))
+      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveContinue))
+      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveTerminateWalk));
+
+  // We expect a terminated walk
+  ASSERT_EQ(Disassembler::kWalkTerminated, disasm.Walk());
+
+  // We expect there to be 3 visited instructions
+  ASSERT_EQ(3, disasm.visited().size());
+
+  // We expect the disassembly to have walked past the start of the data
+  ASSERT_TRUE(*disasm.visited().rbegin() >= AddressOf(&jump_table));
+}
+
+TEST_F(DisassemblerTest, StopsAtTerminateNoReturnFunctionCall) {
+  Disassembler disasm(
+      PointerTo(&assembly_switch),
+      PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
+      AddressOf(&assembly_switch), on_instruction_.get());
+
+  // Mark the entry of the case that calls a non-returning function
+  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
+
+  // We expect to hit all the instructions in the case
+  // "case_default" from disassembler_test_code.asm.
+  EXPECT_CALL(*this, OnInstruction(_, _, _))
+      .Times(2)
+      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveContinue))
+      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveTerminatePath));
+
+  // We expect a complete walk from this, as there are no branches to
+  // chase down
+  ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
 }
 
 }  // namespace image_util
