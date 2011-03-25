@@ -74,9 +74,13 @@ void SplitStringFromDblNullTerminated(const wchar_t* dbl_null_term,
 }
 
 Value* LoadJsonDataFile(const std::wstring& resource_title) {
-  FilePath exe_location;
-  PathService::Get(base::FILE_EXE, &exe_location);
-  FilePath test_data_path = exe_location.DirName().Append(resource_title);
+  FilePath source_root;
+  PathService::Get(base::DIR_SOURCE_ROOT, &source_root);
+  FilePath test_data_path =
+      source_root.
+          AppendASCII("sawdust\\tracer\\test_data").
+              Append(resource_title);
+
   Value* return_value = NULL;
   std::string json_content;
   if (file_util::PathExists(test_data_path) &&

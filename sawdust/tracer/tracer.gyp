@@ -50,16 +50,16 @@
       'type': 'executable',
       'sources': [
         'configuration_unittest.cc',
-        'configuration_unittest_data.json',
-        'configuration_unittest_expressions.json',
         'controller_unittest.cc',
-        'controller_unittest_configs.json',
         'registry_unittest.cc',
         'system_info_unittest.cc',
         'tracer_unittest_main.cc',
         'tracer_unittest_util.h',
         'tracer_unittest_util.cc',
         'upload_unittest.cc',
+        'test_data/configuration_unittest_data.json',
+        'test_data/configuration_unittest_expressions.json',
+        'test_data/controller_unittest_configs.json',
       ],
       'dependencies': [
         'tracer_lib',
@@ -68,17 +68,7 @@
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/third_party/zlib/zlib.gyp:*',
         '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
-      ],
-      'copies': [
-        {
-          'destination': '<(PRODUCT_DIR)',
-          'files': [
-            'configuration_unittest_data.json',
-            'configuration_unittest_expressions.json',
-            'controller_unittest_configs.json'
-          ]
-        },
-      ],
-    },
+      ]
+    }
   ]
 }
