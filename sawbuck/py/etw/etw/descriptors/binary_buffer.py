@@ -201,8 +201,6 @@ class BinaryBufferReader(object):
     return val
 
   _MINIMUM_SID_SIZE = 8
-  _POINTER_SIZE_32 = 4
-  _POINTER_SIZE_64 = 8
 
   def ReadSid(self, is_64_bit_ptrs):
     """Reads a SID from the current offset in the buffer.
@@ -217,10 +215,19 @@ class BinaryBufferReader(object):
       BufferDataError: Raised if the buffer does not contain a valid SID at
       this offset.
     """
-    # Two pointers are included before the SID, so skip them.
-    pointer_size = (self._POINTER_SIZE_64 if is_64_bit_ptrs else
-        self._POINTER_SIZE_32)
-    self.Consume(2 * pointer_size)
+    # Two pointers are included before the SID. If the first one is zero,
+    # there is no more data, so read that one first.
+    if is_64_bit_ptrs:
+      ReadPtr = self.ReadUInt64
+    else:
+      ReadPtr = self.ReadUInt32
+
+    has_sid = ReadPtr()
+    if not has_sid:
+      return None
+
+    # Ignore the second pointer.
+    ignore = ReadPtr()
 
     data = self._buffer.GetAt(self._offset, self._MINIMUM_SID_SIZE)
     if not ctypes.windll.advapi32.IsValidSid(data):

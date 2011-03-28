@@ -154,6 +154,8 @@ class BinaryBufferReaderTest(unittest.TestCase):
   def testReadSid(self):
     """Test buffer reader ReadSid."""
     data = ctypes.c_buffer(2 * self.POINTER_SIZE_32 + self.MAX_SID_SIZE)
+    # The first pointer preceding a Sid must be non-NULL.
+    data[0] = "1"
     ptr = ctypes.cast(data, ctypes.c_void_p)
     sid_ptr = ctypes.cast(ptr.value + 2 * self.POINTER_SIZE_32, ctypes.c_void_p)
 
@@ -165,6 +167,12 @@ class BinaryBufferReaderTest(unittest.TestCase):
     reader = binary_buffer.BinaryBufferReader(ptr.value, ctypes.sizeof(data))
     sid = reader.ReadSid(False)
     self.assertTrue(sid.IsValid())
+
+    # Now try and read a non-Sid, which is preceded by a NULL pointer.
+    data = ctypes.c_buffer(self.POINTER_SIZE_32)
+    ptr = ctypes.cast(data, ctypes.c_void_p)
+    reader = binary_buffer.BinaryBufferReader(ptr.value, ctypes.sizeof(data))
+    self.assertEqual(None, reader.ReadSid(False))
 
 
 if __name__ == '__main__':
