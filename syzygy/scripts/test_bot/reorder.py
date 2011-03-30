@@ -101,7 +101,8 @@ class ReorderTest(object):
     line = line.strip()
     match = self._RESULT_FILTER_RE.match(line)
     if not match:
-      _LOGGER.debug('run=%s; %s', run_id, line)
+      if line:
+        _LOGGER.debug('run=%s; %s', run_id, line)
       return None, None
     test = match.group('test')
     status = match.group('status')
@@ -168,8 +169,11 @@ class ReorderTest(object):
       command = [self._test_program] + self._GetExpandedArgs(run_id, seed)
       proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
-      while proc.poll() is None:
-        test, status = self._ParseResultLine(proc.stdout.readline(), run_id)
+      while True:
+        line = proc.stdout.readline().strip()
+        if proc.poll() is not None and not line:
+          break
+        test, status = self._ParseResultLine(line, run_id)
         if test:
           results[test] = status
 
@@ -206,8 +210,10 @@ class ReorderTest(object):
       proc = subprocess.Popen(
           command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
       output = []
-      while proc.poll() is None:
+      while True:
         line = proc.stdout.readline().strip()
+        if proc.poll() is not None and not line:
+          break
         if line:
           _LOGGER.debug('run=%s; %s', run_id, line)
           output.append(line)
@@ -281,7 +287,7 @@ class ReorderTest(object):
 
     return was_successful
 
-  def Run(self, seed=None, num_iterations=1):
+  def Run(self, seed=None, num_iterations=1, max_attempts=3):
     """Repeatedly run the reorder test.
 
     Args:
@@ -300,13 +306,20 @@ class ReorderTest(object):
     for counter in xrange(1, num_iterations + 1):
       self.ReorderBinary(counter, seed)
       try:
-        new_results = self.RunTestApp(counter, seed)
-        if self.CompareResults(counter, orig_results, new_results):
-          _LOGGER.info('run=%s; Test results matched!', counter)
-          passed += 1
-        else:
-          _LOGGER.error('run=%s; Test results did NOT match!', counter)
-          failed += 1
+        status = 0
+        for attempt in xrange(1, max_attempts + 1):
+          _LOGGER.info('run=%s; attempt=%s/%s; Launching test app ...',
+                       counter, attempt, max_attempts)
+          new_results = self.RunTestApp(counter, seed)
+          if self.CompareResults(counter, orig_results, new_results):
+            _LOGGER.info('run=%s; attempt=%s; Test results matched!',
+                         counter, attempt)
+            status = 1
+            break
+          _LOGGER.error('run=%s; attempt=%s/%s; Test results did NOT match!',
+                        counter, attempt, max_attempts)
+        passed += status
+        failed += (1 - status)
       finally:
         self.RevertBinary()
       seed = int(time.time())
@@ -333,6 +346,9 @@ def AddCommandLineOptions(option_parser):
   group.add_option(
       '--reorder-num-iterations', type='int', default=1, metavar='NUM',
       help='The number of reorder iterations to run (default: %default)')
+  group.add_option(
+      '--reorder-max-test-attempts', type='int', default=3, metavar='NUM',
+      help='The maximum number of attempts to run the tests before giving up.')
   option_parser.add_option_group(group)
 
 
@@ -385,7 +401,8 @@ def main():
                      options.reorder_input_bin, options.reorder_input_pdb,
                      options.reorder_test_program, reorder_test_args)
   passed, failed = test.Run(seed=options.reorder_seed,
-                            num_iterations=options.reorder_num_iterations)
+                            num_iterations=options.reorder_num_iterations,
+                            max_attempts=options.reorder_max_test_attempts)
   print GetSummaryLine(passed, failed)
 
 if __name__ == '__main__':
