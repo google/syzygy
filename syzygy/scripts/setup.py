@@ -13,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from setuptools import setup
-
 setup(
-    name='order',
+    name='graph',
     package_dir = {'':'.'},
-    )
+    install_requires = [
+      'matplotlib',
+      'numpy',
+      'setuptools',
+    ],
+)
