@@ -103,7 +103,6 @@ call python "%DOWNLOAD_PY%" ^
   --log-verbose ^
   GET ^
   > "%CHROME_PTR%"
-echo %ERRORLEVEL%
 if %ERRORLEVEL% equ 0 goto step4
 copy %DOWNLOAD_LOG% %ERROR_MESSAGE%
 goto error
