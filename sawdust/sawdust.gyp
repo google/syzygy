@@ -21,7 +21,8 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:*',        
+        '<(DEPTH)/base/base.gyp:*',
+        'app/app.gyp:*',
         'tracer/tracer.gyp:*',
       ],
     },
@@ -36,6 +37,7 @@
         # Add all unit test targets here.
         'unittest_targets': [
           '<(DEPTH)/sawdust/tracer/tracer.gyp:tracer_lib_unittests',
+          '<(DEPTH)/sawdust/app/app.gyp:application_lib_unittests',
         ],
       },
       'dependencies': [
@@ -49,6 +51,7 @@
             '../sawbuck/tools/run_unittests.py',
             '../sawbuck/tools/verifier.py',
             '<(PRODUCT_DIR)/tracer_lib_unittests.exe',
+            '<(PRODUCT_DIR)/application_lib_unittests.exe',
           ],
           'outputs': [
             # Created only if all unittests succeed

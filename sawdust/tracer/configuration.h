@@ -73,7 +73,7 @@ class TracerConfiguration {
   }
 
   // Should kernel events be logged, too.
-  bool IsKernelLoggingEnabled() const {
+  virtual bool IsKernelLoggingEnabled() const {
     return trace_kernel_on_;
   }
 
@@ -91,7 +91,7 @@ class TracerConfiguration {
   bool GetKernelLogFileName(FilePath* return_path) const;
 
   // Application name, provided in configuration JSON to help classify uploads.
-  bool GetTracedApplication(std::wstring* app_name) const;
+  virtual bool GetTracedApplication(std::wstring* app_name) const;
 
   // Version as declared in JSON or retrieved from the registry. Note that this
   // may not match of the executable that was snooped upon.
@@ -102,16 +102,18 @@ class TracerConfiguration {
   bool GetParameterWord(const std::string& key, std::wstring* the_word) const;
 
   // Where to upload the file.
-  bool GetUploadPath(std::wstring* upload_url, bool* assume_remote) const;
-  bool GetUploadPath(const Version& version,
-                     std::wstring* upload_url, bool* assume_remote) const;
+  virtual bool GetUploadPath(std::wstring* upload_url,
+                             bool* assume_remote) const;
+  virtual bool GetUploadPath(const Version& version,
+                             std::wstring* upload_url,
+                             bool* assume_remote) const;
 
   ExitAction ActionOnExit() const;
 
   // Get all requested registry subtrees we should harvest.
-  bool GetRegistryQuery(std::vector<std::wstring>* query_keys) const;
+  virtual bool GetRegistryQuery(std::vector<std::wstring>* query_keys) const;
 
-  bool HarvestEnvVariables() const { return harvest_env_variables_; }
+  virtual bool HarvestEnvVariables() const { return harvest_env_variables_; }
 
  protected:
   // Part of initialization. Populates provider_defs_ with values extracted from

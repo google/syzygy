@@ -1,0 +1,61 @@
+// Copyright 2009 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+#include "sawdust_version.h"
+#include "afxres.h"
+
+#ifdef APSTUDIO_INVOKED
+#error Don't open this file in the GUI, it'll be massacred on save.
+#endif  // APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION SAWDUST_MAJOR,SAWDUST_MINOR,SAWDUST_BUILD,SAWDUST_PATCH
+ PRODUCTVERSION SAWDUST_MAJOR,SAWDUST_MINOR,SAWDUST_BUILD,SAWDUST_PATCH
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "FileDescription", "Sawdust Trace Harvester"
+            VALUE "FileVersion", SAWDUST_VER_STR
+            VALUE "InternalName", "Sawdust"
+            VALUE "LegalCopyright", "Copyright (C) Google Inc 2011"
+            VALUE "OriginalFilename", "Sawdust.exe"
+            VALUE "ProductName", "Sawdust Trace Harvester"
+            VALUE "ProductVersion", SAWDUST_VER_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

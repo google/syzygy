@@ -141,6 +141,20 @@ bool TracerController::GetCompletedKernelEventLogFileName(
   return true;
 }
 
+bool TracerController::GetCurrentEventLogFileName(FilePath* event_log) const {
+  return RetrieveCurrentLogFileName(log_controller_, kSawdustTraceSessionName,
+                                    event_log);
+}
+
+bool TracerController::GetCurrentKernelEventLogFileName(
+    FilePath* event_log) const {
+  if (kernel_controller_.session() == NULL)
+    return false;
+
+  return RetrieveCurrentLogFileName(kernel_controller_, KERNEL_LOGGER_NAME,
+                                    event_log);
+}
+
 bool TracerController::IsLogWorthSaving() const {
   return (IsRunning() &&
           GetLoggingTimeSpan().InSeconds() > kMinimalLogAgeInSeconds);
@@ -210,8 +224,7 @@ bool TracerController::VerifyAndStopIfRunning(
 bool TracerController::StopKernelLogging(FilePath* log_path) {
   if (kernel_controller_.session() != NULL) {
     FilePath kernel_log_path;
-    RetrieveCurrentLogFileName(kernel_controller_, KERNEL_LOGGER_NAME,
-                               &kernel_log_path);
+    GetCurrentKernelEventLogFileName(&kernel_log_path);
 
     HRESULT hr = kernel_controller_.Stop(NULL);
 
@@ -233,8 +246,7 @@ HRESULT TracerController::StopLogging(
   DCHECK(log_controller_.session() != NULL);
 
   FilePath chrome_log_path;
-  RetrieveCurrentLogFileName(log_controller_, kSawdustTraceSessionName,
-                             &chrome_log_path);
+  GetCurrentEventLogFileName(&chrome_log_path);
 
   TracerConfiguration::ProviderDefinitions holdouts;
   for (TracerConfiguration::ProviderDefinitions::iterator it =

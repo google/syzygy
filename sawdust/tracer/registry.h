@@ -57,7 +57,7 @@ class RegistryExtractor : public IReportContentEntry {
   // Also, the function will disregard nested folders by doing simple string
   // comparisons. Last (but not least), an entry can be a registry folder
   // (which will be recursed) or a value.
-  int Initialize(const std::vector<std::wstring>& input_container);
+  virtual int Initialize(const std::vector<std::wstring>& input_container);
 
   std::istream& Data();
   void MarkCompleted();

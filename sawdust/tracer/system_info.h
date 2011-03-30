@@ -31,7 +31,7 @@ class SystemInfoExtractor : public IReportContentEntry {
 
   // Initialize the object. The stream (data()) can be read once initialized.
   // Appending env-vars is optional (|include_env_variables|).
-  void Initialize(bool include_env_variables);
+  virtual void Initialize(bool include_env_variables);
 
   std::istream& Data() { return data_as_stream_; }
   void MarkCompleted() { data_as_stream_.seekg(0); }

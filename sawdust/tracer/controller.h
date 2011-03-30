@@ -51,10 +51,15 @@ class TracerController {
   bool IsLogWorthSaving() const;
   base::TimeDelta GetLoggingTimeSpan() const;
 
+  // Query functions for retrieving current log file names (valid only when
+  // a session is active). Made virtual as a test seam.
+  virtual bool GetCurrentEventLogFileName(FilePath* event_log) const;
+  virtual bool GetCurrentKernelEventLogFileName(FilePath* event_log) const;
+
   // Query functions for retrieving completed log file names. Valid only once
   // logging session has been closed (by calling 'stop').
-  bool GetCompletedEventLogFileName(FilePath* event_log) const;
-  bool GetCompletedKernelEventLogFileName(FilePath* event_log) const;
+  virtual bool GetCompletedEventLogFileName(FilePath* event_log) const;
+  virtual bool GetCompletedKernelEventLogFileName(FilePath* event_log) const;
 
  private:
   // A call to the Start method of the controller. Intended as a test seam only.
