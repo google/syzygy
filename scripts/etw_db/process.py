@@ -19,15 +19,19 @@ import etw.descriptors.thread as thread
 
 
 class _Process:
-  """Keps information about a process."""
+  """Keeps information about a process."""
   def __init__(self, event):
-    """Initializes a process object from a process start event."""
     self.start_time = event.time_stamp
     self.process_id = event.ProcessId
     self.parent_id = event.ParentId
     self.session_id = event.SessionId
     self.image_file_name = event.ImageFileName
-    self.cmd_line = event.CommandLine
+    # XP-generated logs don't have the CommandLine property,
+    # so we use the image file name instead.
+    try:
+      self.cmd_line = event.CommandLine
+    except AttributeError:
+      self.cmd_line = self.image_file_name
 
 
 class ProcessThreadDatabase(EventConsumer):
@@ -37,7 +41,14 @@ class ProcessThreadDatabase(EventConsumer):
   a thread belongs with, as well as to return the command line associated
   with a particular process.
   """
-  def __init__(self):
+  def __init__(self, no_pruning=False):
+    """Initializes a new database.
+
+    Args:
+      no_pruning: if true, process and thread information is maintained past
+          process/thread end events.
+    """
+    self._no_pruning = no_pruning
     # Processes by id maps from process ID to command line.
     self._processes_by_id = {}
     # Threads by id maps from thread ID to owning process ID.
@@ -86,7 +97,8 @@ class ProcessThreadDatabase(EventConsumer):
 
   @EventHandler(process.Event.DCEnd, process.Event.End)
   def _OnProcessEnd(self, event):
-    self._processes_by_id.pop(event.ProcessId, None)
+    if not self._no_pruning:
+      self._processes_by_id.pop(event.ProcessId, None)
 
   @EventHandler(thread.Event.DCStart, thread.Event.Start)
   def _OnThreadStart(self, event):
@@ -94,4 +106,5 @@ class ProcessThreadDatabase(EventConsumer):
 
   @EventHandler(thread.Event.DCEnd, thread.Event.End)
   def _OnThreadEnd(self, event):
-    self._threads_by_id.pop(event.TThreadId, None)
+    if not self._no_pruning:
+      self._threads_by_id.pop(event.TThreadId, None)
