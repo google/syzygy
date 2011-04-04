@@ -219,6 +219,13 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   PEFileBuilder builder(&decomposed_.image);
   ASSERT_NO_FATAL_FAILURE(CopyHeaderInfoFromDecomposed(&builder));
 
+  // TODO(rogerm): Add an empty section to the beginning of the image.
+  //     When we've covered all of the possible contents of an image
+  //     file, we want to ensure that everything eventually ends up being
+  //     moved.  Inserting a new section at the beginning accomplishes
+  //     this.  Currently we handle code and resources, but not other
+  //     data sections.
+
   // Copy the sections from the decomposed image to the new one, save for
   // the .relocs section. Code sections are turned into read-only data
   // sections, and the code blocks held back for moving to a new segment.
@@ -253,6 +260,15 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
         code_blocks.push_back(block);
       }
     } else {
+      // If it's the resources section, let's shift it over a bit by inserting
+      // a new empty data section before copying it.
+      if (name_str == ".rsrc") {
+        uint32 characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
+            IMAGE_SCN_MEM_READ;
+        builder.AddSegment(
+            ".dummy", section.Misc.VirtualSize, 0, characteristics);
+      }
+
       // It's not a code section, copy it.
       RelativeAddress start = builder.AddSegment(name_str.c_str(),
                                                  section.Misc.VirtualSize,
@@ -319,6 +335,20 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
   ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
+
+  // Decompose the randomized dll and validate that the resources have moved.
+  PEFile new_image_file;
+  ASSERT_TRUE(new_image_file.Init(temp_file_));
+  const IMAGE_DATA_DIRECTORY* old_data_dir =
+      image_file_.nt_headers()->OptionalHeader.DataDirectory;
+  const IMAGE_DATA_DIRECTORY* new_data_dir =
+      new_image_file.nt_headers()->OptionalHeader.DataDirectory;
+  ASSERT_EQ(
+      old_data_dir[IMAGE_DIRECTORY_ENTRY_RESOURCE].Size,
+      new_data_dir[IMAGE_DIRECTORY_ENTRY_RESOURCE].Size);
+  ASSERT_NE(
+      old_data_dir[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress,
+      new_data_dir[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress);
 }
 
 }  // namespace pe

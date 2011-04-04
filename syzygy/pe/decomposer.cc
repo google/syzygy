@@ -993,6 +993,12 @@ bool Decomposer::CreatePEImageBlocksAndReferences(
     return false;
   }
 
+  if (!parser.ParseResourceDirectory(
+      header->data_directory[IMAGE_DIRECTORY_ENTRY_RESOURCE])) {
+    LOG(ERROR) << "Unable to parse resource directory";
+    return false;
+  }
+
   return true;
 }
 

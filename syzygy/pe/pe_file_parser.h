@@ -85,6 +85,13 @@ class PEFileParser {
   //     directory from a PE image.
   bool ParseDebugDirectory(BlockGraph::Block* debug_directory_block);
 
+  // Parses the resource section, walks the resource directory, and invokes
+  // AddReferenceCallback for the resource data RVAs therein.
+  // @param resource_section_block a block referencing a valid .rsrc
+  //     section from a PE image. The directory is expected to be
+  //     at offset 0.
+  bool ParseResourceDirectory(BlockGraph::Block* resource_block);
+
  private:
   BlockGraph::Block* AddBlock(BlockGraph::BlockType type,
                               RelativeAddress addr,
@@ -111,6 +118,9 @@ class PEFileParser {
   bool AddFileOffset(const PEFileStructPtr<ItemType>& structure,
                      const DWORD* item,
                      const char* name = NULL);
+
+  bool ParseResourceDirectory(BlockGraph::Block* resource_block,
+                              size_t root_offset);
 
   const PEFile& image_file_;
   BlockGraph::AddressSpace* address_space_;

@@ -539,7 +539,7 @@ bool PEFileParser::ParseDebugDirectory(
 
   PEFileStructPtr<IMAGE_DEBUG_DIRECTORY> debug_directory;
   if (!debug_directory.Set(debug_directory_block)) {
-    LOG(ERROR) << "Unable to the debug directory";
+    LOG(ERROR) << "Unable to read the debug directory";
     return false;
   }
 
@@ -557,6 +557,63 @@ bool PEFileParser::ParseDebugDirectory(
                  debug_directory->SizeOfData,
                  "Debug Info");
   } while (debug_directory.Next());
+
+  return true;
+}
+
+bool PEFileParser::ParseResourceDirectory(BlockGraph::Block* resource_block) {
+  if (resource_block == NULL)
+    return true;
+
+  return ParseResourceDirectory(resource_block, 0);
+}
+
+bool PEFileParser::ParseResourceDirectory(BlockGraph::Block* resource_block,
+                                          size_t root_offset) {
+  DCHECK(resource_block != NULL);
+  RelativeAddress root_addr = resource_block->addr();
+
+  // Setup the directory node we're currently scanning.
+  PEFileStructPtr<IMAGE_RESOURCE_DIRECTORY> directory;
+  if (!directory.Set(resource_block, root_addr + root_offset)) {
+    LOG(ERROR) << "Unable to read the resource directory";
+    return false;
+  }
+
+  // How many entries hang from this node in the resource tree?
+  size_t num_entries = directory->NumberOfNamedEntries +
+      directory->NumberOfIdEntries;
+  size_t entry_offset = root_offset + sizeof(IMAGE_RESOURCE_DIRECTORY);
+
+  // Let's walk through them.
+  for (size_t i = 0; i < num_entries; ++i) {
+    // Note that the offsets in the directory entries are all relative to
+    // the root address of the resource block.
+    PEFileStructPtr<IMAGE_RESOURCE_DIRECTORY_ENTRY> directory_entry;
+    if (!directory_entry.Set(resource_block, root_addr + entry_offset)) {
+      LOG(ERROR) << "Unable to read the resource directory entry";
+      return false;
+    }
+    if (directory_entry->DataIsDirectory) {
+      if (!ParseResourceDirectory(resource_block,
+                                  directory_entry->OffsetToDirectory)) {
+        return false;
+      }
+    } else {
+      PEFileStructPtr<IMAGE_RESOURCE_DATA_ENTRY> data_entry;
+      RelativeAddress entry_addr(root_addr + directory_entry->OffsetToData);
+      if (!data_entry.Set(resource_block, entry_addr)) {
+        LOG(ERROR) << "Unable to read the resource data entry";
+        return false;
+      }
+      // The offsets in the data entries are RVAs.
+      if (!AddRelative(data_entry, &data_entry->OffsetToData)) {
+        LOG(ERROR) << "Failed to add resouce data reference";
+        return false;
+      }
+    }
+    entry_offset += sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY);
+  }
 
   return true;
 }
