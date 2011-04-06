@@ -19,8 +19,10 @@ import etw.descriptors.pagefault as pagefault
 import matplotlib.patches as patches
 import matplotlib.ticker as ticker
 import matplotlib.pyplot as pyplot
+import matplotlib.colors as colors
 import optparse
 import os.path
+import random
 import re
 
 
@@ -34,8 +36,8 @@ class _ModuleFaults(object):
     self.module_base = module.file_name
     self.page_faults = []
 
-  def AddFault(self, time, type, address, size):
-    self.page_faults.append((time, type, address, size))
+  def AddFault(self, thread_id, time, type, address, size):
+    self.page_faults.append((thread_id, time, type, address, size))
 
 
 class _ProcessFaults(object):
@@ -46,7 +48,7 @@ class _ProcessFaults(object):
     self.process_id = process.process_id
     self.modules = {}
 
-  def AddFault(self, module, time, type, address, size):
+  def AddFault(self, module, thread_id, time, type, address, size):
     # Adjust the time to process-relative.
     assert(time >= self.start_time)
     time = time - self.start_time
@@ -60,7 +62,7 @@ class _ProcessFaults(object):
            address < module.module_base + module.module_size)
     address = address - module.module_base
 
-    mod.AddFault(time, type, address, size)
+    mod.AddFault(thread_id, time, type, address, size)
 
 
 class _PageFaultHandler(EventConsumer):
@@ -86,13 +88,13 @@ class _PageFaultHandler(EventConsumer):
     return (self._process_filter.search(process.cmd_line) and
             self._module_filter.search(module.file_name))
 
-  def _RecordFault(self, process, module, time, type, address, size):
+  def _RecordFault(self, process, module, thread_id, time, type, address, size):
     proc = self._processes.get(process.process_id)
     if not proc:
       proc = _ProcessFaults(process)
       self._processes[process.process_id] = proc
 
-    proc.AddFault(module, time, type, address, size)
+    proc.AddFault(module, thread_id, time, type, address, size)
 
   @EventHandler(pagefault.Event.HardFault)
   def _OnHardFault(self, event):
@@ -105,6 +107,7 @@ class _PageFaultHandler(EventConsumer):
     if self._ShouldRecord(process, module):
       self._RecordFault(process,
                         module,
+                        event.thread_id,
                         event.time_stamp,
                         "Hard",
                         event.VirtualAddress & ~0xFFF,
@@ -143,10 +146,27 @@ class _PageFaultHandler(EventConsumer):
     if self._ShouldRecord(process, module):
       self._RecordFault(process,
                         module,
+                        event.thread_id,
                         event.time_stamp,
                         type,
                         event.VirtualAddress & ~0xFFF,
                         _PAGE_SIZE)
+
+
+def DataStartOptionCallback(option, opt, value, parser):
+  try:
+    # Split the parameter into 'module_name,rva_address'.
+    match = re.match('^([^,]+),([^,]+)$', value)
+    if match == None:
+      raise
+    module = match.groups()[0]
+    address = int(match.groups()[1], 0)  # Auto-detect base 8/10/16.
+  except:
+    raise optparse.OptionValueError(
+        'Invalid data_start option: \'%s\'.' % value)
+  if parser.values.data_start == None:
+    parser.values.data_start = {}
+  parser.values.data_start[module] = address
 
 
 def GetOptionParser():
@@ -159,21 +179,34 @@ def GetOptionParser():
                     help='A regular expression that matches the modules '
                          'to collect information about.',
                     default='.*')
+  parser.add_option('-d', '--data_start', dest='data_start',
+                    help='A comma separated "module,rva_start" pair '
+                         'which specifies where non-text data starts. '
+                         'To be called once per module.',
+                    action='callback', type='string',
+                    callback=DataStartOptionCallback)
+  parser.add_option('-c', '--categorize', dest='categorize',
+                    help='A category indicated how to group fault events. '
+                         'One of {process, module, thread} (default: process).',
+                    default='process')
   parser.add_option('-o', '--output', dest='output',
                     help='The file where the graph is written, if not '
                          'supplied the graph will be displayed interactively.',
                     default=None)
   parser.add_option('--width', dest='width', type='int',
-                    help='Width of the generated graph.',
+                    help='Width of the generated graph (inches, default: 16).',
                     default=16)
   parser.add_option('--height', dest='height', type='int',
-                    help='Height of the generated graph.',
+                    help='Height of the generated graph (inches, default: 9).',
                     default=9)
+  parser.add_option('--dpi', dest='dpi', type='int',
+                    help='DPI of the generated graph (default: 80).',
+                    default=80)
   return parser
 
 
 def ConsumeLogs(files, process_filter, module_filter):
-  """Consumes a set of kernel logs and collect page fault information.
+  """Consumes a set of kernel logs and collects page fault information.
 
   Args:
       files: a list of paths to kernel trace logs (.etl files) to consume.
@@ -206,7 +239,89 @@ def ConsumeLogs(files, process_filter, module_filter):
   return pf_handler._processes
 
 
-def GenerateGraph(info, file_name, width, height):
+def WhitenColor(color, factor):
+  """Makes a color whiter.
+
+  Args:
+    color: the color to whiten, in any of the formats supported
+        by matplotlib.colors.
+    factor: the amount by which to whiten the color.
+        (0=do not change the color, 1=make it completely white)
+  """
+  assert(factor >= 0 and factor <= 1)
+  if isinstance(color, (int, long, float)):
+    color = str(color)
+  color = colors.colorConverter.to_rgb(color)
+  color = map(lambda x: 1 - ((1 - x) * (1 - factor)), color)
+  color = colors.rgb2hex(color)
+  return color
+
+
+def PlotStackedBar(ax, x, heights, scale=100.0, width=0.6, color=0.5,
+                   labels=None, annotate=None):
+  """Adds a stacked bar chart to a graph.
+
+  Args:
+    ax: axes object.
+    x: horizontal placement of the center of the bar.
+    heights: tuple/list of bar heights.
+    scale: used to scale the heights (default: 100).
+    width: width of bar chart (default: 0.6).
+    color: tuple/list of colors.  If a single color is specified,
+        will decrease saturation for each successive bar (default: 0.5).
+    labels: tuple/list of labels that will be applied to the bars
+        (default: None).
+    annotate: format specifier used to annotate bar labels with values
+        values from 'heights' (default: None).
+  """
+  real = (int, long, float)
+  assert(isinstance(x, real))
+  assert(isinstance(heights, (list, tuple)))
+
+  assert(isinstance(scale, real) and scale > 0)
+  assert(isinstance(width, real) and width > 0)
+
+  n = len(heights)
+
+  # Get partial sums.
+  heights_partialsum_0 = [0] * n  # [0, h[0], h[0] + h[1], ...]
+  heights_partialsum_1 = [heights[0]] * n  # [h[0], h[0] + h[1], ...]
+  for i in range(1, n):
+    heights_partialsum_0[i] = heights_partialsum_0[i - 1] + heights[i - 1]
+    heights_partialsum_1[i] = heights_partialsum_1[i - 1] + heights[i]
+
+  # Scale the partial sums so they sum to 'scale'.
+  scale_factor = heights_partialsum_1[n - 1] / scale
+  for i in range(0, n):
+    heights_partialsum_0[i] /= scale_factor
+    heights_partialsum_1[i] /= scale_factor
+
+  # Set up colors for each bar.
+  if isinstance(color, (list, tuple)):
+    assert(len(color) == n)
+  else:
+    color = [color] * n
+    for i in range(0, n):
+      color[i] = WhitenColor(color[0], i * 1.0 / n)
+
+  # Plot the actual bar.
+  ax.bar([x] * n, heights_partialsum_1,
+         bottom=heights_partialsum_0,
+         color=color, width=width, align='center')
+
+  if labels != None:
+    assert(len(labels) == n)
+    for i in range(0, n):
+      y = (heights_partialsum_0[i] + heights_partialsum_1[i]) / 2
+      label = labels[i]
+      if annotate != None:
+        label = label + (annotate % heights[i])
+      ax.annotate(label, (x, y), horizontalalignment='center',
+                  verticalalignment='center', rotation='vertical')
+
+
+def GenerateGraph(info, file_name, width, height, dpi, data_start=None,
+                  categorize=None):
   """Generates a graph from collected information.
 
   Args:
@@ -214,68 +329,197 @@ def GenerateGraph(info, file_name, width, height):
     file_name: output file name, or None to show the graph interactively.
     width: the width (in inches) of the generated graph.
     height: the height (in inches) of the generated graph.
+    dpi: the DPI of the generated graph.
+    data_start: dict of of rva_start addresses keyed by module name
+        (default: {}).
+    categorize: function that receives (process_id, module_id, thread_id)
+        and returns a key used to group faults (default: None).
   """
-  fig = pyplot.figure(figsize=(width, height), dpi=80)
-  ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
-  hist = fig.add_axes([0.1, 0.1, 0.8, 0.1])
+  fig = pyplot.figure(figsize=(width, height), dpi=dpi)
+  ax = fig.add_axes([0.1, 0.2, 0.75, 0.7])
+  ax_cpf = fig.add_axes([0.1, 0.1, 0.75, 0.1])
+  ax_bar = fig.add_axes([0.85, 0.1, 0.05, 0.8])
 
-  # Start by figuring out the x and y ranges for the graphs by running
-  # through and recording the max time and address encountered.
-  max_time = 0
-  max_addr = 0
+  if categorize == None:
+    categorize = lambda p, m, t: 0
+
+  # Get the earliest start time across all processes.
   start_time = None
   for process_faults in info.itervalues():
     if not start_time or process_faults.start_time < start_time:
       start_time = process_faults.start_time
 
-  # Add rectangles for every fault, red for hard faults, green for soft.
-  # Keep a tally of the number of faults per 0.2 second bucket in our
-  # range for the volume plot.
+  max_addr = 0
+  max_time = 0
+  fault_times = {}
+  start_times = {}
   faults = {}
+  for fault_type in ['hard_code', 'hard_data', 'soft_code', 'soft_data']:
+    faults[fault_type] = {}
+
+  # Categorize the faults and calculate summary information.
   for process_faults in info.itervalues():
+    process_id = process_faults.process_id
     for module_faults in process_faults.modules.itervalues():
-      for (time, kind, address, size) in module_faults.page_faults:
-        time = time + start_time - process_faults.start_time
-        if not (address & 0xFFF) == 0:
-          print hex(address)
+      module_id = module_faults.file_name
+      for (thread_id, time, kind, address, size) in module_faults.page_faults:
+        time = time + process_faults.start_time - start_time
         max_addr = max(max_addr, address + size)
         max_time = max(max_time, time)
 
-        pages = (size + _PAGE_SIZE - 1) / _PAGE_SIZE
-        rounded_time = int(time * 5) / 5.0
-        pages += faults.get(rounded_time, 0)
-        faults[rounded_time] = pages
+        # Categorize the fault event.
+        category = categorize(process_id, module_id, thread_id)
 
-        color = "#00ff00"
-        if kind in ["HardFault", "Hard"]:
-          color = "#ff0000"
+        # Classify the fault type.
+        hard = kind in ['HardFault', 'Hard']
+        code = True
+        if data_start.has_key(module_id):
+          code = address < data_start[module_id]
+        fault_type = ('hard_' if hard else 'soft_')
+        fault_type += ('code' if code else 'data')
 
-        box = patches.Rectangle((time, address), 0, size, color=color, lw=2)
-        ax.add_patch(box)
+        if not faults[fault_type].has_key(category):
+          faults[fault_type][category] = []
+        faults[fault_type][category].append((time, address))
 
-  # Set the two graphs to the same X-axis range.
+        # Keep track of earliest start time per category.
+        if not start_times.has_key(category):
+          start_times[category] = time
+        start_times[category] = min(time, start_times[category])
+
+        # We are only interested in hard code faults for the cumulative
+        # display. So keep track of the set of unique times across all
+        # categories for this fault type.
+        if hard and code:
+          fault_times[time] = True
+
+  # A small set of preferred colors that we use for consistent coloring. When
+  # this is exhausted we start generating random colors.
+  pref_colors = ['red', 'blue', 'green', 'orange', 'magenta', 'brown']
+
+  # Get the categories as a list, sorted by start time.
+  categories = map(lambda x: x[0],
+                   sorted(start_times.items(), lambda x, y: cmp(x[1], y[1])))
+
+  # Assign category colors.
+  category_colors = {}
+  pref_color_index = 0
+  for category in categories:
+    if pref_color_index < len(pref_colors):
+      category_colors[category] = pref_colors[pref_color_index]
+    else:
+      category_colors[category] = (random.random(), random.random(),
+                                   random.random())
+    pref_color_index += 1
+
+  # Display data_start lines as horizontal pale yellow marker lines.
+  for module_id, rva in data_start.items():
+    if rva < max_addr:
+      ax.axhline(y=(rva), color=WhitenColor('y', 0.8), zorder=0)
+
+  # Plot the fault events.
+  size_data = 3
+  size_code = 5
+  marker_soft = 'o'
+  marker_hard = 's'
+  data_whiten = 0.5
+  soft_whiten = 0.7
+  for category in categories:
+    color = WhitenColor(category_colors[category],
+                        1 - data_whiten * soft_whiten)
+    for (time, address) in faults['soft_data'].get(category, []):
+      ax.plot(time, address, markeredgecolor=color, markeredgewidth=0.5,
+              marker=marker_soft, markersize=size_data, markerfacecolor='None',
+              zorder=1)
+
+    color = WhitenColor(category_colors[category], 1 - data_whiten)
+    for (time, address) in faults['hard_data'].get(category, []):
+      ax.plot(time, address, markeredgecolor=color, markeredgewidth=0.5,
+              marker=marker_hard, markersize=size_data, markerfacecolor='None',
+              zorder=2)
+
+    color = WhitenColor(category_colors[category], 1 - soft_whiten)
+    for (time, address) in faults['soft_code'].get(category, []):
+      ax.plot(time, address, markeredgecolor=color, markeredgewidth=0.5,
+              marker=marker_soft, markersize=size_code, markerfacecolor='None',
+              zorder=3)
+
+    color = category_colors[category]
+    for (time, address) in faults['hard_code'].get(category, []):
+      ax.plot(time, address, markeredgecolor=color, markeredgewidth=0.5,
+              marker=marker_hard, markersize=size_code, markerfacecolor='None',
+              zorder=4)
+
+  # Build and plot the cumulative hard_code plots.
+  fault_times = sorted(fault_times.keys())
+  fault_counts = [0 for i in range(len(fault_times))]
+  zorder = 0
+  for category in categories:
+    fault_sum = 0
+    fault_dict = {}
+    for (time, address) in faults['hard_code'].get(category, []):
+      fault_dict[time] = fault_dict.get(time, 0) + 1
+
+    fault_sum = 0
+    for time_index in range(len(fault_counts)):
+      time = fault_times[time_index]
+      delta = fault_dict.get(time, 0)
+      fault_sum += delta
+      fault_counts[time_index] += fault_sum
+
+    ax_cpf.fill_between(fault_times, fault_counts,
+                        color=category_colors[category], zorder=zorder)
+    zorder -= 1
+
+  # Display the process start times as vertical yellow marker lines.
+  for process_faults in info.itervalues():
+    time = process_faults.start_time - start_time
+    if time > 0:
+      ax.axvline(x=(process_faults.start_time - start_time),
+                 color="y",
+                 label="PID: %d" % process_faults.process_id, zorder=5)
+      ax_cpf.axvline(x=(process_faults.start_time - start_time), color="y",
+                     zorder=5)
+
+  # Do the bar plots of total faults.
+  hard = 0
+  soft = 0
+  hard_code = 0
+  hard_data = 0
+  for category in categories:
+    hc = len(faults['hard_code'].get(category, []))
+    hd = len(faults['hard_data'].get(category, []))
+    soft += len(faults['soft_code'].get(category, [])) + \
+            len(faults['soft_data'].get(category, []))
+    hard += hc + hd
+    hard_code += hc
+    hard_data += hd
+  PlotStackedBar(ax_bar, 0.5, (hard_code, hard_data),
+                 labels=('hard code', 'hard data'), annotate=' (%d)')
+  PlotStackedBar(ax_bar, 1.5, (hard, soft),
+                 labels=('hard', 'soft'), annotate=' (%d)')
+
+  ax_cpf.set_xlim(0, max_time)
+  ax_cpf.set_xlabel('Time (s)')
+  ax_cpf.set_ylabel('Hard code faults')
+
   ax.set_xlim(0, max_time)
-  hist.set_xlim(0, max_time)
-
-  # Create the paging volume graph.
-  hist.bar(faults.keys(), faults.values(), width=0.2, color="r")
-  hist.set_ylabel("Faulting pages")
-  hist.set_xlabel('Time (s)')
+  ax.xaxis.set_major_formatter(ticker.NullFormatter())
   ax.set_ylabel('Address')
-
+  ax.set_ylim(0, max_addr)
+  ax.yaxis.tick_left()
   formatter = ticker.FormatStrFormatter('0x%08X')
   ax.yaxis.set_major_formatter(formatter)
   for label in ax.yaxis.get_ticklabels():
-    label.set_rotation(45)
+    label.set_rotation(-45)
+    label.set_verticalalignment('bottom')
 
-  ax.set_ylim(0, max_addr)
-  ax.set_ylabel('Address')
-
-  # Display the process start times as a yellow marker line.
-  for process_faults in info.itervalues():
-    ax.axvline(x=(process_faults.start_time - start_time),
-               color="y",
-               label="PID: %d" % process_faults.process_id)
+  ax_bar.set_ylim(0, 100.0)
+  ax_bar.yaxis.tick_right()
+  ax_bar.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d%%'))
+  ax_bar.set_xlim(0, 2)
+  ax_bar.xaxis.set_major_locator(ticker.NullLocator())
+  ax_bar.xaxis.set_major_formatter(ticker.NullFormatter())
 
   if file_name:
     pyplot.savefig(file_name)
@@ -290,8 +534,15 @@ def Main():
   if not args:
     parser.error('You must provide one or more trace files to parse.')
 
+  categorize = {'process': lambda p, m, t: p,
+                'module': lambda p, m, t: m,
+                'thread': lambda p, m, t: t}
+  categorize = categorize.get(options.categorize, None)
+
   info = ConsumeLogs(args, options.processes, options.modules)
-  GenerateGraph(info, options.output, options.width, options.height)
+  GenerateGraph(info, options.output, options.width, options.height,
+                options.dpi, categorize=categorize,
+                data_start=options.data_start)
 
 
 if __name__ == '__main__':
