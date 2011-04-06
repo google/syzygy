@@ -15,6 +15,7 @@
 // Implementation of the CallTrace call tracing DLL.
 
 #include "syzygy/call_trace/call_trace_main.h"
+
 #include <windows.h>
 #include <tlhelp32.h>
 #include <vector>

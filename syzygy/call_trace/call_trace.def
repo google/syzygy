@@ -26,3 +26,7 @@ EXPORTS
   ; And the indirect profile hook function we
   ; invoke through machine instrumentation.
   _indirect_penter
+
+
+  ; Functions we expose to rundll32.
+  BeginCallTrace
