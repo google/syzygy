@@ -26,6 +26,8 @@
       'target_name': 'call_trace_lib',
       'type': 'static_library',
       'sources': [
+        'call_trace_control.h',
+        'call_trace_control.cc',
         'call_trace_defs.h',
         'call_trace_defs.cc',
         'call_trace_parser.h',
