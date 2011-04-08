@@ -72,8 +72,12 @@ class Decomposer {
                               BlockGraph::BlockType block_type);
 
   // Create blocks for all data segments.
-  bool CreateDataBlocks(IDiaSymbol* globals);
-  bool CreateDataBlock(IDiaSymbol* data);
+  typedef std::vector<std::pair<RelativeAddress, std::string> > Labels;
+  bool CreateDataBlocks(IDiaSymbol* globals, Labels* labels);
+  bool CreateDataBlock(IDiaSymbol* data, Labels* labels);
+
+  // Creates data labels out of the zero-length data blocks gleaned from DIA.
+  bool CreateDataLabels(const Labels& labels);
 
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();
@@ -112,6 +116,13 @@ class Decomposer {
   // adds them as blocks to the image, and creates the references
   // they contain.
   bool CreatePEImageBlocksAndReferences(PEFileParser::PEHeader* header);
+
+  // This creates a new block with the given properties, and attaches the
+  // data to it. This assumes that no conflicting block exists.
+  BlockGraph::Block* CreateBlock(BlockGraph::BlockType type,
+                                 RelativeAddress address,
+                                 BlockGraph::Size size,
+                                 const char* name);
 
   // Create block for the given @p address and @p size of the given @p type,
   // or return an existant block that has the same @p type, @p address and

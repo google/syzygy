@@ -281,12 +281,21 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
       return false;
     }
 
+    // TODO(chrisha): For some reason, this directory entry is always 8
+    //     bytes short. We fix it manually for now, but we might be able to
+    //     be smarter depending on the linker version, etc, as we're not sure
+    //     this is always the case. Regardless, if this messes things up, we'll
+    //     know about it at some point as the Decomposer does it's thing.
+    size_t size = dir.Size;
+    if (IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG == i)
+      size = sizeof(IMAGE_LOAD_CONFIG_DIRECTORY32);
+
     // Chunk the datum.
     RelativeAddress dir_entry_start(dir.VirtualAddress);
     if (dir_entry_start.value() != 0) {
       BlockGraph::Block* block = AddBlock(BlockGraph::DATA_BLOCK,
                                           dir_entry_start,
-                                          dir.Size,
+                                          size,
                                           kDirEntryNames[i]);
       if (block == NULL) {
         LOG(ERROR) << "Unable to add block for " << kDirEntryNames[i];

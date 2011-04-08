@@ -62,6 +62,33 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
   return false;
 }
 
+// Given a symbol @p symbol, this will inspect its type information
+// to determine its length. If the symbol has no type information, sets @p size
+// to zero. Returns true on success, false otherwise.
+bool GetTypeSize(IDiaSymbol* symbol, size_t* size) {
+  DCHECK(symbol != NULL);
+  DCHECK(size != NULL);
+
+  *size = 0;
+  ScopedComPtr<IDiaSymbol> type;
+  HRESULT hr = symbol->get_type(type.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to get type symbol: " << hr;
+    return false;
+  }
+  if (hr == S_FALSE)
+    return true;
+
+  ULONGLONG length = 0;
+  if (FAILED(type->get_length(&length))) {
+    LOG(ERROR) << "Failed to retrieve type length.";
+    return false;
+  }
+
+  *size = static_cast<size_t>(length);
+  return true;
+}
+
 }  // namespace
 
 namespace pe {
@@ -125,8 +152,17 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
     success = CreateCodeBlocks(global);
 
   // Chunk out data blocks (currently one block per data segment).
+  // This also builds a list of zero length data labels that did not map
+  // to a pre-existing block.
+  Labels data_labels;
   if (success)
-    success = CreateDataBlocks(global);
+    success = CreateDataBlocks(global, &data_labels);
+
+  // This takes orphaned data labels and adds them to the appropriate blocks.
+  if (success)
+    success = CreateDataLabels(data_labels);
+
+  data_labels.clear();
 
   // Create absolute references for each relocation entry.
   if (success)
@@ -521,7 +557,7 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   return true;
 }
 
-bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
+bool Decomposer::CreateDataBlocks(IDiaSymbol* global, Labels* labels) {
   ScopedComPtr<IDiaEnumSymbols> enum_data;
   HRESULT hr = global->findChildren(SymTagData,
                                     NULL,
@@ -532,8 +568,6 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
     return false;
   }
 
-  // TODO(siggi): this doesn't actually work - all the symbols are
-  //    zero length. Maybe this needs to iterate data per compiland?
   while (true) {
     ScopedComPtr<IDiaSymbol> data;
     ULONG fetched = 0;
@@ -548,7 +582,7 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
     DCHECK(IsSymTag(data, SymTagData));
 
     // Create the block representing the datum.
-    if (!CreateDataBlock(data))
+    if (!CreateDataBlock(data, labels))
       return false;
   }
 
@@ -573,7 +607,22 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   return true;
 }
 
-bool Decomposer::CreateDataBlock(IDiaSymbol* data) {
+bool Decomposer::CreateDataLabels(const Labels& labels) {
+  for (size_t i = 0; i < labels.size(); ++i) {
+    BlockGraph::Block* block = image_->GetBlockByAddress(labels[i].first);
+    if (block != NULL) {
+      if (block->type() == BlockGraph::CODE_BLOCK) {
+        LOG(ERROR) << "Encountered a zero-length data label in a code block.";
+        return false;
+      }
+      BlockGraph::Offset offset = labels[i].first - block->addr();
+      block->SetLabel(offset, labels[i].second.c_str());
+    }
+  }
+  return true;
+}
+
+bool Decomposer::CreateDataBlock(IDiaSymbol* data, Labels* labels) {
   DCHECK(IsSymTag(data, SymTagData));
 
   DWORD location_type = LocIsNull;
@@ -587,10 +636,8 @@ bool Decomposer::CreateDataBlock(IDiaSymbol* data) {
   }
 
   DWORD rva = 0;
-  ULONGLONG length = 0;
   ScopedBstr name;
   if (FAILED(data->get_relativeVirtualAddress(&rva)) ||
-      FAILED(data->get_length(&length)) ||
       FAILED(data->get_name(name.Receive()))) {
     LOG(ERROR) << "Failed to retrieve data information";
     return false;
@@ -602,16 +649,56 @@ bool Decomposer::CreateDataBlock(IDiaSymbol* data) {
     return false;
   }
 
+  size_t length;
+  if (!GetTypeSize(data, &length))
+    return false;
+
+  // We treat zero length data blocks as labels, and store them in an
+  // intermediate data-structure. This is necessary because the block they
+  // will eventually refer to may not yet exist.
+  RelativeAddress addr(rva);
   if (length == 0) {
-    // TODO(siggi): should this be a label?
+    labels->push_back(std::make_pair(addr, data_name));
     return true;
   }
 
-  BlockGraph::Block* block =
-      FindOrCreateBlock(BlockGraph::DATA_BLOCK,
-                        RelativeAddress(rva),
-                        static_cast<BlockGraph::Size>(length),
-                        data_name.c_str());
+  BlockGraph::Block* block = image_->GetBlockByAddress(addr);
+  BlockGraph::Block* block_end = image_->GetBlockByAddress(addr + length - 1);
+  if (block != block_end) {
+    // TODO(chrisha): This was occurring for the
+    //     IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG block that is created by the PE
+    //     Parser. As it turns out, DIA reports the correct length for this
+    //     block which for some reason the headers indicate as 8 bytes short.
+    //     This has been addressed in PEFileParser::ParseImageHeader.
+    //     If this occurs again, something else must be going on!
+    LOG(ERROR) << "A DIA data symbol runs off the end of an existing block.";
+    return false;
+  }
+
+  if (block == NULL) {
+    block = CreateBlock(BlockGraph::DATA_BLOCK, addr,
+        static_cast<BlockGraph::Size>(length), data_name.c_str());
+  } else {
+    switch (block->type()) {
+      case BlockGraph::CODE_BLOCK:
+        // TODO(chrisha): Mark part of the function as inline data.
+        break;
+
+      // Add a label to the block.
+      case BlockGraph::DATA_BLOCK:
+      case BlockGraph::READONLY_BLOCK: {
+        BlockGraph::Offset offset = addr - block->addr();
+        if (!block->HasLabel(offset))
+          block->SetLabel(offset, data_name.c_str());
+        break;
+      }
+
+      default:
+        NOTREACHED() << "Invalid block type: " << block->type();
+        break;
+    }
+  }
+
   if (block == NULL)
     return false;
 
@@ -694,12 +781,12 @@ bool Decomposer::CreateCodeReferences() {
     DCHECK(dst_block != NULL);
 
     if (src_block != dst_block && dst_block->type() == BlockGraph::CODE_BLOCK) {
-      BlockGraph::Offset offs = ref.destination - dst_block->addr();
-      if (!dst_block->HasLabel(offs)) {
+      BlockGraph::Offset offset = ref.destination - dst_block->addr();
+      if (!dst_block->HasLabel(offset)) {
         // If it had no label here, we add one.
         std::string label(base::StringPrintf("From 0x%08X",
                                              ref_it->first.value()));
-        dst_block->SetLabel(offs, label.c_str());
+        dst_block->SetLabel(offset, label.c_str());
       }
     }
   }
@@ -794,6 +881,27 @@ void Decomposer::ScheduleForMerging(BlockGraph::Block* block1,
   to_merge_.insert(BlockGraph::AddressSpace::Range(start, end - start));
 }
 
+BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
+                                           RelativeAddress address,
+                                           BlockGraph::Size size,
+                                           const char* name) {
+  BlockGraph::Block* block = image_->AddBlock(type, address, size, name);
+  if (block == NULL) {
+    LOG(ERROR) << "Unable to add block at " << address.value()
+        << "(" << size << ")";
+    return NULL;
+  }
+
+  const uint8* data = image_file_.GetImageData(address, size);
+  if (data != NULL) {
+    // TODO(siggi): test that the block is wholly out of the image data.
+    block->set_data(data);
+    block->set_data_size(size);
+  }
+
+  return block;
+}
+
 BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
                                                  RelativeAddress addr,
                                                  BlockGraph::Size size,
@@ -803,7 +911,7 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
     RelativeAddress block_addr;
     if (!image_->GetAddressOf(block, &block_addr)) {
       LOG(ERROR) << "No address for block " << block->name();
-      return false;
+      return NULL;
     }
 
     if (block_addr != addr || block->size() != size) {
@@ -816,21 +924,7 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
   }
   DCHECK(block == NULL);
 
-  block = image_->AddBlock(type, addr, size, name);
-  if (block == NULL) {
-    LOG(ERROR) << "Unable to add block at " << addr.value()
-        << "(" << size << ")";
-    return NULL;
-  }
-
-  const uint8* data = image_file_.GetImageData(addr, size);
-  if (data != NULL) {
-    // TODO(siggi): test that the block is wholly out of the image data.
-    block->set_data(data);
-    block->set_data_size(size);
-  }
-
-  return block;
+  return CreateBlock(type, addr, size, name);
 }
 
 void Decomposer::OnInstruction(const Disassembler& walker,
@@ -878,7 +972,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (fc == FC_CALL &&
         (block->attributes() & BlockGraph::NON_RETURN_FUNCTION)) {
       // TODO(chrisha): For now, we enforce that the call be to the beginning
-      //    of the function.  This may not be necessary, but better safe than
+      //    of the function. This may not be necessary, but better safe than
       //    sorry for now.
       if (block->addr() != dst) {
         LOG(ERROR) << "Calling inside the body of non-returning function "
@@ -897,12 +991,12 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       // we're already covered by the disassembly process.
       if (block != current_block_) {
         // See whether the block had a label at the offset.
-        BlockGraph::Offset offs = dst - block->addr();
-        if (!block->HasLabel(offs)) {
+        BlockGraph::Offset offset = dst - block->addr();
+        if (!block->HasLabel(offset)) {
           // If it had no label here, we add one.
           std::string label(base::StringPrintf("From 0x%08X", src.value()));
 
-          block->SetLabel(offs, label.c_str());
+          block->SetLabel(offset, label.c_str());
 
           // And then potentially re-schedule the block for disassembly,
           // as we may have turned up another entry to a block we already
@@ -951,7 +1045,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     //     non-returning function. Instruct the disassembler not to continue
     //     disassembly past the instruction in that case.
     //     The case where the address is PC-relative is handled in the above
-    //     code.  However, the called function could also be at an
+    //     code. However, the called function could also be at an
     //     indirect absolute address when invoking imported symbols. We do not
     //     currently have meta-data regarding these symbols, so do not know if
     //     they are non-returning.
