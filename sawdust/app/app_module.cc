@@ -22,6 +22,7 @@
 
 #include <InitGuid.h>  // NOLINT
 #include "sawdust/tracer/sawdust_guids.h"  // NOLINT
+#include "sawdust/app/sawdust_app.h"
 
 int APIENTRY wWinMain(HINSTANCE instance,
                       HINSTANCE prev_instance,
@@ -41,9 +42,11 @@ int APIENTRY wWinMain(HINSTANCE instance,
                        logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
   logging::LogEventProvider::Initialize(kSawdustLoggingGuid);
 
+  SawdustApplication app(instance);
   MessageLoop main_loop(MessageLoop::TYPE_UI);
 
-  // TODO(motek): add application startup here once ready.
+  if (FAILED(app.Initialize(show)))
+    return -1;
 
   main_loop.Run();
   return 0;

@@ -34,7 +34,7 @@ bool CompareNoCase(const std::wstring& lhv, const std::wstring& rhv) {
 
 // Implementation of a text stream which feeds itself directly on the system
 // registry, yielding its content as defined in the query.
-// Essentially, this is where most of the realwork is done.
+// Essentially, this is where most of the real work is done.
 class RegistryExtractor::RegistryStreamBuff : public std::streambuf {
  public:
   explicit RegistryStreamBuff(const EntriesCollection& pass_entries,
@@ -339,10 +339,14 @@ int RegistryExtractor::Initialize(
     }
 
     if (!previous_inserted.empty() && previous_inserted.size() <= it->size()) {
-      // If the previous entry is a prefix (ignoring case) of the current item,
-      // we will disregard it. It has already been processed.
-      if (StartsWith(*it, previous_inserted, false))
+      // If the previous entry is a prefix (ignoring case and in 'path' sense)
+      // of the current item, we will disregard it. It has already been
+      // processed.
+      if (StartsWith(*it, previous_inserted, false) &&
+          (previous_inserted.size() == it->size() ||
+           (*it)[previous_inserted.size()] == L'\\')) {
         continue;
+      }
     }
 
     validated_root_entries_.push_back(new_entry);
@@ -447,8 +451,10 @@ bool RegistryExtractor::CreateFormattedRegValue(base::win::RegKey* key,
                                &size, &type) == ERROR_SUCCESS;
   }
 
-  if (succeeded) {
+  if (succeeded)
     formatted_utf8->clear();
+
+  if (succeeded && size > 0) {
     switch (type) {
       case REG_DWORD: {
         DCHECK_EQ(size, size_t(4));  // REG_DWORD is 32-bit, by doc.

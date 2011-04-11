@@ -1,0 +1,87 @@
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This is a sample configuration file for Sawdust. You will need to modify it
+// to suit the needs of your project.
+{
+  // Under "providers" list all ETW Tracer Providers you would like to collect
+  // data from. Providers are identifed by guids and must be registered by
+  // programs that emit events.
+  "providers": [
+    {
+      "guid": "{0562BFC3-2550-45b4-BD8E-A310583D3A6F}",
+      "name": "Chrome Frame",  // User readable name, can be anything.
+      "level": "information",  // verbose || warning || error || critical
+      "flags": 1  // Event type. See:
+      // http://msdn.microsoft.com/en-us/library/aa363776(VS.85).aspx
+    },
+    {
+      "guid": "{7FE69228-633E-4f06-80C1-527FEA23E3A7}",
+      "name": "Chrome",
+      "level": "information",
+      "flags": 1
+    },
+    {
+      "guid": "{6E3D6168-1DD2-4edb-A183-584C2C66E96D}",
+      "name": "CEEE Broker",
+      "level": "information",
+      "flags": 1
+    },
+    {
+      "guid": "{73213C1A-C369-4740-A75C-FA849E6CE540}",
+      "name": "CEEE",
+      "level": "information",
+      "flags": 1
+    },
+    {
+      "guid": "{79FDF710-2D7F-488f-B00C-C6EFAE507169}",
+      "name": "IE Toolbar",
+      "level": "information",
+      "flags": 2
+    }
+  ],
+  "report" : {
+    // Target can be either a local path or a parametrized URL. If the former,
+    // an archive containing logs will be placed there. If the latter, Sawdust
+    // will attempt (POST) the result archive using that URL.
+    "target": "d:\\scratchPad\\compressed.logs.zip",
+    // "target": "http://localhost:8080/cr/report?prod={prod}&ver={version}&type={type}",
+    "exit_handler": "auto",
+    "parameters": {  // Parameters for the target URL.
+      "prod": "Chrome",
+      "type": "log",
+      "module": "chrome.exe",
+      "version": "8.0.552.237",
+      "version_regkey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Google\\Update\\Clients\\{8A69D345-D564-463C-AFF1-A69D9E530F96}\\pv"
+    },
+  },
+  "other": {
+    // Kernel traces are required by Sawbuck to recover call stack information
+    // associated with events logged by the application.
+    "kernel_trace": true,
+    "kernel_event_file": "kernel_events.etl",
+    "chrome_event_file": "chrome_events.etl",
+    "kernel_file_size": 50,  // In MB. Be as generous as reasonable.
+    "chrome_file_size": 100,
+  },
+  // List registry keys or values you need for your diagnostics. Note that
+  // Sawdust will extract entire branches recursively.
+  "registry-harvest": [
+    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Google",
+    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CommonFilesDir",
+    "HKEY_CURRENT_USER\\Software\\Google\\CEE",
+    "HKEY_CURRENT_USER\\Software\\Google",
+    "HKEY_CURRENT_USER\\Software\\Google\\CEEE",
+  ]
+}

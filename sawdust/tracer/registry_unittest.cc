@@ -299,10 +299,11 @@ TEST_F(RegistryExtractorTest, CreateFormattedRegValueExpand) {
   EXPECT_EQ(ERROR_SUCCESS, junk_reg_folder.DeleteKey(L""));
 }
 
-// Tests extracting keys and values in fed different ways.
+// Tests extracting keys and values fed in different ways.
 TEST_F(RegistryExtractorTest, ExtractValues) {
   const wchar_t* kKeyDword = L"dword_value";
   const wchar_t* kKeyString = L"wstring_value";
+  const wchar_t* kKeyEmptyString = L"wstring_value_empty";
   const wchar_t* kString1 = L"The answer to life, universe";
   const wchar_t* kString2 = L"and everything.";
 
@@ -317,6 +318,8 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
                                              kListExerciseKey, KEY_ALL_ACCESS));
   EXPECT_EQ(ERROR_SUCCESS, reg_folder.WriteValue(kKeyDword, 0x2B));
   EXPECT_EQ(ERROR_SUCCESS, reg_folder.WriteValue(kKeyString, kString2));
+  EXPECT_EQ(ERROR_SUCCESS,
+            reg_folder.WriteValue(kKeyEmptyString, NULL, 0, REG_SZ));
   reg_folder.Close();
 
   std::vector<std::wstring> init_list;
@@ -345,6 +348,10 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
   init_list.back() += kKeyString;
   answers.insert(WideToUTF8(StringPrintf(L"%ls\t(%ls)",
                                          init_list.back().c_str(), kString2)));
+  init_list.push_back(insert_word);
+  init_list.back() += kKeyEmptyString;
+  answers.insert(WideToUTF8(StringPrintf(L"%ls\t()",
+                                         init_list.back().c_str())));
   {
     RegistryExtractor harvester;
     ASSERT_EQ(init_list.size(), harvester.Initialize(init_list));
@@ -415,6 +422,8 @@ TEST_F(RegistryExtractorTest, ExtractValues) {
 
   init_list.push_back(insert_word);
   init_list.back() += kKeyString;
+  init_list.push_back(insert_word);
+  init_list.back() += kKeyEmptyString;
 
   {
     RegistryExtractor harvester;

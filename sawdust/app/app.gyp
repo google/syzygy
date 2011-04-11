@@ -68,6 +68,7 @@
         'app_module.cc',
         'app.rc',
         'version.rc',
+        'sawdust.json'
       ],
       'dependencies': [
         'sawdust_version',
@@ -77,6 +78,12 @@
         '<(DEPTH)/third_party/icu/icu.gyp:icudata',
         '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
         '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
+      ],
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': ['sawdust.json'],
+        },
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -99,7 +106,9 @@
         'report.cc',
         'report.h',
         'sawdust_about.cc',
-        'sawdust_about.h'
+        'sawdust_about.h',
+        'sawdust_app.cc',
+        'sawdust_app.h'
       ],
       'dependencies': [
         '../tracer/tracer.gyp:tracer_lib',
