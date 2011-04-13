@@ -24,6 +24,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 #include "base/file_path.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
@@ -82,6 +83,11 @@ class Decomposer {
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();
 
+  // Loads the image's Omap information.
+  bool LoadOmapInformation(IDiaSession* dia_session,
+                           std::vector<OMAP>* omap_to,
+                           std::vector<OMAP>* omap_from);
+
   // Adds an intermediate reference from @p src_addr to @p dst_addr of
   // type @p type and size @p size with optional name @p name.
   // @returns true iff the reference was added, e.g. there was not already
@@ -139,6 +145,10 @@ class Decomposer {
                      const _DInst& instruction,
                      Disassembler::CallbackDirective* directive);
 
+  // Loads the DIA debug stream into the given OMAP vector.
+  bool LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
+                      std::vector<OMAP>* omap_list);
+
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
 
@@ -189,6 +199,8 @@ class Decomposer::DecomposedImage {
   BlockGraph image;
   BlockGraph::AddressSpace address_space;
   PEFileParser::PEHeader header;
+  std::vector<OMAP> omap_to;
+  std::vector<OMAP> omap_from;
 };
 
 }  // namespace pe

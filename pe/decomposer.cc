@@ -177,6 +177,11 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
   if (success)
     success = FinalizeIntermediateReferences();
 
+  if (success)
+    success = LoadOmapInformation(dia_session,
+                                  &decomposed_image->omap_to,
+                                  &decomposed_image->omap_from);
+
   image_ = NULL;
 
   return success;
@@ -1126,6 +1131,81 @@ bool Decomposer::FinalizeIntermediateReferences() {
                               dst_addr - dst_start);
     src->SetReference(src_addr - src_start, ref);
   }
+
+  return true;
+}
+
+bool Decomposer::LoadOmapInformation(IDiaSession* dia_session,
+                                     std::vector<OMAP>* omap_to,
+                                     std::vector<OMAP>* omap_from) {
+  DCHECK(dia_session != NULL);
+  DCHECK(omap_to != NULL);
+  DCHECK(omap_from != NULL);
+
+  omap_to->clear();
+  omap_from->clear();
+
+  ScopedComPtr<IDiaEnumDebugStreams> debug_streams;
+  if (FAILED(dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
+    LOG(ERROR) << "Unable to get debug streams.";
+    return false;
+  }
+
+  while (true) {
+    ScopedComPtr<IDiaEnumDebugStreamData> debug_stream;
+    ULONG count = 0;
+    HRESULT hr = debug_streams->Next(1, debug_stream.Receive(), &count);
+    if (FAILED(hr) || (hr != S_FALSE && count != 1)) {
+      LOG(ERROR) << "Unable to load debug stream: " << hr;
+      return false;
+    } else if (hr == S_FALSE) {
+      // No more records.
+      break;
+    }
+
+    ScopedBstr name;
+    if (FAILED(debug_stream->get_name(name.Receive())) || name == NULL) {
+      LOG(ERROR) << "Unable to get debug stream name.";
+      return false;
+    }
+
+    if (wcscmp(name, L"OMAPTO") == 0 &&
+        !LoadOmapStream(debug_stream, omap_to)) {
+      LOG(ERROR) << "Unable to load omap to stream.";
+      return false;
+    } else if (wcscmp(name, L"OMAPFROM") == 0 &&
+        !LoadOmapStream(debug_stream, omap_from)) {
+      LOG(ERROR) << "Unable to load omap from stream.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool Decomposer::LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
+                                std::vector<OMAP>* omap_list) {
+  DCHECK(omap_stream != NULL);
+  DCHECK(omap_list != NULL);
+
+  LONG count = 0;
+  if (FAILED(omap_stream->get_Count(&count))) {
+    LOG(ERROR) << "Failed to get stream count.";
+    return false;
+  }
+
+  omap_list->resize(count);
+
+  DWORD bytes_read = 0;
+  ULONG count_read = 0;
+  if (FAILED(omap_stream->Next(count, count * sizeof(OMAP), &bytes_read,
+                               reinterpret_cast<BYTE*>(&omap_list->at(0)),
+                               &count_read))) {
+    LOG(ERROR) << "Unable to read omap stream.";
+    return false;
+  }
+  DCHECK_EQ(count * sizeof(OMAP), bytes_read);
+  DCHECK_EQ(count, static_cast<LONG>(count_read));
 
   return true;
 }

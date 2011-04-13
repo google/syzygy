@@ -34,6 +34,7 @@ const wchar_t* kKernel32PdbFilePath =
     L"syzygy\\pdb\\test_data\\kernel32.pdb";
 
 const wchar_t* kTempPdbFileName = L"temp.pdb";
+const wchar_t* kTempPdbFileName2 = L"temp2.pdb";
 
 FilePath GetSrcRelativePath(const wchar_t* path) {
   FilePath src_dir;
@@ -49,19 +50,66 @@ class PdbUtilTest : public testing::Test {
   void SetUp() {
     ASSERT_TRUE(::SymInitialize(process_, NULL, FALSE));
 
-    ASSERT_TRUE(file_util::GetTempDir(&temp_pdb_file_path_));
-    temp_pdb_file_path_ = temp_pdb_file_path_.Append(kTempPdbFileName);
+    ASSERT_HRESULT_SUCCEEDED(::CoCreateGuid(&new_guid_));
+
+    FilePath temp_dir;
+    ASSERT_TRUE(file_util::GetTempDir(&temp_dir));
+    temp_pdb_file_path_ = temp_dir.Append(kTempPdbFileName);
+    temp_pdb_file_path2_ = temp_dir.Append(kTempPdbFileName2);
   }
 
   void TearDown() {
     ASSERT_TRUE(::SymCleanup(process_));
 
     file_util::Delete(temp_pdb_file_path_, false);
+    file_util::Delete(temp_pdb_file_path2_, false);
+  }
+
+  void VerifyOmapData(const FilePath& pdb_path,
+                      const std::vector<OMAP>& omap_to_list,
+                      const std::vector<OMAP>& omap_from_list) {
+    DWORD64 base_address =
+        ::SymLoadModuleExW(process_,
+                           NULL,
+                           pdb_path.value().c_str(),
+                           NULL,
+                           1,
+                           1,
+                           NULL,
+                           0);
+    EXPECT_NE(0, base_address);
+
+    // Get the module info to verify that the new PDB has the GUID we specified.
+    IMAGEHLP_MODULEW64 module_info = { sizeof(module_info) };
+    EXPECT_TRUE(::SymGetModuleInfoW64(process_, base_address, &module_info));
+    EXPECT_EQ(new_guid_, module_info.PdbSig70);
+
+    OMAP* omap_to = NULL;
+    DWORD64 omap_to_length = 0;
+    OMAP* omap_from = NULL;
+    DWORD64 omap_from_length = 0;
+    EXPECT_TRUE(::SymGetOmaps(process_,
+                              base_address,
+                              &omap_to,
+                              &omap_to_length,
+                              &omap_from,
+                              &omap_from_length));
+
+    ASSERT_EQ(omap_to_list.size(), omap_to_length);
+    EXPECT_EQ(0, memcmp(&omap_to_list[0], omap_to,
+                        omap_to_list.size() * sizeof(OMAP)));
+    ASSERT_EQ(omap_from_list.size(), omap_from_length);
+    EXPECT_EQ(0, memcmp(&omap_from_list[0], omap_from,
+                        omap_from_list.size() * sizeof(OMAP)));
+
+    EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
   }
 
  protected:
   HANDLE process_;
+  GUID new_guid_;
   FilePath temp_pdb_file_path_;
+  FilePath temp_pdb_file_path2_;
 };
 
 }  // namespace
@@ -158,49 +206,61 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
                                    omap_from_data + arraysize(omap_from_data));
 
   FilePath test_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
-  GUID new_guid = { 0 };
-  ASSERT_HRESULT_SUCCEEDED(::CoCreateGuid(&new_guid));
   EXPECT_TRUE(AddOmapStreamToPdbFile(test_pdb_file_path,
                                      temp_pdb_file_path_,
-                                     new_guid,
+                                     new_guid_,
                                      omap_to_list,
                                      omap_from_list));
 
-  DWORD64 module_base = 0x10000000;
-  DWORD module_size = 0x100000;
-  DWORD64 base_address =
-      ::SymLoadModuleExW(process_,
-                         NULL,
-                         temp_pdb_file_path_.value().c_str(),
-                         NULL,
-                         module_base,
-                         module_size,
-                         NULL,
-                         0);
-  EXPECT_NE(0, base_address);
+  VerifyOmapData(temp_pdb_file_path_,
+                 omap_to_list,
+                 omap_from_list);
+}
 
-  // Get the module info to verify that the new PDB has the GUID we specified.
-  IMAGEHLP_MODULEW64 module_info = { sizeof(module_info) };
-  EXPECT_TRUE(::SymGetModuleInfoW64(process_, base_address, &module_info));
-  EXPECT_EQ(new_guid, module_info.PdbSig70);
+TEST_F(PdbUtilTest, AddOmapStreamToPdbFileWithOmap) {
+  // Add Omap information to test_dll.pdb and test that the output file
+  // has Omap information.
+  OMAP omap_to_data[] = {
+    {4096, 4096},
+    {5012, 5012},
+    {6064, 6064},
+    {7048, 240504}
+  };
+  std::vector<OMAP> omap_to_list(omap_to_data,
+                                 omap_to_data + arraysize(omap_to_data));
+  OMAP omap_from_data[] = {
+    {4096, 4096},
+    {5012, 5012},
+    {240504, 7048}
+  };
+  std::vector<OMAP> omap_from_list(omap_from_data,
+                                   omap_from_data + arraysize(omap_from_data));
 
-  OMAP* omap_to = NULL;
-  DWORD64 omap_to_length = 0;
-  OMAP* omap_from = NULL;
-  DWORD64 omap_from_length = 0;
-  EXPECT_TRUE(::SymGetOmaps(process_,
-                            base_address,
-                            &omap_to,
-                            &omap_to_length,
-                            &omap_from,
-                            &omap_from_length));
+  FilePath test_pdb_file_path = GetSrcRelativePath(kTestPdbFilePath);
+  // Write Omap to and from in the opposite order to temp.pdb.
+  EXPECT_TRUE(AddOmapStreamToPdbFile(test_pdb_file_path,
+                                     temp_pdb_file_path_,
+                                     new_guid_,
+                                     omap_from_list,
+                                     omap_to_list));
+  // Overwrite the Omap info in temp.pdb with Omap from and to in the correct
+  // order and save it in temp2.pdb.
+  EXPECT_TRUE(AddOmapStreamToPdbFile(temp_pdb_file_path_,
+                                     temp_pdb_file_path2_,
+                                     new_guid_,
+                                     omap_to_list,
+                                     omap_from_list));
 
-  ASSERT_EQ(arraysize(omap_to_data), omap_to_length);
-  EXPECT_EQ(0, memcmp(omap_to_data, omap_to, sizeof(omap_to_data)));
-  ASSERT_EQ(arraysize(omap_from_data), omap_from_length);
-  EXPECT_EQ(0, memcmp(omap_from_data, omap_from, sizeof(omap_from_data)));
+  VerifyOmapData(temp_pdb_file_path2_,
+                 omap_to_list,
+                 omap_from_list);
 
-  EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
+  // Make sure temp.pdb and temp2.pdb have the same number of streams.
+  PdbReader reader;
+  std::vector<PdbStream*> streams, streams2;
+  EXPECT_TRUE(reader.Read(temp_pdb_file_path_, &streams));
+  EXPECT_TRUE(reader.Read(temp_pdb_file_path2_, &streams2));
+  EXPECT_EQ(streams.size(), streams2.size());
 }
 
 TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {

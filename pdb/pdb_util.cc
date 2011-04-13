@@ -89,8 +89,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
     LOG(ERROR) << "Failed to get Dbi dbg header stream pointer";
   }
 
-  // Create the Omap to stream, update the Dbi debug header and append the
-  // stream to the stream list.
+  // Create the Omap to stream.
   PdbByteStream omap_to_stream;
   if (!omap_to_stream.Init(
       reinterpret_cast<const uint8*>(&omap_to_list.at(0)),
@@ -98,11 +97,16 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
     LOG(ERROR) << "Failed to initialize Omap to byte stream";
     return false;
   }
-  dbi_dbg_header->omap_to_src = streams.size();
-  streams.push_back(&omap_to_stream);
+  // Add the new stream and update the Dbi debug header, or overwrite the stream
+  // it if it already exists.
+  if (dbi_dbg_header->omap_to_src == -1) {
+    dbi_dbg_header->omap_to_src = streams.size();
+    streams.push_back(&omap_to_stream);
+  } else {
+    streams[dbi_dbg_header->omap_to_src] = &omap_to_stream;
+  }
 
-  // Create the Omap from stream, update the Dbi debug header and append the
-  // stream to the stream list.
+  // Create the Omap from stream.
   PdbByteStream omap_from_stream;
   if (!omap_from_stream.Init(
       reinterpret_cast<const uint8*>(&omap_from_list.at(0)),
@@ -110,8 +114,14 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
     LOG(ERROR) << "Failed to initialize Omap to byte stream";
     return false;
   }
-  dbi_dbg_header->omap_from_src = streams.size();
-  streams.push_back(&omap_from_stream);
+  // Add the new stream and update the Dbi debug header, or overwrite the stream
+  // it if it already exists.
+  if (dbi_dbg_header->omap_from_src == -1) {
+    dbi_dbg_header->omap_from_src = streams.size();
+    streams.push_back(&omap_from_stream);
+  } else {
+    streams[dbi_dbg_header->omap_from_src] = &omap_from_stream;
+  }
 
   // Write the new Pdb file.
   PdbWriter writer;
