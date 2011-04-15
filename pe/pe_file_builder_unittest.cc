@@ -219,12 +219,11 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   PEFileBuilder builder(&decomposed_.image);
   ASSERT_NO_FATAL_FAILURE(CopyHeaderInfoFromDecomposed(&builder));
 
-  // TODO(rogerm): Add an empty section to the beginning of the image.
-  //     When we've covered all of the possible contents of an image
-  //     file, we want to ensure that everything eventually ends up being
-  //     moved.  Inserting a new section at the beginning accomplishes
-  //     this.  Currently we handle code and resources, but not other
-  //     data sections.
+  // Add an empty section to the beginning of the image to make sure
+  // everything in the image moves. This mainly tests whether the PE
+  // parsing is complete.
+  builder.AddSegment(".empty", 10 * 1024, 0,
+                     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
 
   // Copy the sections from the decomposed image to the new one, save for
   // the .relocs section. Code sections are turned into read-only data

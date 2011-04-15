@@ -44,7 +44,7 @@ class PEFileParser {
 
   struct PEHeader {
     PEHeader() {
-      memset(this, 0, sizeof(this));
+      memset(this, 0, sizeof(*this));
     }
 
     // The block that describes the DOS header, including the DOS stub.
@@ -57,42 +57,56 @@ class PEFileParser {
     BlockGraph::Block* data_directory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
   };
 
+  // Parses the image, chunks the various blocks it decomposes into and
+  // invokes the AddReferenceCallback for all references encountered.
+  bool ParseImage(PEHeader* pe_header);
+
+ protected:
   // Parses the image header, chunks the various blocks it refers and
   // invokes the AddReferenceCallback for all references encountered.
   bool ParseImageHeader(PEHeader* pe_header);
 
-  // Parses the export directory and invokes the AddReferenceCallback for all
-  // references encountered.
-  // @param export_dir_block a block referencing a valid export
-  //     directory from a PE image.
-  bool ParseExportDirectory(BlockGraph::Block* export_dir_block);
-
-  // Parses the load config and invokes AddReferenceCallback for all
-  // references encountered.
-  // @param load_config_block a block referencing a valid export
-  //     directory from a PE image.
-  bool ParseLoadConfig(BlockGraph::Block* load_config_block);
-
-  // Parses the TLS directory and invokes AddReferenceCallback for all
-  // references encountered.
-  // @param load_config_block a block referencing a valid TLS
-  //     directory from a PE image.
-  bool ParseTlsDirectory(BlockGraph::Block* tls_directory_block);
-
-  // Parses the debug directory and invokes AddReferenceCallback for the
-  // sole reference in there.
-  // @param debug_directory_block a block referencing a valid debug
-  //     directory from a PE image.
-  bool ParseDebugDirectory(BlockGraph::Block* debug_directory_block);
-
-  // Parses the resource section, walks the resource directory, and invokes
-  // AddReferenceCallback for the resource data RVAs therein.
-  // @param resource_section_block a block referencing a valid .rsrc
-  //     section from a PE image. The directory is expected to be
-  //     at offset 0.
-  bool ParseResourceDirectory(BlockGraph::Block* resource_block);
+  // These methods parse a given data directory section, chunk out the blocks
+  // and create references as they're encountered.
+  // @param dir the data directory entry.
+  // @returns the chunked block for that directory, or NULL on error.
+  // IMAGE_DIRECTORY_ENTRY_EXPORT
+  BlockGraph::Block* ParseExportDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_IMPORT
+  BlockGraph::Block* ParseImportDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_RESOURCE
+  BlockGraph::Block* ParseResourceDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_EXCEPTION
+  BlockGraph::Block* ParseExceptionDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_SECURITY
+  BlockGraph::Block* ParseSecurityDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_BASERELOC
+  BlockGraph::Block* ParseRelocDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_DEBUG
+  BlockGraph::Block* ParseDebugDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_ARCHITECTURE
+  BlockGraph::Block* ParseArchitectureDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_GLOBALPTR
+  BlockGraph::Block* ParseGlobalDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_TLS
+  BlockGraph::Block* ParseTlsDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG
+  BlockGraph::Block* ParseLoadConfigDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT
+  BlockGraph::Block* ParseBoundImportDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_IAT
+  BlockGraph::Block* ParseIatDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT
+  BlockGraph::Block* ParseDelayImportDir(const IMAGE_DATA_DIRECTORY& dir);
+  // IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR
+  BlockGraph::Block* ParseComDescriptorDir(const IMAGE_DATA_DIRECTORY& dir);
 
  private:
+  // Parses the IAT/INT starting at thunk_start.
+  bool ParseImportThunks(RelativeAddress thunk_start,
+                         bool is_iat,
+                         const char* import_name);
+
   BlockGraph::Block* AddBlock(BlockGraph::BlockType type,
                               RelativeAddress addr,
                               BlockGraph::Size size,
@@ -102,12 +116,12 @@ class PEFileParser {
                     BlockGraph::ReferenceType type,
                     BlockGraph::Size size,
                     RelativeAddress dst,
-                    const char* name = NULL);
+                    const char* name);
 
   template <typename ItemType>
   bool AddRelative(const PEFileStructPtr<ItemType>& structure,
                    const DWORD* item,
-                   const char* name = NULL);
+                   const char* name);
 
   template <typename ItemType>
   bool AddAbsolute(const PEFileStructPtr<ItemType>& structure,
@@ -119,8 +133,22 @@ class PEFileParser {
                      const DWORD* item,
                      const char* name = NULL);
 
-  bool ParseResourceDirectory(BlockGraph::Block* resource_block,
-                              size_t root_offset);
+  bool ParseResourceDirImpl(BlockGraph::Block* resource_block,
+                            size_t root_offset);
+
+  // Pointer to a data dir parser function.
+  typedef BlockGraph::Block* (PEFileParser::*ParseDirFunction)(
+      const IMAGE_DATA_DIRECTORY& dir);
+
+  struct DataDirParseEntry {
+    int entry;
+    const char* name;
+    ParseDirFunction parser;
+  };
+
+  // Array of data directory parser entries used to parse the
+  // sundry data directory entries.
+  static const DataDirParseEntry parsers_[];
 
   const PEFile& image_file_;
   BlockGraph::AddressSpace* address_space_;
