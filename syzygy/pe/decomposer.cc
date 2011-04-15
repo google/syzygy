@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 #include "syzygy/pe/decomposer.h"
 
 #include <cvconst.h>
@@ -1063,38 +1062,8 @@ bool Decomposer::CreatePEImageBlocksAndReferences(
       NewCallback(this, &Decomposer::AddReferenceCallback));
   PEFileParser parser(image_file_, image_, add_reference.get());
 
-  if (!parser.ParseImageHeader(header)) {
-    LOG(ERROR) << "Unable to parse image header";
-    return false;
-  }
-
-  if (!parser.ParseExportDirectory(
-      header->data_directory[IMAGE_DIRECTORY_ENTRY_EXPORT])) {
-    LOG(ERROR) << "Unable to parse export directory";
-    return false;
-  }
-
-  if (!parser.ParseLoadConfig(
-      header->data_directory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG])) {
-    LOG(ERROR) << "Unable to parse load config";
-    return false;
-  }
-
-  if (!parser.ParseTlsDirectory(
-      header->data_directory[IMAGE_DIRECTORY_ENTRY_TLS])) {
-    LOG(ERROR) << "Unable to parse tls directory";
-    return false;
-  }
-
-  if (!parser.ParseDebugDirectory(
-      header->data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
-    LOG(ERROR) << "Unable to parse debug directory";
-    return false;
-  }
-
-  if (!parser.ParseResourceDirectory(
-      header->data_directory[IMAGE_DIRECTORY_ENTRY_RESOURCE])) {
-    LOG(ERROR) << "Unable to parse resource directory";
+  if (!parser.ParseImage(header)) {
+    LOG(ERROR) << "Unable to parse PE image.";
     return false;
   }
 
