@@ -288,7 +288,7 @@ class BlockGraph::AddressSpace {
 
   // Finds the first block, if any that intersects
   // [@p address, @p address + @p size).
-  Block* GetFirstItersectingBlock(RelativeAddress address, Size size);
+  Block* GetFirstIntersectingBlock(RelativeAddress address, Size size);
 
   // Locates all blocks that intersect [@p address, @p address + @p size).
   // @returns a pair of iterators that iterate over the found blocks.

@@ -32,13 +32,21 @@ using base::win::ScopedComPtr;
 
 namespace {
 
-bool IsSymTag(IDiaSymbol* symbol, DWORD expected_sym_tag) {
-  DWORD sym_tag = SymTagNull;
-  HRESULT hr = symbol->get_symTag(&sym_tag);
+bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
+  DCHECK(sym_tag != NULL);
+  *sym_tag = SymTagNull;
+  HRESULT hr = symbol->get_symTag(sym_tag);
   if (FAILED(hr)) {
-    NOTREACHED() << "Error getting sym tag";
+    LOG(ERROR) << "Error getting sym tag.";
     return false;
   }
+  return true;
+}
+
+bool IsSymTag(IDiaSymbol* symbol, DWORD expected_sym_tag) {
+  DWORD sym_tag = SymTagNull;
+  if (!GetSymTag(symbol, &sym_tag))
+    return false;
 
   return sym_tag == expected_sym_tag;
 }
@@ -88,13 +96,31 @@ bool GetTypeSize(IDiaSymbol* symbol, size_t* size) {
   return true;
 }
 
+// Find the section containing our address and use it to lower bound
+// the possible end of this label.
+// TODO(chrisha): Add a 'GetSectionHeaderByAddress' function to pe::PEFile?
+const IMAGE_SECTION_HEADER* GetSectionHeaderByAddress(
+    const pe::PEFile& image_file,
+    core::RelativeAddress addr,
+    size_t size = 1) {
+  size_t num_sections = image_file.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file.section_header(i);
+    const core::RelativeAddress section_start(header->VirtualAddress);
+    const core::RelativeAddress section_end = section_start +
+                                              header->Misc.VirtualSize;
+    if (section_start <= addr && addr + size <= section_end)
+      return header;
+  }
+  return NULL;
+}
+
 }  // namespace
 
 namespace pe {
 
 using core::AbsoluteAddress;
 using core::BlockGraph;
-using core::RelativeAddress;
 
 Decomposer::Decomposer(const PEFile& image_file,
                        const FilePath& file_path)
@@ -150,18 +176,9 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
   if (success)
     success = CreateCodeBlocks(global);
 
-  // Chunk out data blocks (currently one block per data segment).
-  // This also builds a list of zero length data labels that did not map
-  // to a pre-existing block.
-  Labels data_labels;
+  // Chunk out data blocks.
   if (success)
-    success = CreateDataBlocks(global, &data_labels);
-
-  // This takes orphaned data labels and adds them to the appropriate blocks.
-  if (success)
-    success = CreateDataLabels(data_labels);
-
-  data_labels.clear();
+    success = CreateDataBlocks(global);
 
   // Create absolute references for each relocation entry.
   if (success)
@@ -200,7 +217,7 @@ bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
     // Skip non-code sections.
     if ((header->Characteristics & IMAGE_SCN_CNT_CODE) != 0) {
       if (!CreateSectionGapBlocks(header, BlockGraph::CODE_BLOCK)) {
-        LOG(ERROR) << "Failed to create gap blocks for section "
+        LOG(ERROR) << "Failed to create gap blocks for code section "
             << header->Name;
         return false;
       }
@@ -265,13 +282,13 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
       FAILED(function->get_length(&length)) ||
       FAILED(function->get_name(name.Receive())) ||
       FAILED(function->get_noReturn(&no_return))) {
-    LOG(ERROR) << "Failed to retrieve function information";
+    LOG(ERROR) << "Failed to retrieve function information.";
     return false;
   }
 
   std::string block_name;
   if (!WideToUTF8(name, name.Length(), &block_name)) {
-    LOG(ERROR) << "Failed to convert symbol name to UTF8";
+    LOG(ERROR) << "Failed to convert symbol name to UTF8.";
     return false;
   }
 
@@ -321,25 +338,25 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     ScopedBstr name;
     if (FAILED(symbol->get_relativeVirtualAddress(&rva)) ||
         FAILED(symbol->get_name(name.Receive()))) {
-      LOG(ERROR) << "Failed to retrieve function information";
+      LOG(ERROR) << "Failed to retrieve function information.";
       return false;
     }
 
     RelativeAddress addr;
     if (!image_->GetAddressOf(block, &addr)) {
-      NOTREACHED() << "Block " << block->name() << " has no address";
+      NOTREACHED() << "Block " << block->name() << " has no address.";
       return false;
     }
 
     RelativeAddress label_rva(rva);
     if (label_rva < addr && label_rva >= addr + block->size()) {
-      LOG(ERROR) << "Label outside function";
+      LOG(ERROR) << "Label outside function.";
       return false;
     }
 
     std::string label_name;
     if (!WideToUTF8(name, name.Length(), &label_name)) {
-      LOG(ERROR) << "Failed to convert label name to UTF8";
+      LOG(ERROR) << "Failed to convert label name to UTF8.";
       return false;
     }
 
@@ -450,7 +467,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       ScopedBstr name;
       if (FAILED(label->get_relativeVirtualAddress(&addr)) ||
           FAILED(label->get_name(name.Receive()))) {
-        LOG(ERROR) << "Failed to retrieve label address or name";
+        LOG(ERROR) << "Failed to retrieve label address or name.";
         return false;
       }
 
@@ -463,13 +480,13 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
 
       std::string label_name;
       if (!WideToUTF8(name, name.Length(), &label_name)) {
-        LOG(ERROR) << "Failed to convert label name to UTF8";
+        LOG(ERROR) << "Failed to convert label name to UTF8.";
         return false;
       }
 
       RelativeAddress block_addr;
       if (!image_->GetAddressOf(block, &block_addr)) {
-        NOTREACHED() << "Block " << block->name() << " has no address";
+        NOTREACHED() << "Block " << block->name() << " has no address.";
         return false;
       }
 
@@ -561,154 +578,6 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   return true;
 }
 
-bool Decomposer::CreateDataBlocks(IDiaSymbol* global, Labels* labels) {
-  ScopedComPtr<IDiaEnumSymbols> enum_data;
-  HRESULT hr = global->findChildren(SymTagData,
-                                    NULL,
-                                    nsNone,
-                                    enum_data.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get the DIA data enumerator: " << hr;
-    return false;
-  }
-
-  while (true) {
-    ScopedComPtr<IDiaSymbol> data;
-    ULONG fetched = 0;
-    hr = enum_data->Next(1, data.Receive(), &fetched);
-    if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate data: " << hr;
-      return false;
-    }
-    if (hr != S_OK || fetched == 0)
-      break;
-
-    DCHECK(IsSymTag(data, SymTagData));
-
-    // Create the block representing the datum.
-    if (!CreateDataBlock(data, labels))
-      return false;
-  }
-
-  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
-  // Iterate through all the image sections.
-  for (size_t i = 0; i < num_sections; ++i) {
-    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
-    DCHECK(header != NULL);
-
-    // And create a block for any gaps in data sections.
-    const DWORD kDataCharacteristics =
-        IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
-    if (header->Characteristics & kDataCharacteristics) {
-      if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
-        LOG(ERROR) << "Unable to create gap blocks for data segment "
-              << header->Name;
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-bool Decomposer::CreateDataLabels(const Labels& labels) {
-  for (size_t i = 0; i < labels.size(); ++i) {
-    BlockGraph::Block* block = image_->GetBlockByAddress(labels[i].first);
-    if (block != NULL) {
-      if (block->type() == BlockGraph::CODE_BLOCK) {
-        LOG(ERROR) << "Encountered a zero-length data label in a code block.";
-        return false;
-      }
-      BlockGraph::Offset offset = labels[i].first - block->addr();
-      block->SetLabel(offset, labels[i].second.c_str());
-    }
-  }
-  return true;
-}
-
-bool Decomposer::CreateDataBlock(IDiaSymbol* data, Labels* labels) {
-  DCHECK(IsSymTag(data, SymTagData));
-
-  DWORD location_type = LocIsNull;
-  if (FAILED(data->get_locationType(&location_type))) {
-    LOG(ERROR) << "Failed to retrieve data address type.";
-    return false;
-  }
-  if (location_type != LocIsStatic) {
-    DCHECK(location_type == LocIsNull || location_type == LocIsConstant);
-    return true;
-  }
-
-  DWORD rva = 0;
-  ScopedBstr name;
-  if (FAILED(data->get_relativeVirtualAddress(&rva)) ||
-      FAILED(data->get_name(name.Receive()))) {
-    LOG(ERROR) << "Failed to retrieve data information";
-    return false;
-  }
-
-  std::string data_name;
-  if (!WideToUTF8(name, name.Length(), &data_name)) {
-    LOG(ERROR) << "Failed to convert label name to UTF8";
-    return false;
-  }
-
-  size_t length;
-  if (!GetTypeSize(data, &length))
-    return false;
-
-  // We treat zero length data blocks as labels, and store them in an
-  // intermediate data-structure. This is necessary because the block they
-  // will eventually refer to may not yet exist.
-  RelativeAddress addr(rva);
-  if (length == 0) {
-    labels->push_back(std::make_pair(addr, data_name));
-    return true;
-  }
-
-  BlockGraph::Block* block = image_->GetBlockByAddress(addr);
-  BlockGraph::Block* block_end = image_->GetBlockByAddress(addr + length - 1);
-  if (block != block_end) {
-    // TODO(chrisha): This was occurring for the
-    //     IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG block that is created by the PE
-    //     Parser. As it turns out, DIA reports the correct length for this
-    //     block which for some reason the headers indicate as 8 bytes short.
-    //     This has been addressed in PEFileParser::ParseImageHeader.
-    //     If this occurs again, something else must be going on!
-    LOG(ERROR) << "A DIA data symbol runs off the end of an existing block.";
-    return false;
-  }
-
-  if (block == NULL) {
-    block = CreateBlock(BlockGraph::DATA_BLOCK, addr,
-        static_cast<BlockGraph::Size>(length), data_name.c_str());
-  } else {
-    switch (block->type()) {
-      case BlockGraph::CODE_BLOCK:
-        // TODO(chrisha): Mark part of the function as inline data.
-        break;
-
-      // Add a label to the block.
-      case BlockGraph::DATA_BLOCK:
-      case BlockGraph::READONLY_BLOCK: {
-        BlockGraph::Offset offset = addr - block->addr();
-        if (!block->HasLabel(offset))
-          block->SetLabel(offset, data_name.c_str());
-        break;
-      }
-
-      default:
-        NOTREACHED() << "Invalid block type: " << block->type();
-        break;
-    }
-  }
-
-  if (block == NULL)
-    return false;
-
-  return true;
-}
-
 bool Decomposer::AddReference(RelativeAddress src_addr,
                               BlockGraph::ReferenceType type,
                               BlockGraph::Size size,
@@ -733,13 +602,13 @@ void Decomposer::AddReferenceCallback(RelativeAddress src_addr,
 bool Decomposer::CreateRelocationReferences() {
   PEFile::RelocSet reloc_set;
   if (!image_file_.DecodeRelocs(&reloc_set)) {
-    LOG(ERROR) << "Unable to decode image relocs";
+    LOG(ERROR) << "Unable to decode image relocs.";
     return false;
   }
 
   PEFile::RelocMap reloc_map;
   if (!image_file_.ReadRelocs(reloc_set, &reloc_map)) {
-    LOG(ERROR) << "Unable to read image relocs";
+    LOG(ERROR) << "Unable to read image relocs.";
     return false;
   }
 
@@ -749,12 +618,350 @@ bool Decomposer::CreateRelocationReferences() {
     RelativeAddress src(it->first);
     RelativeAddress dst;
     if (!image_file_.Translate(it->second, &dst)) {
-      LOG(ERROR) << "Unable to translate relocation destination";
+      LOG(ERROR) << "Unable to translate relocation destination.";
       return false;
     }
 
     AddReference(src, BlockGraph::ABSOLUTE_REF, sizeof(dst), dst, "");
   }
+
+  return true;
+}
+
+bool Decomposer::ProcessDataSymbols(IDiaSymbol* global,
+                                    DataLabels* data_labels) {
+  ScopedComPtr<IDiaEnumSymbols> enum_data;
+  HRESULT hr = global->findChildren(SymTagData,
+                                    NULL,
+                                    nsNone,
+                                    enum_data.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to get the DIA data enumerator: " << hr;
+    return false;
+  }
+
+  while (true) {
+    ScopedComPtr<IDiaSymbol> data;
+    ULONG fetched = 0;
+    hr = enum_data->Next(1, data.Receive(), &fetched);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to enumerate data: " << hr;
+      return false;
+    }
+    if (hr != S_OK || fetched == 0)
+      break;
+
+    DCHECK(IsSymTag(data, SymTagData));
+
+    if (!ProcessDataSymbol(data, data_labels))
+      return false;
+  }
+
+  ScopedComPtr<IDiaEnumSymbols> enum_public_symbols;
+  hr = global->findChildren(SymTagPublicSymbol,
+                            NULL,
+                            nsNone,
+                            enum_public_symbols.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to get the DIA public symbols enumerator: " << hr;
+    return false;
+  }
+
+  while (true) {
+    ScopedComPtr<IDiaSymbol> public_symbol;
+    ULONG fetched = 0;
+    hr = enum_public_symbols->Next(1, public_symbol.Receive(), &fetched);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to enumerate public symbols: " << hr;
+      return false;
+    }
+    if (hr != S_OK || fetched == 0)
+      break;
+
+    DCHECK(IsSymTag(public_symbol, SymTagPublicSymbol));
+
+    if (!ProcessDataSymbol(public_symbol, data_labels))
+      return false;
+  }
+
+  return true;
+}
+
+bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
+  DWORD sym_tag = SymTagNull;
+  if (!GetSymTag(data, &sym_tag))
+    return false;
+  DCHECK(sym_tag == SymTagData || sym_tag == SymTagPublicSymbol);
+
+  // We can safely skip PublicSymbols for code blocks.
+  if (sym_tag == SymTagPublicSymbol) {
+    BOOL code = false;
+    if (FAILED(data->get_code(&code))) {
+      LOG(ERROR) << "Failed to retrieve code flag.";
+      return false;
+    }
+    if (code)
+      return true;
+  }
+
+  DWORD location_type = LocIsNull;
+  if (FAILED(data->get_locationType(&location_type))) {
+    LOG(ERROR) << "Failed to retrieve data address type.";
+    return false;
+  }
+  if (location_type != LocIsStatic) {
+    DCHECK(location_type == LocIsNull || location_type == LocIsConstant);
+    return true;
+  }
+
+  DWORD rva = 0;
+  ScopedBstr name;
+  if (FAILED(data->get_relativeVirtualAddress(&rva)) ||
+      FAILED(data->get_name(name.Receive()))) {
+    LOG(ERROR) << "Failed to retrieve data information.";
+    return false;
+  }
+
+  std::string data_name;
+  if (!WideToUTF8(name, name.Length(), &data_name)) {
+    LOG(ERROR) << "Failed to convert label name to UTF8.";
+    return false;
+  }
+
+  // PublicSymbols contain meaningless length information so we store them
+  // as labels and deal with them later.
+  RelativeAddress addr(rva);
+  if (sym_tag == SymTagPublicSymbol) {
+    data_labels->insert(std::make_pair(addr, data_name));
+    return true;
+  }
+
+  size_t length = 0;
+  if (!GetTypeSize(data, &length))
+    return false;
+
+  // Zero length Data symbols act as 'forward declares' in some sense. They
+  // appear to always be followed by a non-zero length Data symbol with the
+  // same name and location.
+  if (length == 0)
+    return true;
+
+  // If this fails, we have had overlapping data blocks reported to us.
+  if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_name)) {
+    LOG(ERROR) << "Data-space insertion failed.";
+    return false;
+  }
+
+  return true;
+}
+
+bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
+  // Extend any data labels at previously unseen locations until the next known
+  // end of section, data range, data label or code block.
+  DataLabels::const_iterator it = data_labels.begin();
+  for (; it != data_labels.end(); ++it) {
+    // Skip labels that lie within data ranges we already know about.
+    if (data_space_.Contains(it->first))
+      continue;
+
+    // Skip labels that lie within any blocks we already know about.
+    const BlockGraph::Block* block = image_->GetBlockByAddress(it->first);
+    if (block != NULL)
+      continue;
+
+    // TODO(chrisha): Does it only make sense to process labels that lie
+    //     within a data section?
+    const IMAGE_SECTION_HEADER* header =
+        GetSectionHeaderByAddress(image_file_, it->first);
+    // Skip labels that lie outside of known sections.
+    if (header == NULL) {
+      LOG(ERROR) << "Data label lies outside of known sections.";
+      return false;
+    }
+    RelativeAddress end(header->VirtualAddress + header->Misc.VirtualSize);
+
+    // Find the next known data label and use it to lower bound the end of this
+    // label.
+    DataLabels::const_iterator next_it = it;
+    ++next_it;
+    if (next_it != data_labels.end()) {
+      if (next_it->first < end)
+        end = next_it->first;
+    }
+
+    // Find the next known code block and use it to lower bound the end of this
+    // label.
+    // TODO(chrisha): Is this necessary? No code blocks should lie within
+    //     data sections, and data labels should only lie within data sections.
+    //     Maybe keep this as a sanity check and fire an error if we do find
+    //     an intersecting block?
+    block = image_->GetFirstIntersectingBlock(it->first, end - it->first);
+    if (block != NULL && block->addr() < end)
+      end = block->addr();
+
+    // See if there's an intersection of the extended label and the data
+    // space. If so, truncate the label at the next data-space range.
+    DataSpace::Range range(it->first, end - it->first);
+    DataSpace::RangeMapConstIter data_it =
+        data_space_.FindFirstIntersection(range);
+    if (data_it != data_space_.end()) {
+      end = data_it->first.start();
+      range = DataSpace::Range(it->first, end - it->first);
+    }
+
+    // This should never fail as we've taken care to make sure we don't
+    // intersect with anything.
+    bool inserted = data_space_.Insert(range, it->second);
+    DCHECK(inserted) << "data_space_.Insert should never fail here.";
+  }
+
+  return true;
+}
+
+bool Decomposer::ExtendFunctionDataUsingRelocs() {
+  PEFile::RelocSet reloc_set;
+  if (!image_file_.DecodeRelocs(&reloc_set)) {
+    LOG(ERROR) << "Unable to decode image relocs.";
+    return false;
+  }
+
+  // Extend any data-within-code-blocks that consist of runs of relocs. We
+  // do this because we occasionally (in hand-crafted assembly) see DD lookup
+  // table symbols that are reported as being 1 DWORD in length, rather than
+  // reporting their true length.
+  DataSpace::RangeMapIter data_it = data_space_.begin();
+  for (; data_it != data_space_.end(); ++data_it) {
+    // We only extend data elements that lie within a code block.
+    RelativeAddress addr = data_it->first.start();
+    const BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
+    if (block == NULL || block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    // Get an upper bound on the length we're willing to expand this
+    // data to. We'll stop at the next known data symbol, or the end of the
+    // code block.
+    RelativeAddress end = block->addr() + block->size();
+    DataSpace::RangeMapIter next_data_it = data_it;
+    ++next_data_it;
+    if (next_data_it != data_space_.end() && end > next_data_it->first.start())
+      end = next_data_it->first.start();
+
+    // Find the length of the run of relocs starting at this address,
+    // stopping ourselves at the upperbound we determined earlier.
+    size_t count = 0;
+    while (true) {
+      // TODO(chrisha): This could be done more efficiently, without a lookup
+      //     at every iteration. I doubt we care though.
+      PEFile::RelocSet::const_iterator reloc_it = reloc_set.find(addr);
+      if (reloc_it == reloc_set.end() || addr + 4 > end)
+        break;
+      ++count;
+      addr += 4;
+    }
+
+    // Is the run of relocs longer than the current data length? If so,
+    // extend the data range.
+    if (count * 4 > data_it->first.size()) {
+      // TODO(chrisha): Maybe add a 'Grow' function to AddressSpace?
+      DataSpace::Range range(data_it->first.start(), count * 4);
+      std::string name(data_it->second);
+      // This should never fail because of our earlier calculations of 'end'.
+      DCHECK(data_space_.SubsumeInsert(range, name, &data_it));
+    }
+  }
+
+  return true;
+}
+
+bool Decomposer::CreateDataBlocksFromDataSpace() {
+  // Iterate through all data ranges.
+  DataSpace::RangeMapIter data_next_it = data_space_.begin();
+  DataSpace::RangeMapIter data_it = data_next_it;
+  while (data_next_it != data_space_.end()) {
+    data_it = data_next_it;
+    ++data_next_it;
+
+    // We do not process any data ranges that lie within any existing blocks.
+    // If they lie within a code block, we keep them in the data-space to guide
+    // the disassembly, otherwise we simply delete them as there's already a
+    // DATA or READONLY block containing them (this happens for header
+    // information).
+    const BlockGraph::Block* old_block = image_->GetContainingBlock(
+        data_it->first.start(), data_it->first.size());
+    if (old_block != NULL) {
+      if (old_block->type() != BlockGraph::CODE_BLOCK)
+        data_space_.Remove(data_it);
+      continue;
+    }
+
+    // Create the data block.
+    BlockGraph::Block* block = CreateBlock(BlockGraph::DATA_BLOCK,
+                                           data_it->first.start(),
+                                           data_it->first.size(),
+                                           data_it->second.c_str());
+    if (block == NULL) {
+      // If we get here, it's because no block exists that contains
+      // us, but a block exists that intersects with us.
+      LOG(ERROR) << "Unable to create data-block.";
+      return false;
+    }
+
+    // Remove it from the data space, leaving behind only those data
+    // ranges that lie within existing blocks.
+    data_space_.Remove(data_it);
+  }
+
+  return true;
+}
+
+bool Decomposer::CreateDataGapBlocks() {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  // Iterate through all the image sections.
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
+    DCHECK(header != NULL);
+
+    // And create a block for any gaps in data sections.
+    const DWORD kDataCharacteristics =
+        IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
+    if (header->Characteristics & kDataCharacteristics) {
+      if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
+        LOG(ERROR) << "Unable to create gap blocks for data section "
+            << header->Name;
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
+  // Process data symbols and public symbols.
+  DataLabels data_labels;
+  if (!ProcessDataSymbols(global, &data_labels))
+    return false;
+
+  // Some data (that indicated by public symbols) has uncertain length. We
+  // extend the length of these data blocks to the next known label/block in
+  // order not to subdivide data elements.
+  if (!ExtendDataLabels(data_labels))
+    return false;
+
+  // Now that we have data sets and relocation entries, we can extend some
+  // data blocks. Doing this is necessary because some in-function jump tables
+  // are reported with too-short lengths (only seen for hand-written assembly
+  // thus far).
+  if (!ExtendFunctionDataUsingRelocs())
+    return false;
+
+  // Use data_space_ to create data blocks.
+  if (!CreateDataBlocksFromDataSpace())
+    return false;
+
+  // Flesh out the data sections with gap blocks.
+  if (!CreateDataGapBlocks())
+    return false;
 
   return true;
 }
@@ -840,7 +1047,7 @@ bool Decomposer::CreateCodeReferencesForBlock(
 
   RelativeAddress block_addr;
   if (!image_->GetAddressOf(block, &block_addr)) {
-    LOG(ERROR) << "Block " << block->name() << " has no address";
+    LOG(ERROR) << "Block " << block->name() << " has no address.";
     return false;
   }
 
@@ -892,7 +1099,7 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
   BlockGraph::Block* block = image_->AddBlock(type, address, size, name);
   if (block == NULL) {
     LOG(ERROR) << "Unable to add block at " << address.value()
-        << "(" << size << ")";
+        << "(" << size << ").";
     return NULL;
   }
 
@@ -934,6 +1141,26 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
 void Decomposer::OnInstruction(const Disassembler& walker,
                                const _DInst& instruction,
                                Disassembler::CallbackDirective* directive) {
+  DCHECK(directive != NULL);
+
+  AbsoluteAddress instr_abs(static_cast<uint32>(instruction.addr));
+  RelativeAddress instr_rel;
+  if (!image_file_.Translate(instr_abs, &instr_rel)) {
+    LOG(ERROR) << "Unable to translate instruction address.";
+    *directive = Disassembler::kDirectiveAbort;
+    return;
+  }
+
+  // If this instruction runs over data, terminate the path. Since this should
+  // never really happen, we bail when we see this.
+  DataSpace::Range range(instr_rel, instruction.size);
+  DataSpace::RangeMapConstIterPair its = data_space_.FindIntersecting(range);
+  if (its.first != its.second) {
+    LOG(ERROR) << "Trying to disassemble into known data.";
+    *directive = Disassembler::kDirectiveAbort;
+    return;
+  }
+
   int fc = META_GET_FC(instruction.meta);
   // For all branches, calls and conditional branches to PC-relative
   // addresses, record a PC-relative reference.
@@ -952,16 +1179,14 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     // Get the reference's address. Note we assume it's in the instruction's
     // tail end - I don't know of a case where a PC-relative offset in a branch
     // or call is not the very last thing in an x86 instruction.
-    AbsoluteAddress abs_src(
-        static_cast<size_t>(instruction.addr) + instruction.size - size);
-    AbsoluteAddress abs_dst(
-        static_cast<size_t>(instruction.addr) + instruction.size +
-            static_cast<size_t>(instruction.imm.addr));
+    AbsoluteAddress abs_src = instr_abs + instruction.size - size;
+    AbsoluteAddress abs_dst = instr_abs + instruction.size +
+        static_cast<size_t>(instruction.imm.addr);
 
     RelativeAddress src, dst;
     if (!image_file_.Translate(abs_src, &src) ||
         !image_file_.Translate(abs_dst, &dst)) {
-      LOG(ERROR) << "Unable to translate absolute to relative addresses";
+      LOG(ERROR) << "Unable to translate absolute to relative addresses.";
       *directive = Disassembler::kDirectiveTerminateWalk;
       return;
     }
@@ -979,7 +1204,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       //    of the function. This may not be necessary, but better safe than
       //    sorry for now.
       if (block->addr() != dst) {
-        LOG(ERROR) << "Calling inside the body of non-returning function "
+        LOG(ERROR) << "Calling inside the body of a non-returning function: "
             << block->name();
         *directive = Disassembler::kDirectiveTerminateWalk;
         return;
@@ -1022,21 +1247,12 @@ void Decomposer::OnInstruction(const Disassembler& walker,
   // the two for merging. AFAICT, this again only occurs in hand-crafted
   // assembly in the CRT.
   if (fc != FC_RET && fc != FC_BRANCH && fc != FC_INT) {
-    AbsoluteAddress instruction_start_abs(
-        static_cast<size_t>(instruction.addr));
-    RelativeAddress instruction_start;
-    if (!image_file_.Translate(instruction_start_abs, &instruction_start)) {
-      LOG(ERROR) << "Unable to translate absolute to relative addresses";
-      *directive = Disassembler::kDirectiveTerminateWalk;
-      return;
-    }
-
-    RelativeAddress instruction_end(instruction_start + instruction.size);
+    RelativeAddress instr_end(instr_rel + instruction.size);
     RelativeAddress block_end(current_block_->addr() + current_block_->size());
-    if  (instruction_end == block_end) {
+    if  (instr_end == block_end) {
       // Find the following block.
       BlockGraph::Block* next_block =
-          image_->GetFirstItersectingBlock(block_end, 1);
+          image_->GetFirstIntersectingBlock(block_end, 1);
       DCHECK(next_block != NULL);
 
       // And schedule the two for merging.
@@ -1090,7 +1306,7 @@ bool Decomposer::FinalizeIntermediateReferences() {
     RelativeAddress dst_start;
     if (!image_->GetAddressOf(src, &src_start) ||
         !image_->GetAddressOf(dst, &dst_start)) {
-      LOG(ERROR) << "No address for src or dst block";
+      LOG(ERROR) << "No address for src or dst block.";
       return false;
     }
 

@@ -20,6 +20,7 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 #include "distorm.h"  // NOLINT
 
 namespace core {
@@ -27,6 +28,7 @@ namespace core {
 class Disassembler {
  public:
   typedef std::set<AbsoluteAddress> AddressSet;
+  typedef core::AddressSpace<AbsoluteAddress, size_t, uint8> VisitedSpace;
 
   enum CallbackDirective {
     // Indicates that the disassembler should continue
@@ -37,7 +39,10 @@ class Disassembler {
     kDirectiveTerminatePath,
 
     // Indicates that the disassembler should halt all disassembly
-    kDirectiveTerminateWalk
+    kDirectiveTerminateWalk,
+
+    // Indicate that the disassembler should terminate with an error.
+    kDirectiveAbort
   };
 
   // The instruction callback is invoked for each instruction the disassembler
@@ -51,7 +56,8 @@ class Disassembler {
 
   enum WalkResult {
     // Error during walk - e.g. function is not in our PEImageFile
-    // or the segment is not code.
+    // or the segment is not code, or the OnInstruction callback indicated an
+    // error status.
     kWalkError,
 
     // Walk was successful and complete.
@@ -87,8 +93,7 @@ class Disassembler {
 
   // Accessors.
   const AddressSet& unvisited() const { return unvisited_; }
-  const AddressSet& visited() const { return visited_; }
-  const AddressSet& data_locations() const { return data_locations_; }
+  const VisitedSpace& visited() const { return visited_; }
   size_t disassembled_bytes() const { return disassembled_bytes_; }
 
  private:
@@ -108,19 +113,8 @@ class Disassembler {
   // This is seeded by the code entry point(s), and will also contain
   // branch targets during disassembly.
   AddressSet unvisited_;
-  // Each instruction location we've visited during walk.
-  AddressSet visited_;
-
-  // Contains the locations of data within the function. We can identify
-  // portions of a function as data when e.g. the function contains a
-  // switch statement implemented as a jump table. Each time we encounter
-  // a loads or computed branches that refer to an absolute location within
-  // the function, we assume that location is data, and take care to avoid
-  // disassembling the data.
-  // There seem to be cases where we would otherwise chase control flow into
-  // data, such as e.g. when the compiler generates a call to a non-returning
-  // function as last instruction in the function prior to a jump table.
-  AddressSet data_locations_;
+  // Each visited instruction is stored as a range in this space.
+  VisitedSpace visited_;
 
   // Number of bytes disassembled to this point during walk.
   size_t disassembled_bytes_;

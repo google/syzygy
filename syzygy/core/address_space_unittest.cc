@@ -87,6 +87,42 @@ TEST(AddressSpaceTest, Insert) {
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(105, 5), item));
 }
 
+TEST(AddressSpaceTest, SubsumeInsert) {
+  IntegerAddressSpace address_space;
+  typedef IntegerAddressSpace::Range Range;
+  void* item = "Something to point at";
+
+  // Non-overlapping insertions should work.
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(100, 10), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(110, 5), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(120, 10), item));
+  EXPECT_TRUE(address_space.ranges().size() == 3);
+
+  // Insertion of sub-ranges of existing ranges should work, but not
+  // actually create anything new.
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(100, 5), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(111, 2), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(127, 2), item));
+  EXPECT_TRUE(address_space.ranges().size() == 3);
+
+  // Reinsertions should work, but not actually create anything new.
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(100, 10), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(110, 5), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(120, 10), item));
+  EXPECT_TRUE(address_space.ranges().size() == 3);
+
+  // Overlapping (but not containing) intersections should be rejected.
+  EXPECT_FALSE(address_space.SubsumeInsert(Range(95, 10), item));
+  EXPECT_FALSE(address_space.SubsumeInsert(Range(100, 11), item));
+  EXPECT_FALSE(address_space.SubsumeInsert(Range(125, 6), item));
+  EXPECT_TRUE(address_space.ranges().size() == 3);
+
+  // Insertions of ranges that contain all intersecting existing ranges
+  // should replace those ranges.
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(95, 40), item));
+  EXPECT_TRUE(address_space.ranges().size() == 1);
+}
+
 TEST(AddressSpaceTest, Remove) {
   IntegerAddressSpace address_space;
   void* item = "Something to point at";
@@ -108,6 +144,94 @@ TEST(AddressSpaceTest, Remove) {
   // Items should have been removed.
   ASSERT_FALSE(address_space.Remove(IntegerAddressSpace::Range(100, 10)));
   ASSERT_FALSE(address_space.Remove(IntegerAddressSpace::Range(110, 5)));
+}
+
+TEST(AddressSpaceTest, RemoveByIter) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  // Insert some items.
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  // Removal by single iterator should succeed.
+  address_space.Remove(address_space.begin());
+  EXPECT_TRUE(address_space.ranges().size() == 2);
+
+  // Removal by pair of iterators should succeed.
+  address_space.Remove(address_space.begin(), address_space.end());
+  EXPECT_TRUE(address_space.ranges().empty());
+}
+
+TEST(AddressSpaceTest, Intersects) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  // Insert some items.
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  // Valid intersections should return true.
+  ASSERT_TRUE(address_space.Intersects(95, 10));
+  ASSERT_TRUE(address_space.Intersects(95, 50));
+
+  // Empty intersections should fail.
+  ASSERT_FALSE(address_space.Intersects(95, 5));
+  ASSERT_FALSE(address_space.Intersects(115, 5));
+}
+
+TEST(AddressSpaceTest, ContainsExactly) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  // Insert some items.
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  // Exact containment should return true.
+  ASSERT_TRUE(address_space.ContainsExactly(100, 10));
+  ASSERT_TRUE(address_space.ContainsExactly(110, 5));
+  ASSERT_TRUE(address_space.ContainsExactly(120, 10));
+
+  // Proper containment should fail (in both directions).
+  ASSERT_FALSE(address_space.ContainsExactly(101, 8));
+  ASSERT_FALSE(address_space.ContainsExactly(110, 4));
+  ASSERT_FALSE(address_space.ContainsExactly(110, 6));
+  ASSERT_FALSE(address_space.ContainsExactly(122, 8));
+
+  // Intersections should fail.
+  ASSERT_FALSE(address_space.ContainsExactly(95, 10));
+  ASSERT_FALSE(address_space.ContainsExactly(125, 10));
+}
+
+TEST(AddressSpaceTest, Contains) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  // Insert some items.
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+
+  // Exact containment should return true.
+  ASSERT_TRUE(address_space.Contains(100, 10));
+  ASSERT_TRUE(address_space.Contains(110, 5));
+  ASSERT_TRUE(address_space.Contains(120, 10));
+
+  // Proper sub-ranges of existing ranges should return true.
+  ASSERT_TRUE(address_space.Contains(101, 8));
+  ASSERT_TRUE(address_space.Contains(110, 4));
+  ASSERT_TRUE(address_space.Contains(122, 8));
+
+  // Ranges that properly contain existing ranges should fail.
+  ASSERT_FALSE(address_space.Contains(110, 6));
+
+  // Intersections should fail.
+  ASSERT_FALSE(address_space.Contains(95, 10));
+  ASSERT_FALSE(address_space.Contains(125, 10));
 }
 
 TEST(AddressSpaceTest, FindFirstIntersection) {
@@ -191,6 +315,11 @@ TEST(AddressSpaceTest, FindIntersecting) {
       address_space.FindIntersecting(IntegerAddressSpace::Range(0, 130));
   EXPECT_TRUE(it_pair.first == address_space.ranges().begin());
   EXPECT_TRUE(it_pair.second == address_space.ranges().end());
+
+  it_pair =
+      address_space.FindIntersecting(IntegerAddressSpace::Range(115, 5));
+  EXPECT_TRUE(it_pair.first == it_pair.second);
+  EXPECT_TRUE(it_pair.second != address_space.end());
 
   it_pair = address_space.FindIntersecting(IntegerAddressSpace::Range(100, 15));
   ASSERT_TRUE(it_pair.first != address_space.ranges().end());

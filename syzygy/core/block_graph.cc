@@ -91,7 +91,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::GetContainingBlock(
   return it->second;
 }
 
-BlockGraph::Block* BlockGraph::AddressSpace::GetFirstItersectingBlock(
+BlockGraph::Block* BlockGraph::AddressSpace::GetFirstIntersectingBlock(
     RelativeAddress addr, Size size) {
   AddressSpaceImpl::Range range(addr, size);
   AddressSpaceImpl::RangeMap::iterator it =
