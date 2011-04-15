@@ -295,7 +295,7 @@ TEST(BlockGraphAddressSpaceTest, GetBlockByAddress) {
   EXPECT_EQ(NULL, address_space.GetBlockByAddress(RelativeAddress(0x1040)));
 }
 
-TEST(BlockGraphAddressSpaceTest, GetFirstItersectingBlock) {
+TEST(BlockGraphAddressSpaceTest, GetFirstIntersectingBlock) {
   BlockGraph image;
   BlockGraph::AddressSpace address_space(&image);
 
@@ -313,16 +313,16 @@ TEST(BlockGraphAddressSpaceTest, GetFirstItersectingBlock) {
                                                      "code");
 
   EXPECT_EQ(NULL,
-      address_space.GetFirstItersectingBlock(RelativeAddress(0xFFF), 0x1));
+      address_space.GetFirstIntersectingBlock(RelativeAddress(0xFFF), 0x1));
   EXPECT_EQ(block1,
-      address_space.GetFirstItersectingBlock(RelativeAddress(0xFFF), 0x2));
+      address_space.GetFirstIntersectingBlock(RelativeAddress(0xFFF), 0x2));
   EXPECT_EQ(block1,
-      address_space.GetFirstItersectingBlock(RelativeAddress(0x100F), 0x1));
+      address_space.GetFirstIntersectingBlock(RelativeAddress(0x100F), 0x1));
   EXPECT_EQ(block1,
-      address_space.GetFirstItersectingBlock(RelativeAddress(0x100F), 0x2));
+      address_space.GetFirstIntersectingBlock(RelativeAddress(0x100F), 0x2));
 
   EXPECT_EQ(block2,
-      address_space.GetFirstItersectingBlock(RelativeAddress(0x1010), 0x40));
+      address_space.GetFirstIntersectingBlock(RelativeAddress(0x1010), 0x40));
 }
 
 TEST(BlockGraphAddressSpaceTest, GetBlockAddress) {

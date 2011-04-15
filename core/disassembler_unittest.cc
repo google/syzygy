@@ -181,33 +181,6 @@ TEST_F(DisassemblerTest, EncounterFunctions) {
   EXPECT_THAT(functions_, testing::ContainerEq(expected));
 }
 
-TEST_F(DisassemblerTest, IdentifiesData) {
-  Disassembler disasm(
-      PointerTo(&assembly_switch),
-      PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
-      AddressOf(&assembly_switch), on_instruction_.get());
-
-  // Mark the entry and the cases we jump to as
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_switch)));
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_0)));
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_1)));
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
-
-  // We expect to hit all the instructions in the function
-  // "assembly_switch" from disassembler_test_code.asm.
-  EXPECT_CALL(*this, OnInstruction(_, _, _))
-      .Times(9);
-
-  // We expect an incomplete walk from this.
-  ASSERT_EQ(Disassembler::kWalkIncomplete, disasm.Walk());
-
-  std::set<AbsoluteAddress> expected;
-  expected.insert(AddressOf(&jump_table));
-  expected.insert(AddressOf(&lookup_table));
-
-  EXPECT_THAT(disasm.data_locations(), testing::ContainerEq(expected));
-}
-
 TEST_F(DisassemblerTest, RunOverDataWhenNoTerminatePathGiven) {
   Disassembler disasm(
       PointerTo(&assembly_switch),
@@ -229,10 +202,11 @@ TEST_F(DisassemblerTest, RunOverDataWhenNoTerminatePathGiven) {
   ASSERT_EQ(Disassembler::kWalkTerminated, disasm.Walk());
 
   // We expect there to be 3 visited instructions
-  ASSERT_EQ(3, disasm.visited().size());
+  ASSERT_EQ(3, disasm.visited().ranges().size());
 
   // We expect the disassembly to have walked past the start of the data
-  ASSERT_TRUE(*disasm.visited().rbegin() >= AddressOf(&jump_table));
+  ASSERT_TRUE(disasm.visited().ranges().rbegin()->first.Intersects(
+      AddressOf(&jump_table)));
 }
 
 TEST_F(DisassemblerTest, StopsAtTerminateNoReturnFunctionCall) {

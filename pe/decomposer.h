@@ -51,6 +51,8 @@ class Decomposer {
   bool Decompose(DecomposedImage* image);
 
  protected:
+  typedef std::map<RelativeAddress, std::string> DataLabels;
+
   // Create blocks for all code.
   bool CreateCodeBlocks(IDiaSymbol* globals);
   // Create blocks for all functions in @p globals.
@@ -72,13 +74,21 @@ class Decomposer {
   bool CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                               BlockGraph::BlockType block_type);
 
-  // Create blocks for all data segments.
-  typedef std::vector<std::pair<RelativeAddress, std::string> > Labels;
-  bool CreateDataBlocks(IDiaSymbol* globals, Labels* labels);
-  bool CreateDataBlock(IDiaSymbol* data, Labels* labels);
-
-  // Creates data labels out of the zero-length data blocks gleaned from DIA.
-  bool CreateDataLabels(const Labels& labels);
+  // Processes data symbols.
+  bool ProcessDataSymbols(IDiaSymbol* global, DataLabels* data_labels);
+  bool ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels);
+  // Extends data labels to the next known label or block. This is a
+  // pessimistic do-no-harm metric that ensures data with uncertain length
+  // does not get subdivided.
+  bool ExtendDataLabels(const DataLabels& data_labels);
+  // Extends data-in-function blocks using relocs.
+  bool ExtendFunctionDataUsingRelocs();
+  // Creates data blocks from data space.
+  bool CreateDataBlocksFromDataSpace();
+  // Creates data gap blocks.
+  bool CreateDataGapBlocks();
+  // Creates data blocks.
+  bool CreateDataBlocks(IDiaSymbol* global);
 
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();
@@ -177,6 +187,7 @@ class Decomposer {
   // Disassembly state.
   typedef std::set<BlockGraph::Block*> BlockSet;
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
+  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
 
   // The block we're currently disassembling.
   BlockGraph::Block* current_block_;
@@ -187,6 +198,10 @@ class Decomposer {
   // either through short branches or by execution continuing past the tail
   // of a block.
   RangeSet to_merge_;
+  // This data-space will eventually hold the ranges of in-function data blocks,
+  // and be used to guide the disassembly.
+  // TODO(chrisha): Maybe move this to per-block internal storage?
+  DataSpace data_space_;
 };
 
 // The results of the decomposition process are stored in this class.
