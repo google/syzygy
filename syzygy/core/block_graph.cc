@@ -19,7 +19,7 @@
 namespace core {
 
 const RelativeAddress kInvalidAddress(0xFFFFFFFF);
-const size_t kInvalidSegment = -1;
+const size_t kInvalidSection = -1;
 
 BlockGraph::BlockGraph() : next_block_id_(0) {
 }
@@ -266,7 +266,7 @@ BlockGraph::Block::Block(BlockId id,
       name_(name),
       addr_(kInvalidAddress),
       original_addr_(kInvalidAddress),
-      segment_(kInvalidSegment),
+      section_(kInvalidSection),
       attributes_(0),
       owns_data_(false),
       data_(NULL),

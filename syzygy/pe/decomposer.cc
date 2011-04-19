@@ -32,6 +32,11 @@ using base::win::ScopedComPtr;
 
 namespace {
 
+using core::AbsoluteAddress;
+using core::BlockGraph;
+using core::Disassembler;
+using pe::Decomposer;
+
 bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   DCHECK(sym_tag != NULL);
   *sym_tag = SymTagNull;
@@ -41,6 +46,24 @@ bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
     return false;
   }
   return true;
+}
+
+const DWORD kDataCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
+
+enum SectionType {
+  kSectionCode,
+  kSectionData,
+  kSectionUnknown
+};
+
+SectionType GetSectionType(const IMAGE_SECTION_HEADER* header) {
+  DCHECK(header != NULL);
+  if ((header->Characteristics & IMAGE_SCN_CNT_CODE) != 0)
+    return kSectionCode;
+  if ((header->Characteristics & kDataCharacteristics) != 0)
+    return kSectionData;
+  return kSectionUnknown;
 }
 
 bool IsSymTag(IDiaSymbol* symbol, DWORD expected_sym_tag) {
@@ -96,23 +119,142 @@ bool GetTypeSize(IDiaSymbol* symbol, size_t* size) {
   return true;
 }
 
-// Find the section containing our address and use it to lower bound
-// the possible end of this label.
-// TODO(chrisha): Add a 'GetSectionHeaderByAddress' function to pe::PEFile?
-const IMAGE_SECTION_HEADER* GetSectionHeaderByAddress(
-    const pe::PEFile& image_file,
-    core::RelativeAddress addr,
-    size_t size = 1) {
-  size_t num_sections = image_file.nt_headers()->FileHeader.NumberOfSections;
-  for (size_t i = 0; i < num_sections; ++i) {
-    const IMAGE_SECTION_HEADER* header = image_file.section_header(i);
-    const core::RelativeAddress section_start(header->VirtualAddress);
-    const core::RelativeAddress section_end = section_start +
-                                              header->Misc.VirtualSize;
-    if (section_start <= addr && addr + size <= section_end)
-      return header;
+void UpdateSectionStats(
+    const IMAGE_SECTION_HEADER* header,
+    Decomposer::CoverageStatistics::SectionStatistics* stats) {
+  DCHECK(header != NULL);
+  DCHECK(stats != NULL);
+  ++stats->section_count;
+  stats->virtual_size += header->Misc.VirtualSize;
+  stats->data_size += header->SizeOfRawData;
+}
+
+void UpdateSimpleBlockStats(
+    const BlockGraph::Block* block,
+    Decomposer::CoverageStatistics::SimpleBlockStatistics* stats) {
+  DCHECK(block != NULL);
+  DCHECK(stats != NULL);
+  stats->virtual_size += block->size();
+  stats->data_size += block->data_size();
+  ++stats->block_count;
+}
+
+void UpdateBlockStats(
+    const BlockGraph::Block* block,
+    Decomposer::CoverageStatistics::BlockStatistics* stats) {
+  DCHECK(block != NULL);
+  DCHECK(stats != NULL);
+
+  UpdateSimpleBlockStats(block, &stats->summary);
+  if (block->attributes() & BlockGraph::GAP_BLOCK)
+    UpdateSimpleBlockStats(block, &stats->gap);
+  else
+    UpdateSimpleBlockStats(block, &stats->normal);
+}
+
+void CalcDetailedCodeBlockStats(
+    const BlockGraph::Block* block,
+    const Disassembler& disasm,
+    const Decomposer::DataSpace& data_space,
+    Decomposer::DetailedCodeBlockStatistics* stats) {
+  DCHECK(block != NULL);
+  DCHECK(stats != NULL);
+
+  typedef Decomposer::DataSpace DataSpace;
+
+  memset(stats, 0, sizeof(*stats));
+
+  // Walk through the code and data address spaces simultaneously.
+  Disassembler::VisitedSpace::RangeMapConstIter code_it =
+      disasm.visited().begin();
+  DataSpace::Range block_range(block->addr(), block->size());
+  DataSpace::RangeMapConstIterPair data_its =
+      data_space.FindIntersecting(block_range);
+  DataSpace::RangeMapConstIter data_it = data_its.first;
+  for (; data_it != data_its.second; ++data_it) {
+    stats->data_bytes += data_it->first.size();
+    ++stats->data_count;
+
+    size_t data_block_rel_pos = data_it->first.start() - block->addr();
+    AbsoluteAddress data_abs(disasm.code_addr() + data_block_rel_pos);
+    Disassembler::VisitedSpace::Range data_range(data_abs,
+                                                 data_it->first.size());
+
+    // Catch the code pointer up to the data pointer.
+    Disassembler::VisitedSpace::RangeMapConstIter code_last_it = code_it;
+    while (code_it != disasm.visited().end() && code_it->first < data_range) {
+      stats->code_bytes += code_it->first.size();
+      ++stats->code_count;
+      code_last_it = code_it;
+      ++code_it;
+    }
+
+    // If we have a code block immediately before this data block and the
+    // space between them is less than the alignment of the data block, then
+    // we can count these bytes as padding.
+    if (code_last_it != disasm.visited().end() &&
+        code_last_it->first < data_range) {
+      size_t padding = data_range.start().value() -
+          code_last_it->first.end().value();
+      if (padding < 4 && (data_range.start().value() & 3) == 0) {
+        stats->padding_bytes += padding;
+        ++stats->padding_count;
+      }
+    }
   }
-  return NULL;
+
+  // Consume any remaining code ranges.
+  for (; code_it != disasm.visited().end(); ++code_it) {
+    stats->code_bytes += code_it->first.size();
+    ++stats->code_count;
+  }
+
+  size_t total = stats->code_bytes + stats->data_bytes + stats->padding_bytes;
+  DCHECK(total <= block->size());
+  stats->unknown_bytes = block->size() - total;
+}
+
+void UpdateDetailedCodeBlockStats(
+    const BlockGraph::Block* block,
+    const Decomposer::DetailedCodeBlockStatistics* detail,
+    Decomposer::DetailedCodeBlockStatistics* stats) {
+  DCHECK(block != NULL);
+  DCHECK(stats != NULL);
+
+  if (detail != NULL) {
+    stats->code_bytes += detail->code_bytes;
+    stats->data_bytes += detail->data_bytes;
+    stats->padding_bytes += detail->padding_bytes;
+    stats->unknown_bytes += detail->unknown_bytes;
+    stats->code_count += detail->code_count;
+    stats->data_count += detail->data_count;
+    stats->padding_count += detail->padding_count;
+  } else {
+    stats->unknown_bytes += block->size();
+  }
+}
+
+void CalcSectionStats(
+    const IMAGE_SECTION_HEADER* header,
+    Decomposer::CoverageStatistics* stats) {
+  DCHECK(header != NULL);
+  DCHECK(stats != NULL);
+
+  UpdateSectionStats(header, &stats->sections.summary);
+  SectionType type = GetSectionType(header);
+  switch (type) {
+    case kSectionCode:
+      UpdateSectionStats(header, &stats->sections.code);
+      break;
+
+    case kSectionData:
+      UpdateSectionStats(header, &stats->sections.data);
+      break;
+
+    case kSectionUnknown:
+      UpdateSectionStats(header, &stats->sections.unknown);
+      break;
+  }
 }
 
 }  // namespace
@@ -130,7 +272,8 @@ Decomposer::Decomposer(const PEFile& image_file,
       current_block_(NULL) {
 }
 
-bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
+bool Decomposer::Decompose(DecomposedImage* decomposed_image,
+                           CoverageStatistics* stats) {
   // Start by instantiating and initializing our Debug Interface Access session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive())) {
@@ -198,9 +341,67 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
                                   &decomposed_image->omap_to,
                                   &decomposed_image->omap_from);
 
+  if (stats != NULL)
+    CalcCoverageStatistics(stats);
+  code_block_stats_.clear();
   image_ = NULL;
 
   return success;
+}
+
+void Decomposer::CalcCoverageStatistics(CoverageStatistics* stats) const {
+  DCHECK(image_ != NULL);
+  DCHECK(stats != NULL);
+
+  memset(stats, 0, sizeof(*stats));
+
+  // Iterate over all sections.
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i)
+    CalcSectionStats(image_file_.section_header(i), stats);
+
+  // Iterate over all blocks.
+  BlockGraph::AddressSpace::RangeMapConstIter it = image_->begin();
+  BlockGraph::AddressSpace::RangeMapConstIter it_end = image_->end();
+  for (; it != it_end; ++it) {
+    const BlockGraph::Block* block = it->second;
+    CalcBlockStats(block, stats);
+  }
+}
+
+void Decomposer::CalcBlockStats(const BlockGraph::Block* block,
+                                CoverageStatistics* stats) const {
+  DCHECK(block != NULL);
+  DCHECK(stats != NULL);
+
+  // Blocks that don't belong to any section get special-cased.
+  if (block->section() == core::kInvalidSection) {
+    UpdateSimpleBlockStats(block, &stats->blocks.no_section);
+    return;
+  }
+
+  // Update the per-block-type information.
+  switch (block->type()) {
+    case BlockGraph::CODE_BLOCK: {
+      UpdateBlockStats(block, &stats->blocks.code);
+
+      const DetailedCodeBlockStatistics* detail = NULL;
+      DetailedCodeBlockStatsMap::const_iterator stats_it =
+          code_block_stats_.find(block->id());
+      if (stats_it != code_block_stats_.end())
+        detail = &stats_it->second;
+      UpdateDetailedCodeBlockStats(block, detail, &stats->blocks.code.detail);
+      break;
+    }
+
+    case BlockGraph::DATA_BLOCK:
+      UpdateBlockStats(block, &stats->blocks.data);
+      break;
+
+    case BlockGraph::READONLY_BLOCK:
+      UpdateBlockStats(block, &stats->blocks.read_only);
+      break;
+  }
 }
 
 bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
@@ -519,8 +720,9 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
     // No block for the section, map the whole thing.
     BlockGraph::Block* section = FindOrCreateBlock(
         block_type, section_begin, section_end - section_begin,
-        StringPrintf("Section %s", header->Name).c_str());
+        StringPrintf("Gap Section %s", header->Name).c_str());
     DCHECK(section != NULL);
+    section->set_attribute(section->attributes() | BlockGraph::GAP_BLOCK);
     if (section->data() == NULL) {
       // The section is only partially defined.
       const uint8* data = image_file_.GetImageData(section_begin,
@@ -534,11 +736,11 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   }
 
   // Do we need to fill in the start?
-  if (it->first.start() < section_begin) {
-    if (!FindOrCreateBlock(block_type,
-                           section_begin,
-                           it->first.start() - section_begin,
-                           "Start Block")) {
+  if (section_begin < it->first.start()) {
+    BlockGraph::Block* added = FindOrCreateBlock(block_type, section_begin,
+        it->first.start() - section_begin, "Gap Start Block");
+    added->set_attribute(added->attributes() | BlockGraph::GAP_BLOCK);
+    if (!added) {
       LOG(ERROR) << "Failed to create block for start of code section "
           << header->Name;
       return false;
@@ -562,16 +764,18 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
       BlockGraph::Block* added = FindOrCreateBlock(block_type,
                                                    block_end,
                                                    section_end - block_end,
-                                                   "Tail Block");
+                                                   "Gap Tail Block");
       DCHECK(added != NULL);
+      added->set_attribute(added->attributes() | BlockGraph::GAP_BLOCK);
       break;
     }
 
     if (block_end < next->first.start()) {
       BlockGraph::Block* added = FindOrCreateBlock(
           block_type, block_end, next->first.start() - block_end,
-          StringPrintf("Gap%08X", block_end).c_str());
+          StringPrintf("Gap Block 0x%08X", block_end).c_str());
       DCHECK(added != NULL);
+      added->set_attribute(added->attributes() | BlockGraph::GAP_BLOCK);
     }
   }
 
@@ -772,7 +976,7 @@ bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
     // TODO(chrisha): Does it only make sense to process labels that lie
     //     within a data section?
     const IMAGE_SECTION_HEADER* header =
-        GetSectionHeaderByAddress(image_file_, it->first);
+        image_file_.GetSectionHeader(it->first, 1);
     // Skip labels that lie outside of known sections.
     if (header == NULL) {
       LOG(ERROR) << "Data label lies outside of known sections.";
@@ -1074,11 +1278,12 @@ bool Decomposer::CreateCodeReferencesForBlock(
   }
 
   Disassembler::WalkResult result = disasm.Walk();
+  CalcDetailedCodeBlockStats(
+      block, disasm, data_space_, &code_block_stats_[block->id()]);
 
   DCHECK_EQ(block, current_block_);
   current_block_ = NULL;
 
-  // TODO(siggi): Tally functions and instruction bytes.
   return (result == Disassembler::kWalkSuccess ||
       result == Disassembler::kWalkIncomplete);
 }
@@ -1103,9 +1308,22 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
     return NULL;
   }
 
+  size_t id = image_file_.GetSectionIndex(address, size);
+  block->set_section(id);
+  if (id != kInvalidSection) {
+    DCHECK(id < image_file_.nt_headers()->FileHeader.NumberOfSections);
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(id);
+    RelativeAddress begin(header->VirtualAddress);
+    RelativeAddress end(begin + header->Misc.VirtualSize);
+    if (address < begin || address + size > end) {
+      LOG(ERROR) << "No section contains block at " << address.value()
+          << "(" << size << ")";
+      return NULL;
+    }
+  }
+
   const uint8* data = image_file_.GetImageData(address, size);
   if (data != NULL) {
-    // TODO(siggi): test that the block is wholly out of the image data.
     block->set_data(data);
     block->set_data_size(size);
   }

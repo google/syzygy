@@ -922,6 +922,7 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
                                           const char* name) {
   BlockGraph::Block* block = address_space_->AddBlock(type, addr, size, name);
   if (block != NULL) {
+    block->set_section(image_file_.GetSectionIndex(addr, size));
     const uint8* data = image_file_.GetImageData(addr, size);
     if (data != NULL) {
       block->set_data(data);

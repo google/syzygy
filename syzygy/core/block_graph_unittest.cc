@@ -34,7 +34,7 @@ TEST(BlockGraphTest, AddBlock) {
   ASSERT_STREQ("block", block->name());
   ASSERT_EQ(kInvalidAddress, block->addr());
   ASSERT_EQ(kInvalidAddress, block->original_addr());
-  ASSERT_EQ(kInvalidSegment, block->segment());
+  ASSERT_EQ(kInvalidSection, block->section());
   ASSERT_EQ(0, block->attributes());
   ASSERT_EQ(NULL, block->data());
   ASSERT_EQ(0, block->data_size());

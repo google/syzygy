@@ -42,7 +42,8 @@ TEST(DecomposerTest, Decompose) {
   Decomposer decomposer(image_file, image_path);
 
   Decomposer::DecomposedImage decomposed;
-  ASSERT_TRUE(decomposer.Decompose(&decomposed));
+  Decomposer::CoverageStatistics stats;
+  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats));
 
   EXPECT_TRUE(decomposed.header.dos_header != NULL);
   EXPECT_TRUE(decomposed.header.nt_headers != NULL);
@@ -68,6 +69,25 @@ TEST(DecomposerTest, Decompose) {
   EXPECT_TRUE(
       decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IAT]
           != NULL);
+
+  // We expect there to be at least one code section and one data section.
+  EXPECT_TRUE(stats.sections.code.section_count > 0);
+  EXPECT_TRUE(stats.sections.data.section_count > 0);
+
+  // We expect section-summary stats to agree with the per-section-type stats.
+  EXPECT_TRUE(stats.sections.summary.section_count ==
+      stats.sections.code.section_count + stats.sections.data.section_count +
+      stats.sections.unknown.section_count);
+  EXPECT_TRUE(stats.sections.summary.data_size ==
+      stats.sections.code.data_size + stats.sections.data.data_size +
+      stats.sections.unknown.data_size);
+  EXPECT_TRUE(stats.sections.summary.virtual_size ==
+      stats.sections.code.virtual_size + stats.sections.data.virtual_size +
+      stats.sections.unknown.virtual_size);
+
+  // We expect there to be at least code and one data block.
+  EXPECT_TRUE(stats.blocks.code.summary.block_count > 0);
+  EXPECT_TRUE(stats.blocks.data.summary.block_count > 0);
 }
 
 // TODO(siggi): More tests.

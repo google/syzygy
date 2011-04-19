@@ -33,7 +33,7 @@ namespace core {
 // The invalid address can never occur in an graph, it's used as default
 // value for block addresses.
 extern const RelativeAddress kInvalidAddress;
-extern const size_t kInvalidSegment;
+extern const size_t kInvalidSection;
 
 // The BlockGraph is a top-level container for Blocks.
 class BlockGraph {
@@ -46,6 +46,8 @@ class BlockGraph {
   enum BlockAttributeEnum {
     // Set for functions declared non-returning.
     NON_RETURN_FUNCTION = 0x1,
+    // Set for blocks that are inferred by the decomposer.
+    GAP_BLOCK = 0x2,
   };
 
   enum BlockType {
@@ -136,9 +138,9 @@ class BlockGraph::Block {
       return original_addr_ = addr;
   }
 
-  // The segment index for the block, this is a convenience attribute.
-  size_t segment() const { return segment_; }
-  void set_segment(size_t segment) { segment_ = segment; }
+  // The section index for the block, this is a convenience attribute.
+  size_t section() const { return section_; }
+  void set_section(size_t section) { section_ = section; }
 
   // The block attributes are a bitmask. You can set them wholesale,
   // or set and clear them individually by bitmasking.
@@ -221,7 +223,7 @@ class BlockGraph::Block {
   RelativeAddress addr_;
   RelativeAddress original_addr_;
 
-  size_t segment_;
+  size_t section_;
   BlockAttributes attributes_;
 
   ReferenceMap references_;
