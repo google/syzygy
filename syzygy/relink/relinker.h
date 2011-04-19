@@ -35,9 +35,8 @@ class RelinkerBase {
   // TODO(siggi): document me.
   virtual bool Initialize(const BlockGraph::Block* original_nt_headers);
 
-  bool CopyDataDirectory(PEFileParser::PEHeader* original_header);
-
-  bool FinalizeImageHeaders(BlockGraph::Block* original_dos_header);
+  bool CopyDataDirectory(const PEFileParser::PEHeader& original_header);
+  bool FinalizeImageHeaders(const PEFileParser::PEHeader& original_header);
   bool WriteImage(const FilePath& output_path);
 
  protected:

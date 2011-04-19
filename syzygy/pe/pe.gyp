@@ -157,6 +157,10 @@
               # which jumps to the function proper. This gets in the way of
               # disassembly.
               'LinkIncremental': '1',
+              # We delay load ole32 purely to test delay load PE parsing.
+              'DelayLoadDLLs': [
+                'ole32.dll',
+              ],
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',

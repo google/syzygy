@@ -204,7 +204,11 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
   ASSERT_TRUE(decomposed_.header.dos_header->
-      TransferReferrers(0, builder.dos_header()));
+      TransferReferrers(0, builder.dos_header_block()));
+
+  // TODO(siggi): Fix NT header references!!!
+  ASSERT_TRUE(decomposed_.header.nt_headers->
+      TransferReferrers(0, builder.nt_headers_block()));
 
   PEFileWriter writer(builder.address_space(),
                       &builder.nt_headers(),
@@ -326,7 +330,9 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
   ASSERT_TRUE(decomposed_.header.dos_header->
-      TransferReferrers(0, builder.dos_header()));
+      TransferReferrers(0, builder.dos_header_block()));
+  ASSERT_TRUE(decomposed_.header.nt_headers->
+      TransferReferrers(0, builder.nt_headers_block()));
 
   PEFileWriter writer(builder.address_space(),
                       &builder.nt_headers(),

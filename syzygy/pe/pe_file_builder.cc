@@ -140,7 +140,8 @@ namespace pe {
 PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
     : next_section_address_(kDefaultSectionAlignment),
       address_space_(block_graph),
-      dos_header_(NULL) {
+      dos_header_block_(NULL),
+      nt_headers_block_(NULL) {
 
   memset(&nt_headers_, 0, sizeof(nt_headers_));
 
@@ -307,12 +308,12 @@ bool PEFileBuilder::CreateRelocsSection() {
 
 bool PEFileBuilder::FinalizeHeaders() {
   // The DOS header should not be set at this point.
-  DCHECK(dos_header_ == NULL);
+  DCHECK(dos_header_block_ == NULL);
   if (!CreateDosHeader()) {
     LOG(ERROR) << "Unable to create DOS header";
     return false;
   }
-  DCHECK(dos_header_ != NULL);
+  DCHECK(dos_header_block_ != NULL);
 
   nt_headers_.FileHeader.NumberOfSections = section_headers_.size();
 
@@ -350,9 +351,8 @@ bool PEFileBuilder::FinalizeHeaders() {
   // Add the NT headers block.
   BlockGraph::Block* nt_headers_block =
       address_space_.AddBlock(BlockGraph::DATA_BLOCK,
-                              dos_header_->addr() + dos_header_->size(),
-                              sizeof(nt_headers_),
-                              "NT Headers");
+          dos_header_block_->addr() + dos_header_block_->size(),
+          sizeof(nt_headers_), "NT Headers");
   if (nt_headers_block == NULL ||
       !nt_headers_block->CopyData(sizeof(nt_headers_), &nt_headers_)) {
     LOG(ERROR) << "Unable to add NT headers block";
@@ -364,7 +364,8 @@ bool PEFileBuilder::FinalizeHeaders() {
                             sizeof(WORD),
                             nt_headers_block,
                             0);
-  dos_header_->SetReference(FIELD_OFFSET(IMAGE_DOS_HEADER, e_lfanew), ref);
+  dos_header_block_->SetReference(FIELD_OFFSET(IMAGE_DOS_HEADER, e_lfanew),
+                                  ref);
 
   // Now add the references for the entry point and data
   // directory to the headers block.
@@ -399,6 +400,8 @@ bool PEFileBuilder::FinalizeHeaders() {
     LOG(ERROR) << "Unable to add section headers block";
     return false;
   }
+
+  nt_headers_block_ = nt_headers_block;
 
   return true;
 }
@@ -456,7 +459,7 @@ bool PEFileBuilder::CreateDosHeader() {
   dos_header_ptr->e_lfarlc = sizeof(*dos_header_ptr);
 
   // Store the dos header block.
-  dos_header_ = dos_header;
+  dos_header_block_ = dos_header;
   return true;
 }
 

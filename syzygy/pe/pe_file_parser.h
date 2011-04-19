@@ -102,11 +102,24 @@ class PEFileParser {
   BlockGraph::Block* ParseComDescriptorDir(const IMAGE_DATA_DIRECTORY& dir);
 
  private:
-  // Parses the IAT/INT starting at thunk_start.
-  bool ParseImportThunks(RelativeAddress thunk_start,
-                         bool is_iat,
-                         const char* import_name);
+  // Counts the number of import thunks in the run starting at thunk_start.
+  // @returns the number of thunks excluding the terminating sentinel, or
+  //     zero on error.
+  size_t CountImportThunks(RelativeAddress thunk_start);
 
+  // Parses the IAT/INT starting at thunk_start.
+  // @param thunk_start the RVA where the import thunks start.
+  // @param chunk_names if true, chunk the import names thunks.
+  // @param is_bound true iff thunks are bound, in which case we tag absolute
+  //     references instead of relative.
+  // @param thunk_type human readable type for thunk.
+  // @param import_name name of imported dll.
+  bool ParseImportThunks(RelativeAddress thunk_start,
+                         size_t num_thunks,
+                         bool chunk_names,
+                         bool is_bound,
+                         const char* thunk_type,
+                         const char* import_name);
   BlockGraph::Block* AddBlock(BlockGraph::BlockType type,
                               RelativeAddress addr,
                               BlockGraph::Size size,

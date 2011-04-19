@@ -174,12 +174,11 @@ bool RelinkerBase::Initialize(const BlockGraph::Block* original_nt_headers) {
   return true;
 }
 
-bool RelinkerBase::CopyDataDirectory(PEFileParser::PEHeader* original_header) {
-  DCHECK(original_header != NULL);
-
+bool RelinkerBase::CopyDataDirectory(
+    const PEFileParser::PEHeader& original_header) {
   // Copy the data directory from the old image.
-  for (size_t i = 0; i < arraysize(original_header->data_directory); ++i) {
-    BlockGraph::Block* block = original_header->data_directory[i];
+  for (size_t i = 0; i < arraysize(original_header.data_directory); ++i) {
+    BlockGraph::Block* block = original_header.data_directory[i];
 
     // We don't want to copy the relocs entry over as the relocs are recreated.
     if (block != NULL && i != IMAGE_DIRECTORY_ENTRY_BASERELOC) {
@@ -193,7 +192,7 @@ bool RelinkerBase::CopyDataDirectory(PEFileParser::PEHeader* original_header) {
 }
 
 bool RelinkerBase::FinalizeImageHeaders(
-    BlockGraph::Block* original_dos_header) {
+    const PEFileParser::PEHeader& original_header) {
   if (!builder_.CreateRelocsSection())  {
     LOG(ERROR) << "Unable to create new relocations section";
     return false;
@@ -206,8 +205,16 @@ bool RelinkerBase::FinalizeImageHeaders(
 
   // Make sure everyone who previously referred the original
   // DOS header is redirected to the new one.
-  if (!original_dos_header->TransferReferrers(0, builder_.dos_header())) {
+  if (!original_header.dos_header->TransferReferrers(0,
+          builder_.dos_header_block())) {
     LOG(ERROR) << "Unable to redirect DOS header references.";
+    return false;
+  }
+
+  // And ditto for the original NT headers.
+  if (!original_header.nt_headers->TransferReferrers(0,
+          builder_.nt_headers_block())) {
+    LOG(ERROR) << "Unable to redirect NT headers references.";
     return false;
   }
 

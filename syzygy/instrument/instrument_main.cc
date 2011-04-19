@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
   if (!instrumenter.CopySections()) {
     return Usage("Unable to copy sections.");
   }
-  if (!instrumenter.CopyDataDirectory(&decomposed.header)) {
+  if (!instrumenter.CopyDataDirectory(decomposed.header)) {
     return Usage("Unable to copy the input image's data directory.");
   }
 
@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   }
 
   // Finalize the headers and write the image.
-  if (!instrumenter.FinalizeImageHeaders(decomposed.header.dos_header)) {
+  if (!instrumenter.FinalizeImageHeaders(decomposed.header)) {
     return Usage("Unable to finalize image headers.");
   }
   if (!instrumenter.WriteImage(output_dll_path)) {
