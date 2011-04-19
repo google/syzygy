@@ -38,17 +38,22 @@ class Decomposer {
   typedef core::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
   typedef core::RelativeAddress RelativeAddress;
+  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
 
   // Initializes the decomposer for a given image file and path.
   Decomposer(const PEFile& image_file, const FilePath& file_path);
 
   // The decomposed image data.
   class DecomposedImage;
+  // Statistics regarding the decomposition.
+  struct CoverageStatistics;
+  struct DetailedCodeBlockStatistics;
 
   // Decomposes the image file into the specified DecomposedImage, which
   // has the breakdown of code and data blocks with typed references.
-  // @returns true on success, false on failure.
-  bool Decompose(DecomposedImage* image);
+  // @returns true on success, false on failure. If @p stats is non-null, it
+  // will be populated with decomposition coverage statistics.
+  bool Decompose(DecomposedImage* image, CoverageStatistics* stats = NULL);
 
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
@@ -133,7 +138,7 @@ class Decomposer {
   // they contain.
   bool CreatePEImageBlocksAndReferences(PEFileParser::PEHeader* header);
 
-  // This creates a new block with the given properties, and attaches the
+  // Creates a new block with the given properties, and attaches the
   // data to it. This assumes that no conflicting block exists.
   BlockGraph::Block* CreateBlock(BlockGraph::BlockType type,
                                  RelativeAddress address,
@@ -158,6 +163,13 @@ class Decomposer {
   // Loads the DIA debug stream into the given OMAP vector.
   bool LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
                       std::vector<OMAP>* omap_list);
+
+  // After a successful decomposition, this will calculate statistics regarding
+  // the coverage of our decomposition. This expects image_ to be non-NULL.
+  void CalcCoverageStatistics(CoverageStatistics* stats) const;
+  // Updates coverage statistics with information regarding the given block.
+  void CalcBlockStats(const BlockGraph::Block* block,
+                             CoverageStatistics* stats) const;
 
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
@@ -187,19 +199,22 @@ class Decomposer {
   // Disassembly state.
   typedef std::set<BlockGraph::Block*> BlockSet;
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
-  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
+  typedef std::map<BlockGraph::BlockId, DetailedCodeBlockStatistics>
+      DetailedCodeBlockStatsMap;
 
   // The block we're currently disassembling.
   BlockGraph::Block* current_block_;
-  // This set keeps track of which blocks we've yet to disassemble.
+  // Keeps track of which blocks we've yet to disassemble.
   BlockSet to_disassemble_;
-  // This set keeps track of address ranges that we want to merge because
+  // Keeps track of address ranges that we want to merge because
   // we've found control flow from one block to another within the range,
   // either through short branches or by execution continuing past the tail
   // of a block.
   RangeSet to_merge_;
-  // This data-space will eventually hold the ranges of in-function data blocks,
-  // and be used to guide the disassembly.
+  // Keeps track of per block disassembly statistics.
+  DetailedCodeBlockStatsMap code_block_stats_;
+  // Holds the ranges of in-function data blocks, and is used to guide
+  // disassembly.
   // TODO(chrisha): Maybe move this to per-block internal storage?
   DataSpace data_space_;
 };
@@ -216,6 +231,63 @@ class Decomposer::DecomposedImage {
   PEFileParser::PEHeader header;
   std::vector<OMAP> omap_to;
   std::vector<OMAP> omap_from;
+};
+
+// For storing detailed statistics regarding a code block.
+struct Decomposer::DetailedCodeBlockStatistics {
+  size_t code_bytes;
+  size_t data_bytes;
+  size_t padding_bytes;
+  size_t unknown_bytes;
+  size_t code_count;
+  size_t data_count;
+  size_t padding_count;
+};
+
+// Coverage statistics are stored in this class.
+struct Decomposer::CoverageStatistics {
+  // Keeps information regarding Sections.
+  struct SectionStatistics {
+    size_t section_count;
+    size_t virtual_size;
+    size_t data_size;
+  };
+
+  // Stores data broken down by Section type.
+  struct {
+    SectionStatistics summary;
+    SectionStatistics code;
+    SectionStatistics data;
+    SectionStatistics unknown;
+  } sections;
+
+  // Keeps simple information regarding blocks.
+  struct SimpleBlockStatistics {
+    size_t virtual_size;
+    size_t data_size;
+    size_t block_count;
+  };
+
+  // Keeps more detailed information regarding blocks, splitting it down
+  // depending on if the block was a gap block or not.
+  struct BlockStatistics {
+    SimpleBlockStatistics summary;
+    SimpleBlockStatistics normal;
+    SimpleBlockStatistics gap;
+  };
+
+  // Stores information about code blocks.
+  struct CodeBlockStatistics : public BlockStatistics {
+    DetailedCodeBlockStatistics detail;
+  };
+
+  // Stores information about blocks, broken down by type.
+  struct {
+    CodeBlockStatistics code;
+    BlockStatistics data;
+    BlockStatistics read_only;
+    SimpleBlockStatistics no_section;
+  } blocks;
 };
 
 }  // namespace pe

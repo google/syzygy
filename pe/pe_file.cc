@@ -33,6 +33,8 @@ bool ReadAt(FILE* file, size_t pos, void* buf, size_t len) {
 
 namespace pe {
 
+const size_t kInvalidSection = -1;
+
 using core::AbsoluteAddress;
 using core::FileOffsetAddress;
 using core::RelativeAddress;
@@ -72,6 +74,37 @@ bool PEFile::Contains(AbsoluteAddress abs, size_t len) const {
   return Translate(abs, &rel) && Contains(rel, len);
 }
 
+size_t PEFile::GetSectionIndex(RelativeAddress rel, size_t len) const {
+  const ImageAddressSpace::Range range(rel, len);
+  ImageAddressSpace::RangeMap::const_iterator it =
+      image_data_.FindContaining(range);
+  if (it == image_data_.ranges().end())
+    return kInvalidSection;
+  return it->second.id;
+}
+
+size_t PEFile::GetSectionIndex(AbsoluteAddress abs, size_t len) const {
+  RelativeAddress rel;
+  Translate(abs, &rel);
+  return GetSectionIndex(rel, len);
+}
+
+const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(
+    RelativeAddress rel, size_t len) const {
+  size_t id = GetSectionIndex(rel, len);
+  if (id == kInvalidSection)
+    return NULL;
+  DCHECK(id < nt_headers_->FileHeader.NumberOfSections);
+  return section_headers_ + id;
+}
+
+const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(
+    AbsoluteAddress abs, size_t len) const {
+  RelativeAddress rel;
+  Translate(abs, &rel);
+  return GetSectionHeader(rel, len);
+}
+
 bool PEFile::ReadHeaders(FILE* file) {
   // Read the DOS header.
   IMAGE_DOS_HEADER dos_header = {};
@@ -92,14 +125,14 @@ bool PEFile::ReadHeaders(FILE* file) {
   size_t header_size = nt_headers.OptionalHeader.SizeOfHeaders;
   ImageAddressSpace::Range header_range(RelativeAddress(0), header_size);
   ImageAddressSpace::RangeMap::iterator it;
-  bool inserted = image_data_.Insert(header_range, SectionBuffer(), &it);
+  bool inserted = image_data_.Insert(header_range, SectionInfo(), &it);
   DCHECK(inserted);
   if (!inserted) {
     LOG(ERROR) << "Unable to create header range";
     return false;
   }
 
-  SectionBuffer& header = it->second;
+  SectionBuffer& header = it->second.buffer;
   header.resize(header_size);
   if (!ReadAt(file, 0, &header[0], header_size)) {
     LOG(ERROR) << "Unable to read header data";
@@ -126,12 +159,13 @@ bool PEFile::ReadSections(FILE* file) {
     ImageAddressSpace::Range section_range(RelativeAddress(hdr->VirtualAddress),
                                            hdr->Misc.VirtualSize);
     ImageAddressSpace::RangeMap::iterator it;
-    if (!image_data_.Insert(section_range, SectionBuffer(), &it)) {
+    if (!image_data_.Insert(section_range, SectionInfo(), &it)) {
       LOG(ERROR) << "Unable to insert range for section " << hdr->Name;
       return false;
     }
 
-    SectionBuffer& buf = it->second;
+    it->second.id = i;
+    SectionBuffer& buf = it->second.buffer;
     if (hdr->SizeOfRawData == 0)
       continue;
 
@@ -188,7 +222,7 @@ const uint8* PEFile::GetImageData(RelativeAddress rel, size_t len) const {
     ptrdiff_t offs = rel - it->first.start();
     DCHECK_GE(offs, 0);
 
-    const SectionBuffer& buf = it->second;
+    const SectionBuffer& buf = it->second.buffer;
     if (offs + len <= buf.size())
       return &buf.at(offs);
   }
@@ -245,7 +279,7 @@ bool PEFile::ReadImageString(RelativeAddress rel, std::string* str) const {
     ptrdiff_t offs = rel - it->first.start();
     DCHECK_GE(offs, 0);
     // Stash the start position.
-    const SectionBuffer& buf = it->second;
+    const SectionBuffer& buf = it->second.buffer;
     const char* begin = reinterpret_cast<const char*>(&buf.at(offs));
     // And loop through until we find a zero-terminating byte,
     // or run off the end.

@@ -92,6 +92,7 @@ class Disassembler {
   bool IsInCode(AbsoluteAddress addr, size_t len) const;
 
   // Accessors.
+  const AbsoluteAddress code_addr() const { return code_addr_; }
   const AddressSet& unvisited() const { return unvisited_; }
   const VisitedSpace& visited() const { return visited_; }
   size_t disassembled_bytes() const { return disassembled_bytes_; }

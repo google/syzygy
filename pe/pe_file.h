@@ -26,6 +26,13 @@
 
 namespace pe {
 
+// This duplicates a similar constant in the core namespace, declared by
+// block_graph.h. We duplicate it here so as not to add an uneccessary
+// dependency.
+// Header data and other data not from a regular section is considered as
+// being from an invalid section.
+extern const size_t kInvalidSection;
+
 class PEFile {
  public:
   typedef core::AbsoluteAddress AbsoluteAddress;
@@ -94,6 +101,18 @@ class PEFile {
   bool Contains(RelativeAddress rel, size_t len) const;
   bool Contains(AbsoluteAddress abs, size_t len) const;
 
+  // Returns the section index associated with a given address. Returns
+  // kInvalidSection if the address does not lie within a section.
+  size_t GetSectionIndex(RelativeAddress rel, size_t len) const;
+  size_t GetSectionIndex(AbsoluteAddress abs, size_t len) const;
+
+  // Returns a pointer to the section header associated with a given address.
+  // Returns NULL if the address does not lie within a section.
+  const IMAGE_SECTION_HEADER* GetSectionHeader(RelativeAddress rel,
+                                               size_t len) const;
+  const IMAGE_SECTION_HEADER* GetSectionHeader(AbsoluteAddress rel,
+                                               size_t len) const;
+
   // Accessors.
   const IMAGE_DOS_HEADER* dos_header() const {
     return dos_header_;
@@ -124,7 +143,13 @@ class PEFile {
   const IMAGE_SECTION_HEADER* section_headers_;
 
   typedef std::vector<uint8> SectionBuffer;
-  typedef core::AddressSpace<RelativeAddress, size_t, SectionBuffer>
+  struct SectionInfo {
+    SectionInfo() : id(kInvalidSection) {
+    }
+    size_t id;
+    SectionBuffer buffer;
+  };
+  typedef core::AddressSpace<RelativeAddress, size_t, SectionInfo>
       ImageAddressSpace;
 
   // Contains all data in the image. The address space has a range defined

@@ -176,6 +176,7 @@ class AddressRange {
   }
 
   AddressType start() const { return start_; }
+  AddressType end() const { return AddressType(start_.value() + size_); }
   SizeType size() const { return size_; }
 
  private:
