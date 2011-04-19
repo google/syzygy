@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "syzygy/pe/pe_file_parser.h"
 
+#include <delayimp.h>
 #include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
@@ -47,13 +48,24 @@ class TestPEFileParser: public PEFileParser {
       : PEFileParser(image_file, address_space, add_reference) {
   }
 
+  // Expose as public for testing.
   using PEFileParser::ParseImageHeader;
+
   using PEFileParser::ParseExportDir;
   using PEFileParser::ParseImportDir;
-  using PEFileParser::ParseLoadConfigDir;
-  using PEFileParser::ParseTlsDir;
-  using PEFileParser::ParseDebugDir;
   using PEFileParser::ParseResourceDir;
+  using PEFileParser::ParseExceptionDir;
+  using PEFileParser::ParseSecurityDir;
+  using PEFileParser::ParseRelocDir;
+  using PEFileParser::ParseDebugDir;
+  using PEFileParser::ParseArchitectureDir;
+  using PEFileParser::ParseGlobalDir;
+  using PEFileParser::ParseTlsDir;
+  using PEFileParser::ParseLoadConfigDir;
+  using PEFileParser::ParseBoundImportDir;
+  using PEFileParser::ParseIatDir;
+  using PEFileParser::ParseDelayImportDir;
+  using PEFileParser::ParseComDescriptorDir;
 };
 
 const wchar_t kDllName[] = L"test_dll.dll";
@@ -269,8 +281,79 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   }
 
   std::set<std::string> expected;
-  expected.insert("export_dll.dll");
   expected.insert("KERNEL32.dll");
+  expected.insert("export_dll.dll");
+  EXPECT_THAT(import_names, ContainerEq(expected));
+}
+
+TEST_F(PEFileParserTest, ParseDelayImportDir) {
+  TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());
+
+  PEFileParser::PEHeader header;
+  EXPECT_TRUE(parser.ParseImageHeader(&header));
+
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(header.nt_headers->data());
+
+  const IMAGE_DATA_DIRECTORY& dir =
+      nt_headers->OptionalHeader.DataDirectory[
+          IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT];
+  BlockGraph::Block* block = parser.ParseDelayImportDir(dir);
+  ASSERT_TRUE(block != NULL);
+
+  // Test that we have the import descriptors we expect.
+  size_t num_descriptors = block->size() / sizeof(ImgDelayDescr);
+  ASSERT_EQ(1, num_descriptors);
+  ASSERT_TRUE(block->data() != NULL);
+  ASSERT_EQ(block->size(), block->data_size());
+
+  std::set<std::string> import_names;
+  for (size_t i = 0; i < num_descriptors; ++i) {
+    size_t element_offset = sizeof(ImgDelayDescr) * i;
+    BlockGraph::Block* name_block =
+        FindReferencedBlock(block, element_offset +
+            offsetof(ImgDelayDescr, rvaDLLName));
+    ASSERT_TRUE(name_block != NULL);
+
+    const char* name =
+        reinterpret_cast<const char*>(name_block->data());
+    EXPECT_TRUE(import_names.insert(name).second);
+
+    // Now retrieve the IAT, INT and BoundIAT blocks.
+    BlockGraph::Block* iat_block =
+        FindReferencedBlock(block, element_offset +
+            offsetof(ImgDelayDescr, rvaIAT));
+    BlockGraph::Block* int_block =
+        FindReferencedBlock(block, element_offset +
+            offsetof(ImgDelayDescr, rvaINT));
+    BlockGraph::Block* bound_iat_block =
+        FindReferencedBlock(block, element_offset +
+            offsetof(ImgDelayDescr, rvaBoundIAT));
+
+    ASSERT_TRUE(iat_block != NULL);
+    ASSERT_TRUE(int_block != NULL);
+    ASSERT_TRUE(bound_iat_block != NULL);
+
+    ASSERT_EQ(iat_block->size(), int_block->size());
+    ASSERT_EQ(iat_block->size(), bound_iat_block->size());
+    ASSERT_EQ(iat_block->data_size(), int_block->data_size());
+    ASSERT_EQ(iat_block->data_size(), bound_iat_block->data_size());
+
+    // Now check that each slot, save for the last one, in the INT
+    // points to a name block or else is an ordinal.
+    size_t num_thunks = iat_block->data_size() / sizeof(IMAGE_THUNK_DATA) - 1;
+    const IMAGE_THUNK_DATA* iat =
+        reinterpret_cast<const IMAGE_THUNK_DATA*>(int_block->data());
+    for (size_t i = 0; i < num_thunks; ++i) {
+      if (!IMAGE_ORDINAL(iat[i].u1.Ordinal)) {
+        size_t thunk_offset = sizeof(IMAGE_THUNK_DATA) * i;
+        ASSERT_TRUE(FindReferencedBlock(int_block, thunk_offset) != NULL);
+      }
+    }
+  }
+
+  std::set<std::string> expected;
+  expected.insert("ole32.dll");
   EXPECT_THAT(import_names, ContainerEq(expected));
 }
 
@@ -333,9 +416,8 @@ TEST_F(PEFileParserTest, ParseImage) {
   EXPECT_NO_FATAL_FAILURE(AssertDataDirectoryEntryValid(
       header.data_directory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG]));
   // And a delay import directory.
-  // TODO(siggi): add some delay import configuration to the test DLL.
-  // EXPECT_NO_FATAL_FAILURE(AssertDataDirectoryEntryValid(
-  //     header.data_directory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT]));
+  EXPECT_NO_FATAL_FAILURE(AssertDataDirectoryEntryValid(
+      header.data_directory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT]));
 }
 
 }  // namespace pe

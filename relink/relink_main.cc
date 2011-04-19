@@ -99,12 +99,12 @@ int main(int argc, char** argv) {
           decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
     return Usage("Unable to update debug information.");
   }
-  if (!relinker.CopyDataDirectory(&decomposed.header)) {
+  if (!relinker.CopyDataDirectory(decomposed.header)) {
     return Usage("Unable to copy the input image's data directory.");
   }
 
   // Finalize the headers and write the image and pdb.
-  if (!relinker.FinalizeImageHeaders(decomposed.header.dos_header)) {
+  if (!relinker.FinalizeImageHeaders(decomposed.header)) {
     return Usage("Unable to finalize image headers.");
   }
   if (!relinker.WriteImage(output_dll_path)) {

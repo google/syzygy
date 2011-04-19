@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "syzygy/pe/pe_file_parser.h"
 #include "base/stringprintf.h"
+#include <delayimp.h>
 
 namespace {
 
@@ -499,24 +500,72 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
   return export_dir_block;
 }
 
-bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
-                                     bool is_iat,
-                                     const char* import_name) {
-  RelativeAddress thunk_curr(thunk_start);
-  for (; true; thunk_curr += sizeof(IMAGE_THUNK_DATA)) {
+size_t PEFileParser::CountImportThunks(RelativeAddress thunk_start) {
+  size_t num_thunks = 0;
+  for (; true; ++num_thunks, thunk_start += sizeof(IMAGE_THUNK_DATA)) {
     PEFileStructPtr<IMAGE_THUNK_DATA> thunk;
-    if (!thunk.Read(image_file_, thunk_curr)) {
+    if (!thunk.Read(image_file_, thunk_start)) {
+      // We didn't get to the sentinel, that's an error.
+      LOG(ERROR) << "Unable to read image import thunk.";
+      return 0;
+    }
+
+    if (thunk->u1.AddressOfData == 0U)
+      break;
+  }
+
+  return num_thunks;
+}
+
+bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
+                                     size_t num_thunks,
+                                     bool chunk_names,
+                                     bool is_bound,
+                                     const char* thunk_type,
+                                     const char* import_name) {
+  // Start by chunking the IAT/INT, including the terminating sentinel.
+  size_t ixt_size = sizeof(IMAGE_THUNK_DATA) * (num_thunks + 1);
+  std::string ixt_name =
+      base::StringPrintf("%s for \"%s\"", thunk_type, import_name);
+  BlockGraph::Block* thunk_block = AddBlock(BlockGraph::DATA_BLOCK,
+                                            thunk_start,
+                                            ixt_size,
+                                            ixt_name.c_str());
+  if (thunk_block == NULL) {
+    // The IAT may have been chunked while parsing the IAT data directory,
+    // in which case we want to leave a label for the start of our entries.
+    thunk_block = address_space_->GetContainingBlock(thunk_start, ixt_size);
+
+    if (thunk_block == NULL) {
+      LOG(ERROR) << "Unable to add " << thunk_type
+          << "block for " << import_name;
+      return false;
+    }
+
+    thunk_block->SetLabel(thunk_start - thunk_block->addr(), ixt_name.c_str());
+  }
+
+  if (is_bound) {
+    // If the IAT is bound, there's nothing left to do, as the thunks
+    // contain either NULLs, or addresses to functions in another DLL.
+    // Note that the linker leaves relocation entries to the delay import
+    // IAT, since that allows the loader to patch up the pointers to the
+    // delay load stubs in the case that the DLL is relocated.
+    return true;
+  }
+
+  // Run through to reference and optionally chunk the import name blocks.
+  for (size_t i = 0; i < num_thunks; ++i) {
+    PEFileStructPtr<IMAGE_THUNK_DATA> thunk;
+    if (!thunk.Read(image_file_, thunk_start)) {
       LOG(ERROR) << "Unable to read image import thunk.";
       return false;
     }
 
-    // The table ends with a zero sentinel.
-    if (thunk->u1.Ordinal == 0)
-      break;
-
-    // Check whether it's a name or an ordinal, there's nothing
-    // to do for ordinal import thunks.
     if (!IMAGE_SNAP_BY_ORDINAL(thunk->u1.Ordinal)) {
+      // It's not an ordinal and it's not bound, read the name
+      // thunk and chunk it if requested.
+
       // Add the IAT/INT->thunk reference.
       if (!AddRelative(thunk, &thunk->u1.AddressOfData, "IAT/INT Reference")) {
         LOG(ERROR) << "Unable to add import thunk reference.";
@@ -539,12 +588,13 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
         return false;
       }
 
-      // Calculate the even-padded size of the name thunk and chunk it.
+      // Calculate the even-padded size of the name thunk.
       size_t name_thunk_size = AlignUp(
           offsetof(IMAGE_IMPORT_BY_NAME, Name) + function_name.size() + 1, 2);
-      // We assume the IAT and the INT point to the same name thunks,
-      // so we chunk them only for one the IAT.
-      if (!is_iat) {
+
+      // Chunk the names only on request, as more than one IAT/INT may
+      // point to the same name blocks.
+      if (chunk_names) {
         if (!AddBlock(BlockGraph::DATA_BLOCK,
                       name_thunk_addr,
                       name_thunk_size,
@@ -555,6 +605,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
         }
       } else {
 #ifndef NDEBUG
+        // Check that the name blocks exist in debug.
         BlockGraph::Block* block =
             address_space_->GetBlockByAddress(name_thunk_addr);
         DCHECK(block != NULL);
@@ -562,32 +613,8 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
 #endif  // NDEBUG
       }
     }
-  }
 
-  // Now chunk the IAT/INT.
-  size_t ixt_size = thunk_curr - thunk_start + sizeof(IMAGE_THUNK_DATA);
-  std::string ixt_name =
-      base::StringPrintf("%s for \"%s\"", is_iat ? "IAT" : "INT", import_name);
-  if (!AddBlock(BlockGraph::DATA_BLOCK,
-                thunk_start,
-                ixt_size,
-                ixt_name.c_str())) {
-    if (is_iat) {
-      // The import address table may have been chunked by the IAT parsing,
-      // in which case we want to leave a label for the start of our entries.
-      BlockGraph::Block* block =
-          address_space_->GetContainingBlock(thunk_start, ixt_size);
-
-      if (block == NULL) {
-        LOG(ERROR) << "Unable to add IAT block for " << import_name;
-        return false;
-      }
-
-      block->SetLabel(thunk_start - block->addr(), ixt_name.c_str());
-    } else {
-      LOG(ERROR) << "Unable to add INT block for " << import_name;
-      return false;
-    }
+    thunk_start += sizeof(IMAGE_THUNK_DATA);
   }
 
   return true;
@@ -637,29 +664,36 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
       return NULL;
     }
 
+    // Count the number of import name thunks for this import descriptor.
+    RelativeAddress thunk_addr =
+        RelativeAddress(import_descriptor->OriginalFirstThunk);
+    size_t num_thunks = CountImportThunks(thunk_addr);
+    if (num_thunks == 0)
+      return false;
+
     // Parse the Import Name Table.
-    if (!ParseImportThunks(
-            RelativeAddress(import_descriptor->OriginalFirstThunk),
-            false,
-            import_name.c_str()))
+    if (!ParseImportThunks(thunk_addr, num_thunks, true, false, "INT",
+                           import_name.c_str())) {
       return NULL;
+    }
 
     // Parse the Import Address Table.
     if (!ParseImportThunks(RelativeAddress(import_descriptor->FirstThunk),
-                           true,
-                           import_name.c_str()))
+                           num_thunks, false, false, "IAT",
+                           import_name.c_str())) {
       return NULL;
+    }
 
     if (!AddRelative(import_descriptor,
-        &import_descriptor->OriginalFirstThunk,
-        "Import Name Table")) {
+                     &import_descriptor->OriginalFirstThunk,
+                     "Import Name Table")) {
       LOG(ERROR) << "Unable to add import name table reference.";
       return NULL;
     }
 
     if (!AddRelative(import_descriptor,
-        &import_descriptor->FirstThunk,
-        "Import Address Table")) {
+                     &import_descriptor->FirstThunk,
+                     "Import Address Table")) {
       LOG(ERROR) << "Unable to add import address table reference.";
       return NULL;
     }
@@ -683,8 +717,137 @@ BlockGraph::Block *PEFileParser::ParseComDescriptorDir(
 
 BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     const IMAGE_DATA_DIRECTORY &dir) {
-  LOG(ERROR) << "Parsing for delay imports not implemented.";
-  return NULL;
+  // Read the delay import descriptor, we're going to iterate it.
+  RelativeAddress import_descriptor_addr(dir.VirtualAddress);
+  PEFileStructPtr<ImgDelayDescr> import_descriptor;
+  if (!import_descriptor.Read(image_file_,
+                              import_descriptor_addr,
+                              dir.Size)) {
+    LOG(ERROR) << "Unable to read the delay import directory.";
+    return NULL;
+  }
+
+  do {
+    // The last descriptor is a sentinel.
+    if (import_descriptor->grAttrs == 0)
+      break;
+
+    if (import_descriptor->grAttrs != dlattrRva) {
+      LOG(ERROR) << "Unexpected attributes in delay import descriptor 0x"
+          << std::hex << import_descriptor->grAttrs;
+      return false;
+    }
+
+    // Read the name of the delay imported DLL.
+    std::string import_name;
+    RelativeAddress import_name_addr(import_descriptor->rvaDLLName);
+    if (!image_file_.ReadImageString(import_name_addr, &import_name)) {
+      LOG(ERROR) << "Unable to read delay import name.";
+      return NULL;
+    }
+
+    if (!AddBlock(BlockGraph::DATA_BLOCK,
+                  import_name_addr,
+                  import_name.size() + 1,
+                  base::StringPrintf("Delay import DLL Name \"%s\"",
+                                     import_name.c_str()).c_str())) {
+      LOG(ERROR) << "Unable to create import name block.";
+      return NULL;
+    }
+
+    if (!AddRelative(import_descriptor,
+                     &import_descriptor->rvaDLLName,
+                     "Delay import name")) {
+      LOG(ERROR) << "Unable to add delay import name reference.";
+      return NULL;
+    }
+
+    // Chunk the HMODULE for this import.
+    if (!AddBlock(BlockGraph::DATA_BLOCK,
+                  RelativeAddress(import_descriptor->rvaHmod),
+                  sizeof(HMODULE),
+                  base::StringPrintf("Module handle for delay import DLL\"%s\"",
+                                     import_name.c_str()).c_str())) {
+      LOG(ERROR) << "Unable to create import module handle block.";
+      return NULL;
+    }
+
+    if (!AddRelative(import_descriptor,
+                     &import_descriptor->rvaHmod,
+                     "Delay import module handle")) {
+      LOG(ERROR) << "Unable to delay import module handle reference.";
+      return NULL;
+    }
+
+    // Count the number of import name thunks for this import descriptor.
+    RelativeAddress int_addr(import_descriptor->rvaINT);
+    size_t num_thunks = CountImportThunks(int_addr);
+    if (num_thunks == 0)
+      return false;
+
+    // Parse the Delay Import Name Table.
+    if (!ParseImportThunks(int_addr, num_thunks, true, false, "DelayINT",
+                           import_name.c_str())) {
+      return NULL;
+    }
+
+    if (!AddRelative(import_descriptor,
+                     &import_descriptor->rvaINT,
+                     "Delay Import Name Table")) {
+      LOG(ERROR) << "Unable to add delay import name table reference.";
+      return NULL;
+    }
+
+    // Parse the Delay Import Address Table.
+    if (!ParseImportThunks(RelativeAddress(import_descriptor->rvaIAT),
+                           num_thunks, false, true, "DelayIAT",
+                           import_name.c_str())) {
+      return NULL;
+    }
+
+    if (!AddRelative(import_descriptor,
+                     &import_descriptor->rvaIAT,
+                     "Delay Import Address Table")) {
+      LOG(ERROR) << "Unable to add delay import address table reference.";
+      return NULL;
+    }
+
+    // Parse the Bound Import Address Table.
+    if (!ParseImportThunks(RelativeAddress(import_descriptor->rvaBoundIAT),
+                           num_thunks, false, true, "DelayBoundIAT",
+                           import_name.c_str())) {
+      return NULL;
+    }
+
+    if (!AddRelative(import_descriptor,
+                     &import_descriptor->rvaBoundIAT,
+                     "Delay Bound Import Address Table")) {
+      LOG(ERROR) << "Unable to add delay bound import address table reference.";
+      return NULL;
+    }
+
+    if (import_descriptor->rvaUnloadIAT != 0U) {
+      LOG(ERROR) << "Unexpected UnloadIAT.";
+      return false;
+    }
+
+    if (import_descriptor->dwTimeStamp != 0U) {
+      LOG(ERROR) << "Unexpected bound delay imports.";
+      return false;
+    }
+  } while (import_descriptor.Next());
+
+  // TODO(siggi): I'm treating this the same way as the import descriptors,
+  //    where I get a block collision if use the import dir size for the block.
+  //    See whether this is really the same.
+  BlockGraph::Block* import_descriptor_block =
+      AddBlock(BlockGraph::DATA_BLOCK,
+               import_descriptor_addr,
+               import_descriptor.addr() - import_descriptor_addr +
+                   sizeof(import_descriptor->grAttrs),
+               "Delay Import Directory");
+
+  return import_descriptor_block;
 }
 
 BlockGraph::Block *PEFileParser::ParseIatDir(

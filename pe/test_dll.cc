@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <windows.h>
+#include <objbase.h>
 #include <cstdlib>
 #include <time.h>
 #include <math.h>
@@ -23,6 +24,9 @@ extern int function3();
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   // The goal of the following weird code is to thwart any optimizations
   // that the compiler might try.
+
+  // Reference this from Ole32 to pull in something.
+  ::CoInitialize(NULL);
 
   // Put a series of calls in order. In general, expect they'll show up in
   // the same order when we search for references.

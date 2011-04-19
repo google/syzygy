@@ -34,20 +34,29 @@ class PEFileBuilder {
   explicit PEFileBuilder(BlockGraph* block_graph);
 
   // Non-const accessors.
+  BlockGraph::AddressSpace& address_space() { return address_space_; }
   IMAGE_NT_HEADERS& nt_headers() { return nt_headers_; }
   IMAGE_SECTION_HEADER* section_headers() { return &section_headers_.at(0); }
-  BlockGraph::AddressSpace& address_space() { return address_space_; }
-  BlockGraph::Block* dos_header() { return dos_header_; }
+
+  BlockGraph::Block* dos_header_block() { return dos_header_block_; }
+  BlockGraph::Block* nt_headers_block() { return nt_headers_block_; }
 
   // Const accessors.
+  const BlockGraph::AddressSpace& address_space() const {
+    return address_space_;
+  }
   const IMAGE_NT_HEADERS& nt_headers() const { return nt_headers_; }
   const IMAGE_SECTION_HEADER* section_headers() const {
     return &section_headers_.at(0);
   }
-  const BlockGraph::Block* dos_header() const { return dos_header_; }
-  const BlockGraph::AddressSpace& address_space() const {
-    return address_space_;
+
+  const BlockGraph::Block* dos_header_block() const {
+    return dos_header_block_;
   }
+  const BlockGraph::Block* nt_headers_block() const {
+    return nt_headers_block_;
+  }
+
   RelativeAddress next_section_address() const { return next_section_address_; }
   const BlockGraph::Reference& entry_point() const { return entry_point_; }
 
@@ -112,7 +121,11 @@ class PEFileBuilder {
   BlockGraph::AddressSpace address_space_;
 
   // The block that describes the DOS header.
-  BlockGraph::Block* dos_header_;
+  BlockGraph::Block* dos_header_block_;
+
+  // The block that describes the NT headers, this is valid only
+  // after FinalizeHeaders has been successfully invoked.
+  BlockGraph::Block* nt_headers_block_;
 
   // A reference to the entrypoint of our image.
   BlockGraph::Reference entry_point_;
