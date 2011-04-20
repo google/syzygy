@@ -53,7 +53,7 @@ class Decomposer {
   // has the breakdown of code and data blocks with typed references.
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
-  bool Decompose(DecomposedImage* image, CoverageStatistics* stats = NULL);
+  bool Decompose(DecomposedImage* image, CoverageStatistics* stats);
 
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
@@ -169,7 +169,7 @@ class Decomposer {
   void CalcCoverageStatistics(CoverageStatistics* stats) const;
   // Updates coverage statistics with information regarding the given block.
   void CalcBlockStats(const BlockGraph::Block* block,
-                             CoverageStatistics* stats) const;
+                      CoverageStatistics* stats) const;
 
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;

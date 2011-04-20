@@ -75,13 +75,13 @@ TEST(DecomposerTest, Decompose) {
   EXPECT_TRUE(stats.sections.data.section_count > 0);
 
   // We expect section-summary stats to agree with the per-section-type stats.
-  EXPECT_TRUE(stats.sections.summary.section_count ==
+  EXPECT_EQ(stats.sections.summary.section_count,
       stats.sections.code.section_count + stats.sections.data.section_count +
       stats.sections.unknown.section_count);
-  EXPECT_TRUE(stats.sections.summary.data_size ==
+  EXPECT_EQ(stats.sections.summary.data_size,
       stats.sections.code.data_size + stats.sections.data.data_size +
       stats.sections.unknown.data_size);
-  EXPECT_TRUE(stats.sections.summary.virtual_size ==
+  EXPECT_EQ(stats.sections.summary.virtual_size,
       stats.sections.code.virtual_size + stats.sections.data.virtual_size +
       stats.sections.unknown.virtual_size);
 

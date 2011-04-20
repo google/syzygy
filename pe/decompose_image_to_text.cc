@@ -38,7 +38,7 @@ bool DumpImageToText(const FilePath& image_path, std::ostream& str) {
   // And decompose it to a DecomposedImage instance.
   Decomposer decomposer(image_file, image_path);
   Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed)) {
+  if (!decomposer.Decompose(&decomposed, NULL)) {
     LOG(ERROR) << "Unable to decompose image " << image_path.value();
     return false;
   }
