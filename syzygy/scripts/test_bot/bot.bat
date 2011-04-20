@@ -58,7 +58,7 @@ set DOWNLOAD_PY=%THISDIR%chrome_repo.py
 set REORDER_PY=%THISDIR%reorder.py
 set SEND_MAIL_PY=%THISDIR%send_mail.py
 set ACTIONS_XML=%THISDIR%actions.xml
-set REORDER_EXE=%SYZYGY%\src\syzygy\%CONFIG%\relink.exe
+set REORDER_EXE=%SYZYGY%\src\syzygy\relink\%CONFIG%\relink.exe
 set CHROME_PTR=%WORKDIR%\chrome-dir.txt
 set SYNC_LOG=%WORKDIR%\sync-log.txt
 set BUILD_LOG=%WORKDIR%\build-log.txt
@@ -137,6 +137,7 @@ call python "%SEND_MAIL_PY%" ^
   --to="%TO%" ^
   --subject="@%SUMMARY%" ^
   --message="@%REORDER_LOG%" ^
+  --attach="%REORDER_LOG%" ^
   --attach="%SYNC_LOG%" ^
   --attach="%BUILD_LOG%" ^
   --attach="%DOWNLOAD_LOG%" ^
@@ -151,7 +152,13 @@ call python %SEND_MAIL_PY% ^
   --from="%FROM%" ^
   --to="%TO%" ^
   --subject="Syzgy Test Bot Failed!" ^
-  --message="@%ERROR_MESSAGE%"
+  --message="@%ERROR_MESSAGE%" ^
+  --attach="%REORDER_LOG%" ^
+  --attach="%SYNC_LOG%" ^
+  --attach="%BUILD_LOG%" ^
+  --attach="%DOWNLOAD_LOG%" ^
+  --attach="%WORKDIR%\report*.xml" ^
+  --ignore-missing
 
 :done
 echo Done.

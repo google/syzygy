@@ -16,8 +16,6 @@
 
 """Utility script to email a test report to one or more addresses."""
 
-__author__ = 'rogerm@google.com (Roger McFarlane)'
-
 # Standard imports
 #   pylint: disable=W0404
 #       -> pylint gets confused by the email modules lazy importer
@@ -88,7 +86,7 @@ def GetAttachment(file_path):
 
 
 def SendMail(server, sender, recipients, subject, text, attachments,
-             password=None):
+             password=None, ignore_missing=False):
   """Sends a plain text email with optional attachments.
 
   Args:
@@ -106,14 +104,14 @@ def SendMail(server, sender, recipients, subject, text, attachments,
   envelope['Subject'] = subject
   envelope['From'] = sender
   envelope['To'] = _COMMASPACE.join(recipients)
-  envelope.preamble = 'Multipart message'
+  envelope.preamble = ''
   for file_pattern in attachments:
     matching_paths = glob.glob(file_pattern)
     if not matching_paths:
       raise Exception('%s not found' % file_pattern)
     for file_path in matching_paths:
       envelope.attach(GetAttachment(file_path))
-  message = email.mime.text.MIMEText(text)
+  message = email.mime.text.MIMEText(text.encode('utf-8'), 'plain', 'UTF-8')
   envelope.attach(message)
 
   # Send the e-mail message
@@ -141,6 +139,9 @@ def ParseArgs():
   option_parser.add_option(
       '--attach', metavar='FILE', action='append', dest='attachments',
       default=[], help='The path of a file to attach')
+  option_parser.add_option(
+      '--ignore-missing', action='store_true', default=False,
+      help='No errors on attempts to attach non-existing files')
   option_parser.add_option('--server', help='The SMTP server to use')
   options, _args = option_parser.parse_args()
   if not options.sender:
