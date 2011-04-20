@@ -144,6 +144,14 @@
       'dependencies': [
         'export_dll',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # We delay load ole32 purely to test delay load PE parsing.
+          'DelayLoadDLLs': [
+            'ole32.dll',
+          ],
+        },
+      },
       # We more or less want this to always be a release-style executable
       # to facilitate instrumentation.
       # We have to do this per configuration, as base.gypi specifies
@@ -157,10 +165,6 @@
               # which jumps to the function proper. This gets in the way of
               # disassembly.
               'LinkIncremental': '1',
-              # We delay load ole32 purely to test delay load PE parsing.
-              'DelayLoadDLLs': [
-                'ole32.dll',
-              ],
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',
