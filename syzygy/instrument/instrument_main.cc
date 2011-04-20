@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
 
   Decomposer decomposer(input_dll, input_dll_path);
   Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed))
+  if (!decomposer.Decompose(&decomposed, NULL))
     return Usage("Unable to decompose input image");
 
   // Construct and initialize our instrumenter.
