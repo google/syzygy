@@ -22,6 +22,7 @@
       'type': 'none',
       'dependencies': [
         '<(DEPTH)/base/base.gyp:*',
+        'installer/installer.gyp:*',
         'app/app.gyp:*',
         'tracer/tracer.gyp:*',
       ],
