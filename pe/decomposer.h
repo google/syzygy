@@ -70,8 +70,9 @@ class Decomposer {
   // Create blocks for all thunks in @p globals.
   // @note thunks are offspring of Compilands.
   bool CreateThunkBlocks(IDiaSymbol* globals);
-  // Enumerates labels in @p globals and add them to the
-  // corresponding (code) blocks.
+  // Enumerates labels in @p globals and add them to the corresponding (code)
+  // blocks. Labels are only added if they are referenced (are pointed
+  // to by at least one relocation entry).
   bool CreateGlobalLabels(IDiaSymbol* globals);
 
   // Create blocks of type @p block_type for any gaps in the image
@@ -86,8 +87,12 @@ class Decomposer {
   // pessimistic do-no-harm metric that ensures data with uncertain length
   // does not get subdivided.
   bool ExtendDataLabels(const DataLabels& data_labels);
-  // Extends data-in-function blocks using relocs.
-  bool ExtendFunctionDataUsingRelocs();
+  // Extends/creates a single data block using reloc information. The block
+  // will only be created if it is bigger than min_size.
+  void ExtendOrCreateDataRangeUsingRelocs(
+      const std::string& name, RelativeAddress addr, size_t min_size);
+  // Extends data blocks using relocs.
+  bool ExtendDataRangesUsingRelocs();
   // Creates data blocks from data space.
   bool CreateDataBlocksFromDataSpace();
   // Creates data gap blocks.
@@ -102,6 +107,12 @@ class Decomposer {
   bool LoadOmapInformation(IDiaSession* dia_session,
                            std::vector<OMAP>* omap_to,
                            std::vector<OMAP>* omap_from);
+
+  // Adds a label to the given block, unless the label is unreferenced.
+  // In this case, it will add the label to unreferenced_labels_.
+  void AddLabelToCodeBlock(RelativeAddress addr,
+                           const std::string& name,
+                           BlockGraph::Block* block);
 
   // Adds an intermediate reference from @p src_addr to @p dst_addr of
   // type @p type and size @p size with optional name @p name.
@@ -119,9 +130,10 @@ class Decomposer {
                             BlockGraph::Size size,
                             RelativeAddress dst_addr,
                             const char* name);
-
+  // Parse the relocation entries.
+  bool ParseRelocs(PEFile::RelocMap* reloc_map);
   // Walk relocations and create cross-block references.
-  bool CreateRelocationReferences();
+  bool CreateRelocationReferences(const PEFile::RelocMap& reloc_map);
   // Disassemble all code blocks and create code->code references.
   bool CreateCodeReferences();
   // Disassemble @p block and invoke @p on_instruction for each instruction
@@ -201,6 +213,8 @@ class Decomposer {
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
   typedef std::map<BlockGraph::BlockId, DetailedCodeBlockStatistics>
       DetailedCodeBlockStatsMap;
+  typedef std::map<RelativeAddress, std::string> LabelMap;
+  typedef std::set<RelativeAddress> RelativeAddressSet;
 
   // The block we're currently disassembling.
   BlockGraph::Block* current_block_;
@@ -211,6 +225,12 @@ class Decomposer {
   // either through short branches or by execution continuing past the tail
   // of a block.
   RangeSet to_merge_;
+  // Keeps track of unreferenced code labels.
+  LabelMap unreferenced_labels_;
+  // Keeps track of reloc entry information, which is used by various
+  // pieces of the decomposer.
+  PEFile::RelocSet reloc_set_;
+  RelativeAddressSet reloc_refs_;
   // Keeps track of per block disassembly statistics.
   DetailedCodeBlockStatsMap code_block_stats_;
   // Holds the ranges of in-function data blocks, and is used to guide

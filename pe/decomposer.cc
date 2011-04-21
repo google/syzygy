@@ -37,6 +37,8 @@ using core::BlockGraph;
 using core::Disassembler;
 using pe::Decomposer;
 
+const size_t kPointerSize = sizeof(AbsoluteAddress);
+
 bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   DCHECK(sym_tag != NULL);
   *sym_tag = SymTagNull;
@@ -196,7 +198,8 @@ void CalcDetailedCodeBlockStats(
         code_last_it->first < data_range) {
       size_t padding = data_range.start().value() -
           code_last_it->first.end().value();
-      if (padding < 4 && (data_range.start().value() & 3) == 0) {
+      if (padding < kPointerSize &&
+          (data_range.start().value() & (kPointerSize - 1)) == 0) {
         stats->padding_bytes += padding;
         ++stats->padding_count;
       }
@@ -315,6 +318,10 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   // Chunk out important PE image structures, like the headers and such.
   bool success = CreatePEImageBlocksAndReferences(&decomposed_image->header);
 
+  PEFile::RelocMap reloc_map;
+  if (success)
+    success = ParseRelocs(&reloc_map);
+
   // Chunk out blocks for each function and thunk in the image.
   if (success)
     success = CreateCodeBlocks(global);
@@ -323,13 +330,29 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   if (success)
     success = CreateDataBlocks(global);
 
+  // Create labels in code blocks. These are created first so that the
+  // labels will keep the more meaningful label names. We pass in the
+  // relocation entries in order to keep track of those labels that are
+  // unreferenced.
+  // TODO(chrisha): Should we also be using relocation destinations as
+  //     labels into code blocks?
+  if (success)
+    success = CreateGlobalLabels(global);
+
   // Create absolute references for each relocation entry.
   if (success)
-    success = CreateRelocationReferences();
+    success = CreateRelocationReferences(reloc_map);
+  // This is no longer needed.
+  reloc_map.clear();
 
   // Disassemble code blocks and create PC-relative references
   if (success)
     success = CreateCodeReferences();
+
+  // TODO(chrisha): Verify the destinations of all unreferenced labels.
+  //     They should either have been disassembled in the regular course
+  //     of disassembly, or they should point to no-ops. To do this, we'll
+  //     need to keep around the visited_ address-space of each code block.
 
   // Turn the address->address format references we've created into
   // block->block references on the blocks in the image.
@@ -425,7 +448,7 @@ bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
     }
   }
 
-  return CreateGlobalLabels(global);
+  return true;
 }
 
 bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
@@ -561,7 +584,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
       return false;
     }
 
-    block->SetLabel(label_rva - addr, label_name.c_str());
+    AddLabelToCodeBlock(label_rva, label_name, block);
   }
 
   return true;
@@ -691,7 +714,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
         return false;
       }
 
-      block->SetLabel(label_addr - block_addr, label_name.c_str());
+      AddLabelToCodeBlock(label_addr, label_name, block);
     }
   }
 
@@ -782,6 +805,24 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   return true;
 }
 
+void Decomposer::AddLabelToCodeBlock(RelativeAddress addr,
+                                     const std::string& name,
+                                     BlockGraph::Block* block) {
+  // This only makes sense for code blocks that contain the given label
+  // address.
+  DCHECK(block != NULL);
+  DCHECK(block->type() == BlockGraph::CODE_BLOCK);
+  DCHECK(addr >= block->addr() && addr < block->addr() + block->size());
+
+  // Only add referenced labels to the block. Unreferenced labels do
+  // not get used as disassembly starting points.
+  bool referenced = reloc_refs_.find(addr) != reloc_refs_.end();
+  if (referenced)
+    block->SetLabel(addr - block->addr(), name.c_str());
+  else
+    unreferenced_labels_.insert(std::make_pair(addr, name));
+}
+
 bool Decomposer::AddReference(RelativeAddress src_addr,
                               BlockGraph::ReferenceType type,
                               BlockGraph::Size size,
@@ -803,19 +844,34 @@ void Decomposer::AddReferenceCallback(RelativeAddress src_addr,
   AddReference(src_addr, type, size, dst_addr, name);
 }
 
-bool Decomposer::CreateRelocationReferences() {
-  PEFile::RelocSet reloc_set;
-  if (!image_file_.DecodeRelocs(&reloc_set)) {
+bool Decomposer::ParseRelocs(PEFile::RelocMap* reloc_map) {
+  if (!image_file_.DecodeRelocs(&reloc_set_)) {
     LOG(ERROR) << "Unable to decode image relocs.";
     return false;
   }
 
-  PEFile::RelocMap reloc_map;
-  if (!image_file_.ReadRelocs(reloc_set, &reloc_map)) {
+  if (!image_file_.ReadRelocs(reloc_set_, reloc_map)) {
     LOG(ERROR) << "Unable to read image relocs.";
     return false;
   }
 
+  // Get a set of relocation destinations. These are effectively 'references'
+  // to labels, and will be used to weed out unreferenced labels.
+  PEFile::RelocMap::const_iterator it = reloc_map->begin();
+  for (; it != reloc_map->end(); ++it) {
+    RelativeAddress rva;
+    if (!image_file_.Translate(it->second, &rva)) {
+      LOG(ERROR) << "Unable to translate absolute address to relative: "
+          << it->second;
+      return false;
+    }
+    reloc_refs_.insert(rva);
+  }
+
+  return true;
+}
+
+bool Decomposer::CreateRelocationReferences(const PEFile::RelocMap& reloc_map) {
   PEFile::RelocMap::const_iterator it(reloc_map.begin());
   PEFile::RelocMap::const_iterator end(reloc_map.end());
   for (; it != end; ++it) {
@@ -950,7 +1006,18 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
   if (length == 0)
     return true;
 
-  // If this fails, we have had overlapping data blocks reported to us.
+  // TODO(chrisha): The NativeClient bits of chrome.dll consists of hand-written
+  //     assembly that are compiled using a custom non-Microsoft toolchain.
+  //     Unfortunately for us this toolchain emits 1-byte data symbols instead
+  //     of code labels. Thus, we mark valid code as data and it eventually
+  //     gets trampled on by the disassembler.
+  // TODO(chrisha): Maybe output these as code labels for the appropriate
+  //     block?
+  static const char kNaClPrefix[] = "NaCl";
+  if (length == 1 &&
+      data_name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0)
+    return true;
+
   if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_name)) {
     LOG(ERROR) << "Data-space insertion failed.";
     return false;
@@ -1022,56 +1089,71 @@ bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
   return true;
 }
 
-bool Decomposer::ExtendFunctionDataUsingRelocs() {
-  PEFile::RelocSet reloc_set;
-  if (!image_file_.DecodeRelocs(&reloc_set)) {
-    LOG(ERROR) << "Unable to decode image relocs.";
-    return false;
+// Extends/creates a data block using reloc information.
+void Decomposer::ExtendOrCreateDataRangeUsingRelocs(
+    const std::string& name, RelativeAddress addr, size_t min_size) {
+  DCHECK(min_size > 0);
+
+  // We only extend data elements that lie within a code block.
+  const BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
+  if (block == NULL || block->type() != BlockGraph::CODE_BLOCK)
+    return;
+
+  // Use the end of the block as a first upper bound.
+  RelativeAddress end = block->addr() + block->size();
+
+  // Get the item in the data-space that is immediately after any intersecting
+  // range. This will be used as another upper bound.
+  DataSpace::Range data_range(addr, min_size);
+  DataSpace::RangeMapConstIter data_it =
+      data_space_.ranges().lower_bound(data_range);
+  if (data_it != data_space_.end() && data_it->first.Intersects(data_range))
+    ++data_it;
+  if (data_it != data_space_.end() && data_it->first.end() < end)
+      end = data_it->first.end();
+
+  // Find the length of the run of relocs starting at this address,
+  // stopping ourselves at the upper bound we determined earlier.
+  size_t count = 0;
+  RelativeAddress data_end = addr;
+  PEFile::RelocSet::const_iterator reloc_it = reloc_set_.find(addr);
+  while (true) {
+    if (reloc_it == reloc_set_.end() || data_end + kPointerSize > end)
+      break;
+    ++count;
+    data_end += kPointerSize;
+
+    // Advance to the next reloc. Only continue if it's contiguous.
+    ++reloc_it;
+    if (*reloc_it != data_end)
+      break;
   }
 
+  // Only create the entry if it meets the minimum size.
+  if (count * kPointerSize > min_size) {
+    DataSpace::Range range(addr, count * kPointerSize);
+    // This should never fail because of our earlier calculations of 'end'.
+    bool success = data_space_.SubsumeInsert(range, name);
+    DCHECK(success);
+  }
+}
+
+bool Decomposer::ExtendDataRangesUsingRelocs() {
   // Extend any data-within-code-blocks that consist of runs of relocs. We
   // do this because we occasionally (in hand-crafted assembly) see DD lookup
   // table symbols that are reported as being 1 DWORD in length, rather than
   // reporting their true length.
-  DataSpace::RangeMapIter data_it = data_space_.begin();
-  for (; data_it != data_space_.end(); ++data_it) {
-    // We only extend data elements that lie within a code block.
-    RelativeAddress addr = data_it->first.start();
-    const BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
-    if (block == NULL || block->type() != BlockGraph::CODE_BLOCK)
-      continue;
-
-    // Get an upper bound on the length we're willing to expand this
-    // data to. We'll stop at the next known data symbol, or the end of the
-    // code block.
-    RelativeAddress end = block->addr() + block->size();
-    DataSpace::RangeMapIter next_data_it = data_it;
+  DataSpace::RangeMapIter next_data_it = data_space_.begin();
+  while (next_data_it != data_space_.end()) {
+    DataSpace::RangeMapIter data_it = next_data_it;
     ++next_data_it;
-    if (next_data_it != data_space_.end() && end > next_data_it->first.start())
-      end = next_data_it->first.start();
 
-    // Find the length of the run of relocs starting at this address,
-    // stopping ourselves at the upperbound we determined earlier.
-    size_t count = 0;
-    while (true) {
-      // TODO(chrisha): This could be done more efficiently, without a lookup
-      //     at every iteration. I doubt we care though.
-      PEFile::RelocSet::const_iterator reloc_it = reloc_set.find(addr);
-      if (reloc_it == reloc_set.end() || addr + 4 > end)
-        break;
-      ++count;
-      addr += 4;
-    }
-
-    // Is the run of relocs longer than the current data length? If so,
-    // extend the data range.
-    if (count * 4 > data_it->first.size()) {
-      // TODO(chrisha): Maybe add a 'Grow' function to AddressSpace?
-      DataSpace::Range range(data_it->first.start(), count * 4);
-      std::string name(data_it->second);
-      // This should never fail because of our earlier calculations of 'end'.
-      DCHECK(data_space_.SubsumeInsert(range, name, &data_it));
-    }
+    // This may invalidate the iterator to data_it, hence the reason we
+    // keep around next_data_it. Also the reason why we create a copy of the
+    // name.
+    std::string name(data_it->second);
+    ExtendOrCreateDataRangeUsingRelocs(
+        name, data_it->first.start(), data_it->first.size());
   }
 
   return true;
@@ -1156,7 +1238,7 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   // data blocks. Doing this is necessary because some in-function jump tables
   // are reported with too-short lengths (only seen for hand-written assembly
   // thus far).
-  if (!ExtendFunctionDataUsingRelocs())
+  if (!ExtendDataRangesUsingRelocs())
     return false;
 
   // Use data_space_ to create data blocks.
@@ -1369,14 +1451,31 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     return;
   }
 
-  // If this instruction runs over data, terminate the path. Since this should
-  // never really happen, we bail when we see this.
+  // If this instruction runs over data, bail!
   DataSpace::Range range(instr_rel, instruction.size);
   DataSpace::RangeMapConstIterPair its = data_space_.FindIntersecting(range);
   if (its.first != its.second) {
     LOG(ERROR) << "Trying to disassemble into known data.";
     *directive = Disassembler::kDirectiveAbort;
     return;
+  }
+
+  // If this instruction terminates at a data boundary (ie: the *next*
+  // instruction will be data or a reloc), indicate that the path should be
+  // terminated.
+  RelativeAddress after_instr_rel = instr_rel + instruction.size;
+  DataSpace::Range next_byte(after_instr_rel, 1);
+  bool will_hit_data =
+      data_space_.FindContaining(next_byte) != data_space_.end();
+  bool will_hit_reloc = reloc_set_.find(after_instr_rel) != reloc_set_.end();
+  if (will_hit_data || will_hit_reloc) {
+    *directive = Disassembler::kDirectiveTerminatePath;
+
+    // We can be certain that a new lookup table is starting at this address.
+    if (!will_hit_data && will_hit_reloc)
+      ExtendOrCreateDataRangeUsingRelocs(
+          StringPrintf("Inferred Data 0x%08X", after_instr_rel),
+          after_instr_rel, kPointerSize);
   }
 
   int fc = META_GET_FC(instruction.meta);
@@ -1405,14 +1504,15 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (!image_file_.Translate(abs_src, &src) ||
         !image_file_.Translate(abs_dst, &dst)) {
       LOG(ERROR) << "Unable to translate absolute to relative addresses.";
-      *directive = Disassembler::kDirectiveTerminateWalk;
+      *directive = Disassembler::kDirectiveAbort;
       return;
     }
 
     // Get the block associated with the destination address. It must exist
     // and be a code block.
     BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
-    DCHECK(block != NULL && block->type() == BlockGraph::CODE_BLOCK);
+    DCHECK(block != NULL);
+    DCHECK(block->type() == BlockGraph::CODE_BLOCK);
 
     // If this is a call and the destination is a non-returning function,
     // then indicate that we should terminate this disassembly path.
@@ -1424,11 +1524,17 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       if (block->addr() != dst) {
         LOG(ERROR) << "Calling inside the body of a non-returning function: "
             << block->name();
-        *directive = Disassembler::kDirectiveTerminateWalk;
+        *directive = Disassembler::kDirectiveAbort;
         return;
       }
       *directive = Disassembler::kDirectiveTerminatePath;
     }
+
+    // This label has been referred to by code, so make sure it is removed from
+    // the set of unreferenced labels before we add it to the block.
+    LabelMap::iterator it = unreferenced_labels_.find(dst);
+    if (it != unreferenced_labels_.end())
+      unreferenced_labels_.erase(it);
 
     // Add the reference. If it's new, make sure to try and add a label
     // and reschedule the block for disassembly again.
