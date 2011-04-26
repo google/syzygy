@@ -812,7 +812,10 @@ void Decomposer::AddLabelToCodeBlock(RelativeAddress addr,
   // address.
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(addr >= block->addr() && addr < block->addr() + block->size());
+  DCHECK(addr >= block->addr());
+  // This is '<= size' because we legitimately get function labels that
+  // land at the end of the function.
+  DCHECK(addr <= block->addr() + block->size());
 
   // Only add referenced labels to the block. Unreferenced labels do
   // not get used as disassembly starting points.
