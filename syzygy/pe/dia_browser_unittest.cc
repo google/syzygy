@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,8 +142,7 @@ TEST_F(PatternTest, NullMatchingPatternIsInvalid) {
 
   // The pattern 'Compiland?' would match everything with a null match,
   // so it should be rejected.
-  EXPECT_FALSE(dia_browser.AddPattern(Opt(SymTagCompiland),
-                                      on_match_.get()));
+  EXPECT_FALSE(dia_browser.AddPattern(Opt(SymTagCompiland), on_match_.get()));
 }
 
 TEST_F(PatternTest, Wildcard) {
@@ -187,16 +186,14 @@ TEST_F(PatternTest, EmptySymTagBitSetRejected) {
 
   // A pattern with an element that can't match anything should be rejected.
   EXPECT_FALSE(dia_browser.AddPattern(Not(SymTagNull), on_match_.get()));
-  EXPECT_FALSE(dia_browser.AddPattern(Tags(SymTagBitSet()),
-                                      on_match_.get()));
+  EXPECT_FALSE(dia_browser.AddPattern(Tags(SymTagBitSet()), on_match_.get()));
 }
 
 TEST_F(PatternTest, Not) {
   TestDiaBrowser dia_browser;
 
   // Set up pattern '[^Compiland]'
-  ASSERT_TRUE(dia_browser.AddPattern(Not(SymTagCompiland),
-                                     on_match_.get()));
+  ASSERT_TRUE(dia_browser.AddPattern(Not(SymTagCompiland), on_match_.get()));
 
   // This should match every SymTag *except* Compiland.
   for (size_t i = kSymTagBegin; i < kSymTagEnd; ++i) {
@@ -216,13 +213,13 @@ TEST_F(PatternTest, MultiArgNot) {
   // with a full set of inputs. The sym tags used here are consecutive
   // from kSymTagBegin.
   ASSERT_TRUE(dia_browser.AddPattern(Not(SymTagExe,
-                                             SymTagCompiland,
-                                             SymTagCompilandDetails,
-                                             SymTagCompilandEnv,
-                                             SymTagFunction,
-                                             SymTagBlock,
-                                             SymTagData,
-                                             SymTagAnnotation),
+                                         SymTagCompiland,
+                                         SymTagCompilandDetails,
+                                         SymTagCompilandEnv,
+                                         SymTagFunction,
+                                         SymTagBlock,
+                                         SymTagData,
+                                         SymTagAnnotation),
                                      on_match_.get()));
 
   // Ensure the pattern doesn't match the first 8 symtags, but matches all
@@ -244,13 +241,13 @@ TEST_F(PatternTest, MultiArgTags) {
   // with a full set of inputs. The sym tags used here are consecutive
   // from kSymTagBegin.
   ASSERT_TRUE(dia_browser.AddPattern(Tags(SymTagExe,
-                                              SymTagCompiland,
-                                              SymTagCompilandDetails,
-                                              SymTagCompilandEnv,
-                                              SymTagFunction,
-                                              SymTagBlock,
-                                              SymTagData,
-                                              SymTagAnnotation),
+                                          SymTagCompiland,
+                                          SymTagCompilandDetails,
+                                          SymTagCompilandEnv,
+                                          SymTagFunction,
+                                          SymTagBlock,
+                                          SymTagData,
+                                          SymTagAnnotation),
                                      on_match_.get()));
 
   // Ensure the pattern matches the first 8 symtags, but does not match all
@@ -293,8 +290,7 @@ TEST_F(PatternTest, Star) {
 
   // Set up pattern 'Compiland.Block*.Data'.
   ASSERT_TRUE(dia_browser.AddPattern(
-      Seq(SymTagCompiland, Star(SymTagBlock), SymTagData),
-      on_match_.get()));
+      Seq(SymTagCompiland, Star(SymTagBlock), SymTagData), on_match_.get()));
 
   std::vector<SymTag> sym_tags;
 
@@ -321,8 +317,7 @@ TEST_F(PatternTest, Plus) {
 
   // Set up pattern 'Compiland.Block+.Data'.
   ASSERT_TRUE(dia_browser.AddPattern(
-      Seq(SymTagCompiland, Plus(SymTagBlock), SymTagData),
-      on_match_.get()));
+      Seq(SymTagCompiland, Plus(SymTagBlock), SymTagData), on_match_.get()));
 
   std::vector<SymTag> sym_tags;
 
@@ -350,13 +345,13 @@ TEST_F(PatternTest, Or) {
   // Add an 'or' pattern that uses all 8 arguments.
   ASSERT_TRUE(dia_browser.AddPattern(
       Or(SymTagCompiland,
-             Seq(SymTagData, SymTagCompiland, SymTagExe),
-             Seq(SymTagExe, SymTagCompiland),
-             Seq(SymTagExe, SymTagData),
-             Seq(SymTagExe, SymTagExe),
-             Seq(SymTagLabel, SymTagCompiland),
-             Seq(SymTagLabel, SymTagLabel, SymTagLabel),
-             SymTagVTable),
+         Seq(SymTagData, SymTagCompiland, SymTagExe),
+         Seq(SymTagExe, SymTagCompiland),
+         Seq(SymTagExe, SymTagData),
+         Seq(SymTagExe, SymTagExe),
+         Seq(SymTagLabel, SymTagCompiland),
+         Seq(SymTagLabel, SymTagLabel, SymTagLabel),
+         SymTagVTable),
       on_match_.get()));
 
   std::vector<SymTag> sym_tags;
@@ -423,8 +418,8 @@ TEST_F(DiaBrowserTest, SomePathsTerminated) {
   // However, we terminate partial matches when they get to
   // UDT.
   dia_browser.AddPattern(Seq(Callback(Or(SymTagEnum, SymTagUDT),
-                                              on_partial_match_term_.get()),
-                                 SymTagData),
+                                      on_partial_match_term_.get()),
+                             SymTagData),
                          on_full_match_.get());
 
   // There are 247 UDT nodes and 28 Enum nodes: OnPartialMatch should hit all
