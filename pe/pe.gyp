@@ -60,6 +60,8 @@
       'target_name': 'pe_lib',
       'type': 'static_library',
       'sources': [
+        'dia_browser.h',
+        'dia_browser.cc',
         'decomposer.h',
         'decomposer.cc',
         'dos_stub.asm',
@@ -117,6 +119,7 @@
       'target_name': 'pe_unittests',
       'type': 'executable',
       'sources': [
+        'dia_browser_unittest.cc',
         'decomposer_unittest.cc',
         'pe_file_builder_unittest.cc',
         'pe_file_unittest.cc',
