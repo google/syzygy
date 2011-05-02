@@ -55,8 +55,8 @@ int main(int argc, char** argv) {
 
   std::wstring volume = cmd_line->GetSwitchValueNative("volume");
   std::wstring snapshot = cmd_line->GetSwitchValueNative("snapshot");
-  CommandLine::StringVector  = cmd_line->();
-  if (volume.empty() || snapshot.empty() || .size() == 0) {
+  CommandLine::StringVector args = cmd_line->args();
+  if (volume.empty() || snapshot.empty() || args.size() == 0) {
     return Usage();
   }
 
@@ -167,10 +167,10 @@ int main(int argc, char** argv) {
   }
   ::VssFreeSnapshotProperties(&prop.Obj.Snap);
 
-  FilePath cmd_path([0]);
+  FilePath cmd_path(args[0]);
   CommandLine cmd(cmd_path);
-  for (size_t i = 1; i < .size(); ++i)
-    cmd.AppendArgNative([i]);
+  for (size_t i = 1; i < args.size(); ++i)
+    cmd.AppendArgNative(args[i]);
 
   int ret = 0;
   if (!base::LaunchApp(cmd, true, false, NULL)) {
