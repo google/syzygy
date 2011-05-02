@@ -108,7 +108,7 @@ struct ImageLoad32V1 {
 
 struct ImageLoad64V1 {
   ULONGLONG BaseAddress;
-  ULONG ModuleSize;
+  ULONGLONG ModuleSize;
   ULONG ProcessId;
   wchar_t ImageFileName[1];
 };
@@ -130,11 +130,11 @@ struct ImageLoad32V2 {
 
 struct ImageLoad64V2 {
   ULONGLONG BaseAddress;
-  ULONG ModuleSize;
+  ULONGLONG ModuleSize;
   ULONG ProcessId;
-  ULONG Reserved0;
   ULONG ImageChecksum;
   ULONG TimeDateStamp;
+  ULONG Reserved0;
   ULONGLONG DefaultBase;
   ULONG Reserved1;
   ULONG Reserved2;

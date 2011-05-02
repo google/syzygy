@@ -48,13 +48,13 @@ bool ConvertModuleInformationFromLogEvent(
     const ImageLoad64V0* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
   DCHECK(data != NULL && info != NULL);
-  if (data_len < FIELD_OFFSET(ImageLoad32V0, ImageFileName))
+  if (data_len < FIELD_OFFSET(ImageLoad64V0, ImageFileName))
     return false;
 
   info->base_address = data->BaseAddress;
   info->module_size = data->ModuleSize;
   size_t max_len = (data_len -
-      FIELD_OFFSET(ImageLoad32V0, ImageFileName)) / sizeof(wchar_t);
+      FIELD_OFFSET(ImageLoad64V0, ImageFileName)) / sizeof(wchar_t);
   size_t string_len = wcsnlen_s(data->ImageFileName, max_len);
   info->image_file_name.assign(data->ImageFileName, string_len);
 
@@ -65,14 +65,14 @@ bool ConvertModuleInformationFromLogEvent(
     const ImageLoad32V1* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
   DCHECK(data != NULL && info != NULL);
-  if (data_len < FIELD_OFFSET(ImageLoad32V0, ImageFileName))
+  if (data_len < FIELD_OFFSET(ImageLoad32V1, ImageFileName))
     return false;
 
   info->base_address = data->BaseAddress;
   info->module_size = data->ModuleSize;
   *process_id = data->ProcessId;
   size_t max_len = (data_len -
-      FIELD_OFFSET(ImageLoad32V0, ImageFileName)) / sizeof(wchar_t);
+      FIELD_OFFSET(ImageLoad32V1, ImageFileName)) / sizeof(wchar_t);
   size_t string_len = wcsnlen_s(data->ImageFileName, max_len);
   info->image_file_name.assign(data->ImageFileName, string_len);
 
@@ -83,14 +83,15 @@ bool ConvertModuleInformationFromLogEvent(
     const ImageLoad64V1* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
   DCHECK(data != NULL && info != NULL);
-  if (data_len < FIELD_OFFSET(ImageLoad32V0, ImageFileName))
+  if (data_len < FIELD_OFFSET(ImageLoad64V1, ImageFileName))
     return false;
 
   info->base_address = data->BaseAddress;
-  info->module_size = data->ModuleSize;
+  // TODO(chrisha): Make ModuleInformation::module_size 64-bit?
+  info->module_size = static_cast<sym_util::ModuleSize>(data->ModuleSize);
   *process_id = data->ProcessId;
   size_t max_len = (data_len -
-      FIELD_OFFSET(ImageLoad32V0, ImageFileName)) / sizeof(wchar_t);
+      FIELD_OFFSET(ImageLoad64V1, ImageFileName)) / sizeof(wchar_t);
   size_t string_len = wcsnlen_s(data->ImageFileName, max_len);
   info->image_file_name.assign(data->ImageFileName, string_len);
 
@@ -101,7 +102,7 @@ bool ConvertModuleInformationFromLogEvent(
     const ImageLoad32V2* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
   DCHECK(data != NULL && info != NULL);
-  if (data_len < FIELD_OFFSET(ImageLoad32V0, ImageFileName))
+  if (data_len < FIELD_OFFSET(ImageLoad32V2, ImageFileName))
     return false;
 
   info->base_address = data->BaseAddress;
@@ -110,7 +111,7 @@ bool ConvertModuleInformationFromLogEvent(
   info->image_checksum = data->ImageChecksum;
   info->time_date_stamp = data->TimeDateStamp;
   size_t max_len = (data_len -
-      FIELD_OFFSET(ImageLoad32V0, ImageFileName)) / sizeof(wchar_t);
+      FIELD_OFFSET(ImageLoad32V2, ImageFileName)) / sizeof(wchar_t);
   size_t string_len = wcsnlen_s(data->ImageFileName, max_len);
   info->image_file_name.assign(data->ImageFileName, string_len);
 
@@ -121,16 +122,18 @@ bool ConvertModuleInformationFromLogEvent(
     const ImageLoad64V2* data, size_t data_len, DWORD* process_id,
     KernelModuleEvents::ModuleInformation* info) {
   DCHECK(data != NULL && info != NULL);
-  if (data_len < FIELD_OFFSET(ImageLoad32V0, ImageFileName))
+  if (data_len < FIELD_OFFSET(ImageLoad64V2, ImageFileName))
     return false;
 
   info->base_address = data->BaseAddress;
-  info->module_size = data->ModuleSize;
+  // TODO(chrisha): Maybe ModuleInformation::module_size should be 64-bit?
+  //     This has wide-spread repercussions.
+  info->module_size = static_cast<sym_util::ModuleSize>(data->ModuleSize);
   *process_id = data->ProcessId;
   info->image_checksum = data->ImageChecksum;
   info->time_date_stamp = data->TimeDateStamp;
   size_t max_len = (data_len -
-      FIELD_OFFSET(ImageLoad32V0, ImageFileName)) / sizeof(wchar_t);
+      FIELD_OFFSET(ImageLoad64V2, ImageFileName)) / sizeof(wchar_t);
   size_t string_len = wcsnlen_s(data->ImageFileName, max_len);
   info->image_file_name.assign(data->ImageFileName, string_len);
 
