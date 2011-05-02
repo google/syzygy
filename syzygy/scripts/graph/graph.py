@@ -16,6 +16,7 @@
 from etw import EventConsumer, EventHandler, TraceEventSource
 from etw_db import FileNameDatabase, ModuleDatabase, ProcessThreadDatabase
 import etw.descriptors.pagefault as pagefault
+import etw.descriptors.pagefault_xp
 import matplotlib.patches as patches
 import matplotlib.ticker as ticker
 import matplotlib.pyplot as pyplot
@@ -98,8 +99,6 @@ class _PageFaultHandler(EventConsumer):
 
   @EventHandler(pagefault.Event.HardFault)
   def _OnHardFault(self, event):
-    assert(type(event) == pagefault.PageFault_V2.PageFault_HardFault)
-
     process = self._process_database.GetThreadProcess(event.TThreadId)
     module = self._module_database.GetProcessModuleAt(
         process and process.process_id, event.VirtualAddress)
@@ -342,6 +341,9 @@ def GenerateGraph(info, file_name, width, height, dpi, data_start=None,
 
   if categorize == None:
     categorize = lambda p, m, t: 0
+
+  if data_start == None:
+    data_start = {}
 
   # Get the earliest start time across all processes.
   start_time = None
