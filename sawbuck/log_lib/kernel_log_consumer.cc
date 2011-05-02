@@ -225,7 +225,8 @@ bool KernelProcessEvents::ProcessInfo::operator == (
 }
 
 KernelLogParser::KernelLogParser() : module_event_sink_(NULL),
-    process_event_sink_(NULL), infer_bitness_from_log_(true),
+    page_fault_event_sink_(NULL), process_event_sink_(NULL),
+    infer_bitness_from_log_(true),
     is_64_bit_log_(false) {
 }
 
