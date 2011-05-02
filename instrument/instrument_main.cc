@@ -55,44 +55,10 @@ int main(int argc, char** argv) {
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
 
-  // Read and decompose the input image for starters.
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path))
-    return Usage("Unable to read input image");
-
-  Decomposer decomposer(input_dll, input_dll_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL))
-    return Usage("Unable to decompose input image");
-
-  // Construct and initialize our instrumenter.
-  Instrumenter instrumenter(decomposed.address_space, &decomposed.image);
-  if (!instrumenter.Initialize(decomposed.header.nt_headers)) {
-    return Usage("Unable to initialize instrumenter.");
+  if (!Instrumenter::Instrument(input_dll_path, output_dll_path)) {
+    LOG(ERROR)<< L"Failed to instrument " << input_dll_path.value().c_str();
+    return 1;
   }
 
-  // Copy the sections and the data directory.
-  if (!instrumenter.CopySections()) {
-    return Usage("Unable to copy sections.");
-  }
-  if (!instrumenter.CopyDataDirectory(decomposed.header)) {
-    return Usage("Unable to copy the input image's data directory.");
-  }
-
-  // Instrument the binary.
-  if (!instrumenter.AddCallTraceImportDescriptor(
-      decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IMPORT])) {
-    return Usage("Unable to add call trace import.");
-  }
-  if (!instrumenter.InstrumentCodeBlocks(&decomposed.image)) {
-    return Usage("Unable to instrument code blocks.");
-  }
-
-  // Finalize the headers and write the image.
-  if (!instrumenter.FinalizeImageHeaders(decomposed.header)) {
-    return Usage("Unable to finalize image headers.");
-  }
-  if (!instrumenter.WriteImage(output_dll_path)) {
-    return Usage("Unable to write the ouput image.");
-  }
+  return 0;
 }

@@ -118,6 +118,7 @@ TEST_F(PEFileTest, ReadImage) {
                 name == "function3" ||
                 name == "DllMain" ||
                 name == "CreateFileW" ||
+                name == "TestUnusedFuncs" ||
                 name == "TestExport");
   }
 }
@@ -180,12 +181,13 @@ TEST_F(PEFileTest, DecodeRelocs) {
 TEST_F(PEFileTest, DecodeExports) {
   PEFile::ExportInfoVector exports;
   ASSERT_TRUE(image_file_.DecodeExports(&exports));
-  ASSERT_EQ(6, exports.size());
+  ASSERT_EQ(7, exports.size());
 
   // This must match the information in the test_dll.def file.
   PEFile::ExportInfo expected[] = {
     { RelativeAddress(0), "", "",  1 },
     { RelativeAddress(0), "TestExport", "", 2 },
+    { RelativeAddress(0), "TestUnusedFuncs", "", 3 },
     { RelativeAddress(0), "DllMain", "", 7 },
     { RelativeAddress(0), "function3", "", 9 },
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },

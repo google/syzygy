@@ -24,6 +24,10 @@ class Instrumenter : public RelinkerBase {
                BlockGraph* block_graph);
   ~Instrumenter();
 
+  // Static wrapper function to instrument an input dll to an output dll.
+  static bool Instrument(const FilePath& input_dll_path,
+                         const FilePath& output_dll_path);
+
   // Copy all sections (except the .relocs section) from the decomposed
   // image to the new image.
   bool CopySections();

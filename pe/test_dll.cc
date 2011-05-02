@@ -82,3 +82,45 @@ DWORD WINAPI TestExport(size_t buf_len, char* buf) {
 
   return 0;
 }
+
+void used_operation() {
+  function1();
+  function2();
+  function3();
+}
+
+// This won't be called.
+void unused_operation() {
+  char dummy[512];
+  TestExport(sizeof(dummy), dummy);
+}
+
+class Used {
+ public:
+  Used() {}
+  virtual ~Used() {}
+  virtual void M() {
+    used_operation();
+  }
+};
+
+// Unused::M() won't be called.
+class Unused : public Used {
+ public:
+  virtual void M() {
+    unused_operation();
+  }
+};
+
+void CALLBACK TestUnusedFuncs(HWND unused_window,
+                              HINSTANCE unused_instance,
+                              LPSTR unused_cmd_line,
+                              int unused_show) {
+  bool call_it = time(NULL) > 10000;  //  true unless you play with the clock
+
+  (call_it ? used_operation : unused_operation)();
+
+  Used a;
+  Unused b;
+  (call_it ? &a : &b)->M();
+}
