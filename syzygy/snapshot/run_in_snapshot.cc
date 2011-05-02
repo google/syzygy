@@ -32,14 +32,16 @@ const char kHelp[] =
   "  --volume=<volume> the volume to mount, e.g. C:\\\n"
   "  --snapshot=<drive letter> the drive letter to mount the snapshot on, "
       "e.g. M:\n"
-  "  --cmd=<command line> the command to run, e.g. "
-      "\"notepad M:\\temp\\foo.txt\"\n";
+  "\n"
+  "Example:\n"
+  "   run_in_snapshot --volume=C:\\ --snapshot=M: -- cmd.exe /c echo no way\n";
+
 
 int Usage() {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
 
   std::wcout << L"Usage: " << cmd_line->GetProgram().BaseName().value().c_str()
-      << " [options]\n" << std::endl;
+      << " [options] -- [command and argument]\n" << std::endl;
   std::cout << kHelp;
 
   return 1;
@@ -53,8 +55,8 @@ int main(int argc, char** argv) {
 
   std::wstring volume = cmd_line->GetSwitchValueNative("volume");
   std::wstring snapshot = cmd_line->GetSwitchValueNative("snapshot");
-  std::wstring cmd = cmd_line->GetSwitchValueNative("cmd");
-  if (volume.empty() || snapshot.empty() || cmd.empty()) {
+  CommandLine::StringVector  = cmd_line->();
+  if (volume.empty() || snapshot.empty() || .size() == 0) {
     return Usage();
   }
 
@@ -165,8 +167,13 @@ int main(int argc, char** argv) {
   }
   ::VssFreeSnapshotProperties(&prop.Obj.Snap);
 
+  FilePath cmd_path([0]);
+  CommandLine cmd(cmd_path);
+  for (size_t i = 1; i < .size(); ++i)
+    cmd.AppendArgNative([i]);
+
   int ret = 0;
-  if (!base::LaunchApp(CommandLine::FromString(cmd), true, false, NULL)) {
+  if (!base::LaunchApp(cmd, true, false, NULL)) {
     LOG(ERROR) << "Unable to launch application";
     ret = 1;
   }
