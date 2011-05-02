@@ -133,12 +133,12 @@ class ChromeRepo(object):
       headers: The optional HTTP headers to include in the request.
 
     Returns:
-      A pair containing the HTTP status code and the headers of the
-      response, respectively.  The body of the response will have been
-      written to the out_stream parameter.
+      A triple containing the HTTP status code, the headers of the response,
+      and the complete URL of the request.  The body of the response will have
+      been written to the out_stream parameter.
     """
-    _LOGGER.debug('Performing %s to %s://%s%s', method, self._scheme,
-                  self._netloc, path)
+    url = '%s://%s%s' % (self._scheme, self._netloc, path)
+    _LOGGER.debug('Performing %s to %s', method, url)
     connection = self._connection_factory(self._netloc)
     with contextlib.closing(connection):
       connection.request(method, path, body, headers or {})
@@ -148,7 +148,7 @@ class ChromeRepo(object):
         if not chunk:
           break
         out_stream.write(chunk)
-      return response.status, response.msg
+      return response.status, response.msg, url
 
   def GetBuildIndex(self):
     """Retrieve the list of build (id, timestamp) pairs from the build repo.
@@ -161,9 +161,11 @@ class ChromeRepo(object):
     response_buffer = StringIO.StringIO()
     url_parts = (None, None, self._root_dir, self._query, self._fragment)
     path = urlparse.urlunsplit(url_parts)
-    status, _headers = self._PerformRequest('GET', path, response_buffer)
+    status, _headers, url = self._PerformRequest('GET', path, response_buffer)
     if status != 200:
-      raise DownloadError('(%s) Failed to download build index' % status)
+      message = '(%s) Failed to download index [%s]' % (status, url)
+      _LOGGER.error('%s', message)
+      raise DownloadError(message)
     for line in response_buffer.getvalue().split('\n'):
       id_match = self._build_id_regex.search(line)
       if not id_match:
@@ -171,14 +173,16 @@ class ChromeRepo(object):
       date_match = self._BUILD_DATE_REGEX.search(line)
       if not date_match:
         raise FormatError('Found build id but no date!: %s' % line)
+      build_id = id_match.group('id')
       timestamp = datetime.datetime(
           year=int(date_match.group('year')),
           month=self._MONTHS[date_match.group('month').lower()],
           day=int(date_match.group('day')),
           hour=int(date_match.group('hours')),
           minute=int(date_match.group('minutes')))
-      build_index.append((id_match.group('id'), timestamp))
-    return sorted(build_index, cmp=lambda x, y: cmp(x[1], y[1]), reverse=True)
+      sort_key = (timestamp,) + tuple(int(x) for x in build_id.split('.'))
+      build_index.append((build_id, timestamp, sort_key))
+    return sorted(build_index, key=lambda x: x[2], reverse=True)
 
   def _GetFilePath(self, build_id, relative_path):
     """Generates the path in the repo to a given file for a given build.
@@ -211,10 +215,10 @@ class ChromeRepo(object):
     if build_index is None:
       build_index = self.GetBuildIndex()
 
-    for build_id, timestamp in build_index:
+    for build_id, timestamp, _sort_key in build_index:
       found = True
       for file_name in FILE_LIST:
-        status, _headers = self._PerformRequest(
+        status, _headers, _url = self._PerformRequest(
             'HEAD', self._GetFilePath(build_id, file_name),
             StringIO.StringIO())
         if status != 200:
@@ -250,7 +254,7 @@ class ChromeRepo(object):
       name = os.path.basename(file_name)
       dest = os.path.join(build_dir, name)
       with open(dest, 'wb') as out_stream:
-        status, headers = self._PerformRequest(
+        status, headers, url = self._PerformRequest(
             'GET', self._GetFilePath(build_id, file_name), out_stream)
       if status == 404:
         os.remove(dest)
@@ -258,7 +262,7 @@ class ChromeRepo(object):
       if status != 200 \
           or int(headers['Content-Length']) != os.stat(dest).st_size:
         os.remove(dest)
-        raise DownloadError('(%s) Failed to download %s' % (status, dest))
+        raise DownloadError('(%s) Failed to download %s' % (status, url))
       if file_name.lower().endswith('.zip'):
         _LOGGER.info('Extracting files from %s', dest)
         zipfile.ZipFile(dest, 'r', allowZip64=True).extractall(build_dir)
@@ -293,15 +297,19 @@ def AddCommandLineOptions(option_parser):
 
 def ParseArgs():
   """Parse the command line options, returning an options object."""
-  option_parser = optparse.OptionParser('Usage: %prog [options] LIST|GET')
+  usage = 'Usage: %prog [options] LIST|GET|LATEST'
+  option_parser = optparse.OptionParser(usage)
   AddCommandLineOptions(option_parser)
   log_helper.AddCommandLineOptions(option_parser)
   options, args = option_parser.parse_args()
   if not options.repo_url:
     option_parser.error('--repo-url is required')
-  if len(args) != 1 or args[0].lower() not in ('list', 'latest', 'get'):
-    option_parser.error('A repositoy action (LIST or GET) is required')
-  return options, args[0].lower()
+  if len(args) == 1:
+    action = args[0].lower()
+    if action in ('list', 'latest', 'get'):
+      return options, action
+  option_parser.error(
+      'A single repository action (LIST, GET, or LATEST) is required')
 
 
 def main():

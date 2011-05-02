@@ -76,7 +76,7 @@ del ^
   "%WORKDIR%\report-*.xml" ^
   "%SUMMARY%" ^
   "%ERROR_MESSAGE%"
-  
+
 :step1
 cd "%SYZYGY%\src"
 echo Synchronizing "%SYZYGY%" ...

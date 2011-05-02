@@ -49,6 +49,7 @@ VALID_XML_INDEX = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
   <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="9.0.597.98/">9.0.597.98/</a></td><td align="right">18-Mar-2011 18:06  </td><td align="right">  - </td><td>&nbsp;</td></tr>
   <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="9.0.597.99/">9.0.597.99/</a></td><td align="right">19-Mar-2011 01:07  </td><td align="right">  - </td><td>&nbsp;</td></tr>
   <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="9.0.597.100/">9.0.597.100/</a></td><td align="right">19-Mar-2011 01:08  </td><td align="right">  - </td><td>&nbsp;</td></tr>
+  <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="10.0.1.1/">10.0.1.1/</a></td><td align="right">19-Mar-2011 01:08  </td><td align="right">  - </td><td>&nbsp;</td></tr>
   </td><td>&nbsp;</td></tr>
   <tr><th colspan="5"><hr></th></tr>
   </table>
@@ -56,11 +57,18 @@ VALID_XML_INDEX = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
   </body></html>"""
 
 
+def _IndexEntry(build_id, timestamp):
+  """Creates a build index entry from an id and timestamp."""
+  sort_key = (timestamp,) + tuple(int(i) for i in build_id.split('.'))
+  return build_id, timestamp, sort_key
+
+
 # Sorted list of build_id, timestamp pairs for the above XML sample.
 VALID_INDEX_OUTPUT = [
-    ('9.0.597.100', datetime.datetime(2011, 03, 19, 1, 8)),
-    ('9.0.597.99', datetime.datetime(2011, 03, 19, 1, 7)),
-    ('9.0.597.98', datetime.datetime(2011, 03, 18, 18, 6)),
+    _IndexEntry('10.0.1.1', datetime.datetime(2011, 03, 19, 1, 8)),
+    _IndexEntry('9.0.597.100', datetime.datetime(2011, 03, 19, 1, 8)),
+    _IndexEntry('9.0.597.99', datetime.datetime(2011, 03, 19, 1, 7)),
+    _IndexEntry('9.0.597.98', datetime.datetime(2011, 03, 18, 18, 6)),
     ]
 
 
@@ -77,7 +85,7 @@ class TestHTTPConnection(object):
 
     Args:
       status: The status to return on a request.
-      body: The body to return on a request.  It will be returned exactly once.
+      body: The body to return on a request.
       headers: The headers to return on a request.
     """
     self.status = status
@@ -98,7 +106,13 @@ class TestHTTPConnection(object):
     return self
 
   def read(self, *_args, **_kwargs):
-    """Returns the body of the response."""
+    """Returns the body of the response.
+
+    To facilitate reuse of the connection factory object, this function
+    alternates between returning the actual body (for consumption by the
+    caller) and returning None (signaling that the entire body has been
+    read).
+    """
     if self._read_completed:
       self._read_completed = False
       return None
@@ -116,12 +130,11 @@ class TestChromeRepo(unittest.TestCase):
   def testConstructor(self):
     # Ensures invalid constructor parameters generate appropriate errors.
     self.assertRaises(
-        ValueError, lambda : chrome_repo.ChromeRepo('ftp://foo.bar.net/blah'))
+        ValueError, chrome_repo.ChromeRepo, 'ftp://foo.bar.net/blah')
     self.assertRaises(
-        ValueError, lambda : chrome_repo.ChromeRepo('asdfasdfasdfa'))
+        ValueError, chrome_repo.ChromeRepo, 'asdfasdfasdfa')
     self.assertRaises(
-        re.error,
-        lambda : chrome_repo.ChromeRepo('http://foo.bar.net/blah', '('))
+        re.error, chrome_repo.ChromeRepo, 'http://foo.bar.net/blah', '(')
 
   def testGetFilePath(self):
     # Ensures file paths inside the repo are calculated correctly.
@@ -134,16 +147,21 @@ class TestChromeRepo(unittest.TestCase):
 
   def testPerformRequest(self):
     # Ensures that the basic HTTP request handling utility works.
+    repo_url = 'http://foo.bar.net'
+    test_path = '/path'
     expected_body = 'This is just a test'
     expected_status = 200
     expected_headers = {'Content-Type' : 'text/plain'}
-    repo = chrome_repo.ChromeRepo('http://foo.bar.net/blah')
+    expected_url = repo_url + test_path
+    repo = chrome_repo.ChromeRepo(repo_url + '/blah')
     repo._connection_factory = TestHTTPConnection(
         expected_status, expected_body, expected_headers)
     out_stream = cStringIO.StringIO()
-    out_status, out_headers = repo._PerformRequest('GET', '/path', out_stream)
+    out_status, out_headers, out_url = repo._PerformRequest('GET', test_path,
+                                                            out_stream)
     self.assertEquals(expected_status, out_status)
     self.assertEquals(expected_headers, out_headers)
+    self.assertEquals(expected_url, out_url)
     self.assertEquals(expected_body, out_stream.getvalue())
 
   def testGetBuildIndexOnServerError(self):
@@ -168,7 +186,7 @@ class TestChromeRepo(unittest.TestCase):
     # Checks that extracting the lastest complete build id works.
     repo = chrome_repo.ChromeRepo('http://foo.bar.net/blah')
     repo._connection_factory = TestHTTPConnection(200, VALID_XML_INDEX, {})
-    self.assertEquals(VALID_INDEX_OUTPUT[0], repo.GetLatestBuildId())
+    self.assertEquals(VALID_INDEX_OUTPUT[0][:2], repo.GetLatestBuildId())
 
   def _DoDownloadTest(self, use_real_size):
     """Performs a download, varying whether or not the file size is correct.
@@ -220,8 +238,7 @@ class TestChromeRepo(unittest.TestCase):
   def testDownloadBuildBadSize(self):
     # Ensures that size mismatch between header and body generates exceptions.
     self.assertRaises(
-        chrome_repo.DownloadError,
-        lambda: self._DoDownloadTest(use_real_size=False))
+        chrome_repo.DownloadError, self._DoDownloadTest, use_real_size=False)
 
   def testDownloadBuildNotFound(self):
     # Ensures that missing files on download generate an exception.
@@ -230,8 +247,7 @@ class TestChromeRepo(unittest.TestCase):
       repo = chrome_repo.ChromeRepo('http://foo.bar.net/blah')
       repo._connection_factory = TestHTTPConnection(404, '', {})
       self.assertRaises(
-          chrome_repo.NotFoundError,
-          lambda: repo.DownloadBuild(work_dir, 'foo'))
+          chrome_repo.NotFoundError, repo.DownloadBuild, work_dir, 'foo')
     finally:
       shutil.rmtree(work_dir, ignore_errors=True)
 
@@ -242,8 +258,7 @@ class TestChromeRepo(unittest.TestCase):
       repo = chrome_repo.ChromeRepo('http://foo.bar.net/blah')
       repo._connection_factory = TestHTTPConnection(500, '', {})
       self.assertRaises(
-          chrome_repo.DownloadError,
-          lambda: repo.DownloadBuild(work_dir, 'foo'))
+          chrome_repo.DownloadError, repo.DownloadBuild, work_dir, 'foo')
     finally:
       shutil.rmtree(work_dir, ignore_errors=True)
 
