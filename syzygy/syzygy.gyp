@@ -42,6 +42,7 @@
         'unittest_targets': [
           '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_unittests',
           '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
+          '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
           '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
           '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
         ],
@@ -58,6 +59,7 @@
             '../sawbuck/tools/verifier.py',
             '<(PRODUCT_DIR)/call_trace_unittests.exe',
             '<(PRODUCT_DIR)/core_unittests.exe',
+            '<(PRODUCT_DIR)/instrument_unittests.exe',
             '<(PRODUCT_DIR)/pdb_unittests.exe',
             '<(PRODUCT_DIR)/pe_unittests.exe',
           ],

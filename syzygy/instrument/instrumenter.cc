@@ -14,19 +14,27 @@
 
 #include "syzygy/instrument/instrumenter.h"
 #include "syzygy/pe/pe_file_writer.h"
+#include "syzygy/pe/decomposer.h"
 
 using core::AbsoluteAddress;
 using core::RelativeAddress;
 using pe::PEFileWriter;
+using pe::Decomposer;
 
 namespace {
 
 const char* kCallTraceDllName = "call_trace.dll";
 const char* kIndirectPenterName = "_indirect_penter";
 
-uint32 WordAlign(uint32 value) {
-  uint32 alignment = sizeof(WORD);
-  return (value + (alignment - 1)) & ~(alignment - 1);
+// TODO(rogerm): this functionality is duplicated!  Consolidate!
+size_t Align(size_t value, size_t alignment) {
+  size_t expanded = value + alignment - 1;
+  return expanded - (expanded % alignment);
+}
+
+// TODO(rogerm): this functionality is duplicated!  Consolidate!
+size_t WordAlign(size_t value) {
+  return Align(value, sizeof(WORD));
 }
 
 }  // namespace
@@ -83,6 +91,9 @@ bool Instrumenter::AddCallTraceImportDescriptor(
     return false;
   }
 
+  // Align the import descriptor array block to a DWORD boundary.
+  insert_at.set_value(Align(insert_at.value(), sizeof(DWORD)));
+
   // Create the image import descript array block.
   if (!CreateImageImportDescriptorArrayBlock(
       original_image_import_descriptor_array, &insert_at)) {
@@ -99,10 +110,12 @@ bool Instrumenter::AddCallTraceImportDescriptor(
 
   // Wrap the above blocks in a new section.
   uint32 import_dir_size = insert_at - start;
-  builder().AddSegment(".import",
-                       import_dir_size,
-                       import_dir_size,
-                       IMAGE_SCN_MEM_WRITE);
+  uint32 flags = IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE |
+                 IMAGE_SCN_CNT_INITIALIZED_DATA;
+  RelativeAddress real_start = builder().AddSegment(
+      ".import", import_dir_size, import_dir_size, flags);
+
+  DCHECK_EQ(start, real_start);
 
   return true;
 }
@@ -277,8 +290,13 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
   // more than the actual number of imports). The OriginalFirstThunk member
   // points to a hint name array, the Name member points to the DLL name, and
   // the FirstThunk member points to an import address table.
-  uint32 block_size = original_image_import_descriptor_array->size() +
-                      sizeof(IMAGE_IMPORT_DESCRIPTOR);
+  // Note: The PE Parser truncates the original_image_import_descriptor_array
+  //       size to the first DWORD of the sentinel (i.e., loses about 16 bytes)
+  //       So we need to make sure we re-expand/align the array.
+  size_t original_block_size = Align(
+     original_image_import_descriptor_array->size(),
+     sizeof(IMAGE_IMPORT_DESCRIPTOR));
+  size_t block_size = original_block_size + sizeof(IMAGE_IMPORT_DESCRIPTOR);
   BlockGraph::Block* block =
       builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
                                          *insert_at,
@@ -301,8 +319,8 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
   // TODO(ericdingle): This doesn't copy the references from the old block to
   // the new block (i.e. it is dependent on the fact that the original import
   // table is written into the exact same address space in the new image).
-  uint32 original_data_size = original_image_import_descriptor_array->size() -
-                              sizeof(IMAGE_IMPORT_DESCRIPTOR);
+  size_t original_data_size =
+      original_block_size - sizeof(IMAGE_IMPORT_DESCRIPTOR);
   memcpy(data, original_image_import_descriptor_array->data(),
          original_data_size);
   // And zero out the rest.
@@ -310,7 +328,7 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
 
   // For the new IMAGE_IMPORT_DESCRIPTOR, add references to the hint name
   // array, the import address table and the dll name.
-  uint32 offset = original_data_size;
+  size_t offset = original_data_size;
   block->SetReference(
       offset + offsetof(IMAGE_IMPORT_DESCRIPTOR, OriginalFirstThunk),
       BlockGraph::Reference(BlockGraph::RELATIVE_REF,
@@ -461,5 +479,65 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
                             0));
 
   *thunk_block = new_block;
+  return true;
+}
+
+bool Instrumenter::Instrument(const FilePath& input_dll_path,
+                              const FilePath& output_dll_path) {
+  DCHECK(!input_dll_path.empty());
+  DCHECK(!output_dll_path.empty());
+
+  // Read and decompose the input image for starters.
+  pe::PEFile input_dll;
+  if (!input_dll.Init(input_dll_path)) {
+    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
+    return false;
+  }
+
+  Decomposer decomposer(input_dll, input_dll_path);
+  Decomposer::DecomposedImage decomposed;
+  if (!decomposer.Decompose(&decomposed, NULL)) {
+    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
+    return false;
+  }
+
+  // Construct and initialize our instrumenter.
+  Instrumenter instrumenter(decomposed.address_space, &decomposed.image);
+  if (!instrumenter.Initialize(decomposed.header.nt_headers)) {
+    LOG(ERROR) << "Unable to initialize instrumenter.";
+    return false;
+  }
+
+  // Copy the sections and the data directory.
+  if (!instrumenter.CopySections()) {
+    LOG(ERROR) << "Unable to copy sections.";
+    return false;
+  }
+
+  if (!instrumenter.CopyDataDirectory(decomposed.header)) {
+    LOG(ERROR) << "Unable to copy the input image's data directory.";
+    return false;
+  }
+
+  // Instrument the binary.
+  if (!instrumenter.AddCallTraceImportDescriptor(
+      decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IMPORT])) {
+    LOG(ERROR) << "Unable to add call trace import.";
+    return false;
+  }
+  if (!instrumenter.InstrumentCodeBlocks(&decomposed.image)) {
+    LOG(ERROR) << "Unable to instrument code blocks.";
+    return false;
+  }
+
+  // Finalize the headers and write the image.
+  if (!instrumenter.FinalizeImageHeaders(decomposed.header)) {
+    LOG(ERROR) << "Unable to finalize image headers.";
+  }
+  if (!instrumenter.WriteImage(output_dll_path)) {
+    LOG(ERROR) << "Unable to write " << output_dll_path.value();
+    return false;
+  }
+
   return true;
 }

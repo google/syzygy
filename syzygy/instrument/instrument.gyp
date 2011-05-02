@@ -53,5 +53,22 @@
         ]
       },
     },
+    {
+      'target_name': 'instrument_unittests',
+      'type': 'executable',
+      'sources': [
+        'instrumenter_unittest.cc',
+        'instrument_unittests_main.cc',
+        '../pe/unittest_util.h',
+        '../pe/unittest_util.cc',
+      ],
+      'dependencies': [
+        'instrument_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '../pe/pe.gyp:test_dll',
+      ],
+    },
   ],
 }

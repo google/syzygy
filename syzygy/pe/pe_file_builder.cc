@@ -14,6 +14,7 @@
 #include "syzygy/pe/pe_file_builder.h"
 
 #include <ctime>
+#include <delayimp.h>
 
 namespace {
 
@@ -25,6 +26,12 @@ extern "C" void end_dos_stub();
 using core::BlockGraph;
 using core::RelativeAddress;
 typedef std::vector<uint8> ByteVector;
+
+// A utility to align values to arbitrary boundaries
+uint32 Align(uint32 value, uint32 boundary) {
+  uint32 expanded = value + boundary - 1;
+  return expanded - (expanded % boundary);
+}
 
 // A utility class to help with formatting the relocations section.
 class RelocWriter {
@@ -113,6 +120,7 @@ inline bool IsPowerOfTwo(uint32 n) {
   return n != 0 && (n & (n - 1)) == 0;
 }
 
+// TODO(rogerm): this functionality is duplicated!  Consolidate!
 uint32 AlignUp(uint32 val, size_t alignment) {
   DCHECK(IsPowerOfTwo(alignment));
   return static_cast<uint32>((val + (alignment - 1)) & ~(alignment - 1));
@@ -240,6 +248,19 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
   DCHECK(IsValidReference(address_space_, entry));
   DCHECK_EQ(BlockGraph::RELATIVE_REF, entry.type());
   DCHECK(entry_size != NULL);
+
+  // Handle the import descriptor tables specially.  The sizes of the
+  // table seems to be misreported by the MSVC++ toolchain.  The last entry
+  // is actually a truncated sentinel on the first DWORD, and the extra
+  // (unused) bytes just overlap the start of the next block.  Yes, this
+  // is ugly.  The PE parser, however, understands and corrects to the real
+  // (shorter) length during parsing so we have to be sure to expand the
+  // reported size to by multiple of sizeof(IMAGE_IMPORT_DESCRIPTOR).
+  if (entry_index == IMAGE_DIRECTORY_ENTRY_IMPORT) {
+    entry_size = Align(entry_size, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+  } else if (entry_index == IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT) {
+    entry_size = Align(entry_size, sizeof(ImgDelayDescr));
+  }
 
   data_directory_[entry_index].ref_ = entry;
   data_directory_[entry_index].size_ = entry_size;

@@ -78,7 +78,7 @@ static bool EnumImportsProc(const base::win::PEImage &image,
 }
 
 static void CheckLoadedTestDll(HMODULE module) {
-  // Load the exported function and invoke it.
+  // Load the exported TestExport function and invoke it.
   typedef DWORD (WINAPI* TestExportFunc)(size_t buf_len, char* buf);
   TestExportFunc test_func = reinterpret_cast<TestExportFunc>(
       ::GetProcAddress(module, "TestExport"));
@@ -87,6 +87,13 @@ static void CheckLoadedTestDll(HMODULE module) {
   char buffer[1024] = { 0 };
   EXPECT_EQ(0, test_func(arraysize(buffer), buffer));
   EXPECT_STREQ("The quick brown fox jumped over the lazy dog", buffer);
+
+  // Load the exported TestUnusedFunc function and invoke it.
+  typedef void (CALLBACK* TestUnusedFuncs)(HWND, HINSTANCE, LPSTR, int);
+  TestUnusedFuncs test_func2 = reinterpret_cast<TestUnusedFuncs>(
+      ::GetProcAddress(module, "TestUnusedFuncs"));
+  ASSERT_TRUE(test_func2 != NULL);
+  test_func2(0,0,0,0);
 
   // Check the image file for sanity.
   base::win::PEImage image(module);
