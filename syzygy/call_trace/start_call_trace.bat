@@ -13,6 +13,17 @@
 :: limitations under the License.
 @echo off
 
+echo This script is currently out of date. Please start the call trace
+echo manually by running:
+echo.
+echo   rundll32.exe call_trace.dll,BeginCallTrace
+echo.
+echo Wait for the call trace to stabilise before running the instrumented
+echo code. Buffers are flushed after 30 seconds, so wait that long after
+echo running the instrumented code in order to ensure all collected data
+echo is written to disk.
+goto end
+
 :: The -ct argument is not supported on XP, so avoid using it there.
 setlocal
 set clock_type=-ct cycle
@@ -36,3 +47,5 @@ logman create trace -ets "call_trace" %clock_type% -mode globalsequence -bs 1024
 
 :: Turn on the CallTrace provider with batch entry logging enabled
 logman update trace -ets "call_trace" -p {06255E36-14B0-4e57-8964-2E3D675A0E77} 0x0020 4
+
+:end
