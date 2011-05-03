@@ -973,7 +973,6 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
     return false;
   }
   if (location_type != LocIsStatic) {
-    DCHECK(location_type == LocIsNull || location_type == LocIsConstant);
     return true;
   }
 
