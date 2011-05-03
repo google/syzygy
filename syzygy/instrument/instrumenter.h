@@ -28,6 +28,7 @@ class Instrumenter : public RelinkerBase {
   static bool Instrument(const FilePath& input_dll_path,
                          const FilePath& output_dll_path);
 
+ private:
   // Copy all sections (except the .relocs section) from the decomposed
   // image to the new image.
   bool CopySections();
@@ -41,7 +42,6 @@ class Instrumenter : public RelinkerBase {
   // Instrument code blocks by creating thunks to intercept all references.
   bool InstrumentCodeBlocks(BlockGraph* block_graph);
 
- private:
   #pragma pack(push)
   #pragma pack(1)
   struct Thunk {
