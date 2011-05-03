@@ -83,7 +83,10 @@ void CALLBACK BeginCallTrace(HWND unused_window,
   p->MinimumBuffers = 25;
   p->MaximumBuffers = 50;
   p->LogFileMode = EVENT_TRACE_FILE_MODE_NONE;
-  p->FlushTimer = 0;
+  // TODO(chrisha): Replace stop_call_trace.bat with an EndCallTrace
+  //     function, and have it manually flush the buffers. Then we can put
+  //     this flush timer back to 0.
+  p->FlushTimer = 30;
   p->EnableFlags = 0;
 
   props.SetLoggerFileName(call_trace_file.value().c_str());
