@@ -13,23 +13,16 @@
 // limitations under the License.
 
 #include "syzygy/instrument/instrumenter.h"
+#include "base/file_util.h"
+#include "gtest/gtest.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
 
-#include "base/file_path.h"
-#include "base/file_util.h"
-#include "base/native_library.h"
-#include "base/path_service.h"
-#include "base/string_util.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-
 namespace {
 
-class InstrumenterTest: public testing::Test {
+class InstrumenterTest : public testing::Test {
  public:
-
   void SetUp() {
     // Create a temporary file we can write a new image to.
     input_dll_path_ = testing::GetExeRelativePath(testing::kDllName);
