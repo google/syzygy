@@ -19,8 +19,9 @@
 
 namespace testing {
 
-// Name of the test DLL.
+// Name of the test DLL and PDB.
 extern const wchar_t kDllName[];
+extern const wchar_t kDllPdbName[];
 
 // Retrieves computes the absolute path to image_name, where image_name
 // is relative to the current executable's parent directory.

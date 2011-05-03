@@ -17,10 +17,7 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/logging_win.h"
-#include "syzygy/pe/decomposer.h"
 #include "syzygy/relink/relinker.h"
-
-using pe::Decomposer;
 
 // {E6FF7BFB-34FE-42a3-8993-1F477DC36247}
 const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
@@ -62,59 +59,30 @@ int main(int argc, char** argv) {
   FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
   FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
+  unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
 
   if (input_dll_path.empty() || input_pdb_path.empty() ||
       output_dll_path.empty() || output_pdb_path.empty()) {
     return Usage("You must provide input and output file names.");
   }
 
-  // Read and decompose the input image for starters.
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path))
-    return Usage("Unable to read input image");
-
-  Decomposer decomposer(input_dll, input_dll_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL))
-    return Usage("Unable to decompose input image");
-
-  // Construct and initialize our relinker.
-  Relinker relinker(decomposed.address_space, &decomposed.image);
-  if (!relinker.Initialize(decomposed.header.nt_headers)) {
-    return Usage("Unable to initialize relinker.");
-  }
-
   // Reorder the image, update the debug info and copy the data directory.
   if (!order_file_path.empty()) {
-    if (!relinker.ReorderCode(order_file_path)) {
+    if (!Relinker::Relink(input_dll_path,
+                          input_pdb_path,
+                          output_dll_path,
+                          output_pdb_path,
+                          order_file_path)) {
       return Usage("Unable to reorder the input image.");
     }
   } else {
-    unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
-    if (!relinker.RandomlyReorderCode(seed)) {
+    if (!Relinker::Relink(input_dll_path,
+                          input_pdb_path,
+                          output_dll_path,
+                          output_pdb_path,
+                          seed)) {
       return Usage("Unable randomly reorder the input image.");
     }
-  }
-  if (!relinker.UpdateDebugInformation(
-          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
-    return Usage("Unable to update debug information.");
-  }
-  if (!relinker.CopyDataDirectory(decomposed.header)) {
-    return Usage("Unable to copy the input image's data directory.");
-  }
-
-  // Finalize the headers and write the image and pdb.
-  if (!relinker.FinalizeImageHeaders(decomposed.header)) {
-    return Usage("Unable to finalize image headers.");
-  }
-  if (!relinker.WriteImage(output_dll_path)) {
-    return Usage("Unable to write the ouput image.");
-  }
-
-  if (!relinker.WritePDBFile(decomposed.address_space,
-                             input_pdb_path,
-                             output_pdb_path)) {
-    return Usage("Unable to write new PDB file.");
   }
 
   return 0;

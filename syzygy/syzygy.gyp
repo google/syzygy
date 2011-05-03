@@ -45,6 +45,7 @@
           '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
           '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
           '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
+          '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
         ],
       },
       'dependencies': [
@@ -62,6 +63,7 @@
             '<(PRODUCT_DIR)/instrument_unittests.exe',
             '<(PRODUCT_DIR)/pdb_unittests.exe',
             '<(PRODUCT_DIR)/pe_unittests.exe',
+            '<(PRODUCT_DIR)/relink_unittests.exe',
           ],
           'outputs': [
             # Created only if all unittests succeed
