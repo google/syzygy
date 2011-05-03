@@ -1543,29 +1543,25 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     // and reschedule the block for disassembly again.
     bool added = AddReference(src, BlockGraph::PC_RELATIVE_REF, size, dst, "");
     if (added) {
-      // No special action if the reference is to the current block,
-      // we're already covered by the disassembly process.
-      if (block != current_block_) {
-        // See whether the block had a label at the offset.
-        BlockGraph::Offset offset = dst - block->addr();
-        if (!block->HasLabel(offset)) {
-          // If it had no label here, we add one.
-          std::string label(base::StringPrintf("From 0x%08X", src.value()));
+      // See whether the block had a label at the offset.
+      BlockGraph::Offset offset = dst - block->addr();
+      if (!block->HasLabel(offset)) {
+        // If it had no label here, we add one.
+        std::string label(base::StringPrintf("From 0x%08X", src.value()));
 
-          block->SetLabel(offset, label.c_str());
+        block->SetLabel(offset, label.c_str());
 
-          // And then potentially re-schedule the block for disassembly,
-          // as we may have turned up another entry to a block we already
-          // disassembled.
-          to_disassemble_.insert(block);
-        }
-
-        // For short references across blocks, we want to make sure we merge
-        // the two blocks. AFAICT, this only occurs in hand-coded assembly in
-        // the CRT, and the "functions" involved are not independent.
-        if (size != sizeof(RelativeAddress))
-          ScheduleForMerging(current_block_, block);
+        // And then potentially re-schedule the block for disassembly,
+        // as we may have turned up another entry to a block we already
+        // disassembled.
+        to_disassemble_.insert(block);
       }
+
+      // For short references across blocks, we want to make sure we merge
+      // the two blocks. AFAICT, this only occurs in hand-coded assembly in
+      // the CRT, and the "functions" involved are not independent.
+      if (block != current_block_ && size != sizeof(RelativeAddress))
+        ScheduleForMerging(current_block_, block);
     }
   }
 
