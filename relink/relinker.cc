@@ -20,11 +20,13 @@
 #include "base/json/json_reader.h"
 #include "base/values.h"
 #include "syzygy/pdb/pdb_util.h"
+#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/pe_file_writer.h"
 
 using core::BlockGraph;
 using core::RelativeAddress;
+using pe::Decomposer;
 using pe::PEFileWriter;
 
 namespace {
@@ -285,6 +287,107 @@ Relinker::Relinker(const BlockGraph::AddressSpace& original_addr_space,
 Relinker::~Relinker() {
 }
 
+bool Relinker::Relink(const FilePath& input_dll_path,
+                      const FilePath& input_pdb_path,
+                      const FilePath& output_dll_path,
+                      const FilePath& output_pdb_path,
+                      const FilePath& order_file_path) {
+  DCHECK(!input_dll_path.empty());
+  DCHECK(!input_pdb_path.empty());
+  DCHECK(!output_dll_path.empty());
+  DCHECK(!output_pdb_path.empty());
+  DCHECK(!order_file_path.empty());
+
+  return Relink(input_dll_path, input_pdb_path, output_dll_path,
+                output_pdb_path, order_file_path, 0);
+}
+
+bool Relinker::Relink(const FilePath& input_dll_path,
+                      const FilePath& input_pdb_path,
+                      const FilePath& output_dll_path,
+                      const FilePath& output_pdb_path,
+                      uint32 seed) {
+  DCHECK(!input_dll_path.empty());
+  DCHECK(!input_pdb_path.empty());
+  DCHECK(!output_dll_path.empty());
+  DCHECK(!output_pdb_path.empty());
+
+  return Relink(input_dll_path, input_pdb_path, output_dll_path,
+                output_pdb_path, FilePath(), seed);
+}
+
+bool Relinker::Relink(const FilePath& input_dll_path,
+                      const FilePath& input_pdb_path,
+                      const FilePath& output_dll_path,
+                      const FilePath& output_pdb_path,
+                      const FilePath& order_file_path,
+                      uint32 seed) {
+  DCHECK(!input_dll_path.empty());
+  DCHECK(!input_pdb_path.empty());
+  DCHECK(!output_dll_path.empty());
+  DCHECK(!output_pdb_path.empty());
+
+  // Read and decompose the input image for starters.
+  pe::PEFile input_dll;
+  if (!input_dll.Init(input_dll_path)) {
+    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
+    return false;
+  }
+
+  Decomposer decomposer(input_dll, input_dll_path);
+  Decomposer::DecomposedImage decomposed;
+  if (!decomposer.Decompose(&decomposed, NULL)) {
+    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
+    return false;
+  }
+
+  // Construct and initialize our relinker.
+  Relinker relinker(decomposed.address_space, &decomposed.image);
+  if (!relinker.Initialize(decomposed.header.nt_headers)) {
+    LOG(ERROR) << "Unable to initialize relinker.";
+    return false;
+  }
+
+  // Reorder the image, update the debug info and copy the data directory.
+  if (!order_file_path.empty()) {
+    if (!relinker.ReorderCode(order_file_path)) {
+      LOG(ERROR) << "Unable to reorder code.";
+      return false;
+    }
+  } else {
+    if (!relinker.RandomlyReorderCode(seed)) {
+      LOG(ERROR) << "Unable randomly reorder the input image.";
+      return false;
+    }
+  }
+  if (!relinker.UpdateDebugInformation(
+          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
+    LOG(ERROR) << "Unable to update debug information.";
+    return false;
+  }
+  if (!relinker.CopyDataDirectory(decomposed.header)) {
+    LOG(ERROR) << "Unable to copy the input image's data directory.";
+    return false;
+  }
+
+  // Finalize the headers and write the image and pdb.
+  if (!relinker.FinalizeImageHeaders(decomposed.header)) {
+    LOG(ERROR) << "Unable to finalize image headers.";
+  }
+  if (!relinker.WriteImage(output_dll_path)) {
+    LOG(ERROR) << "Unable to write " << output_dll_path.value();
+    return false;
+  }
+  if (!relinker.WritePDBFile(decomposed.address_space,
+                             input_pdb_path,
+                             output_pdb_path)) {
+    LOG(ERROR) << "Unable to write new PDB file.";
+    return false;
+  }
+
+  return true;
+}
+
 bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
   if (!RelinkerBase::Initialize(original_nt_headers))
     return false;
@@ -391,7 +494,7 @@ bool Relinker::ReorderCode(const FilePath& order_file_path) {
   return true;
 }
 
-bool Relinker::RandomlyReorderCode(unsigned int seed) {
+bool Relinker::RandomlyReorderCode(int seed) {
   // We use a private pseudo random number generator to allow consistent
   // results across different CRTs and CRT versions.
   RandomNumberGenerator random_generator(seed);

@@ -32,6 +32,7 @@ class RelinkerBase {
                BlockGraph* block_graph);
   virtual ~RelinkerBase();
 
+ protected:
   // TODO(siggi): document me.
   virtual bool Initialize(const BlockGraph::Block* original_nt_headers);
 
@@ -39,7 +40,6 @@ class RelinkerBase {
   bool FinalizeImageHeaders(const PEFileParser::PEHeader& original_header);
   bool WriteImage(const FilePath& output_path);
 
- protected:
   typedef BlockGraph::AddressSpace AddressSpace;
 
   // Copies a section from the old image into the new one.
@@ -79,13 +79,37 @@ class Relinker : public RelinkerBase {
            BlockGraph* block_graph);
   ~Relinker();
 
+  // Static wrapper functions to relink an input dll to an output dll.
+  static bool Relink(const FilePath& input_dll_path,
+                     const FilePath& input_pdb_path,
+                     const FilePath& output_dll_path,
+                     const FilePath& output_pdb_path,
+                     const FilePath& order_file_path);
+  static bool Relink(const FilePath& input_dll_path,
+                     const FilePath& input_pdb_path,
+                     const FilePath& output_dll_path,
+                     const FilePath& output_pdb_path,
+                     uint32 seed);
+
+ protected:
+  static bool Relink(const FilePath& input_dll_path,
+                     const FilePath& input_pdb_path,
+                     const FilePath& output_dll_path,
+                     const FilePath& output_pdb_path,
+                     const FilePath& order_file_path,
+                     uint32 seed);
+
   bool Initialize(const BlockGraph::Block* original_nt_headers);
+
+  // TODO(ericdingle): It'd be nice to have a pure virtual function here to
+  // copy the sections and reorder the code blocks. The ordering
+  // implementation could then be delegated to subclasses
 
   // Order code blocks using the ordering specified in the order file.
   bool ReorderCode(const FilePath& order_file_path);
 
   // Randomly reorder code blocks.
-  bool RandomlyReorderCode(unsigned int seed);
+  bool RandomlyReorderCode(int seed);
 
   // Updates the debug information in the debug directory with our new GUID.
   bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block);
@@ -95,6 +119,8 @@ class Relinker : public RelinkerBase {
   bool WritePDBFile(const BlockGraph::AddressSpace& original,
                     const FilePath& input_path,
                     const FilePath& output_path);
+
+  const GUID& new_image_guid() { return new_image_guid_; }
 
  private:
   // The GUID we stamp into the new image and Pdb file.

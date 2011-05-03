@@ -55,5 +55,22 @@
         ]
       },
     },
+    {
+      'target_name': 'relink_unittests',
+      'type': 'executable',
+      'sources': [
+        'relink_unittests_main.cc',
+        'relinker_unittest.cc',
+        '../pe/unittest_util.cc',
+        '../pe/unittest_util.h',
+      ],
+      'dependencies': [
+        'relink_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '../pe/pe.gyp:test_dll',
+      ],
+    }
   ],
 }

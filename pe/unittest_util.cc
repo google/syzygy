@@ -25,6 +25,7 @@
 namespace testing {
 
 const wchar_t kDllName[] = L"test_dll.dll";
+const wchar_t kDllPdbName[] = L"test_dll.pdb";
 
 FilePath GetExeRelativePath(const wchar_t* image_name) {
   FilePath exe_dir;
@@ -93,7 +94,7 @@ static void CheckLoadedTestDll(HMODULE module) {
   TestUnusedFuncs test_func2 = reinterpret_cast<TestUnusedFuncs>(
       ::GetProcAddress(module, "TestUnusedFuncs"));
   ASSERT_TRUE(test_func2 != NULL);
-  test_func2(0,0,0,0);
+  test_func2(0, 0, 0, 0);
 
   // Check the image file for sanity.
   base::win::PEImage image(module);
