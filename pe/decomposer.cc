@@ -1350,14 +1350,24 @@ bool Decomposer::CreateCodeReferencesForBlock(
                       abs_block_addr,
                       on_instruction);
 
+  // Use block labels as starting points for disassembly. Any labels that
+  // lie within a known data block or reloc should not be added.
+  // TODO(chrisha): Should we actually remove these from the Block?
   BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
   for (; it != block->labels().end(); ++it) {
     BlockGraph::Offset label = it->first;
-
     DCHECK(label >= 0 && static_cast<size_t>(label) <= block->size());
-    // Some labels are addressed at the end of the function, but we don't
-    // want to disassemble from there.
-    if (static_cast<size_t>(label) != block->size())
+
+    RelativeAddress addr(block->addr() + static_cast<size_t>(label));
+    DataSpace::Range range(addr, 1);
+
+    bool is_reloc = reloc_set_.find(addr) != reloc_set_.end();
+    bool in_data = data_space_.Intersects(range);
+    bool at_end = static_cast<size_t>(label) == block->size();
+
+    // Labels that lie within a reloc, known data, or the end of the function
+    // should not be used as starting points for disassembly.
+    if (!is_reloc && !in_data && !at_end)
       disasm.Unvisited(abs_block_addr + it->first);
   }
 
