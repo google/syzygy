@@ -54,6 +54,9 @@ class BlockGraph {
     CODE_BLOCK,
     DATA_BLOCK,
     READONLY_BLOCK,
+    BASIC_CODE_BLOCK,
+    BASIC_DATA_BLOCK,
+    // TODO(robertshield): Add a BASIC_PADDING_BLOCK here!
   };
 
   enum ReferenceType {
@@ -215,7 +218,7 @@ class BlockGraph::Block {
   // @returns true iff all references were transferred successfully.
   bool TransferReferrers(Offset offset, Block* new_block);
 
- private:
+ protected:
   BlockId id_;
   BlockType type_;
   Size size_;
@@ -239,7 +242,7 @@ class BlockGraph::Block {
   size_t data_size_;
 };
 
-// An graph address space endows an graph with a non-overlapping ordering
+// A graph address space endows a graph with a non-overlapping ordering
 // on blocks, where each block occupies zero or one address ranges in the
 // address space. No two blocks may overlap in an address space.
 class BlockGraph::AddressSpace {

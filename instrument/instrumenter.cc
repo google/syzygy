@@ -66,7 +66,8 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
 
   Decomposer decomposer(input_dll, input_dll_path);
   Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL)) {
+  if (!decomposer.Decompose(&decomposed, NULL,
+                            Decomposer::STANDARD_DECOMPOSITION)) {
     LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
     return false;
   }

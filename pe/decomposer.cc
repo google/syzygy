@@ -276,7 +276,8 @@ Decomposer::Decomposer(const PEFile& image_file,
 }
 
 bool Decomposer::Decompose(DecomposedImage* decomposed_image,
-                           CoverageStatistics* stats) {
+                           CoverageStatistics* stats,
+                           Mode decomposition_mode) {
   // Start by instantiating and initializing our Debug Interface Access session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive())) {
@@ -358,6 +359,13 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   // block->block references on the blocks in the image.
   if (success)
     success = FinalizeIntermediateReferences();
+
+  // Once the above steps are complete, we will now have a function-level
+  // granularity of blocks for code-type blocks and those blocks will contain
+  // ALL inbound and out-bound references. Now it's time to break up those
+  // blocks into their basic sub-components.
+  if (success && decomposition_mode == BASIC_BLOCK_DECOMPOSITION)
+    success = BuildBasicBlockGraph(decomposed_image);
 
   if (success)
     success = LoadOmapInformation(dia_session,
@@ -1264,9 +1272,6 @@ bool Decomposer::CreateCodeReferences() {
       to_disassemble_.insert(block);
   }
 
-  scoped_ptr<Disassembler::InstructionCallback> on_instruction(
-      NewCallback(this, &Decomposer::OnInstruction));
-
   // First we iterate all intermediate references and label all un-labeled
   // locations in functions we find referred.
   IntermediateReferenceMap::const_iterator ref_it(references_.begin());
@@ -1301,7 +1306,7 @@ bool Decomposer::CreateCodeReferences() {
       BlockGraph::Block* block = *it;
       to_disassemble_.erase(it);
 
-      if (!CreateCodeReferencesForBlock(block, on_instruction.get())) {
+      if (!CreateCodeReferencesForBlock(block)) {
         return false;
       }
     }
@@ -1327,9 +1332,7 @@ bool Decomposer::CreateCodeReferences() {
   return true;
 }
 
-bool Decomposer::CreateCodeReferencesForBlock(
-    BlockGraph::Block* block,
-    Disassembler::InstructionCallback *on_instruction) {
+bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
   DCHECK(current_block_ == NULL);
   current_block_ = block;
 
@@ -1345,15 +1348,14 @@ bool Decomposer::CreateCodeReferencesForBlock(
     return false;
   }
 
-  Disassembler disasm(block->data(),
-                      block->data_size(),
-                      abs_block_addr,
-                      on_instruction);
+  scoped_ptr<Disassembler::InstructionCallback> on_instruction(
+      NewCallback(this, &Decomposer::OnInstruction));
 
   // Use block labels as starting points for disassembly. Any labels that
   // lie within a known data block or reloc should not be added.
   // TODO(chrisha): Should we actually remove these from the Block?
   BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
+  Disassembler::AddressSet labels;
   for (; it != block->labels().end(); ++it) {
     BlockGraph::Offset label = it->first;
     DCHECK(label >= 0 && static_cast<size_t>(label) <= block->size());
@@ -1368,9 +1370,14 @@ bool Decomposer::CreateCodeReferencesForBlock(
     // Labels that lie within a reloc, known data, or the end of the function
     // should not be used as starting points for disassembly.
     if (!is_reloc && !in_data && !at_end)
-      disasm.Unvisited(abs_block_addr + it->first);
+      labels.insert(abs_block_addr + it->first);
   }
 
+  Disassembler disasm(block->data(),
+                      block->data_size(),
+                      abs_block_addr,
+                      labels,
+                      on_instruction.get());
   Disassembler::WalkResult result = disasm.Walk();
   CalcDetailedCodeBlockStats(
       block, disasm, data_space_, &code_block_stats_[block->id()]);
@@ -1449,6 +1456,43 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
 
   return CreateBlock(type, addr, size, name);
 }
+
+void Decomposer::OnBasicInstruction(
+    const Disassembler& walker,
+    const _DInst& instruction,
+    Disassembler::CallbackDirective* directive) {
+  DCHECK(directive != NULL);
+
+  AbsoluteAddress instr_abs(static_cast<uint32>(instruction.addr));
+  RelativeAddress instr_rel;
+  if (!image_file_.Translate(instr_abs, &instr_rel)) {
+    LOG(ERROR) << "Unable to translate instruction address.";
+    *directive = Disassembler::kDirectiveAbort;
+    return;
+  }
+
+  // If this instruction runs over data, bail!
+  DataSpace::Range range(instr_rel, instruction.size);
+  DataSpace::RangeMapConstIterPair its = data_space_.FindIntersecting(range);
+  if (its.first != its.second) {
+    LOG(ERROR) << "Trying to disassemble into known data.";
+    *directive = Disassembler::kDirectiveAbort;
+    return;
+  }
+
+  // If this instruction terminates at a data boundary (ie: the *next*
+  // instruction will be data or a reloc), indicate that the path should be
+  // terminated.
+  RelativeAddress after_instr_rel = instr_rel + instruction.size;
+  DataSpace::Range next_byte(after_instr_rel, 1);
+  bool will_hit_data =
+      data_space_.FindContaining(next_byte) != data_space_.end();
+  bool will_hit_reloc = reloc_set_.find(after_instr_rel) != reloc_set_.end();
+  if (will_hit_data || will_hit_reloc) {
+    *directive = Disassembler::kDirectiveTerminatePath;
+  }
+}
+
 
 void Decomposer::OnInstruction(const Disassembler& walker,
                                const _DInst& instruction,
@@ -1723,6 +1767,96 @@ bool Decomposer::LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
   }
   DCHECK_EQ(count * sizeof(OMAP), bytes_read);
   DCHECK_EQ(count, static_cast<LONG>(count_read));
+
+  return true;
+}
+
+bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
+  DCHECK(image_);
+  const BlockGraph::BlockMap& all_blocks = image_->graph()->blocks();
+  BlockGraph::BlockMap::const_iterator block_iter = all_blocks.begin();
+
+  BlockGraph& basic_blocks = decomposed_image->basic_block_graph;
+  BlockGraph::AddressSpace* basic_blocks_image =
+      &decomposed_image->basic_block_address_space;
+  DCHECK(basic_blocks_image);
+
+  for (; block_iter != all_blocks.end(); ++block_iter) {
+    const BlockGraph::Block* block = &block_iter->second;
+    const BlockGraph::Block::ReferenceMap& ref_map = block->references();
+    RelativeAddress block_addr;
+    if (!image_->GetAddressOf(block, &block_addr)) {
+      LOG(ERROR) << "Block " << block->name() << " has no address, "
+                 << block->addr() << ":" << block->size();
+      // Expect this to be the result of a merge?
+      continue;
+    }
+
+    if (block->type() != BlockGraph::CODE_BLOCK) {
+      // Don't try to break up non-code blocks into basic blocks.
+      basic_blocks_image->AddBlock(block->type(),   // Block type
+                                   block_addr,      // Range start (rel)
+                                   block->size(),   // Range size
+                                   block->name());  // Block name
+
+    } else {
+      // We have a code block, disassemble it!
+      AbsoluteAddress abs_block_addr;
+      if (!image_file_.Translate(block_addr, &abs_block_addr)) {
+        LOG(ERROR) << "Unable to get absolute address for " << block_addr;
+        return false;
+      }
+
+      // Build the set of labels that are points we want to disassemble from.
+      // For now we continue to use the that point into the function block.
+      // TODO(robertshield): See if we would be better served by considering all
+      // inbound references we have discovered in the previous traversal
+      // instead.
+      BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
+      Disassembler::AddressSet labels;
+      for (; it != block->labels().end(); ++it) {
+        BlockGraph::Offset label = it->first;
+        DCHECK(label >= 0 && static_cast<size_t>(label) <= block->size());
+
+        // Some labels are addressed at the end of the function, but we don't
+        // want to disassemble from there.
+        if (static_cast<size_t>(label) != block->size())
+          labels.insert(abs_block_addr + it->first);
+      }
+
+      scoped_ptr<Disassembler::InstructionCallback> on_basic_instruction(
+          NewCallback(this, &Decomposer::OnBasicInstruction));
+
+      BasicBlockDisassembler disasm(block->data(),
+                                    block->data_size(),
+                                    abs_block_addr,
+                                    labels,
+                                    block->name(),
+                                    on_basic_instruction.get());
+      Disassembler::WalkResult result = disasm.Walk();
+
+      if (result == Disassembler::kWalkSuccess) {
+        BasicBlockDisassembler::BBAddressSpace basic_blocks(
+            disasm.GetBasicBlockRanges());
+
+        BasicBlockDisassembler::RangeMapConstIter iter(
+            basic_blocks.begin());
+        for (; iter != basic_blocks.end(); ++iter) {
+          RelativeAddress rva_start;
+          if (!image_file_.Translate(iter->first.start(), &rva_start)) {
+            LOG(ERROR) << "Unable to get absolute address for " << block_addr;
+            return false;
+          }
+
+          basic_blocks_image->AddBlock(
+              iter->second.type(),   // Block type
+              rva_start,             // Range start (rel)
+              iter->first.size(),    // Range size
+              iter->second.name());  // Block name
+        }
+      }
+    }
+  }
 
   return true;
 }

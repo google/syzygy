@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include "base/file_path.h"
+#include "syzygy/core/basic_block_disassembler.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
 #include "syzygy/pe/pe_file.h"
@@ -35,10 +36,16 @@ namespace pe {
 
 class Decomposer {
  public:
+  typedef core::BasicBlockDisassembler BasicBlockDisassembler;
   typedef core::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
+
+  enum Mode {
+    STANDARD_DECOMPOSITION,
+    BASIC_BLOCK_DECOMPOSITION,
+  };
 
   // Initializes the decomposer for a given image file and path.
   Decomposer(const PEFile& image_file, const FilePath& file_path);
@@ -53,7 +60,11 @@ class Decomposer {
   // has the breakdown of code and data blocks with typed references.
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
-  bool Decompose(DecomposedImage* image, CoverageStatistics* stats);
+  // If |decomposition_mode| is BASIC_BLOCK_DECOMPOSITION then a basic block
+  // decomposition will also be performed.
+  bool Decompose(DecomposedImage* image,
+                 CoverageStatistics* stats,
+                 Mode decomposition_mode);
 
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
@@ -103,6 +114,10 @@ class Decomposer {
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();
 
+  // Invokable once we have completed our original block graphs, this breaks
+  // up code-blocks into their basic sub-components.
+  bool BuildBasicBlockGraph(DecomposedImage* decomposed_image);
+
   // Loads the image's Omap information.
   bool LoadOmapInformation(IDiaSession* dia_session,
                            std::vector<OMAP>* omap_to,
@@ -138,9 +153,7 @@ class Decomposer {
   bool CreateCodeReferences();
   // Disassemble @p block and invoke @p on_instruction for each instruction
   // encountered.
-  bool CreateCodeReferencesForBlock(
-      BlockGraph::Block* block,
-      Disassembler::InstructionCallback *on_instruction);
+  bool CreateCodeReferencesForBlock(BlockGraph::Block* block);
 
   // Schedules the address range covering block1 and block2 for merging.
   void ScheduleForMerging(BlockGraph::Block* block1, BlockGraph::Block* block2);
@@ -171,6 +184,10 @@ class Decomposer {
   void OnInstruction(const Disassembler& disassembler,
                      const _DInst& instruction,
                      Disassembler::CallbackDirective* directive);
+  // Called through a callback during function disassembly.
+  void OnBasicInstruction(const Disassembler& disassembler,
+                          const _DInst& instruction,
+                          Disassembler::CallbackDirective* directive);
 
   // Loads the DIA debug stream into the given OMAP vector.
   bool LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
@@ -242,13 +259,17 @@ class Decomposer {
 // The results of the decomposition process are stored in this class.
 class Decomposer::DecomposedImage {
  public:
-  DecomposedImage() : address_space(&image) {
+  DecomposedImage() : address_space(&image),
+                      basic_block_address_space(&basic_block_graph) {
   }
 
  public:
   BlockGraph image;
   BlockGraph::AddressSpace address_space;
   PEFileParser::PEHeader header;
+
+  BlockGraph basic_block_graph;
+  BlockGraph::AddressSpace basic_block_address_space;
   std::vector<OMAP> omap_to;
   std::vector<OMAP> omap_from;
 };

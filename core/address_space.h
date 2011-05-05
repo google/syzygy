@@ -70,6 +70,8 @@ class AddressSpace {
   void Remove(RangeMapIter it1, RangeMapIter it2) { ranges_.erase(it1, it2); }
 
   const RangeMap& ranges() const { return ranges_; }
+  const bool empty() const { return ranges_.empty(); }
+  const size_t size() const { return ranges_.size(); }
 
   // Finds the first contained range that intersects @p range.
   RangeMapConstIter FindFirstIntersection(const Range& range) const;
@@ -165,7 +167,7 @@ class AddressRange {
   }
 
   bool operator<(const AddressRange& other) const {
-    // This assumes the Addess and Size types may only provide operator <.
+    // This assumes the Address and Size types may only provide operator <.
     return start_ < other.start_ ||
         !(other.start_ < start_) && size_ < other.size_;
   }

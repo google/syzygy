@@ -49,7 +49,7 @@ lbl1:
   ; expose this label as a public symbol.
 internal_label LABEL PROC
   ; This should not show in disassembly unless
-  ; we explicitly mark internal_label univisted.
+  ; we explicitly mark internal_label unvisited.
   call func3
 
 lbl2:

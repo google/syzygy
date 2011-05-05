@@ -27,7 +27,9 @@ using core::RelativeAddress;
 using pe::Decomposer;
 using pe::PEFile;
 
-bool DumpImageToText(const FilePath& image_path, std::ostream& str) {
+bool DumpImageToText(const FilePath& image_path,
+                     std::ostream& str,
+                     bool basic_block_decomposition) {
   // Load the image file.
   PEFile image_file;
   if (!image_file.Init(image_path)) {
@@ -38,7 +40,10 @@ bool DumpImageToText(const FilePath& image_path, std::ostream& str) {
   // And decompose it to a DecomposedImage instance.
   Decomposer decomposer(image_file, image_path);
   Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL)) {
+  Decomposer::Mode mode =
+      basic_block_decomposition ? Decomposer::STANDARD_DECOMPOSITION :
+                                  Decomposer::BASIC_BLOCK_DECOMPOSITION;
+  if (!decomposer.Decompose(&decomposed, NULL, mode)) {
     LOG(ERROR) << "Unable to decompose image " << image_path.value();
     return false;
   }
@@ -114,10 +119,11 @@ int Usage(char** argv, const char* message) {
   std::cout <<
       "  A tool that uses symbol information and disassembly to decompose a\n"
       "  PE image file into discrete blocks of code (and data), and to infer\n"
-      "  the references between them\n"
+      "  the references between them.\n"
       "\n"
       "Available options\n"
-      "  --image=<image file>\n";
+      "  --image=<image file>\n"
+      "  --bb\t(Enables basic block decomposition)\n";
 
   return 1;
 }
@@ -139,5 +145,9 @@ int main(int argc, char** argv) {
   if (image_file.empty())
     return Usage(argv, "You must provide the path to an image file.");
 
-  return DumpImageToText(FilePath(image_file), std::cout) ? 0 : 1;
+  bool basic_block_decomposition = cmd_line->HasSwitch("bb");
+
+  return DumpImageToText(FilePath(image_file),
+                         std::cout,
+                         basic_block_decomposition) ? 0 : 1;
 }
