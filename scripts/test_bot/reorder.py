@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 
 # Local modules
@@ -395,6 +396,12 @@ def GetSummaryLine(passed, failed):
 
 def main():
   """Main script function."""
+  if sys.platform == 'win32':
+    # Don't show error dialog boxes on crashes or debug-breaks. This setting
+    # is inherited by child processes, so a crash in the relinker shouldn't
+    # block the tests waiting in a just-in-time debugging dialog box.
+    import ctypes
+    ctypes.windll.kernel32.SetErrorMode(3)
   options, reorder_test_args = ParseArgs()
   log_helper.InitLogger(options)
   test = ReorderTest(options.reorder_tool,
