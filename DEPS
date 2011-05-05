@@ -16,7 +16,7 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "78680",
+  "chrome_revision": "84250",
   "chrome_base": "http://src.chromium.org/svn/trunk",
   "googlecode_url": "",
 }
@@ -52,7 +52,7 @@ deps = {
     Var("chrome_base") + "/src/third_party/libjpeg@" +
         Var("chrome_revision"),
   "src/third_party/icu":
-    Var("chrome_base") + "/deps/third_party/icu42@" +
+    Var("chrome_base") + "/deps/third_party/icu46@" +
         Var("chrome_revision"),
   "src/third_party/sqlite":
     Var("chrome_base") + "/src/third_party/sqlite@" +

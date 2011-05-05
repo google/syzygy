@@ -352,11 +352,11 @@ limitations under the License.
             Value='1' />
       </Component>
       <Component Id='Icu42DllComponent'
-          Guid='{EB7E0455-236A-4954-A2C3-85F9B080A68B}'>
-        <File Id='Icu42DllComponent'
-            Name='icudt42.dll'
+          Guid='{A05B341D-E7EA-4067-B459-D7FCC9E495D0}'>
+        <File Id='IcuDllComponent'
+            Name='icudt.dll'
             DiskId='1'
-            Source='..\..\third_party\icu\icudt42.dll' />
+            Source='..\..\third_party\icu\windows\icudt.dll' />
       </Component>
 
       <Component Id='DbgHelpDllComponent'

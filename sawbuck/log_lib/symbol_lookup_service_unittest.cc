@@ -18,9 +18,9 @@
 #include <vector>
 #include <tlhelp32.h>
 #include "base/message_loop.h"
-#include "base/scoped_handle.h"
 #include "base/threading/thread.h"
 #include "base/win/pe_image.h"
+#include "base/win/scoped_handle.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 

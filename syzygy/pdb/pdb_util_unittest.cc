@@ -15,7 +15,7 @@
 
 #include <objbase.h>
 #include "base/path_service.h"
-#include "base/scoped_native_library.h"
+#include "base/memory/scoped_native_library.h"
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
@@ -273,8 +273,10 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   EXPECT_TRUE(streams[kPdbHeaderInfoStream]->Read(&header, 1));
   EXPECT_EQ(header.version, kPdbCurrentVersion);
 
+  std::string error;
   base::NativeLibrary test_dll =
-      base::LoadNativeLibrary(GetSrcRelativePath(kTestDllFilePath));
+      base::LoadNativeLibrary(GetSrcRelativePath(kTestDllFilePath),
+                              &error);
   ASSERT_TRUE(test_dll != NULL);
 
   // Make sure the DLL is unloaded on exit.

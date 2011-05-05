@@ -101,8 +101,11 @@ class PEFileParserTest: public testing::Test {
   // Assert that an exported function in the test_dll is referenced
   // in the image.
   bool ExportIsReferenced(const char* function_name_or_ordinal) {
-    if (loaded_image_ == NULL)
-      loaded_image_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName));
+    if (loaded_image_ == NULL) {
+      std::string error;
+      loaded_image_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName),
+                                              &error);
+    }
 
     EXPECT_TRUE(loaded_image_ != NULL);
     if (loaded_image_ == NULL)
@@ -210,7 +213,9 @@ TEST_F(PEFileParserTest, ParseExportDir) {
       nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
   EXPECT_TRUE(parser.ParseExportDir(dir) != NULL);
 
-  loaded_image_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName));
+  std::string error;
+  loaded_image_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName),
+                                          &error);
   ASSERT_TRUE(loaded_image_ != NULL);
 
   ASSERT_TRUE(ExportIsReferenced("function1"));

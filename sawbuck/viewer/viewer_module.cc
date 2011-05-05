@@ -91,7 +91,7 @@ int APIENTRY wWinMain(HINSTANCE instance,
   base::AtExitManager at_exit;
 
   // Initialize ICU.
-  icu_util::Initialize();
+  CHECK(icu_util::Initialize());
 
   // Init logging to no file logging.
   logging::InitLogging(NULL,
