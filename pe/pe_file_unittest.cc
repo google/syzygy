@@ -38,7 +38,9 @@ class PEFileTest: public testing::Test {
 
   virtual void SetUp() {
     FilePath test_dll = GetExeRelativePath(kDllName);
-    test_dll_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName));
+    std::string error;
+    test_dll_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName),
+                                        &error);
 
     ASSERT_TRUE(image_file_.Init(test_dll));
   }
