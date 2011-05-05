@@ -30,22 +30,60 @@ Disassembler::Disassembler(const uint8* code,
       disassembled_bytes_(0) {
 }
 
+Disassembler::Disassembler(const uint8* code,
+                           size_t code_size,
+                           AbsoluteAddress code_addr,
+                           const AddressSet& entry_points,
+                           InstructionCallback* on_instruction)
+    : code_(code),
+      code_size_(code_size),
+      code_addr_(code_addr),
+      on_instruction_(on_instruction),
+      disassembled_bytes_(0) {
+
+  AddressSet::const_iterator it = entry_points.begin();
+  for (; it != entry_points.end(); ++it)
+    Unvisited(*it);
+}
+
+Disassembler::~Disassembler() {}
+
+void Disassembler::OnBranchInstruction(const AbsoluteAddress& addr,
+                                       const _DInst& inst,
+                                       const AbsoluteAddress& dest) {
+}
+
+void Disassembler::OnStartInstructionRun(const AbsoluteAddress& start_address) {
+}
+
+void Disassembler::OnEndInstructionRun(const AbsoluteAddress& addr,
+                                       const _DInst& inst) {
+}
+
+void Disassembler::OnDisassemblyComplete() {}
+
 Disassembler::WalkResult Disassembler::Walk() {
   // Initialize our disassembly state.
   _CodeInfo code = {};
   code.dt = Decode32Bits;
   code.features = DF_NONE;
 
-  // These are to keep track of whether we cover the entire function.
+  // This is to keep track of whether we cover the entire function.
   bool incomplete_branches = false;
+
   while (!unvisited_.empty()) {
     AddressSet::iterator it = unvisited_.begin();
     AbsoluteAddress addr(*it);
     unvisited_.erase(it);
 
-    // This continues disassembly along a contiguous path until we run out
-    // of code, jump somewhere else, or are requested to terminate the path
-    // by the OnInstruction callback.
+    // Notify of the beginning of a new instruction run.
+    OnStartInstructionRun(addr);
+
+    // This continues disassembly along a contiguous instruction run until we
+    // run out of code, jump somewhere else, or are requested to terminate the
+    // path by the OnInstruction callback. We call notification methods to
+    // notify of the start of a run, the end of a run and when branch
+    // instructions with computable destination addresses are hit.
     bool terminate = false;
     _DInst inst = {};
     for (; addr != AbsoluteAddress(0) && !terminate; addr += inst.size) {
@@ -54,6 +92,8 @@ Disassembler::WalkResult Disassembler::Walk() {
       code.code = code_ + (addr - code_addr_);
       if (code.codeLen == 0)
         break;
+
+      bool conditional_branch_handled = false;
 
       unsigned int decoded = 0;
       _DecodeResult result = distorm_decompose(&code, &inst, 1, &decoded);
@@ -64,7 +104,7 @@ Disassembler::WalkResult Disassembler::Walk() {
       VisitedSpace::Range range(addr, inst.size);
       if (!visited_.Insert(range, 0)) {
         // If the collision is a repeat of a previously disassembled
-        // instruction then something went wrong.
+        // instruction at a different offset then something went wrong.
         if (!visited_.ContainsExactly(range)) {
           LOG(ERROR) << "Two disassembled instructions overlap.";
           return kWalkError;
@@ -114,7 +154,6 @@ Disassembler::WalkResult Disassembler::Walk() {
 
         case FC_COND_BRANCH: {
             AbsoluteAddress dest;
-            bool handled = false;
             switch (inst.ops[0].type) {
               case O_REG:
               case O_MEM:
@@ -134,7 +173,7 @@ Disassembler::WalkResult Disassembler::Walk() {
               case O_PC:
                 // PC relative address.
                 dest = addr + static_cast<size_t>(inst.size + inst.imm.addr);
-                handled = true;
+                conditional_branch_handled = true;
                 break;
 
               default:
@@ -144,12 +183,18 @@ Disassembler::WalkResult Disassembler::Walk() {
 
             // Make sure to visit the branch destination.
             if (dest != AbsoluteAddress(0)) {
-              if (IsInCode(dest, 1))
+              if (IsInBlock(dest))
                 Unvisited(dest);
-            } else {
+            }
+
+            // Notify of a newly-discovered branch destination.
+            OnBranchInstruction(addr, inst, dest);
+
+            if (dest == AbsoluteAddress(0)) {
               // We couldn't compute the destination, if not handled,
               // we may have incomplete coverage for the function.
-              incomplete_branches = incomplete_branches || !handled;
+              incomplete_branches =
+                  incomplete_branches || !conditional_branch_handled;
             }
           }
           break;
@@ -164,7 +209,14 @@ Disassembler::WalkResult Disassembler::Walk() {
           break;
       }
     }
+
+    // Notify that we are terminating an instruction run. Note that we have to
+    // back up the address by the last instruction size.
+    OnEndInstructionRun(addr - inst.size, inst);
   }
+
+  // Notify when we've completed disassembly.
+  OnDisassemblyComplete();
 
   // If we covered every byte in the function, we don't
   // care that we didn't chase all computed branches.
@@ -176,7 +228,7 @@ Disassembler::WalkResult Disassembler::Walk() {
 }
 
 bool Disassembler::Unvisited(AbsoluteAddress addr) {
-  DCHECK(IsInCode(addr, 1));
+  DCHECK(IsInBlock(addr));
 
   if (visited_.Intersects(addr))
     return false;
@@ -195,9 +247,9 @@ Disassembler::CallbackDirective Disassembler::OnInstruction(
   return kDirectiveContinue;
 }
 
-bool Disassembler::IsInCode(AbsoluteAddress addr, size_t len) const {
+bool Disassembler::IsInBlock(AbsoluteAddress addr) const {
   return addr >= code_addr_ &&
-      static_cast<size_t>(addr - code_addr_) + len <= code_size_;
+      static_cast<size_t>(addr - code_addr_) + 1 <= code_size_;
 }
 
-}  // namespace image_util
+}  // namespace core

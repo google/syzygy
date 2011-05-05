@@ -59,7 +59,8 @@ class PEFileBuilderTest: public testing::Test {
     ASSERT_TRUE(image_file_.Init(image_path_));
 
     Decomposer decomposer(image_file_, image_path_);
-    ASSERT_TRUE(decomposer.Decompose(&decomposed_, NULL));
+    ASSERT_TRUE(decomposer.Decompose(&decomposed_, NULL,
+                                     Decomposer::BASIC_BLOCK_DECOMPOSITION));
 
     // Retrieve the original image headers.
     ASSERT_GE(decomposed_.header.nt_headers->data_size(),

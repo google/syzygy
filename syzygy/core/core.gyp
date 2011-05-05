@@ -30,6 +30,8 @@
         'address.h',
         'address_space.cc',
         'address_space.h',
+        'basic_block_disassembler.cc',
+        'basic_block_disassembler.h',
         'block_graph.cc',
         'block_graph.h',
         'disassembler.cc',
@@ -46,6 +48,8 @@
       'sources': [
         'address_unittest.cc',
         'address_space_unittest.cc',
+        'basic_block_disassembler_unittest.cc',
+        'basic_block_test_code.asm',
         'block_graph_unittest.cc',
         'core_unittests_main.cc',
         'disassembler_test_code.asm',

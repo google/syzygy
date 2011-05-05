@@ -76,20 +76,25 @@ class Disassembler {
                AbsoluteAddress code_addr,
                InstructionCallback* on_instruction);
 
-  // Attempts to walk function from unvisted addresses.
-  // Invokes callback for every instruction as it's encountered.
-  // @returns the results of the walk.
-  // @note the instructions may be encountered in any order, as the
-  //    disassembler follows the code's control flow.
-  WalkResult Walk();
+  Disassembler(const uint8* code,
+               size_t code_size,
+               AbsoluteAddress code_addr,
+               const AddressSet& entry_points,
+               InstructionCallback* on_instruction);
+
+  virtual ~Disassembler();
 
   // Add addr to unvisited set.
   // @returns true iff addr is unvisited.
   // @pre IsInCode(addr, 1).
   bool Unvisited(AbsoluteAddress addr);
 
-  // @return true iff the range [addr ... addr + len) is in the function.
-  bool IsInCode(AbsoluteAddress addr, size_t len) const;
+  // Attempts to walk function from known entry points.
+  // Invokes callback for every instruction as it's encountered.
+  // @returns the results of the walk.
+  // @note the instructions may be encountered in any order, as the
+  //    disassembler follows the code's control flow.
+  virtual WalkResult Walk();
 
   // Accessors.
   const AbsoluteAddress code_addr() const { return code_addr_; }
@@ -97,15 +102,38 @@ class Disassembler {
   const VisitedSpace& visited() const { return visited_; }
   size_t disassembled_bytes() const { return disassembled_bytes_; }
 
- private:
+ protected:
   CallbackDirective OnInstruction(const _DInst& inst);
+
+  // Called every time a branch instruction is hit.
+  // @param dest is the destination address of the branch instruction.
+  // @param addr is the address of the branch instruction itself.
+  // @param inst is the disassembled instruction data.
+  virtual void OnBranchInstruction(const AbsoluteAddress& addr,
+                                   const _DInst& inst,
+                                   const AbsoluteAddress& dest);
+
+  // Called every time disassembly is started from a new address. Will be
+  // called at least once if unvisited_ is non-empty.
+  virtual void OnStartInstructionRun(const AbsoluteAddress& start_address);
+
+  // Called on every disassembled instruction.
+  virtual void OnEndInstructionRun(const AbsoluteAddress& addr,
+                                   const _DInst& inst);
+
+  // Called when disassembly is complete and no further entry points remain
+  // to disassemble from.
+  virtual void OnDisassemblyComplete();
+
+  // @return true iff the range [addr ... addr + len) is in the function.
+  bool IsInBlock(AbsoluteAddress addr) const;
 
   // The code we refer to.
   const uint8* code_;
-  size_t code_size_;
+  const size_t code_size_;
 
   // The original address of the first byte of code_.
-  AbsoluteAddress code_addr_;
+  const AbsoluteAddress code_addr_;
 
   // Invoke this callback on every instruction.
   InstructionCallback* on_instruction_;

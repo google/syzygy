@@ -43,7 +43,8 @@ TEST(DecomposerTest, Decompose) {
 
   Decomposer::DecomposedImage decomposed;
   Decomposer::CoverageStatistics stats;
-  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats));
+  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats,
+                                   Decomposer::BASIC_BLOCK_DECOMPOSITION));
 
   EXPECT_TRUE(decomposed.header.dos_header != NULL);
   EXPECT_TRUE(decomposed.header.nt_headers != NULL);
