@@ -31,6 +31,10 @@
 
 namespace {
 
+const wchar_t* kMicrosoftSymSrv = L"http://msdl.microsoft.com/download/symbols";
+const wchar_t* kChromeSymSrv =
+    L"http://chromium-browser-symsrv.commondatastorage.googleapis.com";
+
 // We know the lifetime of the ViewerWindow exceeds the worker threads,
 // so noop for retain is safe for the ViewerWindow.
 template <>
@@ -345,8 +349,18 @@ bool ViewerWindow::StartCapturing() {
     return false;
   }
 
-  // Open a session for our log message capturing.
-  HRESULT hr = log_controller_.StartRealtimeSession(kSessionName, 1024);
+  // Create a session for our log message capturing.
+  base::win::EtwTraceProperties log_props;
+  EVENT_TRACE_PROPERTIES* p = log_props.get();
+  // Use the QPC timer, see
+  // http://msdn.microsoft.com/en-us/library/aa364160(v=vs.85).aspx.
+  p->Wnode.ClientContext = 1;
+  p->LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
+  p->MaximumFileSize = 100;  // 100 M file size.
+  // Get image load and process events.
+  p->FlushTimer = 1;  // flush every second.
+  p->BufferSize = 16;  // 16 K buffers.
+  HRESULT hr = log_controller_.Start(kSessionName, &log_props);
   if (FAILED(hr))
     return false;
 
@@ -364,16 +378,19 @@ bool ViewerWindow::StartCapturing() {
       NewRunnableMethod(log_consumer_.get(), &LogConsumer::Consume));
 
   // Start the kernel logger session.
-  base::win::EtwTraceProperties prop;
-  EVENT_TRACE_PROPERTIES* p = prop.get();
+  base::win::EtwTraceProperties kernel_props;
+  p = kernel_props.get();
   p->Wnode.Guid = SystemTraceControlGuid;
+  // Use the QPC timer, see
+  // http://msdn.microsoft.com/en-us/library/aa364160(v=vs.85).aspx.
+  p->Wnode.ClientContext = 1;
   p->LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
   p->MaximumFileSize = 100;  // 100 M file size.
   // Get image load and process events.
   p->EnableFlags = EVENT_TRACE_FLAG_IMAGE_LOAD | EVENT_TRACE_FLAG_PROCESS;
   p->FlushTimer = 1;  // flush every second.
   p->BufferSize = 16;  // 16 K buffers.
-  hr = kernel_controller_.Start(KERNEL_LOGGER_NAME, &prop);
+  hr = kernel_controller_.Start(KERNEL_LOGGER_NAME, &kernel_props);
   if (FAILED(hr))
     return false;
 
@@ -830,10 +847,11 @@ void ViewerWindow::InitSymbolPath() {
       return;
 
     symbol_path_ =
-        StringPrintf(L"SRV*%ls*http://msdl.microsoft.com/download/;"
-                     L"SRV*%ls*http://build.chromium.org/buildbot/symsrv",
+        StringPrintf(L"SRV*%ls*%ls;SRV*%ls*%ls",
                      sym_dir.value().c_str(),
-                     sym_dir.value().c_str());
+                     kMicrosoftSymSrv,
+                     sym_dir.value().c_str(),
+                     kChromeSymSrv);
 
     // Write the newly fabricated path to our preferences.
     Preferences pref;
