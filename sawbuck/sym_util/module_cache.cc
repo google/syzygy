@@ -21,7 +21,7 @@ namespace sym_util {
 ModuleCache::ModuleLoadState ModuleCache::empty_;
 
 
-ModuleCache::ModuleCache() : next_module_id_(0), next_module_load_state_id_(0) {
+ModuleCache::ModuleCache() : next_module_load_state_id_(0) {
 }
 
 void ModuleCache::ModuleLoaded(ProcessId pid,
@@ -85,7 +85,7 @@ ModuleCache::ModuleId ModuleCache::GetModuleId(
   if (it != module_ids_.end())
     return it->second;
 
-  ModuleId module_id = next_module_id_++;
+  ModuleId module_id = modules_.size();
   module_ids_.insert(std::make_pair(module_info, module_id));
   modules_.push_back(module_info);
 

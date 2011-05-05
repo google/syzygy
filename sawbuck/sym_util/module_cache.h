@@ -68,7 +68,6 @@ class ModuleCache {
   ModuleInfoMap module_ids_;
   // Maps from an id to the module information.
   std::vector<ModuleInformation> modules_;
-  ModuleId next_module_id_;
 
   ModuleId GetModuleId(const ModuleInformation& module_info);
   const ModuleInformation& GetModule(ModuleId id);
