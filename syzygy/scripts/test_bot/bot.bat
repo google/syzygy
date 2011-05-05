@@ -14,6 +14,7 @@ set ITERATIONS=
 for %%A in (%*) do (
   for /F "tokens=1* delims=:" %%b in ("%%~A") do (
     if /I "%%b" == "/repo" set REPO=%%~c
+    if /I "%%b" == "/build-id" set BUILD_ID_PATTERN=%%~c
     if /I "%%b" == "/syzygy" set SYZYGY=%%~c
     if /I "%%b" == "/workdir" set WORKDIR=%%~c
     if /I "%%b" == "/server" set SMTP_SERVER=%%~c
@@ -31,22 +32,25 @@ if "%WORKDIR%" == "" echo Missing parameter: /workdir & goto usage
 if "%SMTP_SERVER%" == "" echo Missing parameter: /server & goto usage
 if "%FROM%" == "" echo Missing parameter: /from & goto usage
 if "%TO%" == "" echo Missing parameter: /to & goto usage
+if "%BUILD_ID_PATTERN%" == "" set BUILD_ID_PATTERN=\d+\.\d+\.\d+\.\d+
 if "%CONFIG%" == "" set CONFIG=Debug
 if "%ITERATIONS%" == "" set ITERATIONS=20
+
 goto setup
 
 :usage
 echo:
 echo:Usage: %0 [options]
 echo:
-echo:  /repo:URL        URL to the root of the Chrome Repositoty
-echo:  /syzygy:PATH     Path to the root of the Syzygy source tree
-echo:  /workdir:PATH    Working directory in which to download Chrome builds
-echo:  /server:HOST     SMTP server to use when generating reports
-echo:  /from:EMAIL      E-Mail address from which to send reports
-echo:  /to:EMAIL        E-Mail address to which reports should be sent
-echo:  /config:CONFIG   The configuration of Syzygy test (default: Debug)
-echo:  /iterations:NUM  The number of iterations of the test to run
+echo:  /repo:URL          URL to the root of the Chrome Repository
+echo:  /build-id:PATTERN  The regular expression to use when filtering build ids
+echo:  /syzygy:PATH       Path to the root of the Syzygy source tree
+echo:  /workdir:PATH      Working directory in which to download Chrome builds
+echo:  /server:HOST       SMTP server to use when generating reports
+echo:  /from:EMAIL        E-Mail address from which to send reports
+echo:  /to:EMAIL          E-Mail address to which reports should be sent
+echo:  /config:CONFIG     The configuration of Syzygy test (default: Debug)
+echo:  /iterations:NUM    The number of iterations of the test to run
 echo:
 goto done
 
@@ -99,6 +103,7 @@ echo Downloading latest chrome release ...
 call python "%DOWNLOAD_PY%" ^
   --repo-url="%REPO%" ^
   --repo-work-dir="%WORKDIR%" ^
+  --repo-build-id-pattern="%BUILD_ID_PATTERN%" ^
   --log-file="%DOWNLOAD_LOG%" ^
   --log-verbose ^
   GET ^

@@ -86,7 +86,7 @@ def GetAttachment(file_path):
 
 
 def SendMail(server, sender, recipients, subject, text, attachments,
-             password=None, ignore_missing=False):
+             password, ignore_missing):
   """Sends a plain text email with optional attachments.
 
   Args:
@@ -107,7 +107,7 @@ def SendMail(server, sender, recipients, subject, text, attachments,
   envelope.preamble = ''
   for file_pattern in attachments:
     matching_paths = glob.glob(file_pattern)
-    if not matching_paths:
+    if not matching_paths and not ignore_missing:
       raise Exception('%s not found' % file_pattern)
     for file_path in matching_paths:
       envelope.attach(GetAttachment(file_path))
@@ -143,6 +143,7 @@ def ParseArgs():
       '--ignore-missing', action='store_true', default=False,
       help='No errors on attempts to attach non-existing files')
   option_parser.add_option('--server', help='The SMTP server to use')
+  option_parser.add_option('--password', help='The password to use')
   options, _args = option_parser.parse_args()
   if not options.sender:
     option_parser.error('--from is required')
@@ -163,7 +164,8 @@ def main():
   """Runs the send_mail module as a command line script."""
   options = ParseArgs()
   SendMail(options.server, options.sender, options.recipients,
-           options.subject, options.message, options.attachments)
+           options.subject, options.message, options.attachments,
+           options.password, options.ignore_missing)
 
 
 if __name__ == '__main__':

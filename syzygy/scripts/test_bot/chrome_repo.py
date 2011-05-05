@@ -117,6 +117,7 @@ class ChromeRepo(object):
     else:
       raise ValueError('Unsupported URL scheme (%s)' % self._scheme)
 
+    self._build_id_pattern = build_id_pattern
     self._build_id_regex = re.compile(r'href="(?P<id>%s)/"' % build_id_pattern)
 
   def _PerformRequest(self, method, path, out_stream, body=None, headers=None):
@@ -226,10 +227,11 @@ class ChromeRepo(object):
           found = False
           break
       if found:
-        _LOGGER.debug('Build %s has all required files', build_id)
+        _LOGGER.info('Build %s has all required files', build_id)
         return build_id, timestamp
 
-    return None, None
+    raise NotFoundError(
+        'No latest build found matching %s' % self._build_id_pattern)
 
   def DownloadBuild(self, work_dir, build_id=None):
     """Download a build (by id or latest) into work_dir/build_id.
@@ -317,19 +319,21 @@ def main():
   options, action = ParseArgs()
   log_helper.InitLogger(options)
   repo = ChromeRepo(options.repo_url, options.repo_build_id_pattern)
-  if action == 'list':
-    build_index = repo.GetBuildIndex()
-    format_str = '%20s %30s'
-    print format_str % ('Build ID', 'Last Modified')
-    print format_str % ('-' * 16, '-' * 22)
-    for build_id, timestamp in build_index:
-      print format_str % (build_id, timestamp)
-  elif action == 'latest':
-    print '%s (%s)' % repo.GetLatestBuildId()
-  elif action == 'get':
-    print repo.DownloadBuild(options.repo_work_dir, options.repo_build_id)
-  else:
-    sys.stderr.write('Unrecognized action: %s\n' % action)
+  try:
+    if action == 'list':
+      build_index = repo.GetBuildIndex()
+      format_str = '%20s %30s'
+      print format_str % ('Build ID', 'Last Modified')
+      print format_str % ('-' * 16, '-' * 22)
+      for build_id, timestamp, _sort_key in build_index:
+        print format_str % (build_id, timestamp)
+    elif action == 'latest':
+      build_id, timestamp = repo.GetLatestBuildId()
+      print '%s (%s)' % (build_id, timestamp)
+    elif action == 'get':
+      print repo.DownloadBuild(options.repo_work_dir, options.repo_build_id)
+  except (NotFoundError, DownloadError), error:
+    _LOGGER.error('%s', error)
     sys.exit(1)
 
 
