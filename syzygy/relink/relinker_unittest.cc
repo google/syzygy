@@ -61,7 +61,7 @@ class OffsetRelinker : public Relinker {
     pe::Decomposer::DecomposedImage decomposed;
     ASSERT_TRUE(
         decomposer.Decompose(&decomposed, NULL,
-                             pe::Decomposer::BASIC_BLOCK_DECOMPOSITION));
+                             pe::Decomposer::STANDARD_DECOMPOSITION));
 
     // Build the image.
     OffsetRelinker relinker(decomposed.address_space, &decomposed.image);
