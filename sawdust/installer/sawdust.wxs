@@ -172,11 +172,18 @@ limitations under the License.
             Value='1' />
       </Component>
       <Component Id='Icu42DllComponent'
-          Guid='{EB7E0455-236A-4954-A2C3-85F9B080A68B}'>
+          Guid='{A90C46BF-A1E0-4d06-A528-C2ECCB2C81CF}'>
         <File Id='Icu42DllComponent'
-            Name='icudt42.dll'
+            Name='icudt.dll'
             DiskId='1'
             Source='..\..\third_party\icu\icudt42.dll' />
+      </Component>
+      <Component Id='ConfigurationFileComponent'
+          Guid='{3E7649C1-879E-4596-B7B5-A2AAFE907835}'>
+        <File Id='ConfigurationFileComponent'
+            Name='sawdust.json'
+            DiskId='1'
+            Source='$(var.SAWDUST_CONFIG_PATH)' />
       </Component>
     </DirectoryRef>
 
@@ -184,6 +191,7 @@ limitations under the License.
     <Feature Id='Sawdust' Title='Sawdust Log Collector' Level='1'>
       <ComponentRef Id='SawdustExeComponent' />
       <ComponentRef Id='Icu42DllComponent' />
+      <ComponentRef Id='ConfigurationFileComponent' />
       <ComponentRef Id='SawdustShortcutComponent' />
     </Feature>
   </Product>

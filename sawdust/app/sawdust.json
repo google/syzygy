@@ -55,14 +55,15 @@
     // Target can be either a local path or a parametrized URL. If the former,
     // an archive containing logs will be placed there. If the latter, Sawdust
     // will attempt (POST) the result archive using that URL.
-    "target": "d:\\scratchPad\\compressed.logs.zip",
+    // "target": "c:\\compressed.logs.zip",
     // "target": "http://localhost:8080/cr/report?prod={prod}&ver={version}&type={type}",
+    "target": "http://clients2.google.com/cr/staging_report?prod={prod}&ver={version}&type={type}",
     "exit_handler": "auto",
     "parameters": {  // Parameters for the target URL.
       "prod": "Chrome",
       "type": "log",
       "module": "chrome.exe",
-      "version": "8.0.552.237",
+      "version": "11.0.696.60",
       "version_regkey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Google\\Update\\Clients\\{8A69D345-D564-463C-AFF1-A69D9E530F96}\\pv"
     },
   },

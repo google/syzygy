@@ -105,16 +105,16 @@ class SawdustApplication::UploadTask : public Task {
 
     if (uploader_ != NULL) {
       the_app_->main_message_loop_->PostTask(FROM_HERE,
-          NewRunnableMethod(the_app_, &SawdustApplication::OnGuiUpdateRequest,
-                            false, true, std::wstring()));
+          NewRunnableMethod(the_app_, &OnGuiUpdateRequest,
+                            UPDATE_TIP, DONT_SHOW_BALLOON, std::wstring()));
 
       ReportContent content;
       hr_ = content.Initialize(the_app_->controller_,
                                the_app_->configuration_object_);
       if (SUCCEEDED(hr_)) {
         the_app_->main_message_loop_->PostTask(FROM_HERE,
-            NewRunnableMethod(the_app_, &SawdustApplication::OnGuiUpdateRequest,
-                              false, true, std::wstring()));
+            NewRunnableMethod(the_app_, &OnGuiUpdateRequest,
+                              UPDATE_TIP, DONT_SHOW_BALLOON, std::wstring()));
 
         hr_ = uploader_->Upload(&content);
 
@@ -123,23 +123,20 @@ class SawdustApplication::UploadTask : public Task {
           std::wstring message;
           FormErrorString(&message, true);
           the_app_->main_message_loop_->PostTask(FROM_HERE,
-              NewRunnableMethod(the_app_,
-                  &SawdustApplication::OnGuiUpdateRequest,
-                      false, false, message));
+              NewRunnableMethod(the_app_, &OnGuiUpdateRequest,
+                                SKIP_TIP, DONT_SHOW_BALLOON, message));
           hr_ = uploader_->UploadArchive();
         }
         if (SUCCEEDED(hr_)) {
           the_app_->main_message_loop_->PostTask(FROM_HERE,
-              NewRunnableMethod(the_app_,
-                  &SawdustApplication::OnGuiUpdateRequest,
-                      true, true, std::wstring()));
+              NewRunnableMethod(the_app_, &OnGuiUpdateRequest,
+                                UPDATE_TIP, SHOW_BALLOON, std::wstring()));
         } else {
           std::wstring message;
           FormErrorString(&message, false);
           the_app_->main_message_loop_->PostTask(FROM_HERE,
-              NewRunnableMethod(the_app_,
-                  &SawdustApplication::OnGuiUpdateRequest,
-                      false, false, message));
+              NewRunnableMethod(the_app_, &OnGuiUpdateRequest,
+                                SKIP_TIP, DONT_SHOW_BALLOON, message));
         }
       }
     } else {
@@ -165,11 +162,9 @@ class SawdustApplication::UploadTask : public Task {
     if (the_app_->configuration_object_.GetUploadPath(&upload_url,
                                                       &remote_target)) {
       bool retry_possible = uploader_->GetArchivePath(NULL) && permit_retry;
-      wchar_t error_msg[201];
-      swprintf_s(error_msg, 200, kUploadFailureFmt,
-                 remote_target ? L"upload" : L"compress", upload_url.c_str(),
-                 retry_possible ? kUploadRetry : L"");
-      *error_string = error_msg;
+      base::SStringPrintf(error_string, kUploadFailureFmt,
+          remote_target ? L"upload" : L"compress", upload_url.c_str(),
+              retry_possible ? kUploadRetry : L"");
     } else {
       *error_string = L"Log data could not be uploaded to the server.";
     }
@@ -571,8 +566,7 @@ void SawdustApplication::OnTooltipUpdateRequest() {
     tooltip_buffer[0] = 0;  // Use empty string in this unlikely scenario.
   }
 
-  const size_t wsize = sizeof(icon_data_.szTip) /
-                       sizeof(*icon_data_.szTip) - 1;
+  const size_t wsize = arraysize(icon_data_.szTip);
   bool remote = false;
   std::wstring upload_url;
   if (controller_.IsRunning()) {
@@ -587,15 +581,16 @@ void SawdustApplication::OnTooltipUpdateRequest() {
       unit = L"minute";
     }
     if (value > 0) {
-      swprintf_s(icon_data_.szTip, wsize, kActivityLogFmt, tooltip_buffer,
-                 value, unit);
+      _snwprintf_s(icon_data_.szTip, wsize, _TRUNCATE,
+                   kActivityLogFmt, tooltip_buffer, value, unit);
       constructed = true;
     }
   } else if (upload_task_ != NULL &&
              configuration_object_.GetUploadPath(&upload_url, &remote)) {
     // Updating.
-    swprintf_s(icon_data_.szTip, wsize, kActivityUploadFmt, tooltip_buffer,
-               remote ? L"Uploading" : L"Compressing", upload_url.c_str());
+    _snwprintf_s(icon_data_.szTip, wsize, _TRUNCATE, kActivityUploadFmt,
+                 tooltip_buffer, remote ? L"Uploading" : L"Compressing",
+                 upload_url.c_str());
     constructed = true;
   }
 
@@ -616,12 +611,11 @@ void SawdustApplication::OnNotificationDisplayRequest() {
   bool remote = false;
   std::wstring upload_url;
   if (configuration_object_.GetUploadPath(&upload_url, &remote)) {
-    const size_t wsize = sizeof(icon_data_.szInfo) /
-                         sizeof(*icon_data_.szInfo) - 1;
+    const size_t wsize = arraysize(icon_data_.szInfo);
 
-    swprintf_s(icon_data_.szInfo, wsize, kDoneUploadFmt,
-               remote ? L"uploaded" : L"placed", upload_url.c_str(),
-               exiting_ ? L"" : kLoggingRestarts);
+    _snwprintf_s(icon_data_.szInfo, wsize, _TRUNCATE, kDoneUploadFmt,
+                 remote ? L"uploaded" : L"placed", upload_url.c_str(),
+                 exiting_ ? L"" : kLoggingRestarts);
     icon_data_.uFlags = NIF_INFO;
     icon_data_.dwInfoFlags = NIIF_INFO;
 
@@ -634,8 +628,7 @@ void SawdustApplication::OnNotificationDisplayRequest() {
 // Show an error message in the app's balloon.
 void SawdustApplication::OnErrorNotificationRequest(
     const std::wstring& error_message) {
-  const size_t wsize = sizeof(icon_data_.szInfo) /
-                       sizeof(*icon_data_.szInfo) - 1;
+  const size_t wsize = arraysize(icon_data_.szInfo) - 1;
   wcscpy_s(icon_data_.szInfo, wsize, error_message.c_str());
   icon_data_.uFlags = NIF_INFO;
   icon_data_.dwInfoFlags = NIIF_ERROR;
@@ -669,11 +662,11 @@ void SawdustApplication::StartLogging() {
 // Invoked as a task, takes care of displaying notifications to user
 // (balloon, message box).
 void SawdustApplication::OnGuiUpdateRequest(
-    bool update_tip, bool show_balloon, std::wstring message) {
-  if (update_tip)
+    UpdateTip update_tip, ShowBalloon show_balloon, std::wstring message) {
+  if (update_tip == UPDATE_TIP)
     OnTooltipUpdateRequest();
   if (!message.empty())
     OnErrorNotificationRequest(message);
-  else if (show_balloon)
+  else if (show_balloon == SHOW_BALLOON)
     OnNotificationDisplayRequest();
 }

@@ -67,6 +67,7 @@
             '-out',
             '<@(_outputs)',
             '-dSAWDUST_EXE_PATH=<(PRODUCT_DIR)\\Sawdust.exe',
+            '-dSAWDUST_CONFIG_PATH=<(PRODUCT_DIR)\\sawdust.json',
           ],
           'process_outputs_as_sources': 1,
         },

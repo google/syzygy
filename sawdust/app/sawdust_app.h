@@ -52,10 +52,20 @@ class SawdustApplication {
  private:
   class UploadTask;
 
+  enum UpdateTip {
+    UPDATE_TIP = 0,
+    SKIP_TIP,
+  };
+
+  enum ShowBalloon {
+    SHOW_BALLOON = 0,
+    DONT_SHOW_BALLOON,
+  };
+
   static SawdustApplication* GetWindowData(HWND hwnd);
   void InvokeUploadTask(UploadTask* task);
   void StartLogging();
-  void OnGuiUpdateRequest(bool update_tip, bool show_balloon,
+  void OnGuiUpdateRequest(UpdateTip update_tip, ShowBalloon show_balloon,
                           std::wstring message);
   static LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
                                   WPARAM wParam, LPARAM lParam);
