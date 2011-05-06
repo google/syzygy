@@ -42,11 +42,11 @@ class AddressSpace {
   // an existing range.
   // @param range the range to insert.
   // @param item the item to associate with @p range.
-  // @param it on success, returns an iterator to the inserted item.
+  // @param ret_it on success, returns an iterator to the inserted item.
   // @returns true iff @p range inserted.
   bool Insert(const Range& range,
               const ItemType& item,
-              typename RangeMap::iterator* it = NULL);
+              typename RangeMap::iterator* ret_it = NULL);
 
   // Inserts @p range mapping to @p item, unless @p range intersects
   // an existing range and does not contain it. Any existing ranges it contains
@@ -54,11 +54,43 @@ class AddressSpace {
   // and returns the iterator to that range.
   // @param range the range to insert.
   // @param item the item to associate with @p range.
-  // @param it on success, returns an iterator to the inserted item.
+  // @param ret_it on success, returns an iterator to the inserted item.
   // @returns true on success.
+  //
+  // Example insertions:
+  //
+  // Existing : aaaa    bbbb
+  // Inserting: xxxxxxxxxxxx
+  // Result   : cccccccccccc
+  //
+  // Existing : aaaaaa  bbbbbb
+  // Inserting:   xxxxxxxxxx
+  // Result   : failure!
   bool SubsumeInsert(const Range& range,
                      const ItemType& item,
-                     typename RangeMap::iterator* it = NULL);
+                     typename RangeMap::iterator* ret_it = NULL);
+
+  // Inserts @p range mapping to @p item. If this range overlaps any existing
+  // blocks, all of the overlapping blocks will be merged to form one single
+  // block. This insertion can never fail. If @p ret_it is non-null, return the
+  // iterator to the inserted block, or if @p range lies entirely within an
+  // existing block, returns the iterator to that block.
+  // @param range the range to insert.
+  // @param item the item to associate with @p range.
+  // @param ret_it on success, returns an iterator to the inserted item.
+  //
+  // Example insertions:
+  //
+  // Existing : aaaa    bbbb
+  // Inserting: xxxxxxxxxxxx
+  // Result   : cccccccccccc
+  //
+  // Existing : aaaaaa  bbbbbb
+  // Inserting:   xxxxxxxxxx
+  // Result   : cccccccccccccc
+  void MergeInsert(const Range& range,
+                   const ItemType& item,
+                   typename RangeMap::iterator* ret_it = NULL);
 
   // Remove the range that exactly matches @p range.
   // Returns true iff @p range is removed.
@@ -178,7 +210,7 @@ class AddressRange {
   }
 
   AddressType start() const { return start_; }
-  AddressType end() const { return AddressType(start_.value() + size_); }
+  AddressType end() const { return start_ + size_; }
   SizeType size() const { return size_; }
 
  private:
@@ -261,6 +293,47 @@ bool AddressSpace<AddressType, SizeType, ItemType>::SubsumeInsert(
     *ret_it = inserted.first;
 
   return true;
+}
+
+template <typename AddressType, typename SizeType, typename ItemType>
+void AddressSpace<AddressType, SizeType, ItemType>::MergeInsert(
+    const Range& range,
+    const ItemType& item,
+    typename RangeMap::iterator* ret_it) {
+  RangeMapIterPair its = FindIntersecting(range);
+
+  AddressType start_addr = range.start();
+  size_t length = range.size();
+
+  // Have overlap with existing blocks?
+  if (its.first != its.second) {
+    // Find start address of new block. This is the min of the requested range,
+    // or the beginning of the first intersecting block.
+    RangeMap::iterator it_first = its.first;
+    DCHECK(it_first != ranges_.end());
+    start_addr = std::min(range.start(), it_first->first.start());
+
+    // Find end address of new block. This is the max of the requested range,
+    // or the end of the last intersecting block.
+    RangeMap::iterator it_last = its.second;
+    --it_last;
+    DCHECK(it_last != ranges_.end());
+    AddressType end_addr = std::max(range.end(), it_last->first.end());
+
+    // Erase the existing blocks.
+    length = end_addr - start_addr;
+    ranges_.erase(its.first, its.second);
+  }
+
+  // Insert the new block.
+  Range new_range(start_addr, length);
+  std::pair<RangeMap::iterator, bool> inserted =
+      ranges_.insert(std::make_pair(new_range, item));
+  DCHECK(inserted.second);
+  if (ret_it != NULL)
+    *ret_it = inserted.first;
+
+  return;
 }
 
 template <typename AddressType, typename SizeType, typename ItemType>

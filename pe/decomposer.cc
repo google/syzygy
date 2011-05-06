@@ -273,6 +273,11 @@ Decomposer::Decomposer(const PEFile& image_file,
       image_file_(image_file),
       file_path_(file_path),
       current_block_(NULL) {
+  // Register static initializer patterns that we know are always present.
+  bool success =
+      RegisterStaticInitializerPatterns("(__+x.*)_a", "(__+x.*)_z") &&
+      RegisterStaticInitializerPatterns("(__+rtc_[it])aa", "(__+rtc_[it])zz");
+  CHECK(success);
 }
 
 bool Decomposer::Decompose(DecomposedImage* decomposed_image,
@@ -1036,6 +1041,102 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
   return true;
 }
 
+bool Decomposer::ProcessStaticInitializers(DataLabels* data_labels) {
+  typedef std::pair<RelativeAddress, RelativeAddress> AddressPair;
+  typedef std::map<std::string, AddressPair> AddressPairMap;
+
+  const RelativeAddress kNull(0);
+
+  // This stores pairs of addresses, representing the beginning and the end
+  // of each static initializer block. It is keyed with a string, which is
+  // returned by the match group of the corresponding initializer pattern.
+  // The key is necessary to correlate matching labels (as multiple pairs
+  // of labels may match through a single pattern).
+  AddressPairMap addr_pair_map;
+
+  // Used for keeping track of which label, if any, we matched.
+  enum MatchType {
+    kMatchNone,
+    kMatchBeginLabel,
+    kMatchEndLabel
+  };
+
+  // Iterate through all labels, looking for known initializer labels.
+  DataLabels::const_iterator label_it = data_labels->begin();
+  for (; label_it != data_labels->end(); ++label_it) {
+    // Check the label against each of the initializer patterns.
+    MatchType match = kMatchNone;
+    std::string name;
+    for (size_t i = 0; i < static_initializer_patterns_.size(); ++i) {
+      REPair& re_pair(static_initializer_patterns_[i]);
+      if (re_pair.first.FullMatch(label_it->second, &name))
+        match = kMatchBeginLabel;
+      else if (re_pair.second.FullMatch(label_it->second, &name))
+        match = kMatchEndLabel;
+
+      if (match != kMatchNone)
+        break;
+    }
+
+    // No pattern matched this symbol? Continue to the next one.
+    if (match == kMatchNone)
+      continue;
+
+    // Ensure this symbol exists in the map. Thankfully, addresses default
+    // construct to NULL.
+    AddressPair& addr_pair = addr_pair_map[name];
+
+    // Update the bracketing symbol endpoint. Make sure each symbol endpoint
+    // is only seen once.
+    RelativeAddress* addr = NULL;
+    if (match == kMatchBeginLabel)
+      addr = &addr_pair.first;
+    else
+      addr = &addr_pair.second;
+    if (*addr != kNull) {
+      LOG(ERROR) << "Bracketing symbol appears multiple times: "
+                 << label_it->second;
+      return false;
+    }
+    *addr = label_it->first;
+  }
+
+  // Use the bracketing symbols to make the initializers contiguous.
+  AddressPairMap::const_iterator init_it = addr_pair_map.begin();
+  for (; init_it != addr_pair_map.end(); ++init_it) {
+    RelativeAddress begin_addr = init_it->second.first;
+    if (begin_addr == kNull) {
+      LOG(ERROR) << "Bracketing start symbol missing: " << init_it->first;
+      return false;
+    }
+
+    RelativeAddress end_addr = init_it->second.second;
+    if (end_addr == kNull) {
+      LOG(ERROR) << "Bracketing end symbol missing: " << init_it->first;
+      return false;
+    }
+
+    if (begin_addr > end_addr) {
+      LOG(ERROR) << "Bracketing symbols out of order: " << init_it->first;
+      return false;
+    }
+
+    // Get the length, and ensure it is a multiple of a pointer size.
+    size_t length = end_addr + kPointerSize - begin_addr;
+    if (length % kPointerSize != 0) {
+      LOG(ERROR) << "Bracketing symbols have unexpected length: " << length;
+      return false;
+    }
+
+    // Make sure the run of initializers is contiguous using a MergeInsert.
+    DataSpace::Range range(begin_addr, length);
+    std::string name = StringPrintf("Initializers %s", init_it->first.c_str());
+    data_space_.MergeInsert(range, name);
+  }
+
+  return true;
+}
+
 bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
   // Extend any data labels at previously unseen locations until the next known
   // end of section, data range, data label or code block.
@@ -1236,6 +1337,11 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   // Process data symbols and public symbols.
   DataLabels data_labels;
   if (!ProcessDataSymbols(global, &data_labels))
+    return false;
+
+  // Handles static initializers. These are special labels that are used as
+  // bracketing symbols. We need to ensure they remain contiguous.
+  if (!ProcessStaticInitializers(&data_labels))
     return false;
 
   // Some data (that indicated by public symbols) has uncertain length. We
@@ -1857,6 +1963,19 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
       }
     }
   }
+
+  return true;
+}
+
+bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
+                                                   const char* end) {
+  // Ensuring the patterns each have exactly one capturing group.
+  REPair re_pair = std::make_pair(RE(begin), RE(end));
+  if (re_pair.first.NumberOfCapturingGroups() != 1 ||
+      re_pair.second.NumberOfCapturingGroups() != 1)
+    return false;
+
+  static_initializer_patterns_.push_back(re_pair);
 
   return true;
 }

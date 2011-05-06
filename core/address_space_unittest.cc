@@ -117,9 +117,16 @@ TEST(AddressSpaceTest, SubsumeInsert) {
   EXPECT_FALSE(address_space.SubsumeInsert(Range(125, 6), item));
   EXPECT_TRUE(address_space.ranges().size() == 3);
 
+  // Insertions of ranges that intersect multiple ranges should merge/extend
+  // them.
+  address_space.MergeInsert(Range(90, 30), item);
+  EXPECT_TRUE(address_space.ranges().size() == 2);
+  address_space.MergeInsert(Range(124, 2), item);
+  EXPECT_TRUE(address_space.ranges().size() == 2);
+
   // Insertions of ranges that contain all intersecting existing ranges
   // should replace those ranges.
-  EXPECT_TRUE(address_space.SubsumeInsert(Range(95, 40), item));
+  EXPECT_TRUE(address_space.SubsumeInsert(Range(85, 50), item));
   EXPECT_TRUE(address_space.ranges().size() == 1);
 }
 
