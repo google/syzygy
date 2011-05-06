@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include "base/file_path.h"
+#include "pcrecpp.h"  // NOLINT
 #include "syzygy/core/basic_block_disassembler.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
@@ -33,6 +34,8 @@
 #include "syzygy/pe/pe_file_parser.h"
 
 namespace pe {
+
+using pcrecpp::RE;
 
 class Decomposer {
  public:
@@ -65,6 +68,16 @@ class Decomposer {
   bool Decompose(DecomposedImage* image,
                  CoverageStatistics* stats,
                  Mode decomposition_mode);
+
+  // Registers a pair of static initializer search patterns. Each of these
+  // patterns will be converted to a regular expression, and they are required
+  // to produce exactly one match group. The match group must be the same for
+  // each of the patterns in order for the symbols to be correlated to each
+  // other.
+  // TODO(chrisha): Expose a mechanism for bulk-importing these via some JSON
+  //     representation. We will likely want to expose this on the command-line
+  //     of any utility using Decomposer.
+  bool RegisterStaticInitializerPatterns(const char* begin, const char* end);
 
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
@@ -102,6 +115,8 @@ class Decomposer {
   // will only be created if it is bigger than min_size.
   void ExtendOrCreateDataRangeUsingRelocs(
       const std::string& name, RelativeAddress addr, size_t min_size);
+  // Process static initializer data labels, ensuring they remain contiguous.
+  bool ProcessStaticInitializers(DataLabels* data_labels);
   // Extends data blocks using relocs.
   bool ExtendDataRangesUsingRelocs();
   // Creates data blocks from data space.
@@ -225,13 +240,14 @@ class Decomposer {
       IntermediateReferenceMap;
   IntermediateReferenceMap references_;
 
-  // Disassembly state.
   typedef std::set<BlockGraph::Block*> BlockSet;
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
   typedef std::map<BlockGraph::BlockId, DetailedCodeBlockStatistics>
       DetailedCodeBlockStatsMap;
   typedef std::map<RelativeAddress, std::string> LabelMap;
   typedef std::set<RelativeAddress> RelativeAddressSet;
+  typedef std::pair<RE, RE> REPair;
+  typedef std::vector<REPair> REPairs;
 
   // The block we're currently disassembling.
   BlockGraph::Block* current_block_;
@@ -254,6 +270,9 @@ class Decomposer {
   // disassembly.
   // TODO(chrisha): Maybe move this to per-block internal storage?
   DataSpace data_space_;
+  // A set of static initializer search pattern pairs. These are used to
+  // ensure we don't break up blocks of static initializer function pointers.
+  REPairs static_initializer_patterns_;
 };
 
 // The results of the decomposition process are stored in this class.
