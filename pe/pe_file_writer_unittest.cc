@@ -41,7 +41,7 @@ class PEFileWriterTest: public testing::Test {
 
     Decomposer decomposer(image_file_, image_path);
     ASSERT_TRUE(decomposer.Decompose(&decomposed_image_, NULL,
-                                     Decomposer::BASIC_BLOCK_DECOMPOSITION));
+                                     Decomposer::STANDARD_DECOMPOSITION));
 
     ASSERT_GE(decomposed_image_.header.nt_headers->data_size(),
               sizeof(IMAGE_NT_HEADERS));
