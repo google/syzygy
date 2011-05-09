@@ -39,11 +39,14 @@ using pcrecpp::RE;
 
 class Decomposer {
  public:
+  // Holds information about data objects as gleaned from DIA.
+  struct DataInfo;
+
   typedef core::BasicBlockDisassembler BasicBlockDisassembler;
   typedef core::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
   typedef core::RelativeAddress RelativeAddress;
-  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
+  typedef core::AddressSpace<RelativeAddress, size_t, DataInfo> DataSpace;
 
   enum Mode {
     STANDARD_DECOMPOSITION,
@@ -119,6 +122,10 @@ class Decomposer {
   bool ProcessStaticInitializers(DataLabels* data_labels);
   // Extends data blocks using relocs.
   bool ExtendDataRangesUsingRelocs();
+  // Fuses array data blocks with their subsequent data block. This is to ensure
+  // that compiler generated 'end of array' pointers do not get falsely
+  // attributed to the *next* data block, and moved upon a reordering.
+  bool FuseArrayDataBlocks();
   // Creates data blocks from data space.
   bool CreateDataBlocksFromDataSpace();
   // Creates data gap blocks.
@@ -273,6 +280,17 @@ class Decomposer {
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
+};
+
+// Holds information about data objects as gleaned from DIA.
+struct Decomposer::DataInfo {
+  Decomposer::DataInfo(const std::string& name, bool is_array)
+      : name(name),
+        is_array(is_array) {
+  }
+
+  std::string name;
+  bool is_array;
 };
 
 // The results of the decomposition process are stored in this class.
