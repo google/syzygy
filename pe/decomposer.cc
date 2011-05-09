@@ -96,10 +96,11 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
 
 // Given a symbol @p symbol, this will inspect its type information
 // to determine its length. If the symbol has no type information, sets @p size
-// to zero. Returns true on success, false otherwise.
-bool GetTypeSize(IDiaSymbol* symbol, size_t* size) {
+// to zero and is_array to false. Returns true on success, false otherwise.
+bool GetTypeInfo(IDiaSymbol* symbol, size_t* size, bool* is_array) {
   DCHECK(symbol != NULL);
   DCHECK(size != NULL);
+  DCHECK(is_array != NULL);
 
   *size = 0;
   ScopedComPtr<IDiaSymbol> type;
@@ -112,10 +113,14 @@ bool GetTypeSize(IDiaSymbol* symbol, size_t* size) {
     return true;
 
   ULONGLONG length = 0;
-  if (FAILED(type->get_length(&length))) {
-    LOG(ERROR) << "Failed to retrieve type length.";
+  DWORD sym_tag = 0;
+  if (FAILED(type->get_length(&length)) ||
+      FAILED(type->get_symTag(&sym_tag))) {
+    LOG(ERROR) << "Failed to retrieve type symbol properties.";
     return false;
   }
+
+  *is_array = sym_tag == SymTagArrayType;
 
   *size = static_cast<size_t>(length);
   return true;
@@ -1012,7 +1017,8 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
   }
 
   size_t length = 0;
-  if (!GetTypeSize(data, &length))
+  bool is_array = false;
+  if (!GetTypeInfo(data, &length, &is_array))
     return false;
 
   // Zero length Data symbols act as 'forward declares' in some sense. They
@@ -1033,7 +1039,8 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
       data_name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0)
     return true;
 
-  if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_name)) {
+  DataInfo data_info(data_name, is_array);
+  if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_info)) {
     LOG(ERROR) << "Data-space insertion failed.";
     return false;
   }
@@ -1131,7 +1138,8 @@ bool Decomposer::ProcessStaticInitializers(DataLabels* data_labels) {
     // Make sure the run of initializers is contiguous using a MergeInsert.
     DataSpace::Range range(begin_addr, length);
     std::string name = StringPrintf("Initializers %s", init_it->first.c_str());
-    data_space_.MergeInsert(range, name);
+    DataInfo data_info(name, false);
+    data_space_.MergeInsert(range, data_info);
   }
 
   return true;
@@ -1193,7 +1201,8 @@ bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
 
     // This should never fail as we've taken care to make sure we don't
     // intersect with anything.
-    bool inserted = data_space_.Insert(range, it->second);
+    DataInfo data_info(it->second, false);
+    bool inserted = data_space_.Insert(range, data_info);
     DCHECK(inserted) << "data_space_.Insert should never fail here.";
   }
 
@@ -1243,8 +1252,11 @@ void Decomposer::ExtendOrCreateDataRangeUsingRelocs(
   // Only create the entry if it meets the minimum size.
   if (count * kPointerSize > min_size) {
     DataSpace::Range range(addr, count * kPointerSize);
+    // This piece of data is actually an array, regardless of what DIA
+    // may tell us.
+    DataInfo data_info(name, true);
     // This should never fail because of our earlier calculations of 'end'.
-    bool success = data_space_.SubsumeInsert(range, name);
+    bool success = data_space_.SubsumeInsert(range, data_info);
     DCHECK(success);
   }
 }
@@ -1262,9 +1274,95 @@ bool Decomposer::ExtendDataRangesUsingRelocs() {
     // This may invalidate the iterator to data_it, hence the reason we
     // keep around next_data_it. Also the reason why we create a copy of the
     // name.
-    std::string name(data_it->second);
+    std::string name(data_it->second.name);
     ExtendOrCreateDataRangeUsingRelocs(
         name, data_it->first.start(), data_it->first.size());
+  }
+
+  return true;
+}
+
+bool Decomposer::FuseArrayDataBlocks() {
+  // This routine is a stop-gap measure against a subtle bug. Consider two
+  // symbols A, an array of some type, and B, the data symbol immediately
+  // following A as placed their by the linker. A and B do not have to have
+  // any meaningful relationship.
+  //
+  // [a0|a1|a2|a3|....|aN-1] [some value]
+  // A                       B
+  //
+  // It is possible (through loop optimization, or hand generated code) for code
+  // to iterate through arrays using a pointer to the *end* of the array in a
+  // test for when to stop iterating (ie: A + N, in the example above). This
+  // pointer will take the form of a reloc which will have the same value as
+  // a pointer to B. Our current disassembly phase will consider this reloc as
+  // a reference to B, rather than as a reference to 'A + N'. When reordering,
+  // if the array and the symbol following it are not kept together, than the
+  // end-of-array pointer will point to an essentially meaningless location,
+  // causing the loop constructs to access memory off the end of the array.
+  //
+  // The only way to avoid unnecessary fusions of data blocks is to do full
+  // data flow analysis, to determine if a pointer to some element of A is
+  // ever compared to the value in a given reloc. If so, we can assume that the
+  // reloc meant to refer to 'A + N' rather than 'B'.
+  //
+  // This will break under the following somewhat contrived situation. Suppose
+  // A is the last element in Section i, and B is the first element in
+  // Section i + 1. We can't 'fuse' elements across sections, as this is
+  // meaningless. So to protect ourselves, the only thing we could do is enforce
+  // A to be the last element of Section i, force B to be the first element of
+  // Section i + 1, and enforce the two sections to remain immediately adjacent.
+  // This is not possible with the current mechanisms.
+
+  DataSpace::RangeMapConstIter it = data_space_.begin();
+  DataSpace::RangeMapConstIter it_next = it;
+  if (it_next != data_space_.end())
+    ++it_next;
+  size_t fusions_performed = 0;
+  size_t blocks_fused = 0;
+  while (it != data_space_.end()) {
+    if (it->second.is_array) {
+      RelativeAddress begin = it->first.start();
+      RelativeAddress end = begin;
+      std::string name = "FusedArray:";
+
+      // Fuse this first array and all immediately adjacent adjoining arrays,
+      // as well as the first adjacent non-array block.
+      size_t block_count = 0;
+      bool stop_fusion = false;
+      while (!stop_fusion && it != data_space_.end() &&
+          it->first.start() == end) {
+        ++block_count;
+        end = it->first.end();
+        // We produce a very detailed block name to help us with debugging
+        // later on.
+        name.append(StringPrintf("\n  0x%08x: %s (%s)",
+                                 end.value(),
+                                 it->second.name.c_str(),
+                                 it->second.is_array ? "array" : "non-array"));
+        // Stop at the first non-array element that we've fused.
+        stop_fusion = !it->second.is_array;
+        it = it_next;
+        if (it_next != data_space_.end())
+          ++it_next;
+      }
+
+      // Only actually perform the fusion if more than 1 block has been
+      // processed.
+      if (block_count > 1) {
+        ++fusions_performed;
+        blocks_fused += block_count;
+        DataSpace::Range range(begin, end - begin);
+        DataInfo data_info(name, false);
+        // This insertion should always succeed.
+        bool success = data_space_.SubsumeInsert(range, data_info);
+        DCHECK(success);
+      }
+    }
+
+    it = it_next;
+    if (it_next != data_space_.end())
+      ++it_next;
   }
 
   return true;
@@ -1295,7 +1393,7 @@ bool Decomposer::CreateDataBlocksFromDataSpace() {
     BlockGraph::Block* block = CreateBlock(BlockGraph::DATA_BLOCK,
                                            data_it->first.start(),
                                            data_it->first.size(),
-                                           data_it->second.c_str());
+                                           data_it->second.name.c_str());
     if (block == NULL) {
       // If we get here, it's because no block exists that contains
       // us, but a block exists that intersects with us.
@@ -1355,6 +1453,11 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   // are reported with too-short lengths (only seen for hand-written assembly
   // thus far).
   if (!ExtendDataRangesUsingRelocs())
+    return false;
+
+  // Fuse arrays with their successive symbols to prevent problems with aliasing
+  // of end-of-array and pointer-to-next-symbol relocs.
+  if (!FuseArrayDataBlocks())
     return false;
 
   // Use data_space_ to create data blocks.
