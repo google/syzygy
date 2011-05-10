@@ -13,12 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/relink/relinker.h"
-#include <algorithm>
 #include <ctime>
-#include <objbase.h>
-#include "base/file_util.h"
-#include "base/json/json_reader.h"
-#include "base/values.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_data.h"
@@ -30,29 +25,6 @@ using pe::Decomposer;
 using pe::PEFileWriter;
 
 namespace {
-
-// This is a linear congruent pseuodo random generator.
-// See: http://en.wikipedia.org/wiki/Linear_congruential_generator.
-class RandomNumberGenerator {
- public:
-  explicit RandomNumberGenerator(int seed) : seed_(seed) {
-  }
-
-  int operator()(int n) {
-    seed_ = seed_ * kA + kC;
-    int ret = seed_ % n;
-    DCHECK(ret >= 0 && ret < n);
-    return ret;
-  }
-
- private:
-  static const int kA = 1103515245;
-  static const int kC = 12345;
-
-  // The generator is g(N + 1) = (g(N) * kA + kC) mod 2^32.
-  // The unsigned 32 bit seed yields the mod 2^32 for free.
-  uint32 seed_;
-};
 
 void AddOmapForBlockRange(
     const BlockGraph::AddressSpace::RangeMapConstIterPair& original,
@@ -287,101 +259,54 @@ Relinker::Relinker(const BlockGraph::AddressSpace& original_addr_space,
 Relinker::~Relinker() {
 }
 
-bool Relinker::Relink(const FilePath& input_dll_path,
+bool Relinker::Relink(const PEFileParser::PEHeader& original_header,
                       const FilePath& input_pdb_path,
                       const FilePath& output_dll_path,
-                      const FilePath& output_pdb_path,
-                      const FilePath& order_file_path) {
-  DCHECK(!input_dll_path.empty());
-  DCHECK(!input_pdb_path.empty());
-  DCHECK(!output_dll_path.empty());
-  DCHECK(!output_pdb_path.empty());
-  DCHECK(!order_file_path.empty());
-
-  return Relink(input_dll_path, input_pdb_path, output_dll_path,
-                output_pdb_path, order_file_path, 0);
-}
-
-bool Relinker::Relink(const FilePath& input_dll_path,
-                      const FilePath& input_pdb_path,
-                      const FilePath& output_dll_path,
-                      const FilePath& output_pdb_path,
-                      uint32 seed) {
-  DCHECK(!input_dll_path.empty());
+                      const FilePath& output_pdb_path) {
   DCHECK(!input_pdb_path.empty());
   DCHECK(!output_dll_path.empty());
   DCHECK(!output_pdb_path.empty());
 
-  return Relink(input_dll_path, input_pdb_path, output_dll_path,
-                output_pdb_path, FilePath(), seed);
-}
-
-bool Relinker::Relink(const FilePath& input_dll_path,
-                      const FilePath& input_pdb_path,
-                      const FilePath& output_dll_path,
-                      const FilePath& output_pdb_path,
-                      const FilePath& order_file_path,
-                      uint32 seed) {
-  DCHECK(!input_dll_path.empty());
-  DCHECK(!input_pdb_path.empty());
-  DCHECK(!output_dll_path.empty());
-  DCHECK(!output_pdb_path.empty());
-
-  // Read and decompose the input image for starters.
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path)) {
-    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
+  if (!Initialize(original_header.nt_headers)) {
+    LOG(ERROR) << "Unable to initialize.";
     return false;
   }
 
-  Decomposer decomposer(input_dll, input_dll_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL,
-                            Decomposer::STANDARD_DECOMPOSITION)) {
-    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  // Construct and initialize our relinker.
-  Relinker relinker(decomposed.address_space, &decomposed.image);
-  if (!relinker.Initialize(decomposed.header.nt_headers)) {
-    LOG(ERROR) << "Unable to initialize relinker.";
-    return false;
-  }
-
-  // Reorder the image, update the debug info and copy the data directory.
-  if (!order_file_path.empty()) {
-    if (!relinker.ReorderCode(order_file_path)) {
-      LOG(ERROR) << "Unable to reorder code.";
-      return false;
-    }
-  } else {
-    if (!relinker.RandomlyReorderCode(seed)) {
-      LOG(ERROR) << "Unable randomly reorder the input image.";
-      return false;
+  // Reorder code sections and copy non-code sections.
+  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = original_sections()[i];
+    if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
+      if (!ReorderCode(section)) {
+        LOG(ERROR) << "Unable to reorder code.";
+      }
+    } else {
+      if (!CopySection(section)) {
+        LOG(ERROR) << "Unable to copy section.";
+        return false;
+      }
     }
   }
-  if (!relinker.UpdateDebugInformation(
-          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
+
+  // Update the debug info and copy the data directory.
+  if (!UpdateDebugInformation(
+          original_header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
     LOG(ERROR) << "Unable to update debug information.";
     return false;
   }
-  if (!relinker.CopyDataDirectory(decomposed.header)) {
+  if (!CopyDataDirectory(original_header)) {
     LOG(ERROR) << "Unable to copy the input image's data directory.";
     return false;
   }
 
   // Finalize the headers and write the image and pdb.
-  if (!relinker.FinalizeImageHeaders(decomposed.header)) {
+  if (!FinalizeImageHeaders(original_header)) {
     LOG(ERROR) << "Unable to finalize image headers.";
   }
-  if (!relinker.WriteImage(output_dll_path)) {
+  if (!WriteImage(output_dll_path)) {
     LOG(ERROR) << "Unable to write " << output_dll_path.value();
     return false;
   }
-  if (!relinker.WritePDBFile(decomposed.address_space,
-                             input_pdb_path,
-                             output_pdb_path)) {
+  if (!WritePDBFile(input_pdb_path, output_pdb_path)) {
     LOG(ERROR) << "Unable to write new PDB file.";
     return false;
   }
@@ -397,162 +322,6 @@ bool Relinker::Initialize(const BlockGraph::Block* original_nt_headers) {
     LOG(ERROR) << "Oh, no, we're fresh out of GUIDs! "
         "Quick, hand me an IPv6 address...";
     return false;
-  }
-
-  return true;
-}
-
-bool Relinker::ReorderCode(const FilePath& order_file_path) {
-  std::string file_string;
-  if (!file_util::ReadFileToString(order_file_path, &file_string)) {
-    LOG(ERROR) << "Unable to read order file to string";
-    return false;
-  }
-
-  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
-  ListValue* order;
-  if (value.get() == NULL || !value->GetAsList(&order)) {
-    LOG(ERROR) << "Order file does not contain a valid JSON list";
-    return false;
-  }
-
-  RelativeAddress start = builder().next_section_address();
-  RelativeAddress insert_at = start;
-  std::set<BlockGraph::Block*> inserted_blocks;
-
-  // Insert the ordered blocks into the new address space.
-  for (ListValue::iterator iter = order->begin(); iter < order->end(); ++iter) {
-    int address;
-    if (!(*iter)->GetAsInteger(&address)) {
-      LOG(ERROR) << "Unable to read address value from order list";
-      return false;
-    }
-
-    BlockGraph::Block* block = original_addr_space().GetBlockByAddress(
-        RelativeAddress(address));
-    if (!block) {
-      LOG(ERROR) << "Unable to get block at address " << address;
-      return false;
-    }
-    // Two separate RVAs may point to the same block, so make sure we only
-    // insert each block once.
-    if (inserted_blocks.find(block) != inserted_blocks.end())
-      continue;
-
-    if (!builder().address_space().InsertBlock(insert_at, block)) {
-      LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
-          << insert_at;
-    }
-    insert_at += block->size();
-    inserted_blocks.insert(block);
-  }
-
-  // Insert the remaining unordered blocks into the new address space.
-  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections()[i];
-    if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
-      BlockGraph::AddressSpace::Range section_range(
-          RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
-      AddressSpace::RangeMapConstIterPair section_blocks =
-          original_addr_space().GetIntersectingBlocks(section_range.start(),
-                                                      section_range.size());
-
-      AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
-      for (; section_it != section_blocks.second; ++section_it) {
-        BlockGraph::Block* block = section_it->second;
-        if (inserted_blocks.find(block) != inserted_blocks.end())
-          continue;
-
-        if (!builder().address_space().InsertBlock(insert_at, block)) {
-          LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
-              << insert_at;
-        }
-        insert_at += block->size();
-        inserted_blocks.insert(block);
-      }
-    }
-  }
-
-  // Create the code section.
-  uint32 code_size = insert_at - start;
-  builder().AddSegment(".text",
-                       code_size,
-                       code_size,
-                       IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE |
-                       IMAGE_SCN_MEM_READ);
-
-  // Copy the non-code sections, skipping the .relocs section.
-  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections()[i];
-    if (!(section.Characteristics & IMAGE_SCN_CNT_CODE)) {
-      if (!CopySection(section)) {
-        LOG(ERROR) << "Unable to copy section";
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-bool Relinker::RandomlyReorderCode(int seed) {
-  // We use a private pseudo random number generator to allow consistent
-  // results across different CRTs and CRT versions.
-  RandomNumberGenerator random_generator(seed);
-
-  // Copy the sections from the decomposed image to the new one, save for
-  // the .relocs section. Code sections are passed through a reordering
-  // phase before copying.
-  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections()[i];
-    BlockGraph::AddressSpace::Range section_range(
-        RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
-    const char* name = reinterpret_cast<const char*>(section.Name);
-    std::string name_str(name, strnlen(name, arraysize(section.Name)));
-
-    // Duplicate the section in the new image.
-    RelativeAddress start = builder().AddSegment(name_str.c_str(),
-                                                 section.Misc.VirtualSize,
-                                                 section.SizeOfRawData,
-                                                 section.Characteristics);
-    AddressSpace::RangeMapConstIterPair section_blocks =
-        original_addr_space().GetIntersectingBlocks(section_range.start(),
-                                                    section_range.size());
-
-    if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
-      // Hold back the blocks within the section for reordering.
-      // typedef BlockGraph::AddressSpace AddressSpace;
-
-      AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
-      const AddressSpace::RangeMapConstIter& section_end =
-          section_blocks.second;
-      std::vector<BlockGraph::Block*> code_blocks;
-      for (; section_it != section_end; ++section_it) {
-        BlockGraph::Block* block = section_it->second;
-        DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-        code_blocks.push_back(block);
-      }
-
-      // Now reorder the code blocks and insert them into the
-      // code segment in the new order.
-      std::random_shuffle(code_blocks.begin(),
-                          code_blocks.end(),
-                          random_generator);
-      RelativeAddress insert_at = start;
-      for (size_t i = 0; i < code_blocks.size(); ++i) {
-        BlockGraph::Block* block = code_blocks[i];
-
-        if (!builder().address_space().InsertBlock(insert_at, block)) {
-          LOG(ERROR) << "Unable to insert block '" << block->name()
-              << "' at " << insert_at;
-        }
-
-        insert_at += block->size();
-      }
-    } else if (!CopyBlocks(section_blocks, start)) {
-      LOG(ERROR) << "Unable to copy blocks to new image";
-      return false;
-    }
   }
 
   return true;
@@ -613,21 +382,20 @@ bool Relinker::UpdateDebugInformation(
   return true;
 }
 
-bool Relinker::WritePDBFile(const BlockGraph::AddressSpace& original,
-                            const FilePath& input_path,
+bool Relinker::WritePDBFile(const FilePath& input_path,
                             const FilePath& output_path) {
   // Generate the map data for both directions.
   std::vector<OMAP> omap_to;
   AddOmapForAllSections(builder().nt_headers().FileHeader.NumberOfSections - 1,
                         builder().section_headers(),
                         builder().address_space(),
-                        original,
+                        original_addr_space(),
                         &omap_to);
 
   std::vector<OMAP> omap_from;
   AddOmapForAllSections(original_num_sections() - 1,
                         original_sections(),
-                        original,
+                        original_addr_space(),
                         builder().address_space(),
                         &omap_from);
 

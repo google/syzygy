@@ -65,42 +65,30 @@ class OffsetRelinker : public Relinker {
 
     // Build the image.
     OffsetRelinker relinker(decomposed.address_space, &decomposed.image);
-    ASSERT_TRUE(relinker.Initialize(decomposed.header.nt_headers));
-    ASSERT_TRUE(relinker.CopySectionsAndOffsetCode());
-    ASSERT_TRUE(relinker.UpdateDebugInformation(
-        decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG]));
-    ASSERT_TRUE(relinker.CopyDataDirectory(decomposed.header));
-    ASSERT_TRUE(relinker.FinalizeImageHeaders(decomposed.header));
-
-    // Write the image and pdb.
-    ASSERT_TRUE(relinker.WriteImage(output_dll_path));
-    ASSERT_TRUE(relinker.WriteOffsetPDBFile(input_pdb_path, output_pdb_path,
+    ASSERT_TRUE(relinker.Relinker::Relink(decomposed.header, input_pdb_path,
+                                          output_dll_path, output_pdb_path));
+    ASSERT_TRUE(relinker.WriteOffsetPdbFile(input_pdb_path, output_pdb_path,
                                             num_offsets));
   }
 
  private:
-  bool CopySectionsAndOffsetCode() {
-    // Copy the sections from the decomposed image to the new one, save for the
-    // .relocs section. Add a section before any code section to create an
-    // offset.
-    for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-      const IMAGE_SECTION_HEADER& section = original_sections()[i];
-      if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
-        const char* name = reinterpret_cast<const char*>(section.Name);
-        std::string name_str(name, strnlen(name, arraysize(section.Name)));
-        name_str.append("_offset");
-        builder().AddSegment(name_str.c_str(), kPageSize, kPageSize, 0);
-      }
-      if (!CopySection(section)) {
-        LOG(ERROR) << "Unable to copy section";
-        return false;
-      }
+  bool ReorderCode(const IMAGE_SECTION_HEADER& section) {
+    // Create a section to offset the code section.
+    const char* name = reinterpret_cast<const char*>(section.Name);
+    std::string name_str(name, strnlen(name, arraysize(section.Name)));
+    name_str.append("_offset");
+    builder().AddSegment(name_str.c_str(), kPageSize, kPageSize, 0);
+
+    // Copy the code section.
+    if (!CopySection(section)) {
+      LOG(ERROR) << "Unable to copy section";
+      return false;
     }
 
     return true;
   }
 
-  bool WriteOffsetPDBFile(const FilePath& input_path,
+  bool WriteOffsetPdbFile(const FilePath& input_path,
                           const FilePath& output_path,
                           int num_offsets) {
     // This creates a simple Omap offset. We know that the order of the blocks
@@ -128,23 +116,7 @@ class OffsetRelinker : public Relinker {
 
 }  // namespace
 
-TEST_F(RelinkerTest, Relink) {
-  FilePath temp_dir;
-  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
-  FilePath output_dll_path = temp_dir.Append(testing::kDllName);
-  FilePath output_pdb_path = temp_dir.Append(testing::kDllPdbName);
-
-  ASSERT_TRUE(
-      Relinker::Relink(testing::GetExeRelativePath(testing::kDllName),
-                       testing::GetExeRelativePath(testing::kDllPdbName),
-                       output_dll_path,
-                       output_pdb_path,
-                       0));
-
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(output_dll_path));
-}
-
-TEST_F(RelinkerTest, CodeOffset) {
+TEST_F(RelinkerTest, OffsetCode) {
   // In this test, we add an additional code section of one page size in front
   // of the original code sections, offsetting each block by one page, write the
   // new image and pdb file, and then make sure that we can decompose the

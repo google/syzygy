@@ -17,7 +17,8 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/logging_win.h"
-#include "syzygy/relink/relinker.h"
+#include "syzygy/relink/order_relinker.h"
+#include "syzygy/relink/random_relinker.h"
 
 // {E6FF7BFB-34FE-42a3-8993-1F477DC36247}
 const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
@@ -66,21 +67,21 @@ int main(int argc, char** argv) {
     return Usage("You must provide input and output file names.");
   }
 
-  // Reorder the image, update the debug info and copy the data directory.
+  // Relink the image with a new ordering.
   if (!order_file_path.empty()) {
-    if (!Relinker::Relink(input_dll_path,
-                          input_pdb_path,
-                          output_dll_path,
-                          output_pdb_path,
-                          order_file_path)) {
+    if (!OrderRelinker::Relink(input_dll_path,
+                               input_pdb_path,
+                               output_dll_path,
+                               output_pdb_path,
+                               order_file_path)) {
       return Usage("Unable to reorder the input image.");
     }
   } else {
-    if (!Relinker::Relink(input_dll_path,
-                          input_pdb_path,
-                          output_dll_path,
-                          output_pdb_path,
-                          seed)) {
+    if (!RandomRelinker::Relink(input_dll_path,
+                                input_pdb_path,
+                                output_dll_path,
+                                output_pdb_path,
+                                seed)) {
       return Usage("Unable randomly reorder the input image.");
     }
   }
