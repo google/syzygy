@@ -64,8 +64,13 @@ deps = {
   "src/third_party/distorm/files":
     "http://distorm.googlecode.com/svn/trunk@54",
 
-  "src/third_party/python_24":
-    Var("chrome_base") + "/deps/third_party/python_24@22967",
+  "src/third_party/python_26":
+     Var("chrome_base") + "/tools/third_party/python_26@" +
+        Var("chrome_revision"),
+
+  "src/third_party/psyco_win32":
+    Var("chrome_base") + "/deps/third_party/psyco_win32@" +
+        Var("chrome_revision"),
 
   "src/build":
     Var("chrome_base") + "/src/build@" + Var("chrome_revision"),

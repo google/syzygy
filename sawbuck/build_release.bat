@@ -15,7 +15,7 @@ rem = """
 :: limitations under the License.
 :: Make sure the tools directory is in our python path.
 set PYTHONPATH=%~p0tools
-"%~p0..\third_party\python_24\python.exe" -x "%~f0" %*
+"%~p0..\third_party\python_26\python.exe" -x "%~f0" %*
 goto endofPython """
 '''This scripts builds the current version in debug and release, then
 copies the produced installers to sawbuck-<version>-{debug|release}.msi

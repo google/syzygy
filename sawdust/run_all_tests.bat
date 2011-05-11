@@ -13,7 +13,7 @@ rem = """
 :: WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 :: See the License for the specific language governing permissions and
 :: limitations under the License.
-set PYTHON="%~p0..\third_party\python_24\python.exe"
+set PYTHON="%~p0..\third_party\python_26\python.exe"
 set SCRIPT="%~p0..\sawbuck\tools\run_all_tests.py"
 set SOLUTION="%~p0Sawdust.sln"
 set PROJECT="%~p0run_unittests.vcproj"

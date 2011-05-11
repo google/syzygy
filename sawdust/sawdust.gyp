@@ -59,7 +59,7 @@
             '<(success_file)',
           ],
           'action': [
-            '<(DEPTH)/third_party/python_24/python',
+            '<(DEPTH)/third_party/python_26/python',
             '../sawbuck/tools/run_unittests.py',
             '--exe-dir=<(PRODUCT_DIR)',
             '--success-file=<(success_file)',
