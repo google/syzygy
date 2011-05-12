@@ -1,4 +1,4 @@
-# Copyright 2009 Google Inc.
+# Copyright 2011 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
         'common/common.gyp:*',
         'installer/installer.gyp:*',
         'log_lib/log_lib.gyp:*',
+        'py/py.gyp:*',
         'sym_util/sym_util.gyp:*',
         'viewer/viewer.gyp:*',
       ],
