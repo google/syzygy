@@ -1,0 +1,10 @@
+URL: http://pypi.python.org/pypi/setuptools
+Version: 0.6c11
+License: Dual Licensed PSF/ZPL
+License File: LICENSE
+
+Description:
+This directory contains the egg distribution for setuptools.
+
+Local Modifications:
+None
