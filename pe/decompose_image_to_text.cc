@@ -41,8 +41,8 @@ bool DumpImageToText(const FilePath& image_path,
   Decomposer decomposer(image_file, image_path);
   Decomposer::DecomposedImage decomposed;
   Decomposer::Mode mode =
-      basic_block_decomposition ? Decomposer::STANDARD_DECOMPOSITION :
-                                  Decomposer::BASIC_BLOCK_DECOMPOSITION;
+      basic_block_decomposition ? Decomposer::BASIC_BLOCK_DECOMPOSITION :
+                                  Decomposer::STANDARD_DECOMPOSITION;
   if (!decomposer.Decompose(&decomposed, NULL, mode)) {
     LOG(ERROR) << "Unable to decompose image " << image_path.value();
     return false;
