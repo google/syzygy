@@ -27,6 +27,7 @@
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
         'relink/relink.gyp:*',
+        'reorder/reorder.gyp:*',
         'snapshot/snapshot.gyp:*',
       ],
     },
