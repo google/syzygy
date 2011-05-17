@@ -61,10 +61,17 @@ bool LinearOrderGenerator::CalculateReordering(const Reorderer& reorderer,
   }
   std::sort(calls.begin(), calls.end());
 
-  // Create the output, which is simply the new ordering of blocks.
-  order->blocks.resize(calls.size());
-  for (size_t i = 0; i < calls.size(); ++i)
-    order->blocks[i] = calls[i].second;
+  // Create the output, which is simply the new ordering of blocks, per section.
+  // We currently throw away any blocks that map to an invalid section id.
+  // TODO(chrisha): We need to make sure that all blocks in the decomposed
+  //     image properly set the 'section' attribute of Block.
+  for (size_t i = 0; i < calls.size(); ++i) {
+    const BlockGraph::Block* block = calls[i].second;
+    size_t section_id = block->section();
+    if (section_id == core::kInvalidSection)
+      continue;
+    order->section_block_lists[section_id].push_back(block);
+  }
 
   return true;
 }

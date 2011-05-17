@@ -169,8 +169,13 @@ struct Reorderer::Order {
   DecomposedImage image;
 
   // An ordering of blocks. This list need not be exhaustive, but each
-  // block should only appear once within it.
-  std::vector<const BlockGraph::Block*> blocks;
+  // block should only appear once within it. We currently constrain ourselves
+  // to keep blocks in the same section from which they originate. Thus, we
+  // separate the order information per section, with the section IDs coming
+  // from the DecomposedImage of the original module.
+  typedef std::vector<const BlockGraph::Block*> BlockList;
+  typedef std::map<size_t, BlockList> BlockListMap;
+  BlockListMap section_block_lists;
 
   // Serializes the order to JSON. Returns true on success, false otherwise.
   // The serialization simply consists of the start addresses of each block
@@ -178,6 +183,10 @@ struct Reorderer::Order {
   // BlockGraph via inline comments.
   bool SerializeToJSON(const FilePath& path, bool pretty_print) const;
   bool SerializeToJSON(FILE* file, bool pretty_print) const;
+
+  // Loads an ordering from a JSON file. 'image' must already be populated
+  // prior to calling this.
+  bool LoadFromJSON(const FilePath& path);
 
   // Estimates the number of hard faults that would be seen, both before and
   // after ordering. This assumes that everything in |blocks| is actually

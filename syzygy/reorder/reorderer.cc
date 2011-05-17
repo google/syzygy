@@ -14,8 +14,111 @@
 #include "syzygy/reorder/reorderer.h"
 
 #include "base/file_util.h"
+#include "base/json/json_reader.h"
 #include "base/stringprintf.h"
+#include "base/values.h"
 #include "syzygy/pe/pe_file.h"
+
+namespace {
+
+using namespace reorder;
+
+// Outputs @p indent spaces to @p file.
+bool OutputIndent(FILE* file, int indent, bool pretty_print) {
+  if (!pretty_print)
+    return true;
+  for (int i = 0; i < indent; ++i) {
+    if (fputc(' ', file) == EOF)
+      return false;
+  }
+  return true;
+}
+
+// Outputs an end of line, only if pretty-printing.
+bool OutputLineEnd(FILE* file, bool pretty_print) {
+  return !pretty_print || fputc('\n', file) != EOF;
+}
+
+// Outputs a JSON dictionary key, pretty-printed if so requested. Assumes that
+// if pretty-printing, we're already on a new line. Also assumes that key is
+// appropriately escaped if it contains invalid characters.
+bool OutputKey(FILE* file, const char* key, int indent, bool pretty_print) {
+  if (!OutputIndent(file, indent, pretty_print) ||
+      fprintf(file, "\"%s\":", key) < 0 ||
+      !OutputIndent(file, 1, pretty_print))
+    return false;
+  return true;
+}
+
+// Serializes a block list to JSON. If pretty-printing, assumes that we are
+// already on a new line. Does not output a trailing new line.
+bool OutputBlockList(FILE* file, size_t section_id,
+                     const Reorderer::Order::BlockList& blocks,
+                     int indent,
+                     bool pretty_print) {
+  DCHECK(file != NULL);
+
+  // Output the section id.
+  if (!OutputIndent(file, indent, pretty_print) ||
+      fputc('{', file) == EOF ||
+      !OutputLineEnd(file, pretty_print) ||
+      !OutputKey(file, "section_id", indent + 2, pretty_print) ||
+      fprintf(file, "%d,", section_id) < 0 ||
+      !OutputLineEnd(file, pretty_print) ||
+      // Output the sdtart of the block list.
+      !OutputKey(file, "blocks", indent + 2, pretty_print) ||
+      fputc('[', file) == EOF ||
+      !OutputLineEnd(file, pretty_print)) {
+    return false;
+  }
+
+  for (size_t i = 0; i < blocks.size(); ++i) {
+    // Output the block address.
+    if (!OutputIndent(file, indent + 4, pretty_print) ||
+        fprintf(file, "%d", blocks[i]->addr().value()) < 0)
+      return false;
+    if (i < blocks.size() - 1 && fputc(',', file) == EOF)
+      return false;
+
+    // If we're pretty printing, output a comment with some detail about the
+    // block.
+    if (pretty_print) {
+      if (fprintf(file, "  // ") < 0)
+        return false;
+      switch (blocks[i]->type()) {
+        case BlockGraph::CODE_BLOCK:
+          if (fprintf(file, "Code") < 0)
+            return false;
+          break;
+
+        case BlockGraph::DATA_BLOCK:
+          if (fprintf(file, "Data") < 0)
+            return false;
+          break;
+
+        default:
+          if (fprintf(file, "Other") < 0)
+            return false;
+          break;
+      }
+      if (fprintf(file, "(%s)\n", blocks[i]->name()) < 0)
+        return false;
+    }
+  }
+  // Close the block list.
+  if (!OutputIndent(file, indent + 2, pretty_print) ||
+      fputc(']', file) == EOF ||
+      !OutputLineEnd(file, pretty_print) ||
+      // Close the dictionary.
+      !OutputIndent(file, indent, pretty_print) ||
+      fputc('}', file) == EOF) {
+    return false;
+  }
+
+  return true;
+}
+
+}  // namespace
 
 namespace reorder {
 
@@ -316,41 +419,111 @@ bool Reorderer::Order::SerializeToJSON(FILE* file,
   if (pretty_print && fputc('\n', file) == EOF)
     return false;
 
-  for (size_t i = 0; i < blocks.size(); ++i) {
-    if (pretty_print && fprintf(file, "  ") < 0)
-      return false;
-    if (fprintf(file, "%d", blocks[i]->addr().value()) < 0)
-      return false;
-    if (i < blocks.size() - 1 && fputc(',', file) == EOF)
-      return false;
+  // Output the individual block lists.
+  BlockListMap::const_iterator it = section_block_lists.begin();
+  int lists_output = 0;
+  for (; it != section_block_lists.end(); ++it) {
+    if (it->second.size() == 0)
+      continue;
 
-    if (pretty_print) {
-      if (fprintf(file, "  # ") < 0)
+    if (lists_output > 0) {
+      if (fputc(',', file) == EOF)
         return false;
-      switch (blocks[i]->type()) {
-        case BlockGraph::CODE_BLOCK:
-          if (fprintf(file, "Code") < 0)
-            return false;
-          break;
-
-        case BlockGraph::DATA_BLOCK:
-          if (fprintf(file, "Data") < 0)
-            return false;
-          break;
-
-        default:
-          if (fprintf(file, "Unknown") < 0)
-            return false;
-          break;
-      }
-      if (fprintf(file, "(%s)\n", blocks[i]->name()) < 0)
+      if (pretty_print && fputc('\n', file) == EOF)
         return false;
     }
+
+    if (!OutputBlockList(file, it->first, it->second, 2, pretty_print))
+      return false;
+
+    ++lists_output;
   }
+
+  if (lists_output > 0 && pretty_print && fputc('\n', file) == EOF)
+    return false;
   if (fputc(']', file) == EOF)
     return false;
   if (pretty_print && fputc('\n', file) == EOF)
     return false;
+
+  return true;
+}
+
+bool Reorderer::Order::LoadFromJSON(const FilePath& path) {
+  std::string file_string;
+  if (!file_util::ReadFileToString(path, &file_string)) {
+    LOG(ERROR) << "Unable to read order file to string";
+    return false;
+  }
+
+  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
+  ListValue* order = NULL;
+  if (value.get() == NULL || !value->GetAsList(&order)) {
+    LOG(ERROR) << "Order file does not contain a valid JSON list.";
+    return false;
+  }
+
+  section_block_lists.clear();
+
+  // Iterate through the elements of the list. They should each be dictionaries
+  // representing a single section.
+  ListValue::iterator section_it = order->begin();
+  for (; section_it != order->end(); ++section_it) {
+    if ((*section_it) == NULL ||
+        (*section_it)->GetType() != Value::TYPE_DICTIONARY) {
+      LOG(ERROR) << "Order file list does not contain dictionaries.";
+      return false;
+    }
+    const DictionaryValue* section =
+        reinterpret_cast<const DictionaryValue*>(*section_it);
+
+    std::string section_id_key("section_id");
+    std::string blocks_key("blocks");
+    int section_id_int = 0;
+    ListValue* blocks = NULL;
+    if (!section->GetInteger(section_id_key, &section_id_int) ||
+        !section->GetList(blocks_key, &blocks)) {
+      LOG(ERROR) << "Section dictionary must contain integer 'section_id' and "
+                 << "list 'blocks'.";
+      return false;
+    }
+    size_t section_id = section_id_int;
+    DCHECK(blocks != NULL);
+
+    if (section_block_lists.find(section_id) != section_block_lists.end()) {
+      LOG(ERROR) << "Section " << section_id << " redefined.";
+      return false;
+    }
+
+    if (blocks->GetSize() == 0)
+      continue;
+
+    BlockList& block_list = section_block_lists[section_id];
+    ListValue::iterator block_it = blocks->begin();
+    for (; block_it != blocks->end(); ++block_it) {
+      int address = 0;
+      if ((*block_it) == NULL || !(*block_it)->GetAsInteger(&address)) {
+        LOG(ERROR) << "'blocks' must be a list of integers.";
+        return false;
+      }
+      RelativeAddress rva(address);
+
+      const BlockGraph::Block* block =
+          image.address_space.GetBlockByAddress(rva);
+      if (block == NULL) {
+        LOG(ERROR) << "Block address not found in decomposed image: "
+                   << address;
+        return false;
+      }
+      if (block->section() != section_id) {
+        LOG(ERROR) << "Block at address " << address << " belongs to section "
+                   << block->section() << " and not section " << section_id;
+        return false;
+      }
+      block_list.push_back(block);
+    }
+  }
+
   return true;
 }
 
@@ -374,56 +547,62 @@ bool Reorderer::Order::OutputFaultEstimates(FILE* file) const {
   page_sizes[BlockGraph::CODE_BLOCK] = 32 * 1024;
   page_sizes[BlockGraph::DATA_BLOCK] = 16 * 1024;
 
-  // The set of page ids (the address divided by the page size) that would be
-  // referred to by the module, both before and after reordering.
-  typedef std::map<BlockGraph::BlockType, std::set<size_t> > PageSet;
-  PageSet pre_page_set, post_page_set;
-  // Stores the 'base address' of the given block in the new image. This is
-  // broken down by BlockType with the assumption that each block type will
-  // map to a separate section.
-  std::map<BlockGraph::BlockType, RelativeAddress> post_base_address;
+  // Iterate over each section, and output statistics.
+  size_t pre_total = 0, post_total = 0;
+  BlockListMap::const_iterator it = section_block_lists.begin();
+  for (; it != section_block_lists.end(); ++it) {
+    size_t section_id = it->first;
+    const BlockList& blocks = it->second;
 
-  // Translate each block call into a page id, and keep track of which pages
-  // need to be loaded (both before and after reordering).
-  for (size_t i = 0; i < blocks.size(); ++i) {
-    const BlockGraph::Block* block = blocks[i];
-    BlockGraph::BlockType type = block->type();
+    if (blocks.size() == 0)
+      continue;
 
-    // Get the pre and post addresses of this block.
-    RelativeAddress pre_addr = block->addr();
-    RelativeAddress post_addr = post_base_address[block->type()];
-    post_base_address[block->type()] += block->size();
-
-    // Turn this range into a page start and page end. This is necessary
-    // because we often fuse blocks and can create data blocks that are
-    // significantly larger than a single page.
-    size_t page_size = page_sizes[type];
+    // Get section type and page size.
+    BlockGraph::BlockType section_type = blocks[0]->type();
+    size_t page_size = page_sizes[section_type];
     if (page_size == 0)
       page_size = kDefaultPageSize;
-    size_t pre_page_start = pre_addr.value() / page_size;
-    size_t post_page_start = post_addr.value() / page_size;
-    size_t pre_page_end = (pre_addr.value() + block->size() - 1) / page_size;
-    size_t post_page_end = (post_addr.value() + block->size() - 1) / page_size;
 
-    // Mark the pages as needing to be read.
-    for (size_t i = pre_page_start; i <= pre_page_end; ++i)
-      pre_page_set[type].insert(i);
-    for (size_t i = post_page_start; i <= post_page_end; ++i)
-      post_page_set[type].insert(i);
-  }
+    // This stores the list of page ids that would need to be loaded for
+    // this section prior to reordering (using original addresses).
+    std::set<size_t> pre_page_set;
 
-  // Output the estimated faults.
-  size_t pre_total = 0, post_total = 0;
-  for (size_t i = 0; i < arraysize(kTypes); ++i) {
-    size_t pre_count = pre_page_set[kTypes[i]].size();
-    size_t post_count = post_page_set[kTypes[i]].size();
+    // Translate each block call into a page id, and keep track of which pages
+    // need to be loaded (both before and after reordering).
+    size_t post_address = 0;
+    for (size_t i = 0; i < blocks.size(); ++i) {
+      const BlockGraph::Block* block = blocks[i];
+      BlockGraph::BlockType type = block->type();
+
+      // Get the pre and post addresses of this block.
+      size_t pre_address = block->addr().value();
+      post_address += block->size();
+
+      // Turn this range into a page start and page end. This is necessary
+      // if a block crosses a page boundary.
+      size_t pre_page_start = pre_address / page_size;
+      size_t pre_page_end = (pre_address + block->size() - 1) / page_size;
+
+      // Mark the pages as needing to be read.
+      for (size_t i = pre_page_start; i <= pre_page_end; ++i)
+        pre_page_set.insert(i);
+    }
+
+    // Output the estimated faults.
+    size_t pre_count = pre_page_set.size();
+    size_t post_count = (post_address + page_size - 1) / page_size;
     pre_total += pre_count;
     post_total += post_count;
-    fprintf(file, "%-5s: pre = %8d, post = %8d, reduction = %6.1f%%\n",
-            kTypeNames[kTypes[i]], pre_count, post_count,
+    fprintf(file,
+            "section %d (%s): pre = %8d, post = %8d, reduction = %6.1f%%\n",
+            section_id, kTypeNames[section_type], pre_count, post_count,
             (pre_count - post_count) * 100.0 / pre_count);
   }
-  fprintf(file, "total: pre = %8d, post = %8d, reduction = %6.1f%%\n",
+
+  // Output summary statistics.
+  fprintf(file,
+          // "section x (yyyy): "
+             "total           : pre = %8d, post = %8d, reduction = %6.1f%%\n",
           pre_total, post_total,
           (pre_total - post_total) * 100.0 / pre_total);
 
