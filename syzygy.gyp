@@ -29,6 +29,7 @@
         'py/py.gyp:*',
         'relink/relink.gyp:*',
         'reorder/reorder.gyp:*',
+        'scripts/scripts.gyp:*',
         'snapshot/snapshot.gyp:*',
       ],
     },
