@@ -38,6 +38,8 @@ using core::Disassembler;
 using pe::Decomposer;
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
+const DWORD kDataCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
 
 bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   DCHECK(sym_tag != NULL);
@@ -50,8 +52,30 @@ bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   return true;
 }
 
-const DWORD kDataCharacteristics =
-    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
+bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
+  DCHECK(symbol != NULL);
+  DCHECK(length != NULL);
+
+  *length = 0;
+  ScopedComPtr<IDiaSymbol> type;
+  HRESULT hr = symbol->get_type(type.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to get type symbol: " << hr;
+    return false;
+  }
+  // This happens if the symbol has no type information.
+  if (hr == S_FALSE)
+    return true;
+
+  ULONGLONG ull_length = 0;
+  if (FAILED(type->get_length(&ull_length))) {
+    LOG(ERROR) << "Failed to retrieve type length properties.";
+    return false;
+  }
+  *length = ull_length;
+
+  return true;
+}
 
 enum SectionType {
   kSectionCode,
@@ -92,38 +116,6 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
   }
 
   return false;
-}
-
-// Given a symbol @p symbol, this will inspect its type information
-// to determine its length. If the symbol has no type information, sets @p size
-// to zero and is_array to false. Returns true on success, false otherwise.
-bool GetTypeInfo(IDiaSymbol* symbol, size_t* size, bool* is_array) {
-  DCHECK(symbol != NULL);
-  DCHECK(size != NULL);
-  DCHECK(is_array != NULL);
-
-  *size = 0;
-  ScopedComPtr<IDiaSymbol> type;
-  HRESULT hr = symbol->get_type(type.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get type symbol: " << hr;
-    return false;
-  }
-  if (hr == S_FALSE)
-    return true;
-
-  ULONGLONG length = 0;
-  DWORD sym_tag = 0;
-  if (FAILED(type->get_length(&length)) ||
-      FAILED(type->get_symTag(&sym_tag))) {
-    LOG(ERROR) << "Failed to retrieve type symbol properties.";
-    return false;
-  }
-
-  *is_array = sym_tag == SymTagArrayType;
-
-  *size = static_cast<size_t>(length);
-  return true;
 }
 
 void UpdateSectionStats(
@@ -280,8 +272,8 @@ Decomposer::Decomposer(const PEFile& image_file,
       current_block_(NULL) {
   // Register static initializer patterns that we know are always present.
   bool success =
-      RegisterStaticInitializerPatterns("(__+x.*)_a", "(__+x.*)_z") &&
-      RegisterStaticInitializerPatterns("(__+rtc_[it])aa", "(__+rtc_[it])zz");
+      RegisterStaticInitializerPatterns("(__x.*)_a", "(__x.*)_z") &&
+      RegisterStaticInitializerPatterns("(__rtc_[it])aa", "(__rtc_[it])zz");
   CHECK(success);
 }
 
@@ -439,9 +431,8 @@ void Decomposer::CalcBlockStats(const BlockGraph::Block* block,
       UpdateBlockStats(block, &stats->blocks.data);
       break;
 
-    case BlockGraph::READONLY_BLOCK:
-      UpdateBlockStats(block, &stats->blocks.read_only);
-      break;
+    default:
+      NOTREACHED();
   }
 }
 
@@ -763,7 +754,7 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
         block_type, section_begin, section_end - section_begin,
         StringPrintf("Gap Section %s", header->Name).c_str());
     DCHECK(section != NULL);
-    section->set_attribute(section->attributes() | BlockGraph::GAP_BLOCK);
+    section->set_attribute(BlockGraph::GAP_BLOCK);
     if (section->data() == NULL) {
       // The section is only partially defined.
       const uint8* data = image_file_.GetImageData(section_begin,
@@ -780,7 +771,7 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   if (section_begin < it->first.start()) {
     BlockGraph::Block* added = FindOrCreateBlock(block_type, section_begin,
         it->first.start() - section_begin, "Gap Start Block");
-    added->set_attribute(added->attributes() | BlockGraph::GAP_BLOCK);
+    added->set_attribute(BlockGraph::GAP_BLOCK);
     if (!added) {
       LOG(ERROR) << "Failed to create block for start of code section "
           << header->Name;
@@ -807,7 +798,7 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                                                    section_end - block_end,
                                                    "Gap Tail Block");
       DCHECK(added != NULL);
-      added->set_attribute(added->attributes() | BlockGraph::GAP_BLOCK);
+      added->set_attribute(BlockGraph::GAP_BLOCK);
       break;
     }
 
@@ -816,7 +807,7 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
           block_type, block_end, next->first.start() - block_end,
           StringPrintf("Gap Block 0x%08X", block_end).c_str());
       DCHECK(added != NULL);
-      added->set_attribute(added->attributes() | BlockGraph::GAP_BLOCK);
+      added->set_attribute(BlockGraph::GAP_BLOCK);
     }
   }
 
@@ -1002,6 +993,19 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
     return false;
   }
 
+  // Get the section containing this address.
+  RelativeAddress addr(rva);
+  const IMAGE_SECTION_HEADER* section_header =
+      image_file_.GetSectionHeader(addr, 1);
+  // Skip symbols that lie outside of any known sections. This can happen
+  // for symbols that lie within the headers.
+  if (section_header == NULL)
+    return true;
+  // Skip the section if it's not code or data.
+  SectionType section_type = GetSectionType(section_header);
+  if (section_type == kSectionUnknown)
+    return true;
+
   std::string data_name;
   if (!WideToUTF8(name, name.Length(), &data_name)) {
     LOG(ERROR) << "Failed to convert label name to UTF8.";
@@ -1009,16 +1013,20 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
   }
 
   // PublicSymbols contain meaningless length information so we store them
-  // as labels and deal with them later.
-  RelativeAddress addr(rva);
+  // as labels and deal with them later. We only store data labels.
   if (sym_tag == SymTagPublicSymbol) {
-    data_labels->insert(std::make_pair(addr, data_name));
+    if (section_type == kSectionData) {
+      // Public symbol names are mangled. Remove leading '_' as per
+      // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
+      if (data_name[0] == '_')
+        data_name = data_name.substr(1);
+      data_labels->insert(std::make_pair(addr, data_name));
+    }
     return true;
   }
 
   size_t length = 0;
-  bool is_array = false;
-  if (!GetTypeInfo(data, &length, &is_array))
+  if (!GetTypeInfo(data, &length))
     return false;
 
   // Zero length Data symbols act as 'forward declares' in some sense. They
@@ -1039,16 +1047,33 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
       data_name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0)
     return true;
 
-  DataInfo data_info(data_name, is_array);
-  if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_info)) {
-    LOG(ERROR) << "Data-space insertion failed.";
+  // If this is in a code block, push it to the data-space.
+  if (section_type == kSectionCode) {
+    if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_name)) {
+      LOG(ERROR) << "Data-space insertion failed.";
+      return false;
+    }
+    return true;
+  }
+
+  // Create the data block.
+  BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
+                                               addr,
+                                               length,
+                                               data_name.c_str());
+  if (block == NULL) {
+    LOG(ERROR) << "Unable to create data-block.";
     return false;
   }
+  // Sometimes we get the same block referred to by multiple names. Add the
+  // other names as labels.
+  if (data_name != block->name())
+    block->SetLabel(0, data_name.c_str());
 
   return true;
 }
 
-bool Decomposer::ProcessStaticInitializers(DataLabels* data_labels) {
+bool Decomposer::ProcessStaticInitializers() {
   typedef std::pair<RelativeAddress, RelativeAddress> AddressPair;
   typedef std::map<std::string, AddressPair> AddressPairMap;
 
@@ -1068,17 +1093,23 @@ bool Decomposer::ProcessStaticInitializers(DataLabels* data_labels) {
     kMatchEndLabel
   };
 
-  // Iterate through all labels, looking for known initializer labels.
-  DataLabels::const_iterator label_it = data_labels->begin();
-  for (; label_it != data_labels->end(); ++label_it) {
-    // Check the label against each of the initializer patterns.
+  // Iterate through all data blocks, looking for known initializer labels.
+  BlockGraph::AddressSpace::RangeMapConstIter block_it = image_->begin();
+  for (; block_it != image_->end(); ++block_it) {
+    const BlockGraph::Block* block = block_it->second;
+    // Skip non-data blocks.
+    if (block->type() != BlockGraph::DATA_BLOCK)
+      continue;
+
+    // Check the block name against each of the initializer patterns.
     MatchType match = kMatchNone;
+    std::string block_name = block->name();
     std::string name;
     for (size_t i = 0; i < static_initializer_patterns_.size(); ++i) {
       REPair& re_pair(static_initializer_patterns_[i]);
-      if (re_pair.first.FullMatch(label_it->second, &name))
+      if (re_pair.first.FullMatch(block_name, &name))
         match = kMatchBeginLabel;
-      else if (re_pair.second.FullMatch(label_it->second, &name))
+      else if (re_pair.second.FullMatch(block_name, &name))
         match = kMatchEndLabel;
 
       if (match != kMatchNone)
@@ -1096,16 +1127,20 @@ bool Decomposer::ProcessStaticInitializers(DataLabels* data_labels) {
     // Update the bracketing symbol endpoint. Make sure each symbol endpoint
     // is only seen once.
     RelativeAddress* addr = NULL;
-    if (match == kMatchBeginLabel)
+    RelativeAddress new_addr;
+    if (match == kMatchBeginLabel) {
       addr = &addr_pair.first;
-    else
+      new_addr = block->addr();
+    } else {
       addr = &addr_pair.second;
+      new_addr = block->addr() + block->size();
+    }
     if (*addr != kNull) {
       LOG(ERROR) << "Bracketing symbol appears multiple times: "
-                 << label_it->second;
+                 << block_name;
       return false;
     }
-    *addr = label_it->first;
+    *addr = new_addr;
   }
 
   // Use the bracketing symbols to make the initializers contiguous.
@@ -1128,82 +1163,85 @@ bool Decomposer::ProcessStaticInitializers(DataLabels* data_labels) {
       return false;
     }
 
-    // Get the length, and ensure it is a multiple of a pointer size.
-    size_t length = end_addr + kPointerSize - begin_addr;
-    if (length % kPointerSize != 0) {
-      LOG(ERROR) << "Bracketing symbols have unexpected length: " << length;
-      return false;
-    }
-
-    // Make sure the run of initializers is contiguous using a MergeInsert.
-    DataSpace::Range range(begin_addr, length);
-    std::string name = StringPrintf("Initializers %s", init_it->first.c_str());
-    DataInfo data_info(name, false);
-    data_space_.MergeInsert(range, data_info);
+    // Merge the initializers.
+    DataSpace::Range range(begin_addr, end_addr - begin_addr);
+    BlockGraph::Block* merged = image_->MergeIntersectingBlocks(range);
+    std::string name = StringPrintf("Bracketed Initializers: %s",
+                                    init_it->first.c_str());
+    merged->set_name(name.c_str());
+    DCHECK(merged != NULL);
   }
 
   return true;
 }
 
 bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
-  // Extend any data labels at previously unseen locations until the next known
-  // end of section, data range, data label or code block.
-  DataLabels::const_iterator it = data_labels.begin();
-  for (; it != data_labels.end(); ++it) {
-    // Skip labels that lie within data ranges we already know about.
-    if (data_space_.Contains(it->first))
+  // We are only interested in labels in data sections, so iterate through
+  // the sections and only process data sections.
+  size_t section_count = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t section_id = 0; section_id < section_count; ++section_id) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(section_id);
+    if (GetSectionType(header) != kSectionData)
       continue;
 
-    // Skip labels that lie within any blocks we already know about.
-    const BlockGraph::Block* block = image_->GetBlockByAddress(it->first);
-    if (block != NULL)
-      continue;
+    RelativeAddress section_begin(header->VirtualAddress);
+    RelativeAddress section_end(header->VirtualAddress +
+                                header->Misc.VirtualSize);
 
-    // TODO(chrisha): Does it only make sense to process labels that lie
-    //     within a data section?
-    const IMAGE_SECTION_HEADER* header =
-        image_file_.GetSectionHeader(it->first, 1);
-    // Skip labels that lie outside of known sections.
-    if (header == NULL) {
-      LOG(ERROR) << "Data label lies outside of known sections.";
-      return false;
+    // Get the range of labels that lie in this section.
+    DataLabels::const_iterator it = data_labels.lower_bound(section_begin);
+    DataLabels::const_iterator it_end = data_labels.lower_bound(section_end);
+
+    // Extend any data labels at previously unseen locations until the next
+    // known end of section, label or block.
+    for (; it != it_end; ++it) {
+      // Skip labels that lie within any blocks we already know about.
+      BlockGraph::Block* block = image_->GetContainingBlock(it->first, 1);
+      if (block != NULL) {
+        // We often get many (sometimes hundreds) of labels into a single
+        // block, so it's more efficient to iterate labels until the block
+        // is exhausted.
+        RelativeAddress block_end = block->addr() + block->size();
+        while (it != it_end && it->first < block_end) {
+          // We only stored labels in data sections, so this should never
+          // happen.
+          DCHECK(block->type() != BlockGraph::CODE_BLOCK);
+          BlockGraph::Offset offset = it->first - block->addr();
+          // If the label is at offset 0 and has the same value as the
+          // block name, don't add it (it's simply duplicate information).
+          if (offset != 0 || it->second != block->name())
+            block->SetLabel(offset, it->second.c_str());
+          ++it;
+        }
+        --it;
+        continue;
+      }
+
+      // Use the end of the section as our first upper bound for the end
+      // of the new block.
+      RelativeAddress end = section_end;
+
+      // Find the next known data label and use it to lower bound the end of
+      // the new block.
+      DataLabels::const_iterator next_it = it;
+      ++next_it;
+      if (next_it != it_end) {
+        if (next_it->first < end)
+          end = next_it->first;
+      }
+
+      // Find the next known block and use it to lower bound the end of the
+      // new block.
+      block = image_->GetFirstIntersectingBlock(it->first, end - it->first);
+      if (block != NULL && block->addr() < end)
+        end = block->addr();
+
+      block = CreateBlock(BlockGraph::DATA_BLOCK,
+                          it->first,
+                          end - it->first,
+                          it->second.c_str());
+      DCHECK(block != NULL);
     }
-    RelativeAddress end(header->VirtualAddress + header->Misc.VirtualSize);
-
-    // Find the next known data label and use it to lower bound the end of this
-    // label.
-    DataLabels::const_iterator next_it = it;
-    ++next_it;
-    if (next_it != data_labels.end()) {
-      if (next_it->first < end)
-        end = next_it->first;
-    }
-
-    // Find the next known code block and use it to lower bound the end of this
-    // label.
-    // TODO(chrisha): Is this necessary? No code blocks should lie within
-    //     data sections, and data labels should only lie within data sections.
-    //     Maybe keep this as a sanity check and fire an error if we do find
-    //     an intersecting block?
-    block = image_->GetFirstIntersectingBlock(it->first, end - it->first);
-    if (block != NULL && block->addr() < end)
-      end = block->addr();
-
-    // See if there's an intersection of the extended label and the data
-    // space. If so, truncate the label at the next data-space range.
-    DataSpace::Range range(it->first, end - it->first);
-    DataSpace::RangeMapConstIter data_it =
-        data_space_.FindFirstIntersection(range);
-    if (data_it != data_space_.end()) {
-      end = data_it->first.start();
-      range = DataSpace::Range(it->first, end - it->first);
-    }
-
-    // This should never fail as we've taken care to make sure we don't
-    // intersect with anything.
-    DataInfo data_info(it->second, false);
-    bool inserted = data_space_.Insert(range, data_info);
-    DCHECK(inserted) << "data_space_.Insert should never fail here.";
   }
 
   return true;
@@ -1252,11 +1290,8 @@ void Decomposer::ExtendOrCreateDataRangeUsingRelocs(
   // Only create the entry if it meets the minimum size.
   if (count * kPointerSize > min_size) {
     DataSpace::Range range(addr, count * kPointerSize);
-    // This piece of data is actually an array, regardless of what DIA
-    // may tell us.
-    DataInfo data_info(name, true);
     // This should never fail because of our earlier calculations of 'end'.
-    bool success = data_space_.SubsumeInsert(range, data_info);
+    bool success = data_space_.SubsumeInsert(range, name);
     DCHECK(success);
   }
 }
@@ -1274,136 +1309,9 @@ bool Decomposer::ExtendDataRangesUsingRelocs() {
     // This may invalidate the iterator to data_it, hence the reason we
     // keep around next_data_it. Also the reason why we create a copy of the
     // name.
-    std::string name(data_it->second.name);
+    std::string name(data_it->second);
     ExtendOrCreateDataRangeUsingRelocs(
         name, data_it->first.start(), data_it->first.size());
-  }
-
-  return true;
-}
-
-bool Decomposer::FuseArrayDataBlocks() {
-  // This routine is a stop-gap measure against a subtle bug. Consider two
-  // symbols A, an array of some type, and B, the data symbol immediately
-  // following A as placed their by the linker. A and B do not have to have
-  // any meaningful relationship.
-  //
-  // [a0|a1|a2|a3|....|aN-1] [some value]
-  // A                       B
-  //
-  // It is possible (through loop optimization, or hand generated code) for code
-  // to iterate through arrays using a pointer to the *end* of the array in a
-  // test for when to stop iterating (ie: A + N, in the example above). This
-  // pointer will take the form of a reloc which will have the same value as
-  // a pointer to B. Our current disassembly phase will consider this reloc as
-  // a reference to B, rather than as a reference to 'A + N'. When reordering,
-  // if the array and the symbol following it are not kept together, than the
-  // end-of-array pointer will point to an essentially meaningless location,
-  // causing the loop constructs to access memory off the end of the array.
-  //
-  // The only way to avoid unnecessary fusions of data blocks is to do full
-  // data flow analysis, to determine if a pointer to some element of A is
-  // ever compared to the value in a given reloc. If so, we can assume that the
-  // reloc meant to refer to 'A + N' rather than 'B'.
-  //
-  // This will break under the following somewhat contrived situation. Suppose
-  // A is the last element in Section i, and B is the first element in
-  // Section i + 1. We can't 'fuse' elements across sections, as this is
-  // meaningless. So to protect ourselves, the only thing we could do is enforce
-  // A to be the last element of Section i, force B to be the first element of
-  // Section i + 1, and enforce the two sections to remain immediately adjacent.
-  // This is not possible with the current mechanisms.
-
-  DataSpace::RangeMapConstIter it = data_space_.begin();
-  DataSpace::RangeMapConstIter it_next = it;
-  if (it_next != data_space_.end())
-    ++it_next;
-  size_t fusions_performed = 0;
-  size_t blocks_fused = 0;
-  while (it != data_space_.end()) {
-    if (it->second.is_array) {
-      RelativeAddress begin = it->first.start();
-      RelativeAddress end = begin;
-      std::string name = "FusedArray:";
-
-      // Fuse this first array and all immediately adjacent adjoining arrays,
-      // as well as the first adjacent non-array block.
-      size_t block_count = 0;
-      bool stop_fusion = false;
-      while (!stop_fusion && it != data_space_.end() &&
-          it->first.start() == end) {
-        ++block_count;
-        end = it->first.end();
-        // We produce a very detailed block name to help us with debugging
-        // later on.
-        name.append(StringPrintf("\n  0x%08x: %s (%s)",
-                                 end.value(),
-                                 it->second.name.c_str(),
-                                 it->second.is_array ? "array" : "non-array"));
-        // Stop at the first non-array element that we've fused.
-        stop_fusion = !it->second.is_array;
-        it = it_next;
-        if (it_next != data_space_.end())
-          ++it_next;
-      }
-
-      // Only actually perform the fusion if more than 1 block has been
-      // processed.
-      if (block_count > 1) {
-        ++fusions_performed;
-        blocks_fused += block_count;
-        DataSpace::Range range(begin, end - begin);
-        DataInfo data_info(name, false);
-        // This insertion should always succeed.
-        bool success = data_space_.SubsumeInsert(range, data_info);
-        DCHECK(success);
-      }
-    }
-
-    it = it_next;
-    if (it_next != data_space_.end())
-      ++it_next;
-  }
-
-  return true;
-}
-
-bool Decomposer::CreateDataBlocksFromDataSpace() {
-  // Iterate through all data ranges.
-  DataSpace::RangeMapIter data_next_it = data_space_.begin();
-  DataSpace::RangeMapIter data_it = data_next_it;
-  while (data_next_it != data_space_.end()) {
-    data_it = data_next_it;
-    ++data_next_it;
-
-    // We do not process any data ranges that lie within any existing blocks.
-    // If they lie within a code block, we keep them in the data-space to guide
-    // the disassembly, otherwise we simply delete them as there's already a
-    // DATA or READONLY block containing them (this happens for header
-    // information).
-    const BlockGraph::Block* old_block = image_->GetContainingBlock(
-        data_it->first.start(), data_it->first.size());
-    if (old_block != NULL) {
-      if (old_block->type() != BlockGraph::CODE_BLOCK)
-        data_space_.Remove(data_it);
-      continue;
-    }
-
-    // Create the data block.
-    BlockGraph::Block* block = CreateBlock(BlockGraph::DATA_BLOCK,
-                                           data_it->first.start(),
-                                           data_it->first.size(),
-                                           data_it->second.name.c_str());
-    if (block == NULL) {
-      // If we get here, it's because no block exists that contains
-      // us, but a block exists that intersects with us.
-      LOG(ERROR) << "Unable to create data-block.";
-      return false;
-    }
-
-    // Remove it from the data space, leaving behind only those data
-    // ranges that lie within existing blocks.
-    data_space_.Remove(data_it);
   }
 
   return true;
@@ -1417,14 +1325,12 @@ bool Decomposer::CreateDataGapBlocks() {
     DCHECK(header != NULL);
 
     // And create a block for any gaps in data sections.
-    const DWORD kDataCharacteristics =
-        IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
-    if (header->Characteristics & kDataCharacteristics) {
-      if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
-        LOG(ERROR) << "Unable to create gap blocks for data section "
-            << header->Name;
-        return false;
-      }
+    if (GetSectionType(header) != kSectionData)
+      continue;
+    if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
+      LOG(ERROR) << "Unable to create gap blocks for data section "
+                 << header->Name;
+      return false;
     }
   }
 
@@ -1437,35 +1343,30 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   if (!ProcessDataSymbols(global, &data_labels))
     return false;
 
-  // Handles static initializers. These are special labels that are used as
-  // bracketing symbols. We need to ensure they remain contiguous.
-  if (!ProcessStaticInitializers(&data_labels))
+  // Now that we have data sets and relocation entries, we can extend some
+  // data blocks. Doing this is necessary because some in-function jump tables
+  // are reported with too-short lengths (only seen for hand-written assembly
+  // thus far). After this, data_space_ contains ranges marking in-code data.
+  if (!ExtendDataRangesUsingRelocs())
     return false;
 
   // Some data (that indicated by public symbols) has uncertain length. We
   // extend the length of these data blocks to the next known label/block in
-  // order not to subdivide data elements.
+  // order not to subdivide data elements. After this, data_labels may be
+  // discarded.
+  // TODO(chrisha): Investigate chunking using the SectionContributions table
+  //     provided by DIA. This seems to give us much finer grained information
+  //     regarding padding bytes, etc, and it can then be refined using
+  //     symbol information.
   if (!ExtendDataLabels(data_labels))
-    return false;
-
-  // Now that we have data sets and relocation entries, we can extend some
-  // data blocks. Doing this is necessary because some in-function jump tables
-  // are reported with too-short lengths (only seen for hand-written assembly
-  // thus far).
-  if (!ExtendDataRangesUsingRelocs())
-    return false;
-
-  // Fuse arrays with their successive symbols to prevent problems with aliasing
-  // of end-of-array and pointer-to-next-symbol relocs.
-  if (!FuseArrayDataBlocks())
-    return false;
-
-  // Use data_space_ to create data blocks.
-  if (!CreateDataBlocksFromDataSpace())
     return false;
 
   // Flesh out the data sections with gap blocks.
   if (!CreateDataGapBlocks())
+    return false;
+
+  // Parse initialization bracketing symbols.
+  if (!ProcessStaticInitializers())
     return false;
 
   return true;
@@ -1701,7 +1602,6 @@ void Decomposer::OnBasicInstruction(
     *directive = Disassembler::kDirectiveTerminatePath;
   }
 }
-
 
 void Decomposer::OnInstruction(const Disassembler& walker,
                                const _DInst& instruction,

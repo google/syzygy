@@ -48,12 +48,15 @@ class BlockGraph {
     NON_RETURN_FUNCTION = 0x1,
     // Set for blocks that are inferred by the decomposer.
     GAP_BLOCK = 0x2,
+    // Set for blocks that are parsed by the PEFileParser. These
+    // blocks are unmovable, indivisible, etc, and have to be treated
+    // specially.
+    PE_PARSED = 0x4,
   };
 
   enum BlockType {
     CODE_BLOCK,
     DATA_BLOCK,
-    READONLY_BLOCK,
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
     // TODO(robertshield): Add a BASIC_PADDING_BLOCK here!

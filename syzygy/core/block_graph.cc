@@ -188,21 +188,25 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
 
   const char* block_name = first_block->name();
   BlockType block_type = first_block->type();
+  size_t section_id = first_block->section();
+  BlockAttributes attributes = 0;
 
-  // Remove the found blocks from the address space, and make
-  // sure they're all of the same type as the first block.
-  // Merge the data from all the blocks as we go along.
+  // Remove the found blocks from the address space, and make sure they're all
+  // of the same type and from the same section as the first block. Merge the
+  // data from all the blocks as we go along, and the attributes.
   std::vector<uint8> merged_data(end - begin);
   bool have_data = false;
   for (size_t i = 0; i < intersecting.size(); ++i) {
     RelativeAddress addr = intersecting[i].first;
     BlockGraph::Block* block = intersecting[i].second;
     DCHECK_EQ(block_type, block->type());
+    DCHECK_EQ(section_id, block->section());
 
     if (block->data() != NULL) {
       have_data = true;
       memcpy(&merged_data.at(addr - begin), block->data(), block->data_size());
     }
+    attributes |= block->attributes();
 
     bool removed = address_space_.Remove(Range(addr, block->size()));
     DCHECK(removed);
@@ -210,10 +214,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     DCHECK_EQ(1U, num_removed);
   }
 
-  BlockGraph::Block* new_block = AddBlock(BlockGraph::CODE_BLOCK,
+  BlockGraph::Block* new_block = AddBlock(block_type,
                                           begin, end - begin,
                                           block_name);
   DCHECK(new_block != NULL);
+  new_block->set_section(section_id);
+  new_block->set_attributes(attributes);
   if (have_data) {
     uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
     if (data == NULL) {
@@ -227,6 +233,11 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     RelativeAddress addr = intersecting[i].first;
     BlockGraph::Block* block = intersecting[i].second;
     BlockGraph::Offset start_offset = addr - begin;
+
+    // If the destination block is not a code block, preserve the old block
+    // names as labels for debugging.
+    if (block_type != BlockGraph::CODE_BLOCK)
+      new_block->SetLabel(start_offset, block->name());
 
     // Move labels.
     BlockGraph::Block::LabelMap::const_iterator
