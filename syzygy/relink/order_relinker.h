@@ -19,26 +19,20 @@
 
 class OrderRelinker : public Relinker {
  public:
-  typedef core::BlockGraph BlockGraph;
+  // Default constructor.
+  OrderRelinker();
 
-  OrderRelinker(const BlockGraph::AddressSpace& original_addr_space,
-                BlockGraph* block_graph,
-                const FilePath& order_file_path);
-  ~OrderRelinker();
-
-  static bool Relink(const FilePath& input_dll_path,
-                     const FilePath& input_pdb_path,
-                     const FilePath& output_dll_path,
-                     const FilePath& output_pdb_path,
-                     const FilePath& order_file_path);
+  // Sets the ordering file to use when reordering sections.
+  void set_order_file(const FilePath& order_file_path);
 
  private:
-  bool ReorderCode(const IMAGE_SECTION_HEADER& section);
+  DISALLOW_COPY_AND_ASSIGN(OrderRelinker);
+
+  // Over-rides base class method.
+  bool ReorderSection(const IMAGE_SECTION_HEADER& section);
 
   // The JSON encoded file with the new ordering.
-  const FilePath order_file_path_;
-
-  DISALLOW_COPY_AND_ASSIGN(OrderRelinker);
+  FilePath order_file_path_;
 };
 
 #endif  // SYZYGY_RELINK_ORDER_RELINKER_H_

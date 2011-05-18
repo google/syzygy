@@ -17,59 +17,23 @@
 #include "base/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/values.h"
-#include "syzygy/pe/decomposer.h"
 
-using pe::Decomposer;
-
-OrderRelinker::OrderRelinker(
-    const BlockGraph::AddressSpace& original_addr_space,
-    BlockGraph* block_graph,
-    const FilePath& order_file_path)
-    : Relinker(original_addr_space, block_graph),
-      order_file_path_(order_file_path) {
+OrderRelinker::OrderRelinker() {
 }
 
-OrderRelinker::~OrderRelinker() {
-}
-
-bool OrderRelinker::Relink(const FilePath& input_dll_path,
-                           const FilePath& input_pdb_path,
-                           const FilePath& output_dll_path,
-                           const FilePath& output_pdb_path,
-                           const FilePath& order_file_path) {
-  DCHECK(!input_dll_path.empty());
-  DCHECK(!input_pdb_path.empty());
-  DCHECK(!output_dll_path.empty());
-  DCHECK(!output_pdb_path.empty());
+void OrderRelinker::set_order_file(const FilePath& order_file_path) {
   DCHECK(!order_file_path.empty());
-
-  // Read and decompose the input image for starters.
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path)) {
-    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  Decomposer decomposer(input_dll, input_dll_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL,
-                            Decomposer::STANDARD_DECOMPOSITION)) {
-    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  OrderRelinker relinker(decomposed.address_space, &decomposed.image,
-                         order_file_path);
-  if (!relinker.Relinker::Relink(decomposed.header, input_pdb_path,
-                                 output_dll_path, output_pdb_path)) {
-    LOG(ERROR) << "Unable to relink " << output_dll_path.value() << ".";
-    return false;
-  }
-
-  return true;
+  order_file_path_ = order_file_path;
 }
 
-bool OrderRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
+bool OrderRelinker::ReorderSection(const IMAGE_SECTION_HEADER& section) {
+  // TODO(rogerm) We should try to preserve the location of a block as
+  //     being inside the initialized or unitilialized part of the section.
+  //     For now, we punt by simply making the entire section initialized,
+  //     but this increases the cost of paging in blocks that could otherwise
+  //     originate in the unitialized part of the section.
+  DCHECK(!order_file_path_.empty());
+
   std::string file_string;
   if (!file_util::ReadFileToString(order_file_path_, &file_string)) {
     LOG(ERROR) << "Unable to read order file to string";
@@ -83,12 +47,13 @@ bool OrderRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
     return false;
   }
 
-  RelativeAddress start = builder().next_section_address();
-  RelativeAddress insert_at = start;
+  RelativeAddress section_start = builder().next_section_address();
+  RelativeAddress insert_at = section_start;
   std::set<BlockGraph::Block*> inserted_blocks;
 
   // Insert the ordered blocks into the new address space.
-  for (ListValue::iterator iter = order->begin(); iter < order->end(); ++iter) {
+  ListValue::iterator iter = order->begin();
+  for (; iter != order->end(); ++iter) {
     int address;
     if (!(*iter)->GetAsInteger(&address)) {
       LOG(ERROR) << "Unable to read address value from order list";
@@ -112,9 +77,24 @@ bool OrderRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
     }
     insert_at += block->size();
     inserted_blocks.insert(block);
+
+    // If padding is enabled, create a new block and tack it on between the
+    // current block and the subsequent block.
+    BlockGraph::Block* padding_block = NULL;
+    if (!InsertPaddingBlock(insert_at, block->type(), &padding_block)) {
+      LOG(ERROR)
+          << "Unable to insert padding block at " << insert_at
+          << " after '" << block->name() << "'.";
+      return false;
+    }
+    if (padding_block != NULL) {
+      insert_at += padding_block->size();
+    }
   }
 
-  // Copy the remaining blocks from the code section.
+  // To make sure we don't omit any blocks, iterate over all the blocks
+  // in the section and append any blocks that weren't mentioned by the
+  // ordering.
   BlockGraph::AddressSpace::Range section_range(
       RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
   AddressSpace::RangeMapConstIterPair section_blocks =
@@ -122,7 +102,8 @@ bool OrderRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
                                                   section_range.size());
 
   AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
-  for (; section_it != section_blocks.second; ++section_it) {
+  const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
+  for (; section_it != section_end; ++section_it) {
     BlockGraph::Block* block = section_it->second;
     if (inserted_blocks.find(block) != inserted_blocks.end())
       continue;
@@ -131,17 +112,31 @@ bool OrderRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
           << insert_at;
     }
+
     insert_at += block->size();
     inserted_blocks.insert(block);
+
+    // If padding is enabled, create a new block and tack it on between the
+    // current block and the subsequent block.
+    BlockGraph::Block* padding_block = NULL;
+    if (!InsertPaddingBlock(insert_at, block->type(), &padding_block)) {
+      LOG(ERROR)
+          << "Unable to insert padding block at " << insert_at
+          << " after '" << block->name() << "'.";
+      return false;
+    }
+    if (padding_block != NULL) {
+      insert_at += padding_block->size();
+    }
   }
 
-  // Create the code section.
-  uint32 code_size = insert_at - start;
-  builder().AddSegment(".text",
-                       code_size,
-                       code_size,
-                       IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE |
-                       IMAGE_SCN_MEM_READ);
+  // Create the reordered section.
+  std::string section_name = GetSectionName(section);
+  size_t section_length = insert_at - section_start;
+  builder().AddSegment(section_name.c_str(),
+                       section_length,
+                       section_length,
+                       section.Characteristics);
 
   return true;
 }

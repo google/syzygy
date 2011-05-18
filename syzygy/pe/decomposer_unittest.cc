@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/unittest_util.h"
 
 #include "base/path_service.h"
 #include "base/string_util.h"
@@ -19,20 +20,15 @@
 
 namespace {
 
-FilePath GetExeRelativePath(const wchar_t* image_name) {
-  FilePath exe_dir;
-  PathService::Get(base::DIR_EXE, &exe_dir);
-
-  return exe_dir.Append(image_name);
-}
-
-const wchar_t kDllName[] = L"test_dll.dll";
+class DecomposerTest: public testing::PELibUnitTest {
+  // Insert your customizations here.
+};
 
 }  // namespace
 
 namespace pe {
 
-TEST(DecomposerTest, Decompose) {
+TEST_F(DecomposerTest, Decompose) {
   FilePath image_path(GetExeRelativePath(kDllName));
   PEFile image_file;
 

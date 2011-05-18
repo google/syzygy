@@ -39,17 +39,12 @@ size_t WordAlign(size_t value) {
 
 }  // namespace
 
-Instrumenter::Instrumenter(const BlockGraph::AddressSpace& original_addr_space,
-                           BlockGraph* block_graph)
-    : RelinkerBase(original_addr_space, block_graph),
-      image_import_by_name_block_(NULL),
+Instrumenter::Instrumenter()
+    : image_import_by_name_block_(NULL),
       hint_name_array_block_(NULL),
       import_address_table_block_(NULL),
       dll_name_block_(NULL),
       image_import_descriptor_array_block_(NULL) {
-}
-
-Instrumenter::~Instrumenter() {
 }
 
 bool Instrumenter::Instrument(const FilePath& input_dll_path,
@@ -73,39 +68,38 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
   }
 
   // Construct and initialize our instrumenter.
-  Instrumenter instrumenter(decomposed.address_space, &decomposed.image);
-  if (!instrumenter.Initialize(decomposed.header.nt_headers)) {
+  if (!Initialize(decomposed)) {
     LOG(ERROR) << "Unable to initialize instrumenter.";
     return false;
   }
 
   // Copy the sections and the data directory.
-  if (!instrumenter.CopySections()) {
+  if (!CopySections()) {
     LOG(ERROR) << "Unable to copy sections.";
     return false;
   }
 
-  if (!instrumenter.CopyDataDirectory(decomposed.header)) {
+  if (!CopyDataDirectory(decomposed.header)) {
     LOG(ERROR) << "Unable to copy the input image's data directory.";
     return false;
   }
 
   // Instrument the binary.
-  if (!instrumenter.AddCallTraceImportDescriptor(
+  if (!AddCallTraceImportDescriptor(
       decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IMPORT])) {
     LOG(ERROR) << "Unable to add call trace import.";
     return false;
   }
-  if (!instrumenter.InstrumentCodeBlocks(&decomposed.image)) {
+  if (!InstrumentCodeBlocks(&decomposed.image)) {
     LOG(ERROR) << "Unable to instrument code blocks.";
     return false;
   }
 
   // Finalize the headers and write the image.
-  if (!instrumenter.FinalizeImageHeaders(decomposed.header)) {
+  if (!FinalizeImageHeaders(decomposed.header)) {
     LOG(ERROR) << "Unable to finalize image headers.";
   }
-  if (!instrumenter.WriteImage(output_dll_path)) {
+  if (!WriteImage(output_dll_path)) {
     LOG(ERROR) << "Unable to write " << output_dll_path.value();
     return false;
   }

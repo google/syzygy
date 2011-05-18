@@ -61,7 +61,7 @@ class ReorderTest(object):
      r'\[\s+(?P<status>OK|FAILED)\s+\]\s+(?P<test>\w+\.\w+)')
 
   def __init__(self, reorder_tool, input_bin, input_pdb,
-               test_program=None, test_arguments=None):
+               test_program=None, test_arguments=None, padding=None):
     """Initializes an instance of the reorder test.
 
     Args:
@@ -80,12 +80,14 @@ class ReorderTest(object):
       test_arguments: A list or arguments to provide when running the
           test_program.  If not provided, no additional arguments will
           be given.
+      padding: The amount of padding to put between blocks.
     """
     self._reorder_tool = reorder_tool
     self._input_bin = os.path.abspath(input_bin)
     self._input_pdb = os.path.abspath(input_pdb)
     self._test_program = test_program or self._input_bin
     self._test_arguments = test_arguments or []
+    self._padding = padding or 0
 
   def _ParseResultLine(self, line, run_id):
     """Parse a line of output from the test app.
@@ -202,10 +204,12 @@ class ReorderTest(object):
         '--input-pdb=%s' % self._input_pdb,
         '--output-dll=%s' % new_bin,
         '--output-pdb=%s' % new_pdb,
+        '--padding=%s' % self._padding,
         ]
     _LOGGER.info(
         'run=%s; Rewriting %s', run_id, os.path.basename(self._input_bin))
     _LOGGER.info('run=%s; Using random seed = %s', run_id, seed)
+    _LOGGER.info('run=%s; Using padding length = %s', run_id, self._padding)
 
     with WorkingDirectory(os.path.dirname(self._reorder_tool)):
       proc = subprocess.Popen(
@@ -327,6 +331,18 @@ class ReorderTest(object):
     return passed, failed
 
 
+# We artificaially cap padding at 1024 bytes, but that's really big and
+# would bloat the binary.  Internally, the real limit of the reorder tool
+# is much larger (on the order of a page or two).
+_MAX_PADDING = 1024
+_SAFEST_ALIGNMENT = 8
+def _PaddingHandler(option, opt, value, parser):
+  """Validates the parameter to the reorder-padding parameter."""
+  if value > _MAX_PADDING or value % _SAFEST_ALIGNMENT != 0:
+    raise optparse.OptionValueError('Invalid padding value')
+  setattr(parser.values, option.dest, value)
+
+
 def AddCommandLineOptions(option_parser):
   """Adds command line options to the given OptionsParser."""
   group = optparse.OptionGroup(option_parser, 'Reordering and Test Options')
@@ -344,6 +360,13 @@ def AddCommandLineOptions(option_parser):
   group.add_option(
       '--reorder-seed', type='int', metavar='NUM', default=int(time.time()),
       help='Seed for the initial random reordering iteration')
+  group.add_option(
+      '--reorder-padding', type='int', metavar='NUM', action='callback',
+      callback=_PaddingHandler, nargs=1, callback_args=(), callback_kwargs={},
+      help='The number of padding bytes to insert between blocks (default: '
+          '%%default). This value should be a multiple of %d and less than '
+          'or equal to %d, to preserve data alignment and avoid excessively '
+          'bloating the reordered binary.' % (_SAFEST_ALIGNMENT, _MAX_PADDING))
   group.add_option(
       '--reorder-num-iterations', type='int', default=1, metavar='NUM',
       help='The number of reorder iterations to run (default: %default)')
@@ -406,7 +429,8 @@ def main():
   log_helper.InitLogger(options)
   test = ReorderTest(options.reorder_tool,
                      options.reorder_input_bin, options.reorder_input_pdb,
-                     options.reorder_test_program, reorder_test_args)
+                     options.reorder_test_program, reorder_test_args,
+                     options.reorder_padding)
   passed, failed = test.Run(seed=options.reorder_seed,
                             num_iterations=options.reorder_num_iterations,
                             max_attempts=options.reorder_max_test_attempts)

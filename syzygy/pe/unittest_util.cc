@@ -14,6 +14,7 @@
 #include "syzygy/pe/unittest_util.h"
 
 #include <imagehlp.h>
+#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/stringprintf.h"
@@ -22,43 +23,15 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-namespace testing {
+namespace {
 
-const wchar_t kDllName[] = L"test_dll.dll";
-const wchar_t kDllPdbName[] = L"test_dll.pdb";
-
-FilePath GetExeRelativePath(const wchar_t* image_name) {
-  FilePath exe_dir;
-  PathService::Get(base::DIR_EXE, &exe_dir);
-
-  return exe_dir.Append(image_name);
-}
-
-static void CheckLoadedTestDll(HMODULE module);
-
-void CheckTestDll(const FilePath& path) {
-  LOADED_IMAGE loaded_image = {};
-  ASSERT_TRUE(::MapAndLoad(WideToUTF8(path.value()).c_str(),
-                           NULL,
-                           &loaded_image,
-                           FALSE,
-                           FALSE));
-
-  EXPECT_TRUE(UnMapAndLoad(&loaded_image));
-
-  HMODULE loaded = ::LoadLibrary(path.value().c_str());
-  ASSERT_TRUE(loaded != NULL);
-  CheckLoadedTestDll(loaded);
-  ::FreeLibrary(loaded);
-}
-
-static bool EnumImportsProc(const base::win::PEImage &image,
-                            const char* module,
-                            DWORD ordinal,
-                            const char* name,
-                            DWORD hint,
-                            IMAGE_THUNK_DATA* iat,
-                            void* cookie) {
+bool EnumImportsProc(const base::win::PEImage &image,
+                     const char* module,
+                     DWORD ordinal,
+                     const char* name,
+                     DWORD hint,
+                     IMAGE_THUNK_DATA* iat,
+                     void* cookie) {
   DCHECK(module != NULL);
   DCHECK(iat != NULL);
   DCHECK(cookie != NULL);
@@ -78,7 +51,7 @@ static bool EnumImportsProc(const base::win::PEImage &image,
   return true;
 }
 
-static void CheckLoadedTestDll(HMODULE module) {
+void CheckLoadedTestDll(HMODULE module) {
   // Load the exported TestExport function and invoke it.
   typedef DWORD (WINAPI* TestExportFunc)(size_t buf_len, char* buf);
   TestExportFunc test_func = reinterpret_cast<TestExportFunc>(
@@ -109,6 +82,50 @@ static void CheckLoadedTestDll(HMODULE module) {
   expected_imports.insert("#7");
   expected_imports.insert("function3");
   EXPECT_THAT(expected_imports, testing::ContainerEq(export_dll_imports));
+}
+
+}  // namespace
+
+namespace testing {
+
+const wchar_t* const PELibUnitTest::kDllName = L"test_dll.dll";
+const wchar_t* const PELibUnitTest::kDllPdbName = L"test_dll.pdb";
+
+void PELibUnitTest::CreateTemporaryDir(FilePath* temp_dir) {
+  ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
+  temp_dirs_.push_back(*temp_dir);
+}
+
+void PELibUnitTest::TearDown() {
+  DirList::const_iterator iter;
+  for (iter = temp_dirs_.begin(); iter != temp_dirs_.end(); ++iter) {
+    file_util::Delete(*iter, true);
+  }
+
+  Super::TearDown();
+}
+
+FilePath PELibUnitTest::GetExeRelativePath(const wchar_t* image_name) {
+  FilePath exe_dir;
+  PathService::Get(base::DIR_EXE, &exe_dir);
+
+  return exe_dir.Append(image_name);
+}
+
+void PELibUnitTest::CheckTestDll(const FilePath& path) {
+  LOADED_IMAGE loaded_image = {};
+  ASSERT_TRUE(::MapAndLoad(WideToUTF8(path.value()).c_str(),
+                           NULL,
+                           &loaded_image,
+                           FALSE,
+                           FALSE));
+
+  EXPECT_TRUE(::UnMapAndLoad(&loaded_image));
+
+  HMODULE loaded = ::LoadLibrary(path.value().c_str());
+  ASSERT_TRUE(loaded != NULL);
+  CheckLoadedTestDll(loaded);
+  ::FreeLibrary(loaded);
 }
 
 }  // namespace testing

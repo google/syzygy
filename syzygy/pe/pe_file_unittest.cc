@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/unittest_util.h"
 
 #include "base/file_path.h"
 #include "base/native_library.h"
@@ -22,31 +23,26 @@
 
 namespace {
 
-FilePath GetExeRelativePath(const wchar_t* image_name) {
-  FilePath exe_dir;
-  PathService::Get(base::DIR_EXE, &exe_dir);
+class PEFileTest: public testing::PELibUnitTest {
+  typedef testing::PELibUnitTest Super;
 
-  return exe_dir.Append(image_name);
-}
-
-const wchar_t kDllName[] = L"test_dll.dll";
-
-class PEFileTest: public testing::Test {
- public:
+public:
   PEFileTest() : test_dll_(NULL) {
   }
 
   virtual void SetUp() {
+    Super::SetUp();
+
     FilePath test_dll = GetExeRelativePath(kDllName);
     std::string error;
-    test_dll_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName),
-                                        &error);
+    test_dll_ = base::LoadNativeLibrary(test_dll, &error);
 
     ASSERT_TRUE(image_file_.Init(test_dll));
   }
 
   virtual void TearDown() {
     base::UnloadNativeLibrary(test_dll_);
+    Super::TearDown();
   }
 
  protected:

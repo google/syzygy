@@ -55,7 +55,8 @@ int main(int argc, char** argv) {
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
 
-  if (!Instrumenter::Instrument(input_dll_path, output_dll_path)) {
+  Instrumenter instrumenter;
+  if (!instrumenter.Instrument(input_dll_path, output_dll_path)) {
     LOG(ERROR)<< L"Failed to instrument " << input_dll_path.value().c_str();
     return 1;
   }

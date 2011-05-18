@@ -20,13 +20,11 @@
 
 class Instrumenter : public RelinkerBase {
  public:
-  Instrumenter(const BlockGraph::AddressSpace& original_addr_space,
-               BlockGraph* block_graph);
-  ~Instrumenter();
+  Instrumenter();
 
   // Static wrapper function to instrument an input dll to an output dll.
-  static bool Instrument(const FilePath& input_dll_path,
-                         const FilePath& output_dll_path);
+  bool Instrument(const FilePath& input_dll_path,
+                  const FilePath& output_dll_path);
 
  private:
   // Copy all sections (except the .relocs section) from the decomposed
