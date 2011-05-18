@@ -26,6 +26,8 @@
       'target_name': 'reorder_lib',
       'type': 'static_library',
       'sources': [
+        'comdat_order.cc',
+        'comdat_order.h',
         'linear_order_generator.cc',
         'linear_order_generator.h',
         'reorderer.cc',
@@ -34,7 +36,7 @@
       'dependencies': [
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib'
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
       ],
     },
     {
@@ -50,14 +52,15 @@
       'run_as': {
         'action': [
           '$(TargetPath)',
-          '--input-dll=$(OutDir)\\test_dll.dll',
+          '--input-dll=..\\reorder\\test_data\\test_dll.dll',
           '--instrumented-dll=$(OutDir)\\instrumented_test_dll.dll',
           '--output-order=$(OutDir)\\test_dll_order.json',
+          '--output-comdats=$(OutDir)\\test_dll_comdats.txt',
+          '--output-stats',
           '--reorderer-flags=reorder-data',
           '--pretty-print',
-          '--output-stats',
-          '$(OutDir)\\call_trace.etl',
-          '$(OutDir)\\kernel.etl'
+          '..\\reorder\\test_data\\call_trace.etl',
+          '..\\reorder\\test_data\\kernel.etl',
         ]
       },
     },

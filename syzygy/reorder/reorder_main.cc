@@ -15,31 +15,38 @@
 // Parses a module and ETW trace files, generating an ordering of the
 // blocks in the decomposed image.
 #include <iostream>
+#include <objbase.h>
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
+#include "syzygy/reorder/comdat_order.h"
 #include "syzygy/reorder/linear_order_generator.h"
 
-using reorder::Reorderer;
+using reorder::ComdatOrder;
 using reorder::LinearOrderGenerator;
+using reorder::Reorderer;
 
 static const char kUsage[] =
     "Usage: instrument [options] [ETW log files ...]\n"
     "  Required Options:\n"
-    "    --instrumented-dll=<path> the name of the instrumented DLL\n"
     "    --input-dll=<path> the input DLL to reorder\n"
-    "    --output-order=<path> the JSON output file\n"
+    "    --instrumented-dll=<path> the name of the instrumented DLL\n"
+    "    --output-order=<path> the output file\n"
     "  Optional Options:\n"
-    "    --reorderer-flags=<comma separated reorderer flags>\n"
     "    --pretty-print enables pretty printing of the JSON output file\n"
     "    --output-stats outputs estimated startup page faults pre- and post-\n"
     "        reordering.\n"
+    "    --output-comdats=<path> an output file that will be populated\n"
+    "        with an MS LINKER compatible COMDAT order file equivalent to\n"
+    "        the generated ordering\n"
+    "    --reorderer-flags=<comma separated reorderer flags>\n"
     "  Reorderer Flags:\n"
     "    reorder-data: causes data to be reordered\n";
 
 const char kFlags[] = "reorderer-flags";
+const char kOutputComdats[] = "output-comdats";
 
 static int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
@@ -112,6 +119,12 @@ int main(int argc, char** argv) {
   if (!ParseReordererFlags(cmd_line, &reorderer_flags))
     return 1;
 
+  // Initialize COM, as it is used by Decomposer, ComdatOrder and Reorderer.
+  if (FAILED(CoInitialize(NULL))) {
+    LOG(ERROR) << "Failed to initialize COM.";
+    return 1;
+  }
+
   LinearOrderGenerator linear_order_generator;
   reorder::Reorderer::Order order;
   Reorderer reorderer(input_dll_path,
@@ -126,11 +139,27 @@ int main(int argc, char** argv) {
   if (cmd_line->HasSwitch("output-stats"))
     order.OutputFaultEstimates(stdout);
 
-  // For now, we output a pretty-printed version of the reordering.
   if (!order.SerializeToJSON(output_order, pretty_print)) {
     LOG(ERROR) << "Unable to output order.";
     return 1;
   }
+
+  // If requested, output the ordering as an MS LINKER compatible list of
+  // COMDATs.
+  if (cmd_line->HasSwitch(kOutputComdats)) {
+    FilePath path = cmd_line->GetSwitchValuePath(kOutputComdats);
+    ComdatOrder comdat_order(input_dll_path);
+    if (!comdat_order.LoadSymbols()) {
+      LOG(ERROR) << "Unable to load symbols.";
+      return 1;
+    }
+    if (!comdat_order.OutputOrder(path, order)) {
+      LOG(ERROR) << "Unable to output COMDAT order file.";
+      return 1;
+    }
+  }
+
+  CoUninitialize();
 
   return 0;
 }
