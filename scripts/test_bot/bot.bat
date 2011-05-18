@@ -10,6 +10,7 @@ set FROM=
 set TO=
 set CONFIG=
 set ITERATIONS=
+set PADDING=
 
 for %%A in (%*) do (
   for /F "tokens=1* delims=:" %%b in ("%%~A") do (
@@ -22,6 +23,7 @@ for %%A in (%*) do (
     if /I "%%b" == "/to" set TO=%%~c
     if /I "%%b" == "/config" set CONFIG=%%~c
     if /I "%%b" == "/iterations" set ITERATIONS=%%~c
+    if /I "%%b" == "/padding" set PADDING=%%~c
     )
   )
 
@@ -35,6 +37,7 @@ if "%TO%" == "" echo Missing parameter: /to & goto usage
 if "%BUILD_ID_PATTERN%" == "" set BUILD_ID_PATTERN=\d+\.\d+\.\d+\.\d+
 if "%CONFIG%" == "" set CONFIG=Debug
 if "%ITERATIONS%" == "" set ITERATIONS=20
+if "%PADDING%" == "" set PADDING=32
 
 goto setup
 
@@ -124,6 +127,7 @@ call python "%REORDER_PY%" ^
   --reorder-input-pdb="%CHROME_PDB%" ^
   --reorder-test-program="%UI_TESTS_EXE%" ^
   --reorder-num-iterations=%ITERATIONS% ^
+  --reorder-padding="%PADDING%" ^
   --log-file="%REORDER_LOG%" ^
   --log-verbose ^
   -- --input=%ACTIONS_XML% ^
@@ -147,6 +151,7 @@ call python "%SEND_MAIL_PY%" ^
   --attach="%BUILD_LOG%" ^
   --attach="%DOWNLOAD_LOG%" ^
   --attach="%WORKDIR%\report*.xml" ^
+  --ignore-missing ^
   > "%ERROR_MESSAGE%"
 if %ERRORLEVEL% equ 0 goto done
 

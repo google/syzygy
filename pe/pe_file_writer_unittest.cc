@@ -26,46 +26,8 @@ namespace {
 using pe::Decomposer;
 using pe::PEFile;
 
-class PEFileWriterTest: public testing::Test {
- public:
-  PEFileWriterTest() : nt_headers_(NULL), section_headers_(NULL) {
-  }
-
-  void SetUp() {
-    // Create a temporary file we can write the new image to.
-    ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
-
-    // Decompose the original test image.
-    FilePath image_path(testing::GetExeRelativePath(testing::kDllName));
-    ASSERT_TRUE(image_file_.Init(image_path));
-
-    Decomposer decomposer(image_file_, image_path);
-    ASSERT_TRUE(decomposer.Decompose(&decomposed_image_, NULL,
-                                     Decomposer::STANDARD_DECOMPOSITION));
-
-    ASSERT_GE(decomposed_image_.header.nt_headers->data_size(),
-              sizeof(IMAGE_NT_HEADERS));
-    nt_headers_ = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-        decomposed_image_.header.nt_headers->data());
-
-    ASSERT_EQ(sizeof(*nt_headers_) + sizeof(IMAGE_SECTION_HEADER) *
-        nt_headers_->FileHeader.NumberOfSections,
-            decomposed_image_.header.nt_headers->data_size());
-    section_headers_ = reinterpret_cast<const IMAGE_SECTION_HEADER*>(
-        nt_headers_ + 1);
-  }
-
-  void TearDown() {
-    // Scrap our temp file.
-    file_util::Delete(temp_file_, false);
-  }
-
- protected:
-  FilePath temp_file_;
-  PEFile image_file_;
-  Decomposer::DecomposedImage decomposed_image_;
-  const IMAGE_NT_HEADERS* nt_headers_;
-  const IMAGE_SECTION_HEADER* section_headers_;
+class PEFileWriterTest: public testing::PELibUnitTest {
+  // Add customizations here.
 };
 
 }  // namespace
@@ -75,16 +37,44 @@ namespace pe {
 TEST_F(PEFileWriterTest, LoadOriginalImage) {
   // This test baselines the other test(s) that operate on mutated, copied
   // versions of the DLLs.
-  FilePath image_path(testing::GetExeRelativePath(testing::kDllName));
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(image_path));
+  FilePath image_path(GetExeRelativePath(kDllName));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(image_path));
 }
 
 TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
-  PEFileWriter writer(decomposed_image_.address_space,
-                      nt_headers_,
-                      section_headers_);
-  ASSERT_TRUE(writer.WriteImage(temp_file_));
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
+  // Create a temporary file we can write the new image to.
+  FilePath temp_dir;
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+  FilePath temp_file = temp_dir.Append(kDllName);
+
+  // Decompose the original test image.
+  PEFile image_file;
+  FilePath image_path(GetExeRelativePath(kDllName));
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  Decomposer decomposer(image_file, image_path);
+  Decomposer::DecomposedImage decomposed_image;
+  ASSERT_TRUE(decomposer.Decompose(&decomposed_image, NULL,
+                                   Decomposer::STANDARD_DECOMPOSITION));
+
+  ASSERT_GE(decomposed_image.header.nt_headers->data_size(),
+            sizeof(IMAGE_NT_HEADERS));
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(
+          decomposed_image.header.nt_headers->data());
+
+  ASSERT_EQ(
+      sizeof(*nt_headers) + sizeof(IMAGE_SECTION_HEADER) *
+          nt_headers->FileHeader.NumberOfSections,
+      decomposed_image.header.nt_headers->data_size());
+  const IMAGE_SECTION_HEADER* section_headers =
+      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+
+  PEFileWriter writer(decomposed_image.address_space,
+                      nt_headers,
+                      section_headers);
+  ASSERT_TRUE(writer.WriteImage(temp_file));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file));
 }
 
 }  // namespace pe

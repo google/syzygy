@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/logging_win.h"
+#include "base/string_number_conversions.h"
 #include "syzygy/relink/order_relinker.h"
 #include "syzygy/relink/random_relinker.h"
 
@@ -60,30 +61,51 @@ int main(int argc, char** argv) {
   FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
   FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
-  unsigned int seed = atoi(cmd_line->GetSwitchValueASCII("seed").c_str());
 
   if (input_dll_path.empty() || input_pdb_path.empty() ||
       output_dll_path.empty() || output_pdb_path.empty()) {
     return Usage("You must provide input and output file names.");
   }
 
+  int seed = 0;
+  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("seed"), &seed)) {
+    return Usage("Invalid seed value.");
+  }
+
+  int padding = 0;
+  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("padding"), &padding) ||
+      padding < 0 ||
+      static_cast<size_t>(padding) > Relinker::max_padding_length()) {
+    return Usage("Invalid padding value.");
+  }
+
+  // Log some info so we know what's about to happen.
+  LOG(INFO) << "Input Image    : " << input_dll_path.value();
+  LOG(INFO) << "Input PDB      : " << input_pdb_path.value();
+  LOG(INFO) << "Output Image   : " << output_dll_path.value();
+  LOG(INFO) << "Output PDB     : " << output_pdb_path.value();
+  LOG(INFO) << "Order File     : "
+      << (order_file_path.empty() ? L"<None>"
+                                  : order_file_path.value().c_str());
+  LOG(INFO) << "Random Seed    : " << seed;
+  LOG(INFO) << "Padding Length : " << padding;
+
   // Relink the image with a new ordering.
+  scoped_ptr<Relinker> relinker;
   if (!order_file_path.empty()) {
-    if (!OrderRelinker::Relink(input_dll_path,
-                               input_pdb_path,
-                               output_dll_path,
-                               output_pdb_path,
-                               order_file_path)) {
-      return Usage("Unable to reorder the input image.");
-    }
+    scoped_ptr<OrderRelinker> order_relinker(new OrderRelinker);
+    order_relinker->set_order_file(order_file_path);
+    relinker.reset(order_relinker.release());
   } else {
-    if (!RandomRelinker::Relink(input_dll_path,
-                                input_pdb_path,
-                                output_dll_path,
-                                output_pdb_path,
-                                seed)) {
-      return Usage("Unable randomly reorder the input image.");
-    }
+    scoped_ptr<RandomRelinker> random_relinker(new RandomRelinker);
+    random_relinker->set_seed(seed);
+    relinker.reset(random_relinker.release());
+  }
+
+  relinker->set_padding_length(padding);
+  if (!relinker->Relink(
+          input_dll_path, input_pdb_path, output_dll_path, output_pdb_path)) {
+    return Usage("Unable to reorder the input image.");
   }
 
   return 0;

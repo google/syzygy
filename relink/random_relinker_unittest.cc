@@ -19,32 +19,35 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
 
-namespace {
-
-class RandomRelinkerTest : public testing::Test {
- public:
-  void SetUp() {
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", &temp_dir_));
-  }
-
-  void TearDown() {
-    file_util::Delete(temp_dir_, true);
-  }
-
- protected:
-  FilePath temp_dir_;
+class RandomRelinkerTest : public testing::PELibUnitTest {
+  // Put any specializations here
 };
 
-}  // namespace
-
-
 TEST_F(RandomRelinkerTest, Relink) {
-  FilePath output_dll_path = temp_dir_.Append(testing::kDllName);
-  ASSERT_TRUE(RandomRelinker::Relink(
-      testing::GetExeRelativePath(testing::kDllName),
-      testing::GetExeRelativePath(testing::kDllPdbName),
-      output_dll_path,
-      temp_dir_.Append(testing::kDllPdbName),
-      0));
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(output_dll_path));
+  FilePath temp_dir;
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+  FilePath output_dll_path = temp_dir.Append(kDllName);
+
+  RandomRelinker relinker;
+  relinker.set_seed(12345);
+  ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
+                              GetExeRelativePath(kDllPdbName),
+                              output_dll_path,
+                              temp_dir.Append(kDllPdbName)));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
+}
+
+TEST_F(RandomRelinkerTest, RelinkWithPadding) {
+  FilePath temp_dir;
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+  FilePath output_dll_path = temp_dir.Append(kDllName);
+
+  RandomRelinker relinker;
+  relinker.set_seed(56789);
+  relinker.set_padding_length(32);
+  ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
+                              GetExeRelativePath(kDllPdbName),
+                              output_dll_path,
+                              temp_dir.Append(kDllPdbName)));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }

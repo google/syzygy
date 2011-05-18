@@ -21,27 +21,19 @@
 
 namespace {
 
-class InstrumenterTest : public testing::Test {
- public:
-  void SetUp() {
-    // Create a temporary file we can write a new image to.
-    input_dll_path_ = testing::GetExeRelativePath(testing::kDllName);
-    ASSERT_TRUE(file_util::CreateTemporaryFile(&output_dll_path_));
-  }
-
-  void TearDown() {
-    file_util::Delete(output_dll_path_, false);
-  }
-
- protected:
-  FilePath input_dll_path_;
-  FilePath output_dll_path_;
+class InstrumenterTest : public testing::PELibUnitTest {
+  // Put your specializations here
 };
 
 }  // namespace
 
-
 TEST_F(InstrumenterTest, Instrument) {
-  ASSERT_TRUE(Instrumenter::Instrument(input_dll_path_, output_dll_path_));
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(output_dll_path_));
+  FilePath temp_dir;
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+  FilePath input_dll_path = GetExeRelativePath(kDllName);
+  FilePath output_dll_path = temp_dir.Append(kDllName);
+
+  Instrumenter instrumenter;
+  ASSERT_TRUE(instrumenter.Instrument(input_dll_path, output_dll_path));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }

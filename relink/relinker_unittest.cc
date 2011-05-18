@@ -22,70 +22,12 @@
 
 namespace {
 
-const int kPageSize = 4096;
-
-class RelinkerTest : public testing::Test {
- public:
-  void CreateTemporaryDir(FilePath* temp_dir) {
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
-    temp_dirs_.push_back(*temp_dir);
-  }
-
-  void TearDown() {
-    for (uint32 i = 0; i < temp_dirs_.size(); ++i) {
-      file_util::Delete(temp_dirs_[i], true);
-    }
-  }
-
- protected:
-  std::vector<const FilePath> temp_dirs_;
-};
+const size_t kPageSize = 4096;
 
 class OffsetRelinker : public Relinker {
  public:
-  OffsetRelinker(const BlockGraph::AddressSpace& original_addr_space,
-                 BlockGraph* block_graph)
-      : Relinker(original_addr_space, block_graph) {
-  }
-
-  static void Relink(const FilePath& input_dll_path,
-                     const FilePath& input_pdb_path,
-                     const FilePath& output_dll_path,
-                     const FilePath& output_pdb_path,
-                     uint32 num_offsets) {
-    // Decompose.
-    pe::PEFile input_dll;
-    ASSERT_TRUE(input_dll.Init(input_dll_path));
-
-    pe::Decomposer decomposer(input_dll, input_dll_path);
-    pe::Decomposer::DecomposedImage decomposed;
-    ASSERT_TRUE(
-        decomposer.Decompose(&decomposed, NULL,
-                             pe::Decomposer::STANDARD_DECOMPOSITION));
-
-    // Build the image.
-    OffsetRelinker relinker(decomposed.address_space, &decomposed.image);
-    ASSERT_TRUE(relinker.Relinker::Relink(decomposed.header, input_pdb_path,
-                                          output_dll_path, output_pdb_path));
-    ASSERT_TRUE(relinker.WriteOffsetPdbFile(input_pdb_path, output_pdb_path,
-                                            num_offsets));
-  }
-
- private:
-  bool ReorderCode(const IMAGE_SECTION_HEADER& section) {
-    // Create a section to offset the code section.
-    const char* name = reinterpret_cast<const char*>(section.Name);
-    std::string name_str(name, strnlen(name, arraysize(section.Name)));
-    name_str.append("_offset");
-    builder().AddSegment(name_str.c_str(), kPageSize, kPageSize, 0);
-
-    // Copy the code section.
-    if (!CopySection(section)) {
-      LOG(ERROR) << "Unable to copy section";
-      return false;
-    }
-
-    return true;
+  OffsetRelinker() {
+    DCHECK_GE(max_padding_length(), kPageSize);
   }
 
   bool WriteOffsetPdbFile(const FilePath& input_path,
@@ -112,31 +54,61 @@ class OffsetRelinker : public Relinker {
                                        omap_to,
                                        omap_from);
   }
+
+ private:
+  bool ReorderSection(const IMAGE_SECTION_HEADER& section) {
+    // Create a dummy section to offset the original section.
+    std::string section_name("o");
+    section_name.append(GetSectionName(section));
+    RelativeAddress start = builder().AddSegment(
+        section_name.c_str(), kPageSize, kPageSize,
+        IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
+    BlockGraph::Block* block = builder().address_space().AddBlock(
+        BlockGraph::CODE_BLOCK, start, kPageSize, "offset");
+    block->set_data(padding_data());
+    block->set_data_size(kPageSize);
+    block->set_owns_data(false);
+
+    // Copy the code section.
+    if (!CopySection(section)) {
+      LOG(ERROR) << "Unable to copy section";
+      return false;
+    }
+
+    return true;
+  }
 };
 
 }  // namespace
+
+class RelinkerTest : public testing::PELibUnitTest {
+  // Put any specializations here
+};
 
 TEST_F(RelinkerTest, OffsetCode) {
   // In this test, we add an additional code section of one page size in front
   // of the original code sections, offsetting each block by one page, write the
   // new image and pdb file, and then make sure that we can decompose the
   // relinked image. We then do this over multiple iterations.
-  FilePath input_dll_path = testing::GetExeRelativePath(testing::kDllName);
-  FilePath input_pdb_path = testing::GetExeRelativePath(testing::kDllPdbName);
+  FilePath input_dll_path = GetExeRelativePath(kDllName);
+  FilePath input_pdb_path = GetExeRelativePath(kDllPdbName);
 
-  for (uint32 i = 0; i < 5; ++i) {
+  for (int i = 1; i <= 5; ++i) {
     FilePath temp_dir;
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
-    FilePath output_dll_path = temp_dir.Append(testing::kDllName);
-    FilePath output_pdb_path = temp_dir.Append(testing::kDllPdbName);
+    FilePath output_dll_path = temp_dir.Append(kDllName);
+    FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 
-    OffsetRelinker::Relink(input_dll_path,
-                           input_pdb_path,
-                           output_dll_path,
-                           output_pdb_path,
-                           i + 1);
+    OffsetRelinker relinker;
+    ASSERT_TRUE(relinker.Relink(input_dll_path,
+                                input_pdb_path,
+                                output_dll_path,
+                                output_pdb_path));
+    ASSERT_TRUE(relinker.WriteOffsetPdbFile(input_pdb_path,
+                                            output_pdb_path,
+                                            i));
 
-    ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(output_dll_path));
+    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 
     input_dll_path = output_dll_path;
     input_pdb_path = output_pdb_path;

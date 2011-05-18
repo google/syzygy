@@ -42,8 +42,11 @@ using pe::Decomposer;
 using pe::PEFile;
 using pe::PEFileBuilder;
 
-class PEFileBuilderTest: public testing::Test {
+class PEFileBuilderTest: public testing::PELibUnitTest {
+  typedef testing::PELibUnitTest Super;
+
  public:
+
   PEFileBuilderTest()
       : nt_headers_(NULL),
         num_sections_(0),
@@ -51,11 +54,15 @@ class PEFileBuilderTest: public testing::Test {
   }
 
   void SetUp() {
+    Super::SetUp();
+
     // Create a temporary file we can write a new image to.
-    ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
+    FilePath temp_dir;
+    ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+    temp_file_ = temp_dir.Append(kDllName);
 
     // Decompose the test DLL.
-    image_path_ = testing::GetExeRelativePath(testing::kDllName);
+    image_path_ = GetExeRelativePath(kDllName);
     ASSERT_TRUE(image_file_.Init(image_path_));
 
     Decomposer decomposer(image_file_, image_path_);
@@ -81,11 +88,6 @@ class PEFileBuilderTest: public testing::Test {
     ASSERT_EQ(0, strcmp(
         reinterpret_cast<const char*>(section_headers_[num_sections_ - 1].Name),
         ".reloc"));
-  }
-
-  void TearDown() {
-    // Scrap our temp file.
-    file_util::Delete(temp_file_, false);
   }
 
   void CopyHeaderInfoFromDecomposed(PEFileBuilder* builder) {
@@ -216,7 +218,7 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
                       builder.section_headers());
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
 }
 
 TEST_F(PEFileBuilderTest, RandomizeTestDll) {
@@ -340,7 +342,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
                       builder.section_headers());
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
-  ASSERT_NO_FATAL_FAILURE(testing::CheckTestDll(temp_file_));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
 
   // Decompose the randomized dll and validate that the resources have moved.
   PEFile new_image_file;

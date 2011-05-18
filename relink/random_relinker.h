@@ -19,26 +19,22 @@
 
 class RandomRelinker : public Relinker {
  public:
-  typedef core::BlockGraph BlockGraph;
+  // Default constructor.
+  RandomRelinker();
 
-  RandomRelinker(const BlockGraph::AddressSpace& original_addr_space,
-                 BlockGraph* block_graph,
-                 int seed);
-  ~RandomRelinker();
-
-  static bool Relink(const FilePath& input_dll_path,
-                     const FilePath& input_pdb_path,
-                     const FilePath& output_dll_path,
-                     const FilePath& output_pdb_path,
-                     int seed);
+  // Sets the seed to use when generating a random ordering.  The
+  // seed defaults to 0 if not set.
+  void set_seed(int seed);
 
  private:
-  bool ReorderCode(const IMAGE_SECTION_HEADER& section);
+  DISALLOW_COPY_AND_ASSIGN(RandomRelinker);
+
+  // Over-rides base class method.
+  bool ReorderSection(const IMAGE_SECTION_HEADER& section);
 
   // The seed for the random ordering.
   int seed_;
 
-  DISALLOW_COPY_AND_ASSIGN(RandomRelinker);
 };
 
 #endif  // SYZYGY_RELINK_RANDOM_RELINKER_H_

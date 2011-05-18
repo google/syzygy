@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/pe/pe_file_parser.h"
+#include "syzygy/pe/unittest_util.h"
 
 #include <delayimp.h>
 #include "base/file_path.h"
@@ -31,13 +32,6 @@ using core::BlockGraph;
 using core::RelativeAddress;
 using pe::PEFile;
 using pe::PEFileParser;
-
-FilePath GetExeRelativePath(const wchar_t* image_name) {
-  FilePath exe_dir;
-  PathService::Get(base::DIR_EXE, &exe_dir);
-
-  return exe_dir.Append(image_name);
-}
 
 // Exposes the protected methods for testing.
 class TestPEFileParser: public PEFileParser {
@@ -68,14 +62,15 @@ class TestPEFileParser: public PEFileParser {
   using PEFileParser::ParseComDescriptorDir;
 };
 
-const wchar_t kDllName[] = L"test_dll.dll";
-
-class PEFileParserTest: public testing::Test {
+class PEFileParserTest: public testing::PELibUnitTest {
+  typedef testing::PELibUnitTest Super;
  public:
   PEFileParserTest() : address_space_(&image_), loaded_image_(NULL) {
   }
 
   virtual void SetUp() {
+    Super::SetUp();
+
     add_reference_.reset(NewCallback(this, &PEFileParserTest::AddReference));
     ASSERT_TRUE(add_reference_ != NULL);
 
@@ -86,6 +81,8 @@ class PEFileParserTest: public testing::Test {
     if (loaded_image_ != NULL)
       base::UnloadNativeLibrary(loaded_image_);
     loaded_image_ = NULL;
+
+    Super::TearDown();
   }
 
   void AddReference(RelativeAddress src,

@@ -18,9 +18,6 @@
 #include "base/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/values.h"
-#include "syzygy/pe/decomposer.h"
-
-using pe::Decomposer;
 
 namespace {
 
@@ -49,90 +46,49 @@ class RandomNumberGenerator {
 
 }  // namespace
 
-RandomRelinker::RandomRelinker(
-    const BlockGraph::AddressSpace& original_addr_space,
-    BlockGraph* block_graph,
-    int seed)
-    : Relinker(original_addr_space, block_graph),
-      seed_(seed) {
+RandomRelinker::RandomRelinker() : seed_(0) {
 }
 
-RandomRelinker::~RandomRelinker() {
+void RandomRelinker::set_seed(int seed) {
+  seed_ = seed;
 }
 
-bool RandomRelinker::Relink(const FilePath& input_dll_path,
-                            const FilePath& input_pdb_path,
-                            const FilePath& output_dll_path,
-                            const FilePath& output_pdb_path,
-                            int seed) {
-  DCHECK(!input_dll_path.empty());
-  DCHECK(!input_pdb_path.empty());
-  DCHECK(!output_dll_path.empty());
-  DCHECK(!output_pdb_path.empty());
+bool RandomRelinker::ReorderSection(const IMAGE_SECTION_HEADER& section) {
+  // TODO(rogerm) We need to make sure we preserve the location of a block as
+  //     being inside the initialized or unitilialized part of the section.
+  //     For now, we punt by simply making the entire section initialized,
+  //     but this increases the cost of paging in blocks that could otherwise
+  //     originate in the unitialized part of the section.
+  typedef std::vector<BlockGraph::Block*> BlockList;
 
-  // Read and decompose the input image for starters.
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path)) {
-    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  Decomposer decomposer(input_dll, input_dll_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL,
-                            Decomposer::STANDARD_DECOMPOSITION)) {
-    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  RandomRelinker relinker(decomposed.address_space, &decomposed.image, seed);
-  if (!relinker.Relinker::Relink(decomposed.header, input_pdb_path,
-                                 output_dll_path, output_pdb_path)) {
-    LOG(ERROR) << "Unable to relink " << output_dll_path.value() << ".";
-    return false;
-  }
-
-  return true;
-}
-
-bool RandomRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
-  // We use a private pseudo random number generator to allow consistent
-  // results across different CRTs and CRT versions.
-  RandomNumberGenerator random_generator(seed_);
-
+  // Prepare to iterate over all block in the section.
   BlockGraph::AddressSpace::Range section_range(
       RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
-  const char* name = reinterpret_cast<const char*>(section.Name);
-  std::string name_str(name, strnlen(name, arraysize(section.Name)));
-
-  // Duplicate the section in the new image.
-  RelativeAddress start = builder().AddSegment(name_str.c_str(),
-                                               section.Misc.VirtualSize,
-                                               section.SizeOfRawData,
-                                               section.Characteristics);
-  AddressSpace::RangeMapConstIterPair section_blocks =
+  AddressSpace::RangeMapConstIterPair section_blocks(
       original_addr_space().GetIntersectingBlocks(section_range.start(),
-                                                  section_range.size());
+                                                  section_range.size()));
 
-  // Hold back the blocks within the section for reordering.
+  // Gather up all blocks within the section.
   AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
-  const AddressSpace::RangeMapConstIter& section_end =
-      section_blocks.second;
-  std::vector<BlockGraph::Block*> code_blocks;
+  const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
+  BlockList blocks;
   for (; section_it != section_end; ++section_it) {
     BlockGraph::Block* block = section_it->second;
-    DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-    code_blocks.push_back(block);
+    blocks.push_back(block);
   }
 
-  // Now reorder the code blocks and insert them into the
-  // code segment in the new order.
-  std::random_shuffle(code_blocks.begin(),
-                      code_blocks.end(),
-                      random_generator);
-  RelativeAddress insert_at = start;
-  for (size_t i = 0; i < code_blocks.size(); ++i) {
-    BlockGraph::Block* block = code_blocks[i];
+  // Randomly reorder the blocks. We use a private pseudo random number
+  // generator to allow consistent results across different CRTs and CRT
+  // versions.
+  RandomNumberGenerator random_generator(seed_);
+  std::random_shuffle(blocks.begin(), blocks.end(), random_generator);
+
+  // Insert the blocks into the section in the new order.
+  RelativeAddress section_start = builder().next_section_address();
+  RelativeAddress insert_at = section_start;
+  BlockList::const_iterator block_iter = blocks.begin();
+  for (;block_iter != blocks.end(); ++block_iter) {
+    BlockGraph::Block* block = *block_iter;
 
     if (!builder().address_space().InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name()
@@ -140,15 +96,28 @@ bool RandomRelinker::ReorderCode(const IMAGE_SECTION_HEADER& section) {
     }
 
     insert_at += block->size();
+
+    // If padding is enabled, create a new block and tack it on between the
+    // current block and the subsequent block.
+    BlockGraph::Block* padding_block = NULL;
+    if (!InsertPaddingBlock(insert_at, block->type(), &padding_block)) {
+      LOG(ERROR)
+          << "Unable to insert padding block at " << insert_at
+          << " after '" << block->name() << "'.";
+      return false;
+    }
+    if (padding_block != NULL) {
+      insert_at += padding_block->size();
+    }
   }
 
-  // Create the code section.
-  uint32 code_size = insert_at - start;
-  builder().AddSegment(".text",
-                       code_size,
-                       code_size,
-                       IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE |
-                       IMAGE_SCN_MEM_READ);
+  // Create the reodered section.
+  std::string section_name = GetSectionName(section);
+  size_t section_length = insert_at - section_start;
+  builder().AddSegment(section_name.c_str(),
+                       section_length,
+                       section_length,
+                       section.Characteristics);
 
   return true;
 }

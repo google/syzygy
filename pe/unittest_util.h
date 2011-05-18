@@ -16,19 +16,36 @@
 
 #include <windows.h>
 #include "base/file_path.h"
+#include "gtest/gtest.h"
 
 namespace testing {
 
-// Name of the test DLL and PDB.
-extern const wchar_t kDllName[];
-extern const wchar_t kDllPdbName[];
+class PELibUnitTest : public testing::Test {
+ public:
+  // Name of the test DLL and PDB.
+  static const wchar_t* const kDllName;
+  static const wchar_t* const kDllPdbName;
 
-// Retrieves computes the absolute path to image_name, where image_name
-// is relative to the current executable's parent directory.
-FilePath GetExeRelativePath(const wchar_t* image_name);
+  // Cleans up after each test invocation.
+  virtual void TearDown();
 
-// These perform a series of assertations on the test DLL's integrity.
-void CheckTestDll(const FilePath& path);
+  // Retrieves computes the absolute path to image_name, where image_name
+  // is relative to the current executable's parent directory.
+  static FilePath GetExeRelativePath(const wchar_t* image_name);
+
+  // Creates a temporary directory, which is cleaned up after the test runs.
+  void CreateTemporaryDir(FilePath* temp_dir);
+
+  // Performs a series of assertations on the test DLL's integrity.
+  static void CheckTestDll(const FilePath& path);
+
+ private:
+  typedef testing::Test Super;
+  typedef std::vector<const FilePath> DirList;
+
+  // List of temporary directorys created during this test invocation.
+  DirList temp_dirs_;
+};
 
 }  // namespace testing
 
