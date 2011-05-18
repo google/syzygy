@@ -67,15 +67,20 @@ int main(int argc, char** argv) {
     return Usage("You must provide input and output file names.");
   }
 
+  typedef CommandLine::StringType StringType;
+
   int seed = 0;
-  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("seed"), &seed)) {
+  StringType seed_str(cmd_line->GetSwitchValueNative("seed"));
+  if (!seed_str.empty() && !base::StringToInt(seed_str, &seed)) {
     return Usage("Invalid seed value.");
   }
 
   int padding = 0;
-  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("padding"), &padding) ||
-      padding < 0 ||
-      static_cast<size_t>(padding) > Relinker::max_padding_length()) {
+  StringType padding_str(cmd_line->GetSwitchValueNative("padding"));
+  if (!padding_str.empty() &&
+      (!base::StringToInt(padding_str, &padding) ||
+          padding < 0 ||
+          static_cast<size_t>(padding) > Relinker::max_padding_length())) {
     return Usage("Invalid padding value.");
   }
 
