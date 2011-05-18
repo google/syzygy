@@ -185,6 +185,9 @@ class AddressRange {
 
     return true;
   }
+  bool Contains(AddressType addr, SizeType size = 1) const {
+    return Contains(AddressRange(addr, size));
+  }
 
   // Returns true iff @p other intersects this range.
   bool Intersects(const AddressRange& other) const {

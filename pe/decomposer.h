@@ -39,14 +39,11 @@ using pcrecpp::RE;
 
 class Decomposer {
  public:
-  // Holds information about data objects as gleaned from DIA.
-  struct DataInfo;
-
   typedef core::BasicBlockDisassembler BasicBlockDisassembler;
   typedef core::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
   typedef core::RelativeAddress RelativeAddress;
-  typedef core::AddressSpace<RelativeAddress, size_t, DataInfo> DataSpace;
+  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
 
   enum Mode {
     STANDARD_DECOMPOSITION,
@@ -119,15 +116,9 @@ class Decomposer {
   void ExtendOrCreateDataRangeUsingRelocs(
       const std::string& name, RelativeAddress addr, size_t min_size);
   // Process static initializer data labels, ensuring they remain contiguous.
-  bool ProcessStaticInitializers(DataLabels* data_labels);
+  bool ProcessStaticInitializers();
   // Extends data blocks using relocs.
   bool ExtendDataRangesUsingRelocs();
-  // Fuses array data blocks with their subsequent data block. This is to ensure
-  // that compiler generated 'end of array' pointers do not get falsely
-  // attributed to the *next* data block, and moved upon a reordering.
-  bool FuseArrayDataBlocks();
-  // Creates data blocks from data space.
-  bool CreateDataBlocksFromDataSpace();
   // Creates data gap blocks.
   bool CreateDataGapBlocks();
   // Creates data blocks.
@@ -282,17 +273,6 @@ class Decomposer {
   REPairs static_initializer_patterns_;
 };
 
-// Holds information about data objects as gleaned from DIA.
-struct Decomposer::DataInfo {
-  Decomposer::DataInfo(const std::string& name, bool is_array)
-      : name(name),
-        is_array(is_array) {
-  }
-
-  std::string name;
-  bool is_array;
-};
-
 // The results of the decomposition process are stored in this class.
 class Decomposer::DecomposedImage {
  public:
@@ -363,7 +343,6 @@ struct Decomposer::CoverageStatistics {
   struct {
     CodeBlockStatistics code;
     BlockStatistics data;
-    BlockStatistics read_only;
     SimpleBlockStatistics no_section;
   } blocks;
 };
