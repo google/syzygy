@@ -1,0 +1,66 @@
+# Copyright 2011 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Contains functionality for integrating unit-tests with gcl presubmit checks.
+import os
+
+
+def MakeResult(output_api, message, committing, modified_files=[]):
+  '''Makes a gcl result. Makes a PresubmitError result if
+  |committing| is True, otherwise makes a PresubmitNotifyResult.'''
+  if committing:
+    return [output_api.PresubmitError(message, modified_files)]
+  else:
+    return [output_api.PresubmitNotifyResult(message, modified_files)]
+
+
+def GetTestSuccessPath(solution_path, configuration, testname):
+  return os.path.abspath(os.path.join(solution_path,
+                                      configuration,
+                                      '%s_success.txt' % testname))
+
+
+def GetModifiedFiles(input_api, since=0):
+  '''Returns a list of files that have been modified since |since|.
+  If |since| is a file, uses its modification time.'''
+  if isinstance(since, basestring):
+    try:
+      since = os.stat(since).st_mtime
+    except:
+      since = 0
+
+  modified_files = []
+  for f in input_api.AffectedFiles(include_deletes = False):
+    file_time = os.stat(f.AbsoluteLocalPath()).st_mtime
+    if file_time > since:
+      modified_files.append(f.LocalPath())
+  return modified_files
+
+
+def CheckTestSuccess(input_api, output_api, committing, configuration,
+                     test_name):
+  # By convention, a test called NAME will generate NAME_success.txt in the
+  # appropriate output directory.
+  success_path = GetTestSuccessPath(input_api.PresubmitLocalPath(),
+                                    configuration,
+                                    test_name)
+  modified_files = GetModifiedFiles(input_api, success_path)
+  if len(modified_files) == 0:
+    return []
+
+  return MakeResult(output_api,
+      'These files have been modified since %s %s test ran last' %
+          (configuration, test_name),
+      committing,
+      modified_files)
