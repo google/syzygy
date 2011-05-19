@@ -15,6 +15,20 @@
 #
 # Presubmit script for Syzygy.
 import os
+import sys
+
+# Bring in internal-only presubmit checks. These live in a parallel
+# repository that is overlaid with the public version of syzygy. The
+# internal presubmit check is expected to live in the 'internal'
+# subdirectory of 'syzygy'.
+try:
+  internal_dir = os.path.join(os.getcwd(), 'internal')
+  internal_dir = os.path.abspath(internal_dir)
+  if os.path.isdir(internal_dir):
+    sys.path.insert(0, internal_dir)
+    import internal_presubmit
+except ImportError:
+  internal_presubmit = None
 
 _UNITTEST_MESSAGE = '''\
 Your %s unittests must succeed before submitting.
@@ -93,6 +107,11 @@ def CheckChange(input_api, output_api, committing):
 
   results += CheckUnittestsRan(input_api, output_api, committing, "Debug")
   results += CheckUnittestsRan(input_api, output_api, committing, "Release")
+
+  if internal_presubmit:
+    results += internal_presubmit.CheckChange(input_api,
+                                              output_api,
+                                              committing)
 
   return results
 
