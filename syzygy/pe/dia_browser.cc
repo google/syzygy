@@ -99,7 +99,7 @@ struct DiaBrowser::PatternElement {
   std::vector<PatternElement*> links;
 
   // This indicates to which pattern this element belongs.
-  // TODO(chrisha): Maybe a separate category_id for visited_ book-keeping?
+  // TODO(chrisha): Maybe a separate category_id for visited_ bookkeeping?
   size_t pattern_id;
 
   // If this is non-null, when reaching this point in
@@ -129,17 +129,6 @@ class DiaBrowser::PatternBuilder {
       : type_(kPatternNone) {
   }
 
-  PatternBuilder(const PatternBuilder& pb)
-      : type_(pb.type_),
-      sym_tags_(pb.sym_tags_),
-      callback_(pb.callback_) {
-    // Make a deep copy.
-    if (pb.pb0_.get() != NULL)
-      pb0_.reset(new PatternBuilder(*pb.pb0_));
-    if (pb.pb1_.get() != NULL)
-      pb1_.reset(new PatternBuilder(*pb.pb1_));
-  }
-
   explicit PatternBuilder(SymTag sym_tag)
       : type_(kPatternTags) {
     DCHECK(sym_tag != kSymTagInvalid);
@@ -159,46 +148,56 @@ class DiaBrowser::PatternBuilder {
                  const PatternBuilder& pb0,
                  const PatternBuilder& pb1)
       : type_(type),
-        pb0_(new PatternBuilder(pb0)),
-        pb1_(new PatternBuilder(pb1)) {
+        pb0_(new PatternBuilder()),
+        pb1_(new PatternBuilder()) {
     DCHECK(type_ == kPatternSeq || type_ == kPatternOr);
     DCHECK(pb0.type_ != kPatternNone && pb1.type_ != kPatternNone);
+    pb0_->CopyFrom(pb0);
+    pb1_->CopyFrom(pb1);
   }
 
   // For constructing kPatternOpt/kPatternPlus/kPatternStar patterns.
   PatternBuilder(PatternType type, const PatternBuilder& pb)
       : type_(type),
-        pb0_(new PatternBuilder(pb)) {
+        pb0_(new PatternBuilder()) {
     DCHECK(type_ == kPatternOpt || type_ == kPatternPlus ||
            type_ == kPatternStar);
     DCHECK(pb.type_ != kPatternNone);
+    pb0_->CopyFrom(pb);
   }
 
   // For constructing kPatternCallback patterns.
   PatternBuilder(const PatternBuilder& pb, MatchCallback* callback)
       : type_(kPatternCallback),
         callback_(callback),
-        pb0_(new PatternBuilder(pb)),
+        pb0_(new PatternBuilder()),
         pb1_(NULL) {
     DCHECK(callback != NULL);
     DCHECK(pb.type_ != kPatternNone);
+    pb0_->CopyFrom(pb);
   }
 
-  // We need to be able to assign PatternBuilders.
-  PatternBuilder& operator=(const PatternBuilder& pb) {
+  // Performs a deep-copy of the given pattern builder.
+  void CopyFrom(const PatternBuilder& pb) {
     type_ = pb.type_;
     sym_tags_ = pb.sym_tags_;
     callback_ = pb.callback_;
 
-    pb0_.reset();
-    if (pb.pb0_.get() != NULL)
-      pb0_.reset(new PatternBuilder(*pb.pb0_));
+    if (pb.pb0_.get() != NULL) {
+      if (pb0_.get() == NULL)
+        pb0_.reset(new PatternBuilder());
+      pb0_->CopyFrom(*pb.pb0_);
+    } else {
+      pb0_.reset();
+    }
 
-    pb1_.reset();
-    if (pb.pb1_.get() != NULL)
-      pb1_.reset(new PatternBuilder(*pb.pb1_));
-
-    return *this;
+    if (pb.pb1_.get() != NULL) {
+      if (pb1_.get() == NULL)
+        pb1_.reset(new PatternBuilder());
+      pb1_->CopyFrom(*pb.pb1_);
+    } else {
+      pb1_.reset();
+    }
   }
 
   PatternType type() const { return type_; }
@@ -206,8 +205,9 @@ class DiaBrowser::PatternBuilder {
   // A utility function that builds the 'or' pattern of two sub-patterns.
   // Performs optimizations as much as possible (merging SymTag and SymTagSet
   // sub-patterns).
-  static PatternBuilder OrBuilder(const PatternBuilder& pb0,
-                                  const PatternBuilder& pb1) {
+  static void OrBuilder(const PatternBuilder& pb0,
+                        const PatternBuilder& pb1,
+                        PatternBuilder* pbor) {
     // For simplification, we collect Tag-type sub-expressions. We ensure any
     // Or statement contains at most one tagset, and if so, this tagset is in
     // the first sub-expression. Since patterns are build from the inside out
@@ -216,18 +216,21 @@ class DiaBrowser::PatternBuilder {
 
     if (pb0.type_ == kPatternTags) {
       // If the two sub-expressions are both SymTagSets, merge them.
-      if (pb1.type_ == kPatternTags)
-        return PatternBuilder(pb0.sym_tags_ | pb1.sym_tags_);
+      if (pb1.type_ == kPatternTags) {
+        pbor->CopyFrom(PatternBuilder(pb0.sym_tags_ | pb1.sym_tags_));
+        return;
+      }
 
       // If we have Or(tagset0, Or(tagset1, other)), merge to
       // Or(tagset0|tagset1, other).
       if (pb1.type_ == kPatternOr && pb1.pb0_->type_ == kPatternTags) {
-        PatternBuilder pb(pb1);
-        pb.pb0_->sym_tags_ |= pb0.sym_tags_;
-        return pb;
+        pbor->CopyFrom(pb1);
+        pbor->pb0_->sym_tags_ |= pb0.sym_tags_;
+        return;
       }
 
-      return PatternBuilder(kPatternOr, pb0, pb1);
+      pbor->CopyFrom(PatternBuilder(kPatternOr, pb0, pb1));
+      return;
     }
 
     // If the first sub-expression is not a tagset, but the second one is,
@@ -235,7 +238,7 @@ class DiaBrowser::PatternBuilder {
     // above.
     if (pb1.type_ == kPatternTags) {
       DCHECK_NE(kPatternTags, pb0.type_);
-      return OrBuilder(pb1, pb0);
+      return OrBuilder(pb1, pb0, pbor);
     }
 
     // At this point, neither of the sub-expression is a simple tagset.
@@ -253,18 +256,16 @@ class DiaBrowser::PatternBuilder {
       // That is, Or(Or(tagset0, other0), Or(tagset1, other1)) ->
       //          Or(tagset0|tagset1, Or(other0, other1)).
       if (pb1.type_ == kPatternOr && pb1.pb0_->type_ == kPatternTags) {
-        PatternBuilder pb(kPatternOr, *pb0.pb1_, *pb1.pb1_);
-        // For some reason, the call to PatternBuilder causes lint to complain
-        // about implicit constructors.
-        return PatternBuilder(kPatternOr,
-            PatternBuilder(
-                pb0.pb0_->sym_tags_ | pb1.pb0_->sym_tags_),  // NOLINT
-            pb);
+        PatternBuilder pbA(pb0.pb0_->sym_tags_ | pb1.pb0_->sym_tags_);
+        PatternBuilder pbB(kPatternOr, *pb0.pb1_, *pb1.pb1_);
+        pbor->CopyFrom(PatternBuilder(kPatternOr, pbA, pbB));
+        return;
       }
 
       // Keep the sym_tags as the first sub-expression.
       PatternBuilder pb(kPatternOr, *pb0.pb1_, pb1);
-      return PatternBuilder(kPatternOr, *pb0.pb0_, pb);
+      pbor->CopyFrom(PatternBuilder(kPatternOr, *pb0.pb0_, pb));
+      return;
     }
 
     // If the second sub-expression contains a nested tagset, but the first
@@ -272,13 +273,14 @@ class DiaBrowser::PatternBuilder {
     // do the necessary simplification.
     if (pb1.type_ == kPatternOr && pb1.pb0_->type_ == kPatternTags) {
       DCHECK(pb0.type_ != kPatternOr || pb0.pb0_->type_ != kPatternTags);
-      return OrBuilder(pb1, pb0);
+      return OrBuilder(pb1, pb0, pbor);
     }
 
     // If we get here, then neither of the sub-expressions contains a tagset.
     DCHECK(pb0.type_ != kPatternOr || pb0.pb0_->type_ != kPatternTags);
     DCHECK(pb1.type_ != kPatternOr || pb1.pb0_->type_ != kPatternTags);
-    return PatternBuilder(kPatternOr, pb0, pb1);
+    pbor->CopyFrom(PatternBuilder(kPatternOr, pb0, pb1));
+    return;
   }
 
  protected:
@@ -417,11 +419,14 @@ class DiaBrowser::PatternBuilder {
     }
   }
 
+ private:
   PatternType type_;
   SymTagBitSet sym_tags_;
   MatchCallback* callback_;
   scoped_ptr<PatternBuilder> pb0_;
   scoped_ptr<PatternBuilder> pb1_;
+
+  DISALLOW_COPY_AND_ASSIGN(PatternBuilder);
 };
 
 DiaBrowser::~DiaBrowser() {
@@ -432,16 +437,17 @@ DiaBrowser::~DiaBrowser() {
 bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
                             MatchCallback* callback) {
   const PatternBuilder& pattern_builder(pattern_builder_proxy);
-  size_t len = pattern_builder.Length();
+  size_t pattern_length = pattern_builder.Length();
 
   // Empty patterns are rejected.
-  if (len == 0)
+  if (pattern_length == 0)
     return false;
 
-  // Build the pattern in place. We build this to length 'len + 1' so that
-  // we have room for a special 'root' node at the beginning of the pattern.
+  // Build the pattern in place. We increment pattern_length by 1 so to have
+  // room for a special root node at the beginning of the pattern.
+  ++pattern_length;
   size_t pattern_id = patterns_.size();
-  scoped_array<PatternElement> pattern(new PatternElement[len + 1]);
+  scoped_array<PatternElement> pattern(new PatternElement[pattern_length]);
   std::vector<PatternElement*> in_exits(1, pattern.get());
   std::vector<PatternElement*> out_exits;
   pattern_builder.Build(pattern.get(), 1, in_exits, &out_exits);
@@ -464,14 +470,13 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
 
   // If any element in the pattern matches *no* sym_tags, the pattern is
   // unmatchable. Reject it!
-  for (size_t i = 1; i <= len; ++i) {
+  for (size_t i = 1; i < pattern_length; ++i) {
     if (pattern[i].sym_tags.none()) {
       return false;
     }
   }
 
-  // Mark the exit nodes as being full match nodes, and set their
-  // callbacks.
+  // Mark the exit nodes as being full match nodes, and set their callbacks.
   for (size_t i = 0; i < out_exits.size(); ++i) {
     out_exits[i]->full_match = true;
     out_exits[i]->callback = callback;
@@ -479,7 +484,7 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
 
   // Label the pattern node with the id of this pattern, and precalculate
   // outgoing sym_tagsets as used by Browse.
-  for (size_t i = 0; i <= len; ++i) {
+  for (size_t i = 0; i < pattern_length; ++i) {
     pattern[i].pattern_id = pattern_id;
     pattern[i].CalculateOutgoingSymtags();
   }
@@ -742,12 +747,9 @@ Proxy::Proxy()
     : pattern_builder_(new PatternBuilder()) {
 }
 
-Proxy::Proxy(const Proxy& proxy)
-    : pattern_builder_(new PatternBuilder(*proxy.pattern_builder_)) {
-}
-
 Proxy::Proxy(const PatternBuilder& pb)
-    : pattern_builder_(new PatternBuilder(pb)) {
+    : pattern_builder_(new PatternBuilder()) {
+  pattern_builder_->CopyFrom(pb);
 }
 
 Proxy::Proxy(SymTag sym_tag)
@@ -814,17 +816,17 @@ Proxy Seq(const Proxy& p0, const Proxy& p1, const Proxy& p2, const Proxy& p3,
   DCHECK(p1->type() != PatternBuilder::kPatternNone);
   PatternBuilder pb(PatternBuilder::kPatternSeq, p0, p1);
   if (p2->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder(PatternBuilder::kPatternSeq, pb, p2);
+    pb.CopyFrom(PatternBuilder(PatternBuilder::kPatternSeq, pb, p2));
   if (p3->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder(PatternBuilder::kPatternSeq, pb, p3);
+    pb.CopyFrom(PatternBuilder(PatternBuilder::kPatternSeq, pb, p3));
   if (p4->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder(PatternBuilder::kPatternSeq, pb, p4);
+    pb.CopyFrom(PatternBuilder(PatternBuilder::kPatternSeq, pb, p4));
   if (p5->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder(PatternBuilder::kPatternSeq, pb, p5);
+    pb.CopyFrom(PatternBuilder(PatternBuilder::kPatternSeq, pb, p5));
   if (p6->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder(PatternBuilder::kPatternSeq, pb, p6);
+    pb.CopyFrom(PatternBuilder(PatternBuilder::kPatternSeq, pb, p6));
   if (p7->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder(PatternBuilder::kPatternSeq, pb, p7);
+    pb.CopyFrom(PatternBuilder(PatternBuilder::kPatternSeq, pb, p7));
   return Proxy(pb);
 }
 
@@ -834,20 +836,39 @@ Proxy Or(const Proxy& p0, const Proxy& p1, const Proxy& p2, const Proxy& p3,
   DCHECK(p1->type() != PatternBuilder::kPatternNone);
   // We use the OrBuilder as an optimization to make sure that Tags
   // PatternBuilders are accumulated and simplified.
-  PatternBuilder pb = PatternBuilder::OrBuilder(p0, p1);
-  if (p2->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder::OrBuilder(pb, p2);
-  if (p3->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder::OrBuilder(pb, p3);
-  if (p4->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder::OrBuilder(pb, p4);
-  if (p5->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder::OrBuilder(pb, p5);
-  if (p6->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder::OrBuilder(pb, p6);
-  if (p7->type() != PatternBuilder::kPatternNone)
-    pb = PatternBuilder::OrBuilder(pb, p7);
-  return Proxy(pb);
+  PatternBuilder pbor;
+  PatternBuilder::OrBuilder(p0, p1, &pbor);
+  if (p2->type() != PatternBuilder::kPatternNone) {
+    PatternBuilder pbtemp;
+    PatternBuilder::OrBuilder(pbor, p2, &pbtemp);
+    pbor.CopyFrom(pbtemp);
+  }
+  if (p3->type() != PatternBuilder::kPatternNone) {
+    PatternBuilder pbtemp;
+    PatternBuilder::OrBuilder(pbor, p3, &pbtemp);
+    pbor.CopyFrom(pbtemp);
+  }
+  if (p4->type() != PatternBuilder::kPatternNone) {
+    PatternBuilder pbtemp;
+    PatternBuilder::OrBuilder(pbor, p4, &pbtemp);
+    pbor.CopyFrom(pbtemp);
+  }
+  if (p5->type() != PatternBuilder::kPatternNone) {
+    PatternBuilder pbtemp;
+    PatternBuilder::OrBuilder(pbor, p5, &pbtemp);
+    pbor.CopyFrom(pbtemp);
+  }
+  if (p6->type() != PatternBuilder::kPatternNone) {
+    PatternBuilder pbtemp;
+    PatternBuilder::OrBuilder(pbor, p6, &pbtemp);
+    pbor.CopyFrom(pbtemp);
+  }
+  if (p7->type() != PatternBuilder::kPatternNone) {
+    PatternBuilder pbtemp;
+    PatternBuilder::OrBuilder(pbor, p7, &pbtemp);
+    pbor.CopyFrom(pbtemp);
+  }
+  return Proxy(pbor);
 }
 
 Proxy Opt(const Proxy& p) {

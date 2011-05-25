@@ -73,7 +73,7 @@ class DiaBrowserTest: public testing::Test {
       const DiaBrowser::SymTagVector& tag_lineage,
       const DiaBrowser::SymbolPtrVector& symbol_lineage,
       DiaBrowser::BrowserDirective* directive) {
-    // Call the 'OnPartialMatch' for book-keeping reasons.
+    // Call the 'OnPartialMatch' for bookkeeping reasons.
     OnPartialMatch(dia_browser, tag_lineage, symbol_lineage, directive);
     if (!tag_lineage.empty() && tag_lineage.back() == SymTagUDT)
       *directive = DiaBrowser::kBrowserTerminatePath;
