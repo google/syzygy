@@ -12,28 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Contains functionality for integrating unit-tests with gcl presubmit checks.
+"""Contains functionality for integrating unit-tests with gcl presubmit
+checks."""
 import os
+import re
 
 
 def MakeResult(output_api, message, committing, modified_files=[]):
-  '''Makes a gcl result. Makes a PresubmitError result if
-  |committing| is True, otherwise makes a PresubmitNotifyResult.'''
+  """Makes a gcl result. Makes a PresubmitError result if
+  |committing| is True, otherwise makes a PresubmitNotifyResult."""
   if committing:
-    return [output_api.PresubmitError(message, modified_files)]
+    return output_api.PresubmitError(message, modified_files)
   else:
-    return [output_api.PresubmitNotifyResult(message, modified_files)]
+    return output_api.PresubmitNotifyResult(message, modified_files)
 
 
 def GetTestSuccessPath(solution_path, configuration, testname):
+  """Returns the path to the success file for the given test and
+  configuration. |solution_path| may point to the actual .sln file, or
+  simply the directory containing it."""
+  if re.search('\.sln$', solution_path):
+    solution_path = os.path.dirname(solution_path)
   return os.path.abspath(os.path.join(solution_path,
                                       configuration,
                                       '%s_success.txt' % testname))
 
 
 def GetModifiedFiles(input_api, since=0):
-  '''Returns a list of files that have been modified since |since|.
-  If |since| is a file, uses its modification time.'''
+  """Returns a list of files that have been modified since |since|.
+  If |since| is a file, uses its modification time."""
   if isinstance(since, basestring):
     try:
       since = os.stat(since).st_mtime
@@ -49,7 +56,10 @@ def GetModifiedFiles(input_api, since=0):
 
 
 def CheckTestSuccess(input_api, output_api, committing, configuration,
-                     test_name):
+                     test_name, message=None):
+  """Returns a list of files that have changed since the last time the
+  given test was run. If the test needs to be re-run and |message| is a
+  str, will also output the provided message."""
   # By convention, a test called NAME will generate NAME_success.txt in the
   # appropriate output directory.
   success_path = GetTestSuccessPath(input_api.PresubmitLocalPath(),
@@ -59,8 +69,15 @@ def CheckTestSuccess(input_api, output_api, committing, configuration,
   if len(modified_files) == 0:
     return []
 
-  return MakeResult(output_api,
+  results = []
+
+  if message:
+    results.append(MakeResult(output_api, message, committing))
+
+  results.append(MakeResult(output_api,
       'These files have been modified since %s %s test ran last' %
           (configuration, test_name),
       committing,
-      modified_files)
+      modified_files=modified_files))
+
+  return results

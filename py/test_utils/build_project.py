@@ -12,10 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''This scripts builds the given VisualStudio project in the given
+"""This scripts builds the given VisualStudio project in the given
 configurations. It exits with non-zero exit status on error. It may also be
 included as a module, defining the function BuildProjectConfig.
-'''
+"""
 import logging
 import optparse
 import os.path
@@ -23,12 +23,12 @@ import pywintypes
 import sys
 import win32com.client
 
-def BuildProjectConfig(solution, projects, configs, focus=True):
-  '''Builds the given projects in the given configurations.
+def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
+  """Builds the given projects in the given configurations.
 
   Args:
-    solution: a Visual Studio solution file.
-    projects: the paths of projects to build, relative to the solution
+    solution_path: a Visual Studio solution file.
+    project_paths: the paths of projects to build, relative to the solution
         directory. Multiple projects may be specified with a list.
     configs: the name of the configuration to build, ie. "Release".
         Multiple configurations may be specified with a list.
@@ -37,14 +37,16 @@ def BuildProjectConfig(solution, projects, configs, focus=True):
 
   Returns: the number of errors during the build. Aborts at the first
       error.
-  '''
-  if isinstance(projects, basestring):
-    projects = [projects]
+  """
+  if isinstance(project_paths, basestring):
+    project_paths = [project_paths]
 
   if isinstance(configs, basestring):
     configs = [configs]
 
-  solution = win32com.client.GetObject(os.path.abspath(solution))
+  solution_path = os.path.abspath(solution_path)
+  solution_dir = os.path.dirname(solution_path)
+  solution = win32com.client.GetObject(solution_path)
   builder = solution.SolutionBuild
 
   if focus:
@@ -67,13 +69,19 @@ def BuildProjectConfig(solution, projects, configs, focus=True):
       # the output window is not already open.
       pass
 
-  # Build the given project in each of the desired configurations.
+  # Build each project in each of the desired configurations.
   errors = 0
-  for project in projects:
-    abs_project = os.path.abspath(project)
+  for project_path in project_paths:
+    abs_project_path = os.path.abspath(project_path)
+
+    # Get a short project name relative to the solution directory.
+    # This makes log message easier to read.
+    rel_project_path = os.path.relpath(abs_project_path, solution_dir)
+
     for config in configs:
-      print('Building project "%s" in "%s" configuration.' % (project, config))
-      builder.BuildProject(config, abs_project, True)
+      logging.info('Building project "%s" in "%s" configuration.',
+                   rel_project_path, config)
+      builder.BuildProject(config, abs_project_path, True)
       errors = builder.LastBuildInfo
       if errors > 0:
         break
@@ -84,7 +92,7 @@ def BuildProjectConfig(solution, projects, configs, focus=True):
 
 
 def GetOptionParser():
-  '''Creates and returns an option parser for this script.'''
+  """Creates and returns an option parser for this script."""
   USAGE = '%prog -s SOLUTION -p PROJECT -c CONFIG [options]'
   parser = optparse.OptionParser(usage=USAGE)
   parser.add_option('-s', '--solution',

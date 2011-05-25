@@ -16,6 +16,9 @@
   'variables': {
     'chromium_code': 1,
   },
+  'includes': [
+    'unittests.gypi',
+  ],
   'targets': [
     {
       'target_name': 'build_all',
@@ -34,53 +37,12 @@
       ],
     },
     {
-      # Add new unittests to this target as inputs.
-      'target_name': 'run_unittests',
+      # New unittests should be added to unittests.gypi.
+      'target_name': 'build_unittests',
       'type': 'none',
-      'variables': {
-        # The file that marks success of all unittests.
-        'success_file': '<(PRODUCT_DIR)/unittest_success.txt',
-
-        # Add all unit test targets here.
-        'unittest_targets': [
-          '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_unittests',
-          '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
-          '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
-          '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
-          '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
-          '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
-        ],
-      },
       'dependencies': [
-        '<@(unittest_targets)',
+        '<@(unittests)',
       ],
-      'actions': [
-        {
-          'action_name': 'run_unittests',
-          'msvs_cygwin_shell': 0,
-          'inputs': [
-            '../sawbuck/tools/run_unittests.py',
-            '../sawbuck/tools/verifier.py',
-            '<(PRODUCT_DIR)/call_trace_unittests.exe',
-            '<(PRODUCT_DIR)/core_unittests.exe',
-            '<(PRODUCT_DIR)/instrument_unittests.exe',
-            '<(PRODUCT_DIR)/pdb_unittests.exe',
-            '<(PRODUCT_DIR)/pe_unittests.exe',
-            '<(PRODUCT_DIR)/relink_unittests.exe',
-          ],
-          'outputs': [
-            # Created only if all unittests succeed
-            '<(success_file)',
-          ],
-          'action': [
-            '<(DEPTH)/third_party/python_26/python',
-            '../sawbuck/tools/run_unittests.py',
-            '--exe-dir=<(PRODUCT_DIR)',
-            '--success-file=<(success_file)',
-            '<@(unittest_targets)',
-          ],
-        },
-      ],
-    }
-  ]
+    },
+  ],
 }
