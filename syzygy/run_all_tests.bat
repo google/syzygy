@@ -14,8 +14,6 @@ rem = """
 :: See the License for the specific language governing permissions and
 :: limitations under the License.
 set PYTHON="%~p0..\third_party\python_26\python.exe"
-set SCRIPT="%~p0..\sawbuck\tools\run_all_tests.py"
-set SOLUTION="%~p0Syzygy.sln"
-set PROJECT="%~p0run_unittests.vcproj"
+set SCRIPT="%~p0py\test_utils\gyp_tests.py"
 
-%PYTHON% %SCRIPT% --solution="%SOLUTION%" --project="%PROJECT%" %* 
+%PYTHON% %SCRIPT% %*

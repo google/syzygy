@@ -12,5 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Contains various utilities for enumerating, building and running unit tests,
+and integrating them with gcl presubmit checks."""
+
 from build_project import *
 from presubmit import *
+from gyp_tests import *
+from testing import *

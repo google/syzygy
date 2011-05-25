@@ -17,6 +17,14 @@
 import os
 import sys
 
+# Bring in some presubmit tools. We use 'getcwd' instead of '__file__'
+# because gcl loads this script as text and runs it using 'eval'. In this
+# context the variables '__file__' is undefined. However, 'gcl' assures us
+# that the current working directory will be the directory containing this
+# file.
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), 'py')))
+import test_utils.presubmit as presubmit
+
 # Bring in internal-only presubmit checks. These live in a parallel
 # repository that is overlaid with the public version of syzygy. The
 # internal presubmit check is expected to live in the 'internal'
@@ -26,15 +34,13 @@ try:
   internal_dir = os.path.abspath(internal_dir)
   if os.path.isdir(internal_dir):
     sys.path.insert(0, internal_dir)
-    import internal_presubmit
+  import internal_presubmit
 except ImportError:
   internal_presubmit = None
 
 _UNITTEST_MESSAGE = '''\
 Your %s unittests must succeed before submitting.
-To clear this presubmit error, build the syzygy/run_unittests target
-in the solution file syzygy/syzygy.sln, or run syzygy/run_all_tests.bat
-'''
+To clear this presubmit error run syzygy/run_all_tests.bat'''
 
 _LICENSE_HEADER = '''\
 (#!python\n\
@@ -55,33 +61,9 @@ _LICENSE_HEADER = '''\
 
 def CheckUnittestsRan(input_api, output_api, committing, configuration):
   '''Checks that the unittests success file is newer than any modified file'''
-  success_path = "%s/unittest_success.txt" % configuration
-  def MakeResult(message, modified_files=[]):
-    if committing:
-      return output_api.PresubmitError(message, modified_files)
-    else:
-      return output_api.PresubmitNotifyResult(message, modified_files)
-  os_path = input_api.os_path
-  success_path = os_path.join(input_api.PresubmitLocalPath(),
-                              success_path)
-
-  if not os_path.exists(success_path):
-    return [MakeResult(_UNITTEST_MESSAGE % configuration)]
-
-  success_time = os.stat(success_path).st_mtime
-  modified_files = []
-  for f in input_api.AffectedFiles(include_deletes = False):
-    file_time = os.stat(f.AbsoluteLocalPath()).st_mtime
-    if file_time > success_time:
-      modified_files.append(f.LocalPath())
-
-  result = []
-  if modified_files:
-    result.append(MakeResult('These files have been modified since %s '
-                             'unittests ran last' % configuration,
-                             modified_files))
-
-  return result
+  return presubmit.CheckTestSuccess(input_api, output_api, committing,
+                                    configuration, 'ALL',
+                                    message=_UNITTEST_MESSAGE % configuration)
 
 
 def CheckChange(input_api, output_api, committing):

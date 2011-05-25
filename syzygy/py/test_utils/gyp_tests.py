@@ -1,0 +1,141 @@
+#!python
+# Copyright 2011 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains functionality for extracting unittest targets from gyp files,
+building them and running them. This file may be run as a standalone script
+in which case it will actually execute the unittests associated with Syzygy."""
+import ast
+import build_project
+import logging
+import os
+import presubmit
+import re
+import subprocess
+import sys
+import testing
+
+
+class Error(Exception):
+  """An error class used for reporting problems while parsing gyp files."""
+  pass
+
+
+def _SplitGypDependency(dep):
+  """Split a gyp dependency line into a tuple containing the gyp file path,
+  and a list of targets."""
+  if not isinstance(dep, str):
+    raise Error('Expect each dependency to be a str.')
+
+  tmp = dep.split(':')
+  if len(tmp) > 2:
+    raise Error('Invalid dependency: %s.' % dep)
+  gyp_path = tmp[0]
+
+  # Get the list of targets from the dependency.
+  targets = None
+  if len(tmp) > 1:
+    targets = [s.strip() for s in tmp[1].split(',')]
+
+  return (gyp_path, targets)
+
+
+class GypTests(testing.TestSuite):
+  """A collection of unittests extracted from the unittests.gypi gyp include
+  file associated with the a gyp project."""
+
+  def __init__(self, gyp_path):
+    gyp_path = os.path.abspath(gyp_path)
+    project_dir = os.path.dirname(gyp_path)
+    testing.TestSuite.__init__(self, project_dir, 'ALL', [])
+
+    self._solution_path = re.sub('\.gyp$', '.sln', gyp_path)
+    self._project_path = os.path.join(project_dir, 'build_unittests.vcproj')
+    self._configuration_built = {}
+
+    # Parse the gypi file and extract the tests.
+    gypi_path = os.path.join(project_dir, 'unittests.gypi')
+    self._ExtractTestsFromGypi(gypi_path)
+
+  def _ExtractTestsFromGypi(self, gypi_path):
+    """Parses a gypi file containing a list of unittests (defined as a
+    variable named 'unittests', containing a list of dependencies). This
+    extracts the targets from these dependencies, each one of them
+    corresponding to a unittest."""
+
+    # literal_eval is like eval, but limited to expressions containing only
+    # built in data-types. It will not execute any logic. It can throw
+    # SyntaxErrors.
+    gypi = ast.literal_eval(open(gypi_path).read())
+    if not isinstance(gypi, dict):
+      raise Error('gypi file must contain a dict.')
+
+    if not gypi.has_key('variables'):
+      raise Error('gypi dict missing "variables" key.')
+
+    variables = gypi['variables']
+    if not isinstance(variables, dict):
+      raise Error('"variables" must be a dict.')
+
+    if not variables.has_key('unittests'):
+      raise Error('"variables" dict missing "unittests" key.')
+
+    unittests = variables['unittests']
+    if not isinstance(unittests, list):
+      raise Error('"unittests" must be a list.')
+
+    # Extract unittest names from each dependency.
+    tests = []
+    for test in unittests:
+      gyp_path, targets = _SplitGypDependency(test)
+      tests.extend(targets)
+    tests = sorted(tests)
+
+    # Add each test.
+    for test in tests:
+      self.AddTest(testing.ExecutableTest(self._project_dir, test))
+
+
+  def _BuildUnittests(self, configuration):
+    """Causes the build_unittests target to be built if it hasn't been
+    already."""
+    if self._configuration_built.has_key(configuration):
+      return
+    self._configuration_built[configuration] = True
+    build_project.BuildProjectConfig(self._solution_path,
+                                     self._project_path,
+                                     configuration)
+
+  def _NeedToRun(self, configuration):
+    # Ensure the unittests are built first, and then delegate to our
+    # parent class.
+    self._BuildUnittests(configuration)
+    return testing.TestSuite._NeedToRun(self, configuration)
+
+
+def Main():
+  try:
+    root_gyp = os.path.dirname(__file__) + '/../../syzygy.gyp'
+    tests = GypTests(root_gyp)
+    return tests.Main()
+  except SystemExit:
+    # optparse can cause a SystemExit exception to be raised, which we catch
+    # to suppress a stack trace.
+    pass
+  except:
+    logging.exception('GypTests.Main failed.')
+  return 1
+
+
+if __name__ == '__main__':
+  sys.exit(Main())
