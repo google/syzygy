@@ -182,9 +182,6 @@ class TestSuite(Test):
   def AddTests(self, tests):
     self._tests.extend(self, tests)
 
-  def _CanRun(self, configuration):
-    return any((test._CanRun(configuration) for test in self._tests))
-
   def _NeedToRun(self, configuration):
     return any((test._NeedToRun(configuration) for test in self._tests))
 
