@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// The DiaBrowser browses a DIA data source according to a set of registered
-// patterns of interest, returning the encountered symbols to the provided
-// callback. Patterns are constructed using the PatternBuilder class, which
-// themselves are built using the factory functions in the 'builder' namespace.
+// The DiaBrowser browses a Debug Interface Access (DIA) data source according
+// to a set of registered patterns of interest, returning the encountered
+// symbols to the provided callback. Patterns are constructed using the
+// PatternBuilder class, which themselves are built using the factory functions
+// in the 'builder' namespace.
+//
+// For more information on DIA, refer to the MSDN documentation:
+// http://msdn.microsoft.com/en-us/library/x93ctkx8(v=vs.80).aspx
 //
 // TODO(chrisha): If needed, we could allow the assignment of a pattern to a
 //    class, and use 'single visit per class' semantics. In the absence of
@@ -23,9 +27,9 @@
 #ifndef SYZYGY_PE_DIA_BROWSER_H_
 #define SYZYGY_PE_DIA_BROWSER_H_
 
-#include <windows.h>
 #include <dia2.h>
 #include <limits.h>
+#include <windows.h>
 #include <bitset>
 #include <set>
 #include <utility>
@@ -36,6 +40,8 @@
 
 namespace pe {
 
+// We declare a few constants to make it easy to iterate through the SymTagEnum
+// (declared in cvconst.h).
 enum SymTagConstants {
   kSymTagBegin = SymTagExe,
   kSymTagEnd = SymTagDimension + 1,
@@ -51,9 +57,8 @@ namespace builder {
 class Proxy;
 }  // namespace builder
 
-// The DiaBrowser browses a DIA data source according to a set of registered
-// patterns of interest, returning the encountered symbols to the provided
-// callback.
+// The DiaBrowser browses a DIA data source; see the comment at the top of this
+// header file for more detail.
 class DiaBrowser {
  public:
   typedef base::win::ScopedComPtr<IDiaSymbol> SymbolPtr;
@@ -111,6 +116,9 @@ class DiaBrowser {
   //
   // Similarly, any pattern that can never match will be ignored. An example
   // of such a pattern is: Not(SymTagNull).
+  //
+  // For full details on how to construct patterns, see the comment preceding
+  // the 'builder' namespace.
   bool AddPattern(const builder::Proxy& pattern_builder_proxy,
                   MatchCallback* callback);
 
@@ -123,10 +131,18 @@ class DiaBrowser {
   bool Browse(IDiaSymbol* root);
 
  protected:
-  // This initializes the search front and other book-keeping structures.
+  // The following protected functions are intended for use by the GTest
+  // fixture only.
+
+  // Tests a vector of SymTags to see if they would match a given pattern.
+  // Returns the number of ways this sequence matched any of the patterns.
+  size_t TestMatch(const SymTagVector& sym_tags) const;
+
+ private:
+  // This initializes the search front and other bookkeeping structures.
   void PrepareForBrowse();
 
-  // Cleans up our various book-keeping data structures. After calling this
+  // Cleans up our various bookkeeping data structures. After calling this
   // the DiaBrowser can be reused.
   void Reset();
 
@@ -155,20 +171,18 @@ class DiaBrowser {
   // kBrowserContinue, kBrowserTerminateAll, or kBrowserAbort.
   BrowserDirective BrowseEnum(IDiaSymbol* root, size_t depth, SymTag sym_tag);
 
-  // Tests a vector of SymTags to see if they would match a given pattern.
-  // Returns the number of ways this sequence matched any of the patterns.
-  size_t TestMatch(const SymTagVector& sym_tags) const;
-
   // The set of visited nodes. The first parameter is the address of the
   // element that matched, the second is the actual ID of the visited node.
   // The PDB has cyclic connections, so we must use some form of limiting to
-  // ensure that cycles get broken. However, we want to encourage the symbol
-  // to be reachable through all valid paths to it and not just via the first
-  // one walked.
+  // ensure that cycles get broken. However, we want the symbol to be reachable
+  // via each matching pattern and not just via the first one walked.
   // TODO(chrisha): Use a hash_map here instead, to minimize allocations?
   std::set<std::pair<const PatternElement*, uint32> > visited_;
 
   // The search patterns we're using. All patterns stored here must be valid.
+  // We manually manage memory because we require a 'delete []' to be called
+  // on each pattern, something which scoped_array does not do. Similarly,
+  // scoped_ptr is unsuitable for use in a std::vector.
   std::vector<PatternElement*> patterns_;
 
   // Stores the path of matched symbol tags.
@@ -193,6 +207,11 @@ class DiaBrowser {
   std::vector<SymTagBitSet> sym_tags_;
 };
 
+// The builder namespace contains the factory functions that are used to create
+// search patterns. They are in their own namespace so as not to pollute the
+// base namespace with their short and potentially common functions names, but
+// also so that they can be more easily used with 'using builder' or
+// 'using builder::<function name>' declarations.
 namespace builder {
 
 typedef DiaBrowser::PatternBuilder PatternBuilder;
@@ -204,7 +223,6 @@ typedef DiaBrowser::MatchCallback MatchCallback;
 class Proxy {
  public:
   Proxy();
-  Proxy(const Proxy& proxy);
   explicit Proxy(const PatternBuilder& proxy);
 
   // These are left implicit so that SymTags and SymTagBitSets can be used
@@ -221,13 +239,16 @@ class Proxy {
   const PatternBuilder& operator*() const { return *pattern_builder_; }
   operator const PatternBuilder&() const { return *pattern_builder_; }
 
- protected:
-  const PatternBuilder* pattern_builder_;
+ private:
+  PatternBuilder* pattern_builder_;
 };
 
 // The functions in this namespace act as factories for PatternBuilders.
-// Each DIA symbol has associated with it a path of symbol tags. By
-// convention we represent such a path in the following manner:
+// Each DIA symbol has associated with it a path of symbol tags. For a full list
+// of DIA symbols, refer to cvconst.h or the MSDN documentation here:
+// http://msdn.microsoft.com/en-us/library/bkedss5f(v=vs.80).aspx
+//
+// By convention we represent a path of symbol tags in the following manner:
 //
 //   Compiland.Function.Block.Block.Data
 //
@@ -264,6 +285,11 @@ class Proxy {
 //
 // Such patterns can be created, but will fail to be inserted into a
 // DiaBrowser instance.
+//
+// In order to maintain consistency with IDiaSymbol::findChildren, we treat
+// the special value SymTagNull as a wild-card, matching any of the other
+// SymTagEnum values. See MSDN documentation for more info:
+// http://msdn.microsoft.com/en-us/library/yfx1573w(v=vs.80).aspx
 
 // Represents a pattern that matches a single SymTag. Equivalent to
 // regex /a/.
