@@ -25,7 +25,9 @@ int main(int argc, char** argv) {
 
   ::CoInitialize(NULL);
 
-  RUN_ALL_TESTS();
+  int ret = RUN_ALL_TESTS();
 
   ::CoUninitialize();
+
+  return ret;
 }
