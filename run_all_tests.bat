@@ -15,5 +15,10 @@ rem = """
 :: limitations under the License.
 set PYTHON="%~p0..\third_party\python_26\python.exe"
 set SCRIPT="%~p0py\test_utils\gyp_tests.py"
+set INTERNAL_TESTS="%~p0internal\run_all_tests.bat"
 
 %PYTHON% %SCRIPT% %*
+
+IF EXIST %INTERNAL_TESTS% (
+%INTERNAL_TESTS% %*
+)
