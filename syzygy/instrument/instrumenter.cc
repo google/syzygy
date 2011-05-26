@@ -98,7 +98,9 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
   // Finalize the headers and write the image.
   if (!FinalizeImageHeaders(decomposed.header)) {
     LOG(ERROR) << "Unable to finalize image headers.";
+    return false;
   }
+
   if (!WriteImage(output_dll_path)) {
     LOG(ERROR) << "Unable to write " << output_dll_path.value();
     return false;
