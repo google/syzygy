@@ -37,6 +37,7 @@ class Test(object):
   def __init__(self, project_dir, name):
     self._project_dir = project_dir
     self._name = name
+    self._force = False
 
   def GetSuccessFilePath(self, configuration):
     """Returns the path to the success file associated with this test."""
@@ -80,26 +81,44 @@ class Test(object):
     child classes."""
     raise Error('_Run not overridden.')
 
-  def Run(self, configuration):
+  def Run(self, configuration, force=False):
     """Runs the test in the given configuration. The derived instance of Test
     must implement '_Run(self, configuration)', which raises an exception on
     error or does nothing on success. Upon success of _Run, this will generate
     the appropriate success file. If the test fails, the exception is left
-    to propagate."""
+    to propagate.
+
+    Optional args:
+      force: If True, this will force the test to re-run even if _NeedToRun
+          would return False.
+    """
+    # Store optional arguments in a side-channel, so as to allow additions
+    # without changing the _Run/_NeedToRun/_CanRun API.
+    self._force = force
+
     if not self._CanRun(configuration):
-      logging.info('Skipping test "%s" in invalid configuration "%s"',
+      logging.info('Skipping test "%s" in invalid configuration "%s".',
                    self._name, configuration)
       return
 
-    logging.info('Checking to see if we need to run test "%s" in '
-                 'configuration "%s"', self._name, configuration)
-    if self._NeedToRun(configuration):
-      logging.info('Running test "%s" in configuration "%s".',
+    if force:
+      logging.info('Forcing re-run of test "%s" in configuration "%s".',
                    self._name, configuration)
-      self._Run(configuration)
+      need_to_run = True
     else:
-      logging.info('No need to re-run test "%s" in configuration "%s"',
-                   self._name, configuration)
+      logging.info('Checking to see if we need to run test "%s" in '
+                   'configuration "%s".', self._name, configuration)
+      need_to_run = self._NeedToRun(configuration)
+      if need_to_run:
+        logging.info('Running test "%s" in configuration "%s".',
+                     self._name, configuration)
+      else:
+        logging.info('No need to re-run test "%s" in configuration "%s".',
+                     self._name, configuration)
+
+    if need_to_run:
+      self._Run(configuration)
+
     self._MakeSuccessFile(configuration)
 
   def _GetOptParser(self):
@@ -110,6 +129,9 @@ class Test(object):
                            'this test. This option may be invoked multiple '
                            'times. If not specified, defaults to '
                            '["Debug", "Release"].')
+    parser.add_option('-f', '--force', dest='force',
+                      action='store_true', default=False,
+                      help='Force tests to re-run even if not necessary.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
                       const=logging.INFO, default=logging.WARNING,
                       help='Run the script with verbose logging.')
@@ -128,7 +150,7 @@ class Test(object):
     result = 0
     for config in set(options.configs):
       try:
-        self.Run(config)
+        self.Run(config, force=options.force)
       except:
         logging.exception('Configuration "%s" of test "%s" failed.',
                           config, self._name)
@@ -190,4 +212,5 @@ class TestSuite(Test):
     tests, generating a global success file upon completion of them all.
     If any test fails, raises an exception."""
     for test in self._tests:
-      test.Run(configuration)
+      # If we're being forced, force our children as well!
+      test.Run(configuration, force=self._force)
