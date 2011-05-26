@@ -37,9 +37,12 @@
     },
     {
       # The XP version of this executable needs to build against the VSS SDK.
-      # We bring this about by changing the include and library settings for
-      # this target. Note, however that this needs the VSS SDK to be installed
-      # in the default location at C:\Program Files (x86)\Microsoft\VSSSDK72.
+      # We bring this about by prepending the the VSS SDKs to the include and
+      # library paths for this target.
+      # Note, however that this needs the VSS SDK to be present in
+      # ..\..\third_party\vsssdk72\files. If the VSS SDK is not present
+      # there, the binary produced will be identical to the run_in_snapshot
+      # binary, and will not successfully run on Windows XP.
       'target_name': 'run_in_snapshot_xp',
       'type': 'executable',
       'sources': [
@@ -53,13 +56,13 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalIncludeDirectories': [
-            'C:\Program Files (x86)\Microsoft\VSSSDK72\inc\winxp',
+          'AdditionalIncludeDirectories+': [
+            '<(DEPTH)/third_party/vsssdk72/files/inc/winxp',
           ],
         },
         'VCLinkerTool': {
-          'AdditionalLibraryDirectories': [
-            'C:\Program Files (x86)\Microsoft\VSSSDK72\lib\winxp\obj\i386',
+          'AdditionalLibraryDirectories+': [
+            '<(DEPTH)/third_party/vsssdk72/files/lib/winxp/obj/i386',
           ],
           'AdditionalDependencies': [
             'vssapi.lib',
