@@ -28,5 +28,5 @@ int main(int argc, char** argv) {
   base::AtExitManager at_exit;
   CommandLine::Init(argc, argv);
 
-  RUN_ALL_TESTS();
+  return RUN_ALL_TESTS();
 }
