@@ -50,7 +50,7 @@ BasicBlockDisassembler::BasicBlockDisassembler(
   }
 }
 
-void BasicBlockDisassembler::OnBranchInstruction(
+Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
     const AbsoluteAddress& addr,
     const _DInst& inst,
     const AbsoluteAddress& dest) {
@@ -66,29 +66,39 @@ void BasicBlockDisassembler::OnBranchInstruction(
     }
   }
 
+  CallbackDirective result = kDirectiveContinue;
+
   // TODO(robertshield): Since we're dealing with a conditional jump, this
   // basic block should have two descendants, the target and the next
   // instruction. Represent that somehow.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
-  InsertBlockRange(current_block_start_,
-                   basic_block_size,
-                   BlockGraph::BASIC_CODE_BLOCK);
-  current_block_start_ += basic_block_size;
+  if (InsertBlockRange(current_block_start_,
+                       basic_block_size,
+                       BlockGraph::BASIC_CODE_BLOCK)) {
+    current_block_start_ += basic_block_size;
+  } else {
+    result = kDirectiveAbort;
+  }
+
+  return result;
 }
 
 // Called every time disassembly is started from a new address. Will be
 // called for at least every address in unvisited_.
-void BasicBlockDisassembler::OnStartInstructionRun(
+Disassembler::CallbackDirective BasicBlockDisassembler::OnStartInstructionRun(
     const AbsoluteAddress& start_address) {
   // The address of the beginning of the current basic block.
   current_block_start_ = start_address;
+  return kDirectiveContinue;
 }
 
 // Called when a walk from a given entry point has terminated or when
 // a conditional branch has been found.
-void BasicBlockDisassembler::OnEndInstructionRun(
+Disassembler::CallbackDirective BasicBlockDisassembler::OnEndInstructionRun(
     const AbsoluteAddress& addr,
     const _DInst& inst) {
+  CallbackDirective result = kDirectiveContinue;
+
   // We've reached the end of the current walk or we handled a conditional
   // branch. Let's mark this as the end of a basic block.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
@@ -96,16 +106,21 @@ void BasicBlockDisassembler::OnEndInstructionRun(
     // We may get an end-of-run notification on a branch instruction in which
     // case we will already have closed the block. Only close one here if we're
     // actually in a new run.
-    InsertBlockRange(current_block_start_,
-                     basic_block_size,
-                     BlockGraph::BASIC_CODE_BLOCK);
-    current_block_start_ += basic_block_size;
+    if (InsertBlockRange(current_block_start_,
+                         basic_block_size,
+                         BlockGraph::BASIC_CODE_BLOCK)) {
+      current_block_start_ += basic_block_size;
+    } else {
+      result = kDirectiveAbort;
+    }
   }
+  return result;
 }
 
 // Called when disassembly is complete and no further entry points remain
 // to disassemble from.
-void BasicBlockDisassembler::OnDisassemblyComplete() {
+Disassembler::CallbackDirective
+BasicBlockDisassembler::OnDisassemblyComplete() {
   // When we get here, we should have carved out basic blocks for all visited
   // code. There are two fixups we now need to do:
   // 1) We may not have covered some ranges of the macro block. For all such
@@ -113,18 +128,23 @@ void BasicBlockDisassembler::OnDisassemblyComplete() {
   // 2) Some basic blocks may have jump targets into them somewhere in the
   //    middle. These blocks must be broken up such that all jump targets only
   //    hit the beginning of a basic block.
+  CallbackDirective result = kDirectiveContinue;
 
   if (!basic_block_address_space_.empty()) {
-    // Fill in all the interstitials with data basic blocks.
-    FillInGapBlocks();
-
-    // Now we need to break up the basic blocks that are jumped into.
-    SplitBlockOnJumpTargets(jump_targets_);
+    // Fill in all the interstitials with data basic blocks, then break up the
+    // basic blocks that are jumped into.
+    if (!FillInGapBlocks() ||
+        !SplitBlockOnJumpTargets(jump_targets_)) {
+      LOG(ERROR) << "Failed to fix up basic block ranges.";
+      result = kDirectiveAbort;
+    }
   } else {
     // Huh, no code blocks. Add one giant "basic" block, let's call it data.
-    InsertBlockRange(code_addr_,
-                     code_size_,
-                     BlockGraph::BASIC_DATA_BLOCK);
+    if (!InsertBlockRange(code_addr_,
+                          code_size_,
+                          BlockGraph::BASIC_DATA_BLOCK)) {
+      result = kDirectiveAbort;
+    }
   }
 
 #ifndef NDEBUG
@@ -132,8 +152,11 @@ void BasicBlockDisassembler::OnDisassemblyComplete() {
   // macro block. Verify that this is so.
   if (!ValidateBasicBlockCoverage()) {
     NOTREACHED() << "Incomplete basic block coverage during disassembly.";
+    result = kDirectiveAbort;
   }
 #endif
+
+  return result;
 }
 
 bool BasicBlockDisassembler::ValidateBasicBlockCoverage() const {
@@ -153,24 +176,29 @@ bool BasicBlockDisassembler::ValidateBasicBlockCoverage() const {
   return valid;
 }
 
-void BasicBlockDisassembler::InsertBlockRange(
+bool BasicBlockDisassembler::InsertBlockRange(
     const AbsoluteAddress& addr,
     size_t size,
     BlockGraph::BlockType type) {
   Range range(addr, size);
+  bool success = true;
   if (!basic_block_address_space_.Insert(
            range,
            BlockGraph::Block(next_block_id_++,
                              type,
                              size,
                              containing_block_name_.c_str()))) {
-    NOTREACHED() << "Attempted to insert overlapping basic block.";
+    LOG(DFATAL) << "Attempted to insert overlapping basic block.";
+    success = false;
   }
+  return success;
 }
 
 // TODO(robertshield): This currently marks every non-walked block as data. It
 // could be smarter and mark some as padding blocks as well. Fix this.
-void BasicBlockDisassembler::FillInGapBlocks() {
+bool BasicBlockDisassembler::FillInGapBlocks() {
+  bool success = true;
+
   // Fill in the interstitial ranges.
   RangeMapConstIter curr_range(basic_block_address_space_.begin());
 
@@ -181,13 +209,18 @@ void BasicBlockDisassembler::FillInGapBlocks() {
   if (curr_range->first.start() > code_addr_) {
     size_t interstitial_size =
         curr_range->first.start() - code_addr_;
-    InsertBlockRange(code_addr_,
-                     interstitial_size,
-                     BlockGraph::BASIC_DATA_BLOCK);
+    if (!InsertBlockRange(code_addr_,
+                          interstitial_size,
+                          BlockGraph::BASIC_DATA_BLOCK)) {
+      LOG(ERROR) << "Failed to insert initial gap block at "
+                 << code_addr_.value();
+      success = false;
+    }
   }
 
   // Handle all remaining gaps, including the end.
-  for (; curr_range != basic_block_address_space_.end(); ++curr_range) {
+  for (; success && curr_range != basic_block_address_space_.end();
+       ++curr_range) {
     RangeMapConstIter next_range = curr_range;
     ++next_range;
     AbsoluteAddress curr_range_end = curr_range->first.start() +
@@ -203,26 +236,33 @@ void BasicBlockDisassembler::FillInGapBlocks() {
     }
 
     if (interstitial_size > 0) {
-      InsertBlockRange(curr_range_end,
-                       interstitial_size,
-                       BlockGraph::BASIC_DATA_BLOCK);
+      if (!InsertBlockRange(curr_range_end,
+                            interstitial_size,
+                            BlockGraph::BASIC_DATA_BLOCK)) {
+        LOG(ERROR) << "Failed to insert gap block at "
+                   << curr_range_end.value();
+        success = false;
+      }
     }
   }
+
+  return success;
 }
 
-void BasicBlockDisassembler::SplitBlockOnJumpTargets(
+bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
     const AddressSet& jump_targets) {
+  bool success = true;
   AddressSet::const_iterator jump_target_iter(jump_targets_.begin());
-  for (; jump_target_iter != jump_targets_.end(); ++jump_target_iter) {
+  for (; success && jump_target_iter != jump_targets_.end();
+       ++jump_target_iter) {
     Range find_range(*jump_target_iter, 1);
     RangeMapIter containing_range_iter(
         basic_block_address_space_.FindFirstIntersection(find_range));
 
     if (containing_range_iter == basic_block_address_space_.end()) {
-      // TODO(robertshield): Handle this error by propagating a failure
-      // up to the disassembler.
-      NOTREACHED() << "Found out of bounds jump target.";
-      continue;
+      LOG(ERROR) << "Found out of bounds jump target.";
+      success = false;
+      break;
     }
 
     // Two possible cases:
@@ -245,14 +285,19 @@ void BasicBlockDisassembler::SplitBlockOnJumpTargets(
 
       Range containing_range(containing_range_iter->first);
       basic_block_address_space_.Remove(containing_range_iter);
-      InsertBlockRange(containing_range.start(),
-                       left_split_size,
-                       original_type);
-      InsertBlockRange(*jump_target_iter,
-                       containing_range.size() - left_split_size,
-                       original_type);
+      if (!InsertBlockRange(containing_range.start(),
+                            left_split_size,
+                            original_type) ||
+          !InsertBlockRange(*jump_target_iter,
+                            containing_range.size() - left_split_size,
+                            original_type)) {
+        LOG(ERROR) << "Failed to insert block splits.";
+        success = false;
+      }
     }
   }
+
+  return success;
 }
 
 }  // namespace core

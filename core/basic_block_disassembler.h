@@ -89,29 +89,32 @@ class BasicBlockDisassembler : public Disassembler {
 
  protected:
   // Overrides from Disassembler. See disassembler.h for comments.
-  virtual void OnBranchInstruction(const AbsoluteAddress& addr,
-                                   const _DInst& inst,
-                                   const AbsoluteAddress& dest);
-  virtual void OnStartInstructionRun(const AbsoluteAddress& start_address);
-  virtual void OnEndInstructionRun(const AbsoluteAddress& addr,
-                                   const _DInst& inst);
-  virtual void OnDisassemblyComplete();
+  virtual CallbackDirective OnBranchInstruction(const AbsoluteAddress& addr,
+                                                const _DInst& inst,
+                                                const AbsoluteAddress& dest);
+  virtual CallbackDirective OnStartInstructionRun(
+      const AbsoluteAddress& start_address);
+  virtual CallbackDirective OnEndInstructionRun(const AbsoluteAddress& addr,
+                                                const _DInst& inst);
+  virtual CallbackDirective OnDisassemblyComplete();
 
   // Fills in all gaps in the range
   // [code_addr_, code_addr_ + code_size_[ with data basic blocks.
-  void FillInGapBlocks();
+  // @returns true on success.
+  bool FillInGapBlocks();
 
   // For every range in @p basic_block_ranges that contains an address in
   // @p jump_targets (not counting addresses that point to the beginning of the
   // range), split that range in two.
-  void SplitBlockOnJumpTargets(const AddressSet& jump_targets);
+  // @returns true on success.
+  bool SplitBlockOnJumpTargets(const AddressSet& jump_targets);
 
   // Returns true if basic_block_ranges_ fully covers the macro block with
   // no gaps or overlap.
   bool ValidateBasicBlockCoverage() const;
 
   // Inserts a range and associated block into @p basic_block_ranges.
-  void InsertBlockRange(const AbsoluteAddress& addr,
+  bool InsertBlockRange(const AbsoluteAddress& addr,
                         size_t size,
                         BlockGraph::BlockType type);
 

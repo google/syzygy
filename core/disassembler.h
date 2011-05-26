@@ -109,21 +109,29 @@ class Disassembler {
   // @param dest is the destination address of the branch instruction.
   // @param addr is the address of the branch instruction itself.
   // @param inst is the disassembled instruction data.
-  virtual void OnBranchInstruction(const AbsoluteAddress& addr,
-                                   const _DInst& inst,
-                                   const AbsoluteAddress& dest);
+  // @returns kWalkContinue on succcess or kWalkError on failure.
+  virtual CallbackDirective OnBranchInstruction(const AbsoluteAddress& addr,
+                                                const _DInst& inst,
+                                                const AbsoluteAddress& dest);
 
   // Called every time disassembly is started from a new address. Will be
   // called at least once if unvisited_ is non-empty.
-  virtual void OnStartInstructionRun(const AbsoluteAddress& start_address);
+  // @param start_address denotes the beginning of the instruction run.
+  // @returns kWalkContinue on succcess or kWalkError on failure.
+  virtual CallbackDirective OnStartInstructionRun(
+      const AbsoluteAddress& start_address);
 
   // Called on every disassembled instruction.
-  virtual void OnEndInstructionRun(const AbsoluteAddress& addr,
-                                   const _DInst& inst);
+  // @param addr is the address of the instruction that terminates the run.
+  // @param inst is the terminating instruction.
+  // @returns kWalkContinue on succcess or kWalkError on failure.
+  virtual CallbackDirective OnEndInstructionRun(const AbsoluteAddress& addr,
+                                                const _DInst& inst);
 
   // Called when disassembly is complete and no further entry points remain
   // to disassemble from.
-  virtual void OnDisassemblyComplete();
+  // @returns kWalkContinue on succcess or kWalkError on failure.
+  virtual CallbackDirective OnDisassemblyComplete();
 
   // @return true iff the range [addr ... addr + len) is in the function.
   bool IsInBlock(AbsoluteAddress addr) const;

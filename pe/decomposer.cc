@@ -1882,21 +1882,21 @@ bool Decomposer::LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
 
 bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
   DCHECK(image_);
-  const BlockGraph::BlockMap& all_blocks = image_->graph()->blocks();
-  BlockGraph::BlockMap::const_iterator block_iter = all_blocks.begin();
+  BlockGraph::AddressSpace::RangeMapConstIter block_iter = image_->begin();
 
   BlockGraph& basic_blocks = decomposed_image->basic_block_graph;
   BlockGraph::AddressSpace* basic_blocks_image =
       &decomposed_image->basic_block_address_space;
   DCHECK(basic_blocks_image);
 
-  for (; block_iter != all_blocks.end(); ++block_iter) {
-    const BlockGraph::Block* block = &block_iter->second;
+  bool success = true;
+  for (; block_iter != image_->end(); ++block_iter) {
+    const BlockGraph::Block* block = block_iter->second;
     const BlockGraph::Block::ReferenceMap& ref_map = block->references();
     RelativeAddress block_addr;
     if (!image_->GetAddressOf(block, &block_addr)) {
-      LOG(ERROR) << "Block " << block->name() << " has no address, "
-                 << block->addr() << ":" << block->size();
+      LOG(DFATAL) << "Block " << block->name() << " has no address, "
+                  << block->addr() << ":" << block->size();
       // Expect this to be the result of a merge?
       continue;
     }
@@ -1944,7 +1944,8 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
                                     on_basic_instruction.get());
       Disassembler::WalkResult result = disasm.Walk();
 
-      if (result == Disassembler::kWalkSuccess) {
+      if (result == Disassembler::kWalkSuccess ||
+          result == Disassembler::kWalkIncomplete) {
         BasicBlockDisassembler::BBAddressSpace basic_blocks(
             disasm.GetBasicBlockRanges());
 
@@ -1963,11 +1964,16 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
               iter->first.size(),    // Range size
               iter->second.name());  // Block name
         }
+      } else {
+        LOG(ERROR) << "Failed to disassemble block at "
+                   << abs_block_addr.value();
+        success = false;
+        break;
       }
     }
   }
 
-  return true;
+  return success;
 }
 
 bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,

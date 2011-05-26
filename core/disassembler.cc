@@ -46,21 +46,30 @@ Disassembler::Disassembler(const uint8* code,
     Unvisited(*it);
 }
 
-Disassembler::~Disassembler() {}
-
-void Disassembler::OnBranchInstruction(const AbsoluteAddress& addr,
-                                       const _DInst& inst,
-                                       const AbsoluteAddress& dest) {
+Disassembler::~Disassembler() {
 }
 
-void Disassembler::OnStartInstructionRun(const AbsoluteAddress& start_address) {
+Disassembler::CallbackDirective Disassembler::OnBranchInstruction(
+    const AbsoluteAddress& addr,
+    const _DInst& inst,
+    const AbsoluteAddress& dest) {
+  return kDirectiveContinue;
 }
 
-void Disassembler::OnEndInstructionRun(const AbsoluteAddress& addr,
-                                       const _DInst& inst) {
+Disassembler::CallbackDirective Disassembler::OnStartInstructionRun(
+    const AbsoluteAddress& start_address) {
+  return kDirectiveContinue;
 }
 
-void Disassembler::OnDisassemblyComplete() {}
+Disassembler::CallbackDirective Disassembler::OnEndInstructionRun(
+    const AbsoluteAddress& addr,
+    const _DInst& inst) {
+  return kDirectiveContinue;
+}
+
+Disassembler::CallbackDirective Disassembler::OnDisassemblyComplete() {
+  return kDirectiveContinue;
+}
 
 Disassembler::WalkResult Disassembler::Walk() {
   // Initialize our disassembly state.
@@ -77,7 +86,8 @@ Disassembler::WalkResult Disassembler::Walk() {
     unvisited_.erase(it);
 
     // Notify of the beginning of a new instruction run.
-    OnStartInstructionRun(addr);
+    if (OnStartInstructionRun(addr) == kDirectiveAbort)
+      return kWalkError;
 
     // This continues disassembly along a contiguous instruction run until we
     // run out of code, jump somewhere else, or are requested to terminate the
@@ -188,7 +198,8 @@ Disassembler::WalkResult Disassembler::Walk() {
             }
 
             // Notify of a newly-discovered branch destination.
-            OnBranchInstruction(addr, inst, dest);
+            if (OnBranchInstruction(addr, inst, dest) == kDirectiveAbort)
+              return kWalkError;
 
             if (dest == AbsoluteAddress(0)) {
               // We couldn't compute the destination, if not handled,
@@ -212,11 +223,13 @@ Disassembler::WalkResult Disassembler::Walk() {
 
     // Notify that we are terminating an instruction run. Note that we have to
     // back up the address by the last instruction size.
-    OnEndInstructionRun(addr - inst.size, inst);
+    if (OnEndInstructionRun(addr - inst.size, inst) == kDirectiveAbort)
+      return kWalkError;
   }
 
   // Notify when we've completed disassembly.
-  OnDisassemblyComplete();
+  if (OnDisassemblyComplete() == kDirectiveAbort)
+    return kWalkError;
 
   // If we covered every byte in the function, we don't
   // care that we didn't chase all computed branches.
