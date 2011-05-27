@@ -26,7 +26,14 @@ void OrderRelinker::set_order_file(const FilePath& order_file_path) {
   order_file_path_ = order_file_path;
 }
 
-bool OrderRelinker::ReorderSection(const IMAGE_SECTION_HEADER& section) {
+bool OrderRelinker::SetupOrdering(Reorderer::Order& order) {
+  DCHECK(!order_file_path_.empty());
+  return order.LoadFromJSON(order_file_path_);
+}
+
+bool OrderRelinker::ReorderSection(size_t section_index,
+                                   const IMAGE_SECTION_HEADER& section,
+                                   const Reorderer::Order& order) {
   // TODO(rogerm) We should try to preserve the location of a block as
   //     being inside the initialized or unitilialized part of the section.
   //     For now, we punt by simply making the entire section initialized,
@@ -34,44 +41,36 @@ bool OrderRelinker::ReorderSection(const IMAGE_SECTION_HEADER& section) {
   //     originate in the unitialized part of the section.
   DCHECK(!order_file_path_.empty());
 
-  std::string file_string;
-  if (!file_util::ReadFileToString(order_file_path_, &file_string)) {
-    LOG(ERROR) << "Unable to read order file to string";
-    return false;
-  }
+  Reorderer::Order::BlockListMap::const_iterator section_iter =
+      order.section_block_lists.find(section_index);
 
-  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
-  ListValue* order;
-  if (value.get() == NULL || !value->GetAsList(&order)) {
-    LOG(ERROR) << "Order file does not contain a valid JSON list";
+  if (section_iter == order.section_block_lists.end()) {
+    LOG(ERROR) << "No ordering found for section " << section_index << ".";
     return false;
   }
 
   RelativeAddress section_start = builder().next_section_address();
   RelativeAddress insert_at = section_start;
-  std::set<BlockGraph::Block*> inserted_blocks;
+  std::set<const BlockGraph::Block*> inserted_blocks;
 
   // Insert the ordered blocks into the new address space.
-  ListValue::iterator iter = order->begin();
-  for (; iter != order->end(); ++iter) {
-    int address;
-    if (!(*iter)->GetAsInteger(&address)) {
-      LOG(ERROR) << "Unable to read address value from order list";
-      return false;
-    }
+  const Reorderer::Order::BlockList& block_order = section_iter->second;
+  Reorderer::Order::BlockList::const_iterator block_iter = block_order.begin();
+  for (; block_iter != block_order.end(); ++block_iter) {
+    const BlockGraph::Block* block = *block_iter;
 
-    BlockGraph::Block* block = original_addr_space().GetBlockByAddress(
-        RelativeAddress(address));
-    if (!block) {
-      LOG(ERROR) << "Unable to get block at address " << address;
-      return false;
-    }
-    // Two separate RVAs may point to the same block, so make sure we only
-    // insert each block once.
-    if (inserted_blocks.find(block) != inserted_blocks.end())
+    // The ordering file shouldn't list a given block twice. But let's not
+    // take anybody's word on that!
+    if (inserted_blocks.find(block) != inserted_blocks.end()) {
+      LOG(WARNING) << "Ordering lists " << block->name() << " multiple times.";
       continue;
+    }
 
-    if (!builder().address_space().InsertBlock(insert_at, block)) {
+    // Need to cast away constness to insert the block into the builder's
+    // address space.  We "know" that the builder isn't going to add
+    // any new references to the block at this point.
+    if (!builder().address_space().InsertBlock(
+            insert_at, const_cast<BlockGraph::Block*>(block))) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
           << insert_at;
     }

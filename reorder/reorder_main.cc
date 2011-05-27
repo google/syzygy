@@ -126,7 +126,8 @@ int main(int argc, char** argv) {
   }
 
   LinearOrderGenerator linear_order_generator;
-  reorder::Reorderer::Order order;
+  pe::Decomposer::DecomposedImage decomposed;
+  reorder::Reorderer::Order order(decomposed);
   Reorderer reorderer(input_dll_path,
                       instrumented_dll_path,
                       trace_paths,

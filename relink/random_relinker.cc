@@ -53,7 +53,14 @@ void RandomRelinker::set_seed(int seed) {
   seed_ = seed;
 }
 
-bool RandomRelinker::ReorderSection(const IMAGE_SECTION_HEADER& section) {
+bool RandomRelinker::SetupOrdering(Reorderer::Order& /*order*/) {
+  // Nothing to do.
+  return true;
+}
+
+bool RandomRelinker::ReorderSection(size_t /*section_index*/,
+                                    const IMAGE_SECTION_HEADER& section,
+                                    const Reorderer::Order& /*order*/ ) {
   // TODO(rogerm) We need to make sure we preserve the location of a block as
   //     being inside the initialized or unitilialized part of the section.
   //     For now, we punt by simply making the entire section initialized,

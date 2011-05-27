@@ -56,7 +56,13 @@ class OffsetRelinker : public Relinker {
   }
 
  private:
-  bool ReorderSection(const IMAGE_SECTION_HEADER& section) {
+  bool SetupOrdering(Reorderer::Order& /*order*/) {
+    // Nothing to do.
+    return true;
+  }
+  bool ReorderSection(size_t /*section_index*/,
+                      const IMAGE_SECTION_HEADER& section,
+                      const Reorderer::Order& /*order*/) {
     // Create a dummy section to offset the original section.
     std::string section_name("o");
     section_name.append(GetSectionName(section));
