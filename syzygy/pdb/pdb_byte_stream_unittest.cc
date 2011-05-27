@@ -30,19 +30,25 @@ class TestPdbByteStream : public PdbByteStream {
 
 class TestPdbStream : public PdbStream {
  public:
-  explicit TestPdbStream(int length) : PdbStream(length) {
+  explicit TestPdbStream(size_t length) : PdbStream(length) {
   }
 
  protected:
-  int ReadBytes(void* dest, int count) {
-    if (pos() == length())
-      return 0;
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+    DCHECK(dest != NULL);
+    DCHECK(bytes_read != NULL);
+
+    if (pos() == length()) {
+      bytes_read = 0;
+      return true;
+    }
 
     count = std::min(count, length() - pos());
     memset(dest, 0xFF, count);
     Seek(pos() + count);
+    *bytes_read = count;
 
-    return count;
+    return true;
   }
 };
 
@@ -56,9 +62,9 @@ TEST(PdbByteStreamTest, InitFromByteArray) {
   EXPECT_EQ(arraysize(data), stream.length());
   EXPECT_TRUE(stream.data() != NULL);
 
-  for (int i = 0; i < stream.length(); ++i) {
+  for (size_t i = 0; i < stream.length(); ++i) {
     uint8 num = 0;
-    EXPECT_EQ(1, stream.Read(&num, 1));
+    EXPECT_TRUE(stream.Read(&num, 1));
     EXPECT_EQ(data[i], num);
   }
 }
@@ -71,15 +77,15 @@ TEST(PdbByteStreamTest, InitFromPdbStream) {
   EXPECT_EQ(test_stream.length(), stream.length());
   EXPECT_TRUE(stream.data() != NULL);
 
-  for (int i = 0; i < stream.length(); ++i) {
+  for (size_t i = 0; i < stream.length(); ++i) {
     uint8 num = 0;
-    EXPECT_EQ(1, stream.Read(&num, 1));
+    EXPECT_TRUE(stream.Read(&num, 1));
     EXPECT_EQ(0xFF, num);
   }
 }
 
 TEST(PdbByteStreamTest, ReadBytes) {
-  int len = 17;
+  size_t len = 17;
   TestPdbStream test_stream(len);
 
   TestPdbByteStream stream;
@@ -88,7 +94,8 @@ TEST(PdbByteStreamTest, ReadBytes) {
   int total_bytes = 0;
   while (true) {
     uint8 buffer[4];
-    int bytes_read = stream.ReadBytes(buffer, sizeof(buffer));
+    size_t bytes_read = 0;
+    EXPECT_TRUE(stream.ReadBytes(buffer, sizeof(buffer), &bytes_read));
     if (bytes_read == 0)
       break;
     total_bytes += bytes_read;

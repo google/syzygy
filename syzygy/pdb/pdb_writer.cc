@@ -123,8 +123,8 @@ bool PdbWriter::AppendStream(PdbStream* stream, uint32* bytes_written) {
   stream->Seek(0);
   uint8 buffer[1 << 16];
   while (true) {
-    uint32 bytes_read = stream->Read(buffer, sizeof(buffer));
-    if (bytes_read == -1) {
+    size_t bytes_read = 0;
+    if (!stream->ReadBytes(buffer, sizeof(buffer), &bytes_read)) {
       LOG(ERROR) << "Error reading from pdb stream";
       return false;
     } else if (bytes_read == 0) {

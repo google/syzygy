@@ -26,50 +26,47 @@ namespace pdb {
 // allows invoking successive reads through the stream and seeking.
 class PdbStream {
  public:
-  explicit PdbStream(int length);
+  explicit PdbStream(size_t length);
   virtual ~PdbStream();
 
-  // Reads @p count chunks of size @p size into the destination buffer. The
-  // caller is responsible for ensuring that the destination buffer has enough
-  // space to receive the data.
-  // @returns the number of chunks of size @p size read on success, 0 when the
-  // end of the stream is reached, or -1 on error.
+  // Reads @p count chunks of size sizeof(ItemType) into the destination buffer.
+  // The caller is responsible for ensuring that the destination buffer has
+  // enough space to receive the data.
+  // @returns true on success.
   template <typename ItemType>
-  int Read(ItemType* dest, int count) {
-    int size = sizeof(ItemType);
-    int bytes_read = ReadBytes(dest, size * count);
-    if (bytes_read == -1)
-      return -1;
+  bool Read(ItemType* dest, size_t count) {
+    DCHECK(dest != NULL);
 
-    DCHECK_EQ(0, bytes_read % size);
-    return bytes_read / size;
+    size_t size = sizeof(ItemType) * count;
+    size_t bytes_read = 0;
+    return ReadBytes(dest, size, &bytes_read) && bytes_read == size;
   }
 
-  // Sets the current read position.
-  bool Seek(int pos);
-
-  // Gets the stream's length.
-  int length() const { return length_; }
-
- protected:
   // Reads @p count bytes of data into the destination buffer. The caller is
   // responsible for ensuring that the destination buffer has enough space to
-  // receive the data. Returns the number of bytes read on success, 0 when the
-  // end of the stream is reached, or -1 on error.
-  virtual int ReadBytes(void* dest, int count) = 0;
+  // receive the data. @p bytes_read will hold the number of bytes read.
+  // @returns true on success.
+  virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) = 0;
 
+  // Sets the current read position.
+  bool Seek(size_t pos);
+
+  // Gets the stream's length.
+  size_t length() const { return length_; }
+
+ protected:
   // Sets the stream's length.
-  void set_length(int length) { length_ = length; }
+  void set_length(size_t length) { length_ = length; }
 
   // Gets the stream's read position.
-  int pos() const { return pos_; }
+  size_t pos() const { return pos_; }
 
  private:
   // The length of the stream.
-  int length_;
+  size_t length_;
 
   // The read position within the stream.
-  int pos_;
+  size_t pos_;
 
   DISALLOW_COPY_AND_ASSIGN(PdbStream);
 };

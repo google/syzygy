@@ -52,15 +52,20 @@ class TestPdbStream : public PdbStream {
   }
 
  protected:
-  int ReadBytes(void* dest, int count) {
-    if (pos() == length())
-      return 0;
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+    DCHECK(bytes_read != NULL);
+
+    if (pos() == length()) {
+      *bytes_read = 0;
+      return true;
+    }
 
     count = std::min(count, length() - pos());
     memset(dest, 0xFF, count);
     Seek(pos() + count);
+    *bytes_read = count;
 
-    return count;
+    return true;
   }
 };
 

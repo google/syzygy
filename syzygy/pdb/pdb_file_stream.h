@@ -25,18 +25,18 @@ namespace pdb {
 class PdbFileStream : public PdbStream {
  public:
   PdbFileStream(FILE* file,
-                int length,
+                size_t length,
                 const uint32* pages,
-                int page_size);
+                size_t page_size);
   ~PdbFileStream();
 
- protected:
   // PdbStream implementation.
-  int ReadBytes(void* dest, int count);
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read);
 
+ protected:
   // Read @p count bytes from @p offset byte offset from page @p page_num and
   // store them in dest.
-  bool ReadFromPage(void* dest, uint32 page_num, int offset, int count);
+  bool ReadFromPage(void* dest, uint32 page_num, size_t offset, size_t count);
 
  private:
   // The handle to the open pdb file. The PdbFileStream does not own this
@@ -48,7 +48,7 @@ class PdbFileStream : public PdbStream {
   const uint32* pages_;
 
   // The size of pages within the stream.
-  int page_size_;
+  size_t page_size_;
 
   DISALLOW_COPY_AND_ASSIGN(PdbFileStream);
 };

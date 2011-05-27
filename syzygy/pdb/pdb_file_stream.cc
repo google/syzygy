@@ -19,9 +19,9 @@
 namespace pdb {
 
 PdbFileStream::PdbFileStream(FILE* file,
-                             int length,
+                             size_t length,
                              const uint32* pages,
-                             int page_size)
+                             size_t page_size)
     : PdbStream(length),
       file_(file),
       pages_(pages),
@@ -31,34 +31,38 @@ PdbFileStream::PdbFileStream(FILE* file,
 PdbFileStream::~PdbFileStream() {
 }
 
-int PdbFileStream::ReadBytes(void* dest, int count) {
+bool PdbFileStream::ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+  DCHECK(dest != NULL);
+  DCHECK(bytes_read != NULL);
+
   // Return 0 once we've reached the end of the stream.
-  if (pos() == length())
-    return 0;
+  if (pos() == length()) {
+    *bytes_read = 0;
+    return true;
+  }
 
   // Don't read beyond the end of the known stream length.
-  if (pos() + count > length())
-    count = length() - pos();
-  size_t bytes_read = count;
+  count = std::min(count, length() - pos());
+  *bytes_read = count;
 
   // Read the stream.
   while (count > 0) {
-    int page_index = pos() / page_size_;
-    int offset = pos() % page_size_;
-    int chunk_size = std::min(count, page_size_ - (pos() % page_size_));
+    size_t page_index = pos() / page_size_;
+    size_t offset = pos() % page_size_;
+    size_t chunk_size = std::min(count, page_size_ - (pos() % page_size_));
     if (!ReadFromPage(dest, pages_[page_index], offset, chunk_size))
-      return -1;
+      return false;
 
     count -= chunk_size;
     Seek(pos() + chunk_size);
     dest = reinterpret_cast<uint8*>(dest) + chunk_size;
   }
 
-  return bytes_read;
+  return true;
 }
 
-bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, int offset,
-                                 int count) {
+bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
+                                 size_t count) {
   DCHECK(dest != NULL);
   DCHECK(offset + count <= page_size_);
 

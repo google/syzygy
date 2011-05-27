@@ -47,7 +47,7 @@ bool PdbReader::Read(const FilePath& pdb_path,
   uint32 header_page = 0;
   PdbFileStream header_stream(file_.get(), sizeof(header_), &header_page,
                               kPdbPageSize);
-  if (header_stream.Read(&header_, 1) != 1) {
+  if (!header_stream.Read(&header_, 1)) {
     LOG(ERROR) << "Failed to read PDB file header";
     return false;
   }
@@ -76,8 +76,7 @@ bool PdbReader::Read(const FilePath& pdb_path,
     LOG(ERROR) << "Failed to allocate directory pages";
     return false;
   }
-  if (dir_page_stream.Read(dir_pages.get(), num_dir_pages)
-      != num_dir_pages) {
+  if (!dir_page_stream.Read(dir_pages.get(), num_dir_pages)) {
     LOG(ERROR) << "Failed to read directory page stream";
     return false;
   }
@@ -91,7 +90,7 @@ bool PdbReader::Read(const FilePath& pdb_path,
     LOG(ERROR) << "Failed to allocate directory";
     return false;
   }
-  if (dir_stream.Read(directory_.get(), dir_size) != dir_size) {
+  if (!dir_stream.Read(directory_.get(), dir_size)) {
     LOG(ERROR) << "Failed to read directory stream";
     return false;
   }

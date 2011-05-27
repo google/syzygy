@@ -124,14 +124,14 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
 
   PdbStream* dbi_stream = streams[kDbiStream];
   DbiHeader dbi_header;
-  EXPECT_EQ(1, dbi_stream->Read(&dbi_header, 1));
+  EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
 
   uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
   EXPECT_TRUE(dbi_stream->Seek(offset));
   DbiDbgHeader dbi_dbg_header;
-  EXPECT_EQ(1, dbi_stream->Read(&dbi_dbg_header, 1));
+  EXPECT_TRUE(dbi_stream->Read(&dbi_dbg_header, 1));
 
   EXPECT_EQ(-1, dbi_dbg_header.omap_to_src);
   EXPECT_EQ(-1, dbi_dbg_header.omap_from_src);
@@ -145,14 +145,14 @@ TEST_F(PdbUtilTest, DISABLED_GetDbiDbgHeaderOffsetKernel32) {
 
   PdbStream* dbi_stream = streams[kDbiStream];
   DbiHeader dbi_header;
-  EXPECT_EQ(1, dbi_stream->Read(&dbi_header, 1));
+  EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
 
   uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
   EXPECT_TRUE(dbi_stream->Seek(offset));
   DbiDbgHeader dbi_dbg_header;
-  EXPECT_EQ(1, dbi_stream->Read(&dbi_dbg_header, 1));
+  EXPECT_TRUE(dbi_stream->Read(&dbi_dbg_header, 1));
 
   EXPECT_NE(-1, dbi_dbg_header.omap_to_src);
   EXPECT_NE(-1, dbi_dbg_header.omap_from_src);

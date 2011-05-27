@@ -27,17 +27,16 @@ class PdbByteStream : public PdbStream {
   ~PdbByteStream();
 
   // Initializes the stream from the contents of a byte array.
-  bool Init(const uint8* data, int length);
+  bool Init(const uint8* data, size_t length);
 
   // Initializes the stream from the contents of another PdbStream.
   bool Init(PdbStream* stream);
 
+  // PdbStream implementation.
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read);
+
   // Gets the stream's data pointer.
   uint8* data() { return data_.get(); }
-
- protected:
-  // PdbStream implementation.
-  int ReadBytes(void* dest, int count);
 
  private:
   // The stream's data.

@@ -14,15 +14,22 @@
 
 #include "syzygy/pdb/pdb_stream.h"
 
+namespace {
+
+const size_t kInvalidLength = 0xFFFFFFFF;
+
+}  // namespace
+
 namespace pdb {
 
-PdbStream::PdbStream(int length) : length_(length), pos_(0) {
+PdbStream::PdbStream(size_t length)
+    : length_(length == kInvalidLength ? 0 : length), pos_(0) {
 }
 
 PdbStream::~PdbStream() {
 }
 
-bool PdbStream::Seek(int pos) {
+bool PdbStream::Seek(size_t pos) {
   if (pos > length_)
     return false;
 
