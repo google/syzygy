@@ -336,6 +336,7 @@ bool Relinker::Relink(const FilePath& input_dll_path,
       if (!ReorderSection(section)) {
         LOG(ERROR) << "Unable to reorder the '" << GetSectionName(section)
             << "' section.";
+        return false;
       }
     } else {
       if (!CopySection(section)) {
@@ -360,6 +361,7 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   // Finalize the headers and write the image and pdb.
   if (!FinalizeImageHeaders(decomposed.header)) {
     LOG(ERROR) << "Unable to finalize image headers.";
+    return false;
   }
 
   // Write the new PE Image file.
