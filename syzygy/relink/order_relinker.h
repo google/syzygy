@@ -28,8 +28,11 @@ class OrderRelinker : public Relinker {
  private:
   DISALLOW_COPY_AND_ASSIGN(OrderRelinker);
 
-  // Over-rides base class method.
-  bool ReorderSection(const IMAGE_SECTION_HEADER& section);
+  // Overrides for base class methods.
+  bool SetupOrdering(Reorderer::Order& order);
+  bool ReorderSection(size_t section_index,
+                      const IMAGE_SECTION_HEADER& section,
+                      const Reorderer::Order& order);
 
   // The JSON encoded file with the new ordering.
   FilePath order_file_path_;

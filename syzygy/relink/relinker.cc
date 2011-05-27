@@ -329,11 +329,17 @@ bool Relinker::Relink(const FilePath& input_dll_path,
     return false;
   }
 
+  Reorderer::Order order(decomposed);
+  if (!SetupOrdering(order)) {
+    LOG(ERROR) << "Unable to setup the ordering.";
+    return false;
+  }
+
   // Reorder code sections and copy non-code sections.
   for (size_t i = 0; i < original_num_sections() - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = original_sections()[i];
     if (IsReorderable(section)) {
-      if (!ReorderSection(section)) {
+      if (!ReorderSection(i, section, order)) {
         LOG(ERROR) << "Unable to reorder the '" << GetSectionName(section)
             << "' section.";
         return false;

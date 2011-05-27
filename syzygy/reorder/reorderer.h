@@ -165,8 +165,12 @@ class Reorderer
 
 // Stores order information.
 struct Reorderer::Order {
+
+  // Constructor just sets the image reference.
+  explicit Order(DecomposedImage& i) : image(i) {}
+
   // Stores the decomposed image associated with the DLL to reorder.
-  DecomposedImage image;
+  DecomposedImage& image;
 
   // An ordering of blocks. This list need not be exhaustive, but each
   // block should only appear once within it. We currently constrain ourselves

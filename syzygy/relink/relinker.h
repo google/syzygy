@@ -19,6 +19,7 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_parser.h"
+#include "syzygy/reorder/reorderer.h"
 
 #include <base/scoped_ptr.h>
 
@@ -32,6 +33,7 @@ class RelinkerBase {
   typedef pe::PEFileBuilder PEFileBuilder;
   typedef pe::PEFileParser PEFileParser;
   typedef pe::Decomposer Decomposer;
+  typedef reorder::Reorderer Reorderer;
 
   RelinkerBase();
   virtual ~RelinkerBase();
@@ -128,9 +130,14 @@ class Relinker : public RelinkerBase {
   // reordered.
   virtual bool IsReorderable(const IMAGE_SECTION_HEADER& section);
 
+  // Performs whatever custom initialization of the order that it required.
+  virtual bool SetupOrdering(Reorderer::Order& order) = 0;
+
   // Function to be overridden by subclasses so that each subclass can have its
   // own reordering implementation.
-  virtual bool ReorderSection(const IMAGE_SECTION_HEADER& section) = 0;
+  virtual bool ReorderSection(size_t section_index,
+                              const IMAGE_SECTION_HEADER& section,
+                              const Reorderer::Order& order) = 0;
 
   // Updates the debug information in the debug directory with our new GUID.
   bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block);
