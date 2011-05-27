@@ -119,8 +119,10 @@ TEST_F(PdbFileStreamTest, ReadBytes) {
     for (uint32 j = 0; j < arraysize(test_cases); ++j) {
       char* test_case = test_cases[j];
       size_t len = strlen(test_case);
-      EXPECT_EQ(len, stream.ReadBytes(&buffer, len));
+      size_t bytes_read = 0;
+      EXPECT_TRUE(stream.ReadBytes(&buffer, len, &bytes_read));
       EXPECT_EQ(0, memcmp(buffer, test_case, len));
+      EXPECT_EQ(len, bytes_read);
     }
   }
 }

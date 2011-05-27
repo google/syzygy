@@ -25,7 +25,7 @@ PdbByteStream::PdbByteStream() : PdbStream(0) {
 PdbByteStream::~PdbByteStream() {
 }
 
-bool PdbByteStream::Init(const uint8* data, int length) {
+bool PdbByteStream::Init(const uint8* data, size_t length) {
   set_length(length);
   data_.reset(new uint8[length]);
   if (data_.get() == NULL) {
@@ -38,6 +38,8 @@ bool PdbByteStream::Init(const uint8* data, int length) {
 }
 
 bool PdbByteStream::Init(PdbStream* stream) {
+  DCHECK(stream != NULL);
+
   // Init data members.
   set_length(stream->length());
   data_.reset(new uint8[length()]);
@@ -51,7 +53,7 @@ bool PdbByteStream::Init(PdbStream* stream) {
     LOG(ERROR) << "Failed to seek in pdb file stream";
     return false;
   }
-  if (stream->Read(data_.get(), length()) != length()) {
+  if (!stream->Read(data_.get(), length())) {
     LOG(ERROR) << "Failed to read pdb file stream";
     return false;
   }
@@ -59,10 +61,15 @@ bool PdbByteStream::Init(PdbStream* stream) {
   return true;
 }
 
-int PdbByteStream::ReadBytes(void* dest, int count) {
+bool PdbByteStream::ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+  DCHECK(dest != NULL);
+  DCHECK(bytes_read != NULL);
+
   // Return 0 once we've reached the end of the stream.
-  if (pos() == length())
-    return 0;
+  if (pos() == length()) {
+    *bytes_read = 0;
+    return true;
+  }
 
   // Don't read beyond the end of the known stream length.
   count = std::min(count, length() - pos());
@@ -70,8 +77,9 @@ int PdbByteStream::ReadBytes(void* dest, int count) {
   // Read the stream.
   memcpy(dest, data_.get() + pos(), count);
   Seek(pos() + count);
+  *bytes_read = count;
 
-  return count;
+  return true;
 }
 
 }  // namespace pdb

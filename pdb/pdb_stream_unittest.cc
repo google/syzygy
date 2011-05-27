@@ -21,21 +21,27 @@ using pdb::PdbStream;
 
 class TestPdbStream : public PdbStream {
  public:
-  explicit TestPdbStream(int length) : PdbStream(length) {
+  explicit TestPdbStream(size_t length) : PdbStream(length) {
   }
 
   using PdbStream::pos;
 
  protected:
   // A simple implementation of ReadBytes.
-  int ReadBytes(void* dest, int count) {
-    if (pos() == length())
-      return 0;
-    else if (count > length() - pos())
-      return -1;
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+    DCHECK(dest != NULL);
+    DCHECK(bytes_read != NULL);
+
+    if (pos() == length()) {
+      *bytes_read = 0;
+      return true;
+    } else if (count > length() - pos()) {
+      return false;
+    }
 
     Seek(pos() + count);
-    return count;
+    *bytes_read = count;
+    return true;
   }
 };
 
@@ -45,6 +51,10 @@ TEST(PdbStreamTest, Constructor) {
   TestPdbStream stream(5);
   EXPECT_EQ(5, stream.length());
   EXPECT_EQ(0, stream.pos());
+
+  TestPdbStream stream2(-1);
+  EXPECT_EQ(0, stream2.length());
+  EXPECT_EQ(0, stream2.pos());
 }
 
 TEST(PdbStreamTest, Read) {
@@ -54,18 +64,17 @@ TEST(PdbStreamTest, Read) {
   uint32 num32;
 
   // 3 valid reads.
-  EXPECT_EQ(3, stream.Read(&num8, 3));   // 0..2
-  EXPECT_EQ(2, stream.Read(&num16, 2));  // 3..6
-  EXPECT_EQ(1, stream.Read(&num32, 1));  // 7..10
+  EXPECT_TRUE(stream.Read(&num8, 3));   // 0..2
+  EXPECT_TRUE(stream.Read(&num16, 2));  // 3..6
+  EXPECT_TRUE(stream.Read(&num32, 1));  // 7..10
 
   // Try to read over the end of the stream.
-  EXPECT_EQ(-1, stream.Read(&num32, 1));
+  EXPECT_FALSE(stream.Read(&num32, 1));
 
   // Read to the end of the stream.
-  EXPECT_EQ(1, stream.Read(&num8, 1));  // 11
-  EXPECT_EQ(0, stream.Read(&num8, 4));
-  EXPECT_EQ(0, stream.Read(&num16, 2));
-  EXPECT_EQ(0, stream.Read(&num32, 1));
+  EXPECT_TRUE(stream.Read(&num8, 1));  // 11
+  // Read over the end of the stream.
+  EXPECT_FALSE(stream.Read(&num8, 4));
 }
 
 TEST(PdbStreamTest, Seek) {
