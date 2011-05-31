@@ -64,6 +64,7 @@
       'target_name': 'relink_unittests',
       'type': 'executable',
       'sources': [
+        'order_relinker_unittest.cc',
         'random_relinker_unittest.cc',
         'relink_unittests_main.cc',
         'relinker_unittest.cc',

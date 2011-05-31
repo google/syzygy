@@ -24,7 +24,7 @@ namespace {
 
 const size_t kPageSize = 4096;
 
-class OffsetRelinker : public Relinker {
+class OffsetRelinker : public relink::Relinker {
  public:
   OffsetRelinker() {
     DCHECK_GE(max_padding_length(), kPageSize);

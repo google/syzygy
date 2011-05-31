@@ -18,7 +18,7 @@
 #include "syzygy/core/block_graph.h"
 #include "syzygy/relink/relinker.h"
 
-class Instrumenter : public RelinkerBase {
+class Instrumenter : public relink::RelinkerBase {
  public:
   Instrumenter();
 

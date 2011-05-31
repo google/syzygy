@@ -17,6 +17,8 @@
 
 #include "syzygy/relink/relinker.h"
 
+namespace relink {
+
 class OrderRelinker : public Relinker {
  public:
   // Default constructor.
@@ -37,5 +39,7 @@ class OrderRelinker : public Relinker {
   // The JSON encoded file with the new ordering.
   FilePath order_file_path_;
 };
+
+}  // namespace relink
 
 #endif  // SYZYGY_RELINK_ORDER_RELINKER_H_

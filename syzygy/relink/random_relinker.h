@@ -16,11 +16,14 @@
 #define SYZYGY_RELINK_RANDOM_RELINKER_H_
 
 #include "syzygy/relink/relinker.h"
+#include "syzygy/core/random_number_generator.h"
+
+namespace relink {
 
 class RandomRelinker : public Relinker {
  public:
   // Default constructor.
-  RandomRelinker();
+  explicit RandomRelinker(uint32 seed);
 
   // Sets the seed to use when generating a random ordering.  The
   // seed defaults to 0 if not set.
@@ -36,8 +39,10 @@ class RandomRelinker : public Relinker {
                       const Reorderer::Order& order);
 
   // The seed for the random ordering.
-  int seed_;
+  core::RandomNumberGenerator random_number_generator_;
 
 };
+
+}  // namespace relink
 
 #endif  // SYZYGY_RELINK_RANDOM_RELINKER_H_

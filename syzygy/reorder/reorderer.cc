@@ -195,12 +195,14 @@ bool Reorderer::ReorderImpl(Order* order) {
   }
 
   // Parse the logs.
-  Consume();
-  if (consumer_errored_)
-    return false;
-  if (code_block_entry_events_ == 0) {
-    LOG(ERROR) << "No events originated from the given instrumented DLL.";
-    return false;
+  if (trace_paths_.size() > 0) {
+    Consume();
+    if (consumer_errored_)
+      return false;
+    if (code_block_entry_events_ == 0) {
+      LOG(ERROR) << "No events originated from the given instrumented DLL.";
+      return false;
+    }
   }
 
   if (!order_generator_->CalculateReordering(*this, order))

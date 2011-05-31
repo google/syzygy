@@ -36,6 +36,8 @@
         'block_graph.h',
         'disassembler.cc',
         'disassembler.h',
+        'random_number_generator.cc',
+        'random_number_generator.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',

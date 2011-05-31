@@ -19,13 +19,16 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
+#include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
 #include "syzygy/reorder/comdat_order.h"
 #include "syzygy/reorder/linear_order_generator.h"
+#include "syzygy/reorder/random_order_generator.h"
 
 using reorder::ComdatOrder;
 using reorder::LinearOrderGenerator;
+using reorder::RandomOrderGenerator;
 using reorder::Reorderer;
 
 static const char kUsage[] =
@@ -35,6 +38,7 @@ static const char kUsage[] =
     "    --instrumented-dll=<path> the name of the instrumented DLL\n"
     "    --output-order=<path> the output file\n"
     "  Optional Options:\n"
+    "    --seed=INT generates a random ordering; don't specify ETW log files\n"
     "    --pretty-print enables pretty printing of the JSON output file\n"
     "    --output-stats outputs estimated startup page faults pre- and post-\n"
     "        reordering.\n"
@@ -101,23 +105,44 @@ int main(int argc, char** argv) {
   DCHECK(cmd_line != NULL);
 
   // Parse the command line.
+  typedef CommandLine::StringType StringType;
   FilePath instrumented_dll_path =
       cmd_line->GetSwitchValuePath("instrumented-dll");
   FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
   FilePath output_order = cmd_line->GetSwitchValuePath("output-order");
+
+  int seed = 0;
+  StringType seed_str(cmd_line->GetSwitchValueNative("seed"));
+  if (!seed_str.empty() && !base::StringToInt(seed_str, &seed)) {
+    return Usage("Invalid seed value.");
+  }
+
   std::vector<FilePath> trace_paths;
   for (size_t i = 0; i < cmd_line->args().size(); ++i)
     trace_paths.push_back(FilePath(cmd_line->args()[i]));
   bool pretty_print = cmd_line->HasSwitch("pretty-print");
 
   if (instrumented_dll_path.empty() || input_dll_path.empty() ||
-      output_order.empty() || trace_paths.size() < 2)
-    return Usage("You must specify instrumented-dll, input-dll and at least "
-                 "two ETW trace files (kernel and call_trace).");
+          output_order.empty()) {
+    return Usage("You must specify instrumented-dll, input-dll.");
+  }
+
+  if (seed_str.empty()) {
+    if  (trace_paths.size() < 2) {
+      return Usage("You must specify at least two ETW trace files (kernel and "
+          "call_trace) if you are not generating a random ordering.");
+    }
+  } else {
+    if (trace_paths.size() != 0) {
+      return Usage("Do not specify ETW trace files when generating a random "
+          "ordering.");
+    }
+  }
 
   Reorderer::Flags reorderer_flags = 0;
-  if (!ParseReordererFlags(cmd_line, &reorderer_flags))
+  if (!ParseReordererFlags(cmd_line, &reorderer_flags)) {
     return 1;
+  }
 
   // Initialize COM, as it is used by Decomposer, ComdatOrder and Reorderer.
   if (FAILED(CoInitialize(NULL))) {
@@ -125,14 +150,20 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  LinearOrderGenerator linear_order_generator;
+  scoped_ptr<Reorderer::OrderGenerator> order_generator;
+  if (!seed_str.empty()) {
+    order_generator.reset(new RandomOrderGenerator(seed));
+  } else {
+    order_generator.reset(new LinearOrderGenerator());
+  }
+
   pe::Decomposer::DecomposedImage decomposed;
   reorder::Reorderer::Order order(decomposed);
   Reorderer reorderer(input_dll_path,
                       instrumented_dll_path,
                       trace_paths,
                       reorderer_flags);
-  if (!reorderer.Reorder(&linear_order_generator, &order)) {
+  if (!reorderer.Reorder(order_generator.get(), &order)) {
     LOG(ERROR) << "Reorder failed.";
     return 1;
   }

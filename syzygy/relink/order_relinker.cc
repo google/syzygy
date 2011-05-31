@@ -18,6 +18,8 @@
 #include "base/json/json_reader.h"
 #include "base/values.h"
 
+namespace relink {
+
 OrderRelinker::OrderRelinker() {
 }
 
@@ -139,3 +141,5 @@ bool OrderRelinker::ReorderSection(size_t section_index,
 
   return true;
 }
+
+}  // namespace relink

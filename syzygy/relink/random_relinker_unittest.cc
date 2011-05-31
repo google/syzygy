@@ -28,8 +28,7 @@ TEST_F(RandomRelinkerTest, Relink) {
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath output_dll_path = temp_dir.Append(kDllName);
 
-  RandomRelinker relinker;
-  relinker.set_seed(12345);
+  relink::RandomRelinker relinker(12345);
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),
                               output_dll_path,
@@ -42,8 +41,7 @@ TEST_F(RandomRelinkerTest, RelinkWithPadding) {
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath output_dll_path = temp_dir.Append(kDllName);
 
-  RandomRelinker relinker;
-  relinker.set_seed(56789);
+  relink::RandomRelinker relinker(56789);
   relinker.set_padding_length(32);
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),

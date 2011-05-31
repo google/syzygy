@@ -30,6 +30,8 @@
         'comdat_order.h',
         'linear_order_generator.cc',
         'linear_order_generator.h',
+        'random_order_generator.cc',
+        'random_order_generator.h',
         'reorderer.cc',
         'reorderer.h',
       ],
