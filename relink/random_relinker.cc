@@ -19,38 +19,9 @@
 #include "base/json/json_reader.h"
 #include "base/values.h"
 
-namespace {
+namespace relink {
 
-// This is a linear congruent pseuodo random generator.
-// See: http://en.wikipedia.org/wiki/Linear_congruential_generator.
-class RandomNumberGenerator {
- public:
-  explicit RandomNumberGenerator(int seed) : seed_(seed) {
-  }
-
-  int operator()(int n) {
-    seed_ = seed_ * kA + kC;
-    int ret = seed_ % n;
-    DCHECK(ret >= 0 && ret < n);
-    return ret;
-  }
-
- private:
-  static const int kA = 1103515245;
-  static const int kC = 12345;
-
-  // The generator is g(N + 1) = (g(N) * kA + kC) mod 2^32.
-  // The unsigned 32 bit seed yields the mod 2^32 for free.
-  uint32 seed_;
-};
-
-}  // namespace
-
-RandomRelinker::RandomRelinker() : seed_(0) {
-}
-
-void RandomRelinker::set_seed(int seed) {
-  seed_ = seed;
+RandomRelinker::RandomRelinker(uint32 seed) : random_number_generator_(seed) {
 }
 
 bool RandomRelinker::SetupOrdering(Reorderer::Order& /*order*/) {
@@ -84,11 +55,7 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
     blocks.push_back(block);
   }
 
-  // Randomly reorder the blocks. We use a private pseudo random number
-  // generator to allow consistent results across different CRTs and CRT
-  // versions.
-  RandomNumberGenerator random_generator(seed_);
-  std::random_shuffle(blocks.begin(), blocks.end(), random_generator);
+  std::random_shuffle(blocks.begin(), blocks.end(), random_number_generator_);
 
   // Insert the blocks into the section in the new order.
   RelativeAddress section_start = builder().next_section_address();
@@ -128,3 +95,5 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
 
   return true;
 }
+
+}  // namespace relink

@@ -75,7 +75,10 @@ struct PaddingData {
 };
 
 base::LazyInstance<PaddingData> kPaddingData(base::LINKER_INITIALIZED);
+
 }  // namespace
+
+namespace relink {
 
 RelinkerBase::RelinkerBase()
     : original_num_sections_(NULL),
@@ -507,3 +510,5 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
 
   return true;
 }
+
+}  // namespace relink

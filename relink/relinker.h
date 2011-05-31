@@ -23,6 +23,8 @@
 
 #include <base/scoped_ptr.h>
 
+namespace relink {
+
 // This base class is used to help track data required for relinking a binary.
 // TODO(ericdingle): Find a better place and/or name for this.
 class RelinkerBase {
@@ -165,5 +167,7 @@ class Relinker : public RelinkerBase {
   size_t padding_length_;
 
 };
+
+}  // namespace relink
 
 #endif  // SYZYGY_RELINK_RELINKER_H_
