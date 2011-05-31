@@ -401,8 +401,6 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
 
     Offset new_offset = ref.offset() + offset;
     if (new_offset < 0 || static_cast<size_t>(new_offset) > new_block->size()) {
-      LOG(ERROR) << "new_offset = " << new_offset;
-      LOG(ERROR) << "new_block->size() = " << new_block->size();
       return false;
     }
 
