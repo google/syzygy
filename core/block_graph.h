@@ -313,7 +313,8 @@ class BlockGraph::AddressSpace {
   bool GetAddressOf(const Block* block, RelativeAddress* addr) const;
 
   // Accessor.
-  BlockGraph* graph() const { return graph_; }
+  BlockGraph* graph() { return graph_; }
+  const BlockGraph* graph() const { return graph_; }
 
   RangeMapConstIter begin() const {
     return address_space_.ranges().begin();
