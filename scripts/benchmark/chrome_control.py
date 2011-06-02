@@ -118,7 +118,7 @@ def GetPreload():
     key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY)
   except exceptions.WindowsError, ex:
     # We expect specific errors on non-present key or values.
-    if xe.errno is not winerror.ERROR_FILE_NOT_FOUND:
+    if ex.errno is not winerror.ERROR_FILE_NOT_FOUND:
       raise
     else:
       return (False, None, None)
