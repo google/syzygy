@@ -67,12 +67,22 @@
         '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw_db',
         '<(DEPTH)/syzygy/scripts/scripts.gyp:setuptools',
       ],
+      'copies': [
+        {
+          # We copy the benchmark script to the output directory to
+          # stage everything from a single directory.
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            'benchmark.bat',
+          ]
+        },
+      ],
       'actions': [
         {
           'action_name': 'create_benchmark_zip',
           'msvs_cygwin_shell': 0,
           'inputs': [
-            'benchmark.bat',
+            '<(PRODUCT_DIR)/benchmark.bat',
             '<(PRODUCT_DIR)/Benchmark_Chrome-0.1dev-py2.6.egg',
             '<(PRODUCT_DIR)/ETW-0.6.5.0-py2.6.egg',
             '<(PRODUCT_DIR)/ETW_Db-0.1-py2.6.egg',
