@@ -140,7 +140,8 @@ class BenchmarkRunner(object):
     * With Windows XP OS prefetching enabled or disabled.
   """
 
-  def __init__(self, chrome_exe, profile_dir, preload, cold_start, prefetch):
+  def __init__(self, chrome_exe, profile_dir, preload, cold_start, prefetch,
+               keep_temp_dirs):
     """Initialize instance.
 
     Args:
@@ -148,16 +149,20 @@ class BenchmarkRunner(object):
         profile_dir: path to the existing profile directory for Chrome.
         preload: specifies the state of Chrome.dll preload to use for
             benchmark.
-        cold_start: if true, chrome_exe will be launched from a shadow volume
+        cold_start: if True, chrome_exe will be launched from a shadow volume
             freshly minted and mounted for each iteration.
-        prefetch: if false, the OS prefetch files will be deleted before and
+        prefetch: if False, the OS prefetch files will be deleted before and
             after each iteration.
+        keep_temp_dirs: if True, the script will not clean up the temporary
+            directories it creates. This is handy if you want to e.g. manually
+            inspect the log files generated.
     """
     self._chrome_exe = chrome_exe
     self._profile_dir = profile_dir
     self._preload = preload
     self._cold_start = cold_start
     self._prefetch = prefetch
+    self._keep_temp_dirs = keep_temp_dirs
     self._results = {}
     self._temp_dir = None
 
@@ -185,13 +190,15 @@ class BenchmarkRunner(object):
       self._TearDown()
 
   def _SetUp(self):
-    self._old_preload = chrome_control.GetPrefetch()
-    chrome_control.SetPrefetch(self._preload)
+    self._old_preload = chrome_control.GetPreload()
+    chrome_control.SetPreload(self._preload)
     self._temp_dir = tempfile.mkdtemp(prefix='chrome-bench')
+    _logger.info('Created temporary directory "%s"', self._temp_dir)
 
   def _TearDown(self):
-    chrome_control.SetPrefetch(*self._old_preload)
-    if self._temp_dir:
+    chrome_control.SetPreload(*self._old_preload)
+    if self._temp_dir and not self._keep_temp_dirs:
+      _logger.info('Deleting temporary directory "%s"', self._temp_dir)
       shutil.rmtree(self._temp_dir, ignore_errors=True)
       self._temp_dir = None
 
@@ -214,6 +221,7 @@ class BenchmarkRunner(object):
                   '--user-data-dir=%s' % self._profile_dir,
                   'http://www.google.com']
 
+    _logger.info('Launching command line [%s]', cmd_line)
     subprocess.Popen(cmd_line)
 
     # TODO(siggi): Poll for Chrome to come into existence, then
@@ -240,6 +248,7 @@ class BenchmarkRunner(object):
     # TODO(siggi): This function needs to start a second ETW log session
     #    to capture output from Chrome's TRACE_EVENT macros.
     self._kernel_file = os.path.join(self._temp_dir, 'kernel.etl')
+    _logger.info('Starting kernel logging to file "%s"', self._kernel_file)
 
     prop = etw.TraceProperties()
     prop.SetLogFileName(os.path.abspath(self._kernel_file))
@@ -249,6 +258,7 @@ class BenchmarkRunner(object):
     p.contents.EnableFlags = (evn.EVENT_TRACE_FLAG_PROCESS |
                               evn.EVENT_TRACE_FLAG_THREAD |
                               evn.EVENT_TRACE_FLAG_IMAGE_LOAD |
+                              evn.EVENT_TRACE_FLAG_DISK_FILE_IO |
                               evn.EVENT_TRACE_FLAG_MEMORY_PAGE_FAULTS |
                               evn.EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS)
     self._kernel_controller = etw.TraceController()
@@ -304,7 +314,7 @@ class BenchmarkRunner(object):
                       renderer_start - browser_start,
                       's')
 
-    os.unlink(self._kernel_file)
+    # We leave it to TearDown to delete any files we've created.
     self._kernel_file = None
 
   def _OutputResults(self):
@@ -359,7 +369,12 @@ def _GetOptionParser():
                           'test.')
   parser.add_option('--no-prefetch', dest='prefetch', action='store_false',
                     default=True,
-                    help="Turn OS pre-fetch off (on by default).")
+                    help='Turn OS pre-fetch off (on by default).')
+  parser.add_option('--keep-temp-dirs', dest='keep_temp_dirs',
+                    action='store_true', default=False,
+                    help='Keep the temporary directories created during '
+                         'benchmarking. This makes it easy to look at the '
+                         'resultant log files.')
   return parser
 
 
@@ -384,7 +399,8 @@ def main():
                            opts.profile,
                            opts.preload,
                            opts.cold_start,
-                           opts.prefetch)
+                           opts.prefetch,
+                           not opts.keep_temp_dirs)
   try:
     runner.Run(opts.iterations)
   except:
