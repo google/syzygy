@@ -221,6 +221,9 @@ class BlockGraph::Block {
   // @returns true iff all references were transferred successfully.
   bool TransferReferrers(Offset offset, Block* new_block);
 
+  // Returns true if this block contains the given range of bytes.
+  bool Contains(RelativeAddress address, size_t size) const;
+
  protected:
   BlockId id_;
   BlockType type_;
