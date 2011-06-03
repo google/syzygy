@@ -20,12 +20,9 @@
 
 namespace relink {
 
-OrderRelinker::OrderRelinker() {
-}
-
-void OrderRelinker::set_order_file(const FilePath& order_file_path) {
+OrderRelinker::OrderRelinker(const FilePath& order_file_path)
+    : order_file_path_(order_file_path) {
   DCHECK(!order_file_path.empty());
-  order_file_path_ = order_file_path;
 }
 
 bool OrderRelinker::SetupOrdering(Reorderer::Order& order) {

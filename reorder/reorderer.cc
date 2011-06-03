@@ -208,6 +208,9 @@ bool Reorderer::ReorderImpl(Order* order) {
   if (!order_generator_->CalculateReordering(*this, order))
     return false;
 
+  order->comment = base::StringPrintf("Generated using the %s.",
+                                      order_generator_->name().c_str());
+
   return true;
 }
 
@@ -416,6 +419,8 @@ bool Reorderer::Order::SerializeToJSON(const FilePath &path,
 
 bool Reorderer::Order::SerializeToJSON(FILE* file,
                                        bool pretty_print) const {
+  if (fprintf(file, "// %s\n", comment.c_str()) == EOF)
+    return false;
   if (fputc('[', file) == EOF)
     return false;
   if (pretty_print && fputc('\n', file) == EOF)

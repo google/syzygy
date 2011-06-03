@@ -23,10 +23,12 @@
 #include "base/string_split.h"
 #include "base/stringprintf.h"
 #include "syzygy/reorder/comdat_order.h"
+#include "syzygy/reorder/dead_code_finder.h"
 #include "syzygy/reorder/linear_order_generator.h"
 #include "syzygy/reorder/random_order_generator.h"
 
 using reorder::ComdatOrder;
+using reorder::DeadCodeFinder;
 using reorder::LinearOrderGenerator;
 using reorder::RandomOrderGenerator;
 using reorder::Reorderer;
@@ -36,9 +38,11 @@ static const char kUsage[] =
     "  Required Options:\n"
     "    --input-dll=<path> the input DLL to reorder\n"
     "    --instrumented-dll=<path> the name of the instrumented DLL\n"
-    "    --output-order=<path> the output file\n"
+    "    --output-file=<path> the output file\n"
     "  Optional Options:\n"
     "    --seed=INT generates a random ordering; don't specify ETW log files\n"
+    "    --list-dead-code instead of an ordering, output the set of functions\n"
+    "        not visited during the trace\n"
     "    --pretty-print enables pretty printing of the JSON output file\n"
     "    --output-stats outputs estimated startup page faults pre- and post-\n"
     "        reordering.\n"
@@ -109,7 +113,7 @@ int main(int argc, char** argv) {
   FilePath instrumented_dll_path =
       cmd_line->GetSwitchValuePath("instrumented-dll");
   FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
-  FilePath output_order = cmd_line->GetSwitchValuePath("output-order");
+  FilePath output_file = cmd_line->GetSwitchValuePath("output-file");
 
   int seed = 0;
   StringType seed_str(cmd_line->GetSwitchValueNative("seed"));
@@ -121,10 +125,12 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < cmd_line->args().size(); ++i)
     trace_paths.push_back(FilePath(cmd_line->args()[i]));
   bool pretty_print = cmd_line->HasSwitch("pretty-print");
+  bool list_dead_code = cmd_line->HasSwitch("list-dead-code");
 
   if (instrumented_dll_path.empty() || input_dll_path.empty() ||
-          output_order.empty()) {
-    return Usage("You must specify instrumented-dll, input-dll.");
+      output_file.empty()) {
+    return Usage(
+        "You must specify instrumented-dll, input-dll and output-file.");
   }
 
   if (seed_str.empty()) {
@@ -133,9 +139,9 @@ int main(int argc, char** argv) {
           "call_trace) if you are not generating a random ordering.");
     }
   } else {
-    if (trace_paths.size() != 0) {
-      return Usage("Do not specify ETW trace files when generating a random "
-          "ordering.");
+    if (list_dead_code || trace_paths.size()) {
+      return Usage("Do not specify list-dead-code or ETW trace files when "
+          "generating a random ordering.");
     }
   }
 
@@ -153,6 +159,8 @@ int main(int argc, char** argv) {
   scoped_ptr<Reorderer::OrderGenerator> order_generator;
   if (!seed_str.empty()) {
     order_generator.reset(new RandomOrderGenerator(seed));
+  } else if (list_dead_code) {
+    order_generator.reset(new DeadCodeFinder());
   } else {
     order_generator.reset(new LinearOrderGenerator());
   }
@@ -171,7 +179,7 @@ int main(int argc, char** argv) {
   if (cmd_line->HasSwitch("output-stats"))
     order.OutputFaultEstimates(stdout);
 
-  if (!order.SerializeToJSON(output_order, pretty_print)) {
+  if (!order.SerializeToJSON(output_file, pretty_print)) {
     LOG(ERROR) << "Unable to output order.";
     return 1;
   }

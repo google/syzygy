@@ -17,7 +17,8 @@
 
 namespace reorder {
 
-LinearOrderGenerator::LinearOrderGenerator() {
+LinearOrderGenerator::LinearOrderGenerator()
+    : Reorderer::OrderGenerator("Linear Order Generator") {
 }
 
 LinearOrderGenerator::~LinearOrderGenerator() {

@@ -166,11 +166,15 @@ class Reorderer
 // Stores order information.
 struct Reorderer::Order {
 
-  // Constructor just sets the image reference.
+  // Constructor just sets the image reference. Note that the image must
+  // outlive the Order.
   explicit Order(DecomposedImage& i) : image(i) {}
 
   // Stores the decomposed image associated with the DLL to reorder.
   DecomposedImage& image;
+
+  // A comment describing the ordering.
+  std::string comment;
 
   // An ordering of blocks. This list need not be exhaustive, but each
   // block should only appear once within it. We currently constrain ourselves
@@ -204,6 +208,13 @@ struct Reorderer::Order {
 // and is asked to build an ordering.
 class Reorderer::OrderGenerator {
  public:
+  explicit OrderGenerator(const char * name) : name_(name) {}
+
+  virtual ~OrderGenerator() {}
+
+  // Accessor.
+  const std::string& name() const { return name_; }
+
   // The derived class shall implement this callback, which receives
   // TRACE_ENTRY events for the module that is being reordered. Returns true
   // on success, false on error. If this returns false, no further callbacks
@@ -221,6 +232,9 @@ class Reorderer::OrderGenerator {
   // return true on success, false otherwise.
   virtual bool CalculateReordering(const Reorderer& reorderer,
                                    Order* order) = 0;
+ private:
+  DISALLOW_COPY_AND_ASSIGN(OrderGenerator);
+  const std::string name_;
 };
 
 // A unique time class. No two instances of this class will ever be equal
