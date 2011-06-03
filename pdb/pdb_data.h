@@ -85,6 +85,64 @@ struct PdbHeader {
   uint32 root_pages[73];
 };
 
+// This is for parsing the FIXUP stream in PDB files generated with the
+// '/PROFILE' flag. The form of this struct was inferred from looking at
+// binary dumps of FIXUP streams and correlating them with the disassembly
+// of the image they refer to. These efforts are documented here:
+// http://go/syzygy-fixups
+struct PdbFixup {
+  enum Type {
+    TYPE_ABSOLUTE = 0x6,
+    TYPE_RELATIVE = 0x7,
+    TYPE_PC_RELATIVE = 0x14,
+  };
+
+  enum Flags {
+    FLAG_IS_DATA = 0x4000,
+    FLAG_REFERS_TO_CODE = 0x8000,
+    FLAG_UNKNOWN = 0x3fff,
+  };
+
+  // The fixup header.
+  union {
+    uint32 header;
+    struct {
+      Type type:16;
+      unsigned int flags:16;
+    };
+  };
+  // The location of the reference in the image, stored as an RVA. The reference
+  // will always take 4-bytes in the image.
+  uint32 rva_location;
+  // The base to which this reference is tied, stored as an RVA.
+  uint32 rva_base;
+
+  // This validates that the fixup is of a known type. Any FIXUP that does not
+  // conform to a type that we have already witnessed in sample data will cause
+  // this to return false.
+  bool ValidHeader() const {
+    // Ensure no unknown flags are set.
+    if ((flags & FLAG_UNKNOWN) != 0)
+      return false;
+    // Ensure the type is one we've seen before as well.
+    if (type != TYPE_ABSOLUTE && type != TYPE_RELATIVE &&
+        type != TYPE_PC_RELATIVE)
+      return false;
+    return true;
+  }
+
+  // Refers to code as opposed to data.
+  bool refers_to_code() const { return (flags & FLAG_REFERS_TO_CODE) != 0; }
+
+  // Is stored in data as opposed to being part of an instruction. This is
+  // not always reported properly, as immediate operands to 'jmp'
+  // instructions in thunks (__imp__function_name) set this bit.
+  bool is_data() const { return (flags & FLAG_IS_DATA) != 0; }
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 12 bytes in size.
+COMPILE_ASSERT(sizeof(PdbFixup) == 12, pdb_fixup_wrong_size);
+
 }  // namespace
 
 #endif  // SYZYGY_PDB_PDB_DATA_H_

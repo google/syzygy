@@ -23,7 +23,7 @@
   },
   'targets': [
     {
-      # This target servese the purpose of making it easy to
+      # This target serves the purpose of making it easy to
       # propagate the settings required for users of the DIA SDK.
       'target_name': 'dia_sdk',
       'type': 'none',
@@ -175,6 +175,17 @@
             },
           },
         },
+        'Common_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /PROFILE, which ensures that the
+              # PDB file contains a FIXUP stream.
+              # TODO(chrisha): Move this to base.gypi so everything links
+              #     with this flag.
+              'Profile': '1',
+            },
+          },
+        },
       },
     },
     {
@@ -195,6 +206,13 @@
         'pe_lib',
         '<(DEPTH)/base/base.gyp:base',
       ],
+      'run_as': {
+        'working_directory': '$(ConfigurationDir)',
+        'action': [
+          '$(TargetPath)',
+          '--image=test_dll.dll'
+        ],
+      },
     },
   ]
 }

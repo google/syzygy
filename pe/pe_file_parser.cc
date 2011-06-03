@@ -431,6 +431,13 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
 
   // Add the export directory references.
   if (!AddRelative(export_dir,
+                   &export_dir->Name,
+                   "Export Name")) {
+    LOG(ERROR) << "Unable to add export functions reference.";
+    return NULL;
+  }
+
+  if (!AddRelative(export_dir,
                    &export_dir->AddressOfFunctions,
                    "Export Functions")) {
     LOG(ERROR) << "Unable to add export functions reference.";
