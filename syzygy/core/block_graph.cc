@@ -318,9 +318,16 @@ uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
 
 bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
   DCHECK(ref.referenced() != NULL);
-  DCHECK(ref.offset() >= 0 &&
-      static_cast<size_t>(ref.offset()) <= ref.referenced()->size());
-  DCHECK(offset + ref.size() <= size());
+
+  // Non-code blocks can be referred to by pointers that lie outside of their
+  // extent (due to loop induction, arrays indexed with an implicit offset,
+  // etc). Code blocks can not be referred to in this manner, because references
+  // in code blocks must be places where the flow of execution actually lands.
+  if (ref.referenced()->type() == CODE_BLOCK) {
+    DCHECK(ref.offset() >= 0 &&
+        static_cast<size_t>(ref.offset()) <= ref.referenced()->size());
+    DCHECK(offset + ref.size() <= size());
+  }
 
   // Did we have an earlier reference at this location?
   ReferenceMap::iterator it(references_.find(offset));
@@ -400,8 +407,15 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
     BlockGraph::Reference ref(found_ref->second);
 
     Offset new_offset = ref.offset() + offset;
-    if (new_offset < 0 || static_cast<size_t>(new_offset) > new_block->size()) {
-      return false;
+
+    // Same thing as in SetReferrer, references to non-code blocks may lie
+    // outside the extent of the block.
+    if (type_ == CODE_BLOCK) {
+      if (new_offset < 0 ||
+          static_cast<size_t>(new_offset) > new_block->size()) {
+        LOG(ERROR) << "Transferred reference lies outside of code block.";
+        return false;
+      }
     }
 
     // Redirect the reference to the new block with the adjusted offset.
@@ -413,6 +427,11 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
   }
 
   return true;
+}
+
+// Returns true if this block contains the given range of bytes.
+bool BlockGraph::Block::Contains(RelativeAddress address, size_t size) const {
+  return (address >= addr_ && address + size <= addr_ + size_);
 }
 
 }  // namespace core

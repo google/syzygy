@@ -30,6 +30,7 @@
 #include "syzygy/core/basic_block_disassembler.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
+#include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -39,11 +40,24 @@ using pcrecpp::RE;
 
 class Decomposer {
  public:
+  // The decomposed image data.
+  class DecomposedImage;
+  // A struct for storing fixups.
+  struct Fixup;
+  // Used for storing references before the block graph is complete.
+  struct IntermediateReference;
+  // Statistics regarding the decomposition.
+  struct CoverageStatistics;
+  struct DetailedCodeBlockStatistics;
+
+  typedef core::RelativeAddress RelativeAddress;
+  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
   typedef core::BasicBlockDisassembler BasicBlockDisassembler;
   typedef core::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
-  typedef core::RelativeAddress RelativeAddress;
-  typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
+  typedef std::map<RelativeAddress, Fixup> FixupMap;
+  typedef std::map<RelativeAddress, IntermediateReference>
+      IntermediateReferenceMap;
 
   enum Mode {
     STANDARD_DECOMPOSITION,
@@ -52,12 +66,6 @@ class Decomposer {
 
   // Initializes the decomposer for a given image file and path.
   Decomposer(const PEFile& image_file, const FilePath& file_path);
-
-  // The decomposed image data.
-  class DecomposedImage;
-  // Statistics regarding the decomposition.
-  struct CoverageStatistics;
-  struct DetailedCodeBlockStatistics;
 
   // Decomposes the image file into the specified DecomposedImage, which
   // has the breakdown of code and data blocks with typed references.
@@ -81,6 +89,7 @@ class Decomposer {
 
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
+  typedef std::vector<pdb::PdbFixup> PdbFixups;
 
   // Create blocks for all code.
   bool CreateCodeBlocks(IDiaSymbol* globals);
@@ -104,9 +113,9 @@ class Decomposer {
   bool CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                               BlockGraph::BlockType block_type);
 
-  // Processes data symbols.
-  bool ProcessDataSymbols(IDiaSymbol* global, DataLabels* data_labels);
-  bool ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels);
+  // Processes data symbols and public symbols.
+  bool ProcessDataAndPublicSymbols(IDiaSymbol* global, DataLabels* data_labels);
+  bool ProcessDataOrPublicSymbol(IDiaSymbol* data, DataLabels* data_labels);
   // Extends data labels to the next known label or block. This is a
   // pessimistic do-no-harm metric that ensures data with uncertain length
   // does not get subdivided.
@@ -127,14 +136,17 @@ class Decomposer {
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();
 
+  // Checks that the fixups were all visited.
+  bool ConfirmFixupsVisited() const;
+
   // Invokable once we have completed our original block graphs, this breaks
   // up code-blocks into their basic sub-components.
   bool BuildBasicBlockGraph(DecomposedImage* decomposed_image);
 
-  // Loads the image's Omap information.
-  bool LoadOmapInformation(IDiaSession* dia_session,
-                           std::vector<OMAP>* omap_to,
-                           std::vector<OMAP>* omap_from);
+  // Parses the various debug streams. This populates fixup_map_ as well.
+  bool LoadDebugStreams(IDiaSession* dia_session,
+                        std::vector<OMAP>* omap_to,
+                        std::vector<OMAP>* omap_from);
 
   // Adds a label to the given block, unless the label is unreferenced.
   // In this case, it will add the label to unreferenced_labels_.
@@ -142,26 +154,25 @@ class Decomposer {
                            const std::string& name,
                            BlockGraph::Block* block);
 
-  // Adds an intermediate reference from @p src_addr to @p dst_addr of
-  // type @p type and size @p size with optional name @p name.
-  // @returns true iff the reference was added, e.g. there was not already
-  //    a reference at @p src_addr.
-  bool AddReference(RelativeAddress src_addr,
-                    BlockGraph::ReferenceType type,
-                    BlockGraph::Size size,
-                    RelativeAddress dst_addr,
-                    const char* name);
-  // Adds an intermediate reference from @p src_addr to @p dst_addr of
-  // type @p type and size @p size with optional name @p name.
+  // Validates a reference against a matching fixup, or creates a new
+  // intermediate reference from @p src_addr to @p dst_addr of
+  // type @p type and size @p size with optional name @p name. This assumes
+  // an offset of zero.
   void AddReferenceCallback(RelativeAddress src_addr,
                             BlockGraph::ReferenceType type,
                             BlockGraph::Size size,
                             RelativeAddress dst_addr,
                             const char* name);
   // Parse the relocation entries.
-  bool ParseRelocs(PEFile::RelocMap* reloc_map);
-  // Walk relocations and create cross-block references.
-  bool CreateRelocationReferences(const PEFile::RelocMap& reloc_map);
+  bool ParseRelocs();
+  // Uses the fixup map to create cross-block references. These contain
+  // relative references, lookup tables, absolute references, PC-relative from
+  // code references, etc.
+  bool CreateReferencesFromFixups();
+  // Walk relocations and validate them against the fixups.
+  bool ValidateRelocs(const PEFile::RelocMap& reloc_map);
+  // Creates an initial set of code labels from fixups.
+  bool CreateCodeLabelsFromFixups();
   // Disassemble all code blocks and create code->code references.
   bool CreateCodeReferences();
   // Disassemble @p block and invoke @p on_instruction for each instruction
@@ -202,9 +213,10 @@ class Decomposer {
                           const _DInst& instruction,
                           Disassembler::CallbackDirective* directive);
 
-  // Loads the DIA debug stream into the given OMAP vector.
-  bool LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
-                      std::vector<OMAP>* omap_list);
+  // Repairs the DIA "FIXUPS" with any loaded OMAP information, validates them,
+  // and stores them in the given FixupMap.
+  bool OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
+                             const PdbFixups& pdb_fixups);
 
   // After a successful decomposition, this will calculate statistics regarding
   // the coverage of our decomposition. This expects image_ to be non-NULL.
@@ -223,19 +235,7 @@ class Decomposer {
   const PEFile& image_file_;
   FilePath file_path_;
 
-  // During decomposition we collect references in this format, e.g.
-  // address->address. After thunking up the entire image into blocks,
-  // we convert them to block->block references.
-  // TODO(siggi): Is there reason to keep these in an address space to guard
-  //     against overlapping references?
-  struct IntermediateReference {
-    BlockGraph::ReferenceType type;
-    BlockGraph::Size size;
-    RelativeAddress destination;
-    std::string name;
-  };
-  typedef std::map<RelativeAddress, IntermediateReference>
-      IntermediateReferenceMap;
+  // Stores intermediate references before the block graph is complete.
   IntermediateReferenceMap references_;
 
   typedef std::set<BlockGraph::Block*> BlockSet;
@@ -262,6 +262,11 @@ class Decomposer {
   // pieces of the decomposer.
   PEFile::RelocSet reloc_set_;
   RelativeAddressSet reloc_refs_;
+  // Keeps track of fixups, which are necessary if we want to move around
+  // code and data. These are keyed by the location in the image of the
+  // reference. We keep them around so that the disassembly phase can be
+  // validated against them.
+  FixupMap fixup_map_;
   // Keeps track of per block disassembly statistics.
   DetailedCodeBlockStatsMap code_block_stats_;
   // Holds the ranges of in-function data blocks, and is used to guide
@@ -289,6 +294,35 @@ class Decomposer::DecomposedImage {
   BlockGraph::AddressSpace basic_block_address_space;
   std::vector<OMAP> omap_to;
   std::vector<OMAP> omap_from;
+};
+
+// This stores fixups, but in a format more convenient for us than the
+// basic PdbFixup struct.
+struct Decomposer::Fixup {
+  BlockGraph::ReferenceType type;
+  bool refers_to_code;
+  bool is_data;
+  // Has this fixup been visited by our decomposition?
+  bool visited;
+  RelativeAddress location;
+  RelativeAddress base;
+};
+
+// During decomposition we collect references in this format, e.g.
+// address->address. After thunking up the entire image into blocks,
+// we convert them to block->block references.
+// TODO(siggi): Is there reason to keep these in an address space to guard
+//     against overlapping references?
+struct Decomposer::IntermediateReference {
+  BlockGraph::ReferenceType type;
+  BlockGraph::Size size;
+  // A reference actually takes the form of a pointer that is offset
+  // from a base address (its intended target). Direct references will
+  // have offset = 0, but this allows us to represent offset references
+  // into data as seen in loop induction variables, etc.
+  RelativeAddress base;
+  BlockGraph::Offset offset;
+  std::string name;
 };
 
 // For storing detailed statistics regarding a code block.

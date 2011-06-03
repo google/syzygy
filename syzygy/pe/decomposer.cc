@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "syzygy/pe/decomposer.h"
 
+#include <algorithm>
 #include <cvconst.h>
 #include <diacreate.h>
 #include "base/file_path.h"
@@ -24,6 +25,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
+#include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -35,11 +37,226 @@ namespace {
 using core::AbsoluteAddress;
 using core::BlockGraph;
 using core::Disassembler;
+using core::RelativeAddress;
 using pe::Decomposer;
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
 const DWORD kDataCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
+
+// Converts from PdbFixup::Type to BlockGraph::ReferenceType.
+BlockGraph::ReferenceType PdbFixupTypeToReferenceType(
+    pdb::PdbFixup::Type type) {
+  switch (type) {
+    case pdb::PdbFixup::TYPE_ABSOLUTE:
+      return BlockGraph::ABSOLUTE_REF;
+
+    case pdb::PdbFixup::TYPE_RELATIVE:
+      return BlockGraph::RELATIVE_REF;
+
+    case pdb::PdbFixup::TYPE_PC_RELATIVE:
+      return BlockGraph::PC_RELATIVE_REF;
+
+    default:
+      NOTREACHED() << "Invalid PdbFixup::Type.";
+      // The return type here is meaningless.
+      return BlockGraph::ABSOLUTE_REF;
+  }
+}
+
+// This reads a given debug stream into the provided vector. The type T
+// must be the same size as the debug stream record size.
+template<typename T> bool LoadDebugStream(IDiaEnumDebugStreamData* stream,
+                                          std::vector<T>* list) {
+  DCHECK(stream != NULL);
+  DCHECK(list != NULL);
+
+  LONG count = 0;
+  if (FAILED(stream->get_Count(&count))) {
+    LOG(ERROR) << "Failed to get stream count.";
+    return false;
+  }
+
+  // Get the length of the debug stream, and ensure it is the expected size.
+  DWORD bytes_read = 0;
+  ULONG count_read = 0;
+  HRESULT hr = stream->Next(count, 0, &bytes_read, NULL, &count_read);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to get debug stream length: " << com::LogHr(hr);
+    return false;
+  }
+  DCHECK_EQ(count * sizeof(T), bytes_read);
+
+  // Actually read the stream.
+  list->resize(count);
+  bytes_read = 0;
+  count_read = 0;
+  hr = stream->Next(count, count * sizeof(T), &bytes_read,
+                    reinterpret_cast<BYTE*>(&list->at(0)),
+                    &count_read);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to read debug stream: " << com::LogHr(hr);
+    return false;
+  }
+  DCHECK_EQ(count * sizeof(T), bytes_read);
+  DCHECK_EQ(count, static_cast<LONG>(count_read));
+
+  return true;
+}
+
+// A comparison functor, for comparing two OMAP entries based on 'rva'.
+struct OmapCompareFunctor {
+  bool operator()(const OMAP& omap1, const OMAP& omap2) {
+    return omap1.rva < omap2.rva;
+  }
+};
+
+// Maps an address through the given OMAP information. Assumes the address
+// is within the bounds of the image.
+RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omap,
+                                        RelativeAddress address) {
+  OMAP omap_address = { address.value(), 0 };
+
+  // Find the first element that is > than omap_address.
+  std::vector<OMAP>::const_iterator it =
+      std::upper_bound(omap.begin(), omap.end(), omap_address,
+                       OmapCompareFunctor());
+
+  // If we are at the first OMAP entry, the address is before any addresses
+  // that are OMAPped. Thus, we return the same address.
+  if (it == omap.begin())
+    return address;
+
+  // Otherwise, the previous OMAP entry tells us where we lie.
+  --it;
+  return RelativeAddress(it->rvaTo) + (address - RelativeAddress(it->rva));
+}
+
+// Adds a reference to the provided intermediate reference map. If one already
+// exists, will validate that they are consistent.
+bool AddReference(RelativeAddress src_addr,
+                  BlockGraph::ReferenceType type,
+                  BlockGraph::Size size,
+                  RelativeAddress dst_base,
+                  BlockGraph::Offset dst_offset,
+                  const char* name,
+                  Decomposer::IntermediateReferenceMap* references) {
+  DCHECK(references != NULL);
+
+  // If we ge t an iterator to a reference and it has the same source address
+  // then ensure that we are consistent with it.
+  Decomposer::IntermediateReferenceMap::iterator it =
+      references->lower_bound(src_addr);
+  if (it != references->end() && it->first == src_addr) {
+    if (type != it->second.type || size != it->second.size ||
+        dst_base != it->second.base || dst_offset != it->second.offset) {
+      LOG(ERROR) << "Trying to insert inconsistent and colliding intermediate "
+                    "references.";
+      return false;
+    }
+
+    // Found existing and consistent intermediate reference. Change the name
+    // if one is provided.
+    if (name != NULL)
+      it->second.name = name;
+    return true;
+  }
+
+  Decomposer::IntermediateReference ref = { type,
+                                            size,
+                                            dst_base,
+                                            dst_offset,
+                                            name == NULL ? "" : name };
+
+  // Since we used lower_bound above, we can use it as a hint for the
+  // insertion. This saves us from incurring the lookup cost twice.
+  references->insert(it, std::make_pair(src_addr, ref));
+  return true;
+}
+
+// Validates the given reference against the given fixup map entry. If they
+// are consistent, marks the fixup as having been visited.
+bool ValidateReference(RelativeAddress src_addr,
+                       BlockGraph::ReferenceType type,
+                       BlockGraph::Size size,
+                       Decomposer::FixupMap::iterator fixup_it) {
+  if (type != fixup_it->second.type || size != kPointerSize) {
+    LOG(ERROR) << "Reference at RVA "
+        << StringPrintf("0x%08X", src_addr.value())
+        << " not consistent with corresponding fixup.";
+    return false;
+  }
+
+  // Mark this fixup as having been visited.
+  fixup_it->second.visited = true;
+
+  return true;
+}
+
+enum ValidateOrAddReferenceMode {
+  // Look for an existing fixup. If we find one, validate against it,
+  // otherwise create a new intermediate reference.
+  FIXUP_MAY_EXIST,
+  // Compare against an existing fixup, bailing if there is none. Does not
+  // create a new intermediate reference.
+  FIXUP_MUST_EXIST,
+  // Look for an existing fixup, and fail if one exists. Otherwise, create
+  // a new intermediate reference.
+  FIXUP_MUST_NOT_EXIST
+};
+bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
+                            RelativeAddress src_addr,
+                            BlockGraph::ReferenceType type,
+                            BlockGraph::Size size,
+                            RelativeAddress dst_base,
+                            BlockGraph::Offset dst_offset,
+                            const char* name,
+                            Decomposer::FixupMap* fixup_map,
+                            Decomposer::IntermediateReferenceMap* references) {
+  DCHECK(fixup_map != NULL);
+  DCHECK(references != NULL);
+
+  Decomposer::FixupMap::iterator it = fixup_map->find(src_addr);
+
+  switch (mode) {
+    case FIXUP_MAY_EXIST: {
+      if (it != fixup_map->end() &&
+          !ValidateReference(src_addr, type, size, it))
+        return false;
+      return AddReference(src_addr, type, size, dst_base, dst_offset, name,
+                          references);
+    }
+
+    case FIXUP_MUST_EXIST: {
+      if (it == fixup_map->end()) {
+        LOG(ERROR) << "Reference at RVA "
+            << StringPrintf("0x%08X", src_addr.value())
+            << " has no matching fixup.";
+        return false;
+      }
+      if (!ValidateReference(src_addr, type, size, it))
+        return false;
+      // Do not create a new intermediate reference.
+      return true;
+    }
+
+    case FIXUP_MUST_NOT_EXIST: {
+      if (it != fixup_map->end()) {
+        LOG(ERROR) << "Reference at RVA "
+            << StringPrintf("0x%08X", src_addr.value())
+            << " collides with an existing fixup.";
+        return false;
+      }
+      return AddReference(src_addr, type, size, dst_base, dst_offset, name,
+                          references);
+    }
+
+    default: {
+      NOTREACHED() << "Invalid ValidateOrAddReferenceMode.";
+      return false;
+    }
+  }
+}
 
 bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   DCHECK(sym_tag != NULL);
@@ -318,12 +535,24 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
 
   image_ = &decomposed_image->address_space;
 
-  // Chunk out important PE image structures, like the headers and such.
-  bool success = CreatePEImageBlocksAndReferences(&decomposed_image->header);
+  // Load OMAP and FIXUP information from the PDB file. We do this first
+  // so that we can do accounting with references that are created later
+  // on.
+  bool success = LoadDebugStreams(dia_session,
+                                  &decomposed_image->omap_to,
+                                  &decomposed_image->omap_from);
 
-  PEFile::RelocMap reloc_map;
+  // Create intermediate references for each fixup entry.
   if (success)
-    success = ParseRelocs(&reloc_map);
+    success = CreateReferencesFromFixups();
+
+  // Chunk out important PE image structures, like the headers and such.
+  if (success)
+    success = CreatePEImageBlocksAndReferences(&decomposed_image->header);
+
+  // Parse and validate the relocation entries.
+  if (success)
+    success = ParseRelocs();
 
   // Chunk out blocks for each function and thunk in the image.
   if (success)
@@ -334,19 +563,13 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
     success = CreateDataBlocks(global);
 
   // Create labels in code blocks. These are created first so that the
-  // labels will keep the more meaningful label names. We pass in the
-  // relocation entries in order to keep track of those labels that are
-  // unreferenced.
-  // TODO(chrisha): Should we also be using relocation destinations as
-  //     labels into code blocks?
+  // labels will have meaningful names.
   if (success)
     success = CreateGlobalLabels(global);
 
-  // Create absolute references for each relocation entry.
+  // Now we use fixup information to create further code labels.
   if (success)
-    success = CreateRelocationReferences(reloc_map);
-  // This is no longer needed.
-  reloc_map.clear();
+    success = CreateCodeLabelsFromFixups();
 
   // Disassemble code blocks and create PC-relative references
   if (success)
@@ -362,17 +585,17 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   if (success)
     success = FinalizeIntermediateReferences();
 
+  // One way of ensuring full coverage is to check that all of the fixups
+  // were visited during decomposition.
+  if (success)
+    success = ConfirmFixupsVisited();
+
   // Once the above steps are complete, we will now have a function-level
   // granularity of blocks for code-type blocks and those blocks will contain
   // ALL inbound and out-bound references. Now it's time to break up those
   // blocks into their basic sub-components.
   if (success && decomposition_mode == BASIC_BLOCK_DECOMPOSITION)
     success = BuildBasicBlockGraph(decomposed_image);
-
-  if (success)
-    success = LoadOmapInformation(dia_session,
-                                  &decomposed_image->omap_to,
-                                  &decomposed_image->omap_from);
 
   if (stats != NULL)
     CalcCoverageStatistics(stats);
@@ -835,42 +1058,36 @@ void Decomposer::AddLabelToCodeBlock(RelativeAddress addr,
     unreferenced_labels_.insert(std::make_pair(addr, name));
 }
 
-bool Decomposer::AddReference(RelativeAddress src_addr,
-                              BlockGraph::ReferenceType type,
-                              BlockGraph::Size size,
-                              RelativeAddress dst_addr,
-                              const char* name) {
-  IntermediateReference ref = { type,
-                                size,
-                                dst_addr,
-                                name == NULL ? "" : name };
-  bool added = references_.insert(std::make_pair(src_addr, ref)).second;
-  return added;
-}
-
 void Decomposer::AddReferenceCallback(RelativeAddress src_addr,
                                       BlockGraph::ReferenceType type,
                                       BlockGraph::Size size,
                                       RelativeAddress dst_addr,
                                       const char* name) {
-  AddReference(src_addr, type, size, dst_addr, name);
+  // This is only called by the PEFileParser, and it creates some references
+  // for which there are no corresponding fixup entries.
+  // TODO(chrisha): Add a 'success' output parameter to the callback so
+  //     that we can interrupt the PEFileParser if this fails. Currently,
+  //     it'll simply log an error message.
+  ValidateOrAddReference(FIXUP_MAY_EXIST, src_addr, type, size, dst_addr,
+                         0, name, &fixup_map_, &references_);
 }
 
-bool Decomposer::ParseRelocs(PEFile::RelocMap* reloc_map) {
+bool Decomposer::ParseRelocs() {
   if (!image_file_.DecodeRelocs(&reloc_set_)) {
     LOG(ERROR) << "Unable to decode image relocs.";
     return false;
   }
 
-  if (!image_file_.ReadRelocs(reloc_set_, reloc_map)) {
+  PEFile::RelocMap reloc_map;
+  if (!image_file_.ReadRelocs(reloc_set_, &reloc_map)) {
     LOG(ERROR) << "Unable to read image relocs.";
     return false;
   }
 
   // Get a set of relocation destinations. These are effectively 'references'
   // to labels, and will be used to weed out unreferenced labels.
-  PEFile::RelocMap::const_iterator it = reloc_map->begin();
-  for (; it != reloc_map->end(); ++it) {
+  PEFile::RelocMap::const_iterator it = reloc_map.begin();
+  for (; it != reloc_map.end(); ++it) {
     RelativeAddress rva;
     if (!image_file_.Translate(it->second, &rva)) {
       LOG(ERROR) << "Unable to translate absolute address to relative: "
@@ -880,10 +1097,61 @@ bool Decomposer::ParseRelocs(PEFile::RelocMap* reloc_map) {
     reloc_refs_.insert(rva);
   }
 
+  // Validate each relocation entry against the corresponding fixup entry.
+  if (!ValidateRelocs(reloc_map))
+    return false;
+
   return true;
 }
 
-bool Decomposer::CreateRelocationReferences(const PEFile::RelocMap& reloc_map) {
+bool Decomposer::CreateReferencesFromFixups() {
+  FixupMap::const_iterator it(fixup_map_.begin());
+  for (; it != fixup_map_.end(); ++it) {
+    RelativeAddress src_addr(it->second.location);
+    uint32 data = 0;
+    if (!image_file_.ReadImage(src_addr, &data, sizeof(data))) {
+      LOG(ERROR) << "Unable to read image data for fixup with source at RVA "
+          << StringPrintf("0x%08X.", src_addr.value());
+      return false;
+    }
+
+    RelativeAddress dst_addr;
+    switch (it->second.type) {
+      case BlockGraph::PC_RELATIVE_REF: {
+        dst_addr = src_addr + kPointerSize + data;
+        break;
+      }
+
+      case BlockGraph::ABSOLUTE_REF: {
+        AbsoluteAddress dst_addr_abs(data);
+        bool success = image_file_.Translate(dst_addr_abs, &dst_addr);
+        DCHECK_EQ(true, success);
+        break;
+      }
+
+      case BlockGraph::RELATIVE_REF: {
+        dst_addr = RelativeAddress(data);
+        break;
+      }
+
+      default: {
+        NOTREACHED() << "Invalid reference type.";
+        break;
+      }
+    }
+
+    RelativeAddress dst_base(it->second.base);
+    BlockGraph::Offset dst_offset = dst_addr - dst_base;
+    std::string label(StringPrintf("From 0x%08X", src_addr.value()));
+    if (!AddReference(src_addr, it->second.type, kPointerSize, dst_base,
+                      dst_offset, label.c_str(), &references_))
+      return false;
+  }
+
+  return true;
+}
+
+bool Decomposer::ValidateRelocs(const PEFile::RelocMap& reloc_map) {
   PEFile::RelocMap::const_iterator it(reloc_map.begin());
   PEFile::RelocMap::const_iterator end(reloc_map.end());
   for (; it != end; ++it) {
@@ -894,14 +1162,17 @@ bool Decomposer::CreateRelocationReferences(const PEFile::RelocMap& reloc_map) {
       return false;
     }
 
-    AddReference(src, BlockGraph::ABSOLUTE_REF, sizeof(dst), dst, "");
+    if (!ValidateOrAddReference(FIXUP_MUST_EXIST, src, BlockGraph::ABSOLUTE_REF,
+                                sizeof(dst), dst, 0, NULL, &fixup_map_,
+                                &references_))
+      return false;
   }
 
   return true;
 }
 
-bool Decomposer::ProcessDataSymbols(IDiaSymbol* global,
-                                    DataLabels* data_labels) {
+bool Decomposer::ProcessDataAndPublicSymbols(IDiaSymbol* global,
+                                             DataLabels* data_labels) {
   ScopedComPtr<IDiaEnumSymbols> enum_data;
   HRESULT hr = global->findChildren(SymTagData,
                                     NULL,
@@ -925,7 +1196,7 @@ bool Decomposer::ProcessDataSymbols(IDiaSymbol* global,
 
     DCHECK(IsSymTag(data, SymTagData));
 
-    if (!ProcessDataSymbol(data, data_labels))
+    if (!ProcessDataOrPublicSymbol(data, data_labels))
       return false;
   }
 
@@ -952,29 +1223,19 @@ bool Decomposer::ProcessDataSymbols(IDiaSymbol* global,
 
     DCHECK(IsSymTag(public_symbol, SymTagPublicSymbol));
 
-    if (!ProcessDataSymbol(public_symbol, data_labels))
+    if (!ProcessDataOrPublicSymbol(public_symbol, data_labels))
       return false;
   }
 
   return true;
 }
 
-bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
+bool Decomposer::ProcessDataOrPublicSymbol(IDiaSymbol* data,
+                                           DataLabels* data_labels) {
   DWORD sym_tag = SymTagNull;
   if (!GetSymTag(data, &sym_tag))
     return false;
   DCHECK(sym_tag == SymTagData || sym_tag == SymTagPublicSymbol);
-
-  // We can safely skip PublicSymbols for code blocks.
-  if (sym_tag == SymTagPublicSymbol) {
-    BOOL code = false;
-    if (FAILED(data->get_code(&code))) {
-      LOG(ERROR) << "Failed to retrieve code flag.";
-      return false;
-    }
-    if (code)
-      return true;
-  }
 
   DWORD location_type = LocIsNull;
   if (FAILED(data->get_locationType(&location_type))) {
@@ -1012,15 +1273,28 @@ bool Decomposer::ProcessDataSymbol(IDiaSymbol* data, DataLabels* data_labels) {
     return false;
   }
 
-  // PublicSymbols contain meaningless length information so we store them
-  // as labels and deal with them later. We only store data labels.
+  // PublicSymbols contain meaningless length information so we can only
+  // really use them as labels. In the case of labels into data, we store them
+  // in a temporary structure before using them to chunk out blocks. For
+  // code, we add them as labels to existing code blocks.
   if (sym_tag == SymTagPublicSymbol) {
+    // Public symbol names are mangled. Remove leading '_' as per
+    // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
+    if (data_name[0] == '_')
+      data_name = data_name.substr(1);
+
     if (section_type == kSectionData) {
-      // Public symbol names are mangled. Remove leading '_' as per
-      // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
-      if (data_name[0] == '_')
-        data_name = data_name.substr(1);
       data_labels->insert(std::make_pair(addr, data_name));
+    } else if (section_type == kSectionCode) {
+      BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
+      if (block != NULL) {
+        BlockGraph::Offset offset = addr - block->addr();
+        if (offset)
+          block->SetLabel(offset, data_name.c_str());
+      } else {
+        LOG(ERROR) << "Code PublicSymbol does not land in a code block.";
+        return false;
+      }
     }
     return true;
   }
@@ -1137,7 +1411,7 @@ bool Decomposer::ProcessStaticInitializers() {
     }
     if (*addr != kNull) {
       LOG(ERROR) << "Bracketing symbol appears multiple times: "
-                 << block_name;
+          << block_name;
       return false;
     }
     *addr = new_addr;
@@ -1329,7 +1603,7 @@ bool Decomposer::CreateDataGapBlocks() {
       continue;
     if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
       LOG(ERROR) << "Unable to create gap blocks for data section "
-                 << header->Name;
+          << header->Name;
       return false;
     }
   }
@@ -1340,7 +1614,7 @@ bool Decomposer::CreateDataGapBlocks() {
 bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   // Process data symbols and public symbols.
   DataLabels data_labels;
-  if (!ProcessDataSymbols(global, &data_labels))
+  if (!ProcessDataAndPublicSymbols(global, &data_labels))
     return false;
 
   // Now that we have data sets and relocation entries, we can extend some
@@ -1372,6 +1646,47 @@ bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   return true;
 }
 
+bool Decomposer::CreateCodeLabelsFromFixups() {
+  // We iterate through all intermediate references, and create code labels
+  // for those references we know to be pointing directly to code.
+  IntermediateReferenceMap::const_iterator ref_it(references_.begin());
+  for (; ref_it != references_.end(); ++ref_it) {
+    const RelativeAddress& src = ref_it->first;
+    const IntermediateReference& ref = ref_it->second;
+    BlockGraph::Block* src_block = image_->GetContainingBlock(src, 1);
+    BlockGraph::Block* dst_block =
+        image_->GetContainingBlock(ref.base, 1);
+    DCHECK(src_block != NULL);
+    DCHECK(dst_block != NULL);
+
+    if (dst_block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    BlockGraph::Offset src_offset = ref_it->first - src_block->addr();
+    BlockGraph::Offset dst_offset = ref.base - dst_block->addr();
+
+    if (dst_block->HasLabel(dst_offset))
+      continue;
+
+    FixupMap::const_iterator it = fixup_map_.find(ref_it->first);
+    DCHECK(it != fixup_map_.end());
+
+    // Only add labels for PC_RELATIVE references or references that are
+    // directly labelled as pointing to code.
+    if (it->second.type != BlockGraph::PC_RELATIVE_REF &&
+        !it->second.refers_to_code)
+      continue;
+
+    // If it had no label here, we add one.
+    std::string label(base::StringPrintf("From %s +0x%x",
+                                         src_block->name(),
+                                         src_offset));
+    dst_block->SetLabel(dst_offset, label.c_str());
+  }
+
+  return true;
+}
+
 bool Decomposer::CreateCodeReferences() {
   // Queue all blocks for disassembly.
   BlockGraph::BlockMap::iterator it(image_->graph()->blocks_mutable().begin());
@@ -1380,29 +1695,6 @@ bool Decomposer::CreateCodeReferences() {
     BlockGraph::Block* block = &it->second;
     if (block->type() == BlockGraph::CODE_BLOCK)
       to_disassemble_.insert(block);
-  }
-
-  // First we iterate all intermediate references and label all un-labeled
-  // locations in functions we find referred.
-  IntermediateReferenceMap::const_iterator ref_it(references_.begin());
-  for (; ref_it != references_.end(); ++ref_it) {
-    const RelativeAddress& src = ref_it->first;
-    const IntermediateReference& ref = ref_it->second;
-    BlockGraph::Block* src_block = image_->GetContainingBlock(src, 1);
-    BlockGraph::Block* dst_block =
-        image_->GetContainingBlock(ref.destination, 1);
-    DCHECK(src_block != NULL);
-    DCHECK(dst_block != NULL);
-
-    if (src_block != dst_block && dst_block->type() == BlockGraph::CODE_BLOCK) {
-      BlockGraph::Offset offset = ref.destination - dst_block->addr();
-      if (!dst_block->HasLabel(offset)) {
-        // If it had no label here, we add one.
-        std::string label(base::StringPrintf("From 0x%08X",
-                                             ref_it->first.value()));
-        dst_block->SetLabel(offset, label.c_str());
-      }
-    }
   }
 
   // Disassemble all blocks, note that this process is potentially iterative,
@@ -1703,28 +1995,56 @@ void Decomposer::OnInstruction(const Disassembler& walker,
 
     // Add the reference. If it's new, make sure to try and add a label
     // and reschedule the block for disassembly again.
-    bool added = AddReference(src, BlockGraph::PC_RELATIVE_REF, size, dst, "");
-    if (added) {
-      // See whether the block had a label at the offset.
-      BlockGraph::Offset offset = dst - block->addr();
-      if (!block->HasLabel(offset)) {
-        // If it had no label here, we add one.
-        std::string label(base::StringPrintf("From 0x%08X", src.value()));
+    std::string label(StringPrintf("From %s +0x%x",
+                                   block->name(),
+                                   instr_rel - block->addr()));
 
-        block->SetLabel(offset, label.c_str());
-
-        // And then potentially re-schedule the block for disassembly,
-        // as we may have turned up another entry to a block we already
-        // disassembled.
-        to_disassemble_.insert(block);
+    // For short references, we should not see a fixup.
+    ValidateOrAddReferenceMode mode = FIXUP_MUST_NOT_EXIST;
+    if (size == kPointerSize) {
+      // Long PC_RELATIVE reference within a single block?
+      if (block->Contains(src, kPointerSize)) {
+        mode = FIXUP_MAY_EXIST;
+      } else {
+        // TODO(chrisha): Currently, we are overly aggressively subdividing
+        //     functions. We eventually (try to) patch them through our
+        //     ScheduleBlocksForMerging mechanism, but at the time being we
+        //     mislabel intra-block jumps as inter-block jumps. It is our
+        //     suspicion that FIXUPs are not provided for 4-byte PC_RELATIVE
+        //     references that originate and land within the same COMDAT.
+        //     This needs to be revisited once we parse SectionContribs as
+        //     our initial chunking. When this happens, try
+        //     mode = FIXUP_MUST_EXIST here.
+        mode = FIXUP_MAY_EXIST;
       }
-
-      // For short references across blocks, we want to make sure we merge
-      // the two blocks. AFAICT, this only occurs in hand-coded assembly in
-      // the CRT, and the "functions" involved are not independent.
-      if (block != current_block_ && size != sizeof(RelativeAddress))
-        ScheduleForMerging(current_block_, block);
     }
+
+    // Validate or create the reference, as necessary.
+    if (!ValidateOrAddReference(mode, src, BlockGraph::PC_RELATIVE_REF, size,
+                                dst, 0, label.c_str(), &fixup_map_,
+                                &references_)) {
+      *directive = Disassembler::kDirectiveAbort;
+      return;
+    }
+
+    // See whether the block has a label at the offset.
+    BlockGraph::Offset offset = dst - block->addr();
+    if (!block->HasLabel(offset)) {
+      // If it has no label here, we add one.
+      std::string label(base::StringPrintf("From 0x%08X", src.value()));
+      block->SetLabel(offset, label.c_str());
+
+      // And then potentially re-schedule the block for disassembly,
+      // as we may have turned up another entry to a block we already
+      // disassembled.
+      to_disassemble_.insert(block);
+    }
+
+    // For short references across blocks, we want to make sure we merge
+    // the two blocks. AFAICT, this only occurs in hand-coded assembly in
+    // the CRT, and the "functions" involved are not independent.
+    if (block != current_block_ && size != sizeof(RelativeAddress))
+      ScheduleForMerging(current_block_, block);
   }
 
   // We want to find function blocks where control flow runs off the end
@@ -1778,48 +2098,85 @@ bool Decomposer::FinalizeIntermediateReferences() {
   for (; it != end; ++it) {
     RelativeAddress src_addr(it->first);
     BlockGraph::Block* src = image_->GetBlockByAddress(src_addr);
-    RelativeAddress dst_addr(it->second.destination);
-    BlockGraph::Block* dst = image_->GetBlockByAddress(dst_addr);
+    RelativeAddress dst_base(it->second.base);
+    RelativeAddress dst_addr(dst_base + it->second.offset);
+    BlockGraph::Block* dst = image_->GetBlockByAddress(dst_base);
 
     if (src == NULL || dst == NULL) {
-      LOG(ERROR) << "Reference source or destination address is out of "
+      LOG(ERROR) << "Reference source or base destination address is out of "
           << "range, src: " << src << ", dst: " << dst;
       return false;
     }
 
-    RelativeAddress src_start;
-    RelativeAddress dst_start;
-    if (!image_->GetAddressOf(src, &src_start) ||
-        !image_->GetAddressOf(dst, &dst_start)) {
-      LOG(ERROR) << "No address for src or dst block.";
-      return false;
-    }
+    RelativeAddress src_start = src->addr();
+    RelativeAddress dst_start = dst->addr();
+
+    // Get the offset of the ultimate destination relative to the start of the
+    // destination block.
+    BlockGraph::Offset dst_offset = dst_addr - dst_start;
 
     BlockGraph::Reference ref(it->second.type,
                               it->second.size,
                               dst,
-                              dst_addr - dst_start);
+                              dst_offset);
     src->SetReference(src_addr - src_start, ref);
   }
+
+  references_.clear();
 
   return true;
 }
 
-bool Decomposer::LoadOmapInformation(IDiaSession* dia_session,
-                                     std::vector<OMAP>* omap_to,
-                                     std::vector<OMAP>* omap_from) {
+bool Decomposer::ConfirmFixupsVisited() const {
+  bool success = true;
+
+  // Ideally, all fixups should have been visited during decomposition.
+  // TODO(chrisha): Address the root problems underlying the following
+  //     temporary fix.
+  FixupMap::const_iterator fixup_it = fixup_map_.begin();
+  for (; fixup_it != fixup_map_.end(); ++fixup_it) {
+    if (fixup_it->second.visited)
+      continue;
+
+    const BlockGraph::Block* block =
+        image_->GetContainingBlock(fixup_it->first, kPointerSize);
+    DCHECK(block != NULL);
+
+    // We know that we currently do not have full disassembly coverage as there
+    // are several orphaned pieces of apparently unreachable code in the CRT
+    // that we do not disassemble, but which may contain jmp or call commands.
+    // Thus, we expect that missed fixups are all PC-relative and lie within
+    // code blocks.
+    if (block->type() == BlockGraph::CODE_BLOCK &&
+        fixup_it->second.type == BlockGraph::PC_RELATIVE_REF)
+      continue;
+
+    success = false;
+    LOG(ERROR) << "Unexpected unseen fixup at RVA "
+        << StringPrintf("0x%08X.", fixup_it->second.location.value());
+  }
+
+  return success;
+}
+
+bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
+                                  std::vector<OMAP>* omap_to,
+                                  std::vector<OMAP>* omap_from) {
   DCHECK(dia_session != NULL);
   DCHECK(omap_to != NULL);
   DCHECK(omap_from != NULL);
 
   omap_to->clear();
   omap_from->clear();
+  PdbFixups pdb_fixups;
 
   ScopedComPtr<IDiaEnumDebugStreams> debug_streams;
   if (FAILED(dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
     LOG(ERROR) << "Unable to get debug streams.";
     return false;
   }
+
+  bool loaded_fixup_stream = false;
 
   while (true) {
     ScopedComPtr<IDiaEnumDebugStreamData> debug_stream;
@@ -1840,42 +2197,114 @@ bool Decomposer::LoadOmapInformation(IDiaSession* dia_session,
     }
 
     if (wcscmp(name, L"OMAPTO") == 0 &&
-        !LoadOmapStream(debug_stream, omap_to)) {
+        !LoadDebugStream(debug_stream, omap_to)) {
       LOG(ERROR) << "Unable to load omap to stream.";
       return false;
     } else if (wcscmp(name, L"OMAPFROM") == 0 &&
-        !LoadOmapStream(debug_stream, omap_from)) {
+        !LoadDebugStream(debug_stream, omap_from)) {
       LOG(ERROR) << "Unable to load omap from stream.";
       return false;
+    } else if (wcscmp(name, L"FIXUP") == 0) {
+      if (LoadDebugStream(debug_stream, &pdb_fixups)) {
+        loaded_fixup_stream = true;
+      } else {
+        LOG(ERROR) << "Unable to load fixup stream.";
+        return false;
+      }
     }
   }
+
+  if (!loaded_fixup_stream) {
+    LOG(ERROR) << "PDB file does not contain a FIXUP stream. Module must be "
+                  "linked with '/PROFILE' or '/DEBUGINFO:FIXUP' flag.";
+    return false;
+  }
+
+  // Translate and validate fixups.
+  if (!OmapAndValidateFixups(*omap_from, pdb_fixups))
+    return false;
 
   return true;
 }
 
-bool Decomposer::LoadOmapStream(IDiaEnumDebugStreamData* omap_stream,
-                                std::vector<OMAP>* omap_list) {
-  DCHECK(omap_stream != NULL);
-  DCHECK(omap_list != NULL);
+bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
+                                       const PdbFixups& pdb_fixups) {
+  bool have_omap = omap_from.size() != 0;
 
-  LONG count = 0;
-  if (FAILED(omap_stream->get_Count(&count))) {
-    LOG(ERROR) << "Failed to get stream count.";
+  // The resource section in Chrome is modified post-link by a tool that adds a
+  // manifest to it. This causes all of the fixups in the resource section (and
+  // anything beyond it) to be invalid. As long as the resource section is the
+  // last section in the image, this is not a problem (we can safely ignore the
+  // .rsrc fixups, which we know how to parse without them). However, if there
+  // is a section after the resource section, things will have been shifted
+  // and potentially crucial fixups will be invalid.
+  RelativeAddress rsrc_start(0xffffffff), max_start;
+  static const char kRsrcName[] = ".rsrc";
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
+    RelativeAddress start(header->VirtualAddress);
+    if (start > max_start)
+      max_start = start;
+    if (strncmp(kRsrcName,
+                reinterpret_cast<const char*>(header->Name),
+                IMAGE_SIZEOF_SHORT_NAME) == 0) {
+      rsrc_start = start;
+      break;
+    }
+  }
+
+  // Ensure there are no sections after the resource section.
+  if (max_start > rsrc_start) {
+    LOG(ERROR) << ".rsrc section is not the last section.";
     return false;
   }
 
-  omap_list->resize(count);
+  // Ensure the fixups are all valid, and populate the fixup map.
+  size_t skipped = 0;
+  for (size_t i = 0; i < pdb_fixups.size(); ++i) {
+    if (!pdb_fixups[i].ValidHeader()) {
+      LOG(ERROR) << "Unknown fixup type: "
+          << StringPrintf("0x%08X.", pdb_fixups[i].header);
+      return false;
+    }
 
-  DWORD bytes_read = 0;
-  ULONG count_read = 0;
-  if (FAILED(omap_stream->Next(count, count * sizeof(OMAP), &bytes_read,
-                               reinterpret_cast<BYTE*>(&omap_list->at(0)),
-                               &count_read))) {
-    LOG(ERROR) << "Unable to read omap stream.";
-    return false;
+    // Get the original addresses, and map them through OMAP information.
+    // Normally DIA takes care of this for us, but there is no API for
+    // getting DIA to give us FIXUP information, so we have to do it manually.
+    RelativeAddress rva_location(pdb_fixups[i].rva_location);
+    RelativeAddress rva_base(pdb_fixups[i].rva_base);
+    if (have_omap) {
+      rva_location = TranslateAddressViaOmap(omap_from, rva_location);
+      rva_base = TranslateAddressViaOmap(omap_from, rva_base);
+    }
+
+    // If these are part of the .rsrc section, ignore them.
+    if (rva_location >= rsrc_start)
+      continue;
+
+    // Ensure they live within the image, and refer to things within the
+    // image.
+    if (!image_file_.Contains(rva_location, kPointerSize) ||
+        !image_file_.Contains(rva_base, 1)) {
+      LOG(ERROR) << "Fixup refers to addresses outside of image.";
+      return false;
+    }
+
+    // Add the fix up, and ensure the source address is unique.
+    Fixup fixup = { PdbFixupTypeToReferenceType(pdb_fixups[i].type),
+                    pdb_fixups[i].refers_to_code(),
+                    pdb_fixups[i].is_data(),
+                    false,
+                    rva_location,
+                    rva_base };
+    bool added = fixup_map_.insert(std::make_pair(rva_location, fixup)).second;
+    if (!added) {
+      LOG(ERROR) << "Colliding fixups at RVA "
+          << StringPrintf("0x%08X.", rva_location.value());
+      return false;
+    }
   }
-  DCHECK_EQ(count * sizeof(OMAP), bytes_read);
-  DCHECK_EQ(count, static_cast<LONG>(count_read));
 
   return true;
 }
@@ -1896,7 +2325,7 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
     RelativeAddress block_addr;
     if (!image_->GetAddressOf(block, &block_addr)) {
       LOG(DFATAL) << "Block " << block->name() << " has no address, "
-                  << block->addr() << ":" << block->size();
+          << block->addr() << ":" << block->size();
       // Expect this to be the result of a merge?
       continue;
     }
@@ -1966,7 +2395,7 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
         }
       } else {
         LOG(ERROR) << "Failed to disassemble block at "
-                   << abs_block_addr.value();
+            << abs_block_addr.value();
         success = false;
         break;
       }

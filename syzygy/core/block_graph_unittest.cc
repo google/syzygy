@@ -65,7 +65,7 @@ TEST(BlockGraphTest, References) {
 
   BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
   BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
-  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::DATA_BLOCK, 0x20, "b3");
+  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
   ASSERT_TRUE(b1 != NULL && b2 != NULL);
 
   ASSERT_TRUE(b1->references().empty());
@@ -105,7 +105,16 @@ TEST(BlockGraphTest, References) {
 
   // Test reference transfer.
   // This should fail, as all the references will fall outside b3.
+  // TODO(chrisha): We need to create a logging MessageHandler that we can
+  //     put test expectations on. This test is meant to fail, but we don't
+  //     want to see the error message it would produce! Ideally, this should
+  //     live in 'syzygy/testing' or something of the like, as it could be
+  //     used across many unittests. For now, we simply disable logging for
+  //     this test.
+  int old_level = logging::GetMinLogLevel();
+  logging::SetMinLogLevel(logging::LOG_FATAL);
   ASSERT_FALSE(b2->TransferReferrers(b3->size(), b3));
+  logging::SetMinLogLevel(old_level);
 
   // Now move the references from b2 to b3
   ASSERT_TRUE(b2->TransferReferrers(0, b3));
