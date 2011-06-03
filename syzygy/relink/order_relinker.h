@@ -21,11 +21,7 @@ namespace relink {
 
 class OrderRelinker : public Relinker {
  public:
-  // Default constructor.
-  OrderRelinker();
-
-  // Sets the ordering file to use when reordering sections.
-  void set_order_file(const FilePath& order_file_path);
+  explicit OrderRelinker(const FilePath& order_file_path);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(OrderRelinker);

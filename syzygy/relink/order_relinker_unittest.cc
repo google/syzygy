@@ -48,8 +48,7 @@ TEST_F(OrderRelinkerTest, Relink) {
   ASSERT_TRUE(reorderer.Reorder(&order_generator, &order));
   ASSERT_TRUE(order.SerializeToJSON(order_file_path, true));
 
-  relink::OrderRelinker relinker;
-  relinker.set_order_file(order_file_path);
+  relink::OrderRelinker relinker(order_file_path);
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),
                               output_dll_path,
@@ -75,8 +74,7 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   ASSERT_TRUE(reorderer.Reorder(&order_generator, &order));
   ASSERT_TRUE(order.SerializeToJSON(order_file_path, true));
 
-  relink::OrderRelinker relinker;
-  relinker.set_order_file(order_file_path);
+  relink::OrderRelinker relinker(order_file_path);
   relinker.set_padding_length(32);
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),

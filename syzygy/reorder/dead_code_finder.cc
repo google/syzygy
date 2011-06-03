@@ -11,31 +11,38 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/reorder/random_order_generator.h"
+#include "syzygy/reorder/dead_code_finder.h"
 
-#include <algorithm>
 namespace reorder {
 
-RandomOrderGenerator::RandomOrderGenerator(int seed)
-    : Reorderer::OrderGenerator("Random Order Generator"),
-      random_number_generator_(seed) {
+DeadCodeFinder::DeadCodeFinder()
+    : Reorderer::OrderGenerator("Dead Code Finder") {
 }
 
-RandomOrderGenerator::~RandomOrderGenerator() {
+DeadCodeFinder::~DeadCodeFinder() {
 }
 
-bool RandomOrderGenerator::OnCodeBlockEntry(const Reorderer& /*reorderer*/,
-                                            const BlockGraph::Block* /*block*/,
-                                            RelativeAddress /*address*/,
-                                            uint32 /*process_id*/,
-                                            uint32 /*thread_id*/,
-                                            const UniqueTime& /*time*/) {
-  // This is a NOP.
+bool DeadCodeFinder::OnCodeBlockEntry(const Reorderer& /*reorderer*/,
+                                      const Block* block,
+                                      RelativeAddress /*address*/,
+                                      uint32 /*process_id*/,
+                                      uint32 /*thread_id*/,
+                                      const UniqueTime& /*time*/) {
+  visited_blocks_.insert(block);
   return true;
 }
 
-bool RandomOrderGenerator::CalculateReordering(const Reorderer& reorderer,
-                                               Reorderer::Order* order) {
+bool DeadCodeFinder::IsDead(const Block* block) const {
+  // We don't consider gap blocks as interesting for the purposes of dead code
+  // identification. We don't have good names for these blocks, so they end up
+  // just being noise (not easily actionable) for the consumer of the dead code
+  // finder's output.
+  return ((block->attributes() & BlockGraph::GAP_BLOCK) == 0)
+      && (visited_blocks_.find(block) == visited_blocks_.end());
+}
+
+bool DeadCodeFinder::CalculateReordering(const Reorderer& reorderer,
+                                         Reorderer::Order* order) {
   DCHECK(order != NULL);
 
   const IMAGE_NT_HEADERS* nt_headers =
@@ -57,18 +64,16 @@ bool RandomOrderGenerator::CalculateReordering(const Reorderer& reorderer,
         order->image.address_space.GetIntersectingBlocks(section_range.start(),
                                                          section_range.size()));
 
-    // Gather up all blocks within the section.
+    // Gather up all unvisited blocks within the section in the "order".
     AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
     const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
     Order::BlockList& block_list = order->section_block_lists[i];
     for (; section_it != section_end; ++section_it) {
       const BlockGraph::Block* block = section_it->second;
-      block_list.push_back(block);
+      if (IsDead(block)) {
+        block_list.push_back(block);
+      }
     }
-
-    std::random_shuffle(block_list.begin(),
-                        block_list.end(),
-                        random_number_generator_);
   }
 
   return true;

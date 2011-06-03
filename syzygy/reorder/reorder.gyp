@@ -28,6 +28,8 @@
       'sources': [
         'comdat_order.cc',
         'comdat_order.h',
+        'dead_code_finder.cc',
+        'dead_code_finder.h',
         'linear_order_generator.cc',
         'linear_order_generator.h',
         'random_order_generator.cc',
@@ -56,7 +58,7 @@
           '$(TargetPath)',
           '--input-dll=..\\reorder\\test_data\\test_dll.dll',
           '--instrumented-dll=$(OutDir)\\instrumented_test_dll.dll',
-          '--output-order=$(OutDir)\\test_dll_order.json',
+          '--output-file=$(OutDir)\\test_dll_order.json',
           '--output-comdats=$(OutDir)\\test_dll_comdats.txt',
           '--output-stats',
           '--reorderer-flags=reorder-data',

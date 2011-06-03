@@ -120,12 +120,9 @@ int main(int argc, char** argv) {
   // Relink the image with a new ordering.
   scoped_ptr<Relinker> relinker;
   if (!order_file_path.empty()) {
-    scoped_ptr<OrderRelinker> order_relinker(new OrderRelinker);
-    order_relinker->set_order_file(order_file_path);
-    relinker.reset(order_relinker.release());
+    relinker.reset(new OrderRelinker(order_file_path));
   } else {
-    scoped_ptr<RandomRelinker> random_relinker(new RandomRelinker(seed));
-    relinker.reset(random_relinker.release());
+    relinker.reset(new RandomRelinker(seed));
   }
 
   relinker->set_padding_length(padding);
