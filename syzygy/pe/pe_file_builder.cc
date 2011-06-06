@@ -433,19 +433,9 @@ bool PEFileBuilder::CreateDosHeader() {
   const uint8* end_dos_stub_ptr =
       reinterpret_cast<const uint8*>(&end_dos_stub);
 
-  // Calculate the minimum size needed for our rewritten DOS Header.
-  // The DOS has to be a multiple of 16 bytes for historic reasons.
-  size_t min_header_size = AlignUp(
+  // The DOS header has to be a multiple of 16 bytes for historic reasons.
+  size_t dos_header_size = AlignUp(
       sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
-
-  // The new dos header size is either our minimum size, or ensure that we
-  // preserve the size of the original DOS header (which is the first block
-  // in the original address space) because there are some instances where
-  // statically computed references are offset from a base somewhere in the
-  // old DOS stub.
-  size_t dos_header_size = std::max(
-      min_header_size,
-      address_space_.graph()->blocks().begin()->second.size());
 
   BlockGraph::Block* dos_header =
       address_space_.AddBlock(BlockGraph::DATA_BLOCK,
