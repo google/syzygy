@@ -187,9 +187,13 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
       return false;
     }
 
-    // Ok, it all passes inspection so far, record the mapping.
-    SectionFileAddressSpace::Range file_range(section_start, section_size);
-    section_file_offsets_.Insert(file_range, section_file_start);
+    // Ok, it all passes inspection so far. If the file size is non-zero,
+    // go ahead and record the mapping.
+    size_t file_size = section_headers_[i].SizeOfRawData;
+    if (file_size != 0) {
+      SectionFileAddressSpace::Range file_range(section_start, file_size);
+      section_file_offsets_.Insert(file_range, section_file_start);
+    }
 
     previous_section_end = section_start + section_size;
     previous_section_file_end = section_file_start + section_file_size;
@@ -265,7 +269,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
       section_file_offsets_.FindContaining(
           SectionFileAddressSpace::Range(addr, block->data_size())));
   if (it == section_file_offsets_.ranges().end()) {
-    LOG(ERROR) << "Block outside defined sections at: " << addr;
+    LOG(ERROR) << "Block with data outside defined sections at: " << addr;
     return false;
   }
 
