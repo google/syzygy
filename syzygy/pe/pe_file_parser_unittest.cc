@@ -235,14 +235,14 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   BlockGraph::Block* block = parser.ParseImportDir(dir);
   ASSERT_TRUE(block != NULL);
 
-  // Test that we have the import descriptors we expect.
+  // Test that we have the two import descriptors we expect, plus the sentinel.
   size_t num_descriptors = block->size() / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-  ASSERT_EQ(2, num_descriptors);
+  ASSERT_EQ(3, num_descriptors);
   ASSERT_TRUE(block->data() != NULL);
   ASSERT_EQ(block->size(), block->data_size());
 
   std::set<std::string> import_names;
-  for (size_t i = 0; i < num_descriptors; ++i) {
+  for (size_t i = 0; i < num_descriptors - 1; ++i) {
     size_t element_offset = sizeof(IMAGE_IMPORT_DESCRIPTOR) * i;
     BlockGraph::Block* name_block =
         FindReferencedBlock(block, element_offset +
@@ -282,6 +282,13 @@ TEST_F(PEFileParserTest, ParseImportDir) {
     }
   }
 
+  // Check that the sentinel is all zero.
+  IMAGE_IMPORT_DESCRIPTOR zero = {};
+  const IMAGE_IMPORT_DESCRIPTOR* sentinel =
+      reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(block->data()) +
+          num_descriptors - 1;
+  memcmp(sentinel, &zero, sizeof(zero));
+
   std::set<std::string> expected;
   expected.insert("KERNEL32.dll");
   expected.insert("export_dll.dll");
@@ -303,14 +310,16 @@ TEST_F(PEFileParserTest, ParseDelayImportDir) {
   BlockGraph::Block* block = parser.ParseDelayImportDir(dir);
   ASSERT_TRUE(block != NULL);
 
-  // Test that we have the import descriptors we expect.
+  // Test that we have the import descriptors we expect - we expect
+  // the one delay import, plus the sentinel import descriptor to be
+  // chunked out.
   size_t num_descriptors = block->size() / sizeof(ImgDelayDescr);
-  ASSERT_EQ(1, num_descriptors);
+  ASSERT_EQ(2, num_descriptors);
   ASSERT_TRUE(block->data() != NULL);
   ASSERT_EQ(block->size(), block->data_size());
 
   std::set<std::string> import_names;
-  for (size_t i = 0; i < num_descriptors; ++i) {
+  for (size_t i = 0; i < num_descriptors - 1; ++i) {
     size_t element_offset = sizeof(ImgDelayDescr) * i;
     BlockGraph::Block* name_block =
         FindReferencedBlock(block, element_offset +
@@ -353,6 +362,13 @@ TEST_F(PEFileParserTest, ParseDelayImportDir) {
       }
     }
   }
+
+  // Check that the sentinel is all zero.
+  ImgDelayDescr zero = {};
+  const ImgDelayDescr* sentinel =
+      reinterpret_cast<const ImgDelayDescr*>(block->data()) +
+          num_descriptors - 1;
+  memcmp(sentinel, &zero, sizeof(zero));
 
   std::set<std::string> expected;
   expected.insert("ole32.dll");
