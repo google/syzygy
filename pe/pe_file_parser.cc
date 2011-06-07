@@ -710,7 +710,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
       AddBlock(BlockGraph::DATA_BLOCK,
                import_descriptor_addr,
                import_descriptor.addr() - import_descriptor_addr +
-                   sizeof(import_descriptor->Characteristics),
+                   sizeof(IMAGE_IMPORT_DESCRIPTOR),
                "Import Directory");
 
   return import_descriptor_block;
@@ -844,14 +844,11 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
   } while (import_descriptor.Next());
 
-  // TODO(siggi): I'm treating this the same way as the import descriptors,
-  //    where I get a block collision if use the import dir size for the block.
-  //    See whether this is really the same.
   BlockGraph::Block* import_descriptor_block =
       AddBlock(BlockGraph::DATA_BLOCK,
                import_descriptor_addr,
                import_descriptor.addr() - import_descriptor_addr +
-                   sizeof(import_descriptor->grAttrs),
+                   sizeof(ImgDelayDescr),
                "Delay Import Directory");
 
   return import_descriptor_block;
