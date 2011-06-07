@@ -27,33 +27,18 @@ using core::RelativeAddress;
 using pe::Decomposer;
 using pe::PEFile;
 
-bool DumpImageToText(const FilePath& image_path,
-                     std::ostream& str,
-                     bool basic_block_decomposition) {
-  // Load the image file.
-  PEFile image_file;
-  if (!image_file.Init(image_path)) {
-    LOG(ERROR) << "Unable to initialize image " << image_path.value();
-    return false;
-  }
-
-  // And decompose it to a DecomposedImage instance.
-  Decomposer decomposer(image_file, image_path);
-  Decomposer::DecomposedImage decomposed;
-  Decomposer::Mode mode =
-      basic_block_decomposition ? Decomposer::BASIC_BLOCK_DECOMPOSITION :
-                                  Decomposer::STANDARD_DECOMPOSITION;
-  if (!decomposer.Decompose(&decomposed, NULL, mode)) {
-    LOG(ERROR) << "Unable to decompose image " << image_path.value();
-    return false;
-  }
-
-  // Then dump the image instance data.
-  size_t num_refs = 0;
+// Given @p address_space, dump it in text format to @p str. Also, increment
+// @p num_refs with the count of the number of block references in the address
+// space if @p num_refs is not NULL.
+void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
+                            std::ostream& str,
+                            size_t* num_refs) {
   BlockGraph::AddressSpace::RangeMap::const_iterator block_it(
-      decomposed.address_space.address_space_impl().ranges().begin());
+      address_space.address_space_impl().ranges().begin());
   BlockGraph::AddressSpace::RangeMap::const_iterator block_end(
-      decomposed.address_space.address_space_impl().ranges().end());
+      address_space.address_space_impl().ranges().end());
+
+  size_t refs = 0;
   for (; block_it != block_end; ++block_it) {
     const BlockGraph::Block* block = block_it->second;
     RelativeAddress addr = block_it->first.start();
@@ -74,7 +59,7 @@ bool DumpImageToText(const FilePath& image_path,
     BlockGraph::Block::ReferenceMap::const_iterator ref_it(
         block->references().begin());
     for (; ref_it != block->references().end(); ++ref_it) {
-      ++num_refs;
+      ++refs;
       const BlockGraph::Reference& ref = ref_it->second;
       if (ref.offset() == 0) {
         str << StringPrintf("\t+0x%04X->%s(%d)\n",
@@ -102,9 +87,44 @@ bool DumpImageToText(const FilePath& image_path,
       }
     }
   }
+  if (num_refs != NULL)
+    *num_refs = refs;
+}
+
+bool DumpImageToText(const FilePath& image_path,
+                     std::ostream& str,
+                     bool basic_block_decomposition) {
+  // Load the image file.
+  PEFile image_file;
+  if (!image_file.Init(image_path)) {
+    LOG(ERROR) << "Unable to initialize image " << image_path.value();
+    return false;
+  }
+
+  // And decompose it to a DecomposedImage instance.
+  Decomposer decomposer(image_file, image_path);
+  Decomposer::DecomposedImage decomposed;
+  Decomposer::Mode mode =
+      basic_block_decomposition ? Decomposer::BASIC_BLOCK_DECOMPOSITION :
+                                  Decomposer::STANDARD_DECOMPOSITION;
+  if (!decomposer.Decompose(&decomposed, NULL, mode)) {
+    LOG(ERROR) << "Unable to decompose image " << image_path.value();
+    return false;
+  }
+
+  size_t num_refs = 0;
+  DumpAddressSpaceToText(decomposed.address_space, str, &num_refs);
 
   str << "Discovered: " << decomposed.image.blocks().size() << " blocks\n"
       << "and " << num_refs << " references.";
+
+  if (basic_block_decomposition) {
+    str << "\n\nBASIC BLOCKS:\n\n";
+    DumpAddressSpaceToText(decomposed.basic_block_address_space, str, NULL);
+
+    str << "Discovered: " << decomposed.basic_block_graph.blocks().size()
+        << " basic blocks.";
+  }
 
   return true;
 }
