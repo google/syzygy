@@ -1,0 +1,10 @@
+URL: http://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.6.1.tar.gz#md5=1a475df2219457b6b4febb9fe595d915
+Version: 1.6.1
+License: MIT
+License File: LICENSE
+
+Description:
+A copy of virtualenv 1.6.1, downloaded from PyPi and untarred.
+
+Local Modifications:
+None
