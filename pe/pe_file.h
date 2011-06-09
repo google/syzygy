@@ -113,6 +113,14 @@ class PEFile {
   const IMAGE_SECTION_HEADER* GetSectionHeader(AbsoluteAddress rel,
                                                size_t len) const;
 
+  // Returns the section index associated with the given name. Returns
+  // kInvalidSection if no section with that name is found.
+  size_t GetSectionIndex(const char* name) const;
+
+  // Returns the section header associated with the given name. Returns
+  // kInvalidSection if no section with the name is found.
+  const IMAGE_SECTION_HEADER* GetSectionHeader(const char* name) const;
+
   // Accessors.
   const IMAGE_DOS_HEADER* dos_header() const {
     return dos_header_;

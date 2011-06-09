@@ -39,6 +39,7 @@ using core::BlockGraph;
 using core::Disassembler;
 using core::RelativeAddress;
 using pe::Decomposer;
+using pe::PEFile;
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
 const DWORD kDataCharacteristics =
@@ -181,8 +182,7 @@ bool ValidateReference(RelativeAddress src_addr,
                        BlockGraph::Size size,
                        Decomposer::FixupMap::iterator fixup_it) {
   if (type != fixup_it->second.type || size != kPointerSize) {
-    LOG(ERROR) << "Reference at RVA "
-        << StringPrintf("0x%08X", src_addr.value())
+    LOG(ERROR) << "Reference at " << src_addr
         << " not consistent with corresponding fixup.";
     return false;
   }
@@ -229,9 +229,7 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
 
     case FIXUP_MUST_EXIST: {
       if (it == fixup_map->end()) {
-        LOG(ERROR) << "Reference at RVA "
-            << StringPrintf("0x%08X", src_addr.value())
-            << " has no matching fixup.";
+        LOG(ERROR) << "Reference at " << src_addr << " has no matching fixup.";
         return false;
       }
       if (!ValidateReference(src_addr, type, size, it))
@@ -242,8 +240,7 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
 
     case FIXUP_MUST_NOT_EXIST: {
       if (it != fixup_map->end()) {
-        LOG(ERROR) << "Reference at RVA "
-            << StringPrintf("0x%08X", src_addr.value())
+        LOG(ERROR) << "Reference at " << src_addr
             << " collides with an existing fixup.";
         return false;
       }
@@ -369,61 +366,42 @@ void UpdateBlockStats(
 }
 
 void CalcDetailedCodeBlockStats(
+    AbsoluteAddress block_start,
     const BlockGraph::Block* block,
     const Disassembler& disasm,
-    const Decomposer::DataSpace& data_space,
+    const PEFile::RelocSet& reloc_set,
     Decomposer::DetailedCodeBlockStatistics* stats) {
   DCHECK(block != NULL);
   DCHECK(stats != NULL);
 
-  typedef Decomposer::DataSpace DataSpace;
-
   memset(stats, 0, sizeof(*stats));
 
-  // Walk through the code and data address spaces simultaneously.
+  // Count instruction bytes.
   Disassembler::VisitedSpace::RangeMapConstIter code_it =
       disasm.visited().begin();
-  DataSpace::Range block_range(block->addr(), block->size());
-  DataSpace::RangeMapConstIterPair data_its =
-      data_space.FindIntersecting(block_range);
-  DataSpace::RangeMapConstIter data_it = data_its.first;
-  for (; data_it != data_its.second; ++data_it) {
-    stats->data_bytes += data_it->first.size();
-    ++stats->data_count;
-
-    size_t data_block_rel_pos = data_it->first.start() - block->addr();
-    AbsoluteAddress data_abs(disasm.code_addr() + data_block_rel_pos);
-    Disassembler::VisitedSpace::Range data_range(data_abs,
-                                                 data_it->first.size());
-
-    // Catch the code pointer up to the data pointer.
-    Disassembler::VisitedSpace::RangeMapConstIter code_last_it = code_it;
-    while (code_it != disasm.visited().end() && code_it->first < data_range) {
-      stats->code_bytes += code_it->first.size();
-      ++stats->code_count;
-      code_last_it = code_it;
-      ++code_it;
-    }
-
-    // If we have a code block immediately before this data block and the
-    // space between them is less than the alignment of the data block, then
-    // we can count these bytes as padding.
-    if (code_last_it != disasm.visited().end() &&
-        code_last_it->first < data_range) {
-      size_t padding = data_range.start().value() -
-          code_last_it->first.end().value();
-      if (padding < kPointerSize &&
-          (data_range.start().value() & (kPointerSize - 1)) == 0) {
-        stats->padding_bytes += padding;
-        ++stats->padding_count;
-      }
-    }
-  }
-
-  // Consume any remaining code ranges.
   for (; code_it != disasm.visited().end(); ++code_it) {
     stats->code_bytes += code_it->first.size();
     ++stats->code_count;
+  }
+
+  // Iterate through all relocs that are a part of this code block.
+  PEFile::RelocSet::const_iterator reloc_it =
+      reloc_set.lower_bound(block->addr());
+  PEFile::RelocSet::const_iterator reloc_end =
+      reloc_set.lower_bound(block->addr() + block->size());
+  for (; reloc_it != reloc_end; ++reloc_it) {
+    // Translate the reloc location to an absolute address.
+    AbsoluteAddress reloc_abs = block_start + (*reloc_it - block->addr());
+
+    // Skip relocs that are part of an instruction.
+    if (disasm.visited().Intersects(reloc_abs, kPointerSize))
+      continue;
+
+    // This reloc must be part of a lookup table, or non-disassembled code.
+    // TODO(chrisha): This is known to be incorrect right now for
+    //     non-disassembled code. We could use fixups to make this accurate,
+    //     but our disassembly is going to be revamped in the near future.
+    stats->data_bytes += kPointerSize;
   }
 
   size_t total = stats->code_bytes + stats->data_bytes + stats->padding_bytes;
@@ -474,10 +452,102 @@ void CalcSectionStats(
   }
 }
 
+size_t GuessAddressAlignment(RelativeAddress address) {
+  // Count the trailing zeros in the original address. We only care
+  // about alignment up to 16, so only have to check the first 4 bits.
+  // TODO(chrisha): This can be done quite efficiently using various bit
+  //     twiddling tricks, and there may very well be a library implementation
+  //     of this somewhere (typically named ctz for 'count training zeros').
+  size_t i = address.value();
+  if ((i & ((1 << 4) - 1)) == 0)
+    return (1 << 4);  // 16.
+
+  if ((i & ((1 << 3) - 1)) == 0)
+    return (1 << 3);  // 8.
+
+  if ((i & ((1 << 2) - 1)) == 0)
+    return (1 << 2);  // 4.
+
+  if ((i & ((1 << 1) - 1)) == 0)
+    return (1 << 1);  // 2.
+
+  return 1;
+}
+
+void GuessDataBlockAlignment(BlockGraph::Block* block) {
+  DCHECK(block != NULL);
+  block->set_alignment(GuessAddressAlignment(block->addr()));
+}
+
+void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
+                            const char* name_or_label,
+                            BlockGraph::Block* block) {
+  // This only make sense for positions strictly within the block.
+  DCHECK(block != NULL);
+  DCHECK(offset >= 0);
+  DCHECK(unsigned(offset) < block->size());
+
+  // If the offset is zero, change the block name. Otherwise, add a label.
+  if (offset == 0)
+    block->set_name(name_or_label);
+  else
+    block->SetLabel(offset, name_or_label);
+}
+
+void AddLabelToCodeBlock(RelativeAddress addr,
+                         const std::string& name,
+                         BlockGraph::Block* block) {
+  // This only makes sense for code blocks that contain the given label
+  // address.
+  DCHECK(block != NULL);
+  DCHECK(block->type() == BlockGraph::CODE_BLOCK);
+  DCHECK(addr >= block->addr());
+  // This is '<= size' because we legitimately get function labels that
+  // land at the end of the function.
+  DCHECK(addr <= block->addr() + block->size());
+
+  block->SetLabel(addr - block->addr(), name.c_str());
+}
+
+// Find the table that can be cast to the given type.
+template<typename T> bool FindDiaTable(IDiaSession* session,
+                                       T** out_table) {
+  // Get the table enumerator.
+  ScopedComPtr<IDiaEnumTables> enum_tables;
+  HRESULT hr = session->getEnumTables(enum_tables.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to get DIA table enumerator: " << com::LogHr(hr);
+    return false;
+  }
+
+  // Iterate through the tables.
+  ScopedComPtr<IDiaEnumSectionContribs> section_contribs;
+  while (true) {
+    ScopedComPtr<IDiaTable> table;
+    ULONG fetched = 0;
+    hr = enum_tables->Next(1, table.Receive(), &fetched);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to get DIA table: " << com::LogHr(hr);
+      return false;
+    }
+    if (fetched == 0)
+      break;
+
+    hr = table.QueryInterface(out_table);
+    if (SUCCEEDED(hr))
+      return true;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 namespace pe {
 
+using builder::Opt;
+using builder::Seq;
+using builder::Star;
 using core::AbsoluteAddress;
 using core::BlockGraph;
 
@@ -489,8 +559,15 @@ Decomposer::Decomposer(const PEFile& image_file,
       current_block_(NULL) {
   // Register static initializer patterns that we know are always present.
   bool success =
-      RegisterStaticInitializerPatterns("(__x.*)_a", "(__x.*)_z") &&
-      RegisterStaticInitializerPatterns("(__rtc_[it])aa", "(__rtc_[it])zz");
+      // CRT C/C++/etc initializers.
+      RegisterStaticInitializerPatterns("(__x.*)_a",
+                                        "(__x.*)_z") &&
+      // RTC (run-time checks) initializers (part of CRT).
+      RegisterStaticInitializerPatterns("(__rtc_[it])aa",
+                                        "(__rtc_[it])zz") &&
+      // ATL object map initializers.
+      RegisterStaticInitializerPatterns("(__pobjMapEntry)First",
+                                        "(__pobjMapEntry)Last");
   CHECK(success);
 }
 
@@ -560,7 +637,7 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
 
   // Chunk out data blocks.
   if (success)
-    success = CreateDataBlocks(global);
+    success = CreateDataBlocks(dia_session, global);
 
   // Create labels in code blocks. These are created first so that the
   // labels will have meaningful names.
@@ -571,14 +648,26 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   if (success)
     success = CreateCodeLabelsFromFixups();
 
+  // Parse public symbols, augmenting code and data labels where possible.
+  if (success)
+    success = ProcessPublicSymbols(global);
+
+  // Parse initialization bracketing symbols. This needs to happen after
+  // PublicSymbols have been parsed.
+  if (success)
+    success = ProcessStaticInitializers();
+
+  // We know that some data blocks need to have alignment precisely preserved.
+  // For now, we very conservatively (guaranteed to be correct, but causes many
+  // blocks to be aligned that don't strictly need alignment) guess alignment
+  // for each block. This must be run after static initializers have been
+  // parsed.
+  if (success)
+    success = GuessDataBlockAlignments();
+
   // Disassemble code blocks and create PC-relative references
   if (success)
     success = CreateCodeReferences();
-
-  // TODO(chrisha): Verify the destinations of all unreferenced labels.
-  //     They should either have been disassembled in the regular course
-  //     of disassembly, or they should point to no-ops. To do this, we'll
-  //     need to keep around the visited_ address-space of each code block.
 
   // Turn the address->address format references we've created into
   // block->block references on the blocks in the image.
@@ -1037,27 +1126,6 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   return true;
 }
 
-void Decomposer::AddLabelToCodeBlock(RelativeAddress addr,
-                                     const std::string& name,
-                                     BlockGraph::Block* block) {
-  // This only makes sense for code blocks that contain the given label
-  // address.
-  DCHECK(block != NULL);
-  DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(addr >= block->addr());
-  // This is '<= size' because we legitimately get function labels that
-  // land at the end of the function.
-  DCHECK(addr <= block->addr() + block->size());
-
-  // Only add referenced labels to the block. Unreferenced labels do
-  // not get used as disassembly starting points.
-  bool referenced = reloc_refs_.find(addr) != reloc_refs_.end();
-  if (referenced)
-    block->SetLabel(addr - block->addr(), name.c_str());
-  else
-    unreferenced_labels_.insert(std::make_pair(addr, name));
-}
-
 void Decomposer::AddReferenceCallback(RelativeAddress src_addr,
                                       BlockGraph::ReferenceType type,
                                       BlockGraph::Size size,
@@ -1110,8 +1178,8 @@ bool Decomposer::CreateReferencesFromFixups() {
     RelativeAddress src_addr(it->second.location);
     uint32 data = 0;
     if (!image_file_.ReadImage(src_addr, &data, sizeof(data))) {
-      LOG(ERROR) << "Unable to read image data for fixup with source at RVA "
-          << StringPrintf("0x%08X.", src_addr.value());
+      LOG(ERROR) << "Unable to read image data for fixup with source at "
+          << src_addr;
       return false;
     }
 
@@ -1171,180 +1239,228 @@ bool Decomposer::ValidateRelocs(const PEFile::RelocMap& reloc_map) {
   return true;
 }
 
-bool Decomposer::ProcessDataAndPublicSymbols(IDiaSymbol* global,
-                                             DataLabels* data_labels) {
-  ScopedComPtr<IDiaEnumSymbols> enum_data;
-  HRESULT hr = global->findChildren(SymTagData,
-                                    NULL,
-                                    nsNone,
-                                    enum_data.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get the DIA data enumerator: " << hr;
+bool Decomposer::ProcessSectionContribs(IDiaSession* session) {
+  ScopedComPtr<IDiaEnumSectionContribs> section_contribs;
+  if (!FindDiaTable(session, section_contribs.Receive()))
     return false;
-  }
+
+  size_t rsrc_id = image_file_.GetSectionIndex(".rsrc");
 
   while (true) {
-    ScopedComPtr<IDiaSymbol> data;
+    ScopedComPtr<IDiaSectionContrib> section_contrib;
     ULONG fetched = 0;
-    hr = enum_data->Next(1, data.Receive(), &fetched);
+    HRESULT hr = section_contribs->Next(1, section_contrib.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate data: " << hr;
+      LOG(ERROR) << "Failed to get DIA section contribution: "
+          << com::LogHr(hr);
       return false;
     }
-    if (hr != S_OK || fetched == 0)
+    if (fetched == 0)
       break;
 
-    DCHECK(IsSymTag(data, SymTagData));
-
-    if (!ProcessDataOrPublicSymbol(data, data_labels))
-      return false;
-  }
-
-  ScopedComPtr<IDiaEnumSymbols> enum_public_symbols;
-  hr = global->findChildren(SymTagPublicSymbol,
-                            NULL,
-                            nsNone,
-                            enum_public_symbols.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get the DIA public symbols enumerator: " << hr;
-    return false;
-  }
-
-  while (true) {
-    ScopedComPtr<IDiaSymbol> public_symbol;
-    ULONG fetched = 0;
-    hr = enum_public_symbols->Next(1, public_symbol.Receive(), &fetched);
-    if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate public symbols: " << hr;
+    hr = E_FAIL;
+    DWORD rva = 0;
+    DWORD length = 0;
+    DWORD section_id = 0;
+    BOOL code = FALSE;
+    ScopedComPtr<IDiaSymbol> compiland;
+    ScopedBstr bstr_name;
+    if (FAILED(hr = section_contrib->get_relativeVirtualAddress(&rva)) ||
+        FAILED(hr = section_contrib->get_length(&length)) ||
+        FAILED(hr = section_contrib->get_addressSection(&section_id)) ||
+        FAILED(hr = section_contrib->get_code(&code)) ||
+        FAILED(hr = section_contrib->get_compiland(compiland.Receive())) ||
+        FAILED(hr = compiland->get_name(bstr_name.Receive()))) {
+      LOG(ERROR) << "Failed to get section contribution properties: "
+          << com::LogHr(hr) << ".";
       return false;
     }
-    if (hr != S_OK || fetched == 0)
-      break;
 
-    DCHECK(IsSymTag(public_symbol, SymTagPublicSymbol));
+    // DIA numbers sections from 1 to n, while we do 0 to n - 1.
+    DCHECK(section_id > 0);
+    --section_id;
 
-    if (!ProcessDataOrPublicSymbol(public_symbol, data_labels))
+    // We don't parse the resource section, as it is parsed by the PEFileParser.
+    if (section_id == rsrc_id)
+      continue;
+
+    // We don't parse code, as it is parsed using symbols.
+    // TODO(chrisha): We eventually want to parse code using section
+    //     contributions as well
+    if (code)
+      continue;
+
+    std::string name;
+    if (!WideToUTF8(bstr_name, bstr_name.Length(), &name)) {
+      LOG(ERROR) << "Failed to convert compiland name to UTF8.";
       return false;
+    }
+
+    // Create the data block.
+    BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
+                                                 RelativeAddress(rva),
+                                                 length,
+                                                 name.c_str());
+    if (block == NULL) {
+      LOG(ERROR) << "Unable to create data block.";
+      return false;
+    }
   }
 
   return true;
 }
 
-bool Decomposer::ProcessDataOrPublicSymbol(IDiaSymbol* data,
-                                           DataLabels* data_labels) {
-  DWORD sym_tag = SymTagNull;
-  if (!GetSymTag(data, &sym_tag))
-    return false;
-  DCHECK(sym_tag == SymTagData || sym_tag == SymTagPublicSymbol);
+void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
+                              const DiaBrowser::SymTagVector& sym_tags,
+                              const DiaBrowser::SymbolPtrVector& symbols,
+                              DiaBrowser::BrowserDirective* directive) {
+  DCHECK(sym_tags.size() > 0);
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+  DCHECK(sym_tags.back() == SymTagData);
+  DCHECK(directive != NULL);
+  DCHECK(*directive == DiaBrowser::kBrowserContinue);
 
+  const DiaBrowser::SymbolPtr& data(symbols.back());
+
+  HRESULT hr = E_FAIL;
   DWORD location_type = LocIsNull;
-  if (FAILED(data->get_locationType(&location_type))) {
-    LOG(ERROR) << "Failed to retrieve data address type.";
-    return false;
-  }
-  if (location_type != LocIsStatic) {
-    return true;
-  }
-
   DWORD rva = 0;
-  ScopedBstr name;
-  if (FAILED(data->get_relativeVirtualAddress(&rva)) ||
-      FAILED(data->get_name(name.Receive()))) {
-    LOG(ERROR) << "Failed to retrieve data information.";
-    return false;
+  ScopedBstr name_bstr;
+  if (FAILED(hr = data->get_locationType(&location_type)) ||
+      FAILED(hr = data->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = data->get_name(name_bstr.Receive()))) {
+    LOG(ERROR) << "Failed to get data properties: " << com::LogHr(hr) << ".";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
   }
 
-  // Get the section containing this address.
-  RelativeAddress addr(rva);
-  const IMAGE_SECTION_HEADER* section_header =
-      image_file_.GetSectionHeader(addr, 1);
-  // Skip symbols that lie outside of any known sections. This can happen
-  // for symbols that lie within the headers.
-  if (section_header == NULL)
-    return true;
-  // Skip the section if it's not code or data.
-  SectionType section_type = GetSectionType(section_header);
-  if (section_type == kSectionUnknown)
-    return true;
+  // We only parse data symbols with static storage.
+  if (location_type != LocIsStatic)
+    return;
 
-  std::string data_name;
-  if (!WideToUTF8(name, name.Length(), &data_name)) {
-    LOG(ERROR) << "Failed to convert label name to UTF8.";
-    return false;
-  }
+  // Symbols with an address of zero are essentially invalid. They appear to
+  // have been optimized away by the compiler, but they are still reported.
+  if (rva == 0)
+    return;
 
-  // PublicSymbols contain meaningless length information so we can only
-  // really use them as labels. In the case of labels into data, we store them
-  // in a temporary structure before using them to chunk out blocks. For
-  // code, we add them as labels to existing code blocks.
-  if (sym_tag == SymTagPublicSymbol) {
-    // Public symbol names are mangled. Remove leading '_' as per
-    // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
-    if (data_name[0] == '_')
-      data_name = data_name.substr(1);
-
-    if (section_type == kSectionData) {
-      data_labels->insert(std::make_pair(addr, data_name));
-    } else if (section_type == kSectionCode) {
-      BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
-      if (block != NULL) {
-        BlockGraph::Offset offset = addr - block->addr();
-        if (offset)
-          block->SetLabel(offset, data_name.c_str());
-      } else {
-        LOG(ERROR) << "Code PublicSymbol does not land in a code block.";
-        return false;
-      }
-    }
-    return true;
-  }
-
+  // TODO(chrisha): We eventually want to get alignment info from the type
+  //     information. This is strictly a lower bound, however, as certain
+  //     data may be used in instructions that impose stricter alignment
+  //     requirements.
   size_t length = 0;
-  if (!GetTypeInfo(data, &length))
-    return false;
-
-  // Zero length Data symbols act as 'forward declares' in some sense. They
-  // appear to always be followed by a non-zero length Data symbol with the
-  // same name and location.
+  if (!GetTypeInfo(data, &length)) {
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
+  }
+  // Zero-length data symbols act as 'forward declares' in some sense. They
+  // are always followed by a non-zero length data symbol with the same name
+  // and location.
   if (length == 0)
-    return true;
+    return;
 
-  // TODO(chrisha): The NativeClient bits of chrome.dll consists of hand-written
-  //     assembly that are compiled using a custom non-Microsoft toolchain.
-  //     Unfortunately for us this toolchain emits 1-byte data symbols instead
-  //     of code labels. Thus, we mark valid code as data and it eventually
-  //     gets trampled on by the disassembler.
-  // TODO(chrisha): Maybe output these as code labels for the appropriate
-  //     block?
-  static const char kNaClPrefix[] = "NaCl";
-  if (length == 1 &&
-      data_name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0)
-    return true;
+  RelativeAddress addr(rva);
+  std::string name;
+  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+    LOG(ERROR) << "Failed to convert data symbol name to UTF8.";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
+  }
 
-  // If this is in a code block, push it to the data-space.
-  if (section_type == kSectionCode) {
-    if (!data_space_.SubsumeInsert(DataSpace::Range(addr, length), data_name)) {
-      LOG(ERROR) << "Data-space insertion failed.";
-      return false;
+  // If there is an existing block, and we are completely contained within it,
+  // then simply add ourselves as a label.
+  BlockGraph::Block* block =
+      image_->GetFirstIntersectingBlock(addr, length == 0 ? 1 : length);
+  if (block != NULL) {
+    if (block->type() == BlockGraph::CODE_BLOCK) {
+      // The NativeClient bits of chrome.dll consists of hand-written assembly
+      // that is compiled using a custom non-Microsoft toolchain. Unfortunately
+      // for us this toolchain emits 1-byte data symbols instead of code labels.
+      static const char kNaClPrefix[] = "NaCl";
+      if (length == 1 &&
+          name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
+        AddLabelToCodeBlock(addr, name, block);
+        return;
+      }
+
+      // TODO(chrisha): Data in code blocks only occurs with hand-crafted
+      //     assembly, such as memmove, memcpy, etc. We have no data-in-code
+      //     book-keeping mechanisms for now, so we'll deal with this when we
+      //     get around to doing that. (These data are always lookup tables, so
+      //     we avoid disassembly collisions simply by checking relocs for now.)
     }
-    return true;
+
+    // Check for symbol conflicts.
+    if (addr < block->addr() || addr + length > block->addr() + block->size()) {
+      LOG(ERROR) << "Data symbol " << name
+          << " in conflict with existing block " << block->name() << ".";
+      *directive = DiaBrowser::kBrowserAbort;
+      return;
+    }
+
+    BlockGraph::Offset offset = addr - block->addr();
+    SetBlockNameOrAddLabel(offset, name.c_str(), block);
+
+    return;
   }
 
-  // Create the data block.
-  BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
-                                               addr,
-                                               length,
-                                               data_name.c_str());
+  // If we get here, there is no conflicting block and we can create a new one.
+  block = CreateBlock(BlockGraph::DATA_BLOCK,
+                      addr,
+                      length,
+                      name.c_str());
   if (block == NULL) {
-    LOG(ERROR) << "Unable to create data-block.";
-    return false;
+    LOG(ERROR) << "Unable to create data block.";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
   }
-  // Sometimes we get the same block referred to by multiple names. Add the
-  // other names as labels.
-  if (data_name != block->name())
-    block->SetLabel(0, data_name.c_str());
+}
 
-  return true;
+void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
+                                const DiaBrowser::SymTagVector& sym_tags,
+                                const DiaBrowser::SymbolPtrVector& symbols,
+                                DiaBrowser::BrowserDirective* directive) {
+  DCHECK(sym_tags.size() > 0);
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+  DCHECK(sym_tags.back() == SymTagPublicSymbol);
+  DCHECK(directive != NULL);
+  DCHECK(*directive == DiaBrowser::kBrowserContinue);
+
+  const DiaBrowser::SymbolPtr& symbol(symbols.back());
+
+  HRESULT hr = E_FAIL;
+  DWORD rva = 0;
+  ScopedBstr name_bstr;
+  if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
+    LOG(ERROR) << "Failed to get public symbol properties: "
+        << com::LogHr(hr) << ".";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
+  }
+
+  RelativeAddress addr(rva);
+  BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
+  // PublicSymbols are parsed after the sections have been filled out with
+  // gap blocks, so they should always land in a code or data block.
+  DCHECK(block != NULL);
+  DCHECK(block->type() == BlockGraph::CODE_BLOCK ||
+         block->type() == BlockGraph::DATA_BLOCK);
+
+  std::string name;
+  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+    LOG(ERROR) << "Failed to convert symbol name to UTF8.";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
+  }
+  // Public symbol names are mangled. Remove leading '_' as per
+  // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
+  if (name[0] == '_')
+    name = name.substr(1);
+
+  // Set the block name or add a label. For code blocks these are entry points,
+  // while for data blocks these are simply to aid debugging.
+  BlockGraph::Offset offset = addr - block->addr();
+  SetBlockNameOrAddLabel(offset, name.c_str(), block);
 }
 
 bool Decomposer::ProcessStaticInitializers() {
@@ -1449,148 +1565,6 @@ bool Decomposer::ProcessStaticInitializers() {
   return true;
 }
 
-bool Decomposer::ExtendDataLabels(const DataLabels& data_labels) {
-  // We are only interested in labels in data sections, so iterate through
-  // the sections and only process data sections.
-  size_t section_count = image_file_.nt_headers()->FileHeader.NumberOfSections;
-  for (size_t section_id = 0; section_id < section_count; ++section_id) {
-    const IMAGE_SECTION_HEADER* header = image_file_.section_header(section_id);
-    if (GetSectionType(header) != kSectionData)
-      continue;
-
-    RelativeAddress section_begin(header->VirtualAddress);
-    RelativeAddress section_end(header->VirtualAddress +
-                                header->Misc.VirtualSize);
-
-    // Get the range of labels that lie in this section.
-    DataLabels::const_iterator it = data_labels.lower_bound(section_begin);
-    DataLabels::const_iterator it_end = data_labels.lower_bound(section_end);
-
-    // Extend any data labels at previously unseen locations until the next
-    // known end of section, label or block.
-    for (; it != it_end; ++it) {
-      // Skip labels that lie within any blocks we already know about.
-      BlockGraph::Block* block = image_->GetContainingBlock(it->first, 1);
-      if (block != NULL) {
-        // We often get many (sometimes hundreds) of labels into a single
-        // block, so it's more efficient to iterate labels until the block
-        // is exhausted.
-        RelativeAddress block_end = block->addr() + block->size();
-        while (it != it_end && it->first < block_end) {
-          // We only stored labels in data sections, so this should never
-          // happen.
-          DCHECK(block->type() != BlockGraph::CODE_BLOCK);
-          BlockGraph::Offset offset = it->first - block->addr();
-          // If the label is at offset 0 and has the same value as the
-          // block name, don't add it (it's simply duplicate information).
-          if (offset != 0 || it->second != block->name())
-            block->SetLabel(offset, it->second.c_str());
-          ++it;
-        }
-        --it;
-        continue;
-      }
-
-      // Use the end of the section as our first upper bound for the end
-      // of the new block.
-      RelativeAddress end = section_end;
-
-      // Find the next known data label and use it to lower bound the end of
-      // the new block.
-      DataLabels::const_iterator next_it = it;
-      ++next_it;
-      if (next_it != it_end) {
-        if (next_it->first < end)
-          end = next_it->first;
-      }
-
-      // Find the next known block and use it to lower bound the end of the
-      // new block.
-      block = image_->GetFirstIntersectingBlock(it->first, end - it->first);
-      if (block != NULL && block->addr() < end)
-        end = block->addr();
-
-      block = CreateBlock(BlockGraph::DATA_BLOCK,
-                          it->first,
-                          end - it->first,
-                          it->second.c_str());
-      DCHECK(block != NULL);
-    }
-  }
-
-  return true;
-}
-
-// Extends/creates a data block using reloc information.
-void Decomposer::ExtendOrCreateDataRangeUsingRelocs(
-    const std::string& name, RelativeAddress addr, size_t min_size) {
-  DCHECK(min_size > 0);
-
-  // We only extend data elements that lie within a code block.
-  const BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
-  if (block == NULL || block->type() != BlockGraph::CODE_BLOCK)
-    return;
-
-  // Use the end of the block as a first upper bound.
-  RelativeAddress end = block->addr() + block->size();
-
-  // Get the item in the data-space that is immediately after any intersecting
-  // range. This will be used as another upper bound.
-  DataSpace::Range data_range(addr, min_size);
-  DataSpace::RangeMapConstIter data_it =
-      data_space_.ranges().lower_bound(data_range);
-  if (data_it != data_space_.end() && data_it->first.Intersects(data_range))
-    ++data_it;
-  if (data_it != data_space_.end() && data_it->first.end() < end)
-      end = data_it->first.end();
-
-  // Find the length of the run of relocs starting at this address,
-  // stopping ourselves at the upper bound we determined earlier.
-  size_t count = 0;
-  RelativeAddress data_end = addr;
-  PEFile::RelocSet::const_iterator reloc_it = reloc_set_.find(addr);
-  while (true) {
-    if (reloc_it == reloc_set_.end() || data_end + kPointerSize > end)
-      break;
-    ++count;
-    data_end += kPointerSize;
-
-    // Advance to the next reloc. Only continue if it's contiguous.
-    ++reloc_it;
-    if (*reloc_it != data_end)
-      break;
-  }
-
-  // Only create the entry if it meets the minimum size.
-  if (count * kPointerSize > min_size) {
-    DataSpace::Range range(addr, count * kPointerSize);
-    // This should never fail because of our earlier calculations of 'end'.
-    bool success = data_space_.SubsumeInsert(range, name);
-    DCHECK(success);
-  }
-}
-
-bool Decomposer::ExtendDataRangesUsingRelocs() {
-  // Extend any data-within-code-blocks that consist of runs of relocs. We
-  // do this because we occasionally (in hand-crafted assembly) see DD lookup
-  // table symbols that are reported as being 1 DWORD in length, rather than
-  // reporting their true length.
-  DataSpace::RangeMapIter next_data_it = data_space_.begin();
-  while (next_data_it != data_space_.end()) {
-    DataSpace::RangeMapIter data_it = next_data_it;
-    ++next_data_it;
-
-    // This may invalidate the iterator to data_it, hence the reason we
-    // keep around next_data_it. Also the reason why we create a copy of the
-    // name.
-    std::string name(data_it->second);
-    ExtendOrCreateDataRangeUsingRelocs(
-        name, data_it->first.start(), data_it->first.size());
-  }
-
-  return true;
-}
-
 bool Decomposer::CreateDataGapBlocks() {
   size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
   // Iterate through all the image sections.
@@ -1611,37 +1585,74 @@ bool Decomposer::CreateDataGapBlocks() {
   return true;
 }
 
-bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
-  // Process data symbols and public symbols.
-  DataLabels data_labels;
-  if (!ProcessDataAndPublicSymbols(global, &data_labels))
+bool Decomposer::ProcessDataSymbols(IDiaSymbol* root) {
+  scoped_ptr<DiaBrowser::MatchCallback> on_data_symbol(
+      NewCallback(this, &Decomposer::OnDataSymbol));
+
+  DiaBrowser dia_browser;
+  dia_browser.AddPattern(Seq(Opt(SymTagCompiland), SymTagData),
+                         on_data_symbol.get());
+  dia_browser.AddPattern(Seq(SymTagCompiland, SymTagFunction,
+                             Star(SymTagBlock), SymTagData),
+                         on_data_symbol.get());
+
+  return dia_browser.Browse(root);
+}
+
+bool Decomposer::ProcessPublicSymbols(IDiaSymbol* root) {
+  scoped_ptr<DiaBrowser::MatchCallback> on_public_symbol(
+      NewCallback(this, &Decomposer::OnPublicSymbol));
+
+  DiaBrowser dia_browser;
+  dia_browser.AddPattern(SymTagPublicSymbol,
+                         on_public_symbol.get());
+
+  return dia_browser.Browse(root);
+}
+
+bool Decomposer::CreateDataBlocks(IDiaSession* session, IDiaSymbol* global) {
+  // Our first round of data parsing is using section contributions.
+  // TODO(chrisha): We eventually want to use this for .text processing as well,
+  //     in which case it will need to be called much earlier on.
+  if (!ProcessSectionContribs(session))
     return false;
 
-  // Now that we have data sets and relocation entries, we can extend some
-  // data blocks. Doing this is necessary because some in-function jump tables
-  // are reported with too-short lengths (only seen for hand-written assembly
-  // thus far). After this, data_space_ contains ranges marking in-code data.
-  if (!ExtendDataRangesUsingRelocs())
-    return false;
-
-  // Some data (that indicated by public symbols) has uncertain length. We
-  // extend the length of these data blocks to the next known label/block in
-  // order not to subdivide data elements. After this, data_labels may be
-  // discarded.
-  // TODO(chrisha): Investigate chunking using the SectionContributions table
-  //     provided by DIA. This seems to give us much finer grained information
-  //     regarding padding bytes, etc, and it can then be refined using
-  //     symbol information.
-  if (!ExtendDataLabels(data_labels))
+  // Create data blocks using data symbols.
+  if (!ProcessDataSymbols(global))
     return false;
 
   // Flesh out the data sections with gap blocks.
   if (!CreateDataGapBlocks())
     return false;
 
-  // Parse initialization bracketing symbols.
-  if (!ProcessStaticInitializers())
-    return false;
+  return true;
+}
+
+bool Decomposer::GuessDataBlockAlignments() {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  // Iterate through all the image sections.
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
+    DCHECK(header != NULL);
+
+    // Only iterate through data sections.
+    if (GetSectionType(header) != kSectionData)
+      continue;
+
+    RelativeAddress section_begin(header->VirtualAddress);
+    size_t section_length = header->Misc.VirtualSize;
+
+    // Get the range of blocks in this section.
+    BlockGraph::AddressSpace::RangeMapIterPair it_pair =
+        image_->GetIntersectingBlocks(section_begin, section_length);
+
+    // Iterate through the blocks in the section, setting their alignment.
+    BlockGraph::AddressSpace::RangeMapIter it = it_pair.first;
+    for (; it != it_pair.second; ++it) {
+      BlockGraph::Block* block = it->second;
+      GuessDataBlockAlignment(block);
+    }
+  }
 
   return true;
 }
@@ -1766,12 +1777,11 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
     DataSpace::Range range(addr, 1);
 
     bool is_reloc = reloc_set_.find(addr) != reloc_set_.end();
-    bool in_data = data_space_.Intersects(range);
     bool at_end = static_cast<size_t>(label) == block->size();
 
-    // Labels that lie within a reloc, known data, or the end of the function
+    // Labels that lie within a reloc, or the end of the function
     // should not be used as starting points for disassembly.
-    if (!is_reloc && !in_data && !at_end)
+    if (!is_reloc && !at_end)
       labels.insert(abs_block_addr + it->first);
   }
 
@@ -1782,7 +1792,8 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
                       on_instruction.get());
   Disassembler::WalkResult result = disasm.Walk();
   CalcDetailedCodeBlockStats(
-      block, disasm, data_space_, &code_block_stats_[block->id()]);
+      abs_block_addr, block, disasm, reloc_set_,
+      &code_block_stats_[block->id()]);
 
   DCHECK_EQ(block, current_block_);
   current_block_ = NULL;
@@ -1846,6 +1857,13 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
       return NULL;
     }
 
+    // Allow collisions where the new block is a proper subset of
+    // an existing PE parsed block. The PE parser often knows more than we do
+    // about blocks that need to stick together.
+    if ((block->attributes() & BlockGraph::PE_PARSED) != 0 &&
+        addr >= block_addr && addr + size <= block_addr + block->size())
+      return block;
+
     if (block_addr != addr || block->size() != size) {
       LOG(ERROR) << "Block collision for function at "
           << addr.value() << "(" << size << ") with " << block->name();
@@ -1873,26 +1891,12 @@ void Decomposer::OnBasicInstruction(
     return;
   }
 
-  // If this instruction runs over data, bail!
-  DataSpace::Range range(instr_rel, instruction.size);
-  DataSpace::RangeMapConstIterPair its = data_space_.FindIntersecting(range);
-  if (its.first != its.second) {
-    LOG(ERROR) << "Trying to disassemble into known data.";
-    *directive = Disassembler::kDirectiveAbort;
-    return;
-  }
-
   // If this instruction terminates at a data boundary (ie: the *next*
   // instruction will be data or a reloc), indicate that the path should be
   // terminated.
   RelativeAddress after_instr_rel = instr_rel + instruction.size;
-  DataSpace::Range next_byte(after_instr_rel, 1);
-  bool will_hit_data =
-      data_space_.FindContaining(next_byte) != data_space_.end();
-  bool will_hit_reloc = reloc_set_.find(after_instr_rel) != reloc_set_.end();
-  if (will_hit_data || will_hit_reloc) {
+  if (reloc_set_.find(after_instr_rel) != reloc_set_.end())
     *directive = Disassembler::kDirectiveTerminatePath;
-  }
 }
 
 void Decomposer::OnInstruction(const Disassembler& walker,
@@ -1908,32 +1912,22 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     return;
   }
 
-  // If this instruction runs over data, bail!
-  DataSpace::Range range(instr_rel, instruction.size);
-  DataSpace::RangeMapConstIterPair its = data_space_.FindIntersecting(range);
-  if (its.first != its.second) {
-    LOG(ERROR) << "Trying to disassemble into known data.";
-    *directive = Disassembler::kDirectiveAbort;
-    return;
-  }
-
   // If this instruction terminates at a data boundary (ie: the *next*
   // instruction will be data or a reloc), indicate that the path should be
   // terminated.
   RelativeAddress after_instr_rel = instr_rel + instruction.size;
-  DataSpace::Range next_byte(after_instr_rel, 1);
-  bool will_hit_data =
-      data_space_.FindContaining(next_byte) != data_space_.end();
-  bool will_hit_reloc = reloc_set_.find(after_instr_rel) != reloc_set_.end();
-  if (will_hit_data || will_hit_reloc) {
+  if (reloc_set_.find(after_instr_rel) != reloc_set_.end()) {
     *directive = Disassembler::kDirectiveTerminatePath;
 
     // We can be certain that a new lookup table is starting at this address.
-    if (!will_hit_data && will_hit_reloc)
-      ExtendOrCreateDataRangeUsingRelocs(
-          StringPrintf("Inferred Data 0x%08X", after_instr_rel),
-          after_instr_rel, kPointerSize);
+    // TODO(chrisha): We can use this to drive the labelling of data blocks
+    //     within code sections.
   }
+
+  // TODO(chrisha): Certain instructions require aligned data (ie: MMX/SSE
+  //     instructions). We need to follow the data that these instructions
+  //     refer to, and set their alignment appropriately. For now, alignment
+  //     is simply preserved from the original image.
 
   int fc = META_GET_FC(instruction.meta);
   // For all branches, calls and conditional branches to PC-relative
@@ -1986,12 +1980,6 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       }
       *directive = Disassembler::kDirectiveTerminatePath;
     }
-
-    // This label has been referred to by code, so make sure it is removed from
-    // the set of unreferenced labels before we add it to the block.
-    LabelMap::iterator it = unreferenced_labels_.find(dst);
-    if (it != unreferenced_labels_.end())
-      unreferenced_labels_.erase(it);
 
     // Add the reference. If it's new, make sure to try and add a label
     // and reschedule the block for disassembly again.
@@ -2152,8 +2140,7 @@ bool Decomposer::ConfirmFixupsVisited() const {
       continue;
 
     success = false;
-    LOG(ERROR) << "Unexpected unseen fixup at RVA "
-        << StringPrintf("0x%08X.", fixup_it->second.location.value());
+    LOG(ERROR) << "Unexpected unseen fixup at " << fixup_it->second.location;
   }
 
   return success;
@@ -2300,8 +2287,7 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
                     rva_base };
     bool added = fixup_map_.insert(std::make_pair(rva_location, fixup)).second;
     if (!added) {
-      LOG(ERROR) << "Colliding fixups at RVA "
-          << StringPrintf("0x%08X.", rva_location.value());
+      LOG(ERROR) << "Colliding fixups at " << rva_location;
       return false;
     }
   }

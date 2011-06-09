@@ -16,6 +16,7 @@
 
 #include <iosfwd>
 #include "base/basictypes.h"
+#include "base/logging.h"
 
 namespace core {
 
@@ -97,6 +98,18 @@ template <AddressType type> class AddressImpl {
   uint32 value() const { return value_; }
   void set_value(uint32 value) {
     value_ = value;
+  }
+
+  AddressImpl<type> AlignUp(size_t alignment) const {
+    DCHECK(alignment > 0);
+    // Round up to nearest multiple of alignment.
+    uint32 value = ((value_ + alignment - 1) / alignment) * alignment;
+    return AddressImpl<type>(value);
+  }
+
+  bool IsAligned(size_t alignment) const {
+    DCHECK(alignment > 0);
+    return (value_ % alignment) == 0;
   }
 
  private:

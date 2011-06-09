@@ -14,6 +14,7 @@
 
 #include "syzygy/relink/relinker.h"
 #include "base/file_util.h"
+#include "base/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/decomposer.h"
@@ -26,7 +27,12 @@ const size_t kPageSize = 4096;
 
 class OffsetRelinker : public relink::Relinker {
  public:
-  OffsetRelinker() {
+  // Since the offset relinker is run repeatedly on its own output, each
+  // dummy section created at the beginning should have a name that is different
+  // from any other runs. Passing the iteration here allows us to ensure that
+  // cheaply without having to inspect the section headers.
+  explicit OffsetRelinker(size_t iteration)
+      : iteration_(iteration) {
     DCHECK_GE(max_padding_length(), kPageSize);
   }
 
@@ -57,17 +63,11 @@ class OffsetRelinker : public relink::Relinker {
 
  private:
   bool SetupOrdering(Reorderer::Order& /*order*/) {
-    // Nothing to do.
-    return true;
-  }
-  bool ReorderSection(size_t /*section_index*/,
-                      const IMAGE_SECTION_HEADER& section,
-                      const Reorderer::Order& /*order*/) {
-    // Create a dummy section to offset the original section.
-    std::string section_name("o");
-    section_name.append(GetSectionName(section));
+    // Create an offset section at the beginning of the image. We use the
+    // iteration number to ensure the section has a unique name.
+    std::string name = StringPrintf("pad%d", iteration_);
     RelativeAddress start = builder().AddSegment(
-        section_name.c_str(), kPageSize, kPageSize,
+        name.c_str(), kPageSize, kPageSize,
         IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
     BlockGraph::Block* block = builder().address_space().AddBlock(
         BlockGraph::CODE_BLOCK, start, kPageSize, "offset");
@@ -75,6 +75,11 @@ class OffsetRelinker : public relink::Relinker {
     block->set_data_size(kPageSize);
     block->set_owns_data(false);
 
+    return true;
+  }
+  bool ReorderSection(size_t /*section_index*/,
+                      const IMAGE_SECTION_HEADER& section,
+                      const Reorderer::Order& /*order*/) {
     // Copy the code section.
     if (!CopySection(section)) {
       LOG(ERROR) << "Unable to copy section";
@@ -83,6 +88,8 @@ class OffsetRelinker : public relink::Relinker {
 
     return true;
   }
+
+  size_t iteration_;
 };
 
 }  // namespace
@@ -105,7 +112,7 @@ TEST_F(RelinkerTest, OffsetCode) {
     FilePath output_dll_path = temp_dir.Append(kDllName);
     FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 
-    OffsetRelinker relinker;
+    OffsetRelinker relinker(i);
     ASSERT_TRUE(relinker.Relink(input_dll_path,
                                 input_pdb_path,
                                 output_dll_path,

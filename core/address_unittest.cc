@@ -64,4 +64,24 @@ TEST(AddressTest, Operators) {
   EXPECT_TRUE(addr == kTwo);
 }
 
+TEST(AddressTest, AlignUp) {
+  const RelativeAddress one(1);
+  const RelativeAddress two(2);
+  const RelativeAddress four(4);
+  const RelativeAddress eight(8);
+  const RelativeAddress sixteen(16);
+
+  EXPECT_EQ(one.AlignUp(1), one);
+  EXPECT_EQ(one.AlignUp(2), two);
+  EXPECT_EQ(one.AlignUp(4), four);
+  EXPECT_EQ(one.AlignUp(8), eight);
+  EXPECT_EQ(one.AlignUp(16), sixteen);
+
+  EXPECT_TRUE(one.AlignUp(1).IsAligned(1));
+  EXPECT_TRUE(one.AlignUp(2).IsAligned(2));
+  EXPECT_TRUE(one.AlignUp(4).IsAligned(4));
+  EXPECT_TRUE(one.AlignUp(8).IsAligned(8));
+  EXPECT_TRUE(one.AlignUp(16).IsAligned(16));
+}
+
 }  // namespace core

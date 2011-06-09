@@ -294,12 +294,9 @@ const uint8* Relinker::padding_data() {
 bool Relinker::IsReorderable(const IMAGE_SECTION_HEADER& section) {
   if (section.Characteristics & IMAGE_SCN_CNT_CODE)
     return true;
-#if 0
-  // TODO(rogerm) Once data reordering is supported, remove the if/endif.
   std::string section_name = GetSectionName(section);
-  if (section_name == '.data' || section_name == 'rdata')
+  if (section_name == ".data" || section_name == ".rdata")
     return true;
-#endif
   return false;
 }
 

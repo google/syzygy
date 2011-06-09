@@ -31,6 +31,7 @@
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pe/dia_browser.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -113,25 +114,34 @@ class Decomposer {
   bool CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                               BlockGraph::BlockType block_type);
 
-  // Processes data symbols and public symbols.
-  bool ProcessDataAndPublicSymbols(IDiaSymbol* global, DataLabels* data_labels);
-  bool ProcessDataOrPublicSymbol(IDiaSymbol* data, DataLabels* data_labels);
-  // Extends data labels to the next known label or block. This is a
-  // pessimistic do-no-harm metric that ensures data with uncertain length
-  // does not get subdivided.
-  bool ExtendDataLabels(const DataLabels& data_labels);
-  // Extends/creates a single data block using reloc information. The block
-  // will only be created if it is bigger than min_size.
-  void ExtendOrCreateDataRangeUsingRelocs(
-      const std::string& name, RelativeAddress addr, size_t min_size);
-  // Process static initializer data labels, ensuring they remain contiguous.
-  bool ProcessStaticInitializers();
-  // Extends data blocks using relocs.
-  bool ExtendDataRangesUsingRelocs();
+  // Processes the SectionContribution table.
+  bool ProcessSectionContribs(IDiaSession* session);
+  bool ProcessSectionContrib(IDiaSectionContrib* section_contrib,
+                             size_t rsrc_id);
+
+    // Creates data blocks.
+  bool CreateDataBlocks(IDiaSession* session, IDiaSymbol* global);
   // Creates data gap blocks.
   bool CreateDataGapBlocks();
-  // Creates data blocks.
-  bool CreateDataBlocks(IDiaSymbol* global);
+  // Guesses data block alignments and padding.
+  bool GuessDataBlockAlignments();
+  // Process static initializer data labels, ensuring they remain contiguous.
+  bool ProcessStaticInitializers();
+
+  // These process symbols in the DIA tree via DiaBrowser and the following
+  // callbacks.
+  bool ProcessDataSymbols(IDiaSymbol* root);
+  bool ProcessPublicSymbols(IDiaSymbol* root);
+
+  // DiaBrowser callbacks.
+  void OnDataSymbol(const DiaBrowser& dia_browser,
+                    const DiaBrowser::SymTagVector& sym_tags,
+                    const DiaBrowser::SymbolPtrVector& symbols,
+                    DiaBrowser::BrowserDirective* directive);
+  void OnPublicSymbol(const DiaBrowser& dia_browser,
+                      const DiaBrowser::SymTagVector& sym_tags,
+                      const DiaBrowser::SymbolPtrVector& symbols,
+                      DiaBrowser::BrowserDirective* directive);
 
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();
@@ -147,12 +157,6 @@ class Decomposer {
   bool LoadDebugStreams(IDiaSession* dia_session,
                         std::vector<OMAP>* omap_to,
                         std::vector<OMAP>* omap_from);
-
-  // Adds a label to the given block, unless the label is unreferenced.
-  // In this case, it will add the label to unreferenced_labels_.
-  void AddLabelToCodeBlock(RelativeAddress addr,
-                           const std::string& name,
-                           BlockGraph::Block* block);
 
   // Validates a reference against a matching fixup, or creates a new
   // intermediate reference from @p src_addr to @p dst_addr of
@@ -256,8 +260,6 @@ class Decomposer {
   // either through short branches or by execution continuing past the tail
   // of a block.
   RangeSet to_merge_;
-  // Keeps track of unreferenced code labels.
-  LabelMap unreferenced_labels_;
   // Keeps track of reloc entry information, which is used by various
   // pieces of the decomposer.
   PEFile::RelocSet reloc_set_;
@@ -269,10 +271,6 @@ class Decomposer {
   FixupMap fixup_map_;
   // Keeps track of per block disassembly statistics.
   DetailedCodeBlockStatsMap code_block_stats_;
-  // Holds the ranges of in-function data blocks, and is used to guide
-  // disassembly.
-  // TODO(chrisha): Maybe move this to per-block internal storage?
-  DataSpace data_space_;
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
