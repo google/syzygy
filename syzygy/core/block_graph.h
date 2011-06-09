@@ -131,6 +131,16 @@ class BlockGraph::Block {
   const char* name() const { return name_.c_str(); }
   void set_name(const char* name) { name_ = name; }
 
+  Size alignment() const { return alignment_; }
+  void set_alignment(Size alignment) {
+    // Ensure that alignment is a non-zero power of two.
+    // TODO(chrisha): We really need a central place to put IsPowerOfTwo,
+    //     AlignUp, etc.
+    DCHECK(alignment >= 1);
+    DCHECK((alignment & (alignment - 1)) == 0);
+    alignment_ = alignment;
+  }
+
   // The address of the block is set any time the block is assigned
   // an address in an address space.
   RelativeAddress addr() const { return addr_; }
@@ -228,6 +238,7 @@ class BlockGraph::Block {
   BlockId id_;
   BlockType type_;
   Size size_;
+  Size alignment_;
   std::string name_;
   RelativeAddress addr_;
   RelativeAddress original_addr_;

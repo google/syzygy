@@ -43,10 +43,10 @@ bool OrderRelinker::ReorderSection(size_t section_index,
   Reorderer::Order::BlockListMap::const_iterator section_iter =
       order.section_block_lists.find(section_index);
 
-  if (section_iter == order.section_block_lists.end()) {
-    LOG(ERROR) << "No ordering found for section " << section_index << ".";
-    return false;
-  }
+  // We only reorder the section if an ordering has actually been provided
+  // for it. Otherwise, we simply copy the section as is.
+  if (section_iter == order.section_block_lists.end())
+    return CopySection(section);
 
   RelativeAddress section_start = builder().next_section_address();
   RelativeAddress insert_at = section_start;
@@ -64,6 +64,10 @@ bool OrderRelinker::ReorderSection(size_t section_index,
       LOG(WARNING) << "Ordering lists " << block->name() << " multiple times.";
       continue;
     }
+
+    // Align the output cursor.
+    // TODO(chrisha): Output 0xcc bytes here.
+    insert_at = insert_at.AlignUp(block->alignment());
 
     // Need to cast away constness to insert the block into the builder's
     // address space.  We "know" that the builder isn't going to add
@@ -105,6 +109,10 @@ bool OrderRelinker::ReorderSection(size_t section_index,
     BlockGraph::Block* block = section_it->second;
     if (inserted_blocks.find(block) != inserted_blocks.end())
       continue;
+
+    // Align the output cursor.
+    // TODO(chrisha): Output 0xcc bytes here.
+    insert_at = insert_at.AlignUp(block->alignment());
 
     if (!builder().address_space().InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "

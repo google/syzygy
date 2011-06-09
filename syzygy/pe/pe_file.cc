@@ -105,6 +105,24 @@ const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(
   return GetSectionHeader(rel, len);
 }
 
+size_t PEFile::GetSectionIndex(const char* name) const {
+  size_t section_count = nt_headers_->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < section_count; ++i) {
+    const IMAGE_SECTION_HEADER* header = section_headers_ + i;
+    if (strncmp(reinterpret_cast<const char*>(header->Name), name,
+                IMAGE_SIZEOF_SHORT_NAME) == 0)
+      return i;
+  }
+  return kInvalidSection;
+}
+
+const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(const char* name) const {
+  size_t id = GetSectionIndex(name);
+  if (id == kInvalidSection)
+    return NULL;
+  return section_headers_ + id;
+}
+
 bool PEFile::ReadHeaders(FILE* file) {
   // Read the DOS header.
   IMAGE_DOS_HEADER dos_header = {};

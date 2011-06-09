@@ -64,6 +64,10 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
   for (;block_iter != blocks.end(); ++block_iter) {
     BlockGraph::Block* block = *block_iter;
 
+    // Align the output cursor.
+    // TODO(chrisha): Output 0xcc bytes here.
+    insert_at = insert_at.AlignUp(block->alignment());
+
     if (!builder().address_space().InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name()
           << "' at " << insert_at;

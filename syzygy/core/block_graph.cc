@@ -189,6 +189,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   const char* block_name = first_block->name();
   BlockType block_type = first_block->type();
   size_t section_id = first_block->section();
+  size_t alignment = first_block->alignment();
   BlockAttributes attributes = 0;
 
   // Remove the found blocks from the address space, and make sure they're all
@@ -219,6 +220,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
                                           block_name);
   DCHECK(new_block != NULL);
   new_block->set_section(section_id);
+  new_block->set_alignment(alignment);
   new_block->set_attributes(attributes);
   if (have_data) {
     uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
@@ -274,6 +276,7 @@ BlockGraph::Block::Block(BlockId id,
     : id_(id),
       type_(type),
       size_(size),
+      alignment_(1),
       name_(name),
       addr_(kInvalidAddress),
       original_addr_(kInvalidAddress),

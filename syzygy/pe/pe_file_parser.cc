@@ -657,7 +657,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
 
     if (!AddBlock(BlockGraph::DATA_BLOCK,
                   import_name_addr,
-                  import_name.size() + 1,
+                  AlignUp(import_name.size() + 1, 2),
                   base::StringPrintf("Import DLL Name \"%s\"",
                                      import_name.c_str()).c_str())) {
       LOG(ERROR) << "Unable to create import name block.";
@@ -755,7 +755,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
 
     if (!AddBlock(BlockGraph::DATA_BLOCK,
                   import_name_addr,
-                  import_name.size() + 1,
+                  AlignUp(import_name.size() + 1, 2),
                   base::StringPrintf("Delay import DLL Name \"%s\"",
                                      import_name.c_str()).c_str())) {
       LOG(ERROR) << "Unable to create import name block.";
@@ -1050,7 +1050,7 @@ bool PEFileParser::ParseResourceDirImpl(BlockGraph::Block* resource_block,
     }
     if (directory_entry->DataIsDirectory) {
       if (!ParseResourceDirImpl(resource_block,
-                                      directory_entry->OffsetToDirectory)) {
+                                directory_entry->OffsetToDirectory)) {
         return false;
       }
     } else {

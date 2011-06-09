@@ -249,19 +249,6 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
   DCHECK_EQ(BlockGraph::RELATIVE_REF, entry.type());
   DCHECK(entry_size != NULL);
 
-  // Handle the import descriptor tables specially.  The sizes of the
-  // table seems to be misreported by the MSVC++ toolchain.  The last entry
-  // is actually a truncated sentinel on the first DWORD, and the extra
-  // (unused) bytes just overlap the start of the next block.  Yes, this
-  // is ugly.  The PE parser, however, understands and corrects to the real
-  // (shorter) length during parsing so we have to be sure to expand the
-  // reported size to by multiple of sizeof(IMAGE_IMPORT_DESCRIPTOR).
-  if (entry_index == IMAGE_DIRECTORY_ENTRY_IMPORT) {
-    entry_size = Align(entry_size, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-  } else if (entry_index == IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT) {
-    entry_size = Align(entry_size, sizeof(ImgDelayDescr));
-  }
-
   data_directory_[entry_index].ref_ = entry;
   data_directory_[entry_index].size_ = entry_size;
 
