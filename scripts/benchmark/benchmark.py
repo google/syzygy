@@ -214,8 +214,7 @@ class BenchmarkRunner(object):
                   '--snapshot=M:',
                   '--',
                   chrome_exe,
-                  '--user-data-dir=%s' % self._profile_dir,
-                  'http://www.google.com']
+                  '--user-data-dir=%s' % self._profile_dir]
     else:
       cmd_line = [self._chrome_exe,
                   '--user-data-dir=%s' % self._profile_dir,
@@ -227,7 +226,7 @@ class BenchmarkRunner(object):
     # TODO(siggi): Poll for Chrome to come into existence, then
     #     give it a fixed amount of time to do its thing before
     #     winding down.
-    time.sleep(30)
+    time.sleep(20)
 
     _logger.info("Shutting down Chrome Profile: %s", self._profile_dir)
     chrome_control.ShutDown(self._profile_dir)
@@ -258,9 +257,17 @@ class BenchmarkRunner(object):
     p.contents.EnableFlags = (evn.EVENT_TRACE_FLAG_PROCESS |
                               evn.EVENT_TRACE_FLAG_THREAD |
                               evn.EVENT_TRACE_FLAG_IMAGE_LOAD |
+                              evn.EVENT_TRACE_FLAG_DISK_IO |
                               evn.EVENT_TRACE_FLAG_DISK_FILE_IO |
                               evn.EVENT_TRACE_FLAG_MEMORY_PAGE_FAULTS |
                               evn.EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS)
+    # TODO(siggi): It might make sense to make these dynamic, and to re-run
+    #     iterations with more/larger buffers if we've lost events.
+    p.contents.BufferSize = 1024  # kilobytes - that's one meg.
+    p.contents.MinimumBuffers = 100
+    p.contents.MaximumBuffers = 200
+    p.contents.FlushTimer = 0
+
     self._kernel_controller = etw.TraceController()
     try:
       # We may find the NT Kernel Logger running, so attempt to stop it
@@ -278,13 +285,17 @@ class BenchmarkRunner(object):
     self._kernel_controller.Start(evn.KERNEL_LOGGER_NAME, prop)
 
   def _StopLogging(self):
-    time.sleep(10)
+    _logger.info("Stopping kernel logging.")
     prop = etw.TraceProperties()
     self._kernel_controller.Stop(prop)
 
+    buffers_lost = prop.get().contents.LogBuffersLost
     events_lost = prop.get().contents.EventsLost
-    if events_lost:
-      _logger.warning("%d ETW events lost", events_lost)
+    if events_lost or buffers_lost:
+      _logger.warning('%d ETW buffers lost', buffers_lost)
+      _logger.warning('%d ETW events lost', events_lost)
+      _logger.warning('You may need to increase the number or size of '
+                      'of buffers (see _StartLogging).')
 
   def _ProcessLogs(self):
     parser = etw.consumer.TraceEventSource()
@@ -400,7 +411,7 @@ def main():
                            opts.preload,
                            opts.cold_start,
                            opts.prefetch,
-                           not opts.keep_temp_dirs)
+                           opts.keep_temp_dirs)
   try:
     runner.Run(opts.iterations)
   except:
