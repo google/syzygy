@@ -23,6 +23,11 @@ import pywintypes
 import sys
 import win32com.client
 
+class Error(Exception):
+  """An error class used for reporting build failures."""
+  pass
+
+
 def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
   """Builds the given projects in the given configurations.
 
@@ -35,8 +40,7 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
     focus: indicates if the build environment should be brought into focus
         during the build (default=True).
 
-  Returns: the number of errors during the build. Aborts at the first
-      error.
+  Returns: None on success. Raises an Error on failure.
   """
   if isinstance(project_paths, basestring):
     project_paths = [project_paths]
@@ -46,8 +50,13 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
 
   solution_path = os.path.abspath(solution_path)
   solution_dir = os.path.dirname(solution_path)
-  solution = win32com.client.GetObject(solution_path)
-  builder = solution.SolutionBuild
+  try:
+    solution = win32com.client.GetObject(solution_path)
+    builder = solution.SolutionBuild
+  except pywintypes.com_error:
+    message = 'Unable to open solution "%s".' % solution_path
+    logging.exception(message)
+    raise Error(message)
 
   if focus:
     # Force the Visual Studio window to show and give it focus.
@@ -81,14 +90,16 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
     for config in configs:
       logging.info('Building project "%s" in "%s" configuration.',
                    rel_project_path, config)
-      builder.BuildProject(config, abs_project_path, True)
-      errors = builder.LastBuildInfo
+      try:
+        builder.BuildProject(config, abs_project_path, True)
+        errors = builder.LastBuildInfo
+      except pywintype.com_error:
+        logging.exception('Build failure.')
+        raise Error('%s build of %s failed.' % (config, project_path))
       if errors > 0:
-        break
-    if errors > 0:
-      break
-
-  return errors
+        raise Error(
+            '%s build of %s failed with %d error%s.' %
+            (config, project_path, errors, '' if errors == 1 else 's'))
 
 
 def GetOptionParser():
@@ -117,12 +128,18 @@ def Main():
   (options, args) = parser.parse_args()
 
   if args:
-    parser.error('This script takes no arguments')
+    parser.error('This script takes no arguments.')
 
   if not all((options.solution, options.project, options.config)):
     parser.error('Must specify solution, project and configuration.')
 
-  return BuildProjectConfig(options.solution, options.project, options.config)
+  try:
+    BuildProjectConfig(options.solution, options.project, options.config)
+  except Error:
+    logging.exception('Build failed.')
+    return 1
+
+  return 0
 
 
 if __name__ == "__main__":
