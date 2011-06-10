@@ -1,0 +1,13 @@
+URL: http://pypi.python.org/pypi/numpy/1.6.0
+Version: 1.6.0
+License: BSD
+License File: LICENSE
+
+Description:
+This directory contains the SSE3 version of the Numpy package for python 2.6.
+The contents of this directory is what the installer from
+http://pypi.python.org/packages/2.6/n/numpy/numpy-1.6.0.win32-py2.6.exe
+dropped in the site-library directory of a python 2.6 installation.
+
+Local Modifications:
+None
