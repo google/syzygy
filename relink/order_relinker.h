@@ -21,16 +21,39 @@ namespace relink {
 
 class OrderRelinker : public Relinker {
  public:
+  enum BlockInitType {
+    INITIALIZED_BLOCKS,
+    UNINITIALIZED_BLOCKS,
+    ALL_BLOCKS
+  };
+
   explicit OrderRelinker(const FilePath& order_file_path);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(OrderRelinker);
+
+  typedef std::set<const BlockGraph::Block*> BlockSet;
+  typedef Reorderer::Order::BlockList BlockList;
 
   // Overrides for base class methods.
   bool SetupOrdering(Reorderer::Order& order);
   bool ReorderSection(size_t section_index,
                       const IMAGE_SECTION_HEADER& section,
                       const Reorderer::Order& order);
+
+  // Outputs a padding block. Automatically determines whether or not to output
+  // initialized or blank padding.
+  bool OutputPadding(BlockInitType block_init_type,
+                     BlockGraph::BlockType block_type,
+                     size_t size,
+                     RelativeAddress* insert_at);
+
+  // Outputs blocks of a given type to the section.
+  bool OutputBlocks(BlockInitType block_init_type,
+                    const IMAGE_SECTION_HEADER& section,
+                    const BlockList& block_order,
+                    BlockSet* inserted_blocks,
+                    RelativeAddress* insert_at);
 
   // The JSON encoded file with the new ordering.
   FilePath order_file_path_;
