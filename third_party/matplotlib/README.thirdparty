@@ -1,0 +1,10 @@
+URL: http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-1.0.1/matplotlib-1.0.1_r0-py2.6-win32.egg/download
+Version: 1.0.1
+License: PSF
+License File: LICENSE
+
+Description:
+This directory contains the egg distribution for matplotlib.
+
+Local Modifications:
+None
