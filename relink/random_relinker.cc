@@ -32,11 +32,6 @@ bool RandomRelinker::SetupOrdering(Reorderer::Order& /*order*/) {
 bool RandomRelinker::ReorderSection(size_t /*section_index*/,
                                     const IMAGE_SECTION_HEADER& section,
                                     const Reorderer::Order& /*order*/ ) {
-  // TODO(rogerm) We need to make sure we preserve the location of a block as
-  //     being inside the initialized or unitilialized part of the section.
-  //     For now, we punt by simply making the entire section initialized,
-  //     but this increases the cost of paging in blocks that could otherwise
-  //     originate in the unitialized part of the section.
   typedef std::vector<BlockGraph::Block*> BlockList;
 
   // Prepare to iterate over all block in the section.
@@ -65,8 +60,9 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
     BlockGraph::Block* block = *block_iter;
 
     // Align the output cursor.
-    // TODO(chrisha): Output 0xcc bytes here.
-    insert_at = insert_at.AlignUp(block->alignment());
+    size_t padding = insert_at.AlignUp(block->alignment()) - insert_at;
+    if (!InsertPaddingBlock(block->type(), padding, &insert_at))
+      return false;
 
     if (!builder().address_space().InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name()
@@ -77,16 +73,8 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
 
     // If padding is enabled, create a new block and tack it on between the
     // current block and the subsequent block.
-    BlockGraph::Block* padding_block = NULL;
-    if (!InsertPaddingBlock(insert_at, block->type(), &padding_block)) {
-      LOG(ERROR)
-          << "Unable to insert padding block at " << insert_at
-          << " after '" << block->name() << "'.";
+    if (!InsertPaddingBlock(block->type(), padding_length(), &insert_at))
       return false;
-    }
-    if (padding_block != NULL) {
-      insert_at += padding_block->size();
-    }
   }
 
   // Create the reodered section.

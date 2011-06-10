@@ -397,18 +397,17 @@ bool Relinker::Initialize(Decomposer::DecomposedImage & decomposed) {
   return true;
 }
 
-bool Relinker::InsertPaddingBlock(const RelativeAddress& insert_at,
-                                  BlockGraph::BlockType block_type,
-                                  BlockGraph::Block** out_block) {
-  DCHECK(out_block != NULL);
+bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
+                                  size_t size,
+                                  RelativeAddress* insert_at) {
+  DCHECK(insert_at != NULL);
+  DCHECK(size <= max_padding_length());
 
-  if (padding_length_ == 0) {
-    *out_block = NULL;
+  if (size == 0)
     return true;
-  }
 
-  BlockGraph::Block * new_block = builder().address_space().AddBlock(
-      block_type, insert_at, padding_length_, "Padding block");
+  BlockGraph::Block* new_block = builder().address_space().AddBlock(
+      block_type, *insert_at, size, "Padding block");
 
   if (new_block == NULL) {
     LOG(ERROR) << "Failed to allocate padding block at " << insert_at << ".";
@@ -416,10 +415,9 @@ bool Relinker::InsertPaddingBlock(const RelativeAddress& insert_at,
   }
 
   new_block->set_data(padding_data());
-  new_block->set_data_size(padding_length_);
+  new_block->set_data_size(size);
   new_block->set_owns_data(false);
-
-  *out_block = new_block;
+  *insert_at += size;
 
   return true;
 }

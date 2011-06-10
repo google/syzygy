@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #ifndef SYZYGY_RELINK_RANDOM_RELINKER_H_
 #define SYZYGY_RELINK_RANDOM_RELINKER_H_
 
@@ -20,6 +19,10 @@
 
 namespace relink {
 
+// The random relinker is used to relink a module with the blocks in each
+// section randomly shuffled. The random relinker causes all blocks to be
+// explicitly instantiated, with each section having no implicit uninitialized
+// virtual address space.
 class RandomRelinker : public Relinker {
  public:
   // Default constructor.

@@ -152,10 +152,12 @@ class Relinker : public RelinkerBase {
   // Returns the GUID for the new image.
   const GUID& new_image_guid() { return new_image_guid_; }
 
-  // Insert a padding block of the configured size at the given location.
-  bool InsertPaddingBlock(const RelativeAddress& insert_at,
-                          BlockGraph::BlockType block_type,
-                          BlockGraph::Block** out_block);
+  // Inserts the given length of padding. Increments the insert_at address.
+  bool InsertPaddingBlock(BlockGraph::BlockType block_type,
+                          size_t size,
+                          RelativeAddress* insert_at);
+
+  size_t padding_length() const { return padding_length_; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Relinker);
