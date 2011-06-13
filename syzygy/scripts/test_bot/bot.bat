@@ -1,10 +1,24 @@
 @echo off
+rem Copyright 2011 Google Inc.
+rem
+rem Licensed under the Apache License, Version 2.0 (the "License");
+rem you may not use this file except in compliance with the License.
+rem You may obtain a copy of the License at
+rem
+rem      http://www.apache.org/licenses/LICENSE-2.0
+rem
+rem Unless required by applicable law or agreed to in writing, software
+rem distributed under the License is distributed on an "AS IS" BASIS,
+rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+rem See the License for the specific language governing permissions and
+rem limitations under the License.
+
 setlocal
 
 :parseargs
 set REPO=
-set SYZYGY=
 set WORKDIR=
+set GCLIENT=
 set SMTP_SERVER=
 set FROM=
 set TO=
@@ -16,8 +30,8 @@ for %%A in (%*) do (
   for /F "tokens=1* delims=:" %%b in ("%%~A") do (
     if /I "%%b" == "/repo" set REPO=%%~c
     if /I "%%b" == "/build-id" set BUILD_ID_PATTERN=%%~c
-    if /I "%%b" == "/syzygy" set SYZYGY=%%~c
-    if /I "%%b" == "/workdir" set WORKDIR=%%~c
+    if /I "%%b" == "/gclient-dir" set GCLIENT=%%~c
+    if /I "%%b" == "/work-dir" set WORKDIR=%%~c
     if /I "%%b" == "/server" set SMTP_SERVER=%%~c
     if /I "%%b" == "/from" set FROM=%%~c
     if /I "%%b" == "/to" set TO=%%~c
@@ -29,7 +43,7 @@ for %%A in (%*) do (
 
 :checkargs
 if "%REPO%" == "" echo Missing parameter: /repo & goto usage
-if "%SYZYGY%" == "" echo Missing parameter: /syzygy & goto usage
+if "%GCLIENT%" == "" echo Missing parameter: /gclient & goto usage
 if "%WORKDIR%" == "" echo Missing parameter: /workdir & goto usage
 if "%SMTP_SERVER%" == "" echo Missing parameter: /server & goto usage
 if "%FROM%" == "" echo Missing parameter: /from & goto usage
@@ -39,6 +53,8 @@ if "%CONFIG%" == "" set CONFIG=Debug
 if "%ITERATIONS%" == "" set ITERATIONS=20
 if "%PADDING%" == "" set PADDING=32
 
+SET SYZYGY=%GCLIENT%\src\syzygy
+
 goto setup
 
 :usage
@@ -47,8 +63,8 @@ echo:Usage: %0 [options]
 echo:
 echo:  /repo:URL          URL to the root of the Chrome Repository
 echo:  /build-id:PATTERN  The regular expression to use when filtering build ids
-echo:  /syzygy:PATH       Path to the root of the Syzygy source tree
-echo:  /workdir:PATH      Working directory in which to download Chrome builds
+echo:  /gclient-dir:PATH  Path to the root of the source tree (where .gclient lives)
+echo:  /work-dir:PATH     Working directory in which to download Chrome builds
 echo:  /server:HOST       SMTP server to use when generating reports
 echo:  /from:EMAIL        E-Mail address from which to send reports
 echo:  /to:EMAIL          E-Mail address to which reports should be sent
@@ -59,13 +75,15 @@ goto done
 
 :setup
 call "C:\Program Files (x86)\Microsoft Visual Studio 9.0\Common7\Tools\vsvars32.bat"
+
+echo Initializing local variables ...
 set THISDIR=%~dp0
-set SOLUTION=%SYZYGY%\src\syzygy\relink\relink.sln
+set SOLUTION=%SYZYGY%\relink\relink.sln
 set DOWNLOAD_PY=%THISDIR%chrome_repo.py
 set REORDER_PY=%THISDIR%reorder.py
 set SEND_MAIL_PY=%THISDIR%send_mail.py
 set ACTIONS_XML=%THISDIR%actions.xml
-set REORDER_EXE=%SYZYGY%\src\syzygy\relink\%CONFIG%\relink.exe
+set REORDER_EXE=%SYZYGY%\relink\%CONFIG%\relink.exe
 set CHROME_PTR=%WORKDIR%\chrome-dir.txt
 set SYNC_LOG=%WORKDIR%\sync-log.txt
 set BUILD_LOG=%WORKDIR%\build-log.txt
@@ -75,8 +93,9 @@ set TEST_REPORT=%WORKDIR%\report-{iter}-{seed}.xml
 set SUMMARY=%WORKDIR%\reorder-summary.txt
 set ERROR_MESSAGE=%WORKDIR%\error-message.txt
 
-del ^
-  "%SYNC_LOG%" ^
+:step1
+echo Cleaning up data from previous runs ...
+del /F /Q ^
   "%BUILD_LOG%" ^
   "%DOWNLOAD_LOG%" ^
   "%REORDER_LOG%" ^
@@ -84,14 +103,6 @@ del ^
   "%SUMMARY%" ^
   "%ERROR_MESSAGE%"
 
-:step1
-cd "%SYZYGY%\src"
-echo Synchronizing "%SYZYGY%" ...
-call gclient sync ^
-  > "%SYNC_LOG%" 2>&1
-if %ERRORLEVEL% equ 0 goto step2
-copy "%SYNC_LOG%" "%ERROR_MESSAGE%"
-goto error
 
 :step2
 echo Building "%SOLUTION%" ...

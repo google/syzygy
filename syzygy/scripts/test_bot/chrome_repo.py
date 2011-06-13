@@ -41,12 +41,10 @@ DEFAULT_BUILD_ID_PATTERN = r'\d+\.\d+\.\d+\.\d+'
 # The list of files we're interested in.
 FILE_LIST = [
     'chrome-win32.zip',
-    'chrome-win32-data.zip',
     'chrome-win32.test/automated_ui_tests.exe',
-    # Unfortunately, ui_tests.exe is not built by official release.
-    # 'chrome-win32.test/ui_tests.exe',
-    'chrome-win32.test/icudt.dll',
+    'chrome-win32.test/reliability_tests.exe',
     'chrome_dll.pdb',
+    'chrome_exe.pdb',
     ]
 
 
@@ -247,8 +245,8 @@ class ChromeRepo(object):
     """
     if build_id is None:
       build_id = self.GetLatestBuildId()[0]
-    build_dir = os.path.join(work_dir, build_id)
-    chrome_dir = os.path.join(build_dir, 'chrome-win32')
+    build_dir = os.path.abspath(os.path.join(work_dir, build_id))
+    chrome_dir = os.path.abspath(os.path.join(build_dir, 'chrome-win32'))
     if not os.path.exists(build_dir):
       os.makedirs(build_dir)
     for file_name in FILE_LIST:
