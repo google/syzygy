@@ -104,9 +104,8 @@ class Decomposer {
   // Create blocks for all thunks in @p globals.
   // @note thunks are offspring of Compilands.
   bool CreateThunkBlocks(IDiaSymbol* globals);
-  // Enumerates labels in @p globals and add them to the corresponding (code)
-  // blocks. Labels are only added if they are referenced (are pointed
-  // to by at least one relocation entry).
+  // Enumerates labels in @p globals and adds them to the corresponding (code)
+  // blocks.
   bool CreateGlobalLabels(IDiaSymbol* globals);
 
   // Create blocks of type @p block_type for any gaps in the image
