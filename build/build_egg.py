@@ -33,7 +33,7 @@ def _Subprocess(command, failure_msg, **kw):
     raise RuntimeError(failure_msg)
 
 
-def _BuildEgg(setup_file, build_dir):
+def _BuildEgg(setup_file, build_dir, args):
   setup_file = os.path.abspath(setup_file)
   build_dir = os.path.abspath(build_dir)
 
@@ -54,20 +54,22 @@ def _BuildEgg(setup_file, build_dir):
   #     folder. Ideally it should be possible to add an --egg-base parameter
   #     to the egg_info command, but for whatever reasons that results in an
   #     egg with no metadata.
-  command = [sys.executable,
-             setup_file,
-             '--verbose',
-             'egg_info',
-             'build',
-               '--build-base', build_dir,
-             'bdist_egg',
-               '--keep-temp']
+  command = [sys.executable, setup_file, '--verbose']
+  if args:
+    command.extend(args)
+
+  command.extend(['egg_info',
+                  'build',
+                      '--build-base', build_dir,
+                  'bdist_egg',
+                      '--keep-temp'])
   _Subprocess(command, 'Build failed', cwd=os.path.dirname(setup_file))
 
 
+_USAGE = '%prog [options] -- [setup commands and arguments]'
 
 def _ParseArgs():
-  parser = optparse.OptionParser(usage='%prog [options]')
+  parser = optparse.OptionParser(usage=_USAGE)
   parser.add_option('-v', '--verbose', dest='verbose',
                     action='store_true', default=False,
                     help='Enable verbose logging.')
@@ -81,8 +83,6 @@ def _ParseArgs():
                          'build')
 
   (opts, args) = parser.parse_args()
-  if args:
-    parser.error('This script takes no arguments.')
   if not opts.setup_file:
     parser.error('You must provide a setup file.')
   if not opts.build_dir:
@@ -96,10 +96,10 @@ def _ParseArgs():
   return (opts, args)
 
 
-def Main():
+def main():
   """Main function."""
   opts, args = _ParseArgs()
-  _BuildEgg(opts.setup_file, opts.build_dir)
+  _BuildEgg(opts.setup_file, opts.build_dir, args)
 
   if opts.success_file:
     with open(opts.success_file, 'w') as success_file:
@@ -109,4 +109,4 @@ def Main():
 
 
 if __name__ == '__main__':
-  sys.exit(Main())
+  sys.exit(main())

@@ -13,8 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os.path
+import pprint
 import setuptools
 import sys
+import distutils.command.install_data
+
+
+class InstallData(distutils.command.install_data.install_data):
+  """An install_data subclass to allow setting the executable directory."""
+  description = "install data files"
+
+  user_options = distutils.command.install_data.install_data.user_options[:]
+  user_options.append(('exe-dir=', 'e',
+       "base directory where our exe files are to be found "
+       "(default: None)"))
+
+  def initialize_options(self):
+    self.exe_dir = None
+    distutils.command.install_data.install_data.initialize_options(self)
+
+  def finalize_options(self):
+    distutils.command.install_data.install_data.finalize_options(self)
+    if self.exe_dir:
+      for dir, files in self.data_files:
+        files[:] = [os.path.join(self.exe_dir, file) for file in files]
 
 
 # Source directories for the packages we bundle.
@@ -36,26 +58,7 @@ _EXECUTABLES = [
 ]
 
 
-def _GetExeDir():
-  """Searches for an --exe-dir switch and returns its argument.
-  Removes the switch and arguments from sys.argv if found.
-  """
-  for i in range(len(sys.argv)):
-    if sys.argv[i].startswith('--exe-dir'):
-      arg = sys.argv.pop(i)
-      if '=' in arg:
-        return arg.split('=')[1]
-
-      return sys.argv.pop(i)
-
-  return '../../Release'
-
-
 def main():
-  exe_dir = _GetExeDir()
-  exe_files = map(lambda f: os.path.join(exe_dir, f), _EXECUTABLES)
-  data_files = [('exe', exe_files)]
-
   # Build the benchmark script and the executables it depends on to a package.
   setuptools.setup(
       name='Benchmark-Chrome',
@@ -65,7 +68,7 @@ def main():
       url='http://no.where/',
       package_dir=_PACKAGE_DIRS,
       py_modules=_MODULES,
-      data_files=data_files,
+      data_files=[('exe', _EXECUTABLES)],
       install_requires = [
         'ETW',
         'ETW-Db',
@@ -74,6 +77,9 @@ def main():
       entry_points={
         'console_scripts': ['benchmark= benchmark:main'],
       },
+      cmdclass={
+        "install_data": InstallData,
+      }
   )
 
 
