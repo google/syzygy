@@ -58,12 +58,16 @@ def _CreateVirtualEnv(base_dir):
     command = ['cmd', '/c', 'rmdir', '/s', '/q', base_dir]
     _Subprocess(command, 'Failed to delete existing directory')
 
-  # Start by creating the output directory and copying python26.dll into it,
-  # as if the DLL is not in path, the virtual environment won't work.
+  # Start by creating the output directory and copying python26.dll, as well
+  # as pywintypes26.dll into it, as if the DLLs are not in path, the virtual
+  # environment won't work.
   script_dir = os.path.join(base_dir, 'Scripts')
   try:
     os.makedirs(script_dir)
     dll_path = os.path.join(os.path.dirname(sys.executable), 'python26.dll')
+    shutil.copy(dll_path, script_dir)
+
+    dll_path = os.path.join(os.path.dirname(sys.executable), 'pywintypes26.dll')
     shutil.copy(dll_path, script_dir)
   except Exception, ex:
     _LOGGER.exception('Unable to copy python DLL')
@@ -101,7 +105,7 @@ def _CreateVirtualEnv(base_dir):
   # Hook numpy into the virtual environment by copying it in.
   try:
     numpy_dir = os.path.join(_SRC_DIR, 'third_party/numpy/files/numpy')
-    site_lib_dir = os.path.join(base_dir, 'Lib/site-libraries')
+    site_lib_dir = os.path.join(base_dir, 'Lib/site-packages')
     shutil.copytree(numpy_dir, os.path.join(site_lib_dir, 'numpy'))
   except Exception, ex:
     _LOGGER.exception('Unable to copy numpy.')
@@ -109,9 +113,8 @@ def _CreateVirtualEnv(base_dir):
 
   # Install matplotlib into the new environment. We use easy_install to do
   # the needful, but provide it with an index URL that's the directory
-  # containing the matplotlib egg.
-  matplotlib_dir = os.path.abspath(os.path.join(_SRC_DIR,
-                                                'third_party/matplotlib'))
+  # containing the matplotlib subdir.
+  matplotlib_dir = os.path.abspath(os.path.join(_SRC_DIR, 'third_party'))
   command = [os.path.join(script_dir, 'easy_install'),
              '--index-url', matplotlib_dir,
              'matplotlib']
