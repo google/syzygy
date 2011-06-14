@@ -13,12 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from setuptools import setup
+
 setup(
-    name='graph',
+    name='Graph-Pagefaults',
+    author='Sigurdur Asgeirsson',
+    author_email='siggi@chromium.org',
+    version='0.1',
     package_dir = {'': '.'},
+    py_modules=['graph'],
     install_requires = [
       'matplotlib',
-      'numpy',
+      'ETW',
+      'ETW-Db',
       'setuptools',
     ],
+    entry_points={
+      'console_scripts': ['graph= graph:main'],
+    },
 )

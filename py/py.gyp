@@ -24,5 +24,29 @@
         'etw_db/etw_db.gyp:etw_db',
       ],
     },
+    {
+      # This creates a new python installation in the "py" subdir of the
+      # current configuration's output directory.
+      'target_name': 'virtualenv',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'create_virtualenv',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            '<(DEPTH)/syzygy/build/create_virtualenv.py',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/virtualenv-created.txt',
+          ],
+          'action': [
+            '<(DEPTH)/third_party/python_26/python',
+            '<(DEPTH)/syzygy/build/create_virtualenv.py',
+            '--output-dir', '<(PRODUCT_DIR)/py',
+            '--success-file', '<(PRODUCT_DIR)/virtualenv-created.txt',
+          ],
+        },
+      ],
+    },
   ],
 }

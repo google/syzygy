@@ -13,43 +13,123 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-    'etw_db_sources': [
-      'setup.py',
-      'etw_db/file.py',
-      'etw_db/module.py',
-      'etw_db/process.py',
-      'etw_db/__init__.py',
-    ],
-  },
   'targets': [
+    {
+      # Temporary build configuration for the ETW module.
+      # TODO(siggi): Move ETW and ETW-Db into a new top-level directory.
+      'target_name': 'etw',
+      'type': 'none',
+      'variables': {
+        'etw_sources': [
+          '<(DEPTH)/sawbuck/py/etw/etw/__init__.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/consumer.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/controller.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/evntcons.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/evntrace.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/guiddef.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/provider.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/util.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/__init__.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/binary_buffer.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/event.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/field.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/fileio.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/image.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/pagefault.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/pagefault_xp.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/process.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/registry.py',
+          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/thread.py',
+        ],
+        'setup_file': [
+          '<(DEPTH)/sawbuck/py/etw/setup.py',
+        ],
+        'success_file': [
+          '<(PRODUCT_DIR)/ETW-egg-success.txt',
+        ],
+        'script_file': [
+          '<(DEPTH)/syzygy/build/build_egg.py',
+        ],
+      },
+      'sources': [
+        '<(script_file)',
+        '<(setup_file)',
+        '<@(etw_sources)',
+      ],
+      'dependencies': [
+        '../py.gyp:virtualenv',
+      ],
+      'actions': [
+        {
+          'action_name': 'build_etw',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            '<(script_file)',
+            '<(setup_file)',
+            '<@(etw_sources)',
+          ],
+          'outputs': [
+            '<(success_file)',
+          ],
+          'action': [
+            '<(PRODUCT_DIR)/py/scripts/python',
+            '<(script_file)',
+            '--setup-file', '<(setup_file)',
+            '--build-dir', '<(PRODUCT_DIR)/temp/etw',
+            '--success-file', '<(success_file)',
+          ],
+        },
+      ],
+    },
     {
       'target_name': 'etw_db',
       'type': 'none',
+      'variables': {
+        'etw_db_sources': [
+          'etw_db/file.py',
+          'etw_db/module.py',
+          'etw_db/process.py',
+          'etw_db/__init__.py',
+        ],
+        'setup_file': [
+          'setup.py',
+        ],
+        'success_file': [
+          '<(PRODUCT_DIR)/ETW-Db-egg-success.txt',
+        ],
+        'script_file': [
+          '<(DEPTH)/syzygy/build/build_egg.py',
+        ],
+      },
       'sources': [
         '<@(etw_db_sources)',
+      ],
+      'dependencies': [
+        'etw',
+        '../py.gyp:virtualenv',
       ],
       'actions': [
         {
           'action_name': 'build_etw_db',
           'msvs_cygwin_shell': 0,
           'inputs': [
+            '<(script_file)',
+            '<(setup_file)',
             '<@(etw_db_sources)',
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/ETW_Db-0.1-py2.6.egg',
+            '<(success_file)',
           ],
           'action': [
-            '<(DEPTH)/third_party/setuptools/setup_env.bat &&'
-              '<(DEPTH)/third_party/python_26/python',
-            'setup.py',
-            'bdist_egg',
-            '--dist-dir=<(PRODUCT_DIR)',
-            '--bdist-dir=<(PRODUCT_DIR)/temp/etw_db/',
+            '<(PRODUCT_DIR)/py/scripts/python',
+            '<(script_file)',
+            '--setup-file', '<(setup_file)',
+            '--build-dir', '<(PRODUCT_DIR)/temp/etw_db',
+            '--success-file', '<(success_file)',
           ],
         },
       ],
+
     },
   ],
 }

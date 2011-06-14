@@ -23,6 +23,7 @@
       'type': 'none',
       'dependencies': [
         'benchmark/benchmark.gyp:*',
+        'graph/graph.gyp:*',
       ],
     },
     {

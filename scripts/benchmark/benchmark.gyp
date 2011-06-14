@@ -13,21 +13,26 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-    'benchmark_sources': [
-      'benchmark.py',
-      'bootstrap.py',
-      'chrome_control.py',
-      'chrome_control_test.py',
-      'ez_setup.py',
-      'setup.py',
-    ],
-  },
   'targets': [
     {
       'target_name': 'benchmark',
       'type': 'none',
+      'variables': {
+        'benchmark_sources': [
+          'benchmark.py',
+          'chrome_control.py',
+          'chrome_control_test.py',
+        ],
+        'setup_file': [
+          'setup.py',
+        ],
+        'success_file': [
+          '<(PRODUCT_DIR)/Benchmark-egg-success.txt',
+        ],
+        'script_file': [
+          '<(DEPTH)/syzygy/build/build_egg.py',
+        ],
+      },
       'sources': [
         '<@(benchmark_sources)',
       ],
@@ -35,25 +40,28 @@
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
+        '<(DEPTH)/syzygy/py/py.gyp:virtualenv',
+        '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw',
+        '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw_db',
       ],
       'actions': [
         {
           'action_name': 'build_benchmark',
           'msvs_cygwin_shell': 0,
           'inputs': [
+            '<(script_file)',
+            '<(setup_file)',
             '<@(benchmark_sources)',
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/Benchmark_Chrome-0.1dev-py2.6.egg',
+            '<(success_file)',
           ],
           'action': [
-            '<(DEPTH)/third_party/setuptools/setup_env.bat &&'
-              '<(DEPTH)/third_party/python_26/python',
-            'setup.py',
-            'bdist_egg',
-            '--exe-dir=<(PRODUCT_DIR)',
-            '--dist-dir=<(PRODUCT_DIR)',
-            '--bdist-dir=<(PRODUCT_DIR)/temp/benchmark/',
+            '<(PRODUCT_DIR)/py/scripts/python',
+            '<(script_file)',
+            '--setup-file', '<(setup_file)',
+            '--build-dir', '<(PRODUCT_DIR)/temp/benchmark',
+            '--success-file', '<(success_file)',
           ],
         },
       ],
@@ -93,7 +101,7 @@
           ],
           'action': [
             '<(DEPTH)/third_party/python_26/python',
-            '<(DEPTH)/syzygy/tools/flat_zip.py',
+            '<(DEPTH)/syzygy/build/flat_zip.py',
             '<@(_outputs)',
             '<@(_inputs)',
           ],
