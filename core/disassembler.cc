@@ -85,6 +85,11 @@ Disassembler::WalkResult Disassembler::Walk() {
     AbsoluteAddress addr(*it);
     unvisited_.erase(it);
 
+    // Unvisited addresses must be within the code block we're currently
+    // disassembling.
+    DCHECK_LE(code_addr_, addr);
+    DCHECK_GT(code_addr_ + code_size_, addr);
+
     // Notify of the beginning of a new instruction run.
     if (OnStartInstructionRun(addr) == kDirectiveAbort)
       return kWalkError;

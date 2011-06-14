@@ -73,17 +73,19 @@ template<typename T> bool LoadDebugStream(IDiaEnumDebugStreamData* stream,
   DCHECK(list != NULL);
 
   LONG count = 0;
-  if (FAILED(stream->get_Count(&count))) {
-    LOG(ERROR) << "Failed to get stream count.";
+  HRESULT hr = E_FAIL;
+  if (FAILED(hr = stream->get_Count(&count))) {
+    LOG(ERROR) << "Failed to get stream count: " << com::LogHr(hr) << ".";
     return false;
   }
 
   // Get the length of the debug stream, and ensure it is the expected size.
   DWORD bytes_read = 0;
   ULONG count_read = 0;
-  HRESULT hr = stream->Next(count, 0, &bytes_read, NULL, &count_read);
+  hr = stream->Next(count, 0, &bytes_read, NULL, &count_read);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to get debug stream length: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to get debug stream length: "
+        << com::LogHr(hr) << ".";
     return false;
   }
   DCHECK_EQ(count * sizeof(T), bytes_read);
@@ -96,7 +98,7 @@ template<typename T> bool LoadDebugStream(IDiaEnumDebugStreamData* stream,
                     reinterpret_cast<BYTE*>(&list->at(0)),
                     &count_read);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to read debug stream: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to read debug stream: " << com::LogHr(hr) << ".";
     return false;
   }
   DCHECK_EQ(count * sizeof(T), bytes_read);
@@ -260,7 +262,7 @@ bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   *sym_tag = SymTagNull;
   HRESULT hr = symbol->get_symTag(sym_tag);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Error getting sym tag.";
+    LOG(ERROR) << "Error getting sym tag: " << com::LogHr(hr) << ".";
     return false;
   }
   return true;
@@ -274,7 +276,7 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   ScopedComPtr<IDiaSymbol> type;
   HRESULT hr = symbol->get_type(type.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get type symbol: " << hr;
+    LOG(ERROR) << "Failed to get type symbol: " << com::LogHr(hr) << ".";
     return false;
   }
   // This happens if the symbol has no type information.
@@ -282,8 +284,9 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
     return true;
 
   ULONGLONG ull_length = 0;
-  if (FAILED(type->get_length(&ull_length))) {
-    LOG(ERROR) << "Failed to retrieve type length properties.";
+  if (FAILED(hr = type->get_length(&ull_length))) {
+    LOG(ERROR) << "Failed to retrieve type length properties: "
+        << com::LogHr(hr) << ".";
     return false;
   }
   *length = ull_length;
@@ -405,7 +408,7 @@ void CalcDetailedCodeBlockStats(
   }
 
   size_t total = stats->code_bytes + stats->data_bytes + stats->padding_bytes;
-  DCHECK(total <= block->size());
+  DCHECK_GE(block->size(), total);
   stats->unknown_bytes = block->size() - total;
 }
 
@@ -484,8 +487,8 @@ void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
                             BlockGraph::Block* block) {
   // This only make sense for positions strictly within the block.
   DCHECK(block != NULL);
-  DCHECK(offset >= 0);
-  DCHECK(unsigned(offset) < block->size());
+  DCHECK_LE(0, offset);
+  DCHECK_GT(block->size(), unsigned(offset));
 
   // If the offset is zero, change the block name. Otherwise, add a label.
   if (offset == 0)
@@ -500,11 +503,9 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   // This only makes sense for code blocks that contain the given label
   // address.
   DCHECK(block != NULL);
-  DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(addr >= block->addr());
-  // This is '<= size' because we legitimately get function labels that
-  // land at the end of the function.
-  DCHECK(addr <= block->addr() + block->size());
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+  DCHECK_LE(block->addr(), addr);
+  DCHECK_GT(block->addr() + block->size(), addr);
 
   block->SetLabel(addr - block->addr(), name.c_str());
 }
@@ -516,7 +517,8 @@ template<typename T> bool FindDiaTable(IDiaSession* session,
   ScopedComPtr<IDiaEnumTables> enum_tables;
   HRESULT hr = session->getEnumTables(enum_tables.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get DIA table enumerator: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get DIA table enumerator: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -527,7 +529,8 @@ template<typename T> bool FindDiaTable(IDiaSession* session,
     ULONG fetched = 0;
     hr = enum_tables->Next(1, table.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to get DIA table: " << com::LogHr(hr);
+      LOG(ERROR) << "Failed to get DIA table: "
+          << com::LogHr(hr) << ".";
       return false;
     }
     if (fetched == 0)
@@ -585,28 +588,32 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
                                           NULL,
                                           NULL);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to load DIA data for image file: " << hr;
+    LOG(ERROR) << "Failed to load DIA data for image file: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
   ScopedComPtr<IDiaSession> dia_session;
   hr = dia_source->openSession(dia_session.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to open DIA session: " << hr;
+    LOG(ERROR) << "Failed to open DIA session: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
   hr = dia_session->put_loadAddress(
       image_file_.nt_headers()->OptionalHeader.ImageBase);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to set the DIA load address: " << hr;
+    LOG(ERROR) << "Failed to set the DIA load address: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
   ScopedComPtr<IDiaSymbol> global;
   hr = dia_session->get_globalScope(global.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get the DIA global scope: " << hr;
+    LOG(ERROR) << "Failed to get the DIA global scope: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -782,7 +789,8 @@ bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
                                     nsNone,
                                     dia_enum_symbols.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get the DIA function enumerator: " << hr;
+    LOG(ERROR) << "Failed to get the DIA function enumerator: "
+       << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -791,7 +799,8 @@ bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
     ULONG fetched = 0;
     hr = dia_enum_symbols->Next(1, function.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate functions.";
+      LOG(ERROR) << "Failed to enumerate functions: "
+          << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -810,8 +819,10 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   DCHECK(IsSymTag(function, SymTagFunction) || IsSymTag(function, SymTagThunk));
 
   DWORD location_type = LocIsNull;
-  if (FAILED(function->get_locationType(&location_type))) {
-    LOG(ERROR) << "Failed to retrieve function address type.";
+  HRESULT hr = E_FAIL;
+  if (FAILED(hr = function->get_locationType(&location_type))) {
+    LOG(ERROR) << "Failed to retrieve function address type."
+        << com::LogHr(hr) << ".";
     return false;
   }
   if (location_type != LocIsStatic) {
@@ -823,11 +834,12 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   ULONGLONG length = 0;
   ScopedBstr name;
   BOOL no_return = FALSE;
-  if (FAILED(function->get_relativeVirtualAddress(&rva)) ||
-      FAILED(function->get_length(&length)) ||
-      FAILED(function->get_name(name.Receive())) ||
-      FAILED(function->get_noReturn(&no_return))) {
-    LOG(ERROR) << "Failed to retrieve function information.";
+  if (FAILED(hr = function->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = function->get_length(&length)) ||
+      FAILED(hr = function->get_name(name.Receive())) ||
+      FAILED(hr = function->get_noReturn(&no_return))) {
+    LOG(ERROR) << "Failed to retrieve function information: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -863,7 +875,8 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
                                       nsNone,
                                       dia_enum_symbols.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get the DIA label enumerator: " << hr;
+    LOG(ERROR) << "Failed to get the DIA label enumerator: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -872,7 +885,8 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     ULONG fetched = 0;
     hr = dia_enum_symbols->Next(1, symbol.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate the DIA symbol.";
+      LOG(ERROR) << "Failed to enumerate the DIA symbol: "
+          << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -881,9 +895,10 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     DCHECK(IsSymTag(symbol, SymTagLabel));
     DWORD rva = 0;
     ScopedBstr name;
-    if (FAILED(symbol->get_relativeVirtualAddress(&rva)) ||
-        FAILED(symbol->get_name(name.Receive()))) {
-      LOG(ERROR) << "Failed to retrieve function information.";
+    if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
+        FAILED(hr = symbol->get_name(name.Receive()))) {
+      LOG(ERROR) << "Failed to retrieve function information: "
+         << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -893,11 +908,13 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
       return false;
     }
 
+    // We ignore labels that fall outside of the code block. We sometimes
+    // get labels at the end of a code block, and if the binary has any OMAP
+    // information these follow the original successor block, and they can
+    // end up most anywhere in the binary.
     RelativeAddress label_rva(rva);
-    if (label_rva < addr && label_rva >= addr + block->size()) {
-      LOG(ERROR) << "Label outside function.";
-      return false;
-    }
+    if (label_rva < addr || label_rva >= addr + block->size())
+      return true;
 
     std::string label_name;
     if (!WideToUTF8(name, name.Length(), &label_name)) {
@@ -918,7 +935,8 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
                                      nsNone,
                                      enum_compilands.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to retrieve compiland enumerator: " << hr;
+    LOG(ERROR) << "Failed to retrieve compiland enumerator: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -927,7 +945,8 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
     ULONG fetched = 0;
     hr = enum_compilands->Next(1, compiland.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate compiland enumerator.";
+      LOG(ERROR) << "Failed to enumerate compiland enumerator: "
+         << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -939,7 +958,8 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
                                  nsNone,
                                  enum_thunks.Receive());
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to retrieve thunk enumerator: " << hr;
+      LOG(ERROR) << "Failed to retrieve thunk enumerator: "
+          << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -947,7 +967,8 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
       ScopedComPtr<IDiaSymbol> thunk;
       hr = enum_thunks->Next(1, thunk.Receive(), &fetched);
       if (FAILED(hr)) {
-        LOG(ERROR) << "Failed to enumerate thunk enumerator: " << hr;
+        LOG(ERROR) << "Failed to enumerate thunk enumerator: "
+           << com::LogHr(hr) << ".";
         return false;
       }
       if (hr != S_OK || fetched == 0)
@@ -971,7 +992,8 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
                                      nsNone,
                                      enum_compilands.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to retrieve compiland enumerator: " << hr;
+    LOG(ERROR) << "Failed to retrieve compiland enumerator: "
+        << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -980,7 +1002,8 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
     ULONG fetched = 0;
     hr = enum_compilands->Next(1, compiland.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate compiland enumerator.";
+      LOG(ERROR) << "Failed to enumerate compiland enumerator: "
+         << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -992,7 +1015,8 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
                                  nsNone,
                                  enum_labels.Receive());
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to retrieve label enumerator: " << hr;
+      LOG(ERROR) << "Failed to retrieve label enumerator: "
+          << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -1000,7 +1024,8 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       ScopedComPtr<IDiaSymbol> label;
       hr = enum_labels->Next(1, label.Receive(), &fetched);
       if (FAILED(hr)) {
-        LOG(ERROR) << "Failed to enumerate label enumerator.";
+        LOG(ERROR) << "Failed to enumerate label enumerator: "
+           << com::LogHr(hr) << ".";
         return false;
       }
       if (hr != S_OK || fetched == 0)
@@ -1010,9 +1035,10 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
 
       DWORD addr = 0;
       ScopedBstr name;
-      if (FAILED(label->get_relativeVirtualAddress(&addr)) ||
-          FAILED(label->get_name(name.Receive()))) {
-        LOG(ERROR) << "Failed to retrieve label address or name.";
+      if (FAILED(hr = label->get_relativeVirtualAddress(&addr)) ||
+          FAILED(hr = label->get_name(name.Receive()))) {
+        LOG(ERROR) << "Failed to retrieve label address or name: "
+           << com::LogHr(hr) << ".";
         return false;
       }
 
@@ -1026,12 +1052,6 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       std::string label_name;
       if (!WideToUTF8(name, name.Length(), &label_name)) {
         LOG(ERROR) << "Failed to convert label name to UTF8.";
-        return false;
-      }
-
-      RelativeAddress block_addr;
-      if (!image_->GetAddressOf(block, &block_addr)) {
-        NOTREACHED() << "Block " << block->name() << " has no address.";
         return false;
       }
 
@@ -1104,7 +1124,7 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
     ++next;
     if (next == end) {
       // We're at the end of the list.
-      DCHECK(block_end < section_end);
+      DCHECK_GT(section_end, block_end);
       BlockGraph::Block* added = FindOrCreateBlock(block_type,
                                                    block_end,
                                                    section_end - block_end,
@@ -1252,7 +1272,7 @@ bool Decomposer::ProcessSectionContribs(IDiaSession* session) {
     HRESULT hr = section_contribs->Next(1, section_contrib.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to get DIA section contribution: "
-          << com::LogHr(hr);
+         << com::LogHr(hr) << ".";
       return false;
     }
     if (fetched == 0)
@@ -1277,7 +1297,7 @@ bool Decomposer::ProcessSectionContribs(IDiaSession* session) {
     }
 
     // DIA numbers sections from 1 to n, while we do 0 to n - 1.
-    DCHECK(section_id > 0);
+    DCHECK_LT(0u, section_id);
     --section_id;
 
     // We don't parse the resource section, as it is parsed by the PEFileParser.
@@ -1314,11 +1334,11 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
                               const DiaBrowser::SymTagVector& sym_tags,
                               const DiaBrowser::SymbolPtrVector& symbols,
                               DiaBrowser::BrowserDirective* directive) {
-  DCHECK(sym_tags.size() > 0);
+  DCHECK_LT(0u, sym_tags.size());
   DCHECK_EQ(sym_tags.size(), symbols.size());
-  DCHECK(sym_tags.back() == SymTagData);
+  DCHECK_EQ(SymTagData, sym_tags.back());
   DCHECK(directive != NULL);
-  DCHECK(*directive == DiaBrowser::kBrowserContinue);
+  DCHECK_EQ(DiaBrowser::kBrowserContinue, *directive);
 
   const DiaBrowser::SymbolPtr& data(symbols.back());
 
@@ -1419,11 +1439,11 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
                                 const DiaBrowser::SymTagVector& sym_tags,
                                 const DiaBrowser::SymbolPtrVector& symbols,
                                 DiaBrowser::BrowserDirective* directive) {
-  DCHECK(sym_tags.size() > 0);
+  DCHECK_LT(0u, sym_tags.size());
   DCHECK_EQ(sym_tags.size(), symbols.size());
-  DCHECK(sym_tags.back() == SymTagPublicSymbol);
+  DCHECK_EQ(SymTagPublicSymbol, sym_tags.back());
   DCHECK(directive != NULL);
-  DCHECK(*directive == DiaBrowser::kBrowserContinue);
+  DCHECK_EQ(DiaBrowser::kBrowserContinue, *directive);
 
   const DiaBrowser::SymbolPtr& symbol(symbols.back());
 
@@ -1771,17 +1791,14 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
   Disassembler::AddressSet labels;
   for (; it != block->labels().end(); ++it) {
     BlockGraph::Offset label = it->first;
-    DCHECK(label >= 0 && static_cast<size_t>(label) <= block->size());
+    DCHECK_LE(0, label);
+    DCHECK_GT(block->size(), static_cast<size_t>(label));
 
+    // We sometimes receive labels for lookup tables. Thus labels that point
+    // directly to a reloc should not be used as a starting point for
+    // disassembly.
     RelativeAddress addr(block->addr() + static_cast<size_t>(label));
-    DataSpace::Range range(addr, 1);
-
-    bool is_reloc = reloc_set_.find(addr) != reloc_set_.end();
-    bool at_end = static_cast<size_t>(label) == block->size();
-
-    // Labels that lie within a reloc, or the end of the function
-    // should not be used as starting points for disassembly.
-    if (!is_reloc && !at_end)
+    if (reloc_set_.find(addr) == reloc_set_.end())
       labels.insert(abs_block_addr + it->first);
   }
 
@@ -1825,7 +1842,7 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
   size_t id = image_file_.GetSectionIndex(address, size);
   block->set_section(id);
   if (id != kInvalidSection) {
-    DCHECK(id < image_file_.nt_headers()->FileHeader.NumberOfSections);
+    DCHECK_LT(id, image_file_.nt_headers()->FileHeader.NumberOfSections);
     const IMAGE_SECTION_HEADER* header = image_file_.section_header(id);
     RelativeAddress begin(header->VirtualAddress);
     RelativeAddress end(begin + header->Misc.VirtualSize);
@@ -1963,7 +1980,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     // and be a code block.
     BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
     DCHECK(block != NULL);
-    DCHECK(block->type() == BlockGraph::CODE_BLOCK);
+    DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
 
     // If this is a call and the destination is a non-returning function,
     // then indicate that we should terminate this disassembly path.
@@ -2157,9 +2174,10 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
   omap_from->clear();
   PdbFixups pdb_fixups;
 
+  HRESULT hr = E_FAIL;
   ScopedComPtr<IDiaEnumDebugStreams> debug_streams;
-  if (FAILED(dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
-    LOG(ERROR) << "Unable to get debug streams.";
+  if (FAILED(hr = dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
+    LOG(ERROR) << "Unable to get debug streams: " << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -2170,7 +2188,8 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
     ULONG count = 0;
     HRESULT hr = debug_streams->Next(1, debug_stream.Receive(), &count);
     if (FAILED(hr) || (hr != S_FALSE && count != 1)) {
-      LOG(ERROR) << "Unable to load debug stream: " << hr;
+      LOG(ERROR) << "Unable to load debug stream: "
+          << com::LogHr(hr) << ".";
       return false;
     } else if (hr == S_FALSE) {
       // No more records.
@@ -2178,8 +2197,9 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
     }
 
     ScopedBstr name;
-    if (FAILED(debug_stream->get_name(name.Receive())) || name == NULL) {
-      LOG(ERROR) << "Unable to get debug stream name.";
+    if (FAILED(hr = debug_stream->get_name(name.Receive()))) {
+      LOG(ERROR) << "Unable to get debug stream name: "
+          << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -2296,13 +2316,13 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
 }
 
 bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
-  DCHECK(image_);
+  DCHECK(image_ != NULL);
   BlockGraph::AddressSpace::RangeMapConstIter block_iter = image_->begin();
 
   BlockGraph& basic_blocks = decomposed_image->basic_block_graph;
   BlockGraph::AddressSpace* basic_blocks_image =
       &decomposed_image->basic_block_address_space;
-  DCHECK(basic_blocks_image);
+  DCHECK(basic_blocks_image != NULL);
 
   bool success = true;
   for (; block_iter != image_->end(); ++block_iter) {
@@ -2340,11 +2360,14 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
       Disassembler::AddressSet labels;
       for (; it != block->labels().end(); ++it) {
         BlockGraph::Offset label = it->first;
-        DCHECK(label >= 0 && static_cast<size_t>(label) <= block->size());
+        DCHECK_LE(0, label);
+        DCHECK_GT(block->size(), static_cast<size_t>(label));
 
-        // Some labels are addressed at the end of the function, but we don't
-        // want to disassemble from there.
-        if (static_cast<size_t>(label) != block->size())
+        // We sometimes receive labels for lookup tables. Thus labels that point
+        // directly to a reloc should not be used as a starting point for
+        // disassembly.
+        RelativeAddress addr(block->addr() + static_cast<size_t>(label));
+        if (reloc_set_.find(addr) == reloc_set_.end())
           labels.insert(abs_block_addr + it->first);
       }
 
