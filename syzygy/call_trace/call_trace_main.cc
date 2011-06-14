@@ -64,10 +64,13 @@ void __declspec(naked) pexit() {
     push eax
     push ecx
     push edx
+    pushfd
 
     // Push the function return value.
     push eax
     call TracerModule::TraceExit
+
+    popfd
     pop edx
     pop ecx
 
@@ -84,20 +87,23 @@ extern "C" void __declspec(naked) _cdecl _penter() {
     push eax
     push ecx
     push edx
+    pushfd
+
     // Retrieve our return address, and adjust it to the beginning of
     // the function we're entering. The compiler inserts an absolute jmp
     // to _penter at the start of each function, so adjusting by five
     // points us to the start of the function.
-    mov eax, DWORD PTR[esp + 0x0C]
+    mov eax, DWORD PTR[esp + 0x10]
     sub eax, 5
     push eax
     // Calculate the position of the return address on stack, and
     // push it. This becomes the EntryFrame argument.
-    lea eax, DWORD PTR[esp + 0x14]
+    lea eax, DWORD PTR[esp + 0x18]
     push eax
     call TracerModule::TraceEntry
 
     // Restore volatile registers and return.
+    popfd
     pop edx
     pop ecx
     pop eax
@@ -118,18 +124,20 @@ extern "C" void __declspec(naked) _cdecl _indirect_penter() {
     push eax
     push ecx
     push edx
+    pushfd
 
     // Retrieve the address pushed by our caller.
-    mov eax, DWORD PTR[esp + 0x0C]
+    mov eax, DWORD PTR[esp + 0x10]
     push eax
 
     // Calculate the position of the return address on stack, and
     // push it. This becomes the EntryFrame argument.
-    lea eax, DWORD PTR[esp + 0x14]
+    lea eax, DWORD PTR[esp + 0x18]
     push eax
     call TracerModule::TraceEntry
 
     // Restore volatile registers.
+    popfd
     pop edx
     pop ecx
     pop eax
@@ -591,14 +599,14 @@ void TracerModule::FreeThreadLocalData() {
 
 TracerModule::ThreadLocalData::ThreadLocalData(TracerModule* module)
     : module_(module) {
-  base::AutoLock lock(module_->lock_);
   data_.thread_id = ::GetCurrentThreadId();
   data_.num_calls = 0;
+
+  base::AutoLock lock(module_->lock_);
   InsertTailList(&module->thread_data_list_head_, &thread_data_list_);
 }
 
 TracerModule::ThreadLocalData::~ThreadLocalData() {
   base::AutoLock lock(module_->lock_);
-
   RemoveEntryList(&thread_data_list_);
 }
