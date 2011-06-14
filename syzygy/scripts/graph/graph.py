@@ -17,14 +17,19 @@ from etw import EventConsumer, EventHandler, TraceEventSource
 from etw_db import FileNameDatabase, ModuleDatabase, ProcessThreadDatabase
 import etw.descriptors.pagefault as pagefault
 import etw.descriptors.pagefault_xp
-import matplotlib.patches as patches
-import matplotlib.ticker as ticker
-import matplotlib.pyplot as pyplot
-import matplotlib.colors as colors
 import optparse
 import os.path
 import random
 import re
+
+# TODO(siggi): Figure out why Tk is broken in Chrome's python26 interpreter
+#     and fix it, then revisit this code.
+import matplotlib
+matplotlib.use('PDF')
+
+import matplotlib.ticker as ticker
+import matplotlib.pyplot as pyplot
+import matplotlib.colors as colors
 
 
 _PAGE_SIZE = 4096
@@ -529,7 +534,8 @@ def GenerateGraph(info, file_name, width, height, dpi, data_start=None,
     pyplot.show()
 
 
-def Main():
+def main():
+  """Script's main function."""
   parser = GetOptionParser()
   options, args = parser.parse_args()
 
@@ -548,4 +554,4 @@ def Main():
 
 
 if __name__ == '__main__':
-  Main()
+  main()

@@ -61,12 +61,19 @@ def main():
       name='Benchmark-Chrome',
       author='Sigurdur Asgeirsson',
       author_email='siggi@chromium.org',
-      version='0.1dev',
+      version='0.1',
       url='http://no.where/',
       package_dir=_PACKAGE_DIRS,
       py_modules=_MODULES,
       data_files=data_files,
+      install_requires = [
+        'ETW',
+        'ETW-Db',
+      ],
       zip_safe=True,
+      entry_points={
+        'console_scripts': ['benchmark= benchmark:main'],
+      },
   )
 
 
