@@ -113,6 +113,10 @@ class Relinker : public RelinkerBase {
   static size_t max_padding_length();
   static const uint8* padding_data();
 
+  // Manipulate flags
+  void enable_code_reordering(bool on_off);
+  void enable_data_reordering(bool on_off);
+
   // Drives the basic relinking process.  This takes input image and pdb
   // paths and creates correponsing output files at the given output
   // paths, reordering sections as defined by a subclass' ReorderSection
@@ -168,6 +172,9 @@ class Relinker : public RelinkerBase {
   // The amount of padding bytes to add between blocks.
   size_t padding_length_;
 
+  // Flags
+  bool code_reordering_enabled_;
+  bool data_reordering_enabled_;
 };
 
 }  // namespace relink
