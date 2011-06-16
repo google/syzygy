@@ -87,7 +87,123 @@ def _GetRunInSnapshotExe():
   return run_in_snapshot
 
 
-class BenchmarkRunner(object):
+class ChromeRunner(object):
+  """A utility class to manage the running of Chrome for some number of
+  iterations."""
+  def __init__(self, chrome_exe, profile_dir, initialize_profile=True):
+    """Initialize instance.
+
+    Args:
+        chrome_exe: path to the Chrome executable to benchmark.
+        profile_dir: path to the profile directory for Chrome.
+        initialize_profile: if True, the profile directory will be erased and
+            Chrome will be launched once to initialize it.
+    """
+    self._chrome_exe = chrome_exe
+    self._profile_dir = profile_dir
+    self._initialize_profile = initialize_profile
+
+  def Run(self, iterations):
+    """Runs the benchmark for a given number of iterations.
+
+    Args:
+        iterations: number of iterations to run.
+    """
+    self._SetUp()
+
+    try:
+      # Run the benchmark for the number of iterations specified.
+      for i in range(iterations):
+        _LOGGER.info("Starting iteration %d", i)
+        self._PreIteration(i)
+        self._RunOneIteration(i)
+        self._PostIteration(i)
+
+      # Output the results after completing all iterations.
+      self._ProcessResults()
+    except:
+      _LOGGER.exception('Failure in iteration %d.', i)
+    finally:
+      self._TearDown()
+
+  def _SetUp(self):
+    """Invoked once before a set of iterations."""
+    if chrome_control.IsProfileRunning(self._profile_dir):
+      _LOGGER.warning(
+          'Chrome already running in profile "%s", shutting it down.',
+          self._profile_dir)
+      chrome_control.ShutDown(self._profile_dir)
+
+    if self._initialize_profile:
+      shutil.rmtree(self._profile_dir, True)
+
+    if not os.path.isdir(self._profile_dir):
+      self._InitializeProfileDir()
+
+  def _TearDown(self):
+    """Invoked once after all iterations are complete, or on failure."""
+    pass
+
+  def _RunOneIteration(self, i):
+    """Perform the iteration."""
+    _LOGGER.info("Iteration: %d", i)
+
+    self._LaunchChrome()
+
+    self._WaitTillChromeRunning()
+    self._DoIteration(i)
+
+    _LOGGER.info("Shutting down Chrome Profile: %s", self._profile_dir)
+    chrome_control.ShutDown(self._profile_dir)
+
+  def _DoIteration(self, it):
+    """Invoked after Chrome has been launched."""
+    pass
+
+  def _PreIteration(self, it):
+    """Invoked prior to each iteration."""
+    pass
+
+  def _PostIteration(self, i):
+    """Invoked after each iteration."""
+    pass
+
+  def _ProcessResults(self):
+    """Invoked after all iterations have succeeded."""
+    pass
+
+  def _LaunchChrome(self, extra_arguments=None):
+    """Launch the Chrome instance for this iteration."""
+    self._LaunchChromeImpl(extra_arguments)
+
+  def _LaunchChromeImpl(self, extra_arguments=None):
+    cmd_line = [self._chrome_exe,
+                '--user-data-dir=%s' % self._profile_dir]
+    if extra_arguments:
+      cmd_line.extend(extra_arguments)
+
+    _LOGGER.info('Launching command line [%s].', cmd_line)
+    subprocess.Popen(cmd_line)
+
+  def _InitializeProfileDir(self):
+    """Initialize a Chrome profile directory by launching, then stopping
+    Chrome in that directory.
+    """
+    _LOGGER.info('Initializing profile dir "%s".', self._profile_dir)
+    self._LaunchChromeImpl(['--no-first-run'])
+    self._WaitTillChromeRunning()
+    chrome_control.ShutDown(self._profile_dir)
+
+  def _WaitTillChromeRunning(self):
+    for i in xrange(20):
+      if chrome_control.IsProfileRunning(self._profile_dir):
+        return
+      time.sleep(1)
+
+    raise RuntimeError('Timeout waiting for Chrome.')
+
+
+class BenchmarkRunner(ChromeRunner):
   """A utility class to manage the running of Chrome startup time benchmarks.
 
   This class can run a given Chrome instance through a few different
@@ -116,8 +232,7 @@ class BenchmarkRunner(object):
             directories it creates. This is handy if you want to e.g. manually
             inspect the log files generated.
     """
-    self._chrome_exe = chrome_exe
-    self._profile_dir = profile_dir
+    super(BenchmarkRunner, self).__init__(chrome_exe, profile_dir)
     self._preload = preload
     self._cold_start = cold_start
     self._prefetch = prefetch
@@ -125,45 +240,22 @@ class BenchmarkRunner(object):
     self._results = {}
     self._temp_dir = None
 
-  def Run(self, iterations):
-    """Runs the benchmark for a given number of iterations.
-
-    Args:
-        iterations: number of iterations to run.
-    """
-    self._SetUp()
-
-    try:
-      # Run the benchmark for the number of iterations specified.
-      for i in range(iterations):
-        _LOGGER.info("Starting iteration %d", i)
-        self._PreIteration(i)
-        self._RunOneIteration(i)
-        self._PostIteration(i)
-
-      # Output the results after completing all iterations.
-      self._OutputResults()
-    except:
-      _LOGGER.exception('Failure in iteration %d', i)
-    finally:
-      self._TearDown()
-
   def _SetUp(self):
+    super(BenchmarkRunner, self)._SetUp()
     self._old_preload = chrome_control.GetPreload()
     chrome_control.SetPreload(self._preload)
     self._temp_dir = tempfile.mkdtemp(prefix='chrome-bench')
-    _LOGGER.info('Created temporary directory "%s"', self._temp_dir)
+    _LOGGER.info('Created temporary directory "%s".', self._temp_dir)
 
   def _TearDown(self):
     chrome_control.SetPreload(*self._old_preload)
     if self._temp_dir and not self._keep_temp_dirs:
-      _LOGGER.info('Deleting temporary directory "%s"', self._temp_dir)
+      _LOGGER.info('Deleting temporary directory "%s".', self._temp_dir)
       shutil.rmtree(self._temp_dir, ignore_errors=True)
       self._temp_dir = None
+    super(BenchmarkRunner, self)._TearDown()
 
-  def _RunOneIteration(self, i):
-    _LOGGER.info("Iteration: %d", i)
-
+  def _LaunchChrome(self):
     if self._cold_start:
       (drive, path) = os.path.splitdrive(self._chrome_exe)
       chrome_exe = os.path.join('M:', path)
@@ -176,19 +268,14 @@ class BenchmarkRunner(object):
                   '--user-data-dir=%s' % self._profile_dir]
     else:
       cmd_line = [self._chrome_exe,
-                  '--user-data-dir=%s' % self._profile_dir,
-                  'http://www.google.com']
+                  '--user-data-dir=%s' % self._profile_dir]
 
-    _LOGGER.info('Launching command line [%s]', cmd_line)
+    _LOGGER.info('Launching command line [%s].', cmd_line)
     subprocess.Popen(cmd_line)
 
-    # TODO(siggi): Poll for Chrome to come into existence, then
-    #     give it a fixed amount of time to do its thing before
-    #     winding down.
-    time.sleep(20)
-
-    _LOGGER.info("Shutting down Chrome Profile: %s", self._profile_dir)
-    chrome_control.ShutDown(self._profile_dir)
+  def _DoIteration(self, it):
+    # Give our Chrome instance 10 seconds to settle.
+    time.sleep(10)
 
   def _PreIteration(self, i):
     self._StartLogging()
@@ -206,7 +293,7 @@ class BenchmarkRunner(object):
     # TODO(siggi): This function needs to start a second ETW log session
     #    to capture output from Chrome's TRACE_EVENT macros.
     self._kernel_file = os.path.join(self._temp_dir, 'kernel.etl')
-    _LOGGER.info('Starting kernel logging to file "%s"', self._kernel_file)
+    _LOGGER.info('Starting kernel logging to file "%s".', self._kernel_file)
 
     prop = etw.TraceProperties()
     prop.SetLogFileName(os.path.abspath(self._kernel_file))
@@ -251,8 +338,8 @@ class BenchmarkRunner(object):
     buffers_lost = prop.get().contents.LogBuffersLost
     events_lost = prop.get().contents.EventsLost
     if events_lost or buffers_lost:
-      _LOGGER.warning('%d ETW buffers lost', buffers_lost)
-      _LOGGER.warning('%d ETW events lost', events_lost)
+      _LOGGER.warning('%d ETW buffers lost.', buffers_lost)
+      _LOGGER.warning('%d ETW events lost.', events_lost)
       _LOGGER.warning('You may need to increase the number or size of '
                       'of buffers (see _StartLogging).')
 
@@ -287,7 +374,7 @@ class BenchmarkRunner(object):
     # We leave it to TearDown to delete any files we've created.
     self._kernel_file = None
 
-  def _OutputResults(self):
+  def _ProcessResults(self):
     """Outputs the benchmark results in the format required by the
     GraphingLogProcessor class, which is:
 
