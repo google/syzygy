@@ -22,6 +22,9 @@
           'benchmark.py',
           'chrome_control.py',
           'chrome_control_test.py',
+          'event_counter.py',
+          'runner.py',
+          'setup.py',
         ],
         'setup_file': [
           'setup.py',
