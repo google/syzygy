@@ -275,7 +275,10 @@ bool RelinkerBase::CopyBlocks(
   return true;
 }
 
-Relinker::Relinker() : padding_length_(0) {
+Relinker::Relinker()
+    : padding_length_(0),
+      code_reordering_enabled_(true),
+      data_reordering_enabled_(true) {
 }
 
 size_t Relinker::max_padding_length() {
@@ -291,12 +294,20 @@ const uint8* Relinker::padding_data() {
   return kPaddingData.Get().buffer;
 }
 
+void Relinker::enable_code_reordering(bool on_off) {
+  code_reordering_enabled_ = on_off;
+}
+
+void Relinker::enable_data_reordering(bool on_off) {
+  data_reordering_enabled_ = on_off;
+}
+
 bool Relinker::IsReorderable(const IMAGE_SECTION_HEADER& section) {
   if (section.Characteristics & IMAGE_SCN_CNT_CODE)
-    return true;
+    return code_reordering_enabled_;
   std::string section_name = GetSectionName(section);
   if (section_name == ".data" || section_name == ".rdata")
-    return true;
+    return data_reordering_enabled_;
   return false;
 }
 
@@ -310,12 +321,14 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   DCHECK(!output_pdb_path.empty());
 
   // Read and decompose the input image for starters.
+  LOG(INFO) << "Reading input image.";
   pe::PEFile input_dll;
   if (!input_dll.Init(input_dll_path)) {
     LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
     return false;
   }
 
+  LOG(INFO) << "Decomposing input image.";
   Decomposer decomposer(input_dll, input_dll_path);
   Decomposer::DecomposedImage decomposed;
   if (!decomposer.Decompose(&decomposed, NULL,
@@ -324,11 +337,13 @@ bool Relinker::Relink(const FilePath& input_dll_path,
     return false;
   }
 
+  LOG(INFO) << "Initializing relinker.";
   if (!Initialize(decomposed)) {
-    LOG(ERROR) << "Unable to initialize.";
+    LOG(ERROR) << "Unable to initialize the relinker.";
     return false;
   }
 
+  LOG(INFO) << "Setting up the new ordering.";
   Reorderer::Order order(decomposed);
   if (!SetupOrdering(order)) {
     LOG(ERROR) << "Unable to setup the ordering.";
@@ -338,45 +353,52 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   // Reorder code sections and copy non-code sections.
   for (size_t i = 0; i < original_num_sections() - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = original_sections()[i];
+    const std::string name = GetSectionName(section);
     if (IsReorderable(section)) {
+      LOG(INFO) << "Reordering section " << i << " (" << name << ").";
       if (!ReorderSection(i, section, order)) {
-        LOG(ERROR) << "Unable to reorder the '" << GetSectionName(section)
-            << "' section.";
+        LOG(ERROR) << "Unable to reorder the '" << name << "' section.";
         return false;
       }
     } else {
+      LOG(INFO) << "Copying section " << i << " (" << name.c_str() << ").";
       if (!CopySection(section)) {
-        LOG(ERROR) << "Unable to copy the '" << GetSectionName(section)
-            << "' section.";
+        LOG(ERROR) << "Unable to copy the '" << name << "' section.";
         return false;
       }
     }
   }
 
   // Update the debug info and copy the data directory.
+  LOG(INFO) << "Updating debug information.";
   if (!UpdateDebugInformation(
           decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
     LOG(ERROR) << "Unable to update debug information.";
     return false;
   }
+
+  LOG(INFO) << "Copying the data directories.";
   if (!CopyDataDirectory(decomposed.header)) {
     LOG(ERROR) << "Unable to copy the input image's data directory.";
     return false;
   }
 
   // Finalize the headers and write the image and pdb.
+  LOG(INFO) << "Finalizing the image headers.";
   if (!FinalizeImageHeaders(decomposed.header)) {
     LOG(ERROR) << "Unable to finalize image headers.";
     return false;
   }
 
   // Write the new PE Image file.
+  LOG(INFO) << "Writing the new image file.";
   if (!WriteImage(output_dll_path)) {
     LOG(ERROR) << "Unable to write " << output_dll_path.value();
     return false;
   }
 
   // Write the new PDB file.
+  LOG(INFO) << "Writing the new PDB file.";
   if (!WritePDBFile(input_pdb_path, output_pdb_path)) {
     LOG(ERROR) << "Unable to write " << output_pdb_path.value();
     return false;

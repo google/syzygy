@@ -34,13 +34,17 @@ const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
 const char kUsage[] =
     "Usage: relink [options]\n"
     "  Required Options:\n"
-    "    --input-dll=<path> the input DLL to relink\n"
-    "    --input-pdb=<path> the PDB file associated with the input DLL\n"
-    "    --output-dll=<path> the relinked output DLL\n"
-    "    --output-pdb=<path> the rewritten PDB file for the output DLL\n"
+    "    --input-dll=<path>   The input DLL to relink\n"
+    "    --input-pdb=<path>   The PDB file associated with the input DLL\n"
+    "    --output-dll=<path>  Output path for the rewritten DLL\n"
+    "    --output-pdb=<path>  Output path for the rewritten PDB file\n"
     "  Optional Options:\n"
-    "    --seed=<integer> provides a seed for the random reordering strategy\n"
-    "    --order-file=<path> path to a JSON file containing the new order\n";
+    "    --seed=<integer>     Randomly reorder based on the given seed\n"
+    "    --order-file=<path>  Reorder based on a JSON ordering file\n"
+    "    --no-code            Do not reorder code sections\n"
+    "    --no-data            Do not reorder data sections\n"
+    "  Notes:\n"
+    "    * The --seed and --order-file options are mutually exclusive\n";
 
 int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
@@ -88,10 +92,16 @@ int main(int argc, char** argv) {
   FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
   FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
+  bool reorder_code = !cmd_line->HasSwitch("no-code");
+  bool reorder_data = !cmd_line->HasSwitch("no-data");
 
   if (input_dll_path.empty() || input_pdb_path.empty() ||
       output_dll_path.empty() || output_pdb_path.empty()) {
     return Usage("You must provide input and output file names.");
+  }
+
+  if (cmd_line->HasSwitch("seed") && cmd_line->HasSwitch("order-file")) {
+    return Usage("The seed and order-file arguments are mutually exclusive");
   }
 
   uint32 seed = 0;
@@ -107,15 +117,18 @@ int main(int argc, char** argv) {
   }
 
   // Log some info so we know what's about to happen.
-  LOG(INFO) << "Input Image    : " << input_dll_path.value();
-  LOG(INFO) << "Input PDB      : " << input_pdb_path.value();
-  LOG(INFO) << "Output Image   : " << output_dll_path.value();
-  LOG(INFO) << "Output PDB     : " << output_pdb_path.value();
-  LOG(INFO) << "Order File     : "
-      << (order_file_path.empty() ? L"<None>"
-                                  : order_file_path.value().c_str());
-  LOG(INFO) << "Random Seed    : " << seed;
-  LOG(INFO) << "Padding Length : " << padding;
+  LOG(INFO) << "Input Image: " << input_dll_path.value();
+  LOG(INFO) << "Input PDB: " << input_pdb_path.value();
+  LOG(INFO) << "Output Image: " << output_dll_path.value();
+  LOG(INFO) << "Output PDB: " << output_pdb_path.value();
+  LOG(INFO) << "Padding Length: " << padding;
+  LOG(INFO) << "Reorder Code: " << (reorder_code ? "Yes" : "No");
+  LOG(INFO) << "Reorder Data: " << (reorder_data ? "Yes" : "No");
+  if (!order_file_path.empty()) {
+    LOG(INFO) << "Order File: " << (order_file_path.value().c_str());
+  } else {
+    LOG(INFO) << "Random Seed: " << seed;
+  }
 
   // Relink the image with a new ordering.
   scoped_ptr<Relinker> relinker;
@@ -126,6 +139,8 @@ int main(int argc, char** argv) {
   }
 
   relinker->set_padding_length(padding);
+  relinker->enable_code_reordering(reorder_code);
+  relinker->enable_data_reordering(reorder_data);
   if (!relinker->Relink(
           input_dll_path, input_pdb_path, output_dll_path, output_pdb_path)) {
     return Usage("Unable to reorder the input image.");
