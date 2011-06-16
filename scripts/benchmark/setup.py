@@ -49,6 +49,8 @@ _PACKAGE_DIRS = {
 _MODULES = [
   'benchmark',
   'chrome_control',
+  'event_counter',
+  'runner',
 ]
 
 _EXECUTABLES = [
