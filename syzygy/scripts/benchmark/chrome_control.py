@@ -40,6 +40,16 @@ def _SendChromeEndSession(window, extra):
     win32gui.PostMessage(window, win32con.WM_ENDSESSION)
 
 
+def _FindProfileWindow(profile_dir):
+  """Find the message window associated with profile_dir, if any."""
+  profile_dir = os.path.abspath(profile_dir)
+
+  return win32gui.FindWindowEx(None,
+                               None,
+                               _MESSAGE_WINDOW_CLASS,
+                               profile_dir)
+
+
 def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
   """Shuts down the Chrome instance running in profile_dir.
 
@@ -62,11 +72,7 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
   profile_dir = os.path.abspath(profile_dir)
 
   # Find the message window associated with this profile directory.
-  message_win = win32gui.FindWindowEx(None,
-                                      None,
-                                      _MESSAGE_WINDOW_CLASS,
-                                      profile_dir)
-
+  message_win = _FindProfileWindow(profile_dir)
   if not message_win:
     raise ChromeNotFoundException
 
@@ -90,6 +96,13 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
     raise TimeoutException
 
   return exit_status
+
+
+def IsProfileRunning(profile_dir):
+  """Returns True iff there is a Chrome instance running in profile_dir."""
+  if _FindProfileWindow(profile_dir):
+    return True
+  return False
 
 
 _CHROME_FRAME_KEY = r'Software\Google\ChromeFrame'
