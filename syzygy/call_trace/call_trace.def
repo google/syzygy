@@ -1,4 +1,4 @@
-; Copyright 2010 Google Inc.
+; Copyright 2011 Google Inc.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ LIBRARY call_trace.dll
 EXPORTS
   ; Our profile hook function.
   _penter
-  
+
   ; API
   wait_til_enabled
   wait_til_disabled
@@ -29,4 +29,5 @@ EXPORTS
 
 
   ; Functions we expose to rundll32.
-  BeginCallTrace
+  StartCallTrace
+  StopCallTrace
