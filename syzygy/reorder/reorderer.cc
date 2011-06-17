@@ -170,6 +170,7 @@ bool Reorderer::ReorderImpl(Order* order) {
   if (!ParseInstrumentedModuleSignature())
     return false;
 
+  LOG(INFO) << "Reading input DLL.";
   pe::PEFile input_module;
   if (!input_module.Init(module_path_)) {
     LOG(ERROR) << "Unable to read input image: " << module_path_.value();
@@ -180,6 +181,7 @@ bool Reorderer::ReorderImpl(Order* order) {
   // fail we'll have wasted a lot of time!
   for (size_t i = 0; i < trace_paths_.size(); ++i) {
     std::wstring trace_path(trace_paths_[i].value());
+    LOG(INFO) << "Reading " << trace_path << ".";
     if (FAILED(OpenFileSession(trace_path.c_str()))) {
       LOG(ERROR) << "Unable to open ETW log file: " << trace_path;
       return false;
@@ -188,14 +190,18 @@ bool Reorderer::ReorderImpl(Order* order) {
 
   // Decompose the DLL to be reordered. This will let us map call-trace events
   // to actual Blocks.
+  LOG(INFO) << "Decomposing input image.";
   Decomposer decomposer(input_module, module_path_);
   if (!decomposer.Decompose(image_, NULL, Decomposer::STANDARD_DECOMPOSITION)) {
     LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
     return false;
   }
 
+  InitSectionReorderabilityCache(*order_generator_);
+
   // Parse the logs.
   if (trace_paths_.size() > 0) {
+    LOG(INFO) << "Processing trace events.";
     Consume();
     if (consumer_errored_)
       return false;
@@ -205,6 +211,7 @@ bool Reorderer::ReorderImpl(Order* order) {
     }
   }
 
+  LOG(INFO) << "Calculating new order.";
   if (!order_generator_->CalculateReordering(*this, order))
     return false;
 
@@ -614,6 +621,45 @@ bool Reorderer::Order::OutputFaultEstimates(FILE* file) const {
           (pre_total - post_total) * 100.0 / pre_total);
 
   return true;
+}
+
+void Reorderer::InitSectionReorderabilityCache(
+  const Reorderer::OrderGenerator& order_generator) {
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(
+          image_->header.nt_headers->data());
+  DCHECK(nt_headers != NULL);
+  const IMAGE_SECTION_HEADER* sections =
+      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+
+  for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
+    const IMAGE_SECTION_HEADER& section = sections[i];
+    section_reorderability_cache_.push_back(
+        order_generator.IsReorderable(*this, section));
+  }
+}
+
+bool Reorderer::OrderGenerator::IsReorderable(
+    const Reorderer& reorderer,
+    const IMAGE_SECTION_HEADER& section) const {
+  if (section.Characteristics & IMAGE_SCN_CNT_CODE)
+    return (reorderer.flags() & Reorderer::kFlagReorderCode) != 0;
+
+  const std::string section_name(pe::PEFile::GetSectionName(section));
+  if (section_name == ".data" || section_name == ".rdata")
+    return (reorderer.flags() & Reorderer::kFlagReorderData) != 0;
+
+  return false;
+}
+
+bool Reorderer::MustReorder(size_t section_index) const {
+  DCHECK_LT(section_index, section_reorderability_cache_.size());
+  return section_reorderability_cache_[section_index];
+}
+
+bool Reorderer::MustReorder(const BlockGraph::Block * block) const {
+  DCHECK(block != NULL);
+  return MustReorder(block->section());
 }
 
 Reorderer::UniqueTime::UniqueTime()

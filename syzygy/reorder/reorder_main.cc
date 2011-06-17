@@ -51,7 +51,8 @@ static const char kUsage[] =
     "        the generated ordering\n"
     "    --reorderer-flags=<comma separated reorderer flags>\n"
     "  Reorderer Flags:\n"
-    "    reorder-data: causes data to be reordered\n";
+    "    no-code: Do not reorder code sections\n"
+    "    no-data: Do not reorder data sections\n";
 
 const char kFlags[] = "reorderer-flags";
 const char kOutputComdats[] = "output-comdats";
@@ -69,28 +70,28 @@ static bool ParseReordererFlags(CommandLine* cmd_line,
   DCHECK(cmd_line != NULL);
   DCHECK(flags != NULL);
 
-  if (!cmd_line->HasSwitch(kFlags))
-    return true;
+  Reorderer::Flags out_flags = (Reorderer::kFlagReorderData |
+                                Reorderer::kFlagReorderCode);
 
-  // These flags must be kept in sync with Reorderer::FlagsEnum.
-  typedef std::map<std::string, Reorderer::FlagsEnum> FlagMap;
-  FlagMap flag_map;
-  flag_map["reorder-data"] = Reorderer::kFlagReorderData;
-
-  std::vector<std::string> text_flags;
-  base::SplitString(cmd_line->GetSwitchValueASCII(kFlags), ',', &text_flags);
-  for (size_t i = 0; i < text_flags.size(); ++i) {
-    if (text_flags[i].empty())
-      continue;
-    FlagMap::const_iterator it = flag_map.find(text_flags[i]);
-    if (it == flag_map.end()) {
-      std::string message = base::StringPrintf("Unknown reorderer flag: %s.",
-                                               text_flags[i].c_str());
-      Usage(message.c_str());
-      return false;
+  if (cmd_line->HasSwitch(kFlags)) {
+    typedef std::vector<std::string> TextFlags;
+    TextFlags text_flags;
+    base::SplitString(cmd_line->GetSwitchValueASCII(kFlags), ',', &text_flags);
+    TextFlags::const_iterator flag_iter = text_flags.begin();
+    for (; flag_iter != text_flags.end(); ++flag_iter) {
+      if (*flag_iter == "no-data") {
+        out_flags &= ~Reorderer::kFlagReorderData;
+      } else if (*flag_iter == "no-code") {
+        out_flags &= ~Reorderer::kFlagReorderCode;
+      } else if (!flag_iter->empty()) {
+        std::string message = base::StringPrintf("Unknown reorderer flag: %s.",
+                                                 flag_iter->c_str());
+        Usage(message.c_str());
+        return false;
+      }
     }
-    *flags |= it->second;
   }
+  *flags = out_flags;
 
   return true;
 }
@@ -134,7 +135,7 @@ int main(int argc, char** argv) {
   }
 
   if (seed_str.empty()) {
-    if  (trace_paths.size() < 2) {
+    if (trace_paths.size() < 2) {
       return Usage("You must specify at least two ETW trace files (kernel and "
           "call_trace) if you are not generating a random ordering.");
     }

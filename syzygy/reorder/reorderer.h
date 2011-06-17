@@ -52,7 +52,8 @@ class Reorderer
   // to satisfy.
   // TODO(chrisha): Basic block reordering.
   enum FlagsEnum {
-    kFlagReorderData = 1
+    kFlagReorderCode = 1 << 0,
+    kFlagReorderData = 1 << 1,
   };
   typedef uint32 Flags;
 
@@ -72,7 +73,16 @@ class Reorderer
   // Returns the reorderer directives provided at Init time.
   Flags flags() const { return flags_; }
 
+  // Returns true of the given section must be reordered.
+  bool MustReorder(size_t section_index) const;
+
+  // Returns true of the given block is in a section which must be reordered.
+  bool MustReorder(const BlockGraph::Block* block) const;
+
  private:
+  // Initializes the section reorderability cache, so MustReorder is fast.
+  void InitSectionReorderabilityCache(const OrderGenerator& order_generator);
+
   // This allows our parent classes to access the necessary callbacks, but
   // hides them from derived classes.
   friend base::win::EtwTraceConsumerBase<Reorderer>;
@@ -157,6 +167,10 @@ class Reorderer
   // make use of it during processing.
   DecomposedImage* image_;
 
+  // A cache for whether or not to reorder each section.
+  typedef std::vector<bool> SectionReorderabilityCache;
+  SectionReorderabilityCache section_reorderability_cache_;
+
   // A pointer to the only instance of a reorderer.
   static Reorderer* consumer_;
 
@@ -215,6 +229,13 @@ class Reorderer::OrderGenerator {
   // Accessor.
   const std::string& name() const { return name_; }
 
+  // Returns true if the given section be reordered. This is a default
+  // implementation which can be overridden if the subclass supports a
+  // different set of sections. By default, .data, .rdata, and all code
+  // sections are considered reorderable.
+  virtual bool IsReorderable(const Reorderer& reorderer,
+                             const IMAGE_SECTION_HEADER& section) const;
+
   // The derived class shall implement this callback, which receives
   // TRACE_ENTRY events for the module that is being reordered. Returns true
   // on success, false on error. If this returns false, no further callbacks
@@ -234,6 +255,7 @@ class Reorderer::OrderGenerator {
                                    Order* order) = 0;
  private:
   DISALLOW_COPY_AND_ASSIGN(OrderGenerator);
+
   const std::string name_;
 };
 

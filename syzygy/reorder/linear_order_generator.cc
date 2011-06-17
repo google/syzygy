@@ -30,6 +30,9 @@ bool LinearOrderGenerator::OnCodeBlockEntry(const Reorderer& reorderer,
                                             uint32 process_id,
                                             uint32 thread_id,
                                             const UniqueTime& time) {
+  if (!reorderer.MustReorder(block))
+    return true;
+
   return TouchBlock(block, time);
 }
 
@@ -45,7 +48,7 @@ bool LinearOrderGenerator::CalculateReordering(const Reorderer& reorderer,
     for (; it != block_calls_.end(); ++it) {
       DCHECK(it->first != NULL);
       if (it->first->type() == BlockGraph::CODE_BLOCK &&
-          !TouchDataBlocks(it->first, it->second))
+          !TouchDataBlocks(reorderer, it->first, it->second))
         return false;
     }
   }
@@ -71,6 +74,8 @@ bool LinearOrderGenerator::CalculateReordering(const Reorderer& reorderer,
     size_t section_id = block->section();
     if (section_id == core::kInvalidSection)
       continue;
+    if (!reorderer.MustReorder(section_id))
+      continue;
     order->section_block_lists[section_id].push_back(block);
   }
 
@@ -78,7 +83,7 @@ bool LinearOrderGenerator::CalculateReordering(const Reorderer& reorderer,
 }
 
 bool LinearOrderGenerator::TouchBlock(const BlockGraph::Block* block,
-                                 const UniqueTime& time) {
+                                      const UniqueTime& time) {
   // Store the block along with the earliest time it was called.
   BlockCallMap::iterator it = block_calls_.find(block);
   if (it == block_calls_.end()) {
@@ -95,7 +100,8 @@ bool LinearOrderGenerator::TouchBlock(const BlockGraph::Block* block,
 }
 
 // Given a code block, touches the data blocks associated with it.
-bool LinearOrderGenerator::TouchDataBlocks(const BlockGraph::Block* code_block,
+bool LinearOrderGenerator::TouchDataBlocks(const Reorderer& reorderer,
+                                           const BlockGraph::Block* code_block,
                                            const UniqueTime& time) {
   DCHECK(code_block != NULL);
   DCHECK(code_block->type() == BlockGraph::CODE_BLOCK);
@@ -113,6 +119,9 @@ bool LinearOrderGenerator::TouchDataBlocks(const BlockGraph::Block* code_block,
     // from the trace.
     if (ref->type() == BlockGraph::CODE_BLOCK)
       continue;
+    if (!reorderer.MustReorder(ref))
+      continue;
+
     if (!TouchBlock(ref, time))
       return false;
   }
