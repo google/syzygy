@@ -121,6 +121,10 @@ class PEFile {
   // kInvalidSection if no section with the name is found.
   const IMAGE_SECTION_HEADER* GetSectionHeader(const char* name) const;
 
+  // Helper to stringify the name of a section.
+  std::string GetSectionName(size_t section_index) const;
+  static std::string GetSectionName(const IMAGE_SECTION_HEADER& section);
+
   // Accessors.
   const IMAGE_DOS_HEADER* dos_header() const {
     return dos_header_;
