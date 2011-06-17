@@ -50,7 +50,8 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
   // Called by OnFunctionEntry to update block_calls_.
   bool TouchBlock(const BlockGraph::Block* block, const UniqueTime& time);
   // Given a code block, touches the data blocks associated with it.
-  bool TouchDataBlocks(const BlockGraph::Block* code_block,
+  bool TouchDataBlocks(const Reorderer& reorderer,
+                       const BlockGraph::Block* code_block,
                        const UniqueTime& time);
 
   // Stores pointers to blocks, and the first time at which they were accessed.

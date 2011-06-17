@@ -116,6 +116,19 @@ size_t PEFile::GetSectionIndex(const char* name) const {
   return kInvalidSection;
 }
 
+std::string PEFile::GetSectionName(
+    const IMAGE_SECTION_HEADER& section) {
+  const char* name = reinterpret_cast<const char*>(section.Name);
+  return std::string(name, strnlen(name, arraysize(section.Name)));
+}
+
+std::string PEFile::GetSectionName(size_t section_index) const {
+  DCHECK_LT(section_index, nt_headers_->FileHeader.NumberOfSections);
+
+  const IMAGE_SECTION_HEADER* section = section_headers_ + section_index;
+  return GetSectionName(*section);
+}
+
 const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(const char* name) const {
   size_t id = GetSectionIndex(name);
   if (id == kInvalidSection)
