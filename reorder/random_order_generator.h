@@ -17,7 +17,6 @@
 #define SYZYGY_REORDER_RANDOM_ORDER_GENERATOR_H_
 
 #include "syzygy/reorder/reorderer.h"
-#include "syzygy/core/random_number_generator.h"
 
 namespace reorder {
 
@@ -43,7 +42,7 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
                                    Order* order);
 
  private:
-  core::RandomNumberGenerator random_number_generator_;
+  const uint32 seed_;
 };
 
 }  // namespace reorder

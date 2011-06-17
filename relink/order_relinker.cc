@@ -65,13 +65,18 @@ bool OrderRelinker::ReorderSection(size_t section_index,
                                    const Reorderer::Order& order) {
   DCHECK(!order_file_path_.empty());
 
+  const std::string section_name(pe::PEFile::GetSectionName(section));
+
   // We only reorder the section if a non-empty ordering has actually been
   // provided. Otherwise, we simply copy the section as is.
   Reorderer::Order::BlockListMap::const_iterator section_iter =
       order.section_block_lists.find(section_index);
   if (section_iter == order.section_block_lists.end() ||
-      section_iter->second.size() == 0)
+      section_iter->second.size() == 0) {
+    LOG(INFO) << "No ordering for '" << section_name << "', copying it.";
     return CopySection(section);
+  }
+
   const BlockList& block_order(section_iter->second);
 
   RelativeAddress section_start = builder().next_section_address();
@@ -96,7 +101,6 @@ bool OrderRelinker::ReorderSection(size_t section_index,
   size_t section_size = insert_at - section_start;
 
   // Create the reordered section.
-  std::string section_name = GetSectionName(section);
   builder().AddSegment(section_name.c_str(),
                        section_size,
                        section_data_size,

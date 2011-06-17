@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/relink/random_relinker.h"
+#include "syzygy/core/random_number_generator.h"
 
 #include <algorithm>
 #include "base/file_util.h"
@@ -21,7 +22,7 @@
 
 namespace relink {
 
-RandomRelinker::RandomRelinker(uint32 seed) : random_number_generator_(seed) {
+RandomRelinker::RandomRelinker(uint32 seed) : seed_(seed) {
 }
 
 bool RandomRelinker::SetupOrdering(Reorderer::Order& /*order*/) {
@@ -29,7 +30,7 @@ bool RandomRelinker::SetupOrdering(Reorderer::Order& /*order*/) {
   return true;
 }
 
-bool RandomRelinker::ReorderSection(size_t /*section_index*/,
+bool RandomRelinker::ReorderSection(size_t section_index,
                                     const IMAGE_SECTION_HEADER& section,
                                     const Reorderer::Order& /*order*/ ) {
   typedef std::vector<BlockGraph::Block*> BlockList;
@@ -50,7 +51,8 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
     blocks.push_back(block);
   }
 
-  std::random_shuffle(blocks.begin(), blocks.end(), random_number_generator_);
+  core::RandomNumberGenerator random_number_generator(seed_ + section_index);
+  std::random_shuffle(blocks.begin(), blocks.end(), random_number_generator);
 
   // Insert the blocks into the section in the new order.
   RelativeAddress section_start = builder().next_section_address();
@@ -78,7 +80,7 @@ bool RandomRelinker::ReorderSection(size_t /*section_index*/,
   }
 
   // Create the reodered section.
-  std::string section_name = GetSectionName(section);
+  const std::string section_name(pe::PEFile::GetSectionName(section));
   size_t section_length = insert_at - section_start;
   builder().AddSegment(section_name.c_str(),
                        section_length,

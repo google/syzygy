@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/reorder/random_order_generator.h"
+#include "syzygy/core/random_number_generator.h"
 
 #include <algorithm>
 namespace reorder {
 
 RandomOrderGenerator::RandomOrderGenerator(int seed)
     : Reorderer::OrderGenerator("Random Order Generator"),
-      random_number_generator_(seed) {
+      seed_(seed) {
 }
 
 RandomOrderGenerator::~RandomOrderGenerator() {
@@ -47,8 +48,14 @@ bool RandomOrderGenerator::CalculateReordering(const Reorderer& reorderer,
 
   for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
     const IMAGE_SECTION_HEADER& section = sections[i];
-    if ((sections[i].Characteristics & IMAGE_SCN_CNT_CODE) == 0)
+    const std::string section_name(pe::PEFile::GetSectionName(section));
+
+    if (!reorderer.MustReorder(i)) {
+      LOG(INFO) << "Skipping section " << i  << " (" << section_name << ").";
       continue;
+    }
+
+    LOG(INFO) << "Randomizing section " << i  << " (" << section_name << ").";
 
     // Prepare to iterate over all block in the section.
     BlockGraph::AddressSpace::Range section_range(
@@ -66,9 +73,10 @@ bool RandomOrderGenerator::CalculateReordering(const Reorderer& reorderer,
       block_list.push_back(block);
     }
 
+    core::RandomNumberGenerator random_number_generator(seed_ + i);
     std::random_shuffle(block_list.begin(),
                         block_list.end(),
-                        random_number_generator_);
+                        random_number_generator);
   }
 
   return true;

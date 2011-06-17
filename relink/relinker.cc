@@ -89,12 +89,6 @@ RelinkerBase::RelinkerBase()
 RelinkerBase::~RelinkerBase() {
 }
 
-std::string RelinkerBase::GetSectionName(
-    const IMAGE_SECTION_HEADER& section) const {
-  const char* name = reinterpret_cast<const char*>(section.Name);
-  return std::string(name, strnlen(name, arraysize(section.Name)));
-}
-
 bool RelinkerBase::Initialize(Decomposer::DecomposedImage & decomposed) {
   const BlockGraph::Block* original_nt_headers = decomposed.header.nt_headers;
   DCHECK_EQ(decomposed.address_space.graph(), &decomposed.image);
@@ -302,13 +296,27 @@ void Relinker::enable_data_reordering(bool on_off) {
   data_reordering_enabled_ = on_off;
 }
 
+void Relinker::InitSectionReorderabilityCache() {
+  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = original_sections()[i];
+    section_reorderability_cache_.push_back(IsReorderable(section));
+  }
+}
+
 bool Relinker::IsReorderable(const IMAGE_SECTION_HEADER& section) {
   if (section.Characteristics & IMAGE_SCN_CNT_CODE)
     return code_reordering_enabled_;
-  std::string section_name = GetSectionName(section);
+
+  const std::string section_name(pe::PEFile::GetSectionName(section));
   if (section_name == ".data" || section_name == ".rdata")
     return data_reordering_enabled_;
+
   return false;
+}
+
+bool Relinker::MustReorder(size_t section_index) const {
+  DCHECK_LT(section_index, section_reorderability_cache_.size());
+  return section_reorderability_cache_[section_index];
 }
 
 bool Relinker::Relink(const FilePath& input_dll_path,
@@ -351,10 +359,11 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   }
 
   // Reorder code sections and copy non-code sections.
+  InitSectionReorderabilityCache();
   for (size_t i = 0; i < original_num_sections() - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = original_sections()[i];
-    const std::string name = GetSectionName(section);
-    if (IsReorderable(section)) {
+    const std::string name(pe::PEFile::GetSectionName(section));
+    if (MustReorder(i)) {
       LOG(INFO) << "Reordering section " << i << " (" << name << ").";
       if (!ReorderSection(i, section, order)) {
         LOG(ERROR) << "Unable to reorder the '" << name << "' section.";
