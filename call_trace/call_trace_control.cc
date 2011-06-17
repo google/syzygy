@@ -17,10 +17,13 @@
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "base/win/event_trace_controller.h"
+#include "sawbuck/common/com_utils.h"
 #include "syzygy/call_trace/call_trace_defs.h"
 
 using base::win::EtwTraceController;
 using base::win::EtwTraceProperties;
+
+namespace {
 
 // {3D7926F7-6F59-4635-AAFD-0E95710FF60D}
 const GUID kSystemTraceControlGuid =
@@ -36,92 +39,277 @@ const int kDefaultKernelFlags = EVENT_TRACE_FLAG_PROCESS |
                                 EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS |
                                 EVENT_TRACE_FLAG_FILE_IO;
 
+static const wchar_t kCallTraceSessionName[] = L"Call Trace Logger";
+static const wchar_t kDefaultCallTraceFile[] = L"call_trace.etl";
+static const wchar_t kDefaultKernelFile[] = L"kernel.etl";
 
-static void GetFlags(FilePath* kernel_file,
-                     FilePath* call_trace_file,
-                     std::wstring* call_trace_session,
-                     int* flags) {
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+struct CallTraceOptions {
+  FilePath call_trace_file;
+  FilePath kernel_file;
+  int flags;
+};
 
-  *kernel_file = cmd_line->GetSwitchValuePath("kernel-file");
-  *call_trace_file = cmd_line->GetSwitchValuePath("call-trace-file");
-  *call_trace_session = cmd_line->GetSwitchValueNative("call-trace-session");
-  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("kernel-flags"),
-                                                       flags)) {
-    *flags = kDefaultKernelFlags;
-  }
-
-  if (kernel_file->empty())
-    *kernel_file = FilePath(L"kernel.etl");
-
-  if (call_trace_file->empty())
-    *call_trace_file = FilePath(L"call_trace.etl");
-
-  if (call_trace_session->empty())
-    *call_trace_session = L"call_trace";
+// Initializes the command-line and logging for functions called via rundll32.
+static void Init() {
+  CommandLine::Init(0, NULL);
+  logging::InitLogging(L"",
+      logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
+      logging::DONT_LOCK_LOG_FILE,
+      logging::APPEND_TO_OLD_LOG_FILE,
+      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
 }
 
-void CALLBACK BeginCallTrace(HWND unused_window,
-                             HINSTANCE unused_instance,
-                             LPSTR unused_cmd_line,
-                             int unused_show) {
-  CommandLine::Init(0, NULL);
+// Parses command-line options for StartCallTrace.
+static bool ParseOptions(CallTraceOptions* options) {
+  DCHECK(options != NULL);
 
-  FilePath kernel_file;
-  FilePath call_trace_file;
-  std::wstring call_trace_session;
-  int flags = 0;
-  GetFlags(&kernel_file, &call_trace_file, &call_trace_session, &flags);
+  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
 
-  EtwTraceProperties props;
-  EVENT_TRACE_PROPERTIES* p = props.get();
+  options->call_trace_file = cmd_line->GetSwitchValuePath("call-trace-file");
+  if (options->call_trace_file.empty())
+    options->call_trace_file = FilePath(kDefaultCallTraceFile);
+
+  options->kernel_file = cmd_line->GetSwitchValuePath("kernel-file");
+  if (options->kernel_file.empty())
+    options->kernel_file = FilePath(kDefaultKernelFile);
+
+  if (options->call_trace_file == options->kernel_file) {
+    LOG(ERROR) << "call-trace-file and kernel-file must be different.";
+    return false;
+  }
+
+  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("kernel-flags"),
+                                                       &options->flags)) {
+    options->flags = kDefaultKernelFlags;
+  }
+
+  return true;
+}
+
+// Sets up basic ETW trace properties that are common to both call_trace
+// and kernel.
+static void SetupEtwProperties(EtwTraceProperties* properties) {
+  EVENT_TRACE_PROPERTIES* p = properties->get();
+
+  SYSTEM_INFO sysinfo = { 0 };
+  GetSystemInfo(&sysinfo);
 
   // Use the CPU cycle counter.
   p->Wnode.ClientContext = 3;
-
-  p->BufferSize = 10 * 1024;  // 10 Mb buffer size
-  p->MinimumBuffers = 25;
-  p->MaximumBuffers = 50;
+  // 10 Mb buffer size.
+  p->BufferSize = 10 * 1024;
+  // We want at least two buffers per CPU. One active, the other being flushed.
+  p->MinimumBuffers = 2 * sysinfo.dwNumberOfProcessors;
+  p->MaximumBuffers = 4 * sysinfo.dwNumberOfProcessors;
   p->LogFileMode = EVENT_TRACE_FILE_MODE_NONE;
-  // TODO(chrisha): Replace stop_call_trace.bat with an EndCallTrace
-  //     function, and have it manually flush the buffers. Then we can put
-  //     this flush timer back to 0.
-  p->FlushTimer = 30;
+  // We'll manually flush things in EndCallTrace.
+  p->FlushTimer = 0;
   p->EnableFlags = 0;
+}
 
-  props.SetLoggerFileName(call_trace_file.value().c_str());
+enum StartSessionResult {
+  kStarted,
+  kAlreadyStarted,
+  kError
+};
 
-  // Create the call trace session.
+// Attempts to start an ETW trace with the given properties, returning a
+// handle to it via @p session_handle.
+static StartSessionResult StartSession(const wchar_t* session_name,
+                                       EtwTraceProperties* props,
+                                       TRACEHANDLE* session_handle) {
+  DCHECK(session_name != NULL);
+  DCHECK(props != NULL);
+  DCHECK(session_handle != NULL);
+
+  *session_handle = NULL;
+
+  LOG(INFO) << "Starting '" << session_name
+      << "' session with output '" << props->GetLoggerFileName() << "'.";
+  HRESULT hr = EtwTraceController::Start(session_name,
+                                         props,
+                                         session_handle);
+  if (HRESULT_CODE(hr) == ERROR_ALREADY_EXISTS) {
+    LOG(WARNING) << "Session '" << session_name << "' already exists.";
+    return kAlreadyStarted;
+  }
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to start call trace session: "
+        << com::LogHr(hr) << ".";
+    return kError;
+  }
+
+  return kStarted;
+}
+
+// Logs some summary information about a trace given its properties.
+static void DumpEtwTraceProperties(const wchar_t* session_name,
+                                   EtwTraceProperties& props) {
+  LOG(INFO) << "Session '" << session_name << "' is logging to '"
+      << props.GetLoggerFileName() << "'.";
+  LOG(INFO) << "  BufferSize = " << props.get()->BufferSize << " Kb";
+  LOG(INFO) << "  BuffersWritten = " << props.get()->BuffersWritten;
+  LOG(INFO) << "  EventsLost = " << props.get()->EventsLost;
+  LOG(INFO) << "  NumberOfBuffers = " << props.get()->NumberOfBuffers;
+}
+
+// Logs information about a running ETW trace given its session name.
+static bool DumpSessionStatus(const wchar_t* session_name) {
+  EtwTraceProperties props;
+  LOG(INFO) << "Querying session '" << session_name << "'.";
+  HRESULT hr = EtwTraceController::Query(session_name, &props);
+  if (HRESULT_CODE(hr) == ERROR_WMI_INSTANCE_NOT_FOUND) {
+    LOG(ERROR) << "Session '" << session_name << "' does not exist.";
+    return true;
+  }
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to query '" << session_name << "' session: "
+        << com::LogHr(hr) << ".";
+    return false;
+  }
+
+  DumpEtwTraceProperties(session_name, props);
+
+  return true;
+}
+
+// Stops the given ETW logging session given its name and properties.
+// Returns true on success, false otherwise.
+static bool StopSession(const wchar_t* session_name,
+                        EtwTraceProperties* props) {
+  LOG(INFO) << "Stopping session '" << session_name << "'.";
+  HRESULT hr = EtwTraceController::Stop(session_name, props);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to stop '" << session_name << "' session: "
+        << com::LogHr(hr) << ".";
+    return false;
+  }
+
+  return true;
+}
+
+// Flushes and closes the trace with the given session name, returning
+// its file name via @p file_name. Returns true on success, false otherwise.
+static bool FlushAndStopSession(const wchar_t* session_name,
+                                std::wstring* file_name) {
+  DCHECK(file_name != NULL);
+
+  EtwTraceProperties props;
+  LOG(INFO) << "Querying session '" << session_name << "'.";
+  HRESULT hr = EtwTraceController::Query(session_name, &props);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to query '" << session_name << "' session: "
+        << com::LogHr(hr) << ".";
+    return false;
+  }
+
+  *file_name = props.GetLoggerFileName();
+
+  LOG(INFO) << "Flushing session '" << session_name << "'.";
+  hr = EtwTraceController::Flush(session_name, &props);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to flush '" << session_name << "' session: "
+        << com::LogHr(hr) << ".";
+    return false;
+  }
+
+  if (!StopSession(session_name, &props))
+    return false;
+
+  // Log some information about the trace.
+  DumpEtwTraceProperties(session_name, props);
+
+  return true;
+}
+
+}  // namespace
+
+bool StartCallTraceImpl() {
+  CallTraceOptions options;
+  if (!ParseOptions(&options))
+    return false;
+
+  // Start the call-trace ETW session.
+  EtwTraceProperties call_trace_props;
+  SetupEtwProperties(&call_trace_props);
+  call_trace_props.SetLoggerFileName(options.call_trace_file.value().c_str());
   TRACEHANDLE session_handle = NULL;
-  HRESULT hr = EtwTraceController::Start(call_trace_session.c_str(),
-                                         &props,
-                                         &session_handle);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to start call trace session" << hr;
-    return;
+  StartSessionResult result = StartSession(kCallTraceSessionName,
+                                           &call_trace_props,
+                                           &session_handle);
+  if (result == kError)
+    return false;
+  // If we started the session (it wasn't already running), enable batch
+  // entry logging. If we received kAlreadyStarted, session_handle is invalid
+  // so we're can't call EnableTrace.
+  if (result == kStarted) {
+    // Enable batch entry logging.
+    ULONG err = ::EnableTrace(TRUE,
+                              TRACE_FLAG_BATCH_ENTER,
+                              CALL_TRACE_LEVEL,
+                              &kCallTraceProvider,
+                              session_handle);
+    if (err != ERROR_SUCCESS) {
+      LOG(ERROR) << "Failed to enable call trace: " << com::LogWe(err) << ".";
+      return false;
+    }
   }
 
-  // And enable batch enter logging.
-  ULONG err = ::EnableTrace(TRUE,
-                            TRACE_FLAG_BATCH_ENTER,
-                            CALL_TRACE_LEVEL,
-                            &kCallTraceProvider,
-                            session_handle);
-  if (err != ERROR_SUCCESS) {
-    LOG(ERROR) << "Failed to enable call trace " << err;
-    return;
+  // Start the kernel ETW session.
+  EtwTraceProperties kernel_props;
+  SetupEtwProperties(&kernel_props);
+  kernel_props.get()->Wnode.Guid = kSystemTraceControlGuid;
+  kernel_props.get()->EnableFlags = options.flags;
+  kernel_props.SetLoggerFileName(options.kernel_file.value().c_str());
+  result = StartSession(KERNEL_LOGGER_NAMEW, &kernel_props, &session_handle);
+  if (result == kError) {
+    LOG(INFO) << "Failed to start '" << KERNEL_LOGGER_NAMEW << "' session, "
+        << "shutting down '" << kCallTraceSessionName << "' sesion.";
+    StopSession(kCallTraceSessionName, &call_trace_props);
+    return false;
   }
 
-  // Now start the kernel session.
-  p->Wnode.Guid = kSystemTraceControlGuid;
-  p->EnableFlags = flags;
-  props.SetLoggerFileName(kernel_file.value().c_str());
+  return true;
+}
 
-  hr = EtwTraceController::Start(KERNEL_LOGGER_NAMEW,
-                                 &props,
-                                 &session_handle);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to start kernel trace session" << hr;
-    return;
-  }
+bool QueryCallTraceImpl() {
+  if (!DumpSessionStatus(kCallTraceSessionName))
+    return false;
+
+  if (!DumpSessionStatus(KERNEL_LOGGER_NAMEW))
+    return false;
+
+  return true;
+}
+
+bool StopCallTraceImpl() {
+  // Always try stopping both traces before exiting on error. It may be that
+  // one of them was already stopped manually and FlushAndStopSession will
+  // return failure.
+  std::wstring call_trace_file;
+  std::wstring kernel_file;
+  bool success = true;
+  if (!FlushAndStopSession(kCallTraceSessionName, &call_trace_file))
+    success = false;
+  if (!FlushAndStopSession(KERNEL_LOGGER_NAMEW, &kernel_file))
+    success = false;
+
+  // TODO(chrisha): Add ETL file merging support here.
+  return success;
+}
+
+void CALLBACK StartCallTrace(HWND unused_window,
+                             HINSTANCE unused_instance,
+                             LPSTR unused_cmd_line,
+                             int unused_show) {
+  Init();
+  StartCallTraceImpl();
+}
+
+void CALLBACK StopCallTrace(HWND unused_window,
+                           HINSTANCE unused_instance,
+                           LPSTR unused_cmd_line,
+                           int unused_show) {
+  Init();
+  StopCallTraceImpl();
 }

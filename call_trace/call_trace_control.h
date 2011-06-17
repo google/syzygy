@@ -16,13 +16,24 @@
 
 #include <windows.h>
 
+// The following is part of the API exported by call_trace.dll.
 extern "C" {
 
-void CALLBACK BeginCallTrace(HWND unused_window,
+void CALLBACK StartCallTrace(HWND unused_window,
                              HINSTANCE unused_instance,
                              LPSTR unused_cmd_line,
                              int unused_show);
 
+void CALLBACK StopCallTrace(HWND unused_window,
+                            HINSTANCE unused_instance,
+                            LPSTR unused_cmd_line,
+                            int unused_show);
+
 }  // extern "C"
+
+// These are used by call_trace_control.exe
+bool StartCallTraceImpl();
+bool QueryCallTraceImpl();
+bool StopCallTraceImpl();
 
 #endif  // SYZYGY_CALL_TRACE_CALL_TRACE_CONTROL_H_

@@ -26,12 +26,16 @@
       'target_name': 'call_trace_lib',
       'type': 'static_library',
       'sources': [
+        'call_trace.def',
         'call_trace_control.h',
         'call_trace_control.cc',
         'call_trace_defs.h',
         'call_trace_defs.cc',
         'call_trace_parser.h',
         'call_trace_parser.cc',
+      ],
+      'dependencies': [
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
       ],
     },
     {
@@ -62,7 +66,20 @@
       'dependencies': [
         'call_trace_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
       ],      
+    },
+    {
+      'target_name': 'call_trace_control',
+      'type': 'executable',
+      'sources': [
+        'call_trace_control_main.cc',
+      ],
+      'dependencies': [
+        'call_trace_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+      ],
     },
     {
       'target_name': 'call_trace_viewer',
