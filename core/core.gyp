@@ -76,6 +76,7 @@
           'action': [
             'ml',
             '-safeseh',
+            '-Zi',
             '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
             '-c', '<(RULE_INPUT_PATH)',
           ],

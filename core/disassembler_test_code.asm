@@ -69,8 +69,8 @@ assembly_switch LABEL PROC
   ; get the first argument
   mov eax, [esp + 4]
   cmp eax, 0ffh
-  mov eax, [lookup_table + eax]
-  jmp [jump_table + eax * 4]
+  movzx eax, BYTE PTR[lookup_table + eax]
+  jmp DWORD PTR[jump_table + eax * 4]
 
 case_0 LABEL PROC
   call func1
@@ -90,12 +90,12 @@ case_default LABEL PROC
   ; into it.
   call exit
 
-jump_table LABEL PROC
+jump_table \
   dd case_0
   dd case_1
   dd case_default
 
-lookup_table LABEL PROC
+lookup_table \
   db 0, 0, 2, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1
   db 0, 0, 2, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1
   db 0, 0, 2, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1
