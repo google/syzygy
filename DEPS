@@ -84,6 +84,9 @@ deps = {
 
   "src/tools/gyp":
     "http://gyp.googlecode.com/svn/trunk@818",
+
+  "src/tools/code_coverage":
+    Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
 }
 
 

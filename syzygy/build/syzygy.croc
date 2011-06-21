@@ -1,0 +1,100 @@
+# Copyright 2011 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http:#www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Configuration file for Syzygy code coverage generation.
+# See http://src.chromium.org/viewvc/chrome/trunk/src/tools/code_coverage/example.croc?view=markup
+# for documentation on the file format.
+{
+  'roots': [
+    {
+      'root': './src/syzygy',
+      'altname': 'Syzygy',
+    },
+  ],
+
+  # List of rules, applied in order.
+  'rules': [
+    # Files/paths to include
+    {
+      'regexp': 'Syzygy',
+      'include': 1,
+      'add_if_missing': 1,
+    },
+    # Exclude output directories.
+    {
+      'regexp': 'Syzygy/(debug|release|purify)',
+      'include': 0,
+    },
+    # Exclude source control metadata directories.
+    {
+      'regexp': '.*/(\\.svn|\\.hg||\\.git)/',
+      'include': 0,
+    },
+
+    # Groups
+    {
+      'regexp': '',
+      'group': 'source',
+    },
+    {
+      'regexp': '.*_(test|test_mac|unittest)\\.',
+      'group': 'test',
+    },
+
+    # Languages
+    {
+      'regexp': '.*\\.(h|cc|cpp|hpp)$',
+      'language': 'C++',
+    },
+    {
+      'regexp': '.*\\.(asm)$',
+      'language': 'Assembly',
+    },
+  ],
+
+  'add_files': [
+    'Syzygy',
+  ],
+
+  # Statistics to print.
+  'print_stats': [
+    {
+      'stat': 'files_executable',
+      'format': '*RESULT FilesKnown: files_executable= %d files',
+    },
+    {
+      'stat': 'files_instrumented',
+      'format': '*RESULT FilesInstrumented: files_instrumented= %d files',
+    },
+    {
+      'stat': '100.0 * files_instrumented / files_executable',
+      'format':
+          '*RESULT FilesInstrumentedPercent: files_instrumented_percent= %g',
+    },
+    {
+      'stat': 'lines_instrumented',
+      'format': '*RESULT LinesInstrumented: lines_instrumented= %d lines',
+    },
+    {
+      'stat': 'lines_covered',
+      'format': '*RESULT LinesCoveredSource: lines_covered_source= %d lines',
+      'group': 'source',
+    },
+    {
+      'stat': 'lines_covered',
+      'format': '*RESULT LinesCoveredTest: lines_covered_test= %d lines',
+      'group': 'test',
+    },
+  ],
+}
