@@ -22,36 +22,42 @@ set GCLIENT=
 set SMTP_SERVER=
 set FROM=
 set TO=
-set CONFIG=
-set ITERATIONS=
-set PADDING=
+set MODE_LABEL=
+set CONFIG=Debug
+set ITERATIONS=1
+set PADDING=32
+set NO_REVERT=
+set URL_LIST=%~dp0url-list.txt
 
 for %%A in (%*) do (
   for /F "tokens=1* delims=:" %%b in ("%%~A") do (
+    if /I "%%b" == "/mode" set MODE=%%~c
     if /I "%%b" == "/repo" set REPO=%%~c
     if /I "%%b" == "/build-id" set BUILD_ID_PATTERN=%%~c
     if /I "%%b" == "/gclient-dir" set GCLIENT=%%~c
     if /I "%%b" == "/work-dir" set WORKDIR=%%~c
+    if /I "%%b" == "/url-list" set URL_LIST=%%~c
     if /I "%%b" == "/server" set SMTP_SERVER=%%~c
     if /I "%%b" == "/from" set FROM=%%~c
     if /I "%%b" == "/to" set TO=%%~c
     if /I "%%b" == "/config" set CONFIG=%%~c
     if /I "%%b" == "/iterations" set ITERATIONS=%%~c
     if /I "%%b" == "/padding" set PADDING=%%~c
+    if /I "%%b" == "/no-revert" set NO_REVERT=--reorder-no-revert-binaries
     )
   )
 
 :checkargs
+if "%MODE%" == "ui" set MODE_LABEL=step4_ui_tests
+if "%MODE%" == "reliability" set MODE_LABEL=step4_reliability_tests
+if "%MODE_LABEL%" == "" echo Missing or invalid /mode & goto usage
 if "%REPO%" == "" echo Missing parameter: /repo & goto usage
-if "%GCLIENT%" == "" echo Missing parameter: /gclient & goto usage
-if "%WORKDIR%" == "" echo Missing parameter: /workdir & goto usage
+if "%GCLIENT%" == "" echo Missing parameter: /gclient-dir & goto usage
+if "%WORKDIR%" == "" echo Missing parameter: /work-dir & goto usage
 if "%SMTP_SERVER%" == "" echo Missing parameter: /server & goto usage
 if "%FROM%" == "" echo Missing parameter: /from & goto usage
 if "%TO%" == "" echo Missing parameter: /to & goto usage
 if "%BUILD_ID_PATTERN%" == "" set BUILD_ID_PATTERN=\d+\.\d+\.\d+\.\d+
-if "%CONFIG%" == "" set CONFIG=Debug
-if "%ITERATIONS%" == "" set ITERATIONS=20
-if "%PADDING%" == "" set PADDING=32
 
 SET SYZYGY=%GCLIENT%\src\syzygy
 
@@ -61,6 +67,7 @@ goto setup
 echo:
 echo:Usage: %0 [options]
 echo:
+echo:  /mode:MODE         The type of test to run: ui or reliability
 echo:  /repo:URL          URL to the root of the Chrome Repository
 echo:  /build-id:PATTERN  The regular expression to use when filtering build ids
 echo:  /gclient-dir:PATH  Path to the root of the source tree (where .gclient lives)
@@ -70,6 +77,8 @@ echo:  /from:EMAIL        E-Mail address from which to send reports
 echo:  /to:EMAIL          E-Mail address to which reports should be sent
 echo:  /config:CONFIG     The configuration of Syzygy test (default: Debug)
 echo:  /iterations:NUM    The number of iterations of the test to run
+echo:  /padding:NUM       The amount of block padding to add when reordering
+echo:  /no-revert         Do not revert chrome DLL/PDB after running the tests
 echo:
 goto done
 
@@ -127,23 +136,60 @@ copy %DOWNLOAD_LOG% %ERROR_MESSAGE%
 goto error
 
 :step4
-echo Running reorder test ...
 set /p CHROME_DIR= < "%CHROME_PTR%"
 set CHROME_DLL=%CHROME_DIR%\chrome.dll
 set CHROME_PDB=%CHROME_DIR%\chrome_dll.pdb
+goto %MODE_LABEL%
+
+:step4_ui_tests
+echo Running randomized ui test ...
 set UI_TESTS_EXE=%CHROME_DIR%\automated_ui_tests.exe
 call python "%REORDER_PY%" ^
+  --summary-title="Reordered UI Tests" ^
   --reorder-tool="%REORDER_EXE%" ^
   --reorder-input-bin="%CHROME_DLL%" ^
   --reorder-input-pdb="%CHROME_PDB%" ^
   --reorder-test-program="%UI_TESTS_EXE%" ^
   --reorder-num-iterations=%ITERATIONS% ^
+  %NO_REVERT% ^
   --reorder-padding="%PADDING%" ^
   --log-file="%REORDER_LOG%" ^
   --log-verbose ^
   -- --input=%ACTIONS_XML% ^
     --output=%TEST_REPORT% ^
     --debug ^
+  > "%SUMMARY%"
+if %ERRORLEVEL% equ 0 goto step5
+copy %SUMMARY%+%REORDER_LOG% %ERROR_MESSAGE%
+goto error
+
+:step4_reliability_tests
+echo Running randomized reliability test ...
+set RELIABILITY_TESTS_EXE=%CHROME_DIR%\reliability_tests.exe
+call python "%REORDER_PY%" ^
+  --summary-title="Reordered Reliability Tests" ^
+  --reorder-tool="%REORDER_EXE%" ^
+  --reorder-input-bin="%CHROME_DLL%" ^
+  --reorder-input-pdb="%CHROME_PDB%" ^
+  --reorder-test-program="%RELIABILITY_TESTS_EXE%" ^
+  --reorder-num-iterations=%ITERATIONS% ^
+  %NO_REVERT% ^
+  --reorder-padding="%PADDING%" ^
+  --log-file="%REORDER_LOG%" ^
+  --log-verbose ^
+  -- --list="%URL_LIST%" ^
+     --logfile="%RELIABILITY_LOG%" ^
+     --savedebuglog ^
+     --js-flags="" ^
+     --ui-test-timeout=240000 ^
+     --ui-test-action-timeout=240000 ^
+     --ui-test-action-max-timeout=240000 ^
+     --ui-test-terminate-timeout=240000 ^
+     --enable-logging ^
+     --log-level=0 ^
+     --enable-dcheck ^
+     --extra-chrome-flags="--no-js-randomness --disable-background-networking" ^
+     --full-memory-crash-report ^
   > "%SUMMARY%"
 if %ERRORLEVEL% equ 0 goto step5
 copy %SUMMARY%+%REORDER_LOG% %ERROR_MESSAGE%
@@ -172,7 +218,7 @@ call python %SEND_MAIL_PY% ^
   --server="%SMTP_SERVER%" ^
   --from="%FROM%" ^
   --to="%TO%" ^
-  --subject="Syzgy Test Bot Failed!" ^
+  --subject="Syzygy %MODE% test bot failed!" ^
   --message="@%ERROR_MESSAGE%" ^
   --attach="%REORDER_LOG%" ^
   --attach="%SYNC_LOG%" ^
@@ -182,4 +228,4 @@ call python %SEND_MAIL_PY% ^
   --ignore-missing
 
 :done
-echo Done.
+rem Done
