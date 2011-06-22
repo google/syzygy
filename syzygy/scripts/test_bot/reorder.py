@@ -292,7 +292,8 @@ class ReorderTest(object):
 
     return was_successful
 
-  def Run(self, seed=None, num_iterations=1, max_attempts=3):
+  def Run(self, seed=None, num_iterations=1, max_attempts=3,
+          revert_binaries=True):
     """Repeatedly run the reorder test.
 
     Args:
@@ -301,6 +302,12 @@ class ReorderTest(object):
           be an integer, or None.
       num_iterations: The total number of iterations of the reorder/test
           sequence to run.
+      max_attempts: The maximum number of time to try running the test
+          application if the results do not match the initial control
+          result set.
+      revert_binaries: If True (the default) the original values will be
+          restored after running the test app, otherwise, the reorered
+          binaries will be left in place of the originals.
 
     Returns:
       A pair of integers denoting the number of passed and failed tests,
@@ -326,7 +333,8 @@ class ReorderTest(object):
         passed += status
         failed += (1 - status)
       finally:
-        self.RevertBinary()
+        if revert_binaries:
+          self.RevertBinary()
       seed = int(time.time())
     return passed, failed
 
@@ -373,6 +381,11 @@ def AddCommandLineOptions(option_parser):
   group.add_option(
       '--reorder-max-test-attempts', type='int', default=3, metavar='NUM',
       help='The maximum number of attempts to run the tests before giving up.')
+  group.add_option(
+      '--reorder-no-revert-binaries', action='store_true', default=False,
+      help=('Do not to revert the input binaries after running the reordering '
+            '(to revert is the default behaviour). This option requires that '
+            'the number of iterations be 1 (the default).'))
   option_parser.add_option_group(group)
 
 
@@ -393,6 +406,9 @@ def ValidateCommandLineOptions(option_parser, options):
     option_parser.error('--reorder_input-bin is required')
   if not options.reorder_input_pdb:
     option_parser.error('--reorder_input-pdb is required')
+  if (options.reorder_num_iterations != 1 and
+      options.reorder_no_revert_binaries):
+    option_parser.error('For now you must revert binaries between iterations.')
   options.reorder_tool = os.path.abspath(options.reorder_tool)
   options.reorder_input_bin = os.path.abspath(options.reorder_input_bin)
   options.reorder_input_pdb = os.path.abspath(options.reorder_input_pdb)
@@ -402,20 +418,24 @@ def ParseArgs():
   """Parse the command line options and additional test arguments."""
   option_parser = optparse.OptionParser(
       'Usage: %prog [options] [-- test-app-options]')
+  option_parser.add_option(
+      '--summary-title', default="Reorder Test Results",
+      help="The title to attach to the summary message")
   AddCommandLineOptions(option_parser)
   log_helper.AddCommandLineOptions(option_parser)
   options, test_args = option_parser.parse_args()
   ValidateCommandLineOptions(option_parser, options)
   return options, test_args
 
-def GetSummaryLine(passed, failed):
+def GetSummaryLine(title, passed, failed):
   """Summarize the number of iterations which passed and failed.
 
   Args:
-    passed: The number of iterations that passed
-    failed: The number of iterations that failed
+    title: The title for the summary line.
+    passed: The number of iterations that passed.
+    failed: The number of iterations that failed.
   """
-  return 'Reorder Test Results (%s passed, %s failed)' % (passed, failed)
+  return '%s (%s passed, %s failed)' % (title, passed, failed)
 
 def main():
   """Main script function."""
@@ -431,10 +451,12 @@ def main():
                      options.reorder_input_bin, options.reorder_input_pdb,
                      options.reorder_test_program, reorder_test_args,
                      options.reorder_padding)
-  passed, failed = test.Run(seed=options.reorder_seed,
-                            num_iterations=options.reorder_num_iterations,
-                            max_attempts=options.reorder_max_test_attempts)
-  print GetSummaryLine(passed, failed)
+  passed, failed = test.Run(
+      seed=options.reorder_seed,
+      num_iterations=options.reorder_num_iterations,
+      max_attempts=options.reorder_max_test_attempts,
+      revert_binaries=not options.reorder_no_revert_binaries)
+  print GetSummaryLine(options.summary_title, passed, failed)
 
 if __name__ == '__main__':
   main()

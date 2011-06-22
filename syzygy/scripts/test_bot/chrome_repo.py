@@ -143,7 +143,7 @@ class ChromeRepo(object):
       connection.request(method, path, body, headers or {})
       response = connection.getresponse()
       while True:
-        chunk = response.read(8192)
+        chunk = response.read(16384)
         if not chunk:
           break
         out_stream.write(chunk)
