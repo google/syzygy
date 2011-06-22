@@ -112,10 +112,9 @@ del /F /Q ^
   "%SUMMARY%" ^
   "%ERROR_MESSAGE%"
 
-
 :step2
 echo Building "%SOLUTION%" ...
-call msbuild /t:Rebuild /p:Configuration=%CONFIG% "%SOLUTION%" ^
+call msbuild "%SOLUTION%" /t:Rebuild /p:Configuration=%CONFIG% /v:detailed  ^
   > "%BUILD_LOG%" 2>&1 
 if %ERRORLEVEL% equ 0 goto step3
 copy "%BUILD_LOG%" "%ERROR_MESSAGE%"

@@ -78,7 +78,7 @@ def AddStreamHandler(stream, level, logger=None):
   handler = logging.StreamHandler(stream)
   handler.setLevel(level)
   handler.setFormatter(logging.Formatter(
-      '[%(asctime)s] %(levelname)-5s %(message)s','%Y-%m-%dT%H:%m:%S'))
+      '[%(asctime)s] %(levelname)-5s %(message)s','%Y-%m-%dT%H:%M:%S'))
   logger.addHandler(handler)
 
 
@@ -98,7 +98,7 @@ def AddFileHandler(file_path, level, mode, logger=None):
   handler.setLevel(level)
   handler.setFormatter(logging.Formatter(
       '[%(asctime)s:%(filename)s:%(lineno)s] %(levelname)-5s %(message)s',
-      '%Y-%m-%dT%H:%m:%S'))
+      '%Y-%m-%dT%H:%M:%S'))
   logger.addHandler(handler)
 
 
