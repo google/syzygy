@@ -43,9 +43,15 @@ static const wchar_t kCallTraceSessionName[] = L"Call Trace Logger";
 static const wchar_t kDefaultCallTraceFile[] = L"call_trace.etl";
 static const wchar_t kDefaultKernelFile[] = L"kernel.etl";
 
+enum FileMode {
+  kFileOverwrite,
+  kFileAppend
+};
+
 struct CallTraceOptions {
   FilePath call_trace_file;
   FilePath kernel_file;
+  FileMode file_mode;
   int flags;
 };
 
@@ -83,12 +89,18 @@ static bool ParseOptions(CallTraceOptions* options) {
     options->flags = kDefaultKernelFlags;
   }
 
+  if (cmd_line->HasSwitch("append"))
+    options->file_mode = kFileAppend;
+  else
+    options->file_mode = kFileOverwrite;
+
   return true;
 }
 
 // Sets up basic ETW trace properties that are common to both call_trace
 // and kernel.
-static void SetupEtwProperties(EtwTraceProperties* properties) {
+static void SetupEtwProperties(const CallTraceOptions& options,
+                               EtwTraceProperties* properties) {
   EVENT_TRACE_PROPERTIES* p = properties->get();
 
   SYSTEM_INFO sysinfo = { 0 };
@@ -96,12 +108,32 @@ static void SetupEtwProperties(EtwTraceProperties* properties) {
 
   // Use the CPU cycle counter.
   p->Wnode.ClientContext = 3;
-  // 10 Mb buffer size.
-  p->BufferSize = 10 * 1024;
+  // The buffer size caps out at 1 MB, so we set it to the maximum. The value
+  // here is in KB.
+  p->BufferSize = 1024;
   // We want at least two buffers per CPU. One active, the other being flushed.
+  // The call_trace lib seems to settle out at around 7 buffers per processor
+  // under heavy usage, so we provide a little breathing room in the maximum.
   p->MinimumBuffers = 2 * sysinfo.dwNumberOfProcessors;
-  p->MaximumBuffers = 4 * sysinfo.dwNumberOfProcessors;
-  p->LogFileMode = EVENT_TRACE_FILE_MODE_NONE;
+  p->MaximumBuffers = 10 * sysinfo.dwNumberOfProcessors;
+
+  // Set the logging mode.
+  switch (options.file_mode) {
+    case kFileAppend: {
+      p->LogFileMode = EVENT_TRACE_FILE_MODE_APPEND;
+      break;
+    }
+
+    case kFileOverwrite: {
+      p->LogFileMode = EVENT_TRACE_FILE_MODE_NONE;
+      break;
+    }
+
+    default: {
+      NOTREACHED() << "Invalid FileMode.";
+    }
+  }
+
   // We'll manually flush things in EndCallTrace.
   p->FlushTimer = 0;
   p->EnableFlags = 0;
@@ -231,7 +263,7 @@ bool StartCallTraceImpl() {
 
   // Start the call-trace ETW session.
   EtwTraceProperties call_trace_props;
-  SetupEtwProperties(&call_trace_props);
+  SetupEtwProperties(options, &call_trace_props);
   call_trace_props.SetLoggerFileName(options.call_trace_file.value().c_str());
   TRACEHANDLE session_handle = NULL;
   StartSessionResult result = StartSession(kCallTraceSessionName,
@@ -257,7 +289,7 @@ bool StartCallTraceImpl() {
 
   // Start the kernel ETW session.
   EtwTraceProperties kernel_props;
-  SetupEtwProperties(&kernel_props);
+  SetupEtwProperties(options, &kernel_props);
   kernel_props.get()->Wnode.Guid = kSystemTraceControlGuid;
   kernel_props.get()->EnableFlags = options.flags;
   kernel_props.SetLoggerFileName(options.kernel_file.value().c_str());
