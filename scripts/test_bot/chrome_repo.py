@@ -293,6 +293,7 @@ def AddCommandLineOptions(option_parser):
       default=DEFAULT_BUILD_ID_PATTERN,
       help='Regular expression for recognizing build ids (default: %default)')
   option_parser.add_option_group(group)
+  return group
 
 
 def ParseArgs():
