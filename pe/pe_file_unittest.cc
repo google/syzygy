@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,15 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/pe/pe_file.h"
-#include "syzygy/pe/unittest_util.h"
 
+#include "syzygy/pe/pe_file.h"
 #include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace {
 
@@ -232,6 +233,17 @@ TEST_F(PEFileTest, DecodeImports) {
                   testing::Contains(PEFile::ImportInfo(0, 7, "")));
     }
   }
+}
+
+TEST(PEFileSignatureTest, Serialization) {
+  PEFile::Signature sig;
+  sig.path = L"C:\foo\bar.dll";
+  sig.base_address = AbsoluteAddress(0x1000000);
+  sig.module_size = 12345;
+  sig.module_time_date_stamp = 9999999;
+  sig.module_checksum = 0xbaadf00d;
+
+  EXPECT_TRUE(testing::TestSerialization(sig));
 }
 
 }  // namespace pe

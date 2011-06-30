@@ -49,6 +49,7 @@ PEFile::~PEFile() {
 }
 
 bool PEFile::Init(const FilePath& path) {
+  path_ = path;
   FILE* file = file_util::OpenFile(path, "rb");
   if (file == NULL) {
     LOG(ERROR) << "Failed to open file " << path.value().c_str();
@@ -62,6 +63,18 @@ bool PEFile::Init(const FilePath& path) {
   file_util::CloseFile(file);
 
   return success;
+}
+
+void PEFile::GetSignature(Signature* signature) const {
+  DCHECK(signature != NULL);
+  DCHECK(nt_headers_ != NULL);
+
+  signature->path = path_.value();
+  signature->base_address =
+      AbsoluteAddress(nt_headers_->OptionalHeader.ImageBase);
+  signature->module_size = nt_headers_->OptionalHeader.SizeOfImage;
+  signature->module_time_date_stamp = nt_headers_->FileHeader.TimeDateStamp;
+  signature->module_checksum = nt_headers_->OptionalHeader.CheckSum;
 }
 
 bool PEFile::Contains(RelativeAddress rel, size_t len) const {

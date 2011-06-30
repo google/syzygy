@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_CORE_ADDRESS_H_
 #define SYZYGY_CORE_ADDRESS_H_
 
@@ -110,6 +111,14 @@ template <AddressType type> class AddressImpl {
   bool IsAligned(size_t alignment) const {
     DCHECK(alignment > 0);
     return (value_ % alignment) == 0;
+  }
+
+  // For serialization.
+  template<class OutArchive> bool Save(OutArchive *out_archive) const {
+    return out_archive->Save(value_);
+  }
+  template<class InArchive> bool Load(InArchive *in_archive) {
+    return in_archive->Load(&value_);
   }
 
  private:

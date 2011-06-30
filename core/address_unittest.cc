@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/core/address.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 namespace core {
 
@@ -82,6 +84,12 @@ TEST(AddressTest, AlignUp) {
   EXPECT_TRUE(one.AlignUp(4).IsAligned(4));
   EXPECT_TRUE(one.AlignUp(8).IsAligned(8));
   EXPECT_TRUE(one.AlignUp(16).IsAligned(16));
+}
+
+TEST(AddressTest, Serialization) {
+  const RelativeAddress address(42);
+
+  EXPECT_TRUE(testing::TestSerialization(address));
 }
 
 }  // namespace core
