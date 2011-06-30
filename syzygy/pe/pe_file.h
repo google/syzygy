@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PE_PE_FILE_H_
 #define SYZYGY_PE_PE_FILE_H_
 
@@ -35,6 +36,9 @@ extern const size_t kInvalidSection;
 
 class PEFile {
  public:
+  // Used for storing the signature of a PE file.
+  struct Signature;
+
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef core::FileOffsetAddress FileOffsetAddress;
   typedef core::RelativeAddress RelativeAddress;
@@ -63,6 +67,10 @@ class PEFile {
 
   // Read in the image file at path.
   bool Init(const FilePath& path);
+
+  // Populates a signature object with the signature of this PE file. This
+  // is only valid if called after Init.
+  void GetSignature(Signature* signature) const;
 
   // Decodes the relocation information from the image to relocs.
   // TODO(siggi): Consider folding this member into ReadRelocs.
@@ -150,6 +158,7 @@ class PEFile {
   bool ReadHeaders(FILE* file);
   bool ReadSections(FILE* file);
 
+  FilePath path_;
   const IMAGE_DOS_HEADER* dos_header_;
   const IMAGE_NT_HEADERS* nt_headers_;
   const IMAGE_SECTION_HEADER* section_headers_;
@@ -170,6 +179,42 @@ class PEFile {
   ImageAddressSpace image_data_;
 
   DISALLOW_COPY_AND_ASSIGN(PEFile);
+};
+
+// This structure holds a PE file signature.
+struct PEFile::Signature {
+  // The original path is kept for convenience.
+  std::wstring path;
+
+  // The signature consists of the following 4 fields.
+  AbsoluteAddress base_address;
+  size_t module_size;
+  uint64 module_time_date_stamp;
+  uint32 module_checksum;
+
+  // Compares this signature to another one. The paths do not have to match.
+  bool operator==(const Signature& signature) const {
+    return base_address == signature.base_address &&
+        module_size == signature.module_size &&
+        module_time_date_stamp == signature.module_time_date_stamp &&
+        module_checksum == signature.module_checksum;
+  }
+
+  // For serialization.
+  template<class OutArchive> bool Save(OutArchive* out_archive) const {
+    return out_archive->Save(path) &&
+        out_archive->Save(base_address) &&
+        out_archive->Save(module_size) &&
+        out_archive->Save(module_time_date_stamp) &&
+        out_archive->Save(module_checksum);
+  }
+  template<class InArchive> bool Load(InArchive* in_archive) {
+    return in_archive->Load(&path) &&
+        in_archive->Load(&base_address) &&
+        in_archive->Load(&module_size) &&
+        in_archive->Load(&module_time_date_stamp) &&
+        in_archive->Load(&module_checksum);
+  }
 };
 
 // Information about a single export.

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/instrument/instrumenter.h"
+#include "syzygy/core/serialization.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
 
@@ -26,13 +27,13 @@ namespace {
 const char* kCallTraceDllName = "call_trace.dll";
 const char* kIndirectPenterName = "_indirect_penter";
 
-// TODO(rogerm): this functionality is duplicated!  Consolidate!
+// TODO(rogerm): this functionality is duplicated! Consolidate!
 size_t Align(size_t value, size_t alignment) {
   size_t expanded = value + alignment - 1;
   return expanded - (expanded % alignment);
 }
 
-// TODO(rogerm): this functionality is duplicated!  Consolidate!
+// TODO(rogerm): this functionality is duplicated! Consolidate!
 size_t WordAlign(size_t value) {
   return Align(value, sizeof(WORD));
 }
@@ -53,12 +54,14 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
   DCHECK(!output_dll_path.empty());
 
   // Read and decompose the input image for starters.
+  LOG(INFO) << "Parsing input image PE headers.";
   pe::PEFile input_dll;
   if (!input_dll.Init(input_dll_path)) {
     LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
     return false;
   }
 
+  LOG(INFO) << "Decomposing input image.";
   Decomposer decomposer(input_dll, input_dll_path);
   Decomposer::DecomposedImage decomposed;
   if (!decomposer.Decompose(&decomposed, NULL,
@@ -74,33 +77,46 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
   }
 
   // Copy the sections and the data directory.
+  LOG(INFO) << "Copying sections.";
   if (!CopySections()) {
     LOG(ERROR) << "Unable to copy sections.";
     return false;
   }
 
+  LOG(INFO) << "Copying data directory.";
   if (!CopyDataDirectory(decomposed.header)) {
     LOG(ERROR) << "Unable to copy the input image's data directory.";
     return false;
   }
 
   // Instrument the binary.
+  LOG(INFO) << "Adding call trace import descriptor.";
   if (!AddCallTraceImportDescriptor(
       decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IMPORT])) {
     LOG(ERROR) << "Unable to add call trace import.";
     return false;
   }
+  LOG(INFO) << "Instrumenting code blocks.";
   if (!InstrumentCodeBlocks(&decomposed.image)) {
     LOG(ERROR) << "Unable to instrument code blocks.";
     return false;
   }
 
+  // Output metadata regarding the toolchain and the original module.
+  LOG(INFO) << "Writing metadata.";
+  if (!WriteMetadata(input_dll)) {
+    LOG(ERROR) << "Unable to write metadata.";
+    return false;
+  }
+
   // Finalize the headers and write the image.
+  LOG(INFO) << "Finalizing headers.";
   if (!FinalizeImageHeaders(decomposed.header)) {
     LOG(ERROR) << "Unable to finalize image headers.";
     return false;
   }
 
+  LOG(INFO) << "Writing the image.";
   if (!WriteImage(output_dll_path)) {
     LOG(ERROR) << "Unable to write " << output_dll_path.value();
     return false;
@@ -216,6 +232,45 @@ bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph) {
                        thunks_size,
                        IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_READ |
                        IMAGE_SCN_MEM_EXECUTE);
+
+  return true;
+}
+
+bool Instrumenter::WriteMetadata(const pe::PEFile& input_dll) {
+  RelativeAddress start = builder().next_section_address();
+  RelativeAddress insert_at = start;
+
+  pe::PEFile::Signature input_signature;
+  input_dll.GetSignature(&input_signature);
+
+  // TODO(chrisha): Also output toolchain version information!
+  core::ByteVector bytes;
+  core::ScopedOutStreamPtr out_stream;
+  out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
+  core::NativeBinaryOutArchive out_archive(out_stream.get());
+  out_archive.Save(input_signature);
+
+  BlockGraph::Block* new_block =
+      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
+                                         insert_at,
+                                         bytes.size(),
+                                         "Instrumenter Metadata");
+  if (new_block == NULL) {
+    LOG(ERROR) << "Unable to allocate metadata block.";
+    return false;
+  }
+  insert_at += bytes.size();
+
+  new_block->set_data_size(bytes.size());
+  new_block->CopyData(bytes.size(), &bytes[0]);
+
+  // Wrap this data in a read-only data section.
+  uint32 syzygy_size = insert_at - start;
+  builder().AddSegment(".syzygy",
+                       syzygy_size,
+                       syzygy_size,
+                       IMAGE_SCN_CNT_INITIALIZED_DATA |
+                       IMAGE_SCN_CNT_UNINITIALIZED_DATA);
 
   return true;
 }
@@ -511,7 +566,7 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
                                          sizeof(Thunk),
                                          name.c_str());
   if (new_block == NULL) {
-    LOG(ERROR) << "Unable to allocate thunk block";
+    LOG(ERROR) << "Unable to allocate thunk block.";
     return false;
   }
   *insert_at += new_block->size();

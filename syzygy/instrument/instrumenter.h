@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,10 @@ class Instrumenter : public relink::RelinkerBase {
 
   // Instrument code blocks by creating thunks to intercept all references.
   bool InstrumentCodeBlocks(BlockGraph* block_graph);
+
+  // Adds toolchain version information, and signature information for the
+  // original DLL. This will be placed in its own section.
+  bool WriteMetadata(const pe::PEFile& input_dll);
 
   #pragma pack(push)
   #pragma pack(1)

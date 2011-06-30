@@ -38,6 +38,9 @@
         'disassembler.h',
         'random_number_generator.cc',
         'random_number_generator.h',
+        'serialization.cc',
+        'serialization.h',
+        'serialization_impl.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -56,6 +59,8 @@
         'core_unittests_main.cc',
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
+        'serialization_unittest.cc',
+        'unittest_util.h',
       ],
       'dependencies': [
         'core_lib',
