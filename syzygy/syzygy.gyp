@@ -25,6 +25,7 @@
       'type': 'none',
       'dependencies': [
         'call_trace/call_trace.gyp:*',
+        'common/common.gyp:*',
         'core/core.gyp:*',
         'instrument/instrument.gyp:*',
         'pdb/pdb.gyp:*',

@@ -26,6 +26,7 @@
   'variables': {
     'unittests': [
         '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_unittests',
+        '<(DEPTH)/syzygy/common/common.gyp:common_unittests',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
         '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
