@@ -15,9 +15,12 @@
 '''
 Template replacement script. Reads key/value pairs from argument files,
 and substitutes $(key) strings in the input file to create the output file.
+The output file is only rewritten if the contents will be different from
+the existing contents.
 '''
 import exceptions
 import optparse
+import os
 import re
 import string
 import sys
@@ -80,8 +83,17 @@ def Main():
   template = string.Template(input)
   output = template.substitute(values)
 
+  # If there is an existing version of the file, check its contents.
+  # If they are identical, we return early not rewriting the file.
+  if os.path.isfile(opts.output):
+    contents = open(opts.output, 'r').read()
+    if output == contents:
+      return 0
+
   # And write the output.
   open(opts.output, 'w').write(output)
+
+  return 0
 
 
 if __name__ == '__main__':
