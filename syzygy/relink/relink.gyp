@@ -77,6 +77,7 @@
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '../pe/pe.gyp:test_dll',
+        '../test_data/test_data.gyp:instrumented_test_dll',
       ],
     }
   ],

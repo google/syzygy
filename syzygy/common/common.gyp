@@ -82,6 +82,8 @@
       'target_name': 'common_lib',
       'type': 'static_library',
       'sources': [
+        'defs.cc',
+        'defs.h',
         'syzygy_version.cc',
         'syzygy_version.h',
       ],

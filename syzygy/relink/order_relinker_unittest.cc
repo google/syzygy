@@ -22,10 +22,14 @@
 
 class OrderRelinkerTest : public testing::PELibUnitTest {
  protected:
+  static const FilePath kInstrDllName;
   static const FilePath kOrderFileName;
+  static const FilePath kTestDataDir;
 };
 
 const FilePath OrderRelinkerTest::kOrderFileName(L"order_file.json");
+const FilePath OrderRelinkerTest::kInstrDllName(L"instrumented_test_dll.dll");
+const FilePath OrderRelinkerTest::kTestDataDir(L"test_data");
 
 using reorder::RandomOrderGenerator;
 using reorder::Reorderer;
@@ -34,25 +38,31 @@ TEST_F(OrderRelinkerTest, Relink) {
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath output_dll_path = temp_dir.Append(kDllName);
+  FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
   FilePath order_file_path = temp_dir.Append(kOrderFileName);
+
+  FilePath test_data_dir = GetExeRelativePath(kTestDataDir.value().c_str());
+  FilePath input_dll_path = test_data_dir.Append(kDllName);
+  FilePath input_pdb_path = test_data_dir.Append(kDllPdbName);
+  FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
   pe::Decomposer::DecomposedImage decomposed;
   reorder::Reorderer::Order order(decomposed);
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
   reorder::Reorderer::Flags flags = 0;
-  Reorderer reorderer(GetExeRelativePath(kDllName),
-                      GetExeRelativePath(kDllName),
+  Reorderer reorderer(input_dll_path,
+                      instr_dll_path,
                       trace_paths,
                       flags);
   ASSERT_TRUE(reorderer.Reorder(&order_generator, &order));
   ASSERT_TRUE(order.SerializeToJSON(order_file_path, true));
 
   relink::OrderRelinker relinker(order_file_path);
-  ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
-                              GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(relinker.Relink(input_dll_path,
+                              input_pdb_path,
                               output_dll_path,
-                              temp_dir.Append(kDllPdbName)));
+                              output_pdb_path));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }
 
@@ -60,15 +70,21 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath output_dll_path = temp_dir.Append(kDllName);
+  FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
   FilePath order_file_path = temp_dir.Append(kOrderFileName);
+
+  FilePath test_data_dir = GetExeRelativePath(kTestDataDir.value().c_str());
+  FilePath input_dll_path = test_data_dir.Append(kDllName);
+  FilePath input_pdb_path = test_data_dir.Append(kDllPdbName);
+  FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
   pe::Decomposer::DecomposedImage decomposed;
   reorder::Reorderer::Order order(decomposed);
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
   reorder::Reorderer::Flags flags = 0;
-  Reorderer reorderer(GetExeRelativePath(kDllName),
-                      GetExeRelativePath(kDllName),
+  Reorderer reorderer(input_dll_path,
+                      instr_dll_path,
                       trace_paths,
                       flags);
   ASSERT_TRUE(reorderer.Reorder(&order_generator, &order));
@@ -76,9 +92,9 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
 
   relink::OrderRelinker relinker(order_file_path);
   relinker.set_padding_length(32);
-  ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
-                              GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(relinker.Relink(input_dll_path,
+                              input_pdb_path,
                               output_dll_path,
-                              temp_dir.Append(kDllPdbName)));
+                              output_pdb_path));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }

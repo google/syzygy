@@ -13,6 +13,9 @@
 // limitations under the License.
 
 #include "syzygy/instrument/instrumenter.h"
+#include "base/utf_string_conversions.h"
+#include "syzygy/common/defs.h"
+#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
@@ -243,13 +246,27 @@ bool Instrumenter::WriteMetadata(const pe::PEFile& input_dll) {
   pe::PEFile::Signature input_signature;
   input_dll.GetSignature(&input_signature);
 
-  // TODO(chrisha): Also output toolchain version information!
+  // Output the toolchain information, as well as the signature of the original
+  // binary we are instrumenting.
   core::ByteVector bytes;
   core::ScopedOutStreamPtr out_stream;
   out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
   core::NativeBinaryOutArchive out_archive(out_stream.get());
+  out_archive.Save(common::kSyzygyVersion);
   out_archive.Save(input_signature);
 
+  // Output the information in duplicate, in a human-readable form, so that
+  // we can easily grep for this stuff in the actual binaries.
+  std::string text;
+  WideToUTF8(
+      input_signature.path.c_str(), input_signature.path.size(), &text);
+  text = std::string("Original DLL: ").append(text);
+  text.append("\nSyzygy toolchain version: ");
+  text.append(SYZYGY_VERSION_STRING);
+  text.append("\n");
+  out_archive.Save(text);
+
+  // Stuff the metadata into the address space.
   BlockGraph::Block* new_block =
       builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
                                          insert_at,
@@ -260,13 +277,12 @@ bool Instrumenter::WriteMetadata(const pe::PEFile& input_dll) {
     return false;
   }
   insert_at += bytes.size();
-
   new_block->set_data_size(bytes.size());
   new_block->CopyData(bytes.size(), &bytes[0]);
 
   // Wrap this data in a read-only data section.
   uint32 syzygy_size = insert_at - start;
-  builder().AddSegment(".syzygy",
+  builder().AddSegment(common::kSyzygyMetadataSectionName,
                        syzygy_size,
                        syzygy_size,
                        IMAGE_SCN_CNT_INITIALIZED_DATA |

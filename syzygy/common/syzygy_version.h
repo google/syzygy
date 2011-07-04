@@ -30,7 +30,13 @@ class SyzygyVersion {
   SyzygyVersion(uint16 major, uint16 minor, uint16 build, uint16 patch,
                 const char* last_change);
 
+  // We need an equality operator for serialization testing.
   bool operator==(const SyzygyVersion& rhs) const;
+  bool operator!=(const SyzygyVersion& rhs) const { return !(*this == rhs); }
+
+  // This returns true if the data/modules created by the given version of the
+  // toolchain are compatible with this version of the toolchain.
+  bool IsCompatible(const SyzygyVersion& rhs) const;
 
   uint16 major() const { return major_; }
   uint16 minor() const { return minor_; }

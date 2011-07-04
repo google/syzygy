@@ -35,6 +35,7 @@
         'reorder/reorder.gyp:*',
         'scripts/scripts.gyp:*',
         'snapshot/snapshot.gyp:*',
+        'test_data/test_data.gyp:*',
       ],
     },
     {

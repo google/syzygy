@@ -36,23 +36,25 @@ using reorder::Reorderer;
 static const char kUsage[] =
     "Usage: instrument [options] [ETW log files ...]\n"
     "  Required Options:\n"
-    "    --input-dll=<path> the input DLL to reorder\n"
-    "    --instrumented-dll=<path> the name of the instrumented DLL\n"
-    "    --output-file=<path> the output file\n"
+    "    --instrumented-dll=<path> the path to the instrumented DLL.\n"
+    "    --output-file=<path> the output file.\n"
     "  Optional Options:\n"
-    "    --seed=INT generates a random ordering; don't specify ETW log files\n"
+    "    --input-dll=<path> the input DLL to reorder. If this is not"
+    "        specified it will be inferred from the instrumented DLL\n"
+    "        metadata.\n"
+    "    --seed=INT generates a random ordering; don't specify ETW log files.\n"
     "    --list-dead-code instead of an ordering, output the set of functions\n"
-    "        not visited during the trace\n"
-    "    --pretty-print enables pretty printing of the JSON output file\n"
+    "        not visited during the trace.\n"
+    "    --pretty-print enables pretty printing of the JSON output file.\n"
     "    --output-stats outputs estimated startup page faults pre- and post-\n"
     "        reordering.\n"
     "    --output-comdats=<path> an output file that will be populated\n"
     "        with an MS LINKER compatible COMDAT order file equivalent to\n"
-    "        the generated ordering\n"
+    "        the generated ordering.\n"
     "    --reorderer-flags=<comma separated reorderer flags>\n"
     "  Reorderer Flags:\n"
-    "    no-code: Do not reorder code sections\n"
-    "    no-data: Do not reorder data sections\n";
+    "    no-code: Do not reorder code sections.\n"
+    "    no-data: Do not reorder data sections.\n";
 
 const char kFlags[] = "reorderer-flags";
 const char kOutputComdats[] = "output-comdats";
@@ -128,10 +130,9 @@ int main(int argc, char** argv) {
   bool pretty_print = cmd_line->HasSwitch("pretty-print");
   bool list_dead_code = cmd_line->HasSwitch("list-dead-code");
 
-  if (instrumented_dll_path.empty() || input_dll_path.empty() ||
-      output_file.empty()) {
+  if (instrumented_dll_path.empty() || output_file.empty()) {
     return Usage(
-        "You must specify instrumented-dll, input-dll and output-file.");
+        "You must specify instrumented-dll and output-file.");
   }
 
   if (seed_str.empty()) {

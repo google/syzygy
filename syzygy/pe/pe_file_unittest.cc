@@ -235,6 +235,72 @@ TEST_F(PEFileTest, DecodeImports) {
   }
 }
 
+TEST_F(PEFileTest, GetSectionIndexByRelativeAddress) {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    RelativeAddress section_start(
+        image_file_.section_header(i)->VirtualAddress);
+    EXPECT_EQ(i, image_file_.GetSectionIndex(section_start, 1));
+  }
+
+  RelativeAddress off_end(image_file_.nt_headers()->OptionalHeader.SizeOfImage +
+      0x10000);
+  EXPECT_EQ(kInvalidSection, image_file_.GetSectionIndex(off_end, 1));
+}
+
+TEST_F(PEFileTest, GetSectionIndexByAbsoluteAddress) {
+  size_t image_base = image_file_.nt_headers()->OptionalHeader.ImageBase;
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    AbsoluteAddress section_start(
+        image_file_.section_header(i)->VirtualAddress + image_base);
+    EXPECT_EQ(i, image_file_.GetSectionIndex(section_start, 1));
+  }
+
+  AbsoluteAddress off_end(image_file_.nt_headers()->OptionalHeader.SizeOfImage +
+      0x10000 + image_base);
+  EXPECT_EQ(kInvalidSection, image_file_.GetSectionIndex(off_end, 1));
+}
+
+TEST_F(PEFileTest, GetSectionIndexByName) {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    std::string name = image_file_.GetSectionName(i);
+    EXPECT_EQ(i, image_file_.GetSectionIndex(name.c_str()));
+  }
+
+  EXPECT_EQ(kInvalidSection, image_file_.GetSectionIndex(".foobar"));
+}
+
+TEST_F(PEFileTest, GetSectionHeaderByRelativeAddress) {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    RelativeAddress section_start(
+        image_file_.section_header(i)->VirtualAddress);
+    EXPECT_EQ(image_file_.section_header(i),
+              image_file_.GetSectionHeader(section_start, 1));
+  }
+
+  RelativeAddress off_end(image_file_.nt_headers()->OptionalHeader.SizeOfImage +
+      0x10000);
+  EXPECT_EQ(kInvalidSection, image_file_.GetSectionIndex(off_end, 1));
+}
+
+TEST_F(PEFileTest, GetSectionHeaderByAbsoluteAddress) {
+  size_t image_base = image_file_.nt_headers()->OptionalHeader.ImageBase;
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    AbsoluteAddress section_start(
+        image_file_.section_header(i)->VirtualAddress + image_base);
+    EXPECT_EQ(image_file_.section_header(i),
+              image_file_.GetSectionHeader(section_start, 1));
+  }
+
+  AbsoluteAddress off_end(image_file_.nt_headers()->OptionalHeader.SizeOfImage +
+      0x10000 + image_base);
+  EXPECT_EQ(kInvalidSection, image_file_.GetSectionIndex(off_end, 1));
+}
+
 TEST(PEFileSignatureTest, Serialization) {
   PEFile::Signature sig;
   sig.path = L"C:\foo\bar.dll";
@@ -244,6 +310,22 @@ TEST(PEFileSignatureTest, Serialization) {
   sig.module_checksum = 0xbaadf00d;
 
   EXPECT_TRUE(testing::TestSerialization(sig));
+}
+
+TEST(PEFileSignatureTest, Consistency) {
+  PEFile::Signature sig1;
+  sig1.path = L"C:\foo\bar.dll";
+  sig1.base_address = AbsoluteAddress(0x1000000);
+  sig1.module_size = 12345;
+  sig1.module_time_date_stamp = 9999999;
+  sig1.module_checksum = 0xbaadf00d;
+
+  // sig2 is the same, but with a different module path.
+  PEFile::Signature sig2(sig1);
+  sig2.path = L"C:\foo\bar.exe";
+
+  EXPECT_FALSE(sig1 == sig2);
+  EXPECT_TRUE(sig1.IsConsistent(sig2));
 }
 
 }  // namespace pe
