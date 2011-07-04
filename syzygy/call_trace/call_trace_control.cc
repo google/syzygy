@@ -43,6 +43,15 @@ static const wchar_t kCallTraceSessionName[] = L"Call Trace Logger";
 static const wchar_t kDefaultCallTraceFile[] = L"call_trace.etl";
 static const wchar_t kDefaultKernelFile[] = L"kernel.etl";
 
+// Some hard-coded buffer settings. These apply only to call_trace buffers.
+// This is the absolute minimum number of buffers we will allow, across all
+// CPUs.
+static const size_t kMinBuffers = 15;
+// This is the minimum number of buffers per CPU we'll allow.
+static const size_t kMinBuffersPerProcessor = 3;
+// Max buffers will be min buffers * kBufferMultiplier.
+static const size_t kBufferMultiplier = 5;
+
 enum FileMode {
   kFileOverwrite,
   kFileAppend
@@ -53,6 +62,7 @@ struct CallTraceOptions {
   FilePath kernel_file;
   FileMode file_mode;
   int flags;
+  int min_buffers;
 };
 
 // Initializes the command-line and logging for functions called via rundll32.
@@ -89,6 +99,11 @@ static bool ParseOptions(CallTraceOptions* options) {
     options->flags = kDefaultKernelFlags;
   }
 
+  if (!base::StringToInt(cmd_line->GetSwitchValueASCII("min-buffers"),
+                                                       &options->min_buffers)) {
+    options->min_buffers = 0;
+  }
+
   if (cmd_line->HasSwitch("append"))
     options->file_mode = kFileAppend;
   else
@@ -97,9 +112,14 @@ static bool ParseOptions(CallTraceOptions* options) {
   return true;
 }
 
-// Sets up basic ETW trace properties that are common to both call_trace
-// and kernel.
-static void SetupEtwProperties(const CallTraceOptions& options,
+enum EtwTraceType {
+  kKernelType,
+  kCallTraceType
+};
+
+// Sets up basic ETW trace properties.
+static void SetupEtwProperties(EtwTraceType trace_type,
+                               const CallTraceOptions& options,
                                EtwTraceProperties* properties) {
   EVENT_TRACE_PROPERTIES* p = properties->get();
 
@@ -111,11 +131,47 @@ static void SetupEtwProperties(const CallTraceOptions& options,
   // The buffer size caps out at 1 MB, so we set it to the maximum. The value
   // here is in KB.
   p->BufferSize = 1024;
-  // We want at least two buffers per CPU. One active, the other being flushed.
-  // The call_trace lib seems to settle out at around 7 buffers per processor
-  // under heavy usage, so we provide a little breathing room in the maximum.
-  p->MinimumBuffers = 2 * sysinfo.dwNumberOfProcessors;
-  p->MaximumBuffers = 10 * sysinfo.dwNumberOfProcessors;
+
+  // We'll manually flush things in EndCallTrace.
+  p->FlushTimer = 0;
+
+  switch (trace_type) {
+    case kKernelType: {
+      properties->SetLoggerFileName(options.kernel_file.value().c_str());
+
+      p->Wnode.Guid = kSystemTraceControlGuid;
+      p->EnableFlags = options.flags;
+
+      // Kernel traces need two buffers per CPU: one flushing to disk, the other
+      // being used for live events. This has been sufficient in all situations
+      // we've seen thus far.
+      p->MinimumBuffers = 2 * sysinfo.dwNumberOfProcessors;
+      p->MaximumBuffers = 4 * sysinfo.dwNumberOfProcessors;
+      break;
+    }
+
+    case kCallTraceType: {
+      properties->SetLoggerFileName(options.call_trace_file.value().c_str());
+
+      p->EnableFlags = 0;
+
+      // The call_trace library seems to settle out anywhere from 7 to 12
+      // buffers per CPU under heavy usage. We provide roughly half that to
+      // start, with a hefty margin.
+      p->MinimumBuffers =
+          kMinBuffersPerProcessor * sysinfo.dwNumberOfProcessors;
+      if (p->MinimumBuffers < kMinBuffers)
+        p->MinimumBuffers = kMinBuffers;
+      if (options.min_buffers > signed(p->MinimumBuffers))
+        p->MinimumBuffers = options.min_buffers;
+      p->MaximumBuffers = kBufferMultiplier * p->MinimumBuffers;
+      break;
+    }
+
+    default: {
+      NOTREACHED() << "Invalid EtwTraceType.";
+    }
+  }
 
   // Set the logging mode.
   switch (options.file_mode) {
@@ -133,10 +189,6 @@ static void SetupEtwProperties(const CallTraceOptions& options,
       NOTREACHED() << "Invalid FileMode.";
     }
   }
-
-  // We'll manually flush things in EndCallTrace.
-  p->FlushTimer = 0;
-  p->EnableFlags = 0;
 }
 
 enum StartSessionResult {
@@ -144,6 +196,17 @@ enum StartSessionResult {
   kAlreadyStarted,
   kError
 };
+
+// Logs some summary information about a trace given its properties.
+static void DumpEtwTraceProperties(const wchar_t* session_name,
+                                   EtwTraceProperties& props) {
+  LOG(INFO) << "Session '" << session_name << "' is logging to '"
+      << props.GetLoggerFileName() << "'.";
+  LOG(INFO) << "  BufferSize = " << props.get()->BufferSize << " Kb";
+  LOG(INFO) << "  BuffersWritten = " << props.get()->BuffersWritten;
+  LOG(INFO) << "  EventsLost = " << props.get()->EventsLost;
+  LOG(INFO) << "  NumberOfBuffers = " << props.get()->NumberOfBuffers;
+}
 
 // Attempts to start an ETW trace with the given properties, returning a
 // handle to it via @p session_handle.
@@ -171,18 +234,9 @@ static StartSessionResult StartSession(const wchar_t* session_name,
     return kError;
   }
 
-  return kStarted;
-}
+  DumpEtwTraceProperties(session_name, *props);
 
-// Logs some summary information about a trace given its properties.
-static void DumpEtwTraceProperties(const wchar_t* session_name,
-                                   EtwTraceProperties& props) {
-  LOG(INFO) << "Session '" << session_name << "' is logging to '"
-      << props.GetLoggerFileName() << "'.";
-  LOG(INFO) << "  BufferSize = " << props.get()->BufferSize << " Kb";
-  LOG(INFO) << "  BuffersWritten = " << props.get()->BuffersWritten;
-  LOG(INFO) << "  EventsLost = " << props.get()->EventsLost;
-  LOG(INFO) << "  NumberOfBuffers = " << props.get()->NumberOfBuffers;
+  return kStarted;
 }
 
 // Logs information about a running ETW trace given its session name.
@@ -263,8 +317,7 @@ bool StartCallTraceImpl() {
 
   // Start the call-trace ETW session.
   EtwTraceProperties call_trace_props;
-  SetupEtwProperties(options, &call_trace_props);
-  call_trace_props.SetLoggerFileName(options.call_trace_file.value().c_str());
+  SetupEtwProperties(kCallTraceType, options, &call_trace_props);
   TRACEHANDLE session_handle = NULL;
   StartSessionResult result = StartSession(kCallTraceSessionName,
                                            &call_trace_props,
@@ -289,10 +342,7 @@ bool StartCallTraceImpl() {
 
   // Start the kernel ETW session.
   EtwTraceProperties kernel_props;
-  SetupEtwProperties(options, &kernel_props);
-  kernel_props.get()->Wnode.Guid = kSystemTraceControlGuid;
-  kernel_props.get()->EnableFlags = options.flags;
-  kernel_props.SetLoggerFileName(options.kernel_file.value().c_str());
+  SetupEtwProperties(kKernelType, options, &kernel_props);
   result = StartSession(KERNEL_LOGGER_NAMEW, &kernel_props, &session_handle);
   if (result == kError) {
     LOG(INFO) << "Failed to start '" << KERNEL_LOGGER_NAMEW << "' session, "
