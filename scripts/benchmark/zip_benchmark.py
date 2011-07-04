@@ -14,11 +14,12 @@
 """A utility script that packs the benchmark eggs and an associated bat file
 into a zip archive to make the benchmark script easy to transport and use."""
 import contextlib
+import cStringIO
 import glob
 import logging
 import optparse
 import os.path
-import cStringIO
+import pkg_resources
 import sys
 import zipfile
 
@@ -77,14 +78,18 @@ _LOGGER = logging.getLogger(__name__)
 def _FindEggs(root_dir):
   eggs = []
   for pattern in _EGG_PATTERNS:
-    new_egg = glob.glob(os.path.join(root_dir, pattern))
-    if not new_egg:
+    new_eggs = glob.glob(os.path.join(root_dir, pattern))
+    if not new_eggs:
       raise RuntimeError('Found no egg for "%s".' % pattern)
-    elif len(new_egg) > 1:
-      raise RuntimeError('Found multiple eggs for "%s": "%s".' %
-                             (pattern, new_egg))
 
-    eggs.append(new_egg[0])
+    def SortEggs(e1, e2):
+      d1 = pkg_resources.Distribution.from_filename(e1)
+      d2 = pkg_resources.Distribution.from_filename(e2)
+      return cmp(d1.version, d2.version)
+
+    # Pick the most recent egg version by sorting them by reverse version.
+    new_eggs = sorted(new_eggs, SortEggs, reverse=True)
+    eggs.append(new_eggs[0])
 
   return eggs
 
