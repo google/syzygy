@@ -100,7 +100,7 @@
             '<(PRODUCT_DIR)/benchmark.zip',
           ],
           'action': [
-            '<(DEPTH)/third_party/python_26/python',
+            '<(PRODUCT_DIR)/py/scripts/python',
             'zip_benchmark.py',
             '--root-dir',
             '<(PRODUCT_DIR)',
