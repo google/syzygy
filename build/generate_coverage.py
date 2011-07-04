@@ -97,14 +97,18 @@ class _CodeCoverageRunner(object):
     work_dir = self._work_dir
     _LOGGER.info('Build dir "%s".', build_dir)
 
-    # Make a copy of all unittest executables, DLLs and PDBs in
+    # Make a copy of all unittest executables, DLLs, PDBs and test_data in
     # the build directory.
-    files_to_copy = []
-    for pattern in ('*_unittests.exe', '*.dll', '*.pdb'):
+    for pattern in ('*_unittests.exe', '*.dll', '*.pdb', 'test_data'):
       files = glob.glob(os.path.join(build_dir, pattern))
       for path in files:
         _LOGGER.info('Copying "%s" to "%s".', path, work_dir)
-        shutil.copy(path, work_dir)
+        if os.path.isdir(path):
+          # If the source file is a directory, do a recursive copy.
+          dst = os.path.join(work_dir, os.path.basename(path))
+          shutil.copytree(path, dst)
+        else:
+          shutil.copy(path, work_dir)
 
     # Instrument all EXEs in the work dir.
     for exe in glob.glob(os.path.join(work_dir, '*.exe')):
