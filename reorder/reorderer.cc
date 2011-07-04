@@ -17,6 +17,9 @@
 #include "base/json/json_reader.h"
 #include "base/stringprintf.h"
 #include "base/values.h"
+#include "syzygy/common/defs.h"
+#include "syzygy/common/syzygy_version.h"
+#include "syzygy/core/serialization.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace {
@@ -131,9 +134,6 @@ Reorderer::Reorderer(const FilePath& module_path,
     : module_path_(module_path),
       instrumented_path_(instrumented_path),
       trace_paths_(trace_paths),
-      instr_checksum_(0),
-      instr_size_(0),
-      instr_time_date_stamp_(0),
       flags_(flags),
       code_block_entry_events_(0),
       consumer_errored_(false),
@@ -167,13 +167,33 @@ bool Reorderer::Reorder(OrderGenerator* order_generator, Order* order) {
 }
 
 bool Reorderer::ReorderImpl(Order* order) {
-  if (!ParseInstrumentedModuleSignature())
+  // Validate the instrumented module, and extract the signature of the original
+  // module it was built from.
+  pe::PEFile::Signature orig_signature;
+  if (!ValidateInstrumentedModuleAndParseSignature(&orig_signature))
     return false;
+
+  // If the input DLL path is empty, use the inferred one from the
+  // instrumented module.
+  if (module_path_.empty()) {
+    LOG(INFO) << "Inferring input DLL path from instrumented module: "
+        << orig_signature.path;
+    module_path_ = FilePath(orig_signature.path);
+  }
 
   LOG(INFO) << "Reading input DLL.";
   pe::PEFile input_module;
   if (!input_module.Init(module_path_)) {
     LOG(ERROR) << "Unable to read input image: " << module_path_.value();
+    return false;
+  }
+  pe::PEFile::Signature input_signature;
+  input_module.GetSignature(&input_signature);
+
+  // Validate that the input DLL signature matches the original signature
+  // extracted from the instrumented module.
+  if (!orig_signature.IsConsistent(input_signature)) {
+    LOG(ERROR) << "Instrumented module metadata does not match input module.";
     return false;
   }
 
@@ -221,24 +241,74 @@ bool Reorderer::ReorderImpl(Order* order) {
   return true;
 }
 
-bool Reorderer::ParseInstrumentedModuleSignature() {
+bool Reorderer::ValidateInstrumentedModuleAndParseSignature(
+    pe::PEFile::Signature* orig_signature) {
+  DCHECK(orig_signature != NULL);
+
   pe::PEFile pe_file;
   if (!pe_file.Init(instrumented_path_)) {
-    LOG(ERROR) << "Unable to parse instrumented module signature: "
-               << instrumented_path_.value();
+    LOG(ERROR) << "Unable to parse instrumented module: "
+        << instrumented_path_.value();
     return false;
   }
-  instr_checksum_ = pe_file.nt_headers()->OptionalHeader.CheckSum;
-  instr_size_ = pe_file.nt_headers()->OptionalHeader.SizeOfImage;
-  instr_time_date_stamp_ = pe_file.nt_headers()->FileHeader.TimeDateStamp;
+  pe_file.GetSignature(&instr_signature_);
+
+  // Get the metadata section data.
+  size_t metadata_id =
+      pe_file.GetSectionIndex(common::kSyzygyMetadataSectionName);
+  if (metadata_id == pe::kInvalidSection) {
+    LOG(ERROR) << "Instrumented module does not contain a metadata section.";
+    return false;
+  }
+  const IMAGE_SECTION_HEADER* section = pe_file.section_header(metadata_id);
+  DCHECK(section != NULL);
+  RelativeAddress metadata_addr(section->VirtualAddress);
+  size_t metadata_size = section->Misc.VirtualSize;
+  const core::Byte* metadata = pe_file.GetImageData(metadata_addr,
+                                                    metadata_size);
+  if (metadata == NULL) {
+    LOG(ERROR) << "Unable to get metadata section data.";
+    return false;
+  }
+
+  // Load the version and original module signature.
+  core::ScopedInStreamPtr in_stream;
+  in_stream.reset(core::CreateByteInStream(metadata, metadata + metadata_size));
+  core::NativeBinaryInArchive in_archive(in_stream.get());
+  common::SyzygyVersion instr_version;
+  if (!in_archive.Load(&instr_version) || !in_archive.Load(orig_signature)) {
+    LOG(ERROR) << "Unable to parse instrumented module metadata.";
+    return false;
+  }
+
+  // Validate that the instrumented module was produced with a compatible
+  // version of the toolchain.
+  if (!common::kSyzygyVersion.IsCompatible(instr_version)) {
+    LOG(ERROR) << "Module was instrumented with an incompatible version of "
+        << "the toolchain: " << instrumented_path_.value();
+    return false;
+  }
+
   return true;
 }
 
 bool Reorderer::MatchesInstrumentedModuleSignature(
     const ModuleInformation& module_info) const {
-  return (instr_checksum_ == module_info.image_checksum &&
-      instr_size_ == module_info.module_size &&
-      instr_time_date_stamp_ == module_info.time_date_stamp);
+  // On Windows XP gathered traces, only the module size is non-zero.
+  if (module_info.image_checksum == 0 && module_info.time_date_stamp == 0) {
+    // If the size matches, then check that the names fit.
+    if (instr_signature_.module_size != module_info.module_size)
+      return false;
+
+    FilePath base_name = instrumented_path_.BaseName();
+    return (module_info.image_file_name.rfind(base_name.value()) !=
+        std::wstring::npos);
+  } else {
+    // On Vista and greater, we can check the full module signature.
+    return (instr_signature_.module_checksum == module_info.image_checksum &&
+        instr_signature_.module_size == module_info.module_size &&
+        instr_signature_.module_time_date_stamp == module_info.time_date_stamp);
+  }
 }
 
 // KernelModuleEvents implementation.

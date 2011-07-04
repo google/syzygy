@@ -193,11 +193,16 @@ struct PEFile::Signature {
   uint32 module_checksum;
 
   // Compares this signature to another one. The paths do not have to match.
-  bool operator==(const Signature& signature) const {
+  bool IsConsistent(const Signature& signature) const {
     return base_address == signature.base_address &&
         module_size == signature.module_size &&
         module_time_date_stamp == signature.module_time_date_stamp &&
         module_checksum == signature.module_checksum;
+  }
+
+  // We need an equality operator for serialization unittests.
+  bool operator==(const Signature& signature) const {
+    return path == signature.path && IsConsistent(signature);
   }
 
   // For serialization.

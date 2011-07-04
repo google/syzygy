@@ -42,4 +42,9 @@ bool SyzygyVersion::operator==(const SyzygyVersion& rhs) const {
       last_change_ == rhs.last_change_;
 }
 
+bool SyzygyVersion::IsCompatible(const SyzygyVersion& rhs) const {
+  // Eventually, we may have reason to be less strict here.
+  return *this == rhs;
+}
+
 }  // namespace common

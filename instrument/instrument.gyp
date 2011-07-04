@@ -30,6 +30,7 @@
         'instrumenter.h',
       ],
       'dependencies': [
+        '../common/common.gyp:common_lib',
         '../pe/pe.gyp:pe_lib',
         '../relink/relink.gyp:relink_lib',
         '<(DEPTH)/base/base.gyp:base',

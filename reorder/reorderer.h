@@ -58,7 +58,9 @@ class Reorderer
   typedef uint32 Flags;
 
   // This class needs to be a singleton due to the Windows ETW API. The
-  // constructor will enforce this in debug builds.
+  // constructor will enforce this in debug builds. The module_path may be
+  // left blank, in which case it will be inferred from the instrumented
+  // DLL metadata.
   Reorderer(const FilePath& module_path,
             const FilePath& instrumented_path,
             const std::vector<FilePath>& trace_paths,
@@ -94,9 +96,11 @@ class Reorderer
 
   // The actual implementation of Reorder.
   bool ReorderImpl(Order* order);
-  // Parses the instrumented DLL headers, extracting the information necessary
-  // for filtering call-trace events. Returns true on success, false otherwise.
-  bool ParseInstrumentedModuleSignature();
+  // Parses the instrumented DLL headers, validating that it was produced
+  // by a compatible version of the toolchain, and extracting signature
+  // information and metadata. Returns true on success, false otherwise.
+  bool ValidateInstrumentedModuleAndParseSignature(
+      pe::PEFile::Signature* orig_signature);
   // Returns true if the given ModuleInformation matches the instrumented
   // module signature, false otherwise.
   bool MatchesInstrumentedModuleSignature(
@@ -144,9 +148,7 @@ class Reorderer
   std::vector<FilePath> trace_paths_;
 
   // Signature of the instrumented DLL. Used for filtering call-trace events.
-  sym_util::ModuleChecksum instr_checksum_;
-  sym_util::ModuleSize instr_size_;
-  sym_util::ModuleTimeDateStamp instr_time_date_stamp_;
+  pe::PEFile::Signature instr_signature_;
 
   // A set of flags controlling the reorderer behaviour.
   Flags flags_;
