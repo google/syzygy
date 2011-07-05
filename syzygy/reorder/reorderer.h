@@ -42,6 +42,7 @@ using pe::PEFile;
 class Reorderer
     : public base::win::EtwTraceConsumerBase<Reorderer>,
       public KernelModuleEvents,
+      public KernelProcessEvents,
       public CallTraceEvents {
  public:
   struct Order;
@@ -92,7 +93,9 @@ class Reorderer
   typedef AddressSpace<AbsoluteAddress64, Size64, ModuleInformation>
       ModuleSpace;
   typedef std::map<uint32, ModuleSpace> ProcessMap;
+  typedef std::set<uint32> ProcessSet;
   typedef Decomposer::DecomposedImage DecomposedImage;
+  typedef KernelProcessEvents::ProcessInfo ProcessInfo;
 
   // The actual implementation of Reorder.
   bool ReorderImpl(Order* order);
@@ -116,6 +119,15 @@ class Reorderer
   virtual void OnModuleLoad(DWORD process_id,
                             const base::Time& time,
                             const ModuleInformation& module_info);
+
+  // KernelProcessEvents implementation.
+  virtual void OnProcessIsRunning(const base::Time& time,
+                                  const ProcessInfo& process_info);
+  virtual void OnProcessStarted(const base::Time& time,
+                                const ProcessInfo& process_info);
+  virtual void OnProcessEnded(const base::Time& time,
+                              const ProcessInfo& process_info,
+                              ULONG exit_status);
 
   // CallTraceEvents implementation.
   virtual void OnTraceEntry(base::Time time,
@@ -149,7 +161,6 @@ class Reorderer
 
   // Signature of the instrumented DLL. Used for filtering call-trace events.
   pe::PEFile::Signature instr_signature_;
-
   // A set of flags controlling the reorderer behaviour.
   Flags flags_;
   // Number of CodeBlockEntry events processed.
@@ -160,6 +171,10 @@ class Reorderer
   base::Time last_event_time_;
   // For each process, we store its point of view of the world.
   ProcessMap processes_;
+  // The set of processes of interest. That is, those that have had code
+  // run in the instrumented module. These are the only processes for which
+  // we are interested in OnProcessEnded events.
+  ProcessSet matching_process_ids_;
 
   // The following two variables are only valid while Reorder is executing.
   // A pointer to our order generator delegate.
@@ -181,7 +196,6 @@ class Reorderer
 
 // Stores order information.
 struct Reorderer::Order {
-
   // Constructor just sets the image reference. Note that the image must
   // outlive the Order.
   explicit Order(DecomposedImage& i) : image(i) {}
@@ -237,6 +251,20 @@ class Reorderer::OrderGenerator {
   // sections are considered reorderable.
   virtual bool IsReorderable(const Reorderer& reorderer,
                              const IMAGE_SECTION_HEADER& section) const;
+
+  // The derived class may implement this callback, which indicates when a
+  // process invoking the instrumented module was started.
+  virtual bool OnProcessStarted(const Reorderer& reorderer,
+                                uint32 process_id,
+                                const UniqueTime& time) { return true; }
+
+  // The derived class may implement this callback, which provides
+  // information on the end of processes invoking the instrumented module.
+  // Processes whose lifespan exceed the logging period will not receive
+  // OnProcessEnded events.
+  virtual bool OnProcessEnded(const Reorderer& reorderer,
+                              uint32 process_id,
+                              const UniqueTime& time) { return true; }
 
   // The derived class shall implement this callback, which receives
   // TRACE_ENTRY events for the module that is being reordered. Returns true

@@ -143,6 +143,7 @@ Reorderer::Reorderer(const FilePath& module_path,
   if (consumer_ == NULL) {
     consumer_ = this;
     kernel_log_parser_.set_module_event_sink(this);
+    kernel_log_parser_.set_process_event_sink(this);
     call_trace_parser_.set_call_trace_event_sink(this);
   }
 }
@@ -326,6 +327,11 @@ void Reorderer::OnModuleUnload(DWORD process_id,
   if (consumer_errored_ || module_info.module_size == 0)
     return;
 
+  // This happens in Windows XP traces for some reason. They contain conflicing
+  // information, so we ignore them.
+  if (module_info.image_file_name.empty())
+    return;
+
   if (last_event_time_ > time) {
     LOG(ERROR) << "Messages out of temporal order.";
     consumer_errored_ = true;
@@ -360,6 +366,11 @@ void Reorderer::OnModuleLoad(DWORD process_id,
   if (consumer_errored_ || module_info.module_size == 0)
     return;
 
+  // This happens in Windows XP traces for some reason. They contain conflicing
+  // information, so we ignore them.
+  if (module_info.image_file_name.empty())
+    return;
+
   if (last_event_time_ > time) {
     LOG(ERROR) << "Messages out of temporal order.";
     consumer_errored_ = true;
@@ -372,13 +383,44 @@ void Reorderer::OnModuleLoad(DWORD process_id,
   if (!module_space.Insert(range, module_info)) {
     ModuleSpace::RangeMapIter it = module_space.FindFirstIntersection(range);
     DCHECK(it != module_space.end());
-    LOG(ERROR) << "Trying to insert conflicting module: "
-               << module_info.image_file_name;
+    // We actually see this behaviour on Windows XP gathered traces. Since this
+    // is one of the platforms we target, we simply print out a warning for
+    // now.
+    LOG(WARNING) << "Trying to insert conflicting module: "
+        << module_info.image_file_name;
+  }
+
+  last_event_time_ = time;
+}
+
+// KernelProcessEvents implementation.
+void Reorderer::OnProcessIsRunning(const base::Time& time,
+                                   const ProcessInfo& process_info) {
+  // We don't care about these events.
+}
+
+void Reorderer::OnProcessStarted(const base::Time& time,
+                                   const ProcessInfo& process_info) {
+  // We don't care about these events.
+}
+
+void Reorderer::OnProcessEnded(const base::Time& time,
+                               const ProcessInfo& process_info,
+                               ULONG exit_status) {
+  uint32 process_id = process_info.process_id;
+  ProcessSet::iterator process_it = matching_process_ids_.find(process_id);
+  if (process_it == matching_process_ids_.end())
+    return;
+
+  matching_process_ids_.erase(process_it);
+
+  UniqueTime entry_time(time);
+  if (!order_generator_->OnProcessEnded(*this, process_id, entry_time)) {
     consumer_errored_ = true;
     return;
   }
 
-  last_event_time_ = time;
+  return;
 }
 
 // CallTraceEvents implementation.
@@ -423,15 +465,12 @@ void Reorderer::OnTraceBatchEnter(base::Time time,
     const BlockGraph::Block* block =
         image_->address_space.GetBlockByAddress(rva);
     if (block == NULL) {
-      LOG(ERROR) << "Unable to map relative address "
-                 << base::StringPrintf("0x%08d", rva.value())
-                 << " to a block.";
+      LOG(ERROR) << "Unable to map " << rva << " to a block.";
       consumer_errored_ = true;
       return;
     }
     if (block->type() != BlockGraph::CODE_BLOCK) {
-      LOG(ERROR) << "Address " << base::StringPrintf("0x%08d", rva.value())
-                 << " maps to a non-code block.";
+      LOG(ERROR) << rva << " maps to a non-code block.";
       consumer_errored_ = true;
       return;
     }
@@ -442,6 +481,15 @@ void Reorderer::OnTraceBatchEnter(base::Time time,
     // to maintain relative ordering. For future reference, ticks_ago are in
     // milliseconds, according to MSDN.
     UniqueTime entry_time(time);
+
+    // If this is the first call of interest by a given process, send an
+    // OnProcessStarted event.
+    if (matching_process_ids_.insert(process_id).second) {
+      if (!order_generator_->OnProcessStarted(*this, process_id, entry_time)) {
+        consumer_errored_ = true;
+        return;
+      }
+    }
 
     ++code_block_entry_events_;
     if (!order_generator_->OnCodeBlockEntry(*this, block, rva, process_id,
