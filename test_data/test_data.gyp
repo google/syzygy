@@ -18,26 +18,6 @@
   },
   'targets': [
     {
-      'target_name': 'directory',
-      'type': 'none',
-      'msvs_cygwin_shell': 0,
-      'sources': [
-      ],
-      'actions': [
-        {
-          'action_name': 'make_test_data_dir',
-          'inputs': [
-          ],
-          'outputs': [
-            '$(OutDir)/test_data',
-          ],
-          'action': [
-            'if not exist $(OutDir)/test_data mkdir $(OutDir)/test_data',
-          ],
-        },
-      ],
-    },
-    {
       'target_name': 'test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
@@ -45,7 +25,6 @@
       ],
       'dependencies': [
         '../pe/pe.gyp:test_dll',
-        'directory',
       ],
       'copies': [
         {
