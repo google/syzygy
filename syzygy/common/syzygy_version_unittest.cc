@@ -43,4 +43,25 @@ TEST(SyzygyVersionTest, Serialization) {
   EXPECT_TRUE(testing::TestSerialization(kSyzygyVersion));
 }
 
+TEST(SyzygyVersionTest, Mutators) {
+  SyzygyVersion version;
+  EXPECT_EQ(0, version.major());
+  EXPECT_EQ(0, version.minor());
+  EXPECT_EQ(0, version.build());
+  EXPECT_EQ(0, version.patch());
+  EXPECT_TRUE(version.last_change() == "");
+
+  version.set_major(1);
+  version.set_minor(2);
+  version.set_build(3);
+  version.set_patch(4);
+  version.set_last_change("5");
+
+  EXPECT_EQ(1, version.major());
+  EXPECT_EQ(2, version.minor());
+  EXPECT_EQ(3, version.build());
+  EXPECT_EQ(4, version.patch());
+  EXPECT_TRUE(version.last_change() == "5");
+}
+
 }  // namespace common

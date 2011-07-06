@@ -20,6 +20,7 @@
 #include "base/string_number_conversions.h"
 #include "syzygy/relink/order_relinker.h"
 #include "syzygy/relink/random_relinker.h"
+#include "syzygy/reorder/reorderer.h"
 
 using relink::Relinker;
 using relink::OrderRelinker;
@@ -34,17 +35,20 @@ const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
 const char kUsage[] =
     "Usage: relink [options]\n"
     "  Required Options:\n"
-    "    --input-dll=<path>   The input DLL to relink\n"
-    "    --input-pdb=<path>   The PDB file associated with the input DLL\n"
-    "    --output-dll=<path>  Output path for the rewritten DLL\n"
-    "    --output-pdb=<path>  Output path for the rewritten PDB file\n"
+    "    --input-dll=<path>   The input DLL to relink.\n"
+    "    --output-dll=<path>  Output path for the rewritten DLL.\n"
     "  Optional Options:\n"
-    "    --seed=<integer>     Randomly reorder based on the given seed\n"
-    "    --order-file=<path>  Reorder based on a JSON ordering file\n"
-    "    --no-code            Do not reorder code sections\n"
-    "    --no-data            Do not reorder data sections\n"
+    "    --input-pdb=<path>   The PDB file associated with the input DLL.\n"
+    "                         Default is inferred from input-dll.\n"
+    "    --output-pdb=<path>  Output path for the rewritten PDB file.\n"
+    "                         Default is inferred from output-dll.\n"
+    "    --seed=<integer>     Randomly reorder based on the given seed.\n"
+    "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
+    "    --no-code            Do not reorder code sections.\n"
+    "    --no-data            Do not reorder data sections.\n"
     "  Notes:\n"
-    "    * The --seed and --order-file options are mutually exclusive\n";
+    "    * The --seed and --order-file options are mutually exclusive\n"
+    "    * If --order-file is specified, --input-dll is optional.\n";
 
 int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
@@ -71,6 +75,11 @@ bool ParseUInt32(const std::wstring& value_str, uint32* out_value) {
   return base::StringToInt(value_str, reinterpret_cast<int*>(out_value));
 }
 
+void GuessPdbPath(const FilePath& module_path, FilePath* pdb_path) {
+  DCHECK(pdb_path != NULL);
+  *pdb_path = module_path.ReplaceExtension(L"pdb");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -95,9 +104,37 @@ int main(int argc, char** argv) {
   bool reorder_code = !cmd_line->HasSwitch("no-code");
   bool reorder_data = !cmd_line->HasSwitch("no-data");
 
-  if (input_dll_path.empty() || input_pdb_path.empty() ||
-      output_dll_path.empty() || output_pdb_path.empty()) {
-    return Usage("You must provide input and output file names.");
+  if (output_dll_path.empty()) {
+    return Usage("You must specify --output-dll.");
+  }
+
+  // Ensure that we have an input-dll.
+  bool have_order_file = cmd_line->HasSwitch("order-file");
+  if (input_dll_path.empty()) {
+    if (!have_order_file) {
+      return Usage(
+          "You must specify --input-dll if --order-file is not given.");
+    }
+
+    if (!reorder::Reorderer::Order::GetOriginalModulePath(
+        order_file_path, &input_dll_path)) {
+      LOG(ERROR) << "Unable to infer input-dll.";
+      return false;
+    }
+    LOG(INFO) << "Inferring input DLL path from order file: "
+        << input_dll_path.value();
+  }
+
+  // If explicit PDB paths are not provided, guess them.
+  if (input_pdb_path.empty()) {
+    GuessPdbPath(input_dll_path, &input_pdb_path);
+    LOG(INFO) << "Inferring input PDB path from input DLL path: "
+        << input_pdb_path.value();
+  }
+  if (output_pdb_path.empty()) {
+    GuessPdbPath(output_dll_path, &output_pdb_path);
+    LOG(INFO) << "Inferring output PDB path from output DLL path: "
+        << output_pdb_path.value();
   }
 
   if (cmd_line->HasSwitch("seed") && cmd_line->HasSwitch("order-file")) {

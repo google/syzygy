@@ -352,7 +352,7 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   }
 
   LOG(INFO) << "Setting up the new ordering.";
-  Reorderer::Order order(decomposed);
+  Reorderer::Order order(input_dll, decomposed);
   if (!SetupOrdering(order)) {
     LOG(ERROR) << "Unable to setup the ordering.";
     return false;
