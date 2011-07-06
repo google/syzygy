@@ -103,7 +103,7 @@ class Reorderer
   // by a compatible version of the toolchain, and extracting signature
   // information and metadata. Returns true on success, false otherwise.
   bool ValidateInstrumentedModuleAndParseSignature(
-      pe::PEFile::Signature* orig_signature);
+      PEFile::Signature* orig_signature);
   // Returns true if the given ModuleInformation matches the instrumented
   // module signature, false otherwise.
   bool MatchesInstrumentedModuleSignature(
@@ -160,7 +160,7 @@ class Reorderer
   std::vector<FilePath> trace_paths_;
 
   // Signature of the instrumented DLL. Used for filtering call-trace events.
-  pe::PEFile::Signature instr_signature_;
+  PEFile::Signature instr_signature_;
   // A set of flags controlling the reorderer behaviour.
   Flags flags_;
   // Number of CodeBlockEntry events processed.
@@ -176,9 +176,13 @@ class Reorderer
   // we are interested in OnProcessEnded events.
   ProcessSet matching_process_ids_;
 
-  // The following two variables are only valid while Reorder is executing.
+  // The following three variables are only valid while Reorder is executing.
   // A pointer to our order generator delegate.
   OrderGenerator* order_generator_;
+  // A pointer to the PE file info for the module we're reordering. This
+  // is actually a pointer to a part of the output structure, but several
+  // internals make use of it during processing.
+  PEFile* pe_;
   // The decomposed image of the module we're reordering. This is actually
   // a pointer to an image in the output structure, but several internals
   // make use of it during processing.
@@ -194,11 +198,27 @@ class Reorderer
   DISALLOW_COPY_AND_ASSIGN(Reorderer);
 };
 
-// Stores order information.
+// Stores order information. An order may be serialized to and from JSON,
+// in the following format:
+//
+// {
+//   'metadata': {
+//     this contains toolchain information, command-line info, etc
+//   },
+//   'sections': {
+//     'section_id': <INTEGER SECTION ID>,
+//     'blocks': [
+//       list of integer block addresses
+//     ]
+//   ]
+// }
 struct Reorderer::Order {
   // Constructor just sets the image reference. Note that the image must
   // outlive the Order.
-  explicit Order(DecomposedImage& i) : image(i) {}
+  Order(PEFile& p, DecomposedImage& i) : pe(p), image(i) {}
+
+  // Stores the PE file info associated with the DLL to reorder.
+  PEFile& pe;
 
   // Stores the decomposed image associated with the DLL to reorder.
   DecomposedImage& image;
@@ -222,15 +242,22 @@ struct Reorderer::Order {
   bool SerializeToJSON(const FilePath& path, bool pretty_print) const;
   bool SerializeToJSON(FILE* file, bool pretty_print) const;
 
-  // Loads an ordering from a JSON file. 'image' must already be populated
-  // prior to calling this.
+  // Loads an ordering from a JSON file. 'pe' and 'image' must already be
+  // populated prior to calling this.
   bool LoadFromJSON(const FilePath& path);
+
+  // Extracts the name of the original module from an order file. This is
+  // used to guess the value of --input-dll.
+  static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
 
   // Estimates the number of hard faults that would be seen, both before and
   // after ordering. This assumes that everything in |blocks| is actually
   // visited.
   bool OutputFaultEstimates(const FilePath& path) const;
   bool OutputFaultEstimates(FILE* file) const;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(Order);
 };
 
 // The actual class that does the work, an order generator. It receives

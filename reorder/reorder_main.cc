@@ -34,12 +34,12 @@ using reorder::RandomOrderGenerator;
 using reorder::Reorderer;
 
 static const char kUsage[] =
-    "Usage: instrument [options] [ETW log files ...]\n"
+    "Usage: reorder [options] [ETW log files ...]\n"
     "  Required Options:\n"
     "    --instrumented-dll=<path> the path to the instrumented DLL.\n"
     "    --output-file=<path> the output file.\n"
     "  Optional Options:\n"
-    "    --input-dll=<path> the input DLL to reorder. If this is not"
+    "    --input-dll=<path> the input DLL to reorder. If this is not\n"
     "        specified it will be inferred from the instrumented DLL\n"
     "        metadata.\n"
     "    --seed=INT generates a random ordering; don't specify ETW log files.\n"
@@ -167,8 +167,9 @@ int main(int argc, char** argv) {
     order_generator.reset(new LinearOrderGenerator());
   }
 
+  pe::PEFile input_dll;
   pe::Decomposer::DecomposedImage decomposed;
-  reorder::Reorderer::Order order(decomposed);
+  reorder::Reorderer::Order order(input_dll, decomposed);
   Reorderer reorderer(input_dll_path,
                       instrumented_dll_path,
                       trace_paths,

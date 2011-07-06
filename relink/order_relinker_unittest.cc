@@ -46,8 +46,9 @@ TEST_F(OrderRelinkerTest, Relink) {
   FilePath input_pdb_path = test_data_dir.Append(kDllPdbName);
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
+  pe::PEFile pe_file;
   pe::Decomposer::DecomposedImage decomposed;
-  reorder::Reorderer::Order order(decomposed);
+  reorder::Reorderer::Order order(pe_file, decomposed);
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
   reorder::Reorderer::Flags flags = 0;
@@ -78,8 +79,9 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   FilePath input_pdb_path = test_data_dir.Append(kDllPdbName);
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
+  pe::PEFile pe_file;
   pe::Decomposer::DecomposedImage decomposed;
-  reorder::Reorderer::Order order(decomposed);
+  reorder::Reorderer::Order order(pe_file, decomposed);
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
   reorder::Reorderer::Flags flags = 0;

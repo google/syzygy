@@ -15,7 +15,9 @@
 
 #include "base/file_util.h"
 #include "base/json/json_reader.h"
+#include "base/json/string_escape.h"
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
@@ -28,6 +30,7 @@ using namespace reorder;
 
 // Outputs @p indent spaces to @p file.
 bool OutputIndent(FILE* file, int indent, bool pretty_print) {
+  DCHECK(file != NULL);
   if (!pretty_print)
     return true;
   for (int i = 0; i < indent; ++i) {
@@ -39,18 +42,36 @@ bool OutputIndent(FILE* file, int indent, bool pretty_print) {
 
 // Outputs an end of line, only if pretty-printing.
 bool OutputLineEnd(FILE* file, bool pretty_print) {
+  DCHECK(file != NULL);
   return !pretty_print || fputc('\n', file) != EOF;
+}
+
+// Outputs text. If pretty printing, will respect the indent.
+bool OutputText(FILE* file, const char* text, int indent, bool pretty_print) {
+  DCHECK(file != NULL);
+  return OutputIndent(file, indent, pretty_print) &&
+      fprintf(file, "%s", text) >= 0;
+}
+
+// Outputs a comment with the given indent, only if pretty-printing.
+bool OutputComment(
+    FILE* file, const char* comment, int indent, bool pretty_print) {
+  DCHECK(file != NULL);
+  if (!pretty_print)
+    return true;
+  return OutputIndent(file, indent, pretty_print) &&
+      fprintf(file, "// %s\n", comment) >= 0;
 }
 
 // Outputs a JSON dictionary key, pretty-printed if so requested. Assumes that
 // if pretty-printing, we're already on a new line. Also assumes that key is
 // appropriately escaped if it contains invalid characters.
 bool OutputKey(FILE* file, const char* key, int indent, bool pretty_print) {
-  if (!OutputIndent(file, indent, pretty_print) ||
-      fprintf(file, "\"%s\":", key) < 0 ||
-      !OutputIndent(file, 1, pretty_print))
-    return false;
-  return true;
+  DCHECK(file != NULL);
+  DCHECK(key != NULL);
+  return OutputIndent(file, indent, pretty_print) &&
+      fprintf(file, "\"%s\":", key) >= 0 &&
+      OutputIndent(file, 1, pretty_print);
 }
 
 // Serializes a block list to JSON. If pretty-printing, assumes that we are
@@ -121,6 +142,187 @@ bool OutputBlockList(FILE* file, size_t section_id,
   return true;
 }
 
+// Outputs a SyzygyVersion object in JSON format as a dictionary. Does not
+// output a newline after the dictionary.
+bool OutputSyzygyVersion(FILE* file,
+                         const common::SyzygyVersion& version,
+                         int indent,
+                         bool pretty_print) {
+  DCHECK(file != NULL);
+
+  std::string comment("Syzygy toolchain version: ");
+  comment.append(SYZYGY_VERSION_STRING);
+
+  std::string last_change = base::GetDoubleQuotedJson(version.last_change());
+
+  return OutputText(file, "{", 0, pretty_print) &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputComment(file, comment.c_str(), indent + 2, pretty_print) &&
+      OutputKey(file, "major", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", version.major()) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "minor", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", version.minor()) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "build", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", version.build()) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "patch", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", version.patch()) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "last_change", indent + 2, pretty_print) &&
+      fprintf(file, "%s", last_change.c_str()) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputText(file, "}", indent, pretty_print);
+}
+
+// Outputs a PEFile::Signature in JSON format as a dictionary. Does not output
+// a newline after the dictionary.
+bool OutputPEFileSignature(FILE* file,
+                           const PEFile::Signature& signature,
+                           int indent,
+                           bool pretty_print) {
+  DCHECK(file != NULL);
+
+  std::string path;
+  WideToUTF8(signature.path.c_str(), signature.path.size(), &path);
+  path = base::GetDoubleQuotedJson(path);
+
+  uint32 stamp_lo = signature.module_time_date_stamp & 0xffffffff;
+  uint32 stamp_hi = (signature.module_time_date_stamp >> 32) & 0xffffffff;
+
+  return OutputText(file, "{", 0, pretty_print) &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "path", indent + 2, pretty_print) &&
+      fprintf(file, "%s,", path.c_str()) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "base_address", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", signature.base_address) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "module_size", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", signature.module_size) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      // This is output in two chunks, because our JSON engine only handles
+      // 32-bit integers.
+      OutputKey(file, "module_time_date_stamp_lo", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", stamp_lo) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "module_time_date_stamp_hi", indent + 2, pretty_print) &&
+      fprintf(file, "%d,", stamp_hi) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputKey(file, "module_checksum", indent + 2, pretty_print) &&
+      fprintf(file, "%d", signature.module_checksum) >= 0 &&
+      OutputLineEnd(file, pretty_print) &&
+      OutputText(file, "}", indent, pretty_print);
+}
+
+// Loads a syzygy version from a JSON dictionary.
+bool LoadSyzygyVersion(const DictionaryValue& dictionary,
+                       common::SyzygyVersion* version) {
+  DCHECK(version != NULL);
+
+  std::string major_key("major");
+  std::string minor_key("minor");
+  std::string build_key("build");
+  std::string patch_key("patch");
+  std::string last_change_key("last_change");
+
+  int major = 0;
+  int minor = 0;
+  int build = 0;
+  int patch = 0;
+  std::string last_change;
+  if (!dictionary.GetInteger(major_key, &major) ||
+      !dictionary.GetInteger(minor_key, &minor) ||
+      !dictionary.GetInteger(build_key, &build) ||
+      !dictionary.GetInteger(patch_key, &patch) ||
+      !dictionary.GetString(last_change_key, &last_change)) {
+    LOG(ERROR) << "Unable to parse SyzygyVersion from JSON dictionary.";
+    return false;
+  }
+
+  version->set_major(major);
+  version->set_minor(minor);
+  version->set_build(build);
+  version->set_patch(patch);
+  version->set_last_change(last_change.c_str());
+
+  return true;
+}
+
+// Loads a PEFile::Signature from a JSON dictionary.
+bool LoadPEFileSignature(const DictionaryValue& dictionary,
+                         PEFile::Signature* signature) {
+  DCHECK(signature != NULL);
+
+  std::string path_key("path");
+  std::string base_address_key("base_address");
+  std::string module_size_key("module_size");
+  std::string module_time_date_stamp_lo_key("module_time_date_stamp_lo");
+  std::string module_time_date_stamp_hi_key("module_time_date_stamp_hi");
+  std::string module_checksum_key("module_checksum");
+
+  std::string path;
+  int base_address = 0;
+  int module_size = 0;
+  int stamp_lo = 0;
+  int stamp_hi = 0;
+  int module_checksum = 0;
+  if (!dictionary.GetString(path_key, &path) ||
+      !dictionary.GetInteger(base_address_key, &base_address) ||
+      !dictionary.GetInteger(module_size_key, &module_size) ||
+      !dictionary.GetInteger(module_time_date_stamp_lo_key, &stamp_lo) ||
+      !dictionary.GetInteger(module_time_date_stamp_hi_key, &stamp_hi) ||
+      !dictionary.GetInteger(module_checksum_key, &module_checksum)) {
+    LOG(ERROR) << "Unable to parse PEFile::Signature from JSON dictionary.";
+    return false;
+  }
+
+  UTF8ToWide(path.c_str(), path.size(), &signature->path);
+  signature->base_address = PEFile::AbsoluteAddress(base_address);
+  signature->module_size = module_size;
+  signature->module_time_date_stamp = stamp_hi;
+  signature->module_time_date_stamp <<= 32;
+  signature->module_time_date_stamp |= stamp_lo;
+  signature->module_checksum = module_checksum;
+
+  return true;
+}
+
+bool LoadAndValidateMetadata(const DictionaryValue& metadata,
+                             const Reorderer::Order& order) {
+  std::string syzygy_version_key("syzygy_version");
+  std::string original_module_key("original_module");
+  DictionaryValue* syzygy_version_dict = NULL;
+  DictionaryValue* original_module_dict = NULL;
+  if (!metadata.GetDictionary(syzygy_version_key, &syzygy_version_dict) ||
+      !metadata.GetDictionary(original_module_key, &original_module_dict)) {
+    LOG(ERROR) << "Metadata dictionary must contain 'syzygy_version' and "
+        << "'original_module'.";
+    return false;
+  }
+
+  common::SyzygyVersion version;
+  PEFile::Signature orig_sig;
+  if (!LoadSyzygyVersion(*syzygy_version_dict, &version) ||
+      !LoadPEFileSignature(*original_module_dict, &orig_sig))
+    return false;
+
+  if (!common::kSyzygyVersion.IsCompatible(version)) {
+    LOG(ERROR) << "Order produced with an incompatible toolchain version.";
+    return false;
+  }
+
+  PEFile::Signature input_sig;
+  order.pe.GetSignature(&input_sig);
+  if (!input_sig.IsConsistent(orig_sig)) {
+    LOG(ERROR) << "Order incompatible with input module.";
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace
 
 namespace reorder {
@@ -157,11 +359,13 @@ bool Reorderer::Reorder(OrderGenerator* order_generator, Order* order) {
   DCHECK(order != NULL);
 
   order_generator_ = order_generator;
+  pe_ = &order->pe;
   image_ = &order->image;
 
   bool success = ReorderImpl(order);
 
   order_generator_ = NULL;
+  pe_ = NULL;
   image_ = NULL;
 
   return success;
@@ -183,13 +387,12 @@ bool Reorderer::ReorderImpl(Order* order) {
   }
 
   LOG(INFO) << "Reading input DLL.";
-  pe::PEFile input_module;
-  if (!input_module.Init(module_path_)) {
+  if (!pe_->Init(module_path_)) {
     LOG(ERROR) << "Unable to read input image: " << module_path_.value();
     return false;
   }
   pe::PEFile::Signature input_signature;
-  input_module.GetSignature(&input_signature);
+  pe_->GetSignature(&input_signature);
 
   // Validate that the input DLL signature matches the original signature
   // extracted from the instrumented module.
@@ -212,7 +415,7 @@ bool Reorderer::ReorderImpl(Order* order) {
   // Decompose the DLL to be reordered. This will let us map call-trace events
   // to actual Blocks.
   LOG(INFO) << "Decomposing input image.";
-  Decomposer decomposer(input_module, module_path_);
+  Decomposer decomposer(*pe_, module_path_);
   if (!decomposer.Decompose(image_, NULL, Decomposer::STANDARD_DECOMPOSITION)) {
     LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
     return false;
@@ -544,11 +747,36 @@ bool Reorderer::Order::SerializeToJSON(const FilePath &path,
 
 bool Reorderer::Order::SerializeToJSON(FILE* file,
                                        bool pretty_print) const {
-  if (fprintf(file, "// %s\n", comment.c_str()) == EOF)
+  // Open the main dictionary and the metadata dictionary.
+  if (!OutputComment(file, comment.c_str(), 0, true) ||
+      !OutputText(file, "{", 0, pretty_print) ||
+      !OutputLineEnd(file, pretty_print) ||
+      !OutputKey(file, "metadata", 2, pretty_print) ||
+      !OutputText(file, "{", 0, pretty_print) ||
+      !OutputLineEnd(file, pretty_print))
     return false;
-  if (fputc('[', file) == EOF)
+
+  // Output metadata.
+  PEFile::Signature orig_sig;
+  pe.GetSignature(&orig_sig);
+  if (!OutputKey(file, "syzygy_version", 4, pretty_print) ||
+      !OutputSyzygyVersion(file, common::kSyzygyVersion, 4, pretty_print) ||
+      !OutputText(file, ",", 0, pretty_print) ||
+      !OutputLineEnd(file, pretty_print) ||
+      !OutputKey(file, "original_module", 4, pretty_print) ||
+      !OutputPEFileSignature(file, orig_sig, 4, pretty_print) ||
+      !OutputLineEnd(file, pretty_print))
     return false;
-  if (pretty_print && fputc('\n', file) == EOF)
+
+  // Close the metadata dictionary.
+  if (!OutputText(file, "},", 2, pretty_print) ||
+      !OutputLineEnd(file, pretty_print))
+    return false;
+
+  // Open list of sections.
+  if (!OutputKey(file, "sections", 2, pretty_print) ||
+      !OutputText(file, "[", 0, pretty_print) ||
+      !OutputLineEnd(file, pretty_print))
     return false;
 
   // Output the individual block lists.
@@ -559,23 +787,28 @@ bool Reorderer::Order::SerializeToJSON(FILE* file,
       continue;
 
     if (lists_output > 0) {
-      if (fputc(',', file) == EOF)
-        return false;
-      if (pretty_print && fputc('\n', file) == EOF)
+      if (!OutputText(file, ",", 0, pretty_print) ||
+          !OutputLineEnd(file, pretty_print))
         return false;
     }
 
-    if (!OutputBlockList(file, it->first, it->second, 2, pretty_print))
+    // Output a comment with the section name, and output the section
+    // order info.
+    std::string comment = pe.GetSectionName(it->first);
+    comment = StringPrintf("section_name = \"%s\".", comment.c_str());
+    if (!OutputComment(file, comment.c_str(), 4, pretty_print) ||
+        !OutputBlockList(file, it->first, it->second, 4, pretty_print))
       return false;
 
     ++lists_output;
   }
+  if (lists_output > 0 && !OutputLineEnd(file, pretty_print))
+    return false;
 
-  if (lists_output > 0 && pretty_print && fputc('\n', file) == EOF)
-    return false;
-  if (fputc(']', file) == EOF)
-    return false;
-  if (pretty_print && fputc('\n', file) == EOF)
+  // Close the list of sections and the outermost dictionary.
+  if (!OutputText(file, "]", 2, pretty_print) ||
+      !OutputLineEnd(file, pretty_print) ||
+      !OutputText(file, "}", 0, pretty_print))
     return false;
 
   return true;
@@ -589,11 +822,24 @@ bool Reorderer::Order::LoadFromJSON(const FilePath& path) {
   }
 
   scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
+  if (value.get() == NULL || value->GetType() != Value::TYPE_DICTIONARY) {
+    LOG(ERROR) << "Order file does not contain a valid JSON dictionary.";
+  }
+  const DictionaryValue* outer_dict =
+      reinterpret_cast<const DictionaryValue*>(value.get());
+
+  std::string metadata_key("metadata");
+  std::string sections_key("sections");
+  DictionaryValue* metadata = NULL;
   ListValue* order = NULL;
-  if (value.get() == NULL || !value->GetAsList(&order)) {
-    LOG(ERROR) << "Order file does not contain a valid JSON list.";
+  if (!outer_dict->GetDictionary(metadata_key, &metadata) ||
+      !outer_dict->GetList(sections_key, &order)) {
+    LOG(ERROR) << "Order dictionary must contain 'metadata' and 'sections'.";
     return false;
   }
+
+  if (!LoadAndValidateMetadata(*metadata, *this))
+    return false;
 
   section_block_lists.clear();
 
@@ -655,6 +901,45 @@ bool Reorderer::Order::LoadFromJSON(const FilePath& path) {
       block_list.push_back(block);
     }
   }
+
+  return true;
+}
+
+bool Reorderer::Order::GetOriginalModulePath(const FilePath& path,
+                                             FilePath* module) {
+  std::string file_string;
+  if (!file_util::ReadFileToString(path, &file_string)) {
+    LOG(ERROR) << "Unable to read order file to string";
+    return false;
+  }
+
+  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
+  if (value.get() == NULL || value->GetType() != Value::TYPE_DICTIONARY) {
+    LOG(ERROR) << "Order file does not contain a valid JSON dictionary.";
+    return false;
+  }
+  const DictionaryValue* outer_dict =
+      reinterpret_cast<const DictionaryValue*>(value.get());
+
+  std::string metadata_key("metadata");
+  DictionaryValue* metadata = NULL;
+  if (!outer_dict->GetDictionary(metadata_key, &metadata)) {
+    LOG(ERROR) << "Order dictionary must contain 'metadata'.";
+    return false;
+  }
+
+  std::string original_module_key("original_module");
+  DictionaryValue* original_module = NULL;
+  if (!metadata->GetDictionary(original_module_key, &original_module)) {
+    LOG(ERROR) << "Metadata dictionary must containt 'original_module'.";
+    return false;
+  }
+
+  PEFile::Signature orig_sig;
+  if (!LoadPEFileSignature(*original_module, &orig_sig))
+    return false;
+
+  *module = FilePath(orig_sig.path);
 
   return true;
 }

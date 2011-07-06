@@ -44,6 +44,15 @@ class SyzygyVersion {
   uint16 patch() const { return patch_; }
   const std::string& last_change() const { return last_change_; }
 
+  void set_major(uint16 major) { major_ = major; }
+  void set_minor(uint16 minor) { minor_ = minor; }
+  void set_build(uint16 build) { build_ = build; }
+  void set_patch(uint16 patch) { patch_ = patch; }
+  void set_last_change(const char* last_change) {
+    DCHECK(last_change != NULL);
+    last_change_ = last_change;
+  }
+
   // For serialization.
   template<class OutArchive> bool Save(OutArchive* out_archive) const {
     DCHECK(out_archive != NULL);
