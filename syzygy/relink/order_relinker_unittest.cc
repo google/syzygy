@@ -51,7 +51,8 @@ TEST_F(OrderRelinkerTest, Relink) {
   reorder::Reorderer::Order order(pe_file, decomposed);
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
-  reorder::Reorderer::Flags flags = 0;
+  reorder::Reorderer::Flags flags = reorder::Reorderer::kFlagReorderCode |
+      reorder::Reorderer::kFlagReorderData;
   Reorderer reorderer(input_dll_path,
                       instr_dll_path,
                       trace_paths,
@@ -84,7 +85,8 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   reorder::Reorderer::Order order(pe_file, decomposed);
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
-  reorder::Reorderer::Flags flags = 0;
+  reorder::Reorderer::Flags flags = reorder::Reorderer::kFlagReorderCode |
+      reorder::Reorderer::kFlagReorderData;
   Reorderer reorderer(input_dll_path,
                       instr_dll_path,
                       trace_paths,
