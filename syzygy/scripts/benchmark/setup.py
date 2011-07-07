@@ -50,10 +50,16 @@ _MODULES = [
   'benchmark',
   'chrome_control',
   'event_counter',
+  'optimize',
   'runner',
 ]
 
 _EXECUTABLES = [
+  'call_trace.dll',
+  'call_trace_control.exe',
+  'instrument.exe',
+  'relink.exe',
+  'reorder.exe',
   'run_in_snapshot.exe',
   'run_in_snapshot_x64.exe',
   'run_in_snapshot_xp.exe',
@@ -77,7 +83,10 @@ def main():
       ],
       zip_safe=True,
       entry_points={
-        'console_scripts': ['benchmark= benchmark:main'],
+        'console_scripts': [
+            'benchmark= benchmark:main',
+            'optimize= optimize:main',
+        ],
       },
       cmdclass={
         "install_data": InstallData,

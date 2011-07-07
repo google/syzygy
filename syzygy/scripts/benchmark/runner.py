@@ -56,6 +56,18 @@ def _DeletePrefetch():
     os.unlink(file)
 
 
+def _GetExePath(name):
+  '''Gets the path to a named executable.'''
+  path = pkg_resources.resource_filename(__name__, os.path.join('exe', name))
+  if not os.path.exists(path):
+    # If we're not running packaged from an egg, we assume we're being
+    # run from a virtual env in a build directory.
+    build_dir = os.path.abspath(os.path.join(os.path.dirname(sys.executable),
+                                             '../..'))
+    path = os.path.join(build_dir, name)
+  return path
+
+
 def _GetRunInSnapshotExeResourceName():
   """Return the name of the most appropriate run_in_snapshot executable for
   the system we're running on."""
@@ -80,16 +92,43 @@ def _GetRunInSnapshotExeResourceName():
 
 def _GetRunInSnapshotExe():
   """Return the appropriate run_in_snapshot executable for this system."""
-  name = _GetRunInSnapshotExeResourceName()
-  run_in_snapshot = pkg_resources.resource_filename(__name__,
-                                                    os.path.join('exe', name))
-
-  return run_in_snapshot
+  return _GetExePath(_GetRunInSnapshotExeResourceName())
 
 
 class ChromeRunner(object):
   """A utility class to manage the running of Chrome for some number of
   iterations."""
+
+  @staticmethod
+  def StartLogging(log_dir):
+    """Starts ETW Logging to the files provided.
+
+    Args:
+        log_dir: Directory where kernel.etl and call_trace.etl will be created.
+    """
+    # Best effort cleanup in case the log sessions are already running.
+    subprocess.call([_GetExePath('call_trace_control.exe'), 'stop'])
+
+    kernel_file = os.path.abspath(os.path.join(log_dir, 'kernel.etl'))
+    call_trace_file = os.path.abspath(os.path.join(log_dir, 'call_trace.etl'))
+    cmd = [_GetExePath('call_trace_control.exe'),
+           'start',
+           '--kernel-file=%s' % kernel_file,
+           '--call-trace-file=%s' % call_trace_file]
+    _LOGGER.info('Starting ETW logging to "%s" and "%s".',
+        kernel_file, call_trace_file)
+    ret = subprocess.call(cmd)
+    if ret != 0:
+      raise RuntimeError('Failed to start ETW logging.')
+
+  @staticmethod
+  def StopLogging():
+    cmd = [_GetExePath('call_trace_control.exe'), 'stop']
+    _LOGGER.info('Stopping ETW logging.')
+    ret = subprocess.call(cmd)
+    if ret != 0:
+      raise RuntimeError('Failed to stop ETW logging.')
+
   def __init__(self, chrome_exe, profile_dir, initialize_profile=True):
     """Initialize instance.
 
@@ -157,7 +196,7 @@ class ChromeRunner(object):
     chrome_control.ShutDown(self._profile_dir)
 
   def _DoIteration(self, it):
-    """Invoked after Chrome has been launched."""
+    """Invoked each iteration after Chrome has successfully launched."""
     pass
 
   def _PreIteration(self, it):
@@ -165,7 +204,7 @@ class ChromeRunner(object):
     pass
 
   def _PostIteration(self, i):
-    """Invoked after each iteration."""
+    """Invoked after each successfull iteration."""
     pass
 
   def _ProcessResults(self):
@@ -177,6 +216,7 @@ class ChromeRunner(object):
     self._LaunchChromeImpl(extra_arguments)
 
   def _LaunchChromeImpl(self, extra_arguments=None):
+    """Launch a Chrome instance in our profile dir, with extra_arguments."""
     cmd_line = [self._chrome_exe,
                 '--user-data-dir=%s' % self._profile_dir]
     if extra_arguments:
@@ -195,6 +235,11 @@ class ChromeRunner(object):
     chrome_control.ShutDown(self._profile_dir)
 
   def _WaitTillChromeRunning(self):
+    """Wait until Chrome is running in our profile directory.
+
+    Raises:
+        RuntimeError if Chrome is not running after a 20 second wait.
+    """
     for i in xrange(20):
       if chrome_control.IsProfileRunning(self._profile_dir):
         return
@@ -290,58 +335,11 @@ class BenchmarkRunner(ChromeRunner):
       _DeletePrefetch()
 
   def _StartLogging(self):
-    # TODO(siggi): This function needs to start a second ETW log session
-    #    to capture output from Chrome's TRACE_EVENT macros.
+    self.StartLogging(self._temp_dir)
     self._kernel_file = os.path.join(self._temp_dir, 'kernel.etl')
-    _LOGGER.info('Starting kernel logging to file "%s".', self._kernel_file)
-
-    prop = etw.TraceProperties()
-    prop.SetLogFileName(os.path.abspath(self._kernel_file))
-    p = prop.get()
-    p.contents.Wnode.ClientContext = 1  # QPC timer accuracy.
-    p.contents.LogFileMode = evn.EVENT_TRACE_FILE_MODE_SEQUENTIAL
-    p.contents.EnableFlags = (evn.EVENT_TRACE_FLAG_PROCESS |
-                              evn.EVENT_TRACE_FLAG_THREAD |
-                              evn.EVENT_TRACE_FLAG_IMAGE_LOAD |
-                              evn.EVENT_TRACE_FLAG_DISK_IO |
-                              evn.EVENT_TRACE_FLAG_DISK_FILE_IO |
-                              evn.EVENT_TRACE_FLAG_MEMORY_PAGE_FAULTS |
-                              evn.EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS)
-    # TODO(siggi): It might make sense to make these dynamic, and to re-run
-    #     iterations with more/larger buffers if we've lost events.
-    p.contents.BufferSize = 1024  # kilobytes - that's one meg.
-    p.contents.MinimumBuffers = 100
-    p.contents.MaximumBuffers = 200
-    p.contents.FlushTimer = 0
-
-    self._kernel_controller = etw.TraceController()
-    try:
-      # We may find the NT Kernel Logger running, so attempt to stop it
-      # before we create our NT Kernel Logger session. Maybe we didn't shut
-      # it down after the last iteration, or maybe someone else is using it.
-      # If the latter, let's hope they don't get upset with us.
-      evn.ControlTrace(evn.TRACEHANDLE(),
-                       evn.KERNEL_LOGGER_NAME,
-                       etw.TraceProperties().get(),
-                       evn.EVENT_TRACE_CONTROL_STOP)
-    except exceptions.WindowsError:
-      # If the log isn't running, we get a WindowsError here.
-      pass
-
-    self._kernel_controller.Start(evn.KERNEL_LOGGER_NAME, prop)
 
   def _StopLogging(self):
-    _LOGGER.info("Stopping kernel logging.")
-    prop = etw.TraceProperties()
-    self._kernel_controller.Stop(prop)
-
-    buffers_lost = prop.get().contents.LogBuffersLost
-    events_lost = prop.get().contents.EventsLost
-    if events_lost or buffers_lost:
-      _LOGGER.warning('%d ETW buffers lost.', buffers_lost)
-      _LOGGER.warning('%d ETW events lost.', events_lost)
-      _LOGGER.warning('You may need to increase the number or size of '
-                      'of buffers (see _StartLogging).')
+    self.StopLogging()
 
   def _ProcessLogs(self):
     parser = etw.consumer.TraceEventSource()
