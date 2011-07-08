@@ -19,6 +19,7 @@
 #include "syzygy/core/serialization.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/metadata.h"
 
 using core::AbsoluteAddress;
 using core::RelativeAddress;
@@ -48,7 +49,8 @@ Instrumenter::Instrumenter()
       hint_name_array_block_(NULL),
       import_address_table_block_(NULL),
       dll_name_block_(NULL),
-      image_import_descriptor_array_block_(NULL) {
+      image_import_descriptor_array_block_(NULL),
+      resource_section_id_(pe::kInvalidSection) {
 }
 
 bool Instrumenter::Instrument(const FilePath& input_dll_path,
@@ -79,20 +81,14 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
     return false;
   }
 
-  // Copy the sections and the data directory.
+  // Copy the sections, except for .rsrc and .relocs.
   LOG(INFO) << "Copying sections.";
   if (!CopySections()) {
     LOG(ERROR) << "Unable to copy sections.";
     return false;
   }
 
-  LOG(INFO) << "Copying data directory.";
-  if (!CopyDataDirectory(decomposed.header)) {
-    LOG(ERROR) << "Unable to copy the input image's data directory.";
-    return false;
-  }
-
-  // Instrument the binary.
+  // Instrument the binary. This creates .import and .thunks sections.
   LOG(INFO) << "Adding call trace import descriptor.";
   if (!AddCallTraceImportDescriptor(
       decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IMPORT])) {
@@ -105,10 +101,25 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
     return false;
   }
 
-  // Output metadata regarding the toolchain and the original module.
-  LOG(INFO) << "Writing metadata.";
-  if (!WriteMetadata(input_dll)) {
-    LOG(ERROR) << "Unable to write metadata.";
+  // Write metadata section.
+  if (!WriteMetadataSection(input_dll))
+    return false;
+
+  // Copies the resource section, if there is one.
+  if (!CopyResourceSection())
+    return false;
+
+  LOG(INFO) << "Copying data directory.";
+  if (!CopyDataDirectory(decomposed.header)) {
+    LOG(ERROR) << "Unable to copy the input image's data directory.";
+    return false;
+  }
+
+  // Update the data directory import entry to refer to our newly created
+  // section.
+  if (!builder().SetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_IMPORT,
+                                       image_import_descriptor_array_block_)) {
+    LOG(ERROR) << "Unable to set data directory entry.";
     return false;
   }
 
@@ -130,11 +141,25 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
 
 bool Instrumenter::CopySections() {
   // Copy the sections from the decomposed image to the new one, save for the
-  // .relocs section.
+  // .relocs section. If there is a .rsrc section, does not copy it but stores
+  // its index in resource_section_id_.
   for (size_t i = 0; i < original_num_sections() - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = original_sections()[i];
+
+    // Skip the resource section if we encounter it.
+    std::string name = pe::PEFile::GetSectionName(section);
+    if (name == common::kResourceSectionName) {
+      // We should only ever come across one of these, and it should be
+      // second to last.
+      DCHECK_EQ(original_num_sections() - 2, i);
+      DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
+      resource_section_id_ = i;
+      continue;
+    }
+
+    LOG(INFO) << "Copying section " << i << " (" << name << ").";
     if (!CopySection(section)) {
-      LOG(ERROR) << "Unable to copy section";
+      LOG(ERROR) << "Unable to copy section.";
       return false;
     }
   }
@@ -174,13 +199,6 @@ bool Instrumenter::AddCallTraceImportDescriptor(
   if (!CreateImageImportDescriptorArrayBlock(
       original_image_import_descriptor_array, &insert_at)) {
     LOG(ERROR) << "Unable to create image import descriptor array block";
-    return false;
-  }
-
-  // Update the data directory import entry.
-  if (!builder().SetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_IMPORT,
-                                       image_import_descriptor_array_block_)) {
-    LOG(ERROR) << "Unable to set data directory entry";
     return false;
   }
 
@@ -235,58 +253,6 @@ bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph) {
                        thunks_size,
                        IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_READ |
                        IMAGE_SCN_MEM_EXECUTE);
-
-  return true;
-}
-
-bool Instrumenter::WriteMetadata(const pe::PEFile& input_dll) {
-  RelativeAddress start = builder().next_section_address();
-  RelativeAddress insert_at = start;
-
-  pe::PEFile::Signature input_signature;
-  input_dll.GetSignature(&input_signature);
-
-  // Output the toolchain information, as well as the signature of the original
-  // binary we are instrumenting.
-  core::ByteVector bytes;
-  core::ScopedOutStreamPtr out_stream;
-  out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
-  core::NativeBinaryOutArchive out_archive(out_stream.get());
-  out_archive.Save(common::kSyzygyVersion);
-  out_archive.Save(input_signature);
-
-  // Output the information in duplicate, in a human-readable form, so that
-  // we can easily grep for this stuff in the actual binaries.
-  std::string text;
-  WideToUTF8(
-      input_signature.path.c_str(), input_signature.path.size(), &text);
-  text = std::string("Original DLL: ").append(text);
-  text.append("\nSyzygy toolchain version: ");
-  text.append(SYZYGY_VERSION_STRING);
-  text.append("\n");
-  out_archive.Save(text);
-
-  // Stuff the metadata into the address space.
-  BlockGraph::Block* new_block =
-      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                         insert_at,
-                                         bytes.size(),
-                                         "Instrumenter Metadata");
-  if (new_block == NULL) {
-    LOG(ERROR) << "Unable to allocate metadata block.";
-    return false;
-  }
-  insert_at += bytes.size();
-  new_block->set_data_size(bytes.size());
-  new_block->CopyData(bytes.size(), &bytes[0]);
-
-  // Wrap this data in a read-only data section.
-  uint32 syzygy_size = insert_at - start;
-  builder().AddSegment(common::kSyzygyMetadataSectionName,
-                       syzygy_size,
-                       syzygy_size,
-                       IMAGE_SCN_CNT_INITIALIZED_DATA |
-                       IMAGE_SCN_CNT_UNINITIALIZED_DATA);
 
   return true;
 }
@@ -607,5 +573,37 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
                             0));
 
   *thunk_block = new_block;
+  return true;
+}
+
+bool Instrumenter::WriteMetadataSection(const pe::PEFile& input_dll) {
+  LOG(INFO) << "Writing metadata.";
+  pe::Metadata metadata;
+  pe::PEFile::Signature input_dll_sig;
+  input_dll.GetSignature(&input_dll_sig);
+  if (!metadata.Init(input_dll_sig) ||
+      !metadata.SaveToPE(&builder())) {
+    LOG(ERROR) << "Unable to write metadata.";
+    return false;
+  }
+
+  return true;
+}
+
+bool Instrumenter::CopyResourceSection() {
+  if (resource_section_id_ == pe::kInvalidSection)
+    return true;
+
+  const IMAGE_SECTION_HEADER& section =
+      original_sections()[resource_section_id_];
+
+  std::string name = pe::PEFile::GetSectionName(section);
+  LOG(INFO) << "Copying section " << resource_section_id_ << " (" << name
+      << ").";
+  if (!CopySection(section)) {
+    LOG(ERROR) << "Unable to copy section.";
+    return false;
+  }
+
   return true;
 }

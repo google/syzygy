@@ -32,7 +32,8 @@ TEST_F(RandomRelinkerTest, Relink) {
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),
                               output_dll_path,
-                              temp_dir.Append(kDllPdbName)));
+                              temp_dir.Append(kDllPdbName),
+                              true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }
 
@@ -46,6 +47,7 @@ TEST_F(RandomRelinkerTest, RelinkWithPadding) {
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),
                               output_dll_path,
-                              temp_dir.Append(kDllPdbName)));
+                              temp_dir.Append(kDllPdbName),
+                              true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }

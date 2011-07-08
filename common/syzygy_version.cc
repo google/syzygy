@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/common/syzygy_version.h"
+#include "base/string_util.h"
 
 namespace common {
 
@@ -45,6 +46,11 @@ bool SyzygyVersion::operator==(const SyzygyVersion& rhs) const {
 bool SyzygyVersion::IsCompatible(const SyzygyVersion& rhs) const {
   // Eventually, we may have reason to be less strict here.
   return *this == rhs;
+}
+
+std::string SyzygyVersion::GetVersionString() const {
+  return StringPrintf(
+      "%d.%d.%d.%d (%s)", major_, minor_, build_, patch_, last_change_.c_str());
 }
 
 }  // namespace common

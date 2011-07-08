@@ -183,6 +183,9 @@ class PEFile {
 
 // This structure holds a PE file signature.
 struct PEFile::Signature {
+  Signature() : module_size(0), module_time_date_stamp(0), module_checksum(0) {
+  }
+
   // The original path is kept for convenience.
   std::wstring path;
 

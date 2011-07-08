@@ -116,7 +116,8 @@ TEST_F(RelinkerTest, OffsetCode) {
     ASSERT_TRUE(relinker.Relink(input_dll_path,
                                 input_pdb_path,
                                 output_dll_path,
-                                output_pdb_path));
+                                output_pdb_path,
+                                true));
     ASSERT_TRUE(relinker.WriteOffsetPdbFile(input_pdb_path,
                                             output_pdb_path,
                                             i));

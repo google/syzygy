@@ -35,6 +35,7 @@
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_lib',

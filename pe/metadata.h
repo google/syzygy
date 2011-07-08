@@ -1,0 +1,121 @@
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Declaration of a simple metadata class, which contains toolchain information
+// which will be embedded in the outputs produced by the toolchain. Every
+// output has one thing in common: it is has been produced from or with
+// respect to a given module, and it has been produced by a fixed version of
+// the toolchain.
+
+#ifndef SYZYGY_PE_METADATA_H_
+#define SYZYGY_PE_METADATA_H_
+
+#include "base/logging_win.h"
+#include "base/time.h"
+#include "base/values.h"
+#include "syzygy/common/syzygy_version.h"
+#include "syzygy/core/serialization.h"
+#include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_file_builder.h"
+
+namespace pe {
+
+using base::Time;
+using common::SyzygyVersion;
+
+// Class encapsulating the metadata that is required for traceability and
+// consistency at every step in the toolchain.
+class Metadata {
+ public:
+
+  Metadata();
+
+  // Initialize this metadata for a given module. Automatically infers
+  // command-line, time, and toolchain version from the environment. Assumes
+  // that the singleton CommandLine has already been initialized.
+  bool Init(const PEFile::Signature& module_signature);
+
+  // Confirms the metadata is consistent with the given module and current
+  // toolchain version.
+  bool IsConsistent(const PEFile::Signature& module_signature) const;
+
+  // Functions for serialization to and from JSON.
+  bool SaveToJSON(FILE* file, int indent, bool pretty_print) const;
+  bool LoadFromJSON(const DictionaryValue& metadata);
+
+  // Functions for serialization to and from a PE file.
+  bool SaveToPE(PEFileBuilder* pe_file_builder) const;
+  bool LoadFromPE(const PEFile& pe_file);
+
+  // Serialization functions.
+  template<class OutArchive> bool Save(OutArchive* out_archive) const;
+  template<class InArchive> bool Load(InArchive* in_archive);
+
+  // Comparison operator for serialization testing.
+  bool operator==(const Metadata& rhs) const;
+
+  // Accessors.
+  const std::string& command_line() const { return command_line_; }
+  Time creation_time() const { return creation_time_; }
+  const SyzygyVersion& toolchain_version() const { return toolchain_version_; }
+  const PEFile::Signature module_signature() const { return module_signature_; }
+
+  // Mutators. These are mainly for explicit testing.
+  void set_command_line(const std::string& command_line) {
+    command_line_ = command_line;
+  }
+  void set_creation_time(const Time& creation_time) {
+    creation_time_ = creation_time;
+  }
+  void set_toolchain_version(const SyzygyVersion& toolchain_version) {
+    toolchain_version_ = toolchain_version;
+  }
+  void set_module_signature(const PEFile::Signature& module_signature) {
+    module_signature_ = module_signature;
+  }
+
+ private:
+  // The command-line that was used to produce the output.
+  std::string command_line_;
+  // The time the output was created.
+  Time creation_time_;
+  // The version of the toolchain that produced the output.
+  SyzygyVersion toolchain_version_;
+  // The original module from/for which the output was produced.
+  PEFile::Signature module_signature_;
+
+  DISALLOW_COPY_AND_ASSIGN(Metadata);
+};
+
+// Serialization 'Save' implementation.
+template<class OutArchive> bool Metadata::Save(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+  return out_archive->Save(command_line_) &&
+      out_archive->Save(creation_time_) &&
+      out_archive->Save(toolchain_version_) &&
+      out_archive->Save(module_signature_);
+}
+
+// Serialization 'Load' implementation.
+template<class InArchive> bool Metadata::Load(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  return in_archive->Load(&command_line_) &&
+      in_archive->Load(&creation_time_) &&
+      in_archive->Load(&toolchain_version_) &&
+      in_archive->Load(&module_signature_);
+}
+
+}  // namespace pe
+
+#endif  // SYZYGY_PE_METADATA_H_

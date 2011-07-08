@@ -46,6 +46,8 @@ const char kUsage[] =
     "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
     "    --no-code            Do not reorder code sections.\n"
     "    --no-data            Do not reorder data sections.\n"
+    "    --no-metadata        Prevents the relinker from adding metadata\n"
+    "                         to the output DLL.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-dll is optional.\n";
@@ -103,6 +105,7 @@ int main(int argc, char** argv) {
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
   bool reorder_code = !cmd_line->HasSwitch("no-code");
   bool reorder_data = !cmd_line->HasSwitch("no-data");
+  bool output_metadata = !cmd_line->HasSwitch("no-metadata");
 
   if (output_dll_path.empty()) {
     return Usage("You must specify --output-dll.");
@@ -178,8 +181,11 @@ int main(int argc, char** argv) {
   relinker->set_padding_length(padding);
   relinker->enable_code_reordering(reorder_code);
   relinker->enable_data_reordering(reorder_data);
-  if (!relinker->Relink(
-          input_dll_path, input_pdb_path, output_dll_path, output_pdb_path)) {
+  if (!relinker->Relink(input_dll_path,
+                        input_pdb_path,
+                        output_dll_path,
+                        output_pdb_path,
+                        output_metadata)) {
     return Usage("Unable to reorder the input image.");
   }
 
