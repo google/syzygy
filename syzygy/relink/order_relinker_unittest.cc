@@ -64,7 +64,8 @@ TEST_F(OrderRelinkerTest, Relink) {
   ASSERT_TRUE(relinker.Relink(input_dll_path,
                               input_pdb_path,
                               output_dll_path,
-                              output_pdb_path));
+                              output_pdb_path,
+                              true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }
 
@@ -99,6 +100,7 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   ASSERT_TRUE(relinker.Relink(input_dll_path,
                               input_pdb_path,
                               output_dll_path,
-                              output_pdb_path));
+                              output_pdb_path,
+                              true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }

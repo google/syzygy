@@ -17,8 +17,13 @@
 #include <ctime>
 
 #include "base/lazy_instance.h"
+#include "base/utf_string_conversions.h"
+#include "syzygy/common/defs.h"
+#include "syzygy/common/syzygy_version.h"
+#include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/pe_file_writer.h"
 
@@ -272,7 +277,8 @@ bool RelinkerBase::CopyBlocks(
 Relinker::Relinker()
     : padding_length_(0),
       code_reordering_enabled_(true),
-      data_reordering_enabled_(true) {
+      data_reordering_enabled_(true),
+      resource_section_id_(pe::kInvalidSection) {
 }
 
 size_t Relinker::max_padding_length() {
@@ -322,7 +328,8 @@ bool Relinker::MustReorder(size_t section_index) const {
 bool Relinker::Relink(const FilePath& input_dll_path,
                       const FilePath& input_pdb_path,
                       const FilePath& output_dll_path,
-                      const FilePath& output_pdb_path) {
+                      const FilePath& output_pdb_path,
+                      bool output_metadata) {
   DCHECK(!input_dll_path.empty());
   DCHECK(!input_pdb_path.empty());
   DCHECK(!output_dll_path.empty());
@@ -363,6 +370,17 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   for (size_t i = 0; i < original_num_sections() - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = original_sections()[i];
     const std::string name(pe::PEFile::GetSectionName(section));
+
+    // Skip the resource section if we encounter it.
+    if (name == common::kResourceSectionName) {
+      // We should only ever come across one of these, and it should be
+      // second to last.
+      DCHECK_EQ(i, original_num_sections() - 2);
+      DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
+      resource_section_id_ = i;
+      continue;
+    }
+
     if (MustReorder(i)) {
       LOG(INFO) << "Reordering section " << i << " (" << name << ").";
       if (!ReorderSection(i, section, order)) {
@@ -385,6 +403,16 @@ bool Relinker::Relink(const FilePath& input_dll_path,
     LOG(ERROR) << "Unable to update debug information.";
     return false;
   }
+
+  // Create the metadata section if we're been requested to.
+  if (output_metadata && !WriteMetadataSection(input_dll))
+    return false;
+
+  // We always want the resource section to be next to last (before .relocs).
+  // We currently do not support ordering of the resource section, even if
+  // ordering information was provided!
+  if (!CopyResourceSection())
+    return false;
 
   LOG(INFO) << "Copying the data directories.";
   if (!CopyDataDirectory(decomposed.header)) {
@@ -531,6 +559,38 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
                                    omap_to,
                                    omap_from)) {
     LOG(ERROR) << "Unable to add OMAP data to PDB";
+    return false;
+  }
+
+  return true;
+}
+
+bool Relinker::WriteMetadataSection(const pe::PEFile& input_dll) {
+  LOG(INFO) << "Writing metadata.";
+  pe::Metadata metadata;
+  pe::PEFile::Signature input_dll_sig;
+  input_dll.GetSignature(&input_dll_sig);
+  if (!metadata.Init(input_dll_sig) ||
+      !metadata.SaveToPE(&builder())) {
+    LOG(ERROR) << "Unable to write metadata.";
+    return false;
+  }
+
+  return true;
+}
+
+bool Relinker::CopyResourceSection() {
+  if (resource_section_id_ == pe::kInvalidSection)
+    return true;
+
+  const IMAGE_SECTION_HEADER& section =
+      original_sections()[resource_section_id_];
+
+  std::string name = pe::PEFile::GetSectionName(section);
+  LOG(INFO) << "Copying section " << resource_section_id_ << " (" << name
+      << ").";
+  if (!CopySection(section)) {
+    LOG(ERROR) << "Unable to copy section.";
     return false;
   }
 

@@ -42,7 +42,7 @@ class RelinkerBase {
 
  protected:
   // Sets up the basic relinker state for the given decomposed image.
-  // TODO(rogerm) Logically, the decomposed param should be const. The
+  // TODO(rogerm): Logically, the decomposed param should be const. The
   //     blockgraph managed by the decomposed image is used in a mutable
   //     fashion by the relinker (via its PEFileBuilder). The "correct"
   //     fix would probably be to take a copy of the original block graph
@@ -50,7 +50,7 @@ class RelinkerBase {
   //     concession to make for const-correctness.
   virtual bool Initialize(Decomposer::DecomposedImage& decomposed);
 
-  // Copies data directory header values from the decomposed imaage
+  // Copies data directory header values from the decomposed image
   // into the new image under construction.
   bool CopyDataDirectory(const PEFileParser::PEHeader& original_header);
 
@@ -121,7 +121,8 @@ class Relinker : public RelinkerBase {
   virtual bool Relink(const FilePath& input_dll_path,
                       const FilePath& input_pdb_path,
                       const FilePath& output_dll_path,
-                      const FilePath& output_pdb_path);
+                      const FilePath& output_pdb_path,
+                      bool output_metadata);
 
  protected:
   // Sets up internal state based on the decomposed image.
@@ -158,6 +159,13 @@ class Relinker : public RelinkerBase {
                           size_t size,
                           RelativeAddress* insert_at);
 
+  // Adds toolchain version information, and signature information for the
+  // original DLL. This will be placed in its own section.
+  bool WriteMetadataSection(const pe::PEFile& input_dll);
+
+  // Copies the resource section from the original binary to the new one.
+  bool CopyResourceSection();
+
   size_t padding_length() const { return padding_length_; }
 
  private:
@@ -180,6 +188,9 @@ class Relinker : public RelinkerBase {
   SectionReorderabilityCache section_reorderability_cache_;
   bool code_reordering_enabled_;
   bool data_reordering_enabled_;
+
+  // Stores the index of the resource section, if the original module has one.
+  size_t resource_section_id_;
 };
 
 }  // namespace relink

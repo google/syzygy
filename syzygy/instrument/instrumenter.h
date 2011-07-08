@@ -27,8 +27,8 @@ class Instrumenter : public relink::RelinkerBase {
                   const FilePath& output_dll_path);
 
  private:
-  // Copy all sections (except the .relocs section) from the decomposed
-  // image to the new image.
+  // Copy all sections (except the .relocs and .rsrc sections) from the
+  // decomposed image to the new image.
   bool CopySections();
 
   // Copy and append to the import directory such that an import entry for
@@ -39,10 +39,6 @@ class Instrumenter : public relink::RelinkerBase {
 
   // Instrument code blocks by creating thunks to intercept all references.
   bool InstrumentCodeBlocks(BlockGraph* block_graph);
-
-  // Adds toolchain version information, and signature information for the
-  // original DLL. This will be placed in its own section.
-  bool WriteMetadata(const pe::PEFile& input_dll);
 
   #pragma pack(push)
   #pragma pack(1)
@@ -83,12 +79,23 @@ class Instrumenter : public relink::RelinkerBase {
                       RelativeAddress* insert_at,
                       BlockGraph::Block** thunk_block);
 
+  // Creates a read-only data section containing metadata about the toolchain
+  // and the input module.
+  bool WriteMetadataSection(const pe::PEFile& input_dll);
+
+  // Copies the resource section from the original module to the instrumented
+  // module.
+  bool CopyResourceSection();
+
   // Blocks created while updating the import directory.
   BlockGraph::Block* image_import_by_name_block_;
   BlockGraph::Block* hint_name_array_block_;
   BlockGraph::Block* import_address_table_block_;
   BlockGraph::Block* dll_name_block_;
   BlockGraph::Block* image_import_descriptor_array_block_;
+  // Holds the index of the resource section, if this module has one.
+  // If not, stores kInvalidIndex.
+  size_t resource_section_id_;
 };
 
 #endif  // SYZYGY_INSTRUMENT_INSTRUMENTER_H_

@@ -38,6 +38,9 @@ class SyzygyVersion {
   // toolchain are compatible with this version of the toolchain.
   bool IsCompatible(const SyzygyVersion& rhs) const;
 
+  // Returns the whole version as a version string.
+  std::string GetVersionString() const;
+
   uint16 major() const { return major_; }
   uint16 minor() const { return minor_; }
   uint16 build() const { return build_; }

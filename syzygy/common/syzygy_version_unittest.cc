@@ -64,4 +64,8 @@ TEST(SyzygyVersionTest, Mutators) {
   EXPECT_TRUE(version.last_change() == "5");
 }
 
+TEST(SyzygyVersionTest, VersionString) {
+  EXPECT_TRUE(kSyzygyVersion.GetVersionString() == SYZYGY_VERSION_STRING);
+}
+
 }  // namespace common

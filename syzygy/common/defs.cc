@@ -17,5 +17,6 @@
 namespace common {
 
 const char kSyzygyMetadataSectionName[] = ".syzygy";
+const char kResourceSectionName[] = ".rsrc";
 
 }  // namespace common

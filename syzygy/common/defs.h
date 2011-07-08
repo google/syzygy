@@ -24,6 +24,9 @@ namespace common {
 // for consistency checking between the various parts of the toolchain.
 extern const char kSyzygyMetadataSectionName[];
 
+// Stores the name that is associated with resource sections.
+extern const char kResourceSectionName[];
+
 }  // namespace common
 
 #endif  // SYZYGY_COMMON_DEFS_H_

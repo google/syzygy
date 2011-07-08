@@ -20,6 +20,7 @@
 #define SYZYGY_CORE_SERIALIZATION_IMPL_H_
 
 #include <iterator>
+#include "base/time.h"
 
 namespace core {
 
@@ -266,6 +267,27 @@ bool Load(Type (*data)[Length], InArchive* in_archive) {
     if (!in_archive->Load(&((*data)[i])))
       return false;
   }
+  return true;
+}
+
+// Implementation of serialization for base::Time.
+// We serialize to 'number of seconds since epoch' (represented as a double)
+// as this is consistent regardless of the underlying representation used in
+// base::Time (which may vary wrt timer resolution).
+
+template<class OutArchive>
+bool Save(const base::Time& time, OutArchive* out_archive) {
+  DCHECK(out_archive != NULL);
+  return out_archive->Save(time.ToDoubleT());
+}
+
+template<class InArchive>
+bool Load(base::Time* time, InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  double t;
+  if (!in_archive->Load(&t))
+    return false;
+  *time = base::Time::FromDoubleT(t);
   return true;
 }
 
