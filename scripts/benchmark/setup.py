@@ -55,6 +55,7 @@ _MODULES = [
 ]
 
 _EXECUTABLES = [
+  'msdia90.dll',
   'call_trace.dll',
   'call_trace_control.exe',
   'instrument.exe',
@@ -77,7 +78,8 @@ def main():
       package_dir=_PACKAGE_DIRS,
       py_modules=_MODULES,
       data_files=[('exe', _EXECUTABLES)],
-      install_requires = [
+      eager_resources = ['exe/' + exe for exe in _EXECUTABLES],
+      install_requires=[
         'ETW',
         'ETW-Db',
       ],
