@@ -23,8 +23,10 @@
           'chrome_control.py',
           'chrome_control_test.py',
           'event_counter.py',
+          'optimize.py',
           'runner.py',
           'setup.py',
+          'zip_benchmark.py',
         ],
         'setup_file': [
           'setup.py',
@@ -44,6 +46,7 @@
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
         '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace',
+        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_control',
         '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
         '<(DEPTH)/syzygy/relink/relink.gyp:relink',
         '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder',

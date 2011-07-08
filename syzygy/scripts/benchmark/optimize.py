@@ -46,10 +46,15 @@ _TRACE_FLAG_BATCH_ENTER = 0x0020
 _LOGGER = logging.getLogger(__name__)
 
 
+def _Subprocess(cmd_line):
+  _LOGGER.info('Running command line %s', cmd_line)
+  return subprocess.call(cmd_line)
+
+
 def _RmTree(directory):
   '''Silently do a recursive delete on directory.'''
   # shutil.rmtree can't cope with read-only files.
-  subprocess.call(['cmd.exe', '/c', 'rmdir.exe', '/s', '/q', directory])
+  _Subprocess(['cmd.exe', '/c', 'rmdir.exe', '/s', '/q', directory])
 
 
 class ProfileRunner(runner.ChromeRunner):
@@ -99,7 +104,7 @@ def _InstrumentChrome(chrome_dir, temp_dir):
            '--input-dll=%s' % src_file,
            '--output-dll=%s' % dst_file]
 
-    ret = subprocess.call(cmd)
+    ret = _Subprocess(cmd)
     if ret != 0:
       raise RuntimeError('Failed to instrument "%s".' % file)
 
@@ -122,7 +127,7 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
                                                 r'instrumented\chrome.dll'),
          '--output-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
   cmd.extend(log_files)
-  ret = subprocess.call(cmd)
+  ret = _Subprocess(cmd)
   if ret != 0:
     raise RuntimeError('Failed to generate an ordering for chrome.dll')
 
@@ -139,7 +144,7 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
          '--output-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
          '--output-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
          '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
-  ret = subprocess.call(cmd)
+  ret = _Subprocess(cmd)
   if ret != 0:
     raise RuntimeError('Failed to reorder chrome.dll')
 
