@@ -1,5 +1,4 @@
 @echo off
-rem = """
 :: Copyright 2009 Google Inc.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,9 +14,10 @@ rem = """
 :: limitations under the License.
 set PYTHON="%~p0..\third_party\python_26\python.exe"
 set SCRIPT="%~p0py\test_utils\gyp_tests.py"
+set GYP="%~p0syzygy.gyp"
 set INTERNAL_TESTS="%~p0internal\run_all_tests.bat"
 
-%PYTHON% %SCRIPT% %*
+%PYTHON% %SCRIPT% --gyp-file=%GYP% %*
 
 IF EXIST %INTERNAL_TESTS% (
 %INTERNAL_TESTS% %*

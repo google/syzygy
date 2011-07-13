@@ -121,7 +121,12 @@ class Test(object):
 
     self._MakeSuccessFile(configuration)
 
-  def _GetOptParser(self):
+  @staticmethod
+  def _GetOptParser():
+    """Builds an option parser for this class. This function is static as
+    it may be called by the constructor of derived classes before the object
+    is fully initialized. It may also be overridden by derived classes so that
+    they may augment the option parser with additional options."""
     parser = optparse.OptionParser()
     parser.add_option('-c', '--config', dest='configs',
                       action='append', default=[],
@@ -139,7 +144,7 @@ class Test(object):
 
   def Main(self):
     opt_parser = self._GetOptParser()
-    options, args = opt_parser.parse_args()
+    options, unused_args = opt_parser.parse_args()
 
     logging.basicConfig(level=options.log_level)
 
