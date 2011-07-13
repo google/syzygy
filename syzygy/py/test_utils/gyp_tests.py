@@ -19,6 +19,7 @@ import ast
 import build_project
 import logging
 import os
+import optparse
 import presubmit
 import re
 import subprocess
@@ -54,8 +55,21 @@ class GypTests(testing.TestSuite):
   """A collection of unittests extracted from the unittests.gypi gyp include
   file associated with the a gyp project."""
 
-  def __init__(self, gyp_path):
+  def __init__(self, gyp_path=None):
+    """Initializes this set of tests for a given GYP project. If gyp_path is
+    not explicitly provided in the constructor, it is assumed that it is
+    passed in on the command-line via '-g' or '--gyp-file'."""
+    if not gyp_path:
+      parser = GypTests._GetOptParser()
+      options, unused_args = parser.parse_args()
+      if not options.gyp_file:
+        parser.error('You must specify a root project GYP file.')
+      gyp_path = options.gyp_file
+
     gyp_path = os.path.abspath(gyp_path)
+    if not os.path.exists(gyp_path):
+      raise Error('gyp file "%s" does not exist.' % (gyp_path))
+
     project_dir = os.path.dirname(gyp_path)
     testing.TestSuite.__init__(self, project_dir, 'ALL', [])
 
@@ -66,6 +80,16 @@ class GypTests(testing.TestSuite):
     # Parse the gypi file and extract the tests.
     gypi_path = os.path.join(project_dir, 'unittests.gypi')
     self._ExtractTestsFromGypi(gypi_path)
+
+  @staticmethod
+  def _GetOptParser():
+    """We override the base class option parser so as to augment it with
+    the options that we make available."""
+    parser = testing.TestSuite._GetOptParser()
+    parser.add_option('-g', '--gyp-file', dest='gyp_file',
+                      help='The root project GYP file whose tests you want '
+                           'to run.')
+    return parser
 
   def _ExtractTestsFromGypi(self, gypi_path):
     """Parses a gypi file containing a list of unittests (defined as a
@@ -125,8 +149,7 @@ class GypTests(testing.TestSuite):
 
 def Main():
   try:
-    root_gyp = os.path.dirname(__file__) + '/../../syzygy.gyp'
-    tests = GypTests(root_gyp)
+    tests = GypTests()
     return tests.Main()
   except SystemExit:
     # optparse can cause a SystemExit exception to be raised, which we catch
@@ -134,6 +157,7 @@ def Main():
     pass
   except:
     logging.exception('GypTests.Main failed.')
+
   return 1
 
 
