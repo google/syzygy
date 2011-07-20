@@ -544,6 +544,17 @@ template<typename T> bool FindDiaTable(IDiaSession* session,
   return false;
 }
 
+// Returns true if the given data consists purely of int3s. The MS linker
+// pads between code blocks with int3s.
+bool IsInt3s(const uint8* data, size_t size) {
+  static const uint8 kInt3 = 0xCC;
+  for (const uint8* data_end = data + size; data < data_end; ++data) {
+    if (*data != kInt3)
+      return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 namespace pe {
@@ -638,13 +649,18 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   if (success)
     success = ParseRelocs();
 
+  // Our first round of parsing is using section contributions. This creates
+  // both code and data blocks.
+  if (!CreateBlocksFromSectionContribs(dia_session))
+    return false;
+
   // Chunk out blocks for each function and thunk in the image.
   if (success)
     success = CreateCodeBlocks(global);
 
   // Chunk out data blocks.
   if (success)
-    success = CreateDataBlocks(dia_session, global);
+    success = CreateDataBlocks(global);
 
   // Create labels in code blocks. These are created first so that the
   // labels will have meaningful names.
@@ -849,17 +865,27 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
     return false;
   }
 
+  RelativeAddress block_addr(rva);
   BlockGraph::Block* block =
       FindOrCreateBlock(BlockGraph::CODE_BLOCK,
-                        RelativeAddress(rva),
+                        block_addr,
                         static_cast<BlockGraph::Size>(length),
-                        block_name.c_str());
+                        block_name.c_str(),
+                        kAllowCoveringBlock);
   if (block == NULL)
     return false;
-
   DCHECK(block->data() != NULL);
 
-  block->SetLabel(0, block_name.c_str());
+  // We override the name as it may have been created by section contributions
+  // before hand. Offset may be non-zero, because FindOrCreateBlock may return a
+  // block that is a superset of our range.
+  size_t offset = block_addr - block->addr();
+  if (offset == 0)
+    block->set_name(block_name.c_str());
+
+  // Annotate the block with a label, as this is an entry point to it.
+  block->SetLabel(offset, block_name.c_str());
+
   if (no_return == TRUE)
     block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
 
@@ -1062,6 +1088,32 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
   return true;
 }
 
+bool Decomposer::CreateGapBlock(BlockGraph::BlockType block_type,
+                                RelativeAddress address,
+                                BlockGraph::Size size) {
+  BlockGraph::Block* block = FindOrCreateBlock(block_type, address, size,
+      StringPrintf("Gap Block 0x%08X", address.value()).c_str(),
+      kExpectNoBlock);
+  if (block == NULL) {
+    LOG(ERROR) << "Unable to create gap block.";
+    return false;
+  }
+  block->set_attribute(BlockGraph::GAP_BLOCK);
+
+  // If this a code block, check to see if this is purely int3 padding.
+  // If it is, we mark it as a padding block.
+  if (block_type == BlockGraph::CODE_BLOCK) {
+    const uint8* data = image_file_.GetImageData(address, size);
+    // For .text, RawDataSize and VirtualSize should be equal, so this should
+    // never happen.
+    DCHECK(data != NULL);
+    if (IsInt3s(data, size))
+      block->set_attribute(BlockGraph::PADDING_BLOCK);
+  }
+
+  return true;
+}
+
 bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                                         BlockGraph::BlockType block_type) {
   RelativeAddress section_begin(header->VirtualAddress);
@@ -1080,36 +1132,16 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
           BlockGraph::AddressSpace::Range(section_end,
                                           image_end - section_end)));
 
-  if (it == end) {
-    // No block for the section, map the whole thing.
-    BlockGraph::Block* section = FindOrCreateBlock(
-        block_type, section_begin, section_end - section_begin,
-        StringPrintf("Gap Section %s", header->Name).c_str());
-    DCHECK(section != NULL);
-    section->set_attribute(BlockGraph::GAP_BLOCK);
-    if (section->data() == NULL) {
-      // The section is only partially defined.
-      const uint8* data = image_file_.GetImageData(section_begin,
-                                                   header->SizeOfRawData);
-      DCHECK(data != NULL);
-      section->set_data(data);
-      section->set_data_size(header->SizeOfRawData);
-    }
+  // The whole section is missing. Cover it with one gap block.
+  if (it == end)
+    return CreateGapBlock(
+        block_type, section_begin, section_end - section_begin);
 
-    return true;
-  }
-
-  // Do we need to fill in the start?
-  if (section_begin < it->first.start()) {
-    BlockGraph::Block* added = FindOrCreateBlock(block_type, section_begin,
-        it->first.start() - section_begin, "Gap Start Block");
-    added->set_attribute(BlockGraph::GAP_BLOCK);
-    if (!added) {
-      LOG(ERROR) << "Failed to create block for start of code section "
-          << header->Name;
+  // Create the head gap block if need be.
+  if (section_begin < it->first.start())
+    if (!CreateGapBlock(
+        block_type, section_begin, it->first.start() - section_begin))
       return false;
-    }
-  }
 
   // Now iterate the blocks and fill in gaps.
   for (; it != end; ++it) {
@@ -1123,24 +1155,18 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
     BlockGraph::AddressSpace::RangeMap::const_iterator next = it;
     ++next;
     if (next == end) {
-      // We're at the end of the list.
+      // We're at the end of the list. Create the tail gap block.
       DCHECK_GT(section_end, block_end);
-      BlockGraph::Block* added = FindOrCreateBlock(block_type,
-                                                   block_end,
-                                                   section_end - block_end,
-                                                   "Gap Tail Block");
-      DCHECK(added != NULL);
-      added->set_attribute(BlockGraph::GAP_BLOCK);
+      if (!CreateGapBlock(block_type, block_end, section_end - block_end))
+        return false;
       break;
     }
 
-    if (block_end < next->first.start()) {
-      BlockGraph::Block* added = FindOrCreateBlock(
-          block_type, block_end, next->first.start() - block_end,
-          StringPrintf("Gap Block 0x%08X", block_end).c_str());
-      DCHECK(added != NULL);
-      added->set_attribute(BlockGraph::GAP_BLOCK);
-    }
+    // Create the interstitial gap block.
+    if (block_end < next->first.start())
+      if (!CreateGapBlock(
+          block_type, block_end, next->first.start() - block_end))
+        return false;
   }
 
   return true;
@@ -1259,7 +1285,7 @@ bool Decomposer::ValidateRelocs(const PEFile::RelocMap& reloc_map) {
   return true;
 }
 
-bool Decomposer::ProcessSectionContribs(IDiaSession* session) {
+bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
   ScopedComPtr<IDiaEnumSectionContribs> section_contribs;
   if (!FindDiaTable(session, section_contribs.Receive()))
     return false;
@@ -1304,27 +1330,25 @@ bool Decomposer::ProcessSectionContribs(IDiaSession* session) {
     if (section_id == rsrc_id)
       continue;
 
-    // We don't parse code, as it is parsed using symbols.
-    // TODO(chrisha): We eventually want to parse code using section
-    //     contributions as well
-    if (code)
-      continue;
-
     std::string name;
     if (!WideToUTF8(bstr_name, bstr_name.Length(), &name)) {
       LOG(ERROR) << "Failed to convert compiland name to UTF8.";
       return false;
     }
 
-    // Create the data block.
-    BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
+    // Create the block.
+    BlockGraph::BlockType block_type =
+        code ? BlockGraph::CODE_BLOCK : BlockGraph::DATA_BLOCK;
+    BlockGraph::Block* block = FindOrCreateBlock(block_type,
                                                  RelativeAddress(rva),
                                                  length,
-                                                 name.c_str());
+                                                 name.c_str(),
+                                                 kExpectNoBlock);
     if (block == NULL) {
-      LOG(ERROR) << "Unable to create data block.";
+      LOG(ERROR) << "Unable to create block.";
       return false;
     }
+    block->set_attribute(BlockGraph::SECTION_CONTRIB);
   }
 
   return true;
@@ -1630,13 +1654,7 @@ bool Decomposer::ProcessPublicSymbols(IDiaSymbol* root) {
   return dia_browser.Browse(root);
 }
 
-bool Decomposer::CreateDataBlocks(IDiaSession* session, IDiaSymbol* global) {
-  // Our first round of data parsing is using section contributions.
-  // TODO(chrisha): We eventually want to use this for .text processing as well,
-  //     in which case it will need to be called much earlier on.
-  if (!ProcessSectionContribs(session))
-    return false;
-
+bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
   // Create data blocks using data symbols.
   if (!ProcessDataSymbols(global))
     return false;
@@ -1862,26 +1880,39 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
   return block;
 }
 
-BlockGraph::Block* Decomposer::FindOrCreateBlock(BlockGraph::BlockType type,
-                                                 RelativeAddress addr,
-                                                 BlockGraph::Size size,
-                                                 const char* name) {
+BlockGraph::Block* Decomposer::FindOrCreateBlock(
+    BlockGraph::BlockType type,
+    RelativeAddress addr,
+    BlockGraph::Size size,
+    const char* name,
+    FindOrCreateBlockDirective directive) {
   BlockGraph::Block* block = image_->GetBlockByAddress(addr);
   if (block != NULL) {
-    RelativeAddress block_addr;
-    if (!image_->GetAddressOf(block, &block_addr)) {
-      LOG(ERROR) << "No address for block " << block->name();
-      return NULL;
-    }
-
-    // Allow collisions where the new block is a proper subset of
+    // Always allow collisions where the new block is a proper subset of
     // an existing PE parsed block. The PE parser often knows more than we do
     // about blocks that need to stick together.
-    if ((block->attributes() & BlockGraph::PE_PARSED) != 0 &&
-        addr >= block_addr && addr + size <= block_addr + block->size())
-      return block;
+    if (block->attributes() & BlockGraph::PE_PARSED)
+      directive = kAllowCoveringBlock;
 
-    if (block_addr != addr || block->size() != size) {
+    bool collision = false;
+    switch (directive) {
+      case kExpectNoBlock: {
+        collision = true;
+        break;
+      }
+      case kAllowIdenticalBlock: {
+        collision = (block->addr() != addr || block->size() != size);
+        break;
+      }
+      default: {
+        DCHECK(directive == kAllowCoveringBlock);
+        collision = block->addr() > addr ||
+            (block->addr() + block->size()) < addr + size;
+        break;
+      }
+    }
+
+    if (collision) {
       LOG(ERROR) << "Block collision for function at "
           << addr.value() << "(" << size << ") with " << block->name();
       return NULL;
@@ -2007,21 +2038,14 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     // For short references, we should not see a fixup.
     ValidateOrAddReferenceMode mode = FIXUP_MUST_NOT_EXIST;
     if (size == kPointerSize) {
-      // Long PC_RELATIVE reference within a single block?
-      if (block->Contains(src, kPointerSize)) {
+      // Long PC_RELATIVE reference within a single block? FIXUPs aren't
+      // strictly necessary.
+      if (block->Contains(src, kPointerSize))
         mode = FIXUP_MAY_EXIST;
-      } else {
-        // TODO(chrisha): Currently, we are overly aggressively subdividing
-        //     functions. We eventually (try to) patch them through our
-        //     ScheduleBlocksForMerging mechanism, but at the time being we
-        //     mislabel intra-block jumps as inter-block jumps. It is our
-        //     suspicion that FIXUPs are not provided for 4-byte PC_RELATIVE
-        //     references that originate and land within the same COMDAT.
-        //     This needs to be revisited once we parse SectionContribs as
-        //     our initial chunking. When this happens, try
-        //     mode = FIXUP_MUST_EXIST here.
-        mode = FIXUP_MAY_EXIST;
-      }
+      else
+        // But if they're between blocks (section contributions), we expect to
+        // find them.
+        mode = FIXUP_MUST_EXIST;
     }
 
     // Validate or create the reference, as necessary.

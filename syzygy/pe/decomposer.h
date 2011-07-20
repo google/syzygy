@@ -108,18 +108,21 @@ class Decomposer {
   // blocks.
   bool CreateGlobalLabels(IDiaSymbol* globals);
 
+  // Creates a gap block of type @p block_type for the given range. For use by
+  // CreateSectionGapBlocks.
+  bool CreateGapBlock(BlockGraph::BlockType block_type,
+                      RelativeAddress address,
+                      BlockGraph::Size size);
   // Create blocks of type @p block_type for any gaps in the image
   // section represented by @p header.
   bool CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                               BlockGraph::BlockType block_type);
 
-  // Processes the SectionContribution table.
-  bool ProcessSectionContribs(IDiaSession* session);
-  bool ProcessSectionContrib(IDiaSectionContrib* section_contrib,
-                             size_t rsrc_id);
+  // Processes the SectionContribution table, creating code/data blocks from it.
+  bool CreateBlocksFromSectionContribs(IDiaSession* session);
 
     // Creates data blocks.
-  bool CreateDataBlocks(IDiaSession* session, IDiaSymbol* global);
+  bool CreateDataBlocks(IDiaSymbol* global);
   // Creates data gap blocks.
   bool CreateDataGapBlocks();
   // Guesses data block alignments and padding.
@@ -197,15 +200,27 @@ class Decomposer {
                                  BlockGraph::Size size,
                                  const char* name);
 
+  enum FindOrCreateBlockDirective {
+    // Expect that no block exists in the given range and that a block will be
+    // created.
+    kExpectNoBlock,
+    // Allow the existence of a block with identical range to that provided.
+    kAllowIdenticalBlock,
+    // Allow the existence of a block that completely covers the provided range.
+    kAllowCoveringBlock,
+  };
   // Create block for the given @p address and @p size of the given @p type,
   // or return an existant block that has the same @p type, @p address and
-  // @p size.
+  // @p size. Care must be taken in using the returned block. Regardless of the
+  // provided directive, the block that is returned may be a strict superset
+  // of the requested range, and offsets into it may need to be calculated.
   // @returns the block created or found, or NULL if there's a conflicting block
   //    for the address range.
   BlockGraph::Block* FindOrCreateBlock(BlockGraph::BlockType type,
                                        RelativeAddress address,
                                        BlockGraph::Size size,
-                                       const char* name);
+                                       const char* name,
+                                       FindOrCreateBlockDirective directive);
 
   // Called through a callback during function disassembly.
   void OnInstruction(const Disassembler& disassembler,

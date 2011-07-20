@@ -61,6 +61,16 @@ bool RandomRelinker::ReorderSection(size_t section_index,
   for (;block_iter != blocks.end(); ++block_iter) {
     BlockGraph::Block* block = *block_iter;
 
+    // TODO(chrisha): There's presently a bunch of duplicated code here
+    //     in each of the relinkers. A better API for the Relinker base-class
+    //     would remove this duplication.
+
+    // If this block is a padding block, and it has no references or referrers,
+    // then we need not output it.
+    if (block->attributes() & BlockGraph::PADDING_BLOCK &&
+        block->references().size() == 0 && block->referrers().size() == 0)
+      continue;
+
     // Align the output cursor.
     size_t padding = insert_at.AlignUp(block->alignment()) - insert_at;
     if (!InsertPaddingBlock(block->type(), padding, &insert_at))

@@ -45,13 +45,17 @@ class BlockGraph {
 
   enum BlockAttributeEnum {
     // Set for functions declared non-returning.
-    NON_RETURN_FUNCTION = 0x1,
+    NON_RETURN_FUNCTION = (1 << 0),
     // Set for blocks that are inferred by the decomposer.
-    GAP_BLOCK = 0x2,
+    GAP_BLOCK = (1 << 1),
     // Set for blocks that are parsed by the PEFileParser. These
     // blocks are unmovable, indivisible, etc, and have to be treated
     // specially.
-    PE_PARSED = 0x4,
+    PE_PARSED = (1 << 2),
+    // Set for blocks that are created from section contribution information.
+    SECTION_CONTRIB = (1 << 3),
+    // This is used to indicate that a block consists purely of padding data.
+    PADDING_BLOCK = (1 << 4),
   };
 
   enum BlockType {
