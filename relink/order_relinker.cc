@@ -146,7 +146,17 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
   for (; block_iter != block_order.end(); ++block_iter) {
     const BlockGraph::Block* block = *block_iter;
 
+    // TODO(chrisha): There's presently a bunch of duplicated code here
+    //     in each of the relinkers. A better API for the Relinker base-class
+    //     would remove this duplication.
+
     if (!BlockMatchesInitType(block_init_type, block))
+      continue;
+
+    // If this block is a padding block, and it has no references or referrers,
+    // then we need not output it.
+    if (block->attributes() & BlockGraph::PADDING_BLOCK &&
+        block->references().size() == 0 && block->referrers().size() == 0)
       continue;
 
     // The ordering file shouldn't list a given block twice. But let's not
