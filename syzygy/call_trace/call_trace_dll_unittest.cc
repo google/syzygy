@@ -28,7 +28,31 @@
 
 namespace {
 
-typedef std::pair<base::Time, FuncAddr> Call;
+enum CallEntryType {
+  kCallEntry,
+  kCallExit,
+};
+
+struct Call {
+  base::Time entry;
+  FuncAddr address;
+  CallEntryType type;
+};
+
+bool operator<(const Call& a, const Call& b) {
+  if (a.entry < b.entry)
+    return true;
+  if (a.entry > b.entry)
+    return false;
+
+  if (a.address < b.address)
+    return true;
+  if (a.address > b.address)
+    return false;
+
+  return a.type < b.type;
+}
+
 typedef std::multiset<FuncAddr> CalledAddresses;
 typedef std::multiset<Call> Calls;
 
@@ -65,14 +89,18 @@ class TestCallTraceConsumer
                             DWORD process_id,
                             DWORD thread_id,
                             const TraceEnterExitEventData* data) {
-    NOTREACHED();
+    entered_addresses_.insert(data->function);
+    Call call = { time, data->function, kCallEntry };
+    calls_.insert(call);
   }
 
   virtual void OnTraceExit(base::Time time,
-                          DWORD process_id,
-                          DWORD thread_id,
-                          const TraceEnterExitEventData* data) {
-    NOTREACHED();
+                           DWORD process_id,
+                           DWORD thread_id,
+                           const TraceEnterExitEventData* data) {
+    exited_addresses_.insert(data->function);
+    Call call = { time, data->function, kCallExit };
+    calls_.insert(call);
   }
 
   virtual void OnTraceBatchEnter(base::Time time,
@@ -80,17 +108,25 @@ class TestCallTraceConsumer
                                  DWORD thread_id,
                                  const TraceBatchEnterData* data) {
     for (size_t i = 0; i < data->num_calls; ++i) {
-      called_addresses_.insert(data->calls[i].function);
-      calls_.insert(Call(
+      entered_addresses_.insert(data->calls[i].function);
+      Call call = {
           time - base::TimeDelta::FromMilliseconds(data->calls[i].ticks_ago),
-          data->calls[i].function));
+          data->calls[i].function,
+          kCallEntry };
+      calls_.insert(call);
     }
   }
 
-  void GetCalledAddresses(CalledAddresses* called_addresses) {
-    ASSERT_TRUE(called_addresses != NULL);
-    called_addresses_.swap(*called_addresses);
+  void GetEnteredAddresses(CalledAddresses* entered_addresses) {
+    ASSERT_TRUE(entered_addresses != NULL);
+    entered_addresses_.swap(*entered_addresses);
   }
+
+  void GetExitedAddresses(CalledAddresses* exited_addresses) {
+    ASSERT_TRUE(exited_addresses != NULL);
+    exited_addresses_.swap(*exited_addresses);
+  }
+
   void GetCalls(Calls* calls) {
     ASSERT_TRUE(calls != NULL);
     calls_.swap(*calls);
@@ -100,7 +136,8 @@ class TestCallTraceConsumer
   CallTraceParser call_trace_parser_;
   static TestCallTraceConsumer *consumer_;
   DWORD process_id_;
-  CalledAddresses called_addresses_;
+  CalledAddresses entered_addresses_;
+  CalledAddresses exited_addresses_;
   Calls calls_;
 };
 
@@ -111,19 +148,19 @@ const wchar_t* const kTestSessionName = L"TestLogSession";
 // the content comes through.
 class CallTraceDllTest: public testing::Test {
  public:
-  CallTraceDllTest()
-      : module_(NULL),
-        wait_til_disabled_(NULL),
-        wait_til_enabled_(NULL),
-        is_private_session_(false) {
+  CallTraceDllTest() : module_(NULL), wait_til_disabled_(NULL),
+      wait_til_enabled_(NULL), is_private_session_(false) {
   }
 
   virtual void SetUp() {
     base::win::EtwTraceProperties properties;
     base::win::EtwTraceController::Stop(kTestSessionName, &properties);
+
+    // The call trace DLL should not be already loaded.
+    ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace.dll"));
+
     // Construct a temp file name.
     ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
-    ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace.dll"));
 
     // Set up a file session.
     HRESULT hr = controller_.StartFileSession(kTestSessionName,
@@ -167,14 +204,16 @@ class CallTraceDllTest: public testing::Test {
       hr = consumer_.Consume();
     consumer_.Close();
     // And nab the result.
-    called_addresses_.clear();
+    entered_addresses_.clear();
+    exited_addresses_.clear();
     calls_.clear();
-    consumer_.GetCalledAddresses(&called_addresses_);
+    consumer_.GetEnteredAddresses(&entered_addresses_);
+    consumer_.GetExitedAddresses(&exited_addresses_);
     consumer_.GetCalls(&calls_);
     return hr;
   }
 
-  void LoadAndEnableCallTraceDll() {
+  void LoadAndEnableCallTraceDll(ULONG flags) {
     // For a private ETW session, a provider must be
     // registered before it's enabled.
     if (is_private_session_) {
@@ -183,8 +222,8 @@ class CallTraceDllTest: public testing::Test {
 
     ASSERT_HRESULT_SUCCEEDED(
         controller_.EnableProvider(kCallTraceProvider,
-                                  CALL_TRACE_LEVEL,
-                                  TRACE_FLAG_BATCH_ENTER));
+                                   CALL_TRACE_LEVEL,
+                                   flags));
 
     if (!is_private_session_) {
       ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
@@ -196,6 +235,8 @@ class CallTraceDllTest: public testing::Test {
     module_ = ::LoadLibrary(L"call_trace.dll");
     ASSERT_TRUE(module_ != NULL);
     _indirect_penter_ = GetProcAddress(module_, "_indirect_penter");
+    _penter_ = GetProcAddress(module_, "_penter");
+    _pexit_ = GetProcAddress(module_, "_pexit");
     wait_til_enabled_ = reinterpret_cast<WaitFuncType>(
         GetProcAddress(module_, "wait_til_enabled"));
     wait_til_disabled_ = reinterpret_cast<WaitFuncType>(
@@ -211,13 +252,16 @@ class CallTraceDllTest: public testing::Test {
       ASSERT_TRUE(::FreeLibrary(module_));
       module_ = NULL;
       _indirect_penter_ = NULL;
+      _penter_ = NULL;
+      _pexit_ = NULL;
+
       wait_til_disabled_ = NULL;
       wait_til_enabled_ = NULL;
     }
   }
 
-  friend void thunkA();
-  friend void thunkB();
+  friend void IndirectThunkA();
+  friend void IndirectThunkB();
 
  protected:
   typedef bool (*WaitFuncType)(void);
@@ -225,7 +269,8 @@ class CallTraceDllTest: public testing::Test {
   WaitFuncType wait_til_disabled_;
 
   base::win::EtwTraceController controller_;
-  CalledAddresses called_addresses_;
+  CalledAddresses entered_addresses_;
+  CalledAddresses exited_addresses_;
   Calls calls_;
 
   // True iff controller_ has started a private file session.
@@ -234,9 +279,13 @@ class CallTraceDllTest: public testing::Test {
   FilePath temp_file_;
   HMODULE module_;
   static FARPROC _indirect_penter_;
+  static FARPROC _penter_;
+  static FARPROC _pexit_;
 };
 
 FARPROC CallTraceDllTest::_indirect_penter_ = 0;
+FARPROC CallTraceDllTest::_penter_ = 0;
+FARPROC CallTraceDllTest::_pexit_ = 0;
 
 TEST(CallTraceDllLoadUnloadTest, ProcessAttach) {
   HMODULE module = ::LoadLibrary(L"call_trace.dll");
@@ -244,31 +293,31 @@ TEST(CallTraceDllLoadUnloadTest, ProcessAttach) {
   ASSERT_TRUE(::FreeLibrary(module));
 }
 
-void functionA() {
+void IndirectFunctionA() {
   rand();
 }
 
-void __declspec(naked) thunkA() {
+void __declspec(naked) IndirectThunkA() {
   __asm {
-    push functionA
+    push IndirectFunctionA
     jmp CallTraceDllTest::_indirect_penter_
   }
 }
 
-void functionB() {
+void IndirectFunctionB() {
   clock();
 }
 
-void __declspec(naked) thunkB() {
+void __declspec(naked) IndirectThunkB() {
   __asm {
-    push functionB
+    push IndirectFunctionB
     jmp CallTraceDllTest::_indirect_penter_
   }
 }
 
-class FunctionThread : public base::DelegateSimpleThread::Delegate {
+class IndirectFunctionThread : public base::DelegateSimpleThread::Delegate {
  public:
-  FunctionThread(int invocation_count, void (*f)(void), DWORD delay = 0)
+  IndirectFunctionThread(int invocation_count, void (*f)(void), DWORD delay = 0)
       : invocation_count_(invocation_count), f_(f), delay_(delay) {
     exit_event_.Set(::CreateEvent(NULL, TRUE, FALSE, NULL));
     CHECK(exit_event_);
@@ -306,29 +355,29 @@ class FunctionThread : public base::DelegateSimpleThread::Delegate {
 }  // namespace
 
 TEST_F(CallTraceDllTest, SingleThread) {
-  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll());
+  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll(TRACE_FLAG_BATCH_ENTER));
 
   ASSERT_TRUE(wait_til_enabled_());
 
-  thunkA();
-  thunkA();
-  thunkA();
+  IndirectThunkA();
+  IndirectThunkA();
+  IndirectThunkA();
 
   UnloadCallTraceDll();
 
   ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
   ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
 
-  ASSERT_EQ(3, called_addresses_.size());
-  ASSERT_EQ(3, called_addresses_.count(functionA));
+  ASSERT_EQ(3, entered_addresses_.size());
+  ASSERT_EQ(3, entered_addresses_.count(IndirectFunctionA));
 }
 
 TEST_F(CallTraceDllTest, MultiThreadWithDetach) {
-  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll());
+  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll(TRACE_FLAG_BATCH_ENTER));
 
   ASSERT_TRUE(wait_til_enabled_());
 
-  FunctionThread runner_a(2, thunkA);
+  IndirectFunctionThread runner_a(2, IndirectThunkA);
 
   base::DelegateSimpleThread thread(&runner_a, "thread a");
 
@@ -341,16 +390,16 @@ TEST_F(CallTraceDllTest, MultiThreadWithDetach) {
   ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
   ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
 
-  ASSERT_EQ(2, called_addresses_.size());
-  ASSERT_EQ(2, called_addresses_.count(functionA));
+  ASSERT_EQ(2, entered_addresses_.size());
+  ASSERT_EQ(2, entered_addresses_.count(IndirectFunctionA));
 }
 
 TEST_F(CallTraceDllTest, MultiThreadWithoutDetach) {
-  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll());
+  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll(TRACE_FLAG_BATCH_ENTER));
 
   ASSERT_TRUE(wait_til_enabled_());
 
-  FunctionThread runner_a(2, thunkA);
+  IndirectFunctionThread runner_a(2, IndirectThunkA);
 
   base::DelegateSimpleThread thread(&runner_a, "thread a");
 
@@ -365,22 +414,22 @@ TEST_F(CallTraceDllTest, MultiThreadWithoutDetach) {
   ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
   ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
 
-  ASSERT_EQ(2, called_addresses_.size());
-  ASSERT_EQ(2, called_addresses_.count(functionA));
+  ASSERT_EQ(2, entered_addresses_.size());
+  ASSERT_EQ(2, entered_addresses_.count(IndirectFunctionA));
 }
 
 TEST_F(CallTraceDllTest, TicksAgo) {
-  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll());
+  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll(TRACE_FLAG_BATCH_ENTER));
 
   ASSERT_TRUE(wait_til_enabled_());
 
-  FunctionThread runners[] = {
-      FunctionThread(1, thunkA, 10),
-      FunctionThread(2, thunkB, 10),
-      FunctionThread(3, thunkA, 10),
-      FunctionThread(4, thunkB, 10),
-      FunctionThread(5, thunkA, 10),
-      FunctionThread(6, thunkB, 10) };
+  IndirectFunctionThread runners[] = {
+      IndirectFunctionThread(1, IndirectThunkA, 10),
+      IndirectFunctionThread(2, IndirectThunkB, 10),
+      IndirectFunctionThread(3, IndirectThunkA, 10),
+      IndirectFunctionThread(4, IndirectThunkB, 10),
+      IndirectFunctionThread(5, IndirectThunkA, 10),
+      IndirectFunctionThread(6, IndirectThunkB, 10) };
 
   base::DelegateSimpleThread threads[] = {
       base::DelegateSimpleThread(&runners[0], "thread 0"),
@@ -415,32 +464,38 @@ TEST_F(CallTraceDllTest, TicksAgo) {
   ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
   ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
 
-  ASSERT_EQ(21, called_addresses_.size());
-  ASSERT_LE(9U, called_addresses_.count(functionA));
-  ASSERT_LE(12U, called_addresses_.count(functionB));
+  ASSERT_EQ(21, entered_addresses_.size());
+  ASSERT_LE(9U, entered_addresses_.count(IndirectFunctionA));
+  ASSERT_LE(12U, entered_addresses_.count(IndirectFunctionB));
 
   std::vector<FuncAddr> call_sequence(calls_.size());
   for (Calls::iterator it = calls_.begin(); it != calls_.end(); ++it)
-    call_sequence.push_back(it->second);
+    call_sequence.push_back(it->address);
 
   std::vector<FuncAddr> expected_call_sequence(21);
-  expected_call_sequence.insert(expected_call_sequence.end(), 1, functionA);
-  expected_call_sequence.insert(expected_call_sequence.end(), 2, functionB);
-  expected_call_sequence.insert(expected_call_sequence.end(), 3, functionA);
-  expected_call_sequence.insert(expected_call_sequence.end(), 4, functionB);
-  expected_call_sequence.insert(expected_call_sequence.end(), 5, functionA);
-  expected_call_sequence.insert(expected_call_sequence.end(), 6, functionB);
+  expected_call_sequence.insert(
+      expected_call_sequence.end(), 1, IndirectFunctionA);
+  expected_call_sequence.insert(
+      expected_call_sequence.end(), 2, IndirectFunctionB);
+  expected_call_sequence.insert(
+      expected_call_sequence.end(), 3, IndirectFunctionA);
+  expected_call_sequence.insert(
+      expected_call_sequence.end(), 4, IndirectFunctionB);
+  expected_call_sequence.insert(
+      expected_call_sequence.end(), 5, IndirectFunctionA);
+  expected_call_sequence.insert(
+      expected_call_sequence.end(), 6, IndirectFunctionB);
 
   ASSERT_THAT(call_sequence, testing::ContainerEq(expected_call_sequence));
 }
 
 TEST_F(CallTraceDllTest, MultiThreadWithStopCallTrace) {
-  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll());
+  ASSERT_NO_FATAL_FAILURE(LoadAndEnableCallTraceDll(TRACE_FLAG_BATCH_ENTER));
 
   ASSERT_TRUE(wait_til_enabled_());
 
-  FunctionThread runner_a(2, thunkA);
-  FunctionThread runner_b(77, thunkB);
+  IndirectFunctionThread runner_a(2, IndirectThunkA);
+  IndirectFunctionThread runner_b(77, IndirectThunkB);
 
   base::DelegateSimpleThread thread_a(&runner_a, "thread a");
   base::DelegateSimpleThread thread_b(&runner_b, "thread b");
@@ -464,6 +519,85 @@ TEST_F(CallTraceDllTest, MultiThreadWithStopCallTrace) {
   thread_a.Join();
   thread_b.Join();
 
-  ASSERT_EQ(2, called_addresses_.count(functionA));
-  ASSERT_EQ(77, called_addresses_.count(functionB));
+  ASSERT_EQ(2, entered_addresses_.count(IndirectFunctionA));
+  ASSERT_EQ(77, entered_addresses_.count(IndirectFunctionB));
+}
+
+namespace {
+
+void __declspec(naked) RecursiveFunction(int depth) {
+  __asm {
+    call CallTraceDllTest::_penter_
+
+    push ebp
+    mov ebp, esp
+  }
+
+  if (depth > 0)
+    RecursiveFunction(depth - 1);
+
+  __asm {
+    pop ebp
+    ret
+  }
+}
+
+void __declspec(naked) TailRecursiveFunction(int depth) {
+  __asm {
+    call CallTraceDllTest::_penter_
+
+    // Test depth for zero and exit if so.
+    mov eax, DWORD PTR[esp + 4]
+    test eax, eax
+    jz done
+
+    // Subtract one and "recurse".
+    dec eax
+    mov DWORD PTR[esp + 4], eax
+    jmp TailRecursiveFunction
+
+  done:
+    ret
+  }
+}
+
+}
+
+TEST_F(CallTraceDllTest, EnterExitRecursive) {
+  ASSERT_NO_FATAL_FAILURE(
+      LoadAndEnableCallTraceDll(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
+
+  // Call the recursive function.
+  RecursiveFunction(10);
+
+  // Disable the provider and wait for it to notice,
+  // then make sure we got all the events we expected.
+  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_TRUE(wait_til_disabled_());
+
+  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+
+  ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
+
+  EXPECT_EQ(11, entered_addresses_.size());
+  EXPECT_EQ(11, exited_addresses_.size());
+}
+
+TEST_F(CallTraceDllTest, EnterExitTailRecursive) {
+  ASSERT_NO_FATAL_FAILURE(
+      LoadAndEnableCallTraceDll(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
+
+  // Call the tail recursive function.
+  TailRecursiveFunction(5);
+
+  // Disable the provider and wait for it to notice,
+  // then make sure we got all the events we expected.
+  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_TRUE(wait_til_disabled_());
+
+  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
+
+  EXPECT_EQ(6, entered_addresses_.size());
+  EXPECT_EQ(6, exited_addresses_.size());
 }
