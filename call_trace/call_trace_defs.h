@@ -45,7 +45,7 @@ enum TraceEventFlags {
   // Trace function exit.
   TRACE_FLAG_EXIT           = 0x0002,
   // Captur stack traces on entry and exit.
-  TRACE_FLAG_STACK_TRACES   = 0x0002,
+  TRACE_FLAG_STACK_TRACES   = 0x0004,
   // Trace DLL load/unload events.
   TRACE_FLAG_LOAD_EVENTS    = 0x0008,
   // Trace DLL thread events.
