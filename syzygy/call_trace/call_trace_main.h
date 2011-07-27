@@ -61,10 +61,11 @@ class TracerModule: public base::win::EtwTraceProvider {
   static void WINAPI TraceEntry(EntryFrame *entry_frame, FuncAddr function);
 
   // Invoked on function exit.
+  // @param stack the stack pointer prior to entering _pexit.
   // @param retval the return value from the function returning, e.g. the
   //    contents of the eax register.
   // @returns the return address this invocation should have returned to.
-  static RetAddr WINAPI TraceExit(RetValueWord retval);
+  static RetAddr WINAPI TraceExit(const void* stack, RetValueWord retval);
 
   // Overrides from ETWTraceProvider.
   virtual void OnEventsEnabled();
@@ -72,6 +73,7 @@ class TracerModule: public base::win::EtwTraceProvider {
 
   bool WaitTilEnabled();
   bool WaitTilDisabled();
+
  private:
   void OnProcessAttach();
   void OnProcessDetach();
@@ -90,7 +92,16 @@ class TracerModule: public base::win::EtwTraceProvider {
                       const TraceEnterExitEventData& data);
   void TraceBatchEnter(FuncAddr function);
 
-  typedef std::vector<std::pair<RetAddr, FuncAddr> > ReturnStack;
+  struct ReturnStackEntry {
+    // The original return address we replaced.
+    RetAddr return_address;
+    // The function address invoked, from which this stack entry returns.
+    FuncAddr function_address;
+    // The address of the entry frame associated with this shadow entry.
+    EntryFrame* entry_frame;
+  };
+
+  typedef std::vector<ReturnStackEntry> ReturnStack;
 
   // The number of trace entries we log in a batch. There is a maximal
   // event size which appears to be inclusive of the trace header and
@@ -112,7 +123,7 @@ class TracerModule: public base::win::EtwTraceProvider {
   // Each entry in the captured data->traces[] that points to pexit
   // is fixed to point to the corresponding trace in stack. This is
   // necessary because when exit tracing is enabled, the return address
-  // of each entered function is rewritten to penter.
+  // of each entered function is rewritten to _pexit.
   static void FixupBackTrace(const ReturnStack& stack,
                              TraceEnterExitEventData *data);
 
