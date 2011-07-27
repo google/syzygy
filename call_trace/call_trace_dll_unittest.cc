@@ -561,7 +561,7 @@ void __declspec(naked) TailRecursiveFunction(int depth) {
   }
 }
 
-}
+}  // namespace
 
 TEST_F(CallTraceDllTest, EnterExitRecursive) {
   ASSERT_NO_FATAL_FAILURE(
@@ -600,4 +600,120 @@ TEST_F(CallTraceDllTest, EnterExitTailRecursive) {
 
   EXPECT_EQ(6, entered_addresses_.size());
   EXPECT_EQ(6, exited_addresses_.size());
+}
+
+namespace {
+
+// Count the number of entries/exits.
+int bottom_entry = 0;
+int bottom_exit = 0;
+
+// The danger with exceptions is in the shadow stack maintained by the
+// call trace DLL. On exception, some of the entries on the shadow stack
+// may become orphaned, which can cause the call trace DLL to pop the wrong
+// entry, and return to the wrong function.
+__declspec(naked) void ExceptionTestBottom(int depth, int throw_depth) {
+  __asm {
+    call CallTraceDllTest::_penter_
+
+    push ebp
+    mov ebp, esp
+    sub esp, __LOCAL_SIZE
+    push ebx
+    push esi
+    push edi
+  }
+
+  ++bottom_entry;
+
+  if (depth > 0)
+    ExceptionTestBottom(depth - 1, throw_depth);
+
+  ++bottom_exit;
+
+  // When we throw, some of the shadow stack entries are orphaned.
+  if (depth == throw_depth)
+    ::RaiseException(0xBADF00D, 0, 0, NULL);
+
+  __asm {
+    pop edi
+    pop esi
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret
+  }
+}
+
+bool ExceptionTestRecurseRaiseAndReturn() {
+  __try {
+    ExceptionTestBottom(10, 4);
+  } __except(EXCEPTION_EXECUTE_HANDLER) {
+    return GetExceptionCode() == 0xBADF00D;
+  }
+
+  return false;
+}
+
+// Count the number of entries/exits.
+int top_entry = 0;
+int top_exit = 0;
+
+__declspec(naked) void ExceptionTestReturnAfterException(int depth) {
+  __asm {
+    call CallTraceDllTest::_penter_
+
+    push ebp
+    mov ebp, esp
+    sub esp, __LOCAL_SIZE
+    push ebx
+    push esi
+    push edi
+  }
+
+  ++top_entry;
+
+  if (depth == 0) {
+    EXPECT_TRUE(ExceptionTestRecurseRaiseAndReturn());
+  } else {
+    ExceptionTestReturnAfterException(depth - 1);
+  }
+
+  ++top_exit;
+
+  __asm {
+    pop edi
+    pop esi
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret
+  }
+}
+
+}  // namespace
+
+TEST_F(CallTraceDllTest, EnterExitReturnAfterException) {
+  top_entry = 0;
+  top_exit = 0;
+  bottom_entry = 0;
+  bottom_exit = 0;
+
+  ASSERT_NO_FATAL_FAILURE(
+      LoadAndEnableCallTraceDll(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
+
+  ExceptionTestReturnAfterException(10);
+
+  // Disable the provider and wait for it to notice,
+  // then make sure we got all the events we expected.
+  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_TRUE(wait_til_disabled_());
+
+  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+
+  EXPECT_EQ(11, top_entry);
+  EXPECT_EQ(11, top_exit);
+
+  EXPECT_EQ(11, bottom_entry);
+  EXPECT_EQ(5, bottom_exit);
 }
