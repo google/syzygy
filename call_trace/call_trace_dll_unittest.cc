@@ -531,12 +531,18 @@ void __declspec(naked) RecursiveFunction(int depth) {
 
     push ebp
     mov ebp, esp
+    push ebx
+    push esi
+    push edi
   }
 
   if (depth > 0)
     RecursiveFunction(depth - 1);
 
   __asm {
+    pop edi
+    pop esi
+    pop ebx
     pop ebp
     ret
   }
@@ -659,7 +665,7 @@ bool ExceptionTestRecurseRaiseAndReturn() {
 int top_entry = 0;
 int top_exit = 0;
 
-__declspec(naked) void ExceptionTestReturnAfterException(int depth) {
+__declspec(naked) void RecurseAndCall(int depth, bool (*func)()) {
   __asm {
     call CallTraceDllTest::_penter_
 
@@ -674,9 +680,9 @@ __declspec(naked) void ExceptionTestReturnAfterException(int depth) {
   ++top_entry;
 
   if (depth == 0) {
-    EXPECT_TRUE(ExceptionTestRecurseRaiseAndReturn());
+    EXPECT_TRUE(func());
   } else {
-    ExceptionTestReturnAfterException(depth - 1);
+    RecurseAndCall(depth - 1, func);
   }
 
   ++top_exit;
@@ -691,8 +697,14 @@ __declspec(naked) void ExceptionTestReturnAfterException(int depth) {
   }
 }
 
+void ExceptionTestReturnAfterException(int depth) {
+  RecurseAndCall(depth, ExceptionTestRecurseRaiseAndReturn);
+}
+
 }  // namespace
 
+// Return immediately after taking an exception (which leaves orphaned
+// entries on the shadow stack).
 TEST_F(CallTraceDllTest, EnterExitReturnAfterException) {
   top_entry = 0;
   top_exit = 0;
@@ -716,4 +728,107 @@ TEST_F(CallTraceDllTest, EnterExitReturnAfterException) {
 
   EXPECT_EQ(11, bottom_entry);
   EXPECT_EQ(5, bottom_exit);
+}
+
+namespace {
+
+bool ExceptionTestRecurseRaiseAndCall() {
+  __try {
+    ExceptionTestBottom(10, 4);
+  } __except(EXCEPTION_EXECUTE_HANDLER) {
+    RecursiveFunction(10);
+    return true;
+  }
+
+  return false;
+}
+
+void ExceptionTestCallAfterException(int depth) {
+  RecurseAndCall(depth, ExceptionTestRecurseRaiseAndCall);
+}
+
+}  // namespace
+
+// Call immediately after taking an exception (which leaves orphaned
+// entries on the shadow stack).
+TEST_F(CallTraceDllTest, EnterExitCallAfterException) {
+  top_entry = 0;
+  top_exit = 0;
+  bottom_entry = 0;
+  bottom_exit = 0;
+
+  ASSERT_NO_FATAL_FAILURE(
+      LoadAndEnableCallTraceDll(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
+
+  ExceptionTestCallAfterException(10);
+
+  // Disable the provider and wait for it to notice,
+  // then make sure we got all the events we expected.
+  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_TRUE(wait_til_disabled_());
+
+  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+
+  EXPECT_EQ(11, top_entry);
+  EXPECT_EQ(11, top_exit);
+
+  EXPECT_EQ(11, bottom_entry);
+  EXPECT_EQ(5, bottom_exit);
+}
+
+namespace {
+
+void __declspec(naked) TailRecurseAndCall(int depth, bool (*func)()) {
+  __asm {
+    call CallTraceDllTest::_penter_
+
+    // Test depth for zero and exit if so.
+    mov eax, DWORD PTR[esp + 4]
+    test eax, eax
+    jz done
+
+    // Subtract one and "recurse".
+    dec eax
+    mov DWORD PTR[esp + 4], eax
+    jmp TailRecurseAndCall
+
+  done:
+    mov eax, DWORD PTR[esp + 8]
+    call eax
+    ret
+  }
+}
+
+void ExceptionTestCallAfterTailRecurseException(int depth) {
+  TailRecurseAndCall(depth, ExceptionTestRecurseRaiseAndCall);
+}
+
+}  // namespace
+
+TEST_F(CallTraceDllTest, EnterExitCallAfterTailRecurseException) {
+  top_entry = 0;
+  top_exit = 0;
+  bottom_entry = 0;
+  bottom_exit = 0;
+
+  ASSERT_NO_FATAL_FAILURE(
+      LoadAndEnableCallTraceDll(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
+
+  ExceptionTestCallAfterTailRecurseException(10);
+
+  // Disable the provider and wait for it to notice,
+  // then make sure we got all the events we expected.
+  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_TRUE(wait_til_disabled_());
+
+  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+
+  EXPECT_EQ(11, bottom_entry);
+  EXPECT_EQ(5, bottom_exit);
+
+  ASSERT_HRESULT_SUCCEEDED(ConsumeEventsFromTempSession());
+
+  // Verify that the tail call exits were recorded.
+  EXPECT_EQ(33, entered_addresses_.size());
+  EXPECT_EQ(26, exited_addresses_.size());
 }
