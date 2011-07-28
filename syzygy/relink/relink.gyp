@@ -46,6 +46,7 @@
       'type': 'executable',
       'sources': [
         'relink_main.cc',
+        'relinker.rc',
       ],
       'dependencies': [
         'relink_lib',

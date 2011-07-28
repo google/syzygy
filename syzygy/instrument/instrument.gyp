@@ -41,6 +41,7 @@
       'type': 'executable',
       'sources': [
         'instrument_main.cc',
+        'instrumenter.rc',
       ],
       'dependencies': [
         'instrument_lib',
