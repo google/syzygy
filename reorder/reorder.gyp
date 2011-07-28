@@ -49,6 +49,7 @@
       'type': 'executable',
       'sources': [
         'reorder_main.cc',
+        'reorderer.rc',
       ],
       'dependencies': [
         'reorder_lib',
