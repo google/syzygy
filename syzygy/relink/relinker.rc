@@ -16,6 +16,7 @@
 #error Don't open this file in the GUI, it'll be massacred on save.
 #endif  // APSTUDIO_INVOKED
 
+#define SYZYGY_FILETYPE VFT_APP
 #define SYZYGY_DESCRIPTION "Syzygy Relinker"
 #define SYZYGY_INTERNALNAME "Relinker"
 #define SYZYGY_ORIGINALFILENAME "relink.exe"

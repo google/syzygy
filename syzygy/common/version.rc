@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-#include "afxres.h"
+#include <verrsrc.h>
+#include <winres.h>
 #include "version.gen"  // NOLINT
 
 #ifdef APSTUDIO_INVOKED
@@ -24,6 +25,9 @@
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
 
+#if !defined(SYZYGY_FILETYPE)
+#error You must define SYZYGY_FILETYPE to your file type, e.g. VFT_APP or such.
+#endif
 
 #if !defined(SYZYGY_DESCRIPTION)
 #error You must define SYZYGY_DESCRIPTION with your description string.
@@ -36,6 +40,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #if !defined(SYZYGY_ORIGINALFILENAME)
 #error You must define SYZYGY_ORIGINALFILENAME with your original file name.
 #endif
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // Version
@@ -43,14 +48,14 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION SYZYGY_MAJOR,SYZYGY_MINOR,SYZYGY_BUILD,SYZYGY_PATCH
  PRODUCTVERSION SYZYGY_MAJOR,SYZYGY_MINOR,SYZYGY_BUILD,SYZYGY_PATCH
- FILEFLAGSMASK 0x17L
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
 #ifdef _DEBUG
- FILEFLAGS 0x1L
+ FILEFLAGS VS_FF_DEBUG
 #else
  FILEFLAGS 0x0L
 #endif
- FILEOS 0x4L
- FILETYPE 0x1L
+ FILEOS VOS__WINDOWS32
+ FILETYPE SYZYGY_FILETYPE
  FILESUBTYPE 0x0L
 BEGIN
     BLOCK "StringFileInfo"
