@@ -16,6 +16,7 @@
 
 #include <ctime>
 
+#include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/common/defs.h"
@@ -553,12 +554,27 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
                         builder().address_space(),
                         &omap_from);
 
+  FilePath temp_pdb;
+  if (!file_util::CreateTemporaryFileInDir(output_path.DirName(), &temp_pdb)) {
+    LOG(ERROR) << "Unable to create working file in \""
+        << output_path.DirName().value() << "\".";
+    return false;
+  }
+
   if (!pdb::AddOmapStreamToPdbFile(input_path,
-                                   output_path,
+                                   temp_pdb,
                                    new_image_guid_,
                                    omap_to,
                                    omap_from)) {
     LOG(ERROR) << "Unable to add OMAP data to PDB";
+    file_util::Delete(temp_pdb, false);
+    return false;
+  }
+
+  if (!file_util::ReplaceFile(temp_pdb, output_path)) {
+    LOG(ERROR) << "Unable to write PDB file to \""
+        << output_path.value() << "\".";
+    file_util::Delete(temp_pdb, false);
     return false;
   }
 
