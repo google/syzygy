@@ -105,6 +105,7 @@
           'outputs': [
             '<(PRODUCT_DIR)/benchmark.bat',
             '<(PRODUCT_DIR)/benchmark.zip',
+            '<(PRODUCT_DIR)/optimize.bat',
           ],
           'action': [
             '<(PRODUCT_DIR)/py/scripts/python',

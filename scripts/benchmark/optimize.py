@@ -19,8 +19,10 @@ from etw.guiddef import GUID
 import etw.evntrace
 import logging
 import optparse
+import os
 import os.path
 import pkg_resources
+import re
 import runner
 import shutil
 import subprocess
@@ -54,7 +56,73 @@ def _Subprocess(cmd_line):
 def _RmTree(directory):
   '''Silently do a recursive delete on directory.'''
   # shutil.rmtree can't cope with read-only files.
-  _Subprocess(['cmd.exe', '/c', 'rmdir.exe', '/s', '/q', directory])
+  _Subprocess(['cmd', '/c', 'rmdir', '/s', '/q', directory])
+
+
+_EXPECTED_DIRS = [ 'locales', 'servers', 'extensions' ]
+
+
+def _PruneDirs(dirs):
+  """Removes all unwanted directories from dirs, in place."""
+  for unwanted in [d for d in dirs if d.lower() not in _EXPECTED_DIRS]:
+    dirs.remove(unwanted)
+
+
+_EXCLUDE_PATTERNS = [
+    # Exclude all PDBs except for chrome_exe.pdb and chrome_dll.pdb.
+    re.compile('^(?!(chrome_exe|chrome_dll)\.).+\.pdb$', re.I),
+    # Exclude all test and chrome frame programs.
+    re.compile('^.*(test|validate|example|sample).*$', re.I),
+    # Exclude all zip/archive files.
+    re.compile('^.+\.(7z|zip)$', re.I),
+    ]
+
+
+def _FilesToCopy(file_list):
+  """Generates the filtered list of files to copy."""
+  for file_name in file_list:
+    if not any(p.match(file_name) for p in _EXCLUDE_PATTERNS):
+      yield file_name
+
+
+def _CopyChromeFiles(src_dir, tgt_dir, input_dll, input_pdb):
+  """Copy all required chrome files from src_dir to tgt_dir."""
+  src_dir = os.path.abspath(src_dir)
+  tgt_dir = os.path.abspath(tgt_dir)
+  if os.path.isdir(tgt_dir):
+    _RmTree(tgt_dir)
+  os.makedirs(tgt_dir)
+  for root_dir, sub_dirs, file_list in os.walk(src_dir):
+    _PruneDirs(sub_dirs)
+    for dir_name in sub_dirs:
+      sub_dir = os.path.join(tgt_dir, dir_name)
+      _LOGGER.info('Creating "%s".', os.path.relpath(sub_dir, tgt_dir))
+      os.mkdir(sub_dir)
+    for file_name in _FilesToCopy(file_list):
+      src = os.path.join(root_dir, file_name)
+      rel_path = os.path.relpath(src, src_dir)
+      tgt = os.path.join(tgt_dir, rel_path)
+      _LOGGER.info('Copying "%s".', rel_path)
+      try:
+        shutil.copy2(src, tgt)
+      except IOError:
+        # When run as part of the build, there may be build targets still in
+        # flight that we don't depend on and can't copy (because they're opened
+        # exclusively by the build process).  Let's assume that all the files we
+        # want will copy correctly, ignore the exeption, and hope for the best
+        # on the other side.
+        _LOGGER.warn('Skipped "%s".', rel_path)
+        pass
+
+  if input_dll:
+    chrome_dll = os.path.join(tgt_dir, 'chrome.dll')
+    _LOGGER.info('Copying "%s" to "%s"', input_dll, chrome_dll)
+    shutil.copy2(input_dll, chrome_dll)
+
+  if input_pdb:
+    chrome_dll_pdb = os.path.join(tgt_dir, 'chrome_dll.pdb')
+    _LOGGER.info('Copying "%s" to "%s"', input_pdb, chrome_dll_pdb)
+    shutil.copy2(input_pdb, chrome_dll_pdb)
 
 
 class ProfileRunner(runner.ChromeRunner):
@@ -89,16 +157,17 @@ class ProfileRunner(runner.ChromeRunner):
     # TODO(siggi): Generate ordering here?
     pass
 
-def _InstrumentChrome(chrome_dir, temp_dir):
-  _LOGGER.info('Copying "%s" to "%s".', chrome_dir, temp_dir)
-  shutil.copytree(chrome_dir, temp_dir)
+
+def _InstrumentChrome(chrome_dir, temp_dir, input_dll=None, input_pdb=None):
+  _LOGGER.info('Copying chrome files from "%s" to "%s".', chrome_dir, temp_dir)
+  _CopyChromeFiles(chrome_dir, temp_dir, input_dll, input_pdb)
 
   # Drop call_trace.dll in the temp dir.
-  shutil.copy(runner._GetExePath('call_trace.dll'), temp_dir)
+  shutil.copy2(runner._GetExePath('call_trace.dll'), temp_dir)
 
   for file in _EXECUTABLES:
     _LOGGER.info('Instrumenting "%s".', file)
-    src_file = os.path.join(chrome_dir, file)
+    src_file = os.path.join(temp_dir, file)
     dst_file = os.path.join(temp_dir, file)
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-dll=%s' % src_file,
@@ -117,12 +186,16 @@ def _ProfileChrome(temp_dir, iterations):
   return runner._log_files
 
 
-def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
+def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files,
+                    input_dll=None, input_pdb=None):
   _LOGGER.info('Optimizing Chrome.')
   # Generate the ordering file for chrome.dll.
+
   cmd = [runner._GetExePath('reorder.exe'),
          '--verbose',
          '--output-stats',
+         '--input-dll=%s' % (input_dll if input_dll
+                             else os.path.join(chrome_dir, '\chrome.dll')),
          '--instrumented-dll=%s' % os.path.join(temp_dir,
                                                 r'instrumented\chrome.dll'),
          '--output-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
@@ -136,17 +209,26 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
     _RmTree(output_dir)
 
   _LOGGER.info('Copying "%s" to output dir "%s".', chrome_dir, output_dir)
-  shutil.copytree(chrome_dir, output_dir)
+  _CopyChromeFiles(chrome_dir, output_dir, input_dll, input_pdb)
   cmd = [runner._GetExePath('relink.exe'),
          '--verbose',
-         '--input-dll=%s' % os.path.join(chrome_dir, 'chrome.dll'),
-         '--input-pdb=%s' % os.path.join(chrome_dir, 'chrome_dll.pdb'),
+         '--input-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
+         '--input-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
          '--output-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
          '--output-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
          '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
   ret = _Subprocess(cmd)
   if ret != 0:
     raise RuntimeError('Failed to reorder chrome.dll')
+
+
+def _CopyBinaries(src_dir, tgt_dir):
+  files = ('chrome.dll', 'chrome_dll.pdb')
+  for file in files:
+    src_file = os.path.join(src_dir, file)
+    tgt_file = os.path.join(tgt_dir, file)
+    _LOGGER.info('Placing optimized %s in %s', file, tgt_dir)
+    shutil.copy2(src_file, tgt_file)
 
 
 _USAGE = """\
@@ -167,11 +249,21 @@ def _ParseArguments():
                     default=10,
                     help='Number of profile iterations, 10 by default.')
   parser.add_option('--input-dir', dest='input_dir',
-                    help='The input directory where the original Chrome '
-                         'executables are to be found.')
+                    help=('The input directory where the original Chrome '
+                          'executables are to be found.'))
+  parser.add_option('--input-dll', dest='input_dll',
+                    help=('Override the location of the input dll to'
+                          'optimize.'))
+  parser.add_option('--input-pdb', dest='input_pdb',
+                    help=('Override the location of the input dll to'
+                          'optimize.'))
   parser.add_option('--output-dir', dest='output_dir',
-                    help='The output directory where the optimized executables '
-                         'will be stored.')
+                    help=('The directory where the optimized chrome '
+                          'installation will be created. From this location, '
+                          'one can subsequently run benchmarks.'))
+  parser.add_option('--copy-to', dest='copy_to',
+                    help=('(Optional) The output directory where the final '
+                          'optimized PE and PDB files will be copied.'))
   parser.add_option('--keep-temp-dirs', dest='keep_temp_dirs',
                     action='store_true',
                     help='Keep temporary directories instead of deleting them.')
@@ -191,6 +283,8 @@ def _ParseArguments():
 
   opts.input_dir = os.path.abspath(opts.input_dir)
   opts.output_dir = os.path.abspath(opts.output_dir)
+  if opts.copy_to:
+    opts.copy_to = os.path.abspath(opts.copy_to)
 
   return opts
 
@@ -205,11 +299,15 @@ def main():
 
   instrumented_dir = os.path.join(temp_dir, 'instrumented')
   try:
-    _InstrumentChrome(opts.input_dir, instrumented_dir)
+    _InstrumentChrome(opts.input_dir, instrumented_dir,
+                      input_dll=opts.input_dll, input_pdb=opts.input_pdb)
     _ProfileChrome(temp_dir, opts.iterations)
     trace_files = [os.path.join(temp_dir, 'kernel.etl'),
                    os.path.join(temp_dir, 'call_trace.etl'),]
-    _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files)
+    _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files,
+                    input_dll=opts.input_dll, input_pdb=opts.input_pdb)
+    if opts.copy_to:
+      _CopyBinaries(opts.output_dir, opts.copy_to)
   finally:
     if opts.keep_temp_dirs:
       _LOGGER.info('Keeping temporary directory "%s".', temp_dir)

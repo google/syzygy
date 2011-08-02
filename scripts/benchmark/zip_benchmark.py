@@ -33,7 +33,7 @@ _EGG_PATTERNS = [
 ]
 
 
-_BENCHMARK_BAT_TEMPL = """\
+_SCRIPT_TEMPLATE = """\
 @echo off
 rem = \"\"\"
 :: Copyright 2011 Google Inc.
@@ -64,12 +64,18 @@ dir = os.path.dirname(__file__)
 sys.path[0:0] = [os.path.join(dir, egg) for egg in _EGGS]
 
 # And run the main program.
-import benchmark
-sys.exit(benchmark.main())
+import %(module)s
+sys.exit(%(module)s.main())
 
 rem = \"\"\"
 :endofPython \"\"\"
 """
+
+
+_SCRIPT_TEMPLATES = [
+    ('benchmark.bat',  _SCRIPT_TEMPLATE, 'benchmark'),
+    ('optimize.bat', _SCRIPT_TEMPLATE, 'optimize'),
+    ]
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -94,11 +100,11 @@ def _FindEggs(root_dir):
   return eggs
 
 
-def _WriteBatFile(root_dir, eggs):
+def _WriteBatFile(root_dir, file_name, template, module, eggs):
   eggs = '\n'.join(['    %r,' % os.path.basename(egg) for egg in eggs])
-  output = _BENCHMARK_BAT_TEMPL % { 'eggs': eggs }
+  output = template % { 'eggs': eggs, 'module': module }
 
-  path = os.path.join(root_dir, 'benchmark.bat')
+  path = os.path.join(root_dir, file_name)
   with open(path, 'wb') as f:
     f.write(output)
   return path
@@ -159,10 +165,17 @@ def main():
   """Main function, parses args and performs zipping."""
   opts = _ParseArgs()
 
-  files = _FindEggs(opts.root_dir)
-  files.append(_WriteBatFile(opts.root_dir, files))
+  files_to_archive = []
+  egg_files = _FindEggs(opts.root_dir)
+  for bat_file, template, module in _SCRIPT_TEMPLATES:
+    src_path = _WriteBatFile(opts.root_dir, bat_file, template,
+                             module, egg_files)
+    files_to_archive.append(src_path)
 
-  _CreateFlatArchive(files, os.path.join(opts.root_dir, 'benchmark.zip'))
+  files_to_archive.extend(egg_files);
+
+  _CreateFlatArchive(files_to_archive,
+                     os.path.join(opts.root_dir, 'benchmark.zip'))
 
 
 if __name__ == '__main__':
