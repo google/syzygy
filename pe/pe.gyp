@@ -226,6 +226,7 @@
       'type': 'executable',
       'sources': [
         'decompose_main.cc',
+        'decompose.rc',
       ],
       'dependencies': [
         'pe_lib',
