@@ -580,4 +580,27 @@ bool PEFile::DecodeImports(ImportDllVector* imports) const {
   return true;
 }
 
+bool PEFile::Signature::IsConsistent(const Signature& signature) const {
+  return base_address == signature.base_address &&
+      module_size == signature.module_size &&
+      module_time_date_stamp == signature.module_time_date_stamp &&
+      module_checksum == signature.module_checksum;
+}
+
+bool PEFile::Signature::Save(core::OutArchive* out_archive) const {
+  return out_archive->Save(path) &&
+      out_archive->Save(base_address) &&
+      out_archive->Save(module_size) &&
+      out_archive->Save(module_time_date_stamp) &&
+      out_archive->Save(module_checksum);
+}
+
+bool PEFile::Signature::Load(core::InArchive* in_archive) {
+  return in_archive->Load(&path) &&
+      in_archive->Load(&base_address) &&
+      in_archive->Load(&module_size) &&
+      in_archive->Load(&module_time_date_stamp) &&
+      in_archive->Load(&module_checksum);
+}
+
 }  // namespace pe

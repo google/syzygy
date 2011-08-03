@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/unittest_util.h"
 
+#include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace {
 
@@ -85,6 +87,46 @@ TEST_F(DecomposerTest, Decompose) {
   // We expect there to be at least code and one data block.
   EXPECT_TRUE(stats.blocks.code.summary.block_count > 0);
   EXPECT_TRUE(stats.blocks.data.summary.block_count > 0);
+}
+
+TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
+  FilePath image_path(GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  // Decompose the test image and look at the result.
+  Decomposer decomposer(image_file, image_path);
+
+  Decomposer::DecomposedImage decomposed;
+  Decomposer::CoverageStatistics stats;
+  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats,
+                                   Decomposer::STANDARD_DECOMPOSITION));
+
+  FilePath temp_dir;
+  CreateTemporaryDir(&temp_dir);
+  FilePath temp_file_path = temp_dir.Append(L"test_dll.dll.bg");
+
+  // Save the BlockGraph.
+  {
+    file_util::ScopedFILE temp_file(file_util::OpenFile(temp_file_path, "wb"));
+    core::FileOutStream out_stream(temp_file.get());
+    core::NativeBinaryOutArchive out_archive(&out_stream);
+    EXPECT_TRUE(SaveDecomposition(image_file, decomposed, &out_archive));
+  }
+
+  // Load the BlockGraph, and compare it to the original.
+  {
+    file_util::ScopedFILE temp_file(file_util::OpenFile(temp_file_path, "rb"));
+    core::FileInStream in_stream(temp_file.get());
+    core::NativeBinaryInArchive in_archive(&in_stream);
+    PEFile in_image_file;
+    Decomposer::DecomposedImage in_decomposed;
+    EXPECT_TRUE(LoadDecomposition(&in_image_file, &in_decomposed, &in_archive));
+
+    EXPECT_TRUE(testing::BlockGraphsEqual(decomposed.image,
+                                          in_decomposed.image));
+  }
 }
 
 // TODO(siggi): More tests.

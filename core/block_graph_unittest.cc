@@ -14,6 +14,7 @@
 #include "syzygy/core/block_graph.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 namespace core {
 
@@ -419,6 +420,54 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   expected_refs.insert(std::make_pair(0x6,
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x20)));
   EXPECT_THAT(block1->references(), testing::ContainerEq(expected_refs));
+}
+
+TEST(BlockGraphTest, Serialization) {
+  BlockGraph image;
+
+  BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
+  BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
+  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
+  ASSERT_TRUE(b1 != NULL && b2 != NULL);
+
+  uint8* b1_data = b1->AllocateData(b1->size());
+  for (size_t i = 0; i < b1->size(); ++i) {
+    b1_data[i] = 0;
+  }
+
+  ASSERT_TRUE(b1->references().empty());
+  ASSERT_TRUE(b1->referrers().empty());
+  ASSERT_TRUE(b2->references().empty());
+  ASSERT_TRUE(b2->referrers().empty());
+  ASSERT_TRUE(b3->references().empty());
+  ASSERT_TRUE(b3->referrers().empty());
+
+  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  ASSERT_TRUE(b1->SetReference(0, r_pc));
+  ASSERT_TRUE(b1->SetReference(1, r_pc));
+
+  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 1, b2, 13);
+  ASSERT_FALSE(b1->SetReference(1, r_abs));
+
+  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 1, b2, 17);
+  ASSERT_TRUE(b1->SetReference(2, r_rel));
+
+  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23);
+  ASSERT_TRUE(b1->SetReference(4, r_file));
+
+  ByteVector byte_vector;
+  ScopedOutStreamPtr out_stream(
+      CreateByteOutStream(std::back_inserter(byte_vector)));
+  NativeBinaryOutArchive out_archive(out_stream.get());
+  ASSERT_TRUE(out_archive.Save(image));
+
+  BlockGraph image_copy;
+  ScopedInStreamPtr in_stream(
+      CreateByteInStream(byte_vector.begin(), byte_vector.end()));
+  NativeBinaryInArchive in_archive(in_stream.get());
+  ASSERT_TRUE(in_archive.Load(&image_copy));
+
+  EXPECT_TRUE(testing::BlockGraphsEqual(image, image_copy));
 }
 
 }  // namespace core

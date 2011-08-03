@@ -24,6 +24,7 @@
 #include "base/file_path.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
+#include "syzygy/core/serialization.h"
 
 namespace pe {
 
@@ -192,16 +193,11 @@ struct PEFile::Signature {
   // The signature consists of the following 4 fields.
   AbsoluteAddress base_address;
   size_t module_size;
-  uint64 module_time_date_stamp;
+  uint32 module_time_date_stamp;
   uint32 module_checksum;
 
   // Compares this signature to another one. The paths do not have to match.
-  bool IsConsistent(const Signature& signature) const {
-    return base_address == signature.base_address &&
-        module_size == signature.module_size &&
-        module_time_date_stamp == signature.module_time_date_stamp &&
-        module_checksum == signature.module_checksum;
-  }
+  bool IsConsistent(const Signature& signature) const;
 
   // We need an equality operator for serialization unittests.
   bool operator==(const Signature& signature) const {
@@ -209,20 +205,8 @@ struct PEFile::Signature {
   }
 
   // For serialization.
-  template<class OutArchive> bool Save(OutArchive* out_archive) const {
-    return out_archive->Save(path) &&
-        out_archive->Save(base_address) &&
-        out_archive->Save(module_size) &&
-        out_archive->Save(module_time_date_stamp) &&
-        out_archive->Save(module_checksum);
-  }
-  template<class InArchive> bool Load(InArchive* in_archive) {
-    return in_archive->Load(&path) &&
-        in_archive->Load(&base_address) &&
-        in_archive->Load(&module_size) &&
-        in_archive->Load(&module_time_date_stamp) &&
-        in_archive->Load(&module_checksum);
-  }
+  bool Save(core::OutArchive* out_archive) const;
+  bool Load(core::InArchive* in_archive);
 };
 
 // Information about a single export.

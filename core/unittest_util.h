@@ -15,6 +15,7 @@
 #ifndef SYZYGY_CORE_UNITTEST_UTIL_H_
 #define SYZYGY_CORE_UNITTEST_UTIL_H_
 
+#include "syzygy/core/block_graph.h"
 #include "syzygy/core/serialization.h"
 
 namespace testing {
@@ -65,6 +66,15 @@ template<class Data> bool TestSerialization(const Data& data, FILE* file) {
   // serialization engine.
   return (data == data_copy);
 };
+
+// Compares two Blocks (from different BlockGraphs) to each other. Intended for
+// testing BlockGraph serialization.
+bool BlocksEqual(const core::BlockGraph::Block& b1,
+                 const core::BlockGraph::Block& b2);
+
+// Compares two BlockGraphs to each other. Intended for testing BlockGraph
+// serialization.
+bool BlockGraphsEqual(const core::BlockGraph& b1, const core::BlockGraph& b2);
 
 }  // namespace testing
 

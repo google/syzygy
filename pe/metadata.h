@@ -59,8 +59,8 @@ class Metadata {
   bool LoadFromPE(const PEFile& pe_file);
 
   // Serialization functions.
-  template<class OutArchive> bool Save(OutArchive* out_archive) const;
-  template<class InArchive> bool Load(InArchive* in_archive);
+  bool Save(core::OutArchive* out_archive) const;
+  bool Load(core::InArchive* in_archive);
 
   // Comparison operator for serialization testing.
   bool operator==(const Metadata& rhs) const;
@@ -97,24 +97,6 @@ class Metadata {
 
   DISALLOW_COPY_AND_ASSIGN(Metadata);
 };
-
-// Serialization 'Save' implementation.
-template<class OutArchive> bool Metadata::Save(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-  return out_archive->Save(command_line_) &&
-      out_archive->Save(creation_time_) &&
-      out_archive->Save(toolchain_version_) &&
-      out_archive->Save(module_signature_);
-}
-
-// Serialization 'Load' implementation.
-template<class InArchive> bool Metadata::Load(InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-  return in_archive->Load(&command_line_) &&
-      in_archive->Load(&creation_time_) &&
-      in_archive->Load(&toolchain_version_) &&
-      in_archive->Load(&module_signature_);
-}
 
 }  // namespace pe
 

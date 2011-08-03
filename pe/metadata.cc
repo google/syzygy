@@ -433,4 +433,22 @@ bool Metadata::operator==(const Metadata& rhs) const {
       module_signature_ == rhs.module_signature_;
 }
 
+// Serialization 'Save' implementation.
+bool Metadata::Save(core::OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+  return out_archive->Save(command_line_) &&
+      out_archive->Save(creation_time_) &&
+      out_archive->Save(toolchain_version_) &&
+      out_archive->Save(module_signature_);
+}
+
+// Serialization 'Load' implementation.
+bool Metadata::Load(core::InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  return in_archive->Load(&command_line_) &&
+      in_archive->Load(&creation_time_) &&
+      in_archive->Load(&toolchain_version_) &&
+      in_archive->Load(&module_signature_);
+}
+
 }  // namespace pe

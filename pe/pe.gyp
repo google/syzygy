@@ -140,6 +140,7 @@
         'test_dll',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_lib',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
@@ -220,5 +221,24 @@
         ],
       },
     },
+    {
+      'target_name': 'decompose',
+      'type': 'executable',
+      'sources': [
+        'decompose_main.cc',
+      ],
+      'dependencies': [
+        'pe_lib',
+        '<(DEPTH)/base/base.gyp:base',
+      ],
+      'run_as': {
+        'working_directory': '$(ConfigurationDir)',
+        'action': [
+          '$(TargetPath)',
+          '--image=test_dll.dll'
+        ],
+      },
+    },
+
   ]
 }

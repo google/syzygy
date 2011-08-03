@@ -13,7 +13,9 @@
 // limitations under the License.
 
 #include "syzygy/core/serialization.h"
+#include "base/time.h"
 #include <algorithm>
+#include <dbghelp.h>
 #include <stdio.h>
 
 namespace core {
@@ -32,6 +34,40 @@ FileInStream::FileInStream(FILE* file) : file_(file) {
 
 bool FileInStream::Read(size_t length, Byte* bytes) {
   return fread(bytes, sizeof(Byte), length, file_) == length;
+}
+
+// Serialization of base::Time.
+// We serialize to 'number of seconds since epoch' (represented as a double)
+// as this is consistent regardless of the underlying representation used in
+// base::Time (which may vary wrt timer resolution).
+
+bool Save(const base::Time& time, OutArchive* out_archive) {
+  DCHECK(out_archive != NULL);
+  return out_archive->Save(time.ToDoubleT());
+}
+
+bool Load(base::Time* time, InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  double t;
+  if (!in_archive->Load(&t))
+    return false;
+  *time = base::Time::FromDoubleT(t);
+  return true;
+}
+
+// Serialization of OMAP, defined in dbghelp.h.
+
+bool Save(const OMAP& omap, OutArchive* out_archive) {
+  DCHECK(out_archive != NULL);
+  return out_archive->Save(omap.rva) &&
+      out_archive->Save(omap.rvaTo);
+}
+
+bool Load(OMAP* omap, InArchive* in_archive) {
+  DCHECK(omap != NULL);
+  DCHECK(in_archive != NULL);
+  return in_archive->Load(&omap->rva) &&
+      in_archive->Load(&omap->rvaTo);
 }
 
 }  // namespace core

@@ -21,6 +21,12 @@ namespace core {
 const RelativeAddress kInvalidAddress(0xFFFFFFFF);
 const size_t kInvalidSection = -1;
 
+const char* BlockGraph::kBlockType[] = {
+  "CODE_BLOCK", "DATA_BLOCK", "BASIC_CODE_BLOCK", "BASIC_DATA_BLOCK",
+};
+COMPILE_ASSERT(arraysize(BlockGraph::kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
+               kBlockType_not_in_sync);
+
 BlockGraph::BlockGraph() : next_block_id_(0) {
 }
 
@@ -44,6 +50,68 @@ BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) {
     return NULL;
 
   return &it->second;
+}
+
+bool BlockGraph::Save(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
+  if (!out_archive->Save(next_block_id_) || !out_archive->Save(blocks_.size()))
+    return false;
+
+  // Output the basic block properties first.
+  BlockMap::const_iterator it = blocks_.begin();
+  for (; it != blocks_.end(); ++it) {
+    if (!out_archive->Save(it->first) ||
+        !it->second.SaveProps(out_archive) ||
+        !it->second.SaveData(out_archive)) {
+      return false;
+    }
+  }
+
+  // Now output the referrers and references.
+  it = blocks_.begin();
+  for (; it != blocks_.end(); ++it) {
+    if (!it->second.SaveRefs(out_archive))
+      return false;
+  }
+
+  return true;
+}
+
+bool BlockGraph::Load(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+
+  size_t num_blocks = 0;
+  if (!in_archive->Load(&next_block_id_) || !in_archive->Load(&num_blocks))
+    return false;
+
+  // Load the basic block properties first, and keep track of the
+  // order of the blocks. We do this because we can't guarantee that the
+  // underlying map will provide us the blocks in the order that we created
+  // them, and this is the order in which the references are provided.
+  std::vector<BlockGraph::Block*> order;
+  for (size_t i = 0; i < num_blocks; ++i) {
+    BlockGraph::BlockId id = 0;
+    Block block;
+    if (!in_archive->Load(&id) || !block.LoadProps(in_archive))
+      return false;
+    BlockMap::iterator it = blocks_.insert(std::make_pair(id, block)).first;
+    order.push_back(&it->second);
+
+    // Load the data *after* the block is inserted in the map so as not to
+    // cause an extra alloc and copy.
+    if (!it->second.LoadData(in_archive))
+      return false;
+  }
+  DCHECK_EQ(num_blocks, order.size());
+
+  // Load the references and referrers.
+  for (size_t i = 0; i < num_blocks; ++i) {
+    if (!order[i]->LoadRefs(*this, in_archive))
+      return false;
+  }
+
+  return true;
 }
 
 BlockGraph::AddressSpace::AddressSpace(BlockGraph* graph)
@@ -269,6 +337,68 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   return new_block;
 }
 
+bool BlockGraph::AddressSpace::Save(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
+  // Simply dump the ids of the blocks that are actually in the address space.
+  if (!out_archive->Save(address_space_.size()))
+    return false;
+
+  RangeMapConstIter it = address_space_.begin();
+  for (; it != address_space_.end(); ++it) {
+    if (!out_archive->Save(it->second->id()))
+      return false;
+  }
+
+  return true;
+}
+
+bool BlockGraph::AddressSpace::Load(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+
+  size_t num_blocks = 0;
+  if (!in_archive->Load(&num_blocks)) {
+    LOG(ERROR) << "Unable to load BlockGraph::AddressSpace size.";
+    return false;
+  }
+
+  // Simply load the block ids. The address and length are implicit.
+  for (size_t i = 0; i < num_blocks; ++i) {
+    BlockId id = 0;
+    if (!in_archive->Load(&id)) {
+      LOG(ERROR) << "Unable to load block id.";
+      return false;
+    }
+
+    Block* block = graph_->GetBlockById(id);
+    if (block == NULL) {
+      LOG(ERROR) << "No block found with id " << id << ".";
+      return false;
+    }
+
+    if (!InsertBlock(block->addr(), block)) {
+      LOG(ERROR) << "Unable to insert block in BlockGraph::AddressSpace.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+BlockGraph::Block::Block()
+    : id_(0),
+      type_(BlockGraph::CODE_BLOCK),
+      size_(0),
+      alignment_(1),
+      addr_(kInvalidAddress),
+      original_addr_(kInvalidAddress),
+      section_(kInvalidSection),
+      attributes_(0),
+      owns_data_(false),
+      data_(NULL),
+      data_size_(0) {
+}
+
 BlockGraph::Block::Block(BlockId id,
                          BlockType type,
                          Size size,
@@ -435,6 +565,132 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
 // Returns true if this block contains the given range of bytes.
 bool BlockGraph::Block::Contains(RelativeAddress address, size_t size) const {
   return (address >= addr_ && address + size <= addr_ + size_);
+}
+
+bool BlockGraph::Block::SaveProps(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+  if (out_archive->Save(id_) && out_archive->Save((int)type_) &&
+      out_archive->Save(size_) && out_archive->Save(alignment_) &&
+      out_archive->Save(name_) && out_archive->Save(addr_) &&
+      out_archive->Save(original_addr_) && out_archive->Save(section_) &&
+      out_archive->Save(attributes_) && out_archive->Save(labels_)) {
+    return true;
+  }
+  LOG(ERROR) << "Unable to save block properties.";
+  return false;
+}
+
+bool BlockGraph::Block::LoadProps(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  if (in_archive->Load(&id_) && in_archive->Load((int*)&type_) &&
+      in_archive->Load(&size_) && in_archive->Load(&alignment_) &&
+      in_archive->Load(&name_) && in_archive->Load(&addr_) &&
+      in_archive->Load(&original_addr_) && in_archive->Load(&section_) &&
+      in_archive->Load(&attributes_) && in_archive->Load(&labels_)) {
+    return true;
+  }
+  LOG(ERROR) << "Unable to load block properties.";
+  return false;
+}
+
+bool BlockGraph::Block::SaveRefs(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
+  if (!out_archive->Save(references_.size()))
+    return false;
+
+  // Output the references.
+  ReferenceMap::const_iterator it1 = references_.begin();
+  for (; it1 != references_.end(); ++it1) {
+    DCHECK(it1->second.referenced() != NULL);
+    if (!out_archive->Save(it1->first) ||
+        !out_archive->Save((int)it1->second.type()) ||
+        !out_archive->Save(it1->second.size()) ||
+        !out_archive->Save(it1->second.referenced()->id()) ||
+        !out_archive->Save(it1->second.offset())) {
+      LOG(ERROR) << "Unable to save block reference.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool BlockGraph::Block::LoadRefs(BlockGraph& block_graph,
+                                 InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+
+  size_t num_references = 0;
+  if (!in_archive->Load(&num_references)) {
+    LOG(ERROR) << "Unable to load block reference count.";
+    return false;
+  }
+
+  // Load the references.
+  for (size_t i = 0; i < num_references; ++i) {
+    Offset local_offset = 0;
+    ReferenceType type = RELATIVE_REF;
+    Size size = 0;
+    BlockId id = 0;
+    Offset remote_offset = 0;
+    if (!in_archive->Load(&local_offset) ||
+        !in_archive->Load((int*)&type) || !in_archive->Load(&size) ||
+        !in_archive->Load(&id) || !in_archive->Load(&remote_offset)) {
+      LOG(ERROR) << "Unable to load block reference.";
+      return false;
+    }
+
+    Block* referenced = block_graph.GetBlockById(id);
+    if (referenced == NULL) {
+      LOG(ERROR) << "Unable to load block with id " << id << ".";
+      return false;
+    }
+    if (!SetReference(local_offset,
+                      Reference(type, size, referenced, remote_offset))) {
+      LOG(ERROR) << "Unable to create block reference.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool BlockGraph::Block::SaveData(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
+  if (!out_archive->Save(owns_data_) ||
+      !out_archive->Save(data_size_))
+    return false;
+
+  // If we own the data, we save it directly.
+  if (owns_data_) {
+    if (!out_archive->out_stream()->Write(data_size_, data_))
+      return false;
+  }
+
+  return true;
+}
+
+bool BlockGraph::Block::LoadData(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+
+  if (!in_archive->Load(&owns_data_) ||
+      !in_archive->Load(&data_size_))
+    return false;
+
+  // No data? Nothing else to do.
+  if (data_size_ == 0)
+    return true;
+
+  // If we own the data, load it directly.
+  if (owns_data_) {
+    uint8* data = new uint8[data_size_];
+    data_ = data;
+    if (!in_archive->in_stream()->Read(data_size_, data))
+      return false;
+  }
+
+  return true;
 }
 
 }  // namespace core
