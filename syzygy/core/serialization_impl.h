@@ -20,7 +20,15 @@
 #define SYZYGY_CORE_SERIALIZATION_IMPL_H_
 
 #include <iterator>
-#include "base/time.h"
+
+// Forward declare base::Time, defined in "base/time.h".
+namespace base {
+class Time;
+}  // namespace base
+
+// Forward declare the OMAP struct. This is defined in DbgHelp.h.
+struct _OMAP;
+typedef struct _OMAP OMAP;
 
 namespace core {
 
@@ -270,26 +278,13 @@ bool Load(Type (*data)[Length], InArchive* in_archive) {
   return true;
 }
 
-// Implementation of serialization for base::Time.
-// We serialize to 'number of seconds since epoch' (represented as a double)
-// as this is consistent regardless of the underlying representation used in
-// base::Time (which may vary wrt timer resolution).
+// Declaration of serialization for base::Time.
+bool Save(const base::Time& time, OutArchive* out_archive);
+bool Load(base::Time* time, InArchive* in_archive);
 
-template<class OutArchive>
-bool Save(const base::Time& time, OutArchive* out_archive) {
-  DCHECK(out_archive != NULL);
-  return out_archive->Save(time.ToDoubleT());
-}
-
-template<class InArchive>
-bool Load(base::Time* time, InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-  double t;
-  if (!in_archive->Load(&t))
-    return false;
-  *time = base::Time::FromDoubleT(t);
-  return true;
-}
+// Declaration of OMAP struct serialization.
+bool Save(const OMAP& omap, OutArchive* out_archive);
+bool Load(OMAP* omap, InArchive* in_archive);
 
 }  // namespace core
 

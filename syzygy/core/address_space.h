@@ -159,6 +159,9 @@ class AddressSpace {
 template <typename AddressType, typename SizeType>
 class AddressRange {
  public:
+  typedef AddressType Address;
+  typedef SizeType Size;
+
   AddressRange() : start_(0), size_(0) {
   }
 

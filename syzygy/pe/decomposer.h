@@ -30,6 +30,7 @@
 #include "syzygy/core/basic_block_disassembler.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/core/disassembler.h"
+#include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/dia_browser.h"
 #include "syzygy/pe/pe_file.h"
@@ -150,6 +151,11 @@ class Decomposer {
 
   // Checks that the fixups were all visited.
   bool ConfirmFixupsVisited() const;
+
+  // Searches through the final block graph, and labels blocks that are
+  // simply padding blocks. This must be called after all references are
+  // finalized.
+  bool FindPaddingBlocks();
 
   // Invokable once we have completed our original block graphs, this breaks
   // up code-blocks into their basic sub-components.
@@ -307,6 +313,16 @@ class Decomposer::DecomposedImage {
   std::vector<OMAP> omap_to;
   std::vector<OMAP> omap_from;
 };
+
+// This is for serializing a PEFile/DecomposedImage pair. This allows
+// us to avoid doing decomposition repeatedly. This also stores
+// toolchain metadata for input validation.
+bool SaveDecomposition(const PEFile& pe_file,
+                       const Decomposer::DecomposedImage& image,
+                       core::OutArchive* out_archive);
+bool LoadDecomposition(PEFile* pe_file,
+                       Decomposer::DecomposedImage* image,
+                       core::InArchive* in_archive);
 
 // This stores fixups, but in a format more convenient for us than the
 // basic PdbFixup struct.

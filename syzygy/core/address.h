@@ -18,6 +18,7 @@
 #include <iosfwd>
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "syzygy/core/serialization.h"
 
 namespace core {
 
@@ -114,10 +115,10 @@ template <AddressType type> class AddressImpl {
   }
 
   // For serialization.
-  template<class OutArchive> bool Save(OutArchive *out_archive) const {
+  bool Save(OutArchive *out_archive) const {
     return out_archive->Save(value_);
   }
-  template<class InArchive> bool Load(InArchive *in_archive) {
+  bool Load(InArchive *in_archive) {
     return in_archive->Load(&value_);
   }
 

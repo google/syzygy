@@ -27,6 +27,7 @@
 #include "base/win/scoped_comptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
+#include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file_parser.h"
 
 using base::win::ScopedBstr;
@@ -544,14 +545,76 @@ template<typename T> bool FindDiaTable(IDiaSession* session,
   return false;
 }
 
-// Returns true if the given data consists purely of int3s. The MS linker
-// pads between code blocks with int3s.
-bool IsInt3s(const uint8* data, size_t size) {
-  static const uint8 kInt3 = 0xCC;
-  for (const uint8* data_end = data + size; data < data_end; ++data) {
-    if (*data != kInt3)
-      return false;
+// The MS linker pads between code blocks with int3s.
+static const uint8 kInt3 = 0xCC;
+
+// If the given run of bytes consists of a single value repeated, returns that
+// value. Otherwise, returns -1.
+int RepeatedValue(const uint8* data, size_t size) {
+  DCHECK(data != NULL);
+  const uint8* data_end = data + size;
+  uint8 value = *(data++);
+  for (; data < data_end; ++data) {
+    if (*data != value)
+      return -1;
   }
+  return value;
+}
+
+const BlockGraph::BlockId kNullBlockId(-1);
+
+// Given a block pointer, saves it to an OutArchive. Does so using the
+// block id, and reserving a special block id as NULL.
+bool SaveBlockPointer(const BlockGraph::Block* block,
+                      core::OutArchive* out_archive) {
+  if (block == NULL)
+    return out_archive->Save(kNullBlockId);
+  return out_archive->Save(block->id());
+}
+
+// Given a block graph and an InArchive, deserializes a block by id
+// and converts it to a block pointer.
+bool LoadBlockPointer(BlockGraph& block_graph,
+                      BlockGraph::Block** block,
+                      core::InArchive* in_archive) {
+  BlockGraph::BlockId id = 0;
+  if (!in_archive->Load(&id))
+    return false;
+  if (id == kNullBlockId) {
+    *block = NULL;
+    return true;
+  }
+
+  *block = block_graph.GetBlockById(id);
+  if (*block == NULL) {
+    LOG(ERROR) << "No block exists with given id: " << id << ".";
+    return false;
+  }
+
+  return true;
+}
+
+// After deserialization of a block graph, blocks that did not own the data
+// they pointed to may be left with NULL data pointers, but a non-zero
+// data-size. These blocks pointed to data in a PEFile, and this function fixes
+// these 'missing' data pointers.
+bool SetBlockDataPointers(const PEFile& pe_file,
+                          BlockGraph* block_graph) {
+  DCHECK(block_graph != NULL);
+  BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
+  for (; it != block_graph->blocks().end(); ++it) {
+    // Is this block missing a data reference?
+    if (it->second.data() == NULL && it->second.data_size() > 0) {
+      const uint8* data = pe_file.GetImageData(it->second.original_addr(),
+                                               it->second.data_size());
+      if (data == NULL) {
+        LOG(ERROR) << "Unable to get Block data from PEFile.";
+        return false;
+      }
+      it->second.set_data(data);
+    }
+  }
+
   return true;
 }
 
@@ -701,6 +764,11 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   // were visited during decomposition.
   if (success)
     success = ConfirmFixupsVisited();
+
+  // Now, find and label any padding blocks. We require all references to have
+  // been finalized prior to calling this.
+  if (success)
+    success = FindPaddingBlocks();
 
   // Once the above steps are complete, we will now have a function-level
   // granularity of blocks for code-type blocks and those blocks will contain
@@ -1099,17 +1167,6 @@ bool Decomposer::CreateGapBlock(BlockGraph::BlockType block_type,
     return false;
   }
   block->set_attribute(BlockGraph::GAP_BLOCK);
-
-  // If this a code block, check to see if this is purely int3 padding.
-  // If it is, we mark it as a padding block.
-  if (block_type == BlockGraph::CODE_BLOCK) {
-    const uint8* data = image_file_.GetImageData(address, size);
-    // For .text, RawDataSize and VirtualSize should be equal, so this should
-    // never happen.
-    DCHECK(data != NULL);
-    if (IsInt3s(data, size))
-      block->set_attribute(BlockGraph::PADDING_BLOCK);
-  }
 
   return true;
 }
@@ -2187,6 +2244,51 @@ bool Decomposer::ConfirmFixupsVisited() const {
   return success;
 }
 
+bool Decomposer::FindPaddingBlocks() {
+  DCHECK(image_ != NULL);
+  DCHECK(image_->graph() != NULL);
+
+  BlockGraph::BlockMap::iterator block_it =
+      image_->graph()->blocks_mutable().begin();
+  for (; block_it != image_->graph()->blocks_mutable().end(); ++block_it) {
+    BlockGraph::Block& block = block_it->second;
+
+    // Padding blocks must not have any symbol information: no labels,
+    // no references, no referrers, and they must be a gap block.
+    if (block.labels().size() != 0 ||
+        block.references().size() != 0 ||
+        block.referrers().size() != 0 ||
+        (block.attributes() & BlockGraph::GAP_BLOCK) == 0)
+      continue;
+
+    switch (block.type()) {
+      // Code blocks should be fully defined and consist of only int3s.
+      case BlockGraph::CODE_BLOCK: {
+        if (block.data_size() != block.size() ||
+            RepeatedValue(block.data(), block.data_size()) != kInt3)
+          continue;
+        break;
+      }
+
+      // Data blocks should be uninitialized or have fully defined data
+      // consisting only of zeros.
+      default: {
+        DCHECK_EQ(BlockGraph::DATA_BLOCK, block.type());
+        if (block.data_size() == 0)  // Uninitialized data blocks are padding.
+          break;
+        if (block.data_size() != block.size() ||
+            RepeatedValue(block.data(), block.data_size()) != 0)
+          continue;
+      }
+    }
+
+    // If we fall through to this point, then the block is a padding block.
+    block.set_attribute(BlockGraph::PADDING_BLOCK);
+  }
+
+  return true;
+}
+
 bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
                                   std::vector<OMAP>* omap_to,
                                   std::vector<OMAP>* omap_from) {
@@ -2447,6 +2549,98 @@ bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
     return false;
 
   static_initializer_patterns_.push_back(re_pair);
+
+  return true;
+}
+
+bool SaveDecomposition(const PEFile& pe_file,
+                       const Decomposer::DecomposedImage& image,
+                       core::OutArchive* out_archive) {
+  // Get the metadata for this module and the toolchain. This will
+  // allow us to validate input files in other pieces of the toolchain.
+  Metadata metadata;
+  PEFile::Signature pe_file_signature;
+  pe_file.GetSignature(&pe_file_signature);
+  if (!metadata.Init(pe_file_signature) || !out_archive->Save(metadata))
+    return false;
+
+  // Now write out the DecomposedImage.
+  if (!out_archive->Save(image.image) ||
+      !out_archive->Save(image.address_space) ||
+      !out_archive->Save(image.basic_block_graph) ||
+      !out_archive->Save(image.basic_block_address_space) ||
+      !out_archive->Save(image.omap_to) ||
+      !out_archive->Save(image.omap_from)) {
+    return false;
+  }
+
+  // Now serialize the PEHeader block IDs.
+  if (!SaveBlockPointer(image.header.dos_header, out_archive) ||
+      !SaveBlockPointer(image.header.nt_headers, out_archive)) {
+    return false;
+  }
+
+  for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; ++i) {
+    if (!SaveBlockPointer(image.header.data_directory[i],
+                          out_archive))
+      return false;
+  }
+
+  return true;
+}
+
+bool LoadDecomposition(PEFile* pe_file,
+                       Decomposer::DecomposedImage* image,
+                       core::InArchive* in_archive) {
+  DCHECK(pe_file != NULL);
+  DCHECK(image != NULL);
+  DCHECK(in_archive != NULL);
+
+  // Load the metadata and initialize the PE file decomposition.
+  Metadata metadata;
+  if (!in_archive->Load(&metadata) ||
+      !pe_file->Init(FilePath(metadata.module_signature().path))) {
+    return false;
+  }
+
+  // Validate the signature of the PE file on disk to make sure its
+  // still the same as when the decomposition was serialized.
+  PEFile::Signature pe_signature;
+  pe_file->GetSignature(&pe_signature);
+  if (!metadata.IsConsistent(pe_signature))
+    return false;
+
+  // Now deserialize the actual decomposed image.
+  if (!in_archive->Load(&image->image) ||
+      !in_archive->Load(&image->address_space) ||
+      !in_archive->Load(&image->basic_block_graph) ||
+      !in_archive->Load(&image->basic_block_address_space) ||
+      !in_archive->Load(&image->omap_to) ||
+      !in_archive->Load(&image->omap_from)) {
+    return false;
+  }
+
+  // This sets any missing data pointers in the block graph. These
+  // are pointers to data that was not owned by the block graph, but
+  // rather by the PEFile.
+  if (!SetBlockDataPointers(*pe_file, &image->image) ||
+      !SetBlockDataPointers(*pe_file, &image->basic_block_graph)) {
+    return false;
+  }
+
+  // Populate the PEFile header pointers.
+  if (!LoadBlockPointer(image->image, &image->header.dos_header, in_archive) ||
+      !LoadBlockPointer(image->image, &image->header.nt_headers, in_archive)) {
+    return false;
+  }
+
+  for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; ++i) {
+    if (!LoadBlockPointer(image->image,
+                          &image->header.data_directory[i],
+                          in_archive)) {
+      return false;
+    }
+  }
 
   return true;
 }

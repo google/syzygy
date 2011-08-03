@@ -121,12 +121,6 @@ template<typename IteratorTag> struct IteratorsAreEqualFunctor;
 
 }  // namespace internal
 
-// Used to indicate whether an archive is for output or input.
-enum ArchiveType {
-  kOutArchive,
-  kInArchive
-};
-
 // Serialization passes through these static functions before being routed
 // to 'Save' and 'Load' member functions. Overriding this function provides a
 // method to implement serialization for classes whose internals we can not
@@ -252,9 +246,6 @@ ByteInStream<InputIterator>* CreateByteInStream(InputIterator iter,
 // This class defines a non-portable native binary serialization format.
 class NativeBinaryOutArchive {
  public:
-  // All OutArchives must define this member.
-  static const ArchiveType type = kOutArchive;
-
   // All classes implementing the OutArchive concept must implement the
   // following 2 functions.
 
@@ -288,17 +279,21 @@ class NativeBinaryOutArchive {
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint16);
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint32);
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint64);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(unsigned long);
 #undef NATIVE_BINARY_OUT_ARCHIVE_SAVE
+
+  OutStream* out_stream() { return out_stream_; }
 
  private:
   OutStream* out_stream_;
 };
 
+// For now this is the only archive type, but if there are more OutArchive
+// would be the common pure-virtual base class.
+typedef NativeBinaryOutArchive OutArchive;
+
 class NativeBinaryInArchive {
  public:
-  // All OutArchives must define this member.
-  static const ArchiveType type = kInArchive;
-
   // All classes implementing the InArchive concept must implement the
   // following 3 functions.
 
@@ -331,11 +326,18 @@ class NativeBinaryInArchive {
   NATIVE_BINARY_IN_ARCHIVE_LOAD(uint16);
   NATIVE_BINARY_IN_ARCHIVE_LOAD(uint32);
   NATIVE_BINARY_IN_ARCHIVE_LOAD(uint64);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(unsigned long);
 #undef NATIVE_BINARY_IN_ARCHIVE_LOAD
+
+  InStream* in_stream() { return in_stream_; }
 
  private:
   InStream* in_stream_;
 };
+
+// For now this is the only archive type, but if there are more OutArchive
+// would be the common pure-virtual base class.
+typedef NativeBinaryInArchive InArchive;
 
 }  // namespace core
 

@@ -64,7 +64,15 @@ class BlockGraph {
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
     // TODO(robertshield): Add a BASIC_PADDING_BLOCK here!
+
+    // NOTE: This must always be last, and kBlockType must be kept in sync
+    // with this enum.
+    BLOCK_TYPE_MAX
   };
+
+  // A list of printable names corresponding to block types. This needs to
+  // be kept in sync with the BlockType enum!
+  static const char* kBlockType[];
 
   enum ReferenceType {
     PC_RELATIVE_REF,
@@ -95,6 +103,15 @@ class BlockGraph {
   // @returns the block in question or NULL if no such block.
   Block* GetBlockById(BlockId id);
 
+  // Serialization is supported at the level of an entire BlockGraph, but not
+  // individual blocks. This is because blocks have pointers to other blocks
+  // and it is impossible to serialize one without serializing all others.
+  bool Save(OutArchive* out_archive) const;
+  // Note that after a 'Load', it is possible to have 'data_size > 0' and
+  // 'data == NULL'. This indicates that the block was pointing to data that
+  // it did not own. This will be resolved by DecomposedImage serialization.
+  bool Load(InArchive* in_archive);
+
  private:
   // All blocks we contain.
   BlockMap blocks_;
@@ -120,6 +137,9 @@ class BlockGraph::Block {
   typedef std::set<Referrer> ReferrerSet;
   typedef std::map<Offset, Reference> ReferenceMap;
   typedef std::map<Offset, std::string> LabelMap;
+
+  // Blocks need to be default constructible for serialization.
+  Block();
 
   Block(BlockId id,
         BlockType type,
@@ -239,6 +259,9 @@ class BlockGraph::Block {
   bool Contains(RelativeAddress address, size_t size) const;
 
  protected:
+  // Give BlockGraph access to our innards for serialization.
+  friend class BlockGraph;
+
   BlockId id_;
   BlockType type_;
   Size size_;
@@ -261,6 +284,21 @@ class BlockGraph::Block {
   const uint8* data_;
   // Size of the above.
   size_t data_size_;
+
+  // The following are serialization functions, and are intended for use by
+  // the BlockGraph that owns the Block.
+
+  // Serializes basic block properties.
+  bool SaveProps(OutArchive* out_archive) const;
+  bool LoadProps(InArchive* in_archive);
+
+  // Serializes block data.
+  bool SaveData(OutArchive* out_archive) const;
+  bool LoadData(InArchive* in_archive);
+
+  // Saves referrers and references.
+  bool SaveRefs(OutArchive* out_archive) const;
+  bool LoadRefs(BlockGraph& block_graph, InArchive* in_archive);
 };
 
 // A graph address space endows a graph with a non-overlapping ordering
@@ -346,6 +384,10 @@ class BlockGraph::AddressSpace {
     return address_space_;
   }
 
+  // For serialization.
+  bool Save(OutArchive* out_archive) const;
+  bool Load(InArchive* in_archive);
+
  private:
   bool InsertImpl(RelativeAddress addr, Block* block);
 
@@ -402,7 +444,7 @@ class BlockGraph::Reference {
 
   // Size of this reference.
   // Absolute references are always pointer wide, but PC-relative
-  // references can be 1, 2 or 4 byte wide, which affects their range.
+  // references can be 1, 2 or 4 bytes wide, which affects their range.
   Size size_;
 
   // The block referenced.

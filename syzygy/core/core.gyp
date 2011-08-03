@@ -48,6 +48,20 @@
       ],
     },
     {
+      # This is in a separate library because pe unittests use
+      # core/unittest_util.
+      'target_name': 'core_unittest_lib',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        'core_lib',
+        '<(DEPTH)/base/base.gyp:base',
+      ],
+    },
+    {
       'target_name': 'core_unittests',
       'type': 'executable',
       'sources': [
@@ -60,10 +74,10 @@
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
         'serialization_unittest.cc',
-        'unittest_util.h',
       ],
       'dependencies': [
         'core_lib',
+        'core_unittest_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',

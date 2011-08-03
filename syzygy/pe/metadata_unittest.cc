@@ -38,7 +38,7 @@ void InitMetadata(Metadata* metadata) {
   module_signature.path = L"C:\\foo\\foo.dll";
   module_signature.base_address = AbsoluteAddress(0x4001000);
   module_signature.module_size = 2 * 1024 * 1024;
-  module_signature.module_time_date_stamp = 0xdeadbeef900df00du;
+  module_signature.module_time_date_stamp = 0xdeadbeefu;
   module_signature.module_checksum = 0xbaadf00du;
 
   metadata->set_command_line(command_line);

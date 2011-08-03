@@ -56,7 +56,8 @@ class SyzygyVersion {
     last_change_ = last_change;
   }
 
-  // For serialization.
+  // For serialization. These are kept templated to remove any dependency
+  // on core_lib, where serialization lives.
   template<class OutArchive> bool Save(OutArchive* out_archive) const {
     DCHECK(out_archive != NULL);
     return out_archive->Save(major_) && out_archive->Save(minor_) &&
