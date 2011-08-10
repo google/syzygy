@@ -48,6 +48,11 @@ _TRACE_FLAG_BATCH_ENTER = 0x0020
 _LOGGER = logging.getLogger(__name__)
 
 
+class OptimizationError(Exception):
+  """Raised on any failures in the optimization process."""
+  pass
+
+
 def _Subprocess(cmd_line):
   _LOGGER.info('Running command line %s', cmd_line)
   return subprocess.call(cmd_line)
@@ -175,7 +180,7 @@ def _InstrumentChrome(chrome_dir, temp_dir, input_dll=None, input_pdb=None):
 
     ret = _Subprocess(cmd)
     if ret != 0:
-      raise RuntimeError('Failed to instrument "%s".' % file)
+      raise OptimizationError('Failed to instrument "%s".' % file)
 
 
 def _ProfileChrome(temp_dir, iterations):
@@ -202,7 +207,7 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files,
   cmd.extend(log_files)
   ret = _Subprocess(cmd)
   if ret != 0:
-    raise RuntimeError('Failed to generate an ordering for chrome.dll')
+    raise OptimizationError('Failed to generate an ordering for chrome.dll')
 
   if os.path.isdir(output_dir):
     _LOGGER.info('Removing pre-existing output dir "%s".', output_dir)
@@ -219,7 +224,7 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files,
          '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
   ret = _Subprocess(cmd)
   if ret != 0:
-    raise RuntimeError('Failed to reorder chrome.dll')
+    raise OptimizationError('Failed to reorder chrome.dll')
 
 
 def _CopyBinaries(src_dir, tgt_dir):
@@ -308,6 +313,9 @@ def main():
                     input_dll=opts.input_dll, input_pdb=opts.input_pdb)
     if opts.copy_to:
       _CopyBinaries(opts.output_dir, opts.copy_to)
+  except OptimizationError:
+    _LOGGER.exception('Optimization failed.')
+    return 1
   finally:
     if opts.keep_temp_dirs:
       _LOGGER.info('Keeping temporary directory "%s".', temp_dir)
