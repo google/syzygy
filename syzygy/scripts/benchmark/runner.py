@@ -47,6 +47,11 @@ _LOGGER = logging.getLogger(__name__)
 _XP_MAJOR_VERSION = 5
 
 
+class RunnerError(Exception):
+  """Exceptions raised by this module are instances of this class."""
+  pass
+
+
 def _DeletePrefetch():
   """Deletes all files that start with Chrome.exe in the OS prefetch cache.
   """
@@ -76,7 +81,7 @@ def _GetRunInSnapshotExeResourceName():
   if maj == _XP_MAJOR_VERSION:
     return 'run_in_snapshot_xp.exe'
   if maj < _XP_MAJOR_VERSION:
-    raise RuntimeError('Unrecognized system version.')
+    raise RunnerError('Unrecognized system version.')
 
   # We're on Vista or better, pick the 32 or 64 bit version as appropriate.
   is_wow64 = ctypes.wintypes.BOOL()
@@ -119,7 +124,7 @@ class ChromeRunner(object):
         kernel_file, call_trace_file)
     ret = subprocess.call(cmd)
     if ret != 0:
-      raise RuntimeError('Failed to start ETW logging.')
+      raise RunnerError('Failed to start ETW logging.')
 
   @staticmethod
   def StopLogging():
@@ -127,7 +132,7 @@ class ChromeRunner(object):
     _LOGGER.info('Stopping ETW logging.')
     ret = subprocess.call(cmd)
     if ret != 0:
-      raise RuntimeError('Failed to stop ETW logging.')
+      raise RunnerError('Failed to stop ETW logging.')
 
   def __init__(self, chrome_exe, profile_dir, initialize_profile=True):
     """Initialize instance.
@@ -238,14 +243,16 @@ class ChromeRunner(object):
     """Wait until Chrome is running in our profile directory.
 
     Raises:
-        RuntimeError if Chrome is not running after a 20 second wait.
+        RunnerError if Chrome is not running after a 5 minute wait.
     """
-    for i in xrange(20):
+    # Use a long timeout just in case the machine is REALLY bogged down.
+    # This could be the case on the builtbot slave, for example.
+    for i in xrange(300):
       if chrome_control.IsProfileRunning(self._profile_dir):
         return
       time.sleep(1)
 
-    raise RuntimeError('Timeout waiting for Chrome.')
+    raise RunnerError('Timeout waiting for Chrome.')
 
 
 class BenchmarkRunner(ChromeRunner):

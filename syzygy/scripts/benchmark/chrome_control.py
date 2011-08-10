@@ -15,6 +15,7 @@
 """A utility module for controlling Chrome instances."""
 import exceptions
 import os.path
+import pywintypes
 import win32api
 import win32con
 import win32event
@@ -44,10 +45,15 @@ def _FindProfileWindow(profile_dir):
   """Find the message window associated with profile_dir, if any."""
   profile_dir = os.path.abspath(profile_dir)
 
-  return win32gui.FindWindowEx(None,
-                               None,
-                               _MESSAGE_WINDOW_CLASS,
-                               profile_dir)
+  try:
+    return win32gui.FindWindowEx(None,
+                                 None,
+                                 _MESSAGE_WINDOW_CLASS,
+                                 profile_dir)
+  except pywintypes.error:
+    # On Windows 7, FindWindowEx returns None without raising an error.
+    # On older versions, it raises a FILE_NOT_FOUND error.
+    return None
 
 
 def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
