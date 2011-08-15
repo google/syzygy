@@ -390,7 +390,7 @@ bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
                               syzygy_size,
                               syzygy_size,
                               IMAGE_SCN_CNT_INITIALIZED_DATA |
-                              IMAGE_SCN_CNT_UNINITIALIZED_DATA);
+                              IMAGE_SCN_MEM_READ);
 
   return true;
 }
