@@ -77,9 +77,6 @@
           '<(SHARED_INTERMEDIATE_DIR)',
         ],
       },
-      # This target exports a hard dependency because it generates
-      # files that are included in compiles.
-      'hard_dependency': 1,
     },
     {
       'target_name': 'common_lib',
@@ -93,6 +90,9 @@
       'dependencies': [
         'syzygy_version',
       ],
+      # This target exports a hard dependency because it exposes
+      # files that from syzygy_version that are included from compiles.
+      'hard_dependency': 1,
     },
     {
       'target_name': 'common_unittests',
