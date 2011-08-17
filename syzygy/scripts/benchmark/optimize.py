@@ -185,7 +185,7 @@ def _InstrumentChrome(chrome_dir, temp_dir, input_dll=None, input_pdb=None):
 
 def _ProfileChrome(temp_dir, iterations):
   _LOGGER.info('Profiling Chrome.')
-  chrome_exe = os.path.join(temp_dir, 'instrumented/chrome.exe')
+  chrome_exe = os.path.join(temp_dir, 'instrumented', 'chrome.exe')
   runner = ProfileRunner(chrome_exe, temp_dir)
   runner.Run(iterations)
   return runner._log_files
@@ -200,9 +200,9 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files,
          '--verbose',
          '--output-stats',
          '--input-dll=%s' % (input_dll if input_dll
-                             else os.path.join(chrome_dir, '\chrome.dll')),
+                             else os.path.join(chrome_dir, 'chrome.dll')),
          '--instrumented-dll=%s' % os.path.join(temp_dir,
-                                                r'instrumented\chrome.dll'),
+                                                r'instrumented', 'chrome.dll'),
          '--output-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
   cmd.extend(log_files)
   ret = _Subprocess(cmd)

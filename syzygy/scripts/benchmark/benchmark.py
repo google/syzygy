@@ -85,6 +85,7 @@ def main():
     benchmark_runner.Run(opts.iterations)
   except:
     logging.exception('Exception in Run.')
+    return 1
 
   return 0
 
