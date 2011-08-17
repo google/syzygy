@@ -31,8 +31,8 @@ SyzygyVersion::SyzygyVersion(uint16 major, uint16 minor, uint16 build,
                              uint16 patch, const char* last_change)
     : major_(major),
       minor_(minor),
-      build_(patch),
-      patch_(build),
+      build_(build),
+      patch_(patch),
       last_change_(last_change) {
   DCHECK(last_change != NULL);
 }
