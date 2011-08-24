@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,24 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Implementation of the CallTrace call tracing DLL.
 
-#include <objbase.h>
+#include "syzygy/call_trace/call_trace_client.h"
+#include <windows.h>
 
-#include "base/at_exit.h"
-#include "base/command_line.h"
-#include "gtest/gtest.h"
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-
-  CommandLine::Init(argc, argv);
-  base::AtExitManager at_exit;
-
-  ::CoInitialize(NULL);
-
-  int ret = RUN_ALL_TESTS();
-
-  ::CoUninitialize();
-
-  return ret;
+BOOL WINAPI DllMain(HMODULE /* instance */, DWORD reason, LPVOID reserved) {
+  return call_trace::call_trace_client.DllMain(reason, reserved);
 }

@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,24 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+#ifdef APSTUDIO_INVOKED
+#error Don't open this file in the GUI, it'll be massacred on save.
+#endif  // APSTUDIO_INVOKED
 
-#include <objbase.h>
+#define SYZYGY_FILETYPE VFT_APP
+#define SYZYGY_DESCRIPTION "Syzygy Call Trace Service"
+#define SYZYGY_INTERNALNAME "Call Trace Service"
+#define SYZYGY_ORIGINALFILENAME "call_trace_service.exe"
 
-#include "base/at_exit.h"
-#include "base/command_line.h"
-#include "gtest/gtest.h"
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-
-  CommandLine::Init(argc, argv);
-  base::AtExitManager at_exit;
-
-  ::CoInitialize(NULL);
-
-  int ret = RUN_ALL_TESTS();
-
-  ::CoUninitialize();
-
-  return ret;
-}
+#include "syzygy/common/version.rc"

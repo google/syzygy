@@ -51,7 +51,7 @@
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
-      ],      
+      ],
     },
     {
       'target_name': 'call_trace',
@@ -67,7 +67,7 @@
         'call_trace_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
-      ],      
+      ],
     },
     {
       'target_name': 'call_trace_control',
@@ -92,7 +92,118 @@
         'call_trace_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-      ],      
-    }
+      ],
+    },
+    {
+      # Builds our IDL file to the shared intermediate directory.
+      # We invoke midl explicitly, because the rules for .idl files are
+      # specific to COM interfaces, which causes RPC interfaces to always
+      # be out of date.
+      'target_name': 'call_trace_rpc_idl',
+      'type': 'none',
+      'sources': [
+        'call_trace_rpc.idl',
+      ],
+      # Add the output dir for those who depend on us.
+      'all_dependent_settings': {
+        'include_dirs': ['<(SHARED_INTERMEDIATE'],
+      },
+      'actions': [
+        {
+        'action_name': 'Compile IDL',
+        'msvs_cygwin_shell': 0,
+        'inputs': [
+          'call_trace_rpc.idl',
+        ],
+        'outputs': [
+          '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc.h',
+          '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_c.c',
+          '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_s.c',
+        ],
+        'action': [
+          'midl.exe', 'call_trace_rpc.idl',
+          '-nologo',
+          '-char', 'signed',
+          '-env', 'win32',
+          '-Oicf',
+          '-prefix', 'all', 'CallTraceClient_', 'server', 'CallTraceService_',
+          '-out', '<(SHARED_INTERMEDIATE_DIR)',
+          '-h', 'call_trace_rpc.h',
+        ]
+        }
+      ],
+    },
+    {
+      'target_name': 'call_trace_rpc_lib',
+      'type': 'static_library',
+      'dependencies': [
+        'call_trace_rpc_idl',
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc.h',
+        '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_c.c',
+        '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_s.c',
+      ],
+      'all_dependent_settings': {
+        'libraries': [
+          'rpcrt4.lib',
+        ],
+      },
+    },
+    {
+      'target_name': 'call_trace_service_lib',
+      'type': 'static_library',
+      'sources': [
+        'buffer_pool.cc',
+        'buffer_pool.h',
+        'call_trace_defs.cc',
+        'call_trace_defs.h',
+        'rpc_impl.cc',
+        'service.cc',
+        'service.h',
+        'session.cc',
+        'session.h',
+      ],
+      'dependencies': [
+        'call_trace_rpc_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+      ],
+    },
+    {
+      'target_name': 'call_trace_service',
+      'type': 'executable',
+      'sources': [
+        'call_trace_service_main.cc',
+        'call_trace_service.rc',
+      ],
+      'dependencies': [
+        'call_trace_service_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+      ],
+    },
+    {
+      'target_name': 'call_trace_service_unittests',
+      'type': 'executable',
+      'sources': [
+        'call_trace_service_unittests_main.cc',
+        'call_trace_service_unittests.cc',
+        '../pe/unittest_util.cc',
+        '../pe/unittest_util.h',
+      ],
+      'dependencies': [
+        'call_trace_service_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+      ],
+      'libraries': [
+        'rpcrt4.lib',
+        'imagehlp.lib',
+      ],
+    },
   ]
 }
