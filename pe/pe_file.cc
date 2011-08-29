@@ -69,7 +69,12 @@ void PEFile::GetSignature(Signature* signature) const {
   DCHECK(signature != NULL);
   DCHECK(nt_headers_ != NULL);
 
-  signature->path = path_.value();
+  // TODO(chrisha): Make GetSignature return a bool, and update all calling
+  //     sites.
+  FilePath abs_path(path_);
+  CHECK(file_util::AbsolutePath(&abs_path));
+
+  signature->path = abs_path.value();
   signature->base_address =
       AbsoluteAddress(nt_headers_->OptionalHeader.ImageBase);
   signature->module_size = nt_headers_->OptionalHeader.SizeOfImage;
