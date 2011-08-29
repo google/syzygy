@@ -187,7 +187,10 @@ struct PEFile::Signature {
   Signature() : module_size(0), module_time_date_stamp(0), module_checksum(0) {
   }
 
-  // The original path is kept for convenience.
+  // The original path is kept for convenience. This should always be an
+  // absolute path.
+  // TODO(chrisha): Check that the path is absolute at all sites where this
+  //     path is used.
   std::wstring path;
 
   // The signature consists of the following 4 fields.
