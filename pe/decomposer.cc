@@ -618,6 +618,27 @@ bool SetBlockDataPointers(const PEFile& pe_file,
   return true;
 }
 
+void ClearAttributeRecursively(BlockGraph::BlockAttributes attribute,
+                               BlockGraph::Block* block) {
+  DCHECK(block != NULL);
+
+  // Don't have these attributes? Nothing to do!
+  if ((block->attributes() & attribute) != attribute)
+    return;
+
+  block->clear_attribute(attribute);
+
+  // Run through our descendents. Each of those that have all of the
+  // attributes, process recursively.
+  BlockGraph::Block::ReferenceMap::const_iterator it =
+      block->references().begin();
+  for (; it != block->references().end(); ++it) {
+    BlockGraph::Block* ref = it->second.referenced();
+    if ((ref->attributes() & attribute) == attribute)
+      ClearAttributeRecursively(attribute, ref);
+  }
+}
+
 }  // namespace
 
 namespace pe {
@@ -760,13 +781,19 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   if (success)
     success = FinalizeIntermediateReferences();
 
+  // Everything called after this points requires the references to have been
+  // finalized.
+
   // One way of ensuring full coverage is to check that all of the fixups
   // were visited during decomposition.
   if (success)
     success = ConfirmFixupsVisited();
 
-  // Now, find and label any padding blocks. We require all references to have
-  // been finalized prior to calling this.
+  // Find and label all orphaned blocks.
+  if (success)
+    success = FindOrphanedBlocks();
+
+  // Now, find and label any padding blocks.
   if (success)
     success = FindPaddingBlocks();
 
@@ -2244,6 +2271,34 @@ bool Decomposer::ConfirmFixupsVisited() const {
   return success;
 }
 
+bool Decomposer::FindOrphanedBlocks() {
+  DCHECK(image_ != NULL);
+  DCHECK(image_->graph() != NULL);
+
+  // We first color all blocks as orphans.
+  BlockGraph::BlockMap::iterator block_it =
+      image_->graph()->blocks_mutable().begin();
+  BlockGraph::BlockMap::iterator block_it_end =
+      image_->graph()->blocks_mutable().end();
+  for (; block_it != block_it_end; ++block_it) {
+    BlockGraph::Block& block = block_it->second;
+    block.set_attribute(BlockGraph::ORPHANED_BLOCK);
+  }
+
+  // Now we remove orphan status from all PE_PARSED-reachable blocks.
+  block_it = image_->graph()->blocks_mutable().begin();
+  for (; block_it != block_it_end; ++block_it) {
+    BlockGraph::Block& block = block_it->second;
+
+    // Any block that is PE parsed is used as a root from which to remove
+    // orphan status.
+    if ((block.attributes() & BlockGraph::PE_PARSED) != 0)
+      ClearAttributeRecursively(BlockGraph::ORPHANED_BLOCK, &block);
+  }
+
+  return true;
+}
+
 bool Decomposer::FindPaddingBlocks() {
   DCHECK(image_ != NULL);
   DCHECK(image_->graph() != NULL);
@@ -2254,11 +2309,13 @@ bool Decomposer::FindPaddingBlocks() {
     BlockGraph::Block& block = block_it->second;
 
     // Padding blocks must not have any symbol information: no labels,
-    // no references, no referrers, and they must be a gap block.
+    // no references, no referrers, and they must be a gap block. As a sanity
+    // check, they must also be orphans.
     if (block.labels().size() != 0 ||
         block.references().size() != 0 ||
         block.referrers().size() != 0 ||
-        (block.attributes() & BlockGraph::GAP_BLOCK) == 0)
+        (block.attributes() & BlockGraph::GAP_BLOCK) == 0 ||
+        (block.attributes() & BlockGraph::ORPHANED_BLOCK) == 0)
       continue;
 
     switch (block.type()) {

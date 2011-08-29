@@ -56,6 +56,10 @@ class BlockGraph {
     SECTION_CONTRIB = (1 << 3),
     // This is used to indicate that a block consists purely of padding data.
     PADDING_BLOCK = (1 << 4),
+    // This is used to indicate that a block is orphaned, meaning that it is
+    // has no module entry point as a referrer, or is part of a tree of blocks
+    // whose root has no module entry point as a referrer.
+    ORPHANED_BLOCK = (1 << 5),
   };
 
   enum BlockType {
