@@ -152,6 +152,11 @@ class Decomposer {
   // Checks that the fixups were all visited.
   bool ConfirmFixupsVisited() const;
 
+  // Searches through the final block graph and labels blocks that are
+  // orphans. Orphans are blocks that are not reachable from any module entry
+  // point (PE_PARSED blocks).
+  bool FindOrphanedBlocks();
+
   // Searches through the final block graph, and labels blocks that are
   // simply padding blocks. This must be called after all references are
   // finalized.
