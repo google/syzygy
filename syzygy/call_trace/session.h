@@ -11,14 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#ifndef SYZYGY_CALL_TRACE_SESSION_H_
-#define SYZYGY_CALL_TRACE_SESSION_H_
-
+//
 // This file declares the call_trace::service::Session class, which manages
 // the trace file and buffers for a given client of the call trace service.
 
-#include "syzygy/call_trace/buffer_pool.h"
+#ifndef SYZYGY_CALL_TRACE_SESSION_H_
+#define SYZYGY_CALL_TRACE_SESSION_H_
 
 #include <list>
 #include <map>
@@ -27,12 +25,15 @@
 #include "base/file_path.h"
 #include "base/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/call_trace/buffer_pool.h"
 
 namespace call_trace {
 namespace service {
 
+// Forward declaration.
 class Service;
 
+// Used to denote a Win32 process.
 typedef DWORD ProcessID;
 
 // Holds all of the data associated with a given client session.
@@ -41,7 +42,7 @@ typedef DWORD ProcessID;
 // of this class is synchronized.
 class Session {
  public:
-  explicit Session(Service* call_trace_service, ProcessID client_process_id);
+  Session(Service* call_trace_service, ProcessID client_process_id);
   ~Session();
 
   // Initialize this session object.
@@ -58,13 +59,17 @@ class Session {
   // buffer_size and adds them to the free list.
   bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
 
-  // Get the next available buffer for use by a client.
+  // Get the next available buffer for use by a client. The session
+  // retains ownership of the buffer object, it MUST not be deleted
+  // by the caller.
   bool GetNextBuffer(Buffer** buffer);
 
   // Return a buffer to the pool so that it can be used again.
   bool RecycleBuffer(Buffer* buffer);
 
-  // Locates the local record of the given call trace buffer.
+  // Locates the local record of the given call trace buffer.  The session
+  // retains ownership of the buffer object, it MUST not be deleted by the
+  // caller.
   bool FindBuffer(::CallTraceBuffer* call_trace_buffer,
                   Buffer** client_buffer);
 
@@ -87,8 +92,7 @@ class Session {
   // object.
   Service* const call_trace_service_;
 
-  // The PID for the process to which the session belongs. We do not own
-  // this handle.
+  // The PID for the process to which the session belongs.
   const ProcessID client_process_id_;
 
   // Our handle for the process to which the session belongs. We open this
@@ -116,6 +120,8 @@ class Session {
 
   // Tracks whether this session is in the process of shutting down.
   bool is_closing_;
+
+  DISALLOW_COPY_AND_ASSIGN(Session);
 };
 
 typedef std::map<ProcessID, Session*> SessionMap;
