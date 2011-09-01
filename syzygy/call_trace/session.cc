@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+//
 // This file implements the call_trace::service::Session class, which manages
 // the trace file and buffers for a given client of the call trace service.
 
@@ -32,10 +32,9 @@ namespace {
 using call_trace::service::Buffer;
 using call_trace::service::ProcessID;
 
-bool GenerateTraceFileName(const FilePath& trace_directory,
-                           ProcessID client_process_id,
-                           const wchar_t* command_line,
-                           FilePath* out_path) {
+FilePath GenerateTraceFileName(const FilePath& trace_directory,
+                               ProcessID client_process_id,
+                               const wchar_t* command_line) {
   // We use the current time to disambiguate the trace file, so let's look
   // at the clock.
   time_t t = time(NULL);
@@ -47,7 +46,7 @@ bool GenerateTraceFileName(const FilePath& trace_directory,
 
   // Construct the trace file path from the program being run, the current
   // timestamp, and the process id.
-  *out_path = trace_directory.Append(base::StringPrintf(
+  return trace_directory.Append(base::StringPrintf(
       L"trace-%ls-%4d%02d%02d%02d%02d%02d-%d.bin",
       exe_name.value().c_str(),
       local_time.tm_year,
@@ -56,8 +55,6 @@ bool GenerateTraceFileName(const FilePath& trace_directory,
       local_time.tm_min,
       local_time.tm_sec,
       client_process_id));
-
-  return true;
 }
 
 bool OpenTraceFile(const FilePath& file_path,
@@ -87,9 +84,9 @@ bool OpenTraceFile(const FilePath& file_path,
 }
 
 bool GetBlockSize(const FilePath& path, size_t* block_size) {
-  wchar_t volume[1024] = { 0 };
+  wchar_t volume[MAX_PATH];
 
-  if (!GetVolumePathName(path.value().c_str(), volume, arraysize(volume))) {
+  if (!::GetVolumePathName(path.value().c_str(), volume, arraysize(volume))) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get volume path name " << com::LogWe(error) << ".";
     return false;
@@ -126,17 +123,13 @@ bool WriteTraceFileHeader(HANDLE file_handle,
                                                  sizeof(wchar_t));
   size_t buffer_size = AlignUp(header_len, block_size);
   scoped_ptr_malloc<TraceFileHeader> header(
-      reinterpret_cast<TraceFileHeader*>(::calloc(1, buffer_size)));
+      static_cast<TraceFileHeader*>(::calloc(1, buffer_size)));
 
   // Populate the header values.
   header->server_version.lo = TRACE_VERSION_LO;
   header->server_version.hi = TRACE_VERSION_HI;
   header->header_size = header_len;
-#ifdef _WIN64
-  header->process_id = bit_cast<uint64>(client_process_id);
-#else
   header->process_id = bit_cast<uint32>(client_process_id);
-#endif
   header->command_line_len = command_line_len + 1;
   header->block_size = block_size;
   base::wcslcpy(&header->command_line[0], command_line, command_line_len + 1);
@@ -155,14 +148,12 @@ bool WriteTraceFileHeader(HANDLE file_handle,
 }
 
 // Helper for logging Buffer::ID values.
-std::ostream& operator << (std::ostream& stream, const Buffer::ID& buffer_id) {
-  stream << "shared_memory_handle=0x" << std::hex  << buffer_id.first
-      << ", buffer_offset=0x" << buffer_id.second;
-
-  return stream;
+std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
+  return stream << "shared_memory_handle=0x" << std::hex << buffer_id.first
+      << ", buffer_offset=0x" << std::hex << buffer_id.second;
 }
 
-} // namespace
+}  // namespace
 
 namespace call_trace {
 namespace service {
@@ -207,11 +198,8 @@ bool Session::Init(const FilePath& trace_directory,
     return false;
   }
 
-  if (!GenerateTraceFileName(trace_directory, client_process_id_, command_line,
-                             &trace_file_path_)) {
-    LOG(ERROR) << "Failed to generate a trace file name.";
-    return false;
-  }
+  trace_file_path_ = GenerateTraceFileName(trace_directory, client_process_id_,
+                                           command_line);
 
   if (!OpenTraceFile(trace_file_path_, &trace_file_handle_)) {
     LOG(ERROR) << "Failed to open trace file: "
@@ -245,9 +233,12 @@ bool Session::Close(BufferQueue* flush_queue, bool* can_destroy_now ) {
     return true;
   }
 
-  // Otherwise the
+  // Otherwise the session is closing. If the session has no outstanding
+  // buffers in use then it can be destroyed now. If the session has
+  // outstanding buffers in use then these buffers need to be queued
+  // for writing and the destruction of this session deferred; see
+  // RecycleBuffer().
   is_closing_ = true;
-
   if (buffers_in_use_.empty()) {
     *can_destroy_now = true;
   } else {
@@ -284,7 +275,7 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
     return false;
   }
 
-  // Move the shared memory block so that it's managed by the session.
+  // Save the shared memory block so that it's managed by the session.
   shared_memory_buffers_.push_back(pool.get());
   BufferPool* pool_ptr = pool.release();
 

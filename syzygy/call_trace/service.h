@@ -18,15 +18,13 @@
 #ifndef SYZYGY_CALL_TRACE_SERVICE_H_
 #define SYZYGY_CALL_TRACE_SERVICE_H_
 
-#include "syzygy/call_trace/session.h"
-
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
-#include "base/lazy_instance.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"
+#include "syzygy/call_trace/session.h"
 
 namespace call_trace {
 namespace service {
@@ -48,18 +46,32 @@ namespace service {
 // on SIGINT and/or SIGTERM, an event listening listening for a shutdown
 // Message, an IO loop waiting on a socket or Event, etc. The service
 // can also stopped remotely via an RPC call to CallTraceControl::Stop().
-class Service: public base::PlatformThread::Delegate {
+class Service : public base::PlatformThread::Delegate {
  public:
+  // Flag passed to CommitAndExchangeBuffer() to determine whether or
+  // not a fresh buffer should be returned to the client.
+  enum ExchangeFlag {
+    DO_NOT_PERFORM_EXCHANGE,
+    PERFORM_EXCHANGE
+  };
+
   Service();
   ~Service();
 
   // Accessor for a static/singleton instance of the Service.
   static Service& Instance();
 
-  // Some handy constants.
+  // The default number of buffers to allocate when expanding the buffer
+  // pool allocated for a given client session.
   static const size_t kDefaultNumIncrementalBuffers;
+
+  // The default size (in bytes) for each call trace buffer.
   static const size_t kDefaultBufferSize;
+
+  // The name of the Win32 RPC protocol to which the service will bind.
   static const wchar_t* const kRpcProtocol;
+
+  // The name/address of the RPC endpoint at which the service will listen.
   static const wchar_t* const kRpcEndpoint;
 
   // Set the directory where trace files are stored.
@@ -116,7 +128,6 @@ class Service: public base::PlatformThread::Delegate {
 
   // RPC implementation of CallTraceService::CreateSession().
   // See call_trace_rpc.idl for further info.
-  enum ExchangeFlag { PERFORM_EXCHANGE, DO_NOT_PERFORM_EXCHANGE };
   boolean CreateSession(handle_t binding,
                         const wchar_t* command_line,
                         SessionHandle* session_handle,
@@ -142,32 +153,50 @@ class Service: public base::PlatformThread::Delegate {
   bool DestroySession(Session* session);
 
  private:
-
   // RPC Server Management Functions.
   bool InitializeRPC();
   bool RunRPC(bool non_blocking);
   void StopRPC();
   void CleanupRPC();
 
-  // Creates a new session.
+  // Creates a new session, returning true on success. On failure, the value
+  // of *session will be NULL; otherwise it will point to a Session instance.
+  // The call trace service retains ownership of the returned Session object;
+  // it MUST not be deleted by the caller.
   bool GetNewSession(ProcessID client_process_id,
                      const wchar_t* command_line,
                      Session** session);
 
-  // Looks up an existing session.
+  // Looks up an existing session, returning true on success. On failure,
+  // the value of *session will be NULL; otherwise it will point to a
+  // Session instance. The call trace service retains ownership of the
+  // returned Session object; it MUST not be deleted by the caller.
   bool GetExistingSession(SessionHandle session_handle,
                           Session** session);
 
-  // Gets the next buffer from the given session, allocating new
-  // buffers as required.
+  // Gets the next buffer from the buffer pool for the given session,
+  // allocating new buffers to the pool as required and returning true
+  // on success. On failure, the value of *buffer will be NULL; otherwise,
+  // it will point to a Buffer instance owned by the given session; the
+  // buffer must not be deleted by the caller.
   bool GetNextBuffer(Session* session, Buffer** buffer);
 
-  // Transfers (swaps) any pending buffers to be written to out_queue.
+  // This is a blocking call which waits until the pending write queue
+  // is non-empty then transfers (swaps) any pending buffers to be written
+  // to out_queue. This function expects that out_queue->empty() is true
+  // on input.
   bool GetBuffersToWrite(BufferQueue* out_queue);
 
-  // Provides the IO thread via DelegateSimpleThread::Delegate::Run().
+  // Launch the writer thread, which will consume buffers from
+  // pending_write_queue_ and commit them to disk. Returns true on
+  // successfully starting the thread.
   bool StartWriterThread();
+
+  // Signal the write thread to terminate after all buffers currently in
+  // pending_write_queue_ are flushed to disk.
   void StopWriterThread();
+
+  // Implements the I/O thread via PlatformThread::Delegate::ThreadMain().
   virtual void ThreadMain();
 
   // The collection of active trace sessions.
@@ -205,9 +234,9 @@ class Service: public base::PlatformThread::Delegate {
   bool rpc_is_initialized_;
   bool rpc_is_running_;
   bool rpc_is_non_blocking_;
-};
 
-extern base::LazyInstance<Service> call_trace_service;
+  DISALLOW_COPY_AND_ASSIGN(Service);
+};
 
 }  // namespace call_trace::service
 }  // namespace call_trace
