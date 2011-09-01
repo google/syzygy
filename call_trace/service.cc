@@ -516,7 +516,6 @@ bool DestroySession(Service& service, Session* session) {
 
 bool Service::DestroySession(Session* session) {
   DCHECK(session != NULL);
-
   lock_.AssertAcquired();
 
   if (sessions_.erase(session->client_process_id()) == 0) {
@@ -532,7 +531,10 @@ bool Service::DestroySession(Session* session) {
 bool Service::GetNewSession(ProcessID client_process_id,
                             const wchar_t* command_line,
                             Session** session) {
+  DCHECK(session != NULL);
   lock_.AssertAcquired();
+
+  *session = NULL;
 
   // Take care of deleting the session if initialization fails or a session
   // already exists for this pid.
@@ -565,6 +567,7 @@ bool Service::GetNewSession(ProcessID client_process_id,
 
 bool Service::GetExistingSession(SessionHandle session_handle,
                                  Session** session) {
+  DCHECK(session != NULL);
   lock_.AssertAcquired();
 
   *session = reinterpret_cast<Session*>(session_handle);
@@ -585,6 +588,8 @@ bool Service::GetNextBuffer(Session* session, Buffer** buffer) {
   DCHECK(buffer != NULL);
 
   lock_.AssertAcquired();
+
+  *buffer = NULL;
 
   if (!session->HasAvailableBuffers() &&
       !session->AllocateBuffers(num_incremental_buffers_,

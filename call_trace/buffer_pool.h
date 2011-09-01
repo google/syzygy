@@ -73,6 +73,8 @@ class BufferPool {
   base::win::ScopedHandle handle_;
   uint8* base_ptr_;
   BufferCollection buffers_;
+
+  DISALLOW_COPY_AND_ASSIGN(BufferPool);
 };
 
 // Some other handy types.
