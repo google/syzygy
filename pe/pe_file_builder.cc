@@ -411,6 +411,20 @@ bool PEFileBuilder::FinalizeHeaders() {
 
   nt_headers_block_ = nt_headers_block;
 
+  // Verify there's room for the headers.
+  // TODO(chrisha): The PE File Builder needs to be reworked. We can't
+  //     determine where to lay out the sections until we know how big the
+  //     headers are, and we don't know how big the headers are until we
+  //     know how many sections there are. Layout needs to be two pass to
+  //     support this, with most of the work in AddSegment happening as part
+  //     of finalize headers.
+  size_t header_size =
+      section_headers_block->addr().value() + section_headers_block->size();
+  if (header_size > nt_headers_.OptionalHeader.SizeOfHeaders) {
+    LOG(ERROR) << "Insufficient room for new headers.";
+    return false;
+  }
+
   return true;
 }
 
