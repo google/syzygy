@@ -83,6 +83,7 @@
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
         '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
       ],

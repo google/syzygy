@@ -30,6 +30,7 @@
         'pdb_byte_stream.h',
         'pdb_constants.cc',
         'pdb_constants.h',
+        'pdb_data.cc',
         'pdb_data.h',
         'pdb_file_stream.cc',
         'pdb_file_stream.h',

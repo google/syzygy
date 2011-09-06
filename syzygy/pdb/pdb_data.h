@@ -14,6 +14,7 @@
 #ifndef SYZYGY_PDB_PDB_DATA_H_
 #define SYZYGY_PDB_PDB_DATA_H_
 
+#include <windows.h>
 #include "base/basictypes.h"
 
 namespace pdb {
@@ -94,6 +95,8 @@ struct PdbFixup {
   enum Type {
     TYPE_ABSOLUTE = 0x6,
     TYPE_RELATIVE = 0x7,
+    TYPE_OFFSET_32BIT = 0xB,
+    TYPE_OFFSET_8BIT = 0xD,
     TYPE_PC_RELATIVE = 0x14,
   };
 
@@ -120,16 +123,7 @@ struct PdbFixup {
   // This validates that the fixup is of a known type. Any FIXUP that does not
   // conform to a type that we have already witnessed in sample data will cause
   // this to return false.
-  bool ValidHeader() const {
-    // Ensure no unknown flags are set.
-    if ((flags & FLAG_UNKNOWN) != 0)
-      return false;
-    // Ensure the type is one we've seen before as well.
-    if (type != TYPE_ABSOLUTE && type != TYPE_RELATIVE &&
-        type != TYPE_PC_RELATIVE)
-      return false;
-    return true;
-  }
+  bool ValidHeader() const;
 
   // Refers to code as opposed to data.
   bool refers_to_code() const { return (flags & FLAG_REFERS_TO_CODE) != 0; }
@@ -138,6 +132,13 @@ struct PdbFixup {
   // not always reported properly, as immediate operands to 'jmp'
   // instructions in thunks (__imp__function_name) set this bit.
   bool is_data() const { return (flags & FLAG_IS_DATA) != 0; }
+
+  // Returns true if the fixup is an offset from some address.
+  bool is_offset() const;
+
+  // This function returns the size of the reference as encoded at the
+  // address 'rva_location'.
+  size_t size() const;
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 12 bytes in size.

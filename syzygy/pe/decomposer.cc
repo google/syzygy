@@ -735,8 +735,8 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
 
   // Our first round of parsing is using section contributions. This creates
   // both code and data blocks.
-  if (!CreateBlocksFromSectionContribs(dia_session))
-    return false;
+  if (success)
+    success = CreateBlocksFromSectionContribs(dia_session);
 
   // Chunk out blocks for each function and thunk in the image.
   if (success)
@@ -2454,10 +2454,18 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   size_t skipped = 0;
   for (size_t i = 0; i < pdb_fixups.size(); ++i) {
     if (!pdb_fixups[i].ValidHeader()) {
-      LOG(ERROR) << "Unknown fixup type: "
+      LOG(ERROR) << "Unknown fixup header: "
           << StringPrintf("0x%08X.", pdb_fixups[i].header);
       return false;
     }
+
+    // For now, we skip any offset fixups. We've only seen this in the context
+    // of TLS data access, and we don't mess with TLS structures.
+    if (pdb_fixups[i].is_offset())
+      continue;
+
+    // All fixups we handle should be full size pointers.
+    DCHECK_EQ(kPointerSize, pdb_fixups[i].size());
 
     // Get the original addresses, and map them through OMAP information.
     // Normally DIA takes care of this for us, but there is no API for

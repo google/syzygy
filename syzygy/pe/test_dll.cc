@@ -17,6 +17,12 @@
 #include <time.h>
 #include <math.h>
 
+// A handful of TLS variables, to cause TLS fixups to appear.
+__declspec(thread) int tls_int = 42;
+__declspec(thread) int tls_array[64] = { 0 };
+__declspec(thread) char tls_string_buffer[512] = { 0 };
+__declspec(thread) double tls_double = 3.5;
+
 extern int function1();
 extern int function2();
 extern int function3();
@@ -40,6 +46,13 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   function1();
 
   int n = rand();
+
+  // Access the TLS data so that some TLS FIXUPs are produced.
+  n += tls_int;
+  n += tls_array[0];
+  n += tls_string_buffer[0];
+  n += static_cast<int>(tls_double);
+
   switch (n % 7) {
   case 0:
     return reinterpret_cast<BOOL>(
@@ -116,7 +129,7 @@ void CALLBACK TestUnusedFuncs(HWND unused_window,
                               HINSTANCE unused_instance,
                               LPSTR unused_cmd_line,
                               int unused_show) {
-  bool call_it = time(NULL) > 10000;  //  true unless you play with the clock
+  bool call_it = time(NULL) > 10000;  // true unless you play with the clock.
 
   (call_it ? used_operation : unused_operation)();
 
