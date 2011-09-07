@@ -66,5 +66,17 @@
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },
+    {
+      'target_name': 'pdb_dump',
+      'type': 'executable',
+      'sources': [
+        'pdb_dump_main.cc',
+      ],
+      'dependencies': [
+        'pdb_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+      ],
+    },
   ],
 }
