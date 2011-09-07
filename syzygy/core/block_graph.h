@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@ class BlockGraph {
     SECTION_CONTRIB = (1 << 3),
     // This is used to indicate that a block consists purely of padding data.
     PADDING_BLOCK = (1 << 4),
-    // This is used to indicate that a block is orphaned, meaning that it is
-    // has no module entry point as a referrer, or is part of a tree of blocks
-    // whose root has no module entry point as a referrer.
+    // This is used to indicate that a block is orphaned, meaning that it has no
+    // module entry point as a referrer, or is part of a tree of blocks whose
+    // root has no module entry point as a referrer.
     ORPHANED_BLOCK = (1 << 5),
   };
 
@@ -99,6 +99,17 @@ class BlockGraph {
   // @returns the new block.
   Block* AddBlock(BlockType type, Size size, const char* name);
 
+  // Deletes the given block from the BlockGraph. The block must belong to this
+  // block graph, and have no references or referrers. Returns true on success,
+  // false otherwise. On failure, the BlockGraph has not been changed.
+  bool RemoveBlock(Block* block);
+
+  // Deletes the block with the given @p id from the block graph. The block id
+  // must be valid, and the block must have no references or referrers. Returns
+  // true on success, false otherwise. On failure, the BlockGraph has not been
+  // changed.
+  bool RemoveBlockById(BlockId id);
+
   // Accessors.
   const BlockMap& blocks() const { return blocks_; }
   BlockMap& blocks_mutable() { return blocks_; }
@@ -117,6 +128,9 @@ class BlockGraph {
   bool Load(InArchive* in_archive);
 
  private:
+  // Removes a block by the iterator to it. The iterator must be valid.
+  bool RemoveBlockByIterator(BlockMap::iterator it);
+
   // All blocks we contain.
   BlockMap blocks_;
 
@@ -335,7 +349,7 @@ class BlockGraph::AddressSpace {
   // Merges all blocks that intersect @p range into a single block.
   // Moves labels and references from the intersecting blocks to the
   // merged block, and changes referring blocks to refer to the new,
-  // merged block.
+  // merged block. Removes the original blocks from the BlockGraph.
   // @returns the new, merged block if there was at least one intersecting
   //     block in @p range, or NULL otherwise.
   Block* MergeIntersectingBlocks(const Range& range);

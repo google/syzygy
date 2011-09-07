@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,13 +61,66 @@ TEST(BlockGraphTest, AddBlock) {
   ASSERT_FALSE(block->owns_data());
 }
 
+TEST(BlockGraphTest, RemoveBlock) {
+  BlockGraph image;
+
+  // Add some blocks to the image.
+  BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
+  BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
+  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
+  BlockGraph::Block* b4 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b4");
+  ASSERT_TRUE(b1 != NULL);
+  ASSERT_TRUE(b2 != NULL);
+  ASSERT_TRUE(b3 != NULL);
+  ASSERT_TRUE(b4 != NULL);
+  EXPECT_EQ(4u, image.blocks().size());
+
+  // Add a reference from block 1 to block 2.
+  BlockGraph::Reference ref12(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  ASSERT_TRUE(b1->SetReference(0, ref12));
+  EXPECT_THAT(b1->references(), testing::Contains(std::make_pair(0, ref12)));
+  EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b1, 0)));
+  EXPECT_EQ(1u, b1->references().size());
+  EXPECT_EQ(1u, b2->referrers().size());
+
+  // Try to delete Block 1. This should fail because it has references.
+  ASSERT_FALSE(image.RemoveBlock(b1));
+  EXPECT_EQ(4u, image.blocks().size());
+
+  // Try to delete Block 2. This should fail because it has referrers.
+  ASSERT_FALSE(image.RemoveBlockById(b2->id()));
+  EXPECT_EQ(4u, image.blocks().size());
+
+  // Try to delete a block that doesn't belong to the block graph. This
+  // should fail.
+  BlockGraph other_image;
+  BlockGraph::Block* other_block =
+      other_image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "other_block");
+  ASSERT_FALSE(image.RemoveBlock(other_block));
+  EXPECT_EQ(4u, image.blocks().size());
+
+  // Try to delete a block with an invalid ID. This should fail.
+  ASSERT_FALSE(image.RemoveBlockById(15));
+  EXPECT_EQ(4u, image.blocks().size());
+
+  // Delete block 3.
+  ASSERT_TRUE(image.RemoveBlock(b3));
+  EXPECT_EQ(3u, image.blocks().size());
+
+  // Delete block 4.
+  ASSERT_TRUE(image.RemoveBlockById(b4->id()));
+  EXPECT_EQ(2u, image.blocks().size());
+}
+
 TEST(BlockGraphTest, References) {
   BlockGraph image;
 
   BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
   BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
   BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
-  ASSERT_TRUE(b1 != NULL && b2 != NULL);
+  ASSERT_TRUE(b1 != NULL);
+  ASSERT_TRUE(b2 != NULL);
+  ASSERT_TRUE(b3 != NULL);
 
   ASSERT_TRUE(b1->references().empty());
   ASSERT_TRUE(b1->referrers().empty());
@@ -420,6 +473,10 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   expected_refs.insert(std::make_pair(0x6,
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x20)));
   EXPECT_THAT(block1->references(), testing::ContainerEq(expected_refs));
+
+  // We expect that the block graph and the address space have the same size,
+  // as MergeIntersectingBlocks deletes the old blocks from the BlockGraph.
+  EXPECT_EQ(image.blocks().size(), address_space.address_space_impl().size());
 }
 
 TEST(BlockGraphTest, Serialization) {
