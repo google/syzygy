@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,24 @@ BlockGraph::Block* BlockGraph::AddBlock(BlockType type,
       std::make_pair(id, Block(id, type, size, name))).first;
 
   return &it->second;
+}
+
+bool BlockGraph::RemoveBlock(Block* block) {
+  DCHECK(block != NULL);
+
+  BlockMap::iterator it(blocks_.find(block->id()));
+  if (it == blocks_.end() || &it->second != block)
+    return false;
+
+  return RemoveBlockByIterator(it);
+}
+
+bool BlockGraph::RemoveBlockById(BlockId id) {
+  BlockMap::iterator it(blocks_.find(id));
+  if (it == blocks_.end())
+    return false;
+
+  return RemoveBlockByIterator(it);
 }
 
 BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) {
@@ -110,6 +128,18 @@ bool BlockGraph::Load(InArchive* in_archive) {
     if (!order[i]->LoadRefs(*this, in_archive))
       return false;
   }
+
+  return true;
+}
+
+bool BlockGraph::RemoveBlockByIterator(BlockMap::iterator it) {
+  DCHECK(it != blocks_.end());
+
+  // Verify this block is fully disconnected.
+  if (it->second.referrers().size() > 0 || it->second.references().size() > 0)
+    return false;
+
+  blocks_.erase(it);
 
   return true;
 }
@@ -332,6 +362,10 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     // referrers from the original block.
     DCHECK(block->references().empty());
     DCHECK(block->referrers().empty());
+
+    // Remove the original block.
+    bool removed = graph_->RemoveBlock(block);
+    DCHECK(removed);
   }
 
   return new_block;
