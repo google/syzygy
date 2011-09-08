@@ -26,7 +26,9 @@ import os
 import posixpath
 import re
 import shutil
+import socket
 import sys
+import urllib2
 import urlparse
 import zipfile
 
@@ -87,7 +89,9 @@ class ChromeRepo(object):
       r'(?P<hours>[0-2]\d):(?P<minutes>[0-5]\d)' % '|'.join(_MONTHS.keys()),
       re.IGNORECASE | re.VERBOSE)
 
-  def __init__(self, repo_url, build_id_pattern=DEFAULT_BUILD_ID_PATTERN):
+  def __init__(self, repo_url,
+               build_id_pattern=DEFAULT_BUILD_ID_PATTERN,
+               proxy_server=None):
     """Initialize a ChromeRepo instance.
 
     Args:
@@ -95,8 +99,10 @@ class ChromeRepo(object):
           as a directory listing.
       build_id_pattern: The regular expression pattern to use for identifying
           build id strings. This allows you to be more specific in your
-          searches.  For example you can specify "10\.\d+\.\d+\.\d+" to get
+          searches. For example you can specify "10\.\d+\.\d+\.\d+" to get
           all version 10 builds.
+      proxy_server: The URL to the HTTP(s) proxy server to use, or None, if no
+          proxy server is to be explicitly set.
     """
     # pylint: disable=E1103
     #   --> pylint can't infer the named properties of a SplitResult.
@@ -108,13 +114,15 @@ class ChromeRepo(object):
     self._fragment = url_parts.fragment
     # pylint: enable=E1103
 
-    if self._scheme == 'http':
-      self._connection_factory = httplib.HTTPConnection
-    elif self._scheme == 'https':
-      self._connection_factory = httplib.HTTPSConnection
-    else:
+    if self._scheme not in ('http', 'https'):
       raise ValueError('Unsupported URL scheme (%s)' % self._scheme)
 
+    if proxy_server:
+      custom_handlers = [urllib2.ProxyHandler({self._scheme:proxy_server})]
+    else:
+      custom_handlers = []
+
+    self._url_opener = urllib2.build_opener(*custom_handlers)
     self._build_id_pattern = build_id_pattern
     self._build_id_regex = re.compile(r'href="(?P<id>%s)/"' % build_id_pattern)
 
@@ -138,16 +146,18 @@ class ChromeRepo(object):
     """
     url = '%s://%s%s' % (self._scheme, self._netloc, path)
     _LOGGER.debug('Performing %s to %s', method, url)
-    connection = self._connection_factory(self._netloc)
-    with contextlib.closing(connection):
-      connection.request(method, path, body, headers or {})
-      response = connection.getresponse()
+    try:
+      request = urllib2.Request(url, body, headers or {})
+      response = self._url_opener.open(request)
       while True:
         chunk = response.read(16384)
         if not chunk:
           break
         out_stream.write(chunk)
-      return response.status, response.msg, url
+      return 200, response.info(), response.geturl()
+    except (IOError, socket.error, httplib.HTTPException), error:
+      _LOGGER.error('%s', error)
+      return (error.code if hasattr('code', 'error') else 500), {}, url
 
   def GetBuildIndex(self):
     """Retrieve the list of build (id, timestamp) pairs from the build repo.
@@ -292,6 +302,9 @@ def AddCommandLineOptions(option_parser):
       '--repo-build-id-pattern', metavar='PATTERN',
       default=DEFAULT_BUILD_ID_PATTERN,
       help='Regular expression for recognizing build ids (default: %default)')
+  group.add_option(
+      '--repo-proxy', metavar='URL',
+      help='The proxy server to use when accessing the repository')
   option_parser.add_option_group(group)
   return group
 
@@ -317,7 +330,8 @@ def main():
   """Main script function."""
   options, action = ParseArgs()
   log_helper.InitLogger(options)
-  repo = ChromeRepo(options.repo_url, options.repo_build_id_pattern)
+  repo = ChromeRepo(options.repo_url, options.repo_build_id_pattern,
+                    proxy_server=options.repo_proxy)
   try:
     if action == 'list':
       build_index = repo.GetBuildIndex()
