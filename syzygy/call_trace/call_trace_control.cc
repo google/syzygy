@@ -41,6 +41,7 @@ const int kDefaultKernelFlags = EVENT_TRACE_FLAG_PROCESS |
                                 EVENT_TRACE_FLAG_FILE_IO;
 
 static const wchar_t kCallTraceSessionName[] = L"Call Trace Logger";
+static const wchar_t kChromeSessionName[] = L"Chrome Event Logger";
 static const wchar_t kDefaultCallTraceFile[] = L"call_trace.etl";
 static const wchar_t kDefaultKernelFile[] = L"kernel.etl";
 
@@ -61,6 +62,7 @@ enum FileMode {
 struct CallTraceOptions {
   FilePath call_trace_file;
   FilePath kernel_file;
+  FilePath chrome_file;
   FileMode file_mode;
   int flags;
   int min_buffers;
@@ -90,6 +92,18 @@ static bool ParseOptions(CallTraceOptions* options) {
   if (options->kernel_file.empty())
     options->kernel_file = FilePath(kDefaultKernelFile);
 
+  // This is an optional argument. If specified, it must be different from
+  // call-trace-file and kernel-file.
+  options->chrome_file = cmd_line->GetSwitchValuePath("chrome-file");
+  if (!options->chrome_file.empty()) {
+    if (options->chrome_file == options->call_trace_file ||
+        options->chrome_file == options->kernel_file) {
+      LOG(ERROR) << "chrome-file must be different from call-trace-file "
+          "and kernel-file.";
+      return false;
+    }
+  }
+
   if (options->call_trace_file == options->kernel_file) {
     LOG(ERROR) << "call-trace-file and kernel-file must be different.";
     return false;
@@ -115,7 +129,8 @@ static bool ParseOptions(CallTraceOptions* options) {
 
 enum EtwTraceType {
   kKernelType,
-  kCallTraceType
+  kCallTraceType,
+  kChromeType,
 };
 
 // Sets up basic ETW trace properties.
@@ -166,6 +181,21 @@ static void SetupEtwProperties(EtwTraceType trace_type,
       if (options.min_buffers > signed(p->MinimumBuffers))
         p->MinimumBuffers = options.min_buffers;
       p->MaximumBuffers = kBufferMultiplier * p->MinimumBuffers;
+
+      break;
+    }
+
+    case kChromeType: {
+      // This should never be called with an empty file name.
+      DCHECK(!options.chrome_file.empty());
+
+      properties->SetLoggerFileName(options.chrome_file.value().c_str());
+
+      // Chrome is quite low volume.
+      p->EnableFlags = 0;
+      p->MinimumBuffers = 1;
+      p->MaximumBuffers = 5;
+
       break;
     }
 
@@ -309,6 +339,32 @@ static bool FlushAndStopSession(const wchar_t* session_name,
   return true;
 }
 
+class ScopedSession {
+ public:
+  ScopedSession(const wchar_t* session_name,
+                EtwTraceProperties* properties)
+      : name_(session_name), props_(properties) {
+    DCHECK(session_name != NULL);
+    DCHECK(properties != NULL);
+  }
+
+  ~ScopedSession() {
+    DCHECK((name_ == NULL) == (props_ == NULL));
+    if (name_) {
+      StopSession(name_, props_);
+    }
+  }
+
+  void Release() {
+    name_ = NULL;
+    props_ = NULL;
+  }
+
+ private:
+  const wchar_t* name_;
+  EtwTraceProperties* props_;
+};
+
 }  // namespace
 
 bool StartCallTraceImpl() {
@@ -325,6 +381,10 @@ bool StartCallTraceImpl() {
                                            &session_handle);
   if (result == kError)
     return false;
+
+  // Automatically clean up this session if we exit early.
+  ScopedSession call_trace_session(kCallTraceSessionName, &call_trace_props);
+
   // If we started the session (it wasn't already running), enable batch
   // entry logging. If we received kAlreadyStarted, session_handle is invalid
   // so we're can't call EnableTrace.
@@ -336,18 +396,8 @@ bool StartCallTraceImpl() {
                               &kCallTraceProvider,
                               session_handle);
     if (err != ERROR_SUCCESS) {
-      LOG(ERROR) << "Failed to enable call trace: " << com::LogWe(err) << ".";
-      return false;
-    }
-
-    // Enable Chrome trace events.
-    err = ::EnableTrace(TRUE,
-                        0,
-                        TRACE_LEVEL_INFORMATION,
-                        &base::debug::kChromeTraceProviderName,
-                        session_handle);
-    if (err != ERROR_SUCCESS) {
-      LOG(ERROR) << "Failed to enable trace event: " << com::LogWe(err) << ".";
+      LOG(ERROR) << "Failed to enable call trace batch logging: "
+          << com::LogWe(err) << ".";
       return false;
     }
   }
@@ -359,21 +409,65 @@ bool StartCallTraceImpl() {
   if (result == kError) {
     LOG(INFO) << "Failed to start '" << KERNEL_LOGGER_NAMEW << "' session, "
         << "shutting down '" << kCallTraceSessionName << "' sesion.";
-    StopSession(kCallTraceSessionName, &call_trace_props);
     return false;
   }
+
+  // Automatically clean up this session if we exit early.
+  ScopedSession kernel_session(KERNEL_LOGGER_NAMEW, &kernel_props);
+
+  // If a chrome file name has been provided, enable it as well.
+  if (!options.chrome_file.empty()) {
+    EtwTraceProperties chrome_props;
+    SetupEtwProperties(kChromeType, options, &chrome_props);
+    result = StartSession(kChromeSessionName, &chrome_props, &session_handle);
+    if (result == kError) {
+      LOG(INFO) << "Failed to start '" << kChromeSessionName << "' session, "
+          << "shutting down other session.";
+      return false;
+    }
+
+    // Automatically clean up this session if we exit early.
+    ScopedSession chrome_session(kChromeSessionName, &chrome_props);
+
+    if (result == kStarted) {
+      // Enable Chrome trace events.
+      ULONG err = ::EnableTrace(TRUE,
+                                0,
+                                TRACE_LEVEL_INFORMATION,
+                                &base::debug::kChromeTraceProviderName,
+                                session_handle);
+      if (err != ERROR_SUCCESS) {
+        LOG(ERROR) << "Failed to enable Chrome logging: " << com::LogWe(err)
+            << ".";
+        return false;
+      }
+    }
+
+    // Release the ScopedSession so it doesn't get torn down.
+    chrome_session.Release();
+  }
+
+  // Release the ScopedSessions so that they don't get torn down as we're
+  // exiting successfully.
+  kernel_session.Release();
+  call_trace_session.Release();
 
   return true;
 }
 
 bool QueryCallTraceImpl() {
+  bool success = true;
+
   if (!DumpSessionStatus(kCallTraceSessionName))
-    return false;
+    success = false;
 
   if (!DumpSessionStatus(KERNEL_LOGGER_NAMEW))
-    return false;
+    success = false;
 
-  return true;
+  if (!DumpSessionStatus(kChromeSessionName))
+    success = false;
+
+  return success;
 }
 
 bool StopCallTraceImpl() {
@@ -382,11 +476,20 @@ bool StopCallTraceImpl() {
   // return failure.
   std::wstring call_trace_file;
   std::wstring kernel_file;
+  std::wstring chrome_file;
   bool success = true;
   if (!FlushAndStopSession(kCallTraceSessionName, &call_trace_file))
     success = false;
   if (!FlushAndStopSession(KERNEL_LOGGER_NAMEW, &kernel_file))
     success = false;
+
+  EtwTraceProperties props;
+  HRESULT hr = EtwTraceController::Query(kChromeSessionName, &props);
+  if (SUCCEEDED(hr)) {
+    LOG(INFO) << "Detected optional session: '" << kChromeSessionName << "'.";
+    if (!FlushAndStopSession(kChromeSessionName, &chrome_file))
+      success = false;
+  }
 
   // TODO(chrisha): Add ETL file merging support here.
   return success;

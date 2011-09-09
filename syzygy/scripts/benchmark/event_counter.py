@@ -23,6 +23,7 @@ import etw_db
 import logging
 import optparse
 import re
+import trace_event
 
 
 # TODO(siggi): make this configurable?
@@ -31,6 +32,10 @@ _CHROME_RE = re.compile(r'^chrome\.exe$', re.I)
 
 # Set up a file-local logger.
 _LOGGER = logging.getLogger(__name__)
+
+
+# The Chrome event corresponding to the start of the main message loop.
+_MESSAGE_LOOP_BEGIN = 'BrowserMain:MESSAGE_LOOP'
 
 
 class LogEventCounter(etw.EventConsumer):
@@ -49,7 +54,21 @@ class LogEventCounter(etw.EventConsumer):
     self._process_db = process_db
     self._hardfaults = 0
     self._softfaults = 0
+    self._message_loop_begin = []
     self._process_launch = []
+
+  @etw.EventHandler(trace_event.Event.EVENT_BEGIN)
+  def _OnBegin(self, event):
+    if event.name == _MESSAGE_LOOP_BEGIN:
+      self._message_loop_begin.append(event.time_stamp)
+
+  @etw.EventHandler(trace_event.Event.EVENT_END)
+  def _OnEnd(self, event):
+    pass
+
+  @etw.EventHandler(trace_event.Event.EVENT_INSTANT)
+  def _OnInstant(self, event):
+    pass
 
   @etw.EventHandler(process.Event.Start)
   def _OnProcessStart(self, event):

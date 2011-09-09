@@ -30,6 +30,8 @@ static const char kUsage[] =
     "  --append: Append to the ETW log files rather than overwriting them.\n"
     "  --call-trace-file: Path to call-trace ETW log file.\n"
     "      Defaults to 'call_trace.etl' in the current working directory.\n"
+    "  --chrome-file: Path to Chrome ETW log file.\n"
+    "      If not specified, does not enable Chrome ETW logging.\n"
     "  --min-buffers: The minimum number of buffers to use for call-trace.\n"
     "      Augment this from the defaults if seeing lost events.\n"
     "  --kernel-file: Path to kernel ETW log file.\n"

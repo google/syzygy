@@ -52,6 +52,7 @@ _MODULES = [
   'event_counter',
   'optimize',
   'runner',
+  'trace_event'
 ]
 
 _EXECUTABLES = [
