@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "base/at_exit.h"
+#include "base/debug/trace_event_win.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/logging.h"
@@ -336,6 +337,17 @@ bool StartCallTraceImpl() {
                               session_handle);
     if (err != ERROR_SUCCESS) {
       LOG(ERROR) << "Failed to enable call trace: " << com::LogWe(err) << ".";
+      return false;
+    }
+
+    // Enable Chrome trace events.
+    err = ::EnableTrace(TRUE,
+                        0,
+                        TRACE_LEVEL_INFORMATION,
+                        &base::debug::kChromeTraceProviderName,
+                        session_handle);
+    if (err != ERROR_SUCCESS) {
+      LOG(ERROR) << "Failed to enable trace event: " << com::LogWe(err) << ".";
       return false;
     }
   }
