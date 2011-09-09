@@ -109,19 +109,22 @@ class ChromeRunner(object):
     """Starts ETW Logging to the files provided.
 
     Args:
-        log_dir: Directory where kernel.etl and call_trace.etl will be created.
+        log_dir: Directory where kernel.etl, call_trace.etl and chrome.etl
+                 will be created.
     """
     # Best effort cleanup in case the log sessions are already running.
     subprocess.call([_GetExePath('call_trace_control.exe'), 'stop'])
 
     kernel_file = os.path.abspath(os.path.join(log_dir, 'kernel.etl'))
     call_trace_file = os.path.abspath(os.path.join(log_dir, 'call_trace.etl'))
+    chrome_file = os.path.abspath(os.path.join(log_dir, 'chrome.etl'))
     cmd = [_GetExePath('call_trace_control.exe'),
            'start',
            '--kernel-file=%s' % kernel_file,
-           '--call-trace-file=%s' % call_trace_file]
-    _LOGGER.info('Starting ETW logging to "%s" and "%s".',
-        kernel_file, call_trace_file)
+           '--call-trace-file=%s' % call_trace_file,
+           '--chrome-file=%s' % chrome_file]
+    _LOGGER.info('Starting ETW logging to "%s", "%s" and "%s".',
+        kernel_file, call_trace_file, chrome_file)
     ret = subprocess.call(cmd)
     if ret != 0:
       raise RunnerError('Failed to start ETW logging.')
@@ -344,6 +347,7 @@ class BenchmarkRunner(ChromeRunner):
   def _StartLogging(self):
     self.StartLogging(self._temp_dir)
     self._kernel_file = os.path.join(self._temp_dir, 'kernel.etl')
+    self._chrome_file = os.path.join(self._temp_dir, 'chrome.etl')
 
   def _StopLogging(self):
     self.StopLogging()
@@ -351,6 +355,7 @@ class BenchmarkRunner(ChromeRunner):
   def _ProcessLogs(self):
     parser = etw.consumer.TraceEventSource()
     parser.OpenFileSession(self._kernel_file)
+    parser.OpenFileSession(self._chrome_file)
 
     file_db = etw_db.FileNameDatabase()
     module_db = etw_db.ModuleDatabase()
@@ -368,6 +373,13 @@ class BenchmarkRunner(ChromeRunner):
     self._AddResult('Chrome', 'HardPageFaults', counter._hardfaults)
     self._AddResult('Chrome', 'SoftPageFaults', counter._softfaults)
 
+    if (counter._message_loop_begin and len(counter._message_loop_begin) > 0 and
+        counter._process_launch and len(counter._process_launch) > 0):
+      browser_start = counter._process_launch[0]
+      loop_start = counter._message_loop_begin[0]
+      self._AddResult('Chrome', 'MessageLoopStartTime',
+          loop_start - browser_start, 's')
+
     if counter._process_launch and len(counter._process_launch) >= 2:
       browser_start = counter._process_launch.pop(0)
       renderer_start = counter._process_launch.pop(0)
@@ -378,6 +390,7 @@ class BenchmarkRunner(ChromeRunner):
 
     # We leave it to TearDown to delete any files we've created.
     self._kernel_file = None
+    self._chrome_file = None
 
   def _ProcessResults(self):
     """Outputs the benchmark results in the format required by the

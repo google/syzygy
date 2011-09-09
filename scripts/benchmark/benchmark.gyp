@@ -26,6 +26,7 @@
           'optimize.py',
           'runner.py',
           'setup.py',
+          'trace_event.py',
           'zip_benchmark.py',
         ],
         'setup_file': [
