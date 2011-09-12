@@ -147,7 +147,7 @@ bool AddReference(RelativeAddress src_addr,
                   Decomposer::IntermediateReferenceMap* references) {
   DCHECK(references != NULL);
 
-  // If we ge t an iterator to a reference and it has the same source address
+  // If we get an iterator to a reference and it has the same source address
   // then ensure that we are consistent with it.
   Decomposer::IntermediateReferenceMap::iterator it =
       references->lower_bound(src_addr);
@@ -1340,7 +1340,7 @@ bool Decomposer::CreateReferencesFromFixups() {
 
     RelativeAddress dst_base(it->second.base);
     BlockGraph::Offset dst_offset = dst_addr - dst_base;
-    std::string label(StringPrintf("From 0x%08X", src_addr.value()));
+    std::string label(StringPrintf("From 0x%08X (FIXUP)", src_addr.value()));
     if (!AddReference(src_addr, it->second.type, kPointerSize, dst_base,
                       dst_offset, label.c_str(), &references_))
       return false;
