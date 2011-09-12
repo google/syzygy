@@ -67,6 +67,8 @@ TEST_F(OrderRelinkerTest, Relink) {
                               output_pdb_path,
                               true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
+
+  CheckEmbeddedPdbPath(output_dll_path, output_pdb_path);
 }
 
 TEST_F(OrderRelinkerTest, RelinkWithPadding) {
@@ -103,4 +105,6 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
                               output_pdb_path,
                               true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
+
+  CheckEmbeddedPdbPath(output_dll_path, output_pdb_path);
 }

@@ -144,7 +144,8 @@ class Relinker : public RelinkerBase {
                               const Reorderer::Order& order) = 0;
 
   // Updates the debug information in the debug directory with our new GUID.
-  bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block);
+  bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block,
+                              const FilePath& output_pdb_path);
 
   // Call after relinking and finalizing image to create a PDB file that
   // matches the reordered image.

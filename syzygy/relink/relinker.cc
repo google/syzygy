@@ -18,6 +18,7 @@
 
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
+#include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
@@ -400,7 +401,8 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   // Update the debug info and copy the data directory.
   LOG(INFO) << "Updating debug information.";
   if (!UpdateDebugInformation(
-          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG])) {
+          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG],
+          output_pdb_path)) {
     LOG(ERROR) << "Unable to update debug information.";
     return false;
   }
@@ -483,7 +485,8 @@ bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
 }
 
 bool Relinker::UpdateDebugInformation(
-    BlockGraph::Block* debug_directory_block) {
+    BlockGraph::Block* debug_directory_block,
+    const FilePath& output_pdb_path) {
   // TODO(siggi): This is a bit of a hack, but in the interest of expediency
   //     we simply reallocate the data the existing debug directory references,
   //     and update the GUID and timestamp therein.
@@ -500,14 +503,28 @@ bool Relinker::UpdateDebugInformation(
     return false;
   }
 
+  // Calculate the new debug info size (note that the trailing NUL character is
+  // already accounted for in the structure).
+  std::string new_pdb_path;
+  if (!WideToUTF8(output_pdb_path.value().c_str(),
+                  output_pdb_path.value().length(),
+                  &new_pdb_path)) {
+    LOG(ERROR) << "Failed to convert the PDB path to UTF8.";
+    return false;
+  }
+  size_t new_debug_info_size = sizeof(pe::CvInfoPdb70) + new_pdb_path.length();
+
   // Update the timestamp.
   debug_dir.TimeDateStamp = static_cast<uint32>(time(NULL));
+  debug_dir.SizeOfData = new_debug_info_size;
+
+  // Update the debug directory block.
   if (debug_directory_block->CopyData(sizeof(debug_dir), &debug_dir) == NULL) {
     LOG(ERROR) << "Unable to copy debug directory data";
     return false;
   }
 
-  // Now get the contents.
+  // Get the current debug info.
   BlockGraph::Reference ref;
   if (!debug_directory_block->GetReference(
           FIELD_OFFSET(IMAGE_DEBUG_DIRECTORY, AddressOfRawData), &ref) ||
@@ -520,19 +537,45 @@ bool Relinker::UpdateDebugInformation(
   BlockGraph::Block* debug_info_block = ref.referenced();
   DCHECK(debug_info_block != NULL);
 
-  // Copy the debug info data.
-  pe::CvInfoPdb70* debug_info =
-      reinterpret_cast<pe::CvInfoPdb70*>(
-          debug_info_block->CopyData(debug_info_block->data_size(),
-                                     debug_info_block->data()));
+  const pe::CvInfoPdb70* debug_info =
+      reinterpret_cast<const pe::CvInfoPdb70*>(debug_info_block->data());
+  DCHECK(debug_info != NULL);
 
+  // Allocate a new debug info block.
+  // TODO(rogerm): Remove the old (and now orphaned) debug info block once
+  //    we have generic layout implemented.
+  RelativeAddress new_debug_block_addr = builder().AddSegment(
+      ".pdbinfo", new_debug_info_size, new_debug_info_size,
+      IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
+
+  BlockGraph::Block* new_debug_info_block =
+      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
+                                         new_debug_block_addr,
+                                         new_debug_info_size,
+                                         "New Debug Info");
+  DCHECK(new_debug_info_block != NULL);
+
+  pe::CvInfoPdb70* new_debug_info =
+      reinterpret_cast<pe::CvInfoPdb70*>(
+          new_debug_info_block->AllocateData(new_debug_info_size));
   if (debug_info == NULL) {
-    LOG(ERROR) << "Unable to copy debug info";
+    LOG(ERROR) << "Unable to allocate new debug info.";
     return false;
   }
 
-  // Stash the new GUID.
-  debug_info->signature = new_image_guid_;
+  // Populate the new debug info block.
+  new_debug_info->cv_signature = debug_info->cv_signature;
+  new_debug_info->pdb_age = debug_info->pdb_age;
+  new_debug_info->signature = new_image_guid_;
+  base::strlcpy(&new_debug_info->pdb_file_name[0],
+                new_pdb_path.c_str(),
+                new_pdb_path.length() + 1);
+
+  // Transfer pointers from the old debug info block to the new.
+  if (!debug_info_block->TransferReferrers(0, new_debug_info_block)) {
+    LOG(ERROR) << "Unable to update references to new PDB info block.";
+    return false;
+  }
 
   return true;
 }

@@ -122,6 +122,21 @@
       },
     },
     {
+      'target_name': 'pe_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.h',
+        'unittest_util.cc',
+      ],
+      'dependencies': [
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_lib',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+      ],
+    },
+    {
       'target_name': 'pe_unittests',
       'type': 'executable',
       'sources': [
@@ -133,12 +148,11 @@
         'pe_file_parser_unittest.cc',
         'pe_file_writer_unittest.cc',
         'pe_unittests_main.cc',
-        'unittest_util.h',
-        'unittest_util.cc',
       ],
       'dependencies': [
         'pe_lib',
         'test_dll',
+        'pe_unittest_utils',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_lib',

@@ -14,16 +14,42 @@
 #include "syzygy/pe/unittest_util.h"
 
 #include <imagehlp.h>
+#include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/process_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/pe/pe_data.h"
+
+using pe::CvInfoPdb70;
 
 namespace {
+
+// This class wraps an HMODULE and ensures that ::FreeLibrary is called when it
+// goes out of scope.
+class ScopedHMODULE {
+ public:
+  explicit ScopedHMODULE(HMODULE v): value_(v) {
+  }
+
+  ~ScopedHMODULE() {
+    if (value_) {
+      ::FreeLibrary(value_);
+    }
+  }
+
+  operator HMODULE() const {
+    return value_;
+  }
+
+ private:
+  HMODULE value_;
+};
 
 bool EnumImportsProc(const base::win::PEImage &image,
                      const char* module,
@@ -112,6 +138,39 @@ FilePath PELibUnitTest::GetExeRelativePath(const wchar_t* image_name) {
   return exe_dir.Append(image_name);
 }
 
+void PELibUnitTest::CheckEmbeddedPdbPath(const FilePath& pe_path,
+                                         const FilePath& expected_pdb_path) {
+  ASSERT_FALSE(pe_path.empty());
+  ASSERT_FALSE(expected_pdb_path.empty());
+
+  ScopedHMODULE module(::LoadLibrary(pe_path.value().c_str()));
+  ASSERT_FALSE(module == NULL);
+
+  base::win::PEImage pe(module);
+
+  ASSERT_EQ(sizeof(IMAGE_DEBUG_DIRECTORY),
+            pe.GetImageDirectoryEntrySize(IMAGE_DIRECTORY_ENTRY_DEBUG));
+
+  PIMAGE_DEBUG_DIRECTORY debug_directory =
+      reinterpret_cast<PIMAGE_DEBUG_DIRECTORY>(
+        pe.GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_DEBUG));
+
+  size_t expected_size =
+      sizeof(CvInfoPdb70) + expected_pdb_path.value().length();
+
+  ASSERT_FALSE(debug_directory == NULL);
+  ASSERT_EQ(expected_size, debug_directory->SizeOfData);
+
+  void* raw_debug_info = pe.RVAToAddr(debug_directory->AddressOfRawData);
+  ASSERT_FALSE(raw_debug_info == NULL);
+
+  CvInfoPdb70* debug_info = reinterpret_cast<CvInfoPdb70*>(raw_debug_info);
+
+  FilePath pdb_path(UTF8ToWide(debug_info->pdb_file_name));
+
+  ASSERT_TRUE(pdb_path == expected_pdb_path);
+}
+
 void PELibUnitTest::CheckTestDll(const FilePath& path) {
   LOADED_IMAGE loaded_image = {};
   ASSERT_TRUE(::MapAndLoad(WideToUTF8(path.value()).c_str(),
@@ -122,10 +181,9 @@ void PELibUnitTest::CheckTestDll(const FilePath& path) {
 
   EXPECT_TRUE(::UnMapAndLoad(&loaded_image));
 
-  HMODULE loaded = ::LoadLibrary(path.value().c_str());
+  ScopedHMODULE loaded(::LoadLibrary(path.value().c_str()));
   ASSERT_TRUE(loaded != NULL);
   CheckLoadedTestDll(loaded);
-  ::FreeLibrary(loaded);
 }
 
 }  // namespace testing

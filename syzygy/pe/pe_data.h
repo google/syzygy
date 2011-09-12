@@ -28,7 +28,7 @@ struct CvInfoPdb70 {
   uint32 cv_signature;
   GUID signature;
   uint32 pdb_age;
-  wchar_t pdb_file_name[1];
+  char pdb_file_name[1];
 };
 
 }  // namespace pe

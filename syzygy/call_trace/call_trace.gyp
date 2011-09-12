@@ -117,8 +117,6 @@
       'sources': [
         'call_trace_service_unittests_main.cc',
         'call_trace_service_unittests.cc',
-        '../pe/unittest_util.cc',
-        '../pe/unittest_util.h',
       ],
       'dependencies': [
         'call_trace_service_lib',
@@ -127,6 +125,7 @@
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
+        '../pe/pe.gyp:pe_unittest_utils',
       ],
       'libraries': [
         'rpcrt4.lib',

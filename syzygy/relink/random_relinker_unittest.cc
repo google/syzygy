@@ -27,27 +27,33 @@ TEST_F(RandomRelinkerTest, Relink) {
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath output_dll_path = temp_dir.Append(kDllName);
+  FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 
   relink::RandomRelinker relinker(12345);
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),
                               output_dll_path,
-                              temp_dir.Append(kDllPdbName),
+                              output_pdb_path,
                               true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
+
+  CheckEmbeddedPdbPath(output_dll_path, output_pdb_path);
 }
 
 TEST_F(RandomRelinkerTest, RelinkWithPadding) {
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath output_dll_path = temp_dir.Append(kDllName);
+  FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 
   relink::RandomRelinker relinker(56789);
   relinker.set_padding_length(32);
   ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
                               GetExeRelativePath(kDllPdbName),
                               output_dll_path,
-                              temp_dir.Append(kDllPdbName),
+                              output_pdb_path,
                               true));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
+
+  CheckEmbeddedPdbPath(output_dll_path, output_pdb_path);
 }
