@@ -47,14 +47,25 @@ def _GetOptionParser():
                           'volume Chrome resides on and running it from that '
                           'newly mounted volume for each iteration of the '
                           'test.')
-  parser.add_option('--no-prefetch', dest='prefetch', action='store_false',
-                    default=True,
+  parser.add_option('--no-prefetch', dest='prefetch', action='store_const',
+                    const=runner.Prefetch.DISABLED,
+                    default=runner.Prefetch.ENABLED,
                     help='Turn OS pre-fetch off (on by default).')
+  parser.add_option('--no-prefetch-first-launch',
+                    dest='prefetch', action='store_const',
+                    const=runner.Prefetch.RESET_PRIOR_TO_FIRST_LAUNCH,
+                    help='Remove OS pre-fetch files prior to the first launch '
+                         'of Chrome, but not prior to each iteration.')
   parser.add_option('--keep-temp-dirs', dest='keep_temp_dirs',
                     action='store_true', default=False,
                     help='Keep the temporary directories created during '
                          'benchmarking. This makes it easy to look at the '
                          'resultant log files.')
+  parser.add_option('--no-initialize-profile', dest='initialize_profile',
+                    action='store_false', default=True,
+                    help='Skip the first run of Chrome, which is normally '
+                         'launched to ensure that the profile directory '
+                         'exists and is up to date.')
   return parser
 
 
@@ -80,7 +91,8 @@ def main():
                                             opts.preload,
                                             opts.cold_start,
                                             opts.prefetch,
-                                            opts.keep_temp_dirs)
+                                            opts.keep_temp_dirs,
+                                            opts.initialize_profile)
   try:
     benchmark_runner.Run(opts.iterations)
   except:

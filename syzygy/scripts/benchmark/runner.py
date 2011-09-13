@@ -47,6 +47,22 @@ _LOGGER = logging.getLogger(__name__)
 _XP_MAJOR_VERSION = 5
 
 
+class Prefetch:
+  """This class acts as an enumeration of Prefetch modes."""
+
+  # If Prefetch is enabled, we leave the O/S to do its own thing. We also
+  # leave previously generated prefetch files in place.
+  ENABLED = 0
+
+  # If Prefetch is disabled, we delete the O/S prefetch files before and
+  # after each iteration.
+  DISABLED = 1
+
+  # In this mode we remove the O/S prefetch files prior to the first
+  # iteration only. From that point on, we let prefetch run normally.
+  RESET_PRIOR_TO_FIRST_LAUNCH = 2
+
+
 class RunnerError(Exception):
   """Exceptions raised by this module are instances of this class."""
   pass
@@ -271,7 +287,7 @@ class BenchmarkRunner(ChromeRunner):
   """
 
   def __init__(self, chrome_exe, profile_dir, preload, cold_start, prefetch,
-               keep_temp_dirs):
+               keep_temp_dirs, initialize_profile):
     """Initialize instance.
 
     Args:
@@ -281,13 +297,15 @@ class BenchmarkRunner(ChromeRunner):
             benchmark.
         cold_start: if True, chrome_exe will be launched from a shadow volume
             freshly minted and mounted for each iteration.
-        prefetch: if False, the OS prefetch files will be deleted before and
-            after each iteration.
+        prefetch: must be one of the Prefetch enumeration values.
         keep_temp_dirs: if True, the script will not clean up the temporary
             directories it creates. This is handy if you want to e.g. manually
             inspect the log files generated.
+        initialize_profile: if True, the profile directory will be erased and
+            Chrome will be launched once to initialize it.
     """
-    super(BenchmarkRunner, self).__init__(chrome_exe, profile_dir)
+    super(BenchmarkRunner, self).__init__(
+        chrome_exe, profile_dir, initialize_profile=initialize_profile)
     self._preload = preload
     self._cold_start = cold_start
     self._prefetch = prefetch
@@ -334,14 +352,15 @@ class BenchmarkRunner(ChromeRunner):
 
   def _PreIteration(self, i):
     self._StartLogging()
-    if not self._prefetch:
+    if (self._prefetch == Prefetch.DISABLED or
+        (i == 0 and self._prefetch == Prefetch.RESET_PRIOR_TO_FIRST_LAUNCH)):
       _DeletePrefetch()
 
   def _PostIteration(self, i):
     self._StopLogging()
     self._ProcessLogs()
 
-    if not self._prefetch:
+    if self._prefetch == Prefetch.DISABLED:
       _DeletePrefetch()
 
   def _StartLogging(self):
@@ -366,12 +385,20 @@ class BenchmarkRunner(ChromeRunner):
     parser.AddHandler(process_db)
     parser.AddHandler(counter)
     parser.Consume()
+    counter.FinalizeCounts()
 
     # TODO(siggi): Other metrics, notably:
     #   Time from launch of browser to interesting TRACE_EVENT metrics
     #     in browser and renderers.
-    self._AddResult('Chrome', 'HardPageFaults', counter._hardfaults)
-    self._AddResult('Chrome', 'SoftPageFaults', counter._softfaults)
+
+    for (module_name, count) in counter._hardfaults.items():
+      self._AddResult('Chrome', 'HardPageFaults[%s]' % module_name, count)
+
+    for (module_name, module_info) in counter._softfaults.items():
+      for (fault_type, count) in module_info.items():
+        self._AddResult('Chrome',
+                        'SoftPageFaults[%s][%s]' % (module_name, fault_type),
+                        count)
 
     if (counter._message_loop_begin and len(counter._message_loop_begin) > 0 and
         counter._process_launch and len(counter._process_launch) > 0):
@@ -401,9 +428,9 @@ class BenchmarkRunner(ChromeRunner):
     Example:
       RESULT Chrome: RendererLaunchTime= [0.1, 0.2, 0.3] s
     """
-    for (key, value) in self._results.iteritems():
+    for key in sorted(self._results.keys()):
       (graph_name, trace_name) = key
-      (units, results) = value
+      (units, results) = self._results[key]
       print "RESULT %s: %s= %s %s" % (graph_name, trace_name,
                                       str(results), units)
 
