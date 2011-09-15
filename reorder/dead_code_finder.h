@@ -15,8 +15,9 @@
 #ifndef SYZYGY_REORDER_DEAD_CODE_FINDER_H_
 #define SYZYGY_REORDER_DEAD_CODE_FINDER_H_
 
-#include "syzygy/reorder/reorderer.h"
 #include <set>
+
+#include "syzygy/reorder/reorderer.h"
 
 namespace reorder {
 
@@ -32,22 +33,22 @@ class DeadCodeFinder : public Reorderer::OrderGenerator {
   virtual ~DeadCodeFinder();
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(DeadCodeFinder);
-
   // Returns true if the block is of interest and unvisited.
   bool IsDead(const Block* block) const;
 
   // OrderGenerator implementation.
-  virtual bool OnCodeBlockEntry(const Reorderer& reorderer,
-                                const Block* block,
+  virtual bool OnCodeBlockEntry(const Block* block,
                                 RelativeAddress address,
                                 uint32 process_id,
                                 uint32 thread_id,
                                 const UniqueTime& time);
-  virtual bool CalculateReordering(const Reorderer& reorderer,
+  virtual bool CalculateReordering(bool reorder_code,
+                                   bool reorder_data,
                                    Order* order);
 
-   std::set<const Block*> visited_blocks_;
+  std::set<const Block*> visited_blocks_;
+
+  DISALLOW_COPY_AND_ASSIGN(DeadCodeFinder);
 };
 
 }  // namespace reorder

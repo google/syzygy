@@ -19,6 +19,11 @@
 #ifndef SYZYGY_REORDER_REORDERER_H_
 #define SYZYGY_REORDER_REORDERER_H_
 
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "syzygy/call_trace/call_trace_parser.h"
@@ -76,16 +81,7 @@ class Reorderer
   // Returns the reorderer directives provided at Init time.
   Flags flags() const { return flags_; }
 
-  // Returns true of the given section must be reordered.
-  bool MustReorder(size_t section_index) const;
-
-  // Returns true of the given block is in a section which must be reordered.
-  bool MustReorder(const BlockGraph::Block* block) const;
-
  private:
-  // Initializes the section reorderability cache, so MustReorder is fast.
-  void InitSectionReorderabilityCache(const OrderGenerator& order_generator);
-
   // This allows our parent classes to access the necessary callbacks, but
   // hides them from derived classes.
   friend base::win::EtwTraceConsumerBase<Reorderer>;
@@ -265,40 +261,30 @@ struct Reorderer::Order {
 // and is asked to build an ordering.
 class Reorderer::OrderGenerator {
  public:
-  explicit OrderGenerator(const char * name) : name_(name) {}
+  explicit OrderGenerator(const char* name) : name_(name) {}
 
   virtual ~OrderGenerator() {}
 
   // Accessor.
   const std::string& name() const { return name_; }
 
-  // Returns true if the given section be reordered. This is a default
-  // implementation which can be overridden if the subclass supports a
-  // different set of sections. By default, .data, .rdata, and all code
-  // sections are considered reorderable.
-  virtual bool IsReorderable(const Reorderer& reorderer,
-                             const IMAGE_SECTION_HEADER& section) const;
-
   // The derived class may implement this callback, which indicates when a
   // process invoking the instrumented module was started.
-  virtual bool OnProcessStarted(const Reorderer& reorderer,
-                                uint32 process_id,
+  virtual bool OnProcessStarted(uint32 process_id,
                                 const UniqueTime& time) { return true; }
 
   // The derived class may implement this callback, which provides
   // information on the end of processes invoking the instrumented module.
   // Processes whose lifespan exceed the logging period will not receive
   // OnProcessEnded events.
-  virtual bool OnProcessEnded(const Reorderer& reorderer,
-                              uint32 process_id,
+  virtual bool OnProcessEnded(uint32 process_id,
                               const UniqueTime& time) { return true; }
 
   // The derived class shall implement this callback, which receives
   // TRACE_ENTRY events for the module that is being reordered. Returns true
   // on success, false on error. If this returns false, no further callbacks
   // will be processed.
-  virtual bool OnCodeBlockEntry(const Reorderer& reorderer,
-                                const BlockGraph::Block* block,
+  virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
                                 uint32 process_id,
                                 uint32 thread_id,
@@ -308,12 +294,14 @@ class Reorderer::OrderGenerator {
   // the reordering. When this is called, the callee can be assured that the
   // DecomposedImage is populated and all traces have been parsed. This must
   // return true on success, false otherwise.
-  virtual bool CalculateReordering(const Reorderer& reorderer,
+  virtual bool CalculateReordering(bool reorder_code,
+                                   bool reorder_data,
                                    Order* order) = 0;
- private:
-  DISALLOW_COPY_AND_ASSIGN(OrderGenerator);
 
+ private:
   const std::string name_;
+
+  DISALLOW_COPY_AND_ASSIGN(OrderGenerator);
 };
 
 // A unique time class. No two instances of this class will ever be equal

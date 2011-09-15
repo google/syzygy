@@ -15,13 +15,12 @@
 #ifndef SYZYGY_RELINK_RELINKER_H_
 #define SYZYGY_RELINK_RELINKER_H_
 
+#include "base/scoped_ptr.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_parser.h"
 #include "syzygy/reorder/reorderer.h"
-
-#include <base/scoped_ptr.h>
 
 namespace relink {
 
@@ -87,8 +86,6 @@ class RelinkerBase {
   PEFileBuilder& builder() { return *builder_; }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(RelinkerBase);
-
   // Information from the original image.
   size_t original_num_sections_;
   const IMAGE_SECTION_HEADER* original_sections_;
@@ -96,6 +93,8 @@ class RelinkerBase {
 
   // The builder that we use to construct the new image.
   scoped_ptr<PEFileBuilder> builder_;
+
+  DISALLOW_COPY_AND_ASSIGN(RelinkerBase);
 };
 
 // This class keeps track of data we need around during reordering
@@ -110,10 +109,6 @@ class Relinker : public RelinkerBase {
   static size_t max_padding_length();
   static const uint8* padding_data();
 
-  // Manipulate flags
-  void enable_code_reordering(bool on_off);
-  void enable_data_reordering(bool on_off);
-
   // Drives the basic relinking process.  This takes input image and pdb
   // paths and creates correponsing output files at the given output
   // paths, reordering sections as defined by a subclass' ReorderSection
@@ -127,12 +122,6 @@ class Relinker : public RelinkerBase {
  protected:
   // Sets up internal state based on the decomposed image.
   bool Initialize(Decomposer::DecomposedImage& decomposed);
-
-  // Returns true if the given section may be reordered. This is a default
-  // implementation which can be overridden if the subclass supports a
-  // different set of sections.  By default, .data, .rdata, and all code
-  // sections are considered reorderable.
-  virtual bool IsReorderable(const IMAGE_SECTION_HEADER& section);
 
   // Performs whatever custom initialization of the order that it required.
   virtual bool SetupOrdering(Reorderer::Order& order) = 0;
@@ -170,28 +159,16 @@ class Relinker : public RelinkerBase {
   size_t padding_length() const { return padding_length_; }
 
  private:
-  // Returns true of the given section must be reordered.
-  bool MustReorder(size_t section_index) const;
-
-  // Initializes the section reorderability cache, so MustReorder is fast.
-  void InitSectionReorderabilityCache();
-
-  DISALLOW_COPY_AND_ASSIGN(Relinker);
-  typedef std::vector<bool> SectionReorderabilityCache;
-
   // The GUID we stamp into the new image and Pdb file.
   GUID new_image_guid_;
 
   // The amount of padding bytes to add between blocks.
   size_t padding_length_;
 
-  // Flags.
-  SectionReorderabilityCache section_reorderability_cache_;
-  bool code_reordering_enabled_;
-  bool data_reordering_enabled_;
-
   // Stores the index of the resource section, if the original module has one.
   size_t resource_section_id_;
+
+  DISALLOW_COPY_AND_ASSIGN(Relinker);
 };
 
 }  // namespace relink

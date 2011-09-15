@@ -44,8 +44,8 @@ struct AverageBlockCall {
   uint32_t process_group_id;
 
   double AverageOrder() const {
-    DCHECK(call_count > 0);
-    return ((double)sum_order) / call_count;
+    DCHECK_LT(0U, call_count);
+    return static_cast<double>(sum_order) / call_count;
   }
 };
 
@@ -87,8 +87,7 @@ LinearOrderGenerator::LinearOrderGenerator()
 LinearOrderGenerator::~LinearOrderGenerator() {
 }
 
-bool LinearOrderGenerator::OnProcessStarted(const Reorderer& reorderer,
-                                            uint32 process_id,
+bool LinearOrderGenerator::OnProcessStarted(uint32 process_id,
                                             const UniqueTime& time) {
   if (active_process_count_ == 0) {
     if (!CloseProcessGroup())
@@ -100,27 +99,23 @@ bool LinearOrderGenerator::OnProcessStarted(const Reorderer& reorderer,
   return true;
 }
 
-bool LinearOrderGenerator::OnProcessEnded(const Reorderer& reorderer,
-                                          uint32 process_id,
+bool LinearOrderGenerator::OnProcessEnded(uint32 process_id,
                                           const UniqueTime& time) {
   DCHECK_LT(0U, active_process_count_);
   --active_process_count_;
   return true;
 }
 
-bool LinearOrderGenerator::OnCodeBlockEntry(const Reorderer& reorderer,
-                                            const BlockGraph::Block* block,
+bool LinearOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* block,
                                             RelativeAddress address,
                                             uint32 process_id,
                                             uint32 thread_id,
                                             const UniqueTime& time) {
-  if (!reorderer.MustReorder(block))
-    return true;
-
   return TouchBlock(BlockCall(block, process_id, thread_id, time));
 }
 
-bool LinearOrderGenerator::CalculateReordering(const Reorderer& reorderer,
+bool LinearOrderGenerator::CalculateReordering(bool reorder_code,
+                                               bool reorder_data,
                                                Order* order) {
   DCHECK(order != NULL);
 
@@ -158,16 +153,41 @@ bool LinearOrderGenerator::CalculateReordering(const Reorderer& reorderer,
   //     the remaining blocks.
 
   // Create the ordering from this list.
+  BlockSet inserted_blocks;
   for (size_t i = 0; i < average_block_calls.size(); ++i) {
     const BlockGraph::Block* code_block = average_block_calls[i].block;
 
-    if (reorderer.MustReorder(code_block))
+    if (reorder_code) {
       order->section_block_lists[code_block->section()].push_back(code_block);
+      inserted_blocks.insert(code_block);
+    }
 
-    // Create an anologous data ordering if we were asked to.
-    if (reorderer.flags() & Reorderer::kFlagReorderData) {
-      if (!InsertDataBlocks(kDataRecursionDepth, reorderer, code_block, order))
+    // Create an analogous data ordering if we were asked to.
+    if (reorder_data) {
+      if (!InsertDataBlocks(kDataRecursionDepth, code_block, order,
+                            &inserted_blocks))
         return false;
+    }
+  }
+
+  // Add the remaining blocks in each section to the order.
+  for (size_t section_index = 0; ; ++section_index) {
+    const IMAGE_SECTION_HEADER* section =
+        order->pe.section_header(section_index);
+    if (section == NULL)
+      break;
+
+    RelativeAddress section_start = RelativeAddress(section->VirtualAddress);
+    AddressSpace::RangeMapConstIterPair section_blocks =
+        order->image.address_space.GetIntersectingBlocks(
+            section_start, section->Misc.VirtualSize);
+    AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
+    const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
+    for (; section_it != section_end; ++section_it) {
+      BlockGraph::Block* block = section_it->second;
+      if (inserted_blocks.count(block) > 0)
+        continue;
+      order->section_block_lists[section_index].push_back(block);
     }
   }
 
@@ -197,9 +217,9 @@ bool LinearOrderGenerator::TouchBlock(const BlockCall& block_call) {
 }
 
 bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
-                                            const Reorderer& reorderer,
                                             const BlockGraph::Block* block,
-                                            Order* order) {
+                                            Order* order,
+                                            BlockSet* inserted_blocks) {
   DCHECK(block != NULL);
   DCHECK(order != NULL);
 
@@ -228,10 +248,8 @@ bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
     if (!data_block_set_.insert(ref).second)
       continue;
 
-    // Finally, insert this block to the appropriate section ordering, but
-    // only if we're reordering that section.
-    if (reorderer.MustReorder(ref))
-      order->section_block_lists[ref->section()].push_back(ref);
+    // Finally, insert this block to the appropriate section ordering.
+    order->section_block_lists[ref->section()].push_back(ref);
 
     data_blocks.push_back(ref);
   }
@@ -239,8 +257,8 @@ bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
   // Recurse on the data blocks we just added.
   if (max_recursion_depth > 1) {
     for (size_t i = 0; i < data_blocks.size(); ++i) {
-      if (!InsertDataBlocks(max_recursion_depth - 1, reorderer,
-                            data_blocks[i], order))
+      if (!InsertDataBlocks(max_recursion_depth - 1, data_blocks[i], order,
+                            inserted_blocks))
         return false;
     }
   }

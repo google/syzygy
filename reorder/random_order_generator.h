@@ -32,13 +32,13 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
 
  protected:
   // OrderGenerator implementation.
-  virtual bool OnCodeBlockEntry(const Reorderer& reorderer,
-                                const BlockGraph::Block* block,
+  virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
                                 uint32 process_id,
                                 uint32 thread_id,
                                 const UniqueTime& time);
-  virtual bool CalculateReordering(const Reorderer& reorderer,
+  virtual bool CalculateReordering(bool reorder_code,
+                                   bool reorder_data,
                                    Order* order);
 
  private:

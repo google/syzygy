@@ -44,8 +44,6 @@ const char kUsage[] =
     "                         Default is inferred from output-dll.\n"
     "    --seed=<integer>     Randomly reorder based on the given seed.\n"
     "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
-    "    --no-code            Do not reorder code sections.\n"
-    "    --no-data            Do not reorder data sections.\n"
     "    --no-metadata        Prevents the relinker from adding metadata\n"
     "                         to the output DLL.\n"
     "  Notes:\n"
@@ -103,8 +101,6 @@ int main(int argc, char** argv) {
   FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
   FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
-  bool reorder_code = !cmd_line->HasSwitch("no-code");
-  bool reorder_data = !cmd_line->HasSwitch("no-data");
   bool output_metadata = !cmd_line->HasSwitch("no-metadata");
 
   if (output_dll_path.empty()) {
@@ -162,8 +158,6 @@ int main(int argc, char** argv) {
   LOG(INFO) << "Output Image: " << output_dll_path.value();
   LOG(INFO) << "Output PDB: " << output_pdb_path.value();
   LOG(INFO) << "Padding Length: " << padding;
-  LOG(INFO) << "Reorder Code: " << (reorder_code ? "Yes" : "No");
-  LOG(INFO) << "Reorder Data: " << (reorder_data ? "Yes" : "No");
   if (!order_file_path.empty()) {
     LOG(INFO) << "Order File: " << (order_file_path.value().c_str());
   } else {
@@ -179,8 +173,6 @@ int main(int argc, char** argv) {
   }
 
   relinker->set_padding_length(padding);
-  relinker->enable_code_reordering(reorder_code);
-  relinker->enable_data_reordering(reorder_data);
   if (!relinker->Relink(input_dll_path,
                         input_pdb_path,
                         output_dll_path,

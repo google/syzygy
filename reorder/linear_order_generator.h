@@ -39,6 +39,10 @@
 #ifndef SYZYGY_REORDER_LINEAR_ORDER_GENERATOR_H_
 #define SYZYGY_REORDER_LINEAR_ORDER_GENERATOR_H_
 
+#include <map>
+#include <set>
+#include <vector>
+
 #include "syzygy/reorder/reorderer.h"
 
 namespace reorder {
@@ -55,25 +59,25 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
   virtual ~LinearOrderGenerator();
 
   // OrderGenerator implementation.
-  virtual bool OnProcessStarted(const Reorderer& reorderer,
-                                uint32 process_id,
+  virtual bool OnProcessStarted(uint32 process_id,
                                 const UniqueTime& time);
-  virtual bool OnProcessEnded(const Reorderer& reorderer,
-                              uint32 process_id,
+  virtual bool OnProcessEnded(uint32 process_id,
                               const UniqueTime& time);
-  virtual bool OnCodeBlockEntry(const Reorderer& reorderer,
-                                const BlockGraph::Block* block,
+  virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
                                 uint32 process_id,
                                 uint32 thread_id,
                                 const UniqueTime& time);
-  virtual bool CalculateReordering(const Reorderer& reorderer,
+  virtual bool CalculateReordering(bool reorder_code,
+                                   bool reorder_data,
                                    Order* order);
 
  private:
+  typedef BlockGraph::AddressSpace AddressSpace;
   typedef std::vector<BlockCall> BlockCalls;
   typedef std::map<size_t, BlockCalls> ProcessGroupBlockCalls;
   typedef std::map<const BlockGraph::Block*, BlockCall> BlockCallMap;
+  typedef std::set<const BlockGraph::Block*> BlockSet;
 
   // Called by OnFunctionEntry to update block_calls_.
   bool TouchBlock(const BlockCall& block_call);
@@ -82,9 +86,9 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
   // the ordering. Will recursively traverse data blocks until the given
   // maximum stack depth (that way, we include data referred to by data).
   bool InsertDataBlocks(size_t max_recursion_depth,
-                        const Reorderer& reorderer,
                         const BlockGraph::Block* block,
-                        Order* order);
+                        Order* order,
+                        BlockSet* inserted_blocks);
 
   // This is called to indicate a process group closure.
   bool CloseProcessGroup();

@@ -27,7 +27,8 @@
 
 namespace {
 
-using namespace reorder;
+using core::BlockGraph;
+using reorder::Reorderer;
 
 // Outputs @p indent spaces to @p file.
 bool OutputIndent(FILE* file, int indent, bool pretty_print) {
@@ -160,6 +161,7 @@ Reorderer::Reorderer(const FilePath& module_path,
       code_block_entry_events_(0),
       consumer_errored_(false),
       order_generator_(NULL),
+      pe_(NULL),
       image_(NULL) {
   DCHECK(consumer_ == NULL);
   if (consumer_ == NULL) {
@@ -241,8 +243,6 @@ bool Reorderer::ReorderImpl(Order* order) {
     return false;
   }
 
-  InitSectionReorderabilityCache(*order_generator_);
-
   // Parse the logs.
   if (trace_paths_.size() > 0) {
     LOG(INFO) << "Processing trace events.";
@@ -256,7 +256,9 @@ bool Reorderer::ReorderImpl(Order* order) {
   }
 
   LOG(INFO) << "Calculating new order.";
-  if (!order_generator_->CalculateReordering(*this, order))
+  if (!order_generator_->CalculateReordering((flags_ & kFlagReorderCode) != 0,
+                                             (flags_ & kFlagReorderData) != 0,
+                                             order))
     return false;
 
   order->comment = base::StringPrintf("Generated using the %s.",
@@ -415,7 +417,7 @@ void Reorderer::OnProcessEnded(const base::Time& time,
   matching_process_ids_.erase(process_it);
 
   UniqueTime entry_time(time);
-  if (!order_generator_->OnProcessEnded(*this, process_id, entry_time)) {
+  if (!order_generator_->OnProcessEnded(process_id, entry_time)) {
     consumer_errored_ = true;
     return;
   }
@@ -485,15 +487,15 @@ void Reorderer::OnTraceBatchEnter(base::Time time,
     // If this is the first call of interest by a given process, send an
     // OnProcessStarted event.
     if (matching_process_ids_.insert(process_id).second) {
-      if (!order_generator_->OnProcessStarted(*this, process_id, entry_time)) {
+      if (!order_generator_->OnProcessStarted(process_id, entry_time)) {
         consumer_errored_ = true;
         return;
       }
     }
 
     ++code_block_entry_events_;
-    if (!order_generator_->OnCodeBlockEntry(*this, block, rva, process_id,
-                                            thread_id, entry_time)) {
+    if (!order_generator_->OnCodeBlockEntry(block, rva, process_id, thread_id,
+                                            entry_time)) {
       consumer_errored_ = true;
       return;
     }
@@ -811,45 +813,6 @@ bool Reorderer::Order::OutputFaultEstimates(FILE* file) const {
           (pre_total - post_total) * 100.0 / pre_total);
 
   return true;
-}
-
-void Reorderer::InitSectionReorderabilityCache(
-  const Reorderer::OrderGenerator& order_generator) {
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          image_->header.nt_headers->data());
-  DCHECK(nt_headers != NULL);
-  const IMAGE_SECTION_HEADER* sections =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-
-  for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
-    const IMAGE_SECTION_HEADER& section = sections[i];
-    section_reorderability_cache_.push_back(
-        order_generator.IsReorderable(*this, section));
-  }
-}
-
-bool Reorderer::OrderGenerator::IsReorderable(
-    const Reorderer& reorderer,
-    const IMAGE_SECTION_HEADER& section) const {
-  if (section.Characteristics & IMAGE_SCN_CNT_CODE)
-    return (reorderer.flags() & Reorderer::kFlagReorderCode) != 0;
-
-  const std::string section_name(pe::PEFile::GetSectionName(section));
-  if (section_name == ".data" || section_name == ".rdata")
-    return (reorderer.flags() & Reorderer::kFlagReorderData) != 0;
-
-  return false;
-}
-
-bool Reorderer::MustReorder(size_t section_index) const {
-  DCHECK_LT(section_index, section_reorderability_cache_.size());
-  return section_reorderability_cache_[section_index];
-}
-
-bool Reorderer::MustReorder(const BlockGraph::Block * block) const {
-  DCHECK(block != NULL);
-  return MustReorder(block->section());
 }
 
 Reorderer::UniqueTime::UniqueTime()

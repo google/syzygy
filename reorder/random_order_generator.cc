@@ -15,6 +15,14 @@
 #include "syzygy/core/random_number_generator.h"
 
 #include <algorithm>
+
+namespace {
+
+const DWORD kDataCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
+
+}  // namespace
+
 namespace reorder {
 
 RandomOrderGenerator::RandomOrderGenerator(int seed)
@@ -25,8 +33,7 @@ RandomOrderGenerator::RandomOrderGenerator(int seed)
 RandomOrderGenerator::~RandomOrderGenerator() {
 }
 
-bool RandomOrderGenerator::OnCodeBlockEntry(const Reorderer& /*reorderer*/,
-                                            const BlockGraph::Block* /*block*/,
+bool RandomOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* /*block*/,
                                             RelativeAddress /*address*/,
                                             uint32 /*process_id*/,
                                             uint32 /*thread_id*/,
@@ -35,7 +42,8 @@ bool RandomOrderGenerator::OnCodeBlockEntry(const Reorderer& /*reorderer*/,
   return true;
 }
 
-bool RandomOrderGenerator::CalculateReordering(const Reorderer& reorderer,
+bool RandomOrderGenerator::CalculateReordering(bool reorder_code,
+                                               bool reorder_data,
                                                Reorderer::Order* order) {
   DCHECK(order != NULL);
 
@@ -48,12 +56,11 @@ bool RandomOrderGenerator::CalculateReordering(const Reorderer& reorderer,
 
   for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
     const IMAGE_SECTION_HEADER& section = sections[i];
-    const std::string section_name(pe::PEFile::GetSectionName(section));
-
-    if (!reorderer.MustReorder(i)) {
-      LOG(INFO) << "Skipping section " << i  << " (" << section_name << ").";
+    if ((!reorder_code && section.Characteristics & IMAGE_SCN_CNT_CODE) ||
+        (!reorder_data && section.Characteristics & kDataCharacteristics))
       continue;
-    }
+
+    const std::string section_name(pe::PEFile::GetSectionName(section));
 
     LOG(INFO) << "Randomizing section " << i  << " (" << section_name << ").";
 
