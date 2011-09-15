@@ -665,7 +665,10 @@ Decomposer::Decomposer(const PEFile& image_file,
                                         "(__rtc_[it])zz") &&
       // ATL object map initializers.
       RegisterStaticInitializerPatterns("(__pobjMapEntry)First",
-                                        "(__pobjMapEntry)Last");
+                                        "(__pobjMapEntry)Last") &&
+      // Thread-local storage template.
+      RegisterStaticInitializerPatterns("(_tls_)start",
+                                        "(_tls_)end");
   CHECK(success);
 }
 

@@ -278,8 +278,6 @@ bool RelinkerBase::CopyBlocks(
 
 Relinker::Relinker()
     : padding_length_(0),
-      code_reordering_enabled_(true),
-      data_reordering_enabled_(true),
       resource_section_id_(pe::kInvalidSection) {
 }
 
@@ -294,37 +292,6 @@ void Relinker::set_padding_length(size_t length) {
 
 const uint8* Relinker::padding_data() {
   return kPaddingData.Get().buffer;
-}
-
-void Relinker::enable_code_reordering(bool on_off) {
-  code_reordering_enabled_ = on_off;
-}
-
-void Relinker::enable_data_reordering(bool on_off) {
-  data_reordering_enabled_ = on_off;
-}
-
-void Relinker::InitSectionReorderabilityCache() {
-  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections()[i];
-    section_reorderability_cache_.push_back(IsReorderable(section));
-  }
-}
-
-bool Relinker::IsReorderable(const IMAGE_SECTION_HEADER& section) {
-  if (section.Characteristics & IMAGE_SCN_CNT_CODE)
-    return code_reordering_enabled_;
-
-  const std::string section_name(pe::PEFile::GetSectionName(section));
-  if (section_name == ".data" || section_name == ".rdata")
-    return data_reordering_enabled_;
-
-  return false;
-}
-
-bool Relinker::MustReorder(size_t section_index) const {
-  DCHECK_LT(section_index, section_reorderability_cache_.size());
-  return section_reorderability_cache_[section_index];
 }
 
 bool Relinker::Relink(const FilePath& input_dll_path,
@@ -368,7 +335,6 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   }
 
   // Reorder code sections and copy non-code sections.
-  InitSectionReorderabilityCache();
   for (size_t i = 0; i < original_num_sections() - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = original_sections()[i];
     const std::string name(pe::PEFile::GetSectionName(section));
@@ -383,18 +349,10 @@ bool Relinker::Relink(const FilePath& input_dll_path,
       continue;
     }
 
-    if (MustReorder(i)) {
-      LOG(INFO) << "Reordering section " << i << " (" << name << ").";
-      if (!ReorderSection(i, section, order)) {
-        LOG(ERROR) << "Unable to reorder the '" << name << "' section.";
-        return false;
-      }
-    } else {
-      LOG(INFO) << "Copying section " << i << " (" << name.c_str() << ").";
-      if (!CopySection(section)) {
-        LOG(ERROR) << "Unable to copy the '" << name << "' section.";
-        return false;
-      }
+    LOG(INFO) << "Reordering section " << i << " (" << name << ").";
+    if (!ReorderSection(i, section, order)) {
+      LOG(ERROR) << "Unable to reorder the '" << name << "' section.";
+      return false;
     }
   }
 

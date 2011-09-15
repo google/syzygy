@@ -58,7 +58,7 @@ bool RandomRelinker::ReorderSection(size_t section_index,
   RelativeAddress section_start = builder().next_section_address();
   RelativeAddress insert_at = section_start;
   BlockList::const_iterator block_iter = blocks.begin();
-  for (;block_iter != blocks.end(); ++block_iter) {
+  for (; block_iter != blocks.end(); ++block_iter) {
     BlockGraph::Block* block = *block_iter;
 
     // TODO(chrisha): There's presently a bunch of duplicated code here

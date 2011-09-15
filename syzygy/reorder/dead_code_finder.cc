@@ -22,8 +22,7 @@ DeadCodeFinder::DeadCodeFinder()
 DeadCodeFinder::~DeadCodeFinder() {
 }
 
-bool DeadCodeFinder::OnCodeBlockEntry(const Reorderer& /*reorderer*/,
-                                      const Block* block,
+bool DeadCodeFinder::OnCodeBlockEntry(const Block* block,
                                       RelativeAddress /*address*/,
                                       uint32 /*process_id*/,
                                       uint32 /*thread_id*/,
@@ -41,7 +40,8 @@ bool DeadCodeFinder::IsDead(const Block* block) const {
       && (visited_blocks_.find(block) == visited_blocks_.end());
 }
 
-bool DeadCodeFinder::CalculateReordering(const Reorderer& reorderer,
+bool DeadCodeFinder::CalculateReordering(bool /*reorder_code*/,
+                                         bool /*reorder_data*/,
                                          Reorderer::Order* order) {
   DCHECK(order != NULL);
 

@@ -153,12 +153,6 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
     if (!BlockMatchesInitType(block_init_type, block))
       continue;
 
-    // If this block is a padding block, and it has no references or referrers,
-    // then we need not output it.
-    if (block->attributes() & BlockGraph::PADDING_BLOCK &&
-        block->references().size() == 0 && block->referrers().size() == 0)
-      continue;
-
     // The ordering file shouldn't list a given block twice. But let's not
     // take anybody's word on that!
     if (inserted_blocks->find(block) != inserted_blocks->end()) {
