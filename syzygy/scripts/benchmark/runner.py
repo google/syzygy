@@ -24,6 +24,7 @@ import etw.evntrace as evn
 import event_counter
 import exceptions
 import glob
+import ibmperf
 import logging
 import os.path
 import pkg_resources
@@ -158,13 +159,20 @@ class ChromeRunner(object):
 
     Args:
         chrome_exe: path to the Chrome executable to benchmark.
-        profile_dir: path to the profile directory for Chrome.
+        profile_dir: path to the profile directory for Chrome. If None,
+            defaults to a temporary directory.
         initialize_profile: if True, the profile directory will be erased and
             Chrome will be launched once to initialize it.
     """
     self._chrome_exe = chrome_exe
     self._profile_dir = profile_dir
     self._initialize_profile = initialize_profile
+
+    self._profile_dir_is_temp = self._profile_dir == None
+    if self._profile_dir_is_temp:
+      self._profile_dir = tempfile.mkdtemp(prefix='chrome-profile')
+      _LOGGER.info('Using temporary profile directory "%s".' %
+          self._profile_dir)
 
   def Run(self, iterations):
     """Runs the benchmark for a given number of iterations.
@@ -177,7 +185,7 @@ class ChromeRunner(object):
     try:
       # Run the benchmark for the number of iterations specified.
       for i in range(iterations):
-        _LOGGER.info("Starting iteration %d", i)
+        _LOGGER.info("Starting iteration %d.", i)
         self._PreIteration(i)
         self._RunOneIteration(i)
         self._PostIteration(i)
@@ -205,7 +213,10 @@ class ChromeRunner(object):
 
   def _TearDown(self):
     """Invoked once after all iterations are complete, or on failure."""
-    pass
+    if self._profile_dir_is_temp:
+      _LOGGER.info('Deleting temporary profile directory "%s".' %
+          self._profile_dir)
+      shutil.rmtree(self._profile_dir, ignore_errors=True)
 
   def _RunOneIteration(self, i):
     """Perform the iteration."""
@@ -264,12 +275,14 @@ class ChromeRunner(object):
     Raises:
         RunnerError if Chrome is not running after a 5 minute wait.
     """
+    _LOGGER.debug('Waiting until Chrome is running.')
     # Use a long timeout just in case the machine is REALLY bogged down.
-    # This could be the case on the builtbot slave, for example.
-    for i in xrange(300):
+    # This could be the case on the build-bot slave, for example.
+    for i in xrange(5 * 60 / 2):
       if chrome_control.IsProfileRunning(self._profile_dir):
+        _LOGGER.debug('Found running instance of Chrome.')
         return
-      time.sleep(1)
+      time.sleep(2)
 
     raise RunnerError('Timeout waiting for Chrome.')
 
@@ -287,12 +300,14 @@ class BenchmarkRunner(ChromeRunner):
   """
 
   def __init__(self, chrome_exe, profile_dir, preload, cold_start, prefetch,
-               keep_temp_dirs, initialize_profile):
+               keep_temp_dirs, initialize_profile, ibmperf_dir, ibmperf_run,
+               ibmperf_metrics):
     """Initialize instance.
 
     Args:
         chrome_exe: path to the Chrome executable to benchmark.
         profile_dir: path to the existing profile directory for Chrome.
+            If 'None', creates a temporary directory.
         preload: specifies the state of Chrome.dll preload to use for
             benchmark.
         cold_start: if True, chrome_exe will be launched from a shadow volume
@@ -303,6 +318,11 @@ class BenchmarkRunner(ChromeRunner):
             inspect the log files generated.
         initialize_profile: if True, the profile directory will be erased and
             Chrome will be launched once to initialize it.
+        ibmperf_dir: The directory where the IBM Performance Inspector may
+            be found.
+        ibmperf_run: If True, IBM Performance Inspector metrics will be
+            gathered.
+        ibmperf_metrics: List of metrics to be gathered using ibmperf.
     """
     super(BenchmarkRunner, self).__init__(
         chrome_exe, profile_dir, initialize_profile=initialize_profile)
@@ -312,6 +332,16 @@ class BenchmarkRunner(ChromeRunner):
     self._keep_temp_dirs = keep_temp_dirs
     self._results = {}
     self._temp_dir = None
+    self._SetupIbmPerf(ibmperf_dir, ibmperf_run, ibmperf_metrics)
+
+  def Run(self, iterations):
+    """Overrides ChromeRunner.Run. We do this so that we can multiply
+    the number of iterations by the number of performance metric groups, if
+    we're gathering them. This is because we can only gather a fixed number of
+    metrics at a time."""
+    if self._ibmperf:
+      iterations = iterations * len(self._ibmperf_groups)
+    super(BenchmarkRunner, self).Run(iterations)
 
   def _SetUp(self):
     super(BenchmarkRunner, self)._SetUp()
@@ -350,13 +380,19 @@ class BenchmarkRunner(ChromeRunner):
     # Give our Chrome instance 10 seconds to settle.
     time.sleep(10)
 
+    # This must be called in _DoIteration, as the Chrome process needs to
+    # still be running. By the time _PostIteration is called, it's dead.
+    self._ProcessIbmPerfResults()
+
   def _PreIteration(self, i):
     self._StartLogging()
     if (self._prefetch == Prefetch.DISABLED or
         (i == 0 and self._prefetch == Prefetch.RESET_PRIOR_TO_FIRST_LAUNCH)):
       _DeletePrefetch()
+    self._StartIbmPerf(i)
 
   def _PostIteration(self, i):
+    self._StopIbmPerf()
     self._StopLogging()
     self._ProcessLogs()
 
@@ -439,3 +475,75 @@ class BenchmarkRunner(ChromeRunner):
                  graph_name, trace_name, str(sample), units)
     results = self._results.setdefault((graph_name, trace_name), (units, []))
     results[1].append(sample)
+
+  def _SetupIbmPerf(self, ibmperf_dir, ibmperf_run, ibmperf_metrics):
+    """Initializes the IBM Performance Inspector variables. Given the
+    metrics provided on the command-line, splits them into groups, determining
+    how many independent runs of the benchmark are required to gather all
+    of the requested metrics."""
+    if not ibmperf_run:
+      self._ibmperf = None
+      return
+
+    hpc = ibmperf.HardwarePerformanceCounter(ibmperf_dir=ibmperf_dir)
+
+    # If no metrics are specified, use them all.
+    metrics = set(ibmperf_metrics)
+    if len(metrics) == 0:
+      metrics = set(hpc.metrics.keys())
+
+    # Always measure 'free' metrics. This ensures that we always measure
+    # the CYCLES metric, which we use for ordering the output of other
+    # metrics.
+    metrics.update(hpc.free_metrics)
+
+    # Create groups of metrics that will run simultaneously.
+    nonfree = list(metrics.intersection(hpc.non_free_metrics))
+    if len(nonfree) > 0:
+      groups = [set(nonfree[i:i + hpc.max_counters]).union(hpc.free_metrics)
+          for i in range(0, len(nonfree), hpc.max_counters)]
+    else:
+      groups = [hpc.free_metrics]
+
+    _LOGGER.info('Performance counters require %d runs per iteration.'
+        % len(groups))
+
+    self._ibmperf = hpc
+    self._ibmperf_metrics = metrics
+    self._ibmperf_groups = groups
+
+  def _StartIbmPerf(self, i):
+    """If configured to run, starts the hardware performance counters for the
+    given iteration."""
+    if self._ibmperf:
+      group = i % len(self._ibmperf_groups)
+      metrics = self._ibmperf_groups[group]
+      self._ibmperf.Start(metrics)
+
+  def _ProcessIbmPerfResults(self):
+    """If they are running, processes the hardware performance counters for
+    chrome, outputting their values as results."""
+    if not self._ibmperf:
+      return
+
+    results = self._ibmperf.Query('chrome')
+
+    # We always have CYCLES statistics. To report all stats in consistent
+    # order across multiple runs, we output the PIDs in the order of decreasing
+    # CYCLES counts.
+    pids = results['CYCLES']
+    pids = [(count, pid) for (pid, count) in pids.items()]
+    pids = sorted(pids, reverse=True)
+    pids = [pid for (count, pid) in pids]
+
+    for (metric, values) in results.items():
+      for i in xrange(len(pids)):
+        pid = pids[i]
+        count = values[pid]
+        name = 'IbmPerf[%s][%d]' % (metric, i)
+        self._AddResult('Chrome', name, count)
+
+  def _StopIbmPerf(self):
+    """If running, stops the hardware performance counters."""
+    if self._ibmperf:
+      self._ibmperf.Stop()
