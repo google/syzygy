@@ -23,6 +23,8 @@
           'chrome_control.py',
           'chrome_control_test.py',
           'event_counter.py',
+          'ibmperf.py',
+          'ibmperf_test.py',
           'optimize.py',
           'runner.py',
           'setup.py',

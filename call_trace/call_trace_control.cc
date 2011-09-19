@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <windows.h>
 #include "base/at_exit.h"
 #include "base/debug/trace_event_win.h"
 #include "base/command_line.h"
@@ -451,6 +452,14 @@ bool StartCallTraceImpl() {
   // exiting successfully.
   kernel_session.Release();
   call_trace_session.Release();
+
+  // Sleep a bit to allow the call-trace session to settle down. When the
+  // kernel trace is started, all running processes and modules in memory are
+  // enumerated.
+  // TODO(chrisha): Be a little smarter here, and continuously monitor the
+  //     event rate for each session, and wait until the initial spurt of
+  //     activity is finished.
+  ::Sleep(2500);
 
   return true;
 }

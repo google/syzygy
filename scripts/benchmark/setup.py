@@ -49,6 +49,7 @@ _PACKAGE_DIRS = {
 _MODULES = [
   'benchmark',
   'chrome_control',
+  'ibmperf',
   'event_counter',
   'optimize',
   'runner',

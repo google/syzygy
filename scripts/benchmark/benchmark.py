@@ -12,11 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import collections
+import ibmperf
 import logging
 import optparse
 import os.path
 import runner
 import sys
+import textwrap
 
 
 _USAGE = """\
@@ -30,11 +33,13 @@ for the Chrome dashboard scripts.
 
 def _GetOptionParser():
   parser = optparse.OptionParser(usage=_USAGE)
-  parser.add_option('--verbose', dest='verbose',
-                    default=False, action='store_true',
-                    help='Verbose logging.')
+  parser.add_option('--verbose', dest='verbosity',
+                    default=0, action='count',
+                    help='Verbose logging. Call repeatedly for increased '
+                         'verbosity.')
   parser.add_option('--user-data-dir', dest='profile',
-                    help='The profile directory to use for the benchmark.')
+                    help='The profile directory to use for the benchmark. '
+                         'If not specified, uses a temporary directory.')
   parser.add_option('--iterations', dest='iterations', type='int',
                     default=10,
                     help="Number of iterations, 10 by default.")
@@ -66,21 +71,64 @@ def _GetOptionParser():
                     help='Skip the first run of Chrome, which is normally '
                          'launched to ensure that the profile directory '
                          'exists and is up to date.')
+  parser.add_option('--ibmperf-dir', dest='ibmperf_dir',
+                    default=ibmperf.DEFAULT_DIR,
+                    help='Sets the folder containing IBM Performance '
+                         'Inspector binaries. Defaults to "%s".' %
+                         ibmperf.DEFAULT_DIR)
+  parser.add_option('--ibmperf-run', dest='ibmperf_run',
+                    action='store_true', default=False,
+                    help='Indicates that IBM performance metrics should be '
+                         'gathered. Note that only one metric can be gathered '
+                         'at a time, thus the true number of iterations will '
+                         'be iterations * number of metrics.')
+  parser.add_option('--ibmperf-metric', dest='ibmperf_metrics',
+                    action='append', default=[],
+                    help='Sets a metric to be gathered using IBM Performance '
+                         'Inspector. Multiple metrics may be set. If no '
+                         'metrics are defined, and ibmperf-run is true, then '
+                         'all metrics will be run.')
+  parser.add_option('--ibmperf-list-metrics', dest='ibmperf_list_metrics',
+                    action='store_true', default=False,
+                    help='Lists the available metrics and exits.')
   return parser
+
+
+# Use for converting a verbosity level to a logging level. Anything 2 and
+# above maps to DEBUG output.
+_VERBOSITY_LEVELS = collections.defaultdict(lambda: logging.DEBUG,
+    {0: logging.WARNING, 1: logging.INFO})
+
+
+def ListIbmPerfMetrics():
+  """Lists the available hardware performance counters and returns 0."""
+  hpc = ibmperf.HardwarePerformanceCounter()
+  print('At most %d performance counters may be gathered at one time.\n'
+        'Free counters do not count towards this total.\n' % hpc.max_counters)
+  for name in sorted(hpc.metrics.keys()):
+    category = ' (free)' if name in hpc.free_metrics else ''
+    print('%s%s' % (name, category))
+    desc = hpc.metrics[name]
+    desc = textwrap.wrap(desc)
+    for line in desc:
+      print('    %s' % line)
+  return 0
 
 
 def main():
   """Parses arguments and runs benchmarks."""
   parser = _GetOptionParser()
   (opts, args) = parser.parse_args()
-  if len(args) != 1:
-    parser.error("You must provide the Chrome.exe instance to benchmark.")
 
   # Minimally configure logging.
-  if opts.verbose:
-    logging.basicConfig(level=logging.INFO)
-  else:
-    logging.basicConfig(level=logging.WARNING)
+  logging.basicConfig(level=_VERBOSITY_LEVELS[opts.verbosity])
+
+  # Handle support for listing the available metrics.
+  if opts.ibmperf_list_metrics:
+    return ListIbmPerfMetrics()
+
+  if len(args) != 1:
+    parser.error("You must provide the Chrome.exe instance to benchmark.")
 
   chrome_exe = args[0]
   if not os.path.exists(chrome_exe):
@@ -92,7 +140,10 @@ def main():
                                             opts.cold_start,
                                             opts.prefetch,
                                             opts.keep_temp_dirs,
-                                            opts.initialize_profile)
+                                            opts.initialize_profile,
+                                            opts.ibmperf_dir,
+                                            opts.ibmperf_run,
+                                            opts.ibmperf_metrics)
   try:
     benchmark_runner.Run(opts.iterations)
   except:
