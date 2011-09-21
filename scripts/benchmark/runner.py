@@ -188,12 +188,13 @@ class ChromeRunner(object):
         _LOGGER.info("Starting iteration %d.", i)
         self._PreIteration(i)
         self._RunOneIteration(i)
-        self._PostIteration(i)
+        self._PostIteration(i, True)
 
       # Output the results after completing all iterations.
       self._ProcessResults()
     except:
       _LOGGER.exception('Failure in iteration %d.', i)
+      self._PostIteration(i, False)
     finally:
       self._TearDown()
 
@@ -222,13 +223,13 @@ class ChromeRunner(object):
     """Perform the iteration."""
     _LOGGER.info("Iteration: %d", i)
 
-    self._LaunchChrome()
-
-    self._WaitTillChromeRunning()
-    self._DoIteration(i)
-
-    _LOGGER.info("Shutting down Chrome Profile: %s", self._profile_dir)
-    chrome_control.ShutDown(self._profile_dir)
+    process = self._LaunchChrome()
+    self._WaitTillChromeRunning(process)
+    try:
+      self._DoIteration(i)
+    finally:
+      _LOGGER.info("Shutting down Chrome Profile: %s", self._profile_dir)
+      chrome_control.ShutDown(self._profile_dir)
 
   def _DoIteration(self, it):
     """Invoked each iteration after Chrome has successfully launched."""
@@ -238,8 +239,13 @@ class ChromeRunner(object):
     """Invoked prior to each iteration."""
     pass
 
-  def _PostIteration(self, i):
-    """Invoked after each successfull iteration."""
+  def _PostIteration(self, i, success):
+    """Invoked after each iteration.
+
+    Args:
+      i: the iteration number.
+      success: set to True if the iteration was successful, False otherwise.
+          If False, this routine should only perform any necessary cleanup."""
     pass
 
   def _ProcessResults(self):
@@ -247,42 +253,54 @@ class ChromeRunner(object):
     pass
 
   def _LaunchChrome(self, extra_arguments=None):
-    """Launch the Chrome instance for this iteration."""
-    self._LaunchChromeImpl(extra_arguments)
+    """Launch the Chrome instance for this iteration. Returns the
+    subprocess.Popen object wrapping the launched process."""
+    return self._LaunchChromeImpl(extra_arguments)
 
   def _LaunchChromeImpl(self, extra_arguments=None):
-    """Launch a Chrome instance in our profile dir, with extra_arguments."""
+    """Launch a Chrome instance in our profile dir, with extra_arguments.
+    Returns the subprocess.Popen wrapping the launched process."""
     cmd_line = [self._chrome_exe,
                 '--user-data-dir=%s' % self._profile_dir]
     if extra_arguments:
       cmd_line.extend(extra_arguments)
 
     _LOGGER.info('Launching command line [%s].', cmd_line)
-    subprocess.Popen(cmd_line)
+    return subprocess.Popen(cmd_line)
 
   def _InitializeProfileDir(self):
     """Initialize a Chrome profile directory by launching, then stopping
     Chrome in that directory.
     """
     _LOGGER.info('Initializing profile dir "%s".', self._profile_dir)
-    self._LaunchChromeImpl(['--no-first-run'])
-    self._WaitTillChromeRunning()
+    process = self._LaunchChromeImpl(['--no-first-run'])
+    self._WaitTillChromeRunning(process)
     chrome_control.ShutDown(self._profile_dir)
 
-  def _WaitTillChromeRunning(self):
+  def _WaitTillChromeRunning(self, process):
     """Wait until Chrome is running in our profile directory.
 
+    Args:
+      process: the subprocess.Popen object wrapping the launched Chrome
+        process.
+
     Raises:
-        RunnerError if Chrome is not running after a 5 minute wait.
+      RunnerError if Chrome is not running after a 5 minute wait, or if
+          it terminates early.
     """
     _LOGGER.debug('Waiting until Chrome is running.')
     # Use a long timeout just in case the machine is REALLY bogged down.
     # This could be the case on the build-bot slave, for example.
-    for i in xrange(5 * 60 / 2):
+    for i in xrange(5 * 60):
       if chrome_control.IsProfileRunning(self._profile_dir):
         _LOGGER.debug('Found running instance of Chrome.')
         return
-      time.sleep(2)
+
+      # Check if the process has returned early.
+      if process.poll() != None:
+        raise RunnerError('Chrome process terminated early.')
+
+      time.sleep(1)
 
     raise RunnerError('Timeout waiting for Chrome.')
 
@@ -359,6 +377,8 @@ class BenchmarkRunner(ChromeRunner):
     super(BenchmarkRunner, self)._TearDown()
 
   def _LaunchChrome(self):
+    """Launches Chrome, wrapping it in run_in_snapshot if cold-start is
+    enabled. Returns the subprocess.Popen object wrapping the process."""
     if self._cold_start:
       (drive, path) = os.path.splitdrive(self._chrome_exe)
       chrome_exe = os.path.join('M:', path)
@@ -374,7 +394,7 @@ class BenchmarkRunner(ChromeRunner):
                   '--user-data-dir=%s' % self._profile_dir]
 
     _LOGGER.info('Launching command line [%s].', cmd_line)
-    subprocess.Popen(cmd_line)
+    return subprocess.Popen(cmd_line)
 
   def _DoIteration(self, it):
     # Give our Chrome instance 10 seconds to settle.
@@ -391,9 +411,13 @@ class BenchmarkRunner(ChromeRunner):
       _DeletePrefetch()
     self._StartIbmPerf(i)
 
-  def _PostIteration(self, i):
+  def _PostIteration(self, i, success):
     self._StopIbmPerf()
     self._StopLogging()
+
+    if not success:
+      return
+
     self._ProcessLogs()
 
     if self._prefetch == Prefetch.DISABLED:
