@@ -151,7 +151,7 @@ class ProfileRunner(runner.ChromeRunner):
   def _PreIteration(self, it):
     pass
 
-  def _PostIteration(self, it):
+  def _PostIteration(self, it, success):
     pass
 
   def _DoIteration(self, it):
