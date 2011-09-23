@@ -48,5 +48,19 @@
         '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
     },
+    {
+      'target_name': 'wsdump',
+      'type': 'executable',
+      'sources': [
+        'wsdump.rc',
+        'wsdump_main.cc'
+      ],
+      'dependencies': [
+        'wsdump_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
+      ],
+    },
   ],
 }

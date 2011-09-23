@@ -31,7 +31,7 @@ struct _PSAPI_WORKING_SET_INFORMATION;
 typedef struct _PSAPI_WORKING_SET_INFORMATION PSAPI_WORKING_SET_INFORMATION;
 
 // Captures working set for a given process at a point in time,
-// and summarizes per-module and overall statistics.
+// summarizes per-module as well as overall statistics.
 class ProcessWorkingSet {
  public:
   // Non-module stats.
