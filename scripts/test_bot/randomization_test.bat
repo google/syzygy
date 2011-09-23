@@ -17,6 +17,7 @@ setlocal
 
 :parseargs
 set REPO=
+set PROXY=
 set WORKDIR=
 set GCLIENT=
 set SMTP_SERVER=
@@ -33,6 +34,7 @@ for %%A in (%*) do (
   for /F "tokens=1* delims=:" %%b in ("%%~A") do (
     if /I "%%b" == "/mode" set MODE=%%~c
     if /I "%%b" == "/repo" set REPO=%%~c
+    if /I "%%b" == "/proxy" set PROXY=--repo-proxy=%%~c
     if /I "%%b" == "/build-id" set BUILD_ID_PATTERN=%%~c
     if /I "%%b" == "/gclient-dir" set GCLIENT=%%~c
     if /I "%%b" == "/work-dir" set WORKDIR=%%~c
@@ -123,7 +125,7 @@ goto error
 :step3
 echo Downloading latest chrome release ...
 call python "%DOWNLOAD_PY%" ^
-  --repo-url="%REPO%" ^
+  --repo-url="%REPO%" %PROXY% ^
   --repo-work-dir="%WORKDIR%" ^
   --repo-build-id-pattern="%BUILD_ID_PATTERN%" ^
   --log-file="%DOWNLOAD_LOG%" ^
