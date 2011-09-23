@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "syzygy/wsdump/process_working_set.h"
 
+#include <algorithm>
 #include <map>
 
 #include <psapi.h>
@@ -35,6 +36,11 @@ const int kPageReadWrite = 0x004;
 const int kPageWriteCopy = 0x005;
 const int kPageExecuteReadWrite = 0x006;
 const int kPageExecuteWriteCopy = 0x007;
+
+bool LessModuleName(const ProcessWorkingSet::ModuleStats& a,
+                    const ProcessWorkingSet::ModuleStats& b) {
+  return a.module_name < b.module_name;
+}
 
 }  // namespace
 
@@ -118,6 +124,7 @@ bool ProcessWorkingSet::Initialize(DWORD process_id) {
     }
   }
 
+  std::sort(new_stats.begin(), new_stats.end(), LessModuleName);
   new_stats.swap(module_stats_);
   return true;
 }
