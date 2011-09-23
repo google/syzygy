@@ -33,6 +33,7 @@
       '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
       '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
       '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
+      '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
     ],
   }
 }

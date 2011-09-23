@@ -1,9 +1,9 @@
-# Copyright 2011 Google Inc.
+# Copyright 2010 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -16,35 +16,36 @@
   'variables': {
     'chromium_code': 1,
   },
-  'includes': [
-    'unittests.gypi',
-  ],
+  'target_defaults': {
+    'include_dirs': [
+      '<(DEPTH)',
+    ],
+  },
   'targets': [
     {
-      'target_name': 'build_all',
-      'type': 'none',
+      'target_name': 'wsdump_lib',
+      'type': 'static_library',
+      'sources': [
+        'process_working_set.h',
+        'process_working_set.cc'
+      ],
       'dependencies': [
-        'call_trace/call_trace.gyp:*',
-        'common/common.gyp:*',
-        'core/core.gyp:*',
-        'instrument/instrument.gyp:*',
-        'pdb/pdb.gyp:*',
-        'pe/pe.gyp:*',
-        'py/py.gyp:*',
-        'relink/relink.gyp:*',
-        'reorder/reorder.gyp:*',
-        'scripts/scripts.gyp:*',
-        'snapshot/snapshot.gyp:*',
-        'test_data/test_data.gyp:*',
-        'wsdump/wsdump.gyp:*',
+        '<(DEPTH)/base/base.gyp:base',
       ],
     },
     {
-      # New unittests should be added to unittests.gypi.
-      'target_name': 'build_unittests',
-      'type': 'none',
+      'target_name': 'wsdump_unittests',
+      'type': 'executable',
+      'sources': [
+        'process_working_set_unittest.cc',
+        'wsdump_unittest_main.cc'
+      ],
       'dependencies': [
-        '<@(unittests)',
+        'wsdump_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
     },
   ],
