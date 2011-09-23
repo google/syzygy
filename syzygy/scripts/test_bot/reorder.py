@@ -270,6 +270,7 @@ class ReorderTest(object):
       # Capture the orignal result, but no result yet for the new
       # Use a list so we can update the new result later.
       merged_results[test] = [result, None]
+
     for test, result in new_results.iteritems():
       # use setdefault to catch the case where a test is in the
       # new result but not the original result, which would be odd.
@@ -313,7 +314,29 @@ class ReorderTest(object):
       A pair of integers denoting the number of passed and failed tests,
       respectively.
     """
-    orig_results = self.RunTestApp(0, 'unmodified')
+    # Establish the baseline results. If the candidate control run does't
+    # pass all the tests, we re-run it to see if it subsequently passes.
+    # If it passes in any of the attempts, we use the passing results as
+    # the baseline. If it fails each attempt, but each attempt fails the
+    # same way, then we use that result set as the baseline. Otherwise,
+    # we abort because the test is too flaky.
+    control_results = None
+    saved_results = None
+    for attempt in xrange(1, max_attempts + 1):
+      _LOGGER.info('run=%s; attempt=%s/%s; Launching test app ...',
+                   0, attempt, max_attempts)
+      control_results = self.RunTestApp(0, 'unmodified')
+      if all(result == 'OK' for result in control_results.itervalues()):
+        break
+      if saved_results is not None and control_results != saved_results:
+        _LOGGER.error('Received two different sets of failing results!')
+        return 0, 0
+      saved_results = control_results
+    _LOGGER.info('Established baseline results.')
+
+    # Run the reorder test num_iterations times. For each iteration, make up
+    # to max_attempts tries to get matching results before declaring the
+    # iteration a failure.
     passed, failed = 0, 0
     for counter in xrange(1, num_iterations + 1):
       self.ReorderBinary(counter, seed)
@@ -323,7 +346,7 @@ class ReorderTest(object):
           _LOGGER.info('run=%s; attempt=%s/%s; Launching test app ...',
                        counter, attempt, max_attempts)
           new_results = self.RunTestApp(counter, seed)
-          if self.CompareResults(counter, orig_results, new_results):
+          if self.CompareResults(counter, control_results, new_results):
             _LOGGER.info('run=%s; attempt=%s; Test results matched!',
                          counter, attempt)
             status = 1
