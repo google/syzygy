@@ -25,6 +25,7 @@ import event_counter
 import exceptions
 import glob
 import ibmperf
+import json
 import logging
 import os.path
 import pkg_resources
@@ -403,6 +404,7 @@ class BenchmarkRunner(ChromeRunner):
     # This must be called in _DoIteration, as the Chrome process needs to
     # still be running. By the time _PostIteration is called, it's dead.
     self._ProcessIbmPerfResults()
+    self._CaptureWorkingSetMetrics()
 
   def _PreIteration(self, i):
     self._StartLogging()
@@ -571,3 +573,46 @@ class BenchmarkRunner(ChromeRunner):
     """If running, stops the hardware performance counters."""
     if self._ibmperf:
       self._ibmperf.Stop()
+
+  _WS_METRIC_NAMES = ("pages",
+                      "shareable_pages",
+                      "shared_pages",
+                      "read_only_pages",
+                      "writable_pages",
+                      "executable_pages")
+  _WS_OUTPUT_NAMES = ("Pages",
+                      "Shareable",
+                      "Shared",
+                      "ReadOnly",
+                      "Writable",
+                      "Executable")
+
+  def _CaptureWorkingSetMetrics(self):
+    cmd = [_GetExePath('wsdump.exe'), '--process-name=chrome.exe']
+    wsdump = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    stdout, stderr = wsdump.communicate()
+    returncode = wsdump.returncode
+    if returncode != 0:
+      raise RunnerError('Failed to get working set stats.')
+
+    working_sets = json.loads(stdout)
+    results = []
+    for process in working_sets:
+      total_ws = None
+      chrome_ws = None
+      for module in process.get('modules'):
+        module_name = module.get('module_name')
+        if module_name == 'Total':
+          total_ws = map(module.get, self._WS_METRIC_NAMES)
+        if module_name.endswith('\\chrome.dll'):
+          chrome_ws = map(module.get, self._WS_METRIC_NAMES)
+
+      results.append((total_ws, chrome_ws))
+
+    # Order the results to make the metrics output order somewhat stable.
+    results.sort()
+    for i in xrange(len(results)):
+      for value, name in zip(results[i][0], self._WS_OUTPUT_NAMES):
+        self._AddResult('Chrome', 'TotalWs[%i][%s]' % (i, name), value)
+      for value, name in zip(results[i][1], self._WS_OUTPUT_NAMES):
+        self._AddResult('Chrome', 'ChromeDllWs[%i][%s]' % (i, name), value)
