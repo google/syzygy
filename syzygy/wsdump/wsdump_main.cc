@@ -17,6 +17,7 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
+#include "base/json/string_escape.h"
 #include "base/logging.h"
 #include "base/process_util.h"
 #include "base/utf_string_conversions.h"
@@ -62,37 +63,124 @@ bool RegexpProcessFilter::Includes(const base::ProcessEntry& entry) const {
   return expr_.PartialMatch(WideToUTF8(entry.exe_file()));
 }
 
-} // namespace
-
-static const char kUsage[] =
+const char kUsage[] =
 "Usage: wsdump [--process-name=<process_re>]\n"
 "\n"
 "    Captures and outputs working set statistics for all processes,\n"
 "    or only for processess whose executable name matches <process_re>.\n"
 "\n"
-"    The output is tab-separated, where a process heading starts a line with\n"
-"    an executable name, followed by the process PID and parent PID.\n"
-"    Following a process heading is a tab-prefixed line for each module that\n"
-"    appear in its working set, where the line has the following columns\n"
-"      * Module path.\n"
-"      * Total number of pages.\n"
-"      * Number of shareable pages.\n"
-"      * Number of shared pages.\n"
-"      * Number of read-only (non-executable) pages.\n"
-"      * Number of writable pages.\n"
-"      * Number of executable pages.\n"
+"    The output is JSON encoded array, where each element of the array\n"
+"    is a dictionary describing a process. Each process has the following\n"
+"    items:\n"
+"      * exe_file - the process' executable file, e.g. \"chrome.exe\".\n"
+"      * pid - the process ID.\n"
+"      * parent_pid - the parent process ID.\n"
+"      * modules - an array of dictionaries, one for each module in the\n"
+"        process working set.\n"
+"    Each module has the following keys:\n"
+"      * module_name - the module file name, e.g. \"C:\\temp\\xyz.dll\"\n"
+"      * pages - total number of pages from this module in the working set.\n"
+"      * shareable_pages - shareable pages in the working set.\n"
+"      * shared_pages - shared pages in the working set.\n"
+"      * read_only_pages - read-only pages in the working set.\n"
+"      * writable_pages - writable pages in the working set.\n"
+"      * executable_pages - executable pages in the working set.\n"
 "\n"
-"Example output:\n"
-"\n"
-"notepad++.exe  4648  3600\n"
-"  Total:  4402  2694  2377  4402  2694  2377  963  1714 1725\n"
-"  C:\\PROGRA~2\\Sophos\\SOPHOS~1\\SOPHOS~1.DLL  3  3  3 3  3  3  1  0  2\n"
-"  C:\\Windows\\SysWOW64\\ntdll.dll  84  78  78  84  78 78  1  5  78\n";
+"Example Output:\n"
+"[\n"
+"  {\n"
+"    \"exe_file\": \"devenv.exe\",\n"
+"    \"pid\": 5772,\n"
+"    \"parent_pid\": 3804,\n"
+"    \"modules\": [\n"
+"      {\n"
+"        \"module_name\": \"Total\",\n"
+"        \"pages\": 34145,\n"
+"        \"shareable_pages\": 10515,\n"
+"        \"shared_pages\": 4847,\n"
+"        \"pages\": 34145,\n"
+"        \"shareable_pages\": 10515,\n"
+"        \"shared_pages\": 4847,\n"
+"        \"read_only_pages\": 1951,\n"
+"        \"writable_pages\": 23235,\n"
+"        \"executable_pages\": 8959\n"
+"      },\n"
+"      {\n"
+" ... \n";
 
-static int Usage() {
+int Usage() {
   std::cout << kUsage;
   return 1;
 }
+
+struct ProcessInfo {
+  ProcessInfo() : pid(0), parent_pid(0) {
+  }
+
+  std::wstring exe_file;
+  base::ProcessId pid;
+  base::ProcessId parent_pid;
+  ProcessWorkingSet ws;
+};
+
+void OutputKeyValue(const char* key,
+                    const std::wstring& value,
+                    int indent,
+                    bool trailing_comma) {
+  std::cout << std::string(indent, ' ')
+      << base::GetDoubleQuotedJson(key) << ": "
+      << base::GetDoubleQuotedJson(value)
+      << (trailing_comma ? "," : "") << "\n";
+}
+
+template <class Streamable>
+void OutputKeyValue(const char* key,
+                    const Streamable& value,
+                    int indent,
+                    bool trailing_comma) {
+  std::cout << std::string(indent, ' ')
+      << base::GetDoubleQuotedJson(key) << ": "
+      << value
+      << (trailing_comma ? "," : "") << "\n";
+}
+
+void OutputModule(const std::wstring& module_name,
+                  const ProcessWorkingSet::Stats& stats,
+                  bool trailing_comma) {
+  std::cout << "      {\n";
+  OutputKeyValue("module_name", module_name, 8, true);
+  OutputKeyValue("pages", stats.pages, 8, true);
+  OutputKeyValue("shareable_pages", stats.shareable_pages, 8, true);
+  OutputKeyValue("shared_pages", stats.shared_pages, 8, true);
+  OutputKeyValue("pages", stats.pages, 8, true);
+  OutputKeyValue("shareable_pages", stats.shareable_pages, 8, true);
+  OutputKeyValue("shared_pages", stats.shared_pages, 8, true);
+  OutputKeyValue("read_only_pages", stats.read_only_pages, 8, true);
+  OutputKeyValue("writable_pages", stats.writable_pages, 8, true);
+  OutputKeyValue("executable_pages", stats.executable_pages, 8, false);
+  std::cout << "      }" << (trailing_comma ? "," : "") << "\n";
+}
+
+void OutputProcessInfo(const ProcessInfo& info) {
+  std::cout << "  {\n";
+  OutputKeyValue("exe_file", info.exe_file, 4, true);
+  OutputKeyValue("pid", info.pid, 4, true);
+  OutputKeyValue("parent_pid", info.parent_pid, 4, true);
+  std::cout << "    \"modules\": [\n";
+
+  OutputModule(L"Total", info.ws.total_stats(), true);
+  ProcessWorkingSet::ModuleStatsVector::const_iterator it =
+      info.ws.module_stats().begin();
+  ProcessWorkingSet::ModuleStatsVector::const_iterator end =
+      info.ws.module_stats().end();
+  for (; it != end; ++it)
+    OutputModule(it->module_name, *it, it + 1 != end);
+
+  std::cout << "    ]\n";
+  std::cout << "  }\n";
+}
+
+} // namespace
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
@@ -119,15 +207,6 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  struct ProcessInfo {
-    ProcessInfo() : pid(0), parent_pid(0) {
-    }
-
-    std::wstring exe_file;
-    base::ProcessId pid;
-    base::ProcessId parent_pid;
-    ProcessWorkingSet ws;
-  };
   typedef std::list<ProcessInfo> WorkingSets;
   WorkingSets working_sets;
 
@@ -147,39 +226,11 @@ int main(int argc, char** argv) {
     }
   }
 
+  std::cout << "[\n";
   WorkingSets::const_iterator it = working_sets.begin();
-  for (; it != working_sets.end(); ++it) {
-    std::cout << it->exe_file << "\t"
-        << it->pid << "\t"
-        << it->parent_pid << std::endl;
-
-    const ProcessWorkingSet& ws = it->ws;
-    std::cout << "\tTotal: "
-        << "\t" << ws.total_stats().pages
-        << "\t" << ws.total_stats().shareable_pages
-        << "\t" << ws.total_stats().shared_pages
-        << "\t" << ws.total_stats().pages
-        << "\t" << ws.total_stats().shareable_pages
-        << "\t" << ws.total_stats().shared_pages
-        << "\t" << ws.total_stats().read_only_pages
-        << "\t" << ws.total_stats().writable_pages
-        << "\t" << ws.total_stats().executable_pages << std::endl;
-
-    ProcessWorkingSet::ModuleStatsVector::const_iterator jt =
-        ws.module_stats().begin();
-    for (; jt != ws.module_stats().end(); ++jt) {
-      std::cout << "\t" << jt->module_name
-          << "\t" << jt->pages
-          << "\t" << jt->shareable_pages
-          << "\t" << jt->shared_pages
-          << "\t" << jt->pages
-          << "\t" << jt->shareable_pages
-          << "\t" << jt->shared_pages
-          << "\t" << jt->read_only_pages
-          << "\t" << jt->writable_pages
-          << "\t" << jt->executable_pages << std::endl;
-    }
-  }
+  for (; it != working_sets.end(); ++it)
+    OutputProcessInfo(*it);
+  std::cout << "]\n";
 
   return 1;
 }
