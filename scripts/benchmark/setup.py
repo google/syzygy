@@ -66,6 +66,7 @@ _EXECUTABLES = [
   'run_in_snapshot.exe',
   'run_in_snapshot_x64.exe',
   'run_in_snapshot_xp.exe',
+  'wsdump.exe',
 ]
 
 

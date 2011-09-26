@@ -56,6 +56,7 @@
         '<(DEPTH)/syzygy/py/py.gyp:virtualenv',
         '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw',
         '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw_db',
+        '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump',
       ],
       'actions': [
         {
