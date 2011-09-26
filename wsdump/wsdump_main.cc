@@ -98,9 +98,6 @@ const char kUsage[] =
 "        \"pages\": 34145,\n"
 "        \"shareable_pages\": 10515,\n"
 "        \"shared_pages\": 4847,\n"
-"        \"pages\": 34145,\n"
-"        \"shareable_pages\": 10515,\n"
-"        \"shared_pages\": 4847,\n"
 "        \"read_only_pages\": 1951,\n"
 "        \"writable_pages\": 23235,\n"
 "        \"executable_pages\": 8959\n"
@@ -152,16 +149,13 @@ void OutputModule(const std::wstring& module_name,
   OutputKeyValue("pages", stats.pages, 8, true);
   OutputKeyValue("shareable_pages", stats.shareable_pages, 8, true);
   OutputKeyValue("shared_pages", stats.shared_pages, 8, true);
-  OutputKeyValue("pages", stats.pages, 8, true);
-  OutputKeyValue("shareable_pages", stats.shareable_pages, 8, true);
-  OutputKeyValue("shared_pages", stats.shared_pages, 8, true);
   OutputKeyValue("read_only_pages", stats.read_only_pages, 8, true);
   OutputKeyValue("writable_pages", stats.writable_pages, 8, true);
   OutputKeyValue("executable_pages", stats.executable_pages, 8, false);
   std::cout << "      }" << (trailing_comma ? "," : "") << "\n";
 }
 
-void OutputProcessInfo(const ProcessInfo& info) {
+void OutputProcessInfo(const ProcessInfo& info, bool trailing_comma) {
   std::cout << "  {\n";
   OutputKeyValue("exe_file", info.exe_file, 4, true);
   OutputKeyValue("pid", info.pid, 4, true);
@@ -177,7 +171,7 @@ void OutputProcessInfo(const ProcessInfo& info) {
     OutputModule(it->module_name, *it, it + 1 != end);
 
   std::cout << "    ]\n";
-  std::cout << "  }\n";
+  std::cout << "  }" << (trailing_comma ? "," : "") << "\n";
 }
 
 } // namespace
@@ -228,9 +222,12 @@ int main(int argc, char** argv) {
 
   std::cout << "[\n";
   WorkingSets::const_iterator it = working_sets.begin();
-  for (; it != working_sets.end(); ++it)
-    OutputProcessInfo(*it);
+  for (; it != working_sets.end(); ++it) {
+    WorkingSets::const_iterator next = it;
+    ++next;
+    OutputProcessInfo(*it, next != working_sets.end());
+  }
   std::cout << "]\n";
 
-  return 1;
+  return 0;
 }
