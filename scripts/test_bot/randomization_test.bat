@@ -117,8 +117,9 @@ del /F /Q ^
 :step2
 echo Building "%SOLUTION%" ...
 call msbuild "%SOLUTION%" /t:Rebuild /p:Configuration=%CONFIG% /v:detailed  ^
-  > "%BUILD_LOG%" 2>&1 
+  > "%BUILD_LOG%" 2>&1
 if %ERRORLEVEL% equ 0 goto step3
+handle.exe >> "%BUILD_LOG%"
 copy "%BUILD_LOG%" "%ERROR_MESSAGE%"
 goto error
 
