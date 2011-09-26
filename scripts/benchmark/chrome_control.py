@@ -89,17 +89,34 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
   permissions = win32con.SYNCHRONIZE | win32con.PROCESS_QUERY_INFORMATION
   process_handle = win32api.OpenProcess(permissions, False, process_id)
 
-  # Now send WM_ENDSESSION to all top-level widget windows on that thread.
-  win32gui.EnumThreadWindows(thread_id, _SendChromeEndSession, None)
+  # Loop around to periodically retry the end session window message.
+  # It appears that there are times during Chrome startup where it'll
+  # igore this message, or perhaps we sometimes hit a case where there
+  # are no appropriate top-level windows.
+  while True:
+    # Now send WM_ENDSESSION to all top-level widget windows on that thread.
+    win32gui.EnumThreadWindows(thread_id, _SendChromeEndSession, None)
 
-  # Wait for the process to exit and get its exit status.
-  result = win32event.WaitForSingleObject(process_handle, timeout_ms)
+    # Wait for the process to exit and get its exit status.
+    curr_timeout_ms = 2000
+    if timeout_ms != win32event.INFINITE:
+      if timeout_ms < curr_timeout_ms:
+        curr_timeout_ms = timeout_ms
+
+      timeout_ms -= curr_timeout
+
+    result = win32event.WaitForSingleObject(process_handle, curr_timeout_ms)
+    # Exit the loop on successful wait.
+    if result == win32event.WAIT_OBJECT_0:
+      break
+
+    # Did we time out?
+    if timeout_ms == 0:
+      raise TimeoutException
+
+
   exit_status = win32process.GetExitCodeProcess(process_handle)
   process_handle.Close()
-
-  # Raise if it didn't exit in time.
-  if result != win32event.WAIT_OBJECT_0:
-    raise TimeoutException
 
   return exit_status
 
