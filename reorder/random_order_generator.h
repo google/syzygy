@@ -30,7 +30,6 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
   explicit RandomOrderGenerator(int seed);
   virtual ~RandomOrderGenerator();
 
- protected:
   // OrderGenerator implementation.
   virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
