@@ -70,5 +70,26 @@
         ]
       },
     },
+    {
+      'target_name': 'reorder_unittests',
+      'type': 'executable',
+      'sources': [
+        'linear_order_generator_unittest.cc',
+        'order_generator_test.cc',
+        'order_generator_test.h',
+        'random_order_generator_unittest.cc',
+        'reorder_unittests_main.cc',
+        '../pe/unittest_util.cc',
+        '../pe/unittest_util.h',
+      ],
+      'dependencies': [
+        'reorder_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '../pe/pe.gyp:pe_unittest_utils',
+        '../test_data/test_data.gyp:test_dll',
+      ],
+    }
   ],
 }

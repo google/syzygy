@@ -245,7 +245,7 @@ bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
       continue;
 
     // Only insert data blocks that have not yet been seen.
-    if (!data_block_set_.insert(ref).second)
+    if (!inserted_blocks->insert(ref).second)
       continue;
 
     // Finally, insert this block to the appropriate section ordering.

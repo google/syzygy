@@ -110,9 +110,6 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
   // Stores pointers to blocks, and the first time at which they were accessed.
   // There is one of these per 'process group'.
   BlockCallMap block_call_map_;
-
-  // Stores a list of already-inserted data blocks.
-  std::set<const BlockGraph::Block*> data_block_set_;
 };
 
 struct LinearOrderGenerator::BlockCall {
