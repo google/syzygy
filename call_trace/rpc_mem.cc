@@ -11,15 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Definitions for the memory allocation hooks required by the RPC runtime.
 
-#include "base/at_exit.h"
-#include "base/command_line.h"
-#include "gtest/gtest.h"
+#include "call_trace_rpc.h"  // NOLINT - Include dir injected by gyp file.
 
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
+#include <stdlib.h>
 
-  CommandLine::Init(argc, argv);
-  base::AtExitManager at_exit;
-  return RUN_ALL_TESTS();
+// Memory allocator used by the RPC runtime.
+void* __RPC_USER midl_user_allocate(size_t len) {
+  return ::malloc(len);
+}
+
+// Memory de-allocator used by the RPC runtime.
+void __RPC_USER midl_user_free(void* ptr) {
+  ::free(ptr);
 }

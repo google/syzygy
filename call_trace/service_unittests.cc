@@ -20,49 +20,13 @@
 #include "base/string_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/client_utils.h"
+#include "syzygy/call_trace/rpc_helpers.h"
 
+using namespace call_trace::client;
 using call_trace::service::Service;
 
 namespace {
-
-struct RpcStatus {
-  boolean exception_occurred;
-  boolean result;
-};
-
-template<typename Func, typename T1>
-RpcStatus InvokeRpc_1(const Func& func, const T1& p1) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-template<typename Func, typename T1, typename T2>
-RpcStatus InvokeRpc_2(const Func& func, const T1& p1, const T2& p2) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-template<typename Func, typename T1, typename T2, typename T3, typename T4>
-RpcStatus InvokeRpc_4(const Func& func, const T1& p1, const T2& p2,
-                      const T3& p3, const T4& p4) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3, p4);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
 
 class CallTraceServiceTest : public testing::Test {
  public:
@@ -143,12 +107,14 @@ class CallTraceServiceTest : public testing::Test {
     ZeroMemory(segment, sizeof(*segment));
     BindRPC();
 
+    unsigned long flags;
     CommandLine* cmd_line = CommandLine::ForCurrentProcess();
-    RpcStatus status = InvokeRpc_4(CallTraceClient_CreateSession,
-                                   client_rpc_binding,
-                                   cmd_line->command_line_string().c_str(),
-                                   session_handle,
-                                   &segment->buffer_info);
+    RpcStatus status = InvokeRpc(CallTraceClient_CreateSession,
+                                 client_rpc_binding,
+                                 cmd_line->command_line_string().c_str(),
+                                 session_handle,
+                                 &segment->buffer_info,
+                                 &flags);
 
     ASSERT_FALSE(status.exception_occurred);
     ASSERT_TRUE(status.result);
@@ -158,9 +124,9 @@ class CallTraceServiceTest : public testing::Test {
 
   void AllocateBuffer(SessionHandle session_handle,
                       TraceFileSegment* segment) {
-    RpcStatus status = InvokeRpc_2(CallTraceClient_AllocateBuffer,
-                                   session_handle,
-                                   &segment->buffer_info);
+    RpcStatus status = InvokeRpc(CallTraceClient_AllocateBuffer,
+                                 session_handle,
+                                 &segment->buffer_info);
 
     ASSERT_FALSE(status.exception_occurred);
     ASSERT_TRUE(status.result);
@@ -170,9 +136,9 @@ class CallTraceServiceTest : public testing::Test {
 
   void ExchangeBuffer(SessionHandle session_handle,
                       TraceFileSegment* segment) {
-    RpcStatus status = InvokeRpc_2(CallTraceClient_ExchangeBuffer,
-                                   session_handle,
-                                   &segment->buffer_info);
+    RpcStatus status = InvokeRpc(CallTraceClient_ExchangeBuffer,
+                                 session_handle,
+                                 &segment->buffer_info);
 
     ASSERT_FALSE(status.exception_occurred);
     ASSERT_TRUE(status.result);
@@ -182,9 +148,9 @@ class CallTraceServiceTest : public testing::Test {
 
   void ReturnBuffer(SessionHandle session_handle,
                     TraceFileSegment* segment) {
-    RpcStatus status = InvokeRpc_2(CallTraceClient_ReturnBuffer,
-                                   session_handle,
-                                   &segment->buffer_info);
+    RpcStatus status = InvokeRpc(CallTraceClient_ReturnBuffer,
+                                 session_handle,
+                                 &segment->buffer_info);
 
     ASSERT_FALSE(status.exception_occurred);
     ASSERT_TRUE(status.result);
@@ -199,8 +165,8 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   void CloseSession(SessionHandle* session_handle) {
-    RpcStatus status = InvokeRpc_1(CallTraceClient_CloseSession,
-                                   session_handle);
+    RpcStatus status = InvokeRpc(CallTraceClient_CloseSession,
+                                 session_handle);
 
     ASSERT_FALSE(status.exception_occurred);
     ASSERT_TRUE(status.result);
@@ -285,7 +251,7 @@ TEST_F(CallTraceServiceTest, Allocate) {
   // Simulate some work on a second thread.
   AllocateBuffer(session_handle, &segment2);
   WriteSegmentHeader(session_handle, &segment2);
-  segment2.header->thread_handle += 1;
+  segment2.header->thread_id += 1;
   MyRecordType* record2 = AllocateTraceRecord<MyRecordType>(&segment2, 256);
   base::strlcpy(record2->message, "Message 2", arraysize(record2->message));
   size_t length2 = segment2.header->segment_length;
@@ -317,7 +283,7 @@ TEST_F(CallTraceServiceTest, Allocate) {
   TraceFileSegment::Header* segment_header =
       reinterpret_cast<TraceFileSegment::Header*>(prefix + 1);
   ASSERT_EQ(segment_header->segment_length, length2);
-  ASSERT_EQ(segment_header->thread_handle, 1 + ::GetCurrentThreadId());
+  ASSERT_EQ(segment_header->thread_id, 1 + ::GetCurrentThreadId());
 
   // The segment header is followed by the message prefix and record.
   // This should be message 2.
@@ -339,7 +305,7 @@ TEST_F(CallTraceServiceTest, Allocate) {
   ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
   segment_header = reinterpret_cast<TraceFileSegment::Header*>(prefix + 1);
   ASSERT_EQ(segment_header->segment_length, length1);
-  ASSERT_EQ(segment_header->thread_handle, ::GetCurrentThreadId());
+  ASSERT_EQ(segment_header->thread_id, ::GetCurrentThreadId());
 
   // The segment header is followed by the message prefix and record.
   // This should be message 1.
@@ -413,7 +379,7 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
     TraceFileSegment::Header* segment_header =
         reinterpret_cast<TraceFileSegment::Header*>(prefix + 1);
     ASSERT_EQ(segment_header->segment_length, segment_length[block]);
-    ASSERT_EQ(segment_header->thread_handle, ::GetCurrentThreadId());
+    ASSERT_EQ(segment_header->thread_id, ::GetCurrentThreadId());
 
     // The segment header is followed by the n message records, where N
     // is the same as the block number we're currently on (1 based).

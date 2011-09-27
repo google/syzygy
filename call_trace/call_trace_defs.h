@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,6 +83,9 @@ typedef void* SessionHandle;
 
 // A prefix for each trace record on disk.
 struct RecordPrefix {
+  // The timestamp of the trace event.
+  uint32 timestamp;
+
   // The size of the record, in bytes;
   uint32 size;
 
@@ -98,49 +101,78 @@ struct RecordPrefix {
     uint8 hi;
     uint8 lo;
   } version;
-
-  // The timestamp of the trace event.
-  uint64 timestamp;
 };
 
-COMPILE_ASSERT(sizeof(RecordPrefix) == 16, record_prefix_size_is_16);
+COMPILE_ASSERT(sizeof(RecordPrefix) == 12, record_prefix_size_is_16);
 
 // This structure is written at the beginning of a call trace file.
 struct TraceFileHeader {
+  // The version of the call trace service which recorded this trace file.
   struct {
     uint16 lo;
     uint16 hi;
   } server_version;
+
+  // The number of bytes in the header. This is the size of this structure
+  // plus the length of the command line string (the trailing NUL is already
+  // accounted for in the size of this structure).
   uint32 header_size;
+
+  // The id of the process being traced.
   uint32 process_id;
+
+  // The block size used when writing the file to disk. The header and
+  // all segments are padded and byte aligned to this block size.
   uint32 block_size;
+
+  // The number of characters in the command line (including the trailing
+  // NUL character).
   uint32 command_line_len;
+
+  // The command line used to start the traced process.
   wchar_t command_line[1];
 };
 
-// Write this at the beginning of a call trace buffer (prefixed with
-// a RecordPrefix) and keep its buffer_size value up to date as you
-// write data into it.
+// This structure captures everything that a thread needs to know about
+// its current call trace buffer. It holds the buffer information given
+// by the call trace service, the memory locations this buffer refers to
+// in the client process, and a pointer to the segment header within the
+// buffer so that the segment can be consistently maintained.
 struct TraceFileSegment {
+  // Write this at the beginning of a call trace buffer (prefixed with
+  // a RecordPrefix) and keep its segment_length value up to date as we
+  // append data to the segment.
   struct Header {
     // Type identifiers used for these headers.
     enum { kTypeId = TRACE_PAGE_HEADER };
 
-    // The resolution of the timer values recorded in this segment
-    // of the trace file.
-    uint64 timer_resolution;
-
     // The identity of the thread that is reporting in this segment
     // of the trace file.
-    uint32 thread_handle;
+    uint32 thread_id;
 
-    // The number of bytes in this segment of the trace file.
+    // The number of data bytes in this segment of the trace file. This
+    // value does not include the size of the record prefix nor the size
+    // of the segment header.
     uint32 segment_length;
   };
 
+  // The structure used to communicate buffer information between the
+  // client and call trace service.
   CallTraceBuffer buffer_info;
+
+  // Points to the segment header within the call trace buffer. This
+  // can  be used to update the segment_length after appending new
+  // data to the buffer.
   Header* header;
+
+  // The lower bound of the call trace buffer in the client process.
+  uint8* base_ptr;
+
+  // The next memory location at which the client should write call
+  // trace data.
   uint8* write_ptr;
+
+  // The upper bound of the call trace buffer in the client process.
   uint8* end_ptr;
 };
 
@@ -168,7 +200,6 @@ typedef TraceEnterEventData TraceEnterExitEventData;
 // The structure written for each loaded module when module event tracing is
 // enabled.
 struct TraceModuleData {
-  enum { kTypeId = TRACE_MODULE_EVENT };
   ModuleAddr module_base_addr;
   size_t module_base_size;
   wchar_t module_name[256];
@@ -202,45 +233,6 @@ struct TraceBatchEnterData {
 // Helper funciton round up a value to a given alignment.
 inline size_t AlignUp(size_t value, size_t alignment) {
   return ((value + alignment - 1) / alignment) * alignment;
-}
-
-// Returns true if there's enough space left in the given segment to write
-// num_bytes of data. Note that num_bytes must include the space required
-// for both the record and its prefix.
-bool CanAllocate(TraceFileSegment* segment, size_t num_bytes);
-
-// Writes the segment header at the top of a segment, updating the bytes
-// consumed and initializing the segment header structures.
-void WriteSegmentHeader(SessionHandle session_handle,
-                        TraceFileSegment* segment);
-
-// Internal implementation of the trace record allocation function.
-void* AllocateTraceRecordImpl(TraceFileSegment* segment,
-                              int record_type,
-                              size_t record_size);
-
-// Allocate a variable length trace record. Typically this is used when
-// the record has a fixed set of fields followed by some variable size
-// blob or string.  The size given must exceed the size of the records
-// fixed fields.
-//
-// Returns a pointer to the allocated record, such that you can populate
-// its values.
-template<typename RecordType>
-inline RecordType* AllocateTraceRecord(TraceFileSegment* segment,
-                                       size_t size) {
-  DCHECK(size >= sizeof(RecordType));
-  return reinterpret_cast<RecordType*>(
-      AllocateTraceRecordImpl(segment, RecordType::kTypeId, size));
-}
-
-// Allocate a fixed length trace record.
-//
-// Returns a pointer to the allocated record, such that you can populate
-// its values.
-template<typename RecordType>
-inline RecordType* AllocateTraceRecord(TraceFileSegment* segment) {
-  return AllocateTraceRecord<RecordType>(segment, sizeof(RecordType));
 }
 
 #endif  // SYZYGY_CALL_TRACE_CALL_TRACE_DEFS_H_

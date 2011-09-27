@@ -89,6 +89,57 @@ bool CallTraceParser::ProcessBatchEnterEvent(EVENT_TRACE* event) {
   return true;
 }
 
+bool CallTraceParser::ProcessModuleEvent(EVENT_TRACE* event,
+                                         TraceEventType type) {
+  if (call_trace_events_ == NULL)
+    return false;
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceModuleData* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty module event.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
+
+  typedef void (CallTraceEvents::*CallbackType)(base::Time time,
+                                                DWORD process_id,
+                                                DWORD thread_id,
+                                                const TraceModuleData* data);
+
+  CallbackType callback = NULL;
+
+  switch (type) {
+    case TRACE_PROCESS_ATTACH_EVENT:
+      callback = &CallTraceEvents::OnTraceProcessAttach;
+      break;
+
+    case TRACE_PROCESS_DETACH_EVENT:
+      callback = &CallTraceEvents::OnTraceProcessDetach;
+      break;
+
+    case TRACE_THREAD_ATTACH_EVENT:
+      callback = &CallTraceEvents::OnTraceThreadAttach;
+      break;
+
+    case TRACE_THREAD_DETACH_EVENT:
+      callback = &CallTraceEvents::OnTraceThreadDetach;
+      break;
+
+    default:
+      NOTREACHED() << "Impossible event type " << type << ".";
+      return false;
+  }
+
+  (call_trace_events_->*callback)(time, process_id, thread_id, data);
+
+  return true;
+}
+
 bool CallTraceParser::ProcessOneEvent(EVENT_TRACE* event) {
   if (kCallTraceEventClass == event->Header.Guid) {
     TraceEventType type =
@@ -105,9 +156,12 @@ bool CallTraceParser::ProcessOneEvent(EVENT_TRACE* event) {
       case TRACE_PROCESS_DETACH_EVENT:
       case TRACE_THREAD_ATTACH_EVENT:
       case TRACE_THREAD_DETACH_EVENT:
-      case TRACE_MODULE_EVENT:
-        // TODO(siggi): Handle these.
+        return ProcessModuleEvent(event, type);
         break;
+
+      case TRACE_MODULE_EVENT:
+        LOG(WARNING) << "Parsing for TRACE_MODULE_EVENT not yet implemented.";
+        return true;
 
       default:
         NOTREACHED() << "Unknown event type encountered.";

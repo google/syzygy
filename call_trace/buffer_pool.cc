@@ -47,7 +47,7 @@ bool BufferPool::Init(Session* session,
 
   size_t mapping_size = num_buffers * buffer_size;
 
-  LOG(INFO) << "Creating " << (mapping_size >> 10) << "KB memory pool.";
+  LOG(INFO) << "Creating " << (mapping_size >> 20) << "MB memory pool.";
 
   // Create a pagefile backed memory mapped file. This will be cut up into a
   // pool of buffers.

@@ -49,7 +49,7 @@ FilePath GenerateTraceFileName(const FilePath& trace_directory,
   return trace_directory.Append(base::StringPrintf(
       L"trace-%ls-%4d%02d%02d%02d%02d%02d-%d.bin",
       exe_name.value().c_str(),
-      local_time.tm_year,
+      1900 + local_time.tm_year,
       local_time.tm_mon,
       local_time.tm_hour,
       local_time.tm_min,
@@ -318,8 +318,8 @@ bool Session::GetNextBuffer(Buffer** out_buffer) {
   DCHECK(out_buffer != NULL);
   DCHECK(!buffers_available_.empty());
 
-  Buffer* buffer = buffers_available_.back();
-  buffers_available_.pop_back();
+  Buffer* buffer = buffers_available_.front();
+  buffers_available_.pop_front();
   buffers_in_use_[Buffer::GetID(*buffer)] = buffer;
 
   *out_buffer = buffer;
@@ -337,7 +337,7 @@ bool Session::RecycleBuffer(Buffer* buffer) {
     return false;
   }
 
-  buffers_available_.push_back(buffer);
+  buffers_available_.push_front(buffer);
 
   // If the session is closing and all outstanding buffers have been recycled
   // then it's safe to destroy this session.

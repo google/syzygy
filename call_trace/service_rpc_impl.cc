@@ -25,12 +25,14 @@ boolean CallTraceService_CreateSession(
     /* [in] */ handle_t binding,
     /* [string][in] */ const wchar_t* command_line,
     /* [out] */ SessionHandle* session_handle,
-    /* [out] */ CallTraceBuffer* call_trace_buffer) {
+    /* [out] */ CallTraceBuffer* call_trace_buffer,
+    /* [out] */ unsigned long* flags) {
   // Delegate the call to the call trace service instance.
   return Service::Instance().CreateSession(binding,
                                            command_line,
                                            session_handle,
-                                           call_trace_buffer);
+                                           call_trace_buffer,
+                                           flags);
 }
 
 // RPC entrypoint for CallTraceService:AllocateBuffer().
@@ -84,14 +86,4 @@ boolean CallTraceService_Stop(/* [in] */ handle_t /* binding */) {
 // on the client's behalf.
 void __RPC_USER SessionHandle_rundown(SessionHandle session_handle) {
   ignore_result(CallTraceService_CloseSession(&session_handle));
-}
-
-// Memory allocator used by the RPC runtime.
-void* __RPC_USER midl_user_allocate(size_t len) {
-  return ::malloc(len);
-}
-
-// Memory de-allocator used by the RPC runtime.
-void __RPC_USER midl_user_free(void* ptr) {
-  ::free(ptr);
 }
