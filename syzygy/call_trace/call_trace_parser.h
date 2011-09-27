@@ -41,6 +41,33 @@ class CallTraceEvents {
                                  DWORD process_id,
                                  DWORD thread_id,
                                  const TraceBatchEnterData* data) = 0;
+
+  // TODO(rogerm): The following methods should be pure virtual.
+  //     Flesh out the implementations for subclasses.
+
+  // Issued for DLL_PROCESS_ATTACH on an instrumented module.
+  virtual void OnTraceProcessAttach(base::Time time,
+                                    DWORD process_id,
+                                    DWORD thread_id,
+                                    const TraceModuleData* data) {}
+
+  // Issued for DLL_PROCESS_DETACH on an instrumented module.
+  virtual void OnTraceProcessDetach(base::Time time,
+                                    DWORD process_id,
+                                    DWORD thread_id,
+                                    const TraceModuleData* data) {}
+
+  // Issued for DLL_THREAD_ATTACH on an instrumented module.
+  virtual void OnTraceThreadAttach(base::Time time,
+                                   DWORD process_id,
+                                   DWORD thread_id,
+                                   const TraceModuleData* data) {}
+
+  // Issued for DLL_THREAD_DETACH on an instrumented module.
+  virtual void OnTraceThreadDetach(base::Time time,
+                                   DWORD process_id,
+                                   DWORD thread_id,
+                                   const TraceModuleData* data) {}
 };
 
 class CallTraceParser {
@@ -60,6 +87,7 @@ class CallTraceParser {
  private:
   bool ProcessEntryExitEvent(EVENT_TRACE* event, TraceEventType type);
   bool ProcessBatchEnterEvent(EVENT_TRACE* event);
+  bool ProcessModuleEvent(EVENT_TRACE* event, TraceEventType type);
 
   CallTraceEvents* call_trace_events_;
 };

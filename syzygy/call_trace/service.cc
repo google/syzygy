@@ -41,7 +41,8 @@ Service::Service()
       buffer_size_in_bytes_(kDefaultBufferSize),
       owner_thread_(base::PlatformThread::CurrentId()),
       writer_thread_(base::kNullThreadHandle),
-      queue_is_non_empty_(&lock_) {
+      queue_is_non_empty_(&lock_),
+      flags_(TRACE_FLAG_BATCH_ENTER) {
 }
 
 Service::~Service() {
@@ -269,12 +270,14 @@ bool Service::GetBuffersToWrite(BufferQueue* out_queue) {
   DCHECK(out_queue != NULL);
   DCHECK(out_queue->empty());
 
-  base::AutoLock scoped_lock(lock_);
-  while (pending_write_queue_.empty())
-    queue_is_non_empty_.Wait();
+  {
+    base::AutoLock scoped_lock(lock_);
+    while (pending_write_queue_.empty())
+      queue_is_non_empty_.Wait();
+    out_queue->swap(pending_write_queue_);
+  }
 
-  LOG(INFO) << "Received write buffer(s).";
-  out_queue->swap(pending_write_queue_);
+  LOG(INFO) << "Received " << out_queue->size() << " write buffer(s).";
   DCHECK(!out_queue->empty());
 
   return true;
@@ -296,6 +299,8 @@ void Service::ThreadMain() {
         return;
       }
 
+      DCHECK(buffer->write_is_pending);
+
       // Parse the record prefix and segment header;
       volatile RecordPrefix* prefix =
           reinterpret_cast<RecordPrefix*>(buffer->data_ptr);
@@ -307,10 +312,9 @@ void Service::ThreadMain() {
       size_t segment_length = header->segment_length;
       const size_t kHeaderLength = sizeof(*prefix) + sizeof(*header);
       if (segment_length > 0) {
-        size_t bytes_to_write = AlignUp(segment_length,
+        size_t bytes_to_write = AlignUp(kHeaderLength + segment_length,
                                         buffer->session->block_size());
-        if (segment_length < kHeaderLength ||
-            prefix->type != TraceFileSegment::Header::kTypeId ||
+        if (prefix->type != TraceFileSegment::Header::kTypeId ||
             prefix->size != sizeof(TraceFileSegment::Header) ||
             prefix->version.hi != TRACE_VERSION_HI ||
             prefix->version.lo != TRACE_VERSION_LO) {
@@ -343,6 +347,8 @@ void Service::ThreadMain() {
                buffer->buffer_size - kHeaderLength);
 #endif
 
+      buffer->write_is_pending = false;
+
       // Recycle the buffer to the set of available buffers for this session.
       base::AutoLock scoped_lock(lock_);
       buffer->session->RecycleBuffer(buffer);
@@ -363,9 +369,10 @@ boolean Service::RequestShutdown() {
 boolean Service::CreateSession(handle_t binding,
                                const wchar_t* command_line,
                                SessionHandle* session_handle,
-                               CallTraceBuffer* call_trace_buffer) {
+                               CallTraceBuffer* call_trace_buffer,
+                               unsigned long* flags) {
   if (binding == NULL || command_line == NULL || session_handle == NULL ||
-      call_trace_buffer == NULL) {
+      call_trace_buffer == NULL || flags == NULL) {
     LOG(WARNING) << "Invalid RPC parameters.";
     return false;
   }
@@ -381,8 +388,8 @@ boolean Service::CreateSession(handle_t binding,
   ProcessID client_process_id = reinterpret_cast<ProcessID>(attribs.ClientPID);
 
   LOG(INFO) << "Registering process: "
-      << "PID=\"" << client_process_id << "\" "
-      << "CL=\"" << command_line << "\"";
+      << "PID=" << client_process_id << " "
+      << "CL=[" << command_line << "].";
 
   base::AutoLock scoped_lock(lock_);
 
@@ -403,6 +410,7 @@ boolean Service::CreateSession(handle_t binding,
   // Copy into buffer info into the RPC struct, slicing off the private bits.
   *session_handle = reinterpret_cast<SessionHandle>(session);
   *call_trace_buffer = *client_buffer;
+  *flags = flags_;
 
   return true;
 }

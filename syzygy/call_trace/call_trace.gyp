@@ -1,4 +1,4 @@
-# Copyright 2009 Google Inc.
+# Copyright 2011 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
       ],
       # Add the output dir for those who depend on us.
       'all_dependent_settings': {
-        'include_dirs': ['<(SHARED_INTERMEDIATE'],
+        'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
       },
       'actions': [
         {
@@ -62,7 +62,8 @@
       ],
     },
     {
-      'target_name': 'call_trace_rpc_lib',
+      'target_name': 'call_trace_common_lib',
+      'product_name': 'call_trace_common',
       'type': 'static_library',
       'dependencies': [
         'call_trace_rpc_idl',
@@ -71,6 +72,12 @@
         '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc.h',
         '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_c.c',
         '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_s.c',
+        'call_trace_defs.cc',
+        'call_trace_defs.h',
+        'client_utils.cc',
+        'client_utils.h',
+        'rpc_helpers.h',
+        'rpc_mem.cc',
       ],
       'all_dependent_settings': {
         'libraries': [
@@ -79,27 +86,55 @@
       },
     },
     {
+      'target_name': 'call_trace_parser_lib',
+      'product_name': 'call_trace_parser',
+      'type': 'static_library',
+      'sources': [
+        'call_trace_parser.h',
+        'call_trace_parser.cc',
+        'parser.cc',
+        'parser.h',
+      ],
+      'dependencies': [
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        'call_trace_common_lib',
+      ],
+    },
+    {
+      'target_name': 'call_trace_client_dll',
+      'product_name': 'call_trace_client',
+      'type': 'shared_library',
+      'sources': [
+        'client.cc',
+        'client.h',
+        'client.def',
+      ],
+      'dependencies': [
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        'call_trace_common_lib',
+      ],
+    },
+    {
       'target_name': 'call_trace_service_lib',
       'type': 'static_library',
       'sources': [
         'buffer_pool.cc',
         'buffer_pool.h',
-        'call_trace_defs.cc',
-        'call_trace_defs.h',
-        'rpc_impl.cc',
         'service.cc',
         'service.h',
+        'service_rpc_impl.cc',
         'session.cc',
         'session.h',
       ],
       'dependencies': [
-        'call_trace_rpc_lib',
+        'call_trace_common_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
       ],
     },
     {
-      'target_name': 'call_trace_service',
+      'target_name': 'call_trace_service_exe',
+      'product_name': 'call_trace_service',
       'type': 'executable',
       'sources': [
         'call_trace_service_main.cc',
@@ -115,11 +150,14 @@
       'target_name': 'call_trace_service_unittests',
       'type': 'executable',
       'sources': [
-        'call_trace_service_unittests_main.cc',
-        'call_trace_service_unittests.cc',
+        'client_unittests.cc',
+        'service_unittests.cc',
+        'unittests_main.cc',
       ],
       'dependencies': [
+        'call_trace_client_dll',
         'call_trace_service_lib',
+        'call_trace_parser_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/sawbuck/common/common.gyp:common',

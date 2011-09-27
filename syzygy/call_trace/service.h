@@ -74,6 +74,16 @@ class Service : public base::PlatformThread::Delegate {
   // The name/address of the RPC endpoint at which the service will listen.
   static const wchar_t* const kRpcEndpoint;
 
+  // Set the trace flags that get communicated to clients on session creation.
+  // The flags value should be bitmask composed of the values from the
+  // TraceEventType enumeration (see call_trace_defs.h).
+  //
+  // @note TRACE_FLAG_BATCH_ENTER is mutually exclusive with all other flags.
+  //     If TRACE_FLAG_BATCH_ENTER is set, all other flags will be ignored.
+  void set_flags(uint32 flags) {
+    flags_ = flags;
+  }
+
   // Set the directory where trace files are stored.
   void set_trace_directory(const FilePath& directory) {
     trace_directory_ = directory;
@@ -89,6 +99,11 @@ class Service : public base::PlatformThread::Delegate {
   // sessions buffer pool.
   void set_buffer_size_in_bytes(size_t n) {
     buffer_size_in_bytes_ = n;
+  }
+
+  // Returns true if any of the service's subsystems are running.
+  bool is_running() const {
+    return rpc_is_running_ || writer_thread_ != base::kNullThreadHandle;
   }
 
   // Begin accepting and handling RPC invocations. This method is not
@@ -131,7 +146,8 @@ class Service : public base::PlatformThread::Delegate {
   boolean CreateSession(handle_t binding,
                         const wchar_t* command_line,
                         SessionHandle* session_handle,
-                        CallTraceBuffer* call_trace_buffer);
+                        CallTraceBuffer* call_trace_buffer,
+                        unsigned long* flags);
 
   // RPC implementation of both CallTraceService::AllocateBuffer().
   // See call_trace_rpc.idl for further info.
@@ -234,6 +250,10 @@ class Service : public base::PlatformThread::Delegate {
   bool rpc_is_initialized_;
   bool rpc_is_running_;
   bool rpc_is_non_blocking_;
+
+  // Flags informing the client of what trace events the service would like
+  // to receive.
+  uint32 flags_;
 
   DISALLOW_COPY_AND_ASSIGN(Service);
 };
