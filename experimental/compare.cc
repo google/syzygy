@@ -713,8 +713,8 @@ bool BlockGraphMapper::ScheduleMapping(const BlockGraph::Block* block0,
       const BlockMetadata* meta0 = FeatureIndex::GetBlockMetadata(block0);
       const BlockMetadata* meta1 = FeatureIndex::GetBlockMetadata(block1);
       const BlockMetadata* meta2 = FeatureIndex::GetBlockMetadata(block2);
-#endif
     }
+#endif
 
     // This is a duplicate mapping.
     return true;
@@ -732,8 +732,8 @@ bool BlockGraphMapper::ScheduleMapping(const BlockGraph::Block* block0,
       const BlockMetadata* meta0 = FeatureIndex::GetBlockMetadata(block0);
       const BlockMetadata* meta1 = FeatureIndex::GetBlockMetadata(block1);
       const BlockMetadata* meta2 = FeatureIndex::GetBlockMetadata(block2);
-#endif
     }
+#endif
 
     // This is a duplicate mapping.
     return true;
