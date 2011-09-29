@@ -41,6 +41,11 @@
       'regexp': '.*/(\\.svn|\\.hg||\\.git)/',
       'include': 0,
     },
+    # Exclude experimental projects.
+    {
+      'regexp': 'Syzygy/experimental',
+      'include': 0,
+    },
 
     # Groups
     {
