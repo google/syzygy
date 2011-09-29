@@ -62,7 +62,7 @@ deps = {
         Var("chrome_revision"),
 
   "src/third_party/distorm/files":
-    "http://distorm.googlecode.com/svn/trunk@54",
+    "http://distorm.googlecode.com/svn/trunk@193",
 
   "src/third_party/python_26":
      Var("chrome_base") + "/tools/third_party/python_26@" +

@@ -82,7 +82,7 @@ class DisassemblerTest: public testing::Test {
                                Disassembler::CallbackDirective* directive) {
     switch (META_GET_FC(inst.meta)) {
       case FC_CALL:
-      case FC_BRANCH:
+      case FC_UNC_BRANCH:
         ASSERT_EQ(O_PC, inst.ops[0].type);
         if (inst.ops[0].size == 8) {
           ASSERT_EQ(2, inst.size);
