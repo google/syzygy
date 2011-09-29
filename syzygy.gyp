@@ -27,6 +27,7 @@
         'call_trace/call_trace.gyp:*',
         'common/common.gyp:*',
         'core/core.gyp:*',
+        'experimental/experimental.gyp:*',
         'instrument/instrument.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
