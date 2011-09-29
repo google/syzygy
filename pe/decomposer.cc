@@ -2067,7 +2067,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
   int fc = META_GET_FC(instruction.meta);
   // For all branches, calls and conditional branches to PC-relative
   // addresses, record a PC-relative reference.
-  if ((fc == FC_BRANCH || fc == FC_CALL || fc == FC_COND_BRANCH) &&
+  if ((fc == FC_UNC_BRANCH || fc == FC_CALL || fc == FC_CND_BRANCH) &&
       instruction.ops[0].type == O_PC) {
     DCHECK_EQ(O_PC, instruction.ops[0].type);
     DCHECK_EQ(O_NONE, instruction.ops[1].type);
@@ -2167,7 +2167,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
   // of the function into the immediately adjoining block, and schedule
   // the two for merging. AFAICT, this again only occurs in hand-crafted
   // assembly in the CRT.
-  if (fc != FC_RET && fc != FC_BRANCH && fc != FC_INT) {
+  if (fc != FC_RET && fc != FC_UNC_BRANCH && fc != FC_INT) {
     RelativeAddress instr_end(instr_rel + instruction.size);
     RelativeAddress block_end(current_block_->addr() + current_block_->size());
     if  (instr_end == block_end) {

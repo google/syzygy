@@ -16,8 +16,53 @@
 #include "syzygy/core/disassembler.h"
 
 #include "base/logging.h"
+#include "base/stringprintf.h"
 
 namespace core {
+
+namespace {
+
+// This acts as a wrapper for distorm_decompose, allowing us to patch up some
+// broken functionality from outside.
+_DecodeResult distorm_decompose_wrapper(_CodeInfo* code,
+                                        _DInst inst[],
+                                        unsigned int max_instructions,
+                                        unsigned int* decoded) {
+  DCHECK(code != NULL);
+  DCHECK(inst != NULL);
+  DCHECK_EQ(1U, max_instructions);
+  DCHECK(decoded != NULL);
+
+  _DecodeResult result = distorm_decompose(code, inst, 1, decoded);
+
+  // NOTE: This is a hack, pending a fix directly in distorm. distorm is
+  //     unable to decode VEX encoded AVX instructions where VEX.V = 0. We
+  //     have submitted an issue and a patch to distorm:
+  //     http://code.google.com/p/distorm/issues/detail?id=27
+  //     This corresponds to "vxorps ymm0, ymm0, ymm0".
+  if (*decoded == 0 && code->codeLen >= 4 &&
+      code->code[0] == 0xc5 && code->code[1] == 0xfc &&
+      code->code[2] == 0x57 && code->code[3] == 0xc0) {
+    *decoded = 1;
+    result = DECRES_SUCCESS;
+
+    // We set the bare minimum properties that are required for the
+    // subsequent processing that we perform.
+    memset(inst, 0, sizeof(*inst));
+    inst->addr = code->codeOffset;
+    inst->size = 4;
+
+    DCHECK_EQ(FC_NONE, META_GET_FC(inst->meta));
+    DCHECK_EQ(O_NONE, inst->ops[0].type);
+    DCHECK_EQ(O_NONE, inst->ops[1].type);
+    DCHECK_EQ(O_NONE, inst->ops[2].type);
+    DCHECK_EQ(O_NONE, inst->ops[3].type);
+  }
+
+  return result;
+}
+
+}  // namespace
 
 Disassembler::Disassembler(const uint8* code,
                            size_t code_size,
@@ -111,9 +156,28 @@ Disassembler::WalkResult Disassembler::Walk() {
       bool conditional_branch_handled = false;
 
       unsigned int decoded = 0;
-      _DecodeResult result = distorm_decompose(&code, &inst, 1, &decoded);
-      DCHECK_EQ(1U, decoded);
-      DCHECK(result == DECRES_MEMORYERR || result == DECRES_SUCCESS);
+      _DecodeResult result = distorm_decompose_wrapper(
+          &code, &inst, 1, &decoded);
+
+      if (decoded == 0) {
+        LOG(ERROR) << "Unable to decode instruction at " << addr << ".";
+
+        // Dump the next few bytes. The longest X86 instruction possible is 15
+        // bytes according to distorm.
+        int max_bytes = code.codeLen;
+        if (max_bytes > 15)
+          max_bytes = 15;
+        std::string dump;
+        for (int i = 0; i < max_bytes; ++i) {
+          dump += base::StringPrintf(" 0x%02X", code.code[i]);
+        }
+        LOG(ERROR) << ".text =" << dump
+            << (max_bytes < code.codeLen ? " ..." : ".");
+        return kWalkError;
+      }
+
+      CHECK_EQ(1U, decoded);
+      CHECK(result == DECRES_MEMORYERR || result == DECRES_SUCCESS);
 
       // Try to visit this instruction.
       VisitedSpace::Range range(addr, inst.size);
@@ -149,6 +213,8 @@ Disassembler::WalkResult Disassembler::Walk() {
       switch (fc) {
         case FC_NONE:
         case FC_CALL:
+        case FC_CMOV:
+          // Do nothing with these flow control types.
           break;
 
         case FC_RET:
@@ -162,12 +228,12 @@ Disassembler::WalkResult Disassembler::Walk() {
           NOTREACHED() << "Unexpected SYS* instruction encountered";
           break;
 
-        case FC_BRANCH:
+        case FC_UNC_BRANCH:
           // Unconditional branch, stop here.
           terminate = true;
           // And fall through to visit branch target.
 
-        case FC_COND_BRANCH: {
+        case FC_CND_BRANCH: {
             AbsoluteAddress dest;
             switch (inst.ops[0].type) {
               case O_REG:
