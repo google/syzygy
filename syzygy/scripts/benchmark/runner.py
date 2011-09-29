@@ -179,7 +179,7 @@ class ChromeRunner(object):
     """Runs the benchmark for a given number of iterations.
 
     Args:
-        iterations: number of iterations to run.
+      iterations: number of iterations to run.
     """
     self._SetUp()
 
@@ -193,9 +193,16 @@ class ChromeRunner(object):
 
       # Output the results after completing all iterations.
       self._ProcessResults()
+
     except:
       _LOGGER.exception('Failure in iteration %d.', i)
+
+      # Clean up after the failed iteration.
       self._PostIteration(i, False)
+
+      # Reraise the error so that the script will return non-zero on failure.
+      raise
+
     finally:
       self._TearDown()
 
