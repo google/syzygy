@@ -36,6 +36,8 @@
         'block_graph.h',
         'disassembler.cc',
         'disassembler.h',
+        'json_file_writer.cc',
+        'json_file_writer.h',
         'random_number_generator.cc',
         'random_number_generator.h',
         'serialization.cc',
@@ -73,6 +75,7 @@
         'core_unittests_main.cc',
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
+        'json_file_writer_unittest.cc',
         'serialization_unittest.cc',
       ],
       'dependencies': [
