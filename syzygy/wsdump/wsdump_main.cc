@@ -17,11 +17,11 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/json/string_escape.h"
 #include "base/logging.h"
 #include "base/process_util.h"
 #include "base/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
+#include "syzygy/core/json_file_writer.h"
 #include "syzygy/wsdump/process_working_set.h"
 
 namespace {
@@ -120,58 +120,53 @@ struct ProcessInfo {
   ProcessWorkingSet ws;
 };
 
-void OutputKeyValue(const char* key,
-                    const std::wstring& value,
-                    int indent,
-                    bool trailing_comma) {
-  std::cout << std::string(indent, ' ')
-      << base::GetDoubleQuotedJson(key) << ": "
-      << base::GetDoubleQuotedJson(value)
-      << (trailing_comma ? "," : "") << "\n";
-}
-
-template <class Streamable>
-void OutputKeyValue(const char* key,
-                    const Streamable& value,
-                    int indent,
-                    bool trailing_comma) {
-  std::cout << std::string(indent, ' ')
-      << base::GetDoubleQuotedJson(key) << ": "
-      << value
-      << (trailing_comma ? "," : "") << "\n";
-}
-
 void OutputModule(const std::wstring& module_name,
                   const ProcessWorkingSet::Stats& stats,
-                  bool trailing_comma) {
-  std::cout << "      {\n";
-  OutputKeyValue("module_name", module_name, 8, true);
-  OutputKeyValue("pages", stats.pages, 8, true);
-  OutputKeyValue("shareable_pages", stats.shareable_pages, 8, true);
-  OutputKeyValue("shared_pages", stats.shared_pages, 8, true);
-  OutputKeyValue("read_only_pages", stats.read_only_pages, 8, true);
-  OutputKeyValue("writable_pages", stats.writable_pages, 8, true);
-  OutputKeyValue("executable_pages", stats.executable_pages, 8, false);
-  std::cout << "      }" << (trailing_comma ? "," : "") << "\n";
+                  core::JSONFileWriter* json) {
+  DCHECK(json != NULL);
+
+  json->OpenDict();
+  json->OutputKey("module_name");
+  json->OutputString(module_name);
+  json->OutputKey("pages");
+  json->OutputInteger(stats.pages);
+  json->OutputKey("shareable_pages");
+  json->OutputInteger(stats.shareable_pages);
+  json->OutputKey("shared_pages");
+  json->OutputInteger(stats.shared_pages);
+  json->OutputKey("read_only_pages");
+  json->OutputInteger(stats.read_only_pages);
+  json->OutputKey("writable_pages");
+  json->OutputInteger(stats.writable_pages);
+  json->OutputKey("executable_pages");
+  json->OutputInteger(stats.executable_pages);
+  json->CloseDict();
 }
 
-void OutputProcessInfo(const ProcessInfo& info, bool trailing_comma) {
-  std::cout << "  {\n";
-  OutputKeyValue("exe_file", info.exe_file, 4, true);
-  OutputKeyValue("pid", info.pid, 4, true);
-  OutputKeyValue("parent_pid", info.parent_pid, 4, true);
-  std::cout << "    \"modules\": [\n";
+void OutputProcessInfo(const ProcessInfo& info,
+                       core::JSONFileWriter* json) {
+  DCHECK(json != NULL);
 
-  OutputModule(L"Total", info.ws.total_stats(), true);
+  json->OpenDict();
+  json->OutputKey("exe_file");
+  json->OutputString(info.exe_file);
+  json->OutputKey("pid");
+  json->OutputInteger(info.pid);
+  json->OutputKey("parent_pid");
+  json->OutputInteger(info.parent_pid);
+
+  json->OutputKey("modules");
+  json->OpenList();
+  OutputModule(L"Total", info.ws.total_stats(), json);
+
   ProcessWorkingSet::ModuleStatsVector::const_iterator it =
       info.ws.module_stats().begin();
   ProcessWorkingSet::ModuleStatsVector::const_iterator end =
       info.ws.module_stats().end();
   for (; it != end; ++it)
-    OutputModule(it->module_name, *it, it + 1 != end);
+    OutputModule(it->module_name, *it, json);
 
-  std::cout << "    ]\n";
-  std::cout << "  }" << (trailing_comma ? "," : "") << "\n";
+  json->CloseList();
 }
 
 } // namespace
@@ -220,14 +215,15 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::cout << "[\n";
+  core::JSONFileWriter json(stdout, true);
+  json.OpenList();
   WorkingSets::const_iterator it = working_sets.begin();
   for (; it != working_sets.end(); ++it) {
     WorkingSets::const_iterator next = it;
     ++next;
-    OutputProcessInfo(*it, next != working_sets.end());
+    OutputProcessInfo(*it, &json);
   }
-  std::cout << "]\n";
+  json.CloseList();
 
   return 0;
 }
