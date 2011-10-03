@@ -22,9 +22,17 @@ class Instrumenter : public relink::RelinkerBase {
  public:
   Instrumenter();
 
-  // Static wrapper function to instrument an input dll to an output dll.
+  // Change the client DLL to which instrumented binaries will be bound.
+  void set_client_dll(const char* client_dll);
+
+  // Wrapper function to instrument an input dll to an output dll.
   bool Instrument(const FilePath& input_dll_path,
                   const FilePath& output_dll_path);
+
+  // The pre-defined call trace client DLLs. By default the ETW version will
+  // be used.
+  static const char* const kCallTraceClientDllEtw;
+  static const char* const kCallTraceClientDllRpc;
 
  private:
   // Copy all sections (except the .relocs and .rsrc sections) from the
@@ -38,23 +46,28 @@ class Instrumenter : public relink::RelinkerBase {
       const BlockGraph::Block* original_image_import_descriptor_array);
 
   // Instrument code blocks by creating thunks to intercept all references.
-  bool InstrumentCodeBlocks(BlockGraph* block_graph);
+  bool InstrumentCodeBlocks(BlockGraph* block_graph, size_t entry_hook_index);
 
   #pragma pack(push)
   #pragma pack(1)
   struct Thunk {
     BYTE push;
-    DWORD func_addr;
+    DWORD func_addr;  // The real function to invoke.
     WORD jmp;
-    DWORD indirect_penter;
+    DWORD hook_addr;  // The instrumentation hook that gets called beforehand.
   };
   #pragma pack(pop)
 
   // Create the image import by name block.
   bool CreateImageImportByNameBlock(RelativeAddress* insert_at);
 
-  // Create the hint name array and import address table blocks.
-  bool CreateImportAddressTableBlock(RelativeAddress* insert_at);
+  // Create both the hint name array and import address table blocks.
+  bool CreateImportAddressTableBlocks(RelativeAddress* insert_at);
+
+  // Create a single address table block.
+  bool CreateImportAddressTableBlock(const char* name,
+                                     RelativeAddress* insert_at,
+                                     BlockGraph::Block** block);
 
   // Create the DLL name block.
   bool CreateDllNameBlock(RelativeAddress* insert_at);
@@ -66,7 +79,7 @@ class Instrumenter : public relink::RelinkerBase {
 
   // Instrument the image's entry point so that the entry point of the image
   // points to at thunk.
-  bool InstrumentEntryPoint(RelativeAddress* insert_at);
+  bool InstrumentEntryPoint(size_t entry_hook, RelativeAddress* insert_at);
 
   // Create thunks for all referrers to @p block.
   bool CreateThunks(BlockGraph::Block* block,
@@ -76,6 +89,7 @@ class Instrumenter : public relink::RelinkerBase {
   // responsible for updating @p insert_at.
   bool CreateOneThunk(BlockGraph::Block* block,
                       const BlockGraph::Reference& ref,
+                      size_t hook_index,
                       RelativeAddress* insert_at,
                       BlockGraph::Block** thunk_block);
 
@@ -86,6 +100,9 @@ class Instrumenter : public relink::RelinkerBase {
   // Copies the resource section from the original module to the instrumented
   // module.
   bool CopyResourceSection();
+
+  // The call trace client dll to which to bind the instrumented image.
+  std::string client_dll_;
 
   // Blocks created while updating the import directory.
   BlockGraph::Block* image_import_by_name_block_;

@@ -456,7 +456,7 @@ BlockGraph::Block::~Block() {
     delete [] data_;
 }
 
-uint8* BlockGraph::Block::AllocateData(size_t size) {
+uint8* BlockGraph::Block::AllocateRawData(size_t size) {
   DCHECK(size > 0 && size <= size_);
   uint8* new_data = new uint8[size];
   if (!new_data)
@@ -464,7 +464,7 @@ uint8* BlockGraph::Block::AllocateData(size_t size) {
 
   if (owns_data()) {
     DCHECK(data_ != NULL);
-    delete data_;
+    delete [] data_;
   }
 
   data_ = new_data;
@@ -474,8 +474,17 @@ uint8* BlockGraph::Block::AllocateData(size_t size) {
   return new_data;
 }
 
+uint8* BlockGraph::Block::AllocateData(size_t size) {
+  uint8* new_data = AllocateRawData(size);
+  if (new_data == NULL)
+    return NULL;
+
+  ::memset(new_data, 0, size);
+  return new_data;
+}
+
 uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
-  uint8* new_data = AllocateData(size);
+  uint8* new_data = AllocateRawData(size);
   if (new_data == NULL)
     return NULL;
 
