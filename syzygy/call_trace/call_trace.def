@@ -23,10 +23,13 @@ EXPORTS
   wait_til_enabled
   wait_til_disabled
 
-  ; And the indirect profile hook function we
-  ; invoke through machine instrumentation.
+  ; The indirect profile hook function we invoke through instrumentation.
+  ; Note that we expose 2 entry points, one for the vast majority of
+  ; functions and a special one for DLL entry points. For this version
+  ; of the call-trace client library, these two implementations are the
+  ; same.
   _indirect_penter
-
+  _indirect_penter_dllmain=_indirect_penter
 
   ; Functions we expose to rundll32.
   StartCallTrace

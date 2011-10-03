@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/instrument/instrumenter.h"
+#include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
@@ -28,8 +29,21 @@ using pe::PEFileWriter;
 
 namespace {
 
-const char* kCallTraceDllName = "call_trace.dll";
-const char* kIndirectPenterName = "_indirect_penter";
+const char* const kEntryHookTable[] = {
+    "_indirect_penter",
+    "_indirect_penter_dllmain",
+};
+
+enum EntryHookIndex {
+  kIndirectPenter,
+  kIndirectPenterDllMain,
+  kEntryHookIndexMax
+};
+
+void CompileAsserts() {
+  COMPILE_ASSERT(kEntryHookIndexMax == ARRAYSIZE(kEntryHookTable),
+                 entry_hook_table_and_entry_hook_indices_not_same_size);
+}
 
 // TODO(rogerm): this functionality is duplicated! Consolidate!
 size_t Align(size_t value, size_t alignment) {
@@ -44,13 +58,24 @@ size_t WordAlign(size_t value) {
 
 }  // namespace
 
+const char* const Instrumenter::kCallTraceClientDllEtw = "call_trace.dll";
+const char* const Instrumenter::kCallTraceClientDllRpc =
+    "call_trace_client.dll";
+
 Instrumenter::Instrumenter()
-    : image_import_by_name_block_(NULL),
+    : client_dll_(kCallTraceClientDllEtw),
+      image_import_by_name_block_(NULL),
       hint_name_array_block_(NULL),
       import_address_table_block_(NULL),
       dll_name_block_(NULL),
       image_import_descriptor_array_block_(NULL),
       resource_section_id_(pe::kInvalidSection) {
+}
+
+void Instrumenter::set_client_dll(const char* const client_dll) {
+  DCHECK(client_dll != NULL);
+  DCHECK(client_dll[0] != '\0');
+  client_dll_ = client_dll;
 }
 
 bool Instrumenter::Instrument(const FilePath& input_dll_path,
@@ -95,8 +120,18 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
     LOG(ERROR) << "Unable to add call trace import.";
     return false;
   }
+
+  // Is this image directly executable or is it a DLL?
+  WORD characteristics = input_dll.nt_headers()->FileHeader.Characteristics;
+  bool is_dll = (characteristics & IMAGE_FILE_DLL) != 0;
+
+  // If the image is a DLL, use the DllMain version of the instrumentation
+  // hook for the entrypoint; otherwise, use the geneneral one.
+  EntryHookIndex entry_point_hook =
+      is_dll ? kIndirectPenterDllMain : kIndirectPenter;
+
   LOG(INFO) << "Instrumenting code blocks.";
-  if (!InstrumentCodeBlocks(&decomposed.image)) {
+  if (!InstrumentCodeBlocks(&decomposed.image, entry_point_hook)) {
     LOG(ERROR) << "Unable to instrument code blocks.";
     return false;
   }
@@ -181,7 +216,7 @@ bool Instrumenter::AddCallTraceImportDescriptor(
   }
 
   // Create the hint name array and import address table blocks.
-  if (!CreateImportAddressTableBlock(&insert_at)) {
+  if (!CreateImportAddressTableBlocks(&insert_at)) {
     LOG(ERROR) << "Unable to create import address table block";
     return false;
   }
@@ -214,7 +249,11 @@ bool Instrumenter::AddCallTraceImportDescriptor(
   return true;
 }
 
-bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph) {
+bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph,
+                                        size_t entry_point_hook) {
+  DCHECK(block_graph != NULL);
+  DCHECK_LT(entry_point_hook, static_cast<size_t>(kEntryHookIndexMax));
+
   RelativeAddress start = builder().next_section_address();
   RelativeAddress insert_at = start;
 
@@ -241,7 +280,7 @@ bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph) {
   }
 
   // Instrument the image's entry point.
-  if (!InstrumentEntryPoint(&insert_at)) {
+  if (!InstrumentEntryPoint(entry_point_hook, &insert_at)) {
     LOG(ERROR) << "Unable to update etnry point";
     return false;
   }
@@ -261,90 +300,125 @@ bool Instrumenter::CreateImageImportByNameBlock(
     RelativeAddress* insert_at) {
   DCHECK(image_import_by_name_block_ == NULL);
 
-  // The image import by name array contains an IMAGE_IMPORT_BY_NAME for each
-  // function invoked in the call trace DLL (just _indirect_penter in our case).
-  // The IMAGE_IMPORT_BY_NAME struct has a WORD ordinal and a variable sized
-  // field for the null-terminated function name.
-  uint32 size = sizeof(WORD) + WordAlign(strlen(kIndirectPenterName) + 1);
+  // Figure out how large the block needs to be to hold all the names of the
+  // hooks we export.  The IMAGE_IMPORT_BY_NAME struct has a WORD ordinal and
+  // a variable sized field for the null-terminated function name. Each entry
+  // should be WORD aligned, and will be referenced from the import table.
+  size_t total_size = 0;
+  for (int i = 0; i < kEntryHookIndexMax; ++i) {
+    total_size += sizeof(WORD) + WordAlign(strlen(kEntryHookTable[i]) + 1);
+  }
+
+  // Allocate the block.
   BlockGraph::Block* block =
       builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
                                          *insert_at,
-                                         size,
+                                         total_size,
                                          "image_import_by_name");
   if (block == NULL) {
     LOG(ERROR) << "Unable to allocate image import by name block";
     return false;
   }
-  *insert_at += block->size();
 
-  IMAGE_IMPORT_BY_NAME* image_import_by_name =
-      reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(block->AllocateData(size));
-  if (image_import_by_name == NULL) {
+  uint8* raw_data = block->AllocateData(total_size);
+  if (raw_data == NULL) {
     LOG(ERROR) << "Unable to allocate image import by name block data";
     return false;
   }
-  image_import_by_name->Hint = 0;
-  strncpy(reinterpret_cast<char*>(&image_import_by_name->Name[0]),
-         kIndirectPenterName,
-         size - sizeof(WORD));
+
+  *insert_at += block->size();
+
+  // Populate the block with IMAGE_IMPORT_BY_NAME records.
+  size_t offset = 0;
+  for (int i = 0; i < kEntryHookIndexMax; ++i) {
+    size_t size = strlen(kEntryHookTable[i]) + 1;
+    IMAGE_IMPORT_BY_NAME* image_import_by_name =
+        reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(raw_data + offset);
+    image_import_by_name->Hint = 0;
+    base::strlcpy(reinterpret_cast<char*>(&image_import_by_name->Name[0]),
+                  kEntryHookTable[i],
+                  size);
+
+    offset += sizeof(WORD) + WordAlign(size);
+  }
 
   image_import_by_name_block_ = block;
   return true;
 }
 
-bool Instrumenter::CreateImportAddressTableBlock(RelativeAddress* insert_at) {
+bool Instrumenter::CreateImportAddressTableBlocks(RelativeAddress* insert_at) {
+  DCHECK(insert_at != NULL);
   DCHECK(image_import_by_name_block_ != NULL);
   DCHECK(hint_name_array_block_ == NULL);
   DCHECK(import_address_table_block_ == NULL);
 
-  // The hint name array and import address table are null-terminated arrays of
-  // IMAGE_THUNK_DATA. Each IMAGE_THUNK_DATA entry points to an
-  // IMAGE_IMPORT_BY_NAME entry in the image import by name array.
-  static const IMAGE_THUNK_DATA kImageThunkDataArray[] = {
-    NULL,  // This will be overwritten by the reference.
-    NULL
-  };
+  if (!CreateImportAddressTableBlock("hint_name_array", insert_at,
+                                     &hint_name_array_block_)) {
+     return false;
+  }
 
-  // Create the hint name array block.
-  BlockGraph::Block* block =
+  if (!CreateImportAddressTableBlock("import_address_table", insert_at,
+                                     &import_address_table_block_)) {
+     return false;
+  }
+
+  return true;
+}
+
+bool Instrumenter::CreateImportAddressTableBlock(const char* name,
+                                                 RelativeAddress* insert_at,
+                                                 BlockGraph::Block** block) {
+  DCHECK(insert_at != NULL);
+  DCHECK(block != NULL);
+  DCHECK(*block == NULL);
+  DCHECK(name != NULL);
+  DCHECK(image_import_by_name_block_ != NULL);
+
+  // The hint name array and import address table are identical null-terminated
+  // arrays of IMAGE_THUNK_DATA. Each IMAGE_THUNK_DATA entry points to an
+  // IMAGE_IMPORT_BY_NAME entry in the image import by name array.
+
+  const size_t kImageThunkDataSize =
+      sizeof(IMAGE_THUNK_DATA) * (kEntryHookIndexMax + 1);
+
+  // Allocate the new block.
+  BlockGraph::Block* new_block =
       builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
                                          *insert_at,
-                                         sizeof(kImageThunkDataArray),
-                                         "hint_name_array");
-  if (block == NULL) {
-    LOG(ERROR) << "Unable to allocate hint name array block";
+                                         kImageThunkDataSize,
+                                         name);
+  if (new_block == NULL) {
+    LOG(ERROR) << "Unable to allocate " << name << " block.";
     return false;
   }
-  *insert_at += block->size();
 
-  block->set_data_size(block->size());
-  block->set_data(reinterpret_cast<const uint8*>(kImageThunkDataArray));
-
-  // Create a reference to offset 0 of the image import by name block.
-  BlockGraph::Reference image_import_by_name_ref(BlockGraph::RELATIVE_REF,
-                                                 sizeof(RelativeAddress),
-                                                 image_import_by_name_block_,
-                                                 0);
-  block->SetReference(0, image_import_by_name_ref);
-
-  hint_name_array_block_ = block;
-
-  // Create the import addres table block.
-  block = builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                             *insert_at,
-                                             sizeof(kImageThunkDataArray),
-                                             "import_address_table");
-  if (block == NULL) {
-    LOG(ERROR) << "Unable to allocate import address table block";
+  // Allocate the the memory for the new block. It will already be zero-
+  // initialized, which takes care of null-terminating the table.
+  uint8* raw_data = new_block->AllocateData(new_block->size());
+  if (raw_data == NULL) {
+    LOG(ERROR) << "Unable to allocate " << name << " block data.";
     return false;
   }
-  *insert_at += block->size();
 
-  block->set_data_size(block->size());
-  block->set_data(reinterpret_cast<const uint8*>(kImageThunkDataArray));
-  block->SetReference(0, image_import_by_name_ref);
+  // Create references to each of the defined hooks.
+  size_t offset = 0;
+  for (int hook_index = 0; hook_index < kEntryHookIndexMax; ++hook_index) {
+    // Create a reference to the hook's offset.
+    BlockGraph::Reference hook_ref(BlockGraph::RELATIVE_REF,
+                                   sizeof(RelativeAddress),
+                                   image_import_by_name_block_,
+                                   offset);
+    new_block->SetReference(hook_index * sizeof(IMAGE_THUNK_DATA), hook_ref);
+    offset += (sizeof(WORD) +
+               WordAlign(strlen(kEntryHookTable[hook_index]) + 1));
+  }
 
-  import_address_table_block_ = block;
+  // Advance the block insertion address.
+  *insert_at += new_block->size();
+
+  // Update the instrumenter's reference to this block.
+  *block = new_block;
+
   return true;
 }
 
@@ -355,16 +429,22 @@ bool Instrumenter::CreateDllNameBlock(RelativeAddress* insert_at) {
   BlockGraph::Block* block =
       builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
                                          *insert_at,
-                                         strlen(kCallTraceDllName) + 1,
-                                         "dll_name");
+                                         client_dll_.length() + 1,
+                                         "client_dll_name");
   if (block == NULL) {
-    LOG(ERROR) << "Unable to allocate dll name block";
+    LOG(ERROR) << "Unable to allocate client dll name block.";
     return false;
   }
   *insert_at += block->size();
 
-  block->set_data_size(block->size());
-  block->set_data(reinterpret_cast<const uint8*>(kCallTraceDllName));
+  uint8* raw_data = block->AllocateData(block->size());
+  if (raw_data == NULL) {
+    LOG(ERROR) << "Unable to allocate client dll name data.";
+    return false;
+  }
+
+  base::strlcpy(
+      reinterpret_cast<char*>(raw_data), client_dll_.c_str(), block->size());
 
   dll_name_block_ = block;
   return true;
@@ -446,7 +526,11 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
   return true;
 }
 
-bool Instrumenter::InstrumentEntryPoint(RelativeAddress* insert_at) {
+bool Instrumenter::InstrumentEntryPoint(size_t entry_hook,
+                                        RelativeAddress* insert_at) {
+  DCHECK(insert_at != NULL);
+  DCHECK_LT(entry_hook, static_cast<size_t>(kEntryHookIndexMax));
+
   const BlockGraph::Reference& entry_point = builder().entry_point();
   BlockGraph::Block* entry_block = entry_point.referenced();
 
@@ -454,6 +538,7 @@ bool Instrumenter::InstrumentEntryPoint(RelativeAddress* insert_at) {
   BlockGraph::Block* thunk_block;
   if (!CreateOneThunk(entry_block,
                       entry_point,
+                      entry_hook,
                       insert_at,
                       &thunk_block)) {
     LOG(ERROR) << "Unable to create entry point thunk";
@@ -500,7 +585,8 @@ bool Instrumenter::CreateThunks(BlockGraph::Block* block,
     BlockGraph::Block* thunk_block = NULL;
     ThunkBlockMap::const_iterator thunk_it = thunk_block_map.find(ref.offset());
     if (thunk_it == thunk_block_map.end()) {
-      if (!CreateOneThunk(block, ref, insert_at, &thunk_block)) {
+      if (!CreateOneThunk(block, ref, kIndirectPenter, insert_at,
+                          &thunk_block)) {
         LOG(ERROR) << "Unable to create thunk block";
         return false;
       }
@@ -523,10 +609,13 @@ bool Instrumenter::CreateThunks(BlockGraph::Block* block,
 
 bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
                                   const BlockGraph::Reference& ref,
+                                  size_t hook_index,
                                   RelativeAddress* insert_at,
                                   BlockGraph::Block** thunk_block) {
   DCHECK(import_address_table_block_ != NULL);
   DCHECK(block != NULL);
+  DCHECK_LT(hook_index, static_cast<size_t>(kEntryHookIndexMax));
+  DCHECK(insert_at != NULL);
   DCHECK(thunk_block != NULL);
 
   // We push the absolute address of the function to be called on the
@@ -563,14 +652,15 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
                             block,
                             ref.offset()));
 
-  // Set an absolute reference to the indirect penter function in the call
-  // trace dll import which is in offset 0 of the import address table block.
+  // Set an absolute reference to the correct instrumentation hook in the call
+  // trace client dll import table. This corresponds to the hook_index'th
+  // IMAGE_THUNK_DATA entry in the import_address_table_block_.
   new_block->SetReference(
-      offsetof(Thunk, indirect_penter),
+      offsetof(Thunk, hook_addr),
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                             sizeof(RelativeAddress),
                             import_address_table_block_,
-                            0));
+                            hook_index * sizeof(IMAGE_THUNK_DATA)));
 
   *thunk_block = new_block;
   return true;

@@ -216,7 +216,12 @@ class BlockGraph::Block {
   bool owns_data() const { return owns_data_; }
   void set_owns_data(bool owns_data) { owns_data_ = owns_data; }
 
-  // Allocates and returns new data of the given size.
+  // Allocates and returns a new data buffer of the given size. The returned
+  // data buffer will not have been initialized in any way.
+  uint8* AllocateRawData(size_t size);
+
+  // Allocates and returns a new data buffer of the given size. The returned
+  // data will have been initialized to zero.
   uint8* AllocateData(size_t size);
 
   // Makes a copy of data, returns a pointer to the copy.
