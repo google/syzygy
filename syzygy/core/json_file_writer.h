@@ -35,6 +35,8 @@ class JSONFileWriter {
 
   ~JSONFileWriter();
 
+  bool pretty_print() const { return pretty_print_; }
+
   // Returns true if the stream is finished, and unable to accept further
   // data. Comments may still be output, however.
   bool Finished() const { return finished_; }

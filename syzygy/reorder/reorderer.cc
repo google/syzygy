@@ -21,6 +21,7 @@
 #include "base/values.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
+#include "syzygy/core/json_file_writer.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file.h"
@@ -30,118 +31,38 @@ namespace {
 using core::BlockGraph;
 using reorder::Reorderer;
 
-// Outputs @p indent spaces to @p file.
-bool OutputIndent(FILE* file, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  if (!pretty_print)
-    return true;
-  for (int i = 0; i < indent; ++i) {
-    if (fputc(' ', file) == EOF)
-      return false;
-  }
-  return true;
-}
-
-// Outputs an end of line, only if pretty-printing.
-bool OutputLineEnd(FILE* file, bool pretty_print) {
-  DCHECK(file != NULL);
-  return !pretty_print || fputc('\n', file) != EOF;
-}
-
-// Outputs text. If pretty printing, will respect the indent.
-bool OutputText(FILE* file, const char* text, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  return OutputIndent(file, indent, pretty_print) &&
-      fprintf(file, "%s", text) >= 0;
-}
-
-// Outputs a comment with the given indent, only if pretty-printing.
-bool OutputComment(
-    FILE* file, const char* comment, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  if (!pretty_print)
-    return true;
-  return OutputIndent(file, indent, pretty_print) &&
-      fprintf(file, "// %s\n", comment) >= 0;
-}
-
-// Outputs a JSON dictionary key, pretty-printed if so requested. Assumes that
-// if pretty-printing, we're already on a new line. Also assumes that key is
-// appropriately escaped if it contains invalid characters.
-bool OutputKey(FILE* file, const char* key, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  DCHECK(key != NULL);
-  return OutputIndent(file, indent, pretty_print) &&
-      fprintf(file, "\"%s\":", key) >= 0 &&
-      OutputIndent(file, 1, pretty_print);
-}
-
-// Serializes a block list to JSON. If pretty-printing, assumes that we are
-// already on a new line. Does not output a trailing new line.
-bool OutputBlockList(FILE* file, size_t section_id,
+// Serializes a block list to JSON.
+bool OutputBlockList(size_t section_id,
                      const Reorderer::Order::BlockList& blocks,
-                     int indent,
-                     bool pretty_print) {
-  DCHECK(file != NULL);
+                     core::JSONFileWriter* json_file) {
+  DCHECK(json_file != NULL);
 
-  // Output the section id.
-  if (!OutputIndent(file, indent, pretty_print) ||
-      fputc('{', file) == EOF ||
-      !OutputLineEnd(file, pretty_print) ||
-      !OutputKey(file, "section_id", indent + 2, pretty_print) ||
-      fprintf(file, "%d,", section_id) < 0 ||
-      !OutputLineEnd(file, pretty_print) ||
-      // Output the sdtart of the block list.
-      !OutputKey(file, "blocks", indent + 2, pretty_print) ||
-      fputc('[', file) == EOF ||
-      !OutputLineEnd(file, pretty_print)) {
+  if (!json_file->OpenDict() ||
+      !json_file->OutputKey("section_id") ||
+      !json_file->OutputInteger(section_id) ||
+      !json_file->OutputKey("blocks") ||
+      !json_file->OpenList()) {
     return false;
   }
 
   for (size_t i = 0; i < blocks.size(); ++i) {
     // Output the block address.
-    if (!OutputIndent(file, indent + 4, pretty_print) ||
-        fprintf(file, "%d", blocks[i]->addr().value()) < 0)
-      return false;
-    if (i < blocks.size() - 1 && fputc(',', file) == EOF)
+    if (!json_file->OutputInteger(blocks[i]->addr().value()))
       return false;
 
     // If we're pretty printing, output a comment with some detail about the
     // block.
-    if (pretty_print) {
-      if (fprintf(file, "  // ") < 0)
-        return false;
-      switch (blocks[i]->type()) {
-        case BlockGraph::CODE_BLOCK:
-          if (fprintf(file, "Code") < 0)
-            return false;
-          break;
-
-        case BlockGraph::DATA_BLOCK:
-          if (fprintf(file, "Data") < 0)
-            return false;
-          break;
-
-        default:
-          if (fprintf(file, "Other") < 0)
-            return false;
-          break;
-      }
-      if (fprintf(file, "(%s)\n", blocks[i]->name()) < 0)
+    if (json_file->pretty_print()) {
+      std::string comment = base::StringPrintf(
+          "%s(%s)",
+          core::BlockGraph::kBlockType[blocks[i]->type()],
+          blocks[i]->name());
+      if (!json_file->OutputTrailingComment(comment.c_str()))
         return false;
     }
   }
-  // Close the block list.
-  if (!OutputIndent(file, indent + 2, pretty_print) ||
-      fputc(']', file) == EOF ||
-      !OutputLineEnd(file, pretty_print) ||
-      // Close the dictionary.
-      !OutputIndent(file, indent, pretty_print) ||
-      fputc('}', file) == EOF) {
-    return false;
-  }
 
-  return true;
+  return json_file->CloseList() && json_file->CloseDict();
 }
 
 }  // namespace
@@ -541,67 +462,53 @@ bool Reorderer::Order::SerializeToJSON(const FilePath &path,
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL)
     return false;
-  return SerializeToJSON(file.get(), pretty_print);
+  core::JSONFileWriter json_file(file.get(), pretty_print);
+  return SerializeToJSON(&json_file);
 }
 
-bool Reorderer::Order::SerializeToJSON(FILE* file,
-                                       bool pretty_print) const {
+bool Reorderer::Order::SerializeToJSON(core::JSONFileWriter* json_file) const {
+  DCHECK(json_file != NULL);
+
   // Open the main dictionary and the metadata dictionary.
-  if (!OutputComment(file, comment.c_str(), 0, true) ||
-      !OutputText(file, "{", 0, pretty_print) ||
-      !OutputLineEnd(file, pretty_print) ||
-      !OutputKey(file, "metadata", 2, pretty_print))
+  if (!json_file->OutputComment(comment.c_str()) ||
+      !json_file->OpenDict() ||
+      !json_file->OutputKey("metadata")) {
     return false;
+  }
 
   // Output metadata.
   PEFile::Signature orig_sig;
   pe.GetSignature(&orig_sig);
   pe::Metadata metadata;
   if (!metadata.Init(orig_sig) ||
-      !metadata.SaveToJSON(file, 2, pretty_print) ||
-      !OutputText(file, ",", 0, pretty_print) ||
-      !OutputLineEnd(file, pretty_print))
+      !metadata.SaveToJSON(json_file)) {
     return false;
+  }
 
   // Open list of sections.
-  if (!OutputKey(file, "sections", 2, pretty_print) ||
-      !OutputText(file, "[", 0, pretty_print) ||
-      !OutputLineEnd(file, pretty_print))
+  if (!json_file->OutputKey("sections") ||
+      !json_file->OpenList()) {
     return false;
+  }
 
   // Output the individual block lists.
   BlockListMap::const_iterator it = section_block_lists.begin();
-  int lists_output = 0;
   for (; it != section_block_lists.end(); ++it) {
     if (it->second.size() == 0)
       continue;
-
-    if (lists_output > 0) {
-      if (!OutputText(file, ",", 0, pretty_print) ||
-          !OutputLineEnd(file, pretty_print))
-        return false;
-    }
 
     // Output a comment with the section name, and output the section
     // order info.
     std::string comment = pe.GetSectionName(it->first);
     comment = StringPrintf("section_name = \"%s\".", comment.c_str());
-    if (!OutputComment(file, comment.c_str(), 4, pretty_print) ||
-        !OutputBlockList(file, it->first, it->second, 4, pretty_print))
+    if (!json_file->OutputComment(comment.c_str()) ||
+        !OutputBlockList(it->first, it->second, json_file)) {
       return false;
-
-    ++lists_output;
+    }
   }
-  if (lists_output > 0 && !OutputLineEnd(file, pretty_print))
-    return false;
 
   // Close the list of sections and the outermost dictionary.
-  if (!OutputText(file, "]", 2, pretty_print) ||
-      !OutputLineEnd(file, pretty_print) ||
-      !OutputText(file, "}", 0, pretty_print))
-    return false;
-
-  return true;
+  return json_file->CloseList() && json_file->CloseDict();
 }
 
 bool Reorderer::Order::LoadFromJSON(const FilePath& path) {
