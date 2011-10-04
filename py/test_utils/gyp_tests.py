@@ -16,7 +16,6 @@
 building them and running them. This file may be run as a standalone script
 in which case it will actually execute the unittests associated with Syzygy."""
 import ast
-import build_project
 import logging
 import os
 import optparse
@@ -27,7 +26,7 @@ import sys
 import testing
 
 
-class Error(Exception):
+class Error(testing.Error):
   """An error class used for reporting problems while parsing gyp files."""
   pass
 
@@ -55,10 +54,20 @@ class GypTests(testing.TestSuite):
   """A collection of unittests extracted from the unittests.gypi gyp include
   file associated with the a gyp project."""
 
-  def __init__(self, gyp_path=None):
+  def __init__(self, gyp_path=None, name='gyp_tests'):
     """Initializes this set of tests for a given GYP project. If gyp_path is
     not explicitly provided in the constructor, it is assumed that it is
-    passed in on the command-line via '-g' or '--gyp-file'."""
+    passed in on the command-line via '-g' or '--gyp-file'.
+
+    Args:
+      gyp_path: The path to the root gyp file of the project. Expects that
+          there is a unittests.gypi file in the same directory, as well as
+          a .sln file with a build_unittests target. If left to default value
+          (None), will attempt to parse this value from the command line via
+          -g/--gyp-file.
+      name: The name of this test, used to generated its 'name_success.txt'
+          success file. Defaults to 'gyp_tests'.
+    """
     if not gyp_path:
       parser = GypTests._GetOptParser()
       options, unused_args = parser.parse_args()
@@ -71,7 +80,7 @@ class GypTests(testing.TestSuite):
       raise Error('gyp file "%s" does not exist.' % (gyp_path))
 
     project_dir = os.path.dirname(gyp_path)
-    testing.TestSuite.__init__(self, project_dir, 'ALL', [])
+    testing.TestSuite.__init__(self, project_dir, name, [])
 
     self._solution_path = re.sub('\.gyp$', '.sln', gyp_path)
     self._project_path = os.path.join(project_dir, 'build_unittests.vcproj')
@@ -136,9 +145,9 @@ class GypTests(testing.TestSuite):
     if self._configuration_built.has_key(configuration):
       return
     self._configuration_built[configuration] = True
-    build_project.BuildProjectConfig(self._solution_path,
-                                     self._project_path,
-                                     configuration)
+    testing.BuildProjectConfig(self._solution_path,
+                               self._project_path,
+                               configuration)
 
   def _NeedToRun(self, configuration):
     # Ensure the unittests are built first, and then delegate to our

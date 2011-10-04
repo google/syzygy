@@ -54,9 +54,8 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
     solution = win32com.client.GetObject(solution_path)
     builder = solution.SolutionBuild
   except pywintypes.com_error:
-    message = 'Unable to open solution "%s".' % solution_path
-    logging.exception(message)
-    raise Error(message)
+    # Reraise the error with a new type.
+    raise Error, sys.exc_info()[1], sys.exc_info()[2]
 
   if focus:
     # Force the Visual Studio window to show and give it focus.
@@ -65,7 +64,7 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
       dte.MainWindow.Visible = True
       dte.MainWindow.Activate()
     except pywintypes.com_error:
-      logging.exception('Forcing focus failed.')
+      logging.error('Forcing focus failed.')
       pass
 
     try:
@@ -79,7 +78,6 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
       pass
 
   # Build each project in each of the desired configurations.
-  errors = 0
   for project_path in project_paths:
     abs_project_path = os.path.abspath(project_path)
 
@@ -88,18 +86,22 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
     rel_project_path = os.path.relpath(abs_project_path, solution_dir)
 
     for config in configs:
-      logging.info('Building project "%s" in "%s" configuration.',
-                   rel_project_path, config)
+      logging.info('Building configuration "%s" of project "%s".',
+                   config, project_path)
+      errors = 0
       try:
         builder.BuildProject(config, abs_project_path, True)
         errors = builder.LastBuildInfo
-      except pywintype.com_error:
-        logging.exception('Build failure.')
-        raise Error('%s build of %s failed.' % (config, project_path))
+      except pywintypes.com_error:
+        logging.error('Configuration "%s" of "%s" failed to build.',
+            config, project_path)
+        # Reraise the error with a new type.
+        raise Error, sys.exc_info()[1], sys.exc_info()[2]
+
       if errors > 0:
         raise Error(
-            '%s build of %s failed with %d error%s.' %
-            (config, project_path, errors, '' if errors == 1 else 's'))
+            'Configuration "%s" of "%s" failed to build with %d error%s.' %
+                (config, project_path, errors, '' if errors == 1 else 's'))
 
 
 def GetOptionParser():
