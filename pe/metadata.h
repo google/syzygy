@@ -29,6 +29,11 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_builder.h"
 
+// Forward declaration.
+namespace core {
+class JSONFileWriter;
+}  // namespace core
+
 namespace pe {
 
 using base::Time;
@@ -51,7 +56,7 @@ class Metadata {
   bool IsConsistent(const PEFile::Signature& module_signature) const;
 
   // Functions for serialization to and from JSON.
-  bool SaveToJSON(FILE* file, int indent, bool pretty_print) const;
+  bool SaveToJSON(core::JSONFileWriter* json_file) const;
   bool LoadFromJSON(const DictionaryValue& metadata);
 
   // Functions for serialization to and from a PE file.

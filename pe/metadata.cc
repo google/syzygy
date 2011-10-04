@@ -21,8 +21,9 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "syzygy/core/block_graph.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/core/block_graph.h"
+#include "syzygy/core/json_file_writer.h"
 
 namespace pe {
 
@@ -69,122 +70,61 @@ bool StringToTime(const std::string& string, Time* time) {
       Time::FromString(wstring.c_str(), time);
 }
 
-// The following are utility functions for writing directly to a JSON formatted
-// file. We avoid going through Value because we like to annotate with
-// comments.
-// TODO(chrisha): Maybe create a JsonStreamWriter? We're outputting commented
-//     JSON in a couple of places now.
-
-// Outputs indent spaces to file.
-bool OutputIndent(FILE* file, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  if (!pretty_print)
-    return true;
-  for (int i = 0; i < indent; ++i) {
-    if (fputc(' ', file) == EOF)
-      return false;
-  }
-  return true;
-}
-
-// Outputs an end of line, only if pretty-printing.
-bool OutputLineEnd(FILE* file, bool pretty_print) {
-  DCHECK(file != NULL);
-  return !pretty_print || fputc('\n', file) != EOF;
-}
-
-// Outputs text. If pretty printing, will respect the indent.
-bool OutputText(FILE* file, const char* text, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  return OutputIndent(file, indent, pretty_print) &&
-      fprintf(file, "%s", text) >= 0;
-}
-
-// Outputs a comment with the given indent, only if pretty-printing.
-bool OutputComment(
-    FILE* file, const char* comment, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  if (!pretty_print)
-    return true;
-  return OutputIndent(file, indent, pretty_print) &&
-      fprintf(file, "// %s\n", comment) >= 0;
-}
-
-// Outputs a JSON dictionary key, pretty-printed if so requested. Assumes that
-// if pretty-printing, we're already on a new line. Also assumes that key is
-// appropriately escaped if it contains invalid characters.
-bool OutputKey(FILE* file, const char* key, int indent, bool pretty_print) {
-  DCHECK(file != NULL);
-  DCHECK(key != NULL);
-  return OutputIndent(file, indent, pretty_print) &&
-      fprintf(file, "\"%s\":", key) >= 0 &&
-      OutputIndent(file, 1, pretty_print);
-}
-
 // Outputs a SyzygyVersion object in JSON format as a dictionary. Does not
 // output a newline after the dictionary.
-bool OutputSyzygyVersion(FILE* file,
-                         const common::SyzygyVersion& version,
-                         int indent,
-                         bool pretty_print) {
-  DCHECK(file != NULL);
+bool OutputSyzygyVersion(const common::SyzygyVersion& version,
+                         core::JSONFileWriter* json_file) {
+  DCHECK(json_file != NULL);
 
-  std::string comment("Toolchain version: ");
-  comment.append(version.GetVersionString());
+  if (!json_file->OpenDict())
+    return false;
 
-  std::string last_change = base::GetDoubleQuotedJson(version.last_change());
+  if (json_file->pretty_print()) {
+    std::string comment("Toolchain version: ");
+    comment.append(version.GetVersionString());
+    if (!json_file->OutputComment(comment.c_str()))
+      return false;
+  }
 
-  return OutputText(file, "{", 0, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputComment(file, comment.c_str(), indent + 2, pretty_print) &&
-      OutputKey(file, kMajorKey, indent + 2, pretty_print) &&
-      fprintf(file, "%d,", version.major()) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kMinorKey, indent + 2, pretty_print) &&
-      fprintf(file, "%d,", version.minor()) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kBuildKey, indent + 2, pretty_print) &&
-      fprintf(file, "%d,", version.build()) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kPatchKey, indent + 2, pretty_print) &&
-      fprintf(file, "%d,", version.patch()) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kLastChangeKey, indent + 2, pretty_print) &&
-      fprintf(file, "%s", last_change.c_str()) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputText(file, "}", indent, pretty_print);
+  return json_file->OutputKey(kMajorKey) &&
+      json_file->OutputInteger(version.major()) &&
+      json_file->OutputKey(kMinorKey) &&
+      json_file->OutputInteger(version.minor()) &&
+      json_file->OutputKey(kBuildKey) &&
+      json_file->OutputInteger(version.build()) &&
+      json_file->OutputKey(kPatchKey) &&
+      json_file->OutputInteger(version.patch()) &&
+      json_file->OutputKey(kLastChangeKey) &&
+      json_file->OutputString(version.last_change().c_str()) &&
+      json_file->CloseDict();
 }
 
 // Outputs a PEFile::Signature in JSON format as a dictionary. Does not output
 // a newline after the dictionary.
-bool OutputPEFileSignature(FILE* file,
-                           const PEFile::Signature& signature,
-                           int indent,
-                           bool pretty_print) {
-  DCHECK(file != NULL);
+bool OutputPEFileSignature(const PEFile::Signature& signature,
+                           core::JSONFileWriter* json_file) {
+  DCHECK(json_file != NULL);
 
   std::string path;
   WideToUTF8(signature.path.c_str(), signature.path.size(), &path);
   path = base::GetDoubleQuotedJson(path);
 
-  return OutputText(file, "{", 0, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kPathKey, indent + 2, pretty_print) &&
-      fprintf(file, "%s,", path.c_str()) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kBaseAddressKey, indent + 2, pretty_print) &&
-      fprintf(file, "%d,", signature.base_address) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kModuleSizeKey, indent + 2, pretty_print) &&
-      fprintf(file, "%d,", signature.module_size) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kModuleTimeDateStampKey, indent + 2, pretty_print) &&
-      fprintf(file, "\"0x%llx\",", signature.module_time_date_stamp) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kModuleChecksumKey, indent + 2, pretty_print) &&
-      fprintf(file, "\"0x%x\"", signature.module_checksum) >= 0 &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputText(file, "}", indent, pretty_print);
+  std::string time_stamp(
+      base::StringPrintf("0x%llX", signature.module_time_date_stamp));
+  std::string checksum(base::StringPrintf("0x%X", signature.module_checksum));
+
+  return json_file->OpenDict() &&
+      json_file->OutputKey(kPathKey) &&
+      json_file->OutputString(signature.path.c_str()) &&
+      json_file->OutputKey(kBaseAddressKey) &&
+      json_file->OutputInteger(signature.base_address.value()) &&
+      json_file->OutputKey(kModuleSizeKey) &&
+      json_file->OutputInteger(signature.module_size) &&
+      json_file->OutputKey(kModuleTimeDateStampKey) &&
+      json_file->OutputString(time_stamp.c_str()) &&
+      json_file->OutputKey(kModuleChecksumKey) &&
+      json_file->OutputString(checksum.c_str()) &&
+      json_file->CloseDict();
 }
 
 // Loads a syzygy version from a JSON dictionary.
@@ -293,30 +233,19 @@ bool Metadata::IsConsistent(const PEFile::Signature& module_signature) const {
   return true;
 }
 
-bool Metadata::SaveToJSON(FILE* file, int indent, bool pretty_print) const {
-  std::string command_line = base::GetDoubleQuotedJson(command_line_);
-  std::string creation_time =
-      base::GetDoubleQuotedJson(TimeToString(creation_time_));
+bool Metadata::SaveToJSON(core::JSONFileWriter* json_file) const {
+  DCHECK(json_file != NULL);
 
-  return OutputText(file, "{", 0, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kCommandLineKey, indent + 2, pretty_print) &&
-      OutputText(file, command_line.c_str(), 0, pretty_print) &&
-      OutputText(file, ",", 0, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kCreationTimeKey, indent + 2, pretty_print) &&
-      OutputText(file, creation_time.c_str(), 0, pretty_print) &&
-      OutputText(file, ",", 0, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kToolchainVersionKey, indent + 2, pretty_print) &&
-      OutputSyzygyVersion(file, toolchain_version_, indent + 2, pretty_print) &&
-      OutputText(file, ",", 0, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputKey(file, kModuleSignatureKey, indent + 2, pretty_print) &&
-      OutputPEFileSignature(
-          file, module_signature_, indent + 2, pretty_print) &&
-      OutputLineEnd(file, pretty_print) &&
-      OutputText(file, "}", indent, pretty_print);
+  return json_file->OpenDict() &&
+      json_file->OutputKey(kCommandLineKey) &&
+      json_file->OutputString(command_line_.c_str()) &&
+      json_file->OutputKey(kCreationTimeKey) &&
+      json_file->OutputString(TimeToString(creation_time_).c_str()) &&
+      json_file->OutputKey(kToolchainVersionKey) &&
+      OutputSyzygyVersion(toolchain_version_, json_file) &&
+      json_file->OutputKey(kModuleSignatureKey) &&
+      OutputPEFileSignature(module_signature_, json_file) &&
+      json_file->CloseDict();
 }
 
 bool Metadata::LoadFromJSON(const DictionaryValue& metadata) {

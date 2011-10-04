@@ -29,6 +29,11 @@
 #include "syzygy/call_trace/call_trace_parser.h"
 #include "syzygy/pe/decomposer.h"
 
+// Forward declaration.
+namespace core {
+class JSONFileWriter;
+}  // namespace core
+
 namespace reorder {
 
 typedef uint64 AbsoluteAddress64;
@@ -236,7 +241,7 @@ struct Reorderer::Order {
   // in a JSON list. Pretty-printing adds further information from the
   // BlockGraph via inline comments.
   bool SerializeToJSON(const FilePath& path, bool pretty_print) const;
-  bool SerializeToJSON(FILE* file, bool pretty_print) const;
+  bool SerializeToJSON(core::JSONFileWriter* json_file) const;
 
   // Loads an ordering from a JSON file. 'pe' and 'image' must already be
   // populated prior to calling this.

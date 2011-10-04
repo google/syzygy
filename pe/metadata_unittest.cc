@@ -15,6 +15,7 @@
 #include "syzygy/pe/metadata.h"
 #include "base/file_util.h"
 #include "base/json/json_reader.h"
+#include "syzygy/core/json_file_writer.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/core/unittest_util.h"
 #include "gtest/gtest.h"
@@ -58,7 +59,8 @@ bool TestJSONSerialization(bool pretty_print) {
   // Output to file.
   Metadata metadata1;
   InitMetadata(&metadata1);
-  EXPECT_TRUE(success = metadata1.SaveToJSON(temp_file, 0, pretty_print));
+  core::JSONFileWriter json_file(temp_file, pretty_print);
+  EXPECT_TRUE(success = metadata1.SaveToJSON(&json_file));
   fclose(temp_file);
 
   // Read the file.
