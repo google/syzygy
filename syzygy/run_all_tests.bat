@@ -12,12 +12,11 @@
 :: WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 :: See the License for the specific language governing permissions and
 :: limitations under the License.
-set PYTHON="%~p0..\third_party\python_26\python.exe"
-set SCRIPT="%~p0py\test_utils\gyp_tests.py"
-set GYP="%~p0syzygy.gyp"
-set INTERNAL_TESTS="%~p0internal\run_all_tests.bat"
+set PYTHON="%~dp0..\third_party\python_26\python.exe"
+set SCRIPT="%~dp0tests\run_all_tests.py"
+set INTERNAL_TESTS="%~dp0internal\run_all_tests.bat"
 
-%PYTHON% %SCRIPT% --gyp-file=%GYP% %*
+%PYTHON% %SCRIPT% %*
 
 IF EXIST %INTERNAL_TESTS% (
 %INTERNAL_TESTS% %*

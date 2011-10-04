@@ -12,17 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Defines a collection of classes for running unit-tests."""
+import build_project
 import datetime
 import logging
 import optparse
 import os
 import presubmit
 import subprocess
+import sys
 
 
 class Error(Exception):
   """An error class used for reporting problems while running tests."""
   pass
+
+
+def BuildProjectConfig(*args, **kwargs):
+  """Wraps build_project.BuildProjectConfig, but ensures that if it throws
+  an error it is of type testing.Error."""
+  try:
+    build_project.BuildProjectConfig(*args, **kwargs)
+  except build_project.Error:
+    # Convert the exception to an instance of testing.Error, but preserve
+    # the original message and stack-trace.
+    raise Error, sys.exc_info()[1], sys.exc_info()[2]
 
 
 class Test(object):
@@ -101,20 +114,22 @@ class Test(object):
                    self._name, configuration)
       return
 
-    if force:
+    # Always run _NeedToRun, even if force is true. This is because it may
+    # do some setup work that is required prior to calling _Run.
+    logging.info('Checking to see if we need to run test "%s" in '
+                 'configuration "%s".', self._name, configuration)
+    need_to_run = self._NeedToRun(configuration)
+    if need_to_run:
+      logging.info('Running test "%s" in configuration "%s".',
+                   self._name, configuration)
+    else:
+      logging.info('No need to re-run test "%s" in configuration "%s".',
+                   self._name, configuration)
+
+    if not need_to_run and force:
       logging.info('Forcing re-run of test "%s" in configuration "%s".',
                    self._name, configuration)
       need_to_run = True
-    else:
-      logging.info('Checking to see if we need to run test "%s" in '
-                   'configuration "%s".', self._name, configuration)
-      need_to_run = self._NeedToRun(configuration)
-      if need_to_run:
-        logging.info('Running test "%s" in configuration "%s".',
-                     self._name, configuration)
-      else:
-        logging.info('No need to re-run test "%s" in configuration "%s".',
-                     self._name, configuration)
 
     if need_to_run:
       self._Run(configuration)
@@ -156,13 +171,12 @@ class Test(object):
     for config in set(options.configs):
       try:
         self.Run(config, force=options.force)
-      except:
+      except Error:
         logging.exception('Configuration "%s" of test "%s" failed.',
-                          config, self._name)
+            config, self._name)
         # This is deliberately a catch-all clause. We wish for each
         # configuration run to be completely independent.
         result = 1
-        pass
 
     return result
 
@@ -210,12 +224,29 @@ class TestSuite(Test):
     self._tests.extend(self, tests)
 
   def _NeedToRun(self, configuration):
-    return any((test._NeedToRun(configuration) for test in self._tests))
+    """Determines if any of the tests in this suite need to run in the given
+    configuration."""
+    for test in self._tests:
+      try:
+        if test._NeedToRun(configuration):
+          return True
+      except:
+        # Output some context before letting the exception continue.
+        logging.error('Configuration "%s" of test "%s" failed.',
+            configuration, test._name)
+        raise
+    return False
 
   def _Run(self, configuration):
     """Implementation of this Test object. Runs the provided collection of
     tests, generating a global success file upon completion of them all.
     If any test fails, raises an exception."""
     for test in self._tests:
-      # If we're being forced, force our children as well!
-      test.Run(configuration, force=self._force)
+      try:
+        # If we're being forced, force our children as well!
+        test.Run(configuration, force=self._force)
+      except:
+        # Output some context before letting the exception continue.
+        logging.error('Configuration "%s" of test "%s" failed.',
+            configuration, test._name)
+        raise
