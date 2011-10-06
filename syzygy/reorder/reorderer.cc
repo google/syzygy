@@ -97,13 +97,16 @@ Reorderer::~Reorderer() {
   consumer_ = NULL;
 }
 
-bool Reorderer::Reorder(OrderGenerator* order_generator, Order* order) {
+bool Reorderer::Reorder(OrderGenerator* order_generator,
+                        Order* order,
+                        PEFile* pe_file,
+                        DecomposedImage* image) {
   DCHECK(order_generator != NULL);
   DCHECK(order != NULL);
 
   order_generator_ = order_generator;
-  pe_ = &order->pe;
-  image_ = &order->image;
+  pe_ = pe_file;
+  image_ = image;
 
   bool success = ReorderImpl(order);
 
@@ -177,7 +180,9 @@ bool Reorderer::ReorderImpl(Order* order) {
   }
 
   LOG(INFO) << "Calculating new order.";
-  if (!order_generator_->CalculateReordering((flags_ & kFlagReorderCode) != 0,
+  if (!order_generator_->CalculateReordering(*pe_,
+                                             *image_,
+                                             (flags_ & kFlagReorderCode) != 0,
                                              (flags_ & kFlagReorderData) != 0,
                                              order))
     return false;
@@ -457,16 +462,18 @@ const sym_util::ModuleInformation* Reorderer::GetModuleInformation(
   return &module_it->second;
 }
 
-bool Reorderer::Order::SerializeToJSON(const FilePath &path,
+bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
+                                       const FilePath &path,
                                        bool pretty_print) const {
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL)
     return false;
   core::JSONFileWriter json_file(file.get(), pretty_print);
-  return SerializeToJSON(&json_file);
+  return SerializeToJSON(pe, &json_file);
 }
 
-bool Reorderer::Order::SerializeToJSON(core::JSONFileWriter* json_file) const {
+bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
+                                       core::JSONFileWriter* json_file) const {
   DCHECK(json_file != NULL);
 
   // Open the main dictionary and the metadata dictionary.
@@ -511,7 +518,9 @@ bool Reorderer::Order::SerializeToJSON(core::JSONFileWriter* json_file) const {
   return json_file->CloseList() && json_file->CloseDict();
 }
 
-bool Reorderer::Order::LoadFromJSON(const FilePath& path) {
+bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
+                                    const DecomposedImage& image,
+                                    const FilePath& path) {
   std::string file_string;
   if (!file_util::ReadFileToString(path, &file_string)) {
     LOG(ERROR) << "Unable to read order file to string";

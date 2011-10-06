@@ -324,7 +324,7 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
 
   const size_t num_blocks = 3;
   size_t segment_length[] = {0, 0, 0};
-  const char * messages[] = {
+  const char* messages[] = {
       "This is message number 1",
       "The quick brown fox jumped over the lazy dog.",
       "And now for something completely different ...",

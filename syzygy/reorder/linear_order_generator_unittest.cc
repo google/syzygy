@@ -36,7 +36,7 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
     core::RelativeAddress cur_addr;
     for (; it != end; it++) {
       core::RelativeAddress addr;
-      EXPECT_TRUE(order_.image.address_space.GetAddressOf(*it, &addr));
+      EXPECT_TRUE(image_.address_space.GetAddressOf(*it, &addr));
       EXPECT_LT(cur_addr, addr);
       cur_addr = addr;
     }
@@ -46,7 +46,11 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
 };
 
 TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
-  EXPECT_TRUE(order_generator_.CalculateReordering(false, false, &order_));
+  EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
+                                                   image_,
+                                                   false,
+                                                   false,
+                                                   &order_));
 
   ExpectNoDuplicateBlocks();
 
@@ -55,7 +59,7 @@ TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = order_.pe.section_header(it->first);
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
     ExpectNoReorder(section, it->second);
   }
 }
@@ -64,9 +68,9 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
   core::RandomNumberGenerator random(12345);
 
   // Get the .text code section.
-  size_t section_index = order_.pe.GetSectionIndex(".text");
+  size_t section_index = input_dll_.GetSectionIndex(".text");
   const IMAGE_SECTION_HEADER* section =
-      order_.pe.section_header(section_index);
+      input_dll_.section_header(section_index);
   ASSERT_TRUE(section != NULL);
 
   // Get 5 random blocks.
@@ -78,7 +82,7 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
         section->VirtualAddress + random(section->Misc.VirtualSize));
     addrs.push_back(addr);
     const core::BlockGraph::Block* block =
-        order_.image.address_space.GetBlockByAddress(addr);
+        image_.address_space.GetBlockByAddress(addr);
     if (!block_set.insert(block).second)
       continue;
     blocks.push_back(block);
@@ -118,7 +122,11 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
   // - block3, block4 (single call count, order by process group id).
 
   // Do the reordering.
-  EXPECT_TRUE(order_generator_.CalculateReordering(true, false, &order_));
+  EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
+                                                   image_,
+                                                   true,
+                                                   false,
+                                                   &order_));
 
   ExpectNoDuplicateBlocks();
 
@@ -126,8 +134,8 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = order_.pe.section_header(it->first);
-    if (order_.pe.GetSectionName(*section) == ".text") {
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
+    if (input_dll_.GetSectionName(*section) == ".text") {
       // Compare the first 5 elements.
       EXPECT_TRUE(std::equal(blocks.begin(), blocks.end(), it->second.begin()));
       // Expect a linear ordering in the rest.

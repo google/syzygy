@@ -58,6 +58,7 @@ class Reorderer
   struct Order;
   class OrderGenerator;
   class UniqueTime;
+  typedef Decomposer::DecomposedImage DecomposedImage;
 
   // A bit flag of directives that the derived reorderer should attempt
   // to satisfy.
@@ -81,7 +82,10 @@ class Reorderer
 
   // Runs the reorderer, parsing the ETW logs and generating an ordering.
   // Returns true on success, false otherwise. @p order must not be NULL.
-  bool Reorder(OrderGenerator* order_generator, Order* order);
+  bool Reorder(OrderGenerator* order_generator,
+               Order* order,
+               PEFile* pe_file,
+               Decomposer::DecomposedImage* image);
 
   // Returns the reorderer directives provided at Init time.
   Flags flags() const { return flags_; }
@@ -214,15 +218,7 @@ class Reorderer
 //   ]
 // }
 struct Reorderer::Order {
-  // Constructor just sets the image reference. Note that the image must
-  // outlive the Order.
-  Order(PEFile& p, DecomposedImage& i) : pe(p), image(i) {}
-
-  // Stores the PE file info associated with the DLL to reorder.
-  PEFile& pe;
-
-  // Stores the decomposed image associated with the DLL to reorder.
-  DecomposedImage& image;
+  Order() {}
 
   // A comment describing the ordering.
   std::string comment;
@@ -240,12 +236,17 @@ struct Reorderer::Order {
   // The serialization simply consists of the start addresses of each block
   // in a JSON list. Pretty-printing adds further information from the
   // BlockGraph via inline comments.
-  bool SerializeToJSON(const FilePath& path, bool pretty_print) const;
-  bool SerializeToJSON(core::JSONFileWriter* json_file) const;
+  bool SerializeToJSON(const PEFile& pe,
+                       const FilePath& path,
+                       bool pretty_print) const;
+  bool SerializeToJSON(const PEFile& pe,
+                       core::JSONFileWriter* json_file) const;
 
   // Loads an ordering from a JSON file. 'pe' and 'image' must already be
   // populated prior to calling this.
-  bool LoadFromJSON(const FilePath& path);
+  bool LoadFromJSON(const PEFile& pe,
+                    const DecomposedImage& image,
+                    const FilePath& path);
 
   // Extracts the name of the original module from an order file. This is
   // used to guess the value of --input-dll.
@@ -266,6 +267,8 @@ struct Reorderer::Order {
 // and is asked to build an ordering.
 class Reorderer::OrderGenerator {
  public:
+  typedef Decomposer::DecomposedImage DecomposedImage;
+
   explicit OrderGenerator(const char* name) : name_(name) {}
 
   virtual ~OrderGenerator() {}
@@ -299,7 +302,9 @@ class Reorderer::OrderGenerator {
   // the reordering. When this is called, the callee can be assured that the
   // DecomposedImage is populated and all traces have been parsed. This must
   // return true on success, false otherwise.
-  virtual bool CalculateReordering(bool reorder_code,
+  virtual bool CalculateReordering(const PEFile& pe_file,
+                                   const DecomposedImage& image,
+                                   bool reorder_code,
                                    bool reorder_data,
                                    Order* order) = 0;
 

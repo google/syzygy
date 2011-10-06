@@ -167,9 +167,7 @@ class Decomposer {
   bool BuildBasicBlockGraph(DecomposedImage* decomposed_image);
 
   // Parses the various debug streams. This populates fixup_map_ as well.
-  bool LoadDebugStreams(IDiaSession* dia_session,
-                        std::vector<OMAP>* omap_to,
-                        std::vector<OMAP>* omap_from);
+  bool LoadDebugStreams(IDiaSession* dia_session);
 
   // Validates a reference against a matching fixup, or creates a new
   // intermediate reference from @p src_addr to @p dst_addr of
@@ -315,8 +313,6 @@ class Decomposer::DecomposedImage {
 
   BlockGraph basic_block_graph;
   BlockGraph::AddressSpace basic_block_address_space;
-  std::vector<OMAP> omap_to;
-  std::vector<OMAP> omap_from;
 };
 
 // This is for serializing a PEFile/DecomposedImage pair. This allows

@@ -48,7 +48,7 @@ TEST_F(OrderRelinkerTest, Relink) {
 
   pe::PEFile pe_file;
   pe::Decomposer::DecomposedImage decomposed;
-  reorder::Reorderer::Order order(pe_file, decomposed);
+  reorder::Reorderer::Order order;
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
   reorder::Reorderer::Flags flags = reorder::Reorderer::kFlagReorderCode |
@@ -57,8 +57,11 @@ TEST_F(OrderRelinkerTest, Relink) {
                       instr_dll_path,
                       trace_paths,
                       flags);
-  ASSERT_TRUE(reorderer.Reorder(&order_generator, &order));
-  ASSERT_TRUE(order.SerializeToJSON(order_file_path, true));
+  ASSERT_TRUE(reorderer.Reorder(&order_generator,
+                                &order,
+                                &pe_file,
+                                &decomposed));
+  ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path, true));
 
   relink::OrderRelinker relinker(order_file_path);
   ASSERT_TRUE(relinker.Relink(input_dll_path,
@@ -85,7 +88,7 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
 
   pe::PEFile pe_file;
   pe::Decomposer::DecomposedImage decomposed;
-  reorder::Reorderer::Order order(pe_file, decomposed);
+  reorder::Reorderer::Order order;
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
   reorder::Reorderer::Flags flags = reorder::Reorderer::kFlagReorderCode |
@@ -94,8 +97,11 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
                       instr_dll_path,
                       trace_paths,
                       flags);
-  ASSERT_TRUE(reorderer.Reorder(&order_generator, &order));
-  ASSERT_TRUE(order.SerializeToJSON(order_file_path, true));
+  ASSERT_TRUE(reorderer.Reorder(&order_generator,
+                                &order,
+                                &pe_file,
+                                &decomposed));
+  ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path, true));
 
   relink::OrderRelinker relinker(order_file_path);
   relinker.set_padding_length(32);

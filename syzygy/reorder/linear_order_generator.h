@@ -68,7 +68,9 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
                                 uint32 process_id,
                                 uint32 thread_id,
                                 const UniqueTime& time);
-  virtual bool CalculateReordering(bool reorder_code,
+  virtual bool CalculateReordering(const PEFile& pe_file,
+                                   const DecomposedImage& image,
+                                   bool reorder_code,
                                    bool reorder_data,
                                    Order* order);
 

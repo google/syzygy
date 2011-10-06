@@ -22,7 +22,7 @@ using core::RelativeAddress;
 
 namespace testing {
 
-OrderGeneratorTest::OrderGeneratorTest() : order_(input_dll_, image_) {
+OrderGeneratorTest::OrderGeneratorTest() {
 }
 
 void OrderGeneratorTest::SetUp() {
@@ -69,7 +69,7 @@ void OrderGeneratorTest::GetBlockListForSection(
   RelativeAddress section_start =
       RelativeAddress(section->VirtualAddress);
   BlockGraph::AddressSpace::RangeMapConstIterPair section_blocks =
-      order_.image.address_space.GetIntersectingBlocks(
+      image_.address_space.GetIntersectingBlocks(
           section_start, section->Misc.VirtualSize);
   BlockGraph::AddressSpace::RangeMapConstIter& section_it =
       section_blocks.first;

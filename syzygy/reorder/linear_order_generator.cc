@@ -114,7 +114,9 @@ bool LinearOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* block,
   return TouchBlock(BlockCall(block, process_id, thread_id, time));
 }
 
-bool LinearOrderGenerator::CalculateReordering(bool reorder_code,
+bool LinearOrderGenerator::CalculateReordering(const PEFile& pe_file,
+                                               const DecomposedImage& image,
+                                               bool reorder_code,
                                                bool reorder_data,
                                                Order* order) {
   DCHECK(order != NULL);
@@ -173,13 +175,13 @@ bool LinearOrderGenerator::CalculateReordering(bool reorder_code,
   // Add the remaining blocks in each section to the order.
   for (size_t section_index = 0; ; ++section_index) {
     const IMAGE_SECTION_HEADER* section =
-        order->pe.section_header(section_index);
+        pe_file.section_header(section_index);
     if (section == NULL)
       break;
 
     RelativeAddress section_start = RelativeAddress(section->VirtualAddress);
     AddressSpace::RangeMapConstIterPair section_blocks =
-        order->image.address_space.GetIntersectingBlocks(
+        image.address_space.GetIntersectingBlocks(
             section_start, section->Misc.VirtualSize);
     AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
     const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;

@@ -169,12 +169,15 @@ int main(int argc, char** argv) {
 
   pe::PEFile input_dll;
   pe::Decomposer::DecomposedImage decomposed;
-  reorder::Reorderer::Order order(input_dll, decomposed);
+  reorder::Reorderer::Order order;
   Reorderer reorderer(input_dll_path,
                       instrumented_dll_path,
                       trace_paths,
                       reorderer_flags);
-  if (!reorderer.Reorder(order_generator.get(), &order)) {
+  if (!reorderer.Reorder(order_generator.get(),
+                         &order,
+                         &input_dll,
+                         &decomposed)) {
     LOG(ERROR) << "Reorder failed.";
     return 1;
   }
@@ -182,7 +185,7 @@ int main(int argc, char** argv) {
   if (cmd_line->HasSwitch("output-stats"))
     order.OutputFaultEstimates(stdout);
 
-  if (!order.SerializeToJSON(output_file, pretty_print)) {
+  if (!order.SerializeToJSON(input_dll, output_file, pretty_print)) {
     LOG(ERROR) << "Unable to output order.";
     return 1;
   }
