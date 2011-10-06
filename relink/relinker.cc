@@ -96,11 +96,11 @@ RelinkerBase::RelinkerBase()
 RelinkerBase::~RelinkerBase() {
 }
 
-bool RelinkerBase::Initialize(Decomposer::DecomposedImage & decomposed) {
-  const BlockGraph::Block* original_nt_headers = decomposed.header.nt_headers;
-  DCHECK_EQ(decomposed.address_space.graph(), &decomposed.image);
-  original_addr_space_ = &decomposed.address_space;
-  builder_.reset(new PEFileBuilder(&decomposed.image));
+bool RelinkerBase::Initialize(Decomposer::DecomposedImage* decomposed) {
+  const BlockGraph::Block* original_nt_headers = decomposed->header.nt_headers;
+  DCHECK_EQ(decomposed->address_space.graph(), &decomposed->image);
+  original_addr_space_ = &decomposed->address_space;
+  builder_.reset(new PEFileBuilder(&decomposed->image));
 
   // Retrieve the NT and image section headers.
   if (original_nt_headers == NULL ||
@@ -322,14 +322,14 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   }
 
   LOG(INFO) << "Initializing relinker.";
-  if (!Initialize(decomposed)) {
+  if (!Initialize(&decomposed)) {
     LOG(ERROR) << "Unable to initialize the relinker.";
     return false;
   }
 
   LOG(INFO) << "Setting up the new ordering.";
-  Reorderer::Order order(input_dll, decomposed);
-  if (!SetupOrdering(order)) {
+  Reorderer::Order order;
+  if (!SetupOrdering(input_dll, decomposed, &order)) {
     LOG(ERROR) << "Unable to setup the ordering.";
     return false;
   }
@@ -405,7 +405,7 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   return true;
 }
 
-bool Relinker::Initialize(Decomposer::DecomposedImage & decomposed) {
+bool Relinker::Initialize(Decomposer::DecomposedImage* decomposed) {
   if (!RelinkerBase::Initialize(decomposed))
     return false;
 

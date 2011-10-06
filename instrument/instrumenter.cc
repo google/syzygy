@@ -101,7 +101,7 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
   }
 
   // Construct and initialize our instrumenter.
-  if (!Initialize(decomposed)) {
+  if (!Initialize(&decomposed)) {
     LOG(ERROR) << "Unable to initialize instrumenter.";
     return false;
   }

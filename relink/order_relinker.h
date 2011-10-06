@@ -36,10 +36,12 @@ class OrderRelinker : public Relinker {
   typedef Reorderer::Order::BlockList BlockList;
 
   // Overrides for base class methods.
-  bool SetupOrdering(Reorderer::Order& order);
+  bool SetupOrdering(const PEFile& pe_file,
+                     const DecomposedImage& image,
+                     Reorderer::Order* order) OVERRIDE;
   bool ReorderSection(size_t section_index,
                       const IMAGE_SECTION_HEADER& section,
-                      const Reorderer::Order& order);
+                      const Reorderer::Order& order) OVERRIDE;
 
   // Outputs a padding block. Automatically determines whether or not to output
   // initialized or blank padding.

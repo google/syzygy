@@ -35,10 +35,12 @@ class RandomRelinker : public Relinker {
   DISALLOW_COPY_AND_ASSIGN(RandomRelinker);
 
   // Overrides for base class methods.
-  bool SetupOrdering(Reorderer::Order& order);
+  bool SetupOrdering(const PEFile& pe_file,
+                     const DecomposedImage& image,
+                     Reorderer::Order* order) OVERRIDE;
   bool ReorderSection(size_t section_index,
                       const IMAGE_SECTION_HEADER& section,
-                      const Reorderer::Order& order);
+                      const Reorderer::Order& order) OVERRIDE;
 
   // The seed for the random ordering.
   const uint32 seed_;

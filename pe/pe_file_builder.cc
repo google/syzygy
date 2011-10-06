@@ -16,6 +16,8 @@
 #include <ctime>
 #include <delayimp.h>
 
+#include "base/string_util.h"
+
 namespace {
 
 // Reference to the associated .asm file that constructs the DOS stub.
@@ -208,9 +210,9 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
   data_size = AlignUp(data_size, nt_headers_.OptionalHeader.FileAlignment);
   RelativeAddress section_base = next_section_address_;
   IMAGE_SECTION_HEADER new_header = { 0 };
-  strncpy(reinterpret_cast<char*>(new_header.Name),
-          name,
-          arraysize(new_header.Name));
+  base::strlcpy(reinterpret_cast<char*>(new_header.Name),
+                name,
+                arraysize(new_header.Name));
   new_header.Misc.VirtualSize = size;
   new_header.VirtualAddress = section_base.value();
   new_header.SizeOfRawData = data_size;

@@ -45,7 +45,11 @@ class RandomOrderGeneratorTest : public testing::OrderGeneratorTest {
 };
 
 TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
-  EXPECT_TRUE(order_generator_.CalculateReordering(false, false, &order_));
+  EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
+                                                   image_,
+                                                   false,
+                                                   false,
+                                                   &order_));
 
   ExpectNoDuplicateBlocks();
 
@@ -54,13 +58,17 @@ TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = order_.pe.section_header(it->first);
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
     ExpectNoReorder(section, it->second);
   }
 }
 
 TEST_F(RandomOrderGeneratorTest, ReorderCode) {
-  EXPECT_TRUE(order_generator_.CalculateReordering(true, false, &order_));
+  EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
+                                                   image_,
+                                                   true,
+                                                   false,
+                                                   &order_));
 
   ExpectNoDuplicateBlocks();
 
@@ -68,7 +76,7 @@ TEST_F(RandomOrderGeneratorTest, ReorderCode) {
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = order_.pe.section_header(it->first);
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
     if (section->Characteristics & IMAGE_SCN_CNT_CODE) {
       ExpectRandomOrder(section, it->second);
     } else {
@@ -78,7 +86,11 @@ TEST_F(RandomOrderGeneratorTest, ReorderCode) {
 }
 
 TEST_F(RandomOrderGeneratorTest, ReorderData) {
-  EXPECT_TRUE(order_generator_.CalculateReordering(false, true, &order_));
+  EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
+                                                   image_,
+                                                   false,
+                                                   true,
+                                                   &order_));
 
   ExpectNoDuplicateBlocks();
 
@@ -86,9 +98,9 @@ TEST_F(RandomOrderGeneratorTest, ReorderData) {
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = order_.pe.section_header(it->first);
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
     if (section->Characteristics & kDataCharacteristics) {
-      std::string name = order_.pe.GetSectionName(*section);
+      std::string name = input_dll_.GetSectionName(*section);
       // .tls and .rsrc only have one block.
       if (name != ".tls" && name != ".rsrc")
         ExpectRandomOrder(section, it->second);

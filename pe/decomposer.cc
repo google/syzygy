@@ -717,12 +717,9 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
 
   image_ = &decomposed_image->address_space;
 
-  // Load OMAP and FIXUP information from the PDB file. We do this first
-  // so that we can do accounting with references that are created later
-  // on.
-  bool success = LoadDebugStreams(dia_session,
-                                  &decomposed_image->omap_to,
-                                  &decomposed_image->omap_from);
+  // Load FIXUP information from the PDB file. We do this first so that we
+  // can do accounting with references that are created later on.
+  bool success = LoadDebugStreams(dia_session);
 
   // Create intermediate references for each fixup entry.
   if (success)
@@ -2349,17 +2346,10 @@ bool Decomposer::FindPaddingBlocks() {
   return true;
 }
 
-bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
-                                  std::vector<OMAP>* omap_to,
-                                  std::vector<OMAP>* omap_from) {
+bool Decomposer::LoadDebugStreams(IDiaSession* dia_session) {
   DCHECK(dia_session != NULL);
-  DCHECK(omap_to != NULL);
-  DCHECK(omap_from != NULL);
 
-  omap_to->clear();
-  omap_from->clear();
   PdbFixups pdb_fixups;
-
   HRESULT hr = E_FAIL;
   ScopedComPtr<IDiaEnumDebugStreams> debug_streams;
   if (FAILED(hr = dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
@@ -2368,7 +2358,7 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
   }
 
   bool loaded_fixup_stream = false;
-
+  std::vector<OMAP> omap_from;
   while (true) {
     ScopedComPtr<IDiaEnumDebugStreamData> debug_stream;
     ULONG count = 0;
@@ -2389,12 +2379,8 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
       return false;
     }
 
-    if (wcscmp(name, L"OMAPTO") == 0 &&
-        !LoadDebugStream(debug_stream, omap_to)) {
-      LOG(ERROR) << "Unable to load omap to stream.";
-      return false;
-    } else if (wcscmp(name, L"OMAPFROM") == 0 &&
-        !LoadDebugStream(debug_stream, omap_from)) {
+    if (wcscmp(name, L"OMAPFROM") == 0 &&
+        !LoadDebugStream(debug_stream, &omap_from)) {
       LOG(ERROR) << "Unable to load omap from stream.";
       return false;
     } else if (wcscmp(name, L"FIXUP") == 0) {
@@ -2414,7 +2400,7 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session,
   }
 
   // Translate and validate fixups.
-  if (!OmapAndValidateFixups(*omap_from, pdb_fixups))
+  if (!OmapAndValidateFixups(omap_from, pdb_fixups))
     return false;
 
   return true;
@@ -2636,9 +2622,7 @@ bool SaveDecomposition(const PEFile& pe_file,
   if (!out_archive->Save(image.image) ||
       !out_archive->Save(image.address_space) ||
       !out_archive->Save(image.basic_block_graph) ||
-      !out_archive->Save(image.basic_block_address_space) ||
-      !out_archive->Save(image.omap_to) ||
-      !out_archive->Save(image.omap_from)) {
+      !out_archive->Save(image.basic_block_address_space)) {
     return false;
   }
 
@@ -2682,9 +2666,7 @@ bool LoadDecomposition(PEFile* pe_file,
   if (!in_archive->Load(&image->image) ||
       !in_archive->Load(&image->address_space) ||
       !in_archive->Load(&image->basic_block_graph) ||
-      !in_archive->Load(&image->basic_block_address_space) ||
-      !in_archive->Load(&image->omap_to) ||
-      !in_archive->Load(&image->omap_from)) {
+      !in_archive->Load(&image->basic_block_address_space)) {
     return false;
   }
 

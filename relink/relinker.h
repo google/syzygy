@@ -18,6 +18,7 @@
 #include "base/scoped_ptr.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_parser.h"
 #include "syzygy/reorder/reorderer.h"
@@ -47,7 +48,7 @@ class RelinkerBase {
   //     fix would probably be to take a copy of the original block graph
   //     and have the builder use that ... but that's a really expensive
   //     concession to make for const-correctness.
-  virtual bool Initialize(Decomposer::DecomposedImage& decomposed);
+  virtual bool Initialize(Decomposer::DecomposedImage* decomposed);
 
   // Copies data directory header values from the decomposed image
   // into the new image under construction.
@@ -101,6 +102,10 @@ class RelinkerBase {
 // and after reordering for PDB rewriting.
 class Relinker : public RelinkerBase {
  public:
+  typedef Decomposer::DecomposedImage DecomposedImage;
+  typedef Reorderer::Order Order;
+  typedef pe::PEFile PEFile;
+
   // Default constructor.
   Relinker();
 
@@ -121,10 +126,12 @@ class Relinker : public RelinkerBase {
 
  protected:
   // Sets up internal state based on the decomposed image.
-  bool Initialize(Decomposer::DecomposedImage& decomposed);
+  bool Initialize(Decomposer::DecomposedImage* decomposed) OVERRIDE;
 
   // Performs whatever custom initialization of the order that it required.
-  virtual bool SetupOrdering(Reorderer::Order& order) = 0;
+  virtual bool SetupOrdering(const PEFile& pe_file,
+                             const DecomposedImage& image,
+                             Order* order) = 0;
 
   // Function to be overridden by subclasses so that each subclass can have its
   // own reordering implementation.

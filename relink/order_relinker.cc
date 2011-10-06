@@ -55,9 +55,12 @@ OrderRelinker::OrderRelinker(const FilePath& order_file_path)
   DCHECK(!order_file_path.empty());
 }
 
-bool OrderRelinker::SetupOrdering(Reorderer::Order& order) {
+bool OrderRelinker::SetupOrdering(const PEFile& pe_file,
+                                  const DecomposedImage& image,
+                                  Reorderer::Order* order) {
+  DCHECK(order != NULL);
   DCHECK(!order_file_path_.empty());
-  return order.LoadFromJSON(order_file_path_);
+  return order->LoadFromJSON(pe_file, image, order_file_path_);
 }
 
 bool OrderRelinker::ReorderSection(size_t section_index,

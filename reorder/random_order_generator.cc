@@ -42,14 +42,16 @@ bool RandomOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* /*block*/,
   return true;
 }
 
-bool RandomOrderGenerator::CalculateReordering(bool reorder_code,
+bool RandomOrderGenerator::CalculateReordering(const PEFile& pe_file,
+                                               const DecomposedImage& image,
+                                               bool reorder_code,
                                                bool reorder_data,
-                                               Reorderer::Order* order) {
+                                               Order* order) {
   DCHECK(order != NULL);
 
   const IMAGE_NT_HEADERS* nt_headers =
       reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          order->image.header.nt_headers->data());
+          image.header.nt_headers->data());
   DCHECK(nt_headers != NULL);
   const IMAGE_SECTION_HEADER* sections =
       reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
@@ -68,8 +70,8 @@ bool RandomOrderGenerator::CalculateReordering(bool reorder_code,
     BlockGraph::AddressSpace::Range section_range(
         RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
     AddressSpace::RangeMapConstIterPair section_blocks(
-        order->image.address_space.GetIntersectingBlocks(section_range.start(),
-                                                         section_range.size()));
+        image.address_space.GetIntersectingBlocks(
+            section_range.start(), section_range.size()));
 
     // Gather up all blocks within the section.
     AddressSpace::RangeMapConstIter& section_it = section_blocks.first;

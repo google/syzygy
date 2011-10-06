@@ -35,10 +35,12 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
                                 RelativeAddress address,
                                 uint32 process_id,
                                 uint32 thread_id,
-                                const UniqueTime& time);
-  virtual bool CalculateReordering(bool reorder_code,
+                                const UniqueTime& time) OVERRIDE;
+  virtual bool CalculateReordering(const PEFile& pe_file,
+                                   const DecomposedImage& image,
+                                   bool reorder_code,
                                    bool reorder_data,
-                                   Order* order);
+                                   Order* order) OVERRIDE;
 
  private:
   const uint32 seed_;
