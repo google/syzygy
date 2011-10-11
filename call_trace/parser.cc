@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "sawbuck/common/buffer_parser.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/common/align.h"
 
 namespace call_trace {
 namespace parser {
@@ -85,8 +86,8 @@ bool Parser::Parse(const FilePath& trace_file_path) {
       return false;
     }
 
-    size_t aligned_size = AlignUp(segment_header.segment_length,
-                                  file_header.block_size);
+    size_t aligned_size = common::AlignUp(segment_header.segment_length,
+                                          file_header.block_size);
 
     if (aligned_size > buffer_size) {
       buffer.reset(reinterpret_cast<uint8*>(::malloc(aligned_size)));
@@ -104,7 +105,7 @@ bool Parser::Parse(const FilePath& trace_file_path) {
       return false;
     }
 
-    next_segment = AlignUp(
+    next_segment = common::AlignUp(
         next_segment + sizeof(segment_prefix) + sizeof(segment_header) +
             segment_header.segment_length,
         file_header.block_size);

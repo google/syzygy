@@ -26,6 +26,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/call_trace/call_trace_defs.h"
 #include "syzygy/call_trace/service.h"
+#include "syzygy/common/align.h"
 
 namespace {
 
@@ -121,7 +122,7 @@ bool WriteTraceFileHeader(HANDLE file_handle,
   size_t command_line_len = ::wcslen(command_line);
   size_t header_len = sizeof(TraceFileHeader) + (command_line_len *
                                                  sizeof(wchar_t));
-  size_t buffer_size = AlignUp(header_len, block_size);
+  size_t buffer_size = common::AlignUp(header_len, block_size);
   scoped_ptr_malloc<TraceFileHeader> header(
       static_cast<TraceFileHeader*>(::calloc(1, buffer_size)));
 
@@ -268,7 +269,7 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
   }
 
   // Initialize the shared buffer pool.
-  buffer_size = AlignUp(buffer_size, block_size());
+  buffer_size = common::AlignUp(buffer_size, block_size());
   if (!pool->Init(this, client_process_handle_, num_buffers,
                   buffer_size)) {
     LOG(ERROR) << "Failed to initialize shared memory buffer.";

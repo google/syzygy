@@ -22,6 +22,7 @@
 #include "base/string_util.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/common/align.h"
 
 namespace call_trace {
 namespace service {
@@ -312,8 +313,8 @@ void Service::ThreadMain() {
       size_t segment_length = header->segment_length;
       const size_t kHeaderLength = sizeof(*prefix) + sizeof(*header);
       if (segment_length > 0) {
-        size_t bytes_to_write = AlignUp(kHeaderLength + segment_length,
-                                        buffer->session->block_size());
+        size_t bytes_to_write = common::AlignUp(kHeaderLength + segment_length,
+                                                buffer->session->block_size());
         if (prefix->type != TraceFileSegment::Header::kTypeId ||
             prefix->size != sizeof(TraceFileSegment::Header) ||
             prefix->version.hi != TRACE_VERSION_HI ||

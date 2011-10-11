@@ -12,19 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "syzygy/pe/pe_file_parser.h"
-#include "base/stringprintf.h"
+
 #include <delayimp.h>
 
+#include "base/stringprintf.h"
+#include "syzygy/common/align.h"
+
 namespace {
-
-inline bool IsPowerOfTwo(uint32 n) {
-  return n != 0 && (n & (n - 1)) == 0;
-}
-
-uint32 AlignUp(uint32 val, size_t alignment) {
-  DCHECK(IsPowerOfTwo(alignment));
-  return static_cast<uint32>((val + (alignment - 1)) & ~(alignment - 1));
-}
 
 const char* kDirEntryNames[] = {
     "IMAGE_DIRECTORY_ENTRY_EXPORT",
@@ -596,7 +590,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
       }
 
       // Calculate the even-padded size of the name thunk.
-      size_t name_thunk_size = AlignUp(
+      size_t name_thunk_size = common::AlignUp(
           offsetof(IMAGE_IMPORT_BY_NAME, Name) + function_name.size() + 1, 2);
 
       // Chunk the names only on request, as more than one IAT/INT may
@@ -657,7 +651,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
 
     if (!AddBlock(BlockGraph::DATA_BLOCK,
                   import_name_addr,
-                  AlignUp(import_name.size() + 1, 2),
+                  common::AlignUp(import_name.size() + 1, 2),
                   base::StringPrintf("Import DLL Name \"%s\"",
                                      import_name.c_str()).c_str())) {
       LOG(ERROR) << "Unable to create import name block.";
@@ -755,7 +749,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
 
     if (!AddBlock(BlockGraph::DATA_BLOCK,
                   import_name_addr,
-                  AlignUp(import_name.size() + 1, 2),
+                  common::AlignUp(import_name.size() + 1, 2),
                   base::StringPrintf("Delay import DLL Name \"%s\"",
                                      import_name.c_str()).c_str())) {
       LOG(ERROR) << "Unable to create import name block.";

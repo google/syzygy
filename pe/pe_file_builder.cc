@@ -17,6 +17,7 @@
 #include <delayimp.h>
 
 #include "base/string_util.h"
+#include "syzygy/common/align.h"
 
 namespace {
 
@@ -28,12 +29,6 @@ extern "C" void end_dos_stub();
 using core::BlockGraph;
 using core::RelativeAddress;
 typedef std::vector<uint8> ByteVector;
-
-// A utility to align values to arbitrary boundaries
-uint32 Align(uint32 value, uint32 boundary) {
-  uint32 expanded = value + boundary - 1;
-  return expanded - (expanded % boundary);
-}
 
 // A utility class to help with formatting the relocations section.
 class RelocWriter {
@@ -118,16 +113,6 @@ class RelocWriter {
   size_t curr_header_offset_;
 };
 
-inline bool IsPowerOfTwo(uint32 n) {
-  return n != 0 && (n & (n - 1)) == 0;
-}
-
-// TODO(rogerm): this functionality is duplicated!  Consolidate!
-uint32 AlignUp(uint32 val, size_t alignment) {
-  DCHECK(IsPowerOfTwo(alignment));
-  return static_cast<uint32>((val + (alignment - 1)) & ~(alignment - 1));
-}
-
 // Returns true iff ref is a valid reference in addr_space.
 bool IsValidReference(const BlockGraph::AddressSpace& addr_space,
                       const BlockGraph::Reference& ref) {
@@ -207,7 +192,8 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
                                           uint32 characteristics) {
   DCHECK_NE(0U, size);
 
-  data_size = AlignUp(data_size, nt_headers_.OptionalHeader.FileAlignment);
+  data_size = common::AlignUp(data_size,
+                              nt_headers_.OptionalHeader.FileAlignment);
   RelativeAddress section_base = next_section_address_;
   IMAGE_SECTION_HEADER new_header = { 0 };
   base::strlcpy(reinterpret_cast<char*>(new_header.Name),
@@ -226,7 +212,7 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
   section_headers_.push_back(new_header);
 
   next_section_address_ +=
-      AlignUp(size, nt_headers_.OptionalHeader.SectionAlignment);
+      common::AlignUp(size, nt_headers_.OptionalHeader.SectionAlignment);
 
   return section_base;
 }
@@ -294,7 +280,7 @@ bool PEFileBuilder::CreateRelocsSection() {
   const uint32 kRelocCharacteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
       IMAGE_SCN_MEM_DISCARDABLE | IMAGE_SCN_MEM_READ;
   size_t relocs_file_size =
-      AlignUp(relocs.size(), nt_headers_.OptionalHeader.FileAlignment);
+      common::AlignUp(relocs.size(), nt_headers_.OptionalHeader.FileAlignment);
   RelativeAddress section_base = AddSegment(".reloc",
                                             relocs.size(),
                                             relocs_file_size,
@@ -437,7 +423,7 @@ bool PEFileBuilder::CreateDosHeader() {
       reinterpret_cast<const uint8*>(&end_dos_stub);
 
   // The DOS header has to be a multiple of 16 bytes for historic reasons.
-  size_t dos_header_size = AlignUp(
+  size_t dos_header_size = common::AlignUp(
       sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
 
   BlockGraph::Block* dos_header =
