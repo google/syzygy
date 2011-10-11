@@ -82,6 +82,8 @@
       'target_name': 'common_lib',
       'type': 'static_library',
       'sources': [
+        'align.cc',
+        'align.h',
         'defs.cc',
         'defs.h',
         'syzygy_version.cc',
@@ -98,6 +100,7 @@
       'target_name': 'common_unittests',
       'type': 'executable',
       'sources': [
+        'align_unittest.cc',
         'common_unittests_main.cc',
         'syzygy_version_unittest.cc',
       ],
