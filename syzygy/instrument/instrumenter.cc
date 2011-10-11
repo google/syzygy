@@ -15,6 +15,7 @@
 #include "syzygy/instrument/instrumenter.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "syzygy/common/align.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
@@ -45,15 +46,8 @@ void CompileAsserts() {
                  entry_hook_table_and_entry_hook_indices_not_same_size);
 }
 
-// TODO(rogerm): this functionality is duplicated! Consolidate!
-size_t Align(size_t value, size_t alignment) {
-  size_t expanded = value + alignment - 1;
-  return expanded - (expanded % alignment);
-}
-
-// TODO(rogerm): this functionality is duplicated! Consolidate!
 size_t WordAlign(size_t value) {
-  return Align(value, sizeof(WORD));
+  return common::AlignUp(value, sizeof(WORD));
 }
 
 }  // namespace
@@ -228,7 +222,7 @@ bool Instrumenter::AddCallTraceImportDescriptor(
   }
 
   // Align the import descriptor array block to a DWORD boundary.
-  insert_at.set_value(Align(insert_at.value(), sizeof(DWORD)));
+  insert_at.set_value(common::AlignUp(insert_at.value(), sizeof(DWORD)));
 
   // Create the image import descript array block.
   if (!CreateImageImportDescriptorArrayBlock(
@@ -467,7 +461,7 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
   // Note: The PE Parser truncates the original_image_import_descriptor_array
   //       size to the first DWORD of the sentinel (i.e., loses about 16 bytes)
   //       So we need to make sure we re-expand/align the array.
-  size_t original_block_size = Align(
+  size_t original_block_size = common::AlignUp(
      original_image_import_descriptor_array->size(),
      sizeof(IMAGE_IMPORT_DESCRIPTOR));
   size_t block_size = original_block_size + sizeof(IMAGE_IMPORT_DESCRIPTOR);

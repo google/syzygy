@@ -230,9 +230,4 @@ struct TraceBatchEnterData {
   FuncCall calls[1];
 };
 
-// Helper funciton round up a value to a given alignment.
-inline size_t AlignUp(size_t value, size_t alignment) {
-  return ((value + alignment - 1) / alignment) * alignment;
-}
-
 #endif  // SYZYGY_CALL_TRACE_CALL_TRACE_DEFS_H_

@@ -61,6 +61,7 @@
       'dependencies': [
         'core_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
       ],
     },
     {

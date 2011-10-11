@@ -27,6 +27,7 @@
 #include "base/basictypes.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
+#include "syzygy/common/align.h"
 
 namespace core {
 
@@ -176,10 +177,7 @@ class BlockGraph::Block {
   Size alignment() const { return alignment_; }
   void set_alignment(Size alignment) {
     // Ensure that alignment is a non-zero power of two.
-    // TODO(chrisha): We really need a central place to put IsPowerOfTwo,
-    //     AlignUp, etc.
-    DCHECK(alignment >= 1);
-    DCHECK((alignment & (alignment - 1)) == 0);
+    DCHECK(common::IsPowerOfTwo(alignment));
     alignment_ = alignment;
   }
 
