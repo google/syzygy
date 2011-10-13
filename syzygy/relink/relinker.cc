@@ -32,6 +32,7 @@
 using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
+using pe::ImageLayout;
 using pe::PEFileWriter;
 
 namespace {
@@ -215,9 +216,8 @@ bool RelinkerBase::FinalizeImageHeaders(
 }
 
 bool RelinkerBase::WriteImage(const FilePath& output_path) {
-  PEFileWriter writer(builder().address_space(),
-                      &builder().nt_headers(),
-                      builder().section_headers());
+  ImageLayout layout(builder());
+  PEFileWriter writer(layout);
 
   if (!writer.WriteImage(output_path)) {
     LOG(ERROR) << "Unable to write new executable";
