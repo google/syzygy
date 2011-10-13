@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cvconst.h>
 #include <diacreate.h>
+#include <dbghelp.h>
 #include "base/file_path.h"
 #include "base/path_service.h"
 #include "base/logging.h"

@@ -19,7 +19,6 @@
 #define SYZYGY_PE_DECOMPOSER_H_
 
 #include <windows.h>
-#include <dbghelp.h>
 #include <dia2.h>
 #include <map>
 #include <set>
