@@ -131,11 +131,32 @@ void PELibUnitTest::TearDown() {
   Super::TearDown();
 }
 
+// TODO(chrisha): Centralize this routine, and others like it, as they've
+//     started to be duplicated quite a bit now.
 FilePath PELibUnitTest::GetExeRelativePath(const wchar_t* image_name) {
   FilePath exe_dir;
   PathService::Get(base::DIR_EXE, &exe_dir);
-
   return exe_dir.Append(image_name);
+}
+
+FilePath PELibUnitTest::GetOutputRelativePath(const wchar_t* path) {
+#if defined(_DEBUG)
+  // TODO(chrisha): Expose $(ProjectDir) and $(OutputDir) via defines in the
+  //     project gyp file. Do this when centralizing all of these functions!
+  static const wchar_t kOutputDir[] = L"Debug";
+#else
+#if defined(NDEBUG)
+  static const wchar_t kOutputDir[] = L"Release";
+#else
+#error Unknown build profile.
+#endif
+#endif
+
+  FilePath src_dir;
+  PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
+  src_dir = src_dir.Append(L"syzygy");
+  src_dir = src_dir.Append(kOutputDir);
+  return src_dir.Append(path);
 }
 
 void PELibUnitTest::CheckEmbeddedPdbPath(const FilePath& pe_path,
