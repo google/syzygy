@@ -30,12 +30,21 @@ class SyzygyVersion {
   SyzygyVersion(uint16 major, uint16 minor, uint16 build, uint16 patch,
                 const char* last_change);
 
-  // We need an equality operator for serialization testing.
+  // A comparison operator. If this version is less than @p rhs, returns a value
+  // less than zero. If identical, returns 0. If greater than @p rhs, returns a
+  // value greater than 0. This only compares the version octet, ignoring the
+  // last-change string.
+  int CompareOctet(const SyzygyVersion& rhs) const;
+
+  // We need an equality operator for serialization testing. This uses strict
+  // equality, including a comparison of the last change string.
   bool operator==(const SyzygyVersion& rhs) const;
   bool operator!=(const SyzygyVersion& rhs) const { return !(*this == rhs); }
 
   // This returns true if the data/modules created by the given version of the
-  // toolchain are compatible with this version of the toolchain.
+  // toolchain are compatible with this version of the toolchain. For now, this
+  // returns true iff the two versions are completely identical, including the
+  // last-change string.
   bool IsCompatible(const SyzygyVersion& rhs) const;
 
   // Returns the whole version as a version string.
