@@ -213,9 +213,8 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
   ASSERT_TRUE(decomposed_.header.nt_headers->
       TransferReferrers(0, builder.nt_headers_block()));
 
-  PEFileWriter writer(builder.address_space(),
-                      &builder.nt_headers(),
-                      builder.section_headers());
+  ImageLayout layout(builder);
+  PEFileWriter writer(layout);
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
@@ -337,9 +336,8 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   ASSERT_TRUE(decomposed_.header.nt_headers->
       TransferReferrers(0, builder.nt_headers_block()));
 
-  PEFileWriter writer(builder.address_space(),
-                      &builder.nt_headers(),
-                      builder.section_headers());
+  ImageLayout layout(builder);
+  PEFileWriter writer(layout);
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));

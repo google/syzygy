@@ -57,22 +57,9 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   ASSERT_TRUE(decomposer.Decompose(&decomposed_image, NULL,
                                    Decomposer::STANDARD_DECOMPOSITION));
 
-  ASSERT_GE(decomposed_image.header.nt_headers->data_size(),
-            sizeof(IMAGE_NT_HEADERS));
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          decomposed_image.header.nt_headers->data());
+  ImageLayout layout(decomposed_image);
+  PEFileWriter writer(layout);
 
-  ASSERT_EQ(
-      sizeof(*nt_headers) + sizeof(IMAGE_SECTION_HEADER) *
-          nt_headers->FileHeader.NumberOfSections,
-      decomposed_image.header.nt_headers->data_size());
-  const IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-
-  PEFileWriter writer(decomposed_image.address_space,
-                      nt_headers,
-                      section_headers);
   ASSERT_TRUE(writer.WriteImage(temp_file));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file));
 }
