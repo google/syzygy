@@ -22,14 +22,13 @@ namespace pe {
 
 namespace {
 
-// Gets the FileInformation associated with the file at a given path. Returns
-// true on success, false on failure (ie: the file doesn't exist).
+// Gets a handle to a file, and the file information for it. Leaves the handle
+// open. Returns true on success, false otherwise.
 bool GetFileInformation(const FilePath& path,
+                        base::win::ScopedHandle* handle,
                         BY_HANDLE_FILE_INFORMATION* file_info) {
-  DCHECK(file_info != NULL);
-
   // Open the file in the least restrictive possible way.
-  base::win::ScopedHandle handle(
+  handle->Set(
       ::CreateFile(path.value().c_str(),
                    SYNCHRONIZE,
                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -37,12 +36,12 @@ bool GetFileInformation(const FilePath& path,
                    OPEN_EXISTING,
                    FILE_ATTRIBUTE_NORMAL,
                    NULL));
-  if (!handle.IsValid()) {
+  if (!handle->IsValid()) {
     LOG(ERROR) << "Unable to open \"" << path.value() << "\": " << com::LogWe();
     return false;
   }
 
-  if (!::GetFileInformationByHandle(handle.Get(), file_info)) {
+  if (!::GetFileInformationByHandle(handle->Get(), file_info)) {
     LOG(ERROR) << "GetFileInformationByHandle failed for \"" << path.value()
                << "\": " << com::LogWe();
     return false;
@@ -52,14 +51,22 @@ bool GetFileInformation(const FilePath& path,
 }
 
 // Compares two paths, returning true if they refer to the same file object.
-// Returns 1 if the paths are equal, 0 if not, and -1 on error.
+// Returns 1 if the paths refer to the same file, 0 if not, and -1 on error.
+// TODO(chrisha): Move this somewhere central, along with all the
+//     Get*RelativePath stuff.
 int FilePathsReferToSameFile(const FilePath& path1, const FilePath& path2) {
+  // We open both files simultaneously to avoid a race condition whereby the
+  // file could be moved/removed in between the two calls to
+  // GetFileInformation.
+
+  base::win::ScopedHandle handle1;
   BY_HANDLE_FILE_INFORMATION info1 = {};
-  if (!GetFileInformation(path1, &info1))
+  if (!GetFileInformation(path1, &handle1, &info1))
     return -1;
 
+  base::win::ScopedHandle handle2;
   BY_HANDLE_FILE_INFORMATION info2 = {};
-  if (!GetFileInformation(path2, &info2))
+  if (!GetFileInformation(path2, &handle2, &info2))
     return -1;
 
   return info1.dwVolumeSerialNumber == info2.dwVolumeSerialNumber &&
@@ -94,7 +101,7 @@ class FindTest: public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(FindTest, FindTestDll) {
-  const FilePath module_path(GetExeRelativePath(kDllName));
+  const FilePath module_path(GetOutputRelativePath(kDllName));
 
   PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(module_path));
@@ -109,8 +116,14 @@ TEST_F(FindTest, FindTestDll) {
 }
 
 TEST_F(FindTest, FindTestDllPdb) {
-  const FilePath module_path(GetExeRelativePath(kDllName));
-  const FilePath pdb_path(GetExeRelativePath(kDllPdbName));
+  // We have to be careful to use the output relative path, rather than simply
+  // the executable relative path. This is because in the coverage unittests
+  // pe_unittests.exe and test_dll.dll are copied to a new output directory
+  // that contains the instrumented binaries. The copied test_dll.dll still
+  // refers to the original test_dll.pdb in the Debug or Release output
+  // directory, so that's the one that will be found first.
+  const FilePath module_path(GetOutputRelativePath(kDllName));
+  const FilePath pdb_path(GetOutputRelativePath(kDllPdbName));
 
   FilePath found_path;
   EXPECT_TRUE(FindPdbForModule(module_path, &found_path));
