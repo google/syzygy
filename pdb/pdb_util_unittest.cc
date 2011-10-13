@@ -304,4 +304,10 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   ASSERT_EQ(header.pdb_age, cv_info->pdb_age);
 }
 
+TEST_F(PdbUtilTest, ReadPdbHeader) {
+  const FilePath pdb_path = GetSrcRelativePath(kTestPdbFilePath);
+  PdbInfoHeader70 pdb_header;
+  EXPECT_TRUE(ReadPdbHeader(pdb_path, &pdb_header));
+}
+
 }  // namespace pdb

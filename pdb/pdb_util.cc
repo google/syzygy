@@ -133,4 +133,37 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
   return true;
 }
 
+bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header) {
+  DCHECK(!pdb_path.empty());
+  DCHECK(pdb_header != NULL);
+
+  PdbReader pdb_reader;
+  std::vector<PdbStream*> pdb_streams;
+  if (!pdb_reader.Read(pdb_path, &pdb_streams)) {
+    LOG(ERROR) << "Unable to process PDB file: " << pdb_path.value();
+    return false;
+  }
+
+  PdbStream* header_stream = pdb_streams[kPdbHeaderInfoStream];
+  if (header_stream == NULL) {
+    LOG(ERROR) << "PDB file contains no header stream: " << pdb_path.value();
+    return false;
+  }
+
+  if (!header_stream->Read(pdb_header, 1)) {
+    LOG(ERROR) << "Failure reading PDB header: " << pdb_path.value();
+    return false;
+  }
+
+  // We only know how to deal with PDB files of the current version.
+  if (pdb_header->version != kPdbCurrentVersion) {
+    LOG(ERROR) << "PDB header has unsupported version (got "
+               << pdb_header->version << ", expected " << kPdbCurrentVersion
+               << ").";
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace pdb

@@ -1,0 +1,91 @@
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "syzygy/pe/pdb_info.h"
+
+#include <string.h>
+#include "base/logging.h"
+#include "base/utf_string_conversions.h"
+#include "syzygy/pe/pe_file.h"
+
+namespace pe {
+
+PdbInfo::PdbInfo() : pdb_age_(0) {
+  ::memset(&signature_, 0, sizeof(signature_));
+}
+
+bool PdbInfo::Init(const CvInfoPdb70& cv_info_pdb) {
+  pdb_age_ = cv_info_pdb.pdb_age;
+  signature_ = cv_info_pdb.signature;
+
+  // Convert the UTF-8 filename to a FilePath.
+  std::wstring pdb_path;
+  if (!UTF8ToWide(cv_info_pdb.pdb_file_name,
+                  ::strlen(cv_info_pdb.pdb_file_name),
+                  &pdb_path)) {
+    LOG(ERROR) << "UTF8ToWide failed.";
+    return false;
+  }
+  pdb_file_name_ = FilePath(pdb_path);
+
+  return true;
+}
+
+bool PdbInfo::Init(const PEFile& pe_file) {
+  const IMAGE_DATA_DIRECTORY& debug_data_dir =
+      pe_file.nt_headers()->OptionalHeader.DataDirectory[
+          IMAGE_DIRECTORY_ENTRY_DEBUG];
+
+  // Read the debug directory entry.
+  IMAGE_DEBUG_DIRECTORY debug_dir = {};
+  PEFile::RelativeAddress debug_dir_addr(debug_data_dir.VirtualAddress);
+  DCHECK_EQ(debug_data_dir.Size, sizeof(debug_dir));
+  if (!pe_file.ReadImage(debug_dir_addr, &debug_dir, sizeof(debug_dir))) {
+    LOG(ERROR) << "Unable to read debug directory entry from PE file: "
+               << pe_file.path().value();
+    return false;
+  }
+  DCHECK_GT(debug_dir.SizeOfData, sizeof(CvInfoPdb70));
+
+  // Read the actual debug directory data.
+  PEFile::RelativeAddress pdb_info_addr(debug_dir.AddressOfRawData);
+  std::vector<uint8> buffer(debug_dir.SizeOfData);
+  if (!pe_file.ReadImage(pdb_info_addr, &buffer[0], buffer.size())) {
+    LOG(ERROR) << "Unable to read debug directory data from PE file: "
+               << pe_file.path().value();
+    return false;
+  }
+
+  CvInfoPdb70* cv_info = reinterpret_cast<CvInfoPdb70*>(&buffer[0]);
+  return Init(*cv_info);
+}
+
+bool PdbInfo::Init(const FilePath& pe_path) {
+  DCHECK(!pe_path.empty());
+
+  PEFile pe_file;
+  if (!pe_file.Init(pe_path)) {
+    LOG(ERROR) << "Unable to process PE file: " << pe_path.value();
+    return false;
+  }
+
+  return Init(pe_file);
+}
+
+bool PdbInfo::IsConsistent(const pdb::PdbInfoHeader70& pdb_header) const {
+  return pdb_age_ == pdb_header.pdb_age &&
+      signature_ == pdb_header.signature;
+}
+
+}  // namespace pe
