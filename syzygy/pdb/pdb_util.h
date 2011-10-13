@@ -37,6 +37,10 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
                             const std::vector<OMAP>& omap_to_list,
                             const std::vector<OMAP>& omap_from_list);
 
+// Reads the header from the given PDB file @p pdb_path.
+// @returns true on success, false on error.
+bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header);
+
 }  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_UTIL_H_

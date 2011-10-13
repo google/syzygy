@@ -66,6 +66,8 @@ class PEFile {
   PEFile();
   ~PEFile();
 
+  const FilePath& path() const { return path_; }
+
   // Read in the image file at path.
   bool Init(const FilePath& path);
 
