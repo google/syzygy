@@ -16,6 +16,13 @@
 #include "gtest/gtest.h"
 #include "syzygy/pe/unittest_util.h"
 
+// An ostream operator for FilePath objects. This allows the unittest macros to
+// pretty-print FilePath objects.
+std::ostream& operator<<(std::ostream& os, const FilePath& file_path) {
+  os << file_path.value();
+  return os;
+}
+
 namespace pe {
 
 namespace {
