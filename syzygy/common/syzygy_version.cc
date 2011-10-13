@@ -37,6 +37,22 @@ SyzygyVersion::SyzygyVersion(uint16 major, uint16 minor, uint16 build,
   DCHECK(last_change != NULL);
 }
 
+int SyzygyVersion::CompareOctet(const SyzygyVersion& rhs) const {
+  int c = static_cast<int>(major_) - rhs.major_;
+  if (c != 0)
+    return c;
+
+  c = static_cast<int>(minor_) - rhs.minor_;
+  if (c != 0)
+    return c;
+
+  c = static_cast<int>(build_) - rhs.build_;
+  if (c != 0)
+    return c;
+
+  return static_cast<int>(patch_) - rhs.patch_;
+}
+
 bool SyzygyVersion::operator==(const SyzygyVersion& rhs) const {
   return major_ == rhs.major_ && minor_ == rhs.minor_ &&
       build_ == rhs.build_ && patch_ == rhs.patch_ &&
@@ -49,8 +65,13 @@ bool SyzygyVersion::IsCompatible(const SyzygyVersion& rhs) const {
 }
 
 std::string SyzygyVersion::GetVersionString() const {
-  return StringPrintf(
-      "%d.%d.%d.%d (%s)", major_, minor_, build_, patch_, last_change_.c_str());
+  std::string version = StringPrintf("%d.%d.%d.%d", major_, minor_, build_,
+                                     patch_);
+  // Only append the last-change string if it is not empty.
+  if (!last_change_.empty()) {
+    version += StringPrintf(" (%s)", last_change_.c_str());
+  }
+  return version;
 }
 
 }  // namespace common

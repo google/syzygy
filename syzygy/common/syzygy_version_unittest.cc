@@ -39,6 +39,38 @@ TEST(SyzygyVersionTest, Compatibility) {
   EXPECT_FALSE(version2.IsCompatible(kSyzygyVersion));
 }
 
+TEST(SyzygyVersionTest, CompareOctets) {
+  SyzygyVersion v0001(0, 0, 0, 1, "a");
+  SyzygyVersion v0010(0, 0, 1, 0, "b");
+  SyzygyVersion v0100(0, 1, 0, 0, "c");
+  SyzygyVersion v1000(1, 0, 0, 0, "d");
+
+  EXPECT_EQ(0, v0001.CompareOctet(v0001));
+  EXPECT_GT(0, v0001.CompareOctet(v0010));
+  EXPECT_GT(0, v0001.CompareOctet(v0100));
+  EXPECT_GT(0, v0001.CompareOctet(v1000));
+
+  EXPECT_LT(0, v0010.CompareOctet(v0001));
+  EXPECT_EQ(0, v0010.CompareOctet(v0010));
+  EXPECT_GT(0, v0010.CompareOctet(v0100));
+  EXPECT_GT(0, v0010.CompareOctet(v1000));
+
+  EXPECT_LT(0, v0100.CompareOctet(v0001));
+  EXPECT_LT(0, v0100.CompareOctet(v0010));
+  EXPECT_EQ(0, v0100.CompareOctet(v0100));
+  EXPECT_GT(0, v0100.CompareOctet(v1000));
+
+  EXPECT_LT(0, v1000.CompareOctet(v0001));
+  EXPECT_LT(0, v1000.CompareOctet(v0010));
+  EXPECT_LT(0, v1000.CompareOctet(v0100));
+  EXPECT_EQ(0, v1000.CompareOctet(v1000));
+
+  // Two versions with the same octet but a different last-change string
+  // should compare equal.
+  SyzygyVersion v1000_2(1, 0, 0, 0, "e");
+  EXPECT_EQ(0, v1000.CompareOctet(v1000_2));
+}
+
 TEST(SyzygyVersionTest, Serialization) {
   EXPECT_TRUE(testing::TestSerialization(kSyzygyVersion));
 }
@@ -66,6 +98,10 @@ TEST(SyzygyVersionTest, Mutators) {
 
 TEST(SyzygyVersionTest, VersionString) {
   EXPECT_TRUE(kSyzygyVersion.GetVersionString() == SYZYGY_VERSION_STRING);
+
+  // An empty last-change string should not be appended.
+  SyzygyVersion version(0, 0, 0, 0, "");
+  EXPECT_TRUE(version.GetVersionString() == "0.0.0.0");
 }
 
 }  // namespace common
