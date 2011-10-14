@@ -126,7 +126,7 @@ bool LinearOrderGenerator::CalculateReordering(const PEFile& pe_file,
     return false;
 
   LOG(INFO) << "Encountered " << process_group_calls_.size()
-      << " process groups.";
+            << " process groups.";
 
   // Aggregate the block calls.
   std::map<const BlockGraph::Block*, AverageBlockCall> average_block_call_map;

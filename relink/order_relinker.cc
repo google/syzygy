@@ -174,7 +174,7 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
     if (!builder().address_space().InsertBlock(
             *insert_at, const_cast<BlockGraph::Block*>(block))) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
-          << *insert_at;
+                 << *insert_at;
     }
     *insert_at += block->size();
     inserted_blocks->insert(block);
@@ -209,7 +209,7 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
 
     if (!builder().address_space().InsertBlock(*insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
-          << *insert_at;
+                 << *insert_at;
     }
 
     *insert_at += block->size();

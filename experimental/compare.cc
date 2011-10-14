@@ -487,7 +487,7 @@ FeatureIndex::FeatureIndex(const BlockFeature& block_feature,
   ++feature_bucket;
 
   LOG(INFO) << "Feature " << feature_id_ << " has " << feature_bucket
-      << " buckets.";
+            << " buckets.";
 
 #ifndef NDEBUG
   // Ensure that all metadata's have been assigned valid feature indices.

@@ -49,7 +49,7 @@ bool RegexpProcessFilter::Initialize(const std::string& regexpr) {
 
   if (!new_expr.error().empty()) {
     LOG(ERROR) << "Failed to initialize regular expression, error: "
-        << new_expr.error();
+               << new_expr.error();
     return false;
   }
 
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
       info.parent_pid = entry->parent_pid();
     } else {
       LOG(ERROR) << "Unable to capture working set information for pid: "
-          << entry->pid();
+                 << entry->pid();
       working_sets.pop_back();
     }
   }

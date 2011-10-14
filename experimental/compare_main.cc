@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
     return Usage(argv, "Must specify '--from' and '--to' parameters!");
 
   LOG(INFO) << "Toolchain version: "
-      << common::kSyzygyVersion.GetVersionString() << ".";
+            << common::kSyzygyVersion.GetVersionString() << ".";
 
   pe::PEFile pe_file_from;
   pe::Decomposer::DecomposedImage image_from;

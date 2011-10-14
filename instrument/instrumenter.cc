@@ -683,7 +683,7 @@ bool Instrumenter::CopyResourceSection() {
 
   std::string name = pe::PEFile::GetSectionName(section);
   LOG(INFO) << "Copying section " << resource_section_id_ << " (" << name
-      << ").";
+            << ").";
   if (!CopySection(section)) {
     LOG(ERROR) << "Unable to copy section.";
     return false;

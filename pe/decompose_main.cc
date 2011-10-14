@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
 
   if (!missing_contribs.empty()) {
     LOG(INFO) << "Writing missing section contributions to \""
-        << missing_contribs.value().c_str() << "\".\n";
+              << missing_contribs.value().c_str() << "\".\n";
     if (!DumpMissingSectionContributions(missing_contribs, decomposed_image))
       return 1;
   }
@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
   // This is scoped so that the output file is closed prior to loading it.
   {
     LOG(INFO) << "Saving decomposed image to \"" << output.value().c_str()
-        << "\".\n";
+              << "\".\n";
     time = base::Time::Now();
     file_util::ScopedFILE out_file(file_util::OpenFile(output, "wb"));
     core::FileOutStream out_stream(out_file.get());

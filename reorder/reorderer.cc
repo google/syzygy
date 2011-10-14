@@ -128,7 +128,7 @@ bool Reorderer::ReorderImpl(Order* order) {
   // instrumented module.
   if (module_path_.empty()) {
     LOG(INFO) << "Inferring input DLL path from instrumented module: "
-        << orig_signature.path;
+              << orig_signature.path;
     module_path_ = FilePath(orig_signature.path);
   }
 
@@ -200,7 +200,7 @@ bool Reorderer::ValidateInstrumentedModuleAndParseSignature(
   pe::PEFile pe_file;
   if (!pe_file.Init(instrumented_path_)) {
     LOG(ERROR) << "Unable to parse instrumented module: "
-        << instrumented_path_.value();
+               << instrumented_path_.value();
     return false;
   }
   pe_file.GetSignature(&instr_signature_);
@@ -214,7 +214,7 @@ bool Reorderer::ValidateInstrumentedModuleAndParseSignature(
 
   if (!common::kSyzygyVersion.IsCompatible(metadata.toolchain_version())) {
     LOG(ERROR) << "Module was instrumented with an incompatible version of "
-        << "the toolchain: " << instrumented_path_.value();
+               << "the toolchain: " << instrumented_path_.value();
     return false;
   }
 
@@ -315,7 +315,7 @@ void Reorderer::OnModuleLoad(DWORD process_id,
     // is one of the platforms we target, we simply print out a warning for
     // now.
     LOG(WARNING) << "Trying to insert conflicting module: "
-        << module_info.image_file_name;
+                 << module_info.image_file_name;
   }
 
   last_event_time_ = time;

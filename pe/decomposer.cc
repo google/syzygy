@@ -87,7 +87,7 @@ template<typename T> bool LoadDebugStream(IDiaEnumDebugStreamData* stream,
   hr = stream->Next(count, 0, &bytes_read, NULL, &count_read);
   if (FAILED(hr)) {
     LOG(ERROR) << "Unable to get debug stream length: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
   DCHECK_EQ(count * sizeof(T), bytes_read);
@@ -187,7 +187,7 @@ bool ValidateReference(RelativeAddress src_addr,
                        Decomposer::FixupMap::iterator fixup_it) {
   if (type != fixup_it->second.type || size != kPointerSize) {
     LOG(ERROR) << "Reference at " << src_addr
-        << " not consistent with corresponding fixup.";
+               << " not consistent with corresponding fixup.";
     return false;
   }
 
@@ -245,7 +245,7 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
     case FIXUP_MUST_NOT_EXIST: {
       if (it != fixup_map->end()) {
         LOG(ERROR) << "Reference at " << src_addr
-            << " collides with an existing fixup.";
+                   << " collides with an existing fixup.";
         return false;
       }
       return AddReference(src_addr, type, size, dst_base, dst_offset, name,
@@ -288,7 +288,7 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   ULONGLONG ull_length = 0;
   if (FAILED(hr = type->get_length(&ull_length))) {
     LOG(ERROR) << "Failed to retrieve type length properties: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
   *length = ull_length;
@@ -520,7 +520,7 @@ template<typename T> bool FindDiaTable(IDiaSession* session,
   HRESULT hr = session->getEnumTables(enum_tables.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to get DIA table enumerator: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -532,7 +532,7 @@ template<typename T> bool FindDiaTable(IDiaSession* session,
     hr = enum_tables->Next(1, table.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to get DIA table: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
     if (fetched == 0)
@@ -688,15 +688,14 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
                                           NULL);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to load DIA data for image file: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
   ScopedComPtr<IDiaSession> dia_session;
   hr = dia_source->openSession(dia_session.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to open DIA session: "
-        << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to open DIA session: " << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -704,7 +703,7 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
       image_file_.nt_headers()->OptionalHeader.ImageBase);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to set the DIA load address: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -712,7 +711,7 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   hr = dia_session->get_globalScope(global.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to get the DIA global scope: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -881,8 +880,8 @@ bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
     // Skip non-code sections.
     if ((header->Characteristics & IMAGE_SCN_CNT_CODE) != 0) {
       if (!CreateSectionGapBlocks(header, BlockGraph::CODE_BLOCK)) {
-        LOG(ERROR) << "Failed to create gap blocks for code section "
-            << header->Name;
+        LOG(ERROR) << "Failed to create gap blocks for code section \""
+                   << pe::PEFile::GetSectionName(*header) << "\".";
         return false;
       }
     }
@@ -902,7 +901,7 @@ bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
                                     dia_enum_symbols.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to get the DIA function enumerator: "
-       << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -911,8 +910,7 @@ bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
     ULONG fetched = 0;
     hr = dia_enum_symbols->Next(1, function.Receive(), &fetched);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to enumerate functions: "
-          << com::LogHr(hr) << ".";
+      LOG(ERROR) << "Failed to enumerate functions: " << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -933,8 +931,8 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   DWORD location_type = LocIsNull;
   HRESULT hr = E_FAIL;
   if (FAILED(hr = function->get_locationType(&location_type))) {
-    LOG(ERROR) << "Failed to retrieve function address type."
-        << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to retrieve function address type: "
+               << com::LogHr(hr) << ".";
     return false;
   }
   if (location_type != LocIsStatic) {
@@ -951,7 +949,7 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
       FAILED(hr = function->get_name(name.Receive())) ||
       FAILED(hr = function->get_noReturn(&no_return))) {
     LOG(ERROR) << "Failed to retrieve function information: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -998,7 +996,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
                                       dia_enum_symbols.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to get the DIA label enumerator: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -1008,7 +1006,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     hr = dia_enum_symbols->Next(1, symbol.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to enumerate the DIA symbol: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -1020,7 +1018,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
         FAILED(hr = symbol->get_name(name.Receive()))) {
       LOG(ERROR) << "Failed to retrieve function information: "
-         << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -1058,7 +1056,7 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
                                      enum_compilands.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to retrieve compiland enumerator: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -1068,7 +1066,7 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
     hr = enum_compilands->Next(1, compiland.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to enumerate compiland enumerator: "
-         << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -1081,7 +1079,7 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
                                  enum_thunks.Receive());
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to retrieve thunk enumerator: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -1090,7 +1088,7 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
       hr = enum_thunks->Next(1, thunk.Receive(), &fetched);
       if (FAILED(hr)) {
         LOG(ERROR) << "Failed to enumerate thunk enumerator: "
-           << com::LogHr(hr) << ".";
+                   << com::LogHr(hr) << ".";
         return false;
       }
       if (hr != S_OK || fetched == 0)
@@ -1115,7 +1113,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
                                      enum_compilands.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to retrieve compiland enumerator: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     return false;
   }
 
@@ -1125,7 +1123,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
     hr = enum_compilands->Next(1, compiland.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to enumerate compiland enumerator: "
-         << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -1138,7 +1136,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
                                  enum_labels.Receive());
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to retrieve label enumerator: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -1147,7 +1145,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       hr = enum_labels->Next(1, label.Receive(), &fetched);
       if (FAILED(hr)) {
         LOG(ERROR) << "Failed to enumerate label enumerator: "
-           << com::LogHr(hr) << ".";
+                   << com::LogHr(hr) << ".";
         return false;
       }
       if (hr != S_OK || fetched == 0)
@@ -1160,7 +1158,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       if (FAILED(hr = label->get_relativeVirtualAddress(&addr)) ||
           FAILED(hr = label->get_name(name.Receive()))) {
         LOG(ERROR) << "Failed to retrieve label address or name: "
-           << com::LogHr(hr) << ".";
+                   << com::LogHr(hr) << ".";
         return false;
       }
 
@@ -1290,7 +1288,7 @@ bool Decomposer::ParseRelocs() {
     RelativeAddress rva;
     if (!image_file_.Translate(it->second, &rva)) {
       LOG(ERROR) << "Unable to translate absolute address to relative: "
-          << it->second;
+                 << it->second;
       return false;
     }
     reloc_refs_.insert(rva);
@@ -1310,7 +1308,7 @@ bool Decomposer::CreateReferencesFromFixups() {
     uint32 data = 0;
     if (!image_file_.ReadImage(src_addr, &data, sizeof(data))) {
       LOG(ERROR) << "Unable to read image data for fixup with source at "
-          << src_addr;
+                 << src_addr;
       return false;
     }
 
@@ -1383,7 +1381,7 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     HRESULT hr = section_contribs->Next(1, section_contrib.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to get DIA section contribution: "
-         << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
     if (fetched == 0)
@@ -1403,7 +1401,7 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
         FAILED(hr = section_contrib->get_compiland(compiland.Receive())) ||
         FAILED(hr = compiland->get_name(bstr_name.Receive()))) {
       LOG(ERROR) << "Failed to get section contribution properties: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -1521,7 +1519,7 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
     // Check for symbol conflicts.
     if (addr < block->addr() || addr + length > block->addr() + block->size()) {
       LOG(ERROR) << "Data symbol " << name
-          << " in conflict with existing block " << block->name() << ".";
+                 << " in conflict with existing block " << block->name() << ".";
       *directive = DiaBrowser::kBrowserAbort;
       return;
     }
@@ -1562,7 +1560,7 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
   if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
     LOG(ERROR) << "Failed to get public symbol properties: "
-        << com::LogHr(hr) << ".";
+               << com::LogHr(hr) << ".";
     *directive = DiaBrowser::kBrowserAbort;
     return;
   }
@@ -1656,7 +1654,7 @@ bool Decomposer::ProcessStaticInitializers() {
     }
     if (*addr != kNull) {
       LOG(ERROR) << "Bracketing symbol appears multiple times: "
-          << block_name;
+                 << block_name;
       return false;
     }
     *addr = new_addr;
@@ -1706,7 +1704,7 @@ bool Decomposer::CreateDataGapBlocks() {
       continue;
     if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
       LOG(ERROR) << "Unable to create gap blocks for data section "
-          << header->Name;
+                 << header->Name;
       return false;
     }
   }
@@ -1938,7 +1936,7 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
   BlockGraph::Block* block = image_->AddBlock(type, address, size, name);
   if (block == NULL) {
     LOG(ERROR) << "Unable to add block at " << address.value()
-        << "(" << size << ").";
+               << "(" << size << ").";
     return NULL;
   }
 
@@ -1951,7 +1949,7 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
     RelativeAddress end(begin + header->Misc.VirtualSize);
     if (address < begin || address + size > end) {
       LOG(ERROR) << "No section contains block at " << address.value()
-          << "(" << size << ")";
+                 << "(" << size << ")";
       return NULL;
     }
   }
@@ -1999,7 +1997,7 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
 
     if (collision) {
       LOG(ERROR) << "Block collision for function at "
-          << addr.value() << "(" << size << ") with " << block->name();
+                 << addr.value() << "(" << size << ") with " << block->name();
       return NULL;
     }
 
@@ -2107,7 +2105,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       //    sorry for now.
       if (block->addr() != dst) {
         LOG(ERROR) << "Calling inside the body of a non-returning function: "
-            << block->name();
+                   << block->name();
         *directive = Disassembler::kDirectiveAbort;
         return;
       }
@@ -2218,7 +2216,7 @@ bool Decomposer::FinalizeIntermediateReferences() {
 
     if (src == NULL || dst == NULL) {
       LOG(ERROR) << "Reference source or base destination address is out of "
-          << "range, src: " << src << ", dst: " << dst;
+                 << "range, src: " << src << ", dst: " << dst;
       return false;
     }
 
@@ -2366,7 +2364,7 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session) {
     HRESULT hr = debug_streams->Next(1, debug_stream.Receive(), &count);
     if (FAILED(hr) || (hr != S_FALSE && count != 1)) {
       LOG(ERROR) << "Unable to load debug stream: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     } else if (hr == S_FALSE) {
       // No more records.
@@ -2376,7 +2374,7 @@ bool Decomposer::LoadDebugStreams(IDiaSession* dia_session) {
     ScopedBstr name;
     if (FAILED(hr = debug_stream->get_name(name.Receive()))) {
       LOG(ERROR) << "Unable to get debug stream name: "
-          << com::LogHr(hr) << ".";
+                 << com::LogHr(hr) << ".";
       return false;
     }
 
@@ -2445,7 +2443,7 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   for (size_t i = 0; i < pdb_fixups.size(); ++i) {
     if (!pdb_fixups[i].ValidHeader()) {
       LOG(ERROR) << "Unknown fixup header: "
-          << StringPrintf("0x%08X.", pdb_fixups[i].header);
+                 << StringPrintf("0x%08X.", pdb_fixups[i].header);
       return false;
     }
 
@@ -2512,7 +2510,7 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
     RelativeAddress block_addr;
     if (!image_->GetAddressOf(block, &block_addr)) {
       LOG(DFATAL) << "Block " << block->name() << " has no address, "
-          << block->addr() << ":" << block->size();
+                  << block->addr() << ":" << block->size();
       // Expect this to be the result of a merge?
       continue;
     }
@@ -2585,7 +2583,7 @@ bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
         }
       } else {
         LOG(ERROR) << "Failed to disassemble block at "
-            << abs_block_addr.value();
+                   << abs_block_addr.value();
         success = false;
         break;
       }

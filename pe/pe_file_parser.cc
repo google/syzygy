@@ -359,7 +359,7 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
             &nt_headers_ptr->OptionalHeader.DataDirectory[i].VirtualAddress,
             kDirEntryNames[i])) {
       LOG(ERROR) << "Unable to add data directory reference for "
-          << kDirEntryNames[i];
+                 << kDirEntryNames[i];
       return false;
     }
   }
@@ -539,7 +539,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
 
     if (thunk_block == NULL) {
       LOG(ERROR) << "Unable to add " << thunk_type
-          << "block for " << import_name;
+                 << "block for " << import_name;
       return false;
     }
 
@@ -735,7 +735,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
 
     if (import_descriptor->grAttrs != dlattrRva) {
       LOG(ERROR) << "Unexpected attributes in delay import descriptor 0x"
-          << std::hex << import_descriptor->grAttrs;
+                 << std::hex << import_descriptor->grAttrs;
       return false;
     }
 
