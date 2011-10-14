@@ -121,7 +121,7 @@ bool FindFile(const FilePath& file_path,
 
 }  // namespace
 
-bool FindModuleBySignature(const pe::PEFile::Signature& module_signature,
+bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            const wchar_t* search_paths,
                            FilePath* module_path) {
   DCHECK(module_path != NULL);
@@ -137,7 +137,7 @@ bool FindModuleBySignature(const pe::PEFile::Signature& module_signature,
                   module_path);
 }
 
-bool FindModuleBySignature(const pe::PEFile::Signature& module_signature,
+bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            FilePath* module_path) {
   DCHECK(module_path != NULL);
 
