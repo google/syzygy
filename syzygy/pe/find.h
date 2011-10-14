@@ -42,13 +42,13 @@ namespace pe {
 //
 // @returns false if any errors occur, true otherwise. If the module is found
 //     its path is returned in @p module_path.
-bool FindModuleBySignature(const pe::PEFile::Signature& module_signature,
+bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            const wchar_t* search_paths,
                            FilePath* module_path);
 
 // Same as 3-parameter FindModuleBySignature, but uses the PATH environment
 // variable as the list of search paths.
-bool FindModuleBySignature(const pe::PEFile::Signature& module_signature,
+bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            FilePath* module_path);
 
 // Searches for the PDB file corresponding to the given module. Uses the
