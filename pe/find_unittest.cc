@@ -37,13 +37,16 @@ bool GetFileInformation(const FilePath& path,
                    FILE_ATTRIBUTE_NORMAL,
                    NULL));
   if (!handle->IsValid()) {
-    LOG(ERROR) << "Unable to open \"" << path.value() << "\": " << com::LogWe();
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Unable to open \"" << path.value() << "\": "
+               << com::LogWe(error);
     return false;
   }
 
   if (!::GetFileInformationByHandle(handle->Get(), file_info)) {
+    DWORD error = ::GetLastError();
     LOG(ERROR) << "GetFileInformationByHandle failed for \"" << path.value()
-               << "\": " << com::LogWe();
+               << "\": " << com::LogWe(error);
     return false;
   }
 
