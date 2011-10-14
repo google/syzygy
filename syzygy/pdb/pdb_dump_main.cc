@@ -76,12 +76,12 @@ static bool WriteStreamToPath(pdb::PdbStream* pdb_stream,
       file_util::OpenFile(output_file_name, "wb"));
   if (output_file.get() == NULL) {
     LOG(ERROR) << "Unable to open \"" << output_file_name.value()
-        << "\" for output.";
+               << "\" for output.";
     return false;
   }
 
-  LOG(INFO) << "Writing " << pdb_stream->length() << " bytes to \"" <<
-      output_file_name.value() << "\".";
+  LOG(INFO) << "Writing " << pdb_stream->length() << " bytes to \""
+            << output_file_name.value() << "\".";
 
   uint8 buffer[4096];
   size_t bytes_read = 0;
@@ -94,7 +94,7 @@ static bool WriteStreamToPath(pdb::PdbStream* pdb_stream,
     if (!pdb_stream->ReadBytes(buffer, bytes_to_read, &bytes_just_read) ||
         bytes_just_read == 0) {
       LOG(ERROR) << "Error reading " << bytes_to_read << " bytes at "
-          "offset " << bytes_read << ".";
+                 << "offset " << bytes_read << ".";
       return false;
     }
 

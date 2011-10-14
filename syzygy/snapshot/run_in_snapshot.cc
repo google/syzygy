@@ -40,8 +40,8 @@ const char kHelp[] =
 int Usage() {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
 
-  std::wcout << L"Usage: " << cmd_line->GetProgram().BaseName().value().c_str()
-      << " [options] -- [command and argument]\n" << std::endl;
+  std::cout << "Usage: " << cmd_line->GetProgram().BaseName().value().c_str()
+            << " [options] -- [command and argument]\n" << std::endl;
   std::cout << kHelp;
 
   return 1;

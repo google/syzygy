@@ -172,7 +172,7 @@ Disassembler::WalkResult Disassembler::Walk() {
           dump += base::StringPrintf(" 0x%02X", code.code[i]);
         }
         LOG(ERROR) << ".text =" << dump
-            << (max_bytes < code.codeLen ? " ..." : ".");
+                   << (max_bytes < code.codeLen ? " ..." : ".");
         return kWalkError;
       }
 

@@ -80,7 +80,7 @@ bool RandomRelinker::ReorderSection(size_t section_index,
 
     if (!builder().address_space().InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name()
-          << "' at " << insert_at;
+                 << "' at " << insert_at;
     }
 
     insert_at += block->size();
