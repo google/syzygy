@@ -74,7 +74,8 @@ bool FindFile(const FilePath& file_path,
 
   BOOL result = ::SymInitialize(handle, NULL, FALSE);
   if (result == FALSE) {
-    LOG(ERROR) << "SymInitialize failed: " << com::LogWe();
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error);
     return false;
   }
 
@@ -100,17 +101,19 @@ bool FindFile(const FilePath& file_path,
                                 NULL,
                                 NULL);
   if (::SymCleanup(handle) == FALSE) {
-    LOG(ERROR) << "SymCleanup failed: " << com::LogWe();
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error);
     return false;
   }
   if (!result) {
     // If there is a zero error code, this simply means that the search failed
     // to find anything, which is not an error.
-    if (::GetLastError() == 0)
+    DWORD error = ::GetLastError();
+    if (error == 0)
       return true;
 
     LOG(ERROR) << "SymFindFileInPath(\"" << file_path.value() << "\") failed: "
-               << com::LogWe();
+               << com::LogWe(error);
     return false;
   }
 
