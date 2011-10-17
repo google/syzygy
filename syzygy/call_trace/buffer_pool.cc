@@ -31,7 +31,7 @@ BufferPool::~BufferPool() {
   if (base_ptr_ && !::UnmapViewOfFile(base_ptr_)) {
     DWORD error = ::GetLastError();
     DCHECK(handle_.IsValid());
-    LOG(WARNING) << "Failed to release buffer " << com::LogWe(error) << ".";
+    LOG(WARNING) << "Failed to release buffer: " << com::LogWe(error) << ".";
   }
 }
 
@@ -55,7 +55,7 @@ bool BufferPool::Init(Session* session,
       ::CreateFileMapping(NULL, NULL, PAGE_READWRITE, 0, mapping_size, NULL));
   if (!new_handle.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to allocate buffer " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to allocate buffer: " << com::LogWe(error) << ".";
     return false;
   }
 
@@ -64,7 +64,7 @@ bool BufferPool::Init(Session* session,
       ::MapViewOfFile(new_handle, FILE_MAP_ALL_ACCESS, 0, 0, mapping_size));
   if (new_base_ptr == NULL) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed mapping buffer " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed mapping buffer: " << com::LogWe(error) << ".";
     return false;
   }
 
@@ -78,8 +78,8 @@ bool BufferPool::Init(Session* session,
                          FALSE,
                          DUPLICATE_SAME_ACCESS)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to copy shared memory handle into client process "
-        << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to copy shared memory handle into client process: "
+               << com::LogWe(error) << ".";
     ignore_result(::UnmapViewOfFile(new_base_ptr));
     return false;
   }
