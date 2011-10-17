@@ -224,6 +224,7 @@ int main(int argc, char** argv) {
     OutputProcessInfo(*it, &json);
   }
   json.CloseList();
+  json.Flush();
 
   return 0;
 }
