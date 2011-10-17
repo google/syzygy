@@ -67,6 +67,8 @@
         'dos_stub.asm',
         'find.cc',
         'find.h',
+        'image_layout.cc',
+        'image_layout.h',
         'metadata.cc',
         'metadata.h',
         'pdb_info.cc',
