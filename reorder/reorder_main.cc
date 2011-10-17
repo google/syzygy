@@ -46,8 +46,6 @@ static const char kUsage[] =
     "    --list-dead-code instead of an ordering, output the set of functions\n"
     "        not visited during the trace.\n"
     "    --pretty-print enables pretty printing of the JSON output file.\n"
-    "    --output-stats outputs estimated startup page faults pre- and post-\n"
-    "        reordering.\n"
     "    --output-comdats=<path> an output file that will be populated\n"
     "        with an MS LINKER compatible COMDAT order file equivalent to\n"
     "        the generated ordering.\n"
@@ -181,9 +179,6 @@ int main(int argc, char** argv) {
     LOG(ERROR) << "Reorder failed.";
     return 1;
   }
-
-  if (cmd_line->HasSwitch("output-stats"))
-    order.OutputFaultEstimates(stdout);
 
   if (!order.SerializeToJSON(input_dll, output_file, pretty_print)) {
     LOG(ERROR) << "Unable to output order.";

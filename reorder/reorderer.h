@@ -252,12 +252,6 @@ struct Reorderer::Order {
   // used to guess the value of --input-dll.
   static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
 
-  // Estimates the number of hard faults that would be seen, both before and
-  // after ordering. This assumes that everything in |blocks| is actually
-  // visited.
-  bool OutputFaultEstimates(const FilePath& path) const;
-  bool OutputFaultEstimates(FILE* file) const;
-
  private:
   DISALLOW_COPY_AND_ASSIGN(Order);
 };
