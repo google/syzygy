@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
     int num = 0;
     if (!base::StringToInt(buffers_str, &num) || num < kMinBuffers) {
       LOG(ERROR) << "Number of incremental buffers is too small (<"
-          << kMinBuffers << ").";
+                 << kMinBuffers << ").";
       return 1;
     }
     call_trace_service.set_num_incremental_buffers(num);
@@ -116,8 +116,8 @@ int main(int argc, char** argv) {
   // Setup the handler for exit signals.
   if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to register shutdown handler "
-        << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to register shutdown handler: "
+               << com::LogWe(error) << ".";
     return 1;
   }
 
