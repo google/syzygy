@@ -95,6 +95,7 @@ JSONFileWriter::JSONFileWriter(FILE* file, bool pretty_print)
 }
 
 JSONFileWriter::~JSONFileWriter() {
+  Flush();
 }
 
 bool JSONFileWriter::OutputComment(const char* comment) {

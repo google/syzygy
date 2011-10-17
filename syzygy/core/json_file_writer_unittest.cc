@@ -306,6 +306,21 @@ TEST_F(JSONFileWriterTest, OutputNull) {
   ASSERT_EQ("null", s);
 }
 
+TEST_F(JSONFileWriterTest, DestructorAutoFlushes) {
+  {
+    TestJSONFileWriter json_file(file(), false);
+    EXPECT_TRUE(json_file.OpenList());
+    EXPECT_TRUE(json_file.OpenDict());
+  }
+
+  std::string s;
+  ASSERT_TRUE(FileContents(&s));
+
+  std::string expected = "[{}]";
+
+  ASSERT_EQ(expected, s);
+}
+
 TEST_F(JSONFileWriterTest, OutputDict) {
   TestJSONFileWriter json_file(file(), false);
   ASSERT_NO_FATAL_FAILURE(CreateDict(&json_file));
