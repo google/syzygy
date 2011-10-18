@@ -41,6 +41,8 @@ using pcrecpp::RE;
 
 class Decomposer {
  public:
+  // Output type for basic block decomposition.
+  class BasicBlockBreakdown;
   // The decomposed image data.
   class DecomposedImage;
   // A struct for storing fixups.
@@ -60,11 +62,6 @@ class Decomposer {
   typedef std::map<RelativeAddress, IntermediateReference>
       IntermediateReferenceMap;
 
-  enum Mode {
-    STANDARD_DECOMPOSITION,
-    BASIC_BLOCK_DECOMPOSITION,
-  };
-
   // Initializes the decomposer for a given image file and path.
   Decomposer(const PEFile& image_file, const FilePath& file_path);
 
@@ -72,11 +69,12 @@ class Decomposer {
   // has the breakdown of code and data blocks with typed references.
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
-  // If |decomposition_mode| is BASIC_BLOCK_DECOMPOSITION then a basic block
-  // decomposition will also be performed.
-  bool Decompose(DecomposedImage* image,
-                 CoverageStatistics* stats,
-                 Mode decomposition_mode);
+  bool Decompose(DecomposedImage* image, CoverageStatistics* stats);
+
+  // Decomposes the decomposed image into basic blocks.
+  // @returns true on success, false on failure.
+  bool BasicBlockDecompose(const DecomposedImage& image,
+                           BasicBlockBreakdown* basic_block_breakdown);
 
   // Registers a pair of static initializer search patterns. Each of these
   // patterns will be converted to a regular expression, and they are required
@@ -163,7 +161,8 @@ class Decomposer {
 
   // Invokable once we have completed our original block graphs, this breaks
   // up code-blocks into their basic sub-components.
-  bool BuildBasicBlockGraph(DecomposedImage* decomposed_image);
+  bool BuildBasicBlockGraph(const DecomposedImage& decomposed_image,
+                            BasicBlockBreakdown* breakdown);
 
   // Parses the various debug streams. This populates fixup_map_ as well.
   bool LoadDebugStreams(IDiaSession* dia_session);
@@ -301,14 +300,19 @@ class Decomposer {
 // The results of the decomposition process are stored in this class.
 class Decomposer::DecomposedImage {
  public:
-  DecomposedImage() : address_space(&image),
-                      basic_block_address_space(&basic_block_graph) {
+  DecomposedImage() : address_space(&image) {
   }
 
  public:
   BlockGraph image;
   BlockGraph::AddressSpace address_space;
   PEFileParser::PEHeader header;
+};
+
+class Decomposer::BasicBlockBreakdown {
+ public:
+  BasicBlockBreakdown() : basic_block_address_space(&basic_block_graph) {
+  }
 
   BlockGraph basic_block_graph;
   BlockGraph::AddressSpace basic_block_address_space;

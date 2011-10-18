@@ -54,8 +54,7 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
 
   Decomposer decomposer(image_file, image_path);
   Decomposer::DecomposedImage decomposed_image;
-  ASSERT_TRUE(decomposer.Decompose(&decomposed_image, NULL,
-                                   Decomposer::STANDARD_DECOMPOSITION));
+  ASSERT_TRUE(decomposer.Decompose(&decomposed_image, NULL));
 
   ImageLayout layout(decomposed_image);
   PEFileWriter writer(layout);

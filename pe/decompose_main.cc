@@ -42,7 +42,6 @@ int Usage(char** argv, const char* message) {
       "Required parameters\n"
       "  --image=<image file>\n"
       "Optional parameters\n"
-      "  --bb\t(Enables basic block decomposition)\n"
       "  --missing-contribs=<output file>\n"
       "    Outputs a list of blocks (and their symbol information) that were\n"
       "    not parsed from section contributions.\n"
@@ -189,10 +188,6 @@ int main(int argc, char** argv) {
   FilePath missing_contribs = cmd_line->GetSwitchValuePath("missing-contribs");
   bool benchmark_load = cmd_line->HasSwitch("benchmark-load");
 
-  pe::Decomposer::Mode mode = cmd_line->HasSwitch("bb") ?
-      pe::Decomposer::BASIC_BLOCK_DECOMPOSITION :
-      pe::Decomposer::STANDARD_DECOMPOSITION;
-
   LOG(INFO) << "Processing \"" << image.value() << "\".\n";
   LOG(INFO) << "Parsing PE file.\n";
   base::Time time = base::Time::Now();
@@ -206,7 +201,7 @@ int main(int argc, char** argv) {
   time = base::Time::Now();
   pe::Decomposer::DecomposedImage decomposed_image;
   pe::Decomposer decomposer(pe_file, image);
-  if (!decomposer.Decompose(&decomposed_image, NULL, mode)) {
+  if (!decomposer.Decompose(&decomposed_image, NULL)) {
     LOG(ERROR) << "Decomposition failed.";
     return 1;
   }

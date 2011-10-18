@@ -674,8 +674,7 @@ Decomposer::Decomposer(const PEFile& image_file,
 }
 
 bool Decomposer::Decompose(DecomposedImage* decomposed_image,
-                           CoverageStatistics* stats,
-                           Mode decomposition_mode) {
+                           CoverageStatistics* stats) {
   // Start by instantiating and initializing our Debug Interface Access session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive())) {
@@ -797,19 +796,17 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   if (success)
     success = FindPaddingBlocks();
 
-  // Once the above steps are complete, we will now have a function-level
-  // granularity of blocks for code-type blocks and those blocks will contain
-  // ALL inbound and out-bound references. Now it's time to break up those
-  // blocks into their basic sub-components.
-  if (success && decomposition_mode == BASIC_BLOCK_DECOMPOSITION)
-    success = BuildBasicBlockGraph(decomposed_image);
-
   if (stats != NULL)
     CalcCoverageStatistics(stats);
   code_block_stats_.clear();
   image_ = NULL;
 
   return success;
+}
+
+bool Decomposer::BasicBlockDecompose(const DecomposedImage& image,
+                                     BasicBlockBreakdown* breakdown) {
+  return BuildBasicBlockGraph(image, breakdown);
 }
 
 void Decomposer::CalcCoverageStatistics(CoverageStatistics* stats) const {
@@ -2494,21 +2491,23 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   return true;
 }
 
-bool Decomposer::BuildBasicBlockGraph(DecomposedImage* decomposed_image) {
-  DCHECK(image_ != NULL);
-  BlockGraph::AddressSpace::RangeMapConstIter block_iter = image_->begin();
+bool Decomposer::BuildBasicBlockGraph(const DecomposedImage& decomposed_image,
+                                      BasicBlockBreakdown* breakdown) {
+  DCHECK(breakdown != NULL);
+  BlockGraph::AddressSpace::RangeMapConstIter block_iter =
+      decomposed_image.address_space.begin();
 
-  BlockGraph& basic_blocks = decomposed_image->basic_block_graph;
+  BlockGraph& basic_blocks = breakdown->basic_block_graph;
   BlockGraph::AddressSpace* basic_blocks_image =
-      &decomposed_image->basic_block_address_space;
+      &breakdown->basic_block_address_space;
   DCHECK(basic_blocks_image != NULL);
 
   bool success = true;
-  for (; block_iter != image_->end(); ++block_iter) {
+  for (; block_iter != decomposed_image.address_space.end(); ++block_iter) {
     const BlockGraph::Block* block = block_iter->second;
     const BlockGraph::Block::ReferenceMap& ref_map = block->references();
     RelativeAddress block_addr;
-    if (!image_->GetAddressOf(block, &block_addr)) {
+    if (!decomposed_image.address_space.GetAddressOf(block, &block_addr)) {
       LOG(DFATAL) << "Block " << block->name() << " has no address, "
                   << block->addr() << ":" << block->size();
       // Expect this to be the result of a merge?
@@ -2619,9 +2618,7 @@ bool SaveDecomposition(const PEFile& pe_file,
 
   // Now write out the DecomposedImage.
   if (!out_archive->Save(image.image) ||
-      !out_archive->Save(image.address_space) ||
-      !out_archive->Save(image.basic_block_graph) ||
-      !out_archive->Save(image.basic_block_address_space)) {
+      !out_archive->Save(image.address_space)) {
     return false;
   }
 
@@ -2663,17 +2660,14 @@ bool LoadDecomposition(PEFile* pe_file,
 
   // Now deserialize the actual decomposed image.
   if (!in_archive->Load(&image->image) ||
-      !in_archive->Load(&image->address_space) ||
-      !in_archive->Load(&image->basic_block_graph) ||
-      !in_archive->Load(&image->basic_block_address_space)) {
+      !in_archive->Load(&image->address_space)) {
     return false;
   }
 
   // This sets any missing data pointers in the block graph. These
   // are pointers to data that was not owned by the block graph, but
   // rather by the PEFile.
-  if (!SetBlockDataPointers(*pe_file, &image->image) ||
-      !SetBlockDataPointers(*pe_file, &image->basic_block_graph)) {
+  if (!SetBlockDataPointers(*pe_file, &image->image)) {
     return false;
   }
 
