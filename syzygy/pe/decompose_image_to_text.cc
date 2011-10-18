@@ -104,11 +104,8 @@ bool DumpImageToText(const FilePath& image_path,
   // And decompose it to a DecomposedImage instance.
   Decomposer decomposer(image_file, image_path);
   Decomposer::DecomposedImage decomposed;
-  Decomposer::Mode mode =
-      basic_block_decomposition ? Decomposer::BASIC_BLOCK_DECOMPOSITION :
-                                  Decomposer::STANDARD_DECOMPOSITION;
-  if (!decomposer.Decompose(&decomposed, NULL, mode)) {
-    LOG(ERROR) << "Unable to decompose image " << image_path.value();
+  if (!decomposer.Decompose(&decomposed, NULL)) {
+    LOG(ERROR) << "Unable to decompose image \"" << image_path.value() << "\".";
     return false;
   }
 
@@ -119,10 +116,18 @@ bool DumpImageToText(const FilePath& image_path,
       << "and " << num_refs << " references.";
 
   if (basic_block_decomposition) {
-    str << "\n\nBASIC BLOCKS:\n\n";
-    DumpAddressSpaceToText(decomposed.basic_block_address_space, str, NULL);
+    Decomposer::BasicBlockBreakdown breakdown;
 
-    str << "Discovered: " << decomposed.basic_block_graph.blocks().size()
+    if (!decomposer.BasicBlockDecompose(decomposed, &breakdown)) {
+      LOG(ERROR) << "Unable to decompose basic blocks for image \""
+                 << image_path.value() << "\".";
+      return false;
+    }
+
+    str << "\n\nBASIC BLOCKS:\n\n";
+    DumpAddressSpaceToText(breakdown.basic_block_address_space, str, NULL);
+
+    str << "Discovered: " << breakdown.basic_block_graph.blocks().size()
         << " basic blocks.";
   }
 

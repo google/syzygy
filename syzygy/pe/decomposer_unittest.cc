@@ -41,8 +41,7 @@ TEST_F(DecomposerTest, Decompose) {
 
   Decomposer::DecomposedImage decomposed;
   Decomposer::CoverageStatistics stats;
-  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats,
-                                   Decomposer::STANDARD_DECOMPOSITION));
+  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats));
 
   EXPECT_TRUE(decomposed.header.dos_header != NULL);
   EXPECT_TRUE(decomposed.header.nt_headers != NULL);
@@ -100,8 +99,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
 
   Decomposer::DecomposedImage decomposed;
   Decomposer::CoverageStatistics stats;
-  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats,
-                                   Decomposer::STANDARD_DECOMPOSITION));
+  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats));
 
   FilePath temp_dir;
   CreateTemporaryDir(&temp_dir);
@@ -129,6 +127,23 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
   }
 }
 
-// TODO(siggi): More tests.
+TEST_F(DecomposerTest, BasicBlockDecompose) {
+  FilePath image_path(GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  // Decompose the test image and look at the result.
+  Decomposer decomposer(image_file, image_path);
+
+  Decomposer::DecomposedImage decomposed;
+  Decomposer::CoverageStatistics stats;
+  ASSERT_TRUE(decomposer.Decompose(&decomposed, &stats));
+
+  Decomposer::BasicBlockBreakdown breakdown;
+  ASSERT_TRUE(decomposer.BasicBlockDecompose(decomposed, &breakdown));
+  ASSERT_TRUE(breakdown.basic_block_address_space.begin() !=
+      breakdown.basic_block_address_space.end());
+}
 
 }  // namespace pe
