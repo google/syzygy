@@ -115,8 +115,17 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
     const AddressSpace::RangeMapIter& section_end = iter_pair.second;
     for (; section_it != section_end; ++section_it) {
       BlockGraph::Block* block = section_it->second;
+
+      // This is an untransformed decomposition. We fully expect each block to
+      // have a simple source range and be fully mapped. That is, all of its
+      // data comes directly from a single run of bytes in the source image.
+      ASSERT_TRUE(block->source_ranges().IsSimple());
+      ASSERT_TRUE(block->source_ranges().IsMapped(0, block->size()));
+
+      // We expect this block to lie entirely within the section we are
+      // copying.
       ASSERT_TRUE(section_range.Contains(
-          AddressSpace::Range(block->original_addr(), block->size())));
+          block->source_ranges().range_pair(0).second));
 
       ASSERT_TRUE(
           builder->address_space().InsertBlock(insert_at, block));

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/core/address.h"
+
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 

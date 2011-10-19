@@ -604,15 +604,31 @@ bool SetBlockDataPointers(const PEFile& pe_file,
   DCHECK(block_graph != NULL);
   BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
   for (; it != block_graph->blocks().end(); ++it) {
+    BlockGraph::Block& block = it->second;
+
     // Is this block missing a data reference?
-    if (it->second.data() == NULL && it->second.data_size() > 0) {
-      const uint8* data = pe_file.GetImageData(it->second.original_addr(),
-                                               it->second.data_size());
+    if (block.data() == NULL && block.data_size() > 0) {
+      // The only way this can happen is if the block didn't own its own data.
+      // In which case, it was a range of data from the original image on
+      // disk. Thus, we expect that the source range map is simple, and that it
+      // covers the block data.
+      if (!block.source_ranges().IsSimple() ||
+          !block.source_ranges().IsMapped(0, block.size())) {
+        LOG(ERROR) << "Block data is not simply mapped.";
+        return false;
+      }
+
+      // This block has a simple source range map, thus its original address
+      // is the start address of the first range pairs destination range.
+      RelativeAddress orig_addr =
+          block.source_ranges().range_pair(0).second.start();
+      const uint8* data = pe_file.GetImageData(orig_addr,
+                                               block.data_size());
       if (data == NULL) {
         LOG(ERROR) << "Unable to get Block data from PEFile.";
         return false;
       }
-      it->second.set_data(data);
+      block.set_data(data);
     }
   }
 

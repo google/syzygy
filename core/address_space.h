@@ -11,11 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Declares AddressRange, AddressSpace and AddressRangeMap. AddressRange is
+// a primitive used by AddressSpace and AddressRangeMap. AddressSpace is useful
+// for maintaining a collection of objects that map to ranges of bytes in some
+// finite address-space, ensuring that they do not collide. An AddressRangeMap
+// is a specialized version of an AddressSpace where the stored objects are
+// themselves AddressRanges, with special semantics for simplifying the
+// representation.
+
 #ifndef SYZYGY_CORE_ADDRESS_SPACE_H_
 #define SYZYGY_CORE_ADDRESS_SPACE_H_
 
+#include <algorithm>
 #include <map>
+#include <utility>
+#include <vector>
+
 #include "base/logging.h"
+#include "syzygy/core/address_space_internal.h"
+#include "syzygy/core/serialization.h"
 
 namespace core {
 
@@ -182,8 +197,7 @@ class AddressRange {
 
   // Returns true iff @p other is contained within this range.
   bool Contains(const AddressRange& other) const {
-    if (other.start_ < start_ ||
-        other.start_ + other.size_ > start_ + size_)
+    if (other.start_ < start_ || other.end() > end())
       return false;
 
     return true;
@@ -194,8 +208,7 @@ class AddressRange {
 
   // Returns true iff @p other intersects this range.
   bool Intersects(const AddressRange& other) const {
-    if (other.start_ + other.size_ <= start_ ||
-        other.start_ >= start_ + size_)
+    if (other.end() <= start_ || other.start_ >= end())
       return false;
 
     return true;
@@ -219,11 +232,132 @@ class AddressRange {
   AddressType end() const { return start_ + size_; }
   SizeType size() const { return size_; }
 
+  bool Save(OutArchive* out_archive) const {
+    DCHECK(out_archive != NULL);
+    return out_archive->Save(start_) && out_archive->Save(size_);
+  }
+
+  bool Load(InArchive* in_archive) {
+    DCHECK(in_archive != NULL);
+    return in_archive->Load(&start_) && in_archive->Load(&size_);
+  }
+
  private:
   // Start of address range.
   AddressType start_;
   // Size of address range.
   SizeType size_;
+};
+
+// An AddressRangeMap is used for keeping track of data in one address space
+// that has some relationship with data in another address space. Mappings are
+// stored as pairs of addresses, one from the 'source' address-space and one
+// from the 'destination' address-space. The ranges are sorted based on the
+// source ranges, and the source ranges must be disjoint. The data structure
+// ensures that the representation used is minimal in the following sense:
+// a pair of address-range mappings that have the same size in both images and
+// are consecutive in each image will be merged. For example, consider a
+// mapping containing the two pairs of ranges:
+//
+//   [0, 10) maps to [1000, 1010), and
+//   [10, 30) maps to [1010, 1030).
+//
+// This is more succintly represented as (assuming linearity of the underlying
+// relationship):
+//
+//   [0, 30) maps to [1000, 1030).
+//
+// However, a pair of mappings like:
+//
+//   [0, 10) maps to [1000, 1010), and
+//   [10, 30) maps to [1010, 1036)
+//
+// should not be merged, as even though they are contiguous in both address
+// spaces, the source and destination ranges are not of the same size for the
+// second pair. Thus, we can't imply that that the relationship holds for the
+// pair [0, 30) and [1000, 1036).
+template <typename SourceRangeType, typename DestinationRangeType>
+class AddressRangeMap {
+ public:
+  typedef SourceRangeType SourceRange;
+  typedef DestinationRangeType DestinationRange;
+  typedef std::pair<SourceRange, DestinationRange> RangePair;
+  typedef std::vector<RangePair> RangePairs;
+
+  const RangePairs& range_pairs() const { return range_pairs_; }
+  const RangePair& range_pair(size_t i) const { return range_pairs_[i]; }
+  bool empty() const { return range_pairs_.empty(); }
+  size_t size() const { return range_pairs_.size(); }
+
+  bool operator==(const AddressRangeMap& other) const {
+    return range_pairs_ == other.range_pairs_;
+  }
+
+  bool operator!=(const AddressRangeMap& other) const {
+    return range_pairs_ != other.range_pairs_;
+  }
+
+  // Determines if this is a simple mapping.
+  //
+  // A mapping is simple if there exists exactly one range, and the sizes of the
+  // source and destination ranges are identical.
+  //
+  // @returns true if this mapping is simple, false otherwise.
+  bool IsSimple() const {
+    return range_pairs_.size() == 1 &&
+        range_pairs_.front().first.size() == range_pairs_.front().second.size();
+  }
+
+  // Determines if the given source address range is fully mapped.
+  //
+  // @param src_range the source range to confirm.
+  // @returns true if @p src_range is fully mapped, false otherwise.
+  bool IsMapped(const SourceRange& src_range) const;
+
+  // Determines if the given source address range is fully mapped.
+  //
+  // @param start the beginning of the source range to confirm.
+  // @param size the size of the source range to confirm.
+  // @returns true if the sourec range is fully mapped, false otherwise.
+  bool IsMapped(typename SourceRange::Address start,
+                typename SourceRange::Size size) const {
+    return IsMapped(SourceRange(start, size));
+  }
+
+  // Adds a new pair of ranges to the map.
+  //
+  // This method allows insertions at arbitrary locations, but may consequently
+  // be slower as a reallocation may be required.
+  //
+  // @param src_range the source range of the mapping to be inserted.
+  // @param dst_range the destination range of the mapping to be inserted.
+  // @returns true on success, false otherwise.
+  bool Insert(const SourceRange& src_range, const DestinationRange& dst_range);
+
+  // Pushes a new pair of ranges to the tail end of the source address range.
+  //
+  // This method is amortized O(1) and is simpler than Insert if the mapping
+  // is being created in sequential order in the source address space. This will
+  // fail if @p src_range is not greater than all existing ranges.
+  //
+  // @param src_range the source range of the mapping to be inserted.
+  // @param dst_range the destination range of the mapping to be inserted.
+  // @returns true on success, false otherwise.
+  bool Push(const SourceRange& src_range, const DestinationRange& dst_range);
+
+  // For serialization.
+  bool Save(OutArchive* out_archive) const {
+    DCHECK(out_archive != NULL);
+    return out_archive->Save(range_pairs_);
+  }
+  bool Load(InArchive* in_archive) {
+    DCHECK(in_archive != NULL);
+    return in_archive->Load(&range_pairs_);
+  }
+
+ private:
+  // Stores the mapping.
+  RangePairs range_pairs_;
 };
 
 template <typename AddressType, typename SizeType, typename ItemType>
@@ -467,6 +601,163 @@ AddressSpace<AddressType, SizeType, ItemType>::FindContaining(
     return it;
 
   return ranges_.end();
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+bool AddressRangeMap<SourceRangeType, DestinationRangeType>::IsMapped(
+    const SourceRange& src_range) const {
+  // Find the first existing source range that is not less than src_range.
+  // The returned iterator either intersects src_range, or is strictly greater
+  // than it.
+  RangePairs::const_iterator it = std::lower_bound(
+      range_pairs_.begin(),
+      range_pairs_.end(),
+      std::make_pair(src_range,
+                     // We have to manually create a valid DestinationRange with
+                     // a size > 0.
+                     DestinationRange(typename DestinationRange::Address(),
+                                      1)),
+      internal::RangePairCompare<SourceRange, DestinationRange>());
+
+  // Step through the successive mapped ranges and see if they cover src_range.
+  typename SourceRange::Address position = src_range.start();
+  while (true) {
+    // No more mapped source ranges? Then src_range is not covered.
+    if (it == range_pairs_.end())
+      return false;
+
+    // Is there an uncovered gap between position and the next mapped source
+    // range? Then src_range is not covered.
+    if (position < it->first.start())
+      return false;
+
+    // Step over this mapped source range and see if we're completely covered.
+    position = it->first.end();
+    if (position >= src_range.end())
+      return true;
+
+    ++it;
+  }
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Insert(
+    const SourceRange& src_range, const DestinationRange& dst_range) {
+  // Find the first existing source range that is not less than src_range.
+  RangePairs::iterator it = std::lower_bound(
+      range_pairs_.begin(),
+      range_pairs_.end(),
+      std::make_pair(src_range, dst_range),
+      internal::RangePairCompare<SourceRange, DestinationRange>());
+
+  // The search fell off the end of the vector? Simply insert it.
+  if (it == range_pairs_.end()) {
+    range_pairs_.push_back(std::make_pair(src_range, dst_range));
+    return true;
+  }
+
+  // Does this source range overlap at all with the existing one?
+  if (it->first.Intersects(src_range))
+    return false;
+
+  // At this point we know that 'it' points to a source range that is greater
+  // than src_range. There are now 4 possibilities:
+  // 1. It can be merged with the source range to the left, at 'it - 1'.
+  // 2. It can be merged with the source range to the right, at 'it'.
+  // 3. It can be merged with both the source range to the left and the right.
+  // 4. It can't be merged at all, and needs to be inserted.
+
+  // Determine in which directions we need to merge.
+  bool merge_left = false;
+  bool merge_right = false;
+  if (src_range.size() == dst_range.size()) {
+    // If there is an element to the left, see if we can merge with it.
+    if (it != range_pairs_.begin()) {
+      RangePairs::iterator it_left = it - 1;
+      if (it_left->first.size() == it_left->second.size() &&
+          it_left->first.end() == src_range.start() &&
+          it_left->second.end() == dst_range.start()) {
+        merge_left = true;
+      }
+    }
+
+    if (it->first.size() == it->second.size() &&
+        src_range.end() == it->first.start() &&
+        dst_range.end() == it->second.start()) {
+      merge_right = true;
+    }
+  }
+
+  // Don't need to change sizes because we're merging in only one direction?
+  if (merge_left != merge_right) {
+    SourceRange merged_src_range;
+    DestinationRange merged_dst_range;
+    if (merge_left) {
+      it--;
+      merged_src_range = SourceRange(it->first.start(),
+                                     it->first.size() + src_range.size());
+      merged_dst_range = DestinationRange(it->second.start(),
+                                          it->second.size() + dst_range.size());
+    } else {
+      merged_src_range = SourceRange(src_range.start(),
+                                     src_range.size() + it->first.size());
+      merged_dst_range = DestinationRange(dst_range.start(),
+                                          dst_range.size() + it->second.size());
+    }
+
+    *it = std::make_pair(merged_src_range, merged_dst_range);
+    return true;
+  }
+
+  // Merging in both directions and shrinking?
+  if (merge_left && merge_right) {
+    RangePairs::iterator it_left = it - 1;
+
+    SourceRange merged_src_range(
+        it_left->first.start(),
+        it_left->first.size() + src_range.size() + it->first.size());
+    DestinationRange merged_dst_range(
+        it_left->second.start(),
+        it_left->second.size() + dst_range.size() + it->second.size());
+
+    *it_left = std::make_pair(merged_src_range, merged_dst_range);
+    range_pairs_.erase(it);
+    return true;
+  }
+
+  // If we get here then we're growing.
+  range_pairs_.insert(it, std::make_pair(src_range, dst_range));
+  return true;
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Push(
+    const SourceRange& src_range, const DestinationRange& dst_range) {
+  if (!range_pairs_.empty()) {
+    SourceRange& last_src_range = range_pairs_.back().first;
+
+    // If we already have RangePairs in the list, then src_range must be beyond
+    // the last SourceRange.
+    if (!(last_src_range < src_range) || last_src_range.Intersects(src_range))
+      return false;
+
+    // Can we merge this new pair of ranges with the existing last pair of
+    // ranges?
+    DestinationRange& last_dst_range = range_pairs_.back().second;
+    if (last_src_range.size() == last_dst_range.size() &&
+        src_range.size() == dst_range.size() &&
+        last_src_range.end() == src_range.start() &&
+        last_dst_range.end() == dst_range.start()) {
+      last_src_range = SourceRange(
+          last_src_range.start(), last_src_range.size() + src_range.size());
+      last_dst_range = DestinationRange(
+          last_dst_range.start(), last_dst_range.size() + dst_range.size());
+      return true;
+    }
+  }
+
+  range_pairs_.push_back(std::make_pair(src_range, dst_range));
+  return true;
 }
 
 }  // namespace core

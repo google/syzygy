@@ -165,6 +165,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::AddBlock(BlockType type,
   bool inserted = InsertImpl(addr, block);
   DCHECK(inserted);
 
+  // Mark the source range from whence this block originates.
+  bool pushed = block->source_ranges().Push(
+      BlockGraph::Block::DataRange(0, size),
+      BlockGraph::Block::SourceRange(addr, size));
+  DCHECK(pushed);
+
   return block;
 }
 
@@ -235,10 +241,6 @@ bool BlockGraph::AddressSpace::InsertImpl(RelativeAddress addr, Block* block) {
   DCHECK(inserted);
   // Update the address stored in the block.
   block->set_addr(addr);
-
-  // And set the original address if it hasn't already been set.
-  if (block->original_addr() == kInvalidAddress)
-    block->set_original_addr(addr);
 
   return true;
 }
@@ -425,7 +427,6 @@ BlockGraph::Block::Block()
       size_(0),
       alignment_(1),
       addr_(kInvalidAddress),
-      original_addr_(kInvalidAddress),
       section_(kInvalidSection),
       attributes_(0),
       owns_data_(false),
@@ -443,7 +444,6 @@ BlockGraph::Block::Block(BlockId id,
       alignment_(1),
       name_(name),
       addr_(kInvalidAddress),
-      original_addr_(kInvalidAddress),
       section_(kInvalidSection),
       attributes_(0),
       owns_data_(false),
@@ -615,8 +615,8 @@ bool BlockGraph::Block::SaveProps(OutArchive* out_archive) const {
   if (out_archive->Save(id_) && out_archive->Save((int)type_) &&
       out_archive->Save(size_) && out_archive->Save(alignment_) &&
       out_archive->Save(name_) && out_archive->Save(addr_) &&
-      out_archive->Save(original_addr_) && out_archive->Save(section_) &&
-      out_archive->Save(attributes_) && out_archive->Save(labels_)) {
+      out_archive->Save(section_) && out_archive->Save(attributes_) &&
+      out_archive->Save(source_ranges_) && out_archive->Save(labels_)) {
     return true;
   }
   LOG(ERROR) << "Unable to save block properties.";
@@ -628,8 +628,8 @@ bool BlockGraph::Block::LoadProps(InArchive* in_archive) {
   if (in_archive->Load(&id_) && in_archive->Load((int*)&type_) &&
       in_archive->Load(&size_) && in_archive->Load(&alignment_) &&
       in_archive->Load(&name_) && in_archive->Load(&addr_) &&
-      in_archive->Load(&original_addr_) && in_archive->Load(&section_) &&
-      in_archive->Load(&attributes_) && in_archive->Load(&labels_)) {
+      in_archive->Load(&section_) && in_archive->Load(&attributes_) &&
+      in_archive->Load(&source_ranges_) && in_archive->Load(&labels_)) {
     return true;
   }
   LOG(ERROR) << "Unable to load block properties.";
