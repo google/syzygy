@@ -139,13 +139,19 @@ class BlockGraph {
   BlockId next_block_id_;
 };
 
-// A block represents an indivisible block of either code or data.
-// The block also stores references to other blocks in the graph, their
+// A block represents a block of either code or data.
+//
+// Since blocks may be split and up and glued together in arbitrary ways, each
+// block maintains an address-space over its data, associating ranges of block
+// data to ranges of bytes in the original image. This effectively encodes OMAP
+// data, allowing the PDB file to be updated.
+//
+// Each block also stores references to other blocks in the graph, their
 // relative location within the block and their type and size.
-// Each block has a set of attributes, including a size, a name,
-// an original address and a "current" address.
-// Most of those attributes are mutable, and are set in the process of
-// creating and manipulating images and graph address spaces.
+//
+// Each block has a set of attributes, including a size, a name and a
+// "current" address. Most of those attributes are mutable, and are set in the
+// process of creating and manipulating images and graph address spaces.
 class BlockGraph::Block {
  public:
   // Set of the blocks that have a reference to this block.
@@ -154,7 +160,21 @@ class BlockGraph::Block {
   // deletion.
   typedef std::pair<Block*, Offset> Referrer;
   typedef std::set<Referrer> ReferrerSet;
+
+  // Map of references that this block makes to other blocks.
   typedef std::map<Offset, Reference> ReferenceMap;
+
+  // Represents a range of data in this block.
+  typedef AddressRange<Offset, size_t> DataRange;
+
+  // Represents a range of data in the original image.
+  typedef AddressRange<RelativeAddress, size_t> SourceRange;
+
+  // A map between bytes in this block and bytes in the original image.
+  typedef AddressRangeMap<DataRange, SourceRange> SourceRanges;
+
+  // Labels associated with data in this block. These are mainly kept around
+  // as an aid to debugging.
   typedef std::map<Offset, std::string> LabelMap;
 
   // Blocks need to be default constructible for serialization.
@@ -185,14 +205,6 @@ class BlockGraph::Block {
   // an address in an address space.
   RelativeAddress addr() const { return addr_; }
   void set_addr(RelativeAddress addr) { return addr_ = addr; }
-
-  // The original address of the block is set the first time the block
-  // is assigned an address in any address space, and does not change
-  // after that.
-  RelativeAddress original_addr() const { return original_addr_; }
-  void set_original_addr(RelativeAddress addr) {
-      return original_addr_ = addr;
-  }
 
   // The section index for the block, this is a convenience attribute.
   size_t section() const { return section_; }
@@ -237,6 +249,8 @@ class BlockGraph::Block {
 
   const ReferenceMap& references() const { return references_; }
   const ReferrerSet& referrers() const { return referrers_; }
+  const SourceRanges& source_ranges() const { return source_ranges_; }
+  SourceRanges& source_ranges() { return source_ranges_; }
   const LabelMap& labels() const { return labels_; }
 
   // Set the reference at @p offset to @p ref.
@@ -289,13 +303,13 @@ class BlockGraph::Block {
   Size alignment_;
   std::string name_;
   RelativeAddress addr_;
-  RelativeAddress original_addr_;
 
   size_t section_;
   BlockAttributes attributes_;
 
   ReferenceMap references_;
   ReferrerSet referrers_;
+  SourceRanges source_ranges_;
   LabelMap labels_;
 
   // True iff data_ is ours to deallocate with delete [].

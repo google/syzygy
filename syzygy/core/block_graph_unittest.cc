@@ -34,7 +34,6 @@ TEST(BlockGraphTest, AddBlock) {
   ASSERT_EQ(0x20, block->size());
   ASSERT_STREQ("block", block->name());
   ASSERT_EQ(kInvalidAddress, block->addr());
-  ASSERT_EQ(kInvalidAddress, block->original_addr());
   ASSERT_EQ(kInvalidSection, block->section());
   ASSERT_EQ(0, block->attributes());
   ASSERT_EQ(NULL, block->data());
@@ -238,7 +237,13 @@ TEST(BlockGraphAddressSpaceTest, AddBlock) {
                                                     "code");
   ASSERT_TRUE(block != NULL);
   EXPECT_EQ(0x1000, block->addr().value());
-  EXPECT_EQ(0x1000, block->original_addr().value());
+
+  // Check that the source range is simple and has the same address as the
+  // block.
+  EXPECT_TRUE(block->source_ranges().IsSimple());
+  EXPECT_TRUE(block->source_ranges().IsMapped(0, block->size()));
+  EXPECT_EQ(0x1000,
+            block->source_ranges().range_pair(0).second.start().value());
 
   // But inserting anything that intersects with it should fail.
   EXPECT_EQ(NULL, address_space.AddBlock(BlockGraph::CODE_BLOCK,
@@ -299,17 +304,14 @@ TEST(BlockGraphAddressSpaceTest, InsertBlock) {
   EXPECT_TRUE(address_space.GetAddressOf(block1, &addr));
   EXPECT_EQ(0x1000, addr.value());
   EXPECT_EQ(0x1000, block1->addr().value());
-  EXPECT_EQ(0x1000, block1->original_addr().value());
 
   EXPECT_TRUE(address_space.GetAddressOf(block2, &addr));
   EXPECT_EQ(0x1010, addr.value());
   EXPECT_EQ(0x1010, block2->addr().value());
-  EXPECT_EQ(0x1010, block2->original_addr().value());
 
   EXPECT_TRUE(address_space.GetAddressOf(block3, &addr));
   EXPECT_EQ(0x1030, addr.value());
   EXPECT_EQ(0x1030, block3->addr().value());
-  EXPECT_EQ(0x1030, block3->original_addr().value());
 
   // Insert a block into a second address space.
   BlockGraph::AddressSpace address_space2(&image);
@@ -321,7 +323,6 @@ TEST(BlockGraphAddressSpaceTest, InsertBlock) {
   EXPECT_EQ(0x2000, addr.value());
 
   EXPECT_EQ(0x2000, block1->addr().value());
-  EXPECT_EQ(0x1000, block1->original_addr().value());
 }
 
 TEST(BlockGraphAddressSpaceTest, GetBlockByAddress) {

@@ -30,6 +30,7 @@
         'address.h',
         'address_space.cc',
         'address_space.h',
+        'address_space_internal.h',
         'basic_block_disassembler.cc',
         'basic_block_disassembler.h',
         'block_graph.cc',
