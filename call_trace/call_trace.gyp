@@ -90,10 +90,14 @@
       'product_name': 'call_trace_parser',
       'type': 'static_library',
       'sources': [
-        'call_trace_parser.h',
-        'call_trace_parser.cc',
-        'parser.cc',
-        'parser.h',
+        'parse_engine.cc',
+        'parse_engine.h',
+        'parse_engine_etw.cc',
+        'parse_engine_etw.h',
+        #'parse_engine_rpc.cc',
+        #'parse_engine_rpc.h',
+        'parser_base.h',  # TODO(rogerm): Rename to parser.cc|h
+        'parser_base.cc',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
@@ -120,6 +124,8 @@
       'sources': [
         'buffer_pool.cc',
         'buffer_pool.h',
+        'process_info.cc',
+        'process_info.h',
         'service.cc',
         'service.h',
         'service_rpc_impl.cc',
@@ -131,6 +137,11 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
       ],
+      'all_dependent_settings': {
+        'libraries': [
+          'advapi32.lib',
+        ],
+      },
     },
     {
       'target_name': 'call_trace_service_exe',
@@ -151,7 +162,10 @@
       'target_name': 'call_trace_service_unittests',
       'type': 'executable',
       'sources': [
-        'client_unittests.cc',
+        'parse_engine_etw_unittests.cc',
+        #'parse_engine_rpc_unittests.cc',
+        'parse_engine_unittests.cc',
+        'process_info_unittests.cc',
         'service_unittests.cc',
         'unittests_main.cc',
       ],
@@ -167,7 +181,6 @@
         '../pe/pe.gyp:pe_unittest_utils',
       ],
       'libraries': [
-        'rpcrt4.lib',
         'imagehlp.lib',
       ],
     },
