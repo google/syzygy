@@ -23,13 +23,11 @@ using call_trace::service::Service;
 // RPC entrypoint for CallTraceService::CreateSession().
 boolean CallTraceService_CreateSession(
     /* [in] */ handle_t binding,
-    /* [string][in] */ const wchar_t* command_line,
     /* [out] */ SessionHandle* session_handle,
     /* [out] */ CallTraceBuffer* call_trace_buffer,
     /* [out] */ unsigned long* flags) {
   // Delegate the call to the call trace service instance.
   return Service::Instance().CreateSession(binding,
-                                           command_line,
                                            session_handle,
                                            call_trace_buffer,
                                            flags);

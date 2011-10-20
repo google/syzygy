@@ -26,6 +26,7 @@
 #include "base/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/call_trace/buffer_pool.h"
+#include "syzygy/call_trace/process_info.h"
 
 namespace call_trace {
 namespace service {
@@ -42,11 +43,11 @@ typedef DWORD ProcessID;
 // of this class is synchronized.
 class Session {
  public:
-  Session(Service* call_trace_service, ProcessID client_process_id);
+  explicit Session(Service* call_trace_service);
   ~Session();
 
   // Initialize this session object.
-  bool Init(const FilePath& trace_directory, const wchar_t* command_line);
+  bool Init(const FilePath& trace_directory, ProcessID client_process_id);
 
   // Close the session, flushing its unwritten buffers to the given queue
   // or notifying the caller that is safe to destroy it.
@@ -77,7 +78,7 @@ class Session {
   HANDLE trace_file_handle() { return trace_file_handle_.Get(); }
 
   // Returns the process id of the client process.
-  ProcessID client_process_id() const { return client_process_id_; }
+  ProcessID client_process_id() const { return client_.process_id; }
 
   // Returns the path of the trace file.
   const FilePath& trace_file_path() const { return trace_file_path_; }
@@ -92,12 +93,8 @@ class Session {
   // object.
   Service* const call_trace_service_;
 
-  // The PID for the process to which the session belongs.
-  const ProcessID client_process_id_;
-
-  // Our handle for the process to which the session belongs. We open this
-  // in order to duplicate shared memory handles into the client.
-  base::win::ScopedHandle client_process_handle_;
+  // The process information for the client to which the session belongs.
+  ProcessInfo client_;
 
   // The handle to the trace file to which buffers are committed.
   base::win::ScopedHandle trace_file_handle_;

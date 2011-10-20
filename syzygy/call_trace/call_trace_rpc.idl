@@ -55,7 +55,6 @@ interface CallTrace {
   // @param flags On success, the service will return the currently configured
   //     call trace flags here.
   boolean CreateSession([in] handle_t binding,
-                        [in, string] const wchar_t* command_line,
                         [out] SessionHandle* session_handle,
                         [out] CallTraceBuffer* call_trace_buffer,
                         [out] unsigned long* flags);

@@ -14,17 +14,21 @@
 
 #include "syzygy/call_trace/service.h"
 
+#include <psapi.h>
+
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/align.h"
 #include "syzygy/call_trace/call_trace_defs.h"
 #include "syzygy/call_trace/client_utils.h"
 #include "syzygy/call_trace/rpc_helpers.h"
 
 using namespace call_trace::client;
 using call_trace::service::Service;
+using common::AlignUp;
 
 namespace {
 
@@ -108,10 +112,8 @@ class CallTraceServiceTest : public testing::Test {
     BindRPC();
 
     unsigned long flags;
-    CommandLine* cmd_line = CommandLine::ForCurrentProcess();
     RpcStatus status = InvokeRpc(CallTraceClient_CreateSession,
                                  client_rpc_binding,
-                                 cmd_line->command_line_string().c_str(),
                                  session_handle,
                                  &segment->buffer_info,
                                  &flags);
@@ -175,7 +177,8 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   void ReadTraceFile(std::string* contents) {
-    file_util::FileEnumerator enumerator(temp_dir, false,
+    file_util::FileEnumerator enumerator(temp_dir,
+                                         false,
                                          file_util::FileEnumerator::FILES,
                                          L"trace-*.bin");
     FilePath trace_file_name(enumerator.Next());
@@ -185,18 +188,32 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   void ValidateTraceFileHeader(const TraceFileHeader& header) {
-    std::wstring cmd_line(
-        CommandLine::ForCurrentProcess()->command_line_string());
+    std::wstring cmd_line(::GetCommandLineW());
+
+    wchar_t module_path[MAX_PATH];
+    ASSERT_TRUE(::GetModuleFileName(NULL,
+                                    &module_path[0],
+                                    arraysize(module_path)));
+
+    MODULEINFO module_info;
+    ASSERT_TRUE(::GetModuleInformation(::GetCurrentProcess(),
+                                       ::GetModuleHandle(NULL),
+                                       &module_info,
+                                       sizeof(module_info)));
 
     size_t header_size = sizeof(header) + cmd_line.length() * sizeof(wchar_t);
-
-    ASSERT_LT(header.header_size, header.block_size);
+    ASSERT_LT(header.header_size, 2 * header.block_size);
     ASSERT_EQ(header.server_version.hi, TRACE_VERSION_HI);
     ASSERT_EQ(header.server_version.lo, TRACE_VERSION_LO);
     ASSERT_EQ(header.header_size, header_size);
     ASSERT_EQ(header.process_id, ::GetCurrentProcessId());
-    ASSERT_EQ(header.command_line_len, cmd_line.length() + 1);
-    ASSERT_EQ(cmd_line, &header.command_line[0]);
+    ASSERT_STREQ(header.module_path, module_path);
+    ASSERT_EQ(header.command_line_len, cmd_line.length());
+    ASSERT_STREQ(header.command_line, cmd_line.c_str());
+    ASSERT_EQ(header.module_base_address,
+              bit_cast<uint32>(module_info.lpBaseOfDll));
+    ASSERT_EQ(header.module_size,
+              bit_cast<uint32>(module_info.SizeOfImage));
   }
 
   typedef std::map<HANDLE, uint8*> BasePtrMap;
@@ -204,6 +221,13 @@ class CallTraceServiceTest : public testing::Test {
   FilePath temp_dir;
   handle_t client_rpc_binding;
 };
+
+template<typename T1, typename T2>
+inline ptrdiff_t RawPtrDiff(const T1* p1, const T2* p2) {
+  const uint8* const u1 = reinterpret_cast<const uint8*>(p1);
+  const uint8* const u2 = reinterpret_cast<const uint8*>(p2);
+  return u1 - u2;
+}
 
 } // namespace
 
@@ -220,7 +244,7 @@ TEST_F(CallTraceServiceTest, Connect) {
 
   Service& cts = Service::Instance();
   ASSERT_TRUE(cts.Start(true));
-  CreateSession(&session_handle, &segment);
+  ASSERT_NO_FATAL_FAILURE(CreateSession(&session_handle, &segment));
   ASSERT_TRUE(cts.Stop());
 
   std::string trace_file_contents;
@@ -229,8 +253,8 @@ TEST_F(CallTraceServiceTest, Connect) {
   TraceFileHeader* header =
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
 
-  ValidateTraceFileHeader(*header);
-  ASSERT_EQ(trace_file_contents.length(), header->block_size);
+  ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
+  ASSERT_EQ(trace_file_contents.length(), 2 * header->block_size);
 }
 
 TEST_F(CallTraceServiceTest, Allocate) {
@@ -242,14 +266,14 @@ TEST_F(CallTraceServiceTest, Allocate) {
   ASSERT_TRUE(cts.Start(true));
 
   // Simulate some work on the main thread.
-  CreateSession(&session_handle, &segment1);
+  ASSERT_NO_FATAL_FAILURE(CreateSession(&session_handle, &segment1));
   WriteSegmentHeader(session_handle, &segment1);
   MyRecordType* record1 = AllocateTraceRecord<MyRecordType>(&segment1);
   base::strlcpy(record1->message, "Message 1", arraysize(record1->message));
   size_t length1 = segment1.header->segment_length;
 
   // Simulate some work on a second thread.
-  AllocateBuffer(session_handle, &segment2);
+  ASSERT_NO_FATAL_FAILURE(AllocateBuffer(session_handle, &segment2));
   WriteSegmentHeader(session_handle, &segment2);
   segment2.header->thread_id += 1;
   MyRecordType* record2 = AllocateTraceRecord<MyRecordType>(&segment2, 256);
@@ -257,25 +281,26 @@ TEST_F(CallTraceServiceTest, Allocate) {
   size_t length2 = segment2.header->segment_length;
 
   // Commit the buffers in the opposite order.
-  ReturnBuffer(session_handle, &segment2);
-  CloseSession(&session_handle);
+  ASSERT_NO_FATAL_FAILURE(ReturnBuffer(session_handle, &segment2));
+  ASSERT_NO_FATAL_FAILURE(CloseSession(&session_handle));
 
   // Make sure everything is flushed.
   ASSERT_TRUE(cts.Stop());
 
   std::string trace_file_contents;
-  ReadTraceFile(&trace_file_contents);
+  ASSERT_NO_FATAL_FAILURE(ReadTraceFile(&trace_file_contents));
 
   TraceFileHeader* header =
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
 
-  ValidateTraceFileHeader(*header);
-  ASSERT_EQ(trace_file_contents.length(), 3 * header->block_size);
+  ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
+  ASSERT_EQ(trace_file_contents.length(), 4 * header->block_size);
 
   // Locate and validate the segment header prefix and segment header.
   // This should be segment 2.
-  RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(
-      &trace_file_contents[0] + header->block_size);
+  size_t offset = AlignUp(header->header_size, header->block_size);
+  RecordPrefix* prefix =
+      reinterpret_cast<RecordPrefix*>(&trace_file_contents[0] + offset);
   ASSERT_EQ(prefix->type, TraceFileSegment::Header::kTypeId);
   ASSERT_EQ(prefix->size, sizeof(TraceFileSegment::Header));
   ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
@@ -297,8 +322,10 @@ TEST_F(CallTraceServiceTest, Allocate) {
 
   // Locate and validate the next segment header prefix and segment header.
   // This should be segment 1.
-  prefix = reinterpret_cast<RecordPrefix*>(
-      &trace_file_contents[0] + (2 * header->block_size));
+
+  offset = AlignUp(RawPtrDiff(record + 1, &trace_file_contents[0]),
+                   header->block_size);
+  prefix = reinterpret_cast<RecordPrefix*>(&trace_file_contents[0] + offset);
   ASSERT_EQ(prefix->type, TraceFileSegment::Header::kTypeId);
   ASSERT_EQ(prefix->size, sizeof(TraceFileSegment::Header));
   ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
@@ -336,7 +363,7 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   // Start up the service and create a session
   Service& cts = Service::Instance();
   ASSERT_TRUE(cts.Start(true));
-  CreateSession(&session_handle, &segment);
+  ASSERT_NO_FATAL_FAILURE(CreateSession(&session_handle, &segment));
 
   // Write the initial block plus num_blocks "message" blocks.  The n-th block
   // will have n message written to it (i.e., block will have 1 message, the 2nd
@@ -348,28 +375,29 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
       base::strlcpy(record->message, messages[i], arraysize(record->message));
     }
     segment_length[block] = segment.header->segment_length;
-    ExchangeBuffer(session_handle, &segment);
+    ASSERT_NO_FATAL_FAILURE(ExchangeBuffer(session_handle, &segment));
   }
-  ReturnBuffer(session_handle, &segment);
+  ASSERT_NO_FATAL_FAILURE(ReturnBuffer(session_handle, &segment));
   ASSERT_TRUE(cts.Stop());
 
   // Load the trace file contents into memory.
   std::string trace_file_contents;
-  ReadTraceFile(&trace_file_contents);
+  ASSERT_NO_FATAL_FAILURE(ReadTraceFile(&trace_file_contents));
 
   // Read and validate the trace file header. We expect to have written
-  // the 1 header block plus num_blocks additional data blocks.
+  // the 2 header block plus num_blocks additional data blocks.
   TraceFileHeader* header =
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
-  ValidateTraceFileHeader(*header);
-  size_t total_blocks = num_blocks + 1;
+  ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
+  size_t total_blocks = 2 + num_blocks;
   ASSERT_EQ(trace_file_contents.length(), total_blocks * header->block_size);
 
   // Read each data block and validate its contents.
+  size_t segment_offset = AlignUp(header->header_size, header->block_size);
   for (int block = 0; block < num_blocks; ++block) {
     // Locate and validate the segment header prefix.
     RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(
-        &trace_file_contents[0] + ((block + 1) * header->block_size));
+        &trace_file_contents[0] + segment_offset);
     ASSERT_EQ(prefix->type, TraceFileSegment::Header::kTypeId);
     ASSERT_EQ(prefix->size, sizeof(TraceFileSegment::Header));
     ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
@@ -393,5 +421,9 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
       ASSERT_STREQ(record->message, messages[j]);
       prefix = reinterpret_cast<RecordPrefix*>(record + 1);
     }
+
+    segment_offset = AlignUp(
+        RawPtrDiff(prefix, &trace_file_contents[0]),
+        header->block_size);
   }
 }
