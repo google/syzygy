@@ -228,6 +228,10 @@ class AddressRange {
     return !(other < *this) && !(*this < other);
   }
 
+  bool operator!=(const AddressRange& other) const {
+    return !operator==(other);
+  }
+
   AddressType start() const { return start_; }
   AddressType end() const { return start_ + size_; }
   SizeType size() const { return size_; }
