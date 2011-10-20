@@ -94,10 +94,10 @@
         'parse_engine.h',
         'parse_engine_etw.cc',
         'parse_engine_etw.h',
-        #'parse_engine_rpc.cc',
-        #'parse_engine_rpc.h',
-        'parser_base.h',  # TODO(rogerm): Rename to parser.cc|h
-        'parser_base.cc',
+        'parse_engine_rpc.cc',
+        'parse_engine_rpc.h',
+        'parser.h',
+        'parser.cc',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
@@ -163,7 +163,7 @@
       'type': 'executable',
       'sources': [
         'parse_engine_etw_unittests.cc',
-        #'parse_engine_rpc_unittests.cc',
+        'parse_engine_rpc_unittests.cc',
         'parse_engine_unittests.cc',
         'process_info_unittests.cc',
         'service_unittests.cc',
