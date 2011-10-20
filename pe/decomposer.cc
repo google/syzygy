@@ -41,7 +41,9 @@ using core::BlockGraph;
 using core::Disassembler;
 using core::RelativeAddress;
 using pe::Decomposer;
+using pe::ImageLayout;
 using pe::PEFile;
+using pe::PEFileParser;
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
 const DWORD kDataCharacteristics =
@@ -656,6 +658,34 @@ void ClearAttributeRecursively(BlockGraph::BlockAttributes attribute,
   }
 }
 
+bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
+                             ImageLayout* layout) {
+  if (nt_headers_block->data_size() < sizeof(IMAGE_NT_HEADERS)) {
+    LOG(ERROR) << "NT Headers too short.";
+    return false;
+  }
+
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
+
+  size_t expected_size = sizeof(*nt_headers) +
+      sizeof(IMAGE_SECTION_HEADER) * nt_headers->FileHeader.NumberOfSections;
+  if (nt_headers_block->data_size() < expected_size) {
+    LOG(ERROR) << "NT Headers too short to contain section headers.";
+    return false;
+  }
+
+  CopyNtHeaderToImageLayout(nt_headers, &layout->header_info);
+
+  const IMAGE_SECTION_HEADER* section_headers =
+      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+
+  CopySectionHeadersToImageLayout(nt_headers->FileHeader.NumberOfSections,
+                                  section_headers,
+                                  &layout->segments);
+  return true;
+}
+
 }  // namespace
 
 namespace pe {
@@ -689,8 +719,9 @@ Decomposer::Decomposer(const PEFile& image_file,
   CHECK(success);
 }
 
-bool Decomposer::Decompose(DecomposedImage* decomposed_image,
-                           CoverageStatistics* stats) {
+bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
+                               PEFileParser::PEHeader* header,
+                               CoverageStatistics* stats) {
   // Start by instantiating and initializing our Debug Interface Access session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive())) {
@@ -730,7 +761,7 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
     return false;
   }
 
-  image_ = &decomposed_image->address_space;
+  image_ = image;
 
   // Load FIXUP information from the PDB file. We do this first so that we
   // can do accounting with references that are created later on.
@@ -742,7 +773,7 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
 
   // Chunk out important PE image structures, like the headers and such.
   if (success)
-    success = CreatePEImageBlocksAndReferences(&decomposed_image->header);
+    success = CreatePEImageBlocksAndReferences(header);
 
   // Parse and validate the relocation entries.
   if (success)
@@ -820,9 +851,27 @@ bool Decomposer::Decompose(DecomposedImage* decomposed_image,
   return success;
 }
 
-bool Decomposer::BasicBlockDecompose(const DecomposedImage& image,
+bool Decomposer::Decompose(ImageLayout* image_layout,
+                           CoverageStatistics* stats) {
+  PEFileParser::PEHeader header;
+
+  if (!DecomposeImpl(&image_layout->blocks, &header, stats)) {
+    return false;
+  }
+
+  return CopyHeaderToImageLayout(header.nt_headers, image_layout);
+}
+
+bool Decomposer::Decompose(DecomposedImage* decomposed_image,
+                           CoverageStatistics* stats) {
+  return DecomposeImpl(&decomposed_image->address_space,
+                       &decomposed_image->header,
+                       stats);
+}
+
+bool Decomposer::BasicBlockDecompose(const ImageLayout& image_layout,
                                      BasicBlockBreakdown* breakdown) {
-  return BuildBasicBlockGraph(image, breakdown);
+  return BuildBasicBlockGraph(image_layout, breakdown);
 }
 
 void Decomposer::CalcCoverageStatistics(CoverageStatistics* stats) const {
@@ -2507,11 +2556,11 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   return true;
 }
 
-bool Decomposer::BuildBasicBlockGraph(const DecomposedImage& decomposed_image,
+bool Decomposer::BuildBasicBlockGraph(const ImageLayout& image_layout,
                                       BasicBlockBreakdown* breakdown) {
   DCHECK(breakdown != NULL);
   BlockGraph::AddressSpace::RangeMapConstIter block_iter =
-      decomposed_image.address_space.begin();
+      image_layout.blocks.begin();
 
   BlockGraph& basic_blocks = breakdown->basic_block_graph;
   BlockGraph::AddressSpace* basic_blocks_image =
@@ -2519,11 +2568,11 @@ bool Decomposer::BuildBasicBlockGraph(const DecomposedImage& decomposed_image,
   DCHECK(basic_blocks_image != NULL);
 
   bool success = true;
-  for (; block_iter != decomposed_image.address_space.end(); ++block_iter) {
+  for (; block_iter != image_layout.blocks.end(); ++block_iter) {
     const BlockGraph::Block* block = block_iter->second;
     const BlockGraph::Block::ReferenceMap& ref_map = block->references();
     RelativeAddress block_addr;
-    if (!decomposed_image.address_space.GetAddressOf(block, &block_addr)) {
+    if (!image_layout.blocks.GetAddressOf(block, &block_addr)) {
       LOG(DFATAL) << "Block " << block->name() << " has no address, "
                   << block->addr() << ":" << block->size();
       // Expect this to be the result of a merge?
@@ -2622,7 +2671,8 @@ bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
 }
 
 bool SaveDecomposition(const PEFile& pe_file,
-                       const Decomposer::DecomposedImage& image,
+                       const core::BlockGraph& block_graph,
+                       const ImageLayout& image_layout,
                        core::OutArchive* out_archive) {
   // Get the metadata for this module and the toolchain. This will
   // allow us to validate input files in other pieces of the toolchain.
@@ -2633,32 +2683,22 @@ bool SaveDecomposition(const PEFile& pe_file,
     return false;
 
   // Now write out the DecomposedImage.
-  if (!out_archive->Save(image.image) ||
-      !out_archive->Save(image.address_space)) {
+  if (!out_archive->Save(block_graph) ||
+      !out_archive->Save(image_layout.blocks)) {
     return false;
-  }
-
-  // Now serialize the PEHeader block IDs.
-  if (!SaveBlockPointer(image.header.dos_header, out_archive) ||
-      !SaveBlockPointer(image.header.nt_headers, out_archive)) {
-    return false;
-  }
-
-  for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; ++i) {
-    if (!SaveBlockPointer(image.header.data_directory[i],
-                          out_archive))
-      return false;
   }
 
   return true;
 }
 
-bool LoadDecomposition(PEFile* pe_file,
-                       Decomposer::DecomposedImage* image,
-                       core::InArchive* in_archive) {
-  DCHECK(pe_file != NULL);
-  DCHECK(image != NULL);
+bool LoadDecomposition(core::InArchive* in_archive,
+                       PEFile* pe_file,
+                       core::BlockGraph* block_graph,
+                       ImageLayout* image_layout) {
   DCHECK(in_archive != NULL);
+  DCHECK(pe_file != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(image_layout != NULL);
 
   // Load the metadata and initialize the PE file decomposition.
   Metadata metadata;
@@ -2675,33 +2715,34 @@ bool LoadDecomposition(PEFile* pe_file,
     return false;
 
   // Now deserialize the actual decomposed image.
-  if (!in_archive->Load(&image->image) ||
-      !in_archive->Load(&image->address_space)) {
+  if (!in_archive->Load(block_graph) ||
+      !in_archive->Load(&image_layout->blocks)) {
     return false;
   }
 
   // This sets any missing data pointers in the block graph. These
   // are pointers to data that was not owned by the block graph, but
   // rather by the PEFile.
-  if (!SetBlockDataPointers(*pe_file, &image->image)) {
+  if (!SetBlockDataPointers(*pe_file, block_graph)) {
     return false;
   }
 
-  // Populate the PEFile header pointers.
-  if (!LoadBlockPointer(image->image, &image->header.dos_header, in_archive) ||
-      !LoadBlockPointer(image->image, &image->header.nt_headers, in_archive)) {
+  // We can now recreate the rest of the image layout from the PE data.
+  // Start by retrieving the DOS header block, which is always at the start of
+  // the image.
+  BlockGraph::Block* dos_header =
+      image_layout->blocks.GetBlockByAddress(RelativeAddress());
+  if (dos_header == NULL)
     return false;
-  }
 
-  for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; ++i) {
-    if (!LoadBlockPointer(image->image,
-                          &image->header.data_directory[i],
-                          in_archive)) {
-      return false;
-    }
-  }
+  // The next block is the NT headers block.
+  BlockGraph::Block* nt_headers =
+      image_layout->blocks.GetBlockByAddress(
+          RelativeAddress(dos_header->size()));
+  if (nt_headers == NULL)
+    return false;
 
-  return true;
+  return CopyHeaderToImageLayout(nt_headers, image_layout);
 }
 
 }  // namespace pe

@@ -14,11 +14,15 @@
 #ifndef SYZYGY_PE_IMAGE_LAYOUT_H_
 #define SYZYGY_PE_IMAGE_LAYOUT_H_
 
-#include "base/file_path.h"
+#include <string>
+#include <vector>
+
+#include <windows.h>
+#include <winnt.h>
+
+#include "base/basictypes.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/block_graph.h"
-#include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/pe_file_parser.h"
 
 namespace pe {
 
@@ -75,13 +79,11 @@ struct ImageLayout {
     uint32 characteristics;
   };
 
+  explicit ImageLayout(core::BlockGraph* block_graph);
+
   // TODO(siggi): Remove this constructor once PEFileBuilder is
   //    yielding an ImageLayout as output.
-  explicit ImageLayout(const PEFileBuilder& builder);
-
-  // TODO(siggi): Remove this constructor once Decomposer is
-  //    yielding an ImageLayout as output.
-  explicit ImageLayout(const Decomposer::DecomposedImage& decomposed_image);
+  explicit ImageLayout(PEFileBuilder* builder);
 
   // Information to populate the PE header.
   HeaderInfo header_info;
@@ -90,8 +92,18 @@ struct ImageLayout {
   std::vector<SegmentInfo> segments;
 
   // The blocks that should be written to the image.
-  const core::BlockGraph::AddressSpace* blocks;
+  core::BlockGraph::AddressSpace blocks;
 };
+
+// Copies relevant fields from NT headers to header info.
+void CopyNtHeaderToImageLayout(const IMAGE_NT_HEADERS* nt_headers,
+                               ImageLayout::HeaderInfo* header_info);
+
+// Copies section headers to segment info.
+void CopySectionHeadersToImageLayout(
+    size_t num_sections,
+    const IMAGE_SECTION_HEADER* section_headers,
+    std::vector<ImageLayout::SegmentInfo>* segments);
 
 }  // namespace pe
 

@@ -221,7 +221,7 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
   ASSERT_TRUE(decomposed_.header.nt_headers->
       TransferReferrers(0, builder.nt_headers_block()));
 
-  ImageLayout layout(builder);
+  ImageLayout layout(&builder);
   PEFileWriter writer(layout);
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
@@ -344,7 +344,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   ASSERT_TRUE(decomposed_.header.nt_headers->
       TransferReferrers(0, builder.nt_headers_block()));
 
-  ImageLayout layout(builder);
+  ImageLayout layout(&builder);
   PEFileWriter writer(layout);
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));

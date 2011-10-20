@@ -32,6 +32,7 @@
 #include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/dia_browser.h"
+#include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -65,15 +66,27 @@ class Decomposer {
   // Initializes the decomposer for a given image file and path.
   Decomposer(const PEFile& image_file, const FilePath& file_path);
 
+  // Decomposes the image file into a BlockGraph and an ImageLayout, which
+  // have the breakdown of code and data blocks with typed references and
+  // information on where the blocks resided in the original image,
+  // respectively.
+  // @returns true on success, false on failure. If @p stats is non-null, it
+  // will be populated with decomposition coverage statistics.
+  bool Decompose(ImageLayout* image_layout,
+                 CoverageStatistics* stats);
+
   // Decomposes the image file into the specified DecomposedImage, which
   // has the breakdown of code and data blocks with typed references.
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
-  bool Decompose(DecomposedImage* image, CoverageStatistics* stats);
+  // @note this function is deprecated and will be removed as soon as all
+  //      callers are converted to the signature above.
+  bool Decompose(DecomposedImage* decomposed_image,
+                 CoverageStatistics* stats);
 
   // Decomposes the decomposed image into basic blocks.
   // @returns true on success, false on failure.
-  bool BasicBlockDecompose(const DecomposedImage& image,
+  bool BasicBlockDecompose(const ImageLayout& image_layout,
                            BasicBlockBreakdown* basic_block_breakdown);
 
   // Registers a pair of static initializer search patterns. Each of these
@@ -89,6 +102,11 @@ class Decomposer {
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
   typedef std::vector<pdb::PdbFixup> PdbFixups;
+
+  // Temporary bottleneck implementation function for decomposition.
+  bool DecomposeImpl(BlockGraph::AddressSpace* image,
+                     PEFileParser::PEHeader* header,
+                     CoverageStatistics* stats);
 
   // Create blocks for all code.
   bool CreateCodeBlocks(IDiaSymbol* globals);
@@ -161,7 +179,7 @@ class Decomposer {
 
   // Invokable once we have completed our original block graphs, this breaks
   // up code-blocks into their basic sub-components.
-  bool BuildBasicBlockGraph(const DecomposedImage& decomposed_image,
+  bool BuildBasicBlockGraph(const ImageLayout& image_layout,
                             BasicBlockBreakdown* breakdown);
 
   // Parses the various debug streams. This populates fixup_map_ as well.
@@ -318,15 +336,17 @@ class Decomposer::BasicBlockBreakdown {
   BlockGraph::AddressSpace basic_block_address_space;
 };
 
-// This is for serializing a PEFile/DecomposedImage pair. This allows
-// us to avoid doing decomposition repeatedly. This also stores
-// toolchain metadata for input validation.
+// This is for serializing a PEFile/BlockGraph/ImageLayout triple, which
+// allows us to avoid doing decomposition repeatedly.
+// This also stores toolchain metadata for input validation.
 bool SaveDecomposition(const PEFile& pe_file,
-                       const Decomposer::DecomposedImage& image,
+                       const core::BlockGraph& block_graph,
+                       const ImageLayout& image_layout,
                        core::OutArchive* out_archive);
-bool LoadDecomposition(PEFile* pe_file,
-                       Decomposer::DecomposedImage* image,
-                       core::InArchive* in_archive);
+bool LoadDecomposition(core::InArchive* in_archive,
+                       PEFile* pe_file,
+                       core::BlockGraph* block_graph,
+                       ImageLayout* image_layout);
 
 // This stores fixups, but in a format more convenient for us than the
 // basic PdbFixup struct.

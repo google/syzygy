@@ -53,11 +53,12 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   ASSERT_TRUE(image_file.Init(image_path));
 
   Decomposer decomposer(image_file, image_path);
+  core::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
   Decomposer::DecomposedImage decomposed_image;
-  ASSERT_TRUE(decomposer.Decompose(&decomposed_image, NULL));
+  ASSERT_TRUE(decomposer.Decompose(&image_layout, NULL));
 
-  ImageLayout layout(decomposed_image);
-  PEFileWriter writer(layout);
+  PEFileWriter writer(image_layout);
 
   ASSERT_TRUE(writer.WriteImage(temp_file));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file));

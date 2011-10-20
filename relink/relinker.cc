@@ -216,7 +216,7 @@ bool RelinkerBase::FinalizeImageHeaders(
 }
 
 bool RelinkerBase::WriteImage(const FilePath& output_path) {
-  ImageLayout layout(builder());
+  ImageLayout layout(&builder());
   PEFileWriter writer(layout);
 
   if (!writer.WriteImage(output_path)) {

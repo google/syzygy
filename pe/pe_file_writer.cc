@@ -205,9 +205,9 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
 
   // Iterate through all blocks in the address space.
   BlockGraph::AddressSpace::RangeMap::const_iterator it(
-      image_layout_.blocks->address_space_impl().ranges().begin());
+      image_layout_.blocks.address_space_impl().ranges().begin());
   BlockGraph::AddressSpace::RangeMap::const_iterator end(
-      image_layout_.blocks->address_space_impl().ranges().end());
+      image_layout_.blocks.address_space_impl().ranges().end());
 
   for (; it != end; ++it) {
     BlockGraph::Block* block = const_cast<BlockGraph::Block*>(it->second);
@@ -257,7 +257,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   }
 
   RelativeAddress addr;
-  if (!image_layout_.blocks->GetAddressOf(block, &addr)) {
+  if (!image_layout_.blocks.GetAddressOf(block, &addr)) {
     LOG(ERROR) << "All blocks must have an address.";
     return false;
   }
@@ -293,7 +293,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
 
     RelativeAddress src_addr(addr + start);
     RelativeAddress dst_addr;
-    if (!image_layout_.blocks->GetAddressOf(dst, &dst_addr)) {
+    if (!image_layout_.blocks.GetAddressOf(dst, &dst_addr)) {
       LOG(ERROR) << "All blocks must have an address";
       return false;
     }

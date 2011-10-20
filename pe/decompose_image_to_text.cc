@@ -25,6 +25,7 @@
 using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
+using pe::ImageLayout;
 using pe::PEFile;
 
 // Given @p address_space, dump it in text format to @p str. Also, increment
@@ -103,22 +104,22 @@ bool DumpImageToText(const FilePath& image_path,
 
   // And decompose it to a DecomposedImage instance.
   Decomposer decomposer(image_file, image_path);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed, NULL)) {
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  if (!decomposer.Decompose(&image_layout, NULL)) {
     LOG(ERROR) << "Unable to decompose image \"" << image_path.value() << "\".";
     return false;
   }
 
   size_t num_refs = 0;
-  DumpAddressSpaceToText(decomposed.address_space, str, &num_refs);
+  DumpAddressSpaceToText(image_layout.blocks, str, &num_refs);
 
-  str << "Discovered: " << decomposed.image.blocks().size() << " blocks\n"
+  str << "Discovered: " << block_graph.blocks().size() << " blocks\n"
       << "and " << num_refs << " references.";
 
   if (basic_block_decomposition) {
     Decomposer::BasicBlockBreakdown breakdown;
-
-    if (!decomposer.BasicBlockDecompose(decomposed, &breakdown)) {
+    if (!decomposer.BasicBlockDecompose(image_layout, &breakdown)) {
       LOG(ERROR) << "Unable to decompose basic blocks for image \""
                  << image_path.value() << "\".";
       return false;
