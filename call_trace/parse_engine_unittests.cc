@@ -22,7 +22,7 @@
 #include "base/logging.h"
 #include "gtest/gtest.h"
 #include "syzygy/call_trace/parse_engine.h"
-#include "syzygy/call_trace/parser_base.h"
+#include "syzygy/call_trace/parser.h"
 
 using call_trace::parser::Parser;
 using call_trace::parser::ParseEngine;

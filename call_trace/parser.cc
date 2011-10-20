@@ -13,18 +13,13 @@
 // limitations under the License.
 //
 // Implementation of call-trace parsing.
-//
-// TODO(rogerm): Rename parser_base.cc|h to parser.cc|h.
 
-#include "syzygy/call_trace/parser_base.h"
+#include "syzygy/call_trace/parser.h"
 
 #include "base/logging.h"
 #include "sawbuck/common/buffer_parser.h"
 #include "syzygy/call_trace/parse_engine_etw.h"
-# if 0
-// TODO(rogerm): Re-enable once http://codereview.appspot.com/5205041/ lands.
 #include "syzygy/call_trace/parse_engine_rpc.h"
-# endif
 
 namespace call_trace {
 namespace parser {
@@ -48,8 +43,6 @@ bool Parser::Init(ParseEventHandler* event_handler) {
 
   ParseEngine* engine = NULL;
 
-# if 0
-  // TODO(rogerm): Re-enable once http://codereview.appspot.com/5205041/ lands.
   // Create the RPC call-trace parse engine.
   LOG(INFO) << "Initializing RPC call-trace parse engine.";
   engine = new ParseEngineRpc;
@@ -58,7 +51,6 @@ bool Parser::Init(ParseEventHandler* event_handler) {
     return false;
   }
   parse_engine_set_.push_back(engine);
-# endif
 
   // Create the ETW call-trace parse engine.
   LOG(INFO) << "Initializing ETW call-trace parse engine.";

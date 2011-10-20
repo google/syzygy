@@ -22,7 +22,7 @@
 #include "sawbuck/common/buffer_parser.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/call_trace/parse_engine.h"
-#include "syzygy/call_trace/parser_base.h"
+#include "syzygy/call_trace/parser.h"
 
 namespace call_trace {
 namespace parser {

@@ -14,8 +14,8 @@
 //
 // Call trace event parsing classes.
 
-#ifndef SYZYGY_CALL_TRACE_PARSER_BASE_H_
-#define SYZYGY_CALL_TRACE_PARSER_BASE_H_
+#ifndef SYZYGY_CALL_TRACE_PARSER_H_
+#define SYZYGY_CALL_TRACE_PARSER_H_
 
 #include "base/scoped_ptr.h"
 #include "base/time.h"
@@ -133,4 +133,4 @@ class ParseEventHandler {
 }  // namespace call_trace::parser
 }  // namespace call_trace
 
-#endif  // SYZYGY_CALL_TRACE_PARSER_BASE_H_
+#endif  // SYZYGY_CALL_TRACE_PARSER_H_

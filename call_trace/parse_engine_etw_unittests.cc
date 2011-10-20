@@ -24,7 +24,13 @@
 #include "base/win/windows_version.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/call_trace/parser_base.h"
+#include "syzygy/call_trace/parser.h"
+
+// TODO(rogerm): There is a log of duplicate code in common between this
+//     file and "parse_engine_rpc_unittests.cc". This common bits should
+//     be extracted from the other file and this file should be updated
+//     to use the tests and structure found in the other file (to test
+//     dll entrypoints, module events, etc).
 
 using call_trace::parser::Parser;
 using call_trace::parser::ParseEventHandler;
