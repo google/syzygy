@@ -54,10 +54,12 @@ int Usage(char** argv, const char* message) {
 // Loads a decomposed image from the given file_path.
 bool LoadDecomposition(const FilePath& file_path,
                        pe::PEFile* pe_file,
-                       pe::Decomposer::DecomposedImage* decomposed_image) {
+                       core::BlockGraph* block_graph,
+                       pe::ImageLayout* image_layout) {
   DCHECK(!file_path.empty());
   DCHECK(pe_file != NULL);
-  DCHECK(decomposed_image != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(image_layout != NULL);
 
   file_util::ScopedFILE from_file(file_util::OpenFile(file_path, "rb"));
   if (from_file.get() == NULL) {
@@ -68,7 +70,7 @@ bool LoadDecomposition(const FilePath& file_path,
   LOG(INFO) << "Loading decomposition \"" << file_path.value() << "\".";
   core::FileInStream in_stream(from_file.get());
   core::NativeBinaryInArchive in_archive(&in_stream);
-  if (!pe::LoadDecomposition(pe_file, decomposed_image, &in_archive))
+  if (!pe::LoadDecomposition(&in_archive, pe_file, block_graph, image_layout))
     return false;
 
   return true;
@@ -180,21 +182,31 @@ int main(int argc, char** argv) {
             << common::kSyzygyVersion.GetVersionString() << ".";
 
   pe::PEFile pe_file_from;
-  pe::Decomposer::DecomposedImage image_from;
-  if (!LoadDecomposition(path_from, &pe_file_from, &image_from))
+  core::BlockGraph block_graph_from;
+  pe::ImageLayout image_layout_from(&block_graph_from);
+  if (!LoadDecomposition(path_from,
+                         &pe_file_from,
+                         &block_graph_from,
+                         &image_layout_from)) {
     return 1;
+  }
 
   pe::PEFile pe_file_to;
-  pe::Decomposer::DecomposedImage image_to;
-  if (!LoadDecomposition(path_to, &pe_file_to, &image_to))
+  core::BlockGraph block_graph_to;
+  pe::ImageLayout image_layout_to(&block_graph_to);
+  if (!LoadDecomposition(path_to,
+                         &pe_file_to,
+                         &block_graph_to,
+                         &image_layout_to)) {
     return 1;
+  }
 
   LOG(INFO) << "Generating block graph mapping.";
 
   BlockGraphMapping mapping;
   BlockVector unmapped1, unmapped2;
-  if (!experimental::BuildBlockGraphMapping(image_from.image,
-                                            image_to.image,
+  if (!experimental::BuildBlockGraphMapping(block_graph_from,
+                                            block_graph_to,
                                             &mapping,
                                             &unmapped1,
                                             &unmapped2)) {
@@ -206,8 +218,8 @@ int main(int argc, char** argv) {
   BlockStats stats_from;
   BlockStats stats_to;
   BlockStats stats_mapping;
-  GetBlockGraphStats(image_from.image, &stats_from);
-  GetBlockGraphStats(image_to.image, &stats_to);
+  GetBlockGraphStats(block_graph_from, &stats_from);
+  GetBlockGraphStats(block_graph_to, &stats_to);
   GetMappingStats(mapping, &stats_mapping);
 
   printf("\nFROM\n");

@@ -130,16 +130,16 @@ bool DumpBlock(const core::BlockGraph::Block* block, FILE* file) {
 
 bool DumpMissingSectionContributions(
     const FilePath& path,
-    const pe::Decomposer::DecomposedImage& image) {
+    const core::BlockGraph::AddressSpace& blocks) {
   file_util::ScopedFILE out_file(file_util::OpenFile(path, "wb"));
   core::BlockGraph::AddressSpace::RangeMapConstIter it =
-      image.address_space.begin();
+      blocks.begin();
 
   core::BlockGraph::BlockAttributes skip_mask =
       core::BlockGraph::SECTION_CONTRIB | core::BlockGraph::PADDING_BLOCK |
       core::BlockGraph::PE_PARSED;
 
-  for (; it != image.address_space.end(); ++it) {
+  for (; it != blocks.end(); ++it) {
     const core::BlockGraph::Block* block = it->second;
     if (block->attributes() & skip_mask)
       continue;
@@ -199,9 +199,10 @@ int main(int argc, char** argv) {
 
   LOG(INFO) << "Decomposing image.";
   time = base::Time::Now();
-  pe::Decomposer::DecomposedImage decomposed_image;
+  core::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
   pe::Decomposer decomposer(pe_file, image);
-  if (!decomposer.Decompose(&decomposed_image, NULL)) {
+  if (!decomposer.Decompose(&image_layout, NULL)) {
     LOG(ERROR) << "Decomposition failed.";
     return 1;
   }
@@ -211,7 +212,7 @@ int main(int argc, char** argv) {
   if (!missing_contribs.empty()) {
     LOG(INFO) << "Writing missing section contributions to \""
               << missing_contribs.value().c_str() << "\".\n";
-    if (!DumpMissingSectionContributions(missing_contribs, decomposed_image))
+    if (!DumpMissingSectionContributions(missing_contribs, image_layout.blocks))
       return 1;
   }
 
@@ -223,23 +224,34 @@ int main(int argc, char** argv) {
     file_util::ScopedFILE out_file(file_util::OpenFile(output, "wb"));
     core::FileOutStream out_stream(out_file.get());
     core::NativeBinaryOutArchive out_archive(&out_stream);
-    if (!pe::SaveDecomposition(pe_file, decomposed_image, &out_archive))
+    if (!pe::SaveDecomposition(pe_file,
+                               block_graph,
+                               image_layout,
+                               &out_archive)) {
       return 1;
+    }
+
     LOG(INFO) << "Saving decomposed image took " <<
         (base::Time::Now() - time).InSecondsF() << " seconds.";
   }
 
   if (benchmark_load) {
     pe::PEFile in_pe_file;
-    pe::Decomposer::DecomposedImage in_image;
+    core::BlockGraph in_block_graph;
+    pe::ImageLayout in_image_layout(&block_graph);
 
     LOG(INFO) << "Benchmarking decomposed image load.\n";
     time = base::Time::Now();
     file_util::ScopedFILE in_file(file_util::OpenFile(output, "rb"));
     core::FileInStream in_stream(in_file.get());
     core::NativeBinaryInArchive in_archive(&in_stream);
-    if (!pe::LoadDecomposition(&in_pe_file, &in_image, &in_archive))
+    if (!pe::LoadDecomposition(&in_archive,
+                               &in_pe_file,
+                               &in_block_graph,
+                               &in_image_layout)) {
       return 1;
+    }
+
     LOG(INFO) << "Loading decomposed image took " <<
         (base::Time::Now() - time).InSecondsF() << " seconds.";
   }

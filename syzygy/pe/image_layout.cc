@@ -13,18 +13,14 @@
 // limitations under the License.
 #include "syzygy/pe/image_layout.h"
 
-#include <windows.h>
-#include <winnt.h>
-#include <imagehlp.h>
-
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "syzygy/pe/pe_file_builder.h"
 
-namespace {
+namespace pe {
 
 void CopyNtHeaderToImageLayout(const IMAGE_NT_HEADERS* nt_headers,
-                               pe::ImageLayout::HeaderInfo* header_info) {
+                               ImageLayout::HeaderInfo* header_info) {
   DCHECK(nt_headers != NULL);
   DCHECK(header_info != NULL);
 
@@ -75,7 +71,7 @@ void CopyNtHeaderToImageLayout(const IMAGE_NT_HEADERS* nt_headers,
 void CopySectionHeadersToImageLayout(
     size_t num_sections,
     const IMAGE_SECTION_HEADER* section_headers,
-    std::vector<pe::ImageLayout::SegmentInfo>* segments) {
+    std::vector<ImageLayout::SegmentInfo>* segments) {
   DCHECK(num_sections > 0);
   DCHECK(section_headers != NULL);
   DCHECK(segments != NULL);
@@ -96,45 +92,29 @@ void CopySectionHeadersToImageLayout(
   }
 }
 
-}  // namespace
-
-namespace pe {
-
-ImageLayout::ImageLayout(const PEFileBuilder& builder)
-    : blocks(&builder.address_space()) {
+ImageLayout::ImageLayout(core::BlockGraph* block_graph)
+    : blocks(block_graph) {
   memset(&header_info, 0, sizeof(header_info));
-
-  CopyNtHeaderToImageLayout(&builder.nt_headers(), &header_info);
-  CopySectionHeadersToImageLayout(
-      builder.nt_headers().FileHeader.NumberOfSections,
-      builder.section_headers(),
-      &segments);
 }
 
-ImageLayout::ImageLayout(const Decomposer::DecomposedImage& decomposed_image)
-    : blocks(&decomposed_image.address_space) {
+ImageLayout::ImageLayout(PEFileBuilder* builder)
+    : blocks(builder->address_space().graph()) {
+  DCHECK(builder != NULL);
   memset(&header_info, 0, sizeof(header_info));
 
-  // TODO(siggi): Thankfully this is interim code only, I don't like that
-  // there's no error return possible on failure here.
-  DCHECK(decomposed_image.header.nt_headers->data_size() >=
-      sizeof(IMAGE_NT_HEADERS));
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          decomposed_image.header.nt_headers->data());
+  CopyNtHeaderToImageLayout(&builder->nt_headers(), &this->header_info);
+  CopySectionHeadersToImageLayout(
+      builder->nt_headers().FileHeader.NumberOfSections,
+      builder->section_headers(),
+      &this->segments);
 
-  DCHECK(sizeof(*nt_headers) + sizeof(IMAGE_SECTION_HEADER) *
-      nt_headers->FileHeader.NumberOfSections ==
-          decomposed_image.header.nt_headers->data_size());
+  // Copy the address space from the builder to ours.
+  core::BlockGraph::AddressSpace::RangeMapConstIter it =
+      builder->address_space().begin();
 
-  CopyNtHeaderToImageLayout(nt_headers, &header_info);
-
-  const IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-
-  CopySectionHeadersToImageLayout(nt_headers->FileHeader.NumberOfSections,
-                                  section_headers,
-                                  &segments);
+  for (; it != builder->address_space().end(); ++it) {
+    blocks.InsertBlock(it->first.start(), it->second);
+  }
 }
 
 }  // namespace pe
