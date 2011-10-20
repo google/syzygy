@@ -34,6 +34,7 @@ const size_t Service::kDefaultBufferSize = 2 * 1024 * 1024;
 const size_t Service::kDefaultNumIncrementalBuffers = 16;
 const wchar_t* const Service::kRpcProtocol = ::kCallTraceRpcProtocol;
 const wchar_t* const Service::kRpcEndpoint = ::kCallTraceRpcEndpoint;
+const wchar_t* const Service::kRpcMutex = ::kCallTraceRpcMutex;
 
 Service::Service()
     : protocol_(kRpcProtocol),
@@ -43,6 +44,9 @@ Service::Service()
       owner_thread_(base::PlatformThread::CurrentId()),
       writer_thread_(base::kNullThreadHandle),
       queue_is_non_empty_(&lock_),
+      rpc_is_initialized_(false),
+      rpc_is_running_(false),
+      rpc_is_non_blocking_(false),
       flags_(TRACE_FLAG_BATCH_ENTER) {
 }
 
@@ -58,6 +62,50 @@ Service& Service::Instance() {
   return service_instance.Get();
 }
 
+bool Service::AcquireServiceMutex() {
+  DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
+  DCHECK(!service_mutex_.IsValid());
+
+  base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, kRpcMutex));
+  if (!mutex.IsValid()) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to create mutex: " << com::LogWe(error) << ".";
+    return false;
+  }
+  const DWORD kOneSecondInMs = 1000;
+
+  switch (::WaitForSingleObject(mutex, kOneSecondInMs)) {
+    case WAIT_ABANDONED:
+      LOG(WARNING) << "Orphaned service mutex found!";
+      // Fall through...
+
+    case WAIT_OBJECT_0:
+      LOG(INFO) << "Service mutex acquired.";
+      service_mutex_.Set(mutex.Take());
+      return true;
+
+    case WAIT_TIMEOUT:
+      LOG(INFO) << "Another instance of the service is running.";
+      break;
+
+    default: {
+      DWORD error = ::GetLastError();
+      LOG(ERROR) << "Failed to acquire mutex: " << com::LogWe(error) << ".";
+      break;
+    }
+  }
+  return false;
+}
+
+void Service::ReleaseServiceMutex() {
+  DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
+
+  if (service_mutex_.IsValid()) {
+    ::ReleaseMutex(service_mutex_);
+    service_mutex_.Close();
+  }
+}
+
 bool Service::InitializeRPC()  {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
 
@@ -65,7 +113,6 @@ bool Service::InitializeRPC()  {
     LOG(WARNING) << "The call trace service RPC stack is already initialized.";
     return true;
   }
-  rpc_is_initialized_ = true;
 
   RPC_STATUS status = RPC_S_OK;
 
@@ -78,7 +125,7 @@ bool Service::InitializeRPC()  {
       reinterpret_cast<RPC_WSTR>(&endpoint_[0]),
       NULL /* Security descriptor. */);
   if (status != RPC_S_OK && status != RPC_S_DUPLICATE_ENDPOINT) {
-    LOG(ERROR) << "Failed to init RPC protocol " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to init RPC protocol: " << com::LogWe(status) << ".";
     return false;
   }
 
@@ -87,8 +134,8 @@ bool Service::InitializeRPC()  {
   status = ::RpcServerRegisterIf(
       CallTraceService_CallTrace_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to register CallTrace RPC interface "
-        << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to register CallTrace RPC interface: "
+               << com::LogWe(status) << ".";
     return false;
   }
 
@@ -97,11 +144,12 @@ bool Service::InitializeRPC()  {
   status = ::RpcServerRegisterIf(
       CallTraceService_CallTraceControl_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to register CallTraceControl RPC interface "
-        << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to register CallTraceControl RPC interface: "
+               << com::LogWe(status) << ".";
     return false;
   }
 
+  rpc_is_initialized_ = true;
   return true;
 }
 
@@ -123,7 +171,7 @@ bool Service::RunRPC(bool non_blocking) {
       RPC_C_LISTEN_MAX_CALLS_DEFAULT,
       non_blocking ? 1 : 0);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to run RPC server " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to run RPC server: " << com::LogWe(status) << ".";
     rpc_is_running_ = false;
     rpc_is_non_blocking_ = false;
     return false;
@@ -146,8 +194,8 @@ void Service::StopRPC() {
     LOG(INFO) << "Stopping RPC server.";
     RPC_STATUS status = ::RpcMgmtStopServerListening(NULL);
     if (status != RPC_S_OK) {
-      LOG(ERROR) << "Failed to stop the RPC server "
-          << com::LogWe(status) << ".";
+      LOG(ERROR) << "Failed to stop the RPC server: "
+                 << com::LogWe(status) << ".";
     }
     rpc_is_running_ = false;
   }
@@ -165,8 +213,8 @@ void Service::CleanupRPC() {
     LOG(INFO) << "Waiting for outstanding RPC requests to terminate.";
     status = ::RpcMgmtWaitServerListen();
     if (status != RPC_S_OK && status != RPC_S_NOT_LISTENING) {
-      LOG(ERROR) << "Failed wait for RPC server shutdown"
-          << com::LogWe(status) << ".";
+      LOG(ERROR) << "Failed wait for RPC server shutdown: "
+                 << com::LogWe(status) << ".";
     }
     rpc_is_non_blocking_ = false;
   }
@@ -176,8 +224,8 @@ void Service::CleanupRPC() {
     LOG(INFO) << "Unregistering RPC interfaces.";
     status = ::RpcServerUnregisterIf(NULL, NULL, FALSE);
     if (status != RPC_S_OK) {
-      LOG(ERROR) << "Failed to unregister RPC interfaces "
-          << com::LogWe(status) << ".";
+      LOG(ERROR) << "Failed to unregister RPC interfaces: "
+                 << com::LogWe(status) << ".";
     }
     rpc_is_initialized_ = false;
   }
@@ -186,11 +234,17 @@ void Service::CleanupRPC() {
 bool Service::Start(bool non_blocking) {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
 
-  if (!InitializeRPC())
+  if (!AcquireServiceMutex())
     return false;
+
+  if (!InitializeRPC()) {
+    ReleaseServiceMutex();
+    return false;
+  }
 
   if (!StartWriterThread()) {
     CleanupRPC();
+    ReleaseServiceMutex();
     return false;
   }
 
@@ -201,6 +255,7 @@ bool Service::Stop() {
   StopRPC();
   CleanupRPC();
   StopWriterThread();
+  ReleaseServiceMutex();
 
   return true;
 }
@@ -211,8 +266,8 @@ bool Service::StartWriterThread() {
   DCHECK(writer_thread_ == base::kNullThreadHandle);
 
   if (!base::PlatformThread::Create(0, this, &writer_thread_)) {
-    LOG(ERROR) << "Failed to launch IO thread "
-        << com::LogWe(::GetLastError()) << ".";
+    LOG(ERROR) << "Failed to launch IO thread: "
+               << com::LogWe(::GetLastError()) << ".";
     return false;
   }
 
@@ -332,9 +387,9 @@ void Service::ThreadMain() {
                            &bytes_written, NULL) ||
               bytes_written != bytes_to_write) {
             DWORD error = ::GetLastError();
-            LOG(ERROR) << "Failed writing to "
-                << buffer->session->trace_file_path().value()
-                << " " << com::LogWe(error) << ".";
+            LOG(ERROR) << "Failed writing to '"
+                       << buffer->session->trace_file_path().value()
+                       << "': " << com::LogWe(error) << ".";
           }
         }
       }
@@ -368,12 +423,11 @@ boolean Service::RequestShutdown() {
 
 // RPC entry point.
 boolean Service::CreateSession(handle_t binding,
-                               const wchar_t* command_line,
                                SessionHandle* session_handle,
                                CallTraceBuffer* call_trace_buffer,
                                unsigned long* flags) {
-  if (binding == NULL || command_line == NULL || session_handle == NULL ||
-      call_trace_buffer == NULL || flags == NULL) {
+  if (binding == NULL || session_handle == NULL || call_trace_buffer == NULL ||
+      flags == NULL) {
     LOG(WARNING) << "Invalid RPC parameters.";
     return false;
   }
@@ -381,22 +435,20 @@ boolean Service::CreateSession(handle_t binding,
   RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
   RPC_STATUS status = RpcServerInqCallAttributes(binding, &attribs);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to query RPC call attributes "
-        << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to query RPC call attributes: "
+               << com::LogWe(status) << ".";
     return false;
   }
 
   ProcessID client_process_id = reinterpret_cast<ProcessID>(attribs.ClientPID);
 
-  LOG(INFO) << "Registering process: "
-      << "PID=" << client_process_id << " "
-      << "CL=[" << command_line << "].";
+  LOG(INFO) << "Registering client process PID=" << client_process_id << ".";
 
   base::AutoLock scoped_lock(lock_);
 
   // Create a new session.
   Session* session = NULL;
-  if (!GetNewSession(client_process_id, command_line, &session))
+  if (!GetNewSession(client_process_id, &session))
     return false;
   DCHECK(session != NULL);
 
@@ -519,10 +571,6 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
   return true;
 }
 
-bool DestroySession(Service& service, Session* session) {
-  return service.DestroySession(session);
-}
-
 bool Service::DestroySession(Session* session) {
   DCHECK(session != NULL);
   lock_.AssertAcquired();
@@ -537,9 +585,7 @@ bool Service::DestroySession(Session* session) {
   return true;
 }
 
-bool Service::GetNewSession(ProcessID client_process_id,
-                            const wchar_t* command_line,
-                            Session** session) {
+bool Service::GetNewSession(ProcessID client_process_id, Session** session) {
   DCHECK(session != NULL);
   lock_.AssertAcquired();
 
@@ -547,7 +593,7 @@ bool Service::GetNewSession(ProcessID client_process_id,
 
   // Take care of deleting the session if initialization fails or a session
   // already exists for this pid.
-  scoped_ptr<Session> new_session(new Session(this, client_process_id));
+  scoped_ptr<Session> new_session(new Session(this));
 
   // Attempt to add the session to the session map. If the insertion fails,
   // let the new_session scoped_ptr clean up the object.
@@ -562,7 +608,7 @@ bool Service::GetNewSession(ProcessID client_process_id,
   // Initialize the session. Remove the session record if initialization
   // fails. The new_session scoped_ptr will take care of destroying the
   // actual session object.
-  if (!new_session->Init(trace_directory_, command_line)) {
+  if (!new_session->Init(trace_directory_, client_process_id)) {
     sessions_.erase(result.first);
     return false;
   }

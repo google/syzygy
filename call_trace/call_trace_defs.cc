@@ -30,3 +30,7 @@ const GUID kCallTraceEventClass = {
 // RPC protocol and endpoint.
 const wchar_t* const kCallTraceRpcProtocol = L"ncalrpc";
 const wchar_t* const kCallTraceRpcEndpoint = L"syzygy-call-trace-svc";
+const wchar_t* const kCallTraceRpcMutex = L"syzygy-call-trace-svc-mutex";
+
+const TraceFileHeader::Signature TraceFileHeader::kSignatureValue = {
+    'S', 'Z', 'G', 'Y' };

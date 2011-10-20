@@ -20,6 +20,7 @@
 #include <time.h>
 
 #include "base/command_line.h"
+#include "base/logging.h"
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -32,30 +33,27 @@ namespace {
 
 using call_trace::service::Buffer;
 using call_trace::service::ProcessID;
+using call_trace::service::ProcessInfo;
 
 FilePath GenerateTraceFileName(const FilePath& trace_directory,
-                               ProcessID client_process_id,
-                               const wchar_t* command_line) {
+                               const ProcessInfo& client) {
   // We use the current time to disambiguate the trace file, so let's look
   // at the clock.
   time_t t = time(NULL);
   struct tm local_time = {};
   ::localtime_s(&local_time, &t);
 
-  FilePath exe_name(
-      CommandLine::FromString(command_line).GetProgram().BaseName());
-
   // Construct the trace file path from the program being run, the current
   // timestamp, and the process id.
   return trace_directory.Append(base::StringPrintf(
       L"trace-%ls-%4d%02d%02d%02d%02d%02d-%d.bin",
-      exe_name.value().c_str(),
+      client.executable_path.BaseName().value().c_str(),
       1900 + local_time.tm_year,
       local_time.tm_mon,
       local_time.tm_hour,
       local_time.tm_min,
       local_time.tm_sec,
-      client_process_id));
+      client.process_id));
 }
 
 bool OpenTraceFile(const FilePath& file_path,
@@ -74,8 +72,8 @@ bool OpenTraceFile(const FilePath& file_path,
                    NULL /* hTemplateFile */));
   if (!new_file_handle.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to open \"" << file_path.value()
-        << "\" for writing " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to open '" << file_path.value()
+               << "' for writing: " << com::LogWe(error) << ".";
     return false;
   }
 
@@ -89,7 +87,8 @@ bool GetBlockSize(const FilePath& path, size_t* block_size) {
 
   if (!::GetVolumePathName(path.value().c_str(), volume, arraysize(volume))) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get volume path name " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to get volume path name: " << com::LogWe(error)
+               << ".";
     return false;
   }
 
@@ -101,7 +100,7 @@ bool GetBlockSize(const FilePath& path, size_t* block_size) {
   if (!::GetDiskFreeSpace(volume, &sectors_per_cluster, &bytes_per_sector,
                           &free_clusters, &total_clusters)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get volume info " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to get volume info: " << com::LogWe(error) << ".";
     return false;
   }
 
@@ -110,38 +109,45 @@ bool GetBlockSize(const FilePath& path, size_t* block_size) {
 }
 
 bool WriteTraceFileHeader(HANDLE file_handle,
-                          ProcessID client_process_id,
-                          const wchar_t* command_line,
+                          const ProcessInfo& client,
                           size_t block_size) {
-  DCHECK(command_line != NULL);
   DCHECK(file_handle != INVALID_HANDLE_VALUE);
   DCHECK(block_size != 0);
 
   // Calculate the space required for the header page and allocate a
   // buffer for it.
-  size_t command_line_len = ::wcslen(command_line);
-  size_t header_len = sizeof(TraceFileHeader) + (command_line_len *
+  size_t header_len = sizeof(TraceFileHeader) + (client.command_line.length() *
                                                  sizeof(wchar_t));
   size_t buffer_size = common::AlignUp(header_len, block_size);
   scoped_ptr_malloc<TraceFileHeader> header(
       static_cast<TraceFileHeader*>(::calloc(1, buffer_size)));
 
   // Populate the header values.
+  ::memcpy(&header->signature,
+           &TraceFileHeader::kSignatureValue,
+           sizeof(header->signature));
   header->server_version.lo = TRACE_VERSION_LO;
   header->server_version.hi = TRACE_VERSION_HI;
   header->header_size = header_len;
-  header->process_id = bit_cast<uint32>(client_process_id);
-  header->command_line_len = command_line_len + 1;
+  header->process_id = client.process_id;
+  header->command_line_len = client.command_line.length();
   header->block_size = block_size;
-  base::wcslcpy(&header->command_line[0], command_line, command_line_len + 1);
+  base::wcslcpy(&header->module_path[0],
+                client.executable_path.value().c_str(),
+                sizeof(header->module_path));
+  header->module_base_address = client.exe_base_address;
+  header->module_size = client.exe_image_size;
+  base::wcslcpy(&header->command_line[0],
+                client.command_line.c_str(),
+                client.command_line.length() + 1);
 
   // Commit the header page to disk.
   DWORD bytes_written = 0;
   if (!::WriteFile(file_handle, header.get(), buffer_size, &bytes_written,
                    NULL) || bytes_written != buffer_size ) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed writing trace file header " << com::LogWe(error)
-        << ".";
+    LOG(ERROR) << "Failed writing trace file header: " << com::LogWe(error)
+               << ".";
     return false;
   }
 
@@ -151,7 +157,7 @@ bool WriteTraceFileHeader(HANDLE file_handle,
 // Helper for logging Buffer::ID values.
 std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
   return stream << "shared_memory_handle=0x" << std::hex << buffer_id.first
-      << ", buffer_offset=0x" << std::hex << buffer_id.second;
+                << ", buffer_offset=0x" << std::hex << buffer_id.second;
 }
 
 }  // namespace
@@ -159,12 +165,10 @@ std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
 namespace call_trace {
 namespace service {
 
-Session::Session(Service* call_trace_service, ProcessID client_process_id)
+Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
-      client_process_id_(client_process_id),
       is_closing_(false) {
   DCHECK(call_trace_service != NULL);
-  DCHECK(client_process_id != NULL);
 }
 
 Session::~Session() {
@@ -184,27 +188,19 @@ Session::~Session() {
 }
 
 bool Session::Init(const FilePath& trace_directory,
-                   const wchar_t* command_line) {
+                   ProcessID client_process_id) {
   DCHECK(!trace_directory.empty());
-  DCHECK(command_line != NULL);
 
-  // Open the client process.
-  client_process_handle_.Set(::OpenProcess(
-      PROCESS_DUP_HANDLE, FALSE, client_process_id_));
-
-  if (!client_process_handle_.IsValid()) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to open client process " << client_process_id_ << " "
-        << com::LogWe(error) << ".";
+  if (!client_.Initialize(client_process_id)) {
+    LOG(ERROR) << "Failed to initialize client info.";
     return false;
   }
 
-  trace_file_path_ = GenerateTraceFileName(trace_directory, client_process_id_,
-                                           command_line);
+  trace_file_path_ = GenerateTraceFileName(trace_directory, client_);
 
   if (!OpenTraceFile(trace_file_path_, &trace_file_handle_)) {
     LOG(ERROR) << "Failed to open trace file: "
-        << trace_file_path_.value().c_str();
+               << trace_file_path_.value().c_str();
     return false;
   }
 
@@ -213,8 +209,7 @@ bool Session::Init(const FilePath& trace_directory,
     return false;
   }
 
-  if (!WriteTraceFileHeader(trace_file_handle_, client_process_id_,
-                            command_line, block_size_)) {
+  if (!WriteTraceFileHeader(trace_file_handle_, client_, block_size_)) {
     LOG(ERROR) << "Failed to write trace file header.";
     return false;
   }
@@ -270,7 +265,7 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
 
   // Initialize the shared buffer pool.
   buffer_size = common::AlignUp(buffer_size, block_size());
-  if (!pool->Init(this, client_process_handle_, num_buffers,
+  if (!pool->Init(this, client_.process_handle, num_buffers,
                   buffer_size)) {
     LOG(ERROR) << "Failed to initialize shared memory buffer.";
     return false;
@@ -298,7 +293,7 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
   BufferMap::iterator iter = buffers_in_use_.find(buffer_id);
   if (iter == buffers_in_use_.end()) {
     LOG(ERROR) << "Received call trace buffer not in use for this session "
-      << "[pid=" << client_process_id_ << ", " << buffer_id << "].";
+               << "[pid=" << client_.process_id << ", " << buffer_id << "].";
     return false;
   }
 
@@ -334,7 +329,7 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   Buffer::ID buffer_id = Buffer::GetID(*buffer);
   if (buffers_in_use_.erase(buffer_id) == 0) {
     LOG(ERROR) << "Buffer is not recorded as being in use ("
-        << buffer_id << ").";
+               << buffer_id << ").";
     return false;
   }
 

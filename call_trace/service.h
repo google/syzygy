@@ -74,6 +74,10 @@ class Service : public base::PlatformThread::Delegate {
   // The name/address of the RPC endpoint at which the service will listen.
   static const wchar_t* const kRpcEndpoint;
 
+  // The name of the global mutex used to detect whether another instance of
+  // the service is already running.
+  static const wchar_t* const kRpcMutex;
+
   // Set the trace flags that get communicated to clients on session creation.
   // The flags value should be bitmask composed of the values from the
   // TraceEventType enumeration (see call_trace_defs.h).
@@ -144,7 +148,6 @@ class Service : public base::PlatformThread::Delegate {
   // RPC implementation of CallTraceService::CreateSession().
   // See call_trace_rpc.idl for further info.
   boolean CreateSession(handle_t binding,
-                        const wchar_t* command_line,
                         SessionHandle* session_handle,
                         CallTraceBuffer* call_trace_buffer,
                         unsigned long* flags);
@@ -170,6 +173,8 @@ class Service : public base::PlatformThread::Delegate {
 
  private:
   // RPC Server Management Functions.
+  bool AcquireServiceMutex();
+  void ReleaseServiceMutex();
   bool InitializeRPC();
   bool RunRPC(bool non_blocking);
   void StopRPC();
@@ -179,9 +184,7 @@ class Service : public base::PlatformThread::Delegate {
   // of *session will be NULL; otherwise it will point to a Session instance.
   // The call trace service retains ownership of the returned Session object;
   // it MUST not be deleted by the caller.
-  bool GetNewSession(ProcessID client_process_id,
-                     const wchar_t* command_line,
-                     Session** session);
+  bool GetNewSession(ProcessID client_process_id, Session** session);
 
   // Looks up an existing session, returning true on success. On failure,
   // the value of *session will be NULL; otherwise it will point to a
@@ -241,6 +244,10 @@ class Service : public base::PlatformThread::Delegate {
 
   // Protects concurrent access to the internals.
   base::Lock lock_;
+
+  // Used to detect whether multiple instances of the service are running
+  // against the service endpoint.
+  base::win::ScopedHandle service_mutex_;
 
   // Buffers waiting to be written to disk.
   BufferQueue pending_write_queue_;

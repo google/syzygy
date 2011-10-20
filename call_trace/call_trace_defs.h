@@ -33,6 +33,7 @@ extern const GUID kCallTraceEventClass;
 // RPC protocol and endpoint.
 extern const wchar_t* const kCallTraceRpcProtocol;
 extern const wchar_t* const kCallTraceRpcEndpoint;
+extern const wchar_t* const kCallTraceRpcMutex;
 
 enum {
   TRACE_VERSION_HI = 1,
@@ -43,7 +44,9 @@ enum TraceEventType {
   // Header prefix for a "page" of call trace events.
   TRACE_PAGE_HEADER,
   // The actual events are below.
-  TRACE_ENTER_EVENT = 10,
+  TRACE_PROCESS_STARTED = 10,
+  TRACE_PROCESS_ENDED,
+  TRACE_ENTER_EVENT,
   TRACE_EXIT_EVENT,
   TRACE_PROCESS_ATTACH_EVENT,
   TRACE_PROCESS_DETACH_EVENT,
@@ -107,6 +110,16 @@ COMPILE_ASSERT(sizeof(RecordPrefix) == 12, record_prefix_size_is_16);
 
 // This structure is written at the beginning of a call trace file.
 struct TraceFileHeader {
+  // The "magic-number" identifying this as a Syzygy call-trace file.
+  // In a valid trace file this will be "SZGY".
+  typedef char Signature[4];
+
+  // A canonical value for the signature.
+  static const Signature kSignatureValue;
+
+  // A signature is at the start of the trace file header.
+  Signature signature;
+
   // The version of the call trace service which recorded this trace file.
   struct {
     uint16 lo;
@@ -118,14 +131,24 @@ struct TraceFileHeader {
   // accounted for in the size of this structure).
   uint32 header_size;
 
-  // The id of the process being traced.
-  uint32 process_id;
-
   // The block size used when writing the file to disk. The header and
   // all segments are padded and byte aligned to this block size.
   uint32 block_size;
 
-  // The number of characters in the command line (including the trailing
+  // The id of the process being traced.
+  uint32 process_id;
+
+  // The base address at which the executable module was loaded when the
+  // trace file was created.
+  uint32 module_base_address;
+
+  // The size of the executable module.
+  uint32 module_size;
+
+  // The path to the executable module.
+  wchar_t module_path[MAX_PATH];
+
+  // The number of characters in the command line (not including the trailing
   // NUL character).
   uint32 command_line_len;
 

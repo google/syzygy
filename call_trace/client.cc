@@ -369,7 +369,7 @@ bool Client::BindRPC() {
       NULL, // Options.
       &string_binding);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Can't compose RPC binding " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Can't compose RPC binding: " << com::LogWe(status) << ".";
     return false;
   }
 
@@ -378,7 +378,7 @@ bool Client::BindRPC() {
   ignore_result(::RpcStringFree(&string_binding));
 
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Can't create RPC binding " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Can't create RPC binding: " << com::LogWe(status) << ".";
     return false;
   }
 
@@ -408,8 +408,8 @@ bool Client::MapSegmentBuffer(ThreadLocalData* data) {
                           data->segment.buffer_info.mapping_size));
       if (base_ptr == NULL) {
         DWORD error = ::GetLastError();
-        LOG(ERROR) << "Failed to map view of shared memory "
-            << com::LogWe(error) << ".";
+        LOG(ERROR) << "Failed to map view of shared memory: "
+                   << com::LogWe(error) << ".";
         ignore_result(::CloseHandle(mem_handle));
         shared_memory_handles_.erase(mem_handle);
         return false;
@@ -468,7 +468,6 @@ bool Client::CreateSession() {
 
   bool succeeded = InvokeRpc(CallTraceClient_CreateSession,
                              rpc_binding_,
-                             ::GetCommandLineW(),
                              &session_handle_,
                              &data->segment.buffer_info,
                              &flags_).succeeded();
@@ -543,12 +542,12 @@ void Client::FreeSharedMemory() {
     DCHECK(it->second != NULL);
     if (::UnmapViewOfFile(it->second) == 0) {
       DWORD error = ::GetLastError();
-      LOG(WARNING) << "Failed to unmap memory handle " << com::LogWe(error);
+      LOG(WARNING) << "Failed to unmap memory handle: " << com::LogWe(error);
     }
 
     if (::CloseHandle(it->first) == 0) {
       DWORD error = ::GetLastError();
-      LOG(WARNING) << "Failed to close memory handle " << com::LogWe(error);
+      LOG(WARNING) << "Failed to close memory handle: " << com::LogWe(error);
     }
   }
 
@@ -658,7 +657,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
                           &module_event->module_name[0],
                           arraysize(module_event->module_name)) == 0) {
       DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to get module name " << com::LogWe(error) << ".";
+      LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
   }
   // TODO(rogerm): get rid of the module_exe field of TraceModuleData?
 #ifdef NDEBUG
