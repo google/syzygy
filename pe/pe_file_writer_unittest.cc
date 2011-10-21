@@ -55,7 +55,6 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   Decomposer decomposer(image_file, image_path);
   core::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
-  Decomposer::DecomposedImage decomposed_image;
   ASSERT_TRUE(decomposer.Decompose(&image_layout, NULL));
 
   PEFileWriter writer(image_layout);

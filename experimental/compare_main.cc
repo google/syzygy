@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Decomposes an image, dumping the DecomposedImage to file.
+// Compares two decomposed images for similarity.
 
 #include <algorithm>
 #include <iostream>

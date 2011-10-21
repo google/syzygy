@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Decomposes an image, dumping the DecomposedImage to file.
+// Decomposes an image and serializes the decomposed image to file.
 
 #include <iostream>
 #include "base/at_exit.h"

@@ -102,7 +102,7 @@ bool DumpImageToText(const FilePath& image_path,
     return false;
   }
 
-  // And decompose it to a DecomposedImage instance.
+  // And decompose it to an ImageLayout.
   Decomposer decomposer(image_file, image_path);
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);

@@ -125,7 +125,8 @@ class BlockGraph {
   bool Save(OutArchive* out_archive) const;
   // Note that after a 'Load', it is possible to have 'data_size > 0' and
   // 'data == NULL'. This indicates that the block was pointing to data that
-  // it did not own. This will be resolved by DecomposedImage serialization.
+  // it did not own. To make the graph fully consistent, the data can be
+  // reattached after the graph is loaded.
   bool Load(InArchive* in_archive);
 
  private:
