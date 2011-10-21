@@ -238,6 +238,10 @@ class BlockGraph::Block {
   // Makes a copy of data, returns a pointer to the copy.
   uint8* CopyData(size_t size, const void* data);
 
+  // Returns a mutable copy of the block's data. If the block doesn't own
+  // the data on entry, it'll be copied and the copy returned to the caller.
+  uint8* GetMutableData();
+
   // The data bytes the block refers to.
   const uint8* data() const { return data_; }
   void set_data(const uint8* data) { data_ = data; }

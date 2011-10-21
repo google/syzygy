@@ -492,6 +492,24 @@ uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
   return new_data;
 }
 
+uint8* BlockGraph::Block::GetMutableData() {
+  DCHECK(data_size_ != 0);
+  DCHECK(data_ != NULL);
+
+  // Make a copy if we don't already own the data.
+  if (!owns_data()) {
+    uint8* new_data = new uint8[data_size_];
+    if (new_data == NULL)
+      return NULL;
+    memcpy(new_data, data_, data_size_);
+    data_ = new_data;
+    owns_data_ = true;
+  }
+  DCHECK(owns_data_);
+
+  return const_cast<uint8*>(data_);
+}
+
 bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
   DCHECK(ref.referenced() != NULL);
 
