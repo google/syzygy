@@ -18,20 +18,24 @@ syzygy/Release
 # Ignore directories gclient syncs.
 base/
 build/
+syzygy/internal
 
 googleurl/
 skia/
 testing/
+third_party/coverage_analyzer/
 third_party/distorm/
 third_party/icu/
 third_party/libevent/
 third_party/libjpeg/
 third_party/modp_b64/
 third_party/nss/
+third_party/platformsdk_win7/
 third_party/psyco_win32/
 third_party/python_26/
 third_party/skia/
 third_party/sqlite/
+third_party/vsssdk72/
 third_party/wtl/
 third_party/zlib/
 tools/
