@@ -181,6 +181,11 @@ TEST_F(PEFileParserTest, ParseImageHeader) {
   ASSERT_TRUE(dos_header != NULL);
   ASSERT_EQ(IMAGE_DOS_SIGNATURE, dos_header->e_magic);
 
+  // Check that the DOS header references the NT headers.
+  ASSERT_EQ(header.nt_headers,
+      FindReferencedBlock(header.dos_header,
+                          offsetof(IMAGE_DOS_HEADER, e_lfanew)));
+
   // Check the NT headers.
   ASSERT_TRUE(header.nt_headers != NULL);
   ASSERT_GT(header.nt_headers->size(), sizeof(IMAGE_NT_HEADERS));

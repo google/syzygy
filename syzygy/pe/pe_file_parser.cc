@@ -324,18 +324,23 @@ bool PEFileParser::ParseImage(PEHeader* pe_header) {
 
 bool PEFileParser::ParseImageHeader(PEHeader* header) {
   // Get the start of the image headers.
-  const uint8* header_start =
-      image_file_.GetImageData(RelativeAddress(0), sizeof(IMAGE_DOS_HEADER));
+  size_t dos_header_size =
+      reinterpret_cast<const uint8*>(image_file_.nt_headers()) -
+      reinterpret_cast<const uint8*>(image_file_.dos_header());
 
-  if (header_start == NULL) {
+  if (dos_header_size < sizeof(IMAGE_DOS_HEADER)) {
+    LOG(ERROR) << "Impossibly small DOS header.";
+    return false;
+  }
+
+  PEFileStructPtr<IMAGE_DOS_HEADER> dos_header_ptr;
+  if (!dos_header_ptr.Read(image_file_, RelativeAddress(0), dos_header_size)) {
     LOG(ERROR) << "No DOS header in image.";
     return false;
   }
 
-  // Calculate the address of the NT headers.
-  RelativeAddress nt_headers_address(
-      reinterpret_cast<const uint8*>(image_file_.nt_headers()) -
-          header_start);
+  // The length of the DOS header is the address of the NT headers.
+  RelativeAddress nt_headers_address(dos_header_size);
   DCHECK(nt_headers_address.value() > sizeof(IMAGE_DOS_HEADER));
 
   // Chunk out the DOS header and stub.
@@ -345,6 +350,18 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
                                            "DOS Header");
   if (dos_header == NULL) {
     LOG(ERROR) << "Unable to add DOS header block.";
+    return false;
+  }
+
+  // Add the reference to the PE header. This reference can be interpreted
+  // either as a disk or a relative reference, as disk and relative addresses
+  // coincide in the image header.
+  COMPILE_ASSERT(sizeof(DWORD) == sizeof(dos_header_ptr->e_lfanew),
+                 dos_header_e_lfanew_is_wrong_size);
+  if (!AddRelative(dos_header_ptr,
+                   reinterpret_cast<const DWORD*>(&dos_header_ptr->e_lfanew),
+                   "NT Headers")) {
+    LOG(ERROR) << "Unable to add DOS to NT headers reference.";
     return false;
   }
 
