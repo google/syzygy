@@ -18,46 +18,99 @@
 
 namespace core {
 
-TEST(BlockGraphTest, Create) {
-  BlockGraph image;
+class BlockTest: public testing::Test {
+ public:
+  virtual void SetUp() {
+    block_ = image_.AddBlock(kBlockType, kBlockSize, kBlockName);
+    ASSERT_TRUE(block_ != NULL);
+  }
+
+ protected:
+  static const BlockGraph::BlockType kBlockType = BlockGraph::CODE_BLOCK;
+  static const size_t kBlockSize = 0x20;
+  static const char* kBlockName;
+  static const uint8 kTestData[];
+
+  BlockGraph image_;
+  BlockGraph::Block* block_;
+};
+
+const char* BlockTest::kBlockName = "block";
+const uint8 BlockTest::kTestData[] = "who's your daddy?";
+
+
+TEST_F(BlockTest, Initialization) {
+  // Test initialization.
+  ASSERT_EQ(kBlockType, block_->type());
+  ASSERT_EQ(0x20, block_->size());
+  ASSERT_STREQ(kBlockName, block_->name());
+  ASSERT_EQ(kInvalidAddress, block_->addr());
+  ASSERT_EQ(kInvalidSection, block_->section());
+  ASSERT_EQ(0, block_->attributes());
+  ASSERT_EQ(NULL, block_->data());
+  ASSERT_EQ(0, block_->data_size());
+  ASSERT_FALSE(block_->owns_data());
 }
 
-TEST(BlockGraphTest, AddBlock) {
-  BlockGraph image;
-
-  BlockGraph::Block* block =
-      image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "block");
-  ASSERT_TRUE(block != NULL);
-
-  // Test initialization.
-  ASSERT_EQ(BlockGraph::CODE_BLOCK, block->type());
-  ASSERT_EQ(0x20, block->size());
-  ASSERT_STREQ("block", block->name());
-  ASSERT_EQ(kInvalidAddress, block->addr());
-  ASSERT_EQ(kInvalidSection, block->section());
-  ASSERT_EQ(0, block->attributes());
-  ASSERT_EQ(NULL, block->data());
-  ASSERT_EQ(0, block->data_size());
-  ASSERT_FALSE(block->owns_data());
-
-  block->set_attribute(0x20);
-  ASSERT_EQ(0x20, block->attributes());
-  block->set_attribute(0x10);
-  ASSERT_EQ(0x30, block->attributes());
-  block->clear_attribute(0x20);
-  ASSERT_EQ(0x10, block->attributes());
+TEST_F(BlockTest, Accessors) {
+  block_->set_attribute(0x20);
+  ASSERT_EQ(0x20, block_->attributes());
+  block_->set_attribute(0x10);
+  ASSERT_EQ(0x30, block_->attributes());
+  block_->clear_attribute(0x20);
+  ASSERT_EQ(0x10, block_->attributes());
 
   // Test accessors.
-  static const uint8 kTestData[] = "who's your daddy?";
-  block->set_data(kTestData);
-  ASSERT_EQ(kTestData, block->data());
-  block->set_data_size(sizeof(kTestData));
-  ASSERT_EQ(sizeof(kTestData), block->data_size());
+  block_->set_data(kTestData);
+  ASSERT_EQ(kTestData, block_->data());
+  block_->set_data_size(sizeof(kTestData));
+  ASSERT_EQ(sizeof(kTestData), block_->data_size());
+  ASSERT_EQ(false, block_->owns_data());
 
-  block->set_owns_data(true);
-  ASSERT_TRUE(block->owns_data());
-  block->set_owns_data(false);
-  ASSERT_FALSE(block->owns_data());
+
+  block_->set_owns_data(true);
+  ASSERT_TRUE(block_->owns_data());
+  block_->set_owns_data(false);
+  ASSERT_FALSE(block_->owns_data());
+}
+
+TEST_F(BlockTest, AllocateData) {
+  // Test AllocateData.
+  const size_t kBlockSize = 0x20;
+  uint8* data = block_->AllocateData(block_->size());
+  ASSERT_TRUE(block_->owns_data());
+  ASSERT_EQ(block_->size(), block_->data_size());
+  ASSERT_EQ(data, block_->data());
+
+  static const uint8 zeros[kBlockSize] = {};
+  ASSERT_EQ(0, memcmp(&zeros[0], data, block_->size()));
+}
+
+TEST_F(BlockTest, CopyData) {
+  // Test CopyData.
+  uint8* data = block_->CopyData(sizeof(kTestData), kTestData);
+  ASSERT_TRUE(block_->owns_data());
+  ASSERT_EQ(sizeof(kTestData), block_->data_size());
+  ASSERT_EQ(data, block_->data());
+  ASSERT_EQ(0, memcmp(kTestData, data, block_->data_size()));
+}
+
+TEST_F(BlockTest, GetMutableData) {
+  // Set the block's data.
+  block_->set_data(kTestData);
+  block_->set_data_size(sizeof(kTestData));
+
+  // Getting a mutable pointer should copy the data to heap.
+  uint8* data = block_->GetMutableData();
+  ASSERT_TRUE(data != NULL);
+  ASSERT_TRUE(data != kTestData);
+  ASSERT_TRUE(block_->owns_data());
+  ASSERT_EQ(sizeof(kTestData), block_->data_size());
+  ASSERT_EQ(data, block_->data());
+  ASSERT_EQ(0, memcmp(kTestData, data, block_->data_size()));
+
+  // Getting the data a second time should return the same pointer.
+  ASSERT_EQ(data, block_->GetMutableData());
 }
 
 TEST(BlockGraphTest, RemoveBlock) {
