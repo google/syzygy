@@ -1103,10 +1103,8 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
     block->set_attribute(BlockGraph::PE_PARSED);
     block->set_section(image_file_.GetSectionIndex(addr, size));
     const uint8* data = image_file_.GetImageData(addr, size);
-    if (data != NULL) {
-      block->set_data(data);
-      block->set_data_size(size);
-    }
+    if (data != NULL)
+      block->SetData(data, size);
   }
 
   return block;

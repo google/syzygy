@@ -456,9 +456,9 @@ BlockGraph::Block::~Block() {
     delete [] data_;
 }
 
-uint8* BlockGraph::Block::AllocateRawData(size_t size) {
-  DCHECK(size > 0 && size <= size_);
-  uint8* new_data = new uint8[size];
+uint8* BlockGraph::Block::AllocateRawData(size_t data_size) {
+  DCHECK(data_size > 0 && data_size <= size_);
+  uint8* new_data = new uint8[data_size];
   if (!new_data)
     return NULL;
 
@@ -468,10 +468,23 @@ uint8* BlockGraph::Block::AllocateRawData(size_t size) {
   }
 
   data_ = new_data;
-  data_size_ = size;
+  data_size_ = data_size;
   owns_data_ = true;
 
   return new_data;
+}
+
+void BlockGraph::Block::SetData(const uint8* data, size_t data_size) {
+  DCHECK(data_size == 0 || data != NULL);
+  DCHECK(data_size <= size_);
+
+  if (owns_data_) {
+    delete [] data_;
+    owns_data_ = false;
+  }
+
+  data_ = data;
+  data_size_ = data_size;
 }
 
 uint8* BlockGraph::Block::AllocateData(size_t size) {
@@ -490,6 +503,37 @@ uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
 
   memcpy(new_data, data, size);
   return new_data;
+}
+
+const uint8* BlockGraph::Block::ResizeData(size_t new_size) {
+  if (new_size == data_size_)
+    return data_;
+
+  if (!owns_data() && new_size < data_size_) {
+    // Not in our ownership and shrinking. We only need to adjust our length.
+    data_size_ = new_size;
+  } else {
+    // Either our own data, or it's growing (or both). We need to reallocate.
+    uint8* new_data = new uint8[new_size];
+    if (new_data == NULL)
+      return NULL;
+
+    // Copy the (head of the) old data.
+    memcpy(new_data, data_, std::min(data_size_, new_size));
+    if (new_size > data_size_) {
+      // Zero the tail.
+      memset(new_data + data_size_, 0, new_size - data_size_);
+    }
+
+    if (owns_data())
+      delete [] data_;
+
+    owns_data_ = true;
+    data_ = new_data;
+    data_size_ = new_size;
+  }
+
+  return data_;
 }
 
 uint8* BlockGraph::Block::GetMutableData() {

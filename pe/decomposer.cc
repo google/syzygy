@@ -630,7 +630,7 @@ bool SetBlockDataPointers(const PEFile& pe_file,
         LOG(ERROR) << "Unable to get Block data from PEFile.";
         return false;
       }
-      block.set_data(data);
+      block.SetData(data, block.data_size());
     }
   }
 
@@ -2017,10 +2017,8 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
   }
 
   const uint8* data = image_file_.GetImageData(address, size);
-  if (data != NULL) {
-    block->set_data(data);
-    block->set_data_size(size);
-  }
+  if (data != NULL)
+    block->SetData(data, size);
 
   return block;
 }

@@ -325,8 +325,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
                                          sizeof(kInt3Padding),
                                          "Int3 padding");
     ASSERT_TRUE(pad_block != NULL);
-    pad_block->set_data(kInt3Padding);
-    pad_block->set_data_size(sizeof(kInt3Padding));
+    pad_block->SetData(kInt3Padding, sizeof(kInt3Padding));
     insert_at += pad_block->size();
   }
 

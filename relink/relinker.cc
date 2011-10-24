@@ -433,9 +433,7 @@ bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
     return false;
   }
 
-  new_block->set_data(padding_data());
-  new_block->set_data_size(size);
-  new_block->set_owns_data(false);
+  new_block->SetData(padding_data(), size);
   *insert_at += size;
 
   return true;

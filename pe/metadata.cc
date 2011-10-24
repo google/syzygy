@@ -310,8 +310,10 @@ bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
     return false;
   }
   insert_at += bytes.size();
-  new_block->set_data_size(bytes.size());
-  new_block->CopyData(bytes.size(), &bytes[0]);
+  if (new_block->CopyData(bytes.size(), &bytes[0]) == NULL) {
+    LOG(ERROR) << "Unable to allocate metadata.";
+    return false;
+  }
 
   // Wrap this data in a read-only data section.
   uint32 syzygy_size = insert_at - start;
