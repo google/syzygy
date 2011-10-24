@@ -38,11 +38,11 @@ class BlockTest: public testing::Test {
 const char* BlockTest::kBlockName = "block";
 const uint8 BlockTest::kTestData[] = "who's your daddy?";
 
-
 TEST_F(BlockTest, Initialization) {
   // Test initialization.
   ASSERT_EQ(kBlockType, block_->type());
-  ASSERT_EQ(0x20, block_->size());
+  ASSERT_EQ(kBlockSize, block_->size());
+  ASSERT_EQ(1, block_->alignment());
   ASSERT_STREQ(kBlockName, block_->name());
   ASSERT_EQ(kInvalidAddress, block_->addr());
   ASSERT_EQ(kInvalidSection, block_->section());
@@ -53,6 +53,23 @@ TEST_F(BlockTest, Initialization) {
 }
 
 TEST_F(BlockTest, Accessors) {
+  ASSERT_NE(BlockGraph::DATA_BLOCK, block_->type());
+  block_->set_type(BlockGraph::DATA_BLOCK);
+  ASSERT_EQ(BlockGraph::DATA_BLOCK, block_->type());
+
+  ASSERT_NE(0x10U, block_->size());
+  block_->set_size(0x10);
+  ASSERT_EQ(0x10U, block_->size());
+
+  ASSERT_STRNE("foo", block_->name());
+  block_->set_name("foo");
+  ASSERT_STREQ("foo", block_->name());
+
+  ASSERT_NE(16U, block_->alignment());
+  block_->set_alignment(16);
+  ASSERT_EQ(16U, block_->alignment());
+
+  // Test accessors.
   block_->set_attribute(0x20);
   ASSERT_EQ(0x20, block_->attributes());
   block_->set_attribute(0x10);
@@ -60,18 +77,11 @@ TEST_F(BlockTest, Accessors) {
   block_->clear_attribute(0x20);
   ASSERT_EQ(0x10, block_->attributes());
 
-  // Test accessors.
-  block_->set_data(kTestData);
+  block_->set_size(sizeof(kTestData));
+  block_->SetData(kTestData, sizeof(kTestData));
   ASSERT_EQ(kTestData, block_->data());
-  block_->set_data_size(sizeof(kTestData));
   ASSERT_EQ(sizeof(kTestData), block_->data_size());
   ASSERT_EQ(false, block_->owns_data());
-
-
-  block_->set_owns_data(true);
-  ASSERT_TRUE(block_->owns_data());
-  block_->set_owns_data(false);
-  ASSERT_FALSE(block_->owns_data());
 }
 
 TEST_F(BlockTest, AllocateData) {
@@ -95,10 +105,43 @@ TEST_F(BlockTest, CopyData) {
   ASSERT_EQ(0, memcmp(kTestData, data, block_->data_size()));
 }
 
+TEST_F(BlockTest, ResizeData) {
+  // Set the block's data.
+  block_->SetData(kTestData, sizeof(kTestData));
+
+  // Shrinking the data should not take ownership.
+  const uint8* data = block_->ResizeData(sizeof(kTestData) / 2);
+  ASSERT_TRUE(data != NULL);
+  ASSERT_TRUE(data == kTestData);
+  ASSERT_FALSE(block_->owns_data());
+
+  // Growing the data must always take ownership.
+  data = block_->ResizeData(sizeof(kTestData));
+  ASSERT_TRUE(data != NULL);
+  ASSERT_TRUE(data != kTestData);
+  ASSERT_TRUE(block_->owns_data());
+  // The head of the data should be identical to the input.
+  ASSERT_EQ(0, memcmp(data, kTestData, sizeof(kTestData) / 2));
+  // And the tail should be zeros.
+  static const uint8 kZeros[sizeof(kTestData) - sizeof(kTestData) / 2] = {};
+  ASSERT_EQ(0, memcmp(data + sizeof(kTestData) / 2, kZeros, sizeof(kZeros)));
+
+  // Now grow it from non-owned.
+  block_->SetData(kTestData, sizeof(kTestData));
+  data = block_->ResizeData(sizeof(kTestData) + sizeof(kZeros));
+  ASSERT_TRUE(data != NULL);
+  ASSERT_TRUE(data != kTestData);
+  ASSERT_TRUE(block_->owns_data());
+
+  // The head of the data should be identical to the input.
+  ASSERT_EQ(0, memcmp(data, kTestData, sizeof(kTestData)));
+  // And the tail should be zeros.
+  ASSERT_EQ(0, memcmp(data + sizeof(kTestData), kZeros, sizeof(kZeros)));
+}
+
 TEST_F(BlockTest, GetMutableData) {
   // Set the block's data.
-  block_->set_data(kTestData);
-  block_->set_data_size(sizeof(kTestData));
+  block_->SetData(kTestData, sizeof(kTestData));
 
   // Getting a mutable pointer should copy the data to heap.
   uint8* data = block_->GetMutableData();

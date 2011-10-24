@@ -634,8 +634,8 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
     return false;
   }
   *insert_at += new_block->size();
-  new_block->set_data_size(new_block->size());
-  new_block->set_data(reinterpret_cast<const uint8*>(&kThunk));
+  new_block->SetData(reinterpret_cast<const uint8*>(&kThunk),
+                     new_block->size());
 
   // Set an absolute reference to the original block at the given offset.
   new_block->SetReference(

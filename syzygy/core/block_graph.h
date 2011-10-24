@@ -190,8 +190,11 @@ class BlockGraph::Block {
   // Accessors.
   BlockId id() const { return id_; }
   BlockType type() const { return type_; }
+  void set_type(BlockType type) { type_ = type; }
 
   Size size() const { return size_; }
+  void set_size(Size size) { size_ = size; }
+
   const char* name() const { return name_.c_str(); }
   void set_name(const char* name) { name_ = name; }
 
@@ -223,20 +226,29 @@ class BlockGraph::Block {
   }
 
   // This is true iff data_ is in the ownership of the block.
-  // When true, the block will delete [] data_ on destruction.
+  // Iff true, the block will delete [] data_ on destruction or when
+  // data is overwritten.
   bool owns_data() const { return owns_data_; }
-  void set_owns_data(bool owns_data) { owns_data_ = owns_data; }
 
-  // Allocates and returns a new data buffer of the given size. The returned
-  // data buffer will not have been initialized in any way.
-  uint8* AllocateRawData(size_t size);
+  // Set the data the block refers to.
+  // @param data NULL or the data this block refers to.
+  //     The underlying data must outlive this block.
+  // @param data_size the size of data, or zero if data == NULL.
+  // @pre data_size <= size().
+  void SetData(const uint8* data, size_t data_size);
 
   // Allocates and returns a new data buffer of the given size. The returned
   // data will have been initialized to zero.
-  uint8* AllocateData(size_t size);
+  // @pre data_size <= size().
+  uint8* AllocateData(size_t data_size);
 
   // Makes a copy of data, returns a pointer to the copy.
-  uint8* CopyData(size_t size, const void* data);
+  // @pre data_size <= size().
+  uint8* CopyData(size_t data_size, const void* data);
+
+  // Resizes data to new_size by truncating or zero-extending the current data.
+  // @pre new_size <= size().
+  const uint8* ResizeData(size_t new_size);
 
   // Returns a mutable copy of the block's data. If the block doesn't own
   // the data on entry, it'll be copied and the copy returned to the caller.
@@ -244,13 +256,11 @@ class BlockGraph::Block {
 
   // The data bytes the block refers to.
   const uint8* data() const { return data_; }
-  void set_data(const uint8* data) { data_ = data; }
 
   // The data size may be smaller than the block size (see size()),
   // when the block e.g. refers to data that's all or part
   // zero-initialized by the linker/loader.
   size_t data_size() const { return data_size_; }
-  void set_data_size(size_t data_size) { data_size_ = data_size; }
 
   const ReferenceMap& references() const { return references_; }
   const ReferrerSet& referrers() const { return referrers_; }
@@ -299,6 +309,10 @@ class BlockGraph::Block {
   bool Contains(RelativeAddress address, size_t size) const;
 
  protected:
+  // Allocates and returns a new data buffer of the given size. The returned
+  // data buffer will not have been initialized in any way.
+  uint8* AllocateRawData(size_t size);
+
   // Give BlockGraph access to our innards for serialization.
   friend class BlockGraph;
 
