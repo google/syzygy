@@ -457,7 +457,9 @@ BlockGraph::Block::~Block() {
 }
 
 uint8* BlockGraph::Block::AllocateRawData(size_t data_size) {
-  DCHECK(data_size > 0 && data_size <= size_);
+  DCHECK(data_size > 0);
+  DCHECK(data_size <= size_);
+
   uint8* new_data = new uint8[data_size];
   if (!new_data)
     return NULL;
@@ -475,14 +477,14 @@ uint8* BlockGraph::Block::AllocateRawData(size_t data_size) {
 }
 
 void BlockGraph::Block::SetData(const uint8* data, size_t data_size) {
-  DCHECK(data_size == 0 || data != NULL);
+  DCHECK((data_size == 0 && data == NULL) ||
+         (data_size != 0 && data != NULL));
   DCHECK(data_size <= size_);
 
-  if (owns_data_) {
+  if (owns_data_)
     delete [] data_;
-    owns_data_ = false;
-  }
 
+  owns_data_ = false;
   data_ = data;
   data_size_ = data_size;
 }
