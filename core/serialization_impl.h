@@ -92,10 +92,35 @@ struct ContainerValueType<std::map<Key, Data, Compare, Alloc> > {
   typedef std::pair<Key, Data> ValueType;
 };
 
+// Reserves space in a container for the given number of entries, if possible.
+template<typename Container>
+struct ReserveContainer {
+  void operator()(size_t entries, Container* container) {
+    // Do nothing for most containers.
+  }
+};
+// std::vector and std::basic_string both support 'reserve'.
+template<typename T>
+struct ReserveContainer<std::vector<T>> {
+  void operator()(size_t entries, std::vector<T>* vector) {
+    DCHECK(vector != NULL);
+    vector->reserve(entries);
+  }
+};
+template<typename Char, typename Traits, typename Alloc>
+struct ReserveContainer<std::basic_string<Char, Traits, Alloc>> {
+  void operator()(size_t entries,
+                  std::basic_string<Char, Traits, Alloc>* string) {
+    DCHECK(string != NULL);
+    string->reserve(entries);
+  }
+};
+
 // Loads serialized values into a container via an output iterator.
 template<typename Container, typename OutputIterator, class InArchive>
-bool LoadContainer(Container* container, OutputIterator output_iterator,
-                       InArchive* in_archive) {
+bool LoadContainer(Container* container,
+                   OutputIterator output_iterator,
+                   InArchive* in_archive) {
   DCHECK(container != NULL);
   DCHECK(in_archive != NULL);
 
@@ -105,6 +130,10 @@ bool LoadContainer(Container* container, OutputIterator output_iterator,
   typename Container::size_type size = 0;
   if (!in_archive->Load(&size))
     return false;
+
+  // Reserve room for the entries, if the container supports it. This makes
+  // this slightly more efficient.
+  ReserveContainer<Container>()(size, container);
 
   typename Container::size_type i = 0;
   for (; i < size; ++i) {
