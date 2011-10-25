@@ -103,7 +103,7 @@ bool DumpImageToText(const FilePath& image_path,
   }
 
   // And decompose it to an ImageLayout.
-  Decomposer decomposer(image_file, image_path);
+  Decomposer decomposer(image_file);
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   if (!decomposer.Decompose(&image_layout, NULL)) {

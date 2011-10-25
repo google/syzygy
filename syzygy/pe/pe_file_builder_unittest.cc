@@ -65,7 +65,7 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
     image_path_ = GetExeRelativePath(kDllName);
     ASSERT_TRUE(image_file_.Init(image_path_));
 
-    Decomposer decomposer(image_file_, image_path_);
+    Decomposer decomposer(image_file_);
     ASSERT_TRUE(decomposer.Decompose(&decomposed_, NULL));
 
     // Retrieve the original image headers.

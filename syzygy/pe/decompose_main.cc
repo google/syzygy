@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
   time = base::Time::Now();
   core::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
-  pe::Decomposer decomposer(pe_file, image);
+  pe::Decomposer decomposer(pe_file);
   if (!decomposer.Decompose(&image_layout, NULL)) {
     LOG(ERROR) << "Decomposition failed.";
     return 1;

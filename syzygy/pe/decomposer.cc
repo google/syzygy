@@ -696,11 +696,9 @@ using builder::Star;
 using core::AbsoluteAddress;
 using core::BlockGraph;
 
-Decomposer::Decomposer(const PEFile& image_file,
-                       const FilePath& file_path)
+Decomposer::Decomposer(const PEFile& image_file)
     : image_(NULL),
       image_file_(image_file),
-      file_path_(file_path),
       current_block_(NULL) {
   // Register static initializer patterns that we know are always present.
   bool success =
@@ -729,7 +727,7 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
     return false;
   }
 
-  HRESULT hr = dia_source->loadDataForExe(file_path_.value().c_str(),
+  HRESULT hr = dia_source->loadDataForExe(image_file_.path().value().c_str(),
                                           NULL,
                                           NULL);
   if (FAILED(hr)) {

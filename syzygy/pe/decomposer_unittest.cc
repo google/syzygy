@@ -45,7 +45,7 @@ TEST_F(DecomposerTest, Decompose) {
   ASSERT_TRUE(image_file.Init(image_path));
 
   // Decompose the test image and look at the result.
-  Decomposer decomposer(image_file, image_path);
+  Decomposer decomposer(image_file);
 
   core::BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
@@ -167,7 +167,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
   ASSERT_TRUE(image_file.Init(image_path));
 
   // Decompose the test image and look at the result.
-  Decomposer decomposer(image_file, image_path);
+  Decomposer decomposer(image_file);
 
   core::BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
@@ -221,7 +221,7 @@ TEST_F(DecomposerTest, BasicBlockDecompose) {
   ASSERT_TRUE(image_file.Init(image_path));
 
   // Decompose the test image and look at the result.
-  Decomposer decomposer(image_file, image_path);
+  Decomposer decomposer(image_file);
 
   core::BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
