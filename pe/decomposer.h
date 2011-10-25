@@ -63,8 +63,8 @@ class Decomposer {
   typedef std::map<RelativeAddress, IntermediateReference>
       IntermediateReferenceMap;
 
-  // Initializes the decomposer for a given image file and path.
-  Decomposer(const PEFile& image_file, const FilePath& file_path);
+  // Initializes the decomposer for a given image file.
+  explicit Decomposer(const PEFile& image_file);
 
   // Decomposes the image file into a BlockGraph and an ImageLayout, which
   // have the breakdown of code and data blocks with typed references and
@@ -271,12 +271,11 @@ class Decomposer {
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
 
-  // The image file we're decomposing and its path.
+  // The image file we're decomposing.
   // Note that the resultant BlockGraph will contain pointers to the
   // data in the image file, so the user must ensure the image file
   // outlives the BlockGraph.
   const PEFile& image_file_;
-  FilePath file_path_;
 
   // Stores intermediate references before the block graph is complete.
   IntermediateReferenceMap references_;
@@ -337,8 +336,8 @@ class Decomposer::BasicBlockBreakdown {
 };
 
 // This is for serializing a PEFile/BlockGraph/ImageLayout triple, which
-// allows us to avoid doing decomposition repeatedly.
-// This also stores toolchain metadata for input validation.
+// allows us to avoid doing decomposition repeatedly. The serialized format also
+// stores toolchain metadata for input validation.
 bool SaveDecomposition(const PEFile& pe_file,
                        const core::BlockGraph& block_graph,
                        const ImageLayout& image_layout,

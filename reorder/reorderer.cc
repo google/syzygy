@@ -161,7 +161,7 @@ bool Reorderer::ReorderImpl(Order* order) {
   // Decompose the DLL to be reordered. This will let us map call-trace events
   // to actual Blocks.
   LOG(INFO) << "Decomposing input image.";
-  Decomposer decomposer(*pe_, module_path_);
+  Decomposer decomposer(*pe_);
   if (!decomposer.Decompose(image_, NULL)) {
     LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
     return false;

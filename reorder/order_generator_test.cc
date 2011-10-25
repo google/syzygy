@@ -30,7 +30,7 @@ void OrderGeneratorTest::SetUp() {
   FilePath input_dll_path = test_data_dir.Append(kDllName);
 
   ASSERT_TRUE(input_dll_.Init(input_dll_path));
-  pe::Decomposer decomposer(input_dll_, input_dll_path);
+  pe::Decomposer decomposer(input_dll_);
   ASSERT_TRUE(decomposer.Decompose(&image_, NULL));
 }
 

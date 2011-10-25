@@ -52,7 +52,7 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   FilePath image_path(GetExeRelativePath(kDllName));
   ASSERT_TRUE(image_file.Init(image_path));
 
-  Decomposer decomposer(image_file, image_path);
+  Decomposer decomposer(image_file);
   core::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout, NULL));
