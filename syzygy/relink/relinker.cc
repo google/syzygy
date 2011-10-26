@@ -27,6 +27,7 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_data.h"
+#include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_writer.h"
 
 using core::BlockGraph;
@@ -55,15 +56,13 @@ void AddOmapForBlockRange(
   }
 }
 
-void AddOmapForAllSections(size_t num_sections,
-                           const IMAGE_SECTION_HEADER* sections,
-                           const BlockGraph::AddressSpace& from,
-                           const BlockGraph::AddressSpace& to,
-                           std::vector<OMAP>* omap) {
-  for (size_t i = 0; i < num_sections; ++i) {
+void AddOmapForAllSections(
+    const std::vector<ImageLayout::SegmentInfo>& sections,
+    const BlockGraph::AddressSpace& from, const BlockGraph::AddressSpace& to,
+    std::vector<OMAP>* omap) {
+  for (size_t i = 0; i < sections.size() - 1; ++i) {
     BlockGraph::AddressSpace::RangeMapConstIterPair range =
-        from.GetIntersectingBlocks(RelativeAddress(sections[i].VirtualAddress),
-                                   sections[i].Misc.VirtualSize);
+        from.GetIntersectingBlocks(sections[i].addr, sections[i].size);
 
     AddOmapForBlockRange(range, to, omap);
   }
@@ -88,98 +87,39 @@ base::LazyInstance<PaddingData> kPaddingData(base::LINKER_INITIALIZED);
 
 namespace relink {
 
-RelinkerBase::RelinkerBase()
-    : original_num_sections_(NULL),
-      original_sections_(NULL),
-      original_addr_space_(NULL) {
+RelinkerBase::RelinkerBase() : original_addr_space_(NULL) {
 }
 
 RelinkerBase::~RelinkerBase() {
 }
 
 bool RelinkerBase::Initialize(Decomposer::DecomposedImage* decomposed) {
-  const BlockGraph::Block* original_nt_headers = decomposed->header.nt_headers;
-  DCHECK_EQ(decomposed->address_space.graph(), &decomposed->image);
-  original_addr_space_ = &decomposed->address_space;
-  builder_.reset(new PEFileBuilder(&decomposed->image));
+  DCHECK(decomposed != NULL);
 
-  // Retrieve the NT and image section headers.
-  if (original_nt_headers == NULL ||
-      original_nt_headers->size() < sizeof(IMAGE_NT_HEADERS) ||
-      original_nt_headers->data_size() != original_nt_headers->size()) {
-    LOG(ERROR) << "Missing or corrupt NT header in decomposed image.";
-    return false;
-  }
+  // Read the original section headers from the NT headers.
+  // TODO(siggi): Remove this once we decompose to an ImageLayout.
+  DCHECK_LE(sizeof(IMAGE_NT_HEADERS),
+            decomposed->header.nt_headers->data_size());
   const IMAGE_NT_HEADERS* nt_headers =
       reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          original_nt_headers->data());
-  DCHECK(nt_headers != NULL);
-
-  size_t num_sections = nt_headers->FileHeader.NumberOfSections;
-  size_t nt_headers_size = sizeof(IMAGE_NT_HEADERS) +
-      num_sections * sizeof(IMAGE_SECTION_HEADER);
-  if (original_nt_headers->data_size() != nt_headers_size) {
-    LOG(ERROR) << "Missing or corrupt image section headers "
-        "in decomposed image.";
-    return false;
-  }
-
-  // Grab the image characteristics, base and other properties from the
-  // original image and propagate them to the new image headers.
-  builder().nt_headers().FileHeader.Characteristics =
-      nt_headers->FileHeader.Characteristics;
-
-  // Grab the optional header fields that are specific to the original
-  // image and propagate them to the new image's optional headers.
-  // The remaining values are initialized/calculated by the PEBuilder.
-  const IMAGE_OPTIONAL_HEADER& src_hdr = nt_headers->OptionalHeader;
-  IMAGE_OPTIONAL_HEADER& dst_hdr = builder().nt_headers().OptionalHeader;
-  dst_hdr.ImageBase = src_hdr.ImageBase;
-  dst_hdr.MajorOperatingSystemVersion = src_hdr.MajorOperatingSystemVersion;
-  dst_hdr.MinorOperatingSystemVersion = src_hdr.MinorOperatingSystemVersion;
-  dst_hdr.MajorImageVersion = src_hdr.MajorImageVersion;
-  dst_hdr.MinorImageVersion = src_hdr.MinorImageVersion;
-  dst_hdr.MajorSubsystemVersion = src_hdr.MajorSubsystemVersion;
-  dst_hdr.MinorSubsystemVersion = src_hdr.MinorSubsystemVersion;
-  dst_hdr.Win32VersionValue = src_hdr.Win32VersionValue;
-  dst_hdr.Subsystem = src_hdr.Subsystem;
-  dst_hdr.DllCharacteristics = src_hdr.DllCharacteristics;
-  dst_hdr.SizeOfStackReserve = src_hdr.SizeOfStackReserve;
-  dst_hdr.SizeOfStackCommit = src_hdr.SizeOfStackCommit;
-  dst_hdr.SizeOfHeapReserve = src_hdr.SizeOfHeapReserve;
-  dst_hdr.SizeOfHeapCommit = src_hdr.SizeOfHeapCommit;
-  dst_hdr.LoaderFlags = src_hdr.LoaderFlags;
-
-  // Store the number of sections and the section headers in the original image.
-  original_num_sections_ = num_sections;
-  original_sections_ =
+          decomposed->header.nt_headers->data());
+  const IMAGE_SECTION_HEADER* section_headers =
       reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-
-  // Retrieve the original image's entry point.
-  BlockGraph::Reference entry_point;
-  size_t entrypoint_offset =
-      FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint);
-  if (!original_nt_headers->GetReference(entrypoint_offset, &entry_point)) {
-    LOG(ERROR) << "Unable to get entrypoint.";
-    return false;
+  for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
+    ImageLayout::SegmentInfo section = {
+        pe::PEFile::GetSectionName(section_headers[i]),
+        RelativeAddress(section_headers[i].VirtualAddress),
+        section_headers[i].Misc.VirtualSize,
+        section_headers[i].SizeOfRawData,
+        section_headers[i].Characteristics };
+    original_sections_.push_back(section);
   }
-  builder().set_entry_point(entry_point);
 
-  return true;
-}
-
-bool RelinkerBase::CopyDataDirectory(
-    const PEFileParser::PEHeader& original_header) {
-  // Copy the data directory from the old image.
-  for (size_t i = 0; i < arraysize(original_header.data_directory); ++i) {
-    BlockGraph::Block* block = original_header.data_directory[i];
-
-    // We don't want to copy the relocs entry over as the relocs are recreated.
-    if (block != NULL && i != IMAGE_DIRECTORY_ENTRY_BASERELOC) {
-      if (!builder().SetDataDirectoryEntry(i, block)) {
-        return false;
-      }
-    }
+  original_addr_space_ = &decomposed->address_space;
+  builder_.reset(new PEFileBuilder(&decomposed->image));
+  if (!builder_->SetImageHeaders(decomposed->header.dos_header)) {
+    LOG(ERROR) << "Invalid image headers.";
+    return false;
   }
 
   return true;
@@ -216,8 +156,7 @@ bool RelinkerBase::FinalizeImageHeaders(
 }
 
 bool RelinkerBase::WriteImage(const FilePath& output_path) {
-  ImageLayout layout(&builder());
-  PEFileWriter writer(layout);
+  PEFileWriter writer(builder_->image_layout());
 
   if (!writer.WriteImage(output_path)) {
     LOG(ERROR) << "Unable to write new executable";
@@ -227,17 +166,14 @@ bool RelinkerBase::WriteImage(const FilePath& output_path) {
   return true;
 }
 
-bool RelinkerBase::CopySection(const IMAGE_SECTION_HEADER& section) {
-  BlockGraph::AddressSpace::Range section_range(
-      RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
-  const char* name = reinterpret_cast<const char*>(section.Name);
-  std::string name_str(name, strnlen(name, arraysize(section.Name)));
+bool RelinkerBase::CopySection(const ImageLayout::SegmentInfo& section) {
+  BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
 
   // Duplicate the section in the new image.
-  RelativeAddress start = builder().AddSegment(name_str.c_str(),
-                                               section.Misc.VirtualSize,
-                                               section.SizeOfRawData,
-                                               section.Characteristics);
+  RelativeAddress start = builder().AddSegment(section.name.c_str(),
+                                               section.size,
+                                               section.data_size,
+                                               section.characteristics);
   BlockGraph::AddressSpace::RangeMapConstIterPair section_blocks =
       original_addr_space().GetIntersectingBlocks(section_range.start(),
                                                   section_range.size());
@@ -249,7 +185,7 @@ bool RelinkerBase::CopySection(const IMAGE_SECTION_HEADER& section) {
     return false;
   }
 
-  DCHECK(bytes_copied == section.Misc.VirtualSize);
+  DCHECK(bytes_copied == section.size);
   return true;
 }
 
@@ -263,7 +199,7 @@ bool RelinkerBase::CopyBlocks(
   const AddressSpace::RangeMapConstIter& end = iter_pair.second;
   for (; it != end; ++it) {
     BlockGraph::Block* block = it->second;
-    if (!builder().address_space().InsertBlock(insert_at, block)) {
+    if (!builder().image_layout().blocks.InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Failed to insert block '" << block->name() <<
           "' at " << insert_at;
       return false;
@@ -333,24 +269,23 @@ bool Relinker::Relink(const FilePath& input_dll_path,
     return false;
   }
 
-  // Reorder code sections and copy non-code sections.
-  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections()[i];
-    const std::string name(pe::PEFile::GetSectionName(section));
+  // Reorder, section by section.
+  for (size_t i = 0; i < original_sections().size() - 1; ++i) {
+    const ImageLayout::SegmentInfo& section = original_sections()[i];
 
     // Skip the resource section if we encounter it.
-    if (name == common::kResourceSectionName) {
+    if (section.name == common::kResourceSectionName) {
       // We should only ever come across one of these, and it should be
       // second to last.
-      DCHECK_EQ(i, original_num_sections() - 2);
+      DCHECK_EQ(i, original_sections().size() - 2);
       DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
       resource_section_id_ = i;
       continue;
     }
 
-    LOG(INFO) << "Reordering section " << i << " (" << name << ").";
+    LOG(INFO) << "Reordering section " << i << " (" << section.name << ").";
     if (!ReorderSection(i, section, order)) {
-      LOG(ERROR) << "Unable to reorder the '" << name << "' section.";
+      LOG(ERROR) << "Unable to reorder the '" << section.name << "' section.";
       return false;
     }
   }
@@ -373,12 +308,6 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   // ordering information was provided!
   if (!CopyResourceSection())
     return false;
-
-  LOG(INFO) << "Copying the data directories.";
-  if (!CopyDataDirectory(decomposed.header)) {
-    LOG(ERROR) << "Unable to copy the input image's data directory.";
-    return false;
-  }
 
   // Finalize the headers and write the image and pdb.
   LOG(INFO) << "Finalizing the image headers.";
@@ -425,7 +354,7 @@ bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
   if (size == 0)
     return true;
 
-  BlockGraph::Block* new_block = builder().address_space().AddBlock(
+  BlockGraph::Block* new_block = builder().image_layout().blocks.AddBlock(
       block_type, *insert_at, size, "Padding block");
 
   if (new_block == NULL) {
@@ -504,10 +433,10 @@ bool Relinker::UpdateDebugInformation(
       IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
 
   BlockGraph::Block* new_debug_info_block =
-      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                         new_debug_block_addr,
-                                         new_debug_info_size,
-                                         "New Debug Info");
+      builder().image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                               new_debug_block_addr,
+                                               new_debug_info_size,
+                                               "New Debug Info");
   DCHECK(new_debug_info_block != NULL);
 
   pe::CvInfoPdb70* new_debug_info =
@@ -539,17 +468,15 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
                             const FilePath& output_path) {
   // Generate the map data for both directions.
   std::vector<OMAP> omap_to;
-  AddOmapForAllSections(builder().nt_headers().FileHeader.NumberOfSections - 1,
-                        builder().section_headers(),
-                        builder().address_space(),
+  AddOmapForAllSections(builder().image_layout().segments,
+                        builder().image_layout().blocks,
                         original_addr_space(),
                         &omap_to);
 
   std::vector<OMAP> omap_from;
-  AddOmapForAllSections(original_num_sections() - 1,
-                        original_sections(),
+  AddOmapForAllSections(builder().image_layout().segments,
                         original_addr_space(),
-                        builder().address_space(),
+                        builder().image_layout().blocks,
                         &omap_from);
 
   FilePath temp_pdb;
@@ -597,12 +524,11 @@ bool Relinker::CopyResourceSection() {
   if (resource_section_id_ == pe::kInvalidSection)
     return true;
 
-  const IMAGE_SECTION_HEADER& section =
+  const ImageLayout::SegmentInfo& section =
       original_sections()[resource_section_id_];
 
-  std::string name = pe::PEFile::GetSectionName(section);
-  LOG(INFO) << "Copying section " << resource_section_id_ << " (" << name
-      << ").";
+  LOG(INFO) << "Copying section " << resource_section_id_ << " ("
+            << section.name << ").";
   if (!CopySection(section)) {
     LOG(ERROR) << "Unable to copy section.";
     return false;

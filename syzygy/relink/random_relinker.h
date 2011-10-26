@@ -39,7 +39,7 @@ class RandomRelinker : public Relinker {
                      const DecomposedImage& image,
                      Reorderer::Order* order) OVERRIDE;
   bool ReorderSection(size_t section_index,
-                      const IMAGE_SECTION_HEADER& section,
+                      const ImageLayout::SegmentInfo& section,
                       const Reorderer::Order& order) OVERRIDE;
 
   // The seed for the random ordering.

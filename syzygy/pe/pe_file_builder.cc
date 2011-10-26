@@ -25,7 +25,6 @@ namespace {
 extern "C" void begin_dos_stub();
 extern "C" void end_dos_stub();
 
-
 using core::BlockGraph;
 using core::RelativeAddress;
 typedef std::vector<uint8> ByteVector;
@@ -133,57 +132,76 @@ bool IsValidReference(const BlockGraph::AddressSpace& addr_space,
 namespace pe {
 
 PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
-    : next_section_address_(kDefaultSectionAlignment),
-      address_space_(block_graph),
+    : image_layout_(block_graph),
+      section_alignment_(kDefaultSectionAlignment),
+      file_alignment_(kDefaultFileAlignment),
+      next_section_address_(kDefaultSectionAlignment),
       dos_header_block_(NULL),
       nt_headers_block_(NULL) {
+}
 
-  memset(&nt_headers_, 0, sizeof(nt_headers_));
+bool PEFileBuilder::SetImageHeaders(BlockGraph::Block* dos_header_block) {
+  DCHECK(dos_header_block != NULL);
+  if (dos_header_block->data() == NULL ||
+      dos_header_block->data_size() < sizeof(IMAGE_DOS_HEADER)) {
+    LOG(ERROR) << "DOS header missing or too short.";
+    return false;
+  }
 
-  nt_headers_.Signature = IMAGE_NT_SIGNATURE;
-  nt_headers_.FileHeader.Machine = IMAGE_FILE_MACHINE_I386;
-  nt_headers_.FileHeader.TimeDateStamp = static_cast<uint32>(time(NULL));
-  nt_headers_.FileHeader.SizeOfOptionalHeader =
-      sizeof(nt_headers_.OptionalHeader);
-  nt_headers_.FileHeader.Characteristics = IMAGE_FILE_EXECUTABLE_IMAGE |
-      IMAGE_FILE_32BIT_MACHINE | IMAGE_FILE_DLL;
+  const IMAGE_DOS_HEADER* dos_header =
+      reinterpret_cast<const IMAGE_DOS_HEADER*>(dos_header_block->data());
+  if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
+    LOG(ERROR) << "DOS header has incorrect signature.";
+    return false;
+  }
+  // TODO(siggi): Validate more DOS header info.
 
-  nt_headers_.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR32_MAGIC;
+  BlockGraph::Reference nt_headers_ref;
+  if (!dos_header_block->GetReference(offsetof(IMAGE_DOS_HEADER, e_lfanew),
+                                      &nt_headers_ref)) {
+    LOG(ERROR) << "DOS header does not reference NT header.";
+    return false;
+  }
+  if (nt_headers_ref.offset() != 0) {
+    LOG(ERROR) << "DOS header reference does not refer to the start of block.";
+    return false;
+  }
 
-  // TODO(siggi): These should reflect Syzygy version.
-  // Imagehlp.dll does not like major linker version less than 3 for
-  // some reason. It refuses to bind or rebase images unless the
-  // linker major version is better than 3. Seven is arbitrarily chosen.
-  nt_headers_.OptionalHeader.MajorLinkerVersion = 7;
-  nt_headers_.OptionalHeader.MinorLinkerVersion = 0;
+  BlockGraph::Block* nt_headers_block = nt_headers_ref.referenced();
+  DCHECK(nt_headers_block != NULL);
+  if (nt_headers_block->data() == NULL ||
+      nt_headers_block->data_size() < sizeof(IMAGE_NT_HEADERS)) {
+    LOG(ERROR) << "NT headers missing or too short.";
+    return false;
+  }
 
-  nt_headers_.OptionalHeader.ImageBase = kDefaultImageBase;
-  nt_headers_.OptionalHeader.SectionAlignment = kDefaultSectionAlignment;
-  nt_headers_.OptionalHeader.FileAlignment = kDefaultFileAlignment;
-  nt_headers_.OptionalHeader.MajorOperatingSystemVersion = 5;
-  nt_headers_.OptionalHeader.MinorOperatingSystemVersion = 0;
-  nt_headers_.OptionalHeader.MajorImageVersion = 0;
-  nt_headers_.OptionalHeader.MinorImageVersion = 0;
-  nt_headers_.OptionalHeader.MajorSubsystemVersion = 5;
-  nt_headers_.OptionalHeader.MinorSubsystemVersion = 0;
-  nt_headers_.OptionalHeader.Win32VersionValue = 0;
-  nt_headers_.OptionalHeader.SizeOfHeaders = kDefaultHeaderSize;
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
+  if (nt_headers->Signature != IMAGE_NT_SIGNATURE ||
+      nt_headers->FileHeader.Machine != IMAGE_FILE_MACHINE_I386) {
+    LOG(ERROR) << "NT headers have incorrect signature(s).";
+    return false;
+  }
+  // TODO(siggi): Validate more header info.
 
-  nt_headers_.OptionalHeader.CheckSum = 0;
-  nt_headers_.OptionalHeader.Subsystem = IMAGE_SUBSYSTEM_WINDOWS_CUI;
+  dos_header_block_ = dos_header_block;
+  nt_headers_block_ = nt_headers_block;
 
-  nt_headers_.OptionalHeader.DllCharacteristics =
-      IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE |
-      IMAGE_DLLCHARACTERISTICS_NX_COMPAT;
+  return true;
+}
 
-  // These values reflect the defaults seen from the VC9 linker.
-  nt_headers_.OptionalHeader.SizeOfStackReserve = 0x100000;
-  nt_headers_.OptionalHeader.SizeOfStackCommit = 0x1000;
-  nt_headers_.OptionalHeader.SizeOfHeapReserve = 0x100000;
-  nt_headers_.OptionalHeader.SizeOfHeapCommit = 0x1000;
-  nt_headers_.OptionalHeader.LoaderFlags = 0;
-  nt_headers_.OptionalHeader.NumberOfRvaAndSizes =
-      IMAGE_NUMBEROF_DIRECTORY_ENTRIES;
+void PEFileBuilder::SetAllocationParameters(size_t header_size,
+                                            size_t section_alignment,
+                                            size_t file_alignment) {
+  DCHECK(header_size > 0);
+  DCHECK(section_alignment > 0 && common::IsPowerOfTwo(section_alignment));
+  DCHECK(file_alignment > 0 && common::IsPowerOfTwo(file_alignment));
+  DCHECK_EQ(0U, image_layout_.segments.size());
+
+  section_alignment_ = section_alignment;
+  file_alignment_ = file_alignment;
+  next_section_address_ =
+      RelativeAddress(common::AlignUp(header_size, section_alignment_));
 }
 
 RelativeAddress PEFileBuilder::AddSegment(const char* name,
@@ -192,27 +210,19 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
                                           uint32 characteristics) {
   DCHECK_NE(0U, size);
 
-  data_size = common::AlignUp(data_size,
-                              nt_headers_.OptionalHeader.FileAlignment);
+  data_size = common::AlignUp(data_size, file_alignment_);
   RelativeAddress section_base = next_section_address_;
-  IMAGE_SECTION_HEADER new_header = { 0 };
-  base::strlcpy(reinterpret_cast<char*>(new_header.Name),
-                name,
-                arraysize(new_header.Name));
-  new_header.Misc.VirtualSize = size;
-  new_header.VirtualAddress = section_base.value();
-  new_header.SizeOfRawData = data_size;
-  if (section_headers_.empty()) {
-    new_header.PointerToRawData = nt_headers_.OptionalHeader.SizeOfHeaders;
-  } else {
-    IMAGE_SECTION_HEADER& last = section_headers_.back();
-    new_header.PointerToRawData = last.PointerToRawData + last.SizeOfRawData;
-  }
-  new_header.Characteristics = characteristics;
-  section_headers_.push_back(new_header);
 
-  next_section_address_ +=
-      common::AlignUp(size, nt_headers_.OptionalHeader.SectionAlignment);
+  ImageLayout::SegmentInfo segment;
+  segment.addr = next_section_address_;
+  segment.name = name;
+  segment.size = size;
+  segment.data_size = data_size;
+  segment.characteristics = characteristics;
+
+  image_layout_.segments.push_back(segment);
+
+  next_section_address_ += common::AlignUp(size, section_alignment_);
 
   return section_base;
 }
@@ -233,12 +243,21 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
                                           const BlockGraph::Reference& entry,
                                           size_t entry_size) {
   DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
-  DCHECK(IsValidReference(address_space_, entry));
+  DCHECK(IsValidReference(image_layout_.blocks, entry));
   DCHECK_EQ(BlockGraph::RELATIVE_REF, entry.type());
   DCHECK(entry_size != NULL);
+  DCHECK(nt_headers_block_ != NULL);
+  DCHECK(nt_headers_block_->data() != NULL);
+  DCHECK(nt_headers_block_->data_size() >= sizeof(IMAGE_NT_HEADERS));
 
-  data_directory_[entry_index].ref_ = entry;
-  data_directory_[entry_index].size_ = entry_size;
+  IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<IMAGE_NT_HEADERS*>(nt_headers_block_->GetMutableData());
+
+  nt_headers->OptionalHeader.DataDirectory[entry_index].Size = entry_size;
+  size_t entry_offset =
+      offsetof(IMAGE_NT_HEADERS,
+               OptionalHeader.DataDirectory[entry_index].VirtualAddress);
+  nt_headers_block_->SetReference(entry_offset, entry);
 
   return true;
 }
@@ -249,14 +268,14 @@ bool PEFileBuilder::CreateRelocsSection() {
   // Iterate over all blocks in the address space, in the
   // order of increasing addresses.
   BlockGraph::AddressSpace::RangeMap::const_iterator it(
-      address_space_.address_space_impl().ranges().begin());
+      image_layout_.blocks.address_space_impl().ranges().begin());
   BlockGraph::AddressSpace::RangeMap::const_iterator end(
-      address_space_.address_space_impl().ranges().end());
+      image_layout_.blocks.address_space_impl().ranges().end());
 
   for (; it != end; ++it) {
     const BlockGraph::Block* block = it->second;
     RelativeAddress block_addr;
-    CHECK(address_space_.GetAddressOf(block, &block_addr));
+    CHECK(image_layout_.blocks.GetAddressOf(block, &block_addr));
 
     // Iterate over all outgoing references in this block in
     // order of increasing offset.
@@ -280,7 +299,7 @@ bool PEFileBuilder::CreateRelocsSection() {
   const uint32 kRelocCharacteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
       IMAGE_SCN_MEM_DISCARDABLE | IMAGE_SCN_MEM_READ;
   size_t relocs_file_size =
-      common::AlignUp(relocs.size(), nt_headers_.OptionalHeader.FileAlignment);
+      common::AlignUp(relocs.size(), file_alignment_);
   RelativeAddress section_base = AddSegment(".reloc",
                                             relocs.size(),
                                             relocs_file_size,
@@ -289,10 +308,10 @@ bool PEFileBuilder::CreateRelocsSection() {
 
   // And add a corresponding block referring the data to the address space.
   BlockGraph::Block* block =
-      address_space_.AddBlock(BlockGraph::DATA_BLOCK,
-                              section_base,
-                              relocs.size(),
-                              ".relocs");
+      image_layout_.blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                    section_base,
+                                    relocs.size(),
+                                    ".relocs");
   if (block == NULL || block->CopyData(relocs.size(), &relocs.at(0)) == NULL) {
     LOG(ERROR) << "Failed to add relocs block to image";
     return false;
@@ -303,120 +322,109 @@ bool PEFileBuilder::CreateRelocsSection() {
 }
 
 bool PEFileBuilder::FinalizeHeaders() {
-  // The DOS header should not be set at this point.
-  DCHECK(dos_header_block_ == NULL);
-  if (!CreateDosHeader()) {
-    LOG(ERROR) << "Unable to create DOS header";
+  // The DOS and NT headers must be set at this point.
+  DCHECK(dos_header_block_ != NULL);
+  DCHECK(nt_headers_block_ != NULL);
+
+  if (!UpdateDosHeader()) {
+    LOG(ERROR) << "Failed update DOS header.";
     return false;
   }
-  DCHECK(dos_header_block_ != NULL);
 
-  nt_headers_.FileHeader.NumberOfSections = section_headers_.size();
+  // Resize the NT headers block if needed to fit the new section headers.
+  size_t nt_headers_size = sizeof(IMAGE_NT_HEADERS) +
+      sizeof(IMAGE_SECTION_HEADER) * image_layout_.segments.size();
+  if (nt_headers_block_->ResizeData(nt_headers_size) == NULL) {
+    LOG(ERROR) << "Failed to resize NT headers block.";
+    return false;
+  }
 
-  // Iterate through our sections to initialize the code/data fields.
-  for (size_t i = 0; i < section_headers_.size(); ++i) {
-    const IMAGE_SECTION_HEADER& hdr = section_headers_[i];
+  // Update the NT header block.
+  IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<IMAGE_NT_HEADERS*>(nt_headers_block_->GetMutableData());
 
-    if (hdr.Characteristics & IMAGE_SCN_CNT_CODE) {
-      nt_headers_.OptionalHeader.SizeOfCode += hdr.SizeOfRawData;
-      if (nt_headers_.OptionalHeader.BaseOfCode == 0) {
-        nt_headers_.OptionalHeader.BaseOfCode = hdr.VirtualAddress;
+  nt_headers->OptionalHeader.SectionAlignment = section_alignment_;
+  nt_headers->OptionalHeader.FileAlignment = file_alignment_;
+
+  nt_headers->OptionalHeader.CheckSum = 0;
+  nt_headers->FileHeader.NumberOfSections = image_layout_.segments.size();
+
+  // Iterate through our sections to initialize the code/data
+  // fields in the NT header.
+  for (size_t i = 0; i < image_layout_.segments.size(); ++i) {
+    const ImageLayout::SegmentInfo& segment = image_layout_.segments[i];
+
+    if (segment.characteristics& IMAGE_SCN_CNT_CODE) {
+      nt_headers->OptionalHeader.SizeOfCode += segment.data_size;
+      if (nt_headers->OptionalHeader.BaseOfCode == 0) {
+        nt_headers->OptionalHeader.BaseOfCode = segment.addr.value();
       }
     }
-    if (hdr.Characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
-      nt_headers_.OptionalHeader.SizeOfInitializedData += hdr.SizeOfRawData;
+    if (segment.characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
+      nt_headers->OptionalHeader.SizeOfInitializedData += segment.data_size;
 
-      if (nt_headers_.OptionalHeader.BaseOfData == 0)
-        nt_headers_.OptionalHeader.BaseOfData = hdr.VirtualAddress;
+      if (nt_headers->OptionalHeader.BaseOfData == 0)
+        nt_headers->OptionalHeader.BaseOfData = segment.addr.value();
     }
-    if (hdr.Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
-      nt_headers_.OptionalHeader.SizeOfUninitializedData +=
-          hdr.SizeOfRawData;
-      if (nt_headers_.OptionalHeader.BaseOfData == 0)
-        nt_headers_.OptionalHeader.BaseOfData = hdr.VirtualAddress;
-    }
-  }
-
-  nt_headers_.OptionalHeader.SizeOfImage = next_section_address_.value();
-
-  // Initialize the data directory entry sizes.
-  for (size_t i = 0; i < arraysize(data_directory_); ++i) {
-    nt_headers_.OptionalHeader.DataDirectory[i].Size = data_directory_[i].size_;
-  }
-
-  // Add the NT headers block.
-  BlockGraph::Block* nt_headers_block =
-      address_space_.AddBlock(BlockGraph::DATA_BLOCK,
-          dos_header_block_->addr() + dos_header_block_->size(),
-          sizeof(nt_headers_), "NT Headers");
-  if (nt_headers_block == NULL ||
-      !nt_headers_block->CopyData(sizeof(nt_headers_), &nt_headers_)) {
-    LOG(ERROR) << "Unable to add NT headers block";
-    return false;
-  }
-
-  // Insert the reference from the DOS headers to the NT header.
-  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF,
-                            sizeof(WORD),
-                            nt_headers_block,
-                            0);
-  dos_header_block_->SetReference(FIELD_OFFSET(IMAGE_DOS_HEADER, e_lfanew),
-                                  ref);
-
-  // Now add the references for the entry point and data
-  // directory to the headers block.
-  if (!nt_headers_block->SetReference(
-      FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint),
-      entry_point_)) {
-    LOG(ERROR) << "Unable to add entry point reference";
-    return false;
-  }
-
-  for (size_t i = 0; i < arraysize(data_directory_); ++i) {
-    BlockGraph::Offset offs = FIELD_OFFSET(IMAGE_NT_HEADERS,
-        OptionalHeader.DataDirectory[i].VirtualAddress);
-
-    if (data_directory_[i].ref_.referenced() != NULL &&
-        !nt_headers_block->SetReference(offs, data_directory_[i].ref_)) {
-      LOG(ERROR) << "Unable to data directory entry reference";
-      return false;
+    if (segment.characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
+      nt_headers->OptionalHeader.SizeOfUninitializedData +=
+          segment.data_size;
+      if (nt_headers->OptionalHeader.BaseOfData == 0)
+        nt_headers->OptionalHeader.BaseOfData = segment.addr.value();
     }
   }
 
-  // Now add the section headers block.
-  BlockGraph::Block* section_headers_block =
-      address_space_.AddBlock(BlockGraph::DATA_BLOCK,
-          nt_headers_block->addr() + nt_headers_block->size(),
-          sizeof(IMAGE_SECTION_HEADER) * section_headers_.size(),
-          "Image Section Headers");
-  if (section_headers_block == NULL ||
-      !section_headers_block->CopyData(
-          sizeof(IMAGE_SECTION_HEADER) * section_headers_.size(),
-          &section_headers_.at(0))) {
-    LOG(ERROR) << "Unable to add section headers block";
-    return false;
+  // Update the image layout from the NT headers.
+  // TODO(siggi): This feels awfully backwards and awfully redundant somehow.
+  //    Better to remove the header info from ImageLayout and use the data
+  //    in the NT headers in the image.
+  CopyNtHeaderToImageLayout(nt_headers, &image_layout_.header_info);
+
+  nt_headers->OptionalHeader.SizeOfImage = next_section_address_.value();
+
+  // Get the section headers pointer.
+  IMAGE_SECTION_HEADER* section_headers =
+      reinterpret_cast<IMAGE_SECTION_HEADER*>(nt_headers + 1);
+  core::FileOffsetAddress segment_file_start(
+      image_layout_.header_info.size_of_headers);
+
+  for (size_t i = 0; i < image_layout_.segments.size(); ++i) {
+    const ImageLayout::SegmentInfo& segment = image_layout_.segments[i];
+    IMAGE_SECTION_HEADER& hdr = section_headers[i];
+
+    // Start by zeroing the header to get rid of any old crud in it.
+    memset(&hdr, 0, sizeof(hdr));
+
+    strncpy(reinterpret_cast<char*>(hdr.Name),
+            segment.name.c_str(),
+            arraysize(hdr.Name));
+    hdr.Misc.VirtualSize = segment.size;
+    hdr.VirtualAddress = segment.addr.value();
+    hdr.SizeOfRawData = segment.data_size;
+    hdr.PointerToRawData = segment_file_start.value();
+    hdr.Characteristics = segment.characteristics;
+
+    segment_file_start += segment.data_size;
   }
 
-  nt_headers_block_ = nt_headers_block;
-
-  // Verify there's room for the headers.
-  // TODO(chrisha): The PE File Builder needs to be reworked. We can't
-  //     determine where to lay out the sections until we know how big the
-  //     headers are, and we don't know how big the headers are until we
-  //     know how many sections there are. Layout needs to be two pass to
-  //     support this, with most of the work in AddSegment happening as part
-  //     of finalize headers.
-  size_t header_size =
-      section_headers_block->addr().value() + section_headers_block->size();
-  if (header_size > nt_headers_.OptionalHeader.SizeOfHeaders) {
-    LOG(ERROR) << "Insufficient room for new headers.";
+  // Now assign the header blocks addresses in the new image layout.
+  if (!image_layout_.blocks.InsertBlock(RelativeAddress(0),
+                                        dos_header_block_)) {
+    LOG(ERROR) << "Unable to assign DOS header to new image layout.";
+    return false;
+  }
+  if (!image_layout_.blocks.InsertBlock(
+      RelativeAddress(dos_header_block_->size()), nt_headers_block_)) {
+    LOG(ERROR) << "Unable to assign DOS header to new image layout.";
     return false;
   }
 
   return true;
 }
 
-bool PEFileBuilder::CreateDosHeader() {
+bool PEFileBuilder::UpdateDosHeader() {
+  DCHECK(dos_header_block_ != NULL);
+
   const uint8* begin_dos_stub_ptr =
       reinterpret_cast<const uint8*>(&begin_dos_stub);
   const uint8* end_dos_stub_ptr =
@@ -425,20 +433,13 @@ bool PEFileBuilder::CreateDosHeader() {
   // The DOS header has to be a multiple of 16 bytes for historic reasons.
   size_t dos_header_size = common::AlignUp(
       sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
-
-  BlockGraph::Block* dos_header =
-      address_space_.AddBlock(BlockGraph::DATA_BLOCK,
-                              RelativeAddress(0),
-                              dos_header_size,
-                              "DOS Header");
-  if (dos_header == NULL) {
-    LOG(ERROR) << "Unable to insert DOS header in image.";
+  if (dos_header_block_->ResizeData(dos_header_size) == NULL) {
+    LOG(ERROR) << "Unable to resize DOS header.";
     return false;
   }
 
   IMAGE_DOS_HEADER* dos_header_ptr =
-      reinterpret_cast<IMAGE_DOS_HEADER*>(
-          dos_header->AllocateData(dos_header_size));
+      reinterpret_cast<IMAGE_DOS_HEADER*>(dos_header_block_->GetMutableData());
   if (dos_header_ptr == NULL) {
     LOG(ERROR) << "Unable to allocate DOS header data.";
     return false;
@@ -467,8 +468,6 @@ bool PEFileBuilder::CreateDosHeader() {
   // Location of relocs - our header has zero relocs, but we set this anyway.
   dos_header_ptr->e_lfarlc = sizeof(*dos_header_ptr);
 
-  // Store the dos header block.
-  dos_header_block_ = dos_header;
   return true;
 }
 

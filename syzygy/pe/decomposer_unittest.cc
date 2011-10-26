@@ -31,13 +31,6 @@ class DecomposerTest: public testing::PELibUnitTest {
 
 namespace pe {
 
-bool operator==(const ImageLayout::SegmentInfo& a,
-                const ImageLayout::SegmentInfo& b) {
-  return a.name == b.name && a.addr == b.addr &&
-      a.size == b.size && a.data_size == b.data_size &&
-      a.characteristics == b.characteristics;
-}
-
 TEST_F(DecomposerTest, Decompose) {
   FilePath image_path(GetExeRelativePath(kDllName));
   PEFile image_file;

@@ -26,9 +26,6 @@
 
 namespace pe {
 
-// Fwd.
-class PEFileBuilder;
-
 struct ImageLayout {
   // Information necessary to create PE image headers.
   struct HeaderInfo {
@@ -79,11 +76,8 @@ struct ImageLayout {
     uint32 characteristics;
   };
 
+  // Creates an empty image layout on the supplied block graph.
   explicit ImageLayout(core::BlockGraph* block_graph);
-
-  // TODO(siggi): Remove this constructor once PEFileBuilder is
-  //    yielding an ImageLayout as output.
-  explicit ImageLayout(PEFileBuilder* builder);
 
   // Information to populate the PE header.
   HeaderInfo header_info;
@@ -104,6 +98,14 @@ void CopySectionHeadersToImageLayout(
     size_t num_sections,
     const IMAGE_SECTION_HEADER* section_headers,
     std::vector<ImageLayout::SegmentInfo>* segments);
+
+// For testing.
+inline bool operator==(const ImageLayout::SegmentInfo& a,
+                       const ImageLayout::SegmentInfo& b) {
+  return a.name == b.name && a.addr == b.addr &&
+      a.size == b.size && a.data_size == b.data_size &&
+      a.characteristics == b.characteristics;
+}
 
 }  // namespace pe
 

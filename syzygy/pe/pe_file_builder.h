@@ -18,6 +18,7 @@
 #include <winnt.h>
 #include <vector>
 #include "syzygy/core/block_graph.h"
+#include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file_parser.h"
 
 namespace pe {
@@ -33,22 +34,21 @@ class PEFileBuilder {
   // The block graph must outlive the file builder.
   explicit PEFileBuilder(BlockGraph* block_graph);
 
+  // Initialize dos_header_block_ and nt_headers_block.
+  // @param dos_header_block must be a block that's a valid DOS header
+  //    and stub. This block must also refer to the NT headers block,
+  //    which in turn must contain valid NT headers.
+  // @returns true iff the dos_header_block is valid.
+  bool SetImageHeaders(BlockGraph::Block* dos_header_block);
+
   // Non-const accessors.
-  BlockGraph::AddressSpace& address_space() { return address_space_; }
-  IMAGE_NT_HEADERS& nt_headers() { return nt_headers_; }
-  IMAGE_SECTION_HEADER* section_headers() { return &section_headers_.at(0); }
+  ImageLayout& image_layout() { return image_layout_; }
 
   BlockGraph::Block* dos_header_block() { return dos_header_block_; }
   BlockGraph::Block* nt_headers_block() { return nt_headers_block_; }
 
   // Const accessors.
-  const BlockGraph::AddressSpace& address_space() const {
-    return address_space_;
-  }
-  const IMAGE_NT_HEADERS& nt_headers() const { return nt_headers_; }
-  const IMAGE_SECTION_HEADER* section_headers() const {
-    return &section_headers_.at(0);
-  }
+  const ImageLayout& image_layout() const { return image_layout_; }
 
   const BlockGraph::Block* dos_header_block() const {
     return dos_header_block_;
@@ -56,14 +56,21 @@ class PEFileBuilder {
   const BlockGraph::Block* nt_headers_block() const {
     return nt_headers_block_;
   }
+  size_t section_alignment() const { return section_alignment_; }
+  size_t file_alignment() const { return file_alignment_; }
 
   RelativeAddress next_section_address() const { return next_section_address_; }
-  const BlockGraph::Reference& entry_point() const { return entry_point_; }
 
-  // Mutators.
-  void set_entry_point(const BlockGraph::Reference& entry_point) {
-    entry_point_ = entry_point;
-  }
+  // Set the section and file allocation alignment boundaries.
+  // @param header_size the size of the NT headers, must be greater than zero.
+  // @param section_alignment the section alignment boundary, must be a power
+  //     of two and an integer multiple of machine's page size.
+  // @param file_alignment the file alignment boundary, must be a power
+  //     of two and should be an integer multiple of sector size (512).
+  // @pre No segments have been added to this builder.
+  void SetAllocationParameters(size_t header_size,
+                               size_t section_alignment,
+                               size_t file_alignment);
 
   // Allocates a new segment.
   // @param name the name of the new segment, must be 8 characters
@@ -77,10 +84,11 @@ class PEFileBuilder {
                              size_t data_size,
                              uint32 characteristics);
 
-  // Set a data directory entry to refer a block.
+  // Set a data directory entry to refer a block. This will set the entry's
+  // size to the size of the block.
   bool SetDataDirectoryEntry(size_t entry_index, BlockGraph::Block* block);
 
-  // Set a data directory entry explicitly to a reference and a size.
+  // Set a data directory entry to a reference and a size.
   bool SetDataDirectoryEntry(size_t entry_index,
                              const BlockGraph::Reference& entry,
                              size_t entry_size);
@@ -94,53 +102,28 @@ class PEFileBuilder {
   // the image checksum should be up to date.
   bool FinalizeHeaders();
 
-  // The default values we assign the file attributes.
-  static const size_t kDefaultImageBase = 0x10000000;
-  static const size_t kDefaultHeaderSize = 0x400;
+ private:
   static const size_t kDefaultSectionAlignment = 0x1000;
   static const size_t kDefaultFileAlignment = 0x200;
 
- private:
-  typedef std::vector<IMAGE_SECTION_HEADER> ImageSectionHeaderVector;
+  // Update the DOS header with our own stub.
+  bool UpdateDosHeader();
 
-  // Create the DOS header for the image.
-  bool CreateDosHeader();
+  // The image layout we're building.
+  ImageLayout image_layout_;
 
-  // The NT headers for the image we're building, we set the fields here
-  // to default values that may need changing depending on the particulars
-  // of the image file to write.
-  IMAGE_NT_HEADERS nt_headers_;
+  // Segment alignment must be a multiple of the system page size,
+  // defaults to 4096.
+  size_t section_alignment_;
+  // File alignment of image data, defaults to 0x200.
+  size_t file_alignment_;
 
   // The address where the next section will be allocated.
   RelativeAddress next_section_address_;
 
-  // The image sections we've allocated.
-  ImageSectionHeaderVector section_headers_;
-
-  // The address space the new image will be built in.
-  BlockGraph::AddressSpace address_space_;
-
-  // The block that describes the DOS header.
+  // The blocks that describe the DOS header and the NT headers.
   BlockGraph::Block* dos_header_block_;
-
-  // The block that describes the NT headers, this is valid only
-  // after FinalizeHeaders has been successfully invoked.
   BlockGraph::Block* nt_headers_block_;
-
-  // A reference to the entrypoint of our image.
-  BlockGraph::Reference entry_point_;
-
-  // We keep one of these for each data directory entry.
-  struct DataDirectoryEntry {
-    DataDirectoryEntry() : size_(0) {
-    }
-
-    BlockGraph::Reference ref_;
-    size_t size_;
-  };
-
-  // The blocks that describe the data directory chunks.
-  DataDirectoryEntry data_directory_[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
 };
 
 }  // namespace pe

@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <ctime>
 #include "base/file_util.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
@@ -39,6 +40,7 @@ const uint8 kInt3Padding[] = {
 using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
+using pe::ImageLayout;
 using pe::PEFile;
 using pe::PEFileBuilder;
 
@@ -46,11 +48,7 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
  public:
-
-  PEFileBuilderTest()
-      : nt_headers_(NULL),
-        num_sections_(0),
-        section_headers_(NULL) {
+  PEFileBuilderTest() : image_layout_(&block_graph_), dos_header_block_(NULL) {
   }
 
   void SetUp() {
@@ -66,41 +64,11 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
     ASSERT_TRUE(image_file_.Init(image_path_));
 
     Decomposer decomposer(image_file_);
-    ASSERT_TRUE(decomposer.Decompose(&decomposed_, NULL));
+    ASSERT_TRUE(decomposer.Decompose(&image_layout_, NULL));
 
-    // Retrieve the original image headers.
-    ASSERT_GE(decomposed_.header.nt_headers->data_size(),
-              sizeof(IMAGE_NT_HEADERS));
-    nt_headers_ = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-        decomposed_.header.nt_headers->data());
-
-    // Retrieve the original section headers.
-    num_sections_ = nt_headers_->FileHeader.NumberOfSections;
-    ASSERT_EQ(
-        sizeof(IMAGE_SECTION_HEADER) * num_sections_ + sizeof(*nt_headers_),
-        decomposed_.header.nt_headers->size());
-
-    section_headers_ = reinterpret_cast<const IMAGE_SECTION_HEADER*>(
-        nt_headers_ + 1);
-
-    // We expect the last image segment to be the base relocations.
-    ASSERT_EQ(0, strcmp(
-        reinterpret_cast<const char*>(section_headers_[num_sections_ - 1].Name),
-        ".reloc"));
-  }
-
-  void CopyHeaderInfoFromDecomposed(PEFileBuilder* builder) {
-    ASSERT_TRUE(builder != NULL);
-
-    // TODO(siggi): Retrieving the entry point from the decomposed image
-    //     is pretty awkward - fix the decomposer to provide it more
-    //     explicitly.
-    BlockGraph::Reference entry_point;
-    ASSERT_TRUE(decomposed_.header.nt_headers->GetReference(
-        FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint),
-        &entry_point));
-
-    builder->set_entry_point(entry_point);
+    dos_header_block_ =
+        image_layout_.blocks.GetBlockByAddress(RelativeAddress(0));
+    ASSERT_TRUE(dos_header_block_ != NULL);
   }
 
   void CopyBlockRange(const BlockGraph::AddressSpace::Range& section_range,
@@ -108,8 +76,8 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
                       PEFileBuilder* builder) {
     typedef BlockGraph::AddressSpace AddressSpace;
     AddressSpace::RangeMapIterPair iter_pair =
-        decomposed_.address_space.GetIntersectingBlocks(section_range.start(),
-                                                        section_range.size());
+        image_layout_.blocks.GetIntersectingBlocks(section_range.start(),
+                                                   section_range.size());
 
     AddressSpace::RangeMapIter& section_it = iter_pair.first;
     const AddressSpace::RangeMapIter& section_end = iter_pair.second;
@@ -128,31 +96,18 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
           block->source_ranges().range_pair(0).second));
 
       ASSERT_TRUE(
-          builder->address_space().InsertBlock(insert_at, block));
+          builder->image_layout().blocks.InsertBlock(insert_at, block));
 
       insert_at += block->size();
-    }
-  }
-
-  void CopyDataDirectory(PEFileBuilder* builder) {
-    // Copy the data directory from the old image.
-    for (size_t i = 0; i < arraysize(decomposed_.header.data_directory); ++i) {
-      BlockGraph::Block* block = decomposed_.header.data_directory[i];
-
-      // We don't want to copy the relocs over as the relocs are recreated.
-      if (block != NULL && i != IMAGE_DIRECTORY_ENTRY_BASERELOC) {
-        ASSERT_TRUE(builder->SetDataDirectoryEntry(i, block));
-      }
     }
   }
 
  protected:
   FilePath image_path_;
   PEFile image_file_;
-  Decomposer::DecomposedImage decomposed_;
-  const IMAGE_NT_HEADERS* nt_headers_;
-  size_t num_sections_;
-  const IMAGE_SECTION_HEADER* section_headers_;
+  BlockGraph block_graph_;
+  ImageLayout image_layout_;
+  BlockGraph::Block* dos_header_block_;
 
   FilePath temp_file_;
 };
@@ -163,38 +118,70 @@ namespace pe {
 
 using core::AddressRange;
 
-TEST_F(PEFileBuilderTest, Accessors) {
-  PEFileBuilder builder(&decomposed_.image);
+TEST_F(PEFileBuilderTest, Initialization) {
+  PEFileBuilder builder(&block_graph_);
 
-  EXPECT_EQ(PEFileBuilder::kDefaultImageBase,
-      builder.nt_headers().OptionalHeader.ImageBase);
-  EXPECT_EQ(PEFileBuilder::kDefaultHeaderSize,
-      builder.nt_headers().OptionalHeader.SizeOfHeaders);
-  EXPECT_EQ(PEFileBuilder::kDefaultSectionAlignment,
-      builder.nt_headers().OptionalHeader.SectionAlignment);
-  EXPECT_EQ(PEFileBuilder::kDefaultFileAlignment,
-      builder.nt_headers().OptionalHeader.FileAlignment);
+  EXPECT_EQ(NULL, builder.dos_header_block());
+  EXPECT_EQ(NULL, builder.nt_headers_block());
+  EXPECT_EQ(RelativeAddress(4096), builder.next_section_address());
+  EXPECT_EQ(4096, builder.section_alignment());
+  EXPECT_EQ(512, builder.file_alignment());
+}
+
+TEST_F(PEFileBuilderTest, SetAllocationParameters) {
+  PEFileBuilder builder(&block_graph_);
+
+  builder.SetAllocationParameters(1, 8192, 1024);
+  EXPECT_EQ(8192, builder.section_alignment());
+  EXPECT_EQ(1024, builder.file_alignment());
+  EXPECT_EQ(8192, builder.next_section_address().value());
+
+  builder.SetAllocationParameters(12000, 4096, 8192);
+  EXPECT_EQ(4096, builder.section_alignment());
+  EXPECT_EQ(8192, builder.file_alignment());
+  EXPECT_EQ(4096 * 3, builder.next_section_address().value());
+}
+
+TEST_F(PEFileBuilderTest, SetImageHeaders) {
+  PEFileBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.SetImageHeaders(dos_header_block_));
+  EXPECT_EQ(dos_header_block_, builder.dos_header_block());
+  EXPECT_TRUE(builder.nt_headers_block() != NULL);
 }
 
 TEST_F(PEFileBuilderTest, AddSegment) {
-  PEFileBuilder builder(&decomposed_.image);
+  PEFileBuilder builder(&block_graph_);
 
-  const uint32 kChar = IMAGE_SCN_CNT_CODE;
+  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_EQ(RelativeAddress(0x1000),
-      builder.AddSegment("foo", 0x1234, 0x1000, kChar));
+      builder.AddSegment("foo", 0x1234, 0x1000, kCharacteristics));
   EXPECT_EQ(RelativeAddress(0x3000),
-      builder.AddSegment("bar", 0x1234, 0x1000, kChar));
+      builder.AddSegment("bar", 0x1234, 0x1000, kCharacteristics));
+
+  ImageLayout::SegmentInfo expected[] = {
+      { "foo", RelativeAddress(0x1000), 0x1234, 0x1000, kCharacteristics },
+      { "bar", RelativeAddress(0x3000), 0x1234, 0x1000, kCharacteristics }};
+
+  EXPECT_THAT(builder.image_layout().segments,
+              testing::ElementsAreArray(expected));
 }
 
 TEST_F(PEFileBuilderTest, RewriteTestDll) {
   // Here's where we build the new image.
-  PEFileBuilder builder(&decomposed_.image);
-  ASSERT_NO_FATAL_FAILURE(CopyHeaderInfoFromDecomposed(&builder));
+  PEFileBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.SetImageHeaders(dos_header_block_));
 
-  // Copy the sections from the decomposed image to the new one, save for
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(
+          builder.nt_headers_block()->data());
+  const IMAGE_SECTION_HEADER* section_headers =
+      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+
+  // Copy the sections from the original image to the new one, save for
   // the .relocs section.
-  for (size_t i = 0; i < num_sections_ - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = section_headers_[i];
+  size_t num_sections = nt_headers->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = section_headers[i];
 
     const char* name = reinterpret_cast<const char*>(section.Name);
     std::string name_str(name, strnlen(name, arraysize(section.Name)));
@@ -210,19 +197,10 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
     ASSERT_NO_FATAL_FAILURE(CopyBlockRange(section_range, start, &builder));
   }
 
-  ASSERT_NO_FATAL_FAILURE(CopyDataDirectory(&builder));
-
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
-  ASSERT_TRUE(decomposed_.header.dos_header->
-      TransferReferrers(0, builder.dos_header_block()));
 
-  // TODO(siggi): Fix NT header references!!!
-  ASSERT_TRUE(decomposed_.header.nt_headers->
-      TransferReferrers(0, builder.nt_headers_block()));
-
-  ImageLayout layout(&builder);
-  PEFileWriter writer(layout);
+  PEFileWriter writer(builder.image_layout());
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
@@ -230,8 +208,8 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
 
 TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   // Here's where we build the new image.
-  PEFileBuilder builder(&decomposed_.image);
-  ASSERT_NO_FATAL_FAILURE(CopyHeaderInfoFromDecomposed(&builder));
+  PEFileBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.SetImageHeaders(dos_header_block_));
 
   // Add an empty section to the beginning of the image to make sure
   // everything in the image moves. This mainly tests whether the PE
@@ -242,9 +220,18 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   // Copy the sections from the decomposed image to the new one, save for
   // the .relocs section. Code sections are turned into read-only data
   // sections, and the code blocks held back for moving to a new segment.
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(
+          builder.nt_headers_block()->data());
+  const IMAGE_SECTION_HEADER* section_headers =
+      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+
+  // Copy the sections from the original image to the new one, save for
+  // the .relocs section.
+  size_t num_sections = nt_headers->FileHeader.NumberOfSections;
   std::vector<BlockGraph::Block*> code_blocks;
-  for (size_t i = 0; i < num_sections_ - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = section_headers_[i];
+  for (size_t i = 0; i < num_sections - 1; ++i) {
+    const IMAGE_SECTION_HEADER& section = section_headers[i];
     BlockGraph::AddressSpace::Range section_range(
         RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
     const char* name = reinterpret_cast<const char*>(section.Name);
@@ -262,8 +249,8 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
       // Hold back the blocks within the section for reordering.
       typedef BlockGraph::AddressSpace AddressSpace;
       AddressSpace::RangeMapIterPair iter_pair =
-          decomposed_.address_space.GetIntersectingBlocks(section_range.start(),
-                                                          section_range.size());
+          image_layout_.blocks.GetIntersectingBlocks(section_range.start(),
+                                                     section_range.size());
 
       AddressSpace::RangeMapIter& section_it = iter_pair.first;
       const AddressSpace::RangeMapIter& section_end = iter_pair.second;
@@ -307,23 +294,23 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
     // Prefix each inserted code block with its name to make
     // debugging of the randomized executable sanitary.
     BlockGraph::Block* name_block =
-        builder.address_space().AddBlock(BlockGraph::CODE_BLOCK,
-                                         insert_at,
-                                         strlen(block->name()),
-                                         "Name block");
+        builder.image_layout().blocks.AddBlock(BlockGraph::CODE_BLOCK,
+                                               insert_at,
+                                               strlen(block->name()),
+                                               "Name block");
     ASSERT_TRUE(name_block != NULL);
     name_block->CopyData(strlen(block->name()), block->name());
     insert_at += name_block->size();
 
-    ASSERT_TRUE(builder.address_space().InsertBlock(insert_at, block));
+    ASSERT_TRUE(builder.image_layout().blocks.InsertBlock(insert_at, block));
     insert_at += block->size();
 
     // Pad generously with int3s.
     BlockGraph::Block* pad_block =
-        builder.address_space().AddBlock(BlockGraph::CODE_BLOCK,
-                                         insert_at,
-                                         sizeof(kInt3Padding),
-                                         "Int3 padding");
+        builder.image_layout().blocks.AddBlock(BlockGraph::CODE_BLOCK,
+                                               insert_at,
+                                               sizeof(kInt3Padding),
+                                               "Int3 padding");
     ASSERT_TRUE(pad_block != NULL);
     pad_block->SetData(kInt3Padding, sizeof(kInt3Padding));
     insert_at += pad_block->size();
@@ -334,22 +321,15 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
       IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
   builder.AddSegment(".text", segment_size, segment_size, characteristics);
 
-  ASSERT_NO_FATAL_FAILURE(CopyDataDirectory(&builder));
-
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());
-  ASSERT_TRUE(decomposed_.header.dos_header->
-      TransferReferrers(0, builder.dos_header_block()));
-  ASSERT_TRUE(decomposed_.header.nt_headers->
-      TransferReferrers(0, builder.nt_headers_block()));
 
-  ImageLayout layout(&builder);
-  PEFileWriter writer(layout);
+  PEFileWriter writer(builder.image_layout());
 
   ASSERT_TRUE(writer.WriteImage(temp_file_));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
 
-  // Decompose the randomized dll and validate that the resources have moved.
+  // Read the randomized dll and validate that the resources have moved.
   PEFile new_image_file;
   ASSERT_TRUE(new_image_file.Init(temp_file_));
   const IMAGE_DATA_DIRECTORY* old_data_dir =
