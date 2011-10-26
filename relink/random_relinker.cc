@@ -33,13 +33,12 @@ bool RandomRelinker::SetupOrdering(const PEFile& pe_file,
 }
 
 bool RandomRelinker::ReorderSection(size_t section_index,
-                                    const IMAGE_SECTION_HEADER& section,
+                                    const ImageLayout::SegmentInfo& section,
                                     const Reorderer::Order& /*order*/ ) {
   typedef std::vector<BlockGraph::Block*> BlockList;
 
   // Prepare to iterate over all block in the section.
-  BlockGraph::AddressSpace::Range section_range(
-      RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
+  BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
   AddressSpace::RangeMapConstIterPair section_blocks(
       original_addr_space().GetIntersectingBlocks(section_range.start(),
                                                   section_range.size()));
@@ -78,7 +77,7 @@ bool RandomRelinker::ReorderSection(size_t section_index,
     if (!InsertPaddingBlock(block->type(), padding, &insert_at))
       return false;
 
-    if (!builder().address_space().InsertBlock(insert_at, block)) {
+    if (!builder().image_layout().blocks.InsertBlock(insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name()
                  << "' at " << insert_at;
     }
@@ -92,12 +91,11 @@ bool RandomRelinker::ReorderSection(size_t section_index,
   }
 
   // Create the reodered section.
-  const std::string section_name(pe::PEFile::GetSectionName(section));
   size_t section_length = insert_at - section_start;
-  builder().AddSegment(section_name.c_str(),
+  builder().AddSegment(section.name.c_str(),
                        section_length,
                        section_length,
-                       section.Characteristics);
+                       section.characteristics);
 
   return true;
 }

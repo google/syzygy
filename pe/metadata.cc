@@ -301,10 +301,10 @@ bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
 
   // Stuff the metadata into the address space.
   BlockGraph::Block* new_block =
-      pe_file_builder->address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                                insert_at,
-                                                bytes.size(),
-                                                "Metadata");
+      pe_file_builder->image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                                      insert_at,
+                                                      bytes.size(),
+                                                      "Metadata");
   if (new_block == NULL) {
     LOG(ERROR) << "Unable to allocate metadata block.";
     return false;

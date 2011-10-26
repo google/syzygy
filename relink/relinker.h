@@ -18,6 +18,7 @@
 #include "base/scoped_ptr.h"
 #include "syzygy/core/block_graph.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_parser.h"
@@ -32,6 +33,7 @@ class RelinkerBase {
   typedef core::BlockGraph BlockGraph;
   typedef BlockGraph::AddressSpace AddressSpace;
   typedef core::RelativeAddress RelativeAddress;
+  typedef pe::ImageLayout ImageLayout;
   typedef pe::PEFileBuilder PEFileBuilder;
   typedef pe::PEFileParser PEFileParser;
   typedef pe::Decomposer Decomposer;
@@ -50,10 +52,6 @@ class RelinkerBase {
   //     concession to make for const-correctness.
   virtual bool Initialize(Decomposer::DecomposedImage* decomposed);
 
-  // Copies data directory header values from the decomposed image
-  // into the new image under construction.
-  bool CopyDataDirectory(const PEFileParser::PEHeader& original_header);
-
   // Calculates header values for the relinked image, in prep for writing.
   bool FinalizeImageHeaders(const PEFileParser::PEHeader& original_header);
 
@@ -61,18 +59,14 @@ class RelinkerBase {
   bool WriteImage(const FilePath& output_path);
 
   // Copies a section from the old image into the new one.
-  bool CopySection(const IMAGE_SECTION_HEADER& section);
+  bool CopySection(const ImageLayout::SegmentInfo& section);
 
   // Copies the blocks identified by iter_pair from the old image into
   // the new one, inserting them in order from insert_at.
   bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
                   RelativeAddress insert_at, size_t* bytes_copied);
 
-  // Queries about the original image.
-  size_t original_num_sections() const {
-    return original_num_sections_;
-  }
-  const IMAGE_SECTION_HEADER* original_sections() const {
+  const std::vector<ImageLayout::SegmentInfo>& original_sections() const {
     return original_sections_;
   }
   const BlockGraph::AddressSpace& original_addr_space() const {
@@ -88,8 +82,7 @@ class RelinkerBase {
 
  private:
   // Information from the original image.
-  size_t original_num_sections_;
-  const IMAGE_SECTION_HEADER* original_sections_;
+  std::vector<ImageLayout::SegmentInfo> original_sections_;
   const BlockGraph::AddressSpace* original_addr_space_;
 
   // The builder that we use to construct the new image.
@@ -136,7 +129,7 @@ class Relinker : public RelinkerBase {
   // Function to be overridden by subclasses so that each subclass can have its
   // own reordering implementation.
   virtual bool ReorderSection(size_t section_index,
-                              const IMAGE_SECTION_HEADER& section,
+                              const ImageLayout::SegmentInfo& section,
                               const Reorderer::Order& order) = 0;
 
   // Updates the debug information in the debug directory with our new GUID.

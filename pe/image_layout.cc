@@ -15,7 +15,7 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "syzygy/pe/pe_file_builder.h"
+#include "syzygy/pe/pe_file.h"
 
 namespace pe {
 
@@ -82,9 +82,7 @@ void CopySectionHeadersToImageLayout(
     segments->push_back(pe::ImageLayout::SegmentInfo());
     pe::ImageLayout::SegmentInfo& segment = segments->back();
 
-    const char* name = reinterpret_cast<const char*>(section_headers[i].Name);
-    segment.name.assign(name,
-                        strnlen(name, arraysize(section_headers[i].Name)));
+    segment.name = PEFile::GetSectionName(section_headers[i]);
     segment.addr.set_value(section_headers[i].VirtualAddress);
     segment.size = section_headers[i].Misc.VirtualSize;
     segment.data_size = section_headers[i].SizeOfRawData;
@@ -95,26 +93,6 @@ void CopySectionHeadersToImageLayout(
 ImageLayout::ImageLayout(core::BlockGraph* block_graph)
     : blocks(block_graph) {
   memset(&header_info, 0, sizeof(header_info));
-}
-
-ImageLayout::ImageLayout(PEFileBuilder* builder)
-    : blocks(builder->address_space().graph()) {
-  DCHECK(builder != NULL);
-  memset(&header_info, 0, sizeof(header_info));
-
-  CopyNtHeaderToImageLayout(&builder->nt_headers(), &this->header_info);
-  CopySectionHeadersToImageLayout(
-      builder->nt_headers().FileHeader.NumberOfSections,
-      builder->section_headers(),
-      &this->segments);
-
-  // Copy the address space from the builder to ours.
-  core::BlockGraph::AddressSpace::RangeMapConstIter it =
-      builder->address_space().begin();
-
-  for (; it != builder->address_space().end(); ++it) {
-    blocks.InsertBlock(it->first.start(), it->second);
-  }
 }
 
 }  // namespace pe

@@ -64,11 +64,9 @@ bool OrderRelinker::SetupOrdering(const PEFile& pe_file,
 }
 
 bool OrderRelinker::ReorderSection(size_t section_index,
-                                   const IMAGE_SECTION_HEADER& section,
+                                   const ImageLayout::SegmentInfo& section,
                                    const Reorderer::Order& order) {
   DCHECK(!order_file_path_.empty());
-
-  const std::string section_name(pe::PEFile::GetSectionName(section));
 
   // We only reorder the section if a non-empty ordering has actually been
   // provided. Otherwise, we simply copy the section as is.
@@ -76,7 +74,7 @@ bool OrderRelinker::ReorderSection(size_t section_index,
       order.section_block_lists.find(section_index);
   if (section_iter == order.section_block_lists.end() ||
       section_iter->second.size() == 0) {
-    LOG(INFO) << "No ordering for '" << section_name << "', copying it.";
+    LOG(INFO) << "No ordering for '" << section.name << "', copying it.";
     return CopySection(section);
   }
 
@@ -87,8 +85,9 @@ bool OrderRelinker::ReorderSection(size_t section_index,
   BlockSet inserted_blocks;
 
   if (!OutputBlocks(INITIALIZED_BLOCKS, section, block_order,
-                    &inserted_blocks, &insert_at))
+                    &inserted_blocks, &insert_at)) {
     return false;
+  }
 
   // Align to a new page boundary before outputting uninitialized blocks.
   size_t padding = insert_at.AlignUp(kPageSize) - insert_at;
@@ -104,10 +103,10 @@ bool OrderRelinker::ReorderSection(size_t section_index,
   size_t section_size = insert_at - section_start;
 
   // Create the reordered section.
-  builder().AddSegment(section_name.c_str(),
+  builder().AddSegment(section.name.c_str(),
                        section_size,
                        section_data_size,
-                       section.Characteristics);
+                       section.characteristics);
 
   return true;
 }
@@ -137,7 +136,7 @@ bool OrderRelinker::OutputPadding(BlockInitType block_init_type,
 }
 
 bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
-                                 const IMAGE_SECTION_HEADER& section,
+                                 const ImageLayout::SegmentInfo& section,
                                  const BlockList& block_order,
                                  BlockSet* inserted_blocks,
                                  RelativeAddress* insert_at) {
@@ -171,7 +170,7 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
     // Need to cast away constness to insert the block into the builder's
     // address space.  We "know" that the builder isn't going to add
     // any new references to the block at this point.
-    if (!builder().address_space().InsertBlock(
+    if (!builder().image_layout().blocks.InsertBlock(
             *insert_at, const_cast<BlockGraph::Block*>(block))) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
                  << *insert_at;
@@ -188,10 +187,10 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
 
   // Now output those blocks that are selected but that do not have an
   // explicit ordering.
-  RelativeAddress orig_section_start = RelativeAddress(section.VirtualAddress);
+  RelativeAddress orig_section_start = section.addr;
   AddressSpace::RangeMapConstIterPair section_blocks =
       original_addr_space().GetIntersectingBlocks(orig_section_start,
-                                                  section.Misc.VirtualSize);
+                                                  section.size);
   AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
   const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
   for (; section_it != section_end; ++section_it) {
@@ -207,7 +206,7 @@ bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
     if (!OutputPadding(block_init_type, block->type(), padding, insert_at))
       return false;
 
-    if (!builder().address_space().InsertBlock(*insert_at, block)) {
+    if (!builder().image_layout().blocks.InsertBlock(*insert_at, block)) {
       LOG(ERROR) << "Unable to insert block '" << block->name() << "' at "
                  << *insert_at;
     }

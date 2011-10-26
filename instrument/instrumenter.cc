@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -137,12 +137,6 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
   if (!CopyResourceSection())
     return false;
 
-  LOG(INFO) << "Copying data directory.";
-  if (!CopyDataDirectory(decomposed.header)) {
-    LOG(ERROR) << "Unable to copy the input image's data directory.";
-    return false;
-  }
-
   // Update the data directory import entry to refer to our newly created
   // section.
   if (!builder().SetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_IMPORT,
@@ -171,21 +165,20 @@ bool Instrumenter::CopySections() {
   // Copy the sections from the decomposed image to the new one, save for the
   // .relocs section. If there is a .rsrc section, does not copy it but stores
   // its index in resource_section_id_.
-  for (size_t i = 0; i < original_num_sections() - 1; ++i) {
-    const IMAGE_SECTION_HEADER& section = original_sections()[i];
+  for (size_t i = 0; i < original_sections().size() - 1; ++i) {
+    const ImageLayout::SegmentInfo& section = original_sections()[i];
 
     // Skip the resource section if we encounter it.
-    std::string name = pe::PEFile::GetSectionName(section);
-    if (name == common::kResourceSectionName) {
+    if (section.name == common::kResourceSectionName) {
       // We should only ever come across one of these, and it should be
       // second to last.
-      DCHECK_EQ(original_num_sections() - 2, i);
+      DCHECK_EQ(original_sections().size() - 2, i);
       DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
       resource_section_id_ = i;
       continue;
     }
 
-    LOG(INFO) << "Copying section " << i << " (" << name << ").";
+    LOG(INFO) << "Copying section " << i << " (" << section.name << ").";
     if (!CopySection(section)) {
       LOG(ERROR) << "Unable to copy section.";
       return false;
@@ -304,10 +297,10 @@ bool Instrumenter::CreateImageImportByNameBlock(
 
   // Allocate the block.
   BlockGraph::Block* block =
-      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                         *insert_at,
-                                         total_size,
-                                         "image_import_by_name");
+      builder().image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                               *insert_at,
+                                               total_size,
+                                               "image_import_by_name");
   if (block == NULL) {
     LOG(ERROR) << "Unable to allocate image import by name block";
     return false;
@@ -376,10 +369,10 @@ bool Instrumenter::CreateImportAddressTableBlock(const char* name,
 
   // Allocate the new block.
   BlockGraph::Block* new_block =
-      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                         *insert_at,
-                                         kImageThunkDataSize,
-                                         name);
+      builder().image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                               *insert_at,
+                                               kImageThunkDataSize,
+                                               name);
   if (new_block == NULL) {
     LOG(ERROR) << "Unable to allocate " << name << " block.";
     return false;
@@ -420,10 +413,10 @@ bool Instrumenter::CreateDllNameBlock(RelativeAddress* insert_at) {
 
   // Create the DLL name block with room for a null character.
   BlockGraph::Block* block =
-      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                         *insert_at,
-                                         client_dll_.length() + 1,
-                                         "client_dll_name");
+      builder().image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                               *insert_at,
+                                               client_dll_.length() + 1,
+                                               "client_dll_name");
   if (block == NULL) {
     LOG(ERROR) << "Unable to allocate client dll name block.";
     return false;
@@ -465,10 +458,10 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
      sizeof(IMAGE_IMPORT_DESCRIPTOR));
   size_t block_size = original_block_size + sizeof(IMAGE_IMPORT_DESCRIPTOR);
   BlockGraph::Block* block =
-      builder().address_space().AddBlock(BlockGraph::DATA_BLOCK,
-                                         *insert_at,
-                                         block_size,
-                                         "image_import_descriptor");
+      builder().image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
+                                               *insert_at,
+                                               block_size,
+                                               "image_import_descriptor");
   if (block == NULL) {
     LOG(ERROR) << "Unable to allocate image import descriptor array block";
     return false;
@@ -524,26 +517,39 @@ bool Instrumenter::InstrumentEntryPoint(size_t entry_hook,
   DCHECK(insert_at != NULL);
   DCHECK_LT(entry_hook, static_cast<size_t>(kEntryHookIndexMax));
 
-  const BlockGraph::Reference& entry_point = builder().entry_point();
+  BlockGraph::Reference entry_point;
+  const size_t kEntryPointOffset =
+      offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint);
+  if (!builder().nt_headers_block()->GetReference(kEntryPointOffset,
+                                                  &entry_point)) {
+    LOG(ERROR) << "Unable to retrieve entry point.";
+    return false;
+  }
   BlockGraph::Block* entry_block = entry_point.referenced();
+  if (entry_point.offset() != 0 ||
+      entry_block->type() != BlockGraph::CODE_BLOCK) {
+    LOG(ERROR) << "Entry point does not refer to the start of a function.";
+    return false;
+  }
 
   // Create a new thunk for the entry point block.
-  BlockGraph::Block* thunk_block;
+  BlockGraph::Block* thunk_block = NULL;
   if (!CreateOneThunk(entry_block,
                       entry_point,
                       entry_hook,
                       insert_at,
                       &thunk_block)) {
-    LOG(ERROR) << "Unable to create entry point thunk";
+    LOG(ERROR) << "Unable to create entry point thunk.";
     return false;
   }
 
-  // Create a new entry point reference.
   BlockGraph::Reference new_entry_point(entry_point.type(),
                                         entry_point.size(),
                                         thunk_block,
                                         0);
-  builder().set_entry_point(new_entry_point);
+  // Update the entry point.
+  builder().nt_headers_block()->SetReference(kEntryPointOffset,
+                                             new_entry_point);
 
   return true;
 }
@@ -625,10 +631,10 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
   // Create the new thunk block, and set its data.
   std::string name = std::string(block->name()) + "_thunk";
   BlockGraph::Block* new_block =
-      builder().address_space().AddBlock(BlockGraph::CODE_BLOCK,
-                                         *insert_at,
-                                         sizeof(Thunk),
-                                         name.c_str());
+      builder().image_layout().blocks.AddBlock(BlockGraph::CODE_BLOCK,
+                                               *insert_at,
+                                               sizeof(Thunk),
+                                               name.c_str());
   if (new_block == NULL) {
     LOG(ERROR) << "Unable to allocate thunk block.";
     return false;
@@ -677,12 +683,11 @@ bool Instrumenter::CopyResourceSection() {
   if (resource_section_id_ == pe::kInvalidSection)
     return true;
 
-  const IMAGE_SECTION_HEADER& section =
+  const ImageLayout::SegmentInfo& section =
       original_sections()[resource_section_id_];
 
-  std::string name = pe::PEFile::GetSectionName(section);
-  LOG(INFO) << "Copying section " << resource_section_id_ << " (" << name
-            << ").";
+  LOG(INFO) << "Copying section " << resource_section_id_ << " ("
+            << section.name << ").";
   if (!CopySection(section)) {
     LOG(ERROR) << "Unable to copy section.";
     return false;
