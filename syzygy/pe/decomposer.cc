@@ -1815,24 +1815,18 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
                                            const char* name) {
   BlockGraph::Block* block = image_->AddBlock(type, address, size, name);
   if (block == NULL) {
-    LOG(ERROR) << "Unable to add block at " << address.value()
-               << "(" << size << ").";
+    LOG(ERROR) << "Unable to add block at " << address << " with size "
+               << size << ".";
     return NULL;
   }
 
-  size_t id = image_file_.GetSectionIndex(address, size);
-  block->set_section(id);
-  if (id != BlockGraph::kInvalidSectionId) {
-    DCHECK_LT(id, image_file_.nt_headers()->FileHeader.NumberOfSections);
-    const IMAGE_SECTION_HEADER* header = image_file_.section_header(id);
-    RelativeAddress begin(header->VirtualAddress);
-    RelativeAddress end(begin + header->Misc.VirtualSize);
-    if (address < begin || address + size > end) {
-      LOG(ERROR) << "No section contains block at " << address.value()
-                 << "(" << size << ")";
-      return NULL;
-    }
+  BlockGraph::SectionId section = image_file_.GetSectionIndex(address, size);
+  if (section == BlockGraph::kInvalidSectionId) {
+    LOG(ERROR) << "Block at " << address << " with size " << size
+               << " lies outside of all sections.";
+    return NULL;
   }
+  block->set_section(section);
 
   const uint8* data = image_file_.GetImageData(address, size);
   if (data != NULL)
