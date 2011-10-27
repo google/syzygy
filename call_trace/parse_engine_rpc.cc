@@ -143,6 +143,13 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
     return false;
   }
 
+  // Notify the event handler that a process has started.
+  LARGE_INTEGER big_timestamp = {};
+  big_timestamp.QuadPart = file_header->timestamp;
+  base::Time start_time(base::Time::FromFileTime(
+      *reinterpret_cast<FILETIME*>(&big_timestamp)));
+  event_handler_->OnProcessStarted(start_time, file_header->process_id);
+
   // Consume the body of the trace file.
   size_t next_segment = AlignUp(file_header->header_size,
                                 file_header->block_size);
@@ -209,6 +216,10 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
             segment_header.segment_length,
         file_header->block_size);
   }
+
+  event_handler_->OnProcessEnded(
+      base::Time::FromTimeT(static_cast<time_t>(kuint64max)),
+      file_header->process_id);
 
   return true;
 }

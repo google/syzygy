@@ -27,6 +27,12 @@
 namespace call_trace {
 namespace parser {
 
+// This class implements a call-trace Parser for ETW-based call-trace
+// log files.
+//
+// @note No more than one instance of this class may exist at any given
+//     time (i.e., it must be a singleton)due to the way the Windows ETW
+//     API is structured. This is enforced in debug builds.
 class ParseEngineEtw
     : public ParseEngine,
       public base::win::EtwTraceConsumerBase<ParseEngineEtw>,
@@ -55,7 +61,8 @@ class ParseEngineEtw
   virtual bool CloseAllTraceFiles() OVERRIDE;
 
  protected:
-  // KernelModuleEvents implementation.
+  // @name KernelModuleEvents implementation.
+  // @{
   virtual void OnModuleIsLoaded(DWORD process_id,
                                 const base::Time& time,
                                 const ModuleInformation& module_info) OVERRIDE;
@@ -65,8 +72,10 @@ class ParseEngineEtw
   virtual void OnModuleLoad(DWORD process_id,
                             const base::Time& time,
                             const ModuleInformation& module_info) OVERRIDE;
+  // @}
 
-  // KernelProcessEvents implementation.
+  // @name KernelProcessEvents implementation.
+  // @{
   virtual void OnProcessIsRunning(const base::Time& time,
                                   const ProcessInfo& process_info) OVERRIDE;
   virtual void OnProcessStarted(const base::Time& time,
@@ -74,15 +83,18 @@ class ParseEngineEtw
   virtual void OnProcessEnded(const base::Time& time,
                               const ProcessInfo& process_info,
                               ULONG exit_status) OVERRIDE;
+  // @}
 
-  // Static hooks called from EtwTraceConsumerBase.
+  // @name Static hooks called from EtwTraceConsumerBase.
+  // @{
   friend class EtwConsumerBase;
   static void ProcessEvent(PEVENT_TRACE event);
   static bool ProcessBuffer(PEVENT_TRACE_LOGFILE buffer);
 
   // A static pointer to the current ETW parse engine instance. The static hooks
-  // (above) will be directed to this instance.
+  // will be directed to this instance.
   static ParseEngineEtw* parse_engine_etw_;
+  // @}
 
   // Parser to grok and dispatch kernel notifications back into this ETW parser
   // so that they can be translated into the corresonding call trace events, as
@@ -92,6 +104,7 @@ class ParseEngineEtw
   // The time of the last processed event.
   base::Time last_event_time_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(ParseEngineEtw);
 };
 

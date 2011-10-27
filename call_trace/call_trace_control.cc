@@ -27,33 +27,10 @@ using base::win::EtwTraceProperties;
 
 namespace {
 
-// {3D7926F7-6F59-4635-AAFD-0E95710FF60D}
-const GUID kSystemTraceControlGuid =
-    { 0x9e814aad, 0x3204, 0x11d2,
-        { 0x9a, 0x82, 0x00, 0x60, 0x08, 0xa8, 0x69, 0x39 } };
-
-const int kDefaultKernelFlags = EVENT_TRACE_FLAG_PROCESS |
-                                EVENT_TRACE_FLAG_THREAD |
-                                EVENT_TRACE_FLAG_IMAGE_LOAD |
-                                EVENT_TRACE_FLAG_DISK_IO |
-                                EVENT_TRACE_FLAG_DISK_FILE_IO |
-                                EVENT_TRACE_FLAG_MEMORY_PAGE_FAULTS |
-                                EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS |
-                                EVENT_TRACE_FLAG_FILE_IO;
-
 static const wchar_t kCallTraceSessionName[] = L"Call Trace Logger";
 static const wchar_t kChromeSessionName[] = L"Chrome Event Logger";
 static const wchar_t kDefaultCallTraceFile[] = L"call_trace.etl";
 static const wchar_t kDefaultKernelFile[] = L"kernel.etl";
-
-// Some hard-coded buffer settings. These apply only to call_trace buffers.
-// This is the absolute minimum number of buffers we will allow, across all
-// CPUs.
-static const size_t kMinBuffers = 15;
-// This is the minimum number of buffers per CPU we'll allow.
-static const size_t kMinBuffersPerProcessor = 3;
-// Max buffers will be min buffers * kBufferMultiplier.
-static const size_t kBufferMultiplier = 5;
 
 enum FileMode {
   kFileOverwrite,
@@ -112,7 +89,7 @@ static bool ParseOptions(CallTraceOptions* options) {
 
   if (!base::StringToInt(cmd_line->GetSwitchValueASCII("kernel-flags"),
                                                        &options->flags)) {
-    options->flags = kDefaultKernelFlags;
+    options->flags = kDefaultEtwKernelFlags;
   }
 
   if (!base::StringToInt(cmd_line->GetSwitchValueASCII("min-buffers"),
@@ -176,12 +153,12 @@ static void SetupEtwProperties(EtwTraceType trace_type,
       // buffers per CPU under heavy usage. We provide roughly half that to
       // start, with a hefty margin.
       p->MinimumBuffers =
-          kMinBuffersPerProcessor * sysinfo.dwNumberOfProcessors;
-      if (p->MinimumBuffers < kMinBuffers)
-        p->MinimumBuffers = kMinBuffers;
+          kMinEtwBuffersPerProcessor * sysinfo.dwNumberOfProcessors;
+      if (p->MinimumBuffers < kMinEtwBuffers)
+        p->MinimumBuffers = kMinEtwBuffers;
       if (options.min_buffers > signed(p->MinimumBuffers))
         p->MinimumBuffers = options.min_buffers;
-      p->MaximumBuffers = kBufferMultiplier * p->MinimumBuffers;
+      p->MaximumBuffers = kEtwBufferMultiplier * p->MinimumBuffers;
 
       break;
     }

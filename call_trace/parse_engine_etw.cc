@@ -29,6 +29,8 @@ ParseEngineEtw* ParseEngineEtw::parse_engine_etw_ = NULL;
 ParseEngineEtw::ParseEngineEtw() : ParseEngine("ETW") {
   DCHECK(parse_engine_etw_ == NULL);
   parse_engine_etw_ = this;
+  kernel_log_parser_.set_module_event_sink(this);
+  kernel_log_parser_.set_process_event_sink(this);
 }
 
 ParseEngineEtw::~ParseEngineEtw() {
@@ -167,10 +169,8 @@ void ParseEngineEtw::OnProcessEnded(const base::Time& time,
     return;
   }
 
-  uint32 process_id = process_info.process_id;
-  ProcessSet::iterator process_it = matching_process_ids_.find(process_id);
-  if (process_it != matching_process_ids_.end())
-    matching_process_ids_.erase(process_it);
+  DCHECK(event_handler_ != NULL);
+  event_handler_->OnProcessEnded(time, process_info.process_id);
 }
 
 void ParseEngineEtw::ProcessEvent(PEVENT_TRACE event) {

@@ -138,15 +138,6 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
   if (kCallTraceEventClass != event->Header.Guid)
     return false;
 
-  // If this is the first call of interest by a given process, send an
-  // OnProcessStarted event.
-  uint32 process_id = event->Header.ProcessId;
-  if (matching_process_ids_.insert(process_id).second) {
-    base::Time start_time(base::Time::FromFileTime(
-        reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
-    event_handler_->OnProcessStarted(start_time, process_id);
-  }
-
   bool success = false;
   TraceEventType type = static_cast<TraceEventType>(event->Header.Class.Type);
 
@@ -308,7 +299,7 @@ bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
       break;
 
     default:
-      NOTREACHED() << "Unexpected module event type " << type << ".";
+      LOG(ERROR) << "Unexpected module event type " << type << ".";
       return false;
   }
 
