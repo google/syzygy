@@ -162,7 +162,7 @@ bool Reorderer::ReorderImpl(Order* order) {
   // to actual Blocks.
   LOG(INFO) << "Decomposing input image.";
   Decomposer decomposer(*pe_);
-  if (!decomposer.Decompose(image_, NULL)) {
+  if (!decomposer.Decompose(image_)) {
     LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
     return false;
   }

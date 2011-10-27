@@ -64,7 +64,7 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
     ASSERT_TRUE(image_file_.Init(image_path_));
 
     Decomposer decomposer(image_file_);
-    ASSERT_TRUE(decomposer.Decompose(&image_layout_, NULL));
+    ASSERT_TRUE(decomposer.Decompose(&image_layout_));
 
     dos_header_block_ =
         image_layout_.blocks.GetBlockByAddress(RelativeAddress(0));

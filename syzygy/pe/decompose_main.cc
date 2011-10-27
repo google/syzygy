@@ -202,7 +202,7 @@ int main(int argc, char** argv) {
   core::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   pe::Decomposer decomposer(pe_file);
-  if (!decomposer.Decompose(&image_layout, NULL)) {
+  if (!decomposer.Decompose(&image_layout)) {
     LOG(ERROR) << "Decomposition failed.";
     return 1;
   }

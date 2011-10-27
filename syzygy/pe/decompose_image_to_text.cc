@@ -106,7 +106,7 @@ bool DumpImageToText(const FilePath& image_path,
   Decomposer decomposer(image_file);
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
-  if (!decomposer.Decompose(&image_layout, NULL)) {
+  if (!decomposer.Decompose(&image_layout)) {
     LOG(ERROR) << "Unable to decompose image \"" << image_path.value() << "\".";
     return false;
   }

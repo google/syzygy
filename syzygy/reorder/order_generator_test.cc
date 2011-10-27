@@ -31,7 +31,7 @@ void OrderGeneratorTest::SetUp() {
 
   ASSERT_TRUE(input_dll_.Init(input_dll_path));
   pe::Decomposer decomposer(input_dll_);
-  ASSERT_TRUE(decomposer.Decompose(&image_, NULL));
+  ASSERT_TRUE(decomposer.Decompose(&image_));
 }
 
 void OrderGeneratorTest::ExpectNoDuplicateBlocks() {
