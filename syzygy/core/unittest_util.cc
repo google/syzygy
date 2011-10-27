@@ -85,9 +85,13 @@ bool BlocksEqual(const BlockGraph::Block& b1, const BlockGraph::Block& b2) {
 
 // Compares two BlockGraphs to each other.
 bool BlockGraphsEqual(const BlockGraph& b1, const BlockGraph& b2) {
-  if (b1.blocks().size() != b2.blocks().size())
+  if (b1.sections() != b2.sections() ||
+      b1.blocks().size() != b2.blocks().size()) {
     return false;
+  }
 
+  // We manually compare iterate through the blocks and use BlocksEqual,
+  // because they don't otherwise have a comparison operator.
   BlockGraph::BlockMap::const_iterator it1 = b1.blocks().begin();
   for (; it1 != b1.blocks().end(); ++it1) {
     BlockGraph::BlockMap::const_iterator it2 = b2.blocks().find(it1->first);
