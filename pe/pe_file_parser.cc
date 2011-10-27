@@ -1101,7 +1101,22 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
   BlockGraph::Block* block = address_space_->AddBlock(type, addr, size, name);
   if (block != NULL) {
     block->set_attribute(BlockGraph::PE_PARSED);
-    block->set_section(image_file_.GetSectionIndex(addr, size));
+
+    // Set the section for this block.
+    size_t section = image_file_.GetSectionIndex(addr, size);
+    if (section == BlockGraph::kInvalidSectionId) {
+      // If no section was found for this block, we expect it to be a part of
+      // the header.
+      const RelativeAddress end_of_headers(
+          image_file_.nt_headers()->OptionalHeader.SizeOfHeaders);
+      if (addr + size > end_of_headers) {
+        LOG(ERROR) << "Found a non-header block outside of sections.";
+        return NULL;
+      }
+      section = BlockGraph::kHeaderSectionId;
+    }
+    block->set_section(section);
+
     const uint8* data = image_file_.GetImageData(addr, size);
     if (data != NULL)
       block->SetData(data, size);

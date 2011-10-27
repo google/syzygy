@@ -366,9 +366,10 @@ class BlockGraph::Block {
   RelativeAddress addr() const { return addr_; }
   void set_addr(RelativeAddress addr) { return addr_ = addr; }
 
-  // The section index for the block, this is a convenience attribute.
-  size_t section() const { return section_; }
-  void set_section(size_t section) { section_ = section; }
+  // The section ID for the block. These IDs are wrt to the SectionMap in the
+  // parent BlockGraph.
+  SectionId section() const { return section_; }
+  void set_section(SectionId section) { section_ = section; }
 
   // The block attributes are a bitmask. You can set them wholesale,
   // or set and clear them individually by bitmasking.
@@ -479,7 +480,7 @@ class BlockGraph::Block {
   std::string name_;
   RelativeAddress addr_;
 
-  size_t section_;
+  SectionId section_;
   BlockAttributes attributes_;
 
   ReferenceMap references_;
