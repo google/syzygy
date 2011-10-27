@@ -339,126 +339,6 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
   return false;
 }
 
-void UpdateSectionStats(
-    const IMAGE_SECTION_HEADER* header,
-    Decomposer::CoverageStatistics::SectionStatistics* stats) {
-  DCHECK(header != NULL);
-  DCHECK(stats != NULL);
-  ++stats->section_count;
-  stats->virtual_size += header->Misc.VirtualSize;
-  stats->data_size += header->SizeOfRawData;
-}
-
-void UpdateSimpleBlockStats(
-    const BlockGraph::Block* block,
-    Decomposer::CoverageStatistics::SimpleBlockStatistics* stats) {
-  DCHECK(block != NULL);
-  DCHECK(stats != NULL);
-  stats->virtual_size += block->size();
-  stats->data_size += block->data_size();
-  ++stats->block_count;
-}
-
-void UpdateBlockStats(
-    const BlockGraph::Block* block,
-    Decomposer::CoverageStatistics::BlockStatistics* stats) {
-  DCHECK(block != NULL);
-  DCHECK(stats != NULL);
-
-  UpdateSimpleBlockStats(block, &stats->summary);
-  if (block->attributes() & BlockGraph::GAP_BLOCK)
-    UpdateSimpleBlockStats(block, &stats->gap);
-  else
-    UpdateSimpleBlockStats(block, &stats->normal);
-}
-
-void CalcDetailedCodeBlockStats(
-    AbsoluteAddress block_start,
-    const BlockGraph::Block* block,
-    const Disassembler& disasm,
-    const PEFile::RelocSet& reloc_set,
-    Decomposer::DetailedCodeBlockStatistics* stats) {
-  DCHECK(block != NULL);
-  DCHECK(stats != NULL);
-
-  memset(stats, 0, sizeof(*stats));
-
-  // Count instruction bytes.
-  Disassembler::VisitedSpace::RangeMapConstIter code_it =
-      disasm.visited().begin();
-  for (; code_it != disasm.visited().end(); ++code_it) {
-    stats->code_bytes += code_it->first.size();
-    ++stats->code_count;
-  }
-
-  // Iterate through all relocs that are a part of this code block.
-  PEFile::RelocSet::const_iterator reloc_it =
-      reloc_set.lower_bound(block->addr());
-  PEFile::RelocSet::const_iterator reloc_end =
-      reloc_set.lower_bound(block->addr() + block->size());
-  for (; reloc_it != reloc_end; ++reloc_it) {
-    // Translate the reloc location to an absolute address.
-    AbsoluteAddress reloc_abs = block_start + (*reloc_it - block->addr());
-
-    // Skip relocs that are part of an instruction.
-    if (disasm.visited().Intersects(reloc_abs, kPointerSize))
-      continue;
-
-    // This reloc must be part of a lookup table, or non-disassembled code.
-    // TODO(chrisha): This is known to be incorrect right now for
-    //     non-disassembled code. We could use fixups to make this accurate,
-    //     but our disassembly is going to be revamped in the near future.
-    stats->data_bytes += kPointerSize;
-  }
-
-  size_t total = stats->code_bytes + stats->data_bytes + stats->padding_bytes;
-  DCHECK_GE(block->size(), total);
-  stats->unknown_bytes = block->size() - total;
-}
-
-void UpdateDetailedCodeBlockStats(
-    const BlockGraph::Block* block,
-    const Decomposer::DetailedCodeBlockStatistics* detail,
-    Decomposer::DetailedCodeBlockStatistics* stats) {
-  DCHECK(block != NULL);
-  DCHECK(stats != NULL);
-
-  if (detail != NULL) {
-    stats->code_bytes += detail->code_bytes;
-    stats->data_bytes += detail->data_bytes;
-    stats->padding_bytes += detail->padding_bytes;
-    stats->unknown_bytes += detail->unknown_bytes;
-    stats->code_count += detail->code_count;
-    stats->data_count += detail->data_count;
-    stats->padding_count += detail->padding_count;
-  } else {
-    stats->unknown_bytes += block->size();
-  }
-}
-
-void CalcSectionStats(
-    const IMAGE_SECTION_HEADER* header,
-    Decomposer::CoverageStatistics* stats) {
-  DCHECK(header != NULL);
-  DCHECK(stats != NULL);
-
-  UpdateSectionStats(header, &stats->sections.summary);
-  SectionType type = GetSectionType(header);
-  switch (type) {
-    case kSectionCode:
-      UpdateSectionStats(header, &stats->sections.code);
-      break;
-
-    case kSectionData:
-      UpdateSectionStats(header, &stats->sections.data);
-      break;
-
-    case kSectionUnknown:
-      UpdateSectionStats(header, &stats->sections.unknown);
-      break;
-  }
-}
-
 size_t GuessAddressAlignment(RelativeAddress address) {
   // Count the trailing zeros in the original address. We only care
   // about alignment up to 16, so only have to check the first 4 bits.
@@ -718,8 +598,7 @@ Decomposer::Decomposer(const PEFile& image_file)
 }
 
 bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
-                               PEFileParser::PEHeader* header,
-                               CoverageStatistics* stats) {
+                               PEFileParser::PEHeader* header) {
   // Start by instantiating and initializing our Debug Interface Access session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive())) {
@@ -845,89 +724,29 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
   if (success)
     success = FindPaddingBlocks();
 
-  if (stats != NULL)
-    CalcCoverageStatistics(stats);
-  code_block_stats_.clear();
   image_ = NULL;
 
   return success;
 }
 
-bool Decomposer::Decompose(ImageLayout* image_layout,
-                           CoverageStatistics* stats) {
+bool Decomposer::Decompose(ImageLayout* image_layout) {
   PEFileParser::PEHeader header;
 
-  if (!DecomposeImpl(&image_layout->blocks, &header, stats)) {
+  if (!DecomposeImpl(&image_layout->blocks, &header)) {
     return false;
   }
 
   return CopyHeaderToImageLayout(header.nt_headers, image_layout);
 }
 
-bool Decomposer::Decompose(DecomposedImage* decomposed_image,
-                           CoverageStatistics* stats) {
+bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
   return DecomposeImpl(&decomposed_image->address_space,
-                       &decomposed_image->header,
-                       stats);
+                       &decomposed_image->header);
 }
 
 bool Decomposer::BasicBlockDecompose(const ImageLayout& image_layout,
                                      BasicBlockBreakdown* breakdown) {
   return BuildBasicBlockGraph(image_layout, breakdown);
-}
-
-void Decomposer::CalcCoverageStatistics(CoverageStatistics* stats) const {
-  DCHECK(image_ != NULL);
-  DCHECK(stats != NULL);
-
-  memset(stats, 0, sizeof(*stats));
-
-  // Iterate over all sections.
-  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
-  for (size_t i = 0; i < num_sections; ++i)
-    CalcSectionStats(image_file_.section_header(i), stats);
-
-  // Iterate over all blocks.
-  BlockGraph::AddressSpace::RangeMapConstIter it = image_->begin();
-  BlockGraph::AddressSpace::RangeMapConstIter it_end = image_->end();
-  for (; it != it_end; ++it) {
-    const BlockGraph::Block* block = it->second;
-    CalcBlockStats(block, stats);
-  }
-}
-
-void Decomposer::CalcBlockStats(const BlockGraph::Block* block,
-                                CoverageStatistics* stats) const {
-  DCHECK(block != NULL);
-  DCHECK(stats != NULL);
-
-  // Blocks that don't belong to any section get special-cased.
-  if (block->section() == BlockGraph::kInvalidSectionId) {
-    UpdateSimpleBlockStats(block, &stats->blocks.no_section);
-    return;
-  }
-
-  // Update the per-block-type information.
-  switch (block->type()) {
-    case BlockGraph::CODE_BLOCK: {
-      UpdateBlockStats(block, &stats->blocks.code);
-
-      const DetailedCodeBlockStatistics* detail = NULL;
-      DetailedCodeBlockStatsMap::const_iterator stats_it =
-          code_block_stats_.find(block->id());
-      if (stats_it != code_block_stats_.end())
-        detail = &stats_it->second;
-      UpdateDetailedCodeBlockStats(block, detail, &stats->blocks.code.detail);
-      break;
-    }
-
-    case BlockGraph::DATA_BLOCK:
-      UpdateBlockStats(block, &stats->blocks.data);
-      break;
-
-    default:
-      NOTREACHED();
-  }
 }
 
 bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
@@ -1973,9 +1792,6 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
                       labels,
                       on_instruction.get());
   Disassembler::WalkResult result = disasm.Walk();
-  CalcDetailedCodeBlockStats(
-      abs_block_addr, block, disasm, reloc_set_,
-      &code_block_stats_[block->id()]);
 
   DCHECK_EQ(block, current_block_);
   current_block_ = NULL;

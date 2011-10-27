@@ -42,8 +42,7 @@ TEST_F(DecomposerTest, Decompose) {
 
   core::BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
-  Decomposer::CoverageStatistics stats;
-  ASSERT_TRUE(decomposer.Decompose(&image_layout, &stats));
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
   // There should be some blocks in the graph and in the layout.
   EXPECT_NE(0U, block_graph.blocks().size());
@@ -132,25 +131,6 @@ TEST_F(DecomposerTest, Decompose) {
   EXPECT_NE(0U, image_layout.segments[5].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_DISCARDABLE |
       IMAGE_SCN_MEM_READ, image_layout.segments[5].characteristics);
-
-  // We expect there to be at least one code section and one data section.
-  EXPECT_TRUE(stats.sections.code.section_count > 0);
-  EXPECT_TRUE(stats.sections.data.section_count > 0);
-
-  // We expect section-summary stats to agree with the per-section-type stats.
-  EXPECT_EQ(stats.sections.summary.section_count,
-      stats.sections.code.section_count + stats.sections.data.section_count +
-      stats.sections.unknown.section_count);
-  EXPECT_EQ(stats.sections.summary.data_size,
-      stats.sections.code.data_size + stats.sections.data.data_size +
-      stats.sections.unknown.data_size);
-  EXPECT_EQ(stats.sections.summary.virtual_size,
-      stats.sections.code.virtual_size + stats.sections.data.virtual_size +
-      stats.sections.unknown.virtual_size);
-
-  // We expect there to be at least code and one data block.
-  EXPECT_TRUE(stats.blocks.code.summary.block_count > 0);
-  EXPECT_TRUE(stats.blocks.data.summary.block_count > 0);
 }
 
 TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
@@ -164,8 +144,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
 
   core::BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
-  Decomposer::CoverageStatistics stats;
-  ASSERT_TRUE(decomposer.Decompose(&image_layout, &stats));
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
   FilePath temp_dir;
   CreateTemporaryDir(&temp_dir);
@@ -218,8 +197,7 @@ TEST_F(DecomposerTest, BasicBlockDecompose) {
 
   core::BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
-  Decomposer::CoverageStatistics stats;
-  ASSERT_TRUE(decomposer.Decompose(&image_layout, &stats));
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
   Decomposer::BasicBlockBreakdown breakdown;
   ASSERT_TRUE(decomposer.BasicBlockDecompose(image_layout, &breakdown));

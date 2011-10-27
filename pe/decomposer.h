@@ -50,9 +50,6 @@ class Decomposer {
   struct Fixup;
   // Used for storing references before the block graph is complete.
   struct IntermediateReference;
-  // Statistics regarding the decomposition.
-  struct CoverageStatistics;
-  struct DetailedCodeBlockStatistics;
 
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
@@ -72,8 +69,7 @@ class Decomposer {
   // respectively.
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
-  bool Decompose(ImageLayout* image_layout,
-                 CoverageStatistics* stats);
+  bool Decompose(ImageLayout* image_layout);
 
   // Decomposes the image file into the specified DecomposedImage, which
   // has the breakdown of code and data blocks with typed references.
@@ -81,8 +77,7 @@ class Decomposer {
   // will be populated with decomposition coverage statistics.
   // @note this function is deprecated and will be removed as soon as all
   //      callers are converted to the signature above.
-  bool Decompose(DecomposedImage* decomposed_image,
-                 CoverageStatistics* stats);
+  bool Decompose(DecomposedImage* decomposed_image);
 
   // Decomposes the decomposed image into basic blocks.
   // @returns true on success, false on failure.
@@ -105,8 +100,7 @@ class Decomposer {
 
   // Temporary bottleneck implementation function for decomposition.
   bool DecomposeImpl(BlockGraph::AddressSpace* image,
-                     PEFileParser::PEHeader* header,
-                     CoverageStatistics* stats);
+                     PEFileParser::PEHeader* header);
 
   // Create blocks for all code.
   bool CreateCodeBlocks(IDiaSymbol* globals);
@@ -264,13 +258,6 @@ class Decomposer {
   bool OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
                              const PdbFixups& pdb_fixups);
 
-  // After a successful decomposition, this will calculate statistics regarding
-  // the coverage of our decomposition. This expects image_ to be non-NULL.
-  void CalcCoverageStatistics(CoverageStatistics* stats) const;
-  // Updates coverage statistics with information regarding the given block.
-  void CalcBlockStats(const BlockGraph::Block* block,
-                      CoverageStatistics* stats) const;
-
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
 
@@ -285,8 +272,6 @@ class Decomposer {
 
   typedef std::set<BlockGraph::Block*> BlockSet;
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
-  typedef std::map<BlockGraph::BlockId, DetailedCodeBlockStatistics>
-      DetailedCodeBlockStatsMap;
   typedef std::map<RelativeAddress, std::string> LabelMap;
   typedef std::set<RelativeAddress> RelativeAddressSet;
   typedef std::pair<RE, RE> REPair;
@@ -310,8 +295,6 @@ class Decomposer {
   // reference. We keep them around so that the disassembly phase can be
   // validated against them.
   FixupMap fixup_map_;
-  // Keeps track of per block disassembly statistics.
-  DetailedCodeBlockStatsMap code_block_stats_;
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
@@ -377,62 +360,6 @@ struct Decomposer::IntermediateReference {
   RelativeAddress base;
   BlockGraph::Offset offset;
   std::string name;
-};
-
-// For storing detailed statistics regarding a code block.
-struct Decomposer::DetailedCodeBlockStatistics {
-  size_t code_bytes;
-  size_t data_bytes;
-  size_t padding_bytes;
-  size_t unknown_bytes;
-  size_t code_count;
-  size_t data_count;
-  size_t padding_count;
-};
-
-// Coverage statistics are stored in this class.
-struct Decomposer::CoverageStatistics {
-  // Keeps information regarding Sections.
-  struct SectionStatistics {
-    size_t section_count;
-    size_t virtual_size;
-    size_t data_size;
-  };
-
-  // Stores data broken down by Section type.
-  struct {
-    SectionStatistics summary;
-    SectionStatistics code;
-    SectionStatistics data;
-    SectionStatistics unknown;
-  } sections;
-
-  // Keeps simple information regarding blocks.
-  struct SimpleBlockStatistics {
-    size_t virtual_size;
-    size_t data_size;
-    size_t block_count;
-  };
-
-  // Keeps more detailed information regarding blocks, splitting it down
-  // depending on if the block was a gap block or not.
-  struct BlockStatistics {
-    SimpleBlockStatistics summary;
-    SimpleBlockStatistics normal;
-    SimpleBlockStatistics gap;
-  };
-
-  // Stores information about code blocks.
-  struct CodeBlockStatistics : public BlockStatistics {
-    DetailedCodeBlockStatistics detail;
-  };
-
-  // Stores information about blocks, broken down by type.
-  struct {
-    CodeBlockStatistics code;
-    BlockStatistics data;
-    SimpleBlockStatistics no_section;
-  } blocks;
 };
 
 }  // namespace pe
