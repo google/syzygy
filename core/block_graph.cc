@@ -19,7 +19,12 @@
 namespace core {
 
 const RelativeAddress kInvalidAddress(0xFFFFFFFF);
-const size_t kInvalidSection = -1;
+
+const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
+
+// We use a negative value here so that the section IDs used by the decomposer
+// can remain the original image section IDs, from 0 through n - 1.
+const BlockGraph::SectionId BlockGraph::kHeaderSectionId = -2;
 
 const char* BlockGraph::kBlockType[] = {
   "CODE_BLOCK", "DATA_BLOCK", "BASIC_CODE_BLOCK", "BASIC_DATA_BLOCK",
@@ -27,10 +32,71 @@ const char* BlockGraph::kBlockType[] = {
 COMPILE_ASSERT(arraysize(BlockGraph::kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
                kBlockType_not_in_sync);
 
-BlockGraph::BlockGraph() : next_block_id_(0) {
+BlockGraph::BlockGraph()
+    : next_section_id_(0),
+      next_block_id_(0) {
+  static const Section kHeaderSection(kHeaderSectionId, "headers", 0);
+  bool inserted = sections_.insert(std::make_pair(kHeaderSectionId,
+                                                  kHeaderSection)).second;
+  DCHECK(inserted);
 }
 
 BlockGraph::~BlockGraph() {
+}
+
+BlockGraph::Section* BlockGraph::AddSection(const char* name,
+                                            uint32 characteristics) {
+  Section new_section(next_section_id_++, name, characteristics);
+  std::pair<SectionMap::iterator, bool> result = sections_.insert(
+      std::make_pair(new_section.id(), new_section));
+  DCHECK(result.second);
+
+  return &result.first->second;
+}
+
+BlockGraph::Section* BlockGraph::FindOrAddSection(const char* name,
+                                                  uint32 characteristics) {
+  // This is a linear scan, but thankfully images generally do not have many
+  // sections and we do not create them very often. Fast lookup by index is
+  // more important. If this ever becomes an issue, we could keep around a
+  // second index by name.
+  SectionMap::iterator it = sections_.begin();
+  for (; it != sections_.end(); ++it) {
+    if (it->second.name() == name) {
+      it->second.set_characteristics(characteristics);
+      return &it->second;
+    }
+  }
+
+  return AddSection(name, characteristics);
+}
+
+bool BlockGraph::RemoveSection(Section* section) {
+  DCHECK(section != NULL);
+
+  // We protect the header section!
+  if (section->id() == kHeaderSectionId)
+    return false;
+
+  SectionMap::iterator it(sections_.find(section->id()));
+  if (it == sections_.end() || &it->second != section)
+    return false;
+
+  sections_.erase(it);
+  return true;
+}
+
+bool BlockGraph::RemoveSectionById(SectionId id) {
+  // We protect the header section!
+  if (id == kHeaderSectionId)
+    return false;
+
+  SectionMap::iterator it(sections_.find(id));
+  if (it == sections_.end())
+    return false;
+
+  sections_.erase(it);
+  return true;
 }
 
 BlockGraph::Block* BlockGraph::AddBlock(BlockType type,
@@ -61,6 +127,15 @@ bool BlockGraph::RemoveBlockById(BlockId id) {
   return RemoveBlockByIterator(it);
 }
 
+BlockGraph::Section* BlockGraph::GetSectionById(SectionId id) {
+  SectionMap::iterator it(sections_.find(id));
+
+  if (it == sections_.end())
+    return NULL;
+
+  return &it->second;
+}
+
 BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) {
   BlockMap::iterator it(blocks_.find(id));
 
@@ -73,8 +148,12 @@ BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) {
 bool BlockGraph::Save(OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
 
-  if (!out_archive->Save(next_block_id_) || !out_archive->Save(blocks_.size()))
+  if (!out_archive->Save(next_section_id_) ||
+      !out_archive->Save(sections_) ||
+      !out_archive->Save(next_block_id_) ||
+      !out_archive->Save(blocks_.size())) {
     return false;
+  }
 
   // Output the basic block properties first.
   BlockMap::const_iterator it = blocks_.begin();
@@ -100,8 +179,12 @@ bool BlockGraph::Load(InArchive* in_archive) {
   DCHECK(in_archive != NULL);
 
   size_t num_blocks = 0;
-  if (!in_archive->Load(&next_block_id_) || !in_archive->Load(&num_blocks))
+  if (!in_archive->Load(&next_section_id_) ||
+      !in_archive->Load(&sections_) ||
+      !in_archive->Load(&next_block_id_) ||
+      !in_archive->Load(&num_blocks)) {
     return false;
+  }
 
   // Load the basic block properties first, and keep track of the
   // order of the blocks. We do this because we can't guarantee that the
@@ -421,13 +504,37 @@ bool BlockGraph::AddressSpace::Load(InArchive* in_archive) {
   return true;
 }
 
+bool BlockGraph::Section::set_name(const char* name) {
+  if (name == NULL)
+    return false;
+
+  std::string new_name(name);
+  if (new_name.empty())
+    return false;
+
+  name_ = new_name;
+  return true;
+}
+
+bool BlockGraph::Section::Save(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+  return out_archive->Save(id_) && out_archive->Save(name_) &&
+      out_archive->Save(characteristics_);
+}
+
+bool BlockGraph::Section::Load(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  return in_archive->Load(&id_) && in_archive->Load(&name_) &&
+      in_archive->Load(&characteristics_);
+}
+
 BlockGraph::Block::Block()
     : id_(0),
       type_(BlockGraph::CODE_BLOCK),
       size_(0),
       alignment_(1),
       addr_(kInvalidAddress),
-      section_(kInvalidSection),
+      section_(kInvalidSectionId),
       attributes_(0),
       owns_data_(false),
       data_(NULL),
@@ -444,7 +551,7 @@ BlockGraph::Block::Block(BlockId id,
       alignment_(1),
       name_(name),
       addr_(kInvalidAddress),
-      section_(kInvalidSection),
+      section_(kInvalidSectionId),
       attributes_(0),
       owns_data_(false),
       data_(NULL),

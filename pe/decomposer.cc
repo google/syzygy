@@ -761,9 +761,13 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
 
   image_ = image;
 
-  // Load FIXUP information from the PDB file. We do this first so that we
+  // Create the sections for the image.
+  bool success = CreateSections();
+
+  // Load FIXUP information from the PDB file. We do this early on so that we
   // can do accounting with references that are created later on.
-  bool success = LoadDebugStreams(dia_session);
+  if (success)
+    success = LoadDebugStreams(dia_session);
 
   // Create intermediate references for each fixup entry.
   if (success)
@@ -898,7 +902,7 @@ void Decomposer::CalcBlockStats(const BlockGraph::Block* block,
   DCHECK(stats != NULL);
 
   // Blocks that don't belong to any section get special-cased.
-  if (block->section() == core::kInvalidSection) {
+  if (block->section() == BlockGraph::kInvalidSectionId) {
     UpdateSimpleBlockStats(block, &stats->blocks.no_section);
     return;
   }
@@ -2002,7 +2006,7 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
 
   size_t id = image_file_.GetSectionIndex(address, size);
   block->set_section(id);
-  if (id != kInvalidSection) {
+  if (id != BlockGraph::kInvalidSectionId) {
     DCHECK_LT(id, image_file_.nt_headers()->FileHeader.NumberOfSections);
     const IMAGE_SECTION_HEADER* header = image_file_.section_header(id);
     RelativeAddress begin(header->VirtualAddress);
@@ -2398,6 +2402,27 @@ bool Decomposer::FindPaddingBlocks() {
 
     // If we fall through to this point, then the block is a padding block.
     block.set_attribute(BlockGraph::PADDING_BLOCK);
+  }
+
+  return true;
+}
+
+bool Decomposer::CreateSections() {
+  // Iterate through the image sections, and create sections in the BlockGraph.
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
+    std::string name = pe::PEFile::GetSectionName(*header);
+    BlockGraph::Section* section = image_->graph()->AddSection(
+        name.c_str(), header->Characteristics);
+    DCHECK(section != NULL);
+
+    // For now, we expect them to have been created with the same IDs as those
+    // in the original image.
+    if (section->id() != i) {
+      LOG(ERROR) << "Unexpected section ID.";
+      return false;
+    }
   }
 
   return true;

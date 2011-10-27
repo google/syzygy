@@ -182,6 +182,9 @@ class Decomposer {
   bool BuildBasicBlockGraph(const ImageLayout& image_layout,
                             BasicBlockBreakdown* breakdown);
 
+  // Parses the section headers and creates BlockGraph sections.
+  bool CreateSections();
+
   // Parses the various debug streams. This populates fixup_map_ as well.
   bool LoadDebugStreams(IDiaSession* dia_session);
 

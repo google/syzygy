@@ -13,9 +13,13 @@
 // limitations under the License.
 //
 // A block graph is a an abstract graph of blocks, each of which has an ID,
-// a type, a size and a few other properties.
-// Each block represents either code or data, and blocks can reference
-// one another through references of various types.
+// a type, a size and a few other properties. Each block represents either code
+// or data, and blocks can reference one another through references of various
+// types.
+//
+// The BlockGraph also stores minimum knowledge of sections (names and
+// characteristics), and each block belongs to exactly one section. In this
+// sense, a BlockGraph acts as top-level division of blocks.
 #ifndef SYZYGY_CORE_BLOCK_GRAPH_H_
 #define SYZYGY_CORE_BLOCK_GRAPH_H_
 
@@ -34,15 +38,26 @@ namespace core {
 // The invalid address can never occur in an graph, it's used as default
 // value for block addresses.
 extern const RelativeAddress kInvalidAddress;
-extern const size_t kInvalidSection;
 
 // The BlockGraph is a top-level container for Blocks.
 class BlockGraph {
  public:
+  typedef size_t SectionId;
   typedef size_t BlockId;
   typedef size_t Size;
   typedef ptrdiff_t Offset;
   typedef uint32 BlockAttributes;
+
+  // The BlockGraph maintains a list of sections, and each block belongs
+  // to one of them. This is the set of information we keep regarding them.
+  struct Section;
+  // The section map contains all sections, indexed by id.
+  typedef std::map<SectionId, Section> SectionMap;
+
+  static const SectionId kInvalidSectionId;
+  // The header section is a special citizen, and every block graph has one.
+  // It holds blocks that belong to the header of the PE image.
+  static const SectionId kHeaderSectionId;
 
   enum BlockAttributeEnum {
     // Set for functions declared non-returning.
@@ -95,6 +110,40 @@ class BlockGraph {
   BlockGraph();
   ~BlockGraph();
 
+  // Adds a section with the given name.
+  //
+  // @param name The section name.
+  // @param characteristics The section characteristics.
+  // @returns the new section.
+  Section* AddSection(const char* name, uint32 characteristics);
+
+  // Find or adds section with the given name.
+  //
+  // If a section with the given name already exists, updates its
+  // characteristics and returns it. Otherwise, creates a new section and
+  // returns it. If multiple sections exist with the given name, the first
+  // one encountered is returned.
+  //
+  // @param name The section name.
+  // @param characteristics The section characteristics.
+  // @returns the new section.
+  Section* FindOrAddSection(const char* name, uint32 characteristics);
+
+  // Removes the given section from the BlockGraph.
+  //
+  // The section must belong to this block graph. Be aware that this can leave
+  // Blocks with dangling section_ids.
+  //
+  // @param section The section to remove.
+  // @returns true on success, false otherwise.
+  bool RemoveSection(Section* section);
+
+  // Removes the section with the given id from the BlockGraph.
+  //
+  // @param section The id of the section to remove.
+  // @returns true on success, false otherwise.
+  bool RemoveSectionById(SectionId id);
+
   // Add @p block of type @p type and @p size and
   // return the new block.
   // @returns the new block.
@@ -112,8 +161,15 @@ class BlockGraph {
   bool RemoveBlockById(BlockId id);
 
   // Accessors.
+  const SectionMap& sections() const { return sections_; }
   const BlockMap& blocks() const { return blocks_; }
   BlockMap& blocks_mutable() { return blocks_; }
+
+  // Retrieve the section with the given id.
+  //
+  // @param id The id of the section to retrieve.
+  // @returns the section in question or NULL if no such section.
+  Section* GetSectionById(SectionId id);
 
   // Retrieve the block with id.
   // @returns the block in question or NULL if no such block.
@@ -133,11 +189,111 @@ class BlockGraph {
   // Removes a block by the iterator to it. The iterator must be valid.
   bool RemoveBlockByIterator(BlockMap::iterator it);
 
+  // All sections we contain.
+  SectionMap sections_;
+
+  // Our section ID allocator.
+  SectionId next_section_id_;
+
   // All blocks we contain.
   BlockMap blocks_;
 
   // Our block ID allocator.
   BlockId next_block_id_;
+};
+
+// The BlockGraph maintains a list of sections, and each block belongs
+// to one of them. This is the set of information we keep regarding them.
+struct BlockGraph::Section {
+  // Default constructor.
+  Section() : id_(kInvalidSectionId), characteristics_(0) {
+  }
+
+  // Full constructor.
+  //
+  // @param id The section id. This must not be kInvalidSectionId.
+  // @param name The name of the section. Must not be empty or NULL.
+  // @param characteristics The characteristics of the section.
+  Section(SectionId id, const char* name, uint32 characteristics)
+      : id_(id), name_(), characteristics_(characteristics) {
+    DCHECK_NE(kInvalidSectionId, id);
+    DCHECK(name != NULL);
+    name_ = name;
+    DCHECK(!name_.empty());
+  }
+
+  // Get the id of this section.
+  //
+  // @returns the id of the section.
+  SectionId id() const { return id_; }
+
+  // Get the name of this section.
+  //
+  // @returns the section name.
+  const std::string& name() const { return name_; }
+
+  // Sets the name for this section.
+  //
+  // @param name The name of the section. If NULL or empty, this will fail.
+  // @returns true if the name is set, false otherwise.
+  bool set_name(const char* name);
+
+  // Get the characteristics of this section.
+  //
+  // @returns the section characteristics.
+  uint32 characteristics() const { return characteristics_; }
+
+  // Sets the characteristics for this section.
+  //
+  // @param characteristics The new characteristics to set.
+  void set_characteristics(uint32 characteristics) {
+    characteristics_ = characteristics;
+  }
+
+  // Sets a one or more additional characteristics for this section.
+  //
+  // @param characteristic The new characteristic(s) to set for this section.
+  void set_characteristic(uint32 characteristic) {
+    characteristics_ |= characteristic;
+  }
+
+  // Clears one or more characteristics for this section.
+  //
+  // @param characteristic The characteristic(s) to clear for this section.
+  void clear_characteristic(uint32 characteristic) {
+    characteristics_ &= ~characteristic;
+  }
+
+  // For serializing this Section.
+  //
+  // @param out_archive The output archive which will store this Section.
+  bool Save(OutArchive* out_archive) const;
+
+  // For deserializing this Section.
+  //
+  // @param in_archive The input archive storing a Section.
+  bool Load(InArchive* in_archive);
+
+  // A simple comparison operator for serialization tests.
+  bool operator==(const Section& other) const {
+    return id_ == other.id_ && name_ == other.name_ &&
+        characteristics_ == other.characteristics_;
+  }
+
+  // A not-equal comparison operator.
+  bool operator!=(const Section& other) const {
+    return !operator==(other);
+  }
+
+ private:
+  // The id of the section. This has no particular meaning other than as a way
+  // to identify sections uniquely.
+  SectionId id_;
+  // The name of the section. This will be truncated to a max of 8 characters
+  // on output.
+  std::string name_;
+  // The section characteristics, a bitmask of IMAGE_SCN_* values.
+  uint32 characteristics_;
 };
 
 // A block represents a block of either code or data.

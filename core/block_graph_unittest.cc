@@ -18,6 +18,39 @@
 
 namespace core {
 
+TEST(SectionTest, CreationAndProperties) {
+  BlockGraph::Section section(0, "foo", 1);
+  ASSERT_EQ(0, section.id());
+  ASSERT_EQ("foo", section.name());
+  ASSERT_EQ(1u, section.characteristics());
+
+  section.set_name("bar");
+  ASSERT_EQ("bar", section.name());
+
+  section.set_characteristic((1 << 5) | (1 << 6));
+  ASSERT_EQ((1u | (1 << 5) | (1 << 6)), section.characteristics());
+
+  section.clear_characteristic(1 | (1<<5));
+  ASSERT_EQ(1u << 6, section.characteristics());
+
+  section.set_characteristics(0);
+  ASSERT_EQ(0u, section.characteristics());
+}
+
+TEST(SectionTest, Comparison) {
+  BlockGraph::Section section0(0, "foo", 0);
+  BlockGraph::Section section1(0, "foo", 0);
+  BlockGraph::Section section2(1, "bar", 1);
+
+  EXPECT_EQ(section0, section1);
+  EXPECT_NE(section0, section2);
+}
+
+TEST(SectionTest, Serialization) {
+  BlockGraph::Section section0(0, "foo", 0);
+  EXPECT_TRUE(testing::TestSerialization(section0));
+}
+
 class BlockTest: public testing::Test {
  public:
   virtual void SetUp() {
@@ -45,7 +78,7 @@ TEST_F(BlockTest, Initialization) {
   ASSERT_EQ(1, block_->alignment());
   ASSERT_STREQ(kBlockName, block_->name());
   ASSERT_EQ(kInvalidAddress, block_->addr());
-  ASSERT_EQ(kInvalidSection, block_->section());
+  ASSERT_EQ(BlockGraph::kInvalidSectionId, block_->section());
   ASSERT_EQ(0, block_->attributes());
   ASSERT_EQ(NULL, block_->data());
   ASSERT_EQ(0, block_->data_size());
@@ -154,6 +187,82 @@ TEST_F(BlockTest, GetMutableData) {
 
   // Getting the data a second time should return the same pointer.
   ASSERT_EQ(data, block_->GetMutableData());
+}
+
+TEST(BlockGraphTest, HeaderSection) {
+  BlockGraph image;
+
+  // A freshly created image should always contain a special header section.
+  ASSERT_EQ(1u, image.sections().size());
+  ASSERT_EQ(BlockGraph::kHeaderSectionId,
+            image.sections().begin()->second.id());
+
+  BlockGraph::Section* section =
+      image.GetSectionById(BlockGraph::kHeaderSectionId);
+  ASSERT_TRUE(section != NULL);
+  ASSERT_EQ(BlockGraph::kHeaderSectionId, section->id());
+  ASSERT_EQ(section, &image.sections().begin()->second);
+}
+
+TEST(BlockGraphTest, AddSections) {
+  BlockGraph image;
+  ASSERT_EQ(1u, image.sections().size());
+
+  BlockGraph::Section* section0 = image.AddSection("foo", 0);
+  ASSERT_TRUE(section0 != NULL);
+  ASSERT_EQ("foo", section0->name());
+  ASSERT_EQ(0u, section0->characteristics());
+  ASSERT_EQ(2u, image.sections().size());
+
+  BlockGraph::Section* section1 = image.AddSection("foo", 0);
+  ASSERT_TRUE(section1 != NULL);
+  ASSERT_EQ("foo", section1->name());
+  ASSERT_EQ(0u, section1->characteristics());
+  ASSERT_EQ(3u, image.sections().size());
+
+  // This section has the same name and characteristics, but it should not be
+  // the same section as section0.
+  ASSERT_TRUE(section0 != section1);
+  ASSERT_NE(section0->id(), section1->id());
+
+  BlockGraph::Section* section2 = image.FindOrAddSection("foo", 1);
+  ASSERT_TRUE(section2 != NULL);
+  ASSERT_EQ("foo", section2->name());
+  ASSERT_EQ(1u, section2->characteristics());
+  ASSERT_EQ(3u, image.sections().size());
+
+  // This should be the same as section0, the first instance of a section
+  // with name 'foo'.
+  ASSERT_EQ(section0, section2);
+}
+
+TEST(BlockGraphTest, RemoveSection) {
+  BlockGraph image;
+  ASSERT_EQ(1u, image.sections().size());
+
+  BlockGraph::Section* section0 = image.AddSection("foo", 0);
+  ASSERT_TRUE(section0 != NULL);
+  ASSERT_EQ(2u, image.sections().size());
+
+  BlockGraph::Section* section1 = image.AddSection("bar", 0);
+  ASSERT_TRUE(section1 != NULL);
+  ASSERT_EQ(3u, image.sections().size());
+
+  // We should not be able to delete the header section.
+  EXPECT_FALSE(image.RemoveSectionById(BlockGraph::kHeaderSectionId));
+  BlockGraph::Section* header =
+      image.GetSectionById(BlockGraph::kHeaderSectionId);
+  ASSERT_TRUE(header != NULL);
+  EXPECT_FALSE(image.RemoveSection(header));
+  ASSERT_EQ(3u, image.sections().size());
+
+  // Deleting the other sections should work just fine.
+
+  EXPECT_TRUE(image.RemoveSectionById(section0->id()));
+  ASSERT_EQ(2u, image.sections().size());
+
+  EXPECT_TRUE(image.RemoveSection(section1));
+  ASSERT_EQ(1u, image.sections().size());
 }
 
 TEST(BlockGraphTest, RemoveBlock) {
@@ -320,6 +429,68 @@ TEST(BlockGraphTest, Labels) {
   expected.insert(std::make_pair(13, "foo"));
   expected.insert(std::make_pair(17, "bar"));
   EXPECT_THAT(block->labels(), testing::ContainerEq(expected));
+}
+
+TEST(BlockGraphTest, Serialization) {
+  BlockGraph image;
+
+  BlockGraph::Section* s1 = image.AddSection("s1", 0);
+  BlockGraph::Section* s2 = image.AddSection("s2", 0);
+  ASSERT_TRUE(s1 != NULL);
+  ASSERT_TRUE(s2 != NULL);
+
+  BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
+  BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
+  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
+  ASSERT_TRUE(b1 != NULL);
+  ASSERT_TRUE(b2 != NULL);
+  ASSERT_TRUE(b3 != NULL);
+
+  b1->set_section(s1->id());
+  b2->set_section(s1->id());
+  b3->set_section(s2->id());
+  ASSERT_EQ(b1->section(), s1->id());
+  ASSERT_EQ(b2->section(), s1->id());
+  ASSERT_EQ(b3->section(), s2->id());
+
+  uint8* b1_data = b1->AllocateData(b1->size());
+  for (size_t i = 0; i < b1->size(); ++i) {
+    b1_data[i] = 0;
+  }
+
+  ASSERT_TRUE(b1->references().empty());
+  ASSERT_TRUE(b1->referrers().empty());
+  ASSERT_TRUE(b2->references().empty());
+  ASSERT_TRUE(b2->referrers().empty());
+  ASSERT_TRUE(b3->references().empty());
+  ASSERT_TRUE(b3->referrers().empty());
+
+  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  ASSERT_TRUE(b1->SetReference(0, r_pc));
+  ASSERT_TRUE(b1->SetReference(1, r_pc));
+
+  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 1, b2, 13);
+  ASSERT_FALSE(b1->SetReference(1, r_abs));
+
+  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 1, b2, 17);
+  ASSERT_TRUE(b1->SetReference(2, r_rel));
+
+  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23);
+  ASSERT_TRUE(b1->SetReference(4, r_file));
+
+  ByteVector byte_vector;
+  ScopedOutStreamPtr out_stream(
+      CreateByteOutStream(std::back_inserter(byte_vector)));
+  NativeBinaryOutArchive out_archive(out_stream.get());
+  ASSERT_TRUE(out_archive.Save(image));
+
+  BlockGraph image_copy;
+  ScopedInStreamPtr in_stream(
+      CreateByteInStream(byte_vector.begin(), byte_vector.end()));
+  NativeBinaryInArchive in_archive(in_stream.get());
+  ASSERT_TRUE(in_archive.Load(&image_copy));
+
+  EXPECT_TRUE(testing::BlockGraphsEqual(image, image_copy));
 }
 
 TEST(BlockGraphAddressSpaceTest, AddBlock) {
@@ -574,54 +745,6 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   // We expect that the block graph and the address space have the same size,
   // as MergeIntersectingBlocks deletes the old blocks from the BlockGraph.
   EXPECT_EQ(image.blocks().size(), address_space.address_space_impl().size());
-}
-
-TEST(BlockGraphTest, Serialization) {
-  BlockGraph image;
-
-  BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
-  BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
-  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
-  ASSERT_TRUE(b1 != NULL && b2 != NULL);
-
-  uint8* b1_data = b1->AllocateData(b1->size());
-  for (size_t i = 0; i < b1->size(); ++i) {
-    b1_data[i] = 0;
-  }
-
-  ASSERT_TRUE(b1->references().empty());
-  ASSERT_TRUE(b1->referrers().empty());
-  ASSERT_TRUE(b2->references().empty());
-  ASSERT_TRUE(b2->referrers().empty());
-  ASSERT_TRUE(b3->references().empty());
-  ASSERT_TRUE(b3->referrers().empty());
-
-  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
-  ASSERT_TRUE(b1->SetReference(0, r_pc));
-  ASSERT_TRUE(b1->SetReference(1, r_pc));
-
-  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 1, b2, 13);
-  ASSERT_FALSE(b1->SetReference(1, r_abs));
-
-  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 1, b2, 17);
-  ASSERT_TRUE(b1->SetReference(2, r_rel));
-
-  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23);
-  ASSERT_TRUE(b1->SetReference(4, r_file));
-
-  ByteVector byte_vector;
-  ScopedOutStreamPtr out_stream(
-      CreateByteOutStream(std::back_inserter(byte_vector)));
-  NativeBinaryOutArchive out_archive(out_stream.get());
-  ASSERT_TRUE(out_archive.Save(image));
-
-  BlockGraph image_copy;
-  ScopedInStreamPtr in_stream(
-      CreateByteInStream(byte_vector.begin(), byte_vector.end()));
-  NativeBinaryInArchive in_archive(in_stream.get());
-  ASSERT_TRUE(in_archive.Load(&image_copy));
-
-  EXPECT_TRUE(testing::BlockGraphsEqual(image, image_copy));
 }
 
 }  // namespace core
