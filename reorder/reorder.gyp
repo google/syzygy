@@ -39,7 +39,7 @@
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_lib',
+        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_parser_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
       ],
@@ -63,7 +63,6 @@
           '--output-file=$(OutDir)\\test_dll_order.json',
           '--output-comdats=$(OutDir)\\test_dll_comdats.txt',
           '--output-stats',
-          '--reorderer-flags=reorder-data',
           '--pretty-print',
           '..\\reorder\\test_data\\call_trace.etl',
           '..\\reorder\\test_data\\kernel.etl',

@@ -30,6 +30,7 @@ namespace {
 
 using core::BlockGraph;
 using reorder::Reorderer;
+using call_trace::parser::Parser;
 
 // Serializes a block list to JSON.
 bool OutputBlockList(size_t section_id,
@@ -69,32 +70,22 @@ bool OutputBlockList(size_t section_id,
 
 namespace reorder {
 
-Reorderer* Reorderer::consumer_ = NULL;
-
 Reorderer::Reorderer(const FilePath& module_path,
                      const FilePath& instrumented_path,
-                     const std::vector<FilePath>& trace_paths,
+                     const TraceFileList& trace_files,
                      Flags flags)
     : module_path_(module_path),
       instrumented_path_(instrumented_path),
-      trace_paths_(trace_paths),
+      trace_files_(trace_files),
       flags_(flags),
       code_block_entry_events_(0),
-      consumer_errored_(false),
       order_generator_(NULL),
       pe_(NULL),
-      image_(NULL) {
-  DCHECK(consumer_ == NULL);
-  if (consumer_ == NULL) {
-    consumer_ = this;
-    kernel_log_parser_.set_module_event_sink(this);
-    kernel_log_parser_.set_process_event_sink(this);
-    call_trace_parser_.set_call_trace_event_sink(this);
-  }
+      image_(NULL),
+      parser_(NULL) {
 }
 
 Reorderer::~Reorderer() {
-  consumer_ = NULL;
 }
 
 bool Reorderer::Reorder(OrderGenerator* order_generator,
@@ -104,20 +95,38 @@ bool Reorderer::Reorder(OrderGenerator* order_generator,
   DCHECK(order_generator != NULL);
   DCHECK(order != NULL);
 
+  Parser parser;
+  if (!parser.Init(this)) {
+    LOG(ERROR) << "Failed to initialize call trace parser.";
+    return false;
+  }
+
+  DCHECK(order_generator_ == NULL);
+  DCHECK(pe_ == NULL);
+  DCHECK(image_ == NULL);
+  DCHECK(parser_ == NULL);
+
   order_generator_ = order_generator;
   pe_ = pe_file;
   image_ = image;
+  parser_ = &parser;
 
   bool success = ReorderImpl(order);
 
   order_generator_ = NULL;
   pe_ = NULL;
   image_ = NULL;
+  parser_ = NULL;
 
   return success;
 }
 
 bool Reorderer::ReorderImpl(Order* order) {
+  DCHECK(order_generator_ != NULL);
+  DCHECK(pe_ != NULL);
+  DCHECK(image_ != NULL);
+  DCHECK(parser_ != NULL);
+
   // Validate the instrumented module, and extract the signature of the original
   // module it was built from.
   pe::PEFile::Signature orig_signature;
@@ -149,11 +158,12 @@ bool Reorderer::ReorderImpl(Order* order) {
 
   // Open the log files. We do this before running the decomposer as if these
   // fail we'll have wasted a lot of time!
-  for (size_t i = 0; i < trace_paths_.size(); ++i) {
-    std::wstring trace_path(trace_paths_[i].value());
-    LOG(INFO) << "Reading " << trace_path << ".";
-    if (FAILED(OpenFileSession(trace_path.c_str()))) {
-      LOG(ERROR) << "Unable to open ETW log file: " << trace_path;
+
+  for (TraceFileIter i = trace_files_.begin(); i < trace_files_.end(); ++i) {
+    const FilePath& trace_path = *i;
+    LOG(INFO) << "Reading " << trace_path.value() << ".";
+    if (!parser_->OpenTraceFile(trace_path)) {
+      LOG(ERROR) << "Unable to open ETW log file: " << trace_path.value();
       return false;
     }
   }
@@ -168,11 +178,13 @@ bool Reorderer::ReorderImpl(Order* order) {
   }
 
   // Parse the logs.
-  if (trace_paths_.size() > 0) {
+  if (trace_files_.size() > 0) {
     LOG(INFO) << "Processing trace events.";
-    Consume();
-    if (consumer_errored_)
+    if (!parser_->Consume()) {
+      LOG(ERROR) << "Failed to consume call trace events.";
       return false;
+    }
+
     if (code_block_entry_events_ == 0) {
       LOG(ERROR) << "No events originated from the given instrumented DLL.";
       return false;
@@ -240,226 +252,121 @@ bool Reorderer::MatchesInstrumentedModuleSignature(
   }
 }
 
-// KernelModuleEvents implementation.
-void Reorderer::OnModuleIsLoaded(DWORD process_id,
-                                 const base::Time& time,
-                                 const ModuleInformation& module_info) {
-  // Simply forward this to OnModuleLoad.
-  OnModuleLoad(process_id, time, module_info);
+void Reorderer::OnProcessStarted(base::Time time, DWORD process_id) {
+  // We ignore these events and infer/pretend that a process we're interested
+  // in has started when it begins to generate trace events.
 }
 
-void Reorderer::OnModuleUnload(DWORD process_id,
-                               const base::Time& time,
-                               const ModuleInformation& module_info) {
-  // Avoid doing needless work.
-  if (consumer_errored_ || module_info.module_size == 0)
-    return;
-
-  // This happens in Windows XP traces for some reason. They contain conflicing
-  // information, so we ignore them.
-  if (module_info.image_file_name.empty())
-    return;
-
-  if (last_event_time_ > time) {
-    LOG(ERROR) << "Messages out of temporal order.";
-    consumer_errored_ = true;
-    return;
-  }
-
-  ModuleSpace& module_space = processes_[process_id];
-  AbsoluteAddress64 addr(module_info.base_address);
-  ModuleSpace::Range range(addr, module_info.module_size);
-  ModuleSpace::RangeMapIter it =
-      module_space.FindFirstIntersection(range);
-  if (it == module_space.end()) {
-    // We occasionally see this, as certain modules fire off multiple Unload
-    // events, so we don't log an error. I'm looking at you, logman.exe.
-    return;
-  }
-  if (!(it->first == range)) {
-    LOG(ERROR) << "Trying to remove module with mismatching range: "
-               << module_info.image_file_name;
-    consumer_errored_ = true;
-    return;
-  }
-
-  module_space.Remove(it);
-  last_event_time_ = time;
-}
-
-void Reorderer::OnModuleLoad(DWORD process_id,
-                             const base::Time& time,
-                             const ModuleInformation& module_info) {
-  // Avoid doing needless work.
-  if (consumer_errored_ || module_info.module_size == 0)
-    return;
-
-  // This happens in Windows XP traces for some reason. They contain conflicing
-  // information, so we ignore them.
-  if (module_info.image_file_name.empty())
-    return;
-
-  if (last_event_time_ > time) {
-    LOG(ERROR) << "Messages out of temporal order.";
-    consumer_errored_ = true;
-    return;
-  }
-
-  ModuleSpace& module_space = processes_[process_id];
-  AbsoluteAddress64 addr(module_info.base_address);
-  ModuleSpace::Range range(addr, module_info.module_size);
-  if (!module_space.Insert(range, module_info)) {
-    ModuleSpace::RangeMapIter it = module_space.FindFirstIntersection(range);
-    DCHECK(it != module_space.end());
-    // We actually see this behaviour on Windows XP gathered traces. Since this
-    // is one of the platforms we target, we simply print out a warning for
-    // now.
-    LOG(WARNING) << "Trying to insert conflicting module: "
-                 << module_info.image_file_name;
-  }
-
-  last_event_time_ = time;
-}
-
-// KernelProcessEvents implementation.
-void Reorderer::OnProcessIsRunning(const base::Time& time,
-                                   const ProcessInfo& process_info) {
-  // We don't care about these events.
-}
-
-void Reorderer::OnProcessStarted(const base::Time& time,
-                                   const ProcessInfo& process_info) {
-  // We don't care about these events.
-}
-
-void Reorderer::OnProcessEnded(const base::Time& time,
-                               const ProcessInfo& process_info,
-                               ULONG exit_status) {
-  uint32 process_id = process_info.process_id;
+void Reorderer::OnProcessEnded(base::Time time, DWORD process_id) {
   ProcessSet::iterator process_it = matching_process_ids_.find(process_id);
-  if (process_it == matching_process_ids_.end())
-    return;
-
-  matching_process_ids_.erase(process_it);
-
-  UniqueTime entry_time(time);
-  if (!order_generator_->OnProcessEnded(process_id, entry_time)) {
-    consumer_errored_ = true;
-    return;
-  }
-
-  return;
+  if (process_it != matching_process_ids_.end())
+    matching_process_ids_.erase(process_it);
 }
 
 // CallTraceEvents implementation.
-void Reorderer::OnTraceEntry(base::Time time,
-                             DWORD process_id,
-                             DWORD thread_id,
-                             const TraceEnterExitEventData* data) {
-  // We currently don't care about TraceEntry events.
-}
+void Reorderer::OnFunctionEntry(base::Time time,
+                                DWORD process_id,
+                                DWORD thread_id,
+                                const TraceEnterExitEventData* data) {
+  // Resolve the module in which the called function resides.
+  AbsoluteAddress64 function_address =
+      reinterpret_cast<AbsoluteAddress64>(data->function);
+  const ModuleInformation* module_info =
+      parser_->GetModuleInformation(process_id, function_address);
 
-void Reorderer::OnTraceExit(base::Time time,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            const TraceEnterExitEventData* data) {
-  // We currently don't care about TraceExit events.
-}
-
-void Reorderer::OnTraceBatchEnter(base::Time time,
-                                  DWORD process_id,
-                                  DWORD thread_id,
-                                  const TraceBatchEnterData* data) {
-  // Avoid doing needless work.
-  if (consumer_errored_)
+  // Ignore event not belonging to the instrumented module of interest.
+  if (module_info == NULL ||
+      !MatchesInstrumentedModuleSignature(*module_info))
     return;
 
-  for (size_t i = 0; i < data->num_calls; ++i) {
-    AbsoluteAddress64 function_address =
-        reinterpret_cast<AbsoluteAddress64>(data->calls[i].function);
-    const ModuleInformation* module_info =
-        GetModuleInformation(process_id, function_address);
+  // Get the block that this function call refers to. We can only instrument
+  // 32-bit DLLs, so we're sure that the following address conversion is safe.
+  RelativeAddress rva(
+      static_cast<uint32>(function_address - module_info->base_address));
+  const BlockGraph::Block* block =
+      image_->address_space.GetBlockByAddress(rva);
+  if (block == NULL) {
+    LOG(ERROR) << "Unable to map " << rva << " to a block.";
+    parser_->set_error_occurred(true);
+    return;
+  }
+  if (block->type() != BlockGraph::CODE_BLOCK) {
+    LOG(ERROR) << rva << " maps to a non-code block.";
+    parser_->set_error_occurred(true);
+    return;
+  }
 
-    // Don't parse this event unless it belongs to the instrumented module
-    // of interest.
-    if (module_info == NULL ||
-        !MatchesInstrumentedModuleSignature(*module_info))
-      continue;
+  // Get the actual time of the call. We ignore ticks_ago for now, as the
+  // low-resolution and rounding can cause inaccurate relative timings. We
+  // simply rely on the buffer ordering (via UniqueTime's internal counter)
+  // to maintain relative ordering. For future reference, ticks_ago are in
+  // milliseconds, according to MSDN.
+  UniqueTime entry_time(time);
 
-    // Get the block that this function call refers to. We can only instrument
-    // 32-bit DLLs, so we're sure that the following address conversion is safe.
-    RelativeAddress rva(
-        static_cast<uint32>(function_address - module_info->base_address));
-    const BlockGraph::Block* block =
-        image_->address_space.GetBlockByAddress(rva);
-    if (block == NULL) {
-      LOG(ERROR) << "Unable to map " << rva << " to a block.";
-      consumer_errored_ = true;
-      return;
-    }
-    if (block->type() != BlockGraph::CODE_BLOCK) {
-      LOG(ERROR) << rva << " maps to a non-code block.";
-      consumer_errored_ = true;
-      return;
-    }
-
-    // Get the actual time of the call. We ignore ticks_ago for now, as the
-    // low-resolution and rounding can cause inaccurate relative timings. We
-    // simply rely on the buffer ordering (via UniqueTime's internal counter)
-    // to maintain relative ordering. For future reference, ticks_ago are in
-    // milliseconds, according to MSDN.
-    UniqueTime entry_time(time);
-
-    // If this is the first call of interest by a given process, send an
-    // OnProcessStarted event.
-    if (matching_process_ids_.insert(process_id).second) {
-      if (!order_generator_->OnProcessStarted(process_id, entry_time)) {
-        consumer_errored_ = true;
-        return;
-      }
-    }
-
-    ++code_block_entry_events_;
-    if (!order_generator_->OnCodeBlockEntry(block, rva, process_id, thread_id,
-                                            entry_time)) {
-      consumer_errored_ = true;
+  // If this is the first call of interest by a given process, send an
+  // OnProcessStarted event.
+  if (matching_process_ids_.insert(process_id).second) {
+    if (!order_generator_->OnProcessStarted(process_id, entry_time)) {
+      parser_->set_error_occurred(true);
       return;
     }
   }
+
+  ++code_block_entry_events_;
+  if (!order_generator_->OnCodeBlockEntry(block, rva,
+                                          process_id,
+                                          thread_id,
+                                          entry_time)) {
+    parser_->set_error_occurred(true);
+    return;
+  }
 }
 
-void Reorderer::OnEvent(PEVENT_TRACE event) {
-  if (!call_trace_parser_.ProcessOneEvent(event))
-    kernel_log_parser_.ProcessOneEvent(event);
+void Reorderer::OnFunctionExit(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceEnterExitEventData* data) {
+  // We currently don't care about TraceExit events.
 }
 
-void Reorderer::ProcessEvent(PEVENT_TRACE event) {
-  DCHECK(consumer_ != NULL);
-  consumer_->OnEvent(event);
+void Reorderer::OnBatchFunctionEntry(base::Time time,
+                                     DWORD process_id,
+                                     DWORD thread_id,
+                                     const TraceBatchEnterData* data) {
+  // Explode the batch event into individual function entry events.
+  TraceEnterExitEventData new_data = {};
+  for (size_t i = 0; i < data->num_calls; ++i) {
+    new_data.function = data->calls[i].function;
+    OnFunctionEntry(time, process_id, thread_id, &new_data);
+  }
 }
 
-bool Reorderer::ProcessBuffer(PEVENT_TRACE_LOGFILE buffer) {
-  DCHECK(consumer_ != NULL);
-  // If our consumer is errored, we bail early.
-  if (consumer_->consumer_errored_)
-    return false;
-  return true;
+void Reorderer::OnProcessAttach(base::Time time,
+                                DWORD process_id,
+                                DWORD thread_id,
+                                const TraceModuleData* data) {
+  // We don't do anything with these events.
 }
 
-const sym_util::ModuleInformation* Reorderer::GetModuleInformation(
-    uint32 process_id, AbsoluteAddress64 addr) const {
-  ProcessMap::const_iterator processes_it = processes_.find(process_id);
-  if (processes_it == processes_.end())
-    return NULL;
+void Reorderer::OnProcessDetach(base::Time time,
+                                DWORD process_id,
+                                DWORD thread_id,
+                                const TraceModuleData* data) {
+  // We don't do anything with these events.
+}
 
-  const ModuleSpace& module_space(processes_it->second);
-  ModuleSpace::Range range(addr, 1);
-  ModuleSpace::RangeMapConstIter module_it =
-      module_space.FindFirstIntersection(range);
-  if (module_it == module_space.end())
-    return NULL;
+void Reorderer::OnThreadAttach(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceModuleData* data) {
+  // We don't do anything with these events.
+}
 
-  return &module_it->second;
+void Reorderer::OnThreadDetach(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceModuleData* data) {
+  // We don't do anything with these events.
 }
 
 bool Reorderer::Order::SerializeToJSON(const PEFile& pe,

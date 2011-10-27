@@ -26,7 +26,7 @@
 
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
-#include "syzygy/call_trace/call_trace_parser.h"
+#include "syzygy/call_trace/parser.h"
 #include "syzygy/pe/decomposer.h"
 
 // Forward declaration.
@@ -39,26 +39,25 @@ namespace reorder {
 typedef uint64 AbsoluteAddress64;
 typedef uint64 Size64;
 
+using call_trace::parser::ModuleInformation;
+using call_trace::parser::ParseEventHandler;
+using call_trace::parser::Parser;
 using core::AddressSpace;
 using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
 using pe::PEFile;
 
-// Class encapsulating a DLL order generator. Is itself an ETW trace consumer,
-// consuming Kernel and CallTrace events, maintaining all necessary state and
-// correlating TRACE_ENTRY events to modules and blocks before handing them off
-// to a delegate.
-class Reorderer
-    : public base::win::EtwTraceConsumerBase<Reorderer>,
-      public KernelModuleEvents,
-      public KernelProcessEvents,
-      public CallTraceEvents {
+// This class can consume a set of call-trace logs captured for a PE image
+// while driving an OrderGenerator instance to produce an ordering file.
+class Reorderer : public ParseEventHandler {
  public:
   struct Order;
   class OrderGenerator;
   class UniqueTime;
   typedef Decomposer::DecomposedImage DecomposedImage;
+  typedef std::vector<FilePath> TraceFileList;
+  typedef TraceFileList::iterator TraceFileIter;
 
   // A bit flag of directives that the derived reorderer should attempt
   // to satisfy.
@@ -69,18 +68,22 @@ class Reorderer
   };
   typedef uint32 Flags;
 
-  // This class needs to be a singleton due to the Windows ETW API. The
-  // constructor will enforce this in debug builds. The module_path may be
-  // left blank, in which case it will be inferred from the instrumented
-  // DLL metadata.
+  // Construct a new reorder instance.
   Reorderer(const FilePath& module_path,
             const FilePath& instrumented_path,
-            const std::vector<FilePath>& trace_paths,
+            const TraceFileList& trace_files,
             Flags flags);
 
   virtual ~Reorderer();
 
-  // Runs the reorderer, parsing the ETW logs and generating an ordering.
+  // Runs the reorderer, parsing the call-trace logs and generating an
+  // ordering using the given order generation strategy.
+  //
+  // @note This function cannot be called concurrently across Reorderer
+  //     instances because the ETW parser must be a singleton due to the
+  //     way the Windows ETW API is structured. This is enforced in debug
+  //     builds.
+  //
   // Returns true on success, false otherwise. @p order must not be NULL.
   bool Reorder(OrderGenerator* order_generator,
                Order* order,
@@ -91,78 +94,60 @@ class Reorderer
   Flags flags() const { return flags_; }
 
  private:
-  // This allows our parent classes to access the necessary callbacks, but
-  // hides them from derived classes.
-  friend base::win::EtwTraceConsumerBase<Reorderer>;
-
-  typedef AddressSpace<AbsoluteAddress64, Size64, ModuleInformation>
-      ModuleSpace;
-  typedef std::map<uint32, ModuleSpace> ProcessMap;
   typedef std::set<uint32> ProcessSet;
   typedef Decomposer::DecomposedImage DecomposedImage;
-  typedef KernelProcessEvents::ProcessInfo ProcessInfo;
 
   // The actual implementation of Reorder.
   bool ReorderImpl(Order* order);
+
   // Parses the instrumented DLL headers, validating that it was produced
   // by a compatible version of the toolchain, and extracting signature
   // information and metadata. Returns true on success, false otherwise.
   bool ValidateInstrumentedModuleAndParseSignature(
       PEFile::Signature* orig_signature);
+
   // Returns true if the given ModuleInformation matches the instrumented
   // module signature, false otherwise.
   bool MatchesInstrumentedModuleSignature(
       const ModuleInformation& module_info) const;
 
-  // KernelModuleEvents implementation.
-  virtual void OnModuleIsLoaded(DWORD process_id,
-                                const base::Time& time,
-                                const ModuleInformation& module_info);
-  virtual void OnModuleUnload(DWORD process_id,
-                              const base::Time& time,
-                              const ModuleInformation& module_info);
-  virtual void OnModuleLoad(DWORD process_id,
-                            const base::Time& time,
-                            const ModuleInformation& module_info);
-
-  // KernelProcessEvents implementation.
-  virtual void OnProcessIsRunning(const base::Time& time,
-                                  const ProcessInfo& process_info);
-  virtual void OnProcessStarted(const base::Time& time,
-                                const ProcessInfo& process_info);
-  virtual void OnProcessEnded(const base::Time& time,
-                              const ProcessInfo& process_info,
-                              ULONG exit_status);
-
-  // CallTraceEvents implementation.
-  virtual void OnTraceEntry(base::Time time,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            const TraceEnterExitEventData* data);
-  virtual void OnTraceExit(base::Time time,
-                           DWORD process_id,
-                           DWORD thread_id,
-                           const TraceEnterExitEventData* data);
-  virtual void OnTraceBatchEnter(base::Time time,
-                                 DWORD process_id,
-                                 DWORD thread_id,
-                                 const TraceBatchEnterData* data);
-
-  void OnEvent(PEVENT_TRACE event);
-  static void ProcessEvent(PEVENT_TRACE event);
-  static bool ProcessBuffer(PEVENT_TRACE_LOGFILE buffer);
-
-  // Given an address and a process id, returns the module in memory at that
-  // address. Returns NULL if no such module exists.
-  const sym_util::ModuleInformation* GetModuleInformation(
-      uint32 process_id, AbsoluteAddress64 addr) const;
-
-  KernelLogParser kernel_log_parser_;
-  CallTraceParser call_trace_parser_;
+  // @name ParseEventHandler Implementation
+  // @{
+  virtual void OnProcessStarted(base::Time time, DWORD process_id) OVERRIDE;
+  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
+  virtual void OnFunctionEntry(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceEnterExitEventData* data) OVERRIDE;
+  virtual void OnFunctionExit(base::Time time,
+                              DWORD process_id,
+                              DWORD thread_id,
+                              const TraceEnterExitEventData* data) OVERRIDE;
+  virtual void OnBatchFunctionEntry(base::Time time,
+                                    DWORD process_id,
+                                    DWORD thread_id,
+                                    const TraceBatchEnterData* data) OVERRIDE;
+  virtual void OnProcessAttach(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceModuleData* data) OVERRIDE;
+  virtual void OnProcessDetach(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceModuleData* data) OVERRIDE;
+  virtual void OnThreadAttach(base::Time time,
+                              DWORD process_id,
+                              DWORD thread_id,
+                              const TraceModuleData* data) OVERRIDE;
+  virtual void OnThreadDetach(base::Time time,
+                              DWORD process_id,
+                              DWORD thread_id,
+                              const TraceModuleData* data) OVERRIDE;
+  // @}
 
   FilePath module_path_;
   FilePath instrumented_path_;
-  std::vector<FilePath> trace_paths_;
+  TraceFileList trace_files_;
 
   // Signature of the instrumented DLL. Used for filtering call-trace events.
   PEFile::Signature instr_signature_;
@@ -170,35 +155,32 @@ class Reorderer
   Flags flags_;
   // Number of CodeBlockEntry events processed.
   size_t code_block_entry_events_;
-  // Is the consumer errored?
-  bool consumer_errored_;
-  // The time of the last processed event.
-  base::Time last_event_time_;
-  // For each process, we store its point of view of the world.
-  ProcessMap processes_;
-  // The set of processes of interest. That is, those that have had code
-  // run in the instrumented module. These are the only processes for which
-  // we are interested in OnProcessEnded events.
-  ProcessSet matching_process_ids_;
 
   // The following three variables are only valid while Reorder is executing.
   // A pointer to our order generator delegate.
   OrderGenerator* order_generator_;
+
   // A pointer to the PE file info for the module we're reordering. This
   // is actually a pointer to a part of the output structure, but several
   // internals make use of it during processing.
   PEFile* pe_;
+
   // The decomposed image of the module we're reordering. This is actually
   // a pointer to an image in the output structure, but several internals
   // make use of it during processing.
   DecomposedImage* image_;
 
+  // The call-trace log file parser.
+  Parser* parser_;
+
+  // The set of processes of interest. That is, those that have had code
+  // run in the instrumented module. These are the only processes for which
+  // we are interested in OnProcessEnded events.
+  ProcessSet matching_process_ids_;
+
   // A cache for whether or not to reorder each section.
   typedef std::vector<bool> SectionReorderabilityCache;
   SectionReorderabilityCache section_reorderability_cache_;
-
-  // A pointer to the only instance of a reorderer.
-  static Reorderer* consumer_;
 
   DISALLOW_COPY_AND_ASSIGN(Reorderer);
 };
