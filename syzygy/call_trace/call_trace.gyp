@@ -80,9 +80,17 @@
         'rpc_mem.cc',
       ],
       'all_dependent_settings': {
-        'libraries': [
-          'rpcrt4.lib',
-        ],
+        'msvs_settings': {
+          'VCLinkerTool': {
+            # GYP has a bug or misfeature whereby a library dependency used
+            # from another GYP file in a different directory picks up the path
+            # to that directory, so instead of using 'library', we specify the
+            # library dependency here.
+            'AdditionalDependencies': [
+              'rpcrt4.lib',
+            ],
+          },
+        },
       },
     },
     {

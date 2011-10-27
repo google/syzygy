@@ -21,29 +21,13 @@
 #include <set>
 #include <string>
 
-#include "base/file_path.h"
-#include "sawbuck/sym_util/types.h"
-#include "syzygy/common/align.h"
-#include "syzygy/core/address.h"
-#include "syzygy/core/address_space.h"
-#include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/parser.h"
 #include "syzygy/pe/pe_file.h"
-
-typedef struct _EVENT_TRACE EVENT_TRACE;
 
 namespace call_trace {
 namespace parser {
 
-typedef sym_util::ModuleInformation ModuleInformation;
-typedef uint64 AbsoluteAddress64;
-typedef uint64 Size64;
-typedef core::AddressSpace<AbsoluteAddress64, Size64, ModuleInformation>
-    ModuleSpace;
-
-// Forward declaration.
-class ParseEventHandler;
-
-// This base class defines the implements the common event dispatching and
+// This base class defines and implements the common event dispatching and
 // module tracking for all supported parse engines. It also declares the
 // abstact interface a parse engine exposes to its clients.
 class ParseEngine {
@@ -56,6 +40,9 @@ class ParseEngine {
 
   // Returns true if an error occurred while parsing the trace files.
   bool error_occurred() const;
+
+  // Set or reset the error flag.
+  void set_error_occurred(bool value);
 
   // Registers an event handler with this trace-file parse engine.
   void set_event_handler(ParseEventHandler* event_handler);
@@ -83,12 +70,8 @@ class ParseEngine {
 
  protected:
   typedef std::map<uint32, ModuleSpace> ProcessMap;
-  typedef std::set<uint32> ProcessSet;
 
   explicit ParseEngine(const char* const name);
-
-  // Set or reset the error flag.
-  void set_error_occurred(bool value);
 
   // Registers a module in the address space of the process denoted by
   // @p process_id.
@@ -122,11 +105,6 @@ class ParseEngine {
 
   // For each process, we store its point of view of the world.
   ProcessMap processes_;
-
-  // The set of processes of interest. That is, those that have had code
-  // run in the instrumented module. These are the only processes for which
-  // we are interested in OnProcessEnded events.
-  ProcessSet matching_process_ids_;
 
   // Flag indicating whether or not an error has occured in parsing the trace
   // event stream.

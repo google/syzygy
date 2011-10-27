@@ -20,18 +20,21 @@
 #include "base/scoped_ptr.h"
 #include "base/time.h"
 #include "base/file_path.h"
+#include "sawbuck/sym_util/types.h"
+#include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 #include "syzygy/call_trace/call_trace_defs.h"
-
-namespace sym_util {
-
-struct ModuleInformation;
-
-}  // namespace sym_util
 
 namespace call_trace {
 namespace parser {
 
-  // Forward declarations.
+typedef sym_util::ModuleInformation ModuleInformation;
+typedef uint64 AbsoluteAddress64;
+typedef uint64 Size64;
+typedef core::AddressSpace<AbsoluteAddress64, Size64, ModuleInformation>
+    ModuleSpace;
+
+// Forward declarations.
 class ParseEngine;
 class ParseEventHandler;
 
@@ -46,6 +49,12 @@ class Parser {
   // Initialize the parser implementation.
   bool Init(ParseEventHandler* event_handler);
 
+  // Returns true if an error occurred while parsing the trace files.
+  bool error_occurred() const;
+
+  // Set or reset the error flag.
+  void set_error_occurred(bool value);
+
   // Add a trace file to the parse session. This can be called multiple times
   // with different trace file paths. The type of parser used is established
   // based on the type of the first trace file opened. It is an error to
@@ -54,6 +63,11 @@ class Parser {
 
   // Consume all events across all currently open trace files.
   bool Consume();
+
+  // Given an address and a process id, returns the module in memory at that
+  // address. Returns NULL if no such module exists.
+  const ModuleInformation* GetModuleInformation(uint32 process_id,
+                                                AbsoluteAddress64 addr) const;
 
   // Cose all currently open trace files.
   bool Close();

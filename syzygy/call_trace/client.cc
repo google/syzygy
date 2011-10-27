@@ -627,8 +627,12 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   switch (reason) {
     case DLL_PROCESS_ATTACH:
     case DLL_PROCESS_DETACH:
+      break;
+
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
+      if (!IsEnabled(TRACE_FLAG_THREAD_EVENTS))
+        return;
       break;
 
     default:

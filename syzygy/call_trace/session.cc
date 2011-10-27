@@ -128,6 +128,7 @@ bool WriteTraceFileHeader(HANDLE file_handle,
            sizeof(header->signature));
   header->server_version.lo = TRACE_VERSION_LO;
   header->server_version.hi = TRACE_VERSION_HI;
+  header->timestamp = ::GetTickCount();
   header->header_size = header_len;
   header->process_id = client.process_id;
   header->command_line_len = client.command_line.length();

@@ -70,6 +70,16 @@ bool Parser::Init(ParseEventHandler* event_handler) {
   return true;
 }
 
+bool Parser::error_occurred() const {
+  DCHECK(active_parse_engine_ != NULL);
+  return active_parse_engine_->error_occurred();
+}
+
+void Parser::set_error_occurred(bool value) {
+  DCHECK(active_parse_engine_ != NULL);
+  active_parse_engine_->set_error_occurred(value);
+}
+
 bool Parser::OpenTraceFile(const FilePath& trace_file_path) {
   DCHECK(!trace_file_path.empty());
 
@@ -84,6 +94,12 @@ bool Parser::OpenTraceFile(const FilePath& trace_file_path) {
 bool Parser::Consume() {
   DCHECK(active_parse_engine_ != NULL);
   return active_parse_engine_->ConsumeAllEvents();
+}
+
+const ModuleInformation* Parser::GetModuleInformation(
+    uint32 process_id, AbsoluteAddress64 addr) const {
+  DCHECK(active_parse_engine_ != NULL);
+  return active_parse_engine_->GetModuleInformation(process_id, addr);
 }
 
 bool Parser::Close() {

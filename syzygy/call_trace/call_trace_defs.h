@@ -30,6 +30,25 @@ extern const GUID kCallTraceProvider;
 // Class of trace provider events.
 extern const GUID kCallTraceEventClass;
 
+// GUID for the kernel trace control interface.
+extern const GUID kSystemTraceControlGuid;
+
+// This is the absolute minimum number of buffers we will allow, across all
+// CPUs.
+extern const size_t kMinEtwBuffers;
+
+// This is the minimum number of buffers per CPU we'll allow.
+extern const size_t kMinEtwBuffersPerProcessor;
+
+// Max buffers will be min buffers * kEtwBufferMultiplier.
+extern const size_t kEtwBufferMultiplier;
+
+// The set of flags to use when logging trace events via ETW.
+extern const int kDefaultEtwTraceFlags;
+
+// The set of flags to use when logging kernel events via ETW.
+extern const int kDefaultEtwKernelFlags;
+
 // RPC protocol and endpoint.
 extern const wchar_t* const kCallTraceRpcProtocol;
 extern const wchar_t* const kCallTraceRpcEndpoint;
@@ -137,6 +156,9 @@ struct TraceFileHeader {
 
   // The id of the process being traced.
   uint32 process_id;
+
+  // The timestamp (in ticks) when this trace file was created.
+  uint32 timestamp;
 
   // The base address at which the executable module was loaded when the
   // trace file was created.

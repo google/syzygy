@@ -26,12 +26,14 @@
 #include "gtest/gtest.h"
 #include "syzygy/call_trace/parser.h"
 
-// TODO(rogerm): There is a log of duplicate code in common between this
-//     file and "parse_engine_rpc_unittests.cc". This common bits should
+// TODO(rogerm): There is a lot of duplicate code in common between this
+//     file and "parse_engine_rpc_unittests.cc". The common bits should
 //     be extracted from the other file and this file should be updated
 //     to use the tests and structure found in the other file (to test
 //     dll entrypoints, module events, etc).
 
+using call_trace::parser::AbsoluteAddress64;
+using call_trace::parser::ModuleInformation;
 using call_trace::parser::Parser;
 using call_trace::parser::ParseEventHandler;
 
@@ -47,6 +49,7 @@ struct Call {
   DWORD thread_id;
   FuncAddr address;
   CallEntryType type;
+  const ModuleInformation module;
 };
 
 bool operator<(const Call& a, const Call& b) {
@@ -73,10 +76,21 @@ typedef std::multiset<Call> Calls;
 
 class TestParseEventHandler : public ParseEventHandler {
  public:
-  TestParseEventHandler() : process_id_(::GetCurrentProcessId()) {
+  explicit TestParseEventHandler(Parser* parser)
+      : parser_(parser),
+        process_id_(::GetCurrentProcessId()) {
   }
 
   ~TestParseEventHandler() {
+  }
+
+  const ModuleInformation* GetModule(DWORD process_id, FuncAddr function) {
+    const ModuleInformation* module =
+        parser_->GetModuleInformation(
+            process_id_, reinterpret_cast<AbsoluteAddress64>(function));
+    if (module == NULL)
+      parser_->set_error_occurred(true);
+    return module;
   }
 
   virtual void OnProcessStarted(base::Time time, DWORD process_id) {
@@ -89,8 +103,10 @@ class TestParseEventHandler : public ParseEventHandler {
                                DWORD process_id,
                                DWORD thread_id,
                                const TraceEnterExitEventData* data) {
+    const ModuleInformation* module = GetModule(process_id, data->function);
+    ASSERT_TRUE(module != NULL);
     entered_addresses_.insert(data->function);
-    Call call = { time, thread_id, data->function, kCallEntry };
+    Call call = { time, thread_id, data->function, kCallEntry, *module };
     calls_.insert(call);
   }
 
@@ -98,8 +114,10 @@ class TestParseEventHandler : public ParseEventHandler {
                              DWORD process_id,
                              DWORD thread_id,
                              const TraceEnterExitEventData* data) {
+    const ModuleInformation* module = GetModule(process_id, data->function);
+    ASSERT_TRUE(module != NULL);
     exited_addresses_.insert(data->function);
-    Call call = { time, thread_id, data->function, kCallExit };
+    Call call = { time, thread_id, data->function, kCallExit, *module };
     calls_.insert(call);
   }
 
@@ -108,12 +126,16 @@ class TestParseEventHandler : public ParseEventHandler {
                                     DWORD thread_id,
                                     const TraceBatchEnterData* data) {
     for (size_t i = 0; i < data->num_calls; ++i) {
+      const ModuleInformation* module =
+          GetModule(process_id, data->calls[i].function);
+      ASSERT_TRUE(module != NULL);
       entered_addresses_.insert(data->calls[i].function);
       Call call = {
           time - base::TimeDelta::FromMilliseconds(data->calls[i].ticks_ago),
           thread_id,
           data->calls[i].function,
-          kCallEntry };
+          kCallEntry,
+          *module };
       calls_.insert(call);
     }
   }
@@ -163,72 +185,102 @@ class TestParseEventHandler : public ParseEventHandler {
   }
 
  private:
+  Parser* parser_;
   DWORD process_id_;
   CalledAddresses entered_addresses_;
   CalledAddresses exited_addresses_;
   Calls calls_;
 };
 
-const wchar_t* const kTestSessionName = L"TestLogSession";
+const wchar_t* const kTraceSessionName = L"TestTraceSession";
+const wchar_t* const kKernelSessionName = KERNEL_LOGGER_NAMEW;
 
 // We run events through a file session to assert that
 // the content comes through.
 class ParseEngineEtwTest: public testing::Test {
  public:
-  ParseEngineEtwTest() : module_(NULL), wait_til_disabled_(NULL),
-      wait_til_enabled_(NULL), is_private_session_(false) {
+  ParseEngineEtwTest()
+      : module_(NULL),
+        wait_til_disabled_(NULL),
+        wait_til_enabled_(NULL) {
   }
 
   virtual void SetUp() {
-    base::win::EtwTraceProperties properties;
-    base::win::EtwTraceController::Stop(kTestSessionName, &properties);
-
     // The call trace DLL should not be already loaded.
     ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace.dll"));
 
-    // Construct a temp file name.
-    ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file_));
+    ASSERT_NO_FATAL_FAILURE(
+        StartSession(kTraceSessionName,
+                     NULL,
+                     kDefaultEtwTraceFlags,
+                     &trace_session_,
+                     &trace_file_));
 
-    // Set up a file session.
-    HRESULT hr = controller_.StartFileSession(kTestSessionName,
-                                             temp_file_.value().c_str());
-    if (hr == E_ACCESSDENIED &&
-        base::win::GetVersion() >= base::win::VERSION_VISTA) {
-      // Try a private session if we're running on Vista or better.
-      base::win::EtwTraceProperties prop;
-      prop.SetLoggerFileName(temp_file_.value().c_str());
-      EVENT_TRACE_PROPERTIES& p = *prop.get();
-      p.Wnode.ClientContext = 1;  // QPC timer accuracy.
-      p.LogFileMode = EVENT_TRACE_FILE_MODE_SEQUENTIAL |
-                      EVENT_TRACE_PRIVATE_LOGGER_MODE |
-                      EVENT_TRACE_PRIVATE_IN_PROC;  // Private, sequential log.
-
-      p.MaximumFileSize = 100;  // 100M file size.
-      p.FlushTimer = 30;  // 30 seconds flush lag.
-
-      hr = controller_.Start(kTestSessionName, &prop);
-
-      is_private_session_ = true;
-    } else {
-      is_private_session_ = false;
-    }
-
-    ASSERT_HRESULT_SUCCEEDED(hr);
+    ASSERT_NO_FATAL_FAILURE(
+        StartSession(kKernelSessionName,
+                     &kSystemTraceControlGuid,
+                     kDefaultEtwKernelFlags,
+                     &kernel_session_,
+                     &kernel_file_));
   }
 
   virtual void TearDown() {
-    base::win::EtwTraceProperties properties;
-    base::win::EtwTraceController::Stop(kTestSessionName, &properties);
+    trace_session_.Stop(NULL);
+    kernel_session_.Stop(NULL);
+
     UnloadCallTraceDll();
-    EXPECT_TRUE(file_util::Delete(temp_file_, false));
+
+    EXPECT_TRUE(file_util::Delete(trace_file_, false));
+    EXPECT_TRUE(file_util::Delete(kernel_file_, false));
+  }
+
+  void StartSession(const wchar_t* session_name,
+                    const GUID* provider,
+                    int flags,
+                    base::win::EtwTraceController* session,
+                    FilePath* log_file ) {
+    ASSERT_TRUE(session_name != NULL);
+    ASSERT_TRUE(log_file != NULL);
+    ASSERT_TRUE(session != NULL);
+
+    session->Stop(NULL);
+
+    SYSTEM_INFO sysinfo = { 0 };
+    ::GetSystemInfo(&sysinfo);
+
+    // Create the log file.
+    ASSERT_TRUE(file_util::CreateTemporaryFile(log_file));
+
+    base::win::EtwTraceProperties props;
+    ASSERT_HRESULT_SUCCEEDED(
+        props.SetLoggerFileName(log_file->value().c_str()));
+
+    EVENT_TRACE_PROPERTIES* p = props.get();
+    ASSERT_TRUE(p != NULL);
+
+    p->Wnode.ClientContext = 3;  // CPU cycle counter
+    p->MaximumFileSize = 100;  // 100M file size.
+    p->FlushTimer = 30;  // 30 seconds flush lag.
+    p->BufferSize = 1024;  // 1024 KB == 1MB is the maximum allowed.
+    p->MinimumBuffers =
+        kMinEtwBuffersPerProcessor * sysinfo.dwNumberOfProcessors;
+    p->MaximumBuffers = kEtwBufferMultiplier * sysinfo.dwNumberOfProcessors;
+    p->LogFileMode = EVENT_TRACE_FILE_MODE_NONE;
+    p->EnableFlags = flags;
+    if (provider != NULL) {
+      p->Wnode.Guid = *provider;
+    }
+
+    ASSERT_HRESULT_SUCCEEDED(session->Start(session_name, &props));
   }
 
   void ConsumeEventsFromTempSession() {
     // Now consume the event(s).
-    TestParseEventHandler consumer;
     Parser parser;
+    TestParseEventHandler consumer(&parser);
     ASSERT_TRUE(parser.Init(&consumer));
-    ASSERT_TRUE(parser.OpenTraceFile(temp_file_));
+    ASSERT_TRUE(parser.OpenTraceFile(kernel_file_));
+    ASSERT_TRUE(parser.OpenTraceFile(trace_file_));
     ASSERT_TRUE(parser.Consume());
 
     // And nab the result.
@@ -241,20 +293,8 @@ class ParseEngineEtwTest: public testing::Test {
   }
 
   void LoadAndEnableCallTraceDll(ULONG flags) {
-    // For a private ETW session, a provider must be
-    // registered before it's enabled.
-    if (is_private_session_) {
-      ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-    }
-
-    ASSERT_HRESULT_SUCCEEDED(
-        controller_.EnableProvider(kCallTraceProvider,
-                                   CALL_TRACE_LEVEL,
-                                   flags));
-
-    if (!is_private_session_) {
-      ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-    }
+    ASSERT_NO_FATAL_FAILURE(EnableProvider(kCallTraceProvider, flags));
+    ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
   }
 
   void LoadCallTraceDll() {
@@ -288,22 +328,55 @@ class ParseEngineEtwTest: public testing::Test {
   friend void IndirectThunkA();
   friend void IndirectThunkB();
 
+
+
+  void Flush() {
+    EXPECT_HRESULT_SUCCEEDED(trace_session_.Flush(NULL));
+    EXPECT_HRESULT_SUCCEEDED(kernel_session_.Flush(NULL));
+  }
+
+  void Stop() {
+    EXPECT_HRESULT_SUCCEEDED(trace_session_.Stop(NULL));
+    EXPECT_HRESULT_SUCCEEDED(kernel_session_.Stop(NULL));
+  }
+
+  void EnableProvider(REFGUID provider, ULONG flags) {
+    EXPECT_HRESULT_SUCCEEDED(
+        trace_session_.EnableProvider(provider, CALL_TRACE_LEVEL, flags));
+  }
+
+  void DisableProvider(REFGUID provider) {
+    EXPECT_HRESULT_SUCCEEDED(trace_session_.DisableProvider(provider));
+  }
+
  protected:
   typedef bool (*WaitFuncType)(void);
   WaitFuncType wait_til_enabled_;
   WaitFuncType wait_til_disabled_;
 
-  base::win::EtwTraceController controller_;
   CalledAddresses entered_addresses_;
   CalledAddresses exited_addresses_;
   Calls calls_;
 
-  // True iff controller_ has started a private file session.
-  bool is_private_session_;
+  // The controller for the call trace session.
+  base::win::EtwTraceController trace_session_;
 
-  FilePath temp_file_;
+  // The controller for the kernel session.
+  base::win::EtwTraceController kernel_session_;
+
+  // The temporary file to which the call trace logs are written.
+  FilePath trace_file_;
+
+  // The temporary file to which the kernel logs are written.
+  FilePath kernel_file_;
+
+  // The handle to the call trace client dll.
   HMODULE module_;
+
+  // The indirect penter function hook.
   static FARPROC _indirect_penter_;
+
+  // The penter function hook.
   static FARPROC _penter_;
 };
 
@@ -388,7 +461,7 @@ TEST_F(ParseEngineEtwTest, SingleThread) {
 
   UnloadCallTraceDll();
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
+  ASSERT_NO_FATAL_FAILURE(Flush());
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   ASSERT_EQ(3, entered_addresses_.size());
@@ -410,7 +483,7 @@ TEST_F(ParseEngineEtwTest, MultiThreadWithDetach) {
 
   UnloadCallTraceDll();
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
+  ASSERT_NO_FATAL_FAILURE(Flush());
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   ASSERT_EQ(2, entered_addresses_.size());
@@ -434,7 +507,7 @@ TEST_F(ParseEngineEtwTest, MultiThreadWithoutDetach) {
   runner_a.Exit();
   thread.Join();
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
+  ASSERT_NO_FATAL_FAILURE(Flush());
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   ASSERT_EQ(2, entered_addresses_.size());
@@ -484,7 +557,7 @@ TEST_F(ParseEngineEtwTest, TicksAgo) {
   threads[0].Join();
   threads[5].Join();
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Flush(NULL));
+  ASSERT_NO_FATAL_FAILURE(Flush());
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   ASSERT_EQ(21, entered_addresses_.size());
@@ -530,10 +603,10 @@ TEST_F(ParseEngineEtwTest, MultiThreadWithStopCallTrace) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
   ASSERT_TRUE(wait_til_disabled_());
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_NO_FATAL_FAILURE(Stop());
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   UnloadCallTraceDll();
@@ -601,10 +674,10 @@ TEST_F(ParseEngineEtwTest, EnterExitRecursive) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
   ASSERT_TRUE(wait_til_disabled_());
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_NO_FATAL_FAILURE(Stop());
 
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
@@ -621,10 +694,10 @@ TEST_F(ParseEngineEtwTest, EnterExitTailRecursive) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
   ASSERT_TRUE(wait_til_disabled_());
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_NO_FATAL_FAILURE(Stop());
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   EXPECT_EQ(6, entered_addresses_.size());
@@ -741,10 +814,10 @@ TEST_F(ParseEngineEtwTest, EnterExitReturnAfterException) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
   ASSERT_TRUE(wait_til_disabled_());
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_NO_FATAL_FAILURE(Stop());
 
   EXPECT_EQ(11, top_entry);
   EXPECT_EQ(11, top_exit);
@@ -787,10 +860,10 @@ TEST_F(ParseEngineEtwTest, EnterExitCallAfterException) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
   ASSERT_TRUE(wait_til_disabled_());
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_NO_FATAL_FAILURE(Stop());
 
   EXPECT_EQ(11, top_entry);
   EXPECT_EQ(11, top_exit);
@@ -841,10 +914,10 @@ TEST_F(ParseEngineEtwTest, EnterExitCallAfterTailRecurseException) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_HRESULT_SUCCEEDED(controller_.DisableProvider(kCallTraceProvider));
+  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
   ASSERT_TRUE(wait_til_disabled_());
 
-  ASSERT_HRESULT_SUCCEEDED(controller_.Stop(NULL));
+  ASSERT_NO_FATAL_FAILURE(Stop());
 
   EXPECT_EQ(11, bottom_entry);
   EXPECT_EQ(5, bottom_exit);
