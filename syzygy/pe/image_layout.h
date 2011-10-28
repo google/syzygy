@@ -27,44 +27,44 @@
 namespace pe {
 
 struct ImageLayout {
-  // Per-segment information.
-  struct SegmentInfo {
-    // Name of the segment, note that this will be truncated to a max of
+  // Per-section information.
+  struct SectionInfo {
+    // Name of the section, note that this will be truncated to a max of
     // 8 characters on output.
     std::string name;
-    // The segment's starting RVA, must be a multiple of the image's
+    // The section's starting RVA, must be a multiple of the image's
     // SectionAlignment value.
     core::RelativeAddress addr;
-    // The virtual size of the segment, must be greater than zero. Any
-    // part of the segment that extends beyond data_size is implicitly
+    // The virtual size of the section, must be greater than zero. Any
+    // part of the section that extends beyond data_size is implicitly
     // zero initialized.
     size_t size;
-    // The initialized data size of the segment, must be a multple of the
+    // The initialized data size of the section, must be a multple of the
     // image's FileAlignment value.
     size_t data_size;
-    // The segment characteristics, a bitmask of IMAGE_SCN_* values.
+    // The section characteristics, a bitmask of IMAGE_SCN_* values.
     uint32 characteristics;
   };
 
   // Creates an empty image layout on the supplied block graph.
   explicit ImageLayout(core::BlockGraph* block_graph);
 
-  // The segments in the image.
-  std::vector<SegmentInfo> segments;
+  // The sections in the image.
+  std::vector<SectionInfo> sections;
 
   // The blocks that should be written to the image.
   core::BlockGraph::AddressSpace blocks;
 };
 
-// Copies section headers to segment info.
+// Copies section headers to section info.
 void CopySectionHeadersToImageLayout(
     size_t num_sections,
     const IMAGE_SECTION_HEADER* section_headers,
-    std::vector<ImageLayout::SegmentInfo>* segments);
+    std::vector<ImageLayout::SectionInfo>* sections);
 
 // For testing.
-inline bool operator==(const ImageLayout::SegmentInfo& a,
-                       const ImageLayout::SegmentInfo& b) {
+inline bool operator==(const ImageLayout::SectionInfo& a,
+                       const ImageLayout::SectionInfo& b) {
   return a.name == b.name && a.addr == b.addr &&
       a.size == b.size && a.data_size == b.data_size &&
       a.characteristics == b.characteristics;

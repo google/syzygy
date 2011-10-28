@@ -57,7 +57,7 @@ void AddOmapForBlockRange(
 }
 
 void AddOmapForAllSections(
-    const std::vector<ImageLayout::SegmentInfo>& sections,
+    const std::vector<ImageLayout::SectionInfo>& sections,
     const BlockGraph::AddressSpace& from, const BlockGraph::AddressSpace& to,
     std::vector<OMAP>* omap) {
   for (size_t i = 0; i < sections.size() - 1; ++i) {
@@ -106,7 +106,7 @@ bool RelinkerBase::Initialize(Decomposer::DecomposedImage* decomposed) {
   const IMAGE_SECTION_HEADER* section_headers =
       reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
   for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
-    ImageLayout::SegmentInfo section = {
+    ImageLayout::SectionInfo section = {
         pe::PEFile::GetSectionName(section_headers[i]),
         RelativeAddress(section_headers[i].VirtualAddress),
         section_headers[i].Misc.VirtualSize,
@@ -166,11 +166,11 @@ bool RelinkerBase::WriteImage(const FilePath& output_path) {
   return true;
 }
 
-bool RelinkerBase::CopySection(const ImageLayout::SegmentInfo& section) {
+bool RelinkerBase::CopySection(const ImageLayout::SectionInfo& section) {
   BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
 
   // Duplicate the section in the new image.
-  RelativeAddress start = builder().AddSegment(section.name.c_str(),
+  RelativeAddress start = builder().AddSection(section.name.c_str(),
                                                section.size,
                                                section.data_size,
                                                section.characteristics);
@@ -271,7 +271,7 @@ bool Relinker::Relink(const FilePath& input_dll_path,
 
   // Reorder, section by section.
   for (size_t i = 0; i < original_sections().size() - 1; ++i) {
-    const ImageLayout::SegmentInfo& section = original_sections()[i];
+    const ImageLayout::SectionInfo& section = original_sections()[i];
 
     // Skip the resource section if we encounter it.
     if (section.name == common::kResourceSectionName) {
@@ -428,7 +428,7 @@ bool Relinker::UpdateDebugInformation(
   // Allocate a new debug info block.
   // TODO(rogerm): Remove the old (and now orphaned) debug info block once
   //    we have generic layout implemented.
-  RelativeAddress new_debug_block_addr = builder().AddSegment(
+  RelativeAddress new_debug_block_addr = builder().AddSection(
       ".pdbinfo", new_debug_info_size, new_debug_info_size,
       IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
 
@@ -468,13 +468,13 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
                             const FilePath& output_path) {
   // Generate the map data for both directions.
   std::vector<OMAP> omap_to;
-  AddOmapForAllSections(builder().image_layout().segments,
+  AddOmapForAllSections(builder().image_layout().sections,
                         builder().image_layout().blocks,
                         original_addr_space(),
                         &omap_to);
 
   std::vector<OMAP> omap_from;
-  AddOmapForAllSections(builder().image_layout().segments,
+  AddOmapForAllSections(builder().image_layout().sections,
                         original_addr_space(),
                         builder().image_layout().blocks,
                         &omap_from);
@@ -524,7 +524,7 @@ bool Relinker::CopyResourceSection() {
   if (resource_section_id_ == pe::kInvalidSection)
     return true;
 
-  const ImageLayout::SegmentInfo& section =
+  const ImageLayout::SectionInfo& section =
       original_sections()[resource_section_id_];
 
   LOG(INFO) << "Copying section " << resource_section_id_ << " ("

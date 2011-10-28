@@ -68,62 +68,62 @@ TEST_F(DecomposerTest, Decompose) {
   EXPECT_EQ(block_graph.blocks().size(),
             image_layout.blocks.address_space_impl().size());
 
-  ASSERT_EQ(6, image_layout.segments.size());
+  ASSERT_EQ(6, image_layout.sections.size());
 
-  EXPECT_EQ(".text", image_layout.segments[0].name);
-  EXPECT_NE(0U, image_layout.segments[0].addr.value());
-  EXPECT_NE(0U, image_layout.segments[0].size);
-  EXPECT_NE(0U, image_layout.segments[0].data_size);
+  EXPECT_EQ(".text", image_layout.sections[0].name);
+  EXPECT_NE(0U, image_layout.sections[0].addr.value());
+  EXPECT_NE(0U, image_layout.sections[0].size);
+  EXPECT_NE(0U, image_layout.sections[0].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ,
-            image_layout.segments[0].characteristics);
+            image_layout.sections[0].characteristics);
 
-  EXPECT_EQ(".rdata", image_layout.segments[1].name);
-  EXPECT_NE(0U, image_layout.segments[1].addr.value());
-  EXPECT_NE(0U, image_layout.segments[1].size);
-  EXPECT_NE(0U, image_layout.segments[1].data_size);
+  EXPECT_EQ(".rdata", image_layout.sections[1].name);
+  EXPECT_NE(0U, image_layout.sections[1].addr.value());
+  EXPECT_NE(0U, image_layout.sections[1].size);
+  EXPECT_NE(0U, image_layout.sections[1].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
-            image_layout.segments[1].characteristics);
+            image_layout.sections[1].characteristics);
 
-  EXPECT_EQ(".data", image_layout.segments[2].name);
-  EXPECT_NE(0U, image_layout.segments[2].addr.value());
-  EXPECT_NE(0U, image_layout.segments[2].size);
-  EXPECT_NE(0U, image_layout.segments[2].data_size);
+  EXPECT_EQ(".data", image_layout.sections[2].name);
+  EXPECT_NE(0U, image_layout.sections[2].addr.value());
+  EXPECT_NE(0U, image_layout.sections[2].size);
+  EXPECT_NE(0U, image_layout.sections[2].data_size);
   EXPECT_EQ(
       IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE,
-      image_layout.segments[2].characteristics);
+      image_layout.sections[2].characteristics);
 
-  EXPECT_EQ(".tls", image_layout.segments[3].name);
-  EXPECT_NE(0U, image_layout.segments[3].addr.value());
-  EXPECT_NE(0U, image_layout.segments[3].size);
-  EXPECT_NE(0U, image_layout.segments[3].data_size);
+  EXPECT_EQ(".tls", image_layout.sections[3].name);
+  EXPECT_NE(0U, image_layout.sections[3].addr.value());
+  EXPECT_NE(0U, image_layout.sections[3].size);
+  EXPECT_NE(0U, image_layout.sections[3].data_size);
   EXPECT_EQ(
       IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE,
-      image_layout.segments[3].characteristics);
+      image_layout.sections[3].characteristics);
 
-  EXPECT_EQ(".rsrc", image_layout.segments[4].name);
-  EXPECT_NE(0U, image_layout.segments[4].addr.value());
-  EXPECT_NE(0U, image_layout.segments[4].size);
-  EXPECT_NE(0U, image_layout.segments[4].data_size);
+  EXPECT_EQ(".rsrc", image_layout.sections[4].name);
+  EXPECT_NE(0U, image_layout.sections[4].addr.value());
+  EXPECT_NE(0U, image_layout.sections[4].size);
+  EXPECT_NE(0U, image_layout.sections[4].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
-      image_layout.segments[4].characteristics);
+      image_layout.sections[4].characteristics);
 
-  EXPECT_EQ(".reloc", image_layout.segments[5].name);
-  EXPECT_NE(0U, image_layout.segments[5].addr.value());
-  EXPECT_NE(0U, image_layout.segments[5].size);
-  EXPECT_NE(0U, image_layout.segments[5].data_size);
+  EXPECT_EQ(".reloc", image_layout.sections[5].name);
+  EXPECT_NE(0U, image_layout.sections[5].addr.value());
+  EXPECT_NE(0U, image_layout.sections[5].size);
+  EXPECT_NE(0U, image_layout.sections[5].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_DISCARDABLE |
-      IMAGE_SCN_MEM_READ, image_layout.segments[5].characteristics);
+      IMAGE_SCN_MEM_READ, image_layout.sections[5].characteristics);
 
   // We expect the ImageLayout sections to agree with the BlockGraph sections
   // in number, id, name and characteristics.
-  EXPECT_EQ(block_graph.sections().size() - 1, image_layout.segments.size());
-  for (size_t i = 0; i < image_layout.segments.size(); ++i) {
+  EXPECT_EQ(block_graph.sections().size() - 1, image_layout.sections.size());
+  for (size_t i = 0; i < image_layout.sections.size(); ++i) {
     const core::BlockGraph::Section* section = block_graph.GetSectionById(i);
     ASSERT_TRUE(section != NULL);
     EXPECT_EQ(section->id(), i);
-    EXPECT_EQ(section->name(), image_layout.segments[i].name);
+    EXPECT_EQ(section->name(), image_layout.sections[i].name);
     EXPECT_EQ(section->characteristics(),
-              image_layout.segments[i].characteristics);
+              image_layout.sections[i].characteristics);
   }
 
   // We expect every block to be associated with a section, and only two blocks
@@ -189,8 +189,8 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
         testing::ContainerEq(
             in_image_layout.blocks.address_space_impl().ranges()));
 
-    EXPECT_THAT(image_layout.segments,
-                testing::ContainerEq(in_image_layout.segments));
+    EXPECT_THAT(image_layout.sections,
+                testing::ContainerEq(in_image_layout.sections));
   }
 }
 

@@ -243,18 +243,18 @@ bool PEFile::Translate(AbsoluteAddress abs, RelativeAddress* rel) const {
 bool PEFile::Translate(FileOffsetAddress offs, RelativeAddress* rel) const {
   DCHECK(rel != NULL);
 
-  // The first "previous segment" is the headers.
-  RelativeAddress previous_segment_start(0);
-  FileOffsetAddress previous_segment_file_start(0);
+  // The first "previous section" is the headers.
+  RelativeAddress previous_section_start(0);
+  FileOffsetAddress previous_section_file_start(0);
   for (size_t i = 0; i < nt_headers_->FileHeader.NumberOfSections; ++i) {
     if (offs.value() < section_headers_[i].PointerToRawData) {
-      size_t file_offs = offs - previous_segment_file_start;
-      *rel =  previous_segment_start + file_offs;
+      size_t file_offs = offs - previous_section_file_start;
+      *rel =  previous_section_start + file_offs;
       return true;
     }
 
-    previous_segment_start.set_value(section_headers_[i].VirtualAddress);
-    previous_segment_file_start.set_value(section_headers_[i].PointerToRawData);
+    previous_section_start.set_value(section_headers_[i].VirtualAddress);
+    previous_section_file_start.set_value(section_headers_[i].PointerToRawData);
   }
 
   return false;

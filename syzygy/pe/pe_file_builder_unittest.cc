@@ -152,20 +152,20 @@ TEST_F(PEFileBuilderTest, SetImageHeaders) {
   EXPECT_TRUE(builder.nt_headers_block() != NULL);
 }
 
-TEST_F(PEFileBuilderTest, AddSegment) {
+TEST_F(PEFileBuilderTest, AddSection) {
   PEFileBuilder builder(&block_graph_);
 
   const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_EQ(RelativeAddress(0x1000),
-      builder.AddSegment("foo", 0x1234, 0x1000, kCharacteristics));
+      builder.AddSection("foo", 0x1234, 0x1000, kCharacteristics));
   EXPECT_EQ(RelativeAddress(0x3000),
-      builder.AddSegment("bar", 0x1234, 0x1000, kCharacteristics));
+      builder.AddSection("bar", 0x1234, 0x1000, kCharacteristics));
 
-  ImageLayout::SegmentInfo expected[] = {
+  ImageLayout::SectionInfo expected[] = {
       { "foo", RelativeAddress(0x1000), 0x1234, 0x1000, kCharacteristics },
       { "bar", RelativeAddress(0x3000), 0x1234, 0x1000, kCharacteristics }};
 
-  EXPECT_THAT(builder.image_layout().segments,
+  EXPECT_THAT(builder.image_layout().sections,
               testing::ElementsAreArray(expected));
 }
 
@@ -188,7 +188,7 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
 
     const char* name = reinterpret_cast<const char*>(section.Name);
     std::string name_str(name, strnlen(name, arraysize(section.Name)));
-    RelativeAddress start = builder.AddSegment(name_str.c_str(),
+    RelativeAddress start = builder.AddSection(name_str.c_str(),
                                                section.Misc.VirtualSize,
                                                section.SizeOfRawData,
                                                section.Characteristics);
@@ -217,12 +217,12 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   // Add an empty section to the beginning of the image to make sure
   // everything in the image moves. This mainly tests whether the PE
   // parsing is complete.
-  builder.AddSegment(".empty", 10 * 1024, 0,
+  builder.AddSection(".empty", 10 * 1024, 0,
                      IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ);
 
   // Copy the sections from the decomposed image to the new one, save for
   // the .relocs section. Code sections are turned into read-only data
-  // sections, and the code blocks held back for moving to a new segment.
+  // sections, and the code blocks held back for moving to a new section.
   const IMAGE_NT_HEADERS* nt_headers =
       reinterpret_cast<const IMAGE_NT_HEADERS*>(
           builder.nt_headers_block()->data());
@@ -244,7 +244,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
       // It's a code section, turn it into a read-only data section.
       uint32 characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
           IMAGE_SCN_MEM_READ;
-      RelativeAddress start = builder.AddSegment(".empty",
+      RelativeAddress start = builder.AddSection(".empty",
                                                  section.Misc.VirtualSize,
                                                  0,
                                                  characteristics);
@@ -268,12 +268,12 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
       if (name_str == ".rsrc") {
         uint32 characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
             IMAGE_SCN_MEM_READ;
-        builder.AddSegment(
+        builder.AddSection(
             ".dummy", section.Misc.VirtualSize, 0, characteristics);
       }
 
       // It's not a code section, copy it.
-      RelativeAddress start = builder.AddSegment(name_str.c_str(),
+      RelativeAddress start = builder.AddSection(name_str.c_str(),
                                                  section.Misc.VirtualSize,
                                                  section.SizeOfRawData,
                                                  section.Characteristics);
@@ -287,7 +287,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   std::cout << "Random seed: " << seed << std::endl;
 
   // Now reorder the code blocks and insert them into a new
-  // code segment at the end of the binary.
+  // code section at the end of the binary.
   std::random_shuffle(code_blocks.begin(), code_blocks.end());
   RelativeAddress insert_at(builder.next_section_address());
   for (size_t i = 0; i < code_blocks.size(); ++i) {
@@ -319,10 +319,10 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
     insert_at += pad_block->size();
   }
 
-  size_t segment_size = insert_at - builder.next_section_address();
+  size_t section_size = insert_at - builder.next_section_address();
   uint32 characteristics =
       IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-  builder.AddSegment(".text", segment_size, segment_size, characteristics);
+  builder.AddSection(".text", section_size, section_size, characteristics);
 
   ASSERT_TRUE(builder.CreateRelocsSection());
   ASSERT_TRUE(builder.FinalizeHeaders());

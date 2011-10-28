@@ -22,22 +22,22 @@ namespace pe {
 void CopySectionHeadersToImageLayout(
     size_t num_sections,
     const IMAGE_SECTION_HEADER* section_headers,
-    std::vector<ImageLayout::SegmentInfo>* segments) {
+    std::vector<ImageLayout::SectionInfo>* sections) {
   DCHECK(num_sections > 0);
   DCHECK(section_headers != NULL);
-  DCHECK(segments != NULL);
+  DCHECK(sections != NULL);
 
-  segments->clear();
-  segments->reserve(num_sections);
+  sections->clear();
+  sections->reserve(num_sections);
   for (size_t i = 0; i < num_sections; ++i) {
-    segments->push_back(pe::ImageLayout::SegmentInfo());
-    pe::ImageLayout::SegmentInfo& segment = segments->back();
+    sections->push_back(pe::ImageLayout::SectionInfo());
+    pe::ImageLayout::SectionInfo& section = sections->back();
 
-    segment.name = PEFile::GetSectionName(section_headers[i]);
-    segment.addr.set_value(section_headers[i].VirtualAddress);
-    segment.size = section_headers[i].Misc.VirtualSize;
-    segment.data_size = section_headers[i].SizeOfRawData;
-    segment.characteristics = section_headers[i].Characteristics;
+    section.name = PEFile::GetSectionName(section_headers[i]);
+    section.addr.set_value(section_headers[i].VirtualAddress);
+    section.size = section_headers[i].Misc.VirtualSize;
+    section.data_size = section_headers[i].SizeOfRawData;
+    section.characteristics = section_headers[i].Characteristics;
   }
 }
 

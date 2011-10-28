@@ -166,7 +166,7 @@ bool Instrumenter::CopySections() {
   // .relocs section. If there is a .rsrc section, does not copy it but stores
   // its index in resource_section_id_.
   for (size_t i = 0; i < original_sections().size() - 1; ++i) {
-    const ImageLayout::SegmentInfo& section = original_sections()[i];
+    const ImageLayout::SectionInfo& section = original_sections()[i];
 
     // Skip the resource section if we encounter it.
     if (section.name == common::kResourceSectionName) {
@@ -227,7 +227,7 @@ bool Instrumenter::AddCallTraceImportDescriptor(
   uint32 import_dir_size = insert_at - start;
   uint32 flags = IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE |
                  IMAGE_SCN_CNT_INITIALIZED_DATA;
-  RelativeAddress real_start = builder().AddSegment(
+  RelativeAddress real_start = builder().AddSection(
       ".import", import_dir_size, import_dir_size, flags);
 
   DCHECK_EQ(start, real_start);
@@ -273,7 +273,7 @@ bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph,
 
   // Wrap the thunks in a new section.
   uint32 thunks_size = insert_at - start;
-  builder().AddSegment(".thunks",
+  builder().AddSection(".thunks",
                        thunks_size,
                        thunks_size,
                        IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_READ |
@@ -683,7 +683,7 @@ bool Instrumenter::CopyResourceSection() {
   if (resource_section_id_ == pe::kInvalidSection)
     return true;
 
-  const ImageLayout::SegmentInfo& section =
+  const ImageLayout::SectionInfo& section =
       original_sections()[resource_section_id_];
 
   LOG(INFO) << "Copying section " << resource_section_id_ << " ("

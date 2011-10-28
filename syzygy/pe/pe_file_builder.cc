@@ -168,7 +168,7 @@ void PEFileBuilder::SetAllocationParameters(size_t header_size,
   DCHECK(header_size > 0);
   DCHECK(section_alignment > 0 && common::IsPowerOfTwo(section_alignment));
   DCHECK(file_alignment > 0 && common::IsPowerOfTwo(file_alignment));
-  DCHECK_EQ(0U, image_layout_.segments.size());
+  DCHECK_EQ(0U, image_layout_.sections.size());
 
   section_alignment_ = section_alignment;
   file_alignment_ = file_alignment;
@@ -176,7 +176,7 @@ void PEFileBuilder::SetAllocationParameters(size_t header_size,
       RelativeAddress(common::AlignUp(header_size, section_alignment_));
 }
 
-RelativeAddress PEFileBuilder::AddSegment(const char* name,
+RelativeAddress PEFileBuilder::AddSection(const char* name,
                                           size_t size,
                                           size_t data_size,
                                           uint32 characteristics) {
@@ -185,14 +185,14 @@ RelativeAddress PEFileBuilder::AddSegment(const char* name,
   data_size = common::AlignUp(data_size, file_alignment_);
   RelativeAddress section_base = next_section_address_;
 
-  ImageLayout::SegmentInfo segment;
-  segment.addr = next_section_address_;
-  segment.name = name;
-  segment.size = size;
-  segment.data_size = data_size;
-  segment.characteristics = characteristics;
+  ImageLayout::SectionInfo section;
+  section.addr = next_section_address_;
+  section.name = name;
+  section.size = size;
+  section.data_size = data_size;
+  section.characteristics = characteristics;
 
-  image_layout_.segments.push_back(segment);
+  image_layout_.sections.push_back(section);
 
   next_section_address_ += common::AlignUp(size, section_alignment_);
 
@@ -267,12 +267,12 @@ bool PEFileBuilder::CreateRelocsSection() {
   ByteVector relocs;
   writer.Close(&relocs);
 
-  // Create a new image segment for the relocs.
+  // Create a new image section for the relocs.
   const uint32 kRelocCharacteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
       IMAGE_SCN_MEM_DISCARDABLE | IMAGE_SCN_MEM_READ;
   size_t relocs_file_size =
       common::AlignUp(relocs.size(), file_alignment_);
-  RelativeAddress section_base = AddSegment(".reloc",
+  RelativeAddress section_base = AddSection(".reloc",
                                             relocs.size(),
                                             relocs_file_size,
                                             kRelocCharacteristics);
@@ -305,7 +305,7 @@ bool PEFileBuilder::FinalizeHeaders() {
 
   // Resize the NT headers block if needed to fit the new section headers.
   size_t nt_headers_size = sizeof(IMAGE_NT_HEADERS) +
-      sizeof(IMAGE_SECTION_HEADER) * image_layout_.segments.size();
+      sizeof(IMAGE_SECTION_HEADER) * image_layout_.sections.size();
   nt_headers_block_->set_size(nt_headers_size);
   if (nt_headers_block_->ResizeData(nt_headers_size) == NULL) {
     LOG(ERROR) << "Failed to resize NT headers block.";
@@ -320,30 +320,30 @@ bool PEFileBuilder::FinalizeHeaders() {
   nt_headers->OptionalHeader.FileAlignment = file_alignment_;
 
   nt_headers->OptionalHeader.CheckSum = 0;
-  nt_headers->FileHeader.NumberOfSections = image_layout_.segments.size();
+  nt_headers->FileHeader.NumberOfSections = image_layout_.sections.size();
 
   // Iterate through our sections to initialize the code/data
   // fields in the NT header.
-  for (size_t i = 0; i < image_layout_.segments.size(); ++i) {
-    const ImageLayout::SegmentInfo& segment = image_layout_.segments[i];
+  for (size_t i = 0; i < image_layout_.sections.size(); ++i) {
+    const ImageLayout::SectionInfo& section = image_layout_.sections[i];
 
-    if (segment.characteristics& IMAGE_SCN_CNT_CODE) {
-      nt_headers->OptionalHeader.SizeOfCode += segment.data_size;
+    if (section.characteristics& IMAGE_SCN_CNT_CODE) {
+      nt_headers->OptionalHeader.SizeOfCode += section.data_size;
       if (nt_headers->OptionalHeader.BaseOfCode == 0) {
-        nt_headers->OptionalHeader.BaseOfCode = segment.addr.value();
+        nt_headers->OptionalHeader.BaseOfCode = section.addr.value();
       }
     }
-    if (segment.characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
-      nt_headers->OptionalHeader.SizeOfInitializedData += segment.data_size;
+    if (section.characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
+      nt_headers->OptionalHeader.SizeOfInitializedData += section.data_size;
 
       if (nt_headers->OptionalHeader.BaseOfData == 0)
-        nt_headers->OptionalHeader.BaseOfData = segment.addr.value();
+        nt_headers->OptionalHeader.BaseOfData = section.addr.value();
     }
-    if (segment.characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
+    if (section.characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
       nt_headers->OptionalHeader.SizeOfUninitializedData +=
-          segment.data_size;
+          section.data_size;
       if (nt_headers->OptionalHeader.BaseOfData == 0)
-        nt_headers->OptionalHeader.BaseOfData = segment.addr.value();
+        nt_headers->OptionalHeader.BaseOfData = section.addr.value();
     }
   }
 
@@ -352,26 +352,26 @@ bool PEFileBuilder::FinalizeHeaders() {
   // Get the section headers pointer.
   IMAGE_SECTION_HEADER* section_headers =
       reinterpret_cast<IMAGE_SECTION_HEADER*>(nt_headers + 1);
-  core::FileOffsetAddress segment_file_start(
+  core::FileOffsetAddress section_file_start(
       nt_headers->OptionalHeader.SizeOfHeaders);
 
-  for (size_t i = 0; i < image_layout_.segments.size(); ++i) {
-    const ImageLayout::SegmentInfo& segment = image_layout_.segments[i];
+  for (size_t i = 0; i < image_layout_.sections.size(); ++i) {
+    const ImageLayout::SectionInfo& section = image_layout_.sections[i];
     IMAGE_SECTION_HEADER& hdr = section_headers[i];
 
     // Start by zeroing the header to get rid of any old crud in it.
     memset(&hdr, 0, sizeof(hdr));
 
     strncpy(reinterpret_cast<char*>(hdr.Name),
-            segment.name.c_str(),
+            section.name.c_str(),
             arraysize(hdr.Name));
-    hdr.Misc.VirtualSize = segment.size;
-    hdr.VirtualAddress = segment.addr.value();
-    hdr.SizeOfRawData = segment.data_size;
-    hdr.PointerToRawData = segment_file_start.value();
-    hdr.Characteristics = segment.characteristics;
+    hdr.Misc.VirtualSize = section.size;
+    hdr.VirtualAddress = section.addr.value();
+    hdr.SizeOfRawData = section.data_size;
+    hdr.PointerToRawData = section_file_start.value();
+    hdr.Characteristics = section.characteristics;
 
-    segment_file_start += segment.data_size;
+    section_file_start += section.data_size;
   }
 
   // Now assign the header blocks addresses in the new image layout.

@@ -317,7 +317,7 @@ bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
 
   // Wrap this data in a read-only data section.
   uint32 syzygy_size = insert_at - start;
-  pe_file_builder->AddSegment(common::kSyzygyMetadataSectionName,
+  pe_file_builder->AddSection(common::kSyzygyMetadataSectionName,
                               syzygy_size,
                               syzygy_size,
                               IMAGE_SCN_CNT_INITIALIZED_DATA |

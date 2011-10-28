@@ -560,7 +560,7 @@ bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
 
   CopySectionHeadersToImageLayout(nt_headers->FileHeader.NumberOfSections,
                                   section_headers,
-                                  &layout->segments);
+                                  &layout->sections);
   return true;
 }
 

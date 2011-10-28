@@ -67,19 +67,19 @@ class PEFileBuilder {
   //     of two and an integer multiple of machine's page size.
   // @param file_alignment the file alignment boundary, must be a power
   //     of two and should be an integer multiple of sector size (512).
-  // @pre No segments have been added to this builder.
+  // @pre No sections have been added to this builder.
   void SetAllocationParameters(size_t header_size,
                                size_t section_alignment,
                                size_t file_alignment);
 
-  // Allocates a new segment.
-  // @param name the name of the new segment, must be 8 characters
+  // Allocates a new section.
+  // @param name the name of the new section, must be 8 characters
   //     or less in length.
-  // @param size the virtual size of the new segment.
-  // @param data_size the data size of the new segment. This will be rounded
+  // @param size the virtual size of the new section.
+  // @param data_size the data size of the new section. This will be rounded
   //     up to the nearest multiple of file alignment.
   // @param characteristics the section characteristics.
-  RelativeAddress AddSegment(const char* name,
+  RelativeAddress AddSection(const char* name,
                              size_t size,
                              size_t data_size,
                              uint32 characteristics);
@@ -112,7 +112,7 @@ class PEFileBuilder {
   // The image layout we're building.
   ImageLayout image_layout_;
 
-  // Segment alignment must be a multiple of the system page size,
+  // Section alignment must be a multiple of the system page size,
   // defaults to 4096.
   size_t section_alignment_;
   // File alignment of image data, defaults to 0x200.

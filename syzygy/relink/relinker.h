@@ -59,14 +59,14 @@ class RelinkerBase {
   bool WriteImage(const FilePath& output_path);
 
   // Copies a section from the old image into the new one.
-  bool CopySection(const ImageLayout::SegmentInfo& section);
+  bool CopySection(const ImageLayout::SectionInfo& section);
 
   // Copies the blocks identified by iter_pair from the old image into
   // the new one, inserting them in order from insert_at.
   bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
                   RelativeAddress insert_at, size_t* bytes_copied);
 
-  const std::vector<ImageLayout::SegmentInfo>& original_sections() const {
+  const std::vector<ImageLayout::SectionInfo>& original_sections() const {
     return original_sections_;
   }
   const BlockGraph::AddressSpace& original_addr_space() const {
@@ -82,7 +82,7 @@ class RelinkerBase {
 
  private:
   // Information from the original image.
-  std::vector<ImageLayout::SegmentInfo> original_sections_;
+  std::vector<ImageLayout::SectionInfo> original_sections_;
   const BlockGraph::AddressSpace* original_addr_space_;
 
   // The builder that we use to construct the new image.
@@ -129,7 +129,7 @@ class Relinker : public RelinkerBase {
   // Function to be overridden by subclasses so that each subclass can have its
   // own reordering implementation.
   virtual bool ReorderSection(size_t section_index,
-                              const ImageLayout::SegmentInfo& section,
+                              const ImageLayout::SectionInfo& section,
                               const Reorderer::Order& order) = 0;
 
   // Updates the debug information in the debug directory with our new GUID.
