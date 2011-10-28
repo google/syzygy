@@ -48,10 +48,17 @@ TEST_F(DecomposerTest, Decompose) {
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
+  // Retrieve and validate the DOS header.
   BlockGraph::Block* dos_header_block =
       image_layout.blocks.GetBlockByAddress(RelativeAddress(0));
   ASSERT_TRUE(dos_header_block != NULL);
   ASSERT_TRUE(IsValidDosHeaderBlock(dos_header_block));
+
+  // Retrieve and validate the NT header.
+  BlockGraph::Block* nt_headers_block =
+      GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+  ASSERT_TRUE(nt_headers_block != NULL);
+  ASSERT_TRUE(IsValidNtHeadersBlock(nt_headers_block));
 
   // There should be some blocks in the graph and in the layout.
   EXPECT_NE(0U, block_graph.blocks().size());
@@ -60,40 +67,6 @@ TEST_F(DecomposerTest, Decompose) {
   // All the blocks in the graph should be represented in the address space.
   EXPECT_EQ(block_graph.blocks().size(),
             image_layout.blocks.address_space_impl().size());
-
-  EXPECT_EQ(
-      IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_32BIT_MACHINE | IMAGE_FILE_DLL,
-      image_layout.header_info.characteristics);
-  // These are by observation on VC 2008, please amend as necessary
-  // for other/future toolchains.
-  EXPECT_LE(0x07, image_layout.header_info.major_linker_version);
-  EXPECT_EQ(0x00, image_layout.header_info.minor_linker_version);
-  EXPECT_EQ(0x10000000, image_layout.header_info.image_base);
-  EXPECT_EQ(0x1000, image_layout.header_info.section_alignment);
-  EXPECT_EQ(0x200, image_layout.header_info.file_alignment);
-
-  EXPECT_EQ(0x0005, image_layout.header_info.major_operating_system_version);
-  EXPECT_EQ(0x0000, image_layout.header_info.minor_operating_system_version);
-
-  EXPECT_EQ(0x0000, image_layout.header_info.major_image_version);
-  EXPECT_EQ(0x0000, image_layout.header_info.minor_image_version);
-
-  EXPECT_EQ(0x0005, image_layout.header_info.major_subsystem_version);
-  EXPECT_EQ(0x0000, image_layout.header_info.minor_subsystem_version);
-
-  EXPECT_EQ(0x00000000, image_layout.header_info.win32_version_value);
-  EXPECT_EQ(0x00000400, image_layout.header_info.size_of_headers);
-
-  EXPECT_EQ(0x0003, image_layout.header_info.subsystem);
-  EXPECT_EQ(IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE |
-      IMAGE_DLLCHARACTERISTICS_NX_COMPAT,
-      image_layout.header_info.dll_characteristics);
-
-  EXPECT_EQ(0x00100000, image_layout.header_info.size_of_stack_reserve);
-  EXPECT_EQ(0x1000, image_layout.header_info.size_of_stack_commit);
-  EXPECT_EQ(0x100000, image_layout.header_info.size_of_heap_reserve);
-  EXPECT_EQ(0x1000, image_layout.header_info.size_of_heap_commit);
-  EXPECT_EQ(0, image_layout.header_info.loader_flags);
 
   ASSERT_EQ(6, image_layout.segments.size());
 
@@ -216,9 +189,6 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
         testing::ContainerEq(
             in_image_layout.blocks.address_space_impl().ranges()));
 
-    EXPECT_EQ(0, memcmp(&image_layout.header_info,
-                        &in_image_layout.header_info,
-                        sizeof(image_layout.header_info)));
     EXPECT_THAT(image_layout.segments,
                 testing::ContainerEq(in_image_layout.segments));
   }

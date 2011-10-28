@@ -347,19 +347,13 @@ bool PEFileBuilder::FinalizeHeaders() {
     }
   }
 
-  // Update the image layout from the NT headers.
-  // TODO(siggi): This feels awfully backwards and awfully redundant somehow.
-  //    Better to remove the header info from ImageLayout and use the data
-  //    in the NT headers in the image.
-  CopyNtHeaderToImageLayout(nt_headers, &image_layout_.header_info);
-
   nt_headers->OptionalHeader.SizeOfImage = next_section_address_.value();
 
   // Get the section headers pointer.
   IMAGE_SECTION_HEADER* section_headers =
       reinterpret_cast<IMAGE_SECTION_HEADER*>(nt_headers + 1);
   core::FileOffsetAddress segment_file_start(
-      image_layout_.header_info.size_of_headers);
+      nt_headers->OptionalHeader.SizeOfHeaders);
 
   for (size_t i = 0; i < image_layout_.segments.size(); ++i) {
     const ImageLayout::SegmentInfo& segment = image_layout_.segments[i];

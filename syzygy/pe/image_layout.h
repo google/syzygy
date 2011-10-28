@@ -27,36 +27,6 @@
 namespace pe {
 
 struct ImageLayout {
-  // Information necessary to create PE image headers.
-  struct HeaderInfo {
-    // These fields correspond to the similarly named fields in the
-    // IMAGE_FILE_HEADER and IMAGE_OPTIONAL_HEADER members of the
-    // IMAGE_NT_HEADERS structure.
-    // These fields are exclusive of any field that can be computed from
-    // the image itself.
-    int16 characteristics;
-    uint8 major_linker_version;
-    uint8 minor_linker_version;
-    size_t image_base;
-    size_t section_alignment;
-    size_t file_alignment;
-    int16 major_operating_system_version;
-    int16 minor_operating_system_version;
-    int16 major_image_version;
-    int16 minor_image_version;
-    int16 major_subsystem_version;
-    int16 minor_subsystem_version;
-    size_t win32_version_value;
-    size_t size_of_headers;
-    int16 subsystem;
-    int16 dll_characteristics;
-    size_t size_of_stack_reserve;
-    size_t size_of_stack_commit;
-    size_t size_of_heap_reserve;
-    size_t size_of_heap_commit;
-    size_t loader_flags;
-  };
-
   // Per-segment information.
   struct SegmentInfo {
     // Name of the segment, note that this will be truncated to a max of
@@ -79,19 +49,12 @@ struct ImageLayout {
   // Creates an empty image layout on the supplied block graph.
   explicit ImageLayout(core::BlockGraph* block_graph);
 
-  // Information to populate the PE header.
-  HeaderInfo header_info;
-
   // The segments in the image.
   std::vector<SegmentInfo> segments;
 
   // The blocks that should be written to the image.
   core::BlockGraph::AddressSpace blocks;
 };
-
-// Copies relevant fields from NT headers to header info.
-void CopyNtHeaderToImageLayout(const IMAGE_NT_HEADERS* nt_headers,
-                               ImageLayout::HeaderInfo* header_info);
 
 // Copies section headers to segment info.
 void CopySectionHeadersToImageLayout(
