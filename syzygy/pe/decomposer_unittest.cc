@@ -116,7 +116,7 @@ TEST_F(DecomposerTest, Decompose) {
 
   // We expect the ImageLayout sections to agree with the BlockGraph sections
   // in number, id, name and characteristics.
-  EXPECT_EQ(block_graph.sections().size() - 1, image_layout.sections.size());
+  EXPECT_EQ(block_graph.sections().size(), image_layout.sections.size());
   for (size_t i = 0; i < image_layout.sections.size(); ++i) {
     const core::BlockGraph::Section* section = block_graph.GetSectionById(i);
     ASSERT_TRUE(section != NULL);
@@ -127,21 +127,20 @@ TEST_F(DecomposerTest, Decompose) {
   }
 
   // We expect every block to be associated with a section, and only two blocks
-  // should be associated with the special 'header' section.
-  size_t header_blocks = 0;
+  // should not be assigned to a section--the two header blocks.
+  size_t non_section_blocks = 0;
   core::BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
   for (; it != block_graph.blocks().end(); ++it) {
     const core::BlockGraph::Block& block = it->second;
-    EXPECT_NE(core::BlockGraph::kInvalidSectionId, block.section());
-    if (block.section() == core::BlockGraph::kHeaderSectionId) {
-      ++header_blocks;
+    if (block.section() == core::BlockGraph::kInvalidSectionId) {
+      ++non_section_blocks;
     } else {
       // If this is not a header block, it should refer to a valid section id.
       EXPECT_LE(0u, block.section());
-      EXPECT_LT(block.section(), block_graph.sections().size() - 1);
+      EXPECT_LT(block.section(), block_graph.sections().size());
     }
   }
-  EXPECT_EQ(2u, header_blocks);
+  EXPECT_EQ(2u, non_section_blocks);
 }
 
 TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
