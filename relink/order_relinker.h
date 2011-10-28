@@ -40,7 +40,7 @@ class OrderRelinker : public Relinker {
                      const DecomposedImage& image,
                      Reorderer::Order* order) OVERRIDE;
   bool ReorderSection(size_t section_index,
-                      const ImageLayout::SegmentInfo& section,
+                      const ImageLayout::SectionInfo& section,
                       const Reorderer::Order& order) OVERRIDE;
 
   // Outputs a padding block. Automatically determines whether or not to output
@@ -52,7 +52,7 @@ class OrderRelinker : public Relinker {
 
   // Outputs blocks of a given type to the section.
   bool OutputBlocks(BlockInitType block_init_type,
-                    const ImageLayout::SegmentInfo& section,
+                    const ImageLayout::SectionInfo& section,
                     const BlockList& block_order,
                     BlockSet* inserted_blocks,
                     RelativeAddress* insert_at);

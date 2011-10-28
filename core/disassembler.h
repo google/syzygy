@@ -56,7 +56,7 @@ class Disassembler {
 
   enum WalkResult {
     // Error during walk - e.g. function is not in our PEImageFile
-    // or the segment is not code, or the OnInstruction callback indicated an
+    // or the section is not code, or the OnInstruction callback indicated an
     // error status.
     kWalkError,
 

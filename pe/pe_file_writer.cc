@@ -185,17 +185,17 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
       header_range.start() + header_range.size());
   FileOffsetAddress previous_section_file_end(previous_section_end.value());
 
-  for (size_t i = 0; i < image_layout_.segments.size(); ++i) {
-    const ImageLayout::SegmentInfo& segment = image_layout_.segments[i];
-    RelativeAddress section_start(segment.addr);
-    size_t section_size = segment.size;
-    // Calculate the file offset start for this segment.
+  for (size_t i = 0; i < image_layout_.sections.size(); ++i) {
+    const ImageLayout::SectionInfo& section = image_layout_.sections[i];
+    RelativeAddress section_start(section.addr);
+    size_t section_size = section.size;
+    // Calculate the file offset start for this section.
     FileOffsetAddress section_file_start(previous_section_file_end);
-    size_t section_file_size = segment.data_size;
+    size_t section_file_size = section.data_size;
 
     if (section_start < previous_section_end ||
         section_file_start < previous_section_file_end) {
-      LOG(ERROR) << "Section " << segment.name <<
+      LOG(ERROR) << "Section " << section.name <<
           " runs into previous section (or header).";
       return false;
     }
@@ -204,7 +204,7 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
             nt_headers_->OptionalHeader.SectionAlignment) != 0 ||
         (section_file_start.value() %
             nt_headers_->OptionalHeader.FileAlignment) != 0) {
-      LOG(ERROR) << "Section " << segment.name <<
+      LOG(ERROR) << "Section " << section.name <<
           " has incorrect alignment.";
       return false;
     }
@@ -214,14 +214,14 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
         (section_file_start - previous_section_file_end >
             static_cast<ptrdiff_t>(
                 nt_headers_->OptionalHeader.FileAlignment))) {
-      LOG(ERROR) << "Section " << segment.name <<
+      LOG(ERROR) << "Section " << section.name <<
           " leaves a gap from previous section.";
       return false;
     }
 
     // Ok, it all passes inspection so far. If the file size is non-zero,
     // go ahead and record the mapping.
-    size_t file_size = segment.data_size;
+    size_t file_size = section.data_size;
     if (file_size != 0) {
       SectionFileAddressSpace::Range file_range(section_start, file_size);
       section_file_offsets_.Insert(file_range, section_file_start);
@@ -253,17 +253,17 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
   }
 
   // Now round the file to the required size.
-  if (image_layout_.segments.size() == 0) {
+  if (image_layout_.sections.size() == 0) {
     LOG(ERROR) << "Missing or corrupt image section headers";
     return false;
   }
 
 
-  const ImageLayout::SegmentInfo& last_segment = image_layout_.segments.back();
+  const ImageLayout::SectionInfo& last_section = image_layout_.sections.back();
   size_t file_size =
-      last_segment.addr.value() + last_segment.data_size;
+      last_section.addr.value() + last_section.data_size;
   DCHECK_EQ(0U, file_size % nt_headers_->OptionalHeader.FileAlignment);
-  if (last_segment.data_size > last_segment.size) {
+  if (last_section.data_size > last_section.size) {
     if (fseek(file, file_size - 1, SEEK_SET) != 0 ||
         fwrite("\0", 1, 1, file) != 1) {
       LOG(ERROR) << "Unable to round out file size.";

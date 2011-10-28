@@ -64,7 +64,7 @@ bool OrderRelinker::SetupOrdering(const PEFile& pe_file,
 }
 
 bool OrderRelinker::ReorderSection(size_t section_index,
-                                   const ImageLayout::SegmentInfo& section,
+                                   const ImageLayout::SectionInfo& section,
                                    const Reorderer::Order& order) {
   DCHECK(!order_file_path_.empty());
 
@@ -103,7 +103,7 @@ bool OrderRelinker::ReorderSection(size_t section_index,
   size_t section_size = insert_at - section_start;
 
   // Create the reordered section.
-  builder().AddSegment(section.name.c_str(),
+  builder().AddSection(section.name.c_str(),
                        section_size,
                        section_data_size,
                        section.characteristics);
@@ -136,7 +136,7 @@ bool OrderRelinker::OutputPadding(BlockInitType block_init_type,
 }
 
 bool OrderRelinker::OutputBlocks(BlockInitType block_init_type,
-                                 const ImageLayout::SegmentInfo& section,
+                                 const ImageLayout::SectionInfo& section,
                                  const BlockList& block_order,
                                  BlockSet* inserted_blocks,
                                  RelativeAddress* insert_at) {

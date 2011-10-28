@@ -33,7 +33,7 @@ bool RandomRelinker::SetupOrdering(const PEFile& pe_file,
 }
 
 bool RandomRelinker::ReorderSection(size_t section_index,
-                                    const ImageLayout::SegmentInfo& section,
+                                    const ImageLayout::SectionInfo& section,
                                     const Reorderer::Order& /*order*/ ) {
   typedef std::vector<BlockGraph::Block*> BlockList;
 
@@ -92,7 +92,7 @@ bool RandomRelinker::ReorderSection(size_t section_index,
 
   // Create the reodered section.
   size_t section_length = insert_at - section_start;
-  builder().AddSegment(section.name.c_str(),
+  builder().AddSection(section.name.c_str(),
                        section_length,
                        section_length,
                        section.characteristics);
