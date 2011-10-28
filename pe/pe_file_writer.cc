@@ -22,6 +22,7 @@
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/buffer_parser.h"
 #include "syzygy/common/align.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace {
 
@@ -49,7 +50,7 @@ using core::FileOffsetAddress;
 using core::RelativeAddress;
 
 PEFileWriter::PEFileWriter(const ImageLayout& image_layout)
-    : image_layout_(image_layout) {
+    : image_layout_(image_layout), nt_headers_(NULL) {
 }
 
 bool PEFileWriter::WriteImage(const FilePath& path) {
@@ -60,21 +61,24 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
     return false;
   }
 
-  // TODO(siggi): Sanity check the headers:
-  //    Check that the DOS header starts at zero and has the right length.
-  //    Check that there's a DOS stub, and its length.
-  //    Check that the NT headers start at the right offset.
-  //    Check that the section headers start immediately after the NT headers.
-  if (!InitializeSectionFileAddressSpace())
+  if (!ValidateHeaders())
     return false;
 
-  if (!WriteBlocks(file.get()))
-    return false;
+  DCHECK(nt_headers_ != NULL);
+
+  bool success = InitializeSectionFileAddressSpace();
+  if (success)
+    success = WriteBlocks(file.get());
+
+  nt_headers_ = NULL;
 
   // Close the file.
   file.reset();
 
-  return UpdateFileChecksum(path);
+  if (success)
+    success = UpdateFileChecksum(path);
+
+  return success;
 }
 
 // TODO(siggi): This function deserves a unit test.
@@ -134,11 +138,42 @@ bool PEFileWriter::UpdateFileChecksum(const FilePath& path) {
   return true;
 }
 
+bool PEFileWriter::ValidateHeaders() {
+  DCHECK(nt_headers_ == NULL);
+
+  // Get the DOS header block.
+  BlockGraph::Block* dos_header_block =
+      image_layout_.blocks.GetBlockByAddress(RelativeAddress(0));
+  if (dos_header_block == NULL) {
+    LOG(ERROR) << "No DOS header in image.";
+    return false;
+  }
+  if (!IsValidDosHeaderBlock(dos_header_block)) {
+    LOG(ERROR) << "Invalid DOS header in image.";
+    return false;
+  }
+  BlockGraph::Block* nt_headers_block =
+      GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+  DCHECK(nt_headers_block != NULL);
+
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
+  DCHECK(nt_headers != NULL);
+
+  // TODO(siggi): Validate that NT headers and ImageLayout match, or else
+  //     from an AddressSpace, and forget the ImageLayout.
+  nt_headers_ = nt_headers;
+
+  return true;
+}
+
 bool PEFileWriter::InitializeSectionFileAddressSpace() {
+  DCHECK(nt_headers_ != NULL);
+
   // Now set up the address mappings from RVA to disk offset for the entire
   // image. The first mapping starts at zero, and covers the header(s).
   SectionFileAddressSpace::Range header_range(
-      RelativeAddress(0), image_layout_.header_info.size_of_headers);
+      RelativeAddress(0), nt_headers_->OptionalHeader.SizeOfHeaders);
   section_file_offsets_.Insert(header_range, FileOffsetAddress(0));
 
   // The remainder of the mappings are for the sections. While we run through
@@ -167,19 +202,19 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
     }
 
     if ((section_start.value() %
-            image_layout_.header_info.section_alignment) != 0 ||
+            nt_headers_->OptionalHeader.SectionAlignment) != 0 ||
         (section_file_start.value() %
-            image_layout_.header_info.file_alignment) != 0) {
+            nt_headers_->OptionalHeader.FileAlignment) != 0) {
       LOG(ERROR) << "Section " << segment.name <<
           " has incorrect alignment.";
       return false;
     }
 
     if ((section_start - previous_section_end > static_cast<ptrdiff_t>(
-            image_layout_.header_info.section_alignment)) ||
+            nt_headers_->OptionalHeader.SectionAlignment)) ||
         (section_file_start - previous_section_file_end >
             static_cast<ptrdiff_t>(
-                image_layout_.header_info.file_alignment))) {
+                nt_headers_->OptionalHeader.FileAlignment))) {
       LOG(ERROR) << "Section " << segment.name <<
           " leaves a gap from previous section.";
       return false;
@@ -201,7 +236,7 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
 }
 
 bool PEFileWriter::WriteBlocks(FILE* file) {
-  AbsoluteAddress image_base(image_layout_.header_info.image_base);
+  AbsoluteAddress image_base(nt_headers_->OptionalHeader.ImageBase);
 
   // Iterate through all blocks in the address space.
   BlockGraph::AddressSpace::RangeMap::const_iterator it(
@@ -228,7 +263,7 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
   const ImageLayout::SegmentInfo& last_segment = image_layout_.segments.back();
   size_t file_size =
       last_segment.addr.value() + last_segment.data_size;
-  DCHECK_EQ(0U, file_size % image_layout_.header_info.file_alignment);
+  DCHECK_EQ(0U, file_size % nt_headers_->OptionalHeader.FileAlignment);
   if (last_segment.data_size > last_segment.size) {
     if (fseek(file, file_size - 1, SEEK_SET) != 0 ||
         fwrite("\0", 1, 1, file) != 1) {
@@ -248,7 +283,6 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   // referenced before writing the block's data to the file.
   DCHECK(block != NULL);
   DCHECK(file != NULL);
-
   // If the block has no data, there's nothing to write.
   if (block->data() == NULL) {
     // A block with no data can't have references to anything else.
@@ -305,10 +339,9 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
       case BlockGraph::ABSOLUTE_REF: {
           value = image_base.value() + dst_addr.value();
 #ifndef NDEBUG
-          DCHECK(value >= image_layout_.header_info.image_base);
-          // TODO(siggi): Reinstate this check somehow.
-          // DCHECK(value < nt_headers_->OptionalHeader.ImageBase +
-          //    nt_headers_->OptionalHeader.SizeOfImage);
+          DCHECK(value >= nt_headers_->OptionalHeader.ImageBase);
+          DCHECK(value < nt_headers_->OptionalHeader.ImageBase +
+              nt_headers_->OptionalHeader.SizeOfImage);
 #endif
         }
         break;

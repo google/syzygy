@@ -42,6 +42,9 @@ class PEFileWriter {
   static bool PEFileWriter::UpdateFileChecksum(const FilePath& path);
 
  protected:
+  // Validates the DOS header and the NT headers in the image.
+  // On success, sets the nt_headers_ pointer.
+  bool ValidateHeaders();
   bool InitializeSectionFileAddressSpace();
   bool WriteBlocks(FILE* file);
   bool WriteOneBlock(AbsoluteAddress image_base,
@@ -61,6 +64,9 @@ class PEFileWriter {
 
   // Our image layout as provided to the constructor.
   const ImageLayout& image_layout_;
+
+  // Refers to the nt headers from the image during WriteImage.
+  const IMAGE_NT_HEADERS* nt_headers_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PEFileWriter);

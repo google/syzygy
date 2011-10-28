@@ -555,8 +555,6 @@ bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
     return false;
   }
 
-  CopyNtHeaderToImageLayout(nt_headers, &layout->header_info);
-
   const IMAGE_SECTION_HEADER* section_headers =
       reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
 
