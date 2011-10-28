@@ -63,4 +63,26 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file));
 }
 
+TEST_F(PEFileWriterTest, UpdateFileChecksum) {
+  FilePath temp_dir;
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+
+  // Verify that the function fails on non-existent paths.
+  FilePath executable = temp_dir.Append(L"executable_file.exe");
+  EXPECT_FALSE(PEFileWriter::UpdateFileChecksum(executable));
+
+  // Verify that the function fails for non-image files.
+  file_util::ScopedFILE file(file_util::OpenFile(executable, "wb"));
+  // Grow the file to 16K.
+  ASSERT_EQ(0, fseek(file.get(), 16 * 1024, SEEK_SET));
+  file.reset();
+  EXPECT_FALSE(PEFileWriter::UpdateFileChecksum(executable));
+
+  // Make a copy of our test DLL and check that we work on that.
+  FilePath input_path(GetExeRelativePath(kDllName));
+  FilePath image_path(temp_dir.Append(kDllName));
+  EXPECT_TRUE(file_util::CopyFile(input_path, image_path));
+  EXPECT_TRUE(PEFileWriter::UpdateFileChecksum(image_path));
+}
+
 }  // namespace pe
