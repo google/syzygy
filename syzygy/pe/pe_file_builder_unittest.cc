@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
+#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace {
@@ -43,6 +44,7 @@ using pe::Decomposer;
 using pe::ImageLayout;
 using pe::PEFile;
 using pe::PEFileBuilder;
+using pe::IsValidDosHeaderBlock;
 
 class PEFileBuilderTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
@@ -69,6 +71,7 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
     dos_header_block_ =
         image_layout_.blocks.GetBlockByAddress(RelativeAddress(0));
     ASSERT_TRUE(dos_header_block_ != NULL);
+    ASSERT_TRUE(IsValidDosHeaderBlock(dos_header_block_));
   }
 
   void CopyBlockRange(const BlockGraph::AddressSpace::Range& section_range,

@@ -82,6 +82,8 @@
         'pe_file_parser.h',
         'pe_file_writer.cc',
         'pe_file_writer.h',
+        'pe_utils.cc',
+        'pe_utils.h',
       ],
       'dependencies': [
         'dia_sdk',
@@ -156,6 +158,7 @@
         'pe_file_parser_unittest.cc',
         'pe_file_writer_unittest.cc',
         'pe_unittests_main.cc',
+        'pe_utils_unittest.cc',
       ],
       'dependencies': [
         'pe_lib',

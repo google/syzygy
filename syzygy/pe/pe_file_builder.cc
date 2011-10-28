@@ -18,6 +18,7 @@
 
 #include "base/string_util.h"
 #include "syzygy/common/align.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace {
 
@@ -142,47 +143,18 @@ PEFileBuilder::PEFileBuilder(BlockGraph* block_graph)
 
 bool PEFileBuilder::SetImageHeaders(BlockGraph::Block* dos_header_block) {
   DCHECK(dos_header_block != NULL);
-  if (dos_header_block->data() == NULL ||
-      dos_header_block->data_size() < sizeof(IMAGE_DOS_HEADER)) {
-    LOG(ERROR) << "DOS header missing or too short.";
+
+  if (!IsValidDosHeaderBlock(dos_header_block)) {
+    LOG(ERROR) << "Invalid DOS header.";
     return false;
   }
 
-  const IMAGE_DOS_HEADER* dos_header =
-      reinterpret_cast<const IMAGE_DOS_HEADER*>(dos_header_block->data());
-  if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
-    LOG(ERROR) << "DOS header has incorrect signature.";
+  BlockGraph::Block* nt_headers_block =
+      GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+  if (nt_headers_block == NULL) {
+    LOG(ERROR) << "Invalid NT headers.";
     return false;
   }
-  // TODO(siggi): Validate more DOS header info.
-
-  BlockGraph::Reference nt_headers_ref;
-  if (!dos_header_block->GetReference(offsetof(IMAGE_DOS_HEADER, e_lfanew),
-                                      &nt_headers_ref)) {
-    LOG(ERROR) << "DOS header does not reference NT header.";
-    return false;
-  }
-  if (nt_headers_ref.offset() != 0) {
-    LOG(ERROR) << "DOS header reference does not refer to the start of block.";
-    return false;
-  }
-
-  BlockGraph::Block* nt_headers_block = nt_headers_ref.referenced();
-  DCHECK(nt_headers_block != NULL);
-  if (nt_headers_block->data() == NULL ||
-      nt_headers_block->data_size() < sizeof(IMAGE_NT_HEADERS)) {
-    LOG(ERROR) << "NT headers missing or too short.";
-    return false;
-  }
-
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
-  if (nt_headers->Signature != IMAGE_NT_SIGNATURE ||
-      nt_headers->FileHeader.Machine != IMAGE_FILE_MACHINE_I386) {
-    LOG(ERROR) << "NT headers have incorrect signature(s).";
-    return false;
-  }
-  // TODO(siggi): Validate more header info.
 
   dos_header_block_ = dos_header_block;
   nt_headers_block_ = nt_headers_block;
@@ -334,6 +306,7 @@ bool PEFileBuilder::FinalizeHeaders() {
   // Resize the NT headers block if needed to fit the new section headers.
   size_t nt_headers_size = sizeof(IMAGE_NT_HEADERS) +
       sizeof(IMAGE_SECTION_HEADER) * image_layout_.segments.size();
+  nt_headers_block_->set_size(nt_headers_size);
   if (nt_headers_block_->ResizeData(nt_headers_size) == NULL) {
     LOG(ERROR) << "Failed to resize NT headers block.";
     return false;
@@ -433,6 +406,7 @@ bool PEFileBuilder::UpdateDosHeader() {
   // The DOS header has to be a multiple of 16 bytes for historic reasons.
   size_t dos_header_size = common::AlignUp(
       sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
+  dos_header_block_->set_size(dos_header_size);
   if (dos_header_block_->ResizeData(dos_header_size) == NULL) {
     LOG(ERROR) << "Unable to resize DOS header.";
     return false;
@@ -467,6 +441,8 @@ bool PEFileBuilder::UpdateDosHeader() {
 
   // Location of relocs - our header has zero relocs, but we set this anyway.
   dos_header_ptr->e_lfarlc = sizeof(*dos_header_ptr);
+
+  DCHECK(IsValidDosHeaderBlock(dos_header_block_));
 
   return true;
 }
