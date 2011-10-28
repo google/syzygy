@@ -81,7 +81,6 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
   return success;
 }
 
-// TODO(siggi): This function deserves a unit test.
 bool PEFileWriter::UpdateFileChecksum(const FilePath& path) {
   // Open the image file for exclusive write.
   base::win::ScopedHandle image_handle(

@@ -261,7 +261,6 @@ bool BlockGraph::AddressSpace::InsertBlock(RelativeAddress addr, Block* block) {
   return InsertImpl(addr, block);
 }
 
-// TODO(siggi): Remove this method?
 BlockGraph::Block* BlockGraph::AddressSpace::GetBlockByAddress(
     RelativeAddress addr) const {
   return GetContainingBlock(addr, 1);
