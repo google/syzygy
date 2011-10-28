@@ -15,8 +15,8 @@
 // This file declares the Call Trace "Client" class, which is responsible
 // for providing all of the Call Trace DLL functionality.
 
-#ifndef SYZYGY_CALL_TRACE_CLIENT_H_
-#define SYZYGY_CALL_TRACE_CLIENT_H_
+#ifndef SYZYGY_CALL_TRACE_CLIENT_RPC_H_
+#define SYZYGY_CALL_TRACE_CLIENT_RPC_H_
 
 #include <atlbase.h>
 #include <map>
@@ -270,4 +270,4 @@ class Client {
 }  // namespace call_trace::client
 }  // namespace call_trace
 
-#endif  // SYZYGY_CALL_TRACE_CLIENT_H_
+#endif  // SYZYGY_CALL_TRACE_CLIENT_RPC_H_

@@ -48,7 +48,7 @@
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
-        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace',
+        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_client_etw',
         '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_control',
         '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
         '<(DEPTH)/syzygy/relink/relink.gyp:relink',

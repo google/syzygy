@@ -51,7 +51,7 @@
 // By discarding orphaned shadow stack entries on entry and exit, we can ensure
 // that we never return to an orphaned entry.
 
-#include "syzygy/call_trace/client.h"
+#include "syzygy/call_trace/client_rpc.h"
 
 #include <windows.h>
 #include <psapi.h>

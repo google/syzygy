@@ -16,9 +16,9 @@
 #error Don't open this file in the GUI, it'll be massacred on save.
 #endif  // APSTUDIO_INVOKED
 
-#define SYZYGY_FILETYPE VFT_DLL
-#define SYZYGY_DESCRIPTION "Syzygy Call Trace DLL"
-#define SYZYGY_INTERNALNAME "call_trace"
-#define SYZYGY_ORIGINALFILENAME "call_trace.dll"
+#define SYZYGY_FILETYPE VFT_APP
+#define SYZYGY_DESCRIPTION "Syzygy RPC Call-Trace Logging Service"
+#define SYZYGY_INTERNALNAME "Call Trace Service"
+#define SYZYGY_ORIGINALFILENAME "call_trace_service.exe"
 
 #include "syzygy/common/version.rc"
