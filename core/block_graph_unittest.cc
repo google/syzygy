@@ -189,36 +189,21 @@ TEST_F(BlockTest, GetMutableData) {
   ASSERT_EQ(data, block_->GetMutableData());
 }
 
-TEST(BlockGraphTest, HeaderSection) {
-  BlockGraph image;
-
-  // A freshly created image should always contain a special header section.
-  ASSERT_EQ(1u, image.sections().size());
-  ASSERT_EQ(BlockGraph::kHeaderSectionId,
-            image.sections().begin()->second.id());
-
-  BlockGraph::Section* section =
-      image.GetSectionById(BlockGraph::kHeaderSectionId);
-  ASSERT_TRUE(section != NULL);
-  ASSERT_EQ(BlockGraph::kHeaderSectionId, section->id());
-  ASSERT_EQ(section, &image.sections().begin()->second);
-}
-
 TEST(BlockGraphTest, AddSections) {
   BlockGraph image;
-  ASSERT_EQ(1u, image.sections().size());
+  ASSERT_EQ(0u, image.sections().size());
 
   BlockGraph::Section* section0 = image.AddSection("foo", 0);
   ASSERT_TRUE(section0 != NULL);
   ASSERT_EQ("foo", section0->name());
   ASSERT_EQ(0u, section0->characteristics());
-  ASSERT_EQ(2u, image.sections().size());
+  ASSERT_EQ(1u, image.sections().size());
 
   BlockGraph::Section* section1 = image.AddSection("foo", 0);
   ASSERT_TRUE(section1 != NULL);
   ASSERT_EQ("foo", section1->name());
   ASSERT_EQ(0u, section1->characteristics());
-  ASSERT_EQ(3u, image.sections().size());
+  ASSERT_EQ(2u, image.sections().size());
 
   // This section has the same name and characteristics, but it should not be
   // the same section as section0.
@@ -229,7 +214,7 @@ TEST(BlockGraphTest, AddSections) {
   ASSERT_TRUE(section2 != NULL);
   ASSERT_EQ("foo", section2->name());
   ASSERT_EQ(1u, section2->characteristics());
-  ASSERT_EQ(3u, image.sections().size());
+  ASSERT_EQ(2u, image.sections().size());
 
   // This should be the same as section0, the first instance of a section
   // with name 'foo'.
@@ -238,31 +223,27 @@ TEST(BlockGraphTest, AddSections) {
 
 TEST(BlockGraphTest, RemoveSection) {
   BlockGraph image;
-  ASSERT_EQ(1u, image.sections().size());
+  ASSERT_EQ(0u, image.sections().size());
 
   BlockGraph::Section* section0 = image.AddSection("foo", 0);
   ASSERT_TRUE(section0 != NULL);
-  ASSERT_EQ(2u, image.sections().size());
+  ASSERT_EQ(1u, image.sections().size());
 
   BlockGraph::Section* section1 = image.AddSection("bar", 0);
   ASSERT_TRUE(section1 != NULL);
-  ASSERT_EQ(3u, image.sections().size());
-
-  // We should not be able to delete the header section.
-  EXPECT_FALSE(image.RemoveSectionById(BlockGraph::kHeaderSectionId));
-  BlockGraph::Section* header =
-      image.GetSectionById(BlockGraph::kHeaderSectionId);
-  ASSERT_TRUE(header != NULL);
-  EXPECT_FALSE(image.RemoveSection(header));
-  ASSERT_EQ(3u, image.sections().size());
-
-  // Deleting the other sections should work just fine.
-
-  EXPECT_TRUE(image.RemoveSectionById(section0->id()));
   ASSERT_EQ(2u, image.sections().size());
 
-  EXPECT_TRUE(image.RemoveSection(section1));
+  // We should not be able to delete a non-existent section.
+  EXPECT_FALSE(image.RemoveSectionById(BlockGraph::kInvalidSectionId));
+  ASSERT_EQ(2u, image.sections().size());
+
+  // Deleting normal sections should work just fine.
+
+  EXPECT_TRUE(image.RemoveSectionById(section0->id()));
   ASSERT_EQ(1u, image.sections().size());
+
+  EXPECT_TRUE(image.RemoveSection(section1));
+  ASSERT_EQ(0u, image.sections().size());
 }
 
 TEST(BlockGraphTest, RemoveBlock) {

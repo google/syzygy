@@ -18,7 +18,7 @@
 // types.
 //
 // The BlockGraph also stores minimum knowledge of sections (names and
-// characteristics), and each block belongs to exactly one section. In this
+// characteristics), and each block belongs to at most one section. In this
 // sense, a BlockGraph acts as top-level division of blocks.
 #ifndef SYZYGY_CORE_BLOCK_GRAPH_H_
 #define SYZYGY_CORE_BLOCK_GRAPH_H_
@@ -55,9 +55,6 @@ class BlockGraph {
   typedef std::map<SectionId, Section> SectionMap;
 
   static const SectionId kInvalidSectionId;
-  // The header section is a special citizen, and every block graph has one.
-  // It holds blocks that belong to the header of the PE image.
-  static const SectionId kHeaderSectionId;
 
   enum BlockAttributeEnum {
     // Set for functions declared non-returning.

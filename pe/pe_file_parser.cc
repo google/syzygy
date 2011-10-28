@@ -1102,7 +1102,8 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
   if (block != NULL) {
     block->set_attribute(BlockGraph::PE_PARSED);
 
-    // Set the section for this block.
+    // Set the section for this block. We let blocks that belong to the header
+    // be marked with kInvalidSectionId.
     size_t section = image_file_.GetSectionIndex(addr, size);
     if (section == BlockGraph::kInvalidSectionId) {
       // If no section was found for this block, we expect it to be a part of
@@ -1113,7 +1114,6 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
         LOG(ERROR) << "Found a non-header block outside of sections.";
         return NULL;
       }
-      section = BlockGraph::kHeaderSectionId;
     }
     block->set_section(section);
 

@@ -22,10 +22,6 @@ const RelativeAddress kInvalidAddress(0xFFFFFFFF);
 
 const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
 
-// We use a negative value here so that the section IDs used by the decomposer
-// can remain the original image section IDs, from 0 through n - 1.
-const BlockGraph::SectionId BlockGraph::kHeaderSectionId = -2;
-
 const char* BlockGraph::kBlockType[] = {
   "CODE_BLOCK", "DATA_BLOCK", "BASIC_CODE_BLOCK", "BASIC_DATA_BLOCK",
 };
@@ -35,10 +31,6 @@ COMPILE_ASSERT(arraysize(BlockGraph::kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
 BlockGraph::BlockGraph()
     : next_section_id_(0),
       next_block_id_(0) {
-  static const Section kHeaderSection(kHeaderSectionId, "headers", 0);
-  bool inserted = sections_.insert(std::make_pair(kHeaderSectionId,
-                                                  kHeaderSection)).second;
-  DCHECK(inserted);
 }
 
 BlockGraph::~BlockGraph() {
@@ -74,10 +66,6 @@ BlockGraph::Section* BlockGraph::FindOrAddSection(const char* name,
 bool BlockGraph::RemoveSection(Section* section) {
   DCHECK(section != NULL);
 
-  // We protect the header section!
-  if (section->id() == kHeaderSectionId)
-    return false;
-
   SectionMap::iterator it(sections_.find(section->id()));
   if (it == sections_.end() || &it->second != section)
     return false;
@@ -87,10 +75,6 @@ bool BlockGraph::RemoveSection(Section* section) {
 }
 
 bool BlockGraph::RemoveSectionById(SectionId id) {
-  // We protect the header section!
-  if (id == kHeaderSectionId)
-    return false;
-
   SectionMap::iterator it(sections_.find(id));
   if (it == sections_.end())
     return false;
