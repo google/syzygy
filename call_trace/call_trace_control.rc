@@ -17,8 +17,8 @@
 #endif  // APSTUDIO_INVOKED
 
 #define SYZYGY_FILETYPE VFT_APP
-#define SYZYGY_DESCRIPTION "Syzygy Call Trace Service"
-#define SYZYGY_INTERNALNAME "Call Trace Service"
-#define SYZYGY_ORIGINALFILENAME "call_trace_service.exe"
+#define SYZYGY_DESCRIPTION "Syzygy ETW Call-Trace Coroller"
+#define SYZYGY_INTERNALNAME "call_trace_control"
+#define SYZYGY_ORIGINALFILENAME "call_trace_control.exe"
 
 #include "syzygy/common/version.rc"

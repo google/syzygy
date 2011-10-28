@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_CALL_TRACE_CALL_TRACE_MAIN_H_
-#define SYZYGY_CALL_TRACE_CALL_TRACE_MAIN_H_
+#ifndef SYZYGY_CALL_TRACE_CLIENT_ETW_H_
+#define SYZYGY_CALL_TRACE_CLIENT_ETW_H_
 
 #include <atlbase.h>
 #include <utility>
@@ -146,4 +146,4 @@ class TracerModule: public base::win::EtwTraceProvider {
   DWORD tls_index_;
 };
 
-#endif  // SYZYGY_CALL_TRACE_CALL_TRACE_MAIN_H_
+#endif  // SYZYGY_CALL_TRACE_CLIENT_ETW_H_

@@ -47,7 +47,7 @@
 // By discarding orphaned shadow stack entries on entry and exit, we can ensure
 // that we never return on an orphaned entry.
 
-#include "syzygy/call_trace/call_trace_main.h"
+#include "syzygy/call_trace/client_etw.h"
 
 #include <windows.h>
 #include <tlhelp32.h>
