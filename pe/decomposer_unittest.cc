@@ -19,6 +19,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace {
@@ -31,6 +32,9 @@ class DecomposerTest: public testing::PELibUnitTest {
 
 namespace pe {
 
+using core::BlockGraph;
+using core::RelativeAddress;
+
 TEST_F(DecomposerTest, Decompose) {
   FilePath image_path(GetExeRelativePath(kDllName));
   PEFile image_file;
@@ -40,9 +44,14 @@ TEST_F(DecomposerTest, Decompose) {
   // Decompose the test image and look at the result.
   Decomposer decomposer(image_file);
 
-  core::BlockGraph block_graph;
+  BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  BlockGraph::Block* dos_header_block =
+      image_layout.blocks.GetBlockByAddress(RelativeAddress(0));
+  ASSERT_TRUE(dos_header_block != NULL);
+  ASSERT_TRUE(IsValidDosHeaderBlock(dos_header_block));
 
   // There should be some blocks in the graph and in the layout.
   EXPECT_NE(0U, block_graph.blocks().size());
@@ -171,7 +180,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
   // Decompose the test image and look at the result.
   Decomposer decomposer(image_file);
 
-  core::BlockGraph block_graph;
+  BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
@@ -194,7 +203,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
     core::FileInStream in_stream(temp_file.get());
     core::NativeBinaryInArchive in_archive(&in_stream);
     PEFile in_image_file;
-    core::BlockGraph in_block_graph;
+    BlockGraph in_block_graph;
     ImageLayout in_image_layout(&block_graph);
     EXPECT_TRUE(LoadDecomposition(&in_archive,
                                   &in_image_file,
@@ -224,7 +233,7 @@ TEST_F(DecomposerTest, BasicBlockDecompose) {
   // Decompose the test image and look at the result.
   Decomposer decomposer(image_file);
 
-  core::BlockGraph block_graph;
+  BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
