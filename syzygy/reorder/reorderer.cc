@@ -91,7 +91,7 @@ Reorderer::~Reorderer() {
 bool Reorderer::Reorder(OrderGenerator* order_generator,
                         Order* order,
                         PEFile* pe_file,
-                        DecomposedImage* image) {
+                        ImageLayout* image) {
   DCHECK(order_generator != NULL);
   DCHECK(order != NULL);
 
@@ -284,7 +284,7 @@ void Reorderer::OnFunctionEntry(base::Time time,
   RelativeAddress rva(
       static_cast<uint32>(function_address - module_info->base_address));
   const BlockGraph::Block* block =
-      image_->address_space.GetBlockByAddress(rva);
+      image_->blocks.GetBlockByAddress(rva);
   if (block == NULL) {
     LOG(ERROR) << "Unable to map " << rva << " to a block.";
     parser_->set_error_occurred(true);
@@ -426,7 +426,7 @@ bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
 }
 
 bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
-                                    const DecomposedImage& image,
+                                    const ImageLayout& image,
                                     const FilePath& path) {
   std::string file_string;
   if (!file_util::ReadFileToString(path, &file_string)) {
@@ -506,7 +506,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
       RelativeAddress rva(address);
 
       const BlockGraph::Block* block =
-          image.address_space.GetBlockByAddress(rva);
+          image.blocks.GetBlockByAddress(rva);
       if (block == NULL) {
         LOG(ERROR) << "Block address not found in decomposed image: "
                    << address;

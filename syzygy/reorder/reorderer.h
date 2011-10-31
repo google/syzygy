@@ -28,6 +28,7 @@
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "syzygy/call_trace/parser.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/image_layout.h"
 
 // Forward declaration.
 namespace core {
@@ -46,6 +47,7 @@ using core::AddressSpace;
 using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
+using pe::ImageLayout;
 using pe::PEFile;
 
 // This class can consume a set of call-trace logs captured for a PE image
@@ -55,7 +57,6 @@ class Reorderer : public ParseEventHandler {
   struct Order;
   class OrderGenerator;
   class UniqueTime;
-  typedef Decomposer::DecomposedImage DecomposedImage;
   typedef std::vector<FilePath> TraceFileList;
   typedef TraceFileList::iterator TraceFileIter;
 
@@ -88,14 +89,13 @@ class Reorderer : public ParseEventHandler {
   bool Reorder(OrderGenerator* order_generator,
                Order* order,
                PEFile* pe_file,
-               Decomposer::DecomposedImage* image);
+               ImageLayout* image);
 
   // Returns the reorderer directives provided at Init time.
   Flags flags() const { return flags_; }
 
  private:
   typedef std::set<uint32> ProcessSet;
-  typedef Decomposer::DecomposedImage DecomposedImage;
 
   // The actual implementation of Reorder.
   bool ReorderImpl(Order* order);
@@ -168,7 +168,7 @@ class Reorderer : public ParseEventHandler {
   // The decomposed image of the module we're reordering. This is actually
   // a pointer to an image in the output structure, but several internals
   // make use of it during processing.
-  DecomposedImage* image_;
+  ImageLayout* image_;
 
   // The call-trace log file parser.
   Parser* parser_;
@@ -209,7 +209,7 @@ struct Reorderer::Order {
   // block should only appear once within it. We currently constrain ourselves
   // to keep blocks in the same section from which they originate. Thus, we
   // separate the order information per section, with the section IDs coming
-  // from the DecomposedImage of the original module.
+  // from the ImageLayout of the original module.
   typedef std::vector<const BlockGraph::Block*> BlockList;
   typedef std::map<size_t, BlockList> BlockListMap;
   BlockListMap section_block_lists;
@@ -227,7 +227,7 @@ struct Reorderer::Order {
   // Loads an ordering from a JSON file. 'pe' and 'image' must already be
   // populated prior to calling this.
   bool LoadFromJSON(const PEFile& pe,
-                    const DecomposedImage& image,
+                    const ImageLayout& image,
                     const FilePath& path);
 
   // Extracts the name of the original module from an order file. This is
@@ -243,8 +243,6 @@ struct Reorderer::Order {
 // and is asked to build an ordering.
 class Reorderer::OrderGenerator {
  public:
-  typedef Decomposer::DecomposedImage DecomposedImage;
-
   explicit OrderGenerator(const char* name) : name_(name) {}
 
   virtual ~OrderGenerator() {}
@@ -276,10 +274,10 @@ class Reorderer::OrderGenerator {
 
   // The derived class shall implement this function, which actually produces
   // the reordering. When this is called, the callee can be assured that the
-  // DecomposedImage is populated and all traces have been parsed. This must
+  // ImageLayout is populated and all traces have been parsed. This must
   // return true on success, false otherwise.
   virtual bool CalculateReordering(const PEFile& pe_file,
-                                   const DecomposedImage& image,
+                                   const ImageLayout& image,
                                    bool reorder_code,
                                    bool reorder_data,
                                    Order* order) = 0;

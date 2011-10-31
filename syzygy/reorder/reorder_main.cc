@@ -166,7 +166,8 @@ int main(int argc, char** argv) {
   }
 
   pe::PEFile input_dll;
-  pe::Decomposer::DecomposedImage decomposed;
+  core::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
   reorder::Reorderer::Order order;
   Reorderer reorderer(input_dll_path,
                       instrumented_dll_path,
@@ -175,7 +176,7 @@ int main(int argc, char** argv) {
   if (!reorderer.Reorder(order_generator.get(),
                          &order,
                          &input_dll,
-                         &decomposed)) {
+                         &image_layout)) {
     LOG(ERROR) << "Reorder failed.";
     return 1;
   }

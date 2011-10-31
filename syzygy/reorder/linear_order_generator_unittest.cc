@@ -36,7 +36,7 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
     core::RelativeAddress cur_addr;
     for (; it != end; it++) {
       core::RelativeAddress addr;
-      EXPECT_TRUE(image_.address_space.GetAddressOf(*it, &addr));
+      EXPECT_TRUE(image_layout_.blocks.GetAddressOf(*it, &addr));
       EXPECT_LT(cur_addr, addr);
       cur_addr = addr;
     }
@@ -47,7 +47,7 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
 
 TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
-                                                   image_,
+                                                   image_layout_,
                                                    false,
                                                    false,
                                                    &order_));
@@ -82,7 +82,7 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
         section->VirtualAddress + random(section->Misc.VirtualSize));
     addrs.push_back(addr);
     const core::BlockGraph::Block* block =
-        image_.address_space.GetBlockByAddress(addr);
+        image_layout_.blocks.GetBlockByAddress(addr);
     if (!block_set.insert(block).second)
       continue;
     blocks.push_back(block);
@@ -123,7 +123,7 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
 
   // Do the reordering.
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
-                                                   image_,
+                                                   image_layout_,
                                                    true,
                                                    false,
                                                    &order_));

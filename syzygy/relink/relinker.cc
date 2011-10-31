@@ -29,6 +29,7 @@
 #include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_writer.h"
+#include "syzygy/pe/pe_utils.h"
 
 using core::BlockGraph;
 using core::RelativeAddress;
@@ -87,46 +88,33 @@ base::LazyInstance<PaddingData> kPaddingData(base::LINKER_INITIALIZED);
 
 namespace relink {
 
-RelinkerBase::RelinkerBase() : original_addr_space_(NULL) {
+RelinkerBase::RelinkerBase() : image_layout_(NULL), block_graph_(NULL) {
 }
 
 RelinkerBase::~RelinkerBase() {
 }
 
-bool RelinkerBase::Initialize(Decomposer::DecomposedImage* decomposed) {
-  DCHECK(decomposed != NULL);
+bool RelinkerBase::Initialize(const ImageLayout& image_layout,
+                              BlockGraph* block_graph) {
+  DCHECK(block_graph != NULL);
 
-  // Read the original section headers from the NT headers.
-  // TODO(siggi): Remove this once we decompose to an ImageLayout.
-  DCHECK_LE(sizeof(IMAGE_NT_HEADERS),
-            decomposed->header.nt_headers->data_size());
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          decomposed->header.nt_headers->data());
-  const IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-  for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
-    ImageLayout::SectionInfo section = {
-        pe::PEFile::GetSectionName(section_headers[i]),
-        RelativeAddress(section_headers[i].VirtualAddress),
-        section_headers[i].Misc.VirtualSize,
-        section_headers[i].SizeOfRawData,
-        section_headers[i].Characteristics };
-    original_sections_.push_back(section);
-  }
+  // Retrieve the DOS header block from the image layout.
+  BlockGraph::Block* dos_header_block =
+      image_layout.blocks.GetBlockByAddress(RelativeAddress(0));
 
-  original_addr_space_ = &decomposed->address_space;
-  builder_.reset(new PEFileBuilder(&decomposed->image));
-  if (!builder_->SetImageHeaders(decomposed->header.dos_header)) {
+  builder_.reset(new PEFileBuilder(block_graph));
+  if (!builder_->SetImageHeaders(dos_header_block)) {
     LOG(ERROR) << "Invalid image headers.";
     return false;
   }
 
+  image_layout_ = &image_layout;
+  block_graph_ = block_graph;
+
   return true;
 }
 
-bool RelinkerBase::FinalizeImageHeaders(
-    const PEFileParser::PEHeader& original_header) {
+bool RelinkerBase::FinalizeImageHeaders() {
   if (!builder().CreateRelocsSection())  {
     LOG(ERROR) << "Unable to create new relocations section";
     return false;
@@ -134,21 +122,6 @@ bool RelinkerBase::FinalizeImageHeaders(
 
   if (!builder().FinalizeHeaders()) {
     LOG(ERROR) << "Unable to finalize header information";
-    return false;
-  }
-
-  // Make sure everyone who previously referred the original
-  // DOS header is redirected to the new one.
-  if (!original_header.dos_header->TransferReferrers(0,
-          builder().dos_header_block())) {
-    LOG(ERROR) << "Unable to redirect DOS header references.";
-    return false;
-  }
-
-  // And ditto for the original NT headers.
-  if (!original_header.nt_headers->TransferReferrers(0,
-          builder().nt_headers_block())) {
-    LOG(ERROR) << "Unable to redirect NT headers references.";
     return false;
   }
 
@@ -250,21 +223,22 @@ bool Relinker::Relink(const FilePath& input_dll_path,
 
   LOG(INFO) << "Decomposing input image.";
   Decomposer decomposer(input_dll);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed)) {
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  if (!decomposer.Decompose(&image_layout)) {
     LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
     return false;
   }
 
   LOG(INFO) << "Initializing relinker.";
-  if (!Initialize(&decomposed)) {
+  if (!Initialize(image_layout, &block_graph)) {
     LOG(ERROR) << "Unable to initialize the relinker.";
     return false;
   }
 
   LOG(INFO) << "Setting up the new ordering.";
   Reorderer::Order order;
-  if (!SetupOrdering(input_dll, decomposed, &order)) {
+  if (!SetupOrdering(input_dll, image_layout, &order)) {
     LOG(ERROR) << "Unable to setup the ordering.";
     return false;
   }
@@ -292,9 +266,19 @@ bool Relinker::Relink(const FilePath& input_dll_path,
 
   // Update the debug info and copy the data directory.
   LOG(INFO) << "Updating debug information.";
-  if (!UpdateDebugInformation(
-          decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_DEBUG],
-          output_pdb_path)) {
+
+  // Retrieve the debug sdirectory entry block.
+  BlockGraph::Reference debug_entry;
+  size_t debug_entry_size = 0;
+  if (!builder().GetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_DEBUG,
+                                       &debug_entry,
+                                       &debug_entry_size) ||
+      debug_entry.offset() != 0) {
+    LOG(ERROR) << "Missing or invalid debug directory entry.";
+    return false;
+  }
+
+  if (!UpdateDebugInformation(debug_entry.referenced(), output_pdb_path)) {
     LOG(ERROR) << "Unable to update debug information.";
     return false;
   }
@@ -311,7 +295,7 @@ bool Relinker::Relink(const FilePath& input_dll_path,
 
   // Finalize the headers and write the image and pdb.
   LOG(INFO) << "Finalizing the image headers.";
-  if (!FinalizeImageHeaders(decomposed.header)) {
+  if (!FinalizeImageHeaders()) {
     LOG(ERROR) << "Unable to finalize image headers.";
     return false;
   }
@@ -333,8 +317,9 @@ bool Relinker::Relink(const FilePath& input_dll_path,
   return true;
 }
 
-bool Relinker::Initialize(Decomposer::DecomposedImage* decomposed) {
-  if (!RelinkerBase::Initialize(decomposed))
+bool Relinker::Initialize(const ImageLayout& image_layout,
+                          BlockGraph* block_graph) {
+  if (!RelinkerBase::Initialize(image_layout, block_graph))
     return false;
 
   if (FAILED(::CoCreateGuid(&new_image_guid_))) {
@@ -368,14 +353,8 @@ bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
   return true;
 }
 
-bool Relinker::UpdateDebugInformation(
-    BlockGraph::Block* debug_directory_block,
-    const FilePath& output_pdb_path) {
-  // TODO(siggi): This is a bit of a hack, but in the interest of expediency
-  //     we simply reallocate the data the existing debug directory references,
-  //     and update the GUID and timestamp therein.
-  //     It would be better to simply junk the debug info block, and replace it
-  //     with a block that contains the new GUID, timestamp and PDB path.
+bool Relinker::UpdateDebugInformation(BlockGraph::Block* debug_directory_block,
+                                      const FilePath& output_pdb_path) {
   IMAGE_DEBUG_DIRECTORY debug_dir;
   if (debug_directory_block->data_size() != sizeof(debug_dir)) {
     LOG(ERROR) << "Debug directory is unexpected size.";

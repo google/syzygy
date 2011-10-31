@@ -41,29 +41,21 @@ bool DeadCodeFinder::IsDead(const Block* block) const {
 }
 
 bool DeadCodeFinder::CalculateReordering(const PEFile& pe_file,
-                                         const DecomposedImage& image,
+                                         const ImageLayout& image,
                                          bool reorder_code,
                                          bool reorder_data,
                                          Order* order) {
   DCHECK(order != NULL);
 
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          image.header.nt_headers->data());
-  DCHECK(nt_headers != NULL);
-  const IMAGE_SECTION_HEADER* sections =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-
-  for (size_t i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i) {
-    const IMAGE_SECTION_HEADER& section = sections[i];
-    if ((sections[i].Characteristics & IMAGE_SCN_CNT_CODE) == 0)
+  for (size_t i = 0; i < image.sections.size(); ++i) {
+    const ImageLayout::SectionInfo& section = image.sections[i];
+    if ((section.characteristics & IMAGE_SCN_CNT_CODE) == 0)
       continue;
 
     // Prepare to iterate over all block in the section.
-    BlockGraph::AddressSpace::Range section_range(
-        RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
+    BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
     AddressSpace::RangeMapConstIterPair section_blocks(
-        image.address_space.GetIntersectingBlocks(
+        image.blocks.GetIntersectingBlocks(
             section_range.start(), section_range.size()));
 
     // Gather up all unvisited blocks within the section in the "order".

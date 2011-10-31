@@ -44,16 +44,11 @@ class RelinkerBase {
 
  protected:
   // Sets up the basic relinker state for the given decomposed image.
-  // TODO(rogerm): Logically, the decomposed param should be const. The
-  //     blockgraph managed by the decomposed image is used in a mutable
-  //     fashion by the relinker (via its PEFileBuilder). The "correct"
-  //     fix would probably be to take a copy of the original block graph
-  //     and have the builder use that ... but that's a really expensive
-  //     concession to make for const-correctness.
-  virtual bool Initialize(Decomposer::DecomposedImage* decomposed);
+  virtual bool Initialize(const ImageLayout& image_layout,
+                          BlockGraph* block_graph);
 
   // Calculates header values for the relinked image, in prep for writing.
-  bool FinalizeImageHeaders(const PEFileParser::PEHeader& original_header);
+  bool FinalizeImageHeaders();
 
   // Commits the relinked image to disk at the given output path.
   bool WriteImage(const FilePath& output_path);
@@ -66,15 +61,19 @@ class RelinkerBase {
   bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
                   RelativeAddress insert_at, size_t* bytes_copied);
 
+  // TODO(siggi): Remove this accessor in favor of one to the image_layout_.
   const std::vector<ImageLayout::SectionInfo>& original_sections() const {
-    return original_sections_;
+    CHECK(image_layout_ != NULL);
+    return image_layout_->sections;
   }
+
+  // TODO(siggi): This accessor isn't safe under mutation of the underlying
+  //     block graph. This usage will vanish under the "new order of things",
+  //     but until then, this accessor should be considered deprecated and
+  //     dangerous.
   const BlockGraph::AddressSpace& original_addr_space() const {
-    // TODO(rogerm) Sort out which value to track, the original address
-    //     space or the decomposed image, which owns the address space.
-    //     This dereference isn't particularly hygeinic.
-    CHECK(original_addr_space_ != NULL);
-    return *original_addr_space_;
+    CHECK(image_layout_ != NULL);
+    return image_layout_->blocks;
   }
 
   // Accesses the PE file builder.
@@ -82,8 +81,8 @@ class RelinkerBase {
 
  private:
   // Information from the original image.
-  std::vector<ImageLayout::SectionInfo> original_sections_;
-  const BlockGraph::AddressSpace* original_addr_space_;
+  const ImageLayout* image_layout_;
+  BlockGraph* block_graph_;
 
   // The builder that we use to construct the new image.
   scoped_ptr<PEFileBuilder> builder_;
@@ -95,7 +94,6 @@ class RelinkerBase {
 // and after reordering for PDB rewriting.
 class Relinker : public RelinkerBase {
  public:
-  typedef Decomposer::DecomposedImage DecomposedImage;
   typedef Reorderer::Order Order;
   typedef pe::PEFile PEFile;
 
@@ -119,11 +117,12 @@ class Relinker : public RelinkerBase {
 
  protected:
   // Sets up internal state based on the decomposed image.
-  bool Initialize(Decomposer::DecomposedImage* decomposed) OVERRIDE;
+  bool Initialize(const ImageLayout& image_layout,
+                  BlockGraph* block_graph) OVERRIDE;
 
   // Performs whatever custom initialization of the order that it required.
   virtual bool SetupOrdering(const PEFile& pe_file,
-                             const DecomposedImage& image,
+                             const ImageLayout& image,
                              Order* order) = 0;
 
   // Function to be overridden by subclasses so that each subclass can have its

@@ -199,6 +199,26 @@ RelativeAddress PEFileBuilder::AddSection(const char* name,
   return section_base;
 }
 
+bool PEFileBuilder::GetDataDirectoryEntry(size_t entry_index,
+                                          BlockGraph::Reference* entry,
+                                          size_t* entry_size) const {
+  DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
+  DCHECK(entry_size != NULL);
+  DCHECK(nt_headers_block_ != NULL);
+  DCHECK(nt_headers_block_->data() != NULL);
+  DCHECK(nt_headers_block_->data_size() >= sizeof(IMAGE_NT_HEADERS));
+
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block_->data());
+
+  *entry_size = nt_headers->OptionalHeader.DataDirectory[entry_index].Size;
+  size_t entry_offset =
+      offsetof(IMAGE_NT_HEADERS,
+               OptionalHeader.DataDirectory[entry_index].VirtualAddress);
+
+  return nt_headers_block_->GetReference(entry_offset, entry);
+}
+
 bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
                                           BlockGraph::Block* block) {
   DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
@@ -217,7 +237,7 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
   DCHECK_LT(entry_index, static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
   DCHECK(IsValidReference(image_layout_.blocks, entry));
   DCHECK_EQ(BlockGraph::RELATIVE_REF, entry.type());
-  DCHECK(entry_size != NULL);
+  DCHECK(entry_size != 0);
   DCHECK(nt_headers_block_ != NULL);
   DCHECK(nt_headers_block_->data() != NULL);
   DCHECK(nt_headers_block_->data_size() >= sizeof(IMAGE_NT_HEADERS));

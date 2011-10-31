@@ -37,7 +37,7 @@ class OrderRelinker : public Relinker {
 
   // Overrides for base class methods.
   bool SetupOrdering(const PEFile& pe_file,
-                     const DecomposedImage& image,
+                     const ImageLayout& image,
                      Reorderer::Order* order) OVERRIDE;
   bool ReorderSection(size_t section_index,
                       const ImageLayout::SectionInfo& section,

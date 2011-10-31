@@ -84,6 +84,12 @@ class PEFileBuilder {
                              size_t data_size,
                              uint32 characteristics);
 
+  // Retrieves a data directory entry reference and size.
+  // @returns true iff there is an existant reference for the entry.
+  bool GetDataDirectoryEntry(size_t entry_index,
+                             BlockGraph::Reference* ref,
+                             size_t* entry_size) const;
+
   // Set a data directory entry to refer a block. This will set the entry's
   // size to the size of the block.
   bool SetDataDirectoryEntry(size_t entry_index, BlockGraph::Block* block);

@@ -37,7 +37,7 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
                                 uint32 thread_id,
                                 const UniqueTime& time) OVERRIDE;
   virtual bool CalculateReordering(const PEFile& pe_file,
-                                   const DecomposedImage& image,
+                                   const ImageLayout& image,
                                    bool reorder_code,
                                    bool reorder_data,
                                    Order* order) OVERRIDE;

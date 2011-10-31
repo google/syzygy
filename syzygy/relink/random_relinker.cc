@@ -26,7 +26,7 @@ RandomRelinker::RandomRelinker(uint32 seed) : seed_(seed) {
 }
 
 bool RandomRelinker::SetupOrdering(const PEFile& pe_file,
-                                   const DecomposedImage& image,
+                                   const ImageLayout& image,
                                    Reorderer::Order* order) {
   // Nothing to do.
   return true;
