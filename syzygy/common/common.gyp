@@ -40,14 +40,14 @@
           # is always run as part of any build.
           'outputs': [
             'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
-            '<(SHARED_INTERMEDIATE_DIR)/lastchange.gen',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           # lastchange.py must be run from the root of Syzygy in order
           # to be meaningful.
           'action': [
             'cd .. && python',
             '../build/util/lastchange.py',
-            '-o', '<(SHARED_INTERMEDIATE_DIR)/lastchange.gen',
+            '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
         },
         {
@@ -56,18 +56,18 @@
             'version.gen.template',
             '<(DEPTH)/sawbuck/tools/template_replace.py',
             '<(DEPTH)/syzygy/VERSION',
-            '<(SHARED_INTERMEDIATE_DIR)/lastchange.gen',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/version.gen',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
           ],
           'action': [
             'python',
             '<(DEPTH)/sawbuck/tools/template_replace.py',
             '--input', 'version.gen.template',
-            '--output', '<(SHARED_INTERMEDIATE_DIR)/version.gen',
+            '--output', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
             '<(DEPTH)/syzygy/VERSION',
-            '<(SHARED_INTERMEDIATE_DIR)/lastchange.gen',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'process_outputs_as_sources': 1,
         },

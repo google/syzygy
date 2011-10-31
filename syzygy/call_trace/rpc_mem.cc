@@ -14,9 +14,10 @@
 //
 // Definitions for the memory allocation hooks required by the RPC runtime.
 
-#include "call_trace_rpc.h"  // NOLINT - Include dir injected by gyp file.
-
 #include <stdlib.h>
+
+#include "syzygy/call_trace/call_trace_rpc.h"
+
 
 // Memory allocator used by the RPC runtime.
 void* __RPC_USER midl_user_allocate(size_t len) {

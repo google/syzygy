@@ -14,7 +14,8 @@
 //
 #include <verrsrc.h>
 #include <winres.h>
-#include "version.gen"  // NOLINT
+
+#include "syzygy/common/version.gen"
 
 #ifdef APSTUDIO_INVOKED
 #error Don't open this file in the GUI, it'll be massacred on save.

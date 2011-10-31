@@ -21,8 +21,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
-
-#include "call_trace_rpc.h"  // NOLINT - Include dir injected by gyp file.
+#include "syzygy/call_trace/call_trace_rpc.h"
 
 // ID for the call trace provider.
 extern const GUID kCallTraceProvider;

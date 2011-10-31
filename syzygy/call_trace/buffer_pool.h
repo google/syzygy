@@ -26,8 +26,7 @@
 
 #include "base/basictypes.h"
 #include "base/win/scoped_handle.h"
-
-#include "call_trace_rpc.h"  // NOLINT - Include dir injected by gyp file.
+#include "syzygy/call_trace/call_trace_rpc.h"
 
 namespace call_trace {
 namespace service {

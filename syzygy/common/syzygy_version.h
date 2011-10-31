@@ -19,7 +19,7 @@
 #include <string>
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "version.gen"  // NOLINT
+#include "syzygy/common/version.gen"
 
 namespace common {
 
