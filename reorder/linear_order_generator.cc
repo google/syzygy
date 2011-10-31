@@ -115,7 +115,7 @@ bool LinearOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* block,
 }
 
 bool LinearOrderGenerator::CalculateReordering(const PEFile& pe_file,
-                                               const DecomposedImage& image,
+                                               const ImageLayout& image,
                                                bool reorder_code,
                                                bool reorder_data,
                                                Order* order) {
@@ -181,7 +181,7 @@ bool LinearOrderGenerator::CalculateReordering(const PEFile& pe_file,
 
     RelativeAddress section_start = RelativeAddress(section->VirtualAddress);
     AddressSpace::RangeMapConstIterPair section_blocks =
-        image.address_space.GetIntersectingBlocks(
+        image.blocks.GetIntersectingBlocks(
             section_start, section->Misc.VirtualSize);
     AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
     const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;

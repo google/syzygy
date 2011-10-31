@@ -22,7 +22,7 @@ using core::RelativeAddress;
 
 namespace testing {
 
-OrderGeneratorTest::OrderGeneratorTest() {
+OrderGeneratorTest::OrderGeneratorTest() : image_layout_(&block_graph_) {
 }
 
 void OrderGeneratorTest::SetUp() {
@@ -31,7 +31,7 @@ void OrderGeneratorTest::SetUp() {
 
   ASSERT_TRUE(input_dll_.Init(input_dll_path));
   pe::Decomposer decomposer(input_dll_);
-  ASSERT_TRUE(decomposer.Decompose(&image_));
+  ASSERT_TRUE(decomposer.Decompose(&image_layout_));
 }
 
 void OrderGeneratorTest::ExpectNoDuplicateBlocks() {
@@ -68,7 +68,7 @@ void OrderGeneratorTest::GetBlockListForSection(
   RelativeAddress section_start =
       RelativeAddress(section->VirtualAddress);
   BlockGraph::AddressSpace::RangeMapConstIterPair section_blocks =
-      image_.address_space.GetIntersectingBlocks(
+      image_layout_.blocks.GetIntersectingBlocks(
           section_start, section->Misc.VirtualSize);
   BlockGraph::AddressSpace::RangeMapConstIter& section_it =
       section_blocks.first;

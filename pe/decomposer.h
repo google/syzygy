@@ -44,8 +44,6 @@ class Decomposer {
  public:
   // Output type for basic block decomposition.
   class BasicBlockBreakdown;
-  // The decomposed image data.
-  class DecomposedImage;
   // A struct for storing fixups.
   struct Fixup;
   // Used for storing references before the block graph is complete.
@@ -70,14 +68,6 @@ class Decomposer {
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
   bool Decompose(ImageLayout* image_layout);
-
-  // Decomposes the image file into the specified DecomposedImage, which
-  // has the breakdown of code and data blocks with typed references.
-  // @returns true on success, false on failure. If @p stats is non-null, it
-  // will be populated with decomposition coverage statistics.
-  // @note this function is deprecated and will be removed as soon as all
-  //      callers are converted to the signature above.
-  bool Decompose(DecomposedImage* decomposed_image);
 
   // Decomposes the decomposed image into basic blocks.
   // @returns true on success, false on failure.
@@ -298,18 +288,6 @@ class Decomposer {
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
-};
-
-// The results of the decomposition process are stored in this class.
-class Decomposer::DecomposedImage {
- public:
-  DecomposedImage() : address_space(&image) {
-  }
-
- public:
-  BlockGraph image;
-  BlockGraph::AddressSpace address_space;
-  PEFileParser::PEHeader header;
 };
 
 class Decomposer::BasicBlockBreakdown {

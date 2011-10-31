@@ -47,7 +47,8 @@ TEST_F(OrderRelinkerTest, Relink) {
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
   pe::PEFile pe_file;
-  pe::Decomposer::DecomposedImage decomposed;
+  core::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
   reorder::Reorderer::Order order;
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
@@ -60,7 +61,7 @@ TEST_F(OrderRelinkerTest, Relink) {
   ASSERT_TRUE(reorderer.Reorder(&order_generator,
                                 &order,
                                 &pe_file,
-                                &decomposed));
+                                &image_layout));
   ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path, true));
 
   relink::OrderRelinker relinker(order_file_path);
@@ -87,7 +88,8 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
   pe::PEFile pe_file;
-  pe::Decomposer::DecomposedImage decomposed;
+  core::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
   reorder::Reorderer::Order order;
   reorder::RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
@@ -100,7 +102,7 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   ASSERT_TRUE(reorderer.Reorder(&order_generator,
                                 &order,
                                 &pe_file,
-                                &decomposed));
+                                &image_layout));
   ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path, true));
 
   relink::OrderRelinker relinker(order_file_path);

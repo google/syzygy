@@ -35,7 +35,8 @@ class OrderGeneratorTest : public PELibUnitTest {
                               reorder::Reorderer::Order::BlockList* block_list);
 
   pe::PEFile input_dll_;
-  pe::Decomposer::DecomposedImage image_;
+  core::BlockGraph block_graph_;
+  pe::ImageLayout image_layout_;
   reorder::Reorderer::Order order_;
 };
 

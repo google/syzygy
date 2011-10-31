@@ -87,14 +87,15 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
 
   LOG(INFO) << "Decomposing input image.";
   Decomposer decomposer(input_dll);
-  Decomposer::DecomposedImage decomposed;
-  if (!decomposer.Decompose(&decomposed)) {
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  if (!decomposer.Decompose(&image_layout)) {
     LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
     return false;
   }
 
   // Construct and initialize our instrumenter.
-  if (!Initialize(&decomposed)) {
+  if (!Initialize(image_layout, &block_graph)) {
     LOG(ERROR) << "Unable to initialize instrumenter.";
     return false;
   }
@@ -108,8 +109,19 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
 
   // Instrument the binary. This creates .import and .thunks sections.
   LOG(INFO) << "Adding call trace import descriptor.";
-  if (!AddCallTraceImportDescriptor(
-      decomposed.header.data_directory[IMAGE_DIRECTORY_ENTRY_IMPORT])) {
+
+  // Retrieve the import directory entry block.
+  BlockGraph::Reference import_entry;
+  size_t import_entry_size = 0;
+  if (!builder().GetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_IMPORT,
+                                       &import_entry,
+                                       &import_entry_size) ||
+      import_entry.offset() != 0) {
+    LOG(ERROR) << "Missing or invalid import table.";
+    return false;
+  }
+
+  if (!AddCallTraceImportDescriptor(import_entry.referenced())) {
     LOG(ERROR) << "Unable to add call trace import.";
     return false;
   }
@@ -124,7 +136,7 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
       is_dll ? kIndirectPenterDllMain : kIndirectPenter;
 
   LOG(INFO) << "Instrumenting code blocks.";
-  if (!InstrumentCodeBlocks(&decomposed.image, entry_point_hook)) {
+  if (!InstrumentCodeBlocks(&block_graph, entry_point_hook)) {
     LOG(ERROR) << "Unable to instrument code blocks.";
     return false;
   }
@@ -147,7 +159,7 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
 
   // Finalize the headers and write the image.
   LOG(INFO) << "Finalizing headers.";
-  if (!FinalizeImageHeaders(decomposed.header)) {
+  if (!FinalizeImageHeaders()) {
     LOG(ERROR) << "Unable to finalize image headers.";
     return false;
   }

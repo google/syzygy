@@ -737,11 +737,6 @@ bool Decomposer::Decompose(ImageLayout* image_layout) {
   return CopyHeaderToImageLayout(header.nt_headers, image_layout);
 }
 
-bool Decomposer::Decompose(DecomposedImage* decomposed_image) {
-  return DecomposeImpl(&decomposed_image->address_space,
-                       &decomposed_image->header);
-}
-
 bool Decomposer::BasicBlockDecompose(const ImageLayout& image_layout,
                                      BasicBlockBreakdown* breakdown) {
   return BuildBasicBlockGraph(image_layout, breakdown);
@@ -2511,7 +2506,7 @@ bool SaveDecomposition(const PEFile& pe_file,
   if (!metadata.Init(pe_file_signature) || !out_archive->Save(metadata))
     return false;
 
-  // Now write out the DecomposedImage.
+  // Now write out the decomposed image.
   if (!out_archive->Save(block_graph) ||
       !out_archive->Save(image_layout.blocks)) {
     return false;

@@ -56,7 +56,7 @@ OrderRelinker::OrderRelinker(const FilePath& order_file_path)
 }
 
 bool OrderRelinker::SetupOrdering(const PEFile& pe_file,
-                                  const DecomposedImage& image,
+                                  const ImageLayout& image,
                                   Reorderer::Order* order) {
   DCHECK(order != NULL);
   DCHECK(!order_file_path_.empty());

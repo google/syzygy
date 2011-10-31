@@ -46,7 +46,7 @@ class RandomOrderGeneratorTest : public testing::OrderGeneratorTest {
 
 TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
-                                                   image_,
+                                                   image_layout_,
                                                    false,
                                                    false,
                                                    &order_));
@@ -65,7 +65,7 @@ TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
 
 TEST_F(RandomOrderGeneratorTest, ReorderCode) {
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
-                                                   image_,
+                                                   image_layout_,
                                                    true,
                                                    false,
                                                    &order_));
@@ -87,7 +87,7 @@ TEST_F(RandomOrderGeneratorTest, ReorderCode) {
 
 TEST_F(RandomOrderGeneratorTest, ReorderData) {
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
-                                                   image_,
+                                                   image_layout_,
                                                    false,
                                                    true,
                                                    &order_));
