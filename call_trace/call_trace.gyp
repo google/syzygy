@@ -44,9 +44,9 @@
           'call_trace_rpc.idl',
         ],
         'outputs': [
-          '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc.h',
-          '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_c.c',
-          '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_s.c',
+          '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace/call_trace_rpc.h',
+          '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace/call_trace_rpc_c.c',
+          '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace/call_trace_rpc_s.c',
         ],
         'action': [
           'midl.exe', 'call_trace_rpc.idl',
@@ -55,7 +55,7 @@
           '-env', 'win32',
           '-Oicf',
           '-prefix', 'all', 'CallTraceClient_', 'server', 'CallTraceService_',
-          '-out', '<(SHARED_INTERMEDIATE_DIR)',
+          '-out', '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace',
           '-h', 'call_trace_rpc.h',
         ]
         }
@@ -69,9 +69,9 @@
         'call_trace_rpc_idl',
       ],
       'sources': [
-        '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc.h',
-        '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_c.c',
-        '<(SHARED_INTERMEDIATE_DIR)/call_trace_rpc_s.c',
+        '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace/call_trace_rpc.h',
+        '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace/call_trace_rpc_c.c',
+        '<(SHARED_INTERMEDIATE_DIR)/syzygy/call_trace/call_trace_rpc_s.c',
         'call_trace_control.cc',
         'call_trace_control.h',
         'call_trace_defs.cc',
