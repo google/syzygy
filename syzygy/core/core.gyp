@@ -44,6 +44,8 @@
         'serialization.cc',
         'serialization.h',
         'serialization_impl.h',
+        'typed_block.h',
+        'typed_block_internal.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -79,6 +81,7 @@
         'disassembler_unittest.cc',
         'json_file_writer_unittest.cc',
         'serialization_unittest.cc',
+        'typed_block_unittest.cc',
       ],
       'dependencies': [
         'core_lib',
