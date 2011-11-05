@@ -11,9 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/unittest_util.h"
 
 #include <imagehlp.h>
+
+#include <algorithm>
+
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -77,7 +81,40 @@ bool EnumImportsProc(const base::win::PEImage &image,
   return true;
 }
 
+void CheckLoadedDllHasSortedSafeSehTable(HMODULE module) {
+  // Verify that the Safe SEH Table is sorted.
+  // http://code.google.com/p/sawbuck/issues/detail?id=42
+  ASSERT_TRUE(module != NULL);
+  base::win::PEImage image(module);
+
+  // Locate the load config directory.
+  PIMAGE_LOAD_CONFIG_DIRECTORY load_config_directory =
+      reinterpret_cast<PIMAGE_LOAD_CONFIG_DIRECTORY>(
+          image.GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG));
+  ASSERT_TRUE(load_config_directory != NULL);
+
+  // Find the bounds of the Safe SEH Table.
+  DWORD* seh_table_begin =
+      reinterpret_cast<DWORD*>(load_config_directory->SEHandlerTable);
+  size_t seh_table_size = load_config_directory->SEHandlerCount;
+  DWORD* seh_table_end = seh_table_begin + seh_table_size;
+
+  // Unfortunately, std::is_sorted is an extension pre-c++0x. An equivalent
+  // test is to see if there are any adjacent elements such that the first
+  // is greater than its successor. So, let's look for the first element for
+  // which this is true, and if we get to the end, then there were no such
+  // elements.
+  DWORD* out_of_order_iter = std::adjacent_find(seh_table_begin,
+                                                seh_table_end,
+                                                std::greater<DWORD>());
+  ASSERT_TRUE(out_of_order_iter == seh_table_end)
+      << "The Safe SEH Table must be sorted.";
+}
+
 void CheckLoadedTestDll(HMODULE module) {
+  // Validate that the DLL is properly constructed.
+  CheckLoadedDllHasSortedSafeSehTable(module);
+
   // Load the exported TestExport function and invoke it.
   typedef DWORD (WINAPI* TestExportFunc)(size_t buf_len, char* buf);
   TestExportFunc test_func = reinterpret_cast<TestExportFunc>(
@@ -202,9 +239,9 @@ void PELibUnitTest::CheckTestDll(const FilePath& path) {
 
   EXPECT_TRUE(::UnMapAndLoad(&loaded_image));
 
-  ScopedHMODULE loaded(::LoadLibrary(path.value().c_str()));
-  ASSERT_TRUE(loaded != NULL);
-  CheckLoadedTestDll(loaded);
+  ScopedHMODULE module(::LoadLibrary(path.value().c_str()));
+  ASSERT_TRUE(module != NULL);
+  CheckLoadedTestDll(module);
 }
 
 }  // namespace testing

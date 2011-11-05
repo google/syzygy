@@ -13,11 +13,14 @@
 // limitations under the License.
 #include "syzygy/pe/pe_file_builder.h"
 
-#include <ctime>
 #include <delayimp.h>
+
+#include <algorithm>
+#include <ctime>
 
 #include "base/string_util.h"
 #include "syzygy/common/align.h"
+#include "syzygy/core/typed_block.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace {
@@ -28,6 +31,7 @@ extern "C" void end_dos_stub();
 
 using core::BlockGraph;
 using core::RelativeAddress;
+using core::TypedBlock;
 typedef std::vector<uint8> ByteVector;
 
 // A utility class to help with formatting the relocations section.
@@ -127,6 +131,35 @@ bool IsValidReference(const BlockGraph::AddressSpace& addr_space,
 
   return true;
 }
+
+// Functor to order references by the address of their referred block.
+class RefAddrLess {
+ public:
+  explicit RefAddrLess(const BlockGraph::AddressSpace* addr_space)
+      : addr_space_(addr_space),
+        failed_(false) {
+    DCHECK(addr_space_ != NULL);
+  }
+
+  bool operator()(const BlockGraph::Reference& lhs,
+                  const BlockGraph::Reference& rhs) {
+    RelativeAddress lhs_addr;
+    RelativeAddress rhs_addr;
+    if (!addr_space_->GetAddressOf(lhs.referenced(), &lhs_addr) ||
+        !addr_space_->GetAddressOf(rhs.referenced(), &rhs_addr)) {
+      failed_ = true;
+    }
+    return lhs_addr < rhs_addr;
+  }
+
+  bool failed() const {
+    return failed_;
+  }
+
+ private:
+  const BlockGraph::AddressSpace* const addr_space_;
+  bool failed_;
+};
 
 }  // namespace
 
@@ -319,7 +352,12 @@ bool PEFileBuilder::FinalizeHeaders() {
   DCHECK(nt_headers_block_ != NULL);
 
   if (!UpdateDosHeader()) {
-    LOG(ERROR) << "Failed update DOS header.";
+    LOG(ERROR) << "Failed to update the DOS header.";
+    return false;
+  }
+
+  if (!SortSafeSehTable()) {
+    LOG(ERROR) << "Failed to sort the Safe SEH Table.";
     return false;
   }
 
@@ -457,6 +495,62 @@ bool PEFileBuilder::UpdateDosHeader() {
   dos_header_ptr->e_lfarlc = sizeof(*dos_header_ptr);
 
   DCHECK(IsValidDosHeaderBlock(dos_header_block_));
+
+  return true;
+}
+
+bool PEFileBuilder::SortSafeSehTable() {
+  // Get the Load Config Directory.
+  BlockGraph::Reference ref;
+  size_t size = 0;
+  if (!GetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG, &ref, &size)) {
+    // There's no Load Config Directory.
+    return true;
+  }
+
+  TypedBlock<IMAGE_LOAD_CONFIG_DIRECTORY> load_config_directory;
+  if (!load_config_directory.Init(0, ref.referenced())) {
+    LOG(ERROR) << "Failed to initialize Load Config Directory.";
+    return false;
+  }
+
+  TypedBlock<DWORD> safe_seh_table;
+  if (!load_config_directory.Dereference(
+          load_config_directory->SEHandlerTable, &safe_seh_table)) {
+    // There's no SEHandlerTable.
+    return true;
+  }
+
+  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
+  const ReferenceMap& orig_references = safe_seh_table.block()->references();
+
+  typedef std::vector<BlockGraph::Reference> ReferenceVector;
+  ReferenceVector sorted_references;
+  sorted_references.reserve(orig_references.size());
+
+  // Copy the references into a secondary vector.
+  for (ReferenceMap::const_iterator iter = orig_references.begin();
+       iter != orig_references.end();
+       ++iter) {
+    sorted_references.push_back(iter->second);
+  }
+
+  // Sort the secondary vector in the order their referred blocks appear
+  // in the image layout.
+  RefAddrLess comparator(&image_layout().blocks);
+  std::sort(sorted_references.begin(), sorted_references.end(), comparator);
+  if (comparator.failed()) {
+    LOG(ERROR) << "One or more exception handler blocks is invalid.";
+    return false;
+  }
+
+  // Reset the references in the Safe SEH Table in sorted order.
+  size_t offset = 0;
+  for (ReferenceVector::iterator iter = sorted_references.begin();
+       iter != sorted_references.end();
+       offset += iter->size(), ++iter) {
+    safe_seh_table.block()->SetReference(offset, *iter);
+  }
 
   return true;
 }
