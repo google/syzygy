@@ -115,6 +115,9 @@ class PEFileBuilder {
   // Update the DOS header with our own stub.
   bool UpdateDosHeader();
 
+  // Ensure that the Safe SEH Table is sorted.
+  bool SortSafeSehTable();
+
   // The image layout we're building.
   ImageLayout image_layout_;
 
