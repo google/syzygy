@@ -41,6 +41,26 @@
       ],
     },
     {
+      'target_name': 'build_docs',
+      'type': 'none',
+      'sources': [
+        'build/doxyfile',
+        'build/run_doxygen.bat',
+      ],
+      'actions': [
+        {
+          'action_name': 'Run Doxygen',
+          'msvs_cygwin_shell': 0,
+          'outputs': [
+             'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
+          ],
+          'action': [
+            'build/run_doxygen.bat',
+          ],
+        },
+      ],
+    },
+    {
       # New unittests should be added to unittests.gypi.
       'target_name': 'build_unittests',
       'type': 'none',
