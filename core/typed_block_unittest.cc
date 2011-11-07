@@ -82,6 +82,43 @@ TEST_F(TypedBlockTest, Init) {
   EXPECT_FALSE(bar.Init(0, foo_.get()));
 }
 
+TEST_F(TypedBlockTest, InitWithSize) {
+  TypedBlock<Foo> foo;
+
+  // This should fail as foo is not big enough to house a Foo at offset 1.
+  EXPECT_FALSE(foo.IsValid());
+  EXPECT_FALSE(foo.InitWithSize(1, sizeof(Foo), foo_.get()));
+  EXPECT_FALSE(foo.IsValid());
+
+  // This should fail as foo is not big enough to house two Foo's.
+  EXPECT_FALSE(foo.IsValid());
+  EXPECT_FALSE(foo.InitWithSize(0, 2 * sizeof(Foo), foo_.get()));
+  EXPECT_FALSE(foo.IsValid());
+
+  // This should work fine.
+  EXPECT_TRUE(foo.InitWithSize(0, sizeof(Foo), foo_.get()));
+  EXPECT_TRUE(foo.IsValid());
+  EXPECT_EQ(foo.block(), foo_.get());
+  EXPECT_EQ(foo.offset(), 0);
+
+  // This should also work fine.
+  ConstTypedBlock<Foo> foo_const;
+  EXPECT_TRUE(foo_const.InitWithSize(0, sizeof(Foo), foo_.get()));
+  EXPECT_TRUE(foo_const.IsValid());
+}
+
+TEST_F(TypedBlockTest, IsValidElement) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+  ASSERT_TRUE(foo.IsValidElement(0));
+  ASSERT_FALSE(foo.IsValidElement(1));
+
+  foo_.get()->ResizeData(2 * sizeof(Foo));
+  ASSERT_TRUE(foo.InitWithSize(0, foo_.get()->size(), foo_.get()));
+  ASSERT_TRUE(foo.IsValidElement(0));
+  ASSERT_TRUE(foo.IsValidElement(1));
+}
+
 TEST_F(TypedBlockTest, Access) {
   TypedBlock<Foo> foo;
   ASSERT_TRUE(foo.Init(0, foo_.get()));
@@ -89,9 +126,23 @@ TEST_F(TypedBlockTest, Access) {
   const Foo* foo_direct = reinterpret_cast<const Foo*>(foo_->data());
   EXPECT_EQ(foo_direct, foo.Get());
   EXPECT_EQ(foo_direct, &(*foo));
+  EXPECT_EQ(foo_direct, &foo[0]);
 
-  foo->f = 4.5;
-  EXPECT_EQ(4.5, foo_direct->f);
+  foo->f = 4.5f;
+  EXPECT_EQ(4.5f, foo_direct->f);
+
+  foo[0].f = 5.4f;
+  EXPECT_EQ(5.4f, foo_direct->f);
+}
+
+TEST_F(TypedBlockTest, OffsetOf) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+
+  EXPECT_EQ(offsetof(Foo, bar), foo.OffsetOf(foo->bar));
+
+  ASSERT_TRUE(foo.Init(2, bar_.get()));
+  EXPECT_EQ(offsetof(Foo, bar) + 2, foo.OffsetOf(foo->bar));
 }
 
 TEST_F(TypedBlockTest, Dereference) {

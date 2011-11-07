@@ -19,6 +19,7 @@
 #include "base/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/typed_block.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
@@ -39,6 +40,7 @@ const uint8 kInt3Padding[] = {
 };
 
 using core::BlockGraph;
+using core::ConstTypedBlock;
 using core::RelativeAddress;
 using pe::Decomposer;
 using pe::ImageLayout;
@@ -174,11 +176,14 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
   PEFileBuilder builder(&block_graph_);
   ASSERT_TRUE(builder.SetImageHeaders(dos_header_block_));
 
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          builder.nt_headers_block()->data());
-  const IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  ASSERT_TRUE(nt_headers.Init(0, builder.nt_headers_block()));
+
+  ConstTypedBlock<IMAGE_SECTION_HEADER> section_headers;
+  ASSERT_TRUE(section_headers.InitWithSize(
+      sizeof(IMAGE_NT_HEADERS),
+      nt_headers->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER),
+      builder.nt_headers_block()));
 
   // Copy the sections from the original image to the new one, save for
   // the .relocs section.
@@ -186,8 +191,7 @@ TEST_F(PEFileBuilderTest, RewriteTestDll) {
   for (size_t i = 0; i < num_sections - 1; ++i) {
     const IMAGE_SECTION_HEADER& section = section_headers[i];
 
-    const char* name = reinterpret_cast<const char*>(section.Name);
-    std::string name_str(name, strnlen(name, arraysize(section.Name)));
+    std::string name_str = PEFile::GetSectionName(section);
     RelativeAddress start = builder.AddSection(name_str.c_str(),
                                                section.Misc.VirtualSize,
                                                section.SizeOfRawData,
@@ -223,11 +227,14 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
   // Copy the sections from the decomposed image to the new one, save for
   // the .relocs section. Code sections are turned into read-only data
   // sections, and the code blocks held back for moving to a new section.
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(
-          builder.nt_headers_block()->data());
-  const IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  ASSERT_TRUE(nt_headers.Init(0, builder.nt_headers_block()));
+
+  ConstTypedBlock<IMAGE_SECTION_HEADER> section_headers;
+  ASSERT_TRUE(section_headers.InitWithSize(
+      sizeof(IMAGE_NT_HEADERS),
+      nt_headers->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER),
+      builder.nt_headers_block()));
 
   // Copy the sections from the original image to the new one, save for
   // the .relocs section.
@@ -237,8 +244,7 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
     const IMAGE_SECTION_HEADER& section = section_headers[i];
     BlockGraph::AddressSpace::Range section_range(
         RelativeAddress(section.VirtualAddress), section.Misc.VirtualSize);
-    const char* name = reinterpret_cast<const char*>(section.Name);
-    std::string name_str(name, strnlen(name, arraysize(section.Name)));
+    std::string name_str = PEFile::GetSectionName(section);
 
     if (section.Characteristics & IMAGE_SCN_CNT_CODE) {
       // It's a code section, turn it into a read-only data section.

@@ -63,18 +63,36 @@ class TypedBlockImpl {
   };
 
   // Default constructor.
-  TypedBlockImpl() : offset_(0), block_(NULL) {
+  TypedBlockImpl() : offset_(0), block_(NULL), size_(0) {
   }
 
   // Initializes this typed block with the given @p block and @p offset.
   //
-  // @param block the block with data to interpret as type T.
   // @param offset the offset in to @p block to interpret as type T.
+  // @param block the block with data to interpret as type T.
   // @returns true if the typed block is valid, false otherwise.
   bool Init(BlockGraph::Offset offset, BlockPtr block) {
+    return InitWithSize(offset, sizeof(T), block);
+  }
+
+  // Initializes this typed block with the given @p offset, @p block and
+  // @p size. This is useful for interpreting arrays and types that concatenate
+  // tail arrays.
+  //
+  // @param size the size of the data in block we want to cover.
+  // @param offset the offset in to @p block to interpret as type T.
+  // @param block the block with data to interpret as type T.
+  // @pre @p size >= sizeof(T).
+  // @returns true if the typed block is valid, false otherwise.
+  bool InitWithSize(BlockGraph::Offset offset, size_t size, BlockPtr block) {
+    DCHECK_LE(sizeof(T), size);
+    if (block == NULL || block->data_size() < offset + size)
+      return false;
+
     offset_ = offset;
     block_ = block;
-    return IsValid();
+    size_ = size;
+    return true;
   }
 
   // Accesses the block encapsulated by this typed block.
@@ -91,20 +109,28 @@ class TypedBlockImpl {
   //
   // @returns true if derefencing will succeed, false otherwise.
   bool IsValid() const {
-    return block_ != NULL && offset_ >= 0 &&
-        block_->data_size() >= offset_ + sizeof(T);
+    return IsValidElement(0);
+  }
+
+  // Determines if element @p elem of typed block refers to a valid
+  // region of block data.
+  //
+  // @returns true if derefencing @p elem will succeed, false otherwise.
+  bool IsValidElement(size_t elem) const {
+    return InBlock(sizeof(T) * elem, sizeof(T));
   }
 
   // Dereferences this object, returning a pointer to it.
   //
-  // @returns a pointer to the dereferenced object if IsValid returns true,
-  //     NULL otherwise.
-  T* Get() const { return GetImpl(); }
+  // @returns a pointer to the dereferenced object.
+  // @pre IsValid() == true.
+  T* Get() const { return GetImpl(0); }
 
   // Operators for dereferencing the object.
   // @{
-  T* operator->() const { return GetImpl(); }
-  T& operator*() const { return *GetImpl(); }
+  T* operator->() const { return GetImpl(0); }
+  T& operator*() const { return *GetImpl(0); }
+  T& operator[](size_t i) const { return *GetImpl(i); }
   // @}
 
   // Follows a reference at a given @p offset in the enclosed structure.
@@ -135,26 +161,52 @@ class TypedBlockImpl {
   template <typename ReboundChildType, typename TIn>
   bool Dereference(TIn& value,
                    ReboundChildType* typed_block) const {
-    const uint8* value_address = reinterpret_cast<const uint8*>(&value);
-    BlockGraph::Offset offset = value_address - block_->data();
+    BlockGraph::Offset offset = OffsetOf(value);
 
     typedef typename ReboundChildType::ObjectType T2;
     return DereferenceImpl<T2>(offset, sizeof(TIn), typed_block);
   }
 
- protected:
-  // Interprets the underlying data as an object of type T, returning a
-  // pointer to it. If the pointer is mutable and the block doesn't own its
-  // data, causes it to be copied so that local changes are possible.
-  // It is an error to call this unless the typed block is valid.
+  // Compute the offset of a field in the enclosed structure.
   //
-  // @pre IsValid returns true.
+  // @tparam TIn the type of the input @p value.
+  // @param value a reference to the value to dereference. This must be within
+  //     the object.
+  // @returns the offset of value within the the referenced block.
+  template <typename TIn>
+  BlockGraph::Offset OffsetOf(TIn& value) const {
+    const uint8* value_address = reinterpret_cast<const uint8*>(&value);
+    BlockGraph::Offset offs = value_address - block_->data();
+    DCHECK(InBlock(offs, sizeof(value)));
+    return offs;
+  }
+
+ protected:
+  // Determines whether the byte range starting at @p offset and extending for
+  // @p size bytes is in the data covered by the block.
+  //
+  // @returns true if the block covers the byte range @p offset and @p size,
+  //     false otherwise.
+  bool InBlock(size_t offset, size_t size) const {
+    return block_ != NULL && (offset_ + offset) >= 0 &&
+        block_->data_size() >= (offset_ + offset + size);
+  }
+
+  // Interprets the underlying data as an array of type T, returning a
+  // pointer to element @p elem of it. If the pointer is mutable and
+  // the block doesn't own its data, causes it to be copied so that local
+  // changes are possible.
+  // It is an error to call this unless the block has data to cover @p elem.
+  //
+  // @param elem the index of the element to dereference
+  // @pre IsValidElement(elem) returns true.
   // @returns a typed pointer to the encapsulated object.
-  T* GetImpl() const {
-    DCHECK(IsValid());
+  T* GetImpl(size_t elem) const {
+    DCHECK(IsValidElement(elem));
     // If you get an error referring you to this line, you're likely not
     // const correct!
-    return reinterpret_cast<T*>(internal::GetBlockData(block_) + offset_);
+    return reinterpret_cast<T*>(
+        internal::GetBlockData(block_) + offset_) + elem;
   }
 
   // Attempts to follow a reference of given @p size at the given @p offset
@@ -178,7 +230,7 @@ class TypedBlockImpl {
     DCHECK(typed_block != NULL);
 
     // Ensure that we are in the bounds of the encapsulated object.
-    if (offset < offset_ || offset + size > offset_ + sizeof(T))
+    if (offset < offset_ || offset + size > offset_ + size_)
       return false;
 
     // Ensure that there is a valid reference at the pointer offset.
@@ -193,7 +245,9 @@ class TypedBlockImpl {
 
   BlockGraph::Offset offset_;
   BlockPtr block_;
+  size_t size_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(TypedBlockImpl);
 };
 

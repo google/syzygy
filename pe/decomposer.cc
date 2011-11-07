@@ -28,6 +28,7 @@
 #include "base/win/scoped_comptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
+#include "syzygy/core/typed_block.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -38,6 +39,7 @@ namespace {
 
 using core::AbsoluteAddress;
 using core::BlockGraph;
+using core::ConstTypedBlock;
 using core::Disassembler;
 using core::RelativeAddress;
 using pe::Decomposer;
@@ -540,26 +542,24 @@ void ClearAttributeRecursively(BlockGraph::BlockAttributes attribute,
 
 bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
                              ImageLayout* layout) {
-  if (nt_headers_block->data_size() < sizeof(IMAGE_NT_HEADERS)) {
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, nt_headers_block)) {
     LOG(ERROR) << "NT Headers too short.";
     return false;
   }
 
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
-
-  size_t expected_size = sizeof(*nt_headers) +
-      sizeof(IMAGE_SECTION_HEADER) * nt_headers->FileHeader.NumberOfSections;
-  if (nt_headers_block->data_size() < expected_size) {
+  ConstTypedBlock<IMAGE_SECTION_HEADER> section_headers;
+  size_t size = sizeof(IMAGE_SECTION_HEADER) *
+      nt_headers->FileHeader.NumberOfSections;
+  if (!section_headers.InitWithSize(sizeof(IMAGE_NT_HEADERS),
+                                    size,
+                                    nt_headers_block)) {
     LOG(ERROR) << "NT Headers too short to contain section headers.";
     return false;
   }
 
-  const IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<const IMAGE_SECTION_HEADER*>(nt_headers + 1);
-
   CopySectionHeadersToImageLayout(nt_headers->FileHeader.NumberOfSections,
-                                  section_headers,
+                                  section_headers.Get(),
                                   &layout->sections);
   return true;
 }
