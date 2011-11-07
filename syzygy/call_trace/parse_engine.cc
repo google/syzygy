@@ -247,7 +247,8 @@ namespace {
 ModuleInformation ModuleTraceDataToModuleInformation(
     const TraceModuleData& module_data) {
   ModuleInformation module_info = {};
-  module_info.base_address = bit_cast<uint32>(module_data.module_base_addr);
+  module_info.base_address =
+      reinterpret_cast<uint32>(module_data.module_base_addr);
   module_info.module_size = module_data.module_base_size;
   module_info.image_file_name = module_data.module_name;
   return module_info;

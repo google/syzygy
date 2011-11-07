@@ -122,7 +122,7 @@ class InitializingCoClass {
 // Create a new, initialized T* instance, and QI it for I
 // template <class I, class A1, ..., class An>
 // HRESULT CreateInstance(A1 a1, ..., An an, I **new_instance);
-#include "initializing_coclass_gen.inl"  // NOLINT
+#include "sawbuck/common/initializing_coclass_gen.inl"
 };
 
 #ifndef SAWBUCK_COMMON_INITIALIZING_COCLASS_GEN_INL_

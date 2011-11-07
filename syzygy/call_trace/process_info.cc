@@ -172,7 +172,7 @@ bool GetMemoryRange(uint32 pid, HANDLE handle, uint32* base_addr,
     return false;
   }
 
-  *base_addr = bit_cast<uint32>(info.lpBaseOfDll);
+  *base_addr = reinterpret_cast<uint32>(info.lpBaseOfDll);
   *module_size = info.SizeOfImage;
 
   return true;

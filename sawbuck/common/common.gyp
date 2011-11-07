@@ -38,12 +38,14 @@
             'initializing_coclass.py',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/initializing_coclass_gen.inl',
+            '<(SHARED_INTERMEDIATE_DIR)'
+                '/sawbuck/common/initializing_coclass_gen.inl',
           ],
           'action': [
             'python',
             'initializing_coclass.py',
-            '"<(SHARED_INTERMEDIATE_DIR)/initializing_coclass_gen.inl"',
+            '"<(SHARED_INTERMEDIATE_DIR)'
+                '/sawbuck/common/initializing_coclass_gen.inl"',
           ],
         },
       ],
