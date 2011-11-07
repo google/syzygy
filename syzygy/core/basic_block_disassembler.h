@@ -64,15 +64,16 @@ class BasicBlockDisassembler : public Disassembler {
 
   // Creates and sets up a BasicBlockDisassembler that decomposes a function
   // macro block into basic blocks.
-  // @code pointer to the data bytes the containing macro block refers to.
-  // @code_size the size of the containing macro block.
-  // @code_addr the starting address of the macro code block (e.g. as given by a
-  //            BlockGraph::AddressSpace).
-  // @entry_points The set of addresses within the macro block from which to
-  //               start disassembly walks. These will typically be labels
-  //               within the macro block.
-  // @containing_block_name The name of the containing macro block.
-  // @on_instruction Pointer to a callback routine called during disassembly.
+  // @param code pointer to the data bytes the containing macro block refers to.
+  // @param code_size the size of the containing macro block.
+  // @param code_addr the starting address of the macro code block (e.g. as
+  //     given by a BlockGraph::AddressSpace).
+  // @param entry_points The set of addresses within the macro block from which
+  //     to start disassembly walks. These will typically be labels within
+  //     the macro block.
+  // @param containing_block_name The name of the containing macro block.
+  // @param on_instruction Pointer to a callback routine called during
+  //     disassembly.
   BasicBlockDisassembler(const uint8* code,
                          size_t code_size,
                          AbsoluteAddress code_addr,
