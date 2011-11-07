@@ -13,9 +13,12 @@
 // limitations under the License.
 #include "syzygy/pe/pe_utils.h"
 
+#include "syzygy/core/typed_block.h"
+
 namespace pe {
 
 using core::BlockGraph;
+using core::ConstTypedBlock;
 using core::RelativeAddress;
 
 namespace {
@@ -58,15 +61,13 @@ BlockPtr CheckedGetNtHeadersBlockFromDosHeaderBlock(
 }  // namespace
 
 bool IsValidDosHeaderBlock(const BlockGraph::Block* dos_header_block) {
-  if (dos_header_block->size() < sizeof(IMAGE_DOS_HEADER) ||
-      dos_header_block->data_size() < sizeof(IMAGE_DOS_HEADER)) {
-    // Too short or not enough data.
+  ConstTypedBlock<IMAGE_DOS_HEADER> dos_header;
+
+  if (!dos_header.Init(0, dos_header_block)) {
+    // Too small or no data.
     return false;
   }
-  DCHECK(dos_header_block->data() != NULL);
 
-  const IMAGE_DOS_HEADER* dos_header =
-      reinterpret_cast<const IMAGE_DOS_HEADER*>(dos_header_block->data());
   if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
     // Wrong signature.
     return false;
@@ -106,16 +107,14 @@ bool IsValidDosHeaderBlock(const BlockGraph::Block* dos_header_block) {
 }
 
 bool IsValidNtHeadersBlock(const BlockGraph::Block* nt_headers_block) {
-  if (nt_headers_block->size() < sizeof(IMAGE_NT_HEADERS) ||
-      nt_headers_block->data_size() < sizeof(IMAGE_NT_HEADERS)) {
-    // Too short or not enough data.
+  // Check the signatures.
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+
+  if (!nt_headers.Init(0, nt_headers_block)) {
+    // Short or no data.
     return false;
   }
-  DCHECK(nt_headers_block->data() != NULL);
 
-  // Check the signatures.
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
   if (nt_headers->Signature!= IMAGE_NT_SIGNATURE) {
     // Wrong signature.
     return false;

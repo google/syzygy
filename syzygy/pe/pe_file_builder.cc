@@ -30,6 +30,7 @@ extern "C" void begin_dos_stub();
 extern "C" void end_dos_stub();
 
 using core::BlockGraph;
+using core::ConstTypedBlock;
 using core::RelativeAddress;
 using core::TypedBlock;
 typedef std::vector<uint8> ByteVector;
@@ -241,13 +242,13 @@ bool PEFileBuilder::GetDataDirectoryEntry(size_t entry_index,
   DCHECK(nt_headers_block_->data() != NULL);
   DCHECK(nt_headers_block_->data_size() >= sizeof(IMAGE_NT_HEADERS));
 
-  const IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block_->data());
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, nt_headers_block_))
+    return false;
 
   *entry_size = nt_headers->OptionalHeader.DataDirectory[entry_index].Size;
-  size_t entry_offset =
-      offsetof(IMAGE_NT_HEADERS,
-               OptionalHeader.DataDirectory[entry_index].VirtualAddress);
+  size_t entry_offset = nt_headers.OffsetOf(
+      nt_headers->OptionalHeader.DataDirectory[entry_index].VirtualAddress);
 
   return nt_headers_block_->GetReference(entry_offset, entry);
 }
@@ -275,13 +276,14 @@ bool PEFileBuilder::SetDataDirectoryEntry(size_t entry_index,
   DCHECK(nt_headers_block_->data() != NULL);
   DCHECK(nt_headers_block_->data_size() >= sizeof(IMAGE_NT_HEADERS));
 
-  IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<IMAGE_NT_HEADERS*>(nt_headers_block_->GetMutableData());
+  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, nt_headers_block_))
+    return false;
 
   nt_headers->OptionalHeader.DataDirectory[entry_index].Size = entry_size;
-  size_t entry_offset =
-      offsetof(IMAGE_NT_HEADERS,
-               OptionalHeader.DataDirectory[entry_index].VirtualAddress);
+  size_t entry_offset = nt_headers.OffsetOf(
+      nt_headers->OptionalHeader.DataDirectory[entry_index].VirtualAddress);
+
   nt_headers_block_->SetReference(entry_offset, entry);
 
   return true;
@@ -371,8 +373,11 @@ bool PEFileBuilder::FinalizeHeaders() {
   }
 
   // Update the NT header block.
-  IMAGE_NT_HEADERS* nt_headers =
-      reinterpret_cast<IMAGE_NT_HEADERS*>(nt_headers_block_->GetMutableData());
+  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, nt_headers_block_)) {
+    NOTREACHED() << "Failed to init NT headers block.";
+    return false;
+  }
 
   nt_headers->OptionalHeader.SectionAlignment = section_alignment_;
   nt_headers->OptionalHeader.FileAlignment = file_alignment_;
@@ -408,8 +413,16 @@ bool PEFileBuilder::FinalizeHeaders() {
   nt_headers->OptionalHeader.SizeOfImage = next_section_address_.value();
 
   // Get the section headers pointer.
-  IMAGE_SECTION_HEADER* section_headers =
-      reinterpret_cast<IMAGE_SECTION_HEADER*>(nt_headers + 1);
+  TypedBlock<IMAGE_SECTION_HEADER> section_headers;
+  size_t sections_size = sizeof(IMAGE_SECTION_HEADER) *
+      nt_headers->FileHeader.NumberOfSections;
+  if (!section_headers.InitWithSize(sizeof(IMAGE_NT_HEADERS),
+                                    sections_size,
+                                    nt_headers_block_)) {
+    NOTREACHED() << "Failed to section NT headers block.";
+    return false;
+  }
+
   core::FileOffsetAddress section_file_start(
       nt_headers->OptionalHeader.SizeOfHeaders);
 
@@ -464,35 +477,34 @@ bool PEFileBuilder::UpdateDosHeader() {
     return false;
   }
 
-  IMAGE_DOS_HEADER* dos_header_ptr =
-      reinterpret_cast<IMAGE_DOS_HEADER*>(dos_header_block_->GetMutableData());
-  if (dos_header_ptr == NULL) {
+  TypedBlock<IMAGE_DOS_HEADER> dos_header;
+  if (dos_header.InitWithSize(0, dos_header_size, dos_header_block_) == NULL) {
     LOG(ERROR) << "Unable to allocate DOS header data.";
     return false;
   }
 
-  memset(dos_header_ptr, 0, sizeof(*dos_header_ptr));
-  memcpy(dos_header_ptr + 1,
+  memset(dos_header.Get(), 0, sizeof(IMAGE_DOS_HEADER));
+  memcpy(dos_header.Get() + 1,
          begin_dos_stub_ptr,
          end_dos_stub_ptr - begin_dos_stub_ptr);
 
-  dos_header_ptr->e_magic = IMAGE_DOS_SIGNATURE;
+  dos_header->e_magic = IMAGE_DOS_SIGNATURE;
   // Calculate the number of bytes used on the last DOS executable "page".
-  dos_header_ptr->e_cblp = dos_header_size % 512;
+  dos_header->e_cblp = dos_header_size % 512;
   // Calculate the number of pages used by the DOS executable.
-  dos_header_ptr->e_cp = dos_header_size / 512;
+  dos_header->e_cp = dos_header_size / 512;
   // Count the last page if we didn't have an even multiple
-  if (dos_header_ptr->e_cblp != 0)
-    dos_header_ptr->e_cp++;
+  if (dos_header->e_cblp != 0)
+    dos_header->e_cp++;
 
   // Header length in "paragraphs".
-  dos_header_ptr->e_cparhdr = sizeof(*dos_header_ptr) / 16;
+  dos_header->e_cparhdr = sizeof(*dos_header) / 16;
 
   // Set this to max allowed, just because.
-  dos_header_ptr->e_maxalloc = 0xFFFF;
+  dos_header->e_maxalloc = 0xFFFF;
 
   // Location of relocs - our header has zero relocs, but we set this anyway.
-  dos_header_ptr->e_lfarlc = sizeof(*dos_header_ptr);
+  dos_header->e_lfarlc = sizeof(*dos_header);
 
   DCHECK(IsValidDosHeaderBlock(dos_header_block_));
 
