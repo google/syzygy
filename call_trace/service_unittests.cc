@@ -211,9 +211,9 @@ class CallTraceServiceTest : public testing::Test {
     ASSERT_EQ(header.command_line_len, cmd_line.length());
     ASSERT_STREQ(header.command_line, cmd_line.c_str());
     ASSERT_EQ(header.module_base_address,
-              bit_cast<uint32>(module_info.lpBaseOfDll));
+              reinterpret_cast<uint32>(module_info.lpBaseOfDll));
     ASSERT_EQ(header.module_size,
-              bit_cast<uint32>(module_info.SizeOfImage));
+              static_cast<uint32>(module_info.SizeOfImage));
   }
 
   typedef std::map<HANDLE, uint8*> BasePtrMap;

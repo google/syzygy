@@ -77,7 +77,7 @@ bool TestJSONSerialization(bool pretty_print) {
     EXPECT_TRUE(success =
         (value.get() != NULL && value->GetType() == Value::TYPE_DICTIONARY));
     if (success)
-      metadata_dict = reinterpret_cast<DictionaryValue*>(value.get());
+      metadata_dict = static_cast<DictionaryValue*>(value.get());
   }
 
   // Parse the metadata from the Value.
