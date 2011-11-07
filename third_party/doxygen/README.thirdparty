@@ -1,0 +1,11 @@
+URL: http://ftp.stack.nl/pub/users/dimitri/doxygen-1.7.5.1-setup.exe
+Version: 1.7.5.1
+License: GNU
+License File: files\LICENSE.TXT
+
+Description:
+Version 1.7.5.1 of the doxygen binaries.
+
+Local Modifications:
+Installed Doxygen with the setup above, then copied LICENSE.TXT and the
+"bin" directory from the installation folder to "files".
