@@ -1,4 +1,4 @@
-# Copyright 2009 Google Inc.
+# Copyright 2011 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,13 @@
           'benchmark.py',
           'chrome_control.py',
           'chrome_control_test.py',
+          'chrome_utils.py',
           'event_counter.py',
           'ibmperf.py',
           'ibmperf_test.py',
+          'instrument.py',
           'optimize.py',
+          'profile.py',
           'runner.py',
           'setup.py',
           'trace_event.py',
@@ -109,7 +112,9 @@
           'outputs': [
             '<(PRODUCT_DIR)/benchmark.bat',
             '<(PRODUCT_DIR)/benchmark.zip',
+            '<(PRODUCT_DIR)/instrument.bat',
             '<(PRODUCT_DIR)/optimize.bat',
+            '<(PRODUCT_DIR)/profile.bat',
           ],
           'action': [
             '<(PRODUCT_DIR)/py/scripts/python',

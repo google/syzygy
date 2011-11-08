@@ -49,9 +49,12 @@ _PACKAGE_DIRS = {
 _MODULES = [
   'benchmark',
   'chrome_control',
-  'ibmperf',
+  'chrome_utils',
   'event_counter',
+  'ibmperf',
+  'instrument',
   'optimize',
+  'profile',
   'runner',
   'trace_event'
 ]
@@ -90,7 +93,9 @@ def main():
       entry_points={
         'console_scripts': [
             'benchmark= benchmark:main',
+            'instrument= instrument:main',
             'optimize= optimize:main',
+            'profile= profile:main',
         ],
       },
       cmdclass={

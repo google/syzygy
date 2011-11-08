@@ -74,7 +74,9 @@ rem = \"\"\"
 
 _SCRIPT_TEMPLATES = [
     ('benchmark.bat',  _SCRIPT_TEMPLATE, 'benchmark'),
+    ('instrument.bat', _SCRIPT_TEMPLATE, 'instrument'),
     ('optimize.bat', _SCRIPT_TEMPLATE, 'optimize'),
+    ('profile.bat', _SCRIPT_TEMPLATE, 'profile'),
     ]
 
 
