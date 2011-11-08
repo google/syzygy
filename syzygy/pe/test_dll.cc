@@ -12,16 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <windows.h>
+#include <winnt.h>
 #include <objbase.h>
-#include <cstdlib>
+
 #include <time.h>
 #include <math.h>
+
+#include <cstdlib>
 
 // A handful of TLS variables, to cause TLS fixups to appear.
 __declspec(thread) int tls_int = 42;
 __declspec(thread) int tls_array[64] = { 0 };
 __declspec(thread) char tls_string_buffer[512] = { 0 };
 __declspec(thread) double tls_double = 3.5;
+
+// A dummy TLS Initialization callback handler.
+VOID NTAPI MyTlsCallback(PVOID instance, DWORD reason, PVOID reserved) {
+  ::time(NULL);
+}
+
+// Declare a TLS initializer callback to the linker.
+#pragma section(".CRT$XLY",long,read)
+extern "C" __declspec(allocate(".CRT$XLY"))
+  PIMAGE_TLS_CALLBACK _xl_y  = MyTlsCallback;
 
 extern int function1();
 extern int function2();
