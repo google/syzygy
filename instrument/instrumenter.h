@@ -46,7 +46,7 @@ class Instrumenter : public relink::RelinkerBase {
       const BlockGraph::Block* original_image_import_descriptor_array);
 
   // Instrument code blocks by creating thunks to intercept all references.
-  bool InstrumentCodeBlocks(BlockGraph* block_graph, size_t entry_hook_index);
+  bool InstrumentCodeBlocks(BlockGraph* block_graph);
 
   #pragma pack(push)
   #pragma pack(1)
@@ -77,10 +77,6 @@ class Instrumenter : public relink::RelinkerBase {
       const BlockGraph::Block* original_image_import_descriptor_array,
       RelativeAddress* insert_at);
 
-  // Instrument the image's entry point so that the entry point of the image
-  // points to at thunk.
-  bool InstrumentEntryPoint(size_t entry_hook, RelativeAddress* insert_at);
-
   // Create thunks for all referrers to @p block.
   bool CreateThunks(BlockGraph::Block* block,
                     RelativeAddress* insert_at);
@@ -89,9 +85,28 @@ class Instrumenter : public relink::RelinkerBase {
   // responsible for updating @p insert_at.
   bool CreateOneThunk(BlockGraph::Block* block,
                       const BlockGraph::Reference& ref,
-                      size_t hook_index,
                       RelativeAddress* insert_at,
                       BlockGraph::Block** thunk_block);
+
+  // Update the thunk for the main entry point to call the dllmain version of
+  // _indirect_penter instead of the standard one.
+  //
+  // @pre The module being instrumented is a DLL.
+  // @pre The main thunking process has already been completed (i.e., the
+  //     thunks already exist).
+  bool FixEntryPointThunk();
+
+  // Update the thunks for the __declspec(thread) static initializers to call
+  // the dllmain version of _indirect_penter instead of the standard one.
+  //
+  // @pre The module being instrumented is a DLL.
+  // @pre The main thunking process has already been completed (i.e., the
+  //     thunks already exist).
+  bool FixTlsInitializerThunks();
+
+  // Update @p thunk block to point to _indirect_penter_dllmain instead of
+  // _indirect_penter.
+  bool RedirectThunk(BlockGraph::Block* thunk_block);
 
   // Creates a read-only data section containing metadata about the toolchain
   // and the input module.
@@ -113,6 +128,8 @@ class Instrumenter : public relink::RelinkerBase {
   // Holds the index of the resource section, if this module has one.
   // If not, stores kInvalidIndex.
   size_t resource_section_id_;
+
+  const std::string thunk_suffix_;
 };
 
 #endif  // SYZYGY_INSTRUMENT_INSTRUMENTER_H_

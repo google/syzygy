@@ -13,12 +13,16 @@
 // limitations under the License.
 
 #include "syzygy/instrument/instrumenter.h"
+
+# include <string>
+
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
+#include "syzygy/core/typed_block.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"
@@ -35,16 +39,9 @@ const char* const kEntryHookTable[] = {
     "_indirect_penter_dllmain",
 };
 
-enum EntryHookIndex {
-  kIndirectPenter,
-  kIndirectPenterDllMain,
-  kEntryHookIndexMax
-};
-
-void CompileAsserts() {
-  COMPILE_ASSERT(kEntryHookIndexMax == ARRAYSIZE(kEntryHookTable),
-                 entry_hook_table_and_entry_hook_indices_not_same_size);
-}
+const size_t kEntryHookTableSize = ARRAYSIZE(kEntryHookTable);
+const size_t kIndirectPenterOffset = 0;
+const size_t kIndirectPenterDllMainOffset = sizeof(IMAGE_THUNK_DATA);
 
 size_t WordAlign(size_t value) {
   return common::AlignUp(value, sizeof(WORD));
@@ -63,7 +60,8 @@ Instrumenter::Instrumenter()
       import_address_table_block_(NULL),
       dll_name_block_(NULL),
       image_import_descriptor_array_block_(NULL),
-      resource_section_id_(pe::kInvalidSection) {
+      resource_section_id_(pe::kInvalidSection),
+      thunk_suffix_("_thunk") {
 }
 
 void Instrumenter::set_client_dll(const char* const client_dll) {
@@ -126,17 +124,8 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
     return false;
   }
 
-  // Is this image directly executable or is it a DLL?
-  WORD characteristics = input_dll.nt_headers()->FileHeader.Characteristics;
-  bool is_dll = (characteristics & IMAGE_FILE_DLL) != 0;
-
-  // If the image is a DLL, use the DllMain version of the instrumentation
-  // hook for the entrypoint; otherwise, use the geneneral one.
-  EntryHookIndex entry_point_hook =
-      is_dll ? kIndirectPenterDllMain : kIndirectPenter;
-
   LOG(INFO) << "Instrumenting code blocks.";
-  if (!InstrumentCodeBlocks(&block_graph, entry_point_hook)) {
+  if (!InstrumentCodeBlocks(&block_graph)) {
     LOG(ERROR) << "Unable to instrument code blocks.";
     return false;
   }
@@ -247,10 +236,8 @@ bool Instrumenter::AddCallTraceImportDescriptor(
   return true;
 }
 
-bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph,
-                                        size_t entry_point_hook) {
+bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph) {
   DCHECK(block_graph != NULL);
-  DCHECK_LT(entry_point_hook, static_cast<size_t>(kEntryHookIndexMax));
 
   RelativeAddress start = builder().next_section_address();
   RelativeAddress insert_at = start;
@@ -277,9 +264,15 @@ bool Instrumenter::InstrumentCodeBlocks(BlockGraph* block_graph,
     }
   }
 
-  // Instrument the image's entry point.
-  if (!InstrumentEntryPoint(entry_point_hook, &insert_at)) {
-    LOG(ERROR) << "Unable to update etnry point";
+  // Reset the entry-point thunks (as needed).
+  if (!FixEntryPointThunk()) {
+    LOG(ERROR) << "Failed to patch DLL entry point thunk";
+    return false;
+  }
+
+  // Reset the TLS static initializers (as needed).
+  if (!FixTlsInitializerThunks()) {
+    LOG(ERROR) << "Faied to patch DLL TLS Initializer thunks.";
     return false;
   }
 
@@ -303,7 +296,7 @@ bool Instrumenter::CreateImageImportByNameBlock(
   // a variable sized field for the null-terminated function name. Each entry
   // should be WORD aligned, and will be referenced from the import table.
   size_t total_size = 0;
-  for (int i = 0; i < kEntryHookIndexMax; ++i) {
+  for (int i = 0; i < kEntryHookTableSize; ++i) {
     total_size += sizeof(WORD) + WordAlign(strlen(kEntryHookTable[i]) + 1);
   }
 
@@ -328,7 +321,7 @@ bool Instrumenter::CreateImageImportByNameBlock(
 
   // Populate the block with IMAGE_IMPORT_BY_NAME records.
   size_t offset = 0;
-  for (int i = 0; i < kEntryHookIndexMax; ++i) {
+  for (int i = 0; i < kEntryHookTableSize; ++i) {
     size_t size = strlen(kEntryHookTable[i]) + 1;
     IMAGE_IMPORT_BY_NAME* image_import_by_name =
         reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(raw_data + offset);
@@ -377,7 +370,7 @@ bool Instrumenter::CreateImportAddressTableBlock(const char* name,
   // IMAGE_IMPORT_BY_NAME entry in the image import by name array.
 
   const size_t kImageThunkDataSize =
-      sizeof(IMAGE_THUNK_DATA) * (kEntryHookIndexMax + 1);
+      sizeof(IMAGE_THUNK_DATA) * (kEntryHookTableSize + 1);
 
   // Allocate the new block.
   BlockGraph::Block* new_block =
@@ -400,7 +393,7 @@ bool Instrumenter::CreateImportAddressTableBlock(const char* name,
 
   // Create references to each of the defined hooks.
   size_t offset = 0;
-  for (int hook_index = 0; hook_index < kEntryHookIndexMax; ++hook_index) {
+  for (int hook_index = 0; hook_index < kEntryHookTableSize; ++hook_index) {
     // Create a reference to the hook's offset.
     BlockGraph::Reference hook_ref(BlockGraph::RELATIVE_REF,
                                    sizeof(RelativeAddress),
@@ -524,48 +517,6 @@ bool Instrumenter::CreateImageImportDescriptorArrayBlock(
   return true;
 }
 
-bool Instrumenter::InstrumentEntryPoint(size_t entry_hook,
-                                        RelativeAddress* insert_at) {
-  DCHECK(insert_at != NULL);
-  DCHECK_LT(entry_hook, static_cast<size_t>(kEntryHookIndexMax));
-
-  BlockGraph::Reference entry_point;
-  const size_t kEntryPointOffset =
-      offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint);
-  if (!builder().nt_headers_block()->GetReference(kEntryPointOffset,
-                                                  &entry_point)) {
-    LOG(ERROR) << "Unable to retrieve entry point.";
-    return false;
-  }
-  BlockGraph::Block* entry_block = entry_point.referenced();
-  if (entry_point.offset() != 0 ||
-      entry_block->type() != BlockGraph::CODE_BLOCK) {
-    LOG(ERROR) << "Entry point does not refer to the start of a function.";
-    return false;
-  }
-
-  // Create a new thunk for the entry point block.
-  BlockGraph::Block* thunk_block = NULL;
-  if (!CreateOneThunk(entry_block,
-                      entry_point,
-                      entry_hook,
-                      insert_at,
-                      &thunk_block)) {
-    LOG(ERROR) << "Unable to create entry point thunk.";
-    return false;
-  }
-
-  BlockGraph::Reference new_entry_point(entry_point.type(),
-                                        entry_point.size(),
-                                        thunk_block,
-                                        0);
-  // Update the entry point.
-  builder().nt_headers_block()->SetReference(kEntryPointOffset,
-                                             new_entry_point);
-
-  return true;
-}
-
 bool Instrumenter::CreateThunks(BlockGraph::Block* block,
                                 RelativeAddress* insert_at) {
   // Typedef for the thunk block map. The key is the offset within the callee
@@ -596,8 +547,7 @@ bool Instrumenter::CreateThunks(BlockGraph::Block* block,
     BlockGraph::Block* thunk_block = NULL;
     ThunkBlockMap::const_iterator thunk_it = thunk_block_map.find(ref.offset());
     if (thunk_it == thunk_block_map.end()) {
-      if (!CreateOneThunk(block, ref, kIndirectPenter, insert_at,
-                          &thunk_block)) {
+      if (!CreateOneThunk(block, ref, insert_at, &thunk_block)) {
         LOG(ERROR) << "Unable to create thunk block";
         return false;
       }
@@ -620,12 +570,10 @@ bool Instrumenter::CreateThunks(BlockGraph::Block* block,
 
 bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
                                   const BlockGraph::Reference& ref,
-                                  size_t hook_index,
                                   RelativeAddress* insert_at,
                                   BlockGraph::Block** thunk_block) {
   DCHECK(import_address_table_block_ != NULL);
   DCHECK(block != NULL);
-  DCHECK_LT(hook_index, static_cast<size_t>(kEntryHookIndexMax));
   DCHECK(insert_at != NULL);
   DCHECK(thunk_block != NULL);
 
@@ -641,7 +589,7 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
   };
 
   // Create the new thunk block, and set its data.
-  std::string name = std::string(block->name()) + "_thunk";
+  std::string name = std::string(block->name()) + thunk_suffix_;
   BlockGraph::Block* new_block =
       builder().image_layout().blocks.AddBlock(BlockGraph::CODE_BLOCK,
                                                *insert_at,
@@ -671,10 +619,115 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                             sizeof(RelativeAddress),
                             import_address_table_block_,
-                            hook_index * sizeof(IMAGE_THUNK_DATA)));
+                            kIndirectPenterOffset));
 
   *thunk_block = new_block;
   return true;
+}
+
+bool Instrumenter::FixEntryPointThunk() {
+  core::TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, builder().nt_headers_block())) {
+    LOG(ERROR) << "Failed to retrieve NT Headers.";
+    return false;
+  }
+
+  // If the module is NOT a DLL then there's nothing to do.
+  if ((nt_headers->FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
+    return true;
+  }
+
+  core::TypedBlock<Thunk> thunk;
+  if (!nt_headers.Dereference(nt_headers->OptionalHeader.AddressOfEntryPoint,
+                              &thunk)) {
+    LOG(ERROR) << "Failed to resolve entry point thunk.";
+    return false;
+  }
+
+  DCHECK(thunk.offset() == 0);
+
+  return RedirectThunk(thunk.block());
+}
+
+bool Instrumenter::FixTlsInitializerThunks() {
+  core::TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, builder().nt_headers_block())) {
+    LOG(ERROR) << "Failed to retrieve NT Headers.";
+    return false;
+  }
+
+  // If the module is NOT a DLL then there's nothing to do.
+  if ((nt_headers->FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
+    return true;
+  }
+
+  // If the module has no TLS directory then there are no TLS initializers
+  // and hence nothing to do.
+  const IMAGE_DATA_DIRECTORY& data_dir =
+      nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS];
+  if (data_dir.Size == 0 || data_dir.VirtualAddress == 0) {
+    return true;
+  }
+
+  // Find the TLS directory.
+  core::TypedBlock<IMAGE_TLS_DIRECTORY> tls_dir;
+  if (!nt_headers.Dereference(data_dir.VirtualAddress, &tls_dir)) {
+    LOG(ERROR) << "Failed to locate TLS directory.";
+    return false;
+  }
+
+  // Get the TLS initializer callbacks.
+  core::TypedBlock<DWORD> callbacks;
+  if (!tls_dir.Dereference(tls_dir->AddressOfCallBacks, &callbacks)) {
+    LOG(ERROR) << "Failed to locate TLS directory.";
+    return false;
+  }
+
+  // Redirect each of the thunks referenced by the callbacks block.
+  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
+  const ReferenceMap& ref_map = callbacks.block()->references();
+  ReferenceMap::const_iterator iter = ref_map.begin();
+  for (; iter != ref_map.end(); ++iter) {
+    DCHECK(iter->second.offset() == 0);
+    core::TypedBlock<Thunk> thunk;
+    if (!thunk.Init(0, iter->second.referenced())) {
+      LOG(ERROR) << "Failed to locate TLS initializer thunk.";
+      return false;
+    }
+
+    if (!RedirectThunk(thunk.block())) {
+      LOG(ERROR) << "Failed to redirect tls initializer thunk: "
+                 << thunk.block()->name() << ".";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool Instrumenter::RedirectThunk(BlockGraph::Block* thunk_block) {
+  DCHECK(thunk_block != NULL);
+  DCHECK(thunk_block->size() == sizeof(Thunk));
+  DCHECK(std::equal(thunk_suffix_.rbegin(),
+                    thunk_suffix_.rend(),
+                    std::string(thunk_block->name()).rbegin()));
+#ifndef NDEBUG
+  BlockGraph::Reference ref;
+  DCHECK(thunk_block->GetReference(offsetof(Thunk, hook_addr), &ref));
+  DCHECK(ref.referenced() == import_address_table_block_);
+  DCHECK(ref.offset() == kIndirectPenterOffset);
+#endif
+
+  bool inserted = thunk_block->SetReference(
+      offsetof(Thunk, hook_addr),
+      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                            sizeof(RelativeAddress),
+                            import_address_table_block_,
+                            kIndirectPenterDllMainOffset));
+
+ DCHECK(inserted == false);
+
+ return true;
 }
 
 bool Instrumenter::WriteMetadataSection(const pe::PEFile& input_dll) {
