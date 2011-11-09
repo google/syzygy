@@ -31,8 +31,8 @@ dir = os.path.dirname(__file__)
 sys.path[0:0] = [os.path.join(dir, egg) for egg in _EGGS]
 
 # And run the main program.
-import optimize
-sys.exit(optimize.main())
+import instrument
+sys.exit(instrument.main())
 
 rem = """
 :endofPython """
