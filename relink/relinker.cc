@@ -15,7 +15,6 @@
 #include "syzygy/relink/relinker.h"
 
 #include <ctime>
-
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/string_util.h"
@@ -43,6 +42,8 @@ void AddOmapForBlockRange(
     const BlockGraph::AddressSpace::RangeMapConstIterPair& original,
     const BlockGraph::AddressSpace& remapped,
     std::vector<OMAP>* omap) {
+  DCHECK(omap != NULL);
+
   BlockGraph::AddressSpace::RangeMapConstIter it;
 
   for (it = original.first; it != original.second; ++it) {
@@ -59,14 +60,23 @@ void AddOmapForBlockRange(
 
 void AddOmapForAllSections(
     const std::vector<ImageLayout::SectionInfo>& sections,
-    const BlockGraph::AddressSpace& from, const BlockGraph::AddressSpace& to,
+    const BlockGraph::AddressSpace& from,
+    const BlockGraph::AddressSpace& to,
     std::vector<OMAP>* omap) {
-  for (size_t i = 0; i < sections.size() - 1; ++i) {
-    BlockGraph::AddressSpace::RangeMapConstIterPair range =
-        from.GetIntersectingBlocks(sections[i].addr, sections[i].size);
+  DCHECK(omap != NULL);
+  // There need to be at least two sections, one containing something and the
+  // other containing the relocs.
+  DCHECK_GT(sections.size(), 1u);
 
-    AddOmapForBlockRange(range, to, omap);
-  }
+  // For some reason, if we output OMAP entries for the headers (before the
+  // first section), everything falls apart. Not outputting these allows the
+  // unittests to pass. Also, we don't want to output OMAP information for
+  // the relocs, as these are entirely different from image to image.
+  RelativeAddress start_of_image = sections.front().addr;
+  RelativeAddress end_of_image = sections.back().addr;
+  BlockGraph::AddressSpace::RangeMapConstIterPair range =
+      from.GetIntersectingBlocks(start_of_image, end_of_image - start_of_image);
+  AddOmapForBlockRange(range, to, omap);
 }
 
 struct PaddingData {
@@ -453,7 +463,7 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
                         &omap_to);
 
   std::vector<OMAP> omap_from;
-  AddOmapForAllSections(builder().image_layout().sections,
+  AddOmapForAllSections(original_sections(),
                         original_addr_space(),
                         builder().image_layout().blocks,
                         &omap_from);
