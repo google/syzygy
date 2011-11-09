@@ -92,6 +92,45 @@ bool CreateDiaSession(const FilePath& file,
   return true;
 }
 
+SearchResult FindDiaTable(const IID& iid,
+                          IDiaSession* dia_session,
+                          void** out_table) {
+  DCHECK(dia_session != NULL);
+  DCHECK(out_table != NULL);
+
+  *out_table = NULL;
+
+  // Get the table enumerator.
+  base::win::ScopedComPtr<IDiaEnumTables> enum_tables;
+  HRESULT hr = dia_session->getEnumTables(enum_tables.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to get DIA table enumerator: "
+               << com::LogHr(hr) << ".";
+    return kSearchErrored;
+  }
+
+  // Iterate through the tables.
+  while (true) {
+    base::win::ScopedComPtr<IDiaTable> table;
+    ULONG fetched = 0;
+    hr = enum_tables->Next(1, table.Receive(), &fetched);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to get DIA table: "
+                 << com::LogHr(hr) << ".";
+      return kSearchErrored;
+    }
+    if (fetched == 0)
+      break;
+
+    hr = table.QueryInterface(iid, out_table);
+    if (SUCCEEDED(hr))
+      return kSearchSucceeded;
+  }
+
+  // The search completed, even though we didn't find what we were looking for.
+  return kSearchFailed;
+}
+
 SearchResult FindDiaDebugStream(const wchar_t* name,
                                 IDiaSession* dia_session,
                                 IDiaEnumDebugStreamData** dia_debug_stream) {

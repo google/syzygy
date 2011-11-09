@@ -56,7 +56,23 @@ TEST_F(DiaUtilTest, CreateDiaSesssionPdb) {
                                dia_session.Receive()));
 }
 
-TEST_F(DiaUtilTest, FindDiaTable) {
+TEST_F(DiaUtilTest, FindDiaTableByIid) {
+  ScopedComPtr<IDiaDataSource> dia_source;
+  ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
+
+  ScopedComPtr<IDiaSession> dia_session;
+  ASSERT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+                               dia_source.get(),
+                               dia_session.Receive()));
+
+  ScopedComPtr<IDiaEnumSectionContribs> section_contribs;
+  EXPECT_EQ(kSearchSucceeded,
+            FindDiaTable(section_contribs.iid(),
+                         dia_session.get(),
+                         reinterpret_cast<void**>(section_contribs.Receive())));
+}
+
+TEST_F(DiaUtilTest, FindDiaTableByType) {
   ScopedComPtr<IDiaDataSource> dia_source;
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
