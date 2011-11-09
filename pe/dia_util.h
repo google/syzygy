@@ -54,6 +54,17 @@ bool CreateDiaSession(const FilePath& file,
                       IDiaDataSource* dia_source,
                       IDiaSession** dia_session);
 
+// Find the table with the given IID. Logs any errors.
+//
+// @param iid the IID of the table to look for.
+// @param dia_session the DIA session whose tables are to be queried.
+// @param out_table a pointer to the object to receive the table. If the table
+//     is not found this will be NULL on return.
+// @returns a SearchResult
+SearchResult FindDiaTable(const IID& iid,
+                          IDiaSession* dia_session,
+                          void** out_table);
+
 // Find the table that can be cast to the given Dia interface. Logs any errors.
 //
 // @tparam T an IDia* intercace.
@@ -61,8 +72,8 @@ bool CreateDiaSession(const FilePath& file,
 // @param out_table a pointer to the object to receive the table. If the table
 //     is not found this will be NULL on return.
 // @returns a SearchResult
-template<typename T>
-SearchResult FindDiaTable(IDiaSession* session, T** out_table);
+template <typename T>
+SearchResult FindDiaTable(IDiaSession* dia_session, T** out_table);
 
 // Finds teh debug stream with the given name. Logs any errors.
 //
@@ -82,7 +93,7 @@ SearchResult FindDiaDebugStream(const wchar_t* name,
 // @param stream the debug stream from which to read objects.
 // @param list the list to be populated.
 // @returns true on success, false otherwise.
-template<typename T>
+template <typename T>
 bool LoadDiaDebugStream(IDiaEnumDebugStreamData* stream, std::vector<T>* list);
 
 // This loads the named debug stream into the provided vector. The type T must
