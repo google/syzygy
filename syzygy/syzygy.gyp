@@ -45,7 +45,7 @@
       'type': 'none',
       'sources': [
         'build/doxyfile',
-        'build/run_doxygen.bat',
+        'build/run_doxygen.py',
       ],
       'actions': [
         {
@@ -55,7 +55,8 @@
              'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
           ],
           'action': [
-            'build/run_doxygen.bat',
+            'python',
+            'build/run_doxygen.py',
           ],
         },
       ],
