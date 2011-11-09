@@ -26,6 +26,8 @@
       'target_name': 'pdb_lib',
       'type': 'static_library',
       'sources': [
+        'omap.cc',
+        'omap.h',
         'pdb_byte_stream.cc',
         'pdb_byte_stream.h',
         'pdb_constants.cc',
@@ -52,6 +54,7 @@
       'target_name': 'pdb_unittests',
       'type': 'executable',
       'sources': [
+        'omap_unittest.cc',
         'pdb_byte_stream_unittest.cc',
         'pdb_file_stream_unittest.cc',
         'pdb_reader_unittest.cc',
@@ -63,6 +66,7 @@
       'dependencies': [
         'pdb_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },
