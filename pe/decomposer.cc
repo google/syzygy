@@ -15,8 +15,6 @@
 
 #include <algorithm>
 #include <cvconst.h>
-#include <diacreate.h>
-#include <dbghelp.h>
 #include "base/file_path.h"
 #include "base/path_service.h"
 #include "base/logging.h"
@@ -29,6 +27,8 @@
 #include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/core/typed_block.h"
+#include "syzygy/pdb/omap.h"
+#include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -69,76 +69,6 @@ BlockGraph::ReferenceType PdbFixupTypeToReferenceType(
       // The return type here is meaningless.
       return BlockGraph::ABSOLUTE_REF;
   }
-}
-
-// This reads a given debug stream into the provided vector. The type T
-// must be the same size as the debug stream record size.
-template<typename T> bool LoadDebugStream(IDiaEnumDebugStreamData* stream,
-                                          std::vector<T>* list) {
-  DCHECK(stream != NULL);
-  DCHECK(list != NULL);
-
-  LONG count = 0;
-  HRESULT hr = E_FAIL;
-  if (FAILED(hr = stream->get_Count(&count))) {
-    LOG(ERROR) << "Failed to get stream count: " << com::LogHr(hr) << ".";
-    return false;
-  }
-
-  // Get the length of the debug stream, and ensure it is the expected size.
-  DWORD bytes_read = 0;
-  ULONG count_read = 0;
-  hr = stream->Next(count, 0, &bytes_read, NULL, &count_read);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to get debug stream length: "
-               << com::LogHr(hr) << ".";
-    return false;
-  }
-  DCHECK_EQ(count * sizeof(T), bytes_read);
-
-  // Actually read the stream.
-  list->resize(count);
-  bytes_read = 0;
-  count_read = 0;
-  hr = stream->Next(count, count * sizeof(T), &bytes_read,
-                    reinterpret_cast<BYTE*>(&list->at(0)),
-                    &count_read);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to read debug stream: " << com::LogHr(hr) << ".";
-    return false;
-  }
-  DCHECK_EQ(count * sizeof(T), bytes_read);
-  DCHECK_EQ(count, static_cast<LONG>(count_read));
-
-  return true;
-}
-
-// A comparison functor, for comparing two OMAP entries based on 'rva'.
-struct OmapCompareFunctor {
-  bool operator()(const OMAP& omap1, const OMAP& omap2) {
-    return omap1.rva < omap2.rva;
-  }
-};
-
-// Maps an address through the given OMAP information. Assumes the address
-// is within the bounds of the image.
-RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omap,
-                                        RelativeAddress address) {
-  OMAP omap_address = { address.value(), 0 };
-
-  // Find the first element that is > than omap_address.
-  std::vector<OMAP>::const_iterator it =
-      std::upper_bound(omap.begin(), omap.end(), omap_address,
-                       OmapCompareFunctor());
-
-  // If we are at the first OMAP entry, the address is before any addresses
-  // that are OMAPped. Thus, we return the same address.
-  if (it == omap.begin())
-    return address;
-
-  // Otherwise, the previous OMAP entry tells us where we lie.
-  --it;
-  return RelativeAddress(it->rvaTo) + (address - RelativeAddress(it->rva));
 }
 
 // Adds a reference to the provided intermediate reference map. If one already
@@ -323,24 +253,6 @@ bool IsSymTag(IDiaSymbol* symbol, DWORD expected_sym_tag) {
   return sym_tag == expected_sym_tag;
 }
 
-bool CreateDiaSource(IDiaDataSource** created_source) {
-  ScopedComPtr<IDiaDataSource> dia_source;
-  if (SUCCEEDED(dia_source.CreateInstance(CLSID_DiaSource))) {
-    *created_source = dia_source.Detach();
-    return true;
-  }
-
-  if (SUCCEEDED(NoRegCoCreate(L"msdia90.dll",
-                              CLSID_DiaSource,
-                              IID_IDiaDataSource,
-                              reinterpret_cast<void**>(&dia_source)))) {
-    *created_source = dia_source.Detach();
-    return true;
-  }
-
-  return false;
-}
-
 size_t GuessAddressAlignment(RelativeAddress address) {
   // Count the trailing zeros in the original address. We only care
   // about alignment up to 16, so only have to check the first 4 bits.
@@ -394,40 +306,6 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   DCHECK_GT(block->addr() + block->size(), addr);
 
   block->SetLabel(addr - block->addr(), name.c_str());
-}
-
-// Find the table that can be cast to the given type.
-template<typename T> bool FindDiaTable(IDiaSession* session,
-                                       T** out_table) {
-  // Get the table enumerator.
-  ScopedComPtr<IDiaEnumTables> enum_tables;
-  HRESULT hr = session->getEnumTables(enum_tables.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get DIA table enumerator: "
-               << com::LogHr(hr) << ".";
-    return false;
-  }
-
-  // Iterate through the tables.
-  ScopedComPtr<IDiaEnumSectionContribs> section_contribs;
-  while (true) {
-    ScopedComPtr<IDiaTable> table;
-    ULONG fetched = 0;
-    hr = enum_tables->Next(1, table.Receive(), &fetched);
-    if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to get DIA table: "
-                 << com::LogHr(hr) << ".";
-      return false;
-    }
-    if (fetched == 0)
-      break;
-
-    hr = table.QueryInterface(out_table);
-    if (SUCCEEDED(hr))
-      return true;
-  }
-
-  return false;
 }
 
 // The MS linker pads between code blocks with int3s.
@@ -599,28 +477,17 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
                                PEFileParser::PEHeader* header) {
   // Start by instantiating and initializing our Debug Interface Access session.
   ScopedComPtr<IDiaDataSource> dia_source;
-  if (!CreateDiaSource(dia_source.Receive())) {
-    LOG(ERROR) << "Failed to create DIA source object.";
+  if (!CreateDiaSource(dia_source.Receive()))
     return false;
-  }
-
-  HRESULT hr = dia_source->loadDataForExe(image_file_.path().value().c_str(),
-                                          NULL,
-                                          NULL);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to load DIA data for image file: "
-               << com::LogHr(hr) << ".";
-    return false;
-  }
 
   ScopedComPtr<IDiaSession> dia_session;
-  hr = dia_source->openSession(dia_session.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to open DIA session: " << com::LogHr(hr) << ".";
+  if (!CreateDiaSession(image_file_.path(),
+                        dia_source.get(),
+                        dia_session.Receive())) {
     return false;
   }
 
-  hr = dia_session->put_loadAddress(
+  HRESULT hr = dia_session->put_loadAddress(
       image_file_.nt_headers()->OptionalHeader.ImageBase);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to set the DIA load address: "
@@ -1246,8 +1113,13 @@ bool Decomposer::ValidateRelocs(const PEFile::RelocMap& reloc_map) {
 
 bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
   ScopedComPtr<IDiaEnumSectionContribs> section_contribs;
-  if (!FindDiaTable(session, section_contribs.Receive()))
+  SearchResult search_result = FindDiaTable(session,
+                                            section_contribs.Receive());
+  if (search_result != kSearchSucceeded) {
+    if (search_result == kSearchFailed)
+      LOG(ERROR) << "No section contribution table found.";
     return false;
+  }
 
   size_t rsrc_id = image_file_.GetSectionIndex(".rsrc");
 
@@ -2234,55 +2106,24 @@ bool Decomposer::CreateSections() {
 bool Decomposer::LoadDebugStreams(IDiaSession* dia_session) {
   DCHECK(dia_session != NULL);
 
+  // Load the fixups. These must exist.
   PdbFixups pdb_fixups;
-  HRESULT hr = E_FAIL;
-  ScopedComPtr<IDiaEnumDebugStreams> debug_streams;
-  if (FAILED(hr = dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
-    LOG(ERROR) << "Unable to get debug streams: " << com::LogHr(hr) << ".";
+  SearchResult search_result = FindAndLoadDiaDebugStreamByName(
+      kFixupDiaDebugStreamName, dia_session, &pdb_fixups);
+  if (search_result != kSearchSucceeded) {
+    if (search_result == kSearchFailed) {
+      LOG(ERROR) << "PDB file does not contain a FIXUP stream. Module must be "
+                    "linked with '/PROFILE' or '/DEBUGINFO:FIXUP' flag.";
+    }
     return false;
   }
 
-  bool loaded_fixup_stream = false;
+  // Load the omap_from table. It is not necessary that one exist.
   std::vector<OMAP> omap_from;
-  while (true) {
-    ScopedComPtr<IDiaEnumDebugStreamData> debug_stream;
-    ULONG count = 0;
-    HRESULT hr = debug_streams->Next(1, debug_stream.Receive(), &count);
-    if (FAILED(hr) || (hr != S_FALSE && count != 1)) {
-      LOG(ERROR) << "Unable to load debug stream: "
-                 << com::LogHr(hr) << ".";
-      return false;
-    } else if (hr == S_FALSE) {
-      // No more records.
-      break;
-    }
-
-    ScopedBstr name;
-    if (FAILED(hr = debug_stream->get_name(name.Receive()))) {
-      LOG(ERROR) << "Unable to get debug stream name: "
-                 << com::LogHr(hr) << ".";
-      return false;
-    }
-
-    if (wcscmp(name, L"OMAPFROM") == 0 &&
-        !LoadDebugStream(debug_stream, &omap_from)) {
-      LOG(ERROR) << "Unable to load omap from stream.";
-      return false;
-    } else if (wcscmp(name, L"FIXUP") == 0) {
-      if (LoadDebugStream(debug_stream, &pdb_fixups)) {
-        loaded_fixup_stream = true;
-      } else {
-        LOG(ERROR) << "Unable to load fixup stream.";
-        return false;
-      }
-    }
-  }
-
-  if (!loaded_fixup_stream) {
-    LOG(ERROR) << "PDB file does not contain a FIXUP stream. Module must be "
-                  "linked with '/PROFILE' or '/DEBUGINFO:FIXUP' flag.";
+  search_result = FindAndLoadDiaDebugStreamByName(
+      kOmapFromDiaDebugStreamName, dia_session, &omap_from);
+  if (search_result == kSearchErrored)
     return false;
-  }
 
   // Translate and validate fixups.
   if (!OmapAndValidateFixups(omap_from, pdb_fixups))
@@ -2347,8 +2188,8 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
     RelativeAddress rva_location(pdb_fixups[i].rva_location);
     RelativeAddress rva_base(pdb_fixups[i].rva_base);
     if (have_omap) {
-      rva_location = TranslateAddressViaOmap(omap_from, rva_location);
-      rva_base = TranslateAddressViaOmap(omap_from, rva_base);
+      rva_location = pdb::TranslateAddressViaOmap(omap_from, rva_location);
+      rva_base = pdb::TranslateAddressViaOmap(omap_from, rva_base);
     }
 
     // If these are part of the .rsrc section, ignore them.

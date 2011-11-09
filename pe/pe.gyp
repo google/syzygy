@@ -62,6 +62,9 @@
       'sources': [
         'dia_browser.cc',
         'dia_browser.h',
+        'dia_util.cc',
+        'dia_util.h',
+        'dia_util_internal.h',
         'decomposer.cc',
         'decomposer.h',
         'dos_stub.asm',
@@ -149,6 +152,7 @@
       'type': 'executable',
       'sources': [
         'dia_browser_unittest.cc',
+        'dia_util_unittest.cc',
         'decomposer_unittest.cc',
         'find_unittest.cc',
         'metadata_unittest.cc',
