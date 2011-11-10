@@ -54,8 +54,8 @@ def InstrumentChrome(chrome_dir, output_dir, input_dll=None, input_pdb=None):
                output_dir)
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir, input_dll, input_pdb)
 
-  # Drop call_trace.dll in the temp dir.
-  shutil.copy2(runner._GetExePath('call_trace.dll'), output_dir)
+  # Drop the call-trace client DLL into the temp dir.
+  shutil.copy2(runner._GetExePath('call_trace_client.dll'), output_dir)
 
   for file in _EXECUTABLES:
     _LOGGER.info('Instrumenting "%s".', file)
@@ -63,7 +63,8 @@ def InstrumentChrome(chrome_dir, output_dir, input_dll=None, input_pdb=None):
     dst_file = os.path.join(output_dir, file)
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-dll=%s' % src_file,
-           '--output-dll=%s' % dst_file]
+           '--output-dll=%s' % dst_file,
+           '--call-trace-client=RPC']
 
     ret = chrome_utils.Subprocess(cmd)
     if ret != 0:

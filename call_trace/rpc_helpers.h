@@ -17,13 +17,24 @@
 #ifndef SYZYGY_CALL_TRACE_RPC_HELPERS_H_
 #define SYZYGY_CALL_TRACE_RPC_HELPERS_H_
 
-#include "rpc.h"
+#include <rpc.h>
 
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
 //     might make this simpler/cleaner?
 
 namespace call_trace {
 namespace client {
+
+// Create an RPC binding.
+//
+// @param protocol The RPC protocol to bind.
+// @param endpoint The endoint/address to bind.
+// @param out_handle A handle to the rpc binding will be returned here.
+//
+// @return true on success.
+bool CreateRpcBinding(const wchar_t* protocol,
+                      const wchar_t* endpoint,
+                      handle_t* out_handle);
 
 // Structure returned by RPC calls
 struct RpcStatus {

@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,6 +62,21 @@ class AddressSpace {
   bool Insert(const Range& range,
               const ItemType& item,
               typename RangeMap::iterator* ret_it = NULL);
+
+  // Insert @p range mapping to @p item or return the existing item exactly
+  // matching @p range.
+  //
+  // @param range the range of the item to get or insert.
+  // @param item the item to associate with @p range if none already exists.
+  // @param ret_it on success, returns an iterator to the found or inserted
+  //     item if not NULL.
+  //
+  // @returns true if the {range, item} pair is inserted or if there exists
+  //     an item exactly matching range; otherwise false, indicating that a
+  //     conflict/error has been detected.
+  bool FindOrInsert(const Range& range,
+                    const ItemType& item,
+                    typename RangeMap::iterator* ret_it = NULL);
 
   // Inserts @p range mapping to @p item, unless @p range intersects
   // an existing range and does not contain it. Any existing ranges it contains
@@ -377,6 +392,30 @@ bool AddressSpace<AddressType, SizeType, ItemType>::Insert(
   RangeMap::iterator it = FindFirstIntersection(range);
   if (it != ranges_.end())
     return false;
+
+  std::pair<RangeMap::iterator, bool> inserted =
+      ranges_.insert(std::make_pair(range, item));
+  DCHECK(inserted.second);
+  if (ret_it != NULL)
+    *ret_it = inserted.first;
+
+  return true;
+}
+
+template <typename AddressType, typename SizeType, typename ItemType>
+bool AddressSpace<AddressType, SizeType, ItemType>::FindOrInsert(
+    const Range& range,
+    const ItemType& item,
+    typename RangeMap::iterator* ret_it) {
+  // Is there already an existing block exactly mathing that range? If so,
+  // return it.
+  RangeMap::iterator it = FindFirstIntersection(range);
+  if (it != ranges_.end()) {
+    if (range != it->first)
+      return false;
+    *ret_it = it;
+    return true;
+  }
 
   std::pair<RangeMap::iterator, bool> inserted =
       ranges_.insert(std::make_pair(range, item));

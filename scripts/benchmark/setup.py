@@ -62,7 +62,9 @@ _MODULES = [
 _EXECUTABLES = [
   'msdia90.dll',
   'call_trace.dll',
+  'call_trace_client.dll',
   'call_trace_control.exe',
+  'call_trace_service.exe',
   'instrument.exe',
   'relink.exe',
   'reorder.exe',

@@ -196,6 +196,14 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   ASSERT_TRUE(AddModuleInformation(kProcessId, kExeInfo));
   ASSERT_TRUE(AddModuleInformation(kProcessId, kDllInfo));
 
+  // Multiple identical insertions should be ok.
+  ASSERT_TRUE(AddModuleInformation(kProcessId, kDllInfo));
+
+  // Intersecting but not identical insertions should fail
+  ModuleInformation bad_dll_info(kDllInfo);
+  bad_dll_info.base_address += 100;
+  ASSERT_FALSE(AddModuleInformation(kProcessId, bad_dll_info));
+
   // Search for unknown process.
   module_info = GetModuleInformation(kProcessId + 1, kExeInfo.base_address);
   ASSERT_TRUE(module_info == NULL);
@@ -233,8 +241,13 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kExeInfo);
 
+  // TODO(rogerm): We never actually remove modules for a given process
+  //     because we don't guarantee temporal order of all events, so you
+  //     might parse a function event after seeing the module get unloaded
+  //     if the buffers are flushed in that order.
+  //
   // Get dll module by address somewhere in the middle, then remove it and
-  // see that it's no longer found by that address.
+  // see that it's STILL found by that address.
   const size_t kDllOffset = kDllInfo.module_size / 2;
   module_info = GetModuleInformation(kProcessId,
                                      kDllInfo.base_address + kDllOffset);
@@ -243,7 +256,8 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   ASSERT_TRUE(RemoveModuleInformation(kProcessId, kDllInfo));
   module_info = GetModuleInformation(kProcessId,
                                      kDllInfo.base_address + kDllOffset);
-  ASSERT_TRUE(module_info == NULL);
+  ASSERT_TRUE(module_info != NULL);
+  ASSERT_TRUE(*module_info == kDllInfo);
 }
 
 TEST_F(ParseEngineUnitTest, UnhandledEvent) {

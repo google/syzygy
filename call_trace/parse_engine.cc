@@ -86,14 +86,14 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
   ModuleSpace& module_space = processes_[process_id];
   AbsoluteAddress64 addr(module_info.base_address);
   ModuleSpace::Range range(addr, module_info.module_size);
-  if (!module_space.Insert(range, module_info)) {
-    ModuleSpace::RangeMapIter it = module_space.FindFirstIntersection(range);
-    DCHECK(it != module_space.end());
-    // We actually see this behaviour on Windows XP gathered traces. Since
-    // this is one of the platforms we target, we simply print out a warning
-    // for now.
-    LOG(WARNING) << "Trying to insert conflicting module: "
-                 << module_info.image_file_name;
+  ModuleSpace::RangeMapIter iter;
+  if (!module_space.FindOrInsert(range, module_info, &iter) ||
+      iter->second != module_info) {
+    LOG(ERROR) << "Trying to insert conflicting module: "
+               << module_info.image_file_name
+               << " (base=0x" << module_info.module_size
+               << ", size=" << module_info.module_size << ").";
+    return false;
   }
 
   return true;
@@ -113,8 +113,7 @@ bool ParseEngine::RemoveModuleInformation(
   ModuleSpace& module_space = processes_[process_id];
   AbsoluteAddress64 addr(module_info.base_address);
   ModuleSpace::Range range(addr, module_info.module_size);
-  ModuleSpace::RangeMapIter it =
-      module_space.FindFirstIntersection(range);
+  ModuleSpace::RangeMapIter it = module_space.FindFirstIntersection(range);
   if (it == module_space.end()) {
     // We occasionally see this, as certain modules fire off multiple Unload
     // events, so we don't log an error. I'm looking at you, logman.exe.
@@ -122,11 +121,18 @@ bool ParseEngine::RemoveModuleInformation(
   }
   if (it->first != range) {
     LOG(ERROR) << "Trying to remove module with mismatching range: "
-               << module_info.image_file_name;
+               << module_info.image_file_name
+               << " (base=0x" << module_info.module_size
+               << ", size=" << module_info.module_size << ").";
     return false;
   }
 
-  module_space.Remove(it);
+  // TODO(rogerm): Unfortunately, we can't actually remove the module info
+  //     because there may yet be unflushed events we haven't processed. We
+  //     cross our fingers that another instrumented module won't be loaded
+  //     into the address space the now unloaded module used to inhabit (which
+  //     will trigger an error).
+
   return true;
 }
 

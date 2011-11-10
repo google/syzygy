@@ -78,6 +78,7 @@
         'call_trace_defs.h',
         'client_utils.cc',
         'client_utils.h',
+        'rpc_helpers.cc',
         'rpc_helpers.h',
         'rpc_mem.cc',
       ],

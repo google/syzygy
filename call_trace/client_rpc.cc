@@ -265,6 +265,9 @@ void __declspec(naked) pexit_dllmain() {
 namespace call_trace {
 namespace client {
 
+const wchar_t* const Client::kRpcProtocol = ::kCallTraceRpcProtocol;
+const wchar_t* const Client::kRpcEndpoint = ::kCallTraceRpcEndpoint;
+
 class Client::ThreadLocalData {
  public:
   explicit ThreadLocalData(Client* module);
@@ -352,39 +355,6 @@ void Client::OnClientThreadDetach() {
   }
 }
 
-bool Client::BindRPC() {
-  DCHECK(rpc_binding_ == 0);
-
-  RPC_WSTR string_binding = NULL;
-  std::wstring protocol(kCallTraceRpcProtocol);
-  std::wstring endpoint(kCallTraceRpcEndpoint);
-
-  RPC_STATUS status = RPC_S_OK;
-
-  status = ::RpcStringBindingCompose(
-      NULL, // UUID.
-      reinterpret_cast<RPC_WSTR>(&protocol[0]),
-      NULL,  // Address.
-      reinterpret_cast<RPC_WSTR>(&endpoint[0]),
-      NULL, // Options.
-      &string_binding);
-  if (status != RPC_S_OK) {
-    LOG(ERROR) << "Can't compose RPC binding: " << com::LogWe(status) << ".";
-    return false;
-  }
-
-  status = ::RpcBindingFromStringBinding(string_binding, &rpc_binding_);
-
-  ignore_result(::RpcStringFree(&string_binding));
-
-  if (status != RPC_S_OK) {
-    LOG(ERROR) << "Can't create RPC binding: " << com::LogWe(status) << ".";
-    return false;
-  }
-
-  return true;
-}
-
 bool Client::MapSegmentBuffer(ThreadLocalData* data) {
   DCHECK(data != NULL);
   DCHECK(data->client == this);
@@ -455,8 +425,9 @@ bool Client::MapSegmentBuffer(ThreadLocalData* data) {
 
 bool Client::CreateSession() {
   DCHECK(session_handle_ == NULL);
+  DCHECK(rpc_binding_ == NULL);
 
-  if (!BindRPC())
+  if (!CreateRpcBinding(kRpcProtocol, kRpcEndpoint, &rpc_binding_))
     return false;
 
   DCHECK(rpc_binding_ != 0);

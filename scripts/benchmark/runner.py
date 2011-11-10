@@ -122,8 +122,31 @@ class ChromeRunner(object):
   """A utility class to manage the running of Chrome for some number of
   iterations."""
 
+  def __init__(self, chrome_exe, profile_dir, initialize_profile=True):
+    """Initialize instance.
+
+    Args:
+        chrome_exe: path to the Chrome executable to benchmark.
+        profile_dir: path to the profile directory for Chrome. If None,
+            defaults to a temporary directory.
+        initialize_profile: if True, the profile directory will be erased and
+            Chrome will be launched once to initialize it.
+    """
+    self._chrome_exe = chrome_exe
+    self._profile_dir = profile_dir
+    self._initialize_profile = initialize_profile
+    self._call_trace_service = None
+    self._call_trace_log_path = None
+    self._call_trace_log_file = None
+
+    self._profile_dir_is_temp = self._profile_dir == None
+    if self._profile_dir_is_temp:
+      self._profile_dir = tempfile.mkdtemp(prefix='chrome-profile')
+      _LOGGER.info('Using temporary profile directory "%s".' %
+          self._profile_dir)
+
   @staticmethod
-  def StartLogging(log_dir):
+  def StartLoggingEtw(log_dir):
     """Starts ETW Logging to the files provided.
 
     Args:
@@ -148,32 +171,88 @@ class ChromeRunner(object):
       raise RunnerError('Failed to start ETW logging.')
 
   @staticmethod
-  def StopLogging():
+  def StopLoggingEtw():
     cmd = [_GetExePath('call_trace_control.exe'), 'stop']
     _LOGGER.info('Stopping ETW logging.')
     ret = subprocess.call(cmd)
     if ret != 0:
       raise RunnerError('Failed to stop ETW logging.')
 
-  def __init__(self, chrome_exe, profile_dir, initialize_profile=True):
-    """Initialize instance.
+  def StartLoggingRpc(self, log_dir):
+    """Starts RPC Logging to the directory provided.
 
     Args:
-        chrome_exe: path to the Chrome executable to benchmark.
-        profile_dir: path to the profile directory for Chrome. If None,
-            defaults to a temporary directory.
-        initialize_profile: if True, the profile directory will be erased and
-            Chrome will be launched once to initialize it.
+        log_dir: Directory where call_trace log files will be created.
     """
-    self._chrome_exe = chrome_exe
-    self._profile_dir = profile_dir
-    self._initialize_profile = initialize_profile
+    _LOGGER.info('Starting RPC logging.')
 
-    self._profile_dir_is_temp = self._profile_dir == None
-    if self._profile_dir_is_temp:
-      self._profile_dir = tempfile.mkdtemp(prefix='chrome-profile')
-      _LOGGER.info('Using temporary profile directory "%s".' %
-          self._profile_dir)
+    # Setup the call-trace service command line to start accepting clients
+    # and to log traces to log_dir.
+    exe_file = _GetExePath('call_trace_service.exe')
+    exe_dir = os.path.dirname(exe_file)
+    command = [exe_file, 'start', '--trace-dir=%s' % log_dir]
+
+    # Create a log file to which the call-trace service can direct its
+    # standard error stream. Keep it around so we can dump it at the end.
+    self._call_trace_log_path = os.path.join(
+        log_dir, 'call_trace_service_log.txt')
+    self._call_trace_log_file = open(self._call_trace_log_path, 'w+b')
+
+    # Launch the call-trace service process.
+    self._call_trace_service = subprocess.Popen(
+        command, bufsize=-1, cwd=exe_dir,
+        stdout=self._call_trace_log_file, stderr=subprocess.STDOUT)
+
+    # The call-trace service process will continue to run in the "background"
+    # unless there's a problem. Before we return, let's give it a few seconds
+    # to see if it keeps running.
+    for _ in xrange(5):
+      time.sleep(1)
+      status = self._call_trace_service.poll()
+      if status is not None:
+        self._DumpCallTraceLog(_LOGGER.error)
+        self._call_trace_service = None
+        self._call_trace_log_path = None
+        raise RunnerError('Failed to start RPC logging (%s)' % status)
+
+  def StopLoggingRpc(self):
+    """Stops RPC Logging."""
+    _LOGGER.info('Stopping RPC logging.')
+
+    # Use the call-trace service's command line to stop the singleton
+    # call-trace service instance. We can't just terminate the process
+    # because we need it to shutdown cleanly and sending it a control
+    # message (Ctrl-C, Ctrl-Break) to request a shutdown isn't reliable
+    # from Python. So, we use it's exposed RPC interface to request a
+    # shutdown.
+    exe_file = _GetExePath('call_trace_service.exe')
+    exe_dir = os.path.dirname(exe_file)
+    command = [exe_file, 'stop']
+    status = subprocess.call(command, cwd=exe_dir)
+    if status != 0:
+      raise RunnerError('Failed to stop call-trace service')
+
+    # Wait for the process to close (and remember its shutdown status),
+    # then dump its error logs to our log stream.
+    status = self._call_trace_service.wait()
+    self._DumpCallTraceLog(_LOGGER.info)
+    self._call_trace_service = None
+    if status != 0:
+      raise RunnerError('RPC logging returned an error (%s).' % status)
+
+  def _DumpCallTraceLog(self, logger):
+    """Dumps the contents of the call trace log file to the given logger.
+
+    Args:
+        logger: The logging function to use (i.e., _LOGGER.error,
+            _LOGGER.info, etc).
+    """
+    self._call_trace_log_file.close()
+    self._call_trace_log_file = None
+    with open(self._call_trace_log_path, 'r') as log_file:
+      for line in log_file:
+        logger('-- %s', line.strip())
+    self._call_trace_log_path = None
 
   def Run(self, iterations):
     """Runs the benchmark for a given number of iterations.
@@ -433,12 +512,12 @@ class BenchmarkRunner(ChromeRunner):
       _DeletePrefetch()
 
   def _StartLogging(self):
-    self.StartLogging(self._temp_dir)
+    self.StartLoggingEtw(self._temp_dir)
     self._kernel_file = os.path.join(self._temp_dir, 'kernel.etl')
     self._chrome_file = os.path.join(self._temp_dir, 'chrome.etl')
 
   def _StopLogging(self):
-    self.StopLogging()
+    self.StopLoggingEtw()
 
   def _ProcessLogs(self):
     parser = etw.consumer.TraceEventSource()
