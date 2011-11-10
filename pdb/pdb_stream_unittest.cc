@@ -15,9 +15,9 @@
 #include "syzygy/pdb/pdb_stream.h"
 #include "gtest/gtest.h"
 
-namespace {
+namespace pdb {
 
-using pdb::PdbStream;
+namespace {
 
 class TestPdbStream : public PdbStream {
  public:
@@ -43,6 +43,16 @@ class TestPdbStream : public PdbStream {
     *bytes_read = count;
     return true;
   }
+};
+
+struct Foo {
+  uint32 i;
+  double d;
+};
+
+struct Bar {
+  Foo foo1;
+  Foo foo2;
 };
 
 }  // namespace
@@ -71,10 +81,37 @@ TEST(PdbStreamTest, Read) {
   // Try to read over the end of the stream.
   EXPECT_FALSE(stream.Read(&num32, 1));
 
-  // Read to the end of the stream.
-  EXPECT_TRUE(stream.Read(&num8, 1));  // 11
+  // Read to the end of the stream, using the version of read that reports
+  // the number of items read.
+  size_t items_read = 0;
+  EXPECT_TRUE(stream.Read(&num8, 1, &items_read));  // 11
+  EXPECT_EQ(1u, items_read);
   // Read over the end of the stream.
   EXPECT_FALSE(stream.Read(&num8, 4));
+}
+
+TEST(PdbStreamTest, ReadVector) {
+  TestPdbStream stream(sizeof(Foo) * 10);
+
+  std::vector<Foo> foos;
+
+  // A couple of valid reads.
+  EXPECT_TRUE(stream.Read(&foos, 2));  // 0..1
+  EXPECT_EQ(2u, foos.size());
+  EXPECT_TRUE(stream.Read(&foos, 3));  // 2..4
+  EXPECT_EQ(3u, foos.size());
+
+  // Try to read past the end of the stream.
+  EXPECT_FALSE(stream.Read(&foos, 6));
+
+  // There are 5 elements left. If we try to read Bars until the end of the
+  // stream it should fail as 5 Foos = 2.5 Bars.
+  std::vector<Bar> bars;
+  EXPECT_FALSE(stream.Read(&bars));
+
+  // However, we should be able to read Foos until the end of the stream.
+  EXPECT_TRUE(stream.Read(&foos));
+  EXPECT_EQ(5u, foos.size());
 }
 
 TEST(PdbStreamTest, Seek) {
@@ -95,3 +132,5 @@ TEST(PdbStreamTest, Seek) {
   EXPECT_FALSE(stream.Seek(6));
   EXPECT_EQ(5, stream.pos());
 }
+
+}  // namespace pdb

@@ -15,6 +15,7 @@
 #include "syzygy/pdb/omap.h"
 
 #include <algorithm>
+#include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
 
@@ -53,6 +54,53 @@ core::RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omaps,
   --it;
   return core::RelativeAddress(it->rvaTo) +
       (address - core::RelativeAddress(it->rva));
+}
+
+bool ReadOmapsFromPdbReader(PdbReader* pdb_reader,
+                            std::vector<OMAP>* omap_to,
+                            std::vector<OMAP>* omap_from) {
+  DCHECK(pdb_reader != NULL);
+
+  PdbStream* dbi_stream = pdb_reader->stream(kDbiStream);
+  if (dbi_stream == NULL)
+    return false;
+
+  DbiHeader dbi_header = {};
+  if (!dbi_stream->Read(&dbi_header, 1))
+    return false;
+
+  DbiDbgHeader dbg_header = {};
+  if (!dbi_stream->Seek(GetDbiDbgHeaderOffset(dbi_header)))
+    return false;
+  if (!dbi_stream->Read(&dbg_header, 1))
+    return false;
+
+  // We expect both the OMAP stream IDs to exist.
+  if (dbg_header.omap_to_src < 0 || dbg_header.omap_from_src < 0)
+    return false;
+
+  // We expect both streams to exist.
+  PdbStream* omap_to_stream = pdb_reader->stream(dbg_header.omap_to_src);
+  PdbStream* omap_from_stream = pdb_reader->stream(dbg_header.omap_from_src);
+  if (omap_to_stream == NULL || omap_from_stream == NULL)
+    return false;
+
+  // Read the streams if need be.
+  if (omap_to != NULL && !omap_to_stream->Read(omap_to))
+    return false;
+  if (omap_from != NULL && !omap_from_stream->Read(omap_from))
+    return false;
+
+  return true;
+}
+
+bool ReadOmapsFromPdbFile(const FilePath& pdb_path,
+                          std::vector<OMAP>* omap_to,
+                          std::vector<OMAP>* omap_from) {
+  PdbReader pdb_reader;
+  if (!pdb_reader.Read(pdb_path))
+    return false;
+  return ReadOmapsFromPdbReader(&pdb_reader, omap_to, omap_from);
 }
 
 }  // namespace pdb

@@ -33,13 +33,48 @@ class PdbReader {
 
   // Read the pdb file. Load the file's header and directory into memory and
   // construct a list of PdbStreams that can be used to read the file's streams.
-  // @p pdb_path is the path to the pdb file to be read, and @p pdb_streams is
-  // a pointer to an already instantiated vector of PdbStream pointers which
-  // will contain a list of PdbStreams on a successful file read.
+  //
+  // @param pdb_path the PDB file to read.
+  // @returns true on success, false otherwise.
+  bool Read(const FilePath& pdb_path);
+
+  // Read the pdb file. Load the file's header and directory into memory and
+  // construct a list of PdbStreams that can be used to read the file's streams.
   // @note The PdbStream pointers returned by this method are owned by the
   // PdbReader and are invalid once Read is called again or the PdbReader goes
   // out of scope.
+  //
+  // @note This version of the function is DEPRECATED in favour of using the
+  //     single-parameter Read function combined with the stream accessors.
+  //
+  // @param pdb_path the PDB file to read.
+  // @param streams a vector to receive the list of streams in the PDB.
+  // @returns true on success, false otherwise.
   bool Read(const FilePath& pdb_path, std::vector<PdbStream*>* streams);
+
+  // Get the path of the PDB file that we are reading.
+  // @returns the path of the PDB file that is being read.
+  const FilePath& path() const { return pdb_path_; }
+
+  // An accessor for the streams in the PDB file.
+  //
+  // @returns the vector of streams.
+  // @pre Read has been successfully called.
+  const std::vector<PdbStream*>& streams() const { return streams_; }
+
+  // An accessor for an individual stream. The returned pointer is owned by the
+  // PdbRead and becomes invalid once Read is called again or the PdbReader goes
+  // out of scope. Some streams may be NULL, even though there is a slot
+  // allocated for them in streams().
+  //
+  // @param i the index of the stream to access. If i > streams().size, returns
+  //     NULL.
+  // @returns a pointer to the ith stream.
+  PdbStream* stream(size_t i) const {
+    if (i >= streams_.size())
+      return NULL;
+    return streams_[i];
+  }
 
  protected:
   // Get the file size in bytes for an already opened file handle.
@@ -51,6 +86,9 @@ class PdbReader {
 
   // Free any allocated PDB streams.
   void FreeStreams();
+
+  // The path of the file we're reading.
+  FilePath pdb_path_;
 
   // The current file handle open for reading.
   file_util::ScopedFILE file_;
