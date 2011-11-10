@@ -16,13 +16,16 @@
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_constants.h"
 
+namespace pdb {
+
 namespace {
 
-using pdb::PdbHeader;
-using pdb::PdbReader;
-using pdb::PdbStream;
+// TODO(chrisha): Centralize this stuff!
 
-const wchar_t* kTestDllFilePath =
+const wchar_t kOmappedTestDllPdbFilePath[] =
+    L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
+
+const wchar_t kTestDllPdbFilePath[] =
     L"syzygy\\pdb\\test_data\\test_dll.pdb";
 
 FilePath GetSrcRelativePath(const wchar_t* path) {
@@ -42,7 +45,6 @@ class TestPdbReader : public PdbReader {
     header_ = header;
   }
   uint32* directory() { return directory_.get(); }
-  std::vector<PdbStream*>& streams() { return streams_; }
 
   using PdbReader::GetFileSize;
   using PdbReader::GetNumPages;
@@ -50,13 +52,20 @@ class TestPdbReader : public PdbReader {
 
 }  // namespace
 
-TEST(PdbReaderTest, Read) {
-  FilePath testDllFilePath = GetSrcRelativePath(kTestDllFilePath);
+TEST(PdbReaderTest, ReadAndAccessors) {
+  FilePath omapped_test_dll_pdb =
+    GetSrcRelativePath(kOmappedTestDllPdbFilePath);
 
   TestPdbReader reader;
   std::vector<PdbStream*> streams;
-  EXPECT_TRUE(reader.Read(testDllFilePath, &streams));
+  EXPECT_TRUE(reader.Read(omapped_test_dll_pdb, &streams));
   EXPECT_GT(streams.size(), 0U);
+
+  // A repeated read should pass. Note that streams will be full of invalid
+  // pointers.
+  FilePath test_dll_pdb = GetSrcRelativePath(kTestDllPdbFilePath);
+  EXPECT_TRUE(reader.Read(test_dll_pdb));
+  streams = reader.streams();
 
   // Test that the file handle remains open.
   EXPECT_TRUE(reader.file() != NULL);
@@ -74,15 +83,22 @@ TEST(PdbReaderTest, Read) {
   uint32 num_streams = directory[0];
   EXPECT_EQ(num_streams, streams.size());
 
+  // Test the we can access the streams.
+  EXPECT_GT(reader.streams().size(), 0u);
+  EXPECT_TRUE(reader.stream(0) != NULL);
+
+  // Test that we can access the path.
+  EXPECT_EQ(test_dll_pdb, reader.path());
+
   // Test that the reader still has a reference to the streams so that they
   // can be freed later.
   EXPECT_EQ(streams, reader.streams());
 }
 
 TEST(PdbReaderTest, GetFileSize) {
-  FilePath testDllFilePath = GetSrcRelativePath(kTestDllFilePath);
+  FilePath test_dll_pdb = GetSrcRelativePath(kTestDllPdbFilePath);
 
-  file_util::ScopedFILE file(file_util::OpenFile(testDllFilePath, "rb"));
+  file_util::ScopedFILE file(file_util::OpenFile(test_dll_pdb, "rb"));
   EXPECT_TRUE(file.get() != NULL);
 
   TestPdbReader reader;
@@ -90,7 +106,7 @@ TEST(PdbReaderTest, GetFileSize) {
   EXPECT_TRUE(reader.GetFileSize(file.get(), &size1));
 
   int64 size2;
-  EXPECT_TRUE(file_util::GetFileSize(testDllFilePath, &size2));
+  EXPECT_TRUE(file_util::GetFileSize(test_dll_pdb, &size2));
 
   EXPECT_EQ(size2, size1);
 }
@@ -112,3 +128,5 @@ TEST(PdbReaderTest, GetNumPages) {
   EXPECT_EQ(3, reader.GetNumPages(9));
   EXPECT_EQ(3, reader.GetNumPages(11));
 }
+
+}  // namespace pdb

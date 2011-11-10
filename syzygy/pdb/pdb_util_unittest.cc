@@ -30,8 +30,8 @@ const wchar_t* kTestPdbFilePath =
 const wchar_t* kTestDllFilePath =
     L"syzygy\\pdb\\test_data\\test_dll.dll";
 
-const wchar_t* kKernel32PdbFilePath =
-    L"syzygy\\pdb\\test_data\\kernel32.pdb";
+const wchar_t* kOmappedTestPdbFilePath =
+    L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
 
 const wchar_t* kTempPdbFileName = L"temp.pdb";
 const wchar_t* kTempPdbFileName2 = L"temp2.pdb";
@@ -137,11 +137,12 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
   EXPECT_EQ(-1, dbi_dbg_header.omap_from_src);
 }
 
-TEST_F(PdbUtilTest, DISABLED_GetDbiDbgHeaderOffsetKernel32) {
-  // Test that kernel32.pdb does have Omap information.
+TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetOmappedTestDll) {
+  // Test that omapped_test_dll.pdb does have Omap information.
   PdbReader reader;
   std::vector<PdbStream*> streams;
-  EXPECT_TRUE(reader.Read(GetSrcRelativePath(kKernel32PdbFilePath), &streams));
+  EXPECT_TRUE(reader.Read(GetSrcRelativePath(kOmappedTestPdbFilePath),
+                          &streams));
 
   PdbStream* dbi_stream = streams[kDbiStream];
   DbiHeader dbi_header;

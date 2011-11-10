@@ -26,8 +26,7 @@ PdbReader::~PdbReader() {
   FreeStreams();
 }
 
-bool PdbReader::Read(const FilePath& pdb_path,
-                     std::vector<PdbStream*>* streams) {
+bool PdbReader::Read(const FilePath& pdb_path) {
   FreeStreams();
 
   file_.reset(file_util::OpenFile(pdb_path, "rb"));
@@ -109,6 +108,14 @@ bool PdbReader::Read(const FilePath& pdb_path,
     page_index += GetNumPages(stream_lengths[stream_index]);
   }
 
+  pdb_path_ = pdb_path;
+  return true;
+}
+
+bool PdbReader::Read(const FilePath& pdb_path,
+                     std::vector<PdbStream*>* streams) {
+  if (!Read(pdb_path))
+    return false;
   *streams = streams_;
   return true;
 }

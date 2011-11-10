@@ -14,11 +14,30 @@
 
 #include "syzygy/pdb/omap.h"
 
+#include "base/path_service.h"
 #include "gtest/gtest.h"
 
 namespace pdb {
 
 using core::RelativeAddress;
+
+namespace {
+
+// TODO(chrisha): Centralize this stuff, like in pe_unittest_utils.
+
+const wchar_t* kTestDllFilePath =
+    L"syzygy\\pdb\\test_data\\test_dll.pdb";
+
+const wchar_t* kOmappedTestPdbFilePath =
+    L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
+
+FilePath GetSrcRelativePath(const wchar_t* path) {
+  FilePath src_dir;
+  PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
+  return src_dir.Append(path);
+}
+
+}  // namespace
 
 TEST(OmapTest, CreateOmap) {
   OMAP omap = CreateOmap(523, 644);
@@ -77,6 +96,26 @@ TEST(OmapTest, Translate) {
             TranslateAddressViaOmap(omaps, RelativeAddress(2500)));
   EXPECT_EQ(RelativeAddress(3500),
             TranslateAddressViaOmap(omaps, RelativeAddress(3500)));
+}
+
+TEST(OmapTest, ReadOmapsFromPdbFile) {
+  std::vector<OMAP> omap_to, omap_from;
+
+  // We only test ReadOmapsFromPdbFile as this wraps ReadOmapsFromPdbReader and
+  // inherently tests both.
+
+  // We expect this to be false, as the original test_dll has no OMAP
+  // information in it.
+  FilePath pdb_path = GetSrcRelativePath(kTestDllFilePath);
+  EXPECT_FALSE(ReadOmapsFromPdbFile(pdb_path, NULL, NULL));
+
+  pdb_path = GetSrcRelativePath(kOmappedTestPdbFilePath);
+  EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, NULL, NULL));
+  EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, NULL, &omap_from));
+  EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, &omap_to, NULL));
+  EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, &omap_to, &omap_from));
+  EXPECT_FALSE(omap_to.empty());
+  EXPECT_FALSE(omap_from.empty());
 }
 
 }  // namespace pdb
