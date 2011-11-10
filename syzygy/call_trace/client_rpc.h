@@ -55,6 +55,12 @@ class Client {
 
   BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID reserved);
 
+  // The name of the Win32 RPC protocol to which the client will bind.
+  static const wchar_t* const kRpcProtocol;
+
+  // The name/address of the RPC endpoint at which the client will listen.
+  static const wchar_t* const kRpcEndpoint;
+
  protected:
   friend void _indirect_penter();
   friend void _indirect_penter_dll_main();
@@ -199,7 +205,6 @@ class Client {
 
   // Wrapper and helper functions for the RPC and shared memory calls made
   // by the call-trace client.
-  bool BindRPC();
   bool MapSegmentBuffer(ThreadLocalData* data);
   bool CreateSession();
   bool AllocateBuffer(ThreadLocalData* data);

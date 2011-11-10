@@ -16,6 +16,7 @@
 optimizing Chrome."""
 
 import chrome_utils
+import glob
 import instrument
 import logging
 import optparse
@@ -39,15 +40,10 @@ class ProfileRunner(runner.ChromeRunner):
     self._log_files = []
 
   def _SetUp(self):
-    self.StartLogging(self._temp_dir)
-
-    call_trace_file = os.path.join(self._temp_dir, 'call_trace.etl')
-    kernel_file = os.path.join(self._temp_dir, 'kernel.etl')
-    self._log_files.append(call_trace_file)
-    self._log_files.append(kernel_file)
+    self.StartLoggingRpc(self._temp_dir)
 
   def _TearDown(self):
-    self.StopLogging()
+    self.StopLoggingRpc()
 
   def _PreIteration(self, it):
     pass
@@ -60,8 +56,8 @@ class ProfileRunner(runner.ChromeRunner):
     time.sleep(20)
 
   def _ProcessResults(self):
-    # TODO(siggi): Generate ordering here?
-    pass
+    # Capture all the binary trace log files that were generated.
+    self._log_files = glob.glob(os.path.join(self._temp_dir, '*.bin'))
 
 
 def ProfileChrome(chrome_dir, iterations):

@@ -1,4 +1,4 @@
-// Copyright 2009 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 namespace sym_util {
 
-bool ModuleInformation::operator < (const ModuleInformation& o) const {
+bool ModuleInformation::operator<(const ModuleInformation& o) const {
   if (base_address < o.base_address)
     return true;
   if (base_address > o.base_address)
@@ -45,12 +45,16 @@ bool ModuleInformation::operator < (const ModuleInformation& o) const {
   return image_file_name < o.image_file_name;
 }
 
-bool ModuleInformation::operator == (const ModuleInformation& o) const {
+bool ModuleInformation::operator==(const ModuleInformation& o) const {
   return base_address == o.base_address &&
          module_size == o.module_size &&
          image_checksum == o.image_checksum &&
          time_date_stamp == o.time_date_stamp &&
          image_file_name == o.image_file_name;
+}
+
+bool ModuleInformation::operator!=(const ModuleInformation& o) const {
+  return !operator==(o);
 }
 
 }  // namespace sym_util

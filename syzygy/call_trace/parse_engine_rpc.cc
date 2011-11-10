@@ -82,6 +82,8 @@ bool ParseEngineRpc::ConsumeAllEvents() {
 bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
   DCHECK(!trace_file_path.empty());
 
+  LOG(INFO) << "Processing '" << trace_file_path.BaseName().value() << "'.";
+
   file_util::ScopedFILE trace_file(file_util::OpenFile(trace_file_path, "rb"));
   if (!trace_file.get()) {
     DWORD error = ::GetLastError();
@@ -255,6 +257,10 @@ bool ParseEngineRpc::ConsumeSegmentEvents(
     event_record.MofLength = prefix->size;
     if (!DispatchEvent(&event_record)) {
       LOG(ERROR) << "Failed to process event of type " << prefix->type << ".";
+      return false;
+    }
+
+    if (error_occurred()) {
       return false;
     }
   }

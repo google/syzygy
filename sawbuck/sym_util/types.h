@@ -1,4 +1,4 @@
-// Copyright 2009 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,8 +35,9 @@ typedef DWORD ProcessId;
 
 // This is the information we pass around for a module.
 struct ModuleInformation {
-  bool operator < (const ModuleInformation& o) const;
-  bool operator == (const ModuleInformation& o) const;
+  bool operator<(const ModuleInformation& o) const;
+  bool operator==(const ModuleInformation& o) const;
+  bool operator!=(const ModuleInformation& o) const;
 
   ModuleBase base_address;
   ModuleSize module_size;

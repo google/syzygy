@@ -161,9 +161,9 @@ bool Reorderer::ReorderImpl(Order* order) {
 
   for (TraceFileIter i = trace_files_.begin(); i < trace_files_.end(); ++i) {
     const FilePath& trace_path = *i;
-    LOG(INFO) << "Reading " << trace_path.value() << ".";
+    LOG(INFO) << "Opening '" << trace_path.BaseName().value() << "'.";
     if (!parser_->OpenTraceFile(trace_path)) {
-      LOG(ERROR) << "Unable to open ETW log file: " << trace_path.value();
+      LOG(ERROR) << "Unable to open trace log: " << trace_path.value();
       return false;
     }
   }
@@ -274,10 +274,18 @@ void Reorderer::OnFunctionEntry(base::Time time,
   const ModuleInformation* module_info =
       parser_->GetModuleInformation(process_id, function_address);
 
-  // Ignore event not belonging to the instrumented module of interest.
-  if (module_info == NULL ||
-      !MatchesInstrumentedModuleSignature(*module_info))
+  // We should be able to resolve the instrumented module.
+  if (module_info == NULL) {
+    LOG(ERROR) << "Failed to resolve module for entry event (pid="
+               << process_id << ", addr=0x" << data->function << ").";
+    parser_->set_error_occurred(true);
     return;
+  }
+
+  // Ignore event not belonging to the instrumented module of interest.
+  if (!MatchesInstrumentedModuleSignature(*module_info)) {
+    return;
+  }
 
   // Get the block that this function call refers to. We can only instrument
   // 32-bit DLLs, so we're sure that the following address conversion is safe.
@@ -291,7 +299,8 @@ void Reorderer::OnFunctionEntry(base::Time time,
     return;
   }
   if (block->type() != BlockGraph::CODE_BLOCK) {
-    LOG(ERROR) << rva << " maps to a non-code block.";
+    LOG(ERROR) << rva << " maps to a non-code block (" << block->name()
+               << " in " << module_info->image_file_name << ").";
     parser_->set_error_occurred(true);
     return;
   }

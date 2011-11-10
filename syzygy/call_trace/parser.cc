@@ -119,7 +119,7 @@ bool Parser::SetActiveParseEngine(const FilePath& trace_file_path) {
   for (; it != parse_engine_set_.end(); ++it) {
     ParseEngine* engine = *it;
     if (engine->IsRecognizedTraceFile(trace_file_path)) {
-      LOG(INFO) << "Using " << engine->name() << " to parse trace files.";
+      LOG(INFO) << "Using " << engine->name() << " Call-Trace Parser.";
       active_parse_engine_ = engine;
       return true;
     }

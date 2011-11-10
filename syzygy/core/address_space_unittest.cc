@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,6 +116,39 @@ TEST(AddressSpaceTest, Insert) {
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(95, 10), item));
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(100, 5), item));
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(105, 5), item));
+}
+
+TEST(AddressSpaceTest, FindOrInsert) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  typedef IntegerAddressSpace::Range Range;
+  typedef IntegerAddressSpace::RangeMapIter Iter;
+
+  Iter iter1, iter2, iter3, attempt;
+
+  // Non-overlapping insertions should work.
+  EXPECT_TRUE(address_space.FindOrInsert(Range(100, 10), item, &iter1));
+  EXPECT_TRUE(address_space.FindOrInsert(Range(110, 5), item, &iter2));
+  EXPECT_TRUE(address_space.FindOrInsert(Range(120, 10), item, &iter3));
+  EXPECT_TRUE(iter1 != iter2);
+  EXPECT_TRUE(iter1 != iter3);
+  EXPECT_TRUE(iter2 != iter3);
+
+  // Exactly matching range assertions insertions should be accepted.
+  EXPECT_TRUE(address_space.FindOrInsert(Range(100, 10), item, &attempt));
+  EXPECT_TRUE(attempt == iter1);
+  EXPECT_TRUE(address_space.FindOrInsert(Range(110, 5), item, &attempt));
+  EXPECT_TRUE(attempt == iter2);
+  EXPECT_TRUE(address_space.FindOrInsert(Range(120, 10), item, &attempt));
+  EXPECT_TRUE(attempt == iter3);
+
+  // Non-matching overlapping insertions should be rejected.
+  EXPECT_FALSE(address_space.Insert(Range(95, 10), item, &attempt));
+  EXPECT_FALSE(address_space.Insert(Range(100, 8), item, &attempt));
+  EXPECT_FALSE(address_space.Insert(Range(101, 8), item, &attempt));
+  EXPECT_FALSE(address_space.Insert(Range(105, 5), item, &attempt));
+  EXPECT_FALSE(address_space.Insert(Range(105, 9), item, &attempt));
 }
 
 TEST(AddressSpaceTest, SubsumeInsert) {

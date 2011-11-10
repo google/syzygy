@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/call_trace/service.h"
-
 #include <iostream>
 
 #include "base/at_exit.h"
@@ -21,8 +19,13 @@
 #include "base/file_path.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
+#include "base/string_util.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/call_trace/rpc_helpers.h"
+#include "syzygy/call_trace/service.h"
 
+using call_trace::client::CreateRpcBinding;
+using call_trace::client::InvokeRpc;
 using call_trace::service::Service;
 
 namespace {
@@ -43,7 +46,11 @@ BOOL WINAPI OnConsoleCtrl(DWORD ctrl_type) {
 }
 
 const char kUsage[] =
-    "Usage: call_trace_service [options]\n"
+    "Usage: call_trace_service ACTION [OPTIONS]\n"
+    "\n"
+    "Actions:\n"
+    "  start              Start the call trace service.\n"
+    "  stop               Stop the call trace service.\n"
     "\n"
     "Options:\n"
     "  --help             Show this help message.\n"
@@ -58,6 +65,75 @@ const char kUsage[] =
 int Usage() {
   std::cout << kUsage;
   return 1;
+}
+
+bool RunService(const CommandLine* cmd_line) {
+  DCHECK(cmd_line != NULL);
+  Service& call_trace_service = Service::Instance();
+
+  // Set up the trace directory.
+  FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
+  if (trace_directory.empty()) {
+    trace_directory = FilePath(L".");
+  }
+  call_trace_service.set_trace_directory(trace_directory);
+
+  // Setup the buffer size.
+  std::wstring buffer_size_str(
+      cmd_line->GetSwitchValueNative("buffer-size"));
+  if (!buffer_size_str.empty()) {
+    int num = 0;
+    if (!base::StringToInt(buffer_size_str, &num) || num < kMinBufferSize) {
+      LOG(ERROR) << "Buffer size is too small (<" << kMinBufferSize << ").";
+      return false;
+    }
+    call_trace_service.set_buffer_size_in_bytes(num);
+  }
+
+  // Setup the number of incremental buffers
+  std::wstring buffers_str(
+      cmd_line->GetSwitchValueNative("num-incremental-buffers"));
+  if (!buffers_str.empty()) {
+    int num = 0;
+    if (!base::StringToInt(buffers_str, &num) || num < kMinBuffers) {
+      LOG(ERROR) << "Number of incremental buffers is too small (<"
+                 << kMinBuffers << ").";
+      return false;
+    }
+    call_trace_service.set_num_incremental_buffers(num);
+  }
+
+  // Setup the handler for exit signals.
+  if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to register shutdown handler: "
+               << com::LogWe(error) << ".";
+    return false;
+  }
+
+  // Run the service until it is externally stopped.
+  call_trace_service.Start(false);
+
+  return true;
+}
+
+bool StopService() {
+  LOG(INFO) << "Stopping call trace logging service.";
+  handle_t binding = NULL;
+  if (!CreateRpcBinding(Service::kRpcProtocol,
+                        Service::kRpcEndpoint,
+                        &binding)) {
+    LOG(ERROR) << "Failed to connect to call trace logging service.";
+    return false;
+  }
+
+  if (!InvokeRpc(CallTraceClient_Stop, binding).succeeded()) {
+    LOG(ERROR) << "Failed to stop call trace logging service.";
+    return false;
+  }
+
+  LOG(INFO) << "Call trace logging service has been stopped.";
+  return true;
 }
 
 } // namespace
@@ -75,54 +151,17 @@ int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
-  if (cmd_line->HasSwitch("help")) {
+  if (cmd_line->HasSwitch("help") || cmd_line->args().size() < 1) {
     return Usage();
   }
 
-  Service& call_trace_service = Service::Instance();
-
-  // Set up the trace directory.
-  FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
-  if (trace_directory.empty()) {
-    trace_directory = FilePath(L".");
-  }
-  call_trace_service.set_trace_directory(trace_directory);
-
-  // Setup the buffer size.
-  std::wstring buffer_size_str(
-      cmd_line->GetSwitchValueNative("buffer-size"));
-  if (!buffer_size_str.empty()) {
-    int num = 0;
-    if (!base::StringToInt(buffer_size_str, &num) || num < kMinBufferSize) {
-      LOG(ERROR) << "Buffer size is too small (<" << kMinBufferSize << ").";
-      return 1;
-    }
-    call_trace_service.set_buffer_size_in_bytes(num);
+  if (LowerCaseEqualsASCII(cmd_line->args()[0], "stop")) {
+    return StopService() ? 0 : 1;
   }
 
-  // Setup the number of incremental buffers
-  std::wstring buffers_str(
-      cmd_line->GetSwitchValueNative("num-incremental-buffers"));
-  if (!buffers_str.empty()) {
-    int num = 0;
-    if (!base::StringToInt(buffers_str, &num) || num < kMinBuffers) {
-      LOG(ERROR) << "Number of incremental buffers is too small (<"
-                 << kMinBuffers << ").";
-      return 1;
-    }
-    call_trace_service.set_num_incremental_buffers(num);
+  if (LowerCaseEqualsASCII(cmd_line->args()[0], "start")) {
+    return RunService(cmd_line) ? 0 : 1;
   }
 
-  // Setup the handler for exit signals.
-  if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to register shutdown handler: "
-               << com::LogWe(error) << ".";
-    return 1;
-  }
-
-  // Run the service until it is externally stopped.
-  call_trace_service.Start(false);
-
-  return 0;
+  return Usage();
 }
