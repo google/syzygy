@@ -257,6 +257,8 @@ ModuleInformation ModuleTraceDataToModuleInformation(
       reinterpret_cast<uint32>(module_data.module_base_addr);
   module_info.module_size = module_data.module_base_size;
   module_info.image_file_name = module_data.module_name;
+  module_info.image_checksum = module_data.module_checksum;
+  module_info.time_date_stamp = module_data.module_time_date_stamp;
   return module_info;
 }
 

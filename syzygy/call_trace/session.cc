@@ -138,6 +138,8 @@ bool WriteTraceFileHeader(HANDLE file_handle,
                 sizeof(header->module_path));
   header->module_base_address = client.exe_base_address;
   header->module_size = client.exe_image_size;
+  header->module_checksum = client.exe_checksum;
+  header->module_time_date_stamp = client.exe_time_date_stamp;
   base::wcslcpy(&header->command_line[0],
                 client.command_line.c_str(),
                 client.command_line.length() + 1);

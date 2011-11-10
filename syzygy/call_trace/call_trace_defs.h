@@ -166,6 +166,12 @@ struct TraceFileHeader {
   // The size of the executable module.
   uint32 module_size;
 
+  // The checksum of the executable module.
+  uint32 module_checksum;
+
+  // The timestamp of the executable module.
+  uint32 module_time_date_stamp;
+
   // The path to the executable module.
   wchar_t module_path[MAX_PATH];
 
@@ -246,6 +252,8 @@ typedef TraceEnterEventData TraceEnterExitEventData;
 struct TraceModuleData {
   ModuleAddr module_base_addr;
   size_t module_base_size;
+  uint32 module_checksum;
+  uint32 module_time_date_stamp;
   wchar_t module_name[256];
   wchar_t module_exe[MAX_PATH];
 };

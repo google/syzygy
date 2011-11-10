@@ -27,8 +27,10 @@
 #include "syzygy/call_trace/rpc_helpers.h"
 
 using namespace call_trace::client;
-using call_trace::service::Service;
 using common::AlignUp;
+
+namespace call_trace {
+namespace service {
 
 namespace {
 
@@ -427,3 +429,6 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
         header->block_size);
   }
 }
+
+}  // namespace call_trace::service
+}  // namespace call_trace
