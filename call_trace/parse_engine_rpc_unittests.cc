@@ -36,6 +36,8 @@ using call_trace::service::Service;
 
 namespace {
 
+static const uint32 kConstantInThisModule = 0;
+
 enum CallEntryType {
   kCallEntry,
   kCallExit,
@@ -269,6 +271,28 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
     ASSERT_TRUE(FindTraceFile(&trace_file_path));
     ASSERT_TRUE(parser.OpenTraceFile(trace_file_path));
     ASSERT_TRUE(parser.Consume());
+
+    // Get the information for this process.
+    uint32 pid = ::GetCurrentProcessId();
+    call_trace::service::ProcessInfo process_info;
+    ASSERT_TRUE(process_info.Initialize(pid));
+
+    // Look up this process in the process map.
+    call_trace::parser::AbsoluteAddress64 addr =
+        reinterpret_cast<uint32>(&kConstantInThisModule);
+    const call_trace::parser::ModuleInformation* module_info =
+        parser.GetModuleInformation(pid, addr);
+
+    // An entry should exist for this process, and it should match our
+    // process info.
+    ASSERT_TRUE(module_info != NULL);
+    ASSERT_EQ(process_info.executable_path,
+              FilePath(module_info->image_file_name));
+    ASSERT_EQ(process_info.exe_base_address, module_info->base_address);
+    ASSERT_EQ(process_info.exe_image_size, module_info->module_size);
+    ASSERT_EQ(process_info.exe_checksum, module_info->image_checksum);
+    ASSERT_EQ(process_info.exe_time_date_stamp,
+              module_info->time_date_stamp);
 
     // And extract the results.
     entered_addresses_.clear();

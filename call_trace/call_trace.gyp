@@ -207,6 +207,7 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '../pe/pe.gyp:pe_unittest_utils',

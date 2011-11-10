@@ -29,7 +29,11 @@ namespace call_trace {
 namespace service {
 
 // This class retrieves and encapsulates the process related information
-// captured within a trace file.
+// captured within a trace file. This needs to be a superset of
+// sawbuck::sym_util::ModuleInfo, which contains the minimum amount of
+// information necessary for uniquely identifying a PE file, and the PDB file
+// referring to it. This is necessary to allow us to match events up to modules
+// when parsing call trace logs.
 //
 // Usage:
 //
@@ -42,6 +46,8 @@ namespace service {
 //     LOG(INFO) << "Command Line = " << info.command_line;
 //     LOG(INFO) << "Base Address = " << info.exe_base_address;
 //     LOG(INFO) << "Image Size = " << info.exe_image_size;
+//     LOG(INFO) << "Image Checksum = " << info.exe_checksum;
+//     LOG(INFO) << "Image Time/Date Stamp = " << info.exe_time_date_stamp;
 //   }
 struct ProcessInfo {
  public:
@@ -73,6 +79,12 @@ struct ProcessInfo {
 
   // The size of the executable image loaded at exe_base_address.
   uint32 exe_image_size;
+
+  // The checksum of the executable, taken from the NT headers.
+  uint32 exe_checksum;
+
+  // The time/date stamp of the executable, taken from the NT headers.
+  uint32 exe_time_date_stamp;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ProcessInfo);

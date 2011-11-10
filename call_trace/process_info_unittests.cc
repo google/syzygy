@@ -17,10 +17,12 @@
 #include <psapi.h>
 
 #include "gtest/gtest.h"
+#include "syzygy/pe/pe_file.h"
 
-using call_trace::service::ProcessInfo;
+namespace call_trace {
+namespace service {
 
-TEST(ProcessInfo, CurrentProcess) {
+TEST(ProcessInfoTest, CurrentProcess) {
   HANDLE process = ::GetCurrentProcess();
   ASSERT_TRUE(process != NULL);
 
@@ -37,6 +39,11 @@ TEST(ProcessInfo, CurrentProcess) {
   ASSERT_TRUE(length != 0);
   ASSERT_LT(length, arraysize(executable_path));
 
+  pe::PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(FilePath(executable_path)));
+  pe::PEFile::Signature pe_sig;
+  pe_file.GetSignature(&pe_sig);
+
   ProcessInfo process_info;
   ASSERT_TRUE(process_info.Initialize(::GetCurrentProcessId()));
 
@@ -46,6 +53,8 @@ TEST(ProcessInfo, CurrentProcess) {
       reinterpret_cast<void*>(process_info.exe_base_address),
       module_info.lpBaseOfDll);
   ASSERT_EQ(process_info.exe_image_size, module_info.SizeOfImage);
+  ASSERT_EQ(process_info.exe_checksum, pe_sig.module_checksum);
+  ASSERT_EQ(process_info.exe_time_date_stamp, pe_sig.module_time_date_stamp);
 
   process_info.Reset();
   ASSERT_TRUE(process_info.process_id == 0);
@@ -54,4 +63,9 @@ TEST(ProcessInfo, CurrentProcess) {
   ASSERT_TRUE(process_info.command_line.empty());
   ASSERT_TRUE(process_info.exe_base_address == 0);
   ASSERT_TRUE(process_info.exe_image_size == 0);
+  ASSERT_TRUE(process_info.exe_checksum == 0);
+  ASSERT_TRUE(process_info.exe_time_date_stamp == 0);
 }
+
+}  // namespace call_trace::service
+}  // namespace call_trace

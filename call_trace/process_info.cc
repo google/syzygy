@@ -145,6 +145,63 @@ bool GetProcessStrings(uint32 pid,
   return true;
 }
 
+// Gets the NT headers of the running process.
+bool GetProcessNtHeaders(
+    uint32 pid, HANDLE handle, IMAGE_NT_HEADERS* nt_headers) {
+  DCHECK(nt_headers != NULL);
+  HMODULE module = 0;
+  DWORD dummy = 0;
+
+  // The first module returned by the enumeration will be the executable. So
+  // we only need to ask for one HMODULE.
+  if (!::EnumProcessModules(handle, &module, sizeof(module), &dummy)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get module handle for PID=" << pid
+               << ": " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  // We now have enough information get the module info for the executable.
+  MODULEINFO info = {};
+  if (!::GetModuleInformation(handle, module, &info, sizeof(info))) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get module info for PID=" << pid
+               << ": " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  uint8* base_addr = reinterpret_cast<uint8*>(info.lpBaseOfDll);
+
+  // Get the DOS header.
+  IMAGE_DOS_HEADER dos_header;
+  uint8* addr_to_read = base_addr;
+  SIZE_T bytes_to_read = sizeof(IMAGE_DOS_HEADER);
+  SIZE_T bytes_read = 0;
+  if (!::ReadProcessMemory(handle, addr_to_read, &dos_header,
+                           bytes_to_read, &bytes_read) ||
+      bytes_read != bytes_to_read) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to read DOS header for PID=" << pid
+               << " " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  // Get the NT headers.
+  addr_to_read = base_addr + dos_header.e_lfanew;
+  bytes_to_read = sizeof(IMAGE_NT_HEADERS);
+  bytes_read = 0;
+  if (!::ReadProcessMemory(handle, addr_to_read, nt_headers,
+                           bytes_to_read, &bytes_read) ||
+      bytes_read != bytes_to_read) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to read NT headers for PID=" << pid
+               << " " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  return true;
+}
+
 // Gets the executable module information for the process given by pid/handle.
 bool GetMemoryRange(uint32 pid, HANDLE handle, uint32* base_addr,
                     uint32* module_size) {
@@ -186,7 +243,9 @@ namespace service {
 ProcessInfo::ProcessInfo()
     : process_id(0),
       exe_base_address(0),
-      exe_image_size(0) {
+      exe_image_size(0),
+      exe_checksum(0),
+      exe_time_date_stamp(0) {
 }
 
 ProcessInfo::~ProcessInfo() {
@@ -199,6 +258,8 @@ void ProcessInfo::Reset() {
   command_line.clear();
   exe_base_address = 0;
   exe_image_size = 0;
+  exe_checksum = 0;
+  exe_time_date_stamp = 0;
 }
 
 bool ProcessInfo::Initialize(uint32 pid) {
@@ -231,6 +292,16 @@ bool ProcessInfo::Initialize(uint32 pid) {
     Reset();
     return false;
   }
+
+  // Get the headers for the running image and use these to populate the
+  // checksum and time-date stamp.
+  IMAGE_NT_HEADERS nt_headers;
+  if (!GetProcessNtHeaders(process_id, process_handle, &nt_headers)) {
+    Reset();
+    return false;
+  }
+  exe_checksum = nt_headers.OptionalHeader.CheckSum;
+  exe_time_date_stamp = nt_headers.FileHeader.TimeDateStamp;
 
   return true;
 }

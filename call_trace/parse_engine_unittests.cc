@@ -176,6 +176,8 @@ const ModuleInformation ParseEngineUnitTest::kDllInfo = {
 const TraceModuleData ParseEngineUnitTest::kModuleData = {
     reinterpret_cast<ModuleAddr>(0x99999999),
     0x11111111,
+    0x22222222,
+    0x33333333,
     L"module",
     L"executable" };
 

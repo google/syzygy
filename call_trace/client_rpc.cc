@@ -628,6 +628,9 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   module_event->module_base_addr = module;
   module_event->module_base_size =
       image.GetNTHeaders()->OptionalHeader.SizeOfImage;
+  module_event->module_checksum = image.GetNTHeaders()->OptionalHeader.CheckSum;
+  module_event->module_time_date_stamp =
+      image.GetNTHeaders()->FileHeader.TimeDateStamp;
   if (::GetMappedFileName(::GetCurrentProcess(), module,
                           &module_event->module_name[0],
                           arraysize(module_event->module_name)) == 0) {
