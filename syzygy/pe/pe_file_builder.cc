@@ -533,9 +533,21 @@ bool PEFileBuilder::SortSafeSehTable() {
     return true;
   }
 
+  // Grab the references to the safe SEH code blocks.
   typedef BlockGraph::Block::ReferenceMap ReferenceMap;
   const ReferenceMap& orig_references = safe_seh_table.block()->references();
 
+  // We should have as many references as there are handlers and we expect the
+  // safe seh block to be zero offset and exactly the right size.
+  size_t num_references = orig_references.size();
+  if (num_references != load_config_directory->SEHandlerCount ||
+      safe_seh_table.offset() != 0 ||
+      safe_seh_table.block()->size() != num_references * sizeof(DWORD)) {
+    LOG(ERROR) << "Safe SEH Table block does not conform to expectations.";
+    return false;
+  }
+
+  // Create a secondary vector large enough to hold the sorted references.
   typedef std::vector<BlockGraph::Reference> ReferenceVector;
   ReferenceVector sorted_references;
   sorted_references.reserve(orig_references.size());
@@ -560,7 +572,9 @@ bool PEFileBuilder::SortSafeSehTable() {
   size_t offset = 0;
   for (ReferenceVector::iterator iter = sorted_references.begin();
        iter != sorted_references.end();
-       offset += iter->size(), ++iter) {
+       offset += sizeof(DWORD), ++iter) {
+    DCHECK(iter->size() == sizeof(DWORD));
+    DCHECK(iter->referenced()->type() == BlockGraph::CODE_BLOCK);
     safe_seh_table.block()->SetReference(offset, *iter);
   }
 
