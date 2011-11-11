@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,11 @@
 #include "base/string_util.h"
 #include "syzygy/instrument/instrumenter.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/find.h"
 #include "syzygy/pe/pe_file.h"
 
 using core::BlockGraph;
+using instrument::Instrumenter;
 using pe::Decomposer;
 using pe::PEFile;
 
@@ -33,6 +35,11 @@ static const char kUsage[] =
     "    --output-dll=<path> The instrumented output DLL.\n"
     "\n"
     "  Options:\n"
+    "    --input-pdb=<path>  The PDB for the DLL to instrument. If not\n"
+    "                        explicitly provided will be searched for.\n"
+    "    --output-pdb=<path> The PDB for the instrumented DLL. Defaults to\n"
+    "                        the value of output-dll with the extension\n"
+    "                        replaced by \".pdb\".\n"
     "    --call-trace-client=ETW|RPC|<other.dll>\n"
     "                        The call-trace client DLL to reference in the\n"
     "                        instrumented binary. The default value is ETW,\n"
@@ -63,11 +70,27 @@ int main(int argc, char** argv) {
   DCHECK(cmd_line != NULL);
 
   FilePath input_dll_path(cmd_line->GetSwitchValuePath("input-dll"));
+  FilePath input_pdb_path(cmd_line->GetSwitchValuePath("input-pdb"));
   FilePath output_dll_path(cmd_line->GetSwitchValuePath("output-dll"));
+  FilePath output_pdb_path(cmd_line->GetSwitchValuePath("output-pdb"));
   std::string client_dll(cmd_line->GetSwitchValueASCII("call-trace-client"));
 
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
+
+  if (input_pdb_path.empty()) {
+    LOG(INFO) << "--input-pdb not specified, searching for it.";
+    if (!pe::FindPdbForModule(input_dll_path, &input_pdb_path) ||
+        input_pdb_path.empty()) {
+      LOG(ERROR) << "Failed to find PDB for input module.";
+      return 1;
+    }
+  }
+
+  if (output_pdb_path.empty()) {
+    output_pdb_path = output_dll_path.ReplaceExtension(L".pdb");
+    LOG(INFO) << "Using default value for --output_pdb.";
+  }
 
   if (client_dll.empty() || LowerCaseEqualsASCII(client_dll, "etw")) {
     client_dll = Instrumenter::kCallTraceClientDllEtw;
@@ -75,13 +98,18 @@ int main(int argc, char** argv) {
     client_dll = Instrumenter::kCallTraceClientDllRpc;
   }
 
-  LOG(INFO) << "Instrumenting " << input_dll_path.value() << ".";
-  LOG(INFO) << "Output file = " << output_dll_path.value() << ".";
-  LOG(INFO) << "Client DLL = " << client_dll << ".";
+  LOG(INFO) << "Input image = " << input_dll_path.value();
+  LOG(INFO) << "Input PDB = " << input_pdb_path.value();
+  LOG(INFO) << "Output image = " << output_dll_path.value();
+  LOG(INFO) << "Output PDB = " << output_dll_path.value();
+  LOG(INFO) << "Client DLL = " << client_dll;
 
   Instrumenter instrumenter;
   instrumenter.set_client_dll(client_dll.c_str());
-  if (!instrumenter.Instrument(input_dll_path, output_dll_path)) {
+  if (!instrumenter.Instrument(input_dll_path,
+                               input_pdb_path,
+                               output_dll_path,
+                               output_pdb_path)) {
     LOG(ERROR)<< "Failed to instrument " << input_dll_path.value().c_str();
     return 1;
   }

@@ -53,6 +53,21 @@ class RelinkerBase {
   // Commits the relinked image to disk at the given output path.
   bool WriteImage(const FilePath& output_path);
 
+  // Updates the debug information in the debug directory with our new GUID.
+  bool UpdateDebugInformation(const FilePath& output_pdb_path);
+
+  // Call after relinking and finalizing image to create a PDB file that
+  // matches the reordered image.
+  bool WritePDBFile(const FilePath& input_path,
+                    const FilePath& output_path);
+
+  // Adds toolchain version information, and signature information for the
+  // original DLL. This will be placed in its own section.
+  bool WriteMetadataSection(const pe::PEFile& input_dll);
+
+  // Copies the resource section from the original binary to the new one.
+  bool CopyResourceSection();
+
   // Copies a section from the old image into the new one.
   bool CopySection(const ImageLayout::SectionInfo& section);
 
@@ -60,6 +75,12 @@ class RelinkerBase {
   // the new one, inserting them in order from insert_at.
   bool CopyBlocks(const AddressSpace::RangeMapConstIterPair& iter_pair,
                   RelativeAddress insert_at, size_t* bytes_copied);
+
+  // Returns the GUID for the new image.
+  const GUID& new_image_guid() const { return new_image_guid_; }
+
+  // Returns the ID of the resource section in the original headers.
+  size_t resource_section_id() const { return resource_section_id_; }
 
   // TODO(siggi): Remove this accessor in favor of one to the image_layout_.
   const std::vector<ImageLayout::SectionInfo>& original_sections() const {
@@ -86,6 +107,12 @@ class RelinkerBase {
 
   // The builder that we use to construct the new image.
   scoped_ptr<PEFileBuilder> builder_;
+
+  // The GUID we stamp into the new image and Pdb file.
+  GUID new_image_guid_;
+
+  // Stores the index of the resource section, if the original module has one.
+  size_t resource_section_id_;
 
   DISALLOW_COPY_AND_ASSIGN(RelinkerBase);
 };
@@ -131,41 +158,16 @@ class Relinker : public RelinkerBase {
                               const ImageLayout::SectionInfo& section,
                               const Reorderer::Order& order) = 0;
 
-  // Updates the debug information in the debug directory with our new GUID.
-  bool UpdateDebugInformation(BlockGraph::Block* debug_directory_block,
-                              const FilePath& output_pdb_path);
-
-  // Call after relinking and finalizing image to create a PDB file that
-  // matches the reordered image.
-  bool WritePDBFile(const FilePath& input_path,
-                    const FilePath& output_path);
-
-  // Returns the GUID for the new image.
-  const GUID& new_image_guid() { return new_image_guid_; }
-
   // Inserts the given length of padding. Increments the insert_at address.
   bool InsertPaddingBlock(BlockGraph::BlockType block_type,
                           size_t size,
                           RelativeAddress* insert_at);
 
-  // Adds toolchain version information, and signature information for the
-  // original DLL. This will be placed in its own section.
-  bool WriteMetadataSection(const pe::PEFile& input_dll);
-
-  // Copies the resource section from the original binary to the new one.
-  bool CopyResourceSection();
-
   size_t padding_length() const { return padding_length_; }
 
  private:
-  // The GUID we stamp into the new image and Pdb file.
-  GUID new_image_guid_;
-
   // The amount of padding bytes to add between blocks.
   size_t padding_length_;
-
-  // Stores the index of the resource section, if the original module has one.
-  size_t resource_section_id_;
 
   DISALLOW_COPY_AND_ASSIGN(Relinker);
 };

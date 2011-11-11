@@ -98,7 +98,10 @@ base::LazyInstance<PaddingData> kPaddingData(base::LINKER_INITIALIZED);
 
 namespace relink {
 
-RelinkerBase::RelinkerBase() : image_layout_(NULL), block_graph_(NULL) {
+RelinkerBase::RelinkerBase()
+    : image_layout_(NULL),
+      block_graph_(NULL),
+      resource_section_id_(pe::kInvalidSection) {
 }
 
 RelinkerBase::~RelinkerBase() {
@@ -120,6 +123,26 @@ bool RelinkerBase::Initialize(const ImageLayout& image_layout,
 
   image_layout_ = &image_layout;
   block_graph_ = block_graph;
+
+  // Find the resource section.
+  for (size_t i = 0; i < image_layout_->sections.size() - 1; ++i) {
+    const ImageLayout::SectionInfo& section = image_layout_->sections[i];
+
+    if (section.name == common::kResourceSectionName) {
+      // We should only ever come across one of these, and it should be
+      // second to last.
+      DCHECK_EQ(i, image_layout_->sections.size() - 2);
+      DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
+      resource_section_id_ = i;
+      continue;
+    }
+  }
+
+  // Create a new GUID for the relinked image.
+  if (FAILED(::CoCreateGuid(&new_image_guid_))) {
+    LOG(ERROR) << "Failed to create image GUID!";
+    return false;
+  }
 
   return true;
 }
@@ -149,135 +172,11 @@ bool RelinkerBase::WriteImage(const FilePath& output_path) {
   return true;
 }
 
-bool RelinkerBase::CopySection(const ImageLayout::SectionInfo& section) {
-  BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
-
-  // Duplicate the section in the new image.
-  RelativeAddress start = builder().AddSection(section.name.c_str(),
-                                               section.size,
-                                               section.data_size,
-                                               section.characteristics);
-  BlockGraph::AddressSpace::RangeMapConstIterPair section_blocks =
-      original_addr_space().GetIntersectingBlocks(section_range.start(),
-                                                  section_range.size());
-
-  // Copy the blocks.
-  size_t bytes_copied = 0;
-  if (!CopyBlocks(section_blocks, start, &bytes_copied)) {
-    LOG(ERROR) << "Unable to copy blocks to new image";
-    return false;
-  }
-
-  DCHECK(bytes_copied == section.size);
-  return true;
-}
-
-bool RelinkerBase::CopyBlocks(
-    const AddressSpace::RangeMapConstIterPair& iter_pair,
-    RelativeAddress insert_at,
-    size_t* bytes_copied) {
-  DCHECK(bytes_copied != NULL);
-  RelativeAddress start = insert_at;
-  AddressSpace::RangeMapConstIter it = iter_pair.first;
-  const AddressSpace::RangeMapConstIter& end = iter_pair.second;
-  for (; it != end; ++it) {
-    BlockGraph::Block* block = it->second;
-    if (!builder().image_layout().blocks.InsertBlock(insert_at, block)) {
-      LOG(ERROR) << "Failed to insert block '" << block->name() <<
-          "' at " << insert_at;
-      return false;
-    }
-
-    insert_at += block->size();
-  }
-
-  (*bytes_copied) = insert_at - start;
-  return true;
-}
-
-Relinker::Relinker()
-    : padding_length_(0),
-      resource_section_id_(pe::kInvalidSection) {
-}
-
-size_t Relinker::max_padding_length() {
-  return PaddingData::length;
-}
-
-void Relinker::set_padding_length(size_t length) {
-  DCHECK_LE(length, max_padding_length());
-  padding_length_ = std::min<size_t>(length, max_padding_length());
-}
-
-const uint8* Relinker::padding_data() {
-  return kPaddingData.Get().buffer;
-}
-
-bool Relinker::Relink(const FilePath& input_dll_path,
-                      const FilePath& input_pdb_path,
-                      const FilePath& output_dll_path,
-                      const FilePath& output_pdb_path,
-                      bool output_metadata) {
-  DCHECK(!input_dll_path.empty());
-  DCHECK(!input_pdb_path.empty());
-  DCHECK(!output_dll_path.empty());
-  DCHECK(!output_pdb_path.empty());
-
-  // Read and decompose the input image for starters.
-  LOG(INFO) << "Reading input image.";
-  pe::PEFile input_dll;
-  if (!input_dll.Init(input_dll_path)) {
-    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  LOG(INFO) << "Decomposing input image.";
-  Decomposer decomposer(input_dll);
-  BlockGraph block_graph;
-  ImageLayout image_layout(&block_graph);
-  if (!decomposer.Decompose(&image_layout)) {
-    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
-    return false;
-  }
-
-  LOG(INFO) << "Initializing relinker.";
-  if (!Initialize(image_layout, &block_graph)) {
-    LOG(ERROR) << "Unable to initialize the relinker.";
-    return false;
-  }
-
-  LOG(INFO) << "Setting up the new ordering.";
-  Reorderer::Order order;
-  if (!SetupOrdering(input_dll, image_layout, &order)) {
-    LOG(ERROR) << "Unable to setup the ordering.";
-    return false;
-  }
-
-  // Reorder, section by section.
-  for (size_t i = 0; i < original_sections().size() - 1; ++i) {
-    const ImageLayout::SectionInfo& section = original_sections()[i];
-
-    // Skip the resource section if we encounter it.
-    if (section.name == common::kResourceSectionName) {
-      // We should only ever come across one of these, and it should be
-      // second to last.
-      DCHECK_EQ(i, original_sections().size() - 2);
-      DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
-      resource_section_id_ = i;
-      continue;
-    }
-
-    LOG(INFO) << "Reordering section " << i << " (" << section.name << ").";
-    if (!ReorderSection(i, section, order)) {
-      LOG(ERROR) << "Unable to reorder the '" << section.name << "' section.";
-      return false;
-    }
-  }
-
+bool RelinkerBase::UpdateDebugInformation(const FilePath& output_pdb_path) {
   // Update the debug info and copy the data directory.
   LOG(INFO) << "Updating debug information.";
 
-  // Retrieve the debug sdirectory entry block.
+  // Retrieve the debug directory entry block.
   BlockGraph::Reference debug_entry;
   size_t debug_entry_size = 0;
   if (!builder().GetDataDirectoryEntry(IMAGE_DIRECTORY_ENTRY_DEBUG,
@@ -288,83 +187,8 @@ bool Relinker::Relink(const FilePath& input_dll_path,
     return false;
   }
 
-  if (!UpdateDebugInformation(debug_entry.referenced(), output_pdb_path)) {
-    LOG(ERROR) << "Unable to update debug information.";
-    return false;
-  }
+  BlockGraph::Block* debug_directory_block = debug_entry.referenced();
 
-  // Create the metadata section if we're been requested to.
-  if (output_metadata && !WriteMetadataSection(input_dll))
-    return false;
-
-  // We always want the resource section to be next to last (before .relocs).
-  // We currently do not support ordering of the resource section, even if
-  // ordering information was provided!
-  if (!CopyResourceSection())
-    return false;
-
-  // Finalize the headers and write the image and pdb.
-  LOG(INFO) << "Finalizing the image headers.";
-  if (!FinalizeImageHeaders()) {
-    LOG(ERROR) << "Unable to finalize image headers.";
-    return false;
-  }
-
-  // Write the new PE Image file.
-  LOG(INFO) << "Writing the new image file.";
-  if (!WriteImage(output_dll_path)) {
-    LOG(ERROR) << "Unable to write " << output_dll_path.value();
-    return false;
-  }
-
-  // Write the new PDB file.
-  LOG(INFO) << "Writing the new PDB file.";
-  if (!WritePDBFile(input_pdb_path, output_pdb_path)) {
-    LOG(ERROR) << "Unable to write " << output_pdb_path.value();
-    return false;
-  }
-
-  return true;
-}
-
-bool Relinker::Initialize(const ImageLayout& image_layout,
-                          BlockGraph* block_graph) {
-  if (!RelinkerBase::Initialize(image_layout, block_graph))
-    return false;
-
-  if (FAILED(::CoCreateGuid(&new_image_guid_))) {
-    LOG(ERROR) << "Failed to create image GUID!";
-    return false;
-  }
-
-  return true;
-}
-
-bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
-                                  size_t size,
-                                  RelativeAddress* insert_at) {
-  DCHECK(insert_at != NULL);
-  DCHECK(size <= max_padding_length());
-
-  if (size == 0)
-    return true;
-
-  BlockGraph::Block* new_block = builder().image_layout().blocks.AddBlock(
-      block_type, *insert_at, size, "Padding block");
-
-  if (new_block == NULL) {
-    LOG(ERROR) << "Failed to allocate padding block at " << insert_at << ".";
-    return false;
-  }
-
-  new_block->SetData(padding_data(), size);
-  *insert_at += size;
-
-  return true;
-}
-
-bool Relinker::UpdateDebugInformation(BlockGraph::Block* debug_directory_block,
-                                      const FilePath& output_pdb_path) {
   IMAGE_DEBUG_DIRECTORY debug_dir;
   if (debug_directory_block->data_size() != sizeof(debug_dir)) {
     LOG(ERROR) << "Debug directory is unexpected size.";
@@ -453,7 +277,7 @@ bool Relinker::UpdateDebugInformation(BlockGraph::Block* debug_directory_block,
   return true;
 }
 
-bool Relinker::WritePDBFile(const FilePath& input_path,
+bool RelinkerBase::WritePDBFile(const FilePath& input_path,
                             const FilePath& output_path) {
   // Generate the map data for both directions.
   std::vector<OMAP> omap_to;
@@ -495,7 +319,7 @@ bool Relinker::WritePDBFile(const FilePath& input_path,
   return true;
 }
 
-bool Relinker::WriteMetadataSection(const pe::PEFile& input_dll) {
+bool RelinkerBase::WriteMetadataSection(const pe::PEFile& input_dll) {
   LOG(INFO) << "Writing metadata.";
   pe::Metadata metadata;
   pe::PEFile::Signature input_dll_sig;
@@ -509,7 +333,7 @@ bool Relinker::WriteMetadataSection(const pe::PEFile& input_dll) {
   return true;
 }
 
-bool Relinker::CopyResourceSection() {
+bool RelinkerBase::CopyResourceSection() {
   if (resource_section_id_ == pe::kInvalidSection)
     return true;
 
@@ -522,6 +346,195 @@ bool Relinker::CopyResourceSection() {
     LOG(ERROR) << "Unable to copy section.";
     return false;
   }
+
+  return true;
+}
+
+bool RelinkerBase::CopySection(const ImageLayout::SectionInfo& section) {
+  BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
+
+  // Duplicate the section in the new image.
+  RelativeAddress start = builder().AddSection(section.name.c_str(),
+                                               section.size,
+                                               section.data_size,
+                                               section.characteristics);
+  BlockGraph::AddressSpace::RangeMapConstIterPair section_blocks =
+      original_addr_space().GetIntersectingBlocks(section_range.start(),
+                                                  section_range.size());
+
+  // Copy the blocks.
+  size_t bytes_copied = 0;
+  if (!CopyBlocks(section_blocks, start, &bytes_copied)) {
+    LOG(ERROR) << "Unable to copy blocks to new image";
+    return false;
+  }
+
+  DCHECK(bytes_copied == section.size);
+  return true;
+}
+
+bool RelinkerBase::CopyBlocks(
+    const AddressSpace::RangeMapConstIterPair& iter_pair,
+    RelativeAddress insert_at,
+    size_t* bytes_copied) {
+  DCHECK(bytes_copied != NULL);
+  RelativeAddress start = insert_at;
+  AddressSpace::RangeMapConstIter it = iter_pair.first;
+  const AddressSpace::RangeMapConstIter& end = iter_pair.second;
+  for (; it != end; ++it) {
+    BlockGraph::Block* block = it->second;
+    if (!builder().image_layout().blocks.InsertBlock(insert_at, block)) {
+      LOG(ERROR) << "Failed to insert block '" << block->name() <<
+          "' at " << insert_at;
+      return false;
+    }
+
+    insert_at += block->size();
+  }
+
+  (*bytes_copied) = insert_at - start;
+  return true;
+}
+
+Relinker::Relinker()
+    : padding_length_(0) {
+}
+
+size_t Relinker::max_padding_length() {
+  return PaddingData::length;
+}
+
+void Relinker::set_padding_length(size_t length) {
+  DCHECK_LE(length, max_padding_length());
+  padding_length_ = std::min<size_t>(length, max_padding_length());
+}
+
+const uint8* Relinker::padding_data() {
+  return kPaddingData.Get().buffer;
+}
+
+bool Relinker::Relink(const FilePath& input_dll_path,
+                      const FilePath& input_pdb_path,
+                      const FilePath& output_dll_path,
+                      const FilePath& output_pdb_path,
+                      bool output_metadata) {
+  DCHECK(!input_dll_path.empty());
+  DCHECK(!input_pdb_path.empty());
+  DCHECK(!output_dll_path.empty());
+  DCHECK(!output_pdb_path.empty());
+
+  // Read and decompose the input image for starters.
+  LOG(INFO) << "Reading input image.";
+  pe::PEFile input_dll;
+  if (!input_dll.Init(input_dll_path)) {
+    LOG(ERROR) << "Unable to read " << input_dll_path.value() << ".";
+    return false;
+  }
+
+  LOG(INFO) << "Decomposing input image.";
+  Decomposer decomposer(input_dll);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  if (!decomposer.Decompose(&image_layout)) {
+    LOG(ERROR) << "Unable to decompose " << input_dll_path.value() << ".";
+    return false;
+  }
+
+  LOG(INFO) << "Initializing relinker.";
+  if (!Initialize(image_layout, &block_graph)) {
+    LOG(ERROR) << "Unable to initialize the relinker.";
+    return false;
+  }
+
+  LOG(INFO) << "Setting up the new ordering.";
+  Reorderer::Order order;
+  if (!SetupOrdering(input_dll, image_layout, &order)) {
+    LOG(ERROR) << "Unable to setup the ordering.";
+    return false;
+  }
+
+  // Reorder, section by section.
+  for (size_t i = 0; i < original_sections().size() - 1; ++i) {
+    const ImageLayout::SectionInfo& section = original_sections()[i];
+
+    // Skip the resource section if we encounter it.
+    if (i == resource_section_id())
+      continue;
+
+    LOG(INFO) << "Reordering section " << i << " (" << section.name << ").";
+    if (!ReorderSection(i, section, order)) {
+      LOG(ERROR) << "Unable to reorder the '" << section.name << "' section.";
+      return false;
+    }
+  }
+
+  // Update the debug directory to point to the new PDB file.
+  if (!UpdateDebugInformation(output_pdb_path)) {
+    LOG(ERROR) << "Unable to update debug information.";
+    return false;
+  }
+
+  // Create the metadata section if we're been requested to.
+  if (output_metadata && !WriteMetadataSection(input_dll))
+    return false;
+
+  // We always want the resource section to be next to last (before .relocs).
+  // We currently do not support ordering of the resource section, even if
+  // ordering information was provided!
+  if (!CopyResourceSection())
+    return false;
+
+  // Finalize the headers and write the image and pdb.
+  LOG(INFO) << "Finalizing the image headers.";
+  if (!FinalizeImageHeaders()) {
+    LOG(ERROR) << "Unable to finalize image headers.";
+    return false;
+  }
+
+  // Write the new PE Image file.
+  LOG(INFO) << "Writing the new image file.";
+  if (!WriteImage(output_dll_path)) {
+    LOG(ERROR) << "Unable to write " << output_dll_path.value();
+    return false;
+  }
+
+  // Write the new PDB file.
+  LOG(INFO) << "Writing the new PDB file.";
+  if (!WritePDBFile(input_pdb_path, output_pdb_path)) {
+    LOG(ERROR) << "Unable to write " << output_pdb_path.value();
+    return false;
+  }
+
+  return true;
+}
+
+bool Relinker::Initialize(const ImageLayout& image_layout,
+                          BlockGraph* block_graph) {
+  if (!RelinkerBase::Initialize(image_layout, block_graph))
+    return false;
+
+  return true;
+}
+
+bool Relinker::InsertPaddingBlock(BlockGraph::BlockType block_type,
+                                  size_t size,
+                                  RelativeAddress* insert_at) {
+  DCHECK(insert_at != NULL);
+  DCHECK(size <= max_padding_length());
+
+  if (size == 0)
+    return true;
+
+  BlockGraph::Block* new_block = builder().image_layout().blocks.AddBlock(
+      block_type, *insert_at, size, "Padding block");
+
+  if (new_block == NULL) {
+    LOG(ERROR) << "Failed to allocate padding block at " << insert_at << ".";
+    return false;
+  }
+
+  new_block->SetData(padding_data(), size);
+  *insert_at += size;
 
   return true;
 }
