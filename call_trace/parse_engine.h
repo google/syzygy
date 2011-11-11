@@ -54,47 +54,107 @@ class ParseEngine {
   // Opens the trace log given by @p trace_file_path and prepares it for
   // consumption. It is an error to call this method given a file that
   // will not be recognized by the parse engine.
+  //
+  // @return true on success.
   virtual bool OpenTraceFile(const FilePath& trace_file_path) = 0;
 
   // Consume all events across all currently open trace files and for each
   // event call the dispatcher to notify the event handler.
+  //
+  // @return true on success.
   virtual bool ConsumeAllEvents() = 0;
 
   // Close all currently open trace files.
+  //
+  // @return true on success.
   virtual bool CloseAllTraceFiles() = 0;
 
   // Given an address and a process id, returns the module in memory at that
-  // address. Returns NULL if no such module exists.
+  // address.
+  //
+  // @param process_id The id of the process to look up.
+  // @param addr An address in the memory space of the process.
+  //
+  // @return NULL if no such module exists; otherwise, a pointer to the module.
   const ModuleInformation* GetModuleInformation(uint32 process_id,
                                                 AbsoluteAddress64 addr) const;
 
  protected:
+  // Used to store module information about each observed process.
   typedef std::map<uint32, ModuleSpace> ProcessMap;
 
-  explicit ParseEngine(const char* const name);
+  // Initialize the base ParseEngine.
+  //
+  // @param name The name of this parse engine. This will be logged.
+  // @param fail_on_module_conflict A flag denoting whether to abort on
+  //     conflicting module information. In ETW traces, for example, we
+  //     sometimes get conflicting module information if background
+  //     processas are actively coming a going. In RPC traces, we should
+  //     never get conflicting module information.
+  ParseEngine(const char* const name, bool fail_on_module_conflict);
 
   // Registers a module in the address space of the process denoted by
   // @p process_id.
+  //
+  // @param process_id The process in which the module has been loaded.
+  // @param module_info The meta-data describing the loaded module.
+  //
+  // @return true on success.
   bool AddModuleInformation(DWORD process_id,
                             const ModuleInformation& module_info);
 
   // Unregisters a module from the address space of the process denoted by
   // @p process_id.
+  //
+  // @param process_id The process in which the module has been loaded.
+  // @param module_info The meta-data describing the loaded module.
+  //
+  // @return true on success.
   bool RemoveModuleInformation(DWORD process_id,
                                const ModuleInformation& module_info);
 
   // The main entry point by which trace events are dispatched to the
   // event handler.
-  virtual bool DispatchEvent(EVENT_TRACE* event);
+  //
+  // @param event The event to dispatch.
+  //
+  // @return true if the event was recognized and handled in some way; false
+  //     if the event must be handled elsewhere. If an error occurs during
+  //     the handling of the event, the error_occurred_ flag will be set to
+  //     true.
+  bool DispatchEvent(EVENT_TRACE* event);
 
-  // Parses and dispatches function entry and exit events.
+  // Parses and dispatches function entry and exit events. Called from
+  // DispatchEvent().
+  //
+  // @param event The event to dispatch.
+  // @param type TRACE_ENTER_EVENT or TRACE_EXIT_EVENT
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     If an error occurred, the error_occurred_ flag will be set to
+  //     true.
   bool DispatchEntryExitEvent(EVENT_TRACE* event, TraceEventType type);
 
-  // Parses and dispatches batch function entry events.
+  // Parses and dispatches batch function entry events. Called from
+  // DispatchEvent().
+  //
+  // @param event The event to dispatch.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     If an error occurred, the error_occurred_ flag will be set to
+  //     true.
   bool DispatchBatchEnterEvent(EVENT_TRACE* event);
 
   // Parses and dispatches dynamic library events (i.e., process and thread
-  // attach/detach events).
+  // attach/detach events). Called from DispatchEvent().
+  //
+  // @param event The event to dispatch.
+  // @param type One of TRACE_PROCESS_ATTACH_EVENT, TRACE_PROCESS_DETACH_EVENT,
+  //     TRACE_THREAD_ATTACH_EVENT, or TRACE_THREAD_DETACH_EVENT.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     If an error occurred, the error_occurred_ flag will be set to
+  //     true.
   bool DispatchModuleEvent(EVENT_TRACE* event, TraceEventType type);
 
   // The name by which this parse engine is known.
@@ -109,6 +169,12 @@ class ParseEngine {
   // Flag indicating whether or not an error has occured in parsing the trace
   // event stream.
   bool error_occurred_;
+
+  // A flag denoting whether to abort on conflicting module information. In
+  // ETW traces, we sometimes get conflicting module information if background
+  // processas are actively coming a going. In RPC traces, we should never get
+  // conflicting module information.
+  bool fail_on_module_conflict_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ParseEngine);

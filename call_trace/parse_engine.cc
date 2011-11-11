@@ -27,9 +27,10 @@
 namespace call_trace {
 namespace parser {
 
-ParseEngine::ParseEngine(const char* name)
+ParseEngine::ParseEngine(const char* name, bool fail_on_module_conflict)
     : event_handler_(NULL),
-      error_occurred_(false) {
+      error_occurred_(false),
+      fail_on_module_conflict_(fail_on_module_conflict) {
   DCHECK(name != NULL);
   DCHECK(name[0] != '\0');
   name_ = name;
@@ -93,7 +94,8 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
                << module_info.image_file_name
                << " (base=0x" << module_info.base_address
                << ", size=" << module_info.module_size << ").";
-    return false;
+    if (fail_on_module_conflict_)
+      return false;
   }
 
   return true;

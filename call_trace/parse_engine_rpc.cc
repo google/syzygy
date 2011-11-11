@@ -27,7 +27,7 @@ using common::AlignUp;
 namespace call_trace {
 namespace parser {
 
-ParseEngineRpc::ParseEngineRpc() : ParseEngine("RPC") {
+ParseEngineRpc::ParseEngineRpc() : ParseEngine("RPC", true) {
 }
 
 ParseEngineRpc::~ParseEngineRpc() {

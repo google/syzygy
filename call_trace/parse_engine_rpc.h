@@ -30,33 +30,41 @@ class ParseEngineRpc : public ParseEngine {
   ParseEngineRpc();
   virtual ~ParseEngineRpc();
 
-  // Returns true if the file given by @p trace_file_path is parseable by this
-  // parse engine.
+  // @name ParseEngine implementation
+  // @{
   virtual bool IsRecognizedTraceFile(const FilePath& trace_file_path) OVERRIDE;
-
-  // Opens the trace log given by @p trace_file_path and prepares it for
-  // consumption. It is an error to call this method given a file that
-  // will not be recognized by the parse engine.
   virtual bool OpenTraceFile(const FilePath& trace_file_path) OVERRIDE;
-
-  // Consume all events across all currently open trace files and for each
-  // event call the dispatcher to notify the event handler.
   virtual bool ConsumeAllEvents() OVERRIDE;
-
-  // Close all currently open trace files.
   virtual bool CloseAllTraceFiles() OVERRIDE;
+  // @}
 
  private:
+  // A set of trace file paths.
   typedef std::vector<FilePath> TraceFileSet;
+
+  // An iterator over a set of trace file paths.
   typedef TraceFileSet::iterator TraceFileIter;
 
+  // Dispatches all of the events contained in the given trace file.
+  //
+  // For each segment in the trace file calls ConsumeSegmentEvents().
+  //
+  // @return true on success
   bool ConsumeTraceFile(const FilePath& trace_file_path);
 
+  // Dispactches all of the events in the given segment buffer.
+  //
+  // @param file_header the header information describing the trace file.
+  // @param segment_header the header iformation describign the segment.
+  // @param buffer the full segment data buffer.
+  // @param buffer_length the length of the segment data buffer (in bytes).
+  // @return true on success.
   bool ConsumeSegmentEvents(const TraceFileHeader& file_header,
                             const TraceFileSegment::Header& segment_header,
                             uint8* buffer,
                             size_t buffer_length);
 
+  // The set of trace files to consume when ConsumeAllEvents() is called.
   TraceFileSet trace_file_set_;
 
   DISALLOW_COPY_AND_ASSIGN(ParseEngineRpc);

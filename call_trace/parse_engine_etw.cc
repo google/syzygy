@@ -26,7 +26,7 @@ namespace parser {
 
 ParseEngineEtw* ParseEngineEtw::parse_engine_etw_ = NULL;
 
-ParseEngineEtw::ParseEngineEtw() : ParseEngine("ETW") {
+ParseEngineEtw::ParseEngineEtw() : ParseEngine("ETW", false) {
   DCHECK(parse_engine_etw_ == NULL);
   parse_engine_etw_ = this;
   kernel_log_parser_.set_module_event_sink(this);
@@ -171,6 +171,8 @@ void ParseEngineEtw::OnProcessEnded(const base::Time& time,
 
   DCHECK(event_handler_ != NULL);
   event_handler_->OnProcessEnded(time, process_info.process_id);
+
+  processes_.erase(process_info.process_id);
 }
 
 void ParseEngineEtw::ProcessEvent(PEVENT_TRACE event) {

@@ -39,7 +39,7 @@ class ParseEngineUnitTest
       public ParseEngine,
       public ParseEventHandler {
  public:
-  ParseEngineUnitTest() : ParseEngine("Test"), expected_data(NULL) {
+  ParseEngineUnitTest() : ParseEngine("Test", true), expected_data(NULL) {
     set_event_handler(this);
   }
 
@@ -197,14 +197,26 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   // Insert the module information.
   ASSERT_TRUE(AddModuleInformation(kProcessId, kExeInfo));
   ASSERT_TRUE(AddModuleInformation(kProcessId, kDllInfo));
+  ASSERT_EQ(1, processes_.size());
+  ASSERT_EQ(2, processes_[kProcessId].size());
 
   // Multiple identical insertions should be ok.
   ASSERT_TRUE(AddModuleInformation(kProcessId, kDllInfo));
+  ASSERT_EQ(2, processes_[kProcessId].size());
 
-  // Intersecting but not identical insertions should fail
+  // Intersecting but not identical insertions should fail if disallowed.
   ModuleInformation bad_dll_info(kDllInfo);
   bad_dll_info.base_address += 100;
+  ASSERT_TRUE(fail_on_module_conflict_);
   ASSERT_FALSE(AddModuleInformation(kProcessId, bad_dll_info));
+  ASSERT_EQ(2, processes_[kProcessId].size());
+
+  // If conflicting module info is non-fatal, insertions should appear to
+  // succeed but not actually happen.
+  fail_on_module_conflict_ = false;
+  ASSERT_TRUE(AddModuleInformation(kProcessId, bad_dll_info));
+  ASSERT_EQ(2, processes_[kProcessId].size());
+  fail_on_module_conflict_ = true;
 
   // Search for unknown process.
   module_info = GetModuleInformation(kProcessId + 1, kExeInfo.base_address);
@@ -256,6 +268,7 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kDllInfo);
   ASSERT_TRUE(RemoveModuleInformation(kProcessId, kDllInfo));
+  ASSERT_EQ(2, processes_[kProcessId].size());
   module_info = GetModuleInformation(kProcessId,
                                      kDllInfo.base_address + kDllOffset);
   ASSERT_TRUE(module_info != NULL);
