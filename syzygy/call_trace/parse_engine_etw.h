@@ -44,21 +44,13 @@ class ParseEngineEtw
   ParseEngineEtw();
   ~ParseEngineEtw();
 
-  // Returns true if the file given by @p trace_file_path is parseable by this
-  // parse engine.
+  // @name ParseEngine implementation
+  // @{
   virtual bool IsRecognizedTraceFile(const FilePath& trace_file_path) OVERRIDE;
-
-  // Opens the trace log given by @p trace_file_path and prepares it for
-  // consumption. It is an error to call this method given a file that
-  // will not be recognized by the parse engine.
   virtual bool OpenTraceFile(const FilePath& trace_file_path) OVERRIDE;
-
-  // Consume all events across all currently open trace files and for each
-  // event call the dispatcher to notify the event handler.
   virtual bool ConsumeAllEvents() OVERRIDE;
-
-  // Close all currently open trace files.
   virtual bool CloseAllTraceFiles() OVERRIDE;
+  // @}
 
  protected:
   // @name KernelModuleEvents implementation.
