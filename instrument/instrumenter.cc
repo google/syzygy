@@ -14,7 +14,7 @@
 
 #include "syzygy/instrument/instrumenter.h"
 
-# include <string>
+#include <string>
 
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -26,6 +26,8 @@
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"
+
+namespace instrument {
 
 using core::AbsoluteAddress;
 using core::RelativeAddress;
@@ -60,7 +62,6 @@ Instrumenter::Instrumenter()
       import_address_table_block_(NULL),
       dll_name_block_(NULL),
       image_import_descriptor_array_block_(NULL),
-      resource_section_id_(pe::kInvalidSection),
       thunk_suffix_("_thunk") {
 }
 
@@ -71,7 +72,9 @@ void Instrumenter::set_client_dll(const char* const client_dll) {
 }
 
 bool Instrumenter::Instrument(const FilePath& input_dll_path,
-                              const FilePath& output_dll_path) {
+                              const FilePath& input_pdb_path,
+                              const FilePath& output_dll_path,
+                              const FilePath& output_pdb_path) {
   DCHECK(!input_dll_path.empty());
   DCHECK(!output_dll_path.empty());
 
@@ -130,6 +133,12 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
     return false;
   }
 
+  // Update the debug directory to point to the new PDB file.
+  if (!UpdateDebugInformation(output_pdb_path)) {
+    LOG(ERROR) << "Unable to update debug information.";
+    return false;
+  }
+
   // Write metadata section.
   if (!WriteMetadataSection(input_dll))
     return false;
@@ -159,6 +168,13 @@ bool Instrumenter::Instrument(const FilePath& input_dll_path,
     return false;
   }
 
+  // Write the new PDB file.
+  LOG(INFO) << "Writing the new PDB file.";
+  if (!WritePDBFile(input_pdb_path, output_pdb_path)) {
+    LOG(ERROR) << "Unable to write " << output_pdb_path.value();
+    return false;
+  }
+
   return true;
 }
 
@@ -169,15 +185,9 @@ bool Instrumenter::CopySections() {
   for (size_t i = 0; i < original_sections().size() - 1; ++i) {
     const ImageLayout::SectionInfo& section = original_sections()[i];
 
-    // Skip the resource section if we encounter it.
-    if (section.name == common::kResourceSectionName) {
-      // We should only ever come across one of these, and it should be
-      // second to last.
-      DCHECK_EQ(original_sections().size() - 2, i);
-      DCHECK_EQ(pe::kInvalidSection, resource_section_id_);
-      resource_section_id_ = i;
+    // Skip the resource section.
+    if (i == resource_section_id())
       continue;
-    }
 
     LOG(INFO) << "Copying section " << i << " (" << section.name << ").";
     if (!CopySection(section)) {
@@ -730,33 +740,4 @@ bool Instrumenter::RedirectThunk(BlockGraph::Block* thunk_block) {
  return true;
 }
 
-bool Instrumenter::WriteMetadataSection(const pe::PEFile& input_dll) {
-  LOG(INFO) << "Writing metadata.";
-  pe::Metadata metadata;
-  pe::PEFile::Signature input_dll_sig;
-  input_dll.GetSignature(&input_dll_sig);
-  if (!metadata.Init(input_dll_sig) ||
-      !metadata.SaveToPE(&builder())) {
-    LOG(ERROR) << "Unable to write metadata.";
-    return false;
-  }
-
-  return true;
-}
-
-bool Instrumenter::CopyResourceSection() {
-  if (resource_section_id_ == pe::kInvalidSection)
-    return true;
-
-  const ImageLayout::SectionInfo& section =
-      original_sections()[resource_section_id_];
-
-  LOG(INFO) << "Copying section " << resource_section_id_ << " ("
-            << section.name << ").";
-  if (!CopySection(section)) {
-    LOG(ERROR) << "Unable to copy section.";
-    return false;
-  }
-
-  return true;
-}
+}  // namespace instrument

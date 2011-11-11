@@ -19,6 +19,8 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
 
+namespace instrument {
+
 namespace {
 
 class InstrumenterTest : public testing::PELibUnitTest {
@@ -31,9 +33,16 @@ TEST_F(InstrumenterTest, Instrument) {
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   FilePath input_dll_path = GetExeRelativePath(kDllName);
+  FilePath input_pdb_path = GetExeRelativePath(kDllPdbName);
   FilePath output_dll_path = temp_dir.Append(kDllName);
+  FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 
   Instrumenter instrumenter;
-  ASSERT_TRUE(instrumenter.Instrument(input_dll_path, output_dll_path));
+  ASSERT_TRUE(instrumenter.Instrument(input_dll_path,
+                                      input_pdb_path,
+                                      output_dll_path,
+                                      output_pdb_path));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path));
 }
+
+}  // namespace instrument

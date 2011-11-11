@@ -36,6 +36,7 @@ namespace pe {
 namespace {
 
 bool GetEnvVar(const char* name, std::wstring* value) {
+  DCHECK(name != NULL);
   DCHECK(value != NULL);
   value->clear();
 
@@ -66,6 +67,7 @@ bool FindFile(const FilePath& file_path,
               uint32 data,
               uint32 flags,
               FilePath* found_file) {
+  DCHECK(search_paths != NULL);
   DCHECK(found_file != NULL);
 
   found_file->clear();
@@ -127,6 +129,7 @@ bool FindFile(const FilePath& file_path,
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            const wchar_t* search_paths,
                            FilePath* module_path) {
+  DCHECK(search_paths != NULL);
   DCHECK(module_path != NULL);
 
   FilePath path(module_signature.path);
@@ -156,6 +159,7 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
 bool FindPdbForModule(const FilePath& module_path,
                       const wchar_t* search_paths,
                       FilePath* pdb_path) {
+  DCHECK(search_paths != NULL);
   DCHECK(pdb_path != NULL);
 
   PdbInfo pdb_info;

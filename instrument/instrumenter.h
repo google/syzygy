@@ -18,6 +18,8 @@
 #include "syzygy/core/block_graph.h"
 #include "syzygy/relink/relinker.h"
 
+namespace instrument {
+
 class Instrumenter : public relink::RelinkerBase {
  public:
   Instrumenter();
@@ -26,8 +28,18 @@ class Instrumenter : public relink::RelinkerBase {
   void set_client_dll(const char* client_dll);
 
   // Wrapper function to instrument an input dll to an output dll.
+  //
+  // @param input_dll_path the DLL to instrument.
+  // @param input_pdb_path the PDB for the DLL to instrument.
+  // @param output_dll_path the path where the instrumented DLL should be
+  //     written.
+  // @param output_pdb_path the path where the instrumented DLL's PDB file
+  //     should be written.
+  // @returns true on success, false otherwise.
   bool Instrument(const FilePath& input_dll_path,
-                  const FilePath& output_dll_path);
+                  const FilePath& input_pdb_path,
+                  const FilePath& output_dll_path,
+                  const FilePath& output_pdb_path);
 
   // The pre-defined call trace client DLLs. By default the ETW version will
   // be used.
@@ -108,14 +120,6 @@ class Instrumenter : public relink::RelinkerBase {
   // _indirect_penter.
   bool RedirectThunk(BlockGraph::Block* thunk_block);
 
-  // Creates a read-only data section containing metadata about the toolchain
-  // and the input module.
-  bool WriteMetadataSection(const pe::PEFile& input_dll);
-
-  // Copies the resource section from the original module to the instrumented
-  // module.
-  bool CopyResourceSection();
-
   // The call trace client dll to which to bind the instrumented image.
   std::string client_dll_;
 
@@ -125,11 +129,10 @@ class Instrumenter : public relink::RelinkerBase {
   BlockGraph::Block* import_address_table_block_;
   BlockGraph::Block* dll_name_block_;
   BlockGraph::Block* image_import_descriptor_array_block_;
-  // Holds the index of the resource section, if this module has one.
-  // If not, stores kInvalidIndex.
-  size_t resource_section_id_;
 
   const std::string thunk_suffix_;
 };
 
 #endif  // SYZYGY_INSTRUMENT_INSTRUMENTER_H_
+
+}  // namespace instrument
