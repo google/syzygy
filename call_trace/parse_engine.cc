@@ -91,7 +91,7 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
       iter->second != module_info) {
     LOG(ERROR) << "Trying to insert conflicting module: "
                << module_info.image_file_name
-               << " (base=0x" << module_info.module_size
+               << " (base=0x" << module_info.base_address
                << ", size=" << module_info.module_size << ").";
     return false;
   }
@@ -122,7 +122,7 @@ bool ParseEngine::RemoveModuleInformation(
   if (it->first != range) {
     LOG(ERROR) << "Trying to remove module with mismatching range: "
                << module_info.image_file_name
-               << " (base=0x" << module_info.module_size
+               << " (base=0x" << module_info.base_address
                << ", size=" << module_info.module_size << ").";
     return false;
   }
