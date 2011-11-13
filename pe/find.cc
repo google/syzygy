@@ -166,8 +166,13 @@ bool FindPdbForModule(const FilePath& module_path,
   if (!pdb_info.Init(module_path))
     return false;
 
+  // Prepend the module path to the symbol path.
+  std::wstring search_path(module_path.DirName().value());
+  search_path.append(L";");
+  search_path.append(search_paths);
+
   return FindFile(pdb_info.pdb_file_name(),
-                  search_paths,
+                  search_path.c_str(),
                   &pdb_info.signature(),
                   pdb_info.pdb_age(),
                   SSRVOPT_GUIDPTR,
