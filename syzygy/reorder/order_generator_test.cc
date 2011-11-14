@@ -34,6 +34,10 @@ void OrderGeneratorTest::SetUp() {
   ASSERT_TRUE(decomposer.Decompose(&image_layout_));
 }
 
+reorder::Reorderer::UniqueTime OrderGeneratorTest::GetSystemTime() {
+  return reorder::Reorderer::UniqueTime(base::Time::NowFromSystemTime());
+}
+
 void OrderGeneratorTest::ExpectNoDuplicateBlocks() {
   // Verifies that there are no duplicate blocks for each section.
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
