@@ -73,6 +73,7 @@
       'target_name': 'reorder_unittests',
       'type': 'executable',
       'sources': [
+        'dead_code_finder_unittest.cc',
         'linear_order_generator_unittest.cc',
         'order_generator_test.cc',
         'order_generator_test.h',

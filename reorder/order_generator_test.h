@@ -27,6 +27,8 @@ class OrderGeneratorTest : public PELibUnitTest {
 
   void SetUp();
 
+  reorder::Reorderer::UniqueTime GetSystemTime();
+
   void ExpectNoDuplicateBlocks();
   void ExpectNoReorder(const IMAGE_SECTION_HEADER* section,
                        const reorder::Reorderer::Order::BlockList& block_list);

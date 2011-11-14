@@ -32,11 +32,11 @@ class DeadCodeFinder : public Reorderer::OrderGenerator {
   DeadCodeFinder();
   virtual ~DeadCodeFinder();
 
- private:
   // Returns true if the block is of interest and unvisited.
   bool IsDead(const Block* block) const;
 
   // OrderGenerator implementation.
+  // @{
   virtual bool OnCodeBlockEntry(const Block* block,
                                 RelativeAddress address,
                                 uint32 process_id,
@@ -47,9 +47,13 @@ class DeadCodeFinder : public Reorderer::OrderGenerator {
                                    bool reorder_code,
                                    bool reorder_data,
                                    Order* order) OVERRIDE;
+  // @}
 
+ protected:
+  // The set of blocks observed while reading the call trace.
   std::set<const Block*> visited_blocks_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(DeadCodeFinder);
 };
 

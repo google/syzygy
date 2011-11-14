@@ -24,10 +24,6 @@
 
 class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
  protected:
-  reorder::Reorderer::UniqueTime GetSystemTime() {
-    return reorder::Reorderer::UniqueTime(base::Time::NowFromSystemTime());
-  }
-
   void ExpectLinearOrdering(
       reorder::Reorderer::Order::BlockList::const_iterator it,
       reorder::Reorderer::Order::BlockList::const_iterator end) {
