@@ -17,7 +17,6 @@ optimizing Chrome."""
 
 import chrome_utils
 import glob
-import instrument
 import logging
 import optparse
 import os
@@ -33,14 +32,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ProfileRunner(runner.ChromeRunner):
-  def __init__(self, chrome_exe, temp_dir, *args, **kw):
-    profile_dir = os.path.join(temp_dir, 'profile')
+  def __init__(self, chrome_exe, output_dir, *args, **kw):
+    profile_dir = os.path.join(output_dir, 'profile')
     super(ProfileRunner, self).__init__(chrome_exe, profile_dir, *args, **kw)
-    self._temp_dir = temp_dir
+    self._output_dir = output_dir
     self._log_files = []
 
   def _SetUp(self):
-    self.StartLoggingRpc(self._temp_dir)
+    self.StartLoggingRpc(self._output_dir)
 
   def _TearDown(self):
     self.StopLoggingRpc()
@@ -53,19 +52,20 @@ class ProfileRunner(runner.ChromeRunner):
 
   def _DoIteration(self, it):
     # Give Chrome some time to settle.
-    time.sleep(20)
+    time.sleep(10)
 
   def _ProcessResults(self):
     # Capture all the binary trace log files that were generated.
-    self._log_files = glob.glob(os.path.join(self._temp_dir, '*.bin'))
+    self._log_files = glob.glob(os.path.join(self._output_dir, '*.bin'))
 
 
-def ProfileChrome(chrome_dir, iterations):
+def ProfileChrome(chrome_dir, output_dir, iterations):
   """Profiles the chrome instance in chrome_dir for a specified number
   of iterations.
 
   Args:
-    chrome_dir: the directory containing chrome.
+    chrome_dir: the directory containing Chrome.
+    output_dir: the directory where the call trace files are stored.
     iterations: the number of iterations to profile.
 
   Raises:
@@ -73,8 +73,11 @@ def ProfileChrome(chrome_dir, iterations):
   """
   chrome_exe = os.path.join(chrome_dir, 'chrome.exe')
 
+  if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
   _LOGGER.info('Profiling Chrome "%s".', chrome_exe)
-  runner = ProfileRunner(chrome_exe, chrome_dir)
+  runner = ProfileRunner(chrome_exe, output_dir)
   runner.Run(iterations)
   return runner._log_files
 
@@ -82,8 +85,9 @@ def ProfileChrome(chrome_dir, iterations):
 _USAGE = """\
 %prog [options]
 
-Profiles the Chrome executables supplied in an input directory by running them
-through the specified number of profile run iterations.
+Profiles the instrumented Chrome executables supplied in an input directory,
+by running them through the specified number of profile run iterations.
+Stores the captured call trace files in the supplied output directory.
 """
 
 
@@ -98,9 +102,8 @@ def _ParseArguments():
   parser.add_option('--input-dir', dest='input_dir',
                     help=('The input directory where the original Chrome '
                           'executables are to be found.'))
-  parser.add_option('--keep-temp-dirs', dest='keep_temp_dirs',
-                    action='store_true',
-                    help='Keep temporary directories instead of deleting them.')
+  parser.add_option('--output-dir', dest='output_dir',
+                    help='The output directory for the call trace files.')
   (opts, args) = parser.parse_args()
 
   if len(args):
@@ -116,6 +119,7 @@ def _ParseArguments():
     parser.error('You must provide input and output directories')
 
   opts.input_dir = os.path.abspath(opts.input_dir)
+  opts.output_dir = os.path.abspath(opts.output_dir)
 
   return opts
 
@@ -126,16 +130,12 @@ def main():
   opts = _ParseArguments()
 
   try:
-    trace_files = ProfileChrome(opts.input_dir, opts.iterations)
+    trace_files = ProfileChrome(opts.input_dir,
+                                opts.output_dir,
+                                opts.iterations)
   except Exception:
     _LOGGER.exception('Profiling failed.')
     return 1
-  finally:
-    if opts.keep_temp_dirs:
-      _LOGGER.info('Keeping temporary directory "%s".', temp_dir)
-    else:
-      _LOGGER.info('Deleting temporary directory "%s".', temp_dir)
-      chrome_utils.RmTree(temp_dir)
 
   return 0
 

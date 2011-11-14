@@ -37,16 +37,14 @@ class OptimizationError(Exception):
   pass
 
 
-def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files,
-                    input_dll=None, input_pdb=None):
+def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
   _LOGGER.info('Optimizing Chrome.')
   # Generate the ordering file for chrome.dll.
 
   cmd = [runner._GetExePath('reorder.exe'),
          '--verbose',
          '--output-stats',
-         '--input-dll=%s' % (input_dll if input_dll
-                             else os.path.join(chrome_dir, 'chrome.dll')),
+         '--input-dll=%s' % os.path.join(chrome_dir, 'chrome.dll'),
          '--instrumented-dll=%s' % os.path.join(temp_dir,
                                                 r'instrumented', 'chrome.dll'),
          '--output-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
@@ -60,11 +58,11 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files,
     chrome_utils.RmTree(output_dir)
 
   _LOGGER.info('Copying "%s" to output dir "%s".', chrome_dir, output_dir)
-  chrome_utils.CopyChromeFiles(chrome_dir, output_dir, input_dll, input_pdb)
+  chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
   cmd = [runner._GetExePath('relink.exe'),
          '--verbose',
-         '--input-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
-         '--input-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
+         '--input-dll=%s' % os.path.join(chrome_dir, 'chrome.dll'),
+         '--input-pdb=%s' % os.path.join(chrome_dir, 'chrome_dll.pdb'),
          '--output-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
          '--output-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
          '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
@@ -102,12 +100,6 @@ def _ParseArguments():
   parser.add_option('--input-dir', dest='input_dir',
                     help=('The input directory where the original Chrome '
                           'executables are to be found.'))
-  parser.add_option('--input-dll', dest='input_dll',
-                    help=('Override the location of the input dll to'
-                          'optimize.'))
-  parser.add_option('--input-pdb', dest='input_pdb',
-                    help=('Override the location of the input dll to'
-                          'optimize.'))
   parser.add_option('--output-dir', dest='output_dir',
                     help=('The directory where the optimized chrome '
                           'installation will be created. From this location, '
@@ -149,14 +141,19 @@ def main():
   _LOGGER.info('Created temporary directory "%s".', temp_dir)
 
   instrumented_dir = os.path.join(temp_dir, 'instrumented')
+  profile_data_dir = os.path.join(temp_dir, 'profile_data')
   try:
-    instrument.InstrumentChrome(opts.input_dir,
-                                instrumented_dir,
-                                input_dll=opts.input_dll,
-                                input_pdb=opts.input_pdb)
-    trace_files = profile.ProfileChrome(instrumented_dir, opts.iterations)
-    _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files,
-                    input_dll=opts.input_dll, input_pdb=opts.input_pdb)
+    # Instrument the provided Chrome executables in input_dir, and store
+    # the profiled executables in instrumented_dir.
+    instrument.InstrumentChrome(opts.input_dir, instrumented_dir)
+
+    # Then profile the instrumented executables in instrumented_dir.
+    trace_files = profile.ProfileChrome(instrumented_dir,
+                                        profile_data_dir,
+                                        opts.iterations)
+    # Lastly generate an ordering, and reorder the inputs to
+    # the output dir.
+    _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files)
     if opts.copy_to:
       _CopyBinaries(opts.output_dir, opts.copy_to)
   except OptimizationError:

@@ -62,7 +62,7 @@ def _FilesToCopy(file_list):
       yield file_name
 
 
-def CopyChromeFiles(src_dir, tgt_dir, input_dll, input_pdb):
+def CopyChromeFiles(src_dir, tgt_dir):
   """Copy all required chrome files from src_dir to tgt_dir."""
   src_dir = os.path.abspath(src_dir)
   tgt_dir = os.path.abspath(tgt_dir)
@@ -90,13 +90,3 @@ def CopyChromeFiles(src_dir, tgt_dir, input_dll, input_pdb):
         # on the other side.
         _LOGGER.warn('Skipped "%s".', rel_path)
         pass
-
-  if input_dll:
-    chrome_dll = os.path.join(tgt_dir, 'chrome.dll')
-    _LOGGER.info('Copying "%s" to "%s"', input_dll, chrome_dll)
-    shutil.copy2(input_dll, chrome_dll)
-
-  if input_pdb:
-    chrome_dll_pdb = os.path.join(tgt_dir, 'chrome_dll.pdb')
-    _LOGGER.info('Copying "%s" to "%s"', input_pdb, chrome_dll_pdb)
-    shutil.copy2(input_pdb, chrome_dll_pdb)
