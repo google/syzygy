@@ -34,17 +34,13 @@ class InstrumentationError(Exception):
   pass
 
 
-def InstrumentChrome(chrome_dir, output_dir, input_dll=None, input_pdb=None):
+def InstrumentChrome(chrome_dir, output_dir):
   """Makes an instrumented copy of the Chrome files in chrome_dir in
   output_dir.
 
   Args:
     chrome_dir: the directory containing the input files.
     output_dir: the directory where the output will be generated.
-    input_dll: the location of Chrome.dll. If not supplied the file in
-        chrome_dir will be used.
-    input_pdb: the location of Chrome_dll.pdb. If not supplied the file in
-        chrome_dir will be used.
 
   Raises:
     InstrumentationError if instrumentation fails.
@@ -52,14 +48,14 @@ def InstrumentChrome(chrome_dir, output_dir, input_dll=None, input_pdb=None):
   _LOGGER.info('Copying chrome files from "%s" to "%s".',
                chrome_dir,
                output_dir)
-  chrome_utils.CopyChromeFiles(chrome_dir, output_dir, input_dll, input_pdb)
+  chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
 
   # Drop the call-trace client DLL into the temp dir.
   shutil.copy2(runner._GetExePath('call_trace_client.dll'), output_dir)
 
   for file in _EXECUTABLES:
     _LOGGER.info('Instrumenting "%s".', file)
-    src_file = os.path.join(output_dir, file)
+    src_file = os.path.join(chrome_dir, file)
     dst_file = os.path.join(output_dir, file)
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-dll=%s' % src_file,
