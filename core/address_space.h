@@ -305,6 +305,7 @@ class AddressRangeMap {
 
   const RangePairs& range_pairs() const { return range_pairs_; }
   const RangePair& range_pair(size_t i) const { return range_pairs_[i]; }
+  void clear() { range_pairs_.clear(); }
   bool empty() const { return range_pairs_.empty(); }
   size_t size() const { return range_pairs_.size(); }
 
@@ -363,6 +364,20 @@ class AddressRangeMap {
   // @param dst_range the destination range of the mapping to be inserted.
   // @returns true on success, false otherwise.
   bool Push(const SourceRange& src_range, const DestinationRange& dst_range);
+
+  // Computes the inverse of this mapping, returning the number of address
+  // ranges mappings that were unable to be inverted. If DestinationRange and
+  // SourceRange are the same type this may be performed in-place.
+  //
+  // The inversion is deterministic. When conflicting destination ranges are
+  // found, earlier start addressess and shorter lengths have priority.
+  //
+  // @param inverted a pointer to the AddressRangeMap that will be populated
+  //     with the inverted address range map.
+  // @returns the number of conflicting address ranges that were unable to be
+  //     inverted.
+  size_t ComputeInverse(
+      AddressRangeMap<DestinationRange, SourceRange>* inverted) const;
 
   // For serialization.
   bool Save(OutArchive* out_archive) const {
@@ -660,7 +675,7 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::IsMapped(
                      // a size > 0.
                      DestinationRange(typename DestinationRange::Address(),
                                       1)),
-      internal::RangePairCompare<SourceRange, DestinationRange>());
+      internal::RangePairLess<SourceRange, DestinationRange>());
 
   // Step through the successive mapped ranges and see if they cover src_range.
   typename SourceRange::Address position = src_range.start();
@@ -691,7 +706,7 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Insert(
       range_pairs_.begin(),
       range_pairs_.end(),
       std::make_pair(src_range, dst_range),
-      internal::RangePairCompare<SourceRange, DestinationRange>());
+      internal::RangePairLess<SourceRange, DestinationRange>());
 
   // The search fell off the end of the vector? Simply insert it.
   if (it == range_pairs_.end()) {
@@ -801,6 +816,40 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Push(
 
   range_pairs_.push_back(std::make_pair(src_range, dst_range));
   return true;
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+size_t AddressRangeMap<SourceRangeType, DestinationRangeType>::ComputeInverse(
+    AddressRangeMap<DestinationRangeType, SourceRangeType>* inverted) const {
+  DCHECK(inverted != NULL);
+
+  // Get a list of inverted range pairs.
+  std::vector<std::pair<DestinationRangeType, SourceRangeType>>
+      inverted_range_pairs;
+  inverted_range_pairs.reserve(range_pairs_.size());
+  for (size_t i = 0; i < range_pairs_.size(); ++i) {
+    inverted_range_pairs.push_back(
+        std::make_pair(range_pairs_[i].second, range_pairs_[i].first));
+  }
+
+  // We sort these with a custom sort functor so that a total ordering is
+  // defined rather than the default partial ordering defined by AddressRange.
+  std::sort(inverted_range_pairs.begin(),
+            inverted_range_pairs.end(),
+            internal::CompleteAddressRangePairLess<DestinationRangeType,
+                                                   SourceRangeType>());
+
+  // Push these back to the inverted address range map and count the conflicts.
+  size_t conflicts = 0;
+  inverted->clear();
+  for (size_t i = 0; i < inverted_range_pairs.size(); ++i) {
+    if (!inverted->Push(inverted_range_pairs[i].first,
+                        inverted_range_pairs[i].second)) {
+      ++conflicts;
+    }
+  }
+
+  return conflicts;
 }
 
 }  // namespace core

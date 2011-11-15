@@ -486,13 +486,6 @@ TEST(BlockGraphAddressSpaceTest, AddBlock) {
   ASSERT_TRUE(block != NULL);
   EXPECT_EQ(0x1000, block->addr().value());
 
-  // Check that the source range is simple and has the same address as the
-  // block.
-  EXPECT_TRUE(block->source_ranges().IsSimple());
-  EXPECT_TRUE(block->source_ranges().IsMapped(0, block->size()));
-  EXPECT_EQ(0x1000,
-            block->source_ranges().range_pair(0).second.start().value());
-
   // But inserting anything that intersects with it should fail.
   EXPECT_EQ(NULL, address_space.AddBlock(BlockGraph::CODE_BLOCK,
                                          RelativeAddress(0x1000),
@@ -665,22 +658,32 @@ TEST(BlockGraphAddressSpaceTest, GetBlockAddress) {
 TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   BlockGraph image;
   BlockGraph::AddressSpace address_space(&image);
+  RelativeAddress addr1(0x1000);
+  RelativeAddress addr2(0x1010);
+  RelativeAddress addr3(0x1030);
   BlockGraph::Block* block1 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
-                                                     RelativeAddress(0x1000),
+                                                     addr1,
                                                      0x10,
                                                      "block1");
   BlockGraph::Block* block2 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
-                                                     RelativeAddress(0x1010),
+                                                     addr2,
                                                      0x10,
                                                      "block2");
   BlockGraph::Block* block3 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
-                                                     RelativeAddress(0x1030),
+                                                     addr3,
                                                      0x10,
                                                      "block3");
   ASSERT_TRUE(block2->SetLabel(0, "0x1010"));
   ASSERT_TRUE(block2->SetLabel(4, "0x1014"));
   ASSERT_TRUE(block3->SetLabel(0, "0x1030"));
   ASSERT_TRUE(block3->SetLabel(4, "0x1034"));
+
+  block1->source_ranges().Push(BlockGraph::Block::DataRange(0, 0x10),
+                               BlockGraph::Block::SourceRange(addr1, 0x10));
+  block2->source_ranges().Push(BlockGraph::Block::DataRange(0, 0x10),
+                               BlockGraph::Block::SourceRange(addr2, 0x10));
+  block3->source_ranges().Push(BlockGraph::Block::DataRange(0, 0x10),
+                               BlockGraph::Block::SourceRange(addr3, 0x10));
 
   ASSERT_TRUE(block1->SetReference(0x1,
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block2, 0x0)));
@@ -699,6 +702,17 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   ASSERT_TRUE(merged != NULL);
   ASSERT_EQ(RelativeAddress(0x1010), merged->addr());
   ASSERT_EQ(0x34, merged->size());
+
+  // Expect the merged block to have meaningful source ranges.
+  BlockGraph::Block::SourceRanges::RangePairs expected_source_ranges;
+  expected_source_ranges.push_back(
+      std::make_pair(BlockGraph::Block::DataRange(0, 0x10),
+                     BlockGraph::Block::SourceRange(addr2, 0x10)));
+  expected_source_ranges.push_back(
+      std::make_pair(BlockGraph::Block::DataRange(0x20, 0x10),
+                     BlockGraph::Block::SourceRange(addr3, 0x10)));
+  EXPECT_THAT(merged->source_ranges().range_pairs(),
+              testing::ContainerEq(expected_source_ranges));
 
   BlockGraph::Block::LabelMap expected_labels;
   expected_labels.insert(std::make_pair(0x00, "0x1010"));

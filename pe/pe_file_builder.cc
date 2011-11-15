@@ -372,6 +372,19 @@ bool PEFileBuilder::FinalizeHeaders() {
     return false;
   }
 
+  // Update the NT headers source ranges. For now we simply map the full set
+  // of headers as a single chunk. However, if we wanted to do be completely
+  // correct we'd take the trouble to map invididual section headers. Given that
+  // this information doesn't even make it into the OMAP (it is invalid to
+  // output OMAP information for addresses before the first section), that
+  // would be complete overkill.
+  BlockGraph::Block::SourceRange orig_range =
+      nt_headers_block_->source_ranges().range_pair(0).second;
+  nt_headers_block_->source_ranges().clear();
+  bool pushed = nt_headers_block_->source_ranges().Push(
+      BlockGraph::Block::DataRange(0, nt_headers_size), orig_range);
+  DCHECK(pushed);
+
   // Update the NT header block.
   TypedBlock<IMAGE_NT_HEADERS> nt_headers;
   if (!nt_headers.Init(0, nt_headers_block_)) {
@@ -476,6 +489,13 @@ bool PEFileBuilder::UpdateDosHeader() {
     LOG(ERROR) << "Unable to resize DOS header.";
     return false;
   }
+
+  // Update the source range information.
+  dos_header_block_->source_ranges().clear();
+  bool pushed = dos_header_block_->source_ranges().Push(
+      BlockGraph::Block::DataRange(0, dos_header_size),
+      BlockGraph::Block::SourceRange(RelativeAddress(0), dos_header_size));
+  DCHECK(pushed);
 
   TypedBlock<IMAGE_DOS_HEADER> dos_header;
   if (dos_header.InitWithSize(0, dos_header_size, dos_header_block_) == NULL) {

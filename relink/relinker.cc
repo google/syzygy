@@ -24,6 +24,7 @@
 #include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/image_source_map.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/pe_file.h"
@@ -34,36 +35,16 @@ using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
 using pe::ImageLayout;
+using pe::ImageSourceMap;
 using pe::PEFileWriter;
+using pe::RelativeAddressRange;
 
 namespace {
 
-void AddOmapForBlockRange(
-    const BlockGraph::AddressSpace::RangeMapConstIterPair& original,
-    const BlockGraph::AddressSpace& remapped,
-    std::vector<OMAP>* omap) {
-  DCHECK(omap != NULL);
+void GetOmapRange(const std::vector<ImageLayout::SectionInfo>& sections,
+                  RelativeAddressRange* range) {
+  DCHECK(range != NULL);
 
-  BlockGraph::AddressSpace::RangeMapConstIter it;
-
-  for (it = original.first; it != original.second; ++it) {
-    const BlockGraph::Block* block = it->second;
-    DCHECK(block != NULL);
-
-    RelativeAddress to_addr;
-    if (remapped.GetAddressOf(block, &to_addr)) {
-      OMAP entry = { it->first.start().value(), to_addr.value() };
-      omap->push_back(entry);
-    }
-  }
-}
-
-void AddOmapForAllSections(
-    const std::vector<ImageLayout::SectionInfo>& sections,
-    const BlockGraph::AddressSpace& from,
-    const BlockGraph::AddressSpace& to,
-    std::vector<OMAP>* omap) {
-  DCHECK(omap != NULL);
   // There need to be at least two sections, one containing something and the
   // other containing the relocs.
   DCHECK_GT(sections.size(), 1u);
@@ -74,9 +55,31 @@ void AddOmapForAllSections(
   // the relocs, as these are entirely different from image to image.
   RelativeAddress start_of_image = sections.front().addr;
   RelativeAddress end_of_image = sections.back().addr;
-  BlockGraph::AddressSpace::RangeMapConstIterPair range =
-      from.GetIntersectingBlocks(start_of_image, end_of_image - start_of_image);
-  AddOmapForBlockRange(range, to, omap);
+  *range = RelativeAddressRange(start_of_image, end_of_image - start_of_image);
+}
+
+void BuildOmapVectors(
+    const std::vector<ImageLayout::SectionInfo>& orig_sections,
+    const ImageLayout& new_image,
+    std::vector<OMAP>* omap_to,
+    std::vector<OMAP>* omap_from) {
+  DCHECK(omap_to != NULL);
+  DCHECK(omap_from != NULL);
+
+  ImageSourceMap reverse_map;
+  pe::BuildImageSourceMap(new_image, &reverse_map);
+
+  ImageSourceMap forward_map;
+  if (reverse_map.ComputeInverse(&forward_map) != 0) {
+    LOG(WARNING) << "OMAPFROM not unique.";
+  }
+
+  RelativeAddressRange range;
+  GetOmapRange(new_image.sections, &range);
+  pe::BuildOmapVectorFromImageSourceMap(range, reverse_map, omap_to);
+
+  GetOmapRange(orig_sections, &range);
+  pe::BuildOmapVectorFromImageSourceMap(range, forward_map, omap_from);
 }
 
 struct PaddingData {
@@ -281,16 +284,11 @@ bool RelinkerBase::WritePDBFile(const FilePath& input_path,
                             const FilePath& output_path) {
   // Generate the map data for both directions.
   std::vector<OMAP> omap_to;
-  AddOmapForAllSections(builder().image_layout().sections,
-                        builder().image_layout().blocks,
-                        original_addr_space(),
-                        &omap_to);
-
   std::vector<OMAP> omap_from;
-  AddOmapForAllSections(original_sections(),
-                        original_addr_space(),
-                        builder().image_layout().blocks,
-                        &omap_from);
+  BuildOmapVectors(original_sections(),
+                   builder().image_layout(),
+                   &omap_to,
+                   &omap_from);
 
   FilePath temp_pdb;
   if (!file_util::CreateTemporaryFileInDir(output_path.DirName(), &temp_pdb)) {
