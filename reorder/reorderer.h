@@ -19,6 +19,9 @@
 #ifndef SYZYGY_REORDER_REORDERER_H_
 #define SYZYGY_REORDER_REORDERER_H_
 
+#include <windows.h>
+#include <dbghelp.h>
+
 #include <map>
 #include <set>
 #include <string>
@@ -94,11 +97,26 @@ class Reorderer : public ParseEventHandler {
   // Returns the reorderer directives provided at Init time.
   Flags flags() const { return flags_; }
 
- private:
+ protected:
   typedef std::set<uint32> ProcessSet;
 
   // The actual implementation of Reorder.
   bool ReorderImpl(Order* order);
+
+  // The following functions represented the workflow of ReorderImpl.
+
+  // Loads information from the instrumented and original modules.
+  bool LoadModuleInformation();
+  // Initializes the parser.
+  bool InitializeParser();
+  // Loads OMAP information for the instrumented module.
+  bool LoadInstrumentedOmap();
+  // Decomposes the original image.
+  bool DecomposeImage();
+  // Consumes the events from the call-tracer parser.
+  bool ConsumeCallTraceEvents();
+  // Calculates the actual reordering.
+  bool CalculateReordering(Order* order);
 
   // Parses the instrumented DLL headers, validating that it was produced
   // by a compatible version of the toolchain, and extracting signature
@@ -170,7 +188,16 @@ class Reorderer : public ParseEventHandler {
   // make use of it during processing.
   ImageLayout* image_;
 
-  // The call-trace log file parser.
+  // The OMAP info from the instrumented module's PDB. Used for mapping
+  // addresses back and forth between the instrumented DLL and the original DLL.
+  std::vector<OMAP> omap_to_;
+  std::vector<OMAP> omap_from_;
+
+  // The call-trace log file parser. This can be preset to a custom parser
+  // prior to calling Reorder, but said parser must not already be initialized.
+  // Since the parser is one-time-use, it must also be replaced prior to any
+  // repeated calls to the Reorder. This muchanism is only intended for unit
+  // testing.
   Parser* parser_;
 
   // The set of processes of interest. That is, those that have had code

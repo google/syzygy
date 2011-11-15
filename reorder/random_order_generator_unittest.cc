@@ -17,6 +17,8 @@
 #include "gtest/gtest.h"
 #include "syzygy/reorder/order_generator_test.h"
 
+namespace reorder {
+
 namespace {
 
 const DWORD kDataCharacteristics =
@@ -30,10 +32,10 @@ class RandomOrderGeneratorTest : public testing::OrderGeneratorTest {
 
   void ExpectRandomOrder(
       const IMAGE_SECTION_HEADER* section,
-      const reorder::Reorderer::Order::BlockList& block_list) {
+      const Reorderer::Order::BlockList& block_list) {
     // Verifies that the blocks in block_list match in count but not in order
     // to the blocks in the specified section.
-    reorder::Reorderer::Order::BlockList original_block_list;
+    Reorderer::Order::BlockList original_block_list;
     GetBlockListForSection(section, &original_block_list);
     EXPECT_EQ(original_block_list.size(), block_list.size());
     EXPECT_FALSE(std::equal(original_block_list.begin(),
@@ -41,7 +43,7 @@ class RandomOrderGeneratorTest : public testing::OrderGeneratorTest {
                             block_list.begin()));
   }
 
-  reorder::RandomOrderGenerator order_generator_;
+  RandomOrderGenerator order_generator_;
 };
 
 TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
@@ -55,7 +57,7 @@ TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
 
   // Verify that the order found in order_ matches the original decomposed
   // image.
-  reorder::Reorderer::Order::BlockListMap::const_iterator it =
+  Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
     const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
@@ -73,7 +75,7 @@ TEST_F(RandomOrderGeneratorTest, ReorderCode) {
   ExpectNoDuplicateBlocks();
 
   // Verify that code blocks have been reordered and that data blocks have not.
-  reorder::Reorderer::Order::BlockListMap::const_iterator it =
+  Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
     const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
@@ -95,7 +97,7 @@ TEST_F(RandomOrderGeneratorTest, ReorderData) {
   ExpectNoDuplicateBlocks();
 
   // Verify that data blocks have been reordered and that code blocks have not.
-  reorder::Reorderer::Order::BlockListMap::const_iterator it =
+  Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
     const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
@@ -109,3 +111,5 @@ TEST_F(RandomOrderGeneratorTest, ReorderData) {
     }
   }
 }
+
+}  // namespace reorder

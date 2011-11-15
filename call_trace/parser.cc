@@ -37,6 +37,11 @@ Parser::~Parser() {
   parse_engine_set_.clear();
 }
 
+void Parser::AddParseEngine(ParseEngine* parse_engine) {
+  DCHECK(parse_engine != NULL);
+  parse_engine_set_.push_front(parse_engine);
+}
+
 bool Parser::Init(ParseEventHandler* event_handler) {
   DCHECK(event_handler != NULL);
   DCHECK(active_parse_engine_ == NULL);
