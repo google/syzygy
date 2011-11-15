@@ -1685,6 +1685,12 @@ BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
     return NULL;
   }
 
+  // Mark the source range from whence this block originates.
+  bool pushed = block->source_ranges().Push(
+      BlockGraph::Block::DataRange(0, size),
+      BlockGraph::Block::SourceRange(address, size));
+  DCHECK(pushed);
+
   BlockGraph::SectionId section = image_file_.GetSectionIndex(address, size);
   if (section == BlockGraph::kInvalidSectionId) {
     LOG(ERROR) << "Block at " << address << " with size " << size

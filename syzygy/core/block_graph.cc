@@ -232,12 +232,6 @@ BlockGraph::Block* BlockGraph::AddressSpace::AddBlock(BlockType type,
   bool inserted = InsertImpl(addr, block);
   DCHECK(inserted);
 
-  // Mark the source range from whence this block originates.
-  bool pushed = block->source_ranges().Push(
-      BlockGraph::Block::DataRange(0, size),
-      BlockGraph::Block::SourceRange(addr, size));
-  DCHECK(pushed);
-
   return block;
 }
 
@@ -358,9 +352,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   size_t alignment = first_block->alignment();
   BlockAttributes attributes = 0;
 
+  BlockGraph::Block::SourceRanges source_ranges;
+
   // Remove the found blocks from the address space, and make sure they're all
   // of the same type and from the same section as the first block. Merge the
-  // data from all the blocks as we go along, and the attributes.
+  // data from all the blocks as we go along, as well as the attributes and
+  // source ranges.
   std::vector<uint8> merged_data(end - begin);
   bool have_data = false;
   for (size_t i = 0; i < intersecting.size(); ++i) {
@@ -375,16 +372,34 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     }
     attributes |= block->attributes();
 
+    // Merge in the source ranges from each block.
+    BlockGraph::Offset block_offset = addr - begin;
+    BlockGraph::Block::SourceRanges::RangePairs::const_iterator src_it =
+        block->source_ranges().range_pairs().begin();
+    for (; src_it != block->source_ranges().range_pairs().end(); ++src_it) {
+      // The data range is wrt to the containing block, wo we have to translate
+      // each individual block's offset to an offset in the merged block.
+      BlockGraph::Offset merged_offset = block_offset + src_it->first.start();
+      bool pushed = source_ranges.Push(
+          BlockGraph::Block::DataRange(merged_offset, src_it->first.size()),
+          src_it->second);
+      DCHECK(pushed);
+    }
+
     bool removed = address_space_.Remove(Range(addr, block->size()));
     DCHECK(removed);
     size_t num_removed = block_addresses_.erase(intersecting[i].second);
     DCHECK_EQ(1U, num_removed);
   }
 
+  // Create the new block.
   BlockGraph::Block* new_block = AddBlock(block_type,
                                           begin, end - begin,
                                           block_name);
   DCHECK(new_block != NULL);
+
+  // Set the rest of the properties for the new block.
+  new_block->source_ranges() = source_ranges;
   new_block->set_section(section_id);
   new_block->set_alignment(alignment);
   new_block->set_attributes(attributes);

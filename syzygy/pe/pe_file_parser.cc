@@ -1102,6 +1102,12 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
   if (block != NULL) {
     block->set_attribute(BlockGraph::PE_PARSED);
 
+    // Mark the source range from whence this block originates.
+    bool pushed = block->source_ranges().Push(
+        BlockGraph::Block::DataRange(0, size),
+        BlockGraph::Block::SourceRange(addr, size));
+    DCHECK(pushed);
+
     // Set the section for this block. We let blocks that belong to the header
     // be marked with kInvalidSectionId.
     size_t section = image_file_.GetSectionIndex(addr, size);

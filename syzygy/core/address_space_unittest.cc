@@ -616,4 +616,50 @@ TEST(AddressRangeMapTest, Serialization) {
   EXPECT_TRUE(testing::TestSerialization(map));
 }
 
+TEST(AddressRangeMapTest, Clear) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+
+  map.clear();
+  EXPECT_EQ(0u, map.size());
+}
+
+TEST(AddressRangeMapTest, ComputeInverse) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1020, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1000, 10)));
+
+  IntegerRangeMap::RangePairs expected;
+  expected.push_back(
+      IntegerRangeMap::RangePair(IntegerRange(1000, 10), IntegerRange(20, 10)));
+  expected.push_back(
+      IntegerRangeMap::RangePair(IntegerRange(1020, 10), IntegerRange(0, 10)));
+
+  IntegerRangeMap imap;
+  EXPECT_EQ(0u, map.ComputeInverse(&imap));
+  EXPECT_THAT(expected, testing::ContainerEq(imap.range_pairs()));
+
+  IntegerRangeMap iimap;
+  EXPECT_EQ(0u, imap.ComputeInverse(&iimap));
+  EXPECT_EQ(map, iimap);
+
+  // Test in-place inversion.
+  EXPECT_EQ(0u, iimap.ComputeInverse(&iimap));
+  EXPECT_EQ(imap, iimap);
+}
+
+TEST(AddressRangeMapTest, ComputeInverseWithConflicts) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1000, 10)));
+
+  IntegerRangeMap::RangePairs expected;
+  expected.push_back(
+      IntegerRangeMap::RangePair(IntegerRange(1000, 10), IntegerRange(0, 10)));
+
+  IntegerRangeMap imap;
+  EXPECT_EQ(1u, map.ComputeInverse(&imap));
+  EXPECT_THAT(expected, testing::ContainerEq(imap.range_pairs()));
+}
+
 }  // namespace core
