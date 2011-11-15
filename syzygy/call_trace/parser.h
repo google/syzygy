@@ -17,6 +17,7 @@
 #ifndef SYZYGY_CALL_TRACE_PARSER_H_
 #define SYZYGY_CALL_TRACE_PARSER_H_
 
+#include <list>
 #include "base/scoped_ptr.h"
 #include "base/time.h"
 #include "base/file_path.h"
@@ -46,6 +47,15 @@ class Parser {
   Parser();
   ~Parser();
 
+  // Allows you to add a parse engine to the Parser facade. This should be
+  // called prior to the call to Init. This is mainly intended for testing.
+  // The Parser will assume responsibility for deleting the ParseEngine. The
+  // parse engine is added to the front of the list, meaning it will be given
+  // the chance to handle files before any of the built-in parsers.
+  //
+  // @param parse_engine pointer to a heap allocated ParseEngine.
+  void AddParseEngine(ParseEngine* parse_engine);
+
   // Initialize the parser implementation.
   bool Init(ParseEventHandler* event_handler);
 
@@ -73,7 +83,7 @@ class Parser {
   bool Close();
 
  private:
-  typedef std::vector<ParseEngine*> ParseEngineSet;
+  typedef std::list<ParseEngine*> ParseEngineSet;
   typedef ParseEngineSet::iterator ParseEngineIter;
 
   // Sets the currently active parse engine to the first engine that

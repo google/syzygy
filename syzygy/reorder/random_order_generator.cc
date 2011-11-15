@@ -16,14 +16,14 @@
 
 #include <algorithm>
 
+namespace reorder {
+
 namespace {
 
 const DWORD kDataCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
 
 }  // namespace
-
-namespace reorder {
 
 RandomOrderGenerator::RandomOrderGenerator(int seed)
     : Reorderer::OrderGenerator("Random Order Generator"),

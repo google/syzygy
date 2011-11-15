@@ -22,11 +22,13 @@
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/reorder/order_generator_test.h"
 
+namespace reorder {
+
 class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
  protected:
   void ExpectLinearOrdering(
-      reorder::Reorderer::Order::BlockList::const_iterator it,
-      reorder::Reorderer::Order::BlockList::const_iterator end) {
+      Reorderer::Order::BlockList::const_iterator it,
+      Reorderer::Order::BlockList::const_iterator end) {
     // Verifies that the given block list appears in a linear order in the
     // original image.
     core::RelativeAddress cur_addr;
@@ -38,7 +40,7 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
     }
   }
 
-  reorder::LinearOrderGenerator order_generator_;
+  LinearOrderGenerator order_generator_;
 };
 
 TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
@@ -52,7 +54,7 @@ TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
 
   // Verify that the order found in order_ matches the original decomposed
   // image.
-  reorder::Reorderer::Order::BlockListMap::const_iterator it =
+  Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
     const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
@@ -96,7 +98,7 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
   // Test out of order time calls to different blocks.
   // Expected process group 2 calls: block0, block2, block4.
   order_generator_.OnProcessStarted(2, GetSystemTime());
-  reorder::Reorderer::UniqueTime time = GetSystemTime();
+  Reorderer::UniqueTime time = GetSystemTime();
   order_generator_.OnCodeBlockEntry(blocks[2], addrs[2], 2, 1, GetSystemTime());
   order_generator_.OnCodeBlockEntry(blocks[0], addrs[0], 2, 1, time);
   order_generator_.OnCodeBlockEntry(blocks[4], addrs[4], 2, 1, time);
@@ -127,7 +129,7 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
   ExpectNoDuplicateBlocks();
 
   // Verify that code blocks have been reordered and that data blocks have not.
-  reorder::Reorderer::Order::BlockListMap::const_iterator it =
+  Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
     const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
@@ -141,3 +143,5 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
     }
   }
 }
+
+}  // namespace reorder

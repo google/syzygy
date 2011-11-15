@@ -79,6 +79,7 @@
         'order_generator_test.h',
         'random_order_generator_unittest.cc',
         'reorder_unittests_main.cc',
+        'reorderer_unittest.cc',
         '../pe/unittest_util.cc',
         '../pe/unittest_util.h',
       ],
@@ -89,6 +90,7 @@
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '../pe/pe.gyp:pe_unittest_utils',
         '../test_data/test_data.gyp:test_dll',
+        '../test_data/test_data.gyp:instrumented_test_dll',
       ],
     }
   ],

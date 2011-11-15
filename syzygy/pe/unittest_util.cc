@@ -151,8 +151,12 @@ void CheckLoadedTestDll(HMODULE module) {
 
 namespace testing {
 
-const wchar_t* const PELibUnitTest::kDllName = L"test_dll.dll";
-const wchar_t* const PELibUnitTest::kDllPdbName = L"test_dll.pdb";
+const wchar_t PELibUnitTest::kDllName[] = L"test_dll.dll";
+const wchar_t PELibUnitTest::kDllPdbName[] = L"test_dll.pdb";
+const wchar_t PELibUnitTest::kInstrumentedDllName[] =
+    L"instrumented_test_dll.dll";
+const wchar_t PELibUnitTest::kInstrumentedDllPdbName[] =
+    L"instrumented_test_dll.pdb";
 
 void PELibUnitTest::CreateTemporaryDir(FilePath* temp_dir) {
   ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
@@ -194,6 +198,13 @@ FilePath PELibUnitTest::GetOutputRelativePath(const wchar_t* path) {
   src_dir = src_dir.Append(L"syzygy");
   src_dir = src_dir.Append(kOutputDir);
   return src_dir.Append(path);
+}
+
+FilePath PELibUnitTest::GetExeTestDataRelativePath(const wchar_t* path) {
+  FilePath exe_dir;
+  PathService::Get(base::DIR_EXE, &exe_dir);
+  FilePath test_data = exe_dir.Append(L"test_data");
+  return test_data.Append(path);
 }
 
 void PELibUnitTest::CheckEmbeddedPdbPath(const FilePath& pe_path,

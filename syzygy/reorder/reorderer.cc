@@ -23,6 +23,8 @@
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/core/serialization.h"
+#include "syzygy/pdb/omap.h"
+#include "syzygy/pe/find.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -95,21 +97,31 @@ bool Reorderer::Reorder(OrderGenerator* order_generator,
   DCHECK(order_generator != NULL);
   DCHECK(order != NULL);
 
-  Parser parser;
-  if (!parser.Init(this)) {
-    LOG(ERROR) << "Failed to initialize call trace parser.";
-    return false;
-  }
-
   DCHECK(order_generator_ == NULL);
   DCHECK(pe_ == NULL);
   DCHECK(image_ == NULL);
-  DCHECK(parser_ == NULL);
+
+  // Only allocate a parser if we need to. This allows unittests to manually
+  // allocate a parser prior to calling this function. It is expected that the
+  // parser not yet be initialized.
+  scoped_ptr<Parser> parser;
+  if (parser_ == NULL) {
+    parser.reset(new Parser());
+    parser_ = parser.get();
+  }
+
+  if (!parser_->Init(this)) {
+    LOG(ERROR) << "Failed to initialize call trace parser.";
+    // If we created the object that parser_ refers to, reset the pointer.
+    // Otherwise we leave it as it was when we found it.
+    if (parser.get() != NULL)
+      parser_ = NULL;
+    return false;
+  }
 
   order_generator_ = order_generator;
   pe_ = pe_file;
   image_ = image;
-  parser_ = &parser;
 
   bool success = ReorderImpl(order);
 
@@ -122,10 +134,30 @@ bool Reorderer::Reorder(OrderGenerator* order_generator,
 }
 
 bool Reorderer::ReorderImpl(Order* order) {
+  DCHECK(order != NULL);
   DCHECK(order_generator_ != NULL);
   DCHECK(pe_ != NULL);
   DCHECK(image_ != NULL);
-  DCHECK(parser_ != NULL);
+
+  if (!LoadModuleInformation())
+    return false;
+  if (!InitializeParser())
+    return false;
+  if (!LoadInstrumentedOmap())
+    return false;
+  if (!DecomposeImage())
+    return false;
+  if (!ConsumeCallTraceEvents())
+    return false;
+  if (!CalculateReordering(order))
+    return false;
+
+  return true;
+}
+
+bool Reorderer::LoadModuleInformation() {
+  DCHECK(pe_ != NULL);
+  DCHECK(image_ != NULL);
 
   // Validate the instrumented module, and extract the signature of the original
   // module it was built from.
@@ -156,6 +188,10 @@ bool Reorderer::ReorderImpl(Order* order) {
     return false;
   }
 
+  return true;
+}
+
+bool Reorderer::InitializeParser() {
   // Open the log files. We do this before running the decomposer as if these
   // fail we'll have wasted a lot of time!
 
@@ -168,6 +204,37 @@ bool Reorderer::ReorderImpl(Order* order) {
     }
   }
 
+  return true;
+}
+
+bool Reorderer::LoadInstrumentedOmap() {
+  // Find the PDB file for the instrumented module.
+  FilePath instrumented_pdb;
+  if (!pe::FindPdbForModule(instrumented_path_, &instrumented_pdb) ||
+      instrumented_pdb.empty()) {
+    LOG(ERROR) << "Unable to find PDB for instrumented image \""
+               << instrumented_path_.value() << "\".";
+    return false;
+  }
+  LOG(INFO) << "Found PDB for instrumented module: \""
+            << instrumented_pdb.value() << "\".";
+
+  // Load the OMAPTO table from the instrumented PDB. This will allow us to map
+  // call-trace event addresses to addresses in the original image.
+  if (!pdb::ReadOmapsFromPdbFile(instrumented_pdb, &omap_to_, &omap_from_)) {
+    LOG(ERROR) << "Failed to read OMAPTO vector from PDB \""
+               << instrumented_pdb.value() << "\".";
+    return false;
+  }
+  LOG(INFO) << "Read OMAP data from instrumented module PDB.";
+
+  return true;
+}
+
+bool Reorderer::DecomposeImage() {
+  DCHECK(pe_ != NULL);
+  DCHECK(image_ != NULL);
+
   // Decompose the DLL to be reordered. This will let us map call-trace events
   // to actual Blocks.
   LOG(INFO) << "Decomposing input image.";
@@ -177,6 +244,10 @@ bool Reorderer::ReorderImpl(Order* order) {
     return false;
   }
 
+  return true;
+}
+
+bool Reorderer::ConsumeCallTraceEvents() {
   // Parse the logs.
   if (trace_files_.size() > 0) {
     LOG(INFO) << "Processing trace events.";
@@ -190,6 +261,13 @@ bool Reorderer::ReorderImpl(Order* order) {
       return false;
     }
   }
+
+  return true;
+}
+
+bool Reorderer::CalculateReordering(Order* order) {
+  DCHECK(order != NULL);
+  DCHECK(order_generator_ != NULL);
 
   LOG(INFO) << "Calculating new order.";
   if (!order_generator_->CalculateReordering(*pe_,
@@ -282,15 +360,21 @@ void Reorderer::OnFunctionEntry(base::Time time,
     return;
   }
 
-  // Ignore event not belonging to the instrumented module of interest.
+  // Ignore events not belonging to the instrumented module of interest.
   if (!MatchesInstrumentedModuleSignature(*module_info)) {
     return;
   }
 
-  // Get the block that this function call refers to. We can only instrument
-  // 32-bit DLLs, so we're sure that the following address conversion is safe.
+  // Convert the address to an RVA. We can only instrument 32-bit DLLs, so we're
+  // sure that the following address conversion is safe.
   RelativeAddress rva(
       static_cast<uint32>(function_address - module_info->base_address));
+
+  // Convert the address from one in the instrumented module to one in the
+  // original module using the OMAP data.
+  rva = pdb::TranslateAddressViaOmap(omap_to_, rva);
+
+  // Get the block that this function call refers to.
   const BlockGraph::Block* block =
       image_->blocks.GetBlockByAddress(rva);
   if (block == NULL) {
