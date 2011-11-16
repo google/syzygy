@@ -29,7 +29,7 @@ bool operator==(const OMAP& omap1, const OMAP& omap2) {
 
 namespace pe {
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 using core::RelativeAddress;
 
 namespace {

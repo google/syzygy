@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/pe_file_writer.h"
 
 #include <windows.h>
@@ -23,6 +24,13 @@
 #include "sawbuck/common/buffer_parser.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
+
+namespace pe {
+
+using block_graph::BlockGraph;
+using core::AbsoluteAddress;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
 
 namespace {
 
@@ -41,13 +49,6 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
 }
 
 }  // namespace
-
-namespace pe {
-
-using core::AbsoluteAddress;
-using core::BlockGraph;
-using core::FileOffsetAddress;
-using core::RelativeAddress;
 
 PEFileWriter::PEFileWriter(const ImageLayout& image_layout)
     : image_layout_(image_layout), nt_headers_(NULL) {

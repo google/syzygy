@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/image_layout.h"
 
 #include "base/file_util.h"
@@ -41,7 +42,7 @@ void CopySectionHeadersToImageLayout(
   }
 }
 
-ImageLayout::ImageLayout(core::BlockGraph* block_graph)
+ImageLayout::ImageLayout(block_graph::BlockGraph* block_graph)
     : blocks(block_graph) {
 }
 

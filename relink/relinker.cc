@@ -15,6 +15,7 @@
 #include "syzygy/relink/relinker.h"
 
 #include <ctime>
+
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/string_util.h"
@@ -31,7 +32,9 @@
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
 
-using core::BlockGraph;
+namespace relink {
+
+using block_graph::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
 using pe::ImageLayout;
@@ -98,8 +101,6 @@ struct PaddingData {
 base::LazyInstance<PaddingData> kPaddingData(base::LINKER_INITIALIZED);
 
 }  // namespace
-
-namespace relink {
 
 RelinkerBase::RelinkerBase()
     : image_layout_(NULL),

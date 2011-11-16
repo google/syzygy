@@ -13,17 +13,19 @@
 // limitations under the License.
 //
 // Implementation of basic block disassembler.
-//
 
-#include "syzygy/core/basic_block_disassembler.h"
+#include "syzygy/block_graph/basic_block_disassembler.h"
 
 #include <algorithm>
 #include <vector>
+
 #include "base/logging.h"
 #include "base/stringprintf.h"
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 
-namespace core {
+namespace block_graph {
+
+using core::Disassembler;
 
 BasicBlockDisassembler::BasicBlockDisassembler(
     const uint8* code,
@@ -300,4 +302,4 @@ bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
   return success;
 }
 
-}  // namespace core
+}  // namespace block_graph

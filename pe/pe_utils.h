@@ -18,7 +18,7 @@
 #include <windows.h>
 #include <winnt.h>
 
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 
 namespace pe {
 
@@ -26,21 +26,23 @@ namespace pe {
 // other properties of a valid DOS header.
 // @returns true iff @p dos_header_block has all the correct properties
 //     of a DOS header.
-bool IsValidDosHeaderBlock(const core::BlockGraph::Block* dos_header_block);
+bool IsValidDosHeaderBlock(
+    const block_graph::BlockGraph::Block* dos_header_block);
 
 // Validates @p nt_headers_block for the the size, magic constants and
 // other properties of valid NT headers.
 // @returns true iff block has correct size and signature for a DOS
 //     header block.
-bool IsValidNtHeadersBlock(const core::BlockGraph::Block* nt_headers_block);
+bool IsValidNtHeadersBlock(
+    const block_graph::BlockGraph::Block* nt_headers_block);
 
 // Retrieves and validates the NT headers block from a valid DOS headers block.
 // @returns the NT headers block, iff it can be retrieved from the DOS headers
 //     block, and if the NT headers block has valid signatures.
-const core::BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
-    const core::BlockGraph::Block* dos_header_block);
-core::BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
-    core::BlockGraph::Block* dos_header_block);
+const block_graph::BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
+    const block_graph::BlockGraph::Block* dos_header_block);
+block_graph::BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
+    block_graph::BlockGraph::Block* dos_header_block);
 
 }  // namespace pe
 

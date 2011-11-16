@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/reorder/reorderer.h"
 
 #include "base/file_util.h"
@@ -28,11 +29,12 @@
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file.h"
 
-namespace {
+namespace reorder {
 
-using core::BlockGraph;
-using reorder::Reorderer;
+using block_graph::BlockGraph;
 using call_trace::parser::Parser;
+
+namespace {
 
 // Serializes a block list to JSON.
 bool OutputBlockList(size_t section_id,
@@ -58,7 +60,7 @@ bool OutputBlockList(size_t section_id,
     if (json_file->pretty_print()) {
       std::string comment = base::StringPrintf(
           "%s(%s)",
-          core::BlockGraph::kBlockType[blocks[i]->type()],
+          BlockGraph::kBlockType[blocks[i]->type()],
           blocks[i]->name());
       if (!json_file->OutputTrailingComment(comment.c_str()))
         return false;
@@ -69,8 +71,6 @@ bool OutputBlockList(size_t section_id,
 }
 
 }  // namespace
-
-namespace reorder {
 
 Reorderer::Reorderer(const FilePath& module_path,
                      const FilePath& instrumented_path,

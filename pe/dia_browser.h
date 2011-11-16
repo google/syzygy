@@ -24,6 +24,7 @@
 // TODO(chrisha): If needed, we could allow the assignment of a pattern to a
 //    class, and use 'single visit per class' semantics. In the absence of
 //    a class, each pattern would be given its own class.
+
 #ifndef SYZYGY_PE_DIA_BROWSER_H_
 #define SYZYGY_PE_DIA_BROWSER_H_
 
@@ -34,6 +35,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+
 #include "base/callback.h"
 #include "base/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"

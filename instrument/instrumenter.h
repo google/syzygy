@@ -15,7 +15,7 @@
 #ifndef SYZYGY_INSTRUMENT_INSTRUMENTER_H_
 #define SYZYGY_INSTRUMENT_INSTRUMENTER_H_
 
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/relink/relinker.h"
 
 namespace instrument {

@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PE_UNITTEST_UTIL_H_
 #define SYZYGY_PE_UNITTEST_UTIL_H_
 
 #include <windows.h>
+
 #include "base/file_path.h"
 #include "gtest/gtest.h"
 

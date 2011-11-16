@@ -20,20 +20,21 @@
 // normal operation will always run from start to end. This class requires that
 // all external references to addresses within a function block have an
 // associated label.
-//
-#ifndef SYZYGY_CORE_BASIC_BLOCK_DISASSEMBLER_H_
-#define SYZYGY_CORE_BASIC_BLOCK_DISASSEMBLER_H_
+
+#ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DISASSEMBLER_H_
+#define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DISASSEMBLER_H_
 
 #include <set>
 #include <string>
+
 #include "base/basictypes.h"
 #include "base/callback.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/disassembler.h"
-#include "syzygy/core/block_graph.h"
 #include "distorm.h"  // NOLINT
 
-namespace core {
+namespace block_graph {
 
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
@@ -52,8 +53,10 @@ namespace core {
 // have been marked with labels. To get this, run the standard disassembly phase
 // using Decomposer and Disassembler first. Failing to do this will result in
 // missing some potential basic-block splits.
-class BasicBlockDisassembler : public Disassembler {
+class BasicBlockDisassembler : public core::Disassembler {
  public:
+  typedef core::AbsoluteAddress AbsoluteAddress;
+
   // Use the AddressSpace primitives to represent the set of basic blocks.
   typedef core::AddressSpace<AbsoluteAddress, size_t, BlockGraph::Block>
       BBAddressSpace;
@@ -137,6 +140,6 @@ class BasicBlockDisassembler : public Disassembler {
   AbsoluteAddress current_block_start_;
 };
 
-}  // namespace core
+}  // namespace block_graph
 
-#endif  // SYZYGY_CORE_BASIC_BLOCK_DISASSEMBLER_H_
+#endif  // SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DISASSEMBLER_H_

@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/pe_file_writer.h"
 
 #include "base/file_util.h"
@@ -21,18 +22,15 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
 
-namespace {
+namespace pe {
 
-using pe::Decomposer;
-using pe::PEFile;
+namespace {
 
 class PEFileWriterTest: public testing::PELibUnitTest {
   // Add customizations here.
 };
 
 }  // namespace
-
-namespace pe {
 
 TEST_F(PEFileWriterTest, LoadOriginalImage) {
   // This test baselines the other test(s) that operate on mutated, copied
@@ -53,7 +51,7 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   ASSERT_TRUE(image_file.Init(image_path));
 
   Decomposer decomposer(image_file);
-  core::BlockGraph block_graph;
+  block_graph::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
 

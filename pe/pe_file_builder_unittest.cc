@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,19 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/pe_file_builder.h"
 
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
+
 #include "base/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/core/typed_block.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
+
+namespace pe {
+
+using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
+using core::AddressRange;
+using core::RelativeAddress;
 
 namespace {
 
@@ -38,15 +47,6 @@ const uint8 kInt3Padding[] = {
     0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
     0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
 };
-
-using core::BlockGraph;
-using core::ConstTypedBlock;
-using core::RelativeAddress;
-using pe::Decomposer;
-using pe::ImageLayout;
-using pe::PEFile;
-using pe::PEFileBuilder;
-using pe::IsValidDosHeaderBlock;
 
 class PEFileBuilderTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
@@ -118,10 +118,6 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
 };
 
 }  // namespace
-
-namespace pe {
-
-using core::AddressRange;
 
 TEST_F(PEFileBuilderTest, Initialization) {
   PEFileBuilder builder(&block_graph_);

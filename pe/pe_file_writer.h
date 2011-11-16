@@ -11,12 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PE_PE_FILE_WRITER_H_
 #define SYZYGY_PE_PE_FILE_WRITER_H_
 
 #include "base/file_path.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address_space.h"
-#include "syzygy/core/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file_parser.h"
@@ -27,8 +28,8 @@ namespace pe {
 // to a PE image file.
 class PEFileWriter {
  public:
+  typedef block_graph::BlockGraph BlockGraph;
   typedef core::AbsoluteAddress AbsoluteAddress;
-  typedef core::BlockGraph BlockGraph;
   typedef core::FileOffsetAddress FileOffsetAddress;
   typedef core::RelativeAddress RelativeAddress;
 

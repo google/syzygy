@@ -16,12 +16,12 @@
 #define SYZYGY_EXPERIMENTAL_BLOCK_HASH_H_
 
 #include "base/md5.h"
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/experimental/comparable.h"
 
 namespace experimental {
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 
 // Represents a hash of the content of a block. Internally we store an 128-bit
 // MD5 digest, but this endows it with comparison operators. We explicitly

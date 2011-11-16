@@ -12,27 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_PE_PE_DATA_H_
-#define SYZYGY_PE_PE_DATA_H_
+#include "base/at_exit.h"
+#include "base/command_line.h"
+#include "gtest/gtest.h"
 
-#include <windows.h>
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
 
-#include "base/basictypes.h"
-
-namespace pe {
-
-// This reads 'RSDS' in memory.
-const uint32 kPdb70Signature = 0x53445352;
-
-// This is the structure referenced by the debug directory for
-// CV info where the debug info is in a PDB 7 file.
-struct CvInfoPdb70 {
-  uint32 cv_signature;
-  GUID signature;
-  uint32 pdb_age;
-  char pdb_file_name[1];
-};
-
-}  // namespace pe
-
-#endif  // SYZYGY_PE_PE_DATA_H_
+  CommandLine::Init(argc, argv);
+  base::AtExitManager at_exit;
+  return RUN_ALL_TESTS();
+}

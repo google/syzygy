@@ -14,8 +14,10 @@
 //
 // Parses a module and ETW trace files, generating an ordering of the
 // blocks in the decomposed image.
-#include <iostream>
+
 #include <objbase.h>
+#include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -166,7 +168,7 @@ int main(int argc, char** argv) {
   }
 
   pe::PEFile input_dll;
-  core::BlockGraph block_graph;
+  block_graph::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   reorder::Reorderer::Order order;
   Reorderer reorderer(input_dll_path,

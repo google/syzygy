@@ -12,7 +12,6 @@
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
 ;
-;
 ; This chunk of assembly defines an explicit layout that is intimate with the
 ; tests in basic_block_disassembler_unittest.cc. Please do not modify one
 ; without the other.
@@ -20,7 +19,6 @@
 ; The code below lays out instructions that should be carved up into 5 basic
 ; blocks, including one that is created via a pc-relative jump to a non-labelled
 ; location.
-;
 
 .386
 .MODEL FLAT, C

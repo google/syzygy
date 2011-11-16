@@ -14,6 +14,7 @@
 //
 // Implementation class to gather per-process, per-module working set
 // statistics.
+
 #ifndef SYZYGY_WSDUMP_PROCESS_WORKING_SET_H_
 #define SYZYGY_WSDUMP_PROCESS_WORKING_SET_H_
 
@@ -21,7 +22,7 @@
 #include <string>
 #include <vector>
 
-// Forward decls.
+// Forward declarations.
 template <class C> class scoped_ptr;
 namespace core {
   template <typename AddressType, typename SizeType, typename ItemType>
@@ -29,6 +30,8 @@ namespace core {
 };
 struct _PSAPI_WORKING_SET_INFORMATION;
 typedef struct _PSAPI_WORKING_SET_INFORMATION PSAPI_WORKING_SET_INFORMATION;
+
+namespace wsdump {
 
 // Captures working set for a given process at a point in time,
 // summarizes per-module as well as overall statistics.
@@ -81,5 +84,7 @@ class ProcessWorkingSet {
   Stats non_module_stats_;
   ModuleStatsVector module_stats_;
 };
+
+}  // namespace wsdump
 
 #endif  // SYZYGY_WSDUMP_PROCESS_WORKING_SET_H_

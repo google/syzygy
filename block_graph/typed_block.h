@@ -31,14 +31,14 @@
 //   DCHECK(dos_header.Dereference(dos_header->e_lfanew, &nt_headers));
 //
 // For full details of the API, refer to internal::TypedBlockImpl, defined in
-// syzygy/core/typed_block_internal.h
+// syzygy/block_graph/typed_block_internal.h
 
-#ifndef SYZYGY_CORE_TYPED_BLOCK_H_
-#define SYZYGY_CORE_TYPED_BLOCK_H_
+#ifndef SYZYGY_BLOCK_GRAPH_TYPED_BLOCK_H_
+#define SYZYGY_BLOCK_GRAPH_TYPED_BLOCK_H_
 
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 
-namespace core {
+namespace block_graph {
 
 namespace internal {
 
@@ -85,9 +85,9 @@ template <typename T> class ConstTypedBlock
   DISALLOW_COPY_AND_ASSIGN(ConstTypedBlock);
 };
 
-}  // namespace core
+}  // namespace block_graph
 
 // This brings in the implementation.
-#include "syzygy/core/typed_block_internal.h"
+#include "syzygy/block_graph/typed_block_internal.h"
 
-#endif  // SYZYGY_CORE_TYPED_BLOCK_H_
+#endif  // SYZYGY_BLOCK_GRAPH_TYPED_BLOCK_H_

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/wsdump/process_working_set.h"
 
 #include <algorithm>
@@ -24,6 +25,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/core/address_space.h"
 
+namespace wsdump {
 
 namespace {
 
@@ -220,3 +222,5 @@ bool ProcessWorkingSet::CaptureModules(DWORD process_id,
 
   return true;
 }
+
+}  // namespace wsdump

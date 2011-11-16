@@ -11,21 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Declares ImageLayout, a lightweight structure that imposes a layout on a
+// BlockGraph via an AddressSpace and a set of section headers.
+
 #ifndef SYZYGY_PE_IMAGE_LAYOUT_H_
 #define SYZYGY_PE_IMAGE_LAYOUT_H_
 
+#include <windows.h>
+#include <winnt.h>
 #include <string>
 #include <vector>
 
-#include <windows.h>
-#include <winnt.h>
-
 #include "base/basictypes.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address_space.h"
-#include "syzygy/core/block_graph.h"
 
 namespace pe {
 
+// An ImageLayout imposes a layout on a BlockGraph via an AddressSpace over the
+// blocks and a set of section headers.
 struct ImageLayout {
   // Per-section information.
   struct SectionInfo {
@@ -47,13 +52,13 @@ struct ImageLayout {
   };
 
   // Creates an empty image layout on the supplied block graph.
-  explicit ImageLayout(core::BlockGraph* block_graph);
+  explicit ImageLayout(block_graph::BlockGraph* block_graph);
 
   // The sections in the image.
   std::vector<SectionInfo> sections;
 
   // The blocks that should be written to the image.
-  core::BlockGraph::AddressSpace blocks;
+  block_graph::BlockGraph::AddressSpace blocks;
 };
 
 // Copies section headers to section info.

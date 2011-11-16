@@ -14,10 +14,10 @@
 
 #include "syzygy/reorder/order_generator_test.h"
 
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
-#include "syzygy/core/block_graph.h"
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 using core::RelativeAddress;
 
 namespace testing {
@@ -43,7 +43,7 @@ void OrderGeneratorTest::ExpectNoDuplicateBlocks() {
   reorder::Reorderer::Order::BlockListMap::const_iterator it =
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
-    std::set<const core::BlockGraph::Block*> block_set;
+    std::set<const BlockGraph::Block*> block_set;
     for (size_t i = 0; i < it->second.size(); ++i) {
       EXPECT_TRUE(block_set.insert(it->second[i]).second);
     }

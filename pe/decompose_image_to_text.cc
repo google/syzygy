@@ -13,16 +13,18 @@
 // limitations under the License.
 //
 // Decomposes an image, then dumps the blocks and references to stdout.
+
 #include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/string_util.h"
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
 using pe::ImageLayout;

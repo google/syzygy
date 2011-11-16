@@ -21,14 +21,14 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/defs.h"
-#include "syzygy/core/block_graph.h"
 #include "syzygy/core/json_file_writer.h"
 
 namespace pe {
 
-using core::BlockGraph;
-typedef PEFile::RelativeAddress RelativeAddress;
+using block_graph::BlockGraph;
+using core::RelativeAddress;
 
 namespace {
 

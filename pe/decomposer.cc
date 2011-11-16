@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/decomposer.h"
 
 #include <algorithm>
 #include <cvconst.h>
+
 #include "base/file_path.h"
 #include "base/path_service.h"
 #include "base/logging.h"
@@ -26,26 +28,26 @@
 #include "base/win/scoped_comptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
-#include "syzygy/core/typed_block.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file_parser.h"
 
+namespace pe {
+
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
-
-namespace {
-
+using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
+using builder::Opt;
+using builder::Seq;
+using builder::Star;
 using core::AbsoluteAddress;
-using core::BlockGraph;
-using core::ConstTypedBlock;
 using core::Disassembler;
 using core::RelativeAddress;
-using pe::Decomposer;
-using pe::ImageLayout;
-using pe::PEFile;
-using pe::PEFileParser;
+
+namespace {
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
 const DWORD kDataCharacteristics =
@@ -443,14 +445,6 @@ bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
 }
 
 }  // namespace
-
-namespace pe {
-
-using builder::Opt;
-using builder::Seq;
-using builder::Star;
-using core::AbsoluteAddress;
-using core::BlockGraph;
 
 Decomposer::Decomposer(const PEFile& image_file)
     : image_(NULL),
@@ -2342,7 +2336,7 @@ bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
 }
 
 bool SaveDecomposition(const PEFile& pe_file,
-                       const core::BlockGraph& block_graph,
+                       const BlockGraph& block_graph,
                        const ImageLayout& image_layout,
                        core::OutArchive* out_archive) {
   // Get the metadata for this module and the toolchain. This will
@@ -2364,7 +2358,7 @@ bool SaveDecomposition(const PEFile& pe_file,
 
 bool LoadDecomposition(core::InArchive* in_archive,
                        PEFile* pe_file,
-                       core::BlockGraph* block_graph,
+                       BlockGraph* block_graph,
                        ImageLayout* image_layout) {
   DCHECK(in_archive != NULL);
   DCHECK(pe_file != NULL);

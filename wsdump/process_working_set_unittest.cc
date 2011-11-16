@@ -11,21 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/wsdump/process_working_set.h"
-#include <set>
-#include <vector>
 
 #include <psapi.h>
+#include <set>
+#include <vector>
 
 #include "base/at_exit.h"
 #include "base/string_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
-
 #include "gtest/gtest.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/core/address_space.h"
 
+namespace wsdump {
 
 class TestingProcessWorkingSet: public ProcessWorkingSet {
  public:
@@ -102,3 +103,5 @@ TEST(ProcessWorkingSetTest, Initialize) {
   EXPECT_EQ(ws.total_stats().executable_pages,
       total_modules.executable_pages + ws.non_module_stats().executable_pages);
 }
+
+}  // namespace wsdump

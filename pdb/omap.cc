@@ -15,6 +15,7 @@
 #include "syzygy/pdb/omap.h"
 
 #include <algorithm>
+
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {

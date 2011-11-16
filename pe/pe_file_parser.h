@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,12 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PE_PE_FILE_PARSER_H_
 #define SYZYGY_PE_PE_FILE_PARSER_H_
 
 #include "base/callback.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
-#include "syzygy/core/block_graph.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
@@ -28,7 +29,7 @@ template <class ItemType> class PEFileStructPtr;
 // the image header and various other PE image sections to an address space.
 class PEFileParser {
  public:
-  typedef core::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
 
   typedef Callback5<RelativeAddress,

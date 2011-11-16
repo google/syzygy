@@ -16,7 +16,7 @@
 
 namespace pe {
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 using core::RelativeAddress;
 
 // When inverting, in order to have as much address space available for the

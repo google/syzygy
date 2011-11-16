@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -28,7 +29,7 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 using experimental::BlockGraphMapping;
 using experimental::BlockVector;
 
@@ -54,7 +55,7 @@ int Usage(char** argv, const char* message) {
 // Loads a decomposed image from the given file_path.
 bool LoadDecomposition(const FilePath& file_path,
                        pe::PEFile* pe_file,
-                       core::BlockGraph* block_graph,
+                       BlockGraph* block_graph,
                        pe::ImageLayout* image_layout) {
   DCHECK(!file_path.empty());
   DCHECK(pe_file != NULL);
@@ -182,7 +183,7 @@ int main(int argc, char** argv) {
             << common::kSyzygyVersion.GetVersionString() << ".";
 
   pe::PEFile pe_file_from;
-  core::BlockGraph block_graph_from;
+  BlockGraph block_graph_from;
   pe::ImageLayout image_layout_from(&block_graph_from);
   if (!LoadDecomposition(path_from,
                          &pe_file_from,
@@ -192,7 +193,7 @@ int main(int argc, char** argv) {
   }
 
   pe::PEFile pe_file_to;
-  core::BlockGraph block_graph_to;
+  BlockGraph block_graph_to;
   pe::ImageLayout image_layout_to(&block_graph_to);
   if (!LoadDecomposition(path_to,
                          &pe_file_to,

@@ -13,12 +13,18 @@
 // limitations under the License.
 
 #include "syzygy/relink/order_relinker.h"
-#include "syzygy/reorder/random_order_generator.h"
+
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/reorder/random_order_generator.h"
+
+namespace relink {
+
+using reorder::RandomOrderGenerator;
+using reorder::Reorderer;
 
 class OrderRelinkerTest : public testing::PELibUnitTest {
  protected:
@@ -30,9 +36,6 @@ class OrderRelinkerTest : public testing::PELibUnitTest {
 const FilePath OrderRelinkerTest::kOrderFileName(L"order_file.json");
 const FilePath OrderRelinkerTest::kInstrDllName(L"instrumented_test_dll.dll");
 const FilePath OrderRelinkerTest::kTestDataDir(L"test_data");
-
-using reorder::RandomOrderGenerator;
-using reorder::Reorderer;
 
 TEST_F(OrderRelinkerTest, Relink) {
   FilePath temp_dir;
@@ -47,13 +50,13 @@ TEST_F(OrderRelinkerTest, Relink) {
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
   pe::PEFile pe_file;
-  core::BlockGraph block_graph;
+  block_graph::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
-  reorder::Reorderer::Order order;
-  reorder::RandomOrderGenerator order_generator(12345);
+  Reorderer::Order order;
+  RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
-  reorder::Reorderer::Flags flags = reorder::Reorderer::kFlagReorderCode |
-      reorder::Reorderer::kFlagReorderData;
+  Reorderer::Flags flags = Reorderer::kFlagReorderCode |
+      Reorderer::kFlagReorderData;
   Reorderer reorderer(input_dll_path,
                       instr_dll_path,
                       trace_paths,
@@ -64,7 +67,7 @@ TEST_F(OrderRelinkerTest, Relink) {
                                 &image_layout));
   ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path, true));
 
-  relink::OrderRelinker relinker(order_file_path);
+  OrderRelinker relinker(order_file_path);
   ASSERT_TRUE(relinker.Relink(input_dll_path,
                               input_pdb_path,
                               output_dll_path,
@@ -88,13 +91,13 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
 
   pe::PEFile pe_file;
-  core::BlockGraph block_graph;
+  block_graph::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
-  reorder::Reorderer::Order order;
-  reorder::RandomOrderGenerator order_generator(12345);
+  Reorderer::Order order;
+  RandomOrderGenerator order_generator(12345);
   std::vector<FilePath> trace_paths;
-  reorder::Reorderer::Flags flags = reorder::Reorderer::kFlagReorderCode |
-      reorder::Reorderer::kFlagReorderData;
+  Reorderer::Flags flags = Reorderer::kFlagReorderCode |
+      Reorderer::kFlagReorderData;
   Reorderer reorderer(input_dll_path,
                       instr_dll_path,
                       trace_paths,
@@ -105,7 +108,7 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
                                 &image_layout));
   ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path, true));
 
-  relink::OrderRelinker relinker(order_file_path);
+  OrderRelinker relinker(order_file_path);
   relinker.set_padding_length(32);
   ASSERT_TRUE(relinker.Relink(input_dll_path,
                               input_pdb_path,
@@ -116,3 +119,5 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
 
   CheckEmbeddedPdbPath(output_dll_path, output_pdb_path);
 }
+
+}  // namespace relink

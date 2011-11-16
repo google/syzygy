@@ -15,8 +15,8 @@
 #include "syzygy/reorder/dead_code_finder.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
-#include "syzygy/core/block_graph.h"
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/reorder/order_generator_test.h"
 
@@ -24,7 +24,7 @@ namespace reorder {
 
 class DeadCodeFinderTest : public testing::OrderGeneratorTest {
  protected:
-  typedef std::set<const core::BlockGraph::Block*> BlockSet;
+  typedef std::set<const block_graph::BlockGraph::Block*> BlockSet;
   typedef BlockSet::iterator BlockIter;
 
   DeadCodeFinderTest() : random_(12345) {
@@ -50,7 +50,7 @@ TEST_F(DeadCodeFinderTest, TestDLL) {
   while (live_blocks_.size() < kNumBlocks) {
     core::RelativeAddress addr(
         section->VirtualAddress + random_(section->Misc.VirtualSize));
-    const core::BlockGraph::Block* block =
+    const block_graph::BlockGraph::Block* block =
         image_layout_.blocks.GetBlockByAddress(addr);
     ASSERT_TRUE(block->addr() <= addr);
     ASSERT_TRUE(addr <= block->addr() + block->size());
@@ -62,7 +62,7 @@ TEST_F(DeadCodeFinderTest, TestDLL) {
   while (dead_blocks_.size() < kNumBlocks) {
     core::RelativeAddress addr(
         section->VirtualAddress + random_(section->Misc.VirtualSize));
-    const core::BlockGraph::Block* block =
+    const block_graph::BlockGraph::Block* block =
         image_layout_.blocks.GetBlockByAddress(addr);
     if (live_blocks_.find(block) == live_blocks_.end())
       dead_blocks_.insert(block);

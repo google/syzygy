@@ -15,15 +15,18 @@
 // Decomposes an image and serializes the decomposed image to file.
 
 #include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/time.h"
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
+
+using block_graph::BlockGraph;
 
 namespace {
 
@@ -55,7 +58,7 @@ int Usage(char** argv, const char* message) {
   return 1;
 }
 
-typedef std::set<const core::BlockGraph::Block*> BlockSet;
+typedef std::set<const BlockGraph::Block*> BlockSet;
 
 bool DumpBlockSet(const BlockSet& set, FILE* file) {
   DCHECK(file != NULL);
@@ -64,7 +67,7 @@ bool DumpBlockSet(const BlockSet& set, FILE* file) {
   for (; it != set.end(); ++it) {
     if (fprintf(file, "    0x%08X: %s (%s)\n", (*it)->addr().value(),
                 (*it)->name(),
-                core::BlockGraph::kBlockType[(*it)->type()]) < 0) {
+                BlockGraph::kBlockType[(*it)->type()]) < 0) {
       return false;
     }
   }
@@ -72,19 +75,19 @@ bool DumpBlockSet(const BlockSet& set, FILE* file) {
   return true;
 }
 
-bool DumpBlock(const core::BlockGraph::Block* block, FILE* file) {
+bool DumpBlock(const BlockGraph::Block* block, FILE* file) {
   DCHECK(block != NULL);
   DCHECK(file != NULL);
 
   size_t base = block->addr().value();
-  if (fprintf(file, "0x%08X(%d): %s (%s)\n", base, block->size(),
-              block->name(), core::BlockGraph::kBlockType[block->type()]) < 0) {
+  if (fprintf(file, "0x%08X(%d): %s (%s)\n", base, block->size(), block->name(),
+              BlockGraph::kBlockType[block->type()]) < 0) {
     return false;
   }
 
   // Dump any labels.
   if (block->labels().size() > 0) {
-    core::BlockGraph::Block::LabelMap::const_iterator label_it =
+    BlockGraph::Block::LabelMap::const_iterator label_it =
         block->labels().begin();
     if (fprintf(file, "  Labels:\n") < 0)
       return false;
@@ -99,7 +102,7 @@ bool DumpBlock(const core::BlockGraph::Block* block, FILE* file) {
   // unique referring blocks.
   if (block->referrers().size() > 0) {
     BlockSet blocks;
-    core::BlockGraph::Block::ReferrerSet::const_iterator iref_it =
+    BlockGraph::Block::ReferrerSet::const_iterator iref_it =
         block->referrers().begin();
     for (; iref_it != block->referrers().end(); ++iref_it) {
       DCHECK(iref_it->first != NULL);
@@ -114,7 +117,7 @@ bool DumpBlock(const core::BlockGraph::Block* block, FILE* file) {
   // offsets.
   if (block->references().size() > 0) {
     BlockSet blocks;
-    core::BlockGraph::Block::ReferenceMap::const_iterator oref_it =
+    BlockGraph::Block::ReferenceMap::const_iterator oref_it =
         block->references().begin();
     for (; oref_it != block->references().end(); ++oref_it) {
       DCHECK(oref_it->second.referenced() != NULL);
@@ -130,17 +133,17 @@ bool DumpBlock(const core::BlockGraph::Block* block, FILE* file) {
 
 bool DumpMissingSectionContributions(
     const FilePath& path,
-    const core::BlockGraph::AddressSpace& blocks) {
+    const BlockGraph::AddressSpace& blocks) {
   file_util::ScopedFILE out_file(file_util::OpenFile(path, "wb"));
-  core::BlockGraph::AddressSpace::RangeMapConstIter it =
+  BlockGraph::AddressSpace::RangeMapConstIter it =
       blocks.begin();
 
-  core::BlockGraph::BlockAttributes skip_mask =
-      core::BlockGraph::SECTION_CONTRIB | core::BlockGraph::PADDING_BLOCK |
-      core::BlockGraph::PE_PARSED;
+  BlockGraph::BlockAttributes skip_mask =
+      BlockGraph::SECTION_CONTRIB | BlockGraph::PADDING_BLOCK |
+      BlockGraph::PE_PARSED;
 
   for (; it != blocks.end(); ++it) {
-    const core::BlockGraph::Block* block = it->second;
+    const BlockGraph::Block* block = it->second;
     if (block->attributes() & skip_mask)
       continue;
 
@@ -199,7 +202,7 @@ int main(int argc, char** argv) {
 
   LOG(INFO) << "Decomposing image.";
   time = base::Time::Now();
-  core::BlockGraph block_graph;
+  BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   pe::Decomposer decomposer(pe_file);
   if (!decomposer.Decompose(&image_layout)) {
@@ -237,7 +240,7 @@ int main(int argc, char** argv) {
 
   if (benchmark_load) {
     pe::PEFile in_pe_file;
-    core::BlockGraph in_block_graph;
+    BlockGraph in_block_graph;
     pe::ImageLayout in_image_layout(&block_graph);
 
     LOG(INFO) << "Benchmarking decomposed image load.\n";

@@ -20,28 +20,34 @@
 // The BlockGraph also stores minimum knowledge of sections (names and
 // characteristics), and each block belongs to at most one section. In this
 // sense, a BlockGraph acts as top-level division of blocks.
-#ifndef SYZYGY_CORE_BLOCK_GRAPH_H_
-#define SYZYGY_CORE_BLOCK_GRAPH_H_
+
+#ifndef SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_
+#define SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_
 
 #include <hash_map>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
+
 #include "base/basictypes.h"
+#include "syzygy/common/align.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
-#include "syzygy/common/align.h"
 
-namespace core {
+namespace block_graph {
 
 // The invalid address can never occur in an graph, it's used as default
 // value for block addresses.
-extern const RelativeAddress kInvalidAddress;
+extern const core::RelativeAddress kInvalidAddress;
 
 // The BlockGraph is a top-level container for Blocks.
 class BlockGraph {
  public:
+  typedef core::InArchive InArchive;
+  typedef core::OutArchive OutArchive;
+  typedef core::RelativeAddress RelativeAddress;
+
   typedef size_t SectionId;
   typedef size_t BlockId;
   typedef size_t Size;
@@ -319,13 +325,13 @@ class BlockGraph::Block {
   typedef std::map<Offset, Reference> ReferenceMap;
 
   // Represents a range of data in this block.
-  typedef AddressRange<Offset, size_t> DataRange;
+  typedef core::AddressRange<Offset, size_t> DataRange;
 
   // Represents a range of data in the original image.
-  typedef AddressRange<RelativeAddress, size_t> SourceRange;
+  typedef core::AddressRange<RelativeAddress, size_t> SourceRange;
 
   // A map between bytes in this block and bytes in the original image.
-  typedef AddressRangeMap<DataRange, SourceRange> SourceRanges;
+  typedef core::AddressRangeMap<DataRange, SourceRange> SourceRanges;
 
   // Labels associated with data in this block. These are mainly kept around
   // as an aid to debugging.
@@ -662,6 +668,6 @@ class BlockGraph::Reference {
   Offset offset_;
 };
 
-}  // namespace core
+}  // namespace block_graph
 
-#endif  // SYZYGY_CORE_BLOCK_GRAPH_H_
+#endif  // SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_

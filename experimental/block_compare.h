@@ -19,11 +19,11 @@
 #ifndef SYZYGY_EXPERIMENTAL_BLOCK_COMPARE_H_
 #define SYZYGY_EXPERIMENTAL_BLOCK_COMPARE_H_
 
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 
 namespace experimental {
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 
 // Compares two blocks. This uses the same semantics as that used by the
 // BlockHash function, allowing us to use it to detect hash collisions.
