@@ -11,16 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/pe_file_builder.h"
 
 #include <delayimp.h>
-
 #include <algorithm>
 #include <ctime>
 
 #include "base/string_util.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
-#include "syzygy/core/typed_block.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace {
@@ -29,10 +29,11 @@ namespace {
 extern "C" void begin_dos_stub();
 extern "C" void end_dos_stub();
 
-using core::BlockGraph;
-using core::ConstTypedBlock;
+using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
+using block_graph::TypedBlock;
 using core::RelativeAddress;
-using core::TypedBlock;
+
 typedef std::vector<uint8> ByteVector;
 
 // A utility class to help with formatting the relocations section.

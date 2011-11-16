@@ -38,6 +38,7 @@
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',

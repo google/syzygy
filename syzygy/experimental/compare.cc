@@ -71,6 +71,7 @@
 #include "syzygy/experimental/compare.h"
 
 #include <algorithm>
+
 #include "base/logging.h"
 #include "base/md5.h"
 #include "syzygy/experimental/block_compare.h"
@@ -79,7 +80,7 @@
 
 namespace experimental {
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 
 namespace {
 

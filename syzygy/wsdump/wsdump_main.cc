@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include <iostream>
 #include <list>
 
@@ -23,6 +24,8 @@
 #include "pcrecpp.h"  // NOLINT
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/wsdump/process_working_set.h"
+
+using wsdump::ProcessWorkingSet;
 
 namespace {
 

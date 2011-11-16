@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/pe_file_parser.h"
-#include "syzygy/pe/unittest_util.h"
 
 #include <delayimp.h>
+
 #include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
@@ -23,15 +24,15 @@
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/pe/unittest_util.h"
 
-namespace {
+namespace pe {
 
+using block_graph::BlockGraph;
+using core::RelativeAddress;
 using testing::ContainerEq;
 
-using core::BlockGraph;
-using core::RelativeAddress;
-using pe::PEFile;
-using pe::PEFileParser;
+namespace {
 
 // Exposes the protected methods for testing.
 class TestPEFileParser: public PEFileParser {
@@ -43,23 +44,22 @@ class TestPEFileParser: public PEFileParser {
   }
 
   // Expose as public for testing.
-  using PEFileParser::ParseImageHeader;
-
-  using PEFileParser::ParseExportDir;
-  using PEFileParser::ParseImportDir;
-  using PEFileParser::ParseResourceDir;
-  using PEFileParser::ParseExceptionDir;
-  using PEFileParser::ParseSecurityDir;
-  using PEFileParser::ParseRelocDir;
-  using PEFileParser::ParseDebugDir;
   using PEFileParser::ParseArchitectureDir;
-  using PEFileParser::ParseGlobalDir;
-  using PEFileParser::ParseTlsDir;
-  using PEFileParser::ParseLoadConfigDir;
   using PEFileParser::ParseBoundImportDir;
-  using PEFileParser::ParseIatDir;
-  using PEFileParser::ParseDelayImportDir;
   using PEFileParser::ParseComDescriptorDir;
+  using PEFileParser::ParseDebugDir;
+  using PEFileParser::ParseDelayImportDir;
+  using PEFileParser::ParseExceptionDir;
+  using PEFileParser::ParseExportDir;
+  using PEFileParser::ParseGlobalDir;
+  using PEFileParser::ParseIatDir;
+  using PEFileParser::ParseImageHeader;
+  using PEFileParser::ParseImportDir;
+  using PEFileParser::ParseLoadConfigDir;
+  using PEFileParser::ParseRelocDir;
+  using PEFileParser::ParseResourceDir;
+  using PEFileParser::ParseSecurityDir;
+  using PEFileParser::ParseTlsDir;
 };
 
 class PEFileParserTest: public testing::PELibUnitTest {
@@ -161,8 +161,6 @@ class PEFileParserTest: public testing::PELibUnitTest {
 };
 
 }  // namespace
-
-namespace pe {
 
 TEST_F(PEFileParserTest, ParseImageHeader) {
   TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());

@@ -15,6 +15,7 @@
 #include "syzygy/pe/dia_util.h"
 
 #include <diacreate.h>
+
 #include "base/logging.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"

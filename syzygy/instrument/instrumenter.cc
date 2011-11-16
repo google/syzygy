@@ -22,13 +22,14 @@
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
-#include "syzygy/core/typed_block.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"
 
 namespace instrument {
 
+using block_graph::TypedBlock;
 using core::AbsoluteAddress;
 using core::RelativeAddress;
 using pe::Decomposer;
@@ -636,7 +637,7 @@ bool Instrumenter::CreateOneThunk(BlockGraph::Block* block,
 }
 
 bool Instrumenter::FixEntryPointThunk() {
-  core::TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
   if (!nt_headers.Init(0, builder().nt_headers_block())) {
     LOG(ERROR) << "Failed to retrieve NT Headers.";
     return false;
@@ -647,7 +648,7 @@ bool Instrumenter::FixEntryPointThunk() {
     return true;
   }
 
-  core::TypedBlock<Thunk> thunk;
+  TypedBlock<Thunk> thunk;
   if (!nt_headers.Dereference(nt_headers->OptionalHeader.AddressOfEntryPoint,
                               &thunk)) {
     LOG(ERROR) << "Failed to resolve entry point thunk.";
@@ -660,7 +661,7 @@ bool Instrumenter::FixEntryPointThunk() {
 }
 
 bool Instrumenter::FixTlsInitializerThunks() {
-  core::TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
   if (!nt_headers.Init(0, builder().nt_headers_block())) {
     LOG(ERROR) << "Failed to retrieve NT Headers.";
     return false;
@@ -680,14 +681,14 @@ bool Instrumenter::FixTlsInitializerThunks() {
   }
 
   // Find the TLS directory.
-  core::TypedBlock<IMAGE_TLS_DIRECTORY> tls_dir;
+  TypedBlock<IMAGE_TLS_DIRECTORY> tls_dir;
   if (!nt_headers.Dereference(data_dir.VirtualAddress, &tls_dir)) {
     LOG(ERROR) << "Failed to locate TLS directory.";
     return false;
   }
 
   // Get the TLS initializer callbacks.
-  core::TypedBlock<DWORD> callbacks;
+  TypedBlock<DWORD> callbacks;
   if (!tls_dir.Dereference(tls_dir->AddressOfCallBacks, &callbacks)) {
     LOG(ERROR) << "Failed to locate TLS directory.";
     return false;
@@ -699,7 +700,7 @@ bool Instrumenter::FixTlsInitializerThunks() {
   ReferenceMap::const_iterator iter = ref_map.begin();
   for (; iter != ref_map.end(); ++iter) {
     DCHECK(iter->second.offset() == 0);
-    core::TypedBlock<Thunk> thunk;
+    TypedBlock<Thunk> thunk;
     if (!thunk.Init(0, iter->second.referenced())) {
       LOG(ERROR) << "Failed to locate TLS initializer thunk.";
       return false;

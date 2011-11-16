@@ -13,12 +13,13 @@
 // limitations under the License.
 //
 // Declares some utilities for dealing with PDB files via the DIA interface.
-
 #ifndef SYZYGY_PE_DIA_UTIL_H_
 #define SYZYGY_PE_DIA_UTIL_H_
+
 #include <windows.h>
 #include <dia2.h>
 #include <vector>
+
 #include "base/file_path.h"
 
 namespace pe {

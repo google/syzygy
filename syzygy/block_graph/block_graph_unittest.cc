@@ -11,12 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/core/block_graph.h"
+
+#include "syzygy/block_graph/block_graph.h"
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 
-namespace core {
+namespace block_graph {
+
+using core::ByteVector;
+using core::CreateByteInStream;
+using core::CreateByteOutStream;
+using core::NativeBinaryInArchive;
+using core::NativeBinaryOutArchive;
+using core::RelativeAddress;
+using core::ScopedInStreamPtr;
+using core::ScopedOutStreamPtr;
 
 TEST(SectionTest, CreationAndProperties) {
   BlockGraph::Section section(0, "foo", 1);
@@ -742,4 +754,4 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   EXPECT_EQ(image.blocks().size(), address_space.address_space_impl().size());
 }
 
-}  // namespace core
+}  // namespace block_graph

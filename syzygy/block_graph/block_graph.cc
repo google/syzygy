@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-#include "syzygy/core/block_graph.h"
+
+#include "syzygy/block_graph/block_graph.h"
 
 #include "base/logging.h"
 
-namespace core {
+namespace block_graph {
 
-const RelativeAddress kInvalidAddress(0xFFFFFFFF);
+const core::RelativeAddress kInvalidAddress(0xFFFFFFFF);
 
 const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
 
@@ -905,4 +905,4 @@ bool BlockGraph::Block::LoadData(InArchive* in_archive) {
   return true;
 }
 
-}  // namespace core
+}  // namespace block_graph

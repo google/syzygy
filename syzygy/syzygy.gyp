@@ -24,6 +24,7 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
+        'block_graph/block_graph.gyp:*',
         'call_trace/call_trace.gyp:*',
         'common/common.gyp:*',
         'core/core.gyp:*',

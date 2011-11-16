@@ -16,7 +16,7 @@
 #define SYZYGY_RELINK_RELINKER_H_
 
 #include "base/scoped_ptr.h"
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
@@ -30,7 +30,7 @@ namespace relink {
 // TODO(ericdingle): Find a better place and/or name for this.
 class RelinkerBase {
  public:
-  typedef core::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph BlockGraph;
   typedef BlockGraph::AddressSpace AddressSpace;
   typedef core::RelativeAddress RelativeAddress;
   typedef pe::ImageLayout ImageLayout;

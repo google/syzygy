@@ -16,6 +16,7 @@
 #define SYZYGY_PDB_PDB_FILE_STREAM_H_
 
 #include <stdio.h>
+
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_stream.h"
 

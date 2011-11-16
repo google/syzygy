@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,27 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+//
+// Declares utility functions for building mappings between two distinct
+// BlockGraphs. This is intended for use in generating mappings between two
+// BlockGraphs that represent different versions of the same binary but it
+// should work for arbitrary BlockGraphs. See compare.cc for a full description
+// of the algorithm.
 #ifndef SYZYGY_EXPERIMENTAL_COMPARE_H_
 #define SYZYGY_EXPERIMENTAL_COMPARE_H_
 
 #include <map>
 #include <vector>
-#include "syzygy/core/block_graph.h"
+
+#include "syzygy/block_graph/block_graph.h"
 
 namespace experimental {
 
-typedef std::map<const core::BlockGraph::Block*,
-                 const core::BlockGraph::Block*> BlockGraphMapping;
+typedef std::map<const block_graph::BlockGraph::Block*,
+                 const block_graph::BlockGraph::Block*> BlockGraphMapping;
 
-typedef std::vector<const core::BlockGraph::Block*> BlockVector;
+typedef std::vector<const block_graph::BlockGraph::Block*> BlockVector;
 
 // Builds a mapping between two related BlockGraphs. The mapping will be a
 // partial bijection between the blocks in each BlockGraph. If provided,
 // unmapped1 and unmapped2 will be populated with a list of blocks that were
 // not mapped from each block graph.
-bool BuildBlockGraphMapping(const core::BlockGraph& bg1,
-                            const core::BlockGraph& bg2,
+bool BuildBlockGraphMapping(const block_graph::BlockGraph& bg1,
+                            const block_graph::BlockGraph& bg2,
                             BlockGraphMapping* mapping,
                             BlockVector* unmapped1,
                             BlockVector* unmapped2);

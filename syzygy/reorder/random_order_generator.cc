@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/reorder/random_order_generator.h"
-#include "syzygy/core/random_number_generator.h"
 
 #include <algorithm>
+
+#include "syzygy/core/random_number_generator.h"
 
 namespace reorder {
 

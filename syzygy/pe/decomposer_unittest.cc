@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/decomposer.h"
 
 #include "base/file_util.h"
@@ -18,9 +19,14 @@
 #include "base/string_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/core/unittest_util.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
+
+namespace pe {
+
+using block_graph::BlockGraph;
+using core::RelativeAddress;
 
 namespace {
 
@@ -29,11 +35,6 @@ class DecomposerTest: public testing::PELibUnitTest {
 };
 
 }  // namespace
-
-namespace pe {
-
-using core::BlockGraph;
-using core::RelativeAddress;
 
 TEST_F(DecomposerTest, Decompose) {
   FilePath image_path(GetExeRelativePath(kDllName));
@@ -118,7 +119,8 @@ TEST_F(DecomposerTest, Decompose) {
   // in number, id, name and characteristics.
   EXPECT_EQ(block_graph.sections().size(), image_layout.sections.size());
   for (size_t i = 0; i < image_layout.sections.size(); ++i) {
-    const core::BlockGraph::Section* section = block_graph.GetSectionById(i);
+    const BlockGraph::Section* section =
+        block_graph.GetSectionById(i);
     ASSERT_TRUE(section != NULL);
     EXPECT_EQ(section->id(), i);
     EXPECT_EQ(section->name(), image_layout.sections[i].name);
@@ -129,10 +131,11 @@ TEST_F(DecomposerTest, Decompose) {
   // We expect every block to be associated with a section, and only two blocks
   // should not be assigned to a section--the two header blocks.
   size_t non_section_blocks = 0;
-  core::BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
+  BlockGraph::BlockMap::const_iterator it =
+      block_graph.blocks().begin();
   for (; it != block_graph.blocks().end(); ++it) {
-    const core::BlockGraph::Block& block = it->second;
-    if (block.section() == core::BlockGraph::kInvalidSectionId) {
+    const BlockGraph::Block& block = it->second;
+    if (block.section() == BlockGraph::kInvalidSectionId) {
       ++non_section_blocks;
     } else {
       // If this is not a header block, it should refer to a valid section id.

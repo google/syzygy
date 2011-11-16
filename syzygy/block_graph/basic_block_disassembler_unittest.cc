@@ -14,15 +14,14 @@
 //
 // Tests for basic block disassembler.
 
-#include "syzygy/core/basic_block_disassembler.h"
+#include "syzygy/block_graph/basic_block_disassembler.h"
 
 #include <vector>
+
 #include "base/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/address.h"
-
-using testing::_;
 
 extern "C" {
 // functions and labels exposed from our .asm test stub.
@@ -42,7 +41,11 @@ int bb_ext_func2() {
 
 }  // extern "C"
 
-namespace core {
+namespace block_graph {
+
+using core::AbsoluteAddress;
+using core::Disassembler;
+using testing::_;
 
 class BasicBlockDisassemblerTest : public testing::Test {
  public:
@@ -153,4 +156,4 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   EXPECT_TRUE(block_starts_at_external_label);
 }
 
-}  // namespace core
+}  // namespace block_graph

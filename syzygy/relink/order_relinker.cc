@@ -29,7 +29,7 @@ const size_t kPageSize = 4096;
 
 // Returns true if the given block matches the BlockInitType.
 bool BlockMatchesInitType(OrderRelinker::BlockInitType block_init_type,
-                          const core::BlockGraph::Block* block) {
+                          const block_graph::BlockGraph::Block* block) {
   DCHECK(block != NULL);
 
   switch (block_init_type) {

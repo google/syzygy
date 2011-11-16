@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PDB_PDB_READER_H_
 #define SYZYGY_PDB_PDB_READER_H_
 
 #include <vector>
+
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "syzygy/pdb/pdb_constants.h"

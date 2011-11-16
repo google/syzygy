@@ -17,8 +17,8 @@
 #include "base/scoped_ptr.h"
 #include "base/time.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
-#include "syzygy/core/block_graph.h"
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/reorder/order_generator_test.h"
 
@@ -73,13 +73,13 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
 
   // Get 5 random blocks.
   std::vector<core::RelativeAddress> addrs;
-  std::vector<const core::BlockGraph::Block*> blocks;
-  std::set<const core::BlockGraph::Block*> block_set;
+  std::vector<const block_graph::BlockGraph::Block*> blocks;
+  std::set<const block_graph::BlockGraph::Block*> block_set;
   while (blocks.size() < 5) {
     core::RelativeAddress addr(
         section->VirtualAddress + random(section->Misc.VirtualSize));
     addrs.push_back(addr);
-    const core::BlockGraph::Block* block =
+    const block_graph::BlockGraph::Block* block =
         image_layout_.blocks.GetBlockByAddress(addr);
     if (!block_set.insert(block).second)
       continue;

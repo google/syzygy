@@ -16,12 +16,12 @@
 // away the ETW log parsing, decomposition, Block lookup, etc, that is a routine
 // part of producing a new ordering. Derived classes are to implement actual
 // order generation.
+
 #ifndef SYZYGY_REORDER_REORDERER_H_
 #define SYZYGY_REORDER_REORDERER_H_
 
 #include <windows.h>
 #include <dbghelp.h>
-
 #include <map>
 #include <set>
 #include <string>
@@ -43,11 +43,11 @@ namespace reorder {
 typedef uint64 AbsoluteAddress64;
 typedef uint64 Size64;
 
+using block_graph::BlockGraph;
 using call_trace::parser::ModuleInformation;
 using call_trace::parser::ParseEventHandler;
 using call_trace::parser::Parser;
 using core::AddressSpace;
-using core::BlockGraph;
 using core::RelativeAddress;
 using pe::Decomposer;
 using pe::ImageLayout;

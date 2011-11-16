@@ -11,13 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef SYZYGY_PE_PE_FILE_BUILDER_H_
 #define SYZYGY_PE_PE_FILE_BUILDER_H_
 
 #include <windows.h>
 #include <winnt.h>
 #include <vector>
-#include "syzygy/core/block_graph.h"
+
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file_parser.h"
 
@@ -27,7 +29,7 @@ namespace pe {
 // building self-consistent PE image headers etc.
 class PEFileBuilder {
  public:
-  typedef core::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
 
   // Constructs a new PE file builder on the supplied block graph.

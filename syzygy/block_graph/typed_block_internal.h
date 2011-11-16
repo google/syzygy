@@ -14,10 +14,10 @@
 //
 // Internal implementation details of TypedBlock. Not to be included directly.
 
-#ifndef SYZYGY_CORE_TYPED_BLOCK_INTERNAL_H_
-#define SYZYGY_CORE_TYPED_BLOCK_INTERNAL_H_
+#ifndef SYZYGY_BLOCK_GRAPH_TYPED_BLOCK_INTERNAL_H_
+#define SYZYGY_BLOCK_GRAPH_TYPED_BLOCK_INTERNAL_H_
 
-namespace core {
+namespace block_graph {
 
 namespace internal {
 
@@ -253,6 +253,6 @@ class TypedBlockImpl {
 
 }  // namespace internal
 
-}  // namespace core
+}  // namespace block_graph
 
-#endif  // SYZYGY_CORE_TYPED_BLOCK_INTERNAL_H_
+#endif  // SYZYGY_BLOCK_GRAPH_TYPED_BLOCK_INTERNAL_H_

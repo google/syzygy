@@ -24,10 +24,11 @@
 #include <set>
 #include <string>
 #include <vector>
+
 #include "base/file_path.h"
 #include "pcrecpp.h"  // NOLINT
-#include "syzygy/core/basic_block_disassembler.h"
-#include "syzygy/core/block_graph.h"
+#include "syzygy/block_graph/basic_block_disassembler.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/disassembler.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_data.h"
@@ -51,8 +52,8 @@ class Decomposer {
 
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
-  typedef core::BasicBlockDisassembler BasicBlockDisassembler;
-  typedef core::BlockGraph BlockGraph;
+  typedef block_graph::BasicBlockDisassembler BasicBlockDisassembler;
+  typedef block_graph::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
   typedef std::map<RelativeAddress, Fixup> FixupMap;
   typedef std::map<RelativeAddress, IntermediateReference>
@@ -303,12 +304,12 @@ class Decomposer::BasicBlockBreakdown {
 // allows us to avoid doing decomposition repeatedly. The serialized format also
 // stores toolchain metadata for input validation.
 bool SaveDecomposition(const PEFile& pe_file,
-                       const core::BlockGraph& block_graph,
+                       const block_graph::BlockGraph& block_graph,
                        const ImageLayout& image_layout,
                        core::OutArchive* out_archive);
 bool LoadDecomposition(core::InArchive* in_archive,
                        PEFile* pe_file,
-                       core::BlockGraph* block_graph,
+                       block_graph::BlockGraph* block_graph,
                        ImageLayout* image_layout);
 
 // This stores fixups, but in a format more convenient for us than the

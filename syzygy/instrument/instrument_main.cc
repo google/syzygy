@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -23,7 +24,7 @@
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/pe_file.h"
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 using instrument::Instrumenter;
 using pe::Decomposer;
 using pe::PEFile;

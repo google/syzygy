@@ -11,14 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/pe_utils.h"
 
-#include "syzygy/core/typed_block.h"
+#include "syzygy/block_graph/typed_block.h"
 
 namespace pe {
 
-using core::BlockGraph;
-using core::ConstTypedBlock;
+using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
 using core::RelativeAddress;
 
 namespace {

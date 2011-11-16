@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/core/unittest_util.h"
+#include "syzygy/block_graph/unittest_util.h"
 
 namespace testing {
 
-using core::BlockGraph;
+using block_graph::BlockGraph;
 
 // Compares two Blocks to each other.
 bool BlocksEqual(const BlockGraph::Block& b1, const BlockGraph::Block& b2) {

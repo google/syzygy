@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/core/typed_block.h"
+
+#include "syzygy/block_graph/typed_block.h"
+
 #include "gtest/gtest.h"
 
-namespace core {
+namespace block_graph {
 
 class TypedBlockTest: public testing::Test {
  public:
@@ -160,4 +162,4 @@ TEST_F(TypedBlockTest, Dereference) {
   EXPECT_EQ(42, reinterpret_cast<const Bar*>(bar_->data())->i);
 }
 
-}  // namespace core
+}  // namespace block_graph
