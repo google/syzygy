@@ -58,6 +58,7 @@ template <typename T> class TypedBlock
                                       internal::BlockPtr,
                                       TypedBlock<T>> {
  public:
+  typedef T ObjectType;
   template <typename T2> struct Rebind {
     typedef TypedBlock<T2> Type;
   };
@@ -75,6 +76,7 @@ template <typename T> class ConstTypedBlock
                                       internal::ConstBlockPtr,
                                       ConstTypedBlock<T>> {
  public:
+  typedef T ObjectType;
   template <typename T2> struct Rebind {
     typedef ConstTypedBlock<T2> Type;
   };

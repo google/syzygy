@@ -328,6 +328,24 @@ class AddressRangeMap {
         range_pairs_.front().first.size() == range_pairs_.front().second.size();
   }
 
+  // Given a source range finds the range pair that encompasses it, if it
+  // exists.
+  //
+  // @param sec_range the source range to search for.
+  // @returns a pointer to the range pair, or NULL if none exists.
+  const RangePair* FindRangePair(const SourceRange& src_range) const;
+
+  // Given a source range finds the range pair that encompasses it, if it
+  // exists.
+  //
+  // @param start the beginning of the source range to search for.
+  // @param size the size of the source range to search for.
+  // @returns a pointer to the range pair, or NULL if none exists.
+  const RangePair* FindRangePair(typename SourceRange::Address start,
+                                 typename SourceRange::Size size) const {
+    return FindRangePair(SourceRange(start, size));
+  }
+
   // Determines if the given source address range is fully mapped.
   //
   // @param src_range the source range to confirm.
@@ -338,7 +356,7 @@ class AddressRangeMap {
   //
   // @param start the beginning of the source range to confirm.
   // @param size the size of the source range to confirm.
-  // @returns true if the sourec range is fully mapped, false otherwise.
+  // @returns true if the source range is fully mapped, false otherwise.
   bool IsMapped(typename SourceRange::Address start,
                 typename SourceRange::Size size) const {
     return IsMapped(SourceRange(start, size));
@@ -390,6 +408,12 @@ class AddressRangeMap {
   }
 
  private:
+  // Runs a lower bound search with the provided src_range and a made up
+  // destination range. The returned iterator either intersects src_range, is
+  // strictly greater than it, or is 'end()'.
+  typename RangePairs::const_iterator LowerBound(
+      const SourceRange& src_range) const;
+
   // Stores the mapping.
   RangePairs range_pairs_;
 };
@@ -662,20 +686,28 @@ AddressSpace<AddressType, SizeType, ItemType>::FindContaining(
 }
 
 template <typename SourceRangeType, typename DestinationRangeType>
+const std::pair<SourceRangeType, DestinationRangeType>*
+AddressRangeMap<SourceRangeType, DestinationRangeType>::FindRangePair(
+    const SourceRange& src_range) const {
+  // Find the first existing source range that is not less than src_range.
+  // The returned iterator either intersects src_range, or is strictly greater
+  // than it.
+  RangePairs::const_iterator it = LowerBound(src_range);
+
+  if (it == range_pairs_.end())
+    return NULL;
+  if (it->first.Contains(src_range))
+    return &(*it);
+  return NULL;
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
 bool AddressRangeMap<SourceRangeType, DestinationRangeType>::IsMapped(
     const SourceRange& src_range) const {
   // Find the first existing source range that is not less than src_range.
   // The returned iterator either intersects src_range, or is strictly greater
   // than it.
-  RangePairs::const_iterator it = std::lower_bound(
-      range_pairs_.begin(),
-      range_pairs_.end(),
-      std::make_pair(src_range,
-                     // We have to manually create a valid DestinationRange with
-                     // a size > 0.
-                     DestinationRange(typename DestinationRange::Address(),
-                                      1)),
-      internal::RangePairLess<SourceRange, DestinationRange>());
+  RangePairs::const_iterator it = LowerBound(src_range);
 
   // Step through the successive mapped ranges and see if they cover src_range.
   typename SourceRange::Address position = src_range.start();
@@ -850,6 +882,22 @@ size_t AddressRangeMap<SourceRangeType, DestinationRangeType>::ComputeInverse(
   }
 
   return conflicts;
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+typename AddressRangeMap<SourceRangeType, DestinationRangeType>::RangePairs::
+    const_iterator
+AddressRangeMap<SourceRangeType, DestinationRangeType>::LowerBound(
+    const SourceRange& src_range) const {
+  return std::lower_bound(
+      range_pairs_.begin(),
+      range_pairs_.end(),
+      std::make_pair(src_range,
+                     // We have to manually create a valid DestinationRange with
+                     // a size > 0.
+                     DestinationRange(typename DestinationRange::Address(),
+                                      1)),
+      internal::RangePairLess<SourceRange, DestinationRange>());
 }
 
 }  // namespace core

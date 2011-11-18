@@ -75,6 +75,17 @@ inline bool operator==(const ImageLayout::SectionInfo& a,
       a.characteristics == b.characteristics;
 }
 
+// Generates a canonical ImageLayout. If the contained BlockGraph is unmodified
+// as output by Decomposer, this will be the same as the original ImageLayout,
+// up to but not including the SectionInfo.data_size values: we are more
+// aggressive at trimming empty data from the end of a section. This does not
+// modify the underlying BlockGraph.
+//
+// @param image_layout the ImageLayout to populate.
+// @returns true on success, false otherwise.
+// @pre The AddressSpace contained by image_layout is empty.
+bool BuildCanonicalImageLayout(ImageLayout* image_layout);
+
 }  // namespace pe
 
 #endif  // SYZYGY_PE_IMAGE_LAYOUT_H_

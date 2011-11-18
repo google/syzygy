@@ -52,8 +52,6 @@ inline const uint8* GetBlockData(ConstBlockPtr block) {
 template <typename T, typename BlockPtr, typename ChildType>
 class TypedBlockImpl {
  public:
-  typedef T ObjectType;
-
   // A struct that allows us to get the ChildType rebound with another
   // encapsulated data type.
   //
