@@ -158,6 +158,7 @@
         'dia_util_unittest.cc',
         'decomposer_unittest.cc',
         'find_unittest.cc',
+        'image_layout_unittest.cc',
         'image_source_map_unittest.cc',
         'metadata_unittest.cc',
         'pdb_info_unittest.cc',

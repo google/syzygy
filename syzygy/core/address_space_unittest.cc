@@ -416,6 +416,32 @@ TEST(AddressRangeMapTest, IsSimple) {
   EXPECT_FALSE(map2.IsSimple());
 }
 
+TEST(AddressRangeMapTest, FindRangePair) {
+  IntegerRangeMap map;
+
+  IntegerRangeMap::RangePair pair1(
+      IntegerRange(0, 10), IntegerRange(1000, 10));
+  IntegerRangeMap::RangePair pair2(
+      IntegerRange(10, 10), IntegerRange(1010, 15));
+  IntegerRangeMap::RangePair pair3(
+      IntegerRange(40, 10), IntegerRange(1040, 10));
+  ASSERT_TRUE(map.Push(pair1.first, pair1.second));
+  ASSERT_TRUE(map.Push(pair2.first, pair2.second));
+  ASSERT_TRUE(map.Push(pair3.first, pair3.second));
+  ASSERT_EQ(3u, map.size());
+
+  const IntegerRangeMap::RangePair* pair = map.FindRangePair(5, 3);
+  EXPECT_TRUE(pair != NULL);
+  EXPECT_EQ(pair1, *pair);
+
+  pair = map.FindRangePair(IntegerRange(40, 10));
+  EXPECT_TRUE(pair != NULL);
+  EXPECT_EQ(pair3, *pair);
+
+  EXPECT_EQ(NULL, map.FindRangePair(5, 10));
+  EXPECT_EQ(NULL, map.FindRangePair(IntegerRange(50, 1)));
+}
+
 TEST(AddressRangeMapTest, IsMapped) {
   IntegerRangeMap map;
   EXPECT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
