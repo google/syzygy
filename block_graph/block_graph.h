@@ -325,10 +325,10 @@ class BlockGraph::Block {
   typedef std::map<Offset, Reference> ReferenceMap;
 
   // Represents a range of data in this block.
-  typedef core::AddressRange<Offset, size_t> DataRange;
+  typedef core::AddressRange<Offset, Size> DataRange;
 
   // Represents a range of data in the original image.
-  typedef core::AddressRange<RelativeAddress, size_t> SourceRange;
+  typedef core::AddressRange<RelativeAddress, Size> SourceRange;
 
   // A map between bytes in this block and bytes in the original image.
   typedef core::AddressRangeMap<DataRange, SourceRange> SourceRanges;
@@ -389,6 +389,20 @@ class BlockGraph::Block {
   // Iff true, the block will delete [] data_ on destruction or when
   // data is overwritten.
   bool owns_data() const { return owns_data_; }
+
+  // Makes room for the given amount of data at the given offset. This is
+  // special in that it will patch up any labels, source ranges and referrers
+  // that land beyond the newly created data, shifting them to the right by
+  // @p size. If the data for this block is actually allocated it will also
+  // patch up the allocated data by zeroing the newly allocate range of data,
+  // and shifting the tail by @p size. If the new data is strictly implicit
+  // (offset > data_size), then the allocated data is not affected in any way.
+  //
+  // @param offset the offset at which to insert the new data.
+  // @param size the size of the new data to be inserted.
+  // @pre 0 < offset < size()
+  // @pre size > 0
+  void InsertData(Offset offset, Size size);
 
   // Set the data the block refers to.
   // @param data NULL or the data this block refers to.
