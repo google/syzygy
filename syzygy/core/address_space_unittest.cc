@@ -22,6 +22,12 @@
 
 namespace core {
 
+typedef AddressRange<const uint8*, size_t> PointerRange;
+typedef AddressRange<size_t, size_t> IntegerRange;
+typedef AddressRangeMap<IntegerRange, IntegerRange> IntegerRangeMap;
+typedef IntegerRangeMap::RangePair IntegerRangePair;
+typedef IntegerRangeMap::RangePairs IntegerRangePairs;
+
 namespace {
 
 // A pretty printer for AddressRange. This makes failed unittests readable.
@@ -43,9 +49,6 @@ std::ostream& operator<<(std::ostream& os,
 }
 
 }  // namespace
-
-typedef AddressRange<const uint8*, size_t> PointerRange;
-typedef AddressRange<size_t, size_t> IntegerRange;
 
 TEST(AddressRangeTest, Create) {
   PointerRange pointer_range(NULL, std::numeric_limits<size_t>::max());
@@ -399,8 +402,6 @@ TEST(AddressSpaceTest, FindIntersecting) {
   EXPECT_EQ(120, it_pair.second->first.start());
 }
 
-typedef AddressRangeMap<IntegerRange, IntegerRange> IntegerRangeMap;
-
 TEST(AddressRangeMapTest, IsSimple) {
   IntegerRangeMap map;
   EXPECT_FALSE(map.IsSimple());
@@ -472,13 +473,13 @@ TEST(AddressRangeMapTest, InOrderPush) {
   EXPECT_TRUE(map.Push(IntegerRange(40, 10), IntegerRange(1040, 10)));
   EXPECT_EQ(3u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
+      IntegerRangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(40, 10), IntegerRange(1040, 10)));
+      IntegerRangePair(IntegerRange(40, 10), IntegerRange(1040, 10)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -493,9 +494,9 @@ TEST(AddressRangeMapTest, OutOfOrderPush) {
   EXPECT_FALSE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
   EXPECT_EQ(1u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
+      IntegerRangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -510,9 +511,9 @@ TEST(AddressRangeMapTest, InOrderPushAndMerge) {
   EXPECT_TRUE(map.Push(IntegerRange(10, 10), IntegerRange(1010, 10)));
   EXPECT_EQ(1u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(0, 20), IntegerRange(1000, 20)));
+      IntegerRangePair(IntegerRange(0, 20), IntegerRange(1000, 20)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -542,13 +543,13 @@ TEST(AddressRangeMapTest, Insert) {
   EXPECT_FALSE(map.Insert(IntegerRange(5, 10), IntegerRange(1005, 10)));
   EXPECT_EQ(3u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
+      IntegerRangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(40, 10), IntegerRange(1040, 10)));
+      IntegerRangePair(IntegerRange(40, 10), IntegerRange(1040, 10)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -566,11 +567,11 @@ TEST(AddressRangeMapTest, InsertAndLeftMerge) {
   EXPECT_TRUE(map.Insert(IntegerRange(10, 5), IntegerRange(1010, 5)));
   EXPECT_EQ(2u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(0, 15), IntegerRange(1000, 15)));
+      IntegerRangePair(IntegerRange(0, 15), IntegerRange(1000, 15)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
+      IntegerRangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -588,11 +589,11 @@ TEST(AddressRangeMapTest, InsertAndRightMerge) {
   EXPECT_TRUE(map.Insert(IntegerRange(15, 5), IntegerRange(1015, 5)));
   EXPECT_EQ(2u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(15, 15), IntegerRange(1015, 15)));
+      IntegerRangePair(IntegerRange(15, 15), IntegerRange(1015, 15)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -610,9 +611,9 @@ TEST(AddressRangeMapTest, InsertAndDoubleMerge) {
   EXPECT_TRUE(map.Insert(IntegerRange(10, 10), IntegerRange(1010, 10)));
   EXPECT_EQ(1u, map.size());
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(0, 30), IntegerRange(1000, 30)));
+      IntegerRangePair(IntegerRange(0, 30), IntegerRange(1000, 30)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
@@ -655,11 +656,11 @@ TEST(AddressRangeMapTest, ComputeInverse) {
   ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1020, 10)));
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1000, 10)));
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(1000, 10), IntegerRange(20, 10)));
+      IntegerRangePair(IntegerRange(1000, 10), IntegerRange(20, 10)));
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(1020, 10), IntegerRange(0, 10)));
+      IntegerRangePair(IntegerRange(1020, 10), IntegerRange(0, 10)));
 
   IntegerRangeMap imap;
   EXPECT_EQ(0u, map.ComputeInverse(&imap));
@@ -679,13 +680,91 @@ TEST(AddressRangeMapTest, ComputeInverseWithConflicts) {
   ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1000, 10)));
 
-  IntegerRangeMap::RangePairs expected;
+  IntegerRangePairs expected;
   expected.push_back(
-      IntegerRangeMap::RangePair(IntegerRange(1000, 10), IntegerRange(0, 10)));
+      IntegerRangePair(IntegerRange(1000, 10), IntegerRange(0, 10)));
 
   IntegerRangeMap imap;
   EXPECT_EQ(1u, map.ComputeInverse(&imap));
   EXPECT_THAT(expected, testing::ContainerEq(imap.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, InsertUnmappedAtStart) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.InsertUnmappedRange(IntegerRange(0, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(10, 10), IntegerRange(1000, 10)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(30, 10), IntegerRange(1020, 10)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, InsertUnmappedInMiddle) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.InsertUnmappedRange(IntegerRange(15, 5));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(25, 10), IntegerRange(1020, 10)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, InsertUnmappedAfterEnd) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.InsertUnmappedRange(IntegerRange(30, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, InsertUnmappedSplit) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+
+  map.InsertUnmappedRange(IntegerRange(5, 5));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 5), IntegerRange(1000, 5)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(10, 5), IntegerRange(1005, 5)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, InsertUnmappedSplitSingleton) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 2), IntegerRange(1000, 1)));
+
+  map.InsertUnmappedRange(IntegerRange(1, 1));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 1), IntegerRange(1000, 1)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(2, 1), IntegerRange(1000, 1)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
 
 }  // namespace core

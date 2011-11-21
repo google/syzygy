@@ -17,6 +17,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/unittest_util.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/core/unittest_util.h"
 
 namespace block_graph {
@@ -199,6 +200,122 @@ TEST_F(BlockTest, GetMutableData) {
 
   // Getting the data a second time should return the same pointer.
   ASSERT_EQ(data, block_->GetMutableData());
+}
+
+TEST_F(BlockTest, InsertData) {
+  // Create a block with a labelled array of pointers. Explicitly initialize
+  // the last one with some data and let the block be longer than its
+  // explicitly initialized length.
+  const size_t kPtrSize = sizeof(core::RelativeAddress);
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 4 * kPtrSize, "Block1");
+  block1->AllocateData(3 * kPtrSize);
+  block1->source_ranges().Push(BlockGraph::Block::DataRange(0, 4 * kPtrSize),
+                               BlockGraph::Block::SourceRange(
+                               core::RelativeAddress(0), 4 * kPtrSize));
+  BlockGraph::Reference outgoing_ref(BlockGraph::RELATIVE_REF,
+                                     kPtrSize,
+                                     block_,
+                                     0);
+  block1->SetReference(0, outgoing_ref);
+  block1->SetReference(kPtrSize, outgoing_ref);
+  block1->SetLabel(0, "Pointer1");
+  block1->SetLabel(kPtrSize, "Pointer2");
+  block1->SetLabel(2 * kPtrSize, "Pointer3");
+  TypedBlock<uint32> data1;
+  ASSERT_TRUE(data1.Init(0, block1));
+  data1[0] = 0xAAAAAAAA;
+  data1[1] = 0xBBBBBBBB;
+  data1[2] = 0xCCCCCCCC;
+
+  // Create a block with a pointer to the first entry of block1.
+  BlockGraph::Block* block2 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, kPtrSize, "Block2");
+  block2->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                                kPtrSize,
+                                                block1,
+                                                0));
+
+  // Create a block with a pointer to the second entry of block1.
+  BlockGraph::Block* block3 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, kPtrSize, "Block3");
+  block3->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                                kPtrSize,
+                                                block1,
+                                                kPtrSize));
+
+  // Insert a new pointer entry in between the first and second entries.
+  block1->InsertData(kPtrSize, kPtrSize);
+
+  // Ensure the data_size and block size are as expected.
+  EXPECT_EQ(5 * kPtrSize, block1->size());
+  EXPECT_EQ(4 * kPtrSize, block1->data_size());
+
+  // Ensure the source ranges are as expected.
+  BlockGraph::Block::SourceRanges expected_src_ranges;
+  expected_src_ranges.Push(
+      BlockGraph::Block::DataRange(0, kPtrSize),
+      BlockGraph::Block::SourceRange(core::RelativeAddress(0), kPtrSize));
+  expected_src_ranges.Push(
+      BlockGraph::Block::DataRange(2 * kPtrSize, 3 * kPtrSize),
+      BlockGraph::Block::SourceRange(core::RelativeAddress(kPtrSize),
+                                     3 * kPtrSize));
+  EXPECT_THAT(expected_src_ranges.range_pairs(),
+              testing::ContainerEq(block1->source_ranges().range_pairs()));
+
+  // Ensure that the contents of the block's data are as expected.
+  EXPECT_EQ(0xAAAAAAAAu, data1[0]);
+  EXPECT_EQ(0x00000000u, data1[1]);
+  EXPECT_EQ(0xBBBBBBBBu, data1[2]);
+  EXPECT_EQ(0xCCCCCCCCu, data1[3]);
+
+  // Ensure that the labels have been shifted appropriately.
+  BlockGraph::Block::LabelMap expected_labels;
+  expected_labels.insert(std::make_pair(0, "Pointer1"));
+  expected_labels.insert(std::make_pair(2 * kPtrSize, "Pointer2"));
+  expected_labels.insert(std::make_pair(3 * kPtrSize, "Pointer3"));
+  EXPECT_THAT(expected_labels, testing::ContainerEq(block1->labels()));
+
+  // Ensure that the referrers are as expected.
+  BlockGraph::Block::ReferrerSet expected_referrers;
+  expected_referrers.insert(std::make_pair(block2, 0));
+  expected_referrers.insert(std::make_pair(block3, 0));
+  EXPECT_THAT(expected_referrers, testing::ContainerEq(block1->referrers()));
+
+  BlockGraph::Reference expected_ref(BlockGraph::RELATIVE_REF,
+                                     kPtrSize,
+                                     block1,
+                                     0);
+  BlockGraph::Reference actual_ref;
+  EXPECT_TRUE(block2->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+
+  expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                       kPtrSize,
+                                       block1,
+                                       2 * kPtrSize);
+  EXPECT_TRUE(block3->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+
+  // Ensure that the references have been shifted appropriately.
+  BlockGraph::Block::ReferenceMap expected_references;
+  expected_references.insert(std::make_pair(0, outgoing_ref));
+  expected_references.insert(std::make_pair(2 * kPtrSize, outgoing_ref));
+  EXPECT_EQ(expected_references, block1->references());
+}
+
+TEST_F(BlockTest, InsertDataImplicit) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 40, "Block1");
+  block1->AllocateData(30);
+
+  // Do an insert data in the implicitly initialized portion of the block.
+  block1->InsertData(30, 10);
+
+  // We expect the block to have grown, but the data size should still be the
+  // same.
+  EXPECT_EQ(50u, block1->size());
+  EXPECT_EQ(30u, block1->data_size());
 }
 
 TEST(BlockGraphTest, AddSections) {

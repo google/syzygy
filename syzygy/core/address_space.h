@@ -397,6 +397,30 @@ class AddressRangeMap {
   size_t ComputeInverse(
       AddressRangeMap<DestinationRange, SourceRange>* inverted) const;
 
+  // Rejigs a mapping by changing the underlying address-space that is being
+  // mapped. This inserts a range of unmapped data in the source range, pushing
+  // all mapped ranges that are beyond the newly unmapped data. If a mapped
+  // source range intersects the unmapped range being inserted, this mapping
+  // is split. During a split, the first of the two split ranges will maintain
+  // linearity when possible.
+  //
+  // For example, consider the following address range map (expressed as
+  // [start, end) ranges):
+  //
+  // [0, 10) -> [1000, 1010), [20, 30) -> [1020, 1030)
+  //
+  // After inserting an unmapped range at offset 25 size 5 the mapping will be:
+  //
+  // [0, 10) -> [1000, 1010), [20, 25) -> [1020, 1025), [30, 35) -> [1025, 1030)
+  //
+  // Simple splitting can fail in a very unlikely edge case. Consider the case
+  // where the source range has size N > 1 and the destination range has size 1.
+  // Now consider splitting the source range. We only have one byte of
+  // destination range, so how to split that into two? The only solution is to
+  // duplicate the destination range, which may make the mapping no longer
+  // invertible.
+  void InsertUnmappedRange(const SourceRange& src_range);
+
   // For serialization.
   bool Save(OutArchive* out_archive) const {
     DCHECK(out_archive != NULL);
@@ -898,6 +922,76 @@ AddressRangeMap<SourceRangeType, DestinationRangeType>::LowerBound(
                      DestinationRange(typename DestinationRange::Address(),
                                       1)),
       internal::RangePairLess<SourceRange, DestinationRange>());
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+void AddressRangeMap<SourceRangeType, DestinationRangeType>::
+    InsertUnmappedRange(const SourceRange& unmapped) {
+  typedef typename SourceRange::Size SrcSize;
+  typedef typename DestinationRange::Size DstSize;
+  typedef typename DestinationRange::Address DstAddr;
+
+  // Walk backwards through the range pairs, fixing them as we go.
+  for (size_t i = range_pairs_.size(); i > 0; --i) {
+    RangePair& range_pair = range_pairs_[i - 1];
+    SourceRange& src = range_pair.first;
+    DestinationRange& dst = range_pair.second;
+
+    // This range pair starts before the unmapped source range? We may have to
+    // split it, but we can stop looking at earlier ranges.
+    if (src.start() < unmapped.start()) {
+      // Do we need a split?
+      if (src.end() > unmapped.start()) {
+        SrcSize src_size_before =
+            static_cast<SrcSize>(unmapped.start() - src.start());
+        SrcSize src_size_after =
+            static_cast<SrcSize>(src.size() - src_size_before);
+
+        DstAddr dst_start_before = dst.start();
+        DstSize dst_size_before = src_size_before;
+        DstAddr dst_start_after(0);
+        DstSize dst_size_after(0);
+
+        // Special case: The destination size is 1, so indivisible. In this
+        // case we simply duplicate the destination range.
+        if (dst.size() == 1) {
+          dst_start_after = dst_start_before;
+          dst_size_after = dst_size_before;
+        } else {
+          // If the destination range is smaller than the source range, it is
+          // possible that dst_size_before consumes too much. In this case send
+          // as much as possible to the left (so it is as close to linear as
+          // possible), but leave some for the after the split.
+          if (dst_size_before >= dst.size()) {
+            dst_size_before = dst.size() - 1;
+            dst_size_after = 1;
+          }
+
+          dst_start_after = dst_start_before + dst_size_before;
+          dst_size_after = static_cast<DstSize>(dst.size() - dst_size_before);
+        }
+
+        // Create the range for after the split.
+        RangePair pair_after(
+            SourceRange(src.start() + src_size_before + unmapped.size(),
+                        src_size_after),
+            DestinationRange(dst_start_after, dst_size_after));
+
+        // Fix the existing pair, which is now the pair before the split.
+        src = SourceRange(src.start(), src_size_before);
+        dst = DestinationRange(dst_start_before, dst_size_before);
+
+        // Insert the the new range. This invalidates range_pair, src and dst
+        // hence the need to do it at the very end.
+        range_pairs_.insert(range_pairs_.begin() + i, pair_after);
+      }
+
+      return;
+    }
+
+    // Shift this range to the right.
+    src = SourceRange(src.start() + unmapped.size(), src.size());
+  }
 }
 
 }  // namespace core
