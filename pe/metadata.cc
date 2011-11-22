@@ -24,6 +24,7 @@
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/json_file_writer.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace pe {
 
@@ -268,10 +269,7 @@ bool Metadata::LoadFromJSON(const DictionaryValue& metadata) {
   return StringToTime(creation_time, &creation_time_);
 }
 
-bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
-  RelativeAddress start = pe_file_builder->next_section_address();
-  RelativeAddress insert_at = start;
-
+bool Metadata::SaveToBlock(BlockGraph::Block* block) const {
   // Serialize the metadata to a ByteVector.
   core::ByteVector bytes;
   core::ScopedOutStreamPtr out_stream;
@@ -299,29 +297,54 @@ bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
   text.append("\n");
   out_archive.Save(text);
 
-  // Stuff the metadata into the address space.
-  BlockGraph::Block* new_block =
-      pe_file_builder->image_layout().blocks.AddBlock(BlockGraph::DATA_BLOCK,
-                                                      insert_at,
-                                                      bytes.size(),
-                                                      "Metadata");
-  if (new_block == NULL) {
-    LOG(ERROR) << "Unable to allocate metadata block.";
-    return false;
-  }
-  insert_at += bytes.size();
-  if (new_block->CopyData(bytes.size(), &bytes[0]) == NULL) {
+  block->SetData(NULL, 0);
+  block->set_size(bytes.size());
+  if (block->CopyData(bytes.size(), &bytes[0]) == NULL) {
     LOG(ERROR) << "Unable to allocate metadata.";
     return false;
   }
+
+  return true;
+}
+
+bool Metadata::LoadFromBlock(const BlockGraph::Block* block) {
+  // Parse the metadata.
+  core::ScopedInStreamPtr in_stream;
+  in_stream.reset(core::CreateByteInStream(block->data(),
+                                           block->data() + block->data_size()));
+  core::NativeBinaryInArchive in_archive(in_stream.get());
+  if (!in_archive.Load(this)) {
+    LOG(ERROR) << "Unable to parse module metadata.";
+    return false;
+  }
+
+  return true;
+}
+
+bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
+  RelativeAddress start = pe_file_builder->next_section_address();
+  RelativeAddress insert_at = start;
+
+  BlockGraph::Block* new_block =
+      pe_file_builder->image_layout().blocks.graph()->AddBlock(
+          BlockGraph::DATA_BLOCK, 0, "Metadata");
+  if (!SaveToBlock(new_block))
+    return false;
+
+  // Stuff the metadata into the address space.
+  if (!pe_file_builder->image_layout().blocks.InsertBlock(insert_at,
+                                                          new_block)) {
+    LOG(ERROR) << "Unable to insert metadata block.";
+    return false;
+  }
+  insert_at += new_block->size();
 
   // Wrap this data in a read-only data section.
   uint32 syzygy_size = insert_at - start;
   pe_file_builder->AddSection(common::kSyzygyMetadataSectionName,
                               syzygy_size,
                               syzygy_size,
-                              IMAGE_SCN_CNT_INITIALIZED_DATA |
-                              IMAGE_SCN_MEM_READ);
+                              kDataCharacteristics);
 
   return true;
 }

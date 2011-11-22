@@ -20,7 +20,7 @@
 
 #include "base/bind.h"
 #include "syzygy/block_graph/iterate.h"
-#include "syzygy/block_graph/transform.h"
+#include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace block_graph {
 namespace transforms {
@@ -28,11 +28,14 @@ namespace transforms {
 // An implementation of a BlockGraph transform encapsulating the simple pattern
 // of Pre, per-block, and Post functions. The derived class is responsible for
 // implementing 'OnBlock' and 'name', and may optionally override Pre and
-// Post.
+// Post. The derived type needs to also define the symbol:
+//
+// const char block_graph::transform::NamedTransformImpl<DerivedType>::
+//     kTransformName[];
 //
 // @tparam DerivedType the type of the derived class.
 template<class DerivedType>
-class IterativeTransformImpl : public BlockGraphTransformInterface {
+class IterativeTransformImpl : public NamedTransformImpl<DerivedType> {
  public:
   // This is the main body of the transform. This takes care of calling Pre,
   // iterating through the blocks and calling OnBlock for each one, and finally

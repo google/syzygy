@@ -22,6 +22,9 @@
 
 namespace pe {
 
+// The characteristics of a read-only data section.
+extern const DWORD kDataCharacteristics;
+
 // Validates @p dos_header_block for the the size, magic constants and
 // other properties of a valid DOS header.
 // @returns true iff @p dos_header_block has all the correct properties
