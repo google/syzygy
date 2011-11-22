@@ -37,6 +37,7 @@ class JSONFileWriter;
 namespace pe {
 
 using base::Time;
+using block_graph::BlockGraph;
 using common::SyzygyVersion;
 
 // Class encapsulating the metadata that is required for traceability and
@@ -59,6 +60,10 @@ class Metadata {
   bool SaveToJSON(core::JSONFileWriter* json_file) const;
   bool LoadFromJSON(const DictionaryValue& metadata);
 
+  // Functions for serialization to and from a block.
+  bool SaveToBlock(BlockGraph::Block* block) const;
+  bool LoadFromBlock(const BlockGraph::Block* block);
+
   // Functions for serialization to and from a PE file.
   bool SaveToPE(PEFileBuilder* pe_file_builder) const;
   bool LoadFromPE(const PEFile& pe_file);
@@ -67,8 +72,11 @@ class Metadata {
   bool Save(core::OutArchive* out_archive) const;
   bool Load(core::InArchive* in_archive);
 
-  // Comparison operator for serialization testing.
+  // Comparison operators for serialization testing.
+  // @{
   bool operator==(const Metadata& rhs) const;
+  bool operator!=(const Metadata& rhs) const { return !operator==(rhs); }
+  // @}
 
   // Accessors.
   const std::string& command_line() const { return command_line_; }

@@ -105,14 +105,26 @@ TEST(MetadataTest, Equality) {
   Metadata metadata2;
   InitMetadata(&metadata1);
   InitMetadata(&metadata2);
-  EXPECT_TRUE(metadata1 == metadata2);
+  EXPECT_EQ(metadata1, metadata2);
 }
 
 TEST(MetadataTest, Inequality) {
   Metadata metadata1;
   Metadata metadata2;
   InitMetadata(&metadata1);
-  EXPECT_FALSE(metadata1 == metadata2);
+  EXPECT_NE(metadata1, metadata2);
+}
+
+TEST(MetadataTest, SaveToBlock) {
+  Metadata metadata1;
+  InitMetadata(&metadata1);
+
+  BlockGraph::Block block(0, BlockGraph::DATA_BLOCK, 0, "Metadata");
+  EXPECT_TRUE(metadata1.SaveToBlock(&block));
+
+  Metadata metadata2;
+  EXPECT_TRUE(metadata2.LoadFromBlock(&block));
+  EXPECT_EQ(metadata1, metadata2);
 }
 
 TEST(MetadataTest, Serialization) {

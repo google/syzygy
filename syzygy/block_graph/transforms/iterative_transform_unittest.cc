@@ -49,8 +49,6 @@ class IterativeTransformTest : public testing::Test {
 class MockIterativeTransform
     : public IterativeTransformImpl<MockIterativeTransform> {
  public:
-  virtual const char* name() const { return "MockIterativeTransform"; }
-
   MOCK_METHOD2(PreIteration, bool(BlockGraph*, BlockGraph::Block*));
   MOCK_METHOD2(OnBlock, bool(BlockGraph*, BlockGraph::Block*));
   MOCK_METHOD2(PostIteration, bool(BlockGraph*, BlockGraph::Block*));
@@ -69,6 +67,9 @@ class MockIterativeTransform
 };
 
 }  // namespace
+
+const char NamedTransformImpl<MockIterativeTransform>::kTransformName[] =
+    "MockIterativeTransform";
 
 TEST_F(IterativeTransformTest, PreIterationFails) {
   StrictMock<MockIterativeTransform> transform;

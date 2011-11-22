@@ -61,6 +61,9 @@ BlockPtr CheckedGetNtHeadersBlockFromDosHeaderBlock(
 
 }  // namespace
 
+const DWORD kDataCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
+
 bool IsValidDosHeaderBlock(const BlockGraph::Block* dos_header_block) {
   ConstTypedBlock<IMAGE_DOS_HEADER> dos_header;
 

@@ -32,6 +32,7 @@
       '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
       '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
       '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
+      '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_unittests',
       '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
       '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_unittests',
       '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
