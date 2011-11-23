@@ -20,23 +20,17 @@ namespace block_graph {
 
 namespace {
 
-// Shift the items in offset -> item map as if we were inserting new data with
-// the given size at the given offset.
+// Shift all items in an offset -> item map by 'distance', provided the initial
+// item offset was >= @p offset.
 template<typename ItemType>
 void ShiftOffsetItemMap(BlockGraph::Offset offset,
-                        BlockGraph::Size size,
+                        BlockGraph::Offset distance,
                         std::map<BlockGraph::Offset, ItemType>* items) {
-  DCHECK_GT(offset, 0);
-  DCHECK_GT(size, 0u);
+  DCHECK_GE(offset, 0);
+  DCHECK_NE(distance, 0);
   DCHECK(items != NULL);
 
   typedef std::map<BlockGraph::Offset, ItemType> ItemMap;
-
-  // NOTE: I tried using a reverse iterator to walk backwards through the list
-  //     and change things as I go along. However, a reverse_iterator is simply
-  //     a forward iterator to the element *after* the one you are interested
-  //     in. Thus, getting the next reverse_iterator and deleting the current
-  //     element actually invalidates the next reverse_iterator. Silly, eh?
 
   // Get iterators to all of the items that need changing.
   std::vector<ItemMap::iterator> item_its;
@@ -46,22 +40,33 @@ void ShiftOffsetItemMap(BlockGraph::Offset offset,
     ++item_it;
   }
 
-  while (item_its.size()) {
-    item_it = item_its.back();
-    items->insert(std::make_pair(item_it->first + size,
+  // Get the direction and bounds of the iteration. We need to walk through
+  // the iterators in a different order depending on if we're shifting left
+  // or right. This is to ensure that earlier shifts don't land on the values
+  // of later unshifted offsets.
+  int start = 0;
+  int stop = item_its.size();
+  int step = 1;
+  if (distance > 0) {
+    start = stop - 1;
+    stop = -1;
+    step = -1;
+  }
+
+  for (int i = start; i != stop; i += step) {
+    item_it = item_its[i];
+    items->insert(std::make_pair(item_it->first + distance,
                                  item_it->second));
     items->erase(item_it);
-    item_its.pop_back();
   }
 }
 
-// Shift the referrers as if we were inserting new data with the given size at
-// the given offset.
+// Shift all referrers beyond @p offset by @p distance.
 void ShiftReferrers(BlockGraph::Offset offset,
-                    BlockGraph::Size size,
+                    BlockGraph::Offset distance,
                     BlockGraph::Block::ReferrerSet* referrers) {
-  DCHECK_GT(offset, 0);
-  DCHECK_GT(size, 0u);
+  DCHECK_GE(offset, 0);
+  DCHECK_NE(distance, 0);
   DCHECK(referrers != NULL);
 
   typedef BlockGraph::Block::ReferrerSet ReferrerSet;
@@ -70,7 +75,8 @@ void ShiftReferrers(BlockGraph::Offset offset,
   ReferrerSet::iterator ref_it = referrers->begin();
   while (ref_it != referrers->end()) {
     // We need to keep around the next iterator as 'ref_it' will be invalidated
-    // if we need to update the reference.
+    // if we need to update the reference. (It will be deleted and then
+    // recreated.)
     ReferrerSet::iterator next_ref_it = ref_it;
     ++next_ref_it;
 
@@ -84,7 +90,7 @@ void ShiftReferrers(BlockGraph::Offset offset,
     // Shift the reference if need be.
     if (ref.offset() >= offset) {
       Reference new_ref(
-          ref.type(), ref.size(), ref.referenced(), ref.offset() + size);
+          ref.type(), ref.size(), ref.referenced(), ref.offset() + distance);
       bool inserted = ref_block->SetReference(ref_offset, new_ref);
       DCHECK(!inserted);
     }
@@ -658,9 +664,11 @@ uint8* BlockGraph::Block::AllocateRawData(size_t data_size) {
   return new_data;
 }
 
-void BlockGraph::Block::InsertData(Offset offset, Size size) {
-  DCHECK_GT(offset, 0);
-  DCHECK_LT(offset, static_cast<Offset>(size_));
+void BlockGraph::Block::InsertData(Offset offset,
+                                   Size size,
+                                   bool always_allocate_data) {
+  DCHECK_GE(offset, 0);
+  DCHECK_LE(offset, static_cast<Offset>(size_));
   DCHECK_GT(size, 0u);
 
   // Patch up the block.
@@ -670,17 +678,81 @@ void BlockGraph::Block::InsertData(Offset offset, Size size) {
   ShiftReferrers(offset, size, &referrers_);
   source_ranges_.InsertUnmappedRange(DataRange(offset, size));
 
-  // If this doesn't affect our actual data we can return early.
-  if (static_cast<Size>(offset) >= data_size_)
+  // Does this affect already allocated data?
+  if (static_cast<Size>(offset) < data_size_) {
+    // Reallocate, shift the old data to the end, and zero out the new data.
+    size_t old_data_size = data_size_;
+    size_t bytes_to_shift = data_size_ - offset;
+    ResizeData(data_size_ + size);
+    uint8* new_data = GetMutableData();
+    memmove(new_data + offset + size, new_data + offset, bytes_to_shift);
+    memset(new_data + offset, 0, size);
+  }
+
+  // We haven't been explicitly asked to allocate new data, so don't bother.
+  if (!always_allocate_data)
     return;
 
-  // Reallocate, shift the old data to the end, and zero out the new data.
-  size_t old_data_size = data_size_;
-  size_t bytes_to_shift = data_size_ - offset;
-  ResizeData(data_size_ + size);
-  uint8* new_data = GetMutableData();
-  memmove(new_data + offset + size, new_data + offset, bytes_to_shift);
-  memset(new_data + offset, 0, size);
+  // Allocate enough data to cover the newly inserted range.
+  ResizeData(size + offset);
+  return;
+}
+
+bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
+  DCHECK_GE(offset, 0);
+  DCHECK_LT(offset, static_cast<Offset>(size_));
+  DCHECK_GT(size, 0u);
+
+  // Ensure there are no labels in this range.
+  if (labels_.lower_bound(offset) != labels_.lower_bound(offset + size))
+    return false;
+
+  // Ensure that there are no references intersecting this range.
+  ReferenceMap::const_iterator refc_it = references_.begin();
+  for (; refc_it != references_.end(); ++refc_it) {
+    if (refc_it->first >= static_cast<Offset>(offset + size))
+      break;
+    if (static_cast<Offset>(refc_it->first + refc_it->second.size()) > offset)
+      return false;
+  }
+
+  // Ensure there are no referrers pointing to the data we want to remove.
+  ReferrerSet::const_iterator refr_it = referrers_.begin();
+  for (; refr_it != referrers_.end(); ++refr_it) {
+    Reference ref;
+    if (!refr_it->first->GetReference(refr_it->second, &ref)) {
+      LOG(ERROR) << "Unable to get reference from referrer.";
+      return false;
+    }
+    if (ref.offset() < static_cast<Offset>(offset + size) &&
+        static_cast<Offset>(ref.offset() + size) > offset) {
+      return false;
+    }
+  }
+
+  // Patch up the block.
+  size_ -= size;
+  ShiftOffsetItemMap(offset + size, -static_cast<int>(size), &labels_);
+  ShiftOffsetItemMap(offset + size, -static_cast<int>(size), &references_);
+  ShiftReferrers(offset + size, -static_cast<int>(size), &referrers_);
+  source_ranges_.RemoveMappedRange(DataRange(offset, size));
+
+  // Does this affect already allocated data?
+  if (static_cast<Size>(offset) < data_size_) {
+    size_t new_data_size = data_size_ - size;
+    size_t bytes_to_shift = data_size_ - offset - size;
+    if (bytes_to_shift > 0) {
+      // Shift tail data to left.
+      size_t old_data_size = data_size_;
+      uint8* data = GetMutableData();
+      memmove(data + new_data_size - bytes_to_shift,
+              data + old_data_size - bytes_to_shift,
+              bytes_to_shift);
+    }
+    ResizeData(new_data_size);
+  }
+
+  return true;
 }
 
 void BlockGraph::Block::SetData(const uint8* data, size_t data_size) {
