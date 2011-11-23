@@ -24,38 +24,43 @@
 *.pyc
 
 # Ignore build output directories
-sawbuck/Debug/
-sawbuck/Release
-syzygy/Debug/
-syzygy/Release
+/sawbuck/Debug/
+/sawbuck/Release/
+/sawbuck/py/etw/build/
+
+/sawdust/Debug/
+/sawdust/Release/
+
+/syzygy/Debug/
+/syzygy/Release/
 
 # Ignore doxygen output.
-syzygy/doc
+/syzygy/doc/
 
 # Ignore directories gclient syncs.
-base/
-build/
-syzygy/internal
+/base/
+/build/
+/syzygy/internal
 
-googleurl/
-skia/
-testing/
-third_party/coverage_analyzer/
-third_party/distorm/
-third_party/icu/
-third_party/libevent/
-third_party/libjpeg/
-third_party/modp_b64/
-third_party/nss/
-third_party/platformsdk_win7/
-third_party/psyco_win32/
-third_party/python_26/
-third_party/skia/
-third_party/sqlite/
-third_party/vsssdk72/
-third_party/wtl/
-third_party/zlib/
-tools/
+/googleurl/
+/skia/
+/testing/
+/third_party/coverage_analyzer/
+/third_party/distorm/
+/third_party/icu/
+/third_party/libevent/
+/third_party/libjpeg/
+/third_party/modp_b64/
+/third_party/nss/
+/third_party/platformsdk_win7/
+/third_party/psyco_win32/
+/third_party/python_26/
+/third_party/skia/
+/third_party/sqlite/
+/third_party/vsssdk72/
+/third_party/wtl/
+/third_party/zlib/
+/tools/
 
 # Ignore SVN metadata.
 .svn/
