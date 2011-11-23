@@ -15,7 +15,6 @@
 #include "syzygy/core/address_space.h"
 
 #include <limits>
-
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -763,6 +762,110 @@ TEST(AddressRangeMapTest, InsertUnmappedSplitSingleton) {
       IntegerRangePair(IntegerRange(0, 1), IntegerRange(1000, 1)));
   expected.push_back(
       IntegerRangePair(IntegerRange(2, 1), IntegerRange(1000, 1)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedNoData) {
+  IntegerRangeMap map;
+
+  map.RemoveMappedRange(IntegerRange(10, 10));
+
+  EXPECT_TRUE(map.empty());
+}
+
+TEST(AddressRangeMapTest, RemoveMappedEmpty) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.RemoveMappedRange(IntegerRange(10, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(10, 10), IntegerRange(1020, 10)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedNoSplit) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(15, 2), IntegerRange(1015, 2)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.RemoveMappedRange(IntegerRange(10, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(10, 10), IntegerRange(1020, 10)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedSplitLeft) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.RemoveMappedRange(IntegerRange(5, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 5), IntegerRange(1000, 5)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(10, 10), IntegerRange(1020, 10)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedSplitRight) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.RemoveMappedRange(IntegerRange(15, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(15, 5), IntegerRange(1025, 5)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedSplitBoth) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+  ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
+
+  map.RemoveMappedRange(IntegerRange(5, 20));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 5), IntegerRange(1000, 5)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(5, 5), IntegerRange(1025, 5)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedSplitBothSingleton) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+
+  map.RemoveMappedRange(IntegerRange(5, 2));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 5), IntegerRange(1000, 5)));
+  expected.push_back(
+      IntegerRangePair(IntegerRange(5, 3), IntegerRange(1007, 3)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }

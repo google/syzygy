@@ -31,6 +31,8 @@ using core::RelativeAddress;
 using core::ScopedInStreamPtr;
 using core::ScopedOutStreamPtr;
 
+const size_t kPtrSize = sizeof(core::RelativeAddress);
+
 TEST(SectionTest, CreationAndProperties) {
   BlockGraph::Section section(0, "foo", 1);
   ASSERT_EQ(0, section.id());
@@ -206,7 +208,6 @@ TEST_F(BlockTest, InsertData) {
   // Create a block with a labelled array of pointers. Explicitly initialize
   // the last one with some data and let the block be longer than its
   // explicitly initialized length.
-  const size_t kPtrSize = sizeof(core::RelativeAddress);
   BlockGraph::Block* block1 = image_.AddBlock(
       BlockGraph::CODE_BLOCK, 4 * kPtrSize, "Block1");
   block1->AllocateData(3 * kPtrSize);
@@ -245,7 +246,7 @@ TEST_F(BlockTest, InsertData) {
                                                 kPtrSize));
 
   // Insert a new pointer entry in between the first and second entries.
-  block1->InsertData(kPtrSize, kPtrSize);
+  block1->InsertData(kPtrSize, kPtrSize, false);
 
   // Ensure the data_size and block size are as expected.
   EXPECT_EQ(5 * kPtrSize, block1->size());
@@ -310,11 +311,167 @@ TEST_F(BlockTest, InsertDataImplicit) {
   block1->AllocateData(30);
 
   // Do an insert data in the implicitly initialized portion of the block.
-  block1->InsertData(30, 10);
+  block1->InsertData(30, 10, false);
 
   // We expect the block to have grown, but the data size should still be the
   // same.
   EXPECT_EQ(50u, block1->size());
+  EXPECT_EQ(30u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertDataImplicitForceAllocation) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 40, "Block1");
+  block1->AllocateData(30);
+
+  // Do an insert data in the implicitly initialized portion of the block, but
+  // force data to be allocated.
+  block1->InsertData(30, 10, true);
+
+  // We expect the block to have grown, as well as the data size.
+  EXPECT_EQ(50u, block1->size());
+  EXPECT_EQ(40u, block1->data_size());
+}
+
+TEST_F(BlockTest, RemoveData) {
+  // Create a block with a labelled array of pointers. Explicitly initialize
+  // the last one with some data and let the block be longer than its
+  // explicitly initialized length.
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 6 * kPtrSize, "Block1");
+  block1->AllocateData(3 * kPtrSize);
+  block1->source_ranges().Push(BlockGraph::Block::DataRange(0, 6 * kPtrSize),
+                               BlockGraph::Block::SourceRange(
+                                   core::RelativeAddress(0), 6 * kPtrSize));
+  BlockGraph::Reference outgoing_ref(BlockGraph::RELATIVE_REF,
+                                     kPtrSize,
+                                     block_,
+                                     0);
+  block1->SetReference(0, outgoing_ref);
+  block1->SetReference(2 * kPtrSize, outgoing_ref);
+  block1->SetReference(5 * kPtrSize, outgoing_ref);
+  block1->SetLabel(0, "Pointer1");
+  block1->SetLabel(2 * kPtrSize, "Pointer3");
+  block1->SetLabel(3 * kPtrSize, "EndOfPointers");
+  TypedBlock<uint32> data1;
+  ASSERT_TRUE(data1.Init(0, block1));
+  data1[0] = 0xAAAAAAAA;
+  data1[1] = 0xBBBBBBBB;
+  data1[2] = 0xCCCCCCCC;
+
+  // Create a block with a pointer to the first entry of block1.
+  BlockGraph::Block* block2 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, kPtrSize, "Block2");
+  block2->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                                kPtrSize,
+                                                block1,
+                                                0));
+
+  // Create a block with a pointer to the third entry of block1.
+  BlockGraph::Block* block3 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, kPtrSize, "Block4");
+  block3->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                                kPtrSize,
+                                                block1,
+                                                2 * kPtrSize));
+
+  // Create a block with a pointer to the fifth entry of block1.
+  BlockGraph::Block* block4 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, kPtrSize, "Block3");
+  block4->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                                kPtrSize,
+                                                block1,
+                                                4 * kPtrSize));
+
+  // Trying to remove the fourth entry should fail because it contains a label.
+  EXPECT_FALSE(block1->RemoveData(3 * kPtrSize, kPtrSize));
+
+  // Trying to remove the fifth entry should fail because there is a referrer
+  // pointing to it.
+  EXPECT_FALSE(block1->RemoveData(4 * kPtrSize, kPtrSize));
+
+  // Trying to remove the sixth entry should fail because it contains a
+  // reference.
+  EXPECT_FALSE(block1->RemoveData(5 * kPtrSize, kPtrSize));
+
+  // Finally, we should be able to delete the second entry.
+  EXPECT_TRUE(block1->RemoveData(kPtrSize, kPtrSize));
+
+  // Ensure the data_size and block size are as expected.
+  EXPECT_EQ(5 * kPtrSize, block1->size());
+  EXPECT_EQ(2 * kPtrSize, block1->data_size());
+
+  // Ensure the source ranges are as expected.
+  BlockGraph::Block::SourceRanges expected_src_ranges;
+  expected_src_ranges.Push(
+      BlockGraph::Block::DataRange(0, kPtrSize),
+      BlockGraph::Block::SourceRange(core::RelativeAddress(0), kPtrSize));
+  expected_src_ranges.Push(
+      BlockGraph::Block::DataRange(kPtrSize, 4 * kPtrSize),
+      BlockGraph::Block::SourceRange(core::RelativeAddress(2 * kPtrSize),
+                                     4 * kPtrSize));
+  EXPECT_THAT(expected_src_ranges.range_pairs(),
+              testing::ContainerEq(block1->source_ranges().range_pairs()));
+
+  // Ensure that the contents of the block's data are as expected.
+  EXPECT_EQ(0xAAAAAAAAu, data1[0]);
+  EXPECT_EQ(0xCCCCCCCCu, data1[1]);
+
+  // Ensure that the labels have been shifted appropriately.
+  BlockGraph::Block::LabelMap expected_labels;
+  expected_labels.insert(std::make_pair(0, "Pointer1"));
+  expected_labels.insert(std::make_pair(1 * kPtrSize, "Pointer3"));
+  expected_labels.insert(std::make_pair(2 * kPtrSize, "EndOfPointers"));
+  EXPECT_THAT(expected_labels, testing::ContainerEq(block1->labels()));
+
+  // Ensure that the referrers are as expected.
+  BlockGraph::Block::ReferrerSet expected_referrers;
+  expected_referrers.insert(std::make_pair(block2, 0));
+  expected_referrers.insert(std::make_pair(block3, 0));
+  expected_referrers.insert(std::make_pair(block4, 0));
+  EXPECT_THAT(expected_referrers, testing::ContainerEq(block1->referrers()));
+
+  BlockGraph::Reference expected_ref(BlockGraph::RELATIVE_REF,
+                                     kPtrSize,
+                                     block1,
+                                     0);
+  BlockGraph::Reference actual_ref;
+  EXPECT_TRUE(block2->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+
+  expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                       kPtrSize,
+                                       block1,
+                                       kPtrSize);
+  EXPECT_TRUE(block3->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+
+  expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                       kPtrSize,
+                                       block1,
+                                       3 * kPtrSize);
+  EXPECT_TRUE(block4->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+
+  // Ensure that the references have been shifted appropriately.
+  BlockGraph::Block::ReferenceMap expected_references;
+  expected_references.insert(std::make_pair(0, outgoing_ref));
+  expected_references.insert(std::make_pair(kPtrSize, outgoing_ref));
+  expected_references.insert(std::make_pair(4 * kPtrSize, outgoing_ref));
+  EXPECT_EQ(expected_references, block1->references());
+}
+
+TEST_F(BlockTest, RemoveDataImplicit) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 40, "Block1");
+  block1->AllocateData(30);
+
+  // Do an remove data in the implicitly initialized portion of the block.
+  EXPECT_TRUE(block1->RemoveData(30, 5));
+
+  // We expect the block to have shrunk, but the data size should still be the
+  // same.
+  EXPECT_EQ(35u, block1->size());
   EXPECT_EQ(30u, block1->data_size());
 }
 

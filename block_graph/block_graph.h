@@ -396,13 +396,29 @@ class BlockGraph::Block {
   // @p size. If the data for this block is actually allocated it will also
   // patch up the allocated data by zeroing the newly allocate range of data,
   // and shifting the tail by @p size. If the new data is strictly implicit
-  // (offset > data_size), then the allocated data is not affected in any way.
+  // (offset > data_size), then the allocated data is not affected in any way
+  // unless @p always_allocate_data is true.
   //
   // @param offset the offset at which to insert the new data.
   // @param size the size of the new data to be inserted.
-  // @pre 0 < offset < size()
+  // @param always_allocate_data if true, then data_size will be grown if
+  //     necessary to ensure that the newly created data can be written.
+  // @pre 0 <= offset <= size()
   // @pre size > 0
-  void InsertData(Offset offset, Size size);
+  void InsertData(Offset offset, Size size, bool always_allocate_data);
+
+  // Removes the data in the given range. This will refuse to remove labels,
+  // references and referrers that land in the range, and will fail if any
+  // exist. It will also shift any labels, references and referrers that land
+  // beyond the end of the removed range. Source ranges will also be fixed. If
+  // the removed range lies within the initialized data then the data will also
+  // be truncated/shifted as necessary.
+  //
+  // @param offset the offset at which to remove data.
+  // @param size the size of the data to remove, in bytes.
+  // @pre 0 <= offset < size
+  // @pre size > 0
+  bool RemoveData(Offset offset, Size size);
 
   // Set the data the block refers to.
   // @param data NULL or the data this block refers to.
@@ -464,12 +480,15 @@ class BlockGraph::Block {
   // appear to be inserted by the VS tool chain where e.g. a switch
   // statement is implemented with a jump table, to note the location
   // of the jump destinations.
+  // @param offset the offset of the label to set.
+  // @param name the name of the label.
   // @returns true iff a new label is inserted.
   // @note that only one label can exist at each offset, and the first
   //     label set at any offset will stay there.
   bool SetLabel(Offset offset, const char* name);
 
   // Returns true iff the block has a label at @p offset.
+  // @param offset the offset of the label to search for.
   bool HasLabel(Offset offset);
 
   // Change all references to this block to refer to @p new_block instead,

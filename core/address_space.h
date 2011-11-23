@@ -419,7 +419,27 @@ class AddressRangeMap {
   // destination range, so how to split that into two? The only solution is to
   // duplicate the destination range, which may make the mapping no longer
   // invertible.
-  void InsertUnmappedRange(const SourceRange& src_range);
+  //
+  // @param unmapped the unmapped source range to insert.
+  void InsertUnmappedRange(const SourceRange& unmapped);
+
+  // Modifies a mapping by changing the underlying address-space that is being
+  // mapped. This removes a source range, erasing any mappings over that range
+  // and shifting all mappings beyond that range to the left, as necessary. If
+  // any mappings intersect the range being removed they will be split in such a
+  // way as to keep the individual mappings linear, if possible.
+  //
+  // For example, consider the following address range map (expressed as
+  // [start, end) ranges):
+  //
+  // [0, 10) -> [1000, 1010), [20, 30) -> [1020, 1030)
+  //
+  // After removing the source range [5, 20), the mapping will be:
+  //
+  // [0, 5) -> [1000, 1005), [5, 15) -> [1020, 1030)
+  //
+  // @param mapped the mapped source range to remove.
+  void RemoveMappedRange(const SourceRange& mapped);
 
   // For serialization.
   bool Save(OutArchive* out_archive) const {
@@ -992,6 +1012,123 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
     // Shift this range to the right.
     src = SourceRange(src.start() + unmapped.size(), src.size());
   }
+}
+
+template <typename SourceRangeType, typename DestinationRangeType>
+void AddressRangeMap<SourceRangeType, DestinationRangeType>::
+    RemoveMappedRange(const SourceRange& mapped) {
+  typedef typename SourceRange::Size SrcSize;
+  typedef typename DestinationRange::Size DstSize;
+  typedef typename DestinationRange::Address DstAddr;
+
+  // Special case: no source ranges to modify.
+  if (range_pairs_.size() == 0)
+    return;
+
+  // Walk backwards through the range pairs, fixing them as we go.
+  size_t i = range_pairs_.size();
+  for (; i > 0; --i) {
+    RangePair& range_pair = range_pairs_[i - 1];
+    SourceRange& src = range_pair.first;
+    DestinationRange& dst = range_pair.second;
+
+    // This range pair starts before the end of the range we want to unmap? Then
+    // we've finished fixing ranges that simply need to be shifted.
+    if (src.start() < mapped.end())
+      break;
+
+    // Shift this range to the left.
+    src = SourceRange(src.start() - mapped.size(), src.size());
+  }
+
+  // At this point we've found the first range that is not beyond the
+  // end of mapped. Now we want to find the first range that is completely
+  // before mapped.
+  size_t end_affected_ranges = i;
+  for (; i > 0; --i) {
+    RangePair& range_pair = range_pairs_[i - 1];
+    SourceRange& src = range_pair.first;
+    DestinationRange& dst = range_pair.second;
+
+    if (src.end() <= mapped.start())
+      break;
+  }
+  size_t begin_affected_ranges = i;
+
+  // At this point the ith through (end_affected_ranges - 1)th ranges intersect
+  // the range to be removed. The two endpoints may need to be split, but
+  // everything between them needs to be deleted. We inspect each endpoint and
+  // split them if need be.
+
+  // Does the ith range need to split?
+  if (range_pairs_[begin_affected_ranges].first.start() < mapped.start()) {
+    RangePair& range_pair = range_pairs_[begin_affected_ranges];
+    SourceRange& src = range_pair.first;
+    DestinationRange& dst = range_pair.second;
+
+    SrcSize src_size_left = mapped.start() - src.start();
+    DstSize dst_size_left = src_size_left;
+    if (dst_size_left > dst.size())
+      dst_size_left = dst.size();
+
+    // Special case: this element needs to be both left split and right split.
+    if (begin_affected_ranges == end_affected_ranges - 1 &&
+        mapped.end() < src.end()) {
+      // Split in such as way as to prefer linear mappings. If being linear on
+      // the left leaves no destination range on the right, shuffle a byte
+      // between the two.
+      SrcSize src_size_right = src.end() - mapped.end();
+      DstSize dst_size_right = src_size_right;
+      if (dst_size_left + dst_size_right > dst.size()) {
+        dst_size_right = dst.size() - dst_size_left;
+        if (dst_size_right == 0) {
+          ++dst_size_right;
+          --dst_size_left;
+        }
+      }
+      DCHECK_GT(dst_size_left, 0u);
+      DCHECK_GT(dst_size_right, 0u);
+      DCHECK_LE(dst_size_left + dst_size_right, dst.size());
+      DstAddr dst_start_right = dst.end() - dst_size_right;
+
+      src = SourceRange(src.start(), src_size_left);
+      dst = DestinationRange(dst.start(), dst_size_left);
+
+      // We do this last as it invalidates src and dst.
+      range_pairs_.insert(
+          range_pairs_.begin() + begin_affected_ranges + 1,
+          std::make_pair(SourceRange(mapped.start(), src_size_right),
+                         DestinationRange(dst_start_right, dst_size_right)));
+
+      return;
+    }
+
+    src = SourceRange(src.start(), src_size_left);
+    dst = DestinationRange(dst.start(), dst_size_left);
+    ++begin_affected_ranges;
+  }
+
+  // Does the (end_affected_ranges - 1)th range need to be split?
+  if (range_pairs_[end_affected_ranges - 1].first.end() > mapped.end()) {
+    RangePair& range_pair = range_pairs_[end_affected_ranges - 1];
+    SourceRange& src = range_pair.first;
+    DestinationRange& dst = range_pair.second;
+
+    SrcSize src_size = src.end() - mapped.end();
+    DstSize dst_size = src_size;
+    if (dst_size > dst.size())
+      dst_size = dst.size();
+
+    src = SourceRange(src.end() - src_size - mapped.size(), src_size);
+    dst = DestinationRange(dst.end() - dst_size, dst_size);
+    --end_affected_ranges;
+  }
+
+  // Now we have that the ranges [begin_affected_ranges, end_affected_ranges)
+  // need to simply be erased.
+  if (begin_affected_ranges < end_affected_ranges)
+    range_pairs_.erase(range_pairs_.begin() + begin_affected_ranges,
+                       range_pairs_.begin() + end_affected_ranges);
 }
 
 }  // namespace core
