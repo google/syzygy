@@ -121,11 +121,25 @@ TEST_F(TypedBlockTest, IsValidElement) {
   ASSERT_TRUE(foo.IsValidElement(1));
 }
 
+TEST_F(TypedBlockTest, ElementCount) {
+  TypedBlock<int> ints;
+  BlockGraph::Block ints_block(0, BlockGraph::DATA_BLOCK, 10 * sizeof(int),
+                               "ints");
+  ints_block.AllocateData(ints_block.size());
+
+  ASSERT_TRUE(ints.Init(0, &ints_block));
+  EXPECT_EQ(10u, ints.ElementCount());
+
+  ASSERT_TRUE(ints.Init(4 * sizeof(int), &ints_block));
+  EXPECT_EQ(6u, ints.ElementCount());
+}
+
 TEST_F(TypedBlockTest, Access) {
   TypedBlock<Foo> foo;
   ASSERT_TRUE(foo.Init(0, foo_.get()));
 
   const Foo* foo_direct = reinterpret_cast<const Foo*>(foo_->data());
+  EXPECT_EQ(1u, foo.ElementCount());
   EXPECT_EQ(foo_direct, foo.Get());
   EXPECT_EQ(foo_direct, &(*foo));
   EXPECT_EQ(foo_direct, &foo[0]);
@@ -156,6 +170,21 @@ TEST_F(TypedBlockTest, Dereference) {
   ASSERT_TRUE(bar.IsValid());
 
   EXPECT_TRUE(foo.DereferenceAt(offsetof(Foo, bar), &bar));
+  ASSERT_TRUE(bar.IsValid());
+
+  bar->i = 42;
+  EXPECT_EQ(42, reinterpret_cast<const Bar*>(bar_->data())->i);
+}
+
+TEST_F(TypedBlockTest, DereferenceWithSize) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+
+  TypedBlock<Bar> bar;
+  EXPECT_TRUE(foo.DereferenceWithSize(foo->bar, sizeof(Bar), &bar));
+  ASSERT_TRUE(bar.IsValid());
+
+  EXPECT_TRUE(foo.DereferenceAtWithSize(offsetof(Foo, bar), sizeof(Bar), &bar));
   ASSERT_TRUE(bar.IsValid());
 
   bar->i = 42;
