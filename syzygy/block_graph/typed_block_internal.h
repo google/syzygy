@@ -115,7 +115,7 @@ class TypedBlockImpl {
   //
   // @returns true if derefencing @p elem will succeed, false otherwise.
   bool IsValidElement(size_t elem) const {
-    return InBlock(sizeof(T) * elem, sizeof(T));
+    return InBlock(offset_ + sizeof(T) * elem, sizeof(T));
   }
 
   // Dereferences this object, returning a pointer to it.
@@ -131,6 +131,14 @@ class TypedBlockImpl {
   T& operator[](size_t i) const { return *GetImpl(i); }
   // @}
 
+  // @returns the number of elements that may be successfully dereferenced via
+  //     operator[].
+  size_t ElementCount() const {
+    if (block_ == NULL)
+      return 0;
+    return (block_->data_size() - offset_) / sizeof(T);
+  }
+
   // Follows a reference at a given @p offset in the enclosed structure.
   //
   // @tparam ReboundChildType another type of ChildType, but with another
@@ -143,7 +151,46 @@ class TypedBlockImpl {
   bool DereferenceAt(BlockGraph::Offset offset,
                      ReboundChildType* typed_block) const {
     typedef typename ReboundChildType::ObjectType T2;
-    return DereferenceImpl<T2>(offset_ + offset, 0, typed_block);
+    return DereferenceImpl<T2>(offset_ + offset, 0, sizeof(T2), typed_block);
+  }
+
+  // Follows a reference at a given @p offset in the enclosed structure with
+  // a given size.
+  //
+  // @tparam ReboundChildType another type of ChildType, but with another
+  //     encapsulated object type.
+  // @param offset the offset into this object. This must be within the object.
+  // @param object_size the size of the object to dereference. This must be
+  //     >= sizeof(ReboundChildType::ObjectType).
+  // @param typed_block the typed block to receive the dereferenced block. It
+  //     may or may not be valid.
+  // @returns true if the dereference was successful, false otherwise.
+  template <typename ReboundChildType>
+  bool DereferenceAtWithSize(BlockGraph::Offset offset,
+                             size_t object_size,
+                             ReboundChildType* typed_block) const {
+    typedef typename ReboundChildType::ObjectType T2;
+    if (object_size < sizeof(T2))
+      return false;
+    return DereferenceImpl<T2>(offset_ + offset, 0, object_size, typed_block);
+  }
+
+  // Dereferences a value in the enclosed structure.
+  //
+  // @tparam ReboundChildType another type of ChildType, but with another
+  //     encapsulated object type.
+  // @tparam TIn the type of the input @p value.
+  // @param value a reference to the value to dereference. This must be within
+  //     the encapsulated block.
+  // @param typed_block the typed block to receive the dereferenced block. It
+  //     may or may not be valid.
+  // @returns true if the dereference was successful, false otherwise.
+  template <typename ReboundChildType, typename TIn>
+  bool Dereference(TIn& value,
+                   ReboundChildType* typed_block) const {
+    typedef typename ReboundChildType::ObjectType T2;
+    BlockGraph::Offset offset = OffsetOf(value);
+    return DereferenceImpl<T2>(offset, sizeof(TIn), sizeof(T2), typed_block);
   }
 
   // Dereferences a value in the enclosed structure.
@@ -153,16 +200,20 @@ class TypedBlockImpl {
   // @tparam TIn the type of the input @p value.
   // @param value a reference to the value to dereference. This must be within
   //     the object.
+  // @param object_size the size of the object to dereference. This must be
+  //     >= sizeof(ReboundChildType::ObjectType).
   // @param typed_block the typed block to receive the dereferenced block. It
   //     may or may not be valid.
   // @returns true if the dereference was successful, false otherwise.
   template <typename ReboundChildType, typename TIn>
-  bool Dereference(TIn& value,
-                   ReboundChildType* typed_block) const {
-    BlockGraph::Offset offset = OffsetOf(value);
-
+  bool DereferenceWithSize(TIn& value,
+                           size_t object_size,
+                           ReboundChildType* typed_block) const {
     typedef typename ReboundChildType::ObjectType T2;
-    return DereferenceImpl<T2>(offset, sizeof(TIn), typed_block);
+    if (object_size < sizeof(T2))
+      return false;
+    BlockGraph::Offset offset = OffsetOf(value);
+    return DereferenceImpl<T2>(offset, sizeof(TIn), sizeof(T2), typed_block);
   }
 
   // Compute the offset of a field in the enclosed structure.
@@ -186,8 +237,7 @@ class TypedBlockImpl {
   // @returns true if the block covers the byte range @p offset and @p size,
   //     false otherwise.
   bool InBlock(size_t offset, size_t size) const {
-    return block_ != NULL && (offset_ + offset) >= 0 &&
-        block_->data_size() >= (offset_ + offset + size);
+    return block_ != NULL && block_->data_size() >= (offset + size);
   }
 
   // Interprets the underlying data as an array of type T, returning a
@@ -210,35 +260,36 @@ class TypedBlockImpl {
   // Attempts to follow a reference of given @p size at the given @p offset
   // into the block. This only succeeds if their is a reference at the given
   // offset, it matches the given size, is contained entirely within the
-  // object encapsulated by this typed block, and the referenced block is
-  // sufficiently large to represent an object of type T2.
+  // the encapsulated block, and the referenced block is sufficiently large to
+  // represent an object of type T2.
   //
   // @tparam T2 the type encapsulated by @p typed_block.
   // @param offset the offset into the block.
-  // @param size the expected size of the reference. If this is 0, a reference
-  //     of any size is accepted.
+  // @param reference_size the expected size of the reference. If this is 0, a
+  //     reference of any size is accepted.
+  // @param object_size the size of the object to dereference. This must be
+  //     >= sizeof(T2).
   // @param typed_block the typed block that will represent the dereferenced
   //     object.
   // @returns true on success, false otherwise.
   template <typename T2>
   bool DereferenceImpl(
       BlockGraph::Offset offset,
-      size_t size,
+      size_t reference_size,
+      size_t object_size,
       typename ReboundChild<T2>::Type* typed_block) const {
     DCHECK(typed_block != NULL);
-
-    // Ensure that we are in the bounds of the encapsulated object.
-    if (offset < offset_ || offset + size > offset_ + size_)
-      return false;
+    DCHECK_GE(object_size, sizeof(T2));
 
     // Ensure that there is a valid reference at the pointer offset.
     BlockGraph::Reference ref;
     if (!block_->GetReference(offset, &ref))
       return false;
-    if (size != 0 && ref.size() != size)
+    if (reference_size != 0 && ref.size() != reference_size)
       return false;
 
-    return typed_block->Init(ref.offset(), ref.referenced());
+    return typed_block->InitWithSize(ref.offset(), object_size,
+                                     ref.referenced());
   }
 
   BlockGraph::Offset offset_;
