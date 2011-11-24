@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 # Presubmit script for Syzygy.
+import datetime
 import os
 import sys
 
@@ -42,9 +43,11 @@ _UNITTEST_MESSAGE = '''\
 Your %s unittests must succeed before submitting.
 To clear this presubmit error run syzygy/run_all_tests.bat'''
 
+_YEAR = datetime.datetime.now().year
+
 _LICENSE_HEADER = '''\
 (#!python\n\
-)?.*? Copyright 20.. Google Inc\.\n\
+)?.*? Copyright %04d Google Inc\.\n\
 .*?\n\
 .*? Licensed under the Apache License, Version 2\.0 \(the "License"\);\n\
 .*? you may not use this file except in compliance with the License\.\n\
@@ -57,7 +60,7 @@ _LICENSE_HEADER = '''\
 .*? WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied\.\n\
 .*? See the License for the specific language governing permissions and\n\
 .*? limitations under the License\.\n\
-'''
+''' % _YEAR
 
 def CheckUnittestsRan(input_api, output_api, committing, configuration):
   '''Checks that the unittests success file is newer than any modified file'''
