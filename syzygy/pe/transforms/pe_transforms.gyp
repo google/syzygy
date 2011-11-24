@@ -26,8 +26,12 @@
       'target_name': 'pe_transforms_lib',
       'type': 'static_library',
       'sources': [
+        'add_debug_directory_entry_transform.cc',
+        'add_debug_directory_entry_transform.h',
         'add_metadata_transform.cc',
         'add_metadata_transform.h',
+        'add_pdb_info_transform.cc',
+        'add_pdb_info_transform.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -41,7 +45,9 @@
       'target_name': 'pe_transforms_unittests',
       'type': 'executable',
       'sources': [
+        'add_debug_directory_entry_transform_unittest.cc',
         'add_metadata_transform_unittest.cc',
+        'add_pdb_info_transform_unittest.cc',
         'pe_transforms_unittests_main.cc',
       ],
       'dependencies': [

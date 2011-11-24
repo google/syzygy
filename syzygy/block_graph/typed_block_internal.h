@@ -52,6 +52,10 @@ inline const uint8* GetBlockData(ConstBlockPtr block) {
 template <typename T, typename BlockPtr, typename ChildType>
 class TypedBlockImpl {
  public:
+  typedef BlockGraph::Block Block;
+  typedef BlockGraph::Offset Offset;
+  typedef BlockGraph::Reference Reference;
+
   // A struct that allows us to get the ChildType rebound with another
   // encapsulated data type.
   //
@@ -69,7 +73,7 @@ class TypedBlockImpl {
   // @param offset the offset in to @p block to interpret as type T.
   // @param block the block with data to interpret as type T.
   // @returns true if the typed block is valid, false otherwise.
-  bool Init(BlockGraph::Offset offset, BlockPtr block) {
+  bool Init(Offset offset, BlockPtr block) {
     return InitWithSize(offset, sizeof(T), block);
   }
 
@@ -82,7 +86,7 @@ class TypedBlockImpl {
   // @param block the block with data to interpret as type T.
   // @pre @p size >= sizeof(T).
   // @returns true if the typed block is valid, false otherwise.
-  bool InitWithSize(BlockGraph::Offset offset, size_t size, BlockPtr block) {
+  bool InitWithSize(Offset offset, size_t size, BlockPtr block) {
     DCHECK_LE(sizeof(T), size);
     if (block == NULL || block->data_size() < offset + size)
       return false;
@@ -93,15 +97,15 @@ class TypedBlockImpl {
     return true;
   }
 
-  // Accesses the block encapsulated by this typed block.
-  //
-  // @returns a pointer to the encapsulated block.
-  BlockPtr block() { return block_; }
-
   // Accesses the offset into the block used by this typed block.
   //
   // @returns the offset of the encapsulated object.
-  BlockGraph::Offset offset() { return offset_; }
+  Offset offset() const { return offset_; }
+
+  // Accesses the initialized size of the object used by this type block.
+  //
+  // @returns the size of the encapsulated object.
+  size_t size() const { return size_; }
 
   // Determines if this typed block refers to a valid region of block data.
   //
@@ -139,6 +143,35 @@ class TypedBlockImpl {
     return (block_->data_size() - offset_) / sizeof(T);
   }
 
+  // Determines if a reference exists at the given offset.
+  //
+  // @param offset the offset into the block to search.
+  // @returns true if a reference exists, false otherwise.
+  bool HasReferenceAt(Offset offset) const {
+    return GetReference(offset, 0, NULL);
+  }
+
+  // Determines if a reference with the given size exists at the given offset.
+  //
+  // @param offset the offset into the block to search.
+  // @returns true if a reference exists, false otherwise.
+  bool HasReferenceAt(Offset offset, size_t reference_size) const {
+    return GetReference(offset, reference_size, NULL);
+  }
+
+  // Determines if a reference exists for the given value. For this to return
+  // true, the reference must be the same size as the value type TIn.
+  //
+  // @tparam TIn the type of the input @p value.
+  // @param value a reference to the value in this block whose offset will be
+  //     checked for a reference.
+  // @returns true if a reference exists, false otherwise.
+  template <typename TIn>
+  bool HasReference(const TIn& value) const {
+    Offset offset = OffsetOf(value);
+    return GetReference(offset, sizeof(TIn), NULL);
+  }
+
   // Follows a reference at a given @p offset in the enclosed structure.
   //
   // @tparam ReboundChildType another type of ChildType, but with another
@@ -148,7 +181,7 @@ class TypedBlockImpl {
   //     may or may not be valid.
   // @returns true if the dereference was successful, false otherwise.
   template <typename ReboundChildType>
-  bool DereferenceAt(BlockGraph::Offset offset,
+  bool DereferenceAt(Offset offset,
                      ReboundChildType* typed_block) const {
     typedef typename ReboundChildType::ObjectType T2;
     return DereferenceImpl<T2>(offset_ + offset, 0, sizeof(T2), typed_block);
@@ -166,7 +199,7 @@ class TypedBlockImpl {
   //     may or may not be valid.
   // @returns true if the dereference was successful, false otherwise.
   template <typename ReboundChildType>
-  bool DereferenceAtWithSize(BlockGraph::Offset offset,
+  bool DereferenceAtWithSize(Offset offset,
                              size_t object_size,
                              ReboundChildType* typed_block) const {
     typedef typename ReboundChildType::ObjectType T2;
@@ -189,7 +222,7 @@ class TypedBlockImpl {
   bool Dereference(TIn& value,
                    ReboundChildType* typed_block) const {
     typedef typename ReboundChildType::ObjectType T2;
-    BlockGraph::Offset offset = OffsetOf(value);
+    Offset offset = OffsetOf(value);
     return DereferenceImpl<T2>(offset, sizeof(TIn), sizeof(T2), typed_block);
   }
 
@@ -212,8 +245,8 @@ class TypedBlockImpl {
     typedef typename ReboundChildType::ObjectType T2;
     if (object_size < sizeof(T2))
       return false;
-    BlockGraph::Offset offset = OffsetOf(value);
-    return DereferenceImpl<T2>(offset, sizeof(TIn), sizeof(T2), typed_block);
+    Offset offset = OffsetOf(value);
+    return DereferenceImpl<T2>(offset, sizeof(TIn), object_size, typed_block);
   }
 
   // Compute the offset of a field in the enclosed structure.
@@ -223,9 +256,9 @@ class TypedBlockImpl {
   //     the object.
   // @returns the offset of value within the the referenced block.
   template <typename TIn>
-  BlockGraph::Offset OffsetOf(TIn& value) const {
+  Offset OffsetOf(TIn& value) const {
     const uint8* value_address = reinterpret_cast<const uint8*>(&value);
-    BlockGraph::Offset offs = value_address - block_->data();
+    Offset offs = value_address - block_->data();
     DCHECK(InBlock(offs, sizeof(value)));
     return offs;
   }
@@ -257,6 +290,28 @@ class TypedBlockImpl {
         internal::GetBlockData(block_) + offset_) + elem;
   }
 
+  // Determines if there exists a reference of given @p reference_size at the
+  // given @p offset into the block. If @p ref is non-null, populates the
+  // reference if a valid one is found.
+  //
+  // @param offset the offset into the block.
+  // @param reference_size the expected size of the reference. If this is 0, a
+  //     reference of any size is accepted.
+  // @param ref the reference to populate. May be NULL.
+  // @returns true if there exists a valid reference, false otherwise.
+  bool GetReference(Offset offset,
+                    size_t reference_size,
+                    Reference* ref) const {
+    Reference reference;
+    if (!block_->GetReference(offset, &reference))
+      return false;
+    if (reference_size != 0 && reference.size() != reference_size)
+      return false;
+    if (ref != NULL)
+      *ref = reference;
+    return true;
+  }
+
   // Attempts to follow a reference of given @p size at the given @p offset
   // into the block. This only succeeds if their is a reference at the given
   // offset, it matches the given size, is contained entirely within the
@@ -274,7 +329,7 @@ class TypedBlockImpl {
   // @returns true on success, false otherwise.
   template <typename T2>
   bool DereferenceImpl(
-      BlockGraph::Offset offset,
+      Offset offset,
       size_t reference_size,
       size_t object_size,
       typename ReboundChild<T2>::Type* typed_block) const {
@@ -282,17 +337,15 @@ class TypedBlockImpl {
     DCHECK_GE(object_size, sizeof(T2));
 
     // Ensure that there is a valid reference at the pointer offset.
-    BlockGraph::Reference ref;
-    if (!block_->GetReference(offset, &ref))
-      return false;
-    if (reference_size != 0 && ref.size() != reference_size)
+    Reference ref;
+    if (!GetReference(offset, reference_size, &ref))
       return false;
 
     return typed_block->InitWithSize(ref.offset(), object_size,
                                      ref.referenced());
   }
 
-  BlockGraph::Offset offset_;
+  Offset offset_;
   BlockPtr block_;
   size_t size_;
 

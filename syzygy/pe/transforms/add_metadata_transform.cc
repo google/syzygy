@@ -20,12 +20,11 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_utils.h"
 
-const char block_graph::transforms::NamedTransformImpl<
-    pe::transforms::AddMetadataTransform>::kTransformName[] =
-        "AddMetadataTransform";
-
 namespace pe {
 namespace transforms {
+
+const char AddMetadataTransform::kTransformName[] =
+    "AddMetadataTransform";
 
 AddMetadataTransform::AddMetadataTransform(const FilePath& module_path)
     : module_path_(module_path) {
@@ -84,7 +83,7 @@ bool AddMetadataTransform::Apply(BlockGraph* block_graph,
   } else {
     // Otherwise, create the section.
     section = block_graph->AddSection(common::kSyzygyMetadataSectionName,
-                                      kDataCharacteristics);
+                                      kReadOnlyDataCharacteristics);
     DCHECK(section != NULL);
   }
 

@@ -52,15 +52,16 @@ bool GetOrderedSections(BlockGraph* block_graph,
       block_graph->sections().begin();
   for (; section_it != block_graph->sections().end(); ++section_it) {
     const BlockGraph::Section* section = &section_it->second;
-    if (section->name() == ".rsrc") {
+    if (section->name() == kResourceSectionName) {
       if (rsrc != NULL) {
-        LOG(ERROR) << "Found more than one rsrc section.";
+        LOG(ERROR) << "Found more than one " << kResourceSectionName
+                   << " section.";
         return false;
       }
       rsrc = section;
       continue;
     }
-    if (section->name() == ".reloc") {
+    if (section->name() == kRelocSectionName) {
       if (reloc != NULL) {
         LOG(ERROR) << "Found more than one reloc section.";
         return false;

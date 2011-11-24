@@ -16,15 +16,9 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/reorder/order_generator_test.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace reorder {
-
-namespace {
-
-const DWORD kDataCharacteristics =
-    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
-
-}  // namespace
 
 class RandomOrderGeneratorTest : public testing::OrderGeneratorTest {
  protected:
@@ -101,7 +95,7 @@ TEST_F(RandomOrderGeneratorTest, ReorderData) {
       order_.section_block_lists.begin();
   for (; it != order_.section_block_lists.end(); ++it) {
     const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
-    if (section->Characteristics & kDataCharacteristics) {
+    if (section->Characteristics & pe::kReadOnlyDataCharacteristics) {
       std::string name = input_dll_.GetSectionName(*section);
       // .tls and .rsrc only have one block.
       if (name != ".tls" && name != ".rsrc")

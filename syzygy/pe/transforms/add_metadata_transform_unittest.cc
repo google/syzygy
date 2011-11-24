@@ -45,7 +45,7 @@ class AddMetadataTransformTest : public testing::PELibUnitTest {
 
   void AddMetadataBlock() {
     BlockGraph::Section* section = block_graph_.FindOrAddSection(
-        common::kSyzygyMetadataSectionName, kDataCharacteristics);
+        common::kSyzygyMetadataSectionName, kReadOnlyDataCharacteristics);
     ASSERT_TRUE(section != NULL);
 
     BlockGraph::Block* block = block_graph_.AddBlock(

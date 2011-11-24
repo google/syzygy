@@ -324,11 +324,9 @@ bool PEFileBuilder::CreateRelocsSection() {
   writer.Close(&relocs);
 
   // Create a new image section for the relocs.
-  const uint32 kRelocCharacteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
-      IMAGE_SCN_MEM_DISCARDABLE | IMAGE_SCN_MEM_READ;
   size_t relocs_file_size =
       common::AlignUp(relocs.size(), file_alignment_);
-  RelativeAddress section_base = AddSection(".reloc",
+  RelativeAddress section_base = AddSection(kRelocSectionName,
                                             relocs.size(),
                                             relocs_file_size,
                                             kRelocCharacteristics);
