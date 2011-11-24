@@ -24,11 +24,11 @@ class TypedBlockTest: public testing::Test {
     foo_.reset(new BlockGraph::Block(
         0, BlockGraph::DATA_BLOCK, sizeof(Foo), "foo"));
     bar_.reset(new BlockGraph::Block(
-        0, BlockGraph::DATA_BLOCK, sizeof(Bar), "bar"));
+        0, BlockGraph::DATA_BLOCK, sizeof(Bar) + 4, "bar"));
     foo_const_ = foo_.get();
 
-    ASSERT_TRUE(foo_->AllocateData(sizeof(Foo)) != NULL);
-    ASSERT_TRUE(bar_->AllocateData(sizeof(Bar)) != NULL);
+    ASSERT_TRUE(foo_->AllocateData(foo_->size()) != NULL);
+    ASSERT_TRUE(bar_->AllocateData(bar_->size()) != NULL);
 
     // Create a connection between the two blocks.
     ASSERT_TRUE(foo_->SetReference(
@@ -72,11 +72,15 @@ TEST_F(TypedBlockTest, Init) {
   EXPECT_TRUE(foo.IsValid());
   EXPECT_EQ(foo.block(), foo_.get());
   EXPECT_EQ(foo.offset(), 0);
+  EXPECT_EQ(foo.size(), sizeof(Foo));
 
   // This should also work fine.
   ConstTypedBlock<Foo> foo_const;
   EXPECT_TRUE(foo_const.Init(0, foo_.get()));
   EXPECT_TRUE(foo_const.IsValid());
+  EXPECT_EQ(foo.block(), foo_.get());
+  EXPECT_EQ(foo.offset(), 0);
+  EXPECT_EQ(foo.size(), sizeof(Foo));
 
   // This should fail as bar is bigger than foo.
   TypedBlock<Bar> bar;
@@ -102,11 +106,16 @@ TEST_F(TypedBlockTest, InitWithSize) {
   EXPECT_TRUE(foo.IsValid());
   EXPECT_EQ(foo.block(), foo_.get());
   EXPECT_EQ(foo.offset(), 0);
+  EXPECT_EQ(foo.size(), sizeof(Foo));
 
   // This should also work fine.
   ConstTypedBlock<Foo> foo_const;
   EXPECT_TRUE(foo_const.InitWithSize(0, sizeof(Foo), foo_.get()));
   EXPECT_TRUE(foo_const.IsValid());
+
+  TypedBlock<Bar> bar;
+  EXPECT_TRUE(bar.InitWithSize(0, sizeof(Bar) + 4, bar_.get()));
+  EXPECT_EQ(sizeof(Bar) + 4, bar.size());
 }
 
 TEST_F(TypedBlockTest, IsValidElement) {
@@ -161,6 +170,19 @@ TEST_F(TypedBlockTest, OffsetOf) {
   EXPECT_EQ(offsetof(Foo, bar) + 2, foo.OffsetOf(foo->bar));
 }
 
+TEST_F(TypedBlockTest, HasReference) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+
+  EXPECT_TRUE(foo.HasReferenceAt(offsetof(Foo, bar)));
+  EXPECT_TRUE(foo.HasReferenceAt(offsetof(Foo, bar), sizeof(foo->bar)));
+  EXPECT_TRUE(foo.HasReference(foo->bar));
+
+  EXPECT_FALSE(foo.HasReferenceAt(offsetof(Foo, bar) + 1));
+  EXPECT_FALSE(foo.HasReferenceAt(offsetof(Foo, bar), 1));
+  EXPECT_FALSE(foo.HasReference(foo->f));
+}
+
 TEST_F(TypedBlockTest, Dereference) {
   TypedBlock<Foo> foo;
   ASSERT_TRUE(foo.Init(0, foo_.get()));
@@ -181,14 +203,94 @@ TEST_F(TypedBlockTest, DereferenceWithSize) {
   ASSERT_TRUE(foo.Init(0, foo_.get()));
 
   TypedBlock<Bar> bar;
-  EXPECT_TRUE(foo.DereferenceWithSize(foo->bar, sizeof(Bar), &bar));
+  EXPECT_TRUE(foo.DereferenceWithSize(foo->bar, sizeof(Bar) + 4, &bar));
   ASSERT_TRUE(bar.IsValid());
+  EXPECT_EQ(sizeof(Bar) + 4, bar.size());
 
-  EXPECT_TRUE(foo.DereferenceAtWithSize(offsetof(Foo, bar), sizeof(Bar), &bar));
+  EXPECT_TRUE(foo.DereferenceAtWithSize(offsetof(Foo, bar), sizeof(Bar) + 4,
+                                        &bar));
   ASSERT_TRUE(bar.IsValid());
+  EXPECT_EQ(sizeof(Bar) + 4, bar.size());
 
   bar->i = 42;
   EXPECT_EQ(42, reinterpret_cast<const Bar*>(bar_->data())->i);
+}
+
+TEST_F(TypedBlockTest, RemoveReferenceAt) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+  foo.RemoveReferenceAt(offsetof(Foo, bar));
+  EXPECT_FALSE(foo.HasReferenceAt(offsetof(Foo, bar)));
+}
+
+TEST_F(TypedBlockTest, RemoveReferenceAtWithSize) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+  EXPECT_TRUE(foo.RemoveReferenceAt(offsetof(Foo, bar), sizeof(foo->bar)));
+  EXPECT_FALSE(foo.HasReferenceAt(offsetof(Foo, bar)));
+}
+
+TEST_F(TypedBlockTest, RemoveReferenceAtWithSizeFails) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+  EXPECT_FALSE(foo.RemoveReferenceAt(offsetof(Foo, bar), 1));
+  EXPECT_TRUE(foo.HasReferenceAt(offsetof(Foo, bar)));
+}
+
+TEST_F(TypedBlockTest, RemoveReferenceByValue) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+  EXPECT_TRUE(foo.RemoveReference(foo->bar));
+  EXPECT_FALSE(foo.HasReferenceAt(offsetof(Foo, bar)));
+}
+
+TEST_F(TypedBlockTest, SetReference) {
+  TypedBlock<Foo> foo;
+  TypedBlock<Bar> bar;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+  ASSERT_TRUE(foo.Dereference(foo->bar, &bar));
+
+  TypedBlock<Bar> bar2;
+
+  ASSERT_TRUE(foo.RemoveReference(foo->bar));
+
+  EXPECT_TRUE(foo.SetReference(BlockGraph::RELATIVE_REF,
+                               offsetof(Foo, bar),
+                               sizeof(foo->bar),
+                               bar.block(),
+                               bar.offset()));
+  EXPECT_TRUE(foo.Dereference(foo->bar, &bar2));
+  EXPECT_EQ(bar.block(), bar2.block());
+  EXPECT_EQ(bar.offset(), bar2.offset());
+
+  ASSERT_TRUE(foo.RemoveReference(foo->bar));
+
+  EXPECT_TRUE(foo.SetReference(BlockGraph::RELATIVE_REF,
+                               foo->bar,
+                               bar.block(),
+                               bar.offset()));
+  EXPECT_TRUE(foo.Dereference(foo->bar, &bar2));
+  EXPECT_EQ(bar.block(), bar2.block());
+  EXPECT_EQ(bar.offset(), bar2.offset());
+
+  ASSERT_TRUE(foo.RemoveReference(foo->bar));
+
+  EXPECT_TRUE(foo.SetReference(BlockGraph::RELATIVE_REF,
+                               foo->bar,
+                               bar));
+  EXPECT_TRUE(foo.Dereference(foo->bar, &bar2));
+  EXPECT_EQ(bar.block(), bar2.block());
+  EXPECT_EQ(bar.offset(), bar2.offset());
+
+  ASSERT_TRUE(foo.RemoveReference(foo->bar));
+
+  EXPECT_TRUE(foo.SetReference(BlockGraph::RELATIVE_REF,
+                               foo->bar,
+                               bar,
+                               bar->i));
+  EXPECT_TRUE(foo.Dereference(foo->bar, &bar2));
+  EXPECT_EQ(bar.block(), bar2.block());
+  EXPECT_EQ(bar.offset(), bar2.offset());
 }
 
 }  // namespace block_graph

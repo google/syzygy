@@ -416,9 +416,24 @@ class BlockGraph::Block {
   //
   // @param offset the offset at which to remove data.
   // @param size the size of the data to remove, in bytes.
+  // @returns true on success, false otherwise.
   // @pre 0 <= offset < size
   // @pre size > 0
   bool RemoveData(Offset offset, Size size);
+
+  // Performs an inline resize of data in a BlockGraph. If the data is shrinking
+  // this equates to a RemoveData operation. If it is growing it equates to an
+  // InsertData operation.
+  //
+  // @param offset the offset of the data to resize.
+  // @param current_size the current size of the data to resize.
+  // @param new_size the desired size of the data.
+  // @param always_allocate_data if true, then data_size will be grown if
+  //     necessary to ensure that the resized data can be written.
+  // @returns true on success, false otherwise.
+  // @pre 0 <= offset <= size
+  bool InsertOrRemoveData(Offset offset, Size current_size, Size new_size,
+                          bool always_allocate_data);
 
   // Set the data the block refers to.
   // @param data NULL or the data this block refers to.

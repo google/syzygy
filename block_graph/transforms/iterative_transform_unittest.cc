@@ -64,12 +64,14 @@ class MockIterativeTransform
         block_graph->AddBlock(BlockGraph::DATA_BLOCK, 10, "Added");
     return new_block != NULL;
   }
+
+  static const char kTransformName[];
 };
 
-}  // namespace
-
-const char NamedTransformImpl<MockIterativeTransform>::kTransformName[] =
+const char MockIterativeTransform::kTransformName[] =
     "MockIterativeTransform";
+
+}  // namespace
 
 TEST_F(IterativeTransformTest, PreIterationFails) {
   StrictMock<MockIterativeTransform> transform;

@@ -17,15 +17,9 @@
 #include <algorithm>
 
 #include "syzygy/core/random_number_generator.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace reorder {
-
-namespace {
-
-const DWORD kDataCharacteristics =
-    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
-
-}  // namespace
 
 RandomOrderGenerator::RandomOrderGenerator(int seed)
     : Reorderer::OrderGenerator("Random Order Generator"),
@@ -54,7 +48,8 @@ bool RandomOrderGenerator::CalculateReordering(const PEFile& pe_file,
   for (size_t i = 0; i < image.sections.size(); ++i) {
     const ImageLayout::SectionInfo& section = image.sections[i];
     if ((!reorder_code && section.characteristics & IMAGE_SCN_CNT_CODE) ||
-        (!reorder_data && section.characteristics & kDataCharacteristics))
+        (!reorder_data &&
+            section.characteristics & pe::kReadOnlyDataCharacteristics))
       continue;
 
     LOG(INFO) << "Randomizing section " << i  << " (" << section.name << ").";

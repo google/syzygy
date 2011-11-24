@@ -461,6 +461,20 @@ TEST_F(BlockTest, RemoveData) {
   EXPECT_EQ(expected_references, block1->references());
 }
 
+TEST_F(BlockTest, RemoveDataPartlyImplicit) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 40, "Block1");
+  block1->AllocateData(30);
+
+  // Remove data that spans both the initialized and implicit parts of the
+  // block.
+  EXPECT_TRUE(block1->RemoveData(25, 10));
+
+  // We expect both the block and the data size to have shrunk.
+  EXPECT_EQ(30u, block1->size());
+  EXPECT_EQ(25u, block1->data_size());
+}
+
 TEST_F(BlockTest, RemoveDataImplicit) {
   BlockGraph::Block* block1 = image_.AddBlock(
       BlockGraph::CODE_BLOCK, 40, "Block1");
@@ -473,6 +487,61 @@ TEST_F(BlockTest, RemoveDataImplicit) {
   // same.
   EXPECT_EQ(35u, block1->size());
   EXPECT_EQ(30u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertOrRemoveDataSameSizeNoAllocate) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+
+  EXPECT_TRUE(block1->InsertOrRemoveData(0, 20, 20, false));
+  EXPECT_EQ(40u, block1->size());
+  EXPECT_EQ(0u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertOrRemoveDataSameSizeAllocate) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+
+  EXPECT_TRUE(block1->InsertOrRemoveData(0, 20, 20, true));
+  EXPECT_EQ(40u, block1->size());
+  EXPECT_EQ(20u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertOrRemoveGrowNoAllocate) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+
+  EXPECT_TRUE(block1->InsertOrRemoveData(0, 10, 20, false));
+  EXPECT_EQ(50u, block1->size());
+  EXPECT_EQ(0u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertOrRemoveGrowAllocate) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+
+  EXPECT_TRUE(block1->InsertOrRemoveData(0, 10, 20, true));
+  EXPECT_EQ(50u, block1->size());
+  EXPECT_EQ(20u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertOrRemoveShrinkNoAllocate) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+  block1->AllocateData(15);
+
+  EXPECT_TRUE(block1->InsertOrRemoveData(0, 20, 10, false));
+  EXPECT_EQ(30u, block1->size());
+  EXPECT_EQ(10u, block1->data_size());
+}
+
+TEST_F(BlockTest, InsertOrRemoveShrinkAllocate) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+
+  EXPECT_TRUE(block1->InsertOrRemoveData(0, 20, 10, true));
+  EXPECT_EQ(30u, block1->size());
+  EXPECT_EQ(10u, block1->data_size());
 }
 
 TEST(BlockGraphTest, AddSections) {

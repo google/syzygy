@@ -24,9 +24,9 @@ namespace block_graph {
 namespace transforms {
 
 // Implements the 'name' member function of BlockGraphTransformInterface.
-// The user must provide a definition of the static variable:
+// The user must define the static variable:
 //
-//   const char NamedTransformImpl<DerivedType>::kTransformName[];
+//   const char DerivedType::kTransformName[];
 //
 // @tparam DerivedType the type of the derived class.
 template<class DerivedType>
@@ -36,13 +36,8 @@ class NamedTransformImpl : public BlockGraphTransformInterface {
   //
   // @returns the name of this transform.
   virtual const char* name() const {
-    return kTransformName;
+    return DerivedType::kTransformName;
   }
-
- protected:
-  // The actual name of the transform class. This must be defined by the
-  // user of this implementation class.
-  static const char kTransformName[];
 };
 
 }  // namespace transforms

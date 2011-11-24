@@ -33,6 +33,7 @@
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file_parser.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace pe {
 
@@ -50,8 +51,6 @@ using core::RelativeAddress;
 namespace {
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
-const DWORD kDataCharacteristics =
-    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_CNT_UNINITIALIZED_DATA;
 
 // Converts from PdbFixup::Type to BlockGraph::ReferenceType.
 BlockGraph::ReferenceType PdbFixupTypeToReferenceType(
@@ -242,7 +241,7 @@ SectionType GetSectionType(const IMAGE_SECTION_HEADER* header) {
   DCHECK(header != NULL);
   if ((header->Characteristics & IMAGE_SCN_CNT_CODE) != 0)
     return kSectionCode;
-  if ((header->Characteristics & kDataCharacteristics) != 0)
+  if ((header->Characteristics & kReadOnlyDataCharacteristics) != 0)
     return kSectionData;
   return kSectionUnknown;
 }
@@ -1145,7 +1144,7 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     return false;
   }
 
-  size_t rsrc_id = image_file_.GetSectionIndex(".rsrc");
+  size_t rsrc_id = image_file_.GetSectionIndex(kResourceSectionName);
 
   while (true) {
     ScopedComPtr<IDiaSectionContrib> section_contrib;
@@ -2161,14 +2160,13 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   // is a section after the resource section, things will have been shifted
   // and potentially crucial fixups will be invalid.
   RelativeAddress rsrc_start(0xffffffff), max_start;
-  static const char kRsrcName[] = ".rsrc";
   size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
   for (size_t i = 0; i < num_sections; ++i) {
     const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
     RelativeAddress start(header->VirtualAddress);
     if (start > max_start)
       max_start = start;
-    if (strncmp(kRsrcName,
+    if (strncmp(kResourceSectionName,
                 reinterpret_cast<const char*>(header->Name),
                 IMAGE_SIZEOF_SHORT_NAME) == 0) {
       rsrc_start = start;
@@ -2178,7 +2176,7 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
 
   // Ensure there are no sections after the resource section.
   if (max_start > rsrc_start) {
-    LOG(ERROR) << ".rsrc section is not the last section.";
+    LOG(ERROR) << kResourceSectionName << " section is not the last section.";
     return false;
   }
 

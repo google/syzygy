@@ -24,15 +24,18 @@ namespace transforms {
 namespace {
 
 class MockNamedTransform : public NamedTransformImpl<MockNamedTransform> {
+ public:
   bool Apply(BlockGraph* /*block_graph*/,
              BlockGraph::Block* /*header_block*/) {
     return true;
   }
+
+  static const char kTransformName[];
 };
 
 }  // namespace
 
-const char NamedTransformImpl<MockNamedTransform>::kTransformName[] =
+const char MockNamedTransform::kTransformName[] =
     "MockNamedTransform";
 
 TEST(NamedTransformTest, NameWork) {

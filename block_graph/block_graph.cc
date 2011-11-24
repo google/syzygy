@@ -725,7 +725,7 @@ bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
       return false;
     }
     if (ref.offset() < static_cast<Offset>(offset + size) &&
-        static_cast<Offset>(ref.offset() + size) > offset) {
+        static_cast<Offset>(ref.offset() + ref.size()) > offset) {
       return false;
     }
   }
@@ -740,17 +740,51 @@ bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
   // Does this affect already allocated data?
   if (static_cast<Size>(offset) < data_size_) {
     size_t new_data_size = data_size_ - size;
-    size_t bytes_to_shift = data_size_ - offset - size;
-    if (bytes_to_shift > 0) {
+    // Is there data beyond the section to delete?
+    if (static_cast<Size>(offset + size) < data_size_) {
       // Shift tail data to left.
-      size_t old_data_size = data_size_;
       uint8* data = GetMutableData();
+      size_t bytes_to_shift = data_size_ - offset - size;
+      size_t old_data_size = data_size_;
       memmove(data + new_data_size - bytes_to_shift,
               data + old_data_size - bytes_to_shift,
               bytes_to_shift);
+    } else {
+      new_data_size = offset;
     }
     ResizeData(new_data_size);
   }
+
+  return true;
+}
+
+bool BlockGraph::Block::InsertOrRemoveData(Offset offset,
+                                           Size current_size,
+                                           Size new_size,
+                                           bool always_allocate_data) {
+  DCHECK_GE(offset, 0);
+  DCHECK_LE(offset, static_cast<Offset>(size_));
+
+  // If we're growing use InsertData.
+  if (new_size > current_size) {
+    Offset insert_offset = offset + current_size;
+    Size insert_size = new_size - current_size;
+    InsertData(insert_offset, insert_size, always_allocate_data);
+    return true;
+  }
+
+  // If we're shrinking we'll need to use RemoveData.
+  if (new_size < current_size) {
+    Offset remove_offset = offset + new_size;
+    Size remove_size = current_size - new_size;
+    if (!RemoveData(remove_offset, remove_size))
+      return false;
+    // We fall through so that 'always_allocate_data' can be respected.
+  }
+
+  // If we've been asked to, at least make sure that the data is allocated.
+  if (always_allocate_data && data_size_ < offset + new_size)
+    ResizeData(offset + new_size);
 
   return true;
 }

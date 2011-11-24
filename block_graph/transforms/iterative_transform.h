@@ -28,10 +28,10 @@ namespace transforms {
 // An implementation of a BlockGraph transform encapsulating the simple pattern
 // of Pre, per-block, and Post functions. The derived class is responsible for
 // implementing 'OnBlock' and 'name', and may optionally override Pre and
-// Post. The derived type needs to also define the symbol:
+// Post. The derived type needs to also define the static public member
+// variable:
 //
-// const char block_graph::transform::NamedTransformImpl<DerivedType>::
-//     kTransformName[];
+//   static const char DerivedType::kTransformName[];
 //
 // @tparam DerivedType the type of the derived class.
 template<class DerivedType>

@@ -45,6 +45,9 @@ class AddMetadataTransform
 
   BlockGraph::Block* metadata_block() const { return metadata_block_; }
 
+  // The name of this transform.
+  static const char kTransformName[];
+
  private:
   // The path to the module which the metadata refers to.
   FilePath module_path_;

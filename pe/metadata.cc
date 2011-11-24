@@ -344,7 +344,7 @@ bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
   pe_file_builder->AddSection(common::kSyzygyMetadataSectionName,
                               syzygy_size,
                               syzygy_size,
-                              kDataCharacteristics);
+                              kReadOnlyDataCharacteristics);
 
   return true;
 }

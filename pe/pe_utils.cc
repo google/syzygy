@@ -61,8 +61,22 @@ BlockPtr CheckedGetNtHeadersBlockFromDosHeaderBlock(
 
 }  // namespace
 
-const DWORD kDataCharacteristics =
+const char kCodeSectionName[] = ".text";
+const char kReadOnlyDataSectionName[] = ".rdata";
+const char kReadWriteDataSectionName[] = ".data";
+const char kRelocSectionName[] = ".reloc";
+const char kResourceSectionName[] = ".rsrc";
+const char kTlsSectionName[] = ".tls";
+
+const DWORD kCodeCharacteristics =
+    IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_EXECUTE;
+const DWORD kReadOnlyDataCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
+const DWORD kReadWriteDataCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
+const DWORD kRelocCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_DISCARDABLE |
+    IMAGE_SCN_MEM_READ;
 
 bool IsValidDosHeaderBlock(const BlockGraph::Block* dos_header_block) {
   ConstTypedBlock<IMAGE_DOS_HEADER> dos_header;

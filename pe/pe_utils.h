@@ -22,8 +22,19 @@
 
 namespace pe {
 
-// The characteristics of a read-only data section.
-extern const DWORD kDataCharacteristics;
+// Typical section names.
+extern const char kCodeSectionName[];
+extern const char kReadOnlyDataSectionName[];
+extern const char kReadWriteDataSectionName[];
+extern const char kRelocSectionName[];
+extern const char kResourceSectionName[];
+extern const char kTlsSectionName[];
+
+// Typical section characteristics.
+extern const DWORD kCodeCharacteristics;
+extern const DWORD kReadOnlyDataCharacteristics;
+extern const DWORD kReadWriteDataCharacteristics;
+extern const DWORD kRelocCharacteristics;
 
 // Validates @p dos_header_block for the the size, magic constants and
 // other properties of a valid DOS header.
