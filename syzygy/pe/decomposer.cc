@@ -444,6 +444,36 @@ bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
   return true;
 }
 
+void GetCodeLabelAddresses(const BlockGraph::Block* block,
+                           AbsoluteAddress abs_block_addr,
+                           const PEFile::RelocSet& reloc_set,
+                           Disassembler::AddressSet* labels) {
+  DCHECK(block != NULL);
+  DCHECK(block->type() == BlockGraph::CODE_BLOCK);
+  DCHECK(labels != NULL);
+
+  labels->clear();
+
+  // Use block labels as starting points for disassembly. Any labels that
+  // lie within a known data block or reloc should not be added.
+  // TODO(chrisha): Should we actually remove these from the Block?
+  // TODO(robertshield): See if we would be better served by considering all
+  //     inbound references instead.
+  BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
+  for (; it != block->labels().end(); ++it) {
+    BlockGraph::Offset label = it->first;
+    DCHECK_LE(0, label);
+    DCHECK_GT(block->size(), static_cast<size_t>(label));
+
+    // We sometimes receive labels for lookup tables. Thus labels that point
+    // directly to a reloc should not be used as a starting point for
+    // disassembly.
+    RelativeAddress addr(block->addr() + static_cast<size_t>(label));
+    if (reloc_set.find(addr) == reloc_set.end())
+      labels->insert(abs_block_addr + it->first);
+  }
+}
+
 }  // namespace
 
 Decomposer::Decomposer(const PEFile& image_file)
@@ -1627,24 +1657,11 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
   scoped_ptr<Disassembler::InstructionCallback> on_instruction(
       NewCallback(this, &Decomposer::OnInstruction));
 
-  // Use block labels as starting points for disassembly. Any labels that
-  // lie within a known data block or reloc should not be added.
-  // TODO(chrisha): Should we actually remove these from the Block?
-  BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
+  // Use block labels as starting points for disassembly.
   Disassembler::AddressSet labels;
-  for (; it != block->labels().end(); ++it) {
-    BlockGraph::Offset label = it->first;
-    DCHECK_LE(0, label);
-    DCHECK_GT(block->size(), static_cast<size_t>(label));
+  GetCodeLabelAddresses(block, abs_block_addr, reloc_set_, &labels);
 
-    // We sometimes receive labels for lookup tables. Thus labels that point
-    // directly to a reloc should not be used as a starting point for
-    // disassembly.
-    RelativeAddress addr(block->addr() + static_cast<size_t>(label));
-    if (reloc_set_.find(addr) == reloc_set_.end())
-      labels.insert(abs_block_addr + it->first);
-  }
-
+  // Disassemble the block.
   Disassembler disasm(block->data(),
                       block->data_size(),
                       abs_block_addr,
@@ -2259,25 +2276,8 @@ bool Decomposer::BuildBasicBlockGraph(const ImageLayout& image_layout,
         return false;
       }
 
-      // Build the set of labels that are points we want to disassemble from.
-      // For now we continue to use the that point into the function block.
-      // TODO(robertshield): See if we would be better served by considering all
-      // inbound references we have discovered in the previous traversal
-      // instead.
-      BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
       Disassembler::AddressSet labels;
-      for (; it != block->labels().end(); ++it) {
-        BlockGraph::Offset label = it->first;
-        DCHECK_LE(0, label);
-        DCHECK_GT(block->size(), static_cast<size_t>(label));
-
-        // We sometimes receive labels for lookup tables. Thus labels that point
-        // directly to a reloc should not be used as a starting point for
-        // disassembly.
-        RelativeAddress addr(block->addr() + static_cast<size_t>(label));
-        if (reloc_set_.find(addr) == reloc_set_.end())
-          labels.insert(abs_block_addr + it->first);
-      }
+      GetCodeLabelAddresses(block, abs_block_addr, reloc_set_, &labels);
 
       scoped_ptr<Disassembler::InstructionCallback> on_basic_instruction(
           NewCallback(this, &Decomposer::OnBasicInstruction));
