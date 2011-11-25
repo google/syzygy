@@ -114,9 +114,6 @@ class PEFileBuilder {
   static const size_t kDefaultSectionAlignment = 0x1000;
   static const size_t kDefaultFileAlignment = 0x200;
 
-  // Update the DOS header with our own stub.
-  bool UpdateDosHeader();
-
   // Ensure that the Safe SEH Table is sorted.
   bool SortSafeSehTable();
 
