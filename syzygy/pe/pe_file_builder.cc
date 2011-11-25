@@ -25,10 +25,6 @@
 
 namespace {
 
-// Reference to the associated .asm file that constructs the DOS stub.
-extern "C" void begin_dos_stub();
-extern "C" void end_dos_stub();
-
 using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using block_graph::TypedBlock;
@@ -352,7 +348,7 @@ bool PEFileBuilder::FinalizeHeaders() {
   DCHECK(dos_header_block_ != NULL);
   DCHECK(nt_headers_block_ != NULL);
 
-  if (!UpdateDosHeader()) {
+  if (!UpdateDosHeader(dos_header_block_)) {
     LOG(ERROR) << "Failed to update the DOS header.";
     return false;
   }
@@ -468,64 +464,6 @@ bool PEFileBuilder::FinalizeHeaders() {
     LOG(ERROR) << "Unable to assign DOS header to new image layout.";
     return false;
   }
-
-  return true;
-}
-
-bool PEFileBuilder::UpdateDosHeader() {
-  DCHECK(dos_header_block_ != NULL);
-
-  const uint8* begin_dos_stub_ptr =
-      reinterpret_cast<const uint8*>(&begin_dos_stub);
-  const uint8* end_dos_stub_ptr =
-      reinterpret_cast<const uint8*>(&end_dos_stub);
-
-  // The DOS header has to be a multiple of 16 bytes for historic reasons.
-  size_t dos_header_size = common::AlignUp(
-      sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
-  dos_header_block_->set_size(dos_header_size);
-  if (dos_header_block_->ResizeData(dos_header_size) == NULL) {
-    LOG(ERROR) << "Unable to resize DOS header.";
-    return false;
-  }
-
-  // Update the source range information.
-  dos_header_block_->source_ranges().clear();
-  bool pushed = dos_header_block_->source_ranges().Push(
-      BlockGraph::Block::DataRange(0, dos_header_size),
-      BlockGraph::Block::SourceRange(RelativeAddress(0), dos_header_size));
-  DCHECK(pushed);
-
-  TypedBlock<IMAGE_DOS_HEADER> dos_header;
-  if (dos_header.InitWithSize(0, dos_header_size, dos_header_block_) == NULL) {
-    LOG(ERROR) << "Unable to allocate DOS header data.";
-    return false;
-  }
-
-  memset(dos_header.Get(), 0, sizeof(IMAGE_DOS_HEADER));
-  memcpy(dos_header.Get() + 1,
-         begin_dos_stub_ptr,
-         end_dos_stub_ptr - begin_dos_stub_ptr);
-
-  dos_header->e_magic = IMAGE_DOS_SIGNATURE;
-  // Calculate the number of bytes used on the last DOS executable "page".
-  dos_header->e_cblp = dos_header_size % 512;
-  // Calculate the number of pages used by the DOS executable.
-  dos_header->e_cp = dos_header_size / 512;
-  // Count the last page if we didn't have an even multiple
-  if (dos_header->e_cblp != 0)
-    dos_header->e_cp++;
-
-  // Header length in "paragraphs".
-  dos_header->e_cparhdr = sizeof(*dos_header) / 16;
-
-  // Set this to max allowed, just because.
-  dos_header->e_maxalloc = 0xFFFF;
-
-  // Location of relocs - our header has zero relocs, but we set this anyway.
-  dos_header->e_lfarlc = sizeof(*dos_header);
-
-  DCHECK(IsValidDosHeaderBlock(dos_header_block_));
 
   return true;
 }

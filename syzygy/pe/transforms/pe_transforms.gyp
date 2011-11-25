@@ -32,6 +32,8 @@
         'add_metadata_transform.h',
         'add_pdb_info_transform.cc',
         'add_pdb_info_transform.h',
+        'prepare_headers_transform.cc',
+        'prepare_headers_transform.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -49,6 +51,7 @@
         'add_metadata_transform_unittest.cc',
         'add_pdb_info_transform_unittest.cc',
         'pe_transforms_unittests_main.cc',
+        'prepare_headers_transform_unittest.cc',
       ],
       'dependencies': [
         'pe_transforms_lib',

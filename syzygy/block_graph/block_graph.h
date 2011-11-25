@@ -404,7 +404,6 @@ class BlockGraph::Block {
   // @param always_allocate_data if true, then data_size will be grown if
   //     necessary to ensure that the newly created data can be written.
   // @pre 0 <= offset <= size()
-  // @pre size > 0
   void InsertData(Offset offset, Size size, bool always_allocate_data);
 
   // Removes the data in the given range. This will refuse to remove labels,
@@ -417,8 +416,7 @@ class BlockGraph::Block {
   // @param offset the offset at which to remove data.
   // @param size the size of the data to remove, in bytes.
   // @returns true on success, false otherwise.
-  // @pre 0 <= offset < size
-  // @pre size > 0
+  // @pre 0 <= offset <= size
   bool RemoveData(Offset offset, Size size);
 
   // Performs an inline resize of data in a BlockGraph. If the data is shrinking

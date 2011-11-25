@@ -118,7 +118,8 @@
             '-c', '<(RULE_INPUT_PATH)',
           ],
           'process_outputs_as_sources': 0,
-          'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
+          'message': 'Assembling <(RULE_INPUT_PATH) to '
+                     '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
         },
       ],
       'all_dependent_settings': {

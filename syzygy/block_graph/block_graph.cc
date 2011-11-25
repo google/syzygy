@@ -669,24 +669,25 @@ void BlockGraph::Block::InsertData(Offset offset,
                                    bool always_allocate_data) {
   DCHECK_GE(offset, 0);
   DCHECK_LE(offset, static_cast<Offset>(size_));
-  DCHECK_GT(size, 0u);
 
-  // Patch up the block.
-  size_ += size;
-  ShiftOffsetItemMap(offset, size, &labels_);
-  ShiftOffsetItemMap(offset, size, &references_);
-  ShiftReferrers(offset, size, &referrers_);
-  source_ranges_.InsertUnmappedRange(DataRange(offset, size));
+  if (size > 0) {
+    // Patch up the block.
+    size_ += size;
+    ShiftOffsetItemMap(offset, size, &labels_);
+    ShiftOffsetItemMap(offset, size, &references_);
+    ShiftReferrers(offset, size, &referrers_);
+    source_ranges_.InsertUnmappedRange(DataRange(offset, size));
 
-  // Does this affect already allocated data?
-  if (static_cast<Size>(offset) < data_size_) {
-    // Reallocate, shift the old data to the end, and zero out the new data.
-    size_t old_data_size = data_size_;
-    size_t bytes_to_shift = data_size_ - offset;
-    ResizeData(data_size_ + size);
-    uint8* new_data = GetMutableData();
-    memmove(new_data + offset + size, new_data + offset, bytes_to_shift);
-    memset(new_data + offset, 0, size);
+    // Does this affect already allocated data?
+    if (static_cast<Size>(offset) < data_size_) {
+      // Reallocate, shift the old data to the end, and zero out the new data.
+      size_t old_data_size = data_size_;
+      size_t bytes_to_shift = data_size_ - offset;
+      ResizeData(data_size_ + size);
+      uint8* new_data = GetMutableData();
+      memmove(new_data + offset + size, new_data + offset, bytes_to_shift);
+      memset(new_data + offset, 0, size);
+    }
   }
 
   // We haven't been explicitly asked to allocate new data, so don't bother.
@@ -700,8 +701,10 @@ void BlockGraph::Block::InsertData(Offset offset,
 
 bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
   DCHECK_GE(offset, 0);
-  DCHECK_LT(offset, static_cast<Offset>(size_));
-  DCHECK_GT(size, 0u);
+  DCHECK_LE(offset, static_cast<Offset>(size_));
+
+  if (size == 0)
+    return true;
 
   // Ensure there are no labels in this range.
   if (labels_.lower_bound(offset) != labels_.lower_bound(offset + size))
