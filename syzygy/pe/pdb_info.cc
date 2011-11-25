@@ -47,28 +47,42 @@ bool PdbInfo::Init(const PEFile& pe_file) {
       pe_file.nt_headers()->OptionalHeader.DataDirectory[
           IMAGE_DIRECTORY_ENTRY_DEBUG];
 
-  // Read the debug directory entry.
-  IMAGE_DEBUG_DIRECTORY debug_dir = {};
-  PEFile::RelativeAddress debug_dir_addr(debug_data_dir.VirtualAddress);
-  DCHECK_EQ(debug_data_dir.Size, sizeof(debug_dir));
-  if (!pe_file.ReadImage(debug_dir_addr, &debug_dir, sizeof(debug_dir))) {
-    LOG(ERROR) << "Unable to read debug directory entry from PE file: "
-               << pe_file.path().value();
-    return false;
-  }
-  DCHECK_GT(debug_dir.SizeOfData, sizeof(CvInfoPdb70));
+  // Iterate through the debug directory entries.
+  const size_t kEntrySize = sizeof(IMAGE_DEBUG_DIRECTORY);
+  for (size_t i = 0; i < debug_data_dir.Size; i += kEntrySize) {
+    IMAGE_DEBUG_DIRECTORY debug_dir = {};
+    PEFile::RelativeAddress entry_addr(debug_data_dir.VirtualAddress + i);
+    if (!pe_file.ReadImage(entry_addr, &debug_dir, sizeof(debug_dir))) {
+      LOG(ERROR) << "Unable to read debug directory entry from PE file: "
+                 << pe_file.path().value();
+      return false;
+    }
+    entry_addr += kEntrySize;
 
-  // Read the actual debug directory data.
-  PEFile::RelativeAddress pdb_info_addr(debug_dir.AddressOfRawData);
-  std::vector<uint8> buffer(debug_dir.SizeOfData);
-  if (!pe_file.ReadImage(pdb_info_addr, &buffer[0], buffer.size())) {
-    LOG(ERROR) << "Unable to read debug directory data from PE file: "
-               << pe_file.path().value();
-    return false;
+    // We're looking for a code-view (ie: PDB file) entry, so skip any others.
+    if (debug_dir.Type != IMAGE_DEBUG_TYPE_CODEVIEW)
+      continue;
+
+    if (debug_dir.SizeOfData < sizeof(CvInfoPdb70)) {
+      LOG(ERROR) << "CodeView debug entry too small.";
+      return false;
+    }
+
+    // Read the actual debug directory data.
+    PEFile::RelativeAddress pdb_info_addr(debug_dir.AddressOfRawData);
+    std::vector<uint8> buffer(debug_dir.SizeOfData);
+    if (!pe_file.ReadImage(pdb_info_addr, &buffer[0], buffer.size())) {
+      LOG(ERROR) << "Unable to read debug directory data from PE file: "
+                 << pe_file.path().value();
+      return false;
+    }
+
+    CvInfoPdb70* cv_info = reinterpret_cast<CvInfoPdb70*>(&buffer[0]);
+    return Init(*cv_info);
   }
 
-  CvInfoPdb70* cv_info = reinterpret_cast<CvInfoPdb70*>(&buffer[0]);
-  return Init(*cv_info);
+  LOG(ERROR) << "PE file has no CodeView debug entry.";
+  return false;
 }
 
 bool PdbInfo::Init(const FilePath& pe_path) {
