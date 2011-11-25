@@ -882,6 +882,42 @@ bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
     DCHECK(offset + ref.size() <= size());
   }
 
+#if defined(DEBUG) || !defined(NDEBUG)
+  {
+    // NOTE: It might be worthwhile making SetReference return true on success,
+    //     and false on failure as it is possible for references to conflict.
+    //     For now we simply check for conflicts in debug builds and die an
+    //     unglorious death if we find any.
+
+    if (!ref.IsValid())
+      NOTREACHED() << "Trying to insert invalid reference.";
+
+    // Examine references before us that could possible conflict with us.
+    Offset offset_begin = offset - Reference::kMaximumSize + 1;
+    ReferenceMap::const_iterator it =
+        references_.lower_bound(offset_begin);
+    for (; it != references_.end() && it->first < offset; ++it) {
+      if (static_cast<Offset>(it->first + it->second.size()) > offset)
+        NOTREACHED() << "Trying to insert conflicting reference.";
+    }
+
+    // Examine the reference at the same offset if there is one. We expect it to
+    // have the same size and type.
+    if (it != references_.end() && it->first == offset) {
+      if (it->second.size() != ref.size() || it->second.type() != ref.type()) {
+      }
+      ++it;
+    }
+
+    // This is the first reference after our offset. Check to see if it lands
+    // within the range we want to occupy.
+    if (it != references_.end() &&
+        it->first < static_cast<Offset>(offset + ref.size())) {
+      NOTREACHED() << "Trying to insert conflicting reference.";
+    }
+  }
+#endif
+
   // Did we have an earlier reference at this location?
   ReferenceMap::iterator it(references_.find(offset));
   bool inserted = false;
@@ -1112,5 +1148,27 @@ bool BlockGraph::Block::LoadData(InArchive* in_archive) {
 
   return true;
 }
+
+bool BlockGraph::Reference::IsValid() const {
+  switch (type_) {
+    // We see 8- and 32-bit relative JMPs.
+    case PC_RELATIVE_REF:
+      return size_ == 1 || size_ == 4;
+
+    // These guys are all pointer sized.
+    case ABSOLUTE_REF:
+    case RELATIVE_REF:
+    case FILE_OFFSET_REF:
+      return size_ == 4;
+
+    default:
+      NOTREACHED() << "Unknown ReferenceType.";
+  }
+
+  return false;
+}
+
+// This needs to be kept in sync with the values in IsValid.
+const BlockGraph::Size BlockGraph::Reference::kMaximumSize = 4;
 
 }  // namespace block_graph

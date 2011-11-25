@@ -694,12 +694,22 @@ class BlockGraph::Reference {
   Block* referenced() const { return referenced_; }
   Offset offset() const { return offset_; }
 
+  // Determines if this is a valid reference, by imposing size constraints on
+  // reference types.
+  //
+  // @returns true if valid, false otherwise.
+  bool IsValid() const;
+
   bool operator==(const Reference& other) const {
     return type_ == other.type_ &&
         size_ == other.size_ &&
         referenced_ == other.referenced_ &&
         offset_ == other.offset_;
   }
+
+  // The maximum size that a reference may have.
+  static const Size kMaximumSize;
+
  private:
   // Type of this reference.
   ReferenceType type_;
