@@ -196,6 +196,7 @@
         'parse_engine_rpc_unittests.cc',
         'parse_engine_unittests.cc',
         'process_info_unittests.cc',
+        'shadow_stack_unittests.cc',
         'service_unittests.cc',
         'unittests_main.cc',
       ],
