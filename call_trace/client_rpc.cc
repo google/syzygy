@@ -228,9 +228,6 @@ void __declspec(naked) pexit_dllmain() {
 namespace call_trace {
 namespace client {
 
-const wchar_t* const Client::kRpcProtocol = ::kCallTraceRpcProtocol;
-const wchar_t* const Client::kRpcEndpoint = ::kCallTraceRpcEndpoint;
-
 class Client::ThreadLocalData {
  public:
   explicit ThreadLocalData(Client* module);
@@ -256,15 +253,12 @@ class Client::ThreadLocalData {
 };
 
 Client::Client()
-    : tls_index_(::TlsAlloc()),
-      session_handle_(NULL),
-      is_disabled_(false) {
+    : tls_index_(::TlsAlloc()) {
 }
 
 Client::~Client() {
   if (TLS_OUT_OF_INDEXES != tls_index_)
     ::TlsFree(tls_index_);
-  FreeSharedMemory();
 }
 
 Client* Client::Instance() {
@@ -297,195 +291,25 @@ BOOL Client::DllMain(HMODULE /* module */,
 }
 
 void Client::OnClientProcessDetach() {
-  if (!IsTracing())
+  if (!session_.IsTracing())
     return;
 
-  CloseSession();
+  session_.CloseSession();
   FreeThreadData();
-  FreeSharedMemory();
+  session_.FreeSharedMemory();
 }
 
 void Client::OnClientThreadDetach() {
-  if (!IsTracing())
+  if (!session_.IsTracing())
     return;
 
   // Get the thread data. If this thread has never called an instrumented
   // function, no thread local call trace data will be associated with it.
   ThreadLocalData* data = GetThreadData();
   if (data != NULL) {
-    ReturnBuffer(data);
+    session_.ReturnBuffer(&data->segment);
     FreeThreadData(data);
   }
-}
-
-bool Client::MapSegmentBuffer(ThreadLocalData* data) {
-  DCHECK(data != NULL);
-  DCHECK(data->client == this);
-
-  HANDLE mem_handle =
-      reinterpret_cast<HANDLE>(data->segment.buffer_info.shared_memory_handle);
-
-  // Get (or set) the mapping between the handle we've received and the
-  // corresponding mapped base pointer. Note that the shared_memory_handles_
-  // map is shared across threads, so we need to hold the shared_memory_lock_
-  // when we access/update it.  This should be the only synchronization point
-  // in the call trace client library (other then the initial creation of the
-  // client object, of course).
-  {
-    base::AutoLock scoped_lock(shared_memory_lock_);
-
-    uint8*& base_ptr = shared_memory_handles_[mem_handle];
-    if (base_ptr == NULL) {
-      base_ptr = reinterpret_cast<uint8*>(
-          ::MapViewOfFile(mem_handle, FILE_MAP_WRITE, 0, 0,
-                          data->segment.buffer_info.mapping_size));
-      if (base_ptr == NULL) {
-        DWORD error = ::GetLastError();
-        LOG(ERROR) << "Failed to map view of shared memory: "
-                   << com::LogWe(error) << ".";
-        ignore_result(::CloseHandle(mem_handle));
-        shared_memory_handles_.erase(mem_handle);
-        return false;
-      }
-    }
-
-    data->segment.base_ptr =
-        base_ptr + data->segment.buffer_info.buffer_offset;
-  }
-
-  data->segment.header = NULL;
-  data->segment.write_ptr = data->segment.base_ptr;
-  data->segment.end_ptr =
-      data->segment.base_ptr + data->segment.buffer_info.buffer_size;
-  WriteSegmentHeader(session_handle_, &data->segment);
-
-  DCHECK(data->segment.header != NULL);
-
-  if (IsEnabled(TRACE_FLAG_BATCH_ENTER)) {
-    CHECK(CanAllocate(&data->segment, sizeof(TraceBatchEnterData)));
-
-    TraceBatchEnterData* batch_header =
-        AllocateTraceRecord<TraceBatchEnterData>(&data->segment);
-
-    DCHECK(batch_header == GetTraceBatchHeader(&data->segment));
-
-    batch_header->thread_id = data->segment.header->thread_id;
-    batch_header->num_calls = 0;
-
-    // Correct for the first FuncCall entry having already been
-    // allocated.
-    RecordPrefix* batch_prefix = GetTraceBatchPrefix(&data->segment);
-    batch_prefix->size -= sizeof(FuncCall);
-    data->segment.write_ptr -= sizeof(FuncCall);
-    data->segment.header->segment_length -= sizeof(FuncCall);
-
-    DCHECK_EQ(reinterpret_cast<FuncCall*>(data->segment.write_ptr),
-              batch_header->calls + batch_header->num_calls);
-  }
-
-  return true;
-}
-
-bool Client::CreateSession() {
-  DCHECK(session_handle_ == NULL);
-  DCHECK(rpc_binding_ == NULL);
-
-  if (!CreateRpcBinding(kRpcProtocol, kRpcEndpoint, &rpc_binding_))
-    return false;
-
-  DCHECK(rpc_binding_ != 0);
-
-  ThreadLocalData* data = GetOrAllocateThreadData();
-  CHECK(data != NULL);
-
-  DCHECK(data->client == this);
-
-  bool succeeded = InvokeRpc(CallTraceClient_CreateSession,
-                             rpc_binding_,
-                             &session_handle_,
-                             &data->segment.buffer_info,
-                             &flags_).succeeded();
-
-  if (!succeeded) {
-    LOG(ERROR) << "Failed to create call trace session!";
-    return false;
-  }
-
-  if ((flags_ & TRACE_FLAG_BATCH_ENTER) != 0) {
-    // Batch mode is mutually exclusive of all other flags.
-    flags_ = TRACE_FLAG_BATCH_ENTER;
-  }
-
-  return MapSegmentBuffer(data);
-}
-
-bool Client::AllocateBuffer(ThreadLocalData* data) {
-  DCHECK(IsTracing());
-  DCHECK(data != NULL);
-  DCHECK(data->client == this);
-
-  bool succeeded = InvokeRpc(CallTraceClient_AllocateBuffer,
-                             session_handle_,
-                             &data->segment.buffer_info).succeeded();
-
-  return succeeded ? MapSegmentBuffer(data) : false;
-}
-
-bool Client::ExchangeBuffer(ThreadLocalData* data) {
-  DCHECK(IsTracing());
-  DCHECK(data != NULL);
-  DCHECK(data->client == this);
-
-  bool succeeded = InvokeRpc(CallTraceClient_ExchangeBuffer,
-                             session_handle_,
-                             &data->segment.buffer_info).succeeded();
-
-  return succeeded ? MapSegmentBuffer(data) : false;
-}
-
-bool Client::ReturnBuffer(ThreadLocalData* data) {
-  DCHECK(IsTracing());
-  DCHECK(data != NULL);
-  DCHECK(data->client == this);
-
-  return InvokeRpc(CallTraceClient_ReturnBuffer,
-                   session_handle_,
-                   &data->segment.buffer_info).succeeded();
-}
-
-bool Client::CloseSession() {
-  DCHECK(IsTracing());
-
-  bool succeeded = InvokeRpc(CallTraceClient_CloseSession,
-                             &session_handle_).succeeded();
-
-  ignore_result(::RpcBindingFree(&rpc_binding_));
-  rpc_binding_ = NULL;
-
-  return succeeded;
-}
-
-void Client::FreeSharedMemory() {
-  base::AutoLock scoped_lock_(shared_memory_lock_);
-
-  if (shared_memory_handles_.empty())
-    return;
-
-  SharedMemoryHandleMap::iterator it = shared_memory_handles_.begin();
-  for (; it != shared_memory_handles_.end(); ++it) {
-    DCHECK(it->second != NULL);
-    if (::UnmapViewOfFile(it->second) == 0) {
-      DWORD error = ::GetLastError();
-      LOG(WARNING) << "Failed to unmap memory handle: " << com::LogWe(error);
-    }
-
-    if (::CloseHandle(it->first) == 0) {
-      DWORD error = ::GetLastError();
-      LOG(WARNING) << "Failed to close memory handle: " << com::LogWe(error);
-    }
-  }
-
-  shared_memory_handles_.clear();
 }
 
 void Client::DllMainEntryHook(EntryFrame *entry_frame, FuncAddr function) {
@@ -494,7 +318,7 @@ void Client::DllMainEntryHook(EntryFrame *entry_frame, FuncAddr function) {
   Client* client = Instance();
   CHECK(client != NULL) << "Failed to get call trace client instance.";
 
-  if (client->IsDisabled())
+  if (client->session_.IsDisabled())
     return;
 
   HMODULE module = reinterpret_cast<HMODULE>(entry_frame->args[0]);
@@ -509,7 +333,7 @@ void Client::FunctionEntryHook(EntryFrame *entry_frame, FuncAddr function) {
   Client* client = Instance();
   CHECK(client != NULL) << "Failed to get call trace client instance.";
 
-  if (client->IsDisabled())
+  if (client->session_.IsDisabled())
     return;
 
   client->LogEvent_FunctionEntry(entry_frame, function, NULL, -1);
@@ -521,8 +345,8 @@ RetAddr Client::FunctionExitHook(const void* stack_pointer,
 
   Client* client = Instance();
   CHECK(client != NULL) << "Failed to get call trace client instance.";
-  DCHECK(!client->IsDisabled());
-  DCHECK(client->IsTracing());
+  DCHECK(!client->session_.IsDisabled());
+  DCHECK(client->session_.IsTracing());
 
   return client->LogEvent_FunctionExit(stack_pointer, retval);
 }
@@ -533,8 +357,8 @@ RetAddr Client::DllMainExitHook(const void* stack_pointer,
 
   Client* client = Instance();
   CHECK(client != NULL) << "Failed to get call trace client instance.";
-  DCHECK(!client->IsDisabled());
-  DCHECK(client->IsTracing());
+  DCHECK(!client->session_.IsDisabled());
+  DCHECK(client->session_.IsTracing());
 
   RetAddr value = client->LogEvent_FunctionExit(stack_pointer, retval);
 
@@ -555,7 +379,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
                                   DWORD reason) {
   DCHECK(data != NULL);
   DCHECK(module != NULL);
-  DCHECK(IsTracing());
+  DCHECK(session_.IsTracing());
 
   // Perform a sanity check.
   switch (reason) {
@@ -565,7 +389,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
-      if (!IsEnabled(TRACE_FLAG_THREAD_EVENTS))
+      if (!session_.IsEnabled(TRACE_FLAG_THREAD_EVENTS))
         return;
       break;
 
@@ -576,7 +400,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 
   // Make sure the event we're about to write will fit.
   if (!CanAllocate(&data->segment, sizeof(TraceModuleData))) {
-    ExchangeBuffer(data);
+    session_.ExchangeBuffer(&data->segment);
   }
 
   // Allocate a record in the log.
@@ -613,7 +437,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   //
   // TODO(rogerm): We don't really need to flush right away for detach
   //     events. We could be a little more efficient here.
-  ExchangeBuffer(data);
+  session_.ExchangeBuffer(&data->segment);
 }
 
 
@@ -629,24 +453,25 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   // to an instrumented function. We attempt to initialize a session. If
   // we're not able to initialize a session, we disable the call trace
   // client.
-  if (!IsTracing()) {
+  ThreadLocalData *data = GetOrAllocateThreadData();
+  CHECK(data != NULL) << "Failed to get call trace thread context.";
+
+  if (!session_.IsTracing()) {
     base::AutoLock scoped_lock(init_lock_);
-    if (IsDisabled())
+    if (session_.IsDisabled())
       return;
-    if (!IsTracing() && !CreateSession()) {
-      is_disabled_ = true;
+
+    if (!session_.IsTracing() && !session_.CreateSession(&data->segment)) {
       return;
     }
   }
 
-  DCHECK(!IsDisabled());
-  DCHECK(IsTracing());
-
-  ThreadLocalData *data = GetOrAllocateThreadData();
-  CHECK(data != NULL) << "Failed to get call trace thread context.";
+  DCHECK(!session_.IsDisabled());
+  DCHECK(session_.IsTracing());
 
   if (!data->IsInitialized()) {
-    CHECK(AllocateBuffer(data)) << "Failed to allocate trace buffer.";
+    CHECK(session_.AllocateBuffer(&data->segment))
+        << "Failed to allocate trace buffer.";
   }
 
   if ((module != NULL) &&
@@ -655,14 +480,14 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   }
 
   // If we're in batch mode, just capture the basic call info and timestamp.
-  if (IsEnabled(TRACE_FLAG_BATCH_ENTER)) {
-    DCHECK_EQ(flags_ & (flags_ - 1), 0u)
+  if (session_.IsEnabled(TRACE_FLAG_BATCH_ENTER)) {
+    DCHECK_EQ(session_.flags() & (session_.flags() - 1), 0u)
         << "Batch mode isn't compatible with any other flags; "
            "no other bits should be set.";
 
     // Make sure we have space for the batch entry.
     if (!CanAllocateRaw(&data->segment, sizeof(FuncCall))) {
-      ExchangeBuffer(data);
+      session_.ExchangeBuffer(&data->segment);
     }
 
     // Add the batch entry for this call.
@@ -682,9 +507,9 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   }
 
   // If we're tracing detailed function entries, capture the function details.
-  if (IsEnabled(TRACE_FLAG_ENTER)) {
+  if (session_.IsEnabled(TRACE_FLAG_ENTER)) {
     if (!CanAllocate(&data->segment, sizeof(TraceEnterEventData))) {
-      ExchangeBuffer(data);
+      session_.ExchangeBuffer(&data->segment);
     }
 
     TraceEnterEventData* event_data =
@@ -702,7 +527,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
     //     example, a function we didn't capture in the same module, or entry
     //     indirectly through a callback, so leaving as a possible future
     //     optimization.
-    if (IsEnabled(TRACE_FLAG_STACK_TRACES)) {
+    if (session_.IsEnabled(TRACE_FLAG_STACK_TRACES)) {
       event_data->num_traces = ::RtlCaptureStackBackTrace(
           3, kMaxTraceDepth, const_cast<PVOID*>(event_data->traces), NULL);
       FixupBackTrace(data->shadow_stack, event_data->traces,
@@ -718,7 +543,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   // If we're tracing function exits, or we need to capture the end of a
   // module unload event, we need to write the appropriate exit hook into
   // the call stack.
-  if (IsEnabled(TRACE_FLAG_EXIT) || is_detach_event) {
+  if (session_.IsEnabled(TRACE_FLAG_EXIT) || is_detach_event) {
     // Make sure we trim orphaned shadow stack entries before pushing
     // a new one. On entry, any shadow stack entry whose entry frame pointer
     // is less than the current entry frame is orphaned.
@@ -745,7 +570,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
 
 RetAddr Client::LogEvent_FunctionExit(const void* stack_pointer,
                                       RetValueWord retval) {
-  DCHECK(IsTracing());  // Otherwise we wouldn't get here.
+  DCHECK(session_.IsTracing());  // Otherwise we wouldn't get here.
 
   ThreadLocalData *data = GetThreadData();
   CHECK(NULL != data) << "Shadow stack missing in action";
@@ -758,16 +583,16 @@ RetAddr Client::LogEvent_FunctionExit(const void* stack_pointer,
   StackEntry top = stack.Peek();
 
   // Trace the exit if required.
-  if (IsEnabled(TRACE_FLAG_EXIT)) {
+  if (session_.IsEnabled(TRACE_FLAG_EXIT)) {
     if (!CanAllocate(&data->segment, sizeof(TraceExitEventData))) {
-      ExchangeBuffer(data);
+      session_.ExchangeBuffer(&data->segment);
     }
     TraceExitEventData* event_data =
         AllocateTraceRecord<TraceExitEventData>(&data->segment);
     event_data->depth = data->shadow_stack.size();
     event_data->function = top.function_address;
     event_data->retval = retval;
-    if (IsEnabled(TRACE_FLAG_STACK_TRACES)) {
+    if (session_.IsEnabled(TRACE_FLAG_STACK_TRACES)) {
       event_data->num_traces = ::RtlCaptureStackBackTrace(
           3, kMaxTraceDepth, const_cast<PVOID*>(event_data->traces), NULL);
       FixupBackTrace(data->shadow_stack, event_data->traces,

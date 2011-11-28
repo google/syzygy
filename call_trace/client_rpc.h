@@ -18,14 +18,12 @@
 #ifndef SYZYGY_CALL_TRACE_CLIENT_RPC_H_
 #define SYZYGY_CALL_TRACE_CLIENT_RPC_H_
 
-#include <atlbase.h>
 #include <map>
 #include <utility>
 #include <vector>
 
 #include "base/synchronization/lock.h"
-#include "base/win/scoped_handle.h"
-#include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/rpc_session.h"
 #include "syzygy/call_trace/shadow_stack.h"
 
 // Assembly instrumentation stubs to handle function entry and exit. These
@@ -46,21 +44,7 @@ class Client {
 
   static Client* Instance();
 
-  bool IsTracing() const {
-    return session_handle_ != NULL;
-  }
-
-  bool IsDisabled() const {
-    return is_disabled_;
-  }
-
   BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID reserved);
-
-  // The name of the Win32 RPC protocol to which the client will bind.
-  static const wchar_t* const kRpcProtocol;
-
-  // The name/address of the RPC endpoint at which the client will listen.
-  static const wchar_t* const kRpcEndpoint;
 
  protected:
   typedef call_trace::EntryFrame EntryFrame;
@@ -124,10 +108,6 @@ class Client {
  private:
   // We keep a structure of this type for each thread.
   class ThreadLocalData;
-
-  inline bool IsEnabled(unsigned long bit_mask) const {
-    return (flags_ & bit_mask) != 0;
-  }
 
   // The functions we use to manage the thread local data.
   ThreadLocalData* GetThreadData();
@@ -199,16 +179,6 @@ class Client {
   RetAddr LogEvent_FunctionExit(const void* stack,
                                 RetValueWord retval);
 
-  // Wrapper and helper functions for the RPC and shared memory calls made
-  // by the call-trace client.
-  bool MapSegmentBuffer(ThreadLocalData* data);
-  bool CreateSession();
-  bool AllocateBuffer(ThreadLocalData* data);
-  bool ExchangeBuffer(ThreadLocalData* data);
-  bool ReturnBuffer(ThreadLocalData* data);
-  bool CloseSession();
-  void FreeSharedMemory();
-
   struct StackEntry : public call_trace::StackEntryBase {
     // The function address invoked, from which this stack entry returns.
     FuncAddr function_address;
@@ -234,34 +204,14 @@ class Client {
                              RetAddr traces[],
                              size_t num_traces);
 
-  // We track the set of shared memory handles we've mapped into the
-  // process. This allows us to avoid mapping a handle twice, as well
-  // as letting us know what to clean up on exit. Access to the set
-  // of handles must be serialized with a lock.
-  typedef std::map<HANDLE, uint8*> SharedMemoryHandleMap;
-  base::Lock shared_memory_lock_;
-  SharedMemoryHandleMap shared_memory_handles_;
+  // The initialization lock.
+  base::Lock init_lock_;
+
+  // Our RPC session state.
+  RpcSession session_;
 
   // TLS index to our thread local data.
   DWORD tls_index_;
-
-  // The call trace RPC binding.
-  handle_t rpc_binding_;
-
-  // The handle to the call trace session. Initialization of the session
-  // is protected by a lock. This is a seperate lock since we don't seem
-  // to have recursive locks in base.
-  base::Lock init_lock_;
-  SessionHandle session_handle_;
-
-  // The set of trace flags returned by the call trace server. These instruct
-  // the client as to which types of events to capture.
-  unsigned long flags_;
-
-  // This becomes true if the client fails to attach to a call trace service.
-  // This is used to allow the application to run even if no call trace
-  // service is available.
-  bool is_disabled_;
 };
 
 }  // namespace call_trace::client

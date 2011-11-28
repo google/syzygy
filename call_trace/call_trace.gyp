@@ -80,6 +80,8 @@
         'client_utils.h',
         'rpc_helpers.cc',
         'rpc_helpers.h',
+        'rpc_session.cc',
+        'rpc_session.h',
         'rpc_mem.cc',
       ],
       'all_dependent_settings': {
