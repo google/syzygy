@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,39 +13,6 @@
 // limitations under the License.
 //
 // Implementation of the CallTrace call tracing DLL.
-//
-// A note on the exit hook:
-// The exit hook is implemented by swizzling return addresses on the machine
-// stack while maintaining a per-thread shadow stack of return addresses.
-// If exit logging is requested on entry to a function, the shadow stack is
-// pushed with the current return address, and the return address on the machine
-// stack is replaced with the address of _pexit. On subsequent return to _pexit,
-// the exit event will be recorded, the shadow stack popped, and _pexit will
-// return to the address from the shadow stack.
-//
-// This simple implementation works fine in the absence of nonlocal gotos,
-// exceptions and the like. However, on such events, some portion of the machine
-// stack is discarded, which puts the shadow stack out of synchronization with
-// the machine stack. This in turn will cause a subsequent return to _pexit
-// to pop the wrong entry off the shadow stack, and a return to the wrong
-// address.
-//
-// To avoid this, we note that:
-// * On exit, the stack pointer must be strictly greater than the entry frame
-//   that the shadow stack entry was created from (as the return address as well
-//   as the arguments - in the case of __stdcall - have been popped off the
-//   stack in preparation for the return).
-//   Also, the second non-orphaned shadow stack entry's entry frame pointer must
-//   be equal or greater than the stack pointer (and its return address must be
-//   _pexit).
-// * An exception to the above is multiple entries with the same entry address,
-//   which occur in the cases of tail call & recursion elimination.
-// * On entry, any shadow stack entry whose entry frame pointer is less than
-//   the current entry frame is orphaned. Note that equal entry frame pointers
-//   occur in the case of tail call & recursion elimination.
-//
-// By discarding orphaned shadow stack entries on entry and exit, we can ensure
-// that we never return on an orphaned entry.
 
 #include "syzygy/call_trace/client_etw.h"
 
@@ -210,7 +177,7 @@ class TracerModule::ThreadLocalData {
   };
 
   // The shadow return stack we use when function exit is traced.
-  ReturnStack return_stack_;
+  ShadowStack shadow_stack_;
 };
 
 TracerModule::TracerModule()
@@ -455,7 +422,7 @@ void TracerModule::TraceEntry(EntryFrame *entry_frame, FuncAddr function) {
     ThreadLocalData *data = module.GetOrAllocateThreadData();
 
     TraceEnterExitEventData event_data = {};
-    event_data.depth = (NULL == data) ? 0 : data->return_stack_.size();
+    event_data.depth = (NULL == data) ? 0 : data->shadow_stack_.size();
     event_data.function = function;
     CopyArguments(event_data.args,
                   entry_frame->args,
@@ -473,7 +440,7 @@ void TracerModule::TraceEntry(EntryFrame *entry_frame, FuncAddr function) {
                                      const_cast<PVOID*>(event_data.traces),
                                      NULL);
       if (data != NULL)
-        FixupBackTrace(data->return_stack_, &event_data);
+        FixupBackTrace(data->shadow_stack_, &event_data);
     } else {
       event_data.num_traces = 0;
     }
@@ -483,18 +450,13 @@ void TracerModule::TraceEntry(EntryFrame *entry_frame, FuncAddr function) {
     // Divert function return to pexit if we're tracing function exit.
     if (NULL != data && module.IsTracing(TRACE_FLAG_EXIT)) {
       // Make sure we trim orphaned shadow stack entries before pushing
-      // a new one. On entry, any shadow stack entry whose entry frame pointer
-      // is less than the current entry frame is orphaned.
-      ReturnStack& stack = data->return_stack_;
-      while (!stack.empty() &&
-             reinterpret_cast<const byte*>(stack.back().entry_frame) <
-             reinterpret_cast<const byte*>(entry_frame)) {
-        stack.pop_back();
-      }
+      // a new one.
+      ShadowStack& stack = data->shadow_stack_;
+      stack.TrimOrphansOnEntry(entry_frame);
 
       // Save the old return address.
-      ReturnStackEntry entry = { entry_frame->retaddr, function, entry_frame };
-      stack.push_back(entry);
+      StackEntry& entry = stack.Push(entry_frame);
+      entry.function_address = function;
 
       // And modify the return address in our frame.
       entry_frame->retaddr = reinterpret_cast<RetAddr>(pexit);
@@ -512,57 +474,22 @@ RetAddr TracerModule::TraceExit(const void* stack_pointer,
   ThreadLocalData *data = module.GetThreadData();
   CHECK(NULL != data) << "Shadow stack missing in action";
 
-  // On exit, the stack pointer must be strictly greater than the entry frame
-  // that the shadow stack entry was created from. Also, the second non-orphaned
-  // shadow stack entry's entry frame pointer must be equal or greater than
-  // the stack pointer (and its return address must be _pexit).
-  // An exception to the above is multiple entries with the same entry address,
-  // which occur in the cases of tail call & recursion elimination.
-  ReturnStack& stack = data->return_stack_;
-  CHECK(!stack.empty()) << "Shadow stack out of whack!";
-  CHECK(reinterpret_cast<const byte*>(stack_pointer) >
-        reinterpret_cast<const byte*>(stack.back().entry_frame))
-      << "Invalid entry on shadow stack";
-
-  // Find the first entry (if any) that has an entry pointer greater or equal
-  // to the stack pointer. This entry is the second non-orphaned entry on the
-  // stack, or the Nth entry behind N-1 entries with identical entry_frames in
-  // case of tail call & recursion.
-  ReturnStack::reverse_iterator it(stack.rbegin());
-  ReturnStack::reverse_iterator end(stack.rend());
-  for (; it != end; ++it) {
-    if (reinterpret_cast<const byte*>(it->entry_frame) >=
-        reinterpret_cast<const byte*>(stack_pointer)) {
-      break;
-    }
-  }
-
-  // Now "it" points to the entry preceding the entry to pop, or the first of
-  // many entries with identical entry_frame pointers.
-  ReturnStack::reverse_iterator begin(stack.rbegin());
-  --it;
-  EntryFrame* entry_frame = it->entry_frame;
-  for (; it != begin; --it) {
-    if (it->entry_frame != entry_frame) {
-      // Slice the extra entries off the shadow stack.
-      stack.resize(end - it - 1);
-      break;
-    }
-  }
+  ShadowStack& stack = data->shadow_stack_;
+  stack.TrimOrphansOnExit(stack_pointer);
 
   // Get the top of the stack, we don't pop it yet, because
   // the fixup function needs to see our entry to fixup correctly.
-  ReturnStackEntry top = stack.back();
+  StackEntry top = stack.Peek();
 
   if (module.IsTracing(TRACE_FLAG_EXIT)) {
     TraceEnterExitEventData event_data;
-    event_data.depth = data->return_stack_.size();
+    event_data.depth = data->shadow_stack_.size();
     event_data.function = top.function_address;
     event_data.retval = retval;
     if (module.enable_flags() & TRACE_FLAG_STACK_TRACES) {
       event_data.num_traces = ::RtlCaptureStackBackTrace(
           2, kMaxTraceDepth, const_cast<PVOID*>(event_data.traces), NULL);
-      FixupBackTrace(data->return_stack_, &event_data);
+      FixupBackTrace(data->shadow_stack_, &event_data);
     } else {
       event_data.num_traces = 0;
     }
@@ -570,7 +497,7 @@ RetAddr TracerModule::TraceExit(const void* stack_pointer,
   }
 
   // Pop the stack.
-  stack.pop_back();
+  stack.Pop();
 
   // Restore last error as very last thing.
   ::SetLastError(err);
@@ -622,15 +549,10 @@ void TracerModule::FlushBatchEntryTraces(ThreadLocalData* data) {
   data->data_.num_calls = 0;
 }
 
-void TracerModule::FixupBackTrace(const ReturnStack& stack,
+void TracerModule::FixupBackTrace(const ShadowStack& stack,
                                   TraceEnterExitEventData *data) {
-  ReturnStack::const_reverse_iterator it(stack.rbegin()), end(stack.rend());
-  for (size_t i = 0; i < data->num_traces && it != end; ++i) {
-    if (pexit == data->traces[i]) {
-      data->traces[i] = it->return_address;
-      ++it;
-    }
-  }
+  static const RetAddr kExitFn = pexit;
+  stack.FixBackTrace(1, &kExitFn, data->num_traces, data->traces);
 }
 
 TracerModule::ThreadLocalData *TracerModule::GetThreadData() {

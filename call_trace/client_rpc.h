@@ -26,6 +26,7 @@
 #include "base/synchronization/lock.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/shadow_stack.h"
 
 // Assembly instrumentation stubs to handle function entry and exit. These
 // respectively invoke Client::FunctionEntryHook, Client::DllMainEntryHook,
@@ -62,16 +63,11 @@ class Client {
   static const wchar_t* const kRpcEndpoint;
 
  protected:
+  typedef call_trace::EntryFrame EntryFrame;
   friend void _indirect_penter();
   friend void _indirect_penter_dll_main();
   friend void pexit();
   friend void pexit_dllmain();
-
-  // This structure is overlaid on the entry frame to access and modify it.
-  struct EntryFrame {
-    RetAddr retaddr;
-    ArgumentWord args[4];
-  };
 
   // Invoked by _indirect_penter_dllmain on entry to a DLL's entry point.
   //
@@ -213,16 +209,12 @@ class Client {
   bool CloseSession();
   void FreeSharedMemory();
 
-  struct ReturnStackEntry {
-    // The original return address we replaced.
-    RetAddr return_address;
+  struct StackEntry : public call_trace::StackEntryBase {
     // The function address invoked, from which this stack entry returns.
     FuncAddr function_address;
-    // The address of the entry frame associated with this shadow entry.
-    EntryFrame* entry_frame;
   };
 
-  typedef std::vector<ReturnStackEntry> ReturnStack;
+  typedef ShadowStackImpl<StackEntry> ShadowStack;
 
   struct ModuleEventStackEntry {
     // The module to which the event refers.
@@ -238,7 +230,7 @@ class Client {
   // is fixed to point to the corresponding trace in stack. This is
   // necessary because when exit tracing is enabled, the return address
   // of each entered function is rewritten to _pexit.
-  static void FixupBackTrace(const ReturnStack& stack,
+  static void FixupBackTrace(const ShadowStack& stack,
                              RetAddr traces[],
                              size_t num_traces);
 

@@ -23,6 +23,7 @@
 #include "base/win/scoped_handle.h"
 #include "syzygy/call_trace/call_trace_defs.h"
 #include "syzygy/call_trace/dlist.h"
+#include "syzygy/call_trace/shadow_stack.h"
 
 // Assembly stubs to convert calling conventions on function entry and
 // exit. These respetively invoke TracerModule::TraceEntry and
@@ -41,16 +42,11 @@ class TracerModule: public base::win::EtwTraceProvider {
   BOOL WINAPI DllMain(DWORD reason, LPVOID reserved);
 
  protected:
+  typedef call_trace::EntryFrame EntryFrame;
   friend void _penter();
   friend void pexit();
   friend bool wait_til_enabled();
   friend bool wait_til_disabled();
-
-  // This structure is overlaid on the entry frame to access and modify it.
-  struct EntryFrame {
-    RetAddr retaddr;
-    ArgumentWord args[4];
-  };
 
   // Invoked on function entry.
   // @param entry_frame the entry frame for the called function.
@@ -92,16 +88,12 @@ class TracerModule: public base::win::EtwTraceProvider {
                       const TraceEnterExitEventData& data);
   void TraceBatchEnter(FuncAddr function);
 
-  struct ReturnStackEntry {
-    // The original return address we replaced.
-    RetAddr return_address;
+  struct StackEntry : public call_trace::StackEntryBase {
     // The function address invoked, from which this stack entry returns.
     FuncAddr function_address;
-    // The address of the entry frame associated with this shadow entry.
-    EntryFrame* entry_frame;
   };
 
-  typedef std::vector<ReturnStackEntry> ReturnStack;
+  typedef call_trace::ShadowStackImpl<StackEntry> ShadowStack;
 
   // The number of trace entries we log in a batch. There is a maximal
   // event size which appears to be inclusive of the trace header and
@@ -124,7 +116,7 @@ class TracerModule: public base::win::EtwTraceProvider {
   // is fixed to point to the corresponding trace in stack. This is
   // necessary because when exit tracing is enabled, the return address
   // of each entered function is rewritten to _pexit.
-  static void FixupBackTrace(const ReturnStack& stack,
+  static void FixupBackTrace(const ShadowStack& stack,
                              TraceEnterExitEventData *data);
 
   ThreadLocalData *GetThreadData();
