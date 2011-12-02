@@ -669,8 +669,12 @@ TEST(BlockGraphTest, References) {
   ASSERT_TRUE(b3->references().empty());
   ASSERT_TRUE(b3->referrers().empty());
 
+  BlockGraph::Reference dummy;
+  ASSERT_FALSE(dummy.IsValid());
+
   // Add the first reference, and test that we get a backref.
   BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  ASSERT_TRUE(r_pc.IsValid());
   ASSERT_EQ(BlockGraph::PC_RELATIVE_REF, r_pc.type());
   ASSERT_EQ(1, r_pc.size());
   ASSERT_EQ(b2, r_pc.referenced());

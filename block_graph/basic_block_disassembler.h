@@ -29,6 +29,7 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
+#include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/disassembler.h"
@@ -58,7 +59,7 @@ class BasicBlockDisassembler : public core::Disassembler {
   typedef core::AbsoluteAddress AbsoluteAddress;
 
   // Use the AddressSpace primitives to represent the set of basic blocks.
-  typedef core::AddressSpace<AbsoluteAddress, size_t, BlockGraph::Block>
+  typedef core::AddressSpace<AbsoluteAddress, size_t, BasicBlock>
       BBAddressSpace;
   typedef BBAddressSpace::Range Range;
   typedef BBAddressSpace::RangeMap RangeMap;
@@ -93,14 +94,21 @@ class BasicBlockDisassembler : public core::Disassembler {
 
  protected:
   // Overrides from Disassembler. See disassembler.h for comments.
-  virtual CallbackDirective OnBranchInstruction(const AbsoluteAddress& addr,
-                                                const _DInst& inst,
-                                                const AbsoluteAddress& dest);
+  // @{
+  virtual CallbackDirective OnInstruction(
+      const AbsoluteAddress& addr,
+      const _DInst& inst) OVERRIDE;
+  virtual CallbackDirective OnBranchInstruction(
+      const AbsoluteAddress& addr,
+      const _DInst& inst,
+      const AbsoluteAddress& dest) OVERRIDE;
   virtual CallbackDirective OnStartInstructionRun(
-      const AbsoluteAddress& start_address);
-  virtual CallbackDirective OnEndInstructionRun(const AbsoluteAddress& addr,
-                                                const _DInst& inst);
-  virtual CallbackDirective OnDisassemblyComplete();
+      const AbsoluteAddress& start_address) OVERRIDE;
+  virtual CallbackDirective OnEndInstructionRun(
+      const AbsoluteAddress& addr,
+      const _DInst& inst) OVERRIDE;
+  virtual CallbackDirective OnDisassemblyComplete() OVERRIDE;
+  // @}
 
   // Fills in all gaps in the range
   // [code_addr_, code_addr_ + code_size_[ with data basic blocks.
@@ -138,6 +146,12 @@ class BasicBlockDisassembler : public core::Disassembler {
 
   // The start of the current basic block during a walk.
   AbsoluteAddress current_block_start_;
+
+  // The list of instructions in the current basic block.
+  BasicBlock::Instructions current_instructions_;
+
+  // The set of successors for the current basic block.
+  BasicBlock::Successors current_successors_;
 };
 
 }  // namespace block_graph
