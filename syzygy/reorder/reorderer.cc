@@ -336,9 +336,14 @@ void Reorderer::OnProcessStarted(base::Time time, DWORD process_id) {
 }
 
 void Reorderer::OnProcessEnded(base::Time time, DWORD process_id) {
-  ProcessSet::iterator process_it = matching_process_ids_.find(process_id);
-  if (process_it != matching_process_ids_.end())
-    matching_process_ids_.erase(process_it);
+  // Notify the order generator.
+  if (!order_generator_->OnProcessEnded(process_id, UniqueTime(time))) {
+    parser_->set_error_occurred(true);
+    return;
+  }
+
+  // Cleanup the local record for process_id.
+  ignore_result(matching_process_ids_.erase(process_id));
 }
 
 // CallTraceEvents implementation.
