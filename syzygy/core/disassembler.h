@@ -103,12 +103,17 @@ class Disassembler {
   size_t disassembled_bytes() const { return disassembled_bytes_; }
 
  protected:
-  CallbackDirective OnInstruction(const _DInst& inst);
-
-  // Called every time a branch instruction is hit.
-  // @param dest is the destination address of the branch instruction.
+  // Called every time a basic instruction is hit.
   // @param addr is the address of the branch instruction itself.
   // @param inst is the disassembled instruction data.
+  // @returns kWalkContinue on succcess or kWalkError on failure.
+  virtual CallbackDirective OnInstruction(const AbsoluteAddress& addr,
+                                          const _DInst& inst);
+
+  // Called every time a branch instruction is hit.
+  // @param addr is the address of the branch instruction itself.
+  // @param inst is the disassembled instruction data.
+  // @param dest is the destination address of the branch instruction.
   // @returns kWalkContinue on succcess or kWalkError on failure.
   virtual CallbackDirective OnBranchInstruction(const AbsoluteAddress& addr,
                                                 const _DInst& inst,
@@ -132,6 +137,13 @@ class Disassembler {
   // to disassemble from.
   // @returns kWalkContinue on succcess or kWalkError on failure.
   virtual CallbackDirective OnDisassemblyComplete();
+
+  // Wrapper function to handle invoking both the internal and external
+  // OnInstruction() callbacks.
+  // @param addr is the address of the current instruction.
+  // @param inst is the instruction.
+  CallbackDirective NotifyOnInstruction(const AbsoluteAddress& addr,
+                                        const _DInst& inst);
 
   // @return true iff the range [addr ... addr + len) is in the function.
   bool IsInBlock(AbsoluteAddress addr) const;

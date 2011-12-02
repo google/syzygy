@@ -21,11 +21,31 @@
 
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
+
+#include "mnemonics.h"  // NOLINT
 
 namespace block_graph {
 
 using core::Disassembler;
+
+namespace {
+
+Instruction ImplicitUnconditionalBranch(const core::AbsoluteAddress& target) {
+  Instruction::Representation implicit_branch = {};
+  implicit_branch.addr = 0;
+  implicit_branch.opcode = I_JMP;
+  implicit_branch.ops[0].type = O_IMM;
+  implicit_branch.ops[0].size = 32;
+  implicit_branch.size = sizeof(implicit_branch.opcode) + sizeof(void*);
+  implicit_branch.imm.addr = target.value();
+  implicit_branch.meta = FC_UNC_BRANCH;
+  META_SET_ISC(&implicit_branch, ISC_INTEGER);
+  return Instruction(implicit_branch, Instruction::SourceRange());
+}
+
+}  // namespace
 
 BasicBlockDisassembler::BasicBlockDisassembler(
     const uint8* code,
@@ -52,6 +72,14 @@ BasicBlockDisassembler::BasicBlockDisassembler(
   }
 }
 
+Disassembler::CallbackDirective BasicBlockDisassembler::OnInstruction(
+    const AbsoluteAddress& addr,
+    const _DInst& inst) {
+  current_instructions_.push_back(
+      Instruction(inst, Instruction::SourceRange(addr, inst.size)));
+  return kDirectiveContinue;
+}
+
 Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
     const AbsoluteAddress& addr,
     const _DInst& inst,
@@ -70,9 +98,24 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
 
   CallbackDirective result = kDirectiveContinue;
 
-  // TODO(robertshield): Since we're dealing with a conditional jump, this
-  // basic block should have two descendants, the target and the next
-  // instruction. Represent that somehow.
+  // Move the branch instruction out of the instruction list and into the
+  // successor list. Then append the implicit unconditional branch to the
+  // successor list.
+  DCHECK(memcmp(&current_instructions_.back().representation(),
+                &inst,
+                sizeof(inst)) == 0);
+  current_successors_.push_back(current_instructions_.back());
+  current_instructions_.pop_back();
+
+
+  // If this is not an unconditional branch  create an implicit unconditional
+  // branch to represent the fall-through.
+  if (META_GET_FC(inst.meta) != FC_UNC_BRANCH) {
+    current_successors_.push_back(
+        ImplicitUnconditionalBranch(addr + inst.size));
+  }
+
+  // Create the basic block. This will grab the instructions and successors.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
   if (InsertBlockRange(current_block_start_,
                        basic_block_size,
@@ -184,12 +227,20 @@ bool BasicBlockDisassembler::InsertBlockRange(
     BlockGraph::BlockType type) {
   Range range(addr, size);
   bool success = true;
-  if (!basic_block_address_space_.Insert(
-           range,
-           BlockGraph::Block(next_block_id_++,
+  DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
+         current_instructions_.empty());
+  DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
+         current_successors_.empty());
+  BasicBlock new_basic_block(next_block_id_++,
                              type,
+                             code_ + (addr - code_addr_),
                              size,
-                             containing_block_name_.c_str()))) {
+                             containing_block_name_.c_str());
+  if (type == BlockGraph::BASIC_CODE_BLOCK) {
+    new_basic_block.instructions().swap(current_instructions_);
+    new_basic_block.successors().swap(current_successors_);
+  }
+  if (!basic_block_address_space_.Insert(range, new_basic_block)) {
     LOG(DFATAL) << "Attempted to insert overlapping basic block.";
     success = false;
   }
@@ -263,8 +314,7 @@ bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
 
     if (containing_range_iter == basic_block_address_space_.end()) {
       LOG(ERROR) << "Found out of bounds jump target.";
-      success = false;
-      break;
+      return false;
     }
 
     // Two possible cases:
@@ -286,15 +336,48 @@ bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
           containing_range_iter->second.type();
 
       Range containing_range(containing_range_iter->first);
+      BasicBlock original_bb(containing_range_iter->second);
       basic_block_address_space_.Remove(containing_range_iter);
+
+      // Setup the first "half" of the basic block.
+      DCHECK(current_instructions_.size() == 0);
+      DCHECK(current_successors_.size() == 0);
+      while (!original_bb.instructions().empty() &&
+             original_bb.instructions().front().source_range().start() <
+                 *jump_target_iter) {
+        current_instructions_.push_back(original_bb.instructions().front());
+        original_bb.instructions().pop_front();
+      }
+
+#ifndef NDEBUG
+      if (!original_bb.instructions().empty()) {
+        DCHECK_EQ(*jump_target_iter,
+                  original_bb.instructions().front().source_range().start());
+      } else {
+        DCHECK(!original_bb.successors().empty());
+        DCHECK_EQ(*jump_target_iter,
+                  original_bb.successors().front().source_range().start());
+      }
+#endif
+      current_successors_.push_back(
+          ImplicitUnconditionalBranch(*jump_target_iter));
+
       if (!InsertBlockRange(containing_range.start(),
                             left_split_size,
-                            original_type) ||
-          !InsertBlockRange(*jump_target_iter,
+                            original_type)) {
+        LOG(ERROR) << "Failed to insert first half of split block.";
+        return false;
+      }
+
+      DCHECK(current_instructions_.size() == 0);
+      DCHECK(current_successors_.size() == 0);
+      current_instructions_.swap(original_bb.instructions());
+      current_successors_.swap(original_bb.successors());
+      if (!InsertBlockRange(*jump_target_iter,
                             containing_range.size() - left_split_size,
                             original_type)) {
-        LOG(ERROR) << "Failed to insert block splits.";
-        success = false;
+        LOG(ERROR) << "Failed to insert second half of split block.";
+        return false;
       }
     }
   }

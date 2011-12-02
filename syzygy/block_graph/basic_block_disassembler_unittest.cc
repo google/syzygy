@@ -23,6 +23,8 @@
 #include "gtest/gtest.h"
 #include "syzygy/core/address.h"
 
+#include "mnemonics.h"  // NOLINT
+
 extern "C" {
 // functions and labels exposed from our .asm test stub.
 extern int bb_assembly_func();
@@ -46,6 +48,144 @@ namespace block_graph {
 using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
+using testing::ElementsAre;
+
+namespace {
+
+// This class provides a DSL for describing a basic block.
+//
+// It can be used to test whether a parsed block gets broken down into the
+// expected basic blocks. For example:
+//
+//   EXPECT_THAT(
+//       basic_block,
+//       DescribedBy(
+//           BasicBlockDesk(0x11223344)
+//               .AddInst(I_MOV)
+//               .AddInst(I_SUB)
+//               .AddInst(I_MUL)
+//               .AddInst(I_CMP)
+//               .AddSucc(I_JNE, 0xAABBCCDD)
+//               .AddSucc(I_JMP, 0x99887766)));
+//
+// Or...
+//
+//   EXPECT_THAT(
+//       basic_block_collection,
+//       testing::ElementsAre(
+//           DescribedBy(
+//               BasicBlockDesk(BlockGraph::BASIC_CODE_BLOCK, 0x11223344)
+//                   .AddInst(I_MOV)
+//                   .AddSucc(I_JMP, 0x99887766)),
+//           DescribedBy(
+//               BasicBlockDesk(BlockGraph::BASIC_CODE_BLOCK, 0x11223344)
+//                   .AddInst(I_MOV)
+//                   .AddSucc(I_JMP, 0x99887766)),
+//           ...);
+//
+// where AddInst() and AddSucc() add instructions and successors to the
+// basic block, respectively.
+struct BasicBlockDesc {
+  struct Instruction {
+    uint16 opcode;
+    AbsoluteAddress target_addr;
+    Instruction(uint16 o, const AbsoluteAddress& t)
+        : opcode(o),
+          target_addr(t) {
+    }
+  };
+
+  typedef std::vector<Instruction> Instructions;
+  typedef BasicBlock::BlockType BlockType;
+
+  explicit BasicBlockDesc(AbsoluteAddress start)
+      : block_type(BlockGraph::BASIC_CODE_BLOCK),
+        start_addr(start) {
+  }
+
+  // Mutate the expected block type.
+  BasicBlockDesc& SetType(BlockType& type) {
+    block_type = type;
+    return *this;
+  }
+
+  // Append an instruction to the basic block.
+  BasicBlockDesc& AddInst(uint16 opcode) {
+    instructions.push_back(Instruction(opcode, AbsoluteAddress(0)));
+    return *this;
+  }
+
+  // Append an successor (branching) instruction to the basic block.
+  BasicBlockDesc& AddSucc(uint16 opcode, const AbsoluteAddress& target) {
+    successors.push_back(Instruction(opcode, target));
+    EXPECT_TRUE(successors.size() <= 2);
+    return *this;
+  }
+
+  BlockType block_type;
+  AbsoluteAddress start_addr;
+  Instructions instructions;
+  Instructions successors;
+};
+
+// Helper function to compare a set of instructions to an expected set.
+// @param bb_inst the actual basic block instructions.
+// @param exp_inst the expected instructions.
+// @param compare_target_addr true if the target address referenced by the
+//     instructions should be compared (used to compare successors).
+// @returns true if the instruction sequences are the same.
+bool SameInstructions(const BasicBlock::Instructions& bb_inst,
+                      const BasicBlockDesc::Instructions& exp_inst,
+                      bool compare_target_addr) {
+  BasicBlock::Instructions::const_iterator bb_iter = bb_inst.begin();
+  BasicBlockDesc::Instructions::const_iterator exp_iter = exp_inst.begin();
+
+  while (bb_iter != bb_inst.end() && exp_iter != exp_inst.end()) {
+    if (bb_iter->representation().opcode != exp_iter->opcode) {
+      return false;
+    }
+    if (compare_target_addr &&
+        bb_iter->representation().imm.dword != exp_iter->target_addr.value()) {
+      return false;
+    }
+    ++bb_iter;
+    ++exp_iter;
+  }
+
+  return bb_iter == bb_inst.end() && exp_iter == exp_inst.end();
+}
+
+// Helper funciton to determine if an given start address and basic block
+// is described by a BasicBlockDesc.
+// @param expected the description of the expected basic block.
+// @param start_addr the actual start address.
+// @param bb the actual basic block.
+// @returns true if the expected block describes the actual block.
+bool DescribesBlock(const BasicBlockDesc& expected,
+                    const AbsoluteAddress& start_addr,
+                    const BasicBlock& bb ) {
+  if (bb.type() != expected.block_type)
+    return false;
+
+  if (start_addr != expected.start_addr)
+    return false;
+
+  if (!SameInstructions(bb.instructions(), expected.instructions, false))
+    return false;
+
+  if (!SameInstructions(bb.successors(), expected.successors, true))
+    return false;
+
+  return true;
+}
+
+// A wrapper to integrate the DescribesBlock utility function into the GMock
+// framework.
+MATCHER_P(DescribedBy, expected, "") {
+  return DescribesBlock(expected, arg.first.start(), arg.second);
+}
+
+}  // namespace
 
 class BasicBlockDisassemblerTest : public testing::Test {
  public:
@@ -97,7 +237,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverage) {
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
-  BasicBlockDisassembler::BBAddressSpace basic_blocks(
+  const BasicBlockDisassembler::BBAddressSpace& basic_blocks(
       disasm.GetBasicBlockRanges());
   EXPECT_EQ(5, basic_blocks.size());
 
@@ -132,7 +272,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
-  BasicBlockDisassembler::BBAddressSpace basic_blocks(
+  const BasicBlockDisassembler::BBAddressSpace& basic_blocks(
       disasm.GetBasicBlockRanges());
   EXPECT_EQ(6, basic_blocks.size());
 
@@ -154,6 +294,81 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   }
   EXPECT_TRUE(block_starts_at_internal_label);
   EXPECT_TRUE(block_starts_at_external_label);
+}
+
+TEST_F(BasicBlockDisassemblerTest, Instructions) {
+  // Setup all of the label.
+  Disassembler::AddressSet labels;
+  labels.insert(AddressOf(&bb_assembly_func));
+  labels.insert(AddressOf(&bb_internal_label));
+  labels.insert(AddressOf(&bb_external_label));
+
+  // Disassemble to basic blocks.
+  BasicBlockDisassembler disasm(
+      PointerTo(&bb_assembly_func),
+      PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
+      AddressOf(&bb_assembly_func),
+      labels,
+      "test",
+      NULL);
+  Disassembler::WalkResult result = disasm.Walk();
+  EXPECT_EQ(Disassembler::kWalkSuccess, result);
+
+  // Validate that we have the expected number and types of blocks
+  const BasicBlockDisassembler::BBAddressSpace& basic_blocks(
+      disasm.GetBasicBlockRanges());
+  EXPECT_EQ(6, basic_blocks.size());
+  EXPECT_EQ(6, BlockCount(basic_blocks, BlockGraph::BASIC_CODE_BLOCK));
+  EXPECT_EQ(0, BlockCount(basic_blocks, BlockGraph::BASIC_DATA_BLOCK));
+
+  // The JNZ instruction is 7 bytes after the beginning of bb_assembly func.
+  const AbsoluteAddress kAddrJnzTarget = AddressOf(&bb_assembly_func) + 7;
+
+  // The immediate value for the JNZ instruction is to jump -3 instructions
+  // from the current instruction pointer. This requires backing up an extra
+  // two bytes for the JNZ instruction itself.
+  const AbsoluteAddress kJnzImmOffset(-5);
+
+  // The fall-through of the JNZ instrucion is 3 bytes before bb_external_label.
+  const AbsoluteAddress kAddrJnzSuccessor = AddressOf(&bb_external_label) - 3;
+
+  // The offset of lbl2 from the start of bb_internal_label. This is one
+  // call instruction, plus one address.
+  const size_t kLbl2Offset = 5;
+
+  // The address of lbl2.
+  const AbsoluteAddress kAddrLbl2 = AddressOf(&bb_internal_label) + kLbl2Offset;
+
+  // Validate that we have the right instructions.
+  EXPECT_THAT(
+      basic_blocks,
+      ElementsAre(
+          DescribedBy(
+              BasicBlockDesc(AddressOf(&bb_assembly_func))
+                  .AddInst(I_MOV)
+                  .AddInst(I_MOV)
+                  .AddSucc(I_JMP, kAddrJnzTarget)),
+          DescribedBy(
+              BasicBlockDesc(kAddrJnzTarget)
+                  .AddInst(I_SUB)
+                  .AddSucc(I_JNZ, kJnzImmOffset)
+                  .AddSucc(I_JMP, kAddrJnzSuccessor)),
+          DescribedBy(
+              BasicBlockDesc(kAddrJnzSuccessor)
+                  .AddInst(I_MOV)
+                  .AddInst(I_NOP)
+                  .AddSucc(I_JMP, AddressOf(&bb_external_label))),
+          DescribedBy(
+              BasicBlockDesc(AddressOf(&bb_external_label))
+                  .AddSucc(I_JMP, AbsoluteAddress(kLbl2Offset))),
+          DescribedBy(
+              BasicBlockDesc(AddressOf(&bb_internal_label))
+                  .AddInst(I_CALL)
+                  .AddSucc(I_JMP, kAddrLbl2)),
+          DescribedBy(
+              BasicBlockDesc(kAddrLbl2)
+                  .AddInst(I_CALL)
+                  .AddInst(I_RET))));
 }
 
 }  // namespace block_graph

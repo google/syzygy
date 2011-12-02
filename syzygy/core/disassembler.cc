@@ -94,6 +94,12 @@ Disassembler::Disassembler(const uint8* code,
 Disassembler::~Disassembler() {
 }
 
+Disassembler::CallbackDirective Disassembler::OnInstruction(
+    const AbsoluteAddress& addr,
+    const _DInst& inst) {
+  return kDirectiveContinue;
+}
+
 Disassembler::CallbackDirective Disassembler::OnBranchInstruction(
     const AbsoluteAddress& addr,
     const _DInst& inst,
@@ -195,7 +201,7 @@ Disassembler::WalkResult Disassembler::Walk() {
       disassembled_bytes_ += inst.size;
 
       // Invoke the callback and terminate if need be
-      switch (OnInstruction(inst)) {
+      switch (NotifyOnInstruction(addr, inst)) {
         case kDirectiveTerminateWalk:
           return kWalkTerminated;
 
@@ -320,15 +326,18 @@ bool Disassembler::Unvisited(AbsoluteAddress addr) {
   return unvisited_.insert(addr).second;
 }
 
-Disassembler::CallbackDirective Disassembler::OnInstruction(
+Disassembler::CallbackDirective Disassembler::NotifyOnInstruction(
+    const AbsoluteAddress& addr,
     const _DInst& inst) {
-  if (on_instruction_) {
-    CallbackDirective directive = kDirectiveContinue;
+  // Invoke our local callback.
+  CallbackDirective directive = OnInstruction(addr, inst);
+
+  // Invoke the external callback if we're not already aborted.
+  if (directive == kDirectiveContinue && on_instruction_ != NULL) {
     on_instruction_->Run(*this, inst, &directive);
-    return directive;
   }
 
-  return kDirectiveContinue;
+  return directive;
 }
 
 bool Disassembler::IsInBlock(AbsoluteAddress addr) const {

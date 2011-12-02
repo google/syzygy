@@ -50,6 +50,14 @@ class AddressSpace {
   typedef std::pair<RangeMapConstIter, RangeMapConstIter> RangeMapConstIterPair;
   typedef std::pair<RangeMapIter, RangeMapIter> RangeMapIterPair;
 
+  // STL-like type definitions
+  // @{
+  typedef typename RangeMapIter iterator;
+  typedef typename RangeMapConstIter const_iterator;
+  typedef typename RangeMap::value_type value_type;
+  // @}
+
+
   // Create an empy address space.
   AddressSpace();
 
@@ -202,7 +210,6 @@ class AddressRange {
 
   AddressRange(const AddressRange &other)
       : start_(other.start_), size_(other.size_) {
-    DCHECK_GT(size_, 0U);
   }
 
   void operator=(const AddressRange &other) {

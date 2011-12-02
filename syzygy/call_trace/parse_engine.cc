@@ -126,7 +126,8 @@ bool ParseEngine::RemoveModuleInformation(
                << module_info.image_file_name
                << " (base=0x" << module_info.base_address
                << ", size=" << module_info.module_size << ").";
-    return false;
+    if (fail_on_module_conflict_)
+      return false;
   }
 
   // TODO(rogerm): Unfortunately, we can't actually remove the module info

@@ -26,6 +26,8 @@
       'target_name': 'block_graph_lib',
       'type': 'static_library',
       'sources': [
+        'basic_block.cc',
+        'basic_block.h',
         'basic_block_disassembler.cc',
         'basic_block_disassembler.h',
         'block_graph.cc',
