@@ -360,8 +360,8 @@ void Service::ThreadMain() {
       // Parse the record prefix and segment header;
       volatile RecordPrefix* prefix =
           reinterpret_cast<RecordPrefix*>(buffer->data_ptr);
-      volatile TraceFileSegment::Header* header =
-          reinterpret_cast<volatile TraceFileSegment::Header*>(prefix + 1);
+      volatile TraceFileSegmentHeader* header =
+          reinterpret_cast<volatile TraceFileSegmentHeader*>(prefix + 1);
 
       // Let's not trust the client to stop playing with the buffer while
       // we're writing. Whatever the length is now, is what we'll use.
@@ -370,8 +370,8 @@ void Service::ThreadMain() {
       if (segment_length > 0) {
         size_t bytes_to_write = common::AlignUp(kHeaderLength + segment_length,
                                                 buffer->session->block_size());
-        if (prefix->type != TraceFileSegment::Header::kTypeId ||
-            prefix->size != sizeof(TraceFileSegment::Header) ||
+        if (prefix->type != TraceFileSegmentHeader::kTypeId ||
+            prefix->size != sizeof(TraceFileSegmentHeader) ||
             prefix->version.hi != TRACE_VERSION_HI ||
             prefix->version.lo != TRACE_VERSION_LO) {
           LOG(WARNING) << "Dropped buffer: invalid segment header.";

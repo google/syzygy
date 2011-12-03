@@ -69,15 +69,15 @@ bool RpcSession::MapSegmentBuffer(TraceFileSegment* segment) {
   segment->write_ptr = segment->base_ptr;
   segment->end_ptr =
       segment->base_ptr + segment->buffer_info.buffer_size;
-  WriteSegmentHeader(session_handle_, segment);
+  segment->WriteSegmentHeader(session_handle_);
 
   DCHECK(segment->header != NULL);
 
   if (IsEnabled(TRACE_FLAG_BATCH_ENTER)) {
-    CHECK(CanAllocate(segment, sizeof(TraceBatchEnterData)));
+    CHECK(segment->CanAllocate(sizeof(TraceBatchEnterData)));
 
     TraceBatchEnterData* batch_header =
-        AllocateTraceRecord<TraceBatchEnterData>(segment);
+        segment->AllocateTraceRecord<TraceBatchEnterData>();
 
     DCHECK(batch_header == GetTraceBatchHeader(segment));
 

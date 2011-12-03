@@ -60,7 +60,7 @@ class ParseEngineRpc : public ParseEngine {
   // @param buffer_length the length of the segment data buffer (in bytes).
   // @return true on success.
   bool ConsumeSegmentEvents(const TraceFileHeader& file_header,
-                            const TraceFileSegment::Header& segment_header,
+                            const TraceFileSegmentHeader& segment_header,
                             uint8* buffer,
                             size_t buffer_length);
 

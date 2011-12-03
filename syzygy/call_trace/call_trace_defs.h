@@ -124,7 +124,7 @@ struct RecordPrefix {
   } version;
 };
 
-COMPILE_ASSERT(sizeof(RecordPrefix) == 12, record_prefix_size_is_16);
+COMPILE_ASSERT(sizeof(RecordPrefix) == 12, record_prefix_size_is_12);
 
 // This structure is written at the beginning of a call trace file.
 struct TraceFileHeader {
@@ -183,49 +183,24 @@ struct TraceFileHeader {
   wchar_t command_line[1];
 };
 
-// This structure captures everything that a thread needs to know about
-// its current call trace buffer. It holds the buffer information given
-// by the call trace service, the memory locations this buffer refers to
-// in the client process, and a pointer to the segment header within the
-// buffer so that the segment can be consistently maintained.
-struct TraceFileSegment {
-  // Write this at the beginning of a call trace buffer (prefixed with
-  // a RecordPrefix) and keep its segment_length value up to date as we
-  // append data to the segment.
-  struct Header {
-    // Type identifiers used for these headers.
-    enum { kTypeId = TRACE_PAGE_HEADER };
+// Written at the beginning of a call trace file segment. Each call trace file
+// segment has a length, which on-disk is rounded up to the block_size, as
+// recorded in the TraceFileHeader. Within a call trace segment, there are one
+// or more records, each prefixed with a RecordPrefix, which describes the
+// length and type of the data to follow.
+struct TraceFileSegmentHeader {
+  // Type identifiers used for these headers.
+  enum { kTypeId = TRACE_PAGE_HEADER };
 
-    // The identity of the thread that is reporting in this segment
-    // of the trace file.
-    uint32 thread_id;
+  // The identity of the thread that is reporting in this segment
+  // of the trace file.
+  uint32 thread_id;
 
-    // The number of data bytes in this segment of the trace file. This
-    // value does not include the size of the record prefix nor the size
-    // of the segment header.
-    uint32 segment_length;
-  };
-
-  // The structure used to communicate buffer information between the
-  // client and call trace service.
-  CallTraceBuffer buffer_info;
-
-  // Points to the segment header within the call trace buffer. This
-  // can  be used to update the segment_length after appending new
-  // data to the buffer.
-  Header* header;
-
-  // The lower bound of the call trace buffer in the client process.
-  uint8* base_ptr;
-
-  // The next memory location at which the client should write call
-  // trace data.
-  uint8* write_ptr;
-
-  // The upper bound of the call trace buffer in the client process.
-  uint8* end_ptr;
+  // The number of data bytes in this segment of the trace file. This
+  // value does not include the size of the record prefix nor the size
+  // of the segment header.
+  uint32 segment_length;
 };
-
 
 // The structure traced on function entry or exit.
 template<int TypeId>

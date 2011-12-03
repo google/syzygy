@@ -49,7 +49,7 @@ RecordPrefix* GetTraceBatchPrefix(TraceFileSegment* segment) {
 
   return reinterpret_cast<RecordPrefix*>(segment->base_ptr +
                                          sizeof(RecordPrefix) +
-                                         sizeof(TraceFileSegment::Header));
+                                         sizeof(TraceFileSegmentHeader));
 }
 
 // Helper function to get pointer to the TraceBatchEnterData record (there
@@ -60,21 +60,29 @@ TraceBatchEnterData* GetTraceBatchHeader(TraceFileSegment* segment) {
       GetTraceBatchPrefix(segment) + 1);
 }
 
+TraceFileSegment::TraceFileSegment()
+    : header(NULL),
+      base_ptr(NULL),
+      write_ptr(NULL),
+      end_ptr(NULL) {
+  // Zero the RPC buffer.
+  memset(&buffer_info, 0, sizeof(buffer_info));
+}
+
 // Returns true if there's enough space left in the given segment to write
 // num_bytes of raw data.
-bool CanAllocateRaw(TraceFileSegment* segment, size_t num_bytes) {
-  DCHECK(segment != NULL);
-  DCHECK(segment->write_ptr != NULL);
-  DCHECK(segment->end_ptr != NULL);
+bool TraceFileSegment::CanAllocateRaw(size_t num_bytes) const {
+  DCHECK(write_ptr != NULL);
+  DCHECK(end_ptr != NULL);
   DCHECK(num_bytes != 0);
-  return (segment->write_ptr + num_bytes) <= segment->end_ptr;
+  return (write_ptr + num_bytes) <= end_ptr;
 }
 
 // Returns true if there's enough space left in the given segment to write
 // a prefixed record of length num_bytes.
-bool CanAllocate(TraceFileSegment* segment, size_t num_bytes) {
+bool TraceFileSegment::CanAllocate(size_t num_bytes) const {
   DCHECK(num_bytes != 0);
-  return CanAllocateRaw(segment, num_bytes + sizeof(RecordPrefix));
+  return CanAllocateRaw(num_bytes + sizeof(RecordPrefix));
 }
 
 void FillPrefix(RecordPrefix* prefix, int type, size_t size) {
@@ -87,46 +95,41 @@ void FillPrefix(RecordPrefix* prefix, int type, size_t size) {
 
 // Writes the segment header at the top of a segment, updating the bytes
 // consumed and initializing the segment header structures.
-void WriteSegmentHeader(SessionHandle session_handle,
-                        TraceFileSegment* segment) {
-  DCHECK(segment != NULL);
-  DCHECK(segment->header == NULL);
-  DCHECK(segment->write_ptr != NULL);
-  DCHECK(CanAllocate(segment, sizeof(TraceFileSegment::Header)));
+void TraceFileSegment::WriteSegmentHeader(SessionHandle session_handle) {
+  DCHECK(header == NULL);
+  DCHECK(write_ptr != NULL);
+  DCHECK(CanAllocate(sizeof(TraceFileSegmentHeader)));
 
   // The trace record allocation will write the record prefix and update
   // the number of bytes consumed within the buffer.
 
-  RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(segment->write_ptr);
+  RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(write_ptr);
   FillPrefix(prefix,
-             TraceFileSegment::Header::kTypeId,
-             sizeof(TraceFileSegment::Header));
+             TraceFileSegmentHeader::kTypeId,
+             sizeof(TraceFileSegmentHeader));
 
-  segment->header = reinterpret_cast<TraceFileSegment::Header*>(prefix + 1);
-  segment->header->thread_id = ::GetCurrentThreadId();
-  segment->header->segment_length = 0;
+  header = reinterpret_cast<TraceFileSegmentHeader*>(prefix + 1);
+  header->thread_id = ::GetCurrentThreadId();
+  header->segment_length = 0;
 
-  segment->write_ptr = reinterpret_cast<uint8*>(segment->header + 1);
+  write_ptr = reinterpret_cast<uint8*>(header + 1);
 }
 
-// Internal implementation of the trace record allocation function.
-void* AllocateTraceRecordImpl(TraceFileSegment* segment,
-                              int record_type,
-                              size_t record_size) {
-  DCHECK(segment != NULL);
-  DCHECK(segment->header != NULL);
-  DCHECK(segment->write_ptr != NULL);
+void* TraceFileSegment::AllocateTraceRecordImpl(int record_type,
+                                                size_t record_size) {
+  DCHECK(header != NULL);
+  DCHECK(write_ptr != NULL);
   DCHECK(record_size != 0);
 
   const size_t total_size = sizeof(RecordPrefix) + record_size;
 
-  DCHECK(CanAllocateRaw(segment, total_size));
+  DCHECK(CanAllocateRaw(total_size));
 
-  RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(segment->write_ptr);
+  RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(write_ptr);
   FillPrefix(prefix, record_type, record_size);
 
-  segment->write_ptr += total_size;
-  segment->header->segment_length += total_size;
+  write_ptr += total_size;
+  header->segment_length += total_size;
 
   return prefix + 1;
 }
