@@ -21,6 +21,7 @@
 
 #include "base/synchronization/lock.h"
 #include "syzygy/call_trace/call_trace_defs.h"
+#include "syzygy/call_trace/client_utils.h"
 
 namespace call_trace {
 namespace client {
@@ -32,7 +33,6 @@ class RpcSession {
 
   // Wrapper and helper functions for the RPC and shared memory calls made
   // by the call-trace client.
-  bool MapSegmentBuffer(TraceFileSegment* segment);
   bool CreateSession(TraceFileSegment* segment);
   bool AllocateBuffer(TraceFileSegment* segment);
   bool ExchangeBuffer(TraceFileSegment* segment);
@@ -55,6 +55,8 @@ class RpcSession {
   unsigned long flags() const { return flags_; }
 
  private:
+  bool MapSegmentBuffer(TraceFileSegment* segment);
+
   // The call trace RPC binding.
   handle_t rpc_binding_;
 

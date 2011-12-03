@@ -111,7 +111,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
 
   // Create a typed alias to the raw buffer.
   const TraceFileHeader* file_header =
-      reinterpret_cast<TraceFileHeader*>(&raw_buffer[0]);
+      reinterpret_cast<const TraceFileHeader*>(&raw_buffer[0]);
 
   // Validate the header size, which is the size of the static header structure
   // plus the length (in bytes) of the wide-char command-line.
@@ -127,7 +127,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
   // buffer might move when it is resized.
   size_t bytes_to_read = file_header->header_size - raw_buffer.size();
   raw_buffer.resize(file_header->header_size);
-  file_header = reinterpret_cast<TraceFileHeader*>(&raw_buffer[0]);
+  file_header = reinterpret_cast<const TraceFileHeader*>(&raw_buffer[0]);
   bytes_read = ::fread(&raw_buffer[sizeof(TraceFileHeader)],
                        1,
                        bytes_to_read,
@@ -186,15 +186,15 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
       return false;
     }
 
-    if (segment_prefix.type != TraceFileSegment::Header::kTypeId ||
-        segment_prefix.size != sizeof(TraceFileSegment::Header) ||
+    if (segment_prefix.type != TraceFileSegmentHeader::kTypeId ||
+        segment_prefix.size != sizeof(TraceFileSegmentHeader) ||
         segment_prefix.version.hi != TRACE_VERSION_HI ||
         segment_prefix.version.lo != TRACE_VERSION_LO) {
       LOG(ERROR) << "Unrecognized record prefix for segment header.";
       return false;
     }
 
-    TraceFileSegment::Header segment_header;
+    TraceFileSegmentHeader segment_header;
     if (::fread(&segment_header,
                 sizeof(segment_header),
                 1,
@@ -239,7 +239,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
 
 bool ParseEngineRpc::ConsumeSegmentEvents(
     const TraceFileHeader& file_header,
-    const TraceFileSegment::Header& segment_header,
+    const TraceFileSegmentHeader& segment_header,
     uint8* buffer,
     size_t buffer_length) {
   DCHECK(buffer != NULL);

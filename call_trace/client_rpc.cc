@@ -399,15 +399,14 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   }
 
   // Make sure the event we're about to write will fit.
-  if (!CanAllocate(&data->segment, sizeof(TraceModuleData))) {
+  if (!data->segment.CanAllocate(sizeof(TraceModuleData))) {
     session_.ExchangeBuffer(&data->segment);
   }
 
   // Allocate a record in the log.
   TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
-      AllocateTraceRecordImpl(&data->segment,
-                              ReasonToEventType(reason),
-                              sizeof(TraceModuleData)));
+      data->segment.AllocateTraceRecordImpl(ReasonToEventType(reason),
+                                            sizeof(TraceModuleData)));
   DCHECK(module_event!= NULL);
 
   // Populate the log record.
@@ -486,7 +485,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
            "no other bits should be set.";
 
     // Make sure we have space for the batch entry.
-    if (!CanAllocateRaw(&data->segment, sizeof(FuncCall))) {
+    if (!data->segment.CanAllocateRaw(sizeof(FuncCall))) {
       session_.ExchangeBuffer(&data->segment);
     }
 
@@ -508,12 +507,12 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
 
   // If we're tracing detailed function entries, capture the function details.
   if (session_.IsEnabled(TRACE_FLAG_ENTER)) {
-    if (!CanAllocate(&data->segment, sizeof(TraceEnterEventData))) {
+    if (!data->segment.CanAllocate(sizeof(TraceEnterEventData))) {
       session_.ExchangeBuffer(&data->segment);
     }
 
     TraceEnterEventData* event_data =
-        AllocateTraceRecord<TraceEnterEventData>(&data->segment);
+        data->segment.AllocateTraceRecord<TraceEnterEventData>();
 
     event_data->depth = (NULL == data) ? 0 : data->shadow_stack.size();
     event_data->function = function;
@@ -584,11 +583,11 @@ RetAddr Client::LogEvent_FunctionExit(const void* stack_pointer,
 
   // Trace the exit if required.
   if (session_.IsEnabled(TRACE_FLAG_EXIT)) {
-    if (!CanAllocate(&data->segment, sizeof(TraceExitEventData))) {
+    if (!data->segment.CanAllocate(sizeof(TraceExitEventData))) {
       session_.ExchangeBuffer(&data->segment);
     }
     TraceExitEventData* event_data =
-        AllocateTraceRecord<TraceExitEventData>(&data->segment);
+        data->segment.AllocateTraceRecord<TraceExitEventData>();
     event_data->depth = data->shadow_stack.size();
     event_data->function = top.function_address;
     event_data->retval = retval;
