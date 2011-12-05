@@ -236,12 +236,22 @@ class Client::ThreadLocalData {
     return segment.header != NULL;
   }
 
+  // Allocates a new FuncCall.
+  FuncCall* AllocateFuncCall();
+
+  // Flushes the current trace file segment.
+  bool FlushSegment();
+
   // The call trace client to which this data belongs.
   // TODO(rogerm): This field isn't necessary, it's only used in DCHECKs.
   Client* const client;
 
-  // The owning thread's current trace-file segment.
+  // The owning thread's current trace-file segment, if any.
   TraceFileSegment segment;
+
+  // The current batch record we're extending, if any.
+  // This will point into the associated trace file segment's buffer.
+  TraceBatchEnterData* batch;
 
   // The shadow return stack we use when function exit is traced.
   ShadowStack shadow_stack;
@@ -484,25 +494,11 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
         << "Batch mode isn't compatible with any other flags; "
            "no other bits should be set.";
 
-    // Make sure we have space for the batch entry.
-    if (!data->segment.CanAllocateRaw(sizeof(FuncCall))) {
-      session_.ExchangeBuffer(&data->segment);
+    FuncCall* call_info = data->AllocateFuncCall();
+    if (call_info != NULL) {
+      call_info->function = function;
+      call_info->tick_count = ::GetTickCount();
     }
-
-    // Add the batch entry for this call.
-    // TODO(rogerm): use ::QueryPerformanceCounter intead of ::GetTickCount()?
-    RecordPrefix* batch_prefix = GetTraceBatchPrefix(&data->segment);
-    TraceBatchEnterData* batch_header = GetTraceBatchHeader(&data->segment);
-    FuncCall* call_info = reinterpret_cast<FuncCall*>(data->segment.write_ptr);
-    DCHECK(call_info == batch_header->calls + batch_header->num_calls);
-    call_info->function = function;
-    call_info->tick_count = ::GetTickCount();
-    batch_header->num_calls += 1;
-    batch_prefix->size += sizeof(FuncCall);
-
-    // Update the book-keeping
-    data->segment.write_ptr += sizeof(FuncCall);
-    data->segment.header->segment_length += sizeof(FuncCall);
   }
 
   // If we're tracing detailed function entries, capture the function details.
@@ -659,8 +655,44 @@ void Client::FreeThreadData() {
     FreeThreadData(data);
 }
 
-Client::ThreadLocalData::ThreadLocalData(Client* c) : client(c) {
-  ZeroMemory(&segment, sizeof(segment));
+Client::ThreadLocalData::ThreadLocalData(Client* c) : client(c), batch(NULL) {
+}
+
+FuncCall* Client::ThreadLocalData::AllocateFuncCall() {
+  // Do we have a batch record that we can grow?
+  if (batch != NULL && segment.CanAllocateRaw(sizeof(FuncCall))) {
+    FuncCall* call_info = reinterpret_cast<FuncCall*>(segment.write_ptr);
+    DCHECK(call_info == batch->calls + batch->num_calls);
+    batch->num_calls += 1;
+    RecordPrefix* prefix = GetRecordPrefix(batch);
+    prefix->size += sizeof(FuncCall);
+
+    // Update the book-keeping.
+    segment.write_ptr += sizeof(FuncCall);
+    segment.header->segment_length += sizeof(FuncCall);
+
+    return call_info;
+  }
+
+  // Do we need to scarf a new buffer?
+  if (batch != NULL || !segment.CanAllocate(sizeof(TraceBatchEnterData))) {
+    if (!client->session_.ExchangeBuffer(&segment)) {
+      return NULL;
+    }
+  }
+
+  batch = segment.AllocateTraceRecord<TraceBatchEnterData>();
+  batch->thread_id = segment.header->thread_id;
+  batch->num_calls = 1;
+
+  return &batch->calls[0];
+}
+
+bool Client::ThreadLocalData::FlushSegment() {
+  DCHECK(IsInitialized());
+
+  batch = NULL;
+  return client->session_.ExchangeBuffer(&segment);
 }
 
 }  // namespace call_trace::client

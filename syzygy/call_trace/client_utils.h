@@ -97,15 +97,9 @@ class TraceFileSegment {
 // Helper function to transform a DllMain reason to a call trace even type.
 int ReasonToEventType(DWORD reason);
 
-// Helper function to get pointer to the prefix for the TraceBatchEnterData
-// record (there will be only one, at the very front of the buffer) when
-// operating in batch mode.
-RecordPrefix* GetTraceBatchPrefix(TraceFileSegment* segment);
-
-// Helper function to get pointer to the TraceBatchEnterData record (there
-// will be only one, at the very front of the buffer) when operating in batch
-// mode.
-TraceBatchEnterData* GetTraceBatchHeader(TraceFileSegment* segment);
+// Helper function to get pointer to the prefix for any record
+// in a trace file segment.
+RecordPrefix* GetRecordPrefix(void *record);
 
 }  // namespace call_trace::client
 }  // namespace call_trace
