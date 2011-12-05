@@ -73,28 +73,6 @@ bool RpcSession::MapSegmentBuffer(TraceFileSegment* segment) {
 
   DCHECK(segment->header != NULL);
 
-  if (IsEnabled(TRACE_FLAG_BATCH_ENTER)) {
-    CHECK(segment->CanAllocate(sizeof(TraceBatchEnterData)));
-
-    TraceBatchEnterData* batch_header =
-        segment->AllocateTraceRecord<TraceBatchEnterData>();
-
-    DCHECK(batch_header == GetTraceBatchHeader(segment));
-
-    batch_header->thread_id = segment->header->thread_id;
-    batch_header->num_calls = 0;
-
-    // Correct for the first FuncCall entry having already been
-    // allocated.
-    RecordPrefix* batch_prefix = GetTraceBatchPrefix(segment);
-    batch_prefix->size -= sizeof(FuncCall);
-    segment->write_ptr -= sizeof(FuncCall);
-    segment->header->segment_length -= sizeof(FuncCall);
-
-    DCHECK_EQ(reinterpret_cast<FuncCall*>(segment->write_ptr),
-              batch_header->calls + batch_header->num_calls);
-  }
-
   return true;
 }
 

@@ -40,24 +40,10 @@ int ReasonToEventType(DWORD reason) {
   }
 }
 
-// Helper function to get pointer to the prefix for the TraceBatchEnterData
-// record (there will be only one, at the very front of the buffer) when
-// operating in batch mode.
-RecordPrefix* GetTraceBatchPrefix(TraceFileSegment* segment) {
-  DCHECK(segment != NULL);
-  DCHECK(segment->base_ptr != NULL);
+RecordPrefix* GetRecordPrefix(void *record) {
+  DCHECK(record != NULL);
 
-  return reinterpret_cast<RecordPrefix*>(segment->base_ptr +
-                                         sizeof(RecordPrefix) +
-                                         sizeof(TraceFileSegmentHeader));
-}
-
-// Helper function to get pointer to the TraceBatchEnterData record (there
-// will be only one, at the very front of the buffer) when operating in batch
-// mode.
-TraceBatchEnterData* GetTraceBatchHeader(TraceFileSegment* segment) {
-  return reinterpret_cast<TraceBatchEnterData*>(
-      GetTraceBatchPrefix(segment) + 1);
+  return reinterpret_cast<RecordPrefix*>(record) - 1;
 }
 
 TraceFileSegment::TraceFileSegment()
