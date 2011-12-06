@@ -40,12 +40,12 @@ _SYZYGY_RELEASE_URL = ('http://syzygy-archive.commondatastorage.googleapis.com/'
 
 def _Shell(*cmd, **kw):
   """Runs cmd, returns the results from Popen(cmd).communicate()."""
-  _LOGGER.info("Executing %s.", cmd)
+  _LOGGER.info('Executing %s.', cmd)
   prog = subprocess.Popen(cmd, shell=True, **kw)
 
   stdout, stderr = prog.communicate()
   if prog.returncode != 0:
-    raise RuntimeError("Command '%s' returned %d." % (cmd, prog.returncode))
+    raise RuntimeError('Command "%s" returned %d.' % (cmd, prog.returncode))
   return (stdout, stderr)
 
 
@@ -56,7 +56,7 @@ def _GetFileVersion(file_path):
                             stdout=subprocess.PIPE)
   match = _GIT_VERSION_RE.search(stdout)
   if not match:
-    raise RuntimeError("Couldn't determine release version.")
+    raise RuntimeError('Could not determine release version.')
 
   return int(match.group(1))
 
@@ -72,12 +72,12 @@ def main():
   url = _SYZYGY_RELEASE_URL % { 'revision': revision }
 
   # Retrieve the corresponding archive to a temp file.
-  _LOGGER.info("Retrieving release archive at '%s'.", url)
+  _LOGGER.info('Retrieving release archive at "%s".', url)
   (temp_file, response) = urllib.urlretrieve(url)
 
   # Create a new feature branch off the master branch for the release
   # before we start changing any files.
-  _LOGGER.info("Creating a release-binaries feature branch.")
+  _LOGGER.info('Creating a release-binaries feature branch.')
   _Shell('git', 'checkout', '-b', 'release-binaries', 'master')
 
   # Clean out the binaries directory.
@@ -85,12 +85,12 @@ def main():
   os.makedirs(_BINARIES_DIR)
 
   # Extract the contents of the archive to the binaries directory.
-  _LOGGER.info("Unzipping release archive.")
+  _LOGGER.info('Unzipping release archive.')
   archive = zipfile.ZipFile(temp_file, 'r')
   archive.extractall(_BINARIES_DIR)
 
   # Now extract the executables from the Benchmark_Chrome egg to the
-  # "exe" subdir of the binaries dir.
+  # 'exe' subdir of the binaries dir.
   egg_file = glob.glob(os.path.join(_BINARIES_DIR, 'Benchmark_Chrome*.egg'))[0]
   archive = zipfile.ZipFile(egg_file, 'r')
   exes = filter(lambda path: path.startswith('exe'), archive.namelist())
@@ -98,8 +98,11 @@ def main():
   archive.extractall(_BINARIES_DIR, exes)
 
   # Add all the new files to the repo.
-  _LOGGER.info("Committing release files.")
-  _Shell('git', 'add', os.path.join(_BINARIES_DIR, '*'))
+  _LOGGER.info('Committing release files.')
+  # Update any changed or deleted files.
+  _Shell('git', 'add', '-u', _BINARIES_DIR)
+  # Add new files.
+  _Shell('git', 'add', _BINARIES_DIR)
 
   # Now commit and upload the new binaries.
   message = 'Checking in version %d release binaries.' % revision
