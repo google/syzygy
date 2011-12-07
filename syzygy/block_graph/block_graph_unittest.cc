@@ -333,6 +333,18 @@ TEST_F(BlockTest, InsertDataImplicitForceAllocation) {
   EXPECT_EQ(40u, block1->data_size());
 }
 
+TEST_F(BlockTest, InsertDataForceAllocateDoesNotShorten) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 40, "Block1");
+  block1->AllocateData(30);
+
+  // Insert data in the allocated region, but request allocation to be forced.
+  block1->InsertData(0, 10, true);
+
+  EXPECT_EQ(50u, block1->size());
+  EXPECT_EQ(40u, block1->data_size());
+}
+
 TEST_F(BlockTest, RemoveData) {
   // Create a block with a labelled array of pointers. Explicitly initialize
   // the last one with some data and let the block be longer than its

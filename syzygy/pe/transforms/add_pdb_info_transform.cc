@@ -70,8 +70,12 @@ bool AddPdbInfoTransform::Apply(
     BlockGraph::Block* cv_info_pdb_block = block_graph->AddBlock(
         BlockGraph::DATA_BLOCK, new_debug_info_size, "PDB Info");
     DCHECK(cv_info_pdb_block != NULL);
-    cv_info_pdb_block->AllocateData(new_debug_info_size);
     cv_info_pdb_block->set_section(debug_dir.block()->section());
+    cv_info_pdb_block->set_attribute(BlockGraph::PE_PARSED);
+    if (cv_info_pdb_block->AllocateData(new_debug_info_size) == NULL) {
+      LOG(ERROR) << "Failed to allocate block data.";
+      return false;
+    }
 
     debug_dir.SetReference(BlockGraph::RELATIVE_REF,
                            debug_dir->AddressOfRawData,

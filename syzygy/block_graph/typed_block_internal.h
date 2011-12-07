@@ -66,6 +66,9 @@ class TypedBlockImpl {
 
   // Default constructor.
   TypedBlockImpl() : offset_(0), block_(NULL), size_(0) {
+#ifndef NDEBUG
+    debug_object_ = NULL;
+#endif
   }
 
   // Initializes this typed block with the given @p block and @p offset.
@@ -94,6 +97,11 @@ class TypedBlockImpl {
     offset_ = offset;
     block_ = block;
     size_ = size;
+
+#ifndef NDEBUG
+    debug_object_ = GetImpl(0);
+#endif
+
     return true;
   }
 
@@ -348,6 +356,12 @@ class TypedBlockImpl {
   Offset offset_;
   BlockPtr block_;
   size_t size_;
+#ifndef NDEBUG
+  // This is strictly unneccessary, but aids debugging a great deal. Note that
+  // this pointer is set when Init is called, and will be invalid if the
+  // underlying block has reallocated its data.
+  T* debug_object_;
+#endif
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TypedBlockImpl);
