@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,17 +28,17 @@ void CompileAsserts() {
                  file_offset_must_be_4_byte);
 }
 
-std::ostream& operator<<(std::ostream& str, const RelativeAddress& addr) {
+std::ostream& operator<<(std::ostream& str, RelativeAddress addr) {
   str << StringPrintf("Relative(0x%08X)", addr.value());
   return str;
 }
 
-std::ostream& operator<<(std::ostream& str, const AbsoluteAddress& addr) {
+std::ostream& operator<<(std::ostream& str, AbsoluteAddress addr) {
   str << StringPrintf("Absolute(0x%08X)", addr.value());
   return str;
 }
 
-std::ostream& operator<<(std::ostream& str, const FileOffsetAddress& addr) {
+std::ostream& operator<<(std::ostream& str, FileOffsetAddress addr) {
   str << StringPrintf("FileOffset(0x%08X)", addr.value());
   return str;
 }

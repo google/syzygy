@@ -128,8 +128,8 @@ bool BlockCompare(const BlockGraph::Block* block1,
 
   // If we have addresses, sort using them first.
   if (pair1 != NULL && pair2 != NULL) {
-    const RelativeAddress& addr1 = pair1->second.start();
-    const RelativeAddress& addr2 = pair2->second.start();
+    RelativeAddress addr1 = pair1->second.start();
+    RelativeAddress addr2 = pair2->second.start();
     if (addr1 < addr2)
       return true;
     if (addr2 < addr1)

@@ -95,18 +95,15 @@ class BasicBlockDisassembler : public core::Disassembler {
  protected:
   // Overrides from Disassembler. See disassembler.h for comments.
   // @{
-  virtual CallbackDirective OnInstruction(
-      const AbsoluteAddress& addr,
-      const _DInst& inst) OVERRIDE;
-  virtual CallbackDirective OnBranchInstruction(
-      const AbsoluteAddress& addr,
-      const _DInst& inst,
-      const AbsoluteAddress& dest) OVERRIDE;
+  virtual CallbackDirective OnInstruction(AbsoluteAddress addr,
+                                          const _DInst& inst) OVERRIDE;
+  virtual CallbackDirective OnBranchInstruction(AbsoluteAddress addr,
+                                                const _DInst& inst,
+                                                AbsoluteAddress dest) OVERRIDE;
   virtual CallbackDirective OnStartInstructionRun(
-      const AbsoluteAddress& start_address) OVERRIDE;
-  virtual CallbackDirective OnEndInstructionRun(
-      const AbsoluteAddress& addr,
-      const _DInst& inst) OVERRIDE;
+      AbsoluteAddress start_address) OVERRIDE;
+  virtual CallbackDirective OnEndInstructionRun(AbsoluteAddress addr,
+                                                const _DInst& inst) OVERRIDE;
   virtual CallbackDirective OnDisassemblyComplete() OVERRIDE;
   // @}
 
@@ -126,7 +123,7 @@ class BasicBlockDisassembler : public core::Disassembler {
   bool ValidateBasicBlockCoverage() const;
 
   // Inserts a range and associated block into @p basic_block_ranges.
-  bool InsertBlockRange(const AbsoluteAddress& addr,
+  bool InsertBlockRange(AbsoluteAddress addr,
                         size_t size,
                         BlockGraph::BlockType type);
 

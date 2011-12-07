@@ -1554,7 +1554,7 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
   // for those references we know to be pointing directly to code.
   IntermediateReferenceMap::const_iterator ref_it(references_.begin());
   for (; ref_it != references_.end(); ++ref_it) {
-    const RelativeAddress& src = ref_it->first;
+    RelativeAddress src = ref_it->first;
     const IntermediateReference& ref = ref_it->second;
     BlockGraph::Block* src_block = image_->GetContainingBlock(src, 1);
     BlockGraph::Block* dst_block =

@@ -136,9 +136,9 @@ typedef AddressImpl<kAbsoluteAddressType> AbsoluteAddress;
 // A file offset within an image file.
 typedef AddressImpl<kFileOffsetAddressType> FileOffsetAddress;
 
-std::ostream& operator<<(std::ostream& str, const RelativeAddress& addr);
-std::ostream& operator<<(std::ostream& str, const AbsoluteAddress& addr);
-std::ostream& operator<<(std::ostream& str, const FileOffsetAddress& addr);
+std::ostream& operator<<(std::ostream& str, RelativeAddress addr);
+std::ostream& operator<<(std::ostream& str, AbsoluteAddress addr);
+std::ostream& operator<<(std::ostream& str, FileOffsetAddress addr);
 
 }  // namespace core
 

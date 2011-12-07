@@ -95,26 +95,22 @@ Disassembler::~Disassembler() {
 }
 
 Disassembler::CallbackDirective Disassembler::OnInstruction(
-    const AbsoluteAddress& addr,
-    const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst) {
   return kDirectiveContinue;
 }
 
 Disassembler::CallbackDirective Disassembler::OnBranchInstruction(
-    const AbsoluteAddress& addr,
-    const _DInst& inst,
-    const AbsoluteAddress& dest) {
+    AbsoluteAddress addr, const _DInst& inst, AbsoluteAddress dest) {
   return kDirectiveContinue;
 }
 
 Disassembler::CallbackDirective Disassembler::OnStartInstructionRun(
-    const AbsoluteAddress& start_address) {
+    AbsoluteAddress start_address) {
   return kDirectiveContinue;
 }
 
 Disassembler::CallbackDirective Disassembler::OnEndInstructionRun(
-    const AbsoluteAddress& addr,
-    const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst) {
   return kDirectiveContinue;
 }
 
@@ -327,8 +323,7 @@ bool Disassembler::Unvisited(AbsoluteAddress addr) {
 }
 
 Disassembler::CallbackDirective Disassembler::NotifyOnInstruction(
-    const AbsoluteAddress& addr,
-    const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst) {
   // Invoke our local callback.
   CallbackDirective directive = OnInstruction(addr, inst);
 

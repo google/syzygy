@@ -32,7 +32,7 @@ using core::Disassembler;
 
 namespace {
 
-Instruction ImplicitUnconditionalBranch(const core::AbsoluteAddress& target) {
+Instruction ImplicitUnconditionalBranch(core::AbsoluteAddress target) {
   Instruction::Representation implicit_branch = {};
   implicit_branch.addr = 0;
   implicit_branch.opcode = I_JMP;
@@ -73,17 +73,14 @@ BasicBlockDisassembler::BasicBlockDisassembler(
 }
 
 Disassembler::CallbackDirective BasicBlockDisassembler::OnInstruction(
-    const AbsoluteAddress& addr,
-    const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst) {
   current_instructions_.push_back(
       Instruction(inst, Instruction::SourceRange(addr, inst.size)));
   return kDirectiveContinue;
 }
 
 Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
-    const AbsoluteAddress& addr,
-    const _DInst& inst,
-    const AbsoluteAddress& dest) {
+    AbsoluteAddress addr, const _DInst& inst, AbsoluteAddress dest) {
   if (dest != AbsoluteAddress(0)) {
     if (IsInBlock(dest)) {
       // If dest is inside the current macro block, then add it to the list of
@@ -131,7 +128,7 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
 // Called every time disassembly is started from a new address. Will be
 // called for at least every address in unvisited_.
 Disassembler::CallbackDirective BasicBlockDisassembler::OnStartInstructionRun(
-    const AbsoluteAddress& start_address) {
+    AbsoluteAddress start_address) {
   // The address of the beginning of the current basic block.
   current_block_start_ = start_address;
   return kDirectiveContinue;
@@ -140,8 +137,7 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnStartInstructionRun(
 // Called when a walk from a given entry point has terminated or when
 // a conditional branch has been found.
 Disassembler::CallbackDirective BasicBlockDisassembler::OnEndInstructionRun(
-    const AbsoluteAddress& addr,
-    const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst) {
   CallbackDirective result = kDirectiveContinue;
 
   // We've reached the end of the current walk or we handled a conditional
@@ -222,9 +218,7 @@ bool BasicBlockDisassembler::ValidateBasicBlockCoverage() const {
 }
 
 bool BasicBlockDisassembler::InsertBlockRange(
-    const AbsoluteAddress& addr,
-    size_t size,
-    BlockGraph::BlockType type) {
+    AbsoluteAddress addr, size_t size, BlockGraph::BlockType type) {
   Range range(addr, size);
   bool success = true;
   DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
