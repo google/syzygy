@@ -89,7 +89,7 @@ struct BasicBlockDesc {
   struct Instruction {
     uint16 opcode;
     AbsoluteAddress target_addr;
-    Instruction(uint16 o, const AbsoluteAddress& t)
+    Instruction(uint16 o, AbsoluteAddress t)
         : opcode(o),
           target_addr(t) {
     }
@@ -116,7 +116,7 @@ struct BasicBlockDesc {
   }
 
   // Append an successor (branching) instruction to the basic block.
-  BasicBlockDesc& AddSucc(uint16 opcode, const AbsoluteAddress& target) {
+  BasicBlockDesc& AddSucc(uint16 opcode, AbsoluteAddress target) {
     successors.push_back(Instruction(opcode, target));
     EXPECT_TRUE(successors.size() <= 2);
     return *this;
@@ -162,7 +162,7 @@ bool SameInstructions(const BasicBlock::Instructions& bb_inst,
 // @param bb the actual basic block.
 // @returns true if the expected block describes the actual block.
 bool DescribesBlock(const BasicBlockDesc& expected,
-                    const AbsoluteAddress& start_addr,
+                    AbsoluteAddress start_addr,
                     const BasicBlock& bb ) {
   if (bb.type() != expected.block_type)
     return false;

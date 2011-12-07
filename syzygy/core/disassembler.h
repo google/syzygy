@@ -107,7 +107,7 @@ class Disassembler {
   // @param addr is the address of the branch instruction itself.
   // @param inst is the disassembled instruction data.
   // @returns kWalkContinue on succcess or kWalkError on failure.
-  virtual CallbackDirective OnInstruction(const AbsoluteAddress& addr,
+  virtual CallbackDirective OnInstruction(AbsoluteAddress addr,
                                           const _DInst& inst);
 
   // Called every time a branch instruction is hit.
@@ -115,22 +115,22 @@ class Disassembler {
   // @param inst is the disassembled instruction data.
   // @param dest is the destination address of the branch instruction.
   // @returns kWalkContinue on succcess or kWalkError on failure.
-  virtual CallbackDirective OnBranchInstruction(const AbsoluteAddress& addr,
+  virtual CallbackDirective OnBranchInstruction(AbsoluteAddress addr,
                                                 const _DInst& inst,
-                                                const AbsoluteAddress& dest);
+                                                AbsoluteAddress dest);
 
   // Called every time disassembly is started from a new address. Will be
   // called at least once if unvisited_ is non-empty.
   // @param start_address denotes the beginning of the instruction run.
   // @returns kWalkContinue on succcess or kWalkError on failure.
   virtual CallbackDirective OnStartInstructionRun(
-      const AbsoluteAddress& start_address);
+      AbsoluteAddress start_address);
 
   // Called on every disassembled instruction.
   // @param addr is the address of the instruction that terminates the run.
   // @param inst is the terminating instruction.
   // @returns kWalkContinue on succcess or kWalkError on failure.
-  virtual CallbackDirective OnEndInstructionRun(const AbsoluteAddress& addr,
+  virtual CallbackDirective OnEndInstructionRun(AbsoluteAddress addr,
                                                 const _DInst& inst);
 
   // Called when disassembly is complete and no further entry points remain
@@ -142,7 +142,7 @@ class Disassembler {
   // OnInstruction() callbacks.
   // @param addr is the address of the current instruction.
   // @param inst is the instruction.
-  CallbackDirective NotifyOnInstruction(const AbsoluteAddress& addr,
+  CallbackDirective NotifyOnInstruction(AbsoluteAddress addr,
                                         const _DInst& inst);
 
   // @return true iff the range [addr ... addr + len) is in the function.
