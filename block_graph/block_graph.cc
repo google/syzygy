@@ -690,12 +690,10 @@ void BlockGraph::Block::InsertData(Offset offset,
     }
   }
 
-  // We haven't been explicitly asked to allocate new data, so don't bother.
-  if (!always_allocate_data)
-    return;
+  // If we've been asked to, at least make sure that the data is allocated.
+  if (always_allocate_data && data_size_ < offset + size)
+    ResizeData(offset + size);
 
-  // Allocate enough data to cover the newly inserted range.
-  ResizeData(size + offset);
   return;
 }
 

@@ -28,6 +28,8 @@
       'sources': [
         'add_debug_directory_entry_transform.cc',
         'add_debug_directory_entry_transform.h',
+        'add_imports_transform.cc',
+        'add_imports_transform.h',
         'add_metadata_transform.cc',
         'add_metadata_transform.h',
         'add_pdb_info_transform.cc',
@@ -48,6 +50,7 @@
       'type': 'executable',
       'sources': [
         'add_debug_directory_entry_transform_unittest.cc',
+        'add_imports_transform_unittest.cc',
         'add_metadata_transform_unittest.cc',
         'add_pdb_info_transform_unittest.cc',
         'pe_transforms_unittests_main.cc',
