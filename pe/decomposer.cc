@@ -17,10 +17,11 @@
 #include <algorithm>
 #include <cvconst.h>
 
+#include "base/bind.h"
 #include "base/file_path.h"
 #include "base/path_service.h"
 #include "base/logging.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -1484,26 +1485,25 @@ bool Decomposer::CreateDataGapBlocks() {
 }
 
 bool Decomposer::ProcessDataSymbols(IDiaSymbol* root) {
-  scoped_ptr<DiaBrowser::MatchCallback> on_data_symbol(
-      NewCallback(this, &Decomposer::OnDataSymbol));
+  DiaBrowser::MatchCallback on_data_symbol(
+      base::Bind(&Decomposer::OnDataSymbol, base::Unretained(this)));
 
   DiaBrowser dia_browser;
   dia_browser.AddPattern(Seq(Opt(SymTagCompiland), SymTagData),
-                         on_data_symbol.get());
+                         on_data_symbol);
   dia_browser.AddPattern(Seq(SymTagCompiland, SymTagFunction,
                              Star(SymTagBlock), SymTagData),
-                         on_data_symbol.get());
+                         on_data_symbol);
 
   return dia_browser.Browse(root);
 }
 
 bool Decomposer::ProcessPublicSymbols(IDiaSymbol* root) {
-  scoped_ptr<DiaBrowser::MatchCallback> on_public_symbol(
-      NewCallback(this, &Decomposer::OnPublicSymbol));
+  DiaBrowser::MatchCallback on_public_symbol(
+      base::Bind(&Decomposer::OnPublicSymbol, base::Unretained(this)));
 
   DiaBrowser dia_browser;
-  dia_browser.AddPattern(SymTagPublicSymbol,
-                         on_public_symbol.get());
+  dia_browser.AddPattern(SymTagPublicSymbol, on_public_symbol);
 
   return dia_browser.Browse(root);
 }
@@ -1653,8 +1653,8 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
     return false;
   }
 
-  scoped_ptr<Disassembler::InstructionCallback> on_instruction(
-      NewCallback(this, &Decomposer::OnInstruction));
+  Disassembler::InstructionCallback on_instruction(
+      base::Bind(&Decomposer::OnInstruction, base::Unretained(this)));
 
   // Use block labels as starting points for disassembly.
   Disassembler::AddressSet labels;
@@ -1665,7 +1665,7 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
                       block->data_size(),
                       abs_block_addr,
                       labels,
-                      on_instruction.get());
+                      on_instruction);
   Disassembler::WalkResult result = disasm.Walk();
 
   DCHECK_EQ(block, current_block_);
@@ -1944,9 +1944,9 @@ void Decomposer::OnInstruction(const Disassembler& walker,
 
 bool Decomposer::CreatePEImageBlocksAndReferences(
     PEFileParser::PEHeader* header) {
-  scoped_ptr<PEFileParser::AddReferenceCallback> add_reference(
-      NewCallback(this, &Decomposer::AddReferenceCallback));
-  PEFileParser parser(image_file_, image_, add_reference.get());
+  PEFileParser::AddReferenceCallback add_reference(
+      base::Bind(&Decomposer::AddReferenceCallback, base::Unretained(this)));
+  PEFileParser parser(image_file_, image_, add_reference);
 
   if (!parser.ParseImage(header)) {
     LOG(ERROR) << "Unable to parse PE image.";
@@ -2277,15 +2277,15 @@ bool Decomposer::BuildBasicBlockGraph(const ImageLayout& image_layout,
       Disassembler::AddressSet labels;
       GetCodeLabelAddresses(block, abs_block_addr, reloc_set_, &labels);
 
-      scoped_ptr<Disassembler::InstructionCallback> on_basic_instruction(
-          NewCallback(this, &Decomposer::OnBasicInstruction));
+      Disassembler::InstructionCallback on_basic_instruction(
+          base::Bind(&Decomposer::OnBasicInstruction, base::Unretained(this)));
 
       BasicBlockDisassembler disasm(block->data(),
                                     block->data_size(),
                                     abs_block_addr,
                                     labels,
                                     block->name(),
-                                    on_basic_instruction.get());
+                                    on_basic_instruction);
       Disassembler::WalkResult result = disasm.Walk();
 
       if (result == Disassembler::kWalkSuccess ||

@@ -18,7 +18,8 @@
 
 #include <vector>
 
-#include "base/scoped_ptr.h"
+#include "base/bind.h"
+#include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/address.h"
@@ -190,8 +191,9 @@ MATCHER_P(DescribedBy, expected, "") {
 class BasicBlockDisassemblerTest : public testing::Test {
  public:
   virtual void SetUp() {
-    on_instruction_.reset(
-        NewCallback(this, &BasicBlockDisassemblerTest::OnInstruction));
+    on_instruction_ =
+        base::Bind(&BasicBlockDisassemblerTest::OnInstruction,
+                   base::Unretained(this));
   }
 
   MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&,
@@ -218,7 +220,7 @@ class BasicBlockDisassemblerTest : public testing::Test {
   }
 
  protected:
-  scoped_ptr<Disassembler::InstructionCallback> on_instruction_;
+  Disassembler::InstructionCallback on_instruction_;
 };
 
 TEST_F(BasicBlockDisassemblerTest, BasicCoverage) {
@@ -233,7 +235,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverage) {
       AddressOf(&bb_assembly_func),
       labels,
       "test",
-      on_instruction_.get());
+      on_instruction_);
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
@@ -268,7 +270,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
       AddressOf(&bb_assembly_func),
       labels,
       "test",
-      on_instruction_.get());
+      on_instruction_);
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
@@ -310,7 +312,7 @@ TEST_F(BasicBlockDisassemblerTest, Instructions) {
       AddressOf(&bb_assembly_func),
       labels,
       "test",
-      NULL);
+      Disassembler::InstructionCallback());
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 

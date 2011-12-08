@@ -195,7 +195,7 @@ FilePath PELibUnitTest::GetOutputRelativePath(const wchar_t* path) {
 
   FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  src_dir = src_dir.Append(L"syzygy");
+  src_dir = src_dir.Append(L"build");
   src_dir = src_dir.Append(kOutputDir);
   return src_dir.Append(path);
 }

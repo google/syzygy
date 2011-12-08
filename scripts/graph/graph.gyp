@@ -52,7 +52,7 @@
             '<(success_file)',
           ],
           'action': [
-            '<(PRODUCT_DIR)/py/scripts/python',
+            '"<(PRODUCT_DIR)/py/scripts/python"',
             '<(script_file)',
             '--setup-file', '<(setup_file)',
             '--build-dir', '<(PRODUCT_DIR)/temp/graph',

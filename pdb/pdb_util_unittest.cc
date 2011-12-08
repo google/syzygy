@@ -15,7 +15,7 @@
 
 #include <objbase.h>
 #include "base/path_service.h"
-#include "base/memory/scoped_native_library.h"
+#include "base/scoped_native_library.h"
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_byte_stream.h"

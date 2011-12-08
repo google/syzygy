@@ -18,7 +18,7 @@
 
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"

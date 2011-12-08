@@ -48,7 +48,7 @@ struct BlockHash : public Comparable<BlockHash> {
   //     Data (skipping references)
   void Hash(const BlockGraph::Block* block);
 
-  MD5Digest md5_digest;
+  base::MD5Digest md5_digest;
 };
 
 }  // namespace experimental

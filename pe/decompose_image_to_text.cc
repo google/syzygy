@@ -19,7 +19,7 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
-#include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"

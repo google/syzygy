@@ -40,7 +40,7 @@ namespace {
 base::AtExitManager at_exit;
 
 // All tracing runs through this object.
-base::LazyInstance<Client> static_client_instance(base::LINKER_INITIALIZED);
+base::LazyInstance<Client> static_client_instance = LAZY_INSTANCE_INITIALIZER;
 
 // Copies the arguments under an SEH handler so we don't crash by under-running
 // the stack.

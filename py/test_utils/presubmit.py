@@ -27,13 +27,11 @@ def MakeResult(output_api, message, committing, modified_files=[]):
     return output_api.PresubmitNotifyResult(message, modified_files)
 
 
-def GetTestSuccessPath(solution_path, configuration, testname):
+def GetTestSuccessPath(build_path, configuration, testname):
   """Returns the path to the success file for the given test and
-  configuration. |solution_path| may point to the actual .sln file, or
-  simply the directory containing it."""
-  if re.search('\.sln$', solution_path):
-    solution_path = os.path.dirname(solution_path)
-  return os.path.abspath(os.path.join(solution_path,
+  configuration. |build_path| is the path to the "build" directory."""
+
+  return os.path.abspath(os.path.join(build_path,
                                       configuration,
                                       '%s_success.txt' % testname))
 
@@ -62,7 +60,8 @@ def CheckTestSuccess(input_api, output_api, committing, configuration,
   str, will also output the provided message."""
   # By convention, a test called NAME will generate NAME_success.txt in the
   # appropriate output directory.
-  success_path = GetTestSuccessPath(input_api.PresubmitLocalPath(),
+  build_path = os.path.join(input_api.PresubmitLocalPath(), '../build')
+  success_path = GetTestSuccessPath(build_path,
                                     configuration,
                                     test_name)
   modified_files = GetModifiedFiles(input_api, success_path)

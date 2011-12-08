@@ -220,10 +220,11 @@ class PEFileStructPtr {
 
 PEFileParser::PEFileParser(const PEFile& image_file,
                            BlockGraph::AddressSpace* address_space,
-                           AddReferenceCallback* add_reference)
+                           const AddReferenceCallback& add_reference)
     : image_file_(image_file),
       address_space_(address_space),
       add_reference_(add_reference) {
+  DCHECK(!add_reference.is_null());
 }
 
 const PEFileParser::DataDirParseEntry PEFileParser::parsers_[] = {
@@ -1091,7 +1092,7 @@ bool PEFileParser::AddReference(RelativeAddress src,
                                 BlockGraph::Size size,
                                 RelativeAddress dst,
                                 const char* name) {
-  add_reference_->Run(src, type, size, dst, name);
+  add_reference_.Run(src, type, size, dst, name);
   return true;
 }
 

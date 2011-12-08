@@ -66,9 +66,7 @@ std::string TimeToString(const Time& time) {
 }
 
 bool StringToTime(const std::string& string, Time* time) {
-  std::wstring wstring;
-  return UTF8ToWide(string.c_str(), string.size(), &wstring) &&
-      Time::FromString(wstring.c_str(), time);
+  return Time::FromString(string.c_str(), time);
 }
 
 // Outputs a SyzygyVersion object in JSON format as a dictionary. Does not
@@ -205,8 +203,8 @@ bool Metadata::Init(const PEFile::Signature& module_signature) {
   // Populate the command line string.
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
-  if (!WideToUTF8(cmd_line->command_line_string().c_str(),
-                  cmd_line->command_line_string().size(),
+  if (!WideToUTF8(cmd_line->GetCommandLineString().c_str(),
+                  cmd_line->GetCommandLineString().size(),
                   &command_line_)) {
     LOG(ERROR) << "Unable to convert command-line to UTF8.";
     return false;

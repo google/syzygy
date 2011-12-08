@@ -32,16 +32,16 @@ class PEFileParser {
   typedef block_graph::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
 
-  typedef Callback5<RelativeAddress,
-                    BlockGraph::ReferenceType,
-                    BlockGraph::Size,
-                    RelativeAddress,
-                    const char*>::Type
+  typedef base::Callback<void(RelativeAddress,
+                              BlockGraph::ReferenceType,
+                              BlockGraph::Size,
+                              RelativeAddress,
+                              const char*)>
       AddReferenceCallback;
 
   PEFileParser(const PEFile& image_file,
                BlockGraph::AddressSpace* address_space,
-               AddReferenceCallback* add_reference);
+               const AddReferenceCallback& add_reference);
 
   struct PEHeader {
     PEHeader() {
@@ -166,7 +166,7 @@ class PEFileParser {
 
   const PEFile& image_file_;
   BlockGraph::AddressSpace* address_space_;
-  AddReferenceCallback* add_reference_;
+  AddReferenceCallback add_reference_;
 };
 
 }  // namespace pe

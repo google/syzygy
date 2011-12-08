@@ -98,7 +98,7 @@ struct PaddingData {
   uint8 buffer[length];
 };
 
-base::LazyInstance<PaddingData> kPaddingData(base::LINKER_INITIALIZED);
+base::LazyInstance<PaddingData> kPaddingData = LAZY_INSTANCE_INITIALIZER;
 
 }  // namespace
 

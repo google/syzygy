@@ -125,8 +125,8 @@ int main(int argc, char** argv) {
   }
 
   std::vector<FilePath> trace_paths;
-  for (size_t i = 0; i < cmd_line->args().size(); ++i)
-    trace_paths.push_back(FilePath(cmd_line->args()[i]));
+  for (size_t i = 0; i < cmd_line->argv().size(); ++i)
+    trace_paths.push_back(FilePath(cmd_line->argv()[i]));
   bool pretty_print = cmd_line->HasSwitch("pretty-print");
   bool list_dead_code = cmd_line->HasSwitch("list-dead-code");
 

@@ -57,7 +57,7 @@
             '$(OutDir)/test_data/instrumented_test_dll.dll',
           ],
           'action': [
-            '$(OutDir)/instrument.exe',
+            '"$(OutDir)/instrument.exe"',
             '--input-dll=$(OutDir)/test_data/test_dll.dll',
             '--output-dll=$(OutDir)/test_data/instrumented_test_dll.dll',
           ],

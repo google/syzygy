@@ -14,9 +14,11 @@
 #include "syzygy/pe/dia_browser.h"
 
 #include <diacreate.h>
+
+#include "base/bind.h"
 #include "base/file_path.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
-#include "base/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -47,11 +49,11 @@ class PatternTest: public testing::Test {
                              DiaBrowser::BrowserDirective*));
 
   virtual void SetUp() {
-    on_match_.reset(NewCallback(this, &PatternTest::OnMatch));
+    on_match_ = base::Bind(&PatternTest::OnMatch, base::Unretained(this));
   }
 
  protected:
-  scoped_ptr<DiaBrowser::MatchCallback> on_match_;
+  DiaBrowser::MatchCallback on_match_;
 };
 
 FilePath GetSrcRelativePath(const wchar_t* path) {
@@ -92,10 +94,13 @@ class DiaBrowserTest: public testing::Test {
       DiaBrowser::BrowserDirective*));
 
   virtual void SetUp() {
-    on_partial_match_term_.reset(NewCallback(this,
-        &DiaBrowserTest::OnPartialMatchTerminate));
-    on_partial_match_.reset(NewCallback(this, &DiaBrowserTest::OnPartialMatch));
-    on_full_match_.reset(NewCallback(this, &DiaBrowserTest::OnFullMatch));
+    on_partial_match_term_ =
+        base::Bind(&DiaBrowserTest::OnPartialMatchTerminate,
+                   base::Unretained(this));
+    on_partial_match_ = base::Bind(&DiaBrowserTest::OnPartialMatch,
+                                   base::Unretained(this));
+    on_full_match_ = base::Bind(&DiaBrowserTest::OnFullMatch,
+                                base::Unretained(this));
 
     if (!SUCCEEDED(dia_source_.CreateInstance(CLSID_DiaSource)))
       ASSERT_HRESULT_SUCCEEDED(NoRegCoCreate(
@@ -120,9 +125,9 @@ class DiaBrowserTest: public testing::Test {
   }
 
  protected:
-  scoped_ptr<DiaBrowser::MatchCallback> on_partial_match_term_;
-  scoped_ptr<DiaBrowser::MatchCallback> on_partial_match_;
-  scoped_ptr<DiaBrowser::MatchCallback> on_full_match_;
+  DiaBrowser::MatchCallback on_partial_match_term_;
+  DiaBrowser::MatchCallback on_partial_match_;
+  DiaBrowser::MatchCallback on_full_match_;
   ScopedComPtr<IDiaDataSource> dia_source_;
   ScopedComPtr<IDiaSession> dia_session_;
   ScopedComPtr<IDiaSymbol> global_;
@@ -142,13 +147,13 @@ TEST_F(PatternTest, NullMatchingPatternIsInvalid) {
 
   // The pattern 'Compiland?' would match everything with a null match,
   // so it should be rejected.
-  EXPECT_FALSE(dia_browser.AddPattern(Opt(SymTagCompiland), on_match_.get()));
+  EXPECT_FALSE(dia_browser.AddPattern(Opt(SymTagCompiland), on_match_));
 }
 
 TEST_F(PatternTest, Wildcard) {
   TestDiaBrowser dia_browser;
 
-  ASSERT_TRUE(dia_browser.AddPattern(Tag(SymTagNull), on_match_.get()));
+  ASSERT_TRUE(dia_browser.AddPattern(Tag(SymTagNull), on_match_));
 
   // The wild-card pattern should match every sym tag.
   for (size_t i = kSymTagBegin; i < kSymTagEnd; ++i) {
@@ -164,7 +169,7 @@ TEST_F(PatternTest, Seq) {
   // Set up pattern 'Compiland.Function.Block.Data'.
   ASSERT_TRUE(dia_browser.AddPattern(
       Seq(SymTagCompiland, SymTagFunction, SymTagBlock, SymTagData),
-      on_match_.get()));
+      on_match_));
 
   // This exact pattern should match, but not any prefix of it, nor any
   // longer pattern containing it as a prefix.
@@ -185,15 +190,15 @@ TEST_F(PatternTest, EmptySymTagBitSetRejected) {
   TestDiaBrowser dia_browser;
 
   // A pattern with an element that can't match anything should be rejected.
-  EXPECT_FALSE(dia_browser.AddPattern(Not(SymTagNull), on_match_.get()));
-  EXPECT_FALSE(dia_browser.AddPattern(Tags(SymTagBitSet()), on_match_.get()));
+  EXPECT_FALSE(dia_browser.AddPattern(Not(SymTagNull), on_match_));
+  EXPECT_FALSE(dia_browser.AddPattern(Tags(SymTagBitSet()), on_match_));
 }
 
 TEST_F(PatternTest, Not) {
   TestDiaBrowser dia_browser;
 
   // Set up pattern '[^Compiland]'
-  ASSERT_TRUE(dia_browser.AddPattern(Not(SymTagCompiland), on_match_.get()));
+  ASSERT_TRUE(dia_browser.AddPattern(Not(SymTagCompiland), on_match_));
 
   // This should match every SymTag *except* Compiland.
   for (size_t i = kSymTagBegin; i < kSymTagEnd; ++i) {
@@ -220,7 +225,7 @@ TEST_F(PatternTest, MultiArgNot) {
                                          SymTagBlock,
                                          SymTagData,
                                          SymTagAnnotation),
-                                     on_match_.get()));
+                                     on_match_));
 
   // Ensure the pattern doesn't match the first 8 symtags, but matches all
   // the rest.
@@ -248,7 +253,7 @@ TEST_F(PatternTest, MultiArgTags) {
                                           SymTagBlock,
                                           SymTagData,
                                           SymTagAnnotation),
-                                     on_match_.get()));
+                                     on_match_));
 
   // Ensure the pattern matches the first 8 symtags, but does not match all
   // the rest.
@@ -267,7 +272,7 @@ TEST_F(PatternTest, Opt) {
 
   // Set up pattern 'Compiland?.Function'.
   ASSERT_TRUE(dia_browser.AddPattern(
-      Seq(Opt(SymTagCompiland), SymTagFunction), on_match_.get()));
+      Seq(Opt(SymTagCompiland), SymTagFunction), on_match_));
 
   std::vector<SymTag> sym_tags;
 
@@ -290,7 +295,7 @@ TEST_F(PatternTest, Star) {
 
   // Set up pattern 'Compiland.Block*.Data'.
   ASSERT_TRUE(dia_browser.AddPattern(
-      Seq(SymTagCompiland, Star(SymTagBlock), SymTagData), on_match_.get()));
+      Seq(SymTagCompiland, Star(SymTagBlock), SymTagData), on_match_));
 
   std::vector<SymTag> sym_tags;
 
@@ -317,7 +322,7 @@ TEST_F(PatternTest, Plus) {
 
   // Set up pattern 'Compiland.Block+.Data'.
   ASSERT_TRUE(dia_browser.AddPattern(
-      Seq(SymTagCompiland, Plus(SymTagBlock), SymTagData), on_match_.get()));
+      Seq(SymTagCompiland, Plus(SymTagBlock), SymTagData), on_match_));
 
   std::vector<SymTag> sym_tags;
 
@@ -352,7 +357,7 @@ TEST_F(PatternTest, Or) {
          Seq(SymTagLabel, SymTagCompiland),
          Seq(SymTagLabel, SymTagLabel, SymTagLabel),
          SymTagVTable),
-      on_match_.get()));
+      on_match_));
 
   std::vector<SymTag> sym_tags;
   sym_tags.push_back(SymTagCompiland);
@@ -392,7 +397,7 @@ TEST_F(PatternTest, Or) {
 TEST_F(DiaBrowserTest, AllCompilandSymbolsExplored) {
   TestDiaBrowser dia_browser;
 
-  dia_browser.AddPattern(Tag(SymTagCompiland), on_full_match_.get());
+  dia_browser.AddPattern(Tag(SymTagCompiland), on_full_match_);
 
   EXPECT_CALL(*this, OnFullMatch(_, _, _, _)).Times(154);
   dia_browser.Browse(global_.get());
@@ -403,7 +408,7 @@ TEST_F(DiaBrowserTest, AllDataSymbolsExplored) {
 
   // Search for (Wildcard)*.Data
   dia_browser.AddPattern(Seq(Star(SymTagNull), SymTagData),
-                         on_full_match_.get());
+                         on_full_match_);
 
   EXPECT_CALL(*this, OnFullMatch(_, _, _, _)).Times(2883);
   dia_browser.Browse(global_.get());
@@ -418,9 +423,9 @@ TEST_F(DiaBrowserTest, SomePathsTerminated) {
   // However, we terminate partial matches when they get to
   // UDT.
   dia_browser.AddPattern(Seq(Callback(Or(SymTagEnum, SymTagUDT),
-                                      on_partial_match_term_.get()),
+                                      on_partial_match_term_),
                              SymTagData),
-                         on_full_match_.get());
+                         on_full_match_);
 
   // There are 247 UDT nodes and 28 Enum nodes: OnPartialMatch should hit all
   // of them. However, only the 428 Enum.Data full matches should be hit.

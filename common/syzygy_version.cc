@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/common/syzygy_version.h"
-#include "base/string_util.h"
+#include "base/stringprintf.h"
 
 namespace common {
 
@@ -65,8 +65,8 @@ bool SyzygyVersion::IsCompatible(const SyzygyVersion& rhs) const {
 }
 
 std::string SyzygyVersion::GetVersionString() const {
-  std::string version = StringPrintf("%d.%d.%d.%d", major_, minor_, build_,
-                                     patch_);
+  std::string version =
+      base::StringPrintf("%d.%d.%d.%d", major_, minor_, build_, patch_);
   // Only append the last-change string if it is not empty.
   if (!last_change_.empty()) {
     version += StringPrintf(" (%s)", last_change_.c_str());

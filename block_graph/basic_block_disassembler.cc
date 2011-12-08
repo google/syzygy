@@ -53,7 +53,7 @@ BasicBlockDisassembler::BasicBlockDisassembler(
     AbsoluteAddress code_addr,
     const AddressSet& entry_points,
     const char* containing_block_name,
-    InstructionCallback* on_instruction) :
+    InstructionCallback on_instruction) :
         Disassembler(code,
                      code_size,
                      code_addr,

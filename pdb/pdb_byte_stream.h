@@ -15,7 +15,7 @@
 #ifndef SYZYGY_PDB_PDB_BYTE_STREAM_H_
 #define SYZYGY_PDB_PDB_BYTE_STREAM_H_
 
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
