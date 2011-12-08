@@ -54,7 +54,8 @@ class Test(object):
 
   def GetSuccessFilePath(self, configuration):
     """Returns the path to the success file associated with this test."""
-    success_path = presubmit.GetTestSuccessPath(self._project_dir,
+    build_path = os.path.join(self._project_dir, '../build')
+    success_path = presubmit.GetTestSuccessPath(build_path,
                                                 configuration,
                                                 self._name)
     return success_path
@@ -190,8 +191,9 @@ class ExecutableTest(Test):
 
   def _GetTestPath(self, configuration):
     """Returns the path to the test executable. This stub may be overridden,
-    but it defaults to 'project_dir/configuration/test_name.exe'."""
-    return os.path.join(self._project_dir, configuration, '%s.exe' % self._name)
+    but it defaults to 'project_dir/../build/configuration/test_name.exe'."""
+    return os.path.join(self._project_dir, '../build',
+        configuration, '%s.exe' % self._name)
 
   def _NeedToRun(self, configuration):
     test_path = self._GetTestPath(configuration)

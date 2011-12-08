@@ -40,7 +40,7 @@
             '<(PRODUCT_DIR)/virtualenv-created.txt',
           ],
           'action': [
-            '<(DEPTH)/third_party/python_26/python',
+            '"<(DEPTH)/third_party/python_26/python"',
             '<(DEPTH)/syzygy/build/create_virtualenv.py',
             '--output-dir', '<(PRODUCT_DIR)/py',
             '--success-file', '<(PRODUCT_DIR)/virtualenv-created.txt',

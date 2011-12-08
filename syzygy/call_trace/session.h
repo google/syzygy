@@ -23,7 +23,7 @@
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/call_trace/buffer_pool.h"
 #include "syzygy/call_trace/process_info.h"

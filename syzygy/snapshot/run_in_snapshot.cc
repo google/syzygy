@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 
   std::wstring volume = cmd_line->GetSwitchValueNative("volume");
   std::wstring snapshot = cmd_line->GetSwitchValueNative("snapshot");
-  CommandLine::StringVector args = cmd_line->args();
+  CommandLine::StringVector args = cmd_line->argv();
   if (volume.empty() || snapshot.empty() || args.size() == 0) {
     return Usage();
   }
@@ -170,10 +170,10 @@ int main(int argc, char** argv) {
   FilePath cmd_path(args[0]);
   CommandLine cmd(cmd_path);
   for (size_t i = 1; i < args.size(); ++i)
-    cmd.AppendArgNative(args[i]);
+    cmd.AppendArg(argv[i]);
 
   int ret = 0;
-  if (!base::LaunchApp(cmd, true, false, NULL)) {
+  if (!base::LaunchProcess(cmd, base::LaunchOptions(), NULL)) {
     LOG(ERROR) << "Unable to launch application";
     ret = 1;
   }

@@ -30,7 +30,7 @@ void InitMetadata(Metadata* metadata) {
   std::string command_line = "foo.exe --bar --baz=blarg";
 
   base::Time creation_time;
-  EXPECT_TRUE(base::Time::FromString(L"Thu, 7 Jul 2011 13:45:00 GMT",
+  EXPECT_TRUE(base::Time::FromString("Thu, 7 Jul 2011 13:45:00 GMT",
                                      &creation_time));
 
   SyzygyVersion toolchain_version(1, 2, 3, 4, "5");

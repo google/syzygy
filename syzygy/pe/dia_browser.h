@@ -37,7 +37,7 @@
 #include <vector>
 
 #include "base/callback.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 
 namespace pe {
@@ -93,10 +93,10 @@ class DiaBrowser {
   // 3. const SymbolPtrVector& symbol_lineage the stack of matched symbols.
   // 4. BrowserDirective* directive tells DiaBrowser how to proceed (defaults
   //        to kBrowserContinue).
-  typedef Callback4<const DiaBrowser&,
-                    const SymTagVector&,
-                    const SymbolPtrVector&,
-                    BrowserDirective*>::Type MatchCallback;
+  typedef base::Callback<void(const DiaBrowser&,
+                              const SymTagVector&,
+                              const SymbolPtrVector&,
+                              BrowserDirective*)> MatchCallback;
 
   // The basic element of a pattern.
   struct PatternElement;
@@ -122,7 +122,7 @@ class DiaBrowser {
   // For full details on how to construct patterns, see the comment preceding
   // the 'builder' namespace.
   bool AddPattern(const builder::Proxy& pattern_builder_proxy,
-                  MatchCallback* callback);
+                  const MatchCallback& callback);
 
   // Browses through the DIA tree starting from the given root,
   // matching existing patterns and calling their callbacks.
@@ -351,7 +351,7 @@ Proxy Star(const Proxy& p);
 // Represents a pattern which, when fully matched, will invoke the given
 // @p callback. This callback can direct the behaviour of the match,
 // causing it to terminate early. See BrowserDirective for more details.
-Proxy Callback(const Proxy& p, MatchCallback* callback);
+Proxy Callback(const Proxy& p, const MatchCallback& callback);
 
 }  // namespace builder
 

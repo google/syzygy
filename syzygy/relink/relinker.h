@@ -15,7 +15,7 @@
 #ifndef SYZYGY_RELINK_RELINKER_H_
 #define SYZYGY_RELINK_RELINKER_H_
 
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"

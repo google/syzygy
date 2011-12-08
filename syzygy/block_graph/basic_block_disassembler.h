@@ -83,7 +83,7 @@ class BasicBlockDisassembler : public core::Disassembler {
                          AbsoluteAddress code_addr,
                          const AddressSet& entry_points,
                          const char* containing_block_name,
-                         Disassembler::InstructionCallback* on_instruction);
+                         Disassembler::InstructionCallback on_instruction);
 
   // Returns a RangeMap mapping ranges that each cover a single basic block
   // to BlockGraph::Block instances that contain some information about that

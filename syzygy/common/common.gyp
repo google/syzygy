@@ -42,11 +42,8 @@
             'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
-          # lastchange.py must be run from the root of Syzygy in order
-          # to be meaningful.
           'action': [
-            'cd .. && python',
-            '../build/util/lastchange.py',
+            'python', '<(DEPTH)/build/util/lastchange.py',
             '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
         },

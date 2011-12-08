@@ -16,10 +16,11 @@
 
 #include <delayimp.h>
 
+#include "base/bind.h"
 #include "base/file_path.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
-#include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
@@ -39,7 +40,7 @@ class TestPEFileParser: public PEFileParser {
  public:
   TestPEFileParser(const PEFile& image_file,
                    BlockGraph::AddressSpace* address_space,
-                   AddReferenceCallback* add_reference)
+                   AddReferenceCallback add_reference)
       : PEFileParser(image_file, address_space, add_reference) {
   }
 
@@ -71,8 +72,8 @@ class PEFileParserTest: public testing::PELibUnitTest {
   virtual void SetUp() {
     Super::SetUp();
 
-    add_reference_.reset(NewCallback(this, &PEFileParserTest::AddReference));
-    ASSERT_TRUE(add_reference_ != NULL);
+    add_reference_ = base::Bind(&PEFileParserTest::AddReference,
+                                base::Unretained(this));
 
     ASSERT_TRUE(image_file_.Init(GetExeRelativePath(kDllName)));
   }
@@ -152,7 +153,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
   typedef std::map<RelativeAddress, Reference> ReferenceMap;
   ReferenceMap references_;
 
-  scoped_ptr<PEFileParser::AddReferenceCallback> add_reference_;
+  PEFileParser::AddReferenceCallback add_reference_;
   PEFile image_file_;
   BlockGraph image_;
   BlockGraph::AddressSpace address_space_;
@@ -163,7 +164,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(PEFileParserTest, ParseImageHeader) {
-  TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());
+  TestPEFileParser parser(image_file_, &address_space_, add_reference_);
 
   PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
@@ -201,7 +202,7 @@ TEST_F(PEFileParserTest, ParseImageHeader) {
 }
 
 TEST_F(PEFileParserTest, ParseExportDir) {
-  TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());
+  TestPEFileParser parser(image_file_, &address_space_, add_reference_);
 
   PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
@@ -225,7 +226,7 @@ TEST_F(PEFileParserTest, ParseExportDir) {
 }
 
 TEST_F(PEFileParserTest, ParseImportDir) {
-  TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());
+  TestPEFileParser parser(image_file_, &address_space_, add_reference_);
 
   PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
@@ -299,7 +300,7 @@ TEST_F(PEFileParserTest, ParseImportDir) {
 }
 
 TEST_F(PEFileParserTest, ParseDelayImportDir) {
-  TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());
+  TestPEFileParser parser(image_file_, &address_space_, add_reference_);
 
   PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
@@ -379,7 +380,7 @@ TEST_F(PEFileParserTest, ParseDelayImportDir) {
 }
 
 TEST_F(PEFileParserTest, ParseImage) {
-  TestPEFileParser parser(image_file_, &address_space_, add_reference_.get());
+  TestPEFileParser parser(image_file_, &address_space_, add_reference_);
 
   PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImage(&header));

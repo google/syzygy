@@ -16,6 +16,7 @@
 #include <cvconst.h>
 #include <diacreate.h>
 #include <stdio.h>
+#include "base/bind.h"
 #include "base/file_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
@@ -74,9 +75,9 @@ bool ComdatOrder::LoadSymbols() {
     return false;
 
   DiaBrowser dia_browser;
-  scoped_ptr<DiaBrowser::MatchCallback> on_public_symbol(
-      NewCallback(this, &ComdatOrder::OnPublicSymbol));
-  if (!dia_browser.AddPattern(SymTagPublicSymbol, on_public_symbol.get()))
+  DiaBrowser::MatchCallback on_public_symbol(
+      base::Bind(&ComdatOrder::OnPublicSymbol, base::Unretained(this)));
+  if (!dia_browser.AddPattern(SymTagPublicSymbol, on_public_symbol))
     return false;
 
   comdats_.clear();

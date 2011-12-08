@@ -65,24 +65,24 @@ bool ParseOptions(Options* options) {
     return false;
   }
 
-  if (cmd_line->args().size() == 0) {
+  if (cmd_line->argv().size() == 0) {
     LOG(ERROR) << "Must specify a command.";
     return false;
   }
 
-  if (cmd_line->args().size() > 1) {
+  if (cmd_line->argv().size() > 1) {
     LOG(ERROR) << "Can only specify one command.";
     return false;
   }
 
-  if (cmd_line->args()[0] == L"start") {
+  if (cmd_line->argv()[0] == L"start") {
     options->command = kStart;
-  } else if (cmd_line->args()[0] == L"query") {
+  } else if (cmd_line->argv()[0] == L"query") {
     options->command = kQuery;
-  } else if (cmd_line->args()[0] == L"stop") {
+  } else if (cmd_line->argv()[0] == L"stop") {
     options->command = kStop;
   } else {
-    LOG(ERROR) << "Unknown command: " << cmd_line->args()[0] << ".";
+    LOG(ERROR) << "Unknown command: " << cmd_line->argv()[0] << ".";
     return false;
   }
 

@@ -55,7 +55,6 @@ struct DiaBrowser::PatternElement {
         outgoing_sym_tags(),
         links(),
         pattern_id(-1),
-        callback(NULL),
         full_match(false) {
   }
 
@@ -73,8 +72,8 @@ struct DiaBrowser::PatternElement {
                                   const SymTagVector& tag_lineage,
                                   const SymbolPtrVector& symbol_lineage) const {
     BrowserDirective directive = kBrowserContinue;
-    if (callback != NULL)
-      callback->Run(browser, tag_lineage, symbol_lineage, &directive);
+    if (!callback.is_null())
+      callback.Run(browser, tag_lineage, symbol_lineage, &directive);
 
     if (directive == kBrowserContinue && links.size() == 0)
       directive = kBrowserTerminatePath;
@@ -104,7 +103,7 @@ struct DiaBrowser::PatternElement {
 
   // If this is non-null, when reaching this point in
   // the pattern we will invoke the callback.
-  MatchCallback* callback;
+  MatchCallback callback;
 
   // If this is true, this node is an exit node for the pattern. Any time
   // we reach this node, a full match has been achieved.
@@ -167,12 +166,12 @@ class DiaBrowser::PatternBuilder {
   }
 
   // For constructing kPatternCallback patterns.
-  PatternBuilder(const PatternBuilder& pb, MatchCallback* callback)
+  PatternBuilder(const PatternBuilder& pb, MatchCallback callback)
       : type_(kPatternCallback),
         callback_(callback),
         pb0_(new PatternBuilder()),
         pb1_(NULL) {
-    DCHECK(callback != NULL);
+    DCHECK(!callback.is_null());
     DCHECK(pb.type_ != kPatternNone);
     pb0_->CopyFrom(pb);
   }
@@ -422,7 +421,7 @@ class DiaBrowser::PatternBuilder {
  private:
   PatternType type_;
   SymTagBitSet sym_tags_;
-  MatchCallback* callback_;
+  MatchCallback callback_;
   scoped_ptr<PatternBuilder> pb0_;
   scoped_ptr<PatternBuilder> pb1_;
 
@@ -435,7 +434,7 @@ DiaBrowser::~DiaBrowser() {
 }
 
 bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
-                            MatchCallback* callback) {
+                            const MatchCallback& callback) {
   const PatternBuilder& pattern_builder(pattern_builder_proxy);
   size_t pattern_length = pattern_builder.Length();
 
@@ -883,7 +882,7 @@ Proxy Star(const Proxy& p) {
   return Proxy(PatternBuilder(PatternBuilder::kPatternStar, p));
 }
 
-Proxy Callback(const Proxy& p, MatchCallback* callback) {
+Proxy Callback(const Proxy& p, const MatchCallback& callback) {
   return Proxy(PatternBuilder(*p, callback));
 }
 

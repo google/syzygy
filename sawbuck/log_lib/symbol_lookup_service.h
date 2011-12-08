@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,8 +33,12 @@ class ISymbolLookupService {
   static const Handle kInvalidHandle = -1;
 
   // Type of the resolution callback.
-  typedef Callback5<sym_util::ProcessId, base::Time, sym_util::Address,
-      Handle, const sym_util::Symbol&>::Type SymbolResolvedCallback;
+  typedef base::Callback<void(sym_util::ProcessId,
+                              base::Time,
+                              sym_util::Address,
+                              Handle,
+                              const sym_util::Symbol&)>
+      SymbolResolvedCallback;
 
   // Enqueues an address resolution request for @p address in the context of
   // @p process_id at @p time.
@@ -71,7 +75,7 @@ class SymbolLookupService
   SymbolLookupService();
   ~SymbolLookupService();
 
-  typedef Callback1<const wchar_t*>::Type StatusCallback;
+  typedef base::Callback<void(const wchar_t*)> StatusCallback;
   void set_status_callback(StatusCallback* status_callback) {
     status_callback_ = status_callback;
   }

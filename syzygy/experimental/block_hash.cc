@@ -16,6 +16,12 @@
 
 namespace experimental {
 
+using base::MD5Context;
+using base::MD5Final;
+using base::MD5Init;
+using base::MD5Update;
+using base::StringPiece;
+
 void BlockHash::Hash(const BlockGraph::Block* block) {
   DCHECK(block != NULL);
 
@@ -27,10 +33,16 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
   BlockGraph::Size size = block->size();
   BlockGraph::Size data_size = block->data_size();
   size_t reference_count = block->references().size();
-  MD5Update(&md5_context, &type, sizeof(type));
-  MD5Update(&md5_context, &size, sizeof(size));
-  MD5Update(&md5_context, &data_size, sizeof(data_size));
-  MD5Update(&md5_context, &reference_count, sizeof(reference_count));
+  MD5Update(&md5_context,
+      StringPiece(reinterpret_cast<const char*>(&type), sizeof(type)));
+  MD5Update(&md5_context,
+      StringPiece(reinterpret_cast<const char*>(&size), sizeof(size)));
+  MD5Update(&md5_context,
+      StringPiece(reinterpret_cast<const char*>(&data_size),
+                  sizeof(data_size)));
+  MD5Update(&md5_context,
+      StringPiece(reinterpret_cast<const char*>(&reference_count),
+                        sizeof(data_size)));
 
   // Hash the references in order of increasing source offset.
   BlockGraph::Block::ReferenceMap::const_iterator ref =
@@ -44,9 +56,12 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
     BlockGraph::Offset offset = ref->first;
     BlockGraph::ReferenceType type = ref->second.type();
     BlockGraph::Size size = ref->second.size();
-    MD5Update(&md5_context, &offset, sizeof(offset));
-    MD5Update(&md5_context, &type, sizeof(type));
-    MD5Update(&md5_context, &size, sizeof(size));
+    MD5Update(&md5_context,
+        StringPiece(reinterpret_cast<const char*>(&offset), sizeof(offset)));
+    MD5Update(&md5_context,
+        StringPiece(reinterpret_cast<const char*>(&type), sizeof(type)));
+    MD5Update(&md5_context,
+        StringPiece(reinterpret_cast<const char*>(&size), sizeof(size)));
   }
 
   // Hash the data, skipping locations of references.
@@ -63,8 +78,8 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
         data_end = ref_offset;
 
       MD5Update(&md5_context,
-                block->data() + data_index,
-                data_end - data_index);
+          StringPiece(reinterpret_cast<const char*>(
+              block->data() + data_index), data_end - data_index));
     }
 
     // Skip past this reference.
@@ -74,8 +89,8 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
   // Hash any data after the last reference.
   if (data_index < block->data_size()) {
     MD5Update(&md5_context,
-              block->data() + data_index,
-              block->data_size() - data_index);
+        StringPiece(reinterpret_cast<const char*>(
+            block->data() + data_index, block->data_size() - data_index)));
     data_index = block->data_size();
   }
 
@@ -86,7 +101,7 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
     size_t bytes = block->size() - data_index;
     if (bytes > sizeof(kZeros))
       bytes = sizeof(kZeros);
-    MD5Update(&md5_context, kZeros, bytes);
+    MD5Update(&md5_context, StringPiece(kZeros, bytes));
     data_index += bytes;
   }
 

@@ -18,7 +18,7 @@
 #include "syzygy/call_trace/service.h"
 
 #include "base/lazy_instance.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/call_trace/call_trace_defs.h"
@@ -28,7 +28,7 @@ namespace call_trace {
 namespace service {
 
 // The "global" call trace service singleton.
-base::LazyInstance<Service> service_instance(base::LINKER_INITIALIZED);
+base::LazyInstance<Service> service_instance = LAZY_INSTANCE_INITIALIZER;
 
 const size_t Service::kDefaultBufferSize = 2 * 1024 * 1024;
 const size_t Service::kDefaultNumIncrementalBuffers = 16;

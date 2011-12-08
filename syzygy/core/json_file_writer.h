@@ -22,7 +22,9 @@
 #include "base/basictypes.h"
 
 // Forward declaration.
+namespace base {
 class Value;
+}
 
 namespace core {
 
@@ -80,7 +82,7 @@ class JSONFileWriter {
   bool OutputNull();
 
   // For compatibility with base::Value and base::JSONWriter.
-  bool OutputValue(const Value* value);
+  bool OutputValue(const base::Value* value);
 
  protected:
   // Everything here is protected for unittesting purposes.
@@ -119,7 +121,7 @@ class JSONFileWriter {
   bool PrintDouble(double value);
   bool PrintString(const char* value);
   bool PrintNull(int value_unused);
-  bool PrintValue(const Value* value);
+  bool PrintValue(const base::Value* value);
 
   // The following group of functions act as pass-through for fprintf and fputc,
   // but update internal state. No newline characters should be written using

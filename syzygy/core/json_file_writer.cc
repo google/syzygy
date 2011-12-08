@@ -21,8 +21,8 @@
 #include <stdarg.h>
 #include "base/json/json_writer.h"
 #include "base/json/string_escape.h"
-#include "base/scoped_ptr.h"
 #include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 
@@ -190,7 +190,7 @@ bool JSONFileWriter::PrintInteger(int value) {
 }
 
 bool JSONFileWriter::PrintDouble(double value) {
-  FundamentalValue fundamental_value(value);
+  base::FundamentalValue fundamental_value(value);
   return PrintValue(&fundamental_value);
 }
 
@@ -202,7 +202,7 @@ bool JSONFileWriter::PrintNull(int value_unused) {
   return Printf("%s", kNull);
 }
 
-bool JSONFileWriter::PrintValue(const Value* value) {
+bool JSONFileWriter::PrintValue(const base::Value* value) {
   DCHECK(value != NULL);
 
   switch (value->GetType()) {

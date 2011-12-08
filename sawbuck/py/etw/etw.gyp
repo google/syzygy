@@ -55,8 +55,8 @@
             '<(PRODUCT_DIR)/ETW-0.6.5.0-py2.6.egg',
           ],
           'action': [
-            '<(DEPTH)/third_party/setuptools/setup_env.bat &&'
-              '<(DEPTH)/third_party/python_26/python',
+            '"<(DEPTH)/third_party/setuptools/setup_env.bat" &&'
+              '"<(DEPTH)/third_party/python_26/python"',
             'setup.py',
             'bdist_egg',
             '--dist-dir=<(PRODUCT_DIR)',

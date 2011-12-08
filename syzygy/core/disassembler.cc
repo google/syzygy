@@ -67,7 +67,7 @@ _DecodeResult distorm_decompose_wrapper(_CodeInfo* code,
 Disassembler::Disassembler(const uint8* code,
                            size_t code_size,
                            AbsoluteAddress code_addr,
-                           InstructionCallback* on_instruction)
+                           const InstructionCallback& on_instruction)
     : code_(code),
       code_size_(code_size),
       code_addr_(code_addr),
@@ -79,7 +79,7 @@ Disassembler::Disassembler(const uint8* code,
                            size_t code_size,
                            AbsoluteAddress code_addr,
                            const AddressSet& entry_points,
-                           InstructionCallback* on_instruction)
+                           const InstructionCallback& on_instruction)
     : code_(code),
       code_size_(code_size),
       code_addr_(code_addr),
@@ -328,8 +328,8 @@ Disassembler::CallbackDirective Disassembler::NotifyOnInstruction(
   CallbackDirective directive = OnInstruction(addr, inst);
 
   // Invoke the external callback if we're not already aborted.
-  if (directive == kDirectiveContinue && on_instruction_ != NULL) {
-    on_instruction_->Run(*this, inst, &directive);
+  if (directive == kDirectiveContinue && !on_instruction_.is_null()) {
+    on_instruction_.Run(*this, inst, &directive);
   }
 
   return directive;

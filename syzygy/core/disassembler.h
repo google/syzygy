@@ -50,8 +50,9 @@ class Disassembler {
   // 1. const Disassembler& disasm the disassembler.
   // 2. const _DInst& inst the current instruction.
   // 3. CallbackDirective* directive tells the disassembler how to proceed.
-  typedef Callback3<const Disassembler&, const _DInst&,
-                    CallbackDirective*>::Type
+  typedef base::Callback<void(const Disassembler&,
+                              const _DInst&,
+                              CallbackDirective*)>
       InstructionCallback;
 
   enum WalkResult {
@@ -74,13 +75,13 @@ class Disassembler {
   Disassembler(const uint8* code,
                size_t code_size,
                AbsoluteAddress code_addr,
-               InstructionCallback* on_instruction);
+               const InstructionCallback& on_instruction);
 
   Disassembler(const uint8* code,
                size_t code_size,
                AbsoluteAddress code_addr,
                const AddressSet& entry_points,
-               InstructionCallback* on_instruction);
+               const InstructionCallback& on_instruction);
 
   virtual ~Disassembler();
 
@@ -156,7 +157,7 @@ class Disassembler {
   const AbsoluteAddress code_addr_;
 
   // Invoke this callback on every instruction.
-  InstructionCallback* on_instruction_;
+  InstructionCallback on_instruction_;
 
   // Unvisited instruction locations before and during a walk.
   // This is seeded by the code entry point(s), and will also contain

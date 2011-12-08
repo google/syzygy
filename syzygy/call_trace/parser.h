@@ -18,7 +18,7 @@
 #define SYZYGY_CALL_TRACE_PARSER_H_
 
 #include <list>
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "base/file_path.h"
 #include "sawbuck/sym_util/types.h"

@@ -21,7 +21,7 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "sawbuck/common/com_utils.h"

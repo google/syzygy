@@ -1,4 +1,4 @@
-# Copyright 2009 Google Inc.
+# Copyright 2011 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "84250",
+  "chrome_revision": "113398",
+  "skia_revision": "2811",
   "chrome_base": "http://src.chromium.org/svn/trunk",
   "googlecode_url": "",
 }
@@ -25,22 +26,9 @@ deps = {
   "src/base":
     Var("chrome_base") + "/src/base@" + Var("chrome_revision"),
 
-  "src/skia":
-    Var("chrome_base") + "/src/skia@" + Var("chrome_revision"),
-
-  "src/third_party/skia":
-    "http://skia.googlecode.com/svn/trunk@364",
-
-  "src/googleurl":
-    "http://google-url.googlecode.com/svn/trunk@151",
-
   "src/third_party/wtl":
     Var("chrome_base") + "/src/third_party/wtl@" +
         Var("chrome_revision"),
-
-  # NSS, for SSLClientSocketNSS.
-  "src/third_party/nss":
-    Var("chrome_base") + "/deps/third_party/nss@45059",
 
   "src/third_party/zlib":
     Var("chrome_base") + "/src/third_party/zlib@" +
@@ -75,16 +63,18 @@ deps = {
 
   "src/build":
     Var("chrome_base") + "/src/build@" + Var("chrome_revision"),
-
+  "src/tools/win":
+    Var("chrome_base") + "/src/tools/win@" + Var("chrome_revision"),
+    
   "src/testing":
     Var("chrome_base") + "/src/testing@" + Var("chrome_revision"),
   "src/testing/gmock":
-    "http://googlemock.googlecode.com/svn/trunk@300",
+    "http://googlemock.googlecode.com/svn/trunk@374",
   "src/testing/gtest":
-    "http://googletest.googlecode.com/svn/trunk@492",
+    "http://googletest.googlecode.com/svn/trunk@560",
 
   "src/tools/gyp":
-    "http://gyp.googlecode.com/svn/trunk@818",
+    "http://gyp.googlecode.com/svn/trunk@1103",
 
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),

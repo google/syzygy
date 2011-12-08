@@ -16,7 +16,9 @@
 #include "syzygy/core/disassembler.h"
 
 #include <vector>
-#include "base/scoped_ptr.h"
+
+#include "base/bind.h"
+#include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -63,7 +65,8 @@ namespace core {
 class DisassemblerTest: public testing::Test {
  public:
   virtual void SetUp() {
-    on_instruction_.reset(NewCallback(this, &DisassemblerTest::OnInstruction));
+    on_instruction_ = base::Bind(&DisassemblerTest::OnInstruction,
+                                 base::Unretained(this));
   }
 
   MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&,
@@ -102,14 +105,14 @@ class DisassemblerTest: public testing::Test {
  protected:
   std::vector<AbsoluteAddress> functions_;
 
-  scoped_ptr<Disassembler::InstructionCallback> on_instruction_;
+  Disassembler::InstructionCallback on_instruction_;
 };
 
 TEST_F(DisassemblerTest, Terminate) {
   Disassembler disasm(PointerTo(&assembly_func),
                       PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
                       AddressOf(&assembly_func),
-                      on_instruction_.get());
+                      on_instruction_);
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
 
   // Terminate the walk on first visit.
@@ -124,7 +127,7 @@ TEST_F(DisassemblerTest, DisassemblePartial) {
   Disassembler disasm(PointerTo(&assembly_func),
                       PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
                       AddressOf(&assembly_func),
-                      on_instruction_.get());
+                      on_instruction_);
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
 
   // We should hit 6 instructions.
@@ -141,7 +144,7 @@ TEST_F(DisassemblerTest, DisassembleFull) {
   Disassembler disasm(PointerTo(&assembly_func),
                       PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
                       AddressOf(&assembly_func),
-                      on_instruction_.get());
+                      on_instruction_);
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
   // Mark the internal label as well.
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&internal_label)));
@@ -160,7 +163,7 @@ TEST_F(DisassemblerTest, EncounterFunctions) {
   Disassembler disasm(PointerTo(&assembly_func),
                       PointerTo(&assembly_func_end) - PointerTo(&assembly_func),
                       AddressOf(&assembly_func),
-                      on_instruction_.get());
+                      on_instruction_);
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
   // Mark the internal label as well.
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&internal_label)));
@@ -185,7 +188,7 @@ TEST_F(DisassemblerTest, RunOverDataWhenNoTerminatePathGiven) {
   Disassembler disasm(
       PointerTo(&assembly_switch),
       PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
-      AddressOf(&assembly_switch), on_instruction_.get());
+      AddressOf(&assembly_switch), on_instruction_);
 
   // Mark the entry of the case that calls a non-returning function
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
@@ -213,7 +216,7 @@ TEST_F(DisassemblerTest, StopsAtTerminateNoReturnFunctionCall) {
   Disassembler disasm(
       PointerTo(&assembly_switch),
       PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
-      AddressOf(&assembly_switch), on_instruction_.get());
+      AddressOf(&assembly_switch), on_instruction_);
 
   // Mark the entry of the case that calls a non-returning function
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));

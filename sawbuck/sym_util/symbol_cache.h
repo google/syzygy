@@ -1,4 +1,4 @@
-// Copyright 2009 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ class SymbolCache {
   SymbolCache();
   ~SymbolCache();
 
-  typedef Callback1<const wchar_t*>::Type StatusCallback;
+  typedef base::Callback<void(const wchar_t*)> StatusCallback;
   void set_status_callback(StatusCallback* status_callback) {
     status_callback_ = status_callback;
   }
