@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 
   std::wstring volume = cmd_line->GetSwitchValueNative("volume");
   std::wstring snapshot = cmd_line->GetSwitchValueNative("snapshot");
-  CommandLine::StringVector args = cmd_line->argv();
+  CommandLine::StringVector args = cmd_line->GetArgs();
   if (volume.empty() || snapshot.empty() || args.size() == 0) {
     return Usage();
   }
