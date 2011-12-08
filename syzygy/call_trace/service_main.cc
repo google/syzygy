@@ -151,15 +151,15 @@ int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
-  if (cmd_line->HasSwitch("help") || cmd_line->argv().size() < 1) {
+  if (cmd_line->HasSwitch("help") || cmd_line->GetArgs().size() < 1) {
     return Usage();
   }
 
-  if (LowerCaseEqualsASCII(cmd_line->argv()[0], "stop")) {
+  if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "stop")) {
     return StopService() ? 0 : 1;
   }
 
-  if (LowerCaseEqualsASCII(cmd_line->argv()[0], "start")) {
+  if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "start")) {
     return RunService(cmd_line) ? 0 : 1;
   }
 

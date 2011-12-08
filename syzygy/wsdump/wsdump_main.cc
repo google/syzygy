@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
-  if (cmd_line->HasSwitch("help") || !cmd_line->argv().empty()) {
+  if (cmd_line->HasSwitch("help") || !cmd_line->GetArgs().empty()) {
     return Usage();
   }
 
