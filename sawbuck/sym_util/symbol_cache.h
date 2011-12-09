@@ -33,7 +33,7 @@ class SymbolCache {
   ~SymbolCache();
 
   typedef base::Callback<void(const wchar_t*)> StatusCallback;
-  void set_status_callback(StatusCallback* status_callback) {
+  void set_status_callback(const StatusCallback& status_callback) {
     status_callback_ = status_callback;
   }
 
@@ -67,7 +67,7 @@ class SymbolCache {
   bool initialized_;
 
   // Callback we invoke on on status updates.
-  StatusCallback* status_callback_;
+  StatusCallback status_callback_;
 
   // We keep a cache of previously resolved symbols.
   // TODO(siggi): does this make sense?

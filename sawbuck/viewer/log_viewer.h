@@ -22,7 +22,7 @@
 #include <atlctrls.h>
 #include <atlsplit.h>
 #include <atlmisc.h>
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "sawbuck/viewer/log_list_view.h"
 #include "sawbuck/viewer/resource.h"
 #include "sawbuck/viewer/stack_trace_list_view.h"

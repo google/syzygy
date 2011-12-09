@@ -304,7 +304,7 @@ int wmain(int argc, const wchar_t** argv) {
   CommandLine::Init(0, NULL);
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
-  std::vector<std::wstring> args = cmd_line->args();
+  std::vector<std::wstring> args = cmd_line->GetArgs();
   DumpLogConsumer consumer;
   for (size_t i = 0; i < args.size(); ++i) {
     HRESULT hr = consumer.OpenFileSession(args[i].c_str());

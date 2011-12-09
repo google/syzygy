@@ -16,14 +16,17 @@
 #include "sawbuck/viewer/stack_trace_list_view.h"
 
 #include <atlframe.h>
-#include "base/string_util.h"
+#include "base/bind.h"
+#include "base/stringprintf.h"
 #include "sawbuck/viewer/const_config.h"
 
 namespace {
 
 const int kNoItem = -1;
 
-};
+}  // namespace
+
+using base::StringPrintf;
 
 const StackTraceListView::ColumnInfo StackTraceListView::kColumns[] = {
   { 72, L"Address" },
@@ -153,7 +156,8 @@ void StackTraceListView::EnsureResolution(TraceItem* item) {
   DCHECK(lookup_service_ != NULL);
   item->lookup_handle_ = lookup_service_->ResolveAddress(
       pid_, time_, item->address_,
-      NewCallback(this, &StackTraceListView::SymbolResolved));
+      base::Bind(&StackTraceListView::SymbolResolved,
+                 base::Unretained(this)));
 }
 
 void StackTraceListView::CancelResolution(TraceItem* item) {

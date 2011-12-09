@@ -18,7 +18,8 @@
 #include <atltheme.h>
 #include <wmistr.h>  // NOLINT. wmistr must precede evntrace.h.
 #include <evntrace.h>
-#include "base/string_util.h"
+#include "base/logging.h"
+#include "base/stringprintf.h"
 
 namespace {
 
@@ -49,6 +50,8 @@ int CALLBACK SortByFirstColumn(LPARAM a, LPARAM b, LPARAM wnd) {
 }
 
 }  // namespace
+
+using base::StringPrintf;
 
 ProviderDialog::ProviderDialog(ProviderConfiguration* settings)
     : pushed_row_(-1), pushed_col_(-1), settings_(settings) {

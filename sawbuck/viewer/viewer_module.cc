@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "base/logging_win.h"
 #include "base/message_loop.h"
+#include "base/message_pump.h"
 #include "sawbuck/viewer/viewer_window.h"
 
 #include <initguid.h>  // NOLINT
@@ -58,11 +59,7 @@ class HybridMessageLoop
   HybridMessageLoop() {
   }
 
-  virtual bool DoWork() {
-    return MessageLoopForUI::DoWork();
-  }
-
-  virtual bool Dispatch(const MSG& msg) {
+  virtual bool Dispatch(const MSG& msg) OVERRIDE {
     if (msg.message == WM_QUIT)
       return false;
 
@@ -75,10 +72,11 @@ class HybridMessageLoop
     return true;
   }
 
-  bool DoIdleWork() {
-    if (OnIdle(0))
-      return true;
+  virtual bool DoIdleWork() OVERRIDE {
+    // Let CMessageLoop do its thing.
+    OnIdle(0);
 
+    // And delegate to the superclass.
     return MessageLoopForUI::DoIdleWork();
   }
 };
@@ -116,7 +114,7 @@ int APIENTRY wWinMain(HINSTANCE instance,
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch("import")) {
-    std::vector<std::wstring> files(cmd_line->args());
+    std::vector<std::wstring> files(cmd_line->GetArgs());
     std::vector<FilePath> paths;
     for (size_t i = 0; i < files.size(); ++i) {
       paths.push_back(FilePath(files[i]));
@@ -126,7 +124,8 @@ int APIENTRY wWinMain(HINSTANCE instance,
     window.SetCapture(true);
   }
 
-  hybrid.Run(&hybrid);
+  // Run the ugly, hybrid message loop.
+  hybrid.RunWithDispatcher(&hybrid);
 
   g_sawbuck_app_module.RemoveMessageLoop();
 

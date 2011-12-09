@@ -36,9 +36,8 @@ struct RunnableMethodTraits<SymbolLookupService> {
 };
 
 SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
-    foreground_thread_(MessageLoop::current()), status_callback_(NULL),
-    resolve_task_(NULL), callback_task_(NULL), next_request_id_(0),
-    unprocessed_id_(0) {
+    foreground_thread_(MessageLoop::current()), resolve_task_(NULL),
+    callback_task_(NULL), next_request_id_(0), unprocessed_id_(0) {
 }
 
 SymbolLookupService::~SymbolLookupService() {
@@ -49,9 +48,9 @@ SymbolLookupService::~SymbolLookupService() {
 
 SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
     sym_util::ProcessId process_id, const base::Time& time,
-    sym_util::Address address, SymbolResolvedCallback* callback) {
+    sym_util::Address address, const SymbolResolvedCallback& callback) {
   DCHECK_EQ(foreground_thread_, MessageLoop::current());
-  DCHECK(callback != NULL);
+  DCHECK(!callback.is_null());
 
   base::AutoLock lock(resolution_lock_);
   Handle request_id = next_request_id_++;
@@ -80,7 +79,6 @@ void SymbolLookupService::CancelRequest(Handle request_handle) {
 
   RequestMap::iterator it = requests_.find(request_handle);
   DCHECK(it != requests_.end());
-  delete it->second.callback_;
   requests_.erase(it);
 }
 
@@ -198,8 +196,8 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
   bool ret = cache.GetSymbolForAddress(address, symbol);
 
   // Clear the last status we posted.
-  if (status_callback_)
-    status_callback_->Run(L"Ready\r\n");
+  if (!status_callback_.is_null())
+    status_callback_.Run(L"Ready\r\n");
 
   return ret;
 }
@@ -283,12 +281,10 @@ void SymbolLookupService::IssueCallbacks() {
       requests_.erase(it);
     }
 
-    request.callback_->Run(request.process_id_,
-                           request.time_,
-                           request.address_,
-                           request_id,
-                           request.resolved_);
-
-    delete request.callback_;
+    request.callback_.Run(request.process_id_,
+                          request.time_,
+                          request.address_,
+                          request_id,
+                          request.resolved_);
   }
 }

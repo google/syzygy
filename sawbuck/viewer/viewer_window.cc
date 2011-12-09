@@ -16,11 +16,13 @@
 #include "sawbuck/viewer/viewer_window.h"
 
 #include "pcrecpp.h"  // NOLINT
+#include "base/bind.h"
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/viewer/const_config.h"
@@ -117,8 +119,9 @@ ViewerWindow::ViewerWindow()
   symbol_lookup_worker_.Start();
   DCHECK(symbol_lookup_worker_.message_loop() != NULL);
 
-  status_callback_.reset(NewCallback(this, &ViewerWindow::OnStatusUpdate));
-  symbol_lookup_service_.set_status_callback(status_callback_.get());
+  status_callback_ = base::Bind(&ViewerWindow::OnStatusUpdate,
+                                base::Unretained(this));
+  symbol_lookup_service_.set_status_callback(status_callback_);
 
   symbol_lookup_service_.set_background_thread(
       symbol_lookup_worker_.message_loop());

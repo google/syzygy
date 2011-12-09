@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <tlhelp32.h>
+#include "base/bind.h"
 #include "base/message_loop.h"
 #include "base/threading/thread.h"
 #include "base/win/pe_image.h"
@@ -116,8 +117,8 @@ TEST_F(SymbolLookupServiceTest, LookupNoModules) {
       service_.ResolveAddress(
           ::GetCurrentProcessId(), base::Time::Now(),
           reinterpret_cast<sym_util::Address>(&Foo),
-          NewCallback(static_cast<SymbolLookupServiceTest*>(this),
-                      &SymbolLookupServiceTest::FooNotResolved));
+          base::Bind(&SymbolLookupServiceTest::FooNotResolved,
+                     base::Unretained(this)));
 
   ASSERT_NE(SymbolLookupService::kInvalidHandle, h);
 
@@ -134,8 +135,8 @@ TEST_F(SymbolLookupServiceTest, LookupFoo) {
         service_.ResolveAddress(
             ::GetCurrentProcessId(), base::Time::Now(),
             reinterpret_cast<sym_util::Address>(&Foo),
-            NewCallback(static_cast<SymbolLookupServiceTest*>(this),
-                        &SymbolLookupServiceTest::FooResolved));
+            base::Bind(&SymbolLookupServiceTest::FooResolved,
+                       base::Unretained(this)));
 
     ASSERT_NE(SymbolLookupService::kInvalidHandle, h);
   }
@@ -153,8 +154,8 @@ TEST_F(SymbolLookupServiceTest, LookupFooCancel) {
         service_.ResolveAddress(
             ::GetCurrentProcessId(), base::Time::Now(),
             reinterpret_cast<sym_util::Address>(&Foo),
-            NewCallback(static_cast<SymbolLookupServiceTest*>(this),
-                        &SymbolLookupServiceTest::FooResolved));
+            base::Bind(&SymbolLookupServiceTest::FooResolved,
+                       base::Unretained(this)));
 
     ASSERT_NE(SymbolLookupService::kInvalidHandle, h);
 

@@ -29,7 +29,7 @@
 #include <vector>
 #include "base/callback.h"
 #include "base/file_path.h"
-#include "base/scoped_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread.h"
 #include "base/win/event_trace_controller.h"
@@ -197,8 +197,8 @@ class ViewerWindow
 
   // The symbol lookup service we provide to the log list view.
   SymbolLookupService symbol_lookup_service_;
-  typedef Callback1<const wchar_t*>::Type StatusCallback;
-  scoped_ptr<StatusCallback> status_callback_;
+  typedef base::Callback<void(const wchar_t*)> StatusCallback;
+  StatusCallback status_callback_;
 
   base::Lock status_lock_;
   std::wstring status_;  // Under status_lock_.

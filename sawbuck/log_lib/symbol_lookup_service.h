@@ -51,7 +51,7 @@ class ISymbolLookupService {
   virtual Handle ResolveAddress(sym_util::ProcessId process_id,
                                 const base::Time& time,
                                 sym_util::Address address,
-                                SymbolResolvedCallback* callback) = 0;
+                                const SymbolResolvedCallback& callback) = 0;
 
   // Cancel a pending async symbol resolution request.
   // @param request_handle a request handle previously returned from
@@ -76,7 +76,7 @@ class SymbolLookupService
   ~SymbolLookupService();
 
   typedef base::Callback<void(const wchar_t*)> StatusCallback;
-  void set_status_callback(StatusCallback* status_callback) {
+  void set_status_callback(const StatusCallback& status_callback) {
     status_callback_ = status_callback;
   }
 
@@ -91,7 +91,7 @@ class SymbolLookupService
   virtual Handle ResolveAddress(sym_util::ProcessId process_id,
                                 const base::Time& time,
                                 sym_util::Address address,
-                                SymbolResolvedCallback* callback);
+                                const SymbolResolvedCallback& callback);
   virtual void CancelRequest(Handle request_handle);
   virtual void SetSymbolPath(const wchar_t* symbol_path);
 
@@ -135,7 +135,7 @@ class SymbolLookupService
     sym_util::ProcessId process_id_;
     base::Time time_;
     sym_util::Address address_;
-    SymbolResolvedCallback* callback_;
+    SymbolResolvedCallback callback_;
     sym_util::Symbol resolved_;
   };
   // Under resolution_lock_.
@@ -149,7 +149,7 @@ class SymbolLookupService
   Handle unprocessed_id_;  // Under resolution_lock_.
 
   // Invoked on the worker thread on status changes.
-  StatusCallback* status_callback_;
+  StatusCallback status_callback_;
 
   // These two store any enqueued or processing task.
   Task* resolve_task_;  // Under resolution_lock_.

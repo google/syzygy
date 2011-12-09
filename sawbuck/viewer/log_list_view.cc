@@ -22,6 +22,7 @@
 #include "base/i18n/time_formatting.h"
 #include "base/logging.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/log_lib/process_info_service.h"
@@ -66,6 +67,8 @@ bool IsSelected(UINT state) {
 const int kNoItem = -1;
 
 }  // namespace
+
+using base::StringPrintf;
 
 const LogListView::ColumnInfo LogListView::kColumns[] = {
   { 24, L"Severity" },
