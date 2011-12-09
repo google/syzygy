@@ -67,6 +67,7 @@
       'sources': [
         'basic_block_disassembler_unittest.cc',
         'basic_block_test_code.asm',
+        'basic_block_unittest.cc',
         'block_graph_unittest.cc',
         'block_graph_unittests_main.cc',
         'iterate_unittest.cc',

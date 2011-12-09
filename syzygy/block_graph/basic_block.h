@@ -204,26 +204,6 @@ class BasicBlock {
   Successors& successors() { return successors_; }
   // @}
 
-  // Mutable Accessors.
-  // @{
-  Instructions& GetMutableInstructions();
-  Successors& GetMutableSuccessors();
-  // @}
-
-  // Validates that the basic block can have it's successors inverted. For
-  // this to return true, the basic block must have two successors, the
-  // first of which is an invertible conditional branch, and the second
-  // an unconditional branch.
-  bool CanInvertSuccessors() const;
-
-  // Inverts the control flow of the successors. For example, if the
-  // basic block ends with a JNZ instruction to A with a fall through
-  // to B, this function will mutate the successors such that the basic
-  // block ends with a JZ to B with a fall-through to A.
-  //
-  // @pre CanInvertSuccessors() return true.
-  bool InvertSuccessors();
-
   // Returns true if this basic block represents a valid block (i.e., it
   // is a BASIC_DATA_BLOCK the contains data XOR a BASIC_CODE_BLOCK that
   // contains instructions and/or successors.
