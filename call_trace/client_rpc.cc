@@ -410,7 +410,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 
   // Make sure the event we're about to write will fit.
   if (!data->segment.CanAllocate(sizeof(TraceModuleData))) {
-    session_.ExchangeBuffer(&data->segment);
+    data->FlushSegment();
   }
 
   // Allocate a record in the log.
@@ -446,7 +446,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   //
   // TODO(rogerm): We don't really need to flush right away for detach
   //     events. We could be a little more efficient here.
-  session_.ExchangeBuffer(&data->segment);
+  data->FlushSegment();
 }
 
 
@@ -504,7 +504,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   // If we're tracing detailed function entries, capture the function details.
   if (session_.IsEnabled(TRACE_FLAG_ENTER)) {
     if (!data->segment.CanAllocate(sizeof(TraceEnterEventData))) {
-      session_.ExchangeBuffer(&data->segment);
+      data->FlushSegment();
     }
 
     TraceEnterEventData* event_data =
@@ -580,7 +580,7 @@ RetAddr Client::LogEvent_FunctionExit(const void* stack_pointer,
   // Trace the exit if required.
   if (session_.IsEnabled(TRACE_FLAG_EXIT)) {
     if (!data->segment.CanAllocate(sizeof(TraceExitEventData))) {
-      session_.ExchangeBuffer(&data->segment);
+      data->FlushSegment();
     }
     TraceExitEventData* event_data =
         data->segment.AllocateTraceRecord<TraceExitEventData>();
