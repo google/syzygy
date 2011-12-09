@@ -149,7 +149,7 @@ class ChromeRepo(object):
     try:
       request = urllib2.Request(url, body, headers or {})
       response = self._url_opener.open(request)
-      while True:
+      while out_stream is not None:
         chunk = response.read(16384)
         if not chunk:
           break
@@ -228,8 +228,7 @@ class ChromeRepo(object):
       found = True
       for file_name in FILE_LIST:
         status, _headers, _url = self._PerformRequest(
-            'HEAD', self._GetFilePath(build_id, file_name),
-            StringIO.StringIO())
+            'HEAD', self._GetFilePath(build_id, file_name), None)
         if status != 200:
           _LOGGER.debug('Build %s is missing %s', build_id, file_name)
           found = False
