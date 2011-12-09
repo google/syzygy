@@ -62,7 +62,7 @@ if "%TO%" == "" echo Missing parameter: /to & goto usage
 if "%BUILD_ID_PATTERN%" == "" set BUILD_ID_PATTERN=\d+\.\d+\.\d+\.\d+
 
 SET SYZYGY=%GCLIENT%\src\syzygy
-
+set BUILD_DIR=%GCLIENT%\src\build
 goto setup
 
 :usage
@@ -94,7 +94,7 @@ set DOWNLOAD_PY=%THISDIR%chrome_repo.py
 set REORDER_PY=%THISDIR%reorder.py
 set SEND_MAIL_PY=%THISDIR%send_mail.py
 set ACTIONS_XML=%THISDIR%actions.xml
-set REORDER_EXE=%SYZYGY%\relink\%CONFIG%\relink.exe
+set REORDER_EXE=%BUILD_DIR%\%CONFIG%\relink.exe
 set CHROME_PTR=%WORKDIR%\chrome-dir.txt
 set SYNC_LOG=%WORKDIR%\sync-log.txt
 set BUILD_LOG=%WORKDIR%\build-log.txt
@@ -116,8 +116,11 @@ del /F /Q ^
 
 :step2
 echo Building "%SOLUTION%" ...
-call msbuild "%SOLUTION%" /t:Rebuild /p:Configuration=%CONFIG% /v:detailed  ^
-  > "%BUILD_LOG%" 2>&1
+call devenv.com "%SOLUTION%" /Rebuild "Release|Win32" > "%BUILD_LOG%" 2>&1
+if %ERRORLEVEL% equ 0 goto step3
+handle.exe >> "%BUILD_LOG%"
+echo Trying again to build "%SOLUTION%" ...
+call devenv.com "%SOLUTION%" /Build "Release|Win32" > "%BUILD_LOG%" 2>&1
 if %ERRORLEVEL% equ 0 goto step3
 handle.exe >> "%BUILD_LOG%"
 copy "%BUILD_LOG%" "%ERROR_MESSAGE%"
