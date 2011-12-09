@@ -136,9 +136,9 @@ int main(int argc, char** argv) {
   }
 
   if (seed_str.empty()) {
-    if (trace_paths.size() < 2) {
-      return Usage("You must specify at least two ETW trace files (kernel and "
-          "call_trace) if you are not generating a random ordering.");
+    if (trace_paths.size() < 1) {
+      return Usage("You must specify at least one trace file "
+          "if you are not generating a random ordering.");
     }
   } else {
     if (list_dead_code || trace_paths.size()) {
