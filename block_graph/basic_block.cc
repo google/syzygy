@@ -16,7 +16,21 @@
 
 #include "syzygy/block_graph/basic_block.h"
 
+#include "mnemonics.h"  // NOLINT
+
 namespace block_graph {
+
+namespace {
+
+bool IsUnconditionalBranch(const Instruction& inst) {
+  return META_GET_FC(inst.representation().meta) == FC_UNC_BRANCH;
+}
+
+bool IsConditionalBranch(const Instruction& inst) {
+  return META_GET_FC(inst.representation().meta) == FC_CND_BRANCH;
+}
+
+}  // namespace
 
 BasicBlockReference::BasicBlockReference()
     : block_type_(BlockGraph::BASIC_CODE_BLOCK),
@@ -72,6 +86,51 @@ BasicBlock::BasicBlock(BasicBlock::BlockId id,
     : id_(id), type_(type), data_(data), size_(size), name_(name) {
   DCHECK(data != NULL);
   DCHECK(size > 0);
+}
+
+bool BasicBlock::IsValid() const {
+  if (type() == BlockGraph::BASIC_DATA_BLOCK)
+    return true;
+
+  if (type() != BlockGraph::BASIC_CODE_BLOCK)
+    return false;
+
+#ifndef NDEBUG
+  Instructions::const_iterator it = instructions().begin();
+  for (; it != instructions().end(); ++it) {
+    if (IsConditionalBranch(*it) || IsUnconditionalBranch(*it))
+      return false;
+  }
+#endif
+
+  switch (successors_.size()) {
+    case 0:
+      // If the basic code block has no successors, we expect that it would
+      // have instructions; otherwise, it doesn't need to exist. We would
+      // also expect that it ends in control-flow change that we can't
+      // necessarily trace statically (ie., RET or computed jump).
+      // TODO(rogerm): Validate that this is really true?
+      return instructions().size() != 0 &&
+          (instructions().back().representation().opcode == I_RET ||
+           instructions().back().representation().opcode == I_JMP);
+
+    case 1:
+      // A basic code block having exactly one successor implies that the
+      // successor is unconditional.
+      return IsUnconditionalBranch(successors().front());
+
+    case 2:
+      // A basic code block having exactly two successors implies that the
+      // successor first successor is conditional and the second is is
+      // unconditional.
+      return IsConditionalBranch(successors().front()) &&
+          IsUnconditionalBranch(successors().back());
+
+    default:
+      // Any other number of successors implies that the data is borked.
+      NOTREACHED();
+      return false;
+  }
 }
 
 }  // namespace block_graph
