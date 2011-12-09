@@ -78,6 +78,136 @@ Instruction::Instruction(const Instruction::Representation& value,
       source_range_(source_range) {
 }
 
+bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
+  DCHECK(opcode != NULL);
+
+  switch (*opcode) {
+    default:
+      LOG(ERROR) << GET_MNEMONIC_NAME(*opcode) << " is not invertible.";
+      return false;
+
+    case I_JA:  // Equivalent to JNBE.
+      *opcode = I_JBE;
+      return true;
+
+    case I_JAE:  // Equivalent to JNB and JNC.
+      *opcode = I_JB;
+      return true;
+
+    case I_JB:  // Equivalent to JNAE and JC.
+      *opcode = I_JAE;
+      return true;
+
+    case I_JBE:  // Equivalent to JNA.
+      *opcode = I_JA;
+      return true;
+
+    case I_JCXZ:
+    case I_JECXZ:
+      // TODO(rogerm): Inverting these is not quite as simple as inverting
+      //     the others. The simplest might be to punt and not actually invert,
+      //     but trampoline. Otherwise, a truly inverted instruction sequence
+      //     would be something like.
+      //
+      //         pushfd
+      //         cmp ecx, 0  ; Change to ecx as appropriate.
+      //         jnz fall-through
+      //       original-branch-target
+      //         popfd
+      //         ...
+      //
+      //       fall-through;
+      //         popfd
+      //         ...
+      //
+      //     Note that popfd is prepended to the instruction sequences of both
+      //     fall-through and original-branch-target. To represent this we
+      //     should introduce JCXNZ and JECXNZ pseudo-instructions to represent
+      //     this transformation, to allow the inversion to be reversible.
+      LOG(ERROR) << "Inversion of " << GET_MNEMONIC_NAME(*opcode)
+                 << " is not supported.";
+      return false;
+
+    case I_JG:  // Equivalent to JNLE.
+      *opcode = I_JLE;
+      return true;
+
+    case I_JGE:  // Equivalent to JNL.
+      *opcode = I_JL;
+      return true;
+
+    case I_JL:  // Equivalent to I_JNGE.
+      *opcode = I_JGE;
+      return true;
+
+    case I_JLE:  // Equivalent to JNG.
+      *opcode = I_JG;
+      return true;
+
+    case I_JNO:
+      *opcode = I_JO;
+      return true;
+
+    case I_JNP:  // Equivalent to JPO.
+      *opcode = I_JP;
+      return true;
+
+    case I_JNS:
+      *opcode = I_JS;
+      return true;
+
+    case I_JNZ:  // Equivalent to JNE.
+      *opcode = I_JZ;
+      return true;
+
+    case I_JO:
+      *opcode = I_JNO;
+      return true;
+
+    case I_JP:  // Equivalent to JPE.
+      *opcode = I_JNP;
+      return true;
+
+    case I_JS:
+      *opcode = I_JNS;
+      return true;
+
+    case I_JZ:  // Equivalent to JE.
+      *opcode = I_JNZ;
+      return true;
+
+    case I_LOOP:
+    case I_LOOPNZ:  // Equivalent to LOOPNE.
+    case I_LOOPZ:  // Equivalent to LOOPE
+      // TODO(rogerm): Inverting these is not quite as simple as inverting
+      //     the others. The simplest would be to punt and not actually invert,
+      //     but trampoline. Otherwise, a truly inverted instruction sequence
+      //     would be something like, for Inverse(LOOPNZ), ...
+      //
+      //         pushfd
+      //         jnz pre-fall-through  ; Switch to jz for LOOPZ, omit for LOOP.
+      //         dec cx
+      //         jnz fall-through
+      //       original-branch-target:
+      //         popfd
+      //         ...
+      //
+      //       pre-fall-through:
+      //         dec cx  ; Omit for LOOP.
+      //       fall-through:
+      //         popfd
+      //         ...
+      //
+      //     Note that popfd is prepended onto the instruction sequences of both
+      //     fall-through and original-branch-target. To represent this we
+      //     should introduce pesudo instructions to represent each inversion,
+      //     which would allow the inversion to be reversible.
+      LOG(ERROR) << "Inversion of " << GET_MNEMONIC_NAME(*opcode)
+                 << " is not supported.";
+      return false;
+  }
+}
+
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
                        BasicBlock::BlockType type,
                        const uint8* data,
@@ -131,6 +261,37 @@ bool BasicBlock::IsValid() const {
       NOTREACHED();
       return false;
   }
+}
+
+bool BasicBlock::CanInvertSuccessors() const {
+  return successors().size() == 2 &&
+      IsConditionalBranch(successors().front()) &&
+      IsUnconditionalBranch(successors().back()) &&
+      successors().front().representation().opcode != I_JCXZ &&
+      successors().front().representation().opcode != I_JECXZ &&
+      successors().front().representation().opcode != I_LOOP &&
+      successors().front().representation().opcode != I_LOOPNZ &&
+      successors().front().representation().opcode != I_LOOPZ;
+}
+
+bool BasicBlock::InvertSuccessors() {
+  DCHECK(CanInvertSuccessors());
+
+  // Invert the logic of the conditional branch.
+  if (!Instruction::InvertConditionalBranchOpcode(
+          &successors().front().representation().opcode)) {
+    return false;
+  }
+
+  // Swap the address values.
+  std::swap(successors().front().representation().imm.addr,
+            successors().back().representation().imm.addr);
+
+  // And swap the references for the successors.
+  std::swap(successors().front().reference(),
+            successors().back().reference());
+
+  return true;
 }
 
 }  // namespace block_graph
