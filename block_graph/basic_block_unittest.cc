@@ -211,4 +211,101 @@ TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
   EXPECT_FALSE(r3 == r1);
 }
 
+TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
+  // This structure represents an entry in the opcode inversion table that
+  // we'll use to drive the opcode inversion unit-test.
+  struct OpcodeInversion {
+    // The original opcode.
+    uint16 original;
+
+    // The inverted opcode. It will be zero (0) if the opcode isn't invertible.
+    uint16 inverted;
+  };
+
+  static const OpcodeInversion kOpcodeInversionTable[] = {
+      // We'll only encode one direction, and the test will infer the reverse.
+      { I_JA, I_JBE },
+      { I_JAE, I_JB },
+      { I_JG, I_JLE },
+      { I_JGE, I_JL },
+      { I_JO, I_JNO },
+      { I_JP, I_JNP, },
+      { I_JS, I_JNS, },
+      { I_JZ, I_JNZ, },
+
+      // @TODO(rogerm): These opcodes are not supported yet.
+      { I_JCXZ, 0 },
+      { I_JECXZ, 0 },
+      { I_LOOP, 0 },
+      { I_LOOPNZ, 0 },
+      { I_LOOPZ, 0 },
+
+      // These opcodes are not invertible.
+      { I_CALL, 0 },
+      { I_MOV, 0 },
+      { I_RET, 0 },
+  };
+
+  // Walk through the table validating that the InvertConditionalBranchOpcode()
+  // function returns the same inversion results.
+  for (int i = 0; i < arraysize(kOpcodeInversionTable); ++i) {
+    uint16 opcode = kOpcodeInversionTable[i].original;
+    bool should_pass = kOpcodeInversionTable[i].inverted != 0;
+    EXPECT_EQ(should_pass,
+              Instruction::InvertConditionalBranchOpcode(&opcode));
+    if (should_pass) {
+      EXPECT_EQ(kOpcodeInversionTable[i].inverted, opcode);
+      EXPECT_TRUE(Instruction::InvertConditionalBranchOpcode(&opcode));
+      EXPECT_EQ(kOpcodeInversionTable[i].original, opcode);
+    }
+  }
+}
+
+TEST_F(BasicBlockTest, CannotInvertEmptyBlock) {
+  // Can not invert if there are no successors.
+  ASSERT_FALSE(basic_block_.CanInvertSuccessors());
+}
+
+TEST_F(BasicBlockTest, CannotInvertSingleSuccessor) {
+  // Can not invert if there is only one successor.
+  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
+  ASSERT_FALSE(basic_block_.IsValid());
+  ASSERT_FALSE(basic_block_.CanInvertSuccessors());
+}
+
+TEST_F(BasicBlockTest, InvertSuccessors) {
+  // Setup the basic block.
+  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
+  basic_block_.successors().push_back(CreateBranch(I_JMP, kAddr2));
+  ASSERT_TRUE(basic_block_.CanInvertSuccessors());
+
+  // Invert and validate its successsors.
+  ASSERT_TRUE(basic_block_.InvertSuccessors());
+  ASSERT_EQ(2, basic_block_.successors().size());
+  EXPECT_EQ(I_JZ, basic_block_.successors().front().representation().opcode);
+  EXPECT_EQ(kAddr2.value(),
+            basic_block_.successors().front().representation().imm.addr);
+  EXPECT_EQ(I_JMP, basic_block_.successors().back().representation().opcode);
+  EXPECT_EQ(kAddr1.value(),
+            basic_block_.successors().back().representation().imm.addr);
+}
+
+TEST_F(BasicBlockTest, InvertSuccessorsIsInvertible) {
+  // Setup the basic block.
+  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
+  basic_block_.successors().push_back(CreateBranch(I_JMP, kAddr2));
+  ASSERT_TRUE(basic_block_.CanInvertSuccessors());
+
+  // Inverting the successors twice should yield the original successors.
+  ASSERT_TRUE(basic_block_.InvertSuccessors());
+  ASSERT_TRUE(basic_block_.InvertSuccessors());
+  ASSERT_EQ(2, basic_block_.successors().size());
+  EXPECT_EQ(I_JNZ, basic_block_.successors().front().representation().opcode);
+  EXPECT_EQ(kAddr1.value(),
+            basic_block_.successors().front().representation().imm.addr);
+  EXPECT_EQ(I_JMP, basic_block_.successors().back().representation().opcode);
+  EXPECT_EQ(kAddr2.value(),
+            basic_block_.successors().back().representation().imm.addr);
+}
+
 }  // namespace block_graph
