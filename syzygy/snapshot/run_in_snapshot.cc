@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
   FilePath cmd_path(args[0]);
   CommandLine cmd(cmd_path);
   for (size_t i = 1; i < args.size(); ++i)
-    cmd.AppendArg(argv[i]);
+    cmd.AppendArgNative(args[i]);
 
   int ret = 0;
   if (!base::LaunchProcess(cmd, base::LaunchOptions(), NULL)) {
