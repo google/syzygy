@@ -135,7 +135,7 @@
           'UACExecutionLevel': 2,
           # This corresponds to /PROFILE, which ensures that the
           # PDB file contains a FIXUP stream.
-          'Profile': '1',
+          'Profile': 'true',
         },
         'VCManifestTool': {
           'AdditionalManifestFiles': '$(ProjectDir)\\sawbuck.exe.manifest',
