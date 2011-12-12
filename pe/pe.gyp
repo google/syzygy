@@ -225,7 +225,7 @@
               # PDB file contains a FIXUP stream.
               # TODO(chrisha): Move this to base.gypi so everything links
               #     with this flag.
-              'Profile': '1',
+              'Profile': 'true',
             },
           },
         },
