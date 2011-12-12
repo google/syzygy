@@ -173,7 +173,10 @@ int main(int argc, char** argv) {
     cmd.AppendArgNative(args[i]);
 
   int ret = 0;
-  if (!base::LaunchProcess(cmd, base::LaunchOptions(), NULL)) {
+  // Launch the command line we were given, and wait on it to complete.
+  base::LaunchOptions options;
+  options.wait = true;
+  if (!base::LaunchProcess(cmd, options, NULL)) {
     LOG(ERROR) << "Unable to launch application";
     ret = 1;
   }
