@@ -53,9 +53,9 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
   if ret != 0:
     raise OptimizationError('Failed to generate an ordering for chrome.dll')
 
-  if os.path.isdir(output_dir):
-    _LOGGER.info('Removing pre-existing output dir "%s".', output_dir)
-    chrome_utils.RmTree(output_dir)
+  if os.path.isfile(output_dir):
+    raise OptimizationError('File present at output dir location: "%s"',
+                            output_dir)
 
   _LOGGER.info('Copying "%s" to output dir "%s".', chrome_dir, output_dir)
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
@@ -72,6 +72,10 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
 
 
 def _CopyBinaries(src_dir, tgt_dir):
+  if not os.path.isdir(tgt_dir):
+    _LOGGER.info('_CopyBinaries target dir not found. Creating "%s"', tgt_dir)
+    os.makedirs(tgt_dir)
+
   files = ('chrome.dll', 'chrome_dll.pdb')
   for file in files:
     src_file = os.path.join(src_dir, file)
@@ -97,6 +101,11 @@ def _ParseArguments():
   parser.add_option('--iterations', dest='iterations', type='int',
                     default=10,
                     help='Number of profile iterations, 10 by default.')
+  parser.add_option('--chrome-frame', dest='chrome_frame',
+                    default=False, action='store_true',
+                    help=('Optimize for both Chrome Frame and Chrome usage '
+                          'patterns. Without this flag, optimize only for '
+                          'Chrome usage patterns.'))
   parser.add_option('--input-dir', dest='input_dir',
                     help=('The input directory where the original Chrome '
                           'executables are to be found.'))
@@ -150,7 +159,8 @@ def main():
     # Then profile the instrumented executables in instrumented_dir.
     trace_files = profile.ProfileChrome(instrumented_dir,
                                         profile_data_dir,
-                                        opts.iterations)
+                                        opts.iterations,
+                                        opts.chrome_frame)
     # Lastly generate an ordering, and reorder the inputs to
     # the output dir.
     _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files)

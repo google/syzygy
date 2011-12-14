@@ -16,6 +16,7 @@
 import exceptions
 import os.path
 import pywintypes
+import subprocess
 import win32api
 import win32con
 import win32event
@@ -63,17 +64,17 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
   as the message window, which roughly approximates user logoff.
 
   Args:
-      profile_dir: the profile directory of the Chrome instance you want
-          to shutdown
-      timeout_ms: how long to wait for the Chrome instance to shut down in
-          milliseconds. Defaults to waiting forever.
+    profile_dir: the profile directory of the Chrome instance you want
+        to shutdown
+    timeout_ms: how long to wait for the Chrome instance to shut down in
+        milliseconds. Defaults to waiting forever.
 
   Returns:
-      The exit status of the Chrome browser process.
+    The exit status of the Chrome browser process.
 
   Raises:
-      ChromeNotFoundException: Chrome is not running in this profile.
-      TimeoutException: Chrome did not exit in time.
+    ChromeNotFoundException: Chrome is not running in this profile.
+    TimeoutException: Chrome did not exit in time.
   """
   profile_dir = os.path.abspath(profile_dir)
 
@@ -148,7 +149,7 @@ def GetPreload():
   """Reads Chrome.dll preload settings from the registry.
 
   Returns:
-      a tuple (enable, size, stride)
+    a tuple (enable, size, stride)
   """
   try:
     key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY)
@@ -181,12 +182,21 @@ def SetPreload(enable, size=None, stride=None):
   """Writes Chrome.dll preload settings to the registry.
 
   Args:
-      enable: if true, preloading will be enabled.
-      size: optionally provides the amount of data to preload. If not provided
-          the entire DLL will be preloaded by the current Chrome implementation.
-      stride: optionally provides the stride used for preloading on Windows XP.
+    enable: if true, preloading will be enabled.
+    size: optionally provides the amount of data to preload. If not provided
+        the entire DLL will be preloaded by the current Chrome implementation.
+    stride: optionally provides the stride used for preloading on Windows XP.
   """
   key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY)
   _winreg.SetValueEx(key, _PREREAD_VALUE, None, _winreg.REG_DWORD, enable)
   _SetDWORDValueImpl(key, _PREREAD_SIZE_VALUE, size)
   _SetDWORDValueImpl(key, _PREREAD_STEP_VALUE, stride)
+
+
+def KillNamedProcesses(process_name):
+  """Kills all processes with the given name. Only works on Windows.
+
+  Args:
+    process_name: The name of the processes to kill, e.g. "iexplore.exe".
+  """
+  subprocess.call(['taskkill.exe', '/IM', process_name])

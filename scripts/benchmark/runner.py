@@ -27,7 +27,7 @@ import glob
 import ibmperf
 import json
 import logging
-import os.path
+import os
 import pkg_resources
 import re
 import shutil
@@ -36,6 +36,9 @@ import sys
 import tempfile
 import time
 import win32api
+import win32com.shell.shell as shell
+import win32com.shell.shellcon as shellcon
+import _winreg
 
 
 # The Windows prefetch directory, this is possibly only valid on Windows XP.
@@ -47,6 +50,21 @@ _LOGGER = logging.getLogger(__name__)
 
 
 _XP_MAJOR_VERSION = 5
+
+
+# Registry key that will allegedly always contain the path to IE.
+_IE_APP_PATH_KEY = (
+    r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\IEXPLORE.EXE')
+
+
+# Possible fallback paths to Internet Explorer used by Chrome Frame runner.
+# The ordering matters, we explicitly check first for the 32 bit one.
+_IE_PATHS = [r'C:\Program Files (x86)\Internet Explorer\iexplore.exe',
+             r'C:\Program Files\Internet Explorer\iexplore.exe']
+
+
+# The path to the fixed profile directory used by Chrome Frame.
+_IE_PROFILE_PATH = r'Google\Chrome Frame\User Data\iexplore'
 
 
 class Prefetch:
@@ -80,7 +98,7 @@ def _DeletePrefetch():
 
 
 def _GetExePath(name):
-  '''Gets the path to a named executable.'''
+  """Gets the path to a named executable."""
   path = pkg_resources.resource_filename(__name__, os.path.join('exe', name))
   if not os.path.exists(path):
     # If we're not running packaged from an egg, we assume we're being
@@ -93,7 +111,8 @@ def _GetExePath(name):
 
 def _GetRunInSnapshotExeResourceName():
   """Return the name of the most appropriate run_in_snapshot executable for
-  the system we're running on."""
+  the system we're running on.
+  """
   maj, min = sys.getwindowsversion()[:2]
   # 5 is XP.
   if maj == _XP_MAJOR_VERSION:
@@ -120,7 +139,8 @@ def _GetRunInSnapshotExe():
 
 class ChromeRunner(object):
   """A utility class to manage the running of Chrome for some number of
-  iterations."""
+  iterations.
+  """
 
   def __init__(self, chrome_exe, profile_dir, initialize_profile=True):
     """Initialize instance.
@@ -332,7 +352,8 @@ class ChromeRunner(object):
     Args:
       i: the iteration number.
       success: set to True if the iteration was successful, False otherwise.
-          If False, this routine should only perform any necessary cleanup."""
+          If False, this routine should only perform any necessary cleanup.
+    """
     pass
 
   def _ProcessResults(self):
@@ -341,12 +362,14 @@ class ChromeRunner(object):
 
   def _LaunchChrome(self, extra_arguments=None):
     """Launch the Chrome instance for this iteration. Returns the
-    subprocess.Popen object wrapping the launched process."""
+    subprocess.Popen object wrapping the launched process.
+    """
     return self._LaunchChromeImpl(extra_arguments)
 
   def _LaunchChromeImpl(self, extra_arguments=None):
     """Launch a Chrome instance in our profile dir, with extra_arguments.
-    Returns the subprocess.Popen wrapping the launched process."""
+    Returns the subprocess.Popen wrapping the launched process.
+    """
     cmd_line = [self._chrome_exe,
                 '--user-data-dir=%s' % self._profile_dir]
     if extra_arguments:
@@ -379,6 +402,8 @@ class ChromeRunner(object):
     # Use a long timeout just in case the machine is REALLY bogged down.
     # This could be the case on the build-bot slave, for example.
     for i in xrange(5 * 60):
+      _LOGGER.info('Looking for Chrome instance with profile_dir %s.' %
+          self._profile_dir)
       if chrome_control.IsProfileRunning(self._profile_dir):
         _LOGGER.debug('Found running instance of Chrome.')
         return
@@ -391,6 +416,101 @@ class ChromeRunner(object):
 
     raise RunnerError('Timeout waiting for Chrome.')
 
+
+class ChromeFrameRunner(ChromeRunner):
+  """A utility class to manage the running of Chrome Frame for some number of
+  iterations.
+  """
+  def __init__(self, chrome_frame_dll):
+    """Initialize instance.
+
+    Args:
+      chrome_frame_dll: path to the Chrome Frame dll to register when
+          benchmarking Chrome in Chrome Frame mode.
+    """
+    super(ChromeFrameRunner, self).__init__(None, None,
+                                            initialize_profile=False)
+    self._chrome_frame_dll = chrome_frame_dll
+    self._profile_dir = self._GetChromeFrameProfileDir()
+    self._ie_path = self._GetIEPath()
+
+  def _SetUp(self):
+    if self._ie_path:
+      # Register the CF dll.
+      try:
+        cf_dll = ctypes.OleDLL(self._chrome_frame_dll)
+        cf_dll.DllRegisterServer()
+      except:
+        raise RunnerError('Could not load Chrome Frame dll at [%s].' %
+                          self._chrome_frame_dll)
+    else:
+      raise RunnerError('Could not locate path to iexplore.exe.')
+
+  def _TearDown(self):
+    try:
+      cf_dll = ctypes.OleDLL(self._chrome_frame_dll)
+      cf_dll.DllUnregisterServer()
+    except Exception as e:
+      # Squash any errors here.
+      _LOGGER.info('Error unregistering Chrome Frame dll: %s' % str(e))
+
+  def _RunOneIteration(self, i):
+    """Perform the iteration."""
+    _LOGGER.info("Iteration: %d", i)
+
+    process = self._LaunchChromeFrame()
+    self._WaitTillChromeRunning(process)
+    try:
+      self._DoIteration(i)
+    finally:
+      _LOGGER.info("Shutting down Chrome Frame.")
+      process.kill()
+      # Add an additional clean up step since iexplore.exe may spin off new
+      # processes and our existing process handle may not be enough to fully
+      # close IE.
+      chrome_control.KillNamedProcesses('iexplore.exe')
+
+  def _LaunchChromeFrame(self):
+    """Launch a Chrome Frame instance.
+
+    It will use the default iexplore.exe profile directory. Returns the
+    subprocess.Popen wrapping the launched process.
+    """
+    cmd = [self._ie_path, 'gcf:about:version']
+    _LOGGER.info('Launching command line [%s].', cmd)
+    return subprocess.Popen(cmd)
+
+  def _GetIEPath(self):
+    """Returns the path to iexplore.exe.
+
+    First looks in the registry and then tries some known paths on English
+    systems.
+    """
+    ie_path = None
+    try:
+      with _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, _IE_APP_PATH_KEY) as key:
+        ie_path = str(_winreg.QueryValue(key, None))  # Reads the default value.
+    except WindowsError:
+      pass
+
+    if not os.path.exists(ie_path):
+      _LOGGER.warning('Could not find IE via path key, trying known paths.')
+      for path in _IE_PATHS:
+        if os.path.exists(path):
+          ie_path = path
+          break
+
+    return ie_path
+
+  def _GetChromeFrameProfileDir(self):
+    """Gets the Chrome Frame profile dir."""
+    local_appdata_dir = shell.SHGetFolderPath(0, shellcon.CSIDL_LOCAL_APPDATA,
+                                              0, 0)
+    if not local_appdata_dir or not os.path.exists(local_appdata_dir):
+      raise RunnerError('Could not locate LOCALAPPDATA directory.')
+
+    ie_profile = os.path.join(local_appdata_dir, _IE_PROFILE_PATH)
+    return ie_profile
 
 class BenchmarkRunner(ChromeRunner):
   """A utility class to manage the running of Chrome startup time benchmarks.
@@ -443,7 +563,8 @@ class BenchmarkRunner(ChromeRunner):
     """Overrides ChromeRunner.Run. We do this so that we can multiply
     the number of iterations by the number of performance metric groups, if
     we're gathering them. This is because we can only gather a fixed number of
-    metrics at a time."""
+    metrics at a time.
+    """
     if self._ibmperf:
       iterations = iterations * len(self._ibmperf_groups)
     super(BenchmarkRunner, self).Run(iterations)
@@ -465,7 +586,8 @@ class BenchmarkRunner(ChromeRunner):
 
   def _LaunchChrome(self):
     """Launches Chrome, wrapping it in run_in_snapshot if cold-start is
-    enabled. Returns the subprocess.Popen object wrapping the process."""
+    enabled. Returns the subprocess.Popen object wrapping the process.
+    """
     if self._cold_start:
       (drive, path) = os.path.splitdrive(self._chrome_exe)
       chrome_exe = os.path.join('M:', path)
@@ -592,7 +714,8 @@ class BenchmarkRunner(ChromeRunner):
     """Initializes the IBM Performance Inspector variables. Given the
     metrics provided on the command-line, splits them into groups, determining
     how many independent runs of the benchmark are required to gather all
-    of the requested metrics."""
+    of the requested metrics.
+    """
     if not ibmperf_run:
       self._ibmperf = None
       return
@@ -626,7 +749,8 @@ class BenchmarkRunner(ChromeRunner):
 
   def _StartIbmPerf(self, i):
     """If configured to run, starts the hardware performance counters for the
-    given iteration."""
+    given iteration.
+    """
     if self._ibmperf:
       group = i % len(self._ibmperf_groups)
       metrics = self._ibmperf_groups[group]
@@ -634,7 +758,8 @@ class BenchmarkRunner(ChromeRunner):
 
   def _ProcessIbmPerfResults(self):
     """If they are running, processes the hardware performance counters for
-    chrome, outputting their values as results."""
+    chrome, outputting their values as results.
+    """
     if not self._ibmperf:
       return
 
@@ -656,7 +781,8 @@ class BenchmarkRunner(ChromeRunner):
         self._AddResult('Chrome', name, count)
 
   def _StopIbmPerf(self):
-    """If running, stops the hardware performance counters."""
+    """If running, stops the hardware performance counters.
+    """
     if self._ibmperf:
       self._ibmperf.Stop()
 
