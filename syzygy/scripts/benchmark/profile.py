@@ -31,10 +31,14 @@ import time
 _LOGGER = logging.getLogger(__name__)
 
 
-class ProfileRunner(runner.ChromeRunner):
-  def __init__(self, chrome_exe, output_dir, *args, **kw):
+class ChromeProfileRunner(runner.ChromeRunner):
+  def __init__(self, chrome_dir, output_dir, *args, **kw):
+    chrome_exe = os.path.join(chrome_dir, 'chrome.exe')
     profile_dir = os.path.join(output_dir, 'profile')
-    super(ProfileRunner, self).__init__(chrome_exe, profile_dir, *args, **kw)
+    super(ChromeProfileRunner, self).__init__(chrome_exe,
+                                              profile_dir,
+                                              *args,
+                                              **kw)
     self._output_dir = output_dir
     self._log_files = []
 
@@ -59,27 +63,68 @@ class ProfileRunner(runner.ChromeRunner):
     self._log_files = glob.glob(os.path.join(self._output_dir, '*.bin'))
 
 
-def ProfileChrome(chrome_dir, output_dir, iterations):
+class ChromeFrameProfileRunner(runner.ChromeFrameRunner):
+  def __init__(self, chrome_dir, output_dir, *args, **kw):
+    chrome_frame_dll = os.path.join(chrome_dir, 'npchrome_frame.dll')
+    super(ChromeFrameProfileRunner, self).__init__(chrome_frame_dll,
+                                                   *args,
+                                                   **kw)
+    self._output_dir = output_dir
+    self._log_files = []
+
+  def _SetUp(self):
+    super(ChromeFrameProfileRunner, self)._SetUp()
+    self.StartLoggingRpc(self._output_dir)
+
+  def _TearDown(self):
+    self.StopLoggingRpc()
+    super(ChromeFrameProfileRunner, self)._TearDown()
+
+  def _PreIteration(self, it):
+    pass
+
+  def _PostIteration(self, it, success):
+    pass
+
+  def _DoIteration(self, it):
+    # Give Chrome Frame slightly longer to settle.
+    time.sleep(15)
+
+  def _ProcessResults(self):
+    # Capture all the binary trace log files that were generated.
+    self._log_files = glob.glob(os.path.join(self._output_dir, '*.bin'))
+
+
+def ProfileChrome(chrome_dir, output_dir, iterations, chrome_frame):
   """Profiles the chrome instance in chrome_dir for a specified number
-  of iterations.
+  of iterations. If chrome_frame is specified, also profiles Chrome Frame for
+  the same number of iterations.
 
   Args:
     chrome_dir: the directory containing Chrome.
     output_dir: the directory where the call trace files are stored.
     iterations: the number of iterations to profile.
+    chrome_frame: whether or not to profile Chrome Frame as well.
 
   Raises:
     Exception on failure.
   """
-  chrome_exe = os.path.join(chrome_dir, 'chrome.exe')
-
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-  _LOGGER.info('Profiling Chrome "%s".', chrome_exe)
-  runner = ProfileRunner(chrome_exe, output_dir)
-  runner.Run(iterations)
-  return runner._log_files
+  _LOGGER.info('Profiling Chrome "%s\chrome.exe".', chrome_dir)
+  chrome_runner = ChromeProfileRunner(chrome_dir, output_dir)
+  chrome_runner.Run(iterations)
+
+  log_files = chrome_runner._log_files
+
+  if chrome_frame:
+    _LOGGER.info('Profiling Chrome Frame in "%s".', chrome_dir)
+    chrome_frame_runner = ChromeFrameProfileRunner(chrome_dir, output_dir)
+    chrome_frame_runner.Run(iterations)
+    log_files.extend(chrome_frame_runner._log_files)
+
+  return log_files
 
 
 _USAGE = """\
@@ -99,6 +144,9 @@ def _ParseArguments():
   parser.add_option('--iterations', dest='iterations', type='int',
                     default=10,
                     help='Number of profile iterations, 10 by default.')
+  parser.add_option('--chrome-frame', dest='chrome_frame',
+                    default=False, action='store_true',
+                    help='Also profile Chrome Frame in Internet Explorer.')
   parser.add_option('--input-dir', dest='input_dir',
                     help=('The input directory where the original Chrome '
                           'executables are to be found.'))
@@ -132,7 +180,8 @@ def main():
   try:
     trace_files = ProfileChrome(opts.input_dir,
                                 opts.output_dir,
-                                opts.iterations)
+                                opts.iterations,
+                                opts.chrome_frame)
   except Exception:
     _LOGGER.exception('Profiling failed.')
     return 1
