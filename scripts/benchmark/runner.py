@@ -425,8 +425,8 @@ class ChromeFrameRunner(ChromeRunner):
     """Initialize instance.
 
     Args:
-      chrome_frame_dll: path to the Chrome Frame dll to register when
-          benchmarking Chrome in Chrome Frame mode.
+        chrome_frame_dll: path to the Chrome Frame dll to register when
+            benchmarking Chrome in Chrome Frame mode.
     """
     super(ChromeFrameRunner, self).__init__(None, None,
                                             initialize_profile=False)
@@ -440,7 +440,7 @@ class ChromeFrameRunner(ChromeRunner):
       try:
         cf_dll = ctypes.OleDLL(self._chrome_frame_dll)
         cf_dll.DllRegisterServer()
-      except:
+      except Exception:
         raise RunnerError('Could not load Chrome Frame dll at [%s].' %
                           self._chrome_frame_dll)
     else:
@@ -503,7 +503,13 @@ class ChromeFrameRunner(ChromeRunner):
     return ie_path
 
   def _GetChromeFrameProfileDir(self):
-    """Gets the Chrome Frame profile dir."""
+    """Gets the Chrome Frame profile dir.
+
+    Appends the relative path to the Chrome profile used by Chrome when running
+    for a Chrome Frame instance in IE to the user's Local App Data directory.
+    Raises a RunnerError if the canonical way of retrieving standard shell paths
+    fails.
+    """
     local_appdata_dir = shell.SHGetFolderPath(0, shellcon.CSIDL_LOCAL_APPDATA,
                                               0, 0)
     if not local_appdata_dir or not os.path.exists(local_appdata_dir):
