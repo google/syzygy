@@ -13,11 +13,13 @@
 # limitations under the License.
 """Defines a collection of classes for running unit-tests."""
 import build_project
+import cStringIO
 import datetime
 import logging
 import optparse
 import os
 import presubmit
+import re
 import subprocess
 import sys
 
@@ -25,6 +27,18 @@ import sys
 class Error(Exception):
   """An error class used for reporting problems while running tests."""
   pass
+
+
+def AddThirdPartyToPath():
+  """Drags in the colorama module from third party."""
+  third_party = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                             '..', '..', '..', 'third_party'))
+  if third_party not in sys.path:
+    sys.path.insert(0, third_party)
+
+
+AddThirdPartyToPath()
+import colorama
 
 
 def BuildProjectConfig(*args, **kwargs):
@@ -51,6 +65,11 @@ class Test(object):
     self._project_dir = project_dir
     self._name = name
     self._force = False
+
+    # Tests are to direct all of their output to these streams.
+    # NOTE: These streams aren't directly compatible with subprocess.Popen.
+    self._stdout = cStringIO.StringIO()
+    self._stderr = cStringIO.StringIO()
 
   def GetSuccessFilePath(self, configuration):
     """Returns the path to the success file associated with this test."""
@@ -95,6 +114,37 @@ class Test(object):
     child classes."""
     raise Error('_Run not overridden.')
 
+  def _WriteStdout(self, value):
+    """Appends a value to stdout.
+
+    Args:
+      value: the value to append to stdout.
+    """
+    self._stdout.write(value)
+    return
+
+  def _WriteStderr(self, value):
+    """Appends a value to stderr.
+
+    Args:
+      value: the value to append to stderr.
+    """
+    self._stderr.write(value)
+    return
+
+
+  def _GetStdout(self):
+    """Returns any accumulated stdout, and erases the buffer."""
+    stdout = self._stdout.getvalue()
+    self._stdout = cStringIO.StringIO()
+    return stdout
+
+  def _GetStderr(self):
+    """Returns any accumulated stderr, and erases the buffer."""
+    stderr = self._stderr.getvalue()
+    self._stderr = cStringIO.StringIO()
+    return stderr
+
   def Run(self, configuration, force=False):
     """Runs the test in the given configuration. The derived instance of Test
     must implement '_Run(self, configuration)', which raises an exception on
@@ -102,7 +152,8 @@ class Test(object):
     the appropriate success file. If the test fails, the exception is left
     to propagate.
 
-    Optional args:
+    Args:
+      configuration: The configuration in which to run.
       force: If True, this will force the test to re-run even if _NeedToRun
           would return False.
     """
@@ -133,7 +184,13 @@ class Test(object):
       need_to_run = True
 
     if need_to_run:
-      self._Run(configuration)
+      try:
+        self._Run(configuration)
+      finally:
+        # We dump out stdout. We don't write stderr as this is saved for the
+        # top most test, which will report all accumulated stderr's back to
+        # back.
+        sys.stdout.write(self._GetStdout())
 
     self._MakeSuccessFile(configuration)
 
@@ -159,6 +216,8 @@ class Test(object):
     return parser
 
   def Main(self):
+    colorama.init()
+
     opt_parser = self._GetOptParser()
     options, unused_args = opt_parser.parse_args()
 
@@ -178,6 +237,9 @@ class Test(object):
         # This is deliberately a catch-all clause. We wish for each
         # configuration run to be completely independent.
         result = 1
+
+    # Now dump all error messages.
+    sys.stdout.write(self._GetStderr())
 
     return result
 
@@ -203,9 +265,50 @@ class ExecutableTest(Test):
     test_path = self._GetTestPath(configuration)
     rel_test_path = os.path.relpath(test_path, self._project_dir)
     command = [test_path]
-    result = subprocess.call(command)
-    if result:
-      raise Error('test "%s" returned with code %d' % (rel_test_path, result))
+    popen = subprocess.Popen(command, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT)
+    (stdout, unused_stderr) = popen.communicate()
+    self._WriteStdout(stdout)
+
+    if popen.returncode != 0:
+      # Duplicate the output to stderr. This way it'll be reported at the
+      # end of all tests for better visibility.
+      self._WriteStderr(stdout)
+      raise Error('Test "%s" returned with code %d' % (rel_test_path,
+                                                       popen.returncode))
+
+
+def _GTestColorize(text):
+  """Colorizes the given Gtest output with ANSI color codes."""
+  fore = colorama.Fore
+  style = colorama.Style
+  def _ColorizeLine(line):
+    line = re.sub('^(\[\s*(?:-+|=+|RUN|PASSED|OK)\s*\])',
+                  style.BRIGHT + fore.GREEN + '\\1' + style.RESET_ALL,
+                  line)
+    line = re.sub('^(\[\s*FAILED\s*\])',
+                  style.BRIGHT + fore.RED + '\\1' + style.RESET_ALL,
+                  line)
+    line = re.sub('^(\s*(?:Note:|YOU HAVE .* DISABLED TEST).*)',
+                  style.BRIGHT + fore.YELLOW + '\\1' + style.RESET_ALL,
+                  line)
+    return line
+
+  return '\n'.join([_ColorizeLine(line) for line in text.split('\n')])
+
+
+class GTest(ExecutableTest):
+  """This wraps a GTest unittest, with colorized output."""
+  def __init__(self, *args, **kwargs):
+    return super(GTest, self).__init__(*args, **kwargs)
+
+  def _WriteStdout(self, value):
+    """Colorizes the stdout of this test."""
+    return super(GTest, self)._WriteStdout(_GTestColorize(value))
+
+  def _WriteStderr(self, value):
+    """Colorizes the stderr of this test."""
+    return super(GTest, self)._WriteStderr(_GTestColorize(value))
 
 
 class TestSuite(Test):
@@ -248,6 +351,9 @@ class TestSuite(Test):
         # If we're being forced, force our children as well!
         test.Run(configuration, force=self._force)
       except:
+        # Keep a cumulative log of all stderr from each test.
+        self._WriteStderr(test._GetStderr())
+
         # Output some context before letting the exception continue.
         logging.error('Configuration "%s" of test "%s" failed.',
             configuration, test._name)
