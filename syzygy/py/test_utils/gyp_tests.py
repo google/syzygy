@@ -136,7 +136,7 @@ class GypTests(testing.TestSuite):
 
     # Add each test.
     for test in tests:
-      self.AddTest(testing.ExecutableTest(self._project_dir, test))
+      self.AddTest(testing.GTest(self._project_dir, test))
 
 
   def _BuildUnittests(self, configuration):
