@@ -60,6 +60,8 @@ const char kUsage[] =
     "                     The number of buffers by which to grow the buffer\n"
     "                     pool each time the client exhausts its available\n"
     "                     buffer space.\n"
+    "  --verbose          Increase the logging verbosity to also include\n"
+    "                     debug-level information.\n"
     "\n";
 
 int Usage() {
@@ -141,15 +143,24 @@ bool StopService() {
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
-
-  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+  const int kVlogLevelVerbose = -2;
+  if (!logging::InitLogging(
+          L"",
+          logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
+          logging::DONT_LOCK_LOG_FILE,
+          logging::APPEND_TO_OLD_LOG_FILE,
+          logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
     return 1;
   }
 
+  // TODO(rogerm): Turn on ETW logging as well.
+
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
+
+  if (cmd_line->HasSwitch("verbose")) {
+    logging::SetMinLogLevel(kVlogLevelVerbose);
+  }
 
   if (cmd_line->HasSwitch("help") || cmd_line->GetArgs().size() < 1) {
     return Usage();

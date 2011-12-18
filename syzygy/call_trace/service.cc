@@ -80,12 +80,12 @@ bool Service::AcquireServiceMutex() {
       // Fall through...
 
     case WAIT_OBJECT_0:
-      LOG(INFO) << "Service mutex acquired.";
+      VLOG(1) << "Service mutex acquired.";
       service_mutex_.Set(mutex.Take());
       return true;
 
     case WAIT_TIMEOUT:
-      LOG(INFO) << "Another instance of the service is running.";
+      LOG(ERROR) << "Another instance of the service is running.";
       break;
 
     default: {
@@ -117,7 +117,7 @@ bool Service::InitializeRPC()  {
   RPC_STATUS status = RPC_S_OK;
 
   // Initialize the RPC protocol we want to use.
-  LOG(INFO) << "Initializing RPC endpoint '" << endpoint_.c_str() << "' "
+  VLOG(1) << "Initializing RPC endpoint '" << endpoint_.c_str() << "' "
       << "using the '" << protocol_.c_str() << "' protocol.";
   status = ::RpcServerUseProtseqEp(
       reinterpret_cast<RPC_WSTR>(&protocol_[0]),
@@ -130,7 +130,7 @@ bool Service::InitializeRPC()  {
   }
 
   // Register the server version of the CallTrace interface.
-  LOG(INFO) << "Registering the CallTrace interface.";
+  VLOG(1) << "Registering the CallTrace interface.";
   status = ::RpcServerRegisterIf(
       CallTraceService_CallTrace_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
@@ -140,7 +140,7 @@ bool Service::InitializeRPC()  {
   }
 
   // Register the server version of the CallTraceControl interface.
-  LOG(INFO) << "Registering the CallTraceControl interface.";
+  VLOG(1) << "Registering the CallTraceControl interface.";
   status = ::RpcServerRegisterIf(
       CallTraceService_CallTraceControl_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
@@ -154,7 +154,7 @@ bool Service::InitializeRPC()  {
 }
 
 bool Service::RunRPC(bool non_blocking) {
-  LOG(INFO) << "Starting the RPC server.";
+  VLOG(1) << "Starting the RPC server.";
 
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
 
@@ -178,7 +178,7 @@ bool Service::RunRPC(bool non_blocking) {
   }
 
   if (rpc_is_non_blocking_) {
-    LOG(INFO) << "RPC server is running.";
+    VLOG(1) << "RPC server is running.";
   }
 
   return true;
@@ -191,7 +191,7 @@ void Service::StopRPC() {
   // Stop the RPC Server.
   base::AutoLock scoped_lock(lock_);
   if (rpc_is_running_) {
-    LOG(INFO) << "Stopping RPC server.";
+    VLOG(1) << "Stopping RPC server.";
     RPC_STATUS status = ::RpcMgmtStopServerListening(NULL);
     if (status != RPC_S_OK) {
       LOG(ERROR) << "Failed to stop the RPC server: "
@@ -210,7 +210,7 @@ void Service::CleanupRPC() {
   // If we're running in non-blocking mode, then we have to wait for
   // any in-flight RPC requests to terminate.
   if (rpc_is_non_blocking_) {
-    LOG(INFO) << "Waiting for outstanding RPC requests to terminate.";
+    VLOG(1) << "Waiting for outstanding RPC requests to terminate.";
     status = ::RpcMgmtWaitServerListen();
     if (status != RPC_S_OK && status != RPC_S_NOT_LISTENING) {
       LOG(ERROR) << "Failed wait for RPC server shutdown: "
@@ -221,7 +221,7 @@ void Service::CleanupRPC() {
 
   // Unregister the RPC interfaces.
   if (rpc_is_initialized_) {
-    LOG(INFO) << "Unregistering RPC interfaces.";
+    VLOG(1) << "Unregistering RPC interfaces.";
     status = ::RpcServerUnregisterIf(NULL, NULL, FALSE);
     if (status != RPC_S_OK) {
       LOG(ERROR) << "Failed to unregister RPC interfaces: "
@@ -232,6 +232,8 @@ void Service::CleanupRPC() {
 }
 
 bool Service::Start(bool non_blocking) {
+  LOG(INFO) << "Starting the call-trace service.";
+
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
 
   if (!AcquireServiceMutex())
@@ -248,20 +250,25 @@ bool Service::Start(bool non_blocking) {
     return false;
   }
 
+  LOG(INFO) << "The call-trace service is running.";
+
   return RunRPC(non_blocking);
 }
 
 bool Service::Stop() {
+  LOG(INFO) << "Stopping the call-trace service.";
+
   StopRPC();
   CleanupRPC();
   StopWriterThread();
   ReleaseServiceMutex();
 
+  LOG(INFO) << "The call-trace service is stopped.";
   return true;
 }
 
 bool Service::StartWriterThread() {
-  LOG(INFO) << "Starting the trace file IO thread.";
+  VLOG(1) << "Starting the trace file IO thread.";
 
   DCHECK(writer_thread_ == base::kNullThreadHandle);
 
@@ -283,7 +290,7 @@ void Service::StopWriterThread() {
     return;
   }
 
-  LOG(INFO) << "Stopping the trace file IO thread.";
+  VLOG(1) << "Stopping the trace file IO thread.";
 
   {
     std::list<Session*> sessions_to_destroy;
@@ -316,10 +323,10 @@ void Service::StopWriterThread() {
   DCHECK_NE(writer_thread_, base::kNullThreadHandle);
 
   queue_is_non_empty_.Signal();
-  LOG(INFO) << "Flushing pending writes.";
+  VLOG(1) << "Flushing pending writes.";
   base::PlatformThread::Join(writer_thread_);
   writer_thread_ = base::kNullThreadHandle;
-  LOG(INFO) << "Shutdown complete.";
+  VLOG(1) << "Trace file IO thread successfully terminated.";
 }
 
 bool Service::GetBuffersToWrite(BufferQueue* out_queue) {
@@ -333,7 +340,7 @@ bool Service::GetBuffersToWrite(BufferQueue* out_queue) {
     out_queue->swap(pending_write_queue_);
   }
 
-  LOG(INFO) << "Received " << out_queue->size() << " write buffer(s).";
+  VLOG(1) << "Received " << out_queue->size() << " write buffer(s).";
   DCHECK(!out_queue->empty());
 
   return true;
@@ -414,7 +421,7 @@ void Service::ThreadMain() {
 
 // RPC entry point.
 boolean Service::RequestShutdown() {
-  LOG(INFO) << "Requesting a shutdown of the call trace service.";
+  VLOG(1) << "Requesting a shutdown of the call trace service.";
 
   StopRPC();
 
@@ -442,7 +449,7 @@ boolean Service::CreateSession(handle_t binding,
 
   ProcessID client_process_id = reinterpret_cast<ProcessID>(attribs.ClientPID);
 
-  LOG(INFO) << "Registering client process PID=" << client_process_id << ".";
+  VLOG(1) << "Registering client process PID=" << client_process_id << ".";
 
   base::AutoLock scoped_lock(lock_);
 
