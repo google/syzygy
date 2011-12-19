@@ -55,9 +55,10 @@ class GypTests(testing.TestSuite):
   file associated with the a gyp project."""
 
   def __init__(self, gyp_path=None, name='gyp_tests'):
-    """Initializes this set of tests for a given GYP project. If gyp_path is
-    not explicitly provided in the constructor, it is assumed that it is
-    passed in on the command-line via '-g' or '--gyp-file'.
+    """Initializes this set of tests for a given GYP project.
+
+    If gyp_path is not explicitly provided in the constructor, it is assumed
+    that it is passed in on the command-line via '-g' or '--gyp-file'.
 
     Args:
       gyp_path: The path to the root gyp file of the project. Expects that
@@ -152,7 +153,13 @@ class GypTests(testing.TestSuite):
   def _NeedToRun(self, configuration):
     # Ensure the unittests are built first, and then delegate to our
     # parent class.
-    self._BuildUnittests(configuration)
+    try:
+      self._BuildUnittests(configuration)
+    except testing.BuildFailure, e:
+      # Recast the build failure as a test failure so that this test is
+      # stopped.
+      raise testing.TestFailure, sys.exc_info[1], sys.exc_info[2]
+
     return testing.TestSuite._NeedToRun(self, configuration)
 
 

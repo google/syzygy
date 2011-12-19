@@ -37,9 +37,15 @@ class BuildAll(testing.Test):
     self._project_path = os.path.join(_SYZYGY_DIR, 'build_all.vcproj')
 
   def _Run(self, configuration):
-    testing.BuildProjectConfig(self._solution_path,
-                               self._project_path,
-                               configuration)
+    try:
+      testing.BuildProjectConfig(self._solution_path,
+                                 self._project_path,
+                                 configuration)
+    except testing.BuildFailure, e:
+      # Recast this error as a test failure.
+      raise testing.TestFailure, sys.exc_info[1], sys.exc_info[2]
+
+    return True
 
 
 def MakeTest():
