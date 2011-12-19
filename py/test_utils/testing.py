@@ -29,6 +29,16 @@ class Error(Exception):
   pass
 
 
+class BuilFailure(Error):
+  """The error thrown to indicate that BuildProjectConfig has failed."""
+  pass
+
+
+class TestFailure(Error):
+  """An error that can be thrown to indicate that a test has failed."""
+  pass
+
+
 def AddThirdPartyToPath():
   """Drags in the colorama module from third party."""
   third_party = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -49,7 +59,7 @@ def BuildProjectConfig(*args, **kwargs):
   except build_project.Error:
     # Convert the exception to an instance of testing.Error, but preserve
     # the original message and stack-trace.
-    raise Error, sys.exc_info()[1], sys.exc_info()[2]
+    raise BuildFailure, sys.exc_info()[1], sys.exc_info()[2]
 
 
 class Test(object):
@@ -89,14 +99,44 @@ class Test(object):
       return 0
 
   def _CanRun(self, configuration):
-    """Derived classes may override this in order to indicate that they
+    """Indicates whether this test can run the given configuration.
+
+    Derived classes may override this in order to indicate that they
     should not be run in certain configurations. This stub always returns
-    True."""
+    True.
+
+    If the derived class wants to indicate that the test has failed it can
+    also raise a TestFailure error here.
+
+    Args:
+      configuration: the configuration to test.
+
+    Returns:
+      True if this test can run in the given configuration, False otherwise.
+
+    Raises:
+      TestFailure if the test should be considered as failed.
+    """
     return True
 
   def _NeedToRun(self, configuration):
-    """Derived classes may override this if they can determine ahead of time
-    whether the given test needs to be run. This stub always returns True."""
+    """Determines whether this test needs to be run in the given configuration.
+
+    Derived classes may override this if they can determine ahead of time
+    whether the given test needs to be run. This stub always returns True.
+
+    If the derived class wants to indicate that the test has failed it can
+    also raise a TestFailure error here.
+
+    Args:
+      configuration: the configuration to test.
+
+    Returns:
+      True if this test can run in the given configuration, False otherwise.
+
+    Raises:
+      TestFailure if the test should be considered as failed.
+    """
     return True
 
   def _MakeSuccessFile(self, configuration):
@@ -111,8 +151,16 @@ class Test(object):
 
   def _Run(self, configuration):
     """This is as a stub of the functionality that must be implemented by
-    child classes."""
-    raise Error('_Run not overridden.')
+    child classes.
+
+    Args:
+      configuration: the configuration in which to run the test.
+
+    Returns:
+      True on success, False on failure. If a test fails by returning False
+      all of the others test will continue to run. If an exception is raised
+      then all tests are stopped."""
+    raise NotImplementedError('_Run not overridden.')
 
   def _WriteStdout(self, value):
     """Appends a value to stdout.
@@ -156,43 +204,54 @@ class Test(object):
       configuration: The configuration in which to run.
       force: If True, this will force the test to re-run even if _NeedToRun
           would return False.
+
+    Returns:
+      True on success, False otherwise.
     """
     # Store optional arguments in a side-channel, so as to allow additions
     # without changing the _Run/_NeedToRun/_CanRun API.
     self._force = force
 
-    if not self._CanRun(configuration):
-      logging.info('Skipping test "%s" in invalid configuration "%s".',
-                   self._name, configuration)
-      return
+    try:
+      if not self._CanRun(configuration):
+        logging.info('Skipping test "%s" in invalid configuration "%s".',
+                     self._name, configuration)
+        return
 
-    # Always run _NeedToRun, even if force is true. This is because it may
-    # do some setup work that is required prior to calling _Run.
-    logging.info('Checking to see if we need to run test "%s" in '
-                 'configuration "%s".', self._name, configuration)
-    need_to_run = self._NeedToRun(configuration)
-    if need_to_run:
-      logging.info('Running test "%s" in configuration "%s".',
-                   self._name, configuration)
-    else:
-      logging.info('No need to re-run test "%s" in configuration "%s".',
-                   self._name, configuration)
+      # Always run _NeedToRun, even if force is true. This is because it may
+      # do some setup work that is required prior to calling _Run.
+      logging.info('Checking to see if we need to run test "%s" in '
+                   'configuration "%s".', self._name, configuration)
+      need_to_run = self._NeedToRun(configuration)
 
-    if not need_to_run and force:
-      logging.info('Forcing re-run of test "%s" in configuration "%s".',
-                   self._name, configuration)
-      need_to_run = True
+      if need_to_run:
+        logging.info('Running test "%s" in configuration "%s".',
+                     self._name, configuration)
+      else:
+        logging.info('No need to re-run test "%s" in configuration "%s".',
+                     self._name, configuration)
 
-    if need_to_run:
-      try:
+      if not need_to_run and force:
+        logging.info('Forcing re-run of test "%s" in configuration "%s".',
+                     self._name, configuration)
+        need_to_run = True
+
+      if need_to_run:
         self._Run(configuration)
-      finally:
+
         # We dump out stdout. We don't write stderr as this is saved for the
         # top most test, which will report all accumulated stderr's back to
         # back.
         sys.stdout.write(self._GetStdout())
 
-    self._MakeSuccessFile(configuration)
+      self._MakeSuccessFile(configuration)
+    except TestFailure, e:
+      self._WriteStderr(str(e))
+      return False
+    finally:
+      sys.stdout.write(self._GetStdout())
+
+    return True
 
   @staticmethod
   def _GetOptParser():
@@ -229,13 +288,12 @@ class Test(object):
 
     result = 0
     for config in set(options.configs):
-      try:
-        self.Run(config, force=options.force)
-      except Error:
-        logging.exception('Configuration "%s" of test "%s" failed.',
-            config, self._name)
-        # This is deliberately a catch-all clause. We wish for each
-        # configuration run to be completely independent.
+      # We don't catch any exceptions that may be raised as these indicate
+      # something has gone really wrong, and we want them to interrupt further
+      # tests.
+      if not self.Run(config, force=options.force):
+        logging.error('Configuration "%s" of test "%s" failed.',
+                      config, self._name)
         result = 1
 
     # Now dump all error messages.
@@ -274,8 +332,9 @@ class ExecutableTest(Test):
       # Duplicate the output to stderr. This way it'll be reported at the
       # end of all tests for better visibility.
       self._WriteStderr(stdout)
-      raise Error('Test "%s" returned with code %d' % (rel_test_path,
-                                                       popen.returncode))
+      return False
+
+    return True
 
 
 def _GTestColorize(text):
@@ -343,18 +402,16 @@ class TestSuite(Test):
     return False
 
   def _Run(self, configuration):
-    """Implementation of this Test object. Runs the provided collection of
-    tests, generating a global success file upon completion of them all.
-    If any test fails, raises an exception."""
-    for test in self._tests:
-      try:
-        # If we're being forced, force our children as well!
-        test.Run(configuration, force=self._force)
-      except:
-        # Keep a cumulative log of all stderr from each test.
-        self._WriteStderr(test._GetStderr())
+    """Implementation of this Test object.
 
-        # Output some context before letting the exception continue.
-        logging.error('Configuration "%s" of test "%s" failed.',
-            configuration, test._name)
-        raise
+    Runs the provided collection of tests, generating a global success file
+    upon completion of them all. Runs all tests even if any test fails. Stops
+    running all tests if any of them raises an exception."""
+    success = True
+    for test in self._tests:
+      if not test.Run(configuration, force=self._force):
+        # Keep a cumulative log of all stderr from each test that fails.
+        self._WriteStderr(test._GetStderr())
+        success = False
+
+    return success
