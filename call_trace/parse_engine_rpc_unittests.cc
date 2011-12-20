@@ -166,6 +166,14 @@ class TestParseEventHandler : public ParseEventHandler {
     module_events_.push_back(event);
   }
 
+  virtual void OnInvocationBatch(base::Time time,
+                                 DWORD process_id,
+                                 DWORD thread_id,
+                                 size_t num_invocations,
+                                 const InvocationInfoBatch* data) {
+    ADD_FAILURE() << "Unexpected event.";
+  }
+
   void GetEnteredAddresses(CalledAddresses* entered_addresses) {
     ASSERT_TRUE(entered_addresses != NULL);
     entered_addresses_.swap(*entered_addresses);

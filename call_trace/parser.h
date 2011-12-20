@@ -152,6 +152,13 @@ class ParseEventHandler {
                               DWORD process_id,
                               DWORD thread_id,
                               const TraceModuleData* data) = 0;
+
+  // Issued for each batch of invocations on an instrumented module.
+  virtual void OnInvocationBatch(base::Time time,
+                                 DWORD process_id,
+                                 DWORD thread_id,
+                                 size_t num_invocations,
+                                 const InvocationInfoBatch* data) = 0;
 };
 
 }  // namespace call_trace::parser

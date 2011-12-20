@@ -82,7 +82,7 @@ class Client {
   //
   // @returns The return address this invocation should have returned to.
   static RetAddr WINAPI DllMainExitHook(const void* stack,
-                                         RetValueWord retval);
+                                        RetValueWord retval);
 
   // Invoked by _indirect_penter on function entry.
   //

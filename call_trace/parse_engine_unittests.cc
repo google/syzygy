@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/call_trace/parse_engine.h"
 #include "syzygy/call_trace/parser.h"
@@ -146,6 +147,12 @@ class ParseEngineUnitTest
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     thread_detaches.push_back(*data);
   }
+
+  MOCK_METHOD5(OnInvocationBatch, void (base::Time time,
+                                        DWORD process_id,
+                                        DWORD thread_id,
+                                        size_t num_batches,
+                                        const InvocationInfoBatch* data));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;

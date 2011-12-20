@@ -72,6 +72,7 @@ enum TraceEventType {
   TRACE_THREAD_DETACH_EVENT,
   TRACE_MODULE_EVENT,
   TRACE_BATCH_ENTER,
+  TRACE_INVOCATION_BATCH,
 };
 
 // All traces are emitted at this trace level.
@@ -255,6 +256,27 @@ struct TraceBatchEnterData {
 
   // Back-to-back function calls, one for each entry.
   FuncCall calls[1];
+};
+
+// This is the data recorded for each distinct caller/function
+// pair by the profiler.
+struct InvocationInfo {
+  RetAddr caller;
+  FuncAddr function;
+  size_t num_calls;
+  uint64 cycles_min;
+  uint64 cycles_max;
+  uint64 cycles_sum;
+};
+
+struct InvocationInfoBatch {
+  enum { kTypeId = TRACE_INVOCATION_BATCH };
+
+  // TODO(siggi): Perhaps the batch should carry the time resolution for
+  //    the invocation data?
+
+  // Back to back entries, as many as our enclosing record's size allows for.
+  InvocationInfo invocations[1];
 };
 
 #endif  // SYZYGY_CALL_TRACE_CALL_TRACE_DEFS_H_

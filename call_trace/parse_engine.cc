@@ -171,6 +171,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       LOG(ERROR) << "Parsing for TRACE_MODULE_EVENT not yet implemented.";
       break;
 
+    case TRACE_INVOCATION_BATCH:
+      success = DispatchInvocationBatch(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -247,6 +251,37 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
   DWORD process_id = event->Header.ProcessId;
   DWORD thread_id = data->thread_id;
   event_handler_->OnBatchFunctionEntry(time, process_id, thread_id, data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchInvocationBatch(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+  DCHECK(event_handler_ != NULL);
+  DCHECK(error_occurred_ == false);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  if (event->MofLength % sizeof(InvocationInfo) != 0) {
+    LOG(ERROR) << "Invocation batch length off.";
+    return false;
+  }
+
+  const InvocationInfoBatch* data = NULL;
+  if (!reader.Read(event->MofLength, &data)) {
+    LOG(ERROR) << "Short or empty batch event.";
+    return false;
+  }
+
+  size_t num_invocations = event->MofLength / sizeof(InvocationInfo);
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
+  event_handler_->OnInvocationBatch(time,
+                                    process_id,
+                                    thread_id,
+                                    num_invocations,
+                                    data);
 
   return true;
 }

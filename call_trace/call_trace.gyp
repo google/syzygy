@@ -198,6 +198,7 @@
         'parse_engine_rpc_unittests.cc',
         'parse_engine_unittests.cc',
         'process_info_unittests.cc',
+        'profiler_unittests.cc',
         'shadow_stack_unittests.cc',
         'service_unittests.cc',
         'unittests_main.cc',
@@ -207,6 +208,7 @@
         'call_trace_client_rpc',
         'call_trace_parser_lib',
         'call_trace_service_lib',
+        'profile_client',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
@@ -232,5 +234,20 @@
         '<(DEPTH)/sawbuck/common/common.gyp:common',
       ],
     },
-  ]
+    {
+      'target_name': 'profile_client',
+      'type': 'shared_library',
+      'sources': [
+        'profiler.cc',
+        'profiler.def',
+        'profiler.h',
+        'profiler.rc',
+      ],
+      'dependencies': [
+        'call_trace_common_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+      ],
+    },
+  ],
 }
