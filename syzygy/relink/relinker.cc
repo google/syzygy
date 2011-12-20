@@ -204,11 +204,17 @@ bool RelinkerBase::UpdateDebugInformation(const FilePath& output_pdb_path) {
     return false;
   }
 
+  FilePath absolute_pdb_path(output_pdb_path);
+  if (!file_util::AbsolutePath(&absolute_pdb_path)) {
+    LOG(ERROR) << "Failed to resolve absolute pdb path.";
+    return false;
+  }
+
   // Calculate the new debug info size (note that the trailing NUL character is
   // already accounted for in the structure).
   std::string new_pdb_path;
-  if (!WideToUTF8(output_pdb_path.value().c_str(),
-                  output_pdb_path.value().length(),
+  if (!WideToUTF8(absolute_pdb_path.value().c_str(),
+                  absolute_pdb_path.value().length(),
                   &new_pdb_path)) {
     LOG(ERROR) << "Failed to convert the PDB path to UTF8.";
     return false;

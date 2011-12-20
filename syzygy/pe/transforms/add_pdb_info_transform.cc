@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
 
+#include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
@@ -36,6 +37,12 @@ bool AddPdbInfoTransform::Apply(
     BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
+
+  // Make sure the PDB path is absolute.
+  if (!file_util::AbsolutePath(&pdb_path_)) {
+    LOG(ERROR) << "Unable to get absolute PDB path.";
+    return false;
+  }
 
   // Find or create the appropriate debug directory entry.
   AddDebugDirectoryEntryTransform debug_dir_tx(IMAGE_DEBUG_TYPE_CODEVIEW,
