@@ -161,6 +161,11 @@ class Reorderer : public ParseEventHandler {
                               DWORD process_id,
                               DWORD thread_id,
                               const TraceModuleData* data) OVERRIDE;
+  virtual void OnInvocationBatch(base::Time time,
+                                 DWORD process_id,
+                                 DWORD thread_id,
+                                 size_t num_batches,
+                                 const InvocationInfoBatch* data) OVERRIDE;
   // @}
 
   FilePath module_path_;

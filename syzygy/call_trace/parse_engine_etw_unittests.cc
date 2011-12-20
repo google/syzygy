@@ -168,6 +168,13 @@ class TestParseEventHandler : public ParseEventHandler {
     ADD_FAILURE() << "Unexpected event for ETW call trace parser!";
   }
 
+  virtual void OnInvocationBatch(base::Time time,
+                                 DWORD process_id,
+                                 DWORD thread_id,
+                                 size_t num_invocations,
+                                 const InvocationInfoBatch* data) {
+    ADD_FAILURE() << "Unexpected event for ETW call trace parser!";
+  }
 
   void GetEnteredAddresses(CalledAddresses* entered_addresses) {
     ASSERT_TRUE(entered_addresses != NULL);
