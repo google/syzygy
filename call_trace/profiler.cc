@@ -19,11 +19,10 @@
 #include <psapi.h>
 #include <intrin.h>
 
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "base/at_exit.h"
+#include "base/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/win/pe_image.h"
@@ -56,17 +55,24 @@ struct ScopedLastErrorKeeper {
 
 typedef std::pair<RetAddr, FuncAddr> InvocationKey;
 
-class HashInvocationKey : public std::unary_function<InvocationKey, size_t> {
+class HashInvocationKey {
  public:
+  static const size_t bucket_size = 4;
+  static const size_t min_buckets = 8;
+
   size_t operator()(const InvocationKey& key) const {
-    return std::tr1::hash<RetAddr>()(key.first) &
-        std::tr1::hash<FuncAddr>()(key.second);
+    return reinterpret_cast<size_t>(key.first) ^
+        reinterpret_cast<size_t>(key.second);
+  }
+
+  bool operator()(const InvocationKey& a, const InvocationKey& b) const {
+    return a < b;
   }
 };
-typedef std::tr1::unordered_map<
+typedef base::hash_map<
     InvocationKey, InvocationInfo*, HashInvocationKey> InvocationMap;
 
-typedef std::tr1::unordered_set<HMODULE> ModuleSet;
+typedef base::hash_set<HMODULE> ModuleSet;
 
 }  // namespace
 
