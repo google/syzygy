@@ -27,6 +27,7 @@ import tempfile
 _DLLS_TO_INSTRUMENT = [
   'call_trace.dll',
   'call_trace_client.dll',
+  'profile_client.dll',
 ]
 
 
