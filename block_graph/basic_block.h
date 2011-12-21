@@ -13,6 +13,9 @@
 // limitations under the License.
 //
 // Provides the Basic-Block Graph representation and APIs.
+//
+// See http://en.wikipedia.org/wiki/Basic_block for a brief discussion of
+// basic blocks, their uses, and related terminology.
 
 #ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
@@ -178,12 +181,169 @@ class Instruction {
   SourceRange source_range_;
 };
 
+// This class represents a control flow transfer to a basic block, which
+// includes both the target basic block as well as the condition on which
+// control flows to that basic block.
+class Successor {
+ public:
+  typedef core::AbsoluteAddress AbsoluteAddress;
+  typedef BlockGraph::Size Size;
+  typedef core::AddressRange<core::AbsoluteAddress, Size> SourceRange;
+
+  // The op-code of an binary instruction.
+  typedef uint16 OpCode;
+
+  // The set of logical branching flow a successor may embody.
+  enum Condition {
+    // Sentinel value denoting an invalid branch condition.
+    kInvalidCondition,
+
+    // Unconditional control flow instructions.
+    // @{
+    kConditionTrue,  // Equivalent to JMP.
+    // @}
+
+    // These correspond to the conditional branch instructions.
+    // @{
+    kConditionAbove,  // Equivalent to JA and JNBE.
+    kConditionAboveOrEqual,  // Equivalent to JAE, JNB and JNC.
+    kConditionBelow,  // Equivalent to JB, JNAE and JC.
+    kConditionBelowOrEqual,  // Equivalent to JBE and JNA.
+    kConditionEqual,  // Equivalent to JE and JZ.
+    kConditionGreater,  // Equivalent to JG and JNLE.
+    kConditionGreaterOrEqual,  // Equivalent to JGE and JNL.
+    kConditionLess,  // Equivalent to JL and JNGE.
+    kConditionLessOrEqual,  // Equivalent to JLE and JNG.
+    kConditionNotEqual,  // Equivalent to JNZ, JNE.
+    kConditionNotOverflow,  // Equivalent to JNO
+    kConditionNotParity,  // Equivalent to JNP and JPO.
+    kConditionNotSigned,  // Equivalent to JNS.
+    kConditionOverflow,  // Equivalent to JO.
+    kConditionParity,  // Equivalent to JP, JPE.
+    kConditionSigned,  // Equivalent to JS.
+
+    // The countdown conditional.
+    // @{
+    kCounterIsZero,  // Equivalent to JCXZ and JECXZ.
+    // @}
+
+    // The looping branch family of conditionals.
+    // @{
+    kLoopTrue,  // Equivalent to LOOP
+    kLoopIfEqual,  // Equivalent to LOOPE and LOOPZ.
+    kLoopIfNotEqual,  // Equivalent to LOOPNE and LOOPNZ.
+    // @}
+
+    // The following are pseudo instructions used to denote the logical
+    // inverse of one of the above conditional branches, where no such
+    // actual inverse conditional branch exists in the instruction set.
+    // @{
+    kInverseCounterIsZero,
+    kInverseLoopTrue,
+    kInverseLoopIfEqual,
+    kInverseLoopIfNotEqual,
+    // @}
+
+    // A sentinel for the largest successor condition value.
+    kMaxCondition,
+  };
+
+  // Constructors.
+  // @{
+
+  // Creates a dangling successor.
+  //
+  // This needs to exist so that successors can be stored in STL containers.
+  Successor();
+
+  // Creates a successor without resolving it to a basic block.
+  //
+  // It is expected that a subsequent pass through the basic-block address
+  // space will be used to resolve each absolute address to a basic block
+  // structure and that each successor will have its branch_target set.
+  //
+  // @param condition the branching condition for this successor.
+  // @param target the absolute address to which this successor refers.
+  // @param source_range the original byte range for the instructions
+  //     comprising this successor branch.
+  Successor(Condition condition,
+            AbsoluteAddress target,
+            const SourceRange& source_range);
+
+  // Creates a successor that resolves to a known basic block.
+  //
+  // @param condition the branching condition for this successor.
+  // @param target the basic block to which this successor refers.
+  // @param source_range the original byte range for the instructions
+  //     comprising this successor branch.
+  Successor(Condition condition,
+            BasicBlock* target,
+            const SourceRange& source_range);
+  // @}
+
+  // Accessors.
+  // @{
+  // The type of branch represented by this successor.
+  Condition condition() const { return condition_; }
+  const SourceRange& source_range() const { return source_range_; }
+  BasicBlock* branch_target() const { return branch_target_; }
+  void set_branch_target(BasicBlock* target) { branch_target_ = target; }
+  AbsoluteAddress original_target_address() const {
+    return original_target_address_;
+  }
+  // @}
+
+  // Get the branch type that corresponds to the given @p op_code.
+  // @returns kInvalidCondition if @p op_code isn't a recognized branch
+  //     instruction.
+  static Condition OpCodeToCondition(OpCode op_code);
+
+  // Get the condition that represents the inversion of the given @p condition.
+  //
+  // @p conditon the condition to invert.
+  // @returns kInvalidCondition if @p condition is not invertible.
+  static Condition InvertCondition(Condition condition);
+
+  // Set the branch target to @p target.
+  //
+  // @pre The successor is not yet resolved to a basic block or already
+  //     resolves to @p target.
+  // @return true of the block target is successfully set to @p target.
+  bool ResolvesTo(BasicBlock* target);
+
+  // Returns a textual description of this successor.
+  std::string ToString() const;
+
+ protected:
+  // The type of branch represented by this successor.
+  Condition condition_;
+
+  // The original address of the branch target. Setting this on construction
+  // facilitates resolving the target basic block after the fact.
+  AbsoluteAddress original_target_address_;
+
+  // The basic block of instructions that are the target of this successor.
+  BasicBlock* branch_target_;
+
+  // The address range in the original binary which corresponds to the
+  // instructions originally comprising this successor flow.
+  SourceRange source_range_;
+};
+
+// An indivisible portion of code or data within a code block.
+//
+// See http://en.wikipedia.org/wiki/Basic_block for a general description of
+// the properties. This has been augmented with the ability to also represent
+// blocks of data that are tightly coupled with the code (jump and case tables
+// for example).
 class BasicBlock {
  public:
   typedef BlockGraph::BlockId BlockId;
   typedef BlockGraph::BlockType BlockType;
+  // TODO(rogerm): Get rid of instructions as a case of YAGNI?
   typedef std::list<Instruction> Instructions;
   typedef BlockGraph::Size Size;
+  // TODO(rogerm): Switch this over the new Successor type once it's ready.
   typedef std::list<Instruction> Successors;
   typedef BlockGraph::Offset Offset;
   typedef std::map<Offset, BasicBlockReference> ReferenceMap;
@@ -194,7 +354,7 @@ class BasicBlock {
              Size size,
              const char* name);
 
-  // Immutable Accessors.
+  // Accessors.
   // @{
   BlockId id() const { return id_; }
   BlockType type() const { return type_; }
@@ -265,7 +425,7 @@ class BasicBlock {
   // the fall-through (default) path of control flow and the penultimate
   // instruction (if any) is a conditional branch.
   // TODO(rogerm): reverse this order? infer which is which?
-  Instructions successors_;
+  Successors successors_;
 };
 
 }  // namespace block_graph

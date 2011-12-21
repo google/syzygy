@@ -13,9 +13,61 @@
 // limitations under the License.
 //
 // Implements the Basic-Block Graph representation and APIs.
+//
+// Some notes on inverting the instructions that don't have a complement
+// in the instruction set.
+//
+// JCXZ/JECXZ:
+//     The simplest might be to punt and not actually invert,
+//     but trampoline. Otherwise, a truly inverted instruction sequence
+//     would be something like.
+//
+//         pushfd
+//         cmp ecx, 0  ; Change to ecx as appropriate.
+//         jnz fall-through
+//       original-branch-target
+//         popfd
+//         ...
+//
+//       fall-through;
+//         popfd
+//         ...
+//
+//     Note that popfd is prepended to the instruction sequences of both
+//     fall-through and original-branch-target. To represent this we
+//     should introduce JCXNZ and JECXNZ pseudo-instructions to represent
+//     this transformation, to allow the inversion to be reversible.
+//
+// LOOP/LOOPE/LOOPZ/LOOPNE/LOOPNZ:
+//     The simplest would be to punt and not actually invert, but trampoline.
+//     Otherwise, a truly inverted instruction sequence would be something
+//     like (taking LOOPNZ/LOOPNE as an example)...
+//
+//         pushfd
+//         jnz pre-fall-through  ; Switch to jz for LOOPZ, omit for LOOP.
+//         dec cx
+//         jnz fall-through
+//       original-branch-target:
+//         popfd
+//         ...
+//
+//       pre-fall-through:
+//         dec cx  ; Omit for LOOP.
+//       fall-through:
+//         popfd
+//         ...
+//
+//     Note that popfd is prepended onto the instruction sequences of both
+//     fall-through and original-branch-target. To represent this we
+//     should introduce pesudo instructions to represent each inversion,
+//     which would allow the inversion to be reversible.
 
 #include "syzygy/block_graph/basic_block.h"
 
+#include <algorithm>
+#include <ostream>
+
+#include "base/stringprintf.h"
 #include "mnemonics.h"  // NOLINT
 
 namespace block_graph {
@@ -206,6 +258,146 @@ bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
                  << " is not supported.";
       return false;
   }
+}
+
+Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
+  switch (op_code) {
+    default:
+      LOG(ERROR) << GET_MNEMONIC_NAME(op_code) << " is not a branch.";
+      return kInvalidCondition;
+
+    case I_JA:  // Equivalent to JNBE.
+      return kConditionAbove;
+
+    case I_JAE:  // Equivalent to JNB and JNC.
+      return kConditionAboveOrEqual;
+
+    case I_JB:  // Equivalent to JNAE and JC.
+      return kConditionBelow;
+
+    case I_JBE:  // Equivalent to JNA.
+      return kConditionBelowOrEqual;
+
+    case I_JCXZ:
+    case I_JECXZ:
+      return kCounterIsZero;
+
+    case I_JG:  // Equivalent to JNLE.
+      return kConditionGreater;
+
+    case I_JGE:  // Equivalent to JNL.
+      return kConditionGreaterOrEqual;
+
+    case I_JL:  // Equivalent to I_JNGE.
+      return kConditionLess;
+
+    case I_JLE:  // Equivalent to JNG.
+      return kConditionLessOrEqual;
+
+    case I_JMP:
+      return kConditionTrue;
+
+    case I_JNO:
+      return kConditionNotOverflow;
+
+    case I_JNP:  // Equivalent to JPO.
+      return kConditionNotParity;
+
+    case I_JNS:
+      return kConditionNotSigned;
+
+    case I_JNZ:  // Equivalent to JNE.
+      return kConditionNotEqual;
+
+    case I_JO:
+      return kConditionOverflow;
+
+    case I_JP:  // Equivalent to JPE.
+      return kConditionParity;
+
+    case I_JS:
+      return kConditionSigned;
+
+    case I_JZ:  // Equivalent to JE.
+      return kConditionEqual;
+
+    case I_LOOP:
+      return kLoopTrue;
+
+    case I_LOOPNZ:  // Equivalent to LOOPNE.
+      return kLoopIfNotEqual;
+
+    case I_LOOPZ:  // Equivalent to LOOPE.
+      return kLoopIfEqual;
+  }
+}
+
+Successor::Successor()
+    : condition_(kInvalidCondition),
+      branch_target_(NULL) {
+}
+
+Successor::Successor(Successor::Condition type,
+                     Successor::AbsoluteAddress target,
+                     const Successor::SourceRange& source_range)
+    : condition_(type),
+      branch_target_(NULL),
+      original_target_address_(target),
+      source_range_(source_range) {
+  DCHECK(condition_ != kInvalidCondition);
+  DCHECK(original_target_address_.value() != 0);
+}
+
+Successor::Successor(Successor::Condition type,
+                     BasicBlock* target,
+                     const Successor::SourceRange& source_range)
+    : condition_(type),
+      branch_target_(target),
+      source_range_(source_range) {
+  DCHECK(condition_ != kInvalidCondition);
+  DCHECK(branch_target_ != NULL);
+}
+
+Successor::Condition Successor::InvertCondition(
+    Successor::Condition condition) {
+  static const Condition kConditionInversionTable[] = {
+      // Note that these must match the order specified in the Condition
+      // enumeration (see basic_block.h).
+      /* kInvalidBranchType */  kInvalidCondition,
+      /* kConditionTrue */  kInvalidCondition,
+      /* kConditionAbove */  kConditionBelowOrEqual,
+      /* kConditionAboveOrEqual */ kConditionBelow,
+      /* kConditionBelow */  kConditionAboveOrEqual,
+      /* kConditionBelowOrEqual */  kConditionAbove,
+      /* kConditionEqual */  kConditionNotEqual,
+      /* kConditionGreater */  kConditionLessOrEqual,
+      /* kConditionGreaterOrEqual */  kConditionLess,
+      /* kConditionLess */  kConditionGreaterOrEqual,
+      /* kConditionLessOrEqual */  kConditionGreater,
+      /* kConditionNotEqual */  kConditionEqual,
+      /* kConditionNotOverflow */  kConditionOverflow,
+      /* kConditionNotParity */  kConditionParity,
+      /* kConditionNotSigned */  kConditionSigned,
+      /* kConditionOverflow */  kConditionNotOverflow,
+      /* kConditionParity */  kConditionNotParity,
+      /* kConditionSigned */  kConditionNotSigned,
+      /* kCounterIsZero */  kInverseCounterIsZero,
+      /* kLoopTrue */  kInverseLoopTrue,
+      /* kLoopIfEqual */  kInverseLoopIfEqual,
+      /* kLoopIfNotEqual */  kInverseLoopIfNotEqual,
+      /* kInverseCounterIsZero */ kCounterIsZero,
+      /* kInverseLoop */  kLoopTrue,
+      /* kInverseLoopIfEqual */  kLoopIfEqual,
+      /* kInverseLoopIfNotEqual */ kLoopIfNotEqual,
+  };
+
+  COMPILE_ASSERT(arraysize(kConditionInversionTable) == kMaxCondition,
+                 unexpected_number_of_inversion_table_entries);
+
+  if (condition < 0 || condition >= kMaxCondition)
+    return kInvalidCondition;
+
+  return kConditionInversionTable[condition];
 }
 
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
