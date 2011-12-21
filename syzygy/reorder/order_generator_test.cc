@@ -16,6 +16,7 @@
 
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
+#include "syzygy/core/unittest_util.h"
 
 using block_graph::BlockGraph;
 using core::RelativeAddress;
@@ -26,7 +27,7 @@ OrderGeneratorTest::OrderGeneratorTest() : image_layout_(&block_graph_) {
 }
 
 void OrderGeneratorTest::SetUp() {
-  FilePath test_data_dir = GetExeRelativePath(L"test_data");
+  FilePath test_data_dir = testing::GetExeRelativePath(L"test_data");
   FilePath input_dll_path = test_data_dir.Append(kDllName);
 
   ASSERT_TRUE(input_dll_.Init(input_dll_path));

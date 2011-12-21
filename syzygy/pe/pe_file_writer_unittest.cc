@@ -18,6 +18,7 @@
 #include "base/path_service.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
@@ -35,7 +36,7 @@ class PEFileWriterTest: public testing::PELibUnitTest {
 TEST_F(PEFileWriterTest, LoadOriginalImage) {
   // This test baselines the other test(s) that operate on mutated, copied
   // versions of the DLLs.
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(image_path));
 }
 
@@ -47,7 +48,7 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
 
   // Decompose the original test image.
   PEFile image_file;
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   ASSERT_TRUE(image_file.Init(image_path));
 
   Decomposer decomposer(image_file);
@@ -77,7 +78,7 @@ TEST_F(PEFileWriterTest, UpdateFileChecksum) {
   EXPECT_FALSE(PEFileWriter::UpdateFileChecksum(executable));
 
   // Make a copy of our test DLL and check that we work on that.
-  FilePath input_path(GetExeRelativePath(kDllName));
+  FilePath input_path(testing::GetExeRelativePath(kDllName));
   FilePath image_path(temp_dir.Append(kDllName));
   EXPECT_TRUE(file_util::CopyFile(input_path, image_path));
   EXPECT_TRUE(PEFileWriter::UpdateFileChecksum(image_path));

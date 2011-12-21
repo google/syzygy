@@ -22,6 +22,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
@@ -64,7 +65,7 @@ class PEFileBuilderTest: public testing::PELibUnitTest {
     temp_file_ = temp_dir.Append(kDllName);
 
     // Decompose the test DLL.
-    image_path_ = GetExeRelativePath(kDllName);
+    image_path_ = testing::GetExeRelativePath(kDllName);
     ASSERT_TRUE(image_file_.Init(image_path_));
 
     Decomposer decomposer(image_file_);

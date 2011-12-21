@@ -34,7 +34,7 @@ public:
   virtual void SetUp() {
     Super::SetUp();
 
-    FilePath test_dll = GetExeRelativePath(kDllName);
+    FilePath test_dll = testing::GetExeRelativePath(kDllName);
     std::string error;
     test_dll_ = base::LoadNativeLibrary(test_dll, &error);
 

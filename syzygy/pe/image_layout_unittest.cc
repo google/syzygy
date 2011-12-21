@@ -17,6 +17,7 @@
 #include "syzygy/pe/image_layout.h"
 
 #include "gmock/gmock.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -41,7 +42,7 @@ bool SectionsAreEqual(const ImageLayout::SectionInfo& a,
 }  // namespace
 
 TEST_F(ImageLayoutTest, BuildCanonicalImageLayout) {
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));

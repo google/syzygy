@@ -68,6 +68,7 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },

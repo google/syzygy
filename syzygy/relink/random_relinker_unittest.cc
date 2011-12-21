@@ -19,6 +19,7 @@
 #include "base/win/scoped_comptr.h"
 #include "gtest/gtest.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/decomposer.h"
@@ -228,8 +229,8 @@ TEST_F(RandomRelinkerTest, Relink) {
   FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 
   RandomRelinker relinker(12345);
-  ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
-                              GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(relinker.Relink(testing::GetExeRelativePath(kDllName),
+                              testing::GetExeRelativePath(kDllPdbName),
                               output_dll_path,
                               output_pdb_path,
                               true));
@@ -242,7 +243,8 @@ TEST_F(RandomRelinkerTest, Relink) {
   // TODO(chrisha): This should eventually be its own unittest. We could add
   //    a target to test_data.gyp that creates a randomly relinked version of
   //    test_dll, and this could compare the two generated PDBs.
-  ASSERT_TRUE(OmapIsGood(GetExeRelativePath(kDllPdbName), output_pdb_path));
+  ASSERT_TRUE(OmapIsGood(testing::GetExeRelativePath(kDllPdbName),
+                         output_pdb_path));
 }
 
 TEST_F(RandomRelinkerTest, RelinkWithPadding) {
@@ -253,8 +255,8 @@ TEST_F(RandomRelinkerTest, RelinkWithPadding) {
 
   RandomRelinker relinker(56789);
   relinker.set_padding_length(32);
-  ASSERT_TRUE(relinker.Relink(GetExeRelativePath(kDllName),
-                              GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(relinker.Relink(testing::GetExeRelativePath(kDllName),
+                              testing::GetExeRelativePath(kDllPdbName),
                               output_dll_path,
                               output_pdb_path,
                               true));
@@ -262,7 +264,8 @@ TEST_F(RandomRelinkerTest, RelinkWithPadding) {
 
   CheckEmbeddedPdbPath(output_dll_path, output_pdb_path);
 
-  ASSERT_TRUE(OmapIsGood(GetExeRelativePath(kDllPdbName), output_pdb_path));
+  ASSERT_TRUE(OmapIsGood(testing::GetExeRelativePath(kDllPdbName),
+                         output_pdb_path));
 }
 
 }  // namespace relink

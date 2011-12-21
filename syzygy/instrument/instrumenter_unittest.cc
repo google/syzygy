@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/instrumenter.h"
 #include "base/file_util.h"
 #include "gtest/gtest.h"
@@ -32,8 +33,8 @@ class InstrumenterTest : public testing::PELibUnitTest {
 TEST_F(InstrumenterTest, Instrument) {
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
-  FilePath input_dll_path = GetExeRelativePath(kDllName);
-  FilePath input_pdb_path = GetExeRelativePath(kDllPdbName);
+  FilePath input_dll_path = testing::GetExeRelativePath(kDllName);
+  FilePath input_pdb_path = testing::GetExeRelativePath(kDllPdbName);
   FilePath output_dll_path = temp_dir.Append(kDllName);
   FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
 

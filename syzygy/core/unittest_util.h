@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares utilities for building unittests dealing with functionality from
-// core_lib.
+// Declares some unittest helper functions.
 
 #ifndef SYZYGY_CORE_UNITTEST_UTIL_H_
 #define SYZYGY_CORE_UNITTEST_UTIL_H_
 
+#include "base/file_path.h"
 #include "syzygy/core/serialization.h"
 
 namespace testing {
@@ -68,6 +68,30 @@ template<class Data> bool TestSerialization(const Data& data, FILE* file) {
   // serialization engine.
   return (data == data_copy);
 };
+
+// Converts a relative path to absolute using the src directory as base.
+//
+// @path rel_path the relative path to convert.
+// @returns an absolute path.
+FilePath GetSrcRelativePath(const wchar_t* rel_path);
+
+// Converts a relative path to absolute using the executable directory as base.
+//
+// @path rel_path the relative path to convert.
+// @returns an absolute path.
+FilePath GetExeRelativePath(const wchar_t* rel_path);
+
+// Converts a relative path to absolute using the output directory as base.
+//
+// @path rel_path the relative path to convert.
+// @returns an absolute path.
+FilePath GetOutputRelativePath(const wchar_t* rel_path);
+
+// Converts a relative path to absolute using the test_data directory as base.
+//
+// @path rel_path the relative path to convert.
+// @returns an absolute path.
+FilePath GetExeTestDataRelativePath(const wchar_t* rel_path);
 
 }  // namespace testing
 

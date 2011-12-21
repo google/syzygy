@@ -37,18 +37,6 @@ class PELibUnitTest : public testing::Test {
   // Cleans up after each test invocation.
   virtual void TearDown();
 
-  // Computes the absolute path to image_name, where image_name is relative to
-  // the current executable's parent directory.
-  static FilePath GetExeRelativePath(const wchar_t* image_name);
-
-  // Computes the absolute path to @p path, where @p path is relative to
-  // the output directory of the build.
-  static FilePath GetOutputRelativePath(const wchar_t* path);
-
-  // Computes the absolute path to @p path, where @p path is relative to the
-  // test_data directory along-side the executable.
-  static FilePath GetExeTestDataRelativePath(const wchar_t* path);
-
   // Retrieves the PDB path associated with the PE file at a given path and
   // compares it to an expected path value.
   void CheckEmbeddedPdbPath(const FilePath& pe_path,

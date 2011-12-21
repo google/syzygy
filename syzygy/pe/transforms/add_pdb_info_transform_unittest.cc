@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 
@@ -47,7 +48,7 @@ class AddPdbInfoTransformTest : public testing::PELibUnitTest {
 
 TEST_F(AddPdbInfoTransformTest, UpdateExisting) {
   PEFile pe_file;
-  ASSERT_TRUE(pe_file.Init(GetExeRelativePath(kDllName)));
+  ASSERT_TRUE(pe_file.Init(testing::GetExeRelativePath(kDllName)));
 
   Decomposer decomposer(pe_file);
   ASSERT_TRUE(decomposer.Decompose(&image_layout_));

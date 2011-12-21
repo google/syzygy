@@ -15,6 +15,7 @@
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
@@ -34,7 +35,7 @@ class AddImportsTransformTest : public testing::PELibUnitTest {
   }
 
   virtual void SetUp() {
-    FilePath image_path(GetExeRelativePath(kDllName));
+    FilePath image_path(testing::GetExeRelativePath(kDllName));
 
     ASSERT_TRUE(pe_file_.Init(image_path));
 

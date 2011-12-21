@@ -33,6 +33,8 @@
         'address_space_internal.h',
         'disassembler.cc',
         'disassembler.h',
+        'file_util.cc',
+        'file_util.h',
         'json_file_writer.cc',
         'json_file_writer.h',
         'random_number_generator.cc',
@@ -43,7 +45,19 @@
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
+      ],
+    },
+    {
+      'target_name': 'core_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(DEPTH)/base/base.gyp:base',
       ],
     },
     {
@@ -55,12 +69,13 @@
         'core_unittests_main.cc',
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
+        'file_util_unittest.cc',
         'json_file_writer_unittest.cc',
         'serialization_unittest.cc',
-        'unittest_util.h',
       ],
       'dependencies': [
         'core_lib',
+        'core_unittest_utils',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',

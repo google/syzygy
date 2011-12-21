@@ -15,18 +15,13 @@
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
 
 namespace {
 
 using pdb::PdbFileStream;
-
-FilePath GetSrcRelativePath(const wchar_t* path) {
-  FilePath src_dir;
-  PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  return src_dir.Append(path);
-}
 
 class TestPdbFileStream : public PdbFileStream {
  public:
@@ -44,7 +39,7 @@ class TestPdbFileStream : public PdbFileStream {
 class PdbFileStreamTest : public testing::Test {
  public:
   virtual void SetUp() {
-    file_.reset(file_util::OpenFile(GetSrcRelativePath(
+    file_.reset(file_util::OpenFile(testing::GetSrcRelativePath(
         L"syzygy\\pdb\\test_data\\test_dll.pdb"), "rb"));
     ASSERT_TRUE(file_.get() != NULL);
   }

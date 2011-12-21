@@ -17,6 +17,7 @@
 #include "syzygy/pe/image_source_map.h"
 
 #include "gmock/gmock.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -57,7 +58,7 @@ bool IsValidOmapVector(const std::vector<OMAP>& omap) {
 }  // namespace
 
 TEST_F(ImageSourceMapTest, FromUntransformedImageLayout) {
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));

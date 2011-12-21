@@ -59,6 +59,7 @@
       'dependencies': [
         'pe_transforms_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
         '<(DEPTH)/testing/gmock.gyp:gmock',

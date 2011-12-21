@@ -14,6 +14,7 @@
 #include "syzygy/pe/pdb_info.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -44,8 +45,8 @@ CvInfoPdb70* CreateCvInfoPdb70(const char* path,
 }  // namespace
 
 TEST_F(PdbInfoTest, TestDllAndPdbAreConsistent) {
-  const FilePath test_dll(GetExeRelativePath(kDllName));
-  const FilePath test_dll_pdb(GetExeRelativePath(kDllPdbName));
+  const FilePath test_dll(testing::GetExeRelativePath(kDllName));
+  const FilePath test_dll_pdb(testing::GetExeRelativePath(kDllPdbName));
 
   PdbInfo pdb_info;
   EXPECT_TRUE(pdb_info.Init(test_dll));
