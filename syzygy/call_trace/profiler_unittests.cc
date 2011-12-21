@@ -142,6 +142,10 @@ class ProfilerTest : public testing::Test {
   static BOOL WINAPI DllMainThunk(HMODULE module,
                                   DWORD reason,
                                   LPVOID reserved);
+
+  static int IndirectFunctionA(int param1, const void* param2);
+  static int FunctionAThunk(int param1, const void* param2);
+
  protected:
   StrictMock<MockParseEventHandler> handler_;
 
@@ -167,6 +171,19 @@ BOOL __declspec(naked) WINAPI ProfilerTest::DllMainThunk(HMODULE module,
   __asm {
     push IndirectDllMain
     jmp _indirect_penter_dllmain_
+  }
+}
+
+int ProfilerTest::IndirectFunctionA(int param1,
+                                    const void* param2) {
+  return param1 + reinterpret_cast<int>(param2);
+}
+
+int __declspec(naked) ProfilerTest::FunctionAThunk(int param1,
+                                                   const void* param2) {
+  __asm {
+    push IndirectFunctionA
+    jmp _indirect_penter_
   }
 }
 
@@ -199,6 +216,68 @@ TEST_F(ProfilerTest, RecordsModuleAndFunctions) {
                                        ::GetCurrentProcessId(),
                                        ::GetCurrentThreadId(),
                                        1,
+                                       _));
+  EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+
+  // Replay the log.
+  ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+}
+
+namespace {
+
+// We invoke the thunks through these intermediate functions to make sure
+// we can generate two or more identical invocation records, e.g. same
+// call site, same callee. We turn off inlining to make sure the functions
+// aren't assimilated into the callsite by the compiler or linker, thus
+// defeating our intent.
+#pragma auto_inline(off)
+void InvokeDllMainThunk(HMODULE module) {
+  EXPECT_TRUE(ProfilerTest::DllMainThunk(module, DLL_PROCESS_ATTACH, NULL));
+}
+
+void InvokeFunctionAThunk() {
+  const int kParam1 = 0xFAB;
+  const void* kParam2 = &kParam1;
+  const int kExpected = kParam1 + reinterpret_cast<int>(kParam2);
+  EXPECT_EQ(kExpected, ProfilerTest::FunctionAThunk(kParam1, kParam2));
+}
+#pragma auto_inline(on)
+
+}  // namespace
+
+TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
+  // Spin up the RPC service.
+  ASSERT_TRUE(Service::Instance().Start(true));
+
+  // Get our own module handle.
+  HMODULE self_module = ::GetModuleHandle(NULL);
+
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Record the module load twice.
+  EXPECT_NO_FATAL_FAILURE(InvokeDllMainThunk(self_module));
+  EXPECT_NO_FATAL_FAILURE(InvokeDllMainThunk(self_module));
+
+  // And invoke Function A twice.
+  ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
+  ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
+
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+
+  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId()));
+  // We should only have one of these events,
+  // despite the double DllMain invocation.
+  EXPECT_CALL(handler_, OnProcessAttach(_,
+                                       ::GetCurrentProcessId(),
+                                       ::GetCurrentThreadId(),
+                                       _));
+  // TODO(siggi): Match harder here.
+  // We should only have two distinct invocation records,
+  // despite calling each function twice.
+  EXPECT_CALL(handler_, OnInvocationBatch(_,
+                                       ::GetCurrentProcessId(),
+                                       ::GetCurrentThreadId(),
+                                       2,
                                        _));
   EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
 
