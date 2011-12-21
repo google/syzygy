@@ -14,6 +14,7 @@
 #include "syzygy/pdb/pdb_reader.h"
 #include "base/path_service.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 
 namespace pdb {
@@ -27,12 +28,6 @@ const wchar_t kOmappedTestDllPdbFilePath[] =
 
 const wchar_t kTestDllPdbFilePath[] =
     L"syzygy\\pdb\\test_data\\test_dll.pdb";
-
-FilePath GetSrcRelativePath(const wchar_t* path) {
-  FilePath src_dir;
-  PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  return src_dir.Append(path);
-}
 
 class TestPdbReader : public PdbReader {
  public:
@@ -54,7 +49,7 @@ class TestPdbReader : public PdbReader {
 
 TEST(PdbReaderTest, ReadAndAccessors) {
   FilePath omapped_test_dll_pdb =
-    GetSrcRelativePath(kOmappedTestDllPdbFilePath);
+    testing::GetSrcRelativePath(kOmappedTestDllPdbFilePath);
 
   TestPdbReader reader;
   std::vector<PdbStream*> streams;
@@ -63,7 +58,7 @@ TEST(PdbReaderTest, ReadAndAccessors) {
 
   // A repeated read should pass. Note that streams will be full of invalid
   // pointers.
-  FilePath test_dll_pdb = GetSrcRelativePath(kTestDllPdbFilePath);
+  FilePath test_dll_pdb = testing::GetSrcRelativePath(kTestDllPdbFilePath);
   EXPECT_TRUE(reader.Read(test_dll_pdb));
   streams = reader.streams();
 
@@ -96,7 +91,7 @@ TEST(PdbReaderTest, ReadAndAccessors) {
 }
 
 TEST(PdbReaderTest, GetFileSize) {
-  FilePath test_dll_pdb = GetSrcRelativePath(kTestDllPdbFilePath);
+  FilePath test_dll_pdb = testing::GetSrcRelativePath(kTestDllPdbFilePath);
 
   file_util::ScopedFILE file(file_util::OpenFile(test_dll_pdb, "rb"));
   EXPECT_TRUE(file.get() != NULL);

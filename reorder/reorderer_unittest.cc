@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/call_trace/parse_engine.h"
 #include "syzygy/call_trace/parser.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -307,10 +308,11 @@ class ReordererTest : public testing::PELibUnitTest {
     const Reorderer::Flags kFlags = Reorderer::kFlagReorderCode |
                                     Reorderer::kFlagReorderData;
     test_reorderer_.reset(
-        new TestReorderer(GetExeTestDataRelativePath(kDllName),
-                          GetExeTestDataRelativePath(kInstrumentedDllName),
-                          trace_file_list,
-                          kFlags));
+        new TestReorderer(
+            testing::GetExeTestDataRelativePath(kDllName),
+            testing::GetExeTestDataRelativePath(kInstrumentedDllName),
+            trace_file_list,
+            kFlags));
 
     // Setup the test parse engine and register it with the parser used
     // by the test reorderer. Note that ownership of the pointer is also

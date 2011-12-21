@@ -25,6 +25,7 @@
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace pe {
@@ -75,7 +76,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
     add_reference_ = base::Bind(&PEFileParserTest::AddReference,
                                 base::Unretained(this));
 
-    ASSERT_TRUE(image_file_.Init(GetExeRelativePath(kDllName)));
+    ASSERT_TRUE(image_file_.Init(testing::GetExeRelativePath(kDllName)));
   }
 
   virtual void TearDown() {
@@ -101,8 +102,8 @@ class PEFileParserTest: public testing::PELibUnitTest {
   bool ExportIsReferenced(const char* function_name_or_ordinal) {
     if (loaded_image_ == NULL) {
       std::string error;
-      loaded_image_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName),
-                                              &error);
+      loaded_image_ = base::LoadNativeLibrary(
+          testing::GetExeRelativePath(kDllName), &error);
     }
 
     EXPECT_TRUE(loaded_image_ != NULL);
@@ -215,7 +216,7 @@ TEST_F(PEFileParserTest, ParseExportDir) {
   EXPECT_TRUE(parser.ParseExportDir(dir) != NULL);
 
   std::string error;
-  loaded_image_ = base::LoadNativeLibrary(GetExeRelativePath(kDllName),
+  loaded_image_ = base::LoadNativeLibrary(testing::GetExeRelativePath(kDllName),
                                           &error);
   ASSERT_TRUE(loaded_image_ != NULL);
 

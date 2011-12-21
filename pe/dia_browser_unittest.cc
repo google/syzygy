@@ -22,6 +22,7 @@
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 using base::win::ScopedComPtr;
 using testing::_;
@@ -55,12 +56,6 @@ class PatternTest: public testing::Test {
  protected:
   DiaBrowser::MatchCallback on_match_;
 };
-
-FilePath GetSrcRelativePath(const wchar_t* path) {
-  FilePath src_dir;
-  PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  return src_dir.Append(path);
-}
 
 const wchar_t kPdbName[] = L"syzygy\\pe\\test_data\\test_dll.pdb";
 
@@ -108,7 +103,7 @@ class DiaBrowserTest: public testing::Test {
           reinterpret_cast<void**>(&dia_source_)));
 
     HRESULT hr = dia_source_->loadDataFromPdb(
-        GetSrcRelativePath(kPdbName).value().c_str());
+        testing::GetSrcRelativePath(kPdbName).value().c_str());
     ASSERT_HRESULT_SUCCEEDED(hr);
 
     hr = dia_source_->openSession(dia_session_.Receive());

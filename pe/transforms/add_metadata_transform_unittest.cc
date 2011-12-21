@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/unittest_util.h"
@@ -31,7 +32,7 @@ namespace {
 class AddMetadataTransformTest : public testing::PELibUnitTest {
  public:
   AddMetadataTransformTest()
-      : module_path_(GetExeRelativePath(kDllName)),
+      : module_path_(testing::GetExeRelativePath(kDllName)),
         header_block_(NULL),
         metadata_block_(NULL) {
   }

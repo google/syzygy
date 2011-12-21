@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
@@ -44,7 +45,8 @@ TEST_F(OrderRelinkerTest, Relink) {
   FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
   FilePath order_file_path = temp_dir.Append(kOrderFileName);
 
-  FilePath test_data_dir = GetExeRelativePath(kTestDataDir.value().c_str());
+  FilePath test_data_dir =
+      testing::GetExeRelativePath(kTestDataDir.value().c_str());
   FilePath input_dll_path = test_data_dir.Append(kDllName);
   FilePath input_pdb_path = test_data_dir.Append(kDllPdbName);
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);
@@ -85,7 +87,8 @@ TEST_F(OrderRelinkerTest, RelinkWithPadding) {
   FilePath output_pdb_path = temp_dir.Append(kDllPdbName);
   FilePath order_file_path = temp_dir.Append(kOrderFileName);
 
-  FilePath test_data_dir = GetExeRelativePath(kTestDataDir.value().c_str());
+  FilePath test_data_dir =
+      testing::GetExeRelativePath(kTestDataDir.value().c_str());
   FilePath input_dll_path = test_data_dir.Append(kDllName);
   FilePath input_pdb_path = test_data_dir.Append(kDllPdbName);
   FilePath instr_dll_path = test_data_dir.Append(kInstrDllName);

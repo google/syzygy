@@ -155,10 +155,10 @@ class GypTests(testing.TestSuite):
     # parent class.
     try:
       self._BuildUnittests(configuration)
-    except testing.BuildFailure, e:
+    except testing.BuildFailure:
       # Recast the build failure as a test failure so that this test is
       # stopped.
-      raise testing.TestFailure, sys.exc_info[1], sys.exc_info[2]
+      raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
 
     return testing.TestSuite._NeedToRun(self, configuration)
 

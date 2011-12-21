@@ -15,8 +15,10 @@
 #include "syzygy/pe/dia_util.h"
 
 #include <vector>
+
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -41,7 +43,7 @@ TEST_F(DiaUtilTest, CreateDiaSesssionDll) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  EXPECT_TRUE(CreateDiaSession(GetExeRelativePath(kDllName),
+  EXPECT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllName),
                                dia_source.get(),
                                dia_session.Receive()));
 }
@@ -51,7 +53,7 @@ TEST_F(DiaUtilTest, CreateDiaSesssionPdb) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  EXPECT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+  EXPECT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllPdbName),
                                dia_source.get(),
                                dia_session.Receive()));
 }
@@ -61,7 +63,7 @@ TEST_F(DiaUtilTest, FindDiaTableByIid) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  ASSERT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllPdbName),
                                dia_source.get(),
                                dia_session.Receive()));
 
@@ -77,7 +79,7 @@ TEST_F(DiaUtilTest, FindDiaTableByType) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  ASSERT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllPdbName),
                                dia_source.get(),
                                dia_session.Receive()));
 
@@ -91,7 +93,7 @@ TEST_F(DiaUtilTest, FindDiaDebugStream) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  ASSERT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllPdbName),
                                dia_source.get(),
                                dia_session.Receive()));
 
@@ -113,7 +115,7 @@ TEST_F(DiaUtilTest, LoadDiaDebugStream) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  ASSERT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllPdbName),
                                dia_source.get(),
                                dia_session.Receive()));
 
@@ -133,7 +135,7 @@ TEST_F(DiaUtilTest, FindAndLoadDiaDebugStreamByName) {
   ASSERT_TRUE(CreateDiaSource(dia_source.Receive()));
 
   ScopedComPtr<IDiaSession> dia_session;
-  ASSERT_TRUE(CreateDiaSession(GetExeRelativePath(kDllPdbName),
+  ASSERT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllPdbName),
                                dia_source.get(),
                                dia_session.Receive()));
 

@@ -29,7 +29,7 @@ class Error(Exception):
   pass
 
 
-class BuilFailure(Error):
+class BuildFailure(Error):
   """The error thrown to indicate that BuildProjectConfig has failed."""
   pass
 
@@ -57,7 +57,7 @@ def BuildProjectConfig(*args, **kwargs):
   try:
     build_project.BuildProjectConfig(*args, **kwargs)
   except build_project.Error:
-    # Convert the exception to an instance of testing.Error, but preserve
+    # Convert the exception to an instance of testing.BuildFailure, but preserve
     # the original message and stack-trace.
     raise BuildFailure, sys.exc_info()[1], sys.exc_info()[2]
 
@@ -246,7 +246,7 @@ class Test(object):
 
       self._MakeSuccessFile(configuration)
     except TestFailure, e:
-      self._WriteStderr(str(e))
+      self._WriteStderr(str(e) + '\n')
       return False
     finally:
       sys.stdout.write(self._GetStdout())

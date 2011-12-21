@@ -20,6 +20,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/unittest_util.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -37,7 +38,7 @@ class DecomposerTest: public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(DecomposerTest, Decompose) {
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -147,7 +148,7 @@ TEST_F(DecomposerTest, Decompose) {
 }
 
 TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -197,7 +198,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
 }
 
 TEST_F(DecomposerTest, BasicBlockDecompose) {
-  FilePath image_path(GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));

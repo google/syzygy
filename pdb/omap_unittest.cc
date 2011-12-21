@@ -16,6 +16,7 @@
 
 #include "base/path_service.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 namespace pdb {
 
@@ -30,12 +31,6 @@ const wchar_t* kTestDllFilePath =
 
 const wchar_t* kOmappedTestPdbFilePath =
     L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
-
-FilePath GetSrcRelativePath(const wchar_t* path) {
-  FilePath src_dir;
-  PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  return src_dir.Append(path);
-}
 
 }  // namespace
 
@@ -106,10 +101,10 @@ TEST(OmapTest, ReadOmapsFromPdbFile) {
 
   // We expect this to be false, as the original test_dll has no OMAP
   // information in it.
-  FilePath pdb_path = GetSrcRelativePath(kTestDllFilePath);
+  FilePath pdb_path = testing::GetSrcRelativePath(kTestDllFilePath);
   EXPECT_FALSE(ReadOmapsFromPdbFile(pdb_path, NULL, NULL));
 
-  pdb_path = GetSrcRelativePath(kOmappedTestPdbFilePath);
+  pdb_path = testing::GetSrcRelativePath(kOmappedTestPdbFilePath);
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, NULL, NULL));
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, NULL, &omap_from));
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, &omap_to, NULL));

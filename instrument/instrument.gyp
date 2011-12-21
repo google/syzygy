@@ -67,6 +67,7 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
+        '../core/core.gyp:core_unittest_utils',
         '../pe/pe.gyp:pe_unittest_utils',
         '../pe/pe.gyp:test_dll',
       ],
