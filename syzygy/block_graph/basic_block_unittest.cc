@@ -308,4 +308,140 @@ TEST_F(BasicBlockTest, InvertSuccessorsIsInvertible) {
             basic_block_.successors().back().representation().imm.addr);
 }
 
+TEST(Successor, DefaultConstructor) {
+  Successor s;
+  EXPECT_EQ(Successor::kInvalidCondition, s.condition());
+  EXPECT_EQ(Successor::AbsoluteAddress(), s.original_target_address());
+  EXPECT_EQ(NULL, s.branch_target());
+  EXPECT_EQ(Successor::SourceRange(), s.source_range());
+}
+
+TEST(Successor, AddressConstructor) {
+  const Successor::Condition kCondition = Successor::kConditionAbove;
+  const Successor::AbsoluteAddress kAddr(0x12345678);
+  const Successor::SourceRange kRange(kAddr, 32);
+  Successor s(Successor::kConditionAbove, kAddr, kRange);
+
+  EXPECT_EQ(kCondition, s.condition());
+  EXPECT_EQ(kAddr, s.original_target_address());
+  EXPECT_EQ(NULL, s.branch_target());
+  EXPECT_EQ(kRange, s.source_range());
+}
+
+TEST(Successor, BasicBlockConstructor) {
+  const Successor::Condition kCondition = Successor::kConditionAbove;
+  const Successor::AbsoluteAddress kAddr(0x12345678);
+  const Successor::SourceRange kRange(kAddr, 32);
+
+  uint8 data[20] = {};
+  BasicBlock bb(1, BlockGraph::BASIC_CODE_BLOCK, data, sizeof(data), "bb");
+
+  Successor s(Successor::kConditionAbove, &bb, kRange);
+
+  EXPECT_EQ(kCondition, s.condition());
+  EXPECT_EQ(Successor::AbsoluteAddress(), s.original_target_address());
+  EXPECT_EQ(&bb, s.branch_target());
+  EXPECT_EQ(kRange, s.source_range());
+}
+
+TEST(Successor, SetBranchTarget) {
+  uint8 data[20] = {};
+  BasicBlock bb(1, BlockGraph::BASIC_CODE_BLOCK, data, sizeof(data), "bb");
+
+  Successor s;
+  s.set_branch_target(&bb);
+  EXPECT_EQ(&bb, s.branch_target());
+}
+
+TEST(Successor, OpCodeToCondition) {
+  struct TableEntry {
+    uint16 op_code;
+    Successor::Condition condition;
+  };
+
+  const TableEntry kOpCodeToConditionTable[] = {
+      { I_MOV, Successor::kInvalidCondition },
+      { I_JMP, Successor::kConditionTrue },
+      { I_JA, Successor::kConditionAbove },
+      { I_JAE, Successor::kConditionAboveOrEqual },
+      { I_JB, Successor::kConditionBelow },
+      { I_JBE, Successor::kConditionBelowOrEqual },
+      { I_JCXZ, Successor::kCounterIsZero },
+      { I_JECXZ, Successor::kCounterIsZero },
+      { I_JG, Successor::kConditionGreater },
+      { I_JGE, Successor::kConditionGreaterOrEqual },
+      { I_JL, Successor::kConditionLess },
+      { I_JLE, Successor::kConditionLessOrEqual },
+      { I_JNO, Successor::kConditionNotOverflow },
+      { I_JNP, Successor::kConditionNotParity },
+      { I_JNS, Successor::kConditionNotSigned },
+      { I_JNZ, Successor::kConditionNotEqual },
+      { I_JO, Successor::kConditionOverflow },
+      { I_JP, Successor::kConditionParity },
+      { I_JS, Successor::kConditionSigned },
+      { I_JZ, Successor::kConditionEqual },
+      { I_LOOP, Successor::kLoopTrue },
+      { I_LOOPNZ, Successor::kLoopIfNotEqual },
+      { I_LOOPZ, Successor::kLoopIfEqual },
+  };
+
+  // Four conditions do not have an corresponding instruction (the four symbolic
+  // inverses kInverseCounterIsZero, kInverseLoop, kInverseLoopIfEqual, and
+  // kInverseLoopIfNotEqual); two instructions map to kCounterIsZero; and we
+  // test kInvalidCondition with MOV. So the total number of instructions we
+  // expect is three less than the total number of branch types.
+  COMPILE_ASSERT(
+      arraysize(kOpCodeToConditionTable) == Successor::kMaxCondition - 3,
+      unexpected_number_of_map_entries);
+
+  for (size_t i = 0; i < arraysize(kOpCodeToConditionTable); ++i) {
+    const TableEntry& entry = kOpCodeToConditionTable[i];
+    EXPECT_EQ(entry.condition, Successor::OpCodeToCondition(entry.op_code));
+  }
+}
+
+TEST(Successor, InvertCondition) {
+  struct TableEntry {
+    Successor::Condition original;
+    Successor::Condition inverse;
+  };
+  static const TableEntry kConditionInversionTable[] = {
+      { Successor::kInvalidCondition, Successor::kInvalidCondition },
+      { Successor::kConditionTrue, Successor::kInvalidCondition },
+      { Successor::kConditionAbove, Successor::kConditionBelowOrEqual },
+      { Successor::kConditionAboveOrEqual, Successor::kConditionBelow },
+      { Successor::kConditionBelow, Successor::kConditionAboveOrEqual },
+      { Successor::kConditionBelowOrEqual, Successor::kConditionAbove },
+      { Successor::kConditionEqual, Successor::kConditionNotEqual },
+      { Successor::kConditionGreater, Successor::kConditionLessOrEqual },
+      { Successor::kConditionGreaterOrEqual, Successor::kConditionLess },
+      { Successor::kConditionLess, Successor::kConditionGreaterOrEqual },
+      { Successor::kConditionLessOrEqual, Successor::kConditionGreater },
+      { Successor::kConditionNotEqual, Successor::kConditionEqual },
+      { Successor::kConditionNotOverflow, Successor::kConditionOverflow },
+      { Successor::kConditionNotParity, Successor::kConditionParity },
+      { Successor::kConditionNotSigned, Successor::kConditionSigned },
+      { Successor::kConditionOverflow, Successor::kConditionNotOverflow },
+      { Successor::kConditionParity, Successor::kConditionNotParity },
+      { Successor::kConditionSigned, Successor::kConditionNotSigned },
+      { Successor::kCounterIsZero, Successor::kInverseCounterIsZero },
+      { Successor::kLoopTrue, Successor::kInverseLoopTrue },
+      { Successor::kLoopIfEqual, Successor::kInverseLoopIfEqual },
+      { Successor::kLoopIfNotEqual, Successor::kInverseLoopIfNotEqual },
+      { Successor::kInverseCounterIsZero, Successor::kCounterIsZero },
+      { Successor::kInverseLoopTrue, Successor::kLoopTrue },
+      { Successor::kInverseLoopIfEqual, Successor::kLoopIfEqual },
+      { Successor::kInverseLoopIfNotEqual, Successor::kLoopIfNotEqual },
+  };
+
+  COMPILE_ASSERT(
+      arraysize(kConditionInversionTable) == Successor::kMaxCondition,
+      unexpected_number_of_inversion_table_entries);
+
+  for (size_t i = 0; i < arraysize(kConditionInversionTable); ++i) {
+    const TableEntry& entry = kConditionInversionTable[i];
+    EXPECT_EQ(entry.inverse, Successor::InvertCondition(entry.original));
+  }
+}
+
 }  // namespace block_graph
