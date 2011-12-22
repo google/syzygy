@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from google.appengine.ext import db
 from google.appengine.ext import webapp
 from model import client as client_db
 
@@ -23,39 +22,46 @@ class ClientHandler(webapp.RequestHandler):
   def get(self, client_id):
     """Responds with information about clients.
 
-    If no client_id is specified, a list of available clients is returned.
-    If a client_id is specified, information about that client is returned.
+    If a client_id is not specified, responds with a JSON encoded list of
+    available clients. If a client_id is specified, responds with JSON encoded
+    information about the client or a 404 if the client doesn't exist.
 
     Args:
       client_id: The client ID. May be an empty string.
     """
-    self.response.headers['Content-Type'] = 'application/json'
-
     if client_id:
       client = client_db.Client.get_by_key_name(client_id)
       if not client:
         self.error(404)  # Not found.
         return
 
-      data = {'id': client.key().id_or_name(),
-              'description': client.description}
+      result = {'id': client.key().id_or_name(),
+                'description': client.description}
     else:
       clients = client_db.Client.all()
 
-      data = []
+      result = []
       for client in clients:
-        data.append({'id': client.key().id_or_name(),
-                     'description': client.description})
+        result.append({'id': client.key().id_or_name(),
+                       'description': client.description})
 
-    json.dump(data, self.response.out)
+    self.response.headers['Content-Type'] = 'application/json'
+    json.dump(result, self.response.out)
 
-  def post(self, _):
+  def post(self, client_id):
     """Creates a new client.
 
     Adds a client to the data store. The ID and description should be specified
-    in the body of the request. The response is 'OK' on success or an error
-    message on failure.
+    as POST parameters in the request. Responds with a 200 on success or a 400
+    if there are invalid parameters.
+
+    Args:
+      client_id: The client ID. Must be an empty string.
     """
+    if client_id:
+      self.error(400)  # Bad request.
+      return
+
     id = self.request.get('id', None)
     desc = self.request.get('description', None)
     if not id or not desc:

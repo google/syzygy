@@ -17,9 +17,15 @@ from google.appengine.ext import db
 class Datum(db.Model):
   # Parent: The parent of a Datum entity is a Metric.
 
-  # The time at which the datum was measured. This is populated from the JSON
-  # 'timestamp' key or set to the current time if not provided.
-  timestamp = db.DateTimeProperty(required=True)
+  # The product version used when the datum was collected.
+  product_version = db.StringProperty(required=True)
+
+  # The toolchain version used when the datum was collected.
+  toolchain_version = db.StringProperty(required=True)
+
+  # The time at which the datum was measured. This is populated automatically
+  # when the datum is created.
+  timestamp = db.DateTimeProperty(required=True, auto_now=True)
 
   # A non-empty list of values, populated from the JSON 'values' key.
   values = db.ListProperty(float, required=True)

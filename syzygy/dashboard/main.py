@@ -15,6 +15,7 @@
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from handler import client
+from handler import datum
 from handler import metric
 
 
@@ -24,11 +25,12 @@ class MainHandler(webapp.RequestHandler):
     self.response.out.write('Syzygy Dashboard')
 
 
+# Add debug=True to the app's arguments for debugging.
 application = webapp.WSGIApplication(
     [(r'^/$', MainHandler),
      (r'^/clients/([^/]*)$', client.ClientHandler),
-     (r'^/clients/([^/]+)/metrics/([^/]*)$', metric.MetricHandler)],
-    debug=True)
+     (r'^/clients/([^/]+)/metrics/([^/]*)$', metric.MetricHandler),
+     (r'^/clients/([^/]+)/metrics/([^/]+)/data$', datum.DatumHandler)])
 
 
 def main():
