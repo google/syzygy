@@ -16,79 +16,79 @@ import json
 from google.appengine.ext import webapp
 from model import client as client_db
 from model import metric as metric_db
+from model import product as product_db
 
 
 class MetricHandler(webapp.RequestHandler):
   """A class to handle creating and querying metrics."""
 
-  def get(self, client_id, metric_id):
+  def get(self, product_id, client_id, metric_id):
     """Responds with information about metrics.
 
-    If the client does not exist, responds with a 404. If a metric_id is not
-    specified, responds with a JSON encoded list of available metrics for the
-    client. If a metric_id is specified, responds with JSON encoded
-    information about the metric or a 404 if the metric doesn't exist.
+    Responds with a JSON encoded product ID, client ID, metric ID, description
+    and units for a given product_id, client_id and metric_id triplet. If the
+    product, client or metric doesn't exist, responds with a 404.
 
     Args:
+      product_id: The product ID.
       client_id: The client ID.
-      metric_id: The metric ID. Maybe be an empty string.
+      metric_id: The metric ID.
     """
-    client = client_db.Client.get_by_key_name(client_id)
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(404)  # Not found.
+      return
+
+    client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
       self.error(404)  # Not found.
       return
 
-    if metric_id:
-      metric = metric_db.Metric.get_by_key_name(metric_id, client)
-      if not metric:
-        self.error(404)  # Not found.
-        return
+    metric = metric_db.Metric.get_by_key_name(metric_id, client)
+    if not metric:
+      self.error(404)  # Not found.
+      return
 
-      result = {'id': metric.key().id_or_name(),
-                'description': metric.description,
-                'units': metric.units}
-    else:
-      metrics = metric_db.Metric.all()
-      metrics.ancestor(client)
-
-      result = []
-      for metric in metrics:
-        result.append({'id': metric.key().id_or_name(),
-                       'description': metric.description,
-                       'units': metric.units})
+    result = {'product_id': product.key().name(),
+              'client_id': client.key().name(),
+              'metric_id': metric.key().name(),
+              'description': metric.description,
+              'units': metric.units}
 
     self.response.headers['Content-Type'] = 'application/json'
     json.dump(result, self.response.out)
 
-  def post(self, client_id, metric_id):
+  def post(self, product_id, client_id, metric_id):
     """Creates a new metric.
 
-    Adds a metric to the data store. The ID, description and units should be
-    specified as POST parameters in the request. Responds with a 200 on success
-    or a 400 if there are invalid parameters.
+    Adds a metric to the data store. The product, client and metric IDs should
+    be specified in the URL and the description and units should be specified as
+    POST parameters in the request. Responds with a 200 on success or a 400 if
+    there are invalid parameters.
 
     Args:
+      product_id: The product ID.
       client_id: The client ID.
-      metric_id: The metric ID. Must be an empty string.
+      metric_id: The metric ID.
     """
-    if metric_id:
-      self.error(400)  # Bad request.
-      return
-
-    id = self.request.get('id', None)
-    desc = self.request.get('description', None)
+    description = self.request.get('description', None)
     units = self.request.get('units', None)
-    if not id or not desc or not units:
+    if not description or not units:
       self.error(400)  # Bad request.
       return
 
-    client = client_db.Client.get_by_key_name(client_id)
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(404)  # Not found.
+      return
+
+    client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
       self.error(404)  # Not found.
       return
 
     # Creates a new metric or updates the description and units for an existing
     # metric.
-    metric = metric_db.Metric(key_name=id, parent=client, description=desc,
-                              units=units)
+    metric = metric_db.Metric(key_name=metric_id, parent=client,
+                              description=description, units=units)
     metric.put()
