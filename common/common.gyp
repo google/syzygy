@@ -83,6 +83,7 @@
         'align.h',
         'defs.cc',
         'defs.h',
+        'unique_list.h',
         'syzygy_version.cc',
         'syzygy_version.h',
       ],
@@ -99,6 +100,7 @@
       'sources': [
         'align_unittest.cc',
         'common_unittests_main.cc',
+        'unique_list_unittest.cc',
         'syzygy_version_unittest.cc',
       ],
       'dependencies': [

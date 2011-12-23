@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Utility unctions to align and test alignment.
+// Utility functions to align and test alignment.
 
 #ifndef SYZYGY_COMMON_ALIGN_H_
 #define SYZYGY_COMMON_ALIGN_H_
