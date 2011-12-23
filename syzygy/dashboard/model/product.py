@@ -14,12 +14,8 @@
 
 from google.appengine.ext import db
 
-class Client(db.Model):
-  # Key: The name of the client should be stored by the app in the entity's
-  # key_name. This will be used to uniquely identify the client instead of
+class Product(db.Model):
+  # Key: The name of the product should be stored by the app in the entity's
+  # key_name. This will be used to uniquely identify the product instead of
   # having appengine assign an integer ID.
-
-  # Parent: The parent of a Client entity is a Product.
-
-  # A long form description of this client.
-  description = db.TextProperty(required=True)
+  pass

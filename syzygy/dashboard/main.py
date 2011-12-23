@@ -17,6 +17,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from handler import client
 from handler import datum
 from handler import metric
+from handler import product
 
 
 class MainHandler(webapp.RequestHandler):
@@ -28,9 +29,15 @@ class MainHandler(webapp.RequestHandler):
 # Add debug=True to the app's arguments for debugging.
 application = webapp.WSGIApplication(
     [(r'^/$', MainHandler),
-     (r'^/clients/([^/]*)$', client.ClientHandler),
-     (r'^/clients/([^/]+)/metrics/([^/]*)$', metric.MetricHandler),
-     (r'^/clients/([^/]+)/metrics/([^/]+)/data$', datum.DatumHandler)])
+     # /<product>
+     (r'^/([^/]+)/?$', product.ProductHandler),
+     # /<product>/<client>
+     (r'^/([^/]+)/([^/]+)/?$', client.ClientHandler),
+     # /<product>/<client>/<metric>
+     (r'^/([^/]+)/([^/]+)/([^/]+)/?$', metric.MetricHandler),
+     # /<product>/<client>/<metric>/data
+     (r'^/([^/]+)/([^/]+)/([^/]+)/data/?$', datum.DatumHandler)],
+     debug=True)
 
 
 def main():
