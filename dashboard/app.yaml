@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-application: dashboard
+application: google.com:syzygy
 version: 1
-runtime: python
+runtime: python27
+threadsafe: no
 api_version: 1
 
 handlers:
