@@ -247,6 +247,7 @@
         'call_trace_common_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
   ],
