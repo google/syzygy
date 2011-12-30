@@ -234,6 +234,8 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
       base::Time::FromTimeT(static_cast<time_t>(kuint64max)),
       file_header->process_id);
 
+  processes_.erase(file_header->process_id);
+
   return true;
 }
 
