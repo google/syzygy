@@ -32,8 +32,29 @@ namespace parser {
 typedef sym_util::ModuleInformation ModuleInformation;
 typedef uint64 AbsoluteAddress64;
 typedef uint64 Size64;
-typedef core::AddressSpace<AbsoluteAddress64, Size64, ModuleInformation>
-    ModuleSpace;
+
+// This struct extends the sym_util::ModuleInformation structure to be possibly
+// annotated as dirty.
+struct AnnotatedModuleInformation : public ModuleInformation {
+  AnnotatedModuleInformation() : is_dirty(false) {
+    base_address = 0;
+    module_size = 0;
+    image_checksum = 0;
+    time_date_stamp = 0;
+  }
+
+  explicit AnnotatedModuleInformation(const ModuleInformation& module_info)
+      : ModuleInformation(module_info),
+        is_dirty(false) {
+  }
+
+  bool is_dirty;
+};
+
+// The module space tracked for each process observed by the parser.
+typedef core::AddressSpace<AbsoluteAddress64,
+                           Size64,
+                           AnnotatedModuleInformation> ModuleSpace;
 
 // Forward declarations.
 class ParseEngine;

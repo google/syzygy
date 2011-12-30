@@ -203,6 +203,9 @@ TEST_F(ProfilerTest, RecordsModuleAndFunctions) {
   HMODULE self_module = ::GetModuleHandle(NULL);
 
   ASSERT_NO_FATAL_FAILURE(LoadDll());
+  // TODO(rogerm): This generates spurious error logs at higher log levels
+  //     because the module paths are different when depending on who infers
+  //     them (one is drive letter based and the other is device based).
   EXPECT_TRUE(DllMainThunk(self_module, DLL_PROCESS_ATTACH, NULL));
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
