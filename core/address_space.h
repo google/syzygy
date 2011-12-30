@@ -501,10 +501,9 @@ bool AddressSpace<AddressType, SizeType, ItemType>::FindOrInsert(
   // return it.
   RangeMap::iterator it = FindFirstIntersection(range);
   if (it != ranges_.end()) {
-    if (range != it->first)
-      return false;
-    *ret_it = it;
-    return true;
+    if (ret_it != NULL)
+      *ret_it = it;
+    return range == it->first && item == it->second;
   }
 
   std::pair<RangeMap::iterator, bool> inserted =

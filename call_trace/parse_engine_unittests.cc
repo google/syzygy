@@ -262,11 +262,14 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kExeInfo);
 
-  // TODO(rogerm): We never actually remove modules for a given process
-  //     because we don't guarantee temporal order of all events, so you
-  //     might parse a function event after seeing the module get unloaded
-  //     if the buffers are flushed in that order.
-  //
+  // We only remove modules from a given process if a conflicting module is
+  // loaded after the module has been marked as dirty. This is because (1) we
+  // don't guarantee temporal order of all events in a process, so you
+  // might parse a function event after seeing the module get unloaded
+  // if the buffers are flushed in that order; and (2) because process ids may
+  // be reused (but not concurrently) so we do want to drop stale module info
+  // when the process has been replaced.
+
   // Get dll module by address somewhere in the middle, then remove it and
   // see that it's STILL found by that address.
   const size_t kDllOffset = kDllInfo.module_size / 2;
@@ -280,6 +283,17 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
                                      kDllInfo.base_address + kDllOffset);
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kDllInfo);
+
+  // Add conflicting module information and see that the old module is gone.
+  ModuleInformation new_dll_info = kDllInfo;
+  new_dll_info.base_address += 4;
+  ASSERT_TRUE(AddModuleInformation(kProcessId, new_dll_info));
+  ASSERT_EQ(2, processes_[kProcessId].size());
+  module_info = GetModuleInformation(kProcessId, kDllInfo.base_address);
+  ASSERT_TRUE(module_info == NULL);
+  module_info = GetModuleInformation(kProcessId, new_dll_info.base_address);
+  ASSERT_TRUE(module_info != NULL);
+  ASSERT_TRUE(*module_info == new_dll_info);
 }
 
 TEST_F(ParseEngineUnitTest, UnhandledEvent) {

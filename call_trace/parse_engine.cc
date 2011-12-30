@@ -75,7 +75,7 @@ const ModuleInformation* ParseEngine::GetModuleInformation(
 
 bool ParseEngine::AddModuleInformation(DWORD process_id,
                                        const ModuleInformation& module_info) {
-    // Avoid doing needless work.
+  // Avoid doing needless work.
   if (module_info.module_size == 0)
     return true;
 
@@ -87,18 +87,33 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
   ModuleSpace& module_space = processes_[process_id];
   AbsoluteAddress64 addr(module_info.base_address);
   ModuleSpace::Range range(addr, module_info.module_size);
+
+  AnnotatedModuleInformation new_module_info(module_info);
+
   ModuleSpace::RangeMapIter iter;
-  if (!module_space.FindOrInsert(range, module_info, &iter) ||
-      iter->second != module_info) {
-    LOG(ERROR) << "Trying to insert conflicting module: "
-               << module_info.image_file_name
-               << " (base=0x" << module_info.base_address
-               << ", size=" << module_info.module_size << ").";
-    if (fail_on_module_conflict_)
-      return false;
+  if (module_space.FindOrInsert(range, new_module_info, &iter)) {
+    return true;
   }
 
-  return true;
+  // Perhaps this is a case of process id reuse. In that case, we should have
+  // previously seen a module unload event and marked the module information
+  // as dirty.
+  while (iter->second.is_dirty) {
+    module_space.Remove(iter->first);
+    if (module_space.FindOrInsert(range, new_module_info, &iter)) {
+      return true;
+    }
+  }
+
+  LOG(ERROR) << "Conflicting module info for pid=" << process_id << ": "
+             << module_info.image_file_name
+             << " (base=0x" << module_info.base_address
+             << ", size=" << module_info.module_size << ") and "
+             << iter->second.image_file_name
+             << " (base=0x" << iter->second.base_address
+             << ", size=" << iter->second.module_size << ").";
+
+  return fail_on_module_conflict_ ? false : true;
 }
 
 bool ParseEngine::RemoveModuleInformation(
@@ -130,11 +145,15 @@ bool ParseEngine::RemoveModuleInformation(
       return false;
   }
 
-  // TODO(rogerm): Unfortunately, we can't actually remove the module info
-  //     because there may yet be unflushed events we haven't processed. We
-  //     cross our fingers that another instrumented module won't be loaded
-  //     into the address space the now unloaded module used to inhabit (which
-  //     will trigger an error).
+  // We only remove modules from a given process if a conflicting module is
+  // loaded after the module has been marked as dirty. This is because (1) we
+  // don't guarantee temporal order of all events in a process, so you
+  // might parse a function event after seeing the module get unloaded
+  // if the buffers are flushed in that order; and (2) because process ids may
+  // be reused (but not concurrently) so we do want to drop stale module info
+  // when the process has been replaced.
+
+  it->second.is_dirty = true;
 
   return true;
 }
