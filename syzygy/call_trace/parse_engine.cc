@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,6 +154,23 @@ bool ParseEngine::RemoveModuleInformation(
   // when the process has been replaced.
 
   it->second.is_dirty = true;
+
+  return true;
+}
+
+bool ParseEngine::RemoveProcessInformation(DWORD process_id) {
+  ProcessMap::iterator proc_iter = processes_.find(process_id);
+  if (proc_iter == processes_.end()) {
+    LOG(ERROR) << "Unknown process id: " << process_id << ".";
+    return false;
+  }
+
+  ModuleSpace& process_info = proc_iter->second;
+
+  ModuleSpace::iterator module_iter = process_info.begin();
+  for (; module_iter != process_info.end(); ++module_iter) {
+    module_iter->second.is_dirty = true;
+  }
 
   return true;
 }

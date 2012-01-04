@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -233,6 +233,8 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
   event_handler_->OnProcessEnded(
       base::Time::FromTimeT(static_cast<time_t>(kuint64max)),
       file_header->process_id);
+
+  RemoveProcessInformation(file_header->process_id);
 
   return true;
 }

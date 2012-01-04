@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,7 +172,7 @@ void ParseEngineEtw::OnProcessEnded(const base::Time& time,
   DCHECK(event_handler_ != NULL);
   event_handler_->OnProcessEnded(time, process_info.process_id);
 
-  processes_.erase(process_info.process_id);
+  RemoveProcessInformation(process_info.process_id);
 }
 
 void ParseEngineEtw::ProcessEvent(PEVENT_TRACE event) {
