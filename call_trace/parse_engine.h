@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -106,12 +106,19 @@ class ParseEngine {
   // Unregisters a module from the address space of the process denoted by
   // @p process_id.
   //
-  // @param process_id The process in which the module has been loaded.
+  // @param process_id The process in which the module has been unloaded.
   // @param module_info The meta-data describing the loaded module.
   //
   // @return true on success.
   bool RemoveModuleInformation(DWORD process_id,
                                const ModuleInformation& module_info);
+
+  // Unregisters a process (and all of the modules it contains) from the
+  // process map.
+  //
+  // @param process_id The process which has been unloaded.
+  // @return true on success.
+  bool RemoveProcessInformation(DWORD process_id);
 
   // The main entry point by which trace events are dispatched to the
   // event handler.
