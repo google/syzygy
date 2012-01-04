@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@
         'add_metadata_transform.h',
         'add_pdb_info_transform.cc',
         'add_pdb_info_transform.h',
+        'explode_basic_blocks_transform.cc',
+        'explode_basic_blocks_transform.h',
         'prepare_headers_transform.cc',
         'prepare_headers_transform.h',
       ],
@@ -53,6 +55,7 @@
         'add_imports_transform_unittest.cc',
         'add_metadata_transform_unittest.cc',
         'add_pdb_info_transform_unittest.cc',
+        'explode_basic_blocks_transform_unittest.cc',
         'pe_transforms_unittests_main.cc',
         'prepare_headers_transform_unittest.cc',
       ],
