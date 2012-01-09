@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 #include <vector>
 #include "base/callback.h"
 #include "base/synchronization/lock.h"
-#include "base/task.h"
 #include "base/time.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/sym_util/module_cache.h"
@@ -151,9 +150,11 @@ class SymbolLookupService
   // Invoked on the worker thread on status changes.
   StatusCallback status_callback_;
 
+  typedef base::Callback<void()> ProcessingCallback;
+
   // These two store any enqueued or processing task.
-  Task* resolve_task_;  // Under resolution_lock_.
-  Task* callback_task_;  // Under resolution_lock_.
+  ProcessingCallback resolve_task_;  // Under resolution_lock_.
+  ProcessingCallback callback_task_;  // Under resolution_lock_.
 
   // The background thread where we do our processing.
   MessageLoop* background_thread_;

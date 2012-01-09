@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "113398",
-  "skia_revision": "2811",
+  "chrome_revision": "116861",
+  "gmock_revision": "374",
+  "gtest_revision": "560",
+  "gyp_revision": "1135",
+
   "chrome_base": "http://src.chromium.org/svn/trunk",
-  "googlecode_url": "",
 }
 
 deps = {
@@ -69,12 +71,12 @@ deps = {
   "src/testing":
     Var("chrome_base") + "/src/testing@" + Var("chrome_revision"),
   "src/testing/gmock":
-    "http://googlemock.googlecode.com/svn/trunk@374",
+    "http://googlemock.googlecode.com/svn/trunk@" + Var("gmock_revision"),
   "src/testing/gtest":
-    "http://googletest.googlecode.com/svn/trunk@560",
+    "http://googletest.googlecode.com/svn/trunk@" + Var("gtest_revision"),
 
   "src/tools/gyp":
-    "http://gyp.googlecode.com/svn/trunk@1103",
+    "http://gyp.googlecode.com/svn/trunk@" + Var("gyp_revision"),
 
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),

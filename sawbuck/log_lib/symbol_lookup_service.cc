@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,34 +16,19 @@
 #include "sawbuck/log_lib/symbol_lookup_service.h"
 
 #include <algorithm>
+
+#include "base/bind.h"
 #include "base/message_loop.h"
 
-// We mandate that we outlive the background thread and the
-// UI thread we live on, so noop retention is safe.
-template <>
-struct RunnableMethodTraits<SymbolLookupService> {
-  RunnableMethodTraits() {
-  }
-
-  ~RunnableMethodTraits() {
-  }
-
-  void RetainCallee(SymbolLookupService* obj) {
-  }
-
-  void ReleaseCallee(SymbolLookupService* obj) {
-  }
-};
-
 SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
-    foreground_thread_(MessageLoop::current()), resolve_task_(NULL),
-    callback_task_(NULL), next_request_id_(0), unprocessed_id_(0) {
+    foreground_thread_(MessageLoop::current()), next_request_id_(0),
+    unprocessed_id_(0) {
 }
 
 SymbolLookupService::~SymbolLookupService() {
   // Make sure there aren't any tasks pending for this object.
-  DCHECK(resolve_task_ == NULL);
-  DCHECK(callback_task_ == NULL);
+  DCHECK(resolve_task_.is_null());
+  DCHECK(callback_task_.is_null());
 }
 
 SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
@@ -64,9 +49,9 @@ SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
   // Post a task to do the symbol resolution unless one is already pending,
   // or currently executing. The task will NULL this field as it exits
   // on an empty queue.
-  if (!resolve_task_) {
-    resolve_task_ = NewRunnableMethod(this,
-                                      &SymbolLookupService::ResolveCallback);
+  if (!resolve_task_.is_null()) {
+    resolve_task_ = base::Bind(&SymbolLookupService::ResolveCallback,
+                               base::Unretained(this));
     background_thread_->PostTask(FROM_HERE, resolve_task_);
   }
 
@@ -83,10 +68,10 @@ void SymbolLookupService::CancelRequest(Handle request_handle) {
 }
 
 void SymbolLookupService::SetSymbolPath(const wchar_t* symbol_path) {
-  Task* task = NewRunnableMethod(this,
-                                 &SymbolLookupService::SetSymbolPathCallback,
-                                 symbol_path);
-  background_thread_->PostTask(FROM_HERE, task);
+  background_thread_->PostTask(FROM_HERE,
+      base::Bind(&SymbolLookupService::SetSymbolPathCallback,
+                 base::Unretained(this),
+                 symbol_path));
 }
 
 void SymbolLookupService::OnModuleIsLoaded(
@@ -215,7 +200,8 @@ void SymbolLookupService::ResolveCallback() {
 
       RequestMap::iterator it = requests_.lower_bound(unprocessed_id_);
       if (it == requests_.end()) {
-        resolve_task_ = NULL;
+        // Null the task to signal we're exiting.
+        resolve_task_ = ProcessingCallback();
         return;
       }
 
@@ -239,9 +225,9 @@ void SymbolLookupService::ResolveCallback() {
       if (it != requests_.end()) {
         it->second.resolved_ = symbol;
 
-        if (!callback_task_) {
-          callback_task_ = NewRunnableMethod(
-              this, &SymbolLookupService::IssueCallbacks);
+        if (!callback_task_.is_null()) {
+          callback_task_ = base::Bind(&SymbolLookupService::IssueCallbacks,
+                                      base::Unretained(this));
           foreground_thread_->PostTask(FROM_HERE, callback_task_);
         }
       }
@@ -271,7 +257,8 @@ void SymbolLookupService::IssueCallbacks() {
 
       RequestMap::iterator it = requests_.begin();
       if (it == requests_.end() || it->first >= unprocessed_id_) {
-        callback_task_ = NULL;
+        // Null the callback to signal we're exiting.
+        callback_task_ = ProcessingCallback();
         return;
       }
 
