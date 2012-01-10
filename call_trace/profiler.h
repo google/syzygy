@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 // Assembly instrumentation stubs to handle function entry and exit.
 extern "C" void _cdecl _indirect_penter();
 extern "C" void _cdecl _indirect_penter_dllmain();
+extern "C" void _cdecl _indirect_penter_inside_function();
 extern void pexit();
 
 namespace call_trace {
@@ -48,9 +49,6 @@ class Profiler {
                                        FuncAddr function,
                                        uint64 cycles);
 
-  static RetAddr WINAPI FunctionExitHook(const void* stack,
-                                         uint64 cycles);
-
   void OnDetach();
 
   static Profiler* Instance();
@@ -62,19 +60,11 @@ class Profiler {
   Profiler();
   ~Profiler();
 
-  struct StackEntry : public StackEntryBase {
-    // The caller and the function invoked.
-    RetAddr caller;
-    FuncAddr function;
-
-    // The time of entry.
-    uint64 cycles_entry;
-  };
-
-  typedef ShadowStackImpl<StackEntry> ShadowStack;
   class ThreadState;
 
+  ThreadState* CreateFirstThreadStateAndSession();
   ThreadState* GetOrAllocateThreadState();
+  ThreadState* GetOrAllocateThreadStateImpl();
   ThreadState* GetThreadState() const;
   void FreeThreadState();
 

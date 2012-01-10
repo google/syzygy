@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,13 +34,14 @@ class InstrumentationError(Exception):
   pass
 
 
-def InstrumentChrome(chrome_dir, output_dir):
+def InstrumentChrome(chrome_dir, output_dir, client_dll):
   """Makes an instrumented copy of the Chrome files in chrome_dir in
   output_dir.
 
   Args:
     chrome_dir: the directory containing the input files.
     output_dir: the directory where the output will be generated.
+    client_dll: the DLL implementing the call trace profiler interface
 
   Raises:
     InstrumentationError if instrumentation fails.
@@ -51,7 +52,7 @@ def InstrumentChrome(chrome_dir, output_dir):
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
 
   # Drop the call-trace client DLL into the temp dir.
-  shutil.copy2(runner._GetExePath('call_trace_client.dll'), output_dir)
+  shutil.copy2(runner._GetExePath(client_dll), output_dir)
 
   for file in _EXECUTABLES:
     _LOGGER.info('Instrumenting "%s".', file)
@@ -60,7 +61,10 @@ def InstrumentChrome(chrome_dir, output_dir):
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-dll=%s' % src_file,
            '--output-dll=%s' % dst_file,
-           '--call-trace-client=RPC']
+           '--call-trace-client=%s' % client_dll]
+
+    if client_dll == 'profile_client.dll':
+      cmd.append('--no-interior-refs')
 
     ret = chrome_utils.Subprocess(cmd)
     if ret != 0:
@@ -88,6 +92,11 @@ def _ParseArguments():
                     help=('The directory where the optimized chrome '
                           'installation will be created. From this location, '
                           'one can subsequently run benchmarks.'))
+  parser.add_option('--client-dll', dest='client_dll',
+                    default='call_trace_client.dll',
+                    help=('The DLL to use as the call trace client DLL; '
+                          'defaults to the client used in the normal Syzygy '
+                          'workflow (call_trace_client.dll).'))
   (opts, args) = parser.parse_args()
 
   if len(args):
@@ -114,7 +123,7 @@ def main():
   opts = _ParseArguments()
 
   try:
-    InstrumentChrome(opts.input_dir, opts.output_dir)
+    InstrumentChrome(opts.input_dir, opts.output_dir, opts.client_dll)
   except Exception:
     _LOGGER.exception('Instrumentation failed.')
     return 1
