@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -203,8 +203,26 @@ BlockGraph::Section* BlockGraph::GetSectionById(SectionId id) {
   return &it->second;
 }
 
+const BlockGraph::Section* BlockGraph::GetSectionById(SectionId id) const {
+  SectionMap::const_iterator it(sections_.find(id));
+
+  if (it == sections_.end())
+    return NULL;
+
+  return &it->second;
+}
+
 BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) {
   BlockMap::iterator it(blocks_.find(id));
+
+  if (it == blocks_.end())
+    return NULL;
+
+  return &it->second;
+}
+
+const BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) const {
+  BlockMap::const_iterator it(blocks_.find(id));
 
   if (it == blocks_.end())
     return NULL;

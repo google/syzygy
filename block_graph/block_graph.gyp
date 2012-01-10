@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,9 @@
         'block_graph.h',
         'iterate.cc',
         'iterate.h',
+        'ordered_block_graph.cc',
+        'ordered_block_graph.h',
+        'ordered_block_graph_internal.h',
         'transform.cc',
         'transform.h',
         'transforms/iterative_transform.h',
@@ -71,6 +74,7 @@
         'block_graph_unittest.cc',
         'block_graph_unittests_main.cc',
         'iterate_unittest.cc',
+        'ordered_block_graph_unittest.cc',
         'transform_unittest.cc',
         'transforms/iterative_transform_unittest.cc',
         'transforms/named_transform_unittest.cc',
