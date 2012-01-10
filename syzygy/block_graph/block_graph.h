@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -165,18 +165,25 @@ class BlockGraph {
 
   // Accessors.
   const SectionMap& sections() const { return sections_; }
+  SectionMap& sections_mutable() { return sections_; }
   const BlockMap& blocks() const { return blocks_; }
   BlockMap& blocks_mutable() { return blocks_; }
 
+  // @{
   // Retrieve the section with the given id.
   //
   // @param id The id of the section to retrieve.
   // @returns the section in question or NULL if no such section.
   Section* GetSectionById(SectionId id);
+  const Section* GetSectionById(SectionId id) const;
+  // @}
 
+  // @{
   // Retrieve the block with id.
   // @returns the block in question or NULL if no such block.
   Block* GetBlockById(BlockId id);
+  const Block* GetBlockById(BlockId id) const;
+  // @}
 
   // Serialization is supported at the level of an entire BlockGraph, but not
   // individual blocks. This is because blocks have pointers to other blocks
