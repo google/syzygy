@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -154,7 +154,9 @@ def main():
   try:
     # Instrument the provided Chrome executables in input_dir, and store
     # the profiled executables in instrumented_dir.
-    instrument.InstrumentChrome(opts.input_dir, instrumented_dir)
+    instrument.InstrumentChrome(opts.input_dir,
+                                instrumented_dir,
+                                'call_trace_client.dll')
 
     # Then profile the instrumented executables in instrumented_dir.
     trace_files = profile.ProfileChrome(instrumented_dir,
