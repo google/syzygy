@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ except ImportError:
 
 _UNITTEST_MESSAGE = '''\
 Your %s unittests must succeed before submitting.
-To clear this presubmit error run syzygy/run_all_tests.bat'''
+To clear this presubmit error run syzygy\\run_all_tests.bat'''
 
 _YEAR = datetime.datetime.now().year
 
