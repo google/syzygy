@@ -34,7 +34,7 @@ class TestingFilteredLogView: public FilteredLogView {
       : FilteredLogView(original, filters) {
   }
 
-  CancelableTask* task() const { return task_; }
+  const FilterCallback& task() const { return task_; }
 };
 
 class FilteredLogViewTest: public testing::Test {
@@ -83,7 +83,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
   // Create a short-lived view on an empty view.
   {
     TestingFilteredLogView filtered(&mock_view_, filters_);
-    EXPECT_TRUE(filtered.task() != NULL);
+    EXPECT_TRUE(!filtered.task().IsCancelled());
 
     ExpectUnregistration();
   }
@@ -96,7 +96,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
   // Create a short-lived view on a non-empty view.
   {
     TestingFilteredLogView filtered(&mock_view_, filters_);
-    EXPECT_TRUE(filtered.task() != NULL);
+    EXPECT_TRUE(!filtered.task().IsCancelled());
 
     ExpectUnregistration();
   }

@@ -49,7 +49,7 @@ SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
   // Post a task to do the symbol resolution unless one is already pending,
   // or currently executing. The task will NULL this field as it exits
   // on an empty queue.
-  if (!resolve_task_.is_null()) {
+  if (resolve_task_.is_null()) {
     resolve_task_ = base::Bind(&SymbolLookupService::ResolveCallback,
                                base::Unretained(this));
     background_thread_->PostTask(FROM_HERE, resolve_task_);
@@ -225,7 +225,7 @@ void SymbolLookupService::ResolveCallback() {
       if (it != requests_.end()) {
         it->second.resolved_ = symbol;
 
-        if (!callback_task_.is_null()) {
+        if (callback_task_.is_null()) {
           callback_task_ = base::Bind(&SymbolLookupService::IssueCallbacks,
                                       base::Unretained(this));
           foreground_thread_->PostTask(FROM_HERE, callback_task_);

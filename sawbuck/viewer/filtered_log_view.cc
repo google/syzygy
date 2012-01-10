@@ -15,31 +15,13 @@
 // Filtered list view implementation.
 #include "sawbuck/viewer/filtered_log_view.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "pcrecpp.h"  // NOLINT
 
-namespace {
-// We only keep one outstanding task and we cancel it on destruction,
-// so a noop retain is safe.
-template <>
-struct RunnableMethodTraits<FilteredLogView> {
-  RunnableMethodTraits() {
-  }
-
-  ~RunnableMethodTraits() {
-  }
-
-  void RetainCallee(FilteredLogView* view) {
-  }
-
-  void ReleaseCallee(FilteredLogView* view) {
-  }
-};
-}  // namespace
-
 FilteredLogView::FilteredLogView(ILogView* original,
                                  const std::vector<Filter>& filters) :
-    filtered_rows_(0), task_(NULL), original_(original),
+    filtered_rows_(0), original_(original),
     registration_cookie_(0), next_sink_cookie_(1) {
   DCHECK(original_ != NULL);
   original_->Register(this, &registration_cookie_);
@@ -48,8 +30,8 @@ FilteredLogView::FilteredLogView(ILogView* original,
 
 FilteredLogView::~FilteredLogView() {
   // Make sure we're not pinged post-destruction.
-  if (task_ != NULL)
-    task_->Cancel();
+  if (!task_.IsCancelled())
+    task_.Cancel();
 
   original_->Unregister(registration_cookie_);
 }
@@ -145,7 +127,7 @@ bool FilteredLogView::MatchesFilterList(const std::vector<Filter>& list,
 }
 
 void FilteredLogView::FilterChunk() {
-  task_ = NULL;
+  task_.Cancel();
 
   // Stash our starting row count.
   int starting_rows = GetNumRows();
@@ -217,9 +199,9 @@ void FilteredLogView::RestartFiltering() {
 }
 
 void FilteredLogView::PostFilteringTask() {
-  if (!task_) {
-    task_ = NewRunnableMethod(this, &FilteredLogView::FilterChunk);
-    DCHECK(task_ != NULL);
-    MessageLoop::current()->PostTask(FROM_HERE, task_);
+  if (task_.IsCancelled()) {
+    task_.Reset(base::Bind(&FilteredLogView::FilterChunk,
+                           base::Unretained(this)));
+    MessageLoop::current()->PostTask(FROM_HERE, task_.callback());
   }
 }

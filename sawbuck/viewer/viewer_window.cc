@@ -37,35 +37,6 @@ const wchar_t* kMicrosoftSymSrv = L"http://msdl.microsoft.com/download/symbols";
 const wchar_t* kChromeSymSrv =
     L"http://chromium-browser-symsrv.commondatastorage.googleapis.com";
 
-// We know the lifetime of the ViewerWindow exceeds the worker threads,
-// so noop for retain is safe for the ViewerWindow.
-template <>
-struct RunnableMethodTraits<ViewerWindow> {
-  void RetainCallee(ViewerWindow* window) {
-  }
-
-  void ReleaseCallee(ViewerWindow* window) {
-  }
-};
-
-template <>
-struct RunnableMethodTraits<LogConsumer> {
-  void RetainCallee(LogConsumer* window) {
-  }
-
-  void ReleaseCallee(LogConsumer* window) {
-  }
-};
-
-template <>
-struct RunnableMethodTraits<KernelLogConsumer> {
-  void RetainCallee(KernelLogConsumer* window) {
-  }
-
-  void ReleaseCallee(KernelLogConsumer* window) {
-  }
-};
-
 // A regular expression that matches "[<stuff>:<file>(<line>)].message"
 // and extracts the file/line/message parts.
 const pcrecpp::RE kFileRe("\\[[^\\]]*\\:([^:]+)\\((\\d+)\\)\\].(.*\\w).*",
@@ -105,10 +76,8 @@ void ViewerWindow::CompileAsserts() {
 }
 
 ViewerWindow::ViewerWindow()
-     : notify_log_view_new_items_(NULL),
-       symbol_lookup_worker_("Symbol Lookup Worker"),
+     : symbol_lookup_worker_("Symbol Lookup Worker"),
        next_sink_cookie_(1),
-       update_status_task_(NULL),
        log_viewer_(this),
        ui_loop_(NULL),
        log_consumer_thread_("Event log consumer"),
@@ -139,10 +108,8 @@ ViewerWindow::~ViewerWindow() {
 
   symbol_lookup_worker_.Stop();
 
-  if (notify_log_view_new_items_ != NULL) {
-    notify_log_view_new_items_->Cancel();
-    notify_log_view_new_items_ = NULL;
-  }
+  if (!notify_log_view_new_items_.IsCancelled())
+    notify_log_view_new_items_.Cancel();
 }
 
 namespace {
@@ -378,7 +345,8 @@ bool ViewerWindow::StartCapturing() {
   // Consume it in a new thread.
   CHECK(log_consumer_thread_.Start());
   log_consumer_thread_.message_loop()->PostTask(FROM_HERE,
-      NewRunnableMethod(log_consumer_.get(), &LogConsumer::Consume));
+      base::Bind(base::IgnoreResult(&LogConsumer::Consume),
+                 base::Unretained(log_consumer_.get())));
 
   // Start the kernel logger session.
   base::win::EtwTraceProperties kernel_props;
@@ -410,7 +378,8 @@ bool ViewerWindow::StartCapturing() {
   // Consume it in a new thread.
   CHECK(kernel_consumer_thread_.Start());
   kernel_consumer_thread_.message_loop()->PostTask(FROM_HERE,
-      NewRunnableMethod(kernel_consumer_.get(), &KernelLogConsumer::Consume));
+      base::Bind(base::IgnoreResult(&KernelLogConsumer::Consume),
+                 base::Unretained(kernel_consumer_.get())));
 
   if (SUCCEEDED(hr))
     EnableProviders(settings_);
@@ -484,11 +453,10 @@ void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
 
   // Post a task to update the status on the UI thread, unless
   // there's a task already pending.
-  if (update_status_task_ == NULL) {
-    update_status_task_ = NewRunnableMethod(this,
-                                           &ViewerWindow::UpdateStatus);
-    if (update_status_task_ != NULL)
-      ui_loop_->PostTask(FROM_HERE, update_status_task_);
+  if (update_status_task_.IsCancelled()) {
+    update_status_task_.Reset(
+        base::Bind(&ViewerWindow::UpdateStatus, base::Unretained(this)));
+    ui_loop_->PostTask(FROM_HERE, update_status_task_.callback());
   }
 }
 
@@ -496,7 +464,7 @@ void ViewerWindow::UpdateStatus() {
   DCHECK_EQ(MessageLoop::current(), ui_loop_);
 
   base::AutoLock lock(status_lock_);
-  update_status_task_ = NULL;
+  update_status_task_.Cancel();
   UISetText(0, status_.c_str());
 }
 
@@ -545,14 +513,11 @@ void ViewerWindow::ScheduleNewItemsNotification() {
   // The list lock must be held.
   list_lock_.AssertAcquired();
 
-  if (notify_log_view_new_items_ == NULL) {
-    notify_log_view_new_items_ =
-        NewRunnableMethod(this, &ViewerWindow::NotifyLogViewNewItems);
-    DCHECK(notify_log_view_new_items_ != NULL);
-
-    if (notify_log_view_new_items_ != NULL) {
-      ui_loop_->PostTask(FROM_HERE, notify_log_view_new_items_ );
-    }
+  if (notify_log_view_new_items_.IsCancelled()) {
+    notify_log_view_new_items_.Reset(
+        base::Bind(&ViewerWindow::NotifyLogViewNewItems,
+                   base::Unretained(this)));
+    ui_loop_->PostTask(FROM_HERE, notify_log_view_new_items_.callback());
   }
 }
 
@@ -562,7 +527,7 @@ void ViewerWindow::NotifyLogViewNewItems() {
     base::AutoLock lock(list_lock_);
 
     // Notification no longer pending.
-    notify_log_view_new_items_ = NULL;
+    notify_log_view_new_items_.Cancel();
   }
 
   EventSinkMap::iterator it(event_sinks_.begin());

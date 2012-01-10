@@ -20,12 +20,10 @@
 #include <string>
 #include <vector>
 
+#include "base/cancelable_callback.h"
 #include "base/memory/scoped_ptr.h"
 #include "sawbuck/viewer/filter.h"
 #include "sawbuck/viewer/log_list_view.h"
-
-// Forward decl.
-class CancelableTask;
 
 // Provides a filtered view on a log.
 class FilteredLogView
@@ -77,8 +75,11 @@ class FilteredLogView
   std::vector<int> included_rows_;
   // Row number of last row in |original_| that we've processed.
   int filtered_rows_;
+
+  typedef base::CancelableCallback<void()> FilterCallback;
+
   // Non-NULL if there's a task pending to process additional rows.
-  CancelableTask* task_;
+  FilterCallback task_;
 
   ILogView* original_;
   int registration_cookie_;

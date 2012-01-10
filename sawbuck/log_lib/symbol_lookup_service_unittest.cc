@@ -31,7 +31,7 @@ void Foo() {
 }
 
 void QuitMessageLoop(MessageLoop* loop) {
-  loop->PostTask(FROM_HERE, new MessageLoop::QuitTask());
+  loop->PostTask(FROM_HERE, MessageLoop::QuitClosure());
 }
 
 class SymbolLookupServiceTest: public testing::Test {
@@ -79,7 +79,7 @@ class SymbolLookupServiceTest: public testing::Test {
     // Chase the symbol lookups on the background thread
     // by posting a quit message to this message loop.
     background_thread_.message_loop()->PostTask(FROM_HERE,
-        NewRunnableFunction(QuitMessageLoop, MessageLoop::current()));
+        base::Bind(QuitMessageLoop, MessageLoop::current()));
 
     // And run our loop.
     message_loop_.Run();

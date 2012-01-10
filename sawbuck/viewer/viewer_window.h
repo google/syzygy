@@ -27,7 +27,7 @@
 #include <map>
 #include <string>
 #include <vector>
-#include "base/callback.h"
+#include "base/cancelable_callback.h"
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
@@ -184,8 +184,10 @@ class ViewerWindow
   base::Lock list_lock_;
   typedef std::vector<LogMessage> LogMessageList;
   LogMessageList log_messages_;  // Under list_lock_.
+
+  typedef base::CancelableCallback<void()> NotifyNewItemsCallback;
   // Keeps the task pending to notify event sinks on the UI thread.
-  CancelableTask* notify_log_view_new_items_;  // Under list_lock_.
+  NotifyNewItemsCallback notify_log_view_new_items_;  // Under list_lock_.
 
   // The message loop we're instantiated on, used to signal
   // back to the main thread from workers.
@@ -202,7 +204,8 @@ class ViewerWindow
 
   base::Lock status_lock_;
   std::wstring status_;  // Under status_lock_.
-  CancelableTask* update_status_task_;  // Under status_lock_;
+  typedef base::CancelableCallback<void()> UpdateStatusCallback;
+  UpdateStatusCallback update_status_task_;  // Under status_lock_;
 
   // Takes care of sinking KernelProcessEvents for us.
   ProcessInfoService process_info_service_;
