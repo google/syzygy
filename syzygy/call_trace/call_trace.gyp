@@ -78,11 +78,14 @@
         'call_trace_defs.h',
         'client_utils.cc',
         'client_utils.h',
+        'return_thunk_factory.cc',
+        'return_thunk_factory.h',
         'rpc_helpers.cc',
         'rpc_helpers.h',
         'rpc_session.cc',
         'rpc_session.h',
         'rpc_mem.cc',
+        'scoped_last_error_keeper.h',
       ],
       'all_dependent_settings': {
         'msvs_settings': {
@@ -199,6 +202,7 @@
         'parse_engine_unittests.cc',
         'process_info_unittests.cc',
         'profiler_unittests.cc',
+        'return_thunk_factory_unittests.cc',
         'shadow_stack_unittests.cc',
         'service_unittests.cc',
         'unittests_main.cc',

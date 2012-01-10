@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/call_trace/call_trace_defs.h"
 #include "syzygy/call_trace/rpc_helpers.h"
 #include "syzygy/call_trace/service.h"
 
@@ -60,6 +61,7 @@ const char kUsage[] =
     "                     The number of buffers by which to grow the buffer\n"
     "                     pool each time the client exhausts its available\n"
     "                     buffer space.\n"
+    "  --enable-exits     Enable exit tracing (off by default).\n"
     "  --verbose          Increase the logging verbosity to also include\n"
     "                     debug-level information.\n"
     "\n";
@@ -90,6 +92,10 @@ bool RunService(const CommandLine* cmd_line) {
       return false;
     }
     call_trace_service.set_buffer_size_in_bytes(num);
+  }
+
+  if (cmd_line->HasSwitch("enable-exits")) {
+    call_trace_service.set_flags(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT);
   }
 
   // Setup the number of incremental buffers

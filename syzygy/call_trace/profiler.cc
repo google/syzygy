@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,8 @@
 // Implementation of the profiler DLL.
 #include "syzygy/call_trace/profiler.h"
 
-#include <windows.h>
 #include <psapi.h>
-#include <intrin.h>
-
-#include <vector>
+#include <windows.h>
 
 #include "base/at_exit.h"
 #include "base/hash_tables.h"
@@ -29,7 +26,8 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/call_trace/client_utils.h"
 #include "syzygy/call_trace/call_trace_defs.h"
-#include "syzygy/call_trace/shadow_stack.h"
+#include "syzygy/call_trace/return_thunk_factory.h"
+#include "syzygy/call_trace/scoped_last_error_keeper.h"
 
 
 namespace {
@@ -39,19 +37,6 @@ base::AtExitManager at_exit;
 // All tracing runs through this object.
 base::LazyInstance<call_trace::client::Profiler> static_profiler_instance =
     LAZY_INSTANCE_INITIALIZER;
-
-// Helper structure to capture and restore the current thread's last win32
-// error-code value.
-struct ScopedLastErrorKeeper {
-  ScopedLastErrorKeeper() : last_error(::GetLastError()) {
-  }
-
-  ~ScopedLastErrorKeeper() {
-    ::SetLastError(last_error);
-  }
-
-  DWORD last_error;
-};
 
 typedef std::pair<RetAddr, FuncAddr> InvocationKey;
 
@@ -146,32 +131,10 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
   }
 }
 
-// This instrumentation hook is used on return from a function.
-void __declspec(naked) pexit() {
+// When code is jumping or calling into the middle of a function,
+// the profiler does nothing.
+extern "C" void __declspec(naked) _indirect_penter_inside_function() {
   __asm {
-    // Stash the volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
-
-    // Get the current cycle timer.
-    rdtsc
-    push edx
-    push eax
-
-    // Calculate the stack pointer prior to our entry.
-    lea eax, DWORD PTR[esp + 0x18]
-    push eax
-    call call_trace::client::Profiler::FunctionExitHook
-
-    popfd
-    pop edx
-    pop ecx
-
-    // The return value from Client::FunctionExitHook is the real return
-    // value. Swap it for the stashed EAX on stack and return to it.
-    xchg eax, DWORD PTR[esp]
     ret
   }
 }
@@ -195,9 +158,13 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 namespace call_trace {
 namespace client {
 
-class Profiler::ThreadState {
+class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
  public:
-  explicit ThreadState(Profiler* profiler) : profiler_(profiler), batch_(NULL) {
+  explicit ThreadState(Profiler* profiler)
+        : profiler_(profiler),
+          cycles_overhead_(0LL),
+          thunk_factory_(this),
+          batch_(NULL) {
   }
 
   void OnModuleEntry(EntryFrame* entry_frame,
@@ -207,8 +174,9 @@ class Profiler::ThreadState {
   void OnFunctionEntry(EntryFrame* entry_frame,
                        FuncAddr function,
                        uint64 cycles);
-  RetAddr OnFunctionExit(const void* stack,
-                         uint64 cycles_exit);
+
+  virtual void OnFunctionExit(const ReturnThunkFactory::Thunk* thunk,
+                              uint64 cycles_exit) OVERRIDE;
 
   call_trace::client::TraceFileSegment* segment() { return &segment_; }
 
@@ -230,8 +198,7 @@ class Profiler::ThreadState {
   // measures time exclusive of profiling overhead.
   uint64 cycles_overhead_;
 
-  // Our shadow stack.
-  ShadowStack stack_;
+  ReturnThunkFactory thunk_factory_;
 
   // The invocations we've recorded in our buffer.
   InvocationMap invocations_;
@@ -292,7 +259,7 @@ void Profiler::ThreadState::OnModuleEntry(EntryFrame* entry_frame,
     TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
         segment_.AllocateTraceRecordImpl(ReasonToEventType(reason),
                                          sizeof(TraceModuleData)));
-    DCHECK(module_event!= NULL);
+    DCHECK(module_event != NULL);
 
     // Populate the log record.
     base::win::PEImage image(module);
@@ -327,36 +294,31 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   if (profiler_->session_.IsDisabled())
     return;
 
-  stack_.TrimOrphansOnEntry(entry_frame);
-
-  // Push this entry event.
-  StackEntry& entry = stack_.Push(entry_frame);
-
   // Record the details of the call.
   // TODO(siggi): On tail-call and tail recursion elmination, the retaddr
   //     here will be penter, figure a way to fix that.
-  entry.caller = entry_frame->retaddr;
-  entry.function = function;
-  entry.cycles_entry = cycles - cycles_overhead_;
 
-  // Arrange to return to the exit hook.
-  entry_frame->retaddr = pexit;
+  ReturnThunkFactory::Thunk* thunk =
+      thunk_factory_.MakeThunk(entry_frame->retaddr);
+  DCHECK(thunk != NULL);
+  thunk->caller = entry_frame->retaddr;
+  thunk->function = function;
+  thunk->cycles_entry = cycles;
+
+  entry_frame->retaddr = thunk;
 
   UpdateOverhead(cycles);
 }
 
-RetAddr Profiler::ThreadState::OnFunctionExit(const void* stack,
-                                              uint64 cycles_exit) {
-  stack_.TrimOrphansOnExit(stack);
-  StackEntry entry = stack_.Pop();
-
+void Profiler::ThreadState::OnFunctionExit(
+    const ReturnThunkFactory::Thunk* thunk,
+    uint64 cycles_exit) {
   // Calculate the number of cycles in the invocation, exclusive our overhead.
-  uint64 cycles_executed = cycles_exit - entry.cycles_entry - cycles_overhead_;
+  uint64 cycles_executed = cycles_exit - thunk->cycles_entry - cycles_overhead_;
 
-  RecordInvocation(entry.caller, entry.function, cycles_executed);
+  RecordInvocation(thunk->caller, thunk->function, cycles_executed);
 
   UpdateOverhead(cycles_exit);
-  return entry.return_address;
 }
 
 void Profiler::OnDetach() {
@@ -445,21 +407,31 @@ Profiler* Profiler::Instance() {
 
 Profiler::Profiler() {
   // Create our RPC session and allocate our initial trace segment on first use.
-  ThreadState* data = GetOrAllocateThreadState();
+  ThreadState* data = CreateFirstThreadStateAndSession();
   CHECK(data != NULL) << "Failed to allocate thread local state.";
-
-  // Create the session (and allocate the first segment).
-  session_.CreateSession(data->segment());
 }
 
 Profiler::~Profiler() {
 }
 
-Profiler::ThreadState* Profiler::GetThreadState() const {
-  return tls_.Get();
+Profiler::ThreadState* Profiler::CreateFirstThreadStateAndSession() {
+  Profiler::ThreadState* data = GetOrAllocateThreadStateImpl();
+
+  // Create the session (and allocate the first segment).
+  session_.CreateSession(data->segment());
+
+  return data;
 }
 
 Profiler::ThreadState* Profiler::GetOrAllocateThreadState() {
+  Profiler::ThreadState* data = GetOrAllocateThreadStateImpl();
+  if (!data->segment()->write_ptr && session_.IsTracing()) {
+    session_.AllocateBuffer(data->segment());
+  }
+  return data;
+}
+
+Profiler::ThreadState* Profiler::GetOrAllocateThreadStateImpl() {
   ThreadState *data = tls_.Get();
   if (data != NULL)
     return data;
@@ -472,6 +444,10 @@ Profiler::ThreadState* Profiler::GetOrAllocateThreadState() {
   tls_.Set(data);
 
   return data;
+}
+
+Profiler::ThreadState* Profiler::GetThreadState() const {
+  return tls_.Get();
 }
 
 void Profiler::FreeThreadState() {
@@ -504,20 +480,6 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
   DCHECK(data != NULL);
   if (data != NULL)
     data->OnFunctionEntry(entry_frame, function, cycles);
-}
-
-RetAddr WINAPI Profiler::FunctionExitHook(const void* stack,
-                                          uint64 cycles_exit) {
-  ScopedLastErrorKeeper keep_last_error;
-
-  Profiler* profiler = Profiler::Instance();
-  ThreadState* data = profiler->GetThreadState();
-
-  // An exit event implies that we previously had an entry event,
-  // and the thread-local state must have been created at that time.
-  CHECK(data != NULL);
-
-  return data->OnFunctionExit(stack, cycles_exit);
 }
 
 }  // namespace client

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,14 +41,18 @@ static const char kUsage[] =
     "    --output-pdb=<path> The PDB for the instrumented DLL. Defaults to\n"
     "                        the value of output-dll with the extension\n"
     "                        replaced by \".pdb\".\n"
-    "    --call-trace-client=ETW|RPC|<other.dll>\n"
+    "    --call-trace-client=ETW|RPC|PROFILER|<other.dll>\n"
     "                        The call-trace client DLL to reference in the\n"
     "                        instrumented binary. The default value is ETW,\n"
     "                        which maps to the ETW based call-trace client.\n"
     "                        The value RPC maps to the RPC based call-trace\n"
+    "                        client. The value PROFILER maps to the profiler\n"
     "                        client. You may also specify the name of any\n"
     "                        DLL which implements the call trace client\n"
     "                        interface.\n"
+    "    --no-interior-refs  Perform no instrumentation of references to non-\n"
+    "                        zero offsets in code blocks. Implicit when\n"
+    "                        --call-trace-client=PROFILER is specified.\n"
     "\n";
 
 static int Usage(const char* message) {
@@ -75,6 +79,8 @@ int main(int argc, char** argv) {
   FilePath output_dll_path(cmd_line->GetSwitchValuePath("output-dll"));
   FilePath output_pdb_path(cmd_line->GetSwitchValuePath("output-pdb"));
   std::string client_dll(cmd_line->GetSwitchValueASCII("call-trace-client"));
+  bool instrument_interior_references =
+      !cmd_line->HasSwitch("no-interior-refs");
 
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
@@ -97,6 +103,9 @@ int main(int argc, char** argv) {
     client_dll = Instrumenter::kCallTraceClientDllEtw;
   } else if (LowerCaseEqualsASCII(client_dll, "rpc")) {
     client_dll = Instrumenter::kCallTraceClientDllRpc;
+  } else if (LowerCaseEqualsASCII(client_dll, "profiler")) {
+    client_dll = Instrumenter::kCallTraceClientDllProfiler;
+    instrument_interior_references = false;
   }
 
   LOG(INFO) << "Input image = " << input_dll_path.value();
@@ -104,9 +113,14 @@ int main(int argc, char** argv) {
   LOG(INFO) << "Output image = " << output_dll_path.value();
   LOG(INFO) << "Output PDB = " << output_dll_path.value();
   LOG(INFO) << "Client DLL = " << client_dll;
+  LOG(INFO) << "Instrument interior refs = "
+      << instrument_interior_references;
 
   Instrumenter instrumenter;
   instrumenter.set_client_dll(client_dll.c_str());
+  instrumenter.set_instrument_interior_references(
+      instrument_interior_references);
+
   if (!instrumenter.Instrument(input_dll_path,
                                input_pdb_path,
                                output_dll_path,

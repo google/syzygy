@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,12 @@ class Instrumenter : public relink::RelinkerBase {
 
   // Change the client DLL to which instrumented binaries will be bound.
   void set_client_dll(const char* client_dll);
+  const char* client_dll() const;
+
+  // If set to false, references with a non-zero offset into the destination
+  // will not be instrumented.  The default is to instrument them.
+  void set_instrument_interior_references(bool instrument);
+  bool instrument_interior_references() const;
 
   // Wrapper function to instrument an input dll to an output dll.
   //
@@ -44,6 +50,7 @@ class Instrumenter : public relink::RelinkerBase {
   // The pre-defined call trace client DLLs. By default the ETW version will
   // be used.
   static const char* const kCallTraceClientDllEtw;
+  static const char* const kCallTraceClientDllProfiler;
   static const char* const kCallTraceClientDllRpc;
 
  private:
@@ -122,6 +129,10 @@ class Instrumenter : public relink::RelinkerBase {
 
   // The call trace client dll to which to bind the instrumented image.
   std::string client_dll_;
+
+  // Whether to instrument references with a non-zero offset into the
+  // destination block.
+  bool instrument_interior_references_;
 
   // Blocks created while updating the import directory.
   BlockGraph::Block* image_import_by_name_block_;

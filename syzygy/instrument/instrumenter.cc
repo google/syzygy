@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,11 +53,14 @@ size_t WordAlign(size_t value) {
 }  // namespace
 
 const char* const Instrumenter::kCallTraceClientDllEtw = "call_trace.dll";
+const char* const Instrumenter::kCallTraceClientDllProfiler =
+    "profile_client.dll";
 const char* const Instrumenter::kCallTraceClientDllRpc =
     "call_trace_client.dll";
 
 Instrumenter::Instrumenter()
     : client_dll_(kCallTraceClientDllEtw),
+      instrument_interior_references_(true),
       image_import_by_name_block_(NULL),
       hint_name_array_block_(NULL),
       import_address_table_block_(NULL),
@@ -70,6 +73,18 @@ void Instrumenter::set_client_dll(const char* const client_dll) {
   DCHECK(client_dll != NULL);
   DCHECK(client_dll[0] != '\0');
   client_dll_ = client_dll;
+}
+
+const char* Instrumenter::client_dll() const {
+  return client_dll_.c_str();
+}
+
+void Instrumenter::set_instrument_interior_references(bool instrument) {
+  instrument_interior_references_ = instrument;
+}
+
+bool Instrumenter::instrument_interior_references() const {
+  return instrument_interior_references_;
 }
 
 bool Instrumenter::Instrument(const FilePath& input_dll_path,
@@ -552,6 +567,10 @@ bool Instrumenter::CreateThunks(BlockGraph::Block* block,
       LOG(ERROR) << "Unable to get reference from referrer";
       return false;
     }
+
+    // Skip references with a non-zero offset if the flag is cleared.
+    if (!instrument_interior_references_ && ref.offset() != 0)
+      continue;
 
     // Look for the reference in the thunk block map, and only create a new one
     // if it does not already exist.
