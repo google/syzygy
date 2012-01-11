@@ -1,6 +1,6 @@
 @echo off
 rem = """
-:: Copyright 2009 Google Inc.
+:: Copyright 2012 Google Inc.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -70,9 +70,9 @@ def Main():
   BuildProjectConfig(builder, 'Release', _INSTALLER_PROJECT)
   
   basename = 'sawbuck-%d.%d.%d.%d' % tuple(version)
-  shutil.copyfile(os.path.join(_SCRIPT_DIR, 'Debug/sawbuck.msi'),
+  shutil.copyfile(os.path.join(_SCRIPT_DIR, '../build/Debug/sawbuck.msi'),
                   os.path.join(_SCRIPT_DIR, '%s-debug.msi' % basename))
-  shutil.copyfile(os.path.join(_SCRIPT_DIR, 'Release/sawbuck.msi'),
+  shutil.copyfile(os.path.join(_SCRIPT_DIR, '../build/Release/sawbuck.msi'),
                   os.path.join(_SCRIPT_DIR, '%s-release.msi' % basename))
 
 

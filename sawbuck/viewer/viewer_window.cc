@@ -1,4 +1,4 @@
-// Copyright 2009 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,6 +80,13 @@ ViewerWindow::ViewerWindow()
        next_sink_cookie_(1),
        log_viewer_(this),
        ui_loop_(NULL),
+       notify_log_view_new_items_(
+          base::Bind(&ViewerWindow::NotifyLogViewNewItems,
+                     base::Unretained(this))),
+       notify_log_view_new_items_pending_(false),
+       update_status_task_(base::Bind(&ViewerWindow::UpdateStatus,
+                                      base::Unretained(this))),
+       update_status_task_pending_(false),
        log_consumer_thread_("Event log consumer"),
        kernel_consumer_thread_("Kernel log consumer") {
   ui_loop_ = MessageLoop::current();
@@ -108,8 +115,8 @@ ViewerWindow::~ViewerWindow() {
 
   symbol_lookup_worker_.Stop();
 
-  if (!notify_log_view_new_items_.IsCancelled())
-    notify_log_view_new_items_.Cancel();
+  notify_log_view_new_items_.Cancel();
+  update_status_task_.Cancel();
 }
 
 namespace {
@@ -453,9 +460,8 @@ void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
 
   // Post a task to update the status on the UI thread, unless
   // there's a task already pending.
-  if (update_status_task_.IsCancelled()) {
-    update_status_task_.Reset(
-        base::Bind(&ViewerWindow::UpdateStatus, base::Unretained(this)));
+  if (!update_status_task_pending_) {
+    update_status_task_pending_ = true;
     ui_loop_->PostTask(FROM_HERE, update_status_task_.callback());
   }
 }
@@ -463,9 +469,14 @@ void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
 void ViewerWindow::UpdateStatus() {
   DCHECK_EQ(MessageLoop::current(), ui_loop_);
 
-  base::AutoLock lock(status_lock_);
-  update_status_task_.Cancel();
-  UISetText(0, status_.c_str());
+  std::wstring status;
+  {
+    base::AutoLock lock(status_lock_);
+    update_status_task_pending_ = false;
+    status = status_;
+  }
+
+  UISetText(0, status.c_str());
 }
 
 void ViewerWindow::OnTraceEventBegin(
@@ -513,10 +524,8 @@ void ViewerWindow::ScheduleNewItemsNotification() {
   // The list lock must be held.
   list_lock_.AssertAcquired();
 
-  if (notify_log_view_new_items_.IsCancelled()) {
-    notify_log_view_new_items_.Reset(
-        base::Bind(&ViewerWindow::NotifyLogViewNewItems,
-                   base::Unretained(this)));
+  if (!notify_log_view_new_items_pending_) {
+    notify_log_view_new_items_pending_ = true;
     ui_loop_->PostTask(FROM_HERE, notify_log_view_new_items_.callback());
   }
 }
@@ -527,7 +536,7 @@ void ViewerWindow::NotifyLogViewNewItems() {
     base::AutoLock lock(list_lock_);
 
     // Notification no longer pending.
-    notify_log_view_new_items_.Cancel();
+    notify_log_view_new_items_pending_ = false;
   }
 
   EventSinkMap::iterator it(event_sinks_.begin());

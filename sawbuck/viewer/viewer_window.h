@@ -1,4 +1,4 @@
-// Copyright 2009 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -186,8 +186,10 @@ class ViewerWindow
   LogMessageList log_messages_;  // Under list_lock_.
 
   typedef base::CancelableCallback<void()> NotifyNewItemsCallback;
+
   // Keeps the task pending to notify event sinks on the UI thread.
-  NotifyNewItemsCallback notify_log_view_new_items_;  // Under list_lock_.
+  NotifyNewItemsCallback notify_log_view_new_items_;
+  bool notify_log_view_new_items_pending_;  // Under list_lock_.
 
   // The message loop we're instantiated on, used to signal
   // back to the main thread from workers.
@@ -203,9 +205,10 @@ class ViewerWindow
   StatusCallback status_callback_;
 
   base::Lock status_lock_;
-  std::wstring status_;  // Under status_lock_.
   typedef base::CancelableCallback<void()> UpdateStatusCallback;
-  UpdateStatusCallback update_status_task_;  // Under status_lock_;
+  UpdateStatusCallback update_status_task_;
+  std::wstring status_;  // Under status_lock_.
+  bool update_status_task_pending_;  // Under status_lock_;
 
   // Takes care of sinking KernelProcessEvents for us.
   ProcessInfoService process_info_service_;
