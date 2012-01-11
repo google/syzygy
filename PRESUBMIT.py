@@ -14,38 +14,44 @@
 # limitations under the License.
 #
 # Presubmit script for Syzygy.
+
 import datetime
 import os
 import sys
 
-# Bring in some presubmit tools. We use 'getcwd' instead of '__file__'
-# because gcl loads this script as text and runs it using 'eval'. In this
-# context the variables '__file__' is undefined. However, 'gcl' assures us
-# that the current working directory will be the directory containing this
-# file.
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), 'py')))
+
+# Determine the root of the source tree. We use getcwd() instead of __file__
+# because gcl loads this script as text and runs it using eval(). In this
+# context the variable __file__ is undefined. However, gcl assures us that
+# the current working directory will be the directory containing this file.
+SYZYGY_ROOT_DIR = os.path.abspath(os.getcwd())
+
+
+# Bring in some presubmit tools.
+sys.path.insert(0, os.path.join(SYZYGY_ROOT_DIR, 'py'))
 import test_utils.presubmit as presubmit
+
 
 # Bring in internal-only presubmit checks. These live in a parallel
 # repository that is overlaid with the public version of syzygy. The
 # internal presubmit check is expected to live in the 'internal'
-# subdirectory of 'syzygy'.
+# subdirectory off the syzygy root.
 try:
-  internal_dir = os.path.join(os.getcwd(), 'internal')
-  internal_dir = os.path.abspath(internal_dir)
+  internal_dir = os.path.join(SYZYGY_ROOT_DIR, 'internal')
   if os.path.isdir(internal_dir):
     sys.path.insert(0, internal_dir)
   import internal_presubmit
 except ImportError:
   internal_presubmit = None
 
-_UNITTEST_MESSAGE = '''\
-Your %s unittests must succeed before submitting.
-To clear this presubmit error run syzygy\\run_all_tests.bat'''
+
+_UNITTEST_MESSAGE = """\
+Your %%s unittests must succeed before submitting! To clear this error,
+  run: %s""" % os.path.join(SYZYGY_ROOT_DIR, 'run_all_tests.bat')
+
 
 _YEAR = datetime.datetime.now().year
-
-_LICENSE_HEADER = '''\
+_LICENSE_HEADER = """\
 (#!python\n\
 )?.*? Copyright %04d Google Inc\.\n\
 .*?\n\
@@ -60,10 +66,10 @@ _LICENSE_HEADER = '''\
 .*? WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied\.\n\
 .*? See the License for the specific language governing permissions and\n\
 .*? limitations under the License\.\n\
-''' % _YEAR
+""" % _YEAR
 
 def CheckUnittestsRan(input_api, output_api, committing, configuration):
-  '''Checks that the unittests success file is newer than any modified file'''
+  """Checks that the unittests success file is newer than any modified file"""
   return presubmit.CheckTestSuccess(input_api, output_api, committing,
                                     configuration, 'ALL',
                                     message=_UNITTEST_MESSAGE % configuration)
