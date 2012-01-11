@@ -24,7 +24,7 @@ in the solution file sawbuck/sawbuck.sln, or run sawbuck/run_all_tests.bat
 
 def CheckUnittestsRan(input_api, output_api, committing, configuration):
   '''Checks that the unittests success file is newer than any modified file'''
-  success_path = "%s/unittest_success.txt" % configuration
+  success_path = "../build/%s/unittest_success.txt" % configuration
   def MakeResult(message, modified_files=[]):
     if committing:
       return output_api.PresubmitError(message, modified_files)
