@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ class BuildAll(testing.Test):
                                  configuration)
     except testing.BuildFailure, e:
       # Recast this error as a test failure.
-      raise testing.TestFailure, sys.exc_info[1], sys.exc_info[2]
+      raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
 
     return True
 
