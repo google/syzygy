@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,15 +29,14 @@ class MainHandler(webapp.RequestHandler):
 # Add debug=True to the app's arguments for debugging.
 application = webapp.WSGIApplication(
     [(r'^/$', MainHandler),
-     # /<product>
-     (r'^/([^/]+)/?$', product.ProductHandler),
+     # /products/<product>?
+     (r'^/products/([^/]*)', product.ProductHandler),
      # /<product>/<client>
      (r'^/([^/]+)/([^/]+)/?$', client.ClientHandler),
      # /<product>/<client>/<metric>
      (r'^/([^/]+)/([^/]+)/([^/]+)/?$', metric.MetricHandler),
      # /<product>/<client>/<metric>/data
-     (r'^/([^/]+)/([^/]+)/([^/]+)/data/?$', datum.DatumHandler)],
-     debug=True)
+     (r'^/([^/]+)/([^/]+)/([^/]+)/data/?$', datum.DatumHandler)])
 
 
 def main():
