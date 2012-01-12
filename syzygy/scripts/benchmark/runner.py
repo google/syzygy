@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,8 +162,8 @@ class ChromeRunner(object):
     self._profile_dir_is_temp = self._profile_dir == None
     if self._profile_dir_is_temp:
       self._profile_dir = tempfile.mkdtemp(prefix='chrome-profile')
-      _LOGGER.info('Using temporary profile directory "%s".' %
-          self._profile_dir)
+      _LOGGER.info('Using temporary profile directory "%s".',
+                   self._profile_dir)
 
   @staticmethod
   def StartLoggingEtw(log_dir):
@@ -322,8 +322,8 @@ class ChromeRunner(object):
   def _TearDown(self):
     """Invoked once after all iterations are complete, or on failure."""
     if self._profile_dir_is_temp:
-      _LOGGER.info('Deleting temporary profile directory "%s".' %
-          self._profile_dir)
+      _LOGGER.info('Deleting temporary profile directory "%s".',
+                   self._profile_dir)
       shutil.rmtree(self._profile_dir, ignore_errors=True)
 
   def _RunOneIteration(self, i):
@@ -402,8 +402,8 @@ class ChromeRunner(object):
     # Use a long timeout just in case the machine is REALLY bogged down.
     # This could be the case on the build-bot slave, for example.
     for i in xrange(5 * 60):
-      _LOGGER.info('Looking for Chrome instance with profile_dir %s.' %
-          self._profile_dir)
+      _LOGGER.info('Looking for Chrome instance with profile_dir %s.',
+                   self._profile_dir)
       if chrome_control.IsProfileRunning(self._profile_dir):
         _LOGGER.debug('Found running instance of Chrome.')
         return
@@ -452,7 +452,7 @@ class ChromeFrameRunner(ChromeRunner):
       cf_dll.DllUnregisterServer()
     except Exception as e:
       # Squash any errors here.
-      _LOGGER.info('Error unregistering Chrome Frame dll: %s' % str(e))
+      _LOGGER.info('Error unregistering Chrome Frame dll: %s', e)
 
   def _RunOneIteration(self, i):
     """Perform the iteration."""
@@ -746,8 +746,8 @@ class BenchmarkRunner(ChromeRunner):
     else:
       groups = [hpc.free_metrics]
 
-    _LOGGER.info('Performance counters require %d runs per iteration.'
-        % len(groups))
+    _LOGGER.info('Performance counters require %d runs per iteration.',
+                 len(groups))
 
     self._ibmperf = hpc
     self._ibmperf_metrics = metrics
