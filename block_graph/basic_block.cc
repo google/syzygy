@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,23 +85,10 @@ bool IsConditionalBranch(const Instruction& inst) {
 }  // namespace
 
 BasicBlockReference::BasicBlockReference()
-    : block_type_(BlockGraph::BASIC_CODE_BLOCK),
-      reference_type_(BlockGraph::RELATIVE_REF),
+    : reference_type_(BlockGraph::RELATIVE_REF),
       size_(0),
+      basic_block_(NULL),
       offset_(0) {
-  referenced_.basic_block = NULL;
-}
-
-BasicBlockReference::BasicBlockReference(ReferenceType type,
-                                         Size size,
-                                         Block* macro_block,
-                                         Offset offset)
-    : reference_type_(type),
-      size_(size),
-      offset_(offset) {
-  DCHECK(macro_block != NULL);
-  block_type_ = macro_block->type();
-  referenced_.macro_block = macro_block;
 }
 
 BasicBlockReference::BasicBlockReference(ReferenceType type,
@@ -110,17 +97,15 @@ BasicBlockReference::BasicBlockReference(ReferenceType type,
                                          Offset offset)
     : reference_type_(type),
       size_(size),
+      basic_block_(basic_block),
       offset_(offset) {
-  DCHECK(basic_block != NULL);
-  block_type_ = basic_block->type();
-  referenced_.basic_block = basic_block;
+  DCHECK(basic_block_ != NULL);
 }
 
 BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
-    : block_type_(other.block_type_),
-      reference_type_(other.reference_type_),
+    : reference_type_(other.reference_type_),
       size_(other.size_),
-      referenced_(other.referenced_),
+      basic_block_(other.basic_block_),
       offset_(other.offset_) {
 }
 
@@ -439,51 +424,19 @@ bool BasicBlock::IsValid() const {
     case 1:
       // A basic code block having exactly one successor implies that the
       // successor is unconditional.
-      return IsUnconditionalBranch(successors().front());
+      return successors().front().condition() == Successor::kConditionTrue;
 
     case 2:
-      // A basic code block having exactly two successors implies that the
-      // successor first successor is conditional and the second is is
-      // unconditional.
-      return IsConditionalBranch(successors().front()) &&
-          IsUnconditionalBranch(successors().back());
+      // A basic code block having exactly two successors implies that each
+      // successor is the inverse of the other.
+      return successors().front().condition() ==
+          Successor::InvertCondition(successors().back().condition());
 
     default:
       // Any other number of successors implies that the data is borked.
       NOTREACHED();
       return false;
   }
-}
-
-bool BasicBlock::CanInvertSuccessors() const {
-  return successors().size() == 2 &&
-      IsConditionalBranch(successors().front()) &&
-      IsUnconditionalBranch(successors().back()) &&
-      successors().front().representation().opcode != I_JCXZ &&
-      successors().front().representation().opcode != I_JECXZ &&
-      successors().front().representation().opcode != I_LOOP &&
-      successors().front().representation().opcode != I_LOOPNZ &&
-      successors().front().representation().opcode != I_LOOPZ;
-}
-
-bool BasicBlock::InvertSuccessors() {
-  DCHECK(CanInvertSuccessors());
-
-  // Invert the logic of the conditional branch.
-  if (!Instruction::InvertConditionalBranchOpcode(
-          &successors().front().representation().opcode)) {
-    return false;
-  }
-
-  // Swap the address values.
-  std::swap(successors().front().representation().imm.addr,
-            successors().back().representation().imm.addr);
-
-  // And swap the references for the successors.
-  std::swap(successors().front().reference(),
-            successors().back().reference());
-
-  return true;
 }
 
 }  // namespace block_graph

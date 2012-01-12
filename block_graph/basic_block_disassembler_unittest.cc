@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,6 +97,7 @@ struct BasicBlockDesc {
   };
 
   typedef std::vector<Instruction> Instructions;
+  typedef BasicBlock::Successors Successors;
   typedef BasicBlock::BlockType BlockType;
 
   explicit BasicBlockDesc(AbsoluteAddress start)
@@ -118,7 +119,10 @@ struct BasicBlockDesc {
 
   // Append an successor (branching) instruction to the basic block.
   BasicBlockDesc& AddSucc(uint16 opcode, AbsoluteAddress target) {
-    successors.push_back(Instruction(opcode, target));
+    successors.push_back(
+        Successor(Successor::OpCodeToCondition(opcode),
+                  target,
+                  Successor::SourceRange()));
     EXPECT_TRUE(successors.size() <= 2);
     return *this;
   }
@@ -126,34 +130,48 @@ struct BasicBlockDesc {
   BlockType block_type;
   AbsoluteAddress start_addr;
   Instructions instructions;
-  Instructions successors;
+  Successors successors;
 };
 
 // Helper function to compare a set of instructions to an expected set.
 // @param bb_inst the actual basic block instructions.
 // @param exp_inst the expected instructions.
-// @param compare_target_addr true if the target address referenced by the
-//     instructions should be compared (used to compare successors).
 // @returns true if the instruction sequences are the same.
 bool SameInstructions(const BasicBlock::Instructions& bb_inst,
-                      const BasicBlockDesc::Instructions& exp_inst,
-                      bool compare_target_addr) {
+                      const BasicBlockDesc::Instructions& exp_inst) {
   BasicBlock::Instructions::const_iterator bb_iter = bb_inst.begin();
   BasicBlockDesc::Instructions::const_iterator exp_iter = exp_inst.begin();
 
   while (bb_iter != bb_inst.end() && exp_iter != exp_inst.end()) {
-    if (bb_iter->representation().opcode != exp_iter->opcode) {
+    if (bb_iter->representation().opcode != exp_iter->opcode)
       return false;
-    }
-    if (compare_target_addr &&
-        bb_iter->representation().imm.dword != exp_iter->target_addr.value()) {
+    ++bb_iter;
+    ++exp_iter;
+  }
+
+  return bb_iter == bb_inst.end() && exp_iter == exp_inst.end();
+}
+
+// Helper function to compare a set of successors to an expected set.
+// @param bb_succ the actual basic block successors.
+// @param exp_succ the expected successors.
+// @returns true if the succcessors are the same.
+bool SameSuccessors(const BasicBlock::Successors& bb_succ,
+                    const BasicBlockDesc::Successors& exp_succ) {
+  BasicBlock::Successors::const_iterator bb_iter = bb_succ.begin();
+  BasicBlockDesc::Successors::const_iterator exp_iter = exp_succ.begin();
+
+  while (bb_iter != bb_succ.end() && exp_iter != exp_succ.end()) {
+    if (bb_iter->condition() != exp_iter->condition() ||
+        bb_iter->original_target_address() !=
+            exp_iter->original_target_address()) {
       return false;
     }
     ++bb_iter;
     ++exp_iter;
   }
 
-  return bb_iter == bb_inst.end() && exp_iter == exp_inst.end();
+  return bb_iter == bb_succ.end() && exp_iter == exp_succ.end();
 }
 
 // Helper funciton to determine if an given start address and basic block
@@ -171,10 +189,10 @@ bool DescribesBlock(const BasicBlockDesc& expected,
   if (start_addr != expected.start_addr)
     return false;
 
-  if (!SameInstructions(bb.instructions(), expected.instructions, false))
+  if (!SameInstructions(bb.instructions(), expected.instructions))
     return false;
 
-  if (!SameInstructions(bb.successors(), expected.successors, true))
+  if (!SameSuccessors(bb.successors(), expected.successors))
     return false;
 
   return true;
@@ -334,12 +352,9 @@ TEST_F(BasicBlockDisassemblerTest, Instructions) {
   // The fall-through of the JNZ instrucion is 3 bytes before bb_external_label.
   const AbsoluteAddress kAddrJnzSuccessor = AddressOf(&bb_external_label) - 3;
 
-  // The offset of lbl2 from the start of bb_internal_label. This is one
-  // call instruction, plus one address.
-  const size_t kLbl2Offset = 5;
-
-  // The address of lbl2.
-  const AbsoluteAddress kAddrLbl2 = AddressOf(&bb_internal_label) + kLbl2Offset;
+  // The address of lbl2 is offset from the start of bb_internal_label by one
+  // call instruction (1 byte plus a 4-byte address)
+  const AbsoluteAddress kAddrLbl2 = AddressOf(&bb_internal_label) + 5;
 
   // Validate that we have the right instructions.
   EXPECT_THAT(
@@ -353,8 +368,8 @@ TEST_F(BasicBlockDisassemblerTest, Instructions) {
           DescribedBy(
               BasicBlockDesc(kAddrJnzTarget)
                   .AddInst(I_SUB)
-                  .AddSucc(I_JNZ, kJnzImmOffset)
-                  .AddSucc(I_JMP, kAddrJnzSuccessor)),
+                  .AddSucc(I_JNZ, kAddrJnzTarget)
+                  .AddSucc(I_JZ, kAddrJnzSuccessor)),
           DescribedBy(
               BasicBlockDesc(kAddrJnzSuccessor)
                   .AddInst(I_MOV)
@@ -362,7 +377,7 @@ TEST_F(BasicBlockDisassemblerTest, Instructions) {
                   .AddSucc(I_JMP, AddressOf(&bb_external_label))),
           DescribedBy(
               BasicBlockDesc(AddressOf(&bb_external_label))
-                  .AddSucc(I_JMP, AbsoluteAddress(kLbl2Offset))),
+                  .AddSucc(I_JMP, kAddrLbl2)),
           DescribedBy(
               BasicBlockDesc(AddressOf(&bb_internal_label))
                   .AddInst(I_CALL)

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,18 +92,11 @@ class BasicBlockTest: public testing::Test {
     return Instruction(ret, Instruction::SourceRange());
   }
 
-  // Helper function to create a branching instruction.
-  Instruction CreateBranch(uint16 opcode, core::AbsoluteAddress target) {
-    Instruction::Representation branch = {};
-    branch.addr = 0;
-    branch.opcode = opcode;
-    branch.ops[0].type = O_IMM;
-    branch.ops[0].size = 32;
-    branch.size = sizeof(branch.opcode) + sizeof(void*);
-    branch.imm.addr = target.value();
-    branch.meta = BranchToType(opcode);
-    META_SET_ISC(&branch, ISC_INTEGER);
-    return Instruction(branch, Instruction::SourceRange());
+  // Helper function to create a successor branch instruction.
+  Successor CreateBranch(uint16 opcode, core::AbsoluteAddress target) {
+    return Successor(Successor::OpCodeToCondition(opcode),
+                     target,
+                     Successor::SourceRange());
   }
 
   // Some handy constants we'll use throughout the tests.
@@ -159,7 +152,7 @@ TEST_F(BasicBlockTest, BasicBlockWithOnlyConditionalSuccessorIsNotValid) {
 TEST_F(BasicBlockTest,
        BasicBlockWithConditionalAndFallThroughSuccessorsIsValid) {
   basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
-  basic_block_.successors().push_back(CreateBranch(I_JMP, kAddr2));
+  basic_block_.successors().push_back(CreateBranch(I_JZ, kAddr2));
   ASSERT_TRUE(basic_block_.IsValid());
 }
 
@@ -180,24 +173,12 @@ TEST_F(BasicBlockTest, InvalidBasicBlockReference) {
   // to point to anything.
   BasicBlockReference ref;
   EXPECT_FALSE(ref.IsValid());
-  EXPECT_FALSE(ref.RefersToBasicBlock());
-  EXPECT_FALSE(ref.RefersToMacroBlock());
-}
-
-TEST_F(BasicBlockTest, MacroBlockReference) {
-  BasicBlockReference ref(BlockGraph::RELATIVE_REF, kRefSize, &macro_block_, 0);
-
-  EXPECT_TRUE(ref.IsValid());
-  EXPECT_FALSE(ref.RefersToBasicBlock());
-  EXPECT_TRUE(ref.RefersToMacroBlock());
 }
 
 TEST_F(BasicBlockTest, BasicBlockReference) {
   BasicBlockReference ref(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 0);
 
   EXPECT_TRUE(ref.IsValid());
-  EXPECT_TRUE(ref.RefersToBasicBlock());
-  EXPECT_FALSE(ref.RefersToMacroBlock());
 }
 
 TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
@@ -259,53 +240,6 @@ TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
       EXPECT_EQ(kOpcodeInversionTable[i].original, opcode);
     }
   }
-}
-
-TEST_F(BasicBlockTest, CannotInvertEmptyBlock) {
-  // Can not invert if there are no successors.
-  ASSERT_FALSE(basic_block_.CanInvertSuccessors());
-}
-
-TEST_F(BasicBlockTest, CannotInvertSingleSuccessor) {
-  // Can not invert if there is only one successor.
-  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
-  ASSERT_FALSE(basic_block_.IsValid());
-  ASSERT_FALSE(basic_block_.CanInvertSuccessors());
-}
-
-TEST_F(BasicBlockTest, InvertSuccessors) {
-  // Setup the basic block.
-  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
-  basic_block_.successors().push_back(CreateBranch(I_JMP, kAddr2));
-  ASSERT_TRUE(basic_block_.CanInvertSuccessors());
-
-  // Invert and validate its successsors.
-  ASSERT_TRUE(basic_block_.InvertSuccessors());
-  ASSERT_EQ(2, basic_block_.successors().size());
-  EXPECT_EQ(I_JZ, basic_block_.successors().front().representation().opcode);
-  EXPECT_EQ(kAddr2.value(),
-            basic_block_.successors().front().representation().imm.addr);
-  EXPECT_EQ(I_JMP, basic_block_.successors().back().representation().opcode);
-  EXPECT_EQ(kAddr1.value(),
-            basic_block_.successors().back().representation().imm.addr);
-}
-
-TEST_F(BasicBlockTest, InvertSuccessorsIsInvertible) {
-  // Setup the basic block.
-  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
-  basic_block_.successors().push_back(CreateBranch(I_JMP, kAddr2));
-  ASSERT_TRUE(basic_block_.CanInvertSuccessors());
-
-  // Inverting the successors twice should yield the original successors.
-  ASSERT_TRUE(basic_block_.InvertSuccessors());
-  ASSERT_TRUE(basic_block_.InvertSuccessors());
-  ASSERT_EQ(2, basic_block_.successors().size());
-  EXPECT_EQ(I_JNZ, basic_block_.successors().front().representation().opcode);
-  EXPECT_EQ(kAddr1.value(),
-            basic_block_.successors().front().representation().imm.addr);
-  EXPECT_EQ(I_JMP, basic_block_.successors().back().representation().opcode);
-  EXPECT_EQ(kAddr2.value(),
-            basic_block_.successors().back().representation().imm.addr);
 }
 
 TEST(Successor, DefaultConstructor) {
