@@ -330,7 +330,6 @@ Successor::Successor(Successor::Condition type,
       original_target_address_(target),
       source_range_(source_range) {
   DCHECK(condition_ != kInvalidCondition);
-  DCHECK(original_target_address_.value() != 0);
 }
 
 Successor::Successor(Successor::Condition type,
