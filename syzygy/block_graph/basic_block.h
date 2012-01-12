@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ class BasicBlock;
 // another code- or data-block altogether.
 class BasicBlockReference {
  public:
-  typedef BlockGraph::BlockType BlockType;
   typedef BlockGraph::ReferenceType ReferenceType;
   typedef BlockGraph::Block Block;
   typedef BlockGraph::Offset Offset;
@@ -41,17 +40,6 @@ class BasicBlockReference {
 
   // Default constructor; needed for storage in stl containers.
   BasicBlockReference();
-
-  // Create a reference to a macro-block.
-  //
-  // @param type type of reference.
-  // @param size size of reference.
-  // @param macro_block the referenced macro block.
-  // @param offset offset of reference into macro_block.
-  BasicBlockReference(ReferenceType type,
-                      Size size,
-                      Block* macro_block,
-                      Offset offset);
 
   // Create a reference to a basic-block.
   //
@@ -70,27 +58,16 @@ class BasicBlockReference {
   // Accessors.
   // @{
 
-  // Retrieves the block type.
-  BlockType block_type() const { return block_type_; }
-
   // Retrieves the type of block (macro or basic) that it referenced.
   ReferenceType reference_type() const { return reference_type_; }
 
   // Retrieves the size of the reference.
   Size size() const { return size_; }
 
-  // Retrieves the referenced macro block. This should only be called on
-  // a referenced to a macro block.
-  Block* macro_block() const {
-    DCHECK(RefersToMacroBlock());
-    return referenced_.macro_block;
-  }
-
   // Retrieves the referenced basic-block. This should only be called on
   // a referenced to a macro block.
   BasicBlock* basic_block() const {
-    DCHECK(RefersToBasicBlock());
-    return referenced_.basic_block;
+    return basic_block_;
   }
 
   // Retrieves the offset into the referenced macro- or basic-block.
@@ -100,49 +77,30 @@ class BasicBlockReference {
 
   // Compare this BasicBlockReferences with another for equality.
   bool operator==(const BasicBlockReference& other) const {
-    return (block_type_ == other.block_type_ &&
-            reference_type_ == other.reference_type_ &&
+    return (reference_type_ == other.reference_type_ &&
             size_ == other.size_ &&
-            referenced_.basic_block == other.referenced_.basic_block &&
+            basic_block_ == other.basic_block_ &&
             offset_ == other.offset_);
   }
 
   // Test if this reference has been initialized to refer to something.
   bool IsValid() const {
-    return size_ != 0 && referenced_.basic_block != NULL;
-  }
-
-  // Test if this reference to to a BasicBlock.
-  bool RefersToBasicBlock() const {
-    return IsValid() && (block_type_ == BlockGraph::BASIC_CODE_BLOCK ||
-                         block_type_ == BlockGraph::BASIC_DATA_BLOCK);
-  }
-
-  // Test if this reference to to a Block.
-  bool RefersToMacroBlock() const {
-    return IsValid() && (block_type_ == BlockGraph::CODE_BLOCK ||
-                         block_type_ == BlockGraph::DATA_BLOCK);
+    return size_ != 0 && basic_block_ != NULL;
   }
 
  protected:
-  // The type of the referred block.
-  BlockType block_type_;
-
-  // Type of this reference.
+  // The type of this reference.
   ReferenceType reference_type_;
 
-  // Size of this reference.
+  // The size of this reference.
   // Absolute references are always pointer wide, but PC-relative
   // references can be 1, 2 or 4 bytes wide, which affects their range.
   Size size_;
 
-  // The block or basic-block that is referenced.
-  union {
-    Block* macro_block;
-    BasicBlock* basic_block;
-  } referenced_;
+  // The basic-block that is referenced.
+  BasicBlock* basic_block_;
 
-  // Offset into the referenced block or basic-block.
+  // The offset into the referenced basic-block.
   Offset offset_;
 };
 
@@ -340,13 +298,35 @@ class BasicBlock {
  public:
   typedef BlockGraph::BlockId BlockId;
   typedef BlockGraph::BlockType BlockType;
-  // TODO(rogerm): Get rid of instructions as a case of YAGNI?
   typedef std::list<Instruction> Instructions;
   typedef BlockGraph::Size Size;
-  // TODO(rogerm): Switch this over the new Successor type once it's ready.
-  typedef std::list<Instruction> Successors;
+  typedef std::list<Successor> Successors;
   typedef BlockGraph::Offset Offset;
-  typedef std::map<Offset, BasicBlockReference> ReferenceMap;
+
+  // The collection of references this basic block makes to other basic
+  // blocks, keyed by the references offset relative to the start of this
+  // basic block.
+  typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
+
+  // The set of the basic blocks that have a reference to this basic block.
+  // This is keyed on basic block and source offset (not destination offset),
+  // to allow us to easily locate and remove the backreferences on change or
+  // deletion.
+  // @{
+  typedef std::pair<BasicBlock*, Offset> BasicBlockReferrer;
+  typedef std::set<BasicBlockReferrer> BasicBlockReferrerSet;
+  // @}
+
+  // The collection of references this basic block makes to other macro
+  // blocks (other than the original macro block in which this basic
+  // block resides).
+  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
+
+  // The set of macro blocks that have a reference to this basic block.
+  // @{
+  typedef BlockGraph::Block::Referrer Referrer;
+  typedef BlockGraph::Block::ReferrerSet ReferrerSet;
+  // @}
 
   BasicBlock(BlockId id,
              BlockType type,
@@ -372,20 +352,6 @@ class BasicBlock {
   // contains instructions and/or successors.
   bool IsValid() const;
 
-  // Validates that the basic block can have it's successors inverted. For
-  // this to return true, the basic block must have two successors, the
-  // first of which is an invertible conditional branch, and the second
-  // an unconditional branch.
-  bool CanInvertSuccessors() const;
-
-  // Inverts the control flow of the successors. For example, if the
-  // basic block ends with a JNZ instruction to A with a fall through
-  // to B, this function will mutate the successors such that the basic
-  // block ends with a JZ to B with a fall-through to A.
-  //
-  // @pre CanInvertSuccessors() return true.
-  bool InvertSuccessors();
-
  protected:
   // The ID for this block.
   BlockId id_;
@@ -396,22 +362,32 @@ class BasicBlock {
   // The name of this basic block.
   std::string name_;
 
-  // If the block type if BASIC_DATA_BLOCK, a pointer to the data will be
-  // stored here.
+  // The data in the original block that corresponds with this basic block
+  // will be referenced here.
   const uint8* data_;
 
-  // If the block type if BASIC_DATA_BLOCK, the length of the data will
-  // be stored here.
+  // The number of bytes of data in the original block that corresponds with
+  // this basic block.
   Size size_;
 
-  // If the block type if BASIC_DATA_BLOCK, the alignment of the data will
-  // be stored here.
+  // The alignment of the basic block in the original block will be stored here.
   Size alignment_;
 
-  // If the block type if BASIC_DATA_BLOCK, the map of references (if any)
-  // that this block makes to other blocks. This map is indexed by the offset
-  // from the start of the basic block.
-  ReferenceMap references_;
+  // The map of references (if any) that this block makes to other basic blocks
+  // from the original block.
+  BasicBlockReferenceMap bb_references_;
+
+  // The set of basic blocks referenes (from other basic blocks in same
+  // original block) to this basic block.
+  BasicBlockReferrerSet bb_referrers_;
+
+  // The map of references that this basic block makes to (macro) blocks, other
+  // than the block from which this basic block originated.
+  ReferenceMap exernal_referenes_;
+
+  // The set of (macro) blocks, other than the block from which this basic
+  // block origiated, that refer to this basic block.
+  ReferrerSet external_referrers_;
 
   // The set of non-branching instructions comprising this basic-block.
   // Any branching at the end of the basic-block is represented using the

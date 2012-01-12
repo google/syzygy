@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,23 +29,6 @@
 namespace block_graph {
 
 using core::Disassembler;
-
-namespace {
-
-Instruction ImplicitUnconditionalBranch(core::AbsoluteAddress target) {
-  Instruction::Representation implicit_branch = {};
-  implicit_branch.addr = 0;
-  implicit_branch.opcode = I_JMP;
-  implicit_branch.ops[0].type = O_IMM;
-  implicit_branch.ops[0].size = 32;
-  implicit_branch.size = sizeof(implicit_branch.opcode) + sizeof(void*);
-  implicit_branch.imm.addr = target.value();
-  implicit_branch.meta = FC_UNC_BRANCH;
-  META_SET_ISC(&implicit_branch, ISC_INTEGER);
-  return Instruction(implicit_branch, Instruction::SourceRange());
-}
-
-}  // namespace
 
 BasicBlockDisassembler::BasicBlockDisassembler(
     const uint8* code,
@@ -81,48 +64,69 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnInstruction(
 
 Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
     AbsoluteAddress addr, const _DInst& inst, AbsoluteAddress dest) {
-  if (dest != AbsoluteAddress(0)) {
-    if (IsInBlock(dest)) {
-      // If dest is inside the current macro block, then add it to the list of
-      // jump sites discovered so far. At the end, if any of these jump sites
-      // are into a basic block and don't correspond to the beginning of said
-      // basic block, we cut the block in twain. Note that if the jump target is
-      // into another block, we assume that it can only be to a label and those
-      // will already be tracked.
-      jump_targets_.insert(dest);
-    }
+  // The branch instruction should have already been appended to the
+  // instruction list. Dest should also refer to the branch target.
+  DCHECK_EQ(0, ::memcmp(&current_instructions_.back().representation(),
+                        &inst,
+                        sizeof(inst)));
+
+  // Make sure we understand the branching condition. If we don't, then there's
+  // an instruction we've failed to consider.
+  Successor::Condition condition = Successor::OpCodeToCondition(inst.opcode);
+  DCHECK(condition != Successor::kInvalidCondition);
+  if (condition == Successor::kInvalidCondition) {
+    LOG(ERROR) << "Received unexpected instruction for branch: "
+               << GET_MNEMONIC_NAME(inst.opcode) << ".";
+    return kDirectiveAbort;
   }
 
-  CallbackDirective result = kDirectiveContinue;
+  // If this is a conditional branch add the inverse conditional successor to
+  // represent the fall-through. If we don't understand the inverse, then
+  // there's an instruction we've failed to consider.
+  if (META_GET_FC(inst.meta) == FC_CND_BRANCH) {
+    Successor::Condition inverse_condition =
+        Successor::InvertCondition(condition);
+    DCHECK(inverse_condition != Successor::kInvalidCondition);
+    if (inverse_condition == Successor::kInvalidCondition) {
+      LOG(ERROR) << "Unexpected uninvertible instruction seen for branch: "
+                 << GET_MNEMONIC_NAME(inst.opcode) << ".";
+      return kDirectiveAbort;
+    }
 
-  // Move the branch instruction out of the instruction list and into the
-  // successor list. Then append the implicit unconditional branch to the
-  // successor list.
-  DCHECK(memcmp(&current_instructions_.back().representation(),
-                &inst,
-                sizeof(inst)) == 0);
-  current_successors_.push_back(current_instructions_.back());
+    current_successors_.push_front(
+        Successor(inverse_condition,
+                  AbsoluteAddress(addr + inst.size),
+                  Successor::SourceRange()));
+  }
+
+  // Move the branch instruction out of the instruction list and translate
+  // it into the successor list.
+  Successor::SourceRange source_range(addr, inst.size);
+  current_successors_.push_front(Successor(condition, dest, source_range));
   current_instructions_.pop_back();
 
-
-  // If this is not an unconditional branch  create an implicit unconditional
-  // branch to represent the fall-through.
-  if (META_GET_FC(inst.meta) != FC_UNC_BRANCH) {
-    current_successors_.push_back(
-        ImplicitUnconditionalBranch(addr + inst.size));
+  // If dest is inside the current macro block, then add it to the list of
+  // jump sites discovered so far. At the end, if any of these jump sites
+  // are into a basic block and don't correspond to the beginning of said
+  // basic block, we cut the block in twain. Note that if the jump target is
+  // into another block, we assume that it can only be to a label and those
+  // will already be tracked. Note that some branches have no explicit target
+  // (the INT* instructions, for example); for these the dest will be 0.
+  if (dest.value() != 0 && IsInBlock(dest)) {
+    jump_targets_.insert(dest);
   }
 
   // Create the basic block. This will grab the instructions and successors.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
-  if (InsertBlockRange(current_block_start_,
-                       basic_block_size,
-                       BlockGraph::BASIC_CODE_BLOCK)) {
-    current_block_start_ += basic_block_size;
-  } else {
-    result = kDirectiveAbort;
+  if (!InsertBlockRange(current_block_start_,
+                        basic_block_size,
+                        BlockGraph::BASIC_CODE_BLOCK)) {
+    LOG(ERROR) << "Failed to insert basic block range.";
+    return kDirectiveAbort;
   }
 
-  return result;
+  current_block_start_ += basic_block_size;
+  return kDirectiveContinue;
 }
 
 // Called every time disassembly is started from a new address. Will be
@@ -354,7 +358,9 @@ bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
       }
 #endif
       current_successors_.push_back(
-          ImplicitUnconditionalBranch(*jump_target_iter));
+          Successor(Successor::kConditionTrue,
+                    *jump_target_iter,
+                    Successor::SourceRange()));
 
       if (!InsertBlockRange(containing_range.start(),
                             left_split_size,
