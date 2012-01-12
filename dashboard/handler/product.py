@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,29 +18,43 @@ from google.appengine.ext import webapp
 from model import client as client_db
 from model import product as product_db
 
+
 class ProductHandler(webapp.RequestHandler):
-  """A class to handle creating and querying products."""
+  """A class to handle creating, reading, updating and deleting products.
+  
+  Handles GET, POST and DELETE requests for /products/ and /products/<product>.
+  Note that PUT is not handled because a product has no extra information to
+  update.
+  """
 
   def get(self, product_id):
-    """Responds with information about a product.
+    """Responds with information about all products or a specific product.
 
-    Responds with a JSON encoded product ID and client IDs for a given
-    product_id. If the product doesn't exist, responds with a 404.
+    /products/
+      Responds with a JSON encoded object that contains a list of product IDs.
+    /products/<product>
+      Responds with a JSON encoded object of the product ID and its child client
+      IDs.
 
     Args:
-      product_id. The product ID.
+      product_id. The product ID. May be empty.
     """
-    product = product_db.Product.get_by_key_name(product_id)
-    if not product:
-      self.error(404)  # Not found.
-      return
+    if not product_id:
+      product_keys = product_db.Product.all(keys_only=True)
+      product_ids = [key.name() for key in product_keys]
+      result = {'product_ids': product_ids}
+    else:
+      product = product_db.Product.get_by_key_name(product_id)
+      if not product:
+        self.error(404)  # Not found.
+        return
 
-    client_keys = client_db.Client.all(keys_only=True)
-    client_keys.ancestor(product)
-    client_ids = [key.name() for key in client_keys]
+      client_keys = client_db.Client.all(keys_only=True)
+      client_keys.ancestor(product)
+      client_ids = [key.name() for key in client_keys]
 
-    result = {'product_id': product.key().name(),
-              'client_ids': client_ids}
+      result = {'product_id': product.key().name(),
+                'client_ids': client_ids}
 
     self.response.headers['Content-Type'] = 'application/json'
     json.dump(result, self.response.out)
@@ -48,13 +62,53 @@ class ProductHandler(webapp.RequestHandler):
   def post(self, product_id):
     """Creates a new product.
 
-    Adds a product to the data store. The product ID should be specified in the
-    URL. Responds with a 200 on success or a 400 if there are invalid
-    parameters.
+    /products/
+      Creates a new product. The product ID should be specified in the body of
+      the request.
+    /products/<product>
+      Unused.
 
     Args:
-      product_id: The product ID.
+      product_id: The product ID. Must be empty.
     """
-    # Creates a new client or updates the description for an existing client.
+    if product_id:
+      self.error(400)  # Bad request.
+      return
+
+    product_id = self.request.get('product_id', None)
+    if not product_id:
+      self.error(400)  # Bad request.
+      return
+
+    # Make sure that this product ID does not already exist.
+    product = product_db.Product.get_by_key_name(product_id)
+    if product:
+      self.error(400)  # Bad request.
+      return
+
+    # Create a new product.
     product = product_db.Product(key_name=product_id)
     product.put()
+
+  def delete(self, product_id):
+    """Deletes a product.
+
+    /products/
+      Unused
+    /products/<product>
+      Deletes the specified product.
+
+    Args:
+      product_id: The product ID. Must not be empty.
+    """
+    if not product_id:
+      self.error(400)  # Bad request.
+      return
+
+    # Delete the product.
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(404)  # Not found.
+      return
+    
+    product.delete()
