@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,21 @@
 # dependency, and should correspond to an executable that will be created
 # in the output directory. For example:
 #
-#   '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_unittests'
+#   '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
 #
-# The target of this dependency rule is 'call_trace_unittests', and it
-# corresponds to the executable '<project_dir>/Debug/call_trace_unittests.exe'.
+# The target of this dependency rule is 'pdb_unittests', and it
+# corresponds to the executable '<project_dir>/Debug/pdb_unittests.exe'.
 # (Or 'Release' instead of 'Debug', as the case may be.)
 {
   'variables': {
     'unittests': [
+      '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_unittests',
+      '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
       '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
-      '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_unittests',
       '<(DEPTH)/syzygy/common/common.gyp:common_unittests',
       '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
+      '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
+      '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',
       '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
       '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
       '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',

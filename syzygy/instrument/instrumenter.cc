@@ -18,11 +18,11 @@
 
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
-#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"

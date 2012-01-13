@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include <windows.h>
 #include <dbghelp.h>
+
 #include <map>
 #include <set>
 #include <string>
@@ -29,9 +30,9 @@
 
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
-#include "syzygy/call_trace/parser.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"
+#include "syzygy/trace/parse/parser.h"
 
 // Forward declaration.
 namespace core {
