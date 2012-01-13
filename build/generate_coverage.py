@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,11 +60,13 @@ class _CodeCoverageRunner(object):
 
   _COVERAGE_FILE = 'unittests'
 
-  def __init__(self, build_dir, perf_tools_dir, coverage_analyzer_dir):
+  def __init__(self, build_dir, perf_tools_dir, coverage_analyzer_dir,
+               keep_work_dir):
     build_dir = os.path.abspath(build_dir)
     self._build_dir = build_dir
     self._perf_tools_dir = os.path.abspath(perf_tools_dir)
     self._coverage_analyzer_dir = os.path.abspath(coverage_analyzer_dir)
+    self._keep_work_dir = keep_work_dir
     self._work_dir = None
 
   def __del__(self):
@@ -90,7 +92,13 @@ class _CodeCoverageRunner(object):
     # Clean up our working directory if it still exists.
     work_dir = self._work_dir
     self._work_dir = None
-    if work_dir:
+
+    if not work_dir:
+      return
+
+    if self._keep_work_dir:
+      _LOGGER.info('Keeping working directory "%s".', work_dir)
+    else:
       _LOGGER.info('Removing working directory "%s".', work_dir)
       shutil.rmtree(work_dir, ignore_errors=True)
 
@@ -218,6 +226,8 @@ def _ParseArguments():
                     default=_COVERAGE_ANALYZER_DIR,
                     help='The directory where "coverage_analyzer.exe" '
                          'is found.')
+  parser.add_option('', '--keep-work-dir', action='store_true', default=False,
+                    help='Keep temporary directory after run.')
 
   (opts, args) = parser.parse_args()
   if args:
@@ -238,7 +248,8 @@ def main():
   opts = _ParseArguments()
   runner = _CodeCoverageRunner(opts.build_dir,
                                opts.perf_tools_dir,
-                               opts.coverage_analyzer_dir)
+                               opts.coverage_analyzer_dir,
+                               opts.keep_work_dir)
   runner.Run()
 
 
