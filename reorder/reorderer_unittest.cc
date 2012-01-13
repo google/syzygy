@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/call_trace/parse_engine.h"
-#include "syzygy/call_trace/parser.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/parse/parse_engine.h"
+#include "syzygy/trace/parse/parser.h"
 
 namespace reorder {
 

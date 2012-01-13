@@ -65,13 +65,14 @@
         '<@(benchmark_sources)',
       ],
       'dependencies': [
+        '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(DEPTH)/syzygy/agent/call_trace_etw/'
+            'call_trace_etw.gyp:call_trace_client_etw',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
-        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_client_etw',
-        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_client_rpc',
-        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_control',
-        '<(DEPTH)/syzygy/call_trace/call_trace.gyp:call_trace_service_exe',
+        '<(DEPTH)/syzygy/trace/etw_control/etw_control.gyp:call_trace_control',
+        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
         '<(DEPTH)/syzygy/relink/relink.gyp:relink',
         '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder',

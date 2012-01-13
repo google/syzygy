@@ -1,9 +1,9 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -24,8 +24,12 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
+        'agent/call_trace/call_trace.gyp:*',
+        'agent/call_trace_etw/call_trace_etw.gyp:*',
+        'agent/common/common.gyp:*',
+        'agent/profiler/profiler.gyp:*',
+
         'block_graph/block_graph.gyp:*',
-        'call_trace/call_trace.gyp:*',
         'common/common.gyp:*',
         'core/core.gyp:*',
         'experimental/experimental.gyp:*',
@@ -35,6 +39,13 @@
         'py/py.gyp:*',
         'relink/relink.gyp:*',
         'reorder/reorder.gyp:*',
+
+        'trace/client/client.gyp:*',
+        'trace/etw_control/etw_control.gyp:*',
+        'trace/protocol/protocol.gyp:*',
+        'trace/rpc/rpc.gyp:*',
+        'trace/service/service.gyp:*',
+
         'scripts/scripts.gyp:*',
         'snapshot/snapshot.gyp:*',
         'test_data/test_data.gyp:*',
