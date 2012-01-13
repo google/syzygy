@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@
           '<(PRODUCT_DIR)/call_trace_client.dll',
           '<(PRODUCT_DIR)/call_trace_control.exe',
           '<(PRODUCT_DIR)/call_trace_service.exe',
+          '<(PRODUCT_DIR)/profile_client.dll',
           '<(PRODUCT_DIR)/instrument.exe',
           '<(PRODUCT_DIR)/relink.exe',
           '<(PRODUCT_DIR)/reorder.exe',
@@ -68,6 +69,7 @@
         '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
         '<(DEPTH)/syzygy/agent/call_trace_etw/'
             'call_trace_etw.gyp:call_trace_client_etw',
+        '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_client',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
