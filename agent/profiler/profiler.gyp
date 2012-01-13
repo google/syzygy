@@ -58,6 +58,7 @@
         'return_thunk_factory_unittests.cc',
       ],
       'dependencies': [
+        'profile_client',
         'profile_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',

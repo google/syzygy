@@ -53,6 +53,10 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
+        # TODO(siggi,rogerm): Remove these "backward" dependencies.
+        '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(DEPTH)/syzygy/agent/call_trace_etw/'
+            'call_trace_etw.gyp:call_trace_client_etw',
         '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
