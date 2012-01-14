@@ -216,6 +216,11 @@ class ParseEngineEtwTest: public testing::Test {
     // The call trace DLL should not be already loaded.
     ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace.dll"));
 
+    // Best effort shut down any prior dangling session.
+    base::win::EtwTraceProperties props;
+    base::win::EtwTraceController::Stop(kTraceSessionName, &props);
+    base::win::EtwTraceController::Stop(kKernelSessionName, &props);
+
     ASSERT_NO_FATAL_FAILURE(
         StartSession(kTraceSessionName,
                      NULL,
