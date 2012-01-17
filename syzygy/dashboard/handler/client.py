@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,44 +13,61 @@
 # limitations under the License.
 
 import json
-from google.appengine.ext import db
+import urlparse
 from google.appengine.ext import webapp
 from model import client as client_db
 from model import metric as metric_db
 from model import product as product_db
 
 class ClientHandler(webapp.RequestHandler):
-  """A class to handle creating and querying clients."""
+  """A class to handle creating, reading, updating and deleting clients.
+
+  Handles GET, POST, PUT and DELETE requests for /clients/<product>/ and
+  /clients/<product>/<client>. All functions have the same signature, even
+  though they may not use all the parameters, so that a single route can be
+  used for the handler.
+  """
 
   def get(self, product_id, client_id):
-    """Responds with information about a client.
+    """Responds with information about all clients or a specific client.
 
-    Responds with a JSON encoded product ID, client ID, description and metric
-    IDs for a given product_id and client_id pair. If the product or client
-    doesn't exist, responds with a 404.
+    /clients/<product>/
+      Responds with a JSON encoded object that contains a list of client IDs for
+      the given product.
+    /clients/<product>/<client>
+      Responds with a JSON encoded object of the product ID, client ID,
+      description and child metric IDs for the given product and client.
 
     Args:
       product_id. The product ID.
-      client_id: The client ID.
+      client_id: The client ID. May be empty.
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
       self.error(404)  # Not found.
       return
 
-    client = client_db.Client.get_by_key_name(client_id, product)
-    if not client:
-      self.error(404)  # Not found.
-      return
+    if not client_id:
+      client_keys = client_db.Client.all(keys_only=True)
+      client_keys.ancestor(product)
+      client_ids = [key.name() for key in client_keys]
 
-    metric_keys = metric_db.Metric.all(keys_only=True)
-    metric_keys.ancestor(client)
-    metric_ids = [key.name() for key in metric_keys]
+      result = {'product_id': product.key().name(),
+                'client_ids': client_ids}
+    else:
+      client = client_db.Client.get_by_key_name(client_id, product)
+      if not client:
+        self.error(404)  # Not found.
+        return
 
-    result = {'product_id': product.key().name(),
-              'client_id': client.key().name(),
-              'description': client.description,
-              'metric_ids': metric_ids}
+      metric_keys = metric_db.Metric.all(keys_only=True)
+      metric_keys.ancestor(client)
+      metric_ids = [key.name() for key in metric_keys]
+
+      result = {'product_id': product.key().name(),
+                'client_id': client.key().name(),
+                'description': client.description,
+                'metric_ids': metric_ids}
 
     self.response.headers['Content-Type'] = 'application/json'
     json.dump(result, self.response.out)
@@ -58,27 +75,106 @@ class ClientHandler(webapp.RequestHandler):
   def post(self, product_id, client_id):
     """Creates a new client.
 
-    Adds a client to the data store. The product and client IDs should be
-    specified in the URL and the description should be specified as POST
-    parameters in the request. Responds with a 200 on success or a 400 if there
-    are invalid parameters.
+    /products/<product>/
+      Creates a new client. The client ID should be specified in the body of
+      the request.
+    /products/<product>/<client>
+      Unused.
 
     Args:
       product_id: The product ID.
-      client_id: The client ID.
+      client_id: The client ID. Must be empty.
     """
-    description = self.request.get('description', None)
-    if not description:
-      self.error(400)  # Bad request.
-      return
-
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
       self.error(404)  # Not found.
       return
 
-    # Creates a new client or updates the description for an existing client.
+    if client_id:
+      self.error(400)  # Bad request.
+      return
+
+    client_id = self.request.get('client_id', None)
+    description = self.request.get('description', None)
+    if not client_id or not description:
+      self.error(400)  # Bad request.
+      return
+
+    # Make sure that this client ID doesn't already exist.
+    client = client_db.Client.get_by_key_name(client_id, product)
+    if client:
+      self.error(400)  # Bad request.
+      return
+
+    # Create a new client.
     client = client_db.Client(key_name=client_id, parent=product,
                               description=description)
     client.put()
 
+  def put(self, product_id, client_id):
+    """Updates a client.
+
+    /products/<product>/
+      Unused.
+    /products/<product>/<client>
+      Updates a client.
+
+    Args:
+      product_id: The product ID.
+      client_id: The client ID. Must not be empty.
+    """
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(404)  # Not found.
+      return
+
+    if not client_id:
+      self.error(400)  # Bad request.
+      return
+
+    # Make sure that this client ID already exists.
+    if not client_db.Client.get_by_key_name(client_id, product):
+      self.error(400)  # Bad request.
+      return
+
+    # Appengine bug: parameters in body aren't parsed for PUT requests.
+    # http://code.google.com/p/googleappengine/issues/detail?id=170
+    params = urlparse.parse_qs(self.request.body)
+    description = params.get('description', [])[0]
+    if not description:
+      self.error(400)  # Bad request.
+      return
+
+    # Update the client.
+    client = client_db.Client(key_name=client_id, parent=product,
+                              description=description)
+    client.put()
+
+  def delete(self, product_id, client_id):
+    """Deletes a client.
+
+    /products/<product>/
+      Unused
+    /products/<product>/<client>
+      Deletes the specified client.
+
+    Args:
+      product_id: The product ID.
+      client_id: The client ID. Must not be empty.
+    """
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(404)  # Not found.
+      return
+
+    if not client_id:
+      self.error(400)  # Bad request.
+      return
+
+    # Delete the client.
+    client = client_db.Client.get_by_key_name(client_id, product)
+    if not client:
+      self.error(400)  # Bad request.
+      return
+    
+    client.delete()
