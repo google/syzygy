@@ -31,8 +31,8 @@ application = webapp.WSGIApplication(
     [(r'^/$', MainHandler),
      # /products/<product>?
      (r'^/products/([^/]*)', product.ProductHandler),
-     # /<product>/<client>
-     (r'^/([^/]+)/([^/]+)/?$', client.ClientHandler),
+     # /clients/<product>/<client>?
+     (r'^/clients/([^/]+)/([^/]*)', client.ClientHandler),
      # /<product>/<client>/<metric>
      (r'^/([^/]+)/([^/]+)/([^/]+)/?$', metric.MetricHandler),
      # /<product>/<client>/<metric>/data

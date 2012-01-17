@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from google.appengine.ext import db
 from google.appengine.ext import webapp
 from model import client as client_db
 from model import product as product_db
@@ -23,8 +22,9 @@ class ProductHandler(webapp.RequestHandler):
   """A class to handle creating, reading, updating and deleting products.
   
   Handles GET, POST and DELETE requests for /products/ and /products/<product>.
-  Note that PUT is not handled because a product has no extra information to
-  update.
+  All functions have the same signature, even though they may not use all the
+  parameters, so that a single route can be used for the handler. Note that PUT
+  is not handled because a product has no extra information to update.
   """
 
   def get(self, product_id):
@@ -34,7 +34,7 @@ class ProductHandler(webapp.RequestHandler):
       Responds with a JSON encoded object that contains a list of product IDs.
     /products/<product>
       Responds with a JSON encoded object of the product ID and its child client
-      IDs.
+      IDs for the given product.
 
     Args:
       product_id. The product ID. May be empty.
