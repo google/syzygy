@@ -51,6 +51,11 @@ void SortList(CompareFunctor compare_functor, size_t size_hint,
               ListType* list) {
   DCHECK(list != NULL);
 
+  // If the list is empty sort will complete, but --list->end() will blow up
+  // below. Thus an early termination.
+  if (list->begin() == list->end())
+    return;
+
   typedef typename ListType::iterator Iterator;
   std::vector<Iterator> its;
   its.reserve(size_hint);
@@ -76,7 +81,7 @@ struct SectionListSortAdapter {
       : compare_functor_(compare_functor) { }
 
   bool operator()(OrderedBlockGraph::SectionList::iterator it1,
-                  OrderedBlockGraph::SectionList::iterator it2) const {
+                  OrderedBlockGraph::SectionList::iterator it2) {
     return compare_functor_((*it1)->section(), (*it2)->section());
   }
 
@@ -92,7 +97,7 @@ struct BlockListSortAdapter {
   }
 
   bool operator()(OrderedBlockGraph::BlockList::iterator it1,
-                  OrderedBlockGraph::BlockList::iterator it2) const {
+                  OrderedBlockGraph::BlockList::iterator it2) {
     return compare_functor_(*it1, *it2);
   }
 

@@ -228,6 +228,12 @@ TEST_F(OrderedBlockGraphTest, SectionPlaceAfter) {
   EXPECT_TRUE(ordered.IndicesAreValid());
 }
 
+TEST_F(OrderedBlockGraphTest, SectionSortEmpty) {
+  InitBlockGraph(0, 0, 0);
+  TestOrderedBlockGraph ordered(&block_graph_);
+  ordered.Sort(ReverseSectionNameCompareFunctor());
+}
+
 TEST_F(OrderedBlockGraphTest, SectionSort) {
   InitBlockGraph(3, 0, 0);
   TestOrderedBlockGraph ordered(&block_graph_);
@@ -379,6 +385,12 @@ TEST_F(OrderedBlockGraphTest, BlockPlaceAfterDifferentSection) {
   EXPECT_SECTION_CONTAINS(ordered, 0, 1, 2);
   EXPECT_SECTION_CONTAINS(ordered, 1);
   EXPECT_TRUE(ordered.IndicesAreValid());
+}
+
+TEST_F(OrderedBlockGraphTest, BlockEmpty) {
+  InitBlockGraph(0, 0, 0);
+  TestOrderedBlockGraph ordered(&block_graph_);
+  ordered.Sort(NULL, BlockSizeCompareFunctor());
 }
 
 TEST_F(OrderedBlockGraphTest, BlockSort) {
