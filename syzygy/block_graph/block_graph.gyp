@@ -37,6 +37,7 @@
         'ordered_block_graph.cc',
         'ordered_block_graph.h',
         'ordered_block_graph_internal.h',
+        'orderer.h',
         'transform.cc',
         'transform.h',
         'transforms/iterative_transform.h',
