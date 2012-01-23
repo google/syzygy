@@ -1,6 +1,6 @@
 #!/usr/bin/python2.4
 #
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,14 @@ FILE_LIST = [
     'chrome_dll.pdb',
     'chrome_exe.pdb',
     ]
+
+
+# The set of build subdirs we're interested in. There has been some flakiness
+# in building the latest whole-program-optimized official binaries in 'win',
+# so an unoptimized build has been introduced in 'win_unopt'. We can try them
+# in priority order when looking for a successful build, giving preference
+# to the optimized build.
+SUBDIRS = [ 'win', 'win_unopt' ]
 
 
 # The logger object used by this module
@@ -193,18 +201,31 @@ class ChromeRepo(object):
       build_index.append((build_id, timestamp, sort_key))
     return sorted(build_index, key=lambda x: x[2], reverse=True)
 
-  def _GetFilePath(self, build_id, relative_path):
+  def _GetFilePath(self, build_id, subdir, relative_path):
     """Generates the path in the repo to a given file for a given build.
 
     Args:
       build_id: The identifier for the build
+      subdir: The build sub-directory for the file.
       relative_path: The path to the file, relative to the windows build
-          root for build_id.
+          root for build_id and the subdir.
 
     Returns:
       The absolute path (a string) to the file in the repository.
     """
-    return posixpath.join(self._root_dir, build_id, 'win', relative_path)
+    return posixpath.join(self._root_dir, build_id, subdir, relative_path)
+
+  def _FileExists(self, path):
+    """Checks if the build artifact given by path exists in the build repo.
+    Args:
+      path: The path to the build artifact. Use _GetFilePath to construct
+          an appropriate path.
+
+    Returns:
+      true if the artifact exists.
+    """
+    status, _headers, _url = self._PerformRequest('HEAD', path, None)
+    return status == 200
 
   def GetLatestBuildId(self, build_index=None):
     """Pulls out the id and timestamp of the lastest build.
@@ -226,34 +247,44 @@ class ChromeRepo(object):
 
     for build_id, timestamp, _sort_key in build_index:
       found = True
-      for file_name in FILE_LIST:
-        status, _headers, _url = self._PerformRequest(
-            'HEAD', self._GetFilePath(build_id, file_name), None)
-        if status != 200:
-          _LOGGER.debug('Build %s is missing %s', build_id, file_name)
-          found = False
-          break
-      if found:
-        _LOGGER.info('Build %s has all required files', build_id)
-        return build_id, timestamp
+      for subdir in SUBDIRS:
+        for file_name in FILE_LIST:
+          path = self._GetFilePath(build_id, subdir, file_name)
+          if not self._FileExists(path):
+            _LOGGER.debug('Build %s is missing %s', build_id, file_name)
+            found = False
+            break
+        if found:
+          _LOGGER.info('Build %s has all required files', build_id)
+          return build_id, timestamp, subdir
 
     raise NotFoundError(
         'No latest build found matching %s' % self._build_id_pattern)
 
-  def DownloadBuild(self, work_dir, build_id=None):
+  def DownloadBuild(self, work_dir, build_id=None, subdir=None):
     """Download a build (by id or latest) into work_dir/build_id.
 
     Args:
-        work_dir: The directory in which to place the downloaded files
-        build_id: the (optional) id of the build to fetch.  If not
-            specified, this will download the "latest" build.
+      work_dir: The directory in which to place the downloaded files
+      build_id: the (optional) id of the build to fetch.  If not
+          specified, this will download the "latest" build.
+      subdir: The build sub-directory for the files.
 
     Returns:
-        The final path to the extracted chrome directory; for
-        example, work_dir/build_id/chrome-win32/
+      The final path to the extracted chrome directory; for
+      example, work_dir/build_id/chrome-win32/
     """
     if build_id is None:
-      build_id = self.GetLatestBuildId()[0]
+      build_id, unused_timestamp, subdir = self.GetLatestBuildId()
+    elif subdir is None:
+      for dir in SUBDIRS:
+        if self._FileExists(self._GetFilePath(build_id, dir, FILE_LIST[0])):
+          subdir = dir
+          break
+      if subdir is None:
+        raise NotFoundError(
+            'Could not find build artifacts for build %s' % build_id)
+
     build_dir = os.path.abspath(os.path.join(work_dir, build_id))
     chrome_dir = os.path.abspath(os.path.join(build_dir, 'chrome-win32'))
     if not os.path.exists(build_dir):
@@ -264,7 +295,7 @@ class ChromeRepo(object):
       dest = os.path.join(build_dir, name)
       with open(dest, 'wb') as out_stream:
         status, headers, url = self._PerformRequest(
-            'GET', self._GetFilePath(build_id, file_name), out_stream)
+            'GET', self._GetFilePath(build_id, subdir, file_name), out_stream)
       if status == 404:
         os.remove(dest)
         raise NotFoundError('(%s) Not Found - %s' % (status, file_name))
@@ -301,6 +332,9 @@ def AddCommandLineOptions(option_parser):
       '--repo-build-id-pattern', metavar='PATTERN',
       default=DEFAULT_BUILD_ID_PATTERN,
       help='Regular expression for recognizing build ids (default: %default)')
+  group.add_option(
+      '--repo-build-subdir', metavar='DIR',
+      help='The subdirectory in which the unoptimized build resides.')
   group.add_option(
       '--repo-proxy', metavar='URL',
       help='The proxy server to use when accessing the repository')
@@ -340,10 +374,12 @@ def main():
       for build_id, timestamp, _sort_key in build_index:
         print format_str % (build_id, timestamp)
     elif action == 'latest':
-      build_id, timestamp = repo.GetLatestBuildId()
-      print '%s (%s)' % (build_id, timestamp)
+      build_id, timestamp, subdir = repo.GetLatestBuildId()
+      print '%s (%s, %s)' % (build_id, timestamp, subdir)
     elif action == 'get':
-      print repo.DownloadBuild(options.repo_work_dir, options.repo_build_id)
+      print repo.DownloadBuild(options.repo_work_dir,
+                               options.repo_build_id,
+                               options.repo_build_subdir)
   except (NotFoundError, DownloadError), error:
     _LOGGER.error('%s', error)
     sys.exit(1)
