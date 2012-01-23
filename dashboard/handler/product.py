@@ -81,8 +81,7 @@ class ProductHandler(webapp.RequestHandler):
       return
 
     # Make sure that this product ID does not already exist.
-    product = product_db.Product.get_by_key_name(product_id)
-    if product:
+    if product_db.Product.get_by_key_name(product_id):
       self.error(400)  # Bad request.
       return
 

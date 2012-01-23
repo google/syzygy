@@ -76,8 +76,8 @@ class ClientHandler(webapp.RequestHandler):
     """Creates a new client.
 
     /products/<product>/
-      Creates a new client. The client ID should be specified in the body of
-      the request.
+      Creates a new client. The client ID and description should be specified
+      in the body of the request.
     /products/<product>/<client>
       Unused.
 
@@ -101,8 +101,7 @@ class ClientHandler(webapp.RequestHandler):
       return
 
     # Make sure that this client ID doesn't already exist.
-    client = client_db.Client.get_by_key_name(client_id, product)
-    if client:
+    if client_db.Client.get_by_key_name(client_id, product):
       self.error(400)  # Bad request.
       return
 
@@ -117,7 +116,8 @@ class ClientHandler(webapp.RequestHandler):
     /products/<product>/
       Unused.
     /products/<product>/<client>
-      Updates a client.
+      Updates a client. The description should be specified in the body of the
+      request.
 
     Args:
       product_id: The product ID.
@@ -140,7 +140,7 @@ class ClientHandler(webapp.RequestHandler):
     # Appengine bug: parameters in body aren't parsed for PUT requests.
     # http://code.google.com/p/googleappengine/issues/detail?id=170
     params = urlparse.parse_qs(self.request.body)
-    description = params.get('description', [])[0]
+    description = params.get('description', [None])[0]
     if not description:
       self.error(400)  # Bad request.
       return
