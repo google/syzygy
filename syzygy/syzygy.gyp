@@ -29,6 +29,7 @@
         'agent/common/common.gyp:*',
         'agent/profiler/profiler.gyp:*',
         'block_graph/block_graph.gyp:*',
+        'block_graph/transforms/block_graph_transforms.gyp:*',
         'block_graph/orderers/block_graph_orderers.gyp:*',
         'common/common.gyp:*',
         'core/core.gyp:*',
