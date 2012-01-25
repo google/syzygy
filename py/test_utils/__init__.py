@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,3 @@
 # limitations under the License.
 """Contains various utilities for enumerating, building and running unit tests,
 and integrating them with gcl presubmit checks."""
-
-from build_project import *
-from presubmit import *
-from gyp_tests import *
-from testing import *
