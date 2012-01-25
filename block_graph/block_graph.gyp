@@ -40,8 +40,6 @@
         'orderer.h',
         'transform.cc',
         'transform.h',
-        'transforms/iterative_transform.h',
-        'transforms/named_transform.h',
         'typed_block.h',
         'typed_block_internal.h',
       ],
@@ -77,8 +75,6 @@
         'iterate_unittest.cc',
         'ordered_block_graph_unittest.cc',
         'transform_unittest.cc',
-        'transforms/iterative_transform_unittest.cc',
-        'transforms/named_transform_unittest.cc',
         'typed_block_unittest.cc',
       ],
       'dependencies': [

@@ -28,6 +28,8 @@
       '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_unittests',
       '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
       '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
+      '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
+          'block_graph_transforms_unittests',
       '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
           'block_graph_orderers_unittests',
       '<(DEPTH)/syzygy/common/common.gyp:common_unittests',
