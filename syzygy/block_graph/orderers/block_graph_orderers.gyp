@@ -29,6 +29,8 @@
         'named_orderer.h',
         'original_orderer.cc',
         'original_orderer.h',
+        'random_orderer.cc',
+        'random_orderer.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -44,6 +46,7 @@
         'block_graph_orderers_unittests_main.cc',
         'named_orderer_unittest.cc',
         'original_orderer_unittest.cc',
+        'random_orderer_unittest.cc',
       ],
       'dependencies': [
         'block_graph_orderers_lib',
