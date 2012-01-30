@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -866,6 +866,19 @@ TEST(AddressRangeMapTest, RemoveMappedSplitBothSingleton) {
       IntegerRangePair(IntegerRange(0, 5), IntegerRange(1000, 5)));
   expected.push_back(
       IntegerRangePair(IntegerRange(5, 3), IntegerRange(1007, 3)));
+
+  EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
+}
+
+TEST(AddressRangeMapTest, RemoveMappedBeyondEnd) {
+  IntegerRangeMap map;
+  ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
+
+  map.RemoveMappedRange(IntegerRange(10, 10));
+
+  IntegerRangePairs expected;
+  expected.push_back(
+      IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }

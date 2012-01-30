@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
 using block_graph::TypedBlock;
 
 namespace {
@@ -69,6 +70,10 @@ class PrepareHeadersTransformTest : public testing::Test {
                             dos_header->e_lfanew,
                             nt_headers_block_,
                             0);
+
+    TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+    ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));
+    nt_headers->OptionalHeader.FileAlignment = 512;
   }
 
   size_t expected_dos_header_size_;
@@ -87,9 +92,14 @@ TEST_F(PrepareHeadersTransformTest, ShrinkHeaders) {
   PrepareHeadersTransform tx;
   EXPECT_TRUE(tx.Apply(&block_graph_, dos_header_block_));
 
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));
+
   EXPECT_TRUE(IsValidDosHeaderBlock(dos_header_block_));
   EXPECT_EQ(expected_nt_headers_size_, nt_headers_block_->size());
   EXPECT_EQ(expected_nt_headers_size_, nt_headers_block_->data_size());
+  EXPECT_EQ(block_graph_.sections().size(),
+            nt_headers->FileHeader.NumberOfSections);
 }
 
 TEST_F(PrepareHeadersTransformTest, GrowHeaders) {
@@ -100,9 +110,14 @@ TEST_F(PrepareHeadersTransformTest, GrowHeaders) {
   PrepareHeadersTransform tx;
   EXPECT_TRUE(tx.Apply(&block_graph_, dos_header_block_));
 
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));
+
   EXPECT_TRUE(IsValidDosHeaderBlock(dos_header_block_));
   EXPECT_EQ(expected_nt_headers_size_, nt_headers_block_->size());
   EXPECT_EQ(expected_nt_headers_size_, nt_headers_block_->data_size());
+  EXPECT_EQ(block_graph_.sections().size(),
+            nt_headers->FileHeader.NumberOfSections);
 }
 
 }  // namespace transforms

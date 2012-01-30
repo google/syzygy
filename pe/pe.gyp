@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,6 +72,8 @@
         'find.h',
         'image_layout.cc',
         'image_layout.h',
+        'image_layout_builder.cc',
+        'image_layout_builder.h',
         'image_source_map.cc',
         'image_source_map.h',
         'metadata.cc',
@@ -95,6 +97,8 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
+        '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
+            'block_graph_orderers_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
@@ -159,6 +163,7 @@
         'dia_util_unittest.cc',
         'decomposer_unittest.cc',
         'find_unittest.cc',
+        'image_layout_builder_unittest.cc',
         'image_layout_unittest.cc',
         'image_source_map_unittest.cc',
         'metadata_unittest.cc',
@@ -176,8 +181,11 @@
         'pe_unittest_utils',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
+        '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
+            'block_graph_orderers_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],

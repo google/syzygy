@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1060,6 +1060,11 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
       break;
   }
   size_t begin_affected_ranges = i;
+
+  // It's possible that the affected ranges are off the end of the vector,
+  // in which case there is absolutely nothing to do.
+  if (begin_affected_ranges >= range_pairs_.size())
+    return;
 
   // At this point the ith through (end_affected_ranges - 1)th ranges intersect
   // the range to be removed. The two endpoints may need to be split, but
