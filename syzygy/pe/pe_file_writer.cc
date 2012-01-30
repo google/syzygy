@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "base/logging.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/buffer_parser.h"
+#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
 
@@ -126,16 +127,18 @@ bool PEFileWriter::UpdateFileChecksum(const FilePath& path) {
                                                       &original_checksum,
                                                       &new_checksum);
 
+  if (nt_headers == NULL) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "CheckSumMappedFile failed: " << com::LogWe(error);
+  }
+
   // On success, we write the checksum back to the file header.
   if (nt_headers != NULL) {
     nt_headers->OptionalHeader.CheckSum = new_checksum;
   }
   CHECK(::UnmapViewOfFile(image_ptr));
 
-  if (nt_headers == NULL)
-    return false;
-
-  return true;
+  return nt_headers != NULL;
 }
 
 bool PEFileWriter::ValidateHeaders() {
@@ -259,12 +262,14 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
     return false;
   }
 
-
   const ImageLayout::SectionInfo& last_section = image_layout_.sections.back();
-  size_t file_size =
-      last_section.addr.value() + last_section.data_size;
-  DCHECK_EQ(0U, file_size % nt_headers_->OptionalHeader.FileAlignment);
   if (last_section.data_size > last_section.size) {
+    DCHECK_LT(0u, section_file_offsets_.size());
+    SectionFileAddressSpace::const_iterator section_it =
+      --section_file_offsets_.end();
+    size_t file_size = section_it->second.value() + section_it->first.size();
+    DCHECK_EQ(0U, file_size % nt_headers_->OptionalHeader.FileAlignment);
+
     if (fseek(file, file_size - 1, SEEK_SET) != 0 ||
         fwrite("\0", 1, 1, file) != 1) {
       LOG(ERROR) << "Unable to round out file size.";

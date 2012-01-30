@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,6 +55,12 @@ bool PrepareHeadersTransform::Apply(BlockGraph* block_graph,
     LOG(ERROR) << "Unable to resize NT headers.";
     return false;
   }
+
+  nt_headers->FileHeader.NumberOfSections = block_graph->sections().size();
+  nt_headers->OptionalHeader.CheckSum = 0;
+  nt_headers->OptionalHeader.SizeOfHeaders =
+      common::AlignUp(dos_header_block->size() + nt_headers.block()->size(),
+                      nt_headers->OptionalHeader.FileAlignment);
 
   return true;
 }

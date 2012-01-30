@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "sawbuck/common/com_utils.h"
 #include "syzygy/pe/pe_data.h"
 
 using pe::CvInfoPdb70;
@@ -216,6 +217,10 @@ void PELibUnitTest::CheckTestDll(const FilePath& path) {
   EXPECT_TRUE(::UnMapAndLoad(&loaded_image));
 
   ScopedHMODULE module(::LoadLibrary(path.value().c_str()));
+  if (module == NULL) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "LoadLibrary failed: " << com::LogWe(error);
+  }
   ASSERT_TRUE(module != NULL);
   CheckLoadedTestDll(module);
 }
