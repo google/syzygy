@@ -67,32 +67,48 @@ TestFactory* ReturnThunkTest::factory_ = NULL;
 // and switches its return address with the returned thunk.
 extern "C" void __declspec(naked) create_and_return_via_thunk() {
   __asm {
-    // Stash volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
-
     // Push the real return address, get the thunk, and replace
     // the return address on stack with the thunk.
-    push DWORD PTR[esp + 0x10]
+    push DWORD PTR[esp]
     call ReturnThunkTest::StaticMakeHook
-    xchg eax, DWORD PTR[esp + 0x10]
-
-    // Restore volatile registers.
-    popfd
-    pop edx
-    pop ecx
-    pop eax
+    mov DWORD PTR[esp], eax
 
     // Return to the thunk.
     ret
   }
 }
 
-// Each of the tests call a corresponding DoXyz method on the ReturnThunkTest
-// object.  This is so that the actual test code is friends with
-// ReturnThunkFactory.
+extern "C" void __declspec(naked) capture_contexts(CONTEXT* before,
+                                                   CONTEXT* after) {
+  __asm {
+    // Create a thunk that returns to the label below.
+    mov eax, return_here
+    push eax
+    call ReturnThunkTest::StaticMakeHook
+
+    // Push the thunk to the stack.
+    push eax
+
+    // Capture the CPU context before returning through the thunk.
+    push DWORD PTR[esp+8]
+    call DWORD PTR[RtlCaptureContext]
+
+    // Restore EAX, which is stomped by RtlCaptureContext.
+    mov eax, DWORD PTR[esp+8]
+    mov eax, DWORD PTR[eax + CONTEXT.Eax]
+    // Return to the thunk, this'll go to the label below.
+    ret
+
+  return_here:
+
+    // And now after jumping through it, note we popped the thunk.
+    push DWORD PTR[esp+8]
+    call DWORD PTR[RtlCaptureContext]
+
+    ret
+  }
+}
+
 TEST_F(ReturnThunkTest, AllocateSeveralPages) {
   ReturnThunkFactory::Thunk* previous_thunk = NULL;
   for (size_t i = 0; i < 3 * TestFactory::kNumThunksPerPage; ++i) {
@@ -150,6 +166,33 @@ TEST_F(ReturnThunkTest, ReusePages) {
 
   // We should reuse the previously-allocated second page.
   ASSERT_EQ(last_thunk, new_last_thunk);
+}
+
+TEST_F(ReturnThunkTest, ReturnPreservesRegisters) {
+  EXPECT_CALL(delegate_, OnFunctionExit(_, _));
+
+  CONTEXT before = {};
+  CONTEXT after = {};
+  capture_contexts(&before, &after);
+
+  EXPECT_EQ(before.SegGs, after.SegGs);
+  EXPECT_EQ(before.SegFs, after.SegFs);
+  EXPECT_EQ(before.SegEs, after.SegEs);
+  EXPECT_EQ(before.SegDs, after.SegDs);
+
+  EXPECT_EQ(before.Edi, after.Edi);
+  EXPECT_EQ(before.Esi, after.Esi);
+  EXPECT_EQ(before.Ebx, after.Ebx);
+  EXPECT_EQ(before.Edx, after.Edx);
+  EXPECT_EQ(before.Ecx, after.Ecx);
+  EXPECT_EQ(before.Eax, after.Eax);
+
+  EXPECT_EQ(before.Ebp, after.Ebp);
+  EXPECT_EQ(before.Eip, after.Eip);
+  EXPECT_EQ(before.SegCs, after.SegCs);
+  EXPECT_EQ(before.EFlags, after.EFlags);
+  EXPECT_EQ(before.Esp, after.Esp);
+  EXPECT_EQ(before.SegSs, after.SegSs);
 }
 
 }  // namespace
