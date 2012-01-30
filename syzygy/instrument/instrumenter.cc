@@ -745,7 +745,6 @@ bool Instrumenter::RedirectThunk(BlockGraph::Block* thunk_block) {
   BlockGraph::Reference ref;
   DCHECK(thunk_block->GetReference(offsetof(Thunk, hook_addr), &ref));
   DCHECK(ref.referenced() == import_address_table_block_);
-  DCHECK(ref.offset() == kIndirectPenterOffset);
 #endif
 
   bool inserted = thunk_block->SetReference(

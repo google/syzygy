@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,10 @@ VOID NTAPI MyTlsCallback(PVOID instance, DWORD reason, PVOID reserved) {
 // Declare a TLS initializer callback to the linker.
 #pragma section(".CRT$XLY",long,read)
 extern "C" __declspec(allocate(".CRT$XLY"))
-  PIMAGE_TLS_CALLBACK _xl_y  = MyTlsCallback;
+  PIMAGE_TLS_CALLBACK _xl_y1  = MyTlsCallback;
+
+extern "C" __declspec(allocate(".CRT$XLY"))
+  PIMAGE_TLS_CALLBACK _xl_y2  = MyTlsCallback;
 
 extern int function1();
 extern int function2();
