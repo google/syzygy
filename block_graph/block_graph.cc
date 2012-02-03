@@ -119,7 +119,7 @@ BlockGraph::BlockGraph()
 BlockGraph::~BlockGraph() {
 }
 
-BlockGraph::Section* BlockGraph::AddSection(const char* name,
+BlockGraph::Section* BlockGraph::AddSection(const base::StringPiece& name,
                                             uint32 characteristics) {
   Section new_section(next_section_id_++, name, characteristics);
   std::pair<SectionMap::iterator, bool> result = sections_.insert(
@@ -129,7 +129,7 @@ BlockGraph::Section* BlockGraph::AddSection(const char* name,
   return &result.first->second;
 }
 
-BlockGraph::Section* BlockGraph::FindOrAddSection(const char* name,
+BlockGraph::Section* BlockGraph::FindOrAddSection(const base::StringPiece& name,
                                                   uint32 characteristics) {
   // This is a linear scan, but thankfully images generally do not have many
   // sections and we do not create them very often. Fast lookup by index is
@@ -168,7 +168,7 @@ bool BlockGraph::RemoveSectionById(SectionId id) {
 
 BlockGraph::Block* BlockGraph::AddBlock(BlockType type,
                                         Size size,
-                                        const char* name) {
+                                        const base::StringPiece& name) {
   BlockId id = ++next_block_id_;
   BlockMap::iterator it = blocks_.insert(
       std::make_pair(id, Block(id, type, size, name))).first;
@@ -317,10 +317,9 @@ BlockGraph::AddressSpace::AddressSpace(BlockGraph* graph)
   DCHECK(graph != NULL);
 }
 
-BlockGraph::Block* BlockGraph::AddressSpace::AddBlock(BlockType type,
-                                                      RelativeAddress addr,
-                                                      Size size,
-                                                      const char* name) {
+BlockGraph::Block* BlockGraph::AddressSpace::AddBlock(
+    BlockType type, RelativeAddress addr, Size size,
+    const base::StringPiece& name) {
   // First check to see that the range is clear.
   AddressSpaceImpl::Range range(addr, size);
   AddressSpaceImpl::RangeMap::iterator it =
@@ -603,15 +602,14 @@ bool BlockGraph::AddressSpace::Load(InArchive* in_archive) {
   return true;
 }
 
-bool BlockGraph::Section::set_name(const char* name) {
+bool BlockGraph::Section::set_name(const base::StringPiece& name) {
   if (name == NULL)
     return false;
 
-  std::string new_name(name);
-  if (new_name.empty())
+  if (name.empty())
     return false;
 
-  name_ = new_name;
+  name.CopyToString(&name_);
   return true;
 }
 
@@ -643,12 +641,12 @@ BlockGraph::Block::Block()
 BlockGraph::Block::Block(BlockId id,
                          BlockType type,
                          Size size,
-                         const char* name)
+                         const base::StringPiece& name)
     : id_(id),
       type_(type),
       size_(size),
       alignment_(1),
-      name_(name),
+      name_(name.data(), name.size()),
       addr_(kInvalidAddress),
       section_(kInvalidSectionId),
       attributes_(0),
@@ -987,10 +985,10 @@ bool BlockGraph::Block::RemoveReference(Offset offset) {
   return true;
 }
 
-bool BlockGraph::Block::SetLabel(Offset offset, const char* name) {
+bool BlockGraph::Block::SetLabel(Offset offset, const base::StringPiece& name) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
-  return labels_.insert(std::make_pair(offset, name)).second;
+  return labels_.insert(std::make_pair(offset, name.data())).second;
 }
 
 bool BlockGraph::Block::HasLabel(Offset offset) {

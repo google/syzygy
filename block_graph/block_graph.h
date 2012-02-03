@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/string_piece.h"
 #include "syzygy/common/align.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
@@ -118,7 +119,7 @@ class BlockGraph {
   // @param name The section name.
   // @param characteristics The section characteristics.
   // @returns the new section.
-  Section* AddSection(const char* name, uint32 characteristics);
+  Section* AddSection(const base::StringPiece& name, uint32 characteristics);
 
   // Find or adds section with the given name.
   //
@@ -130,7 +131,8 @@ class BlockGraph {
   // @param name The section name.
   // @param characteristics The section characteristics.
   // @returns the new section.
-  Section* FindOrAddSection(const char* name, uint32 characteristics);
+  Section* FindOrAddSection(const base::StringPiece& name,
+                            uint32 characteristics);
 
   // Removes the given section from the BlockGraph.
   //
@@ -150,7 +152,7 @@ class BlockGraph {
   // Add @p block of type @p type and @p size and
   // return the new block.
   // @returns the new block.
-  Block* AddBlock(BlockType type, Size size, const char* name);
+  Block* AddBlock(BlockType type, Size size, const base::StringPiece& name);
 
   // Deletes the given block from the BlockGraph. The block must belong to this
   // block graph, and have no references or referrers. Returns true on success,
@@ -224,11 +226,11 @@ struct BlockGraph::Section {
   // @param id The section id. This must not be kInvalidSectionId.
   // @param name The name of the section. Must not be empty or NULL.
   // @param characteristics The characteristics of the section.
-  Section(SectionId id, const char* name, uint32 characteristics)
+  Section(SectionId id, const base::StringPiece& name, uint32 characteristics)
       : id_(id), name_(), characteristics_(characteristics) {
     DCHECK_NE(kInvalidSectionId, id);
     DCHECK(name != NULL);
-    name_ = name;
+    name.CopyToString(&name_);
     DCHECK(!name_.empty());
   }
 
@@ -246,7 +248,7 @@ struct BlockGraph::Section {
   //
   // @param name The name of the section. If NULL or empty, this will fail.
   // @returns true if the name is set, false otherwise.
-  bool set_name(const char* name);
+  bool set_name(const base::StringPiece& name);
 
   // Get the characteristics of this section.
   //
@@ -350,7 +352,7 @@ class BlockGraph::Block {
   Block(BlockId id,
         BlockType type,
         Size size,
-        const char* name);
+        const base::StringPiece& name);
   ~Block();
 
   // Accessors.
@@ -362,7 +364,7 @@ class BlockGraph::Block {
   void set_size(Size size) { size_ = size; }
 
   const char* name() const { return name_.c_str(); }
-  void set_name(const char* name) { name_ = name; }
+  void set_name(const base::StringPiece& name) { name.CopyToString(&name_); }
 
   Size alignment() const { return alignment_; }
   void set_alignment(Size alignment) {
@@ -505,7 +507,7 @@ class BlockGraph::Block {
   // @returns true iff a new label is inserted.
   // @note that only one label can exist at each offset, and the first
   //     label set at any offset will stay there.
-  bool SetLabel(Offset offset, const char* name);
+  bool SetLabel(Offset offset, const base::StringPiece& name);
 
   // Returns true iff the block has a label at @p offset.
   // @param offset the offset of the label to search for.
@@ -593,7 +595,7 @@ class BlockGraph::AddressSpace {
   Block* AddBlock(BlockType type,
                   RelativeAddress addr,
                   Size size,
-                  const char* name);
+                  const base::StringPiece& name);
 
   // Merges all blocks that intersect @p range into a single block.
   // Moves labels and references from the intersecting blocks to the
