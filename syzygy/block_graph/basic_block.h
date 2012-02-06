@@ -20,6 +20,7 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 
+#include "base/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
 
 #include "distorm.h"  // NOLINT
@@ -332,13 +333,13 @@ class BasicBlock {
              BlockType type,
              const uint8* data,
              Size size,
-             const char* name);
+             const base::StringPiece& name);
 
   // Accessors.
   // @{
   BlockId id() const { return id_; }
   BlockType type() const { return type_; }
-  const char* name() const { return name_.c_str(); }
+  const std::string& name() const { return name_; }
   const uint8* data() const { return data_; }
   Size size() const { return size_; }
   const Instructions& instructions() const { return instructions_; }

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ bool BlocksEqual(const BlockGraph::Block& b1, const BlockGraph::Block& b2) {
   // Compare the basic block properties.
   if (b1.id() != b2.id() || b1.type() != b2.type() ||
       b1.size() != b2.size() || b1.alignment() != b2.alignment() ||
-      strcmp(b1.name(), b2.name()) != 0 || b1.addr() != b2.addr() ||
+      b1.name() != b2.name() || b1.addr() != b2.addr() ||
       b1.section() != b2.section() || b1.attributes() != b2.attributes() ||
       b1.source_ranges() != b2.source_ranges() ||
       b1.labels() != b2.labels() || b1.owns_data() != b2.owns_data() ||

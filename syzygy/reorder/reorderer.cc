@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ bool OutputBlockList(size_t section_id,
       std::string comment = base::StringPrintf(
           "%s(%s)",
           BlockGraph::kBlockType[blocks[i]->type()],
-          blocks[i]->name());
+          blocks[i]->name().c_str());
       if (!json_file->OutputTrailingComment(comment.c_str()))
         return false;
     }

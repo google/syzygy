@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -307,7 +307,7 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   DCHECK_LE(block->addr(), addr);
   DCHECK_GT(block->addr() + block->size(), addr);
 
-  block->SetLabel(addr - block->addr(), name.c_str());
+  block->SetLabel(addr - block->addr(), name);
 }
 
 // The MS linker pads between code blocks with int3s.
@@ -742,10 +742,10 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   // block that is a superset of our range.
   size_t offset = block_addr - block->addr();
   if (offset == 0)
-    block->set_name(block_name.c_str());
+    block->set_name(block_name);
 
   // Annotate the block with a label, as this is an entry point to it.
-  block->SetLabel(offset, block_name.c_str());
+  block->SetLabel(offset, block_name);
 
   if (no_return == TRUE)
     block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
@@ -1457,7 +1457,7 @@ bool Decomposer::ProcessStaticInitializers() {
     BlockGraph::Block* merged = image_->MergeIntersectingBlocks(range);
     std::string name = StringPrintf("Bracketed Initializers: %s",
                                     init_it->first.c_str());
-    merged->set_name(name.c_str());
+    merged->set_name(name);
     DCHECK(merged != NULL);
   }
 
@@ -1582,9 +1582,9 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
 
     // If it had no label here, we add one.
     std::string label(base::StringPrintf("From %s +0x%x",
-                                         src_block->name(),
+                                         src_block->name().c_str(),
                                          src_offset));
-    dst_block->SetLabel(dst_offset, label.c_str());
+    dst_block->SetLabel(dst_offset, label);
   }
 
   return true;
@@ -1868,7 +1868,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     // Add the reference. If it's new, make sure to try and add a label
     // and reschedule the block for disassembly again.
     std::string label(StringPrintf("From %s +0x%x",
-                                   block->name(),
+                                   block->name().c_str(),
                                    instr_rel - block->addr()));
 
     // For short references, we should not see a fixup.
@@ -1897,7 +1897,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (!block->HasLabel(offset)) {
       // If it has no label here, we add one.
       std::string label(base::StringPrintf("From 0x%08X", src.value()));
-      block->SetLabel(offset, label.c_str());
+      block->SetLabel(offset, label);
 
       // And then potentially re-schedule the block for disassembly,
       // as we may have turned up another entry to a block we already
@@ -2105,7 +2105,7 @@ bool Decomposer::CreateSections() {
     const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
     std::string name = pe::PEFile::GetSectionName(*header);
     BlockGraph::Section* section = image_->graph()->AddSection(
-        name.c_str(), header->Characteristics);
+        name, header->Characteristics);
     DCHECK(section != NULL);
 
     // For now, we expect them to have been created with the same IDs as those

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -246,7 +246,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
       new_iid_offset, sizeof(IMAGE_IMPORT_DESCRIPTOR), true);
   iida_block->SetLabel(new_iid_offset,
                        base::StringPrintf("Image Import Descriptor: %s",
-                                          module_name).c_str());
+                                          module_name));
 
   // We expect the new entry to be dereferencable using iida[descriptor_count].
   DCHECK_GT(iida.ElementCount(), descriptor_count);
@@ -259,10 +259,10 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   size_t name_len = strlen(module_name);
   BlockGraph::Block* int_block = block_graph->AddBlock(
       BlockGraph::DATA_BLOCK, kPtrSize,
-      base::StringPrintf("Import Name Table: %s", module_name).c_str());
+      base::StringPrintf("Import Name Table: %s", module_name));
   BlockGraph::Block* dll_name_block = block_graph->AddBlock(
       BlockGraph::DATA_BLOCK, name_len + 1,
-      base::StringPrintf("Import Name: %s", module_name).c_str());
+      base::StringPrintf("Import Name: %s", module_name));
   if (int_block == NULL || dll_name_block == NULL) {
     LOG(ERROR) << "Unable to create blocks for Image Import Descriptor.";
     return false;

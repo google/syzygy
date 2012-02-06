@@ -536,15 +536,15 @@ class BlockNameFeature : public BlockFeature {
   // is one.
   virtual int Compare(const BlockMetadata& metadata0,
                       const BlockMetadata& metadata1) const {
-    const char* s0 = metadata0.block->name();
+    base::StringPiece s0 = metadata0.block->name();
     if (!metadata0.block_name.empty())
-      s0 = metadata0.block_name.c_str();
+      s0 = metadata0.block_name;
 
-    const char* s1 = metadata1.block->name();
+    base::StringPiece s1 = metadata1.block->name();
     if (!metadata1.block_name.empty())
-      s1 = metadata1.block_name.c_str();
+      s1 = metadata1.block_name;
 
-    return strcmp(s0, s1);
+    return s0.compare(s1);
   }
 };
 

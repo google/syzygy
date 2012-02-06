@@ -29,6 +29,7 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
+#include "base/string_piece.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
@@ -82,7 +83,7 @@ class BasicBlockDisassembler : public core::Disassembler {
                          size_t code_size,
                          AbsoluteAddress code_addr,
                          const AddressSet& entry_points,
-                         const char* containing_block_name,
+                         const base::StringPiece& containing_block_name,
                          Disassembler::InstructionCallback on_instruction);
 
   // Returns a RangeMap mapping ranges that each cover a single basic block

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ TEST_F(BlockTest, Initialization) {
   ASSERT_EQ(kBlockType, block_->type());
   ASSERT_EQ(kBlockSize, block_->size());
   ASSERT_EQ(1, block_->alignment());
-  ASSERT_STREQ(kBlockName, block_->name());
+  ASSERT_STREQ(kBlockName, block_->name().c_str());
   ASSERT_EQ(kInvalidAddress, block_->addr());
   ASSERT_EQ(BlockGraph::kInvalidSectionId, block_->section());
   ASSERT_EQ(0, block_->attributes());
@@ -109,9 +109,9 @@ TEST_F(BlockTest, Accessors) {
   block_->set_size(0x10);
   ASSERT_EQ(0x10U, block_->size());
 
-  ASSERT_STRNE("foo", block_->name());
+  ASSERT_STRNE("foo", block_->name().c_str());
   block_->set_name("foo");
-  ASSERT_STREQ("foo", block_->name());
+  ASSERT_STREQ("foo", block_->name().c_str());
 
   ASSERT_NE(16U, block_->alignment());
   block_->set_alignment(16);

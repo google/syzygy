@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ bool PEFile::Init(const FilePath& path) {
   path_ = path;
   FILE* file = file_util::OpenFile(path, "rb");
   if (file == NULL) {
-    LOG(ERROR) << "Failed to open file " << path.value().c_str();
+    LOG(ERROR) << "Failed to open file " << path.value();
     return false;
   }
 

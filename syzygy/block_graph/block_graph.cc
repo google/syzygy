@@ -446,7 +446,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   DCHECK(begin <= range.start());
   DCHECK(end >= range.start() + range.size());
 
-  const char* block_name = first_block->name();
+  base::StringPiece block_name = first_block->name();
   BlockType block_type = first_block->type();
   size_t section_id = first_block->section();
   size_t alignment = first_block->alignment();
@@ -527,7 +527,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
         label_it(block->labels().begin());
     for (; label_it != block->labels().end(); ++label_it) {
       new_block->SetLabel(start_offset + label_it->first,
-                          label_it->second.c_str());
+                          label_it->second);
     }
 
     // Copy the reference map since we mutate the original.
@@ -646,7 +646,7 @@ BlockGraph::Block::Block(BlockId id,
       type_(type),
       size_(size),
       alignment_(1),
-      name_(name.data(), name.size()),
+      name_(name.begin(), name.end()),
       addr_(kInvalidAddress),
       section_(kInvalidSectionId),
       attributes_(0),
@@ -988,7 +988,7 @@ bool BlockGraph::Block::RemoveReference(Offset offset) {
 bool BlockGraph::Block::SetLabel(Offset offset, const base::StringPiece& name) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
-  return labels_.insert(std::make_pair(offset, name.data())).second;
+  return labels_.insert(std::make_pair(offset, name.as_string())).second;
 }
 
 bool BlockGraph::Block::HasLabel(Offset offset) {

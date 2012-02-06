@@ -112,12 +112,12 @@ class OrderedBlockGraphTest : public testing::Test {
     // Create sections and blocks in each section.
     for (size_t i = 0; i < sections; ++i) {
       BlockGraph::Section* section = block_graph_.AddSection(
-          base::StringPrintf("s%d", i).c_str(), 0);
+          base::StringPrintf("s%d", i), 0);
       ASSERT_TRUE(section);
       for (size_t j = 0; j < blocks_per_section; ++j) {
         BlockGraph::Block* block = block_graph_.AddBlock(
             BlockGraph::DATA_BLOCK, 10 + kTotalBlockCount - block_count,
-            base::StringPrintf("b%d", block_count).c_str());
+            base::StringPrintf("b%d", block_count));
         ASSERT_TRUE(block);
         block->set_section(section->id());
         ++block_count;
@@ -128,7 +128,7 @@ class OrderedBlockGraphTest : public testing::Test {
     for (size_t i = 0; i < blocks_no_section; ++i) {
       BlockGraph::Block* block = block_graph_.AddBlock(
           BlockGraph::DATA_BLOCK, 10 + kTotalBlockCount - block_count,
-          base::StringPrintf("b%d", block_count).c_str());
+          base::StringPrintf("b%d", block_count));
       ASSERT_TRUE(block);
       ++block_count;
     }

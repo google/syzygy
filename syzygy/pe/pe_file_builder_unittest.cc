@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -302,10 +302,10 @@ TEST_F(PEFileBuilderTest, RandomizeTestDll) {
     BlockGraph::Block* name_block =
         builder.image_layout().blocks.AddBlock(BlockGraph::CODE_BLOCK,
                                                insert_at,
-                                               strlen(block->name()),
+                                               block->name().size(),
                                                "Name block");
     ASSERT_TRUE(name_block != NULL);
-    name_block->CopyData(strlen(block->name()), block->name());
+    name_block->CopyData(block->name().size(), block->name().c_str());
     insert_at += name_block->size();
 
     ASSERT_TRUE(builder.image_layout().blocks.InsertBlock(insert_at, block));

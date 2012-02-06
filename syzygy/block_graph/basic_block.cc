@@ -388,8 +388,12 @@ BasicBlock::BasicBlock(BasicBlock::BlockId id,
                        BasicBlock::BlockType type,
                        const uint8* data,
                        BasicBlock::Size size,
-                       const char* name)
-    : id_(id), type_(type), data_(data), size_(size), name_(name) {
+                       const base::StringPiece& name)
+    : id_(id),
+      type_(type),
+      data_(data),
+      size_(size),
+      name_(name.begin(), name.end()) {
   DCHECK(data != NULL);
   DCHECK(size > 0);
 }

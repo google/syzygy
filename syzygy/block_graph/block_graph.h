@@ -363,7 +363,7 @@ class BlockGraph::Block {
   Size size() const { return size_; }
   void set_size(Size size) { size_ = size; }
 
-  const char* name() const { return name_.c_str(); }
+  const std::string& name() const { return name_; }
   void set_name(const base::StringPiece& name) { name.CopyToString(&name_); }
 
   Size alignment() const { return alignment_; }
