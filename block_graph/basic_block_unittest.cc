@@ -132,7 +132,7 @@ const AbsoluteAddress BasicBlockTest::kAddr2(0x11223344);
 TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_EQ(kBlockId, basic_block_.id());
   EXPECT_EQ(kBasicBlockType, basic_block_.type());
-  EXPECT_STREQ(kBlockName, basic_block_.name());
+  EXPECT_STREQ(kBlockName, basic_block_.name().c_str());
   EXPECT_EQ(&kBlockData[0], basic_block_.data());
   EXPECT_EQ(kBlockSize, basic_block_.size());
 }

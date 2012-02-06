@@ -35,14 +35,15 @@ BasicBlockDisassembler::BasicBlockDisassembler(
     size_t code_size,
     AbsoluteAddress code_addr,
     const AddressSet& entry_points,
-    const char* containing_block_name,
+    const base::StringPiece& containing_block_name,
     InstructionCallback on_instruction) :
         Disassembler(code,
                      code_size,
                      code_addr,
                      entry_points,
                      on_instruction),
-        containing_block_name_(containing_block_name),
+        containing_block_name_(containing_block_name.begin(),
+                               containing_block_name.end()),
         next_block_id_(0),
         current_block_start_(0) {
   // Initialize our jump_targets_ to our set of entry points. This will ensure
@@ -233,7 +234,7 @@ bool BasicBlockDisassembler::InsertBlockRange(
                              type,
                              code_ + (addr - code_addr_),
                              size,
-                             containing_block_name_.c_str());
+                             containing_block_name_);
   if (type == BlockGraph::BASIC_CODE_BLOCK) {
     new_basic_block.instructions().swap(current_instructions_);
     new_basic_block.successors().swap(current_successors_);

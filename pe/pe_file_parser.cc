@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -562,7 +562,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
       return false;
     }
 
-    thunk_block->SetLabel(thunk_start - thunk_block->addr(), ixt_name.c_str());
+    thunk_block->SetLabel(thunk_start - thunk_block->addr(), ixt_name);
   }
 
   if (is_bound) {

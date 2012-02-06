@@ -50,7 +50,7 @@ BlockGraph::Block* AddBlock(BlockGraph* bg,
 
   std::string name = base::StringPrintf("block%d", number);
   BlockGraph::Block* block = bg->AddBlock(
-      BlockGraph::DATA_BLOCK, 10, name.c_str());
+      BlockGraph::DATA_BLOCK, 10, name);
   DCHECK(block != NULL);
 
   if (src_addr != 0)

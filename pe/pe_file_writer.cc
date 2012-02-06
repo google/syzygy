@@ -59,7 +59,7 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
   // Start by attempting to open the destination file.
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
-    LOG(ERROR) << "Unable to open " << path.value().c_str();
+    LOG(ERROR) << "Unable to open " << path.value();
     return false;
   }
 

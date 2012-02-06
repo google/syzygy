@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,7 +80,11 @@ bool DumpBlock(const BlockGraph::Block* block, FILE* file) {
   DCHECK(file != NULL);
 
   size_t base = block->addr().value();
-  if (fprintf(file, "0x%08X(%d): %s (%s)\n", base, block->size(), block->name(),
+  if (fprintf(file,
+              "0x%08X(%d): %s (%s)\n",
+              base,
+              block->size(),
+              block->name().c_str(),
               BlockGraph::kBlockType[block->type()]) < 0) {
     return false;
   }
@@ -214,14 +218,14 @@ int main(int argc, char** argv) {
 
   if (!missing_contribs.empty()) {
     LOG(INFO) << "Writing missing section contributions to \""
-              << missing_contribs.value().c_str() << "\".\n";
+              << missing_contribs.value() << "\".\n";
     if (!DumpMissingSectionContributions(missing_contribs, image_layout.blocks))
       return 1;
   }
 
   // This is scoped so that the output file is closed prior to loading it.
   {
-    LOG(INFO) << "Saving decomposed image to \"" << output.value().c_str()
+    LOG(INFO) << "Saving decomposed image to \"" << output.value()
               << "\".\n";
     time = base::Time::Now();
     file_util::ScopedFILE out_file(file_util::OpenFile(output, "wb"));
