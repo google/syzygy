@@ -20,8 +20,9 @@
 #   '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
 #
 # The target of this dependency rule is 'pdb_unittests', and it
-# corresponds to the executable '<project_dir>/Debug/pdb_unittests.exe'.
+# corresponds to the executable '<build_dir>/Debug/pdb_unittests.exe'.
 # (Or 'Release' instead of 'Debug', as the case may be.)
+
 {
   'variables': {
     'unittests': [
@@ -39,6 +40,7 @@
       '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
       '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
       '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
+      '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_unittests',
       '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_unittests',
       '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
       '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_unittests',
