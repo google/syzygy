@@ -99,8 +99,10 @@ OrderedBlockGraph::OrderedBlockGraph(BlockGraph* block_graph)
     if (section_id != BlockGraph::kInvalidSectionId) {
       BlockGraph::SectionMap::const_iterator section_it =
           block_graph_->sections().find(section_id);
-      DCHECK(section_it != block_graph_->sections().end());
-      section = &section_it->second;
+      // Blocks can have orphaned section IDs if the section has been deleted
+      // from underneath them.
+      if (section_it != block_graph_->sections().end())
+        section = &section_it->second;
     }
     SectionInfo* section_info = GetSectionInfo(section);
     DCHECK(section_info != NULL);
@@ -244,6 +246,7 @@ void OrderedBlockGraph::PlaceAtHead(const Section* section,
                 block_info->ordered_section->ordered_blocks_,
                 block_info->it);
   block_info->it = blocks.begin();
+  block_info->ordered_section = &section_info->ordered_section;
   block->set_section(section_info->id());
   DCHECK_EQ(*(block_info->it), block);
 }
@@ -269,6 +272,7 @@ void OrderedBlockGraph::PlaceAtTail(const Section* section,
                 block_info->ordered_section->ordered_blocks_,
                 block_info->it);
   --(block_info->it = blocks.end());
+  block_info->ordered_section = &section_info->ordered_section;
   block->set_section(section_info->id());
   DCHECK_EQ(*(block_info->it), block);
 }
@@ -294,6 +298,7 @@ void OrderedBlockGraph::PlaceBefore(const BlockGraph::Block* anchored_block,
 
   ablocks.splice(anchored->it, mblocks, moved->it);
   --(moved->it = anchored->it);
+  moved->ordered_section = anchored->ordered_section;
   moved_block->set_section(anchored->ordered_section->id());
   DCHECK_EQ(*(moved->it), moved_block);
 }
@@ -322,6 +327,7 @@ void OrderedBlockGraph::PlaceAfter(const BlockGraph::Block* anchored_block,
 
   ablocks.splice(anchored_it, mblocks, moved->it);
   --(moved->it = anchored_it);
+  moved->ordered_section = anchored->ordered_section;
   moved_block->set_section(anchored->ordered_section->id());
   DCHECK_EQ(*(moved->it), moved_block);
 }

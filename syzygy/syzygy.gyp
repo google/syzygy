@@ -37,6 +37,7 @@
         'instrument/instrument.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
+        'pe/orderers/pe_orderers.gyp:*',
         'pe/transforms/pe_transforms.gyp:*',
         'py/py.gyp:*',
         'py/etw_db/etw_db.gyp:*',

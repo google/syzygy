@@ -387,6 +387,22 @@ TEST_F(OrderedBlockGraphTest, BlockPlaceAfterDifferentSection) {
   EXPECT_TRUE(ordered.IndicesAreValid());
 }
 
+TEST_F(OrderedBlockGraphTest, BlockChangeToAnotherSectionAndBack) {
+  InitBlockGraph(2, 1, 0);
+  TestOrderedBlockGraph ordered(&block_graph_);
+  EXPECT_SECTION_CONTAINS(ordered, 0, 1);
+  EXPECT_SECTION_CONTAINS(ordered, 1, 2);
+
+  BlockGraph::Section* section0 = block_graph_.GetSectionById(0);
+  BlockGraph::Section* section1 = block_graph_.GetSectionById(1);
+  BlockGraph::Block* block1 = block_graph_.GetBlockById(1);
+  EXPECT_EQ(block1->section(), 0);
+
+  // Move from section0 to section1, and back to section0.
+  ordered.PlaceAtHead(section1, block1);
+  ordered.PlaceAtHead(section0, block1);
+}
+
 TEST_F(OrderedBlockGraphTest, BlockEmpty) {
   InitBlockGraph(0, 0, 0);
   TestOrderedBlockGraph ordered(&block_graph_);
