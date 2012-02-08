@@ -129,7 +129,6 @@ TEST_F(PERelinkerTest, IdentityRelink) {
   // to produce a PDB file in the temporary directory with the same basename
   // as the input PDB.
   EXPECT_TRUE(relinker.Relink());
-  EXPECT_EQ(input_pdb_, relinker.input_pdb_path());
   EXPECT_EQ(temp_pdb_, relinker.output_pdb_path());
 
   EXPECT_TRUE(file_util::PathExists(relinker.output_path()));
