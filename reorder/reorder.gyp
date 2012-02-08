@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@
         'dead_code_finder.h',
         'linear_order_generator.cc',
         'linear_order_generator.h',
+        'orderers/explicit_orderer.cc',
+        'orderers/explicit_orderer.h',
         'random_order_generator.cc',
         'random_order_generator.h',
         'reorderer.cc',
@@ -77,21 +79,22 @@
         'linear_order_generator_unittest.cc',
         'order_generator_test.cc',
         'order_generator_test.h',
+        'orderers/explicit_orderer_unittest.cc',
         'random_order_generator_unittest.cc',
         'reorder_unittests_main.cc',
         'reorderer_unittest.cc',
-        '../pe/unittest_util.cc',
-        '../pe/unittest_util.h',
+        '<(DEPTH)/syzygy/pe/unittest_util.cc',
+        '<(DEPTH)/syzygy/pe/unittest_util.h',
       ],
       'dependencies': [
         'reorder_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:test_dll',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:instrumented_test_dll',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
-        '../core/core.gyp:core_unittest_utils',
-        '../pe/pe.gyp:pe_unittest_utils',
-        '../test_data/test_data.gyp:test_dll',
-        '../test_data/test_data.gyp:instrumented_test_dll',
       ],
     }
   ],
