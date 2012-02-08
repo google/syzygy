@@ -16,7 +16,6 @@
 
 #include "syzygy/block_graph/transforms/trim_transform.h"
 
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace block_graph {

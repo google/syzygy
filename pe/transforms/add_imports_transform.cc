@@ -418,8 +418,16 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
   // after the last entry for this module.
   Offset int_offset = hna.OffsetOf(hna[i]);
   Offset iat_offset = iat.OffsetOf(iat[i]);
-  hna.block()->InsertData(int_offset, kPtrSize, false);
-  iat.block()->InsertData(iat_offset, kPtrSize, false);
+  // We're pointed at the terminating zero. The position we're pointing at can
+  // be the destination for references (in the normal case where someone is
+  // using the import). However, in the special case where the IAT and the INT
+  // are empty, our slot may also be pointed at by the import descriptor.
+  // If we were to insert data at this position, we'd push the import
+  // descriptor's pointer forward, past our new entry. To avoid this, we insert
+  // the new data after the terminating zero we're pointing at, then usurp the
+  // previously terminating zero for our entry.
+  hna.block()->InsertData(int_offset + kPtrSize, kPtrSize, true);
+  iat.block()->InsertData(iat_offset + kPtrSize, kPtrSize, true);
 
   // Hook up the newly created IMAGE_IMPORT_BY_NAME to both tables.
   BlockGraph::Reference iibn_ref(BlockGraph::RELATIVE_REF,

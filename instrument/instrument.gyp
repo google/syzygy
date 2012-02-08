@@ -1,10 +1,10 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,11 +28,13 @@
       'sources': [
         'instrumenter.cc',
         'instrumenter.h',
+        'transforms/entry_thunk_transform.cc',
+        'transforms/entry_thunk_transform.h',
       ],
       'dependencies': [
-        '../common/common.gyp:common_lib',
-        '../pe/pe.gyp:pe_lib',
-        '../relink/relink.gyp:relink_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(DEPTH)/syzygy/relink/relink.gyp:relink_lib',
         '<(DEPTH)/base/base.gyp:base',
       ],
     },
@@ -61,15 +63,17 @@
       'sources': [
         'instrumenter_unittest.cc',
         'instrument_unittests_main.cc',
+        'transforms/entry_thunk_transform_unittest.cc',
       ],
       'dependencies': [
         'instrument_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
-        '../core/core.gyp:core_unittest_utils',
-        '../pe/pe.gyp:pe_unittest_utils',
-        '../pe/pe.gyp:test_dll',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
+        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
       ],
     },
   ],
