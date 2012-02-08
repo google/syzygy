@@ -574,8 +574,8 @@ TEST(BlockGraphTest, AddSections) {
 
   // This section has the same name and characteristics, but it should not be
   // the same section as section0.
-  ASSERT_TRUE(section0 != section1);
-  ASSERT_NE(section0->id(), section1->id());
+  EXPECT_TRUE(section0 != section1);
+  EXPECT_NE(section0->id(), section1->id());
 
   BlockGraph::Section* section2 = image.FindOrAddSection("foo", 1);
   ASSERT_TRUE(section2 != NULL);
@@ -585,7 +585,18 @@ TEST(BlockGraphTest, AddSections) {
 
   // This should be the same as section0, the first instance of a section
   // with name 'foo'.
-  ASSERT_EQ(section0, section2);
+  EXPECT_EQ(section0, section2);
+
+  BlockGraph::Section* section3 = image.FindOrAddSection("bar", 1);
+  ASSERT_TRUE(section3 != NULL);
+  ASSERT_EQ("bar", section3->name());
+  ASSERT_EQ(1u, section3->characteristics());
+  ASSERT_EQ(3u, image.sections().size());
+
+  // Test out FindSection.
+  EXPECT_EQ(section0, image.FindSection("foo"));
+  EXPECT_EQ(section3, image.FindSection("bar"));
+  EXPECT_TRUE(image.FindSection("baz") == NULL);
 }
 
 TEST(BlockGraphTest, RemoveSection) {
