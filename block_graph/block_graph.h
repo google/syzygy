@@ -118,8 +118,15 @@ class BlockGraph {
   //
   // @param name The section name.
   // @param characteristics The section characteristics.
-  // @returns the new section.
+  // @returns the newly created section.
   Section* AddSection(const base::StringPiece& name, uint32 characteristics);
+
+  // Finds a section with the given name, returning NULL if no such section
+  // exists.
+  //
+  // @param name The section name.
+  // @returns the section if one is found, NULL otherwise.
+  Section* FindSection(const base::StringPiece& name);
 
   // Find or adds section with the given name.
   //
@@ -128,9 +135,13 @@ class BlockGraph {
   // returns it. If multiple sections exist with the given name, the first
   // one encountered is returned.
   //
+  // TODO(chrisha): The semantics of this function are a little odd. It would
+  //     make more sense for it to return only if a section with matching name
+  //     AND characteristics is found, otherwise to create a new one.
+  //
   // @param name The section name.
   // @param characteristics The section characteristics.
-  // @returns the new section.
+  // @returns the new or found section.
   Section* FindOrAddSection(const base::StringPiece& name,
                             uint32 characteristics);
 

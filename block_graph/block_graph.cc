@@ -129,20 +129,27 @@ BlockGraph::Section* BlockGraph::AddSection(const base::StringPiece& name,
   return &result.first->second;
 }
 
-BlockGraph::Section* BlockGraph::FindOrAddSection(const base::StringPiece& name,
-                                                  uint32 characteristics) {
+BlockGraph::Section* BlockGraph::FindSection(const base::StringPiece& name) {
   // This is a linear scan, but thankfully images generally do not have many
   // sections and we do not create them very often. Fast lookup by index is
   // more important. If this ever becomes an issue, we could keep around a
   // second index by name.
   SectionMap::iterator it = sections_.begin();
   for (; it != sections_.end(); ++it) {
-    if (it->second.name() == name) {
-      it->second.set_characteristics(characteristics);
+    if (it->second.name() == name)
       return &it->second;
-    }
   }
 
+  return NULL;
+}
+
+BlockGraph::Section* BlockGraph::FindOrAddSection(const base::StringPiece& name,
+                                                  uint32 characteristics) {
+  Section* section = FindSection(name);
+  if (section) {
+    section->set_characteristic(characteristics);
+    return section;
+  }
   return AddSection(name, characteristics);
 }
 

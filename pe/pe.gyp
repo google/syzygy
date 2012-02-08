@@ -91,6 +91,8 @@
         'pe_file_writer.h',
         'pe_utils.cc',
         'pe_utils.h',
+        'pe_relinker.cc',
+        'pe_relinker.h',
       ],
       'dependencies': [
         'dia_sdk',
@@ -174,6 +176,7 @@
         'pe_file_writer_unittest.cc',
         'pe_unittests_main.cc',
         'pe_utils_unittest.cc',
+        'pe_relinker_unittest.cc',
       ],
       'dependencies': [
         'pe_lib',
@@ -185,6 +188,7 @@
             'block_graph_orderers_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
         '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
