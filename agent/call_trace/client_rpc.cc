@@ -421,7 +421,6 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 
   // Populate the log record.
   base::win::PEImage image(module);
-  module_event->module_base_addr = module;
   module_event->module_base_size =
       image.GetNTHeaders()->OptionalHeader.SizeOfImage;
   module_event->module_checksum = image.GetNTHeaders()->OptionalHeader.CheckSum;
@@ -439,6 +438,11 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 #else
   ZeroMemory(&module_event->module_exe[0], sizeof(module_event->module_exe));
 #endif
+
+  // We set the address of the module last. If it is still zero (from the
+  // allocation above), then the parser will know that this module event
+  // record was incompletely written and will ignore it.
+  module_event->module_base_addr = module;
 
   // We need to flush module events right away, so that the module is
   // defined in the trace file before events using that module start to
