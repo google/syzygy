@@ -282,6 +282,17 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
     return false;
   }
 
+  // Trim the batch entries if the last one is NULL, indicating that the
+  // reporting thread was interrupted mid-write.
+  if (data->num_calls != 0 &&
+      data->calls[data->num_calls - 1].function == NULL) {
+    // Yuck! Cast away constness because the BinaryBufferReader only likes
+    // to deal with const output pointers.
+    const_cast<TraceBatchEnterData*>(data)->num_calls -= 1;
+  }
+  DCHECK(data->num_calls == 0 ||
+         data->calls[data->num_calls - 1].function != NULL);
+
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   DWORD process_id = event->Header.ProcessId;
@@ -308,6 +319,7 @@ bool ParseEngine::DispatchInvocationBatch(EVENT_TRACE* event) {
     return false;
   }
 
+  // TODO(rogerm): Ensure this is robust in the presence of incomplete write.
   size_t num_invocations = event->MofLength / sizeof(InvocationInfo);
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
@@ -353,6 +365,11 @@ bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty module event.";
     return false;
+  }
+
+  if (data->module_base_addr == NULL) {
+    LOG(INFO) << "Encountered incompletely written module event record.";
+    return true;
   }
 
   base::Time time(base::Time::FromFileTime(

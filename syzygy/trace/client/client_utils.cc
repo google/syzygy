@@ -111,6 +111,11 @@ void* TraceFileSegment::AllocateTraceRecordImpl(int record_type,
 
   DCHECK(CanAllocateRaw(total_size));
 
+  // Clear the memory we're about to allocate. If this thread gets killed
+  // before it can finish updating the trace record we want the allocated
+  // record to have a somewhat consistent state.
+  ::memset(write_ptr, 0, total_size);
+
   RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(write_ptr);
   FillPrefix(prefix, record_type, record_size);
 
