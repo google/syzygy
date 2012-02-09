@@ -662,14 +662,30 @@ FuncCall* Client::ThreadLocalData::AllocateFuncCall() {
   // Do we have a batch record that we can grow?
   if (batch != NULL && segment.CanAllocateRaw(sizeof(FuncCall))) {
     FuncCall* call_info = reinterpret_cast<FuncCall*>(segment.write_ptr);
-    DCHECK(call_info == batch->calls + batch->num_calls);
-    batch->num_calls += 1;
+    // The order of operations from here is pretty important. The issue is that
+    // threads can be terminated at any point, and this happens as a matter of
+    // fact at process exit, for any other threads than the one calling
+    // ExitProcess. We want our shared memory buffers to be in a self-consistent
+    // state at all times, so we proceed here by:
+    // - allocating and initializing a new record first.
+    // - then update the bookkeeping for the enclosures from the outermost,
+    //   inward. E.g. first we grow the file segment, then the record enclosure,
+    //   and lastly update the record itself.
+
+    // Initialize the new record.
+    memset(call_info, 0, sizeof(*call_info));
+
+    // Update the file segment size.
+    segment.write_ptr += sizeof(FuncCall);
+    segment.header->segment_length += sizeof(FuncCall);
+
+    // Extend the record enclosure.
     RecordPrefix* prefix = GetRecordPrefix(batch);
     prefix->size += sizeof(FuncCall);
 
-    // Update the book-keeping.
-    segment.write_ptr += sizeof(FuncCall);
-    segment.header->segment_length += sizeof(FuncCall);
+    // And lastly update the inner counter.
+    DCHECK(call_info == batch->calls + batch->num_calls);
+    batch->num_calls += 1;
 
     return call_info;
   }
