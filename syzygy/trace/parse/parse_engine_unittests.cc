@@ -81,6 +81,7 @@ class ParseEngineUnitTest
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
+    EXPECT_TRUE(data->function != NULL);
     function_entries.insert(data->function);
 
   }
@@ -92,6 +93,7 @@ class ParseEngineUnitTest
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
+    EXPECT_TRUE(data->function != NULL);
     function_exits.insert(data->function);
   }
 
@@ -313,7 +315,6 @@ TEST_F(ParseEngineUnitTest, FunctionEntryEvents) {
   event_data.function = &TestFunc1;
   expected_data = &event_data;
 
-
   EVENT_TRACE event_record = {};
   event_record.Header.ProcessId = kProcessId;
   event_record.Header.ThreadId = kThreadId;
@@ -347,7 +348,6 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
   event_data.function = &TestFunc2;
   expected_data = &event_data;
 
-
   EVENT_TRACE event_record = {};
   event_record.Header.ProcessId = kProcessId;
   event_record.Header.ThreadId = kThreadId;
@@ -377,17 +377,17 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
 }
 
 TEST_F(ParseEngineUnitTest, BatchFunctionEntry) {
-  uint8 raw_data[sizeof(TraceBatchEnterData) + 3 * sizeof(FuncCall)] = {};
+  uint8 raw_data[sizeof(TraceBatchEnterData) + 4 * sizeof(FuncCall)] = {};
   TraceBatchEnterData& event_data =
      *reinterpret_cast<TraceBatchEnterData*>(&raw_data);
   event_data.thread_id = kThreadId;
-  event_data.num_calls = 4;
+  event_data.num_calls = 5;
   event_data.calls[0].function = &TestFunc1;
   event_data.calls[1].function = &TestFunc2;
   event_data.calls[2].function = &TestFunc1;
   event_data.calls[3].function = &TestFunc2;
+  event_data.calls[4].function = NULL;
   expected_data = &raw_data;
-
 
   EVENT_TRACE event_record = {};
   event_record.Header.ProcessId = kProcessId;
@@ -410,11 +410,31 @@ TEST_F(ParseEngineUnitTest, BatchFunctionEntry) {
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
 
-  // Check for short event tail.
+  // Check for short event tail (remove the empty record + one byte).
   set_error_occurred(false);
-  event_record.MofLength = sizeof(raw_data) - 1;
+  event_record.MofLength = sizeof(raw_data) - sizeof(FuncCall) - 1;
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, ProcessAttachIncomplete) {
+  TraceModuleData incomplete(kModuleData);
+  incomplete.module_base_addr = NULL;
+
+  EVENT_TRACE event_record = {};
+  event_record.Header.ProcessId = kProcessId;
+  event_record.Header.ThreadId = kThreadId;
+  event_record.Header.Guid = kCallTraceEventClass;
+  event_record.Header.Class.Type = TRACE_PROCESS_ATTACH_EVENT;
+  event_record.MofData = const_cast<TraceModuleData*>(&incomplete);
+  event_record.MofLength = sizeof(incomplete);
+  expected_data = &kModuleData;
+
+  // No error should be reported for NULL module addr, instead the record
+  // should be ignored.
+  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_FALSE(error_occurred());
+  ASSERT_EQ(process_attaches.size(), 0);
 }
 
 TEST_F(ParseEngineUnitTest, ProcessAttach) {
