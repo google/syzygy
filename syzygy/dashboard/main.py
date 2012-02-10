@@ -35,8 +35,8 @@ application = webapp.WSGIApplication(
      (r'^/clients/([^/]+)/([^/]*)', client.ClientHandler),
      # /metrics/<product>/<client>/<metric>?
      (r'^/metrics/([^/]+)/([^/]+)/([^/]*)', metric.MetricHandler),
-     # /<product>/<client>/<metric>/data
-     (r'^/([^/]+)/([^/]+)/([^/]+)/data/?$', datum.DatumHandler)])
+     # /data/<product>/<client>/<metric>/<datum>?
+     (r'^/data/([^/]+)/([^/]+)/([^/]+)/([^/]*)', datum.DatumHandler)])
 
 
 def main():
