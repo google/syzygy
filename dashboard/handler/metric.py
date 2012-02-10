@@ -135,7 +135,7 @@ class MetricHandler(webapp.RequestHandler):
     Args:
       product_id: The product ID.
       client_id: The client ID.
-      metric_id: The metric ID. Must be not empty.
+      metric_id: The metric ID. Must not be empty.
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
@@ -181,7 +181,7 @@ class MetricHandler(webapp.RequestHandler):
     Args:
       product_id: The product ID.
       client_id: The client ID.
-      metric_id: The metric ID. Must be not empty.
+      metric_id: The metric ID. Must not be empty.
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
