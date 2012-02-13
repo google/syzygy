@@ -1,0 +1,2 @@
+This is a corrupted trace file, and Playback
+should throw an error while trying to analyze it.
