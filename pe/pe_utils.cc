@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -187,14 +187,14 @@ bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
   size_t dos_header_size = common::AlignUp(
       sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
 
-  // We use RemoveData first to ensure that the source ranges get trimmed as
-  // well.
-  BlockGraph::Offset remove_offset = sizeof(IMAGE_DOS_HEADER);
-  BlockGraph::Offset remove_size = dos_header_block->size() - remove_offset;
-  if (!dos_header_block->RemoveData(remove_offset, remove_size)) {
-    LOG(ERROR) << "Unable to trim DOS header.";
-    return false;
+  // If the new header block is shorter than it was, go ahead and
+  // trim the source ranges to match the new, shorter size.
+  if (dos_header_block->size() > dos_header_size) {
+    BlockGraph::Block::DataRange range(
+        dos_header_size, dos_header_block->size() - dos_header_size);
+    dos_header_block->source_ranges().RemoveMappedRange(range);
   }
+
   dos_header_block->set_size(dos_header_size);
   dos_header_block->ResizeData(dos_header_size);
   DCHECK_EQ(dos_header_size, dos_header_block->size());
