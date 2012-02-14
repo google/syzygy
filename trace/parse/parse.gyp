@@ -40,6 +40,23 @@
       ],
     },
     {
+      'target_name': 'dump_trace',
+      'type': 'executable',
+      'sources': [
+        'dump_trace_main.cc',
+      ],
+      'dependencies': [
+        'parse_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+      ],
+      'libraries': [
+        'imagehlp.lib',
+      ],
+    },
+    {
       'target_name': 'parse_unittests',
       'type': 'executable',
       'sources': [
