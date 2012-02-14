@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
     str << StringPrintf("0x%08X(%d): %s\n",
                         addr.value(),
                         block->size(),
-                        block->name());
+                        block->name().c_str());
 
     BlockGraph::Block::LabelMap::const_iterator
         label_it(block->labels().begin());
@@ -67,7 +67,7 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
       if (ref.offset() == 0) {
         str << StringPrintf("\t+0x%04X->%s(%d)\n",
                             ref_it->first,
-                            ref.referenced()->name(),
+                            ref.referenced()->name().c_str(),
                             ref.size());
       } else {
         // See if there's a label at the desination's offset, and if so
@@ -77,13 +77,13 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
         if (label != ref.referenced()->labels().end()) {
           str << StringPrintf("\t+0x%04X->%s:%s(%d)\n",
                               ref_it->first,
-                              ref.referenced()->name(),
+                              ref.referenced()->name().c_str(),
                               label->second.c_str(),
                               ref.size());
         } else {
           str << StringPrintf("\t+0x%04X->%s+0x%04X(%d)\n",
                               ref_it->first,
-                              ref.referenced()->name(),
+                              ref.referenced()->name().c_str(),
                               ref.offset(),
                               ref.size());
         }
