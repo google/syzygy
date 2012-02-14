@@ -23,7 +23,7 @@ import sys
 import tempfile
 
 
-# The list of DLLs we want to instrument in addition to _unittest executables.
+# The list of DLLs we want to instrument in addition to _unittests executables.
 _DLLS_TO_INSTRUMENT = [
   'call_trace.dll',
   'call_trace_client.dll',

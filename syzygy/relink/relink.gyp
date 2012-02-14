@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,12 +73,12 @@
       'dependencies': [
         'relink_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:etw_instrumented_test_dll',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
-        '../core/core.gyp:core_unittest_utils',
-        '../pe/pe.gyp:pe_unittest_utils',
-        '../pe/pe.gyp:test_dll',
-        '../test_data/test_data.gyp:instrumented_test_dll',
       ],
     }
   ],
