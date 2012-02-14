@@ -272,13 +272,18 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceBatchEnterData* data = NULL;
-  if (!reader.Read(FIELD_OFFSET(TraceBatchEnterData, calls), &data)) {
+  size_t offset_to_calls = FIELD_OFFSET(TraceBatchEnterData, calls);
+  if (!reader.Read(offset_to_calls, &data)) {
     LOG(ERROR) << "Short or empty batch event.";
     return false;
   }
 
-  if (!reader.Consume(data->num_calls * sizeof(data->calls[0]))) {
-    LOG(ERROR) << "Short batch event data.";
+  size_t bytes_needed = data->num_calls * sizeof(data->calls[0]);
+  if (!reader.Consume(bytes_needed)) {
+    LOG(ERROR) << "Short batch event data. Expected " << data->num_calls
+               << " entries (" << (offset_to_calls + bytes_needed)
+               << " bytes) but batch record was only " << event->MofLength
+               << " bytes.";
     return false;
   }
 
