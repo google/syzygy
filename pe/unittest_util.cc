@@ -154,10 +154,18 @@ namespace testing {
 
 const wchar_t PELibUnitTest::kDllName[] = L"test_dll.dll";
 const wchar_t PELibUnitTest::kDllPdbName[] = L"test_dll.pdb";
-const wchar_t PELibUnitTest::kInstrumentedDllName[] =
-    L"instrumented_test_dll.dll";
-const wchar_t PELibUnitTest::kInstrumentedDllPdbName[] =
-    L"instrumented_test_dll.pdb";
+const wchar_t PELibUnitTest::kRandomizedTestDllName[] =
+    L"randomized_test_dll.dll";
+const wchar_t PELibUnitTest::kRandomizedTestDllPdbName[] =
+    L"randomized_test_dll.pdb";
+const wchar_t PELibUnitTest::kEtwInstrumentedDllName[] =
+    L"etw_instrumented_test_dll.dll";
+const wchar_t PELibUnitTest::kEtwInstrumentedDllPdbName[] =
+    L"etw_instrumented_test_dll.pdb";
+const wchar_t PELibUnitTest::kRpcInstrumentedDllName[] =
+    L"rpc_instrumented_test_dll.dll";
+const wchar_t PELibUnitTest::kRpcInstrumentedDllPdbName[] =
+    L"rpc_instrumented_test_dll.pdb";
 
 void PELibUnitTest::CreateTemporaryDir(FilePath* temp_dir) {
   ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
