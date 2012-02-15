@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import httplib
 import json
 from google.appengine.ext import webapp
 from model import client as client_db
@@ -46,7 +47,7 @@ class ProductHandler(webapp.RequestHandler):
     else:
       product = product_db.Product.get_by_key_name(product_id)
       if not product:
-        self.error(404)  # Not found.
+        self.error(httplib.NOT_FOUND)
         return
 
       client_keys = client_db.Client.all(keys_only=True)
@@ -72,17 +73,17 @@ class ProductHandler(webapp.RequestHandler):
       product_id: The product ID. Must be empty.
     """
     if product_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     product_id = self.request.get('product_id', None)
     if not product_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Make sure that this product ID does not already exist.
     if product_db.Product.get_by_key_name(product_id):
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Create a new product.
@@ -101,13 +102,13 @@ class ProductHandler(webapp.RequestHandler):
       product_id: The product ID. Must not be empty.
     """
     if not product_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Delete the product.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
     
     product.delete()

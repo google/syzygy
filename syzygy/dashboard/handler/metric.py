@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import httplib
 import json
 import urlparse
 from google.appengine.ext import webapp
@@ -46,12 +47,12 @@ class MetricHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if not metric_id:
@@ -65,7 +66,7 @@ class MetricHandler(webapp.RequestHandler):
     else:
       metric = metric_db.Metric.get_by_key_name(metric_id, client)
       if not metric:
-        self.error(404)  # Not found.
+        self.error(httplib.NOT_FOUND)
         return
 
       result = {'product_id': product.key().name(),
@@ -93,29 +94,29 @@ class MetricHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if metric_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
     
     metric_id = self.request.get('metric_id', None)
     description = self.request.get('description', None)
     units = self.request.get('units', None)
     if not metric_id or not description or not units:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Make sure that this metric ID doesn't already exist.
     metric = metric_db.Metric.get_by_key_name(metric_id, client)
     if metric:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Creates a new metric.
@@ -139,21 +140,21 @@ class MetricHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if not metric_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Make sure that this metric ID already exists.
     if not metric_db.Metric.get_by_key_name(metric_id, client):
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Appengine bug: parameters in body aren't parsed for PUT requests.
@@ -162,7 +163,7 @@ class MetricHandler(webapp.RequestHandler):
     description = params.get('description', [None])[0]
     units = params.get('units', [None])[0]
     if not description or not units:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Update the metric.
@@ -185,22 +186,22 @@ class MetricHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if not metric_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Delete the metric.
     metric = metric_db.Metric.get_by_key_name(metric_id, client)
     if not metric:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     metric.delete()

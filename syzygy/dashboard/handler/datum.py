@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import httplib
 import json
 import urlparse
 from google.appengine.ext import webapp
@@ -50,17 +51,17 @@ class DatumHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     metric = metric_db.Metric.get_by_key_name(metric_id, client)
     if not metric:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     result = {'product_id': product.key().name(),
@@ -83,12 +84,12 @@ class DatumHandler(webapp.RequestHandler):
       try:
         datum_id = int(datum_id)
       except ValueError:
-        self.error(400)  # Bad request.
+        self.error(httplib.BAD_REQUEST)
         return
 
       datum = datum_db.Datum.get_by_id(datum_id, metric)
       if not datum:
-        self.error(404)  # Not found.
+        self.error(httplib.NOT_FOUND)
         return
 
       result.update({'datum_id': datum.key().id(),
@@ -118,36 +119,36 @@ class DatumHandler(webapp.RequestHandler):
     """
     # Validate input.
     if datum_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     product_version = self.request.get('product_version', None)
     toolchain_version = self.request.get('toolchain_version', None)
     values = self.request.get_all('values')
     if not product_version or not toolchain_version or not values:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     try:
       values = [float(value) for value in values]
     except ValueError:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     metric = metric_db.Metric.get_by_key_name(metric_id, client)
     if not metric:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     # Create a new datum.
@@ -177,13 +178,13 @@ class DatumHandler(webapp.RequestHandler):
     """
     # Validate input
     if not datum_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     try:
       datum_id = int(datum_id)
     except ValueError:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Appengine bug: parameters in body aren't parsed for PUT requests.
@@ -193,34 +194,34 @@ class DatumHandler(webapp.RequestHandler):
     toolchain_version = params.get('toolchain_version', [None])[0]
     values = params.get('values', [])
     if not product_version or not toolchain_version or not values:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     try:
       values = [float(value) for value in values]
     except ValueError:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     metric = metric_db.Metric.get_by_key_name(metric_id, client)
     if not metric:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     datum = datum_db.Datum.get_by_id(datum_id, metric)
     if not datum:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     # Update the datum.
@@ -245,35 +246,35 @@ class DatumHandler(webapp.RequestHandler):
     """
     # Validate input
     if not datum_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     try:
       datum_id = int(datum_id)
     except ValueError:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     metric = metric_db.Metric.get_by_key_name(metric_id, client)
     if not metric:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     # Delete the metric.
     datum = datum_db.Datum.get_by_id(datum_id, metric)
     if not datum:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     datum.delete()
