@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@
 #include "base/file_path.h"
 #include "base/logging_win.h"
 #include "base/string_number_conversions.h"
+#include "syzygy/block_graph/orderers/random_orderer.h"
+#include "syzygy/pe/pe_relinker.h"
 #include "syzygy/relink/order_relinker.h"
 #include "syzygy/relink/random_relinker.h"
+#include "syzygy/reorder/orderers/explicit_orderer.h"
 #include "syzygy/reorder/reorderer.h"
 
 using relink::Relinker;
@@ -40,12 +43,13 @@ const char kUsage[] =
     "  Optional Options:\n"
     "    --input-pdb=<path>   The PDB file associated with the input DLL.\n"
     "                         Default is inferred from input-dll.\n"
+    "    --new-workflow       Use the new relinker workflow.\n"
+    "    --no-metadata        Prevents the relinker from adding metadata\n"
+    "                         to the output DLL.\n"
+    "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
     "    --output-pdb=<path>  Output path for the rewritten PDB file.\n"
     "                         Default is inferred from output-dll.\n"
     "    --seed=<integer>     Randomly reorder based on the given seed.\n"
-    "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
-    "    --no-metadata        Prevents the relinker from adding metadata\n"
-    "                         to the output DLL.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-dll is optional.\n";
@@ -80,6 +84,57 @@ void GuessPdbPath(const FilePath& module_path, FilePath* pdb_path) {
   *pdb_path = module_path.ReplaceExtension(L"pdb");
 }
 
+int RelinkWithNewWorkflow(const FilePath& input_dll_path,
+                          const FilePath& input_pdb_path,
+                          const FilePath& output_dll_path,
+                          const FilePath& output_pdb_path,
+                          const FilePath& order_file_path,
+                          uint32 seed,
+                          bool add_metadata,
+                          size_t padding) {
+  LOG(INFO) << "Using new relinker workflow.";
+
+  pe::PERelinker relinker;
+  relinker.set_input_path(input_dll_path);
+  relinker.set_output_path(output_dll_path);
+  relinker.set_output_pdb_path(output_pdb_path);
+  relinker.set_padding(padding);
+
+  // Initialize the relinker. This does the decomposition, etc.
+  if (!relinker.Init()) {
+    LOG(ERROR) << "Failed to initialize relinker.";
+    return 1;
+  }
+
+  // Set up the orderer.
+  scoped_ptr<block_graph::BlockGraphOrdererInterface> orderer;
+  scoped_ptr<reorder::Reorderer::Order> order;
+  if (!order_file_path.empty()) {
+    order.reset(new reorder::Reorderer::Order());
+    if (!order->LoadFromJSON(relinker.input_pe_file(),
+                             relinker.input_image_layout(),
+                             order_file_path)) {
+      LOG(ERROR) << "Failed to load order file: " << order_file_path.value();
+      return 1;
+    }
+
+    orderer.reset(new reorder::orderers::ExplicitOrderer(order.get()));
+  } else {
+    orderer.reset(new block_graph::orderers::RandomOrderer(true, seed));
+  }
+
+  // Append the orderer to the relinker.
+  relinker.AppendOrderer(orderer.get());
+
+  // Perform the actual relink.
+  if (!relinker.Relink()) {
+    LOG(ERROR) << "Unable to relink input image.";
+    return 1;
+  }
+
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -101,6 +156,7 @@ int main(int argc, char** argv) {
   FilePath output_dll_path = cmd_line->GetSwitchValuePath("output-dll");
   FilePath output_pdb_path = cmd_line->GetSwitchValuePath("output-pdb");
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
+  bool new_workflow = cmd_line->HasSwitch("new-workflow");
   bool output_metadata = !cmd_line->HasSwitch("no-metadata");
 
   if (output_dll_path.empty()) {
@@ -124,18 +180,6 @@ int main(int argc, char** argv) {
         << input_dll_path.value();
   }
 
-  // If explicit PDB paths are not provided, guess them.
-  if (input_pdb_path.empty()) {
-    GuessPdbPath(input_dll_path, &input_pdb_path);
-    LOG(INFO) << "Inferring input PDB path from input DLL path: "
-        << input_pdb_path.value();
-  }
-  if (output_pdb_path.empty()) {
-    GuessPdbPath(output_dll_path, &output_pdb_path);
-    LOG(INFO) << "Inferring output PDB path from output DLL path: "
-        << output_pdb_path.value();
-  }
-
   if (cmd_line->HasSwitch("seed") && cmd_line->HasSwitch("order-file")) {
     return Usage("The seed and order-file arguments are mutually exclusive");
   }
@@ -150,6 +194,27 @@ int main(int argc, char** argv) {
   std::wstring padding_str(cmd_line->GetSwitchValueNative("padding"));
   if (!padding_str.empty() && !ParsePadding(padding_str, &padding)) {
     return Usage("Invalid padding value.");
+  }
+
+  if (new_workflow) {
+    return RelinkWithNewWorkflow(input_dll_path, input_pdb_path,
+                                 output_dll_path, output_pdb_path,
+                                 order_file_path, seed, output_metadata,
+                                 padding);
+  }
+
+  // Old workflow.
+
+  // If explicit PDB paths are not provided, guess them.
+  if (input_pdb_path.empty()) {
+    GuessPdbPath(input_dll_path, &input_pdb_path);
+    LOG(INFO) << "Inferring input PDB path from input DLL path: "
+        << input_pdb_path.value();
+  }
+  if (output_pdb_path.empty()) {
+    GuessPdbPath(output_dll_path, &output_pdb_path);
+    LOG(INFO) << "Inferring output PDB path from output DLL path: "
+        << output_pdb_path.value();
   }
 
   // Log some info so we know what's about to happen.
@@ -178,7 +243,8 @@ int main(int argc, char** argv) {
                         output_dll_path,
                         output_pdb_path,
                         output_metadata)) {
-    return Usage("Unable to reorder the input image.");
+    LOG(ERROR) << "Unable to reorder the input image.";
+    return 1;
   }
 
   return 0;
