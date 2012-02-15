@@ -22,6 +22,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace playback {
 
@@ -30,6 +31,7 @@ namespace {
 using testing::_;
 using testing::GetSrcRelativePath;
 using testing::GetExeRelativePath;
+using testing::GetExeTestDataRelativePath;
 using testing::Return;
 
 using call_trace::parser::ParseEventHandler;
@@ -56,23 +58,23 @@ class MockParseEventHandler : public testing::StrictMock<ParseEventHandler> {
                size_t, const InvocationInfoBatch*));
 };
 
-class PlaybackTest : public testing::Test {
+class PlaybackTest : public testing::PELibUnitTest {
  public:
   PlaybackTest() : image_layout_(&block_graph_) {
   }
 
   void SetUp() {
     module_path_ =
-        GetSrcRelativePath(L"syzygy/playback/test_data/test_dll.dll");
+        GetExeTestDataRelativePath(kDllName);
 
     instrumented_path_ =
-        GetSrcRelativePath(L"syzygy/playback/test_data/instrumented_dll.dll");
+        GetExeTestDataRelativePath(kRpcInstrumentedDllName);
 
     const FilePath kTraceFiles[] = {
-        GetSrcRelativePath(L"syzygy/playback/test_data/trace-1.bin"),
-        GetSrcRelativePath(L"syzygy/playback/test_data/trace-2.bin"),
-        GetSrcRelativePath(L"syzygy/playback/test_data/trace-3.bin"),
-        GetSrcRelativePath(L"syzygy/playback/test_data/trace-4.bin"),
+        GetExeTestDataRelativePath(L"rpc_traces/trace-1.bin"),
+        GetExeTestDataRelativePath(L"rpc_traces/trace-2.bin"),
+        GetExeTestDataRelativePath(L"rpc_traces/trace-3.bin"),
+        GetExeTestDataRelativePath(L"rpc_traces/trace-4.bin"),
     };
     trace_files_ = Playback::TraceFileList(kTraceFiles,
         kTraceFiles + arraysize(kTraceFiles));
@@ -104,16 +106,8 @@ class PlaybackTest : public testing::Test {
 
 }  // namespace
 
-TEST_F(PlaybackTest, OldDLLNewInstrumentedDLL) {
-  instrumented_path_ =  GetSrcRelativePath(
-      L"test_data/old_instrumented_dll.dll");
-
-  EXPECT_TRUE(Init());
-  EXPECT_FALSE(playback_->Init(&input_dll_, &image_layout_, parser_.get()));
-}
-
-TEST_F(PlaybackTest, NewDLLOldInstrumentedDLL) {
-  module_path_ =  GetSrcRelativePath(L"test_data/old_test_dll.dll");
+TEST_F(PlaybackTest, MismatchedDLLTest) {
+  module_path_ = GetExeTestDataRelativePath(L"randomized_test_dll.dll");
 
   EXPECT_TRUE(Init());
   EXPECT_FALSE(playback_->Init(&input_dll_, &image_layout_, parser_.get()));
