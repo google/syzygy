@@ -51,6 +51,8 @@
       'dependencies': [
         'relink_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
+        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
       ],
       'run_as': {
         'action': [
