@@ -75,6 +75,8 @@ class Playback {
 
   // @name Accessors
   // @{
+  PEFile* pe_file() const { return pe_file_; }
+  ImageLayout* image() const { return image_; }
   const std::vector<OMAP>& omap_to() const { return omap_to_; }
   const std::vector<OMAP>& omap_from() const { return omap_from_; }
   const PEFile::Signature& instr_signature() const { return instr_signature_; }
@@ -109,7 +111,7 @@ class Playback {
   // A pointer to the PE file info for the module we're analyzing. This
   // is actually a pointer to a part of the output structure, but several
   // internals make use of it during processing.
-  PEFile* pe_;
+  PEFile* pe_file_;
 
   // The decomposed image of the module we're analyzing. This is actually
   // a pointer to an image in the output structure, but several internals

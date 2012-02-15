@@ -30,13 +30,13 @@ Playback::Playback(const FilePath& module_path,
     : module_path_(module_path),
       instrumented_path_(instrumented_path),
       trace_files_(trace_files),
-      pe_(NULL),
+      pe_file_(NULL),
       image_(NULL),
       parser_(NULL) {
 }
 
 Playback::~Playback() {
-  pe_ = NULL;
+  pe_file_ = NULL;
   image_ = NULL;
   parser_ = NULL;
 }
@@ -50,11 +50,11 @@ bool Playback::Init(PEFile* pe_file,
   DCHECK(image != NULL);
   DCHECK(parser != NULL);
 
-  DCHECK(pe_ == NULL);
+  DCHECK(pe_file_ == NULL);
   DCHECK(image_ == NULL);
   DCHECK(parser_ == NULL);
 
-  pe_ = pe_file;
+  pe_file_ = pe_file;
   image_ = image;
   parser_ = parser;
 
@@ -72,7 +72,7 @@ bool Playback::Init(PEFile* pe_file,
 }
 
 bool Playback::LoadModuleInformation() {
-  DCHECK(pe_ != NULL);
+  DCHECK(pe_file_ != NULL);
   DCHECK(image_ != NULL);
 
   // Validate the instrumented module, and extract the signature of the original
@@ -91,12 +91,12 @@ bool Playback::LoadModuleInformation() {
 
   // Try to read the input DLL.
   LOG(INFO) << "Reading input DLL.";
-  if (!pe_->Init(module_path_)) {
+  if (!pe_file_->Init(module_path_)) {
     LOG(ERROR) << "Unable to read input image: " << module_path_.value();
     return false;
   }
   pe::PEFile::Signature input_signature;
-  pe_->GetSignature(&input_signature);
+  pe_file_->GetSignature(&input_signature);
 
   // Validate that the input DLL signature matches the original signature
   // extracted from the instrumented module.
@@ -149,13 +149,13 @@ bool Playback::LoadInstrumentedOmap() {
 }
 
 bool Playback::DecomposeImage() {
-  DCHECK(pe_ != NULL);
+  DCHECK(pe_file_ != NULL);
   DCHECK(image_ != NULL);
 
   // Decompose the DLL to be reordered. This will let us map call-trace events
   // to actual Blocks.
   LOG(INFO) << "Decomposing input image.";
-  Decomposer decomposer(*pe_);
+  Decomposer decomposer(*pe_file_);
   if (!decomposer.Decompose(image_)) {
     LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
     return false;
