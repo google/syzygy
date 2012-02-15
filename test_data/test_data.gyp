@@ -130,5 +130,43 @@
         },
       ],
     },
+    {
+      'target_name': 'rpc_traces',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'generate_rpc_traces.bat',
+        'generate_rpc_traces.py',
+      ],
+      'dependencies': [
+        '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        'rpc_instrumented_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_rpc_traces',
+          'inputs': [
+            '$(OutDir)/call_trace_client.dll',
+            '$(OutDir)/call_trace_service.exe',
+            '$(OutDir)/test_data/rpc_instrumented_test_data.dll',
+            '$(OutDir)/test_data/rpc_instrumented_test_data.pdb',
+            '<(DEPTH)/syzygy/test_data/generate_rpc_traces.bat',
+            '<(DEPTH)/syzygy/test_data/generate_rpc_traces.py',
+          ],
+          'outputs': [
+            '$(OutDir)/test_data/rpc_traces/trace-1.bin',
+            '$(OutDir)/test_data/rpc_traces/trace-2.bin',
+            '$(OutDir)/test_data/rpc_traces/trace-3.bin',
+            '$(OutDir)/test_data/rpc_traces/trace-4.bin',
+          ],
+          'action': [
+            '"<(DEPTH)/syzygy/test_data/generate_rpc_traces.bat"',
+            '"--output-dir=$(OutDir)"',
+            '--verbose',
+          ],
+        },
+      ],
+    },
   ],
 }
