@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import httplib
 import json
 import urlparse
 from google.appengine.ext import webapp
@@ -44,7 +45,7 @@ class ClientHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if not client_id:
@@ -57,7 +58,7 @@ class ClientHandler(webapp.RequestHandler):
     else:
       client = client_db.Client.get_by_key_name(client_id, product)
       if not client:
-        self.error(404)  # Not found.
+        self.error(httplib.NOT_FOUND)
         return
 
       metric_keys = metric_db.Metric.all(keys_only=True)
@@ -75,10 +76,10 @@ class ClientHandler(webapp.RequestHandler):
   def post(self, product_id, client_id):
     """Creates a new client.
 
-    /products/<product>/
+    /clients/<product>/
       Creates a new client. The client ID and description should be specified
       in the body of the request.
-    /products/<product>/<client>
+    /clients/<product>/<client>
       Unused.
 
     Args:
@@ -87,22 +88,22 @@ class ClientHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if client_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     client_id = self.request.get('client_id', None)
     description = self.request.get('description', None)
     if not client_id or not description:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Make sure that this client ID doesn't already exist.
     if client_db.Client.get_by_key_name(client_id, product):
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Create a new client.
@@ -113,9 +114,9 @@ class ClientHandler(webapp.RequestHandler):
   def put(self, product_id, client_id):
     """Updates a client.
 
-    /products/<product>/
+    /clients/<product>/
       Unused.
-    /products/<product>/<client>
+    /clients/<product>/<client>
       Updates a client. The description should be specified in the body of the
       request.
 
@@ -125,16 +126,16 @@ class ClientHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if not client_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Make sure that this client ID already exists.
     if not client_db.Client.get_by_key_name(client_id, product):
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Appengine bug: parameters in body aren't parsed for PUT requests.
@@ -142,7 +143,7 @@ class ClientHandler(webapp.RequestHandler):
     params = urlparse.parse_qs(self.request.body)
     description = params.get('description', [None])[0]
     if not description:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Update the client.
@@ -153,9 +154,9 @@ class ClientHandler(webapp.RequestHandler):
   def delete(self, product_id, client_id):
     """Deletes a client.
 
-    /products/<product>/
+    /clients/<product>/
       Unused
-    /products/<product>/<client>
+    /clients/<product>/<client>
       Deletes the specified client.
 
     Args:
@@ -164,17 +165,17 @@ class ClientHandler(webapp.RequestHandler):
     """
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
-      self.error(404)  # Not found.
+      self.error(httplib.NOT_FOUND)
       return
 
     if not client_id:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
 
     # Delete the client.
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(400)  # Bad request.
+      self.error(httplib.BAD_REQUEST)
       return
     
     client.delete()
