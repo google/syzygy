@@ -83,29 +83,29 @@ TEST_F(PERelinkerTest, Properties) {
   EXPECT_EQ(10u, relinker.padding());
 }
 
-TEST_F(PERelinkerTest, FailsOnUnspecifiedInput) {
+TEST_F(PERelinkerTest, InitFailsOnUnspecifiedInput) {
   PERelinker relinker;
 
   relinker.set_output_path(temp_dll_);
-  EXPECT_FALSE(relinker.Relink());
+  EXPECT_FALSE(relinker.Init());
 }
 
-TEST_F(PERelinkerTest, FailsOnUnspecifiedOutput) {
+TEST_F(PERelinkerTest, InitFailsOnUnspecifiedOutput) {
   PERelinker relinker;
 
   relinker.set_input_path(input_dll_);
-  EXPECT_FALSE(relinker.Relink());
+  EXPECT_FALSE(relinker.Init());
 }
 
-TEST_F(PERelinkerTest, FailsOnNonexistentInput) {
+TEST_F(PERelinkerTest, InitFailsOnNonexistentInput) {
   PERelinker relinker;
 
   relinker.set_input_path(temp_dir_.Append(L"nonexistent.dll"));
   relinker.set_output_path(temp_dll_);
-  EXPECT_FALSE(relinker.Relink());
+  EXPECT_FALSE(relinker.Init());
 }
 
-TEST_F(PERelinkerTest, FailsOnDisallowedOverwrite) {
+TEST_F(PERelinkerTest, InitFailsOnDisallowedOverwrite) {
   PERelinker relinker;
 
   // Copy the image in case the test actually does overwrite the input; this
@@ -116,7 +116,28 @@ TEST_F(PERelinkerTest, FailsOnDisallowedOverwrite) {
   relinker.set_output_path(temp_dll_);
 
   relinker.set_allow_overwrite(false);
-  EXPECT_FALSE(relinker.Relink());
+  EXPECT_FALSE(relinker.Init());
+}
+
+TEST_F(PERelinkerTest, InitSucceeds) {
+  PERelinker relinker;
+
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+
+  EXPECT_TRUE(relinker.Init());
+}
+
+TEST_F(PERelinkerTest, IntermediateAccessors) {
+  PERelinker relinker;
+
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+
+  EXPECT_TRUE(relinker.Init());
+
+  EXPECT_EQ(input_dll_, relinker.input_pe_file().path());
+  EXPECT_TRUE(relinker.dos_header_block() != NULL);
 }
 
 TEST_F(PERelinkerTest, IdentityRelink) {
@@ -128,6 +149,7 @@ TEST_F(PERelinkerTest, IdentityRelink) {
   // We let the relinker infer the PDB output. The mechanism should cause it
   // to produce a PDB file in the temporary directory with the same basename
   // as the input PDB.
+  EXPECT_TRUE(relinker.Init());
   EXPECT_TRUE(relinker.Relink());
   EXPECT_EQ(temp_pdb_, relinker.output_pdb_path());
 

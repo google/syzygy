@@ -17,6 +17,38 @@
 // others provided by the user), followed by a sequence of orderers (again, some
 // implicit, some provided by the user), laying-out, finalizing and finally
 // writing a new image. PERelinker encapsulates this workflow.
+//
+// It is intended to be used as follows:
+//
+//   PERelinker relinker;
+//   relinker.set_input_path(...);  // Required.
+//   relinker.set_output_path(...);  // Required.
+//   relinker.set_input_pdb_path(...);  // Optional.
+//   relinker.set_output_pdb_path(...);  // Optional.
+//   relinker.Init();  // Check the return value!
+//
+//   // At this point, the following accessors are valid:
+//   relinker.input_pe_file();
+//   relinker.input_image_layout();
+//   relinker.block_graph();
+//   relinker.dos_header_block();
+//   relinker.output_guid();
+//
+//   relinker.AppendTransform(...);  // May be called repeatedly.
+//   relinker.AppendOrderer(...);  // May be called repeatedly.
+//
+//   relinker.Relink();  // Check the return value!
+//
+// NOTE: This split workflow is only necessary as a workaround to deal with
+//     transforms and orderers built around legacy code. Intermediate
+//     representations of serialized data-structures should be stored in such
+//     a way so as not to explicitly require access to the untransformed image.
+//     Additionally, for checking validity a transform or orderer should require
+//     no more than the PESignature associated with the original module, and/or
+//     the toolchain metadata present in the module, if there was any.
+//
+// TODO(chrisha): Resimplify this API once Reorderer has been reworked to move
+//     away from Block pointers.
 
 #ifndef SYZYGY_PE_PE_RELINKER_H_
 #define SYZYGY_PE_PE_RELINKER_H_
@@ -63,6 +95,7 @@ namespace pe {
 //    input filenames or directly specified.)
 class PERelinker {
  public:
+  typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
   typedef block_graph::BlockGraphTransformInterface Transform;
 
@@ -146,12 +179,40 @@ class PERelinker {
   //     The pointers must remain valid for hte lifespan of the relinker.
   void AppendOrderers(const std::vector<Orderer*>& orderers);
 
-  // Runs the relinker, generating an output image and PDB. This may called
-  // repeatedly (allowing reuse of the relinker) if each user supplied transform
-  // and orderer are reusable.
+  // Runs the initialization phase of the relinker. This consists of decomposing
+  // the input image, after which the intermediate data accessors declared below
+  // become valid. This should typically be followed by a call to Relink.
   //
   // @returns true on success, false otherwise.
+  // @pre input_path and output_path must be set prior to calling this.
+  //     input_pdb_path and output_pdb_path may optionally have been set prior
+  //     to calling this.
+  // @post input_pe_file and input_image_layout may be called after this.
+  bool Init();
+
+  // Runs the relinker, generating an output image and PDB.
+  //
+  // @returns true on success, false otherwise.
+  // @pre Init must have been called successfully.
   bool Relink();
+
+  // @name Intermediate data accessors.
+  // @{
+  // These accessors only return meaningful data after Init has been called. By
+  // the time any transforms or orderers are being called, these will contain
+  // valid data.
+  //
+  // TODO(chrisha): Clean these up as part of the API simplification after
+  //     all legacy code has been refactored.
+  //
+  // @pre Init has been successfully called.
+  const PEFile& input_pe_file() const { return input_pe_file_; }
+  const ImageLayout& input_image_layout() const { return input_image_layout_; }
+  const BlockGraph& block_graph() const { return block_graph_; }
+  const BlockGraph::Block* dos_header_block() const {
+    return dos_header_block_; }
+  const GUID& output_guid() const { return output_guid_; }
+  // @}
 
  private:
   FilePath input_path_;
@@ -171,6 +232,25 @@ class PERelinker {
   // The vector of user supplied transforms and orderers to be applied.
   std::vector<Transform*> transforms_;
   std::vector<Orderer*> orderers_;
+
+  // The internal state of the relinker.
+  bool inited_;
+
+  // Intermediate variables that are initialized and used by Relink. They are
+  // made externally accessible so that transforms and orderers may make use
+  // of them if necessary.
+
+  // These refer to the original image, and don't change after init.
+  PEFile input_pe_file_;
+  ImageLayout input_image_layout_;
+
+  // These refer to the image the whole way through the process. They may
+  // evolve.
+  BlockGraph block_graph_;
+  BlockGraph::Block* dos_header_block_;
+
+  // These are for the new image that will be produced at the end of Relink.
+  GUID output_guid_;
 };
 
 }  // namespace pe

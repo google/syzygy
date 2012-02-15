@@ -69,7 +69,7 @@ bool ApplyOrderer(Orderer* orderer,
   DCHECK(header_block != NULL);
 
   if (!orderer->Apply(obg, header_block)) {
-    LOG(ERROR) << "Orderer \"" << orderer->name() << "\" failed.";
+    LOG(ERROR) << "Orderer failed: " << orderer->name();
     return false;
   }
 
@@ -99,7 +99,7 @@ bool InitializePaths(const FilePath& input_path,
   }
 
   if (!file_util::PathExists(input_path)) {
-    LOG(ERROR) << "Input module not found: \"" << input_path.value() << "\".";
+    LOG(ERROR) << "Input module not found: " << input_path.value();
     return false;
   }
 
@@ -107,15 +107,14 @@ bool InitializePaths(const FilePath& input_path,
   if (input_pdb_path->empty()) {
     LOG(INFO) << "Input PDB not specified, searching for it.";
     if (!FindPdbForModule(input_path, input_pdb_path)) {
-      LOG(ERROR) << "Unable to find PDB file for module \""
-                 << input_path.value() << "\".";
+      LOG(ERROR) << "Unable to find PDB file for module: "
+                 << input_path.value();
       return false;
     }
   }
 
   if (!file_util::PathExists(*input_pdb_path)) {
-    LOG(ERROR) << "Input PDB not found: \"" << input_pdb_path->value()
-               << "\".";
+    LOG(ERROR) << "Input PDB not found: " << input_pdb_path->value();
     return false;
   }
 
@@ -123,8 +122,8 @@ bool InitializePaths(const FilePath& input_path,
   // same base name as the input PDB.
   if (output_pdb_path->empty()) {
     *output_pdb_path = output_path.DirName().Append(input_pdb_path->BaseName());
-    LOG(INFO) << "Using default output PDB path of \""
-              << output_pdb_path->value() << "\".";
+    LOG(INFO) << "Using default output PDB path: "
+              << output_pdb_path->value();
   }
 
   // Ensure we aren't about to overwrite anything we don't want to. We do this
@@ -148,35 +147,30 @@ bool InitializePaths(const FilePath& input_path,
 
 // Decomposes the module enclosed by the given PE file.
 bool Decompose(const PEFile& pe_file,
+               ImageLayout* image_layout,
                BlockGraph* bg,
-               BlockGraph::Block** dos_header_block,
-               RelativeAddressRange* input_range) {
+               BlockGraph::Block** dos_header_block) {
+  DCHECK(image_layout != NULL);
   DCHECK(bg != NULL);
   DCHECK(dos_header_block != NULL);
-  DCHECK(input_range != NULL);
 
-  LOG(INFO) << "Decomposing \"" << pe_file.path().value() << "\".";
+  LOG(INFO) << "Decomposing module: " << pe_file.path().value();
 
   // Decompose the input image.
-  ImageLayout input_image_layout(bg);
   Decomposer decomposer(pe_file);
-  if (!decomposer.Decompose(&input_image_layout)) {
-    LOG(ERROR) << "Unable to decompose \"" << pe_file.path().value() << "\".";
+  if (!decomposer.Decompose(image_layout)) {
+    LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
     return false;
   }
 
   // Get the DOS header block.
   *dos_header_block =
-      input_image_layout.blocks.GetBlockByAddress(
+      image_layout->blocks.GetBlockByAddress(
           BlockGraph::RelativeAddress(0));
   if (*dos_header_block == NULL) {
     LOG(ERROR) << "Unable to find the DOS header block.";
     return false;
   }
-
-  // Get the input range of the image, sans headers. This is required for
-  // generating OMAP information.
-  GetOmapRange(input_image_layout.sections, input_range);
 
   return true;
 }
@@ -192,6 +186,8 @@ bool ApplyTransforms(const FilePath& input_path,
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 
+  LOG(INFO) << "Transforming block graph.";
+
   std::vector<Transform*> local_transforms(*transforms);
 
   pe::transforms::AddMetadataTransform add_metadata_tx(input_path);
@@ -205,6 +201,7 @@ bool ApplyTransforms(const FilePath& input_path,
 
   // Apply the transforms.
   for (size_t i = 0; i < local_transforms.size(); ++i) {
+    LOG(INFO) << "Applying transform: " << local_transforms[i]->name() << ".";
     // ApplyTransform takes care of verbosely logging any failures.
     if (!ApplyTransform(local_transforms[i], block_graph, dos_header_block))
       return false;
@@ -220,25 +217,26 @@ bool ApplyOrderers(std::vector<Orderer*>* orderers,
   DCHECK(obg != NULL);
   DCHECK(dos_header_block != NULL);
 
-  // Apply the orderers.
-  if (orderers->size() == 0) {
-    LOG(INFO) << "No orderers specified, using original orderer.";
+  LOG(INFO) << "Ordering block graph.";
 
-    // No orderer specified? Use the original orderer.
-    block_graph::orderers::OriginalOrderer orig_orderer;
-    if (!ApplyOrderer(&orig_orderer, obg, dos_header_block))
-      return false;
-  } else {
-    for (size_t i = 0; i < orderers->size(); ++i) {
-      if (!ApplyOrderer((*orderers)[i], obg, dos_header_block))
-        return false;
-    }
+  std::vector<Orderer*> local_orderers(*orderers);
+
+  block_graph::orderers::OriginalOrderer orig_orderer;
+  pe::orderers::PEOrderer pe_orderer;
+
+  if (local_orderers.size() == 0) {
+    LOG(INFO) << "No orderers specified, using original orderer.";
+    local_orderers.push_back(&orig_orderer);
   }
 
-  // Apply the PE specific orderer.
-  pe::orderers::PEOrderer pe_orderer;
-  if (!ApplyOrderer(&pe_orderer, obg, dos_header_block))
-    return false;
+  local_orderers.push_back(&pe_orderer);
+
+  // Apply the orderers.
+  for (size_t i = 0; i < local_orderers.size(); ++i) {
+    LOG(INFO) << "Applying orderer: " << local_orderers[i]->name();
+    if (!ApplyOrderer(local_orderers[i], obg, dos_header_block))
+      return false;
+  }
 
   return true;
 }
@@ -251,7 +249,7 @@ bool BuildImageLayout(size_t padding,
   DCHECK(dos_header_block != NULL);
   DCHECK(image_layout != NULL);
 
-  LOG(INFO) << "Laying out image.";
+  LOG(INFO) << "Building image layout.";
 
   ImageLayoutBuilder builder(image_layout);
   builder.set_padding(padding);
@@ -265,6 +263,7 @@ bool BuildImageLayout(size_t padding,
     return false;
   }
 
+  LOG(INFO) << "Finalizing image layout.";
   if (!builder.Finalize()) {
     LOG(ERROR) << "ImageLayoutBuilder::Finalize failed.";
     return false;
@@ -287,7 +286,7 @@ bool WriteImage(const ImageLayout& image_layout, const FilePath& output_path) {
 }
 
 void BuildOmapVectors(const RelativeAddressRange& input_range,
-                      const ImageLayout& new_image_layout,
+                      const ImageLayout& output_image_layout,
                       std::vector<OMAP>* omap_to,
                       std::vector<OMAP>* omap_from) {
   DCHECK(omap_to != NULL);
@@ -295,13 +294,13 @@ void BuildOmapVectors(const RelativeAddressRange& input_range,
 
   LOG(INFO) << "Building OMAP vectors.";
 
-  // Get the input range of the image, sans headers. This is required for
+  // Get the range of the output image, sans headers. This is required for
   // generating OMAP information.
   RelativeAddressRange output_range;
-  GetOmapRange(new_image_layout.sections, &output_range);
+  GetOmapRange(output_image_layout.sections, &output_range);
 
   ImageSourceMap reverse_map;
-  BuildImageSourceMap(new_image_layout, &reverse_map);
+  BuildImageSourceMap(output_image_layout, &reverse_map);
 
   ImageSourceMap forward_map;
   if (reverse_map.ComputeInverse(&forward_map) != 0) {
@@ -355,7 +354,9 @@ bool WritePdbFile(const RelativeAddressRange input_range,
 }  // namespace
 
 PERelinker::PERelinker()
-    : add_metadata_(true), allow_overwrite_(false), padding_(0) {
+    : add_metadata_(true), allow_overwrite_(false), padding_(0),
+      inited_(false), input_image_layout_(&block_graph_),
+      dos_header_block_(NULL), output_guid_(GUID_NULL) {
 }
 
 void PERelinker::AppendTransform(Transform* transform) {
@@ -376,7 +377,9 @@ void PERelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
   orderers_.insert(orderers_.end(), orderers.begin(), orderers.end());
 }
 
-bool PERelinker::Relink() {
+bool PERelinker::Init() {
+  DCHECK(inited_ == false);
+
   // Initialize the paths.
   if (!InitializePaths(input_path_, output_path_, allow_overwrite_,
                        &input_pdb_path_, &output_pdb_path_)) {
@@ -389,51 +392,64 @@ bool PERelinker::Relink() {
   LOG(INFO) << "Output PDB   : " << output_pdb_path_.value();
 
   // Open the input PE file.
-  PEFile pe_file;
-  if (!pe_file.Init(input_path_)) {
+  if (!input_pe_file_.Init(input_path_)) {
     LOG(ERROR) << "Unable to load \"" << input_path_.value() << "\".";
     return false;
   }
 
   // Generate a GUID for the relinked image's PDB file.
-  GUID guid = { 0 };
-  if (FAILED(::CoCreateGuid(&guid))) {
+  if (FAILED(::CoCreateGuid(&output_guid_))) {
     LOG(ERROR) << "Failed to create new PDB GUID.";
     return false;
   }
 
   // Decompose the image.
-  BlockGraph block_graph;
-  BlockGraph::Block* dos_header_block = NULL;
-  RelativeAddressRange input_range;
-  if (!Decompose(pe_file, &block_graph, &dos_header_block, &input_range))
+  if (!Decompose(input_pe_file_, &input_image_layout_, &block_graph_,
+                 &dos_header_block_)) {
     return false;
+  }
+
+  inited_ = true;
+
+  return true;
+}
+
+bool PERelinker::Relink() {
+  if (!inited_) {
+    LOG(ERROR) << "Init has not been successfully called.";
+    return false;
+  }
 
   // Transform it.
-  if (!ApplyTransforms(input_path_, output_pdb_path_, guid, add_metadata_,
-                       &transforms_, &block_graph, dos_header_block)) {
+  if (!ApplyTransforms(input_path_, output_pdb_path_, output_guid_,
+                       add_metadata_, &transforms_, &block_graph_,
+                       dos_header_block_)) {
     return false;
   }
 
   // Order it.
-  OrderedBlockGraph ordered_block_graph(&block_graph);
-  if (!ApplyOrderers(&orderers_, &ordered_block_graph, dos_header_block))
+  OrderedBlockGraph ordered_block_graph(&block_graph_);
+  if (!ApplyOrderers(&orderers_, &ordered_block_graph, dos_header_block_))
     return false;
 
   // Lay it out.
-  ImageLayout image_layout(&block_graph);
-  if (!BuildImageLayout(padding_, ordered_block_graph, dos_header_block,
-                        &image_layout)) {
+  ImageLayout output_image_layout(&block_graph_);
+  if (!BuildImageLayout(padding_, ordered_block_graph, dos_header_block_,
+                        &output_image_layout)) {
     return false;
   }
 
   // Write the image.
-  if (!WriteImage(image_layout, output_path_))
+  if (!WriteImage(output_image_layout, output_path_))
     return false;
 
+  // Get the input range of the image. This is needed for writing the OMAPs.
+  RelativeAddressRange input_range;
+  GetOmapRange(input_image_layout_.sections, &input_range);
+
   // Write the PDB file.
-  if (!WritePdbFile(input_range, image_layout, guid, input_pdb_path_,
-                    output_pdb_path_)) {
+  if (!WritePdbFile(input_range, output_image_layout, output_guid_,
+                    input_pdb_path_, output_pdb_path_)) {
     return false;
   }
 
