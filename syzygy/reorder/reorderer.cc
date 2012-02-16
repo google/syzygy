@@ -76,15 +76,10 @@ Reorderer::Reorderer(const FilePath& module_path,
                      const FilePath& instrumented_path,
                      const TraceFileList& trace_files,
                      Flags flags)
-    : module_path_(module_path),
-      instrumented_path_(instrumented_path),
-      trace_files_(trace_files),
+    : playback_(module_path, instrumented_path, trace_files),
       flags_(flags),
       code_block_entry_events_(0),
-      order_generator_(NULL),
-      pe_(NULL),
-      image_(NULL),
-      parser_(NULL) {
+      order_generator_(NULL) {
 }
 
 Reorderer::~Reorderer() {
@@ -98,169 +93,43 @@ bool Reorderer::Reorder(OrderGenerator* order_generator,
   DCHECK(order != NULL);
 
   DCHECK(order_generator_ == NULL);
-  DCHECK(pe_ == NULL);
-  DCHECK(image_ == NULL);
-
-  // Only allocate a parser if we need to. This allows unittests to manually
-  // allocate a parser prior to calling this function. It is expected that the
-  // parser not yet be initialized.
-  scoped_ptr<Parser> parser;
-  if (parser_ == NULL) {
-    parser.reset(new Parser());
-    parser_ = parser.get();
-  }
-
-  if (!parser_->Init(this)) {
-    LOG(ERROR) << "Failed to initialize call trace parser.";
-    // If we created the object that parser_ refers to, reset the pointer.
-    // Otherwise we leave it as it was when we found it.
-    if (parser.get() != NULL)
-      parser_ = NULL;
-    return false;
-  }
-
   order_generator_ = order_generator;
-  pe_ = pe_file;
-  image_ = image;
 
-  bool success = ReorderImpl(order);
+  bool success = ReorderImpl(order, pe_file, image);
 
   order_generator_ = NULL;
-  pe_ = NULL;
-  image_ = NULL;
-  parser_ = NULL;
 
   return success;
 }
 
-bool Reorderer::ReorderImpl(Order* order) {
+bool Reorderer::ReorderImpl(Order* order,
+                            PEFile* pe_file,
+                            ImageLayout* image) {
   DCHECK(order != NULL);
   DCHECK(order_generator_ != NULL);
-  DCHECK(pe_ != NULL);
-  DCHECK(image_ != NULL);
 
-  if (!LoadModuleInformation())
-    return false;
-  if (!InitializeParser())
-    return false;
-  if (!LoadInstrumentedOmap())
-    return false;
-  if (!DecomposeImage())
-    return false;
-  if (!ConsumeCallTraceEvents())
-    return false;
-  if (!CalculateReordering(order))
-    return false;
+   if (!parser_.Init(this)) {
+    LOG(ERROR) << "Failed to initialize call trace parser.";
 
-  return true;
-}
-
-bool Reorderer::LoadModuleInformation() {
-  DCHECK(pe_ != NULL);
-  DCHECK(image_ != NULL);
-
-  // Validate the instrumented module, and extract the signature of the original
-  // module it was built from.
-  pe::PEFile::Signature orig_signature;
-  if (!ValidateInstrumentedModuleAndParseSignature(&orig_signature))
-    return false;
-
-  // If the input DLL path is empty, use the inferred one from the
-  // instrumented module.
-  if (module_path_.empty()) {
-    LOG(INFO) << "Inferring input DLL path from instrumented module: "
-              << orig_signature.path;
-    module_path_ = FilePath(orig_signature.path);
-  }
-
-  LOG(INFO) << "Reading input DLL.";
-  if (!pe_->Init(module_path_)) {
-    LOG(ERROR) << "Unable to read input image: " << module_path_.value();
-    return false;
-  }
-  pe::PEFile::Signature input_signature;
-  pe_->GetSignature(&input_signature);
-
-  // Validate that the input DLL signature matches the original signature
-  // extracted from the instrumented module.
-  if (!orig_signature.IsConsistent(input_signature)) {
-    LOG(ERROR) << "Instrumented module metadata does not match input module.";
     return false;
   }
 
-  return true;
-}
-
-bool Reorderer::InitializeParser() {
-  // Open the log files. We do this before running the decomposer as if these
-  // fail we'll have wasted a lot of time!
-
-  for (TraceFileIter i = trace_files_.begin(); i < trace_files_.end(); ++i) {
-    const FilePath& trace_path = *i;
-    LOG(INFO) << "Opening '" << trace_path.BaseName().value() << "'.";
-    if (!parser_->OpenTraceFile(trace_path)) {
-      LOG(ERROR) << "Unable to open trace log: " << trace_path.value();
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool Reorderer::LoadInstrumentedOmap() {
-  // Find the PDB file for the instrumented module.
-  FilePath instrumented_pdb;
-  if (!pe::FindPdbForModule(instrumented_path_, &instrumented_pdb) ||
-      instrumented_pdb.empty()) {
-    LOG(ERROR) << "Unable to find PDB for instrumented image \""
-               << instrumented_path_.value() << "\".";
+  if (!playback_.Init(pe_file, image, &parser_))
     return false;
-  }
-  LOG(INFO) << "Found PDB for instrumented module: \""
-            << instrumented_pdb.value() << "\".";
 
-  // Load the OMAPTO table from the instrumented PDB. This will allow us to map
-  // call-trace event addresses to addresses in the original image.
-  if (!pdb::ReadOmapsFromPdbFile(instrumented_pdb, &omap_to_, &omap_from_)) {
-    LOG(ERROR) << "Failed to read OMAPTO vector from PDB \""
-               << instrumented_pdb.value() << "\".";
-    return false;
-  }
-  LOG(INFO) << "Read OMAP data from instrumented module PDB.";
-
-  return true;
-}
-
-bool Reorderer::DecomposeImage() {
-  DCHECK(pe_ != NULL);
-  DCHECK(image_ != NULL);
-
-  // Decompose the DLL to be reordered. This will let us map call-trace events
-  // to actual Blocks.
-  LOG(INFO) << "Decomposing input image.";
-  Decomposer decomposer(*pe_);
-  if (!decomposer.Decompose(image_)) {
-    LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
-    return false;
-  }
-
-  return true;
-}
-
-bool Reorderer::ConsumeCallTraceEvents() {
-  // Parse the logs.
-  if (trace_files_.size() > 0) {
+  if (playback_.trace_files().size() > 0) {
     LOG(INFO) << "Processing trace events.";
-    if (!parser_->Consume()) {
-      LOG(ERROR) << "Failed to consume call trace events.";
+    if (!parser_.Consume())
       return false;
-    }
 
     if (code_block_entry_events_ == 0) {
       LOG(ERROR) << "No events originated from the given instrumented DLL.";
       return false;
     }
   }
+
+  if (!CalculateReordering(order))
+    return false;
 
   return true;
 }
@@ -270,8 +139,8 @@ bool Reorderer::CalculateReordering(Order* order) {
   DCHECK(order_generator_ != NULL);
 
   LOG(INFO) << "Calculating new order.";
-  if (!order_generator_->CalculateReordering(*pe_,
-                                             *image_,
+  if (!order_generator_->CalculateReordering(*playback_.pe_file(),
+                                             *playback_.image(),
                                              (flags_ & kFlagReorderCode) != 0,
                                              (flags_ & kFlagReorderData) != 0,
                                              order))
@@ -283,53 +152,6 @@ bool Reorderer::CalculateReordering(Order* order) {
   return true;
 }
 
-bool Reorderer::ValidateInstrumentedModuleAndParseSignature(
-    pe::PEFile::Signature* orig_signature) {
-  DCHECK(orig_signature != NULL);
-
-  pe::PEFile pe_file;
-  if (!pe_file.Init(instrumented_path_)) {
-    LOG(ERROR) << "Unable to parse instrumented module: "
-               << instrumented_path_.value();
-    return false;
-  }
-  pe_file.GetSignature(&instr_signature_);
-
-  // Load the metadata from the PE file. Validate the toolchain version and
-  // return the original module signature.
-  pe::Metadata metadata;
-  if (!metadata.LoadFromPE(pe_file))
-    return false;
-  *orig_signature = metadata.module_signature();
-
-  if (!common::kSyzygyVersion.IsCompatible(metadata.toolchain_version())) {
-    LOG(ERROR) << "Module was instrumented with an incompatible version of "
-               << "the toolchain: " << instrumented_path_.value();
-    return false;
-  }
-
-  return true;
-}
-
-bool Reorderer::MatchesInstrumentedModuleSignature(
-    const ModuleInformation& module_info) const {
-  // On Windows XP gathered traces, only the module size is non-zero.
-  if (module_info.image_checksum == 0 && module_info.time_date_stamp == 0) {
-    // If the size matches, then check that the names fit.
-    if (instr_signature_.module_size != module_info.module_size)
-      return false;
-
-    FilePath base_name = instrumented_path_.BaseName();
-    return (module_info.image_file_name.rfind(base_name.value()) !=
-        std::wstring::npos);
-  } else {
-    // On Vista and greater, we can check the full module signature.
-    return (instr_signature_.module_checksum == module_info.image_checksum &&
-        instr_signature_.module_size == module_info.module_size &&
-        instr_signature_.module_time_date_stamp == module_info.time_date_stamp);
-  }
-}
-
 void Reorderer::OnProcessStarted(base::Time time, DWORD process_id) {
   // We ignore these events and infer/pretend that a process we're interested
   // in has started when it begins to generate trace events.
@@ -338,7 +160,7 @@ void Reorderer::OnProcessStarted(base::Time time, DWORD process_id) {
 void Reorderer::OnProcessEnded(base::Time time, DWORD process_id) {
   // Notify the order generator.
   if (!order_generator_->OnProcessEnded(process_id, UniqueTime(time))) {
-    parser_->set_error_occurred(true);
+    parser_.set_error_occurred(true);
     return;
   }
 
@@ -355,18 +177,18 @@ void Reorderer::OnFunctionEntry(base::Time time,
   AbsoluteAddress64 function_address =
       reinterpret_cast<AbsoluteAddress64>(data->function);
   const ModuleInformation* module_info =
-      parser_->GetModuleInformation(process_id, function_address);
+      parser_.GetModuleInformation(process_id, function_address);
 
   // We should be able to resolve the instrumented module.
   if (module_info == NULL) {
     LOG(ERROR) << "Failed to resolve module for entry event (pid="
                << process_id << ", addr=0x" << data->function << ").";
-    parser_->set_error_occurred(true);
+    parser_.set_error_occurred(true);
     return;
   }
 
   // Ignore events not belonging to the instrumented module of interest.
-  if (!MatchesInstrumentedModuleSignature(*module_info)) {
+  if (!playback_.MatchesInstrumentedModuleSignature(*module_info)) {
     return;
   }
 
@@ -377,20 +199,20 @@ void Reorderer::OnFunctionEntry(base::Time time,
 
   // Convert the address from one in the instrumented module to one in the
   // original module using the OMAP data.
-  rva = pdb::TranslateAddressViaOmap(omap_to_, rva);
+  rva = pdb::TranslateAddressViaOmap(playback_.omap_to(), rva);
 
   // Get the block that this function call refers to.
   const BlockGraph::Block* block =
-      image_->blocks.GetBlockByAddress(rva);
+      playback_.image()->blocks.GetBlockByAddress(rva);
   if (block == NULL) {
     LOG(ERROR) << "Unable to map " << rva << " to a block.";
-    parser_->set_error_occurred(true);
+    parser_.set_error_occurred(true);
     return;
   }
   if (block->type() != BlockGraph::CODE_BLOCK) {
     LOG(ERROR) << rva << " maps to a non-code block (" << block->name()
                << " in " << module_info->image_file_name << ").";
-    parser_->set_error_occurred(true);
+    parser_.set_error_occurred(true);
     return;
   }
 
@@ -405,7 +227,7 @@ void Reorderer::OnFunctionEntry(base::Time time,
   // OnProcessStarted event.
   if (matching_process_ids_.insert(process_id).second) {
     if (!order_generator_->OnProcessStarted(process_id, entry_time)) {
-      parser_->set_error_occurred(true);
+      parser_.set_error_occurred(true);
       return;
     }
   }
@@ -415,7 +237,7 @@ void Reorderer::OnFunctionEntry(base::Time time,
                                           process_id,
                                           thread_id,
                                           entry_time)) {
-    parser_->set_error_occurred(true);
+    parser_.set_error_occurred(true);
     return;
   }
 }

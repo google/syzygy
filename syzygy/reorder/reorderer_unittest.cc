@@ -27,7 +27,9 @@ namespace reorder {
 using call_trace::parser::ParseEngine;
 using call_trace::parser::Parser;
 using testing::_;
+using testing::DoAll;
 using testing::InSequence;
+using testing::InvokeWithoutArgs;
 using testing::Return;
 
 namespace {
@@ -40,13 +42,12 @@ class TestReorderer : public Reorderer {
                 const TraceFileList& trace_files,
                 Flags flags);
 
-  const PEFile::Signature& instr_signature() const { return instr_signature_; }
-  ImageLayout* image() { return image_; }
-  const std::vector<OMAP>& omap_from() const { return omap_from_; }
-  Parser& parser() { return custom_parser_; }
+  const PEFile::Signature& instr_signature() const {
+    return playback_.instr_signature();
+  }
 
- private:
-  Parser custom_parser_;
+  Parser& parser() { return parser_; }
+  Playback* playback() { return &playback_; }
 };
 
 // A dummy order generator that does nothing but record events fed to it via
@@ -149,9 +150,6 @@ TestReorderer::TestReorderer(const FilePath& module_path,
                              const TraceFileList& trace_files,
                              Flags flags)
     : Reorderer(module_path, instrumented_path, trace_files, flags) {
-  // Ensure that our dummy parse engine is registered first so that the Parser
-  // facade will choose it.
-  parser_ = &custom_parser_;
 }
 
 const DWORD kProcessId = 0xAAAAAAAA;
@@ -207,8 +205,9 @@ bool TestParseEngine::ConsumeAllEvents() {
 
   // Get all of the code blocks in the original image.
   BlockGraph::AddressSpace::RangeMapConstIter block_it =
-      reorderer_->image()->blocks.begin();
-  for (; block_it != reorderer_->image()->blocks.end(); ++block_it) {
+      reorderer_->playback()->image()->blocks.begin();
+  for (; block_it != reorderer_->playback()->image()->blocks.end();
+       ++block_it) {
     if (block_it->second->type() == BlockGraph::CODE_BLOCK)
       blocks.push_back(block_it->second);
   }
@@ -230,7 +229,8 @@ bool TestParseEngine::ConsumeAllEvents() {
     for (size_t j = 0; j < kBatchCallCount; ++j) {
       // Get the address of this block as an RVA in the instrumented module.
       RelativeAddress rva = blocks[i + j]->addr();
-      rva = pdb::TranslateAddressViaOmap(reorderer_->omap_from(), rva);
+      rva = pdb::TranslateAddressViaOmap(reorderer_->playback()->omap_from(),
+                                         rva);
 
       // Convert this to an absolute address using the base address from above.
       uint64 abs = sig.base_address.value() + rva.value();
@@ -250,7 +250,8 @@ bool TestParseEngine::ConsumeAllEvents() {
   for (; i < blocks.size(); ++i) {
     // Get the address of this block as an RVA in the instrumented module.
     RelativeAddress rva = blocks[i]->addr();
-    rva = pdb::TranslateAddressViaOmap(reorderer_->omap_from(), rva);
+    rva = pdb::TranslateAddressViaOmap(reorderer_->playback()->omap_from(),
+                                       rva);
 
     // Convert this to an absolute address using the base address from above.
     uint64 abs = sig.base_address.value() + rva.value();

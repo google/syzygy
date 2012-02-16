@@ -75,8 +75,9 @@ class Playback {
 
   // @name Accessors
   // @{
-  PEFile* pe_file() const { return pe_file_; }
-  ImageLayout* image() const { return image_; }
+  const PEFile* pe_file() const { return pe_file_; }
+  const ImageLayout* image() const { return image_; }
+  const TraceFileList& trace_files() const { return trace_files_; }
   const std::vector<OMAP>& omap_to() const { return omap_to_; }
   const std::vector<OMAP>& omap_from() const { return omap_from_; }
   const PEFile::Signature& instr_signature() const { return instr_signature_; }

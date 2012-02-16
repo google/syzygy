@@ -32,6 +32,7 @@
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"
+#include "syzygy/playback/playback.h"
 #include "syzygy/trace/parse/parser.h"
 
 // Forward declaration.
@@ -44,6 +45,7 @@ namespace reorder {
 typedef uint64 AbsoluteAddress64;
 typedef uint64 Size64;
 
+// TODO(fixman): change the scope of these statements to class-scope.
 using block_graph::BlockGraph;
 using call_trace::parser::ModuleInformation;
 using call_trace::parser::ParseEventHandler;
@@ -58,11 +60,14 @@ using pe::PEFile;
 // while driving an OrderGenerator instance to produce an ordering file.
 class Reorderer : public ParseEventHandler {
  public:
+  typedef playback::Playback Playback;
+
+  typedef Playback::TraceFileList TraceFileList;
+  typedef Playback::TraceFileIter TraceFileIter;
+
   struct Order;
   class OrderGenerator;
   class UniqueTime;
-  typedef std::vector<FilePath> TraceFileList;
-  typedef TraceFileList::iterator TraceFileIter;
 
   // A bit flag of directives that the derived reorderer should attempt
   // to satisfy.
@@ -74,6 +79,10 @@ class Reorderer : public ParseEventHandler {
   typedef uint32 Flags;
 
   // Construct a new reorder instance.
+  // @param module_path The path of the module dll.
+  // @param instrumented_path The path of the instrumented dll.
+  // @param trace_files A list of trace files to analyze.
+  // @param flags Flags passed to Reorderer.
   Reorderer(const FilePath& module_path,
             const FilePath& instrumented_path,
             const TraceFileList& trace_files,
@@ -89,46 +98,27 @@ class Reorderer : public ParseEventHandler {
   //     way the Windows ETW API is structured. This is enforced in debug
   //     builds.
   //
-  // Returns true on success, false otherwise. @p order must not be NULL.
+  // @returns true on success, false otherwise.
+  // @pre order must not be NULL.
   bool Reorder(OrderGenerator* order_generator,
                Order* order,
                PEFile* pe_file,
                ImageLayout* image);
 
-  // Returns the reorderer directives provided at Init time.
+  // @name Accessors
+  // @{
   Flags flags() const { return flags_; }
+  const Parser& parser() const { return parser_; }
+  // @}
 
  protected:
   typedef std::set<uint32> ProcessSet;
 
-  // The actual implementation of Reorder.
-  bool ReorderImpl(Order* order);
+  // The implementation of Reorder.
+  bool ReorderImpl(Order* order, PEFile* pe_file, ImageLayout* image);
 
-  // The following functions represented the workflow of ReorderImpl.
-
-  // Loads information from the instrumented and original modules.
-  bool LoadModuleInformation();
-  // Initializes the parser.
-  bool InitializeParser();
-  // Loads OMAP information for the instrumented module.
-  bool LoadInstrumentedOmap();
-  // Decomposes the original image.
-  bool DecomposeImage();
-  // Consumes the events from the call-tracer parser.
-  bool ConsumeCallTraceEvents();
   // Calculates the actual reordering.
   bool CalculateReordering(Order* order);
-
-  // Parses the instrumented DLL headers, validating that it was produced
-  // by a compatible version of the toolchain, and extracting signature
-  // information and metadata. Returns true on success, false otherwise.
-  bool ValidateInstrumentedModuleAndParseSignature(
-      PEFile::Signature* orig_signature);
-
-  // Returns true if the given ModuleInformation matches the instrumented
-  // module signature, false otherwise.
-  bool MatchesInstrumentedModuleSignature(
-      const ModuleInformation& module_info) const;
 
   // @name ParseEventHandler Implementation
   // @{
@@ -169,14 +159,12 @@ class Reorderer : public ParseEventHandler {
                                  const InvocationInfoBatch* data) OVERRIDE;
   // @}
 
-  FilePath module_path_;
-  FilePath instrumented_path_;
-  TraceFileList trace_files_;
+  // A playback, which will decompose the image for us.
+  Playback playback_;
 
-  // Signature of the instrumented DLL. Used for filtering call-trace events.
-  PEFile::Signature instr_signature_;
   // A set of flags controlling the reorderer behaviour.
   Flags flags_;
+
   // Number of CodeBlockEntry events processed.
   size_t code_block_entry_events_;
 
@@ -184,27 +172,9 @@ class Reorderer : public ParseEventHandler {
   // A pointer to our order generator delegate.
   OrderGenerator* order_generator_;
 
-  // A pointer to the PE file info for the module we're reordering. This
-  // is actually a pointer to a part of the output structure, but several
-  // internals make use of it during processing.
-  PEFile* pe_;
-
-  // The decomposed image of the module we're reordering. This is actually
-  // a pointer to an image in the output structure, but several internals
-  // make use of it during processing.
-  ImageLayout* image_;
-
-  // The OMAP info from the instrumented module's PDB. Used for mapping
-  // addresses back and forth between the instrumented DLL and the original DLL.
-  std::vector<OMAP> omap_to_;
-  std::vector<OMAP> omap_from_;
-
-  // The call-trace log file parser. This can be preset to a custom parser
-  // prior to calling Reorder, but said parser must not already be initialized.
-  // Since the parser is one-time-use, it must also be replaced prior to any
-  // repeated calls to the Reorder. This muchanism is only intended for unit
-  // testing.
-  Parser* parser_;
+  // The call-trace log file parser. It is used in conjunction with Playback
+  // to trace the log file and capture events.
+  Parser parser_;
 
   // The set of processes of interest. That is, those that have had code
   // run in the instrumented module. These are the only processes for which
