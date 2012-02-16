@@ -43,7 +43,9 @@
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(DEPTH)/syzygy/playback/playback.gyp:playback_lib',
       ],
     },
     {
