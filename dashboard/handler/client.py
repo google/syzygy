@@ -86,11 +86,7 @@ class ClientHandler(webapp.RequestHandler):
       product_id: The product ID.
       client_id: The client ID. Must be empty.
     """
-    product = product_db.Product.get_by_key_name(product_id)
-    if not product:
-      self.error(httplib.NOT_FOUND)
-      return
-
+    # Validate input.
     if client_id:
       self.error(httplib.BAD_REQUEST)
       return
@@ -99,6 +95,12 @@ class ClientHandler(webapp.RequestHandler):
     description = self.request.get('description', None)
     if not client_id or not description:
       self.error(httplib.BAD_REQUEST)
+      return
+
+    # Perform DB lookups.
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(httplib.NOT_FOUND)
       return
 
     # Make sure that this client ID doesn't already exist.
@@ -124,17 +126,8 @@ class ClientHandler(webapp.RequestHandler):
       product_id: The product ID.
       client_id: The client ID. Must not be empty.
     """
-    product = product_db.Product.get_by_key_name(product_id)
-    if not product:
-      self.error(httplib.NOT_FOUND)
-      return
-
+    # Validate input
     if not client_id:
-      self.error(httplib.BAD_REQUEST)
-      return
-
-    # Make sure that this client ID already exists.
-    if not client_db.Client.get_by_key_name(client_id, product):
       self.error(httplib.BAD_REQUEST)
       return
 
@@ -146,9 +139,19 @@ class ClientHandler(webapp.RequestHandler):
       self.error(httplib.BAD_REQUEST)
       return
 
+    # Perform DB lookups.
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(httplib.NOT_FOUND)
+      return
+
+    client = client_db.Client.get_by_key_name(client_id, product)
+    if not client:
+      self.error(httplib.NOT_FOUND)
+      return
+
     # Update the client.
-    client = client_db.Client(key_name=client_id, parent=product,
-                              description=description)
+    client.description = description
     client.put()
 
   def delete(self, product_id, client_id):
@@ -163,19 +166,21 @@ class ClientHandler(webapp.RequestHandler):
       product_id: The product ID.
       client_id: The client ID. Must not be empty.
     """
+    # Validate input.
+    if not client_id:
+      self.error(httplib.BAD_REQUEST)
+      return
+
+    # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
       self.error(httplib.NOT_FOUND)
       return
 
-    if not client_id:
-      self.error(httplib.BAD_REQUEST)
-      return
-
-    # Delete the client.
     client = client_db.Client.get_by_key_name(client_id, product)
     if not client:
-      self.error(httplib.BAD_REQUEST)
+      self.error(httplib.NOT_FOUND)
       return
     
+    # Delete the client.
     client.delete()

@@ -176,7 +176,7 @@ class DatumHandler(webapp.RequestHandler):
       metric_id: The metric ID.
       datum_id: The datum ID. Must not be empty.
     """
-    # Validate input
+    # Validate input.
     if not datum_id:
       self.error(httplib.BAD_REQUEST)
       return
@@ -244,7 +244,7 @@ class DatumHandler(webapp.RequestHandler):
       metric_id: The metric ID.
       datum_id: The datum ID. Must not be empty.
     """
-    # Validate input
+    # Validate input.
     if not datum_id:
       self.error(httplib.BAD_REQUEST)
       return
@@ -271,10 +271,10 @@ class DatumHandler(webapp.RequestHandler):
       self.error(httplib.NOT_FOUND)
       return
 
-    # Delete the metric.
     datum = datum_db.Datum.get_by_id(datum_id, metric)
     if not datum:
-      self.error(httplib.BAD_REQUEST)
+      self.error(httplib.NOT_FOUND)
       return
 
+    # Delete the datum.
     datum.delete()

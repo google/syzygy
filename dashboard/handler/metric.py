@@ -92,16 +92,7 @@ class MetricHandler(webapp.RequestHandler):
       client_id: The client ID.
       metric_id: The metric ID. Must be empty.
     """
-    product = product_db.Product.get_by_key_name(product_id)
-    if not product:
-      self.error(httplib.NOT_FOUND)
-      return
-
-    client = client_db.Client.get_by_key_name(client_id, product)
-    if not client:
-      self.error(httplib.NOT_FOUND)
-      return
-
+    # Validate input.
     if metric_id:
       self.error(httplib.BAD_REQUEST)
       return
@@ -111,6 +102,17 @@ class MetricHandler(webapp.RequestHandler):
     units = self.request.get('units', None)
     if not metric_id or not description or not units:
       self.error(httplib.BAD_REQUEST)
+      return
+
+    # Perform DB lookups.
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(httplib.NOT_FOUND)
+      return
+
+    client = client_db.Client.get_by_key_name(client_id, product)
+    if not client:
+      self.error(httplib.NOT_FOUND)
       return
 
     # Make sure that this metric ID doesn't already exist.
@@ -138,22 +140,8 @@ class MetricHandler(webapp.RequestHandler):
       client_id: The client ID.
       metric_id: The metric ID. Must not be empty.
     """
-    product = product_db.Product.get_by_key_name(product_id)
-    if not product:
-      self.error(httplib.NOT_FOUND)
-      return
-
-    client = client_db.Client.get_by_key_name(client_id, product)
-    if not client:
-      self.error(httplib.NOT_FOUND)
-      return
-
+    # Validate input.
     if not metric_id:
-      self.error(httplib.BAD_REQUEST)
-      return
-
-    # Make sure that this metric ID already exists.
-    if not metric_db.Metric.get_by_key_name(metric_id, client):
       self.error(httplib.BAD_REQUEST)
       return
 
@@ -166,9 +154,25 @@ class MetricHandler(webapp.RequestHandler):
       self.error(httplib.BAD_REQUEST)
       return
 
+    # Perform DB lookups.
+    product = product_db.Product.get_by_key_name(product_id)
+    if not product:
+      self.error(httplib.NOT_FOUND)
+      return
+
+    client = client_db.Client.get_by_key_name(client_id, product)
+    if not client:
+      self.error(httplib.NOT_FOUND)
+      return
+
+    metric = metric_db.Metric.get_by_key_name(metric_id, client)
+    if not metric:
+      self.error(httplib.NOT_FOUND)
+      return
+
     # Update the metric.
-    metric = metric_db.Metric(key_name=metric_id, parent=client,
-                              description=description, units=units)
+    metric.description = description
+    metric.units = units
     metric.put()
 
   def delete(self, product_id, client_id, metric_id):
@@ -184,6 +188,12 @@ class MetricHandler(webapp.RequestHandler):
       client_id: The client ID.
       metric_id: The metric ID. Must not be empty.
     """
+    # Validate input.
+    if not metric_id:
+      self.error(httplib.BAD_REQUEST)
+      return
+
+    # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
       self.error(httplib.NOT_FOUND)
@@ -194,14 +204,10 @@ class MetricHandler(webapp.RequestHandler):
       self.error(httplib.NOT_FOUND)
       return
 
-    if not metric_id:
-      self.error(httplib.BAD_REQUEST)
+    metric = metric_db.Metric.get_by_key_name(metric_id, client)
+    if not metric:
+      self.error(httplib.NOT_FOUND)
       return
 
     # Delete the metric.
-    metric = metric_db.Metric.get_by_key_name(metric_id, client)
-    if not metric:
-      self.error(httplib.BAD_REQUEST)
-      return
-
     metric.delete()

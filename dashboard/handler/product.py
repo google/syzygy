@@ -72,6 +72,7 @@ class ProductHandler(webapp.RequestHandler):
     Args:
       product_id: The product ID. Must be empty.
     """
+    # Validate input.
     if product_id:
       self.error(httplib.BAD_REQUEST)
       return
@@ -81,6 +82,7 @@ class ProductHandler(webapp.RequestHandler):
       self.error(httplib.BAD_REQUEST)
       return
 
+    # Perform DB lookups.
     # Make sure that this product ID does not already exist.
     if product_db.Product.get_by_key_name(product_id):
       self.error(httplib.BAD_REQUEST)
@@ -101,14 +103,16 @@ class ProductHandler(webapp.RequestHandler):
     Args:
       product_id: The product ID. Must not be empty.
     """
+    # Validate input.
     if not product_id:
       self.error(httplib.BAD_REQUEST)
       return
 
-    # Delete the product.
+    # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
       self.error(httplib.NOT_FOUND)
       return
     
+    # Delete the product.
     product.delete()
