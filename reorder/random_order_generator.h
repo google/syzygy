@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,6 @@ namespace reorder {
 // Orders blocks within sections using a pseudo-random shuffle.
 class RandomOrderGenerator : public Reorderer::OrderGenerator {
  public:
-  typedef Reorderer::UniqueTime UniqueTime;
-  typedef Reorderer::Order Order;
-  typedef BlockGraph::AddressSpace AddressSpace;
-
   explicit RandomOrderGenerator(int seed);
   virtual ~RandomOrderGenerator();
 

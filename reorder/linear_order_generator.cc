@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ struct BlockCallSortIncrTime {
 
 // Used for aggregating block call information across multiple runs.
 struct AverageBlockCall {
-  const BlockGraph::Block* block;
+  const block_graph::BlockGraph::Block* block;
   size_t sum_order;
   // The number of runs of the instrumented binary in which this block was
   // seen, NOT the number of times it was seen called in aggregate.

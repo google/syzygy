@@ -26,6 +26,7 @@ namespace {
 
 using core::RelativeAddress;
 
+typedef block_graph::BlockGraph BlockGraph;
 typedef std::vector<BlockGraph::Block*> Blocks;
 
 void GetSortedBlocks(BlockGraph* block_graph, Blocks* blocks) {

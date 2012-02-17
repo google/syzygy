@@ -45,25 +45,20 @@ namespace reorder {
 typedef uint64 AbsoluteAddress64;
 typedef uint64 Size64;
 
-// TODO(fixman): change the scope of these statements to class-scope.
-using block_graph::BlockGraph;
-using call_trace::parser::ModuleInformation;
-using call_trace::parser::ParseEventHandler;
-using call_trace::parser::Parser;
-using core::AddressSpace;
-using core::RelativeAddress;
-using pe::Decomposer;
-using pe::ImageLayout;
-using pe::PEFile;
-
 // This class can consume a set of call-trace logs captured for a PE image
 // while driving an OrderGenerator instance to produce an ordering file.
-class Reorderer : public ParseEventHandler {
+class Reorderer : public call_trace::parser::ParseEventHandler {
  public:
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef core::RelativeAddress RelativeAddress;
   typedef playback::Playback Playback;
 
-  typedef Playback::TraceFileList TraceFileList;
+  typedef Playback::ImageLayout ImageLayout;
+  typedef Playback::ModuleInformation ModuleInformation;
+  typedef Playback::Parser Parser;
+  typedef Playback::PEFile PEFile;
   typedef Playback::TraceFileIter TraceFileIter;
+  typedef Playback::TraceFileList TraceFileList;
 
   struct Order;
   class OrderGenerator;
@@ -246,8 +241,15 @@ struct Reorderer::Order {
 // and is asked to build an ordering.
 class Reorderer::OrderGenerator {
  public:
-  explicit OrderGenerator(const char* name) : name_(name) {}
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef BlockGraph::AddressSpace AddressSpace;
+  typedef core::RelativeAddress RelativeAddress;
+  typedef pe::ImageLayout ImageLayout;
+  typedef pe::PEFile PEFile;
+  typedef Reorderer::Order Order;
+  typedef Reorderer::UniqueTime UniqueTime;
 
+  explicit OrderGenerator(const char* name) : name_(name) {}
   virtual ~OrderGenerator() {}
 
   // Accessor.
