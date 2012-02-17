@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,8 +51,6 @@ namespace reorder {
 // more details.
 class LinearOrderGenerator : public Reorderer::OrderGenerator {
  public:
-  typedef Reorderer::UniqueTime UniqueTime;
-  typedef Reorderer::Order Order;
   struct BlockCall;
 
   LinearOrderGenerator();
@@ -75,7 +73,6 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
                                    Order* order) OVERRIDE;
 
  private:
-  typedef BlockGraph::AddressSpace AddressSpace;
   typedef std::vector<BlockCall> BlockCalls;
   typedef std::map<size_t, BlockCalls> ProcessGroupBlockCalls;
   typedef std::map<const BlockGraph::Block*, BlockCall> BlockCallMap;
