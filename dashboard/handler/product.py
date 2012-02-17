@@ -21,7 +21,7 @@ from model import product as product_db
 
 class ProductHandler(webapp.RequestHandler):
   """A class to handle creating, reading, updating and deleting products.
-  
+
   Handles GET, POST and DELETE requests for /products/ and /products/<product>.
   All functions have the same signature, even though they may not use all the
   parameters, so that a single route can be used for the handler. Note that PUT
@@ -91,6 +91,7 @@ class ProductHandler(webapp.RequestHandler):
     # Create a new product.
     product = product_db.Product(key_name=product_id)
     product.put()
+    self.response.set_status(httplib.CREATED, message='ProductCreated')
 
   def delete(self, product_id):
     """Deletes a product.

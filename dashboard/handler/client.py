@@ -112,6 +112,7 @@ class ClientHandler(webapp.RequestHandler):
     client = client_db.Client(key_name=client_id, parent=product,
                               description=description)
     client.put()
+    self.response.set_status(httplib.CREATED, message='ClientCreated')
 
   def put(self, product_id, client_id):
     """Updates a client.

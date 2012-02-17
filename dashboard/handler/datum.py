@@ -160,6 +160,7 @@ class DatumHandler(webapp.RequestHandler):
 
     self.response.headers['Content-Type'] = 'application/json'
     json.dump(result, self.response.out)
+    self.response.set_status(httplib.CREATED, 'DatumCreated')
 
   def put(self, product_id, client_id, metric_id, datum_id):
     """Updates a datum.
