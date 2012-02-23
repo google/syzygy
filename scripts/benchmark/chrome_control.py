@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@ def IsProfileRunning(profile_dir):
 
 
 _CHROME_FRAME_KEY = r'Software\Google\ChromeFrame'
+_PREREAD_PERCENTAGE_VALUE = 'PreReadPercentage'
 _PREREAD_SIZE_VALUE = 'PreReadSize'
 _PREREAD_STEP_VALUE = 'PreReadStepSize'
 _PREREAD_VALUE = 'PreRead'
@@ -149,22 +150,20 @@ def GetPreload():
   """Reads Chrome.dll preload settings from the registry.
 
   Returns:
-    a tuple (enable, size, stride)
+    The percentage of chrome.dll that will be preloaded.
   """
   try:
-    key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY)
+    with _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY) as key:
+      percentage = _GetDWORDValue(key, _PREREAD_PERCENTAGE_VALUE)
+      if percentage is None:
+        percentage = 0 if _GetDWORDValue(key, _PREREAD_VALUE) == 0 else 100
+      return percentage
   except exceptions.WindowsError, ex:
     # We expect specific errors on non-present key or values.
     if ex.errno is not winerror.ERROR_FILE_NOT_FOUND:
       raise
     else:
-      return (False, None, None)
-
-  enable = bool(_GetDWORDValue(key, _PREREAD_VALUE))
-  size = _GetDWORDValue(key, _PREREAD_SIZE_VALUE)
-  stride = _GetDWORDValue(key, _PREREAD_STEP_VALUE)
-
-  return (enable, size, stride)
+      return 100
 
 
 def _SetDWORDValueImpl(key, name, value):
@@ -178,19 +177,21 @@ def _SetDWORDValueImpl(key, name, value):
     _winreg.SetValueEx(key, name, None, _winreg.REG_DWORD, value)
 
 
-def SetPreload(enable, size=None, stride=None):
+def SetPreload(value):
   """Writes Chrome.dll preload settings to the registry.
 
   Args:
-    enable: if true, preloading will be enabled.
-    size: optionally provides the amount of data to preload. If not provided
-        the entire DLL will be preloaded by the current Chrome implementation.
-    stride: optionally provides the stride used for preloading on Windows XP.
+    value: if true, full preloading will be enabled (100%); if false,
+        preloading will be disabled (0%); if an integer between 0 and
+        100, percentage based pre-loading will be enabled.
   """
   key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY)
-  _winreg.SetValueEx(key, _PREREAD_VALUE, None, _winreg.REG_DWORD, enable)
-  _SetDWORDValueImpl(key, _PREREAD_SIZE_VALUE, size)
-  _SetDWORDValueImpl(key, _PREREAD_STEP_VALUE, stride)
+  if value is True:
+    value = 100
+  if value is False:
+    value = 0
+  _SetDWORDValueImpl(key, _PREREAD_VALUE, None)
+  _SetDWORDValueImpl(key, _PREREAD_PERCENTAGE_VALUE, value)
 
 
 def KillNamedProcesses(process_name):

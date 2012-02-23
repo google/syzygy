@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,15 +43,15 @@ def _GetOptionParser():
   parser.add_option('--iterations', dest='iterations', type='int',
                     default=10,
                     help="Number of iterations, 10 by default.")
-  parser.add_option('--no-preload', dest='preload', action='store_false',
-                    default=True,
-                    help="Turn Chrome.dll pre-loading off (on by default).")
+  parser.add_option('--preload', dest='preload', type='int',
+                    default=100,
+                    help='The percentage of chrome.dll to preload.')
   parser.add_option('--cold-start', dest='cold_start', action='store_true',
                     default=False,
                     help='Test cold start by creating a shadow volume of the '
-                          'volume Chrome resides on and running it from that '
-                          'newly mounted volume for each iteration of the '
-                          'test.')
+                         'volume Chrome resides on and running it from that '
+                         'newly mounted volume for each iteration of the '
+                         'test.')
   parser.add_option('--no-prefetch', dest='prefetch', action='store_const',
                     const=runner.Prefetch.DISABLED,
                     default=runner.Prefetch.ENABLED,

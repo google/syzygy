@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ import chrome_control
 import unittest
 import win32con
 import win32api
+import _winreg
 
 
 class TestChromeControl(unittest.TestCase):
@@ -30,6 +31,7 @@ class TestChromeControl(unittest.TestCase):
       return
 
     values = (chrome_control._PREREAD_VALUE,
+              chrome_control._PREREAD_PERCENTAGE_VALUE,
               chrome_control._PREREAD_SIZE_VALUE,
               chrome_control._PREREAD_STEP_VALUE)
     for value in values:
@@ -43,22 +45,33 @@ class TestChromeControl(unittest.TestCase):
     pass
 
   def testGetPreload(self):
-    self.assertEqual((False, None, None),
-                     chrome_control.GetPreload())
+    self.assertEqual(100, chrome_control.GetPreload())
 
 
-  def testsetPreload(self):
-    chrome_control.SetPreload(True)
-    self.assertEqual((True, None, None),
-                     chrome_control.GetPreload())
-
-    chrome_control.SetPreload(True, 100, 200)
-    self.assertEqual((True, 100, 200),
-                     chrome_control.GetPreload())
-
+  def testSetPreload(self):
     chrome_control.SetPreload(False)
-    self.assertEqual((False, None, None),
-                     chrome_control.GetPreload())
+    self.assertEqual(0, chrome_control.GetPreload())
+
+    chrome_control.SetPreload(True)
+    self.assertEqual(100, chrome_control.GetPreload())
+
+    chrome_control.SetPreload(0)
+    self.assertEqual(0, chrome_control.GetPreload())
+
+    chrome_control.SetPreload(50)
+    self.assertEqual(50, chrome_control.GetPreload())
+
+    chrome_control.SetPreload(100)
+    self.assertEqual(100, chrome_control.GetPreload())
+
+  def testOldPreload(self):
+    key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER,
+                            chrome_control._CHROME_FRAME_KEY)
+    chrome_control._SetDWORDValueImpl(key, chrome_control._PREREAD_VALUE, 0)
+    self.assertEqual(0, chrome_control.GetPreload())
+
+    chrome_control._SetDWORDValueImpl(key, chrome_control._PREREAD_VALUE, 1)
+    self.assertEqual(100, chrome_control.GetPreload())
 
 
 if __name__ == '__main__':

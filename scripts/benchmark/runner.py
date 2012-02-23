@@ -539,8 +539,9 @@ class BenchmarkRunner(ChromeRunner):
         chrome_exe: path to the Chrome executable to benchmark.
         profile_dir: path to the existing profile directory for Chrome.
             If 'None', creates a temporary directory.
-        preload: specifies the state of Chrome.dll preload to use for
-            benchmark.
+        preload: specifies the percentage of Chrome.dll to preload for this
+            benchmark. If True then 100%; if False then 0%, otherwise an
+            integer percentage between 0 and 100, inclusive.
         cold_start: if True, chrome_exe will be launched from a shadow volume
             freshly minted and mounted for each iteration.
         prefetch: must be one of the Prefetch enumeration values.
@@ -583,7 +584,7 @@ class BenchmarkRunner(ChromeRunner):
     _LOGGER.info('Created temporary directory "%s".', self._temp_dir)
 
   def _TearDown(self):
-    chrome_control.SetPreload(*self._old_preload)
+    chrome_control.SetPreload(self._old_preload)
     if self._temp_dir and not self._keep_temp_dirs:
       _LOGGER.info('Deleting temporary directory "%s".', self._temp_dir)
       shutil.rmtree(self._temp_dir, ignore_errors=True)
