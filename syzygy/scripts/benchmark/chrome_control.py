@@ -188,10 +188,12 @@ def SetPreload(value):
   key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, _CHROME_FRAME_KEY)
   if value is True:
     value = 100
-  if value is False:
+  elif value is False:
     value = 0
-  _SetDWORDValueImpl(key, _PREREAD_VALUE, None)
   _SetDWORDValueImpl(key, _PREREAD_PERCENTAGE_VALUE, value)
+  if value is not None:
+    value = 1 if value == 100 else 0
+  _SetDWORDValueImpl(key, _PREREAD_VALUE, value)
 
 
 def KillNamedProcesses(process_name):
