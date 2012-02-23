@@ -230,12 +230,6 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
         file_header->block_size);
   }
 
-  event_handler_->OnProcessEnded(
-      base::Time::FromTimeT(static_cast<time_t>(kuint64max)),
-      file_header->process_id);
-
-  RemoveProcessInformation(file_header->process_id);
-
   return true;
 }
 

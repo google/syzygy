@@ -256,7 +256,7 @@ TEST_F(CallTraceServiceTest, Connect) {
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
 
   ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
-  ASSERT_EQ(trace_file_contents.length(), 2 * header->block_size);
+  ASSERT_EQ(trace_file_contents.length(), 3 * header->block_size);
 }
 
 TEST_F(CallTraceServiceTest, Allocate) {
@@ -296,7 +296,7 @@ TEST_F(CallTraceServiceTest, Allocate) {
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
 
   ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
-  ASSERT_EQ(trace_file_contents.length(), 4 * header->block_size);
+  ASSERT_EQ(trace_file_contents.length(), 5 * header->block_size);
 
   // Locate and validate the segment header prefix and segment header.
   // This should be segment 2.
@@ -391,7 +391,7 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   TraceFileHeader* header =
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
   ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
-  size_t total_blocks = 2 + num_blocks;
+  size_t total_blocks = 3 + num_blocks;
   ASSERT_EQ(trace_file_contents.length(), total_blocks * header->block_size);
 
   // Read each data block and validate its contents.

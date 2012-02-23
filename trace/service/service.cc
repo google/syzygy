@@ -293,27 +293,12 @@ void Service::StopWriterThread() {
   VLOG(1) << "Stopping the trace file IO thread.";
 
   {
-    std::list<Session*> sessions_to_destroy;
     base::AutoLock scoped_lock(lock_);
 
-    // Close each session, remembering whether or not the session is
-    // ready to be destroyed. Note that destroying the session modifies
-    // the sessions_ collection, which cannot be safely performed while
-    // iterating the collection.
+    // Tell each session that they are to be closed.
     SessionMap::iterator iter = sessions_.begin();
     for (; iter != sessions_.end(); ++iter) {
-      bool can_destroy_now = false;
-      iter->second->Close(&pending_write_queue_, &can_destroy_now);
-      if (can_destroy_now) {
-        sessions_to_destroy.push_back(iter->second);
-      }
-    }
-
-    // Destroy any sessions that were flagged during the previous loop.
-    while (!sessions_to_destroy.empty()) {
-      Session* session = sessions_to_destroy.front();
-      sessions_to_destroy.pop_front();
-      DestroySession(session);
+      iter->second->Close(&pending_write_queue_);
     }
 
     // Put the shutdown sentinel into the write queue.
@@ -565,11 +550,10 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
     if (!GetExistingSession(*session_handle, &session))
       return false;
 
-    bool can_destroy_now = false;
-    session->Close(&pending_write_queue_, &can_destroy_now);
-    if (can_destroy_now) {
-      DestroySession(session);
-    }
+    // Signal that we want the session to close. This will cause it to
+    // schedule all of its oustanding buffer for flushing via
+    // pending_write_queue_.
+    session->Close(&pending_write_queue_);
   }
 
   queue_is_non_empty_.Signal();

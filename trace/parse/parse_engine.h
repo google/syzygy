@@ -152,6 +152,14 @@ class ParseEngine {
   //     true.
   bool DispatchBatchEnterEvent(EVENT_TRACE* event);
 
+  // Parses and dispatches a process ended event. Called from DispatchEvent().
+  //
+  // @param event The event to dispatch.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     If an error occurred the error_occurred_ flag will be set to true.
+  bool DispatchProcessEndedEvent(EVENT_TRACE* event);
+
   // Parses and dispatches invocation batch function events. Called from
   // DispatchEvent().
   //
