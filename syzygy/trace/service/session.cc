@@ -171,7 +171,8 @@ namespace service {
 
 Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
-      is_closing_(false) {
+      is_closing_(false),
+      input_error_already_logged_(false) {
   DCHECK(call_trace_service != NULL);
 }
 
@@ -296,8 +297,11 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
 
   BufferMap::iterator iter = buffers_in_use_.find(buffer_id);
   if (iter == buffers_in_use_.end()) {
-    LOG(ERROR) << "Received call trace buffer not in use for this session "
-               << "[pid=" << client_.process_id << ", " << buffer_id << "].";
+    if (!input_error_already_logged_) {
+      LOG(ERROR) << "Received call trace buffer not in use for this session "
+                 << "[pid=" << client_.process_id << ", " << buffer_id << "].";
+      input_error_already_logged_ = true;
+    }
     return false;
   }
 
