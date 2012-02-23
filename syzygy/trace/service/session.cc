@@ -222,36 +222,43 @@ bool Session::Init(const FilePath& trace_directory,
   return true;
 }
 
-bool Session::Close(BufferQueue* flush_queue, bool* can_destroy_now ) {
-  DCHECK(can_destroy_now != NULL);
+bool Session::Close(BufferQueue* flush_queue) {
   DCHECK(flush_queue != NULL);
 
   // It's possible that the service is being stopped just after this session
   // was marked for closure. The service would then attempt to re-close the
   // session. Let's ignore these requests.
-  if (is_closing_) {
-    *can_destroy_now = false;
+  if (is_closing_)
     return true;
-  }
 
-  // Otherwise the session is closing. If the session has no outstanding
-  // buffers in use then it can be destroyed now. If the session has
-  // outstanding buffers in use then these buffers need to be queued
-  // for writing and the destruction of this session deferred; see
-  // RecycleBuffer().
+  // Otherwise the session is being asked to close for the first time.
   is_closing_ = true;
-  if (buffers_in_use_.empty()) {
-    *can_destroy_now = true;
-  } else {
-    *can_destroy_now = false;
-    BufferMap::iterator iter = buffers_in_use_.begin();
-    for (; iter != buffers_in_use_.end(); ++iter) {
-      if (!iter->second->write_is_pending) {
-        iter->second->write_is_pending = true;
+
+  // Create a process ended event. This causes at least one buffer to be in use
+  // to store the process ended event.
+  Buffer* buffer = NULL;
+  if (!CreateProcessEndedEvent(&buffer))
+    return false;
+  DCHECK(buffer != NULL);
+  DCHECK(!buffers_in_use_.empty());
+
+  // Schedule any outstanding buffers for flushing.
+  BufferMap::iterator iter = buffers_in_use_.begin();
+  for (; iter != buffers_in_use_.end(); ++iter) {
+    if (!iter->second->write_is_pending) {
+      iter->second->write_is_pending = true;
+
+      // If this is the process ended event buffer, don't schedule it yet.
+      // Save it for last.
+      if (iter->second != buffer) {
         flush_queue->push_back(iter->second);
       }
     }
   }
+
+  // Ensure that the TRACE_PROCESS_ENDED buffer is scheduled last so that it is
+  // the last buffer written to the trace file.
+  flush_queue->push_back(buffer);
 
   return true;
 }
@@ -348,6 +355,72 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   if (is_closing_ && buffers_in_use_.empty()) {
     return call_trace_service_->DestroySession(this);
   }
+
+  return true;
+}
+
+bool Session::CreateProcessEndedEvent(Buffer** buffer) {
+  DCHECK(buffer != NULL);
+
+  *buffer = NULL;
+
+  // We output a segment that contains a single empty event. That is, the
+  // event consists only of a prefix whose data size is set to zero. The buffer
+  // will be populated with the following:
+  //
+  // RecordPrefix: the prefix for the TraceFileSegmentHeader which follows
+  //     (with type TraceFileSegmentHeader::kTypeId).
+  // TraceFileSegmentHeader: the segment header for the segment represented
+  //     by this buffer.
+  // RecordPrefix: the prefix for the event itself (with type
+  //     TRACE_PROCESS_ENDED). This prefix will have a data size of zero
+  //     indicating that no structure follows.
+  const size_t kBufferSize = sizeof(RecordPrefix) +
+      sizeof(TraceFileSegmentHeader) + sizeof(RecordPrefix);
+
+  // Ensure that a free buffer exists.
+  if (!HasAvailableBuffers() && !AllocateBuffers(1, kBufferSize)) {
+    LOG(ERROR) << "Unable to allocate buffer for process ended event.";
+    return false;
+  }
+
+  // Get a buffer for the event.
+  if (!GetNextBuffer(buffer) || *buffer == NULL) {
+    LOG(ERROR) << "Unable to get a buffer for process ended event.";
+    return false;
+  }
+  DCHECK(*buffer != NULL);
+
+  // This should pretty much never happen as we always allocate really big
+  // buffers, but it is possible.
+  if ((*buffer)->buffer_size < kBufferSize) {
+    LOG(ERROR) << "Buffer too small for process ended event.";
+    return false;
+  }
+
+  // Populate the various structures in the buffer.
+
+  RecordPrefix* segment_prefix =
+      reinterpret_cast<RecordPrefix*>((*buffer)->data_ptr);
+  DWORD timestamp = ::GetTickCount();
+  segment_prefix->timestamp = timestamp;
+  segment_prefix->size = sizeof(TraceFileSegmentHeader);
+  segment_prefix->type = TraceFileSegmentHeader::kTypeId;
+  segment_prefix->version.hi = TRACE_VERSION_HI;
+  segment_prefix->version.lo = TRACE_VERSION_LO;
+
+  TraceFileSegmentHeader* segment_header =
+      reinterpret_cast<TraceFileSegmentHeader*>(segment_prefix + 1);
+  segment_header->thread_id = 0;
+  segment_header->segment_length = sizeof(RecordPrefix);
+
+  RecordPrefix* event_prefix =
+      reinterpret_cast<RecordPrefix*>(segment_header + 1);
+  event_prefix->timestamp = timestamp;
+  event_prefix->size = 0;
+  event_prefix->type = TRACE_PROCESS_ENDED;
+  event_prefix->version.hi = TRACE_VERSION_HI;
+  event_prefix->version.lo = TRACE_VERSION_LO;
 
   return true;
 }

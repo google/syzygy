@@ -49,9 +49,12 @@ class Session {
   // Initialize this session object.
   bool Init(const FilePath& trace_directory, ProcessID client_process_id);
 
-  // Close the session, flushing its unwritten buffers to the given queue
-  // or notifying the caller that is safe to destroy it.
-  bool Close(BufferQueue* flush_queue, bool* can_destroy_now);
+  // Close the session, flushing its unwritten buffers to the given queue.
+  // A session is disconnected when the process owning the connection ends.
+  // Calling this routine causes a buffer containing a TRACE_PROCESS_ENDED event
+  // to be added to the list of outstanding buffers so flush_queue will never
+  // be empty.
+  bool Close(BufferQueue* flush_queue);
 
   // Returns true if there's an available buffer in the free list.
   bool HasAvailableBuffers() const;
@@ -88,6 +91,13 @@ class Session {
 
  private:
   typedef std::list<BufferPool*> SharedMemoryBufferCollection;
+
+  // Gets (creating if needed) a buffer and populates it with a
+  // TRACE_PROCESS_ENDED event. This is called by Close(), which is called
+  // when the process owning this session disconnects (at its death).
+  // @param buffer receives a pointer to the buffer that is used.
+  // @returns true on success, false otherwise.
+  bool CreateProcessEndedEvent(Buffer** buffer);
 
   // The call trace service this session lives in.  We do not own this
   // object.

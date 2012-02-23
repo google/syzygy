@@ -95,6 +95,22 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
     return true;
   }
 
+  // Perhaps this is a case of conflicting paths for the same module. We often
+  // get paths reported to us in \Device\HarddiskVolumeN\... notation, and
+  // othertimes in C:\... notation. In this case we're happy if everything
+  // matches except the path. For a little bit of extra sanity checking we
+  // also check the basename of the paths.
+  if (module_info.base_address == iter->second.base_address &&
+      module_info.image_checksum == iter->second.image_checksum &&
+      module_info.module_size == iter->second.module_size &&
+      module_info.time_date_stamp == iter->second.time_date_stamp) {
+    FilePath path1(module_info.image_file_name);
+    FilePath path2(iter->second.image_file_name);
+    if (path1.BaseName() == path2.BaseName()) {
+      return true;
+    }
+  }
+
   // Perhaps this is a case of process id reuse. In that case, we should have
   // previously seen a module unload event and marked the module information
   // as dirty.
@@ -203,6 +219,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchModuleEvent(event, type);
       break;
 
+    case TRACE_PROCESS_ENDED:
+      success = DispatchProcessEndedEvent(event);
+      break;
+
     case TRACE_MODULE_EVENT:
       LOG(ERROR) << "Parsing for TRACE_MODULE_EVENT not yet implemented.";
       break;
@@ -303,6 +323,21 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
   DWORD process_id = event->Header.ProcessId;
   DWORD thread_id = data->thread_id;
   event_handler_->OnBatchFunctionEntry(time, process_id, thread_id, data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchProcessEndedEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+  DCHECK(event_handler_ != NULL);
+  DCHECK(error_occurred_ == false);
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+
+  event_handler_->OnProcessEnded(time, event->Header.ProcessId);
+  if (!RemoveProcessInformation(event->Header.ProcessId))
+    return false;
 
   return true;
 }
