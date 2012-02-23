@@ -118,6 +118,11 @@ class Session {
   // Tracks whether this session is in the process of shutting down.
   bool is_closing_;
 
+  // Tracks whether or not invalid input errors have already been logged.
+  // When an error of this type occurs, there will typically be numerous
+  // follow-on occurrences that we don't want to log.
+  bool input_error_already_logged_;
+
   DISALLOW_COPY_AND_ASSIGN(Session);
 };
 

@@ -76,6 +76,12 @@
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Enable support for large address spaces.
+          'LargeAddressAware': 2,
+        },
+      },
     },
   ],
 }
