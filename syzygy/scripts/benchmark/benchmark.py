@@ -46,6 +46,10 @@ def _GetOptionParser():
   parser.add_option('--preload', dest='preload', type='int',
                     default=100,
                     help='The percentage of chrome.dll to preload.')
+  parser.add_option('--no-preload', dest='preload', action='store_const',
+                    const=0,
+                    help='Do not preload chrome.dll. This is equivalent to '
+                         '--preload=0. Retained for legacy compability.')
   parser.add_option('--cold-start', dest='cold_start', action='store_true',
                     default=False,
                     help='Test cold start by creating a shadow volume of the '
