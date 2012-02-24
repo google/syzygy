@@ -42,7 +42,7 @@ class EntryThunkTransform
     return instrument_interior_references_;
   }
 
-  bool set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
+  void set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
     instrument_dll_name.CopyToString(&instrument_dll_name_);
   }
   const char* instrument_dll_name() const {

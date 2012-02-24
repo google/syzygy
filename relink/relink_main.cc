@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -25,11 +26,11 @@
 #include "syzygy/reorder/orderers/explicit_orderer.h"
 #include "syzygy/reorder/reorderer.h"
 
+namespace {
+
 using relink::Relinker;
 using relink::OrderRelinker;
 using relink::RandomRelinker;
-
-namespace {
 
 // {E6FF7BFB-34FE-42a3-8993-1F477DC36247}
 const GUID kRelinkLogProviderName = { 0xe6ff7bfb, 0x34fe, 0x42a3,
