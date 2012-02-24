@@ -20,9 +20,14 @@
 #include "base/file_path.h"
 #include "base/string_util.h"
 #include "syzygy/instrument/instrumenter.h"
+#include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_relinker.h"
+#include "syzygy/reorder/orderers/explicit_orderer.h"
+
+namespace {
 
 using block_graph::BlockGraph;
 using instrument::Instrumenter;
@@ -53,6 +58,7 @@ static const char kUsage[] =
     "    --no-interior-refs  Perform no instrumentation of references to non-\n"
     "                        zero offsets in code blocks. Implicit when\n"
     "                        --call-trace-client=PROFILER is specified.\n"
+    "    --new-workflow      Use the new instrumenter workflow.\n"
     "\n";
 
 static int Usage(const char* message) {
@@ -60,6 +66,43 @@ static int Usage(const char* message) {
 
   return 1;
 }
+
+int InstrumentWithNewWorkflow(const FilePath& input_dll_path,
+                              const FilePath& input_pdb_path,
+                              const FilePath& output_dll_path,
+                              const FilePath& output_pdb_path,
+                              const std::string& client_dll_name,
+                              bool instrument_interior_references) {
+  LOG(INFO) << "Using new instrumenter workflow.";
+
+  pe::PERelinker relinker;
+  relinker.set_input_path(input_dll_path);
+  relinker.set_output_path(output_dll_path);
+  relinker.set_output_pdb_path(output_pdb_path);
+
+  // Initialize the relinker. This does the decomposition, etc.
+  if (!relinker.Init()) {
+    LOG(ERROR) << "Failed to initialize relinker.";
+    return 1;
+  }
+
+  // Set up the instrumenting transform and add it to the relinker.
+  instrument::transforms::EntryThunkTransform entry_thunk_tx;
+  entry_thunk_tx.set_instrument_dll_name(client_dll_name);
+  entry_thunk_tx.set_instrument_interior_references(
+      instrument_interior_references);
+  relinker.AppendTransform(&entry_thunk_tx);
+
+  // We let the PERelinker use the implicit OriginalOrderer.
+  if (!relinker.Relink()) {
+    LOG(ERROR) << "Unable to relink input image.";
+    return 1;
+  }
+
+  return 0;
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
@@ -81,9 +124,30 @@ int main(int argc, char** argv) {
   std::string client_dll(cmd_line->GetSwitchValueASCII("call-trace-client"));
   bool instrument_interior_references =
       !cmd_line->HasSwitch("no-interior-refs");
+  bool new_workflow = cmd_line->HasSwitch("new-workflow");
 
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
+
+  if (client_dll.empty() || LowerCaseEqualsASCII(client_dll, "etw")) {
+    client_dll = Instrumenter::kCallTraceClientDllEtw;
+  } else if (LowerCaseEqualsASCII(client_dll, "rpc")) {
+    client_dll = Instrumenter::kCallTraceClientDllRpc;
+  } else if (LowerCaseEqualsASCII(client_dll, "profiler")) {
+    client_dll = Instrumenter::kCallTraceClientDllProfiler;
+    instrument_interior_references = false;
+  }
+
+  if (new_workflow) {
+    return InstrumentWithNewWorkflow(input_dll_path,
+                                     input_pdb_path,
+                                     output_dll_path,
+                                     output_pdb_path,
+                                     client_dll,
+                                     instrument_interior_references);
+  }
+
+  // Old workflow.
 
   if (input_pdb_path.empty()) {
     LOG(INFO) << "--input-pdb not specified, searching for it.";
@@ -99,22 +163,12 @@ int main(int argc, char** argv) {
     LOG(INFO) << "Using default value for --output_pdb.";
   }
 
-  if (client_dll.empty() || LowerCaseEqualsASCII(client_dll, "etw")) {
-    client_dll = Instrumenter::kCallTraceClientDllEtw;
-  } else if (LowerCaseEqualsASCII(client_dll, "rpc")) {
-    client_dll = Instrumenter::kCallTraceClientDllRpc;
-  } else if (LowerCaseEqualsASCII(client_dll, "profiler")) {
-    client_dll = Instrumenter::kCallTraceClientDllProfiler;
-    instrument_interior_references = false;
-  }
-
   LOG(INFO) << "Input image = " << input_dll_path.value();
   LOG(INFO) << "Input PDB = " << input_pdb_path.value();
   LOG(INFO) << "Output image = " << output_dll_path.value();
   LOG(INFO) << "Output PDB = " << output_dll_path.value();
   LOG(INFO) << "Client DLL = " << client_dll;
-  LOG(INFO) << "Instrument interior refs = "
-      << instrument_interior_references;
+  LOG(INFO) << "Instrument interior refs = " << instrument_interior_references;
 
   Instrumenter instrumenter;
   instrumenter.set_client_dll(client_dll.c_str());
