@@ -272,6 +272,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   //     extending/reusing it rather than creating a new INT per module.
   int_block->set_section(iida_section_id);
   int_block->set_attribute(BlockGraph::PE_PARSED);
+  int_block->SetLabel(0, StringPrintf("%s INT: NULL entry", module_name));
   if (int_block->AllocateData(kPtrSize) == NULL) {
     LOG(ERROR) << "Failed to allocate block data.";
     return false;
@@ -298,6 +299,10 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
     DCHECK_EQ(iat_size, iat_block->size());
     DCHECK_EQ(iat_size, iat_block->data_size());
   }
+
+  // Add a label for debugging purposes.
+  iat_block->SetLabel(iat_offset,
+                      StringPrintf("%s: NULL thunk", module_name));
 
   // Hook up these blocks.
   iida.SetReference(BlockGraph::RELATIVE_REF,
@@ -429,13 +434,39 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
   hna.block()->InsertData(int_offset + kPtrSize, kPtrSize, true);
   iat.block()->InsertData(iat_offset + kPtrSize, kPtrSize, true);
 
+  // Because of the usurping mentioned above, we manually move any existing
+  // labels.
+  std::string label;
+  if (hna.block()->GetLabel(int_offset, &label)) {
+    hna.block()->RemoveLabel(int_offset);
+    hna.block()->SetLabel(int_offset + kPtrSize, label);
+  }
+  if (iat.block()->GetLabel(iat_offset, &label)) {
+    iat.block()->RemoveLabel(iat_offset);
+    iat.block()->SetLabel(iat_offset + kPtrSize, label);
+  }
+
+  // Add the new labels. We have to get the module_name at this point
+  // because it may have been moved with our insertions above.
+  String module_name;
+  if (!iid.Dereference(iid->Name, &module_name)) {
+    LOG(ERROR) << "Unable to dereference import name.";
+    return false;
+  }
+  hna.block()->SetLabel(int_offset, StringPrintf("%s INT: %s",
+                                                 module_name->string,
+                                                 symbol_name));
+  iat.block()->SetLabel(iat_offset, StringPrintf("%s IAT: %s",
+                                                 module_name->string,
+                                                 symbol_name));
+
   // Hook up the newly created IMAGE_IMPORT_BY_NAME to both tables.
   BlockGraph::Reference iibn_ref(BlockGraph::RELATIVE_REF,
                                  kPtrSize,
                                  iibn.block(),
                                  iibn.offset());
   hna.block()->SetReference(int_offset, iibn_ref);
-  iat.block()->SetReference(int_offset, iibn_ref);
+  iat.block()->SetReference(iat_offset, iibn_ref);
 
   // Return the reference to the IAT entry for the newly imported symbol.
   *iat_index = i;

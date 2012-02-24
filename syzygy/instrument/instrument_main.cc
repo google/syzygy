@@ -59,6 +59,8 @@ static const char kUsage[] =
     "                        zero offsets in code blocks. Implicit when\n"
     "                        --call-trace-client=PROFILER is specified.\n"
     "    --new-workflow      Use the new instrumenter workflow.\n"
+    " New workflow options:\n"
+    "    --overwrite         Allow output files to be overwritten.\n"
     "\n";
 
 static int Usage(const char* message) {
@@ -72,13 +74,15 @@ int InstrumentWithNewWorkflow(const FilePath& input_dll_path,
                               const FilePath& output_dll_path,
                               const FilePath& output_pdb_path,
                               const std::string& client_dll_name,
-                              bool instrument_interior_references) {
+                              bool instrument_interior_references,
+                              bool allow_overwrite) {
   LOG(INFO) << "Using new instrumenter workflow.";
 
   pe::PERelinker relinker;
   relinker.set_input_path(input_dll_path);
   relinker.set_output_path(output_dll_path);
   relinker.set_output_pdb_path(output_pdb_path);
+  relinker.set_allow_overwrite(allow_overwrite);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {
@@ -125,6 +129,7 @@ int main(int argc, char** argv) {
   bool instrument_interior_references =
       !cmd_line->HasSwitch("no-interior-refs");
   bool new_workflow = cmd_line->HasSwitch("new-workflow");
+  bool overwrite = cmd_line->HasSwitch("overwrite");
 
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
@@ -144,7 +149,8 @@ int main(int argc, char** argv) {
                                      output_dll_path,
                                      output_pdb_path,
                                      client_dll,
-                                     instrument_interior_references);
+                                     instrument_interior_references,
+                                     overwrite);
   }
 
   // Old workflow.

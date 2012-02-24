@@ -771,7 +771,10 @@ TEST(BlockGraphTest, Labels) {
       image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "labeled");
   ASSERT_TRUE(block->labels().empty());
   for (int i = 0; i < 0x20; ++i) {
+    std::string label;
     ASSERT_FALSE(block->HasLabel(i));
+    EXPECT_FALSE(block->GetLabel(i, &label));
+    EXPECT_FALSE(block->RemoveLabel(i));
   }
 
   EXPECT_TRUE(block->SetLabel(13, "foo"));
@@ -780,11 +783,20 @@ TEST(BlockGraphTest, Labels) {
   EXPECT_TRUE(block->SetLabel(17, "bar"));
   EXPECT_FALSE(block->SetLabel(17, "bar2"));
 
+  EXPECT_TRUE(block->SetLabel(15, "baz"));
+  EXPECT_TRUE(block->HasLabel(15));
+  EXPECT_TRUE(block->RemoveLabel(15));
+  EXPECT_FALSE(block->HasLabel(15));
+
   for (int i = 0; i < 0x20; ++i) {
+    std::string label;
     if (i == 13 || i == 17) {
       ASSERT_TRUE(block->HasLabel(i));
+      EXPECT_TRUE(block->GetLabel(i, &label));
+      EXPECT_EQ(std::string(i == 13 ? "foo" : "bar"), label);
     } else {
       ASSERT_FALSE(block->HasLabel(i));
+      EXPECT_FALSE(block->GetLabel(i, &label));
     }
   }
 
