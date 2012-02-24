@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +49,10 @@ TEST_F(DecomposerTest, Decompose) {
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  // Expect the appropriate PDB file to have been autodiscovered.
+  EXPECT_EQ(testing::GetExeRelativePath(kDllPdbName),
+            decomposer.pdb_path());
 
   // Retrieve and validate the DOS header.
   BlockGraph::Block* dos_header_block =
@@ -145,6 +149,20 @@ TEST_F(DecomposerTest, Decompose) {
     }
   }
   EXPECT_EQ(2u, non_section_blocks);
+}
+
+TEST_F(DecomposerTest, DecomposeFailsWithNonexistentPdb) {
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  Decomposer decomposer(image_file);
+  decomposer.set_pdb_path(testing::GetExeRelativePath(L"nonexistent.pdb"));
+
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  EXPECT_FALSE(decomposer.Decompose(&image_layout));
 }
 
 TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {

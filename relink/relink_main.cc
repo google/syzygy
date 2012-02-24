@@ -51,6 +51,8 @@ const char kUsage[] =
     "    --output-pdb=<path>  Output path for the rewritten PDB file.\n"
     "                         Default is inferred from output-dll.\n"
     "    --seed=<integer>     Randomly reorder based on the given seed.\n"
+    "  New workflow options:\n"
+    "    --overwrite          Allow output files to be overwritten.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-dll is optional.\n";
@@ -92,14 +94,17 @@ int RelinkWithNewWorkflow(const FilePath& input_dll_path,
                           const FilePath& order_file_path,
                           uint32 seed,
                           bool add_metadata,
-                          size_t padding) {
+                          size_t padding,
+                          bool allow_overwrite) {
   LOG(INFO) << "Using new relinker workflow.";
 
   pe::PERelinker relinker;
   relinker.set_input_path(input_dll_path);
+  relinker.set_input_pdb_path(input_pdb_path);
   relinker.set_output_path(output_dll_path);
   relinker.set_output_pdb_path(output_pdb_path);
   relinker.set_padding(padding);
+  relinker.set_allow_overwrite(allow_overwrite);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {
@@ -159,6 +164,7 @@ int main(int argc, char** argv) {
   FilePath order_file_path = cmd_line->GetSwitchValuePath("order-file");
   bool new_workflow = cmd_line->HasSwitch("new-workflow");
   bool output_metadata = !cmd_line->HasSwitch("no-metadata");
+  bool overwrite = cmd_line->HasSwitch("overwrite");
 
   if (output_dll_path.empty()) {
     return Usage("You must specify --output-dll.");
@@ -201,7 +207,7 @@ int main(int argc, char** argv) {
     return RelinkWithNewWorkflow(input_dll_path, input_pdb_path,
                                  output_dll_path, output_pdb_path,
                                  order_file_path, seed, output_metadata,
-                                 padding);
+                                 padding, overwrite);
   }
 
   // Old workflow.

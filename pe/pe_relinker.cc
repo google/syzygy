@@ -106,7 +106,8 @@ bool InitializePaths(const FilePath& input_path,
   // No input PDB specified? Find it automagically.
   if (input_pdb_path->empty()) {
     LOG(INFO) << "Input PDB not specified, searching for it.";
-    if (!FindPdbForModule(input_path, input_pdb_path)) {
+    if (!FindPdbForModule(input_path, input_pdb_path) ||
+        input_pdb_path->empty()) {
       LOG(ERROR) << "Unable to find PDB file for module: "
                  << input_path.value();
       return false;
@@ -154,6 +155,7 @@ bool InitializePaths(const FilePath& input_path,
 
 // Decomposes the module enclosed by the given PE file.
 bool Decompose(const PEFile& pe_file,
+               const FilePath& pdb_path,
                ImageLayout* image_layout,
                BlockGraph* bg,
                BlockGraph::Block** dos_header_block) {
@@ -165,6 +167,7 @@ bool Decompose(const PEFile& pe_file,
 
   // Decompose the input image.
   Decomposer decomposer(pe_file);
+  decomposer.set_pdb_path(pdb_path);
   if (!decomposer.Decompose(image_layout)) {
     LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
     return false;
@@ -411,8 +414,8 @@ bool PERelinker::Init() {
   }
 
   // Decompose the image.
-  if (!Decompose(input_pe_file_, &input_image_layout_, &block_graph_,
-                 &dos_header_block_)) {
+  if (!Decompose(input_pe_file_, input_pdb_path_, &input_image_layout_,
+                 &block_graph_, &dos_header_block_)) {
     return false;
   }
 

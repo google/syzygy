@@ -112,16 +112,13 @@ class PERelinker {
   size_t padding() const { return padding_; }
   // @}
 
-  // TODO(chrisha): Right now setting the input_pdb_path is meaningless as the
-  //     Decomposer can't be forced to use a different PDB path, and fails if
-  //     the PDB can't be found using the built-in search mechanism. Decomposer
-  //     needs to be extended to provide a manual override before it makes
-  //     sense to expose this parameter.
-
   // @name Mutators for controlling relinker behaviour.
   // @{
   void set_input_path(const FilePath& input_path) {
     input_path_ = input_path;
+  }
+  void set_input_pdb_path(const FilePath& input_pdb_path) {
+    input_pdb_path_ = input_pdb_path;
   }
   void set_output_path(const FilePath& output_path) {
     output_path_ = output_path;

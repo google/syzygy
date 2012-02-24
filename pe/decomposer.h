@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ class Decomposer {
       IntermediateReferenceMap;
 
   // Initializes the decomposer for a given image file.
+  // @param image_file the image file to decompose.
   explicit Decomposer(const PEFile& image_file);
 
   // Decomposes the image file into a BlockGraph and an ImageLayout, which
@@ -85,6 +86,19 @@ class Decomposer {
   //     of any utility using Decomposer.
   bool RegisterStaticInitializerPatterns(const char* begin, const char* end);
 
+  // Sets the PDB path to be used. If this is not called it will be inferred
+  // using the information in the module, and searched for using the OS
+  // search functionality.
+  // @param pdb_path the path to the PDB file to be used in decomposing the
+  //     image.
+  void set_pdb_path(const FilePath& pdb_path) { pdb_path_ = pdb_path; }
+
+  // Accessor to the PDB path. If Decompose has been called successfully this
+  // will reflect the path of the PDB file that was used to perform the
+  // decomposition.
+  // @returns the PDB path.
+  const FilePath& pdb_path() const { return pdb_path_; }
+
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
   typedef std::vector<pdb::PdbFixup> PdbFixups;
@@ -92,6 +106,10 @@ class Decomposer {
   // Temporary bottleneck implementation function for decomposition.
   bool DecomposeImpl(BlockGraph::AddressSpace* image,
                      PEFileParser::PEHeader* header);
+
+  // Searches for (if necessary) the PDB file to be used in the decomposition,
+  // and validates that the file exists and matches the module.
+  bool FindAndValidatePdbPath();
 
   // Create blocks for all code.
   bool CreateCodeBlocks(IDiaSymbol* globals);
@@ -257,6 +275,9 @@ class Decomposer {
   // data in the image file, so the user must ensure the image file
   // outlives the BlockGraph.
   const PEFile& image_file_;
+
+  // The path to the PDB file to be used in decomposing the image.
+  FilePath pdb_path_;
 
   // Stores intermediate references before the block graph is complete.
   IntermediateReferenceMap references_;

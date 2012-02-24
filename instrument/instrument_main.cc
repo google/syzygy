@@ -80,6 +80,7 @@ int InstrumentWithNewWorkflow(const FilePath& input_dll_path,
 
   pe::PERelinker relinker;
   relinker.set_input_path(input_dll_path);
+  relinker.set_input_pdb_path(input_pdb_path);
   relinker.set_output_path(output_dll_path);
   relinker.set_output_pdb_path(output_pdb_path);
   relinker.set_allow_overwrite(allow_overwrite);
