@@ -31,8 +31,11 @@
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pdb/omap.h"
+#include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/dia_util.h"
+#include "syzygy/pe/find.h"
 #include "syzygy/pe/metadata.h"
+#include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_parser.h"
 #include "syzygy/pe/pe_utils.h"
 
@@ -499,13 +502,21 @@ Decomposer::Decomposer(const PEFile& image_file)
 
 bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
                                PEFileParser::PEHeader* header) {
-  // Start by instantiating and initializing our Debug Interface Access session.
+  // We start by finding the PDB path.
+  if (!FindAndValidatePdbPath())
+    return false;
+  DCHECK(!pdb_path_.empty());
+
+  // Move on to instantiating and initializing our Debug Interface Access
+  // session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive()))
     return false;
 
+  // We create the session using the PDB file direcly, as we've already
+  // validated that it matches the module.
   ScopedComPtr<IDiaSession> dia_session;
-  if (!CreateDiaSession(image_file_.path(),
+  if (!CreateDiaSession(pdb_path_,
                         dia_source.get(),
                         dia_session.Receive())) {
     return false;
@@ -616,6 +627,49 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
   image_ = NULL;
 
   return success;
+}
+
+bool Decomposer::FindAndValidatePdbPath() {
+  // Manually find the PDB path if it is not specified.
+  if (pdb_path_.empty()) {
+    if (!FindPdbForModule(image_file_.path(), &pdb_path_) ||
+        pdb_path_.empty()) {
+      LOG(ERROR) << "Unable to find PDB file for module: "
+                 << image_file_.path().value();
+      return false;
+    }
+  }
+  DCHECK(!pdb_path_.empty());
+
+  if (!file_util::PathExists(pdb_path_)) {
+    LOG(ERROR) << "Path not found: " << pdb_path_.value();
+    return false;
+  }
+
+  // Get the PDB info from the PDB file.
+  pdb::PdbInfoHeader70 pdb_info_header;
+  if (!pdb::ReadPdbHeader(pdb_path_, &pdb_info_header)) {
+    LOG(ERROR) << "Unable to read PDB info header from PDB file: "
+               << pdb_path_.value();
+    return false;
+  }
+
+  // Get the PDB info from the module.
+  PdbInfo pdb_info;
+  if (!pdb_info.Init(image_file_)) {
+    LOG(ERROR) << "Unable to read PDB info from PE file: "
+               << image_file_.path().value();
+    return false;
+  }
+
+  // Ensure that they are consistent.
+  if (!pdb_info.IsConsistent(pdb_info_header)) {
+    LOG(ERROR) << "PDB file \"" << pdb_path_.value() << "\" does not match "
+               << "module \"" << image_file_.path().value() << "\".";
+    return false;
+  }
+
+  return true;
 }
 
 bool Decomposer::Decompose(ImageLayout* image_layout) {
