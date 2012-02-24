@@ -45,14 +45,12 @@ TEST_F(DecomposerTest, Decompose) {
 
   // Decompose the test image and look at the result.
   Decomposer decomposer(image_file);
+  EXPECT_TRUE(decomposer.pdb_path().empty());
 
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
-
-  // Expect the appropriate PDB file to have been autodiscovered.
-  EXPECT_EQ(testing::GetExeRelativePath(kDllPdbName),
-            decomposer.pdb_path());
+  EXPECT_FALSE(decomposer.pdb_path().empty());
 
   // Retrieve and validate the DOS header.
   BlockGraph::Block* dos_header_block =
