@@ -49,16 +49,10 @@ typedef uint64 Size64;
 // while driving an OrderGenerator instance to produce an ordering file.
 class Reorderer : public call_trace::parser::ParseEventHandler {
  public:
-  typedef block_graph::BlockGraph BlockGraph;
-  typedef core::RelativeAddress RelativeAddress;
-  typedef playback::Playback Playback;
-
-  typedef Playback::ImageLayout ImageLayout;
-  typedef Playback::ModuleInformation ModuleInformation;
-  typedef Playback::Parser Parser;
-  typedef Playback::PEFile PEFile;
-  typedef Playback::TraceFileIter TraceFileIter;
-  typedef Playback::TraceFileList TraceFileList;
+  typedef call_trace::parser::Parser Parser;
+  typedef pe::ImageLayout ImageLayout;
+  typedef pe::PEFile PEFile;
+  typedef std::vector<FilePath> TraceFileList;
 
   struct Order;
   class OrderGenerator;
@@ -107,7 +101,12 @@ class Reorderer : public call_trace::parser::ParseEventHandler {
   // @}
 
  protected:
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef call_trace::parser::ModuleInformation ModuleInformation;
+  typedef core::RelativeAddress RelativeAddress;
+  typedef playback::Playback Playback;
   typedef std::set<uint32> ProcessSet;
+  typedef TraceFileList::iterator TraceFileIter;
 
   // The implementation of Reorder.
   bool ReorderImpl(Order* order, PEFile* pe_file, ImageLayout* image);

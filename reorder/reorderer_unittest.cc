@@ -111,10 +111,10 @@ class MockOrderGenerator : public Reorderer::OrderGenerator {
 // A dummy parse engine. This lets us feed hand-crafted events to any consumer.
 class TestParseEngine : public ParseEngine {
  public:
-  typedef Reorderer::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef core::RelativeAddress RelativeAddress;
   typedef Reorderer::ImageLayout ImageLayout;
   typedef Reorderer::PEFile PEFile;
-  typedef Reorderer::RelativeAddress RelativeAddress;
 
   explicit TestParseEngine(TestReorderer* reorderer)
       : ParseEngine("TestParseEngine", true),
@@ -299,10 +299,10 @@ class ReordererTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  typedef Reorderer::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef core::RelativeAddress RelativeAddress;
   typedef Reorderer::ImageLayout ImageLayout;
   typedef Reorderer::PEFile PEFile;
-  typedef Reorderer::RelativeAddress RelativeAddress;
 
   ReordererTest() : test_parse_engine_(NULL) {
   }
