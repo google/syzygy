@@ -520,6 +520,18 @@ class BlockGraph::Block {
   //     label set at any offset will stay there.
   bool SetLabel(Offset offset, const base::StringPiece& name);
 
+  // Gets the label at the given @p offset.
+  // @param offset the offset of the label to get.
+  // @param label the string to receive the label.
+  // @return true if the label exists, false otherwise.
+  bool GetLabel(Offset offset, std::string* label) const;
+
+  // Removes the label at the given @p offset.
+  // @param offset the offset of the label to remove.
+  // @return true if the label existed and was removed, false it it did not
+  //     exist.
+  bool RemoveLabel(Offset offset);
+
   // Returns true iff the block has a label at @p offset.
   // @param offset the offset of the label to search for.
   bool HasLabel(Offset offset);

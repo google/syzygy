@@ -998,6 +998,29 @@ bool BlockGraph::Block::SetLabel(Offset offset, const base::StringPiece& name) {
   return labels_.insert(std::make_pair(offset, name.as_string())).second;
 }
 
+bool BlockGraph::Block::GetLabel(Offset offset, std::string* label) const {
+  DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
+  DCHECK(label != NULL);
+
+  LabelMap::const_iterator it = labels_.find(offset);
+  if (it == labels_.end())
+    return false;
+
+  *label = it->second;
+  return true;
+}
+
+bool BlockGraph::Block::RemoveLabel(Offset offset) {
+  DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
+
+  LabelMap::iterator it = labels_.find(offset);
+  if (it == labels_.end())
+    return false;
+
+  labels_.erase(it);
+  return true;
+}
+
 bool BlockGraph::Block::HasLabel(Offset offset) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 

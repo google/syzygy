@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,6 +119,18 @@ bool AddPdbInfoTransform::Apply(
     LOG(ERROR) << "InsertOrRemoveData failed.";
     return false;
   }
+
+#ifndef NDEBUG
+  // We need to reinit cv_info_pdb as the data may have been reallocated and
+  // in that case the debug object is not up to date. This just makes the
+  // following code more easily debuggable.
+  if (!cv_info_pdb.InitWithSize(cv_info_pdb.offset(),
+                                new_debug_info_size,
+                                cv_info_pdb.block())) {
+    LOG(ERROR) << "Failed to reinitialize CvInfoPdb.";
+    return false;
+  }
+#endif  // NDEBUG
 
   // Fill in the debug info structure.
   cv_info_pdb->cv_signature = pe::kPdb70Signature;

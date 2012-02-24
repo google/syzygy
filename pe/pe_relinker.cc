@@ -118,12 +118,19 @@ bool InitializePaths(const FilePath& input_path,
     return false;
   }
 
-  // Default to placing the new PDB alongside the new module, but with the
-  // same base name as the input PDB.
+  // If no output PDB path is specified, infer one.
   if (output_pdb_path->empty()) {
-    *output_pdb_path = output_path.DirName().Append(input_pdb_path->BaseName());
-    LOG(INFO) << "Using default output PDB path: "
-              << output_pdb_path->value();
+    // If the input and output DLLs have the same basename, default to writing
+    // using the same PDB basename, but alongside the new module.
+    if (input_path.BaseName() == output_path.BaseName()) {
+      *output_pdb_path = output_path.DirName().Append(
+          input_pdb_path->BaseName());
+    } else {
+      // Otherwise, default to using the output basename with a PDB extension.
+      *output_pdb_path = output_path.ReplaceExtension(L"pdb");
+    }
+
+    LOG(INFO) << "Using default output PDB path: " << output_pdb_path->value();
   }
 
   // Ensure we aren't about to overwrite anything we don't want to. We do this
@@ -336,7 +343,7 @@ bool WritePdbFile(const RelativeAddressRange input_range,
                                    guid,
                                    omap_to,
                                    omap_from)) {
-    LOG(ERROR) << "Unable to add OMAP data to PDB";
+    LOG(ERROR) << "Unable to add OMAP data to PDB.";
     file_util::Delete(temp_pdb, false);
     return false;
   }
