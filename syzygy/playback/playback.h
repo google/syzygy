@@ -39,17 +39,11 @@ namespace playback {
 
 class Playback {
  public:
-  typedef std::vector<FilePath> TraceFileList;
-  typedef TraceFileList::iterator TraceFileIter;
-
   typedef call_trace::parser::ModuleInformation ModuleInformation;
   typedef call_trace::parser::Parser Parser;
-  typedef pe::Decomposer Decomposer;
   typedef pe::ImageLayout ImageLayout;
   typedef pe::PEFile PEFile;
-
-  typedef uint64 AbsoluteAddress64;
-  typedef uint64 Size64;
+  typedef std::vector<FilePath> TraceFileList;
 
   // Construct a new Playback instance.
   // @param module_path The path of the module dll.
@@ -84,6 +78,11 @@ class Playback {
   // @}
 
  protected:
+  typedef pe::Decomposer Decomposer;
+  typedef TraceFileList::iterator TraceFileIter;
+  typedef uint64 AbsoluteAddress64;
+  typedef uint64 Size64;
+
   // Loads information from the instrumented and original modules.
   bool LoadModuleInformation();
   // Initializes the parser.
