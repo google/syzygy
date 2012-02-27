@@ -88,9 +88,13 @@ class EntryThunkTransformTest : public testing::Test {
     // Create a couple of code blocks for "functions".
     foo_ = bg_.AddBlock(BlockGraph::CODE_BLOCK, 20, "foo");
     foo_->set_section(text->id());
+    foo_->source_ranges().Push(BlockGraph::Block::DataRange(0, 20),
+        BlockGraph::Block::SourceRange(core::RelativeAddress(0x1000), 20));
 
     bar_ = bg_.AddBlock(BlockGraph::CODE_BLOCK, 20, "bar");
     bar_->set_section(text->id());
+    bar_->source_ranges().Push(BlockGraph::Block::DataRange(0, 20),
+        BlockGraph::Block::SourceRange(core::RelativeAddress(0x1020), 20));
 
     // Get the .rdata section.
     BlockGraph::Section* rdata =
@@ -169,6 +173,24 @@ class EntryThunkTransformTest : public testing::Test {
               offsetof(TestEntryThunkTransform::Thunk, func_addr), &ref));
           ASSERT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
           destinations.insert(std::make_pair(ref.referenced(), ref.offset()));
+
+          // Test the source ranges on the thunk.
+          ASSERT_EQ(1, block.source_ranges().size());
+          BlockGraph::Block::SourceRanges::RangePair r =
+              block.source_ranges().range_pairs()[0];
+          ASSERT_EQ(0, r.first.start());
+          ASSERT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.first.size());
+
+          // Retrieve the referenced block's source ranges to calculate
+          // the destination start address.
+          ASSERT_EQ(1, ref.referenced()->source_ranges().size());
+          BlockGraph::Block::SourceRanges::RangePair o =
+              ref.referenced()->source_ranges().range_pairs()[0];
+
+          // The thunk's destination should be the block's start, plus the
+          // reference offset.
+          ASSERT_EQ(o.second.start() + ref.offset(), r.second.start());
+          ASSERT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.second.size());
 
           // Lookup and record the entrypoint.
           ASSERT_TRUE(block.GetReference(
