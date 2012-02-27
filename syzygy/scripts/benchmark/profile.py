@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,10 +43,12 @@ class ChromeProfileRunner(runner.ChromeRunner):
     self._log_files = []
 
   def _SetUp(self):
+    super(ChromeProfileRunner, self)._SetUp()
     self.StartLoggingRpc(self._output_dir)
 
   def _TearDown(self):
     self.StopLoggingRpc()
+    super(ChromeProfileRunner, self)._TearDown()
 
   def _PreIteration(self, it):
     pass
@@ -95,7 +97,8 @@ class ChromeFrameProfileRunner(runner.ChromeFrameRunner):
     self._log_files = glob.glob(os.path.join(self._output_dir, '*.bin'))
 
 
-def ProfileChrome(chrome_dir, output_dir, iterations, chrome_frame):
+def ProfileChrome(chrome_dir, output_dir, iterations, chrome_frame,
+                  session_urls=None):
   """Profiles the chrome instance in chrome_dir for a specified number
   of iterations. If chrome_frame is specified, also profiles Chrome Frame for
   the same number of iterations.
@@ -105,6 +108,7 @@ def ProfileChrome(chrome_dir, output_dir, iterations, chrome_frame):
     output_dir: the directory where the call trace files are stored.
     iterations: the number of iterations to profile.
     chrome_frame: whether or not to profile Chrome Frame as well.
+    session_urls: the list of URL to restore on Chrome startup.
 
   Raises:
     Exception on failure.
@@ -113,7 +117,11 @@ def ProfileChrome(chrome_dir, output_dir, iterations, chrome_frame):
     os.makedirs(output_dir)
 
   _LOGGER.info('Profiling Chrome "%s\chrome.exe".', chrome_dir)
-  chrome_runner = ChromeProfileRunner(chrome_dir, output_dir)
+  chrome_runner = ChromeProfileRunner(chrome_dir, output_dir,
+                                      initialize_profile=True)
+  for url in session_urls or []:
+    chrome_runner.AddToSession(url)
+
   chrome_runner.Run(iterations)
 
   log_files = chrome_runner._log_files

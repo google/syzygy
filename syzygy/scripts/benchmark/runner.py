@@ -109,6 +109,17 @@ def _GetExePath(name):
   return path
 
 
+def _MovePath(src, dst):
+  """Move the file or directory denoted by src to dst. If dst exists then this
+  is an overwriting rename.
+  """
+  if os.path.isfile(dst):
+    os.remove(dst)
+  elif os.path.isdir(dst):
+    shutil.rmtree(dst)
+  shutil.move(src, dst)
+
+
 def _GetRunInSnapshotExeResourceName():
   """Return the name of the most appropriate run_in_snapshot executable for
   the system we're running on.
@@ -155,6 +166,7 @@ class ChromeRunner(object):
     self._chrome_exe = chrome_exe
     self._profile_dir = profile_dir
     self._initialize_profile = initialize_profile
+    self._session_urls = []
     self._call_trace_service = None
     self._call_trace_log_path = None
     self._call_trace_log_file = None
@@ -164,6 +176,12 @@ class ChromeRunner(object):
       self._profile_dir = tempfile.mkdtemp(prefix='chrome-profile')
       _LOGGER.info('Using temporary profile directory "%s".',
                    self._profile_dir)
+
+  def AddToSession(self, url):
+    """Adds a URL to be seeded into the profile. Note that this only affects
+    the profile if the runner was created with initialize_profile=True.
+    """
+    self._session_urls.append(url)
 
   @staticmethod
   def StartLoggingEtw(log_dir):
@@ -383,9 +401,31 @@ class ChromeRunner(object):
     Chrome in that directory.
     """
     _LOGGER.info('Initializing profile dir "%s".', self._profile_dir)
-    process = self._LaunchChromeImpl(['--no-first-run'])
+    params = ['--no-first-run'] + self._session_urls
+    process = self._LaunchChromeImpl(params)
     self._WaitTillChromeRunning(process)
+    time.sleep(5)  # Give it some time to populate some session data.
     chrome_control.ShutDown(self._profile_dir)
+
+    if not self._session_urls:
+      return
+
+    # Read the preferences file.
+    _LOGGER.info('Updating preferences in "%s".', self._profile_dir)
+    preferences = os.path.join(self._profile_dir, 'Default', 'Preferences')
+    with open(preferences) as f:
+      prefs_dict = json.load(f)
+
+    # Turn on session restore at startup and save the preferences.
+    prefs_dict.setdefault('session', {})['restore_on_startup'] = 1
+    fd, new_preferences = tempfile.mkstemp(dir=os.path.dirname(preferences))
+    try:
+      with os.fdopen(fd, "w") as f:
+        json.dump(prefs_dict, f, indent=2)
+      _MovePath(new_preferences, preferences)
+    except:
+      os.remove(new_preferences)
+      raise
 
   def _WaitTillChromeRunning(self, process):
     """Wait until Chrome is running in our profile directory.
@@ -532,7 +572,7 @@ class BenchmarkRunner(ChromeRunner):
 
   def __init__(self, chrome_exe, profile_dir, preload, cold_start, prefetch,
                keep_temp_dirs, initialize_profile, ibmperf_dir, ibmperf_run,
-               ibmperf_metrics):
+               ibmperf_metrics, trace_file_archive_dir=None):
     """Initialize instance.
 
     Args:
@@ -555,16 +595,18 @@ class BenchmarkRunner(ChromeRunner):
         ibmperf_run: If True, IBM Performance Inspector metrics will be
             gathered.
         ibmperf_metrics: List of metrics to be gathered using ibmperf.
+        trace_file_archive_dir: Directory in which to archive the ETW logs.
     """
     super(BenchmarkRunner, self).__init__(
         chrome_exe, profile_dir, initialize_profile=initialize_profile)
     self._preload = preload
     self._cold_start = cold_start
     self._prefetch = prefetch
-    self._keep_temp_dirs = keep_temp_dirs
+    self._keep_temp_dirs = keep_temp_dirs or trace_file_archive_dir
     self._results = {}
-    self._temp_dir = None
+    self._temp_dir = trace_file_archive_dir
     self._SetupIbmPerf(ibmperf_dir, ibmperf_run, ibmperf_metrics)
+    self._session_urls = []
 
   def Run(self, iterations):
     """Overrides ChromeRunner.Run. We do this so that we can multiply
@@ -580,8 +622,9 @@ class BenchmarkRunner(ChromeRunner):
     super(BenchmarkRunner, self)._SetUp()
     self._old_preload = chrome_control.GetPreload()
     chrome_control.SetPreload(self._preload)
-    self._temp_dir = tempfile.mkdtemp(prefix='chrome-bench')
-    _LOGGER.info('Created temporary directory "%s".', self._temp_dir)
+    if not self._temp_dir:
+      self._temp_dir = tempfile.mkdtemp(prefix='chrome-bench')
+      _LOGGER.info('Created temporary directory "%s".', self._temp_dir)
 
   def _TearDown(self):
     chrome_control.SetPreload(self._old_preload)
