@@ -197,6 +197,26 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   thunk->SetData(reinterpret_cast<const uint8*>(&kThunkTemplate),
                  sizeof(kThunkTemplate));
 
+  // Give the thunk a source range synonymous with the destination.
+  // That way the debugger will resolve calls and jumps to the thunk to the
+  // destination function's name, which makes the assembly much easier to read.
+  // The downside to this is that the symbols are now no longer unique, and
+  // searching for a function by name may turn up either the function or the
+  // thunk.
+  const BlockGraph::Block::SourceRanges& source_ranges =
+      destination.referenced()->source_ranges();
+  const BlockGraph::Block::SourceRanges::RangePair* source =
+      source_ranges.FindRangePair(destination.offset(), thunk->size());
+  if (source != NULL) {
+    // Calculate the offset into the range.
+    size_t offs = destination.offset() - source->first.start();
+    BlockGraph::Block::DataRange data(0, thunk->size());
+    BlockGraph::Block::SourceRange src(source->second.start() + offs,
+                                        thunk->size());
+    bool pushed = thunk->source_ranges().Push(data, src);
+    DCHECK(pushed);
+  }
+
   const BlockGraph::Reference& import_ref =
       is_dll_entry_signature ? hook_dllmain_ref_ : hook_ref_;
 
