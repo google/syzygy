@@ -175,8 +175,13 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
                        FuncAddr function,
                        uint64 cycles);
 
+  // @name ReturnThunkFactory::Delegate implementation.
+  // @{
   virtual void OnFunctionExit(const ReturnThunkFactory::Thunk* thunk,
                               uint64 cycles_exit) OVERRIDE;
+  virtual void OnPageAdded(const void* page) OVERRIDE;
+  virtual void OnPageRemoved(const void* page) OVERRIDE;
+  // @}
 
   call_trace::client::TraceFileSegment* segment() { return &segment_; }
 
@@ -319,6 +324,14 @@ void Profiler::ThreadState::OnFunctionExit(
   RecordInvocation(thunk->caller, thunk->function, cycles_executed);
 
   UpdateOverhead(cycles_exit);
+}
+
+void Profiler::ThreadState::OnPageAdded(const void* page) {
+  // TODO(siggi): Use to maintain page list.
+}
+
+void Profiler::ThreadState::OnPageRemoved(const void* page) {
+  // TODO(siggi): Use to maintain page list.
 }
 
 void Profiler::OnDetach() {
