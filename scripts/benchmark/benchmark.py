@@ -95,6 +95,12 @@ def _GetOptionParser():
   parser.add_option('--ibmperf-list-metrics', dest='ibmperf_list_metrics',
                     action='store_true', default=False,
                     help='Lists the available metrics and exits.')
+  parser.add_option('--trace-file-archive-dir', metavar='DIR',
+                    help='Directory in which to archive the ETW trace logs')
+  parser.add_option('--session-url', dest='session_urls', metavar='URL',
+                    default=[], action='append',
+                    help='URL with which to seed the profile. This option is '
+                         'repeatable, once per URL to include.')
   return parser
 
 
@@ -147,8 +153,11 @@ def main():
                                             opts.initialize_profile,
                                             opts.ibmperf_dir,
                                             opts.ibmperf_run,
-                                            opts.ibmperf_metrics)
+                                            opts.ibmperf_metrics,
+                                            opts.trace_file_archive_dir)
   try:
+    for url in opts.session_urls:
+      benchmark_runner.AddToSession(url)
     benchmark_runner.Run(opts.iterations)
   except:
     logging.exception('Exception in Run.')

@@ -118,7 +118,13 @@ def _ParseArguments():
                           'optimized PE and PDB files will be copied.'))
   parser.add_option('--keep-temp-dirs', dest='keep_temp_dirs',
                     action='store_true',
-                    help='Keep temporary directories instead of deleting them.')
+                    help='Keep temp directories instead of deleting them.')
+  parser.add_option('--session-url', dest='session_urls', metavar='URL',
+                    action='append', default=[],
+                    help='Add URL to the session data used for profiling. '
+                         'This option may be given multiple times; each URL '
+                         'will be added to the session.')
+
   (opts, args) = parser.parse_args()
 
   if len(args):
@@ -162,7 +168,8 @@ def main():
     trace_files = profile.ProfileChrome(instrumented_dir,
                                         profile_data_dir,
                                         opts.iterations,
-                                        opts.chrome_frame)
+                                        opts.chrome_frame,
+                                        opts.session_urls)
     # Lastly generate an ordering, and reorder the inputs to
     # the output dir.
     _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files)
