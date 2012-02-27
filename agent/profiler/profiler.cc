@@ -17,6 +17,7 @@
 
 #include <windows.h>
 #include <psapi.h>
+#include <algorithm>
 
 #include "base/at_exit.h"
 #include "base/hash_tables.h"
@@ -131,12 +132,14 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
   }
 }
 
-// When code is jumping or calling into the middle of a function,
-// the profiler does nothing.
-extern "C" void __declspec(naked) _indirect_penter_inside_function() {
-  __asm {
-    ret
-  }
+// On entry, pc_location should point to a location on our own stack.
+extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
+    uintptr_t pc_location) {
+  using call_trace::client::Profiler;
+  Profiler* profiler = Profiler::Instance();
+  return reinterpret_cast<uintptr_t>(
+      profiler->ResolveReturnAddressLocation(
+          reinterpret_cast<RetAddr*>(pc_location)));
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
@@ -327,15 +330,11 @@ void Profiler::ThreadState::OnFunctionExit(
 }
 
 void Profiler::ThreadState::OnPageAdded(const void* page) {
-  // TODO(siggi): Use to maintain page list.
+  profiler_->OnPageAdded(page);
 }
 
 void Profiler::ThreadState::OnPageRemoved(const void* page) {
-  // TODO(siggi): Use to maintain page list.
-}
-
-void Profiler::OnDetach() {
-  FreeThreadState();
+  profiler_->OnPageRemoved(page);
 }
 
 void Profiler::ThreadState::RecordInvocation(RetAddr caller,
@@ -412,6 +411,51 @@ bool Profiler::ThreadState::FlushSegment() {
   invocations_.clear();
 
   return profiler_->session_.ExchangeBuffer(&segment_);
+}
+
+void Profiler::OnDetach() {
+  FreeThreadState();
+}
+
+RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
+  // See whether the return address is one of our thunks.
+  RetAddr ret_addr = *pc_location;
+
+  // Compute the page this return address lives in.
+  const void* page = reinterpret_cast<const void*>(
+      reinterpret_cast<uintptr_t>(ret_addr) & ~0xFFF);
+  {
+    base::AutoLock lock(lock_);
+
+    if (!std::binary_search(pages_.begin(), pages_.end(), page))
+      return pc_location;
+  }
+
+  // It's one of our own, redirect to the thunk's stash.
+  ReturnThunkFactory::Thunk* thunk =
+      reinterpret_cast<ReturnThunkFactory::Thunk*>(const_cast<void*>(ret_addr));
+
+  return &thunk->caller;
+}
+
+void Profiler::OnPageAdded(const void* page) {
+  base::AutoLock lock(lock_);
+
+  PageVector::iterator it =
+      std::lower_bound(pages_.begin(), pages_.end(), page);
+  DCHECK(it == pages_.end() || *it != page);
+  pages_.insert(it, page);
+}
+
+void Profiler::OnPageRemoved(const void* page) {
+  base::AutoLock lock(lock_);
+
+  PageVector::iterator it =
+      std::lower_bound(pages_.begin(), pages_.end(), page);
+  // The page must be in our list.
+  DCHECK(it != pages_.end());
+  DCHECK_EQ(page, *it);
+  pages_.erase(it);
 }
 
 Profiler* Profiler::Instance() {
