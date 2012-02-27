@@ -15,6 +15,8 @@
 // Profiler unittests.
 #include "syzygy/agent/profiler/profiler.h"
 
+#include <intrin.h>
+
 #include "base/file_util.h"
 #include "base/scoped_temp_dir.h"
 #include "gmock/gmock.h"
@@ -34,6 +36,12 @@ using file_util::FileEnumerator;
 using testing::_;
 using testing::Return;
 using testing::StrictMock;
+
+
+// Return address location resolution function.
+typedef uintptr_t (__cdecl *ResolveReturnAddressLocationFunc)(
+    uintptr_t pc_location);
+
 
 class MockParseEventHandler : public ParseEventHandler {
  public:
@@ -76,7 +84,7 @@ class MockParseEventHandler : public ParseEventHandler {
 
 class ProfilerTest : public testing::Test {
  public:
-  ProfilerTest() : module_(NULL) {
+  ProfilerTest() : module_(NULL), resolution_func_(NULL) {
   }
 
   virtual void SetUp() {
@@ -120,11 +128,15 @@ class ProfilerTest : public testing::Test {
     module_ = ::LoadLibrary(call_trace_dll);
     ASSERT_TRUE(module_ != NULL);
     _indirect_penter_dllmain_ =
-        GetProcAddress(module_, "_indirect_penter_dllmain");
-    _indirect_penter_ = GetProcAddress(module_, "_indirect_penter");
+        ::GetProcAddress(module_, "_indirect_penter_dllmain");
+    _indirect_penter_ = ::GetProcAddress(module_, "_indirect_penter");
 
     ASSERT_TRUE(_indirect_penter_dllmain_ != NULL);
     ASSERT_TRUE(_indirect_penter_ != NULL);
+
+    resolution_func_ = reinterpret_cast<ResolveReturnAddressLocationFunc>(
+        ::GetProcAddress(module_, "ResolveReturnAddressLocation"));
+    ASSERT_TRUE(resolution_func_ != NULL);
   }
 
   void UnloadDll() {
@@ -145,9 +157,11 @@ class ProfilerTest : public testing::Test {
 
   static int IndirectFunctionA(int param1, const void* param2);
   static int FunctionAThunk(int param1, const void* param2);
+  static int TestResolutionFuncThunk(ResolveReturnAddressLocationFunc resolver);
 
  protected:
   StrictMock<MockParseEventHandler> handler_;
+  ResolveReturnAddressLocationFunc resolution_func_;
 
  private:
   ScopedTempDir temp_dir_;
@@ -187,12 +201,36 @@ int __declspec(naked) ProfilerTest::FunctionAThunk(int param1,
   }
 }
 
+void TestResolutionFunc(ResolveReturnAddressLocationFunc resolver) {
+  uintptr_t pc_location =
+      reinterpret_cast<uintptr_t>(_AddressOfReturnAddress());
+  ASSERT_NE(pc_location, resolver(pc_location));
+}
+
+int __declspec(naked) ProfilerTest::TestResolutionFuncThunk(
+    ResolveReturnAddressLocationFunc resolver) {
+  __asm {
+    push TestResolutionFunc
+    jmp _indirect_penter_
+  }
+}
+
 }  // namespace
 
 TEST_F(ProfilerTest, NoServerNoCrash) {
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
   EXPECT_TRUE(DllMainThunk(NULL, DLL_PROCESS_ATTACH, NULL));
+}
+
+TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
+  // Spin up the RPC service.
+  ASSERT_TRUE(Service::Instance().Start(true));
+
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Test the return address resolution function.
+  ASSERT_NO_FATAL_FAILURE(TestResolutionFuncThunk(resolution_func_));
 }
 
 TEST_F(ProfilerTest, RecordsModuleAndFunctions) {

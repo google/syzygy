@@ -19,3 +19,5 @@ EXPORTS
   ; Our profile hook functions, invoked through machine instrumentation.
   _indirect_penter
   _indirect_penter_dllmain
+  ; Hook for instrumented clients to resolve the original return addresses.
+  ResolveReturnAddressLocation

@@ -24,7 +24,10 @@
 #ifndef SYZYGY_AGENT_PROFILER_PROFILER_H_
 #define SYZYGY_AGENT_PROFILER_PROFILER_H_
 
+#include <vector>
+
 #include "base/lazy_instance.h"
+#include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
 #include "syzygy/agent/common/shadow_stack.h"
 #include "syzygy/trace/client/rpc_session.h"
@@ -49,8 +52,17 @@ class Profiler {
                                        FuncAddr function,
                                        uint64 cycles);
 
+  // Resolves a return address location to a thunk's stashed original
+  // location if a thunk is involved.
+  // @param pc_location an address on stack where a return address is stored.
+  // @returns the address where the profiler stashed the original return address
+  //     if *(@p pc_location) refers to a thunk, otherwise @p pc_location.
+  RetAddr* ResolveReturnAddressLocation(RetAddr* pc_location);
+
+  // Call when a thread is terminating.
   void OnDetach();
 
+  // Retrieves the profiler singleton instance.
   static Profiler* Instance();
 
  private:
@@ -59,6 +71,10 @@ class Profiler {
 
   Profiler();
   ~Profiler();
+
+  // Callbacks from ThreadState.
+  void OnPageAdded(const void* page);
+  void OnPageRemoved(const void* page);
 
   class ThreadState;
 
@@ -70,6 +86,13 @@ class Profiler {
 
   // The RPC session we're logging to/through.
   call_trace::client::RpcSession session_;
+
+  // Protects our page list.
+  base::Lock lock_;
+
+  // Contains the thunk pages in lexical order.
+  typedef std::vector<const void*> PageVector;
+  PageVector pages_;  // Under lock_.
 
   // This points to our per-thread state.
   mutable base::ThreadLocalPointer<ThreadState> tls_;
