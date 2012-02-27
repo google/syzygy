@@ -39,7 +39,20 @@ class ReturnThunkFactory {
     Delegate() {}
     virtual ~Delegate() {}
 
+    // Invoked on function exit.
+    // @param thunk is the invoked thunk.
+    // @param cycles is the performance counter recorded.
     virtual void OnFunctionExit(const Thunk* thunk, uint64 cycles) = 0;
+
+    // Invoked after the factory has allocated a new page of thunks.
+    // @param page the page of thunks, @p page is 4K and aligned on a
+    //    4K boundary.
+    virtual void OnPageAdded(const void* page) = 0;
+
+    // Invoked before the factory deallocates a page of thunks.
+    // @param page the page of thunks, @p page is 4K in size and aligned on a
+    //    4K boundary.
+    virtual void OnPageRemoved(const void* page) = 0;
 
    private:
     DISALLOW_COPY_AND_ASSIGN(Delegate);

@@ -90,6 +90,12 @@ ReturnThunkFactory::~ReturnThunkFactory() {
   while (current_page->next_page) {
     Page* page_to_free = current_page;
     current_page = current_page->next_page;
+
+    // Notify the delegate of the release. We do this before freeing the memory
+    // to make sure we don't open a race where a new thread could sneak a stack
+    // into the page allocation.
+    delegate_->OnPageRemoved(page_to_free);
+
     ::VirtualFree(page_to_free, 0, MEM_RELEASE);
   }
 }
@@ -138,6 +144,9 @@ void ReturnThunkFactory::AddPage() {
   }
 
   first_free_thunk_ = &new_page->thunks[0];
+
+  // Notify the delegate that the page has been allocated.
+  delegate_->OnPageAdded(new_page);
 }
 
 // static
