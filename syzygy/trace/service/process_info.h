@@ -74,6 +74,11 @@ struct ProcessInfo {
   // The command line for the process.
   std::wstring command_line;
 
+  // The environment block of the process. This is a sequence of wide strings,
+  // each of which is terminated by a single NULL. The entire sequence is
+  // terminated by a double NULL.
+  std::vector<wchar_t> environment;
+
   // The base address at which the executable image is currently loaded.
   uint32 exe_base_address;
 

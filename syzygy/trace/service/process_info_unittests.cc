@@ -39,32 +39,42 @@ TEST(ProcessInfoTest, CurrentProcess) {
   ASSERT_TRUE(length != 0);
   ASSERT_LT(length, arraysize(executable_path));
 
+  wchar_t* env_strings = GetEnvironmentStrings();
+  ASSERT_TRUE(env_strings != NULL);
+
   pe::PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(FilePath(executable_path)));
   pe::PEFile::Signature pe_sig;
   pe_file.GetSignature(&pe_sig);
 
   ProcessInfo process_info;
-  ASSERT_TRUE(process_info.Initialize(::GetCurrentProcessId()));
+  EXPECT_TRUE(process_info.Initialize(::GetCurrentProcessId()));
 
-  ASSERT_STREQ(process_info.command_line.c_str(), ::GetCommandLineW());
-  ASSERT_STREQ(process_info.executable_path.value().c_str(), executable_path);
-  ASSERT_EQ(
+  EXPECT_STREQ(process_info.command_line.c_str(), ::GetCommandLineW());
+  EXPECT_STREQ(process_info.executable_path.value().c_str(), executable_path);
+  EXPECT_EQ(
       reinterpret_cast<void*>(process_info.exe_base_address),
       module_info.lpBaseOfDll);
-  ASSERT_EQ(process_info.exe_image_size, module_info.SizeOfImage);
-  ASSERT_EQ(process_info.exe_checksum, pe_sig.module_checksum);
-  ASSERT_EQ(process_info.exe_time_date_stamp, pe_sig.module_time_date_stamp);
+  EXPECT_EQ(process_info.exe_image_size, module_info.SizeOfImage);
+  EXPECT_EQ(process_info.exe_checksum, pe_sig.module_checksum);
+  EXPECT_EQ(process_info.exe_time_date_stamp, pe_sig.module_time_date_stamp);
+
+  EXPECT_LE(2u, process_info.environment.size());
+  EXPECT_EQ(0, *(process_info.environment.end() - 2));
+  EXPECT_EQ(0, *(process_info.environment.end() - 1));
+  EXPECT_EQ(0, memcmp(env_strings, &process_info.environment[0],
+                      process_info.environment.size()));
 
   process_info.Reset();
-  ASSERT_TRUE(process_info.process_id == 0);
-  ASSERT_FALSE(process_info.process_handle.IsValid());
-  ASSERT_TRUE(process_info.executable_path.empty());
-  ASSERT_TRUE(process_info.command_line.empty());
-  ASSERT_TRUE(process_info.exe_base_address == 0);
-  ASSERT_TRUE(process_info.exe_image_size == 0);
-  ASSERT_TRUE(process_info.exe_checksum == 0);
-  ASSERT_TRUE(process_info.exe_time_date_stamp == 0);
+  EXPECT_EQ(0, process_info.process_id);
+  EXPECT_FALSE(process_info.process_handle.IsValid());
+  EXPECT_TRUE(process_info.executable_path.empty());
+  EXPECT_TRUE(process_info.command_line.empty());
+  EXPECT_EQ(0, process_info.environment.size());
+  EXPECT_EQ(0, process_info.exe_base_address);
+  EXPECT_EQ(0, process_info.exe_image_size);
+  EXPECT_EQ(0, process_info.exe_checksum);
+  EXPECT_EQ(0, process_info.exe_time_date_stamp);
 }
 
 }  // namespace call_trace::service
