@@ -57,6 +57,9 @@ class Profiler {
   // @param pc_location an address on stack where a return address is stored.
   // @returns the address where the profiler stashed the original return address
   //     if *(@p pc_location) refers to a thunk, otherwise @p pc_location.
+  // @note this function must be able to resolve through thunks that belong
+  //     to other threads, as e.g. V8 will traverse all stacks that are using
+  //     V8 during garbage collection.
   RetAddr* ResolveReturnAddressLocation(RetAddr* pc_location);
 
   // Call when a thread is terminating.
