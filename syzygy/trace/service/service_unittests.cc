@@ -23,16 +23,43 @@
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
 #include "syzygy/trace/client/client_utils.h"
+#include "syzygy/trace/parse/parse_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 using namespace trace::client;
-using common::AlignUp;
 
 namespace trace {
 namespace service {
 
 namespace {
+
+using common::AlignUp;
+using trace::parser::ParseTraceFileHeaderBlob;
+
+typedef trace::parser::TraceFileHeaderBlob TraceFileHeaderBlob;
+
+// Calculates the size of the given header on disk.
+size_t RoundedSize(const TraceFileHeader& header) {
+  return AlignUp(header.header_size, header.block_size);
+}
+
+class ScopedEnvironment {
+ public:
+  ScopedEnvironment() {
+    env_ = ::GetEnvironmentStrings();
+    DCHECK(env_ != NULL);
+  }
+
+  ~ScopedEnvironment() {
+    ::FreeEnvironmentStrings(env_);
+  }
+
+  const wchar_t* Get() { return env_; }
+
+ private:
+  wchar_t* env_;
+};
 
 class CallTraceServiceTest : public testing::Test {
  public:
@@ -203,19 +230,23 @@ class CallTraceServiceTest : public testing::Test {
                                        &module_info,
                                        sizeof(module_info)));
 
-    size_t header_size = sizeof(header) + cmd_line.length() * sizeof(wchar_t);
-    ASSERT_LT(header.header_size, 2 * header.block_size);
+    ScopedEnvironment env;
+
+    // Parse the blob at the end of the header, and make sure its parsable.
+    TraceFileHeaderBlob blob = {};
+    ASSERT_TRUE(ParseTraceFileHeaderBlob(header, &blob));
+
     ASSERT_EQ(header.server_version.hi, TRACE_VERSION_HI);
     ASSERT_EQ(header.server_version.lo, TRACE_VERSION_LO);
-    ASSERT_EQ(header.header_size, header_size);
     ASSERT_EQ(header.process_id, ::GetCurrentProcessId());
-    ASSERT_STREQ(header.module_path, module_path);
-    ASSERT_EQ(header.command_line_len, cmd_line.length());
-    ASSERT_STREQ(header.command_line, cmd_line.c_str());
     ASSERT_EQ(header.module_base_address,
               reinterpret_cast<uint32>(module_info.lpBaseOfDll));
     ASSERT_EQ(header.module_size,
               static_cast<uint32>(module_info.SizeOfImage));
+    ASSERT_STREQ(blob.module_path, module_path);
+    ASSERT_EQ(blob.command_line_length, cmd_line.length());
+    ASSERT_STREQ(blob.command_line, cmd_line.c_str());
+    ASSERT_STREQ(blob.environment, env.Get());
   }
 
   typedef std::map<HANDLE, uint8*> BasePtrMap;
@@ -256,7 +287,8 @@ TEST_F(CallTraceServiceTest, Connect) {
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
 
   ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
-  ASSERT_EQ(trace_file_contents.length(), 3 * header->block_size);
+  ASSERT_EQ(trace_file_contents.length(),
+            RoundedSize(*header) + header->block_size);
 }
 
 TEST_F(CallTraceServiceTest, Allocate) {
@@ -296,7 +328,8 @@ TEST_F(CallTraceServiceTest, Allocate) {
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
 
   ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
-  ASSERT_EQ(trace_file_contents.length(), 5 * header->block_size);
+  ASSERT_EQ(trace_file_contents.length(),
+            RoundedSize(*header) + 3 * header->block_size);
 
   // Locate and validate the segment header prefix and segment header.
   // This should be segment 2.
@@ -391,8 +424,9 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   TraceFileHeader* header =
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
   ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
-  size_t total_blocks = 3 + num_blocks;
-  ASSERT_EQ(trace_file_contents.length(), total_blocks * header->block_size);
+  size_t total_blocks = 1 + num_blocks;
+  ASSERT_EQ(trace_file_contents.length(),
+            RoundedSize(*header) + total_blocks * header->block_size);
 
   // Read each data block and validate its contents.
   size_t segment_offset = AlignUp(header->header_size, header->block_size);
