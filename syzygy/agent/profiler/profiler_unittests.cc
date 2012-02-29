@@ -24,18 +24,18 @@
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
 
-namespace call_trace {
+namespace agent {
 namespace client {
 
 namespace {
 
-using call_trace::service::Service;
-using call_trace::parser::Parser;
-using call_trace::parser::ParseEventHandler;
 using file_util::FileEnumerator;
 using testing::_;
 using testing::Return;
 using testing::StrictMock;
+using trace::service::Service;
+using trace::parser::Parser;
+using trace::parser::ParseEventHandler;
 
 
 // Return address location resolution function.
@@ -327,4 +327,4 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
 }
 
 }  // namespace client
-}  // namespace call_trace
+}  // namespace agent

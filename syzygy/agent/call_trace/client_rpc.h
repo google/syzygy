@@ -34,7 +34,7 @@ extern "C" void _cdecl _indirect_penter_dllmain();
 extern void pexit();
 extern void pexit_dllmain();
 
-namespace call_trace {
+namespace agent {
 namespace client {
 
 class Client {
@@ -47,7 +47,7 @@ class Client {
   BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID reserved);
 
  protected:
-  typedef call_trace::EntryFrame EntryFrame;
+  typedef agent::EntryFrame EntryFrame;
   friend void _indirect_penter();
   friend void _indirect_penter_dll_main();
   friend void pexit();
@@ -179,7 +179,7 @@ class Client {
   RetAddr LogEvent_FunctionExit(const void* stack,
                                 RetValueWord retval);
 
-  struct StackEntry : public call_trace::StackEntryBase {
+  struct StackEntry : public agent::StackEntryBase {
     // The function address invoked, from which this stack entry returns.
     FuncAddr function_address;
   };
@@ -208,13 +208,13 @@ class Client {
   base::Lock init_lock_;
 
   // Our RPC session state.
-  RpcSession session_;
+  trace::client::RpcSession session_;
 
   // TLS index to our thread local data.
   DWORD tls_index_;
 };
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace agent::client
+}  // namespace agent
 
 #endif  // SYZYGY_AGENT_CALL_TRACE_CLIENT_RPC_H_

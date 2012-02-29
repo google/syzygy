@@ -19,7 +19,7 @@
 
 namespace {
 
-using call_trace::client::ReturnThunkFactory;
+using agent::client::ReturnThunkFactory;
 using testing::_;
 using testing::AnyNumber;
 using testing::StrictMock;

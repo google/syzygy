@@ -27,7 +27,7 @@
 #include "syzygy/core/address_space.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
-namespace call_trace {
+namespace trace {
 namespace parser {
 
 typedef sym_util::ModuleInformation ModuleInformation;
@@ -183,7 +183,7 @@ class ParseEventHandler {
                                  const InvocationInfoBatch* data) = 0;
 };
 
-}  // namespace call_trace::parser
-}  // namespace call_trace
+}  // namespace trace::parser
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_PARSE_PARSER_H_

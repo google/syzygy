@@ -18,7 +18,7 @@
 #include "base/basictypes.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
-namespace call_trace {
+namespace agent {
 namespace client {
 
 // A factory for return thunks as used by the profiler.  These are
@@ -135,6 +135,6 @@ class ReturnThunkFactory {
 };
 
 }  // namespace client
-}  // namespace call_trace
+}  // namespace agent
 
 #endif  // SYZYGY_AGENT_PROFILER_RETURN_THUNK_FACTORY_H_

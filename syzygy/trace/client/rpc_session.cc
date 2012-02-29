@@ -21,7 +21,7 @@
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
-namespace call_trace {
+namespace trace {
 namespace client {
 
 RpcSession::RpcSession() : session_handle_(NULL), is_disabled_(false) {
@@ -179,5 +179,5 @@ void RpcSession::FreeSharedMemory() {
   shared_memory_handles_.clear();
 }
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace trace::client
+}  // namespace trace

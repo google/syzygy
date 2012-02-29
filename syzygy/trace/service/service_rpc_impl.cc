@@ -13,12 +13,12 @@
 // limitations under the License.
 
 // This file implements the RPC stubs which bind the CallTraceService RPC
-// handlers to the lazily initialized static call_trace::service::Service
+// handlers to the lazily initialized static trace::service::Service
 // instance.
 
 #include "syzygy/trace/service/service.h"
 
-using call_trace::service::Service;
+using trace::service::Service;
 
 // RPC entrypoint for CallTraceService::CreateSession().
 boolean CallTraceService_CreateSession(

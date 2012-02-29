@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the call_trace::service::ProcessInfo class which
+// This file declares the trace::service::ProcessInfo class which
 // retrieves and encapsulates the process related information captured
 // within a trace file.
 
@@ -25,7 +25,7 @@
 #include "base/file_path.h"
 #include "base/win/scoped_handle.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 // This class retrieves and encapsulates the process related information
@@ -37,7 +37,7 @@ namespace service {
 //
 // Usage:
 //
-//   call_trace::service::ProcessInfo info;
+//   trace::service::ProcessInfo info;
 //   if (!info.Initialize(some_pid)) {
 //     LOG(ERROR) << "Failed to retrieve process info.";
 //   } else {
@@ -95,7 +95,7 @@ struct ProcessInfo {
   DISALLOW_COPY_AND_ASSIGN(ProcessInfo);
 };
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_PROCESS_INFO_H_

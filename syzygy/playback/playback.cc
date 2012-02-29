@@ -22,7 +22,7 @@
 namespace playback {
 
 using block_graph::BlockGraph;
-using call_trace::parser::Parser;
+using trace::parser::Parser;
 
 Playback::Playback(const FilePath& module_path,
                    const FilePath& instrumented_path,

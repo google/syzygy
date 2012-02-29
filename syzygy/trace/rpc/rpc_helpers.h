@@ -23,7 +23,7 @@
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
 //     might make this simpler/cleaner?
 
-namespace call_trace {
+namespace trace {
 namespace client {
 
 // Create an RPC binding.
@@ -112,7 +112,7 @@ RpcStatus InvokeRpc(const Func& func,
   return status;
 }
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace trace::client
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_RPC_RPC_HELPERS_H_

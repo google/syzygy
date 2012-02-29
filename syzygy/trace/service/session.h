@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the call_trace::service::Session class, which manages
+// This file declares the trace::service::Session class, which manages
 // the trace file and buffers for a given client of the call trace service.
 
 #ifndef SYZYGY_TRACE_SERVICE_SESSION_H_
@@ -28,7 +28,7 @@
 #include "syzygy/trace/service/buffer_pool.h"
 #include "syzygy/trace/service/process_info.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 // Forward declaration.
@@ -138,7 +138,7 @@ class Session {
 
 typedef std::map<ProcessID, Session*> SessionMap;
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_SESSION_H_

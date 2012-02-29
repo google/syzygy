@@ -32,10 +32,10 @@
 //     to use the tests and structure found in the other file (to test
 //     dll entrypoints, module events, etc).
 
-using call_trace::parser::AbsoluteAddress64;
-using call_trace::parser::ModuleInformation;
-using call_trace::parser::Parser;
-using call_trace::parser::ParseEventHandler;
+using trace::parser::AbsoluteAddress64;
+using trace::parser::ModuleInformation;
+using trace::parser::Parser;
+using trace::parser::ParseEventHandler;
 
 namespace {
 

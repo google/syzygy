@@ -19,7 +19,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/pe/pe_file.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 TEST(ProcessInfoTest, CurrentProcess) {
@@ -77,5 +77,5 @@ TEST(ProcessInfoTest, CurrentProcess) {
   EXPECT_EQ(0, process_info.exe_time_date_stamp);
 }
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace

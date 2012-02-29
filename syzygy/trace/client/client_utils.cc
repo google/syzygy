@@ -17,7 +17,7 @@
 
 #include "syzygy/trace/client/client_utils.h"
 
-namespace call_trace {
+namespace trace {
 namespace client {
 
 int ReasonToEventType(DWORD reason) {
@@ -125,5 +125,5 @@ void* TraceFileSegment::AllocateTraceRecordImpl(int record_type,
   return prefix + 1;
 }
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace trace::client
+}  // namespace trace

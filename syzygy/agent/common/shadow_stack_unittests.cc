@@ -16,7 +16,7 @@
 
 #include "gtest/gtest.h"
 
-namespace call_trace {
+namespace agent {
 
 namespace {
 
@@ -131,4 +131,4 @@ TEST_F(ShadowStackTest, FixBackTrace) {
   //     incorrect, as it doesn't account for tail recursion.
 }
 
-}  // namespace call_trace
+}  // namespace agent

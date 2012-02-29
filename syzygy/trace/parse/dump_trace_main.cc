@@ -32,9 +32,9 @@
 
 namespace {
 
-using call_trace::parser::Parser;
-using call_trace::parser::ParseEventHandler;
-using call_trace::parser::ModuleInformation;
+using trace::parser::Parser;
+using trace::parser::ParseEventHandler;
+using trace::parser::ModuleInformation;
 
 class TraceFileDumper : public ParseEventHandler {
  public:

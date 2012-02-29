@@ -34,7 +34,7 @@ using testing::GetExeRelativePath;
 using testing::GetExeTestDataRelativePath;
 using testing::Return;
 
-using call_trace::parser::ParseEventHandler;
+using trace::parser::ParseEventHandler;
 
 class MockParseEventHandler : public testing::StrictMock<ParseEventHandler> {
  public:

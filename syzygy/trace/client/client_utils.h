@@ -21,7 +21,7 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 
-namespace call_trace {
+namespace trace {
 namespace client {
 
 // This structure captures everything that a thread needs to know about
@@ -102,7 +102,7 @@ int ReasonToEventType(DWORD reason);
 // in a trace file segment.
 RecordPrefix* GetRecordPrefix(void *record);
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace trace::client
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_

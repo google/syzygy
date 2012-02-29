@@ -25,9 +25,9 @@
 #include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service.h"
 
-using call_trace::client::CreateRpcBinding;
-using call_trace::client::InvokeRpc;
-using call_trace::service::Service;
+using trace::client::CreateRpcBinding;
+using trace::client::InvokeRpc;
+using trace::service::Service;
 
 namespace {
 

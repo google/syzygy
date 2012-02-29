@@ -24,7 +24,7 @@
 
 using common::AlignUp;
 
-namespace call_trace {
+namespace trace {
 namespace parser {
 
 ParseEngineRpc::ParseEngineRpc() : ParseEngine("RPC", true) {
@@ -275,5 +275,5 @@ bool ParseEngineRpc::ConsumeSegmentEvents(
   return true;
 }
 
-}  // namespace call_trace::parser
-}  // namespace call_trace
+}  // namespace trace::parser
+}  // namespace trace

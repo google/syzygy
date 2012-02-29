@@ -24,13 +24,13 @@
 
 namespace reorder {
 
-using call_trace::parser::ParseEngine;
-using call_trace::parser::Parser;
 using testing::_;
 using testing::DoAll;
 using testing::InSequence;
 using testing::InvokeWithoutArgs;
 using testing::Return;
+using trace::parser::ParseEngine;
+using trace::parser::Parser;
 
 namespace {
 

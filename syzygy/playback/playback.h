@@ -39,11 +39,11 @@ namespace playback {
 
 class Playback {
  public:
-  typedef call_trace::parser::ModuleInformation ModuleInformation;
-  typedef call_trace::parser::Parser Parser;
   typedef pe::ImageLayout ImageLayout;
   typedef pe::PEFile PEFile;
   typedef std::vector<FilePath> TraceFileList;
+  typedef trace::parser::ModuleInformation ModuleInformation;
+  typedef trace::parser::Parser Parser;
 
   // Construct a new Playback instance.
   // @param module_path The path of the module dll.

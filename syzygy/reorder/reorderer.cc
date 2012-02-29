@@ -32,7 +32,7 @@
 namespace reorder {
 
 using block_graph::BlockGraph;
-using call_trace::parser::Parser;
+using trace::parser::Parser;
 
 namespace {
 
