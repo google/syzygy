@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file defines the call_trace::service::Service class which
+// This file defines the trace::service::Service class which
 // implements the call trace service RPC interface.
 
 #include "syzygy/trace/service/service.h"
@@ -24,7 +24,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 // The "global" call trace service singleton.
@@ -646,5 +646,5 @@ bool Service::GetNextBuffer(Session* session, Buffer** buffer) {
   return session->GetNextBuffer(buffer);
 }
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace

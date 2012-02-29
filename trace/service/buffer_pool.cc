@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file implements the call_trace::service::Buffer and BufferPool
+// This file implements the trace::service::Buffer and BufferPool
 // structures, which are used to represent the shared memory buffers
 // used by the call_trace service.
 
@@ -21,7 +21,7 @@
 #include "base/logging.h"
 #include "sawbuck/common/com_utils.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 BufferPool::BufferPool() : base_ptr_(NULL) {
@@ -105,5 +105,5 @@ bool BufferPool::Init(Session* session,
   return true;
 }
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace

@@ -61,7 +61,7 @@
 #include "base/logging.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
-namespace call_trace {
+namespace agent {
 
 // This structure is overlaid on the entry frame by the entry hook, to allow
 // to the user to access and modify the entry frame.
@@ -228,6 +228,6 @@ void ShadowStackImpl<StackEntry>::FixBackTrace(
   }
 }
 
-}  // namespace call_trace
+}  // namespace agent
 
 #endif  // SYZYGY_AGENT_COMMON_SHADOW_STACK_H_

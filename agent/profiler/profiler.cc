@@ -36,7 +36,7 @@ namespace {
 base::AtExitManager at_exit;
 
 // All tracing runs through this object.
-base::LazyInstance<call_trace::client::Profiler> static_profiler_instance =
+base::LazyInstance<agent::client::Profiler> static_profiler_instance =
     LAZY_INSTANCE_INITIALIZER;
 
 typedef std::pair<RetAddr, FuncAddr> InvocationKey;
@@ -85,7 +85,7 @@ extern "C" void __declspec(naked) _indirect_penter() {
     // push it. This becomes the EntryFrame argument.
     lea eax, DWORD PTR[esp + 0x20]
     push eax
-    call call_trace::client::Profiler::FunctionEntryHook
+    call agent::client::Profiler::FunctionEntryHook
 
     // Restore volatile registers.
     popfd
@@ -119,7 +119,7 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     // push it. This becomes the EntryFrame argument.
     lea eax, DWORD PTR[esp + 0x20]
     push eax
-    call call_trace::client::Profiler::DllMainEntryHook
+    call agent::client::Profiler::DllMainEntryHook
 
     // Restore volatile registers.
     popfd
@@ -135,7 +135,7 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
 // On entry, pc_location should point to a location on our own stack.
 extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
     uintptr_t pc_location) {
-  using call_trace::client::Profiler;
+  using agent::client::Profiler;
   Profiler* profiler = Profiler::Instance();
   return reinterpret_cast<uintptr_t>(
       profiler->ResolveReturnAddressLocation(
@@ -143,7 +143,7 @@ extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
-  using call_trace::client::Profiler;
+  using agent::client::Profiler;
 
   switch (reason) {
     case DLL_THREAD_DETACH:
@@ -158,7 +158,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   return TRUE;
 }
 
-namespace call_trace {
+namespace agent {
 namespace client {
 
 class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
@@ -186,7 +186,7 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
   virtual void OnPageRemoved(const void* page) OVERRIDE;
   // @}
 
-  call_trace::client::TraceFileSegment* segment() { return &segment_; }
+  trace::client::TraceFileSegment* segment() { return &segment_; }
 
  private:
   void RecordInvocation(RetAddr caller,
@@ -212,7 +212,7 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
   InvocationMap invocations_;
 
   // The trace file segment we're recording to.
-  call_trace::client::TraceFileSegment segment_;
+  trace::client::TraceFileSegment segment_;
 
   // The current batch record we're writing to, if any.
   InvocationInfoBatch* batch_;
@@ -265,8 +265,8 @@ void Profiler::ThreadState::OnModuleEntry(EntryFrame* entry_frame,
 
     // Allocate a record in the log.
     TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
-        segment_.AllocateTraceRecordImpl(ReasonToEventType(reason),
-                                         sizeof(TraceModuleData)));
+        segment_.AllocateTraceRecordImpl(
+            trace::client::ReasonToEventType(reason), sizeof(TraceModuleData)));
     DCHECK(module_event != NULL);
 
     // Populate the log record.
@@ -384,7 +384,7 @@ InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
   if (batch_ != NULL && segment_.CanAllocateRaw(sizeof(InvocationInfo))) {
     InvocationInfo* invocation_info =
         reinterpret_cast<InvocationInfo*>(segment_.write_ptr);
-    RecordPrefix* prefix = call_trace::client::GetRecordPrefix(batch_);
+    RecordPrefix* prefix = trace::client::GetRecordPrefix(batch_);
     prefix->size += sizeof(InvocationInfo);
 
     // Update the book-keeping.
@@ -540,4 +540,4 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
 }
 
 }  // namespace client
-}  // namespace call_trace
+}  // namespace agent

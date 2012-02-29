@@ -23,7 +23,7 @@
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
-namespace call_trace {
+namespace trace {
 namespace client {
 
 class RpcSession {
@@ -83,7 +83,7 @@ class RpcSession {
   bool is_disabled_;
 };
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace trace::client
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_CLIENT_RPC_SESSION_H_

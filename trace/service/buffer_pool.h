@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file defines the call_trace::service::Buffer and BufferPool
+// This file defines the trace::service::Buffer and BufferPool
 // structures, which are used to represent the shared memory buffers
 // used by the call_trace service.
 
@@ -28,7 +28,7 @@
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 // Forward declaration.
@@ -80,7 +80,7 @@ class BufferPool {
 typedef std::map<Buffer::ID, Buffer*> BufferMap;
 typedef std::deque<Buffer*> BufferQueue;
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_BUFFER_POOL_H_

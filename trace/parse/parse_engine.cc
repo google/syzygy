@@ -24,7 +24,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/trace/parse/parser.h"
 
-namespace call_trace {
+namespace trace {
 namespace parser {
 
 ParseEngine::ParseEngine(const char* name, bool fail_on_module_conflict)
@@ -446,5 +446,5 @@ bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
   return true;
 }
 
-}  // namespace call_trace::parser
-}  // namespace call_trace
+}  // namespace trace::parser
+}  // namespace trace

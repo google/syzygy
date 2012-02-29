@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file implements the call_trace::service::Session class, which manages
+// This file implements the trace::service::Session class, which manages
 // the trace file and buffers for a given client of the call trace service.
 
 #include "syzygy/trace/service/session.h"
@@ -31,9 +31,9 @@
 
 namespace {
 
-using call_trace::service::Buffer;
-using call_trace::service::ProcessID;
-using call_trace::service::ProcessInfo;
+using trace::service::Buffer;
+using trace::service::ProcessID;
+using trace::service::ProcessInfo;
 
 FilePath GenerateTraceFileName(const FilePath& trace_directory,
                                const ProcessInfo& client) {
@@ -166,7 +166,7 @@ std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
 
 }  // namespace
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 Session::Session(Service* call_trace_service)
@@ -425,5 +425,5 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
   return true;
 }
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace

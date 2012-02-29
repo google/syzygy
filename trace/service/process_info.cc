@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the call_trace::service::ProcessInfo class which
+// This file declares the trace::service::ProcessInfo class which
 // retrieves and encapsulates the process related information captured
 // within a trace file.
 
@@ -28,7 +28,7 @@
 // From advapi32.dll, but including ntsecapi.h causes conflicting declarations.
 extern "C" ULONG NTAPI LsaNtStatusToWinError(__in NTSTATUS status);
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 namespace {
@@ -446,5 +446,5 @@ bool ProcessInfo::Initialize(uint32 pid) {
   return true;
 }
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace

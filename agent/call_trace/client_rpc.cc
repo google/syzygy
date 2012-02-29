@@ -32,7 +32,7 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
-using call_trace::client::Client;
+using agent::client::Client;
 
 namespace {
 
@@ -225,7 +225,7 @@ void __declspec(naked) pexit_dllmain() {
   }
 }
 
-namespace call_trace {
+namespace agent {
 namespace client {
 
 class Client::ThreadLocalData {
@@ -247,7 +247,7 @@ class Client::ThreadLocalData {
   Client* const client;
 
   // The owning thread's current trace-file segment, if any.
-  TraceFileSegment segment;
+  trace::client::TraceFileSegment segment;
 
   // The current batch record we're extending, if any.
   // This will point into the associated trace file segment's buffer.
@@ -415,8 +415,8 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 
   // Allocate a record in the log.
   TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
-      data->segment.AllocateTraceRecordImpl(ReasonToEventType(reason),
-                                            sizeof(TraceModuleData)));
+      data->segment.AllocateTraceRecordImpl(
+          trace::client::ReasonToEventType(reason), sizeof(TraceModuleData)));
   DCHECK(module_event!= NULL);
 
   // Populate the log record.
@@ -684,7 +684,7 @@ FuncCall* Client::ThreadLocalData::AllocateFuncCall() {
     segment.header->segment_length += sizeof(FuncCall);
 
     // Extend the record enclosure.
-    RecordPrefix* prefix = GetRecordPrefix(batch);
+    RecordPrefix* prefix = trace::client::GetRecordPrefix(batch);
     prefix->size += sizeof(FuncCall);
 
     // And lastly update the inner counter.
@@ -715,5 +715,5 @@ bool Client::ThreadLocalData::FlushSegment() {
   return client->session_.ExchangeBuffer(&segment);
 }
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace agent::client
+}  // namespace agent

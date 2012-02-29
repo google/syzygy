@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the call_trace::service::Service class which implements
+// This file declares the trace::service::Service class which implements
 // the call trace service RPC interface.
 
 #ifndef SYZYGY_TRACE_SERVICE_SERVICE_H_
@@ -26,13 +26,13 @@
 #include "base/threading/platform_thread.h"
 #include "syzygy/trace/service/session.h"
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 // Implements the CallTraceService interface (see "call_trace_rpc.idl".
 // For the most basic usage:
 //
-//   call_trace::service::Service::Instance().Start(false);
+//   trace::service::Service::Instance().Start(false);
 //
 // This will access and launch a static instance of the service using a
 // default configuration. Specifying false, as in the above example,
@@ -265,7 +265,7 @@ class Service : public base::PlatformThread::Delegate {
   DISALLOW_COPY_AND_ASSIGN(Service);
 };
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_SERVICE_H_

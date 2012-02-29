@@ -26,10 +26,10 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
-using namespace call_trace::client;
+using namespace trace::client;
 using common::AlignUp;
 
-namespace call_trace {
+namespace trace {
 namespace service {
 
 namespace {
@@ -430,5 +430,5 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   }
 }
 
-}  // namespace call_trace::service
-}  // namespace call_trace
+}  // namespace trace::service
+}  // namespace trace

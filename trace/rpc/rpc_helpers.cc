@@ -22,7 +22,7 @@
 #include "base/logging.h"
 #include "sawbuck/common/com_utils.h"
 
-namespace call_trace {
+namespace trace {
 namespace client {
 
 bool CreateRpcBinding(const wchar_t* protocol,
@@ -62,5 +62,5 @@ bool CreateRpcBinding(const wchar_t* protocol,
   return true;
 }
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace trace::client
+}  // namespace trace

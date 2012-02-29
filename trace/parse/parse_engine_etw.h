@@ -24,7 +24,7 @@
 #include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
-namespace call_trace {
+namespace trace {
 namespace parser {
 
 // This class implements a call-trace Parser for ETW-based call-trace
@@ -100,7 +100,7 @@ class ParseEngineEtw
   DISALLOW_COPY_AND_ASSIGN(ParseEngineEtw);
 };
 
-}  // namespace call_trace::parser
-}  // namespace call_trace
+}  // namespace trace::parser
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_PARSE_PARSE_ENGINE_ETW_H_

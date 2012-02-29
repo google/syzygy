@@ -24,7 +24,7 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/trace/parse/parser.h"
 
-namespace call_trace {
+namespace trace {
 namespace parser {
 
 // This base class defines and implements the common event dispatching and
@@ -205,7 +205,7 @@ class ParseEngine {
   DISALLOW_COPY_AND_ASSIGN(ParseEngine);
 };
 
-}  // namespace call_trace::parser
-}  // namespace call_trace
+}  // namespace trace::parser
+}  // namespace trace
 
 #endif  // SYZYGY_TRACE_PARSE_PARSE_ENGINE_H_

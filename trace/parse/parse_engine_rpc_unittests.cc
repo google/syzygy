@@ -32,9 +32,9 @@
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
 
-using call_trace::parser::Parser;
-using call_trace::parser::ParseEventHandler;
-using call_trace::service::Service;
+using trace::parser::Parser;
+using trace::parser::ParseEventHandler;
+using trace::service::Service;
 
 namespace {
 
@@ -284,13 +284,13 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
 
     // Get the information for this process.
     uint32 pid = ::GetCurrentProcessId();
-    call_trace::service::ProcessInfo process_info;
+    trace::service::ProcessInfo process_info;
     ASSERT_TRUE(process_info.Initialize(pid));
 
     // Look up this process in the process map.
-    call_trace::parser::AbsoluteAddress64 addr =
+    trace::parser::AbsoluteAddress64 addr =
         reinterpret_cast<uint32>(&kConstantInThisModule);
-    const call_trace::parser::ModuleInformation* module_info =
+    const trace::parser::ModuleInformation* module_info =
         parser.GetModuleInformation(pid, addr);
 
     // An entry should exist for this process, and it should match our

@@ -38,7 +38,7 @@ extern "C" void _cdecl _indirect_penter_dllmain();
 extern "C" void _cdecl _indirect_penter_inside_function();
 extern void pexit();
 
-namespace call_trace {
+namespace agent {
 namespace client {
 
 // There's a single instance of this class.
@@ -88,7 +88,7 @@ class Profiler {
   void FreeThreadState();
 
   // The RPC session we're logging to/through.
-  call_trace::client::RpcSession session_;
+  trace::client::RpcSession session_;
 
   // Protects our page list.
   base::Lock lock_;
@@ -101,7 +101,7 @@ class Profiler {
   mutable base::ThreadLocalPointer<ThreadState> tls_;
 };
 
-}  // namespace call_trace::client
-}  // namespace call_trace
+}  // namespace agent::client
+}  // namespace agent
 
 #endif  // SYZYGY_AGENT_PROFILER_PROFILER_H_
