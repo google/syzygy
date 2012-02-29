@@ -18,9 +18,9 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "sawbuck/common/buffer_parser.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/trace/parse/parse_utils.h"
 
 using common::AlignUp;
 
@@ -113,12 +113,11 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
   const TraceFileHeader* file_header =
       reinterpret_cast<const TraceFileHeader*>(&raw_buffer[0]);
 
-  // Validate the header size, which is the size of the static header structure
-  // plus the length (in bytes) of the wide-char command-line.
-  size_t expected_header_size = sizeof(TraceFileHeader) +
-                                sizeof(wchar_t) * file_header->command_line_len;
-  if (file_header->header_size != expected_header_size) {
-    LOG(ERROR) << "Invalid trace file header.";
+  // Check the file signature.
+  if (0 != memcmp(&file_header->signature,
+                  &TraceFileHeader::kSignatureValue,
+                  sizeof(file_header->signature))) {
+    LOG(ERROR) << "Not a valid RPC call-trace file.";
     return false;
   }
 
@@ -137,11 +136,19 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
     return false;
   }
 
-  // Check the file signature.
-  if (0 != memcmp(&file_header->signature,
-                  &TraceFileHeader::kSignatureValue,
-                  sizeof(file_header->signature))) {
-    LOG(ERROR) << "Not a valid RPC call-trace file.";
+  // Ensure we can parse the header blob.
+  TraceFileHeaderBlob blob = {};
+  if (!ParseTraceFileHeaderBlob(*file_header, &blob)) {
+    LOG(ERROR) << "Unable to parse trace file header blob.";
+    return false;
+  }
+  size_t blob_chars = blob.module_path_length + 1 + blob.command_line_length +
+      1 + blob.environment_length;
+  size_t blob_length = blob_chars * sizeof(wchar_t);
+  size_t expected_header_size = offsetof(TraceFileHeader, blob_data) +
+      blob_length;
+  if (file_header->header_size != expected_header_size) {
+    LOG(ERROR) << "Invalid trace file header.";
     return false;
   }
 
@@ -150,7 +157,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
   // to a module in the process map.
   ModuleInformation module_info = {};
   module_info.base_address = file_header->module_base_address;
-  module_info.image_file_name = file_header->module_path;
+  module_info.image_file_name = blob.module_path;
   module_info.module_size = file_header->module_size;
   module_info.image_checksum = file_header->module_checksum;
   module_info.time_date_stamp = file_header->module_time_date_stamp;

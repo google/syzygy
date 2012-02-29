@@ -32,6 +32,8 @@
         'parse_engine_etw.h',
         'parse_engine_rpc.cc',
         'parse_engine_rpc.h',
+        'parse_utils.cc',
+        'parse_utils.h',
         'parser.h',
         'parser.cc',
       ],
@@ -63,6 +65,7 @@
         'parse_engine_etw_unittests.cc',
         'parse_engine_rpc_unittests.cc',
         'parse_engine_unittests.cc',
+        'parse_utils_unittests.cc',
         'unittests_main.cc',
       ],
       'dependencies': [

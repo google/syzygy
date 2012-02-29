@@ -117,8 +117,11 @@ bool WriteTraceFileHeader(HANDLE file_handle,
 
   // Calculate the space required for the header page and allocate a
   // buffer for it.
-  size_t header_len = sizeof(TraceFileHeader) + (client.command_line.length() *
-                                                 sizeof(wchar_t));
+  size_t blob_chars = client.executable_path.value().size() + 1 +
+      client.command_line.size() + 1 +
+      client.environment.size();
+  size_t blob_length = blob_chars * sizeof(wchar_t);
+  size_t header_len = offsetof(TraceFileHeader, blob_data) + blob_length;
   size_t buffer_size = common::AlignUp(header_len, block_size);
   scoped_ptr_malloc<TraceFileHeader> header(
       static_cast<TraceFileHeader*>(::calloc(1, buffer_size)));
@@ -132,18 +135,30 @@ bool WriteTraceFileHeader(HANDLE file_handle,
   header->timestamp = ::GetTickCount();
   header->header_size = header_len;
   header->process_id = client.process_id;
-  header->command_line_len = client.command_line.length();
   header->block_size = block_size;
-  base::wcslcpy(&header->module_path[0],
-                client.executable_path.value().c_str(),
-                sizeof(header->module_path));
   header->module_base_address = client.exe_base_address;
   header->module_size = client.exe_image_size;
   header->module_checksum = client.exe_checksum;
   header->module_time_date_stamp = client.exe_time_date_stamp;
-  base::wcslcpy(&header->command_line[0],
+
+  // Populate the blob with the variable length fields.
+  wchar_t* blob_data = reinterpret_cast<wchar_t*>(header->blob_data);
+
+  base::wcslcpy(blob_data,
+                client.executable_path.value().c_str(),
+                client.executable_path.value().size() + 1);
+  blob_data += client.executable_path.value().size() + 1;
+
+  base::wcslcpy(blob_data,
                 client.command_line.c_str(),
-                client.command_line.length() + 1);
+                client.command_line.size() + 1);
+  blob_data += client.command_line.size() + 1;
+
+  // We have to use a memcpy here because the environment string has
+  // embedded NULLs.
+  ::memcpy(blob_data,
+           &client.environment[0],
+           client.environment.size() * sizeof(client.environment[0]));
 
   // Commit the header page to disk.
   DWORD bytes_written = 0;

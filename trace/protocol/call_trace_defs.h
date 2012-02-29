@@ -145,8 +145,7 @@ struct TraceFileHeader {
   } server_version;
 
   // The number of bytes in the header. This is the size of this structure
-  // plus the length of the command line string (the trailing NUL is already
-  // accounted for in the size of this structure).
+  // plus the length of the blob.
   uint32 header_size;
 
   // The block size used when writing the file to disk. The header and
@@ -172,15 +171,23 @@ struct TraceFileHeader {
   // The timestamp of the executable module.
   uint32 module_time_date_stamp;
 
-  // The path to the executable module.
-  wchar_t module_path[MAX_PATH];
+  // The header is required to store multiple variable length fields. We do
+  // this via a blob mechanism. The header contains a single binary blob at the
+  // end, whose length in bytes) is encoded via blob_length.
+  //
+  // Currently, the header stores the following variable length fields (in
+  // the order indicated):
+  //
+  //   1. The path to the instrumented module, a NULL terminated wide string.
+  //   2. The command line for the process, a NULL terminated wide string.
+  //   3. The environment string for the process, an array of wide chars
+  //      terminated by a double NULL (individual environment variables are
+  //      separated by single NULLs).
 
-  // The number of characters in the command line (not including the trailing
-  // NUL character).
-  uint32 command_line_len;
-
-  // The command line used to start the traced process.
-  wchar_t command_line[1];
+  // This stores the variable length data, concatenated. This should be pointer
+  // aligned so that PODs with alignment constraints embedded in the blob can be
+  // read directly from a header loaded into memory.
+  uint8 blob_data[1];
 };
 
 // Written at the beginning of a call trace file segment. Each call trace file
