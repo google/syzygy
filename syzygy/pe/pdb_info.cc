@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,7 +98,10 @@ bool PdbInfo::Init(const FilePath& pe_path) {
 }
 
 bool PdbInfo::IsConsistent(const pdb::PdbInfoHeader70& pdb_header) const {
-  return pdb_age_ == pdb_header.pdb_age &&
+  // The PDB age in the PDB file is bumped when e.g. source information
+  // is added to the file, so we want the PdbInfoHeader to have an equal or
+  // greater age that the image's.
+  return pdb_age_ <= pdb_header.pdb_age &&
       signature_ == pdb_header.signature;
 }
 
