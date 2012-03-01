@@ -52,9 +52,10 @@ extern const wchar_t* const kCallTraceRpcProtocol;
 extern const wchar_t* const kCallTraceRpcEndpoint;
 extern const wchar_t* const kCallTraceRpcMutex;
 
+// This must be bumped anytime the file format is changed.
 enum {
   TRACE_VERSION_HI = 1,
-  TRACE_VERSION_LO = 0,
+  TRACE_VERSION_LO = 1,
 };
 
 enum TraceEventType {
@@ -126,8 +127,16 @@ struct RecordPrefix {
 
 COMPILE_ASSERT(sizeof(RecordPrefix) == 12, record_prefix_size_is_12);
 
-// This structure is written at the beginning of a call trace file.
+// This structure is written at the beginning of a call trace file. If the
+// format of this trace file changes the server version must be increased.
 struct TraceFileHeader {
+  // Everything in this header up to and including the header_size field should
+  // not be changed in order, layout or alignment. This allows the beginning of
+  // the header to be read across all trace file versions. If adding a new
+  // fixed length field, do so immediately prior to blob_data. If adding a new
+  // variable length field, append it to blob data updating the comment below,
+  // and both the reading and writing of TraceFileHeader.
+
   // The "magic-number" identifying this as a Syzygy call-trace file.
   // In a valid trace file this will be "SZGY".
   typedef char Signature[4];
@@ -170,6 +179,9 @@ struct TraceFileHeader {
 
   // The timestamp of the executable module.
   uint32 module_time_date_stamp;
+
+  // The operating system version.
+  OSVERSIONINFOEX os_version_info;
 
   // The header is required to store multiple variable length fields. We do
   // this via a blob mechanism. The header contains a single binary blob at the
