@@ -672,6 +672,10 @@ class BlockGraph::AddressSpace {
     return address_space_.ranges().end();
   }
 
+  size_t size() const {
+    return address_space_.ranges().size();
+  }
+
   const AddressSpaceImpl& address_space_impl() const {
     return address_space_;
   }
