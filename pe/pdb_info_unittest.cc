@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ TEST_F(PdbInfoTest, BuildFromCvInfoPdb70) {
   std::vector<unsigned char> data;
   CvInfoPdb70* cv_info_pdb = CreateCvInfoPdb70(kPath, &data);
   cv_info_pdb->cv_signature = 0xdeadbeef;
-  cv_info_pdb->pdb_age = 1;
+  cv_info_pdb->pdb_age = 2;
   cv_info_pdb->signature = kSignature;
 
   PdbInfo pdb_info;
@@ -77,8 +77,13 @@ TEST_F(PdbInfoTest, BuildFromCvInfoPdb70) {
 
   EXPECT_TRUE(pdb_info.IsConsistent(pdb_header));
 
-  pdb_header.pdb_age++;
+  // An older PBD is not consistent with a newer image.
+  pdb_header.pdb_age = cv_info_pdb->pdb_age - 1;
   EXPECT_FALSE(pdb_info.IsConsistent(pdb_header));
+
+  // If the PDB age is newer than the image, we are consistent.
+  pdb_header.pdb_age = cv_info_pdb->pdb_age + 1;
+  EXPECT_TRUE(pdb_info.IsConsistent(pdb_header));
 }
 
 }  // namespace pe
