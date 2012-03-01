@@ -141,6 +141,16 @@ bool WriteTraceFileHeader(HANDLE file_handle,
   header->module_checksum = client.exe_checksum;
   header->module_time_date_stamp = client.exe_time_date_stamp;
 
+  // Get the operating system version information.
+  header->os_version_info.dwOSVersionInfoSize = sizeof(header->os_version_info);
+  if (!::GetVersionEx(
+      reinterpret_cast<OSVERSIONINFO*>(&header->os_version_info))) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get OS version information: "
+               << com::LogWe(error) << ".";
+    return false;
+  }
+
   // Populate the blob with the variable length fields.
   wchar_t* blob_data = reinterpret_cast<wchar_t*>(header->blob_data);
 
