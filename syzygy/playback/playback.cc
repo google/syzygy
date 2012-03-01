@@ -41,9 +41,7 @@ Playback::~Playback() {
   parser_ = NULL;
 }
 
-bool Playback::Init(PEFile* pe_file,
-                    ImageLayout* image,
-                    Parser* parser) {
+bool Playback::Init(PEFile* pe_file, ImageLayout* image, Parser* parser) {
   // Fail if the function was already initialized,
   // or if the parameters aren't.
   DCHECK(pe_file != NULL);

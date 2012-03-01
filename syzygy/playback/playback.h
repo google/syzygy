@@ -56,11 +56,12 @@ class Playback {
   ~Playback();
 
   // Initalizes the playback class and decomposes the given image.
+  // This function is virtual to aid testing of classes that may own Playback.
   // @param pe_file The PE file to be initialized.
   // @param image The image that will receive the decomposed module.
   // @param parser The parser to be used.
   // @returns true on success, false on failure.
-  bool Init(PEFile* pe_file, ImageLayout* image, Parser* parser);
+  virtual bool Init(PEFile* pe_file, ImageLayout* image, Parser* parser);
 
   // @returns true if the given ModuleInformation matches the instrumented
   // module signature, false otherwise.

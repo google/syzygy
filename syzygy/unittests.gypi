@@ -45,6 +45,7 @@
       '<(DEPTH)/syzygy/playback/playback.gyp:playback_unittests',
       '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
       '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_unittests',
+      '<(DEPTH)/syzygy/simulate/simulate.gyp:simulate_unittests',
       '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
     ],
   }
