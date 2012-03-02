@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,8 +68,10 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
 
   PdbInfoHeader70* info_header =
       reinterpret_cast<PdbInfoHeader70*>(pdb_info_stream.data());
-  info_header->signature = output_guid;
   info_header->timetamp = static_cast<uint32>(time(NULL));
+  // Reset age to 1, as this is a new generation.
+  info_header->pdb_age = 1;
+  info_header->signature = output_guid;
 
   streams[kPdbHeaderInfoStream] = &pdb_info_stream;
 

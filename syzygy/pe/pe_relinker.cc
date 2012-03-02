@@ -201,7 +201,7 @@ bool ApplyTransforms(const FilePath& input_path,
   std::vector<Transform*> local_transforms(*transforms);
 
   pe::transforms::AddMetadataTransform add_metadata_tx(input_path);
-  pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb_path, 0, guid);
+  pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb_path, 1, guid);
   pe::transforms::PrepareHeadersTransform prep_headers_tx;
 
   if (add_metadata)
