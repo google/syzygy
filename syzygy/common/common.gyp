@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,6 +81,8 @@
       'sources': [
         'align.cc',
         'align.h',
+        'buffer_writer.cc',
+        'buffer_writer.h',
         'defs.cc',
         'defs.h',
         'unique_list.h',
@@ -99,6 +101,7 @@
       'type': 'executable',
       'sources': [
         'align_unittest.cc',
+        'buffer_writer_unittest.cc',
         'common_unittests_main.cc',
         'unique_list_unittest.cc',
         'syzygy_version_unittest.cc',
