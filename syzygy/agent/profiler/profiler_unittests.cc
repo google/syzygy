@@ -158,6 +158,8 @@ class ProfilerTest : public testing::Test {
   static int IndirectFunctionA(int param1, const void* param2);
   static int FunctionAThunk(int param1, const void* param2);
   static int TestResolutionFuncThunk(ResolveReturnAddressLocationFunc resolver);
+  static int TestResolutionFuncNestedThunk(
+      ResolveReturnAddressLocationFunc resolver);
 
  protected:
   StrictMock<MockParseEventHandler> handler_;
@@ -205,12 +207,25 @@ void TestResolutionFunc(ResolveReturnAddressLocationFunc resolver) {
   uintptr_t pc_location =
       reinterpret_cast<uintptr_t>(_AddressOfReturnAddress());
   ASSERT_NE(pc_location, resolver(pc_location));
+
+  // Make sure we unwind thunk chains.
+  pc_location = resolver(pc_location);
+  ASSERT_EQ(pc_location, resolver(pc_location));
 }
 
 int __declspec(naked) ProfilerTest::TestResolutionFuncThunk(
     ResolveReturnAddressLocationFunc resolver) {
   __asm {
     push TestResolutionFunc
+    jmp _indirect_penter_
+  }
+}
+
+int __declspec(naked) ProfilerTest::TestResolutionFuncNestedThunk(
+    ResolveReturnAddressLocationFunc resolver) {
+  // This will make like tail call elimination and create nested thunks.
+  __asm {
+    push TestResolutionFuncThunk
     jmp _indirect_penter_
   }
 }

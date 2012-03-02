@@ -418,24 +418,29 @@ void Profiler::OnDetach() {
 }
 
 RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
-  // See whether the return address is one of our thunks.
-  RetAddr ret_addr = *pc_location;
+  base::AutoLock lock(lock_);
 
-  // Compute the page this return address lives in.
-  const void* page = reinterpret_cast<const void*>(
-      reinterpret_cast<uintptr_t>(ret_addr) & ~0xFFF);
-  {
-    base::AutoLock lock(lock_);
+  // In case of tail-call and tail recursion elimination, we can get chained
+  // thunks, so we loop around here until we resolve to a non-thunk.
+  while (true) {
+    // See whether the return address is one of our thunks.
+    RetAddr ret_addr = *pc_location;
 
+    // Compute the page this return address lives in.
+    const void* page = reinterpret_cast<const void*>(
+        reinterpret_cast<uintptr_t>(ret_addr) & ~0xFFF);
     if (!std::binary_search(pages_.begin(), pages_.end(), page))
       return pc_location;
+
+    // It's one of our own, redirect to the thunk's stash.
+    ReturnThunkFactory::Thunk* thunk =
+        reinterpret_cast<ReturnThunkFactory::Thunk*>(
+            const_cast<void*>(ret_addr));
+
+    // Update the PC location and go around again, in case this
+    // thunk links to another one.
+    pc_location = &thunk->caller;
   }
-
-  // It's one of our own, redirect to the thunk's stash.
-  ReturnThunkFactory::Thunk* thunk =
-      reinterpret_cast<ReturnThunkFactory::Thunk*>(const_cast<void*>(ret_addr));
-
-  return &thunk->caller;
 }
 
 void Profiler::OnPageAdded(const void* page) {
