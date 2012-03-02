@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,11 +37,12 @@ static void DumpHeaderInfoStream(pdb::PdbStream* stream) {
   std::cout << "Header Info Stream size: " << stream->length() << std::endl;
 
   if (stream->Read(&info, 1)) {
-    std::cout << "PDB Header Info:" << std::endl <<
-        "\tversion: " << info.version << std::endl <<
-        "\ttimetamp: " << info.timetamp << std::endl <<
-        "\tpdb_age: " << info.pdb_age << std::endl <<
-        "\tsignature: " << info.signature << std::endl;
+    std::cout << "PDB Header Info:" << std::endl
+              << "\tversion: " << info.version << std::endl
+              << "\ttimetamp: " << base::StringPrintf("0x%08X", info.timetamp)
+                  << std::endl
+              << "\tpdb_age: " << info.pdb_age << std::endl
+              << "\tsignature: " << info.signature << std::endl;
   } else {
     LOG(ERROR) << "Unable to read PDB info header";
   }
@@ -156,16 +157,14 @@ static void DumpDbiHeaders(const pdb::DbiHeader& dbi_header,
 }
 
 static const char kUsage[] =
-    "Usage: pdb_dump [options]\n"
-    "  Dumps information from headers in a supplied PDB file, and optionally\n"
-    "  writes the streams from the PDB file to individual files in a supplied\n"
-    "  output directory\n"
+    "Usage: pdb_dump [options] <PDB file>...\n"
+    "  Dumps information from headers in a supplied PDB files, and optionally\n"
+    "  explodes the streams in the PDB files to individual files in an\n"
+    "  output directory named '<PDB file>.streams'.\n"
     "\n"
-    "  Required Options:\n"
-    "    --input-pdb=<path> the input DLL to instrument\n"
     "  Optional Options:\n"
-    "    --output-dir=<path> [optional] the output directory where the debug "
-          " streams will be stored.\n";
+    "    --explode-streams if provided, each PDB file's streams will be\n"
+    "       exploded into a directory named '<PDB file>.streams'\n";
 
 static int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
@@ -186,72 +185,83 @@ int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
-  FilePath input_pdb_path = cmd_line->GetSwitchValuePath("input-pdb");
-  FilePath output_dir_path = cmd_line->GetSwitchValuePath("output-dir");
+  bool explode_streams = cmd_line->HasSwitch("explode-streams");
 
-  if (input_pdb_path.empty())
-    return Usage("You must provide an input file name.");
+  CommandLine::StringVector args = cmd_line->GetArgs();
+  if (args.empty())
+    return Usage("You must provide at least one input file.");
 
-  pdb::PdbReader reader;
-  std::vector<pdb::PdbStream*> streams;
-  if (!reader.Read(input_pdb_path, &streams)) {
-    LOG(ERROR) << "Failed to read PDB file " << input_pdb_path.value() << ".";
-    return 1;
-  }
+  for (size_t i = 0; i < args.size(); ++i) {
+    FilePath input_pdb_path(args[i]);
+    std::cout << "File \"" << input_pdb_path.value() << "\"" << std::endl;
 
-  if (streams[pdb::kPdbHeaderInfoStream] != NULL) {
-    DumpHeaderInfoStream(streams[pdb::kPdbHeaderInfoStream]);
-  } else {
-    LOG(ERROR) << "No header info stream.";
-  }
-
-  pdb::DbiHeader dbi_header = {};
-  pdb::DbiDbgHeader dbg_header = {};
-  if (streams[pdb::kDbiStream] != NULL &&
-      ReadDbiHeaders(streams[pdb::kDbiStream], &dbi_header, &dbg_header)) {
-    DumpDbiHeaders(dbi_header, dbg_header);
-  } else {
-    LOG(ERROR) << "No Dbi stream.";
-  }
-
-  std::map<size_t, std::wstring> stream_suffixes;
-  stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
-  stream_suffixes[pdb::kDbiStream] = L"-dbi";
-
-  stream_suffixes[dbi_header.global_symbol_info_stream] = L"-globals";
-  stream_suffixes[dbi_header.public_symbol_info_stream] = L"-public";
-  stream_suffixes[dbi_header.symbol_record_stream] = L"-sym-record";
-
-  stream_suffixes[dbg_header.fpo] = L"-fpo";
-  stream_suffixes[dbg_header.exception] = L"-exception";
-  stream_suffixes[dbg_header.fixup] = L"-fixup";
-  stream_suffixes[dbg_header.omap_to_src] = L"-omap-to-src";
-  stream_suffixes[dbg_header.omap_from_src] = L"-omap-from-src";
-  stream_suffixes[dbg_header.section_header] = L"-section-header";
-  stream_suffixes[dbg_header.token_rid_map] = L"-token-rid-map";
-  stream_suffixes[dbg_header.x_data] = L"-x-data";
-  stream_suffixes[dbg_header.p_data] = L"-p-data";
-  stream_suffixes[dbg_header.new_fpo] = L"-new-fpo";
-  stream_suffixes[dbg_header.section_header_origin] = L"-section-header-origin";
-
-  if (!output_dir_path.empty()) {
-    if (!file_util::CreateDirectory(output_dir_path)) {
-      LOG(ERROR) << "Unable to create output directory '" <<
-          output_dir_path.value() << "'.";
-
+    pdb::PdbReader reader;
+    std::vector<pdb::PdbStream*> streams;
+    if (!reader.Read(input_pdb_path, &streams)) {
+      LOG(ERROR) << "Failed to read PDB file " << input_pdb_path.value() << ".";
       return 1;
     }
 
-    for (size_t i = 0; i < streams.size(); ++i) {
-      if (streams[i] == NULL)
-        continue;
+    if (streams[pdb::kPdbHeaderInfoStream] != NULL) {
+      DumpHeaderInfoStream(streams[pdb::kPdbHeaderInfoStream]);
+    } else {
+      LOG(ERROR) << "No header info stream.";
+    }
 
-      FilePath stream_path = output_dir_path.Append(
-          base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
+    pdb::DbiHeader dbi_header = {};
+    pdb::DbiDbgHeader dbg_header = {};
+    if (streams[pdb::kDbiStream] != NULL &&
+        ReadDbiHeaders(streams[pdb::kDbiStream], &dbi_header, &dbg_header)) {
+      DumpDbiHeaders(dbi_header, dbg_header);
+    } else {
+      LOG(ERROR) << "No Dbi stream.";
+    }
+    std::cout << std::endl;
 
-      if (!WriteStreamToPath(streams[i], stream_path)) {
-        LOG(ERROR) << "Failed to write stream " << i << ".";
-        return 1;
+    if (explode_streams) {
+      FilePath output_dir_path(input_pdb_path.value() + L"-streams");
+
+      std::map<size_t, std::wstring> stream_suffixes;
+      stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
+      stream_suffixes[pdb::kDbiStream] = L"-dbi";
+
+      stream_suffixes[dbi_header.global_symbol_info_stream] = L"-globals";
+      stream_suffixes[dbi_header.public_symbol_info_stream] = L"-public";
+      stream_suffixes[dbi_header.symbol_record_stream] = L"-sym-record";
+
+      stream_suffixes[dbg_header.fpo] = L"-fpo";
+      stream_suffixes[dbg_header.exception] = L"-exception";
+      stream_suffixes[dbg_header.fixup] = L"-fixup";
+      stream_suffixes[dbg_header.omap_to_src] = L"-omap-to-src";
+      stream_suffixes[dbg_header.omap_from_src] = L"-omap-from-src";
+      stream_suffixes[dbg_header.section_header] = L"-section-header";
+      stream_suffixes[dbg_header.token_rid_map] = L"-token-rid-map";
+      stream_suffixes[dbg_header.x_data] = L"-x-data";
+      stream_suffixes[dbg_header.p_data] = L"-p-data";
+      stream_suffixes[dbg_header.new_fpo] = L"-new-fpo";
+      stream_suffixes[dbg_header.section_header_origin] =
+          L"-section-header-origin";
+
+      if (!output_dir_path.empty()) {
+        if (!file_util::CreateDirectory(output_dir_path)) {
+          LOG(ERROR) << "Unable to create output directory '" <<
+              output_dir_path.value() << "'.";
+
+          return 1;
+        }
+
+        for (size_t i = 0; i < streams.size(); ++i) {
+          if (streams[i] == NULL)
+            continue;
+
+          FilePath stream_path = output_dir_path.Append(
+              base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
+
+          if (!WriteStreamToPath(streams[i], stream_path)) {
+            LOG(ERROR) << "Failed to write stream " << i << ".";
+            return 1;
+          }
+        }
       }
     }
   }
