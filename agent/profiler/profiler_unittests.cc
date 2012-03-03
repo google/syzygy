@@ -246,6 +246,9 @@ TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
 
   // Test the return address resolution function.
   ASSERT_NO_FATAL_FAILURE(TestResolutionFuncThunk(resolution_func_));
+
+  // And with a nested thunk.
+  ASSERT_NO_FATAL_FAILURE(TestResolutionFuncNestedThunk(resolution_func_));
 }
 
 TEST_F(ProfilerTest, RecordsModuleAndFunctions) {
