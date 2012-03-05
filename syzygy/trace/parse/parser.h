@@ -127,7 +127,11 @@ class Parser {
 class ParseEventHandler {
  public:
   // Issued for the first call-trace event occurring in an instrumented module.
-  virtual void OnProcessStarted(base::Time time, DWORD process_id) = 0;
+  // data may be NULL for parse engines in which it is unsupported or for
+  // processes for which it has not been recorded.
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) = 0;
 
   // Issued following the last call-trace event for the process given by
   // @p process_id.

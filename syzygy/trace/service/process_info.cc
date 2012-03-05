@@ -385,6 +385,9 @@ ProcessInfo::ProcessInfo()
       exe_image_size(0),
       exe_checksum(0),
       exe_time_date_stamp(0) {
+  ::memset(&os_version_info, 0, sizeof(os_version_info));
+  ::memset(&system_info, 0, sizeof(system_info));
+  ::memset(&memory_status, 0, sizeof(memory_status));
 }
 
 ProcessInfo::~ProcessInfo() {
@@ -396,6 +399,9 @@ void ProcessInfo::Reset() {
   executable_path.clear();
   command_line.clear();
   environment.clear();
+  ::memset(&os_version_info, 0, sizeof(os_version_info));
+  ::memset(&system_info, 0, sizeof(system_info));
+  ::memset(&memory_status, 0, sizeof(memory_status));
   exe_base_address = 0;
   exe_image_size = 0;
   exe_checksum = 0;
@@ -419,9 +425,31 @@ bool ProcessInfo::Initialize(uint32 pid) {
 
   process_id = pid;
 
-  // Get the executable path and command line.
+  // Get the executable path, command line and environment string.
   if (!GetProcessStrings(process_id, process_handle,
                          &executable_path, &command_line, &environment)) {
+    Reset();
+    return false;
+  }
+
+  // Get the operating system and hardware information.
+  os_version_info.dwOSVersionInfoSize = sizeof(os_version_info);
+  if (!::GetVersionEx(
+      reinterpret_cast<OSVERSIONINFO*>(&os_version_info))) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get OS version information: "
+               << com::LogWe(error) << ".";
+    Reset();
+    return false;
+  }
+
+  ::GetSystemInfo(&system_info);
+
+  memory_status.dwLength = sizeof(memory_status);
+  if (!::GlobalMemoryStatusEx(&memory_status)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get global memory status: "
+               << com::LogWe(error) << ".";
     Reset();
     return false;
   }

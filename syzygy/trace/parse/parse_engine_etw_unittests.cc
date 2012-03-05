@@ -93,7 +93,9 @@ class TestParseEventHandler : public ParseEventHandler {
     return module;
   }
 
-  virtual void OnProcessStarted(base::Time time, DWORD process_id) {
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) {
   }
 
   virtual void OnProcessEnded(base::Time time, DWORD process_id) {

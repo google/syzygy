@@ -22,6 +22,27 @@
 namespace trace {
 namespace service {
 
+namespace {
+
+class ScopedEnvironment {
+ public:
+  ScopedEnvironment() {
+    env_ = ::GetEnvironmentStrings();
+    DCHECK(env_ != NULL);
+  }
+
+  ~ScopedEnvironment() {
+    ::FreeEnvironmentStrings(env_);
+  }
+
+  const wchar_t* Get() { return env_; }
+
+ private:
+  wchar_t* env_;
+};
+
+}  // namespace
+
 TEST(ProcessInfoTest, CurrentProcess) {
   HANDLE process = ::GetCurrentProcess();
   ASSERT_TRUE(process != NULL);
@@ -39,8 +60,8 @@ TEST(ProcessInfoTest, CurrentProcess) {
   ASSERT_TRUE(length != 0);
   ASSERT_LT(length, arraysize(executable_path));
 
-  wchar_t* env_strings = GetEnvironmentStrings();
-  ASSERT_TRUE(env_strings != NULL);
+  ScopedEnvironment env;
+  ASSERT_TRUE(env.Get() != NULL);
 
   pe::PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(FilePath(executable_path)));
@@ -62,8 +83,26 @@ TEST(ProcessInfoTest, CurrentProcess) {
   EXPECT_LE(2u, process_info.environment.size());
   EXPECT_EQ(0, *(process_info.environment.end() - 2));
   EXPECT_EQ(0, *(process_info.environment.end() - 1));
-  EXPECT_EQ(0, memcmp(env_strings, &process_info.environment[0],
+  EXPECT_EQ(0, memcmp(env.Get(), &process_info.environment[0],
                       process_info.environment.size()));
+
+  OSVERSIONINFOEX os_version_info = {};
+  os_version_info.dwOSVersionInfoSize = sizeof(os_version_info);
+  ASSERT_TRUE(::GetVersionEx(
+      reinterpret_cast<OSVERSIONINFO*>(&os_version_info)));
+  EXPECT_EQ(0u, ::memcmp(&os_version_info, &process_info.os_version_info,
+                         sizeof(os_version_info)));
+
+  SYSTEM_INFO system_info = {};
+  ::GetSystemInfo(&system_info);
+  EXPECT_EQ(0u, ::memcmp(&system_info, &process_info.system_info,
+                         sizeof(system_info)));
+
+  MEMORYSTATUSEX memory_status = {};
+  memory_status.dwLength = sizeof(memory_status);
+  ASSERT_TRUE(::GlobalMemoryStatusEx(&memory_status));
+  EXPECT_EQ(memory_status.ullTotalPhys,
+            process_info.memory_status.ullTotalPhys);
 
   process_info.Reset();
   EXPECT_EQ(0, process_info.process_id);

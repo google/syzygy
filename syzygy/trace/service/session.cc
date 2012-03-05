@@ -26,6 +26,7 @@
 #include "base/stringprintf.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/buffer_writer.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 
@@ -115,65 +116,49 @@ bool WriteTraceFileHeader(HANDLE file_handle,
   DCHECK(file_handle != INVALID_HANDLE_VALUE);
   DCHECK(block_size != 0);
 
-  // Calculate the space required for the header page and allocate a
-  // buffer for it.
-  size_t blob_chars = client.executable_path.value().size() + 1 +
-      client.command_line.size() + 1 +
-      client.environment.size();
-  size_t blob_length = blob_chars * sizeof(wchar_t);
-  size_t header_len = offsetof(TraceFileHeader, blob_data) + blob_length;
-  size_t buffer_size = common::AlignUp(header_len, block_size);
-  scoped_ptr_malloc<TraceFileHeader> header(
-      static_cast<TraceFileHeader*>(::calloc(1, buffer_size)));
+  // Make the initial buffer big enough to hold the header without the
+  // variable length blob, then skip past the fixed sized portion of the
+  // header.
+  std::vector<uint8> buffer;
+  buffer.reserve(16 * 1024);
+  common::VectorBufferWriter writer(&buffer);
+  if (!writer.Consume(offsetof(TraceFileHeader, blob_data)))
+    return false;
 
-  // Populate the header values.
+  // Populate the fixed sized portion of the header.
+  TraceFileHeader* header = reinterpret_cast<TraceFileHeader*>(&buffer[0]);
   ::memcpy(&header->signature,
            &TraceFileHeader::kSignatureValue,
            sizeof(header->signature));
   header->server_version.lo = TRACE_VERSION_LO;
   header->server_version.hi = TRACE_VERSION_HI;
   header->timestamp = ::GetTickCount();
-  header->header_size = header_len;
   header->process_id = client.process_id;
   header->block_size = block_size;
   header->module_base_address = client.exe_base_address;
   header->module_size = client.exe_image_size;
   header->module_checksum = client.exe_checksum;
   header->module_time_date_stamp = client.exe_time_date_stamp;
-
-  // Get the operating system version information.
-  header->os_version_info.dwOSVersionInfoSize = sizeof(header->os_version_info);
-  if (!::GetVersionEx(
-      reinterpret_cast<OSVERSIONINFO*>(&header->os_version_info))) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get OS version information: "
-               << com::LogWe(error) << ".";
-    return false;
-  }
+  header->os_version_info = client.os_version_info;
+  header->system_info = client.system_info;
+  header->memory_status = client.memory_status;
 
   // Populate the blob with the variable length fields.
-  wchar_t* blob_data = reinterpret_cast<wchar_t*>(header->blob_data);
+  if (!writer.WriteString(client.executable_path.value()))
+    return false;
+  if (!writer.WriteString(client.command_line))
+    return false;
+  if (!writer.Write(client.environment.size(), &client.environment[0]))
+    return false;
 
-  base::wcslcpy(blob_data,
-                client.executable_path.value().c_str(),
-                client.executable_path.value().size() + 1);
-  blob_data += client.executable_path.value().size() + 1;
-
-  base::wcslcpy(blob_data,
-                client.command_line.c_str(),
-                client.command_line.size() + 1);
-  blob_data += client.command_line.size() + 1;
-
-  // We have to use a memcpy here because the environment string has
-  // embedded NULLs.
-  ::memcpy(blob_data,
-           &client.environment[0],
-           client.environment.size() * sizeof(client.environment[0]));
+  // Update the final header size and align to a block size.
+  header->header_size = buffer.size();
+  writer.Align(header->block_size);
 
   // Commit the header page to disk.
   DWORD bytes_written = 0;
-  if (!::WriteFile(file_handle, header.get(), buffer_size, &bytes_written,
-                   NULL) || bytes_written != buffer_size ) {
+  if (!::WriteFile(file_handle, &buffer[0], buffer.size(), &bytes_written,
+                   NULL) || bytes_written != buffer.size() ) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed writing trace file header: " << com::LogWe(error)
                << ".";

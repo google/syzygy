@@ -79,7 +79,9 @@ class Simulator : public trace::parser::ParseEventHandler {
 
   // @name ParseEventHandler implementation.
   // @{
-  virtual void OnProcessStarted(base::Time time, DWORD process_id) OVERRIDE;
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) OVERRIDE;
   virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
   virtual void OnFunctionEntry(base::Time time,
                                DWORD process_id,

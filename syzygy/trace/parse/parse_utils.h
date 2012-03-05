@@ -22,25 +22,22 @@
 namespace trace {
 namespace parser {
 
-// Used to extract variable-length fields from the binary blob at the tail
-// of the header.
-struct TraceFileHeaderBlob {
-  const wchar_t* module_path;  // This is a NULL terminated string.
-  size_t module_path_length;  // Length does not include NULL terminator.
-
-  const wchar_t* command_line;  // This is a NULL terminated string.
-  size_t command_line_length;  // Length does not include NULL terminator.
-
-  const wchar_t* environment;  // This is an array.
-  size_t environment_length;  // Length includes all NULL characters.
-};
+// Parses a windows environment string.
+// @param env_string a doubly-zero terminated compound environment string.
+// @param env_strings the object to receive the parsed environment strings.
+bool ParseEnvironmentStrings(const wchar_t* env_string,
+                             TraceEnvironmentStrings* env_strings);
 
 // Parses the blob of variable sized data fields at the end of @p header.
 // @param header the header to parse.
-// @param blob the object to receive the parsed values.
+// @param module_path the string to receive the module path.
+// @param command_line the string to receive the command line.
+// @param env_strings the object to receive the environment strings.
 // @returns true on success, false otherwise.
 bool ParseTraceFileHeaderBlob(const TraceFileHeader& header,
-                              TraceFileHeaderBlob* blob);
+                              std::wstring* module_path,
+                              std::wstring* command_line,
+                              TraceEnvironmentStrings* env_strings);
 
 }  // namespace parser
 }  // namespace trace

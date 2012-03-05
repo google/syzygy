@@ -67,7 +67,9 @@ bool Simulator::ParseTraceFiles() {
   return true;
 }
 
-void Simulator::OnProcessStarted(base::Time time, DWORD process_id) {
+void Simulator::OnProcessStarted(base::Time time,
+                                 DWORD process_id,
+                                 const TraceSystemInfo* data) {
   // We ignore this call. Is this is the first process then page_faults_
   // should be empty.
 }
