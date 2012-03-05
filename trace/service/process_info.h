@@ -19,6 +19,7 @@
 #ifndef SYZYGY_TRACE_SERVICE_PROCESS_INFO_H_
 #define SYZYGY_TRACE_SERVICE_PROCESS_INFO_H_
 
+#include <windows.h>
 #include <string>
 
 #include "base/basictypes.h"
@@ -78,6 +79,11 @@ struct ProcessInfo {
   // each of which is terminated by a single NULL. The entire sequence is
   // terminated by a double NULL.
   std::vector<wchar_t> environment;
+
+  // System information.
+  OSVERSIONINFOEX os_version_info;
+  SYSTEM_INFO system_info;
+  MEMORYSTATUSEX memory_status;
 
   // The base address at which the executable image is currently loaded.
   uint32 exe_base_address;

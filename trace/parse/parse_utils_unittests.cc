@@ -16,8 +16,9 @@
 
 #include <vector>
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/align.h"
+#include "syzygy/common/buffer_writer.h"
 
 namespace trace {
 namespace parser {
@@ -30,50 +31,20 @@ class ParseTraceFileHeaderBlobTest : public ::testing::Test {
     // Ensure the buffer is big enough for the header but no blob.
     buffer_.resize(offsetof(TraceFileHeader, blob_data));
 
-    // Set up the header with typical values.
-    TraceFileHeader* hdr = GetHeader();
-    ::memcpy(hdr->signature, TraceFileHeader::kSignatureValue,
-             sizeof(hdr->signature));
-    hdr->server_version.lo = TRACE_VERSION_LO;
-    hdr->server_version.hi = TRACE_VERSION_HI;
-    hdr->header_size = buffer_.size();
-    hdr->block_size = 512;
-    hdr->process_id = 4168;
-    hdr->timestamp = ::GetTickCount();
-    hdr->module_base_address = 0x1000000;
-    hdr->module_size = 1024 * 1024;
-    hdr->module_checksum = 0xABCDEFAB;
-    hdr->module_time_date_stamp = 1325376000;
+    // We don't actually care about the initial values of the header, as the
+    // blob parser only cares about header_size.
+    SetHeaderSize();
   }
 
-  // Returns the header.
   TraceFileHeader* GetHeader() {
     return reinterpret_cast<TraceFileHeader*>(&buffer_[0]);
   }
 
-  // Aligns the blob data, leaving the aligned data zero padded.
-  void Align(size_t alignment) {
-    size_t size = common::AlignUp(buffer_.size(), alignment);
-    buffer_.resize(size);
-    GetHeader()->header_size = buffer_.size();
-  }
+  void SetHeaderSize() { GetHeader()->header_size = buffer_.size(); }
 
-  // Appends a single item to the blob data.
-  template<typename T> void Append(const T& value) {
-    size_t size = buffer_.size();
-    buffer_.resize(size + sizeof(T));
-    ::memcpy(&buffer_[size], &value, sizeof(T));
-    GetHeader()->header_size = buffer_.size();
-  }
-
-  // Appends an array of items to the blob data.
-  template<typename T> void Append(const T* data, size_t length) {
-    DCHECK(data != NULL);
-    size_t size = buffer_.size();
-    size_t bytes = sizeof(T) * length;
-    buffer_.resize(size + bytes);
-    ::memcpy(&buffer_[size], data, bytes);
-    GetHeader()->header_size = buffer_.size();
+  bool TestParseTraceFileHeaderBlob(const TraceFileHeader& header) {
+    SetHeaderSize();
+    return ParseTraceFileHeaderBlob(header, NULL, NULL, NULL);
   }
 
   std::vector<uint8> buffer_;
@@ -81,70 +52,86 @@ class ParseTraceFileHeaderBlobTest : public ::testing::Test {
 
 }  // namespace
 
+TEST(ParseEnvironmentStringsTest, Succeeds) {
+  wchar_t kEnvString[] = L"KEY0=value0\0KEY1=value1\0";
+  TraceEnvironmentStrings env_strings;
+  EXPECT_TRUE(ParseEnvironmentStrings(kEnvString, &env_strings));
+
+  TraceEnvironmentStrings expected_env_strings;
+  expected_env_strings.push_back(std::make_pair(std::wstring(L"KEY0"),
+                                                std::wstring(L"value0")));
+  expected_env_strings.push_back(std::make_pair(std::wstring(L"KEY1"),
+                                                std::wstring(L"value1")));
+  EXPECT_THAT(env_strings, ::testing::ContainerEq(expected_env_strings));
+}
+
 TEST_F(ParseTraceFileHeaderBlobTest, FailsOnTruncatedHeader) {
   // Make the header too small.
   GetHeader()->header_size--;
 
-  TraceFileHeaderBlob blob = {};
-  EXPECT_FALSE(ParseTraceFileHeaderBlob(*GetHeader(), &blob));
+  EXPECT_FALSE(TestParseTraceFileHeaderBlob(*GetHeader()));
 }
 
 TEST_F(ParseTraceFileHeaderBlobTest, FailsOnShortData) {
-  // The blob stores 3 fields, the first two which are null terminated and the
-  // last which is double null terminated. These are wide character nulls. Any
-  // of these fields may actually be the empty string, so anything should
-  // parse as long as there are 4 wide character NULLs, or 8 zero bytes.
-  // Anything less than that should fail.
-
-  TraceFileHeaderBlob blob = {};
+  common::VectorBufferWriter writer(&buffer_);
+  ASSERT_TRUE(writer.Consume(buffer_.size()));
 
   for (size_t i = 0; i < 8; ++i) {
-    EXPECT_FALSE(ParseTraceFileHeaderBlob(*GetHeader(), &blob));
-    Append<char>(0);
+    EXPECT_FALSE(TestParseTraceFileHeaderBlob(*GetHeader()));
+    ASSERT_TRUE(writer.Write<uint8>(0));
+    SetHeaderSize();
   }
 
-  EXPECT_TRUE(ParseTraceFileHeaderBlob(*GetHeader(), &blob));
+  EXPECT_TRUE(TestParseTraceFileHeaderBlob(*GetHeader()));
 }
 
 TEST_F(ParseTraceFileHeaderBlobTest, FailsOnExtraData) {
-  // The last two wide characters in the blob must be NULLs. Anything beyond
-  // that and we have extra malformed data.
+  common::VectorBufferWriter writer(&buffer_);
+  ASSERT_TRUE(writer.Consume(buffer_.size()));
 
   // We get a trailing zero for free simply from the string literal.
   const wchar_t kData[] = L"a string\0another string\0env1\0env2\0";
-  Append<wchar_t>(kData, arraysize(kData));
+  ASSERT_TRUE(writer.Write(arraysize(kData), kData));
 
-  TraceFileHeaderBlob blob = {};
-  EXPECT_TRUE(ParseTraceFileHeaderBlob(*GetHeader(), &blob));
+  EXPECT_TRUE(TestParseTraceFileHeaderBlob(*GetHeader()));
 
   const wchar_t kExtraData[] = L"extra data";
-  Append<wchar_t>(kExtraData, arraysize(kExtraData));
-  EXPECT_FALSE(ParseTraceFileHeaderBlob(*GetHeader(), &blob));
+  ASSERT_TRUE(writer.WriteString(kExtraData));
+  EXPECT_FALSE(TestParseTraceFileHeaderBlob(*GetHeader()));
 }
 
 TEST_F(ParseTraceFileHeaderBlobTest, SucceedsOnGoodData) {
+  common::VectorBufferWriter writer(&buffer_);
+  ASSERT_TRUE(writer.Consume(buffer_.size()));
 
   const wchar_t kModulePath[] = L"C:\\path\\to\\some\\module.dll";
   const wchar_t kCommandLine[] = L"module.exe --foo --bar=bar";
   // The second trailing zero comes for free.
-  const wchar_t kEnvironment[] = L"KEY1=value1\0KEY2=value2\0";
+  const wchar_t kEnvironment[] = L"=foobar\0KEY1=value1\0KEY2=value2\0";
 
-  Append<wchar_t>(kModulePath, arraysize(kModulePath));
-  Append<wchar_t>(kCommandLine, arraysize(kCommandLine));
-  Append<wchar_t>(kEnvironment, arraysize(kEnvironment));
+  ASSERT_TRUE(writer.WriteString(kModulePath));
+  ASSERT_TRUE(writer.WriteString(kCommandLine));
+  ASSERT_TRUE(writer.Write(arraysize(kEnvironment), kEnvironment));
 
-  TraceFileHeaderBlob blob = {};
-  EXPECT_TRUE(ParseTraceFileHeaderBlob(*GetHeader(), &blob));
+  SetHeaderSize();
 
-  EXPECT_EQ(arraysize(kModulePath) - 1, blob.module_path_length);
-  EXPECT_STREQ(kModulePath, blob.module_path);
+  std::wstring module_path;
+  std::wstring command_line;
+  TraceEnvironmentStrings env_strings;
+  EXPECT_TRUE(ParseTraceFileHeaderBlob(*GetHeader(), &module_path,
+                                       &command_line, &env_strings));
 
-  EXPECT_EQ(arraysize(kCommandLine) - 1, blob.command_line_length);
-  EXPECT_STREQ(kCommandLine, blob.command_line);
+  EXPECT_EQ(std::wstring(kModulePath), module_path);
+  EXPECT_EQ(std::wstring(kCommandLine), command_line);
 
-  EXPECT_EQ(arraysize(kEnvironment), blob.environment_length);
-  EXPECT_EQ(0, ::memcmp(kEnvironment, blob.environment,
-                        arraysize(kEnvironment)));
+  TraceEnvironmentStrings expected_env_strings;
+  expected_env_strings.push_back(std::make_pair(std::wstring(L""),
+                                                std::wstring(L"foobar")));
+  expected_env_strings.push_back(std::make_pair(std::wstring(L"KEY1"),
+                                                std::wstring(L"value1")));
+  expected_env_strings.push_back(std::make_pair(std::wstring(L"KEY2"),
+                                                std::wstring(L"value2")));
+  EXPECT_THAT(env_strings, ::testing::ContainerEq(expected_env_strings));
 }
 
 }  // namespace parser

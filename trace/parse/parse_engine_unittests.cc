@@ -66,7 +66,9 @@ class ParseEngineUnitTest
 
   // ParseEventHander methods.
 
-  virtual void OnProcessStarted(base::Time time, DWORD process_id) {
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) {
     ASSERT_EQ(process_id, kProcessId);
   }
 

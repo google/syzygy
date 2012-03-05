@@ -82,22 +82,86 @@ class TraceFileDumper : public ParseEventHandler {
               data->module_base_size);
   }
 
-  void PrintProcessEvent(const char* event_type,
-                         base::Time time,
-                         DWORD process_id) {
+  void PrintOsVersionInfo(base::Time time,
+                          const OSVERSIONINFOEX& os_version_info) {
     ::fprintf(file_,
-              "[%012lld] %s: process-id=%d\n",
+              "[%012lld] %sOsVersionInfo: platform_id=%d; product_type=%d; "
+                  "version=%d.%d; build=%d; service_pack=%d.%d\n",
               time.ToInternalValue(),
-              event_type,
-              process_id);
+              indentation_,
+              os_version_info.dwPlatformId,
+              os_version_info.wProductType,
+              os_version_info.dwMajorVersion,
+              os_version_info.dwMinorVersion,
+              os_version_info.dwBuildNumber,
+              os_version_info.wServicePackMajor,
+              os_version_info.wServicePackMinor);
   }
 
-  virtual void OnProcessStarted(base::Time time, DWORD process_id) {
-    PrintProcessEvent("OnProcessStarted", time, process_id);
+  void PrintSystemInfo(base::Time time, const SYSTEM_INFO& system_info) {
+    ::fprintf(file_,
+              "[%012lld] %sSystemInfo: cpu_arch=%d; cpu_count=%d; "
+                  "cpu_level=%d; cpu_rev=%d\n",
+              time.ToInternalValue(),
+              indentation_,
+              system_info.wProcessorArchitecture,
+              system_info.dwNumberOfProcessors,
+              system_info.wProcessorLevel,
+              system_info.wProcessorRevision);
+  }
+
+  void PrintMemoryStatus(base::Time time, const MEMORYSTATUSEX& memory_status) {
+    ::fprintf(file_,
+              "[%012lld] %sMemoryStatus: load=%d; total_phys=%lld; "
+                  "avail_phys=%lld\n",
+              time.ToInternalValue(),
+              indentation_,
+              memory_status.dwMemoryLoad,
+              memory_status.ullTotalPhys,
+              memory_status.ullAvailPhys);
+  }
+
+  void PrintEnvironmentString(base::Time time,
+                              const std::wstring& key,
+                              const std::wstring& value) {
+    ::fprintf(file_,
+              "[%012lld] %sEnvironment: %ls=%ls\n",
+              time.ToInternalValue(),
+              indentation_,
+              key.c_str(),
+              value.c_str());
+  }
+
+  void PrintEnvironmentStrings(base::Time time,
+                               const TraceEnvironmentStrings& env_strings) {
+    for (size_t i = 0; i < env_strings.size(); ++i)
+      PrintEnvironmentString(time, env_strings[i].first, env_strings[i].second);
+  }
+
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) {
+    ::fprintf(file_,
+              "[%012lld] OnProcessStarted: process-id=%d\n",
+              time.ToInternalValue(),
+              process_id);
+
+    if (data == NULL)
+      return;
+
+    indentation_ = "    ";
+    PrintOsVersionInfo(time, data->os_version_info);
+    PrintSystemInfo(time, data->system_info);
+    PrintMemoryStatus(time, data->memory_status);
+    PrintEnvironmentStrings(time, data->environment_strings);
+    indentation_ = "";
   }
 
   virtual void OnProcessEnded(base::Time time, DWORD process_id) {
-    PrintProcessEvent("OnProcessEnded", time, process_id);
+    ::fprintf(file_,
+              "[%012lld] OnProcessEnded: process-id=%d\n",
+              time.ToInternalValue(),
+              process_id);
   }
 
   virtual void OnFunctionEntry(base::Time time,

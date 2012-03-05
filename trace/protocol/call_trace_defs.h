@@ -18,6 +18,7 @@
 #include <windows.h>
 #include <wmistr.h>
 #include <evntrace.h>  // NOLINT - wmistr must precede envtrace.h
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
@@ -55,7 +56,7 @@ extern const wchar_t* const kCallTraceRpcMutex;
 // This must be bumped anytime the file format is changed.
 enum {
   TRACE_VERSION_HI = 1,
-  TRACE_VERSION_LO = 1,
+  TRACE_VERSION_LO = 2,
 };
 
 enum TraceEventType {
@@ -180,8 +181,10 @@ struct TraceFileHeader {
   // The timestamp of the executable module.
   uint32 module_time_date_stamp;
 
-  // The operating system version.
+  // System information.
   OSVERSIONINFOEX os_version_info;
+  SYSTEM_INFO system_info;
+  MEMORYSTATUSEX memory_status;
 
   // The header is required to store multiple variable length fields. We do
   // this via a blob mechanism. The header contains a single binary blob at the
@@ -250,6 +253,21 @@ struct TraceModuleData {
   uint32 module_time_date_stamp;
   wchar_t module_name[256];
   wchar_t module_exe[MAX_PATH];
+};
+
+// This is for storing environment string information. Each environment string
+// consists of a pair of strings, the key and the value. Certain special
+// strings have empty keys.
+typedef std::vector<std::pair<std::wstring, std::wstring>>
+    TraceEnvironmentStrings;
+
+// Describes the system information and environment in which a process is
+// running.
+struct TraceSystemInfo {
+  OSVERSIONINFOEX os_version_info;
+  SYSTEM_INFO system_info;
+  MEMORYSTATUSEX memory_status;
+  TraceEnvironmentStrings environment_strings;
 };
 
 struct FuncCall {

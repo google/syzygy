@@ -45,7 +45,9 @@ typedef uintptr_t (__cdecl *ResolveReturnAddressLocationFunc)(
 
 class MockParseEventHandler : public ParseEventHandler {
  public:
-  MOCK_METHOD2(OnProcessStarted, void (base::Time time, DWORD process_id));
+  MOCK_METHOD3(OnProcessStarted, void (base::Time time,
+                                       DWORD process_id,
+                                       const TraceSystemInfo* data));
   MOCK_METHOD2(OnProcessEnded, void (base::Time time, DWORD process_id));
   MOCK_METHOD4(OnFunctionEntry, void (base::Time time,
                                       DWORD process_id,
@@ -265,7 +267,7 @@ TEST_F(ProfilerTest, RecordsModuleAndFunctions) {
   EXPECT_TRUE(DllMainThunk(self_module, DLL_PROCESS_ATTACH, NULL));
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
-  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId()));
+  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
   EXPECT_CALL(handler_, OnProcessAttach(_,
                                        ::GetCurrentProcessId(),
                                        ::GetCurrentThreadId(),
@@ -323,7 +325,7 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
 
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
-  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId()));
+  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
   // We should only have one of these events,
   // despite the double DllMain invocation.
   EXPECT_CALL(handler_, OnProcessAttach(_,

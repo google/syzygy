@@ -152,7 +152,9 @@ bool Reorderer::CalculateReordering(Order* order) {
   return true;
 }
 
-void Reorderer::OnProcessStarted(base::Time time, DWORD process_id) {
+void Reorderer::OnProcessStarted(base::Time time,
+                                 DWORD process_id,
+                                 const TraceSystemInfo* data) {
   // We ignore these events and infer/pretend that a process we're interested
   // in has started when it begins to generate trace events.
 }

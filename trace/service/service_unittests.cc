@@ -20,6 +20,7 @@
 #include "base/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
 #include "syzygy/trace/client/client_utils.h"
@@ -35,9 +36,8 @@ namespace service {
 namespace {
 
 using common::AlignUp;
+using trace::parser::ParseEnvironmentStrings;
 using trace::parser::ParseTraceFileHeaderBlob;
-
-typedef trace::parser::TraceFileHeaderBlob TraceFileHeaderBlob;
 
 // Calculates the size of the given header on disk.
 size_t RoundedSize(const TraceFileHeader& header) {
@@ -231,10 +231,17 @@ class CallTraceServiceTest : public testing::Test {
                                        sizeof(module_info)));
 
     ScopedEnvironment env;
+    TraceEnvironmentStrings env_strings;
+    ASSERT_TRUE(ParseEnvironmentStrings(env.Get(), &env_strings));
 
     // Parse the blob at the end of the header, and make sure its parsable.
-    TraceFileHeaderBlob blob = {};
-    ASSERT_TRUE(ParseTraceFileHeaderBlob(header, &blob));
+    std::wstring blob_module_path;
+    std::wstring blob_command_line;
+    TraceEnvironmentStrings blob_env_strings;
+    ASSERT_TRUE(ParseTraceFileHeaderBlob(header,
+                                         &blob_module_path,
+                                         &blob_command_line,
+                                         &blob_env_strings));
 
     ASSERT_EQ(header.server_version.hi, TRACE_VERSION_HI);
     ASSERT_EQ(header.server_version.lo, TRACE_VERSION_LO);
@@ -243,10 +250,10 @@ class CallTraceServiceTest : public testing::Test {
               reinterpret_cast<uint32>(module_info.lpBaseOfDll));
     ASSERT_EQ(header.module_size,
               static_cast<uint32>(module_info.SizeOfImage));
-    ASSERT_STREQ(blob.module_path, module_path);
-    ASSERT_EQ(blob.command_line_length, cmd_line.length());
-    ASSERT_STREQ(blob.command_line, cmd_line.c_str());
-    ASSERT_STREQ(blob.environment, env.Get());
+
+    ASSERT_EQ(blob_module_path, std::wstring(module_path));
+    ASSERT_EQ(blob_command_line, cmd_line);
+    ASSERT_THAT(blob_env_strings, ::testing::ContainerEq(env_strings));
   }
 
   typedef std::map<HANDLE, uint8*> BasePtrMap;
