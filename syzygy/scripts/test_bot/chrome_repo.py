@@ -134,7 +134,8 @@ class ChromeRepo(object):
     self._build_id_pattern = build_id_pattern
     self._build_id_regex = re.compile(r'href="(?P<id>%s)/"' % build_id_pattern)
 
-  def _PerformRequest(self, method, path, out_stream, body=None, headers=None):
+  def _PerformRequest(self, method, path, out_stream, body=None, headers=None,
+                      max_attempts=3):
     """Carries out an HTTP request.
 
     The server used will be that given in the repo_url parameter when this
@@ -146,26 +147,35 @@ class ChromeRepo(object):
       out_stream: A file object to which the response body will be written.
       body: The optional body to include in the request.
       headers: The optional HTTP headers to include in the request.
+      max_attempts: The maximum number of times to attempt the request if it
+          fails due to a server or network error (default: 3).
 
     Returns:
       A triple containing the HTTP status code, the headers of the response,
       and the complete URL of the request.  The body of the response will have
       been written to the out_stream parameter.
     """
+    chunk_size = 32768
     url = '%s://%s%s' % (self._scheme, self._netloc, path)
+    error_result = -1, {}, url
     _LOGGER.debug('Performing %s to %s', method, url)
-    try:
-      request = urllib2.Request(url, body, headers or {})
-      response = self._url_opener.open(request)
-      while out_stream is not None:
-        chunk = response.read(16384)
-        if not chunk:
+    for attempt in xrange(1, max_attempts + 1):
+      try:
+        request = urllib2.Request(url, body, headers or {})
+        response = self._url_opener.open(request)
+        while out_stream is not None:
+          chunk = response.read(chunk_size)
+          if not chunk:
+            break
+          out_stream.write(chunk)
+        return 200, response.info(), response.geturl()
+      except (IOError, socket.error, httplib.HTTPException), error:
+        _LOGGER.error('[%d/%d] %s', attempt, max_attempts, error)
+        status = (error.code if hasattr(error, 'code') else 500)
+        error_result = status, {}, url
+        if status >= 400 and status < 500:
           break
-        out_stream.write(chunk)
-      return 200, response.info(), response.geturl()
-    except (IOError, socket.error, httplib.HTTPException), error:
-      _LOGGER.error('%s', error)
-      return (error.code if hasattr('code', 'error') else 500), {}, url
+    return error_result
 
   def GetBuildIndex(self):
     """Retrieve the list of build (id, timestamp) pairs from the build repo.
@@ -224,7 +234,8 @@ class ChromeRepo(object):
     Returns:
       true if the artifact exists.
     """
-    status, _headers, _url = self._PerformRequest('HEAD', path, None)
+    status, _headers, _url = self._PerformRequest('HEAD', path, None,
+                                                  max_attempts=1)
     return status == 200
 
   def GetLatestBuildId(self, build_index=None):
