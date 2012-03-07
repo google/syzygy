@@ -24,12 +24,15 @@ extern "C" void __declspec(naked) thunk_main_asm() {
   __asm {
     // Stash volatile registers.
     push eax
-    push ecx
     push edx
+
+    // Get the current cycle time ASAP.
+    rdtsc
+
+    push ecx
     pushfd
 
-    // Get the current cycle time.
-    rdtsc
+    // Push the cycle time arg for the ThunkMain function.
     push edx
     push eax
 
@@ -45,26 +48,19 @@ extern "C" void __declspec(naked) thunk_main_asm() {
 
     // Restore volatile registers, except eax.
     popfd
-    pop edx
     pop ecx
+    pop edx
 
-    // We start with:
+    // At this point we have:
     //   EAX: real ret-address
     //   stack:
     //     pushed EAX
     //     ret-address to thunk
-    //
-    // We end with:
-    //   EAX: pushed EAX
-    //   stack:
-    //     ret-address to thunk
-    //     real ret-address
-    xchg eax, DWORD PTR[esp + 0x4]
-    xchg eax, DWORD PTR[esp]
+    push eax
+    mov eax, DWORD PTR[esp+4]
 
-    // Return to the thunk, which will in turn return to the real
-    // return address.
-    ret
+    // Return and discard the stored eax and discarded return address.
+    ret 8
   }
 }
 
@@ -139,8 +135,7 @@ void ReturnThunkFactory::AddPage() {
     Thunk* thunk = &new_page->thunks[i];
     thunk->call = 0xE8;  // call
     thunk->func_addr = reinterpret_cast<DWORD>(thunk_main_asm) -
-        reinterpret_cast<DWORD>(&thunk->ret);
-    thunk->ret = 0xC3;
+        reinterpret_cast<DWORD>(&thunk->caller);
   }
 
   first_free_thunk_ = &new_page->thunks[0];
