@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -164,14 +164,20 @@ template<typename OutputIterator> bool ByteOutStream<OutputIterator>::Write(
   return true;
 }
 
-template<typename InputIterator> bool ByteInStream<InputIterator>::Read(
-    size_t length, Byte* bytes) {
+template<typename InputIterator> bool ByteInStream<InputIterator>::ReadImpl(
+    size_t length, Byte* bytes, size_t* bytes_read) {
+  DCHECK(bytes != NULL);
+  DCHECK(bytes_read != NULL);
+
+  Byte* bytes_start = bytes;
   for (size_t i = 0; i < length; ++i, ++bytes) {
     if (iter_ == end_)
-      return false;
+      break;
     *bytes = static_cast<Byte>(*iter_);
     ++iter_;
   }
+
+  *bytes_read = static_cast<size_t>(bytes - bytes_start);
   return true;
 }
 

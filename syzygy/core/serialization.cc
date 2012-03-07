@@ -37,8 +37,20 @@ FileInStream::FileInStream(FILE* file) : file_(file) {
   DCHECK(file != NULL);
 }
 
-bool FileInStream::Read(size_t length, Byte* bytes) {
-  return fread(bytes, sizeof(Byte), length, file_) == length;
+bool FileInStream::ReadImpl(size_t length, Byte* bytes, size_t* bytes_read) {
+  DCHECK(bytes != NULL);
+  DCHECK(bytes_read != NULL);
+  *bytes_read = ::fread(bytes, sizeof(Byte), length, file_);
+
+  if (*bytes_read == length)
+    return true;
+
+  // If we didn't read the full number of bytes expected, figure out why. It's
+  // not an error if we're at the end of the stream.
+  if (!::feof(file_))
+    return false;
+
+  return true;
 }
 
 // Serialization of base::Time.
