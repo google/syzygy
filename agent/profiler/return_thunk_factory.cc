@@ -44,7 +44,7 @@ extern "C" void __declspec(naked) thunk_main_asm() {
     sub eax, 5
     push eax
 
-    call agent::client::ReturnThunkFactory::ThunkMain
+    call agent::profiler::ReturnThunkFactory::ThunkMain
 
     // Restore volatile registers, except eax.
     popfd
@@ -67,7 +67,7 @@ extern "C" void __declspec(naked) thunk_main_asm() {
 }  // namespace
 
 namespace agent {
-namespace client {
+namespace profiler {
 
 ReturnThunkFactory::ReturnThunkFactory(Delegate* delegate)
     : delegate_(delegate),
@@ -168,5 +168,5 @@ RetAddr WINAPI ReturnThunkFactory::ThunkMain(Thunk* thunk, uint64 cycles) {
   return thunk->caller;
 }
 
-}  // namespace client
+}  // namespace profiler
 }  // namespace agent

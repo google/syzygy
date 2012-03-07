@@ -36,7 +36,7 @@ namespace {
 base::AtExitManager at_exit;
 
 // All tracing runs through this object.
-base::LazyInstance<agent::client::Profiler> static_profiler_instance =
+base::LazyInstance<agent::profiler::Profiler> static_profiler_instance =
     LAZY_INSTANCE_INITIALIZER;
 
 typedef std::pair<RetAddr, FuncAddr> InvocationKey;
@@ -85,7 +85,7 @@ extern "C" void __declspec(naked) _indirect_penter() {
     // push it. This becomes the EntryFrame argument.
     lea eax, DWORD PTR[esp + 0x20]
     push eax
-    call agent::client::Profiler::FunctionEntryHook
+    call agent::profiler::Profiler::FunctionEntryHook
 
     // Restore volatile registers.
     popfd
@@ -119,7 +119,7 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     // push it. This becomes the EntryFrame argument.
     lea eax, DWORD PTR[esp + 0x20]
     push eax
-    call agent::client::Profiler::DllMainEntryHook
+    call agent::profiler::Profiler::DllMainEntryHook
 
     // Restore volatile registers.
     popfd
@@ -135,7 +135,7 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
 // On entry, pc_location should point to a location on our own stack.
 extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
     uintptr_t pc_location) {
-  using agent::client::Profiler;
+  using agent::profiler::Profiler;
   Profiler* profiler = Profiler::Instance();
   return reinterpret_cast<uintptr_t>(
       profiler->ResolveReturnAddressLocation(
@@ -143,7 +143,7 @@ extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
-  using agent::client::Profiler;
+  using agent::profiler::Profiler;
 
   switch (reason) {
     case DLL_THREAD_DETACH:
@@ -159,7 +159,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 }
 
 namespace agent {
-namespace client {
+namespace profiler {
 
 class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
  public:
@@ -544,5 +544,5 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
     data->OnFunctionEntry(entry_frame, function, cycles);
 }
 
-}  // namespace client
+}  // namespace profiler
 }  // namespace agent

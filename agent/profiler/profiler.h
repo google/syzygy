@@ -39,7 +39,7 @@ extern "C" void _cdecl _indirect_penter_inside_function();
 extern void pexit();
 
 namespace agent {
-namespace client {
+namespace profiler {
 
 // There's a single instance of this class.
 class Profiler {
@@ -101,7 +101,7 @@ class Profiler {
   mutable base::ThreadLocalPointer<ThreadState> tls_;
 };
 
-}  // namespace agent::client
+}  // namespace profiler
 }  // namespace agent
 
 #endif  // SYZYGY_AGENT_PROFILER_PROFILER_H_
