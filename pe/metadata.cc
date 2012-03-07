@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -273,7 +273,8 @@ bool Metadata::SaveToBlock(BlockGraph::Block* block) const {
   core::ScopedOutStreamPtr out_stream;
   out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
   core::NativeBinaryOutArchive out_archive(out_stream.get());
-  out_archive.Save(*this);
+  if (!out_archive.Save(*this))
+    return false;
 
   // Output some of the information in duplicate, in a human-readable form, so
   // that we can easily grep for this stuff in the actual binaries.
@@ -293,7 +294,10 @@ bool Metadata::SaveToBlock(BlockGraph::Block* block) const {
   text.append("\nModule path: ");
   text.append(path);
   text.append("\n");
-  out_archive.Save(text);
+  if (!out_archive.Save(text))
+    return false;
+  if (!out_archive.Flush())
+    return false;
 
   block->SetData(NULL, 0);
   block->set_size(bytes.size());

@@ -858,6 +858,7 @@ TEST(BlockGraphTest, Serialization) {
       CreateByteOutStream(std::back_inserter(byte_vector)));
   NativeBinaryOutArchive out_archive(out_stream.get());
   ASSERT_TRUE(out_archive.Save(image));
+  ASSERT_TRUE(out_archive.Flush());
 
   BlockGraph image_copy;
   ScopedInStreamPtr in_stream(

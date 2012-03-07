@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@ template<class Data> bool TestSerialization(const Data& data) {
   out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
   core::NativeBinaryOutArchive out_archive(out_stream.get());
   if (!out_archive.Save(data))
+    return false;
+  if (!out_archive.Flush())
     return false;
 
   core::ScopedInStreamPtr in_stream;

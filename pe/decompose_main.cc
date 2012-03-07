@@ -237,6 +237,8 @@ int main(int argc, char** argv) {
                                &out_archive)) {
       return 1;
     }
+    if (!out_archive.Flush())
+      return 1;
 
     LOG(INFO) << "Saving decomposed image took " <<
         (base::Time::Now() - time).InSecondsF() << " seconds.";
