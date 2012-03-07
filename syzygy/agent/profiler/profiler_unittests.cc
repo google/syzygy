@@ -25,7 +25,7 @@
 #include "syzygy/trace/service/service.h"
 
 namespace agent {
-namespace client {
+namespace profiler {
 
 namespace {
 
@@ -346,5 +346,5 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   ASSERT_NO_FATAL_FAILURE(ReplayLogs());
 }
 
-}  // namespace client
+}  // namespace profiler
 }  // namespace agent

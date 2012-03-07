@@ -19,7 +19,7 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace agent {
-namespace client {
+namespace profiler {
 
 // A factory for return thunks as used by the profiler.  These are
 // packed as tight as possible into whole pages of memory.  All pages
@@ -134,7 +134,7 @@ class ReturnThunkFactory {
   DISALLOW_COPY_AND_ASSIGN(ReturnThunkFactory);
 };
 
-}  // namespace client
+}  // namespace profiler
 }  // namespace agent
 
 #endif  // SYZYGY_AGENT_PROFILER_RETURN_THUNK_FACTORY_H_
