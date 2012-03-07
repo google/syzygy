@@ -143,13 +143,55 @@ template<class Data, class InArchive> bool Load(
 class OutStream {
  public:
   virtual ~OutStream() { Flush(); }
+  // An OutStream is expected to write all data provided to it. If it fails this
+  // is considered a fatal error, and the stream is no longer usable.
   virtual bool Write(size_t length, const Byte* bytes) = 0;
   virtual bool Flush() { return true; }
 };
 class InStream {
  public:
   virtual ~InStream() { }
-  virtual bool Read(size_t length, Byte* bytes) = 0;
+
+  // An input stream is expected to read all data asked of it, unless the data
+  // source has been exhausted and only a partial read is possible. In this
+  // case it must still return true. A return value of false is fatal and
+  // indicates that the stream is no longer usable.
+  // @param length the number of bytes to read.
+  // @param bytes a pointer to a buffer of length at least @p length to receive
+  //     the bytes that are read.
+  // @param bytes_read to receive the number of bytes actually read. It is
+  //     possible for this to be any value from 0 to length, inclusive.
+  // @returns true if the stream is reusable, false if it is errored.
+  bool Read(size_t length, Byte* bytes, size_t* bytes_read) {
+    return ReadImpl(length, bytes, bytes_read);
+  }
+
+  // Calling this version of read is only safe if you have implicit knowledge
+  // of the length of the input stream. This is inline so that common_lib, which
+  // uses serialization, doesn't need a (circular) dependency on core_lib.
+  // @param length the number of bytes to read.
+  // @param bytes a pointer to a buffer of length at least @p length to receive
+  //     the bytes that are read.
+  // @returns true if the entire length of bytes was able to be read, false
+  //     otherwise.
+  bool Read(size_t length, Byte* bytes) {
+    size_t bytes_read = 0;
+    if (!ReadImpl(length, bytes, &bytes_read))
+      return false;
+    if (bytes_read != length)
+      return false;
+    return true;
+  }
+
+ protected:
+  // Needs to be implemented by derived classes. See description of Read above.
+  // @param length the number of bytes to read.
+  // @param bytes a pointer to a buffer of length at least @p length to receive
+  //     the bytes that are read.
+  // @param bytes_read to receive the number of bytes actually read. It is
+  //     possible for this to be any value from 0 to length, inclusive.
+  // @returns true if the stream is reusable, false if it is errored.
+  virtual bool ReadImpl(size_t length, Byte* bytes, size_t* bytes_read) = 0;
 };
 typedef scoped_ptr<OutStream> ScopedOutStreamPtr;
 typedef scoped_ptr<InStream> ScopedInStreamPtr;
@@ -161,6 +203,7 @@ class FileOutStream : public OutStream {
   virtual ~FileOutStream() { }
   virtual bool Write(size_t length, const Byte* bytes);
   virtual bool Flush();
+
  private:
   FILE* file_;
 };
@@ -170,7 +213,10 @@ class FileInStream : public InStream {
  public:
   explicit FileInStream(FILE* file);
   virtual ~FileInStream() { }
-  virtual bool Read(size_t length, Byte* bytes);
+
+ protected:
+  virtual bool ReadImpl(size_t length, Byte* bytes, size_t* bytes_read);
+
  private:
   FILE* file_;
 };
@@ -236,7 +282,8 @@ template<typename InputIterator> class ByteInStream : public InStream {
 
   virtual ~ByteInStream() { }
 
-  virtual bool Read(size_t length, Byte* bytes);
+ protected:
+  virtual bool ReadImpl(size_t length, Byte* bytes, size_t* bytes_read);
 
  private:
   InputIterator iter_;
