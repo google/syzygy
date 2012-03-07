@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,11 @@ FileOutStream::FileOutStream(FILE* file) : file_(file) {
 
 bool FileOutStream::Write(size_t length, const Byte* bytes) {
   return fwrite(bytes, sizeof(Byte), length, file_) == length;
+}
+
+bool FileOutStream::Flush() {
+  ::fflush(file_);
+  return true;
 }
 
 FileInStream::FileInStream(FILE* file) : file_(file) {

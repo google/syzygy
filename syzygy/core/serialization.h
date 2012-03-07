@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,12 @@
 //   FILE* file = OpenFile("foo.dat", "wb");
 //   FileOutStream out_stream(file);
 //   NativeBinaryOutArchive out_archive(out_stream);
-//   out_archive.Save(object)
+//   out_archive.Save(object);
+//   out_archive.Flush();
+//
+// Note that an output stream must be flushed as the archive or the stream may
+// introduce some buffering. If not explicitly called, it will be called for an
+// OutStream or OutArchive when it is destroyed.
 //
 // To deserialize an object:
 //
@@ -30,7 +35,7 @@
 //   FILE* file = OpenFile("foo.dat", "rb");
 //   FileInStream in_stream(file);
 //   NativeBinaryInArchive in_archive(in_stream);
-//   in_archive.Load(&object)
+//   in_archive.Load(&object);
 //
 // Serialization of primitive types (bool, char, wchar_t, float, double,
 // int8/16/32/64, uint8/16/32/64), C-arrays of serializable types, and STL
@@ -103,6 +108,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -136,8 +142,9 @@ template<class Data, class InArchive> bool Load(
 // stick to the use of FILE objects.
 class OutStream {
  public:
-  virtual ~OutStream() { }
+  virtual ~OutStream() { Flush(); }
   virtual bool Write(size_t length, const Byte* bytes) = 0;
+  virtual bool Flush() { return true; }
 };
 class InStream {
  public:
@@ -153,6 +160,7 @@ class FileOutStream : public OutStream {
   explicit FileOutStream(FILE* file);
   virtual ~FileOutStream() { }
   virtual bool Write(size_t length, const Byte* bytes);
+  virtual bool Flush();
  private:
   FILE* file_;
 };
@@ -254,6 +262,8 @@ class NativeBinaryOutArchive {
     DCHECK(out_stream != NULL);
   }
 
+  ~NativeBinaryOutArchive() { Flush(); }
+
   template<class Data> bool Save(const Data& data) {
     return core::Save(data, this);
   }
@@ -281,6 +291,8 @@ class NativeBinaryOutArchive {
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint64);
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(unsigned long);
 #undef NATIVE_BINARY_OUT_ARCHIVE_SAVE
+
+  bool Flush() { return out_stream_->Flush(); }
 
   OutStream* out_stream() { return out_stream_; }
 

@@ -187,6 +187,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
     core::NativeBinaryOutArchive out_archive(&out_stream);
     EXPECT_TRUE(
         SaveDecomposition(image_file, block_graph, image_layout, &out_archive));
+    EXPECT_TRUE(out_archive.Flush());
   }
 
   // Load the BlockGraph, and compare it to the original.
