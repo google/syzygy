@@ -87,7 +87,6 @@ class ReturnThunkFactory {
     // percentage of identical instructions remain in the instruction cache.
     BYTE call;
     DWORD func_addr;
-    BYTE ret;
 
     // The caller and the function invoked.
     RetAddr caller;
