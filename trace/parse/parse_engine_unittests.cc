@@ -156,7 +156,7 @@ class ParseEngineUnitTest
                                         DWORD process_id,
                                         DWORD thread_id,
                                         size_t num_batches,
-                                        const InvocationInfoBatch* data));
+                                        const TraceBatchInvocationInfo* data));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;

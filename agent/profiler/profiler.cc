@@ -68,12 +68,15 @@ extern "C" void __declspec(naked) _indirect_penter() {
   __asm {
     // Stash volatile registers.
     push eax
-    push ecx
     push edx
+
+    // Get the current cycle time ASAP.
+    rdtsc
+
+    push ecx
     pushfd
 
-    // Get the current cycle time.
-    rdtsc
+    // Push the cycle time arg.
     push edx
     push eax
 
@@ -89,8 +92,8 @@ extern "C" void __declspec(naked) _indirect_penter() {
 
     // Restore volatile registers.
     popfd
-    pop edx
     pop ecx
+    pop edx
     pop eax
 
     // Return to the address pushed by our caller.
@@ -102,12 +105,15 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
   __asm {
     // Stash volatile registers.
     push eax
-    push ecx
     push edx
+
+    // Get the current cycle time ASAP.
+    rdtsc
+
+    push ecx
     pushfd
 
-    // Get the current cycle time.
-    rdtsc
+    // Push the cycle time arg.
     push edx
     push eax
 
@@ -123,8 +129,8 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
 
     // Restore volatile registers.
     popfd
-    pop edx
     pop ecx
+    pop edx
     pop eax
 
     // Return to the address pushed by our caller.
@@ -215,7 +221,7 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
   trace::client::TraceFileSegment segment_;
 
   // The current batch record we're writing to, if any.
-  InvocationInfoBatch* batch_;
+  TraceBatchInvocationInfo* batch_;
 
   // The set of modules we've logged.
   ModuleSet logged_modules_;
@@ -311,7 +317,7 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   DCHECK(thunk != NULL);
   thunk->caller = entry_frame->retaddr;
   thunk->function = function;
-  thunk->cycles_entry = cycles;
+  thunk->cycles_entry = cycles - cycles_overhead_;
 
   entry_frame->retaddr = thunk;
 
@@ -322,7 +328,7 @@ void Profiler::ThreadState::OnFunctionExit(
     const ReturnThunkFactory::Thunk* thunk,
     uint64 cycles_exit) {
   // Calculate the number of cycles in the invocation, exclusive our overhead.
-  uint64 cycles_executed = cycles_exit - thunk->cycles_entry - cycles_overhead_;
+  uint64 cycles_executed = cycles_exit - cycles_overhead_ - thunk->cycles_entry;
 
   RecordInvocation(thunk->caller, thunk->function, cycles_executed);
 
@@ -369,7 +375,7 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
 void Profiler::ThreadState::UpdateOverhead(uint64 entry_cycles) {
   // TODO(siggi): Measure the fixed overhead on setup,
   //     then add it on every update.
-  cycles_overhead_ += __rdtsc() - entry_cycles;
+  cycles_overhead_ += (__rdtsc() - entry_cycles);
 }
 
 InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
@@ -377,7 +383,7 @@ InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
   // contains at least one invocation info as currently declared.
   // If this fails, please recondsider your implementation, or else revisit
   // the allocation code below.
-  COMPILE_ASSERT(sizeof(InvocationInfoBatch) >= sizeof(InvocationInfo),
+  COMPILE_ASSERT(sizeof(TraceBatchInvocationInfo) >= sizeof(InvocationInfo),
                  invocation_info_batch_must_be_larger_than_invocation_info);
 
   // Do we have a record that we can grow?
@@ -395,14 +401,15 @@ InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
   }
 
   // Do we need to scarf a new buffer?
-  if (!segment_.CanAllocate(sizeof(InvocationInfoBatch)) && !FlushSegment()) {
+  if (!segment_.CanAllocate(sizeof(TraceBatchInvocationInfo)) &&
+      !FlushSegment()) {
     // We failed to allocate a new buffer.
     return NULL;
   }
 
   DCHECK(segment_.header != NULL);
 
-  batch_ = segment_.AllocateTraceRecord<InvocationInfoBatch>();
+  batch_ = segment_.AllocateTraceRecord<TraceBatchInvocationInfo>();
   return &batch_->invocations[0];
 }
 

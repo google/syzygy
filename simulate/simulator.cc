@@ -185,7 +185,7 @@ void Simulator::OnInvocationBatch(base::Time time,
                                   DWORD process_id,
                                   DWORD thread_id,
                                   size_t num_batches,
-                                  const InvocationInfoBatch* data) {
+                                  const TraceBatchInvocationInfo* data) {
   // We don't do anything with these events.
 }
 

@@ -184,7 +184,7 @@ class ParseEventHandler {
                                  DWORD process_id,
                                  DWORD thread_id,
                                  size_t num_invocations,
-                                 const InvocationInfoBatch* data) = 0;
+                                 const TraceBatchInvocationInfo* data) = 0;
 };
 
 }  // namespace trace::parser

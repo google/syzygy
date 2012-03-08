@@ -237,7 +237,7 @@ class TraceFileDumper : public ParseEventHandler {
                                  DWORD process_id,
                                  DWORD thread_id,
                                  size_t num_invocations,
-                                 const InvocationInfoBatch* data) {
+                                 const TraceBatchInvocationInfo* data) {
     DCHECK(data != NULL);
     ::fprintf(file_,
               "OnInvocationBatch: process-id=%d; thread-id=%d;\n",
@@ -245,9 +245,8 @@ class TraceFileDumper : public ParseEventHandler {
               thread_id);
     for (size_t i = 0; i < num_invocations; ++i) {
       ::fprintf(file_,
-                "    caller=0x%08X; function=0x%08X"
-                "    module-addr=; module-size=%d\n; num-calls=%d;\n"
-                "    cycles-min=%d; cycles-max=%d; cycles-sum=%d\n",
+                "    caller=0x%08X; function=0x%08X; num-calls=%d;\n"
+                "    cycles-min=%lld; cycles-max=%lld; cycles-sum=%lld\n",
                 data->invocations[i].caller,
                 data->invocations[i].function,
                 data->invocations[i].num_calls,
