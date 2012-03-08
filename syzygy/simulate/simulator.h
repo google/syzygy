@@ -115,7 +115,7 @@ class Simulator : public trace::parser::ParseEventHandler {
                                  DWORD process_id,
                                  DWORD thread_id,
                                  size_t num_batches,
-                                 const InvocationInfoBatch* data) OVERRIDE;
+                                 const TraceBatchInvocationInfo* data) OVERRIDE;
   // @}
 
   // The input files.

@@ -174,7 +174,7 @@ class TestParseEventHandler : public ParseEventHandler {
                                  DWORD process_id,
                                  DWORD thread_id,
                                  size_t num_invocations,
-                                 const InvocationInfoBatch* data) {
+                                 const TraceBatchInvocationInfo* data) {
     ADD_FAILURE() << "Unexpected event.";
   }
 

@@ -227,8 +227,8 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       LOG(ERROR) << "Parsing for TRACE_MODULE_EVENT not yet implemented.";
       break;
 
-    case TRACE_INVOCATION_BATCH:
-      success = DispatchInvocationBatch(event);
+    case TRACE_BATCH_INVOCATION:
+      success = DispatchBatchInvocationEvent(event);
       break;
 
     default:
@@ -342,7 +342,7 @@ bool ParseEngine::DispatchProcessEndedEvent(EVENT_TRACE* event) {
   return true;
 }
 
-bool ParseEngine::DispatchInvocationBatch(EVENT_TRACE* event) {
+bool ParseEngine::DispatchBatchInvocationEvent(EVENT_TRACE* event) {
   DCHECK(event != NULL);
   DCHECK(event_handler_ != NULL);
   DCHECK(error_occurred_ == false);
@@ -353,7 +353,7 @@ bool ParseEngine::DispatchInvocationBatch(EVENT_TRACE* event) {
     return false;
   }
 
-  const InvocationInfoBatch* data = NULL;
+  const TraceBatchInvocationInfo* data = NULL;
   if (!reader.Read(event->MofLength, &data)) {
     LOG(ERROR) << "Short or empty batch event.";
     return false;

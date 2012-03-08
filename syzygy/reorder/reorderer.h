@@ -152,7 +152,7 @@ class Reorderer : public trace::parser::ParseEventHandler {
                                  DWORD process_id,
                                  DWORD thread_id,
                                  size_t num_batches,
-                                 const InvocationInfoBatch* data) OVERRIDE;
+                                 const TraceBatchInvocationInfo* data) OVERRIDE;
   // @}
 
   // A playback, which will decompose the image for us.

@@ -73,7 +73,7 @@ enum TraceEventType {
   TRACE_THREAD_DETACH_EVENT,
   TRACE_MODULE_EVENT,
   TRACE_BATCH_ENTER,
-  TRACE_INVOCATION_BATCH,
+  TRACE_BATCH_INVOCATION,
 };
 
 // All traces are emitted at this trace level.
@@ -305,8 +305,8 @@ struct InvocationInfo {
   uint64 cycles_sum;
 };
 
-struct InvocationInfoBatch {
-  enum { kTypeId = TRACE_INVOCATION_BATCH };
+struct TraceBatchInvocationInfo {
+  enum { kTypeId = TRACE_BATCH_INVOCATION };
 
   // TODO(siggi): Perhaps the batch should carry the time resolution for
   //    the invocation data?

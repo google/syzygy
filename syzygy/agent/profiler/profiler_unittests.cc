@@ -81,7 +81,7 @@ class MockParseEventHandler : public ParseEventHandler {
                                         DWORD process_id,
                                         DWORD thread_id,
                                         size_t num_batches,
-                                        const InvocationInfoBatch* data));
+                                        const TraceBatchInvocationInfo* data));
 };
 
 class ProfilerTest : public testing::Test {
