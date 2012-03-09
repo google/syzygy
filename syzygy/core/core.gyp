@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,11 +42,14 @@
         'serialization.cc',
         'serialization.h',
         'serialization_impl.h',
+        'zstream.cc',
+        'zstream.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
+        '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
       ],
     },
     {
@@ -72,6 +75,7 @@
         'file_util_unittest.cc',
         'json_file_writer_unittest.cc',
         'serialization_unittest.cc',
+        'zstream_unittest.cc',
       ],
       'dependencies': [
         'core_lib',
@@ -80,6 +84,7 @@
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
+        '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
       ],
       'rules': [
         {
