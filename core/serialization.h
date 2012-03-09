@@ -142,10 +142,15 @@ template<class Data, class InArchive> bool Load(
 // stick to the use of FILE objects.
 class OutStream {
  public:
-  virtual ~OutStream() { Flush(); }
+  virtual ~OutStream() { }
+
   // An OutStream is expected to write all data provided to it. If it fails this
   // is considered a fatal error, and the stream is no longer usable.
   virtual bool Write(size_t length, const Byte* bytes) = 0;
+
+  // Flushes any buffered data currently contained in this stream. Flush should
+  // only be called at most once for a given stream and should be interpreted
+  // as an end of stream event.
   virtual bool Flush() { return true; }
 };
 class InStream {
