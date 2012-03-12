@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/simulate/simulator.h"
+#include "syzygy/simulate/page_fault_simulator.h"
 
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
@@ -45,7 +46,7 @@ class MockPlayback : public Playback {
   }
 
  private:
-  friend class SimulatorTest;
+  friend class PageFaultSimulatorTest;
 };
 
 class MockParseEngine : public trace::parser::ParseEngine {
@@ -79,6 +80,7 @@ bool MockParseEngine::ConsumeAllEvents() {
 
   // Simulate a process starting.
   base::Time time = base::Time::Now();
+  event_handler_->OnProcessStarted(time, kProcessId, NULL);
 
   sym_util::ModuleInformation dll_info = {};
   const pe::PEFile::Signature& sig = playback_->instr_signature();
@@ -150,12 +152,12 @@ bool MockParseEngine::ConsumeAllEvents() {
   return true;
 }
 
-class MockSimulator : public Simulator {
+class MockPageFaultSimulator : public PageFaultSimulator {
  public:
-  MockSimulator(const FilePath& module_path,
-                const FilePath& instrumented_path,
-                const TraceFileList& trace_files)
-      : Simulator(module_path, instrumented_path, trace_files),
+  MockPageFaultSimulator(const FilePath& module_path,
+                         const FilePath& instrumented_path,
+                         const TraceFileList& trace_files)
+      : PageFaultSimulator(module_path, instrumented_path, trace_files),
         mock_parse_engine_(NULL),
         mock_playback_(NULL) {
   }
@@ -165,19 +167,58 @@ class MockSimulator : public Simulator {
   MockPlayback* mock_playback_;
 
  private:
-  friend class SimulatorTest;
+  friend class PageFaultSimulatorTest;
 };
 
-class SimulatorTest : public testing::PELibUnitTest {
+class PageFaultSimulatorTest : public testing::PELibUnitTest {
  public:
   typedef std::vector<FilePath> TraceFileList;
 
-  void InitSimulator() {
+  struct MockBlockInfo {
+    DWORD addr;
+    size_t size;
+    string name;
+
+    // Construct a new MockBlockInfo instance.
+    MockBlockInfo(DWORD addr_, size_t size_, string name_)
+        : addr(addr_), size(size_), name(name_) {
+    }
+
+    // Construct an invalid MockBlockInfo instance.
+    MockBlockInfo()
+        : size(0) {
+    }
+  };
+
+  void InitMockImageTest() {
+    ASSERT_NO_FATAL_FAILURE(InitMockTraceFileList());
+
+    module_path_ = FilePath(L"foobarbaz");
+    instrumented_path_ = FilePath(L"instrumented_foobarbaz");
+    simulator_.reset(new MockPageFaultSimulator(module_path_,
+                                                instrumented_path_,
+                                                trace_files_));
+
+    ASSERT_NO_FATAL_FAILURE(SetDummyCodeBlockInfo());
+
+    ASSERT_NO_FATAL_FAILURE(InsertMockParser());
+    ASSERT_NO_FATAL_FAILURE(GenerateDummyImage());
+  }
+
+  // Set the value of the dummy code blocks.
+  void SetDummyCodeBlockInfo() {
+    block_info_[0] = MockBlockInfo(0x0, 0x16000, "Block 1");
+    block_info_[1] = MockBlockInfo(0x1D000, 0x7000, "Block 2");
+    block_info_[2] = MockBlockInfo(0x30000, 0x8000, "Block 3");
+  }
+
+  void InitPageFaultSimulator() {
     module_path_ = GetExeTestDataRelativePath(kDllName);
     instrumented_path_ = GetExeTestDataRelativePath(kRpcInstrumentedDllName);
 
-    simulator_.reset(
-        new MockSimulator(module_path_, instrumented_path_, trace_files_));
+    simulator_.reset(new MockPageFaultSimulator(module_path_,
+                                                instrumented_path_,
+                                                trace_files_));
   }
 
   void InitMockTraceFileList() {
@@ -223,9 +264,20 @@ class SimulatorTest : public testing::PELibUnitTest {
   // Returns a set with the expected page faults using the mock image.
   std::set<uint32> ExpectedPageFaults() {
     std::set<uint32> page_faults;
-    for (int i = 0; i < 5; i++)
-      page_faults.insert(i);
-    page_faults.insert(6);
+
+    for (int i = 0; i < arraysize(block_info_); i++) {
+      uint32 kBegin = block_info_[i].addr / simulator_->page_size();
+      uint32 kEnd = (block_info_[i].addr + block_info_[i].size) /
+          simulator_->page_size();
+
+      uint32 kStep = simulator_->pages_per_code_fault();
+      for (uint32 u = kBegin; u < kEnd; u += kStep) {
+        if (page_faults.find(u) == page_faults.end()) {
+          for (uint32 j = 0; j < simulator_->pages_per_code_fault(); j++)
+            page_faults.insert(u + j);
+        }
+      }
+    }
 
     return page_faults;
   }
@@ -250,69 +302,79 @@ class SimulatorTest : public testing::PELibUnitTest {
     BlockGraph::Section* text = simulator_->block_graph_.AddSection(
         pe::kCodeSectionName, pe::kCodeCharacteristics);
 
-    // Create four dummy code blocks.
-    BlockGraph::Block* blocks[] = {
-        AddBlock(BlockGraph::CODE_BLOCK, 0x16000, "block 1", text),
-        AddBlock(BlockGraph::CODE_BLOCK, 0x21000, "block 2", text),
-        AddBlock(BlockGraph::CODE_BLOCK, 0x7000, "block 3", text),
-        AddBlock(BlockGraph::CODE_BLOCK, 0x8000, "block 4", text)
-    };
-
-    // Initialize image_layout with the blocks I just created
+    // Initialize image_layout.
     simulator_->image_layout_ = pe::ImageLayout(&simulator_->block_graph_);
 
-    // Give addresses to those blocks.
-    simulator_->image_layout_.blocks.InsertBlock(
-        BlockGraph::RelativeAddress(0x0), blocks[0]);
-    simulator_->image_layout_.blocks.InsertBlock(
-        BlockGraph::RelativeAddress(0xB000), blocks[1]);
-    simulator_->image_layout_.blocks.InsertBlock(
-        BlockGraph::RelativeAddress(0x1D000), blocks[2]);
-    simulator_->image_layout_.blocks.InsertBlock(
-        BlockGraph::RelativeAddress(0x30000), blocks[3]);
+    // Create dummy code blocks.
+    for (int i = 0; i < arraysize(block_info_); i++) {
+      DCHECK(block_info_[i].size > 0);
+
+      BlockGraph::Block* block = AddBlock(BlockGraph::CODE_BLOCK,
+                                          block_info_[i].size,
+                                          block_info_[i].name.c_str(),
+                                          text);
+
+      simulator_->image_layout_.blocks.InsertBlock(
+          BlockGraph::RelativeAddress(block_info_[i].addr), block);
+    }
+
+    ASSERT_EQ(simulator_->image_layout_.blocks.size(), arraysize(block_info_));
   }
 
  protected:
   FilePath module_path_;
   FilePath instrumented_path_;
   TraceFileList trace_files_;
-  scoped_ptr<MockSimulator> simulator_;
+  scoped_ptr<MockPageFaultSimulator> simulator_;
+
+  MockBlockInfo block_info_[3];
 };
 
 }  // namespace
 
-TEST_F(SimulatorTest, CorrectPageFaults) {
-  ASSERT_NO_FATAL_FAILURE(InitMockTraceFileList());
-
-  module_path_ = FilePath(L"foobarbaz");
-  instrumented_path_ = FilePath(L"instrumented_foobarbaz");
-  simulator_.reset(
-      new MockSimulator(module_path_, instrumented_path_, trace_files_));
-
-  ASSERT_NO_FATAL_FAILURE(InsertMockParser());
-  ASSERT_NO_FATAL_FAILURE(GenerateDummyImage());
-
+TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
+  InitMockImageTest();
   EXPECT_TRUE(simulator_->ParseTraceFiles());
-  EXPECT_EQ(simulator_->page_faults(), ExpectedPageFaults());
+
+  EXPECT_EQ(simulator_->pages(), ExpectedPageFaults());
+  EXPECT_EQ(simulator_->fault_count(), 5);
 }
 
-TEST_F(SimulatorTest, DetectSingleFilePageFaults) {
+TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
+  InitMockImageTest();
+  simulator_->set_page_size(0x8000);
+  EXPECT_TRUE(simulator_->ParseTraceFiles());
+
+  EXPECT_EQ(simulator_->pages(), ExpectedPageFaults());
+  EXPECT_EQ(simulator_->fault_count(), 1);
+}
+
+TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithFewPagesPerCodeFault) {
+  InitMockImageTest();
+  simulator_->set_pages_per_code_fault(3);
+  EXPECT_TRUE(simulator_->ParseTraceFiles());
+
+  EXPECT_EQ(simulator_->pages(), ExpectedPageFaults());
+  EXPECT_EQ(simulator_->fault_count(), 14);
+}
+
+TEST_F(PageFaultSimulatorTest, DetectSingleFilePageFaults) {
   ASSERT_NO_FATAL_FAILURE(InitSingleFileTraceFileList());
-  ASSERT_NO_FATAL_FAILURE(InitSimulator());
+  ASSERT_NO_FATAL_FAILURE(InitPageFaultSimulator());
 
   EXPECT_TRUE(simulator_->ParseTraceFiles());
 
   // We don't know how many pagefaults the trace files will have, but
   // we know there will be some.
-  EXPECT_NE(simulator_->page_faults().size(), 0u);
+  EXPECT_NE(simulator_->pages().size(), 0u);
 }
 
-TEST_F(SimulatorTest, DetectMultipleFilePageFaults) {
+TEST_F(PageFaultSimulatorTest, DetectMultipleFilePageFaults) {
   ASSERT_NO_FATAL_FAILURE(InitMultipleFileTraceFileList());
-  ASSERT_NO_FATAL_FAILURE(InitSimulator());
+  ASSERT_NO_FATAL_FAILURE(InitPageFaultSimulator());
 
   EXPECT_TRUE(simulator_->ParseTraceFiles());
-  EXPECT_NE(simulator_->page_faults().size(), 0u);
+  EXPECT_NE(simulator_->pages().size(), 0u);
 }
 
 }  // namespace simulate
