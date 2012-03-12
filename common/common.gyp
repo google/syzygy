@@ -81,6 +81,9 @@
       'sources': [
         'align.cc',
         'align.h',
+        'application.cc',
+        'application.h',
+        'application_impl.h',
         'buffer_writer.cc',
         'buffer_writer.h',
         'defs.cc',
@@ -91,6 +94,7 @@
       ],
       'dependencies': [
         'syzygy_version',
+        '<(DEPTH)/sawbuck/common/common.gyp:common',
       ],
       # This target exports a hard dependency because it exposes
       # files that from syzygy_version that are included from compiles.
@@ -101,6 +105,7 @@
       'type': 'executable',
       'sources': [
         'align_unittest.cc',
+        'application_unittest.cc',
         'buffer_writer_unittest.cc',
         'common_unittests_main.cc',
         'unique_list_unittest.cc',
