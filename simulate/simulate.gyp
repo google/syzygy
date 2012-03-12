@@ -26,6 +26,8 @@
       'target_name': 'simulate_lib',
       'type': 'static_library',
       'sources': [
+        'page_fault_simulator.cc',
+        'page_fault_simulator.h',
         'simulator.cc',
         'simulator.h',
       ],
@@ -53,8 +55,9 @@
       'target_name': 'simulate_unittests',
       'type': 'executable',
       'sources': [
+        'page_fault_simulator_unittest.cc',
+        'simulator_unittest.cc',
         'simulate_unittests_main.cc',
-        'simulate_unittest.cc',
       ],
       'dependencies': [
         'simulate_lib',

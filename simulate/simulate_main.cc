@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Parses trace files from an RPC instrumented dll file, and reports the number
-// of pagefaults on them.
+// of page-faults on them.
 
 #include <objbase.h>
 #include <iostream>
@@ -21,63 +21,29 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
-#include "base/file_util.h"
 #include "base/string_number_conversions.h"
-#include "base/string_split.h"
-#include "base/stringprintf.h"
-#include "syzygy/core/json_file_writer.h"
-#include "syzygy/simulate/simulator.h"
+#include "syzygy/simulate/page_fault_simulator.h"
 
 namespace {
 
 using simulate::Simulator;
+using simulate::PageFaultSimulator;
 
 const char kUsage[] =
-    "Usage: simulate [options] RPC log files ...\n"
+    "Usage: simulate [options] [RPC log files ...]\n"
     "  Required Options:\n"
     "    --instrumented-dll=<path> the path to the instrumented DLL.\n"
     "  Optional Options:\n"
     "    --input-dll=<path> the input DLL from where the trace files belong.\n"
     "    --output-file=<path> the output file.\n"
-    "    --pretty-print enables pretty printing of the JSON output file.\n";
+    "    --pretty-print enables pretty printing of the JSON output file.\n"
+    "    --pages-per-code-fault=INT The number of pages loaded by each\n"
+    "        page-fault (default 8).\n"
+    "    --page-size=INT the size of each page, in bytes (default 4KB).\n";
 
 int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
   return 1;
-}
-
-// Serializes the data of a simulator to JSON.
-// The serialization consists of a single dictionary containing
-// the block number of each block that pagefaulted.
-// @param simulator The simulator to be used.
-// @param output The output FILE.
-// @param pretty_print Pretty printing on the JSON file.
-// @returns true on success, false on failure.
-bool SerializeToJSON(const Simulator& simulator,
-                     FILE* output,
-                     bool pretty_print) {
-  core::JSONFileWriter json_file(output, pretty_print);
-
-  if (!json_file.OpenDict() ||
-      !json_file.OutputKey("Pagefaults") ||
-      !json_file.OpenList()) {
-    return false;
-  }
-
-  Simulator::PageFaultSet::const_iterator i = simulator.page_faults().begin();
-  for (; i != simulator.page_faults().end(); i++) {
-    if (!json_file.OutputInteger(*i)) {
-      return false;
-    }
-  }
-
-  if (!json_file.CloseList() ||
-      !json_file.CloseDict()) {
-    return false;
-  }
-
-  return true;
 }
 
 } // namespace
@@ -96,6 +62,7 @@ int main(int argc, char** argv) {
   DCHECK(cmd_line != NULL);
 
   // Parse the command line.
+  typedef CommandLine::StringType StringType;
   FilePath instrumented_dll_path =
       cmd_line->GetSwitchValuePath("instrumented-dll");
   FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
@@ -108,16 +75,42 @@ int main(int argc, char** argv) {
 
   if (instrumented_dll_path.empty())
     return Usage("You must specify instrumented-dll.");
-
   if (trace_paths.empty())
     return Usage("You must specify at least one trace file.");
 
-  Simulator simulator(input_dll_path,
-                      instrumented_dll_path,
-                      trace_paths);
+  int pages_per_code_fault = 0, page_size = 0;
+  StringType pages_per_code_fault_str, page_size_str;
+  pages_per_code_fault_str =
+      cmd_line->GetSwitchValueNative("pages-per-code-fault");
+  page_size_str = cmd_line->GetSwitchValueNative("page-size");
+
+  if (!pages_per_code_fault_str.empty() &&
+      !base::StringToInt(pages_per_code_fault_str, &pages_per_code_fault)) {
+    return Usage("Invalid pages-per-code-fault value.");
+  }
+  if (!page_size_str.empty() &&
+      !base::StringToInt(page_size_str, &page_size)) {
+    return Usage("Invalid page-size value.");
+  }
+
+  scoped_ptr<PageFaultSimulator> simulator(
+      new PageFaultSimulator(input_dll_path,
+                             instrumented_dll_path,
+                             trace_paths));
+
+  if (simulator.get() == NULL) {
+    LOG(ERROR) << "Could not initialize simulator.";
+    return 1;
+  }
+
+  if (!pages_per_code_fault_str.empty())
+    simulator->set_pages_per_code_fault(pages_per_code_fault);
+
+  if (!page_size_str.empty())
+    simulator->set_page_size(page_size);
 
   LOG(INFO) << "Parsing trace files.";
-  if (!simulator.ParseTraceFiles()) {
+  if (!simulator->ParseTraceFiles()) {
     LOG(ERROR) << "Could not parse trace files.";
     return 1;
   }
@@ -138,7 +131,7 @@ int main(int argc, char** argv) {
   }
 
   LOG(INFO) << "Writing JSON file.";
-  if (!SerializeToJSON(simulator, output, pretty_print)) {
+  if (!simulator->SerializeToJSON(output, pretty_print)) {
     LOG(ERROR) << "Unable to write JSON file.";
     return 1;
   }
