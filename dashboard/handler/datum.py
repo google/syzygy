@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import httplib
 import json
 import urlparse
@@ -32,6 +33,20 @@ class DatumHandler(webapp.RequestHandler):
   can be used for the handler.
   """
 
+  _TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+  @staticmethod
+  def _ParseTimestamp(ts):
+    """Parses a timestamp string to a datetime object.
+
+    Args:
+      ts: the timestamp as a string, or None.
+    Returns:
+      A datetime object, or None
+    """
+    return datetime.datetime.strptime(ts,
+        DatumHandler._TIMESTAMP_FORMAT) if ts else None
+
   def get(self, product_id, client_id, metric_id, datum_id):
     """Responds with information about all data or a specific datum.
 
@@ -48,7 +63,22 @@ class DatumHandler(webapp.RequestHandler):
       client_id: The client ID.
       metric_id: The metric ID.
       datum_id: The datum ID. May be empty.
+
+    Additional query string parameters:
+      start_time: The lower bound of the datum's timestamp in Y-m-d H:M:S. Value
+          is ignored if datum_id is set.
+      end_time: The upper bound of the datum's timestamp in Y-m-d H:M:S. Value
+          is ignore if datum_id is set.
     """
+    # Validate input.
+    try:
+      start_time = self._ParseTimestamp(self.request.get('start_time', None))
+      end_time = self._ParseTimestamp(self.request.get('end_time', None))
+    except ValueError:
+      self.error(httplib.BAD_REQUEST)
+      return
+
+    # Perform DB lookups.
     product = product_db.Product.get_by_key_name(product_id)
     if not product:
       self.error(httplib.NOT_FOUND)
@@ -72,12 +102,18 @@ class DatumHandler(webapp.RequestHandler):
       data = datum_db.Datum.all()
       data.ancestor(metric)
 
+      if start_time:
+        data.filter('timestamp >=', start_time)
+      if end_time:
+        data.filter('timestamp <=', end_time)
+
       data_result = []
       for datum in data:
         data_result.append({'datum_id': datum.key().id(),
                             'product_version': datum.product_version,
                             'toolchain_version': datum.toolchain_version,
-                            'timestamp': str(datum.timestamp),
+                            'timestamp': datum.timestamp.strftime(
+                                self._TIMESTAMP_FORMAT),
                             'values': datum.values})
       result.update({'data': data_result})
     else:
@@ -95,7 +131,8 @@ class DatumHandler(webapp.RequestHandler):
       result.update({'datum_id': datum.key().id(),
                      'product_version': datum.product_version,
                      'toolchain_version': datum.toolchain_version,
-                     'timestamp': str(datum.timestamp),
+                     'timestamp': datum.timestamp.stftime(
+                         self._TIMESTAMP_FORMAT),
                      'values': datum.values})
 
     self.response.headers['Content-Type'] = 'application/json'
