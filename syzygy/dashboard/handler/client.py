@@ -49,12 +49,15 @@ class ClientHandler(webapp.RequestHandler):
       return
 
     if not client_id:
-      client_keys = client_db.Client.all(keys_only=True)
-      client_keys.ancestor(product)
-      client_ids = [key.name() for key in client_keys]
+      clients = client_db.Client.all()
+      clients.ancestor(product)
+      clients_result = []
+      for client in clients:
+        clients_result.append({'client_id': client.key().name(),
+                               'description': client.description})
 
       result = {'product_id': product.key().name(),
-                'client_ids': client_ids}
+                'clients': clients_result}
     else:
       client = client_db.Client.get_by_key_name(client_id, product)
       if not client:

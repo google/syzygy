@@ -56,13 +56,17 @@ class MetricHandler(webapp.RequestHandler):
       return
 
     if not metric_id:
-      metric_keys = metric_db.Metric.all(keys_only=True)
-      metric_keys.ancestor(client)
-      metric_ids = [key.name() for key in metric_keys]
+      metrics = metric_db.Metric.all()
+      metrics.ancestor(client)
+      metrics_result = []
+      for metric in metrics:
+        metrics_result.append({'metric_id': metric.key().name(),
+                               'description': metric.description,
+                               'units': metric.units})
 
       result = {'product_id': product.key().name(),
                 'client_id': client.key().name(),
-                'metric_ids': metric_ids}
+                'metrics': metrics_result}
     else:
       metric = metric_db.Metric.get_by_key_name(metric_id, client)
       if not metric:

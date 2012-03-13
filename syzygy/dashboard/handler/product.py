@@ -41,9 +41,9 @@ class ProductHandler(webapp.RequestHandler):
       product_id. The product ID. May be empty.
     """
     if not product_id:
-      product_keys = product_db.Product.all(keys_only=True)
-      product_ids = [key.name() for key in product_keys]
-      result = {'product_ids': product_ids}
+      products = product_db.Product.all()
+      products_result = [{'product_id': p.key().name()} for p in products]
+      result = {'products': products_result}
     else:
       product = product_db.Product.get_by_key_name(product_id)
       if not product:
