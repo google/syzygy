@@ -122,6 +122,7 @@ void PageFaultSimulator::OnFunctionEntry(base::Time time,
   RelativeAddress block_addr;
   image_layout_.blocks.GetAddressOf(block, &block_addr);
 
+  DCHECK(page_size_ != 0);
   const size_t kStartIndex = block_addr.value() / page_size_;
   const size_t kEndIndex = (block_addr.value() + block->size() +
       page_size_ - 1) / page_size_;

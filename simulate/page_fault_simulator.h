@@ -22,6 +22,12 @@
 // simulator.set_pages_per_code_fault(10);
 // simulator.ParseTraceFiles();
 // simulator.SerializeToJSON(file, pretty_print);
+//
+// If the pages per code fault are not set, then the default value of
+// 8 is used.
+//
+// If the page size is not set, then it's deduced from the trace file data
+// or, if that's not possible, it's set to the detault value of 0x1000 (4 KB).
 
 #ifndef SYZYGY_SIMULATE_PAGE_FAULT_SIMULATOR_H_
 #define SYZYGY_SIMULATE_PAGE_FAULT_SIMULATOR_H_
@@ -59,8 +65,12 @@ class PageFaultSimulator : public Simulator {
 
   // @name Mutators
   // @{
-  void set_page_size(DWORD page_size) { page_size_ = page_size; }
+  void set_page_size(DWORD page_size) {
+    DCHECK(page_size > 0);
+    page_size_ = page_size;
+  }
   void set_pages_per_code_fault(size_t pages_per_code_fault) {
+    DCHECK(pages_per_code_fault > 0);
     pages_per_code_fault_ = pages_per_code_fault;
   }
   // @}
