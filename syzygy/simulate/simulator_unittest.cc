@@ -94,7 +94,7 @@ TEST_F(SimulatorTest, SuccesfulRead) {
 
   EXPECT_CALL(*simulator_, OnProcessStarted(_, _, _)).Times(AtLeast(1));
   EXPECT_CALL(*simulator_, OnBatchFunctionEntry(_, _, _, _)).Times(AtLeast(1));
-  EXPECT_TRUE(simulator_->ParseTraceFiles());
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
 }
 
 }  //namespace simulate

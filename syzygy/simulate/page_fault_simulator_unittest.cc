@@ -15,6 +15,9 @@
 #include "syzygy/simulate/simulator.h"
 #include "syzygy/simulate/page_fault_simulator.h"
 
+#include "base/json/json_reader.h"
+#include "base/scoped_temp_dir.h"
+#include "base/values.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
@@ -190,6 +193,10 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     }
   };
 
+  void SetUp() {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  }
+
   void InitMockImageTest() {
     ASSERT_NO_FATAL_FAILURE(InitMockTraceFileList());
 
@@ -252,13 +259,13 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     simulator_->mock_parse_engine_ = new MockParseEngine();
     simulator_->mock_parse_engine_->playback_ = simulator_->mock_playback_;
     simulator_->parser_->AddParseEngine(simulator_->mock_parse_engine_);
-    EXPECT_TRUE(simulator_->parser_->Init(simulator_.get()));
+    ASSERT_TRUE(simulator_->parser_->Init(simulator_.get()));
 
     simulator_->mock_playback_->pe_file_ = &simulator_->pe_file_;
     simulator_->mock_playback_->image_ = &simulator_->image_layout_;
     simulator_->mock_playback_->parser_ = simulator_->parser_.get();
 
-    EXPECT_TRUE(simulator_->mock_playback_->InitializeParser());
+    ASSERT_TRUE(simulator_->mock_playback_->InitializeParser());
   }
 
   // Returns a set with the expected page faults using the mock image.
@@ -326,15 +333,16 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   FilePath instrumented_path_;
   TraceFileList trace_files_;
   scoped_ptr<MockPageFaultSimulator> simulator_;
-
   MockBlockInfo block_info_[3];
+
+  ScopedTempDir temp_dir_;
 };
 
 }  // namespace
 
 TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
   InitMockImageTest();
-  EXPECT_TRUE(simulator_->ParseTraceFiles());
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
 
   EXPECT_EQ(simulator_->pages(), ExpectedPageFaults());
   EXPECT_EQ(simulator_->fault_count(), 5);
@@ -343,7 +351,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
 TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
   InitMockImageTest();
   simulator_->set_page_size(0x8000);
-  EXPECT_TRUE(simulator_->ParseTraceFiles());
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
 
   EXPECT_EQ(simulator_->pages(), ExpectedPageFaults());
   EXPECT_EQ(simulator_->fault_count(), 1);
@@ -352,17 +360,78 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
 TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithFewPagesPerCodeFault) {
   InitMockImageTest();
   simulator_->set_pages_per_code_fault(3);
-  EXPECT_TRUE(simulator_->ParseTraceFiles());
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
 
   EXPECT_EQ(simulator_->pages(), ExpectedPageFaults());
   EXPECT_EQ(simulator_->fault_count(), 14);
+}
+
+TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
+  InitMockImageTest();
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
+
+  // Output JSON data to a file.
+  FilePath path;
+  file_util::ScopedFILE temp_file;
+  temp_file.reset(file_util::CreateAndOpenTemporaryFileInDir(
+      temp_dir_.path(), &path));
+
+  ASSERT_TRUE(temp_file.get() != NULL);
+  ASSERT_TRUE(simulator_->SerializeToJSON(temp_file.get(), false));
+  temp_file.reset();
+
+  // Read the JSON file we just wrote.
+  string file_string;
+  ASSERT_TRUE(file_util::ReadFileToString(path, &file_string));
+
+  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
+  ASSERT_TRUE(value.get() != NULL);
+  ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
+
+  const DictionaryValue* outer_dict =
+      static_cast<const DictionaryValue*>(value.get());
+
+  static const char page_size_key[] = "page_size";
+  static const char pages_per_code_fault_key[] = "pages_per_code_fault";
+  static const char fault_count_key[] = "fault_count";
+  static const char loaded_pages_key[] = "loaded_pages";
+
+  int page_size = 0, pages_per_code_fault = 0, fault_count = 0;
+  base::ListValue* loaded_pages = NULL;
+
+  outer_dict->GetInteger(page_size_key, &page_size);
+  outer_dict->GetInteger(pages_per_code_fault_key, &pages_per_code_fault);
+  outer_dict->GetInteger(fault_count_key, &fault_count);
+  outer_dict->GetList(loaded_pages_key, &loaded_pages);
+
+  EXPECT_EQ(page_size, 0x1000);
+  EXPECT_EQ(pages_per_code_fault, 8);
+  EXPECT_EQ(fault_count, 5);
+
+  ASSERT_TRUE(loaded_pages != NULL);
+
+  // Compare it to our own data.
+  std::set<uint32> expected_pages = ExpectedPageFaults();
+  ASSERT_EQ(expected_pages.size(), loaded_pages->GetSize());
+
+  std::set<uint32>::iterator expected_pages_iter = expected_pages.begin();
+  base::ListValue::iterator loaded_pages_iter = loaded_pages->begin();
+
+  for (; expected_pages_iter != expected_pages.end();
+    expected_pages_iter++, loaded_pages_iter++) {
+      int page = 0;
+      ASSERT_EQ((*loaded_pages_iter)->GetType(), Value::TYPE_INTEGER);
+      ASSERT_TRUE((*loaded_pages_iter)->GetAsInteger(&page));
+
+      EXPECT_EQ(*expected_pages_iter, implicit_cast<uint32>(page));
+  }
 }
 
 TEST_F(PageFaultSimulatorTest, DetectSingleFilePageFaults) {
   ASSERT_NO_FATAL_FAILURE(InitSingleFileTraceFileList());
   ASSERT_NO_FATAL_FAILURE(InitPageFaultSimulator());
 
-  EXPECT_TRUE(simulator_->ParseTraceFiles());
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
 
   // We don't know how many pagefaults the trace files will have, but
   // we know there will be some.
@@ -373,7 +442,7 @@ TEST_F(PageFaultSimulatorTest, DetectMultipleFilePageFaults) {
   ASSERT_NO_FATAL_FAILURE(InitMultipleFileTraceFileList());
   ASSERT_NO_FATAL_FAILURE(InitPageFaultSimulator());
 
-  EXPECT_TRUE(simulator_->ParseTraceFiles());
+  ASSERT_TRUE(simulator_->ParseTraceFiles());
   EXPECT_NE(simulator_->pages().size(), 0u);
 }
 
