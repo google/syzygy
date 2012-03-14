@@ -50,6 +50,14 @@ class RefCountedFILE : public base::RefCounted<RefCountedFILE> {
 // This class represents a PDB stream on disk.
 class PdbFileStream : public PdbStream {
  public:
+  // Constructor.
+  // @param file the reference counted file housing this stream.
+  // @param length the length of this stream.
+  // @param pages the indices of the pages that make up this stream in the file.
+  //     A copy is made of the data so the pointer need not remain valid
+  //     beyond the constructor. The length of this array is implicit in the
+  //     stream length and the page size.
+  // @param page_size the size of the pages, in bytes.
   PdbFileStream(RefCountedFILE* file,
                 size_t length,
                 const uint32* pages,
@@ -69,9 +77,8 @@ class PdbFileStream : public PdbStream {
   // that streams can outlive the PdbReader that created them.
   scoped_refptr<RefCountedFILE> file_;
 
-  // The list of pages in the pdb file that this stream points to. This is a
-  // pointer to an array that must exist for the lifetime of the PdbFileStream.
-  const uint32* pages_;
+  // The list of pages in the pdb PDB that make up this stream.
+  std::vector<uint32> pages_;
 
   // The size of pages within the stream.
   size_t page_size_;

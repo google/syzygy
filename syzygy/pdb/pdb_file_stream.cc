@@ -24,8 +24,9 @@ PdbFileStream::PdbFileStream(RefCountedFILE* file,
                              size_t page_size)
     : PdbStream(length),
       file_(file),
-      pages_(pages),
       page_size_(page_size) {
+  size_t num_pages = (length + page_size - 1) / page_size;
+  pages_.assign(pages, pages + num_pages);
 }
 
 PdbFileStream::~PdbFileStream() {
