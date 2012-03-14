@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "base/file_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_file_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
@@ -93,7 +94,7 @@ class PdbReader {
   FilePath pdb_path_;
 
   // The current file handle open for reading.
-  file_util::ScopedFILE file_;
+  scoped_refptr<RefCountedFILE> file_;
 
   // The pdb file's header.
   PdbHeader header_;

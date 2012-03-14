@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
 
-namespace {
+namespace pdb {
 
-using pdb::PdbFileStream;
+namespace {
 
 class TestPdbFileStream : public PdbFileStream {
  public:
-  TestPdbFileStream(FILE* file,
+  TestPdbFileStream(RefCountedFILE* file,
                     size_t length,
                     const uint32* pages,
                     size_t page_size)
@@ -39,22 +39,20 @@ class TestPdbFileStream : public PdbFileStream {
 class PdbFileStreamTest : public testing::Test {
  public:
   virtual void SetUp() {
-    file_.reset(file_util::OpenFile(testing::GetSrcRelativePath(
+    file_ = new RefCountedFILE(file_util::OpenFile(testing::GetSrcRelativePath(
         L"syzygy\\pdb\\test_data\\test_dll.pdb"), "rb"));
     ASSERT_TRUE(file_.get() != NULL);
   }
 
  protected:
-  file_util::ScopedFILE file_;
+  scoped_refptr<RefCountedFILE> file_;
 };
 
 }  // namespace
 
-using pdb::PdbHeader;
-
 TEST_F(PdbFileStreamTest, Constructor) {
   size_t pages[] = {1, 2, 3};
-  PdbFileStream stream(file_.get(), 10, pages, 8);
+  PdbFileStream stream(file_, 10, pages, 8);
   EXPECT_EQ(10, stream.length());
 }
 
@@ -81,7 +79,7 @@ TEST_F(PdbFileStreamTest, ReadFromPage) {
 
   size_t pages[] = {0, 1, 2};
   size_t page_size = 4;
-  TestPdbFileStream stream(file_.get(), sizeof(PdbHeader), pages, page_size);
+  TestPdbFileStream stream(file_, sizeof(PdbHeader), pages, page_size);
 
   char buffer[4] = {0};
   for (uint32 i = 0; i < arraysize(test_cases); ++i) {
@@ -121,3 +119,5 @@ TEST_F(PdbFileStreamTest, ReadBytes) {
     }
   }
 }
+
+}  // namespace pdb

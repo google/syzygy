@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,22 +29,22 @@ PdbReader::~PdbReader() {
 bool PdbReader::Read(const FilePath& pdb_path) {
   FreeStreams();
 
-  file_.reset(file_util::OpenFile(pdb_path, "rb"));
-  if (!file_.get()) {
+  file_ = new RefCountedFILE(file_util::OpenFile(pdb_path, "rb"));
+  if (!file_->file()) {
     LOG(ERROR) << "Unable to open '" << pdb_path.value() << "'";
     return false;
   }
 
   // Get the file size.
   uint32 file_size = 0;
-  if (!GetFileSize(file_.get(), &file_size)) {
+  if (!GetFileSize(file_->file(), &file_size)) {
     LOG(ERROR) << "Unable to determine size of '" << pdb_path.value() << "'";
     return false;
   }
 
   // Read the header from the first page in the file.
   uint32 header_page = 0;
-  PdbFileStream header_stream(file_.get(), sizeof(header_), &header_page,
+  PdbFileStream header_stream(file_, sizeof(header_), &header_page,
                               kPdbPageSize);
   if (!header_stream.Read(&header_, 1)) {
     LOG(ERROR) << "Failed to read PDB file header";
@@ -68,7 +68,7 @@ bool PdbReader::Read(const FilePath& pdb_path) {
   // many pages are required to represent the directory, then we load a stream
   // containing that many page pointers from the root pages array.
   int num_dir_pages = static_cast<int>(GetNumPages(header_.directory_size));
-  PdbFileStream dir_page_stream(file_.get(), num_dir_pages * sizeof(uint32),
+  PdbFileStream dir_page_stream(file_, num_dir_pages * sizeof(uint32),
                                 header_.root_pages, header_.page_size);
   scoped_array<uint32> dir_pages(new uint32[num_dir_pages]);
   if (dir_pages.get() == NULL) {
@@ -82,7 +82,7 @@ bool PdbReader::Read(const FilePath& pdb_path) {
 
   // Load the actual directory.
   int dir_size = static_cast<int>(header_.directory_size / sizeof(uint32));
-  PdbFileStream dir_stream(file_.get(), header_.directory_size,
+  PdbFileStream dir_stream(file_, header_.directory_size,
                            dir_pages.get(), header_.page_size);
   directory_.reset(new uint32[dir_size]);
   if (directory_.get() == NULL) {
@@ -101,7 +101,7 @@ bool PdbReader::Read(const FilePath& pdb_path) {
 
   uint32 page_index = 0;
   for (uint32 stream_index = 0; stream_index < num_streams; ++stream_index) {
-    streams_.push_back(new PdbFileStream(file_.get(),
+    streams_.push_back(new PdbFileStream(file_,
                                          stream_lengths[stream_index],
                                          stream_pages + page_index,
                                          header_.page_size));
