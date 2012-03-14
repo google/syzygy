@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 namespace pdb {
 
-PdbFileStream::PdbFileStream(FILE* file,
+PdbFileStream::PdbFileStream(RefCountedFILE* file,
                              size_t length,
                              const uint32* pages,
                              size_t page_size)
@@ -67,12 +67,12 @@ bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
   DCHECK(offset + count <= page_size_);
 
   size_t page_offset = page_size_ * page_num;
-  if (fseek(file_, page_offset + offset, SEEK_SET) != 0) {
+  if (fseek(file_->file(), page_offset + offset, SEEK_SET) != 0) {
     LOG(ERROR) << "Page seek failed";
     return false;
   }
 
-  if (fread(dest, 1, count, file_) != static_cast<size_t>(count)) {
+  if (fread(dest, 1, count, file_->file()) != static_cast<size_t>(count)) {
     LOG(ERROR) << "Page read failed";
     return false;
   }

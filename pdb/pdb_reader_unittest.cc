@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class TestPdbReader : public PdbReader {
   TestPdbReader() {
   }
 
-  FILE* file() { return file_.get(); }
+  FILE* file() { return file_->file(); }
   PdbHeader header() { return header_; }
   void set_header(PdbHeader header) {
     header_ = header;
