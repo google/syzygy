@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@
         'pdb_constants.h',
         'pdb_data.cc',
         'pdb_data.h',
+        'pdb_file.cc',
+        'pdb_file.h',
         'pdb_file_stream.cc',
         'pdb_file_stream.h',
         'pdb_reader.cc',
@@ -57,6 +59,7 @@
         'omap_unittest.cc',
         'pdb_byte_stream_unittest.cc',
         'pdb_file_stream_unittest.cc',
+        'pdb_file_unittest.cc',
         'pdb_reader_unittest.cc',
         'pdb_stream_unittest.cc',
         'pdb_util_unittest.cc',
