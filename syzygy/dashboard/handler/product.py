@@ -1,3 +1,4 @@
+#!python
 # Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,7 +78,7 @@ class ProductHandler(webapp.RequestHandler):
       self.error(httplib.BAD_REQUEST)
       return
 
-    product_id = self.request.get('product_id', None)
+    product_id = self.request.get('product_id')
     if not product_id:
       self.error(httplib.BAD_REQUEST)
       return

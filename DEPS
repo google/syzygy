@@ -63,6 +63,9 @@ deps = {
     Var("chrome_base") + "/deps/third_party/psyco_win32@" +
         Var("chrome_revision"),
 
+  "src/third_party/googleappengine":
+      "http://googleappengine.googlecode.com/svn/trunk/python@241",
+
   "src/build":
     Var("chrome_base") + "/src/build@" + Var("chrome_revision"),
   "src/tools/win":
