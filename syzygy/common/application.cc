@@ -19,11 +19,8 @@
 
 namespace common {
 
-AppImplBase::AppImplBase(FILE* in, FILE* out, FILE* err)
-    : in_(in), out_(out), err_(err) {
-  DCHECK(in != NULL);
-  DCHECK(out != NULL);
-  DCHECK(err != NULL);
+AppImplBase::AppImplBase()
+    : in_(stdin), out_(stdout), err_(stderr) {
 }
 
 bool AppImplBase::ParseCommandLine(const CommandLine* command_line) {

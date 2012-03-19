@@ -109,6 +109,8 @@
         'buffer_writer_unittest.cc',
         'common_unittests_main.cc',
         'unique_list_unittest.cc',
+        'unittest_util_unittest.cc',
+        'unittest_util.h',
         'syzygy_version_unittest.cc',
       ],
       'dependencies': [
