@@ -61,6 +61,10 @@ static const char kUsage[] =
     "    --new-workflow      Use the new instrumenter workflow.\n"
     " New workflow options:\n"
     "    --overwrite         Allow output files to be overwritten.\n"
+    "    --debug-friendly    Generate more debugger friendly output by making\n"
+    "                        the thunks resolve to the original function's\n"
+    "                        name. This is at the cost of the uniqueness of\n"
+    "                        address->name resolution.\n"
     "\n";
 
 static int Usage(const char* message) {
@@ -75,7 +79,8 @@ int InstrumentWithNewWorkflow(const FilePath& input_dll_path,
                               const FilePath& output_pdb_path,
                               const std::string& client_dll_name,
                               bool instrument_interior_references,
-                              bool allow_overwrite) {
+                              bool allow_overwrite,
+                              bool debug_friendly) {
   LOG(INFO) << "Using new instrumenter workflow.";
 
   pe::PERelinker relinker;
@@ -96,6 +101,7 @@ int InstrumentWithNewWorkflow(const FilePath& input_dll_path,
   entry_thunk_tx.set_instrument_dll_name(client_dll_name);
   entry_thunk_tx.set_instrument_interior_references(
       instrument_interior_references);
+  entry_thunk_tx.set_src_ranges_for_thunks(debug_friendly);
   relinker.AppendTransform(&entry_thunk_tx);
 
   // We let the PERelinker use the implicit OriginalOrderer.
@@ -131,6 +137,7 @@ int main(int argc, char** argv) {
       !cmd_line->HasSwitch("no-interior-refs");
   bool new_workflow = cmd_line->HasSwitch("new-workflow");
   bool overwrite = cmd_line->HasSwitch("overwrite");
+  bool debug_friendly = cmd_line->HasSwitch("debug-friendly");
 
   if (input_dll_path.empty() || output_dll_path.empty())
     return Usage("You must provide input and output file names.");
@@ -151,7 +158,8 @@ int main(int argc, char** argv) {
                                      output_pdb_path,
                                      client_dll,
                                      instrument_interior_references,
-                                     overwrite);
+                                     overwrite,
+                                     debug_friendly);
   }
 
   // Old workflow.

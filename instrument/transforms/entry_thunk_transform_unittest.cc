@@ -114,9 +114,9 @@ class EntryThunkTransformTest : public testing::Test {
                                                 0));
     // foo() is self-referential.
     foo_->SetReference(10, BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
-                                                sizeof(AbsoluteAddress),
-                                                foo_,
-                                                0));
+                                                 sizeof(AbsoluteAddress),
+                                                 foo_,
+                                                 0));
 
     // bar() refers to foo() five bytes in.
     bar_->SetReference(5, BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
@@ -147,69 +147,84 @@ class EntryThunkTransformTest : public testing::Test {
     ASSERT_NO_FATAL_FAILURE(VerifyThunks(0, 0, 0));
   }
 
-  // Counts the number of thunks, the number of distinct destinations they
-  // reference, and the number of entrypoints referenced.
-  void CountThunks(size_t* num_thunks,
-                   size_t* num_destinations,
-                   size_t* num_entrypoints) {
-    size_t found_thunks = 0;
-    typedef std::set<std::pair<BlockGraph::Block*, BlockGraph::Offset>>
-        ReferenceMap;
-    ReferenceMap destinations;
-    ReferenceMap entrypoints;
+  // Retrieves the thunks.
+  typedef std::vector<const BlockGraph::Block*> Blocks;
+  Blocks FindThunks() {
+    Blocks ret;
     BlockGraph::Section* thunk_section = bg_.FindSection(".thunks");
-    if (thunk_section != NULL) {
-      BlockGraph::BlockMap::const_iterator it(bg_.blocks().begin());
+    if (thunk_section == NULL)
+      return ret;
 
-      for (; it != bg_.blocks().end(); ++it) {
-        const BlockGraph::Block& block = it->second;
-        if (block.section() == thunk_section->id()) {
-          // It's a thunk.
-          ++found_thunks;
+    BlockGraph::BlockMap::const_iterator it = bg_.blocks().begin();
+    for (; it != bg_.blocks().end(); ++it) {
+      const BlockGraph::Block& block = it->second;
+      if (block.section() == thunk_section->id()) {
+        EXPECT_EQ(BlockGraph::CODE_BLOCK, block.type());
+        EXPECT_EQ(2, block.references().size());
 
-          // Lookup and record the destination.
-          BlockGraph::Reference ref;
-          ASSERT_TRUE(block.GetReference(
-              offsetof(TestEntryThunkTransform::Thunk, func_addr), &ref));
-          ASSERT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
-          destinations.insert(std::make_pair(ref.referenced(), ref.offset()));
-
-          // Test the source ranges on the thunk.
-          ASSERT_EQ(1, block.source_ranges().size());
-          BlockGraph::Block::SourceRanges::RangePair r =
-              block.source_ranges().range_pairs()[0];
-          ASSERT_EQ(0, r.first.start());
-          ASSERT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.first.size());
-
-          // Retrieve the referenced block's source ranges to calculate
-          // the destination start address.
-          ASSERT_EQ(1, ref.referenced()->source_ranges().size());
-          BlockGraph::Block::SourceRanges::RangePair o =
-              ref.referenced()->source_ranges().range_pairs()[0];
-
-          // The thunk's destination should be the block's start, plus the
-          // reference offset.
-          ASSERT_EQ(o.second.start() + ref.offset(), r.second.start());
-          ASSERT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.second.size());
-
-          // Lookup and record the entrypoint.
-          ASSERT_TRUE(block.GetReference(
-              offsetof(TestEntryThunkTransform::Thunk, hook_addr), &ref));
-          ASSERT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
-          entrypoints.insert(std::make_pair(ref.referenced(), ref.offset()));
-
-          EXPECT_EQ(BlockGraph::CODE_BLOCK, block.type());
-          EXPECT_EQ(2, block.references().size());
-        }
+        // It's a thunk.
+        ret.push_back(&block);
       }
     }
 
-    if (num_thunks != NULL)
-      *num_thunks = found_thunks;
-    if (num_destinations != NULL)
-      *num_destinations = destinations.size();
-    if (num_entrypoints != NULL)
-      *num_entrypoints = entrypoints.size();
+    return ret;
+  }
+
+  size_t CountDestinations(const Blocks& blocks) {
+    typedef std::set<std::pair<BlockGraph::Block*, BlockGraph::Offset>>
+        ReferenceMap;
+    ReferenceMap destinations;
+    for (size_t i = 0; i < blocks.size(); ++i) {
+      // Lookup and record the destination.
+      BlockGraph::Reference ref;
+      EXPECT_TRUE(blocks[i]->GetReference(
+          offsetof(TestEntryThunkTransform::Thunk, func_addr), &ref));
+      EXPECT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
+      destinations.insert(std::make_pair(ref.referenced(), ref.offset()));
+    }
+
+    return destinations.size();
+  }
+
+  size_t CountEntryPoints(const Blocks& blocks) {
+    typedef std::set<std::pair<BlockGraph::Block*, BlockGraph::Offset>>
+        ReferenceMap;
+    ReferenceMap entrypoints;
+    for (size_t i = 0; i < blocks.size(); ++i) {
+      // Lookup and record the entrypoint.
+      BlockGraph::Reference ref;
+      EXPECT_TRUE(blocks[i]->GetReference(
+          offsetof(TestEntryThunkTransform::Thunk, hook_addr), &ref));
+      EXPECT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
+      entrypoints.insert(std::make_pair(ref.referenced(), ref.offset()));
+    }
+    return entrypoints.size();
+  }
+
+  void VerifySourceRanges(const Blocks& thunks) {
+    for (size_t i = 0; i < thunks.size(); ++i) {
+      // Test the source ranges on the thunk.
+      ASSERT_EQ(1, thunks[i]->source_ranges().size());
+      BlockGraph::Block::SourceRanges::RangePair r =
+          thunks[i]->source_ranges().range_pairs()[0];
+      ASSERT_EQ(0, r.first.start());
+      ASSERT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.first.size());
+
+      BlockGraph::Reference ref;
+      EXPECT_TRUE(thunks[i]->GetReference(
+          offsetof(TestEntryThunkTransform::Thunk, func_addr), &ref));
+
+      // Retrieve the referenced block's source ranges to calculate
+      // the destination start address.
+      EXPECT_EQ(1, ref.referenced()->source_ranges().size());
+      BlockGraph::Block::SourceRanges::RangePair o =
+          ref.referenced()->source_ranges().range_pairs()[0];
+
+      // The thunk's destination should be the block's start, plus the
+      // reference offset.
+      EXPECT_EQ(o.second.start() + ref.offset(), r.second.start());
+      EXPECT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.second.size());
+    }
   }
 
   // Verifies that there are num_thunks thunks in the image, and that they
@@ -217,13 +232,11 @@ class EntryThunkTransformTest : public testing::Test {
   void VerifyThunks(size_t expected_thunks,
                     size_t expected_destinations,
                     size_t expected_entrypoints) {
-    size_t found_thunks = 0;
-    size_t found_destinations = 0;
-    size_t found_entrypoints = 0;
-    CountThunks(&found_thunks, &found_destinations, &found_entrypoints);
-    EXPECT_EQ(expected_thunks, found_thunks);
-    EXPECT_EQ(expected_destinations, found_destinations);
-    EXPECT_EQ(expected_entrypoints, found_entrypoints);
+    Blocks thunks = FindThunks();
+
+    EXPECT_EQ(expected_thunks, thunks.size());
+    EXPECT_EQ(expected_destinations, CountDestinations(thunks));
+    EXPECT_EQ(expected_entrypoints, CountEntryPoints(thunks));
   }
 
   enum ImageType {
@@ -326,6 +339,16 @@ TEST_F(EntryThunkTransformTest, InstrumentAll) {
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentAllDebugFriendly) {
+  EntryThunkTransform transform;
+  transform.set_src_ranges_for_thunks(true);
+
+  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+
+  // Verify the source ranges on the thunks.
+  VerifySourceRanges(FindThunks());
 }
 
 TEST_F(EntryThunkTransformTest, InstrumentNoInterior) {
