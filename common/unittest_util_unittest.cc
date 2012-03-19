@@ -12,16 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Command utility to decomposes an image and serializes the decomposition
-// to a file file. See decompose_app.* for the library implementation.
+// Defines some unittest helper functions.
 
-#include "syzygy/pe/decompose_app.h"
+#include "syzygy/common/unittest_util.h"
+#include "gtest/gtest.h"
 
-#include "base/at_exit.h"
-#include "base/command_line.h"
+namespace testing {
 
-int main(int argc, const char* const* argv) {
-  base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
-  return common::Application<pe::DecomposeApp>().Run();
+TEST(CommonUnitTestUtil, ScopedLogLevelSaver) {
+  int old_level = logging::GetMinLogLevel();
+  int new_level = old_level - 1;
+
+  {
+    ScopedLogLevelSaver log_level_saver;
+    logging::SetMinLogLevel(new_level);
+    ASSERT_EQ(new_level, logging::GetMinLogLevel());
+  }
+
+  ASSERT_EQ(old_level, logging::GetMinLogLevel());
 }
+
+}  // namespace testing

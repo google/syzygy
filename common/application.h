@@ -36,9 +36,8 @@
 //
 //     int main(int argc, const char* const* argv) {
 //       base::AtExitManager at_exit_manager;
-//       CommandLine::Init(argc, argv)
-//       common::Application<MyApp> application;
-//       return application.Run();
+//       CommandLine::Init(argc, argv);
+//       return common::Application<MyApp>().Run();
 //     }
 //
 // To test how your application implementation interacts with the
@@ -90,7 +89,8 @@ namespace common {
 class AppImplBase {
  public:
   // Initializes an application implementation with the standard IO streams.
-  AppImplBase(FILE* in, FILE* out, FILE* err);
+  // Use the stream IO accessors to customize the IO streams.
+  AppImplBase();
 
   // Parse the given command line in preparation for execution.
   bool ParseCommandLine(const CommandLine* command_line);
@@ -110,15 +110,21 @@ class AppImplBase {
   FILE* in() const { return in_; }
   FILE* out() const { return out_; }
   FILE* err() const { return err_; }
+
   void set_in(FILE* f) {
     DCHECK(f != NULL);
-    in_ = f; }
+    in_ = f;
+  }
+
   void set_out(FILE* f) {
     DCHECK(f != NULL);
-    out_ = f; }
+    out_ = f;
+  }
+
   void set_err(FILE* f) {
     DCHECK(f != NULL);
-    err_ = f; }
+    err_ = f;
+  }
   // @}
 
  protected:
@@ -148,27 +154,38 @@ class Application {
 
   // Initializes the application with the current processes command line and
   // the standard IO streams.
+  //
+  // @pre CommandLine::Init() has been called prior to the creation of the
+  //     application object.
   Application();
-
-  // Initializes the application with a given command line.
-  // @param command_line the program command line.
-  // @param in the default intput stream.
-  // @param out the default output stream.
-  // @param err the default error stream.
-  Application(const CommandLine* command_line,
-              FILE* in,
-              FILE* out,
-              FILE* err);
 
   // Accessor for the underlying implementation.
   Implementation& implementation() { return implementation_; }
 
-  // Accessor for the command line.
+  // @name Accessors for the command line.
+  // @{
   const CommandLine* command_line() const { return command_line_; }
+
+  void set_command_line(const CommandLine* command_line) {
+    DCHECK(command_line != NULL);
+    command_line_ = command_line;
+  }
+  // @}
 
   // The main skeleton for actually running an application.
   // @returns the exit status for the application.
   int Run();
+
+  // @name IO Stream Accessors
+  // @{
+  FILE* in() const { return implementation_.in(); }
+  FILE* out() const { return implementation_.out(); }
+  FILE* err() const { return implementation_.err(); }
+
+  void set_in(FILE* f) { implementation_.set_in(f); }
+  void set_out(FILE* f) { implementation_.set_out(f); }
+  void set_err(FILE* f) { implementation_.set_err(f); }
+  // @}
 
  protected:
   // Initializes the logging sybsystem for this application. This includes
@@ -186,6 +203,28 @@ class Application {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Application);
+};
+
+// A helper class for timing an activity within a scope.
+class ScopedTimeLogger {
+ public:
+  explicit ScopedTimeLogger(const char* label)
+      : label_(label), start_(base::Time::Now()) {
+    DCHECK(label != NULL);
+    LOG(INFO) << label_ << ".";
+  }
+
+  ~ScopedTimeLogger() {
+    base::TimeDelta duration = base::Time::Now() - start_;
+    LOG(INFO) << label_ << " took " << duration.InSecondsF() << " seconds.";
+  }
+
+ private:
+  // A labeling phrase for the activity being timed.
+  const char* const label_;
+
+  // The time at which the activity began.
+  const base::Time start_;
 };
 
 }  // namespace common

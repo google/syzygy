@@ -56,20 +56,7 @@ class ScopedComInitializer {
 
 template <typename Impl, AppLoggingFlag kInitLogging>
 Application<Impl, kInitLogging>::Application()
-    : command_line_(CommandLine::ForCurrentProcess()),
-      implementation_(stdin, stdout, stderr) {
-}
-
-template <typename Impl, AppLoggingFlag kInitLogging>
-Application<Impl, kInitLogging>::Application(const CommandLine* command_line,
-                                             FILE* in,
-                                             FILE* out,
-                                             FILE* err)
-    : command_line_(command_line), implementation_(in, out, err) {
-  DCHECK(command_line != NULL);
-  DCHECK(in != NULL);
-  DCHECK(out != NULL);
-  DCHECK(err != NULL);
+    : command_line_(CommandLine::ForCurrentProcess()) {
 }
 
 template <typename Impl, AppLoggingFlag kInitLogging>
