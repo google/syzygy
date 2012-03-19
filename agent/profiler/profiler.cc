@@ -308,10 +308,9 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   if (profiler_->session_.IsDisabled())
     return;
 
-  // Record the details of the call.
-  // TODO(siggi): On tail-call and tail recursion elmination, the retaddr
-  //     here will be penter, figure a way to fix that.
-
+  // Record the details of the entry.
+  // Note that on tail-recursion and tail-call elimination, the caller recorded
+  // here will be a thunk. We cater for this case on exit as best we can.
   ReturnThunkFactory::Thunk* thunk =
       thunk_factory_.MakeThunk(entry_frame->retaddr);
   DCHECK(thunk != NULL);
@@ -330,7 +329,18 @@ void Profiler::ThreadState::OnFunctionExit(
   // Calculate the number of cycles in the invocation, exclusive our overhead.
   uint64 cycles_executed = cycles_exit - cycles_overhead_ - thunk->cycles_entry;
 
-  RecordInvocation(thunk->caller, thunk->function, cycles_executed);
+  // See if the return address resolves to a thunk, which indicates
+  // tail recursion or tail call elimination. In that case we record the
+  // calling function as caller, which isn't totally accurate as that'll
+  // attribute the cost to the first line of the calling function. In the
+  // absence of more information, it's the best we can do, however.
+  ReturnThunkFactory::Thunk* ret_thunk =
+      thunk_factory_.CastToThunk(thunk->caller);
+  if (ret_thunk == NULL) {
+    RecordInvocation(thunk->caller, thunk->function, cycles_executed);
+  } else {
+    RecordInvocation(ret_thunk->function, thunk->function, cycles_executed);
+  }
 
   UpdateOverhead(cycles_exit);
 }

@@ -37,7 +37,6 @@ class TestFactory : public ReturnThunkFactory {
   explicit TestFactory(Delegate* delegate) : ReturnThunkFactory(delegate) {
   }
 
-  using ReturnThunkFactory::MakeThunk;
   using ReturnThunkFactory::PageFromThunk;
   using ReturnThunkFactory::ThunkMain;
   using ReturnThunkFactory::kNumThunksPerPage;
@@ -194,6 +193,25 @@ TEST_F(ReturnThunkTest, ReusePages) {
 
   // We should reuse the previously-allocated second page.
   ASSERT_EQ(last_thunk, new_last_thunk);
+}
+
+TEST_F(ReturnThunkTest, CastToThunk) {
+  // Allocate a bunch of thunks.
+  ReturnThunkFactory::Thunk* first_thunk = factory_->MakeThunk(NULL);
+  ReturnThunkFactory::Thunk* last_thunk = NULL;
+
+  EXPECT_CALL(delegate_, OnPageAdded(_));
+  for (size_t i = 0; i < TestFactory::kNumThunksPerPage; ++i) {
+    last_thunk = factory_->MakeThunk(NULL);
+  }
+
+  ASSERT_EQ(last_thunk,
+            factory_->CastToThunk(static_cast<RetAddr>(last_thunk)));
+  ASSERT_EQ(first_thunk,
+            factory_->CastToThunk(static_cast<RetAddr>(first_thunk)));
+
+  // Make sure we're doing this without touching the underlying return address.
+  ASSERT_EQ(NULL, factory_->CastToThunk(reinterpret_cast<RetAddr>(0x10)));
 }
 
 TEST_F(ReturnThunkTest, ReturnPreservesRegisters) {

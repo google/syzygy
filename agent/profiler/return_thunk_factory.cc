@@ -112,6 +112,19 @@ ReturnThunkFactory::Thunk* ReturnThunkFactory::MakeThunk(RetAddr real_ret) {
   return thunk;
 }
 
+ReturnThunkFactory::Thunk* ReturnThunkFactory::CastToThunk(RetAddr ret) {
+  Thunk* thunk = const_cast<Thunk*>(reinterpret_cast<const Thunk*>(ret));
+  Page* thunk_page = PageFromThunk(thunk);
+  Page* page = PageFromThunk(first_free_thunk_);
+
+  for (; page != NULL; page = page->previous_page) {
+    if (page == thunk_page)
+      return thunk;
+  }
+
+  return NULL;
+}
+
 void ReturnThunkFactory::AddPage() {
   Page* previous_page = PageFromThunk(first_free_thunk_);
   DCHECK(previous_page == NULL || previous_page->next_page == NULL);

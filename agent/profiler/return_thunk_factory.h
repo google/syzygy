@@ -69,9 +69,15 @@ class ReturnThunkFactory {
   // it on the stack, has been returned to.
   Thunk* MakeThunk(RetAddr real_ret);
 
-  // TODO(joi): Siggi's idea:  To get natural alignment for the data yet
+  // If @p ret is a thunk belonging to this factory, return that thunk,
+  // or NULL otherwise.
+  Thunk* CastToThunk(RetAddr ret);
+
+  // TODO(joi): Siggi's idea: To get natural alignment for the data yet
   // still have optimum packing, use parallel arrays within the same page
-  // for thunks vs. thunk data.
+  // for thunks vs. thunk data. This is also important for performance as
+  // writing to a cache line that contains code will cause an ICache flush
+  // for the cache line.
 #pragma pack(push, 1)
   struct Thunk {
     // NOTE: Do not add anything before the 'BYTE call' member below;
