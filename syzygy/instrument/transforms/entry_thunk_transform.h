@@ -42,6 +42,13 @@ class EntryThunkTransform
     return instrument_interior_references_;
   }
 
+  void set_src_ranges_for_thunks(bool src_ranges_for_thunks) {
+    src_ranges_for_thunks_ = src_ranges_for_thunks;
+  }
+  bool src_ranges_for_thunks() const {
+    return src_ranges_for_thunks_;
+  }
+
   void set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
     instrument_dll_name.CopyToString(&instrument_dll_name_);
   }
@@ -109,6 +116,11 @@ class EntryThunkTransform
   // Iff true, instrument references with a non-zero offset into the
   // destination block.
   bool instrument_interior_references_;
+
+  // Iff true, thunks will be adorned with a source range identifying them
+  // with the function they address. This makes the output more debugging
+  // friendly, at the cost of the uniqueness of address->name resolution.
+  bool src_ranges_for_thunks_;
 
   // Name of the instrumentation DLL we import. Defaults to "call_trace.dll".
   std::string instrument_dll_name_;

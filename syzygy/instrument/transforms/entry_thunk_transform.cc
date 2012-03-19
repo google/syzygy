@@ -56,6 +56,7 @@ const EntryThunkTransform::Thunk EntryThunkTransform::kThunkTemplate = {
 EntryThunkTransform::EntryThunkTransform()
     : thunk_section_(NULL),
       instrument_interior_references_(true),
+      src_ranges_for_thunks_(false),
       instrument_dll_name_(kDefaultInstrumentDll) {
 }
 
@@ -122,16 +123,31 @@ bool EntryThunkTransform::InstrumentCodeBlock(
   for (; referrer_it != referrers.end(); ++referrer_it) {
     const BlockGraph::Block::Referrer& referrer = *referrer_it;
 
-    // Skip self-references.
-    // TODO(siggi): Is this valid?
-    if (referrer.first == block)
-      continue;
-
     // Get the reference.
     BlockGraph::Reference ref;
     if (!referrer.first->GetReference(referrer.second, &ref)) {
       LOG(ERROR) << "Unable to get reference from referrer.";
       return false;
+    }
+
+    // Skip self-references, except long references to the start of the block.
+    // TODO(siggi): This needs refining, as it may currently miss important
+    //     cases. Notably if a block contains more than one function, and the
+    //     functions are mutually recursive, we'll only record the original
+    //     entry to the block, but will miss the internal recursion.
+    //     As-is, this does work for the common case where a block contains
+    //     one self-recursive function, however.
+    if (referrer.first == block) {
+      // Skip short references.
+      if (ref.size() < sizeof(core::AbsoluteAddress))
+        continue;
+
+      // Skip interior references. The rationale for this is because these
+      // references will tend to be switch tables, and we don't need the
+      // overhead of instrumenting and recording all switch statement executions
+      // for now.
+      if (ref.offset() != 0)
+        continue;
     }
 
     // Skip references with a non-zero offset if we're
@@ -197,24 +213,26 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   thunk->SetData(reinterpret_cast<const uint8*>(&kThunkTemplate),
                  sizeof(kThunkTemplate));
 
-  // Give the thunk a source range synonymous with the destination.
-  // That way the debugger will resolve calls and jumps to the thunk to the
-  // destination function's name, which makes the assembly much easier to read.
-  // The downside to this is that the symbols are now no longer unique, and
-  // searching for a function by name may turn up either the function or the
-  // thunk.
-  const BlockGraph::Block::SourceRanges& source_ranges =
-      destination.referenced()->source_ranges();
-  const BlockGraph::Block::SourceRanges::RangePair* source =
-      source_ranges.FindRangePair(destination.offset(), thunk->size());
-  if (source != NULL) {
-    // Calculate the offset into the range.
-    size_t offs = destination.offset() - source->first.start();
-    BlockGraph::Block::DataRange data(0, thunk->size());
-    BlockGraph::Block::SourceRange src(source->second.start() + offs,
-                                        thunk->size());
-    bool pushed = thunk->source_ranges().Push(data, src);
-    DCHECK(pushed);
+  if (src_ranges_for_thunks_) {
+    // Give the thunk a source range synonymous with the destination.
+    // That way the debugger will resolve calls and jumps to the thunk to the
+    // destination function's name, which makes the assembly much easier to
+    // read. The downside to this is that the symbols are now no longer unique,
+    // and searching for a function by name may turn up either the function or
+    // the thunk.
+    const BlockGraph::Block::SourceRanges& source_ranges =
+        destination.referenced()->source_ranges();
+    const BlockGraph::Block::SourceRanges::RangePair* source =
+        source_ranges.FindRangePair(destination.offset(), thunk->size());
+    if (source != NULL) {
+      // Calculate the offset into the range.
+      size_t offs = destination.offset() - source->first.start();
+      BlockGraph::Block::DataRange data(0, thunk->size());
+      BlockGraph::Block::SourceRange src(source->second.start() + offs,
+                                          thunk->size());
+      bool pushed = thunk->source_ranges().Push(data, src);
+      DCHECK(pushed);
+    }
   }
 
   const BlockGraph::Reference& import_ref =
