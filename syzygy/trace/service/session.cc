@@ -273,38 +273,6 @@ bool Session::Close(BufferQueue* flush_queue) {
   return true;
 }
 
-bool Session::HasAvailableBuffers() const {
-  return !buffers_available_.empty();
-}
-
-bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
-  // Allocate the record for the shared memory buffer.
-  scoped_ptr<BufferPool> pool(new BufferPool());
-  if (pool.get() == NULL) {
-    LOG(ERROR) << "Failed to allocate shared memory buffer.";
-    return false;
-  }
-
-  // Initialize the shared buffer pool.
-  buffer_size = common::AlignUp(buffer_size, block_size());
-  if (!pool->Init(this, client_.process_handle, num_buffers,
-                  buffer_size)) {
-    LOG(ERROR) << "Failed to initialize shared memory buffer.";
-    return false;
-  }
-
-  // Save the shared memory block so that it's managed by the session.
-  shared_memory_buffers_.push_back(pool.get());
-  BufferPool* pool_ptr = pool.release();
-
-  // Put the client buffers into the list of available buffers.
-  for (Buffer* buf = pool_ptr->begin(); buf != pool_ptr->end(); ++buf) {
-    buffers_available_.push_back(buf);
-  }
-
-  return true;
-}
-
 bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
                          Buffer** client_buffer) {
   DCHECK(call_trace_buffer != NULL);
@@ -337,6 +305,16 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
 
 bool Session::GetNextBuffer(Buffer** out_buffer) {
   DCHECK(out_buffer != NULL);
+
+  *out_buffer = NULL;
+
+  if (buffers_available_.empty()) {
+    // TODO(chrisha): This is where back-pressure will be applied.
+    if (!AllocateBuffers(call_trace_service_->num_incremental_buffers(),
+                         call_trace_service_->buffer_size_in_bytes())) {
+      return false;
+    }
+  }
   DCHECK(!buffers_available_.empty());
 
   Buffer* buffer = buffers_available_.front();
@@ -369,6 +347,34 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   return true;
 }
 
+bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
+  // Allocate the record for the shared memory buffer.
+  scoped_ptr<BufferPool> pool(new BufferPool());
+  if (pool.get() == NULL) {
+    LOG(ERROR) << "Failed to allocate shared memory buffer.";
+    return false;
+  }
+
+  // Initialize the shared buffer pool.
+  buffer_size = common::AlignUp(buffer_size, block_size());
+  if (!pool->Init(this, client_.process_handle, num_buffers,
+                  buffer_size)) {
+    LOG(ERROR) << "Failed to initialize shared memory buffer.";
+    return false;
+  }
+
+  // Save the shared memory block so that it's managed by the session.
+  shared_memory_buffers_.push_back(pool.get());
+  BufferPool* pool_ptr = pool.release();
+
+  // Put the client buffers into the list of available buffers.
+  for (Buffer* buf = pool_ptr->begin(); buf != pool_ptr->end(); ++buf) {
+    buffers_available_.push_back(buf);
+  }
+
+  return true;
+}
+
 bool Session::CreateProcessEndedEvent(Buffer** buffer) {
   DCHECK(buffer != NULL);
 
@@ -389,10 +395,13 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
       sizeof(TraceFileSegmentHeader) + sizeof(RecordPrefix);
 
   // Ensure that a free buffer exists.
-  if (!HasAvailableBuffers() && !AllocateBuffers(1, kBufferSize)) {
-    LOG(ERROR) << "Unable to allocate buffer for process ended event.";
-    return false;
+  if (buffers_available_.empty()) {
+    if (!AllocateBuffers(1, kBufferSize)) {
+      LOG(ERROR) << "Unable to allocate buffer for process ended event.";
+      return false;
+    }
   }
+  DCHECK(!buffers_available_.empty());
 
   // Get a buffer for the event.
   if (!GetNextBuffer(buffer) || *buffer == NULL) {

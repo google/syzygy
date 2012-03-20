@@ -636,13 +636,6 @@ bool Service::GetNextBuffer(Session* session, Buffer** buffer) {
   lock_.AssertAcquired();
 
   *buffer = NULL;
-
-  if (!session->HasAvailableBuffers() &&
-      !session->AllocateBuffers(num_incremental_buffers_,
-                                buffer_size_in_bytes_)) {
-    return false;
-  }
-
   return session->GetNextBuffer(buffer);
 }
 
