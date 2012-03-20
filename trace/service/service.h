@@ -105,6 +105,12 @@ class Service : public base::PlatformThread::Delegate {
     buffer_size_in_bytes_ = n;
   }
 
+  // @returns the number of new buffers to be created per allocation.
+  size_t num_incremental_buffers() const { return num_incremental_buffers_; }
+
+  // @returns the size (in bytes) of new buffers to be allocated.
+  size_t buffer_size_in_bytes() const { return buffer_size_in_bytes_; }
+
   // Returns true if any of the service's subsystems are running.
   bool is_running() const {
     return rpc_is_running_ || writer_thread_ != base::kNullThreadHandle;

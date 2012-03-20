@@ -56,16 +56,13 @@ class Session {
   // be empty.
   bool Close(BufferQueue* flush_queue);
 
-  // Returns true if there's an available buffer in the free list.
-  bool HasAvailableBuffers() const;
-
-  // Allocates num_buffers shared client buffers, each of size
-  // buffer_size and adds them to the free list.
-  bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
-
-  // Get the next available buffer for use by a client. The session
-  // retains ownership of the buffer object, it MUST not be deleted
-  // by the caller.
+  // Get the next available buffer for use by a client. The session retains
+  // ownership of the buffer object, it MUST not be deleted by the caller. This
+  // may cause new buffers to be allocated if there are no free buffers
+  // available.
+  // @param buffer will be populated with a pointer to the buffer to be provided
+  //     to the client.
+  // @returns true on success, false otherwise.
   bool GetNextBuffer(Buffer** buffer);
 
   // Return a buffer to the pool so that it can be used again.
@@ -91,6 +88,10 @@ class Session {
 
  private:
   typedef std::list<BufferPool*> SharedMemoryBufferCollection;
+
+  // Allocates num_buffers shared client buffers, each of size
+  // buffer_size and adds them to the free list.
+  bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
 
   // Gets (creating if needed) a buffer and populates it with a
   // TRACE_PROCESS_ENDED event. This is called by Close(), which is called
