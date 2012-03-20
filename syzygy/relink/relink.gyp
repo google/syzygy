@@ -32,12 +32,17 @@
         'random_relinker.h',
         'relinker.cc',
         'relinker.h',
+        'relink_app.h',
+        'relink_app.cc',
       ],
       'dependencies': [
+        '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
         '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_lib',
       ],
     },
@@ -50,9 +55,6 @@
       ],
       'dependencies': [
         'relink_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
-        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
       ],
       'run_as': {
         'action': [
@@ -70,6 +72,7 @@
       'sources': [
         'order_relinker_unittest.cc',
         'random_relinker_unittest.cc',
+        'relink_app_unittest.cc',
         'relink_unittests_main.cc',
       ],
       'dependencies': [
