@@ -13,12 +13,14 @@
 // limitations under the License.
 //
 // This defines the virtual simulator class, which analyzes trace files from
-// the execution of an instrumented dll.
+// the execution of an instrumented dll, and calls the respective events
+// from a subclass of SimulatorEventHandler.
 
 #ifndef SYZYGY_SIMULATE_SIMULATOR_H_
 #define SYZYGY_SIMULATE_SIMULATOR_H_
 
 #include "syzygy/playback/playback.h"
+#include "syzygy/simulate/simulation_event_handler.h"
 #include "syzygy/trace/parse/parser.h"
 
 namespace simulate {
@@ -34,18 +36,16 @@ class Simulator : public trace::parser::ParseEventHandler {
   // @param module_path The path of the module dll.
   // @param instrumented_path The path of the instrumented dll.
   // @param trace_files A list of trace files to analyze.
+  // @param simulation The simulation where the events will be fed.
   Simulator(const FilePath& module_path,
             const FilePath& instrumented_path,
-            const TraceFileList& trace_files);
+            const TraceFileList& trace_files,
+            SimulationEventHandler* simulation);
 
   // Decomposes the image, parses the trace files and captures
   // the pagefaults on them.
   // @returns true on success, false on failure.
   bool ParseTraceFiles();
-
-  // Serializes the data to JSON.
-  // This should be implemented by the derivate classes of Simulator.
-  virtual bool SerializeToJSON(FILE* output, bool pretty_print) = 0;
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
@@ -59,42 +59,32 @@ class Simulator : public trace::parser::ParseEventHandler {
   // derived classes of Simulator only need to reimplement the ones they use.
   virtual void OnProcessStarted(
       base::Time time, DWORD process_id,
-      const TraceSystemInfo* data) OVERRIDE {
-  }
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE {
-  }
+      const TraceSystemInfo* data) OVERRIDE;
+  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
   virtual void OnFunctionEntry(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceEnterExitEventData* data) OVERRIDE {
-  }
+      const TraceEnterExitEventData* data) OVERRIDE;
   virtual void OnFunctionExit(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceEnterExitEventData* data) OVERRIDE {
-  }
+      const TraceEnterExitEventData* data) OVERRIDE;
   virtual void OnBatchFunctionEntry(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceBatchEnterData* data) OVERRIDE {
-  }
+      const TraceBatchEnterData* data) OVERRIDE;
   virtual void OnProcessAttach(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE {
-  }
+      const TraceModuleData* data) OVERRIDE;
   virtual void OnProcessDetach(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE {
-  }
+      const TraceModuleData* data) OVERRIDE;
   virtual void OnThreadAttach(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE {
-  }
+      const TraceModuleData* data) OVERRIDE;
   virtual void OnThreadDetach(
       base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE {
-  }
+      const TraceModuleData* data) OVERRIDE;
   virtual void OnInvocationBatch(
       base::Time time, DWORD process_id, DWORD thread_id, size_t num_batches,
-      const TraceBatchInvocationInfo* data) OVERRIDE {
-  }
+      const TraceBatchInvocationInfo* data) OVERRIDE;
   // @}
 
   // The input files.
@@ -114,6 +104,9 @@ class Simulator : public trace::parser::ParseEventHandler {
   // The call-trace log file parser. This can be preset to a custom parser
   // prior to calling Simulator.
   scoped_ptr<Parser> parser_;
+
+  // A pointer to a simulation, that is to be used.
+  SimulationEventHandler* simulation_;
 };
 
 } // namespace simulate
