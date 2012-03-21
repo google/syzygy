@@ -15,16 +15,16 @@
 
 import httplib
 import json
-from handler import client
+from handler import metric
 from model import client as client_db
 from model import metric as metric_db
 from model import product as product_db
 from test.handler import handler_test
 
-class ClientTest(handler_test.TestCase):
+class MetricTest(handler_test.TestCase):
 
   def setUp(self):
-    super(ClientTest, self).setUp()
+    super(MetricTest, self).setUp()
 
     # Insert values into the db.
     p1 = product_db.Product(key_name='p1')
@@ -32,8 +32,6 @@ class ClientTest(handler_test.TestCase):
 
     c1 = client_db.Client(key_name='c1', parent=p1, description='c1_desc')
     c1.put()
-    c2 = client_db.Client(key_name='c2', parent=p1, description='c2_desc')
-    c2.put()
 
     m1 = metric_db.Metric(key_name='m1', parent=c1, description='m1_desc',
                           units='stones')
@@ -43,121 +41,154 @@ class ClientTest(handler_test.TestCase):
     m2.put()
 
   def _InitHandler(self, input):
-    self._handler = client.ClientHandler()
-    super(ClientTest, self)._InitHandler(self._handler, input)
+    self._handler = metric.MetricHandler()
+    super(MetricTest, self)._InitHandler(self._handler, input)
 
   def testGetAll(self):
     self._InitHandler('')
-    self._handler.get('p1', '')
-    self.assertEqual(httplib.OK, self._response.status)
-
-    result = json.loads(self._response.out.getvalue())
-    self.assertEqual(
-        {'product_id': 'p1',
-         'clients': [
-            {'client_id': 'c1',
-             'description': 'c1_desc'},
-            {'client_id': 'c2',
-             'description': 'c2_desc'}
-        ]},
-        result)
-
-  def testGetById(self):
-    self._InitHandler('')
-    self._handler.get('p1', 'c1')
+    self._handler.get('p1', 'c1', '')
     self.assertEqual(httplib.OK, self._response.status)
 
     result = json.loads(self._response.out.getvalue())
     self.assertEqual(
         {'product_id': 'p1',
          'client_id': 'c1',
-         'description': 'c1_desc',
-         'metric_ids': ['m1', 'm2']},
+         'metrics': [
+            {'metric_id': 'm1',
+             'description': 'm1_desc',
+             'units': 'stones'},
+            {'metric_id': 'm2',
+             'description': 'm2_desc',
+             'units': 'furlongs'},
+        ]},
+        result)
+
+  def testGetById(self):
+    self._InitHandler('')
+    self._handler.get('p1', 'c1', 'm1')
+    self.assertEqual(httplib.OK, self._response.status)
+
+    result = json.loads(self._response.out.getvalue())
+    self.assertEqual(
+        {'product_id': 'p1',
+         'client_id': 'c1',
+         'metric_id': 'm1',
+         'description': 'm1_desc',
+         'units': 'stones'},
         result)
 
   def testGetArgValidation(self):
     self._InitHandler('')
-    self._handler.get('p2', '')
+    self._handler.get('p2', 'c1', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
     self._InitHandler('')
-    self._handler.get('p1', 'c3')
+    self._handler.get('p1', 'c2', '')
+    self.assertEqual(httplib.NOT_FOUND, self._response.status)
+
+    self._InitHandler('')
+    self._handler.get('p1', 'c2', 'm3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
   def testPost(self):
-    self._InitHandler('client_id=c3&description=c3_desc')
-    self._handler.post('p1', '')
+    self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
+    self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.CREATED, self._response.status)
 
     p1 = product_db.Product.get_by_key_name('p1')
-    c3 = client_db.Client.get_by_key_name('c3', p1)
-    self.assertTrue(c3 is not None)
-    self.assertEqual('c3_desc', c3.description)
+    c1 = client_db.Client.get_by_key_name('c1', p1)
+    m3 = metric_db.Metric.get_by_key_name('m3', c1)
+    self.assertTrue(m3 is not None)
+    self.assertEqual('m3_desc', m3.description)
+    self.assertEqual('balls', m3.units)
 
   def testPostArgValidation(self):
-    self._InitHandler('client_id=c3&description=c3_desc')
-    self._handler.post('p1', 'c3')
+    self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
+    self._handler.post('p1', 'c1', 'm3')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
-    self._InitHandler('description=c3_desc')
-    self._handler.post('p1', '')
+    self._InitHandler('description=m3_desc&units=balls')
+    self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
-    self._InitHandler('client_id=c3')
-    self._handler.post('p1', '')
+    self._InitHandler('metric_id=m3&units=balls')
+    self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
-    self._InitHandler('client_id=c3&description=c3_desc')
-    self._handler.post('p2', '')
+    self._InitHandler('metric_id=m3&description=m3_desc')
+    self._handler.post('p1', 'c1', '')
+    self.assertEqual(httplib.BAD_REQUEST, self._response.status)
+
+    self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
+    self._handler.post('p2', 'c1', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
-    self._InitHandler('client_id=c1&description=c1_desc')
-    self._handler.post('p1', '')
+    self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
+    self._handler.post('p1', 'c2', '')
+    self.assertEqual(httplib.NOT_FOUND, self._response.status)
+
+    self._InitHandler('metric_id=m1&description=m1_desc&units=balls')
+    self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
   def testPut(self):
-    self._InitHandler('description=new_c1_desc')
-    self._handler.put('p1', 'c1')
+    self._InitHandler('description=new_m1_desc&units=borks')
+    self._handler.put('p1', 'c1', 'm1')
     self.assertEqual(httplib.OK, self._response.status)
 
     p1 = product_db.Product.get_by_key_name('p1')
     c1 = client_db.Client.get_by_key_name('c1', p1)
-    self.assertEqual('new_c1_desc', c1.description)
+    m1 = metric_db.Metric.get_by_key_name('m1', c1)
+    self.assertEqual('new_m1_desc', m1.description)
+    self.assertEqual('borks', m1.units)
 
   def testPutArgValidation(self):
-    self._InitHandler('description=new_c1_desc')
-    self._handler.post('p1', '')
+    self._InitHandler('description=new_m1_desc&units=borks')
+    self._handler.put('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
-    self._InitHandler('')
-    self._handler.post('p1', 'c1')
+    self._InitHandler('description=new_m1_desc')
+    self._handler.put('p1', 'c1', 'm1')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
-    self._InitHandler('description=new_c1_desc')
-    self._handler.put('p2', 'c1')
+    self._InitHandler('units=borks')
+    self._handler.put('p1', 'c1', 'm1')
+    self.assertEqual(httplib.BAD_REQUEST, self._response.status)
+
+    self._InitHandler('description=new_m1_desc&units=borks')
+    self._handler.put('p2', 'c1', 'm1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
-    self._InitHandler('description=new_c3_desc')
-    self._handler.put('p1', 'c3')
+    self._InitHandler('description=new_m1_desc&units=borks')
+    self._handler.put('p1', 'c2', 'm1')
+    self.assertEqual(httplib.NOT_FOUND, self._response.status)
+
+    self._InitHandler('description=new_m1_desc&units=borks')
+    self._handler.put('p1', 'c1', 'm3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
   def testDelete(self):
     self._InitHandler('')
-    self._handler.delete('p1', 'c2')
+    self._handler.delete('p1', 'c1', 'm1')
     self.assertEqual(httplib.OK, self._response.status)
 
     p1 = product_db.Product.get_by_key_name('p1')
-    self.assertTrue(client_db.Client.get_by_key_name('c2', p1) is None)
+    c1 = client_db.Client.get_by_key_name('c1', p1)
+    self.assertTrue(metric_db.Metric.get_by_key_name('m1', c1) is None)
 
   def testDeleteArgValidation(self):
     self._InitHandler('')
-    self._handler.delete('p1', '')
+    self._handler.delete('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
     self._InitHandler('')
-    self._handler.delete('p2', 'c2')
+    self._handler.delete('p2', 'c1', 'm1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
     self._InitHandler('')
-    self._handler.delete('p1', 'c3')
+    self._handler.delete('p1', 'c2', 'm1')
+    self.assertEqual(httplib.NOT_FOUND, self._response.status)
+
+    self._InitHandler('')
+    self._handler.delete('p1', 'c1', 'm3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)

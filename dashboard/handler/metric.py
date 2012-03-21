@@ -129,6 +129,7 @@ class MetricHandler(webapp.RequestHandler):
     metric = metric_db.Metric(key_name=metric_id, parent=client,
                               description=description, units=units)
     metric.put()
+    self.response.set_status(httplib.CREATED, message='MetricCreated')
 
   def put(self, product_id, client_id, metric_id):
     """Updates a metric.
