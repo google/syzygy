@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  logging::SetMinLogLevel(logging::LOG_FATAL);
+  logging::SetMinLogLevel(logging::LOG_ERROR);
 
   int ret = RUN_ALL_TESTS();
 

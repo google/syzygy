@@ -368,8 +368,6 @@ bool Session::RecycleBuffer(Buffer* buffer) {
     return false;
   }
 
-  --buffers_pending_write_;
-
   Buffer::ID buffer_id = Buffer::GetID(*buffer);
   if (buffers_in_use_.erase(buffer_id) == 0) {
     LOG(ERROR) << "Buffer is not recorded as being in use ("
@@ -377,6 +375,9 @@ bool Session::RecycleBuffer(Buffer* buffer) {
     lock_.Release();
     return false;
   }
+
+  --buffers_pending_write_;
+  DCHECK_LE(buffers_pending_write_, buffers_in_use_.size());
 
   buffers_available_.push_front(buffer);
 
@@ -395,12 +396,16 @@ bool Session::RecycleBuffer(Buffer* buffer) {
 
 void Session::MarkAsPendingWrite(Buffer* buffer) {
   DCHECK(buffer != NULL);
-  DCHECK(!buffer->write_is_pending);
   lock_.AssertAcquired();
+
+  DCHECK(!buffer->write_is_pending);
+  DCHECK(buffers_in_use_.find(Buffer::GetID(*buffer)) !=
+      buffers_in_use_.end());
 
   // Mark this buffer as pending a write.
   buffer->write_is_pending = true;
   ++buffers_pending_write_;
+  DCHECK_LE(buffers_pending_write_, buffers_in_use_.size());
 }
 
 bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
