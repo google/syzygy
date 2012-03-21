@@ -175,45 +175,12 @@ void Reorderer::OnFunctionEntry(base::Time time,
                                 DWORD process_id,
                                 DWORD thread_id,
                                 const TraceEnterExitEventData* data) {
-  // Resolve the module in which the called function resides.
-  AbsoluteAddress64 function_address =
-      reinterpret_cast<AbsoluteAddress64>(data->function);
-  const ModuleInformation* module_info =
-      parser_.GetModuleInformation(process_id, function_address);
+  DCHECK(data != NULL);
 
-  // We should be able to resolve the instrumented module.
-  if (module_info == NULL) {
-    LOG(ERROR) << "Failed to resolve module for entry event (pid="
-               << process_id << ", addr=0x" << data->function << ").";
-    parser_.set_error_occurred(true);
-    return;
-  }
+  const BlockGraph::Block* block = playback_.FindFunctionBlock(process_id,
+                                                               data->function);
 
-  // Ignore events not belonging to the instrumented module of interest.
-  if (!playback_.MatchesInstrumentedModuleSignature(*module_info)) {
-    return;
-  }
-
-  // Convert the address to an RVA. We can only instrument 32-bit DLLs, so we're
-  // sure that the following address conversion is safe.
-  RelativeAddress rva(
-      static_cast<uint32>(function_address - module_info->base_address));
-
-  // Convert the address from one in the instrumented module to one in the
-  // original module using the OMAP data.
-  rva = pdb::TranslateAddressViaOmap(playback_.omap_to(), rva);
-
-  // Get the block that this function call refers to.
-  const BlockGraph::Block* block =
-      playback_.image()->blocks.GetBlockByAddress(rva);
   if (block == NULL) {
-    LOG(ERROR) << "Unable to map " << rva << " to a block.";
-    parser_.set_error_occurred(true);
-    return;
-  }
-  if (block->type() != BlockGraph::CODE_BLOCK) {
-    LOG(ERROR) << rva << " maps to a non-code block (" << block->name()
-               << " in " << module_info->image_file_name << ").";
     parser_.set_error_occurred(true);
     return;
   }
@@ -235,7 +202,8 @@ void Reorderer::OnFunctionEntry(base::Time time,
   }
 
   ++code_block_entry_events_;
-  if (!order_generator_->OnCodeBlockEntry(block, rva,
+  if (!order_generator_->OnCodeBlockEntry(block,
+                                          block->addr(),
                                           process_id,
                                           thread_id,
                                           entry_time)) {
@@ -435,8 +403,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
       }
       RelativeAddress rva(address);
 
-      const BlockGraph::Block* block =
-          image.blocks.GetBlockByAddress(rva);
+      const BlockGraph::Block* block = image.blocks.GetBlockByAddress(rva);
       if (block == NULL) {
         LOG(ERROR) << "Block address not found in decomposed image: "
                    << address;

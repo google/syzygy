@@ -79,57 +79,19 @@ void Simulator::OnFunctionEntry(base::Time time,
                                 DWORD process_id,
                                 DWORD thread_id,
                                 const TraceEnterExitEventData* data) {
-  // TODO(fixman): Move everything but the last two lines to Playback.
-  using core::RelativeAddress;
-  using sym_util::ModuleInformation;
-  typedef uint64 AbsoluteAddress64;
-
-  // Resolve the module in which the called function resides.
-  AbsoluteAddress64 function_address = reinterpret_cast<AbsoluteAddress64>(
-      data->function);
-
-  const ModuleInformation* module_info =
-      parser_->GetModuleInformation(process_id, function_address);
-
-  // We should be able to resolve the instrumented module.
-  if (module_info == NULL) {
-    LOG(ERROR) << "Failed to resolve module for entry event (pid="
-               << process_id << ", addr=0x" << data->function << ").";
-    parser_->set_error_occurred(true);
-    return;
-  }
-
-  // Convert the address to an RVA. We can only instrument 32-bit DLLs, so
-  // we're sure that the following address conversion is safe.
-  RelativeAddress rva(static_cast<uint32>(
-      function_address - module_info->base_address));
-
-  // Convert the address from one in the instrumented module to one in the
-  // original module using the OMAP data.
-  rva = pdb::TranslateAddressViaOmap(playback_->omap_to(), rva);
-
-  // Get the block that this function call refers to.
-  const BlockGraph::Block* block =
-      image_layout_.blocks.GetBlockByAddress(rva);
+  DCHECK(playback_ != NULL);
+  DCHECK(data != NULL);
+  const BlockGraph::Block* block = playback_->FindFunctionBlock(
+      process_id, data->function);
 
   if (block == NULL) {
-    LOG(ERROR) << "Unable to map " << rva << " to a block.";
     parser_->set_error_occurred(true);
     return;
   }
-  if (block->type() != BlockGraph::CODE_BLOCK) {
-    LOG(ERROR) << rva << " maps to a non-code block (" << block->name()
-               << " in " << module_info->image_file_name << ").";
-    parser_->set_error_occurred(true);
-    return;
-  }
-
-  RelativeAddress block_addr;
-  image_layout_.blocks.GetAddressOf(block, &block_addr);
 
   // Call our simulation with the event data we have.
   DCHECK(simulation_ != NULL);
-  simulation_->OnFunctionEntry(block_addr.value(), block->size());
+  simulation_->OnFunctionEntry(block->addr().value(), block->size());
 }
 
 void Simulator::OnBatchFunctionEntry(base::Time time,

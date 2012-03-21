@@ -30,6 +30,7 @@
 
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"
@@ -39,6 +40,7 @@ namespace playback {
 
 class Playback {
  public:
+  typedef block_graph::BlockGraph BlockGraph;
   typedef pe::ImageLayout ImageLayout;
   typedef pe::PEFile PEFile;
   typedef std::vector<FilePath> TraceFileList;
@@ -67,6 +69,14 @@ class Playback {
   // module signature, false otherwise.
   bool MatchesInstrumentedModuleSignature(
       const ModuleInformation& module_info) const;
+
+  // Gets a code block from our image from its function address and process id.
+  // @param process_id The process id of the module where the function resides.
+  // @param function The relative address of the function we are searching.
+  // @returns The code block function and process_id refer to, or NULL in case
+  //     of an error.
+  const BlockGraph::Block* FindFunctionBlock(DWORD process_id,
+                                             FuncAddr function);
 
   // @name Accessors
   // @{
