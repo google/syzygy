@@ -22,12 +22,13 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/string_number_conversions.h"
-#include "syzygy/simulate/page_fault_simulator.h"
+#include "syzygy/simulate/page_fault_simulation.h"
+#include "syzygy/simulate/simulator.h"
 
 namespace {
 
 using simulate::Simulator;
-using simulate::PageFaultSimulator;
+using simulate::PageFaultSimulation;
 
 const char kUsage[] =
     "Usage: simulate [options] [RPC log files ...]\n"
@@ -93,24 +94,21 @@ int main(int argc, char** argv) {
     return Usage("Invalid page-size value.");
   }
 
-  scoped_ptr<PageFaultSimulator> simulator(
-      new PageFaultSimulator(input_dll_path,
-                             instrumented_dll_path,
-                             trace_paths));
-
-  if (simulator.get() == NULL) {
-    LOG(ERROR) << "Could not initialize simulator.";
-    return 1;
-  }
+  PageFaultSimulation simulation;
 
   if (!pages_per_code_fault_str.empty())
-    simulator->set_pages_per_code_fault(pages_per_code_fault);
+    simulation.set_pages_per_code_fault(pages_per_code_fault);
 
   if (!page_size_str.empty())
-    simulator->set_page_size(page_size);
+    simulation.set_page_size(page_size);
+
+  Simulator simulator(input_dll_path,
+                      instrumented_dll_path,
+                      trace_paths,
+                      &simulation);
 
   LOG(INFO) << "Parsing trace files.";
-  if (!simulator->ParseTraceFiles()) {
+  if (!simulator.ParseTraceFiles()) {
     LOG(ERROR) << "Could not parse trace files.";
     return 1;
   }
@@ -131,7 +129,7 @@ int main(int argc, char** argv) {
   }
 
   LOG(INFO) << "Writing JSON file.";
-  if (!simulator->SerializeToJSON(output, pretty_print)) {
+  if (!simulation.SerializeToJSON(output, pretty_print)) {
     LOG(ERROR) << "Unable to write JSON file.";
     return 1;
   }

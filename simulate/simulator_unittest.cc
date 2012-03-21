@@ -11,45 +11,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// This class tests that Simulator calls the functions of its respective
+// SimulationEventHandler if called with the test DLL.
 
 #include "syzygy/simulate/simulator.h"
 
 #include "gmock/gmock.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/pe_file.h"
-#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace simulate {
 
 namespace {
 
-using playback::Playback;
 using testing::_;
 using testing::AtLeast;
 using testing::GetExeTestDataRelativePath;
+using testing::Gt;
 
-class MockSimulator : public Simulator {
+class MockParseEventHandler : public SimulationEventHandler {
  public:
-  MockSimulator(const FilePath& module_path,
-                const FilePath& instrumented_path,
-                const TraceFileList& trace_files)
-      : Simulator(module_path, instrumented_path, trace_files) {
-  }
+  MOCK_METHOD1(OnProcessStarted, void(size_t default_page_size));
+  MOCK_METHOD2(OnFunctionEntry, void(uint32 block_start, size_t size));
 
-  MOCK_METHOD3(OnProcessStarted, void(base::Time time,
-                                      DWORD process_id,
-                                      const TraceSystemInfo* data));
-
-  MOCK_METHOD4(OnBatchFunctionEntry, void(base::Time time,
-                                          DWORD process_id,
-                                          DWORD thread_id,
-                                          const TraceBatchEnterData* data));
-
-  bool SerializeToJSON(FILE* /*output*/, bool /*pretty_print*/) {
-    return true;
-  }
+  MOCK_METHOD2(SerializeToJSON, bool (FILE* output, bool pretty_print));
 };
 
 class SimulatorTest : public testing::PELibUnitTest {
@@ -64,7 +51,7 @@ class SimulatorTest : public testing::PELibUnitTest {
         GetExeTestDataRelativePath(L"rpc_traces/trace-4.bin")
     };
 
-    trace_files_ = Playback::TraceFileList(trace_files_initializer,
+    trace_files_ = TraceFileList(trace_files_initializer,
         trace_files_initializer + arraysize(trace_files_initializer));
   }
 
@@ -72,28 +59,42 @@ class SimulatorTest : public testing::PELibUnitTest {
     module_path_ = GetExeTestDataRelativePath(kDllName);
     instrumented_path_ = GetExeTestDataRelativePath(kRpcInstrumentedDllName);
 
-    simulator_.reset(new MockSimulator(module_path_,
-                                       instrumented_path_,
-                                       trace_files_));
+    simulator_.reset(new Simulator(module_path_,
+                                   instrumented_path_,
+                                   trace_files_,
+                                   &simulation_event_handler_));
+    ASSERT_TRUE(simulator_.get() != NULL);
   }
 
  protected:
   FilePath module_path_;
   FilePath instrumented_path_;
   TraceFileList trace_files_;
+  testing::StrictMock<MockParseEventHandler> simulation_event_handler_;
 
-  scoped_ptr <MockSimulator> simulator_;
+  scoped_ptr<Simulator> simulator_;
 };
 
 }  // namespace
-
 
 TEST_F(SimulatorTest, SuccesfulRead) {
   ASSERT_NO_FATAL_FAILURE(InitTraceFileList());
   ASSERT_NO_FATAL_FAILURE(InitSimulator());
 
-  EXPECT_CALL(*simulator_, OnProcessStarted(_, _, _)).Times(AtLeast(1));
-  EXPECT_CALL(*simulator_, OnBatchFunctionEntry(_, _, _, _)).Times(AtLeast(1));
+  // SerializeToJSON shouldn't be called by Simulator.
+  EXPECT_CALL(simulation_event_handler_, SerializeToJSON(_, _)).Times(0);
+
+  // We know that since each of the test trace files contains a single process,
+  // OnProcessStarted will be called exactly 4 times. Also, since they are
+  // RPC-instrumented trace files we will know the value of the page size, so
+  // it will be called with an argument greater than 0.
+  EXPECT_CALL(simulation_event_handler_, OnProcessStarted(Gt(0u))).Times(4);
+
+  // We don't have that much information about OnFunctionEntry events, but at
+  // least know they should happen.
+  EXPECT_CALL(simulation_event_handler_,
+              OnFunctionEntry(_, _)).Times(AtLeast(1));
+
   ASSERT_TRUE(simulator_->ParseTraceFiles());
 }
 
