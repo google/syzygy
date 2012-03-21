@@ -181,6 +181,7 @@ namespace service {
 
 Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
+      buffers_pending_write_(0),
       is_closing_(false),
       input_error_already_logged_(false) {
   DCHECK(call_trace_service != NULL);
@@ -232,43 +233,48 @@ bool Session::Init(const FilePath& trace_directory,
   return true;
 }
 
-bool Session::Close(BufferQueue* flush_queue) {
-  DCHECK(flush_queue != NULL);
+bool Session::Close() {
+  std::vector<Buffer*> buffers;
 
-  // It's possible that the service is being stopped just after this session
-  // was marked for closure. The service would then attempt to re-close the
-  // session. Let's ignore these requests.
-  if (is_closing_)
-    return true;
+  {
+    base::AutoLock lock(lock_);
 
-  // Otherwise the session is being asked to close for the first time.
-  is_closing_ = true;
+    // It's possible that the service is being stopped just after this session
+    // was marked for closure. The service would then attempt to re-close the
+    // session. Let's ignore these requests.
+    if (is_closing_)
+      return true;
 
-  // Create a process ended event. This causes at least one buffer to be in use
-  // to store the process ended event.
-  Buffer* buffer = NULL;
-  if (!CreateProcessEndedEvent(&buffer))
-    return false;
-  DCHECK(buffer != NULL);
-  DCHECK(!buffers_in_use_.empty());
+    // We'll reserve space for the the worst case scenario buffer count.
+    buffers.reserve(buffers_in_use_.size() + 1);
 
-  // Schedule any outstanding buffers for flushing.
-  BufferMap::iterator iter = buffers_in_use_.begin();
-  for (; iter != buffers_in_use_.end(); ++iter) {
-    if (!iter->second->write_is_pending) {
-      iter->second->write_is_pending = true;
+    // Otherwise the session is being asked to close for the first time.
+    is_closing_ = true;
 
-      // If this is the process ended event buffer, don't schedule it yet.
-      // Save it for last.
-      if (iter->second != buffer) {
-        flush_queue->push_back(iter->second);
+    // Schedule any outstanding buffers for flushing.
+    BufferMap::iterator iter = buffers_in_use_.begin();
+    for (; iter != buffers_in_use_.end(); ++iter) {
+      if (!iter->second->write_is_pending) {
+        MarkAsPendingWrite(iter->second);
+        buffers.push_back(iter->second);
       }
     }
+
+    // Create a process ended event. This causes at least one buffer to be in
+    // use to store the process ended event.
+    Buffer* buffer = NULL;
+    if (!CreateProcessEndedEvent(&buffer))
+      return false;
+    DCHECK(buffer != NULL);
+    DCHECK(!buffers_in_use_.empty());
+    MarkAsPendingWrite(buffer);
+    buffers.push_back(buffer);
   }
 
-  // Ensure that the TRACE_PROCESS_ENDED buffer is scheduled last so that it is
-  // the last buffer written to the trace file.
-  flush_queue->push_back(buffer);
+  if (!call_trace_service_->ScheduleBuffersForWriting(buffers)) {
+    LOG(ERROR) << "Unable to schedule outstanding buffers for writing.";
+    return false;
+  }
 
   return true;
 }
@@ -277,6 +283,8 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
                          Buffer** client_buffer) {
   DCHECK(call_trace_buffer != NULL);
   DCHECK(client_buffer != NULL);
+
+  base::AutoLock lock(lock_);
 
   Buffer::ID buffer_id = Buffer::GetID(*call_trace_buffer);
 
@@ -307,21 +315,39 @@ bool Session::GetNextBuffer(Buffer** out_buffer) {
   DCHECK(out_buffer != NULL);
 
   *out_buffer = NULL;
+  base::AutoLock lock(lock_);
 
-  if (buffers_available_.empty()) {
-    // TODO(chrisha): This is where back-pressure will be applied.
-    if (!AllocateBuffers(call_trace_service_->num_incremental_buffers(),
-                         call_trace_service_->buffer_size_in_bytes())) {
+  // Once we're closing we should not hand out any more buffers.
+  if (is_closing_) {
+    LOG(ERROR) << "Session is closing but someone is trying to get a buffer.";
+    return false;
+  }
+
+  return GetNextBufferUnlocked(out_buffer);
+}
+
+bool Session::ReturnBuffer(Buffer* buffer) {
+  DCHECK(buffer != NULL);
+  DCHECK(buffer->session == this);
+
+  {
+    base::AutoLock lock(lock_);
+
+    // The buffer should not already be pending a write.
+    if (buffer->write_is_pending) {
+      LOG(ERROR) << "Buffer to be returned is already pending a write.";
       return false;
     }
+
+    MarkAsPendingWrite(buffer);
   }
-  DCHECK(!buffers_available_.empty());
 
-  Buffer* buffer = buffers_available_.front();
-  buffers_available_.pop_front();
-  buffers_in_use_[Buffer::GetID(*buffer)] = buffer;
+  // Schedule it for writing.
+  if (!call_trace_service_->ScheduleBufferForWriting(buffer)) {
+    LOG(ERROR) << "Unable to schedule buffer for writing.";
+    return false;
+  }
 
-  *out_buffer = buffer;
   return true;
 }
 
@@ -329,10 +355,26 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   DCHECK(buffer != NULL);
   DCHECK(buffer->session == this);
 
+  // We take pains to use a manual lock here as we may end up calling our own
+  // destructor. If we use an AutoLock, the lock no longer exists when
+  // destroying the AutoLock and things blow up.
+  lock_.Acquire();
+
+  // The buffer should no longer be pending a write. This should have been
+  // cleared by the write queue.
+  if (buffer->write_is_pending) {
+    LOG(ERROR) << "Buffer to be recycled is still pending a write.";
+    lock_.Release();
+    return false;
+  }
+
+  --buffers_pending_write_;
+
   Buffer::ID buffer_id = Buffer::GetID(*buffer);
   if (buffers_in_use_.erase(buffer_id) == 0) {
     LOG(ERROR) << "Buffer is not recorded as being in use ("
                << buffer_id << ").";
+    lock_.Release();
     return false;
   }
 
@@ -341,13 +383,31 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   // If the session is closing and all outstanding buffers have been recycled
   // then it's safe to destroy this session.
   if (is_closing_ && buffers_in_use_.empty()) {
+    DCHECK_EQ(0u, buffers_pending_write_);
+    // This indirectly calls our destructor, so we can't have an AutoLock
+    // referring to lock_.
     return call_trace_service_->DestroySession(this);
   }
 
+  lock_.Release();
   return true;
 }
 
+void Session::MarkAsPendingWrite(Buffer* buffer) {
+  DCHECK(buffer != NULL);
+  DCHECK(!buffer->write_is_pending);
+  lock_.AssertAcquired();
+
+  // Mark this buffer as pending a write.
+  buffer->write_is_pending = true;
+  ++buffers_pending_write_;
+}
+
 bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
+  DCHECK_GT(num_buffers, 0u);
+  DCHECK_GT(buffer_size, 0u);
+  lock_.AssertAcquired();
+
   // Allocate the record for the shared memory buffer.
   scoped_ptr<BufferPool> pool(new BufferPool());
   if (pool.get() == NULL) {
@@ -375,8 +435,32 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
   return true;
 }
 
+bool Session::GetNextBufferUnlocked(Buffer** out_buffer) {
+  DCHECK(out_buffer != NULL);
+  lock_.AssertAcquired();
+
+  *out_buffer = NULL;
+
+  if (buffers_available_.empty()) {
+    // TODO(chrisha): This is where back-pressure will be applied.
+    if (!AllocateBuffers(call_trace_service_->num_incremental_buffers(),
+                         call_trace_service_->buffer_size_in_bytes())) {
+      return false;
+    }
+  }
+  DCHECK(!buffers_available_.empty());
+
+  Buffer* buffer = buffers_available_.front();
+  buffers_available_.pop_front();
+  buffers_in_use_[Buffer::GetID(*buffer)] = buffer;
+
+  *out_buffer = buffer;
+  return true;
+}
+
 bool Session::CreateProcessEndedEvent(Buffer** buffer) {
   DCHECK(buffer != NULL);
+  lock_.AssertAcquired();
 
   *buffer = NULL;
 
@@ -404,7 +488,7 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
   DCHECK(!buffers_available_.empty());
 
   // Get a buffer for the event.
-  if (!GetNextBuffer(buffer) || *buffer == NULL) {
+  if (!GetNextBufferUnlocked(buffer) || *buffer == NULL) {
     LOG(ERROR) << "Unable to get a buffer for process ended event.";
     return false;
   }

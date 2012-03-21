@@ -43,7 +43,7 @@ Service::Service()
       buffer_size_in_bytes_(kDefaultBufferSize),
       owner_thread_(base::PlatformThread::CurrentId()),
       writer_thread_(base::kNullThreadHandle),
-      queue_is_non_empty_(&lock_),
+      queue_is_non_empty_(&queue_lock_),
       rpc_is_initialized_(false),
       rpc_is_running_(false),
       rpc_is_non_blocking_(false),
@@ -293,21 +293,23 @@ void Service::StopWriterThread() {
   VLOG(1) << "Stopping the trace file IO thread.";
 
   {
+    // Tell each session that they are to be closed. This will get them to
+    // schedule things with the write queue.
     base::AutoLock scoped_lock(lock_);
-
-    // Tell each session that they are to be closed.
     SessionMap::iterator iter = sessions_.begin();
     for (; iter != sessions_.end(); ++iter) {
-      iter->second->Close(&pending_write_queue_);
+      iter->second->Close();
     }
+  }
 
+  {
     // Put the shutdown sentinel into the write queue.
+    base::AutoLock scoped_lock(queue_lock_);
     pending_write_queue_.push_back(NULL);
+    queue_is_non_empty_.Signal();
   }
 
   DCHECK_NE(writer_thread_, base::kNullThreadHandle);
-
-  queue_is_non_empty_.Signal();
   VLOG(1) << "Flushing pending writes.";
   base::PlatformThread::Join(writer_thread_);
   writer_thread_ = base::kNullThreadHandle;
@@ -319,7 +321,7 @@ bool Service::GetBuffersToWrite(BufferQueue* out_queue) {
   DCHECK(out_queue->empty());
 
   {
-    base::AutoLock scoped_lock(lock_);
+    base::AutoLock scoped_lock(queue_lock_);
     while (pending_write_queue_.empty())
       queue_is_non_empty_.Wait();
     out_queue->swap(pending_write_queue_);
@@ -398,7 +400,6 @@ void Service::ThreadMain() {
       buffer->write_is_pending = false;
 
       // Recycle the buffer to the set of available buffers for this session.
-      base::AutoLock scoped_lock(lock_);
       buffer->session->RecycleBuffer(buffer);
     }
   }
@@ -513,8 +514,15 @@ boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
 
     DCHECK(buffer != NULL);
     DCHECK(!buffer->write_is_pending);
-    buffer->write_is_pending = true;
-    pending_write_queue_.push_back(buffer);
+
+    // Return the buffer to the session. The session will then take care of
+    // scheduling it for writing. Currently, it feeds it right back to us, but
+    // this routing allows the write-queue to be decoupled from the service
+    // more easily in the future.
+    if (!session->ReturnBuffer(buffer)) {
+      LOG(ERROR) << "Unable to return buffer to session.";
+      return false;
+    }
 
     ZeroMemory(call_trace_buffer, sizeof(*call_trace_buffer));
 
@@ -530,8 +538,6 @@ boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
       }
     }
   }
-
-  queue_is_non_empty_.Signal();
 
   return result;
 }
@@ -551,12 +557,11 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
       return false;
 
     // Signal that we want the session to close. This will cause it to
-    // schedule all of its oustanding buffer for flushing via
-    // pending_write_queue_.
-    session->Close(&pending_write_queue_);
+    // schedule all of its oustanding buffers for writing. It will eventually
+    // let us know when it's ready to be cleaned up by calling DestroySession.
+    session->Close();
   }
 
-  queue_is_non_empty_.Signal();
   *session_handle = NULL;
 
   return true;
@@ -564,7 +569,7 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
 
 bool Service::DestroySession(Session* session) {
   DCHECK(session != NULL);
-  lock_.AssertAcquired();
+  base::AutoLock lock(lock_);
 
   if (sessions_.erase(session->client_process_id()) == 0) {
     LOG(ERROR) << "Destroying unknown session!";
@@ -572,6 +577,28 @@ bool Service::DestroySession(Session* session) {
   }
 
   delete session;
+
+  return true;
+}
+
+bool Service::ScheduleBufferForWriting(Buffer* buffer) {
+  DCHECK(buffer != NULL);
+
+  base::AutoLock lock(queue_lock_);
+  pending_write_queue_.push_back(buffer);
+  queue_is_non_empty_.Signal();
+
+  return true;
+}
+
+bool Service::ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers) {
+  if (buffers.size() == 0)
+    return true;
+
+  base::AutoLock lock(queue_lock_);
+  for (size_t i = 0; i < buffers.size(); ++i)
+    pending_write_queue_.push_back(buffers[i]);
+  queue_is_non_empty_.Signal();
 
   return true;
 }
