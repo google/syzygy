@@ -24,6 +24,7 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/synchronization/lock.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/service/buffer_pool.h"
 #include "syzygy/trace/service/process_info.h"
@@ -49,12 +50,9 @@ class Session {
   // Initialize this session object.
   bool Init(const FilePath& trace_directory, ProcessID client_process_id);
 
-  // Close the session, flushing its unwritten buffers to the given queue.
-  // A session is disconnected when the process owning the connection ends.
-  // Calling this routine causes a buffer containing a TRACE_PROCESS_ENDED event
-  // to be added to the list of outstanding buffers so flush_queue will never
-  // be empty.
-  bool Close(BufferQueue* flush_queue);
+  // Close the session. The causes the session to flush all of its outstanding
+  // buffers to the write queue.
+  bool Close();
 
   // Get the next available buffer for use by a client. The session retains
   // ownership of the buffer object, it MUST not be deleted by the caller. This
@@ -65,7 +63,18 @@ class Session {
   // @returns true on success, false otherwise.
   bool GetNextBuffer(Buffer** buffer);
 
-  // Return a buffer to the pool so that it can be used again.
+  // Returns a full buffer back to the session. After being returned here the
+  // session will ensure the buffer gets written to disk before being returned
+  // to service.
+  // @param buffer the full buffer to return.
+  // @returns true on success, false otherwise.
+  bool ReturnBuffer(Buffer* buffer);
+
+  // Returns a buffer to the pool of available buffers to be handed out to
+  // clients. This is to be called by the write queue thread after the buffer
+  // has been written to disk.
+  // @param buffer the full buffer to recycle.
+  // @returns true on success, false otherwise.
   bool RecycleBuffer(Buffer* buffer);
 
   // Locates the local record of the given call trace buffer.  The session
@@ -91,13 +100,31 @@ class Session {
 
   // Allocates num_buffers shared client buffers, each of size
   // buffer_size and adds them to the free list.
+  // @param num_nuffers the number of buffers to allocate.
+  // @param buffer_size the size of each buffer to be allocated.
+  // @returns true on success, false otherwise.
+  // @pre Under lock_.
   bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
+
+  // A private implementation of GetNextBuffer, but which assumes the lock has
+  // already been acquired.
+  // @param buffer will be populated with a pointer to the buffer to be provided
+  //     to the client.
+  // @returns true on success, false otherwise.
+  // @pre Under lock_.
+  bool GetNextBufferUnlocked(Buffer** buffer);
+
+  // Makrs the buffer as pending a write, updating any necessary internal state.
+  // @param buffer the buffer to be marked as pending a write.
+  // @pre Under lock_.
+  void MarkAsPendingWrite(Buffer* buffer);
 
   // Gets (creating if needed) a buffer and populates it with a
   // TRACE_PROCESS_ENDED event. This is called by Close(), which is called
   // when the process owning this session disconnects (at its death).
   // @param buffer receives a pointer to the buffer that is used.
   // @returns true on success, false otherwise.
+  // @pre Under lock_.
   bool CreateProcessEndedEvent(Buffer** buffer);
 
   // The call trace service this session lives in.  We do not own this
@@ -118,16 +145,24 @@ class Session {
   size_t block_size_;
 
   // All shared memory buffers allocated for this session.
-  SharedMemoryBufferCollection shared_memory_buffers_;
+  SharedMemoryBufferCollection shared_memory_buffers_;  // Under lock_.
 
   // Buffers currently given out to clients.
-  BufferMap buffers_in_use_;
+  BufferMap buffers_in_use_;  // Under lock_.
 
   // Buffers available to give to the clients.
-  BufferQueue buffers_available_;
+  BufferQueue buffers_available_;  // Under lock_.
+
+  // Keeps track of the number of buffers that are waiting to be written to
+  // disk.
+  size_t buffers_pending_write_;  // Under lock_.
 
   // Tracks whether this session is in the process of shutting down.
-  bool is_closing_;
+  bool is_closing_;  // Under lock_.
+
+  // This lock protects any access to the internals related to buffers and their
+  // state.
+  base::Lock lock_;
 
   // Tracks whether or not invalid input errors have already been logged.
   // When an error of this type occurs, there will typically be numerous

@@ -177,6 +177,16 @@ class Service : public base::PlatformThread::Delegate {
   // Allows a session to request its own destruction.
   bool DestroySession(Session* session);
 
+  // @{
+  // Inserts the given buffer(s) into the write queue. When writing has been
+  // finished the session owning each buffer will be notified via RecycleBuffer.
+  // @param buffer the buffer to be written.
+  // @params buffers the buffers to be written.
+  // @returns true on success, false otherwise.
+  bool ScheduleBufferForWriting(Buffer* buffer);
+  bool ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers);
+  // @}
+
  private:
   // RPC Server Management Functions.
   bool AcquireServiceMutex();
@@ -248,7 +258,8 @@ class Service : public base::PlatformThread::Delegate {
   // Handle to the thread used for IO.
   base::PlatformThreadHandle writer_thread_;
 
-  // Protects concurrent access to the internals.
+  // Protects concurrent access to the internals, except for write-queue
+  // related internals.
   base::Lock lock_;
 
   // Used to detect whether multiple instances of the service are running
@@ -256,8 +267,9 @@ class Service : public base::PlatformThread::Delegate {
   base::win::ScopedHandle service_mutex_;
 
   // Buffers waiting to be written to disk.
-  BufferQueue pending_write_queue_;
-  base::ConditionVariable queue_is_non_empty_;
+  BufferQueue pending_write_queue_;  // Under queue_lock_.
+  base::ConditionVariable queue_is_non_empty_;  // Under queue_lock_.
+  base::Lock queue_lock_;
 
   // Flags denoting the state of the RPC server.
   bool rpc_is_initialized_;
