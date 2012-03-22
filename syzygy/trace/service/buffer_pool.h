@@ -37,6 +37,14 @@ class Session;
 // A Buffer extends the RPC defined CallTraceBuffer structure with the
 // extra bits needed by the internals of the Call Trace service.
 struct Buffer: public ::CallTraceBuffer {
+  // A buffer is always in one of the following states.
+  enum BufferState {
+    kAvailable,
+    kInUse,
+    kPendingWrite,
+    kBufferStateMax,
+  };
+
   // Type used to identify a buffer. The first and second values in the
   // pair are the numeric id of the shared memory handle and the buffer
   // offset, respectively. See the GetID() method, below.
@@ -47,11 +55,10 @@ struct Buffer: public ::CallTraceBuffer {
     return std::make_pair(buffer.shared_memory_handle, buffer.buffer_offset);
   }
 
-  // We augment the CallTraceBuffer structure with the local pointer to the
-  // data it represents and the session it belongs to.
+  // We augment the buffer with some additional state.
   Session* session;
   uint8* data_ptr;
-  bool write_is_pending;
+  BufferState state;
 };
 
 // A BufferPool manages a collection of buffers that all belong to the same

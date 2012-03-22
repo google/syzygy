@@ -349,7 +349,7 @@ void Service::ThreadMain() {
         return;
       }
 
-      DCHECK(buffer->write_is_pending);
+      DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
 
       // Parse the record prefix and segment header;
       volatile RecordPrefix* prefix =
@@ -396,8 +396,6 @@ void Service::ThreadMain() {
       ::memset(buffer->data_ptr + kHeaderLength, 0xCC,
                buffer->buffer_size - kHeaderLength);
 #endif
-
-      buffer->write_is_pending = false;
 
       // Recycle the buffer to the set of available buffers for this session.
       buffer->session->RecycleBuffer(buffer);
@@ -513,7 +511,11 @@ boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
       return false;
 
     DCHECK(buffer != NULL);
-    DCHECK(!buffer->write_is_pending);
+
+    // We can't say anything about the buffer's state, as it possible that the
+    // session that owns it has already been asked to shutdown, in which case
+    // all of its buffers have already been scheduled for writing and the call
+    // below will be ignored.
 
     // Return the buffer to the session. The session will then take care of
     // scheduling it for writing. Currently, it feeds it right back to us, but

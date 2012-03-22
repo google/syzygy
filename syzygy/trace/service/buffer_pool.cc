@@ -99,7 +99,7 @@ bool BufferPool::Init(Session* session,
     cb.buffer_size = buffer_size;
     cb.session = session;
     cb.data_ptr = base_ptr_ + offset;
-    cb.write_is_pending = false;
+    cb.state = Buffer::kAvailable;
   }
 
   return true;
