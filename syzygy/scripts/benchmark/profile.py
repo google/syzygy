@@ -42,19 +42,13 @@ class ChromeProfileRunner(runner.ChromeRunner):
     self._output_dir = output_dir
     self._log_files = []
 
-  def _SetUp(self):
-    super(ChromeProfileRunner, self)._SetUp()
+  def _PreIteration(self, it):
+    super(ChromeProfileRunner, self)._PreIteration(it)
     self.StartLoggingRpc(self._output_dir)
 
-  def _TearDown(self):
-    self.StopLoggingRpc()
-    super(ChromeProfileRunner, self)._TearDown()
-
-  def _PreIteration(self, it):
-    pass
-
   def _PostIteration(self, it, success):
-    pass
+    self.StopLoggingRpc()
+    super(ChromeProfileRunner, self)._PostIteration(it, success)
 
   def _DoIteration(self, it):
     # Give Chrome some time to settle.
@@ -74,19 +68,13 @@ class ChromeFrameProfileRunner(runner.ChromeFrameRunner):
     self._output_dir = output_dir
     self._log_files = []
 
-  def _SetUp(self):
-    super(ChromeFrameProfileRunner, self)._SetUp()
+  def _PreIteration(self, it):
+    super(ChromeFrameProfileRunner, self)._PreIteration(it)
     self.StartLoggingRpc(self._output_dir)
 
-  def _TearDown(self):
-    self.StopLoggingRpc()
-    super(ChromeFrameProfileRunner, self)._TearDown()
-
-  def _PreIteration(self, it):
-    pass
-
   def _PostIteration(self, it, success):
-    pass
+    self.StopLoggingRpc()
+    super(ChromeFrameProfileRunner, self)._PostIteration(it, success)
 
   def _DoIteration(self, it):
     # Give Chrome Frame slightly longer to settle.
