@@ -181,17 +181,24 @@ namespace service {
 
 Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
-      buffers_pending_write_(0),
       is_closing_(false),
       input_error_already_logged_(false) {
   DCHECK(call_trace_service != NULL);
+  ::memset(buffer_state_counts_, 0, sizeof(buffer_state_counts_));
 }
 
 Session::~Session() {
-  DCHECK(buffers_in_use_.empty());
+  // We expect all of the buffers to be available, and none of them to be
+  // outstanding.
+  DCHECK_EQ(buffers_available_.size(),
+            buffer_state_counts_[Buffer::kAvailable]);
+  DCHECK_EQ(buffers_.size(), buffer_state_counts_[Buffer::kAvailable]);
+  DCHECK_EQ(0u, buffer_state_counts_[Buffer::kInUse]);
+  DCHECK_EQ(0u, buffer_state_counts_[Buffer::kPendingWrite]);
 
   // Not strictly necessary, but let's make sure nothing refers to the
   // client buffers before we delete the underlying memory.
+  buffers_.clear();
   buffers_available_.clear();
 
   // The session owns all of its shared memory buffers using raw pointers
@@ -245,18 +252,18 @@ bool Session::Close() {
     if (is_closing_)
       return true;
 
-    // We'll reserve space for the the worst case scenario buffer count.
-    buffers.reserve(buffers_in_use_.size() + 1);
-
     // Otherwise the session is being asked to close for the first time.
     is_closing_ = true;
 
+    // We'll reserve space for the the worst case scenario buffer count.
+    buffers.reserve(buffer_state_counts_[Buffer::kInUse] + 1);
+
     // Schedule any outstanding buffers for flushing.
-    BufferMap::iterator iter = buffers_in_use_.begin();
-    for (; iter != buffers_in_use_.end(); ++iter) {
-      if (!iter->second->write_is_pending) {
-        MarkAsPendingWrite(iter->second);
-        buffers.push_back(iter->second);
+    BufferMap::iterator it = buffers_.begin();
+    for (; it != buffers_.end(); ++it) {
+      if (it->second->state == Buffer::kInUse) {
+        ChangeBufferState(Buffer::kPendingWrite, it->second);
+        buffers.push_back(it->second);
       }
     }
 
@@ -266,8 +273,7 @@ bool Session::Close() {
     if (!CreateProcessEndedEvent(&buffer))
       return false;
     DCHECK(buffer != NULL);
-    DCHECK(!buffers_in_use_.empty());
-    MarkAsPendingWrite(buffer);
+    ChangeBufferState(Buffer::kPendingWrite, buffer);
     buffers.push_back(buffer);
   }
 
@@ -288,8 +294,8 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
 
   Buffer::ID buffer_id = Buffer::GetID(*call_trace_buffer);
 
-  BufferMap::iterator iter = buffers_in_use_.find(buffer_id);
-  if (iter == buffers_in_use_.end()) {
+  BufferMap::iterator iter = buffers_.find(buffer_id);
+  if (iter == buffers_.end()) {
     if (!input_error_already_logged_) {
       LOG(ERROR) << "Received call trace buffer not in use for this session "
                  << "[pid=" << client_.process_id << ", " << buffer_id << "].";
@@ -333,13 +339,12 @@ bool Session::ReturnBuffer(Buffer* buffer) {
   {
     base::AutoLock lock(lock_);
 
-    // The buffer should not already be pending a write.
-    if (buffer->write_is_pending) {
-      LOG(ERROR) << "Buffer to be returned is already pending a write.";
-      return false;
-    }
+    // If we're in the middle of closing, we ignore any ReturnBuffer requests
+    // as we've already manually pushed them out for writing.
+    if (is_closing_)
+      return true;
 
-    MarkAsPendingWrite(buffer);
+    ChangeBufferState(Buffer::kPendingWrite, buffer);
   }
 
   // Schedule it for writing.
@@ -355,57 +360,51 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   DCHECK(buffer != NULL);
   DCHECK(buffer->session == this);
 
-  // We take pains to use a manual lock here as we may end up calling our own
-  // destructor. If we use an AutoLock, the lock no longer exists when
-  // destroying the AutoLock and things blow up.
-  lock_.Acquire();
+  bool destroy_self = false;
+  {
+    base::AutoLock lock(lock_);
 
-  // The buffer should no longer be pending a write. This should have been
-  // cleared by the write queue.
-  if (buffer->write_is_pending) {
-    LOG(ERROR) << "Buffer to be recycled is still pending a write.";
-    lock_.Release();
-    return false;
+    ChangeBufferState(Buffer::kAvailable, buffer);
+    buffers_available_.push_front(buffer);
+
+    // If the session is closing and all outstanding buffers have been recycled
+    // then it's safe to destroy this session.
+    if (is_closing_ && buffer_state_counts_[Buffer::kInUse] == 0 &&
+        buffer_state_counts_[Buffer::kPendingWrite] == 0) {
+      // If all buffers have been recycled, then all the buffers we own must be
+      // available. When we start closing we refuse to hand out further buffers
+      // so this must eventually happen, unless the write queue hangs.
+      DCHECK_EQ(buffers_.size(), buffer_state_counts_[Buffer::kAvailable]);
+      DCHECK_EQ(buffers_available_.size(),
+                buffer_state_counts_[Buffer::kAvailable]);
+      destroy_self = true;
+    }
   }
 
-  Buffer::ID buffer_id = Buffer::GetID(*buffer);
-  if (buffers_in_use_.erase(buffer_id) == 0) {
-    LOG(ERROR) << "Buffer is not recorded as being in use ("
-               << buffer_id << ").";
-    lock_.Release();
-    return false;
-  }
-
-  --buffers_pending_write_;
-  DCHECK_LE(buffers_pending_write_, buffers_in_use_.size());
-
-  buffers_available_.push_front(buffer);
-
-  // If the session is closing and all outstanding buffers have been recycled
-  // then it's safe to destroy this session.
-  if (is_closing_ && buffers_in_use_.empty()) {
-    DCHECK_EQ(0u, buffers_pending_write_);
+  if (destroy_self) {
     // This indirectly calls our destructor, so we can't have an AutoLock
-    // referring to lock_.
+    // still referring to lock_.
     return call_trace_service_->DestroySession(this);
   }
 
-  lock_.Release();
   return true;
 }
 
-void Session::MarkAsPendingWrite(Buffer* buffer) {
+void Session::ChangeBufferState(BufferState new_state, Buffer* buffer) {
   DCHECK(buffer != NULL);
+  DCHECK(buffer->session == this);
   lock_.AssertAcquired();
 
-  DCHECK(!buffer->write_is_pending);
-  DCHECK(buffers_in_use_.find(Buffer::GetID(*buffer)) !=
-      buffers_in_use_.end());
+  BufferState old_state = buffer->state;
 
-  // Mark this buffer as pending a write.
-  buffer->write_is_pending = true;
-  ++buffers_pending_write_;
-  DCHECK_LE(buffers_pending_write_, buffers_in_use_.size());
+  // Ensure the state transition is valid.
+  DCHECK_EQ(static_cast<int>(new_state),
+            (static_cast<int>(old_state) + 1) % Buffer::kBufferStateMax);
+
+  // Apply the state change.
+  buffer->state = new_state;
+  buffer_state_counts_[old_state]--;
+  buffer_state_counts_[new_state]++;
 }
 
 bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
@@ -432,10 +431,25 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
   shared_memory_buffers_.push_back(pool.get());
   BufferPool* pool_ptr = pool.release();
 
-  // Put the client buffers into the list of available buffers.
+  // Put the client buffers into the list of available buffers and update
+  // the buffer state information.
   for (Buffer* buf = pool_ptr->begin(); buf != pool_ptr->end(); ++buf) {
+    Buffer::ID buffer_id = Buffer::GetID(*buf);
+
+    buf->state = Buffer::kAvailable;
+    CHECK(buffers_.insert(std::make_pair(buffer_id, buf)).second);
+
+    buffer_state_counts_[Buffer::kAvailable]++;
     buffers_available_.push_back(buf);
   }
+
+  // Make sure we updated everything correctly.
+  DCHECK_EQ(buffer_state_counts_[Buffer::kAvailable] +
+                buffer_state_counts_[Buffer::kInUse] +
+                buffer_state_counts_[Buffer::kPendingWrite],
+            buffers_.size());
+  DCHECK_EQ(buffers_available_.size(),
+            buffer_state_counts_[Buffer::kAvailable]);
 
   return true;
 }
@@ -457,7 +471,7 @@ bool Session::GetNextBufferUnlocked(Buffer** out_buffer) {
 
   Buffer* buffer = buffers_available_.front();
   buffers_available_.pop_front();
-  buffers_in_use_[Buffer::GetID(*buffer)] = buffer;
+  ChangeBufferState(Buffer::kInUse, buffer);
 
   *out_buffer = buffer;
   return true;

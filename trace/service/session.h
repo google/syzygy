@@ -96,6 +96,7 @@ class Session {
   size_t block_size() const { return block_size_; }
 
  private:
+  typedef Buffer::BufferState BufferState;
   typedef std::list<BufferPool*> SharedMemoryBufferCollection;
 
   // Allocates num_buffers shared client buffers, each of size
@@ -114,10 +115,13 @@ class Session {
   // @pre Under lock_.
   bool GetNextBufferUnlocked(Buffer** buffer);
 
-  // Makrs the buffer as pending a write, updating any necessary internal state.
-  // @param buffer the buffer to be marked as pending a write.
+  // Transitions the buffer to the given state. This only updates the buffer's
+  // internal state and buffer_state_counts_, but not buffers_available_.
+  // DCHECKs on any attempted invalid state changes.
+  // @param new_state the new state to be applied to the buffer.
+  // @param buffer the buffer to have its state changed.
   // @pre Under lock_.
-  void MarkAsPendingWrite(Buffer* buffer);
+  void ChangeBufferState(BufferState new_state, Buffer* buffer);
 
   // Gets (creating if needed) a buffer and populates it with a
   // TRACE_PROCESS_ENDED event. This is called by Close(), which is called
@@ -147,15 +151,14 @@ class Session {
   // All shared memory buffers allocated for this session.
   SharedMemoryBufferCollection shared_memory_buffers_;  // Under lock_.
 
-  // Buffers currently given out to clients.
-  BufferMap buffers_in_use_;  // Under lock_.
+  // This is the set of buffers that we currently own.
+  BufferMap buffers_;  // Under lock_.
+
+  // State summary.
+  size_t buffer_state_counts_[Buffer::kBufferStateMax];  // Under lock_.
 
   // Buffers available to give to the clients.
   BufferQueue buffers_available_;  // Under lock_.
-
-  // Keeps track of the number of buffers that are waiting to be written to
-  // disk.
-  size_t buffers_pending_write_;  // Under lock_.
 
   // Tracks whether this session is in the process of shutting down.
   bool is_closing_;  // Under lock_.
@@ -167,7 +170,7 @@ class Session {
   // Tracks whether or not invalid input errors have already been logged.
   // When an error of this type occurs, there will typically be numerous
   // follow-on occurrences that we don't want to log.
-  bool input_error_already_logged_;
+  bool input_error_already_logged_;  // Under lock_.
 
   DISALLOW_COPY_AND_ASSIGN(Session);
 };
