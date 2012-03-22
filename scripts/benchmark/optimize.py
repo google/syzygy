@@ -119,11 +119,15 @@ def _ParseArguments():
   parser.add_option('--keep-temp-dirs', dest='keep_temp_dirs',
                     action='store_true',
                     help='Keep temp directories instead of deleting them.')
-  parser.add_option('--session-url', dest='session_urls', metavar='URL',
-                    action='append', default=[],
-                    help='Add URL to the session data used for profiling. '
+  parser.add_option('--startup-type', dest='startup_type', metavar='TYPE',
+                    choices=runner.ALL_STARTUP_TYPES,
+                    default=runner.DEFAULT_STARTUP_TYPE,
+                    help='The type of Chrome session to open on startup')
+  parser.add_option('--startup-url', dest='startup_urls', metavar='URL',
+                    default=[], action='append',
+                    help='Add URL to the startup scenario used for profiling. '
                          'This option may be given multiple times; each URL '
-                         'will be added to the session.')
+                         'will be added to the startup scenario.')
 
   (opts, args) = parser.parse_args()
 
@@ -169,7 +173,8 @@ def main():
                                         profile_data_dir,
                                         opts.iterations,
                                         opts.chrome_frame,
-                                        opts.session_urls)
+                                        opts.startup_type,
+                                        opts.startup_urls)
     # Lastly generate an ordering, and reorder the inputs to
     # the output dir.
     _OptimizeChrome(opts.input_dir, temp_dir, opts.output_dir, trace_files)
