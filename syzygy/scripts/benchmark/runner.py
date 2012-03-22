@@ -67,6 +67,11 @@ _IE_PATHS = [r'C:\Program Files (x86)\Internet Explorer\iexplore.exe',
 _IE_PROFILE_PATH = r'Google\Chrome Frame\User Data\iexplore'
 
 
+# Expose the chrome startup types from chrome_control.
+ALL_STARTUP_TYPES = chrome_control.ALL_STARTUP_TYPES
+DEFAULT_STARTUP_TYPE = chrome_control.DEFAULT_STARTUP_TYPE
+
+
 class Prefetch:
   """This class acts as an enumeration of Prefetch modes."""
 
@@ -107,17 +112,6 @@ def _GetExePath(name):
                                              '../..'))
     path = os.path.join(build_dir, name)
   return path
-
-
-def _MovePath(src, dst):
-  """Move the file or directory denoted by src to dst. If dst exists then this
-  is an overwriting rename.
-  """
-  if os.path.isfile(dst):
-    os.remove(dst)
-  elif os.path.isdir(dst):
-    shutil.rmtree(dst)
-  shutil.move(src, dst)
 
 
 def _GetRunInSnapshotExeResourceName():
@@ -166,7 +160,8 @@ class ChromeRunner(object):
     self._chrome_exe = chrome_exe
     self._profile_dir = profile_dir
     self._initialize_profile = initialize_profile
-    self._session_urls = []
+    self._startup_type = DEFAULT_STARTUP_TYPE
+    self._startup_urls = []
     self._call_trace_service = None
     self._call_trace_log_path = None
     self._call_trace_log_file = None
@@ -177,11 +172,28 @@ class ChromeRunner(object):
       _LOGGER.info('Using temporary profile directory "%s".',
                    self._profile_dir)
 
-  def AddToSession(self, url):
-    """Adds a URL to be seeded into the profile. Note that this only affects
-    the profile if the runner was created with initialize_profile=True.
+  def ConfigureStartup(self, startup_type, url_list):
+    """Configures the URL(s) that will be opened on startup.
+
+    Args:
+      startup_type: The type of session startup to use. This must be one of
+          the following values in ALL_STARTUP_TYPES.values()
+      url_list: The list/tuple of URLs to open on startup, or None. This may
+          only be empty (or None) if the startup_type is STARUP_NEW_TAB_PAGE;
+          otherwise, at least one URL must be in the list.
     """
-    self._session_urls.append(url)
+    _LOGGER.info('Configuring startup: %s, %s', startup_type, url_list)
+    if not startup_type in ALL_STARTUP_TYPES:
+      raise ValueError("Unrecognized startup type: %s" % startup_type)
+    if url_list is not None and not isinstance(url_list, (list, tuple)):
+      raise ValueError("Invalid URL list: %s" % url_list)
+    if not url_list and startup_type != chrome_control.STARTUP_NEW_TAB_PAGE:
+      raise ValueError(
+          "A non empty url list is required for startup type" % startup_type)
+
+    # Save the configuration.
+    self._startup_type = startup_type
+    self._startup_urls = [] if url_list is None else url_list
 
   @staticmethod
   def StartLoggingEtw(log_dir):
@@ -334,7 +346,7 @@ class ChromeRunner(object):
     if self._initialize_profile:
       shutil.rmtree(self._profile_dir, True)
 
-    if not os.path.isdir(self._profile_dir):
+    if self._initialize_profile or not os.path.isdir(self._profile_dir):
       self._InitializeProfileDir()
 
   def _TearDown(self):
@@ -401,31 +413,16 @@ class ChromeRunner(object):
     Chrome in that directory.
     """
     _LOGGER.info('Initializing profile dir "%s".', self._profile_dir)
-    params = ['--no-first-run'] + self._session_urls
+    params = ['--no-first-run']
+    if self._startup_type == chrome_control.STARTUP_RESTORE_SESSION:
+      params += self._startup_urls
     process = self._LaunchChromeImpl(params)
     self._WaitTillChromeRunning(process)
     time.sleep(5)  # Give it some time to populate some session data.
     chrome_control.ShutDown(self._profile_dir)
-
-    if not self._session_urls:
-      return
-
-    # Read the preferences file.
-    _LOGGER.info('Updating preferences in "%s".', self._profile_dir)
-    preferences = os.path.join(self._profile_dir, 'Default', 'Preferences')
-    with open(preferences) as f:
-      prefs_dict = json.load(f)
-
-    # Turn on session restore at startup and save the preferences.
-    prefs_dict.setdefault('session', {})['restore_on_startup'] = 1
-    fd, new_preferences = tempfile.mkstemp(dir=os.path.dirname(preferences))
-    try:
-      with os.fdopen(fd, "w") as f:
-        json.dump(prefs_dict, f, indent=2)
-      _MovePath(new_preferences, preferences)
-    except:
-      os.remove(new_preferences)
-      raise
+    chrome_control.ConfigureStartup(self._profile_dir,
+                                    self._startup_type,
+                                    self._startup_urls)
 
   def _WaitTillChromeRunning(self, process):
     """Wait until Chrome is running in our profile directory.

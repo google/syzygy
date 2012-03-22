@@ -14,9 +14,13 @@
 # limitations under the License.
 """A utility module for controlling Chrome instances."""
 import exceptions
-import os.path
+import json
+import logging
+import os
 import pywintypes
+import shutil
 import subprocess
+import tempfile
 import win32api
 import win32con
 import win32event
@@ -26,8 +30,24 @@ import winerror
 import _winreg
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
+# Enumeration of Chrome startup types we support.
+STARTUP_NEW_TAB_PAGE = 'new-tab-page'
+STARTUP_HOMEPAGE = 'homepage'
+STARTUP_MULTIPAGE = 'multipage'
+STARTUP_RESTORE_SESSION = 'restore-session'
+ALL_STARTUP_TYPES = (STARTUP_NEW_TAB_PAGE,
+                     STARTUP_HOMEPAGE,
+                     STARTUP_MULTIPAGE,
+                     STARTUP_RESTORE_SESSION)
+DEFAULT_STARTUP_TYPE = STARTUP_NEW_TAB_PAGE
+
+
 class ChromeNotFoundException(Exception):
   pass
+
 
 class TimeoutException(Exception):
   pass
@@ -203,3 +223,130 @@ def KillNamedProcesses(process_name):
     process_name: The name of the processes to kill, e.g. "iexplore.exe".
   """
   subprocess.call(['taskkill.exe', '/IM', process_name])
+
+
+def _GetPreferencesFile(profile_dir):
+  """ Returns the path to the preferences file stored in the chrome profile
+  given by @profile_dir.
+
+  Args:
+    profile_dir: The root directory where the profile is stored. There must
+        be an existing profile in @p profile_dir.
+  """
+  return os.path.join(profile_dir, 'Default', 'Preferences')
+
+
+def _LoadPreferences(profile_dir):
+  """Loads the preferences from chrome profile stored in @p profile_dir.
+
+  Args:
+    profile_dir: The root directory where the profile is stored. There must
+        be an existing profile in @p profile_dir.
+  """
+  _LOGGER.info('Reading preferences from "%s".', profile_dir)
+  with open(_GetPreferencesFile(profile_dir)) as f:
+    return json.load(f)
+
+
+def _SavePreferences(profile_dir, prefs_dict):
+  """Saves the preferences given by @prefs_dict to the chrome profile stored
+  in @p profile_dir.
+
+  Args:
+    profile_dir: The root directory where the profile is stored. There must
+        be an existing profile in @p profile_dir.
+    prefs_dict: A dictionary of chrome preferences.
+  """
+  _LOGGER.info('Saving preferences to "%s".', profile_dir)
+  preferences = _GetPreferencesFile(profile_dir)
+  fd, new_preferences = tempfile.mkstemp(dir=os.path.dirname(preferences))
+  try:
+    with os.fdopen(fd, "w") as f:
+      json.dump(prefs_dict, f, indent=2)
+    if os.path.exists(preferences):
+      os.remove(preferences)
+    shutil.move(new_preferences, preferences)
+  except:
+    _LOGGER.exception('Failed to save preferences to "%s".', profile_dir)
+    os.remove(new_preferences)
+    raise
+
+
+def _ConfigureStartupNewTabPage(prefs_dict, _unused):
+  """Updates @p prefs_dict to start at the "New Tab Page" on startup.
+
+  Args:
+    prefs_dict: The current dictionary of chrome preferences.
+  """
+  prefs_dict['homepage_changed'] = True
+  prefs_dict['homepage_is_newtabpage'] = True
+  prefs_dict.setdefault('session', {})['restore_on_startup'] = 0
+
+
+def _ConfigureStartupHomepage(prefs_dict, url_list):
+  """Updates @p prefs_dict to open the given @p url as its homepage on startup.
+
+  Args:
+    prefs_dict: The current dictionary of chrome preferences.
+    url_list: The list of URLs to open on startup.
+  """
+  assert url_list
+  prefs_dict['homepage'] = url_list[0]
+  prefs_dict['homepage_changed'] = True
+  prefs_dict['homepage_is_newtabpage'] = False
+  prefs_dict.setdefault('session', {})['restore_on_startup'] = 0
+
+
+def _ConfigureStartupMultipage(prefs_dict, url_list):
+  """Updates @p prefs_dict to open each url in @p url_list on startup.
+
+  Args:
+    prefs_dict: The current dictionary of chrome preferences.
+    url_list: The list of URLs to open on startup.
+  """
+  assert url_list
+  session_dict = prefs_dict.setdefault('session', {})
+  prefs_dict['homepage_is_newtabpage'] = False
+  session_dict['restore_on_startup'] = 4
+  session_dict['urls_to_restore_on_startup'] = url_list
+
+
+def _ConfigureStartupRestoreSession(prefs_dict, _unused):
+  """Updates @p prefs_dict to restore the previous session on startup.
+
+  Args:
+    prefs_dict: The current dictionary of chrome preferences.
+  """
+  prefs_dict['homepage_is_newtabpage'] = False
+  session_dict = prefs_dict.setdefault('session', {})
+  session_dict['restore_on_startup'] = 1
+
+
+_STARTUP_CONFIG_FUNCS = {
+  STARTUP_NEW_TAB_PAGE : _ConfigureStartupNewTabPage,
+  STARTUP_HOMEPAGE : _ConfigureStartupHomepage,
+  STARTUP_MULTIPAGE : _ConfigureStartupMultipage,
+  STARTUP_RESTORE_SESSION: _ConfigureStartupRestoreSession,
+}
+
+
+def ConfigureStartup(profile_dir, startup_type, startup_urls):
+  """Configures Chrome to open the given @p url as its homepage on startup.
+
+  For @p startup_type == STARTUP_RESTORE_SESSION, you must separately launch
+  Chrome with the URLs you wish to start. This function will only enable the
+  session restoration feature, not initialize the session.
+
+  Args:
+    profile_dir: The root directory where the profile is stored. There must
+        be an existing profile in @p profile_dir.
+    startup_type: The startup scenario to be configured. This must be one
+        of the values in ALL_STARTUP_TYPES.
+    startup_urls: The list of URLs to open on startup. This may be empty or
+        None iff @p startup_type is STARTUP_NEW_TAB_PAGE or
+        STARTUP_RESTORE_SESSION.
+  """
+  assert startup_urls is None or isinstance(startup_urls, (list, tuple))
+  prefs_dict = _LoadPreferences(profile_dir)
+  _STARTUP_CONFIG_FUNCS[startup_type](prefs_dict, startup_urls)
+  _SavePreferences(profile_dir, prefs_dict)

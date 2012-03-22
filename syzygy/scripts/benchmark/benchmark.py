@@ -97,7 +97,13 @@ def _GetOptionParser():
                     help='Lists the available metrics and exits.')
   parser.add_option('--trace-file-archive-dir', metavar='DIR',
                     help='Directory in which to archive the ETW trace logs')
-  parser.add_option('--session-url', dest='session_urls', metavar='URL',
+  parser.add_option('--startup-type', dest='startup_type', metavar='TYPE',
+                    choices=runner.ALL_STARTUP_TYPES,
+                    default=runner.DEFAULT_STARTUP_TYPE,
+                    help='The type of Chrome session to open on startup. '
+                         'Must be one of: %s. (default: %%default)' % (
+                             ', '.join(runner.ALL_STARTUP_TYPES)))
+  parser.add_option('--startup-url', dest='startup_urls', metavar='URL',
                     default=[], action='append',
                     help='URL with which to seed the profile. This option is '
                          'repeatable, once per URL to include.')
@@ -156,8 +162,7 @@ def main():
                                             opts.ibmperf_metrics,
                                             opts.trace_file_archive_dir)
   try:
-    for url in opts.session_urls:
-      benchmark_runner.AddToSession(url)
+    benchmark_runner.ConfigureStartup(opts.startup_type, opts.startup_urls)
     benchmark_runner.Run(opts.iterations)
   except:
     logging.exception('Exception in Run.')
