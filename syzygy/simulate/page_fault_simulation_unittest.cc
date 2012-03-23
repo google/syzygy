@@ -244,6 +244,7 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   FilePath temp_dir_;
   MockBlockInfo blocks_[4];
   core::RandomNumberGenerator random_;
+  const base::Time time_;
 };
 
 }  // namespace
@@ -269,7 +270,7 @@ TEST_F(PageFaultSimulatorTest, RandomInput) {
     simulation_.reset(new PageFaultSimulation());
     ASSERT_TRUE(simulation_ != NULL);
 
-    simulation_->OnProcessStarted(1);
+    simulation_->OnProcessStarted(time_, 1);
     simulation_->set_pages_per_code_fault(4);
 
     // Choose a random output, create an input with it,
@@ -279,7 +280,7 @@ TEST_F(PageFaultSimulatorTest, RandomInput) {
         GenerateRandomInput(output, random_(output.size()) + 1);
 
     for (size_t i = 0; i < input.size(); i++)
-      simulation_->OnFunctionEntry(input[i].start, input[i].size);
+      simulation_->OnFunctionEntry(time_, input[i].start, input[i].size);
 
     std::stringstream input_string;
     input_string << '{';
@@ -293,13 +294,13 @@ TEST_F(PageFaultSimulatorTest, RandomInput) {
 }
 
 TEST_F(PageFaultSimulatorTest, ExactPageFaults) {
-  simulation_->OnProcessStarted(1);
+  simulation_->OnProcessStarted(time_, 1);
   simulation_->set_page_size(1);
   simulation_->set_pages_per_code_fault(4);
 
-  simulation_->OnFunctionEntry(0, 3);
-  simulation_->OnFunctionEntry(2, 2);
-  simulation_->OnFunctionEntry(5, 5);
+  simulation_->OnFunctionEntry(time_, 0, 3);
+  simulation_->OnFunctionEntry(time_, 2, 2);
+  simulation_->OnFunctionEntry(time_, 5, 5);
 
   PageSet::key_type expected_pages[] = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12};
   EXPECT_EQ(simulation_->fault_count(), 3);
@@ -308,10 +309,11 @@ TEST_F(PageFaultSimulatorTest, ExactPageFaults) {
 }
 
 TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
-  simulation_->OnProcessStarted(1);
+  simulation_->OnProcessStarted(time_, 1);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(blocks_[i].start,
+    simulation_->OnFunctionEntry(time_,
+                                 blocks_[i].start,
                                  blocks_[i].size);
   }
 
@@ -320,11 +322,12 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
 }
 
 TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
-  simulation_->OnProcessStarted(1);
+  simulation_->OnProcessStarted(time_, 1);
   simulation_->set_page_size(0x8000);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(blocks_[i].start,
+    simulation_->OnFunctionEntry(time_,
+                                 blocks_[i].start,
                                  blocks_[i].size);
   }
 
@@ -333,11 +336,12 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
 }
 
 TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithFewPagesPerCodeFault) {
-  simulation_->OnProcessStarted(1);
+  simulation_->OnProcessStarted(time_, 1);
   simulation_->set_pages_per_code_fault(3);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(blocks_[i].start,
+    simulation_->OnFunctionEntry(time_,
+                                 blocks_[i].start,
                                  blocks_[i].size);
   }
 
@@ -346,10 +350,11 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithFewPagesPerCodeFault) {
 }
 
 TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
-  simulation_->OnProcessStarted(1);
+  simulation_->OnProcessStarted(time_, 1);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(blocks_[i].start,
+    simulation_->OnFunctionEntry(time_,
+                                 blocks_[i].start,
                                  blocks_[i].size);
   }
 

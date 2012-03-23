@@ -1,0 +1,193 @@
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This file declares the HeatMapSimulation class.
+
+
+#ifndef SYZYGY_SIMULATE_HEAT_MAP_SIMULATION_H_
+#define SYZYGY_SIMULATE_HEAT_MAP_SIMULATION_H_
+
+#include <map>
+
+#include "syzygy/simulate/simulation_event_handler.h"
+#include "syzygy/trace/parse/parser.h"
+
+namespace simulate {
+
+// An implementation of SimulationEventHandler.
+// HeatMapSimulation parses trace events, gathers the code blocks from them,
+// and organizes those by the number of times each memory slice of a given
+// size, in bytes, was called during a time slice of a given size,
+// in microseconds.
+//
+// HeatMapSimulation simulation;
+//
+// simulation.set_time_slice_usecs(5);
+// simulation.set_memory_slice_bytes(0x4000);
+// simulation.OnProcessStarted(time, 0);
+// simulation.OnFunctionEntry(times[0], 0, 5);
+// simulation.OnFunctionEntry(times[1], 3, 200);
+// simulation.SerializeToJSON(file, pretty_print);
+//
+// If the time slice size or the memory slice size are not set, the default
+// values of 1 and 0x8000, respectively, are used.
+class HeatMapSimulation : public SimulationEventHandler {
+ public:
+  class TimeSlice;
+
+  typedef time_t TimeSliceId;
+  typedef std::map<TimeSliceId, TimeSlice> TimeMemoryMap;
+
+  // The default time and memory slice sizes.
+  static const uint32 kDefaultTimeSliceSize = 1;
+  static const uint32 kDefaultMemorySliceSize = 0x8000;
+
+  // Construct a new HeatMapSimulation instance.
+  HeatMapSimulation();
+
+  // @name Accessors.
+  // @{
+  const TimeMemoryMap& time_memory_map() const { return time_memory_map_; }
+  uint32 time_slice_usecs() const { return time_slice_usecs_; }
+  uint32 memory_slice_bytes() const { return memory_slice_bytes_; }
+  // @}
+
+  // @name Mutators.
+  // @{
+  // Set the size of time slices used in the heat map.
+  // @param time_slice_usecs The size used, in microseconds.
+  void set_time_slice_usecs(uint32 time_slice_usecs) {
+    DCHECK_LT(0u, time_slice_usecs);
+    time_slice_usecs_ = time_slice_usecs;
+  }
+  // Set the size of the memory slices used in the heat map.
+  // @param memory_slice_bytes The size used, in bytes.
+  void set_memory_slice_bytes(uint32 memory_slice_bytes) {
+    DCHECK_LT(0u, memory_slice_bytes);
+    memory_slice_bytes_ = memory_slice_bytes;
+  }
+  // @}
+
+  // @name SimulationEventHandler implementation
+  // @{
+  // Sets the entry time of the trace file.
+  // @param time The startup time of the execution.
+  void OnProcessStarted(base::Time time, size_t default_page_size) OVERRIDE;
+
+  // Adds a group of code blocks corresponding to one function
+  // to time_memory_map_.
+  // @param time The entry time of the function.
+  // @param block_start The start start of the function.
+  // @param size The size of the function.
+  void OnFunctionEntry(base::Time time,
+                       uint32 block_start,
+                       size_t size) OVERRIDE;
+
+  // Serializes the data to JSON.
+  // The serialization consists of a list containing a dictionary of each
+  // timestamp, and the total number of memory slices used, during that
+  // time slice, and of another list with dictionaries containing each
+  // separate memory slice and the number of times it was used. Example:
+  // {
+  //   "time_slice_usecs": 1,
+  //   "memory_slice_bytes": 32768,
+  //   "time_slice_list": [
+  //     {
+  //       "timestamp": 31,
+  //       "total_memory_slices": 2260,
+  //       "memory_slice_list": [
+  //         {
+  //           "memory_slice": 0,
+  //           "quantity": 1719
+  //         },
+  //         {
+  //           "memory_slice": 1,
+  //           "quantity": 541
+  //         },
+  //       ]
+  //     },
+  //     {
+  //       "timestamp": 33,
+  //       "total_memory_slices": 105,
+  //       "memory_slice_list": [
+  //         {
+  //           "memory_slice": 0,
+  //           "quantity": 105
+  //         },
+  //       ]
+  //     }
+  //   ]
+  // }
+  // @param output the file to be written to.
+  // @param pretty_print enables or disables pretty printing.
+  // @returns true on success, false on failure.
+  bool SerializeToJSON(FILE* output, bool pretty_print);
+  // @}
+
+ protected:
+  typedef core::RelativeAddress RelativeAddress;
+  typedef trace::parser::ModuleInformation ModuleInformation;
+  typedef uint64 AbsoluteAddress64;
+
+  // The size of each time block on the heat map, in microseconds.
+  uint32 time_slice_usecs_;
+
+  // The size of each memory block on the heat map, in bytes.
+  uint32 memory_slice_bytes_;
+
+  // A map which contains the density of each pair of time and memory slices.
+  // TODO(fixman): If there aren't many possible relative times,
+  // this will probably be better off as a vector.
+  TimeMemoryMap time_memory_map_;
+
+  // The time when the process was started. Used to convert absolute function
+  // entry times to relative times since start of process.
+  base::Time process_start_time_;
+};
+
+// Stores the respective memory slices of a particular time slice in a map.
+class HeatMapSimulation::TimeSlice {
+ public:
+  typedef uint32 MemorySliceId;
+  typedef std::map<MemorySliceId, uint32> SliceQtyMap;
+
+  TimeSlice() : total_(0) {
+  }
+
+  // TODO(fixman): Measure the number of bytes executed in each slice.
+  // Add a memory slice to the counter.
+  // @param slice The relative code block number.
+  void AddSlice(MemorySliceId slice) {
+    slices_[slice]++;
+    total_++;
+  }
+
+  // @name Accessors.
+  // @{
+  const SliceQtyMap& slices() const { return slices_; }
+  uint32 total() const { return total_; }
+  // @}
+
+ protected:
+  // The slices that were accumulated at this time, and how many times
+  // they were called.
+  SliceQtyMap slices_;
+
+  // The total number of blocks that were called at this time.
+  uint32 total_;
+};
+
+} // namespace simulate
+
+#endif  // SYZYGY_SIMULATE_HEAT_MAP_SIMULATION_H_

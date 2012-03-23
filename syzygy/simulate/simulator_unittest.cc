@@ -33,8 +33,12 @@ using testing::Gt;
 
 class MockParseEventHandler : public SimulationEventHandler {
  public:
-  MOCK_METHOD1(OnProcessStarted, void(size_t default_page_size));
-  MOCK_METHOD2(OnFunctionEntry, void(uint32 block_start, size_t size));
+  MOCK_METHOD2(OnProcessStarted, void(base::Time time,
+                                      size_t default_page_size));
+
+  MOCK_METHOD3(OnFunctionEntry, void(base::Time time,
+                                     uint32 block_start,
+                                     size_t size));
 
   MOCK_METHOD2(SerializeToJSON, bool (FILE* output, bool pretty_print));
 };
@@ -88,12 +92,12 @@ TEST_F(SimulatorTest, SuccesfulRead) {
   // OnProcessStarted will be called exactly 4 times. Also, since they are
   // RPC-instrumented trace files we will know the value of the page size, so
   // it will be called with an argument greater than 0.
-  EXPECT_CALL(simulation_event_handler_, OnProcessStarted(Gt(0u))).Times(4);
+  EXPECT_CALL(simulation_event_handler_, OnProcessStarted(_, Gt(0u))).Times(4);
 
   // We don't have that much information about OnFunctionEntry events, but at
   // least know they should happen.
   EXPECT_CALL(simulation_event_handler_,
-              OnFunctionEntry(_, _)).Times(AtLeast(1));
+              OnFunctionEntry(_, _, _)).Times(AtLeast(1));
 
   ASSERT_TRUE(simulator_->ParseTraceFiles());
 }

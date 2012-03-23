@@ -70,9 +70,9 @@ void Simulator::OnProcessStarted(base::Time time,
   DCHECK(simulation_ != NULL);
 
   if (data == NULL)
-    simulation_->OnProcessStarted(0);
+    simulation_->OnProcessStarted(time, 0);
   else
-    simulation_->OnProcessStarted(data->system_info.dwPageSize);
+    simulation_->OnProcessStarted(time, data->system_info.dwPageSize);
 }
 
 void Simulator::OnFunctionEntry(base::Time time,
@@ -91,7 +91,7 @@ void Simulator::OnFunctionEntry(base::Time time,
 
   // Call our simulation with the event data we have.
   DCHECK(simulation_ != NULL);
-  simulation_->OnFunctionEntry(block->addr().value(), block->size());
+  simulation_->OnFunctionEntry(time, block->addr().value(), block->size());
 }
 
 void Simulator::OnBatchFunctionEntry(base::Time time,
@@ -102,7 +102,14 @@ void Simulator::OnBatchFunctionEntry(base::Time time,
   TraceEnterExitEventData new_data = {};
   for (size_t i = 0; i < data->num_calls; ++i) {
     new_data.function = data->calls[i].function;
-    OnFunctionEntry(time, process_id, thread_id, &new_data);
+
+    // Convert the tick count of this specific function to a base::Time
+    // and call OnFunctionEntry with that value.
+    LARGE_INTEGER big_timestamp = {};
+    big_timestamp.QuadPart = data->calls[i].tick_count;
+    base::Time start_time(base::Time::FromFileTime(
+        *reinterpret_cast<FILETIME*>(&big_timestamp)));
+    OnFunctionEntry(start_time, process_id, thread_id, &new_data);
   }
 }
 
