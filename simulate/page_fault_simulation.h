@@ -30,9 +30,9 @@ namespace simulate {
 //
 // simulation.set_page_size(0x2000);
 // simulation.set_pages_per_code_fault(10);
-// simulation.OnProcessStarted(process_data);
-// simulation.OnFunctionEntry(0, 5);
-// simulation.OnFunctionEntry(3, 200);
+// simulation.OnProcessStarted(time, 0);
+// simulation.OnFunctionEntry(time, 5);
+// simulation.OnFunctionEntry(time, 200);
 // simulator.SerializeToJSON(file, pretty_print);
 //
 // If the pages per code fault are not set, then the default value of
@@ -77,10 +77,12 @@ class PageFaultSimulation : public SimulationEventHandler {
   // @name SimulationEventHandler implementation
   // @{
   // Sets the initial page size, if it's not set already.
-  void OnProcessStarted(size_t default_page_size) OVERRIDE;
+  void OnProcessStarted(base::Time time, size_t default_page_size) OVERRIDE;
 
   // Registers the page faults, given a certain code block.
-  void OnFunctionEntry(uint32 block_start, size_t block_size) OVERRIDE;
+  void OnFunctionEntry(base::Time time,
+                       uint32 block_start,
+                       size_t block_size) OVERRIDE;
 
   // The serialization consists of a single dictionary containing
   // the block number of each block that pagefaulted.

@@ -17,6 +17,7 @@
 #ifndef SYZYGY_SIMULATE_SIMULATION_EVENT_HANDLER_H_
 #define SYZYGY_SIMULATE_SIMULATION_EVENT_HANDLER_H_
 
+#include "base/time.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace simulate {
@@ -29,14 +30,18 @@ class SimulationEventHandler {
  public:
   // Issued once, prior to the first OnFunctionEntry event in each
   // instrumented module.
+  // @param time The entry time of this process.
   // @param default_page_size The page size to be used, or 0 to use a default
   // page size.
-  virtual void OnProcessStarted(size_t default_page_size) = 0;
+  virtual void OnProcessStarted(base::Time time, size_t default_page_size) = 0;
 
   // Issued for all function entry traces.
+  // @param time The entry time of this function.
   // @param block_start The first relative address of the code block.
   // @param block_size The size of the code block.
-  virtual void OnFunctionEntry(uint32 block_start, size_t size) = 0;
+  virtual void OnFunctionEntry(base::Time time,
+                               uint32 block_start,
+                               size_t size) = 0;
 
   // Serializes the data to JSON.
   // @param output The output FILE.

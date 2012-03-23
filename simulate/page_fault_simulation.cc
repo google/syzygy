@@ -24,7 +24,8 @@ PageFaultSimulation::PageFaultSimulation()
       pages_per_code_fault_(kDefaultPagesPerCodeFault) {
 }
 
-void PageFaultSimulation::OnProcessStarted(size_t default_page_size) {
+void PageFaultSimulation::OnProcessStarted(base::Time /*time*/,
+                                           size_t default_page_size) {
   // Set the page size if it wasn't set by the user yet.
   if (page_size_ != 0)
     return;
@@ -71,7 +72,8 @@ bool PageFaultSimulation::SerializeToJSON(FILE* output,
   return true;
 }
 
-void PageFaultSimulation::OnFunctionEntry(uint32 block_start,
+void PageFaultSimulation::OnFunctionEntry(base::Time /*time*/,
+                                          uint32 block_start,
                                           size_t block_size) {
   DCHECK(page_size_ != 0);
 
