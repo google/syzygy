@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import presubmit
 import re
 import subprocess
 import sys
+import verifier
 
 
 class Error(Exception):
@@ -322,19 +323,39 @@ class ExecutableTest(Test):
   def _Run(self, configuration):
     test_path = self._GetTestPath(configuration)
     rel_test_path = os.path.relpath(test_path, self._project_dir)
+    # Create the app verifier test runner.
+    runner = verifier.AppverifierTestRunner(False)
+    image_name = os.path.basename(test_path)
+
+    # Set up the verifier configuration.
+    runner.SetImageDefaults(image_name)
+    runner.ClearImageLogs(image_name)
+
     command = [test_path]
     popen = subprocess.Popen(command, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
     (stdout, unused_stderr) = popen.communicate()
     self._WriteStdout(stdout)
 
+    # Clear the verifier settings for the image.
+    runner.ResetImage(image_name)
+
+    # And process the logs.
+    errors = runner.ProcessLogs(image_name)
+    if errors:
+      # The test generated app verifier errors, write them out
+      # and fail the test.
+      for error in errors:
+        self._WriteStderr(str(error) + '\n')
+
     if popen.returncode != 0:
       # Duplicate the output to stderr. This way it'll be reported at the
       # end of all tests for better visibility.
       self._WriteStderr(stdout)
-      return False
+      raise TestFailure('Test returned exit code %d.' % popen.returncode)
 
-    return True
+    if errors:
+      raise TestFailure('Test has AppVerifier failures.')
 
 
 def _GTestColorize(text):

@@ -47,7 +47,7 @@
         'scripts/scripts.gyp:*',
         'scripts/benchmark/benchmark.gyp:*',
         'scripts/graph/graph.gyp:*',
-	'simulate/simulate.gyp:*',
+        'simulate/simulate.gyp:*',
         'snapshot/snapshot.gyp:*',
         'test_data/test_data.gyp:*',
         'trace/client/client.gyp:*',
