@@ -112,6 +112,7 @@ hooks = [
     "pattern": ".",
     "action": ["python",
                "src/build/gyp_chromium",
+               "--include=src/syzygy/syzygy.gypi",
                "src/syzygy/syzygy.gyp"],
   },
 ]
