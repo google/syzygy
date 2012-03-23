@@ -46,9 +46,9 @@
       'target_name': 'rpc_service_unittests',
       'type': 'executable',
       'sources': [
-        'process_info_unittests.cc',
-        'service_unittests.cc',
-        'session_unittests.cc',
+        'process_info_unittest.cc',
+        'service_unittest.cc',
+        'session_unittest.cc',
         'rpc_service_unittests_main.cc',
       ],
       'dependencies': [

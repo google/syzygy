@@ -39,7 +39,7 @@
       'type': 'executable',
       'sources': [
         'agent_common_unittests_main.cc',
-        'shadow_stack_unittests.cc',
+        'shadow_stack_unittest.cc',
       ],
       'dependencies': [
         'agent_common_lib',

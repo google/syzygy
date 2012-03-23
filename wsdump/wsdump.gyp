@@ -1,4 +1,4 @@
-# Copyright 2010 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
       'type': 'executable',
       'sources': [
         'process_working_set_unittest.cc',
-        'wsdump_unittest_main.cc'
+        'wsdump_unittests_main.cc'
       ],
       'dependencies': [
         'wsdump_lib',
