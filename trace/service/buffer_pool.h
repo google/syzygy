@@ -36,7 +36,7 @@ class Session;
 
 // A Buffer extends the RPC defined CallTraceBuffer structure with the
 // extra bits needed by the internals of the Call Trace service.
-struct Buffer: public ::CallTraceBuffer {
+struct Buffer : public ::CallTraceBuffer {
   // A buffer is always in one of the following states.
   enum BufferState {
     kAvailable,

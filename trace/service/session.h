@@ -24,6 +24,7 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/service/buffer_pool.h"
@@ -95,7 +96,13 @@ class Session {
   // Returns the block size for this session's trace file.
   size_t block_size() const { return block_size_; }
 
- private:
+ protected:
+  // @name Testing seams. These are basically events which will be called,
+  //     providing places for unittests to set some hooks.
+  // @{
+  virtual void OnWaitingForBufferToBeRecycled() { }
+  // @}
+
   typedef Buffer::BufferState BufferState;
   typedef std::list<BufferPool*> SharedMemoryBufferCollection;
 
@@ -105,7 +112,8 @@ class Session {
   // @param buffer_size the size of each buffer to be allocated.
   // @returns true on success, false otherwise.
   // @pre Under lock_.
-  bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
+  // @note this is virtual to provide a testing seam.
+  virtual bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
 
   // A private implementation of GetNextBuffer, but which assumes the lock has
   // already been acquired.
@@ -162,6 +170,14 @@ class Session {
 
   // Tracks whether this session is in the process of shutting down.
   bool is_closing_;  // Under lock_.
+
+  // This is used to count the number of GetNextBuffer requests that are
+  // currently applying back-pressure. There can only be as many of them as
+  // there are buffers to be recycled until we fall below the back-pressure cap.
+  size_t buffer_requests_waiting_for_recycle_;  // Under lock_.
+
+  // This condition variable is used to indicate that a buffer is available.
+  base::ConditionVariable buffer_is_available_;  // Under lock_.
 
   // This lock protects any access to the internals related to buffers and their
   // state.

@@ -48,6 +48,7 @@
       'sources': [
         'process_info_unittests.cc',
         'service_unittests.cc',
+        'session_unittests.cc',
         'rpc_service_unittests_main.cc',
       ],
       'dependencies': [

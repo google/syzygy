@@ -68,6 +68,10 @@ class Service : public base::PlatformThread::Delegate {
   // The default size (in bytes) for each call trace buffer.
   static const size_t kDefaultBufferSize;
 
+  // The default maximum number of buffers pending write that a session should
+  // allow before beginning to force writes.
+  static const size_t kDefaultMaxBuffersPendingWrite;
+
   // The name of the Win32 RPC protocol to which the service will bind.
   static const wchar_t* const kRpcProtocol;
 
@@ -105,11 +109,25 @@ class Service : public base::PlatformThread::Delegate {
     buffer_size_in_bytes_ = n;
   }
 
+  // Sets the maximum number of buffers pending write that a session should
+  // allow before starting to force buffer writes.
+  // @param n the max number of buffers pending write to allow.
+  void set_max_buffers_pending_write(size_t n) {
+    DCHECK_LT(0u, n);
+    max_buffers_pending_write_ = n;
+  }
+
   // @returns the number of new buffers to be created per allocation.
   size_t num_incremental_buffers() const { return num_incremental_buffers_; }
 
   // @returns the size (in bytes) of new buffers to be allocated.
   size_t buffer_size_in_bytes() const { return buffer_size_in_bytes_; }
+
+  // @returns the maximum number of buffers that sessions should allow to be
+  //     pending writes prior to starting to force them.
+  size_t max_buffers_pending_write() const {
+    return max_buffers_pending_write_;
+  }
 
   // Returns true if any of the service's subsystems are running.
   bool is_running() const {
@@ -187,7 +205,9 @@ class Service : public base::PlatformThread::Delegate {
   bool ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers);
   // @}
 
- private:
+ // These are protected for unittesting.
+ protected:
+
   // RPC Server Management Functions.
   bool AcquireServiceMutex();
   void ReleaseServiceMutex();
@@ -220,7 +240,10 @@ class Service : public base::PlatformThread::Delegate {
   // is non-empty then transfers (swaps) any pending buffers to be written
   // to out_queue. This function expects that out_queue->empty() is true
   // on input.
-  bool GetBuffersToWrite(BufferQueue* out_queue);
+  // NOTE: This is virtual for testing purposes. This function is a gateway
+  //     that allows us to finely control which buffers get picked up from the
+  //     write queue.
+  virtual bool GetBuffersToWrite(BufferQueue* out_queue);
 
   // Launch the writer thread, which will consume buffers from
   // pending_write_queue_ and commit them to disk. Returns true on
@@ -233,6 +256,9 @@ class Service : public base::PlatformThread::Delegate {
 
   // Implements the I/O thread via PlatformThread::Delegate::ThreadMain().
   virtual void ThreadMain();
+
+  // Session factory. This is virtual for testing purposes.
+  virtual Session* CreateSession();
 
   // The collection of active trace sessions.
   SessionMap sessions_;
@@ -251,6 +277,9 @@ class Service : public base::PlatformThread::Delegate {
 
   // The number of bytes in each buffer.
   size_t buffer_size_in_bytes_;
+
+  // The maximum number of buffers that a session should have pending write.
+  size_t max_buffers_pending_write_;
 
   // Handle to the thread that owns/created this call trace service instance.
   base::PlatformThreadId owner_thread_;

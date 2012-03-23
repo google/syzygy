@@ -32,6 +32,15 @@ base::LazyInstance<Service> service_instance = LAZY_INSTANCE_INITIALIZER;
 
 const size_t Service::kDefaultBufferSize = 2 * 1024 * 1024;
 const size_t Service::kDefaultNumIncrementalBuffers = 16;
+
+// The choice of this value is not particularly important, but it should be
+// something that is relatively prime to the number of buffers created per
+// allocation, and it should represent more memory than our disk bandwidth
+// can reasonably write in about a second or so, so as to allow sufficient
+// buffering for smoothing. Assuming 20MB/sec consistent throughput, this
+// represents about 26 MB, so 1.3 seconds of disk bandwidth.
+const size_t Service::kDefaultMaxBuffersPendingWrite = 13;
+
 const wchar_t* const Service::kRpcProtocol = ::kCallTraceRpcProtocol;
 const wchar_t* const Service::kRpcEndpoint = ::kCallTraceRpcEndpoint;
 const wchar_t* const Service::kRpcMutex = ::kCallTraceRpcMutex;
@@ -41,6 +50,7 @@ Service::Service()
       endpoint_(kRpcEndpoint),
       num_incremental_buffers_(kDefaultNumIncrementalBuffers),
       buffer_size_in_bytes_(kDefaultBufferSize),
+      max_buffers_pending_write_(kDefaultMaxBuffersPendingWrite),
       owner_thread_(base::PlatformThread::CurrentId()),
       writer_thread_(base::kNullThreadHandle),
       queue_is_non_empty_(&queue_lock_),
@@ -403,6 +413,10 @@ void Service::ThreadMain() {
   }
 }
 
+Session* Service::CreateSession() {
+  return new Session(this);
+}
+
 // RPC entry point.
 boolean Service::RequestShutdown() {
   VLOG(1) << "Requesting a shutdown of the call trace service.";
@@ -613,7 +627,7 @@ bool Service::GetNewSession(ProcessID client_process_id, Session** session) {
 
   // Take care of deleting the session if initialization fails or a session
   // already exists for this pid.
-  scoped_ptr<Session> new_session(new Session(this));
+  scoped_ptr<Session> new_session(CreateSession());
 
   // Attempt to add the session to the session map. If the insertion fails,
   // let the new_session scoped_ptr clean up the object.
