@@ -131,7 +131,7 @@ class DatumHandler(webapp.RequestHandler):
       result.update({'datum_id': datum.key().id(),
                      'product_version': datum.product_version,
                      'toolchain_version': datum.toolchain_version,
-                     'timestamp': datum.timestamp.stftime(
+                     'timestamp': datum.timestamp.strftime(
                          self._TIMESTAMP_FORMAT),
                      'values': datum.values})
 

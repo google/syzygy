@@ -61,6 +61,7 @@ class ProductTest(handler_test.TestCase):
         result)
 
   def testGetArgValidation(self):
+    # Non-existing product ID.
     self._InitHandler('')
     self._handler.get('blah')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
@@ -73,14 +74,17 @@ class ProductTest(handler_test.TestCase):
     self.assertTrue(product_db.Product.get_by_key_name('p3') is not None)
 
   def testPostArgValidation(self):
+    # Product ID in URL.
     self._InitHandler('product_id=p3')
     self._handler.post('p3')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Product ID missing from body.
     self._InitHandler('')
     self._handler.post('')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Existing product ID.
     self._InitHandler('product_id=p1')
     self._handler.post('')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
@@ -98,10 +102,12 @@ class ProductTest(handler_test.TestCase):
     self.assertTrue(product_db.Product.get_by_key_name('p1') is None)
 
   def testDeleteArgValidation(self):
+    # Product ID missing from body.
     self._InitHandler('')
     self._handler.delete('')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Non-existing product ID.
     self._InitHandler('')
     self._handler.delete('blah')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)

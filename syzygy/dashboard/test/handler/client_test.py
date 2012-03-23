@@ -76,10 +76,12 @@ class ClientTest(handler_test.TestCase):
         result)
 
   def testGetArgValidation(self):
+    # Non-existing product ID.
     self._InitHandler('')
     self._handler.get('p2', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing client ID.
     self._InitHandler('')
     self._handler.get('p1', 'c3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
@@ -95,22 +97,27 @@ class ClientTest(handler_test.TestCase):
     self.assertEqual('c3_desc', c3.description)
 
   def testPostArgValidation(self):
+    # Client ID in URL.
     self._InitHandler('client_id=c3&description=c3_desc')
     self._handler.post('p1', 'c3')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Client ID missing from body.
     self._InitHandler('description=c3_desc')
     self._handler.post('p1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Description missing from body.
     self._InitHandler('client_id=c3')
     self._handler.post('p1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Non-existing product ID.
     self._InitHandler('client_id=c3&description=c3_desc')
     self._handler.post('p2', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Existing client ID.
     self._InitHandler('client_id=c1&description=c1_desc')
     self._handler.post('p1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
@@ -125,18 +132,22 @@ class ClientTest(handler_test.TestCase):
     self.assertEqual('new_c1_desc', c1.description)
 
   def testPutArgValidation(self):
+    # Client ID missing from URL.
     self._InitHandler('description=new_c1_desc')
     self._handler.post('p1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Description missing from body.
     self._InitHandler('')
     self._handler.post('p1', 'c1')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Non-existing product ID.
     self._InitHandler('description=new_c1_desc')
     self._handler.put('p2', 'c1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing client ID.
     self._InitHandler('description=new_c3_desc')
     self._handler.put('p1', 'c3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
@@ -150,14 +161,17 @@ class ClientTest(handler_test.TestCase):
     self.assertTrue(client_db.Client.get_by_key_name('c2', p1) is None)
 
   def testDeleteArgValidation(self):
+    # Client ID missing from URL.
     self._InitHandler('')
     self._handler.delete('p1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Non-existing product ID.
     self._InitHandler('')
     self._handler.delete('p2', 'c2')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing client ID.
     self._InitHandler('')
     self._handler.delete('p1', 'c3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
