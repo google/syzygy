@@ -78,14 +78,17 @@ class MetricTest(handler_test.TestCase):
         result)
 
   def testGetArgValidation(self):
+    # Non-existing product ID.
     self._InitHandler('')
     self._handler.get('p2', 'c1', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing client ID.
     self._InitHandler('')
     self._handler.get('p1', 'c2', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing metric ID.
     self._InitHandler('')
     self._handler.get('p1', 'c2', 'm3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
@@ -103,30 +106,37 @@ class MetricTest(handler_test.TestCase):
     self.assertEqual('balls', m3.units)
 
   def testPostArgValidation(self):
+    # Metric ID in URL.
     self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
     self._handler.post('p1', 'c1', 'm3')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Metric ID missing from body.
     self._InitHandler('description=m3_desc&units=balls')
     self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Description missing from body.
     self._InitHandler('metric_id=m3&units=balls')
     self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Units missing from body.
     self._InitHandler('metric_id=m3&description=m3_desc')
     self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Product ID not found.
     self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
     self._handler.post('p2', 'c1', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Client ID not found.
     self._InitHandler('metric_id=m3&description=m3_desc&units=balls')
     self._handler.post('p1', 'c2', '')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Existing metric ID.
     self._InitHandler('metric_id=m1&description=m1_desc&units=balls')
     self._handler.post('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
@@ -143,26 +153,32 @@ class MetricTest(handler_test.TestCase):
     self.assertEqual('borks', m1.units)
 
   def testPutArgValidation(self):
+    # Metric ID missing from URL.
     self._InitHandler('description=new_m1_desc&units=borks')
     self._handler.put('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
-    self._InitHandler('description=new_m1_desc')
-    self._handler.put('p1', 'c1', 'm1')
-    self.assertEqual(httplib.BAD_REQUEST, self._response.status)
-
+    # Description missing from body.
     self._InitHandler('units=borks')
     self._handler.put('p1', 'c1', 'm1')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Units missing from body.
+    self._InitHandler('description=new_m1_desc')
+    self._handler.put('p1', 'c1', 'm1')
+    self.assertEqual(httplib.BAD_REQUEST, self._response.status)
+
+    # Non-existing product ID.
     self._InitHandler('description=new_m1_desc&units=borks')
     self._handler.put('p2', 'c1', 'm1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing client ID.
     self._InitHandler('description=new_m1_desc&units=borks')
     self._handler.put('p1', 'c2', 'm1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing metric ID.
     self._InitHandler('description=new_m1_desc&units=borks')
     self._handler.put('p1', 'c1', 'm3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
@@ -177,18 +193,22 @@ class MetricTest(handler_test.TestCase):
     self.assertTrue(metric_db.Metric.get_by_key_name('m1', c1) is None)
 
   def testDeleteArgValidation(self):
+    # Metric ID missing from URL.
     self._InitHandler('')
     self._handler.delete('p1', 'c1', '')
     self.assertEqual(httplib.BAD_REQUEST, self._response.status)
 
+    # Non-existing product ID.
     self._InitHandler('')
     self._handler.delete('p2', 'c1', 'm1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing client ID.
     self._InitHandler('')
     self._handler.delete('p1', 'c2', 'm1')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
 
+    # Non-existing metric ID.
     self._InitHandler('')
     self._handler.delete('p1', 'c1', 'm3')
     self.assertEqual(httplib.NOT_FOUND, self._response.status)
