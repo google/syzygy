@@ -93,7 +93,8 @@ def CheckChange(input_api, output_api, committing):
     results += check(input_api, output_api)
 
   gyp_file_re = r'.+\.gypi?$'
-  white_list = input_api.DEFAULT_WHITE_LIST + (gyp_file_re,)
+  py_file_re = r'.+\.py$'
+  white_list = input_api.DEFAULT_WHITE_LIST + (gyp_file_re, py_file_re)
   sources = lambda x: input_api.FilterSourceFile(x, white_list=white_list)
   results += input_api.canned_checks.CheckLicense(input_api,
                                                   output_api,

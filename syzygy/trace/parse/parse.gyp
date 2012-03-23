@@ -62,10 +62,10 @@
       'target_name': 'parse_unittests',
       'type': 'executable',
       'sources': [
-        'parse_engine_etw_unittests.cc',
-        'parse_engine_rpc_unittests.cc',
-        'parse_engine_unittests.cc',
-        'parse_utils_unittests.cc',
+        'parse_engine_etw_unittest.cc',
+        'parse_engine_rpc_unittest.cc',
+        'parse_engine_unittest.cc',
+        'parse_utils_unittest.cc',
         'unittests_main.cc',
       ],
       'dependencies': [

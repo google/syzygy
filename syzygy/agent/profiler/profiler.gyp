@@ -53,9 +53,9 @@
       'target_name': 'profile_unittests',
       'type': 'executable',
       'sources': [
-        'profiler_unittests.cc',
+        'profiler_unittest.cc',
         'profiler_unittests_main.cc',
-        'return_thunk_factory_unittests.cc',
+        'return_thunk_factory_unittest.cc',
       ],
       'dependencies': [
         'profile_client',

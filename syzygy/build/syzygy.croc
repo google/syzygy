@@ -53,7 +53,7 @@
       'group': 'source',
     },
     {
-      'regexp': '.*_(test|test_mac|unittest|unittests_main)\\.',
+      'regexp': '.*unittest.*',
       'group': 'test',
     },
 
