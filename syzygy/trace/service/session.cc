@@ -182,6 +182,8 @@ namespace service {
 Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
       is_closing_(false),
+      buffer_requests_waiting_for_recycle_(0),
+      buffer_is_available_(&lock_),
       input_error_already_logged_(false) {
   DCHECK(call_trace_service != NULL);
   ::memset(buffer_state_counts_, 0, sizeof(buffer_state_counts_));
@@ -366,6 +368,7 @@ bool Session::RecycleBuffer(Buffer* buffer) {
 
     ChangeBufferState(Buffer::kAvailable, buffer);
     buffers_available_.push_front(buffer);
+    buffer_is_available_.Signal();
 
     // If the session is closing and all outstanding buffers have been recycled
     // then it's safe to destroy this session.
@@ -441,6 +444,7 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
 
     buffer_state_counts_[Buffer::kAvailable]++;
     buffers_available_.push_back(buf);
+    buffer_is_available_.Signal();
   }
 
   // Make sure we updated everything correctly.
@@ -460,11 +464,50 @@ bool Session::GetNextBufferUnlocked(Buffer** out_buffer) {
 
   *out_buffer = NULL;
 
-  if (buffers_available_.empty()) {
-    // TODO(chrisha): This is where back-pressure will be applied.
-    if (!AllocateBuffers(call_trace_service_->num_incremental_buffers(),
-                         call_trace_service_->buffer_size_in_bytes())) {
-      return false;
+  // If we have too many pending writes, let's wait until one of those has
+  // been completed and recycle that buffer. This provides some back-pressure
+  // on our allocation mechanism.
+  //
+  // Note that this back-pressure maximum simply reduces the amount of
+  // memory that will be used in common scenarios. It is still possible to
+  // have unbounded memory growth in two ways:
+  //
+  // (1) Having an unbounded number of processes, and hence sessions. Each
+  //     session creates an initial pool of buffers for itself.
+  //
+  // (2) Having an unbounded number of threads with outstanding (partially
+  //     filled and not returned for writing) buffers. The lack of buffers
+  //     pending writes will force further allocations as new threads come
+  //     looking for buffers.
+  //
+  // We have to be careful that we don't pile up arbitrary many threads waiting
+  // for a finite number of buffers that will be recycled. Hence, we count the
+  // number of requests applying back-pressure.
+  while (buffers_available_.empty()) {
+    // Figure out how many buffers we can force to be recycled according to our
+    // threshold and the number of write-pending buffers.
+    size_t buffers_force_recyclable = 0;
+    if (buffer_state_counts_[Buffer::kPendingWrite] >
+        call_trace_service_->max_buffers_pending_write()) {
+      buffers_force_recyclable = buffer_state_counts_[Buffer::kPendingWrite] -
+          call_trace_service_->max_buffers_pending_write();
+    }
+
+    // If there's still room to do so, wait rather than allocating immediately.
+    // This will either force us to wait until a buffer has been written and
+    // recycled, or if the request volume is high enough we'll likely be
+    // satisfied by an allocation.
+    if (buffer_requests_waiting_for_recycle_ < buffers_force_recyclable) {
+      ++buffer_requests_waiting_for_recycle_;
+      OnWaitingForBufferToBeRecycled();  // Unittest hook.
+      buffer_is_available_.Wait();
+      --buffer_requests_waiting_for_recycle_;
+    } else {
+      // Otherwise, force an allocation.
+      if (!AllocateBuffers(call_trace_service_->num_incremental_buffers(),
+                           call_trace_service_->buffer_size_in_bytes())) {
+        return false;
+      }
     }
   }
   DCHECK(!buffers_available_.empty());
