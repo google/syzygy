@@ -16,14 +16,18 @@
 # Syzygy tree.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-
   'target_defaults': {
     'configurations': {
-      'Coverage': {
-        'inherit_from': ['Debug'],
+      # A coverage build is for all intents and purposes a debug build with
+      # profile information (and therefore no incremental linking). This allows
+      # it to be instrumented.
+      'Coverage_Base': {
+        'abstract': 1,
+        'inherit_from': ['Debug_Base'],
+        'defines': [
+          # This global define is in addition to _DEBUG.
+          '_COVERAGE_BUILD',
+        ],
         'msvs_settings': {
           'VCCLCompilerTool': {
           },
@@ -36,6 +40,16 @@
           },
         },
       },
+      'Coverage': {
+        'inherit_from': ['Common_Base', 'x86_Base', 'Coverage_Base'],
+      },
+      'conditions': [
+        ['OS=="win"', {
+          'Coverage_x64': {
+            'inherit_from': ['Common_Base', 'x64_Base', 'Coverage_Base'],
+          },
+        }],
+      ],
     },
   },
 }

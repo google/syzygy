@@ -26,8 +26,8 @@
       'target_name': 'simulate_lib',
       'type': 'static_library',
       'sources': [
-	'heat_map_simulation.cc',
-	'heat_map_simulation.h',
+        'heat_map_simulation.cc',
+        'heat_map_simulation.h',
         'page_fault_simulation.cc',
         'page_fault_simulation.h',
         'simulation_event_handler.h',
@@ -58,7 +58,7 @@
       'target_name': 'simulate_unittests',
       'type': 'executable',
       'sources': [
-	'heat_map_simulation_unittest.cc',
+        'heat_map_simulation_unittest.cc',
         'page_fault_simulation_unittest.cc',
         'simulate_unittests_main.cc',
         'simulator_unittest.cc',
@@ -69,6 +69,7 @@
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:test_dll',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_traces',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
