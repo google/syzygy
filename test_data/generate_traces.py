@@ -33,18 +33,16 @@ import time
 
 _LOGGER = logging.getLogger(__name__)
 
-_CALL_TRACE_CLIENT = 'call_trace_client'
+
+_BUILD_DIR = 'build_dir'
 _CALL_TRACE_SERVICE = 'call_trace_service'
 _INSTRUMENTED_DLL = 'instrumented_dll'
 _OUTPUT_DIR = 'output_dir'
 _VERBOSE = 'verbose'
 
-_INPUTS = { _CALL_TRACE_CLIENT: 'call_trace_client.dll',
-            _CALL_TRACE_SERVICE: 'call_trace_service.exe',
-            _INSTRUMENTED_DLL: 'test_data/rpc_instrumented_test_dll.dll' }
 
+_INPUTS = { _CALL_TRACE_SERVICE: 'call_trace_service.exe',}
 _INSTRUMENTED_DLL_ENTRY = 'DllMain'
-
 _TRACE_FILE_COUNT = 4
 
 
@@ -57,8 +55,12 @@ def _ParseArgs():
   parser.add_option('-v', '--verbose', dest='verbose',
                     action='store_true', default=False,
                     help='Enable verbose logging.')
+  parser.add_option('--build-dir', dest='build_dir',
+                    help='The build directory to use.')
   parser.add_option('--output-dir', dest='output_dir',
-                    help='The output directory to use.')
+                    help='The output directory to write to.')
+  parser.add_option('--instrumented-dll', dest='instrumented_dll',
+                    help='The instrumented DLL to use.')
   (opts, args) = parser.parse_args()
   if not opts.output_dir:
     parser.error('You must specify --output-dir.')
@@ -67,11 +69,15 @@ def _ParseArgs():
   if not os.path.isdir(opts.output_dir):
     parser.error('Output directory does not exist: %s.' % opts.output_dir)
 
-  optsdict = { _OUTPUT_DIR: opts.output_dir, _VERBOSE: opts.verbose }
+  optsdict = {
+      _BUILD_DIR: opts.build_dir,
+      _INSTRUMENTED_DLL: opts.instrumented_dll,
+      _OUTPUT_DIR: opts.output_dir,
+      _VERBOSE: opts.verbose }
 
   # Validate that all of the input files exist and get absolute paths to them.
   for name, path in _INPUTS.iteritems():
-    abs_path = os.path.abspath(os.path.join(opts.output_dir, path))
+    abs_path = os.path.abspath(os.path.join(opts.build_dir, path))
     if not os.path.isfile(abs_path):
       parser.error('File not found: %s.' % abs_path)
     optsdict[name] = abs_path
@@ -121,7 +127,7 @@ def Main():
   opts = _ParseArgs()
 
   # Ensure the final destination directory exists as a fresh directory.
-  trace_dir = os.path.join(opts[_OUTPUT_DIR], 'test_data', 'rpc_traces')
+  trace_dir = opts[_OUTPUT_DIR]
   if os.path.exists(trace_dir):
     _LOGGER.info('Deleting existing destination directory "%s".', trace_dir)
     if os.path.isdir(trace_dir):
@@ -158,7 +164,7 @@ def Main():
     _LOGGER.info('Loading the instrumented DLL.')
     cmd = ['rundll32', '%s,%s' % (opts[_INSTRUMENTED_DLL],
                                   _INSTRUMENTED_DLL_ENTRY)]
-    popen = subprocess.Popen(cmd, cwd=opts[_OUTPUT_DIR])
+    popen = subprocess.Popen(cmd, cwd=opts[_BUILD_DIR])
     popen.communicate()
     if popen.returncode != 0:
       _LOGGER.error('"%s" returned with an error: %d', cmd[0], open.returncode)
