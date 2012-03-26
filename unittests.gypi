@@ -26,26 +26,56 @@
 {
   'variables': {
     'unittests': [
+      # Common tests.
       '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_unittests',
+
+      # Agent tests.
       '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
+
+      # Block graph tests.
       '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
       '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
           'block_graph_transforms_unittests',
       '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
           'block_graph_orderers_unittests',
+
+      # Common tests.
       '<(DEPTH)/syzygy/common/common.gyp:common_unittests',
+
+      # Core tests.
       '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
-      '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
-      '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',
+
+      # Grinder tests.
+      '<(DEPTH)/syzygy/grinder/grinder.gyp:grinder_unittests',
+
+      # Instrumenter tests.
       '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
+
+      # PDB tests.
       '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
+
+      # PE tests.
       '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
       '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_unittests',
       '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_unittests',
+
+      # Playback tests.
       '<(DEPTH)/syzygy/playback/playback.gyp:playback_unittests',
+
+      # Relink tests.
       '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
+
+      # Reorder tests.
       '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_unittests',
+
+      # Simulator tests.
       '<(DEPTH)/syzygy/simulate/simulate.gyp:simulate_unittests',
+
+      # Trace tests.
+      '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
+      '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',
+
+      # WSDump tests.
       '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
     ],
   }

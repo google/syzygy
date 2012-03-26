@@ -34,6 +34,7 @@
         'common/common.gyp:*',
         'core/core.gyp:*',
         'experimental/experimental.gyp:*',
+        'grinder/grinder.gyp:*',
         'instrument/instrument.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
