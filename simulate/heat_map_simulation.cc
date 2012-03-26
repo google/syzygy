@@ -20,7 +20,9 @@ namespace simulate {
 
 HeatMapSimulation::HeatMapSimulation()
     : time_slice_usecs_(kDefaultTimeSliceSize),
-      memory_slice_bytes_(kDefaultMemorySliceSize) {
+      memory_slice_bytes_(kDefaultMemorySliceSize),
+      max_time_slice_usecs_(0),
+      max_memory_slice_bytes_(0) {
 }
 
 bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
@@ -33,6 +35,10 @@ bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
       !json_file.OutputInteger(time_slice_usecs_) ||
       !json_file.OutputKey("memory_slice_bytes") ||
       !json_file.OutputInteger(memory_slice_bytes_) ||
+      !json_file.OutputKey("max_time_slice_usecs") ||
+      !json_file.OutputInteger(max_time_slice_usecs_) ||
+      !json_file.OutputKey("max_memory_slice_bytes") ||
+      !json_file.OutputInteger(max_memory_slice_bytes_) ||
       !json_file.OutputKey("time_slice_list") ||
       !json_file.OpenList()) {
     return false;
@@ -103,6 +109,8 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
   TimeSliceId time_slice = relative_time / time_slice_usecs_;
   TimeSlice& slice = time_memory_map_[time_slice];
 
+  max_time_slice_usecs_ = std::max(max_time_slice_usecs_, time_slice);
+
   DCHECK(memory_slice_bytes_ != 0);
   const uint32 kStartIndex = block_start / memory_slice_bytes_;
   const uint32 kEndIndex = (block_start + size + memory_slice_bytes_ - 1)
@@ -112,6 +120,7 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
   // add them to the given time_slice.
   for (uint32 i = kStartIndex; i < kEndIndex; i++) {
     slice.AddSlice(i);
+    max_memory_slice_bytes_ = std::max(max_memory_slice_bytes_, i);
   }
 }
 

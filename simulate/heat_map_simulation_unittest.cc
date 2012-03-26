@@ -250,6 +250,9 @@ TEST_F(HeatMapSimulationTest, CorrectHeatMap) {
 
   CheckSimulationResult(
       expected_size, expected_times, expected_totals, expected_slices);
+
+  EXPECT_EQ(simulation_->max_time_slice_usecs(), 30000000);
+  EXPECT_EQ(simulation_->max_memory_slice_bytes(), 0);
 }
 
 TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
@@ -282,6 +285,9 @@ TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
 
   CheckSimulationResult(
       expected_size, expected_times, expected_totals, expected_slices);
+
+  EXPECT_EQ(simulation_->max_time_slice_usecs(), 30000000);
+  EXPECT_EQ(simulation_->max_memory_slice_bytes(), 13);
 }
 
 TEST_F(HeatMapSimulationTest, BigTimeSliceSize) {
@@ -300,6 +306,9 @@ TEST_F(HeatMapSimulationTest, BigTimeSliceSize) {
 
   CheckSimulationResult(
       expected_size, expected_times, expected_totals, expected_slices);
+
+  EXPECT_EQ(simulation_->max_time_slice_usecs(), 0);
+  EXPECT_EQ(simulation_->max_memory_slice_bytes(), 0);
 }
 
 TEST_F(HeatMapSimulationTest, BigTimeSliceSizeSmallMemorySliceSize) {
@@ -329,6 +338,9 @@ TEST_F(HeatMapSimulationTest, BigTimeSliceSizeSmallMemorySliceSize) {
 
   CheckSimulationResult(
       expected_size, expected_times, expected_totals, expected_slices);
+
+  EXPECT_EQ(simulation_->max_time_slice_usecs(), 0);
+  EXPECT_EQ(simulation_->max_memory_slice_bytes(), 13);
 }
 
 TEST_F(HeatMapSimulationTest, RandomInput) {
@@ -381,6 +393,9 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
 
     CheckSimulationResult(
         expected_size, expected_times, expected_totals, expected_slices);
+
+    EXPECT_EQ(simulation_->max_time_slice_usecs(), 30000000);
+    EXPECT_EQ(simulation_->max_memory_slice_bytes(), 13);
 
     ASSERT_FALSE(testing::Test::HasNonfatalFailure()) << s.str();
   }

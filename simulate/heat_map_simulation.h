@@ -47,6 +47,7 @@ class HeatMapSimulation : public SimulationEventHandler {
   class TimeSlice;
 
   typedef time_t TimeSliceId;
+  typedef uint32 MemorySliceId;
   typedef std::map<TimeSliceId, TimeSlice> TimeMemoryMap;
 
   // The default time and memory slice sizes.
@@ -61,6 +62,10 @@ class HeatMapSimulation : public SimulationEventHandler {
   const TimeMemoryMap& time_memory_map() const { return time_memory_map_; }
   uint32 time_slice_usecs() const { return time_slice_usecs_; }
   uint32 memory_slice_bytes() const { return memory_slice_bytes_; }
+  TimeSliceId max_time_slice_usecs() const { return max_time_slice_usecs_; }
+  MemorySliceId max_memory_slice_bytes() const {
+    return max_memory_slice_bytes_;
+  }
   // @}
 
   // @name Mutators.
@@ -154,12 +159,15 @@ class HeatMapSimulation : public SimulationEventHandler {
   // The time when the process was started. Used to convert absolute function
   // entry times to relative times since start of process.
   base::Time process_start_time_;
+
+  // The number of the last time and memory slice, respectively.
+  TimeSliceId max_time_slice_usecs_;
+  MemorySliceId max_memory_slice_bytes_;
 };
 
 // Stores the respective memory slices of a particular time slice in a map.
 class HeatMapSimulation::TimeSlice {
  public:
-  typedef uint32 MemorySliceId;
   typedef std::map<MemorySliceId, uint32> SliceQtyMap;
 
   TimeSlice() : total_(0) {
