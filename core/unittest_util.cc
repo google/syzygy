@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,11 @@ FilePath GetOutputRelativePath(const wchar_t* rel_path) {
 #if defined(_DEBUG)
   // TODO(chrisha): Expose $(ProjectDir) and $(OutputDir) via defines in the
   //     project gyp file.
-  static const wchar_t kOutputDir[] = L"Debug";
+  #if defined(_COVERAGE_BUILD)
+    static const wchar_t kOutputDir[] = L"Coverage";
+  #else
+    static const wchar_t kOutputDir[] = L"Debug";
+  #endif
 #else
 #if defined(NDEBUG)
   static const wchar_t kOutputDir[] = L"Release";
