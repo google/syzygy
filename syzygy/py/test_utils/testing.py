@@ -181,7 +181,6 @@ class Test(object):
     self._stderr.write(value)
     return
 
-
   def _GetStdout(self):
     """Returns any accumulated stdout, and erases the buffer."""
     stdout = self._stdout.getvalue()
@@ -194,7 +193,7 @@ class Test(object):
     self._stderr = cStringIO.StringIO()
     return stderr
 
-  def Run(self, configuration, force=False):
+  def Run(self, configuration, force=False, app_verifier=False):
     """Runs the test in the given configuration. The derived instance of Test
     must implement '_Run(self, configuration)', which raises an exception on
     error or does nothing on success. Upon success of _Run, this will generate
@@ -205,6 +204,8 @@ class Test(object):
       configuration: The configuration in which to run.
       force: If True, this will force the test to re-run even if _NeedToRun
           would return False.
+      app_verifier: If True, this will run the given test using the
+          AppVerifier tool.
 
     Returns:
       True on success, False otherwise.
@@ -212,7 +213,9 @@ class Test(object):
     # Store optional arguments in a side-channel, so as to allow additions
     # without changing the _Run/_NeedToRun/_CanRun API.
     self._force = force
+    self._app_verifier = app_verifier
 
+    success = True
     try:
       if not self._CanRun(configuration):
         logging.info('Skipping test "%s" in invalid configuration "%s".',
@@ -238,21 +241,22 @@ class Test(object):
         need_to_run = True
 
       if need_to_run:
-        self._Run(configuration)
-
-        # We dump out stdout. We don't write stderr as this is saved for the
-        # top most test, which will report all accumulated stderr's back to
-        # back.
-        sys.stdout.write(self._GetStdout())
+        if not self._Run(configuration):
+          raise TestFailure('Test "%s" failed in configuration "%s".' %
+                                (self._name, configuration))
 
       self._MakeSuccessFile(configuration)
     except TestFailure, e:
-      self._WriteStderr(str(e) + '\n')
-      return False
+      fore = colorama.Fore
+      style = colorama.Style
+      self._WriteStdout(style.BRIGHT + fore.RED + str(e) + '\n' +
+                            style.RESET_ALL)
+      success = False
     finally:
+      # Forward the stdout, which we've caught and stuffed in a string.
       sys.stdout.write(self._GetStdout())
 
-    return True
+    return success
 
   @staticmethod
   def _GetOptParser():
@@ -270,6 +274,9 @@ class Test(object):
     parser.add_option('-f', '--force', dest='force',
                       action='store_true', default=False,
                       help='Force tests to re-run even if not necessary.')
+    parser.add_option('--app-verifier', dest='app_verifier',
+                      action='store_true', default=False,
+                      help='Run tests using the AppVerifier.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
                       const=logging.INFO, default=logging.WARNING,
                       help='Run the script with verbose logging.')
@@ -292,7 +299,9 @@ class Test(object):
       # We don't catch any exceptions that may be raised as these indicate
       # something has gone really wrong, and we want them to interrupt further
       # tests.
-      if not self.Run(config, force=options.force):
+      if not self.Run(config,
+                      force=options.force,
+                      app_verifier=options.app_verifier):
         logging.error('Configuration "%s" of test "%s" failed.',
                       config, self._name)
         result = 1
@@ -301,6 +310,20 @@ class Test(object):
     sys.stdout.write(self._GetStderr())
 
     return result
+
+
+def _AppVerifierColorize(text):
+  """Colorizes the given app verifier output with ANSI color codes."""
+  fore = colorama.Fore
+  style = colorama.Style
+  def _ColorizeLine(line):
+    line = re.sub('^(Error\([^,]+, [^\)]+\):)( .*)',
+                  style.BRIGHT + fore.RED + '\\1' + fore.YELLOW + '\\2' +
+                      style.RESET_ALL,
+                  line)
+    return line
+
+  return '\n'.join([_ColorizeLine(line) for line in text.split('\n')])
 
 
 class ExecutableTest(Test):
@@ -323,39 +346,52 @@ class ExecutableTest(Test):
   def _Run(self, configuration):
     test_path = self._GetTestPath(configuration)
     rel_test_path = os.path.relpath(test_path, self._project_dir)
+
     # Create the app verifier test runner.
-    runner = verifier.AppverifierTestRunner(False)
-    image_name = os.path.basename(test_path)
+    runner = None
+    image_name = None
+    if self._app_verifier:
+      runner = verifier.AppverifierTestRunner(False)
+      image_name = os.path.basename(test_path)
 
-    # Set up the verifier configuration.
-    runner.SetImageDefaults(image_name)
-    runner.ClearImageLogs(image_name)
+      # Set up the verifier configuration.
+      runner.SetImageDefaults(image_name)
+      runner.ClearImageLogs(image_name)
 
+    # Run the executable.
     command = [test_path]
     popen = subprocess.Popen(command, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
     (stdout, unused_stderr) = popen.communicate()
     self._WriteStdout(stdout)
-
-    # Clear the verifier settings for the image.
-    runner.ResetImage(image_name)
-
-    # And process the logs.
-    errors = runner.ProcessLogs(image_name)
-    if errors:
-      # The test generated app verifier errors, write them out
-      # and fail the test.
-      for error in errors:
-        self._WriteStderr(str(error) + '\n')
-
     if popen.returncode != 0:
-      # Duplicate the output to stderr. This way it'll be reported at the
-      # end of all tests for better visibility.
+      # If the test failed, mirror its output to stderr as well. All stderrs of
+      # all failing tests will be concatenated at the end of the top-most
+      # unittest, making errors have better visibility.
       self._WriteStderr(stdout)
-      raise TestFailure('Test returned exit code %d.' % popen.returncode)
 
-    if errors:
-      raise TestFailure('Test has AppVerifier failures.')
+    # Process the AppVerifier logs, outputting any errors.
+    app_verifier_errors = []
+    if self._app_verifier:
+      app_verifier_errors = runner.ProcessLogs(image_name)
+      for error in app_verifier_errors:
+        msg = _AppVerifierColorize(str(error) + '\n')
+        self._WriteStdout(msg)
+        self._WriteStderr(msg)
+
+      # Clear the verifier settings for the image.
+      runner.ResetImage(image_name)
+
+    # Bail if we had any errors.
+    if popen.returncode != 0 or app_verifier_errors:
+      msg = 'Test "%s" failed in configuration "%s". Exit code %d.' %
+                (self._name, configuration, popen.returncode)
+      if self._app_verifier:
+        msg = msg + ' %d AppVerifier errors.' % len(app_verifier_errors)
+      raise TestFailure(msg)
+
+    # If we get here, all has gone well.
+    return True
 
 
 def _GTestColorize(text):
@@ -430,7 +466,9 @@ class TestSuite(Test):
     running all tests if any of them raises an exception."""
     success = True
     for test in self._tests:
-      if not test.Run(configuration, force=self._force):
+      if not test.Run(configuration,
+                      force=self._force,
+                      app_verifier=self._app_verifier):
         # Keep a cumulative log of all stderr from each test that fails.
         self._WriteStderr(test._GetStderr())
         success = False
