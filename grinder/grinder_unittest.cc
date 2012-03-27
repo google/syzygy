@@ -106,7 +106,7 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_EQ(L"output.txt", impl_.output_file_.value());
 }
 
-// TODO(siggi): Figure out why this failes under coverage capture.
+// TODO(siggi): Figure out why this fails under coverage capture.
 TEST_F(GrinderAppTest, DISABLED_EndToEnd) {
   cmd_line_.AppendArgPath(
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));

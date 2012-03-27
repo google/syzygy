@@ -262,13 +262,10 @@ class Client::ThreadLocalData {
   ModuleEventStack module_event_stack;
 };
 
-Client::Client()
-    : tls_index_(::TlsAlloc()) {
+Client::Client() {
 }
 
 Client::~Client() {
-  if (TLS_OUT_OF_INDEXES != tls_index_)
-    ::TlsFree(tls_index_);
 }
 
 Client* Client::Instance() {
@@ -615,18 +612,11 @@ void Client::FixupBackTrace(const ShadowStack& stack, RetAddr traces[],
 }
 
 Client::ThreadLocalData* Client::GetThreadData() {
-  if (TLS_OUT_OF_INDEXES == tls_index_)
-    return NULL;
-
-  return reinterpret_cast<ThreadLocalData*>(::TlsGetValue(tls_index_));
+  return tls_.Get();
 }
 
 Client::ThreadLocalData* Client::GetOrAllocateThreadData() {
-  if (TLS_OUT_OF_INDEXES == tls_index_)
-    return NULL;
-
-  ThreadLocalData *data=
-      reinterpret_cast<ThreadLocalData*>(::TlsGetValue(tls_index_));
+  ThreadLocalData *data = tls_.Get();
   if (data != NULL)
     return data;
 
@@ -636,13 +626,7 @@ Client::ThreadLocalData* Client::GetOrAllocateThreadData() {
     return NULL;
   }
 
-  if (!::TlsSetValue(tls_index_, data)) {
-    LOG(ERROR) << "Unable to set per-thread data";
-
-    delete data;
-    return NULL;
-  }
-
+  tls_.Set(data);
   return data;
 }
 
@@ -650,7 +634,7 @@ void Client::FreeThreadData(ThreadLocalData *data) {
   DCHECK(data != NULL);
 
   delete data;
-  ::TlsSetValue(tls_index_, NULL);
+  tls_.Set(NULL);
 }
 
 void Client::FreeThreadData() {

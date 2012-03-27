@@ -83,7 +83,7 @@ ReturnThunkFactory::~ReturnThunkFactory() {
   while (current_page->previous_page)
     current_page = current_page->previous_page;
 
-  while (current_page->next_page) {
+  while (current_page) {
     Page* page_to_free = current_page;
     current_page = current_page->next_page;
 
