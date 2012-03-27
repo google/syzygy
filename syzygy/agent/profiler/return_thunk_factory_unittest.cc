@@ -139,9 +139,10 @@ TEST_F(ReturnThunkTest, AllocateSeveralPages) {
     previous_thunk = thunk;
   }
 
-  // And test page removal.
+  // And test page removal, note that we get an extra page removal
+  // notification for the first page that's allocated on construction.
   EXPECT_CALL(delegate_, OnPageRemoved(_))
-      .Times(kNumPages);
+      .Times(kNumPages + 1);
   delete factory_;
   factory_ = NULL;
 }

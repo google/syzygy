@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "base/synchronization/lock.h"
+#include "base/threading/thread_local.h"
 #include "syzygy/agent/common/shadow_stack.h"
 #include "syzygy/trace/client/rpc_session.h"
 
@@ -210,8 +211,8 @@ class Client {
   // Our RPC session state.
   trace::client::RpcSession session_;
 
-  // TLS index to our thread local data.
-  DWORD tls_index_;
+  // This points to our per-thread state.
+  mutable base::ThreadLocalPointer<ThreadLocalData> tls_;
 };
 
 }  // namespace agent::client
