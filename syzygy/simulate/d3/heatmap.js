@@ -68,7 +68,7 @@ heatmap.LoadJSONData_ = function(json) {
     range: true,
     min: 0,
     max: json['max_time_slice_usecs'] + 1,
-    values: [10, 100],
+    values: [0, 100],
     animate: 'fast',
     slide: function(event, ui) {
       $('#time-slider-min').text($('#time-slider').slider('values')[0]);
@@ -82,7 +82,7 @@ heatmap.LoadJSONData_ = function(json) {
     range: true,
     min: 0,
     max: json['max_memory_slice_bytes'] + 1,
-    values: [10, 100],
+    values: [0, 100],
     animate: 'fast',
     slide: function(event, ui) {
       $('#memory-slider-min').text($('#memory-slider').slider('values')[0]);
@@ -105,9 +105,9 @@ heatmap.LoadData_ = function(json) {
   var max_memory_slice = json["max_memory_slice_bytes"];
 
   heatmap.data = [];
-  for (var i = 0; i < max_memory_slice; i++) {
+  for (var i = 0; i <= max_memory_slice; i++) {
     heatmap.data.push([]);
-    for (var u = 0; u < max_time_slice; u++) {
+    for (var u = 0; u <= max_time_slice; u++) {
       heatmap.data[i].push({y: i, x: u, value: 0});
     }
   }
@@ -126,10 +126,7 @@ heatmap.LoadData_ = function(json) {
       if (slice_id >= max_memory_slice)
         continue;
 
-      // TODO(fixman): The value should be calculated based on the current
-      // slices chosen, not in all the heat map.
-      heatmap.data[slice_id][timestamp]['value'] =
-          memory_slice['quantity'] / time_slice['total_memory_slices'];
+      heatmap.data[slice_id][timestamp]['value'] = memory_slice['quantity'];
     }
   }
 };
@@ -141,7 +138,7 @@ heatmap.LoadData_ = function(json) {
 heatmap.GenerateHeatMap_ = function() {
   var min_time_slice = $('#time-slider').slider('values')[0];
   var max_time_slice = $('#time-slider').slider('values')[1];
-  var time_slice_range = max_time_slice - min_time_slice + 1;
+  var time_slice_range = max_time_slice - min_time_slice;
 
   var min_memory_slice = $('#memory-slider').slider('values')[0];
   var max_memory_slice = $('#memory-slider').slider('values')[1];
@@ -150,8 +147,16 @@ heatmap.GenerateHeatMap_ = function() {
   d3.select('#heatmap').select('svg').remove();
 
   var map = heatmap.data.slice(min_memory_slice, max_memory_slice);
-  for (var i in map)
+  for (var i = 0; i < memory_slice_range; i++)
     map[i] = map[i].slice(min_time_slice, max_time_slice);
+
+  var total_slices = [];
+  for (var i = 0; i < time_slice_range; i++) {
+    total_slices[i] = 0;
+
+    for (var u = 0; u < memory_slice_range; u++)
+      total_slices[i] += map[u][i]['value'];
+  }
 
   var width = 1500;
   var height = width / time_slice_range * memory_slice_range;
@@ -163,7 +168,6 @@ heatmap.GenerateHeatMap_ = function() {
 
   var graphic = d3.select('#heatmap').append('svg:svg')
     .attr('width', width).attr('height', height)
-    .attr('color', '#ffffff').attr('stroke', 'currentColor');
 
   graphic.selectAll('g').data(map).enter().append('svg:g')
       .selectAll('rect').data(function(d) {
@@ -176,11 +180,15 @@ heatmap.GenerateHeatMap_ = function() {
       .attr('y', function(d, i) {
         return (d.y - min_memory_slice) * (height / memory_slice_range);
       })
+      .attr('color', function(d, i) {
+        if (total_slices[d.x - min_time_slice] == 0)
+          return "#fffffb";
+
+        var color = d3.interpolateRgb('#fff', '#000');
+        return color(d.value / total_slices[d.x - min_time_slice]);
+      })
       .attr('width', width / time_slice_range)
       .attr('height', height / memory_slice_range)
-      .attr('fill', function(d, i) {
-        return d3.interpolateRgb('#fff', '#000')(d.value);
-      })
       .on('mouseover', function(d, i) {
         $('#test').text(d.y + ' ' + d.x + ' ' + d.value);
         this.setAttribute('style', 'stroke:#f00');
