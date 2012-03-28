@@ -31,8 +31,8 @@ input {
 }
 
 rect {
+  fill: currentColor;
   padding: 0;
-  stroke-width: 1;
 }
 
 #main-body {
