@@ -280,7 +280,7 @@ def _ConfigureStartupNewTabPage(prefs_dict, _unused):
   """
   prefs_dict['homepage_changed'] = True
   prefs_dict['homepage_is_newtabpage'] = True
-  prefs_dict.setdefault('session', {})['restore_on_startup'] = 0
+  prefs_dict.setdefault('session', {})['restore_on_startup'] = 5
 
 
 def _ConfigureStartupHomepage(prefs_dict, url_list):
@@ -348,5 +348,7 @@ def ConfigureStartup(profile_dir, startup_type, startup_urls):
   """
   assert startup_urls is None or isinstance(startup_urls, (list, tuple))
   prefs_dict = _LoadPreferences(profile_dir)
+  if 'backup' in prefs_dict:
+    del prefs_dict['backup']
   _STARTUP_CONFIG_FUNCS[startup_type](prefs_dict, startup_urls)
   _SavePreferences(profile_dir, prefs_dict)
