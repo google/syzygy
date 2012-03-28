@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Heatmap</title>
+  <script src="//www.google.com/jsapi"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
+  <script src="d3.v2.js"></script>
+  <link rel="stylesheet" href="heatmap.css">
+  <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/base/jquery-ui.css">
+  <script src="heatmap.js"></script>
+</head>
+
+<body>
+
+<div id="file-select-container">
+  <input type="file" id="file-select">
+</div>
+
+<div id="body-container">
+  <div class="text" id="loading-json">Loading heatmap.json ...</div>
+
+  <div id="main-body">
+    <div id="time-slice-bytes-container">
+      <div class="text">Time Slice Size (microseconds):</div>
+      <div id="time-slice-usecs"></div>
+    </div>
+
+    <div id="memory-slice-bytes-cotainer">
+      <div class="text">Memory Slice Size (bytes):</div>
+      <div id="memory-slice-bytes"></div>
+    </div>
+
+    <div id="sliders">
+      <div id="time-slider-container">
+	<div id="time-slider" class="slider"></div>
+	<div class="text">From time slice number</div>
+	<div id="time-slider-min" class="data"></div>
+	<div class="text">to</div>
+	<div id="time-slider-max" class="data"></div>
+      </div>
+      <div id="memory-slider-container">
+	<div id="memory-slider" class="slider"></div>
+	<div class="text">From memory slice number</div>
+	<div id="memory-slider-min" class="data"></div>
+	<div class="text">to</div>
+	<div id="memory-slider-max" class="data"></div>
+      </div>
+
+      <input type="button" value="Refresh heat map" id="refresh-heat-map" />
+    </div>
+
+    <div id="heatmap-container">
+      <div id="drawing-heatmap">Drawing Heat Map...</div>
+      <div id="heatmap-body">
+	<div id="data">
+	  <div id="test">Nothing so far!</div>
+	</div>
+
+	<div id="heatmap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
