@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Defines a collection of classes for running unit-tests."""
+
 import build_project
 import cStringIO
 import datetime
@@ -23,6 +25,9 @@ import re
 import subprocess
 import sys
 import verifier
+
+
+_LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 class Error(Exception):
@@ -54,7 +59,8 @@ import colorama
 
 def BuildProjectConfig(*args, **kwargs):
   """Wraps build_project.BuildProjectConfig, but ensures that if it throws
-  an error it is of type testing.Error."""
+  an error it is of type testing.Error.
+  """
   try:
     build_project.BuildProjectConfig(*args, **kwargs)
   except build_project.Error:
@@ -70,7 +76,8 @@ class Test(object):
   directory.
 
   The 'Main' routine of any Test object may also be called to have it
-  run as as stand-alone command line test."""
+  run as as stand-alone command line test.
+  """
 
   def __init__(self, project_dir, name):
     self._project_dir = project_dir
@@ -93,7 +100,8 @@ class Test(object):
   def LastRunTime(self, configuration):
     """Returns the time this test was last run in the given configuration.
     Returns 0 if the test has no success file (equivalent to never having
-    been run)."""
+    been run).
+    """
     try:
       return os.stat(self.GetSuccessFilePath(configuration)).st_mtime
     except (IOError, WindowsError):
@@ -142,9 +150,10 @@ class Test(object):
 
   def _MakeSuccessFile(self, configuration):
     """Makes the success file corresponding to this test in the given
-    configuration."""
+    configuration.
+    """
     success_path = self.GetSuccessFilePath(configuration)
-    logging.info('Creating success file "%s".',
+    _LOGGER.info('Creating success file "%s".',
                  os.path.relpath(success_path, self._project_dir))
     success_file = open(success_path, 'wb')
     success_file.write(str(datetime.datetime.now()))
@@ -218,25 +227,25 @@ class Test(object):
     success = True
     try:
       if not self._CanRun(configuration):
-        logging.info('Skipping test "%s" in invalid configuration "%s".',
+        _LOGGER.info('Skipping test "%s" in invalid configuration "%s".',
                      self._name, configuration)
-        return
+        return True
 
       # Always run _NeedToRun, even if force is true. This is because it may
       # do some setup work that is required prior to calling _Run.
-      logging.info('Checking to see if we need to run test "%s" in '
+      _LOGGER.info('Checking to see if we need to run test "%s" in '
                    'configuration "%s".', self._name, configuration)
       need_to_run = self._NeedToRun(configuration)
 
       if need_to_run:
-        logging.info('Running test "%s" in configuration "%s".',
+        _LOGGER.info('Running test "%s" in configuration "%s".',
                      self._name, configuration)
       else:
-        logging.info('No need to re-run test "%s" in configuration "%s".',
+        _LOGGER.info('No need to re-run test "%s" in configuration "%s".',
                      self._name, configuration)
 
       if not need_to_run and force:
-        logging.info('Forcing re-run of test "%s" in configuration "%s".',
+        _LOGGER.info('Forcing re-run of test "%s" in configuration "%s".',
                      self._name, configuration)
         need_to_run = True
 
@@ -263,7 +272,8 @@ class Test(object):
     """Builds an option parser for this class. This function is static as
     it may be called by the constructor of derived classes before the object
     is fully initialized. It may also be overridden by derived classes so that
-    they may augment the option parser with additional options."""
+    they may augment the option parser with additional options.
+    """
     parser = optparse.OptionParser()
     parser.add_option('-c', '--config', dest='configs',
                       action='append', default=[],
@@ -302,7 +312,7 @@ class Test(object):
       if not self.Run(config,
                       force=options.force,
                       app_verifier=options.app_verifier):
-        logging.error('Configuration "%s" of test "%s" failed.',
+        _LOGGER.error('Configuration "%s" of test "%s" failed.',
                       config, self._name)
         result = 1
 
@@ -328,15 +338,17 @@ def _AppVerifierColorize(text):
 
 class ExecutableTest(Test):
   """An executable test is a Test that is run by launching a single
-  executable file, and inspecting its return value."""
+  executable file, and inspecting its return value.
+  """
 
   def __init__(self, project_dir, name):
     Test.__init__(self, project_dir, name)
 
   def _GetTestPath(self, configuration):
     """Returns the path to the test executable. This stub may be overridden,
-    but it defaults to 'project_dir/../build/configuration/test_name.exe'."""
-    return os.path.join(self._project_dir, '../build',
+    but it defaults to 'project_dir/../build/configuration/test_name.exe'.
+    """
+    return os.path.join(self._project_dir, '..', 'build',
         configuration, '%s.exe' % self._name)
 
   def _NeedToRun(self, configuration):
@@ -384,7 +396,7 @@ class ExecutableTest(Test):
 
     # Bail if we had any errors.
     if popen.returncode != 0 or app_verifier_errors:
-      msg = 'Test "%s" failed in configuration "%s". Exit code %d.' %
+      msg = 'Test "%s" failed in configuration "%s". Exit code %d.' % \
                 (self._name, configuration, popen.returncode)
       if self._app_verifier:
         msg = msg + ' %d AppVerifier errors.' % len(app_verifier_errors)
@@ -430,7 +442,8 @@ class GTest(ExecutableTest):
 class TestSuite(Test):
   """A test suite is a collection of tests that generates a catch-all
   success file upon successful completion. It is itself an instance of a
-  Test, so may be nested."""
+  Test, so may be nested.
+  """
 
   def __init__(self, project_dir, name, tests):
     Test.__init__(self, project_dir, name)
@@ -446,15 +459,16 @@ class TestSuite(Test):
 
   def _NeedToRun(self, configuration):
     """Determines if any of the tests in this suite need to run in the given
-    configuration."""
+    configuration.
+    """
     for test in self._tests:
       try:
         if test._NeedToRun(configuration):
           return True
       except:
         # Output some context before letting the exception continue.
-        logging.error('Configuration "%s" of test "%s" failed.',
-            configuration, test._name)
+        _LOGGER.error('Configuration "%s" of test "%s" failed.',
+                      configuration, test._name)
         raise
     return False
 
@@ -463,7 +477,8 @@ class TestSuite(Test):
 
     Runs the provided collection of tests, generating a global success file
     upon completion of them all. Runs all tests even if any test fails. Stops
-    running all tests if any of them raises an exception."""
+    running all tests if any of them raises an exception.
+    """
     success = True
     for test in self._tests:
       if not test.Run(configuration,
