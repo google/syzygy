@@ -173,12 +173,12 @@ class HeatMapSimulation::TimeSlice {
   TimeSlice() : total_(0) {
   }
 
-  // TODO(fixman): Measure the number of bytes executed in each slice.
-  // Add a memory slice to the counter.
+  // Add a quantity of bytes to a memory slice to the counter.
   // @param slice The relative code block number.
-  void AddSlice(MemorySliceId slice) {
-    slices_[slice]++;
-    total_++;
+  // @param num_bytes The value to be added, in bytes.
+  void AddSlice(MemorySliceId slice, uint32 num_bytes) {
+    slices_[slice] += num_bytes;
+    total_ += num_bytes;
   }
 
   // @name Accessors.

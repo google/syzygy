@@ -112,16 +112,34 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
   max_time_slice_usecs_ = std::max(max_time_slice_usecs_, time_slice);
 
   DCHECK(memory_slice_bytes_ != 0);
-  const uint32 kStartIndex = block_start / memory_slice_bytes_;
-  const uint32 kEndIndex = (block_start + size + memory_slice_bytes_ - 1)
-      / memory_slice_bytes_;
 
-  // Loop through all the memory blocks of the current function and
-  // add them to the given time_slice.
-  for (uint32 i = kStartIndex; i < kEndIndex; i++) {
-    slice.AddSlice(i);
-    max_memory_slice_bytes_ = std::max(max_memory_slice_bytes_, i);
+  const uint32 first_slice = block_start / memory_slice_bytes_;
+  const uint32 last_slice = (block_start + size - 1) / memory_slice_bytes_;
+  if (first_slice == last_slice) {
+    // This function fits in a single memory slice. Add it to our time slice.
+    slice.AddSlice(first_slice, size);
+  } else {
+    // This function takes several memory slices. Add the first and last
+    // slices to our time slice only with the part of the slice they use,
+    // and then loop through the rest and add the whole slices.
+    const uint32 leading_bytes =
+        memory_slice_bytes_ - block_start % memory_slice_bytes_;
+
+    const uint32 trailing_bytes =
+        ((block_start + size - 1 + memory_slice_bytes_) %
+            memory_slice_bytes_) + 1;
+
+    slice.AddSlice(first_slice, leading_bytes);
+    slice.AddSlice(last_slice, trailing_bytes);
+
+    const uint32 kStartIndex = block_start / memory_slice_bytes_ + 1;
+    const uint32 kEndIndex = (block_start + size - 1) / memory_slice_bytes_;
+
+    for (uint32 i = kStartIndex; i < kEndIndex; i++)
+      slice.AddSlice(i, memory_slice_bytes_);
   }
+
+  max_memory_slice_bytes_ = std::max(max_memory_slice_bytes_, last_slice);
 }
 
 } // namespace simulate
