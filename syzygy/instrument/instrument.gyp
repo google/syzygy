@@ -26,16 +26,20 @@
       'target_name': 'instrument_lib',
       'type': 'static_library',
       'sources': [
+        'instrument_app.cc',
+        'instrument_app.h',
         'instrumenter.cc',
         'instrumenter.h',
         'transforms/entry_thunk_transform.cc',
         'transforms/entry_thunk_transform.h',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/relink/relink.gyp:relink_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
+        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
+        '<(DEPTH)/syzygy/relink/relink.gyp:relink_lib',
       ],
     },
     {
@@ -47,9 +51,6 @@
       ],
       'dependencies': [
         'instrument_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
       ],
       'run_as': {
         'action': [
@@ -64,6 +65,7 @@
       'type': 'executable',
       'sources': [
         'instrumenter_unittest.cc',
+        'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
         'transforms/entry_thunk_transform_unittest.cc',
       ],

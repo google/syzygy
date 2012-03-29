@@ -42,10 +42,11 @@ class Instrumenter : public relink::RelinkerBase {
   // @param output_pdb_path the path where the instrumented DLL's PDB file
   //     should be written.
   // @returns true on success, false otherwise.
-  bool Instrument(const FilePath& input_dll_path,
-                  const FilePath& input_pdb_path,
-                  const FilePath& output_dll_path,
-                  const FilePath& output_pdb_path);
+  // @note This entry-point is virtual for unit-testing/mocking purposes.
+  virtual bool Instrument(const FilePath& input_dll_path,
+                          const FilePath& input_pdb_path,
+                          const FilePath& output_dll_path,
+                          const FilePath& output_pdb_path);
 
   // The pre-defined call trace client DLLs. By default the ETW version will
   // be used.
@@ -144,6 +145,6 @@ class Instrumenter : public relink::RelinkerBase {
   const std::string thunk_suffix_;
 };
 
-#endif  // SYZYGY_INSTRUMENT_INSTRUMENTER_H_
-
 }  // namespace instrument
+
+#endif  // SYZYGY_INSTRUMENT_INSTRUMENTER_H_
