@@ -15,6 +15,7 @@
  */
 
 body {
+  background-color: #fcfcfc;
   font-size: 10px;
 }
 
@@ -23,9 +24,17 @@ body {
   padding-right: 3px;
 }
 
-input {
+.data {
+  float: left;
+  font-weight: bold;
+  padding-right: 3px;
+}
+
+.container {
   clear: both;
-  display: block;
+}
+
+input {
   font-size: 9px;
   margin-right: 5px;
 }
@@ -35,12 +44,7 @@ rect {
   padding: 0;
 }
 
-#main-body {
-  display: none;
-}
-
 .slider {
-  clear: left;
   float: left;
   height: 7px !important;
   margin-right: 5px;
@@ -48,15 +52,10 @@ rect {
 }
 
 #body-container,
-#heatmap-container,
-#heatmap-body {
+#heatmap-body,
+#heatmap-data-container,
+#main-body {
   display: none;
-}
-
-.data {
-  float: left;
-  font-weight: bold;
-  padding-right: 3px;
 }
 
 .ui-slider .ui-slider-handle{

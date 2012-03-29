@@ -22,43 +22,55 @@
   <div class="text" id="loading-json">Loading heatmap.json ...</div>
 
   <div id="main-body">
-    <div id="time-slice-bytes-container">
+    <div class="container">
       <div class="text">Time Slice Size (microseconds):</div>
       <div id="time-slice-usecs"></div>
     </div>
 
-    <div id="memory-slice-bytes-cotainer">
+    <div class="container">
       <div class="text">Memory Slice Size (bytes):</div>
       <div id="memory-slice-bytes"></div>
     </div>
 
-    <div id="sliders">
-      <div id="time-slider-container">
-	<div id="time-slider" class="slider"></div>
-	<div class="text">From time slice number</div>
-	<div id="time-slider-min" class="data"></div>
-	<div class="text">to</div>
-	<div id="time-slider-max" class="data"></div>
+    <div id="sliders" class="container">
+      <div id="time-slider-container" class="container">
+        <div id="time-slider" class="slider"></div>
+        <div class="text">From time slice number</div>
+        <div id="time-slider-min" class="data"></div>
+        <div class="text">to</div>
+        <div id="time-slider-max" class="data"></div>
       </div>
-      <div id="memory-slider-container">
-	<div id="memory-slider" class="slider"></div>
-	<div class="text">From memory slice number</div>
-	<div id="memory-slider-min" class="data"></div>
-	<div class="text">to</div>
-	<div id="memory-slider-max" class="data"></div>
+      <div id="memory-slider-container" class="container">
+        <div id="memory-slider" class="slider"></div>
+        <div class="text">From memory slice number</div>
+        <div id="memory-slider-min" class="data"></div>
+        <div class="text">to</div>
+        <div id="memory-slider-max" class="data"></div>
       </div>
 
-      <input type="button" value="Refresh heat map" id="refresh-heat-map" />
+      <div id="refresh-button-container" class="container">
+        <input type="button" value="Refresh heat map" id="refresh-heat-map" />
+      </div>
     </div>
 
-    <div id="heatmap-container">
+    <div id="heatmap-data-container" class="container">
       <div id="drawing-heatmap">Drawing Heat Map...</div>
       <div id="heatmap-body">
-	<div id="data">
-	  <div id="test">Nothing so far!</div>
-	</div>
+        <div id="memory-value-container" class="container">
+          <div class="text">Position in Memory:</div>
+          <div id="memory" class="data">?</div>
+        </div>
+        <div id="time-value-container" class="container">
+          <div class="text">Position in Time:</div>
+          <div id="time" class="data">?</div>
+        </div>
+        <div id="value-container" class="container">
+          <div id="value" class="data container">?</div>
+        </div>
 
-	<div id="heatmap"></div>
+        <div id="heatmap-container" class="container">
+          <div id="heatmap"></div>
+        </div>
       </div>
     </div>
   </div>

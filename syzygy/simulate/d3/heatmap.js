@@ -21,15 +21,28 @@ var heatmap = {};
 
 /**
  * @type {Array} The heat map data loaded from the JSON file by LoadData_.
+ * @private
  */
 heatmap.data_ = [];
+
+/**
+ * @type {number} The size of each time slice, in microseconds.
+ * @private
+ */
+heatmap.time_slice_usecs_ = 0;
+
+/**
+ * @type {number} The size of each memory slice, in bytes.
+ * @private
+ */
+heatmap.memory_slice_bytes_ = 0;
 
 /**
  * Update the DOM elements that indicating that the heat map is being drawn, and
  * call GenerateHeatMap.
  */
 heatmap.UpdateHeatMap = function() {
-  $('#heatmap-container').css('display', 'block');
+  $('#heatmap-data-container').css('display', 'block');
   $('#drawing-heatmap').css('display', 'block');
   $('#heatmap-body').css('display', 'none');
 
@@ -46,7 +59,7 @@ heatmap.Init = function() {
   $('#body-container').css('display', 'block');
   $('#loading-json').css('display', 'block').text('Loading ' + file + ' ...');
   $('#main-body').css('display', 'none');
-  $('#heatmap-container').css('display', 'none');
+  $('#heatmap-data-container').css('display', 'none');
 
   d3.json(file, heatmap.LoadJSONData_);
 };
@@ -61,8 +74,10 @@ heatmap.LoadJSONData_ = function(json) {
   $('#loading-json').css('display', 'none');
   $('#main-body').css('display', 'block');
 
-  $('#time-slice-usecs').text(json['time_slice_usecs']);
-  $('#memory-slice-bytes').text(json['memory_slice_bytes']);
+  heatmap.time_slice_usecs_ = json['time_slice_usecs'];
+  heatmap.memory_slice_bytes_ = json['memory_slice_bytes'];
+  $('#time-slice-usecs').text(heatmap.time_slice_usecs_);
+  $('#memory-slice-bytes').text(heatmap.memory_slice_bytes_);
 
   $('#time-slider').slider({
     range: true,
@@ -190,7 +205,9 @@ heatmap.GenerateHeatMap_ = function() {
       .attr('width', width / time_slice_range)
       .attr('height', height / memory_slice_range)
       .on('mouseover', function(d, i) {
-        $('#test').text(d.y + ' ' + d.x + ' ' + d.value);
+        $('#time').text(d.y * heatmap.time_slice_usecs_);
+        $('#memory').text((d.x * heatmap.memory_slice_bytes_).toString(16));
+        $('#value').text(d.value);
         this.setAttribute('style', 'stroke:#f00');
       })
       .on('mouseout', function(d, i) {
