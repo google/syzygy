@@ -310,7 +310,7 @@ TEST_F(InstrumentAppTest, InstrumentWithOldWorkflowInferPdbs) {
   // false to exercise the error handling code.
   EXPECT_CALL(test_impl_.mock_instrumenter_,
               Instrument(input_dll_path_,
-                         input_pdb_path_,
+                         _,  // Some test bots move the input files around.
                          output_dll_path_,
                          output_pdb_path_))
       .WillOnce(Return(true));
@@ -326,7 +326,7 @@ TEST_F(InstrumentAppTest, InstrumentWithOldWorkflowFailsInstrument) {
   // false to exercise the error handling code.
   EXPECT_CALL(test_impl_.mock_instrumenter_,
               Instrument(input_dll_path_,
-                         input_pdb_path_,
+                         _,  // Some test bots move the input files around.
                          output_dll_path_,
                          output_pdb_path_))
       .WillOnce(Return(false));
