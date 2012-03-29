@@ -14,10 +14,9 @@
 
 #include "syzygy/simulate/heat_map_simulation.h"
 
-#include <set>
+#include <map>
 #include <vector>
 
-#include "base/scoped_temp_dir.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/core/unittest_util.h"
@@ -29,13 +28,10 @@ namespace simulate {
 namespace {
 
 using base::Time;
-using base::TimeDelta;
 
 class HeatMapSimulationTest : public testing::PELibUnitTest {
  public:
-  typedef HeatMapSimulation::TimeMemoryMap TimeMemoryMap;
   typedef HeatMapSimulation::TimeSlice TimeSlice;
-  typedef std::vector<FilePath> TraceFileList;
 
   struct MockBlockInfo {
     time_t time;
@@ -61,7 +57,6 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   }
 
   void SetUp() {
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     simulation_.reset(new HeatMapSimulation());
 
     blocks_[0] = MockBlockInfo(20, 0, 3);
@@ -90,8 +85,14 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   void CheckSimulationResult(
       uint32 expected_size,
       const uint32 expected_times[],
-      const uint32 expected_totals[],
-      const HeatMapSimulation::TimeSlice::SliceQtyMap expected_slices[]) {
+      const TimeSlice::SliceQtyMap expected_slices[]) {
+    std::vector<uint32> expected_totals(expected_size, 0);
+    for (uint32 i = 0; i < expected_size; i++) {
+      TimeSlice::SliceQtyMap::const_iterator u = expected_slices[i].begin();
+      for (; u != expected_slices[i].end(); u++)
+        expected_totals[i] += u->second;
+    }
+
     simulation_->OnProcessStarted(time, 1);
 
     for (uint32 i = 0; i < arraysize(blocks_); i++) {
@@ -103,7 +104,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     EXPECT_EQ(simulation_->time_memory_map().size(), expected_size);
 
     for (uint32 i = 0; i < expected_size; i++) {
-      TimeMemoryMap::const_iterator current_slice =
+      HeatMapSimulation::TimeMemoryMap::const_iterator current_slice =
           simulation_->time_memory_map().find(expected_times[i]);
 
       ASSERT_NE(current_slice, simulation_->time_memory_map().end());
@@ -228,7 +229,6 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   scoped_ptr<HeatMapSimulation> simulation_;
 
   Time time;
-  ScopedTempDir temp_dir_;
   MockBlockInfo blocks_[9];
   core::RandomNumberGenerator random_;
 };
@@ -238,18 +238,15 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 TEST_F(HeatMapSimulationTest, CorrectHeatMap) {
   static const uint32 expected_size = 2;
   static const uint32 expected_times[expected_size] = {10000000, 30000000};
-  static const uint32 expected_totals[expected_size] = {8, 1};
 
-  HeatMapSimulation::TimeSlice::SliceQtyMap expected_slices[expected_size];
-  expected_slices[0][0] = 8;
-  expected_slices[1][0] = 1;
+  TimeSlice::SliceQtyMap expected_slices[expected_size];
+  expected_slices[0][0] = 22;
+  expected_slices[1][0] = 5;
 
   ASSERT_EQ(arraysize(expected_times), expected_size);
-  ASSERT_EQ(arraysize(expected_totals), expected_size);
   ASSERT_EQ(arraysize(expected_slices), expected_size);
 
-  CheckSimulationResult(
-      expected_size, expected_times, expected_totals, expected_slices);
+  CheckSimulationResult(expected_size, expected_times, expected_slices);
 
   EXPECT_EQ(simulation_->max_time_slice_usecs(), 30000000);
   EXPECT_EQ(simulation_->max_memory_slice_bytes(), 0);
@@ -258,9 +255,8 @@ TEST_F(HeatMapSimulationTest, CorrectHeatMap) {
 TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
   static const uint32 expected_size = 2;
   static const uint32 expected_times[expected_size] = {10000000, 30000000};
-  static const uint32 expected_totals[expected_size] = {22, 5};
 
-  HeatMapSimulation::TimeSlice::SliceQtyMap expected_slices[expected_size];
+  TimeSlice::SliceQtyMap expected_slices[expected_size];
   expected_slices[0][0] = 2;
   expected_slices[0][1] = 2;
   expected_slices[0][2] = 4;
@@ -278,13 +274,11 @@ TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
   expected_slices[1][6] = 1;
 
   ASSERT_EQ(arraysize(expected_times), expected_size);
-  ASSERT_EQ(arraysize(expected_totals), expected_size);
   ASSERT_EQ(arraysize(expected_slices), expected_size);
 
   simulation_->set_memory_slice_bytes(1);
 
-  CheckSimulationResult(
-      expected_size, expected_times, expected_totals, expected_slices);
+  CheckSimulationResult(expected_size, expected_times, expected_slices);
 
   EXPECT_EQ(simulation_->max_time_slice_usecs(), 30000000);
   EXPECT_EQ(simulation_->max_memory_slice_bytes(), 13);
@@ -293,19 +287,16 @@ TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
 TEST_F(HeatMapSimulationTest, BigTimeSliceSize) {
   static const uint32 expected_size = 1;
   static const uint32 expected_times[expected_size] = {0};
-  static const uint32 expected_totals[expected_size] = {9};
 
-  HeatMapSimulation::TimeSlice::SliceQtyMap expected_slices[expected_size];
-  expected_slices[0][0] = 9;
+  TimeSlice::SliceQtyMap expected_slices[expected_size];
+  expected_slices[0][0] = 27;
 
   ASSERT_EQ(arraysize(expected_times), expected_size);
-  ASSERT_EQ(arraysize(expected_totals), expected_size);
   ASSERT_EQ(arraysize(expected_slices), expected_size);
 
   simulation_->set_time_slice_usecs(40000000);
 
-  CheckSimulationResult(
-      expected_size, expected_times, expected_totals, expected_slices);
+  CheckSimulationResult(expected_size, expected_times, expected_slices);
 
   EXPECT_EQ(simulation_->max_time_slice_usecs(), 0);
   EXPECT_EQ(simulation_->max_memory_slice_bytes(), 0);
@@ -314,9 +305,8 @@ TEST_F(HeatMapSimulationTest, BigTimeSliceSize) {
 TEST_F(HeatMapSimulationTest, BigTimeSliceSizeSmallMemorySliceSize) {
   static const uint32 expected_size = 1;
   static const uint32 expected_times[expected_size] = {0};
-  static const uint32 expected_totals[expected_size] = {27};
 
-  HeatMapSimulation::TimeSlice::SliceQtyMap expected_slices[expected_size];
+  TimeSlice::SliceQtyMap expected_slices[expected_size];
   expected_slices[0][0] = 2;
   expected_slices[0][1] = 2;
   expected_slices[0][2] = 5;
@@ -330,14 +320,12 @@ TEST_F(HeatMapSimulationTest, BigTimeSliceSizeSmallMemorySliceSize) {
   expected_slices[0][13] = 1;
 
   ASSERT_EQ(arraysize(expected_times), expected_size);
-  ASSERT_EQ(arraysize(expected_totals), expected_size);
   ASSERT_EQ(arraysize(expected_slices), expected_size);
 
   simulation_->set_memory_slice_bytes(1);
   simulation_->set_time_slice_usecs(40000000);
 
-  CheckSimulationResult(
-      expected_size, expected_times, expected_totals, expected_slices);
+  CheckSimulationResult(expected_size, expected_times, expected_slices);
 
   EXPECT_EQ(simulation_->max_time_slice_usecs(), 0);
   EXPECT_EQ(simulation_->max_memory_slice_bytes(), 13);
@@ -349,9 +337,8 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
   // same output and test HeatMapSimulation with them.
   static const uint32 expected_size = 2;
   static const uint32 expected_times[expected_size] = {10000000, 30000000};
-  static const uint32 expected_totals[expected_size] = {22, 5};
 
-  HeatMapSimulation::TimeSlice::SliceQtyMap expected_slices[expected_size];
+  TimeSlice::SliceQtyMap expected_slices[expected_size];
   expected_slices[0][0] = 2;
   expected_slices[0][1] = 2;
   expected_slices[0][2] = 4;
@@ -369,7 +356,6 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
   expected_slices[1][6] = 1;
 
   ASSERT_EQ(arraysize(expected_times), expected_size);
-  ASSERT_EQ(arraysize(expected_totals), expected_size);
   ASSERT_EQ(arraysize(expected_slices), expected_size);
 
   for (uint32 i = 0; i < 100; i++) {
@@ -391,8 +377,7 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
     simulation_->set_memory_slice_bytes(1);
     simulation_->set_time_slice_usecs(1);
 
-    CheckSimulationResult(
-        expected_size, expected_times, expected_totals, expected_slices);
+    CheckSimulationResult(expected_size, expected_times, expected_slices);
 
     EXPECT_EQ(simulation_->max_time_slice_usecs(), 30000000);
     EXPECT_EQ(simulation_->max_memory_slice_bytes(), 13);
