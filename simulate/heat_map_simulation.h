@@ -46,9 +46,10 @@ class HeatMapSimulation : public SimulationEventHandler {
  public:
   class TimeSlice;
 
+  typedef block_graph::BlockGraph::Block Block;
   typedef time_t TimeSliceId;
-  typedef uint32 MemorySliceId;
   typedef std::map<TimeSliceId, TimeSlice> TimeMemoryMap;
+  typedef uint32 MemorySliceId;
 
   // The default time and memory slice sizes.
   static const uint32 kDefaultTimeSliceSize = 1;
@@ -95,9 +96,7 @@ class HeatMapSimulation : public SimulationEventHandler {
   // @param time The entry time of the function.
   // @param block_start The start start of the function.
   // @param size The size of the function.
-  void OnFunctionEntry(base::Time time,
-                       uint32 block_start,
-                       size_t size) OVERRIDE;
+  void OnFunctionEntry(base::Time time, const Block* block) OVERRIDE;
 
   // Serializes the data to JSON.
   // The serialization consists of a list containing a dictionary of each
@@ -141,10 +140,6 @@ class HeatMapSimulation : public SimulationEventHandler {
   // @}
 
  protected:
-  typedef core::RelativeAddress RelativeAddress;
-  typedef trace::parser::ModuleInformation ModuleInformation;
-  typedef uint64 AbsoluteAddress64;
-
   // The size of each time block on the heat map, in microseconds.
   uint32 time_slice_usecs_;
 

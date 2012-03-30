@@ -73,10 +73,12 @@ bool PageFaultSimulation::SerializeToJSON(FILE* output,
 }
 
 void PageFaultSimulation::OnFunctionEntry(base::Time /*time*/,
-                                          uint32 block_start,
-                                          size_t block_size) {
+                                          const Block* block) {
+  DCHECK(block != NULL);
   DCHECK(page_size_ != 0);
 
+  const uint32 block_start = block->addr().value();
+  const uint32 block_size = block->size();
   const size_t kStartIndex = block_start / page_size_;
   const size_t kEndIndex = (block_start + block_size +
       page_size_ - 1) / page_size_;

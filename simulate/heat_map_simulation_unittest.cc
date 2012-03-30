@@ -28,6 +28,7 @@ namespace simulate {
 namespace {
 
 using base::Time;
+using block_graph::BlockGraph;
 
 class HeatMapSimulationTest : public testing::PELibUnitTest {
  public:
@@ -37,18 +38,15 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     time_t time;
     uint32 start;
     size_t size;
+    BlockGraph::Block block;
 
-    MockBlockInfo(time_t time_, uint32 start_, DWORD size_)
-        : time(time_),
-          start(start_),
-          size(size_) {
+    MockBlockInfo(time_t time_, uint32 start_, size_t size_)
+        : time(time_), start(start_), size(size_) {
+      block.set_addr(core::RelativeAddress(start));
+      block.set_size(size);
     }
 
     MockBlockInfo() {
-    }
-
-    bool operator<(const MockBlockInfo &x) const {
-      return time < x.time;
     }
   };
   typedef std::vector<MockBlockInfo> MockBlockInfoList;
@@ -58,7 +56,6 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
   void SetUp() {
     simulation_.reset(new HeatMapSimulation());
-
     blocks_[0] = MockBlockInfo(20, 0, 3);
     blocks_[1] = MockBlockInfo(20, 0, 3);
     blocks_[2] = MockBlockInfo(20, 2, 4);
@@ -97,8 +94,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
     for (uint32 i = 0; i < arraysize(blocks_); i++) {
       simulation_->OnFunctionEntry(Time::FromTimeT(blocks_[i].time),
-                                   blocks_[i].start,
-                                   blocks_[i].size);
+                                   &blocks_[i].block);
     }
 
     EXPECT_EQ(simulation_->time_memory_map().size(), expected_size);

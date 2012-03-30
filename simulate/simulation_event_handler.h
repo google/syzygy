@@ -18,6 +18,7 @@
 #define SYZYGY_SIMULATE_SIMULATION_EVENT_HANDLER_H_
 
 #include "base/time.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace simulate {
@@ -38,10 +39,10 @@ class SimulationEventHandler {
   // Issued for all function entry traces.
   // @param time The entry time of this function.
   // @param block_start The first relative address of the code block.
-  // @param block_size The size of the code block.
-  virtual void OnFunctionEntry(base::Time time,
-                               uint32 block_start,
-                               size_t size) = 0;
+  // @param block Information about the function block.
+  virtual void OnFunctionEntry(
+      base::Time time,
+      const block_graph::BlockGraph::Block* block) = 0;
 
   // Serializes the data to JSON.
   // @param output The output FILE.

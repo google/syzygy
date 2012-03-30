@@ -36,9 +36,9 @@ class MockParseEventHandler : public SimulationEventHandler {
   MOCK_METHOD2(OnProcessStarted, void(base::Time time,
                                       size_t default_page_size));
 
-  MOCK_METHOD3(OnFunctionEntry, void(base::Time time,
-                                     uint32 block_start,
-                                     size_t size));
+  MOCK_METHOD2(
+      OnFunctionEntry,
+      void(base::Time time, const block_graph::BlockGraph::Block* block));
 
   MOCK_METHOD2(SerializeToJSON, bool (FILE* output, bool pretty_print));
 };
@@ -97,7 +97,7 @@ TEST_F(SimulatorTest, SuccesfulRead) {
   // We don't have that much information about OnFunctionEntry events, but at
   // least know they should happen.
   EXPECT_CALL(simulation_event_handler_,
-              OnFunctionEntry(_, _, _)).Times(AtLeast(1));
+              OnFunctionEntry(_, _)).Times(AtLeast(1));
 
   ASSERT_TRUE(simulator_->ParseTraceFiles());
 }
