@@ -27,6 +27,8 @@ namespace simulate {
 
 namespace {
 
+using block_graph::BlockGraph;
+
 class PageFaultSimulatorTest : public testing::PELibUnitTest {
  public:
   typedef PageFaultSimulation::PageSet PageSet;
@@ -34,9 +36,12 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   struct MockBlockInfo {
     uint32 start;
     size_t size;
+    BlockGraph::Block block;
 
     MockBlockInfo(uint32 start_, size_t size_)
         : start(start_), size(size_) {
+      block.set_addr(core::RelativeAddress(start));
+      block.set_size(size);
     }
 
     MockBlockInfo() {
@@ -69,7 +74,8 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   //     false on otherwise.
   bool AddressInBlocks(size_t addr) {
     for (size_t i = 0; i < arraysize(blocks_); i++) {
-      if (blocks_[i].start <= addr && blocks_[i].start + blocks_[i].size > addr)
+      if (blocks_[i].start <= addr &&
+          blocks_[i].start + blocks_[i].size > addr)
         return true;
     }
 
@@ -280,12 +286,14 @@ TEST_F(PageFaultSimulatorTest, RandomInput) {
         GenerateRandomInput(output, random_(output.size()) + 1);
 
     for (size_t i = 0; i < input.size(); i++)
-      simulation_->OnFunctionEntry(time_, input[i].start, input[i].size);
+      simulation_->OnFunctionEntry(time_, &input[i].block);
 
     std::stringstream input_string;
     input_string << '{';
-    for (size_t i = 0; i < input.size(); i++)
-      input_string << '(' << input[i].start << ", " << input[i].size << "), ";
+    for (size_t i = 0; i < input.size(); i++) {
+      input_string << '(' << input[i].start << ", ";
+      input_string << input[i].size << "), ";
+    }
     input_string << '}';
 
     ASSERT_EQ(simulation_->pages(), output) <<
@@ -298,9 +306,15 @@ TEST_F(PageFaultSimulatorTest, ExactPageFaults) {
   simulation_->set_page_size(1);
   simulation_->set_pages_per_code_fault(4);
 
-  simulation_->OnFunctionEntry(time_, 0, 3);
-  simulation_->OnFunctionEntry(time_, 2, 2);
-  simulation_->OnFunctionEntry(time_, 5, 5);
+  MockBlockInfo blocks[] = {
+      MockBlockInfo(0, 3),
+      MockBlockInfo(2, 2),
+      MockBlockInfo(5, 5)
+  };
+
+  for (uint32 i = 0; i < arraysize(blocks); i++) {
+    simulation_->OnFunctionEntry(time_, &blocks[i].block);
+  }
 
   PageSet::key_type expected_pages[] = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12};
   EXPECT_EQ(simulation_->fault_count(), 3);
@@ -312,9 +326,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
   simulation_->OnProcessStarted(time_, 1);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_,
-                                 blocks_[i].start,
-                                 blocks_[i].size);
+    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
   }
 
   EXPECT_EQ(simulation_->fault_count(), 74);
@@ -326,9 +338,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
   simulation_->set_page_size(0x8000);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_,
-                                 blocks_[i].start,
-                                 blocks_[i].size);
+    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
   }
 
   EXPECT_EQ(simulation_->fault_count(), 1);
@@ -340,9 +350,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithFewPagesPerCodeFault) {
   simulation_->set_pages_per_code_fault(3);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_,
-                                 blocks_[i].start,
-                                 blocks_[i].size);
+    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
   }
 
   EXPECT_EQ(simulation_->fault_count(), 199);
@@ -353,9 +361,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   simulation_->OnProcessStarted(time_, 1);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_,
-                                 blocks_[i].start,
-                                 blocks_[i].size);
+    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
   }
 
   // Output JSON data to a file.

@@ -96,8 +96,7 @@ void HeatMapSimulation::OnProcessStarted(base::Time time,
 }
 
 void HeatMapSimulation::OnFunctionEntry(base::Time time,
-                                        uint32 block_start,
-                                        size_t size) {
+                                        const Block* block) {
   // Get the time when this function was called since the process start.
   time_t relative_time = (time - process_start_time_).InMicroseconds();
 
@@ -111,8 +110,10 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
 
   max_time_slice_usecs_ = std::max(max_time_slice_usecs_, time_slice);
 
+  DCHECK(block != NULL);
   DCHECK(memory_slice_bytes_ != 0);
-
+  const uint32 block_start = block->addr().value();
+  const uint32 size = block->size();
   const uint32 first_slice = block_start / memory_slice_bytes_;
   const uint32 last_slice = (block_start + size - 1) / memory_slice_bytes_;
   if (first_slice == last_slice) {

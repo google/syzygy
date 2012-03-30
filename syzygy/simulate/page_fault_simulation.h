@@ -42,6 +42,7 @@ namespace simulate {
 // or, if that's not possible, it's set to the detault value of 0x1000 (4 KB).
 class PageFaultSimulation : public SimulationEventHandler {
  public:
+  typedef block_graph::BlockGraph::Block Block;
   typedef std::set<uint32> PageSet;
 
   // The default page size, in case neither the user nor the system
@@ -80,15 +81,14 @@ class PageFaultSimulation : public SimulationEventHandler {
   void OnProcessStarted(base::Time time, size_t default_page_size) OVERRIDE;
 
   // Registers the page faults, given a certain code block.
-  void OnFunctionEntry(base::Time time,
-                       uint32 block_start,
-                       size_t block_size) OVERRIDE;
+  void OnFunctionEntry(base::Time time, const Block* block) OVERRIDE;
 
   // The serialization consists of a single dictionary containing
   // the block number of each block that pagefaulted.
   bool SerializeToJSON(FILE* output, bool pretty_print) OVERRIDE;
   // @}
 
+ protected:
   // A set which contains the block number of the pages that
   // were faulted in the trace files.
   PageSet pages_;

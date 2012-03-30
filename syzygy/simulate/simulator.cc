@@ -91,7 +91,7 @@ void Simulator::OnFunctionEntry(base::Time time,
 
   // Call our simulation with the event data we have.
   DCHECK(simulation_ != NULL);
-  simulation_->OnFunctionEntry(time, block->addr().value(), block->size());
+  simulation_->OnFunctionEntry(time, block);
 }
 
 void Simulator::OnBatchFunctionEntry(base::Time time,
