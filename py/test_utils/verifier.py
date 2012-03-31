@@ -139,8 +139,11 @@ class AppverifierTestRunner:
       "Handles",
       "Heaps",
       "InputOutput",
+      "Leak",
       "Locks",
       "Memory",
+      "SRWLock",
+      "Threadpool",
       "TLS",
 
       # Misc group

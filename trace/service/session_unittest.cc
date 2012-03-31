@@ -28,53 +28,54 @@ namespace {
 
 class TestSession : public Session {
  public:
-  explicit TestSession(Service* service)
+  explicit TestSession(Service* service, base::Lock* lock)
       : Session(service),
-        waiting_for_buffer_to_be_recycled_(&test_lock_),
+        test_lock_(lock),
+        waiting_for_buffer_to_be_recycled_(lock),
         waiting_for_buffer_to_be_recycled_state_(false),
-        allocating_buffers_(&test_lock_),
+        allocating_buffers_(lock),
         allocating_buffers_state_(false) {
   }
 
   void ClearWaitingForBufferToBeRecycledState() {
-    base::AutoLock lock(test_lock_);
+    base::AutoLock lock(*test_lock_);
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
   void PauseUntilWaitingForBufferToBeRecycled() {
-    base::AutoLock lock(test_lock_);
+    base::AutoLock lock(*test_lock_);
     while (!waiting_for_buffer_to_be_recycled_state_)
       waiting_for_buffer_to_be_recycled_.Wait();
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
   void ClearAllocatingBuffersState() {
-    base::AutoLock lock(test_lock_);
+    base::AutoLock lock(*test_lock_);
     allocating_buffers_state_ = false;
   }
 
   void PauseUntilAllocatingBuffers() {
-    base::AutoLock lock(test_lock_);
+    base::AutoLock lock(*test_lock_);
     while (!allocating_buffers_state_)
       allocating_buffers_.Wait();
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
   size_t buffer_requests_waiting_for_recycle() {
-    base::AutoLock lock(test_lock_);
+    base::AutoLock lock(*test_lock_);
     return buffer_requests_waiting_for_recycle_;
   }
 
  protected:
   virtual void OnWaitingForBufferToBeRecycled() {
-    base::AutoLock lock(test_lock_);
+    base::AutoLock lock(*test_lock_);
     waiting_for_buffer_to_be_recycled_state_ = true;
     waiting_for_buffer_to_be_recycled_.Signal();
   }
 
   virtual bool AllocateBuffers(size_t count, size_t size) {
     {
-      base::AutoLock lock(test_lock_);
+      base::AutoLock lock(*test_lock_);
       allocating_buffers_state_ = true;
       allocating_buffers_.Signal();
     }
@@ -84,9 +85,9 @@ class TestSession : public Session {
   }
 
  private:
-  base::Lock test_lock_;
+  base::Lock* test_lock_;
 
-  // Under lock_.
+  // Under test_lock_.
   base::ConditionVariable waiting_for_buffer_to_be_recycled_;
   bool waiting_for_buffer_to_be_recycled_state_;
 
@@ -125,7 +126,7 @@ class TestService : public Service {
 
  protected:
   virtual Session* CreateSession() OVERRIDE {
-    return new TestSession(this);
+    return new TestSession(this, &session_lock_);
   }
 
   virtual bool GetBuffersToWrite(BufferQueue* queue) OVERRIDE {
@@ -154,6 +155,9 @@ class TestService : public Service {
   };
 
  private:
+  // This lock is provided to sessions for misc locking.
+  base::Lock session_lock_;
+
   base::Lock buffers_written_lock_;
   base::ConditionVariable buffers_written_;  // Under buffers_written_lock_.
   size_t buffers_allowed_to_be_recycled_;  // Under buffers_written_lock_.
