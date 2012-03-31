@@ -30,6 +30,29 @@ import verifier
 _LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
+# A list of per-test Application Verifier exceptions. This doesn't really
+# belong here, this should be plumbed in to individual tests from the invoker.
+# In the interest of temporary expediency, we leave it here for now.
+# TODO(siggi): Move the exception list out of here.
+_EXCEPTIONS = {
+  'profile_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
+    # This is leaking the log file handle, the fix is to initialize
+    # logging properly for the profile DLL.
+    ('Error', 'Leak', 2305, 'FreeLibrary'),
+  ],
+  'parse_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
+    # This is leaking the log file handle, the fix is to initialize
+    # logging properly for the call trace DLL.
+    ('Error', 'Leak', 2305, 'FreeLibrary'),
+  ],
+}
+
 class Error(Exception):
   """An error class used for reporting problems while running tests."""
   pass
@@ -284,9 +307,9 @@ class Test(object):
     parser.add_option('-f', '--force', dest='force',
                       action='store_true', default=False,
                       help='Force tests to re-run even if not necessary.')
-    parser.add_option('--app-verifier', dest='app_verifier',
-                      action='store_true', default=False,
-                      help='Run tests using the AppVerifier.')
+    parser.add_option('--no-app-verifier', dest='app_verifier',
+                      action='store_false', default=True,
+                      help='Run tests without AppVerifier.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
                       const=logging.INFO, default=logging.WARNING,
                       help='Run the script with verbose logging.')
@@ -355,6 +378,30 @@ class ExecutableTest(Test):
     test_path = self._GetTestPath(configuration)
     return os.stat(test_path).st_mtime > self.LastRunTime(configuration)
 
+  def _GetCmdLine(self, configuration):
+    """Returns the command line to run."""
+    return [self._GetTestPath(configuration)]
+
+  def _FilterAppVerifierExceptions(self, image_name, errors):
+    """Fiter out the Application Verifier errors that have exceptions."""
+    exceptions = _EXCEPTIONS.get(image_name, [])
+
+    def _HasNoException(error):
+      # Iterate over all the exceptions.
+      for (severity, layer, stopcode, regexp) in exceptions:
+        # And see if they match, first by type.
+        if (error.severity == severity and
+            error.layer == layer and
+            error.stopcode == stopcode):
+          # And then by regexpr match to the trace symbols.
+          for trace in error.trace:
+            if trace.symbol and re.match(regexp, trace.symbol):
+              return False
+
+      return True
+
+    return filter(_HasNoException, errors)
+
   def _Run(self, configuration):
     test_path = self._GetTestPath(configuration)
     rel_test_path = os.path.relpath(test_path, self._project_dir)
@@ -371,7 +418,7 @@ class ExecutableTest(Test):
       runner.ClearImageLogs(image_name)
 
     # Run the executable.
-    command = [test_path]
+    command = self._GetCmdLine(configuration)
     popen = subprocess.Popen(command, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
     (stdout, unused_stderr) = popen.communicate()
@@ -386,6 +433,8 @@ class ExecutableTest(Test):
     app_verifier_errors = []
     if self._app_verifier:
       app_verifier_errors = runner.ProcessLogs(image_name)
+      app_verifier_errors = self._FilterAppVerifierExceptions(
+          image_name, app_verifier_errors)
       for error in app_verifier_errors:
         msg = _AppVerifierColorize(str(error) + '\n')
         self._WriteStdout(msg)
@@ -429,6 +478,11 @@ class GTest(ExecutableTest):
   """This wraps a GTest unittest, with colorized output."""
   def __init__(self, *args, **kwargs):
     return super(GTest, self).__init__(*args, **kwargs)
+
+  def _GetCmdLine(self, configuration):
+    # Run unittests without the exeption filter, as it gets in the way of
+    # Application Verifier.
+    return [self._GetTestPath(configuration), '--gtest_catch_exceptions=0']
 
   def _WriteStdout(self, value):
     """Colorizes the stdout of this test."""
