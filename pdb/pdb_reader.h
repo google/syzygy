@@ -21,6 +21,7 @@
 #include "base/file_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_file_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
 
@@ -37,6 +38,9 @@ class PdbReader {
   // Read the pdb file. Load the file's header and directory into memory and
   // construct a list of PdbStreams that can be used to read the file's streams.
   //
+  // @note this version of the function is DEPRECATED in favour of using the
+  //     PdbFile Read function described below.
+  //
   // @param pdb_path the PDB file to read.
   // @returns true on success, false otherwise.
   bool Read(const FilePath& pdb_path);
@@ -47,13 +51,23 @@ class PdbReader {
   // PdbReader and are invalid once Read is called again or the PdbReader goes
   // out of scope.
   //
-  // @note This version of the function is DEPRECATED in favour of using the
-  //     single-parameter Read function combined with the stream accessors.
+  // @note this version of the function is DEPRECATED in favour of using the
+  //     PdbFile Read function described below.
   //
   // @param pdb_path the PDB file to read.
   // @param streams a vector to receive the list of streams in the PDB.
   // @returns true on success, false otherwise.
   bool Read(const FilePath& pdb_path, std::vector<PdbStream*>* streams);
+
+  // Reads a PDB, populating the given PdbFile object with the streams.
+  //
+  // @note Once use of the above Read function variants has been eliminated,
+  //     PdbReader will become stateless and simply populate a PdbFile.
+  //
+  // @param pdb_path the PDB file to read.
+  // @param pdb_file the empty PdbFile object to be filled in.
+  // @return true on success, false otherwise.
+  bool Read(const FilePath& pdb_path, PdbFile* pdb_file);
 
   // Get the path of the PDB file that we are reading.
   // @returns the path of the PDB file that is being read.
