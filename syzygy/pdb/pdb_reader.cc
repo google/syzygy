@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_reader.h"
 
 #include "base/logging.h"
@@ -117,6 +118,23 @@ bool PdbReader::Read(const FilePath& pdb_path,
   if (!Read(pdb_path))
     return false;
   *streams = streams_;
+  return true;
+}
+
+bool PdbReader::Read(const FilePath& pdb_path, PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+  DCHECK_EQ(0u, pdb_file->StreamCount());
+
+  if (!Read(pdb_path))
+    return false;
+
+  // Transfer ownership of all of the streams to the PdbFile object.
+  for (size_t i = 0; i < streams_.size(); ++i) {
+    pdb_file->AppendStream(streams_[i]);
+  }
+
+  // Erase our pointers to the streams.
+  streams_.clear();
   return true;
 }
 

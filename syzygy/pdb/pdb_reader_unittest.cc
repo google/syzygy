@@ -11,7 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_reader.h"
+
 #include "base/path_service.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -88,6 +90,17 @@ TEST(PdbReaderTest, ReadAndAccessors) {
   // Test that the reader still has a reference to the streams so that they
   // can be freed later.
   EXPECT_EQ(streams, reader.streams());
+}
+
+TEST(PdbReaderTest, ReadToPdbFile) {
+  FilePath omapped_test_dll_pdb =
+      testing::GetSrcRelativePath(kOmappedTestDllPdbFilePath);
+
+  TestPdbReader reader;
+  PdbFile pdb_file;
+  EXPECT_TRUE(reader.Read(omapped_test_dll_pdb, &pdb_file));
+  EXPECT_EQ(reader.streams().size(), 0u);
+  EXPECT_GT(pdb_file.StreamCount(), 0u);
 }
 
 TEST(PdbReaderTest, GetFileSize) {
