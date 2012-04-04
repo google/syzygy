@@ -20,6 +20,8 @@
 
 #include <map>
 
+#include "base/string_piece.h"
+#include "syzygy/core/json_file_writer.h"
 #include "syzygy/simulate/simulation_event_handler.h"
 #include "syzygy/trace/parse/parser.h"
 
@@ -83,6 +85,13 @@ class HeatMapSimulation : public SimulationEventHandler {
     DCHECK_LT(0u, memory_slice_bytes);
     memory_slice_bytes_ = memory_slice_bytes;
   }
+  // Set whether SerializeToJSON outputs information about each individual
+  // function in each time/memory block.
+  // @param print_output_individual_functions true for saving the names of each
+  //     function, false otherwise.
+  void set_output_individual_functions(bool output_individual_functions) {
+    output_individual_functions_ = output_individual_functions;
+  }
   // @}
 
   // @name SimulationEventHandler implementation
@@ -102,23 +111,46 @@ class HeatMapSimulation : public SimulationEventHandler {
   // The serialization consists of a list containing a dictionary of each
   // timestamp, and the total number of memory slices used, during that
   // time slice, and of another list with dictionaries containing each
-  // separate memory slice and the number of times it was used. Example:
+  // separate memory slice, the number of times it was used, and a list
+  // of all the used functions and the number of times they were used in that
+  // memory slice in descending order. If output_individual_functions is true,
+  // then the list of function for each memory slice isn't printed. Example:
   // {
   //   "time_slice_usecs": 1,
   //   "memory_slice_bytes": 32768,
   //   "time_slice_list": [
   //     {
   //       "timestamp": 31,
-  //       "total_memory_slices": 2260,
+  //       "total_memory_slices": 1052,
   //       "memory_slice_list": [
   //         {
-  //           "memory_slice": 0,
-  //           "quantity": 1719
+  //           "memory_slice": 4,
+  //           "quantity": 978,
+  //           "functions": [
+  //             {
+  //               "name": "_flush",
+  //               "quantity": 561
+  //             },
+  //             {
+  //               "name": "flsall",
+  //               "quantity": 417
+  //             }
+  //           ]
   //         },
   //         {
-  //           "memory_slice": 1,
-  //           "quantity": 541
-  //         },
+  //           "memory_slice": 13,
+  //           "quantity": 74,
+  //           "functions": [
+  //             {
+  //               "name": "_RTC_Terminate",
+  //               "quantity": 38
+  //             },
+  //             {
+  //              "name": "_CrtDefaultAllocHook",
+  //              "quantity": 36
+  //             }
+  //           ]
+  //         }
   //       ]
   //     },
   //     {
@@ -127,8 +159,14 @@ class HeatMapSimulation : public SimulationEventHandler {
   //       "memory_slice_list": [
   //         {
   //           "memory_slice": 0,
-  //           "quantity": 105
-  //         },
+  //           "quantity": 105,
+  //           "functions": [
+  //             {
+  //               "name": "rand",
+  //               "quantity": 105
+  //             }
+  //           ]
+  //         }
   //       ]
   //     }
   //   ]
@@ -158,34 +196,60 @@ class HeatMapSimulation : public SimulationEventHandler {
   // The number of the last time and memory slice, respectively.
   TimeSliceId max_time_slice_usecs_;
   MemorySliceId max_memory_slice_bytes_;
+
+  // If set to true, SerializeToJSON outputs information about each function
+  // in each time/memory block. This gives more information and is useful
+  // for analysis, but may make the output files excessively big.
+  bool output_individual_functions_;
 };
 
 // Stores the respective memory slices of a particular time slice in a map.
 class HeatMapSimulation::TimeSlice {
  public:
-  typedef std::map<MemorySliceId, uint32> SliceQtyMap;
+  typedef std::map<std::string, uint32> FunctionMap;
+
+  struct MemorySlice {
+    FunctionMap functions;
+    uint32 total;
+
+    MemorySlice() : total(0) {
+    }
+  };
+  typedef std::map<MemorySliceId, MemorySlice> MemorySliceMap;
 
   TimeSlice() : total_(0) {
   }
 
   // Add a quantity of bytes to a memory slice to the counter.
   // @param slice The relative code block number.
+  // @param name The name of the function which uses the memory slice.
   // @param num_bytes The value to be added, in bytes.
-  void AddSlice(MemorySliceId slice, uint32 num_bytes) {
-    slices_[slice] += num_bytes;
+  void AddSlice(MemorySliceId slice,
+                const base::StringPiece& name,
+                uint32 num_bytes) {
+    slices_[slice].functions[name.as_string()] += num_bytes;
+    slices_[slice].total += num_bytes;
     total_ += num_bytes;
   }
 
   // @name Accessors.
   // @{
-  const SliceQtyMap& slices() const { return slices_; }
+  const MemorySliceMap& slices() const { return slices_; }
   uint32 total() const { return total_; }
   // @}
+
+  // Serialize a FunctionMap to a JSON file, sorted by bytes occupied by
+  // each function.
+  // @param json_file The file where the functions will be serialized.
+  // @param functions The given functions.
+  // @return true on success, false on failure.
+  static bool PrintJSONFunctions(core::JSONFileWriter& json_file,
+                                 const FunctionMap& functions);
 
  protected:
   // The slices that were accumulated at this time, and how many times
   // they were called.
-  SliceQtyMap slices_;
+  MemorySliceMap slices_;
 
   // The total number of blocks that were called at this time.
   uint32 total_;

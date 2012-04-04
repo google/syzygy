@@ -51,7 +51,9 @@ const char kUsage[] =
     "      --time-slice-usecs=INT the size of each time slice in the heatmap,\n"
     "          in microseconds (default 1).\n"
     "      --memory-slice-bytes=INT the size of each memory slice,\n"
-    "          in bytes (default 32KB).\n";
+    "          in bytes (default 32KB).\n"
+    "      --output-individual-functions Output information about each\n"
+    "          function in each time/memory block\n";
 
 int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
@@ -143,6 +145,9 @@ int main(int argc, char** argv) {
       else
         heat_map_simulation->set_memory_slice_bytes(memory_slice_bytes);
     }
+
+    heat_map_simulation->set_output_individual_functions(
+        cmd_line->HasSwitch("output-individual-functions"));
   } else {
     return Usage("Invalid simulate-method value.");
   }
