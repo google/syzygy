@@ -15,7 +15,7 @@
  */
 
 body {
-  background-color: #fcfcfc;
+  background-color: #f8f8f8;
   font-size: 10px;
 }
 
@@ -35,6 +35,7 @@ body {
 }
 
 input {
+  float: left;
   font-size: 9px;
   margin-right: 5px;
 }
@@ -49,6 +50,10 @@ rect {
   height: 7px !important;
   margin-right: 5px;
   width: 15%;
+}
+
+svg {
+  background-color: #fff;
 }
 
 #body-container,

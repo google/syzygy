@@ -19,17 +19,17 @@
 </div>
 
 <div id="body-container">
-  <div class="text" id="loading-json">Loading heatmap.json ...</div>
+  <div class="text container" id="loading-json">Loading heatmap.json ...</div>
 
   <div id="main-body">
     <div class="container">
       <div class="text">Time Slice Size (microseconds):</div>
-      <div id="time-slice-usecs"></div>
+      <div id="time-slice-usecs" class="data"></div>
     </div>
 
     <div class="container">
       <div class="text">Memory Slice Size (bytes):</div>
-      <div id="memory-slice-bytes"></div>
+      <div id="memory-slice-bytes" class="data"></div>
     </div>
 
     <div id="sliders" class="container">
@@ -48,28 +48,34 @@
         <div id="memory-slider-max" class="data"></div>
       </div>
 
-      <div id="refresh-button-container" class="container">
-        <input type="button" value="Refresh heat map" id="refresh-heat-map" />
+      <div id="button-container" class="container">
+        <div class="text">Color relative to other memory blocks in:</div>
+        <input type="checkbox" id="relative-selected-time-slices" />
+        <div class="text">The selected time slices</div>
+        <input type="checkbox" id="relative-same-time-slice" />
+        <div class="text">Only the same time slice</div>
       </div>
+
+      <input type="button" value="Refresh heat map" class="container" id="refresh-heat-map" />
     </div>
 
     <div id="heatmap-data-container" class="container">
       <div id="drawing-heatmap">Drawing Heat Map...</div>
       <div id="heatmap-body">
-        <div id="memory-value-container" class="container">
-          <div class="text">Position in Memory:</div>
-          <div id="memory" class="data">?</div>
-        </div>
-        <div id="time-value-container" class="container">
-          <div class="text">Position in Time:</div>
-          <div id="time" class="data">?</div>
-        </div>
-        <div id="value-container" class="container">
+        <div id="misc-information" class="container">
+          <div id="time-value-container" class="container">
+            <div class="text">Position in Time:</div>
+            <div id="time" class="data">?</div>
+          </div>
+          <div id="memory-value-container" class="container">
+            <div class="text">Position in Memory:</div>
+            <div id="memory" class="data">?</div>
+          </div>
           <div id="value" class="data container">?</div>
         </div>
-
         <div id="heatmap-container" class="container">
-          <div id="heatmap"></div>
+          <div id="heatmap" style="float: left;"></div>
+          <div id="functions" style="float: left;"></div>
         </div>
       </div>
     </div>
