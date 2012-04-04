@@ -14,18 +14,55 @@
 
 #include "syzygy/simulate/heat_map_simulation.h"
 
-#include "syzygy/core/json_file_writer.h"
-
 namespace simulate {
 
 HeatMapSimulation::HeatMapSimulation()
     : time_slice_usecs_(kDefaultTimeSliceSize),
       memory_slice_bytes_(kDefaultMemorySliceSize),
       max_time_slice_usecs_(0),
-      max_memory_slice_bytes_(0) {
+      max_memory_slice_bytes_(0),
+      output_individual_functions_(false) {
+}
+
+bool HeatMapSimulation::TimeSlice::PrintJSONFunctions(
+    core::JSONFileWriter& json_file,
+    const HeatMapSimulation::TimeSlice::FunctionMap& functions) {
+  typedef std::pair<uint32, base::StringPiece> QtyNamePair;
+  std::vector<QtyNamePair> ordered_functions(functions.size());
+
+  FunctionMap::const_iterator functions_iter = functions.begin();
+  uint32 i = 0;
+  for (; functions_iter != functions.end(); functions_iter++, i++) {
+    ordered_functions[i] = QtyNamePair(functions_iter->second,
+                                       functions_iter->first);
+  }
+  std::sort(ordered_functions.begin(),
+            ordered_functions.end(),
+            std::greater<QtyNamePair>());
+
+  if (!json_file.OutputKey("functions") ||
+      !json_file.OpenList())
+    return false;
+
+  for (uint32 i = 0; i < ordered_functions.size(); i++) {
+    if (!json_file.OpenDict() ||
+        !json_file.OutputKey("name") ||
+        !json_file.OutputString(ordered_functions[i].second.data()) ||
+        !json_file.OutputKey("quantity") ||
+        !json_file.OutputInteger(ordered_functions[i].first) ||
+        !json_file.CloseDict())
+      return false;
+  }
+
+  if (!json_file.CloseList())
+    return false;
+
+  return true;
 }
 
 bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
+  typedef TimeSlice::FunctionMap FunctionMap;
+
   DCHECK(output != NULL);
 
   core::JSONFileWriter json_file(output, pretty_print);
@@ -60,33 +97,37 @@ bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
       return false;
     }
 
-    TimeSlice::SliceQtyMap::const_iterator slices_iter =
+    TimeSlice::MemorySliceMap::const_iterator slices_iter =
         time_slice.slices().begin();
 
     for (; slices_iter != time_slice.slices().end(); slices_iter++) {
-
       if (!json_file.OpenDict() ||
           !json_file.OutputKey("memory_slice") ||
           !json_file.OutputInteger(slices_iter->first) ||
           !json_file.OutputKey("quantity") ||
-          !json_file.OutputInteger(slices_iter->second) ||
-          !json_file.CloseDict()) {
+          !json_file.OutputInteger(slices_iter->second.total))
         return false;
+
+      if (output_individual_functions_) {
+        if (!TimeSlice::PrintJSONFunctions(json_file,
+                                           slices_iter->second.functions))
+          return false;
       }
+
+      if (!json_file.CloseDict())
+        return false;
     }
 
     if (!json_file.CloseList() ||
-        !json_file.CloseDict()) {
+        !json_file.CloseDict())
       return false;
-    }
   }
 
   if (!json_file.CloseList() ||
       !json_file.CloseDict())
     return false;
 
-  DCHECK(json_file.Finished());
-  return true;
+  return json_file.Finished();
 }
 
 void HeatMapSimulation::OnProcessStarted(base::Time time,
@@ -114,11 +155,13 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
   DCHECK(memory_slice_bytes_ != 0);
   const uint32 block_start = block->addr().value();
   const uint32 size = block->size();
+  const std::string& name = block->name();
+
   const uint32 first_slice = block_start / memory_slice_bytes_;
   const uint32 last_slice = (block_start + size - 1) / memory_slice_bytes_;
   if (first_slice == last_slice) {
     // This function fits in a single memory slice. Add it to our time slice.
-    slice.AddSlice(first_slice, size);
+    slice.AddSlice(first_slice, name, size);
   } else {
     // This function takes several memory slices. Add the first and last
     // slices to our time slice only with the part of the slice they use,
@@ -130,14 +173,14 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
         ((block_start + size - 1 + memory_slice_bytes_) %
             memory_slice_bytes_) + 1;
 
-    slice.AddSlice(first_slice, leading_bytes);
-    slice.AddSlice(last_slice, trailing_bytes);
+    slice.AddSlice(first_slice, name, leading_bytes);
+    slice.AddSlice(last_slice, name, trailing_bytes);
 
     const uint32 kStartIndex = block_start / memory_slice_bytes_ + 1;
     const uint32 kEndIndex = (block_start + size - 1) / memory_slice_bytes_;
 
     for (uint32 i = kStartIndex; i < kEndIndex; i++)
-      slice.AddSlice(i, memory_slice_bytes_);
+      slice.AddSlice(i, name, memory_slice_bytes_);
   }
 
   max_memory_slice_bytes_ = std::max(max_memory_slice_bytes_, last_slice);
