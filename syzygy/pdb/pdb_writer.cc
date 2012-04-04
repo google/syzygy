@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,6 +85,10 @@ bool PdbWriter::Write(const FilePath& pdb_path,
     return false;
 
   return true;
+}
+
+bool PdbWriter::Write(const FilePath& pdb_path, const PdbFile& pdb_file) {
+  return Write(pdb_path, pdb_file.streams());
 }
 
 // Write an unsigned 32 bit value to the output file.

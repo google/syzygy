@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,15 +13,15 @@
 // limitations under the License.
 
 #include "syzygy/pdb/pdb_writer.h"
+
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_reader.h"
 
-namespace {
+namespace pdb {
 
-using pdb::PdbStream;
-using pdb::PdbWriter;
+namespace {
 
 uint32 GetNumPages(uint32 num_bytes) {
   return (num_bytes + pdb::kPdbPageSize - 1) / pdb::kPdbPageSize;
@@ -100,6 +100,34 @@ TEST(PdbWriterTest, Write) {
   PdbReader reader;
   EXPECT_TRUE(reader.Read(path, &streams));
   EXPECT_EQ(arraysize(test_streams), streams.size());
+}
+
+TEST(PdbWriterTest, WritePdbFile) {
+  PdbFile pdb_file;
+  for (uint32 i = 0; i < 4; ++i) {
+    pdb_file.AppendStream(new TestPdbStream(1 << (8 + i)));
+  }
+
+  // Test that we can create a pdb file and then read it successfully.
+  FilePath path;
+  EXPECT_TRUE(file_util::CreateTemporaryFile(&path));
+  {
+    // Create a scope so that the file gets closed.
+    TestPdbWriter writer;
+    EXPECT_TRUE(writer.Write(path, pdb_file));
+  }
+
+  PdbFile pdb_file_read;
+  PdbReader reader;
+  EXPECT_TRUE(reader.Read(path, &pdb_file_read));
+  EXPECT_EQ(pdb_file.StreamCount(), pdb_file_read.StreamCount());
+
+  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+    ASSERT_TRUE(pdb_file.GetStream(i) != NULL);
+    ASSERT_TRUE(pdb_file_read.GetStream(i) != NULL);
+    EXPECT_EQ(pdb_file.GetStream(i)->length(),
+              pdb_file_read.GetStream(i)->length());
+  }
 }
 
 TEST(PdbWriterTest, PadToPageBoundary) {
@@ -267,3 +295,5 @@ TEST(PdbWriterTest, WriteHeader) {
     EXPECT_EQ(dir_root_page + i, header.root_pages[i]);
   }
 }
+
+}  // namespace pdb

@@ -15,6 +15,7 @@
 #include "syzygy/pdb/pdb_file.h"
 
 #include "base/memory/scoped_ptr.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace pdb {
@@ -60,6 +61,7 @@ TEST(PdbFileTest, WorksAsExpected) {
   EXPECT_EQ(1u, index1);
   EXPECT_EQ(2u, pdb->StreamCount());
   EXPECT_EQ(stream, pdb->GetStream(index1));
+  PdbStream* stream1 = stream;
 
   stream = new DummyPdbStream();
   EXPECT_EQ(3u, DummyPdbStream::instance_count_);
@@ -67,6 +69,11 @@ TEST(PdbFileTest, WorksAsExpected) {
   EXPECT_EQ(2u, DummyPdbStream::instance_count_);
   EXPECT_EQ(2u, pdb->StreamCount());
   EXPECT_EQ(stream, pdb->GetStream(index0));
+
+  std::vector<PdbStream*> expected_streams;
+  expected_streams.push_back(stream);
+  expected_streams.push_back(stream1);
+  EXPECT_THAT(pdb->streams(), ::testing::ContainerEq(expected_streams));
 
   pdb.reset(NULL);
   EXPECT_EQ(0u, DummyPdbStream::instance_count_);
