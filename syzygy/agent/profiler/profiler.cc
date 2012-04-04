@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "base/at_exit.h"
+#include "base/command_line.h"
 #include "base/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
@@ -27,11 +28,13 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 #include "syzygy/agent/profiler/scoped_last_error_keeper.h"
+#include "syzygy/common/logging.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 
 namespace {
+
 // Our AtExit manager required by base.
 base::AtExitManager at_exit;
 
@@ -152,6 +155,11 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   using agent::profiler::Profiler;
 
   switch (reason) {
+    case DLL_PROCESS_ATTACH:
+      CommandLine::Init(0, NULL);
+      common::InitLoggingForDll(L"profiler");
+      break;
+
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:
       Profiler::Instance()->OnDetach();
