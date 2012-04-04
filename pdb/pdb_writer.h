@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
@@ -34,7 +35,15 @@ class PdbWriter {
   // Write a pdb file to disk. pdb_path specifies where the file should be
   // written relative to the current working directory, and pdb_streams is a
   // PdbStreamList that contains the streams to be written to the file.
+  //
+  // @note this is DEPRECATED in favour of the following Write function.
   bool Write(const FilePath& pdb_path, const std::vector<PdbStream*>& streams);
+
+  // Writes the given PdbFile to disk with the given file name.
+  // @param pdb_path the path of the PDB file to write.
+  // @param pdb_file the PDB file to be written.
+  // @returns true on success, false otherwise.
+  bool Write(const FilePath& pdb_path, const PdbFile& pdb_file);
 
  protected:
   // Info about a stream that's been written to the file.

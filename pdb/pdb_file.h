@@ -65,6 +65,9 @@ class PdbFile {
   // @returns the number of streams in the PDB file.
   size_t StreamCount() const { return streams_.size(); }
 
+  // @returns a constant reference to the streams representing this PDB file.
+  const std::vector<PdbStream*>& streams() const { return streams_; }
+
  private:
   // The streams are implicitly numbered simply by their position in this
   // vector.
