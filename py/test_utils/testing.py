@@ -39,17 +39,11 @@ _EXCEPTIONS = {
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
-    # This is leaking the log file handle, the fix is to initialize
-    # logging properly for the profile DLL.
-    ('Error', 'Leak', 2305, 'FreeLibrary'),
   ],
   'parse_unittests.exe': [
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
-    # This is leaking the log file handle, the fix is to initialize
-    # logging properly for the call trace DLL.
-    ('Error', 'Leak', 2305, 'FreeLibrary'),
   ],
 }
 
@@ -383,7 +377,7 @@ class ExecutableTest(Test):
     return [self._GetTestPath(configuration)]
 
   def _FilterAppVerifierExceptions(self, image_name, errors):
-    """Fiter out the Application Verifier errors that have exceptions."""
+    """Filter out the Application Verifier errors that have exceptions."""
     exceptions = _EXCEPTIONS.get(image_name, [])
 
     def _HasNoException(error):
@@ -480,7 +474,7 @@ class GTest(ExecutableTest):
     return super(GTest, self).__init__(*args, **kwargs)
 
   def _GetCmdLine(self, configuration):
-    # Run unittests without the exeption filter, as it gets in the way of
+    # Run unittests without the exception filter, as it gets in the way of
     # Application Verifier.
     return [self._GetTestPath(configuration), '--gtest_catch_exceptions=0']
 

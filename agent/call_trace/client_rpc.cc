@@ -25,9 +25,9 @@
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/logging_win.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/common/logging.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -277,6 +277,11 @@ BOOL Client::DllMain(HMODULE /* module */,
                      LPVOID /* reserved */) {
   switch (reason) {
     case DLL_PROCESS_ATTACH:
+      // Initialize logging ASAP.
+      CommandLine::Init(0, NULL);
+      common::InitLoggingForDll(L"call_trace");
+      break;
+
     case DLL_THREAD_ATTACH:
       // Session creation and thread-local data allocation are performed
       // just-in-time when the first instrumented entry point is invoked.

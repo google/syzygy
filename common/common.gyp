@@ -88,6 +88,8 @@
         'buffer_writer.h',
         'defs.cc',
         'defs.h',
+        'logging.cc',
+        'logging.h',
         'syzygy_version.cc',
         'syzygy_version.h',
       ],
