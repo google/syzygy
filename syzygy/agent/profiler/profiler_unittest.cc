@@ -16,6 +16,7 @@
 #include "syzygy/agent/profiler/profiler.h"
 
 #include <intrin.h>
+#include <psapi.h>
 
 #include "base/file_util.h"
 #include "base/scoped_temp_dir.h"
@@ -42,6 +43,9 @@ using trace::parser::ParseEventHandler;
 typedef uintptr_t (__cdecl *ResolveReturnAddressLocationFunc)(
     uintptr_t pc_location);
 
+MATCHER_P(ModuleAtAddress, module, "") {
+  return arg->module_base_addr == module;
+}
 
 class MockParseEventHandler : public ParseEventHandler {
  public:
@@ -119,6 +123,31 @@ class ProfilerTest : public testing::Test {
     }
 
     ASSERT_TRUE(parser.Consume());
+  }
+
+  typedef std::vector<HMODULE> ModuleVector;
+  ModuleVector GetProcessModules() {
+    ModuleVector modules;
+    modules.resize(128);
+    while (true) {
+      DWORD bytes = sizeof(modules[0]) * modules.size();
+      DWORD needed_bytes = 0;
+      BOOL success = ::EnumProcessModules(::GetCurrentProcess(),
+                                          &modules[0],
+                                          bytes,
+                                          &needed_bytes);
+      if (success && bytes >= needed_bytes) {
+        // Success - break out of the loop.
+        // Resize our module vector to the returned size.
+        modules.resize(needed_bytes / sizeof(modules[0]));
+        break;
+      }
+
+      // Resize our module vector with the needed size and little slop.
+      modules.resize(needed_bytes / sizeof(modules[0]) + 4);
+    }
+
+    return modules;
   }
 
   // TODO(siggi): These are shareable with the other instrumentation DLL tests.
@@ -253,7 +282,7 @@ TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
   ASSERT_NO_FATAL_FAILURE(TestResolutionFuncNestedThunk(resolution_func_));
 }
 
-TEST_F(ProfilerTest, RecordsModuleAndFunctions) {
+TEST_F(ProfilerTest, RecordsAllModulesAndFunctions) {
   // Spin up the RPC service.
   ASSERT_TRUE(Service::Instance().Start(true));
 
@@ -265,19 +294,27 @@ TEST_F(ProfilerTest, RecordsModuleAndFunctions) {
   //     because the module paths are different when depending on who infers
   //     them (one is drive letter based and the other is device based).
   EXPECT_TRUE(DllMainThunk(self_module, DLL_PROCESS_ATTACH, NULL));
+
+  // Get the module list prior to unloading the profile DLL.
+  ModuleVector modules = GetProcessModules();
+
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
+  // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
-  EXPECT_CALL(handler_, OnProcessAttach(_,
-                                       ::GetCurrentProcessId(),
-                                       ::GetCurrentThreadId(),
-                                       _));
+  for (size_t i = 0; i < modules.size(); ++i) {
+    EXPECT_CALL(handler_, OnProcessAttach(_,
+                                          ::GetCurrentProcessId(),
+                                          ::GetCurrentThreadId(),
+                                          ModuleAtAddress(modules[i])));
+  }
+
   // TODO(siggi): Match harder here.
   EXPECT_CALL(handler_, OnInvocationBatch(_,
-                                       ::GetCurrentProcessId(),
-                                       ::GetCurrentThreadId(),
-                                       1,
-                                       _));
+                                          ::GetCurrentProcessId(),
+                                          ::GetCurrentThreadId(),
+                                          1,
+                                          _));
   EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
 
   // Replay the log.
@@ -323,23 +360,30 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
   ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
 
+  // Get the module list prior to unloading the profile DLL.
+  ModuleVector modules = GetProcessModules();
+
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
   EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
-  // We should only have one of these events,
+
+  // We should only have one event per module,
   // despite the double DllMain invocation.
-  EXPECT_CALL(handler_, OnProcessAttach(_,
-                                       ::GetCurrentProcessId(),
-                                       ::GetCurrentThreadId(),
-                                       _));
+  for (size_t i = 0; i < modules.size(); ++i) {
+    EXPECT_CALL(handler_, OnProcessAttach(_,
+                                          ::GetCurrentProcessId(),
+                                          ::GetCurrentThreadId(),
+                                          ModuleAtAddress(modules[i])));
+  }
+
   // TODO(siggi): Match harder here.
   // We should only have two distinct invocation records,
   // despite calling each function twice.
   EXPECT_CALL(handler_, OnInvocationBatch(_,
-                                       ::GetCurrentProcessId(),
-                                       ::GetCurrentThreadId(),
-                                       2,
-                                       _));
+                                          ::GetCurrentProcessId(),
+                                          ::GetCurrentThreadId(),
+                                          2,
+                                          _));
   EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
 
   // Replay the log.

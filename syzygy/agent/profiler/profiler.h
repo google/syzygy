@@ -26,6 +26,7 @@
 
 #include <vector>
 
+#include "base/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
@@ -75,6 +76,11 @@ class Profiler {
   Profiler();
   ~Profiler();
 
+  // Called form DllMainEntryHook.
+  void OnModuleEntry(EntryFrame* entry_frame,
+                     FuncAddr function,
+                     uint64 cycles);
+
   // Callbacks from ThreadState.
   void OnPageAdded(const void* page);
   void OnPageRemoved(const void* page);
@@ -90,12 +96,16 @@ class Profiler {
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
 
-  // Protects our page list.
+  // Protects pages_ and logged_modules_.
   base::Lock lock_;
 
   // Contains the thunk pages in lexical order.
   typedef std::vector<const void*> PageVector;
   PageVector pages_;  // Under lock_.
+
+  // Contains the set of modules we've seen and logged.
+  typedef base::hash_set<HMODULE> ModuleSet;
+  ModuleSet logged_modules_;  // Under lock_.
 
   // This points to our per-thread state.
   mutable base::ThreadLocalPointer<ThreadState> tls_;
