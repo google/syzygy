@@ -52,15 +52,20 @@ rect {
   width: 15%;
 }
 
-svg {
-  background-color: #fffffb;
-}
-
 #body-container,
 #heatmap-body,
 #heatmap-data-container,
 #main-body {
   display: none;
+}
+
+#time-summary {
+  margin-bottom: 5px;
+}
+
+#heatmap,
+#functions {
+  float: left;
 }
 
 .ui-slider .ui-slider-handle{
