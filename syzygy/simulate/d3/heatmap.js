@@ -178,6 +178,7 @@ heatmap.GenerateHeatMap_ = function() {
 
   // Remove the heatmap, if there's one.
   d3.select('#heatmap').select('svg').remove();
+  d3.select('#time-summary').select('svg').remove();
 
   // The elements from heatmap.data_ that are in the time/memory range, and have
   // a nonzero value.
@@ -188,28 +189,32 @@ heatmap.GenerateHeatMap_ = function() {
   // zoom, or all the time/memory slices in the whole heat map, depending on the
   // value of the checkboxes.
   var total_slices = [];
+  var max_slice = 0;
+  var sum_slices = 0;
   for (var i = 0; i < time_slice_range; i++)
     total_slices[i] = 0;
 
   // Load the nonzero values of data between the given time and memory slices.
-  var relative_same_time_slice = $('#relative-same-time-slice').is(':checked');
   for (var i = min_memory_slice; i < max_memory_slice; i++) {
     for (var u = min_time_slice; u < max_time_slice; u++) {
-      var slice = relative_same_time_slice ? u - min_time_slice : 0;
+      var slice = u - min_time_slice;
       if (heatmap.data_[i][u].value > 0)
         map.push(heatmap.data_[i][u]);
 
-      if ($('#relative-selected-time-slices').is(':checked'))
+      if ($('#relative-selected-time-slices').is(':checked')) {
         total_slices[slice] += heatmap.data_[i][u].value;
-      else if (i == min_memory_slice)
+        sum_slices += heatmap.data_[i][u].value;
+      } else if (i == min_memory_slice) {
         total_slices[slice] += heatmap.total_[u];
+        sum_slices += heatmap.total_[u];
+      }
+
+      max_slice = Math.max(max_slice, total_slices[slice]);
     }
   }
 
-  if (!relative_same_time_slice) {
-    for (var i = 0; i < time_slice_range; i++)
-      total_slices[i] = total_slices[0];
-  }
+  // The background color of the heat maps.
+  var background_color = '#fffffb';
 
   // Calculate an appropiate size for the heat map, so that it fits in a
   // max_width x max_height rectangle, and all the slices are square.
@@ -227,17 +232,35 @@ heatmap.GenerateHeatMap_ = function() {
   // Put the information about the functions in a new line if they don't fit
   // easily in the screen.
   if (3 * width > 2 * screen.width) {
-    $('#functions').css('width', '');
+    $('#functions').css('width', screen.width);
     $('#functions').css('clear', 'left');
   } else {
-    $('#functions').css('width', screen.width - width - 30 + 'px');
+    $('#functions').css('width', screen.width - width - 40 + 'px');
     $('#functions').css('clear', '');
   }
+
+  // Create the time summary heat map.
+  var time_summary_height = Math.max(7.5, height / memory_slice_range);
+  var time_summary = d3.select('#time-summary').append('svg:svg');
+  time_summary.attr('width', width).attr('height', time_summary_height);
+
+  var rect = time_summary.selectAll('rect').data(total_slices).enter()
+      .append('svg:rect');
+  rect.attr('x', function(d, i) { return i * (width / time_slice_range); });
+  rect.attr('y', 0);
+  rect.attr('color', function(d, i) {
+    var color = d3.interpolateRgb('#fff', '#000');
+    if (total_slices[i] == 0) return '#fffffb';
+    return color(total_slices[i] / max_slice);
+  });
+  rect.attr('width', width / time_slice_range);
+  rect.attr('height', time_summary_height);
 
   // Create the svg heat map, and make the information on the current
   // time/memory slice change if the user mouses over one with a value of zero.
   var graphic = d3.select('#heatmap').append('svg:svg');
   graphic.attr('width', width).attr('height', height);
+  graphic.style('background-color', background_color);
 
   graphic.on('mousemove', function(d, i) {
     var mouse = d3.mouse(this);
@@ -269,13 +292,24 @@ heatmap.GenerateHeatMap_ = function() {
     if (total_slices[d.x - min_time_slice] == 0)
       return '#fffffb';
 
+    var total = 0;
+    if ($('#relative-same-time-slice').is(':checked'))
+      total = total_slices[d.x - min_time_slice];
+    else
+      total = sum_slices;
+
     var color = d3.interpolateRgb('#fff', '#000');
-    return color(d.value / total_slices[d.x - min_time_slice]);
+    return color(Math.pow(d.value / total, 3/16));
   });
   rect.attr('width', width / time_slice_range);
   rect.attr('height', height / memory_slice_range);
   rect.on('mouseover', function(d, i) {
-    $('#value').text(d.value + ' / ' + total_slices[d.x - min_time_slice]);
+    var total = 0;
+    if ($('#relative-same-time-slice').is(':checked'))
+      total = total_slices[d.x - min_time_slice];
+    else
+      total = sum_slices;
+    $('#value').text(d.value + ' / ' + total);
     this.setAttribute('style', 'stroke:#f00');
 
     var function_text = '';
