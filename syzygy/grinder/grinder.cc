@@ -105,7 +105,6 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
 
     pe::PEFile::Signature signature;
     signature.path = module->image_file_name;
-
     signature.base_address = core::AbsoluteAddress(
         static_cast<uint32>(module->base_address));
     signature.module_size = module->module_size;
@@ -113,18 +112,29 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
     signature.module_checksum = module->image_checksum;
 
     FilePath module_path;
-    if (!pe::FindModuleBySignature(signature, &module_path))
+    if (!pe::FindModuleBySignature(signature, &module_path) ||
+        module_path.empty()) {
+      LOG(ERROR) << "Unable to find module matching signature.";
       return false;
+    }
+
+    FilePath pdb_path;
+    if (!pe::FindPdbForModule(module_path, &pdb_path) ||
+        pdb_path.empty()) {
+      LOG(ERROR) << "Unable to find PDB for module \""
+                 << module_path.value() << "\".";
+      return false;
+    }
 
     ScopedComPtr<IDiaSession> new_session;
-    hr = source->loadDataForExe(module_path.value().c_str(), NULL, NULL);
+    hr = source->loadDataFromPdb(pdb_path.value().c_str());
     if (SUCCEEDED(hr)) {
       hr = source->openSession(new_session.Receive());
       if (FAILED(hr))
         LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
 
     } else {
-      LOG(WARNING) << "Failure in loadDataForExe('"
+      LOG(WARNING) << "Failure in loadDataFromPdb('"
                    << module_path.value().c_str() << "'): "
                    << com::LogHr(hr) << ".";
     }
