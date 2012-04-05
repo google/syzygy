@@ -106,8 +106,7 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_EQ(L"output.txt", impl_.output_file_.value());
 }
 
-// TODO(siggi): Figure out why this fails under coverage capture.
-TEST_F(GrinderAppTest, DISABLED_EndToEnd) {
+TEST_F(GrinderAppTest, EndToEnd) {
   cmd_line_.AppendArgPath(
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
 
@@ -118,21 +117,10 @@ TEST_F(GrinderAppTest, DISABLED_EndToEnd) {
 
   ASSERT_TRUE(!file_util::PathExists(output_file));
 
-  // TODO(siggi): Improve the module info->PDB lookup to properly resolve
-  //     the device paths from the call trace to on-disk paths. In the
-  //     meantime, we change the working directory to where the instrumented
-  //     module resides.
-  FilePath cwd;
-  ASSERT_TRUE(file_util::GetCurrentDirectory(&cwd));
-  ASSERT_TRUE(file_util::SetCurrentDirectory(
-      testing::GetExeTestDataRelativePath(L".")));
-
   EXPECT_EQ(0, app_.Run());
 
   // Verify that the output file was created.
   EXPECT_TRUE(file_util::PathExists(output_file));
-
-  ASSERT_TRUE(file_util::SetCurrentDirectory(cwd));
 }
 
 } //  namespace grinder

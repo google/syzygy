@@ -27,6 +27,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
+#include "syzygy/common/path_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 
@@ -143,8 +144,16 @@ bool WriteTraceFileHeader(HANDLE file_handle,
   header->system_info = client.system_info;
   header->memory_status = client.memory_status;
 
+  // Make sure we record the path to the executable as a path with a drive
+  // letter, rather than using device names.
+  FilePath drive_path;
+  if (!common::ConvertDevicePathToDrivePath(client.executable_path,
+                                            &drive_path)) {
+    return false;
+  }
+
   // Populate the blob with the variable length fields.
-  if (!writer.WriteString(client.executable_path.value()))
+  if (!writer.WriteString(drive_path.value()))
     return false;
   if (!writer.WriteString(client.command_line))
     return false;

@@ -21,6 +21,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/file_path.h"
 #include "base/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
@@ -29,6 +30,7 @@
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 #include "syzygy/agent/profiler/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
+#include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -292,13 +294,23 @@ void Profiler::ThreadState::OnModuleEntry(EntryFrame* entry_frame,
         image.GetNTHeaders()->OptionalHeader.CheckSum;
     module_event->module_time_date_stamp =
         image.GetNTHeaders()->FileHeader.TimeDateStamp;
-    if (::GetMappedFileName(::GetCurrentProcess(), module,
-                            &module_event->module_name[0],
-                            arraysize(module_event->module_name)) == 0) {
-        DWORD error = ::GetLastError();
-        LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
-    }
     module_event->module_exe[0] = L'\0';
+
+    // Get the module name, and be sure to convert it to a path with a drive
+    // letter rather than a device name.
+    wchar_t module_name[MAX_PATH] = { 0 };
+    if (::GetMappedFileName(::GetCurrentProcess(), module,
+                            module_name, arraysize(module_name)) == 0) {
+      DWORD error = ::GetLastError();
+      LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
+    }
+    FilePath device_path(module_name);
+    FilePath drive_path;
+    if (!common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
+      LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
+    }
+    ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
+              arraysize(module_event->module_name));
 
     // We need to flush module events right away, so that the module is
     // defined in the trace file before events using that module start to

@@ -28,6 +28,7 @@
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/logging.h"
+#include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -428,12 +429,23 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   module_event->module_checksum = image.GetNTHeaders()->OptionalHeader.CheckSum;
   module_event->module_time_date_stamp =
       image.GetNTHeaders()->FileHeader.TimeDateStamp;
+
+  // Get the module name, and be sure to convert it to a path with a drive
+  // letter rather than a device name.
+  wchar_t module_name[MAX_PATH] = { 0 };
   if (::GetMappedFileName(::GetCurrentProcess(), module,
-                          &module_event->module_name[0],
-                          arraysize(module_event->module_name)) == 0) {
-      DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
+                          module_name, arraysize(module_name)) == 0) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
   }
+  FilePath device_path(module_name);
+  FilePath drive_path;
+  if (!common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
+    LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
+  }
+  ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
+            arraysize(module_event->module_name));
+
   // TODO(rogerm): get rid of the module_exe field of TraceModuleData?
 #ifdef NDEBUG
   module_event->module_exe[0] = L'\0';

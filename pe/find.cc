@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 #include <dbghelp.h>
 #include <winnt.h>
+
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -81,13 +82,17 @@ bool FindFile(const FilePath& file_path,
     return false;
   }
 
-  std::wstring dir = file_path.DirName().value();
+  FilePath dir = file_path.DirName();
   std::wstring basename = file_path.BaseName().value();
 
   // Augment the search paths with the directory of file_path and the
   // current working directory.
-  std::wstring paths = dir;
-  paths.append(L";.;");
+  std::wstring paths;
+  if (file_util::PathExists(dir)) {
+    paths.append(dir.value());
+    paths.push_back(L';');
+  }
+  paths.append(L".;");
   paths.append(search_paths);
 
   // Search for the file.
