@@ -16,7 +16,9 @@
 # Presubmit script for Syzygy.
 
 import datetime
+import itertools
 import os
+import re
 import sys
 
 
@@ -68,6 +70,107 @@ _LICENSE_HEADER = """\
 .*? limitations under the License\.\n\
 """ % _YEAR
 
+
+# Regular expressions to recognize source and header files.
+# These are lifted from presubmit_support.py in depot_tools and are
+# formulated as a list of regex strings so that they can be passed to
+# input_api.FilterSourceFile() as the white_list parameter.
+_CC_SOURCES = (r'.+\.c$', r'.+\.cc$', r'.+\.cpp$', r'.+\.rc$')
+_CC_HEADERS = (r'.+\.h$', r'.+\.inl$', r'.+\.hxx$', r'.+\.hpp$')
+_CC_FILES = _CC_SOURCES + _CC_HEADERS
+_CC_SOURCES_RE = re.compile('|'.join('(?:%s)' % x for x in _CC_SOURCES))
+
+
+# Regular expressions used to extract headers and recognize empty lines.
+_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+(?P<header>[<"][^<"]+[>"])'
+                         r'\s*(?://.*(?P<nolint>NOLINT).*)?$')
+_COMMENT_OR_BLANK_RE = re.compile(r'^\s*(?://.)?$')
+
+
+def _IsSourceHeaderPair(source_path, header):
+  # Returns true if source and header are a matched pair.
+  # Source is the path on disk to the source file and header is the include
+  # reference to the header (i.e., "blah/foo.h" or <blah/foo.h> including the
+  # outer quotes or brackets.
+  if not _CC_SOURCES_RE.match(source_path):
+    return False
+
+  source_root = os.path.splitext(source_path)[0]
+  if source_root.endswith('_unittest'):
+    source_root = source_root[0:-9]
+  include = os.path.normpath(source_root + '.h')
+  header = os.path.normpath(header[1:-1])
+
+  return include.endswith(header)
+
+
+def _GetHeaderCompareKey(source_path, header):
+  if _IsSourceHeaderPair(source_path, header):
+    # We put the header that corresponds to this source file first.
+    group = 0
+  elif header.startswith('<'):
+    # C++ system headers should come after C system headers.
+    group = 1 if header.endswith('.h>') else 2
+  else:
+    group = 3
+  dirname, basename = os.path.split(header[1:-1])
+  return (group, dirname, basename)
+
+
+def _GetHeaderCompareKeyFunc(source):
+  return lambda header : _GetHeaderCompareKey(source, header)
+
+
+def _HeaderGroups(source_lines):
+  # Generates lists of headers in source, one per block of headers.
+  # Each generated value is a tuple (line, headers) denoting on which
+  # line of the source file an uninterrupted sequences of includes begins,
+  # and the list of included headers (paths including the quotes or angle
+  # brackets).
+  start_line, headers = None, []
+  for line, num in itertools.izip(source_lines, itertools.count(1)):
+    match = _INCLUDE_RE.match(line)
+    if match:
+      # The win32 api has all sorts of implicit include order dependencies.
+      # Rather than encode exceptions for these, we require that they be
+      # excluded from the ordering by a // NOLINT comment.
+      if not match.group('nolint'):
+        headers.append(match.group('header'))
+      if start_line is None:
+        # We just started a new run of headers.
+        start_line = num
+    elif headers and not _COMMENT_OR_BLANK_RE.match(line):
+      # Any non-empty or non-comment line interrupts a sequence of includes.
+      assert start_line is not None
+      yield (start_line, headers)
+      start_line = None
+      headers = []
+
+  # Just in case we have some headers we haven't yielded yet, this is our
+  # last chance to do so.
+  if headers:
+    assert start_line is not None
+    yield (start_line, headers)
+
+
+def CheckIncludeOrder(input_api, output_api):
+  """Checks that the C/C++ include order is correct."""
+  errors = []
+  is_cc_file = lambda x: input_api.FilterSourceFile(x, white_list=_CC_FILES)
+  for f in input_api.AffectedFiles(include_deletes=False,
+                                   file_filter=is_cc_file):
+    for line_num, group in _HeaderGroups(f.NewContents()):
+      sorted_group = sorted(group, key=_GetHeaderCompareKeyFunc(f.LocalPath()))
+      if group != sorted_group:
+        message = '%s, line %s: Out of order includes. ' \
+                  'Expected:\n\t#include %s' % (
+                      f.LocalPath(),
+                      line_num,
+                      '\n\t#include '.join(sorted_group))
+        errors.append(output_api.PresubmitPromptWarning(message))
+  return errors
+
+
 def CheckUnittestsRan(input_api, output_api, committing, configuration):
   """Checks that the unittests success file is newer than any modified file"""
   return presubmit.CheckTestSuccess(input_api, output_api, committing,
@@ -78,6 +181,7 @@ def CheckUnittestsRan(input_api, output_api, committing, configuration):
 def CheckChange(input_api, output_api, committing):
   # The list of (canned) checks we perform on all changes.
   checks = [
+    CheckIncludeOrder,
     input_api.canned_checks.CheckChangeHasDescription,
     input_api.canned_checks.CheckChangeLintsClean,
     input_api.canned_checks.CheckChangeHasNoCrAndHasOnlyOneEol,
