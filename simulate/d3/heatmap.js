@@ -93,8 +93,8 @@ heatmap.LoadJSONData_ = function(json) {
     values: [0, 100],
     animate: 'fast',
     slide: function(event, ui) {
-      $('#time-slider-min').text($('#time-slider').slider('values')[0]);
-      $('#time-slider-max').text($('#time-slider').slider('values')[1]);
+      $('#time-slider-min').text(ui.values[0]);
+      $('#time-slider-max').text(ui.values[1]);
     }
   });
   $('#time-slider-min').text($('#time-slider').slider('values')[0]);
@@ -107,8 +107,8 @@ heatmap.LoadJSONData_ = function(json) {
     values: [0, 100],
     animate: 'fast',
     slide: function(event, ui) {
-      $('#memory-slider-min').text($('#memory-slider').slider('values')[0]);
-      $('#memory-slider-max').text($('#memory-slider').slider('values')[1]);
+      $('#memory-slider-min').text(ui.values[0]);
+      $('#memory-slider-max').text(ui.values[1]);
     }
   });
   $('#memory-slider-min').text($('#memory-slider').slider('values')[0]);
@@ -230,7 +230,7 @@ heatmap.GenerateHeatMap_ = function() {
     $('#functions').css('width', '');
     $('#functions').css('clear', 'left');
   } else {
-    $('#functions').css('width', screen.width - width - 1);
+    $('#functions').css('width', screen.width - width - 30 + 'px');
     $('#functions').css('clear', '');
   }
 
@@ -244,15 +244,15 @@ heatmap.GenerateHeatMap_ = function() {
     var time_slice = Math.floor(mouse[0] * time_slice_range / width);
     var memory_slice = Math.floor(mouse[1] * memory_slice_range / height);
 
-    time_slice = Math.max(time_slice, 0);
-    memory_slice = Math.max(memory_slice, 0);
+    time_slice = time_slice + min_time_slice;
+    memory_slice = memory_slice + min_memory_slice;
 
     $('#time').text(time_slice * heatmap.time_slice_usecs_);
     $('#memory').text(
         '0x' + (memory_slice * heatmap.memory_slice_bytes_).toString(16));
 
-    if ($('#value').text() == '?') {
-      $('#value').text('0 / ' + total_slices[time_slice]);
+    if ($('#functions').text() == '' || $('#value').text() == '?') {
+      $('#value').text('0 / ' + total_slices[time_slice - min_time_slice]);
       $('#functions').html('');
     }
   });
@@ -283,9 +283,9 @@ heatmap.GenerateHeatMap_ = function() {
       function_text = '?';
     } else {
       for (var i = 0; i < d.functions.length; i++) {
-        function_text += '<div class='container'>' +
-            '<div class='data'>' + d.functions[i]['quantity'] + '</div>' +
-            '<div class='text'>' + d.functions[i]['name'] + '</div>' +
+        function_text += '<div class="container">' +
+            '<div class="data">' + d.functions[i]['quantity'] + '</div>' +
+            '<div class="text">' + d.functions[i]['name'] + '</div>' +
             '</div>';
       }
     }
