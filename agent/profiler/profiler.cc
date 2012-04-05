@@ -22,7 +22,6 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
-#include "base/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/win/pe_image.h"
@@ -63,7 +62,27 @@ class HashInvocationKey {
 typedef base::hash_map<
     InvocationKey, InvocationInfo*, HashInvocationKey> InvocationMap;
 
-typedef base::hash_set<HMODULE> ModuleSet;
+// Accessing a module acquired from process iteration calls is inherently racy,
+// as we don't hold any kind of reference to the module, and so the module
+// could be unloaded while we're accessing it. In practice this shouldn't
+// happen to us, as we'll be running under the loader's lock in all cases.
+bool CaptureModuleInformation(const base::win::PEImage& image,
+                              TraceModuleData* module_event) {
+  __try {
+    // Populate the log record.
+    module_event->module_base_size =
+        image.GetNTHeaders()->OptionalHeader.SizeOfImage;
+    module_event->module_checksum =
+        image.GetNTHeaders()->OptionalHeader.CheckSum;
+    module_event->module_time_date_stamp =
+        image.GetNTHeaders()->FileHeader.TimeDateStamp;
+  } __except(EXCEPTION_EXECUTE_HANDLER) {
+    LOG(ERROR) << "FOO";
+    return false;
+  }
+
+  return true;
+}
 
 }  // namespace
 
@@ -186,10 +205,14 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
           batch_(NULL) {
   }
 
-  void OnModuleEntry(EntryFrame* entry_frame,
-                     FuncAddr function,
-                     uint64 cycles);
+  // Logs @p module and all other modules in the process, then flushes
+  // the current trace buffer.
+  void LogAllModules(HMODULE module);
 
+  // Logs @p module.
+  void LogModule(HMODULE module);
+
+  // Processes a single function entry.
   void OnFunctionEntry(EntryFrame* entry_frame,
                        FuncAddr function,
                        uint64 cycles);
@@ -237,89 +260,82 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
   ModuleSet logged_modules_;
 };
 
-void Profiler::ThreadState::OnModuleEntry(EntryFrame* entry_frame,
-                                          FuncAddr function,
-                                          uint64 cycles) {
+void Profiler::ThreadState::LogAllModules(HMODULE module) {
   // Bail early if we're disabled.
   if (profiler_->session_.IsDisabled())
     return;
 
-  // The function invoked has a DllMain-like signature.
-  // Get the module and reason from its invocation record.
-  HMODULE module = reinterpret_cast<HMODULE>(entry_frame->args[0]);
-  DWORD reason = entry_frame->args[1];
-
-  // Only log module additions.
-  bool should_log_module = false;
-  switch (reason) {
-    case DLL_PROCESS_ATTACH:
-    case DLL_THREAD_ATTACH:
-      should_log_module = true;
+  std::vector<HMODULE> modules;
+  modules.resize(128);
+  while (true) {
+    DWORD bytes = sizeof(modules[0]) * modules.size();
+    DWORD needed_bytes = 0;
+    BOOL success = ::EnumProcessModules(::GetCurrentProcess(),
+                                        &modules[0],
+                                        bytes,
+                                        &needed_bytes);
+    if (success && bytes >= needed_bytes) {
+      // Success - break out of the loop.
+      // Resize our module vector to the returned size.
+      modules.resize(needed_bytes / sizeof(modules[0]));
       break;
+    }
 
-    case DLL_PROCESS_DETACH:
-    case DLL_THREAD_DETACH:
-      break;
-
-    default:
-      LOG(WARNING) << "Unrecognized module event: " << reason << ".";
-      break;
+    // Resize our module vector with the needed size and little slop.
+    modules.resize(needed_bytes / sizeof(modules[0]) + 4);
   }
 
-  // Make sure we only log each module once.
-  if (should_log_module &&
-      logged_modules_.find(module) == logged_modules_.end()) {
-    logged_modules_.insert(module);
+  // Our module should be in the process modules.
+  DCHECK(std::find(modules.begin(), modules.end(), module) != modules.end());
 
-    // Make sure the event we're about to write will fit.
-    if (!segment_.CanAllocate(sizeof(TraceModuleData)) || !FlushSegment()) {
-      // Failed to allocate a new segment.
-      return;
-    }
-
-    DCHECK(segment_.CanAllocate(sizeof(TraceModuleData)));
-
-    // Allocate a record in the log.
-    TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
-        segment_.AllocateTraceRecordImpl(
-            trace::client::ReasonToEventType(reason), sizeof(TraceModuleData)));
-    DCHECK(module_event != NULL);
-
-    // Populate the log record.
-    base::win::PEImage image(module);
-    module_event->module_base_addr = module;
-    module_event->module_base_size =
-        image.GetNTHeaders()->OptionalHeader.SizeOfImage;
-    module_event->module_checksum =
-        image.GetNTHeaders()->OptionalHeader.CheckSum;
-    module_event->module_time_date_stamp =
-        image.GetNTHeaders()->FileHeader.TimeDateStamp;
-    module_event->module_exe[0] = L'\0';
-
-    // Get the module name, and be sure to convert it to a path with a drive
-    // letter rather than a device name.
-    wchar_t module_name[MAX_PATH] = { 0 };
-    if (::GetMappedFileName(::GetCurrentProcess(), module,
-                            module_name, arraysize(module_name)) == 0) {
-      DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
-    }
-    FilePath device_path(module_name);
-    FilePath drive_path;
-    if (!common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
-      LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
-    }
-    ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
-              arraysize(module_event->module_name));
-
-    // We need to flush module events right away, so that the module is
-    // defined in the trace file before events using that module start to
-    // occur (in another thread).
-    FlushSegment();
+  for (size_t i = 0; i < modules.size(); ++i) {
+    DCHECK(modules[i] != NULL);
+    LogModule(modules[i]);
   }
 
-  // Now record the function entry.
-  OnFunctionEntry(entry_frame, function, cycles);
+  // We need to flush module events right away, so that the module is
+  // defined in the trace file before events using that module start to
+  // occur (in another thread).
+  FlushSegment();
+}
+
+void Profiler::ThreadState::LogModule(HMODULE module) {
+  // Make sure the event we're about to write will fit.
+  if (!segment_.CanAllocate(sizeof(TraceModuleData)) || !FlushSegment()) {
+    // Failed to allocate a new segment.
+    return;
+  }
+
+  DCHECK(segment_.CanAllocate(sizeof(TraceModuleData)));
+
+  // Allocate a record in the log.
+  TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
+      segment_.AllocateTraceRecordImpl(
+          TRACE_PROCESS_ATTACH_EVENT, sizeof(TraceModuleData)));
+  DCHECK(module_event != NULL);
+
+  // Populate the log record.
+  base::win::PEImage image(module);
+  module_event->module_base_addr = module;
+  if (!CaptureModuleInformation(image, module_event)) {
+    LOG(ERROR) << "Failed to capture module information.";
+  }
+
+  wchar_t module_name[MAX_PATH] = { 0 };
+  if (::GetMappedFileName(::GetCurrentProcess(), module,
+                          module_name, arraysize(module_name)) == 0) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
+  }
+  FilePath device_path(module_name);
+  FilePath drive_path;
+  if (!common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
+    LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
+  }
+  ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
+            arraysize(module_event->module_name));
+
+  module_event->module_exe[0] = L'\0';
 }
 
 void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
@@ -480,6 +496,53 @@ RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
   }
 }
 
+void Profiler::OnModuleEntry(EntryFrame* entry_frame,
+                             FuncAddr function,
+                             uint64 cycles) {
+  // The function invoked has a DllMain-like signature.
+  // Get the module and reason from its invocation record.
+  HMODULE module = reinterpret_cast<HMODULE>(entry_frame->args[0]);
+  DWORD reason = entry_frame->args[1];
+
+  // Only log module additions.
+  bool should_log_module = false;
+  switch (reason) {
+    case DLL_PROCESS_ATTACH:
+    case DLL_THREAD_ATTACH:
+      should_log_module = true;
+      break;
+
+    case DLL_PROCESS_DETACH:
+    case DLL_THREAD_DETACH:
+      break;
+
+    default:
+      LOG(WARNING) << "Unrecognized module event: " << reason << ".";
+      break;
+  }
+
+  // Make sure we only log each module once per process.
+  bool is_new_module = false;
+  if (should_log_module) {
+    base::AutoLock lock(lock_);
+
+    is_new_module = logged_modules_.insert(module).second;
+  }
+
+  ThreadState* data = GetOrAllocateThreadState();
+  DCHECK(data != NULL);
+  if (data == NULL)
+    return;
+
+  if (is_new_module) {
+    // Delegate the logging to our per-thread data.
+    data->LogAllModules(module);
+  }
+
+  // Handle the function entry.
+  data->OnFunctionEntry(entry_frame, function, cycles);
+}
+
 void Profiler::OnPageAdded(const void* page) {
   base::AutoLock lock(lock_);
 
@@ -563,10 +626,7 @@ void WINAPI Profiler::DllMainEntryHook(EntryFrame* entry_frame,
   ScopedLastErrorKeeper keep_last_error;
 
   Profiler* profiler = Profiler::Instance();
-  ThreadState* data = profiler->GetOrAllocateThreadState();
-  DCHECK(data != NULL);
-  if (data != NULL)
-    data->OnModuleEntry(entry_frame, function, cycles);
+  profiler->OnModuleEntry(entry_frame, function, cycles);
 }
 
 void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
