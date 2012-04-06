@@ -12,24 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_reader.h"
-
-#include "base/path_service.h"
-#include "gtest/gtest.h"
-#include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/unittest_util.h"
 
-namespace pdb {
+namespace testing {
 
-TEST(PdbReaderTest, Read) {
-  FilePath test_dll_pdb =
-      testing::GetSrcRelativePath(testing::kTestPdbFilePath);
+const wchar_t kTestPdbFilePath[] =
+    L"syzygy\\pdb\\test_data\\test_dll.pdb";
 
-  PdbReader reader;
-  PdbFile pdb_file;
-  EXPECT_TRUE(reader.Read(test_dll_pdb, &pdb_file));
-  EXPECT_EQ(pdb_file.StreamCount(), 168u);
-}
+const wchar_t kTestDllFilePath[] =
+    L"syzygy\\pdb\\test_data\\test_dll.dll";
 
-}  // namespace pdb
+const wchar_t kOmappedTestPdbFilePath[] =
+    L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
+
+}  // namespace testing

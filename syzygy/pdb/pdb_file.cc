@@ -20,14 +20,19 @@ PdbFile::PdbFile() {
 }
 
 PdbFile::~PdbFile() {
+  Clear();
+}
+
+void PdbFile::Clear() {
   // Free up the existing streams.
   for (size_t i = 0; i < streams_.size(); ++i) {
     if (streams_[i] != NULL)
       delete streams_[i];
   }
+  streams_.clear();
 }
 
-PdbStream* PdbFile::GetStream(uint32 index) {
+PdbStream* PdbFile::GetStream(uint32 index) const {
   DCHECK_LT(index, streams_.size());
   return streams_[index];
 }

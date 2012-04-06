@@ -14,12 +14,13 @@
 
 #include <objbase.h>
 #include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/stringprintf.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 
@@ -196,22 +197,23 @@ int main(int argc, char** argv) {
     std::cout << "File \"" << input_pdb_path.value() << "\"" << std::endl;
 
     pdb::PdbReader reader;
-    std::vector<pdb::PdbStream*> streams;
-    if (!reader.Read(input_pdb_path, &streams)) {
+    pdb::PdbFile pdb_file;
+    if (!reader.Read(input_pdb_path, &pdb_file)) {
       LOG(ERROR) << "Failed to read PDB file " << input_pdb_path.value() << ".";
       return 1;
     }
 
-    if (streams[pdb::kPdbHeaderInfoStream] != NULL) {
-      DumpHeaderInfoStream(streams[pdb::kPdbHeaderInfoStream]);
+    if (pdb_file.GetStream(pdb::kPdbHeaderInfoStream) != NULL) {
+      DumpHeaderInfoStream(pdb_file.GetStream(pdb::kPdbHeaderInfoStream));
     } else {
       LOG(ERROR) << "No header info stream.";
     }
 
     pdb::DbiHeader dbi_header = {};
     pdb::DbiDbgHeader dbg_header = {};
-    if (streams[pdb::kDbiStream] != NULL &&
-        ReadDbiHeaders(streams[pdb::kDbiStream], &dbi_header, &dbg_header)) {
+    if (pdb_file.GetStream(pdb::kDbiStream) != NULL &&
+        ReadDbiHeaders(pdb_file.GetStream(pdb::kDbiStream), &dbi_header,
+                       &dbg_header)) {
       DumpDbiHeaders(dbi_header, dbg_header);
     } else {
       LOG(ERROR) << "No Dbi stream.";
@@ -250,14 +252,15 @@ int main(int argc, char** argv) {
           return 1;
         }
 
-        for (size_t i = 0; i < streams.size(); ++i) {
-          if (streams[i] == NULL)
+        for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+          pdb::PdbStream* stream = pdb_file.GetStream(i);
+          if (stream == NULL)
             continue;
 
           FilePath stream_path = output_dir_path.Append(
               base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
 
-          if (!WriteStreamToPath(streams[i], stream_path)) {
+          if (!WriteStreamToPath(stream, stream_path)) {
             LOG(ERROR) << "Failed to write stream " << i << ".";
             return 1;
           }

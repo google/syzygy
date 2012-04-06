@@ -98,8 +98,9 @@ TEST(PdbWriterTest, Write) {
 
   streams.clear();
   PdbReader reader;
-  EXPECT_TRUE(reader.Read(path, &streams));
-  EXPECT_EQ(arraysize(test_streams), streams.size());
+  PdbFile pdb_file;
+  EXPECT_TRUE(reader.Read(path, &pdb_file));
+  EXPECT_EQ(arraysize(test_streams), pdb_file.StreamCount());
 }
 
 TEST(PdbWriterTest, WritePdbFile) {

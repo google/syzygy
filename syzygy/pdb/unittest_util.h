@@ -11,25 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Central place to house common unittest functionality for pdb_lib.
 
-#include "syzygy/pdb/pdb_reader.h"
+#ifndef SYZYGY_PDB_UNITTEST_UTIL_H_
+#define SYZYGY_PDB_UNITTEST_UTIL_H_
 
-#include "base/path_service.h"
-#include "gtest/gtest.h"
-#include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_constants.h"
-#include "syzygy/pdb/unittest_util.h"
+namespace testing {
 
-namespace pdb {
+// Paths to various files in syzygy/pdb/test_data.
+extern const wchar_t kTestPdbFilePath[];
+extern const wchar_t kTestDllFilePath[];
+extern const wchar_t kOmappedTestPdbFilePath[];
 
-TEST(PdbReaderTest, Read) {
-  FilePath test_dll_pdb =
-      testing::GetSrcRelativePath(testing::kTestPdbFilePath);
+}  // namespace testing
 
-  PdbReader reader;
-  PdbFile pdb_file;
-  EXPECT_TRUE(reader.Read(test_dll_pdb, &pdb_file));
-  EXPECT_EQ(pdb_file.StreamCount(), 168u);
-}
-
-}  // namespace pdb
+#endif  // SYZYGY_PDB_UNITTEST_UTIL_H_

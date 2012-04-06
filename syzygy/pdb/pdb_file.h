@@ -34,10 +34,14 @@ class PdbFile {
   PdbFile();
   ~PdbFile();
 
+  // Clears all streams. After calling this the PdbFile is in the same state as
+  // after construction.
+  void Clear();
+
   // Accesses the nth stream.
   // @param index the index of the nth stream.
   // @returns a pointer to the stream, NULL if it does not exist.
-  PdbStream* GetStream(uint32 index);
+  PdbStream* GetStream(uint32 index) const;
 
   // Adds a new stream to this PDB file, returning the index of the newly
   // generated stream. The stream must be heap allocated and ownership is
