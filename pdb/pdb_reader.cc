@@ -20,47 +20,73 @@
 
 namespace pdb {
 
-PdbReader::PdbReader() {
+namespace {
+
+bool GetFileSize(FILE* file, uint32* size) {
+  DCHECK(file != NULL);
+  DCHECK(size != NULL);
+
+  if (fseek(file, 0, SEEK_END) != 0) {
+    LOG(ERROR) << "Failed seeking to end of file.";
+    return false;
+  }
+
+  long temp = ftell(file);
+  if (temp == -1L) {
+    LOG(ERROR) << "Failed to read stream position.";
+    return false;
+  }
+  DCHECK_GT(temp, 0);
+
+  (*size) = static_cast<uint32>(temp);
+  return true;
 }
 
-PdbReader::~PdbReader() {
-  FreeStreams();
+uint32 GetNumPages(const PdbHeader& header, uint32 num_bytes) {
+  return (num_bytes + header.page_size - 1) / header.page_size;
 }
 
-bool PdbReader::Read(const FilePath& pdb_path) {
-  FreeStreams();
+}  // namespace
 
-  file_ = new RefCountedFILE(file_util::OpenFile(pdb_path, "rb"));
-  if (!file_->file()) {
-    LOG(ERROR) << "Unable to open '" << pdb_path.value() << "'";
+bool PdbReader::Read(const FilePath& pdb_path, PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  pdb_file->Clear();
+
+  scoped_refptr<RefCountedFILE> file(new RefCountedFILE(
+      file_util::OpenFile(pdb_path, "rb")));
+  if (!file->file()) {
+    LOG(ERROR) << "Unable to open '" << pdb_path.value() << "'.";
     return false;
   }
 
   // Get the file size.
   uint32 file_size = 0;
-  if (!GetFileSize(file_->file(), &file_size)) {
-    LOG(ERROR) << "Unable to determine size of '" << pdb_path.value() << "'";
+  if (!GetFileSize(file->file(), &file_size)) {
+    LOG(ERROR) << "Unable to determine size of '" << pdb_path.value() << "'.";
     return false;
   }
 
+  PdbHeader header = { 0 };
+
   // Read the header from the first page in the file.
   uint32 header_page = 0;
-  PdbFileStream header_stream(file_, sizeof(header_), &header_page,
+  PdbFileStream header_stream(file, sizeof(header), &header_page,
                               kPdbPageSize);
-  if (!header_stream.Read(&header_, 1)) {
-    LOG(ERROR) << "Failed to read PDB file header";
+  if (!header_stream.Read(&header, 1)) {
+    LOG(ERROR) << "Failed to read PDB file header.";
     return false;
   }
 
   // Sanity checks.
-  if (header_.num_pages * header_.page_size != file_size) {
-    LOG(ERROR) << "Invalid PDB file size";
+  if (header.num_pages * header.page_size != file_size) {
+    LOG(ERROR) << "Invalid PDB file size.";
     return false;
   }
 
-  if (memcmp(header_.magic_string, kPdbHeaderMagicString,
+  if (memcmp(header.magic_string, kPdbHeaderMagicString,
              sizeof(kPdbHeaderMagicString)) != 0) {
-    LOG(ERROR) << "Invalid PDB magic string";
+    LOG(ERROR) << "Invalid PDB magic string.";
     return false;
   }
 
@@ -68,106 +94,45 @@ bool PdbReader::Read(const FilePath& pdb_path) {
   // itself written across multiple root pages). To do this we need to know how
   // many pages are required to represent the directory, then we load a stream
   // containing that many page pointers from the root pages array.
-  int num_dir_pages = static_cast<int>(GetNumPages(header_.directory_size));
-  PdbFileStream dir_page_stream(file_, num_dir_pages * sizeof(uint32),
-                                header_.root_pages, header_.page_size);
+  int num_dir_pages = static_cast<int>(GetNumPages(header,
+                                                   header.directory_size));
+  PdbFileStream dir_page_stream(file, num_dir_pages * sizeof(uint32),
+                                header.root_pages, header.page_size);
   scoped_array<uint32> dir_pages(new uint32[num_dir_pages]);
   if (dir_pages.get() == NULL) {
-    LOG(ERROR) << "Failed to allocate directory pages";
+    LOG(ERROR) << "Failed to allocate directory pages.";
     return false;
   }
   if (!dir_page_stream.Read(dir_pages.get(), num_dir_pages)) {
-    LOG(ERROR) << "Failed to read directory page stream";
+    LOG(ERROR) << "Failed to read directory page stream.";
     return false;
   }
 
   // Load the actual directory.
-  int dir_size = static_cast<int>(header_.directory_size / sizeof(uint32));
-  PdbFileStream dir_stream(file_, header_.directory_size,
-                           dir_pages.get(), header_.page_size);
-  directory_.reset(new uint32[dir_size]);
-  if (directory_.get() == NULL) {
-    LOG(ERROR) << "Failed to allocate directory";
-    return false;
-  }
-  if (!dir_stream.Read(directory_.get(), dir_size)) {
-    LOG(ERROR) << "Failed to read directory stream";
+  int dir_size = static_cast<int>(header.directory_size / sizeof(uint32));
+  PdbFileStream dir_stream(file, header.directory_size,
+                           dir_pages.get(), header.page_size);
+  std::vector<uint32> directory(dir_size);
+  if (!dir_stream.Read(&directory[0], dir_size)) {
+    LOG(ERROR) << "Failed to read directory stream.";
     return false;
   }
 
   // Iterate through the streams and construct PdbStreams.
-  const uint32& num_streams = directory_[0];
-  const uint32* stream_lengths = &(directory_[1]);
-  const uint32* stream_pages = &(directory_[1 + num_streams]);
+  const uint32& num_streams = directory[0];
+  const uint32* stream_lengths = &(directory[1]);
+  const uint32* stream_pages = &(directory[1 + num_streams]);
 
   uint32 page_index = 0;
   for (uint32 stream_index = 0; stream_index < num_streams; ++stream_index) {
-    streams_.push_back(new PdbFileStream(file_,
-                                         stream_lengths[stream_index],
-                                         stream_pages + page_index,
-                                         header_.page_size));
-    page_index += GetNumPages(stream_lengths[stream_index]);
+    pdb_file->AppendStream(new PdbFileStream(file,
+                                             stream_lengths[stream_index],
+                                             stream_pages + page_index,
+                                             header.page_size));
+    page_index += GetNumPages(header, stream_lengths[stream_index]);
   }
 
-  pdb_path_ = pdb_path;
   return true;
-}
-
-bool PdbReader::Read(const FilePath& pdb_path,
-                     std::vector<PdbStream*>* streams) {
-  if (!Read(pdb_path))
-    return false;
-  *streams = streams_;
-  return true;
-}
-
-bool PdbReader::Read(const FilePath& pdb_path, PdbFile* pdb_file) {
-  DCHECK(pdb_file != NULL);
-  DCHECK_EQ(0u, pdb_file->StreamCount());
-
-  if (!Read(pdb_path))
-    return false;
-
-  // Transfer ownership of all of the streams to the PdbFile object.
-  for (size_t i = 0; i < streams_.size(); ++i) {
-    pdb_file->AppendStream(streams_[i]);
-  }
-
-  // Erase our pointers to the streams.
-  streams_.clear();
-  return true;
-}
-
-bool PdbReader::GetFileSize(FILE* file, uint32* size) const {
-  DCHECK(file != NULL);
-  DCHECK(size != NULL);
-
-  if (fseek(file, 0, SEEK_END) != 0) {
-    LOG(ERROR) << "Failed seeking to end of file";
-    return false;
-  }
-
-  long temp = ftell(file);
-  if (temp == -1L) {
-    LOG(ERROR) << "Failed to read stream position";
-    return false;
-  }
-
-  (*size) = static_cast<uint32>(temp);
-  return true;
-}
-
-uint32 PdbReader::GetNumPages(uint32 num_bytes) const {
-  return (num_bytes + header_.page_size - 1) / header_.page_size;
-}
-
-void PdbReader::FreeStreams() {
-  for (std::vector<PdbStream*>::const_iterator iter = streams_.begin();
-       iter != streams_.end(); iter++) {
-    delete *iter;
-  }
-
-  streams_.clear();
 }
 
 }  // namespace pdb

@@ -43,6 +43,24 @@ size_t DummyPdbStream::instance_count_;
 
 }  // namespace
 
+TEST(PdbFileTest, Clear) {
+  PdbFile pdb_file;
+  EXPECT_EQ(0u, pdb_file.StreamCount());
+  EXPECT_EQ(0u, DummyPdbStream::instance_count_);
+
+  pdb_file.AppendStream(new DummyPdbStream());
+  EXPECT_EQ(1u, pdb_file.StreamCount());
+  EXPECT_EQ(1u, DummyPdbStream::instance_count_);
+
+  pdb_file.AppendStream(new DummyPdbStream());
+  EXPECT_EQ(2u, pdb_file.StreamCount());
+  EXPECT_EQ(2u, DummyPdbStream::instance_count_);
+
+  pdb_file.Clear();
+  EXPECT_EQ(0u, pdb_file.StreamCount());
+  EXPECT_EQ(0u, DummyPdbStream::instance_count_);
+}
+
 TEST(PdbFileTest, WorksAsExpected) {
   scoped_ptr<PdbFile> pdb(new PdbFile());
   EXPECT_EQ(0u, pdb->StreamCount());

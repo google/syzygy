@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 #ifndef SYZYGY_PDB_OMAP_H_
 #define SYZYGY_PDB_OMAP_H_
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <dbghelp.h>
 #include <vector>
+
 #include "syzygy/core/address.h"
 #include "syzygy/pdb/pdb_reader.h"
 
@@ -52,7 +53,7 @@ bool OmapVectorIsValid(const std::vector<OMAP>& omaps);
 core::RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omaps,
                                               core::RelativeAddress address);
 
-// Reads OMAP tables from a PdbReader. The destination vectors may be NULL if
+// Reads OMAP tables from a PdbFile. The destination vectors may be NULL if
 // they are not required to be read. Even if neither stream is read they will be
 // checked for existence.
 //
@@ -61,9 +62,9 @@ core::RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omaps,
 // @param omap_from the vector to populate with OMAPFROM entries. May be NULL.
 // @returns true if the PDB file contains OMAP data and if the OMAP entries have
 //     been successfully read, false otherwise.
-bool ReadOmapsFromPdbReader(PdbReader* pdb_reader,
-                            std::vector<OMAP>* omap_to,
-                            std::vector<OMAP>* omap_from);
+bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
+                          std::vector<OMAP>* omap_to,
+                          std::vector<OMAP>* omap_from);
 
 // Reads OMAP tables from a PDB file. The destination vectors may be NULL if
 // they are not required to be read. Even if neither stream is read they will be

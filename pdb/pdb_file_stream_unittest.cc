@@ -11,13 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pdb/pdb_file_stream.h"
+
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/unittest_util.h"
 
 namespace pdb {
 
@@ -40,7 +43,7 @@ class PdbFileStreamTest : public testing::Test {
  public:
   virtual void SetUp() {
     file_ = new RefCountedFILE(file_util::OpenFile(testing::GetSrcRelativePath(
-        L"syzygy\\pdb\\test_data\\test_dll.pdb"), "rb"));
+        testing::kTestPdbFilePath), "rb"));
     ASSERT_TRUE(file_.get() != NULL);
   }
 

@@ -53,6 +53,14 @@
       ],
     },
     {
+      'target_name': 'pdb_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+    },
+    {
       'target_name': 'pdb_unittests',
       'type': 'executable',
       'sources': [
@@ -68,6 +76,7 @@
       ],
       'dependencies': [
         'pdb_lib',
+        'pdb_unittest_utils',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',

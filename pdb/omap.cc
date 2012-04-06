@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,12 +57,10 @@ core::RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omaps,
       (address - core::RelativeAddress(it->rva));
 }
 
-bool ReadOmapsFromPdbReader(PdbReader* pdb_reader,
-                            std::vector<OMAP>* omap_to,
-                            std::vector<OMAP>* omap_from) {
-  DCHECK(pdb_reader != NULL);
-
-  PdbStream* dbi_stream = pdb_reader->stream(kDbiStream);
+bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
+                          std::vector<OMAP>* omap_to,
+                          std::vector<OMAP>* omap_from) {
+  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream);
   if (dbi_stream == NULL)
     return false;
 
@@ -81,8 +79,8 @@ bool ReadOmapsFromPdbReader(PdbReader* pdb_reader,
     return false;
 
   // We expect both streams to exist.
-  PdbStream* omap_to_stream = pdb_reader->stream(dbg_header.omap_to_src);
-  PdbStream* omap_from_stream = pdb_reader->stream(dbg_header.omap_from_src);
+  PdbStream* omap_to_stream = pdb_file.GetStream(dbg_header.omap_to_src);
+  PdbStream* omap_from_stream = pdb_file.GetStream(dbg_header.omap_from_src);
   if (omap_to_stream == NULL || omap_from_stream == NULL)
     return false;
 
@@ -99,9 +97,10 @@ bool ReadOmapsFromPdbFile(const FilePath& pdb_path,
                           std::vector<OMAP>* omap_to,
                           std::vector<OMAP>* omap_from) {
   PdbReader pdb_reader;
-  if (!pdb_reader.Read(pdb_path))
+  PdbFile pdb_file;
+  if (!pdb_reader.Read(pdb_path, &pdb_file))
     return false;
-  return ReadOmapsFromPdbReader(&pdb_reader, omap_to, omap_from);
+  return ReadOmapsFromPdbFile(pdb_file, omap_to, omap_from);
 }
 
 }  // namespace pdb
