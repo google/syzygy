@@ -84,6 +84,15 @@ class Session {
   bool FindBuffer(::CallTraceBuffer* call_trace_buffer,
                   Buffer** client_buffer);
 
+  // Returns true if the session should be deleted.
+  // TODO(rogerm): Remove with better lifetime management.
+  bool IsDefunct() {
+    base::AutoLock lock(lock_);
+
+    return is_closing_ &&
+        buffer_state_counts_[Buffer::kPendingWrite] == 0;
+  }
+
   // Returns the handle to the trace file.
   HANDLE trace_file_handle() { return trace_file_handle_.Get(); }
 

@@ -17,9 +17,11 @@
 
 #include "syzygy/trace/service/service.h"
 
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/lazy_instance.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -53,6 +55,7 @@ Service::Service()
       max_buffers_pending_write_(kDefaultMaxBuffersPendingWrite),
       owner_thread_(base::PlatformThread::CurrentId()),
       writer_thread_(base::kNullThreadHandle),
+      session_destruction_thread_("Session Destruction Thread"),
       queue_is_non_empty_(&queue_lock_),
       rpc_is_initialized_(false),
       rpc_is_running_(false),
@@ -249,6 +252,10 @@ bool Service::Start(bool non_blocking) {
   if (!AcquireServiceMutex())
     return false;
 
+  if (!session_destruction_thread_.Start()) {
+    return false;
+  }
+
   if (!InitializeRPC()) {
     ReleaseServiceMutex();
     return false;
@@ -271,6 +278,8 @@ bool Service::Stop() {
   StopRPC();
   CleanupRPC();
   StopWriterThread();
+  session_destruction_thread_.Stop();
+
   ReleaseServiceMutex();
 
   LOG(INFO) << "The call-trace service is stopped.";
@@ -583,16 +592,30 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
   return true;
 }
 
-bool Service::DestroySession(Session* session) {
-  DCHECK(session != NULL);
+void Service::DoSessionCleanup() {
   base::AutoLock lock(lock_);
 
-  if (sessions_.erase(session->client_process_id()) == 0) {
-    LOG(ERROR) << "Destroying unknown session!";
-    return false;
-  }
+  SessionMap::iterator it = sessions_.begin();
+  while (it != sessions_.end()) {
+    Session* session = it->second;
 
-  delete session;
+    SessionMap::iterator to_delete(it);
+    // Walk forward early as we may erase this element.
+    ++it;
+
+    if (session->IsDefunct()) {
+      sessions_.erase(to_delete);
+      delete session;
+    }
+  }
+}
+
+bool Service::DestroySession(Session* session) {
+  DCHECK(session != NULL);
+
+  DCHECK(session->IsDefunct());
+  session_destruction_thread_.message_loop()->PostTask(FROM_HERE,
+      base::Bind(&Service::DoSessionCleanup, base::Unretained(this)));
 
   return true;
 }
