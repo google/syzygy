@@ -122,6 +122,9 @@ bool RunService(const CommandLine* cmd_line) {
   // Run the service until it is externally stopped.
   call_trace_service.Start(false);
 
+  // Wind up in an orderly fashion, rather than waiting till destruction.
+  call_trace_service.Stop();
+
   return true;
 }
 

@@ -24,6 +24,7 @@
 #include "base/file_path.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"
+#include "base/threading/thread.h"
 #include "syzygy/trace/service/session.h"
 
 namespace trace {
@@ -207,6 +208,8 @@ class Service : public base::PlatformThread::Delegate {
 
  // These are protected for unittesting.
  protected:
+  // Called on the session destruction thread to delete sessions.
+  void DoSessionCleanup();
 
   // RPC Server Management Functions.
   bool AcquireServiceMutex();
@@ -286,6 +289,12 @@ class Service : public base::PlatformThread::Delegate {
 
   // Handle to the thread used for IO.
   base::PlatformThreadHandle writer_thread_;
+
+  // The thread that takes care of session destruction.
+  // This is a temporary hack to workaround deadlocks occurring on session
+  // destructions.
+  // TODO(rogerm): Remove this as you perpetrate the proper fix.
+  base::Thread session_destruction_thread_;
 
   // Protects concurrent access to the internals, except for write-queue
   // related internals.
