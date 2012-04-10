@@ -24,10 +24,10 @@
   'targets': [
     {
       'target_name': 'agent_common_lib',
-      # Change this to static_library once there's at least one
-      # CC file in the target.
-      'type': 'none',
+      'type': 'static_library',
       'sources': [
+        'process_utils.cc',
+        'process_utils.h',
         'shadow_stack.h',
       ],
       'dependencies': [
@@ -39,6 +39,7 @@
       'type': 'executable',
       'sources': [
         'agent_common_unittests_main.cc',
+        'process_utils_unittest.cc',
         'shadow_stack_unittest.cc',
       ],
       'dependencies': [

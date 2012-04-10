@@ -22,6 +22,7 @@
 #include "base/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/common/process_utils.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
 
@@ -30,6 +31,8 @@ namespace profiler {
 
 namespace {
 
+using agent::common::GetProcessModules;
+using agent::common::ModuleVector;
 using file_util::FileEnumerator;
 using testing::_;
 using testing::Return;
@@ -123,31 +126,6 @@ class ProfilerTest : public testing::Test {
     }
 
     ASSERT_TRUE(parser.Consume());
-  }
-
-  typedef std::vector<HMODULE> ModuleVector;
-  ModuleVector GetProcessModules() {
-    ModuleVector modules;
-    modules.resize(128);
-    while (true) {
-      DWORD bytes = sizeof(modules[0]) * modules.size();
-      DWORD needed_bytes = 0;
-      BOOL success = ::EnumProcessModules(::GetCurrentProcess(),
-                                          &modules[0],
-                                          bytes,
-                                          &needed_bytes);
-      if (success && bytes >= needed_bytes) {
-        // Success - break out of the loop.
-        // Resize our module vector to the returned size.
-        modules.resize(needed_bytes / sizeof(modules[0]));
-        break;
-      }
-
-      // Resize our module vector with the needed size and little slop.
-      modules.resize(needed_bytes / sizeof(modules[0]) + 4);
-    }
-
-    return modules;
   }
 
   // TODO(siggi): These are shareable with the other instrumentation DLL tests.
@@ -296,7 +274,8 @@ TEST_F(ProfilerTest, RecordsAllModulesAndFunctions) {
   EXPECT_TRUE(DllMainThunk(self_module, DLL_PROCESS_ATTACH, NULL));
 
   // Get the module list prior to unloading the profile DLL.
-  ModuleVector modules = GetProcessModules();
+  ModuleVector modules;
+  GetProcessModules(&modules);
 
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
@@ -361,7 +340,8 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
 
   // Get the module list prior to unloading the profile DLL.
-  ModuleVector modules = GetProcessModules();
+  ModuleVector modules;
+  GetProcessModules(&modules);
 
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
