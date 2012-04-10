@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,15 +20,15 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "base/memory/ref_counted.h"
 
 namespace pdb {
 
 // This class represents a PDB stream. It has a stream-like interface that
 // allows invoking successive reads through the stream and seeking.
-class PdbStream {
+class PdbStream : public base::RefCounted<PdbStream> {
  public:
   explicit PdbStream(size_t length);
-  virtual ~PdbStream();
 
   // Reads @p count chunks of size sizeof(ItemType) into the destination buffer.
   // The caller is responsible for ensuring that the destination buffer has
@@ -107,6 +107,11 @@ class PdbStream {
   size_t bytes_left() const { return length_ - pos_; }
 
  protected:
+  friend base::RefCounted<PdbStream>;
+
+  // Protected to enforce use of ref-counted pointers at compile time.
+  virtual ~PdbStream();
+
   // Sets the stream's length.
   void set_length(size_t length) { length_ = length; }
 

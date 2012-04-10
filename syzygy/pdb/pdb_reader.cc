@@ -71,9 +71,9 @@ bool PdbReader::Read(const FilePath& pdb_path, PdbFile* pdb_file) {
 
   // Read the header from the first page in the file.
   uint32 header_page = 0;
-  PdbFileStream header_stream(file, sizeof(header), &header_page,
-                              kPdbPageSize);
-  if (!header_stream.Read(&header, 1)) {
+  scoped_refptr<PdbFileStream> header_stream(new PdbFileStream(
+      file, sizeof(header), &header_page, kPdbPageSize));
+  if (!header_stream->Read(&header, 1)) {
     LOG(ERROR) << "Failed to read PDB file header.";
     return false;
   }
@@ -96,24 +96,25 @@ bool PdbReader::Read(const FilePath& pdb_path, PdbFile* pdb_file) {
   // containing that many page pointers from the root pages array.
   int num_dir_pages = static_cast<int>(GetNumPages(header,
                                                    header.directory_size));
-  PdbFileStream dir_page_stream(file, num_dir_pages * sizeof(uint32),
-                                header.root_pages, header.page_size);
+  scoped_refptr<PdbFileStream> dir_page_stream(new PdbFileStream(
+      file, num_dir_pages * sizeof(uint32),
+      header.root_pages, header.page_size));
   scoped_array<uint32> dir_pages(new uint32[num_dir_pages]);
   if (dir_pages.get() == NULL) {
     LOG(ERROR) << "Failed to allocate directory pages.";
     return false;
   }
-  if (!dir_page_stream.Read(dir_pages.get(), num_dir_pages)) {
+  if (!dir_page_stream->Read(dir_pages.get(), num_dir_pages)) {
     LOG(ERROR) << "Failed to read directory page stream.";
     return false;
   }
 
   // Load the actual directory.
   int dir_size = static_cast<int>(header.directory_size / sizeof(uint32));
-  PdbFileStream dir_stream(file, header.directory_size,
-                           dir_pages.get(), header.page_size);
+  scoped_refptr<PdbFileStream> dir_stream(new PdbFileStream(
+      file, header.directory_size, dir_pages.get(), header.page_size));
   std::vector<uint32> directory(dir_size);
-  if (!dir_stream.Read(&directory[0], dir_size)) {
+  if (!dir_stream->Read(&directory[0], dir_size)) {
     LOG(ERROR) << "Failed to read directory stream.";
     return false;
   }

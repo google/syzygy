@@ -62,12 +62,14 @@ class PdbFileStream : public PdbStream {
                 size_t length,
                 const uint32* pages,
                 size_t page_size);
-  ~PdbFileStream();
 
   // PdbStream implementation.
   bool ReadBytes(void* dest, size_t count, size_t* bytes_read);
 
  protected:
+  // Protected to enforce reference counted pointers at compile time.
+  virtual ~PdbFileStream();
+
   // Read @p count bytes from @p offset byte offset from page @p page_num and
   // store them in dest.
   bool ReadFromPage(void* dest, uint32 page_num, size_t offset, size_t count);

@@ -28,12 +28,15 @@ class DummyPdbStream : public PdbStream {
     ++instance_count_;
   }
 
-  ~DummyPdbStream() {
-    --instance_count_;
-  }
-
   virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
     return false;
+  }
+
+  static size_t instance_count() { return instance_count_; }
+
+ protected:
+  virtual ~DummyPdbStream() {
+    --instance_count_;
   }
 
   static size_t instance_count_;
@@ -46,55 +49,55 @@ size_t DummyPdbStream::instance_count_;
 TEST(PdbFileTest, Clear) {
   PdbFile pdb_file;
   EXPECT_EQ(0u, pdb_file.StreamCount());
-  EXPECT_EQ(0u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(0u, DummyPdbStream::instance_count());
 
   pdb_file.AppendStream(new DummyPdbStream());
   EXPECT_EQ(1u, pdb_file.StreamCount());
-  EXPECT_EQ(1u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(1u, DummyPdbStream::instance_count());
 
   pdb_file.AppendStream(new DummyPdbStream());
   EXPECT_EQ(2u, pdb_file.StreamCount());
-  EXPECT_EQ(2u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(2u, DummyPdbStream::instance_count());
 
   pdb_file.Clear();
   EXPECT_EQ(0u, pdb_file.StreamCount());
-  EXPECT_EQ(0u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(0u, DummyPdbStream::instance_count());
 }
 
 TEST(PdbFileTest, WorksAsExpected) {
   scoped_ptr<PdbFile> pdb(new PdbFile());
   EXPECT_EQ(0u, pdb->StreamCount());
-  EXPECT_EQ(0u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(0u, DummyPdbStream::instance_count());
 
-  PdbStream* stream = new DummyPdbStream();
-  EXPECT_EQ(1u, DummyPdbStream::instance_count_);
-  size_t index0 = pdb->AppendStream(stream);
+  scoped_refptr<PdbStream> stream(new DummyPdbStream());
+  EXPECT_EQ(1u, DummyPdbStream::instance_count());
+  size_t index0 = pdb->AppendStream(stream.get());
   EXPECT_EQ(0u, index0);
   EXPECT_EQ(1u, pdb->StreamCount());
-  EXPECT_EQ(stream, pdb->GetStream(index0));
+  EXPECT_EQ(stream.get(), pdb->GetStream(index0));
 
   stream = new DummyPdbStream();
-  EXPECT_EQ(2u, DummyPdbStream::instance_count_);
-  size_t index1 = pdb->AppendStream(stream);
+  EXPECT_EQ(2u, DummyPdbStream::instance_count());
+  size_t index1 = pdb->AppendStream(stream.get());
   EXPECT_EQ(1u, index1);
   EXPECT_EQ(2u, pdb->StreamCount());
-  EXPECT_EQ(stream, pdb->GetStream(index1));
-  PdbStream* stream1 = stream;
+  EXPECT_EQ(stream.get(), pdb->GetStream(index1));
+  PdbStream* stream1 = stream.get();
 
   stream = new DummyPdbStream();
-  EXPECT_EQ(3u, DummyPdbStream::instance_count_);
-  pdb->ReplaceStream(index0, stream);
-  EXPECT_EQ(2u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(3u, DummyPdbStream::instance_count());
+  pdb->ReplaceStream(index0, stream.get());
+  EXPECT_EQ(2u, DummyPdbStream::instance_count());
   EXPECT_EQ(2u, pdb->StreamCount());
-  EXPECT_EQ(stream, pdb->GetStream(index0));
+  EXPECT_EQ(stream.get(), pdb->GetStream(index0));
+  PdbStream* stream0 = stream.get();
+  stream = NULL;
 
-  std::vector<PdbStream*> expected_streams;
-  expected_streams.push_back(stream);
-  expected_streams.push_back(stream1);
-  EXPECT_THAT(pdb->streams(), ::testing::ContainerEq(expected_streams));
+  EXPECT_EQ(stream0, pdb->GetStream(0));
+  EXPECT_EQ(stream1, pdb->GetStream(1));
 
   pdb.reset(NULL);
-  EXPECT_EQ(0u, DummyPdbStream::instance_count_);
+  EXPECT_EQ(0u, DummyPdbStream::instance_count());
 }
 
 }  // namespace pdb

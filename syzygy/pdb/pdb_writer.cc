@@ -20,7 +20,11 @@
 
 namespace pdb {
 
+namespace {
+
 const uint32 kZeroBuffer[kPdbPageSize] = { 0 };
+
+}  // namespace
 
 PdbWriter::PdbWriter() {
 }
@@ -28,11 +32,10 @@ PdbWriter::PdbWriter() {
 PdbWriter::~PdbWriter() {
 }
 
-bool PdbWriter::Write(const FilePath& pdb_path,
-                      const std::vector<PdbStream*>& streams) {
+bool PdbWriter::Write(const FilePath& pdb_path, const PdbFile& pdb_file) {
   file_.reset(file_util::OpenFile(pdb_path, "wb"));
   if (!file_.get()) {
-    LOG(ERROR) << "Failed to create " << pdb_path.value();
+    LOG(ERROR) << "Failed to create '" << pdb_path.value() << "'.";
     return false;
   }
 
@@ -43,25 +46,31 @@ bool PdbWriter::Write(const FilePath& pdb_path,
   // correspond to the file instead of just one page. It should be relocated
   // to the end and sized properly.
   if (fseek(file_.get(), kPdbPageSize * 3, SEEK_SET) != 0) {
-    LOG(ERROR) << "Failed to reserve header and free page map";
+    LOG(ERROR) << "Failed to reserve header and free page map.";
     return false;
   }
   total_bytes += kPdbPageSize * 3;
 
   // Append all the streams after the header.
   StreamInfoList stream_info_list;
-  for (std::vector<PdbStream*>::const_iterator iter = streams.begin();
-      iter != streams.end(); iter++) {
-    // Save the offset and length for later.
-    StreamInfo info = { total_bytes, (*iter)->length() };
-    stream_info_list.push_back(info);
+  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+    PdbStream* stream = pdb_file.GetStream(i);
+    if (stream == NULL) {
+      // A null stream is treated as an empty one.
+      StreamInfo info = { total_bytes, 0 };
+      stream_info_list.push_back(info);
+    } else {
+      // Save the offset and length for later.
+      StreamInfo info = { total_bytes, stream->length() };
+      stream_info_list.push_back(info);
 
-    uint32 bytes_written = 0;
-    if (!AppendStream(*iter, &bytes_written))
-      return false;
+      uint32 bytes_written = 0;
+      if (!AppendStream(stream, &bytes_written))
+        return false;
 
-    total_bytes += bytes_written;
-    DCHECK_EQ(0U, total_bytes % kPdbPageSize);
+      total_bytes += bytes_written;
+      DCHECK_EQ(0U, total_bytes % kPdbPageSize);
+    }
   }
 
   // Map out the directory: i.e., pages on which the streams have been written.
@@ -85,10 +94,6 @@ bool PdbWriter::Write(const FilePath& pdb_path,
     return false;
 
   return true;
-}
-
-bool PdbWriter::Write(const FilePath& pdb_path, const PdbFile& pdb_file) {
-  return Write(pdb_path, pdb_file.streams());
 }
 
 // Write an unsigned 32 bit value to the output file.

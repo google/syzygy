@@ -32,13 +32,6 @@ class PdbWriter {
   PdbWriter();
   ~PdbWriter();
 
-  // Write a pdb file to disk. pdb_path specifies where the file should be
-  // written relative to the current working directory, and pdb_streams is a
-  // PdbStreamList that contains the streams to be written to the file.
-  //
-  // @note this is DEPRECATED in favour of the following Write function.
-  bool Write(const FilePath& pdb_path, const std::vector<PdbStream*>& streams);
-
   // Writes the given PdbFile to disk with the given file name.
   // @param pdb_path the path of the PDB file to write.
   // @param pdb_file the PDB file to be written.
