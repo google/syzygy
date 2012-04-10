@@ -51,7 +51,6 @@ class TestPdbStream : public PdbStream {
   explicit TestPdbStream(uint32 length) : PdbStream(length) {
   }
 
- protected:
   bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
     DCHECK(bytes_read != NULL);
 
@@ -75,33 +74,6 @@ using pdb::kPdbHeaderMagicString;
 using pdb::kPdbPageSize;
 using pdb::PdbHeader;
 using pdb::PdbReader;
-
-TEST(PdbWriterTest, Write) {
-  TestPdbStream test_streams[] = {
-    TestPdbStream((1 << 8) + 123),
-    TestPdbStream((1 << 9) + 321),
-    TestPdbStream((1 << 10) + 456),
-    TestPdbStream((1 << 11) + 654)
-  };
-  std::vector<PdbStream*> streams;
-  for (uint32 i = 0; i < arraysize(test_streams); ++i)
-    streams.push_back(&test_streams[i]);
-
-  // Test that we can create a pdb file and then read it successfully.
-  FilePath path;
-  EXPECT_TRUE(file_util::CreateTemporaryFile(&path));
-  {
-    // Create a scope so that the file gets closed.
-    TestPdbWriter writer;
-    EXPECT_TRUE(writer.Write(path, streams));
-  }
-
-  streams.clear();
-  PdbReader reader;
-  PdbFile pdb_file;
-  EXPECT_TRUE(reader.Read(path, &pdb_file));
-  EXPECT_EQ(arraysize(test_streams), pdb_file.StreamCount());
-}
 
 TEST(PdbWriterTest, WritePdbFile) {
   PdbFile pdb_file;
@@ -168,9 +140,9 @@ TEST(PdbWriterTest, AppendStream) {
   // Test that the bytes written corresponds to the stream length and padding.
   TestPdbWriter writer;
   size_t len = (1 << 17) + 123;
-  TestPdbStream stream(len);
+  scoped_refptr<TestPdbStream> stream(new TestPdbStream(len));
   uint32 bytes_written;
-  EXPECT_TRUE(writer.AppendStream(&stream, &bytes_written));
+  EXPECT_TRUE(writer.AppendStream(stream.get(), &bytes_written));
   EXPECT_EQ(GetNumPages(len) * kPdbPageSize, bytes_written);
 
   // Test that the correct data is written.

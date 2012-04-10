@@ -51,7 +51,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
   //     of ownership will disappear as the streams are made reference counted.
 
   // Copy the Dbi stream into memory and overwrite it in the stream list.
-  scoped_ptr<PdbByteStream> new_dbi_stream(new PdbByteStream);
+  scoped_refptr<PdbByteStream> new_dbi_stream(new PdbByteStream);
   PdbByteStream* dbi_stream = new_dbi_stream.get();
   if (pdb_file.StreamCount() <= kDbiStream ||
       !dbi_stream->Init(pdb_file.GetStream(kDbiStream))) {
@@ -63,7 +63,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
   pdb_file.ReplaceStream(kDbiStream, new_dbi_stream.release());
 
   // Copy the Pdb header info stream into memory and adjust the header info.
-  scoped_ptr<PdbByteStream> new_pdb_info_stream(new PdbByteStream);
+  scoped_refptr<PdbByteStream> new_pdb_info_stream(new PdbByteStream);
   PdbByteStream* pdb_info_stream = new_pdb_info_stream.get();
   if (pdb_file.StreamCount() <= kPdbHeaderInfoStream ||
       !pdb_info_stream->Init(pdb_file.GetStream(kPdbHeaderInfoStream))) {
@@ -103,7 +103,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
   }
 
   // Create the Omap to stream.
-  scoped_ptr<PdbByteStream> omap_to_stream(new PdbByteStream);
+  scoped_refptr<PdbByteStream> omap_to_stream(new PdbByteStream);
   if (!omap_to_stream->Init(
       reinterpret_cast<const uint8*>(&omap_to_list.at(0)),
       omap_to_list.size() * sizeof(OMAP))) {
@@ -121,7 +121,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
   }
 
   // Create the Omap from stream.
-  scoped_ptr<PdbByteStream> omap_from_stream(new PdbByteStream);
+  scoped_refptr<PdbByteStream> omap_from_stream(new PdbByteStream);
   if (!omap_from_stream->Init(
       reinterpret_cast<const uint8*>(&omap_from_list.at(0)),
       omap_from_list.size() * sizeof(OMAP))) {

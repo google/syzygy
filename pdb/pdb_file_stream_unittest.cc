@@ -35,6 +35,8 @@ class TestPdbFileStream : public PdbFileStream {
       : PdbFileStream(file, length, pages, page_size) {
   }
 
+  virtual ~TestPdbFileStream() { }
+
   using PdbFileStream::ReadBytes;
   using PdbFileStream::ReadFromPage;
 };
@@ -55,8 +57,8 @@ class PdbFileStreamTest : public testing::Test {
 
 TEST_F(PdbFileStreamTest, Constructor) {
   size_t pages[] = {1, 2, 3};
-  PdbFileStream stream(file_, 10, pages, 8);
-  EXPECT_EQ(10, stream.length());
+  scoped_refptr<PdbFileStream> stream(new PdbFileStream(file_, 10, pages, 8));
+  EXPECT_EQ(10, stream->length());
 }
 
 TEST_F(PdbFileStreamTest, ReadFromPage) {
@@ -82,15 +84,16 @@ TEST_F(PdbFileStreamTest, ReadFromPage) {
 
   size_t pages[] = {0, 1, 2};
   size_t page_size = 4;
-  TestPdbFileStream stream(file_, sizeof(PdbHeader), pages, page_size);
+  scoped_refptr<TestPdbFileStream> stream(new TestPdbFileStream(
+      file_, sizeof(PdbHeader), pages, page_size));
 
   char buffer[4] = {0};
   for (uint32 i = 0; i < arraysize(test_cases); ++i) {
     TestCase test_case = test_cases[i];
-    EXPECT_TRUE(stream.ReadFromPage(&buffer, test_case.page_num,
-                                    test_case.offset, test_case.count));
+    EXPECT_TRUE(stream->ReadFromPage(&buffer, test_case.page_num,
+                                     test_case.offset, test_case.count));
     EXPECT_EQ(0,
-          memcmp(buffer, test_case.expected, strlen(test_case.expected)));
+              memcmp(buffer, test_case.expected, strlen(test_case.expected)));
   }
 }
 
@@ -110,13 +113,14 @@ TEST_F(PdbFileStreamTest, ReadBytes) {
   char buffer[8] = {0};
   for (size_t page_size = 4; page_size <= 32; page_size *= 2) {
     size_t pages[] = {0, 1, 2, 3, 4, 5, 6, 7};
-    TestPdbFileStream stream(file_.get(), sizeof(PdbHeader), pages, page_size);
+    scoped_refptr<TestPdbFileStream> stream(new TestPdbFileStream(
+        file_.get(), sizeof(PdbHeader), pages, page_size));
 
     for (uint32 j = 0; j < arraysize(test_cases); ++j) {
       char* test_case = test_cases[j];
       size_t len = strlen(test_case);
       size_t bytes_read = 0;
-      EXPECT_TRUE(stream.ReadBytes(&buffer, len, &bytes_read));
+      EXPECT_TRUE(stream->ReadBytes(&buffer, len, &bytes_read));
       EXPECT_EQ(0, memcmp(buffer, test_case, len));
       EXPECT_EQ(len, bytes_read);
     }

@@ -24,11 +24,6 @@ PdbFile::~PdbFile() {
 }
 
 void PdbFile::Clear() {
-  // Free up the existing streams.
-  for (size_t i = 0; i < streams_.size(); ++i) {
-    if (streams_[i] != NULL)
-      delete streams_[i];
-  }
   streams_.clear();
 }
 
@@ -45,8 +40,6 @@ size_t PdbFile::AppendStream(PdbStream* pdb_stream) {
 
 void PdbFile::ReplaceStream(uint32 index, PdbStream* pdb_stream) {
   DCHECK_LT(index, streams_.size());
-  if (streams_[index] != NULL)
-    delete streams_[index];
   streams_[index] = pdb_stream;
 }
 

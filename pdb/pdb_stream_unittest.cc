@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ class TestPdbStream : public PdbStream {
 
   using PdbStream::pos;
 
- protected:
   // A simple implementation of ReadBytes.
   bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
     DCHECK(dest != NULL);
@@ -58,79 +57,79 @@ struct Bar {
 }  // namespace
 
 TEST(PdbStreamTest, Constructor) {
-  TestPdbStream stream(5);
-  EXPECT_EQ(5, stream.length());
-  EXPECT_EQ(0, stream.pos());
+  scoped_refptr<TestPdbStream> stream(new TestPdbStream(5));
+  EXPECT_EQ(5, stream->length());
+  EXPECT_EQ(0, stream->pos());
 
-  TestPdbStream stream2(-1);
-  EXPECT_EQ(0, stream2.length());
-  EXPECT_EQ(0, stream2.pos());
+  scoped_refptr<TestPdbStream> stream2(new TestPdbStream(-1));
+  EXPECT_EQ(0, stream2->length());
+  EXPECT_EQ(0, stream2->pos());
 }
 
 TEST(PdbStreamTest, Read) {
-  TestPdbStream stream(12);
+  scoped_refptr<TestPdbStream> stream(new TestPdbStream(12));
   uint8 num8;
   uint16 num16;
   uint32 num32;
 
   // 3 valid reads.
-  EXPECT_TRUE(stream.Read(&num8, 3));   // 0..2
-  EXPECT_TRUE(stream.Read(&num16, 2));  // 3..6
-  EXPECT_TRUE(stream.Read(&num32, 1));  // 7..10
+  EXPECT_TRUE(stream->Read(&num8, 3));   // 0..2
+  EXPECT_TRUE(stream->Read(&num16, 2));  // 3..6
+  EXPECT_TRUE(stream->Read(&num32, 1));  // 7..10
 
   // Try to read over the end of the stream.
-  EXPECT_FALSE(stream.Read(&num32, 1));
+  EXPECT_FALSE(stream->Read(&num32, 1));
 
   // Read to the end of the stream, using the version of read that reports
   // the number of items read.
   size_t items_read = 0;
-  EXPECT_TRUE(stream.Read(&num8, 1, &items_read));  // 11
+  EXPECT_TRUE(stream->Read(&num8, 1, &items_read));  // 11
   EXPECT_EQ(1u, items_read);
   // Read over the end of the stream.
-  EXPECT_FALSE(stream.Read(&num8, 4));
+  EXPECT_FALSE(stream->Read(&num8, 4));
 }
 
 TEST(PdbStreamTest, ReadVector) {
-  TestPdbStream stream(sizeof(Foo) * 10);
+  scoped_refptr<TestPdbStream> stream(new TestPdbStream(sizeof(Foo) * 10));
 
   std::vector<Foo> foos;
 
   // A couple of valid reads.
-  EXPECT_TRUE(stream.Read(&foos, 2));  // 0..1
+  EXPECT_TRUE(stream->Read(&foos, 2));  // 0..1
   EXPECT_EQ(2u, foos.size());
-  EXPECT_TRUE(stream.Read(&foos, 3));  // 2..4
+  EXPECT_TRUE(stream->Read(&foos, 3));  // 2..4
   EXPECT_EQ(3u, foos.size());
 
-  // Try to read past the end of the stream.
-  EXPECT_FALSE(stream.Read(&foos, 6));
+  // Try to read past the end of the stream->
+  EXPECT_FALSE(stream->Read(&foos, 6));
 
   // There are 5 elements left. If we try to read Bars until the end of the
   // stream it should fail as 5 Foos = 2.5 Bars.
   std::vector<Bar> bars;
-  EXPECT_FALSE(stream.Read(&bars));
+  EXPECT_FALSE(stream->Read(&bars));
 
   // However, we should be able to read Foos until the end of the stream.
-  EXPECT_TRUE(stream.Read(&foos));
+  EXPECT_TRUE(stream->Read(&foos));
   EXPECT_EQ(5u, foos.size());
 }
 
 TEST(PdbStreamTest, Seek) {
-  TestPdbStream stream(5);
-  EXPECT_EQ(0, stream.pos());
+  scoped_refptr<TestPdbStream> stream(new TestPdbStream(5));
+  EXPECT_EQ(0, stream->pos());
 
   // Valid seeks.
-  EXPECT_TRUE(stream.Seek(0));
-  EXPECT_EQ(0, stream.pos());
+  EXPECT_TRUE(stream->Seek(0));
+  EXPECT_EQ(0, stream->pos());
 
-  EXPECT_TRUE(stream.Seek(3));
-  EXPECT_EQ(3, stream.pos());
+  EXPECT_TRUE(stream->Seek(3));
+  EXPECT_EQ(3, stream->pos());
 
-  EXPECT_TRUE(stream.Seek(5));
-  EXPECT_EQ(5, stream.pos());
+  EXPECT_TRUE(stream->Seek(5));
+  EXPECT_EQ(5, stream->pos());
 
   // Invalid seek.
-  EXPECT_FALSE(stream.Seek(6));
-  EXPECT_EQ(5, stream.pos());
+  EXPECT_FALSE(stream->Seek(6));
+  EXPECT_EQ(5, stream->pos());
 }
 
 }  // namespace pdb
