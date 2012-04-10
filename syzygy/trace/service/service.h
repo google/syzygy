@@ -22,6 +22,7 @@
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
+#include "base/process.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
@@ -49,6 +50,8 @@ namespace service {
 // can also stopped remotely via an RPC call to CallTraceControl::Stop().
 class Service : public base::PlatformThread::Delegate {
  public:
+  typedef base::ProcessId ProcessId;
+
   // Flag passed to CommitAndExchangeBuffer() to determine whether or
   // not a fresh buffer should be returned to the client.
   enum ExchangeFlag {
@@ -208,6 +211,8 @@ class Service : public base::PlatformThread::Delegate {
 
  // These are protected for unittesting.
  protected:
+  typedef std::deque<Buffer*> BufferQueue;
+
   // Called on the session destruction thread to delete sessions.
   void DoSessionCleanup();
 
@@ -223,7 +228,7 @@ class Service : public base::PlatformThread::Delegate {
   // of *session will be NULL; otherwise it will point to a Session instance.
   // The call trace service retains ownership of the returned Session object;
   // it MUST not be deleted by the caller.
-  bool GetNewSession(ProcessID client_process_id, Session** session);
+  bool GetNewSession(ProcessId client_process_id, Session** session);
 
   // Looks up an existing session, returning true on success. On failure,
   // the value of *session will be NULL; otherwise it will point to a
@@ -264,6 +269,7 @@ class Service : public base::PlatformThread::Delegate {
   virtual Session* CreateSession();
 
   // The collection of active trace sessions.
+  typedef std::map<ProcessId, Session*> SessionMap;
   SessionMap sessions_;
 
   // The RPC protocol to use.

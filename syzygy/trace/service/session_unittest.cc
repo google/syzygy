@@ -67,13 +67,38 @@ class TestSession : public Session {
   }
 
  protected:
-  virtual void OnWaitingForBufferToBeRecycled() {
+  virtual void OnWaitingForBufferToBeRecycled() OVERRIDE {
     base::AutoLock lock(*test_lock_);
     waiting_for_buffer_to_be_recycled_state_ = true;
     waiting_for_buffer_to_be_recycled_.Signal();
   }
 
-  virtual bool AllocateBuffers(size_t count, size_t size) {
+  bool InitializeProcessInfo(ProcessId process_id,
+                             ProcessInfo* client) OVERRIDE {
+    DCHECK(client != NULL);
+
+    // Lobotomize the process info initialization to allow using fake PIDs.
+    client->process_id = process_id;
+    const DWORD kFlags =
+        PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+    client->process_handle.Set(
+        ::OpenProcess(kFlags, FALSE, ::GetCurrentProcessId()));
+    static const wchar_t kEnvironment[] = L"asdf=fofofo\0";
+    client->environment.assign(kEnvironment,
+                               kEnvironment + arraysize(kEnvironment));
+
+    return true;
+  }
+
+  bool CopyBufferHandleToClient(HANDLE client_process_handle,
+                                HANDLE local_handle,
+                                HANDLE* client_copy) OVERRIDE {
+    // Avoid handle leaks by using the same handle for both "ends".
+    *client_copy = local_handle;
+    return true;
+  }
+
+  virtual bool AllocateBuffers(size_t count, size_t size) OVERRIDE {
     {
       base::AutoLock lock(*test_lock_);
       allocating_buffers_state_ = true;
@@ -99,7 +124,8 @@ class TestSession : public Session {
 class TestService : public Service {
  public:
   TestService()
-      : buffers_written_(&buffers_written_lock_),
+      : process_id_(0xfafafa),
+        buffers_written_(&buffers_written_lock_),
         buffers_allowed_to_be_recycled_(0) {
   }
 
@@ -107,7 +133,7 @@ class TestService : public Service {
     base::AutoLock lock(lock_);
 
     Session* session = NULL;
-    if (!GetNewSession(::GetCurrentProcessId(), &session))
+    if (!GetNewSession(++process_id_, &session))
       return NULL;
 
     return reinterpret_cast<TestSession*>(session);
@@ -157,6 +183,8 @@ class TestService : public Service {
  private:
   // This lock is provided to sessions for misc locking.
   base::Lock session_lock_;
+
+  uint32 process_id_;  // Under lock_;
 
   base::Lock buffers_written_lock_;
   base::ConditionVariable buffers_written_;  // Under buffers_written_lock_.
