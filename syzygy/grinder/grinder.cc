@@ -138,7 +138,7 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
       DCHECK(FAILED(hr));
 
       FilePath pdb_path;
-      if (pe::FindPdbForModule(module_path, &pdb_path) ||
+      if (!pe::FindPdbForModule(module_path, &pdb_path) ||
           pdb_path.empty()) {
         LOG(ERROR) << "Unable to find PDB for module \""
                    << module_path.value() << "\".";
