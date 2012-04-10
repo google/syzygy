@@ -75,10 +75,14 @@ bool ModuleInformationKeyLess(const ModuleInformation& a,
 
 }  // namespace
 
+Grinder::PartData::PartData()
+    : nodes_(InvocationNodeKeyLess),
+      edges_(InvocationEdgeKeyLess) {
+}
+
 Grinder::Grinder()
     : modules_(ModuleInformationKeyLess),
-      nodes_(InvocationNodeKeyLess),
-      edges_(InvocationEdgeKeyLess),
+      thread_parts_(true),
       parser_(NULL) {
 }
 
@@ -118,25 +122,39 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
       return false;
     }
 
-    FilePath pdb_path;
-    if (!pe::FindPdbForModule(module_path, &pdb_path) ||
-        pdb_path.empty()) {
-      LOG(ERROR) << "Unable to find PDB for module \""
-                 << module_path.value() << "\".";
-      return false;
-    }
-
     ScopedComPtr<IDiaSession> new_session;
-    hr = source->loadDataFromPdb(pdb_path.value().c_str());
+    // We first try loading straight-up for the module. If the module is at
+    // this path and the symsrv machinery is available, this will bring that
+    // machinery to bear.
+    // The downside is that if the module at this path does not match the
+    // original module, we may load the wrong symbol information for the
+    // module.
+    hr = source->loadDataForExe(module_path.value().c_str(), NULL, NULL);
     if (SUCCEEDED(hr)) {
-      hr = source->openSession(new_session.Receive());
-      if (FAILED(hr))
-        LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
-
+        hr = source->openSession(new_session.Receive());
+        if (FAILED(hr))
+          LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
     } else {
-      LOG(WARNING) << "Failure in loadDataFromPdb('"
-                   << module_path.value().c_str() << "'): "
-                   << com::LogHr(hr) << ".";
+      DCHECK(FAILED(hr));
+
+      FilePath pdb_path;
+      if (pe::FindPdbForModule(module_path, &pdb_path) ||
+          pdb_path.empty()) {
+        LOG(ERROR) << "Unable to find PDB for module \""
+                   << module_path.value() << "\".";
+        return false;
+      }
+
+      hr = source->loadDataFromPdb(pdb_path.value().c_str());
+      if (SUCCEEDED(hr)) {
+        hr = source->openSession(new_session.Receive());
+        if (FAILED(hr))
+          LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
+      } else {
+        LOG(WARNING) << "Failure in loadDataFromPdb('"
+                     << module_path.value().c_str() << "'): "
+                     << com::LogHr(hr) << ".";
+      }
     }
 
     DCHECK((SUCCEEDED(hr) && new_session.get() != NULL) ||
@@ -163,6 +181,34 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
   return true;
 }
 
+bool Grinder::GetFunctionByRVA(IDiaSession* session,
+                               RVA address,
+                               IDiaSymbol** symbol) {
+  DCHECK(session != NULL);
+  DCHECK(symbol != NULL && *symbol == NULL);
+
+  ScopedComPtr<IDiaSymbol> function;
+  HRESULT hr = session->findSymbolByRVA(address,
+                                        SymTagFunction,
+                                        function.Receive());
+  if (FAILED(hr) || function.get() == NULL) {
+    // No private function, let's try for a public symbol.
+    hr = session->findSymbolByRVA(address,
+                                  SymTagPublicSymbol,
+                                  function.Receive());
+    if (FAILED(hr))
+      return false;
+  }
+  if (function.get() == NULL) {
+    LOG(ERROR) << "NULL function returned from findSymbolByRVA.";
+    return false;
+  }
+
+  *symbol = function.Detach();
+
+  return true;
+}
+
 bool Grinder::GetInfoForCallerRVA(const ModuleRVA& caller,
                                   RVA* function_rva,
                                   size_t* line) {
@@ -174,21 +220,14 @@ bool Grinder::GetInfoForCallerRVA(const ModuleRVA& caller,
     return false;
 
   ScopedComPtr<IDiaSymbol> function;
-  HRESULT hr = session->findSymbolByRVA(caller.rva,
-                                        SymTagFunction,
-                                        function.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in findSymbolByRVA: " << com::LogHr(hr);
-    return false;
-  }
-  if (function.get() == NULL) {
-    LOG(ERROR) << "NULL function returned from findSymbolByRVA.";
-    return false;
+  if (!GetFunctionByRVA(session.get(), caller.rva, function.Receive())) {
+    LOG(ERROR) << "No symbol info available for function in module '"
+               << caller.module->image_file_name << "'";
   }
 
   // Get the RVA of the function.
   DWORD rva = 0;
-  hr = function->get_relativeVirtualAddress(&rva);
+  HRESULT hr = function->get_relativeVirtualAddress(&rva);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_relativeVirtualAddress: "
                << com::LogHr(hr) << ".";
@@ -253,21 +292,14 @@ bool Grinder::GetInfoForFunctionRVA(const ModuleRVA& function,
     return false;
 
   ScopedComPtr<IDiaSymbol> function_sym;
-  HRESULT hr = session->findSymbolByRVA(function.rva,
-                                        SymTagFunction,
-                                        function_sym.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in findSymbolByRVA: " << com::LogHr(hr) << ".";
-    return false;
-  }
-
-  if (function_sym.get() == NULL) {
-    LOG(ERROR) << "NULL function returned from findSymbolByRVA.";
+  if (!GetFunctionByRVA(session.get(), function.rva, function_sym.Receive())) {
+    LOG(ERROR) << "No symbol info available for function in module '"
+               << function.module->image_file_name << "'";
     return false;
   }
 
   ScopedBstr function_name_bstr;
-  hr = function_sym->get_name(function_name_bstr.Receive());
+  HRESULT hr = function_sym->get_name(function_name_bstr.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_name: " << com::LogHr(hr) << ".";
     return false;
@@ -329,30 +361,51 @@ bool Grinder::GetInfoForFunctionRVA(const ModuleRVA& function,
 }
 
 bool Grinder::ResolveCallers() {
+  PartDataMap::iterator it = parts_.begin();
+  for (; it != parts_.end(); ++it) {
+    if (!ResolveCallersForPart(&it->second))
+      return false;
+  }
+
+  return true;
+}
+
+bool Grinder::ResolveCallersForPart(PartData* part) {
   // We start by iterating all the edges, connecting them up to their caller,
   // and subtracting the edge metric(s) to compute the inclusive metrics for
   // each function.
-  InvocationEdgeSet::iterator edge_it(edges_.begin());
-  for (; edge_it != edges_.end(); ++edge_it) {
+  InvocationEdgeSet::iterator edge_it(part->edges_.begin());
+  for (; edge_it != part->edges_.end(); ++edge_it) {
     InvocationEdge& edge = *edge_it;
     RVA function_rva = 0;
     if (GetInfoForCallerRVA(edge.caller, &function_rva, &edge.line)) {
-      InvocationNode node;
-      node.function.module = edge.caller.module;
-      node.function.rva = function_rva;
-      InvocationNodeSet::iterator node_it(nodes_.find(node));
-      if (node_it != nodes_.end()) {
-        InvocationNode& node = *node_it;
+      InvocationNode node_key;
+      node_key.function.module = edge.caller.module;
+      node_key.function.rva = function_rva;
+      InvocationNodeSet::iterator node_it(part->nodes_.find(node_key));
+      if (node_it == part->nodes_.end()) {
+        // This is a fringe node - e.g. this is a non-instrumented caller
+        // calling into an instrumented function. Create the node now,
+        // but note that we won't have any metrics recorded for the function
+        // and must be careful not to try and tally exclusive stats for it.
+        node_it = part->nodes_.insert(node_key).first;
 
-        // Hook it up to the node's list of outgoing edges.
-        edge.next_call = node.first_call;
-        node.first_call = &edge;
+        DCHECK_EQ(0, node_it->metrics.num_calls);
+        DCHECK_EQ(0, node_it->metrics.cycles_sum);
+      }
 
-        // Make the function's cycle count exclusive, by subtracting all
-        // the outbound (inclusive) cycle counts from the total.
+      InvocationNode& node = *node_it;
+
+      // Hook the edge up to the node's list of outgoing edges.
+      edge.next_call = node.first_call;
+      node.first_call = &edge;
+
+      // Make the function's cycle count exclusive, by subtracting all
+      // the outbound (inclusive) cycle counts from the total. We make
+      // special allowance for the "fringe" nodes mentioned above, by
+      // noting they have no recorded calls.
+      if (node.metrics.num_calls != 0) {
         node.metrics.cycles_sum -= edge.metrics.cycles_sum;
-      } else {
-        LOG(ERROR) << "Caller function not found.";
       }
     } else {
       // TODO(siggi): The profile instrumentation currently doesn't record
@@ -368,11 +421,29 @@ bool Grinder::ResolveCallers() {
 
 bool Grinder::OutputData(FILE* file) {
   // Output the file header.
-  ::fprintf(file, "events: Calls Cycles Cycles-Min Cycles-Max.\n");
 
-  // Now walk the nodes and output the data.
-  InvocationNodeSet::const_iterator node_it(nodes_.begin());
-  for (; node_it != nodes_.end(); ++node_it) {
+  bool succeeded = true;
+  PartDataMap::iterator it = parts_.begin();
+  for (; it != parts_.end(); ++it) {
+    if (!OutputDataForPart(it->second, file)) {
+      // Keep going despite problems in output
+      succeeded = false;
+    }
+  }
+
+  return succeeded;
+}
+
+bool Grinder::OutputDataForPart(const PartData& part, FILE* file) {
+  if (part.thread_id_ != 0) {
+    ::fprintf(file, "desc: Thread ID %d\n", part.thread_id_);
+    ::fprintf(file, "thread: %d\n", part.thread_id_);
+  }
+  ::fprintf(file, "events: Calls Cycles Cycles-Min Cycles-Max\n");
+
+  // Walk the nodes and output the data.
+  InvocationNodeSet::const_iterator node_it(part.nodes_.begin());
+  for (; node_it != part.nodes_.end(); ++node_it) {
     const InvocationNode& node = *node_it;
     std::wstring function_name;
     std::wstring file_name;
@@ -476,6 +547,21 @@ void Grinder::OnInvocationBatch(base::Time time,
                                 DWORD thread_id,
                                 size_t num_invocations,
                                 const TraceBatchInvocationInfo* data) {
+  if (!thread_parts_) {
+    process_id = 0;
+    thread_id = 0;
+  }
+
+  // Lookup the part to aggregate to.
+  PartDataMap::iterator it = parts_.find(thread_id);
+  if (it == parts_.end()) {
+    PartData part;
+    part.process_id_ = process_id;
+    part.thread_id_ = thread_id;
+
+    it = parts_.insert(std::make_pair(thread_id, part)).first;
+  }
+
   // Process and aggregate the individual invocation entries.
   for (size_t i = 0; i < num_invocations; ++i) {
     const InvocationInfo& info = data->invocations[i];
@@ -493,19 +579,20 @@ void Grinder::OnInvocationBatch(base::Time time,
     ModuleRVA caller_rva;
     ConvertToModuleRVA(process_id, caller, &caller_rva);
 
-    AggregateEntry(function_rva, caller_rva, info);
+    AggregateEntryToPart(function_rva, caller_rva, info, &it->second);
   }
 }
 
-void Grinder::AggregateEntry(const ModuleRVA& function_rva,
-                             const ModuleRVA& caller_rva,
-                             const InvocationInfo& info) {
+void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
+                                   const ModuleRVA& caller_rva,
+                                   const InvocationInfo& info,
+                                   PartData* part) {
   InvocationNode node;
   node.function = function_rva;
 
   // Have we recorded this node before?
-  InvocationNodeSet::iterator node_it(nodes_.find(node));
-  if (node_it != nodes_.end()) {
+  InvocationNodeSet::iterator node_it(part->nodes_.find(node));
+  if (node_it != part->nodes_.end()) {
     // Yups, we've seen this edge before.
     // Aggregate the new data with the old.
     InvocationNode& found = *node_it;
@@ -522,7 +609,7 @@ void Grinder::AggregateEntry(const ModuleRVA& function_rva,
     node.metrics.cycles_max = info.cycles_max;
     node.metrics.cycles_sum = info.cycles_sum;
 
-    bool inserted = nodes_.insert(node).second;
+    bool inserted = part->nodes_.insert(node).second;
     DCHECK(inserted);
   }
 
@@ -535,8 +622,8 @@ void Grinder::AggregateEntry(const ModuleRVA& function_rva,
     edge.caller = caller_rva;
 
     // Have we recorded this edge before?
-    InvocationEdgeSet::iterator edge_it(edges_.find(edge));
-    if (edge_it != edges_.end()) {
+    InvocationEdgeSet::iterator edge_it(part->edges_.find(edge));
+    if (edge_it != part->edges_.end()) {
       // Yups, we've seen this edge before.
       // Aggregate the new data with the old.
       InvocationEdge& found = *edge_it;
@@ -553,7 +640,7 @@ void Grinder::AggregateEntry(const ModuleRVA& function_rva,
       edge.metrics.cycles_max = info.cycles_max;
       edge.metrics.cycles_sum = info.cycles_sum;
 
-      bool inserted = edges_.insert(edge).second;
+      bool inserted = part->edges_.insert(edge).second;
       DCHECK(inserted);
     }
   }
