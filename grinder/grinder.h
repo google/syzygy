@@ -72,6 +72,12 @@ class Grinder : public trace::parser::ParseEventHandler {
 
   // @name Accessors.
   // @{
+
+  // If thread_parts is true, the grinder will aggregate and output
+  // separate parts for each thread seen in the trace file(s).
+  bool thread_parts() const { return thread_parts_; }
+  void set_thread_parts(bool thread_parts) { thread_parts_ = thread_parts; }
+
   const Parser* parser() const { return parser_; }
   void set_parser(Parser* parser) { parser_ = parser; }
   // @}
@@ -129,6 +135,7 @@ class Grinder : public trace::parser::ParseEventHandler {
   // @}
  private:
   typedef sym_util::ModuleInformation ModuleInformation;
+  struct PartData;
 
   typedef std::set<ModuleInformation,
       bool (*)(const ModuleInformation& a, const ModuleInformation& b)>
@@ -146,6 +153,13 @@ class Grinder : public trace::parser::ParseEventHandler {
   bool GetSessionForModule(const ModuleInformation* module,
                            IDiaSession** session_out);
 
+  // Retrieves the function containing @p address.
+  // @param symbol on success returns the function's private symbol, or
+  //     public symbol if no private symbol is available.
+  // @returns true on success.
+  bool GetFunctionByRVA(IDiaSession* session,
+                        RVA address,
+                        IDiaSymbol** symbol);
   bool GetInfoForCallerRVA(const ModuleRVA& caller,
                            RVA* function_rva,
                            size_t* line);
@@ -161,21 +175,47 @@ class Grinder : public trace::parser::ParseEventHandler {
                           ModuleRVA* rva);
 
   // Aggregates a single invocation info and/or creates a new node and edge.
-  void AggregateEntry(const ModuleRVA& function_rva,
-                      const ModuleRVA& caller_rva,
-                      const InvocationInfo& info);
+  void AggregateEntryToPart(const ModuleRVA& function_rva,
+                            const ModuleRVA& caller_rva,
+                            const InvocationInfo& info,
+                            PartData* part);
+
+  // Resolves callers for @p part.
+  bool ResolveCallersForPart(PartData* part);
+
+  // Outputs data for @p part to @p file.
+  bool OutputDataForPart(const PartData& part, FILE* file);
 
   // Stores the modules we encounter.
   ModuleInformationSet modules_;
 
-  // Stores the invocation nodes, aka the functions.
-  InvocationNodeSet nodes_;
-
-  // Stores the invocation edges.
-  InvocationEdgeSet edges_;
-
   // Stores the DIA session objects we have going for each module.
   ModuleSessionMap module_sessions_;
+
+  // The data we store for each part.
+  struct PartData {
+    PartData();
+
+    // The process ID for this part.
+    uint32 process_id_;
+
+    // The thread ID for this part.
+    uint32 thread_id_;
+
+    // Stores the invocation nodes, aka the functions.
+    InvocationNodeSet nodes_;
+
+    // Stores the invocation edges.
+    InvocationEdgeSet edges_;
+  };
+
+  // The parts we store. If thread_parts_ is false, we store only a single
+  // part with id 0.
+  typedef std::map<uint32, PartData> PartDataMap;
+  PartDataMap parts_;
+
+  // If true, data is aggregated and output per-thread.
+  bool thread_parts_;
 
   Parser* parser_;
 };
