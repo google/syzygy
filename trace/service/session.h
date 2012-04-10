@@ -23,6 +23,7 @@
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
+#include "base/process.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
@@ -36,20 +37,19 @@ namespace service {
 // Forward declaration.
 class Service;
 
-// Used to denote a Win32 process.
-typedef DWORD ProcessID;
-
 // Holds all of the data associated with a given client session.
 // Note that this class it not internally thread safe.  It is expected
 // that the CallTraceService will ensure that access to a given instance
 // of this class is synchronized.
 class Session {
  public:
+  typedef base::ProcessId ProcessId;
+
   explicit Session(Service* call_trace_service);
   ~Session();
 
   // Initialize this session object.
-  bool Init(const FilePath& trace_directory, ProcessID client_process_id);
+  bool Init(const FilePath& trace_directory, ProcessId client_process_id);
 
   // Close the session. The causes the session to flush all of its outstanding
   // buffers to the write queue.
@@ -97,7 +97,7 @@ class Session {
   HANDLE trace_file_handle() { return trace_file_handle_.Get(); }
 
   // Returns the process id of the client process.
-  ProcessID client_process_id() const { return client_.process_id; }
+  ProcessId client_process_id() const { return client_.process_id; }
 
   // Returns the path of the trace file.
   const FilePath& trace_file_path() const { return trace_file_path_; }
@@ -110,6 +110,25 @@ class Session {
   //     providing places for unittests to set some hooks.
   // @{
   virtual void OnWaitingForBufferToBeRecycled() { }
+
+  // Initialize process information for @p process_id.
+  // @param process_id the process we want to capture information for.
+  // @param client the record where we store the captured info.
+  // @returns true on success.
+  // @note does detailed logging on failure.
+  virtual bool InitializeProcessInfo(ProcessId process_id,
+                                     ProcessInfo* client);
+
+  // Copy a shared memory segment handle to the client process.
+  // @param client_process_handle a valid handle to the client process.
+  // @param local_handle the locally valid handle that's to be duplicated.
+  // @param client_copy on success returns the copied handle.
+  // @returns true on success.
+  // @note does detailed logging on failure.
+  virtual bool CopyBufferHandleToClient(HANDLE client_process_handle,
+                                        HANDLE local_handle,
+                                        HANDLE* client_copy);
+
   // @}
 
   typedef Buffer::BufferState BufferState;
@@ -169,12 +188,14 @@ class Session {
   SharedMemoryBufferCollection shared_memory_buffers_;  // Under lock_.
 
   // This is the set of buffers that we currently own.
+  typedef std::map<Buffer::ID, Buffer*> BufferMap;
   BufferMap buffers_;  // Under lock_.
 
   // State summary.
   size_t buffer_state_counts_[Buffer::kBufferStateMax];  // Under lock_.
 
   // Buffers available to give to the clients.
+  typedef std::deque<Buffer*> BufferQueue;
   BufferQueue buffers_available_;  // Under lock_.
 
   // Tracks whether this session is in the process of shutting down.
@@ -199,8 +220,6 @@ class Session {
 
   DISALLOW_COPY_AND_ASSIGN(Session);
 };
-
-typedef std::map<ProcessID, Session*> SessionMap;
 
 }  // namespace trace::service
 }  // namespace trace

@@ -21,9 +21,9 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/memory/scoped_ptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
@@ -31,11 +31,12 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 
+namespace trace {
+namespace service {
+
 namespace {
 
-using trace::service::Buffer;
-using trace::service::ProcessID;
-using trace::service::ProcessInfo;
+using base::ProcessId;
 
 FilePath GenerateTraceFileName(const FilePath& trace_directory,
                                const ProcessInfo& client) {
@@ -185,9 +186,6 @@ std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
 
 }  // namespace
 
-namespace trace {
-namespace service {
-
 Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
       is_closing_(false),
@@ -222,13 +220,11 @@ Session::~Session() {
 }
 
 bool Session::Init(const FilePath& trace_directory,
-                   ProcessID client_process_id) {
+                   ProcessId client_process_id) {
   DCHECK(!trace_directory.empty());
 
-  if (!client_.Initialize(client_process_id)) {
-    LOG(ERROR) << "Failed to initialize client info.";
+  if (!InitializeProcessInfo(client_process_id, &client_))
     return false;
-  }
 
   trace_file_path_ = GenerateTraceFileName(trace_directory, client_);
 
@@ -419,6 +415,43 @@ void Session::ChangeBufferState(BufferState new_state, Buffer* buffer) {
   buffer_state_counts_[new_state]++;
 }
 
+bool Session::InitializeProcessInfo(ProcessId process_id,
+                                    ProcessInfo* client) {
+  DCHECK(client != NULL);
+
+  if (!client->Initialize(process_id)) {
+    LOG(ERROR) << "Failed to initialize client info for PID=" << process_id
+               << ".";
+    return false;
+  }
+
+  return true;
+}
+
+bool Session::CopyBufferHandleToClient(HANDLE client_process_handle,
+                                       HANDLE local_handle,
+                                       HANDLE* client_copy) {
+  DCHECK(client_process_handle != NULL);
+  DCHECK(local_handle != NULL);
+  DCHECK(client_copy != NULL);
+
+  // Duplicate the mapping handle into the client process.
+  if (!::DuplicateHandle(::GetCurrentProcess(),
+                         local_handle,
+                         client_process_handle,
+                         client_copy,
+                         0,
+                         FALSE,
+                         DUPLICATE_SAME_ACCESS)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to copy shared memory handle into client process: "
+               << com::LogWe(error) << ".";
+    return false;
+  }
+
+  return true;
+}
+
 bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
   DCHECK_GT(num_buffers, 0u);
   DCHECK_GT(buffer_size, 0u);
@@ -433,11 +466,20 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
 
   // Initialize the shared buffer pool.
   buffer_size = common::AlignUp(buffer_size, block_size());
-  if (!pool->Init(this, client_.process_handle, num_buffers,
-                  buffer_size)) {
+  if (!pool->Init(this, num_buffers, buffer_size)) {
     LOG(ERROR) << "Failed to initialize shared memory buffer.";
     return false;
   }
+
+  // Copy the buffer pool handle to the client process.
+  HANDLE client_handle = NULL;
+  if (!CopyBufferHandleToClient(client_.process_handle.Get(),
+                                pool->handle(),
+                                &client_handle)) {
+    return false;
+  }
+  DCHECK(client_handle != NULL);
+  pool->SetClientHandle(client_handle);
 
   // Save the shared memory block so that it's managed by the session.
   shared_memory_buffers_.push_back(pool.get());

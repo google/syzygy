@@ -454,7 +454,7 @@ boolean Service::CreateSession(handle_t binding,
     return false;
   }
 
-  ProcessID client_process_id = reinterpret_cast<ProcessID>(attribs.ClientPID);
+  ProcessId client_process_id = reinterpret_cast<ProcessId>(attribs.ClientPID);
 
   VLOG(1) << "Registering client process PID=" << client_process_id << ".";
 
@@ -642,7 +642,7 @@ bool Service::ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers) {
   return true;
 }
 
-bool Service::GetNewSession(ProcessID client_process_id, Session** session) {
+bool Service::GetNewSession(ProcessId client_process_id, Session** session) {
   DCHECK(session != NULL);
   lock_.AssertAcquired();
 

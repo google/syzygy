@@ -68,24 +68,31 @@ class BufferPool {
   BufferPool();
   ~BufferPool();
 
-  bool Init(Session* session, HANDLE client_process_handle,
-            size_t num_buffers, size_t buffer_size);
+  // Allocates and maps a shared memory segment sufficiently large for
+  // @p num_buffers, each of size @p buffer_size.
+  bool Init(Session* session, size_t num_buffers, size_t buffer_size);
+
+  // Updates each buffer in buffers_ with @p client_handle, which should be
+  // a copy of handle_, valid in the client process these buffers are to be
+  // shared with.
+  // @p num_buffers, each of size @p buffer_size.
+  void SetClientHandle(HANDLE client_handle);
 
   Buffer* begin() { return &buffers_[0]; }
   Buffer* end() { return begin() + buffers_.size(); }
 
+  // Returns this pools shared memory segment handle.
+  HANDLE handle() const { return handle_.Get(); }
+
  private:
   typedef std::vector<Buffer> BufferCollection;
-  base::win::ScopedHandle handle_;
+  // Sadly ScopedHandle is not const correct.
+  mutable base::win::ScopedHandle handle_;
   uint8* base_ptr_;
   BufferCollection buffers_;
 
   DISALLOW_COPY_AND_ASSIGN(BufferPool);
 };
-
-// Some other handy types.
-typedef std::map<Buffer::ID, Buffer*> BufferMap;
-typedef std::deque<Buffer*> BufferQueue;
 
 }  // namespace trace::service
 }  // namespace trace
