@@ -15,8 +15,8 @@
 // Implementation of the profiler DLL.
 #include "syzygy/agent/profiler/profiler.h"
 
-#include <windows.h>
 #include <psapi.h>
+#include <windows.h>
 #include <algorithm>
 
 #include "base/at_exit.h"
@@ -26,13 +26,13 @@
 #include "base/logging.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 #include "syzygy/agent/profiler/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
-
 
 namespace {
 
@@ -77,7 +77,6 @@ bool CaptureModuleInformation(const base::win::PEImage& image,
     module_event->module_time_date_stamp =
         image.GetNTHeaders()->FileHeader.TimeDateStamp;
   } __except(EXCEPTION_EXECUTE_HANDLER) {
-    LOG(ERROR) << "FOO";
     return false;
   }
 
@@ -265,25 +264,8 @@ void Profiler::ThreadState::LogAllModules(HMODULE module) {
   if (profiler_->session_.IsDisabled())
     return;
 
-  std::vector<HMODULE> modules;
-  modules.resize(128);
-  while (true) {
-    DWORD bytes = sizeof(modules[0]) * modules.size();
-    DWORD needed_bytes = 0;
-    BOOL success = ::EnumProcessModules(::GetCurrentProcess(),
-                                        &modules[0],
-                                        bytes,
-                                        &needed_bytes);
-    if (success && bytes >= needed_bytes) {
-      // Success - break out of the loop.
-      // Resize our module vector to the returned size.
-      modules.resize(needed_bytes / sizeof(modules[0]));
-      break;
-    }
-
-    // Resize our module vector with the needed size and little slop.
-    modules.resize(needed_bytes / sizeof(modules[0]) + 4);
-  }
+  agent::common::ModuleVector modules;
+  agent::common::GetProcessModules(&modules);
 
   // Our module should be in the process modules.
   DCHECK(std::find(modules.begin(), modules.end(), module) != modules.end());
@@ -329,7 +311,7 @@ void Profiler::ThreadState::LogModule(HMODULE module) {
   }
   FilePath device_path(module_name);
   FilePath drive_path;
-  if (!common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
+  if (!::common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
     LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
   }
   ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
