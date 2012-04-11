@@ -191,6 +191,7 @@ Session::Session(Service* call_trace_service)
       is_closing_(false),
       buffer_requests_waiting_for_recycle_(0),
       buffer_is_available_(&lock_),
+      buffer_id_(0),
       input_error_already_logged_(false) {
   DCHECK(call_trace_service != NULL);
   ::memset(buffer_state_counts_, 0, sizeof(buffer_state_counts_));
@@ -250,6 +251,10 @@ bool Session::Init(const FilePath& trace_directory,
 bool Session::Close() {
   std::vector<Buffer*> buffers;
 
+  // We return the success status from the block below in this variable instead
+  // of returning early, as if we change the state of any buffer, we're obliged
+  // to schedule them for writing, lest the accounting get gunked up.
+  bool succeeded = true;
   {
     base::AutoLock lock(lock_);
 
@@ -277,19 +282,21 @@ bool Session::Close() {
     // Create a process ended event. This causes at least one buffer to be in
     // use to store the process ended event.
     Buffer* buffer = NULL;
-    if (!CreateProcessEndedEvent(&buffer))
-      return false;
-    DCHECK(buffer != NULL);
-    ChangeBufferState(Buffer::kPendingWrite, buffer);
-    buffers.push_back(buffer);
+    if (CreateProcessEndedEvent(&buffer)) {
+      DCHECK(buffer != NULL);
+      ChangeBufferState(Buffer::kPendingWrite, buffer);
+      buffers.push_back(buffer);
+    } else {
+      succeeded = false;
+    }
   }
 
   if (!call_trace_service_->ScheduleBuffersForWriting(buffers)) {
     LOG(ERROR) << "Unable to schedule outstanding buffers for writing.";
-    return false;
+    succeeded = false;
   }
 
-  return true;
+  return succeeded;
 }
 
 bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
@@ -473,12 +480,25 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
 
   // Copy the buffer pool handle to the client process.
   HANDLE client_handle = NULL;
-  if (!CopyBufferHandleToClient(client_.process_handle.Get(),
-                                pool->handle(),
-                                &client_handle)) {
-    return false;
+  if (is_closing_) {
+    // If the session is closing, there's no reason to copy the handle to the
+    // client, nor is there good reason to believe that'll succeed, as the
+    // process may be gone. Instead, to ensure the buffers have unique IDs,
+    // we assign them a locally unique identifier in the guise of a handle.
+    //
+    // HACK: we know that handle values are multiple of four, so to make sure
+    //    our IDs don't collide, we make them odd.
+    // See http://blogs.msdn.com/b/oldnewthing/archive/2005/01/21/358109.aspx.
+    client_handle = reinterpret_cast<HANDLE>((++buffer_id_ * 2) + 1);
+  } else {
+    if (!CopyBufferHandleToClient(client_.process_handle.Get(),
+                                  pool->handle(),
+                                  &client_handle)) {
+      return false;
+    }
   }
   DCHECK(client_handle != NULL);
+
   pool->SetClientHandle(client_handle);
 
   // Save the shared memory block so that it's managed by the session.

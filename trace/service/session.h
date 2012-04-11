@@ -209,6 +209,11 @@ class Session {
   // This condition variable is used to indicate that a buffer is available.
   base::ConditionVariable buffer_is_available_;  // Under lock_.
 
+  // This is currently only used to allocate unique IDs to buffers allocated
+  // after the session closes.
+  // TODO(rogerm): extend this to all buffers.
+  size_t buffer_id_;  // Under lock_.
+
   // This lock protects any access to the internals related to buffers and their
   // state.
   base::Lock lock_;
