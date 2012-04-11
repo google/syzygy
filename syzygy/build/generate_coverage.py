@@ -25,11 +25,20 @@ import tempfile
 
 # The list of DLLs we want to instrument in addition to _unittests executables.
 _DLLS_TO_INSTRUMENT = [
-  'call_trace.dll',
-  'call_trace_client.dll',
-  'profile_client.dll',
+    'call_trace.dll',
+    'call_trace_client.dll',
+    'profile_client.dll',
 ]
 
+
+# The list of file patterns to copy to the staging/coverage area.
+_FILE_PATTERNS_TO_COPY = [
+    '*_unittests.exe',
+    '*.dll',
+    '*.pdb',
+    'test_data',
+    'call_trace_service.exe',
+]
 
 _SYZYGY_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -43,7 +52,7 @@ _COVERAGE_ANALYZER_DIR = os.path.normpath(
     os.path.join(_SYZYGY_DIR, '../third_party/coverage_analyzer/bin'))
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def _Subprocess(command, failure_msg, **kw):
@@ -107,9 +116,8 @@ class _CodeCoverageRunner(object):
     work_dir = self._work_dir
     _LOGGER.info('Build dir "%s".', build_dir)
 
-    # Make a copy of all unittest executables, DLLs, PDBs and test_data in
-    # the build directory.
-    for pattern in ('*_unittests.exe', '*.dll', '*.pdb', 'test_data'):
+    # Copy all unittest related files to work_dir.
+    for pattern in _FILE_PATTERNS_TO_COPY:
       files = glob.glob(os.path.join(build_dir, pattern))
       for path in files:
         _LOGGER.info('Copying "%s" to "%s".', path, work_dir)
