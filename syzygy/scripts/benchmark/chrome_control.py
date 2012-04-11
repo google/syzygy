@@ -34,11 +34,16 @@ class TimeoutException(Exception):
 
 
 _MESSAGE_WINDOW_CLASS = 'Chrome_MessageWindow'
-_WIDGET_WINDOW_CLASS = 'Chrome_WidgetWin_0'
+_WIDGET_WINDOW_BASE_CLASS = 'Chrome_WidgetWin_'
 
 
 def _SendChromeEndSession(window, extra):
-  if win32gui.GetClassName(window) == _WIDGET_WINDOW_CLASS:
+  # There may be more than one top level window that is a candidate for the
+  # "root" instance. They will all have a class name starting with the common
+  # prefix in _WIDGET_WINDOW_CLASS_NAME. All but the root will ignore (as of
+  # 2012/04/11) the WM_ENDSESSION message, but the root instance will respond
+  # by shutting down the entire chrome session.
+  if win32gui.GetClassName(window).startswith(_WIDGET_WINDOW_BASE_CLASS):
     win32gui.PostMessage(window, win32con.WM_ENDSESSION)
 
 
