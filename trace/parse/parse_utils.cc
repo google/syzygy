@@ -14,6 +14,7 @@
 
 #include "syzygy/trace/parse/parse_utils.h"
 
+#include "base/logging.h"
 #include "sawbuck/common/buffer_parser.h"
 
 namespace trace {

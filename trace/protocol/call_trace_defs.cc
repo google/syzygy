@@ -17,6 +17,9 @@
 
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
+#include "base/logging.h"
+#include "base/utf_string_conversions.h"
+
 // ETW Unique Identifiers.
 const GUID kCallTraceProvider = {
     // {06255E36-14B0-4e57-8964-2E3D675A0E77}
@@ -45,10 +48,45 @@ const int kDefaultEtwKernelFlags = EVENT_TRACE_FLAG_PROCESS |
                                    EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS |
                                    EVENT_TRACE_FLAG_FILE_IO;
 
-// RPC protocol and endpoint.
+// Environment variable used for the RPC Instance ID suffix.
+const char* const kSyzygyRpcInstanceIdEnvVar = "SYZYGY_RPC_INSTANCE_ID";
+
+namespace {
+
+// Default RPC protocol and endpoint.
 const wchar_t* const kCallTraceRpcProtocol = L"ncalrpc";
 const wchar_t* const kCallTraceRpcEndpoint = L"syzygy-call-trace-svc";
 const wchar_t* const kCallTraceRpcMutex = L"syzygy-call-trace-svc-mutex";
 
+void MakeInstanceString(const base::StringPiece16& prefix,
+                        const base::StringPiece16& id,
+                        std::wstring* output) {
+  DCHECK(output != NULL);
+  DCHECK(!prefix.empty());
+
+  output->assign(prefix.begin(), prefix.end());
+  if (!id.empty()) {
+    output->append(1, '-');
+    output->append(id.begin(), id.end());
+  }
+}
+
+}  // namespace
+
 const TraceFileHeader::Signature TraceFileHeader::kSignatureValue = {
     'S', 'Z', 'G', 'Y' };
+
+void GetSyzygyCallTraceRpcProtocol(std::wstring* protocol) {
+  DCHECK(protocol != NULL);
+  protocol->assign(kCallTraceRpcProtocol);
+}
+
+void GetSyzygyCallTraceRpcEndpoint(const base::StringPiece16& id,
+                                   std::wstring* endpoint) {
+  MakeInstanceString(kCallTraceRpcEndpoint, id, endpoint);
+}
+
+void GetSyzygyCallTraceRpcMutexName(const base::StringPiece16& id,
+                                    std::wstring* mutex_name) {
+  MakeInstanceString(kCallTraceRpcMutex, id, mutex_name);
+}

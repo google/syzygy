@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
+#include "base/string_piece.h"
 
 // ID for the call trace provider.
 extern const GUID kCallTraceProvider;
@@ -49,9 +49,12 @@ extern const int kDefaultEtwTraceFlags;
 extern const int kDefaultEtwKernelFlags;
 
 // RPC protocol and endpoint.
-extern const wchar_t* const kCallTraceRpcProtocol;
-extern const wchar_t* const kCallTraceRpcEndpoint;
-extern const wchar_t* const kCallTraceRpcMutex;
+extern const char* const kSyzygyRpcInstanceIdEnvVar;
+void GetSyzygyCallTraceRpcProtocol(std::wstring* protocol);
+void GetSyzygyCallTraceRpcEndpoint(const base::StringPiece16& id,
+                                   std::wstring* endpoint);
+void GetSyzygyCallTraceRpcMutexName(const base::StringPiece16& id,
+                                    std::wstring* mutex_name);
 
 // This must be bumped anytime the file format is changed.
 enum {

@@ -43,13 +43,8 @@ const size_t Service::kDefaultNumIncrementalBuffers = 16;
 // represents about 26 MB, so 1.3 seconds of disk bandwidth.
 const size_t Service::kDefaultMaxBuffersPendingWrite = 13;
 
-const wchar_t* const Service::kRpcProtocol = ::kCallTraceRpcProtocol;
-const wchar_t* const Service::kRpcEndpoint = ::kCallTraceRpcEndpoint;
-const wchar_t* const Service::kRpcMutex = ::kCallTraceRpcMutex;
-
 Service::Service()
-    : protocol_(kRpcProtocol),
-      endpoint_(kRpcEndpoint),
+    : trace_directory_(L"."),
       num_incremental_buffers_(kDefaultNumIncrementalBuffers),
       buffer_size_in_bytes_(kDefaultBufferSize),
       max_buffers_pending_write_(kDefaultMaxBuffersPendingWrite),
@@ -79,7 +74,9 @@ bool Service::AcquireServiceMutex() {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
   DCHECK(!service_mutex_.IsValid());
 
-  base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, kRpcMutex));
+  std::wstring mutex_name;
+  ::GetSyzygyCallTraceRpcMutexName(instance_id_, &mutex_name);
+  base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, mutex_name.c_str()));
   if (!mutex.IsValid()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to create mutex: " << com::LogWe(error) << ".";
@@ -130,12 +127,17 @@ bool Service::InitializeRPC()  {
   RPC_STATUS status = RPC_S_OK;
 
   // Initialize the RPC protocol we want to use.
-  VLOG(1) << "Initializing RPC endpoint '" << endpoint_.c_str() << "' "
-      << "using the '" << protocol_.c_str() << "' protocol.";
+  std::wstring protocol;
+  std::wstring endpoint;
+  ::GetSyzygyCallTraceRpcProtocol(&protocol);
+  ::GetSyzygyCallTraceRpcEndpoint(instance_id_, &endpoint);
+
+  VLOG(1) << "Initializing RPC endpoint '" << endpoint << "' "
+          << "using the '" << protocol << "' protocol.";
   status = ::RpcServerUseProtseqEp(
-      reinterpret_cast<RPC_WSTR>(&protocol_[0]),
+      reinterpret_cast<RPC_WSTR>(&protocol[0]),
       RPC_C_LISTEN_MAX_CALLS_DEFAULT,
-      reinterpret_cast<RPC_WSTR>(&endpoint_[0]),
+      reinterpret_cast<RPC_WSTR>(&endpoint[0]),
       NULL /* Security descriptor. */);
   if (status != RPC_S_OK && status != RPC_S_DUPLICATE_ENDPOINT) {
     LOG(ERROR) << "Failed to init RPC protocol: " << com::LogWe(status) << ".";

@@ -80,8 +80,12 @@ bool RpcSession::CreateSession(TraceFileSegment* segment) {
   DCHECK(session_handle_ == NULL);
   DCHECK(rpc_binding_ == NULL);
 
-  if (!CreateRpcBinding(kCallTraceRpcProtocol,
-                        kCallTraceRpcEndpoint, &rpc_binding_)) {
+  std::wstring protocol;
+  std::wstring endpoint;
+  ::GetSyzygyCallTraceRpcProtocol(&protocol);
+  ::GetSyzygyCallTraceRpcEndpoint(instance_id_, &endpoint);
+
+  if (!CreateRpcBinding(protocol, endpoint, &rpc_binding_)) {
     is_disabled_ = true;
     return false;
   }

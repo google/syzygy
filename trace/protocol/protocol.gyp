@@ -29,6 +29,21 @@
         'call_trace_defs.cc',
         'call_trace_defs.h',
       ],
+      'dependencies': [
+        '<(DEPTH)/base/base.gyp:base',
+      ],
+    },
+    {
+      'target_name': 'protocol_unittests',
+      'type': 'executable',
+      'sources': [
+        'call_trace_defs_unittest.cc',
+        'protocol_unittests_main.cc',
+      ],
+      'dependencies': [
+        'protocol_lib',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+      ],
     },
   ],
 }

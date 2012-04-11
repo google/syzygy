@@ -16,10 +16,12 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/environment.h"
 #include "base/file_path.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -46,6 +48,8 @@ BOOL WINAPI OnConsoleCtrl(DWORD ctrl_type) {
   return FALSE;
 }
 
+const char* const kInstanceId = "instance-id";
+
 const char kUsage[] =
     "Usage: call_trace_service ACTION [OPTIONS]\n"
     "\n"
@@ -64,6 +68,11 @@ const char kUsage[] =
     "  --enable-exits     Enable exit tracing (off by default).\n"
     "  --verbose          Increase the logging verbosity to also include\n"
     "                     debug-level information.\n"
+    "  --instance-id=ID   A unique identifier to use for the RPC endoint.\n"
+    "                     This allows multiple instances of the service to\n"
+    "                     run concurently. By default, this will be the value\n"
+    "                     of the SYZYGY_RPC_INSTANCE_ID environment variable,\n"
+    "                     or empty.\n"
     "\n";
 
 int Usage() {
@@ -74,6 +83,10 @@ int Usage() {
 bool RunService(const CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
   Service& call_trace_service = Service::Instance();
+
+  // Set the instance id.
+  call_trace_service.set_instance_id(
+      cmd_line->GetSwitchValueNative(kInstanceId));
 
   // Set up the trace directory.
   FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
@@ -128,12 +141,19 @@ bool RunService(const CommandLine* cmd_line) {
   return true;
 }
 
-bool StopService() {
-  LOG(INFO) << "Stopping call trace logging service.";
+bool StopService(const CommandLine* cmd_line) {
+  std::wstring protocol;
+  std::wstring endpoint;
+
+  ::GetSyzygyCallTraceRpcProtocol(&protocol);
+  ::GetSyzygyCallTraceRpcEndpoint(cmd_line->GetSwitchValueNative(kInstanceId),
+                                  &endpoint);
+
+  LOG(INFO) << "Stopping call trace logging service instance at '"
+            << endpoint << "' via " << protocol << '.';
+
   handle_t binding = NULL;
-  if (!CreateRpcBinding(Service::kRpcProtocol,
-                        Service::kRpcEndpoint,
-                        &binding)) {
+  if (!CreateRpcBinding(protocol, endpoint, &binding)) {
     LOG(ERROR) << "Failed to connect to call trace logging service.";
     return false;
   }
@@ -176,7 +196,7 @@ int main(int argc, char** argv) {
   }
 
   if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "stop")) {
-    return StopService() ? 0 : 1;
+    return StopService(cmd_line) ? 0 : 1;
   }
 
   if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "start")) {

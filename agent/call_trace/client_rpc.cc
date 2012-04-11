@@ -16,15 +16,17 @@
 
 #include "syzygy/agent/call_trace/client_rpc.h"
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <psapi.h>
 #include <tlhelp32.h>
 #include <vector>
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/environment.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/logging.h"
@@ -483,13 +485,18 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   ThreadLocalData *data = GetOrAllocateThreadData();
   CHECK(data != NULL) << "Failed to get call trace thread context.";
 
-  if (!session_.IsTracing()) {
+  if (!session_.IsTracing() && !session_.IsDisabled()) {
     base::AutoLock scoped_lock(init_lock_);
     if (session_.IsDisabled())
       return;
 
-    if (!session_.IsTracing() && !session_.CreateSession(&data->segment)) {
-      return;
+    if (!session_.IsTracing()) {
+      scoped_ptr<base::Environment> env(base::Environment::Create());
+      std::string id;
+      env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &id);
+      session_.set_instance_id(UTF8ToWide(id));
+      if (!session_.CreateSession(&data->segment))
+        return;
     }
   }
 

@@ -52,9 +52,11 @@
         'rpc_service_unittests_main.cc',
       ],
       'dependencies': [
+        'call_trace_service_exe',
         'rpc_service_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_lib',

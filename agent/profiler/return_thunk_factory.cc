@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 
+#include "base/logging.h"
 #include "syzygy/agent/profiler/scoped_last_error_keeper.h"
 
 namespace {

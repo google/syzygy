@@ -17,10 +17,13 @@
 #include <list>
 #include <map>
 
+#include "base/environment.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
@@ -226,7 +229,11 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  ParseEngineRpcTest() : module_(NULL) {
+  ParseEngineRpcTest()
+      : cts_(Service::Instance()),
+        env_(base::Environment::Create()),
+        instance_id_(base::StringPrintf("%d", ::GetCurrentProcessId())),
+        module_(NULL) {
   }
 
   bool FindTraceFile(FilePath* trace_file_path) {
@@ -243,9 +250,15 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
 
     // The call trace DLL should not be already loaded.
     ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace_client.dll"));
+    ASSERT_FALSE(env_.get() == NULL);
+    ASSERT_FALSE(instance_id_.empty());
 
     // Create a temporary directory
     CreateTemporaryDir(&temp_dir_);
+
+    cts_.set_trace_directory(temp_dir_);
+    cts_.set_instance_id(UTF8ToWide(instance_id_));
+    env_->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id_);
   }
 
   virtual void TearDown() {
@@ -257,17 +270,14 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
 
   void StartCallTraceService(uint32 flags) {
     // Start the call trace service in the temporary directory.
-    Service& cts = Service::Instance();
-    cts.set_trace_directory(temp_dir_);
-    cts.set_flags(flags);
-    ASSERT_TRUE(cts.Start(true));
+    cts_.set_flags(flags);
+    ASSERT_TRUE(cts_.Start(true));
   }
 
   void StopCallTraceService() {
-    Service& cts = Service::Instance();
-    if (cts.is_running()) {
-      ASSERT_TRUE(cts.Stop());
-      ASSERT_FALSE(cts.is_running());
+    if (cts_.is_running()) {
+      ASSERT_TRUE(cts_.Stop());
+      ASSERT_FALSE(cts_.is_running());
     }
   }
 
@@ -346,6 +356,9 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   friend void IndirectThunkB();
 
  protected:
+  Service& cts_;
+  scoped_ptr<base::Environment> env_;
+  std::string instance_id_;
   CalledAddresses entered_addresses_;
   CalledAddresses exited_addresses_;
   RawCalls raw_calls_;

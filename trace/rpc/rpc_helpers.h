@@ -20,6 +20,8 @@
 #include <rpc.h>
 #include <wtypes.h>
 
+#include "base/string_piece.h"
+
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
 //     might make this simpler/cleaner?
 
@@ -33,8 +35,8 @@ namespace client {
 // @param out_handle A handle to the rpc binding will be returned here.
 //
 // @return true on success.
-bool CreateRpcBinding(const wchar_t* protocol,
-                      const wchar_t* endpoint,
+bool CreateRpcBinding(const base::StringPiece16& protocol,
+                      const base::StringPiece16& endpoint,
                       handle_t* out_handle);
 
 // Structure returned by RPC calls
