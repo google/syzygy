@@ -23,6 +23,7 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/process.h"
+#include "base/string_piece.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
@@ -76,15 +77,11 @@ class Service : public base::PlatformThread::Delegate {
   // allow before beginning to force writes.
   static const size_t kDefaultMaxBuffersPendingWrite;
 
-  // The name of the Win32 RPC protocol to which the service will bind.
-  static const wchar_t* const kRpcProtocol;
-
-  // The name/address of the RPC endpoint at which the service will listen.
-  static const wchar_t* const kRpcEndpoint;
-
-  // The name of the global mutex used to detect whether another instance of
-  // the service is already running.
-  static const wchar_t* const kRpcMutex;
+  // Set the id for this instance.
+  void set_instance_id(const base::StringPiece16& id) {
+    DCHECK(!is_running());
+    instance_id_.assign(id.begin(), id.end());
+  }
 
   // Set the trace flags that get communicated to clients on session creation.
   // The flags value should be bitmask composed of the values from the
@@ -98,6 +95,7 @@ class Service : public base::PlatformThread::Delegate {
 
   // Set the directory where trace files are stored.
   void set_trace_directory(const FilePath& directory) {
+    DCHECK(!directory.empty());
     trace_directory_ = directory;
   }
 
@@ -272,11 +270,8 @@ class Service : public base::PlatformThread::Delegate {
   typedef std::map<ProcessId, Session*> SessionMap;
   SessionMap sessions_;
 
-  // The RPC protocol to use.
-  std::wstring protocol_;
-
-  // The RPC endpoing to bind.
-  std::wstring endpoint_;
+  // The instance id to use when running this service instance.
+  std::wstring instance_id_;
 
   // The directory where trace files are stored.
   FilePath trace_directory_;

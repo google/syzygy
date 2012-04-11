@@ -17,6 +17,8 @@
 
 #include "syzygy/trace/client/client_utils.h"
 
+#include "base/logging.h"
+
 namespace trace {
 namespace client {
 

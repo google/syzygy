@@ -25,15 +25,15 @@
 namespace trace {
 namespace client {
 
-bool CreateRpcBinding(const wchar_t* protocol,
-                      const wchar_t* endpoint,
+bool CreateRpcBinding(const base::StringPiece16& protocol,
+                      const base::StringPiece16& endpoint,
                       handle_t* out_handle) {
-  DCHECK(protocol != NULL);
-  DCHECK(endpoint != NULL);
+  DCHECK(!protocol.empty());
+  DCHECK(!endpoint.empty());
   DCHECK(out_handle != NULL);
 
-  std::wstring protocol_temp(protocol);
-  std::wstring endpoint_temp(endpoint);
+  std::wstring protocol_temp(protocol.begin(), protocol.end());
+  std::wstring endpoint_temp(endpoint.begin(), endpoint.end());
   RPC_WSTR string_binding = NULL;
 
   RPC_STATUS status = ::RpcStringBindingCompose(

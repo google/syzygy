@@ -73,6 +73,7 @@
 
       # Trace tests.
       '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
+      '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_unittests',
       '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',
 
       # WSDump tests.

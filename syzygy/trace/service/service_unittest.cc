@@ -15,14 +15,20 @@
 #include "syzygy/trace/service/service.h"
 
 #include <psapi.h>
+#include <userenv.h>
 
 #include "base/command_line.h"
+#include "base/environment.h"
 #include "base/file_util.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/process_util.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
+#include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/parse/parse_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -35,6 +41,9 @@ namespace service {
 
 namespace {
 
+using base::ProcessHandle;
+using base::TERMINATION_STATUS_STILL_RUNNING;
+using base::win::ScopedHandle;
 using common::AlignUp;
 using trace::parser::ParseEnvironmentStrings;
 using trace::parser::ParseTraceFileHeaderBlob;
@@ -70,24 +79,35 @@ class CallTraceServiceTest : public testing::Test {
     char message[128];
   };
 
-  CallTraceServiceTest() : client_rpc_binding(NULL) {
+  CallTraceServiceTest()
+      : env(base::Environment::Create()),
+        instance_id(base::StringPrintf(L"%d", ::GetCurrentProcessId())),
+        cts(Service::Instance()),
+        client_rpc_binding(NULL) {
   }
 
   // Sets up each test invocation.
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     Super::SetUp();
+
+    // Set up the trace directory.
     ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", &temp_dir));
-    client_rpc_binding = 0;
-    Service& cts = Service::Instance();
+    ASSERT_FALSE(temp_dir.empty());
     cts.set_trace_directory(temp_dir);
+
+    // Set up the instance id. We give the test instance a "unique" id so that
+    // it does not interfere with any other intances or tests that might be
+    // concurrently active on the system.
+    ASSERT_FALSE(env.get() == NULL);
+    env->SetVar(::kSyzygyRpcInstanceIdEnvVar, WideToUTF8(instance_id));
+    cts.set_instance_id(instance_id);
   }
 
   // Cleans up after each test invocation.
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     if (client_rpc_binding) {
       ASSERT_EQ(RPC_S_OK, RpcBindingFree(&client_rpc_binding));
     }
-    Service& cts = Service::Instance();
     cts.Stop();
     file_util::Delete(temp_dir, true);
     Super::TearDown();
@@ -95,17 +115,20 @@ class CallTraceServiceTest : public testing::Test {
 
   void BindRPC() {
     RPC_WSTR string_binding = NULL;
-    std::wstring protocol(Service::kRpcProtocol);
-    std::wstring endpoint(Service::kRpcEndpoint);
+    std::wstring protocol;
+    std::wstring endpoint;
+
+   ::GetSyzygyCallTraceRpcProtocol(&protocol);
+   ::GetSyzygyCallTraceRpcEndpoint(instance_id, &endpoint);
 
     ASSERT_TRUE(client_rpc_binding == 0);
 
     ASSERT_EQ(RPC_S_OK, ::RpcStringBindingCompose(
-        NULL, // UUID.
+        NULL,  // UUID.
         reinterpret_cast<RPC_WSTR>(&protocol[0]),
         NULL,  // Address.
         reinterpret_cast<RPC_WSTR>(&endpoint[0]),
-        NULL, // Options.
+        NULL,  // Options.
         &string_binding));
 
     ASSERT_EQ(RPC_S_OK, ::RpcBindingFromStringBinding(string_binding,
@@ -256,10 +279,13 @@ class CallTraceServiceTest : public testing::Test {
     ASSERT_THAT(blob_env_strings, ::testing::ContainerEq(env_strings));
   }
 
+  scoped_ptr<base::Environment> env;
+  Service& cts;
   typedef std::map<HANDLE, uint8*> BasePtrMap;
   BasePtrMap base_ptr_map;
   FilePath temp_dir;
   handle_t client_rpc_binding;
+  std::wstring instance_id;
 };
 
 template<typename T1, typename T2>
@@ -269,20 +295,115 @@ inline ptrdiff_t RawPtrDiff(const T1* p1, const T2* p2) {
   return u1 - u2;
 }
 
+void ControlExternalCallTraceService(const std::string& command,
+                                     const std::wstring& instance_id,
+                                     ScopedHandle* handle) {
+  ASSERT_TRUE(command == "start" || command == "stop");
+  ASSERT_FALSE(instance_id.empty());
+  ASSERT_FALSE(handle == NULL);
+
+  CommandLine cmd_line(testing::GetExeRelativePath(L"call_trace_service.exe"));
+  cmd_line.AppendArg(command);
+  cmd_line.AppendSwitchNative("instance-id", instance_id);
+
+  base::LaunchOptions options;
+  HANDLE temp_handle = NULL;
+  ASSERT_TRUE(base::LaunchProcess(cmd_line, options, &temp_handle));
+  handle->Set(temp_handle);
+}
+
+void StartExternalCallTraceService(const std::wstring& instance_id,
+                                   ScopedHandle* handle) {
+  ControlExternalCallTraceService("start", instance_id, handle);
+}
+
+void StopExternalCallTraceService(const std::wstring& instance_id,
+                                  ScopedHandle* service_handle) {
+  ASSERT_FALSE(service_handle == NULL);
+  ScopedHandle controller_handle;
+  ControlExternalCallTraceService("stop", instance_id, &controller_handle);
+
+  static const int k30Seconds = 30 * 1000;  // In milliseconds.
+  int exit_code;
+  EXPECT_TRUE(base::WaitForExitCodeWithTimeout(controller_handle.Take(),
+                                               &exit_code,
+                                               k30Seconds));
+  EXPECT_EQ(0, exit_code);
+
+  EXPECT_TRUE(base::WaitForExitCodeWithTimeout(service_handle->Take(),
+                                               &exit_code,
+                                               k30Seconds));
+  EXPECT_EQ(0, exit_code);
+}
+
+void CheckIsStillRunning(ProcessHandle handle) {
+  ::Sleep(1000);
+
+  int exit_code = 0;
+  base::TerminationStatus status = base::GetTerminationStatus(handle,
+                                                              &exit_code);
+
+  ASSERT_EQ(TERMINATION_STATUS_STILL_RUNNING, status);
+  ASSERT_EQ(WAIT_TIMEOUT, exit_code);
+}
+
 } // namespace
 
 TEST_F(CallTraceServiceTest, StartStop) {
-  Service& cts = Service::Instance();
+  EXPECT_TRUE(cts.Start(true));
+  EXPECT_TRUE(cts.Stop());
+}
 
-  ASSERT_TRUE(cts.Start(true));
-  ASSERT_TRUE(cts.Stop());
+TEST_F(CallTraceServiceTest, IsSingletonPerInstanceId) {
+  // Create a new instance id to use for this test.
+  std::wstring duplicate_id = instance_id + L"-foo";
+
+  // Start an external service with the new instance id.
+  ScopedHandle handle;
+  ASSERT_NO_FATAL_FAILURE(StartExternalCallTraceService(duplicate_id, &handle));
+  ASSERT_NO_FATAL_FAILURE(CheckIsStillRunning(handle));
+
+  // Create a new local service instance and see if it starts. We use a new
+  // instance to pick up the new instance id and to make sure any state in
+  // the static service instance doesn't compromise the test.
+  Service local_cts;
+  local_cts.set_instance_id(duplicate_id);
+  EXPECT_FALSE(local_cts.Start(true));
+  EXPECT_TRUE(local_cts.Stop());
+
+  // The external instance should still be running.
+  CheckIsStillRunning(handle);
+  StopExternalCallTraceService(duplicate_id, &handle);
+}
+
+TEST_F(CallTraceServiceTest, IsConcurrentWithDifferentInstanceId) {
+  // Create new instance ids "bar-1" and "bar-2" to use for the external
+  // and internal services in this test.
+  std::wstring external_id = instance_id + L"-bar-1";
+  std::wstring internal_id = instance_id + L"-bar-2";
+
+  // Start an external service with the external instance id.
+  ScopedHandle handle;
+  ASSERT_NO_FATAL_FAILURE(StartExternalCallTraceService(external_id, &handle));
+  ASSERT_NO_FATAL_FAILURE(CheckIsStillRunning(handle));
+
+  // Create a new local service instance and see if it starts. We use a new
+  // instance to pick up the new instance id and to make sure any state in
+  // the static service instance doesn't compromise the test.
+  Service local_cts;
+  local_cts.set_instance_id(internal_id);
+  EXPECT_TRUE(local_cts.Start(true));
+  EXPECT_TRUE(local_cts.Stop());
+
+  // The external instance should still be running.
+  CheckIsStillRunning(handle);
+  StopExternalCallTraceService(external_id, &handle);
 }
 
 TEST_F(CallTraceServiceTest, Connect) {
   SessionHandle session_handle = NULL;
   TraceFileSegment segment;
 
-  Service& cts = Service::Instance();
   ASSERT_TRUE(cts.Start(true));
   ASSERT_NO_FATAL_FAILURE(CreateSession(&session_handle, &segment));
   ASSERT_TRUE(cts.Stop());
@@ -303,7 +424,6 @@ TEST_F(CallTraceServiceTest, Allocate) {
   TraceFileSegment segment1;
   TraceFileSegment segment2;
 
-  Service& cts = Service::Instance();
   ASSERT_TRUE(cts.Start(true));
 
   // Simulate some work on the main thread.
@@ -403,7 +523,6 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   ASSERT_EQ(arraysize(messages), num_blocks);
 
   // Start up the service and create a session
-  Service& cts = Service::Instance();
   ASSERT_TRUE(cts.Start(true));
   ASSERT_NO_FATAL_FAILURE(CreateSession(&session_handle, &segment));
 
