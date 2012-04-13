@@ -67,5 +67,4 @@
 .svn/
 
 # Ignore Python build artifacts
-*.egg
 *.egg-info/
