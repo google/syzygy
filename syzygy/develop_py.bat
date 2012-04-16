@@ -1,6 +1,6 @@
 @echo off
 rem = """
-:: Copyright 2011 Google Inc.
+:: Copyright 2012 Google Inc.
 ::
 :: Licensed under the Apache License, Version 2.0 (the 'License');
 :: you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@ rem = """
 :: limitations under the License.
 
 python -x "%~f0" %*
+exit /b %ERRORLEVEL%
 goto endofPython """
 
 import os
