@@ -34,9 +34,11 @@
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
+#include "syzygy/trace/service/service_rpc_impl.h"
 
 using trace::parser::Parser;
 using trace::parser::ParseEventHandler;
+using trace::service::RpcServiceInstanceManager;
 using trace::service::Service;
 
 namespace {
@@ -230,7 +232,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
   ParseEngineRpcTest()
-      : cts_(Service::Instance()),
+      : rpc_service_instance_manager_(&cts_),
         env_(base::Environment::Create()),
         instance_id_(base::StringPrintf("%d", ::GetCurrentProcessId())),
         module_(NULL) {
@@ -356,7 +358,8 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   friend void IndirectThunkB();
 
  protected:
-  Service& cts_;
+  Service cts_;
+  RpcServiceInstanceManager rpc_service_instance_manager_;
   scoped_ptr<base::Environment> env_;
   std::string instance_id_;
   CalledAddresses entered_addresses_;

@@ -33,6 +33,7 @@
 #include "syzygy/trace/parse/parse_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
+#include "syzygy/trace/service/service_rpc_impl.h"
 
 using namespace trace::client;
 
@@ -80,9 +81,9 @@ class CallTraceServiceTest : public testing::Test {
   };
 
   CallTraceServiceTest()
-      : env(base::Environment::Create()),
+      : rpc_service_instance_manager(&cts),
+        env(base::Environment::Create()),
         instance_id(base::StringPrintf(L"%d", ::GetCurrentProcessId())),
-        cts(Service::Instance()),
         client_rpc_binding(NULL) {
   }
 
@@ -109,6 +110,7 @@ class CallTraceServiceTest : public testing::Test {
       ASSERT_EQ(RPC_S_OK, RpcBindingFree(&client_rpc_binding));
     }
     cts.Stop();
+
     file_util::Delete(temp_dir, true);
     Super::TearDown();
   }
@@ -279,8 +281,9 @@ class CallTraceServiceTest : public testing::Test {
     ASSERT_THAT(blob_env_strings, ::testing::ContainerEq(env_strings));
   }
 
+  Service cts;
+  RpcServiceInstanceManager rpc_service_instance_manager;
   scoped_ptr<base::Environment> env;
-  Service& cts;
   typedef std::map<HANDLE, uint8*> BasePtrMap;
   BasePtrMap base_ptr_map;
   FilePath temp_dir;

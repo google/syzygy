@@ -13,12 +13,17 @@
 // limitations under the License.
 
 // This file implements the RPC stubs which bind the CallTraceService RPC
-// handlers to the lazily initialized static trace::service::Service
-// instance.
+// handlers to a call trace Service instance.
+
+#include "syzygy/trace/service/service_rpc_impl.h"
 
 #include "syzygy/trace/service/service.h"
 
+using trace::service::RpcServiceInstanceManager;
 using trace::service::Service;
+
+// The instance to which the RPC callbacks are bound.
+Service* RpcServiceInstanceManager::instance_ = NULL;
 
 // RPC entrypoint for CallTraceService::CreateSession().
 boolean CallTraceService_CreateSession(
@@ -26,62 +31,59 @@ boolean CallTraceService_CreateSession(
     /* [out] */ SessionHandle* session_handle,
     /* [out] */ CallTraceBuffer* call_trace_buffer,
     /* [out] */ unsigned long* flags) {
-  // Delegate the call to the call trace service instance.
-  return Service::Instance().CreateSession(binding,
-                                           session_handle,
-                                           call_trace_buffer,
-                                           flags);
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  return instance->CreateSession(binding,
+                                 session_handle,
+                                 call_trace_buffer,
+                                 flags);
 }
 
 // RPC entrypoint for CallTraceService:AllocateBuffer().
 boolean CallTraceService_AllocateBuffer(
     /* [in] */ SessionHandle session_handle,
     /* [out] */ CallTraceBuffer* call_trace_buffer) {
-  // Delegate the call to the call trace service instance.
-  return Service::Instance().AllocateBuffer(
-      session_handle,
-      call_trace_buffer);
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  return instance->AllocateBuffer(session_handle, call_trace_buffer);
 }
 
 // RPC entrypoint for CallTraceService::ExchangeBuffer().
 boolean CallTraceService_ExchangeBuffer(
     /* [in] */ SessionHandle session_handle,
     /* [out][in] */ CallTraceBuffer* call_trace_buffer) {
-  // Delegate the call to the call trace service instance.
-  return Service::Instance().CommitAndExchangeBuffer(
-      session_handle,
-      call_trace_buffer,
-      Service::PERFORM_EXCHANGE);
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  return instance->CommitAndExchangeBuffer(session_handle,
+                                           call_trace_buffer,
+                                           Service::PERFORM_EXCHANGE);
 }
 
 // RPC entrypoint for CallTraceService::ReturnBuffer().
 boolean CallTraceService_ReturnBuffer(
     /* [in] */ SessionHandle session_handle,
     /* [out][in] */ CallTraceBuffer* call_trace_buffer) {
-  // Delegate the call to the call trace service instance.
-  return Service::Instance().CommitAndExchangeBuffer(
-      session_handle,
-      call_trace_buffer,
-      Service::DO_NOT_PERFORM_EXCHANGE);
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  return instance->CommitAndExchangeBuffer(session_handle,
+                                           call_trace_buffer,
+                                           Service::DO_NOT_PERFORM_EXCHANGE);
 }
 
 // RPC entrypoint for CallTraceService::CloseSession().
 boolean CallTraceService_CloseSession(
     /* [out][in] */ SessionHandle* session_handle) {
-  // Delegate the call to the call trace service instance.
-  Service::Instance().CloseSession(session_handle);
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  ignore_result(instance->CloseSession(session_handle));
   return true;
 }
 
 // RPC entrypoint for CallTraceControl::Stop().
 boolean CallTraceService_Stop(/* [in] */ handle_t /* binding */) {
-  // Delegate the call to the call trace service instance.
-  return Service::Instance().RequestShutdown();
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  return instance->RequestShutdown();
 }
 
 // This callback is invoked if the RPC mechanism detects that a client
 // has ceased to exist, but the service still has resources allocated
 // on the client's behalf.
 void __RPC_USER SessionHandle_rundown(SessionHandle session_handle) {
-  ignore_result(CallTraceService_CloseSession(&session_handle));
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  ignore_result(instance->CloseSession(&session_handle));
 }

@@ -33,6 +33,7 @@
         'service.cc',
         'service.h',
         'service_rpc_impl.cc',
+        'service_rpc_impl.h',
         'session.cc',
         'session.h',
       ],

@@ -63,9 +63,6 @@ class Service : public base::PlatformThread::Delegate {
   Service();
   ~Service();
 
-  // Accessor for a static/singleton instance of the Service.
-  static Service& Instance();
-
   // The default number of buffers to allocate when expanding the buffer
   // pool allocated for a given client session.
   static const size_t kDefaultNumIncrementalBuffers;
