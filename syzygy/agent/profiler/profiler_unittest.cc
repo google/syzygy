@@ -25,6 +25,7 @@
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
+#include "syzygy/trace/service/service_rpc_impl.h"
 
 namespace agent {
 namespace profiler {
@@ -37,6 +38,7 @@ using file_util::FileEnumerator;
 using testing::_;
 using testing::Return;
 using testing::StrictMock;
+using trace::service::RpcServiceInstanceManager;
 using trace::service::Service;
 using trace::parser::Parser;
 using trace::parser::ParseEventHandler;
@@ -93,22 +95,26 @@ class MockParseEventHandler : public ParseEventHandler {
 
 class ProfilerTest : public testing::Test {
  public:
-  ProfilerTest() : module_(NULL), resolution_func_(NULL) {
+  ProfilerTest()
+      : rpc_servie_instance_manager_(&cts_),
+        module_(NULL),
+        resolution_func_(NULL) {
   }
 
   virtual void SetUp() {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    Service::Instance().set_trace_directory(temp_dir_.path());
+    cts_.set_trace_directory(temp_dir_.path());
+    // TODO(rogerm): Set the rpc instance id.
   }
 
   virtual void TearDown() {
     UnloadDll();
-    Service::Instance().Stop();
+    cts_.Stop();
   }
 
   void ReplayLogs() {
     // Stop the service if it's running.
-    Service::Instance().Stop();
+    cts_.Stop();
 
     Parser parser;
     parser.Init(&handler_);
@@ -173,8 +179,10 @@ class ProfilerTest : public testing::Test {
  protected:
   StrictMock<MockParseEventHandler> handler_;
   ResolveReturnAddressLocationFunc resolution_func_;
+  Service cts_;
 
  private:
+  RpcServiceInstanceManager rpc_servie_instance_manager_;
   ScopedTempDir temp_dir_;
   HMODULE module_;
   static FARPROC _indirect_penter_;
@@ -249,7 +257,7 @@ TEST_F(ProfilerTest, NoServerNoCrash) {
 
 TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
   // Spin up the RPC service.
-  ASSERT_TRUE(Service::Instance().Start(true));
+  ASSERT_TRUE(cts_.Start(true));
 
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -262,7 +270,7 @@ TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
 
 TEST_F(ProfilerTest, RecordsAllModulesAndFunctions) {
   // Spin up the RPC service.
-  ASSERT_TRUE(Service::Instance().Start(true));
+  ASSERT_TRUE(cts_.Start(true));
 
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);
@@ -324,7 +332,7 @@ void InvokeFunctionAThunk() {
 
 TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   // Spin up the RPC service.
-  ASSERT_TRUE(Service::Instance().Start(true));
+  ASSERT_TRUE(cts_.Start(true));
 
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);

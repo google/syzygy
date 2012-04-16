@@ -19,7 +19,6 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/lazy_instance.h"
 #include "base/string_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "sawbuck/common/com_utils.h"
@@ -28,9 +27,6 @@
 
 namespace trace {
 namespace service {
-
-// The "global" call trace service singleton.
-base::LazyInstance<Service> service_instance = LAZY_INSTANCE_INITIALIZER;
 
 const size_t Service::kDefaultBufferSize = 2 * 1024 * 1024;
 const size_t Service::kDefaultNumIncrementalBuffers = 16;
@@ -64,10 +60,6 @@ Service::~Service() {
   Stop();
 
   DCHECK(sessions_.empty());
-}
-
-Service& Service::Instance() {
-  return service_instance.Get();
 }
 
 bool Service::AcquireServiceMutex() {
