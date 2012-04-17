@@ -20,6 +20,8 @@
 #ifndef SYZYGY_COMMON_APPLICATION_IMPL_H_
 #define SYZYGY_COMMON_APPLICATION_IMPL_H_
 
+#include "syzygy/common/syzygy_version.h"
+
 namespace common {
 
 namespace internal {
@@ -61,6 +63,12 @@ Application<Impl, kInitLogging>::Application()
 
 template <typename Impl, AppLoggingFlag kInitLogging>
 int Application<Impl, kInitLogging>::Run() {
+  // If we've been asked for our version, spit it out and quit.
+  if (command_line_->HasSwitch("version")) {
+    ::fprintf(out(), "%s\n", kSyzygyVersion.GetVersionString().c_str());
+    return 0;
+  }
+
   if (!InitializeLogging())
     return 1;
 
