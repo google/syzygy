@@ -14,6 +14,7 @@
 
 #include "syzygy/trace/service/session.h"
 
+#include "base/atomicops.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/file_util.h"
@@ -35,6 +36,15 @@ class TestSession : public Session {
         waiting_for_buffer_to_be_recycled_state_(false),
         allocating_buffers_(lock),
         allocating_buffers_state_(false) {
+    base::subtle::Barrier_AtomicIncrement(&instance_count_, 1);
+  }
+
+  ~TestSession() {
+    base::subtle::Barrier_AtomicIncrement(&instance_count_, -1);
+  }
+
+  static base::subtle::Atomic32 instance_count() {
+    return instance_count_;
   }
 
   void ClearWaitingForBufferToBeRecycledState() {
@@ -119,7 +129,14 @@ class TestSession : public Session {
   // Under test_lock_.
   base::ConditionVariable allocating_buffers_;
   bool allocating_buffers_state_;
+
+  // Updated atomically.
+  static base::subtle::Atomic32 instance_count_;
 };
+
+base::subtle::Atomic32 TestSession::instance_count_ = 0;
+
+typedef scoped_refptr<TestSession> TestSessionPtr;
 
 class TestService : public Service {
  public:
@@ -129,14 +146,14 @@ class TestService : public Service {
         buffers_allowed_to_be_recycled_(0) {
   }
 
-  TestSession* CreateTestSession() {
+  TestSessionPtr CreateTestSession() {
     base::AutoLock lock(lock_);
 
-    Session* session = NULL;
+    scoped_refptr<Session> session;
     if (!GetNewSession(++process_id_, &session))
       return NULL;
 
-    return reinterpret_cast<TestSession*>(session);
+    return TestSessionPtr(reinterpret_cast<TestSession*>(session.get()));
   }
 
   void WaitUntilAllowedBuffersWritten() {
@@ -207,6 +224,7 @@ class SessionTest : public ::testing::Test {
     worker1.Stop();
     worker2.Stop();
     service_.Stop();
+    EXPECT_EQ(0, TestSession::instance_count());
     file_util::Delete(temp_dir_, true);
   }
 
@@ -231,7 +249,7 @@ void GetNextBuffer(Session* session, Buffer** buffer, bool* result) {
 TEST_F(SessionTest, ReturnBufferWorksAfterSessionClose) {
   ASSERT_TRUE(service_.Start(true));
 
-  TestSession* session = service_.CreateTestSession();
+  TestSessionPtr session = service_.CreateTestSession();
   ASSERT_TRUE(session != NULL);
 
   Buffer* buffer1 = NULL;
@@ -266,7 +284,7 @@ TEST_F(SessionTest, BackPressureWorks) {
   service_.set_max_buffers_pending_write(1);
   ASSERT_TRUE(service_.Start(true));
 
-  TestSession* session = service_.CreateTestSession();
+  TestSessionPtr session = service_.CreateTestSession();
   ASSERT_TRUE(session != NULL);
 
   Buffer* buffer1 = NULL;
@@ -290,7 +308,7 @@ TEST_F(SessionTest, BackPressureWorks) {
   bool result3 = false;
   Buffer* buffer3 = NULL;
   base::Closure buffer_getter3 = base::Bind(
-      &GetNextBuffer, base::Unretained(session), &buffer3, &result3);
+      &GetNextBuffer, session, &buffer3, &result3);
   worker1.message_loop()->PostTask(FROM_HERE, buffer_getter3);
 
   // Wait for the session to start applying back-pressure. This occurs when it
@@ -321,7 +339,7 @@ TEST_F(SessionTest, BackPressureIsLimited) {
   service_.set_max_buffers_pending_write(1);
   ASSERT_TRUE(service_.Start(true));
 
-  TestSession* session = service_.CreateTestSession();
+  TestSessionPtr session = service_.CreateTestSession();
   ASSERT_TRUE(session != NULL);
 
   Buffer* buffer1 = NULL;
@@ -351,9 +369,9 @@ TEST_F(SessionTest, BackPressureIsLimited) {
   Buffer* buffer3 = NULL;
   Buffer* buffer4 = NULL;
   base::Closure buffer_getter3 = base::Bind(
-      &GetNextBuffer, base::Unretained(session), &buffer3, &result3);
+      &GetNextBuffer, session, &buffer3, &result3);
   base::Closure buffer_getter4 = base::Bind(
-      &GetNextBuffer, base::Unretained(session), &buffer4, &result4);
+      &GetNextBuffer, session, &buffer4, &result4);
   worker1.message_loop()->PostTask(FROM_HERE, buffer_getter3);
   worker2.message_loop()->PostTask(FROM_HERE, buffer_getter4);
 

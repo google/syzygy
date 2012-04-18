@@ -14,6 +14,11 @@
 //
 // This file implements the trace::service::Session class, which manages
 // the trace file and buffers for a given client of the call trace service.
+//
+// TODO(rogerm): Reduce the scope over which the session lock is held. The
+//     RPC machinery ensures that calls to a given session are serialized, so
+//     we only have to protect the parts that might interact with the writer
+//     thread.
 
 #include "syzygy/trace/service/session.h"
 
@@ -374,32 +379,22 @@ bool Session::RecycleBuffer(Buffer* buffer) {
   DCHECK(buffer != NULL);
   DCHECK(buffer->session == this);
 
-  bool destroy_self = false;
-  {
-    base::AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
 
-    ChangeBufferState(Buffer::kAvailable, buffer);
-    buffers_available_.push_front(buffer);
-    buffer_is_available_.Signal();
+  ChangeBufferState(Buffer::kAvailable, buffer);
+  buffers_available_.push_front(buffer);
+  buffer_is_available_.Signal();
 
-    // If the session is closing and all outstanding buffers have been recycled
-    // then it's safe to destroy this session.
-    if (is_closing_ && buffer_state_counts_[Buffer::kInUse] == 0 &&
-        buffer_state_counts_[Buffer::kPendingWrite] == 0) {
-      // If all buffers have been recycled, then all the buffers we own must be
-      // available. When we start closing we refuse to hand out further buffers
-      // so this must eventually happen, unless the write queue hangs.
-      DCHECK_EQ(buffers_.size(), buffer_state_counts_[Buffer::kAvailable]);
-      DCHECK_EQ(buffers_available_.size(),
-                buffer_state_counts_[Buffer::kAvailable]);
-      destroy_self = true;
-    }
-  }
-
-  if (destroy_self) {
-    // This indirectly calls our destructor, so we can't have an AutoLock
-    // still referring to lock_.
-    return call_trace_service_->DestroySession(this);
+  // If the session is closing and all outstanding buffers have been recycled
+  // then it's safe to destroy this session.
+  if (is_closing_ && buffer_state_counts_[Buffer::kInUse] == 0 &&
+      buffer_state_counts_[Buffer::kPendingWrite] == 0) {
+    // If all buffers have been recycled, then all the buffers we own must be
+    // available. When we start closing we refuse to hand out further buffers
+    // so this must eventually happen, unless the write queue hangs.
+    DCHECK_EQ(buffers_.size(), buffer_state_counts_[Buffer::kAvailable]);
+    DCHECK_EQ(buffers_available_.size(),
+              buffer_state_counts_[Buffer::kAvailable]);
   }
 
   return true;

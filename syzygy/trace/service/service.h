@@ -24,6 +24,7 @@
 #include "base/file_path.h"
 #include "base/process.h"
 #include "base/string_piece.h"
+#include "base/memory/ref_counted.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
@@ -191,14 +192,11 @@ class Service : public base::PlatformThread::Delegate {
   // See call_trace_rpc.idl for further info.
   boolean CloseSession(SessionHandle* session_handle);
 
-  // Allows a session to request its own destruction.
-  bool DestroySession(Session* session);
-
   // @{
   // Inserts the given buffer(s) into the write queue. When writing has been
   // finished the session owning each buffer will be notified via RecycleBuffer.
   // @param buffer the buffer to be written.
-  // @params buffers the buffers to be written.
+  // @param buffers the buffers to be written.
   // @returns true on success, false otherwise.
   bool ScheduleBufferForWriting(Buffer* buffer);
   bool ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers);
@@ -206,38 +204,47 @@ class Service : public base::PlatformThread::Delegate {
 
  // These are protected for unittesting.
  protected:
-  typedef std::deque<Buffer*> BufferQueue;
+  // This structure is put into the write buffer queue.
+  struct BufferQueueEntry {
+    scoped_refptr<Session> session;
+    Buffer* buffer;
 
-  // Called on the session destruction thread to delete sessions.
-  void DoSessionCleanup();
+    BufferQueueEntry() {
+    }
 
-  // RPC Server Management Functions.
+    BufferQueueEntry(Session* s, Buffer* b) : session(s), buffer(b) {
+    }
+  };
+
+  typedef std::deque<BufferQueueEntry> BufferQueue;
+
+  // Internal implementation function to insert a given buffer into the
+  // write queue.
+  void ScheduleBufferForWritingUnlocked(Buffer* buffer);
+
+  // @name RPC Server Management Functions.
+  // @{
   bool AcquireServiceMutex();
   void ReleaseServiceMutex();
   bool InitializeRPC();
   bool RunRPC(bool non_blocking);
   void StopRPC();
   void CleanupRPC();
+  // @}
 
   // Creates a new session, returning true on success. On failure, the value
   // of *session will be NULL; otherwise it will point to a Session instance.
   // The call trace service retains ownership of the returned Session object;
   // it MUST not be deleted by the caller.
-  bool GetNewSession(ProcessId client_process_id, Session** session);
+  bool GetNewSession(ProcessId client_process_id,
+                     scoped_refptr<Session>* session);
 
   // Looks up an existing session, returning true on success. On failure,
   // the value of *session will be NULL; otherwise it will point to a
   // Session instance. The call trace service retains ownership of the
   // returned Session object; it MUST not be deleted by the caller.
   bool GetExistingSession(SessionHandle session_handle,
-                          Session** session);
-
-  // Gets the next buffer from the buffer pool for the given session,
-  // allocating new buffers to the pool as required and returning true
-  // on success. On failure, the value of *buffer will be NULL; otherwise,
-  // it will point to a Buffer instance owned by the given session; the
-  // buffer must not be deleted by the caller.
-  bool GetNextBuffer(Session* session, Buffer** buffer);
+                          scoped_refptr<Session>* session);
 
   // This is a blocking call which waits until the pending write queue
   // is non-empty then transfers (swaps) any pending buffers to be written
@@ -264,7 +271,7 @@ class Service : public base::PlatformThread::Delegate {
   virtual Session* CreateSession();
 
   // The collection of active trace sessions.
-  typedef std::map<ProcessId, Session*> SessionMap;
+  typedef std::map<ProcessId, scoped_refptr<Session>> SessionMap;
   SessionMap sessions_;
 
   // The instance id to use when running this service instance.
@@ -287,12 +294,6 @@ class Service : public base::PlatformThread::Delegate {
 
   // Handle to the thread used for IO.
   base::PlatformThreadHandle writer_thread_;
-
-  // The thread that takes care of session destruction.
-  // This is a temporary hack to workaround deadlocks occurring on session
-  // destructions.
-  // TODO(rogerm): Remove this as you perpetrate the proper fix.
-  base::Thread session_destruction_thread_;
 
   // Protects concurrent access to the internals, except for write-queue
   // related internals.
