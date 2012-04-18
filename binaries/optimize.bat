@@ -1,6 +1,6 @@
 @echo off
 rem = """
-:: Copyright 2011 Google Inc.
+:: Copyright 2012 Google Inc.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@ rem = """
 :: limitations under the License.
 
 python -x "%~f0" %*
+exit /b %ERRORLEVEL%
 goto endofPython """
 
 import sys
@@ -22,7 +23,7 @@ import os
 
 # Prepend the eggs we need to our python path.
 _EGGS = [
-    'Benchmark_Chrome-0.1_r777-py2.6.egg',
+    'Benchmark_Chrome-0.1_r785-py2.6.egg',
     'ETW-0.6.5.0-py2.6.egg',
     'ETW_Db-0.1_r559-py2.6.egg',
     'setuptools-0.6c11-py2.6.egg',
