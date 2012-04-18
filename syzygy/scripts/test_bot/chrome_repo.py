@@ -318,6 +318,7 @@ class ChromeRepo(object):
         _LOGGER.info('Extracting files from %s', dest)
         zipfile.ZipFile(dest, 'r', allowZip64=True).extractall(build_dir)
         _LOGGER.info('Extraction complete.')
+        os.remove(dest)
       else:
         shutil.move(dest, os.path.join(chrome_dir, name))
     return chrome_dir
