@@ -11,9 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+//
 // This file defines the trace::service::Service class which
 // implements the call trace service RPC interface.
+//
+// TODO(rogerm): Reduce the scope over which the service lock is held. It only
+//     needs to protect the services_ map.
+//
+// TODO(rogerm): Use server controlled context handles to refer to the buffers
+//     across the RPC boundary. The shared memory handle is client controlled
+//     and not necessarily unique.
+//
+// TODO(rogerm): Instead of manually managing the write_queue, use a
+//     base::Thread instance for the writer thread and post buffers to
+//     its message queue.
 
 #include "syzygy/trace/service/service.h"
 
@@ -46,7 +57,6 @@ Service::Service()
       max_buffers_pending_write_(kDefaultMaxBuffersPendingWrite),
       owner_thread_(base::PlatformThread::CurrentId()),
       writer_thread_(base::kNullThreadHandle),
-      session_destruction_thread_("Session Destruction Thread"),
       queue_is_non_empty_(&queue_lock_),
       rpc_is_initialized_(false),
       rpc_is_running_(false),
@@ -246,10 +256,6 @@ bool Service::Start(bool non_blocking) {
   if (!AcquireServiceMutex())
     return false;
 
-  if (!session_destruction_thread_.Start()) {
-    return false;
-  }
-
   if (!InitializeRPC()) {
     ReleaseServiceMutex();
     return false;
@@ -272,7 +278,6 @@ bool Service::Stop() {
   StopRPC();
   CleanupRPC();
   StopWriterThread();
-  session_destruction_thread_.Stop();
 
   ReleaseServiceMutex();
 
@@ -313,12 +318,13 @@ void Service::StopWriterThread() {
     for (; iter != sessions_.end(); ++iter) {
       iter->second->Close();
     }
+    sessions_.clear();
   }
 
   {
     // Put the shutdown sentinel into the write queue.
     base::AutoLock scoped_lock(queue_lock_);
-    pending_write_queue_.push_back(NULL);
+    pending_write_queue_.push_back(BufferQueueEntry(NULL, NULL));
     queue_is_non_empty_.Signal();
   }
 
@@ -352,16 +358,20 @@ void Service::ThreadMain() {
     GetBuffersToWrite(&write_queue);
 
     while (!write_queue.empty()) {
-      // Get the next buffer to write.
-      Buffer* buffer = write_queue.front();
+      // Get the next buffer to write and keep a reference to the session
+      // so it can't disappear beneath us.
+      scoped_refptr<Session> session(write_queue.front().session);
+      Buffer* buffer = write_queue.front().buffer;
       write_queue.pop_front();
 
       // Check for the sentinel value telling us to shutdown.
       if (buffer == NULL) {
+        DCHECK(session.get() == NULL);
         DCHECK(write_queue.empty());
         return;
       }
 
+      DCHECK_EQ(session.get(), buffer->session);
       DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
 
       // Parse the record prefix and segment header;
@@ -455,21 +465,22 @@ boolean Service::CreateSession(handle_t binding,
   base::AutoLock scoped_lock(lock_);
 
   // Create a new session.
-  Session* session = NULL;
+  scoped_refptr<Session> session;
   if (!GetNewSession(client_process_id, &session))
     return false;
-  DCHECK(session != NULL);
+  DCHECK(session.get() != NULL);
 
   // Request a buffer for the client.
   Buffer* client_buffer = NULL;
-  if (!GetNextBuffer(session, &client_buffer)) {
-    DestroySession(session);
+  if (!session->GetNextBuffer(&client_buffer)) {
+    sessions_.erase(session->client_process_id());
+    session->Close();
     return false;
   }
   DCHECK(client_buffer != NULL);
 
   // Copy into buffer info into the RPC struct, slicing off the private bits.
-  *session_handle = reinterpret_cast<SessionHandle>(session);
+  *session_handle = reinterpret_cast<SessionHandle>(session.get());
   *call_trace_buffer = *client_buffer;
   *flags = flags_;
 
@@ -486,13 +497,14 @@ boolean Service::AllocateBuffer(SessionHandle session_handle,
 
   base::AutoLock lock(lock_);
 
-  Session* session = NULL;
+  scoped_refptr<Session> session;
   if (!GetExistingSession(session_handle, &session))
     return false;
+  DCHECK(session.get() != NULL);
 
   // Request a buffer for the client.
   Buffer* client_buffer = NULL;
-  if (!GetNextBuffer(session, &client_buffer))
+  if (!session->GetNextBuffer(&client_buffer))
     return false;
 
   // Copy buffer info into the RPC struct, slicing off the private bits.
@@ -518,12 +530,12 @@ boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
   {
     base::AutoLock lock(lock_);
 
-    Session* session = NULL;
+    scoped_refptr<Session> session;
     if (!GetExistingSession(session_handle, &session))
       return false;
+    DCHECK(session.get() != NULL);
 
     Buffer* buffer = NULL;
-    DCHECK(session != NULL);
     if (!session->FindBuffer(call_trace_buffer, &buffer))
       return false;
 
@@ -548,7 +560,7 @@ boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
     if (perform_exchange == PERFORM_EXCHANGE) {
       // Request a buffer for the client.
       Buffer* client_buffer = NULL;
-      if (!GetNextBuffer(session, &client_buffer)) {
+      if (!session->GetNextBuffer(&client_buffer)) {
         result = false;
       } else {
         // Copy buffer info into the RPC struct, slicing off the private bits.
@@ -571,13 +583,16 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
   {
     base::AutoLock lock(lock_);
 
-    Session* session = NULL;
+    scoped_refptr<Session> session;
     if (!GetExistingSession(*session_handle, &session))
       return false;
 
+    size_t num_erased = sessions_.erase(session->client_process_id());
+    DCHECK_EQ(1U, num_erased);
+
     // Signal that we want the session to close. This will cause it to
-    // schedule all of its oustanding buffers for writing. It will eventually
-    // let us know when it's ready to be cleaned up by calling DestroySession.
+    // schedule all of its oustanding buffers for writing. It will destroy
+    // itself once it's reference count drops to zero.
     session->Close();
   }
 
@@ -586,41 +601,21 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
   return true;
 }
 
-void Service::DoSessionCleanup() {
-  base::AutoLock lock(lock_);
+void Service::ScheduleBufferForWritingUnlocked(Buffer* buffer) {
+  DCHECK(buffer != NULL);
+  queue_lock_.AssertAcquired();
 
-  SessionMap::iterator it = sessions_.begin();
-  while (it != sessions_.end()) {
-    Session* session = it->second;
+  DCHECK(buffer != NULL);
+  DCHECK(buffer->session != NULL);
+  DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
 
-    SessionMap::iterator to_delete(it);
-    // Walk forward early as we may erase this element.
-    ++it;
-
-    if (session->IsDefunct()) {
-      sessions_.erase(to_delete);
-      delete session;
-    }
-  }
-}
-
-bool Service::DestroySession(Session* session) {
-  DCHECK(session != NULL);
-
-  DCHECK(session->IsDefunct());
-  session_destruction_thread_.message_loop()->PostTask(FROM_HERE,
-      base::Bind(&Service::DoSessionCleanup, base::Unretained(this)));
-
-  return true;
+  pending_write_queue_.push_back(BufferQueueEntry(buffer->session, buffer));
 }
 
 bool Service::ScheduleBufferForWriting(Buffer* buffer) {
-  DCHECK(buffer != NULL);
-
-  base::AutoLock lock(queue_lock_);
-  pending_write_queue_.push_back(buffer);
+  base::AutoLock auto_lock(queue_lock_);
+  ScheduleBufferForWritingUnlocked(buffer);
   queue_is_non_empty_.Signal();
-
   return true;
 }
 
@@ -628,15 +623,17 @@ bool Service::ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers) {
   if (buffers.size() == 0)
     return true;
 
-  base::AutoLock lock(queue_lock_);
-  for (size_t i = 0; i < buffers.size(); ++i)
-    pending_write_queue_.push_back(buffers[i]);
-  queue_is_non_empty_.Signal();
+  base::AutoLock auto_lock(queue_lock_);
 
+  for (size_t i = 0; i < buffers.size(); ++i)
+    ScheduleBufferForWritingUnlocked(buffers[i]);
+
+  queue_is_non_empty_.Signal();
   return true;
 }
 
-bool Service::GetNewSession(ProcessId client_process_id, Session** session) {
+bool Service::GetNewSession(ProcessId client_process_id,
+                            scoped_refptr<Session>* session) {
   DCHECK(session != NULL);
   lock_.AssertAcquired();
 
@@ -644,12 +641,12 @@ bool Service::GetNewSession(ProcessId client_process_id, Session** session) {
 
   // Take care of deleting the session if initialization fails or a session
   // already exists for this pid.
-  scoped_ptr<Session> new_session(CreateSession());
+  scoped_refptr<Session> new_session(CreateSession());
 
   // Attempt to add the session to the session map. If the insertion fails,
   // let the new_session scoped_ptr clean up the object.
   std::pair<SessionMap::iterator, bool> result = sessions_.insert(
-      SessionMap::value_type(client_process_id, new_session.get()));
+      SessionMap::value_type(client_process_id, new_session));
   if (result.second == false) {
     LOG(ERROR) << "A session already exists for process " << client_process_id
         << ".";
@@ -666,13 +663,13 @@ bool Service::GetNewSession(ProcessId client_process_id, Session** session) {
 
   // The session map has taken ownership of the session object; release
   // and return the session pointer.
-  *session = new_session.release();
+  *session = new_session;
 
   return true;
 }
 
 bool Service::GetExistingSession(SessionHandle session_handle,
-                                 Session** session) {
+                                 scoped_refptr<Session>* session) {
   DCHECK(session != NULL);
   lock_.AssertAcquired();
 
@@ -687,16 +684,6 @@ bool Service::GetExistingSession(SessionHandle session_handle,
 #endif
 
   return true;
-}
-
-bool Service::GetNextBuffer(Session* session, Buffer** buffer) {
-  DCHECK(session != NULL);
-  DCHECK(buffer != NULL);
-
-  lock_.AssertAcquired();
-
-  *buffer = NULL;
-  return session->GetNextBuffer(buffer);
 }
 
 }  // namespace trace::service

@@ -24,6 +24,7 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/process.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
@@ -41,13 +42,17 @@ class Service;
 // Note that this class it not internally thread safe.  It is expected
 // that the CallTraceService will ensure that access to a given instance
 // of this class is synchronized.
-class Session {
+class Session : public base::RefCountedThreadSafe<Session> {
  public:
   typedef base::ProcessId ProcessId;
 
   explicit Session(Service* call_trace_service);
-  ~Session();
 
+ protected:
+  friend class base::RefCountedThreadSafe<Session>;
+  virtual ~Session();
+
+ public:
   // Initialize this session object.
   bool Init(const FilePath& trace_directory, ProcessId client_process_id);
 
@@ -83,15 +88,6 @@ class Session {
   // caller.
   bool FindBuffer(::CallTraceBuffer* call_trace_buffer,
                   Buffer** client_buffer);
-
-  // Returns true if the session should be deleted.
-  // TODO(rogerm): Remove with better lifetime management.
-  bool IsDefunct() {
-    base::AutoLock lock(lock_);
-
-    return is_closing_ &&
-        buffer_state_counts_[Buffer::kPendingWrite] == 0;
-  }
 
   // Returns the handle to the trace file.
   HANDLE trace_file_handle() { return trace_file_handle_.Get(); }

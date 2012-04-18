@@ -96,7 +96,7 @@ class MockParseEventHandler : public ParseEventHandler {
 class ProfilerTest : public testing::Test {
  public:
   ProfilerTest()
-      : rpc_servie_instance_manager_(&cts_),
+      : rpc_service_instance_manager_(&cts_),
         module_(NULL),
         resolution_func_(NULL) {
   }
@@ -182,7 +182,7 @@ class ProfilerTest : public testing::Test {
   Service cts_;
 
  private:
-  RpcServiceInstanceManager rpc_servie_instance_manager_;
+  RpcServiceInstanceManager rpc_service_instance_manager_;
   ScopedTempDir temp_dir_;
   HMODULE module_;
   static FARPROC _indirect_penter_;
