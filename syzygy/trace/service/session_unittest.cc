@@ -17,15 +17,124 @@
 #include "base/atomicops.h"
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/environment.h"
 #include "base/file_util.h"
+#include "base/scoped_temp_dir.h"
+#include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
 #include "gtest/gtest.h"
+#include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
+#include "syzygy/trace/service/service_rpc_impl.h"
+#include "syzygy/trace/service/trace_file_writer.h"
+#include "syzygy/trace/service/trace_file_writer_factory.h"
 
 namespace trace {
 namespace service {
 
 namespace {
+
+class TestTraceFileWriter : public TraceFileWriter {
+ public:
+  explicit TestTraceFileWriter(MessageLoop* message_loop,
+                               const FilePath& trace_directory)
+      : TraceFileWriter(message_loop, trace_directory),
+        num_buffers_to_recycle_(0) {
+    base::subtle::Barrier_AtomicIncrement(&num_instances_, 1);
+  }
+
+  ~TestTraceFileWriter() {
+    base::subtle::Barrier_AtomicIncrement(&num_instances_, -1);
+  }
+
+  void RecycleBuffers() {
+    queue_lock_.AssertAcquired();
+
+    while (!queue_.empty() && num_buffers_to_recycle_ != 0) {
+      Buffer* buffer = queue_.front();
+      queue_.pop_front();
+
+      ASSERT_TRUE(buffer != NULL);
+      ASSERT_EQ(buffer->session, session_ref_.get());
+      ASSERT_TRUE(
+        TraceFileWriter::ConsumeBuffer(buffer));
+
+      --num_buffers_to_recycle_;
+    }
+
+    // If we've emptied the queue, release our reference to the session.
+    if (queue_.empty())
+      session_ref_ = reinterpret_cast<Session*>(NULL);
+  }
+
+  void AllowBuffersToBeRecycled(size_t num_buffers) {
+    base::AutoLock auto_lock(queue_lock_);
+
+    num_buffers_to_recycle_ = num_buffers;
+    RecycleBuffers();
+  }
+
+  virtual bool ConsumeBuffer(Buffer* buffer) OVERRIDE {
+    base::AutoLock auto_lock(queue_lock_);
+    EXPECT_TRUE(buffer != NULL);
+    if (buffer) {
+      // While there are buffers in the queue, keep a reference to the session.
+      if (queue_.empty()) {
+        EXPECT_TRUE(session_ref_.get() == NULL);
+        EXPECT_TRUE(buffer->session != NULL);
+        session_ref_ = buffer->session;
+      }
+
+      // Put the buffer into the consumer queue.
+      queue_.push_back(buffer);
+    }
+
+    RecycleBuffers();
+
+    return buffer != NULL;
+  }
+
+  static base::subtle::Atomic32 num_instances() {
+    return base::subtle::Acquire_Load(&num_instances_);
+  }
+
+ protected:
+  // The queue of buffers to be consumed.
+  std::deque<Buffer*> queue_;
+
+  // This keeps the session object alive while there are buffers in the queue.
+  scoped_refptr<Session> session_ref_;
+
+  // A lock to protect access to the queue and session reference.
+  base::Lock queue_lock_;
+
+  // The number of buffers to recycle berfore pausing.
+  size_t num_buffers_to_recycle_;
+
+  // The number of active writer instances.
+  // @note All accesses to this member should be via base/atomicops.h functions.
+  static volatile base::subtle::Atomic32 num_instances_;
+};
+
+volatile base::subtle::Atomic32 TestTraceFileWriter::num_instances_ = 0;
+
+class TestTraceFileWriterFactory : public TraceFileWriterFactory {
+ public:
+   explicit TestTraceFileWriterFactory(MessageLoop* message_loop)
+       : TraceFileWriterFactory(message_loop) {
+   }
+
+   bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) OVERRIDE {
+     // w00t, somewhat bogus coverage ploy, at least will reuse the DCHECKS.
+     EXPECT_TRUE(TraceFileWriterFactory::CreateConsumer(consumer));
+     EXPECT_TRUE((*consumer)->HasOneRef());
+
+     *consumer = new TestTraceFileWriter(message_loop_, trace_file_directory_);
+     return true;
+   }
+};
 
 class TestSession : public Session {
  public:
@@ -36,15 +145,11 @@ class TestSession : public Session {
         waiting_for_buffer_to_be_recycled_state_(false),
         allocating_buffers_(lock),
         allocating_buffers_state_(false) {
-    base::subtle::Barrier_AtomicIncrement(&instance_count_, 1);
   }
 
-  ~TestSession() {
-    base::subtle::Barrier_AtomicIncrement(&instance_count_, -1);
-  }
-
-  static base::subtle::Atomic32 instance_count() {
-    return instance_count_;
+  void AllowBuffersToBeRecycled(size_t num_buffers) {
+    static_cast<TestTraceFileWriter*>(
+        buffer_consumer())->AllowBuffersToBeRecycled(num_buffers);
   }
 
   void ClearWaitingForBufferToBeRecycledState() {
@@ -129,21 +234,15 @@ class TestSession : public Session {
   // Under test_lock_.
   base::ConditionVariable allocating_buffers_;
   bool allocating_buffers_state_;
-
-  // Updated atomically.
-  static base::subtle::Atomic32 instance_count_;
 };
-
-base::subtle::Atomic32 TestSession::instance_count_ = 0;
 
 typedef scoped_refptr<TestSession> TestSessionPtr;
 
 class TestService : public Service {
  public:
-  TestService()
-      : process_id_(0xfafafa),
-        buffers_written_(&buffers_written_lock_),
-        buffers_allowed_to_be_recycled_(0) {
+  explicit TestService(BufferConsumerFactory* factory)
+      : Service(factory),
+        process_id_(0xfafafa) {
   }
 
   TestSessionPtr CreateTestSession() {
@@ -153,18 +252,7 @@ class TestService : public Service {
     if (!GetNewSession(++process_id_, &session))
       return NULL;
 
-    return TestSessionPtr(reinterpret_cast<TestSession*>(session.get()));
-  }
-
-  void WaitUntilAllowedBuffersWritten() {
-    base::AutoLock lock(buffers_written_lock_);
-    while (buffers_allowed_to_be_recycled_ > 0)
-      buffers_written_.Wait();
-  }
-
-  void AllowBuffersToBeRecycled(size_t count) {
-    base::AutoLock lock(queue_lock_);
-    buffers_allowed_to_be_recycled_ += count;
+    return TestSessionPtr(static_cast<TestSession*>(session.get()));
   }
 
  protected:
@@ -172,68 +260,91 @@ class TestService : public Service {
     return new TestSession(this, &session_lock_);
   }
 
-  virtual bool GetBuffersToWrite(BufferQueue* queue) OVERRIDE {
-    DCHECK(queue != NULL);
-    DCHECK(queue->empty());
-
-    base::AutoLock qlock(queue_lock_);
-    base::AutoLock bwlock(buffers_written_lock_);
-
-    if (buffers_allowed_to_be_recycled_ == 0)
-      return true;
-
-    while (pending_write_queue_.empty())
-      queue_is_non_empty_.Wait();
-
-    // Pop out some buffers, but not too many.
-    while (!pending_write_queue_.empty() && buffers_allowed_to_be_recycled_) {
-      queue->push_back(pending_write_queue_.front());
-      pending_write_queue_.pop_front();
-      --buffers_allowed_to_be_recycled_;
-    }
-
-    buffers_written_.Signal();
-
-    return true;
-  };
-
  private:
   // This lock is provided to sessions for misc locking.
   base::Lock session_lock_;
 
   uint32 process_id_;  // Under lock_;
-
-  base::Lock buffers_written_lock_;
-  base::ConditionVariable buffers_written_;  // Under buffers_written_lock_.
-  size_t buffers_allowed_to_be_recycled_;  // Under buffers_written_lock_.
 };
 
 class SessionTest : public ::testing::Test {
  public:
-  SessionTest() : worker1("Worker1"), worker2("Worker2") {
+  SessionTest()
+      : consumer_thread_("session-test-consumer-thread"),
+        consumer_thread_has_started_(
+            consumer_thread_.StartWithOptions(
+                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
+        trace_file_writer_factory_(consumer_thread_.message_loop()),
+        call_trace_service_(&trace_file_writer_factory_),
+        rpc_service_instance_manager_(&call_trace_service_),
+        worker1_("Worker1"),
+        worker2_("Worker2") {
   }
 
   virtual void SetUp() OVERRIDE {
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", &temp_dir_));
-    service_.set_trace_directory(temp_dir_);
-    worker1.Start();
-    worker2.Start();
+    testing::Test::SetUp();
+
+    ASSERT_TRUE(consumer_thread_has_started_);
+    EXPECT_EQ(0, call_trace_service_.num_active_sessions());
+    EXPECT_EQ(0, TestTraceFileWriter::num_instances());
+
+    // Setup the buffer management to make it easy to force buffer contention.
+    call_trace_service_.set_num_incremental_buffers(2);
+    call_trace_service_.set_buffer_size_in_bytes(8192);
+
+    // Create a temporary directory for the call trace files.
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    ASSERT_TRUE(
+        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_.path()));
+
+    // We give the service instance a "unique" id so that it does not interfere
+    // with any other instances or tests that might be concurrently active.
+    std::string instance_id(base::StringPrintf("%d", ::GetCurrentProcessId()));
+    call_trace_service_.set_instance_id(::UTF8ToWide(instance_id));
+
+    // The instance id needs to be in the environment to be picked up by the
+    // client library.
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    ASSERT_FALSE(env.get() == NULL);
+    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id));
+
+    // Start our worker threads so we can use them later.
+    ASSERT_TRUE(worker1_.Start());
+    ASSERT_TRUE(worker2_.Start());
   }
 
   virtual void TearDown() OVERRIDE {
-    worker1.Stop();
-    worker2.Stop();
-    service_.Stop();
-    EXPECT_EQ(0, TestSession::instance_count());
-    file_util::Delete(temp_dir_, true);
+    // Stop the worker threads.
+    worker2_.Stop();
+    worker1_.Stop();
+
+    // Stop the call trace service.
+    EXPECT_TRUE(call_trace_service_.Stop());
+    EXPECT_FALSE(call_trace_service_.is_running());
+    EXPECT_EQ(0, call_trace_service_.num_active_sessions());
+    EXPECT_EQ(0, TestTraceFileWriter::num_instances());
   }
 
-  FilePath temp_dir_;
-  TestService service_;
+ protected:
+  // The thread on which the trace file writer will consumer buffers and a
+  // helper variable whose initialization we use as a trigger to start the
+  // thread (ensuring it's message_loop is created). These declarations MUST
+  // remain in this order and preceed that of trace_file_writer_factory_;
+  base::Thread consumer_thread_;
+  bool consumer_thread_has_started_;
+
+  // The call trace service related objects. These declarations MUST be in
+  // this order.
+  TestTraceFileWriterFactory trace_file_writer_factory_;
+  TestService call_trace_service_;
+  RpcServiceInstanceManager rpc_service_instance_manager_;
+
+  // The directory where trace file output will be written.
+  ScopedTempDir temp_dir_;
 
   // A couple of worker threads where we can dispatch closures.
-  base::Thread worker1;
-  base::Thread worker2;
+  base::Thread worker1_;
+  base::Thread worker2_;
 };
 
 void GetNextBuffer(Session* session, Buffer** buffer, bool* result) {
@@ -247,9 +358,9 @@ void GetNextBuffer(Session* session, Buffer** buffer, bool* result) {
 }  // namespace
 
 TEST_F(SessionTest, ReturnBufferWorksAfterSessionClose) {
-  ASSERT_TRUE(service_.Start(true));
+  ASSERT_TRUE(call_trace_service_.Start(true));
 
-  TestSessionPtr session = service_.CreateTestSession();
+  TestSessionPtr session = call_trace_service_.CreateTestSession();
   ASSERT_TRUE(session != NULL);
 
   Buffer* buffer1 = NULL;
@@ -272,19 +383,15 @@ TEST_F(SessionTest, ReturnBufferWorksAfterSessionClose) {
   ASSERT_TRUE(session->ReturnBuffer(buffer1));
 
   // Let's allow the outstanding buffers to be written.
-  service_.AllowBuffersToBeRecycled(9999);
-
-  ASSERT_TRUE(service_.Stop());
+  session->AllowBuffersToBeRecycled(9999);
 }
 
 TEST_F(SessionTest, BackPressureWorks) {
   // Configure things so that back-pressure will be easily forced.
-  service_.set_num_incremental_buffers(2);
-  service_.set_buffer_size_in_bytes(1024);
-  service_.set_max_buffers_pending_write(1);
-  ASSERT_TRUE(service_.Start(true));
+  call_trace_service_.set_max_buffers_pending_write(1);
+  ASSERT_TRUE(call_trace_service_.Start(true));
 
-  TestSessionPtr session = service_.CreateTestSession();
+  TestSessionPtr session = call_trace_service_.CreateTestSession();
   ASSERT_TRUE(session != NULL);
 
   Buffer* buffer1 = NULL;
@@ -309,17 +416,17 @@ TEST_F(SessionTest, BackPressureWorks) {
   Buffer* buffer3 = NULL;
   base::Closure buffer_getter3 = base::Bind(
       &GetNextBuffer, session, &buffer3, &result3);
-  worker1.message_loop()->PostTask(FROM_HERE, buffer_getter3);
+  worker1_.message_loop()->PostTask(FROM_HERE, buffer_getter3);
 
   // Wait for the session to start applying back-pressure. This occurs when it
   // has indicated that it is waiting for a buffer to be written.
   session->PauseUntilWaitingForBufferToBeRecycled();
 
   // Allow a single buffer to be written.
-  service_.AllowBuffersToBeRecycled(1);
+  session->AllowBuffersToBeRecycled(1);
 
   // Wait for the buffer getter to complete.
-  worker1.Stop();
+  worker1_.Stop();
 
   // Ensure the buffer was a recycled forced wait.
   ASSERT_TRUE(result3);
@@ -327,19 +434,15 @@ TEST_F(SessionTest, BackPressureWorks) {
 
   // Return the last buffer and allow everything to be written.
   ASSERT_TRUE(session->ReturnBuffer(buffer3));
-  service_.AllowBuffersToBeRecycled(9999);
-
-  ASSERT_TRUE(service_.Stop());
+  session->AllowBuffersToBeRecycled(9999);
 }
 
 TEST_F(SessionTest, BackPressureIsLimited) {
   // Configure things so that back-pressure will be easily forced.
-  service_.set_num_incremental_buffers(2);
-  service_.set_buffer_size_in_bytes(1024);
-  service_.set_max_buffers_pending_write(1);
-  ASSERT_TRUE(service_.Start(true));
+  call_trace_service_.set_max_buffers_pending_write(1);
+  ASSERT_TRUE(call_trace_service_.Start(true));
 
-  TestSessionPtr session = service_.CreateTestSession();
+  TestSessionPtr session = call_trace_service_.CreateTestSession();
   ASSERT_TRUE(session != NULL);
 
   Buffer* buffer1 = NULL;
@@ -372,8 +475,8 @@ TEST_F(SessionTest, BackPressureIsLimited) {
       &GetNextBuffer, session, &buffer3, &result3);
   base::Closure buffer_getter4 = base::Bind(
       &GetNextBuffer, session, &buffer4, &result4);
-  worker1.message_loop()->PostTask(FROM_HERE, buffer_getter3);
-  worker2.message_loop()->PostTask(FROM_HERE, buffer_getter4);
+  worker1_.message_loop()->PostTask(FROM_HERE, buffer_getter3);
+  worker2_.message_loop()->PostTask(FROM_HERE, buffer_getter4);
 
   // Wait for the session to start applying back-pressure. This occurs when it
   // has indicated that it is waiting for a buffer to be written.
@@ -387,11 +490,11 @@ TEST_F(SessionTest, BackPressureIsLimited) {
   ASSERT_EQ(1u, session->buffer_requests_waiting_for_recycle());
 
   // Allow a single buffer to be written.
-  service_.AllowBuffersToBeRecycled(1);
+  session->AllowBuffersToBeRecycled(1);
 
   // Wait for the buffer getters to complete.
-  worker1.Stop();
-  worker2.Stop();
+  worker1_.Stop();
+  worker2_.Stop();
   ASSERT_TRUE(result3);
   ASSERT_TRUE(result4);
 
@@ -403,9 +506,7 @@ TEST_F(SessionTest, BackPressureIsLimited) {
   // Return the last 2 buffers and allow everything to be written.
   ASSERT_TRUE(session->ReturnBuffer(buffer3));
   ASSERT_TRUE(session->ReturnBuffer(buffer4));
-  service_.AllowBuffersToBeRecycled(9999);
-
-  ASSERT_TRUE(service_.Stop());
+  session->AllowBuffersToBeRecycled(9999);
 }
 
 }  // namespace trace

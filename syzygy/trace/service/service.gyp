@@ -26,6 +26,7 @@
       'target_name': 'rpc_service_lib',
       'type': 'static_library',
       'sources': [
+        'buffer_consumer.h',
         'buffer_pool.cc',
         'buffer_pool.h',
         'process_info.cc',
@@ -36,6 +37,10 @@
         'service_rpc_impl.h',
         'session.cc',
         'session.h',
+        'trace_file_writer.cc',
+        'trace_file_writer.h',
+        'trace_file_writer_factory.cc',
+        'trace_file_writer_factory.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -48,9 +53,9 @@
       'type': 'executable',
       'sources': [
         'process_info_unittest.cc',
+        'rpc_service_unittests_main.cc',
         'service_unittest.cc',
         'session_unittest.cc',
-        'rpc_service_unittests_main.cc',
       ],
       'dependencies': [
         'call_trace_service_exe',

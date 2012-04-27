@@ -21,9 +21,12 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/environment.h"
 #include "base/file_path.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/utf_string_conversions.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/common/process_utils.h"
@@ -562,6 +565,10 @@ Profiler::ThreadState* Profiler::CreateFirstThreadStateAndSession() {
   Profiler::ThreadState* data = GetOrAllocateThreadStateImpl();
 
   // Create the session (and allocate the first segment).
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::string id;
+  env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &id);
+  session_.set_instance_id(UTF8ToWide(id));
   session_.CreateSession(data->segment());
 
   return data;

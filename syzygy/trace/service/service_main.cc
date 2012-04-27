@@ -24,17 +24,20 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/threading/thread.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
+#include "syzygy/trace/service/trace_file_writer_factory.h"
 
-using trace::client::CreateRpcBinding;
-using trace::client::InvokeRpc;
-using trace::service::Service;
-using trace::service::RpcServiceInstanceManager;
+namespace trace {
+namespace service {
 namespace {
+
+using ::trace::client::CreateRpcBinding;
+using ::trace::client::InvokeRpc;
 
 // Minimum buffer size to allow (1 MB).
 const int kMinBufferSize = 1024 * 1024;
@@ -117,7 +120,16 @@ bool GetInstanceId(const CommandLine* cmd_line, std::wstring* id) {
 bool RunService(const CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
-  Service call_trace_service;
+  base::Thread writer_thread("trace-file-writer");
+  if (!writer_thread.StartWithOptions(
+          base::Thread::Options(MessageLoop::TYPE_IO, 0))) {
+    LOG(ERROR) << "Failed to start call trace service writer thread.";
+    return 1;
+  }
+
+  MessageLoop* message_loop = writer_thread.message_loop();
+  TraceFileWriterFactory trace_file_writer_factory(message_loop);
+  Service call_trace_service(&trace_file_writer_factory);
   RpcServiceInstanceManager rpc_instance(&call_trace_service);
 
   // Get/set the instance id.
@@ -132,10 +144,10 @@ bool RunService(const CommandLine* cmd_line) {
 
   // Set up the trace directory.
   FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
-  if (trace_directory.empty()) {
+  if (trace_directory.empty())
     trace_directory = FilePath(L".");
-  }
-  call_trace_service.set_trace_directory(trace_directory);
+  if (!trace_file_writer_factory.SetTraceFileDirectory(trace_directory))
+    return false;
 
   // Setup the buffer size.
   std::wstring buffer_size_str(cmd_line->GetSwitchValueNative("buffer-size"));
@@ -212,9 +224,7 @@ bool StopService(const base::StringPiece16& instance_id) {
   return true;
 }
 
-}  // namespace
-
-int main(int argc, char** argv) {
+extern "C" int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
   const int kVlogLevelVerbose = -2;
@@ -251,3 +261,7 @@ int main(int argc, char** argv) {
 
   return Usage();
 }
+
+}  // namespace
+}  // namespace service
+}  // namespace trace

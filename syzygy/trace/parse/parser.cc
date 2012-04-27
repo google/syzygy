@@ -97,7 +97,10 @@ bool Parser::OpenTraceFile(const FilePath& trace_file_path) {
 }
 
 bool Parser::Consume() {
-  DCHECK(active_parse_engine_ != NULL);
+  if (active_parse_engine_ == NULL) {
+    LOG(ERROR) << "No open trace files to consume.";
+    return false;
+  }
   return active_parse_engine_->ConsumeAllEvents();
 }
 
