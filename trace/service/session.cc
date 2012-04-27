@@ -43,146 +43,6 @@ namespace {
 
 using base::ProcessId;
 
-FilePath GenerateTraceFileName(const FilePath& trace_directory,
-                               const ProcessInfo& client) {
-  // We use the current time to disambiguate the trace file, so let's look
-  // at the clock.
-  time_t t = time(NULL);
-  struct tm local_time = {};
-  ::localtime_s(&local_time, &t);
-
-  // Construct the trace file path from the program being run, the current
-  // timestamp, and the process id.
-  return trace_directory.Append(base::StringPrintf(
-      L"trace-%ls-%4d%02d%02d%02d%02d%02d-%d.bin",
-      client.executable_path.BaseName().value().c_str(),
-      1900 + local_time.tm_year,
-      1 + local_time.tm_mon,
-      local_time.tm_mday,
-      local_time.tm_hour,
-      local_time.tm_min,
-      local_time.tm_sec,
-      client.process_id));
-}
-
-bool OpenTraceFile(const FilePath& file_path,
-                   base::win::ScopedHandle* file_handle) {
-  DCHECK(!file_path.empty());
-  DCHECK(file_handle != NULL);
-
-  // Create a new trace file.
-  base::win::ScopedHandle new_file_handle(
-      ::CreateFile(file_path.value().c_str(),
-                   GENERIC_READ | GENERIC_WRITE,
-                   FILE_SHARE_DELETE | FILE_SHARE_READ,
-                   NULL, /* lpSecurityAttributes */
-                   CREATE_ALWAYS,
-                   FILE_ATTRIBUTE_NORMAL | FILE_FLAG_NO_BUFFERING,
-                   NULL /* hTemplateFile */));
-  if (!new_file_handle.IsValid()) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to open '" << file_path.value()
-               << "' for writing: " << com::LogWe(error) << ".";
-    return false;
-  }
-
-  file_handle->Set(new_file_handle.Take());
-
-  return true;
-}
-
-bool GetBlockSize(const FilePath& path, size_t* block_size) {
-  wchar_t volume[MAX_PATH];
-
-  if (!::GetVolumePathName(path.value().c_str(), volume, arraysize(volume))) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get volume path name: " << com::LogWe(error)
-               << ".";
-    return false;
-  }
-
-  DWORD sectors_per_cluster = 0;
-  DWORD bytes_per_sector = 0;
-  DWORD free_clusters = 0;
-  DWORD total_clusters = 0;
-
-  if (!::GetDiskFreeSpace(volume, &sectors_per_cluster, &bytes_per_sector,
-                          &free_clusters, &total_clusters)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get volume info: " << com::LogWe(error) << ".";
-    return false;
-  }
-
-  *block_size = bytes_per_sector;
-  return true;
-}
-
-bool WriteTraceFileHeader(HANDLE file_handle,
-                          const ProcessInfo& client,
-                          size_t block_size) {
-  DCHECK(file_handle != INVALID_HANDLE_VALUE);
-  DCHECK(block_size != 0);
-
-  // Make the initial buffer big enough to hold the header without the
-  // variable length blob, then skip past the fixed sized portion of the
-  // header.
-  std::vector<uint8> buffer;
-  buffer.reserve(16 * 1024);
-  common::VectorBufferWriter writer(&buffer);
-  if (!writer.Consume(offsetof(TraceFileHeader, blob_data)))
-    return false;
-
-  // Populate the fixed sized portion of the header.
-  TraceFileHeader* header = reinterpret_cast<TraceFileHeader*>(&buffer[0]);
-  ::memcpy(&header->signature,
-           &TraceFileHeader::kSignatureValue,
-           sizeof(header->signature));
-  header->server_version.lo = TRACE_VERSION_LO;
-  header->server_version.hi = TRACE_VERSION_HI;
-  header->timestamp = ::GetTickCount();
-  header->process_id = client.process_id;
-  header->block_size = block_size;
-  header->module_base_address = client.exe_base_address;
-  header->module_size = client.exe_image_size;
-  header->module_checksum = client.exe_checksum;
-  header->module_time_date_stamp = client.exe_time_date_stamp;
-  header->os_version_info = client.os_version_info;
-  header->system_info = client.system_info;
-  header->memory_status = client.memory_status;
-
-  // Make sure we record the path to the executable as a path with a drive
-  // letter, rather than using device names.
-  FilePath drive_path;
-  if (!common::ConvertDevicePathToDrivePath(client.executable_path,
-                                            &drive_path)) {
-    return false;
-  }
-
-  // Populate the blob with the variable length fields.
-  if (!writer.WriteString(drive_path.value()))
-    return false;
-  if (!writer.WriteString(client.command_line))
-    return false;
-  if (!writer.Write(client.environment.size(), &client.environment[0]))
-    return false;
-
-  // Update the final header size and align to a block size.
-  header->header_size = buffer.size();
-  writer.Align(header->block_size);
-
-  // Commit the header page to disk.
-  DWORD bytes_written = 0;
-  if (!::WriteFile(file_handle, &buffer[0], buffer.size(), &bytes_written,
-                   NULL) || bytes_written != buffer.size() ) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed writing trace file header: " << com::LogWe(error)
-               << ".";
-    return false;
-  }
-
-  return true;
-}
-
 // Helper for logging Buffer::ID values.
 std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
   return stream << "shared_memory_handle=0x" << std::hex << buffer_id.first
@@ -194,17 +54,21 @@ std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
 Session::Session(Service* call_trace_service)
     : call_trace_service_(call_trace_service),
       is_closing_(false),
+      buffer_consumer_(NULL),
       buffer_requests_waiting_for_recycle_(0),
       buffer_is_available_(&lock_),
       buffer_id_(0),
       input_error_already_logged_(false) {
   DCHECK(call_trace_service != NULL);
   ::memset(buffer_state_counts_, 0, sizeof(buffer_state_counts_));
+
+  call_trace_service_->AddOneActiveSession();
 }
 
 Session::~Session() {
   // We expect all of the buffers to be available, and none of them to be
   // outstanding.
+  DCHECK(call_trace_service_ != NULL);
   DCHECK_EQ(buffers_available_.size(),
             buffer_state_counts_[Buffer::kAvailable]);
   DCHECK_EQ(buffers_.size(), buffer_state_counts_[Buffer::kAvailable]);
@@ -223,85 +87,59 @@ Session::~Session() {
     shared_memory_buffers_.pop_back();
     delete pool;
   }
+
+  // TODO(rogerm): Perhaps this code should be tied to the last recycled buffer
+  //     after is_closing_ (see RecycleBuffer()). It is bothersome to tie logic
+  //     (the services view of the number of active sessions) to the lifetime
+  //     of the objects in memory. Arguably, this applies to all of the above
+  //     code.
+  buffer_consumer_->Close(this);
+  call_trace_service_->RemoveOneActiveSession();
 }
 
-bool Session::Init(const FilePath& trace_directory,
-                   ProcessId client_process_id) {
-  DCHECK(!trace_directory.empty());
-
+bool Session::Init(ProcessId client_process_id) {
   if (!InitializeProcessInfo(client_process_id, &client_))
     return false;
-
-  trace_file_path_ = GenerateTraceFileName(trace_directory, client_);
-
-  if (!OpenTraceFile(trace_file_path_, &trace_file_handle_)) {
-    LOG(ERROR) << "Failed to open trace file: "
-               << trace_file_path_.value().c_str();
-    return false;
-  }
-
-  if (!GetBlockSize(trace_file_path_, &block_size_)) {
-    LOG(ERROR) << "Failed to determine the trace file block size.";
-    return false;
-  }
-
-  if (!WriteTraceFileHeader(trace_file_handle_, client_, block_size_)) {
-    LOG(ERROR) << "Failed to write trace file header.";
-    return false;
-  }
 
   return true;
 }
 
 bool Session::Close() {
   std::vector<Buffer*> buffers;
+  base::AutoLock lock(lock_);
 
-  // We return the success status from the block below in this variable instead
-  // of returning early, as if we change the state of any buffer, we're obliged
-  // to schedule them for writing, lest the accounting get gunked up.
-  bool succeeded = true;
-  {
-    base::AutoLock lock(lock_);
+  // It's possible that the service is being stopped just after this session
+  // was marked for closure. The service would then attempt to re-close the
+  // session. Let's ignore these requests.
+  if (is_closing_)
+    return true;
 
-    // It's possible that the service is being stopped just after this session
-    // was marked for closure. The service would then attempt to re-close the
-    // session. Let's ignore these requests.
-    if (is_closing_)
-      return true;
+  // Otherwise the session is being asked to close for the first time.
+  is_closing_ = true;
 
-    // Otherwise the session is being asked to close for the first time.
-    is_closing_ = true;
+  // We'll reserve space for the the worst case scenario buffer count.
+  buffers.reserve(buffer_state_counts_[Buffer::kInUse] + 1);
 
-    // We'll reserve space for the the worst case scenario buffer count.
-    buffers.reserve(buffer_state_counts_[Buffer::kInUse] + 1);
-
-    // Schedule any outstanding buffers for flushing.
-    BufferMap::iterator it = buffers_.begin();
-    for (; it != buffers_.end(); ++it) {
-      if (it->second->state == Buffer::kInUse) {
-        ChangeBufferState(Buffer::kPendingWrite, it->second);
-        buffers.push_back(it->second);
-      }
-    }
-
-    // Create a process ended event. This causes at least one buffer to be in
-    // use to store the process ended event.
-    Buffer* buffer = NULL;
-    if (CreateProcessEndedEvent(&buffer)) {
-      DCHECK(buffer != NULL);
+  // Schedule any outstanding buffers for flushing.
+  for (BufferMap::iterator it = buffers_.begin(); it != buffers_.end(); ++it) {
+    Buffer* buffer = it->second;
+    DCHECK(buffer != NULL);
+    if (buffer->state == Buffer::kInUse) {
       ChangeBufferState(Buffer::kPendingWrite, buffer);
-      buffers.push_back(buffer);
-    } else {
-      succeeded = false;
+      buffer_consumer_->ConsumeBuffer(buffer);
     }
   }
 
-  if (!call_trace_service_->ScheduleBuffersForWriting(buffers)) {
-    LOG(ERROR) << "Unable to schedule outstanding buffers for writing.";
-    succeeded = false;
+  // Create a process ended event. This causes at least one buffer to be in
+  // use to store the process ended event.
+  Buffer* buffer = NULL;
+  if (CreateProcessEndedEvent(&buffer)) {
+    DCHECK(buffer != NULL);
+    ChangeBufferState(Buffer::kPendingWrite, buffer);
+    buffer_consumer_->ConsumeBuffer(buffer);
   }
 
-  return succeeded;
+  return true;
 }
 
 bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
@@ -366,8 +204,8 @@ bool Session::ReturnBuffer(Buffer* buffer) {
     ChangeBufferState(Buffer::kPendingWrite, buffer);
   }
 
-  // Schedule it for writing.
-  if (!call_trace_service_->ScheduleBufferForWriting(buffer)) {
+  // Hand the buffer over to the consumer.
+  if (!buffer_consumer_->ConsumeBuffer(buffer)) {
     LOG(ERROR) << "Unable to schedule buffer for writing.";
     return false;
   }
@@ -467,7 +305,7 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
   }
 
   // Initialize the shared buffer pool.
-  buffer_size = common::AlignUp(buffer_size, block_size());
+  buffer_size = common::AlignUp(buffer_size, buffer_consumer_->block_size());
   if (!pool->Init(this, num_buffers, buffer_size)) {
     LOG(ERROR) << "Failed to initialize shared memory buffer.";
     return false;
@@ -656,5 +494,5 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
   return true;
 }
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace

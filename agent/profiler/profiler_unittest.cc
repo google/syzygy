@@ -18,14 +18,19 @@
 #include <intrin.h>
 #include <psapi.h>
 
+#include "base/environment.h"
 #include "base/file_util.h"
 #include "base/scoped_temp_dir.h"
+#include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
+#include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
+#include "syzygy/trace/service/trace_file_writer_factory.h"
 
 namespace agent {
 namespace profiler {
@@ -39,6 +44,7 @@ using testing::_;
 using testing::Return;
 using testing::StrictMock;
 using trace::service::RpcServiceInstanceManager;
+using trace::service::TraceFileWriterFactory;
 using trace::service::Service;
 using trace::parser::Parser;
 using trace::parser::ParseEventHandler;
@@ -93,44 +99,75 @@ class MockParseEventHandler : public ParseEventHandler {
                                         const TraceBatchInvocationInfo* data));
 };
 
+// TODO(rogerm): Create a base fixture (perhaps templatized) to factor out
+//     the common bits of testing various clients with the call trace service.
 class ProfilerTest : public testing::Test {
  public:
   ProfilerTest()
-      : rpc_service_instance_manager_(&cts_),
+      : consumer_thread_("profiler-test-consumer-thread"),
+        consumer_thread_has_started_(
+            consumer_thread_.StartWithOptions(
+                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
+        trace_file_writer_factory_(consumer_thread_.message_loop()),
+        call_trace_service_(&trace_file_writer_factory_),
+        rpc_service_instance_manager_(&call_trace_service_),
         module_(NULL),
         resolution_func_(NULL) {
   }
 
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
+    testing::Test::SetUp();
+
+    ASSERT_TRUE(consumer_thread_has_started_);
+
+    // Create a temporary directory for the call trace files.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    cts_.set_trace_directory(temp_dir_.path());
-    // TODO(rogerm): Set the rpc instance id.
+    ASSERT_TRUE(
+        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_.path()));
+
+    // We give the service instance a "unique" id so that it does not interfere
+    // with any other instances or tests that might be concurrently active.
+    std::string instance_id(base::StringPrintf("%d", ::GetCurrentProcessId()));
+    call_trace_service_.set_instance_id(::UTF8ToWide(instance_id));
+
+    // The instance id needs to be in the environment to be picked up by the
+    // client library.
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    ASSERT_FALSE(env.get() == NULL);
+    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id));
   }
 
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     UnloadDll();
-    cts_.Stop();
+
+    // Stop the call trace service.
+    EXPECT_TRUE(call_trace_service_.Stop());
+    EXPECT_FALSE(call_trace_service_.is_running());
+    EXPECT_EQ(0, call_trace_service_.num_active_sessions());
   }
 
   void ReplayLogs() {
     // Stop the service if it's running.
-    cts_.Stop();
+    ASSERT_TRUE(call_trace_service_.Stop());
+    ASSERT_FALSE(call_trace_service_.is_running());
+    ASSERT_EQ(0, call_trace_service_.num_active_sessions());
 
     Parser parser;
-    parser.Init(&handler_);
+    ASSERT_TRUE(parser.Init(&handler_));
 
     // Queue up the trace file(s) we engendered.
     file_util::FileEnumerator enumerator(temp_dir_.path(),
                                          false,
                                          FileEnumerator::FILES);
-
+    size_t num_files = 0;
     while (true) {
       FilePath trace_file = enumerator.Next();
       if (trace_file.empty())
         break;
       ASSERT_TRUE(parser.OpenTraceFile(trace_file));
+      ++num_files;
     }
-
+    EXPECT_GT(num_files, 0U);
     ASSERT_TRUE(parser.Consume());
   }
 
@@ -177,13 +214,29 @@ class ProfilerTest : public testing::Test {
       ResolveReturnAddressLocationFunc resolver);
 
  protected:
+  // The thread on which the trace file writer will consumer buffers and a
+  // helper variable whose initialization we use as a trigger to start the
+  // thread (ensuring it's message_loop is created). These declarations MUST
+  // remain in this order and preceed that of trace_file_writer_factory_;
+  base::Thread consumer_thread_;
+  bool consumer_thread_has_started_;
+
+  // The call trace service related objects. These declarations MUST be in
+  // this order.
+  TraceFileWriterFactory trace_file_writer_factory_;
+  Service call_trace_service_;
+  RpcServiceInstanceManager rpc_service_instance_manager_;
+
+  // The directory where trace file output will be written.
+  ScopedTempDir temp_dir_;
+
+  // The handler to which the trace file parser will delegate events.
   StrictMock<MockParseEventHandler> handler_;
+
+  // The address resolution function exported from the profiler dll.
   ResolveReturnAddressLocationFunc resolution_func_;
-  Service cts_;
 
  private:
-  RpcServiceInstanceManager rpc_service_instance_manager_;
-  ScopedTempDir temp_dir_;
   HMODULE module_;
   static FARPROC _indirect_penter_;
   static FARPROC _indirect_penter_dllmain_;
@@ -257,7 +310,7 @@ TEST_F(ProfilerTest, NoServerNoCrash) {
 
 TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
   // Spin up the RPC service.
-  ASSERT_TRUE(cts_.Start(true));
+  ASSERT_TRUE(call_trace_service_.Start(true));
 
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -270,7 +323,7 @@ TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
 
 TEST_F(ProfilerTest, RecordsAllModulesAndFunctions) {
   // Spin up the RPC service.
-  ASSERT_TRUE(cts_.Start(true));
+  ASSERT_TRUE(call_trace_service_.Start(true));
 
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);
@@ -332,7 +385,7 @@ void InvokeFunctionAThunk() {
 
 TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   // Spin up the RPC service.
-  ASSERT_TRUE(cts_.Start(true));
+  ASSERT_TRUE(call_trace_service_.Start(true));
 
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);

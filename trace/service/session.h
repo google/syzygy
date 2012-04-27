@@ -29,6 +29,7 @@
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/trace/service/buffer_consumer.h"
 #include "syzygy/trace/service/buffer_pool.h"
 #include "syzygy/trace/service/process_info.h"
 
@@ -48,13 +49,9 @@ class Session : public base::RefCountedThreadSafe<Session> {
 
   explicit Session(Service* call_trace_service);
 
- protected:
-  friend class base::RefCountedThreadSafe<Session>;
-  virtual ~Session();
-
  public:
   // Initialize this session object.
-  bool Init(const FilePath& trace_directory, ProcessId client_process_id);
+  bool Init(ProcessId client_process_id);
 
   // Close the session. The causes the session to flush all of its outstanding
   // buffers to the write queue.
@@ -89,19 +86,26 @@ class Session : public base::RefCountedThreadSafe<Session> {
   bool FindBuffer(::CallTraceBuffer* call_trace_buffer,
                   Buffer** client_buffer);
 
-  // Returns the handle to the trace file.
-  HANDLE trace_file_handle() { return trace_file_handle_.Get(); }
-
   // Returns the process id of the client process.
   ProcessId client_process_id() const { return client_.process_id; }
 
-  // Returns the path of the trace file.
-  const FilePath& trace_file_path() const { return trace_file_path_; }
+  // Returns the process information about this session's client.
+  const ProcessInfo& client_info() const { return client_; }
 
-  // Returns the block size for this session's trace file.
-  size_t block_size() const { return block_size_; }
+  // Get the buffer consumer for this session.
+  BufferConsumer* buffer_consumer() { return buffer_consumer_; }
+
+  // Set the buffer consumer for this session.
+  void set_buffer_consumer(BufferConsumer* consumer) {
+    DCHECK(consumer != NULL);
+    DCHECK(buffer_consumer_.get() == NULL);
+    buffer_consumer_ = consumer;
+  }
 
  protected:
+  friend class base::RefCountedThreadSafe<Session>;
+  virtual ~Session();
+
   // @name Testing seams. These are basically events which will be called,
   //     providing places for unittests to set some hooks.
   // @{
@@ -170,16 +174,6 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // The process information for the client to which the session belongs.
   ProcessInfo client_;
 
-  // The handle to the trace file to which buffers are committed.
-  base::win::ScopedHandle trace_file_handle_;
-
-  // The name of the trace file.
-  FilePath trace_file_path_;
-
-  // The block size used when writing to disk. This corresponds to
-  // the physical sector size of the disk.
-  size_t block_size_;
-
   // All shared memory buffers allocated for this session.
   SharedMemoryBufferCollection shared_memory_buffers_;  // Under lock_.
 
@@ -189,6 +183,10 @@ class Session : public base::RefCountedThreadSafe<Session> {
 
   // State summary.
   size_t buffer_state_counts_[Buffer::kBufferStateMax];  // Under lock_.
+
+  // The consumer responsible for processing this sessions buffers. The
+  // lifetime of this object is managed by the call trace service.
+  scoped_refptr<BufferConsumer> buffer_consumer_;
 
   // Buffers available to give to the clients.
   typedef std::deque<Buffer*> BufferQueue;
@@ -219,6 +217,7 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // follow-on occurrences that we don't want to log.
   bool input_error_already_logged_;  // Under lock_.
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(Session);
 };
 

@@ -35,6 +35,8 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
+#include "syzygy/trace/service/buffer_consumer.h"
+#include "syzygy/trace/service/session.h"
 
 namespace trace {
 namespace service {
@@ -50,26 +52,38 @@ const size_t Service::kDefaultNumIncrementalBuffers = 16;
 // represents about 26 MB, so 1.3 seconds of disk bandwidth.
 const size_t Service::kDefaultMaxBuffersPendingWrite = 13;
 
-Service::Service()
-    : trace_directory_(L"."),
+Service::Service(BufferConsumerFactory* factory)
+    : num_active_sessions_(0),
       num_incremental_buffers_(kDefaultNumIncrementalBuffers),
       buffer_size_in_bytes_(kDefaultBufferSize),
       max_buffers_pending_write_(kDefaultMaxBuffersPendingWrite),
       owner_thread_(base::PlatformThread::CurrentId()),
-      writer_thread_(base::kNullThreadHandle),
-      queue_is_non_empty_(&queue_lock_),
+      buffer_consumer_factory_(factory),
+      a_session_has_closed_(&lock_),
       rpc_is_initialized_(false),
       rpc_is_running_(false),
       rpc_is_non_blocking_(false),
       flags_(TRACE_FLAG_BATCH_ENTER) {
+  DCHECK(factory != NULL);
 }
 
 Service::~Service() {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
+  DCHECK(buffer_consumer_factory_ != NULL);
 
   Stop();
 
   DCHECK(sessions_.empty());
+  DCHECK_EQ(0, num_active_sessions());
+}
+
+void Service::AddOneActiveSession() {
+  base::subtle::Barrier_AtomicIncrement(&num_active_sessions_, 1);
+}
+
+void Service::RemoveOneActiveSession() {
+  base::subtle::Barrier_AtomicIncrement(&num_active_sessions_, -1);
+  a_session_has_closed_.Signal();
 }
 
 bool Service::AcquireServiceMutex() {
@@ -118,7 +132,7 @@ void Service::ReleaseServiceMutex() {
   }
 }
 
-bool Service::InitializeRPC()  {
+bool Service::InitializeRpc()  {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
 
   if (rpc_is_initialized_) {
@@ -201,7 +215,7 @@ bool Service::RunRPC(bool non_blocking) {
   return true;
 }
 
-void Service::StopRPC() {
+void Service::StopRpc() {
   if (!rpc_is_running_)
     return;
 
@@ -218,7 +232,7 @@ void Service::StopRPC() {
   }
 }
 
-void Service::CleanupRPC() {
+void Service::CleanupRpc() {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
   DCHECK(rpc_is_running_ == false);
 
@@ -256,13 +270,7 @@ bool Service::Start(bool non_blocking) {
   if (!AcquireServiceMutex())
     return false;
 
-  if (!InitializeRPC()) {
-    ReleaseServiceMutex();
-    return false;
-  }
-
-  if (!StartWriterThread()) {
-    CleanupRPC();
+  if (!InitializeRpc()) {
     ReleaseServiceMutex();
     return false;
   }
@@ -273,157 +281,45 @@ bool Service::Start(bool non_blocking) {
 }
 
 bool Service::Stop() {
+  DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
+
   LOG(INFO) << "Stopping the call-trace service.";
 
-  StopRPC();
-  CleanupRPC();
-  StopWriterThread();
-
+  StopRpc();
+  CleanupRpc();
+  CloseAllOpenSessions();
   ReleaseServiceMutex();
 
   LOG(INFO) << "The call-trace service is stopped.";
   return true;
 }
 
-bool Service::StartWriterThread() {
-  VLOG(1) << "Starting the trace file IO thread.";
-
-  DCHECK(writer_thread_ == base::kNullThreadHandle);
-
-  if (!base::PlatformThread::Create(0, this, &writer_thread_)) {
-    LOG(ERROR) << "Failed to launch IO thread: "
-               << com::LogWe(::GetLastError()) << ".";
-    return false;
-  }
-
-  return true;
-}
-
-void Service::StopWriterThread() {
+bool Service::CloseAllOpenSessions() {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
   DCHECK(!rpc_is_running_);
 
-  if (writer_thread_ == base::kNullThreadHandle) {
-    // The writer thread isn't running.
-    return;
+  VLOG(1) << "Flushing all outstanding buffers.";
+
+  base::AutoLock auto_lock(lock_);
+
+  // Tell each session that they are to be closed. This will get them to
+  // flush all outstanding buffers to their respective consumers.
+  SessionMap::iterator iter = sessions_.begin();
+  for (; iter != sessions_.end(); ++iter) {
+    iter->second->Close();
   }
 
-  VLOG(1) << "Stopping the trace file IO thread.";
+  // We no longer have any open sessions.
+  sessions_.clear();
 
-  {
-    // Tell each session that they are to be closed. This will get them to
-    // schedule things with the write queue.
-    base::AutoLock scoped_lock(lock_);
-    SessionMap::iterator iter = sessions_.begin();
-    for (; iter != sessions_.end(); ++iter) {
-      iter->second->Close();
-    }
-    sessions_.clear();
+  // Wait until all pending sessions have closed.
+  int pending_sessions = 0;
+  while ((pending_sessions = num_active_sessions()) != 0) {
+    VLOG(1) << "There are " << pending_sessions << " pending sessions.";
+    a_session_has_closed_.Wait();
   }
-
-  {
-    // Put the shutdown sentinel into the write queue.
-    base::AutoLock scoped_lock(queue_lock_);
-    pending_write_queue_.push_back(BufferQueueEntry(NULL, NULL));
-    queue_is_non_empty_.Signal();
-  }
-
-  DCHECK_NE(writer_thread_, base::kNullThreadHandle);
-  VLOG(1) << "Flushing pending writes.";
-  base::PlatformThread::Join(writer_thread_);
-  writer_thread_ = base::kNullThreadHandle;
-  VLOG(1) << "Trace file IO thread successfully terminated.";
-}
-
-bool Service::GetBuffersToWrite(BufferQueue* out_queue) {
-  DCHECK(out_queue != NULL);
-  DCHECK(out_queue->empty());
-
-  {
-    base::AutoLock scoped_lock(queue_lock_);
-    while (pending_write_queue_.empty())
-      queue_is_non_empty_.Wait();
-    out_queue->swap(pending_write_queue_);
-  }
-
-  VLOG(1) << "Received " << out_queue->size() << " write buffer(s).";
-  DCHECK(!out_queue->empty());
 
   return true;
-}
-
-void Service::ThreadMain() {
-  BufferQueue write_queue;
-  while (true) {
-    GetBuffersToWrite(&write_queue);
-
-    while (!write_queue.empty()) {
-      // Get the next buffer to write and keep a reference to the session
-      // so it can't disappear beneath us.
-      scoped_refptr<Session> session(write_queue.front().session);
-      Buffer* buffer = write_queue.front().buffer;
-      write_queue.pop_front();
-
-      // Check for the sentinel value telling us to shutdown.
-      if (buffer == NULL) {
-        DCHECK(session.get() == NULL);
-        DCHECK(write_queue.empty());
-        return;
-      }
-
-      DCHECK_EQ(session.get(), buffer->session);
-      DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
-
-      // Parse the record prefix and segment header;
-      volatile RecordPrefix* prefix =
-          reinterpret_cast<RecordPrefix*>(buffer->data_ptr);
-      volatile TraceFileSegmentHeader* header =
-          reinterpret_cast<volatile TraceFileSegmentHeader*>(prefix + 1);
-
-      // Let's not trust the client to stop playing with the buffer while
-      // we're writing. Whatever the length is now, is what we'll use.
-      size_t segment_length = header->segment_length;
-      const size_t kHeaderLength = sizeof(*prefix) + sizeof(*header);
-      if (segment_length > 0) {
-        size_t bytes_to_write = common::AlignUp(kHeaderLength + segment_length,
-                                                buffer->session->block_size());
-        if (prefix->type != TraceFileSegmentHeader::kTypeId ||
-            prefix->size != sizeof(TraceFileSegmentHeader) ||
-            prefix->version.hi != TRACE_VERSION_HI ||
-            prefix->version.lo != TRACE_VERSION_LO) {
-          LOG(WARNING) << "Dropped buffer: invalid segment header.";
-        } else if (bytes_to_write > buffer->buffer_size) {
-          LOG(WARNING) << "Dropped buffer: bytes written exceeds buffer size.";
-        } else {
-          // Commit the buffer to disk.
-          // TODO(rogerm): Use overlapped I/O.
-          DCHECK(bytes_to_write != 0);
-          DWORD bytes_written = 0;
-          if (!::WriteFile(buffer->session->trace_file_handle(),
-                           buffer->data_ptr, bytes_to_write,
-                           &bytes_written, NULL) ||
-              bytes_written != bytes_to_write) {
-            DWORD error = ::GetLastError();
-            LOG(ERROR) << "Failed writing to '"
-                       << buffer->session->trace_file_path().value()
-                       << "': " << com::LogWe(error) << ".";
-          }
-        }
-      }
-
-      // Clear the header for the next user of the buffer.
-      ::memset(buffer->data_ptr, 0, kHeaderLength);
-
-#ifndef NDEBUG
-      // In debug mode, let's clearly identify padding between blocks.
-      ::memset(buffer->data_ptr + kHeaderLength, 0xCC,
-               buffer->buffer_size - kHeaderLength);
-#endif
-
-      // Recycle the buffer to the set of available buffers for this session.
-      buffer->session->RecycleBuffer(buffer);
-    }
-  }
 }
 
 Session* Service::CreateSession() {
@@ -431,19 +327,19 @@ Session* Service::CreateSession() {
 }
 
 // RPC entry point.
-boolean Service::RequestShutdown() {
+bool Service::RequestShutdown() {
   VLOG(1) << "Requesting a shutdown of the call trace service.";
 
-  StopRPC();
+  StopRpc();
 
   return true;
 }
 
 // RPC entry point.
-boolean Service::CreateSession(handle_t binding,
-                               SessionHandle* session_handle,
-                               CallTraceBuffer* call_trace_buffer,
-                               unsigned long* flags) {
+bool Service::CreateSession(handle_t binding,
+                            SessionHandle* session_handle,
+                            CallTraceBuffer* call_trace_buffer,
+                            unsigned long* flags) {
   if (binding == NULL || session_handle == NULL || call_trace_buffer == NULL ||
       flags == NULL) {
     LOG(WARNING) << "Invalid RPC parameters.";
@@ -488,8 +384,8 @@ boolean Service::CreateSession(handle_t binding,
 }
 
 // RPC entry point.
-boolean Service::AllocateBuffer(SessionHandle session_handle,
-                                CallTraceBuffer* call_trace_buffer) {
+bool Service::AllocateBuffer(SessionHandle session_handle,
+                             CallTraceBuffer* call_trace_buffer) {
   if (session_handle == NULL || call_trace_buffer == NULL) {
     LOG(WARNING) << "Invalid RPC parameters.";
     return false;
@@ -515,9 +411,9 @@ boolean Service::AllocateBuffer(SessionHandle session_handle,
 }
 
 // RPC entry point.
-boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
-                                         CallTraceBuffer* call_trace_buffer,
-                                         ExchangeFlag perform_exchange) {
+bool Service::CommitAndExchangeBuffer(SessionHandle session_handle,
+                                      CallTraceBuffer* call_trace_buffer,
+                                      ExchangeFlag perform_exchange) {
   if (session_handle == NULL || call_trace_buffer == NULL) {
     LOG(WARNING) << "Invalid RPC parameters.";
     return false;
@@ -574,7 +470,7 @@ boolean Service::CommitAndExchangeBuffer(SessionHandle session_handle,
 }
 
 // RPC entry-point.
-boolean Service::CloseSession(SessionHandle* session_handle) {
+bool Service::CloseSession(SessionHandle* session_handle) {
   if (session_handle == NULL || *session_handle == NULL) {
     LOG(WARNING) << "Invalid RPC parameters.";
     return false;
@@ -601,37 +497,6 @@ boolean Service::CloseSession(SessionHandle* session_handle) {
   return true;
 }
 
-void Service::ScheduleBufferForWritingUnlocked(Buffer* buffer) {
-  DCHECK(buffer != NULL);
-  queue_lock_.AssertAcquired();
-
-  DCHECK(buffer != NULL);
-  DCHECK(buffer->session != NULL);
-  DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
-
-  pending_write_queue_.push_back(BufferQueueEntry(buffer->session, buffer));
-}
-
-bool Service::ScheduleBufferForWriting(Buffer* buffer) {
-  base::AutoLock auto_lock(queue_lock_);
-  ScheduleBufferForWritingUnlocked(buffer);
-  queue_is_non_empty_.Signal();
-  return true;
-}
-
-bool Service::ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers) {
-  if (buffers.size() == 0)
-    return true;
-
-  base::AutoLock auto_lock(queue_lock_);
-
-  for (size_t i = 0; i < buffers.size(); ++i)
-    ScheduleBufferForWritingUnlocked(buffers[i]);
-
-  queue_is_non_empty_.Signal();
-  return true;
-}
-
 bool Service::GetNewSession(ProcessId client_process_id,
                             scoped_refptr<Session>* session) {
   DCHECK(session != NULL);
@@ -653,13 +518,27 @@ bool Service::GetNewSession(ProcessId client_process_id,
     return false;
   }
 
-  // Initialize the session. Remove the session record if initialization
-  // fails. The new_session scoped_ptr will take care of destroying the
-  // actual session object.
-  if (!new_session->Init(trace_directory_, client_process_id)) {
+  // Initialize the session. Remove the session record on failure.
+  if (!new_session->Init(client_process_id)) {
     sessions_.erase(result.first);
     return false;
   }
+
+  // Allocate a new buffer consumer. Remove the session record on failure.
+  scoped_refptr<BufferConsumer> consumer;
+  if (!buffer_consumer_factory_->CreateConsumer(&consumer)) {
+    sessions_.erase(result.first);
+    return false;
+  }
+
+  // Open the buffer consumer. Remove the session record on failure.
+  if (!consumer->Open(new_session)) {
+    sessions_.erase(result.first);
+  }
+
+  // Hand the buffer consumer over to the session. The session will direct
+  // returned buffers to the consumer.
+  new_session->set_buffer_consumer(consumer);
 
   // The session map has taken ownership of the session object; release
   // and return the session pointer.
@@ -678,7 +557,7 @@ bool Service::GetExistingSession(SessionHandle session_handle,
 #ifndef NDEBUG
   if (sessions_.find((*session)->client_process_id()) == sessions_.end()) {
     LOG(ERROR) << "No session exists for handle " << session_handle << ".";
-    *session = NULL;
+    *session = static_cast<Session*>(NULL);
     return false;
   }
 #endif
@@ -686,5 +565,5 @@ bool Service::GetExistingSession(SessionHandle session_handle,
   return true;
 }
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace

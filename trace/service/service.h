@@ -18,8 +18,6 @@
 #ifndef SYZYGY_TRACE_SERVICE_SERVICE_H_
 #define SYZYGY_TRACE_SERVICE_SERVICE_H_
 
-#include <string>
-
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/process.h"
@@ -28,10 +26,14 @@
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
-#include "syzygy/trace/service/session.h"
+#include "syzygy/trace/rpc/call_trace_rpc.h"
 
 namespace trace {
 namespace service {
+
+// Forward declarations.
+class BufferConsumerFactory;
+class Session;
 
 // Implements the CallTraceService interface (see "call_trace_rpc.idl".
 // For the most basic usage:
@@ -50,7 +52,7 @@ namespace service {
 // on SIGINT and/or SIGTERM, an event listening listening for a shutdown
 // Message, an IO loop waiting on a socket or Event, etc. The service
 // can also stopped remotely via an RPC call to CallTraceControl::Stop().
-class Service : public base::PlatformThread::Delegate {
+class Service {
  public:
   typedef base::ProcessId ProcessId;
 
@@ -61,7 +63,11 @@ class Service : public base::PlatformThread::Delegate {
     PERFORM_EXCHANGE
   };
 
-  Service();
+  // Construct a new call trace Service instance. The service will use the
+  // given @p factory to construct buffer consumers for new sessions. The
+  // service instance does NOT take ownership of the @p factory, which must
+  // exist at least until the service instance is destroyed.
+  explicit Service(BufferConsumerFactory* factory);
   ~Service();
 
   // The default number of buffers to allocate when expanding the buffer
@@ -89,12 +95,6 @@ class Service : public base::PlatformThread::Delegate {
   //     If TRACE_FLAG_BATCH_ENTER is set, all other flags will be ignored.
   void set_flags(uint32 flags) {
     flags_ = flags;
-  }
-
-  // Set the directory where trace files are stored.
-  void set_trace_directory(const FilePath& directory) {
-    DCHECK(!directory.empty());
-    trace_directory_ = directory;
   }
 
   // Set the number of buffers by which to grow a sessions
@@ -131,8 +131,9 @@ class Service : public base::PlatformThread::Delegate {
 
   // Returns true if any of the service's subsystems are running.
   bool is_running() const {
-    return rpc_is_running_ || writer_thread_ != base::kNullThreadHandle;
+      return rpc_is_running_ || num_active_sessions() > 0;
   }
+
 
   // Begin accepting and handling RPC invocations. This method is not
   // generally callable by clients of the service; it may only be called
@@ -167,69 +168,55 @@ class Service : public base::PlatformThread::Delegate {
 
   // RPC implementation of CallTraceControl::Stop().
   // See call_trace_rpc.idl for further info.
-  boolean RequestShutdown();
+  bool RequestShutdown();
 
   // RPC implementation of CallTraceService::CreateSession().
   // See call_trace_rpc.idl for further info.
-  boolean CreateSession(handle_t binding,
-                        SessionHandle* session_handle,
-                        CallTraceBuffer* call_trace_buffer,
-                        unsigned long* flags);
+  bool CreateSession(handle_t binding,
+                     SessionHandle* session_handle,
+                     CallTraceBuffer* call_trace_buffer,
+                     unsigned long* flags);
 
   // RPC implementation of both CallTraceService::AllocateBuffer().
   // See call_trace_rpc.idl for further info.
-  boolean AllocateBuffer(SessionHandle session_handle,
-                         CallTraceBuffer* call_trace_buffer);
+  bool AllocateBuffer(SessionHandle session_handle,
+                      CallTraceBuffer* call_trace_buffer);
 
   // RPC implementation of both CallTraceService::ExchangeBuffer()
   // and CallTraceService::ReturnBuffer(). See call_trace_rpc.idl
   // for further info.
-  boolean CommitAndExchangeBuffer(SessionHandle session_handle,
-                                  CallTraceBuffer* call_trace_buffer,
-                                  ExchangeFlag perform_exchange);
+  bool CommitAndExchangeBuffer(SessionHandle session_handle,
+                               CallTraceBuffer* call_trace_buffer,
+                               ExchangeFlag perform_exchange);
 
   // RPC implementation of CallTraceService::CloseSession().
   // See call_trace_rpc.idl for further info.
-  boolean CloseSession(SessionHandle* session_handle);
+  bool CloseSession(SessionHandle* session_handle);
 
-  // @{
-  // Inserts the given buffer(s) into the write queue. When writing has been
-  // finished the session owning each buffer will be notified via RecycleBuffer.
-  // @param buffer the buffer to be written.
-  // @param buffers the buffers to be written.
-  // @returns true on success, false otherwise.
-  bool ScheduleBufferForWriting(Buffer* buffer);
-  bool ScheduleBuffersForWriting(const std::vector<Buffer*>& buffers);
-  // @}
+  // Increment the active session count.
+  // @see num_active_sessions_
+  void AddOneActiveSession();
+
+  // Decrement the active session count.
+  // @see num_active_sessions_
+  void RemoveOneActiveSession();
+
+  // Get the current active session count.
+  // @see num_active_sessions_
+  base::subtle::Atomic32 num_active_sessions() const {
+    return base::subtle::Acquire_Load(&num_active_sessions_);
+  }
 
  // These are protected for unittesting.
  protected:
-  // This structure is put into the write buffer queue.
-  struct BufferQueueEntry {
-    scoped_refptr<Session> session;
-    Buffer* buffer;
-
-    BufferQueueEntry() {
-    }
-
-    BufferQueueEntry(Session* s, Buffer* b) : session(s), buffer(b) {
-    }
-  };
-
-  typedef std::deque<BufferQueueEntry> BufferQueue;
-
-  // Internal implementation function to insert a given buffer into the
-  // write queue.
-  void ScheduleBufferForWritingUnlocked(Buffer* buffer);
-
   // @name RPC Server Management Functions.
   // @{
   bool AcquireServiceMutex();
   void ReleaseServiceMutex();
-  bool InitializeRPC();
+  bool InitializeRpc();
   bool RunRPC(bool non_blocking);
-  void StopRPC();
-  void CleanupRPC();
+  void StopRpc();
+  void CleanupRpc();
   // @}
 
   // Creates a new session, returning true on success. On failure, the value
@@ -246,39 +233,32 @@ class Service : public base::PlatformThread::Delegate {
   bool GetExistingSession(SessionHandle session_handle,
                           scoped_refptr<Session>* session);
 
-  // This is a blocking call which waits until the pending write queue
-  // is non-empty then transfers (swaps) any pending buffers to be written
-  // to out_queue. This function expects that out_queue->empty() is true
-  // on input.
-  // NOTE: This is virtual for testing purposes. This function is a gateway
-  //     that allows us to finely control which buffers get picked up from the
-  //     write queue.
-  virtual bool GetBuffersToWrite(BufferQueue* out_queue);
-
-  // Launch the writer thread, which will consume buffers from
-  // pending_write_queue_ and commit them to disk. Returns true on
-  // successfully starting the thread.
-  bool StartWriterThread();
-
-  // Signal the write thread to terminate after all buffers currently in
-  // pending_write_queue_ are flushed to disk.
-  void StopWriterThread();
-
-  // Implements the I/O thread via PlatformThread::Delegate::ThreadMain().
-  virtual void ThreadMain();
+  // Closes all open sessions. This call blocks until all sessions have been
+  // shutdown and have finished flushing their buffers.
+  bool CloseAllOpenSessions();
 
   // Session factory. This is virtual for testing purposes.
   virtual Session* CreateSession();
 
-  // The collection of active trace sessions.
+  // The collection of open trace sessions. This is the collection of sessions
+  // for which the service is currently accepting requests. Once a session is
+  // closed, it is removed from this collection, but may still be active for
+  // some time as it's trace buffers are consumed. See num_active_sessions().
   typedef std::map<ProcessId, scoped_refptr<Session>> SessionMap;
   SessionMap sessions_;
 
+  // A count of the number of active sessions currently managed by this service.
+  // This includes both open sessions and closed sessions which have not yet
+  // finished flushing their buffers. This value is atomically incremented and
+  // decremented on by Session instances in their constructor and destructor,
+  // respectively, via Add- and RemoveOneActiveSession(). It is retrieved via
+  // the num_active_sessions() accessor.
+  // @note In implementing the accessor(s) and management functions for this
+  //     member, it should only be accessed via base/atomicops.h functions.
+  volatile base::subtle::Atomic32 num_active_sessions_;
+
   // The instance id to use when running this service instance.
   std::wstring instance_id_;
-
-  // The directory where trace files are stored.
-  FilePath trace_directory_;
 
   // The number of buffers to allocate with each increment.
   size_t num_incremental_buffers_;
@@ -292,21 +272,19 @@ class Service : public base::PlatformThread::Delegate {
   // Handle to the thread that owns/created this call trace service instance.
   base::PlatformThreadId owner_thread_;
 
-  // Handle to the thread used for IO.
-  base::PlatformThreadHandle writer_thread_;
+  // The source factory for buffer consumer objects.
+  BufferConsumerFactory* buffer_consumer_factory_;
 
   // Protects concurrent access to the internals, except for write-queue
   // related internals.
   base::Lock lock_;
 
+  // Used to wait for all sessions to be closed on service shutdown.
+  base::ConditionVariable a_session_has_closed_;
+
   // Used to detect whether multiple instances of the service are running
   // against the service endpoint.
   base::win::ScopedHandle service_mutex_;
-
-  // Buffers waiting to be written to disk.
-  BufferQueue pending_write_queue_;  // Under queue_lock_.
-  base::ConditionVariable queue_is_non_empty_;  // Under queue_lock_.
-  base::Lock queue_lock_;
 
   // Flags denoting the state of the RPC server.
   bool rpc_is_initialized_;
@@ -317,6 +295,7 @@ class Service : public base::PlatformThread::Delegate {
   // to receive.
   uint32 flags_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(Service);
 };
 

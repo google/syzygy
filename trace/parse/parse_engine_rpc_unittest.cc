@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/trace/parse/parse_engine_rpc.h"
+
 #include <windows.h>
 
 #include <list>
@@ -33,15 +35,17 @@
 #include "gtest/gtest.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
+#include "syzygy/trace/service/process_info.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
+#include "syzygy/trace/service/trace_file_writer_factory.h"
 
-using trace::parser::Parser;
-using trace::parser::ParseEventHandler;
-using trace::service::RpcServiceInstanceManager;
-using trace::service::Service;
-
+namespace trace {
+namespace service {
 namespace {
+
+using ::trace::parser::Parser;
+using ::trace::parser::ParseEventHandler;
 
 static const uint32 kConstantInThisModule = 0;
 
@@ -232,9 +236,13 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
   ParseEngineRpcTest()
-      : rpc_service_instance_manager_(&cts_),
-        env_(base::Environment::Create()),
-        instance_id_(base::StringPrintf("%d", ::GetCurrentProcessId())),
+      : consumer_thread_("parse-engine-rpc-test-consumer-thread"),
+        consumer_thread_has_started_(
+            consumer_thread_.StartWithOptions(
+                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
+        trace_file_writer_factory_(consumer_thread_.message_loop()),
+        call_trace_service_(&trace_file_writer_factory_),
+        rpc_service_instance_manager_(&call_trace_service_),
         module_(NULL) {
   }
 
@@ -250,36 +258,44 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   virtual void SetUp() {
     Super::SetUp();
 
+    ASSERT_TRUE(consumer_thread_has_started_);
+
+    // Create a temporary directory for the call trace files.
+    ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
+    ASSERT_TRUE(
+        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_));
+
+    // We give the service instance a "unique" id so that it does not interfere
+    // with any other instances or tests that might be concurrently active.
+    std::string instance_id(base::StringPrintf("%d", ::GetCurrentProcessId()));
+    call_trace_service_.set_instance_id(::UTF8ToWide(instance_id));
+
+    // The instance id needs to be in the environment to be picked up by the
+    // client library.
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    ASSERT_FALSE(env.get() == NULL);
+    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id));
+
     // The call trace DLL should not be already loaded.
     ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace_client.dll"));
-    ASSERT_FALSE(env_.get() == NULL);
-    ASSERT_FALSE(instance_id_.empty());
-
-    // Create a temporary directory
-    CreateTemporaryDir(&temp_dir_);
-
-    cts_.set_trace_directory(temp_dir_);
-    cts_.set_instance_id(UTF8ToWide(instance_id_));
-    env_->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id_);
   }
 
   virtual void TearDown() {
     UnloadCallTraceDll();
     StopCallTraceService();
     Super::TearDown();
-    temp_dir_.clear();
   }
 
   void StartCallTraceService(uint32 flags) {
     // Start the call trace service in the temporary directory.
-    cts_.set_flags(flags);
-    ASSERT_TRUE(cts_.Start(true));
+    call_trace_service_.set_flags(flags);
+    ASSERT_TRUE(call_trace_service_.Start(true));
   }
 
   void StopCallTraceService() {
-    if (cts_.is_running()) {
-      ASSERT_TRUE(cts_.Stop());
-      ASSERT_FALSE(cts_.is_running());
+    if (call_trace_service_.is_running()) {
+      ASSERT_TRUE(call_trace_service_.Stop());
+      ASSERT_FALSE(call_trace_service_.is_running());
     }
   }
 
@@ -358,17 +374,32 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   friend void IndirectThunkB();
 
  protected:
-  Service cts_;
+  // The thread on which the trace file writer will consumer buffers and a
+  // helper variable whose initialization we use as a trigger to start the
+  // thread (ensuring it's message_loop is created). These declarations MUST
+  // remain in this order and preceed that of trace_file_writer_factory_;
+  base::Thread::Options thread_options;
+  base::Thread consumer_thread_;
+  bool consumer_thread_has_started_;
+
+  // The call trace service related objects. These declarations MUST be in
+  // this order.
+  TraceFileWriterFactory trace_file_writer_factory_;
+  Service call_trace_service_;
   RpcServiceInstanceManager rpc_service_instance_manager_;
-  scoped_ptr<base::Environment> env_;
-  std::string instance_id_;
+
+  // The directory where trace file output will be written.
+  FilePath temp_dir_;
+
+  // @name Book-keeping for the tests.
+  // @{
   CalledAddresses entered_addresses_;
   CalledAddresses exited_addresses_;
   RawCalls raw_calls_;
   OrderedCalls ordered_calls_;
   ModuleEvents module_events_;
+  // @}
 
-  FilePath temp_dir_;
   HMODULE module_;
   static FARPROC _indirect_penter_;
   static FARPROC _indirect_penter_dllmain_;
@@ -1125,3 +1156,6 @@ TEST_F(ParseEngineRpcTest, EnterExitCallAfterTailRecurseException) {
   EXPECT_EQ(33, entered_addresses_.size());
   EXPECT_EQ(26, exited_addresses_.size());
 }
+
+}  // namespace service
+}  // namespace trace
