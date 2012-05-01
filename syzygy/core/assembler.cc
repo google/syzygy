@@ -43,7 +43,7 @@ bool Is8Bit(uint32 value) {
 // Returns true if @p operand is a displacment only - e.g.
 // specifies neither a base, nor an index register.
 bool IsDisplacementOnly(const OperandImpl& operand) {
-  return operand.displacement() != 0 &&
+  return operand.displacement().size() != kSizeNone &&
       operand.base() == kRegisterNone &&
       operand.index() == kRegisterNone;
 }
@@ -53,51 +53,52 @@ bool IsDisplacementOnly(const OperandImpl& operand) {
 OperandImpl::OperandImpl(Register base)
     : base_(base.code()),
       index_(kRegisterNone),
-      scale_(times_1),
-      displacement_(0),
-      displacement_ref_(NULL) {
+      scale_(times_1) {
 }
 
 OperandImpl::OperandImpl(Register base,
-                         uint32 displacement,
-                         const void* displacement_ref)
+                         const DisplacementImpl& displacement)
     : base_(base.code()),
       index_(kRegisterNone),
       scale_(times_1),
-      displacement_(displacement),
-      displacement_ref_(displacement_ref) {
+      displacement_(displacement) {
   // There must be a base register.
-  DCHECK_NE(base_, kRegisterNone);
+  DCHECK_NE(kRegisterNone, base_);
 }
 
-OperandImpl::OperandImpl(uint32 displacement,
-                         const void* displacement_ref)
+OperandImpl::OperandImpl(const DisplacementImpl& displacement)
     : base_(kRegisterNone),
       index_(kRegisterNone),
       scale_(times_1),
-      displacement_(displacement),
-      displacement_ref_(displacement_ref) {
+      displacement_(displacement) {
+  DCHECK_NE(kSizeNone, displacement.size());
 }
 
 OperandImpl::OperandImpl(Register base,
                          Register index,
                          ScaleFactor scale,
-                         uint32 displacement,
-                         void* displacement_ref)
+                         const DisplacementImpl& displacement)
     : base_(base.code()),
       index_(index.code()),
       scale_(scale),
-      displacement_(displacement),
-      displacement_ref_(displacement_ref) {
+      displacement_(displacement) {
   // ESP cannot be used as an index register.
-  DCHECK_NE(index.code(), kRegisterEsp);
+  DCHECK_NE(kRegisterEsp, index.code());
+  DCHECK_NE(kSizeNone, displacement.size());
 }
 
-ImmediateImpl::ImmediateImpl(uint32 imm) : imm_(imm), imm_ref_(NULL) {
+ValueImpl::ValueImpl()
+    : value_(0), reference_(NULL), size_(kSizeNone) {
 }
 
-ImmediateImpl::ImmediateImpl(
-    uint32 imm, const void* imm_ref) : imm_(imm), imm_ref_(imm_ref) {
+ValueImpl::ValueImpl(uint32 value, ValueSize size)
+    : value_(value), reference_(NULL), size_(size) {
+}
+
+ValueImpl::ValueImpl(uint32 value,
+                     ValueSize size,
+                     const void* value_ref)
+    : value_(value), reference_(value_ref), size_(size) {
 }
 
 // This class is used to buffer a single instruction during it's creation.
@@ -124,10 +125,10 @@ class AssemblerImpl::InstructionBuffer {
   void sib(ScaleFactor scale, RegisterCode index, RegisterCode base);
 
   // Emit an 8 bit displacement, with optional reference info.
-  void disp8(uint8 disp, const void* reference);
+  void disp8(const DisplacementImpl& disp);
 
   // Emit a 32 bit displacement with optional reference info.
-  void disp32(uint32 disp, const void* reference);
+  void disp32(const DisplacementImpl& disp);
 
  protected:
   void emit_b(uint8 byte);
@@ -157,8 +158,8 @@ void AssemblerImpl::InstructionBuffer::opcode(uint8 opcode) {
 void AssemblerImpl::InstructionBuffer::modrm(Mod mod,
                                              RegisterCode reg2,
                                              RegisterCode reg1) {
-  DCHECK_NE(reg2, kRegisterNone);
-  DCHECK_NE(reg1, kRegisterNone);
+  DCHECK_NE(kRegisterNone, reg2);
+  DCHECK_NE(kRegisterNone, reg1);
 
   emit_b((mod << 6) | (reg2 << 3) | reg1);
 }
@@ -166,29 +167,38 @@ void AssemblerImpl::InstructionBuffer::modrm(Mod mod,
 void AssemblerImpl::InstructionBuffer::sib(ScaleFactor scale,
                                            RegisterCode index,
                                            RegisterCode base) {
-  DCHECK_NE(index, kRegisterNone);
-  DCHECK_NE(base, kRegisterNone);
+  DCHECK_NE(kRegisterNone, index);
+  DCHECK_NE(kRegisterNone, base);
 
   emit_b((scale << 6) | (index << 3) | base);
 }
 
-void AssemblerImpl::InstructionBuffer::disp8(uint8 disp,
-                                             const void* reference) {
-  DCHECK(num_references_ < arraysize(references_));
-  reference_offsets_[num_references_] = len();
-  references_[num_references_] = reference;
-  emit_b(disp);
+void AssemblerImpl::InstructionBuffer::disp8(const DisplacementImpl& disp) {
+  DCHECK(disp.size() == kSize8Bit);
+
+  if (disp.reference() != NULL) {
+    DCHECK(num_references_ < arraysize(references_));
+    reference_offsets_[num_references_] = len();
+    references_[num_references_] = disp.reference();
+  }
+
+  emit_b(disp.value());
 }
 
-void AssemblerImpl::InstructionBuffer::disp32(uint32 disp,
-                                              const void* reference) {
-  DCHECK(num_references_ < arraysize(references_));
-  reference_offsets_[num_references_] = len();
-  references_[num_references_] = reference;
-  emit_b(disp);
-  emit_b(disp >> 8);
-  emit_b(disp >> 16);
-  emit_b(disp >> 24);
+void AssemblerImpl::InstructionBuffer::disp32(const DisplacementImpl& disp) {
+  DCHECK(disp.size() == kSize32Bit);
+
+  if (disp.reference() != NULL) {
+    DCHECK(num_references_ < arraysize(references_));
+    reference_offsets_[num_references_] = len();
+    references_[num_references_] = disp.reference();
+  }
+
+  uint32 value = disp.value();
+  emit_b(value);
+  emit_b(value >> 8);
+  emit_b(value >> 16);
+  emit_b(value >> 24);
 }
 
 void AssemblerImpl::InstructionBuffer::emit_b(uint8 byte) {
@@ -216,7 +226,7 @@ void AssemblerImpl::mov(Register dst, const OperandImpl& src) {
   if (dst.code() == kRegisterEax && IsDisplacementOnly(src)) {
     // Special encoding for indirect displacement only to EAX.
     instr.opcode(0xA1);
-    instr.disp32(src.displacement(), src.displacement_ref());
+    instr.disp32(src.displacement());
   } else {
     instr.opcode(0x8B);
     EncodeOperands(dst, src, &instr);
@@ -231,7 +241,7 @@ void AssemblerImpl::mov(const OperandImpl& dst, Register src) {
   if (src.code() == kRegisterEax && IsDisplacementOnly(dst)) {
     // Special encoding for indirect displacement only from EAX.
     instr.opcode(0xA3);
-    instr.disp32(dst.displacement(), dst.displacement_ref());
+    instr.disp32(dst.displacement());
   } else {
     instr.opcode(0x89);
     EncodeOperands(src, dst, &instr);
@@ -240,11 +250,12 @@ void AssemblerImpl::mov(const OperandImpl& dst, Register src) {
   Output(instr);
 }
 
-void AssemblerImpl::mov(Register dst, const ImmediateImpl& src) {
+void AssemblerImpl::mov(Register dst, const ValueImpl& src) {
+  DCHECK_NE(kSizeNone, src.size());
   InstructionBuffer instr;
 
   instr.opcode(0xB8 | dst.code());
-  instr.disp32(src.imm(), src.imm_ref());
+  instr.disp32(src);
 
   Output(instr);
 }
@@ -281,68 +292,75 @@ void AssemblerImpl::EncodeOperands(Register op1,
   // overview table of the ModR/M byte encoding.
 
   // ESP can never be used as an index register on X86.
-  DCHECK_NE(op2.index(), kRegisterEsp);
+  DCHECK_NE(kRegisterEsp, op2.index());
 
   // Is there an index register?
   if (op2.index() == kRegisterNone) {
-    DCHECK_EQ(op2.scale(), times_1);
+    DCHECK_EQ(times_1, op2.scale());
 
     // No index register, is there a base register?
     if (op2.base() == kRegisterNone) {
       // No base register, this is a displacement only.
-      DCHECK_NE(op2.displacement(), 0U);
-      DCHECK_EQ(op2.scale(), times_1);
+      DCHECK_NE(kSizeNone, op2.displacement().size());
+      DCHECK_EQ(times_1, op2.scale());
 
       // The [disp32] mode is encoded by overloading [EBP].
       instr->modrm(Reg1Ind, op1.code(), kRegisterEbp);
-      instr->disp32(op2.displacement(), op2.displacement_ref());
+      instr->disp32(op2.displacement());
     } else {
       // Base register only, is it ESP?
       if (op2.base() == kRegisterEsp) {
         // The [ESP] and [ESP+disp] cases cannot be encoded without a SIB byte.
-        if (op2.displacement() == 0) {
+        if (op2.displacement().size() == kSizeNone) {
           instr->modrm(Reg1Ind, op1.code(), kRegisterEsp);
           instr->sib(times_1, kRegisterEsp, kRegisterEsp);
-        } else if (Is8Bit(op2.displacement())) {
+        } else if (op2.displacement().size() == kSize8Bit) {
           instr->modrm(Reg1ByteDisp, op1.code(), kRegisterEsp);
           instr->sib(times_1, kRegisterEsp, kRegisterEsp);
-          instr->disp8(op2.displacement(), op2.displacement_ref());
+          instr->disp8(op2.displacement());
         } else {
+          DCHECK_EQ(kSize32Bit, op2.displacement().size());
           instr->modrm(Reg1WordDisp, op1.code(), kRegisterEsp);
           instr->sib(times_1, kRegisterEsp, kRegisterEsp);
-          instr->disp32(op2.displacement(), op2.displacement_ref());
+          instr->disp32(op2.displacement());
         }
-      } else if (op2.displacement() == 0 && op2.base() != kRegisterEbp) {
-        // The [EBP] case cannot be encoded canonically, there always must
-        // be a (zero) displacement.
-        DCHECK_NE(op2.base(), kRegisterEbp);
-        instr->modrm(Reg1Ind, op1.code(), op2.base());
-      } else if (Is8Bit(op2.displacement())) {
+      } else if (op2.displacement().size() == kSizeNone) {
+        if (op2.base() == kRegisterEbp) {
+          // The [EBP] case cannot be encoded canonically, there always must
+          // be a (zero) displacement.
+          instr->modrm(Reg1ByteDisp, op1.code(), op2.base());
+          instr->disp8(DisplacementImpl(0, kSize8Bit, NULL));
+        } else {
+          instr->modrm(Reg1Ind, op1.code(), op2.base());
+        }
+      } else if (op2.displacement().size() == kSize8Bit) {
         // It's [base+disp8], or possibly [EBP].
         instr->modrm(Reg1ByteDisp, op1.code(), op2.base());
-        instr->disp8(op2.displacement(), op2.displacement_ref());
+        instr->disp8(op2.displacement());
       } else {
+        DCHECK_EQ(kSize32Bit, op2.displacement().size());
         // It's [base+disp32].
         instr->modrm(Reg1WordDisp, op1.code(), op2.base());
-        instr->disp32(op2.displacement(), op2.displacement_ref());
+        instr->disp32(op2.displacement());
       }
     }
   } else {
     // There must be a base register as well.
-    DCHECK_NE(op2.base(), kRegisterNone);
+    DCHECK_NE(kRegisterNone, op2.base());
 
     // Is there a displacement?
-    if (op2.displacement() == 0) {
+    if (op2.displacement().size() == kSizeNone) {
       instr->modrm(Reg1Ind, op1.code(), kRegisterEsp);
       instr->sib(op2.scale(), op2.index(), op2.base());
-    } else if (Is8Bit(op2.displacement())) {
+    } else if (op2.displacement().size() == kSize8Bit) {
       instr->modrm(Reg1ByteDisp, op1.code(), kRegisterEsp);
       instr->sib(op2.scale(), op2.index(), op2.base());
-      instr->disp8(op2.displacement(), op2.displacement_ref());
+      instr->disp8(op2.displacement());
     } else {
+      DCHECK_EQ(kSize32Bit, op2.displacement().size());
       instr->modrm(Reg1WordDisp, op1.code(), kRegisterEsp);
       instr->sib(op2.scale(), op2.index(), op2.base());
-      instr->disp32(op2.displacement(), op2.displacement_ref());
+      instr->disp32(op2.displacement());
     }
   }
 }

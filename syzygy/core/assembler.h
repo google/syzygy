@@ -64,6 +64,7 @@ extern const Register esi;
 extern const Register edi;
 
 // Selects a scale for the Operand addressing modes.
+// The values match the encoding in the x86 SIB bytes.
 enum ScaleFactor {
   times_1 = 0,
   times_2 = 1,
@@ -71,39 +72,65 @@ enum ScaleFactor {
   times_8 = 3,
 };
 
+// Size for immediate and displacement operands.
+enum ValueSize {
+  kSizeNone,
+  kSize8Bit,
+  kSize32Bit,
+};
+
+// An instance of this class is an explicit value, which is either
+// an immediate or a displacement.
+class ValueImpl  {
+ public:
+  ValueImpl();
+  ValueImpl(uint32 value, ValueSize size);
+  ValueImpl(uint32 value, ValueSize size, const void* imm_ref);
+
+  // @name Accessors.
+  // @{
+  uint32 value() const { return value_; }
+  const void* reference() const { return reference_; }
+  ValueSize size() const { return size_; }
+  // @}
+
+ private:
+  uint32 value_;
+  const void* reference_;
+  ValueSize size_;
+};
+
+// Displacements and immediates behave near-identically, but are semantically
+// slightly different.
+typedef ValueImpl ImmediateImpl;
+typedef ValueImpl DisplacementImpl;
+
 // An operand implies indirection to memory through one of the myriad
 // modes supported by IA32.
-// TODO(siggi): As-is, this only supports 32 bit displacements, figure out
-//     interface and implementation for 8 bit displacements.
 class OperandImpl {
  public:
   // A register-indirect mode.
   explicit OperandImpl(Register base);
 
   // A register-indirect with displacement mode.
-  OperandImpl(Register base,
-              uint32 displacement,
-              const void* displacement_ref);
+  OperandImpl(Register base, const DisplacementImpl& displ);
 
   // A displacement-only mode.
-  OperandImpl(uint32 displacement,
-              const void* displacement_ref);
+  explicit OperandImpl(const DisplacementImpl& displ);
 
   // The full [base + index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
   OperandImpl(Register base,
               Register index,
               ScaleFactor scale,
-              uint32 displacement,
-              void* displacement_ref);
+              const DisplacementImpl& displ);
 
   // @name Accessors.
   // @{
   RegisterCode base() const { return base_; }
   RegisterCode index() const { return index_; }
   ScaleFactor scale() const { return scale_; }
-  const uint32 displacement() const { return displacement_; }
-  const void* displacement_ref() const { return displacement_ref_; }
+  const DisplacementImpl& displacement() const { return displacement_; }
   // @}
 
  private:
@@ -114,28 +141,7 @@ class OperandImpl {
   // The scaling factor, must be times_1 if no index register.
   ScaleFactor scale_;
   // The displacement, if any.
-  uint32 displacement_;
-  // The reference/relocation information for the displacement.
-  const void* displacement_ref_;
-};
-
-// An instance of this class is an immediate operand.
-// TODO(siggi): As-is, this only supports 32 bit immediate values, figure out
-//     interface and implementation for 8 bit immediates.
-class ImmediateImpl {
- public:
-  explicit ImmediateImpl(uint32 imm);
-  ImmediateImpl(uint32 imm, const void* imm_ref);
-
-  // @name Accessors.
-  // @{
-  uint32 imm() const { return imm_; }
-  const void* imm_ref() const { return imm_ref_; }
-  // @}
-
- private:
-  uint32 imm_;
-  const void* imm_ref_;
+  DisplacementImpl displacement_;
 };
 
 // The assembler takes care of maintaining an output location (address), and
