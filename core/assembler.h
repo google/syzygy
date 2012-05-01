@@ -66,10 +66,10 @@ extern const Register edi;
 // Selects a scale for the Operand addressing modes.
 // The values match the encoding in the x86 SIB bytes.
 enum ScaleFactor {
-  times_1 = 0,
-  times_2 = 1,
-  times_4 = 2,
-  times_8 = 3,
+  kTimes1 = 0,
+  kTimes2 = 1,
+  kTimes4 = 2,
+  kTimes8 = 3,
 };
 
 // Size for immediate and displacement operands.
@@ -138,7 +138,7 @@ class OperandImpl {
   RegisterCode base_;
   // The index register involved, or none.
   RegisterCode index_;
-  // The scaling factor, must be times_1 if no index register.
+  // The scaling factor, must be kTimes1 if no index register.
   ScaleFactor scale_;
   // The displacement, if any.
   DisplacementImpl displacement_;
