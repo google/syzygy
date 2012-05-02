@@ -53,6 +53,7 @@ class BufferWriter {
   // Simple accessors and mutators.
   size_t pos() const { return pos_; }
   void set_pos(size_t pos) { pos_ = pos; }
+  size_t length() const { return buffer_length_; }
   // @}
 
   // Returns the remaining bytes in the buffer. If we're using an expandable

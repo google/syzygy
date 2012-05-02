@@ -68,6 +68,7 @@ class BufferWriterTest : public ::testing::Test {
 TEST_F(BufferWriterTest, SimpleAccessorsAndMutators) {
   BufferWriter writer(buffer_, sizeof(buffer_));
   EXPECT_EQ(0u, writer.pos());
+  EXPECT_EQ(sizeof(buffer_), writer.length());
   EXPECT_EQ(sizeof(buffer_), writer.RemainingBytes());
 
   writer.set_pos(10);
