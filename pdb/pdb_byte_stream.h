@@ -20,6 +20,9 @@
 
 namespace pdb {
 
+// Forward declare.
+class WritablePdbByteStream;
+
 // This class represents a PDB stream in memory.
 class PdbByteStream : public PdbStream {
  public:
@@ -31,18 +34,28 @@ class PdbByteStream : public PdbStream {
   // Initializes the stream from the contents of another PdbStream.
   bool Init(PdbStream* stream);
 
-  // PdbStream implementation.
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read);
+  // @name PdbStream implementation.
+  // @{
+  virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) OVERRIDE;
+  virtual WritablePdbStream* GetWritablePdbStream() OVERRIDE;
+  // @}
 
   // Gets the stream's data pointer.
-  uint8* data() { return data_.get(); }
+  uint8* data() { return &data_[0]; }
 
  protected:
+  // Our friend so it can access our internals.
+  friend WritablePdbByteStream;
+
   // This is protected to enforce use of reference counted pointers.
   virtual ~PdbByteStream();
 
   // The stream's data.
-  scoped_array<uint8> data_;
+  std::vector<uint8> data_;
+
+  // This is a bit of a hack, allowing us to enforce single WritablePdbStream
+  // semantics. This is most definitely *not* thread-safe.
+  WritablePdbStream* writable_pdb_stream_;
 
   DISALLOW_COPY_AND_ASSIGN(PdbByteStream);
 };

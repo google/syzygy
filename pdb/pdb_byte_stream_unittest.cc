@@ -105,4 +105,33 @@ TEST(PdbByteStreamTest, ReadBytes) {
   EXPECT_EQ(len, total_bytes);
 }
 
+TEST(PdbByteStreamTest, GetWritablePdbStream) {
+  scoped_refptr<PdbStream> stream(new PdbByteStream);
+  scoped_refptr<WritablePdbStream> writer1 = stream->GetWritablePdbStream();
+  EXPECT_TRUE(writer1.get() != NULL);
+
+  // NOTE: This is a condition that only needs to be true currently because
+  //     of limitations in the WritablePdbByteStream implementation. When we
+  //     move to a proper interface implementation with shared storage state,
+  //     this limitation will be removed.
+  scoped_refptr<WritablePdbStream> writer2 = stream->GetWritablePdbStream();
+  EXPECT_EQ(writer1.get(), writer2.get());
+}
+
+TEST(WritablePdbByteStreamTest, WriterChangesReaderLengthButNotCursor) {
+  scoped_refptr<PdbStream> reader(new PdbByteStream);
+  scoped_refptr<WritablePdbStream> writer = reader->GetWritablePdbStream();
+  ASSERT_TRUE(writer.get() != NULL);
+
+  EXPECT_EQ(reader->length(), 0u);
+  EXPECT_EQ(reader->pos(), 0u);
+  EXPECT_EQ(writer->length(), 0u);
+  EXPECT_EQ(writer->pos(), 0u);
+  writer->Consume(10);
+  EXPECT_EQ(reader->length(), 10u);
+  EXPECT_EQ(reader->pos(), 0u);
+  EXPECT_EQ(writer->length(), 10u);
+  EXPECT_EQ(writer->pos(), 10u);
+}
+
 }  // namespace pdb

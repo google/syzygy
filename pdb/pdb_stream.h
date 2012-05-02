@@ -21,8 +21,12 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
+#include "syzygy/common/buffer_writer.h"
 
 namespace pdb {
+
+// Forward declaration.
+class WritablePdbStream;
 
 // This class represents a PDB stream. It has a stream-like interface that
 // allows invoking successive reads through the stream and seeking.
@@ -91,6 +95,28 @@ class PdbStream : public base::RefCounted<PdbStream> {
   // @returns true if all @p count bytes are read, false otherwise.
   virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) = 0;
 
+  // Returns a pointer to a WritablePdbStream if the underlying object supports
+  // this interface. If this returns non-NULL, it is up to the user to ensure
+  // thread safety; each writer should be used exclusively of any other writer,
+  // and no reader should be used while a writer is in use. Each of the reader
+  // and writer maintains its own cursor, but their view of the data (and its
+  // length) will remain in sync.
+  //
+  // NOTE: This function should act as a factory, with each call returning a
+  //     heap allocated reference counted writer. However, since each
+  //     WritablePdbStream is currently implemented using a BufferWriter, and
+  //     the BufferWriter maintains its own state internally rather than a
+  //     shared state, its possible that one writer causing a resize could
+  //     invalidate the internal data pointer held by another writer. As a
+  //     workaround, there is only a single writer allowed to be allocated
+  //     right now.
+  //
+  // TODO(chrisha): Clean this up to return an interface, which can be wrapped
+  //     in some common stream-writer functionality, reusing BufferWriter.
+  //
+  // @returns a pointer to a WritablePdbStream.
+  virtual WritablePdbStream* GetWritablePdbStream() { return NULL; }
+
   // Sets the current read position.
   bool Seek(size_t pos);
 
@@ -123,6 +149,29 @@ class PdbStream : public base::RefCounted<PdbStream> {
   size_t pos_;
 
   DISALLOW_COPY_AND_ASSIGN(PdbStream);
+};
+
+// Represents a writable PDB stream.
+// TODO(chrisha): For now, this inherits from common::BufferWriter, but a far
+//     cleaner approach would be to hoist a basic WritableStreamInterface, and
+//     make BufferWriter accept a pointer to said interface. The same thing
+//     could be done to the sawbuck BufferParser/BufferReader and PdbStream
+//     hierarchy.
+class WritablePdbStream : public base::RefCounted<WritablePdbStream>,
+                          public common::BufferWriter {
+ public:
+  // Constructor.
+  WritablePdbStream() : common::BufferWriter(NULL, 0) { }
+
+ protected:
+  friend base::RefCounted<WritablePdbStream>;
+
+  // Destructor. Protected to enforce use of ref-counted pointers at compile
+  // time.
+  virtual ~WritablePdbStream() { }
+
+  // Forwarded from common::BufferWriter.
+  virtual uint8* GrowBuffer(size_t size) = 0;
 };
 
 template <typename ItemType>
