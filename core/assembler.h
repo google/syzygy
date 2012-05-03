@@ -170,6 +170,16 @@ class AssemblerImpl {
   void set_location(uint32 location) { location_ = location; }
   // @}
 
+  // @name Control flow instructions.
+  // @{
+  void call(const ImmediateImpl& dst);
+  void call(const OperandImpl& dst);
+  void jmp(const ImmediateImpl& dst);
+  void jmp(const OperandImpl& dst);
+  void ret();
+  void ret(uint16 n);
+  // @}
+
   // @name mov in several varieties.
   // @{
   void mov(Register dst, Register src);
@@ -183,11 +193,12 @@ class AssemblerImpl {
   // Output the instruction data in @p instr to our delegate.
   void Output(const InstructionBuffer& instr);
 
-  // Encode the operands in @p op1 and @p op2 to ModR/W, SIB and displacement
+  // Encode the operand in @p op to ModR/W, SIB and displacement
   // bytes as appropriate, and append them to @p instr.
-  static void EncodeOperands(Register op1,
-                             const OperandImpl& op2,
-                             InstructionBuffer* instr);
+  // @p op_reg is either a register or opcode extension as appropriate.
+  static void EncodeOperand(uint8 op_reg,
+                            const OperandImpl& op,
+                            InstructionBuffer* instr);
 
   // Stores the current location of assembly.
   uint32 location_;

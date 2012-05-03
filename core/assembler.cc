@@ -115,8 +115,9 @@ class AssemblerImpl::InstructionBuffer {
 
   // Emit an opcode byte.
   void EmitOpCodeByte(uint8 opcode);
-  // Emit a ModR/M byte.
-  void EmitModRMByte(Mod mod, RegisterCode reg2, RegisterCode reg1);
+  // Emit a ModR/M byte, reg_op is either a register or an opcode
+  // extension, as fits the instruction being generated.
+  void EmitModRMByte(Mod mod, uint8 reg_op, RegisterCode reg1);
   // Emit a SIB byte.
   void EmitScaleIndexBaseByte(ScaleFactor scale,
                               RegisterCode index,
@@ -127,6 +128,12 @@ class AssemblerImpl::InstructionBuffer {
 
   // Emit a 32 bit displacement with optional reference info.
   void Emit32BitDisplacement(const DisplacementImpl& disp);
+
+  // Emit a 32 bit PC-relative value.
+  void Emit32BitPCRelative(uint32 location, const ValueImpl& disp);
+
+  // Emit a 16 bit immediate value.
+  void Emit16BitValue(uint16 value);
 
  protected:
   void EmitByte(uint8 byte);
@@ -154,11 +161,11 @@ void AssemblerImpl::InstructionBuffer::EmitOpCodeByte(uint8 opcode) {
 }
 
 void AssemblerImpl::InstructionBuffer::EmitModRMByte(
-    Mod mod, RegisterCode reg2, RegisterCode reg1) {
-  DCHECK_NE(kRegisterNone, reg2);
+    Mod mod, uint8 reg_op, RegisterCode reg1) {
+  DCHECK_LE(reg_op, 8);
   DCHECK_NE(kRegisterNone, reg1);
 
-  EmitByte((mod << 6) | (reg2 << 3) | reg1);
+  EmitByte((mod << 6) | (reg_op << 3) | reg1);
 }
 
 void AssemblerImpl::InstructionBuffer::EmitScaleIndexBaseByte(
@@ -174,7 +181,7 @@ void AssemblerImpl::InstructionBuffer::Emit8BitDisplacement(
   DCHECK(disp.size() == kSize8Bit);
 
   if (disp.reference() != NULL) {
-    DCHECK(num_references_ < arraysize(references_));
+    DCHECK_GT(arraysize(references_), num_references_);
     reference_offsets_[num_references_] = len();
     references_[num_references_] = disp.reference();
   }
@@ -187,7 +194,7 @@ void AssemblerImpl::InstructionBuffer::Emit32BitDisplacement(
   DCHECK(disp.size() == kSize32Bit);
 
   if (disp.reference() != NULL) {
-    DCHECK(num_references_ < arraysize(references_));
+    DCHECK_GT(arraysize(references_), num_references_);
     reference_offsets_[num_references_] = len();
     references_[num_references_] = disp.reference();
   }
@@ -199,14 +206,93 @@ void AssemblerImpl::InstructionBuffer::Emit32BitDisplacement(
   EmitByte(value >> 24);
 }
 
+void AssemblerImpl::InstructionBuffer::Emit32BitPCRelative(
+    uint32 location, const ValueImpl& value) {
+  DCHECK_EQ(kSize32Bit, value.size());
+
+  if (value.reference() != NULL) {
+    DCHECK_GT(arraysize(references_), num_references_);
+    reference_offsets_[num_references_] = len();
+    references_[num_references_] = value.reference();
+  }
+
+  // Turn the absolute value into a value relative to the address of
+  // the end of the emitted constant.
+  uint32 relative_value = value.value() - (location + len_ + 4);
+  EmitByte(relative_value);
+  EmitByte(relative_value >> 8);
+  EmitByte(relative_value >> 16);
+  EmitByte(relative_value >> 24);
+}
+
+void AssemblerImpl::InstructionBuffer::Emit16BitValue(uint16 value) {
+  EmitByte(value);
+  EmitByte(value >> 8);
+}
+
 void AssemblerImpl::InstructionBuffer::EmitByte(uint8 byte) {
-  DCHECK(len_ < sizeof(buf_));
+  DCHECK_GT(sizeof(buf_), len_);
   buf_[len_++] = byte;
 }
 
 AssemblerImpl::AssemblerImpl(uint32 location, InstructionSerializer* serializer)
     : location_(location), serializer_(serializer) {
   DCHECK(serializer != NULL);
+}
+
+void AssemblerImpl::call(const ImmediateImpl& dst) {
+  DCHECK_EQ(kSize32Bit, dst.size());
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xE8);
+  instr.Emit32BitPCRelative(location_, dst);
+
+  Output(instr);
+}
+
+void AssemblerImpl::call(const OperandImpl& dst) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xFF);
+  EncodeOperand(0x2, dst, &instr);
+
+  Output(instr);
+}
+
+void AssemblerImpl::jmp(const ImmediateImpl& dst) {
+  DCHECK_EQ(kSize32Bit, dst.size());
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xE9);
+  instr.Emit32BitPCRelative(location_, dst);
+
+  Output(instr);
+}
+
+void AssemblerImpl::jmp(const OperandImpl& dst) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xFF);
+  EncodeOperand(0x4, dst, &instr);
+
+  Output(instr);
+}
+
+void AssemblerImpl::ret() {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xC3);
+
+  Output(instr);
+}
+
+void AssemblerImpl::ret(uint16 n) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xC2);
+  instr.Emit16BitValue(n);
+
+  Output(instr);
 }
 
 void AssemblerImpl::mov(Register dst, Register src) {
@@ -227,7 +313,7 @@ void AssemblerImpl::mov(Register dst, const OperandImpl& src) {
     instr.Emit32BitDisplacement(src.displacement());
   } else {
     instr.EmitOpCodeByte(0x8B);
-    EncodeOperands(dst, src, &instr);
+    EncodeOperand(dst.code(), src, &instr);
   }
 
   Output(instr);
@@ -242,7 +328,7 @@ void AssemblerImpl::mov(const OperandImpl& dst, Register src) {
     instr.Emit32BitDisplacement(dst.displacement());
   } else {
     instr.EmitOpCodeByte(0x89);
-    EncodeOperands(src, dst, &instr);
+    EncodeOperand(src.code(), dst, &instr);
   }
 
   Output(instr);
@@ -269,12 +355,13 @@ void AssemblerImpl::Output(const InstructionBuffer& instr) {
   location_ += instr.len();
 }
 
-void AssemblerImpl::EncodeOperands(Register op1,
-                                   const OperandImpl& op2,
-                                   InstructionBuffer* instr) {
+void AssemblerImpl::EncodeOperand(uint8 reg_op,
+                                  const OperandImpl& op,
+                                  InstructionBuffer* instr) {
+  DCHECK_GE(8, reg_op);
   DCHECK(instr != NULL);
 
-  // The op2 operand can encode any one of the following things:
+  // The op operand can encode any one of the following things:
   // An indirect register access [EAX].
   // An indirect 32 bit displacement only [0xDEADBEEF].
   // An indirect base register + 32/8 bit displacement [EAX+0xDEADBEEF].
@@ -290,75 +377,75 @@ void AssemblerImpl::EncodeOperands(Register op1,
   // overview table of the ModR/M byte encoding.
 
   // ESP can never be used as an index register on X86.
-  DCHECK_NE(kRegisterEsp, op2.index());
+  DCHECK_NE(kRegisterEsp, op.index());
 
   // Is there an index register?
-  if (op2.index() == kRegisterNone) {
-    DCHECK_EQ(kTimes1, op2.scale());
+  if (op.index() == kRegisterNone) {
+    DCHECK_EQ(kTimes1, op.scale());
 
     // No index register, is there a base register?
-    if (op2.base() == kRegisterNone) {
+    if (op.base() == kRegisterNone) {
       // No base register, this is a displacement only.
-      DCHECK_NE(kSizeNone, op2.displacement().size());
-      DCHECK_EQ(kTimes1, op2.scale());
+      DCHECK_NE(kSizeNone, op.displacement().size());
+      DCHECK_EQ(kTimes1, op.scale());
 
       // The [disp32] mode is encoded by overloading [EBP].
-      instr->EmitModRMByte(Reg1Ind, op1.code(), kRegisterEbp);
-      instr->Emit32BitDisplacement(op2.displacement());
+      instr->EmitModRMByte(Reg1Ind, reg_op, kRegisterEbp);
+      instr->Emit32BitDisplacement(op.displacement());
     } else {
       // Base register only, is it ESP?
-      if (op2.base() == kRegisterEsp) {
+      if (op.base() == kRegisterEsp) {
         // The [ESP] and [ESP+disp] cases cannot be encoded without a SIB byte.
-        if (op2.displacement().size() == kSizeNone) {
-          instr->EmitModRMByte(Reg1Ind, op1.code(), kRegisterEsp);
+        if (op.displacement().size() == kSizeNone) {
+          instr->EmitModRMByte(Reg1Ind, reg_op, kRegisterEsp);
           instr->EmitScaleIndexBaseByte(kTimes1, kRegisterEsp, kRegisterEsp);
-        } else if (op2.displacement().size() == kSize8Bit) {
-          instr->EmitModRMByte(Reg1ByteDisp, op1.code(), kRegisterEsp);
+        } else if (op.displacement().size() == kSize8Bit) {
+          instr->EmitModRMByte(Reg1ByteDisp, reg_op, kRegisterEsp);
           instr->EmitScaleIndexBaseByte(kTimes1, kRegisterEsp, kRegisterEsp);
-          instr->Emit8BitDisplacement(op2.displacement());
+          instr->Emit8BitDisplacement(op.displacement());
         } else {
-          DCHECK_EQ(kSize32Bit, op2.displacement().size());
-          instr->EmitModRMByte(Reg1WordDisp, op1.code(), kRegisterEsp);
+          DCHECK_EQ(kSize32Bit, op.displacement().size());
+          instr->EmitModRMByte(Reg1WordDisp, reg_op, kRegisterEsp);
           instr->EmitScaleIndexBaseByte(kTimes1, kRegisterEsp, kRegisterEsp);
-          instr->Emit32BitDisplacement(op2.displacement());
+          instr->Emit32BitDisplacement(op.displacement());
         }
-      } else if (op2.displacement().size() == kSizeNone) {
-        if (op2.base() == kRegisterEbp) {
+      } else if (op.displacement().size() == kSizeNone) {
+        if (op.base() == kRegisterEbp) {
           // The [EBP] case cannot be encoded canonically, there always must
           // be a (zero) displacement.
-          instr->EmitModRMByte(Reg1ByteDisp, op1.code(), op2.base());
+          instr->EmitModRMByte(Reg1ByteDisp, reg_op, op.base());
           instr->Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit, NULL));
         } else {
-          instr->EmitModRMByte(Reg1Ind, op1.code(), op2.base());
+          instr->EmitModRMByte(Reg1Ind, reg_op, op.base());
         }
-      } else if (op2.displacement().size() == kSize8Bit) {
+      } else if (op.displacement().size() == kSize8Bit) {
         // It's [base+disp8], or possibly [EBP].
-        instr->EmitModRMByte(Reg1ByteDisp, op1.code(), op2.base());
-        instr->Emit8BitDisplacement(op2.displacement());
+        instr->EmitModRMByte(Reg1ByteDisp, reg_op, op.base());
+        instr->Emit8BitDisplacement(op.displacement());
       } else {
-        DCHECK_EQ(kSize32Bit, op2.displacement().size());
+        DCHECK_EQ(kSize32Bit, op.displacement().size());
         // It's [base+disp32].
-        instr->EmitModRMByte(Reg1WordDisp, op1.code(), op2.base());
-        instr->Emit32BitDisplacement(op2.displacement());
+        instr->EmitModRMByte(Reg1WordDisp, reg_op, op.base());
+        instr->Emit32BitDisplacement(op.displacement());
       }
     }
   } else {
     // There must be a base register as well.
-    DCHECK_NE(kRegisterNone, op2.base());
+    DCHECK_NE(kRegisterNone, op.base());
 
     // Is there a displacement?
-    if (op2.displacement().size() == kSizeNone) {
-      instr->EmitModRMByte(Reg1Ind, op1.code(), kRegisterEsp);
-      instr->EmitScaleIndexBaseByte(op2.scale(), op2.index(), op2.base());
-    } else if (op2.displacement().size() == kSize8Bit) {
-      instr->EmitModRMByte(Reg1ByteDisp, op1.code(), kRegisterEsp);
-      instr->EmitScaleIndexBaseByte(op2.scale(), op2.index(), op2.base());
-      instr->Emit8BitDisplacement(op2.displacement());
+    if (op.displacement().size() == kSizeNone) {
+      instr->EmitModRMByte(Reg1Ind, reg_op, kRegisterEsp);
+      instr->EmitScaleIndexBaseByte(op.scale(), op.index(), op.base());
+    } else if (op.displacement().size() == kSize8Bit) {
+      instr->EmitModRMByte(Reg1ByteDisp, reg_op, kRegisterEsp);
+      instr->EmitScaleIndexBaseByte(op.scale(), op.index(), op.base());
+      instr->Emit8BitDisplacement(op.displacement());
     } else {
-      DCHECK_EQ(kSize32Bit, op2.displacement().size());
-      instr->EmitModRMByte(Reg1WordDisp, op1.code(), kRegisterEsp);
-      instr->EmitScaleIndexBaseByte(op2.scale(), op2.index(), op2.base());
-      instr->Emit32BitDisplacement(op2.displacement());
+      DCHECK_EQ(kSize32Bit, op.displacement().size());
+      instr->EmitModRMByte(Reg1WordDisp, reg_op, kRegisterEsp);
+      instr->EmitScaleIndexBaseByte(op.scale(), op.index(), op.base());
+      instr->Emit32BitDisplacement(op.displacement());
     }
   }
 }
