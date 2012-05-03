@@ -144,6 +144,40 @@ TEST_F(AssemblerTest, OperandImpl) {
   }
 }
 
+TEST_F(AssemblerTest, Call) {
+  asm_.set_location(0xCAFEBABE);
+
+  // Immediate call.
+  asm_.call(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0xE8, 0xFB, 0xFF, 0xFF, 0xFF);
+
+  // Indirect call - we test only one operand encoding, as the others
+  // are well covered in the mov instruction.
+  asm_.call(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
+  EXPECT_BYTES(0xFF, 0x15, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, Jmp) {
+  asm_.set_location(0xCAFEBABE);
+
+  // Immediate jmp.
+  asm_.jmp(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0xE9, 0xFB, 0xFF, 0xFF, 0xFF);
+
+  // Indirect jmp - we test only one operand encoding, as the others
+  // are well covered in the mov instruction.
+  asm_.jmp(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
+  EXPECT_BYTES(0xFF, 0x25, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, Ret) {
+  asm_.ret();
+  EXPECT_BYTES(0xC3);
+
+  asm_.ret(0x4);
+  EXPECT_BYTES(0xC2, 0x04, 0x00);
+}
+
 TEST_F(AssemblerTest, MovImmediate) {
   // Immediate moves.
   asm_.mov(eax, ImmediateImpl(0xCAFEBABE, kSize32Bit));
