@@ -65,7 +65,8 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
          '--input-pdb=%s' % os.path.join(chrome_dir, 'chrome_dll.pdb'),
          '--output-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
          '--output-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
-         '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
+         '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),
+         '--overwrite']
   ret = chrome_utils.Subprocess(cmd)
   if ret != 0:
     raise OptimizationError('Failed to reorder chrome.dll')

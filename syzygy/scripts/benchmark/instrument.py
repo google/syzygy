@@ -61,7 +61,8 @@ def InstrumentChrome(chrome_dir, output_dir, client_dll):
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-dll=%s' % src_file,
            '--output-dll=%s' % dst_file,
-           '--call-trace-client=%s' % client_dll]
+           '--call-trace-client=%s' % client_dll,
+           '--overwrite']
 
     if client_dll == 'profile_client.dll':
       cmd.append('--no-interior-refs')
