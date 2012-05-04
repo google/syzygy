@@ -21,6 +21,99 @@
 
 namespace pdb {
 
+namespace {
+
+bool ReadString(PdbStream* stream, std::string* out) {
+  DCHECK(out != NULL);
+
+  std::string result;
+  char c = 0;
+  while (stream->Read(&c, 1)) {
+    if (c == '\0') {
+      out->swap(result);
+      return true;
+    }
+    result.push_back(c);
+  }
+
+  return false;
+}
+
+bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
+  size_t save = stream->pos();
+  bool read = stream->Seek(pos) && ReadString(stream, out);
+  stream->Seek(save);
+  return read;
+}
+
+}  // namespace
+
+bool PdbBitSet::Read(PdbStream* stream) {
+  DCHECK(stream != NULL);
+  uint32 size = 0;
+  if (!stream->Read(&size, 1)) {
+    LOG(ERROR) << "Failed to read bitset size.";
+    return false;
+  }
+  if (!stream->Read(&bits_, size)) {
+    LOG(ERROR) << "Failed to read bitset bits.";
+    return false;
+  }
+
+  return true;
+}
+
+bool PdbBitSet::Write(WritablePdbStream* stream) {
+  DCHECK(stream != NULL);
+  if (!stream->Write(static_cast<uint32>(bits_.size()))) {
+    LOG(ERROR) << "Failed to write bitset size.";
+    return false;
+  }
+  if (!stream->Write(bits_.size(), &bits_[0])) {
+    LOG(ERROR) << "Failed to write bitset bits.";
+    return false;
+  }
+
+  return true;
+}
+
+void PdbBitSet::Resize(size_t bits) {
+  bits_.resize((bits + 31) / 32);
+}
+
+void PdbBitSet::Set(size_t bit) {
+  size_t index = bit / 32;
+  if (index >= bits_.size())
+    return;
+  bits_[index] |= (1 << (bit % 32));
+}
+
+void PdbBitSet::Clear(size_t bit) {
+  size_t index = bit / 32;
+  if (index >= bits_.size())
+    return;
+  bits_[index] &= ~(1 << (bit % 32));
+}
+
+void PdbBitSet::Toggle(size_t bit) {
+  size_t index = bit / 32;
+  if (index >= bits_.size())
+    return;
+  bits_[index] ^= (1 << (bit % 32));
+}
+
+bool PdbBitSet::IsSet(size_t bit) const {
+  size_t index = bit / 32;
+  if (index >= bits_.size())
+    return false;
+
+  return (bits_[index] & (1 << (bit % 32))) != 0;
+}
+
+bool PdbBitSet::IsEmpty() const {
+  return bits_.size() == 0;
+}
+
 uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
   uint32 offset = sizeof(DbiHeader);
   offset += dbi_header.gp_modi_size;
@@ -176,6 +269,96 @@ bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header) {
                << pdb_header->version << ", expected " << kPdbCurrentVersion
                << ").";
     return false;
+  }
+
+  return true;
+}
+
+bool ReadHeaderInfoStream(PdbStream* pdb_stream,
+                          PdbInfoHeader70* pdb_header,
+                          NameStreamMap* name_stream_map) {
+  VLOG(1) << "Header Info Stream size: " << pdb_stream->length();
+
+  // The header stream starts with the fixed-size header pdb_header record.
+  if (!pdb_stream->Read(pdb_header, 1)) {
+    LOG(ERROR) << "Unable to read PDB pdb_header header.";
+    return false;
+  }
+
+  uint32 string_len = 0;
+  if (!pdb_stream->Read(&string_len, 1)) {
+    LOG(ERROR) << "Unable to read string table length.";
+    return false;
+  }
+
+  // The fixed-size record is followed by information on named streams, which
+  // is essentially a string->id mapping. This starts with the strings
+  // themselves, which have been observed to be a packed run of zero-terminated
+  // strings.
+  // We store the start of the string list, as the string positions we read
+  // later are relative to that position.
+  size_t string_start = pdb_stream->pos();
+
+  // Seek past the strings.
+  if (!pdb_stream->Seek(string_start + string_len)) {
+    LOG(ERROR) << "Unable to seek past string list";
+    return false;
+  }
+
+  // Next there's a pair of integers. The first one of those is the number of
+  // items in the string->id mapping. The purpose of the second one is not
+  // clear, but has been observed as larger or equal to the first one.
+  uint32 size = 0;
+  uint32 max = 0;
+  if (!pdb_stream->Read(&size, 1) || !pdb_stream->Read(&max, 1)) {
+    LOG(ERROR) << "Unable to read name pdb_stream size/max";
+    return false;
+  }
+  DCHECK(max >= size);
+
+  // After the counts, there's a pair of bitsets. Each bitset has a 32 bit
+  // length, followed by that number of 32 bit words that contain the bits.
+  // The purpose of those is again not clear, though the first set will have
+  // "size" bits of the bits in the range 0-max set.
+  PdbBitSet used;
+  PdbBitSet deleted;
+  if (!used.Read(pdb_stream) || !deleted.Read(pdb_stream)) {
+    LOG(ERROR) << "Unable to read name pdb_stream bitsets.";
+    return false;
+  }
+
+#ifndef NDEBUG
+  // The first bitset has always been observed to be empty.
+  DCHECK(deleted.IsEmpty());
+
+  // The second bitset has "size" bits set of the first "max" bits.
+  size_t set_bits = 0;
+  for (size_t i = 0; i < max; ++i) {
+    if (used.IsSet(i))
+      ++set_bits;
+  }
+
+  DCHECK_EQ(size, set_bits);
+#endif
+
+  // Read the mapping proper, this is simply a run of {string offset, id} pairs.
+  for (size_t i = 0; i < size; ++i) {
+    uint32 str_offs = 0;
+    uint32 stream_no = 0;
+    // Read the offset and pdb_stream number.
+    if (!pdb_stream->Read(&str_offs, 1) || !pdb_stream->Read(&stream_no, 1)) {
+      LOG(ERROR) << "Unable to read pdb_stream data.";
+      return false;
+    }
+
+    // Read the string itself from the table.
+    std::string name;
+    if (!ReadStringAt(pdb_stream, string_start + str_offs, &name)) {
+      LOG(ERROR) << "Failed to read pdb_stream name.";
+      return false;
+    }
+
+    (*name_stream_map)[name] = stream_no;
   }
 
   return true;

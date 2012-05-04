@@ -20,6 +20,7 @@
 #include "base/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
 
@@ -37,8 +38,6 @@ class PdbDumpApp : public common::AppImplBase {
   // @}
 
  protected:
-  typedef std::map<std::string, uint32> NameStreamMap;
-
   // Prints @p message, followed by usage instructions.
   // @returns false.
   bool Usage(const char* message);
