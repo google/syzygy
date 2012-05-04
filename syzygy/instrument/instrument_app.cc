@@ -21,11 +21,7 @@
 #include <iostream>
 
 #include "base/string_util.h"
-#include "syzygy/instrument/instrumenter.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
-#include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/find.h"
-#include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -44,11 +40,6 @@ static const char kUsageFormatStr[] =
     "    --output-dll=<path> The instrumented output DLL.\n"
     "\n"
     "  Options:\n"
-    "    --input-pdb=<path>  The PDB for the DLL to instrument. If not\n"
-    "                        explicitly provided will be searched for.\n"
-    "    --output-pdb=<path> The PDB for the instrumented DLL. Defaults to\n"
-    "                        the value of output-dll with the extension\n"
-    "                        replaced by \".pdb\".\n"
     "    --call-trace-client=ETW|RPC|PROFILER|<other.dll>\n"
     "                        The call-trace client DLL to reference in the\n"
     "                        instrumented binary. The default value is ETW,\n"
@@ -58,16 +49,18 @@ static const char kUsageFormatStr[] =
     "                        client. You may also specify the name of any\n"
     "                        DLL which implements the call trace client\n"
     "                        interface.\n"
-    "    --no-interior-refs  Perform no instrumentation of references to non-\n"
-    "                        zero offsets in code blocks. Implicit when\n"
-    "                        --call-trace-client=PROFILER is specified.\n"
-    "    --new-workflow      Use the new instrumenter workflow.\n"
-    " New workflow options:\n"
-    "    --overwrite         Allow output files to be overwritten.\n"
     "    --debug-friendly    Generate more debugger friendly output by making\n"
     "                        the thunks resolve to the original function's\n"
     "                        name. This is at the cost of the uniqueness of\n"
     "                        address->name resolution.\n"
+    "    --input-pdb=<path>  The PDB for the DLL to instrument. If not\n"
+    "                        explicitly provided will be searched for.\n"
+    "    --no-interior-refs  Perform no instrumentation of references to non-\n"
+    "                        zero offsets in code blocks. Implicit when\n"
+    "                        --call-trace-client=PROFILER is specified.\n"
+    "    --output-pdb=<path> The PDB for the instrumented DLL. If not\n"
+    "                        provided will attempt to generate one.\n"
+    "    --overwrite         Allow output files to be overwritten.\n"
     "\n";
 
 }  // namespace
@@ -100,7 +93,6 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   client_dll_ = cmd_line->GetSwitchValueASCII("call-trace-client");
   instrument_interior_references_ = !cmd_line->HasSwitch("no-interior-refs");
-  use_new_workflow_ = cmd_line->HasSwitch("new-workflow");
   allow_overwrite_ = cmd_line->HasSwitch("overwrite");
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
 
@@ -120,29 +112,6 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
 }
 
 int InstrumentApp::Run() {
-  if (use_new_workflow_)
-    return InstrumentWithNewWorkflow();
-
-  return InstrumentWithOldWorkflow();
-}
-
-bool InstrumentApp::Usage(const CommandLine* cmd_line,
-                          const base::StringPiece& message) const {
-  if (!message.empty()) {
-    ::fwrite(message.data(), 1, message.length(), err());
-    ::fprintf(err(), "\n\n");
-  }
-
-  ::fprintf(err(),
-            kUsageFormatStr,
-            cmd_line->GetProgram().BaseName().value().c_str());
-
-  return false;
-}
-
-int InstrumentApp::InstrumentWithNewWorkflow() {
-  LOG(INFO) << "Instrumenting using new workflow.";
-
   pe::PERelinker& relinker = GetRelinker();
   relinker.set_input_path(input_dll_path_);
   relinker.set_input_pdb_path(input_pdb_path_);
@@ -173,42 +142,18 @@ int InstrumentApp::InstrumentWithNewWorkflow() {
   return 0;
 }
 
-int InstrumentApp::InstrumentWithOldWorkflow() {
-  if (input_pdb_path_.empty()) {
-    LOG(INFO) << "--input-pdb not specified, searching for it.";
-    if (!pe::FindPdbForModule(input_dll_path_, &input_pdb_path_) ||
-        input_pdb_path_.empty()) {
-      LOG(ERROR) << "Failed to find PDB for input module.";
-      return 1;
-    }
+bool InstrumentApp::Usage(const CommandLine* cmd_line,
+                          const base::StringPiece& message) const {
+  if (!message.empty()) {
+    ::fwrite(message.data(), 1, message.length(), err());
+    ::fprintf(err(), "\n\n");
   }
 
-  if (output_pdb_path_.empty()) {
-    output_pdb_path_ = output_dll_path_.ReplaceExtension(L".pdb");
-    LOG(INFO) << "Using default value for --output_pdb.";
-  }
+  ::fprintf(err(),
+            kUsageFormatStr,
+            cmd_line->GetProgram().BaseName().value().c_str());
 
-  LOG(INFO) << "Input image = " << input_dll_path_.value();
-  LOG(INFO) << "Input PDB = " << input_pdb_path_.value();
-  LOG(INFO) << "Output image = " << output_dll_path_.value();
-  LOG(INFO) << "Output PDB = " << output_dll_path_.value();
-  LOG(INFO) << "Client DLL = " << client_dll_;
-  LOG(INFO) << "Instrument interior refs = " << instrument_interior_references_;
-
-  Instrumenter& instrumenter = GetInstrumenter();
-  instrumenter.set_client_dll(client_dll_.c_str());
-  instrumenter.set_instrument_interior_references(
-      instrument_interior_references_);
-
-  if (!instrumenter.Instrument(input_dll_path_,
-                               input_pdb_path_,
-                               output_dll_path_,
-                               output_pdb_path_)) {
-    LOG(ERROR)<< "Failed to instrument \"" << input_dll_path_.value() << "\".";
-    return 1;
-  }
-
-  return 0;
+  return false;
 }
 
 }  // namespace instrument
