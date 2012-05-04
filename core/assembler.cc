@@ -344,6 +344,25 @@ void AssemblerImpl::mov(Register dst, const ValueImpl& src) {
   Output(instr);
 }
 
+void AssemblerImpl::push(const ImmediateImpl& src) {
+  DCHECK_EQ(kSize32Bit, src.size());
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0x68);
+  instr.Emit32BitDisplacement(src);
+
+  Output(instr);
+}
+
+void AssemblerImpl::push(const OperandImpl& dst) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xFF);
+  EncodeOperand(0x6, dst, &instr);
+
+  Output(instr);
+}
+
 void AssemblerImpl::Output(const InstructionBuffer& instr) {
   serializer_->AppendInstruction(location_,
                                  instr.buf(),

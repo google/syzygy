@@ -188,6 +188,12 @@ class AssemblerImpl {
   void mov(Register dst, const ImmediateImpl& src);
   // @}
 
+  // @name stack manipulation.
+  // @{
+  void push(const ImmediateImpl& src);
+  void push(const OperandImpl& src);
+  // @}
+
  private:
   class InstructionBuffer;
   // Output the instruction data in @p instr to our delegate.

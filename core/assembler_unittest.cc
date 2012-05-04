@@ -449,4 +449,14 @@ TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {
   EXPECT_BYTES(0x89, 0x9C, 0xC1, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
+TEST_F(AssemblerTest, Push) {
+  // Immediate push.
+  asm_.push(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x68, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // General push, try one variant as the rest are OperandImpl encodings.
+  asm_.push(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
+  EXPECT_BYTES(0xFF, 0x35, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
 }  // namespace core
