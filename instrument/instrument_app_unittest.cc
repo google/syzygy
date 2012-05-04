@@ -54,7 +54,6 @@ class TestInstrumentApp : public InstrumentApp {
   using InstrumentApp::output_dll_path_;
   using InstrumentApp::output_pdb_path_;
   using InstrumentApp::client_dll_;
-  using InstrumentApp::use_new_workflow_;
   using InstrumentApp::allow_overwrite_;
   using InstrumentApp::instrument_interior_references_;
   using InstrumentApp::debug_friendly_;
@@ -80,7 +79,6 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   InstrumentAppTest()
       : cmd_line_(FilePath(L"instrument.exe")),
         test_impl_(test_app_.implementation()),
-        use_new_workflow_(false),
         allow_overwrite_(false) {
   }
 
@@ -134,7 +132,6 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   FilePath output_dll_path_;
   FilePath output_pdb_path_;
   std::string client_dll_;
-  bool use_new_workflow_;
   bool instrument_interior_references_;
   bool allow_overwrite_;
   bool debug_friendly_;
@@ -177,7 +174,6 @@ TEST_F(InstrumentAppTest, ParseMinimalCommandLine) {
   EXPECT_TRUE(test_impl_.output_pdb_path_.empty());
   EXPECT_EQ(Instrumenter::kCallTraceClientDllEtw, test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.instrument_interior_references_);
-  EXPECT_FALSE(test_impl_.use_new_workflow_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
 }
@@ -189,7 +185,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", "rpc");
   cmd_line_.AppendSwitch("no-interior-refs");
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("debug-friendly");
 
@@ -203,7 +198,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(Instrumenter::kCallTraceClientDllRpc, test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.instrument_interior_references_);
-  EXPECT_TRUE(test_impl_.use_new_workflow_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
@@ -215,7 +209,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", "profiler");
   cmd_line_.AppendSwitch("no-interior-refs");
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("debug-friendly");
 
@@ -229,7 +222,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(Instrumenter::kCallTraceClientDllProfiler, test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.instrument_interior_references_);
-  EXPECT_TRUE(test_impl_.use_new_workflow_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
@@ -242,7 +234,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineEtw) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", "etw");
   cmd_line_.AppendSwitch("no-interior-refs");
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("debug-friendly");
 
@@ -255,7 +246,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineEtw) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(Instrumenter::kCallTraceClientDllEtw, test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.instrument_interior_references_);
-  EXPECT_TRUE(test_impl_.use_new_workflow_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
@@ -269,7 +259,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineOther) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", kOtherDll);
   cmd_line_.AppendSwitch("no-interior-refs");
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("debug-friendly");
 
@@ -281,63 +270,13 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineOther) {
   EXPECT_EQ(output_pdb_path_.value(), test_impl_.output_pdb_path_.value());
   EXPECT_EQ(kOtherDll, test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.instrument_interior_references_);
-  EXPECT_TRUE(test_impl_.use_new_workflow_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
 
-TEST_F(InstrumentAppTest, InstrumentWithOldWorkflow) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-
-  EXPECT_CALL(test_impl_.mock_instrumenter_,
-              Instrument(input_dll_path_,
-                         input_pdb_path_,
-                         output_dll_path_,
-                         output_pdb_path_))
-      .WillOnce(Return(true));
-
-  ASSERT_EQ(0, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, InstrumentWithOldWorkflowInferPdbs) {
+TEST_F(InstrumentAppTest, InstrumentFailsInit) {
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-
-  // We validate that it correctly infers the correct PDB files, and we return
-  // false to exercise the error handling code.
-  EXPECT_CALL(test_impl_.mock_instrumenter_,
-              Instrument(input_dll_path_,
-                         _,  // Some test bots move the input files around.
-                         output_dll_path_,
-                         output_pdb_path_))
-      .WillOnce(Return(true));
-
-  EXPECT_EQ(0, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, InstrumentWithOldWorkflowFailsInstrument) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-
-  // We validate that it correctly infers the correct PDB files, and we return
-  // false to exercise the error handling code.
-  EXPECT_CALL(test_impl_.mock_instrumenter_,
-              Instrument(input_dll_path_,
-                         _,  // Some test bots move the input files around.
-                         output_dll_path_,
-                         output_pdb_path_))
-      .WillOnce(Return(false));
-
-  EXPECT_EQ(1, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, InstrumentWithNewWorkflowFailsInit) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-  cmd_line_.AppendSwitch("new-workflow");
 
   EXPECT_CALL(test_impl_.mock_relinker_, Init())
       .WillOnce(Return(false));
@@ -345,10 +284,9 @@ TEST_F(InstrumentAppTest, InstrumentWithNewWorkflowFailsInit) {
   EXPECT_EQ(1, test_app_.Run());
 }
 
-TEST_F(InstrumentAppTest, InstrumentWithNewWorkflowFailsRelink) {
+TEST_F(InstrumentAppTest, InstrumentFailsRelink) {
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-  cmd_line_.AppendSwitch("new-workflow");
 
   EXPECT_CALL(test_impl_.mock_relinker_, Init())
       .WillOnce(Return(true));
@@ -359,10 +297,9 @@ TEST_F(InstrumentAppTest, InstrumentWithNewWorkflowFailsRelink) {
   EXPECT_EQ(1, test_app_.Run());
 }
 
-TEST_F(InstrumentAppTest, InstrumentWithNewWorkflow) {
+TEST_F(InstrumentAppTest, Instrument) {
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-  cmd_line_.AppendSwitch("new-workflow");
 
   EXPECT_CALL(test_impl_.mock_relinker_, Init())
       .WillOnce(Return(true));

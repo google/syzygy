@@ -36,8 +36,7 @@ class InstrumentApp : public common::AppImplBase {
  public:
 
   InstrumentApp()
-      : use_new_workflow_(false),
-        instrument_interior_references_(true),
+      : instrument_interior_references_(true),
         allow_overwrite_(false),
         debug_friendly_(false) {
   }
@@ -53,8 +52,6 @@ class InstrumentApp : public common::AppImplBase {
   // @{
   bool Usage(const CommandLine* command_line,
              const base::StringPiece& message) const;
-  int InstrumentWithNewWorkflow();
-  int InstrumentWithOldWorkflow();
   // @}
 
   // @name Command-line parameters.
@@ -64,7 +61,6 @@ class InstrumentApp : public common::AppImplBase {
   FilePath output_dll_path_;
   FilePath output_pdb_path_;
   std::string client_dll_;
-  bool use_new_workflow_;
   bool instrument_interior_references_;
   bool allow_overwrite_;
   bool debug_friendly_;
