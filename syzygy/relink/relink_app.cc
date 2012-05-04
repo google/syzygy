@@ -18,10 +18,7 @@
 #include "base/string_number_conversions.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
 #include "syzygy/pe/pe_relinker.h"
-#include "syzygy/relink/order_relinker.h"
-#include "syzygy/relink/random_relinker.h"
 #include "syzygy/reorder/orderers/explicit_orderer.h"
-#include "syzygy/reorder/reorderer.h"
 
 namespace relink {
 
@@ -35,15 +32,14 @@ const char kUsageFormatStr[] =
     "  Optional Options:\n"
     "    --input-pdb=<path>   The PDB file associated with the input DLL.\n"
     "                         Default is inferred from input-dll.\n"
-    "    --new-workflow       Use the new relinker workflow.\n"
     "    --no-metadata        Prevents the relinker from adding metadata\n"
     "                         to the output DLL.\n"
     "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
     "    --output-pdb=<path>  Output path for the rewritten PDB file.\n"
     "                         Default is inferred from output-dll.\n"
-    "    --seed=<integer>     Randomly reorder based on the given seed.\n"
-    "  New workflow options:\n"
     "    --overwrite          Allow output files to be overwritten.\n"
+    "    --padding=<integer>  Add bytes of padding between blocks.\n"
+    "    --seed=<integer>     Randomly reorder based on the given seed.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-dll is optional.\n";
@@ -52,9 +48,7 @@ bool ParsePadding(const std::wstring& value_str, size_t* out_value) {
   DCHECK(out_value != NULL);
 
   int temp;
-  if (!base::StringToInt(value_str, &temp) ||
-      temp < 0 ||
-      static_cast<size_t>(temp) > Relinker::max_padding_length()) {
+  if (!base::StringToInt(value_str, &temp) || temp < 0) {
     return false;
   }
 
@@ -80,7 +74,6 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   order_file_path_ = cmd_line->GetSwitchValuePath("order-file");
-  use_new_workflow_ = cmd_line->HasSwitch("new-workflow");
   output_metadata_ = !cmd_line->HasSwitch("no-metadata");
   overwrite_ = cmd_line->HasSwitch("overwrite");
 
@@ -140,29 +133,6 @@ bool RelinkApp::SetUp() {
 }
 
 int RelinkApp::Run() {
-  if (use_new_workflow_)
-    return RelinkWithNewWorkflow();
-
-  return RelinkWithOldWorkflow();
-}
-
-bool RelinkApp::Usage(const CommandLine* cmd_line,
-                      const base::StringPiece& message) const {
-  if (!message.empty()) {
-    ::fwrite(message.data(), 1, message.length(), err());
-    ::fprintf(err(), "\n\n");
-  }
-
-  ::fprintf(err(),
-            kUsageFormatStr,
-            cmd_line->GetProgram().BaseName().value().c_str());
-
-  return false;
-}
-
-int RelinkApp::RelinkWithNewWorkflow() {
-  LOG(INFO) << "Using new relinker workflow.";
-
   pe::PERelinker relinker;
   relinker.set_input_path(input_dll_path_);
   relinker.set_input_pdb_path(input_pdb_path_);
@@ -207,50 +177,18 @@ int RelinkApp::RelinkWithNewWorkflow() {
   return 0;
 }
 
-int RelinkApp::RelinkWithOldWorkflow() {
-  // If explicit PDB paths are not provided, guess them.
-  if (input_pdb_path_.empty()) {
-    GuessPdbPath(input_dll_path_, &input_pdb_path_);
-    LOG(INFO) << "Inferring input PDB path from input DLL path: "
-        << input_pdb_path_.value();
-  }
-  if (output_pdb_path_.empty()) {
-    GuessPdbPath(output_dll_path_, &output_pdb_path_);
-    LOG(INFO) << "Inferring output PDB path from output DLL path: "
-        << output_pdb_path_.value();
+bool RelinkApp::Usage(const CommandLine* cmd_line,
+                      const base::StringPiece& message) const {
+  if (!message.empty()) {
+    ::fwrite(message.data(), 1, message.length(), err());
+    ::fprintf(err(), "\n\n");
   }
 
-  // Log some info so we know what's about to happen.
-  LOG(INFO) << "Input Image: " << input_dll_path_.value();
-  LOG(INFO) << "Input PDB: " << input_pdb_path_.value();
-  LOG(INFO) << "Output Image: " << output_dll_path_.value();
-  LOG(INFO) << "Output PDB: " << output_pdb_path_.value();
-  LOG(INFO) << "Padding Length: " << padding_;
-  if (!order_file_path_.empty()) {
-    LOG(INFO) << "Order File: " << (order_file_path_.value().c_str());
-  } else {
-    LOG(INFO) << "Random Seed: " << seed_;
-  }
+  ::fprintf(err(),
+            kUsageFormatStr,
+            cmd_line->GetProgram().BaseName().value().c_str());
 
-  // Relink the image with a new ordering.
-  scoped_ptr<Relinker> relinker;
-  if (!order_file_path_.empty()) {
-    relinker.reset(new OrderRelinker(order_file_path_));
-  } else {
-    relinker.reset(new RandomRelinker(seed_));
-  }
-
-  relinker->set_padding_length(padding_);
-  if (!relinker->Relink(input_dll_path_,
-                        input_pdb_path_,
-                        output_dll_path_,
-                        output_pdb_path_,
-                        output_metadata_)) {
-    LOG(ERROR) << "Unable to reorder the input image.";
-    return 1;
-  }
-
-  return 0;
+  return false;
 }
 
 }  // namespace relink
