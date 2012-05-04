@@ -41,7 +41,6 @@ class TestRelinkApp : public RelinkApp {
   using RelinkApp::order_file_path_;
   using RelinkApp::seed_;
   using RelinkApp::padding_;
-  using RelinkApp::use_new_workflow_;
   using RelinkApp::output_metadata_;
   using RelinkApp::overwrite_;
 };
@@ -57,7 +56,6 @@ class RelinkAppTest : public testing::PELibUnitTest {
         test_impl_(test_app_.implementation()),
         seed_(1234567),
         padding_(32),
-        use_new_workflow_(false),
         output_metadata_(false),
         overwrite_(false) {
   }
@@ -114,7 +112,6 @@ class RelinkAppTest : public testing::PELibUnitTest {
   FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
-  bool use_new_workflow_;
   bool output_metadata_;
   bool overwrite_;
   // @}
@@ -198,7 +195,6 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchPath("order-file", order_file_path_);
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("no-metadata");
   cmd_line_.AppendSwitch("overwrite");
 
@@ -210,7 +206,6 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   EXPECT_EQ(order_file_path_, test_impl_.order_file_path_);
   EXPECT_EQ(0, test_impl_.seed_);
   EXPECT_EQ(0, test_impl_.padding_);
-  EXPECT_TRUE(test_impl_.use_new_workflow_);
   EXPECT_FALSE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
 
@@ -228,7 +223,6 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("overwrite");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -239,7 +233,6 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   EXPECT_TRUE(test_impl_.order_file_path_.empty());
   EXPECT_EQ(seed_, test_impl_.seed_);
   EXPECT_EQ(padding_, test_impl_.padding_);
-  EXPECT_TRUE(test_impl_.use_new_workflow_);
   EXPECT_TRUE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
 
@@ -247,27 +240,13 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   EXPECT_TRUE(test_impl_.SetUp());
 }
 
-TEST_F(RelinkAppTest, RandomRelinkOldWorkflow) {
+TEST_F(RelinkAppTest, RandomRelink) {
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
-  cmd_line_.AppendSwitch("overwrite");
-
-  ASSERT_EQ(0, test_app_.Run());
-  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
-}
-
-TEST_F(RelinkAppTest, RandomRelinkNewWorkflow) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
-  cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
-  cmd_line_.AppendSwitch("new-workflow");
   cmd_line_.AppendSwitch("overwrite");
 
   ASSERT_EQ(0, test_app_.Run());

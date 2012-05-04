@@ -31,7 +31,6 @@ class RelinkApp : public common::AppImplBase {
   RelinkApp()
       : seed_(0),
         padding_(0),
-        use_new_workflow_(false),
         output_metadata_(false),
         overwrite_(false) {
   }
@@ -48,8 +47,6 @@ class RelinkApp : public common::AppImplBase {
   // @{
   bool Usage(const CommandLine* command_line,
              const base::StringPiece& message) const;
-  int RelinkWithOldWorkflow();
-  int RelinkWithNewWorkflow();
   // @}
 
   // @name Command-line parameters.
@@ -61,7 +58,6 @@ class RelinkApp : public common::AppImplBase {
   FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
-  bool use_new_workflow_;
   bool output_metadata_;
   bool overwrite_;
   // @}
