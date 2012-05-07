@@ -69,6 +69,8 @@ bool PdbBitSet::Write(WritablePdbStream* stream) {
     LOG(ERROR) << "Failed to write bitset size.";
     return false;
   }
+  if (bits_.size() == 0)
+    return true;
   if (!stream->Write(bits_.size(), &bits_[0])) {
     LOG(ERROR) << "Failed to write bitset bits.";
     return false;
@@ -328,15 +330,15 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
   }
 
 #ifndef NDEBUG
-  // The first bitset has always been observed to be empty.
-  DCHECK(deleted.IsEmpty());
-
-  // The second bitset has "size" bits set of the first "max" bits.
+  // The first bitset has "size" bits set of the first "max" bits.
   size_t set_bits = 0;
   for (size_t i = 0; i < max; ++i) {
     if (used.IsSet(i))
       ++set_bits;
   }
+
+  // The second bitset has always been observed to be empty.
+  DCHECK(deleted.IsEmpty());
 
   DCHECK_EQ(size, set_bits);
 #endif
@@ -359,6 +361,78 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
     }
 
     (*name_stream_map)[name] = stream_no;
+  }
+
+  return true;
+}
+
+bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
+                           const NameStreamMap& name_stream_map,
+                           WritablePdbStream* pdb_stream) {
+  DCHECK(pdb_stream != NULL);
+
+  if (!pdb_stream->Write(pdb_header)) {
+    LOG(ERROR) << "Failed to write PDB header.";
+    return false;
+  }
+
+  // Get the string table length.
+  std::vector<uint32> offsets;
+  offsets.reserve(name_stream_map.size());
+  uint32 string_length = 0;
+  NameStreamMap::const_iterator name_it = name_stream_map.begin();
+  for (; name_it != name_stream_map.end(); ++name_it) {
+    offsets.push_back(string_length);
+    string_length += name_it->first.size() + 1;  // Include the trailing zero.
+  }
+
+  // Dump the string table.
+  if (!pdb_stream->Write(string_length)) {
+    LOG(ERROR) << "Failed to write stream name table length.";
+    return false;
+  }
+  name_it = name_stream_map.begin();
+  for (; name_it != name_stream_map.end(); ++name_it) {
+    if (!pdb_stream->Write(name_it->first.size() + 1, name_it->first.c_str())) {
+      LOG(ERROR) << "Failed to write stream name.";
+      return false;
+    }
+  }
+
+  // Write the string table size. We write the value twice, and use the smallest
+  // possible bitset. See ReadHeaderInfoStream for a detailed discussion of the
+  // layout.
+  const uint32 kStringCount = name_stream_map.size();
+  if (!pdb_stream->Write(kStringCount) || !pdb_stream->Write(kStringCount)) {
+    LOG(ERROR) << "Failed to write string table size.";
+    return false;
+  }
+
+  // Write the 'used' bitset.
+  PdbBitSet bitset;
+  bitset.Resize(kStringCount);
+  for (size_t i = 0; i < kStringCount; ++i) {
+    bitset.Set(i);
+  }
+  if (!bitset.Write(pdb_stream)) {
+    LOG(ERROR) << "Failed to write 'used' bitset.";
+    return false;
+  }
+
+  // The first bitset is always empty.
+  bitset.Resize(0);
+  if (!bitset.Write(pdb_stream)) {
+    LOG(ERROR) << "Failed to write 'deleted' bitset.";
+    return false;
+  }
+
+  // Now output the actual mapping, a run of [offset, id] pairs.
+  name_it = name_stream_map.begin();
+  for (size_t i = 0; name_it != name_stream_map.end(); ++i, ++name_it) {
+    if (!pdb_stream->Write(offsets[i]) || !pdb_stream->Write(name_it->second)) {
+      LOG(ERROR) << "Failed to write stream name mapping.";
+      return false;
+    }
   }
 
   return true;

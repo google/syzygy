@@ -34,6 +34,13 @@ namespace {
 const wchar_t* kTempPdbFileName = L"temp.pdb";
 const wchar_t* kTempPdbFileName2 = L"temp2.pdb";
 
+const PdbInfoHeader70 kSamplePdbHeader = {
+  kPdbCurrentVersion,
+  1336402486,  // 7 May 2012, 14:54:00 GMT.
+  0,
+  {0xDEADBEEF, 0x900D, 0xF00D, {0, 1, 2, 3, 4, 5, 6, 7}}
+};
+
 class PdbUtilTest : public testing::Test {
  public:
   PdbUtilTest() : ALLOW_THIS_IN_INITIALIZER_LIST(process_(this)) {
@@ -194,6 +201,21 @@ TEST(PdbBitSetTest, ReadMultiDwordBitSet) {
   EXPECT_EQ(bs.size(), 64u);
   for (size_t i = 0; i < bs.size(); ++i)
     EXPECT_EQ(i == 0 || i == 5 || i == 13 || i == (32 + 5), bs.IsSet(i));
+}
+
+TEST(PdbBitSetTest, WriteEmptyBitSet) {
+  const uint32 kData[] = { 0 };
+  scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  PdbBitSet bs;
+  EXPECT_TRUE(bs.Read(stream.get()));
+
+  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  EXPECT_TRUE(bs.Write(writer.get()));
+
+  std::vector<uint32> data;
+  EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
+  EXPECT_THAT(data, testing::ElementsAreArray(kData));
 }
 
 TEST(PdbBitSetTest, WriteBitSet) {
@@ -507,6 +529,51 @@ TEST(ReadHeaderInfoStreamTest, ReadFromPdb) {
   EXPECT_TRUE(ReadHeaderInfoStream(pdb_file.GetStream(kPdbHeaderInfoStream),
                                    &pdb_header,
                                    &name_stream_map));
+}
+
+TEST(WriteHeaderInfoStreamTest, WriteEmpty) {
+  scoped_refptr<PdbStream> reader(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+
+  NameStreamMap name_stream_map;
+  EXPECT_TRUE(WriteHeaderInfoStream(kSamplePdbHeader,
+                                    name_stream_map,
+                                    writer.get()));
+
+  PdbInfoHeader70 read_pdb_header = {};
+  NameStreamMap read_name_stream_map;
+  EXPECT_TRUE(ReadHeaderInfoStream(reader.get(),
+                                   &read_pdb_header,
+                                   &read_name_stream_map));
+
+  EXPECT_EQ(0, ::memcmp(&kSamplePdbHeader,
+                        &read_pdb_header,
+                        sizeof(kSamplePdbHeader)));
+  EXPECT_THAT(name_stream_map, testing::ContainerEq(read_name_stream_map));
+}
+
+TEST(WriteHeaderInfoStreamTest, WriteNonEmpty) {
+  scoped_refptr<PdbStream> reader(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+
+  NameStreamMap name_stream_map;
+  name_stream_map["/StreamFoo"] = 9;
+  name_stream_map["/StreamBar"] = 42;
+  name_stream_map["/Stream/With/A/Path"] = 19;
+  EXPECT_TRUE(WriteHeaderInfoStream(kSamplePdbHeader,
+                                    name_stream_map,
+                                    writer.get()));
+
+  PdbInfoHeader70 read_pdb_header = {};
+  NameStreamMap read_name_stream_map;
+  EXPECT_TRUE(ReadHeaderInfoStream(reader.get(),
+                                   &read_pdb_header,
+                                   &read_name_stream_map));
+
+  EXPECT_EQ(0, ::memcmp(&kSamplePdbHeader,
+                        &read_pdb_header,
+                        sizeof(kSamplePdbHeader)));
+  EXPECT_THAT(name_stream_map, testing::ContainerEq(read_name_stream_map));
 }
 
 }  // namespace pdb
