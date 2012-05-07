@@ -393,6 +393,9 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
       info->cycles_max = duration_cycles;
     }
   } else {
+    // The allocation below may touch last error.
+    ScopedLastErrorKeeper keep_last_error;
+
     // Nopes, allocate a new entry for this invocation.
     InvocationInfo* info = AllocateInvocationInfo();
     if (info != NULL) {

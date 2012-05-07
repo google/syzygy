@@ -39,8 +39,7 @@ extern "C" void __declspec(naked) thunk_main_asm() {
     push eax
 
     // Get the thunk address and push it to the top of the stack.
-    mov eax, DWORD PTR[esp + 0x18]
-    push eax
+    push DWORD PTR[esp + 0x18]
 
     call agent::profiler::ReturnThunkFactory::ThunkMain
 
@@ -209,8 +208,6 @@ ReturnThunkFactory::Thunk* ReturnThunkFactory::LastThunk(Page* page) {
 
 // static
 RetAddr WINAPI ReturnThunkFactory::ThunkMain(ThunkData* data, uint64 cycles) {
-  ScopedLastErrorKeeper keep_last_error;
-
   ReturnThunkFactory* factory = PageFromThunk(data->thunk)->factory;
   factory->first_free_thunk_ = data->thunk;
 
