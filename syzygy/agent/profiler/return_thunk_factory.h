@@ -33,6 +33,7 @@ namespace profiler {
 class ReturnThunkFactory {
  public:
   struct Thunk;
+  struct ThunkData;
 
   class Delegate {
    public:
@@ -42,7 +43,7 @@ class ReturnThunkFactory {
     // Invoked on function exit.
     // @param thunk is the invoked thunk.
     // @param cycles is the performance counter recorded.
-    virtual void OnFunctionExit(const Thunk* thunk, uint64 cycles) = 0;
+    virtual void OnFunctionExit(const ThunkData* data, uint64 cycles) = 0;
 
     // Invoked after the factory has allocated a new page of thunks.
     // @param page the page of thunks, @p page is 4K and aligned on a
@@ -61,38 +62,37 @@ class ReturnThunkFactory {
   explicit ReturnThunkFactory(Delegate* delegate);
   ~ReturnThunkFactory();
 
-  // Provides a pointer to a thunk that, when called, will invoke
-  // Delegate::OnFunctionExit and then return to |real_ret|.
+  // Provides a pointer to the thunk data associated with a thunk that,
+  // when called, will invoke Delegate::OnFunctionExit and then return
+  // to |real_ret|.
   //
-  // Ownership of the thunk remains with the factory, which
+  // Ownership of the data and thunk remains with the factory, which
   // reuses it only after it, or the return thunk of a function below
   // it on the stack, has been returned to.
-  Thunk* MakeThunk(RetAddr real_ret);
+  ThunkData* MakeThunk(RetAddr real_ret);
 
   // If @p ret is a thunk belonging to this factory, return that thunk,
   // or NULL otherwise.
   Thunk* CastToThunk(RetAddr ret);
 
-  // TODO(joi): Siggi's idea: To get natural alignment for the data yet
-  // still have optimum packing, use parallel arrays within the same page
-  // for thunks vs. thunk data. This is also important for performance as
-  // writing to a cache line that contains code will cause an ICache flush
-  // for the cache line.
-#pragma pack(push, 1)
-  struct Thunk {
-    // NOTE: Do not add anything before the 'BYTE call' member below;
-    // thunk_main_asm relies on this exact layout to calculate the address
-    // of the thunk object.
+  // Returns the thunk data corresponding to a thunk.
+  static ThunkData* DataFromThunk(Thunk* thunk);
 
-    // We start with very simple assembly code that always calls the same
-    // static assembly function.  The return address of the call is used to
-    // calculate the start of the Thunk object, which contains the
-    // necessary data e.g. the real return address.
-    //
-    // This is to keep the thunks minimal in size and have the largest
-    // percentage of identical instructions remain in the instruction cache.
-    BYTE call;
-    DWORD func_addr;
+  // The thunk itself is opaque, but must be declared here
+  // for the size calculations below.
+  struct Thunk {
+    // This must match the size of the code generated for the thunk.
+    // Currently the code is:
+    //   push <address of thunk>
+    //   call thunk_main_asm
+    // each of which consumes 5 bytes on x86.
+    uint8 instr[10];
+  };
+
+  // The data associated with each thunk.
+  struct ThunkData {
+    // A pointer to the thunk that owns us.
+    Thunk* thunk;
 
     // The caller and the function invoked.
     RetAddr caller;
@@ -101,7 +101,6 @@ class ReturnThunkFactory {
     // The time of entry.
     uint64 cycles_entry;
   };
-#pragma pack(pop)
 
  protected:
   struct Page {
@@ -119,7 +118,7 @@ class ReturnThunkFactory {
   void AddPage();
   static Page* PageFromThunk(Thunk* thunk);
   static Thunk* LastThunk(Page* page);
-  static RetAddr WINAPI ThunkMain(Thunk* thunk, uint64 cycles);
+  static RetAddr WINAPI ThunkMain(ThunkData* thunk, uint64 cycles);
 
   // Always valid, used to call back on function exit.
   Delegate* delegate_;
