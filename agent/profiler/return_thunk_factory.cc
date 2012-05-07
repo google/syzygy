@@ -16,6 +16,7 @@
 
 #include "base/logging.h"
 #include "syzygy/agent/profiler/scoped_last_error_keeper.h"
+#include "syzygy/core/assembler.h"
 
 namespace {
 
@@ -37,12 +38,8 @@ extern "C" void __declspec(naked) thunk_main_asm() {
     push edx
     push eax
 
-    // Calculate a pointer to the start of the thunk object as
-    // the return address pushed by the caller, subtracting 5 (the
-    // size of the E8 call instruction) to get a pointer to the
-    // start of the thunk object.
+    // Get the thunk address and push it to the top of the stack.
     mov eax, DWORD PTR[esp + 0x18]
-    sub eax, 5
     push eax
 
     call agent::profiler::ReturnThunkFactory::ThunkMain
@@ -60,10 +57,22 @@ extern "C" void __declspec(naked) thunk_main_asm() {
     push eax
     mov eax, DWORD PTR[esp+4]
 
-    // Return and discard the stored eax and discarded return address.
+    // Return and discard the stored eax and discarded thunk address.
     ret 8
   }
 }
+
+class Serializer : public core::AssemblerImpl::InstructionSerializer {
+ public:
+  virtual void AppendInstruction(uint32 location,
+                                 const uint8* bytes,
+                                 size_t num_bytes,
+                                 const size_t *ref_locations,
+                                 const void* const* refs,
+                                 size_t num_refs) {
+    memcpy(static_cast<uint8*>(0) + location, bytes, num_bytes);
+  }
+};
 
 }  // namespace
 
@@ -93,13 +102,16 @@ ReturnThunkFactory::~ReturnThunkFactory() {
     // into the page allocation.
     delegate_->OnPageRemoved(page_to_free);
 
+    ThunkData* data = DataFromThunk(&page_to_free->thunks[0]);
+    delete [] data;
     ::VirtualFree(page_to_free, 0, MEM_RELEASE);
   }
 }
 
-ReturnThunkFactory::Thunk* ReturnThunkFactory::MakeThunk(RetAddr real_ret) {
+ReturnThunkFactory::ThunkData* ReturnThunkFactory::MakeThunk(RetAddr real_ret) {
   Thunk* thunk = first_free_thunk_;
-  thunk->caller = real_ret;
+  ThunkData* data = DataFromThunk(thunk);
+  data->caller = real_ret;
 
   Page* current_page = PageFromThunk(first_free_thunk_);
   if (first_free_thunk_ != LastThunk(current_page)) {
@@ -110,7 +122,7 @@ ReturnThunkFactory::Thunk* ReturnThunkFactory::MakeThunk(RetAddr real_ret) {
     AddPage();
   }
 
-  return thunk;
+  return data;
 }
 
 ReturnThunkFactory::Thunk* ReturnThunkFactory::CastToThunk(RetAddr ret) {
@@ -126,6 +138,11 @@ ReturnThunkFactory::Thunk* ReturnThunkFactory::CastToThunk(RetAddr ret) {
   return NULL;
 }
 
+// static.
+ReturnThunkFactory::ThunkData* ReturnThunkFactory::DataFromThunk(Thunk* thunk) {
+  return *reinterpret_cast<ThunkData**>(&thunk->instr[1]);
+}
+
 void ReturnThunkFactory::AddPage() {
   Page* previous_page = PageFromThunk(first_free_thunk_);
   DCHECK(previous_page == NULL || previous_page->next_page == NULL);
@@ -135,7 +152,13 @@ void ReturnThunkFactory::AddPage() {
   // normally need more than 4K of thunks.
   Page* new_page = reinterpret_cast<Page*>(::VirtualAlloc(
       NULL, kPageSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
-  CHECK(new_page);
+  CHECK(new_page != NULL);
+
+  // Allocate the data associated with each thunk.
+  ThunkData* data = new ThunkData[kNumThunksPerPage];
+  CHECK(data != NULL);
+
+  // Insert the page into our page list.
   new_page->previous_page = previous_page;
   new_page->next_page = NULL;
   new_page->factory = this;
@@ -143,13 +166,29 @@ void ReturnThunkFactory::AddPage() {
   if (previous_page)
     previous_page->next_page = new_page;
 
-  // Since thunks get reused a lot, we optimize a bit by filling in the
-  // static part of all thunks when each page is allocated.
-  for (size_t i= 0; i < kNumThunksPerPage; ++i) {
-    Thunk* thunk = &new_page->thunks[i];
-    thunk->call = 0xE8;  // call
-    thunk->func_addr = reinterpret_cast<DWORD>(thunk_main_asm) -
-        reinterpret_cast<DWORD>(&thunk->caller);
+  typedef core::ImmediateImpl Immediate;
+  typedef core::AssemblerImpl Assembler;
+  using core::kSize32Bit;
+
+  // Initialize the thunks.
+  uint32 start_addr = reinterpret_cast<uint32>(&new_page->thunks[0]);
+  Serializer serializer;
+  Assembler assm(start_addr, &serializer);
+  for (size_t i = 0; i < kNumThunksPerPage; ++i) {
+    DCHECK_EQ(0U, (assm.location() - start_addr) % sizeof(Thunk));
+    // Check that there's sufficient room for one more thunk.
+    DCHECK_GE((kNumThunksPerPage - 1) * sizeof(ThunkData),
+              assm.location() - start_addr);
+    // Set data up to point to thunk.
+    data[i].thunk = &new_page->thunks[i];
+
+    // Note that the size of the thunk must match the assembly code below.
+    COMPILE_ASSERT(sizeof(ReturnThunkFactory::Thunk) == 10,
+                   wonky_return_thunk_size);
+
+    // Initialize the thunk itself.
+    assm.push(Immediate(reinterpret_cast<uint32>(&data[i]), kSize32Bit));
+    assm.jmp(Immediate(reinterpret_cast<uint32>(thunk_main_asm), kSize32Bit));
   }
 
   first_free_thunk_ = &new_page->thunks[0];
@@ -169,17 +208,15 @@ ReturnThunkFactory::Thunk* ReturnThunkFactory::LastThunk(Page* page) {
 }
 
 // static
-RetAddr WINAPI ReturnThunkFactory::ThunkMain(Thunk* thunk, uint64 cycles) {
-  DCHECK(*reinterpret_cast<BYTE*>(thunk) == 0xE8);
-
+RetAddr WINAPI ReturnThunkFactory::ThunkMain(ThunkData* data, uint64 cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
-  ReturnThunkFactory* factory = PageFromThunk(thunk)->factory;
-  factory->first_free_thunk_ = thunk;
+  ReturnThunkFactory* factory = PageFromThunk(data->thunk)->factory;
+  factory->first_free_thunk_ = data->thunk;
 
-  factory->delegate_->OnFunctionExit(thunk, cycles);
+  factory->delegate_->OnFunctionExit(data, cycles);
 
-  return thunk->caller;
+  return data->caller;
 }
 
 }  // namespace profiler

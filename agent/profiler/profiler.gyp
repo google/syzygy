@@ -46,6 +46,7 @@
         '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
         '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
       ],

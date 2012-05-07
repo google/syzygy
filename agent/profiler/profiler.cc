@@ -221,7 +221,7 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
 
   // @name ReturnThunkFactory::Delegate implementation.
   // @{
-  virtual void OnFunctionExit(const ReturnThunkFactory::Thunk* thunk,
+  virtual void OnFunctionExit(const ReturnThunkFactory::ThunkData* data,
                               uint64 cycles_exit) OVERRIDE;
   virtual void OnPageAdded(const void* page) OVERRIDE;
   virtual void OnPageRemoved(const void* page) OVERRIDE;
@@ -332,35 +332,37 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   // Record the details of the entry.
   // Note that on tail-recursion and tail-call elimination, the caller recorded
   // here will be a thunk. We cater for this case on exit as best we can.
-  ReturnThunkFactory::Thunk* thunk =
+  ReturnThunkFactory::ThunkData* data =
       thunk_factory_.MakeThunk(entry_frame->retaddr);
-  DCHECK(thunk != NULL);
-  thunk->caller = entry_frame->retaddr;
-  thunk->function = function;
-  thunk->cycles_entry = cycles - cycles_overhead_;
+  DCHECK(data != NULL);
+  data->caller = entry_frame->retaddr;
+  data->function = function;
+  data->cycles_entry = cycles - cycles_overhead_;
 
-  entry_frame->retaddr = thunk;
+  entry_frame->retaddr = data->thunk;
 
   UpdateOverhead(cycles);
 }
 
 void Profiler::ThreadState::OnFunctionExit(
-    const ReturnThunkFactory::Thunk* thunk,
+    const ReturnThunkFactory::ThunkData* data,
     uint64 cycles_exit) {
   // Calculate the number of cycles in the invocation, exclusive our overhead.
-  uint64 cycles_executed = cycles_exit - cycles_overhead_ - thunk->cycles_entry;
+  uint64 cycles_executed = cycles_exit - cycles_overhead_ - data->cycles_entry;
 
-  // See if the return address resolves to a thunk, which indicates
+  // See if the return address resolves to a data, which indicates
   // tail recursion or tail call elimination. In that case we record the
   // calling function as caller, which isn't totally accurate as that'll
   // attribute the cost to the first line of the calling function. In the
   // absence of more information, it's the best we can do, however.
   ReturnThunkFactory::Thunk* ret_thunk =
-      thunk_factory_.CastToThunk(thunk->caller);
+      thunk_factory_.CastToThunk(data->caller);
   if (ret_thunk == NULL) {
-    RecordInvocation(thunk->caller, thunk->function, cycles_executed);
+    RecordInvocation(data->caller, data->function, cycles_executed);
   } else {
-    RecordInvocation(ret_thunk->function, thunk->function, cycles_executed);
+    ReturnThunkFactory::ThunkData* ret_data =
+        ReturnThunkFactory::DataFromThunk(ret_thunk);
+    RecordInvocation(ret_data->function, data->function, cycles_executed);
   }
 
   UpdateOverhead(cycles_exit);
@@ -475,9 +477,12 @@ RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
         reinterpret_cast<ReturnThunkFactory::Thunk*>(
             const_cast<void*>(ret_addr));
 
+    ReturnThunkFactory::ThunkData* data =
+        ReturnThunkFactory::DataFromThunk(thunk);
+
     // Update the PC location and go around again, in case this
     // thunk links to another one.
-    pc_location = &thunk->caller;
+    pc_location = &data->caller;
   }
 }
 
