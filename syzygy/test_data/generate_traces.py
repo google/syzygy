@@ -24,26 +24,63 @@ import glob
 import logging
 import optparse
 import os
+import pywintypes
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import win32api
+import win32con
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
-_BUILD_DIR = 'build_dir'
-_CALL_TRACE_SERVICE = 'call_trace_service'
-_INSTRUMENTED_DLL = 'instrumented_dll'
-_OUTPUT_DIR = 'output_dir'
-_VERBOSE = 'verbose'
-
-
-_INPUTS = { _CALL_TRACE_SERVICE: 'call_trace_service.exe',}
-_INSTRUMENTED_DLL_ENTRY = 'DllMain'
+_CALL_TRACE_SERVICE_EXE = 'call_trace_service.exe'
+_INPUTS = [_CALL_TRACE_SERVICE_EXE]
 _TRACE_FILE_COUNT = 4
+
+
+def _LoadDll(dll_path):
+  """Tries to load, hence initializing, the given DLL.
+
+  Args:
+    dll_path: the path to the DLL to test.
+
+  Returns:
+    True on success, False on failure.
+  """
+  mode = (win32con.SEM_FAILCRITICALERRORS |
+          win32con.SEM_NOALIGNMENTFAULTEXCEPT |
+          win32con.SEM_NOGPFAULTERRORBOX |
+          win32con.SEM_NOOPENFILEERRORBOX)
+  old_mode = win32api.SetErrorMode(mode)
+  try:
+    handle = win32api.LoadLibrary(dll_path)
+    if not handle:
+      return False
+    win32api.FreeLibrary(handle)
+  except pywintypes.error as e:
+    _LOGGER.error('Error: %s', e)
+    return False
+  finally:
+    win32api.SetErrorMode(old_mode)
+  return True
+
+
+def _LoadInstrumentedDllInNewProc(opts):
+  """Loads opts.instrumented_dll in a sub-process using the --load-dll flag.
+
+  Args:
+    opts: the parsed and validated arguments.
+
+  Returns:
+    True on success, False otherwise.
+  """
+  cmd = [sys.executable, __file__, '--build-dir', opts.build_dir,
+         '--instrumented-dll', opts.instrumented_dll, '--load-dll']
+  return not subprocess.call(cmd)
 
 
 def _ParseArgs():
@@ -57,37 +94,47 @@ def _ParseArgs():
                     help='Enable verbose logging.')
   parser.add_option('--build-dir', dest='build_dir',
                     help='The build directory to use.')
-  parser.add_option('--output-dir', dest='output_dir',
-                    help='The output directory to write to.')
   parser.add_option('--instrumented-dll', dest='instrumented_dll',
                     help='The instrumented DLL to use.')
+  parser.add_option('--load-dll', dest='load_dll',
+                    action='store_true', default=False,
+                    help='Attempt to load the given DLL.')
+  parser.add_option('--output-dir', dest='output_dir',
+                    help='The output directory to write to.')
   (opts, args) = parser.parse_args()
-  if not opts.output_dir:
-    parser.error('You must specify --output-dir.')
 
-  opts.output_dir = os.path.abspath(opts.output_dir)
-  if not os.path.isdir(opts.output_dir):
-    parser.error('Output directory does not exist: %s.' % opts.output_dir)
+  if not opts.instrumented_dll:
+    parser.error('You must specify --instrumented-dll.')
+  opts.instrumented_dll = os.path.abspath(opts.instrumented_dll)
+  if not os.path.isfile(opts.instrumented_dll):
+    parser.error('Instrumented DLL does not exist: %s' % opts.instrumented_dll)
 
-  optsdict = {
-      _BUILD_DIR: opts.build_dir,
-      _INSTRUMENTED_DLL: opts.instrumented_dll,
-      _OUTPUT_DIR: opts.output_dir,
-      _VERBOSE: opts.verbose }
+  if not opts.build_dir:
+    parser.error('You must specify --build-dir.')
+  opts.build_dir = os.path.abspath(opts.build_dir)
+  if not os.path.isdir(opts.build_dir):
+    parser.error('Build directory does not exist: %s' % opts.build_dir)
 
-  # Validate that all of the input files exist and get absolute paths to them.
-  for name, path in _INPUTS.iteritems():
-    abs_path = os.path.abspath(os.path.join(opts.build_dir, path))
+  if not opts.load_dll and not opts.output_dir:
+    parser.error('You must specify one of --load-dll or --output-dir.')
+
+  if opts.output_dir:
+    opts.output_dir = os.path.abspath(opts.output_dir)
+    if not os.path.isdir(opts.output_dir):
+      parser.error('Output directory does not exist: %s' % opts.output_dir)
+
+  # Validate that all of the input files exist.
+  for path in _INPUTS:
+    abs_path = os.path.join(opts.build_dir, path)
     if not os.path.isfile(abs_path):
       parser.error('File not found: %s.' % abs_path)
-    optsdict[name] = abs_path
 
   if opts.verbose:
     logging.basicConfig(level=logging.INFO)
   else:
     logging.basicConfig(level=logging.ERROR)
 
-  return optsdict
+  return opts
 
 
 class ScopedTempDir:
@@ -123,11 +170,34 @@ class ScopedTempDir:
     self.Delete()
 
 
-def Main():
-  opts = _ParseArgs()
+def _MainLoadDll(opts):
+  """Main entry point for this script when executed with --load-dll.
 
+  Args:
+    opts: the parsed and validated arguments.
+
+  Returns:
+    0 on success, a non-zero value on failure.
+  """
+  # Put the build directory in the search path so we find export_dll.dll and
+  # the various instrumentation binaries.
+  win32api.SetDllDirectory(opts.build_dir)
+  if _LoadDll(opts.instrumented_dll):
+    return 0
+  return 1
+
+
+def _MainGenerateTraces(opts):
+  """The main entry point for this script when we are generated trace files.
+
+  Args:
+    opts: the parsed and validated arguments.
+
+  Returns:
+    0 on success, a non-zero value on failure.
+  """
   # Ensure the final destination directory exists as a fresh directory.
-  trace_dir = opts[_OUTPUT_DIR]
+  trace_dir = opts.output_dir
   if os.path.exists(trace_dir):
     _LOGGER.info('Deleting existing destination directory "%s".', trace_dir)
     if os.path.isdir(trace_dir):
@@ -141,40 +211,39 @@ def Main():
   # consistent names. We make this as a child directory of the output directory
   # so that it is on the same volume as the final destination.
   temp_trace_dir = ScopedTempDir(prefix='tmp_rpc_traces_',
-                                 dir=opts[_OUTPUT_DIR])
+                                 dir=opts.output_dir)
   _LOGGER.info('Trace files will be written to "%s".', temp_trace_dir.path)
 
   # This is the destination of stdout/stderr for the various commands we run.
   stdout_dst = None
-  if not opts[_VERBOSE]:
+  if not opts.verbose:
     stdout_dst = open(os.devnull, 'wb')
 
   # Start the call trace service as a child process. We sleep after starting
   # it to ensure that it is ready to receive data. If we're not in verbose
   # mode we direct its output to /dev/null.
   _LOGGER.info('Starting the call trace service.')
-  cmd = [opts[_CALL_TRACE_SERVICE], '--verbose',
+  call_trace_service_exe = os.path.join(opts.build_dir, _CALL_TRACE_SERVICE_EXE)
+  cmd = [call_trace_service_exe, '--verbose',
          '--trace-dir=%s' % temp_trace_dir.path, 'start']
   call_trace_service = subprocess.Popen(cmd, stdout=stdout_dst,
                                         stderr=stdout_dst)
   time.sleep(1)
 
   # Invoke the instrumented DLL a few times.
+  load_dll_failed = False
+  dll = opts.instrumented_dll
   for i in range(_TRACE_FILE_COUNT):
-    _LOGGER.info('Loading the instrumented DLL.')
-    cmd = ['rundll32', '%s,%s' % (opts[_INSTRUMENTED_DLL],
-                                  _INSTRUMENTED_DLL_ENTRY)]
-    popen = subprocess.Popen(cmd, cwd=opts[_BUILD_DIR])
-    popen.communicate()
-    if popen.returncode != 0:
-      _LOGGER.error('"%s" returned with an error: %d', cmd[0], open.returncode)
-      return 1
+    _LOGGER.info('Loading the instrumented DLL: %s', dll)
+    if not _LoadInstrumentedDllInNewProc(opts):
+      _LOGGER.error('Failed to load instrumented DLL.')
+      load_dll_failed = True
 
   # Stop the call trace service. We sleep a bit to give time for things to
   # settle down.
   _LOGGER.info('Stopping the call trace service.')
   time.sleep(1)
-  cmd = [opts[_CALL_TRACE_SERVICE], 'stop']
+  cmd = [call_trace_service_exe, 'stop']
   result = subprocess.call(cmd, stdout=stdout_dst, stderr=stdout_dst)
   if result != 0:
     _LOGGER.error('"%s" returned with an error: %d.', cmd[0], result)
@@ -184,7 +253,13 @@ def Main():
   call_trace_service.communicate()
   if call_trace_service.returncode != 0:
     _LOGGER.error('"%s" returned with an error: %d.',
-                  opts[_CALL_TRACE_SERVICE], call_trace_service.returncode)
+                  call_trace_service_exe, call_trace_service.returncode)
+    return 1
+
+  # If the DLL was unable to be loaded, don't bother looking for the trace
+  # files.
+  if load_dll_failed:
+    _LOGGER.error('Failed to load instrumented DLL.')
     return 1
 
   # Iterate through the generated trace files and move them to the final
@@ -203,6 +278,17 @@ def Main():
     return 1
 
   return 0
+
+
+def Main():
+  """Main entry point for the script."""
+  opts = _ParseArgs()
+
+  # If --load-dll is specified, use our alternate main function.
+  if opts.load_dll:
+    return _MainLoadDll(opts)
+
+  return _MainGenerateTraces(opts)
 
 
 if __name__ == '__main__':
