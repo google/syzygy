@@ -62,6 +62,9 @@ bool PdbByteStream::Init(PdbStream* stream) {
   set_length(stream->length());
   data_.resize(length());
 
+  if (data_.size() == 0)
+    return true;
+
   // Read the file stream.
   if (!stream->Seek(0)) {
     LOG(ERROR) << "Failed to seek in pdb stream.";

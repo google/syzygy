@@ -26,7 +26,7 @@ struct PdbInfoHeader70 {
   // Equal to kPdbCurrentVersion for PDBs seen from VS 9.0.
   uint32 version;
   // This looks to be the time of the PDB file creation.
-  uint32 timetamp;
+  uint32 timestamp;
   // Updated every time the PDB file is written.
   uint32 pdb_age;
   // This must match the GUID stored off the image's debug directory.

@@ -93,6 +93,8 @@ bool PdbWriter::Write(const FilePath& pdb_path, const PdbFile& pdb_file) {
   if (!WriteHeader(total_bytes, dir_size, dir_root_size, dir_root_page))
     return false;
 
+  // On success we want the file to be closed right away.
+  file_.reset();
   return true;
 }
 
