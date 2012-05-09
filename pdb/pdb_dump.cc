@@ -236,7 +236,7 @@ void PdbDumpApp::DumpInfoStream(const PdbInfoHeader70& info,
                                 const NameStreamMap& name_streams) {
   ::fprintf(out(), "PDB Header Info:\n");
   ::fprintf(out(), "\tversion: %d\n", info.version);
-  ::fprintf(out(), "\ttimetamp: %d\n", info.timetamp);
+  ::fprintf(out(), "\ttimestamp: %d\n", info.timestamp);
   ::fprintf(out(), "\tpdb_age: %d\n", info.pdb_age);
   ::fprintf(out(), "\tsignature: %d\n", info.signature);
 

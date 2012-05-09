@@ -46,6 +46,85 @@ bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
   return read;
 }
 
+// Sets the stream associated with a given entry in the DBI DBG header.
+// Gets the index at position @p index_offset of the DBI DBG header. If invalid,
+// adds a new stream to the PDB and updates the index to point to it. If a valid
+// stream already exists, replaces it with the new @p stream.
+// @param index_offset the offset of the int16 stream index within the DBI DBG
+//     header.
+// @param stream the stream to be associated with the given DBI DBG entry.
+// @param pdb_file the PDB file to be updated.
+bool SetDbiDbgStream(size_t index_offset,
+                     PdbStream* stream,
+                     PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  if (!EnsureStreamWritable(kDbiStream, pdb_file)) {
+    LOG(ERROR) << "Failed to make DBI stream writable.";
+    return false;
+  }
+
+  scoped_refptr<PdbStream> dbi_reader(pdb_file->GetStream(kDbiStream));
+  scoped_refptr<WritablePdbStream> dbi_writer(
+      dbi_reader->GetWritablePdbStream());
+  DCHECK(dbi_writer.get() != NULL);
+
+  // Read the DBI header.
+  DbiHeader dbi_header = {};
+  if (!dbi_reader->Seek(0) || !dbi_reader->Read(&dbi_header, 1)) {
+    LOG(ERROR) << "Failed to read DBI header.";
+    return false;
+  }
+
+  // Get the stream index at the provided offset.
+  uint32 dbi_dbg_offset = GetDbiDbgHeaderOffset(dbi_header);
+  int16 existing_index = -1;
+  if (!dbi_reader->Seek(dbi_dbg_offset + index_offset) ||
+      !dbi_reader->Read(&existing_index, 1)) {
+    LOG(ERROR) << "Failed to read stream index at offset " << dbi_dbg_offset
+               << " of DBI DBG header.";
+    return false;
+  }
+
+  // If the stream is an invalid index, we create a new one.
+  int16 new_index = existing_index;
+  if (existing_index < 0 ||
+      existing_index >= static_cast<int16>(pdb_file->StreamCount())) {
+    new_index = static_cast<int16>(pdb_file->AppendStream(stream));
+  } else {
+    pdb_file->ReplaceStream(new_index, stream);
+  }
+
+  // Update the index in the header if we need to.
+  if (new_index != existing_index) {
+    dbi_writer->set_pos(dbi_dbg_offset + index_offset);
+    if (!dbi_writer->Write(new_index)) {
+      LOG(ERROR) << "Failed to write stream index at offset " << dbi_dbg_offset
+                 << " of DBI DBG header.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool SetOmapStream(size_t dbi_dbg_index_offset,
+                   const std::vector<OMAP>& omap_list,
+                   PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  scoped_refptr<PdbByteStream> stream = new PdbByteStream();
+  if (!omap_list.empty()) {
+    if (!stream->Init(reinterpret_cast<const uint8*>(&omap_list.at(0)),
+                      omap_list.size() * sizeof(OMAP))) {
+      LOG(ERROR) << "Failed to initialize OMAP stream.";
+      return false;
+    }
+  }
+
+  return SetDbiDbgStream(dbi_dbg_index_offset, stream.get(), pdb_file);
+}
+
 }  // namespace
 
 bool PdbBitSet::Read(PdbStream* stream) {
@@ -127,12 +206,99 @@ uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
   return offset;
 }
 
+bool EnsureStreamWritable(uint32 index, PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  // Bail if the index is to a non-existent stream.
+  if (index >= pdb_file->StreamCount()) {
+    LOG(ERROR) << "Invalid PDB stream index.";
+    return false;
+  }
+
+  // Get the reader. If it doesn't actually exist, create a new one.
+  scoped_refptr<PdbStream> reader(pdb_file->GetStream(index));
+  if (reader.get() == NULL)
+    reader = new PdbByteStream();
+
+  // Try and get a writer.
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  if (writer.get() == NULL) {
+    // If not possible, copy the existing reader to a PdbByteStream which will
+    // be able to give us a writer.
+    scoped_refptr<PdbByteStream> new_stream = new PdbByteStream();
+    if (!new_stream->Init(reader.get())) {
+      LOG(ERROR) << "Failed to initialize writable stream.";
+      return false;
+    }
+    reader = new_stream.get();
+  }
+
+  DCHECK(reader->GetWritablePdbStream() != NULL);
+
+  // Be sure to replace the stream at this index with the new one. This is a
+  // no-op if the stream hasn't changed.
+  pdb_file->ReplaceStream(index, reader.get());
+
+  return true;
+}
+
+bool SetOmapToStream(const std::vector<OMAP>& omap_to_list,
+                     PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+  return SetOmapStream(offsetof(DbiDbgHeader, omap_to_src),
+                       omap_to_list,
+                       pdb_file);
+}
+
+bool SetOmapFromStream(const std::vector<OMAP>& omap_from_list,
+                       PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+  return SetOmapStream(offsetof(DbiDbgHeader, omap_from_src),
+                       omap_from_list,
+                       pdb_file);
+}
+
+bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  if (!EnsureStreamWritable(kPdbHeaderInfoStream, pdb_file)) {
+    LOG(ERROR) << "Failed to make PDB Header Info stream writable.";
+    return false;
+  }
+
+  // Get the reader and writer for the header info stream.
+  scoped_refptr<PdbStream> reader(pdb_file->GetStream(kPdbHeaderInfoStream));
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  DCHECK(writer.get() != NULL);
+
+  // Read the header.
+  PdbInfoHeader70 info_header = {};
+  if (!reader->Seek(0) || !reader->Read(&info_header, 1)) {
+    LOG(ERROR) << "Failed to read PdbInfoHeader70.";
+    return false;
+  }
+
+  // Update it.
+  info_header.timestamp = static_cast<uint32>(time(NULL));
+  info_header.pdb_age = 1;  // Reset age to 1, as this is a new generation.
+  info_header.signature = guid;
+
+  // And write it back.
+  writer->set_pos(0);
+  if (!writer->Write(info_header)) {
+    LOG(ERROR) << "Failed to write PdbInfoHeader70.";
+    return false;
+  }
+
+  return true;
+}
+
 bool AddOmapStreamToPdbFile(const FilePath& input_file,
                             const FilePath& output_file,
                             const GUID& output_guid,
                             const std::vector<OMAP>& omap_to_list,
                             const std::vector<OMAP>& omap_from_list) {
-  // Read the input Pdb's streams.
+  // Read the input PDB's streams.
   PdbReader reader;
   PdbFile pdb_file;
   if (!reader.Read(input_file, &pdb_file)) {
@@ -140,97 +306,18 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
     return false;
   }
 
-  // TODO(chrisha): Once the WritablePdbStream interface is in place,
-  //     make a PdbFile::MakeStreamWritable member function that will ensure
-  //     a stream is in a writable format (in memory). Copying and transfer
-  //     of ownership will disappear as the streams are made reference counted.
-
-  // Copy the Dbi stream into memory and overwrite it in the stream list.
-  scoped_refptr<PdbByteStream> new_dbi_stream(new PdbByteStream);
-  PdbByteStream* dbi_stream = new_dbi_stream.get();
-  if (pdb_file.StreamCount() <= kDbiStream ||
-      !dbi_stream->Init(pdb_file.GetStream(kDbiStream))) {
-    LOG(ERROR) << "Failed to initialize Dbi byte stream";
+  // Update it.
+  if (!SetGuid(output_guid, &pdb_file)) {
+    LOG(ERROR) << "Failed to set GUID.";
     return false;
   }
-
-  // We explicitly transfer ownership to the PDB file.
-  pdb_file.ReplaceStream(kDbiStream, new_dbi_stream.release());
-
-  // Copy the Pdb header info stream into memory and adjust the header info.
-  scoped_refptr<PdbByteStream> new_pdb_info_stream(new PdbByteStream);
-  PdbByteStream* pdb_info_stream = new_pdb_info_stream.get();
-  if (pdb_file.StreamCount() <= kPdbHeaderInfoStream ||
-      !pdb_info_stream->Init(pdb_file.GetStream(kPdbHeaderInfoStream))) {
-    LOG(ERROR) << "Failed to initialize Pdb info byte stream";
+  if (!SetOmapToStream(omap_to_list, &pdb_file)) {
+    LOG(ERROR) << "Failed to set OMAP_TO stream.";
     return false;
   }
-
-  if (pdb_info_stream->length() < sizeof(PdbInfoHeader70)) {
-    LOG(ERROR) << "Pdb info stream too short";
+  if (!SetOmapFromStream(omap_from_list, &pdb_file)) {
+    LOG(ERROR) << "Failed to set OMAP_FROM stream.";
     return false;
-  }
-
-  PdbInfoHeader70* info_header =
-      reinterpret_cast<PdbInfoHeader70*>(pdb_info_stream->data());
-  info_header->timetamp = static_cast<uint32>(time(NULL));
-  // Reset age to 1, as this is a new generation.
-  info_header->pdb_age = 1;
-  info_header->signature = output_guid;
-
-  // We explicitly transfer ownership to the PDB file.
-  pdb_file.ReplaceStream(kPdbHeaderInfoStream, new_pdb_info_stream.release());
-
-  // Read the Dbi header.
-  DbiHeader dbi_header;
-  if (dbi_stream->Read(&dbi_header, 1) != 1) {
-    LOG(ERROR) << "Failed to read Dbi header";
-    return false;
-  }
-
-  // Point the Dbi debug header into the existing byte stream.
-  BinaryBufferParser parser(dbi_stream->data(), dbi_stream->length());
-  uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
-  DbiDbgHeader* dbi_dbg_header;
-  if (!parser.GetAt(offset,
-                    const_cast<const DbiDbgHeader**>(&dbi_dbg_header))) {
-    LOG(ERROR) << "Failed to get Dbi dbg header stream pointer";
-  }
-
-  // Create the Omap to stream.
-  scoped_refptr<PdbByteStream> omap_to_stream(new PdbByteStream);
-  if (!omap_to_stream->Init(
-      reinterpret_cast<const uint8*>(&omap_to_list.at(0)),
-      omap_to_list.size() * sizeof(OMAP))) {
-    LOG(ERROR) << "Failed to initialize Omap to byte stream";
-    return false;
-  }
-  // Add the new stream and update the Dbi debug header, or overwrite the stream
-  // it if it already exists.
-  if (dbi_dbg_header->omap_to_src == -1) {
-    size_t omap_to_index = pdb_file.AppendStream(omap_to_stream.release());
-    dbi_dbg_header->omap_to_src = omap_to_index;
-  } else {
-    pdb_file.ReplaceStream(dbi_dbg_header->omap_to_src,
-                           omap_to_stream.release());
-  }
-
-  // Create the Omap from stream.
-  scoped_refptr<PdbByteStream> omap_from_stream(new PdbByteStream);
-  if (!omap_from_stream->Init(
-      reinterpret_cast<const uint8*>(&omap_from_list.at(0)),
-      omap_from_list.size() * sizeof(OMAP))) {
-    LOG(ERROR) << "Failed to initialize Omap to byte stream";
-    return false;
-  }
-  // Add the new stream and update the Dbi debug header, or overwrite the stream
-  // it if it already exists.
-  if (dbi_dbg_header->omap_from_src == -1) {
-    size_t omap_from_index = pdb_file.AppendStream(omap_from_stream.release());
-    dbi_dbg_header->omap_from_src = omap_from_index;
-  } else {
-    pdb_file.ReplaceStream(dbi_dbg_header->omap_from_src,
-                           omap_from_stream.release());
   }
 
   // Write the new Pdb file.

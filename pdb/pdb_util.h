@@ -26,6 +26,7 @@
 namespace pdb {
 
 // Forward declare.
+class PdbFile;
 class PdbStream;
 class WritablePdbStream;
 
@@ -74,12 +75,48 @@ class PdbBitSet {
 // Get the DbiDbgHeader offset within the Dbi info stream. For some reason,
 // the EC info data comes before the Dbi debug header despite that the Dbi
 // debug header size comes before the EC info size in the Dbi header struct.
+// @param dbi_header the DBI header.
+// @returns the offset in the DBI stream of the DbiDbgHeader, in bytes.
 uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header);
+
+// Ensures that the given stream in a PdbFile is writable.
+// @param index the index of the stream to make writable.
+// @param pdb_file the PdbFile containing the stream.
+// @returns true on success, false otherwise.
+bool EnsureStreamWritable(uint32 index, PdbFile* pdb_file);
+
+// Sets the OMAP_TO stream in the in-memory representation of a PDB file,
+// creating one if none exists.
+// @param omap_to_list the list of OMAP_TO entries.
+// @param pdb_file the PdbFile to be modified.
+// @returns true on success, false otherwise.
+bool SetOmapToStream(const std::vector<OMAP>& omap_to_list,
+                     PdbFile* pdb_file);
+
+// Sets the OMAP_FROM stream in the in-memory representation of a PDB file,
+// creating one if none exists.
+// @param omap_from_list the list of OMAP_FROM entries.
+// @param pdb_file the PdbFile to be modified.
+// @returns true on success, false otherwise.
+bool SetOmapFromStream(const std::vector<OMAP>& omap_from_list,
+                       PdbFile* pdb_file);
+
+// Sets the GUID in a PDB file, resetting its age and timestamp as well.
+// @param guid the new GUID for the PDB.
+// @param pdb_file the PdbFile to be modified.
+// @returns true on success, false otherwise.
+bool SetGuid(const GUID& guid, PdbFile* pdb_file);
 
 // Add Omap stream data to an existing Pdb file and write it as a new Pdb file,
 // while updating the Pdb header to a new GUID and timestamp.
 // The Omap vector arguments must already be sorted in ascending order by rva.
+// @note input_file and output_file must not be the same file.
+// @param input_file the input PDB file.
+// @param output_file the output PDB file.
 // @param output_guid a new GUID to assign to the output_file.
+// @param omap_to_list the list of OMAP_TO entries.
+// @param omap_from_list the list of OMAP_FROM entries.
+// @returns true on success, false otherwise.
 bool AddOmapStreamToPdbFile(const FilePath& input_file,
                             const FilePath& output_file,
                             const GUID& output_guid,
@@ -89,6 +126,7 @@ bool AddOmapStreamToPdbFile(const FilePath& input_file,
 // Reads the header from the given PDB file @p pdb_path.
 // @param pdb_path the path to the PDB whose header is to be read.
 // @param pdb_header the header to be filled in.
+// @returns true on success, false otherwise.
 bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header);
 
 // Reads the header info from the given PDB stream.

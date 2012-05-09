@@ -24,6 +24,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pdb/unittest_util.h"
 #include "syzygy/pe/pe_data.h"
 
@@ -34,11 +35,26 @@ namespace {
 const wchar_t* kTempPdbFileName = L"temp.pdb";
 const wchar_t* kTempPdbFileName2 = L"temp2.pdb";
 
+const GUID kSampleGuid = {0xACDC900D, 0x9009, 0xFEED, {7, 6, 5, 4, 3, 2, 1, 0}};
+
 const PdbInfoHeader70 kSamplePdbHeader = {
   kPdbCurrentVersion,
   1336402486,  // 7 May 2012, 14:54:00 GMT.
   0,
   {0xDEADBEEF, 0x900D, 0xF00D, {0, 1, 2, 3, 4, 5, 6, 7}}
+};
+
+const OMAP kOmapToData[] = {
+  {4096, 4096},
+  {5012, 5012},
+  {6064, 6064},
+  {7048, 240504}
+};
+
+const OMAP kOmapFromData[] = {
+  {4096, 4096},
+  {5012, 5012},
+  {240504, 7048}
 };
 
 class PdbUtilTest : public testing::Test {
@@ -64,9 +80,8 @@ class PdbUtilTest : public testing::Test {
     file_util::Delete(temp_pdb_file_path2_, false);
   }
 
-  void VerifyOmapData(const FilePath& pdb_path,
-                      const std::vector<OMAP>& omap_to_list,
-                      const std::vector<OMAP>& omap_from_list) {
+  void VerifyGuidData(const FilePath& pdb_path,
+                      const GUID& guid) {
     DWORD64 base_address =
         ::SymLoadModuleExW(process_,
                            NULL,
@@ -83,11 +98,28 @@ class PdbUtilTest : public testing::Test {
     EXPECT_TRUE(::SymGetModuleInfoW64(process_, base_address, &module_info));
     EXPECT_EQ(new_guid_, module_info.PdbSig70);
 
+    EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
+  }
+
+  void VerifyOmapData(const FilePath& pdb_path,
+                      const std::vector<OMAP>& omap_to_list,
+                      const std::vector<OMAP>& omap_from_list) {
+    DWORD64 base_address =
+        ::SymLoadModuleExW(process_,
+                           NULL,
+                           pdb_path.value().c_str(),
+                           NULL,
+                           1,
+                           1,
+                           NULL,
+                           0);
+    ASSERT_NE(0, base_address);
+
     OMAP* omap_to = NULL;
     DWORD64 omap_to_length = 0;
     OMAP* omap_from = NULL;
     DWORD64 omap_from_length = 0;
-    EXPECT_TRUE(::SymGetOmaps(process_,
+    ASSERT_TRUE(::SymGetOmaps(process_,
                               base_address,
                               &omap_to,
                               &omap_to_length,
@@ -309,24 +341,38 @@ TEST_F(PdbUtilTest, TestDllHasNoOmap) {
   EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
 }
 
+TEST_F(PdbUtilTest, SetOmapToAndFromStream) {
+  // Add Omap information to test_dll.pdb and test that the output file
+  // has Omap information.
+  std::vector<OMAP> omap_to_list(kOmapToData,
+                                 kOmapToData + arraysize(kOmapToData));
+  std::vector<OMAP> omap_from_list(kOmapFromData,
+                                   kOmapFromData + arraysize(kOmapFromData));
+
+  FilePath test_pdb_file_path = testing::GetSrcRelativePath(
+      testing::kTestPdbFilePath);
+  PdbReader pdb_reader;
+  PdbFile pdb_file;
+  ASSERT_TRUE(pdb_reader.Read(test_pdb_file_path, &pdb_file));
+
+  EXPECT_TRUE(SetOmapToStream(omap_to_list, &pdb_file));
+  EXPECT_TRUE(SetOmapFromStream(omap_from_list, &pdb_file));
+
+  PdbWriter pdb_writer;
+  ASSERT_TRUE(pdb_writer.Write(temp_pdb_file_path_, pdb_file));
+
+  VerifyOmapData(temp_pdb_file_path_,
+                 omap_to_list,
+                 omap_from_list);
+}
+
 TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
   // Add Omap information to test_dll.pdb and test that the output file
   // has Omap information.
-  OMAP omap_to_data[] = {
-    {4096, 4096},
-    {5012, 5012},
-    {6064, 6064},
-    {7048, 240504}
-  };
-  std::vector<OMAP> omap_to_list(omap_to_data,
-                                 omap_to_data + arraysize(omap_to_data));
-  OMAP omap_from_data[] = {
-    {4096, 4096},
-    {5012, 5012},
-    {240504, 7048}
-  };
-  std::vector<OMAP> omap_from_list(omap_from_data,
-                                   omap_from_data + arraysize(omap_from_data));
+  std::vector<OMAP> omap_to_list(kOmapToData,
+                                 kOmapToData + arraysize(kOmapToData));
+  std::vector<OMAP> omap_from_list(kOmapFromData,
+                                   kOmapFromData + arraysize(kOmapFromData));
 
   FilePath test_pdb_file_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
@@ -336,6 +382,7 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
                                      omap_to_list,
                                      omap_from_list));
 
+  VerifyGuidData(temp_pdb_file_path_, new_guid_);
   VerifyOmapData(temp_pdb_file_path_,
                  omap_to_list,
                  omap_from_list);
@@ -344,21 +391,10 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
 TEST_F(PdbUtilTest, AddOmapStreamToPdbFileWithOmap) {
   // Add Omap information to test_dll.pdb and test that the output file
   // has Omap information.
-  OMAP omap_to_data[] = {
-    {4096, 4096},
-    {5012, 5012},
-    {6064, 6064},
-    {7048, 240504}
-  };
-  std::vector<OMAP> omap_to_list(omap_to_data,
-                                 omap_to_data + arraysize(omap_to_data));
-  OMAP omap_from_data[] = {
-    {4096, 4096},
-    {5012, 5012},
-    {240504, 7048}
-  };
-  std::vector<OMAP> omap_from_list(omap_from_data,
-                                   omap_from_data + arraysize(omap_from_data));
+  std::vector<OMAP> omap_to_list(kOmapToData,
+                                 kOmapToData + arraysize(kOmapToData));
+  std::vector<OMAP> omap_from_list(kOmapFromData,
+                                   kOmapFromData + arraysize(kOmapFromData));
 
   FilePath test_pdb_file_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
@@ -376,6 +412,7 @@ TEST_F(PdbUtilTest, AddOmapStreamToPdbFileWithOmap) {
                                      omap_to_list,
                                      omap_from_list));
 
+  VerifyGuidData(temp_pdb_file_path2_, new_guid_);
   VerifyOmapData(temp_pdb_file_path2_,
                  omap_to_list,
                  omap_from_list);
@@ -445,6 +482,83 @@ TEST(ReadHeaderInfoStreamTest, ReadEmptyStream) {
   PdbInfoHeader70 pdb_header = {0};
   NameStreamMap name_stream_map;
   EXPECT_FALSE(ReadHeaderInfoStream(stream, &pdb_header, &name_stream_map));
+}
+
+TEST(EnsureStreamWritableTest, DoesNothingWhenAlreadyWritable) {
+  PdbFile pdb_file;
+  scoped_refptr<PdbStream> stream = new PdbByteStream();
+  size_t index = pdb_file.AppendStream(stream.get());
+  EXPECT_TRUE(EnsureStreamWritable(index, &pdb_file));
+  scoped_refptr<PdbStream> stream2 = pdb_file.GetStream(index);
+  EXPECT_EQ(stream.get(), stream2.get());
+}
+
+TEST(EnsureStreamWritableTest, WorksWhenReadOnly) {
+  PdbFile pdb_file;
+  scoped_refptr<PdbStream> stream = new TestPdbStream();
+  size_t index = pdb_file.AppendStream(stream.get());
+  EXPECT_TRUE(EnsureStreamWritable(index, &pdb_file));
+  scoped_refptr<PdbStream> stream2 = pdb_file.GetStream(index);
+  EXPECT_TRUE(stream2.get() != NULL);
+  EXPECT_NE(stream.get(), stream2.get());
+  EXPECT_TRUE(stream2->GetWritablePdbStream() != NULL);
+}
+
+TEST(EnsureStreamWritableTest, FailsWhenNonExistent) {
+  PdbFile pdb_file;
+  EXPECT_FALSE(EnsureStreamWritable(45, &pdb_file));
+}
+
+TEST(SetGuidTest, FailsWhenStreamDoesNotExist) {
+  PdbFile pdb_file;
+  EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
+}
+
+TEST(SetGuidTest, FailsWhenStreamIsTooShort) {
+  PdbFile pdb_file;
+
+  const uint8 kByte = 6;
+  scoped_refptr<PdbStream> short_stream(new TestPdbStream(kByte));
+  for (size_t i = 0; i <= kPdbHeaderInfoStream; ++i) {
+    pdb_file.AppendStream(short_stream);
+  }
+
+  scoped_refptr<PdbStream> header_stream =
+      pdb_file.GetStream(kPdbHeaderInfoStream);
+  ASSERT_TRUE(header_stream.get() != NULL);
+  ASSERT_LT(header_stream->length(), sizeof(PdbInfoHeader70));
+
+  EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
+}
+
+TEST(SetGuidTest, Succeeds) {
+  PdbFile pdb_file;
+
+  scoped_refptr<PdbStream> stream(new TestPdbStream(kSamplePdbHeader));
+  for (size_t i = 0; i <= kPdbHeaderInfoStream; ++i) {
+    pdb_file.AppendStream(stream);
+  }
+
+  scoped_refptr<PdbStream> header_stream =
+      pdb_file.GetStream(kPdbHeaderInfoStream);
+  ASSERT_TRUE(header_stream.get() != NULL);
+  ASSERT_EQ(header_stream->length(), sizeof(PdbInfoHeader70));
+
+  uint32 time1 = static_cast<uint32>(time(NULL));
+  EXPECT_TRUE(SetGuid(kSampleGuid, &pdb_file));
+  uint32 time2 = static_cast<uint32>(time(NULL));
+
+  // Read the new header.
+  PdbInfoHeader70 header = {};
+  header_stream = pdb_file.GetStream(kPdbHeaderInfoStream);
+  EXPECT_TRUE(header_stream->Seek(0));
+  EXPECT_TRUE(header_stream->Read(&header, 1));
+
+  // Validate that the fields are as expected.
+  EXPECT_LE(time1, header.timestamp);
+  EXPECT_LE(header.timestamp, time2);
+  EXPECT_EQ(1u, header.pdb_age);
+  EXPECT_EQ(kSampleGuid, header.signature);
 }
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
