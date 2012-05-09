@@ -16,16 +16,19 @@
 
 #include "base/file_util.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
+#include "syzygy/pdb/pdb_file.h"
+#include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
+#include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/image_source_map.h"
-#include "syzygy/pe/orderers/pe_orderer.h"
+#include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
-#include "syzygy/pe/pdb_info.h"
+#include "syzygy/pe/orderers/pe_orderer.h"
 #include "syzygy/pe/transforms/add_metadata_transform.h"
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
 #include "syzygy/pe/transforms/prepare_headers_transform.h"
@@ -41,6 +44,7 @@ using block_graph::ApplyTransform;
 using block_graph::BlockGraph;
 using block_graph::OrderedBlockGraph;
 using core::RelativeAddress;
+using pdb::PdbFile;
 
 void GetOmapRange(const std::vector<ImageLayout::SectionInfo>& sections,
                   RelativeAddressRange* range) {
@@ -322,16 +326,37 @@ void BuildOmapVectors(const RelativeAddressRange& input_range,
   BuildOmapVectorFromImageSourceMap(input_range, forward_map, omap_from);
 }
 
-// Write the PDB file. We take the pains to go through a temporary file so as
-// to support rewriting an existing file.
-bool WritePdbFile(const RelativeAddressRange input_range,
-                  const ImageLayout& image_layout,
-                  const GUID& guid,
-                  const FilePath& input_pdb_path,
-                  const FilePath& output_pdb_path) {
+// Updates the OMAP and GUID info in the given PDB file.
+bool SetOmapAndGuid(const RelativeAddressRange input_range,
+                    const ImageLayout& image_layout,
+                    const GUID& guid,
+                    PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  LOG(INFO) << "Updating OMAP and GUID information.";
+
   std::vector<OMAP> omap_to, omap_from;
   BuildOmapVectors(input_range, image_layout, &omap_to, &omap_from);
 
+  if (!pdb::SetGuid(guid, pdb_file)) {
+    LOG(ERROR) << "Unable to set PDB GUID.";
+    return false;
+  }
+
+  if (!pdb::SetOmapToStream(omap_to, pdb_file)) {
+    LOG(ERROR) << "Unable to set OMAP_TO.";
+    return false;
+  }
+
+  if (!pdb::SetOmapFromStream(omap_from, pdb_file)) {
+    LOG(ERROR) << "Unable to set OMAP_FROM.";
+    return false;
+  }
+
+  return true;
+}
+
+bool WritePdbFile(const FilePath& output_pdb_path, const PdbFile& pdb_file) {
   LOG(INFO) << "Writing PDB file: " << output_pdb_path.value();
 
   FilePath temp_pdb;
@@ -341,18 +366,14 @@ bool WritePdbFile(const RelativeAddressRange input_range,
     return false;
   }
 
-  if (!pdb::AddOmapStreamToPdbFile(input_pdb_path,
-                                   temp_pdb,
-                                   guid,
-                                   omap_to,
-                                   omap_from)) {
-    LOG(ERROR) << "Unable to add OMAP data to PDB.";
-    file_util::Delete(temp_pdb, false);
-    return false;
+  pdb::PdbWriter pdb_writer;
+  if (!pdb_writer.Write(temp_pdb, pdb_file)) {
+    LOG(ERROR) << "Failed to write temporary PDB file to \""
+               << temp_pdb.value() << "\".";
   }
 
   if (!file_util::ReplaceFile(temp_pdb, output_pdb_path)) {
-    LOG(ERROR) << "Unable to write PDB file to \""
+    LOG(ERROR) << "Unable to move temporary PDB file to \""
         << output_pdb_path.value() << "\".";
     file_util::Delete(temp_pdb, false);
     return false;
@@ -453,15 +474,29 @@ bool PERelinker::Relink() {
   if (!WriteImage(output_image_layout, output_path_))
     return false;
 
-  // Get the input range of the image. This is needed for writing the OMAPs.
-  RelativeAddressRange input_range;
-  GetOmapRange(input_image_layout_.sections, &input_range);
-
-  // Write the PDB file.
-  if (!WritePdbFile(input_range, output_image_layout, output_guid_,
-                    input_pdb_path_, output_pdb_path_)) {
+  // Read the PDB file.
+  LOG(INFO) << "Reading PDB file: " << input_pdb_path_.value();
+  pdb::PdbReader pdb_reader;
+  PdbFile pdb_file;
+  if (!pdb_reader.Read(input_pdb_path_, &pdb_file)) {
+    LOG(ERROR) << "Unable to read PDB file: " << input_pdb_path_.value();
     return false;
   }
+
+  // Update the OMAP and GUID information.
+  RelativeAddressRange input_range;
+  GetOmapRange(input_image_layout_.sections, &input_range);
+  if (!SetOmapAndGuid(input_range, output_image_layout, output_guid_,
+                      &pdb_file)) {
+    return false;
+  }
+
+  // TODO(chrisha): Add named streams to support round-trip decomposition!
+
+  // Write the PDB file. We use a helper function that first writes it to a
+  // temporary file and then moves it, enabling overwrites.
+  if (!WritePdbFile(output_pdb_path_, pdb_file))
+    return false;
 
   return true;
 }
