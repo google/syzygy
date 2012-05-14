@@ -94,9 +94,23 @@ class BlockGraph {
     BLOCK_TYPE_MAX
   };
 
-  // A list of printable names corresponding to block types. This needs to
-  // be kept in sync with the BlockType enum!
-  static const char* kBlockType[];
+  static const char* BlockTypeToString(BlockType type);
+
+  enum LabelType {
+    LABEL_TYPE_UNKNOWN,
+    CODE_LABEL,
+    DATA_LABEL,
+    DEBUG_START_LABEL,
+    DEBUG_END_LABEL,
+    SCOPE_START_LABEL,
+    SCOPE_END_LABEL,  // TODO(rogerm): Infer these from block length.
+    PADDING_LABEL,
+
+    // Note: This must always be last.
+    LABEL_TYPE_MAX
+  };
+
+  static const char* LabelTypeToString(LabelType type);
 
   enum ReferenceType {
     PC_RELATIVE_REF,
@@ -104,9 +118,12 @@ class BlockGraph {
     RELATIVE_REF,
     FILE_OFFSET_REF,
   };
-  class Block;
-  class Reference;
+
+  // Forward declarations;
   class AddressSpace;
+  class Block;
+  class Label;
+  class Reference;
 
   // The block map contains all blocks, indexed by id.
   typedef std::map<BlockId, Block> BlockMap;
@@ -319,6 +336,56 @@ struct BlockGraph::Section {
   uint32 characteristics_;
 };
 
+// A label denotes the beginning (or end) of a sub-region within a (code)
+// block. In particular, a code label represents an instruction boundary
+// at which disassembly can begin and a data label represents the beginning
+// of embedded data.
+class BlockGraph::Label {
+ public:
+  // Default constructor.
+  Label() : type_(LABEL_TYPE_UNKNOWN) {
+  }
+
+  // Full constructor.
+  Label(const base::StringPiece& name, LabelType type)
+      : name_(name.begin(), name.end()), type_(type) {
+    DCHECK(!name.empty());
+    DCHECK_LE(LABEL_TYPE_UNKNOWN, type);
+    DCHECK_GT(LABEL_TYPE_MAX, type);
+  }
+
+  // @name Accessors.
+  // @{
+  const std::string& name() const { return name_; }
+  LabelType type() const { return type_; }
+  // @}
+
+  // Change a label's type.
+  void set_type(LabelType new_type) { type_ = new_type; }
+
+  // A helper function for logging and debugging.
+  std::string ToString() const;
+
+  // @name Persistence functions.
+  // @{
+  bool Save(OutArchive* out_archive) const;
+  bool Load(InArchive* in_archive);
+  // @}
+
+  // Equality comparator for unittesting.
+  bool operator==(const Label& other) const {
+    return name_ == other.name_ && type_ == other.type_;
+  }
+
+ private:
+  // The name by which this label is known.
+  std::string name_;
+
+  // The disposition of the bytes found at this label.
+  LabelType type_;
+};
+
+
 // A block represents a block of either code or data.
 //
 // Since blocks may be split and up and glued together in arbitrary ways, each
@@ -353,9 +420,13 @@ class BlockGraph::Block {
   // A map between bytes in this block and bytes in the original image.
   typedef core::AddressRangeMap<DataRange, SourceRange> SourceRanges;
 
-  // Labels associated with data in this block. These are mainly kept around
-  // as an aid to debugging.
-  typedef std::map<Offset, std::string> LabelMap;
+  // Typed labels associated with various offsets in the block. Some of these
+  // labels (of type CODE_LABEL) represent code start points for disassembly
+  // while others (of type DATA_LABEL) represent the start of embedded data
+  // within the block. Note that, while possible, it is NOT guaranteed that
+  // all basic blocks are marked with a label. Basic block decomposition should
+  // dissassemble from the code labels to discover all basic blocks.
+  typedef std::map<Offset, Label> LabelMap;
 
   // Blocks need to be default constructible for serialization.
   Block();
@@ -515,16 +586,22 @@ class BlockGraph::Block {
   // of the jump destinations.
   // @param offset the offset of the label to set.
   // @param name the name of the label.
+  // @param type the type of the label.
   // @returns true iff a new label is inserted.
   // @note that only one label can exist at each offset, and the first
   //     label set at any offset will stay there.
-  bool SetLabel(Offset offset, const base::StringPiece& name);
+  // @{
+  bool SetLabel(Offset offset, const Label& label);
+  bool SetLabel(Offset offset, const base::StringPiece& name, LabelType type) {
+    return SetLabel(offset, Label(name, type));
+  }
+  // @}
 
   // Gets the label at the given @p offset.
   // @param offset the offset of the label to get.
   // @param label the string to receive the label.
   // @return true if the label exists, false otherwise.
-  bool GetLabel(Offset offset, std::string* label) const;
+  bool GetLabel(Offset offset, Label* label) const;
 
   // Removes the label at the given @p offset.
   // @param offset the offset of the label to remove.

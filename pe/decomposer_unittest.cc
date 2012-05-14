@@ -14,6 +14,8 @@
 
 #include "syzygy/pe/decomposer.h"
 
+#include <set>
+
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
@@ -231,6 +233,58 @@ TEST_F(DecomposerTest, BasicBlockDecompose) {
   ASSERT_TRUE(decomposer.BasicBlockDecompose(image_layout, &breakdown));
   ASSERT_TRUE(breakdown.basic_block_address_space.begin() !=
       breakdown.basic_block_address_space.end());
+}
+
+TEST_F(DecomposerTest, Labels) {
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  // Decompose the test image and look at the result.
+  Decomposer decomposer(image_file);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  // Locate the DllMain block.
+  const BlockGraph::Block* dll_main_block = NULL;
+  {
+    BlockGraph::BlockMap::const_iterator it =
+        block_graph.blocks().begin();
+    for (; it != block_graph.blocks().end(); ++it) {
+      if (it->second.name().find("DllMain@12") != std::string::npos) {
+        dll_main_block = &it->second;
+        break;
+      }
+    }
+  }
+
+  // Validate that it has the expected population of labels.
+  ASSERT_FALSE(dll_main_block == NULL);
+
+#ifdef NDEBUG
+  EXPECT_EQ(22, dll_main_block->labels().size());
+#else
+  EXPECT_EQ(23, dll_main_block->labels().size());
+#endif
+
+  std::multiset<BlockGraph::LabelType> label_types;
+  {
+    BlockGraph::Block::LabelMap::const_iterator it =
+        dll_main_block->labels().begin();
+    for (; it != dll_main_block->labels().end(); ++it)
+      label_types.insert(it->second.type());
+  }
+
+#ifdef NDEBUG
+  EXPECT_EQ(16, label_types.count(BlockGraph::CODE_LABEL));
+#else
+  EXPECT_EQ(17, label_types.count(BlockGraph::CODE_LABEL));
+#endif
+  EXPECT_EQ(4, label_types.count(BlockGraph::DATA_LABEL));
+  EXPECT_EQ(1, label_types.count(BlockGraph::DEBUG_START_LABEL));
+  EXPECT_EQ(1, label_types.count(BlockGraph::DEBUG_END_LABEL));
 }
 
 }  // namespace pe

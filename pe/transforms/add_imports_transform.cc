@@ -110,8 +110,8 @@
 
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "syzygy/common/align.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
@@ -244,9 +244,10 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   Offset new_iid_offset = descriptor_count * sizeof(IMAGE_IMPORT_DESCRIPTOR);
   iida_block->InsertData(
       new_iid_offset, sizeof(IMAGE_IMPORT_DESCRIPTOR), true);
-  iida_block->SetLabel(new_iid_offset,
-                       base::StringPrintf("Image Import Descriptor: %s",
-                                          module_name));
+  iida_block->SetLabel(
+      new_iid_offset,
+      base::StringPrintf("Image Import Descriptor: %s", module_name),
+      BlockGraph::DATA_LABEL);
 
   // We expect the new entry to be dereferencable using iida[descriptor_count].
   DCHECK_GT(iida.ElementCount(), descriptor_count);
@@ -272,7 +273,10 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   //     extending/reusing it rather than creating a new INT per module.
   int_block->set_section(iida_section_id);
   int_block->set_attribute(BlockGraph::PE_PARSED);
-  int_block->SetLabel(0, StringPrintf("%s INT: NULL entry", module_name));
+  int_block->SetLabel(
+      0,
+      StringPrintf("%s INT: NULL entry", module_name),
+      BlockGraph::DATA_LABEL);
   if (int_block->AllocateData(kPtrSize) == NULL) {
     LOG(ERROR) << "Failed to allocate block data.";
     return false;
@@ -302,7 +306,8 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
 
   // Add a label for debugging purposes.
   iat_block->SetLabel(iat_offset,
-                      StringPrintf("%s: NULL thunk", module_name));
+                      StringPrintf("%s: NULL thunk", module_name),
+                      BlockGraph::DATA_LABEL);
 
   // Hook up these blocks.
   iida.SetReference(BlockGraph::RELATIVE_REF,
@@ -436,7 +441,7 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
 
   // Because of the usurping mentioned above, we manually move any existing
   // labels.
-  std::string label;
+  BlockGraph::Label label;
   if (hna.block()->GetLabel(int_offset, &label)) {
     hna.block()->RemoveLabel(int_offset);
     hna.block()->SetLabel(int_offset + kPtrSize, label);
@@ -453,12 +458,14 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
     LOG(ERROR) << "Unable to dereference import name.";
     return false;
   }
-  hna.block()->SetLabel(int_offset, StringPrintf("%s INT: %s",
-                                                 module_name->string,
-                                                 symbol_name));
-  iat.block()->SetLabel(iat_offset, StringPrintf("%s IAT: %s",
-                                                 module_name->string,
-                                                 symbol_name));
+  hna.block()->SetLabel(
+      int_offset,
+      StringPrintf("%s INT: %s", module_name->string, symbol_name),
+      BlockGraph::DATA_LABEL);
+  iat.block()->SetLabel(
+      iat_offset,
+      StringPrintf("%s IAT: %s", module_name->string, symbol_name),
+      BlockGraph::DATA_LABEL);
 
   // Hook up the newly created IMAGE_IMPORT_BY_NAME to both tables.
   BlockGraph::Reference iibn_ref(BlockGraph::RELATIVE_REF,

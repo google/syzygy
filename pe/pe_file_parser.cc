@@ -562,7 +562,8 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
       return false;
     }
 
-    thunk_block->SetLabel(thunk_start - thunk_block->addr(), ixt_name);
+    thunk_block->SetLabel(thunk_start - thunk_block->addr(),
+                          ixt_name, BlockGraph::DATA_LABEL);
   }
 
   if (is_bound) {

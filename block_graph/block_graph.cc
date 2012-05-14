@@ -14,11 +14,34 @@
 
 #include "syzygy/block_graph/block_graph.h"
 
+#include <limits>
+
 #include "base/logging.h"
+#include "base/stringprintf.h"
 
 namespace block_graph {
 
 namespace {
+
+// A list of printable names corresponding to block types. This needs to
+// be kept in sync with the BlockGraph::BlockType enum!
+const char* kBlockType[] = {
+  "CODE_BLOCK", "DATA_BLOCK", "BASIC_CODE_BLOCK", "BASIC_DATA_BLOCK",
+};
+COMPILE_ASSERT(arraysize(kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
+               kBlockType_not_in_sync);
+
+// A list of printable names corresponding to label types. This needs to
+// be kept in sync with the BlockGraph::LabelType enum!
+const char* kLabelType[] = {
+  "unknown",
+  "code", "data",
+  "debug-start", "debug-end",
+  "scope-start", "scope-end",
+  "padding"
+};
+COMPILE_ASSERT(arraysize(kLabelType) == BlockGraph::LABEL_TYPE_MAX,
+               kLabelType_not_in_sync);
 
 // Shift all items in an offset -> item map by 'distance', provided the initial
 // item offset was >= @p offset.
@@ -101,15 +124,21 @@ void ShiftReferrers(BlockGraph::Offset offset,
 
 }  // namespace
 
+const char* BlockGraph::BlockTypeToString(BlockGraph::BlockType type) {
+  DCHECK_LE(BlockGraph::CODE_BLOCK, type);
+  DCHECK_GT(BlockGraph::BLOCK_TYPE_MAX, type);
+  return kBlockType[type];
+}
+
+const char* BlockGraph::LabelTypeToString(BlockGraph::LabelType type) {
+  DCHECK_LE(BlockGraph::LABEL_TYPE_UNKNOWN, type);
+  DCHECK_GT(BlockGraph::LABEL_TYPE_MAX, type);
+  return kLabelType[type];
+}
+
 const core::RelativeAddress kInvalidAddress(0xFFFFFFFF);
 
 const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
-
-const char* BlockGraph::kBlockType[] = {
-  "CODE_BLOCK", "DATA_BLOCK", "BASIC_CODE_BLOCK", "BASIC_DATA_BLOCK",
-};
-COMPILE_ASSERT(arraysize(BlockGraph::kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
-               kBlockType_not_in_sync);
 
 BlockGraph::BlockGraph()
     : next_section_id_(0),
@@ -527,7 +556,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     // If the destination block is not a code block, preserve the old block
     // names as labels for debugging.
     if (block_type != BlockGraph::CODE_BLOCK)
-      new_block->SetLabel(start_offset, block->name());
+      new_block->SetLabel(start_offset, block->name(), BlockGraph::DATA_LABEL);
 
     // Move labels.
     BlockGraph::Block::LabelMap::const_iterator
@@ -630,6 +659,36 @@ bool BlockGraph::Section::Load(InArchive* in_archive) {
   DCHECK(in_archive != NULL);
   return in_archive->Load(&id_) && in_archive->Load(&name_) &&
       in_archive->Load(&characteristics_);
+}
+
+std::string BlockGraph::Label::ToString() const {
+  return base::StringPrintf("%s (%s)", name_.c_str(), LabelTypeToString(type_));
+}
+
+bool BlockGraph::Label::Save(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+  DCHECK_LE(std::numeric_limits<int8>::min(), type_);
+  DCHECK_GE(std::numeric_limits<int8>::max(), type_);
+  int8 temp_type = static_cast<int8>(type_);
+  return out_archive->Save(name_) && out_archive->Save(temp_type);
+}
+
+bool BlockGraph::Label::Load(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+
+  std::string temp_name;
+  int8 temp_type = 0;
+  if (!in_archive->Load(&temp_name) || !in_archive->Load(&temp_type))
+    return false;
+
+  if (temp_type <= LABEL_TYPE_UNKNOWN || temp_type >= LABEL_TYPE_MAX) {
+    LOG(ERROR) << "Read invalid label type: " << temp_type << ".";
+    return false;
+  }
+
+  name_.swap(temp_name);
+  type_ = static_cast<LabelType>(temp_type);
+  return true;
 }
 
 BlockGraph::Block::Block()
@@ -992,13 +1051,38 @@ bool BlockGraph::Block::RemoveReference(Offset offset) {
   return true;
 }
 
-bool BlockGraph::Block::SetLabel(Offset offset, const base::StringPiece& name) {
+bool BlockGraph::Block::SetLabel(Offset offset, const Label& label) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
-  return labels_.insert(std::make_pair(offset, name.as_string())).second;
+  VLOG(2) << name() << ": adding " << LabelTypeToString(label.type())
+          << " label '" << label.name() << "' at offset " << offset << ".";
+
+  // Try inserting the label into the label map.
+  std::pair<LabelMap::iterator, bool> result(
+      labels_.insert(std::make_pair(offset, label)));
+
+  // If it was freshly inserted then we're done.
+  if (result.second)
+    return true;
+
+  // Otherwise we'll consider modifying the label type if the types are
+  // different and the new label is a code label.
+  LabelType old_type = result.first->second.type();
+  LabelType new_type = label.type();
+
+  bool updated = (old_type != new_type && new_type == BlockGraph::CODE_LABEL);
+  if (updated)
+    result.first->second.set_type(new_type);
+
+  VLOG(2) << name() << ": " << (updated ? "" : "not ") << "changing label '"
+          << result.first->second.name() << "' at offset " << offset << " from "
+          << LabelTypeToString(old_type) << "' to '"
+          << LabelTypeToString(new_type) << "'.";
+
+  return updated;
 }
 
-bool BlockGraph::Block::GetLabel(Offset offset, std::string* label) const {
+bool BlockGraph::Block::GetLabel(Offset offset, Label* label) const {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
   DCHECK(label != NULL);
 
@@ -1013,12 +1097,7 @@ bool BlockGraph::Block::GetLabel(Offset offset, std::string* label) const {
 bool BlockGraph::Block::RemoveLabel(Offset offset) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
-  LabelMap::iterator it = labels_.find(offset);
-  if (it == labels_.end())
-    return false;
-
-  labels_.erase(it);
-  return true;
+  return labels_.erase(offset) == 1;
 }
 
 bool BlockGraph::Block::HasLabel(Offset offset) {
