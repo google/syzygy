@@ -36,9 +36,10 @@ class InstrumentApp : public common::AppImplBase {
  public:
 
   InstrumentApp()
-      : instrument_interior_references_(true),
-        allow_overwrite_(false),
-        debug_friendly_(false) {
+      : allow_overwrite_(false),
+        augment_pdb_(false),
+        debug_friendly_(false),
+        instrument_interior_references_(true) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -61,9 +62,10 @@ class InstrumentApp : public common::AppImplBase {
   FilePath output_dll_path_;
   FilePath output_pdb_path_;
   std::string client_dll_;
-  bool instrument_interior_references_;
   bool allow_overwrite_;
+  bool augment_pdb_;
   bool debug_friendly_;
+  bool instrument_interior_references_;
   // @}
 
   // @name Internal machinery, replaceable for testing purposes.

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,14 @@ extern const uint32 kPdbMaxDirPages;
 // This is the Multi-Stream Format (MSF) page size generally used for PDB
 // files. Check bytes 32 through 35 (little endian) of any PDB file.
 const uint32 kPdbPageSize = 1024;
+
+// The named PDB stream containing the history of Syzygy transformations applied
+// to an image. This consists of a sequence of Metadata objects.
+extern const char kSyzygyHistoryStreamName[];
+
+// The version of the Syzygy history stream. This needs to be incremented
+// whenever the format of the stream has changed.
+const uint32 kSyzygyHistoryStreamVersion = 0;
 
 }  // namespace pdb
 

@@ -31,6 +31,7 @@ class RelinkApp : public common::AppImplBase {
   RelinkApp()
       : seed_(0),
         padding_(0),
+        augment_pdb_(false),
         output_metadata_(false),
         overwrite_(false) {
   }
@@ -58,6 +59,7 @@ class RelinkApp : public common::AppImplBase {
   FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
+  bool augment_pdb_;
   bool output_metadata_;
   bool overwrite_;
   // @}

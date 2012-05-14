@@ -32,6 +32,8 @@ const char kUsageFormatStr[] =
     "  Optional Options:\n"
     "    --input-pdb=<path>   The PDB file associated with the input DLL.\n"
     "                         Default is inferred from input-dll.\n"
+    "    --augment-pdb        Indicates that the relinker should augment the\n"
+    "                         output PDB with additional metadata\n"
     "    --no-metadata        Prevents the relinker from adding metadata\n"
     "                         to the output DLL.\n"
     "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
@@ -74,6 +76,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   order_file_path_ = cmd_line->GetSwitchValuePath("order-file");
+  augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
   output_metadata_ = !cmd_line->HasSwitch("no-metadata");
   overwrite_ = cmd_line->HasSwitch("overwrite");
 
@@ -139,8 +142,9 @@ int RelinkApp::Run() {
   relinker.set_output_path(output_dll_path_);
   relinker.set_output_pdb_path(output_pdb_path_);
   relinker.set_padding(padding_);
-  relinker.set_allow_overwrite(overwrite_);
   relinker.set_add_metadata(output_metadata_);
+  relinker.set_allow_overwrite(overwrite_);
+  relinker.set_augment_pdb(augment_pdb_);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {

@@ -40,6 +40,8 @@ static const char kUsageFormatStr[] =
     "    --output-dll=<path> The instrumented output DLL.\n"
     "\n"
     "  Options:\n"
+    "    --augment-pdb       Indicates that the relinker should augment the\n"
+    "                        output PDB with additional metadata\n"
     "    --call-trace-client=ETW|RPC|PROFILER|<other.dll>\n"
     "                        The call-trace client DLL to reference in the\n"
     "                        instrumented binary. The default value is ETW,\n"
@@ -92,9 +94,10 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   client_dll_ = cmd_line->GetSwitchValueASCII("call-trace-client");
-  instrument_interior_references_ = !cmd_line->HasSwitch("no-interior-refs");
   allow_overwrite_ = cmd_line->HasSwitch("overwrite");
+  augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
+  instrument_interior_references_ = !cmd_line->HasSwitch("no-interior-refs");
 
   if (input_dll_path_.empty() || output_dll_path_.empty())
     return Usage(cmd_line, "You must provide input and output file names.");
@@ -118,6 +121,7 @@ int InstrumentApp::Run() {
   relinker.set_output_path(output_dll_path_);
   relinker.set_output_pdb_path(output_pdb_path_);
   relinker.set_allow_overwrite(allow_overwrite_);
+  relinker.set_augment_pdb(augment_pdb_);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {
