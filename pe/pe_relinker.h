@@ -55,11 +55,11 @@
 
 #include <vector>
 
+#include "base/file_path.h"
 #include "syzygy/block_graph/orderer.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/pe_file.h"
-#include "base/file_path.h"
 
 // Forward declares.
 namespace block_graph {
@@ -109,6 +109,7 @@ class PERelinker {
   const FilePath& output_pdb_path() const { return output_pdb_path_; }
   bool add_metadata() const { return add_metadata_; }
   bool allow_overwrite() const { return allow_overwrite_; }
+  bool augment_pdb() const { return augment_pdb_; }
   size_t padding() const { return padding_; }
   // @}
 
@@ -131,6 +132,9 @@ class PERelinker {
   }
   void set_allow_overwrite(bool allow_overwrite) {
     allow_overwrite_ = allow_overwrite;
+  }
+  void set_augment_pdb(bool augment_pdb) {
+    augment_pdb_ = augment_pdb;
   }
   void set_padding(size_t padding) {
     padding_ = padding;
@@ -224,6 +228,8 @@ class PERelinker {
   // If true, allow the relinker to rewrite the input files in place. Defaults
   // to false.
   bool allow_overwrite_;
+  // If true, metadata will be added to the PDB. Defaults to true.
+  bool augment_pdb_;
   // Indicates the amount of padding to be added between blocks. Zero is the
   // default value and indicates no padding will be added.
   size_t padding_;

@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
+#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -24,6 +25,7 @@
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/image_source_map.h"
+#include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_writer.h"
@@ -44,7 +46,34 @@ using block_graph::ApplyTransform;
 using block_graph::BlockGraph;
 using block_graph::OrderedBlockGraph;
 using core::RelativeAddress;
+using pdb::NameStreamMap;
+using pdb::PdbByteStream;
 using pdb::PdbFile;
+using pdb::PdbInfoHeader70;
+using pdb::PdbStream;
+using pdb::WritablePdbStream;
+
+// A utility class for wrapping a serialization OutStream around a
+// WritablePdbStream.
+// TODO(chrisha): We really need to centralize stream/buffer semantics in
+//     a small set of clean interfaces, and make all input/output/parsing work
+//     on these interfaces.
+class PdbOutStream : public core::OutStream {
+ public:
+  explicit PdbOutStream(WritablePdbStream* pdb_stream)
+      : pdb_stream_(pdb_stream) {
+    DCHECK(pdb_stream != NULL);
+  }
+
+  virtual ~PdbOutStream() { }
+
+  virtual bool Write(size_t length, const core::Byte* bytes) OVERRIDE {
+    return pdb_stream_->Write(length, bytes);
+  }
+
+ private:
+  scoped_refptr<WritablePdbStream> pdb_stream_;
+};
 
 void GetOmapRange(const std::vector<ImageLayout::SectionInfo>& sections,
                   RelativeAddressRange* range) {
@@ -382,11 +411,166 @@ bool WritePdbFile(const FilePath& output_pdb_path, const PdbFile& pdb_file) {
   return true;
 }
 
+bool ReadHeaderInfoStream(PdbInfoHeader70* header,
+                          NameStreamMap* name_stream_map,
+                          PdbFile* pdb_file) {
+  DCHECK(header != NULL);
+  DCHECK(name_stream_map != NULL);
+  DCHECK(pdb_file != NULL);
+
+  // Get the stream reader.
+  scoped_refptr<PdbStream> header_reader(
+      pdb_file->GetStream(pdb::kPdbHeaderInfoStream));
+  DCHECK(header_reader.get() != NULL);
+
+  // Read the header.
+  if (!pdb::ReadHeaderInfoStream(header_reader.get(), header,
+                                 name_stream_map)) {
+    LOG(ERROR) << "Failed to read header info stream.";
+    return false;
+  }
+
+  return true;
+}
+
+bool WriteHeaderInfoStream(const PdbInfoHeader70& header,
+                           const NameStreamMap& name_stream_map,
+                           PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  if (!pdb::EnsureStreamWritable(pdb::kPdbHeaderInfoStream, pdb_file)) {
+    LOG(ERROR) << "Failed to make PDB Header Info stream writable.";
+    return false;
+  }
+
+  // Get the stream reader.
+  scoped_refptr<PdbStream> header_reader(
+      pdb_file->GetStream(pdb::kPdbHeaderInfoStream));
+  DCHECK(header_reader.get() != NULL);
+
+  // Get the stream writer.
+  scoped_refptr<WritablePdbStream> header_writer(
+      header_reader->GetWritablePdbStream());
+  DCHECK(header_writer.get() != NULL);
+
+  // Write the new header.
+  if (!WriteHeaderInfoStream(header, name_stream_map, header_writer.get())) {
+    LOG(ERROR) << "Failed to write PDB Header Info stream.";
+    return false;
+  }
+
+  return true;
+}
+
+// This updates or creates the Syzygy history stream, appending the metadata
+// describing this module and transform. The history stream consists of
+// a named PDB stream with the name /Syzygy/History. It consists of:
+//
+//   uint32 version
+//   uint32 history_length
+//   serialized pe::Metadata 0
+//   ...
+//   serialized pe::Metadata history_length - 1
+//
+// If the format is changed, be sure to update this documentation and
+// pdb::kSyzygyHistoryStreamVersion (in pdb_constants.h).
+bool WriteSyzygyHistoryStream(const FilePath& input_path,
+                              NameStreamMap* name_stream_map,
+                              PdbFile* pdb_file) {
+  DCHECK(name_stream_map != NULL);
+  DCHECK(pdb_file != NULL);
+
+  // Get the metadata.
+  PEFile pe_file;
+  if (!pe_file.Init(input_path)) {
+    LOG(ERROR) << "Failed to initialize PE file for \"" << input_path.value()
+               << "\".";
+    return false;
+  }
+  PEFile::Signature pe_sig;
+  pe_file.GetSignature(&pe_sig);
+  Metadata metadata;
+  if (!metadata.Init(pe_sig)) {
+    LOG(ERROR) << "Failed to initialize metadata for \"" << input_path.value()
+               << "\".";
+    return false;
+  }
+
+  // Get the history stream if it already exists, otherwise create one.
+  NameStreamMap::const_iterator name_it =
+      name_stream_map->find(pdb::kSyzygyHistoryStreamName);
+  scoped_refptr<PdbStream> history_reader;
+  scoped_refptr<WritablePdbStream> history_writer;
+  if (name_it != name_stream_map->end()) {
+    if (!pdb::EnsureStreamWritable(name_it->second, pdb_file)) {
+      LOG(ERROR) << "Failed to make Syzygy history stream writable.";
+      return false;
+    }
+    history_reader = pdb_file->GetStream(name_it->second);
+  } else {
+    history_reader = new PdbByteStream();
+    uint32 index = pdb_file->AppendStream(history_reader.get());
+    (*name_stream_map)[pdb::kSyzygyHistoryStreamName] = index;
+  }
+  history_writer = history_reader->GetWritablePdbStream();
+  DCHECK(history_writer.get() != NULL);
+
+  // Validate the history stream if it is non-empty.
+  if (history_reader->length() > 0) {
+    // Read the header.
+    uint32 version = 0;
+    uint32 history_length = 0;
+    if (!history_reader->Seek(0) ||
+        !history_reader->Read(&version, 1) ||
+        !history_reader->Read(&history_length, 1)) {
+      LOG(ERROR) << "Failed to read existing Syzygy history stream header.";
+      return false;
+    }
+
+    // Check the version.
+    if (version != pdb::kSyzygyHistoryStreamVersion) {
+      LOG(ERROR) << "PDB contains unsupported Syzygy history stream version "
+                 << "(got " << version << ", expected "
+                 << pdb::kSyzygyHistoryStreamVersion << ").";
+      return false;
+    }
+
+    // Increment the history length and rewrite it.
+    history_length++;
+    history_writer->set_pos(sizeof(pdb::kSyzygyHistoryStreamVersion));
+    if (!history_writer->Write(history_length)) {
+      LOG(ERROR) << "Failed to write new Syzygy history stream length.";
+      return false;
+    }
+  } else {
+    // If there wasn't already a history stream, create one and write the
+    // header.
+    DCHECK_EQ(0u, history_writer->pos());
+    const uint32 kHistoryLength = 1;
+    if (!history_writer->Write(pdb::kSyzygyHistoryStreamVersion) ||
+        !history_writer->Write(kHistoryLength)) {
+      LOG(ERROR) << "Failed to write Syzygy history stream header.";
+      return false;
+    }
+  }
+
+  // Append the metadata to the history.
+  history_writer->set_pos(history_writer->length());
+  PdbOutStream out_stream(history_writer.get());
+  core::OutArchive out_archive(&out_stream);
+  if (!out_archive.Save(metadata)) {
+    LOG(ERROR) << "Failed to write metadata to Syzygy history stream.";
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace
 
 PERelinker::PERelinker()
-    : add_metadata_(true), allow_overwrite_(false), padding_(0),
-      inited_(false), input_image_layout_(&block_graph_),
+    : add_metadata_(true), allow_overwrite_(false), augment_pdb_(true),
+      padding_(0), inited_(false), input_image_layout_(&block_graph_),
       dos_header_block_(NULL), output_guid_(GUID_NULL) {
 }
 
@@ -474,6 +658,8 @@ bool PERelinker::Relink() {
   if (!WriteImage(output_image_layout, output_path_))
     return false;
 
+  // From here on down we are processing the PDB file.
+
   // Read the PDB file.
   LOG(INFO) << "Reading PDB file: " << input_pdb_path_.value();
   pdb::PdbReader pdb_reader;
@@ -491,7 +677,28 @@ bool PERelinker::Relink() {
     return false;
   }
 
-  // TODO(chrisha): Add named streams to support round-trip decomposition!
+  // Parse the header and named streams.
+  pdb::PdbInfoHeader70 header = {};
+  pdb::NameStreamMap name_stream_map;
+  if (!ReadHeaderInfoStream(&header, &name_stream_map, &pdb_file))
+    return false;
+
+  // Update/create the Syzygy history stream.
+  if (!WriteSyzygyHistoryStream(input_path_, &name_stream_map, &pdb_file))
+    return false;
+
+  // TODO(chrisha): Add redecomposition data in another stream, only if
+  //     augment_pdb_ is set.
+
+  // Write the updated name-stream map back to the header info stream.
+  if (!WriteHeaderInfoStream(header, name_stream_map, &pdb_file))
+    return false;
+
+  // Stream 0 contains a copy of the previous PDB's directory. This, combined
+  // with copy-on-write semantics of individual blocks makes the file contain
+  // its whole edit history. Since we're writing a 'new' PDB file (we reset the
+  // GUID and age), we have no history so can safely throw away this stream.
+  pdb_file.ReplaceStream(0, NULL);
 
   // Write the PDB file. We use a helper function that first writes it to a
   // temporary file and then moves it, enabling overwrites.

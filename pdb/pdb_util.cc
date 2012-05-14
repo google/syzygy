@@ -368,6 +368,11 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
                           NameStreamMap* name_stream_map) {
   VLOG(1) << "Header Info Stream size: " << pdb_stream->length();
 
+  if (!pdb_stream->Seek(0)) {
+    LOG(ERROR) << "Unable to seek to start of PDB header info stream.";
+    return false;
+  }
+
   // The header stream starts with the fixed-size header pdb_header record.
   if (!pdb_stream->Read(pdb_header, 1)) {
     LOG(ERROR) << "Unable to read PDB pdb_header header.";
@@ -520,6 +525,12 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
       LOG(ERROR) << "Failed to write stream name mapping.";
       return false;
     }
+  }
+
+  // The run must be terminated with a single NULL entry.
+  if (!pdb_stream->Write(static_cast<uint32>(0))) {
+    LOG(ERROR) << "Failed to write terminating NULL.";
+    return false;
   }
 
   return true;
