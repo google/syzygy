@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,8 +64,10 @@ TEST_F(DeadCodeFinderTest, TestDLL) {
         section->VirtualAddress + random_(section->Misc.VirtualSize));
     const block_graph::BlockGraph::Block* block =
         image_layout_.blocks.GetBlockByAddress(addr);
-    if (live_blocks_.find(block) == live_blocks_.end())
+    if ((block->attributes() & block_graph::BlockGraph::GAP_BLOCK) == 0 &&
+        (live_blocks_.find(block) == live_blocks_.end())) {
       dead_blocks_.insert(block);
+    }
   }
 
   // Generate calls to the live blocks.
@@ -87,12 +89,14 @@ TEST_F(DeadCodeFinderTest, TestDLL) {
 
   // Check the live blocks.
   for (BlockIter it = live_blocks_.begin();  it != live_blocks_.end(); ++it) {
-    ASSERT_FALSE(dead_code_finder_.IsDead(*it));
+    EXPECT_FALSE(dead_code_finder_.IsDead(*it))
+        << "Block '" << (*it)->name() << "' was not expected to be dead.";
   }
 
   // Check the dead blocks.
   for (BlockIter it = dead_blocks_.begin();  it != dead_blocks_.end(); ++it) {
-    ASSERT_TRUE(dead_code_finder_.IsDead(*it));
+    EXPECT_TRUE(dead_code_finder_.IsDead(*it))
+        << "Block '" << (*it)->name() << "' was expected to be dead.";
   }
 
   // Check the ordering.

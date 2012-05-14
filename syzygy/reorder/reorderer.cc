@@ -15,11 +15,11 @@
 #include "syzygy/reorder/reorderer.h"
 
 #include "base/file_util.h"
-#include "base/json/json_reader.h"
-#include "base/json/string_escape.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "base/json/json_reader.h"
+#include "base/json/string_escape.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/json_file_writer.h"
@@ -60,7 +60,7 @@ bool OutputBlockList(size_t section_id,
     if (json_file->pretty_print()) {
       std::string comment = base::StringPrintf(
           "%s(%s)",
-          BlockGraph::kBlockType[blocks[i]->type()],
+          BlockGraph::BlockTypeToString(blocks[i]->type()),
           blocks[i]->name().c_str());
       if (!json_file->OutputTrailingComment(comment.c_str()))
         return false;

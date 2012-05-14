@@ -14,17 +14,17 @@
 
 #include "syzygy/pe/decomposer.h"
 
-#include <algorithm>
 #include <cvconst.h>
+#include <algorithm>
 
 #include "base/bind.h"
 #include "base/file_path.h"
-#include "base/path_service.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/path_service.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "sawbuck/common/com_utils.h"
@@ -285,23 +285,62 @@ void GuessDataBlockAlignment(BlockGraph::Block* block) {
   block->set_alignment(GuessAddressAlignment(block->addr()));
 }
 
+bool AreMatchedBlockAndLabelTypes(BlockGraph::BlockType bt,
+                                  BlockGraph::LabelType lt) {
+  return (bt == BlockGraph::CODE_BLOCK && lt == BlockGraph::CODE_LABEL) ||
+      (bt == BlockGraph::DATA_BLOCK && lt == BlockGraph::DATA_LABEL);
+}
+
 void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
-                            const char* name_or_label,
+                            const base::StringPiece& name_or_label,
+                            BlockGraph::LabelType label_type,
                             BlockGraph::Block* block) {
   // This only make sense for positions strictly within the block.
-  DCHECK(block != NULL);
   DCHECK_LE(0, offset);
+  DCHECK(!name_or_label.empty());
+  DCHECK(label_type == BlockGraph::CODE_LABEL ||
+         label_type == BlockGraph::DATA_LABEL);
+  DCHECK(block != NULL);
   DCHECK_GT(block->size(), unsigned(offset));
+  DCHECK(block->type() == BlockGraph::CODE_BLOCK ||
+         block->type() == BlockGraph::DATA_BLOCK);
 
   // If the offset is zero, change the block name. Otherwise, add a label.
-  if (offset == 0)
+  BlockGraph::BlockType type = block->type();
+  if (offset == 0) {
+    if (!AreMatchedBlockAndLabelTypes(block->type(), label_type))
+      VLOG(2) << "Mismatched block and label types [block='" << block->name()
+              << "'(" << BlockGraph::BlockTypeToString(block->type())
+              << base::StringPrintf(" @ 0x%08X); ", block->addr().value())
+              << "label='" << name_or_label << "' ("
+              << BlockGraph::LabelTypeToString(label_type) << ")].";
     block->set_name(name_or_label);
-  else
-    block->SetLabel(offset, name_or_label);
+  } else {
+    block->SetLabel(offset, name_or_label, label_type);
+  }
+}
+
+BlockGraph::LabelType SymTagToLabelType(enum SymTagEnum sym_tag) {
+  switch (sym_tag) {
+    case SymTagData:
+      return BlockGraph::DATA_LABEL;
+    case SymTagLabel:
+      return BlockGraph::CODE_LABEL;
+    case SymTagFuncDebugStart:
+      return BlockGraph::DEBUG_START_LABEL;
+    case SymTagFuncDebugEnd:
+      return BlockGraph::DEBUG_END_LABEL;
+    case SymTagBlock:
+      return BlockGraph::SCOPE_START_LABEL;
+  }
+
+  NOTREACHED();
+  return BlockGraph::LABEL_TYPE_UNKNOWN;
 }
 
 void AddLabelToCodeBlock(RelativeAddress addr,
-                         const std::string& name,
+                         const base::StringPiece& name,
+                         BlockGraph::LabelType label_type,
                          BlockGraph::Block* block) {
   // This only makes sense for code blocks that contain the given label
   // address.
@@ -310,7 +349,7 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   DCHECK_LE(block->addr(), addr);
   DCHECK_GT(block->addr() + block->size(), addr);
 
-  block->SetLabel(addr - block->addr(), name);
+  block->SetLabel(addr - block->addr(), name, label_type);
 }
 
 // The MS linker pads between code blocks with int3s.
@@ -450,12 +489,12 @@ bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
 void GetCodeLabelAddresses(const BlockGraph::Block* block,
                            AbsoluteAddress abs_block_addr,
                            const PEFile::RelocSet& reloc_set,
-                           Disassembler::AddressSet* labels) {
+                           Disassembler::AddressSet* addresses) {
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(labels != NULL);
+  DCHECK(addresses != NULL);
 
-  labels->clear();
+  addresses->clear();
 
   // Use block labels as starting points for disassembly. Any labels that
   // lie within a known data block or reloc should not be added.
@@ -464,16 +503,20 @@ void GetCodeLabelAddresses(const BlockGraph::Block* block,
   //     inbound references instead.
   BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
   for (; it != block->labels().end(); ++it) {
-    BlockGraph::Offset label = it->first;
-    DCHECK_LE(0, label);
-    DCHECK_GT(block->size(), static_cast<size_t>(label));
+    BlockGraph::Offset offset = it->first;
+    BlockGraph::LabelType label_type = it->second.type();
 
-    // We sometimes receive labels for lookup tables. Thus labels that point
-    // directly to a reloc should not be used as a starting point for
-    // disassembly.
-    RelativeAddress addr(block->addr() + static_cast<size_t>(label));
-    if (reloc_set.find(addr) == reloc_set.end())
-      labels->insert(abs_block_addr + it->first);
+    DCHECK_LE(0, offset);
+    DCHECK_GT(block->size(), static_cast<size_t>(offset));
+    DCHECK_NE(BlockGraph::LABEL_TYPE_UNKNOWN, label_type);
+
+    if (label_type == BlockGraph::CODE_LABEL) {
+      // We sometimes receive labels for lookup tables; which we can detect
+      // because the label will point directly to a reloc. These should have
+      // already been marked as data. DCHECK to validate.
+      DCHECK(reloc_set.find(block->addr() + offset) == reloc_set.end());
+      addresses->insert(abs_block_addr + offset);
+    }
   }
 }
 
@@ -799,19 +842,34 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
     block->set_name(block_name);
 
   // Annotate the block with a label, as this is an entry point to it.
-  block->SetLabel(offset, block_name);
+  block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL);
 
   if (no_return == TRUE)
     block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
 
-  return CreateLabelsForFunction(function, block);
+  if (!CreateLabelsForFunction(function, block)) {
+    LOG(ERROR) << "Failed to create labels for '" << block->name() << "'.";
+    return false;
+  }
+
+  return true;
 }
 
 bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
                                          BlockGraph::Block* block) {
-  // Enumerate the label offspring of function.
+  DCHECK(function != NULL);
+  DCHECK(block != NULL);
+
+  // Lookup the block address.
+  RelativeAddress block_addr;
+  if (!image_->GetAddressOf(block, &block_addr)) {
+    NOTREACHED() << "Block " << block->name() << " has no address.";
+    return false;
+  }
+
+  // Enumerate all symbols which are children of function.
   ScopedComPtr<IDiaEnumSymbols> dia_enum_symbols;
-  HRESULT hr = function->findChildren(SymTagLabel,
+  HRESULT hr = function->findChildren(SymTagNull,
                                       NULL,
                                       nsNone,
                                       dia_enum_symbols.Receive());
@@ -833,37 +891,109 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     if (hr != S_OK || fetched == 0)
       break;
 
-    DCHECK(IsSymTag(symbol, SymTagLabel));
-    DWORD rva = 0;
-    ScopedBstr name;
-    if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
-        FAILED(hr = symbol->get_name(name.Receive()))) {
-      LOG(ERROR) << "Failed to retrieve function information: "
-                 << com::LogHr(hr) << ".";
+    // If it doesn't have an RVA then it's not interesting to us.
+    DWORD temp_rva = 0;
+    if (symbol->get_relativeVirtualAddress(&temp_rva) != S_OK)
+      continue;
+
+    // Get the type of symbol we're looking at.
+    DWORD temp_sym_tag = 0;
+    if (symbol->get_symTag(&temp_sym_tag) != S_OK) {
+      LOG(ERROR) << "Failed to retrieve label information.";
       return false;
     }
 
-    RelativeAddress addr;
-    if (!image_->GetAddressOf(block, &addr)) {
-      NOTREACHED() << "Block " << block->name() << " has no address.";
-      return false;
-    }
+    enum SymTagEnum sym_tag = static_cast<enum SymTagEnum>(temp_sym_tag);
+    BlockGraph::LabelType label_type = SymTagToLabelType(sym_tag);
+
+    // TODO(rogerm): Add a flag to include/exclude the symbol types that are
+    //     interesting for debugging purposes, but not actually needed for
+    //     decomposition: FuncDebugStart/End, Block, etc.
 
     // We ignore labels that fall outside of the code block. We sometimes
     // get labels at the end of a code block, and if the binary has any OMAP
     // information these follow the original successor block, and they can
     // end up most anywhere in the binary.
-    RelativeAddress label_rva(rva);
-    if (label_rva < addr || label_rva >= addr + block->size())
-      return true;
+    RelativeAddress label_rva(temp_rva);
+    if (label_rva < block_addr || label_rva >= block_addr + block->size())
+      continue;
 
+    // Extract the symbol's name.
     std::string label_name;
-    if (!WideToUTF8(name, name.Length(), &label_name)) {
-      LOG(ERROR) << "Failed to convert label name to UTF8.";
+    {
+      ScopedBstr temp_name;
+      if (symbol->get_name(temp_name.Receive()) == S_OK &&
+          !WideToUTF8(temp_name, temp_name.Length(), &label_name)) {
+        LOG(ERROR) << "Failed to convert label name to UTF8.";
+        return false;
+      }
+    }
+
+    // Not all symbols have a name, if we've found one without a name, make
+    // one up.
+    if (label_name.empty()) {
+      switch (sym_tag) {
+        case SymTagFuncDebugStart: {
+          label_name = "<debug-start>";
+          break;
+        }
+
+        case SymTagFuncDebugEnd: {
+          label_name = "<debug-end>";
+          break;
+        }
+
+        case SymTagData: {
+          label_name =
+              reloc_set_.find(label_rva) != reloc_set_.end() ? "<jump-table?>" :
+                                                               "<case-table?>";
+          break;
+        }
+
+        case SymTagBlock: {
+          std::string rva_str(base::StringPrintf("0x%08X", label_rva.value()));
+          ULONGLONG length = 0;
+          if (symbol->get_length(&length) != S_OK) {
+            LOG(ERROR) << "Failed to extract code scope length for "
+                       << block->name() << " at " << rva_str << ".";
+            return false;
+          }
+          label_name =
+              base::StringPrintf("<scope-%s-%ld>", rva_str.c_str(), length);
+          break;
+        }
+
+        default: {
+          LOG(WARNING) << "Unexpected symbol type " << sym_tag << " in "
+                       << block->name() << " at "
+                       << base::StringPrintf("0x%08X.", label_rva.value());
+          label_name = base::StringPrintf("<anonymous-%d>", sym_tag);
+        }
+      }
+    }
+
+
+    // We expect that we'll never see a code label that refers to a reloc.
+    if (label_type == BlockGraph::CODE_LABEL &&
+        reloc_set_.find(label_rva) != reloc_set_.end()) {
+      LOG(ERROR) << "Collision between reloc and code label in "
+                 << block->name() << " at " << label_name
+                 << base::StringPrintf("(0x%08X).", label_rva.value());
       return false;
     }
 
-    AddLabelToCodeBlock(label_rva, label_name, block);
+    // Add the label to the block.
+    AddLabelToCodeBlock(label_rva, label_name, label_type, block);
+
+    // TODO(rogerm): If the label type is BlockGraph::SCOPE_START_LABEL this
+    //     would be a good placed to insert a SCOPE_END_LABEL marking the end
+    //     of the scoped code block. The symbol will have a length (in bytes)
+    //     attached to it. One wrinkle is that that label_rva + length points
+    //     one past the last byte in the scoped area, which is awkward to track.
+    //     There's a good chance there is or will be a label marking the start
+    //     of the next byte range, with which the SCOPE_END_LABEL will collide.
+    //     Maybe have the end label point to the last instruction in the scope?
+    //     Or, better yet, (optionally?) augment the label with a length?
   }
 
   return true;
@@ -975,28 +1105,30 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       DCHECK(IsSymTag(label, SymTagLabel));
 
       DWORD addr = 0;
-      ScopedBstr name;
-      if (FAILED(hr = label->get_relativeVirtualAddress(&addr)) ||
-          FAILED(hr = label->get_name(name.Receive()))) {
-        LOG(ERROR) << "Failed to retrieve label address or name: "
-                   << com::LogHr(hr) << ".";
+      ScopedBstr temp_name;
+      if (label->get_relativeVirtualAddress(&addr) != S_OK ||
+          label->get_name(temp_name.Receive()) != S_OK) {
+        LOG(ERROR) << "Failed to retrieve label address or name.";
+        return false;
+      }
+
+      std::string label_name;
+      if (!WideToUTF8(temp_name, temp_name.Length(), &label_name)) {
+        LOG(ERROR) << "Failed to convert label name to UTF8.";
         return false;
       }
 
       RelativeAddress label_addr(addr);
       BlockGraph::Block* block = image_->GetBlockByAddress(label_addr);
       if (block == NULL) {
-        LOG(ERROR) << "No block for label " << name << " at " << addr;
+        LOG(ERROR) << "No block for label " << label_name << " at " << addr;
         return false;
       }
 
-      std::string label_name;
-      if (!WideToUTF8(name, name.Length(), &label_name)) {
-        LOG(ERROR) << "Failed to convert label name to UTF8.";
-        return false;
-      }
-
-      AddLabelToCodeBlock(label_addr, label_name, block);
+      AddLabelToCodeBlock(label_addr,
+                          label_name,
+                          BlockGraph::CODE_LABEL,
+                          block);
     }
   }
 
@@ -1331,15 +1463,9 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
       static const char kNaClPrefix[] = "NaCl";
       if (length == 1 &&
           name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
-        AddLabelToCodeBlock(addr, name, block);
+        AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL, block);
         return;
       }
-
-      // TODO(chrisha): Data in code blocks only occurs with hand-crafted
-      //     assembly, such as memmove, memcpy, etc. We have no data-in-code
-      //     book-keeping mechanisms for now, so we'll deal with this when we
-      //     get around to doing that. (These data are always lookup tables, so
-      //     we avoid disassembly collisions simply by checking relocs for now.)
     }
 
     // Check for symbol conflicts.
@@ -1351,7 +1477,7 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
     }
 
     BlockGraph::Offset offset = addr - block->addr();
-    SetBlockNameOrAddLabel(offset, name.c_str(), block);
+    SetBlockNameOrAddLabel(offset, name.c_str(), BlockGraph::DATA_LABEL, block);
 
     return;
   }
@@ -1377,16 +1503,30 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
   DCHECK_EQ(SymTagPublicSymbol, sym_tags.back());
   DCHECK(directive != NULL);
   DCHECK_EQ(DiaBrowser::kBrowserContinue, *directive);
-
   const DiaBrowser::SymbolPtr& symbol(symbols.back());
 
-  HRESULT hr = E_FAIL;
+  // We don't care about symbols that don't have addresses.
   DWORD rva = 0;
+  if (S_OK != symbol->get_relativeVirtualAddress(&rva))
+    return;
+
   ScopedBstr name_bstr;
-  if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
-      FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
-    LOG(ERROR) << "Failed to get public symbol properties: "
-               << com::LogHr(hr) << ".";
+  if (S_OK != symbol->get_name(name_bstr.Receive())) {
+    LOG(ERROR) << "Failed to get public symbol name.";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
+  }
+
+  BOOL is_in_code = FALSE;
+  if (S_OK != symbol->get_code(&is_in_code)) {
+    LOG(ERROR) << "Failed to determine if public symbol is in code.";
+    *directive = DiaBrowser::kBrowserAbort;
+    return;
+  }
+
+  BOOL is_function = FALSE;
+  if (S_OK != symbol->get_function(&is_function)) {
+    LOG(ERROR) << "Failed to determine if public symbol is a function.";
     *directive = DiaBrowser::kBrowserAbort;
     return;
   }
@@ -1405,6 +1545,7 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
     *directive = DiaBrowser::kBrowserAbort;
     return;
   }
+
   // Public symbol names are mangled. Remove leading '_' as per
   // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
   if (name[0] == '_')
@@ -1413,7 +1554,11 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
   // Set the block name or add a label. For code blocks these are entry points,
   // while for data blocks these are simply to aid debugging.
   BlockGraph::Offset offset = addr - block->addr();
-  SetBlockNameOrAddLabel(offset, name.c_str(), block);
+  BlockGraph::LabelType label_type =
+      is_in_code && is_function ? BlockGraph::CODE_LABEL :
+                                  BlockGraph::DATA_LABEL;
+
+  SetBlockNameOrAddLabel(offset, name, label_type, block);
 }
 
 bool Decomposer::ProcessStaticInitializers() {
@@ -1630,15 +1775,17 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
 
     // Only add labels for PC_RELATIVE references or references that are
     // directly labelled as pointing to code.
-    if (it->second.type != BlockGraph::PC_RELATIVE_REF &&
-        !it->second.refers_to_code)
+    if (it->second.type != BlockGraph::PC_RELATIVE_REF)
       continue;
 
     // If it had no label here, we add one.
-    std::string label(base::StringPrintf("From %s +0x%x",
-                                         src_block->name().c_str(),
-                                         src_offset));
-    dst_block->SetLabel(dst_offset, label);
+    std::string label_name(base::StringPrintf("From %s +0x%x",
+                                              src_block->name().c_str(),
+                                              src_offset));
+    dst_block->SetLabel(dst_offset,
+                        label_name,
+                        it->second.refers_to_code ? BlockGraph::CODE_LABEL :
+                                                    BlockGraph::DATA_LABEL);
   }
 
   return true;
@@ -1851,15 +1998,40 @@ void Decomposer::OnInstruction(const Disassembler& walker,
   }
 
   // If this instruction terminates at a data boundary (ie: the *next*
-  // instruction will be data or a reloc), indicate that the path should be
-  // terminated.
+  // instruction will be data or a reloc), we can be certain that a new
+  // lookup table is starting at this address. Label it as such, and indicate
+  // that the path should be terminated.
   RelativeAddress after_instr_rel = instr_rel + instruction.size;
   if (reloc_set_.find(after_instr_rel) != reloc_set_.end()) {
+    // We don't disassemble into known data, so terminate this path.
     *directive = Disassembler::kDirectiveTerminatePath;
 
-    // We can be certain that a new lookup table is starting at this address.
-    // TODO(chrisha): We can use this to drive the labelling of data blocks
-    //     within code sections.
+    // If the data falls into the current block (which is our expectation, but
+    // it's not an error if it doesn't), make sure it's labeled.
+    BlockGraph::Block* block = image_->GetContainingBlock(after_instr_rel, 4);
+    if (block != current_block_) {
+      CHECK(block != NULL);
+      VLOG(1) << "Found an instruction/data boundary between blocks: "
+              << current_block_->name() << " and " << block->name();
+    } else {
+      BlockGraph::Offset offset = after_instr_rel - block->addr();
+
+      // Setting this label should be a NOP as there should already be a data
+      // label there from when the symbols were traversed.
+#ifndef NDEBUG
+      BlockGraph::Label label;
+      DCHECK(block->GetLabel(offset, &label));
+      DCHECK_EQ(BlockGraph::DATA_LABEL, label.type());
+#endif
+      bool added = block->SetLabel(offset,
+                                   "<JUMP-TABLE>",  // Uppercase for debugging.
+                                   BlockGraph::DATA_LABEL);
+      if (added) {
+        LOG(WARNING) << "Expected there to already be label marking the jump "
+                     << "table at " << block->name() << " + " << offset << ".";
+      }
+    }
+
   }
 
   // TODO(chrisha): Certain instructions require aligned data (ie: MMX/SSE
@@ -1950,8 +2122,8 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     BlockGraph::Offset offset = dst - block->addr();
     if (!block->HasLabel(offset)) {
       // If it has no label here, we add one.
-      std::string label(base::StringPrintf("From 0x%08X", src.value()));
-      block->SetLabel(offset, label);
+      std::string label(base::StringPrintf("From 0x%08X", instr_rel.value()));
+      block->SetLabel(offset, label, BlockGraph::CODE_LABEL);
 
       // And then potentially re-schedule the block for disassembly,
       // as we may have turned up another entry to a block we already

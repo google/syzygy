@@ -617,11 +617,11 @@ TEST_F(ParseEngineEtwTest, MultiThreadWithStopCallTrace) {
 
   // Disable the provider and wait for it to notice,
   // then make sure we got all the events we expected.
-  ASSERT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
-  ASSERT_TRUE(wait_til_disabled_());
+  EXPECT_NO_FATAL_FAILURE(DisableProvider(kCallTraceProvider));
+  EXPECT_TRUE(wait_til_disabled_());
 
-  ASSERT_NO_FATAL_FAILURE(Stop());
-  ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
+  EXPECT_NO_FATAL_FAILURE(Stop());
+  EXPECT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 
   UnloadCallTraceDll();
   runner_a.Exit();
@@ -629,8 +629,8 @@ TEST_F(ParseEngineEtwTest, MultiThreadWithStopCallTrace) {
   thread_a.Join();
   thread_b.Join();
 
-  ASSERT_EQ(2, entered_addresses_.count(IndirectFunctionA));
-  ASSERT_EQ(77, entered_addresses_.count(IndirectFunctionB));
+  EXPECT_EQ(2, entered_addresses_.count(IndirectFunctionA));
+  EXPECT_EQ(77, entered_addresses_.count(IndirectFunctionB));
 }
 
 namespace {

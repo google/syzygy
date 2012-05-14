@@ -11,12 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <windows.h>
-#include <winnt.h>
-#include <objbase.h>
 
-#include <time.h>
+#include <windows.h>  // NOLINT
+#include <objbase.h>  // NOLINT
+#include <winnt.h>  // NOLINT
+
 #include <math.h>
+#include <stdio.h>
+#include <time.h>
 
 #include <cstdlib>
 
@@ -43,6 +45,23 @@ extern int function1();
 extern int function2();
 extern int function3();
 
+#pragma auto_inline(off)
+
+DWORD WINAPI TestExport(size_t buf_len, char* buf) {
+  static const char kTestString[] =
+      "The quick brown fox jumped over the lazy dog";
+
+  ::strncpy(buf, kTestString, buf_len);
+
+  return 0;
+}
+
+const char* BoolToString(bool value) {
+  return value ? "true" : "false";
+}
+
+#pragma auto_inline()
+
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   // The goal of the following weird code is to thwart any optimizations
   // that the compiler might try.
@@ -61,6 +80,89 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   function1();
   function1();
 
+  // The following odd code and switch statement are to outsmart the
+  // optimizer and coerce it to generate a case and jump table pair.
+  // On decomposition, we expect to find and label the case and jump
+  // tables individually.
+  wchar_t c = rand() % static_cast<wchar_t>(-1);
+  bool is_whitespace = false;
+  bool is_qwerty = false;
+  bool is_asdfgh = false;
+  bool is_upper_case = false;
+  bool is_other = false;
+
+  // Switch over the UTF16 character space.
+  switch (c) {
+   case L'Q':
+   case L'W':
+   case L'E':
+   case L'R':
+   case L'T':
+   case L'Y':
+    is_qwerty = true;
+    is_upper_case = true;
+    break;
+
+   case L'q':
+   case L'w':
+   case L'e':
+   case L'r':
+   case L't':
+   case L'y':
+    is_qwerty = true;
+    is_upper_case = false;
+    break;
+
+   case L'A':
+   case L'S':
+   case L'D':
+   case L'F':
+   case L'G':
+   case L'H':
+    is_asdfgh = true;
+    is_upper_case = true;
+    break;
+
+   case L'a':
+   case L's':
+   case L'd':
+   case L'f':
+   case L'g':
+   case L'h':
+    is_asdfgh = true;
+    is_upper_case = false;
+    break;
+
+   case ' ':
+   case '\t':
+   case '\r':
+   case '\n':
+    is_whitespace = true;
+    break;
+
+   default:
+    is_other = true;
+    break;
+  }
+
+  char buffer[1024] = {'\0'};
+  ::memset(buffer, 0, sizeof(buffer));
+  ::_snprintf(buffer,
+              sizeof(buffer) - 1,
+              "is_qwerty=%s\nis_asdfgh=%s\nis_upper_case=%s\nis_whitespace=%s\n"
+              "is_other=%s",
+              BoolToString(is_qwerty),
+              BoolToString(is_asdfgh),
+              BoolToString(is_upper_case),
+              BoolToString(is_whitespace),
+              BoolToString(is_other));
+
+  TestExport(sizeof(buffer), buffer);
+
+  // The following odd code and switch statement are to outsmart the
+  // optimizer and coerce it to generate another case and jump table
+  // pair. On decomposition, we expect to find and label the case
+  // and jump tables individually.
   int n = rand();
 
   // Access the TLS data so that some TLS FIXUPs are produced.
@@ -69,47 +171,166 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   n += tls_string_buffer[0];
   n += static_cast<int>(tls_double);
 
-  switch (n % 7) {
-  case 0:
-    return reinterpret_cast<BOOL>(
-        function1() + strstr("hello world", "hello"));
-    break;
+  // The case table is a 20X expanded switch on n mod 7.
+  switch (n % 140) {
+    case 0:
+    case 7:
+    case 14:
+    case 21:
+    case 28:
+    case 35:
+    case 42:
+    case 49:
+    case 56:
+    case 63:
+    case 70:
+    case 77:
+    case 84:
+    case 91:
+    case 98:
+    case 105:
+    case 112:
+    case 119:
+    case 126:
+    case 133:
+      return reinterpret_cast<BOOL>(
+          function1() + strstr("hello world", "hello"));
 
-  case 1:
-    return static_cast<BOOL>(function2() + strlen("foobar"));
-    break;
+    case 1:
+    case 8:
+    case 15:
+    case 22:
+    case 29:
+    case 36:
+    case 43:
+    case 50:
+    case 57:
+    case 64:
+    case 71:
+    case 78:
+    case 85:
+    case 92:
+    case 99:
+    case 106:
+    case 113:
+    case 120:
+    case 127:
+    case 134:
+      return static_cast<BOOL>(function2() + strlen("foobar"));
 
-  case 2:
-    return static_cast<BOOL>(function3() + clock());
-    break;
+    case 2:
+    case 9:
+    case 16:
+    case 23:
+    case 30:
+    case 37:
+    case 44:
+    case 51:
+    case 58:
+    case 65:
+    case 72:
+    case 79:
+    case 86:
+    case 93:
+    case 100:
+    case 107:
+    case 114:
+    case 121:
+    case 128:
+    case 135:
+      return static_cast<BOOL>(function3() + clock());
 
-  case 3:
-    return static_cast<BOOL>(function1() + function2() +
-        reinterpret_cast<int>(memchr("hello", 'e', 5)));
-    break;
+    case 3:
+    case 10:
+    case 17:
+    case 24:
+    case 31:
+    case 38:
+    case 45:
+    case 52:
+    case 59:
+    case 66:
+    case 73:
+    case 80:
+    case 87:
+    case 94:
+    case 101:
+    case 108:
+    case 115:
+    case 122:
+    case 129:
+    case 136:
+      return static_cast<BOOL>(function1() + function2() +
+          reinterpret_cast<int>(memchr("hello", 'e', 5)));
 
-  case 4:
-    return static_cast<BOOL>(function1() + function3() + abs(-3));
-    break;
+    case 4:
+    case 11:
+    case 18:
+    case 25:
+    case 32:
+    case 39:
+    case 46:
+    case 53:
+    case 60:
+    case 67:
+    case 74:
+    case 81:
+    case 88:
+    case 95:
+    case 102:
+    case 109:
+    case 116:
+    case 123:
+    case 130:
+    case 137:
+      return static_cast<BOOL>(function1() + function3() + abs(-3));
 
-  case 5:
-    return static_cast<BOOL>(
-        function2() + function3() + static_cast<int>(floor(1.3)));
-    break;
+    case 5:
+    case 12:
+    case 19:
+    case 26:
+    case 33:
+    case 40:
+    case 47:
+    case 54:
+    case 61:
+    case 68:
+    case 75:
+    case 82:
+    case 89:
+    case 96:
+    case 103:
+    case 110:
+    case 117:
+    case 124:
+    case 131:
+    case 138:
+      return static_cast<BOOL>(
+          function2() + function3() + static_cast<int>(floor(1.3)));
 
-  case 6:
-    return static_cast<BOOL>(
-        function1() + function2() + function3() + atoi("7"));
+    case 6:
+    case 13:
+    case 20:
+    case 27:
+    case 34:
+    case 41:
+    case 48:
+    case 55:
+    case 62:
+    case 69:
+    case 76:
+    case 83:
+    case 90:
+    case 97:
+    case 104:
+    case 111:
+    case 118:
+    case 125:
+    case 132:
+    case 139:
+      return static_cast<BOOL>(
+          function1() + function2() + function3() + atoi("7"));
   }
-}
-
-DWORD WINAPI TestExport(size_t buf_len, char* buf) {
-  static const char kTestString[] =
-      "The quick brown fox jumped over the lazy dog";
-
-  strncpy(buf, kTestString, buf_len);
-
-  return 0;
 }
 
 void used_operation() {

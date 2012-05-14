@@ -54,9 +54,9 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
     BlockGraph::Block::LabelMap::const_iterator
         label_it(block->labels().begin());
     for (; label_it != block->labels().end(); ++label_it) {
-      str << "\t" << StringPrintf("+0x%04X: %s\n",
-                                  label_it->first,
-                                  label_it->second.c_str());
+      str << "\t"
+          << StringPrintf("+0x%04X: ", label_it->first)
+          << label_it->second.ToString() << "\n";
     }
 
     BlockGraph::Block::ReferenceMap::const_iterator ref_it(
@@ -75,10 +75,10 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
         BlockGraph::Block::LabelMap::const_iterator label =
             ref.referenced()->labels().find(ref.offset());
         if (label != ref.referenced()->labels().end()) {
-          str << StringPrintf("\t+0x%04X->%s:%s(%d)\n",
+          str << StringPrintf("\t+0x%04X->%s:%s[%d]\n",
                               ref_it->first,
                               ref.referenced()->name().c_str(),
-                              label->second.c_str(),
+                              label->second.ToString(),
                               ref.size());
         } else {
           str << StringPrintf("\t+0x%04X->%s+0x%04X(%d)\n",

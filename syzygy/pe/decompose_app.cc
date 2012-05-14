@@ -148,7 +148,7 @@ bool DecomposeApp::DumpBlockSet(const BlockSet& set, FILE* file) {
   for (; it != set.end(); ++it) {
     if (fprintf(file, "    0x%08X: %s (%s)\n", (*it)->addr().value(),
                 (*it)->name(),
-                BlockGraph::kBlockType[(*it)->type()]) < 0) {
+                BlockGraph::BlockTypeToString((*it)->type())) < 0) {
       return false;
     }
   }
@@ -166,7 +166,7 @@ bool DecomposeApp::DumpBlock(const BlockGraph::Block* block, FILE* file) {
               base,
               block->size(),
               block->name().c_str(),
-              BlockGraph::kBlockType[block->type()]) < 0) {
+              BlockGraph::BlockTypeToString(block->type())) < 0) {
     return false;
   }
 
@@ -178,7 +178,7 @@ bool DecomposeApp::DumpBlock(const BlockGraph::Block* block, FILE* file) {
       return false;
     for (; label_it != block->labels().end(); ++label_it) {
       if (fprintf(file, "    0x%08x: %s\n", base + label_it->first,
-                  label_it->second.c_str()) < 0)
+                  label_it->second.ToString().c_str()) < 0)
         return false;
     }
   }

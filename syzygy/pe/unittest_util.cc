@@ -216,12 +216,13 @@ void PELibUnitTest::CheckEmbeddedPdbPath(const FilePath& pe_path,
 
 void PELibUnitTest::CheckTestDll(const FilePath& path) {
   LOADED_IMAGE loaded_image = {};
-  ASSERT_TRUE(::MapAndLoad(WideToUTF8(path.value()).c_str(),
-                           NULL,
-                           &loaded_image,
-                           FALSE,
-                           FALSE));
-
+  BOOL success = ::MapAndLoad(WideToUTF8(path.value()).c_str(),
+                              NULL,
+                              &loaded_image,
+                              FALSE,
+                              FALSE);
+  EXPECT_EQ(ERROR_SUCCESS, ::GetLastError());
+  ASSERT_TRUE(success);
   EXPECT_TRUE(::UnMapAndLoad(&loaded_image));
 
   ScopedHMODULE module(::LoadLibrary(path.value().c_str()));
