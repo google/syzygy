@@ -309,6 +309,14 @@ void TraceFileWriter::WriteBuffer(Session* session,
     }
   }
 
+  // It's entirely possible for this buffer to be handed out to another client
+  // and for the service to be forcibly shutdown before the client has had a
+  // chance to even touch the buffer. In that case, we'll end up writing the
+  // buffer again. We clear the RecordPrefix and the TraceFileSegmentHeader so
+  // that we'll at least see the buffer as empty and write nothing.
+  ::memset(buffer->data_ptr, 0,
+           sizeof(RecordPrefix) + sizeof(TraceFileSegmentHeader));
+
   session->RecycleBuffer(buffer);
 }
 
