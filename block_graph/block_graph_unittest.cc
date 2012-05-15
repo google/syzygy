@@ -1102,6 +1102,35 @@ TEST(BlockGraphAddressSpaceTest, GetFirstIntersectingBlock) {
       address_space.GetFirstIntersectingBlock(RelativeAddress(0x1010), 0x40));
 }
 
+TEST(BlockGraphAddressSpaceTest, GetContainingBlock) {
+  BlockGraph image;
+  BlockGraph::AddressSpace address_space(&image);
+  BlockGraph::Block* found_block = NULL;
+
+  BlockGraph::Block* block1 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
+                                                     RelativeAddress(0x1000),
+                                                     0x10,
+                                                     "code");
+  BlockGraph::Block* block2 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
+                                                     RelativeAddress(0x1010),
+                                                     0x10,
+                                                     "code");
+
+  // Fully contained in block1
+  EXPECT_EQ(block1,
+            address_space.GetContainingBlock(RelativeAddress(0x1004), 8));
+
+  // Fully contained in block2
+  EXPECT_EQ(block2,
+            address_space.GetContainingBlock(RelativeAddress(0x1014), 8));
+
+  // Starts before but intersects with block1.
+  EXPECT_EQ(NULL, address_space.GetContainingBlock(RelativeAddress(0x099E), 8));
+
+  // Starts in the middle of block1 and overlaps into block2.
+  EXPECT_EQ(NULL, address_space.GetContainingBlock(RelativeAddress(0x100a), 8));
+}
+
 TEST(BlockGraphAddressSpaceTest, GetBlockAddress) {
   BlockGraph image;
   BlockGraph::AddressSpace address_space(&image);
