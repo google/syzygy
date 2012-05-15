@@ -533,6 +533,26 @@ TEST_F(BlockTest, RemoveDataImplicit) {
   EXPECT_EQ(30u, block1->data_size());
 }
 
+TEST_F(BlockTest, RemoveDataWithSelfReference) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 50, "Block1");
+
+  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize, block1, 0);
+  // Insert a self-reference to the block.
+  block1->SetReference(40, ref);
+
+  // Remove some data before the reference.
+  block1->RemoveData(10, 10);
+
+  BlockGraph::Reference moved_ref;
+  ASSERT_TRUE(block1->GetReference(30, &moved_ref));
+  ASSERT_EQ(ref, moved_ref);
+
+  BlockGraph::Block::ReferrerSet expected;
+  expected.insert(std::make_pair(block1, 30));
+  ASSERT_EQ(block1->referrers(), expected);
+}
+
 TEST_F(BlockTest, InsertOrRemoveDataSameSizeNoAllocate) {
   BlockGraph::Block* block1 = image_.AddBlock(
       BlockGraph::DATA_BLOCK, 40, "Block1");

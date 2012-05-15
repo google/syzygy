@@ -858,7 +858,7 @@ bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
   // Patch up the block.
   size_ -= size;
   ShiftOffsetItemMap(offset + size, -static_cast<int>(size), &labels_);
-  ShiftOffsetItemMap(offset + size, -static_cast<int>(size), &references_);
+  ShiftReferences(this, offset + size, -static_cast<int>(size));
   ShiftReferrers(this, offset + size, -static_cast<int>(size), &referrers_);
   source_ranges_.RemoveMappedRange(DataRange(offset, size));
 
