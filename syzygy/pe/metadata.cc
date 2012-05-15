@@ -16,11 +16,11 @@
 
 #include <time.h>
 #include "base/command_line.h"
-#include "base/json/json_reader.h"
-#include "base/json/string_escape.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "base/json/json_reader.h"
+#include "base/json/string_escape.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/json_file_writer.h"
@@ -319,34 +319,6 @@ bool Metadata::LoadFromBlock(const BlockGraph::Block* block) {
     LOG(ERROR) << "Unable to parse module metadata.";
     return false;
   }
-
-  return true;
-}
-
-bool Metadata::SaveToPE(PEFileBuilder* pe_file_builder) const {
-  RelativeAddress start = pe_file_builder->next_section_address();
-  RelativeAddress insert_at = start;
-
-  BlockGraph::Block* new_block =
-      pe_file_builder->image_layout().blocks.graph()->AddBlock(
-          BlockGraph::DATA_BLOCK, 0, "Metadata");
-  if (!SaveToBlock(new_block))
-    return false;
-
-  // Stuff the metadata into the address space.
-  if (!pe_file_builder->image_layout().blocks.InsertBlock(insert_at,
-                                                          new_block)) {
-    LOG(ERROR) << "Unable to insert metadata block.";
-    return false;
-  }
-  insert_at += new_block->size();
-
-  // Wrap this data in a read-only data section.
-  uint32 syzygy_size = insert_at - start;
-  pe_file_builder->AddSection(common::kSyzygyMetadataSectionName,
-                              syzygy_size,
-                              syzygy_size,
-                              kReadOnlyDataCharacteristics);
 
   return true;
 }

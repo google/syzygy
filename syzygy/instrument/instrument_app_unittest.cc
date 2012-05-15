@@ -20,7 +20,6 @@
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/instrument/instrumenter.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
@@ -32,14 +31,6 @@ namespace {
 using testing::StrictMock;
 using testing::Return;
 using testing::_;
-
-class MockInstrumenter : public Instrumenter {
- public:
-  MOCK_METHOD4(Instrument, bool(const FilePath&,
-                                const FilePath&,
-                                const FilePath&,
-                                const FilePath&));
-};
 
 class MockRelinker : public pe::PERelinker {
  public:
@@ -63,12 +54,7 @@ class TestInstrumentApp : public InstrumentApp {
     return mock_relinker_;
   }
 
-  Instrumenter& GetInstrumenter() OVERRIDE {
-    return mock_instrumenter_;
-  }
-
   StrictMock<MockRelinker> mock_relinker_;
-  StrictMock<MockInstrumenter> mock_instrumenter_;
 };
 
 typedef common::Application<TestInstrumentApp> TestApp;
@@ -173,7 +159,8 @@ TEST_F(InstrumentAppTest, ParseMinimalCommandLine) {
   EXPECT_TRUE(test_impl_.input_pdb_path_.empty());
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_TRUE(test_impl_.output_pdb_path_.empty());
-  EXPECT_EQ(Instrumenter::kCallTraceClientDllEtw, test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllEtw),
+            test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.augment_pdb_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
@@ -199,7 +186,8 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
   EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(Instrumenter::kCallTraceClientDllRpc, test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
+            test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
@@ -225,7 +213,8 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(Instrumenter::kCallTraceClientDllProfiler, test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfiler),
+            test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
@@ -251,7 +240,8 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineEtw) {
   EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(Instrumenter::kCallTraceClientDllEtw, test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllEtw),
+            test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);

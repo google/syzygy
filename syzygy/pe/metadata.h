@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@
 #include "base/logging_win.h"
 #include "base/time.h"
 #include "base/values.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pe/pe_file.h"
-#include "syzygy/pe/pe_file_builder.h"
 
 // Forward declaration.
 namespace core {
@@ -65,7 +65,6 @@ class Metadata {
   bool LoadFromBlock(const BlockGraph::Block* block);
 
   // Functions for serialization to and from a PE file.
-  bool SaveToPE(PEFileBuilder* pe_file_builder) const;
   bool LoadFromPE(const PEFile& pe_file);
 
   // Serialization functions.

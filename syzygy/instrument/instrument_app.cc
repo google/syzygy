@@ -22,6 +22,7 @@
 
 #include "base/string_util.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
+#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -29,7 +30,6 @@ namespace instrument {
 namespace {
 
 using block_graph::BlockGraph;
-using instrument::Instrumenter;
 using pe::Decomposer;
 using pe::PEFile;
 
@@ -67,20 +67,16 @@ static const char kUsageFormatStr[] =
 
 }  // namespace
 
+const char InstrumentApp::kCallTraceClientDllEtw[] = "call_trace.dll";
+const char InstrumentApp::kCallTraceClientDllProfiler[] = "profile_client.dll";
+const char InstrumentApp::kCallTraceClientDllRpc[] = "call_trace_client.dll";
+
 pe::PERelinker& InstrumentApp::GetRelinker() {
   if (relinker_.get() == NULL) {
     relinker_.reset(new pe::PERelinker());
     CHECK(relinker_.get() != NULL);
   }
   return *(relinker_.get());
-}
-
-Instrumenter& InstrumentApp::GetInstrumenter() {
-  if (instrumenter_.get() == NULL) {
-    instrumenter_.reset(new Instrumenter());
-    CHECK(instrumenter_.get() != NULL);
-  }
-  return *(instrumenter_.get());
 }
 
 bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
@@ -103,11 +99,11 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     return Usage(cmd_line, "You must provide input and output file names.");
 
   if (client_dll_.empty() || LowerCaseEqualsASCII(client_dll_, "etw")) {
-    client_dll_ = Instrumenter::kCallTraceClientDllEtw;
+    client_dll_ = kCallTraceClientDllEtw;
   } else if (LowerCaseEqualsASCII(client_dll_, "rpc")) {
-    client_dll_ = Instrumenter::kCallTraceClientDllRpc;
+    client_dll_ = kCallTraceClientDllRpc;
   } else if (LowerCaseEqualsASCII(client_dll_, "profiler")) {
-    client_dll_ = Instrumenter::kCallTraceClientDllProfiler;
+    client_dll_ = kCallTraceClientDllProfiler;
     instrument_interior_references_ = false;
   }
 

@@ -28,8 +28,6 @@
       'sources': [
         'instrument_app.cc',
         'instrument_app.h',
-        'instrumenter.cc',
-        'instrumenter.h',
         'transforms/entry_thunk_transform.cc',
         'transforms/entry_thunk_transform.h',
       ],
@@ -64,7 +62,6 @@
       'target_name': 'instrument_unittests',
       'type': 'executable',
       'sources': [
-        'instrumenter_unittest.cc',
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
         'transforms/entry_thunk_transform_unittest.cc',
