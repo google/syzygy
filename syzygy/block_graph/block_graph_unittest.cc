@@ -351,6 +351,26 @@ TEST_F(BlockTest, InsertDataForceAllocateDoesNotShorten) {
   EXPECT_EQ(40u, block1->data_size());
 }
 
+TEST_F(BlockTest, InsertDataWithSelfReference) {
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 40, "Block1");
+
+  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize, block1, 0);
+  // Insert a self-reference to the block.
+  block1->SetReference(20, ref);
+
+  // Insert some data before the reference.
+  block1->InsertData(10, 10, false);
+
+  BlockGraph::Reference moved_ref;
+  ASSERT_TRUE(block1->GetReference(30, &moved_ref));
+  ASSERT_EQ(ref, moved_ref);
+
+  BlockGraph::Block::ReferrerSet expected;
+  expected.insert(std::make_pair(block1, 30));
+  ASSERT_EQ(block1->referrers(), expected);
+}
+
 TEST_F(BlockTest, RemoveData) {
   // Create a block with a labelled array of pointers. Explicitly initialize
   // the last one with some data and let the block be longer than its

@@ -84,8 +84,47 @@ void ShiftOffsetItemMap(BlockGraph::Offset offset,
   }
 }
 
+void ShiftReferences(BlockGraph::Block* block,
+                     BlockGraph::Offset offset,
+                     BlockGraph::Offset distance) {
+  // Make a copy of the reference map for simplicity.
+  BlockGraph::Block::ReferenceMap references = block->references();
+
+  // Start by removing all references that have moved.
+  BlockGraph::Block::ReferenceMap::const_iterator it =
+      references.lower_bound(offset);
+  for (; it != references.end(); ++it) {
+    if (it->first >= offset)
+      block->RemoveReference(it->first);
+  }
+
+  // Then patch up all existing references.
+  it = references.begin();
+  for (; it != references.end(); ++it) {
+    BlockGraph::Reference ref(it->second);
+    BlockGraph::Offset new_offset(it->first);
+
+    // If this is self-referential, fix the destination offset.
+    if (ref.referenced() == block && ref.offset() >= offset) {
+      ref = BlockGraph::Reference(ref.type(),
+                                  ref.size(),
+                                  ref.referenced(),
+                                  ref.offset() + distance);
+    }
+
+    // If its offset is past the change point, fix that.
+    if (it->first >= offset)
+      new_offset += distance;
+
+    // In many cases this'll be a noop.
+    // TODO(siggi): Optimize this.
+    block->SetReference(new_offset, ref);
+  }
+}
+
 // Shift all referrers beyond @p offset by @p distance.
-void ShiftReferrers(BlockGraph::Offset offset,
+void ShiftReferrers(BlockGraph::Block* self,
+                    BlockGraph::Offset offset,
                     BlockGraph::Offset distance,
                     BlockGraph::Block::ReferrerSet* referrers) {
   DCHECK_GE(offset, 0);
@@ -104,18 +143,21 @@ void ShiftReferrers(BlockGraph::Offset offset,
     ++next_ref_it;
 
     BlockGraph::Block* ref_block = ref_it->first;
-    BlockGraph::Offset ref_offset = ref_it->second;
+    // Our own references will have been moved already.
+    if (ref_block != self) {
+      BlockGraph::Offset ref_offset = ref_it->second;
 
-    Reference ref;
-    bool ref_found = ref_block->GetReference(ref_offset, &ref);
-    DCHECK(ref_found);
+      Reference ref;
+      bool ref_found = ref_block->GetReference(ref_offset, &ref);
+      DCHECK(ref_found);
 
-    // Shift the reference if need be.
-    if (ref.offset() >= offset) {
-      Reference new_ref(
-          ref.type(), ref.size(), ref.referenced(), ref.offset() + distance);
-      bool inserted = ref_block->SetReference(ref_offset, new_ref);
-      DCHECK(!inserted);
+      // Shift the reference if need be.
+      if (ref.offset() >= offset) {
+        Reference new_ref(
+            ref.type(), ref.size(), ref.referenced(), ref.offset() + distance);
+        bool inserted = ref_block->SetReference(ref_offset, new_ref);
+        DCHECK(!inserted);
+      }
     }
 
     ref_it = next_ref_it;
@@ -756,8 +798,8 @@ void BlockGraph::Block::InsertData(Offset offset,
     // Patch up the block.
     size_ += size;
     ShiftOffsetItemMap(offset, size, &labels_);
-    ShiftOffsetItemMap(offset, size, &references_);
-    ShiftReferrers(offset, size, &referrers_);
+    ShiftReferences(this, offset, size);
+    ShiftReferrers(this, offset, size, &referrers_);
     source_ranges_.InsertUnmappedRange(DataRange(offset, size));
 
     // Does this affect already allocated data?
@@ -817,7 +859,7 @@ bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
   size_ -= size;
   ShiftOffsetItemMap(offset + size, -static_cast<int>(size), &labels_);
   ShiftOffsetItemMap(offset + size, -static_cast<int>(size), &references_);
-  ShiftReferrers(offset + size, -static_cast<int>(size), &referrers_);
+  ShiftReferrers(this, offset + size, -static_cast<int>(size), &referrers_);
   source_ranges_.RemoveMappedRange(DataRange(offset, size));
 
   // Does this affect already allocated data?
