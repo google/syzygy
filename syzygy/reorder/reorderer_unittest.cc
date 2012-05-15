@@ -24,6 +24,7 @@
 
 namespace reorder {
 
+using block_graph::BlockGraph;
 using testing::_;
 using testing::DoAll;
 using testing::InSequence;
@@ -387,6 +388,76 @@ TEST_F(ReordererTest, Reorder) {
   // blocks that the parse engine used for generating dummy trace events.
   EXPECT_EQ(test_parse_engine_->blocks,
             test_order_generator.blocks);
+}
+
+TEST(OrderTest, SerializeToJsonRoundTrip) {
+  // Build a dummy block graph.
+  BlockGraph block_graph;
+  BlockGraph::Section* section1 = block_graph.AddSection(".text", 0);
+  BlockGraph::Section* section2 = block_graph.AddSection(".rdata", 0);
+  BlockGraph::Block* block1 = block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10,
+                                                   "block1");
+  BlockGraph::Block* block2 = block_graph.AddBlock(BlockGraph::DATA_BLOCK, 10,
+                                                   "block2");
+  BlockGraph::Block* block3 = block_graph.AddBlock(BlockGraph::DATA_BLOCK, 10,
+                                                   "block3");
+  block1->set_section(section1->id());
+  block2->set_section(section2->id());
+  block3->set_section(section2->id());
+
+  // Build a dummy image layout.
+  pe::ImageLayout layout(&block_graph);
+  pe::ImageLayout::SectionInfo section_info1 = {};
+  section_info1.name = section1->name();
+  section_info1.addr = core::RelativeAddress(0x1000);
+  section_info1.size = 0x1000;
+  section_info1.data_size = 0x1000;
+  layout.sections.push_back(section_info1);
+
+  pe::ImageLayout::SectionInfo section_info2 = {};
+  section_info2.name = section2->name();
+  section_info2.addr = core::RelativeAddress(0x2000);
+  section_info2.size = 0x1000;
+  section_info2.data_size = 0x1000;
+  layout.sections.push_back(section_info2);
+
+  layout.blocks.InsertBlock(section_info1.addr,
+                            block1);
+  layout.blocks.InsertBlock(section_info2.addr,
+                            block2);
+  layout.blocks.InsertBlock(section_info2.addr + block2->size(),
+                            block3);
+
+  // Build a dummy order.
+  Reorderer::Order order;
+  order.comment = "This is a comment.";
+  order.section_block_lists[section1->id()].push_back(block1);
+  order.section_block_lists[section2->id()].push_back(block2);
+  order.section_block_lists[section2->id()].push_back(block3);
+
+  FilePath module = testing::GetExeTestDataRelativePath(
+      testing::PELibUnitTest::kDllName);
+  pe::PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(module));
+
+  // Serialize the order.
+  FilePath temp_file;
+  ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file));
+  EXPECT_TRUE(order.SerializeToJSON(pe_file, temp_file, true));
+
+  // Get the original module from the file.
+  FilePath orig_module;
+  EXPECT_TRUE(Reorderer::Order::GetOriginalModulePath(temp_file, &orig_module));
+  EXPECT_EQ(module, orig_module);
+
+  // Deserialize it.
+  Reorderer::Order order2;
+  EXPECT_TRUE(order2.LoadFromJSON(pe_file, layout, temp_file));
+
+  // Expect them to be the same.
+  EXPECT_EQ(order.section_block_lists, order2.section_block_lists);
+
+  EXPECT_TRUE(file_util::Delete(temp_file, false));
 }
 
 }  // namespace reorder

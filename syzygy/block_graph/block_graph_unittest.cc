@@ -608,6 +608,22 @@ TEST_F(BlockTest, InsertOrRemoveShrinkAllocate) {
   EXPECT_EQ(10u, block1->data_size());
 }
 
+TEST(BlockGraphTest, BlockTypeToString) {
+  for (int type = 0; type < BlockGraph::BLOCK_TYPE_MAX; ++type) {
+    BlockGraph::BlockType block_type =
+        static_cast<BlockGraph::BlockType>(type);
+    EXPECT_TRUE(BlockGraph::BlockTypeToString(block_type) != NULL);
+  }
+}
+
+TEST(BlockGraphTest, LabelTypeToString) {
+  for (int type = 0; type < BlockGraph::LABEL_TYPE_MAX; ++type) {
+    BlockGraph::LabelType label_type =
+        static_cast<BlockGraph::LabelType>(type);
+    EXPECT_TRUE(BlockGraph::LabelTypeToString(label_type) != NULL);
+  }
+}
+
 TEST(BlockGraphTest, AddSections) {
   BlockGraph image;
   ASSERT_EQ(0u, image.sections().size());
