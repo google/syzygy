@@ -426,7 +426,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::GetContainingBlock(
     RelativeAddress addr, Size size) const {
   AddressSpaceImpl::Range range(addr, size);
   AddressSpaceImpl::RangeMap::const_iterator it =
-      address_space_.FindFirstIntersection(range);
+      address_space_.FindContaining(range);
   if (it == address_space_.ranges().end())
     return NULL;
 
