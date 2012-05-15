@@ -82,6 +82,12 @@ TEST_F(PEFileTest, GetImageData) {
   ASSERT_TRUE(image_file_.GetImageData(RelativeAddress(exports->VirtualAddress),
                                       exports->Size) != NULL);
 
+  // We should be able to read it using an absolute address as well.
+  AbsoluteAddress abs_addr;
+  ASSERT_TRUE(image_file_.Translate(RelativeAddress(exports->VirtualAddress),
+                                    &abs_addr));
+  ASSERT_TRUE(image_file_.GetImageData(abs_addr, exports->Size) != NULL);
+
   // But there ought to be a gap in the image data past the header size.
   ASSERT_TRUE(image_file_.GetImageData(
       RelativeAddress(nt_headers->OptionalHeader.SizeOfHeaders), 1) == NULL);
@@ -109,17 +115,32 @@ TEST_F(PEFileTest, ReadImage) {
                                     &names.at(0),
                                     sizeof(names[0]) * names.size()));
 
+  // Test the same thing using an absolute address.
+  AbsoluteAddress abs_names_addr;
+  ASSERT_TRUE(image_file_.Translate(RelativeAddress(export_dir.AddressOfNames),
+                                    &abs_names_addr));
+  std::vector<RelativeAddress> names2(export_dir.NumberOfNames);
+  ASSERT_TRUE(image_file_.ReadImage(abs_names_addr, &names2.at(0),
+                                    sizeof(names2[0]) * names2.size()));
+  ASSERT_EQ(names, names2);
+
   // Read all the export name strings.
   for (size_t i = 0; i < names.size(); ++i) {
-    std::string name;
-    ASSERT_TRUE(image_file_.ReadImageString(names[i], &name));
-    ASSERT_TRUE(name == "function1" ||
-                name == "function3" ||
-                name == "DllMain" ||
-                name == "CreateFileW" ||
-                name == "TestUnusedFuncs" ||
-                name == "TestExport" ||
-                name == "LabelTestFunc");
+    std::string name1;
+    ASSERT_TRUE(image_file_.ReadImageString(names[i], &name1));
+    ASSERT_TRUE(name1 == "function1" ||
+                name1 == "function3" ||
+                name1 == "DllMain" ||
+                name1 == "CreateFileW" ||
+                name1 == "TestUnusedFuncs" ||
+                name1 == "TestExport" ||
+                name1 == "LabelTestFunc");
+
+    std::string name2;
+    AbsoluteAddress abs_addr;
+    ASSERT_TRUE(image_file_.Translate(names[i], &abs_addr));
+    ASSERT_TRUE(image_file_.ReadImageString(abs_addr, &name2));
+    ASSERT_EQ(name1, name2);
   }
 }
 
@@ -302,6 +323,17 @@ TEST_F(PEFileTest, GetSectionHeaderByAbsoluteAddress) {
   AbsoluteAddress off_end(image_file_.nt_headers()->OptionalHeader.SizeOfImage +
       0x10000 + image_base);
   EXPECT_EQ(kInvalidSection, image_file_.GetSectionIndex(off_end, 1));
+}
+
+TEST_F(PEFileTest, GetSectionHeaderByName) {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    std::string name = image_file_.GetSectionName(i);
+    EXPECT_EQ(image_file_.section_header(i),
+              image_file_.GetSectionHeader(name.c_str()));
+  }
+
+  EXPECT_EQ(NULL, image_file_.GetSectionHeader(".foobar"));
 }
 
 TEST(PEFileSignatureTest, Serialization) {

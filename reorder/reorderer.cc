@@ -425,7 +425,7 @@ bool Reorderer::Order::GetOriginalModulePath(const FilePath& path,
                                              FilePath* module) {
   std::string file_string;
   if (!file_util::ReadFileToString(path, &file_string)) {
-    LOG(ERROR) << "Unable to read order file to string";
+    LOG(ERROR) << "Unable to read order file to string.";
     return false;
   }
 

@@ -43,11 +43,6 @@ class PELibUnitTest : public testing::ApplicationTestBase {
   // Cleans up after each test invocation.
   virtual void TearDown() OVERRIDE;
 
-  // Retrieves the PDB path associated with the PE file at a given path and
-  // compares it to an expected path value.
-  void CheckEmbeddedPdbPath(const FilePath& pe_path,
-                            const FilePath& expected_pdb_path);
-
   // Creates a temporary directory, which is cleaned up after the test runs.
   void CreateTemporaryDir(FilePath* temp_dir);
 
