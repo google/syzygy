@@ -366,65 +366,6 @@ TEST_F(PdbUtilTest, SetOmapToAndFromStream) {
                  omap_from_list);
 }
 
-TEST_F(PdbUtilTest, AddOmapStreamToPdbFile) {
-  // Add Omap information to test_dll.pdb and test that the output file
-  // has Omap information.
-  std::vector<OMAP> omap_to_list(kOmapToData,
-                                 kOmapToData + arraysize(kOmapToData));
-  std::vector<OMAP> omap_from_list(kOmapFromData,
-                                   kOmapFromData + arraysize(kOmapFromData));
-
-  FilePath test_pdb_file_path = testing::GetSrcRelativePath(
-      testing::kTestPdbFilePath);
-  EXPECT_TRUE(AddOmapStreamToPdbFile(test_pdb_file_path,
-                                     temp_pdb_file_path_,
-                                     new_guid_,
-                                     omap_to_list,
-                                     omap_from_list));
-
-  VerifyGuidData(temp_pdb_file_path_, new_guid_);
-  VerifyOmapData(temp_pdb_file_path_,
-                 omap_to_list,
-                 omap_from_list);
-}
-
-TEST_F(PdbUtilTest, AddOmapStreamToPdbFileWithOmap) {
-  // Add Omap information to test_dll.pdb and test that the output file
-  // has Omap information.
-  std::vector<OMAP> omap_to_list(kOmapToData,
-                                 kOmapToData + arraysize(kOmapToData));
-  std::vector<OMAP> omap_from_list(kOmapFromData,
-                                   kOmapFromData + arraysize(kOmapFromData));
-
-  FilePath test_pdb_file_path = testing::GetSrcRelativePath(
-      testing::kTestPdbFilePath);
-  // Write Omap to and from in the opposite order to temp.pdb.
-  EXPECT_TRUE(AddOmapStreamToPdbFile(test_pdb_file_path,
-                                     temp_pdb_file_path_,
-                                     new_guid_,
-                                     omap_from_list,
-                                     omap_to_list));
-  // Overwrite the Omap info in temp.pdb with Omap from and to in the correct
-  // order and save it in temp2.pdb.
-  EXPECT_TRUE(AddOmapStreamToPdbFile(temp_pdb_file_path_,
-                                     temp_pdb_file_path2_,
-                                     new_guid_,
-                                     omap_to_list,
-                                     omap_from_list));
-
-  VerifyGuidData(temp_pdb_file_path2_, new_guid_);
-  VerifyOmapData(temp_pdb_file_path2_,
-                 omap_to_list,
-                 omap_from_list);
-
-  // Make sure temp.pdb and temp2.pdb have the same number of streams.
-  PdbReader reader;
-  PdbFile pdb_file1, pdb_file2;
-  EXPECT_TRUE(reader.Read(temp_pdb_file_path_, &pdb_file1));
-  EXPECT_TRUE(reader.Read(temp_pdb_file_path2_, &pdb_file2));
-  EXPECT_EQ(pdb_file1.StreamCount(), pdb_file2.StreamCount());
-}
-
 TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   PdbReader reader;
   PdbFile pdb_file;

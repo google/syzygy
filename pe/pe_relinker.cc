@@ -27,7 +27,6 @@
 #include "syzygy/pe/image_source_map.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pdb_info.h"
-#include "syzygy/pe/pe_file_builder.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/orderers/pe_orderer.h"

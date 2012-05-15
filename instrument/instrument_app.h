@@ -23,7 +23,6 @@
 #include "base/string_piece.h"
 #include "base/time.h"
 #include "syzygy/common/application.h"
-#include "syzygy/instrument/instrumenter.h"
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -34,6 +33,11 @@ namespace instrument {
 // usage information.
 class InstrumentApp : public common::AppImplBase {
  public:
+
+  // A list of known clients libraries.
+  static const char InstrumentApp::kCallTraceClientDllEtw[];
+  static const char InstrumentApp::kCallTraceClientDllProfiler[];
+  static const char InstrumentApp::kCallTraceClientDllRpc[];
 
   InstrumentApp()
       : allow_overwrite_(false),
@@ -71,9 +75,7 @@ class InstrumentApp : public common::AppImplBase {
   // @name Internal machinery, replaceable for testing purposes.
   // @{
   virtual pe::PERelinker& GetRelinker();
-  virtual Instrumenter& GetInstrumenter();
   scoped_ptr<pe::PERelinker> relinker_;
-  scoped_ptr<Instrumenter> instrumenter_;
   // @}
 };
 

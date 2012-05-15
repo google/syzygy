@@ -107,22 +107,6 @@ bool SetOmapFromStream(const std::vector<OMAP>& omap_from_list,
 // @returns true on success, false otherwise.
 bool SetGuid(const GUID& guid, PdbFile* pdb_file);
 
-// Add Omap stream data to an existing Pdb file and write it as a new Pdb file,
-// while updating the Pdb header to a new GUID and timestamp.
-// The Omap vector arguments must already be sorted in ascending order by rva.
-// @note input_file and output_file must not be the same file.
-// @param input_file the input PDB file.
-// @param output_file the output PDB file.
-// @param output_guid a new GUID to assign to the output_file.
-// @param omap_to_list the list of OMAP_TO entries.
-// @param omap_from_list the list of OMAP_FROM entries.
-// @returns true on success, false otherwise.
-bool AddOmapStreamToPdbFile(const FilePath& input_file,
-                            const FilePath& output_file,
-                            const GUID& output_guid,
-                            const std::vector<OMAP>& omap_to_list,
-                            const std::vector<OMAP>& omap_from_list);
-
 // Reads the header from the given PDB file @p pdb_path.
 // @param pdb_path the path to the PDB whose header is to be read.
 // @param pdb_header the header to be filled in.

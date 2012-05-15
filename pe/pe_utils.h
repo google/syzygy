@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,11 +61,6 @@ block_graph::BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
 // Updates the provided DOS header block in preparation for writing a module
 // from a BlockGraph. Trims any superfluous data and inserts a new DOS stub.
 // After this has been applied IsValidDosHeaderBlock will succeed.
-//
-// NOTE: This has been moved here so that it may be used by
-//     PrepareHeadersTransform and PEFileBuilder. After the PEFileBuilder and
-//     Relinker refactor this will be hidden in PrepareHeadersTransform.
-//
 // @param dos_header_block the DOS header block to update.
 // @returns true on success, false otherwise.
 bool UpdateDosHeader(block_graph::BlockGraph::Block* dos_header_block);

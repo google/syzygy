@@ -293,43 +293,6 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
   return true;
 }
 
-bool AddOmapStreamToPdbFile(const FilePath& input_file,
-                            const FilePath& output_file,
-                            const GUID& output_guid,
-                            const std::vector<OMAP>& omap_to_list,
-                            const std::vector<OMAP>& omap_from_list) {
-  // Read the input PDB's streams.
-  PdbReader reader;
-  PdbFile pdb_file;
-  if (!reader.Read(input_file, &pdb_file)) {
-    LOG(ERROR) << "Failed to read '" << input_file.value() << "'";
-    return false;
-  }
-
-  // Update it.
-  if (!SetGuid(output_guid, &pdb_file)) {
-    LOG(ERROR) << "Failed to set GUID.";
-    return false;
-  }
-  if (!SetOmapToStream(omap_to_list, &pdb_file)) {
-    LOG(ERROR) << "Failed to set OMAP_TO stream.";
-    return false;
-  }
-  if (!SetOmapFromStream(omap_from_list, &pdb_file)) {
-    LOG(ERROR) << "Failed to set OMAP_FROM stream.";
-    return false;
-  }
-
-  // Write the new Pdb file.
-  PdbWriter writer;
-  if (!writer.Write(output_file, pdb_file)) {
-    LOG(ERROR) << "Failed to write '" << output_file.value() << "'";
-    return false;
-  }
-
-  return true;
-}
-
 bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header) {
   DCHECK(!pdb_path.empty());
   DCHECK(pdb_header != NULL);

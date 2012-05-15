@@ -26,12 +26,6 @@
       'target_name': 'relink_lib',
       'type': 'static_library',
       'sources': [
-        'order_relinker.cc',
-        'order_relinker.h',
-        'random_relinker.cc',
-        'random_relinker.h',
-        'relinker.cc',
-        'relinker.h',
         'relink_app.h',
         'relink_app.cc',
       ],
@@ -70,8 +64,6 @@
       'target_name': 'relink_unittests',
       'type': 'executable',
       'sources': [
-        'order_relinker_unittest.cc',
-        'random_relinker_unittest.cc',
         'relink_app_unittest.cc',
         'relink_unittests_main.cc',
       ],
