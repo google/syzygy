@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,7 +118,8 @@ TEST_F(PEFileTest, ReadImage) {
                 name == "DllMain" ||
                 name == "CreateFileW" ||
                 name == "TestUnusedFuncs" ||
-                name == "TestExport");
+                name == "TestExport" ||
+                name == "LabelTestFunc");
   }
 }
 
@@ -180,18 +181,20 @@ TEST_F(PEFileTest, DecodeRelocs) {
 TEST_F(PEFileTest, DecodeExports) {
   PEFile::ExportInfoVector exports;
   ASSERT_TRUE(image_file_.DecodeExports(&exports));
-  ASSERT_EQ(7, exports.size());
 
   // This must match the information in the test_dll.def file.
   PEFile::ExportInfo expected[] = {
     { RelativeAddress(0), "", "",  1 },
     { RelativeAddress(0), "TestExport", "", 2 },
     { RelativeAddress(0), "TestUnusedFuncs", "", 3 },
+    { RelativeAddress(0), "LabelTestFunc", "", 4 },
     { RelativeAddress(0), "DllMain", "", 7 },
     { RelativeAddress(0), "function3", "", 9 },
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },
     { RelativeAddress(0), "function1", "", 17 },
   };
+
+  EXPECT_EQ(ARRAYSIZE(expected), exports.size());
 
   const uint8* module_base = reinterpret_cast<const uint8*>(test_dll_);
 
@@ -202,14 +205,14 @@ TEST_F(PEFileTest, DecodeExports) {
       const uint8* function = reinterpret_cast<const uint8*>(
           base::GetFunctionPointerFromNativeLibrary(
               test_dll_, reinterpret_cast<const char*>(expected[i].ordinal)));
-      ASSERT_TRUE(function != NULL);
+      EXPECT_TRUE(function != NULL);
 
       expected[i].function = RelativeAddress(function - module_base);
     }
-    ASSERT_TRUE(expected[i].function == exports.at(i).function);
-    ASSERT_EQ(expected[i].name, exports.at(i).name);
-    ASSERT_EQ(expected[i].forward, exports.at(i).forward);
-    ASSERT_EQ(expected[i].ordinal, exports.at(i).ordinal);
+    EXPECT_EQ(expected[i].function, exports.at(i).function);
+    EXPECT_EQ(expected[i].name, exports.at(i).name);
+    EXPECT_EQ(expected[i].forward, exports.at(i).forward);
+    EXPECT_EQ(expected[i].ordinal, exports.at(i).ordinal);
   }
 }
 

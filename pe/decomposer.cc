@@ -976,10 +976,21 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     // We expect that we'll never see a code label that refers to a reloc.
     if (label_type == BlockGraph::CODE_LABEL &&
         reloc_set_.find(label_rva) != reloc_set_.end()) {
-      LOG(ERROR) << "Collision between reloc and code label in "
-                 << block->name() << " at " << label_name
-                 << base::StringPrintf("(0x%08X).", label_rva.value());
-      return false;
+      LOG(WARNING) << "Collision between reloc and code label in "
+                   << block->name() << " at " << label_name
+                   << base::StringPrintf(" (0x%08X).", label_rva.value())
+                   << " Falling back to data label.";
+      label_type = BlockGraph::DATA_LABEL;
+      DCHECK_EQ(block_addr, block->addr());
+      BlockGraph::Offset offset = label_rva - block_addr;
+      BlockGraph::Label label;
+      if (block->GetLabel(offset, &label) &&
+          label.type() != BlockGraph::DATA_LABEL) {
+        LOG(WARNING) << block->name() << ": Replacing label " << label.name()
+                     << " (" << BlockGraph::LabelTypeToString(label.type())
+                     << ") at offset " << offset << ".";
+        block->RemoveLabel(offset);
+      }
     }
 
     // Add the label to the block.
