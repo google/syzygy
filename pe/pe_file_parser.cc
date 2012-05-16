@@ -554,6 +554,11 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
   if (thunk_block == NULL) {
     // The IAT may have been chunked while parsing the IAT data directory,
     // in which case we want to leave a label for the start of our entries.
+    // TODO(rogerm): GetContainingBlock doesn't quite do what the name implies.
+    //     It returns the first intersecting block with in the given range.
+    //     However, fixing GetContainingBlock() causes the code here to fail.
+    //     Need to find out if this should be calling GetFirstIntersection(), or
+    //     if GetContainingBlock() really is what we mean here.
     thunk_block = address_space_->GetContainingBlock(thunk_start, ixt_size);
 
     if (thunk_block == NULL) {
