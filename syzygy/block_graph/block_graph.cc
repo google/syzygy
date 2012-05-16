@@ -424,9 +424,14 @@ BlockGraph::Block* BlockGraph::AddressSpace::GetBlockByAddress(
 
 BlockGraph::Block* BlockGraph::AddressSpace::GetContainingBlock(
     RelativeAddress addr, Size size) const {
+  // TODO(rogerm): This doesn't quite do what the function name
+  //     says it does. It actually finds the first intersection,
+  //     but does not validate that the entire range fits in the
+  //     found block. There seems to be some reliance on this
+  //     misbehaviour which needs to be checked.
   AddressSpaceImpl::Range range(addr, size);
   AddressSpaceImpl::RangeMap::const_iterator it =
-      address_space_.FindContaining(range);
+      address_space_.FindFirstIntersection(range);
   if (it == address_space_.ranges().end())
     return NULL;
 
