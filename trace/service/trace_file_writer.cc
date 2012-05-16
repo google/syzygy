@@ -129,16 +129,29 @@ bool WriteTraceFileHeader(HANDLE file_handle,
 
   const ProcessInfo& client = session->client_info();
 
-  // Make the initial buffer big enough to hold the header without the
-  // variable length blob, then skip past the fixed sized portion of the
-  // header.
-  std::vector<uint8> buffer;
-  buffer.reserve(16 * 1024);
-  common::VectorBufferWriter writer(&buffer);
-  if (!writer.Consume(offsetof(TraceFileHeader, blob_data)))
+  // Make sure we record the path to the executable as a path with a drive
+  // letter, rather than using device names.
+  FilePath drive_path;
+  if (!common::ConvertDevicePathToDrivePath(client.executable_path,
+                                            &drive_path)) {
     return false;
+  }
 
-  // Populate the fixed sized portion of the header.
+  // Allocate an initial buffer to which to write the trace file header.
+  std::vector<uint8> buffer;
+  buffer.reserve(32 * 1024);
+
+  // Skip past the fixed sized portion of the header and populate the variable
+  // length fields.
+  common::VectorBufferWriter writer(&buffer);
+  if (!writer.Consume(offsetof(TraceFileHeader, blob_data)) ||
+      !writer.WriteString(drive_path.value()) ||
+      !writer.WriteString(client.command_line) ||
+      !writer.Write(client.environment.size(), &client.environment[0])) {
+    return false;
+  }
+
+  // Go back and populate the fixed sized portion of the header.
   TraceFileHeader* header = reinterpret_cast<TraceFileHeader*>(&buffer[0]);
   ::memcpy(&header->signature,
            &TraceFileHeader::kSignatureValue,
@@ -155,26 +168,10 @@ bool WriteTraceFileHeader(HANDLE file_handle,
   header->os_version_info = client.os_version_info;
   header->system_info = client.system_info;
   header->memory_status = client.memory_status;
-
-  // Make sure we record the path to the executable as a path with a drive
-  // letter, rather than using device names.
-  FilePath drive_path;
-  if (!common::ConvertDevicePathToDrivePath(client.executable_path,
-                                            &drive_path)) {
-    return false;
-  }
-
-  // Populate the blob with the variable length fields.
-  if (!writer.WriteString(drive_path.value()))
-    return false;
-  if (!writer.WriteString(client.command_line))
-    return false;
-  if (!writer.Write(client.environment.size(), &client.environment[0]))
-    return false;
-
-  // Update the final header size and align to a block size.
   header->header_size = buffer.size();
-  writer.Align(header->block_size);
+
+  // Align the heeader buffer up to the block size.
+  writer.Align(block_size);
 
   // Commit the header page to disk.
   DWORD bytes_written = 0;
