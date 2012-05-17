@@ -46,6 +46,13 @@ extern const char kSyzygyHistoryStreamName[];
 // whenever the format of the stream has changed.
 const uint32 kSyzygyHistoryStreamVersion = 0;
 
+// The named PDB stream containing the serialized BlockGraph of an image.
+extern const char kSyzygyBlockGraphStreamName[];
+
+// The version of the Syzygy BlockGraph data stream. This needs to be
+// incremented whenever the format of the stream has changed.
+const uint32 kSyzygyBlockGraphStreamVersion = 0;
+
 }  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_CONSTANTS_H_
