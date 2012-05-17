@@ -18,6 +18,9 @@
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pdb/pdb_file.h"
+#include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pdb_info.h"
@@ -183,6 +186,38 @@ TEST_F(PERelinkerTest, IdentityRelink) {
   FilePath pdb_path;
   ASSERT_TRUE(FindPdbForModule(relinker.output_path(), &pdb_path));
   EXPECT_EQ(pdb_path, relinker.output_pdb_path());
+}
+
+TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
+  PERelinker relinker;
+
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+  relinker.set_augment_pdb(true);
+  EXPECT_EQ(true, relinker.augment_pdb());
+
+  EXPECT_TRUE(relinker.Init());
+  EXPECT_TRUE(relinker.Relink());
+  EXPECT_EQ(temp_pdb_, relinker.output_pdb_path());
+
+  // Ensure that the block-graph stream has been written to the PDB. The
+  // content of the stream is not validated, we only check that the named
+  // stream exists in the generated PDB file.
+  pdb::PdbFile pdb_file;
+  pdb::PdbReader pdb_reader;
+  EXPECT_TRUE(pdb_reader.Read(temp_pdb_, &pdb_file));
+  pdb::PdbInfoHeader70 pdb_header = {0};
+  pdb::NameStreamMap name_stream_map;
+  EXPECT_TRUE(ReadHeaderInfoStream(
+      pdb_file.GetStream(pdb::kPdbHeaderInfoStream),
+      &pdb_header,
+      &name_stream_map));
+  pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
+      pdb::kSyzygyBlockGraphStreamName);
+  ASSERT_TRUE(name_it != name_stream_map.end());
+  scoped_refptr<pdb::PdbStream> stream = pdb_file.GetStream(name_it->second);
+  ASSERT_TRUE(stream.get() != NULL);
+  ASSERT_GT(stream->length(), 0u);
 }
 
 }  // namespace pe

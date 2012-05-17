@@ -26,4 +26,6 @@ const uint32 kPdbMaxDirPages = 0x49;
 
 const char kSyzygyHistoryStreamName[] = "/Syzygy/History";
 
+const char kSyzygyBlockGraphStreamName[] = "/Syzygy/BlockGraph";
+
 }  // namespace pdb

@@ -189,10 +189,8 @@ bool InitializePaths(const FilePath& input_path,
 bool Decompose(const PEFile& pe_file,
                const FilePath& pdb_path,
                ImageLayout* image_layout,
-               BlockGraph* bg,
                BlockGraph::Block** dos_header_block) {
   DCHECK(image_layout != NULL);
-  DCHECK(bg != NULL);
   DCHECK(dos_header_block != NULL);
 
   LOG(INFO) << "Decomposing module: " << pe_file.path().value();
@@ -461,6 +459,45 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& header,
   return true;
 }
 
+// Get a specific named stream if it already exists, otherwise create one.
+// @param stream_name The name of the stream.
+// @param name_stream_map The map containing the names of the streams in the
+//     PDB. If the stream doesn't already exist the map will be augmented with
+//     another entry.
+// @param pdb_file The PDB file to which the stream will be added.
+// @param replace_stream If true, will cause a new stream to be created even if
+//     another one already existed.
+// @return a pointer to the PDB stream on success, NULL on failure.
+PdbStream* GetOrCreatePdbStreamByName(const char* stream_name,
+                                      bool replace_stream,
+                                      NameStreamMap* name_stream_map,
+                                      PdbFile* pdb_file) {
+  DCHECK(name_stream_map != NULL);
+  DCHECK(pdb_file != NULL);
+  scoped_refptr<PdbStream> stream;
+
+  NameStreamMap::const_iterator name_it = name_stream_map->find(stream_name);
+  if (name_it != name_stream_map->end()) {
+    // Replace the existing stream by a brand-new one if it's required.
+    if (replace_stream) {
+      stream = new PdbByteStream();
+      pdb_file->ReplaceStream(name_it->second, stream.get());
+    } else {
+      if (!pdb::EnsureStreamWritable(name_it->second, pdb_file)) {
+        LOG(ERROR) << "Failed to make " << stream_name << " stream writable.";
+        return NULL;
+      }
+      stream = pdb_file->GetStream(name_it->second);
+    }
+  } else {
+    stream = new PdbByteStream();
+    uint32 index = pdb_file->AppendStream(stream.get());
+    (*name_stream_map)[stream_name] = index;
+  }
+
+  return stream.get();
+}
+
 // This updates or creates the Syzygy history stream, appending the metadata
 // describing this module and transform. The history stream consists of
 // a named PDB stream with the name /Syzygy/History. It consists of:
@@ -476,43 +513,38 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& header,
 bool WriteSyzygyHistoryStream(const FilePath& input_path,
                               NameStreamMap* name_stream_map,
                               PdbFile* pdb_file) {
-  DCHECK(name_stream_map != NULL);
-  DCHECK(pdb_file != NULL);
+  // Get the history stream.
+  scoped_refptr<PdbStream> history_reader =
+      GetOrCreatePdbStreamByName(pdb::kSyzygyHistoryStreamName,
+                                 false,
+                                 name_stream_map,
+                                 pdb_file);
+
+  if (history_reader == NULL) {
+    LOG(ERROR) << "Failed to get the history stream.";
+    return false;
+  }
+
+  scoped_refptr<WritablePdbStream> history_writer =
+      history_reader->GetWritablePdbStream();
+  DCHECK(history_writer.get() != NULL);
 
   // Get the metadata.
+  Metadata metadata;
   PEFile pe_file;
   if (!pe_file.Init(input_path)) {
     LOG(ERROR) << "Failed to initialize PE file for \"" << input_path.value()
                << "\".";
     return false;
   }
+
   PEFile::Signature pe_sig;
   pe_file.GetSignature(&pe_sig);
-  Metadata metadata;
   if (!metadata.Init(pe_sig)) {
     LOG(ERROR) << "Failed to initialize metadata for \"" << input_path.value()
                << "\".";
     return false;
   }
-
-  // Get the history stream if it already exists, otherwise create one.
-  NameStreamMap::const_iterator name_it =
-      name_stream_map->find(pdb::kSyzygyHistoryStreamName);
-  scoped_refptr<PdbStream> history_reader;
-  scoped_refptr<WritablePdbStream> history_writer;
-  if (name_it != name_stream_map->end()) {
-    if (!pdb::EnsureStreamWritable(name_it->second, pdb_file)) {
-      LOG(ERROR) << "Failed to make Syzygy history stream writable.";
-      return false;
-    }
-    history_reader = pdb_file->GetStream(name_it->second);
-  } else {
-    history_reader = new PdbByteStream();
-    uint32 index = pdb_file->AppendStream(history_reader.get());
-    (*name_stream_map)[pdb::kSyzygyHistoryStreamName] = index;
-  }
-  history_writer = history_reader->GetWritablePdbStream();
-  DCHECK(history_writer.get() != NULL);
 
   // Validate the history stream if it is non-empty.
   if (history_reader->length() > 0) {
@@ -559,6 +591,47 @@ bool WriteSyzygyHistoryStream(const FilePath& input_path,
   core::OutArchive out_archive(&out_stream);
   if (!out_archive.Save(metadata)) {
     LOG(ERROR) << "Failed to write metadata to Syzygy history stream.";
+    return false;
+  }
+
+  return true;
+}
+
+// This writes the serialized block-graph in a PDB stream named
+// /Syzygy/BlockGraph. If the format is changed, be sure to update this
+// documentation and pdb::kSyzygyBlockGraphStreamVersion (in pdb_constants.h).
+bool WriteSyzygyBlockGraphStream(const BlockGraph& block_graph,
+                                 NameStreamMap* name_stream_map,
+                                 PdbFile* pdb_file) {
+  // Get the redecomposition data stream.
+  scoped_refptr<PdbStream> block_graph_reader =
+      GetOrCreatePdbStreamByName(pdb::kSyzygyBlockGraphStreamName,
+                                 true,
+                                 name_stream_map,
+                                 pdb_file);
+
+  if (block_graph_reader == NULL) {
+    LOG(ERROR) << "Failed to get the block-graph stream.";
+    return false;
+  }
+  DCHECK_EQ(0u, block_graph_reader->length());
+
+  scoped_refptr<WritablePdbStream> block_graph_writer =
+      block_graph_reader->GetWritablePdbStream();
+  DCHECK(block_graph_writer.get() != NULL);
+
+  // Write the version of the BlockGraph stream.
+  if (!block_graph_writer->Write(
+          pdb::kSyzygyBlockGraphStreamVersion)) {
+    LOG(ERROR) << "Failed to write Syzygy BlockGraph stream header.";
+    return false;
+  }
+
+  // Save the BlockGraph in the stream.
+  PdbOutStream out_stream(block_graph_writer.get());
+  core::OutArchive out_archive(&out_stream);
+  if (!block_graph.Save(&out_archive)) {
+    LOG(ERROR) << "Failed to write data to Syzygy BlockGraph stream.";
     return false;
   }
 
@@ -619,7 +692,7 @@ bool PERelinker::Init() {
 
   // Decompose the image.
   if (!Decompose(input_pe_file_, input_pdb_path_, &input_image_layout_,
-                 &block_graph_, &dos_header_block_)) {
+                 &dos_header_block_)) {
     return false;
   }
 
@@ -686,8 +759,12 @@ bool PERelinker::Relink() {
   if (!WriteSyzygyHistoryStream(input_path_, &name_stream_map, &pdb_file))
     return false;
 
-  // TODO(chrisha): Add redecomposition data in another stream, only if
-  //     augment_pdb_ is set.
+  // Add redecomposition data in another stream, only if augment_pdb_ is set.
+  if (augment_pdb_) {
+    LOG(INFO) << "The block-graph stream is being written to the PDB.";
+    if (!WriteSyzygyBlockGraphStream(block_graph_, &name_stream_map, &pdb_file))
+      return false;
+  }
 
   // Write the updated name-stream map back to the header info stream.
   if (!WriteHeaderInfoStream(header, name_stream_map, &pdb_file))
