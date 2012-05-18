@@ -36,6 +36,7 @@
         'experimental/experimental.gyp:*',
         'grinder/grinder.gyp:*',
         'instrument/instrument.gyp:*',
+        'installer/installer.gyp:*',
         'pdb/pdb.gyp:*',
         'pe/pe.gyp:*',
         'pe/orderers/pe_orderers.gyp:*',
