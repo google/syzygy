@@ -424,14 +424,9 @@ BlockGraph::Block* BlockGraph::AddressSpace::GetBlockByAddress(
 
 BlockGraph::Block* BlockGraph::AddressSpace::GetContainingBlock(
     RelativeAddress addr, Size size) const {
-  // TODO(rogerm): This doesn't quite do what the function name
-  //     says it does. It actually finds the first intersection,
-  //     but does not validate that the entire range fits in the
-  //     found block. There seems to be some reliance on this
-  //     misbehaviour which needs to be checked.
   AddressSpaceImpl::Range range(addr, size);
   AddressSpaceImpl::RangeMap::const_iterator it =
-      address_space_.FindFirstIntersection(range);
+      address_space_.FindContaining(range);
   if (it == address_space_.ranges().end())
     return NULL;
 
@@ -601,8 +596,9 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     BlockGraph::Offset start_offset = addr - begin;
 
     // If the destination block is not a code block, preserve the old block
-    // names as labels for debugging.
-    if (block_type != BlockGraph::CODE_BLOCK)
+    // names as labels for debugging. We also need to make sure the label is
+    // not empty, as that is verboten.
+    if (block_type != BlockGraph::CODE_BLOCK && !block->name().empty())
       new_block->SetLabel(start_offset, block->name(), BlockGraph::DATA_LABEL);
 
     // Move labels.

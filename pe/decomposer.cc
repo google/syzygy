@@ -1219,18 +1219,15 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   return true;
 }
 
-void Decomposer::AddReferenceCallback(RelativeAddress src_addr,
+bool Decomposer::AddReferenceCallback(RelativeAddress src_addr,
                                       BlockGraph::ReferenceType type,
                                       BlockGraph::Size size,
                                       RelativeAddress dst_addr,
                                       const char* name) {
   // This is only called by the PEFileParser, and it creates some references
   // for which there are no corresponding fixup entries.
-  // TODO(chrisha): Add a 'success' output parameter to the callback so
-  //     that we can interrupt the PEFileParser if this fails. Currently,
-  //     it'll simply log an error message.
-  ValidateOrAddReference(FIXUP_MAY_EXIST, src_addr, type, size, dst_addr,
-                         0, name, &fixup_map_, &references_);
+  return ValidateOrAddReference(FIXUP_MAY_EXIST, src_addr, type, size, dst_addr,
+                                0, name, &fixup_map_, &references_);
 }
 
 bool Decomposer::ParseRelocs() {
