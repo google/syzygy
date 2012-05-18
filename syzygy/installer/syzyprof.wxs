@@ -1,0 +1,168 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+Copyright 2012 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+  <!-- Version information -->
+  <?include 'version.wxi' ?>
+
+  <?define ProductVersion=
+      "$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)" ?>
+  <?define RTMProductVersion="0.1.0.0" ?>
+  <?define UpgradeCode="{B869815E-511D-4de0-8EDA-C4EC959F3613}" ?>
+
+  <Product Id='*'
+      Name='SyzyProf'
+      Language='1033'
+      Version='$(var.ProductVersion)'
+      Manufacturer='Google Inc'
+      UpgradeCode='$(var.UpgradeCode)' >
+    <Package Description='Syzygy profile utilities.'
+             Manufacturer='Google Inc'
+             InstallerVersion='200'
+             Compressed='yes' />
+
+    <!--
+      Boilerplate code to make sure we upgrade previous versions,
+      and to prevent downgrades for good measure.
+    -->
+    <Upgrade Id="$(var.UpgradeCode)">
+      <UpgradeVersion Minimum="$(var.ProductVersion)"
+                      IncludeMinimum="no"
+                      OnlyDetect="yes"
+                      Language="1033"
+                      Property="NEWPRODUCTFOUND" />
+      <UpgradeVersion Minimum="$(var.RTMProductVersion)"
+                      IncludeMinimum="yes"
+                      Maximum="$(var.ProductVersion)"
+                      IncludeMaximum="no"
+                      Language="1033"
+                      Property="UPGRADEFOUND" />
+    </Upgrade>
+
+    <!--
+      Prevent downgrading.
+    -->
+    <CustomAction Id="PreventDowngrading"
+        Error="Newer version already installed." />
+
+    <InstallExecuteSequence>
+      <Custom Action="PreventDowngrading"
+              After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
+      <RemoveExistingProducts After="InstallFinalize" />
+    </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Custom Action="PreventDowngrading"
+              After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
+    </InstallUISequence>
+
+    <!--
+      Use the install dir UI which displays our license agreement,
+      and also allows the user to pick the install location.
+    -->
+    <Property Id='WIXUI_INSTALLDIR' Value='SYZYPROFAPPLICATIONDIRECTORY' />
+    <UI>
+      <UIRef Id='WixUI_InstallDir' />
+    </UI>
+
+    <!--
+      Specify our license file.
+    -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+    <Media Id='1' Cabinet='product.cab' EmbedCab='yes' />
+
+    <!--
+      Declare our Add/Remove Programs icon.
+    -->
+    <!-- TODO(siggi): fixme!
+    <Icon Id="icon.ico" SourceFile="..\viewer\SyzyProf.ico" />
+    -->
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <!-- Define our program files foler -->
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='ProgramFilesFolder'>
+        <Directory Id='ProgramFilesGoogleFolder' Name='Google'>
+          <Directory Id='SYZYPROFAPPLICATIONDIRECTORY' Name='SyzyProf' />
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id='SYZYPROFAPPLICATIONDIRECTORY'>
+      <!-- Component for call_trace_service.exe. -->
+      <Component Id='CallTraceServiceExeComponent'
+          Guid='{6A12D551-54EF-4c07-819F-9C336D31F74A}'>
+        <File Id='CallTraceServiceExeFile'
+            Name='call_trace_service.exe'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\call_trace_service.exe' />
+      </Component>
+
+      <!-- Component for instrument.exe. -->
+      <Component Id='InstrumentExeComponent'
+          Guid='{C3142411-48FD-4b61-9C8C-357D7BC385D6}'>
+        <File Id='InstrumentExeFile'
+            Name='instrument.exe'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\instrument.exe' />
+      </Component>
+
+      <!-- Component for grinder.exe. -->
+      <Component Id='GrinderExeComponent'
+          Guid='{92531805-ED81-4176-B852-19CA271EC833}'>
+        <File Id='GrinderExeFile'
+            Name='grinder.exe'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\grinder.exe' />
+      </Component>
+
+      <!-- Component for profile_client.dll. -->
+      <Component Id='ProfileClientDllComponent'
+          Guid='{C411D2CD-162A-4e7f-8543-1FCF2DEAC09D}'>
+        <File Id='ProfileClientDllFile'
+            Name='profile_client.dll'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\profile_client.dll' />
+      </Component>
+
+      <Component Id='DbgHelpDllComponent'
+          Guid='{D8DD0740-DFF2-4f96-A9F0-5BB3D7E9C568}'>
+        <File Id='DbgHelpDllFile'
+            Name='DbgHelp.dll'
+            DiskId='1'
+            Source='..\..\third_party\debugging_tools\files\DbgHelp.dll' />
+      </Component>
+      <Component Id='SymSrvDllComponent'
+          Guid='{2786F25B-42D8-47c2-A307-6DAB1C8F057C}'>
+        <File Id='SymSrvDllFile'
+            Name='SymSrv.dll'
+            DiskId='1'
+            Source='..\..\third_party\debugging_tools\files\SymSrv.dll' />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Just one feature. No muss no fuss, no UI. -->
+    <Feature Id='SyzyProf' Title='Syzygy Profiler' Level='1'>
+      <ComponentRef Id='CallTraceServiceExeComponent' />
+      <ComponentRef Id='InstrumentExeComponent' />
+      <ComponentRef Id='GrinderExeComponent' />
+      <ComponentRef Id='ProfileClientDllComponent' />
+      <ComponentRef Id='DbgHelpDllComponent' />
+      <ComponentRef Id='SymSrvDllComponent' />
+    </Feature>
+  </Product>
+</Wix>
