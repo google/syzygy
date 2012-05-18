@@ -18,10 +18,10 @@
 
 #include "base/bind.h"
 #include "base/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -87,7 +87,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
     Super::TearDown();
   }
 
-  void AddReference(RelativeAddress src,
+  bool AddReference(RelativeAddress src,
                     BlockGraph::ReferenceType type,
                     BlockGraph::Size size,
                     RelativeAddress dst,
@@ -95,6 +95,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
     Reference ref = { type, size, dst, name };
     bool inserted = references_.insert(std::make_pair(src, ref)).second;
     EXPECT_TRUE(inserted);
+    return inserted;
   }
 
   // Assert that an exported function in the test_dll is referenced

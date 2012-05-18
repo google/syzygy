@@ -18,7 +18,7 @@
 #ifndef SYZYGY_PE_DECOMPOSER_H_
 #define SYZYGY_PE_DECOMPOSER_H_
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <dia2.h>
 #include <map>
 #include <set>
@@ -195,7 +195,8 @@ class Decomposer {
   // intermediate reference from @p src_addr to @p dst_addr of
   // type @p type and size @p size with optional name @p name. This assumes
   // an offset of zero.
-  void AddReferenceCallback(RelativeAddress src_addr,
+  // @returns true if the reference was successfully added, false otherwise.
+  bool AddReferenceCallback(RelativeAddress src_addr,
                             BlockGraph::ReferenceType type,
                             BlockGraph::Size size,
                             RelativeAddress dst_addr,

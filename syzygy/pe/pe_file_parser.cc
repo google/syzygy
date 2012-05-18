@@ -19,7 +19,14 @@
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
 
+namespace pe {
+
 namespace {
+
+using block_graph::BlockGraph;
+using core::AbsoluteAddress;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
 
 const char* kDirEntryNames[] = {
     "IMAGE_DIRECTORY_ENTRY_EXPORT",
@@ -39,15 +46,36 @@ const char* kDirEntryNames[] = {
     "IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR",
 };
 
+// Given a table type, and whether or not it is bound, returns the type of
+// data we can expect to find in the table.
+PEFileParser::ThunkDataType GetThunkDataType(
+    PEFileParser::ThunkTableType table_type, bool is_bound) {
+  switch (table_type) {
+    case PEFileParser::kImportNameTable:
+      return PEFileParser::kImageThunkData;
+
+    case PEFileParser::kImportAddressTable:
+      if (is_bound)
+        return PEFileParser::kCodeOutOfImageThunkData;
+      else
+        return PEFileParser::kImageThunkData;
+
+    case PEFileParser::kDelayLoadImportNameTable:
+      return PEFileParser::kImageThunkData;
+
+    case PEFileParser::kDelayLoadImportAddressTable:
+      return PEFileParser::kCodeInImageThunkData;
+
+    case PEFileParser::kDelayLoadBoundImportAddressTable:
+      return PEFileParser::kArbitraryThunkData;
+
+    default: break;
+  }
+  NOTREACHED() << "Unknown ThunkDataType.";
+  return PEFileParser::kArbitraryThunkData;
+}
+
 }  // namespace
-
-namespace pe {
-
-using block_graph::BlockGraph;
-using core::AbsoluteAddress;
-using core::FileOffsetAddress;
-using core::RelativeAddress;
-
 
 // This class represents a generic, untyped pointer with a fixed length,
 // into a PE image at a particular address.
@@ -539,61 +567,104 @@ size_t PEFileParser::CountImportThunks(RelativeAddress thunk_start) {
 
 bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
                                      size_t num_thunks,
-                                     bool chunk_names,
                                      bool is_bound,
+                                     ThunkTableType table_type,
                                      const char* thunk_type,
                                      const char* import_name) {
+  // Only certain table types may be bound.
+  DCHECK(!is_bound || table_type == kImportAddressTable ||
+             table_type == kDelayLoadBoundImportAddressTable);
+
   // Start by chunking the IAT/INT, including the terminating sentinel.
   size_t ixt_size = sizeof(IMAGE_THUNK_DATA) * (num_thunks + 1);
+
   std::string ixt_name =
       base::StringPrintf("%s for \"%s\"", thunk_type, import_name);
-  BlockGraph::Block* thunk_block = AddBlock(BlockGraph::DATA_BLOCK,
-                                            thunk_start,
-                                            ixt_size,
-                                            ixt_name.c_str());
-  if (thunk_block == NULL) {
+
+  BlockGraph::Block* thunk_block = NULL;
+  if (table_type == kDelayLoadBoundImportAddressTable) {
+    thunk_block = ChunkDelayBoundIATBlock(thunk_start, ixt_size,
+                                          ixt_name.c_str());
+  } else {
+    // Try to add the block.
+    thunk_block = AddBlock(BlockGraph::DATA_BLOCK,
+                           thunk_start,
+                           ixt_size,
+                           ixt_name.c_str());
+
     // The IAT may have been chunked while parsing the IAT data directory,
-    // in which case we want to leave a label for the start of our entries.
-    // TODO(rogerm): GetContainingBlock doesn't quite do what the name implies.
-    //     It returns the first intersecting block with in the given range.
-    //     However, fixing GetContainingBlock() causes the code here to fail.
-    //     Need to find out if this should be calling GetFirstIntersection(), or
-    //     if GetContainingBlock() really is what we mean here.
-    thunk_block = address_space_->GetContainingBlock(thunk_start, ixt_size);
-
+    // in which case we want to leave a label for the start of our entries. In
+    // this case we should be wholly contained in an existing block.
     if (thunk_block == NULL) {
-      LOG(ERROR) << "Unable to add " << thunk_type
-                 << "block for " << import_name;
-      return false;
+      thunk_block = address_space_->GetContainingBlock(thunk_start,
+                                                       ixt_size);
     }
-
-    thunk_block->SetLabel(thunk_start - thunk_block->addr(),
-                          ixt_name, BlockGraph::DATA_LABEL);
   }
 
-  if (is_bound) {
-    // If the IAT is bound, there's nothing left to do, as the thunks
-    // contain either NULLs, or addresses to functions in another DLL.
-    // Note that the linker leaves relocation entries to the delay import
-    // IAT, since that allows the loader to patch up the pointers to the
-    // delay load stubs in the case that the DLL is relocated.
-    return true;
+  if (thunk_block == NULL) {
+    LOG(ERROR) << "Unable to add " << thunk_type
+               << "block for " << import_name;
+    return false;
   }
 
-  // Run through to reference and optionally chunk the import name blocks.
+  // Add a label to the start of the table.
+  thunk_block->SetLabel(thunk_start - thunk_block->addr(),
+                        ixt_name, BlockGraph::DATA_LABEL);
+
+  // Determine the type of data in the table. We only chunk out names for
+  // import name tables. This prevents us from doing the work twice for an
+  // unbound IAT.
+  ThunkDataType thunk_data_type = GetThunkDataType(table_type, is_bound);
+  bool chunk_names = table_type == kImportNameTable ||
+      table_type == kDelayLoadImportNameTable;
+
+  // Run through and validate the table contents, parsing IMAGE_IMPORT_BY_NAMES
+  // if we're in an import name table.
   for (size_t i = 0; i < num_thunks; ++i) {
-    PEFileStructPtr<IMAGE_THUNK_DATA> thunk;
-    if (!thunk.Read(image_file_, thunk_start)) {
-      LOG(ERROR) << "Unable to read image import thunk.";
+    if (!ParseImportThunk(thunk_start, thunk_data_type, thunk_type,
+                          chunk_names)) {
       return false;
     }
+    thunk_start += sizeof(IMAGE_THUNK_DATA);
+  }
 
-    if (!IMAGE_SNAP_BY_ORDINAL(thunk->u1.Ordinal)) {
-      // It's not an ordinal and it's not bound, read the name
-      // thunk and chunk it if requested.
+  return true;
+}
+
+bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
+                                    ThunkDataType thunk_data_type,
+                                    const char* thunk_type,
+                                    bool chunk_name) {
+  // We can only chunk names if we're parsing an IMAGE_THUNK_DATA object.
+  DCHECK(!chunk_name || thunk_data_type == kImageThunkData);
+
+  PEFileStructPtr<IMAGE_THUNK_DATA> thunk;
+  if (!thunk.Read(image_file_, thunk_addr)) {
+    LOG(ERROR) << "Unable to read image import thunk.";
+    return false;
+  }
+
+  switch (thunk_data_type) {
+    case kNullThunkData: {
+      if (thunk->u1.AddressOfData != 0) {
+        LOG(ERROR) << "Expect NULL " << thunk_type << " thunk, got 0x"
+                   << std::hex << thunk->u1.AddressOfData;
+        return false;
+      }
+      break;
+    }
+
+    case kImageThunkData: {
+      // If it's an ordinal, there's nothing to do.
+      if (IMAGE_SNAP_BY_ORDINAL(thunk->u1.Ordinal))
+        break;
+
+      // It's not an ordinal, so it must contain an RVA to an
+      // IMAGE_IMPORT_BY_NAME.
 
       // Add the IAT/INT->thunk reference.
-      if (!AddRelative(thunk, &thunk->u1.AddressOfData, "IAT/INT Reference")) {
+      if (!AddRelative(thunk, &thunk->u1.AddressOfData,
+                       "IAT/INT Reference")) {
         LOG(ERROR) << "Unable to add import thunk reference.";
         return false;
       }
@@ -620,7 +691,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
 
       // Chunk the names only on request, as more than one IAT/INT may
       // point to the same name blocks.
-      if (chunk_names) {
+      if (chunk_name) {
         if (!AddBlock(BlockGraph::DATA_BLOCK,
                       name_thunk_addr,
                       name_thunk_size,
@@ -638,12 +709,119 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
         DCHECK_EQ(name_thunk_size, block->size());
 #endif  // NDEBUG
       }
+      break;
     }
 
-    thunk_start += sizeof(IMAGE_THUNK_DATA);
+    case kCodeInImageThunkData: {
+      // Add the code reference. This will check that it is in fact a reference
+      // to an address in the image, and track the associated block
+      // automatically.
+      if (!AddAbsolute(thunk, &thunk->u1.AddressOfData,
+                       "IAT/INT Reference")) {
+        LOG(ERROR) << "Unable to add import thunk reference.";
+        return false;
+      }
+      break;
+    }
+
+    case kCodeOutOfImageThunkData: {
+      // This is an absolute address to code outside of the image. It may
+      // actually have an address that lies inside our image because the
+      // imported module may have an overlapping preferred load address.
+      if (thunk->u1.AddressOfData < 0x1000) {
+        AbsoluteAddress abs_addr(thunk->u1.AddressOfData);
+        LOG(ERROR) << thunk_type << " thunk to external code has invalid "
+                   << "address: " << abs_addr;
+        return false;
+      }
+      break;
+    }
+
+    case kArbitraryThunkData: {
+      // We do nothing. Anything goes!
+      break;
+    }
   }
 
   return true;
+}
+
+BlockGraph::Block* PEFileParser::ChunkDelayBoundIATBlock(
+    RelativeAddress iat_addr, size_t iat_size, const char* iat_name) {
+  BlockGraph::Block* iat_block = AddBlock(BlockGraph::DATA_BLOCK,
+                                          iat_addr,
+                                          iat_size,
+                                          iat_name);
+  if (iat_block != NULL)
+    return iat_block;
+
+  // If we get here we were unable to create a block, so there must be a
+  // conflict. We've seen the bound IATs for delay-loaded libraries be too
+  // small. That is, one library's bound IAT is overwritten by another library's
+  // bound IAT. We do our best to patch things up, by growing the conflicting
+  // pre-existing block to also cover the range of the block we want to create.
+  //
+  // We extend the existing block by creating new blocks (one to the left, one
+  // to the right) of the conflicting block that cover the portion of the new
+  // table that is not covered. Then, we merge them all.
+
+  iat_block = address_space_->GetFirstIntersectingBlock(iat_addr,
+                                                        iat_size);
+  LOG(WARNING) << iat_name << " collides with existing block "
+               << iat_block->name() << ".";
+
+  // If we're completely contained within the conflicting block, there's no
+  // expanding and merging to do.
+  if (iat_block->Contains(iat_addr, iat_size))
+    return iat_block;
+
+  // Create a block to the left of the existing block, if the desired table
+  // extends to the left.
+  if (iat_addr < iat_block->addr()) {
+    size_t pre_size = iat_block->addr() - iat_addr;
+    BlockGraph::Block* pre_block = AddBlock(BlockGraph::DATA_BLOCK,
+                                            iat_addr,
+                                            pre_size,
+                                            iat_name);
+    // This should never fail as iat_block is the *first* intersecting
+    // block.
+    DCHECK(pre_block != NULL);
+  }
+
+  // Insert the missing part of this table to the right of the intersecting
+  // block, if there is any needed.
+  RelativeAddress new_end = iat_addr + iat_size;
+  RelativeAddress old_end = iat_block->addr() + iat_block->size();
+  if (new_end > old_end) {
+    BlockGraph::Block* next_block =
+        address_space_->GetFirstIntersectingBlock(
+            old_end, new_end - old_end);
+
+    if (next_block != NULL)
+      new_end = next_block->addr();
+
+    if (new_end > old_end) {
+      BlockGraph::Block* post_block = AddBlock(BlockGraph::DATA_BLOCK,
+                                               old_end,
+                                               new_end - old_end,
+                                               NULL);
+      // This should never fail as we're inserting after the end of
+      // iat_block, and before the start of the next block in the
+      // address space.
+      DCHECK(post_block != NULL);
+    }
+  }
+
+  // Merge the blocks to create one new contiguous block.
+  BlockGraph::AddressSpace::Range range(iat_addr, iat_size);
+  if (!address_space_->MergeIntersectingBlocks(range)) {
+    LOG(ERROR) << "Unable to merge intersecting bound IAT blocks.";
+    return false;
+  }
+  iat_block = address_space_->GetContainingBlock(iat_addr, iat_size);
+  DCHECK(iat_block != NULL);
+
+  return iat_block;
 }
 
 BlockGraph::Block* PEFileParser::ParseImportDir(
@@ -698,15 +876,16 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
       return false;
 
     // Parse the Import Name Table.
-    if (!ParseImportThunks(thunk_addr, num_thunks, true, false, "INT",
-                           import_name.c_str())) {
+    if (!ParseImportThunks(thunk_addr, num_thunks, false,
+                           kImportNameTable, "INT", import_name.c_str())) {
       return NULL;
     }
 
     // Parse the Import Address Table.
+    bool iat_is_bound = import_descriptor->TimeDateStamp != 0;
     if (!ParseImportThunks(RelativeAddress(import_descriptor->FirstThunk),
-                           num_thunks, false, false, "IAT",
-                           import_name.c_str())) {
+                           num_thunks, iat_is_bound,
+                           kImportAddressTable, "IAT", import_name.c_str())) {
       return NULL;
     }
 
@@ -812,7 +991,8 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
       return false;
 
     // Parse the Delay Import Name Table.
-    if (!ParseImportThunks(int_addr, num_thunks, true, false, "DelayINT",
+    if (!ParseImportThunks(int_addr, num_thunks, false,
+                           kDelayLoadImportNameTable, "DelayINT",
                            import_name.c_str())) {
       return NULL;
     }
@@ -826,7 +1006,8 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
 
     // Parse the Delay Import Address Table.
     if (!ParseImportThunks(RelativeAddress(import_descriptor->rvaIAT),
-                           num_thunks, false, true, "DelayIAT",
+                           num_thunks, false,
+                           kDelayLoadImportAddressTable, "DelayIAT",
                            import_name.c_str())) {
       return NULL;
     }
@@ -839,8 +1020,10 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
 
     // Parse the Bound Import Address Table.
+    bool iat_is_bound = import_descriptor->dwTimeStamp != 0;
     if (!ParseImportThunks(RelativeAddress(import_descriptor->rvaBoundIAT),
-                           num_thunks, false, true, "DelayBoundIAT",
+                           num_thunks, iat_is_bound,
+                           kDelayLoadBoundImportAddressTable, "DelayBoundIAT",
                            import_name.c_str())) {
       return NULL;
     }
@@ -1098,8 +1281,7 @@ bool PEFileParser::AddReference(RelativeAddress src,
                                 BlockGraph::Size size,
                                 RelativeAddress dst,
                                 const char* name) {
-  add_reference_.Run(src, type, size, dst, name);
-  return true;
+  return add_reference_.Run(src, type, size, dst, name);
 }
 
 BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,

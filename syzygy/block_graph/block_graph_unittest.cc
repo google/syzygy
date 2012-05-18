@@ -1128,10 +1128,7 @@ TEST(BlockGraphAddressSpaceTest, GetContainingBlock) {
   EXPECT_EQ(NULL, address_space.GetContainingBlock(RelativeAddress(0x099E), 8));
 
   // Starts in the middle of block1 and overlaps into block2.
-  // TODO(rogerm): Fixing GetContainingBlock() to properly handle this case
-  //     causes other breakages (see PEFileParser::ParseImportThunks).
-  // EXPECT_EQ(NULL
-  //           address_space.GetContainingBlock(RelativeAddress(0x100a), 8));
+  EXPECT_EQ(NULL, address_space.GetContainingBlock(RelativeAddress(0x100a), 8));
 }
 
 TEST(BlockGraphAddressSpaceTest, GetBlockAddress) {

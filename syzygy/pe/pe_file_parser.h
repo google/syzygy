@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ class PEFileParser {
   typedef block_graph::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
 
-  typedef base::Callback<void(RelativeAddress,
+  typedef base::Callback<bool(RelativeAddress,
                               BlockGraph::ReferenceType,
                               BlockGraph::Size,
                               RelativeAddress,
@@ -61,6 +61,29 @@ class PEFileParser {
   // Parses the image, chunks the various blocks it decomposes into and
   // invokes the AddReferenceCallback for all references encountered.
   bool ParseImage(PEHeader* pe_header);
+
+  // Tables of thunks come in various flavours.
+  enum ThunkTableType {
+    // For parsing of normal imports.
+    kImportNameTable,
+    kImportAddressTable,
+
+    // For parsing of delay-load imports.
+    kDelayLoadImportNameTable,
+    kDelayLoadImportAddressTable,
+    kDelayLoadBoundImportAddressTable,
+  };
+
+  // Thunks in import tables may point to various discrete things. These depend
+  // on the ThunkTableType and whether or not the table is bound.
+  enum ThunkDataType {
+    kNullThunkData,  // Pointer values should all be NULL.
+    kImageThunkData,  // IMAGE_THUNK_DATA containing RelativeAddress to a string
+                      // in the image.
+    kCodeInImageThunkData,  // AbsoluteAddress in image.
+    kCodeOutOfImageThunkData,  // AbsoluteAddress out of image.
+    kArbitraryThunkData,  // Anything goes.
+  };
 
  protected:
   // Parses the image header, chunks the various blocks it refers and
@@ -108,19 +131,47 @@ class PEFileParser {
   //     zero on error.
   size_t CountImportThunks(RelativeAddress thunk_start);
 
-  // Parses the IAT/INT starting at thunk_start.
+  // Parses the IAT/INT/BoundIAT starting at thunk_start.
   // @param thunk_start the RVA where the import thunks start.
-  // @param chunk_names if true, chunk the import names thunks.
   // @param is_bound true iff thunks are bound, in which case we tag absolute
-  //     references instead of relative.
+  //     references instead of relative. This may only be true if table_type is
+  //     kImportAddressTable or kDelayLoadImportAddressTable.
+  // @param table_type the type of thunk table.
   // @param thunk_type human readable type for thunk.
   // @param import_name name of imported dll.
+  // @returns true on success, false otherwise.
   bool ParseImportThunks(RelativeAddress thunk_start,
                          size_t num_thunks,
-                         bool chunk_names,
                          bool is_bound,
+                         ThunkTableType table_type,
                          const char* thunk_type,
                          const char* import_name);
+  // Parse a single entry in an import table.
+  // @param thunk_addr the address of the thunk.
+  // @param thunk_data_type the type of data in the thunk.
+  // @param thunk_type human readable type for thunk.
+  // @param chunk_name if true, and thunk_data_type is kImageThunkData, will
+  //     parse out the referenced IMAGE_THUNK_DATA as a block.
+  // @returns true on success, false otherwise.
+  bool ParseImportThunk(RelativeAddress thunk_addr,
+                        ThunkDataType thunk_data_type,
+                        const char* thunk_type,
+                        bool chunk_name);
+
+  // Special handling for delay-load bound import address tables. We've seen
+  // cases in actual binaries where these are malformed. This is generally not
+  // an issue, but we handle these a little more loosely so that we can complete
+  // the decomposition process. If such malformed tables are encountered, this
+  // will causes a warning to be logged.
+  // @param iat_addr the beginning of the delay-load bound IAT.
+  // @param iat_size the expected size of the delay-load bound IAT.
+  // @param iat_name the name to give the chunked block, or the label to
+  //     associate with iat_addr in an existing block.
+  // @returns the block containing the delay-load IAT table.
+  BlockGraph::Block* ChunkDelayBoundIATBlock(RelativeAddress iat_addr,
+                                             size_t iat_size,
+                                             const char* iat_name);
+
   BlockGraph::Block* AddBlock(BlockGraph::BlockType type,
                               RelativeAddress addr,
                               BlockGraph::Size size,
