@@ -30,40 +30,13 @@ namespace profiler {
 // This class is currently somewhat specific to profiling, as it
 // calls rdtsc in the return hook and stores data needed for profiling,
 // but it could be generalized if needed.
-class ReturnThunkFactory {
+class ReturnThunkFactoryBase {
  public:
   struct Thunk;
   struct ThunkData;
 
-  class Delegate {
-   public:
-    Delegate() {}
-    virtual ~Delegate() {}
-
-    // Invoked on function exit.
-    // @param thunk is the invoked thunk.
-    // @param cycles is the performance counter recorded.
-    virtual void OnFunctionExit(const ThunkData* data, uint64 cycles) = 0;
-
-    // Invoked after the factory has allocated a new page of thunks.
-    // @param page the page of thunks, @p page is 4K and aligned on a
-    //    4K boundary.
-    virtual void OnPageAdded(const void* page) = 0;
-
-    // Invoked before the factory deallocates a page of thunks.
-    // @param page the page of thunks, @p page is 4K in size and aligned on a
-    //    4K boundary.
-    virtual void OnPageRemoved(const void* page) = 0;
-
-   private:
-    DISALLOW_COPY_AND_ASSIGN(Delegate);
-  };
-
-  explicit ReturnThunkFactory(Delegate* delegate);
-  ~ReturnThunkFactory();
-
   // Provides a pointer to the thunk data associated with a thunk that,
-  // when called, will invoke Delegate::OnFunctionExit and then return
+  // when called, will invoke OnFunctionExit and then return
   // to |real_ret|.
   //
   // Ownership of the data and thunk remains with the factory, which
@@ -94,6 +67,9 @@ class ReturnThunkFactory {
     // A pointer to the thunk that owns us.
     Thunk* thunk;
 
+    // A back-pointer to the return thunk factory.
+    ReturnThunkFactoryBase* self;
+
     // The caller and the function invoked.
     RetAddr caller;
     FuncAddr function;
@@ -103,10 +79,38 @@ class ReturnThunkFactory {
   };
 
  protected:
+  // Thunk function type.
+  typedef void (*ThunkMainFunc)();
+
+  explicit ReturnThunkFactoryBase(ThunkMainFunc main_func);
+  ~ReturnThunkFactoryBase();
+
+  // Must be called after construction of this class to
+  // initialize it for use.
+  // @note Calling from a subclass constructor is fine.
+  void Initialize();
+  // Must be called before destruction of this class to
+  // free all resources.
+  // @note Calling from a subclass destructor is fine.
+  void Uninitialize();
+
+  // @name To be implemented by subclasses.
+  // @{
+  // Invoked after the factory has allocated a new page of thunks.
+  // @param page the page of thunks, @p page is 4K and aligned on a
+  //    4K boundary.
+  virtual void OnPageAdded(const void* page) = 0;
+
+  // Invoked before the factory deallocates a page of thunks.
+  // @param page the page of thunks, @p page is 4K in size and aligned on a
+  //    4K boundary.
+  virtual void OnPageRemoved(const void* page) = 0;
+  // @}
+
   struct Page {
     Page* previous_page;
     Page* next_page;
-    ReturnThunkFactory* factory;
+    ReturnThunkFactoryBase* factory;
     Thunk thunks[1];  // In fact, as many as fit.
   };
 
@@ -118,10 +122,9 @@ class ReturnThunkFactory {
   void AddPage();
   static Page* PageFromThunk(Thunk* thunk);
   static Thunk* LastThunk(Page* page);
-  static RetAddr WINAPI ThunkMain(ThunkData* thunk, uint64 cycles);
 
-  // Always valid, used to call back on function exit.
-  Delegate* delegate_;
+  // The thunk main function we delegate to.
+  ThunkMainFunc main_func_;
 
   // At all times, this points to the memory area we can use the next time
   // we need a thunk.
@@ -135,8 +138,78 @@ class ReturnThunkFactory {
   // and pages are linked together, so this is all we need to store.
   Thunk* first_free_thunk_;
 
-  DISALLOW_COPY_AND_ASSIGN(ReturnThunkFactory);
+  DISALLOW_COPY_AND_ASSIGN(ReturnThunkFactoryBase);
 };
+
+// The ImplClass must derive from the return factory base, and implement
+// a member function with the following signature:
+// void OnFunctionExit(const ThunkData* data, uint64 cycles);
+template <typename ImplClass> class ReturnThunkFactoryImpl
+    : public ReturnThunkFactoryBase {
+ public:
+  ReturnThunkFactoryImpl()
+      : ReturnThunkFactoryBase(thunk_main_asm) {
+  }
+
+ protected:
+  // Static assembly function called by all thunks.  It ends up calling to
+  // ReturnThunkFactoryImpl::ThunkMain, which in turn calls
+  // ImpClass::OnFunctionExit.
+  static void thunk_main_asm();
+
+  static RetAddr WINAPI ThunkMain(ThunkData* thunk, uint64 cycles);
+};
+
+template <class ImplClass> void __declspec(naked)
+ReturnThunkFactoryImpl<ImplClass>::thunk_main_asm() {
+  __asm {
+    // Stash volatile registers.
+    push eax
+    push edx
+
+    // Get the current cycle time ASAP.
+    rdtsc
+
+    push ecx
+    pushfd
+
+    // Push the cycle time arg for the ThunkMain function.
+    push edx
+    push eax
+
+    // Get the thunk address and push it to the top of the stack.
+    push DWORD PTR[esp + 0x18]
+
+    call ThunkMain
+
+    // Restore volatile registers, except eax.
+    popfd
+    pop ecx
+    pop edx
+
+    // At this point we have:
+    //   EAX: real ret-address
+    //   stack:
+    //     pushed EAX
+    //     ret-address to thunk
+    push eax
+    mov eax, DWORD PTR[esp+4]
+
+    // Return and discard the stored eax and discarded thunk address.
+    ret 8
+  }
+}
+
+template <class ImplClass>
+RetAddr WINAPI ReturnThunkFactoryImpl<ImplClass>::
+ThunkMain(ThunkData* data, uint64 cycles) {
+  ImplClass* factory = static_cast<ImplClass*>(data->self);
+  factory->first_free_thunk_ = data->thunk;
+
+  factory->OnFunctionExit(data, cycles);
+
+  return data->caller;
+}
 
 }  // namespace profiler
 }  // namespace agent

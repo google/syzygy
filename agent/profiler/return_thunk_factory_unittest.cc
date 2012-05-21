@@ -19,28 +19,31 @@
 
 namespace {
 
-using agent::profiler::ReturnThunkFactory;
+using agent::profiler::ReturnThunkFactoryBase;
+using agent::profiler::ReturnThunkFactoryImpl;
 using testing::_;
 using testing::AnyNumber;
 using testing::StrictMock;
 
-class MockDelegate : public ReturnThunkFactory::Delegate {
+// A ReturnThunkFactoryImpl subclass that exposes various
+// private bits for testing.
+class TestFactory : public ReturnThunkFactoryImpl<TestFactory> {
  public:
-  MOCK_METHOD2(OnFunctionExit,
-               void(const ReturnThunkFactory::ThunkData*, uint64));
-  MOCK_METHOD1(OnPageAdded, void(const void*));
-  MOCK_METHOD1(OnPageRemoved, void(const void*));
-};
-
-// Version of ReturnThunkFactory that exposes various private bits for testing.
-class TestFactory : public ReturnThunkFactory {
- public:
-  explicit TestFactory(Delegate* delegate) : ReturnThunkFactory(delegate) {
+  TestFactory() : ReturnThunkFactoryImpl<TestFactory>() {
+  }
+  ~TestFactory() {
+    Uninitialize();
   }
 
-  using ReturnThunkFactory::PageFromThunk;
-  using ReturnThunkFactory::ThunkMain;
-  using ReturnThunkFactory::kNumThunksPerPage;
+  MOCK_METHOD1(OnPageAdded, void(const void*));
+  MOCK_METHOD1(OnPageRemoved, void(const void*));
+  MOCK_METHOD2(OnFunctionExit,
+               void(const ReturnThunkFactoryBase::ThunkData*, uint64));
+
+  using ReturnThunkFactoryImpl<TestFactory>::PageFromThunk;
+  using ReturnThunkFactoryImpl<TestFactory>::Initialize;
+  using ReturnThunkFactoryImpl<TestFactory>::ThunkMain;
+  using ReturnThunkFactoryImpl<TestFactory>::kNumThunksPerPage;
 };
 
 class ReturnThunkTest : public testing::Test {
@@ -49,13 +52,15 @@ class ReturnThunkTest : public testing::Test {
     ASSERT_EQ(NULL, factory_);
 
     // The first page is created immediately on construction.
-    EXPECT_CALL(delegate_, OnPageAdded(_));
-    factory_ = new TestFactory(&delegate_);
+    factory_ = new StrictMock<TestFactory>();
+    ASSERT_TRUE(factory_ != NULL);
+    EXPECT_CALL(*factory_, OnPageAdded(_));
+    factory_->Initialize();
   }
 
   void TearDown() {
     if (factory_ != NULL) {
-      EXPECT_CALL(delegate_, OnPageRemoved(_))
+      EXPECT_CALL(*factory_, OnPageRemoved(_))
           .Times(testing::AnyNumber());
       delete factory_;
     }
@@ -68,15 +73,13 @@ class ReturnThunkTest : public testing::Test {
   }
 
  protected:
-  StrictMock<MockDelegate> delegate_;
-
   // Valid during tests.
-  static TestFactory* factory_;
+  static StrictMock<TestFactory>* factory_;
 };
 
-TestFactory* ReturnThunkTest::factory_ = NULL;
+StrictMock<TestFactory>* ReturnThunkTest::factory_ = NULL;
 
-// This assembly function indirectly calls ReturnThunkFactory::MakeThunk
+// This assembly function indirectly calls ReturnThunkFactoryBase::MakeThunk
 // and switches its return address with the returned thunk.
 extern "C" void __declspec(naked) create_and_return_via_thunk() {
   __asm {
@@ -125,30 +128,31 @@ extern "C" void __declspec(naked) capture_contexts(CONTEXT* before,
 TEST_F(ReturnThunkTest, AllocateThunk) {
   // Make sure we get page addition calls for each page.
   const size_t kNumPages = 3;
-  EXPECT_CALL(delegate_, OnPageAdded(_))
+  EXPECT_CALL(*factory_, OnPageAdded(_))
       .Times(kNumPages);
 
   // Make sure the data->thunk->data mapping holds for a bunch of thunks.
   for (size_t i = 0; i < kNumPages * TestFactory::kNumThunksPerPage; ++i) {
     RetAddr addr = reinterpret_cast<RetAddr>(i);
-    ReturnThunkFactory::ThunkData* data = factory_->MakeThunk(addr);
+    ReturnThunkFactoryBase::ThunkData* data = factory_->MakeThunk(addr);
     ASSERT_TRUE(data != NULL);
     ASSERT_TRUE(data->thunk != NULL);
+    ASSERT_TRUE(data->self == factory_);
     ASSERT_TRUE(data->caller == addr);
-    ASSERT_EQ(data, ReturnThunkFactory::DataFromThunk(data->thunk));
+    ASSERT_EQ(data, ReturnThunkFactoryBase::DataFromThunk(data->thunk));
   }
 }
 
 TEST_F(ReturnThunkTest, AllocateSeveralPages) {
-  ReturnThunkFactory::ThunkData* previous_data = NULL;
+  ReturnThunkFactoryBase::ThunkData* previous_data = NULL;
 
   // Make sure we get page addition calls for each page.
   const size_t kNumPages = 3;
-  EXPECT_CALL(delegate_, OnPageAdded(_))
+  EXPECT_CALL(*factory_, OnPageAdded(_))
       .Times(kNumPages);
 
   for (size_t i = 0; i < kNumPages * TestFactory::kNumThunksPerPage; ++i) {
-    ReturnThunkFactory::ThunkData* data = factory_->MakeThunk(NULL);
+    ReturnThunkFactoryBase::ThunkData* data = factory_->MakeThunk(NULL);
     ASSERT_TRUE(data);
     if (previous_data) {
       ASSERT_TRUE(
@@ -162,39 +166,40 @@ TEST_F(ReturnThunkTest, AllocateSeveralPages) {
 
   // And test page removal, note that we get an extra page removal
   // notification for the first page that's allocated on construction.
-  EXPECT_CALL(delegate_, OnPageRemoved(_))
+  EXPECT_CALL(*factory_, OnPageRemoved(_))
       .Times(kNumPages + 1);
   delete factory_;
   factory_ = NULL;
 }
 
 TEST_F(ReturnThunkTest, ReturnViaThunk) {
-  EXPECT_CALL(delegate_, OnFunctionExit(_, _));
+  EXPECT_CALL(*factory_, OnFunctionExit(_, _));
 
   create_and_return_via_thunk();
 }
 
 TEST_F(ReturnThunkTest, ReuseThunks) {
-  ReturnThunkFactory::ThunkData* first_thunk = factory_->MakeThunk(NULL);
+  ReturnThunkFactoryBase::ThunkData* first_thunk = factory_->MakeThunk(NULL);
   factory_->MakeThunk(NULL);
-  ReturnThunkFactory::ThunkData* third_thunk = factory_->MakeThunk(NULL);
+  ReturnThunkFactoryBase::ThunkData* third_thunk = factory_->MakeThunk(NULL);
 
   // This simulates a return via the first thunk.
-  EXPECT_CALL(delegate_, OnFunctionExit(_, _));
+  EXPECT_CALL(*factory_, OnFunctionExit(_, _));
   TestFactory::ThunkMain(first_thunk, 0LL);
 
   factory_->MakeThunk(NULL);
   factory_->MakeThunk(NULL);
-  ReturnThunkFactory::ThunkData* new_third_thunk = factory_->MakeThunk(NULL);
+  ReturnThunkFactoryBase::ThunkData* new_third_thunk =
+      factory_->MakeThunk(NULL);
   ASSERT_EQ(third_thunk, new_third_thunk);
   ASSERT_EQ(third_thunk->thunk, new_third_thunk->thunk);
 }
 
 TEST_F(ReturnThunkTest, ReusePages) {
-  ReturnThunkFactory::ThunkData* first_thunk = factory_->MakeThunk(NULL);
-  ReturnThunkFactory::ThunkData* last_thunk = NULL;
+  ReturnThunkFactoryBase::ThunkData* first_thunk = factory_->MakeThunk(NULL);
+  ReturnThunkFactoryBase::ThunkData* last_thunk = NULL;
 
-  EXPECT_CALL(delegate_, OnPageAdded(_));
+  EXPECT_CALL(*factory_, OnPageAdded(_));
   for (size_t i = 0; i < TestFactory::kNumThunksPerPage; ++i) {
     last_thunk = factory_->MakeThunk(NULL);
   }
@@ -206,10 +211,10 @@ TEST_F(ReturnThunkTest, ReusePages) {
   // This simulates a return via the first thunk, after which
   // we need to make kNumThunksPerPage + 1 thunks to again get
   // to the first thunk of the second page.
-  EXPECT_CALL(delegate_, OnFunctionExit(_, _));
+  EXPECT_CALL(*factory_, OnFunctionExit(_, _));
   TestFactory::ThunkMain(first_thunk, 0LL);
 
-  ReturnThunkFactory::ThunkData* new_last_thunk = NULL;
+  ReturnThunkFactoryBase::ThunkData* new_last_thunk = NULL;
   for (size_t i = 0; i < TestFactory::kNumThunksPerPage + 1; ++i) {
     new_last_thunk = factory_->MakeThunk(NULL);
   }
@@ -221,10 +226,10 @@ TEST_F(ReturnThunkTest, ReusePages) {
 
 TEST_F(ReturnThunkTest, CastToThunk) {
   // Allocate a bunch of thunks.
-  ReturnThunkFactory::ThunkData* first_thunk = factory_->MakeThunk(NULL);
-  ReturnThunkFactory::ThunkData* last_thunk = NULL;
+  ReturnThunkFactoryBase::ThunkData* first_thunk = factory_->MakeThunk(NULL);
+  ReturnThunkFactoryBase::ThunkData* last_thunk = NULL;
 
-  EXPECT_CALL(delegate_, OnPageAdded(_));
+  EXPECT_CALL(*factory_, OnPageAdded(_));
   for (size_t i = 0; i < TestFactory::kNumThunksPerPage; ++i) {
     last_thunk = factory_->MakeThunk(NULL);
   }
@@ -239,7 +244,7 @@ TEST_F(ReturnThunkTest, CastToThunk) {
 }
 
 TEST_F(ReturnThunkTest, ReturnPreservesRegisters) {
-  EXPECT_CALL(delegate_, OnFunctionExit(_, _));
+  EXPECT_CALL(*factory_, OnFunctionExit(_, _));
 
   CONTEXT before = {};
   CONTEXT after = {};

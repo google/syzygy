@@ -198,13 +198,17 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 namespace agent {
 namespace profiler {
 
-class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
+class Profiler::ThreadState
+    : public ReturnThunkFactoryImpl<Profiler::ThreadState> {
  public:
   explicit ThreadState(Profiler* profiler)
         : profiler_(profiler),
           cycles_overhead_(0LL),
-          thunk_factory_(this),
           batch_(NULL) {
+    Initialize();
+  }
+  ~ThreadState() {
+    Uninitialize();
   }
 
   // Logs @p module and all other modules in the process, then flushes
@@ -219,13 +223,14 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
                        FuncAddr function,
                        uint64 cycles);
 
-  // @name ReturnThunkFactory::Delegate implementation.
+  // @name Callback notification implementation.
   // @{
-  virtual void OnFunctionExit(const ReturnThunkFactory::ThunkData* data,
-                              uint64 cycles_exit) OVERRIDE;
   virtual void OnPageAdded(const void* page) OVERRIDE;
   virtual void OnPageRemoved(const void* page) OVERRIDE;
   // @}
+
+  // Function exit hook.
+  void OnFunctionExit(const ThunkData* data, uint64 cycles_exit);
 
   trace::client::TraceFileSegment* segment() { return &segment_; }
 
@@ -246,8 +251,6 @@ class Profiler::ThreadState : public ReturnThunkFactory::Delegate {
   // wall clock cycle timer on each measurement. This results in a timer that
   // measures time exclusive of profiling overhead.
   uint64 cycles_overhead_;
-
-  ReturnThunkFactory thunk_factory_;
 
   // The invocations we've recorded in our buffer.
   InvocationMap invocations_;
@@ -332,8 +335,7 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   // Record the details of the entry.
   // Note that on tail-recursion and tail-call elimination, the caller recorded
   // here will be a thunk. We cater for this case on exit as best we can.
-  ReturnThunkFactory::ThunkData* data =
-      thunk_factory_.MakeThunk(entry_frame->retaddr);
+  ThunkData* data = MakeThunk(entry_frame->retaddr);
   DCHECK(data != NULL);
   data->caller = entry_frame->retaddr;
   data->function = function;
@@ -344,9 +346,8 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   UpdateOverhead(cycles);
 }
 
-void Profiler::ThreadState::OnFunctionExit(
-    const ReturnThunkFactory::ThunkData* data,
-    uint64 cycles_exit) {
+void Profiler::ThreadState::OnFunctionExit(const ThunkData* data,
+                                           uint64 cycles_exit) {
   // Calculate the number of cycles in the invocation, exclusive our overhead.
   uint64 cycles_executed = cycles_exit - cycles_overhead_ - data->cycles_entry;
 
@@ -355,13 +356,11 @@ void Profiler::ThreadState::OnFunctionExit(
   // calling function as caller, which isn't totally accurate as that'll
   // attribute the cost to the first line of the calling function. In the
   // absence of more information, it's the best we can do, however.
-  ReturnThunkFactory::Thunk* ret_thunk =
-      thunk_factory_.CastToThunk(data->caller);
+  Thunk* ret_thunk = CastToThunk(data->caller);
   if (ret_thunk == NULL) {
     RecordInvocation(data->caller, data->function, cycles_executed);
   } else {
-    ReturnThunkFactory::ThunkData* ret_data =
-        ReturnThunkFactory::DataFromThunk(ret_thunk);
+    ThunkData* ret_data = DataFromThunk(ret_thunk);
     RecordInvocation(ret_data->function, data->function, cycles_executed);
   }
 
@@ -476,12 +475,10 @@ RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
       return pc_location;
 
     // It's one of our own, redirect to the thunk's stash.
-    ReturnThunkFactory::Thunk* thunk =
-        reinterpret_cast<ReturnThunkFactory::Thunk*>(
-            const_cast<void*>(ret_addr));
+    ThreadState::Thunk* thunk =
+        reinterpret_cast<ThreadState::Thunk*>(const_cast<void*>(ret_addr));
 
-    ReturnThunkFactory::ThunkData* data =
-        ReturnThunkFactory::DataFromThunk(thunk);
+    ThreadState::ThunkData* data = ThreadState::DataFromThunk(thunk);
 
     // Update the PC location and go around again, in case this
     // thunk links to another one.
