@@ -597,10 +597,33 @@ bool WriteSyzygyHistoryStream(const FilePath& input_path,
   return true;
 }
 
-// This writes the serialized block-graph in a PDB stream named
-// /Syzygy/BlockGraph. If the format is changed, be sure to update this
+// This writes the serialized image layout in a PDB stream. There's only the
+// address space that is saved to the stream because the sections can be
+// inferred from the PE file.
+bool WriteImageLayoutAddressSpace(const ImageLayout& image_layout,
+                                  core::OutArchive* out_archive) {
+  DCHECK(out_archive != NULL);
+
+  block_graph::BlockGraph::AddressSpace::RangeMapConstIter image_layout_iter =
+      image_layout.blocks.begin();
+
+  // Write all the block addresses to the stream. The block IDs are not written
+  // because the order of the serialized blocks is guaranteed to be the same
+  // after de-serialization.
+  out_archive->Save(image_layout.blocks.size());
+  for (; image_layout_iter != image_layout.blocks.end(); image_layout_iter++) {
+    if (!out_archive->Save(image_layout_iter->first.start())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// This writes the serialized block-graph and the image layout in a PDB stream
+// named /Syzygy/BlockGraph. If the format is changed, be sure to update this
 // documentation and pdb::kSyzygyBlockGraphStreamVersion (in pdb_constants.h).
 bool WriteSyzygyBlockGraphStream(const BlockGraph& block_graph,
+                                 const ImageLayout& image_layout,
                                  NameStreamMap* name_stream_map,
                                  PdbFile* pdb_file) {
   // Get the redecomposition data stream.
@@ -631,7 +654,14 @@ bool WriteSyzygyBlockGraphStream(const BlockGraph& block_graph,
   PdbOutStream out_stream(block_graph_writer.get());
   core::OutArchive out_archive(&out_stream);
   if (!block_graph.Save(&out_archive)) {
-    LOG(ERROR) << "Failed to write data to Syzygy BlockGraph stream.";
+    LOG(ERROR) << "Failed to write block-graph data to Syzygy "
+               << "BlockGraph stream.";
+    return false;
+  }
+
+  // Save the image layout in the stream.
+  if (!WriteImageLayoutAddressSpace(image_layout, &out_archive)) {
+    LOG(ERROR) << "Failed to write image layout to Syzygy BlockGraph stream.";
     return false;
   }
 
@@ -762,8 +792,10 @@ bool PERelinker::Relink() {
   // Add redecomposition data in another stream, only if augment_pdb_ is set.
   if (augment_pdb_) {
     LOG(INFO) << "The block-graph stream is being written to the PDB.";
-    if (!WriteSyzygyBlockGraphStream(block_graph_, &name_stream_map, &pdb_file))
+    if (!WriteSyzygyBlockGraphStream(block_graph_, output_image_layout,
+                                     &name_stream_map, &pdb_file)) {
       return false;
+    }
   }
 
   // Write the updated name-stream map back to the header info stream.
