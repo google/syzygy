@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,15 +41,9 @@
           '<(DEPTH)/sawbuck/py/etw/etw/descriptors/registry.py',
           '<(DEPTH)/sawbuck/py/etw/etw/descriptors/thread.py',
         ],
-        'setup_file': [
-          '<(DEPTH)/sawbuck/py/etw/setup.py',
-        ],
-        'success_file': [
-          '<(PRODUCT_DIR)/ETW-egg-success.txt',
-        ],
-        'script_file': [
-          '<(DEPTH)/syzygy/build/build_egg.py',
-        ],
+        'setup_file': '<(DEPTH)/sawbuck/py/etw/setup.py',
+        'success_file': '<(PRODUCT_DIR)/ETW-egg-success.txt',
+        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<(script_file)',
@@ -91,15 +85,9 @@
           'etw_db/process.py',
           'etw_db/__init__.py',
         ],
-        'setup_file': [
-          'setup.py',
-        ],
-        'success_file': [
-          '<(PRODUCT_DIR)/ETW-Db-egg-success.txt',
-        ],
-        'script_file': [
-          '<(DEPTH)/syzygy/build/build_egg.py',
-        ],
+        'setup_file': 'setup.py',
+        'success_file': '<(PRODUCT_DIR)/ETW-Db-egg-success.txt',
+        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<@(etw_db_sources)',

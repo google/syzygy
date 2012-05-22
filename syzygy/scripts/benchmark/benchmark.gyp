@@ -52,15 +52,9 @@
           '<(PRODUCT_DIR)/virtualenv.exe',
           '<(PRODUCT_DIR)/wsdump.exe',
         ],
-        'setup_file': [
-          'setup.py',
-        ],
-        'success_file': [
-          '<(PRODUCT_DIR)/Benchmark-egg-success.txt',
-        ],
-        'script_file': [
-          '<(DEPTH)/syzygy/build/build_egg.py',
-        ],
+        'setup_file': 'setup.py',
+        'success_file': '<(PRODUCT_DIR)/Benchmark-egg-success.txt',
+        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<@(benchmark_sources)',
