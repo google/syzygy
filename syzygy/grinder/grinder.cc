@@ -32,24 +32,6 @@ using sym_util::ModuleInformation;
 
 namespace {
 
-// Compares invocation nodes on the key attribute of "function" only.
-bool InvocationNodeKeyLess(const InvocationNode& a, const InvocationNode& b) {
-  return a.function < b.function;
-}
-
-// Compares invocation edges on the key attributes of function and caller only.
-bool InvocationEdgeKeyLess(const InvocationEdge& a, const InvocationEdge& b) {
-  if (a.function < b.function)
-    return true;
-  if (a.function > b.function)
-    return false;
-
-  if (a.caller < b.caller)
-    return true;
-
-  return false;
-}
-
 // Compares module information without regard to base address.
 // Used to canonicalize module information, even across processes, or multiple
 // loads for the same module at different addresses in the same process.
@@ -75,9 +57,7 @@ bool ModuleInformationKeyLess(const ModuleInformation& a,
 
 }  // namespace
 
-Grinder::PartData::PartData()
-    : nodes_(InvocationNodeKeyLess),
-      edges_(InvocationEdgeKeyLess) {
+Grinder::PartData::PartData() {
 }
 
 Grinder::Grinder()
@@ -374,27 +354,29 @@ bool Grinder::ResolveCallersForPart(PartData* part) {
   // We start by iterating all the edges, connecting them up to their caller,
   // and subtracting the edge metric(s) to compute the inclusive metrics for
   // each function.
-  InvocationEdgeSet::iterator edge_it(part->edges_.begin());
+  InvocationEdgeMap::iterator edge_it(part->edges_.begin());
   for (; edge_it != part->edges_.end(); ++edge_it) {
-    InvocationEdge& edge = *edge_it;
+    InvocationEdge& edge = edge_it->second;
     RVA function_rva = 0;
     if (GetInfoForCallerRVA(edge.caller, &function_rva, &edge.line)) {
-      InvocationNode node_key;
-      node_key.function.module = edge.caller.module;
-      node_key.function.rva = function_rva;
-      InvocationNodeSet::iterator node_it(part->nodes_.find(node_key));
+      ModuleRVA node_key;
+      node_key.module = edge.caller.module;
+      node_key.rva = function_rva;
+      InvocationNodeMap::iterator node_it(part->nodes_.find(node_key));
       if (node_it == part->nodes_.end()) {
         // This is a fringe node - e.g. this is a non-instrumented caller
         // calling into an instrumented function. Create the node now,
         // but note that we won't have any metrics recorded for the function
         // and must be careful not to try and tally exclusive stats for it.
-        node_it = part->nodes_.insert(node_key).first;
+        node_it = part->nodes_.insert(
+            std::make_pair(node_key, InvocationNode())).first;
 
-        DCHECK_EQ(0, node_it->metrics.num_calls);
-        DCHECK_EQ(0, node_it->metrics.cycles_sum);
+        node_it->second.function = node_key;
+        DCHECK_EQ(0, node_it->second.metrics.num_calls);
+        DCHECK_EQ(0, node_it->second.metrics.cycles_sum);
       }
 
-      InvocationNode& node = *node_it;
+      InvocationNode& node = node_it->second;
 
       // Hook the edge up to the node's list of outgoing edges.
       edge.next_call = node.first_call;
@@ -412,7 +394,7 @@ bool Grinder::ResolveCallersForPart(PartData* part) {
       //     sufficient module information that we can resolve calls from
       //     system and dependent modules.
       LOG(WARNING) << "Found no info for module: '"
-                   << edge_it->caller.module->image_file_name << "'.";
+                   << edge.caller.module->image_file_name << "'.";
     }
   }
 
@@ -442,9 +424,9 @@ bool Grinder::OutputDataForPart(const PartData& part, FILE* file) {
   ::fprintf(file, "events: Calls Cycles Cycles-Min Cycles-Max\n");
 
   // Walk the nodes and output the data.
-  InvocationNodeSet::const_iterator node_it(part.nodes_.begin());
+  InvocationNodeMap::const_iterator node_it(part.nodes_.begin());
   for (; node_it != part.nodes_.end(); ++node_it) {
-    const InvocationNode& node = *node_it;
+    const InvocationNode& node = node_it->second;
     std::wstring function_name;
     std::wstring file_name;
     size_t line = 0;
@@ -587,15 +569,12 @@ void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
                                    const ModuleRVA& caller_rva,
                                    const InvocationInfo& info,
                                    PartData* part) {
-  InvocationNode node;
-  node.function = function_rva;
-
   // Have we recorded this node before?
-  InvocationNodeSet::iterator node_it(part->nodes_.find(node));
+  InvocationNodeMap::iterator node_it(part->nodes_.find(function_rva));
   if (node_it != part->nodes_.end()) {
     // Yups, we've seen this edge before.
     // Aggregate the new data with the old.
-    InvocationNode& found = *node_it;
+    InvocationNode& found = node_it->second;
     found.metrics.num_calls += info.num_calls;
     found.metrics.cycles_min = std::min(found.metrics.cycles_min,
                                         info.cycles_min);
@@ -604,29 +583,26 @@ void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
     found.metrics.cycles_sum += info.cycles_sum;
   } else {
     // Nopes, we haven't seen this pair before, insert it.
+    InvocationNode& node = part->nodes_[function_rva];
+    node.function = function_rva;
     node.metrics.num_calls = info.num_calls;
     node.metrics.cycles_min = info.cycles_min;
     node.metrics.cycles_max = info.cycles_max;
     node.metrics.cycles_sum = info.cycles_sum;
-
-    bool inserted = part->nodes_.insert(node).second;
-    DCHECK(inserted);
   }
 
   // If the caller is NULL, we can't do anything with the edge as the
   // caller is unknown, so skip recording it. The data will be aggregated
   // to the edge above.
   if (caller_rva.module != NULL) {
-    InvocationEdge edge;
-    edge.function = function_rva;
-    edge.caller = caller_rva;
+    InvocationEdgeKey key(function_rva, caller_rva);
 
     // Have we recorded this edge before?
-    InvocationEdgeSet::iterator edge_it(part->edges_.find(edge));
+    InvocationEdgeMap::iterator edge_it(part->edges_.find(key));
     if (edge_it != part->edges_.end()) {
       // Yups, we've seen this edge before.
       // Aggregate the new data with the old.
-      InvocationEdge& found = *edge_it;
+      InvocationEdge& found = edge_it->second;
       found.metrics.num_calls += info.num_calls;
       found.metrics.cycles_min = std::min(found.metrics.cycles_min,
                                           info.cycles_min);
@@ -635,13 +611,13 @@ void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
       found.metrics.cycles_sum += info.cycles_sum;
     } else {
       // Nopes, we haven't seen this edge before, insert it.
+      InvocationEdge& edge = part->edges_[key];
+      edge.function = function_rva;
+      edge.caller = caller_rva;
       edge.metrics.num_calls = info.num_calls;
       edge.metrics.cycles_min = info.cycles_min;
       edge.metrics.cycles_max = info.cycles_max;
       edge.metrics.cycles_sum = info.cycles_sum;
-
-      bool inserted = part->edges_.insert(edge).second;
-      DCHECK(inserted);
     }
   }
 }
