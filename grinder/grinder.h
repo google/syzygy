@@ -140,12 +140,9 @@ class Grinder : public trace::parser::ParseEventHandler {
   typedef std::set<ModuleInformation,
       bool (*)(const ModuleInformation& a, const ModuleInformation& b)>
           ModuleInformationSet;
-  typedef std::set<InvocationNode,
-      bool (*)(const InvocationNode& a,
-               const InvocationNode& b)> InvocationNodeSet;
-  typedef std::set<InvocationEdge,
-      bool (*)(const InvocationEdge& a,
-               const InvocationEdge& b)> InvocationEdgeSet;
+  typedef std::map<ModuleRVA, InvocationNode> InvocationNodeMap;
+  typedef std::pair<ModuleRVA, ModuleRVA> InvocationEdgeKey;
+  typedef std::map<InvocationEdgeKey, InvocationEdge> InvocationEdgeMap;
 
   typedef base::win::ScopedComPtr<IDiaSession> SessionPtr;
   typedef std::map<const ModuleInformation*, SessionPtr> ModuleSessionMap;
@@ -203,10 +200,10 @@ class Grinder : public trace::parser::ParseEventHandler {
     uint32 thread_id_;
 
     // Stores the invocation nodes, aka the functions.
-    InvocationNodeSet nodes_;
+    InvocationNodeMap nodes_;
 
     // Stores the invocation edges.
-    InvocationEdgeSet edges_;
+    InvocationEdgeMap edges_;
   };
 
   // The parts we store. If thread_parts_ is false, we store only a single
