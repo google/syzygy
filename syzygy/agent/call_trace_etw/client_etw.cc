@@ -16,7 +16,7 @@
 
 #include "syzygy/agent/call_trace_etw/client_etw.h"
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <tlhelp32.h>
 
 #include <vector>
@@ -37,8 +37,15 @@ const GUID kCallTraceLogProvider =
 void CompileAsserts() {
   TraceModuleData data;
   MODULEENTRY32 module;
+
   // Make sure we have the correct size for the module name field.
-  C_ASSERT(ARRAYSIZE(data.module_name) == ARRAYSIZE(module.szModule));
+  COMPILE_ASSERT(
+      ARRAYSIZE(data.module_name) == ARRAYSIZE(module.szModule),
+      module_name_field_must_be_the_correct_size);
+
+  // Supress unused local variable warning.
+  static_cast<void>(data);
+  static_cast<void>(module);
 }
 
 void CopyArguments(ArgumentWord *dst, const ArgumentWord *src, size_t num) {
