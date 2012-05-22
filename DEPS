@@ -20,6 +20,7 @@ vars = {
   "gmock_revision": "374",
   "gtest_revision": "560",
   "gyp_revision": "1135",
+  "googleurl_revision": "175",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
@@ -27,6 +28,9 @@ vars = {
 deps = {
   "src/base":
     Var("chrome_base") + "/src/base@" + Var("chrome_revision"),
+
+  "src/googleurl":
+    "http://google-url.googlecode.com/svn/trunk@" + Var("googleurl_revision"),
 
   "src/third_party/wtl":
     Var("chrome_base") + "/src/third_party/wtl@" +
@@ -90,6 +94,7 @@ include_rules = [
   # Everybody can use some things.
   "+base",
   "+build",
+  "+googleurl",
 ]
 
 hooks = [
