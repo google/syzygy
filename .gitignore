@@ -12,13 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Ignore GYP artifacts.
+# Ignore GYP generated Visual Studio artifacts (Common across versions).
+*.ncb
 *.sln
 *.suo
-*.ncb
-*.vcproj
 *.user
+
+# Ignore GYP generated Visual Studio 2008 artifacts.
+*.vcproj
+
+# Ignore GYP generated Visual Studio 2010 artifacts.
+# Note: the this excludes *.xml, which is rather heavy handed. The
+#     generated VS2010 projects each have a project.xml file created
+#     (which is unfortunate, as one can easily envision such a file
+#     being included in a given project). As, thus far, we haven't
+#     had occaision to include a *.xml file, we'll default to needing
+#     to jump through a small hoop to remember to add one if the need
+#     arises.
+*.filters
+*.opensdf
+*.props
 *.rules
+*.sdf
+*.targets
+*.vcxproj
+*.xml
 
 # Ignore compiled Python files.
 *.pyc
