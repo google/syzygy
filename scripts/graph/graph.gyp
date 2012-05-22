@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,15 +21,9 @@
         'graph_sources': [
           'graph.py',
         ],
-        'setup_file': [
-          'setup.py',
-        ],
-        'success_file': [
-          '<(PRODUCT_DIR)/Graph-Pagefaults-egg-success.txt',
-        ],
-        'script_file': [
-          '<(DEPTH)/syzygy/build/build_egg.py',
-        ],
+        'setup_file': 'setup.py',
+        'success_file': '<(PRODUCT_DIR)/Graph-Pagefaults-egg-success.txt',
+        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<@(graph_sources)',
