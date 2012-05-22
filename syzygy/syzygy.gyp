@@ -72,6 +72,7 @@
         {
           'action_name': 'Run Doxygen',
           'msvs_cygwin_shell': 0,
+          'inputs': [],
           'outputs': [
              'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
           ],

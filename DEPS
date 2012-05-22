@@ -19,8 +19,8 @@ vars = {
   "chrome_revision": "116861",
   "gmock_revision": "374",
   "gtest_revision": "560",
-  "gyp_revision": "1135",
   "googleurl_revision": "175",
+  "gyp_revision": "1386",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
