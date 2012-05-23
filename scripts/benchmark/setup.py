@@ -12,11 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import distutils.command.install_data
 import os.path
 import pprint
 import setuptools
 import sys
-import distutils.command.install_data
 
 
 class InstallData(distutils.command.install_data.install_data):
@@ -59,8 +60,8 @@ _MODULES = [
   'trace_event'
 ]
 
+
 _EXECUTABLES = [
-  'msdia90.dll',
   'call_trace.dll',
   'call_trace_client.dll',
   'call_trace_control.exe',

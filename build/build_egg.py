@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def _Subprocess(command, failure_msg, **kw):
@@ -92,6 +92,10 @@ def _ParseArgs():
     logging.basicConfig(level=logging.INFO)
   else:
     logging.basicConfig(level=logging.ERROR)
+
+  # Strip the arguments of trailing quote to get around a gyp bug:
+  #     http://code.google.com/p/gyp/issues/detail?id=272
+  args = [arg.rstrip('"\'') for arg in args]
 
   return (opts, args)
 
