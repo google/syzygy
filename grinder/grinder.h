@@ -241,7 +241,7 @@ struct ModuleRVA {
     return !(*this == o);
   }
 
-  sym_util::ModuleInformation* module;
+  const sym_util::ModuleInformation* module;
   RVA rva;
 };
 
