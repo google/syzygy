@@ -104,6 +104,7 @@ class BlockGraph {
     DEBUG_END_LABEL,
     SCOPE_START_LABEL,
     SCOPE_END_LABEL,  // TODO(rogerm): Infer these from block length.
+    CALL_SITE_LABEL,
     PADDING_LABEL,
 
     // Note: This must always be last.

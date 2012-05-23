@@ -38,6 +38,7 @@ const char* kLabelType[] = {
   "code", "data",
   "debug-start", "debug-end",
   "scope-start", "scope-end",
+  "call-site",
   "padding"
 };
 COMPILE_ASSERT(arraysize(kLabelType) == BlockGraph::LABEL_TYPE_MAX,
