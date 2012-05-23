@@ -22,11 +22,11 @@
 *.vcproj
 
 # Ignore GYP generated Visual Studio 2010 artifacts.
-# Note: the this excludes *.xml, which is rather heavy handed. The
+# Note: This excludes *.xml, which is rather heavy handed. The
 #     generated VS2010 projects each have a project.xml file created
 #     (which is unfortunate, as one can easily envision such a file
 #     being included in a given project). As, thus far, we haven't
-#     had occaision to include a *.xml file, we'll default to needing
+#     had occasion to include a *.xml file, we'll default to needing
 #     to jump through a small hoop to remember to add one if the need
 #     arises.
 *.filters
