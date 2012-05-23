@@ -111,7 +111,9 @@ def _ParseArgs():
 
   if not opts.build_dir:
     parser.error('You must specify --build-dir.')
-  opts.build_dir = os.path.abspath(opts.build_dir)
+  # We strip the build-dir param of trailing quotes as a workaround for:
+  # http://code.google.com/p/gyp/issues/detail?id=272
+  opts.build_dir = os.path.abspath(opts.build_dir).rstrip('"\'')
   if not os.path.isdir(opts.build_dir):
     parser.error('Build directory does not exist: %s' % opts.build_dir)
 

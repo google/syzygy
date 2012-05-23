@@ -198,11 +198,13 @@
           'action': [
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
-            '--build-dir=$(OutDir)',
             '--output-dir=$(OutDir)/test_data/rpc_traces',
             '--instrumented-dll='
                 '$(OutDir)/test_data/rpc_instrumented_test_dll.dll',
             '--verbose',
+            # The build-dir arg must be last to work around a GYP bug.
+            # http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=$(OutDir)',
           ],
         },
       ],
@@ -242,11 +244,13 @@
           'action': [
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
-            '--build-dir=$(OutDir)',
             '--output-dir=$(OutDir)/test_data/profile_traces',
             '--instrumented-dll='
                 '$(OutDir)/test_data/profile_instrumented_test_dll.dll',
             '--verbose',
+            # The build-dir arg must be last to work around a GYP bug.
+            # http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=$(OutDir)',
           ],
         },
       ],
