@@ -15,6 +15,14 @@
 {
   'variables': {
     'chromium_code': 1,
+    'conditions': [
+      ['MSVS_VERSION=="2010"', {
+        'dia_sdk_version': '100',
+      }],
+      ['MSVS_VERSION=="2008"', {
+        'dia_sdk_version': '90',
+      }],
+    ],
   },
   'target_defaults': {
     'include_dirs': [
@@ -27,12 +35,12 @@
       # propagate the settings required for users of the DIA SDK.
       'target_name': 'dia_sdk',
       'type': 'none',
-      # We copy the msdia90.dll into the build directory for conveninence.
+      # We copy the msdiaXXX.dll into the build directory for conveninence.
       'copies': [
         {
           'destination': '<(PRODUCT_DIR)',
           'files': [
-            '$(VSInstallDir)/DIA SDK/bin/msdia90.dll',
+            '$(VSInstallDir)/DIA SDK/bin/msdia<(dia_sdk_version).dll',
           ],
         },
       ],
