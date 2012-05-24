@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ _SCRIPT_DIR = os.path.join(_SYZYGY_DIR, 'py')
 
 if _SCRIPT_DIR not in sys.path:
   sys.path.insert(0, _SCRIPT_DIR)
-import test_utils.gyp_tests as gyp_tests
+import test_utils.gyp_tests as gyp_tests  # pylint: disable=F0401
 
 
 def MakeTest():

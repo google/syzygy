@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ def _CreateVirtualEnv(base_dir):
 
     dll_path = os.path.join(os.path.dirname(sys.executable), 'pywintypes26.dll')
     shutil.copy(dll_path, script_dir)
-  except Exception, ex:
+  except Exception:
     _LOGGER.exception('Unable to copy python DLL')
     raise VirtualEnvCreationError('Unable to copy python DLL')
 
@@ -107,7 +107,7 @@ def _CreateVirtualEnv(base_dir):
     numpy_dir = os.path.join(_SRC_DIR, 'third_party/numpy/files/numpy')
     site_lib_dir = os.path.join(base_dir, 'Lib/site-packages')
     shutil.copytree(numpy_dir, os.path.join(site_lib_dir, 'numpy'))
-  except Exception, ex:
+  except Exception:
     _LOGGER.exception('Unable to copy numpy.')
     raise VirtualEnvCreationError('Unable to copy numpy.')
 
@@ -149,7 +149,7 @@ def _ParseArgs():
 
 def Main():
   """Main function."""
-  opts, args = _ParseArgs()
+  opts, dummy_args = _ParseArgs()
   _CreateVirtualEnv(opts.output_dir)
 
   if opts.success_file:

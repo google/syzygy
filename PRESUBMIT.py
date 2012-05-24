@@ -31,7 +31,7 @@ SYZYGY_ROOT_DIR = os.path.abspath(os.getcwd())
 
 # Bring in some presubmit tools.
 sys.path.insert(0, os.path.join(SYZYGY_ROOT_DIR, 'py'))
-import test_utils.presubmit as presubmit
+import test_utils.presubmit as presubmit  # pylint: disable=F0401
 
 
 # Bring in internal-only presubmit checks. These live in a parallel
@@ -42,7 +42,7 @@ try:
   internal_dir = os.path.join(SYZYGY_ROOT_DIR, 'internal')
   if os.path.isdir(internal_dir):
     sys.path.insert(0, internal_dir)
-  import internal_presubmit
+  import internal_presubmit  # pylint: disable=F0401
 except ImportError:
   internal_presubmit = None
 

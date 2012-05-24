@@ -177,8 +177,8 @@ class _CodeCoverageRunner(object):
     croc = os.path.abspath(
         os.path.join(_SYZYGY_DIR, '../tools/code_coverage/croc.py'))
     config = os.path.join(_SYZYGY_DIR, 'build/syzygy.croc')
-    input = os.path.join(self._work_dir,
-                         '%s.coverage.lcov' % self._COVERAGE_FILE)
+    input_path = os.path.join(self._work_dir,
+                              '%s.coverage.lcov' % self._COVERAGE_FILE)
     html = os.path.join(self._build_dir, 'cov')
 
     # Clean up old coverage results.
@@ -188,7 +188,7 @@ class _CodeCoverageRunner(object):
     cmd = [sys.executable, croc,
            '--tree',
            '--config', config,
-           '--input', input,
+           '--input', input_path,
            '--html', html]
 
     # The coverage html generator wants to run in the directory
