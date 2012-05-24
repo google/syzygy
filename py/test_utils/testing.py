@@ -100,6 +100,7 @@ class Test(object):
     self._project_dir = project_dir
     self._name = name
     self._force = False
+    self._app_verifier = None
 
     # Tests are to direct all of their output to these streams.
     # NOTE: These streams aren't directly compatible with subprocess.Popen.
@@ -124,7 +125,7 @@ class Test(object):
     except (IOError, WindowsError):
       return 0
 
-  def _CanRun(self, configuration):
+  def _CanRun(self, configuration):  # pylint: disable=R0201,W0613
     """Indicates whether this test can run the given configuration.
 
     Derived classes may override this in order to indicate that they
@@ -145,7 +146,7 @@ class Test(object):
     """
     return True
 
-  def _NeedToRun(self, configuration):
+  def _NeedToRun(self, configuration):  # pylint: disable=R0201,W0613
     """Determines whether this test needs to be run in the given configuration.
 
     Derived classes may override this if they can determine ahead of time
@@ -313,7 +314,7 @@ class Test(object):
     colorama.init()
 
     opt_parser = self._GetOptParser()
-    options, unused_args = opt_parser.parse_args()
+    options, dummy_args = opt_parser.parse_args()
 
     logging.basicConfig(level=options.log_level)
 
@@ -353,6 +354,27 @@ def _AppVerifierColorize(text):
   return '\n'.join([_ColorizeLine(line) for line in text.split('\n')])
 
 
+def _FilterAppVerifierExceptions(image_name, errors):
+  """Filter out the Application Verifier errors that have exceptions."""
+  exceptions = _EXCEPTIONS.get(image_name, [])
+
+  def _HasNoException(error):
+    # Iterate over all the exceptions.
+    for (severity, layer, stopcode, regexp) in exceptions:
+      # And see if they match, first by type.
+      if (error.severity == severity and
+          error.layer == layer and
+          error.stopcode == stopcode):
+        # And then by regexpr match to the trace symbols.
+        for trace in error.trace:
+          if trace.symbol and re.match(regexp, trace.symbol):
+            return False
+
+    return True
+
+  return filter(_HasNoException, errors)
+
+
 class ExecutableTest(Test):
   """An executable test is a Test that is run by launching a single
   executable file, and inspecting its return value.
@@ -376,29 +398,9 @@ class ExecutableTest(Test):
     """Returns the command line to run."""
     return [self._GetTestPath(configuration)]
 
-  def _FilterAppVerifierExceptions(self, image_name, errors):
-    """Filter out the Application Verifier errors that have exceptions."""
-    exceptions = _EXCEPTIONS.get(image_name, [])
-
-    def _HasNoException(error):
-      # Iterate over all the exceptions.
-      for (severity, layer, stopcode, regexp) in exceptions:
-        # And see if they match, first by type.
-        if (error.severity == severity and
-            error.layer == layer and
-            error.stopcode == stopcode):
-          # And then by regexpr match to the trace symbols.
-          for trace in error.trace:
-            if trace.symbol and re.match(regexp, trace.symbol):
-              return False
-
-      return True
-
-    return filter(_HasNoException, errors)
 
   def _Run(self, configuration):
     test_path = self._GetTestPath(configuration)
-    rel_test_path = os.path.relpath(test_path, self._project_dir)
 
     # Create the app verifier test runner.
     runner = None
@@ -415,7 +417,7 @@ class ExecutableTest(Test):
     command = self._GetCmdLine(configuration)
     popen = subprocess.Popen(command, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
-    (stdout, unused_stderr) = popen.communicate()
+    (stdout, dummy_stderr) = popen.communicate()
     self._WriteStdout(stdout)
     if popen.returncode != 0:
       # If the test failed, mirror its output to stderr as well. All stderrs of
@@ -427,7 +429,7 @@ class ExecutableTest(Test):
     app_verifier_errors = []
     if self._app_verifier:
       app_verifier_errors = runner.ProcessLogs(image_name)
-      app_verifier_errors = self._FilterAppVerifierExceptions(
+      app_verifier_errors = _FilterAppVerifierExceptions(
           image_name, app_verifier_errors)
       for error in app_verifier_errors:
         msg = _AppVerifierColorize(str(error) + '\n')
@@ -471,7 +473,7 @@ def _GTestColorize(text):
 class GTest(ExecutableTest):
   """This wraps a GTest unittest, with colorized output."""
   def __init__(self, *args, **kwargs):
-    return super(GTest, self).__init__(*args, **kwargs)
+    super(GTest, self).__init__(*args, **kwargs)
 
   def _GetCmdLine(self, configuration):
     # Run unittests without the exception filter, as it gets in the way of
@@ -511,12 +513,12 @@ class TestSuite(Test):
     """
     for test in self._tests:
       try:
-        if test._NeedToRun(configuration):
+        if test._NeedToRun(configuration):  # pylint: disable=W0212
           return True
       except:
         # Output some context before letting the exception continue.
         _LOGGER.error('Configuration "%s" of test "%s" failed.',
-                      configuration, test._name)
+                      configuration, test._name)  # pylint: disable=W0212
         raise
     return False
 
@@ -533,7 +535,7 @@ class TestSuite(Test):
                       force=self._force,
                       app_verifier=self._app_verifier):
         # Keep a cumulative log of all stderr from each test that fails.
-        self._WriteStderr(test._GetStderr())
+        self._WriteStderr(test._GetStderr())  # pylint: disable=W0212
         success = False
 
     return success

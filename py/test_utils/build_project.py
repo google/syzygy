@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
   try:
     solution = win32com.client.GetObject(solution_path)
     builder = solution.SolutionBuild
-  except pywintypes.com_error:
+  except pywintypes.com_error:  # pylint: disable=E1101
     # Reraise the error with a new type.
     raise Error, sys.exc_info()[1], sys.exc_info()[2]
 
@@ -63,16 +63,15 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
       dte = solution.DTE
       dte.MainWindow.Visible = True
       dte.MainWindow.Activate()
-    except pywintypes.com_error:
+    except pywintypes.com_error:  # pylint: disable=E1101
       logging.error('Forcing focus failed.')
-      pass
 
     try:
       # If the output window is already open, we can force it to be visible.
       # Can't quite figure out how to open it if it doesn't already exist.
       output = dte.Windows.Item('Output')
       output.Activate()
-    except pywintypes.com_error:
+    except pywintypes.com_error:  # pylint: disable=E1101
       # We explicitly pass on this error as we expect it to happen whenever
       # the output window is not already open.
       pass
@@ -92,7 +91,7 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
       try:
         builder.BuildProject(config, abs_project_path, True)
         errors = builder.LastBuildInfo
-      except pywintypes.com_error:
+      except pywintypes.com_error:  # pylint: disable=E1101
         logging.error('Configuration "%s" of "%s" failed to build.',
             config, project_path)
         # Reraise the error with a new type.
@@ -101,7 +100,7 @@ def BuildProjectConfig(solution_path, project_paths, configs, focus=True):
       if errors > 0:
         raise Error(
             'Configuration "%s" of "%s" failed to build with %d error%s.' %
-                (config, project_path, errors, '' if errors == 1 else 's'))
+                (config, rel_project_path, errors, '' if errors == 1 else 's'))
 
 
 def GetOptionParser():
