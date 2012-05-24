@@ -23,6 +23,7 @@
 #include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -49,6 +50,31 @@ using trace::service::Service;
 using trace::parser::Parser;
 using trace::parser::ParseEventHandler;
 
+// The information on how to set the thread name comes from
+// a MSDN article: http://msdn2.microsoft.com/en-us/library/xcb2z8hs.aspx
+const DWORD kVCThreadNameException = 0x406D1388;
+
+typedef struct tagTHREADNAME_INFO {
+  DWORD dwType;  // Must be 0x1000.
+  LPCSTR szName;  // Pointer to name (in user addr space).
+  DWORD dwThreadID;  // Thread ID (-1=caller thread).
+  DWORD dwFlags;  // Reserved for future use, must be zero.
+} THREADNAME_INFO;
+
+// This function has try handling, so it is separated out of its caller.
+void SetNameInternal(const char* name) {
+  THREADNAME_INFO info;
+  info.dwType = 0x1000;
+  info.szName = name;
+  info.dwThreadID = -1;
+  info.dwFlags = 0;
+
+  __try {
+    RaiseException(kVCThreadNameException, 0, sizeof(info)/sizeof(DWORD),
+                   reinterpret_cast<DWORD_PTR*>(&info));
+  } __except(EXCEPTION_CONTINUE_EXECUTION) {
+  }
+}
 
 // Return address location resolution function.
 typedef uintptr_t (__cdecl *ResolveReturnAddressLocationFunc)(
@@ -97,6 +123,10 @@ class MockParseEventHandler : public ParseEventHandler {
                                         DWORD thread_id,
                                         size_t num_batches,
                                         const TraceBatchInvocationInfo* data));
+  MOCK_METHOD4(OnThreadName, void (base::Time time,
+                                   DWORD process_id,
+                                   DWORD thread_id,
+                                   const base::StringPiece& thread_name));
 };
 
 // TODO(rogerm): Create a base fixture (perhaps templatized) to factor out
@@ -425,6 +455,42 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
                                           ::GetCurrentThreadId(),
                                           2,
                                           _));
+  EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+
+  // Replay the log.
+  ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+}
+
+TEST_F(ProfilerTest, RecordsThreadName) {
+  // Spin up the RPC service.
+  ASSERT_TRUE(call_trace_service_.Start(true));
+
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // And invoke a function to get things initialized.
+  ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
+
+  // Beware that this test will fail under debugging, as the
+  // debugger by default swallows the exception.
+  static const char kThreadName[] = "Profiler Test Thread";
+  SetNameInternal(kThreadName);
+
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+
+  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
+  EXPECT_CALL(handler_, OnProcessAttach(_,
+                                        ::GetCurrentProcessId(),
+                                        ::GetCurrentThreadId(),
+                                        _))
+      .Times(testing::AnyNumber());
+  EXPECT_CALL(handler_, OnInvocationBatch(_,
+                                          ::GetCurrentProcessId(),
+                                          ::GetCurrentThreadId(),
+                                          _ ,_));
+  EXPECT_CALL(handler_, OnThreadName(_,
+                                     ::GetCurrentProcessId(),
+                                     ::GetCurrentThreadId(),
+                                     base::StringPiece(kThreadName)));
   EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
 
   // Replay the log.

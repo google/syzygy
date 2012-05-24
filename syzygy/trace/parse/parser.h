@@ -20,8 +20,9 @@
 #include <list>
 
 #include "base/file_path.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/string_piece.h"
 #include "base/time.h"
+#include "base/memory/scoped_ptr.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
@@ -185,6 +186,12 @@ class ParseEventHandler {
                                  DWORD thread_id,
                                  size_t num_invocations,
                                  const TraceBatchInvocationInfo* data) = 0;
+
+  // Issued for each thread name captured.
+  virtual void OnThreadName(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const base::StringPiece& thread_name) = 0;
 };
 
 }  // namespace trace::parser

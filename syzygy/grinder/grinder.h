@@ -132,6 +132,10 @@ class Grinder : public trace::parser::ParseEventHandler {
                          DWORD thread_id,
                          size_t num_invocations,
                          const TraceBatchInvocationInfo* data) OVERRIDE;
+  virtual void OnThreadName(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const base::StringPiece& thread_name) OVERRIDE;
   // @}
  private:
   typedef sym_util::ModuleInformation ModuleInformation;
@@ -149,6 +153,9 @@ class Grinder : public trace::parser::ParseEventHandler {
 
   bool GetSessionForModule(const ModuleInformation* module,
                            IDiaSession** session_out);
+
+  // Finds or creates the part data for the given @p thread_id.
+  PartData* FindOrCreatePart(DWORD process_id, DWORD thread_id);
 
   // Retrieves the function containing @p address.
   // @param symbol on success returns the function's private symbol, or
@@ -192,6 +199,9 @@ class Grinder : public trace::parser::ParseEventHandler {
   // The data we store for each part.
   struct PartData {
     PartData();
+
+    // The thread name for this part.
+    std::string thread_name_;
 
     // The process ID for this part.
     uint32 process_id_;

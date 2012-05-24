@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <windows.h>
-#include <wmistr.h>
-#include <evntrace.h>  // NOLINT - wmistr must precede envtrace.h
+#include "syzygy/trace/parse/parse_engine.h"
+
+#include <windows.h>  // NOLINT
+#include <wmistr.h>  // NOLINT
+#include <evntrace.h>
 
 #include <set>
 #include <vector>
@@ -23,7 +25,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/trace/parse/parser.h"
-#include "syzygy/trace/parse/parse_engine.h"
 
 using trace::parser::Parser;
 using trace::parser::ParseEngine;
@@ -157,6 +158,10 @@ class ParseEngineUnitTest
                                         DWORD thread_id,
                                         size_t num_batches,
                                         const TraceBatchInvocationInfo* data));
+  MOCK_METHOD4(OnThreadName, void (base::Time time,
+                                   DWORD process_id,
+                                   DWORD thread_id,
+                                   const base::StringPiece& thread_name));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;

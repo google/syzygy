@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <stdio.h>
-
 #include <vector>
 
 #include "base/at_exit.h"
@@ -254,6 +253,15 @@ class TraceFileDumper : public ParseEventHandler {
                 data->invocations[i].cycles_max,
                 data->invocations[i].cycles_sum);
     }
+  }
+
+  virtual void OnThreadName(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const base::StringPiece& thread_name) OVERRIDE {
+    ::fprintf(file_, "OnThreadName: process-id=%d; thread-id=%d;\n"
+              "    name=%s\n",
+              process_id, thread_id, thread_name.as_string().c_str());
   }
 
  private:

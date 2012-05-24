@@ -25,6 +25,7 @@
 #include "base/file_path.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
@@ -85,6 +86,17 @@ bool CaptureModuleInformation(const base::win::PEImage& image,
 
   return true;
 }
+
+// The information on how to set the thread name comes from
+// a MSDN article: http://msdn2.microsoft.com/en-us/library/xcb2z8hs.aspx
+const DWORD kVCThreadNameException = 0x406D1388;
+
+typedef struct tagTHREADNAME_INFO {
+  DWORD dwType;  // Must be 0x1000.
+  LPCSTR szName;  // Pointer to name (in user addr space).
+  DWORD dwThreadID;  // Thread ID (-1=caller thread).
+  DWORD dwFlags;  // Reserved for future use, must be zero.
+} THREADNAME_INFO;
 
 }  // namespace
 
@@ -218,6 +230,9 @@ class Profiler::ThreadState
   // Logs @p module.
   void LogModule(HMODULE module);
 
+  // Logs @p thread_name as the current thread's name.
+  void LogThreadName(const base::StringPiece& thread_name);
+
   // Processes a single function entry.
   void OnFunctionEntry(EntryFrame* entry_frame,
                        FuncAddr function,
@@ -295,6 +310,7 @@ void Profiler::ThreadState::LogModule(HMODULE module) {
   }
 
   DCHECK(segment_.CanAllocate(sizeof(TraceModuleData)));
+  batch_ = NULL;
 
   // Allocate a record in the log.
   TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
@@ -324,6 +340,30 @@ void Profiler::ThreadState::LogModule(HMODULE module) {
             arraysize(module_event->module_name));
 
   module_event->module_exe[0] = L'\0';
+}
+
+void Profiler::ThreadState::LogThreadName(
+    const base::StringPiece& thread_name) {
+  if (thread_name.empty())
+    return;
+
+  // Make sure the event we're about to write will fit.
+  if (!segment_.CanAllocate(thread_name.size() + 1) || !FlushSegment()) {
+    // Failed to allocate a new segment.
+    return;
+  }
+
+  DCHECK(segment_.CanAllocate(thread_name.size() + 1));
+  batch_ = NULL;
+
+  // Allocate a record in the log.
+  TraceThreadNameInfo* thread_name_event =
+      reinterpret_cast<TraceThreadNameInfo*>(
+        segment_.AllocateTraceRecordImpl(
+            TRACE_THREAD_NAME, thread_name.size() + 1));
+  DCHECK(thread_name_event != NULL);
+  base::strlcpy(thread_name_event->thread_name,
+                thread_name.data(), thread_name.size() + 1);
 }
 
 void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
@@ -553,17 +593,52 @@ void Profiler::OnPageRemoved(const void* page) {
   pages_.erase(it);
 }
 
+void Profiler::OnThreadName(const base::StringPiece& thread_name) {
+  ThreadState* state = GetOrAllocateThreadState();
+  if (state != NULL)
+    state->LogThreadName(thread_name);
+}
+
+LONG CALLBACK Profiler::ExceptionHandler(EXCEPTION_POINTERS* ex_info) {
+  // Log the thread if this is the VC thread name exception.
+  if (ex_info->ExceptionRecord->ExceptionCode == kVCThreadNameException &&
+      ex_info->ExceptionRecord->NumberParameters ==
+          sizeof(THREADNAME_INFO)/sizeof(DWORD)) {
+    const THREADNAME_INFO* info =
+        reinterpret_cast<const THREADNAME_INFO*>(
+            &ex_info->ExceptionRecord->ExceptionInformation);
+
+    if (info->dwType == 0x1000) {
+      Profiler* instance = Profiler::Instance();
+      if (instance != NULL)
+        instance->OnThreadName(info->szName);
+    } else {
+      LOG(WARNING) << "Unrecognised event type " << info->dwType;
+    }
+  }
+
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+
 Profiler* Profiler::Instance() {
   return static_profiler_instance.Pointer();
 }
 
-Profiler::Profiler() {
+Profiler::Profiler() : handler_registration_(NULL) {
   // Create our RPC session and allocate our initial trace segment on first use.
   ThreadState* data = CreateFirstThreadStateAndSession();
   CHECK(data != NULL) << "Failed to allocate thread local state.";
+
+  handler_registration_ =
+      ::AddVectoredExceptionHandler(TRUE, ExceptionHandler);
 }
 
 Profiler::~Profiler() {
+  if (handler_registration_ != NULL) {
+    ::RemoveVectoredExceptionHandler(handler_registration_);
+    handler_registration_ = NULL;
+  }
 }
 
 Profiler::ThreadState* Profiler::CreateFirstThreadStateAndSession() {

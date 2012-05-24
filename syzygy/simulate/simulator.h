@@ -85,6 +85,9 @@ class Simulator : public trace::parser::ParseEventHandler {
   virtual void OnInvocationBatch(
       base::Time time, DWORD process_id, DWORD thread_id, size_t num_batches,
       const TraceBatchInvocationInfo* data) OVERRIDE;
+  virtual void OnThreadName(
+      base::Time time, DWORD process_id, DWORD thread_id,
+      const base::StringPiece& thread_name) OVERRIDE;
   // @}
 
   // The input files.

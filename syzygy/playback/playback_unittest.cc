@@ -58,6 +58,8 @@ class MockParseEventHandler : public testing::StrictMock<ParseEventHandler> {
                const TraceModuleData*));
   MOCK_METHOD5(OnInvocationBatch, void(base::Time, DWORD, DWORD,
                size_t, const TraceBatchInvocationInfo*));
+  MOCK_METHOD4(OnThreadName, void(base::Time, DWORD, DWORD,
+               const base::StringPiece&));
 };
 
 class PlaybackTest : public testing::PELibUnitTest {

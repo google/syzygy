@@ -187,6 +187,13 @@ class TestParseEventHandler : public ParseEventHandler {
     ADD_FAILURE() << "Unexpected event.";
   }
 
+  virtual void OnThreadName(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const base::StringPiece& thread_name) {
+    ADD_FAILURE() << "Unexpected event.";
+  }
+
   void GetEnteredAddresses(CalledAddresses* entered_addresses) {
     ASSERT_TRUE(entered_addresses != NULL);
     entered_addresses_.swap(*entered_addresses);
