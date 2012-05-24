@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,7 @@ in which case it will actually execute the unittests associated with Syzygy."""
 import ast
 import logging
 import os
-import optparse
-import presubmit
 import re
-import subprocess
 import sys
 import testing
 
@@ -71,7 +68,7 @@ class GypTests(testing.TestSuite):
     """
     if not gyp_path:
       parser = GypTests._GetOptParser()
-      options, unused_args = parser.parse_args()
+      options, dummy_args = parser.parse_args()
       if not options.gyp_file:
         parser.error('You must specify a root project GYP file.')
       gyp_path = options.gyp_file
@@ -131,7 +128,7 @@ class GypTests(testing.TestSuite):
     # Extract unittest names from each dependency.
     tests = []
     for test in unittests:
-      gyp_path, targets = _SplitGypDependency(test)
+      dummy_gyp_path, targets = _SplitGypDependency(test)
       tests.extend(targets)
     tests = sorted(tests)
 

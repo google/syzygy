@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
 """Contains functionality for integrating unit-tests with gcl presubmit
 checks."""
 import os
-import re
 
 
-def MakeResult(output_api, message, committing, modified_files=[]):
+def MakeResult(output_api, message, committing, modified_files=None):
   """Makes a gcl result. Makes a PresubmitError result if
   |committing| is True, otherwise makes a PresubmitNotifyResult."""
+  if not modified_files:
+    modified_files = []
   if committing:
     return output_api.PresubmitError(message, modified_files)
   else:
@@ -42,7 +43,9 @@ def GetModifiedFiles(input_api, since=0):
   if isinstance(since, basestring):
     try:
       since = os.stat(since).st_mtime
-    except:
+    # We don't specify the exception type here as it varies depending on the
+    # OS.
+    except:  # pylint: disable=W0702
       since = 0
 
   modified_files = []
