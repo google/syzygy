@@ -484,6 +484,11 @@ bool BlockGraph::AddressSpace::InsertImpl(RelativeAddress addr, Block* block) {
   return true;
 }
 
+bool BlockGraph::AddressSpace::ContainsBlock(const Block* block) {
+  DCHECK(block != NULL);
+  return block_addresses_.count(block) != 0;
+}
+
 BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     const Range& range) {
   typedef std::vector<std::pair<RelativeAddress, BlockGraph::Block*>>

@@ -707,7 +707,7 @@ class BlockGraph::AddressSpace {
   Block* MergeIntersectingBlocks(const Range& range);
 
   // Insert existing block @p block at @p address.
-  // @returns true on succes, or false if the @p block would overlap
+  // @returns true on success, or false if the @p block would overlap
   //     an existing block.
   bool InsertBlock(RelativeAddress addr, Block* block);
 
@@ -723,6 +723,11 @@ class BlockGraph::AddressSpace {
   // Finds the first block, if any that intersects
   // [@p address, @p address + @p size).
   Block* GetFirstIntersectingBlock(RelativeAddress address, Size size);
+
+  // Check whether the address space contains @p block.
+  // @param block the block in question.
+  // @returns true if the block is in the address space, false otherwise.
+  bool ContainsBlock(const Block* block);
 
   // Locates all blocks that intersect [@p address, @p address + @p size).
   // @returns a pair of iterators that iterate over the found blocks.

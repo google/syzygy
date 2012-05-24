@@ -1247,4 +1247,15 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   EXPECT_EQ(image.blocks().size(), address_space.address_space_impl().size());
 }
 
+TEST(BlockGraphAddressSpaceTest, ContainsBlock) {
+  BlockGraph image;
+  BlockGraph::AddressSpace address_space(&image);
+  BlockGraph::Block* block =
+      image.AddBlock(BlockGraph::CODE_BLOCK, 0x10, "code");
+
+  ASSERT_FALSE(address_space.ContainsBlock(block));
+  EXPECT_TRUE(address_space.InsertBlock(RelativeAddress(0x1000), block));
+  ASSERT_TRUE(address_space.ContainsBlock(block));
+}
+
 }  // namespace block_graph

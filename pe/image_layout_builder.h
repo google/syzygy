@@ -137,6 +137,13 @@ class ImageLayoutBuilder {
   // After this is done, the image is "baked", and everything except for
   // the image checksum should be up to date.
   bool FinalizeHeaders();
+  // Ensure that the image layout has the same number of blocks as the
+  // block-graph. The relocs blocks that are in the block-graph but not in the
+  // image layout will be removed. If there are extra blocks from other sections
+  // in the block-graph an error will be returned.
+  // @returns true if the block-graph and the image layout are consistent,
+  //     false otherwise.
+  bool ReconcileBlockGraphAndImageLayout();
 
   // The image layout we're building.
   ImageLayout* image_layout_;
