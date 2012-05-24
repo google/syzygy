@@ -390,6 +390,9 @@ bool ImageLayoutBuilder::Finalize() {
   if (!CreateRelocsSection())
     return false;
 
+  if (!ReconcileBlockGraphAndImageLayout())
+    return false;
+
   if (!SortSafeSehTable())
     return false;
 
@@ -552,6 +555,60 @@ bool ImageLayoutBuilder::CreateRelocsSection() {
     return false;
   if (!CloseSection())
     return false;
+
+  return true;
+}
+
+bool ImageLayoutBuilder::ReconcileBlockGraphAndImageLayout() {
+  // Get the reloc section ID from the block-graph.
+  BlockGraph::Section* reloc_section =
+      image_layout_->blocks.graph()->FindSection(kRelocSectionName);
+  if (reloc_section == NULL) {
+    LOG(ERROR) << "Unable to find the reloc section in the block-graph.";
+    return false;
+  }
+  BlockGraph::SectionId reloc_section_id = reloc_section->id();
+
+  // Iterate over the blocks of the block-graph to see if some of them are not
+  // in the image layout. If we find one we check if it belongs to the reloc
+  // section, in this case we put it in a list of blocks that we should remove
+  // from the graph, otherwise we return an error.
+  BlockGraph::BlockMap::iterator it_block_graph =
+      image_layout_->blocks.graph()->blocks_mutable().begin();
+  std::list<BlockGraph::Block*> blocks_to_remove;
+
+  for (; it_block_graph != image_layout_->blocks.graph()->blocks().end();
+       it_block_graph++) {
+    // Determine if the current block exist in the image layout.
+    if (!image_layout_->blocks.ContainsBlock(&it_block_graph->second)) {
+      // If it doesn't we check to see if this block belongs to the reloc
+      // section.
+      if (it_block_graph->second.section() != reloc_section_id) {
+        LOG(ERROR) << "There is a block in the block-graph that is not in the "
+                   << "image layout (id=" << it_block_graph->second.id()
+                   << ", name=\"" << it_block_graph->second.name() << "\", "
+                   << "original address=" << it_block_graph->second.addr()
+                   << ").";
+        return false;
+      } else {
+        // The block is added to the list of blocks to remove from the graph.
+        blocks_to_remove.push_back(&it_block_graph->second);
+      }
+    }
+  }
+
+  // The useless blocks are removed from the block-graph.
+  std::list<BlockGraph::Block*>::iterator iter_blocks =
+      blocks_to_remove.begin();
+  for (; iter_blocks != blocks_to_remove.end(); iter_blocks++) {
+    if (!image_layout_->blocks.graph()->RemoveBlock(*iter_blocks)) {
+      LOG(ERROR) << "Unable to remove block with ID " << (*iter_blocks)->id()
+                 << " from the block-graph.";
+    }
+  }
+
+  DCHECK_EQ(image_layout_->blocks.size(),
+            image_layout_->blocks.graph()->blocks().size());
 
   return true;
 }
