@@ -24,6 +24,8 @@
 #ifndef SYZYGY_AGENT_PROFILER_PROFILER_H_
 #define SYZYGY_AGENT_PROFILER_PROFILER_H_
 
+#include <windows.h>
+#include <winnt.h>
 #include <vector>
 
 #include "base/hash_tables.h"
@@ -85,6 +87,13 @@ class Profiler {
   void OnPageAdded(const void* page);
   void OnPageRemoved(const void* page);
 
+  // Called on a first chance exception declaring thread name.
+  void OnThreadName(const base::StringPiece& thread_name);
+
+  // Our vectored exception handler that takes care
+  // of capturing thread name debug exceptions.
+  static LONG CALLBACK ExceptionHandler(EXCEPTION_POINTERS* ex_info);
+
   class ThreadState;
 
   ThreadState* CreateFirstThreadStateAndSession();
@@ -106,6 +115,9 @@ class Profiler {
   // Contains the set of modules we've seen and logged.
   typedef base::hash_set<HMODULE> ModuleSet;
   ModuleSet logged_modules_;  // Under lock_.
+
+  // Stores our vectored exception handler registration handle.
+  void* handler_registration_;
 
   // This points to our per-thread state.
   mutable base::ThreadLocalPointer<ThreadState> tls_;

@@ -152,4 +152,10 @@ void Simulator::OnInvocationBatch(base::Time time,
                                   const TraceBatchInvocationInfo* data) {
 }
 
+void Simulator::OnThreadName(base::Time time,
+                             DWORD process_id,
+                             DWORD thread_id,
+                             const base::StringPiece& thread_name) {
+}
+
 } // namespace simulate

@@ -15,8 +15,8 @@
 // Base class for common trace parsing infrastructure.
 #include "syzygy/trace/parse/parse_engine.h"
 
-#include <windows.h>
-#include <wmistr.h>
+#include <windows.h>  // NOLINT
+#include <wmistr.h>  // NOLINT
 #include <evntrace.h>
 
 #include "base/logging.h"
@@ -231,6 +231,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchBatchInvocationEvent(event);
       break;
 
+    case TRACE_THREAD_NAME:
+      success = DispatchThreadNameEvent(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -370,6 +374,31 @@ bool ParseEngine::DispatchBatchInvocationEvent(EVENT_TRACE* event) {
                                     thread_id,
                                     num_invocations,
                                     data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchThreadNameEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+  DCHECK(event_handler_ != NULL);
+  DCHECK(error_occurred_ == false);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const char* thread_name = NULL;
+  size_t thread_name_len = 0;
+  if (!reader.ReadString(&thread_name, &thread_name_len)) {
+    LOG(ERROR) << "Unable to read string.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
+  event_handler_->OnThreadName(time,
+                               process_id,
+                               thread_id,
+                               base::StringPiece(thread_name, thread_name_len));
 
   return true;
 }

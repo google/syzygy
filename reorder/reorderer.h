@@ -20,7 +20,7 @@
 #ifndef SYZYGY_REORDER_REORDERER_H_
 #define SYZYGY_REORDER_REORDERER_H_
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <dbghelp.h>
 
 #include <map>
@@ -153,6 +153,10 @@ class Reorderer : public trace::parser::ParseEventHandler {
                                  DWORD thread_id,
                                  size_t num_batches,
                                  const TraceBatchInvocationInfo* data) OVERRIDE;
+  virtual void OnThreadName(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const base::StringPiece& thread_name) OVERRIDE;
   // @}
 
   // A playback, which will decompose the image for us.

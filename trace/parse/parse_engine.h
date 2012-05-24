@@ -182,6 +182,16 @@ class ParseEngine {
   //     true.
   bool DispatchModuleEvent(EVENT_TRACE* event, TraceEventType type);
 
+  // Parses and dispatches thread name events. Called from DispatchEvent().
+  //
+  // @param event The event to dispatch.
+  // @param type Must be TRACE_THREAD_NAME_EVENT.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     If an error occurred, the error_occurred_ flag will be set to
+  //     true.
+  bool DispatchThreadNameEvent(EVENT_TRACE* event);
+
   // The name by which this parse engine is known.
   std::string name_;
 

@@ -77,6 +77,7 @@ enum TraceEventType {
   TRACE_MODULE_EVENT,
   TRACE_BATCH_ENTER,
   TRACE_BATCH_INVOCATION,
+  TRACE_THREAD_NAME,
 };
 
 // All traces are emitted at this trace level.
@@ -316,6 +317,13 @@ struct TraceBatchInvocationInfo {
 
   // Back to back entries, as many as our enclosing record's size allows for.
   InvocationInfo invocations[1];
+};
+
+struct TraceThreadNameInfo {
+  enum { kTypeId = TRACE_THREAD_NAME };
+  // In fact as many as our enclosing record's size allows for,
+  // zero terminated.
+  char thread_name[1];
 };
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

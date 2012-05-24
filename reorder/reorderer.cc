@@ -267,6 +267,13 @@ void Reorderer::OnInvocationBatch(base::Time time,
   // We don't do anything with these events.
 }
 
+void Reorderer::OnThreadName(base::Time time,
+                             DWORD process_id,
+                             DWORD thread_id,
+                             const base::StringPiece& thread_name) {
+  // We don't do anything with these events.
+}
+
 bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
                                        const FilePath &path,
                                        bool pretty_print) const {

@@ -161,6 +161,27 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
   return true;
 }
 
+Grinder::PartData* Grinder::FindOrCreatePart(DWORD process_id,
+                                             DWORD thread_id) {
+  if (!thread_parts_) {
+    process_id = 0;
+    thread_id = 0;
+  }
+
+  // Lookup the part to aggregate to.
+  PartDataMap::iterator it = parts_.find(thread_id);
+  if (it == parts_.end()) {
+    PartData part;
+    part.process_id_ = process_id;
+    part.thread_id_ = thread_id;
+
+    it = parts_.insert(std::make_pair(thread_id, part)).first;
+  }
+
+  return &it->second;
+}
+
+
 bool Grinder::GetFunctionByRVA(IDiaSession* session,
                                RVA address,
                                IDiaSymbol** symbol) {
@@ -417,11 +438,14 @@ bool Grinder::OutputData(FILE* file) {
 }
 
 bool Grinder::OutputDataForPart(const PartData& part, FILE* file) {
-  if (part.thread_id_ != 0) {
-    ::fprintf(file, "desc: Thread ID %d\n", part.thread_id_);
+  // TODO(siggi): Output command line here.
+  ::fprintf(file, "pid: %d\n", part.process_id_);
+  if (part.thread_id_ != 0)
     ::fprintf(file, "thread: %d\n", part.thread_id_);
-  }
   ::fprintf(file, "events: Calls Cycles Cycles-Min Cycles-Max\n");
+
+  if (!part.thread_name_.empty())
+    ::fprintf(file, "desc: Trigger: %s\n", part.thread_name_.c_str());
 
   // Walk the nodes and output the data.
   InvocationNodeMap::const_iterator node_it(part.nodes_.begin());
@@ -529,20 +553,8 @@ void Grinder::OnInvocationBatch(base::Time time,
                                 DWORD thread_id,
                                 size_t num_invocations,
                                 const TraceBatchInvocationInfo* data) {
-  if (!thread_parts_) {
-    process_id = 0;
-    thread_id = 0;
-  }
-
-  // Lookup the part to aggregate to.
-  PartDataMap::iterator it = parts_.find(thread_id);
-  if (it == parts_.end()) {
-    PartData part;
-    part.process_id_ = process_id;
-    part.thread_id_ = thread_id;
-
-    it = parts_.insert(std::make_pair(thread_id, part)).first;
-  }
+  PartData* part = FindOrCreatePart(process_id, thread_id);
+  DCHECK(data != NULL);
 
   // Process and aggregate the individual invocation entries.
   for (size_t i = 0; i < num_invocations; ++i) {
@@ -561,8 +573,19 @@ void Grinder::OnInvocationBatch(base::Time time,
     ModuleRVA caller_rva;
     ConvertToModuleRVA(process_id, caller, &caller_rva);
 
-    AggregateEntryToPart(function_rva, caller_rva, info, &it->second);
+    AggregateEntryToPart(function_rva, caller_rva, info, part);
   }
+}
+
+void Grinder::OnThreadName(base::Time time,
+                           DWORD process_id,
+                           DWORD thread_id,
+                           const base::StringPiece& thread_name) {
+  if (!thread_parts_)
+    return;
+
+  PartData* part = FindOrCreatePart(process_id, thread_id);
+  part->thread_name_ = thread_name.as_string();
 }
 
 void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
