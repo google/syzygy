@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,8 @@
 expected to be a module containing a MakeTest function that returns an instance
 of testing.Test."""
 
-import logging
 import os
 import re
-import subprocess
 import sys
 
 
@@ -30,7 +28,7 @@ _SCRIPT_DIR = os.path.join(_SYZYGY_DIR, 'py')
 
 if _SCRIPT_DIR not in sys.path:
   sys.path.insert(0, _SCRIPT_DIR)
-import test_utils.testing as testing
+import test_utils.testing as testing  # pylint: disable=F0401
 
 
 def MakeTest():

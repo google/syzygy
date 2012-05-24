@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ def _CreateFlatArchive(input_files, output_file):
     input_files: a list (or other iterable) of input file paths.
     output_files: the path to the output file.
   """
-  zip = zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED)
+  zip_file = zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED)
   for input_file in input_files:
-    zip.write(input_file, os.path.basename(input_file))
-  zip.close()
+    zip_file.write(input_file, os.path.basename(input_file))
+  zip_file.close()
 
 
 def main():

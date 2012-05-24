@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import urllib
 import zipfile
 
@@ -51,9 +50,9 @@ def _Shell(*cmd, **kw):
 
 def _GetFileVersion(file_path):
   # Get the most recent log message for the file, capture STDOUT.
-  (stdout, ignore) = _Shell('git', 'log',
-                            '-1', file_path,
-                            stdout=subprocess.PIPE)
+  (stdout, dummy_stderr) = _Shell('git', 'log',
+                                  '-1', file_path,
+                                  stdout=subprocess.PIPE)
   match = _GIT_VERSION_RE.search(stdout)
   if not match:
     raise RuntimeError('Could not determine release version.')
@@ -73,7 +72,7 @@ def main():
 
   # Retrieve the corresponding archive to a temp file.
   _LOGGER.info('Retrieving release archive at "%s".', url)
-  (temp_file, response) = urllib.urlretrieve(url)
+  (temp_file, dummy_response) = urllib.urlretrieve(url)
 
   # Create a new feature branch off the master branch for the release
   # before we start changing any files.

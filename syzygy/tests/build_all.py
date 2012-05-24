@@ -14,7 +14,6 @@
 # limitations under the License.
 """This unittest simply builds the build_all target."""
 
-import logging
 import os.path
 import sys
 
@@ -25,7 +24,7 @@ _SCRIPT_DIR = os.path.join(_SYZYGY_DIR, 'py')
 
 if _SCRIPT_DIR not in sys.path:
   sys.path.insert(0, _SCRIPT_DIR)
-import test_utils.testing as testing
+import test_utils.testing as testing  # pylint: disable=F0401
 
 
 class BuildAll(testing.Test):
@@ -41,7 +40,7 @@ class BuildAll(testing.Test):
       testing.BuildProjectConfig(self._solution_path,
                                  self._project_path,
                                  configuration)
-    except testing.BuildFailure, e:
+    except testing.BuildFailure:
       # Recast this error as a test failure.
       raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
 
@@ -53,4 +52,4 @@ def MakeTest():
 
 
 if __name__ == '__main__':
-  sys.exit(MakeTest().Main())
+  sys.exit(MakeTest().Main())  # pylint: disable=E1101

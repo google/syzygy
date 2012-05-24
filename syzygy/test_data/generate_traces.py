@@ -61,7 +61,7 @@ def _LoadDll(dll_path):
     if not handle:
       return False
     win32api.FreeLibrary(handle)
-  except pywintypes.error as e:
+  except pywintypes.error as e:  # pylint: disable=E1101
     _LOGGER.error('Error: %s', e)
     return False
   finally:
@@ -101,7 +101,7 @@ def _ParseArgs():
                     help='Attempt to load the given DLL.')
   parser.add_option('--output-dir', dest='output_dir',
                     help='The output directory to write to.')
-  (opts, args) = parser.parse_args()
+  (opts, dummy_args) = parser.parse_args()
 
   if not opts.instrumented_dll:
     parser.error('You must specify --instrumented-dll.')
@@ -147,18 +147,18 @@ class ScopedTempDir:
     path: the path to the temporary directory.
   """
 
-  def __init__(self, suffix='', prefix='tmp', dir=None):
+  def __init__(self, suffix='', prefix='tmp', parent_dir=None):
     """Initializes a ScopedTempDir.
 
     Args:
       suffix: the suffix to be attached to the random directory name.
-              Defaults to ''.
+          Defaults to ''.
       prefix: the prefix to be attached to the random directory name.
-              Defaults to 'tmp'.
-      dir: the parent directory within which the temporary directory should
-           be placed. If None, uses the TEMP environment variable.
+          Defaults to 'tmp'.
+      parent_dir: the parent directory within which the temporary directory
+          should be placed. If None, uses the TEMP environment variable.
     """
-    self.path = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dir)
+    self.path = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=parent_dir)
 
   def Delete(self):
     """Deletes the temporary directory, and all of its contents."""
@@ -213,7 +213,7 @@ def _MainGenerateTraces(opts):
   # consistent names. We make this as a child directory of the output directory
   # so that it is on the same volume as the final destination.
   temp_trace_dir = ScopedTempDir(prefix='tmp_rpc_traces_',
-                                 dir=opts.output_dir)
+                                 parent_dir=opts.output_dir)
   _LOGGER.info('Trace files will be written to "%s".', temp_trace_dir.path)
 
   # This is the destination of stdout/stderr for the various commands we run.
@@ -235,7 +235,7 @@ def _MainGenerateTraces(opts):
   # Invoke the instrumented DLL a few times.
   load_dll_failed = False
   dll = opts.instrumented_dll
-  for i in range(_TRACE_FILE_COUNT):
+  for dummy_i in xrange(_TRACE_FILE_COUNT):
     _LOGGER.info('Loading the instrumented DLL: %s', dll)
     if not _LoadInstrumentedDllInNewProc(opts):
       _LOGGER.error('Failed to load instrumented DLL.')

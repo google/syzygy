@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@ in headers."""
 import sys
 import re
 
-file = open(sys.argv[1], 'r')
+input_file = open(sys.argv[1], 'r')
 
-for line in file:
+for line in input_file:
   if line.startswith('#define'):
     break
   print line,
 
 COMMENT_RE = re.compile('//')
 
-for line in file:
+for line in input_file:
   line = COMMENT_RE.sub('///', line)
   print line,
