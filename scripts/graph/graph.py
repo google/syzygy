@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """A script to create plots for page fault traffic per module."""
-from etw import EventConsumer, EventHandler, TraceEventSource
-from etw_db import FileNameDatabase, ModuleDatabase, ProcessThreadDatabase
-import etw.descriptors.pagefault as pagefault
-import etw.descriptors.pagefault_xp
+
 import optparse
 import os.path
 import random
@@ -24,12 +21,20 @@ import re
 
 # TODO(siggi): Figure out why Tk is broken in Chrome's python26 interpreter
 #     and fix it, then revisit this code.
+# pylint: disable=F0401
+from etw import EventConsumer, EventHandler, TraceEventSource
+from etw_db import FileNameDatabase, ModuleDatabase, ProcessThreadDatabase
+import etw.descriptors.pagefault as pagefault
 import matplotlib
+
+# This is ugly, but the back-end has to be selected before importing any
+# submodules.
 matplotlib.use('PDF')
 
 import matplotlib.ticker as ticker
 import matplotlib.pyplot as pyplot
 import matplotlib.colors as colors
+# pylint: enable=F0401
 
 
 _PAGE_SIZE = 4096
@@ -42,8 +47,8 @@ class _ModuleFaults(object):
     self.module_base = module.file_name
     self.page_faults = []
 
-  def AddFault(self, thread_id, time, type, address, size):
-    self.page_faults.append((thread_id, time, type, address, size))
+  def AddFault(self, thread_id, time, fault_type, address, size):
+    self.page_faults.append((thread_id, time, fault_type, address, size))
 
 
 class _ProcessFaults(object):
@@ -54,7 +59,7 @@ class _ProcessFaults(object):
     self.process_id = process.process_id
     self.modules = {}
 
-  def AddFault(self, module, thread_id, time, type, address, size):
+  def AddFault(self, module, thread_id, time, fault_type, address, size):
     # Adjust the time to process-relative.
     assert(time >= self.start_time)
     time = time - self.start_time
@@ -68,7 +73,7 @@ class _ProcessFaults(object):
            address < module.module_base + module.module_size)
     address = address - module.module_base
 
-    mod.AddFault(thread_id, time, type, address, size)
+    mod.AddFault(thread_id, time, fault_type, address, size)
 
 
 class _PageFaultHandler(EventConsumer):
@@ -94,13 +99,14 @@ class _PageFaultHandler(EventConsumer):
     return (self._process_filter.search(process.cmd_line) and
             self._module_filter.search(module.file_name))
 
-  def _RecordFault(self, process, module, thread_id, time, type, address, size):
+  def _RecordFault(self, process, module, thread_id, time, fault_type,
+                   address, size):
     proc = self._processes.get(process.process_id)
     if not proc:
       proc = _ProcessFaults(process)
       self._processes[process.process_id] = proc
 
-    proc.AddFault(module, thread_id, time, type, address, size)
+    proc.AddFault(module, thread_id, time, fault_type, address, size)
 
   @EventHandler(pagefault.Event.HardFault)
   def _OnHardFault(self, event):
@@ -142,7 +148,7 @@ class _PageFaultHandler(EventConsumer):
   def _OnAccessViolation(self, event):
     self.OnSoftFault('AccessViolation', event)
 
-  def OnSoftFault(self, type, event):
+  def OnSoftFault(self, fault_type, event):
     process_id = event.process_id
     process = self._process_database.GetProcess(process_id)
     module = self._module_database.GetProcessModuleAt(
@@ -152,12 +158,12 @@ class _PageFaultHandler(EventConsumer):
                         module,
                         event.thread_id,
                         event.time_stamp,
-                        type,
+                        fault_type,
                         event.VirtualAddress & ~0xFFF,
                         _PAGE_SIZE)
 
 
-def DataStartOptionCallback(option, opt, value, parser):
+def DataStartOptionCallback(dummy_option, dummy_opt, value, parser):
   try:
     # Split the parameter into 'module_name,rva_address'.
     match = re.match('^([^,]+),([^,]+)$', value)
@@ -240,7 +246,7 @@ def ConsumeLogs(files, process_filter, module_filter):
   # And consume them.
   source.Consume()
 
-  return pf_handler._processes
+  return pf_handler._processes  # pylint: disable=W0212
 
 
 def WhitenColor(color, factor):
@@ -459,7 +465,7 @@ def GenerateGraph(info, file_name, width, height, dpi, data_start=None,
 
   # Build and plot the cumulative hard_code plots.
   fault_times = sorted(fault_times.keys())
-  fault_counts = [0 for i in range(len(fault_times))]
+  fault_counts = [0] * len(fault_times)
   zorder = 0
   for category in categories:
     fault_sum = 0
