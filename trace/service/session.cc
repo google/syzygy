@@ -93,7 +93,9 @@ Session::~Session() {
   //     (the services view of the number of active sessions) to the lifetime
   //     of the objects in memory. Arguably, this applies to all of the above
   //     code.
-  buffer_consumer_->Close(this);
+  if (buffer_consumer_ != NULL)
+    buffer_consumer_->Close(this);
+
   call_trace_service_->RemoveOneActiveSession();
 }
 
