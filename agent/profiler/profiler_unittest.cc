@@ -18,8 +18,10 @@
 #include <intrin.h>
 #include <psapi.h>
 
+#include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
+#include "base/process_util.h"
 #include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -28,7 +30,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/common/process_utils.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
+#include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
 #include "syzygy/trace/service/trace_file_writer_factory.h"
@@ -134,13 +138,7 @@ class MockParseEventHandler : public ParseEventHandler {
 class ProfilerTest : public testing::Test {
  public:
   ProfilerTest()
-      : consumer_thread_("profiler-test-consumer-thread"),
-        consumer_thread_has_started_(
-            consumer_thread_.StartWithOptions(
-                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
-        trace_file_writer_factory_(consumer_thread_.message_loop()),
-        call_trace_service_(&trace_file_writer_factory_),
-        rpc_service_instance_manager_(&call_trace_service_),
+      : service_process_(base::kNullProcessHandle),
         module_(NULL),
         resolution_func_(NULL) {
   }
@@ -148,37 +146,83 @@ class ProfilerTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     testing::Test::SetUp();
 
-    ASSERT_TRUE(consumer_thread_has_started_);
-
     // Create a temporary directory for the call trace files.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    ASSERT_TRUE(
-        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_.path()));
 
     // We give the service instance a "unique" id so that it does not interfere
     // with any other instances or tests that might be concurrently active.
-    std::string instance_id(base::StringPrintf("%d", ::GetCurrentProcessId()));
-    call_trace_service_.set_instance_id(::UTF8ToWide(instance_id));
+    instance_id_ = base::StringPrintf("%d", ::GetCurrentProcessId());
 
     // The instance id needs to be in the environment to be picked up by the
     // client library.
     scoped_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_FALSE(env.get() == NULL);
-    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id));
+    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id_));
   }
 
   virtual void TearDown() OVERRIDE {
     UnloadDll();
 
     // Stop the call trace service.
-    EXPECT_TRUE(call_trace_service_.Stop());
-    EXPECT_FALSE(call_trace_service_.is_running());
+    StopService();
+  }
+
+  void StartService() {
+    ASSERT_EQ(base::kNullProcessHandle, service_process_);
+
+    CommandLine service_cmd(
+        testing::GetExeRelativePath(L"call_trace_service.exe"));
+    service_cmd.AppendArg("start");
+    service_cmd.AppendSwitch("--enable-exits");
+    service_cmd.AppendSwitch("--verbose");
+    service_cmd.AppendSwitchPath("--trace-dir", temp_dir_.path());
+    service_cmd.AppendSwitchPath("--trace-dir", temp_dir_.path());
+    service_cmd.AppendSwitchASCII("--instance-id",
+        base::StringPrintf("%d", ::GetCurrentProcessId()));
+
+    base::LaunchOptions options;
+    options.start_hidden = true;
+
+    std::wstring event_name;
+    ::GetSyzygyCallTraceRpcEventName(UTF8ToUTF16(instance_id_),
+                                     &event_name);
+    base::win::ScopedHandle event(
+        ::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
+    ASSERT_TRUE(event.IsValid());
+
+    ASSERT_TRUE(base::LaunchProcess(service_cmd, options, &service_process_));
+    ASSERT_NE(base::kNullProcessHandle, service_process_);
+
+    // We wait on both the "ready" handle and the process, as if the process
+    // fails for any reason, it'll exit and it's handle will become signalled.
+    HANDLE handles[] = { event.Get(), service_process_ };
+    ASSERT_EQ(WAIT_OBJECT_0, ::WaitForMultipleObjects(arraysize(handles),
+                                                      handles,
+                                                      FALSE,
+                                                      INFINITE));
+  }
+
+  void StopService() {
+    if (service_process_ == base::kNullProcessHandle)
+      return;
+
+    CommandLine service_cmd(
+        testing::GetExeRelativePath(L"call_trace_service.exe"));
+    service_cmd.AppendArg("stop");
+
+    base::LaunchOptions options;
+    options.start_hidden = true;
+    options.wait = true;
+    ASSERT_TRUE(base::LaunchProcess(service_cmd, options, NULL));
+
+    int exit_code = 0;
+    ASSERT_TRUE(base::WaitForExitCode(service_process_, &exit_code));
+    service_process_ = base::kNullProcessHandle;
   }
 
   void ReplayLogs() {
     // Stop the service if it's running.
-    ASSERT_TRUE(call_trace_service_.Stop());
-    ASSERT_FALSE(call_trace_service_.is_running());
+    ASSERT_NO_FATAL_FAILURE(StopService());
 
     Parser parser;
     ASSERT_TRUE(parser.Init(&handler_));
@@ -203,9 +247,9 @@ class ProfilerTest : public testing::Test {
   //    Move them to a shared fixture superclass.
   void LoadDll() {
     ASSERT_TRUE(module_ == NULL);
-    const wchar_t* call_trace_dll = L"profile_client.dll";
-    ASSERT_EQ(NULL, ::GetModuleHandle(call_trace_dll));
-    module_ = ::LoadLibrary(call_trace_dll);
+    static const wchar_t kCallTraceDll[] = L"profile_client.dll";
+    ASSERT_EQ(NULL, ::GetModuleHandle(kCallTraceDll));
+    module_ = ::LoadLibrary(kCallTraceDll);
     ASSERT_TRUE(module_ != NULL);
     _indirect_penter_dllmain_ =
         ::GetProcAddress(module_, "_indirect_penter_dllmain");
@@ -242,19 +286,6 @@ class ProfilerTest : public testing::Test {
       ResolveReturnAddressLocationFunc resolver);
 
  protected:
-  // The thread on which the trace file writer will consumer buffers and a
-  // helper variable whose initialization we use as a trigger to start the
-  // thread (ensuring it's message_loop is created). These declarations MUST
-  // remain in this order and preceed that of trace_file_writer_factory_;
-  base::Thread consumer_thread_;
-  bool consumer_thread_has_started_;
-
-  // The call trace service related objects. These declarations MUST be in
-  // this order.
-  TraceFileWriterFactory trace_file_writer_factory_;
-  Service call_trace_service_;
-  RpcServiceInstanceManager rpc_service_instance_manager_;
-
   // The directory where trace file output will be written.
   ScopedTempDir temp_dir_;
 
@@ -263,6 +294,12 @@ class ProfilerTest : public testing::Test {
 
   // The address resolution function exported from the profiler dll.
   ResolveReturnAddressLocationFunc resolution_func_;
+
+  // The handle to the call trace service process.
+  base::ProcessHandle service_process_;
+
+  // The RPC service instance ID we allocate this process.
+  std::string instance_id_;
 
  private:
   HMODULE module_;
@@ -338,7 +375,7 @@ TEST_F(ProfilerTest, NoServerNoCrash) {
 
 TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
   // Spin up the RPC service.
-  ASSERT_TRUE(call_trace_service_.Start(true));
+  ASSERT_NO_FATAL_FAILURE(StartService());
 
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -351,7 +388,7 @@ TEST_F(ProfilerTest, ResolveReturnAddressLocation) {
 
 TEST_F(ProfilerTest, RecordsAllModulesAndFunctions) {
   // Spin up the RPC service.
-  ASSERT_TRUE(call_trace_service_.Start(true));
+  ASSERT_NO_FATAL_FAILURE(StartService());
 
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);
@@ -413,7 +450,7 @@ void InvokeFunctionAThunk() {
 
 TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   // Spin up the RPC service.
-  ASSERT_TRUE(call_trace_service_.Start(true));
+  ASSERT_NO_FATAL_FAILURE(StartService());
 
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);
@@ -460,8 +497,13 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
 }
 
 TEST_F(ProfilerTest, RecordsThreadName) {
+  if (::IsDebuggerPresent()) {
+    LOG(WARNING) << "This test fails under debugging.";
+    return;
+  }
+
   // Spin up the RPC service.
-  ASSERT_TRUE(call_trace_service_.Start(true));
+  ASSERT_NO_FATAL_FAILURE(StartService());
 
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
