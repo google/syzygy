@@ -173,14 +173,12 @@ class ProfilerTest : public testing::Test {
     // Stop the call trace service.
     EXPECT_TRUE(call_trace_service_.Stop());
     EXPECT_FALSE(call_trace_service_.is_running());
-    EXPECT_EQ(0, call_trace_service_.num_active_sessions());
   }
 
   void ReplayLogs() {
     // Stop the service if it's running.
     ASSERT_TRUE(call_trace_service_.Stop());
     ASSERT_FALSE(call_trace_service_.is_running());
-    ASSERT_EQ(0, call_trace_service_.num_active_sessions());
 
     Parser parser;
     ASSERT_TRUE(parser.Init(&handler_));

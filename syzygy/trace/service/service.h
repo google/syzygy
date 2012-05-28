@@ -131,9 +131,8 @@ class Service {
 
   // Returns true if any of the service's subsystems are running.
   bool is_running() const {
-      return rpc_is_running_ || num_active_sessions() > 0;
+    return rpc_is_running_ || num_active_sessions_ > 0;
   }
-
 
   // Begin accepting and handling RPC invocations. This method is not
   // generally callable by clients of the service; it may only be called
@@ -193,45 +192,46 @@ class Service {
   // See call_trace_rpc.idl for further info.
   bool CloseSession(SessionHandle* session_handle);
 
-  // Increment the active session count.
-  // @see num_active_sessions_
-  void AddOneActiveSession();
-
   // Decrement the active session count.
   // @see num_active_sessions_
   void RemoveOneActiveSession();
 
-  // Get the current active session count.
-  // @see num_active_sessions_
-  base::subtle::Atomic32 num_active_sessions() const {
-    return base::subtle::Acquire_Load(&num_active_sessions_);
-  }
+  // Increment the active session count.
+  // @see num_active_sessions_.
+  void AddOneActiveSession();
 
  // These are protected for unittesting.
  protected:
+
   // @name RPC Server Management Functions.
+  // These functions, unless otherwise noted, are single threaded and must
+  // all be called from the thread that created this instance.
   // @{
   bool AcquireServiceMutex();
   void ReleaseServiceMutex();
   bool InitializeRpc();
   bool RunRPC(bool non_blocking);
+
+  // This function is thread-safe.
   void StopRpc();
   void CleanupRpc();
   // @}
 
   // Creates a new session, returning true on success. On failure, the value
-  // of *session will be NULL; otherwise it will point to a Session instance.
-  // The call trace service retains ownership of the returned Session object;
-  // it MUST not be deleted by the caller.
+  // of *session will be NULL; otherwise it will contain a Session reference.
   bool GetNewSession(ProcessId client_process_id,
                      scoped_refptr<Session>* session);
 
   // Looks up an existing session, returning true on success. On failure,
-  // the value of *session will be NULL; otherwise it will point to a
-  // Session instance. The call trace service retains ownership of the
-  // returned Session object; it MUST not be deleted by the caller.
+  // the value of *session will be NULL; otherwise it will contain a
+  // Session reference.
   bool GetExistingSession(SessionHandle session_handle,
                           scoped_refptr<Session>* session);
+  // Looks up an existing session, returning true on success. On failure,
+  // the value of *session will be NULL; otherwise it will contain a
+  // Session reference.
+  bool GetExistingSessionUnlocked(SessionHandle session_handle,
+                                  scoped_refptr<Session>* session);
 
   // Closes all open sessions. This call blocks until all sessions have been
   // shutdown and have finished flushing their buffers.
@@ -240,22 +240,21 @@ class Service {
   // Session factory. This is virtual for testing purposes.
   virtual Session* CreateSession();
 
+  // Protects concurrent access to the internals, except for write-queue
+  // related internals.
+  base::Lock lock_;
+
   // The collection of open trace sessions. This is the collection of sessions
   // for which the service is currently accepting requests. Once a session is
   // closed, it is removed from this collection, but may still be active for
-  // some time as it's trace buffers are consumed. See num_active_sessions().
+  // some time as it's trace buffers are consumed. See num_active_sessions_.
   typedef std::map<ProcessId, scoped_refptr<Session>> SessionMap;
-  SessionMap sessions_;
+  SessionMap sessions_;  // Under lock_.
 
   // A count of the number of active sessions currently managed by this service.
   // This includes both open sessions and closed sessions which have not yet
-  // finished flushing their buffers. This value is atomically incremented and
-  // decremented on by Session instances in their constructor and destructor,
-  // respectively, via Add- and RemoveOneActiveSession(). It is retrieved via
-  // the num_active_sessions() accessor.
-  // @note In implementing the accessor(s) and management functions for this
-  //     member, it should only be accessed via base/atomicops.h functions.
-  volatile base::subtle::Atomic32 num_active_sessions_;
+  // finished flushing their buffers.
+  size_t num_active_sessions_;  // Under lock_.
 
   // The instance id to use when running this service instance.
   std::wstring instance_id_;
@@ -275,12 +274,8 @@ class Service {
   // The source factory for buffer consumer objects.
   BufferConsumerFactory* buffer_consumer_factory_;
 
-  // Protects concurrent access to the internals, except for write-queue
-  // related internals.
-  base::Lock lock_;
-
   // Used to wait for all sessions to be closed on service shutdown.
-  base::ConditionVariable a_session_has_closed_;
+  base::ConditionVariable a_session_has_closed_;  // Under lock_.
 
   // Used to detect whether multiple instances of the service are running
   // against the service endpoint.
@@ -288,7 +283,9 @@ class Service {
 
   // Flags denoting the state of the RPC server.
   bool rpc_is_initialized_;
-  bool rpc_is_running_;
+  // TODO(rogerm): Access to this flag is inconsistent, but it seems the
+  //    transition from true to false will always take place under lock_.
+  bool rpc_is_running_;  // Under lock_.
   bool rpc_is_non_blocking_;
 
   // Flags informing the client of what trace events the service would like
