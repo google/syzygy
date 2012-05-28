@@ -134,7 +134,8 @@ TEST_F(PEFileTest, ReadImage) {
                 name1 == "CreateFileW" ||
                 name1 == "TestUnusedFuncs" ||
                 name1 == "TestExport" ||
-                name1 == "LabelTestFunc");
+                name1 == "LabelTestFunc" ||
+                name1 == "BringInOle32DelayLib");
 
     std::string name2;
     AbsoluteAddress abs_addr;
@@ -206,9 +207,10 @@ TEST_F(PEFileTest, DecodeExports) {
   // This must match the information in the test_dll.def file.
   PEFile::ExportInfo expected[] = {
     { RelativeAddress(0), "", "",  1 },
-    { RelativeAddress(0), "TestExport", "", 2 },
-    { RelativeAddress(0), "TestUnusedFuncs", "", 3 },
-    { RelativeAddress(0), "LabelTestFunc", "", 4 },
+    { RelativeAddress(0), "BringInOle32DelayLib", "",  2 },
+    { RelativeAddress(0), "TestExport", "", 3 },
+    { RelativeAddress(0), "TestUnusedFuncs", "", 4 },
+    { RelativeAddress(0), "LabelTestFunc", "", 5 },
     { RelativeAddress(0), "DllMain", "", 7 },
     { RelativeAddress(0), "function3", "", 9 },
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },
