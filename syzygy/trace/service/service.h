@@ -207,6 +207,7 @@ class Service {
   // These functions, unless otherwise noted, are single threaded and must
   // all be called from the thread that created this instance.
   // @{
+  bool OpenServiceEvent();
   bool AcquireServiceMutex();
   void ReleaseServiceMutex();
   bool InitializeRpc();
@@ -280,6 +281,9 @@ class Service {
   // Used to detect whether multiple instances of the service are running
   // against the service endpoint.
   base::win::ScopedHandle service_mutex_;
+
+  // Signalled once the service has successfully initialized.
+  base::win::ScopedHandle service_event_;
 
   // Flags denoting the state of the RPC server.
   bool rpc_is_initialized_;

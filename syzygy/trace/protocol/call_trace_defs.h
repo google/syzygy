@@ -55,6 +55,8 @@ void GetSyzygyCallTraceRpcEndpoint(const base::StringPiece16& id,
                                    std::wstring* endpoint);
 void GetSyzygyCallTraceRpcMutexName(const base::StringPiece16& id,
                                     std::wstring* mutex_name);
+void GetSyzygyCallTraceRpcEventName(const base::StringPiece16& id,
+                                    std::wstring* event_name);
 
 // This must be bumped anytime the file format is changed.
 enum {

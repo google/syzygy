@@ -87,6 +87,23 @@ void Service::RemoveOneActiveSession() {
   a_session_has_closed_.Signal();
 }
 
+bool Service::OpenServiceEvent() {
+  DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
+  DCHECK(!service_event_.IsValid());
+
+  std::wstring event_name;
+  ::GetSyzygyCallTraceRpcEventName(instance_id_, &event_name);
+
+  service_event_.Set(::CreateEvent(NULL, FALSE, FALSE, event_name.c_str()));
+  if (!service_event_.IsValid()) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to create event: " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  return true;
+}
+
 bool Service::AcquireServiceMutex() {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
   DCHECK(!service_mutex_.IsValid());
@@ -201,9 +218,29 @@ bool Service::RunRPC(bool non_blocking) {
   RPC_STATUS status = ::RpcServerListen(
       1,  // Minimum number of handler threads.
       RPC_C_LISTEN_MAX_CALLS_DEFAULT,
-      non_blocking ? 1 : 0);
-  if (status != RPC_S_OK) {
+      TRUE);
+
+  if (status != RPC_S_OK)
     LOG(ERROR) << "Failed to run RPC server: " << com::LogWe(status) << ".";
+
+  if (status == RPC_S_OK) {
+    // Signal that the service is up and running.
+    DCHECK(service_event_.IsValid());
+    BOOL success = ::SetEvent(service_event_.Get());
+    DCHECK_EQ(TRUE, success);
+
+    // Wait here if we're in blocking mode.
+    if (!non_blocking) {
+      status = RpcMgmtWaitServerListen();
+
+      if (status != RPC_S_OK) {
+        LOG(ERROR) << "Failed to wait on RPC server: "
+                   << com::LogWe(status) << ".";
+      }
+    }
+  }
+
+  if (status != RPC_S_OK) {
     rpc_is_running_ = false;
     rpc_is_non_blocking_ = false;
     return false;
@@ -271,6 +308,9 @@ bool Service::Start(bool non_blocking) {
   if (!AcquireServiceMutex())
     return false;
 
+  if (!OpenServiceEvent())
+    return false;
+
   if (!InitializeRpc()) {
     ReleaseServiceMutex();
     return false;
@@ -290,6 +330,10 @@ bool Service::Stop() {
   CleanupRpc();
   CloseAllOpenSessions();
   ReleaseServiceMutex();
+
+  // Signal that we've shut down.
+  if (service_event_.IsValid())
+    ::ResetEvent(service_event_.Get());
 
   LOG(INFO) << "The call-trace service is stopped.";
   return true;
