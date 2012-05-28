@@ -57,6 +57,7 @@ namespace {
 const wchar_t* const kCallTraceRpcProtocol = L"ncalrpc";
 const wchar_t* const kCallTraceRpcEndpoint = L"syzygy-call-trace-svc";
 const wchar_t* const kCallTraceRpcMutex = L"syzygy-call-trace-svc-mutex";
+const wchar_t* const kCallTraceRpcEvent = L"syzygy-call-trace-svc-event";
 
 void MakeInstanceString(const base::StringPiece16& prefix,
                         const base::StringPiece16& id,
@@ -89,4 +90,9 @@ void GetSyzygyCallTraceRpcEndpoint(const base::StringPiece16& id,
 void GetSyzygyCallTraceRpcMutexName(const base::StringPiece16& id,
                                     std::wstring* mutex_name) {
   MakeInstanceString(kCallTraceRpcMutex, id, mutex_name);
+}
+
+void GetSyzygyCallTraceRpcEventName(const base::StringPiece16& id,
+                                    std::wstring* event_name) {
+  MakeInstanceString(kCallTraceRpcEvent, id, event_name);
 }

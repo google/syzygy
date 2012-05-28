@@ -390,6 +390,34 @@ TEST_F(CallTraceServiceTest, StartStop) {
   EXPECT_TRUE(call_trace_service_.Stop());
 }
 
+TEST_F(CallTraceServiceTest, StartFailsIfEventNameOccupied) {
+  std::wstring event_name;
+  ::GetSyzygyCallTraceRpcEventName(instance_id_, &event_name);
+
+  // Create a mutex with the event name, to thwart the event creation.
+  base::win::ScopedHandle mutex(
+      ::CreateMutex(NULL, FALSE, event_name.c_str()));
+
+  EXPECT_FALSE(call_trace_service_.Start(true));
+}
+
+TEST_F(CallTraceServiceTest, StartSetsStopResetsEvent) {
+  std::wstring event_name;
+  ::GetSyzygyCallTraceRpcEventName(instance_id_, &event_name);
+
+  // Create the event and make sure it's not set.
+  base::win::ScopedHandle event(
+      ::CreateEvent(NULL, FALSE, FALSE, event_name.c_str()));
+
+  EXPECT_TRUE(call_trace_service_.Start(true));
+
+  ASSERT_EQ(WAIT_OBJECT_0, ::WaitForSingleObject(event.Get(), 0));
+
+  EXPECT_TRUE(call_trace_service_.Stop());
+
+  ASSERT_EQ(WAIT_TIMEOUT, ::WaitForSingleObject(event.Get(), 0));
+}
+
 TEST_F(CallTraceServiceTest, IsSingletonPerInstanceId) {
   // Create a new instance id to use for this test.
   std::wstring duplicate_id = instance_id_ + L"-foo";
