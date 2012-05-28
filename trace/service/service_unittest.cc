@@ -578,7 +578,6 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   ASSERT_NO_FATAL_FAILURE(CloseSession(&session_handle));
   ASSERT_TRUE(call_trace_service_.Stop());
   ASSERT_FALSE(call_trace_service_.is_running());
-  ASSERT_EQ(0, call_trace_service_.num_active_sessions());
 
   // Load the trace file contents into memory.
   std::string trace_file_contents;

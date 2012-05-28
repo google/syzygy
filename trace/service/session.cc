@@ -62,7 +62,7 @@ Session::Session(Service* call_trace_service)
   DCHECK(call_trace_service != NULL);
   ::memset(buffer_state_counts_, 0, sizeof(buffer_state_counts_));
 
-  call_trace_service_->AddOneActiveSession();
+  call_trace_service->AddOneActiveSession();
 }
 
 Session::~Session() {
@@ -93,8 +93,10 @@ Session::~Session() {
   //     (the services view of the number of active sessions) to the lifetime
   //     of the objects in memory. Arguably, this applies to all of the above
   //     code.
-  if (buffer_consumer_ != NULL)
+  if (buffer_consumer_ != NULL) {
     buffer_consumer_->Close(this);
+    buffer_consumer_ = static_cast<BufferConsumer*>(NULL);
+  }
 
   call_trace_service_->RemoveOneActiveSession();
 }

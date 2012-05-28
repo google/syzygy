@@ -56,7 +56,7 @@ class TraceFileWriter : public BufferConsumer {
   // Commit a trace buffer to disk. This will be called on message_loop_.
   void WriteBuffer(Session* session, Buffer* buffer);
 
-  // The factory that created this trace file writer.
+  // The message loop on which this trace file writer will do IO.
   MessageLoop* const message_loop_;
 
   // The name of the trace file. Note that we initialize this to the trace

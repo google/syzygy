@@ -15,16 +15,9 @@
 // This file defines the trace::service::Service class which
 // implements the call trace service RPC interface.
 //
-// TODO(rogerm): Reduce the scope over which the service lock is held. It only
-//     needs to protect the services_ map.
-//
 // TODO(rogerm): Use server controlled context handles to refer to the buffers
 //     across the RPC boundary. The shared memory handle is client controlled
 //     and not necessarily unique.
-//
-// TODO(rogerm): Instead of manually managing the write_queue, use a
-//     base::Thread instance for the writer thread and post buffers to
-//     its message queue.
 
 #include "syzygy/trace/service/service.h"
 
@@ -74,15 +67,23 @@ Service::~Service() {
   Stop();
 
   DCHECK(sessions_.empty());
-  DCHECK_EQ(0, num_active_sessions());
+  DCHECK_EQ(0U, num_active_sessions_);
 }
 
 void Service::AddOneActiveSession() {
-  base::subtle::Barrier_AtomicIncrement(&num_active_sessions_, 1);
+  base::AutoLock auto_lock(lock_);
+
+  ++num_active_sessions_;
 }
 
 void Service::RemoveOneActiveSession() {
-  base::subtle::Barrier_AtomicIncrement(&num_active_sessions_, -1);
+  {
+    base::AutoLock auto_lock(lock_);
+    DCHECK_LT(0u, num_active_sessions_);
+
+    --num_active_sessions_;
+  }
+
   a_session_has_closed_.Signal();
 }
 
@@ -220,7 +221,7 @@ void Service::StopRpc() {
     return;
 
   // Stop the RPC Server.
-  base::AutoLock scoped_lock(lock_);
+  base::AutoLock auto_lock(lock_);
   if (rpc_is_running_) {
     VLOG(1) << "Stopping RPC server.";
     RPC_STATUS status = ::RpcMgmtStopServerListening(NULL);
@@ -300,23 +301,33 @@ bool Service::CloseAllOpenSessions() {
 
   VLOG(1) << "Flushing all outstanding buffers.";
 
-  base::AutoLock auto_lock(lock_);
+  SessionMap to_close;
+  {
+    base::AutoLock auto_lock(lock_);
+    to_close.swap(sessions_);
+
+    DCHECK(sessions_.empty());
+  }
 
   // Tell each session that they are to be closed. This will get them to
   // flush all outstanding buffers to their respective consumers.
-  SessionMap::iterator iter = sessions_.begin();
-  for (; iter != sessions_.end(); ++iter) {
+  SessionMap::iterator iter = to_close.begin();
+  for (; iter != to_close.end(); ++iter) {
     iter->second->Close();
   }
 
-  // We no longer have any open sessions.
-  sessions_.clear();
+  // Release the references we hold to the closing sessions.
+  to_close.clear();
 
   // Wait until all pending sessions have closed.
-  int pending_sessions = 0;
-  while ((pending_sessions = num_active_sessions()) != 0) {
-    VLOG(1) << "There are " << pending_sessions << " pending sessions.";
-    a_session_has_closed_.Wait();
+  {
+    base::AutoLock auto_lock(lock_);
+
+    int pending_sessions = 0;
+    while ((pending_sessions = num_active_sessions_) != 0) {
+      VLOG(1) << "There are " << pending_sessions << " pending sessions.";
+      a_session_has_closed_.Wait();
+    }
   }
 
   return true;
@@ -358,12 +369,10 @@ bool Service::CreateSession(handle_t binding,
 
   VLOG(1) << "Registering client process PID=" << client_process_id << ".";
 
-  base::AutoLock scoped_lock(lock_);
-
-  // Create a new session.
   scoped_refptr<Session> session;
   if (!GetNewSession(client_process_id, &session))
     return false;
+
   DCHECK(session.get() != NULL);
 
   // Request a buffer for the client.
@@ -391,7 +400,6 @@ bool Service::AllocateBuffer(SessionHandle session_handle,
     return false;
   }
 
-  base::AutoLock lock(lock_);
 
   scoped_refptr<Session> session;
   if (!GetExistingSession(session_handle, &session))
@@ -423,46 +431,42 @@ bool Service::CommitAndExchangeBuffer(SessionHandle session_handle,
          perform_exchange == DO_NOT_PERFORM_EXCHANGE);
 
   bool result = true;
-  {
-    base::AutoLock lock(lock_);
+  scoped_refptr<Session> session;
+  if (!GetExistingSession(session_handle, &session))
+    return false;
+  DCHECK(session.get() != NULL);
 
-    scoped_refptr<Session> session;
-    if (!GetExistingSession(session_handle, &session))
-      return false;
-    DCHECK(session.get() != NULL);
+  Buffer* buffer = NULL;
+  if (!session->FindBuffer(call_trace_buffer, &buffer))
+    return false;
 
-    Buffer* buffer = NULL;
-    if (!session->FindBuffer(call_trace_buffer, &buffer))
-      return false;
+  DCHECK(buffer != NULL);
 
-    DCHECK(buffer != NULL);
+  // We can't say anything about the buffer's state, as it possible that the
+  // session that owns it has already been asked to shutdown, in which case
+  // all of its buffers have already been scheduled for writing and the call
+  // below will be ignored.
 
-    // We can't say anything about the buffer's state, as it possible that the
-    // session that owns it has already been asked to shutdown, in which case
-    // all of its buffers have already been scheduled for writing and the call
-    // below will be ignored.
+  // Return the buffer to the session. The session will then take care of
+  // scheduling it for writing. Currently, it feeds it right back to us, but
+  // this routing allows the write-queue to be decoupled from the service
+  // more easily in the future.
+  if (!session->ReturnBuffer(buffer)) {
+    LOG(ERROR) << "Unable to return buffer to session.";
+    return false;
+  }
 
-    // Return the buffer to the session. The session will then take care of
-    // scheduling it for writing. Currently, it feeds it right back to us, but
-    // this routing allows the write-queue to be decoupled from the service
-    // more easily in the future.
-    if (!session->ReturnBuffer(buffer)) {
-      LOG(ERROR) << "Unable to return buffer to session.";
-      return false;
-    }
+  ZeroMemory(call_trace_buffer, sizeof(*call_trace_buffer));
 
-    ZeroMemory(call_trace_buffer, sizeof(*call_trace_buffer));
-
-    if (perform_exchange == PERFORM_EXCHANGE) {
-      // Request a buffer for the client.
-      Buffer* client_buffer = NULL;
-      if (!session->GetNextBuffer(&client_buffer)) {
-        result = false;
-      } else {
-        // Copy buffer info into the RPC struct, slicing off the private bits.
-        DCHECK(client_buffer != NULL);
-        *call_trace_buffer = *client_buffer;
-      }
+  if (perform_exchange == PERFORM_EXCHANGE) {
+    // Request a buffer for the client.
+    Buffer* client_buffer = NULL;
+    if (!session->GetNextBuffer(&client_buffer)) {
+      result = false;
+    } else {
+      // Copy buffer info into the RPC struct, slicing off the private bits.
+      DCHECK(client_buffer != NULL);
+      *call_trace_buffer = *client_buffer;
     }
   }
 
@@ -476,21 +480,23 @@ bool Service::CloseSession(SessionHandle* session_handle) {
     return false;
   }
 
+  scoped_refptr<Session> session;
   {
-    base::AutoLock lock(lock_);
+    base::AutoLock auto_lock(lock_);
 
-    scoped_refptr<Session> session;
-    if (!GetExistingSession(*session_handle, &session))
+    if (!GetExistingSessionUnlocked(*session_handle, &session))
       return false;
 
     size_t num_erased = sessions_.erase(session->client_process_id());
     DCHECK_EQ(1U, num_erased);
-
-    // Signal that we want the session to close. This will cause it to
-    // schedule all of its oustanding buffers for writing. It will destroy
-    // itself once it's reference count drops to zero.
-    session->Close();
   }
+
+  DCHECK(session.get() != NULL);
+
+  // Signal that we want the session to close. This will cause it to
+  // schedule all of its oustanding buffers for writing. It will destroy
+  // itself once it's reference count drops to zero.
+  session->Close();
 
   *session_handle = NULL;
 
@@ -500,45 +506,46 @@ bool Service::CloseSession(SessionHandle* session_handle) {
 bool Service::GetNewSession(ProcessId client_process_id,
                             scoped_refptr<Session>* session) {
   DCHECK(session != NULL);
-  lock_.AssertAcquired();
-
   *session = NULL;
 
-  // Take care of deleting the session if initialization fails or a session
-  // already exists for this pid.
+  // Create the new session.
   scoped_refptr<Session> new_session(CreateSession());
-
-  // Attempt to add the session to the session map. If the insertion fails,
-  // let the new_session scoped_ptr clean up the object.
-  std::pair<SessionMap::iterator, bool> result = sessions_.insert(
-      SessionMap::value_type(client_process_id, new_session));
-  if (result.second == false) {
-    LOG(ERROR) << "A session already exists for process " << client_process_id
-        << ".";
+  if (new_session.get() == NULL)
     return false;
-  }
 
-  // Initialize the session. Remove the session record on failure.
-  if (!new_session->Init(client_process_id)) {
-    sessions_.erase(result.first);
+  // Initialize the session.
+  if (!new_session->Init(client_process_id))
     return false;
-  }
 
-  // Allocate a new buffer consumer. Remove the session record on failure.
+  // Allocate a new buffer consumer.
   scoped_refptr<BufferConsumer> consumer;
-  if (!buffer_consumer_factory_->CreateConsumer(&consumer)) {
-    sessions_.erase(result.first);
+  if (!buffer_consumer_factory_->CreateConsumer(&consumer))
     return false;
-  }
 
-  // Open the buffer consumer. Remove the session record on failure.
-  if (!consumer->Open(new_session)) {
-    sessions_.erase(result.first);
-  }
+  // Open the buffer consumer.
+  if (!consumer->Open(new_session))
+    return false;
 
   // Hand the buffer consumer over to the session. The session will direct
   // returned buffers to the consumer.
   new_session->set_buffer_consumer(consumer);
+
+  bool inserted = false;
+  {
+    base::AutoLock auto_lock(lock_);
+    // Attempt to add the session to the session map.
+    inserted = sessions_.insert(
+        SessionMap::value_type(client_process_id, new_session)).second;
+  }
+
+  if (inserted == false) {
+    LOG(ERROR) << "A session already exists for process " << client_process_id
+        << ".";
+    consumer->Close(new_session.get());
+    CHECK(new_session->Close());
+
+    return false;
+  }
 
   // The session map has taken ownership of the session object; release
   // and return the session pointer.
@@ -549,6 +556,14 @@ bool Service::GetNewSession(ProcessId client_process_id,
 
 bool Service::GetExistingSession(SessionHandle session_handle,
                                  scoped_refptr<Session>* session) {
+  DCHECK(session != NULL);
+  base::AutoLock auto_lock(lock_);
+
+  return GetExistingSessionUnlocked(session_handle, session);
+}
+
+bool Service::GetExistingSessionUnlocked(SessionHandle session_handle,
+                                         scoped_refptr<Session>* session) {
   DCHECK(session != NULL);
   lock_.AssertAcquired();
 

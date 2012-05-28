@@ -246,14 +246,14 @@ class TestService : public Service {
   }
 
   TestSessionPtr CreateTestSession() {
-    base::AutoLock lock(lock_);
-
     scoped_refptr<Session> session;
     if (!GetNewSession(++process_id_, &session))
       return NULL;
 
     return TestSessionPtr(static_cast<TestSession*>(session.get()));
   }
+
+  size_t num_active_sessions() const { return num_active_sessions_; }
 
  protected:
   virtual Session* CreateSession() OVERRIDE {
