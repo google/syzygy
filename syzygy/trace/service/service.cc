@@ -94,7 +94,7 @@ bool Service::OpenServiceEvent() {
   std::wstring event_name;
   ::GetSyzygyCallTraceRpcEventName(instance_id_, &event_name);
 
-  service_event_.Set(::CreateEvent(NULL, FALSE, FALSE, event_name.c_str()));
+  service_event_.Set(::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
   if (!service_event_.IsValid()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to create event: " << com::LogWe(error) << ".";
