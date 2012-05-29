@@ -67,6 +67,16 @@ const char* BoolToString(bool value) {
   return value ? "true" : "false";
 }
 
+int FunctionWithInlineAssembly() {
+  static int datum = 0;
+  __asm {
+    mov eax, [datum];
+    add eax, 1;
+    mov [datum], eax;
+  }
+  return datum;
+}
+
 #pragma auto_inline()
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
@@ -83,6 +93,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   function3();
   function1();
   function1();
+
+  int foo = FunctionWithInlineAssembly();
 
   // The following odd code and switch statement are to outsmart the
   // optimizer and coerce it to generate a case and jump table pair.

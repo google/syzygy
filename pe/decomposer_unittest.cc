@@ -235,7 +235,7 @@ TEST_F(DecomposerTest, BasicBlockDecompose) {
       breakdown.basic_block_address_space.end());
 }
 
-TEST_F(DecomposerTest, Labels) {
+TEST_F(DecomposerTest, LabelsAndAttributes) {
   FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
 
@@ -247,20 +247,40 @@ TEST_F(DecomposerTest, Labels) {
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
-  // Locate the DllMain block.
+  // Locate various specific function blocks in the block-graph.
   const BlockGraph::Block* dll_main_block = NULL;
+  const BlockGraph::Block* func_with_inl_asm_block = NULL;
+  const BlockGraph::Block* strchr_block = NULL;
   {
     BlockGraph::BlockMap::const_iterator it =
         block_graph.blocks().begin();
     for (; it != block_graph.blocks().end(); ++it) {
       if (it->second.name().find("DllMain@12") != std::string::npos) {
+        ASSERT_TRUE(dll_main_block == NULL);
         dll_main_block = &it->second;
-        break;
+      } else if (it->second.name().find("FunctionWithInlineAssembly") !=
+          std::string::npos) {
+        ASSERT_TRUE(func_with_inl_asm_block == NULL);
+        func_with_inl_asm_block = &it->second;
+      } else if (it->second.name().find("strchr.obj") != std::string::npos) {
+        ASSERT_TRUE(strchr_block == NULL);
+        strchr_block = &it->second;
       }
     }
   }
 
-  // Validate that it has the expected population of labels.
+  // Validate that the FunctionWithInlineAssembly block has the appropriate
+  // attributes.
+  ASSERT_FALSE(func_with_inl_asm_block == NULL);
+  ASSERT_TRUE(func_with_inl_asm_block->attributes() &
+      BlockGraph::HAS_INLINE_ASSEMBLY);
+
+  // Validate that the strchr block has the appropriate attributes.
+  ASSERT_FALSE(strchr_block == NULL);
+  ASSERT_TRUE(strchr_block->attributes() &
+      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
+
+  // Validate that the DllMain block has the expected population of labels.
   ASSERT_FALSE(dll_main_block == NULL);
 
 #ifdef NDEBUG

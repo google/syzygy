@@ -91,7 +91,7 @@ struct BlockStats {
   }
 
   static const BlockGraph::BlockAttributes kSkipAttributes =
-      BlockGraph::PADDING_BLOCK | BlockGraph::ORPHANED_BLOCK;
+      BlockGraph::PADDING_BLOCK;
 
   void Update(const BlockGraph::Block* block) {
     DCHECK(block != NULL);
