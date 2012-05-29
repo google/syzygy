@@ -24,7 +24,7 @@
 #include "base/at_exit.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
-#include "syzygy/agent/call_trace_etw/dlist.h"
+#include "syzygy/agent/common/dlist.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace {

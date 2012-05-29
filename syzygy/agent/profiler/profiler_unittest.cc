@@ -18,9 +18,11 @@
 #include <intrin.h>
 #include <psapi.h>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
+#include "base/message_loop.h"
 #include "base/process_util.h"
 #include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
@@ -36,6 +38,32 @@
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
 #include "syzygy/trace/service/trace_file_writer_factory.h"
+
+extern "C" {
+
+// We register a TLS callback to test TLS thread notifications.
+extern PIMAGE_TLS_CALLBACK profiler_test_tls_callback_entry;
+void WINAPI ProfilerTestTlsCallback(PVOID h, DWORD reason, PVOID reserved);
+
+// Force the linker to include the TLS entry.
+#pragma comment(linker, "/INCLUDE:__tls_used")
+#pragma comment(linker, "/INCLUDE:_profiler_test_tls_callback_entry")
+
+#pragma data_seg(push, old_seg)
+// Use a typical possible name in the .CRT$XL? list of segments.
+#pragma data_seg(".CRT$XLB")
+PIMAGE_TLS_CALLBACK profiler_test_tls_callback_entry =
+    &ProfilerTestTlsCallback;
+#pragma data_seg(pop, old_seg)
+
+PIMAGE_TLS_CALLBACK tls_action = NULL;
+
+void WINAPI ProfilerTestTlsCallback(PVOID h, DWORD reason, PVOID reserved) {
+  if (tls_action)
+    tls_action(h, reason, reserved);
+}
+
+}  // extern "C"
 
 namespace agent {
 namespace profiler {
@@ -161,6 +189,8 @@ class ProfilerTest : public testing::Test {
   }
 
   virtual void TearDown() OVERRIDE {
+    tls_action = NULL;
+
     UnloadDll();
 
     // Stop the call trace service.
@@ -535,6 +565,51 @@ TEST_F(ProfilerTest, RecordsThreadName) {
 
   // Replay the log.
   ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+}
+
+namespace {
+
+void WINAPI TlsAction(PVOID h, DWORD reason, PVOID reserved) {
+  InvokeFunctionAThunk();
+}
+
+}  // namespace
+
+TEST_F(ProfilerTest, ReleasesBufferOnThreadExit) {
+  // Spin up the RPC service.
+  ASSERT_NO_FATAL_FAILURE(StartService());
+
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  tls_action = TlsAction;
+
+  // Spinning 400 * 8 threads should exhaust the address
+  // space if we're leaking a buffer for each thread.
+  for (size_t i = 0; i < 400; ++i) {
+    base::Thread thread1("one");
+    base::Thread thread2("two");
+    base::Thread thread3("three");
+    base::Thread thread4("four");
+    base::Thread thread5("five");
+    base::Thread thread6("six");
+    base::Thread thread7("seven");
+    base::Thread thread8("eight");
+
+    base::Thread* threads[8] = { &thread1, &thread2, &thread3, &thread4,
+                                 &thread5, &thread6, &thread7, &thread8};
+
+    // Start all the threads, and make them do some work.
+    for (size_t j = 0; j < arraysize(threads); ++j) {
+      base::Thread* thread = threads[j];
+      thread->Start();
+      thread->message_loop()->PostTask(
+          FROM_HERE, base::Bind(InvokeFunctionAThunk));
+    }
+
+    // This will implicitly wind down all the threads.
+  }
+
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
 }
 
 }  // namespace profiler

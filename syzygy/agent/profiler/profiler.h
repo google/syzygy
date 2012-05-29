@@ -65,11 +65,11 @@ class Profiler {
   //     V8 during garbage collection.
   RetAddr* ResolveReturnAddressLocation(RetAddr* pc_location);
 
-  // Call when a thread is terminating.
-  void OnDetach();
-
   // Retrieves the profiler singleton instance.
   static Profiler* Instance();
+
+  // Called when a thread is terminating.
+  void OnThreadDetach();
 
  private:
   // Make sure the LazyInstance can be created.
@@ -89,6 +89,9 @@ class Profiler {
 
   // Called on a first chance exception declaring thread name.
   void OnThreadName(const base::StringPiece& thread_name);
+
+  // Scavenges dead thread states, call at opportune times.
+  void ScavengeThreadStates();
 
   // Our vectored exception handler that takes care
   // of capturing thread name debug exceptions.
@@ -115,6 +118,14 @@ class Profiler {
   // Contains the set of modules we've seen and logged.
   typedef base::hash_set<HMODULE> ModuleSet;
   ModuleSet logged_modules_;  // Under lock_.
+
+  // A doubly-linked list of all thread states whose thread
+  // has not yet seen a thread detach notification.
+  LIST_ENTRY thread_states_;  // Under lock_.
+
+  // A doubly-linked list of thread states whole thread
+  // has seen a thread detach notification.
+  LIST_ENTRY death_row_;  // Under lock_.
 
   // Stores our vectored exception handler registration handle.
   void* handler_registration_;

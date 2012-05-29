@@ -17,8 +17,8 @@
 //
 // The macros below are copied verbatim from msputils.h for convenience.
 
-#ifndef SYZYGY_AGENT_CALL_TRACE_ETW_DLIST_H_
-#define SYZYGY_AGENT_CALL_TRACE_ETW_DLIST_H_
+#ifndef SYZYGY_AGENT_COMMON_DLIST_H_
+#define SYZYGY_AGENT_COMMON_DLIST_H_
 
 #include <winnt.h>
 
@@ -136,4 +136,4 @@ BOOL IsNodeOnList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry);
 
 #endif  // InitializeListHead
 
-#endif  // SYZYGY_AGENT_CALL_TRACE_ETW_DLIST_H_
+#endif  // SYZYGY_AGENT_COMMON_DLIST_H_
