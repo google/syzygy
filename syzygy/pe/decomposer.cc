@@ -202,7 +202,7 @@ bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
   DCHECK(sym_tag != NULL);
   *sym_tag = SymTagNull;
   HRESULT hr = symbol->get_symTag(sym_tag);
-  if (FAILED(hr)) {
+  if (hr != S_OK) {
     LOG(ERROR) << "Error getting sym tag: " << com::LogHr(hr) << ".";
     return false;
   }
@@ -216,16 +216,17 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   *length = 0;
   ScopedComPtr<IDiaSymbol> type;
   HRESULT hr = symbol->get_type(type.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to get type symbol: " << com::LogHr(hr) << ".";
-    return false;
-  }
   // This happens if the symbol has no type information.
   if (hr == S_FALSE)
     return true;
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get type symbol: " << com::LogHr(hr) << ".";
+    return false;
+  }
 
   ULONGLONG ull_length = 0;
-  if (FAILED(hr = type->get_length(&ull_length))) {
+  hr = type->get_length(&ull_length);
+  if (hr != S_OK) {
     LOG(ERROR) << "Failed to retrieve type length properties: "
                << com::LogHr(hr) << ".";
     return false;
@@ -446,27 +447,6 @@ bool SetBlockDataPointers(const PEFile& pe_file,
   return true;
 }
 
-void ClearAttributeRecursively(BlockGraph::BlockAttributes attribute,
-                               BlockGraph::Block* block) {
-  DCHECK(block != NULL);
-
-  // Don't have these attributes? Nothing to do!
-  if ((block->attributes() & attribute) != attribute)
-    return;
-
-  block->clear_attribute(attribute);
-
-  // Run through our descendents. Each of those that have all of the
-  // attributes, process recursively.
-  BlockGraph::Block::ReferenceMap::const_iterator it =
-      block->references().begin();
-  for (; it != block->references().end(); ++it) {
-    BlockGraph::Block* ref = it->second.referenced();
-    if ((ref->attributes() & attribute) == attribute)
-      ClearAttributeRecursively(attribute, ref);
-  }
-}
-
 bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
                              ImageLayout* layout) {
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
@@ -525,6 +505,87 @@ void GetCodeLabelAddresses(const BlockGraph::Block* block,
   }
 }
 
+// Given a compiland, returns its compiland details.
+bool GetCompilandDetailsForCompiland(IDiaSymbol* compiland,
+                                     IDiaSymbol** compiland_details) {
+  DCHECK(compiland != NULL);
+  DCHECK(compiland_details != NULL);
+  DCHECK(IsSymTag(compiland, SymTagCompiland));
+
+  *compiland_details = NULL;
+
+  // Get the enumeration of compiland details.
+  ScopedComPtr<IDiaEnumSymbols> enum_symbols;
+  HRESULT hr = compiland->findChildren(SymTagCompilandDetails, NULL, 0,
+                                       enum_symbols.Receive());
+  DCHECK_EQ(S_OK, hr);
+
+  // We expect there to be compiland details. For compilands built by
+  // non-standard toolchains, there usually aren't any.
+  LONG count = 0;
+  hr = enum_symbols->get_Count(&count);
+  DCHECK_EQ(S_OK, hr);
+  if (count == 0)
+    return false;
+
+  // Get the compiland details.
+  ULONG fetched = 0;
+  hr = enum_symbols->Next(1, compiland_details, &fetched);
+  DCHECK_EQ(S_OK, hr);
+  DCHECK_EQ(1u, fetched);
+  return true;
+}
+
+// Stores information regarding known compilers.
+struct KnownCompilerInfo {
+  wchar_t* compiler_name;
+  bool supported;
+};
+
+// A list of known compilers, and their status as being supported or not.
+KnownCompilerInfo kKnownCompilerInfos[] = {
+  { L"Microsoft (R) Macro Assembler", false },
+  { L"Microsoft (R) Optimizing Compiler", true },
+  { L"Microsoft (R) LINK", false }
+};
+
+// Given a compiland, determines whether the compiler used is one of those that
+// we whitelist.
+bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
+  DCHECK(compiland != NULL);
+  DCHECK(IsSymTag(compiland, SymTagCompiland));
+
+  ScopedComPtr<IDiaSymbol> compiland_details;
+  if (!GetCompilandDetailsForCompiland(compiland,
+                                       compiland_details.Receive())) {
+    // If the compiland has no compiland details we assume the compiler is not
+    // supported.
+    ScopedBstr compiland_name;
+    if (compiland->get_name(compiland_name.Receive()) == S_OK) {
+      VLOG(1) << "Compiland has no compiland details: "
+              << com::ToString(compiland_name);
+    }
+    return false;
+  }
+  DCHECK(compiland_details.get() != NULL);
+
+  // Get the compiler name.
+  ScopedBstr compiler_name;
+  HRESULT hr = compiland_details->get_compilerName(compiler_name.Receive());
+  DCHECK_EQ(S_OK, hr);
+
+  // Check the compiler name against the list of known compilers.
+  for (size_t i = 0; i < arraysize(kKnownCompilerInfos); ++i) {
+    if (::wcscmp(kKnownCompilerInfos[i].compiler_name, compiler_name) == 0) {
+      return kKnownCompilerInfos[i].supported;
+    }
+  }
+
+  // Anything we don't explicitly know about is not supported.
+  VLOG(1) << "Encountered unknown compiler: " << compiler_name;
+  return false;
+}
+
 }  // namespace
 
 Decomposer::Decomposer(const PEFile& image_file)
@@ -572,7 +633,7 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
 
   HRESULT hr = dia_session->put_loadAddress(
       image_file_.nt_headers()->OptionalHeader.ImageBase);
-  if (FAILED(hr)) {
+  if (hr != S_OK) {
     LOG(ERROR) << "Failed to set the DIA load address: "
                << com::LogHr(hr) << ".";
     return false;
@@ -580,7 +641,7 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
 
   ScopedComPtr<IDiaSymbol> global;
   hr = dia_session->get_globalScope(global.Receive());
-  if (FAILED(hr)) {
+  if (hr != S_OK) {
     LOG(ERROR) << "Failed to get the DIA global scope: "
                << com::LogHr(hr) << ".";
     return false;
@@ -663,10 +724,6 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
   // were visited during decomposition.
   if (success)
     success = ConfirmFixupsVisited();
-
-  // Find and label all orphaned blocks.
-  if (success)
-    success = FindOrphanedBlocks();
 
   // Now, find and label any padding blocks.
   if (success)
@@ -768,21 +825,27 @@ bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
                                     NULL,
                                     nsNone,
                                     dia_enum_symbols.Receive());
-  if (FAILED(hr)) {
+  if (hr != S_OK) {
     LOG(ERROR) << "Failed to get the DIA function enumerator: "
                << com::LogHr(hr) << ".";
     return false;
   }
 
-  while (true) {
+  LONG count = 0;
+  if (dia_enum_symbols->get_Count(&count) != S_OK) {
+    LOG(ERROR) << "Failed to get function enumeration length.";
+    return false;
+  }
+
+  for (LONG visited = 0; visited < count; ++visited) {
     ScopedComPtr<IDiaSymbol> function;
     ULONG fetched = 0;
     hr = dia_enum_symbols->Next(1, function.Receive(), &fetched);
-    if (FAILED(hr)) {
+    if (hr != S_OK) {
       LOG(ERROR) << "Failed to enumerate functions: " << com::LogHr(hr) << ".";
       return false;
     }
-    if (hr != S_OK || fetched == 0)
+    if (fetched == 0)
       break;
 
     // Create the block representing the function.
@@ -812,15 +875,25 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   DWORD rva = 0;
   ULONGLONG length = 0;
   ScopedBstr name;
-  BOOL no_return = FALSE;
-  if (FAILED(hr = function->get_relativeVirtualAddress(&rva)) ||
-      FAILED(hr = function->get_length(&length)) ||
-      FAILED(hr = function->get_name(name.Receive())) ||
-      FAILED(hr = function->get_noReturn(&no_return))) {
+  if ((hr = function->get_relativeVirtualAddress(&rva)) != S_OK ||
+      (hr = function->get_length(&length)) != S_OK ||
+      (hr = function->get_name(name.Receive())) != S_OK) {
     LOG(ERROR) << "Failed to retrieve function information: "
                << com::LogHr(hr) << ".";
     return false;
   }
+
+  // Certain properties are not defined on all blocks, so the following calls
+  // may return S_FALSE.
+  BOOL no_return = FALSE;
+  hr = function->get_noReturn(&no_return);
+  if (hr != S_OK)
+    no_return = FALSE;
+
+  BOOL has_inl_asm = FALSE;
+  hr = function->get_hasInlAsm(&has_inl_asm);
+  if (hr != S_OK)
+    has_inl_asm = FALSE;
 
   std::string block_name;
   if (!WideToUTF8(name, name.Length(), &block_name)) {
@@ -849,8 +922,37 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   // Annotate the block with a label, as this is an entry point to it.
   block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL);
 
+  // Set the block attributes.
   if (no_return == TRUE)
     block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
+  if (has_inl_asm == TRUE)
+    block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
+
+  // If this function was not previously chunked out as a section contribution
+  // we need to get compiler details.
+  // TODO(chrisha): It appears that our current mechanism is overly complex.
+  //     We actually get 100% coverage of code blocks via section contributions
+  //     and parsing functions in a seperate pass is not strictly required. We
+  //     could instead be descending into the functions from the section
+  //     contribution.
+  if ((block->attributes() & BlockGraph::SECTION_CONTRIB) == 0) {
+    // Get the compiland to which this function/thunk belongs.
+    ScopedComPtr<IDiaSymbol> compiland;
+    hr = function->get_lexicalParent(compiland.Receive());
+    DCHECK_EQ(S_OK, hr);
+
+    // If the lexical parent is a compiland, we can use it to determine if the
+    // function was built by a supported compiler. If this fails we take the
+    // conservative approach and assume otherwise.
+    bool is_built_by_supported_compiler = false;
+    if (IsSymTag(compiland.get(), SymTagCompiland)) {
+      is_built_by_supported_compiler = IsBuiltBySupportedCompiler(
+          compiland.get());
+    }
+
+    if (!is_built_by_supported_compiler)
+      block->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
+  }
 
   if (!CreateLabelsForFunction(function, block)) {
     LOG(ERROR) << "Failed to create labels for '" << block->name() << "'.";
@@ -1354,11 +1456,17 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
 
   size_t rsrc_id = image_file_.GetSectionIndex(kResourceSectionName);
 
-  while (true) {
+  LONG count = 0;
+  if (section_contribs->get_Count(&count) != S_OK) {
+    LOG(ERROR) << "Failed to get section contributions enumeration length.";
+    return false;
+  }
+
+  for (LONG visited = 0; visited < count; ++visited) {
     ScopedComPtr<IDiaSectionContrib> section_contrib;
     ULONG fetched = 0;
     HRESULT hr = section_contribs->Next(1, section_contrib.Receive(), &fetched);
-    if (FAILED(hr)) {
+    if (hr != S_OK) {
       LOG(ERROR) << "Failed to get DIA section contribution: "
                  << com::LogHr(hr) << ".";
       return false;
@@ -1373,16 +1481,20 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     BOOL code = FALSE;
     ScopedComPtr<IDiaSymbol> compiland;
     ScopedBstr bstr_name;
-    if (FAILED(hr = section_contrib->get_relativeVirtualAddress(&rva)) ||
-        FAILED(hr = section_contrib->get_length(&length)) ||
-        FAILED(hr = section_contrib->get_addressSection(&section_id)) ||
-        FAILED(hr = section_contrib->get_code(&code)) ||
-        FAILED(hr = section_contrib->get_compiland(compiland.Receive())) ||
-        FAILED(hr = compiland->get_name(bstr_name.Receive()))) {
+    if ((hr = section_contrib->get_relativeVirtualAddress(&rva)) != S_OK ||
+        (hr = section_contrib->get_length(&length)) != S_OK ||
+        (hr = section_contrib->get_addressSection(&section_id)) != S_OK ||
+        (hr = section_contrib->get_code(&code)) != S_OK ||
+        (hr = section_contrib->get_compiland(compiland.Receive())) != S_OK ||
+        (hr = compiland->get_name(bstr_name.Receive())) != S_OK) {
       LOG(ERROR) << "Failed to get section contribution properties: "
                  << com::LogHr(hr) << ".";
       return false;
     }
+
+    // Determine if this function was built by a supported compiler.
+    bool is_built_by_supported_compiler =
+        IsBuiltBySupportedCompiler(compiland.get());
 
     // DIA numbers sections from 1 to n, while we do 0 to n - 1.
     DCHECK_LT(0u, section_id);
@@ -1410,7 +1522,11 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       LOG(ERROR) << "Unable to create block.";
       return false;
     }
+
+    // Set the block attributes.
     block->set_attribute(BlockGraph::SECTION_CONTRIB);
+    if (!is_built_by_supported_compiler)
+      block->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
   }
 
   return true;
@@ -2270,34 +2386,6 @@ bool Decomposer::ConfirmFixupsVisited() const {
   return success;
 }
 
-bool Decomposer::FindOrphanedBlocks() {
-  DCHECK(image_ != NULL);
-  DCHECK(image_->graph() != NULL);
-
-  // We first color all blocks as orphans.
-  BlockGraph::BlockMap::iterator block_it =
-      image_->graph()->blocks_mutable().begin();
-  BlockGraph::BlockMap::iterator block_it_end =
-      image_->graph()->blocks_mutable().end();
-  for (; block_it != block_it_end; ++block_it) {
-    BlockGraph::Block& block = block_it->second;
-    block.set_attribute(BlockGraph::ORPHANED_BLOCK);
-  }
-
-  // Now we remove orphan status from all PE_PARSED-reachable blocks.
-  block_it = image_->graph()->blocks_mutable().begin();
-  for (; block_it != block_it_end; ++block_it) {
-    BlockGraph::Block& block = block_it->second;
-
-    // Any block that is PE parsed is used as a root from which to remove
-    // orphan status.
-    if ((block.attributes() & BlockGraph::PE_PARSED) != 0)
-      ClearAttributeRecursively(BlockGraph::ORPHANED_BLOCK, &block);
-  }
-
-  return true;
-}
-
 bool Decomposer::FindPaddingBlocks() {
   DCHECK(image_ != NULL);
   DCHECK(image_->graph() != NULL);
@@ -2308,13 +2396,11 @@ bool Decomposer::FindPaddingBlocks() {
     BlockGraph::Block& block = block_it->second;
 
     // Padding blocks must not have any symbol information: no labels,
-    // no references, no referrers, and they must be a gap block. As a sanity
-    // check, they must also be orphans.
+    // no references, no referrers, and they must be a gap block.
     if (block.labels().size() != 0 ||
         block.references().size() != 0 ||
         block.referrers().size() != 0 ||
-        (block.attributes() & BlockGraph::GAP_BLOCK) == 0 ||
-        (block.attributes() & BlockGraph::ORPHANED_BLOCK) == 0)
+        (block.attributes() & BlockGraph::GAP_BLOCK) == 0)
       continue;
 
     switch (block.type()) {

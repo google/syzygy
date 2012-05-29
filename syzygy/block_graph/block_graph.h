@@ -63,6 +63,13 @@ class BlockGraph {
 
   static const SectionId kInvalidSectionId;
 
+  // Attributes are phrased such that if true for a part, they are also true
+  // for the whole. That way, if an attribute is set for any block it can also
+  // be set for a block that is created via any merger that contains the
+  // original block.
+  //
+  // For example, the attribute is HAS_INLINE_ASSEMBLY (the positive), rather
+  // than HAS_NO_INLINE_ASSEMBLY (the negative).
   enum BlockAttributeEnum {
     // Set for functions declared non-returning.
     NON_RETURN_FUNCTION = (1 << 0),
@@ -75,11 +82,17 @@ class BlockGraph {
     // Set for blocks that are created from section contribution information.
     SECTION_CONTRIB = (1 << 3),
     // This is used to indicate that a block consists purely of padding data.
+    // This is only filled out post-merging, so does not obey the "true for the
+    // part, true for the whole" convention.
+    // TODO(chrisha): Get rid of this. We shouldn't actually be storing padding
+    //     blocks in the block-graph, and should be flagging them in a separate
+    //     bookkeeping structure prior to removing them.
     PADDING_BLOCK = (1 << 4),
-    // This is used to indicate that a block is orphaned, meaning that it has no
-    // module entry point as a referrer, or is part of a tree of blocks whose
-    // root has no module entry point as a referrer.
-    ORPHANED_BLOCK = (1 << 5),
+    // Indicates blocks that contain inline assembly.
+    HAS_INLINE_ASSEMBLY = (1 << 5),
+    // Indicates that the block was built by a compiler whose precise behaviour
+    // and semantics we are unfamiliar with.
+    BUILT_BY_UNSUPPORTED_COMPILER = (1 << 6),
   };
 
   enum BlockType {
@@ -87,7 +100,6 @@ class BlockGraph {
     DATA_BLOCK,
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
-    // TODO(robertshield): Add a BASIC_PADDING_BLOCK here!
 
     // NOTE: This must always be last, and kBlockType must be kept in sync
     // with this enum.
