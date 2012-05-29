@@ -29,7 +29,9 @@
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
+#include "base/win/scoped_handle.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/agent/common/dlist.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 #include "syzygy/agent/profiler/scoped_last_error_keeper.h"
@@ -196,8 +198,10 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_THREAD_DETACH:
+      Profiler::Instance()->OnThreadDetach();
+      break;
+
     case DLL_PROCESS_DETACH:
-      Profiler::Instance()->OnDetach();
       break;
 
     default:
@@ -213,15 +217,11 @@ namespace profiler {
 class Profiler::ThreadState
     : public ReturnThunkFactoryImpl<Profiler::ThreadState> {
  public:
-  explicit ThreadState(Profiler* profiler)
-        : profiler_(profiler),
-          cycles_overhead_(0LL),
-          batch_(NULL) {
-    Initialize();
-  }
-  ~ThreadState() {
-    Uninitialize();
-  }
+  explicit ThreadState(Profiler* profiler);
+  ~ThreadState();
+
+  // Returns true iff the thread associated with this state is dead.
+  bool IsThreadDead();
 
   // Logs @p module and all other modules in the process, then flushes
   // the current trace buffer.
@@ -250,6 +250,8 @@ class Profiler::ThreadState
   trace::client::TraceFileSegment* segment() { return &segment_; }
 
  private:
+  friend class Profiler;
+
   void RecordInvocation(RetAddr caller,
                         FuncAddr function,
                         uint64 cycles);
@@ -260,6 +262,13 @@ class Profiler::ThreadState
 
   // The profiler we're attached to.
   Profiler* profiler_;
+
+  // The list entry that links us into the profiler's thread_data_
+  // or death_row_ lists.
+  LIST_ENTRY thread_state_list_;
+
+  // An open handle to our thread, used to scavenge thread data.
+  base::win::ScopedHandle thread_handle_;
 
   // We keep a running tally of the rough amount of wall clock cycles spent
   // inside the profiler. We then subtract the profiler's overhead from the
@@ -279,6 +288,38 @@ class Profiler::ThreadState
   // The set of modules we've logged.
   ModuleSet logged_modules_;
 };
+
+Profiler::ThreadState::ThreadState(Profiler* profiler)
+    : profiler_(profiler),
+      thread_handle_(::OpenThread(SYNCHRONIZE, FALSE, ::GetCurrentThreadId())),
+      cycles_overhead_(0LL),
+      batch_(NULL) {
+  InitializeListHead(&thread_state_list_);
+
+  DCHECK(thread_handle_.IsValid());
+
+  Initialize();
+}
+
+bool Profiler::ThreadState::IsThreadDead() {
+  // This should neven happen, but let's be conservative.
+  if (!thread_handle_.IsValid())
+    return false;
+
+  DWORD ret = ::WaitForSingleObject(thread_handle_.Get(), 0);
+  return ret == WAIT_OBJECT_0;
+}
+
+Profiler::ThreadState::~ThreadState() {
+  batch_ = NULL;
+  invocations_.clear();
+
+  // If we have an outstanding buffer, let's deallocate it now.
+  if (segment_.write_ptr != NULL)
+    profiler_->session_.ReturnBuffer(&segment_);
+
+  Uninitialize();
+}
 
 void Profiler::ThreadState::LogAllModules(HMODULE module) {
   // Bail early if we're disabled.
@@ -495,8 +536,18 @@ bool Profiler::ThreadState::FlushSegment() {
   return profiler_->session_.ExchangeBuffer(&segment_);
 }
 
-void Profiler::OnDetach() {
-  FreeThreadState();
+void Profiler::OnThreadDetach() {
+  // Use this opportunity to scavenge prior deaths.
+  ScavengeThreadStates();
+
+  ThreadState* data = GetThreadState();
+  if (data != NULL) {
+    base::AutoLock lock(lock_);
+
+    // This data is about to go away, move it to the scavenge list.
+    RemoveEntryList(&data->thread_state_list_);
+    InsertHeadList(&death_row_, &data->thread_state_list_);
+  }
 }
 
 RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
@@ -599,6 +650,51 @@ void Profiler::OnThreadName(const base::StringPiece& thread_name) {
     state->LogThreadName(thread_name);
 }
 
+void Profiler::ScavengeThreadStates() {
+  LIST_ENTRY dead_entries;
+  InitializeListHead(&dead_entries);
+
+  {
+    base::AutoLock lock(lock_);
+
+    // Bail quickly if the list is empty.
+    if (IsListEmpty(&death_row_))
+      return;
+
+    // Walk the list, looking for dead threads.
+    ThreadState* entry = CONTAINING_RECORD(death_row_.Flink,
+                                           ThreadState,
+                                           thread_state_list_);
+    while (entry != NULL) {
+      ThreadState* next_entry = NULL;
+      if (entry->thread_state_list_.Flink != &death_row_) {
+        next_entry = CONTAINING_RECORD(entry->thread_state_list_.Flink,
+                                       ThreadState,
+                                       thread_state_list_);
+      }
+
+      // Is the associated thread dead?
+      if (entry->IsThreadDead()) {
+        // Yup, move the entry to the death row.
+        RemoveEntryList(&entry->thread_state_list_);
+        InsertTailList(&dead_entries, &entry->thread_state_list_);
+      }
+
+      entry = next_entry;
+    }
+  }
+
+  // Ok, let's kill any entries we scavenged.
+  while (!IsListEmpty(&dead_entries)) {
+    ThreadState* entry = CONTAINING_RECORD(dead_entries.Flink,
+                                           ThreadState,
+                                           thread_state_list_);
+    RemoveHeadList(&dead_entries);
+
+    delete entry;
+  }
+}
+
 LONG CALLBACK Profiler::ExceptionHandler(EXCEPTION_POINTERS* ex_info) {
   // Log the thread if this is the VC thread name exception.
   if (ex_info->ExceptionRecord->ExceptionCode == kVCThreadNameException &&
@@ -626,6 +722,9 @@ Profiler* Profiler::Instance() {
 }
 
 Profiler::Profiler() : handler_registration_(NULL) {
+  InitializeListHead(&thread_states_);
+  InitializeListHead(&death_row_);
+
   // Create our RPC session and allocate our initial trace segment on first use.
   ThreadState* data = CreateFirstThreadStateAndSession();
   CHECK(data != NULL) << "Failed to allocate thread local state.";
@@ -635,9 +734,21 @@ Profiler::Profiler() : handler_registration_(NULL) {
 }
 
 Profiler::~Profiler() {
+  // Last ditch thread state cleanup & scavenge.
+  FreeThreadState();
+  ScavengeThreadStates();
+
+  // Unregister our VEH.
   if (handler_registration_ != NULL) {
     ::RemoveVectoredExceptionHandler(handler_registration_);
     handler_registration_ = NULL;
+  }
+
+  base::AutoLock lock(lock_);
+  if (!IsListEmpty(&thread_states_)) {
+    // TODO(siggi): Think of better recourse here.
+    //     Maybe the DLL can fail the PROCESS_DETACH call?
+    LOG(ERROR) << "Abandoning thread states on unload.";
   }
 }
 
@@ -672,6 +783,13 @@ Profiler::ThreadState* Profiler::GetOrAllocateThreadStateImpl() {
     LOG(ERROR) << "Unable to allocate per-thread data";
     return NULL;
   }
+
+  {
+    base::AutoLock lock(lock_);
+
+    InsertTailList(&thread_states_, &data->thread_state_list_);
+  }
+
   tls_.Set(data);
 
   return data;
@@ -684,9 +802,14 @@ Profiler::ThreadState* Profiler::GetThreadState() const {
 void Profiler::FreeThreadState() {
   ThreadState *data = tls_.Get();
   if (data != NULL) {
-    delete data;
+    base::AutoLock lock(lock_);
+
+    RemoveEntryList(&data->thread_state_list_);
     tls_.Set(NULL);
   }
+
+  if (data != NULL)
+    delete data;
 }
 
 void WINAPI Profiler::DllMainEntryHook(EntryFrame* entry_frame,

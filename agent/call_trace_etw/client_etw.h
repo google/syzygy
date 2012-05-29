@@ -23,7 +23,6 @@
 #include "base/synchronization/lock.h"
 #include "base/win/event_trace_provider.h"
 #include "base/win/scoped_handle.h"
-#include "syzygy/agent/call_trace_etw/dlist.h"
 #include "syzygy/agent/common/shadow_stack.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
