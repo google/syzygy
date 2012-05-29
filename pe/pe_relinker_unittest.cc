@@ -17,7 +17,9 @@
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/core/serialization.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -218,6 +220,49 @@ TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
   scoped_refptr<pdb::PdbStream> stream = pdb_file.GetStream(name_it->second);
   ASSERT_TRUE(stream.get() != NULL);
   ASSERT_GT(stream->length(), 0u);
+}
+
+TEST_F(PERelinkerTest, BlockGraphStreamVersionIsTheCurrentOne) {
+  PERelinker relinker;
+
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+  relinker.set_augment_pdb(true);
+  EXPECT_EQ(true, relinker.augment_pdb());
+
+  EXPECT_TRUE(relinker.Init());
+  EXPECT_TRUE(relinker.Relink());
+  EXPECT_EQ(temp_pdb_, relinker.output_pdb_path());
+
+  // Looks for the block-graph stream in the PDB.
+  pdb::PdbFile pdb_file;
+  pdb::PdbReader pdb_reader;
+  EXPECT_TRUE(pdb_reader.Read(temp_pdb_, &pdb_file));
+  pdb::PdbInfoHeader70 pdb_header = {0};
+  pdb::NameStreamMap name_stream_map;
+  EXPECT_TRUE(ReadHeaderInfoStream(
+              pdb_file.GetStream(pdb::kPdbHeaderInfoStream),
+              &pdb_header,
+              &name_stream_map));
+  pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
+      pdb::kSyzygyBlockGraphStreamName);
+  ASSERT_TRUE(name_it != name_stream_map.end());
+  scoped_refptr<pdb::PdbStream> stream = pdb_file.GetStream(name_it->second);
+  ASSERT_TRUE(stream.get() != NULL);
+  ASSERT_LT(0U, stream->length());
+
+  scoped_refptr<pdb::PdbByteStream> byte_stream = new pdb::PdbByteStream();
+  EXPECT_TRUE(byte_stream->Init(stream.get()));
+  EXPECT_TRUE(byte_stream.get() != NULL);
+  core::ScopedInStreamPtr in_stream;
+  in_stream.reset(core::CreateByteInStream(byte_stream->data(),
+                  byte_stream->data() + byte_stream->length()));
+  core::NativeBinaryInArchive in_archive(in_stream.get());
+
+  // Ensure that the version of the stream is the current one.
+  uint32 stream_version = 0;
+  EXPECT_TRUE(in_archive.Load(&stream_version));
+  ASSERT_EQ(stream_version, pdb::kSyzygyBlockGraphStreamVersion);
 }
 
 }  // namespace pe

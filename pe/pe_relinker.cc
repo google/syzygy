@@ -609,13 +609,31 @@ bool WriteImageLayoutAddressSpace(const ImageLayout& image_layout,
 
   // Write all the block addresses to the stream. The block IDs are not written
   // because the order of the serialized blocks is guaranteed to be the same
-  // after de-serialization.
-  out_archive->Save(image_layout.blocks.size());
-  for (; image_layout_iter != image_layout.blocks.end(); image_layout_iter++) {
-    if (!out_archive->Save(image_layout_iter->first.start())) {
+  // after de-serialization. The blocks are saved in the same order as they are
+  // in the block-graph.
+
+  RelativeAddress address;
+  BlockGraph::BlockMap::const_iterator blocks_iter =
+      image_layout.blocks.graph()->blocks().begin();
+
+  // Iterates over each block of the block-graph and tries to get its address in
+  // the image layout.
+  for (; blocks_iter != image_layout.blocks.graph()->blocks().end();
+       blocks_iter++) {
+    if (image_layout.blocks.GetAddressOf(&blocks_iter->second, &address)) {
+      if (!out_archive->Save(address)) {
+        return false;
+      }
+    } else {
+      LOG(ERROR) << "There is a block in the image layout that is not in the "
+                 << "block-graph (id=" << blocks_iter->second.id()
+                 << ", name=\"" << blocks_iter->second.name() << "\", "
+                 << "original address=" << blocks_iter->second.addr()
+                 << ").";
       return false;
     }
   }
+
   return true;
 }
 
