@@ -31,6 +31,7 @@
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pdb/omap.h"
+#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/find.h"
@@ -586,6 +587,35 @@ bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
   return false;
 }
 
+// This reads the serialized address space from a PDB stream.
+bool ReadAddressSpaceFromPDBStream(core::InArchive* in_archive,
+                                   BlockGraph::AddressSpace* address_space) {
+  DCHECK(address_space != NULL);
+
+  RelativeAddress address;
+  BlockGraph::BlockMap::iterator blocks_iter =
+      address_space->graph()->blocks_mutable().begin();
+
+  // Iterate over each block of the block-graph and try to read their address
+  // from the PDB stream. Then we try to insert this block in the address space.
+  for (; blocks_iter != address_space->graph()->blocks().end(); blocks_iter++) {
+    if (!in_archive->Load(&address)) {
+      LOG(ERROR) << "Unable to read a block address from the PDB stream.";
+      return false;
+    }
+    if (!address_space->InsertBlock(address, &blocks_iter->second)) {
+      LOG(ERROR) << "Unable to insert a block from the block-graph in the "
+                 << "address space (id=" << blocks_iter->second.id()
+                 << ", name=\"" << blocks_iter->second.name() << "\", "
+                 << "address=" << address  << ").";
+      return false;
+    }
+  }
+  DCHECK_EQ(address_space->size(), address_space->graph()->blocks().size());
+
+  return true;
+}
+
 }  // namespace
 
 Decomposer::Decomposer(const PEFile& image_file)
@@ -616,13 +646,26 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
     return false;
   DCHECK(!pdb_path_.empty());
 
+  // Check if the block-graph has already been serialized into the PDB and load
+  // it from here in this case.
+  bool stream_exists = false;
+  if (LoadBlockGraphFromPDB(pdb_path_, image_file_, image, header,
+                            &stream_exists)) {
+    return true;
+  } else {
+    // If the stream exists but hasn't been loaded we return an error. At this
+    // point an error message has already been logged if there was one.
+    if (stream_exists)
+      return false;
+  }
+
   // Move on to instantiating and initializing our Debug Interface Access
   // session.
   ScopedComPtr<IDiaDataSource> dia_source;
   if (!CreateDiaSource(dia_source.Receive()))
     return false;
 
-  // We create the session using the PDB file direcly, as we've already
+  // We create the session using the PDB file directly, as we've already
   // validated that it matches the module.
   ScopedComPtr<IDiaSession> dia_session;
   if (!CreateDiaSession(pdb_path_,
@@ -779,7 +822,6 @@ bool Decomposer::FindAndValidatePdbPath() {
 
 bool Decomposer::Decompose(ImageLayout* image_layout) {
   PEFileParser::PEHeader header;
-
   if (!DecomposeImpl(&image_layout->blocks, &header)) {
     return false;
   }
@@ -2664,6 +2706,138 @@ bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
   static_initializer_patterns_.push_back(re_pair);
 
   return true;
+}
+
+bool Decomposer::LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
+                                             BlockGraph::AddressSpace* image) {
+  LOG(INFO) << "Reading block-graph and image layout from the PDB.";
+  // Initialize an input archive pointing to the stream.
+  scoped_refptr<pdb::PdbByteStream> byte_stream = new pdb::PdbByteStream();
+  if (!byte_stream->Init(block_graph_stream))
+    return false;
+  DCHECK(byte_stream.get() != NULL);
+  core::ScopedInStreamPtr in_stream;
+  in_stream.reset(core::CreateByteInStream(byte_stream->data(),
+                  byte_stream->data() + byte_stream->length()));
+  core::NativeBinaryInArchive in_archive(in_stream.get());
+
+  // Check the version.
+  uint32 stream_version = 0;
+  if (!in_archive.Load(&stream_version)) {
+    LOG(ERROR) << "Failed to read existing Syzygy block-graph stream header.";
+    return false;
+  }
+  if (stream_version != pdb::kSyzygyBlockGraphStreamVersion) {
+    LOG(ERROR) << "PDB contains an unsupported Syzygy block-graph stream"
+               << " version (got " << stream_version << ", expected "
+               << pdb::kSyzygyBlockGraphStreamVersion << ").";
+    return false;
+  }
+
+  // Read the block-graph from the stream.
+  if (!image->graph()->Load(&in_archive)) {
+    LOG(ERROR) << "Unable to load the block-graph from Syzygy block-graph "
+               << "stream.";
+    return false;
+  }
+
+  // Read the address space from the stream.
+  if (!ReadAddressSpaceFromPDBStream(&in_archive, image)) {
+    LOG(ERROR) << "Failed to read image layout from Syzygy block-graph stream.";
+    return false;
+  }
+
+  return true;
+}
+
+bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
+                                       const PEFile& image_file,
+                                       BlockGraph::AddressSpace* image,
+                                       PEFileParser::PEHeader* header,
+                                       bool* stream_exist) {
+  pdb::PdbFile pdb_file;
+  pdb::PdbReader pdb_reader;
+  if (!pdb_reader.Read(pdb_path, &pdb_file)) {
+    LOG(ERROR) << "Unable to read the PDB named \"" << pdb_path.value()
+               << "\".";
+    return NULL;
+  }
+
+  // Try to get the block-graph stream from the PDB.
+  scoped_refptr<pdb::PdbStream> block_graph_stream =
+      GetBlockGraphStreamFromPDB(&pdb_file);
+  if (block_graph_stream.get() == NULL) {
+    *stream_exist = false;
+    return false;
+  }
+
+  // The PDB contains a block-graph stream, the block-graph and the image layout
+  // will be read from this stream.
+  *stream_exist = true;
+  if (!LoadBlockGraphFromPDBStream(block_graph_stream.get(), image))
+    return false;
+
+  // This sets any missing data pointers in the block graph. These
+  // are pointers to data that was not owned by the block graph, but
+  // rather by the PEFile.
+  PEFile* pe_file = const_cast<PEFile*>(&image_file);
+  if (!SetBlockDataPointers(*pe_file, image->graph())) {
+    // An error has already been logged by the SetBlockDataPointers function,
+    // so we don't log another one here.
+    return false;
+  }
+  // We can now recreate the rest of the image layout from the PE data.
+  // Start by retrieving the DOS header block, which is always at the start of
+  // the image.
+  BlockGraph::Block* dos_header =
+      image->GetBlockByAddress(RelativeAddress(0));
+  if (dos_header == NULL)
+    return false;
+
+  // The next block is the NT headers block.
+  BlockGraph::Block* nt_headers =
+      image->GetBlockByAddress(
+          RelativeAddress(dos_header->size()));
+  if (nt_headers == NULL)
+    return false;
+
+  if (header != NULL) {
+    header->dos_header = dos_header;
+    header->nt_headers = nt_headers;
+  }
+  return true;
+}
+
+scoped_refptr<pdb::PdbStream> Decomposer::GetBlockGraphStreamFromPDB(
+    pdb::PdbFile* pdb_file) {
+  scoped_refptr<pdb::PdbStream> block_graph_stream;
+  // Get the PDB header and try to get the block-graph ID stream from it.
+  pdb::PdbInfoHeader70 pdb_header = {0};
+  pdb::NameStreamMap name_stream_map;
+  if (!ReadHeaderInfoStream(pdb_file->GetStream(pdb::kPdbHeaderInfoStream),
+                           &pdb_header,
+                           &name_stream_map)) {
+    LOG(ERROR) << "Failed to read header info stream.";
+    return block_graph_stream;
+  }
+  pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
+      pdb::kSyzygyBlockGraphStreamName);
+  if (name_it == name_stream_map.end()) {
+    return block_graph_stream;
+  }
+
+  // Get the block-graph stream and ensure that it's not empty.
+  block_graph_stream = pdb_file->GetStream(name_it->second);
+  if (block_graph_stream.get() == NULL) {
+    LOG(ERROR) << "Failed to read the block-graph stream from the PDB.";
+    return block_graph_stream;
+  }
+  if (block_graph_stream->length() == 0) {
+    LOG(ERROR) << "The block-graph stream is empty.";
+    return block_graph_stream;
+  }
+
+  return block_graph_stream;
 }
 
 bool SaveDecomposition(const PEFile& pe_file,

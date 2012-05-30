@@ -37,6 +37,12 @@
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_parser.h"
 
+// Fwd.
+namespace pdb {
+class PdbStream;
+class PdbFile;
+}  // namespace pdb
+
 namespace pe {
 
 using pcrecpp::RE;
@@ -262,6 +268,37 @@ class Decomposer {
   // and stores them in the given FixupMap.
   bool OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
                              const PdbFixups& pdb_fixups);
+
+  // Check if there's a block-graph stream in the PDB and load it in this case.
+  // @param pdb_path The path of the PDB file.
+  // @param image_file The image file we're decomposing. We use it to set block
+  //     data pointers.
+  // @param image The graph that we're trying to read.
+  // @param header The image header that we want to fill.
+  // @param stream_exist A pointer to a boolean to indicate if the block-graph
+  //     stream exists in the PDB.
+  // @return true if the block-graph has been successfully loaded, false
+  //     otherwise.
+  bool LoadBlockGraphFromPDB(const FilePath& pdb_path,
+                             const PEFile& image_file,
+                             BlockGraph::AddressSpace* image,
+                             PEFileParser::PEHeader* header,
+                             bool* stream_exist);
+
+  // Load a block-graph from a PDB stream.
+  // @param block_graph_stream The stream containing the block-graph.
+  // @param image The graph that we're trying to read.
+  // @return true if the block-graph has been successfully loaded, false
+  //     otherwise.
+  bool LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
+                                   BlockGraph::AddressSpace* image);
+
+  // Try to get the block-graph stream from a PDB.
+  // @param pdb_file The PDB file from which the stream will be read.
+  // @returns a scoped pointer to a the stream in case of success, otherwise
+  //     the pointer will contain a NULL reference.
+  scoped_refptr<pdb::PdbStream> GetBlockGraphStreamFromPDB(
+      pdb::PdbFile* pdb_file);
 
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
