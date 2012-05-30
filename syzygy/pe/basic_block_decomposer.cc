@@ -14,7 +14,7 @@
 //
 // Implementation of basic block disassembler.
 
-#include "syzygy/block_graph/basic_block_disassembler.h"
+#include "syzygy/pe/basic_block_decomposer.h"
 
 #include <algorithm>
 #include <vector>
@@ -26,11 +26,11 @@
 
 #include "mnemonics.h"  // NOLINT
 
-namespace block_graph {
+namespace pe {
 
 using core::Disassembler;
 
-BasicBlockDisassembler::BasicBlockDisassembler(
+BasicBlockDecomposer::BasicBlockDecomposer(
     const uint8* code,
     size_t code_size,
     AbsoluteAddress code_addr,
@@ -56,14 +56,14 @@ BasicBlockDisassembler::BasicBlockDisassembler(
   }
 }
 
-Disassembler::CallbackDirective BasicBlockDisassembler::OnInstruction(
+Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
     AbsoluteAddress addr, const _DInst& inst) {
   current_instructions_.push_back(
       Instruction(inst, Instruction::SourceRange(addr, inst.size)));
   return kDirectiveContinue;
 }
 
-Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
+Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     AbsoluteAddress addr, const _DInst& inst, AbsoluteAddress dest) {
   // The branch instruction should have already been appended to the
   // instruction list. Dest should also refer to the branch target.
@@ -132,7 +132,7 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnBranchInstruction(
 
 // Called every time disassembly is started from a new address. Will be
 // called for at least every address in unvisited_.
-Disassembler::CallbackDirective BasicBlockDisassembler::OnStartInstructionRun(
+Disassembler::CallbackDirective BasicBlockDecomposer::OnStartInstructionRun(
     AbsoluteAddress start_address) {
   // The address of the beginning of the current basic block.
   current_block_start_ = start_address;
@@ -141,7 +141,7 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnStartInstructionRun(
 
 // Called when a walk from a given entry point has terminated or when
 // a conditional branch has been found.
-Disassembler::CallbackDirective BasicBlockDisassembler::OnEndInstructionRun(
+Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
     AbsoluteAddress addr, const _DInst& inst) {
   CallbackDirective result = kDirectiveContinue;
 
@@ -166,7 +166,7 @@ Disassembler::CallbackDirective BasicBlockDisassembler::OnEndInstructionRun(
 // Called when disassembly is complete and no further entry points remain
 // to disassemble from.
 Disassembler::CallbackDirective
-BasicBlockDisassembler::OnDisassemblyComplete() {
+BasicBlockDecomposer::OnDisassemblyComplete() {
   // When we get here, we should have carved out basic blocks for all visited
   // code. There are two fixups we now need to do:
   // 1) We may not have covered some ranges of the macro block. For all such
@@ -179,8 +179,7 @@ BasicBlockDisassembler::OnDisassemblyComplete() {
   if (!basic_block_address_space_.empty()) {
     // Fill in all the interstitials with data basic blocks, then break up the
     // basic blocks that are jumped into.
-    if (!FillInGapBlocks() ||
-        !SplitBlockOnJumpTargets(jump_targets_)) {
+    if (!FillInGapBlocks() || !SplitBlockOnJumpTargets()) {
       LOG(ERROR) << "Failed to fix up basic block ranges.";
       result = kDirectiveAbort;
     }
@@ -205,7 +204,7 @@ BasicBlockDisassembler::OnDisassemblyComplete() {
   return result;
 }
 
-bool BasicBlockDisassembler::ValidateBasicBlockCoverage() const {
+bool BasicBlockDecomposer::ValidateBasicBlockCoverage() const {
   bool valid = true;
   AbsoluteAddress next_start(code_addr_);
   RangeMapConstIter verify_range(basic_block_address_space_.begin());
@@ -222,7 +221,7 @@ bool BasicBlockDisassembler::ValidateBasicBlockCoverage() const {
   return valid;
 }
 
-bool BasicBlockDisassembler::InsertBlockRange(
+bool BasicBlockDecomposer::InsertBlockRange(
     AbsoluteAddress addr, size_t size, BlockGraph::BlockType type) {
   Range range(addr, size);
   bool success = true;
@@ -248,7 +247,7 @@ bool BasicBlockDisassembler::InsertBlockRange(
 
 // TODO(robertshield): This currently marks every non-walked block as data. It
 // could be smarter and mark some as padding blocks as well. Fix this.
-bool BasicBlockDisassembler::FillInGapBlocks() {
+bool BasicBlockDecomposer::FillInGapBlocks() {
   bool success = true;
 
   // Fill in the interstitial ranges.
@@ -301,8 +300,7 @@ bool BasicBlockDisassembler::FillInGapBlocks() {
   return success;
 }
 
-bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
-    const AddressSet& jump_targets) {
+bool BasicBlockDecomposer::SplitBlockOnJumpTargets() {
   bool success = true;
   AddressSet::const_iterator jump_target_iter(jump_targets_.begin());
   for (; success && jump_target_iter != jump_targets_.end();
@@ -386,4 +384,4 @@ bool BasicBlockDisassembler::SplitBlockOnJumpTargets(
   return success;
 }
 
-}  // namespace block_graph
+}  // namespace pe

@@ -28,8 +28,6 @@
       'sources': [
         'basic_block.cc',
         'basic_block.h',
-        'basic_block_disassembler.cc',
-        'basic_block_disassembler.h',
         'block_graph.cc',
         'block_graph.h',
         'iterate.cc',
@@ -67,8 +65,6 @@
       'target_name': 'block_graph_unittests',
       'type': 'executable',
       'sources': [
-        'basic_block_disassembler_unittest.cc',
-        'basic_block_test_code.asm',
         'basic_block_unittest.cc',
         'block_graph_unittest.cc',
         'block_graph_unittests_main.cc',

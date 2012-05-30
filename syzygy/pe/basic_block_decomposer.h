@@ -21,8 +21,8 @@
 // all external references to addresses within a function block have an
 // associated label.
 
-#ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DISASSEMBLER_H_
-#define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DISASSEMBLER_H_
+#ifndef SYZYGY_PE_BASIC_BLOCK_DECOMPOSER_H_
+#define SYZYGY_PE_BASIC_BLOCK_DECOMPOSER_H_
 
 #include <set>
 #include <string>
@@ -36,7 +36,7 @@
 #include "syzygy/core/disassembler.h"
 #include "distorm.h"  // NOLINT
 
-namespace block_graph {
+namespace pe {
 
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
@@ -55,9 +55,21 @@ namespace block_graph {
 // have been marked with labels. To get this, run the standard disassembly phase
 // using Decomposer and Disassembler first. Failing to do this will result in
 // missing some potential basic-block splits.
-class BasicBlockDisassembler : public core::Disassembler {
+//
+// TODO(rogerm): Refactor the Disassembler interface to expose more callbacks.
+//     The BasicBlockDecomposer doesn't really have an IS-A relationship with
+//     the Disassembler, but inherits so as to over-ride the various event
+//     handlers the Disassembler exposes to itself. Private inheritance would
+//     fit nicely here, but is not allowed by the style guide. We could also
+//     create an adapter class that forwards the events, but that's about the
+//     same as fixing the Disassembler properly, hence this TODO.
+class BasicBlockDecomposer : public core::Disassembler {
  public:
   typedef core::AbsoluteAddress AbsoluteAddress;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BasicBlock BasicBlock;
+  typedef block_graph::Successor Successor;
+  typedef block_graph::Instruction Instruction;
 
   // Use the AddressSpace primitives to represent the set of basic blocks.
   typedef core::AddressSpace<AbsoluteAddress, size_t, BasicBlock>
@@ -67,7 +79,7 @@ class BasicBlockDisassembler : public core::Disassembler {
   typedef BBAddressSpace::RangeMapConstIter RangeMapConstIter;
   typedef BBAddressSpace::RangeMapIter RangeMapIter;
 
-  // Creates and sets up a BasicBlockDisassembler that decomposes a function
+  // Creates and sets up a BasicBlockDecomposer that decomposes a function
   // macro block into basic blocks.
   // @param code pointer to the data bytes the containing macro block refers to.
   // @param code_size the size of the containing macro block.
@@ -79,12 +91,12 @@ class BasicBlockDisassembler : public core::Disassembler {
   // @param containing_block_name The name of the containing macro block.
   // @param on_instruction Pointer to a callback routine called during
   //     disassembly.
-  BasicBlockDisassembler(const uint8* code,
-                         size_t code_size,
-                         AbsoluteAddress code_addr,
-                         const AddressSet& entry_points,
-                         const base::StringPiece& containing_block_name,
-                         Disassembler::InstructionCallback on_instruction);
+  BasicBlockDecomposer(const uint8* code,
+                       size_t code_size,
+                       AbsoluteAddress code_addr,
+                       const AddressSet& entry_points,
+                       const base::StringPiece& containing_block_name,
+                       Disassembler::InstructionCallback on_instruction);
 
   // Returns a RangeMap mapping ranges that each cover a single basic block
   // to BlockGraph::Block instances that contain some information about that
@@ -113,11 +125,11 @@ class BasicBlockDisassembler : public core::Disassembler {
   // @returns true on success.
   bool FillInGapBlocks();
 
-  // For every range in @p basic_block_ranges that contains an address in
-  // @p jump_targets (not counting addresses that point to the beginning of the
+  // For every range in basic_block_address_space_ that contains an address in
+  // jump_targets_ (not counting addresses that point to the beginning of the
   // range), split that range in two.
   // @returns true on success.
-  bool SplitBlockOnJumpTargets(const AddressSet& jump_targets);
+  bool SplitBlockOnJumpTargets();
 
   // Returns true if basic_block_ranges_ fully covers the macro block with
   // no gaps or overlap.
@@ -152,6 +164,6 @@ class BasicBlockDisassembler : public core::Disassembler {
   BasicBlock::Successors current_successors_;
 };
 
-}  // namespace block_graph
+}  // namespace pe
 
-#endif  // SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DISASSEMBLER_H_
+#endif  // SYZYGY_PE_BASIC_BLOCK_DECOMPOSER_H_

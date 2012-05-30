@@ -27,11 +27,11 @@
 
 #include "base/file_path.h"
 #include "pcrecpp.h"  // NOLINT
-#include "syzygy/block_graph/basic_block_disassembler.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/disassembler.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pe/basic_block_decomposer.h"
 #include "syzygy/pe/dia_browser.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
@@ -58,7 +58,6 @@ class Decomposer {
 
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
-  typedef block_graph::BasicBlockDisassembler BasicBlockDisassembler;
   typedef block_graph::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
   typedef std::map<RelativeAddress, Fixup> FixupMap;

@@ -2655,20 +2655,20 @@ bool Decomposer::BuildBasicBlockGraph(const ImageLayout& image_layout,
       Disassembler::InstructionCallback on_basic_instruction(
           base::Bind(&Decomposer::OnBasicInstruction, base::Unretained(this)));
 
-      BasicBlockDisassembler disasm(block->data(),
-                                    block->data_size(),
-                                    abs_block_addr,
-                                    labels,
-                                    block->name(),
-                                    on_basic_instruction);
-      Disassembler::WalkResult result = disasm.Walk();
+      BasicBlockDecomposer bb_decomposer(block->data(),
+                                         block->data_size(),
+                                         abs_block_addr,
+                                         labels,
+                                         block->name(),
+                                         on_basic_instruction);
+      Disassembler::WalkResult result = bb_decomposer.Walk();
 
       if (result == Disassembler::kWalkSuccess ||
           result == Disassembler::kWalkIncomplete) {
-        BasicBlockDisassembler::BBAddressSpace basic_blocks(
-            disasm.GetBasicBlockRanges());
+        BasicBlockDecomposer::BBAddressSpace basic_blocks(
+            bb_decomposer.GetBasicBlockRanges());
 
-        BasicBlockDisassembler::RangeMapConstIter iter(
+        BasicBlockDecomposer::RangeMapConstIter iter(
             basic_blocks.begin());
         for (; iter != basic_blocks.end(); ++iter) {
           RelativeAddress rva_start;

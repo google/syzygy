@@ -70,7 +70,7 @@
         'process_outputs_as_sources': 0,
         'message': 'Assembling <(RULE_INPUT_PATH) to '
                    '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
-      }
+      },
     ],
   },
 }
