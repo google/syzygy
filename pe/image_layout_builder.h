@@ -120,7 +120,7 @@ class ImageLayoutBuilder {
 
   // Finalizes the image layout. This builds the relocs, finalizes the headers,
   // and does any other PE touch-ups that are required to make the image
-  // self-consistent.
+  // self-consistent. This may remove and/or modify blocks in the block-graph.
   // @returns true on success, false otherwise.
   bool Finalize();
 
