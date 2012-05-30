@@ -186,7 +186,7 @@ bool EnsureDataDirectoryExists(size_t directory_index,
     nt_headers.SetReference(BlockGraph::RELATIVE_REF,
                             data_directory->VirtualAddress,
                             block,
-                            0);
+                            0, 0);
     data_directory->Size = block_size;
   }
 
@@ -311,11 +311,12 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
 
   // Hook up these blocks.
   iida.SetReference(BlockGraph::RELATIVE_REF,
-                    iida[descriptor_count].OriginalFirstThunk, int_block, 0);
+                    iida[descriptor_count].OriginalFirstThunk, int_block, 0, 0);
   iida.SetReference(BlockGraph::RELATIVE_REF,
-                    iida[descriptor_count].FirstThunk, iat_block, iat_offset);
+                    iida[descriptor_count].FirstThunk, iat_block, iat_offset,
+                    iat_offset);
   iida.SetReference(BlockGraph::RELATIVE_REF,
-                    iida[descriptor_count].Name, dll_name_block, 0);
+                    iida[descriptor_count].Name, dll_name_block, 0, 0);
 
   // Finally, return the descriptor.
   if (!iid->Init(new_iid_offset, iida_block)) {
@@ -471,6 +472,7 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
   BlockGraph::Reference iibn_ref(BlockGraph::RELATIVE_REF,
                                  kPtrSize,
                                  iibn.block(),
+                                 iibn.offset(),
                                  iibn.offset());
   hna.block()->SetReference(int_offset, iibn_ref);
   iat.block()->SetReference(iat_offset, iibn_ref);
@@ -638,9 +640,9 @@ bool AddImportsTransform::ImportedModule::GetSymbolReference(
     return false;
   }
 
+  Offset offset = thunks.OffsetOf(thunks[symbol_index].u1.AddressOfData);
   *abs_reference = BlockGraph::Reference(
-      BlockGraph::ABSOLUTE_REF, kPtrSize, thunks.block(),
-      thunks.OffsetOf(thunks[symbol_index].u1.AddressOfData));
+      BlockGraph::ABSOLUTE_REF, kPtrSize, thunks.block(), offset, offset);
 
   return true;
 }

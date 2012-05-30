@@ -2368,9 +2368,9 @@ bool Decomposer::FinalizeIntermediateReferences() {
   for (; it != end; ++it) {
     RelativeAddress src_addr(it->first);
     BlockGraph::Block* src = image_->GetBlockByAddress(src_addr);
-    RelativeAddress dst_base(it->second.base);
-    RelativeAddress dst_addr(dst_base + it->second.offset);
-    BlockGraph::Block* dst = image_->GetBlockByAddress(dst_base);
+    RelativeAddress dst_base_addr(it->second.base);
+    RelativeAddress dst_addr(dst_base_addr + it->second.offset);
+    BlockGraph::Block* dst = image_->GetBlockByAddress(dst_base_addr);
 
     if (src == NULL || dst == NULL) {
       LOG(ERROR) << "Reference source or base destination address is out of "
@@ -2385,10 +2385,15 @@ bool Decomposer::FinalizeIntermediateReferences() {
     // destination block.
     BlockGraph::Offset dst_offset = dst_addr - dst_start;
 
+    // Get the offset of the actual referenced object relative to the start of
+    // the destination block.
+    BlockGraph::Offset dst_base = dst_base_addr - dst_start;
+
     BlockGraph::Reference ref(it->second.type,
                               it->second.size,
                               dst,
-                              dst_offset);
+                              dst_offset,
+                              dst_base);
     src->SetReference(src_addr - src_start, ref);
   }
 

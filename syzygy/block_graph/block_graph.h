@@ -789,24 +789,55 @@ class BlockGraph::AddressSpace {
   BlockGraph* graph_;
 };
 
-// Represents a reference from one block to another.
+// Represents a reference from one block to another. References may be offset.
+// That is, they may refer to an object at a given location, but actually point
+// to a location that is some fixed distance away from that object. This allows,
+// for example, non-zero based indexing into a table. The object that is
+// intended to be dereferenced is called the 'base' of the offset.
+//
+// BlockGraph references are from a location (offset) in one block, to some
+// location in another block. The referenced block itself plays the role of the
+// 'base' of the reference, with the offset of the reference being stored as
+// an integer from the beginning of the block. However, basic block
+// decomposition requires breaking the block into smaller pieces and thus we
+// need to carry around an explicit base value, indicating which byte in the
+// block is intended to be referenced.
+//
+// A direct reference to a location will have the same value for 'base' and
+// 'offset'.
+//
+// Here is an example:
+//
+//        /----------\
+//        +---------------------------+
+//  O     |          B                | <--- Referenced block
+//        +---------------------------+      B = base
+//  \-----/                                  O = offset
+//
 class BlockGraph::Reference {
  public:
-  Reference() : type_(RELATIVE_REF), size_(0), referenced_(NULL), offset_(0) {
+  Reference() :
+      type_(RELATIVE_REF), size_(0), referenced_(NULL), offset_(0), base_(0) {
   }
 
   // @param type type of reference.
   // @param size size of reference.
   // @param referenced the referenced block.
-  // @param referenced_offset offset of reference into referenced.
+  // @param offset offset from the beginning of the block of the location to be
+  //     explicitly referred to.
+  // @param base offset into the block of the location actually being
+  //     referenced. This must be strictly within @p referenced.
   Reference(ReferenceType type,
             Size size,
             Block* referenced,
-            Offset offset)
+            Offset offset,
+            Offset base)
       : type_(type),
         size_(size),
         referenced_(referenced),
-        offset_(offset) {
+        offset_(offset),
+        base_(base) {
+    DCHECK(IsValid());
   }
 
   // Copy constructor.
@@ -814,7 +845,8 @@ class BlockGraph::Reference {
       : type_(other.type_),
         size_(other.size_),
         referenced_(other.referenced_),
-        offset_(other.offset_) {
+        offset_(other.offset_),
+        base_(other.base_) {
   }
 
   // Accessors.
@@ -822,9 +854,18 @@ class BlockGraph::Reference {
   Size size() const { return size_; }
   Block* referenced() const { return referenced_; }
   Offset offset() const { return offset_; }
+  Offset base() const { return base_; }
+
+  // Determines if this is a direct reference. That is, if the actual location
+  // being referenced (offset) and the intended location being referenced (base)
+  // are the same.
+  //
+  // @returns true if the reference is direct, false otherwise.
+  bool IsDirect() const { return base_ == offset_; }
 
   // Determines if this is a valid reference, by imposing size constraints on
-  // reference types.
+  // reference types, and determining if the base address of the reference is
+  // strictly contained within the referenced block.
   //
   // @returns true if valid, false otherwise.
   bool IsValid() const;
@@ -833,7 +874,8 @@ class BlockGraph::Reference {
     return type_ == other.type_ &&
         size_ == other.size_ &&
         referenced_ == other.referenced_ &&
-        offset_ == other.offset_;
+        offset_ == other.offset_ &&
+        base_ == other.base_;
   }
 
   // The maximum size that a reference may have.
@@ -853,6 +895,10 @@ class BlockGraph::Reference {
 
   // Offset into the referenced block.
   Offset offset_;
+
+  // The base of the reference, as in offset in the block. This must be a
+  // location strictly within the block.
+  Offset base_;
 };
 
 }  // namespace block_graph

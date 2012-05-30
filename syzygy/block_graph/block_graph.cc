@@ -110,7 +110,8 @@ void ShiftReferences(BlockGraph::Block* block,
       ref = BlockGraph::Reference(ref.type(),
                                   ref.size(),
                                   ref.referenced(),
-                                  ref.offset() + distance);
+                                  ref.offset() + distance,
+                                  ref.base() + distance);
     }
 
     // If its offset is past the change point, fix that.
@@ -154,8 +155,11 @@ void ShiftReferrers(BlockGraph::Block* self,
 
       // Shift the reference if need be.
       if (ref.offset() >= offset) {
-        Reference new_ref(
-            ref.type(), ref.size(), ref.referenced(), ref.offset() + distance);
+        Reference new_ref(ref.type(),
+                          ref.size(),
+                          ref.referenced(),
+                          ref.offset() + distance,
+                          ref.base() + distance);
         bool inserted = ref_block->SetReference(ref_offset, new_ref);
         DCHECK(!inserted);
       }
@@ -1024,7 +1028,7 @@ bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
     if (!ref.IsValid())
       NOTREACHED() << "Trying to insert invalid reference.";
 
-    // Examine references before us that could possible conflict with us.
+    // Examine references before us that could possibly conflict with us.
     Offset offset_begin = offset - Reference::kMaximumSize + 1;
     ReferenceMap::const_iterator it =
         references_.lower_bound(offset_begin);
@@ -1171,6 +1175,7 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
     BlockGraph::Reference ref(found_ref->second);
 
     Offset new_offset = ref.offset() + offset;
+    Offset new_base = ref.base() + offset;
 
     // Same thing as in SetReferrer, references to non-code blocks may lie
     // outside the extent of the block.
@@ -1186,7 +1191,8 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
     BlockGraph::Reference new_ref(ref.type(),
                                   ref.size(),
                                   new_block,
-                                  new_offset);
+                                  new_offset,
+                                  new_base);
     referrer.first->SetReference(referrer.second, new_ref);
   }
 
@@ -1238,7 +1244,8 @@ bool BlockGraph::Block::SaveRefs(OutArchive* out_archive) const {
         !out_archive->Save((int)it1->second.type()) ||
         !out_archive->Save(it1->second.size()) ||
         !out_archive->Save(it1->second.referenced()->id()) ||
-        !out_archive->Save(it1->second.offset())) {
+        !out_archive->Save(it1->second.offset()) ||
+        !out_archive->Save(it1->second.base())) {
       LOG(ERROR) << "Unable to save block reference.";
       return false;
     }
@@ -1264,9 +1271,11 @@ bool BlockGraph::Block::LoadRefs(BlockGraph& block_graph,
     Size size = 0;
     BlockId id = 0;
     Offset remote_offset = 0;
+    Offset remote_base = 0;
     if (!in_archive->Load(&local_offset) ||
         !in_archive->Load((int*)&type) || !in_archive->Load(&size) ||
-        !in_archive->Load(&id) || !in_archive->Load(&remote_offset)) {
+        !in_archive->Load(&id) || !in_archive->Load(&remote_offset) ||
+        !in_archive->Load(&remote_base)) {
       LOG(ERROR) << "Unable to load block reference.";
       return false;
     }
@@ -1277,7 +1286,8 @@ bool BlockGraph::Block::LoadRefs(BlockGraph& block_graph,
       return false;
     }
     if (!SetReference(local_offset,
-                      Reference(type, size, referenced, remote_offset))) {
+                      Reference(type, size, referenced, remote_offset,
+                                remote_base))) {
       LOG(ERROR) << "Unable to create block reference.";
       return false;
     }
@@ -1325,6 +1335,14 @@ bool BlockGraph::Block::LoadData(InArchive* in_archive) {
 }
 
 bool BlockGraph::Reference::IsValid() const {
+  // We can't reference a NULL block.
+  if (referenced_ == NULL)
+    return false;
+
+  // First see if the base address is valid for the referenced block.
+  if (base_ < 0 || static_cast<size_t>(base_) >= referenced_->size())
+    return false;
+
   switch (type_) {
     // We see 8- and 32-bit relative JMPs.
     case PC_RELATIVE_REF:

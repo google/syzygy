@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,10 +33,16 @@ class TypedBlockTest: public testing::Test {
     // Create a connection between the two blocks.
     ASSERT_TRUE(foo_->SetReference(
         offsetof(Foo, bar),
-        BlockGraph::Reference(BlockGraph::RELATIVE_REF,
-                              4,
-                              bar_.get(),
-                              0)));
+        BlockGraph::Reference(BlockGraph::RELATIVE_REF, 4, bar_.get(), 0, 0)));
+
+    // Create an indirect reference between the two blocks. indirect_d is
+    // a 1-indexed array pointing to Bar::d.
+    BlockGraph::Offset d_base = offsetof(Bar, d);
+    BlockGraph::Offset d_offset = d_base - sizeof(double);
+    ASSERT_TRUE(foo_->SetReference(
+        offsetof(Foo, indirect_d),
+        BlockGraph::Reference(BlockGraph::RELATIVE_REF, 4, bar_.get(),
+        d_offset, d_base)));
   }
 
  protected:
@@ -48,6 +54,7 @@ class TypedBlockTest: public testing::Test {
   struct Foo {
     float f;
     Bar* bar;
+    double* indirect_d;
   };
 
   static void CompileAsserts() {
@@ -216,6 +223,17 @@ TEST_F(TypedBlockTest, DereferenceWithSize) {
   EXPECT_EQ(42, reinterpret_cast<const Bar*>(bar_->data())->i);
 }
 
+TEST_F(TypedBlockTest, IndirectDereferenceFails) {
+  TypedBlock<Foo> foo;
+  ASSERT_TRUE(foo.Init(0, foo_.get()));
+
+  TypedBlock<double> d;
+  EXPECT_FALSE(foo.Dereference(foo->indirect_d, &d));
+  EXPECT_FALSE(foo.DereferenceAt(offsetof(Foo, indirect_d), &d));
+  EXPECT_FALSE(foo.DereferenceWithSize(foo->indirect_d, 4, &d));
+  EXPECT_FALSE(foo.DereferenceAtWithSize(offsetof(Foo, indirect_d), 4, &d));
+}
+
 TEST_F(TypedBlockTest, RemoveReferenceAt) {
   TypedBlock<Foo> foo;
   ASSERT_TRUE(foo.Init(0, foo_.get()));
@@ -258,6 +276,7 @@ TEST_F(TypedBlockTest, SetReference) {
                                offsetof(Foo, bar),
                                sizeof(foo->bar),
                                bar.block(),
+                               bar.offset(),
                                bar.offset()));
   EXPECT_TRUE(foo.Dereference(foo->bar, &bar2));
   EXPECT_EQ(bar.block(), bar2.block());
@@ -268,6 +287,7 @@ TEST_F(TypedBlockTest, SetReference) {
   EXPECT_TRUE(foo.SetReference(BlockGraph::RELATIVE_REF,
                                foo->bar,
                                bar.block(),
+                               bar.offset(),
                                bar.offset()));
   EXPECT_TRUE(foo.Dereference(foo->bar, &bar2));
   EXPECT_EQ(bar.block(), bar2.block());

@@ -86,6 +86,25 @@ class BlockTest: public testing::Test {
 const char* BlockTest::kBlockName = "block";
 const uint8 BlockTest::kTestData[] = "who's your daddy?";
 
+TEST(ReferenceTest, Initialization) {
+  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 10, "foo");
+  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF, 4, &block, 0, 0);
+  ASSERT_EQ(BlockGraph::RELATIVE_REF, ref.type());
+  ASSERT_EQ(4u, ref.size());
+  ASSERT_EQ(&block, ref.referenced());
+  ASSERT_EQ(0, ref.offset());
+  ASSERT_EQ(0, ref.base());
+  ASSERT_TRUE(ref.IsValid());
+  ASSERT_TRUE(ref.IsDirect());
+}
+
+TEST(ReferenceTest, IndirectReference) {
+  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 10, "foo");
+  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF, 4, &block, -8, 4);
+  ASSERT_TRUE(ref.IsValid());
+  ASSERT_FALSE(ref.IsDirect());
+}
+
 TEST_F(BlockTest, Initialization) {
   // Test initialization.
   ASSERT_EQ(kBlockType, block_->type());
@@ -217,7 +236,7 @@ TEST_F(BlockTest, InsertData) {
   BlockGraph::Reference outgoing_ref(BlockGraph::RELATIVE_REF,
                                      kPtrSize,
                                      block_,
-                                     0);
+                                     0, 0);
   block1->SetReference(0, outgoing_ref);
   block1->SetReference(kPtrSize, outgoing_ref);
   block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL);
@@ -235,7 +254,7 @@ TEST_F(BlockTest, InsertData) {
   block2->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                                 kPtrSize,
                                                 block1,
-                                                0));
+                                                0, 0));
 
   // Create a block with a pointer to the second entry of block1.
   BlockGraph::Block* block3 = image_.AddBlock(
@@ -243,7 +262,7 @@ TEST_F(BlockTest, InsertData) {
   block3->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                                 kPtrSize,
                                                 block1,
-                                                kPtrSize));
+                                                kPtrSize, kPtrSize));
 
   // Insert a new pointer entry in between the first and second entries.
   block1->InsertData(kPtrSize, kPtrSize, false);
@@ -292,7 +311,7 @@ TEST_F(BlockTest, InsertData) {
   BlockGraph::Reference expected_ref(BlockGraph::RELATIVE_REF,
                                      kPtrSize,
                                      block1,
-                                     0);
+                                     0, 0);
   BlockGraph::Reference actual_ref;
   EXPECT_TRUE(block2->GetReference(0, &actual_ref));
   EXPECT_EQ(expected_ref, actual_ref);
@@ -300,7 +319,7 @@ TEST_F(BlockTest, InsertData) {
   expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                        kPtrSize,
                                        block1,
-                                       2 * kPtrSize);
+                                       2 * kPtrSize, 2 * kPtrSize);
   EXPECT_TRUE(block3->GetReference(0, &actual_ref));
   EXPECT_EQ(expected_ref, actual_ref);
 
@@ -355,7 +374,7 @@ TEST_F(BlockTest, InsertDataWithSelfReference) {
   BlockGraph::Block* block1 = image_.AddBlock(
       BlockGraph::CODE_BLOCK, 40, "Block1");
 
-  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize, block1, 0);
+  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize, block1, 0, 0);
   // Insert a self-reference to the block.
   block1->SetReference(20, ref);
 
@@ -384,7 +403,7 @@ TEST_F(BlockTest, RemoveData) {
   BlockGraph::Reference outgoing_ref(BlockGraph::RELATIVE_REF,
                                      kPtrSize,
                                      block_,
-                                     0);
+                                     0, 0);
   block1->SetReference(0, outgoing_ref);
   block1->SetReference(2 * kPtrSize, outgoing_ref);
   block1->SetReference(5 * kPtrSize, outgoing_ref);
@@ -403,7 +422,7 @@ TEST_F(BlockTest, RemoveData) {
   block2->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                                 kPtrSize,
                                                 block1,
-                                                0));
+                                                0, 0));
 
   // Create a block with a pointer to the third entry of block1.
   BlockGraph::Block* block3 = image_.AddBlock(
@@ -411,7 +430,7 @@ TEST_F(BlockTest, RemoveData) {
   block3->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                                 kPtrSize,
                                                 block1,
-                                                2 * kPtrSize));
+                                                2 * kPtrSize, 2 * kPtrSize));
 
   // Create a block with a pointer to the fifth entry of block1.
   BlockGraph::Block* block4 = image_.AddBlock(
@@ -419,7 +438,7 @@ TEST_F(BlockTest, RemoveData) {
   block4->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                                 kPtrSize,
                                                 block1,
-                                                4 * kPtrSize));
+                                                4 * kPtrSize, 4 * kPtrSize));
 
   // Trying to remove the fourth entry should fail because it contains a label.
   EXPECT_FALSE(block1->RemoveData(3 * kPtrSize, kPtrSize));
@@ -478,7 +497,7 @@ TEST_F(BlockTest, RemoveData) {
   BlockGraph::Reference expected_ref(BlockGraph::RELATIVE_REF,
                                      kPtrSize,
                                      block1,
-                                     0);
+                                     0, 0);
   BlockGraph::Reference actual_ref;
   EXPECT_TRUE(block2->GetReference(0, &actual_ref));
   EXPECT_EQ(expected_ref, actual_ref);
@@ -486,14 +505,14 @@ TEST_F(BlockTest, RemoveData) {
   expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                        kPtrSize,
                                        block1,
-                                       kPtrSize);
+                                       kPtrSize, kPtrSize);
   EXPECT_TRUE(block3->GetReference(0, &actual_ref));
   EXPECT_EQ(expected_ref, actual_ref);
 
   expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                                        kPtrSize,
                                        block1,
-                                       3 * kPtrSize);
+                                       3 * kPtrSize, 3 * kPtrSize);
   EXPECT_TRUE(block4->GetReference(0, &actual_ref));
   EXPECT_EQ(expected_ref, actual_ref);
 
@@ -537,7 +556,7 @@ TEST_F(BlockTest, RemoveDataWithSelfReference) {
   BlockGraph::Block* block1 = image_.AddBlock(
       BlockGraph::CODE_BLOCK, 50, "Block1");
 
-  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize, block1, 0);
+  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize, block1, 0, 0);
   // Insert a self-reference to the block.
   block1->SetReference(40, ref);
 
@@ -707,7 +726,7 @@ TEST(BlockGraphTest, RemoveBlock) {
   EXPECT_EQ(4u, image.blocks().size());
 
   // Add a reference from block 1 to block 2.
-  BlockGraph::Reference ref12(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  BlockGraph::Reference ref12(BlockGraph::PC_RELATIVE_REF, 1, b2, 9, 9);
   ASSERT_TRUE(b1->SetReference(0, ref12));
   EXPECT_THAT(b1->references(), testing::Contains(std::make_pair(0, ref12)));
   EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b1, 0)));
@@ -764,7 +783,7 @@ TEST(BlockGraphTest, References) {
   ASSERT_FALSE(dummy.IsValid());
 
   // Add the first reference, and test that we get a backref.
-  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9, 9);
   ASSERT_TRUE(r_pc.IsValid());
   ASSERT_EQ(BlockGraph::PC_RELATIVE_REF, r_pc.type());
   ASSERT_EQ(1, r_pc.size());
@@ -777,11 +796,11 @@ TEST(BlockGraphTest, References) {
   ASSERT_TRUE(b1->SetReference(1, r_pc));
   EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b1, 1)));
 
-  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 4, b2, 13);
+  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 4, b2, 13, 13);
   ASSERT_FALSE(b1->SetReference(1, r_abs));
-  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 4, b2, 17);
+  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 4, b2, 17, 17);
   ASSERT_TRUE(b1->SetReference(5, r_rel));
-  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23);
+  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23, 23);
   ASSERT_TRUE(b1->SetReference(9, r_file));
 
   // Test that the reference map is as expected.
@@ -813,13 +832,13 @@ TEST(BlockGraphTest, References) {
   // Test that the references transferred as expected.
   expected.clear();
   expected.insert(std::make_pair(0,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, b3, 9)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, b3, 9, 9)));
   expected.insert(std::make_pair(1,
-      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, b3, 13)));
+      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, b3, 13, 13)));
   expected.insert(std::make_pair(5,
-      BlockGraph::Reference(BlockGraph::RELATIVE_REF, 4, b3, 17)));
+      BlockGraph::Reference(BlockGraph::RELATIVE_REF, 4, b3, 17, 17)));
   expected.insert(std::make_pair(9,
-      BlockGraph::Reference(BlockGraph::FILE_OFFSET_REF, 4, b3, 23)));
+      BlockGraph::Reference(BlockGraph::FILE_OFFSET_REF, 4, b3, 23, 23)));
   EXPECT_THAT(b1->references(), testing::ContainerEq(expected));
 
   // Remove the references.
@@ -917,17 +936,17 @@ TEST(BlockGraphTest, Serialization) {
   ASSERT_TRUE(b3->references().empty());
   ASSERT_TRUE(b3->referrers().empty());
 
-  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9);
+  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9, 9);
   ASSERT_TRUE(b1->SetReference(0, r_pc));
   ASSERT_TRUE(b1->SetReference(1, r_pc));
 
-  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 4, b2, 13);
+  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 4, b2, 13, 13);
   ASSERT_FALSE(b1->SetReference(1, r_abs));
 
-  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 4, b2, 17);
+  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 4, b2, 17, 17);
   ASSERT_TRUE(b1->SetReference(5, r_rel));
 
-  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23);
+  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23, 23);
   ASSERT_TRUE(b1->SetReference(9, r_file));
 
   ByteVector byte_vector;
@@ -1187,15 +1206,15 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
                                BlockGraph::Block::SourceRange(addr3, 0x10));
 
   ASSERT_TRUE(block1->SetReference(0x1,
-      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block2, 0x0)));
+      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block2, 0x0, 0x0)));
   ASSERT_TRUE(block1->SetReference(0x6,
-      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block3, 0x0)));
+      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block3, 0x0, 0x0)));
   ASSERT_TRUE(block2->SetReference(0x1,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, block1, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, block1, 0x4, 0x4)));
   ASSERT_TRUE(block2->SetReference(0x6,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block3, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block3, 0x4, 0x4)));
   ASSERT_TRUE(block3->SetReference(0x1,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block2, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block2, 0x4, 0x4)));
 
   BlockGraph::Block* merged = address_space.MergeIntersectingBlocks(
       BlockGraph::AddressSpace::Range(RelativeAddress(0x1014), 0x30));
@@ -1228,18 +1247,19 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
 
   BlockGraph::Block::ReferenceMap expected_refs;
   expected_refs.insert(std::make_pair(0x1,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, block1, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, block1, 0x4, 0x4)));
   expected_refs.insert(std::make_pair(0x6,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, merged, 0x24)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, merged, 0x24,
+                            0x24)));
   expected_refs.insert(std::make_pair(0x21,
-      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, merged, 0x4)));
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, merged, 0x4, 0x4)));
   EXPECT_THAT(merged->references(), testing::ContainerEq(expected_refs));
 
   expected_refs.clear();
   expected_refs.insert(std::make_pair(0x1,
-      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x0)));
+      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x0, 0x0)));
   expected_refs.insert(std::make_pair(0x6,
-      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x20)));
+      BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x20, 0x20)));
   EXPECT_THAT(block1->references(), testing::ContainerEq(expected_refs));
 
   // We expect that the block graph and the address space have the same size,

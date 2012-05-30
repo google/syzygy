@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ bool AddDebugDirectoryEntryTransform::Apply(
     nt_headers.SetReference(BlockGraph::RELATIVE_REF,
                             debug_dir_info.VirtualAddress,
                             debug_dir_block,
-                            0);
+                            0, 0);
 
     added_ = true;
   }
