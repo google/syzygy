@@ -14,7 +14,7 @@
 //
 // Tests for basic block disassembler.
 
-#include "syzygy/block_graph/basic_block_disassembler.h"
+#include "syzygy/pe/basic_block_decomposer.h"
 
 #include <vector>
 
@@ -44,14 +44,17 @@ int bb_ext_func2() {
 
 }  // extern "C"
 
-namespace block_graph {
+namespace pe {
 
+namespace {
+
+using block_graph::BasicBlock;
+using block_graph::BlockGraph;
+using block_graph::Successor;
 using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
 using testing::ElementsAre;
-
-namespace {
 
 // This class provides a DSL for describing a basic block.
 //
@@ -206,11 +209,11 @@ MATCHER_P(DescribedBy, expected, "") {
 
 }  // namespace
 
-class BasicBlockDisassemblerTest : public testing::Test {
+class BasicBlockDecomposerTest : public testing::Test {
  public:
   virtual void SetUp() {
     on_instruction_ =
-        base::Bind(&BasicBlockDisassemblerTest::OnInstruction,
+        base::Bind(&BasicBlockDecomposerTest::OnInstruction,
                    base::Unretained(this));
   }
 
@@ -225,10 +228,10 @@ class BasicBlockDisassemblerTest : public testing::Test {
     return reinterpret_cast<const uint8*>(ptr);
   }
 
-  static int BlockCount(const BasicBlockDisassembler::BBAddressSpace& range_map,
+  static int BlockCount(const BasicBlockDecomposer::BBAddressSpace& range_map,
                         BlockGraph::BlockType type) {
     int block_count = 0;
-    BasicBlockDisassembler::RangeMapConstIter iter(range_map.begin());
+    BasicBlockDecomposer::RangeMapConstIter iter(range_map.begin());
     for (; iter != range_map.end(); ++iter) {
       if (iter->second.type() == type) {
         ++block_count;
@@ -241,13 +244,13 @@ class BasicBlockDisassemblerTest : public testing::Test {
   Disassembler::InstructionCallback on_instruction_;
 };
 
-TEST_F(BasicBlockDisassemblerTest, BasicCoverage) {
+TEST_F(BasicBlockDecomposerTest, BasicCoverage) {
   Disassembler::AddressSet labels;
   labels.insert(AddressOf(&bb_assembly_func));
 
   EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(9);
 
-  BasicBlockDisassembler disasm(
+  BasicBlockDecomposer disasm(
       PointerTo(&bb_assembly_func),
       PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
       AddressOf(&bb_assembly_func),
@@ -257,7 +260,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverage) {
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
-  const BasicBlockDisassembler::BBAddressSpace& basic_blocks(
+  const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
       disasm.GetBasicBlockRanges());
   EXPECT_EQ(5, basic_blocks.size());
 
@@ -268,7 +271,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverage) {
   EXPECT_EQ(1, BlockCount(basic_blocks, BlockGraph::BASIC_DATA_BLOCK));
 }
 
-TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
+TEST_F(BasicBlockDecomposerTest, BasicCoverageWithLabels) {
   Disassembler::AddressSet labels;
   labels.insert(AddressOf(&bb_assembly_func));
 
@@ -282,7 +285,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   // We should hit 10 instructions.
   EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(10);
 
-  BasicBlockDisassembler disasm(
+  BasicBlockDecomposer disasm(
       PointerTo(&bb_assembly_func),
       PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
       AddressOf(&bb_assembly_func),
@@ -292,7 +295,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   Disassembler::WalkResult result = disasm.Walk();
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
-  const BasicBlockDisassembler::BBAddressSpace& basic_blocks(
+  const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
       disasm.GetBasicBlockRanges());
   EXPECT_EQ(6, basic_blocks.size());
 
@@ -304,7 +307,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   // and the external label.
   bool block_starts_at_internal_label = false;
   bool block_starts_at_external_label = false;
-  BasicBlockDisassembler::RangeMapConstIter iter(basic_blocks.begin());
+  BasicBlockDecomposer::RangeMapConstIter iter(basic_blocks.begin());
   for (; iter != basic_blocks.end(); ++iter) {
     if (iter->first.start() == AddressOf(&bb_internal_label)) {
       block_starts_at_internal_label = true;
@@ -316,7 +319,7 @@ TEST_F(BasicBlockDisassemblerTest, BasicCoverageWithLabels) {
   EXPECT_TRUE(block_starts_at_external_label);
 }
 
-TEST_F(BasicBlockDisassemblerTest, Instructions) {
+TEST_F(BasicBlockDecomposerTest, Instructions) {
   // Setup all of the label.
   Disassembler::AddressSet labels;
   labels.insert(AddressOf(&bb_assembly_func));
@@ -324,7 +327,7 @@ TEST_F(BasicBlockDisassemblerTest, Instructions) {
   labels.insert(AddressOf(&bb_external_label));
 
   // Disassemble to basic blocks.
-  BasicBlockDisassembler disasm(
+  BasicBlockDecomposer disasm(
       PointerTo(&bb_assembly_func),
       PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
       AddressOf(&bb_assembly_func),
@@ -335,7 +338,7 @@ TEST_F(BasicBlockDisassemblerTest, Instructions) {
   EXPECT_EQ(Disassembler::kWalkSuccess, result);
 
   // Validate that we have the expected number and types of blocks
-  const BasicBlockDisassembler::BBAddressSpace& basic_blocks(
+  const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
       disasm.GetBasicBlockRanges());
   EXPECT_EQ(6, basic_blocks.size());
   EXPECT_EQ(6, BlockCount(basic_blocks, BlockGraph::BASIC_CODE_BLOCK));

@@ -68,6 +68,8 @@
       'target_name': 'pe_lib',
       'type': 'static_library',
       'sources': [
+        'basic_block_decomposer.cc',
+        'basic_block_decomposer.h',
         'dia_browser.cc',
         'dia_browser.h',
         'dia_util.cc',
@@ -148,6 +150,8 @@
       'target_name': 'pe_unittests',
       'type': 'executable',
       'sources': [
+        'basic_block_decomposer_unittest.cc',
+        'basic_block_test_code.asm',
         'decompose_app_unittest.cc',
         'decomposer_unittest.cc',
         'dia_browser_unittest.cc',
