@@ -240,7 +240,7 @@ class PEOrdererTest : public testing::PELibUnitTest {
     dos_header.SetReference(BlockGraph::RELATIVE_REF,
                             dos_header->e_lfanew,
                             nt_headers_block,
-                            0);
+                            0, 0);
     ASSERT_TRUE(UpdateDosHeader(dos_header_block_));
 
     TypedBlock<IMAGE_NT_HEADERS> nt_headers;
@@ -259,7 +259,7 @@ class PEOrdererTest : public testing::PELibUnitTest {
     data_dir.SetReference(BlockGraph::RELATIVE_REF,
                           data_dir->VirtualAddress,
                           reloc_block,
-                          0);
+                          0, 0);
     data_dir->Size = reloc_block->size();
 
     // Set up the resources data directory.
@@ -270,7 +270,7 @@ class PEOrdererTest : public testing::PELibUnitTest {
     data_dir.SetReference(BlockGraph::RELATIVE_REF,
                           data_dir->VirtualAddress,
                           rsrc_block,
-                          0);
+                          0, 0);
     data_dir->Size = rsrc_block->size();
 
     ASSERT_TRUE(IsValidDosHeaderBlock(dos_header_block_));

@@ -180,7 +180,7 @@ bool EntryThunkTransform::InstrumentCodeBlock(
     BlockGraph::Reference new_ref(ref.type(),
                                   ref.size(),
                                   thunk_block,
-                                  0);
+                                  0, 0);
     referrer.first->SetReference(referrer.second, new_ref);
   }
 
@@ -286,16 +286,21 @@ bool EntryThunkTransform::PopulateDllMainEntryPoints(
     return false;
   }
 
-  // Get the TLS initializer callbacks.
-  TypedBlock<DWORD> callbacks;
-  if (!tls_dir.Dereference(tls_dir->AddressOfCallBacks, &callbacks)) {
+  // Get the TLS initializer callbacks. We manually lookup the reference
+  // because it is an indirect reference, which can't be dereferenced by
+  // TypedBlock.
+  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
+  ReferenceMap::const_iterator callback_ref =
+      tls_dir.block()->references().find(
+          tls_dir.OffsetOf(tls_dir->AddressOfCallBacks));
+  if (callback_ref == tls_dir.block()->references().end()) {
     LOG(ERROR) << "Failed to locate TLS initializers.";
     return false;
   }
 
   // Note each of the thunks.
-  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
-  const ReferenceMap& ref_map = callbacks.block()->references();
+  const BlockGraph::Block* callbacks_block = callback_ref->second.referenced();
+  const ReferenceMap& ref_map = callbacks_block->references();
   ReferenceMap::const_iterator iter = ref_map.begin();
   for (; iter != ref_map.end(); ++iter) {
     const BlockGraph::Reference& ref = iter->second;
@@ -320,6 +325,7 @@ bool EntryThunkTransform::InitializeThunk(
   if (!thunk.SetReference(BlockGraph::ABSOLUTE_REF,
                           thunk->func_addr,
                           destination.referenced(),
+                          destination.offset(),
                           destination.offset())) {
     return false;
   }
@@ -327,6 +333,7 @@ bool EntryThunkTransform::InitializeThunk(
   if (!thunk.SetReference(BlockGraph::ABSOLUTE_REF,
                           thunk->hook_addr,
                           import_entry.referenced(),
+                          import_entry.offset(),
                           import_entry.offset())) {
     return false;
   }

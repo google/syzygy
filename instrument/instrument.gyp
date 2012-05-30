@@ -53,6 +53,7 @@
       'run_as': {
         'action': [
           '$(TargetPath)',
+          '--overwrite',
           '--input-dll=$(OutDir)\\test_dll.dll',
           '--output-dll=$(OutDir)\\instrumented_test_dll.dll',
         ]

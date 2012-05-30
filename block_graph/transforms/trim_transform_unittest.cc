@@ -46,12 +46,12 @@ TEST(TrimTransformTest, BlocksAreTrimmed) {
   BlockGraph::Block* b5 = bg.AddBlock(BlockGraph::CODE_BLOCK, 10, "b5");
   b3->ResizeData(10);
   b3->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
-                                            kPtrSize, b1, 0));
+                                            kPtrSize, b1, 0, 0));
   b4->ResizeData(kPtrSize);
   b4->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
-                                            kPtrSize, b1, 0));
+                                            kPtrSize, b1, 0, 0));
   b5->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
-                                            kPtrSize, b1, 0));
+                                            kPtrSize, b1, 0, 0));
 
   TrimTransform trim_transform;
   EXPECT_TRUE(ApplyTransform(&trim_transform, &bg, b1));

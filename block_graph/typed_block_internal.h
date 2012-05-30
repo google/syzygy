@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,9 @@ inline const uint8* GetBlockData(ConstBlockPtr block) {
 // all while observing const correctness.
 //
 // Care should be taken *not* to follow pointers in these objects directly, but
-// rather to follow them using the 'Dereference' member function.
+// rather to follow them using the 'Dereference' member function. Dereference is
+// only meant for following direct references, and will refuse to follow
+// indirect references (where base != offset).
 //
 // This class is not meant to be used directly, but rather acts as a back-end
 // for TypedBlock and ConstTypedBlock, both of which fully specify BlockPtr
@@ -180,7 +182,8 @@ class TypedBlockImpl {
     return GetReference(offset, sizeof(TIn), NULL);
   }
 
-  // Follows a reference at a given @p offset in the enclosed structure.
+  // Follows a direct reference at a given @p offset in the enclosed structure.
+  // Will not follow an indirect reference.
   //
   // @tparam ReboundChildType another type of ChildType, but with another
   //     encapsulated object type.
@@ -195,8 +198,8 @@ class TypedBlockImpl {
     return DereferenceImpl<T2>(offset_ + offset, 0, sizeof(T2), typed_block);
   }
 
-  // Follows a reference at a given @p offset in the enclosed structure with
-  // a given size.
+  // Follows a direct reference at a given @p offset in the enclosed structure
+  // with a given size. Will not follow an indirect reference.
   //
   // @tparam ReboundChildType another type of ChildType, but with another
   //     encapsulated object type.
@@ -216,7 +219,9 @@ class TypedBlockImpl {
     return DereferenceImpl<T2>(offset_ + offset, 0, object_size, typed_block);
   }
 
-  // Dereferences a value in the enclosed structure.
+  // Dereferences a value in the enclosed structure. The dereference will not
+  // be successful if there is no direct reference at the offset implied by
+  // @p value.
   //
   // @tparam ReboundChildType another type of ChildType, but with another
   //     encapsulated object type.
@@ -234,7 +239,9 @@ class TypedBlockImpl {
     return DereferenceImpl<T2>(offset, sizeof(TIn), sizeof(T2), typed_block);
   }
 
-  // Dereferences a value in the enclosed structure.
+  // Dereferences a value in the enclosed structure. The dereference will not
+  // be successful if there is no direct reference at the offset implied by
+  // @p value.
   //
   // @tparam ReboundChildType another type of ChildType, but with another
   //     encapsulated object type.
@@ -322,9 +329,9 @@ class TypedBlockImpl {
 
   // Attempts to follow a reference of given @p size at the given @p offset
   // into the block. This only succeeds if their is a reference at the given
-  // offset, it matches the given size, is contained entirely within the
-  // the encapsulated block, and the referenced block is sufficiently large to
-  // represent an object of type T2.
+  // offset, it is direct, it matches the given size, is contained entirely
+  // within the the encapsulated block, and the referenced block is sufficiently
+  // large to represent an object of type T2.
   //
   // @tparam T2 the type encapsulated by @p typed_block.
   // @param offset the offset into the block.
@@ -347,6 +354,10 @@ class TypedBlockImpl {
     // Ensure that there is a valid reference at the pointer offset.
     Reference ref;
     if (!GetReference(offset, reference_size, &ref))
+      return false;
+
+    // Bail if the reference is indirect.
+    if (!ref.IsDirect())
       return false;
 
     return typed_block->InitWithSize(ref.offset(), object_size,

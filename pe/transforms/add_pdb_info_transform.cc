@@ -87,11 +87,11 @@ bool AddPdbInfoTransform::Apply(
     debug_dir.SetReference(BlockGraph::RELATIVE_REF,
                            debug_dir->AddressOfRawData,
                            cv_info_pdb_block,
-                           0);
+                           0, 0);
     debug_dir.SetReference(BlockGraph::FILE_OFFSET_REF,
                            debug_dir->PointerToRawData,
                            cv_info_pdb_block,
-                           0);
+                           0, 0);
 
     // The type is set by the AddDebugDirectoryEntry transform, and everything
     // else is zero initialized. We only need to set the size so that the

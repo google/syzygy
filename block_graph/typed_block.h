@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,13 +119,17 @@ template <typename T> class TypedBlock
   // @param reference_offset the offset of the reference to construct.
   // @param reference_size the size of the reference to construct.
   // @param referenced_block the block to be referenced.
-  // @param referenced_offset the offset into the block to be referenced.
+  // @param referenced_offset the offset into the block to be directly
+  //     referenced.
+  // @param referenced_base the offset into the block of the item that is
+  //     actually being referenced.
   // @returns true iff this inserts a new reference.
   bool SetReference(ReferenceType reference_type,
                     Offset reference_offset,
                     size_t reference_size,
                     Block* referenced_block,
-                    Offset referenced_offset);
+                    Offset referenced_offset,
+                    Offset referenced_base);
 
   // Sets a reference from one value to a given block/offset. The size of the
   // reference will be sizeof(TFrom).
@@ -134,19 +138,21 @@ template <typename T> class TypedBlock
   // @param reference_type the type of reference to create.
   // @param value_from the value which will hold the created reference.
   // @param block_to the block to be referenced.
-  // @param offset_to the offset of @p block_to to be referenced.
+  // @param offset_to the offset of @p block_to to be referenced directly.
+  // @param base_to the offset of @p block_to to be actually referenced.
   template <typename TFrom>
   bool SetReference(ReferenceType reference_type,
                     const TFrom& value_from,
                     Block* block_to,
-                    Offset offset_to) {
+                    Offset offset_to,
+                    Offset base_to) {
     DCHECK(block_to != NULL);
     return SetReference(reference_type, OffsetOf(value_from), sizeof(TFrom),
-        block_to, offset_to);
+        block_to, offset_to, base_to);
   }
 
-  // Sets a reference from one value to another typed block. The size of the
-  // reference will be sizeof(TFrom).
+  // Sets a direct reference (where base = offset) from one value to another
+  // typed block. The size of the reference will be sizeof(TFrom).
   //
   // @tparam TFrom the type of @p value_from.
   // @tparam T2 the type encapsulated by @p typed_block_to.
@@ -161,11 +167,13 @@ template <typename T> class TypedBlock
                     const TFrom& value_from,
                     const TypedBlock<T2>& typed_block_to) {
     return SetReference(reference_type, OffsetOf(value_from), sizeof(TFrom),
-        const_cast<Block*>(typed_block_to.block()), typed_block_to.offset());
+        const_cast<Block*>(typed_block_to.block()), typed_block_to.offset(),
+                           typed_block_to.offset());
   }
 
-  // Sets a reference from one value to another. The size of the reference will
-  // be sizeof(TFrom).
+  // Sets a direct reference (where base = offset) from one value to another.
+  // The size of the reference will be sizeof(TFrom). The offset and base are
+  // inferred from the position of @p value_to in @p typed_block_to.
   //
   // @tparam TFrom the type of @p value_from.
   // @tparam T2 the type encapsulated by @p typed_block_to.
@@ -180,9 +188,9 @@ template <typename T> class TypedBlock
                     const TFrom& value_from,
                     const TypedBlock<T2>& typed_block_to,
                     const TTo& value_to) {
+    Offset offset_to = typed_block_to.OffsetOf(value_to);
     return SetReference(reference_type, OffsetOf(value_from), sizeof(TFrom),
-        const_cast<Block*>(typed_block_to.block()),
-        typed_block_to.OffsetOf(value_to));
+        const_cast<Block*>(typed_block_to.block()), offset_to, offset_to);
   }
 
  private:
@@ -226,10 +234,12 @@ bool TypedBlock<T>::SetReference(ReferenceType reference_type,
                                  Offset reference_offset,
                                  Size reference_size,
                                  Block* referenced_block,
-                                 Offset referenced_offset) {
+                                 Offset referenced_offset,
+                                 Offset referenced_base) {
   DCHECK(referenced_block != NULL);
-  BlockGraph::Reference reference(
-      reference_type, reference_size, referenced_block, referenced_offset);
+  BlockGraph::Reference reference(reference_type, reference_size,
+                                  referenced_block, referenced_offset,
+                                  referenced_base);
   return block_->SetReference(reference_offset, reference);
 }
 

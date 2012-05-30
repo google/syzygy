@@ -111,35 +111,35 @@ class EntryThunkTransformTest : public testing::Test {
     foo_->SetReference(5, BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
                                                 sizeof(AbsoluteAddress),
                                                 bar_,
-                                                0));
+                                                0, 0));
     // foo() is self-referential.
     foo_->SetReference(10, BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
                                                  sizeof(AbsoluteAddress),
                                                  foo_,
-                                                 0));
+                                                 0, 0));
 
     // bar() refers to foo() five bytes in.
     bar_->SetReference(5, BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
                                                 sizeof(AbsoluteAddress),
                                                 foo_,
-                                                5));
+                                                5, 5));
 
     // The array refers to the start of both foo() and bar().
     array_->SetReference(0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                                   sizeof(AbsoluteAddress),
                                                   foo_,
-                                                  0));
+                                                  0, 0));
 
     array_->SetReference(4, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                                   sizeof(AbsoluteAddress),
                                                   bar_,
-                                                  0));
+                                                  0, 0));
 
     // And the array refers 5 bytes into foo().
     array_->SetReference(8, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                                   sizeof(AbsoluteAddress),
                                                   foo_,
-                                                  5));
+                                                  5, 5));
 
     num_sections_pre_transform_ = bg_.sections().size();
 
@@ -255,7 +255,7 @@ class EntryThunkTransformTest : public testing::Test {
             BlockGraph::RELATIVE_REF,
             nt_headers->OptionalHeader.AddressOfEntryPoint,
             entrypoint,
-            0));
+            0, 0));
 
     // Set or clear the DLL flag.
     if (image_type == DLL_IMAGE)
@@ -285,7 +285,7 @@ class EntryThunkTransformTest : public testing::Test {
     ASSERT_TRUE(nt_headers.SetReference(BlockGraph::ABSOLUTE_REF,
                                         data_dir.VirtualAddress,
                                         tls_dir_block,
-                                        0));
+                                        0, 0));
     data_dir.Size = tls_dir_block->size();
 
     TypedBlock<IMAGE_TLS_DIRECTORY> tls_dir;
@@ -299,13 +299,13 @@ class EntryThunkTransformTest : public testing::Test {
     ASSERT_TRUE(tls_dir.SetReference(BlockGraph::ABSOLUTE_REF,
                                      tls_dir->AddressOfCallBacks,
                                      tls_callbacks,
-                                     0));
+                                     0, 0));
 
     ASSERT_TRUE(tls_callbacks->SetReference(0,
                     BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                           sizeof(AbsoluteAddress),
                                           entrypoint,
-                                          0)));
+                                          0, 0)));
 
     // Set or clear the DLL flag.
     if (image_type == DLL_IMAGE)

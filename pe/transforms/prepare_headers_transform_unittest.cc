@@ -69,7 +69,7 @@ class PrepareHeadersTransformTest : public testing::Test {
     dos_header.SetReference(BlockGraph::RELATIVE_REF,
                             dos_header->e_lfanew,
                             nt_headers_block_,
-                            0);
+                            0, 0);
 
     TypedBlock<IMAGE_NT_HEADERS> nt_headers;
     ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));

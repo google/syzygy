@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 #include "syzygy/pe/pe_utils.h"
 
-#include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 namespace pe {
 
@@ -95,7 +95,7 @@ void PEUtilsTest::CreateDosHeaderBlock() {
         BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                               sizeof(RelativeAddress),
                               nt_headers_block_,
-                              0));
+                              0, 0));
   }
 }
 
@@ -144,7 +144,7 @@ TEST_F(PEUtilsTest, IsValidDosHeaderBlockInvalidNTHeaderRefFails) {
       BlockGraph::Reference(BlockGraph::RELATIVE_REF,
                             sizeof(RelativeAddress),
                             nt_headers_block_,
-                            10));
+                            10, 10));
   EXPECT_FALSE(IsValidDosHeaderBlock(dos_header_block_));
 }
 
