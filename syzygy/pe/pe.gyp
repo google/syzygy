@@ -115,27 +115,6 @@
         '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
         '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
-      'rules': [
-        {
-          'rule_name': 'Assemble',
-          'msvs_cygwin_shell': 0,
-          'extension': 'asm',
-          'inputs': [],
-          'outputs': [
-            '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
-          ],
-          'action': [
-            'ml.exe',
-            '/safeseh',
-            '/Zi',
-            '/Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
-            '/c', '<(RULE_INPUT_PATH)',
-          ],
-          'process_outputs_as_sources': 0,
-          'message': 'Assembling <(RULE_INPUT_PATH) to '
-                     '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
-        },
-      ],
       'all_dependent_settings': {
         'msvs_settings': {
           'VCLinkerTool': {
@@ -221,27 +200,6 @@
           ],
         },
       },
-      'rules': [
-        {
-          'rule_name': 'Assemble',
-          'msvs_cygwin_shell': 0,
-          'extension': 'asm',
-          'inputs': [],
-          'outputs': [
-            '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj',
-          ],
-          'action': [
-            'ml',
-            '-safeseh',
-            '-Zi',
-            '-Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
-            '-c', '<(RULE_INPUT_PATH)',
-          ],
-          'process_outputs_as_sources': 0,
-          'message': 'Assembling <(RULE_INPUT_PATH) to '
-                     '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
-        },
-      ],
       # We more or less want this to always be a release-style executable
       # to facilitate instrumentation.
       # We have to do this per configuration, as base.gypi specifies
