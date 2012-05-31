@@ -2,14 +2,14 @@
 <!--
 Copyright 2012 Google Inc.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, Version 2.0 (the 'License');
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
      http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
+distributed under the License is distributed on an 'AS IS' BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
@@ -19,9 +19,9 @@ limitations under the License.
   <?include 'version.wxi' ?>
 
   <?define ProductVersion=
-      "$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)" ?>
-  <?define RTMProductVersion="0.1.0.0" ?>
-  <?define UpgradeCode="{B869815E-511D-4de0-8EDA-C4EC959F3613}" ?>
+      '$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)' ?>
+  <?define RTMProductVersion='0.1.0.0' ?>
+  <?define UpgradeCode='{B869815E-511D-4de0-8EDA-C4EC959F3613}' ?>
 
   <Product Id='*'
       Name='SyzyProf'
@@ -38,35 +38,35 @@ limitations under the License.
       Boilerplate code to make sure we upgrade previous versions,
       and to prevent downgrades for good measure.
     -->
-    <Upgrade Id="$(var.UpgradeCode)">
-      <UpgradeVersion Minimum="$(var.ProductVersion)"
-                      IncludeMinimum="no"
-                      OnlyDetect="yes"
-                      Language="1033"
-                      Property="NEWPRODUCTFOUND" />
-      <UpgradeVersion Minimum="$(var.RTMProductVersion)"
-                      IncludeMinimum="yes"
-                      Maximum="$(var.ProductVersion)"
-                      IncludeMaximum="no"
-                      Language="1033"
-                      Property="UPGRADEFOUND" />
+    <Upgrade Id='$(var.UpgradeCode)'>
+      <UpgradeVersion Minimum='$(var.ProductVersion)'
+                      IncludeMinimum='no'
+                      OnlyDetect='yes'
+                      Language='1033'
+                      Property='NEWPRODUCTFOUND' />
+      <UpgradeVersion Minimum='$(var.RTMProductVersion)'
+                      IncludeMinimum='yes'
+                      Maximum='$(var.ProductVersion)'
+                      IncludeMaximum='no'
+                      Language='1033'
+                      Property='UPGRADEFOUND' />
     </Upgrade>
 
     <!--
       Prevent downgrading.
     -->
-    <CustomAction Id="PreventDowngrading"
-        Error="Newer version already installed." />
+    <CustomAction Id='PreventDowngrading'
+        Error='Newer version already installed.' />
 
     <InstallExecuteSequence>
-      <Custom Action="PreventDowngrading"
-              After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
-      <RemoveExistingProducts After="InstallFinalize" />
+      <Custom Action='PreventDowngrading'
+              After='FindRelatedProducts'>NEWPRODUCTFOUND</Custom>
+      <RemoveExistingProducts After='InstallFinalize' />
     </InstallExecuteSequence>
 
     <InstallUISequence>
-      <Custom Action="PreventDowngrading"
-              After="FindRelatedProducts">NEWPRODUCTFOUND</Custom>
+      <Custom Action='PreventDowngrading'
+              After='FindRelatedProducts'>NEWPRODUCTFOUND</Custom>
     </InstallUISequence>
 
     <!--
@@ -81,7 +81,7 @@ limitations under the License.
     <!--
       Specify our license file.
     -->
-    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id='WixUILicenseRtf' Value='license.rtf' />
 
     <Media Id='1' Cabinet='product.cab' EmbedCab='yes' />
 
@@ -89,18 +89,42 @@ limitations under the License.
       Declare our Add/Remove Programs icon.
     -->
     <!-- TODO(siggi): fixme!
-    <Icon Id="icon.ico" SourceFile="..\viewer\SyzyProf.ico" />
+    <Icon Id='icon.ico' SourceFile='..\viewer\SyzyProf.ico' />
     -->
-    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    <Property Id='ARPPRODUCTICON' Value='icon.ico' />
 
-    <!-- Define our program files foler -->
+    <!-- Define our program files folder. -->
     <Directory Id='TARGETDIR' Name='SourceDir'>
       <Directory Id='ProgramFilesFolder'>
         <Directory Id='ProgramFilesGoogleFolder' Name='Google'>
           <Directory Id='SYZYPROFAPPLICATIONDIRECTORY' Name='SyzyProf' />
         </Directory>
       </Directory>
+      <Directory Id='ProgramMenuFolder'>
+        <Directory Id='SyzyProfProgramsFolder' Name='SyzyProf'/>
+      </Directory>
     </Directory>
+
+    <DirectoryRef Id='SyzyProfProgramsFolder'>
+      <!-- Component for our program menu shortcut. -->
+      <Component Id='SyzyProfShortcutComponent'
+          Guid='{8EE1A6DF-CFE0-41ef-949B-BC5DA14BA00B}'>
+        <Shortcut Id='SyzyProfStartMenuShortcut'
+                  Name='SyzyProf shell'
+                  Description='SyzyProf shell'
+                  Target='[System64Folder]cmd.exe'
+                  Arguments='/k "[!SyzyProfBatFile]"'
+                  WorkingDirectory='SYZYPROFAPPLICATIONDIRECTORY'/>
+        <RemoveFolder Id='SyzyProfProgramsFolder' On='uninstall'/>
+        <RegistryValue
+            Root='HKCU'
+            Key='Software\Google\SyzyProf'
+            Name='installed'
+            Type='integer'
+            Value='1'
+            KeyPath='yes'/>
+      </Component>
+    </DirectoryRef>
 
     <DirectoryRef Id='SYZYPROFAPPLICATIONDIRECTORY'>
       <!-- Component for call_trace_service.exe. -->
@@ -139,6 +163,24 @@ limitations under the License.
             Source='$(var.BINARY_DIR)\profile_client.dll' />
       </Component>
 
+      <!-- Component for SyzyProf.bat. -->
+      <Component Id='SyzyProfBatComponent'
+          Guid='{EF8F42B4-8139-40a5-8F51-E274C74EBBE1}'>
+        <File Id='SyzyProfBatFile'
+            Name='SyzyProf.bat'
+            DiskId='1'
+            Source='SyzyProf.bat' />
+      </Component>
+
+      <!-- Component for ReadMe.txt. -->
+      <Component Id='ReadMeTxtComponent'
+          Guid='{799C0408-9959-4274-AABD-DDF3FFBEE917}'>
+        <File Id='ReadMeTxtFile'
+            Name='ReadMe.txt'
+            DiskId='1'
+            Source='ReadMe.txt' />
+      </Component>
+
       <Component Id='DbgHelpDllComponent'
           Guid='{D8DD0740-DFF2-4f96-A9F0-5BB3D7E9C568}'>
         <File Id='DbgHelpDllFile'
@@ -157,10 +199,13 @@ limitations under the License.
 
     <!-- Just one feature. No muss no fuss, no UI. -->
     <Feature Id='SyzyProf' Title='Syzygy Profiler' Level='1'>
+      <ComponentRef Id='SyzyProfShortcutComponent' />
       <ComponentRef Id='CallTraceServiceExeComponent' />
       <ComponentRef Id='InstrumentExeComponent' />
       <ComponentRef Id='GrinderExeComponent' />
       <ComponentRef Id='ProfileClientDllComponent' />
+      <ComponentRef Id='SyzyProfBatComponent' />
+      <ComponentRef Id='ReadMeTxtComponent' />
       <ComponentRef Id='DbgHelpDllComponent' />
       <ComponentRef Id='SymSrvDllComponent' />
     </Feature>
