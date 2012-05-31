@@ -34,6 +34,8 @@
       },
       'sources': [
         'license.rtf',
+        'ReadMe.txt',
+        'SyzyProf.bat',
         'syzyprof.wxs',
         'version.wxi.template',
       ],
