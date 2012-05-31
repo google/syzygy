@@ -68,6 +68,7 @@
     {
       'target_name': 'core_unittests',
       'type': 'executable',
+      'includes': ['../build/masm.gypi'],
       'sources': [
         'address_unittest.cc',
         'address_space_unittest.cc',
