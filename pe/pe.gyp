@@ -67,6 +67,7 @@
     {
       'target_name': 'pe_lib',
       'type': 'static_library',
+      'includes': ['../build/masm.gypi'],
       'sources': [
         'basic_block_decomposer.cc',
         'basic_block_decomposer.h',
@@ -149,6 +150,7 @@
     {
       'target_name': 'pe_unittests',
       'type': 'executable',
+      'includes': ['../build/masm.gypi'],
       'sources': [
         'basic_block_decomposer_unittest.cc',
         'basic_block_test_code.asm',
@@ -188,6 +190,7 @@
     {
       'target_name': 'test_dll',
       'type': 'loadable_module',
+      'includes': ['../build/masm.gypi'],
       'sources': [
         'test_dll.cc',
         'test_dll.def',
