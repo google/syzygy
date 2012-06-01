@@ -899,70 +899,25 @@ TEST(BlockGraphTest, Labels) {
 
 TEST(BlockGraphTest, Serialization) {
   BlockGraph image;
+  ASSERT_TRUE(testing::GenerateTestBlockGraph(&image));
 
-  BlockGraph::Section* s1 = image.AddSection("s1", 0);
-  BlockGraph::Section* s2 = image.AddSection("s2", 0);
-  ASSERT_TRUE(s1 != NULL);
-  ASSERT_TRUE(s2 != NULL);
+  // First we want to make sure that we can save a block-graph with the block
+  // data and read it back correctly.
+  BlockGraph image_with_data;
+  ASSERT_TRUE(testing::SerializeRoundTripTest(image,
+                                              BlockGraph::DEFAULT,
+                                              &image_with_data));
 
-  BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
-  BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
-  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
-  ASSERT_TRUE(b1 != NULL);
-  ASSERT_TRUE(b2 != NULL);
-  ASSERT_TRUE(b3 != NULL);
+  // Now we want to make sure that we can't save a block-graph without the data
+  // of its blocks and read it back correctly.
+  BlockGraph image_without_data;
+  ASSERT_TRUE(testing::SerializeRoundTripTest(image,
+                                              BlockGraph::OMIT_DATA,
+                                              &image_without_data));
 
-  b1->set_section(s1->id());
-  b2->set_section(s1->id());
-  b3->set_section(s2->id());
-  ASSERT_EQ(b1->section(), s1->id());
-  ASSERT_EQ(b2->section(), s1->id());
-  ASSERT_EQ(b3->section(), s2->id());
-
-  b1->SetLabel(0x04, "label1", BlockGraph::CODE_LABEL);
-  b2->SetLabel(0x08, "label2", BlockGraph::DATA_LABEL);
-  b3->SetLabel(0x0C, "label3", BlockGraph::CODE_LABEL);
-  b3->SetLabel(0x10, "label4", BlockGraph::DATA_LABEL);
-
-  uint8* b1_data = b1->AllocateData(b1->size());
-  for (size_t i = 0; i < b1->size(); ++i) {
-    b1_data[i] = 0;
-  }
-
-  ASSERT_TRUE(b1->references().empty());
-  ASSERT_TRUE(b1->referrers().empty());
-  ASSERT_TRUE(b2->references().empty());
-  ASSERT_TRUE(b2->referrers().empty());
-  ASSERT_TRUE(b3->references().empty());
-  ASSERT_TRUE(b3->referrers().empty());
-
-  BlockGraph::Reference r_pc(BlockGraph::PC_RELATIVE_REF, 1, b2, 9, 9);
-  ASSERT_TRUE(b1->SetReference(0, r_pc));
-  ASSERT_TRUE(b1->SetReference(1, r_pc));
-
-  BlockGraph::Reference r_abs(BlockGraph::ABSOLUTE_REF, 4, b2, 13, 13);
-  ASSERT_FALSE(b1->SetReference(1, r_abs));
-
-  BlockGraph::Reference r_rel(BlockGraph::RELATIVE_REF, 4, b2, 17, 17);
-  ASSERT_TRUE(b1->SetReference(5, r_rel));
-
-  BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23, 23);
-  ASSERT_TRUE(b1->SetReference(9, r_file));
-
-  ByteVector byte_vector;
-  ScopedOutStreamPtr out_stream(
-      CreateByteOutStream(std::back_inserter(byte_vector)));
-  NativeBinaryOutArchive out_archive(out_stream.get());
-  ASSERT_TRUE(out_archive.Save(image));
-  ASSERT_TRUE(out_archive.Flush());
-
-  BlockGraph image_copy;
-  ScopedInStreamPtr in_stream(
-      CreateByteInStream(byte_vector.begin(), byte_vector.end()));
-  NativeBinaryInArchive in_archive(in_stream.get());
-  ASSERT_TRUE(in_archive.Load(&image_copy));
-
-  EXPECT_TRUE(testing::BlockGraphsEqual(image, image_copy));
+  // The graph should be the same as the original one except for the data.
+  ASSERT_FALSE(testing::BlockGraphsEqual(image, image_without_data,
+                                         BlockGraph::DEFAULT));
 }
 
 TEST(BlockGraphAddressSpaceTest, AddBlock) {

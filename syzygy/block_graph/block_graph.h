@@ -54,6 +54,7 @@ class BlockGraph {
   typedef size_t Size;
   typedef ptrdiff_t Offset;
   typedef uint32 BlockAttributes;
+  typedef uint32 SerializationAttributes;
 
   // The BlockGraph maintains a list of sections, and each block belongs
   // to one of them. This is the set of information we keep regarding them.
@@ -93,6 +94,12 @@ class BlockGraph {
     // Indicates that the block was built by a compiler whose precise behaviour
     // and semantics we are unfamiliar with.
     BUILT_BY_UNSUPPORTED_COMPILER = (1 << 6),
+  };
+
+  // Attributes that can be passed to the save function.
+  enum SerializationAttributesEnum {
+    DEFAULT = 0,
+    OMIT_DATA = (1 << 0),
   };
 
   enum BlockType {
@@ -230,17 +237,29 @@ class BlockGraph {
 
   // Serialization is supported at the level of an entire BlockGraph, but not
   // individual blocks. This is because blocks have pointers to other blocks
-  // and it is impossible to serialize one without serializing all others.
-  bool Save(OutArchive* out_archive) const;
+  // and it is impossible to serialize one without serializing all others. The
+  // attributes allow to not serialize some information of the blocks.
+  bool Save(OutArchive* out_archive, SerializationAttributes attributes) const;
   // Note that after a 'Load', it is possible to have 'data_size > 0' and
   // 'data == NULL'. This indicates that the block was pointing to data that
   // it did not own. To make the graph fully consistent, the data can be
-  // reattached after the graph is loaded.
-  bool Load(InArchive* in_archive);
+  // reattached after the graph is loaded. The @p attributes will contain the
+  // flags that have been used to save this block-graph.
+  bool Load(InArchive* in_archive, SerializationAttributes* attributes);
 
  private:
   // Removes a block by the iterator to it. The iterator must be valid.
   bool RemoveBlockByIterator(BlockMap::iterator it);
+
+  // Serialization of the attributes of the block-graph.
+  bool SaveAttributes(OutArchive* out_archive) const;
+  bool LoadAttributes(InArchive* in_archive, size_t* num_blocks);
+
+  // Serialization of the blocks references.
+  bool SaveBlocksRefs(OutArchive* out_archive) const;
+  bool LoadBlocksRefs(const std::vector<BlockGraph::Block*>& order,
+                      size_t num_blocks,
+                      InArchive* in_archive);
 
   // All sections we contain.
   SectionMap sections_;
@@ -677,6 +696,10 @@ class BlockGraph::Block {
   // Serializes block data.
   bool SaveData(OutArchive* out_archive) const;
   bool LoadData(InArchive* in_archive);
+
+  // Serialize the data size.
+  bool SaveDataSize(OutArchive* out_archive) const;
+  bool LoadDataSize(InArchive* in_archive);
 
   // Saves referrers and references.
   bool SaveRefs(OutArchive* out_archive) const;
