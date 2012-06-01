@@ -85,34 +85,84 @@ bool IsConditionalBranch(const Instruction& inst) {
 }  // namespace
 
 BasicBlockReference::BasicBlockReference()
-    : reference_type_(BlockGraph::RELATIVE_REF),
+    : referred_type_(REFERRED_TYPE_UNKNOWN),
+      reference_type_(BlockGraph::RELATIVE_REF),
       size_(0),
-      basic_block_(NULL),
-      offset_(0) {
+      referred_(NULL),
+      offset_(-1) {
+}
+
+BasicBlockReference::BasicBlockReference(ReferenceType type,
+                                         Size size,
+                                         Block* block,
+                                         Offset offset)
+    : referred_type_(REFERRED_TYPE_BLOCK),
+      reference_type_(type),
+      size_(size),
+      referred_(block),
+      offset_(offset) {
+  DCHECK(type > REFERRED_TYPE_UNKNOWN && type < MAX_REFERRED_TYPE);
+  DCHECK(size == 1 || size == 2 || size == 4);
+  DCHECK(block != NULL);
+  DCHECK(offset >= 0);
 }
 
 BasicBlockReference::BasicBlockReference(ReferenceType type,
                                          Size size,
                                          BasicBlock* basic_block,
                                          Offset offset)
-    : reference_type_(type),
+    : referred_type_(REFERRED_TYPE_BASIC_BLOCK),
+      reference_type_(type),
       size_(size),
-      basic_block_(basic_block),
+      referred_(basic_block),
       offset_(offset) {
-  DCHECK(basic_block_ != NULL);
+  DCHECK(type > REFERRED_TYPE_UNKNOWN && type < MAX_REFERRED_TYPE);
+  DCHECK(size == 1 || size == 2 || size == 4);
+  DCHECK(basic_block != NULL);
+  DCHECK(offset >= 0);
 }
 
 BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
-    : reference_type_(other.reference_type_),
+    : referred_type_(other.referred_type_),
+      reference_type_(other.reference_type_),
       size_(other.size_),
-      basic_block_(other.basic_block_),
+      referred_(other.referred_),
       offset_(other.offset_) {
 }
 
+BasicBlockReferrer::BasicBlockReferrer()
+    : referrer_type_(REFERRER_TYPE_UNKNOWN),
+      referrer_(NULL),
+      offset_(-1) {
+}
+
+BasicBlockReferrer::BasicBlockReferrer(BasicBlock* basic_block, Offset offset)
+    : referrer_type_(REFERRER_TYPE_BASIC_BLOCK),
+      referrer_(basic_block),
+      offset_(offset) {
+  DCHECK(basic_block != NULL);
+  DCHECK(offset >= 0);
+}
+
+BasicBlockReferrer::BasicBlockReferrer(Block* block, Offset offset)
+    : referrer_type_(REFERRER_TYPE_BLOCK),
+      referrer_(block),
+      offset_(offset) {
+  DCHECK(block != NULL);
+  DCHECK(offset >= 0);
+}
+
+BasicBlockReferrer::BasicBlockReferrer(const BasicBlockReferrer& other)
+    : referrer_type_(other.referrer_type_),
+      referrer_(other.referrer_),
+      offset_(other.offset_) {
+}
+
+
 Instruction::Instruction(const Instruction::Representation& value,
-                         const Instruction::SourceRange& source_range)
-    : representation_(value),
-      source_range_(source_range) {
+                         Offset offset,
+                         Size size)
+    : representation_(value), offset_(offset), size_(size) {
 }
 
 bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
@@ -317,29 +367,30 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
   }
 }
 
-Successor::Successor()
-    : condition_(kInvalidCondition),
-      branch_target_(NULL) {
+Successor::Successor() : condition_(kInvalidCondition), offset_(-1), size_(0) {
 }
 
 Successor::Successor(Successor::Condition type,
                      Successor::AbsoluteAddress target,
-                     const Successor::SourceRange& source_range)
+                     Offset offset,
+                     Size size)
     : condition_(type),
-      branch_target_(NULL),
       original_target_address_(target),
-      source_range_(source_range) {
+      offset_(offset),
+      size_(size) {
   DCHECK(condition_ != kInvalidCondition);
 }
 
 Successor::Successor(Successor::Condition type,
-                     BasicBlock* target,
-                     const Successor::SourceRange& source_range)
+                     const BasicBlockReference& target,
+                     Offset offset,
+                     Size size)
     : condition_(type),
       branch_target_(target),
-      source_range_(source_range) {
+      offset_(offset),
+      size_(size) {
   DCHECK(condition_ != kInvalidCondition);
-  DCHECK(branch_target_ != NULL);
+  DCHECK(branch_target_.IsValid());
 }
 
 Successor::Condition Successor::InvertCondition(
@@ -385,17 +436,19 @@ Successor::Condition Successor::InvertCondition(
 }
 
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
+                       const base::StringPiece& name,
                        BasicBlock::BlockType type,
-                       const uint8* data,
+                       BasicBlock::Offset offset,
                        BasicBlock::Size size,
-                       const base::StringPiece& name)
+                       const uint8* data )
     : id_(id),
+      name_(name.begin(), name.end()),
       type_(type),
-      data_(data),
+      offset_(offset),
       size_(size),
-      name_(name.begin(), name.end()) {
+      data_(data) {
+  DCHECK((offset < 0 && size == 0) || (offset >= 0 && size > 0));
   DCHECK(data != NULL);
-  DCHECK(size > 0);
 }
 
 bool BasicBlock::IsValid() const {

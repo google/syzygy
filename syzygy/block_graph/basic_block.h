@@ -39,8 +39,28 @@ class BasicBlockReference {
   typedef BlockGraph::Offset Offset;
   typedef BlockGraph::Size Size;
 
+  enum ReferredType {
+    REFERRED_TYPE_UNKNOWN,
+    REFERRED_TYPE_BLOCK,
+    REFERRED_TYPE_BASIC_BLOCK,
+
+    // This enum value should always be last.
+    MAX_REFERRED_TYPE,
+  };
+
   // Default constructor; needed for storage in stl containers.
   BasicBlockReference();
+
+  // Create a reference to a block.
+  //
+  // @param type type of reference.
+  // @param size size of reference.
+  // @param basic_block the referenced basic block.
+  // @param offset offset of reference into basic_block.
+  BasicBlockReference(ReferenceType type,
+                      Size size,
+                      Block* basic_block,
+                      Offset offset);
 
   // Create a reference to a basic-block.
   //
@@ -59,16 +79,26 @@ class BasicBlockReference {
   // Accessors.
   // @{
 
+  ReferredType referred_type() const { return referred_type_; }
+
   // Retrieves the type of block (macro or basic) that it referenced.
   ReferenceType reference_type() const { return reference_type_; }
 
   // Retrieves the size of the reference.
   Size size() const { return size_; }
 
-  // Retrieves the referenced basic-block. This should only be called on
-  // a referenced to a macro block.
-  BasicBlock* basic_block() const {
-    return basic_block_;
+  // Retrieves the referenced block or NULL if this reference does not
+  // refer to a block.
+  Block* block() {
+    return static_cast<Block*>(
+        referred_type_ == REFERRED_TYPE_BLOCK ? referred_ : NULL);
+  }
+
+  // Retrieves the referenced basic-block or NULL if this reference does not
+  // refer to a basic block.
+  BasicBlock* basic_block() {
+    return static_cast<BasicBlock*>(
+        referred_type_ == REFERRED_TYPE_BASIC_BLOCK ? referred_ : NULL);
   }
 
   // Retrieves the offset into the referenced macro- or basic-block.
@@ -78,18 +108,22 @@ class BasicBlockReference {
 
   // Compare this BasicBlockReferences with another for equality.
   bool operator==(const BasicBlockReference& other) const {
-    return (reference_type_ == other.reference_type_ &&
+    return (referred_type_ == other.referred_type_ &&
+            reference_type_ == other.reference_type_ &&
             size_ == other.size_ &&
-            basic_block_ == other.basic_block_ &&
+            referred_ == other.referred_ &&
             offset_ == other.offset_);
   }
 
   // Test if this reference has been initialized to refer to something.
   bool IsValid() const {
-    return size_ != 0 && basic_block_ != NULL;
+    return size_ != 0 && referred_ != NULL;
   }
 
  protected:
+  // Denotes whether this reference is to a block or basic block.
+  ReferredType referred_type_;
+
   // The type of this reference.
   ReferenceType reference_type_;
 
@@ -98,10 +132,92 @@ class BasicBlockReference {
   // references can be 1, 2 or 4 bytes wide, which affects their range.
   Size size_;
 
-  // The basic-block that is referenced.
-  BasicBlock* basic_block_;
+  // The block or basic-block that is referenced.
+  void* referred_;
 
-  // The offset into the referenced basic-block.
+  // The offset into the referenced block or basic-block.
+  Offset offset_;
+};
+
+// This class denotes a block or basic block have a reference to a basic
+// block. Instances of this only make sense in the context of a give
+// basic block.
+class BasicBlockReferrer {
+ public:
+  typedef BlockGraph::Block Block;
+  typedef BlockGraph::Offset Offset;
+  typedef BlockGraph::Size Size;
+
+  enum ReferrerType {
+    REFERRER_TYPE_UNKNOWN,
+    REFERRER_TYPE_BLOCK,
+    REFERRER_TYPE_BASIC_BLOCK,
+
+    // This enum value should always be last.
+    MAX_REFERRER_TYPE,
+  };
+
+  // Create an empty (invalid) BasicBlockReferrer.
+  BasicBlockReferrer();
+
+  // Create a BasicBlockReferrer which tracks that an external block makes
+  // reference to this basic block.
+  // @param block The block which refers to this basic block.
+  // @param offset The offset in the block at which the reference occurs.
+  BasicBlockReferrer(Block* block, Offset offset);
+
+  // Create a BasicBlockReferrer which tracks that another basic block makes
+  // reference to this basic block.
+  // @param basic_block The basic block which refers to this basic block.
+  // @param offset The offset in the basic block at which the reference occurs.
+  BasicBlockReferrer(BasicBlock* basic_block, Offset offset);
+
+  // Create a copy of the @p other BasicBlockReferrer.
+  // @param other A basic block referrer record to be copy constructed.
+  BasicBlockReferrer(const BasicBlockReferrer& other);
+
+  // Returns the type of referrer this object describes.
+  ReferrerType referrer_type() const { return referrer_type_; }
+
+  // Returns the block which refers to this basic block, or NULL.
+  Block* block() {
+    return static_cast<Block*>(
+        referrer_type_ == REFERRER_TYPE_BLOCK ? referrer_ : NULL);
+  }
+
+  // Returns the basic block which refers to this basic block, or NULL.
+  BasicBlock* basic_block() {
+    return static_cast<BasicBlock*>(
+      referrer_type_ == REFERRER_TYPE_BASIC_BLOCK ? referrer_ : NULL);
+  }
+
+  // Returns the offset in the referrer at which the reference to
+  // the basic block occurs.
+  Offset offset() const { return offset_; }
+
+  // Returns whether or not this is a valid basic block referrer object.
+  bool IsValid() const {
+    return referrer_type_ != REFERRER_TYPE_UNKNOWN &&
+        referrer_ != NULL &&
+        offset_ >= 0;
+  }
+
+  // Equality comparator.
+  bool operator==(const BasicBlockReferrer& other) const {
+    return referrer_type_ == other.referrer_type_ &&
+        referrer_ == other.referrer_ &&
+        offset_ == other.offset_;
+  }
+
+ protected:
+  // Flags whether the referrer is a block or basic block.
+  ReferrerType referrer_type_;
+
+  // The referring block or basic block.
+  void* referrer_;
+
+  // The source offset in the block or basic block where the reference
+  // occurs.
   Offset offset_;
 };
 
@@ -110,19 +226,25 @@ class Instruction {
  public:
   typedef BlockGraph::Size Size;
   typedef BlockGraph::Offset Offset;
-  typedef core::AddressRange<core::AbsoluteAddress, Size> SourceRange;
   typedef _DInst Representation;
+  typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
-  Instruction(const Representation& value, const SourceRange& source_range);
+  // Initialize an Instruction instance.
+  // @param value The low-level object representing this instruction.
+  // @param offset The offset in the original block at which the instruction
+  //     was located.
+  // @param size The length (in bytes) that the instruction occupied in the
+  //     original block.
+  Instruction(const Representation& value, Offset offset, Size size);
 
   // Accessors.
   // @{
-  const BasicBlockReference& reference() const { return reference_; }
-  BasicBlockReference& reference() { return reference_; }
-  const SourceRange& source_range() const { return source_range_; }
-  SourceRange& source_range() { return source_range_; }
   const Representation& representation() const { return representation_; }
   Representation& representation() { return representation_; }
+  const BasicBlockReferenceMap& references() const { return references_; }
+  BasicBlockReferenceMap& references() { return references_; }
+  Offset offset() const { return offset_; }
+  Size size() const { return size_; }
   /// @}
 
   // Helper function to invert a conditional branching opcode.
@@ -132,12 +254,15 @@ class Instruction {
   // The internal representation of this instruction.
   Representation representation_;
 
-  // Captures the reference (if any) that this instruction makes to another
+  // Captures the references (if any) that this instruction makes to another
   // basic block or macro block.
-  BasicBlockReference reference_;
+  BasicBlockReferenceMap references_;
 
-  // The byte range in the original image where this instruction originates.
-  SourceRange source_range_;
+  // The byte range in the original block where this instruction originates.
+  // @{
+  Offset offset_;
+  Size size_;
+  // @}
 };
 
 // This class represents a control flow transfer to a basic block, which
@@ -146,8 +271,8 @@ class Instruction {
 class Successor {
  public:
   typedef core::AbsoluteAddress AbsoluteAddress;
+  typedef BlockGraph::Offset Offset;
   typedef BlockGraph::Size Size;
-  typedef core::AddressRange<core::AbsoluteAddress, Size> SourceRange;
 
   // The op-code of an binary instruction.
   typedef uint16 OpCode;
@@ -223,33 +348,42 @@ class Successor {
   //
   // @param condition the branching condition for this successor.
   // @param target the absolute address to which this successor refers.
-  // @param source_range the original byte range for the instructions
-  //     comprising this successor branch.
+  // @param offset the offset in the original block at which the instruction(s)
+  //     for this successor are located.
+  // @param size the length (in bytes) that the instructions for this successor
+  //     occupies in the original block.
   Successor(Condition condition,
             AbsoluteAddress target,
-            const SourceRange& source_range);
+            Offset offset,
+            Size size);
 
-  // Creates a successor that resolves to a known basic block.
+  // Creates a successor that resolves to a known block or basic block.
   //
   // @param condition the branching condition for this successor.
   // @param target the basic block to which this successor refers.
-  // @param source_range the original byte range for the instructions
-  //     comprising this successor branch.
+  // @param offset the offset in the original block at which the instruction(s)
+  //     for this successor are located.
+  // @param size the length (in bytes) that the instructions for this successor
+  //     occupies in the original block.
   Successor(Condition condition,
-            BasicBlock* target,
-            const SourceRange& source_range);
+            const BasicBlockReference& target_,
+            Offset offset,
+            Size size);
   // @}
 
   // Accessors.
   // @{
   // The type of branch represented by this successor.
   Condition condition() const { return condition_; }
-  const SourceRange& source_range() const { return source_range_; }
-  BasicBlock* branch_target() const { return branch_target_; }
-  void set_branch_target(BasicBlock* target) { branch_target_ = target; }
+  const BasicBlockReference& branch_target() const { return branch_target_; }
+  void set_branch_target(const BasicBlockReference& target) {
+    branch_target_ = target;
+  }
   AbsoluteAddress original_target_address() const {
     return original_target_address_;
   }
+  Offset offset() const { return offset_; }
+  Size size() const { return size_; }
   // @}
 
   // Get the branch type that corresponds to the given @p op_code.
@@ -282,11 +416,13 @@ class Successor {
   AbsoluteAddress original_target_address_;
 
   // The basic block of instructions that are the target of this successor.
-  BasicBlock* branch_target_;
+  BasicBlockReference branch_target_;
 
-  // The address range in the original binary which corresponds to the
-  // instructions originally comprising this successor flow.
-  SourceRange source_range_;
+  // The byte range in the original block where this instruction originates.
+  // @{
+  Offset offset_;
+  Size size_;
+  // @}
 };
 
 // An indivisible portion of code or data within a code block.
@@ -303,6 +439,7 @@ class BasicBlock {
   typedef BlockGraph::Size Size;
   typedef std::list<Successor> Successors;
   typedef BlockGraph::Offset Offset;
+  typedef core::AddressRange<core::AbsoluteAddress, Size> SourceRange;
 
   // The collection of references this basic block makes to other basic
   // blocks, keyed by the references offset relative to the start of this
@@ -329,23 +466,37 @@ class BasicBlock {
   typedef BlockGraph::Block::ReferrerSet ReferrerSet;
   // @}
 
+  // Initialize a basic block.
+  // @param id A unique identifier for this basic block.
+  // @param name A textual identifier for this basic block.
+  // @param type The disposition (code, data, padding) of this basic block.
+  // @param offset The offset (in the original block) where this basic block
+  //     originated. Set to -1 to indicate that this is a programmatically
+  //     generated basic block.
+  // @param size The number of bytes this basic block occupied in the original
+  //     block. Set to 0 if this is programmatically generated basic block.
+  // @param
   BasicBlock(BlockId id,
+             const base::StringPiece& name,
              BlockType type,
-             const uint8* data,
+             Offset offset,
              Size size,
-             const base::StringPiece& name);
+             const uint8* data);
 
   // Accessors.
   // @{
   BlockId id() const { return id_; }
   BlockType type() const { return type_; }
   const std::string& name() const { return name_; }
-  const uint8* data() const { return data_; }
+  Offset offset() const { return offset_; }
   Size size() const { return size_; }
+  const uint8* data() const { return data_; }
   const Instructions& instructions() const { return instructions_; }
   Instructions& instructions() { return instructions_; }
   const Successors& successors() const { return successors_; }
   Successors& successors() { return successors_; }
+  BasicBlockReferenceMap& references() { return references_; }
+  BasicBlockReferrerSet& referrers() { return referrers_; }
   // @}
 
   // Returns true if this basic block represents a valid block (i.e., it
@@ -354,41 +505,35 @@ class BasicBlock {
   bool IsValid() const;
 
  protected:
-  // The ID for this block.
+  // The ID for this basic block.
   BlockId id_;
-
-  // The type of this basic block.
-  BlockType type_;
 
   // The name of this basic block.
   std::string name_;
 
-  // The data in the original block that corresponds with this basic block
-  // will be referenced here.
-  const uint8* data_;
+  // The type of this basic block.
+  BlockType type_;
+
+  // The offset in the original block that corresponds with the start of this
+  // basic block. A negative offset denotes that there is no corresponding
+  // offset in the original block.
+  Offset offset_;
 
   // The number of bytes of data in the original block that corresponds with
   // this basic block.
   Size size_;
 
-  // The alignment of the basic block in the original block will be stored here.
-  Size alignment_;
+  // The data in the original block that corresponds with this basic block
+  // will be referenced here.
+  const uint8* data_;
 
   // The map of references (if any) that this block makes to other basic blocks
   // from the original block.
-  BasicBlockReferenceMap bb_references_;
+  BasicBlockReferenceMap references_;
 
   // The set of basic blocks referenes (from other basic blocks in same
   // original block) to this basic block.
-  BasicBlockReferrerSet bb_referrers_;
-
-  // The map of references that this basic block makes to (macro) blocks, other
-  // than the block from which this basic block originated.
-  ReferenceMap exernal_referenes_;
-
-  // The set of (macro) blocks, other than the block from which this basic
-  // block origiated, that refer to this basic block.
-  ReferrerSet external_referrers_;
+  BasicBlockReferrerSet referrers_;
 
   // The set of non-branching instructions comprising this basic-block.
   // Any branching at the end of the basic-block is represented using the
