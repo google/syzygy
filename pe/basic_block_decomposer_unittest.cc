@@ -125,7 +125,7 @@ struct BasicBlockDesc {
     successors.push_back(
         Successor(Successor::OpCodeToCondition(opcode),
                   target,
-                  Successor::SourceRange()));
+                  -1, 0));
     EXPECT_TRUE(successors.size() <= 2);
     return *this;
   }

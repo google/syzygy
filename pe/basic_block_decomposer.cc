@@ -59,7 +59,7 @@ BasicBlockDecomposer::BasicBlockDecomposer(
 Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
     AbsoluteAddress addr, const _DInst& inst) {
   current_instructions_.push_back(
-      Instruction(inst, Instruction::SourceRange(addr, inst.size)));
+      Instruction(inst, addr - code_addr_, inst.size));
   return kDirectiveContinue;
 }
 
@@ -97,13 +97,15 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     current_successors_.push_front(
         Successor(inverse_condition,
                   AbsoluteAddress(addr + inst.size),
-                  Successor::SourceRange()));
+                  -1, 0));
   }
 
   // Move the branch instruction out of the instruction list and translate
   // it into the successor list.
-  Successor::SourceRange source_range(addr, inst.size);
-  current_successors_.push_front(Successor(condition, dest, source_range));
+  Successor::Offset instr_offset = current_instructions_.back().offset();
+  Successor::Size instr_size = current_instructions_.back().size();
+  current_successors_.push_front(
+      Successor(condition, dest, instr_offset, instr_size));
   current_instructions_.pop_back();
 
   // If dest is inside the current macro block, then add it to the list of
@@ -221,29 +223,36 @@ bool BasicBlockDecomposer::ValidateBasicBlockCoverage() const {
   return valid;
 }
 
-bool BasicBlockDecomposer::InsertBlockRange(
-    AbsoluteAddress addr, size_t size, BlockGraph::BlockType type) {
-  Range range(addr, size);
-  bool success = true;
+
+bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
+                                            size_t size,
+                                            BlockGraph::BlockType type) {
   DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
          current_instructions_.empty());
   DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
          current_successors_.empty());
+
+  BasicBlock::Offset offset = addr - code_addr_;
   BasicBlock new_basic_block(next_block_id_++,
+                             containing_block_name_,
                              type,
-                             code_ + (addr - code_addr_),
+                             offset,
                              size,
-                             containing_block_name_);
+                             code_ + offset);
   if (type == BlockGraph::BASIC_CODE_BLOCK) {
     new_basic_block.instructions().swap(current_instructions_);
     new_basic_block.successors().swap(current_successors_);
   }
-  if (!basic_block_address_space_.Insert(range, new_basic_block)) {
+
+  if (!basic_block_address_space_.Insert(Range(addr, size),
+                                         new_basic_block)) {
     LOG(DFATAL) << "Attempted to insert overlapping basic block.";
-    success = false;
+    return false;
   }
-  return success;
+
+  return true;
 }
+
 
 // TODO(robertshield): This currently marks every non-walked block as data. It
 // could be smarter and mark some as padding blocks as well. Fix this.
@@ -258,8 +267,7 @@ bool BasicBlockDecomposer::FillInGapBlocks() {
 
   // Add an initial interstitial if needed.
   if (curr_range->first.start() > code_addr_) {
-    size_t interstitial_size =
-        curr_range->first.start() - code_addr_;
+    size_t interstitial_size = curr_range->first.start() - code_addr_;
     if (!InsertBlockRange(code_addr_,
                           interstitial_size,
                           BlockGraph::BASIC_DATA_BLOCK)) {
@@ -339,27 +347,30 @@ bool BasicBlockDecomposer::SplitBlockOnJumpTargets() {
       // Setup the first "half" of the basic block.
       DCHECK(current_instructions_.size() == 0);
       DCHECK(current_successors_.size() == 0);
+      size_t bytes_moved = 0;
       while (!original_bb.instructions().empty() &&
-             original_bb.instructions().front().source_range().start() <
-                 *jump_target_iter) {
+             bytes_moved < left_split_size) {
+        bytes_moved += original_bb.instructions().front().size();
         current_instructions_.push_back(original_bb.instructions().front());
         original_bb.instructions().pop_front();
       }
 
+      DCHECK_EQ(left_split_size, bytes_moved);
+
 #ifndef NDEBUG
       if (!original_bb.instructions().empty()) {
         DCHECK_EQ(*jump_target_iter,
-                  original_bb.instructions().front().source_range().start());
+                  code_addr_ + original_bb.instructions().front().offset());
       } else {
         DCHECK(!original_bb.successors().empty());
         DCHECK_EQ(*jump_target_iter,
-                  original_bb.successors().front().source_range().start());
+                  code_addr_ + original_bb.successors().front().offset());
       }
 #endif
       current_successors_.push_back(
           Successor(Successor::kConditionTrue,
                     *jump_target_iter,
-                    Successor::SourceRange()));
+                    -1, 0));
 
       if (!InsertBlockRange(containing_range.start(),
                             left_split_size,

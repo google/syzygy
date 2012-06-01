@@ -31,11 +31,11 @@ class BasicBlockTest: public testing::Test {
   // Initializes this fixture.
   //
   // Note that each test invocation is its own unique instance of this
-  // fixture, so each will have it's on fresh instance of basic_block_
+  // fixture, so each will have its own fresh instance of basic_block_
   // and macro_block_ to play with.
   BasicBlockTest()
-      : basic_block_(
-            kBlockId, kBasicBlockType, kBlockData, kBlockSize, kBlockName),
+      : basic_block_(kBlockId, kBlockName, kBasicBlockType,
+                     kBlockOffset, kBlockSize, kBlockData),
         macro_block_(kBlockId, kMacroBlockType, kBlockSize, kBlockName) {
   }
 
@@ -89,14 +89,12 @@ class BasicBlockTest: public testing::Test {
     ret.opcode = I_RET;
     ret.size = 1;
     META_SET_ISC(&ret, ISC_INTEGER);
-    return Instruction(ret, Instruction::SourceRange());
+    return Instruction(ret, -1, 0);
   }
 
   // Helper function to create a successor branch instruction.
   Successor CreateBranch(uint16 opcode, core::AbsoluteAddress target) {
-    return Successor(Successor::OpCodeToCondition(opcode),
-                     target,
-                     Successor::SourceRange());
+    return Successor(Successor::OpCodeToCondition(opcode), target, -1, 0);
   }
 
   // Some handy constants we'll use throughout the tests.
@@ -105,7 +103,8 @@ class BasicBlockTest: public testing::Test {
   static const BasicBlock::BlockType kBasicBlockType;
   static const BasicBlock::BlockType kMacroBlockType;
   static const char kBlockName[];
-  static const size_t kBlockSize;
+  static const BasicBlock::Offset kBlockOffset;
+  static const BasicBlock::Size kBlockSize;
   static const uint8 kBlockData[];
   static const size_t kRefSize;
   static const AbsoluteAddress kAddr1;
@@ -123,7 +122,8 @@ const BasicBlock::BlockType BasicBlockTest::kBasicBlockType =
 const BasicBlock::BlockType BasicBlockTest::kMacroBlockType =
     BlockGraph::CODE_BLOCK;
 const char BasicBlockTest::kBlockName[] = "test block";
-const size_t BasicBlockTest::kBlockSize = 32;
+const BasicBlock::Offset BasicBlockTest::kBlockOffset = 0;
+const BasicBlock::Size BasicBlockTest::kBlockSize = 32;
 const uint8 BasicBlockTest::kBlockData[BasicBlockTest::kBlockSize] = {};
 const size_t BasicBlockTest::kRefSize = BlockGraph::Reference::kMaximumSize;
 const AbsoluteAddress BasicBlockTest::kAddr1(0xAABBCCDD);
@@ -135,6 +135,8 @@ TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_STREQ(kBlockName, basic_block_.name().c_str());
   EXPECT_EQ(&kBlockData[0], basic_block_.data());
   EXPECT_EQ(kBlockSize, basic_block_.size());
+  EXPECT_TRUE(basic_block_.references().empty());
+  EXPECT_TRUE(basic_block_.referrers().empty());
 }
 
 TEST_F(BasicBlockTest, EmptyBasicBlockIsNotValid) {
@@ -172,19 +174,98 @@ TEST_F(BasicBlockTest, InvalidBasicBlockReference) {
   // Validate that a ref that points to nothing is not valid and doesn't claim
   // to point to anything.
   BasicBlockReference ref;
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN, ref.referred_type());
+  EXPECT_EQ(NULL, ref.block());
+  EXPECT_EQ(NULL, ref.basic_block());
+  EXPECT_EQ(-1, ref.offset());
+  EXPECT_EQ(0, ref.size());
   EXPECT_FALSE(ref.IsValid());
 }
 
 TEST_F(BasicBlockTest, BasicBlockReference) {
-  BasicBlockReference ref(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 0);
+  static const BasicBlockReference::Offset kOffset = 48;
 
+  BasicBlockReference ref(BlockGraph::RELATIVE_REF,
+                          kRefSize,
+                          &basic_block_,
+                          kOffset);
+
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
+            ref.referred_type());
+  EXPECT_EQ(NULL, ref.block());
+  EXPECT_EQ(&basic_block_, ref.basic_block());
+  EXPECT_EQ(kRefSize, ref.size());
+  EXPECT_EQ(kOffset, ref.offset());
+  EXPECT_TRUE(ref.IsValid());
+}
+
+TEST_F(BasicBlockTest, BlockReference) {
+  static const BasicBlockReference::Offset kOffset = 48;
+
+  BasicBlockReference ref(BlockGraph::RELATIVE_REF,
+                          kRefSize,
+                          &macro_block_,
+                          kOffset);
+
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref.referred_type());
+  EXPECT_EQ(NULL, ref.basic_block());
+  EXPECT_EQ(&macro_block_, ref.block());
+  EXPECT_EQ(kRefSize, ref.size());
+  EXPECT_EQ(kOffset, ref.offset());
   EXPECT_TRUE(ref.IsValid());
 }
 
 TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
-  BasicBlockReference r1(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 0);
-  BasicBlockReference r2(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 0);
-  BasicBlockReference r3(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4);
+  BasicBlockReference r1(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4);
+  BasicBlockReference r2(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4);
+  BasicBlockReference r3(BlockGraph::RELATIVE_REF, kRefSize, &macro_block_, 8);
+
+  EXPECT_TRUE(r1 == r2);
+  EXPECT_TRUE(r2 == r1);
+  EXPECT_FALSE(r2 == r3);
+  EXPECT_FALSE(r3 == r1);
+}
+
+TEST_F(BasicBlockTest, InvalidBasicBlockReferrer) {
+  // Validate that an empty referrer is not valid.
+  BasicBlockReferrer referrer;
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+            referrer.referrer_type());
+  EXPECT_EQ(NULL, referrer.block());
+  EXPECT_EQ(NULL, referrer.basic_block());
+  EXPECT_EQ(-1, referrer.offset());
+  EXPECT_FALSE(referrer.IsValid());
+}
+
+TEST_F(BasicBlockTest, BasicBlockReferrer) {
+  static const BasicBlockReference::Offset kOffset = 48;
+
+  BasicBlockReferrer referrer(&basic_block_, kOffset);
+
+  EXPECT_EQ(BasicBlockReferrer::REFERRER_TYPE_BASIC_BLOCK,
+            referrer.referrer_type());
+  EXPECT_EQ(NULL, referrer.block());
+  EXPECT_EQ(&basic_block_, referrer.basic_block());
+  EXPECT_EQ(kOffset, referrer.offset());
+  EXPECT_TRUE(referrer.IsValid());
+}
+
+TEST_F(BasicBlockTest, BlockReferrer) {
+  static const BasicBlockReference::Offset kOffset = 48;
+
+  BasicBlockReferrer referrer(&macro_block_, kOffset);
+
+  EXPECT_EQ(BasicBlockReferrer::REFERRER_TYPE_BLOCK, referrer.referrer_type());
+  EXPECT_EQ(NULL, referrer.basic_block());
+  EXPECT_EQ(&macro_block_, referrer.block());
+  EXPECT_EQ(kOffset, referrer.offset());
+  EXPECT_TRUE(referrer.IsValid());
+}
+
+TEST_F(BasicBlockTest, CompareBasicBlockRefererrs) {
+  BasicBlockReferrer r1(&basic_block_, 4);
+  BasicBlockReferrer r2(&basic_block_, 4);
+  BasicBlockReferrer r3(&macro_block_, 8);
 
   EXPECT_TRUE(r1 == r2);
   EXPECT_TRUE(r2 == r1);
@@ -246,45 +327,54 @@ TEST(Successor, DefaultConstructor) {
   Successor s;
   EXPECT_EQ(Successor::kInvalidCondition, s.condition());
   EXPECT_EQ(Successor::AbsoluteAddress(), s.original_target_address());
-  EXPECT_EQ(NULL, s.branch_target());
-  EXPECT_EQ(Successor::SourceRange(), s.source_range());
+  EXPECT_EQ(BasicBlockReference(), s.branch_target());
+  EXPECT_EQ(-1, s.offset());
+  EXPECT_EQ(0, s.size());
 }
 
 TEST(Successor, AddressConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
-  const Successor::AbsoluteAddress kAddr(0x12345678);
-  const Successor::SourceRange kRange(kAddr, 32);
-  Successor s(Successor::kConditionAbove, kAddr, kRange);
+  const AbsoluteAddress kAddr(0x12345678);
+  const Successor::Offset kOffset = 32;
+  const Successor::Size kSize = 5;
+  Successor s(Successor::kConditionAbove, kAddr, kOffset, kSize);
 
   EXPECT_EQ(kCondition, s.condition());
   EXPECT_EQ(kAddr, s.original_target_address());
-  EXPECT_EQ(NULL, s.branch_target());
-  EXPECT_EQ(kRange, s.source_range());
+  EXPECT_EQ(BasicBlockReference(), s.branch_target());
+  EXPECT_EQ(kOffset, s.offset());
+  EXPECT_EQ(kSize, s.size());
 }
 
 TEST(Successor, BasicBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
   const Successor::AbsoluteAddress kAddr(0x12345678);
-  const Successor::SourceRange kRange(kAddr, 32);
-
+  const Successor::Offset kSuccessorOffset = 4;
+  const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
-  BasicBlock bb(1, BlockGraph::BASIC_CODE_BLOCK, data, sizeof(data), "bb");
+  BasicBlock bb(1, "bb", BlockGraph::BASIC_CODE_BLOCK, 16, sizeof(data), data);
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0);
 
-  Successor s(Successor::kConditionAbove, &bb, kRange);
+  Successor s(Successor::kConditionAbove,
+              bb_ref,
+              kSuccessorOffset,
+              kSuccessorSize);
 
   EXPECT_EQ(kCondition, s.condition());
   EXPECT_EQ(Successor::AbsoluteAddress(), s.original_target_address());
-  EXPECT_EQ(&bb, s.branch_target());
-  EXPECT_EQ(kRange, s.source_range());
+  EXPECT_EQ(bb_ref, s.branch_target());
+  EXPECT_EQ(kSuccessorOffset, s.offset());
+  EXPECT_EQ(kSuccessorSize, s.size());
 }
 
 TEST(Successor, SetBranchTarget) {
   uint8 data[20] = {};
-  BasicBlock bb(1, BlockGraph::BASIC_CODE_BLOCK, data, sizeof(data), "bb");
+  BasicBlock bb(1, "bb", BlockGraph::BASIC_CODE_BLOCK, 16, sizeof(data), data);
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0);
 
   Successor s;
-  s.set_branch_target(&bb);
-  EXPECT_EQ(&bb, s.branch_target());
+  s.set_branch_target(bb_ref);
+  EXPECT_EQ(bb_ref, s.branch_target());
 }
 
 TEST(Successor, OpCodeToCondition) {
