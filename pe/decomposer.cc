@@ -448,6 +448,41 @@ bool SetBlockDataPointers(const PEFile& pe_file,
   return true;
 }
 
+// Load the data of the blocks of a block-graph from the PE file the block-graph
+// corresponds to.
+bool LoadBlockDataFromPEFile(const PEFile& pe_file,
+                             const BlockGraph::AddressSpace& address_space,
+                             BlockGraph* block_graph) {
+  DCHECK(block_graph != NULL);
+  // Iterates through the blocks of the block-graph and tries to load their data
+  // from the PE file.
+  BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
+  for (; it != block_graph->blocks().end(); ++it) {
+    BlockGraph::Block& block = it->second;
+    DCHECK(block.data() == NULL);
+    if (block.data_size() > 0) {
+      RelativeAddress address;
+      // Tries to get the address of the block in the address-space. The
+      // block-graph and the address-space should be consistent at this point.
+      if (!address_space.GetAddressOf(&block, &address)) {
+        LOG(ERROR) << "Unable to get the address of a block from the "
+                   << "block-graph in the address-space (id="
+                   << block.id() << ", name=\"" << block.name() << ").";
+        return false;
+      }
+      // Tries to get the data from the PE file.
+      const uint8* data = pe_file.GetImageData(address, block.data_size());
+      if (data == NULL) {
+        LOG(ERROR) << "Unable to get Block data from PEFile.";
+        return false;
+      }
+      block.SetData(data, block.data_size());
+    }
+  }
+
+  return true;
+}
+
 bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
                              ImageLayout* layout) {
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
@@ -2739,10 +2774,17 @@ bool Decomposer::LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
     return false;
   }
 
-  // Read the block-graph from the stream.
-  if (!image->graph()->Load(&in_archive)) {
+  // Read the block-graph from the stream. The data is not present in the
+  // stream, we'll load it later from the PE file.
+  BlockGraph::SerializationAttributes serialisation_attributes;
+  if (!image->graph()->Load(&in_archive, &serialisation_attributes)) {
     LOG(ERROR) << "Unable to load the block-graph from Syzygy block-graph "
                << "stream.";
+    return false;
+  }
+  if (!(serialisation_attributes & BlockGraph::OMIT_DATA)) {
+    LOG(ERROR) << "The data are present in the serialized block-graph then they"
+               << " should not.";
     return false;
   }
 
@@ -2786,7 +2828,7 @@ bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
   // are pointers to data that was not owned by the block graph, but
   // rather by the PEFile.
   PEFile* pe_file = const_cast<PEFile*>(&image_file);
-  if (!SetBlockDataPointers(*pe_file, image->graph())) {
+  if (!LoadBlockDataFromPEFile(*pe_file, *image, image->graph())) {
     // An error has already been logged by the SetBlockDataPointers function,
     // so we don't log another one here.
     return false;
@@ -2858,7 +2900,7 @@ bool SaveDecomposition(const PEFile& pe_file,
     return false;
 
   // Now write out the decomposed image.
-  if (!out_archive->Save(block_graph) ||
+  if (!block_graph.Save(out_archive, BlockGraph::DEFAULT) ||
       !out_archive->Save(image_layout.blocks)) {
     return false;
   }
@@ -2890,7 +2932,8 @@ bool LoadDecomposition(core::InArchive* in_archive,
     return false;
 
   // Now deserialize the actual decomposed image.
-  if (!in_archive->Load(block_graph) ||
+  BlockGraph::SerializationAttributes serialization_attributes;
+  if (!block_graph->Load(in_archive, &serialization_attributes) ||
       !in_archive->Load(&image_layout->blocks)) {
     return false;
   }

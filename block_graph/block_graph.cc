@@ -313,7 +313,42 @@ const BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) const {
   return &it->second;
 }
 
-bool BlockGraph::Save(OutArchive* out_archive) const {
+bool BlockGraph::Save(OutArchive* out_archive,
+                      SerializationAttributes attributes) const {
+  DCHECK(out_archive != NULL);
+
+  // Save the serialization attributes so we can read this block-graph without
+  // having to be told how it was saved.
+  if (!out_archive->Save(attributes))
+    return false;
+
+  if (!SaveAttributes(out_archive))
+    return false;
+
+  // Output the basic block properties first.
+  BlockMap::const_iterator it = blocks_.begin();
+  for (; it != blocks_.end(); ++it) {
+    if (!out_archive->Save(it->first) ||
+        !it->second.SaveProps(out_archive)) {
+      return false;
+    }
+    if (attributes & OMIT_DATA) {
+      if (!it->second.SaveDataSize(out_archive))
+        return false;
+    } else {
+      if (!it->second.SaveData(out_archive))
+        return false;
+    }
+  }
+
+  // Now output the referrers and references.
+  if (!SaveBlocksRefs(out_archive))
+    return false;
+
+  return true;
+}
+
+bool BlockGraph::SaveAttributes(OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
 
   if (!out_archive->Save(next_section_id_) ||
@@ -322,37 +357,31 @@ bool BlockGraph::Save(OutArchive* out_archive) const {
       !out_archive->Save(blocks_.size())) {
     return false;
   }
+  return true;
+}
 
-  // Output the basic block properties first.
+bool BlockGraph::SaveBlocksRefs(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
   BlockMap::const_iterator it = blocks_.begin();
-  for (; it != blocks_.end(); ++it) {
-    if (!out_archive->Save(it->first) ||
-        !it->second.SaveProps(out_archive) ||
-        !it->second.SaveData(out_archive)) {
-      return false;
-    }
-  }
-
-  // Now output the referrers and references.
-  it = blocks_.begin();
   for (; it != blocks_.end(); ++it) {
     if (!it->second.SaveRefs(out_archive))
       return false;
   }
-
   return true;
 }
 
-bool BlockGraph::Load(InArchive* in_archive) {
+bool BlockGraph::Load(InArchive* in_archive,
+                      SerializationAttributes* attributes) {
   DCHECK(in_archive != NULL);
+  DCHECK(attributes != NULL);
+
+  if (!in_archive->Load(attributes))
+    return false;
 
   size_t num_blocks = 0;
-  if (!in_archive->Load(&next_section_id_) ||
-      !in_archive->Load(&sections_) ||
-      !in_archive->Load(&next_block_id_) ||
-      !in_archive->Load(&num_blocks)) {
+  if (!LoadAttributes(in_archive, &num_blocks))
     return false;
-  }
 
   // Load the basic block properties first, and keep track of the
   // order of the blocks. We do this because we can't guarantee that the
@@ -367,19 +396,44 @@ bool BlockGraph::Load(InArchive* in_archive) {
     BlockMap::iterator it = blocks_.insert(std::make_pair(id, block)).first;
     order.push_back(&it->second);
 
-    // Load the data *after* the block is inserted in the map so as not to
-    // cause an extra alloc and copy.
-    if (!it->second.LoadData(in_archive))
-      return false;
+    if (*attributes & OMIT_DATA) {
+      if (!it->second.LoadDataSize(in_archive))
+        return false;
+    } else {
+      if (!it->second.LoadData(in_archive))
+        return false;
+    }
   }
   DCHECK_EQ(num_blocks, order.size());
 
   // Load the references and referrers.
+  if (!LoadBlocksRefs(order, num_blocks, in_archive))
+    return false;
+
+  return true;
+}
+
+bool BlockGraph::LoadAttributes(InArchive* in_archive, size_t* num_blocks) {
+  DCHECK(in_archive != NULL);
+
+  if (!in_archive->Load(&next_section_id_) ||
+      !in_archive->Load(&sections_) ||
+      !in_archive->Load(&next_block_id_) ||
+      !in_archive->Load(num_blocks)) {
+    return false;
+  }
+  return true;
+}
+
+bool BlockGraph::LoadBlocksRefs(const std::vector<BlockGraph::Block*>& order,
+                                size_t num_blocks,
+                                InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+
   for (size_t i = 0; i < num_blocks; ++i) {
     if (!order[i]->LoadRefs(*this, in_archive))
       return false;
   }
-
   return true;
 }
 
@@ -1330,6 +1384,23 @@ bool BlockGraph::Block::LoadData(InArchive* in_archive) {
     if (!in_archive->in_stream()->Read(data_size_, data))
       return false;
   }
+
+  return true;
+}
+
+bool BlockGraph::Block::SaveDataSize(OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
+  if (!out_archive->Save(data_size_))
+    return false;
+
+  return true;
+}
+
+bool BlockGraph::Block::LoadDataSize(InArchive* in_archive) {
+  DCHECK(in_archive != NULL);
+  if (!in_archive->Load(&data_size_))
+    return false;
 
   return true;
 }

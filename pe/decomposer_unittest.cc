@@ -231,8 +231,7 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
                                   &in_block_graph,
                                   &in_image_layout));
 
-    EXPECT_TRUE(testing::BlockGraphsEqual(block_graph,
-                                          in_block_graph));
+    EXPECT_TRUE(testing::BlockGraphsEqual(block_graph, in_block_graph, true));
     EXPECT_THAT(image_layout.blocks.address_space_impl().ranges(),
         testing::ContainerEq(
             in_image_layout.blocks.address_space_impl().ranges()));
