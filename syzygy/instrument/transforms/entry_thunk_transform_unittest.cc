@@ -351,16 +351,25 @@ TEST_F(EntryThunkTransformTest, InstrumentAllDebugFriendly) {
   VerifySourceRanges(FindThunks());
 }
 
-TEST_F(EntryThunkTransformTest, InstrumentNoInterior) {
+TEST_F(EntryThunkTransformTest, InstrumentNoUnsafe) {
   EntryThunkTransform transform;
 
-  // No interior reference instrumentation.
-  transform.set_instrument_interior_references(false);
+  // No unsafe reference instrumentation.
+  transform.set_instrument_unsafe_references(false);
+
+  // Tag both foo and bar with unsafe attributes.
+  foo_->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
+  bar_->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
 
   ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
 
   // We should have two thunks - one each for the start of foo() and bar().
   ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 2, 1));
+
+  // The foo->bar reference should not have been thunked.
+  BlockGraph::Reference ref;
+  ASSERT_TRUE(foo_->GetReference(5, &ref));
+  ASSERT_EQ(bar_, ref.referenced());
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());

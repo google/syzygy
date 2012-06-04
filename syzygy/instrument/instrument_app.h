@@ -43,7 +43,7 @@ class InstrumentApp : public common::AppImplBase {
       : allow_overwrite_(false),
         augment_pdb_(false),
         debug_friendly_(false),
-        instrument_interior_references_(true) {
+        instrument_unsafe_references_(true) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -69,7 +69,7 @@ class InstrumentApp : public common::AppImplBase {
   bool allow_overwrite_;
   bool augment_pdb_;
   bool debug_friendly_;
-  bool instrument_interior_references_;
+  bool instrument_unsafe_references_;
   // @}
 
   // @name Internal machinery, replaceable for testing purposes.

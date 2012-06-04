@@ -57,9 +57,10 @@ static const char kUsageFormatStr[] =
     "                        address->name resolution.\n"
     "    --input-pdb=<path>  The PDB for the DLL to instrument. If not\n"
     "                        explicitly provided will be searched for.\n"
-    "    --no-interior-refs  Perform no instrumentation of references to non-\n"
-    "                        zero offsets in code blocks. Implicit when\n"
-    "                        --call-trace-client=PROFILER is specified.\n"
+    "    --no-unsafe-refs    Perform no instrumentation of references between\n"
+    "                        code blocks that contain anything but C/C++.\n"
+    "                        Implicit when --call-trace-client=PROFILER is\n"
+    "                        specified.\n"
     "    --output-pdb=<path> The PDB for the instrumented DLL. If not\n"
     "                        provided will attempt to generate one.\n"
     "    --overwrite         Allow output files to be overwritten.\n"
@@ -93,7 +94,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   allow_overwrite_ = cmd_line->HasSwitch("overwrite");
   augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
-  instrument_interior_references_ = !cmd_line->HasSwitch("no-interior-refs");
+  instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
 
   if (input_dll_path_.empty() || output_dll_path_.empty())
     return Usage(cmd_line, "You must provide input and output file names.");
@@ -104,7 +105,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     client_dll_ = kCallTraceClientDllRpc;
   } else if (LowerCaseEqualsASCII(client_dll_, "profiler")) {
     client_dll_ = kCallTraceClientDllProfiler;
-    instrument_interior_references_ = false;
+    instrument_unsafe_references_ = false;
   }
 
   return true;
@@ -128,8 +129,8 @@ int InstrumentApp::Run() {
   // Set up the instrumenting transform and add it to the relinker.
   instrument::transforms::EntryThunkTransform entry_thunk_tx;
   entry_thunk_tx.set_instrument_dll_name(client_dll_);
-  entry_thunk_tx.set_instrument_interior_references(
-      instrument_interior_references_);
+  entry_thunk_tx.set_instrument_unsafe_references(
+      instrument_unsafe_references_);
   entry_thunk_tx.set_src_ranges_for_thunks(debug_friendly_);
   relinker.AppendTransform(&entry_thunk_tx);
 
