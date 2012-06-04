@@ -41,7 +41,6 @@
           '<(PRODUCT_DIR)/run_in_snapshot.exe',
           '<(PRODUCT_DIR)/run_in_snapshot_xp.exe',
           '<(PRODUCT_DIR)/run_in_snapshot_x64.exe',
-          '<(PRODUCT_DIR)/call_trace.dll',
           '<(PRODUCT_DIR)/call_trace_client.dll',
           '<(PRODUCT_DIR)/call_trace_control.exe',
           '<(PRODUCT_DIR)/call_trace_service.exe',
@@ -61,8 +60,6 @@
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
-        '<(DEPTH)/syzygy/agent/call_trace_etw/'
-            'call_trace_etw.gyp:call_trace_client_etw',
         '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_client',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
         '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',

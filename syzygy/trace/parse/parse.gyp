@@ -28,8 +28,6 @@
       'sources': [
         'parse_engine.cc',
         'parse_engine.h',
-        'parse_engine_etw.cc',
-        'parse_engine_etw.h',
         'parse_engine_rpc.cc',
         'parse_engine_rpc.h',
         'parse_utils.cc',
@@ -62,7 +60,6 @@
       'target_name': 'parse_unittests',
       'type': 'executable',
       'sources': [
-        'parse_engine_etw_unittest.cc',
         'parse_engine_rpc_unittest.cc',
         'parse_engine_unittest.cc',
         'parse_utils_unittest.cc',
@@ -75,8 +72,6 @@
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         # TODO(siggi,rogerm): Remove these "backward" dependencies.
         '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
-        '<(DEPTH)/syzygy/agent/call_trace_etw/'
-            'call_trace_etw.gyp:call_trace_client_etw',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
