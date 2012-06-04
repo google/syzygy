@@ -138,12 +138,11 @@ class TestTraceFileWriterFactory : public TraceFileWriterFactory {
 
 class TestSession : public Session {
  public:
-  explicit TestSession(Service* service, base::Lock* lock)
+  explicit TestSession(Service* service)
       : Session(service),
-        test_lock_(lock),
-        waiting_for_buffer_to_be_recycled_(lock),
+        waiting_for_buffer_to_be_recycled_(&lock_),
         waiting_for_buffer_to_be_recycled_state_(false),
-        allocating_buffers_(lock),
+        allocating_buffers_(&lock_),
         allocating_buffers_state_(false) {
   }
 
@@ -153,37 +152,37 @@ class TestSession : public Session {
   }
 
   void ClearWaitingForBufferToBeRecycledState() {
-    base::AutoLock lock(*test_lock_);
+    base::AutoLock lock(lock_);
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
   void PauseUntilWaitingForBufferToBeRecycled() {
-    base::AutoLock lock(*test_lock_);
+    base::AutoLock lock(lock_);
     while (!waiting_for_buffer_to_be_recycled_state_)
       waiting_for_buffer_to_be_recycled_.Wait();
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
   void ClearAllocatingBuffersState() {
-    base::AutoLock lock(*test_lock_);
+    base::AutoLock lock(lock_);
     allocating_buffers_state_ = false;
   }
 
   void PauseUntilAllocatingBuffers() {
-    base::AutoLock lock(*test_lock_);
+    base::AutoLock lock(lock_);
     while (!allocating_buffers_state_)
       allocating_buffers_.Wait();
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
   size_t buffer_requests_waiting_for_recycle() {
-    base::AutoLock lock(*test_lock_);
+    base::AutoLock lock(lock_);
     return buffer_requests_waiting_for_recycle_;
   }
 
  protected:
   virtual void OnWaitingForBufferToBeRecycled() OVERRIDE {
-    base::AutoLock lock(*test_lock_);
+    lock_.AssertAcquired();
     waiting_for_buffer_to_be_recycled_state_ = true;
     waiting_for_buffer_to_be_recycled_.Signal();
   }
@@ -214,24 +213,21 @@ class TestSession : public Session {
   }
 
   virtual bool AllocateBuffers(size_t count, size_t size) OVERRIDE {
-    {
-      base::AutoLock lock(*test_lock_);
-      allocating_buffers_state_ = true;
-      allocating_buffers_.Signal();
-    }
+    lock_.AssertAcquired();
+
+    allocating_buffers_state_ = true;
+    allocating_buffers_.Signal();
 
     // Forward this to the original implementation.
     return Session::AllocateBuffers(count, size);
   }
 
  private:
-  base::Lock* test_lock_;
-
-  // Under test_lock_.
+  // Under lock_.
   base::ConditionVariable waiting_for_buffer_to_be_recycled_;
   bool waiting_for_buffer_to_be_recycled_state_;
 
-  // Under test_lock_.
+  // Under lock_.
   base::ConditionVariable allocating_buffers_;
   bool allocating_buffers_state_;
 };
@@ -257,13 +253,10 @@ class TestService : public Service {
 
  protected:
   virtual Session* CreateSession() OVERRIDE {
-    return new TestSession(this, &session_lock_);
+    return new TestSession(this);
   }
 
  private:
-  // This lock is provided to sessions for misc locking.
-  base::Lock session_lock_;
-
   uint32 process_id_;  // Under lock_;
 };
 
@@ -468,26 +461,29 @@ TEST_F(SessionTest, BackPressureIsLimited) {
   session->ClearAllocatingBuffersState();
 
   bool result3 = false;
-  bool result4 = false;
   Buffer* buffer3 = NULL;
-  Buffer* buffer4 = NULL;
   base::Closure buffer_getter3 = base::Bind(
       &GetNextBuffer, session, &buffer3, &result3);
-  base::Closure buffer_getter4 = base::Bind(
-      &GetNextBuffer, session, &buffer4, &result4);
   worker1_.message_loop()->PostTask(FROM_HERE, buffer_getter3);
-  worker2_.message_loop()->PostTask(FROM_HERE, buffer_getter4);
 
   // Wait for the session to start applying back-pressure. This occurs when it
   // has indicated that it is waiting for a buffer to be written.
   session->PauseUntilWaitingForBufferToBeRecycled();
 
+  // At this point, there should be only one getter applying back pressure.
+  ASSERT_EQ(1u, session->buffer_requests_waiting_for_recycle());
+
+  // Allocate yet another buffer on a new thread, this will force an allocation
+  // which in turn will satisfy as many waits as there are buffers allocated.
+  bool result4 = false;
+  Buffer* buffer4 = NULL;
+  base::Closure buffer_getter4 = base::Bind(
+      &GetNextBuffer, session, &buffer4, &result4);
+  worker2_.message_loop()->PostTask(FROM_HERE, buffer_getter4);
+
   // Similarly, wait for an allocation. The second buffer getter should cause
   // one to occur.
   session->PauseUntilAllocatingBuffers();
-
-  // At this point, there should be only one getter applying back pressure.
-  ASSERT_EQ(1u, session->buffer_requests_waiting_for_recycle());
 
   // Allow a single buffer to be written.
   session->AllowBuffersToBeRecycled(1);
