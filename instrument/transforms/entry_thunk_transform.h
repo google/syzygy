@@ -122,7 +122,8 @@ class EntryThunkTransform
   // friendly, at the cost of the uniqueness of address->name resolution.
   bool src_ranges_for_thunks_;
 
-  // Name of the instrumentation DLL we import. Defaults to "call_trace.dll".
+  // Name of the instrumentation DLL we import.
+  // Defaults to "call_trace_client.dll".
   std::string instrument_dll_name_;
 
   // This contains the set of entrypoints that have DllMain calling conventions.

@@ -42,14 +42,13 @@ static const char kUsageFormatStr[] =
     "  Options:\n"
     "    --augment-pdb       Indicates that the relinker should augment the\n"
     "                        output PDB with additional metadata\n"
-    "    --call-trace-client=ETW|RPC|PROFILER|<other.dll>\n"
+    "    --call-trace-client=RPC|PROFILER|<other.dll>\n"
     "                        The call-trace client DLL to reference in the\n"
-    "                        instrumented binary. The default value is ETW,\n"
-    "                        which maps to the ETW based call-trace client.\n"
-    "                        The value RPC maps to the RPC based call-trace\n"
-    "                        client. The value PROFILER maps to the profiler\n"
-    "                        client. You may also specify the name of any\n"
-    "                        DLL which implements the call trace client\n"
+    "                        instrumented binary. The default value is RPC,\n"
+    "                        which maps to the RPC based call-trace client.\n"
+    "                        The value PROFILER maps to the profiler client.\n"
+    "                        You may also specify the name of any DLL which\n"
+    "                        which implements the call trace client\n"
     "                        interface.\n"
     "    --debug-friendly    Generate more debugger friendly output by making\n"
     "                        the thunks resolve to the original function's\n"
@@ -68,7 +67,6 @@ static const char kUsageFormatStr[] =
 
 }  // namespace
 
-const char InstrumentApp::kCallTraceClientDllEtw[] = "call_trace.dll";
 const char InstrumentApp::kCallTraceClientDllProfiler[] = "profile_client.dll";
 const char InstrumentApp::kCallTraceClientDllRpc[] = "call_trace_client.dll";
 
@@ -99,9 +97,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (input_dll_path_.empty() || output_dll_path_.empty())
     return Usage(cmd_line, "You must provide input and output file names.");
 
-  if (client_dll_.empty() || LowerCaseEqualsASCII(client_dll_, "etw")) {
-    client_dll_ = kCallTraceClientDllEtw;
-  } else if (LowerCaseEqualsASCII(client_dll_, "rpc")) {
+  if (client_dll_.empty() || LowerCaseEqualsASCII(client_dll_, "rpc")) {
     client_dll_ = kCallTraceClientDllRpc;
   } else if (LowerCaseEqualsASCII(client_dll_, "profiler")) {
     client_dll_ = kCallTraceClientDllProfiler;

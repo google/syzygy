@@ -35,7 +35,6 @@ class InstrumentApp : public common::AppImplBase {
  public:
 
   // A list of known clients libraries.
-  static const char InstrumentApp::kCallTraceClientDllEtw[];
   static const char InstrumentApp::kCallTraceClientDllProfiler[];
   static const char InstrumentApp::kCallTraceClientDllRpc[];
 

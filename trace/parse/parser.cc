@@ -18,7 +18,6 @@
 
 #include "base/logging.h"
 #include "sawbuck/common/buffer_parser.h"
-#include "syzygy/trace/parse/parse_engine_etw.h"
 #include "syzygy/trace/parse/parse_engine_rpc.h"
 
 namespace trace {
@@ -53,15 +52,6 @@ bool Parser::Init(ParseEventHandler* event_handler) {
   engine = new ParseEngineRpc;
   if (engine == NULL) {
     LOG(ERROR) << "Failed to initialize RPC call-trace parse engine.";
-    return false;
-  }
-  parse_engine_set_.push_back(engine);
-
-  // Create the ETW call-trace parse engine.
-  LOG(INFO) << "Initializing ETW call-trace parse engine.";
-  engine = new ParseEngineEtw;
-  if (engine == NULL) {
-    LOG(ERROR) << "Failed to initialize ETW call-trace parse engine.";
     return false;
   }
   parse_engine_set_.push_back(engine);

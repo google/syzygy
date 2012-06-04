@@ -25,7 +25,6 @@
       'type': 'none',
       'dependencies': [
         'agent/call_trace/call_trace.gyp:*',
-        'agent/call_trace_etw/call_trace_etw.gyp:*',
         'agent/common/common.gyp:*',
         'agent/profiler/profiler.gyp:*',
         'block_graph/block_graph.gyp:*',

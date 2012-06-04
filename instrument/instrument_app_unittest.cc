@@ -159,7 +159,7 @@ TEST_F(InstrumentAppTest, ParseMinimalCommandLine) {
   EXPECT_TRUE(test_impl_.input_pdb_path_.empty());
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_TRUE(test_impl_.output_pdb_path_.empty());
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllEtw),
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
             test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.augment_pdb_);
@@ -214,33 +214,6 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfiler),
-            test_impl_.client_dll_);
-  EXPECT_TRUE(test_impl_.allow_overwrite_);
-  EXPECT_TRUE(test_impl_.augment_pdb_);
-  EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
-}
-
-
-TEST_F(InstrumentAppTest, ParseFullCommandLineEtw) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitchASCII("call-trace-client", "etw");
-  cmd_line_.AppendSwitch("no-unsafe-refs");
-  cmd_line_.AppendSwitch("overwrite");
-  cmd_line_.AppendSwitch("augment-pdb");
-  cmd_line_.AppendSwitch("debug-friendly");
-
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllEtw),
             test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);

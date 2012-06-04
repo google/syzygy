@@ -62,7 +62,6 @@ _MODULES = [
 
 
 _EXECUTABLES = [
-  'call_trace.dll',
   'call_trace_client.dll',
   'call_trace_control.exe',
   'call_trace_service.exe',

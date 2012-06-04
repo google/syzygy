@@ -74,7 +74,8 @@ const char EntryThunkTransform::kTransformName[] =
 const char EntryThunkTransform::kEntryHookName[] = "_indirect_penter";
 const char EntryThunkTransform::kDllMainEntryHookName[] =
     "_indirect_penter_dllmain";
-const char EntryThunkTransform::kDefaultInstrumentDll[] = "call_trace.dll";
+const char EntryThunkTransform::kDefaultInstrumentDll[] =
+    "call_trace_client.dll";
 
 // We push the absolute address of the function to be called on the
 // stack, and then we invoke the instrumentation function indirectly
