@@ -71,6 +71,8 @@
       'sources': [
         'basic_block_decomposer.cc',
         'basic_block_decomposer.h',
+        'block_util.cc',
+        'block_util.h',
         'dia_browser.cc',
         'dia_browser.h',
         'dia_util.cc',
@@ -154,6 +156,7 @@
       'sources': [
         'basic_block_decomposer_unittest.cc',
         'basic_block_test_code.asm',
+        'block_util_unittest.cc',
         'decompose_app_unittest.cc',
         'decomposer_unittest.cc',
         'dia_browser_unittest.cc',

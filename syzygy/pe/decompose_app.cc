@@ -26,7 +26,6 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 
-
 namespace pe {
 
 using block_graph::BlockGraph;

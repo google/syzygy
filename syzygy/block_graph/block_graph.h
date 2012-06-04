@@ -85,15 +85,18 @@ class BlockGraph {
     // This is used to indicate that a block consists purely of padding data.
     // This is only filled out post-merging, so does not obey the "true for the
     // part, true for the whole" convention.
-    // TODO(chrisha): Get rid of this. We shouldn't actually be storing padding
-    //     blocks in the block-graph, and should be flagging them in a separate
-    //     bookkeeping structure prior to removing them.
     PADDING_BLOCK = (1 << 4),
     // Indicates blocks that contain inline assembly.
     HAS_INLINE_ASSEMBLY = (1 << 5),
     // Indicates that the block was built by a compiler whose precise behaviour
     // and semantics we are unfamiliar with.
     BUILT_BY_UNSUPPORTED_COMPILER = (1 << 6),
+    // Indicates that the block has been built by the Syzygy toolchain, and thus
+    // is inherently safe for basic-block decomposition without having to
+    // perform the myriad of safety checks we do otherwise. This is only ever
+    // set long after decomposition, so does not obey the "true for the part,
+    // true for the whole" convention.
+    BUILT_BY_SYZYGY = (1 << 7),
   };
 
   // Attributes that can be passed to the save function.
@@ -903,6 +906,9 @@ class BlockGraph::Reference {
 
   // The maximum size that a reference may have.
   static const Size kMaximumSize;
+
+  // Returns true if the given reference type and size combination is valid.
+  static bool IsValidTypeSize(ReferenceType type, Size size);
 
  private:
   // Type of this reference.
