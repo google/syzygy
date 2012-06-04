@@ -48,7 +48,7 @@ class TestInstrumentApp : public InstrumentApp {
   using InstrumentApp::allow_overwrite_;
   using InstrumentApp::augment_pdb_;
   using InstrumentApp::debug_friendly_;
-  using InstrumentApp::instrument_interior_references_;
+  using InstrumentApp::instrument_unsafe_references_;
 
   pe::PERelinker& GetRelinker() OVERRIDE {
     return mock_relinker_;
@@ -121,7 +121,7 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   std::string client_dll_;
   bool allow_overwrite_;
   bool debug_friendly_;
-  bool instrument_interior_references_;
+  bool instrument_unsafe_references_;
   // @}
 };
 
@@ -164,7 +164,7 @@ TEST_F(InstrumentAppTest, ParseMinimalCommandLine) {
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.augment_pdb_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_TRUE(test_impl_.instrument_interior_references_);
+  EXPECT_TRUE(test_impl_.instrument_unsafe_references_);
 }
 
 TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
@@ -173,7 +173,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", "rpc");
-  cmd_line_.AppendSwitch("no-interior-refs");
+  cmd_line_.AppendSwitch("no-unsafe-refs");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("augment-pdb");
   cmd_line_.AppendSwitch("debug-friendly");
@@ -191,7 +191,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.instrument_interior_references_);
+  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
 }
 
 TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
@@ -200,7 +200,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", "profiler");
-  cmd_line_.AppendSwitch("no-interior-refs");
+  cmd_line_.AppendSwitch("no-unsafe-refs");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("augment-pdb");
   cmd_line_.AppendSwitch("debug-friendly");
@@ -218,7 +218,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.instrument_interior_references_);
+  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
 }
 
 
@@ -228,7 +228,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineEtw) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", "etw");
-  cmd_line_.AppendSwitch("no-interior-refs");
+  cmd_line_.AppendSwitch("no-unsafe-refs");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("augment-pdb");
   cmd_line_.AppendSwitch("debug-friendly");
@@ -245,7 +245,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineEtw) {
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.instrument_interior_references_);
+  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
 }
 
 TEST_F(InstrumentAppTest, ParseFullCommandLineOther) {
@@ -256,7 +256,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineOther) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("call-trace-client", kOtherDll);
-  cmd_line_.AppendSwitch("no-interior-refs");
+  cmd_line_.AppendSwitch("no-unsafe-refs");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("augment-pdb");
   cmd_line_.AppendSwitch("debug-friendly");
@@ -271,7 +271,7 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineOther) {
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.augment_pdb_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.instrument_interior_references_);
+  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
 }
 
 TEST_F(InstrumentAppTest, InstrumentFailsInit) {

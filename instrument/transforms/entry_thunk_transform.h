@@ -35,11 +35,11 @@ class EntryThunkTransform
 
   // @name Accessors.
   // @{
-  void set_instrument_interior_references(bool instrument) {
-    instrument_interior_references_ = instrument;
+  void set_instrument_unsafe_references(bool instrument) {
+    instrument_unsafe_references_ = instrument;
   }
-  bool instrument_interior_references() const {
-    return instrument_interior_references_;
+  bool instrument_unsafe_references() const {
+    return instrument_unsafe_references_;
   }
 
   void set_src_ranges_for_thunks(bool src_ranges_for_thunks) {
@@ -115,7 +115,7 @@ class EntryThunkTransform
 
   // Iff true, instrument references with a non-zero offset into the
   // destination block.
-  bool instrument_interior_references_;
+  bool instrument_unsafe_references_;
 
   // Iff true, thunks will be adorned with a source range identifying them
   // with the function they address. This makes the output more debugging
