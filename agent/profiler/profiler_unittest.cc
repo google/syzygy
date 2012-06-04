@@ -19,20 +19,16 @@
 #include <psapi.h>
 
 #include "base/bind.h"
-#include "base/command_line.h"
-#include "base/environment.h"
 #include "base/file_util.h"
 #include "base/message_loop.h"
-#include "base/process_util.h"
 #include "base/scoped_temp_dir.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
@@ -166,8 +162,7 @@ class MockParseEventHandler : public ParseEventHandler {
 class ProfilerTest : public testing::Test {
  public:
   ProfilerTest()
-      : service_process_(base::kNullProcessHandle),
-        module_(NULL),
+      : module_(NULL),
         resolution_func_(NULL) {
   }
 
@@ -177,15 +172,7 @@ class ProfilerTest : public testing::Test {
     // Create a temporary directory for the call trace files.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
 
-    // We give the service instance a "unique" id so that it does not interfere
-    // with any other instances or tests that might be concurrently active.
-    instance_id_ = base::StringPrintf("%d", ::GetCurrentProcessId());
-
-    // The instance id needs to be in the environment to be picked up by the
-    // client library.
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    ASSERT_FALSE(env.get() == NULL);
-    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id_));
+    service_.SetEnvironment();
   }
 
   virtual void TearDown() OVERRIDE {
@@ -194,60 +181,15 @@ class ProfilerTest : public testing::Test {
     UnloadDll();
 
     // Stop the call trace service.
-    StopService();
+    service_.Stop();
   }
 
   void StartService() {
-    ASSERT_EQ(base::kNullProcessHandle, service_process_);
-
-    CommandLine service_cmd(
-        testing::GetExeRelativePath(L"call_trace_service.exe"));
-    service_cmd.AppendArg("start");
-    service_cmd.AppendSwitch("--enable-exits");
-    service_cmd.AppendSwitch("--verbose");
-    service_cmd.AppendSwitchPath("--trace-dir", temp_dir_.path());
-    service_cmd.AppendSwitchPath("--trace-dir", temp_dir_.path());
-    service_cmd.AppendSwitchASCII("--instance-id",
-        base::StringPrintf("%d", ::GetCurrentProcessId()));
-
-    base::LaunchOptions options;
-    options.start_hidden = true;
-
-    std::wstring event_name;
-    ::GetSyzygyCallTraceRpcEventName(UTF8ToUTF16(instance_id_),
-                                     &event_name);
-    base::win::ScopedHandle event(
-        ::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
-    ASSERT_TRUE(event.IsValid());
-
-    ASSERT_TRUE(base::LaunchProcess(service_cmd, options, &service_process_));
-    ASSERT_NE(base::kNullProcessHandle, service_process_);
-
-    // We wait on both the "ready" handle and the process, as if the process
-    // fails for any reason, it'll exit and it's handle will become signalled.
-    HANDLE handles[] = { event.Get(), service_process_ };
-    ASSERT_EQ(WAIT_OBJECT_0, ::WaitForMultipleObjects(arraysize(handles),
-                                                      handles,
-                                                      FALSE,
-                                                      INFINITE));
+    service_.Start(temp_dir_.path());
   }
 
   void StopService() {
-    if (service_process_ == base::kNullProcessHandle)
-      return;
-
-    CommandLine service_cmd(
-        testing::GetExeRelativePath(L"call_trace_service.exe"));
-    service_cmd.AppendArg("stop");
-
-    base::LaunchOptions options;
-    options.start_hidden = true;
-    options.wait = true;
-    ASSERT_TRUE(base::LaunchProcess(service_cmd, options, NULL));
-
-    int exit_code = 0;
-    ASSERT_TRUE(base::WaitForExitCode(service_process_, &exit_code));
-    service_process_ = base::kNullProcessHandle;
+    service_.Stop();
   }
 
   void ReplayLogs() {
@@ -325,11 +267,8 @@ class ProfilerTest : public testing::Test {
   // The address resolution function exported from the profiler dll.
   ResolveReturnAddressLocationFunc resolution_func_;
 
-  // The handle to the call trace service process.
-  base::ProcessHandle service_process_;
-
-  // The RPC service instance ID we allocate this process.
-  std::string instance_id_;
+  // Our call trace service process instance.
+  testing::CallTraceService service_;
 
  private:
   HMODULE module_;

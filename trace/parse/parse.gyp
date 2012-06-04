@@ -77,9 +77,11 @@
         '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
         '<(DEPTH)/syzygy/agent/call_trace_etw/'
             'call_trace_etw.gyp:call_trace_client_etw',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_lib',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_lib',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
       ],
