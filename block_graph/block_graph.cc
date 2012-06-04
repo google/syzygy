@@ -1414,16 +1414,23 @@ bool BlockGraph::Reference::IsValid() const {
   if (base_ < 0 || static_cast<size_t>(base_) >= referenced_->size())
     return false;
 
-  switch (type_) {
+  if (!IsValidTypeSize(type_, size_))
+    return false;
+
+  return true;
+}
+
+bool BlockGraph::Reference::IsValidTypeSize(ReferenceType type, Size size) {
+  switch (type) {
     // We see 8- and 32-bit relative JMPs.
     case PC_RELATIVE_REF:
-      return size_ == 1 || size_ == 4;
+      return size == 1 || size == 4;
 
     // These guys are all pointer sized.
     case ABSOLUTE_REF:
     case RELATIVE_REF:
     case FILE_OFFSET_REF:
-      return size_ == 4;
+      return size == 4;
 
     default:
       NOTREACHED() << "Unknown ReferenceType.";
