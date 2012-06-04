@@ -34,11 +34,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/process_info.h"
-#include "syzygy/trace/service/service.h"
-#include "syzygy/trace/service/service_rpc_impl.h"
-#include "syzygy/trace/service/trace_file_writer_factory.h"
 
 namespace trace {
 namespace service {
@@ -242,15 +240,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  ParseEngineRpcTest()
-      : consumer_thread_("parse-engine-rpc-test-consumer-thread"),
-        consumer_thread_has_started_(
-            consumer_thread_.StartWithOptions(
-                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
-        trace_file_writer_factory_(consumer_thread_.message_loop()),
-        call_trace_service_(&trace_file_writer_factory_),
-        rpc_service_instance_manager_(&call_trace_service_),
-        module_(NULL) {
+  ParseEngineRpcTest() : module_(NULL) {
   }
 
   bool FindTraceFile(FilePath* trace_file_path) {
@@ -265,23 +255,10 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   virtual void SetUp() {
     Super::SetUp();
 
-    ASSERT_TRUE(consumer_thread_has_started_);
-
     // Create a temporary directory for the call trace files.
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
-    ASSERT_TRUE(
-        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_));
 
-    // We give the service instance a "unique" id so that it does not interfere
-    // with any other instances or tests that might be concurrently active.
-    std::string instance_id(base::StringPrintf("%d", ::GetCurrentProcessId()));
-    call_trace_service_.set_instance_id(::UTF8ToWide(instance_id));
-
-    // The instance id needs to be in the environment to be picked up by the
-    // client library.
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    ASSERT_FALSE(env.get() == NULL);
-    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id));
+    ASSERT_NO_FATAL_FAILURE(service_.SetEnvironment());
 
     // The call trace DLL should not be already loaded.
     ASSERT_EQ(NULL, ::GetModuleHandle(L"call_trace_client.dll"));
@@ -293,17 +270,12 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
     Super::TearDown();
   }
 
-  void StartCallTraceService(uint32 flags) {
-    // Start the call trace service in the temporary directory.
-    call_trace_service_.set_flags(flags);
-    ASSERT_TRUE(call_trace_service_.Start(true));
+  void StartCallTraceService() {
+    service_.Start(temp_dir_);
   }
 
   void StopCallTraceService() {
-    if (call_trace_service_.is_running()) {
-      ASSERT_TRUE(call_trace_service_.Stop());
-      ASSERT_FALSE(call_trace_service_.is_running());
-    }
+    service_.Stop();
   }
 
   void ConsumeEventsFromTempSession() {
@@ -381,19 +353,8 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   friend void IndirectThunkB();
 
  protected:
-  // The thread on which the trace file writer will consumer buffers and a
-  // helper variable whose initialization we use as a trigger to start the
-  // thread (ensuring it's message_loop is created). These declarations MUST
-  // remain in this order and preceed that of trace_file_writer_factory_;
-  base::Thread::Options thread_options;
-  base::Thread consumer_thread_;
-  bool consumer_thread_has_started_;
-
-  // The call trace service related objects. These declarations MUST be in
-  // this order.
-  TraceFileWriterFactory trace_file_writer_factory_;
-  Service call_trace_service_;
-  RpcServiceInstanceManager rpc_service_instance_manager_;
+  // Our call trace service instance.
+  testing::CallTraceService service_;
 
   // The directory where trace file output will be written.
   FilePath temp_dir_;
@@ -533,7 +494,7 @@ TEST_F(ParseEngineRpcTest, NoServiceInstance) {
 
 
 TEST_F(ParseEngineRpcTest, NoSessionCreated) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -545,7 +506,7 @@ TEST_F(ParseEngineRpcTest, NoSessionCreated) {
 }
 
 TEST_F(ParseEngineRpcTest, SingleThread) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -565,7 +526,7 @@ TEST_F(ParseEngineRpcTest, SingleThread) {
 }
 
 TEST_F(ParseEngineRpcTest, MultiThreadWithDetach) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -590,7 +551,7 @@ TEST_F(ParseEngineRpcTest, MultiThreadWithDetach) {
 }
 
 TEST_F(ParseEngineRpcTest, MultiThreadWithoutDetach) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -614,7 +575,7 @@ TEST_F(ParseEngineRpcTest, MultiThreadWithoutDetach) {
 }
 
 TEST_F(ParseEngineRpcTest, RawCallSequence) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -712,7 +673,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
 }
 
 TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -794,7 +755,7 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
 }
 
 TEST_F(ParseEngineRpcTest, MultiThreadWithStopCallTrace) {
-  ASSERT_NO_FATAL_FAILURE(StartCallTraceService(TRACE_FLAG_BATCH_ENTER));
+  ASSERT_NO_FATAL_FAILURE(StartCallTraceService());
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
@@ -823,345 +784,6 @@ TEST_F(ParseEngineRpcTest, MultiThreadWithStopCallTrace) {
   ASSERT_EQ(2, entered_addresses_.count(IndirectDllMain));
   ASSERT_EQ(2, entered_addresses_.count(IndirectFunctionA));
   ASSERT_EQ(77, entered_addresses_.count(IndirectFunctionB));
-}
-
-namespace {
-
-typedef void (*VoidFuncTakingInt)(int);
-
-void RecursiveFunction(int depth);
-
-void __declspec(naked) IndirectThunkRecursiveFunctionImpl() {
-  __asm {
-    push RecursiveFunction
-    jmp ParseEngineRpcTest::_indirect_penter_
-  }
-}
-
-VoidFuncTakingInt IndirectThunkRecursiveFunction =
-    reinterpret_cast<VoidFuncTakingInt>(
-        IndirectThunkRecursiveFunctionImpl);
-
-void RecursiveFunction(int depth) {
-  if (depth > 0)
-    IndirectThunkRecursiveFunction(depth - 1);
-}
-
-void TailRecursiveFunction(int depth);
-
-void __declspec(naked) IndirectThunkTailRecursiveFunctionImpl() {
-  __asm {
-    push TailRecursiveFunction
-    jmp ParseEngineRpcTest::_indirect_penter_
-  }
-}
-
-VoidFuncTakingInt IndirectThunkTailRecursiveFunction =
-    reinterpret_cast<VoidFuncTakingInt>(
-        IndirectThunkTailRecursiveFunctionImpl);
-
-void __declspec(naked) TailRecursiveFunction(int depth) {
-  __asm {
-    // Test depth for zero and exit if so.
-    mov eax, DWORD PTR[esp + 4]
-    test eax, eax
-    jz done
-
-    // Subtract one and "recurse".
-    dec eax
-    mov DWORD PTR[esp + 4], eax
-    jmp IndirectThunkTailRecursiveFunction
-
-  done:
-    ret
-  }
-}
-
-}  // namespace
-
-TEST_F(ParseEngineRpcTest, EnterExitRecursive) {
-  ASSERT_NO_FATAL_FAILURE(
-      StartCallTraceService(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
-
-  ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-
-  // Call the recursive function.
-  IndirectThunkRecursiveFunction(10);
-
-  ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
-  ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
-
-  EXPECT_EQ(11, entered_addresses_.size());
-  EXPECT_EQ(11, exited_addresses_.size());
-}
-
-TEST_F(ParseEngineRpcTest, EnterExitTailRecursive) {
-  ASSERT_NO_FATAL_FAILURE(
-      StartCallTraceService(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
-
-  ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-
-  // Call the tail recursive function.
-  IndirectThunkTailRecursiveFunction(5);
-
-  ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
-  ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
-
-  EXPECT_EQ(6, entered_addresses_.size());
-  EXPECT_EQ(6, exited_addresses_.size());
-}
-
-namespace {
-
-// Count the number of entries/exits.
-int bottom_entry = 0;
-int bottom_exit = 0;
-
-typedef void (*VoidFuncTakingIntInt)(int, int);
-
-void ExceptionTestBottom(int depth, int throw_depth);
-
-void __declspec(naked) IndirectThunkExceptionTestBottomImpl() {
-  __asm {
-    push ExceptionTestBottom
-    jmp ParseEngineRpcTest::_indirect_penter_
-  }
-}
-
-VoidFuncTakingIntInt IndirectThunkExceptionTestBottom =
-    reinterpret_cast<VoidFuncTakingIntInt>(
-        IndirectThunkExceptionTestBottomImpl);
-
-// The danger with exceptions is in the shadow stack maintained by the
-// call trace DLL. On exception, some of the entries on the shadow stack
-// may become orphaned, which can cause the call trace DLL to pop the wrong
-// entry, and return to the wrong function.
-__declspec(naked) void ExceptionTestBottom(int depth, int throw_depth) {
-  __asm {
-    push ebp
-    mov ebp, esp
-    sub esp, __LOCAL_SIZE
-    push ebx
-    push esi
-    push edi
-  }
-
-  ++bottom_entry;
-
-  if (depth > 0)
-    IndirectThunkExceptionTestBottom(depth - 1, throw_depth);
-
-  ++bottom_exit;
-
-  // When we throw, some of the shadow stack entries are orphaned.
-  if (depth == throw_depth)
-    ::RaiseException(0xBADF00D, 0, 0, NULL);
-
-  __asm {
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
-    ret
-  }
-}
-
-bool ExceptionTestRecurseRaiseAndReturn() {
-  __try {
-    IndirectThunkExceptionTestBottom(10, 4);
-  } __except(EXCEPTION_EXECUTE_HANDLER) {
-    return GetExceptionCode() == 0xBADF00D;
-  }
-
-  return false;
-}
-
-// Count the number of entries/exits.
-int top_entry = 0;
-int top_exit = 0;
-
-typedef void (*VoidFuncTakingIntFuncPtr)(int, bool (*func)());
-
-void RecurseAndCall(int depth, bool (*func)());
-
-void __declspec(naked) IndirectThunkRecurseAndCallImpl() {
-  __asm {
-    push RecurseAndCall
-    jmp ParseEngineRpcTest::_indirect_penter_
-  }
-}
-
-VoidFuncTakingIntFuncPtr IndirectThunkRecurseAndCall =
-    reinterpret_cast<VoidFuncTakingIntFuncPtr>(
-        IndirectThunkRecurseAndCallImpl);
-
-__declspec(naked) void RecurseAndCall(int depth, bool (*func)()) {
-  __asm {
-    push ebp
-    mov ebp, esp
-    sub esp, __LOCAL_SIZE
-    push ebx
-    push esi
-    push edi
-  }
-
-  ++top_entry;
-
-  if (depth == 0) {
-    EXPECT_TRUE(func());
-  } else {
-    IndirectThunkRecurseAndCall(depth - 1, func);
-  }
-
-  ++top_exit;
-
-  __asm {
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
-    ret
-  }
-}
-
-void ExceptionTestReturnAfterException(int depth) {
-  IndirectThunkRecurseAndCall(depth, ExceptionTestRecurseRaiseAndReturn);
-}
-
-}  // namespace
-
-// Return immediately after taking an exception (which leaves orphaned
-// entries on the shadow stack).
-TEST_F(ParseEngineRpcTest, EnterExitReturnAfterException) {
-  top_entry = 0;
-  top_exit = 0;
-  bottom_entry = 0;
-  bottom_exit = 0;
-
-  ASSERT_NO_FATAL_FAILURE(
-      StartCallTraceService(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
-
-  ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-
-  ExceptionTestReturnAfterException(10);
-
-  ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
-  ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
-
-  EXPECT_EQ(11, top_entry);
-  EXPECT_EQ(11, top_exit);
-
-  EXPECT_EQ(11, bottom_entry);
-  EXPECT_EQ(5, bottom_exit);
-}
-
-namespace {
-
-bool ExceptionTestRecurseRaiseAndCall() {
-  __try {
-    IndirectThunkExceptionTestBottom(10, 4);
-  } __except(EXCEPTION_EXECUTE_HANDLER) {
-    IndirectThunkRecursiveFunction(10);
-    return true;
-  }
-
-  return false;
-}
-
-void ExceptionTestCallAfterException(int depth) {
-  IndirectThunkRecurseAndCall(depth, ExceptionTestRecurseRaiseAndCall);
-}
-
-}  // namespace
-
-// Call immediately after taking an exception (which leaves orphaned
-// entries on the shadow stack).
-TEST_F(ParseEngineRpcTest, EnterExitCallAfterException) {
-  top_entry = 0;
-  top_exit = 0;
-  bottom_entry = 0;
-  bottom_exit = 0;
-
-  ASSERT_NO_FATAL_FAILURE(
-      StartCallTraceService(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT));
-
-  ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-
-  ExceptionTestCallAfterException(10);
-
-  ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
-  ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
-
-  EXPECT_EQ(11, top_entry);
-  EXPECT_EQ(11, top_exit);
-
-  EXPECT_EQ(11, bottom_entry);
-  EXPECT_EQ(5, bottom_exit);
-}
-
-namespace {
-
-void TailRecurseAndCall(int depth, bool (*func)());
-
-void __declspec(naked) IndirectThunkTailRecurseAndCallImpl() {
-  __asm {
-    push TailRecurseAndCall
-    jmp ParseEngineRpcTest::_indirect_penter_
-  }
-}
-
-VoidFuncTakingIntFuncPtr IndirectThunkTailRecurseAndCall =
-    reinterpret_cast<VoidFuncTakingIntFuncPtr>(
-        IndirectThunkTailRecurseAndCallImpl);
-
-void __declspec(naked) TailRecurseAndCall(int depth, bool (*func)()) {
-  __asm {
-    // Test depth for zero and exit if so.
-    mov eax, DWORD PTR[esp + 4]
-    test eax, eax
-    jz done
-
-    // Subtract one and "recurse".
-    dec eax
-    mov DWORD PTR[esp + 4], eax
-    jmp IndirectThunkTailRecurseAndCall
-
-  done:
-    mov eax, DWORD PTR[esp + 8]
-    call eax
-    ret
-  }
-}
-
-void ExceptionTestCallAfterTailRecurseException(int depth) {
-  IndirectThunkTailRecurseAndCall(depth, ExceptionTestRecurseRaiseAndCall);
-}
-
-}  // namespace
-
-TEST_F(ParseEngineRpcTest, EnterExitCallAfterTailRecurseException) {
-  top_entry = 0;
-  top_exit = 0;
-  bottom_entry = 0;
-  bottom_exit = 0;
-
-  StartCallTraceService(TRACE_FLAG_ENTER | TRACE_FLAG_EXIT);
-
-  ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
-
-  ExceptionTestCallAfterTailRecurseException(10);
-
-  EXPECT_EQ(11, bottom_entry);
-  EXPECT_EQ(5, bottom_exit);
-
-  ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
-  ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
-
-  // Verify that the tail call exits were recorded.
-  EXPECT_EQ(33, entered_addresses_.size());
-  EXPECT_EQ(26, exited_addresses_.size());
 }
 
 }  // namespace service

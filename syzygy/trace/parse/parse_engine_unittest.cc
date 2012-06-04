@@ -86,7 +86,6 @@ class ParseEngineUnitTest
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     EXPECT_TRUE(data->function != NULL);
     function_entries.insert(data->function);
-
   }
 
   virtual void OnFunctionExit(base::Time time,
