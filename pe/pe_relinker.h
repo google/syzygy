@@ -110,6 +110,7 @@ class PERelinker {
   bool add_metadata() const { return add_metadata_; }
   bool allow_overwrite() const { return allow_overwrite_; }
   bool augment_pdb() const { return augment_pdb_; }
+  bool strip_strings() const { return strip_strings_; }
   size_t padding() const { return padding_; }
   // @}
 
@@ -135,6 +136,9 @@ class PERelinker {
   }
   void set_augment_pdb(bool augment_pdb) {
     augment_pdb_ = augment_pdb;
+  }
+  void set_strip_strings(bool strip_strings) {
+    strip_strings_ = strip_strings;
   }
   void set_padding(size_t padding) {
     padding_ = padding;
@@ -223,6 +227,9 @@ class PERelinker {
   FilePath output_path_;
   FilePath output_pdb_path_;
 
+  // If true, strings associated with a block-graph will not be serialized into
+  // the PDB. Defaults to false.
+  bool strip_strings_;
   // If true, metadata will be added to the output image. Defaults to true.
   bool add_metadata_;
   // If true, allow the relinker to rewrite the input files in place. Defaults

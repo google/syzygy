@@ -103,6 +103,8 @@ class BlockGraph {
   enum SerializationAttributesEnum {
     DEFAULT = 0,
     OMIT_DATA = (1 << 0),
+    OMIT_STRINGS = (1 << 1),
+    OMIT_LABELS = (1 << 2),
   };
 
   enum BlockType {
@@ -264,6 +266,14 @@ class BlockGraph {
                       size_t num_blocks,
                       InArchive* in_archive);
 
+  // Serialization of a label if needed (depending on the attributes passed).
+  bool MaybeSaveLabels(const Block* iter_block,
+                       OutArchive* out_archive,
+                       SerializationAttributes attributes) const;
+  bool MaybeLoadLabels(InArchive* in_archive,
+                       SerializationAttributes attributes,
+                       Block* block);
+
   // All sections we contain.
   SectionMap sections_;
 
@@ -384,7 +394,6 @@ class BlockGraph::Label {
   // Full constructor.
   Label(const base::StringPiece& name, LabelType type)
       : name_(name.begin(), name.end()), type_(type) {
-    DCHECK(!name.empty());
     DCHECK_LE(LABEL_TYPE_UNKNOWN, type);
     DCHECK_GT(LABEL_TYPE_MAX, type);
   }
@@ -693,8 +702,10 @@ class BlockGraph::Block {
   // the BlockGraph that owns the Block.
 
   // Serializes basic block properties.
-  bool SaveProps(OutArchive* out_archive) const;
-  bool LoadProps(InArchive* in_archive);
+  bool SaveProps(OutArchive* out_archive,
+                 SerializationAttributes attributes) const;
+  bool LoadProps(InArchive* in_archive,
+                 SerializationAttributes attributes);
 
   // Serializes block data.
   bool SaveData(OutArchive* out_archive) const;
@@ -707,6 +718,12 @@ class BlockGraph::Block {
   // Saves referrers and references.
   bool SaveRefs(OutArchive* out_archive) const;
   bool LoadRefs(BlockGraph& block_graph, InArchive* in_archive);
+
+  // Saves the label map.
+  bool SaveLabels(OutArchive* out_archive,
+                  SerializationAttributes attributes) const;
+  bool LoadLabels(InArchive* in_archive,
+                  SerializationAttributes attributes);
 };
 
 // A graph address space endows a graph with a non-overlapping ordering

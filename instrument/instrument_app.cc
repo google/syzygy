@@ -63,6 +63,9 @@ static const char kUsageFormatStr[] =
     "    --output-pdb=<path> The PDB for the instrumented DLL. If not\n"
     "                        provided will attempt to generate one.\n"
     "    --overwrite         Allow output files to be overwritten.\n"
+    "    --strip-strings     Indicates that the relinker should strip the\n"
+    "                        strings when generating the PDB. It has no\n"
+    "                        effect if the option augment-pdb is not set.\n"
     "\n";
 
 }  // namespace
@@ -91,6 +94,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   client_dll_ = cmd_line->GetSwitchValueASCII("call-trace-client");
   allow_overwrite_ = cmd_line->HasSwitch("overwrite");
   augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
+  strip_strings_ = cmd_line->HasSwitch("strip-strings");
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
   instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
 
@@ -115,6 +119,7 @@ int InstrumentApp::Run() {
   relinker.set_output_pdb_path(output_pdb_path_);
   relinker.set_allow_overwrite(allow_overwrite_);
   relinker.set_augment_pdb(augment_pdb_);
+  relinker.set_strip_strings(strip_strings_);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {

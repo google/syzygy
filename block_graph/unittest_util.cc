@@ -18,21 +18,54 @@ namespace testing {
 
 using block_graph::BlockGraph;
 
+// Compare two strings to each others if the OMIT_STRINGS flag isn't set.
+bool MaybeCompareString(const std::string string1,
+                        const std::string string2,
+                        BlockGraph::SerializationAttributes attributes) {
+  if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
+    if (string1 != string2)
+      return false;
+  }
+  return true;
+}
+
 // Compares two Blocks to each other.
 bool BlocksEqual(const BlockGraph::Block& b1,
                  const BlockGraph::Block& b2,
-                 BlockGraph::SerializationAttributes serialization_attributes) {
+                 BlockGraph::SerializationAttributes attributes) {
   // Compare the basic block properties.
   if (b1.id() != b2.id() || b1.type() != b2.type() ||
       b1.size() != b2.size() || b1.alignment() != b2.alignment() ||
-      b1.name() != b2.name() || b1.addr() != b2.addr() ||
-      b1.section() != b2.section() || b1.attributes() != b2.attributes() ||
+      b1.addr() != b2.addr() || b1.section() != b2.section() ||
+      b1.attributes() != b2.attributes() ||
       b1.source_ranges() != b2.source_ranges() ||
-      b1.labels() != b2.labels() || b1.data_size() != b2.data_size()) {
+      b1.data_size() != b2.data_size()) {
     return false;
   }
 
-  if (!(serialization_attributes & BlockGraph::OMIT_DATA)) {
+  if (!MaybeCompareString(b1.name(), b2.name(), attributes))
+    return false;
+
+  // Compare the labels.
+  if ((attributes & BlockGraph::OMIT_LABELS) == 0) {
+    if (b1.labels().size() != b2.labels().size())
+      return false;
+    BlockGraph::Block::LabelMap::const_iterator label1_iter =
+        b1.labels().begin();
+    BlockGraph::Block::LabelMap::const_iterator label2_iter =
+        b1.labels().begin();
+    for (; label1_iter != b1.labels().end(); label1_iter++, label2_iter++) {
+      if (label1_iter->first != label2_iter->first ||
+          label1_iter->second.type() != label2_iter->second.type() ||
+          !MaybeCompareString(label1_iter->second.name(),
+                              label2_iter->second.name(),
+                              attributes)) {
+        return false;
+      }
+    }
+  }
+
+  if ((attributes & BlockGraph::OMIT_DATA) == 0) {
     // Both data pointers should be null or non-null.
     if ((b1.data() == NULL) != (b2.data() == NULL) ||
         b1.owns_data() != b2.owns_data())
@@ -197,6 +230,16 @@ bool SerializeRoundTripTest(
 
   if (input_attributes != attributes)
     return false;
+
+  if (input_attributes != block_graph::BlockGraph::DEFAULT) {
+    // If we don't use the default flag for the serialization then the graph
+    // shouldn't be equal.
+    if (testing::BlockGraphsEqual(input_image,
+                                  *output_image,
+                                  BlockGraph::DEFAULT)) {
+      return false;
+    }
+  }
 
   return true;
 }

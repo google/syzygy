@@ -41,6 +41,7 @@ class InstrumentApp : public common::AppImplBase {
   InstrumentApp()
       : allow_overwrite_(false),
         augment_pdb_(false),
+        strip_strings_(false),
         debug_friendly_(false),
         instrument_unsafe_references_(true) {
   }
@@ -67,6 +68,7 @@ class InstrumentApp : public common::AppImplBase {
   std::string client_dll_;
   bool allow_overwrite_;
   bool augment_pdb_;
+  bool strip_strings_;
   bool debug_friendly_;
   bool instrument_unsafe_references_;
   // @}
