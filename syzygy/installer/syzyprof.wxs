@@ -39,34 +39,38 @@ limitations under the License.
       and to prevent downgrades for good measure.
     -->
     <Upgrade Id='$(var.UpgradeCode)'>
-      <UpgradeVersion Minimum='$(var.ProductVersion)'
-                      IncludeMinimum='no'
-                      OnlyDetect='yes'
-                      Language='1033'
-                      Property='NEWPRODUCTFOUND' />
-      <UpgradeVersion Minimum='$(var.RTMProductVersion)'
-                      IncludeMinimum='yes'
-                      Maximum='$(var.ProductVersion)'
-                      IncludeMaximum='no'
-                      Language='1033'
-                      Property='UPGRADEFOUND' />
+      <UpgradeVersion
+          OnlyDetect='yes' Property='SELFFOUND'
+          Minimum='$(var.ProductVersion)' IncludeMinimum='yes'
+          Maximum='$(var.ProductVersion)' IncludeMaximum='yes' />
+      <UpgradeVersion
+          OnlyDetect='yes' Property='NEWERFOUND'
+          Minimum='$(var.ProductVersion)' IncludeMinimum='no' />
     </Upgrade>
 
     <!--
       Prevent downgrading.
     -->
-    <CustomAction Id='PreventDowngrading'
-        Error='Newer version already installed.' />
+    <CustomAction
+        Id='AlreadyUpdated'
+        Error='SyzyProf has already been updated to this version.' />
+    <CustomAction
+        Id='NoDowngrade'
+        Error='A later version of SyzyProf is already installed.' />
 
     <InstallExecuteSequence>
-      <Custom Action='PreventDowngrading'
-              After='FindRelatedProducts'>NEWPRODUCTFOUND</Custom>
+      <Custom Action='AlreadyUpdated'
+          After='FindRelatedProducts'>SELFFOUND</Custom>
+      <Custom Action='NoDowngrade'
+          After='FindRelatedProducts'>NEWERFOUND</Custom>
       <RemoveExistingProducts After='InstallFinalize' />
     </InstallExecuteSequence>
 
     <InstallUISequence>
-      <Custom Action='PreventDowngrading'
-              After='FindRelatedProducts'>NEWPRODUCTFOUND</Custom>
+      <Custom Action='AlreadyUpdated'
+          After='FindRelatedProducts'>SELFFOUND</Custom>
+      <Custom Action='NoDowngrade'
+          After='FindRelatedProducts'>NEWERFOUND</Custom>
     </InstallUISequence>
 
     <!--
@@ -143,6 +147,10 @@ limitations under the License.
             Name='instrument.exe'
             DiskId='1'
             Source='$(var.BINARY_DIR)\instrument.exe' />
+        <File Id='InstrumentPdbFile'
+            Name='instrument.pdb'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\instrument.pdb' />
       </Component>
 
       <!-- Component for grinder.exe. -->
@@ -152,6 +160,10 @@ limitations under the License.
             Name='grinder.exe'
             DiskId='1'
             Source='$(var.BINARY_DIR)\grinder.exe' />
+        <File Id='GrinderPdbFile'
+            Name='grinder.pdb'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\grinder.pdb' />
       </Component>
 
       <!-- Component for profile_client.dll. -->
@@ -161,6 +173,10 @@ limitations under the License.
             Name='profile_client.dll'
             DiskId='1'
             Source='$(var.BINARY_DIR)\profile_client.dll' />
+        <File Id='ProfileClientPdbFile'
+            Name='profile_client.pdb'
+            DiskId='1'
+            Source='$(var.BINARY_DIR)\profile_client.pdb' />
       </Component>
 
       <!-- Component for SyzyProf.bat. -->
@@ -170,6 +186,15 @@ limitations under the License.
             Name='SyzyProf.bat'
             DiskId='1'
             Source='SyzyProf.bat' />
+      </Component>
+
+      <!-- Component for InstrumentChrome.bat. -->
+      <Component Id='InstrumentChromeBatComponent'
+          Guid='{BAE71F02-3AC8-4af9-BB45-FFC4D2A95C47}'>
+        <File Id='InstrumentChromeBatFile'
+            Name='InstrumentChrome.bat'
+            DiskId='1'
+            Source='InstrumentChrome.bat' />
       </Component>
 
       <!-- Component for ReadMe.txt. -->
@@ -204,6 +229,7 @@ limitations under the License.
       <ComponentRef Id='InstrumentExeComponent' />
       <ComponentRef Id='GrinderExeComponent' />
       <ComponentRef Id='ProfileClientDllComponent' />
+      <ComponentRef Id='InstrumentChromeBatComponent' />
       <ComponentRef Id='SyzyProfBatComponent' />
       <ComponentRef Id='ReadMeTxtComponent' />
       <ComponentRef Id='DbgHelpDllComponent' />
