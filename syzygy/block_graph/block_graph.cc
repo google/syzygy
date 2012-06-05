@@ -169,6 +169,27 @@ void ShiftReferrers(BlockGraph::Block* self,
   }
 }
 
+bool MaybeSaveString(const std::string& value,
+                     core::OutArchive* out_archive,
+                     BlockGraph::SerializationAttributes attributes) {
+  if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
+    if (!out_archive->Save(value))
+      return false;
+  }
+  return true;
+}
+
+bool MaybeLoadString(core::InArchive* in_archive,
+                     BlockGraph::SerializationAttributes attributes,
+                     std::string* value) {
+  DCHECK(value != NULL);
+  if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
+    if (!in_archive->Load(value))
+      return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 const char* BlockGraph::BlockTypeToString(BlockGraph::BlockType type) {
@@ -329,10 +350,12 @@ bool BlockGraph::Save(OutArchive* out_archive,
   BlockMap::const_iterator it = blocks_.begin();
   for (; it != blocks_.end(); ++it) {
     if (!out_archive->Save(it->first) ||
-        !it->second.SaveProps(out_archive)) {
+        !it->second.SaveProps(out_archive, attributes)) {
       return false;
     }
-    if (attributes & OMIT_DATA) {
+    if (!MaybeSaveLabels(&it->second, out_archive, attributes))
+      return false;
+    if ((attributes & OMIT_DATA) != 0) {
       if (!it->second.SaveDataSize(out_archive))
         return false;
     } else {
@@ -391,12 +414,16 @@ bool BlockGraph::Load(InArchive* in_archive,
   for (size_t i = 0; i < num_blocks; ++i) {
     BlockGraph::BlockId id = 0;
     Block block;
-    if (!in_archive->Load(&id) || !block.LoadProps(in_archive))
+    if (!in_archive->Load(&id) ||
+        !block.LoadProps(in_archive, *attributes)) {
+      return false;
+    }
+    if (!MaybeLoadLabels(in_archive, *attributes, &block))
       return false;
     BlockMap::iterator it = blocks_.insert(std::make_pair(id, block)).first;
     order.push_back(&it->second);
 
-    if (*attributes & OMIT_DATA) {
+    if ((*attributes & OMIT_DATA) != 0) {
       if (!it->second.LoadDataSize(in_archive))
         return false;
     } else {
@@ -432,6 +459,29 @@ bool BlockGraph::LoadBlocksRefs(const std::vector<BlockGraph::Block*>& order,
 
   for (size_t i = 0; i < num_blocks; ++i) {
     if (!order[i]->LoadRefs(*this, in_archive))
+      return false;
+  }
+  return true;
+}
+
+bool BlockGraph::MaybeSaveLabels(
+    const Block* block,
+    core::OutArchive* out_archive,
+    SerializationAttributes attributes) const {
+  if ((attributes & OMIT_LABELS) == 0) {
+    if (!block->SaveLabels(out_archive, attributes))
+      return false;
+  }
+  return true;
+}
+
+bool BlockGraph::MaybeLoadLabels(
+    core::InArchive* in_archive,
+    SerializationAttributes attributes,
+    Block* block) {
+  DCHECK(block != NULL);
+  if ((attributes & OMIT_LABELS) == 0) {
+    if (!block->LoadLabels(in_archive, attributes))
       return false;
   }
   return true;
@@ -1258,29 +1308,30 @@ bool BlockGraph::Block::Contains(RelativeAddress address, size_t size) const {
   return (address >= addr_ && address + size <= addr_ + size_);
 }
 
-bool BlockGraph::Block::SaveProps(OutArchive* out_archive) const {
+bool BlockGraph::Block::SaveProps(OutArchive* out_archive,
+                                  SerializationAttributes attributes) const {
   DCHECK(out_archive != NULL);
+
   if (out_archive->Save(id_) && out_archive->Save((int)type_) &&
       out_archive->Save(size_) && out_archive->Save(alignment_) &&
-      out_archive->Save(name_) && out_archive->Save(addr_) &&
+      out_archive->Save(source_ranges_) && out_archive->Save(addr_) &&
       out_archive->Save(section_) && out_archive->Save(attributes_) &&
-      out_archive->Save(source_ranges_) && out_archive->Save(labels_)) {
+      MaybeSaveString(name_, out_archive, attributes)) {
     return true;
   }
-  LOG(ERROR) << "Unable to save block properties.";
   return false;
 }
 
-bool BlockGraph::Block::LoadProps(InArchive* in_archive) {
+bool BlockGraph::Block::LoadProps(InArchive* in_archive,
+                                  SerializationAttributes attributes) {
   DCHECK(in_archive != NULL);
   if (in_archive->Load(&id_) && in_archive->Load((int*)&type_) &&
       in_archive->Load(&size_) && in_archive->Load(&alignment_) &&
-      in_archive->Load(&name_) && in_archive->Load(&addr_) &&
+      in_archive->Load(&source_ranges_) && in_archive->Load(&addr_) &&
       in_archive->Load(&section_) && in_archive->Load(&attributes_) &&
-      in_archive->Load(&source_ranges_) && in_archive->Load(&labels_)) {
+      MaybeLoadString(in_archive, attributes, &name_)) {
     return true;
   }
-  LOG(ERROR) << "Unable to load block properties.";
   return false;
 }
 
@@ -1402,6 +1453,53 @@ bool BlockGraph::Block::LoadDataSize(InArchive* in_archive) {
   if (!in_archive->Load(&data_size_))
     return false;
 
+  return true;
+}
+
+bool BlockGraph::Block::SaveLabels(OutArchive* out_archive,
+                                   SerializationAttributes attributes) const {
+  DCHECK(out_archive != NULL);
+  DCHECK_EQ(0u, (attributes & BlockGraph::OMIT_LABELS));
+
+  // There are several ways to save the label map into the stream:
+  //   - Save the original label map with the original label names and offsets.
+  //   - Save the original label map but strip the label names.
+  //   - Don't save the label map at all.
+  LabelMap::const_iterator label_iter = labels_.begin();
+  out_archive->Save(labels_.size());
+  for (; label_iter != labels_.end(); label_iter++) {
+    if (!out_archive->Save(label_iter->first) ||
+        !out_archive->Save(static_cast<int8>(label_iter->second.type())) ||
+        !MaybeSaveString(label_iter->second.name(), out_archive, attributes)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool BlockGraph::Block::LoadLabels(InArchive* in_archive,
+                                  SerializationAttributes attributes) {
+  DCHECK(in_archive != NULL);
+  DCHECK_EQ(0u, (attributes & BlockGraph::OMIT_LABELS));
+
+  size_t labels_count = 0;
+  if (!in_archive->Load(&labels_count)) {
+    LOG(ERROR) << "Unable to load labels count.";
+    return false;
+  }
+  for (size_t i = 0; i < labels_count; ++i) {
+    int8 temp_type = 0;
+    std::string temp_name;
+    Offset temp_offset;
+    if (!(in_archive->Load(&temp_offset)) ||
+        !(in_archive->Load(&temp_type)) ||
+        !MaybeLoadString(in_archive, attributes, &temp_name)) {
+      return false;
+    }
+    Label temp_label(temp_name, static_cast<LabelType>(temp_type));
+    labels_.insert(std::make_pair(temp_offset, temp_label));
+  }
+  DCHECK_EQ(labels_count, labels_.size());
   return true;
 }
 

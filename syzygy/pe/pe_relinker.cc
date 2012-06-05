@@ -641,8 +641,10 @@ bool WriteImageLayoutAddressSpace(const ImageLayout& image_layout,
 // named /Syzygy/BlockGraph. If the format is changed, be sure to update this
 // documentation and pdb::kSyzygyBlockGraphStreamVersion (in pdb_constants.h).
 // The block graph stream will not include the data from the blocks of the
-// block-graph.
+// block-graph. If the strip-strings flag is set to true the strings contained
+// in the block-graph won't be saved.
 bool WriteSyzygyBlockGraphStream(const ImageLayout& image_layout,
+                                 const bool strip_strings,
                                  NameStreamMap* name_stream_map,
                                  PdbFile* pdb_file) {
   // Get the redecomposition data stream.
@@ -672,8 +674,7 @@ bool WriteSyzygyBlockGraphStream(const ImageLayout& image_layout,
   // Save the BlockGraph in the stream.
   PdbOutStream out_stream(block_graph_writer.get());
   core::OutArchive out_archive(&out_stream);
-  if (!image_layout.blocks.graph()->Save(&out_archive,
-      BlockGraph::OMIT_DATA)) {
+  if (!image_layout.blocks.graph()->Save(&out_archive, BlockGraph::OMIT_DATA)) {
     LOG(ERROR) << "Failed to write block-graph data to Syzygy "
                << "BlockGraph stream.";
     return false;
@@ -692,8 +693,9 @@ bool WriteSyzygyBlockGraphStream(const ImageLayout& image_layout,
 
 PERelinker::PERelinker()
     : add_metadata_(true), allow_overwrite_(false), augment_pdb_(true),
-      padding_(0), inited_(false), input_image_layout_(&block_graph_),
-      dos_header_block_(NULL), output_guid_(GUID_NULL) {
+      strip_strings_(false), padding_(0), inited_(false),
+      input_image_layout_(&block_graph_), dos_header_block_(NULL),
+      output_guid_(GUID_NULL) {
 }
 
 void PERelinker::AppendTransform(Transform* transform) {
@@ -813,7 +815,9 @@ bool PERelinker::Relink() {
   if (augment_pdb_) {
     LOG(INFO) << "The block-graph stream is being written to the PDB.";
     if (!WriteSyzygyBlockGraphStream(output_image_layout,
-                                     &name_stream_map, &pdb_file)) {
+                                     strip_strings_,
+                                     &name_stream_map,
+                                     &pdb_file)) {
       return false;
     }
   }

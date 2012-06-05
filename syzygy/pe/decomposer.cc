@@ -2782,7 +2782,7 @@ bool Decomposer::LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
                << "stream.";
     return false;
   }
-  if (!(serialisation_attributes & BlockGraph::OMIT_DATA)) {
+  if ((serialisation_attributes & BlockGraph::OMIT_DATA) == 0) {
     LOG(ERROR) << "The data are present in the serialized block-graph then they"
                << " should not.";
     return false;
