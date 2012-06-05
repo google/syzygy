@@ -54,6 +54,7 @@ class BlockGraph {
   typedef size_t Size;
   typedef ptrdiff_t Offset;
   typedef uint32 BlockAttributes;
+  typedef uint32 LabelAttributes;
   typedef uint32 SerializationAttributes;
 
   // The BlockGraph maintains a list of sections, and each block belongs
@@ -133,6 +134,37 @@ class BlockGraph {
 
     // Note: This must always be last.
     LABEL_TYPE_MAX
+  };
+
+  // Label attributes. Attributes of the form _END_LABEL_ATTR type actually
+  // point to the first byte past the range they delineate. To make the
+  // semantics of moving labels easier, we shift these labels left by one and
+  // make them follow the last byte of the delineated range.
+  //
+  // TODO(chrisha): Once the switch to label attributes it complete, remove the
+  //     '_ATTR' suffix. This is only there currently to avoid collisions with
+  //     the LabelType enum.
+  enum LabelAttributeEnum {
+    // The label points to an entry-point in a code block.
+    CODE_LABEL_ATTR = (1 << 0),
+
+    // Mark the start and end of the debuggable portion of a code block.
+    DEBUG_START_LABEL_ATTR = (1 << 1),
+    DEBUG_END_LABEL_ATTR = (1 << 2),
+
+    // Mark the start and end of an embedded scope in a code block.
+    SCOPE_START_LABEL_ATTR = (1 << 3),
+    SCOPE_END_LABEL_ATTR = (1 << 4),
+
+    // Marks the location of a (virtual table?) call.
+    CALL_SITE_LABEL_ATTR = (1 << 5),
+
+    // The label points to the start of a jump table. The length is inferred
+    // by the location of the next label, or the end of the block.
+    JUMP_TABLE_LABEL_ATTR = (1 << 6),
+    // The label points to the start of a case table. The length is inferred
+    // by the location of the next label, or the end of the block.
+    CASE_TABLE_LABEL_ATTR = (1 << 7),
   };
 
   static const char* LabelTypeToString(LabelType type);
@@ -388,12 +420,25 @@ struct BlockGraph::Section {
 class BlockGraph::Label {
  public:
   // Default constructor.
-  Label() : type_(LABEL_TYPE_UNKNOWN) {
+  Label() : type_(LABEL_TYPE_UNKNOWN), attributes_(0) {
+  }
+
+  // Old constructor.
+  // @note deprecated.
+  // TODO(chrisha): Kill me post-transition.
+  Label(const base::StringPiece& name,
+        LabelType type)
+      : name_(name.begin(), name.end()), type_(type), attributes_(0) {
+    DCHECK_LE(LABEL_TYPE_UNKNOWN, type);
+    DCHECK_GT(LABEL_TYPE_MAX, type);
   }
 
   // Full constructor.
-  Label(const base::StringPiece& name, LabelType type)
-      : name_(name.begin(), name.end()), type_(type) {
+  // TODO(chrisha): Kill the label type post-transition.
+  Label(const base::StringPiece& name,
+        LabelType type,
+        LabelAttributes attributes)
+      : name_(name.begin(), name.end()), type_(type), attributes_(attributes) {
     DCHECK_LE(LABEL_TYPE_UNKNOWN, type);
     DCHECK_GT(LABEL_TYPE_MAX, type);
   }
@@ -418,8 +463,21 @@ class BlockGraph::Label {
 
   // Equality comparator for unittesting.
   bool operator==(const Label& other) const {
-    return name_ == other.name_ && type_ == other.type_;
+    return name_ == other.name_ && type_ == other.type_ &&
+        attributes_ == other.attributes_;
   }
+
+  // The label attributes are a bitmask. You can set them wholesale,
+  // or set and clear them individually by bitmasking.
+  LabelAttributes attributes() const { return attributes_; }
+  void set_attributes(LabelAttributes attributes) { attributes_ = attributes; }
+
+  // Set or clear one or more attributes.
+  void set_attribute(LabelAttributes attribute) { attributes_ |= attribute; }
+  void clear_attribute(LabelAttributes attribute) { attributes_ &= ~attribute; }
+
+  // @returns true if this label is valid, false otherwise.
+  bool IsValid() const;
 
  private:
   // The name by which this label is known.
@@ -427,6 +485,7 @@ class BlockGraph::Label {
 
   // The disposition of the bytes found at this label.
   LabelType type_;
+  LabelAttributes attributes_;
 };
 
 

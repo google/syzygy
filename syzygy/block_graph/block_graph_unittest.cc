@@ -105,6 +105,85 @@ TEST(ReferenceTest, IndirectReference) {
   ASSERT_FALSE(ref.IsDirect());
 }
 
+TEST(LabelTest, Initialization) {
+  BlockGraph::Label label;
+  ASSERT_TRUE(label.name().empty());
+  ASSERT_EQ(BlockGraph::LABEL_TYPE_UNKNOWN, label.type());
+  ASSERT_EQ(0u, label.attributes());
+}
+
+// TODO(chrisha): This is deprecated. Kill it after the transition.
+TEST(LabelTest, InitializationOldConstructor) {
+  BlockGraph::Label label("foo", BlockGraph::CODE_LABEL);
+  ASSERT_EQ(std::string("foo"), label.name());
+  ASSERT_EQ(BlockGraph::CODE_LABEL, label.type());
+  ASSERT_EQ(0u, label.attributes());
+}
+
+TEST(LabelTest, InitializationFullConstructor) {
+  BlockGraph::Label label(
+      "foo", BlockGraph::CODE_LABEL, BlockGraph::CODE_LABEL_ATTR);
+  ASSERT_EQ(std::string("foo"), label.name());
+  ASSERT_EQ(BlockGraph::CODE_LABEL, label.type());
+  ASSERT_EQ(BlockGraph::CODE_LABEL_ATTR, label.attributes());
+}
+
+TEST(LabelTest, Attributes) {
+  BlockGraph::Label label;
+  ASSERT_EQ(0u, label.attributes());
+
+  label.set_attribute(BlockGraph::CODE_LABEL_ATTR);
+  ASSERT_EQ(BlockGraph::CODE_LABEL_ATTR, label.attributes());
+
+  label.set_attribute(BlockGraph::JUMP_TABLE_LABEL_ATTR);
+  ASSERT_EQ(BlockGraph::CODE_LABEL_ATTR | BlockGraph::JUMP_TABLE_LABEL_ATTR,
+            label.attributes());
+
+  label.set_attributes(BlockGraph::CASE_TABLE_LABEL_ATTR);
+  ASSERT_EQ(BlockGraph::CASE_TABLE_LABEL_ATTR, label.attributes());
+
+  label.clear_attribute(BlockGraph::CASE_TABLE_LABEL_ATTR);
+  ASSERT_EQ(0u, label.attributes());
+}
+
+TEST(LabelTest, IsValid) {
+  BlockGraph::Label label;
+
+  // A label must have some attributes.
+  ASSERT_FALSE(label.IsValid());
+
+  // A code label is fine on its own and also with start labels, but not with
+  // anything else.
+  label.set_attribute(BlockGraph::CODE_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::DEBUG_START_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::SCOPE_START_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::SCOPE_END_LABEL_ATTR);
+  ASSERT_FALSE(label.IsValid());
+
+  // A jump table must be on its own.
+  label.set_attributes(BlockGraph::JUMP_TABLE_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  ASSERT_FALSE(label.IsValid());
+
+  // A case table must be on its own.
+  label.set_attributes(BlockGraph::CASE_TABLE_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  ASSERT_FALSE(label.IsValid());
+
+  // End labels must be on their own (but can coincide with each other).
+  label.set_attributes(BlockGraph::DEBUG_END_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::SCOPE_END_LABEL_ATTR);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  ASSERT_FALSE(label.IsValid());
+}
+
 TEST_F(BlockTest, Initialization) {
   // Test initialization.
   ASSERT_EQ(kBlockType, block_->type());
