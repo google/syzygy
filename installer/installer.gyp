@@ -28,16 +28,23 @@
           '<(DEPTH)/third_party/debugging_tools/files/SymSrv.dll',
           '<(PRODUCT_DIR)/call_trace_service.exe',
           '<(PRODUCT_DIR)/instrument.exe',
+          '<(PRODUCT_DIR)/instrument.pdb',
           '<(PRODUCT_DIR)/grinder.exe',
+          '<(PRODUCT_DIR)/grinder.pdb',
           '<(PRODUCT_DIR)/profile_client.dll',
+          '<(PRODUCT_DIR)/profile_client.pdb',
+        ],
+        'sources': [
+          'InstrumentChrome.bat',
+          'license.rtf',
+          'ReadMe.txt',
+          'SyzyProf.bat',
+          'syzyprof.wxs',
+          'version.wxi.template',
         ],
       },
       'sources': [
-        'license.rtf',
-        'ReadMe.txt',
-        'SyzyProf.bat',
-        'syzyprof.wxs',
-        'version.wxi.template',
+        '<@(sources)',
       ],
       'dependencies': [
         '../agent/profiler/profiler.gyp:profile_client',
@@ -91,6 +98,7 @@
           'inputs': [
             '<(INTERMEDIATE_DIR)/syzyprof.wixobj',
             '<@(binaries)',
+            '<@(sources)',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/syzyprof.msi',

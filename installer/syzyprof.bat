@@ -16,10 +16,9 @@
 :: Add our parent directory to the path.
 set path=%~dp0;%path%
 
-:: Set the title and other properties of the command window.
+:: Set the title and color of the command window.
 title SyzyProf Shell
 color 0F
-mode con: cols=100 lines=50
 
 :: Display something helpful.
 type "%~dp0readme.txt"
