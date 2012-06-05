@@ -32,7 +32,7 @@
 #include "base/lazy_instance.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
-#include "syzygy/agent/common/shadow_stack.h"
+#include "syzygy/agent/common/entry_frame.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 // Assembly instrumentation stubs to handle function entry and exit.
