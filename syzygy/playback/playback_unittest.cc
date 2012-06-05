@@ -140,9 +140,8 @@ TEST_F(PlaybackTest, ConsumeCallTraceEvents) {
   EXPECT_CALL(*parse_event_handler_, OnFunctionEntry(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_, OnFunctionExit(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_,
-              OnBatchFunctionEntry(_, _, _, _)).Times(20);
+              OnBatchFunctionEntry(_, _, _, _)).Times(12);
   EXPECT_CALL(*parse_event_handler_, OnProcessAttach(_, _, _, _)).Times(12);
-  EXPECT_CALL(*parse_event_handler_, OnProcessDetach(_, _, _, _)).Times(12);
   EXPECT_CALL(*parse_event_handler_, OnThreadAttach(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_, OnThreadDetach(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_,

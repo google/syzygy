@@ -26,9 +26,9 @@
       'target_name': 'agent_common_lib',
       'type': 'static_library',
       'sources': [
+        'entry_frame.h',
         'process_utils.cc',
         'process_utils.h',
-        'shadow_stack.h',
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
@@ -40,7 +40,6 @@
       'sources': [
         'agent_common_unittests_main.cc',
         'process_utils_unittest.cc',
-        'shadow_stack_unittest.cc',
       ],
       'dependencies': [
         'agent_common_lib',

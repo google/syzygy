@@ -158,76 +158,6 @@ extern "C" void __declspec(naked) _cdecl _indirect_penter_dllmain() {
   }
 }
 
-// This instrumentation hook is used on return from a function (unless
-// the function is a DLL entry-point).
-//
-// Note that the invocation pattern by which this function is executed
-// is unusual. As required, the instrumentation code hanging off of
-// _indirect_penter will arrange to replace the return address for the
-// function about to be invoked such that the function returns to this
-// hook instead.
-//
-// This is required when exit tracing is enabled.
-void __declspec(naked) pexit() {
-  __asm {
-    // Stash the volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
-
-    // Push the function return value.
-    push eax
-    // Calculate the stack pointer prior to our entry.
-    lea eax, DWORD PTR[esp + 20]
-    push eax
-    call Client::FunctionExitHook
-
-    popfd
-    pop edx
-    pop ecx
-
-    // The return value from Client::FunctionExitHook is the real return
-    // value. Swap it for the stashed EAX on stack and return to it.
-    xchg eax, DWORD PTR[esp]
-    ret
-  }
-}
-
-// This instrumentation hook is used on return from a DLL's entry-point.
-//
-// Note that the invocation pattern by which this function is executed is
-// unusual. The instrumentation code hanging off of _indirect_penter_dllmain
-// will arrange to replace the return address for the function about to be
-// invoked such that the function returns to this hook instead.
-//
-// This allows module and thread detachment events to be captured correctly.
-void __declspec(naked) pexit_dllmain() {
-  __asm {
-    // Stash the volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
-
-    // Push the function return value.
-    push eax
-    // Calculate the stack pointer prior to our entry.
-    lea eax, DWORD PTR[esp + 20]
-    push eax
-    call Client::DllMainExitHook
-
-    popfd
-    pop edx
-    pop ecx
-
-    // The return value from Client::DllMainExitHook is the real return
-    // value. Swap it for the stashed EAX on stack and return to it.
-    xchg eax, DWORD PTR[esp]
-    ret
-  }
-}
-
 namespace agent {
 namespace client {
 
@@ -255,14 +185,6 @@ class Client::ThreadLocalData {
   // The current batch record we're extending, if any.
   // This will point into the associated trace file segment's buffer.
   TraceBatchEnterData* batch;
-
-  // The shadow return stack we use when function exit is traced.
-  ShadowStack shadow_stack;
-
-  // A placeholder for a pending module event (DLL_THREAD_DETACH or
-  // DLL_PROCESS_DETACH) that will be processed by ::pexit_dllmain.
-  // TODO(rogerm): is it possible to have more than one pending?
-  ModuleEventStack module_event_stack;
 };
 
 Client::Client() {
@@ -354,41 +276,6 @@ void Client::FunctionEntryHook(EntryFrame *entry_frame, FuncAddr function) {
   client->LogEvent_FunctionEntry(entry_frame, function, NULL, -1);
 }
 
-RetAddr Client::FunctionExitHook(const void* stack_pointer,
-                                 RetValueWord retval) {
-  ScopedLastErrorKeeper save_and_restore_last_error;
-
-  Client* client = Instance();
-  CHECK(client != NULL) << "Failed to get call trace client instance.";
-  DCHECK(!client->session_.IsDisabled());
-  DCHECK(client->session_.IsTracing());
-
-  return client->LogEvent_FunctionExit(stack_pointer, retval);
-}
-
-RetAddr Client::DllMainExitHook(const void* stack_pointer,
-                                RetValueWord retval) {
-  ScopedLastErrorKeeper save_and_restore_last_error;
-
-  Client* client = Instance();
-  CHECK(client != NULL) << "Failed to get call trace client instance.";
-  DCHECK(!client->session_.IsDisabled());
-  DCHECK(client->session_.IsTracing());
-
-  RetAddr value = client->LogEvent_FunctionExit(stack_pointer, retval);
-
-  // Pop the module event stack.
-  ThreadLocalData* data = client->GetThreadData();
-  CHECK(data != NULL) << "Failed to get thread local data.";
-  DCHECK(!data->module_event_stack.empty());
-
-  const ModuleEventStackEntry& module_event = data->module_event_stack.back();
-  client->LogEvent_ModuleEvent(data, module_event.module, module_event.reason);
-  data->module_event_stack.pop_back();
-
-  return value;
-}
-
 void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
                                   HMODULE module,
                                   DWORD reason) {
@@ -404,8 +291,8 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
 
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
-      if (!session_.IsEnabled(TRACE_FLAG_THREAD_EVENTS))
-        return;
+      // We don't log these.
+      return;
       break;
 
     default:
@@ -513,126 +400,12 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
     LogEvent_ModuleEvent(data, module, reason);
   }
 
-  // If we're in batch mode, just capture the basic call info and timestamp.
-  if (session_.IsEnabled(TRACE_FLAG_BATCH_ENTER)) {
-    DCHECK_EQ(session_.flags() & (session_.flags() - 1), 0u)
-        << "Batch mode isn't compatible with any other flags; "
-           "no other bits should be set.";
-
-    FuncCall* call_info = data->AllocateFuncCall();
-    if (call_info != NULL) {
-      call_info->function = function;
-      call_info->tick_count = ::GetTickCount();
-    }
+  // Capture the basic call info and timestamp.
+  FuncCall* call_info = data->AllocateFuncCall();
+  if (call_info != NULL) {
+    call_info->function = function;
+    call_info->tick_count = ::GetTickCount();
   }
-
-  // If we're tracing detailed function entries, capture the function details.
-  if (session_.IsEnabled(TRACE_FLAG_ENTER)) {
-    if (!data->segment.CanAllocate(sizeof(TraceEnterEventData))) {
-      data->FlushSegment();
-    }
-
-    TraceEnterEventData* event_data =
-        data->segment.AllocateTraceRecord<TraceEnterEventData>();
-
-    event_data->depth = (NULL == data) ? 0 : data->shadow_stack.size();
-    event_data->function = function;
-    CopyArguments(event_data->args,
-                  entry_frame->args,
-                  ARRAYSIZE(event_data->args));
-
-    // TODO(siggi): It might make sense to optimize this, and not do a stack
-    //     trace capture when we enter directly from another captured function
-    //     It's a little difficult to distinguish this from entry through, for
-    //     example, a function we didn't capture in the same module, or entry
-    //     indirectly through a callback, so leaving as a possible future
-    //     optimization.
-    if (session_.IsEnabled(TRACE_FLAG_STACK_TRACES)) {
-      event_data->num_traces = ::RtlCaptureStackBackTrace(
-          3, kMaxTraceDepth, const_cast<PVOID*>(event_data->traces), NULL);
-      FixupBackTrace(data->shadow_stack, event_data->traces,
-                     event_data->num_traces);
-    } else {
-      event_data->num_traces = 0;
-    }
-  }
-
-  bool is_detach_event = (module != NULL) && (reason == DLL_THREAD_DETACH ||
-                                              reason == DLL_PROCESS_DETACH);
-
-  // If we're tracing function exits, or we need to capture the end of a
-  // module unload event, we need to write the appropriate exit hook into
-  // the call stack.
-  if (session_.IsEnabled(TRACE_FLAG_EXIT) || is_detach_event) {
-    // Make sure we trim orphaned shadow stack entries before pushing
-    // a new one. On entry, any shadow stack entry whose entry frame pointer
-    // is less than the current entry frame is orphaned.
-    ShadowStack& stack = data->shadow_stack;
-    stack.TrimOrphansOnEntry(entry_frame);
-
-    // Save the old return address.
-    StackEntry entry = stack.Push(entry_frame);
-    entry.function_address = function;
-
-    // Modify the return address in our frame. If this is a module event,
-    // stash the event details and return to ::pexit_dllmain; otherwise,
-    // return to ::pexit.
-    if (is_detach_event) {
-      ModuleEventStackEntry module_event = { module, reason };
-      data->module_event_stack.push_back(module_event);
-      entry_frame->retaddr = ::pexit_dllmain;
-    } else {
-      entry_frame->retaddr = ::pexit;
-    }
-
-  }
-}
-
-RetAddr Client::LogEvent_FunctionExit(const void* stack_pointer,
-                                      RetValueWord retval) {
-  DCHECK(session_.IsTracing());  // Otherwise we wouldn't get here.
-
-  ThreadLocalData *data = GetThreadData();
-  CHECK(NULL != data) << "Shadow stack missing in action";
-
-  ShadowStack& stack = data->shadow_stack;
-  stack.TrimOrphansOnExit(stack_pointer);
-
-  // Get the top of the stack, we don't pop it yet, because
-  // the fixup function needs to see our entry to fixup correctly.
-  StackEntry top = stack.Peek();
-
-  // Trace the exit if required.
-  if (session_.IsEnabled(TRACE_FLAG_EXIT)) {
-    if (!data->segment.CanAllocate(sizeof(TraceExitEventData))) {
-      data->FlushSegment();
-    }
-    TraceExitEventData* event_data =
-        data->segment.AllocateTraceRecord<TraceExitEventData>();
-    event_data->depth = data->shadow_stack.size();
-    event_data->function = top.function_address;
-    event_data->retval = retval;
-    if (session_.IsEnabled(TRACE_FLAG_STACK_TRACES)) {
-      event_data->num_traces = ::RtlCaptureStackBackTrace(
-          3, kMaxTraceDepth, const_cast<PVOID*>(event_data->traces), NULL);
-      FixupBackTrace(data->shadow_stack, event_data->traces,
-                     event_data->num_traces);
-    } else {
-      event_data->num_traces = 0;
-    }
-  }
-
-  // Pop the stack.
-  stack.Pop();
-
-  // And return the original return address.
-  return top.return_address;
-}
-
-void Client::FixupBackTrace(const ShadowStack& stack, RetAddr traces[],
-                            size_t num_traces) {
-  static const RetAddr kExitFns[] = { ::pexit, ::pexit_dllmain };
-  stack.FixBackTrace(arraysize(kExitFns), kExitFns, num_traces, traces);
 }
 
 Client::ThreadLocalData* Client::GetThreadData() {
