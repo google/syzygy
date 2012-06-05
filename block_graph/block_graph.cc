@@ -848,6 +848,49 @@ bool BlockGraph::Label::Load(InArchive* in_archive) {
   return true;
 }
 
+bool BlockGraph::Label::IsValid() const {
+  const LabelAttributes kCodeAndStartLabelAttributes =
+      CODE_LABEL_ATTR | DEBUG_START_LABEL_ATTR | SCOPE_START_LABEL_ATTR;
+  const LabelAttributes kEndLabelAttributes =
+      DEBUG_END_LABEL_ATTR | SCOPE_END_LABEL_ATTR;
+
+  // TODO(chrisha): Once we make the switch to VS2010 Determine where call
+  //     site labels may land. Are they at the beginning of the call
+  //     instruction (in which case they may coincide with *_START_LABEL_ATTR
+  //     and CODE_LABEL_ATTR), or do they point at the address of the call
+  //     (in which case they must be completely on their own)?
+
+  // A label needs to have at least one attribute.
+  if (attributes_ == 0)
+    return false;
+
+  // A code label can only be colocated with SCOPE_START and DEBUG_START.
+  if ((attributes_ & CODE_LABEL_ATTR) &&
+      (attributes_ & ~kCodeAndStartLabelAttributes)) {
+    return false;
+  }
+
+  // A jump table must be on its own.
+  if ((attributes_ & JUMP_TABLE_LABEL_ATTR) &&
+      (attributes_ & ~JUMP_TABLE_LABEL_ATTR)) {
+    return false;
+  }
+
+  // A case table must be on its own.
+  if ((attributes_ & CASE_TABLE_LABEL_ATTR) &&
+      (attributes_ & ~CASE_TABLE_LABEL_ATTR)) {
+    return false;
+  }
+
+  // End labels must be on their own, but can coincide with each other.
+  if ((attributes_ & kEndLabelAttributes) &&
+      (attributes_ & ~kEndLabelAttributes)) {
+    return false;
+  }
+
+  return true;
+}
+
 BlockGraph::Block::Block()
     : id_(0),
       type_(BlockGraph::CODE_BLOCK),
@@ -1460,6 +1503,9 @@ bool BlockGraph::Block::SaveLabels(OutArchive* out_archive,
                                    SerializationAttributes attributes) const {
   DCHECK(out_archive != NULL);
   DCHECK_EQ(0u, (attributes & BlockGraph::OMIT_LABELS));
+
+  // TODO(chrisha): Transition this to using label attributes rather than
+  //     types.
 
   // There are several ways to save the label map into the stream:
   //   - Save the original label map with the original label names and offsets.
