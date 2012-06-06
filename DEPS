@@ -118,6 +118,6 @@ hooks = [
     "action": ["python",
                "src/build/gyp_chromium",
                "--include=src/syzygy/syzygy.gypi",
-               "src/syzygy/syzygy.gyp"],
+               "src/syzygy/build/all.gyp"],
   },
 ]
