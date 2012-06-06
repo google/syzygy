@@ -37,7 +37,7 @@ class PdbByteStream : public PdbStream {
   // @name PdbStream implementation.
   // @{
   virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) OVERRIDE;
-  virtual WritablePdbStream* GetWritablePdbStream() OVERRIDE;
+  virtual scoped_refptr<WritablePdbStream> GetWritablePdbStream() OVERRIDE;
   // @}
 
   // Gets the stream's data pointer.

@@ -115,7 +115,9 @@ class PdbStream : public base::RefCounted<PdbStream> {
   //     in some common stream-writer functionality, reusing BufferWriter.
   //
   // @returns a pointer to a WritablePdbStream.
-  virtual WritablePdbStream* GetWritablePdbStream() { return NULL; }
+  virtual scoped_refptr<WritablePdbStream> GetWritablePdbStream() {
+    return scoped_refptr<WritablePdbStream>();
+  }
 
   // Sets the current read position.
   bool Seek(size_t pos);

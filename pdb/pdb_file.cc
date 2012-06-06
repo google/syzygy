@@ -27,7 +27,7 @@ void PdbFile::Clear() {
   streams_.clear();
 }
 
-PdbStream* PdbFile::GetStream(uint32 index) const {
+scoped_refptr<PdbStream> PdbFile::GetStream(uint32 index) const {
   DCHECK_LT(index, streams_.size());
   return streams_[index];
 }

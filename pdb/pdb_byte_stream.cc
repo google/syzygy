@@ -99,13 +99,13 @@ bool PdbByteStream::ReadBytes(void* dest, size_t count, size_t* bytes_read) {
   return true;
 }
 
-WritablePdbStream* PdbByteStream::GetWritablePdbStream() {
+scoped_refptr<WritablePdbStream> PdbByteStream::GetWritablePdbStream() {
   // This is very not thread-safe! If we want this to be thread-safe, we'll
   // need to be using thread-safe reference counting, and a little smarts here
   // to ensure we're not mid-destructor on some other thread.
   if (writable_pdb_stream_ == NULL)
     writable_pdb_stream_ = new WritablePdbByteStream(this);
-  return writable_pdb_stream_;
+  return scoped_refptr<WritablePdbStream>(writable_pdb_stream_);
 }
 
 WritablePdbByteStream::WritablePdbByteStream(PdbByteStream* pdb_byte_stream) {
