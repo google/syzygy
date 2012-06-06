@@ -41,27 +41,21 @@ class PdbFile {
   // Accesses the nth stream.
   // @param index the index of the nth stream.
   // @returns a pointer to the stream, NULL if it does not exist.
-  PdbStream* GetStream(uint32 index) const;
+  scoped_refptr<PdbStream> GetStream(uint32 index) const;
 
   // Adds a new stream to this PDB file, returning the index of the newly
-  // generated stream. The stream must be heap allocated and ownership is
-  // passed to this object.
-  // @param pdb_stream a pointer to a heap allocated stream object. Ownership of
-  //     the stream is passed to this object. This may be NULL, indicating that
-  //     the nth stream exists but is empty.
+  // generated stream.
+  // @param pdb_stream a pointer to a heap allocated stream object This may be
+  //     NULL, indicating that the nth stream exists but is empty.
   // @returns the index of the added stream.
   size_t AppendStream(PdbStream* pdb_stream);
 
-  // Sets the nth stream. The stream object must be heap allocated and
-  // ownership is implicitly transferred to the PdbFile object. Overwrites an
-  // existing stream if there is one, and destroys it as well. It is up to the
-  // caller to ensure there are no outstanding references to the existing
-  // stream.
+  // Sets the nth stream. Overwrites an existing stream if there is one.
   // @param index the index of the stream. This must be >= 0, and must be
   //     a stream index that already exists.
   // @param pdb_stream a pointer to the heap allocated stream to be placed at
-  //     the given position. Ownership is transferred to this object. This may
-  //     be NULL, which is equivalent to erasing the given stream.
+  //     the given position. This may be NULL, which is equivalent to erasing
+  // the given stream.
   void ReplaceStream(uint32 index, PdbStream* pdb_stream);
 
   // Returns the number of streams in the PDB file. There are streams with
