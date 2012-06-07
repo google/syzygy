@@ -166,10 +166,14 @@ bool GenerateTestBlockGraph(block_graph::BlockGraph* image) {
       b3->section() != s2->id())
       return false;
 
-  b1->SetLabel(0x04, "label1", BlockGraph::CODE_LABEL);
-  b2->SetLabel(0x08, "label2", BlockGraph::DATA_LABEL);
-  b3->SetLabel(0x0C, "label3", BlockGraph::CODE_LABEL);
-  b3->SetLabel(0x10, "label4", BlockGraph::DATA_LABEL);
+  b1->SetLabel(0x04, "label1", BlockGraph::CODE_LABEL,
+               BlockGraph::CODE_LABEL_ATTR);
+  b2->SetLabel(0x08, "label2", BlockGraph::DATA_LABEL,
+               BlockGraph::DATA_LABEL_ATTR);
+  b3->SetLabel(0x0C, "label3", BlockGraph::CODE_LABEL,
+               BlockGraph::CODE_LABEL_ATTR);
+  b3->SetLabel(0x10, "label4", BlockGraph::DATA_LABEL,
+               BlockGraph::DATA_LABEL_ATTR);
 
   uint8* b1_data = b1->AllocateData(b1->size());
   for (size_t i = 0; i < b1->size(); ++i) {

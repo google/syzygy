@@ -309,27 +309,34 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   ASSERT_FALSE(dll_main_block == NULL);
 
 #ifdef NDEBUG
-  EXPECT_EQ(22, dll_main_block->labels().size());
-#else
   EXPECT_EQ(23, dll_main_block->labels().size());
+#else
+  EXPECT_EQ(24, dll_main_block->labels().size());
 #endif
 
-  std::multiset<BlockGraph::LabelType> label_types;
+  std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
   {
     BlockGraph::Block::LabelMap::const_iterator it =
         dll_main_block->labels().begin();
-    for (; it != dll_main_block->labels().end(); ++it)
-      label_types.insert(it->second.type());
+    for (; it != dll_main_block->labels().end(); ++it) {
+      BlockGraph::LabelAttributes attr_mask = 1;
+      for (; attr_mask != BlockGraph::LABEL_ATTR_MAX; attr_mask <<= 1) {
+        if (it->second.attributes() & attr_mask)
+          label_attr_counts[attr_mask]++;
+      }
+    }
   }
 
 #ifdef NDEBUG
-  EXPECT_EQ(16, label_types.count(BlockGraph::CODE_LABEL));
+  EXPECT_EQ(17, label_attr_counts[BlockGraph::CODE_LABEL_ATTR]);
 #else
-  EXPECT_EQ(17, label_types.count(BlockGraph::CODE_LABEL));
+  EXPECT_EQ(18, label_attr_counts[BlockGraph::CODE_LABEL]);
 #endif
-  EXPECT_EQ(4, label_types.count(BlockGraph::DATA_LABEL));
-  EXPECT_EQ(1, label_types.count(BlockGraph::DEBUG_START_LABEL));
-  EXPECT_EQ(1, label_types.count(BlockGraph::DEBUG_END_LABEL));
+  EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL_ATTR]);
+  EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL_ATTR]);
+  EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL_ATTR]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL_ATTR]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL_ATTR]);
 }
 
 namespace {
