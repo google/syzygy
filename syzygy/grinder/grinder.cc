@@ -18,6 +18,7 @@
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/stringprintf.h"
 #include "base/win/scoped_bstr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/pe/find.h"
@@ -708,8 +709,13 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
     return false;
   }
 
-  for (size_t i = 0; i < args.size(); ++i)
-    trace_files_.push_back(FilePath(args[i]));
+  for (size_t i = 0; i < args.size(); ++i) {
+    if (!ExpandArgument(FilePath(args[i]))) {
+      PrintUsage(command_line->GetProgram(),
+                 base::StringPrintf("No such file '%ws'.", args[i].c_str()));
+      return false;
+    }
+  }
 
   output_file_ = command_line->GetSwitchValuePath("output-file");
 
@@ -762,6 +768,27 @@ int GrinderApp::Run() {
   }
 
   return 0;
+}
+
+bool GrinderApp::ExpandArgument(const FilePath& path) {
+  bool success = false;
+
+  // Whether the path is an existing file or not, we expand it as a glob.
+  // If it's a file, it'll match itself and nothing else.
+  file_util::FileEnumerator files(path.DirName(),
+                                  false,
+                                  file_util::FileEnumerator::FILES,
+                                  path.BaseName().value());
+  while (true) {
+    FilePath file = files.Next();
+    if (file.empty())
+      break;
+
+    success = true;
+    trace_files_.push_back(file);
+  }
+
+  return success;
 }
 
 }  // namespace grinder
