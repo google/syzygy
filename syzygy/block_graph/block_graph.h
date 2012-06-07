@@ -160,11 +160,20 @@ class BlockGraph {
     CALL_SITE_LABEL_ATTR = (1 << 5),
 
     // The label points to the start of a jump table. The length is inferred
-    // by the location of the next label, or the end of the block.
+    // by the location of the next label, or the end of the block. This will
+    // also have DATA_LABEL_ATTR set.
     JUMP_TABLE_LABEL_ATTR = (1 << 6),
     // The label points to the start of a case table. The length is inferred
-    // by the location of the next label, or the end of the block.
+    // by the location of the next label, or the end of the block. This will
+    // also have DATA_LABEL_ATTR set.
     CASE_TABLE_LABEL_ATTR = (1 << 7),
+    // The label originated from a data symbol. The length is inferred by the
+    // location of the next label, or the end of the block. The type of data
+    // is unknown.
+    DATA_LABEL_ATTR = (1 << 8),
+
+    // This always needs to be the most significant bit.
+    LABEL_ATTR_MAX = (1 << 9),
   };
 
   static const char* LabelTypeToString(LabelType type);
@@ -479,6 +488,11 @@ class BlockGraph::Label {
   // @returns true if this label is valid, false otherwise.
   bool IsValid() const;
 
+  // Tests a set of label attributes for validity.
+  // @param attributes the attributes to test.
+  // @returns true if the provided attributes are valid, false otherwise.
+  static bool AreValidAttributes(LabelAttributes attributes);
+
  private:
   // The name by which this label is known.
   std::string name_;
@@ -690,13 +704,25 @@ class BlockGraph::Block {
   // @param offset the offset of the label to set.
   // @param name the name of the label.
   // @param type the type of the label.
+  // @param attributes the attributes of the label.
   // @returns true iff a new label is inserted.
   // @note that only one label can exist at each offset, and the first
   //     label set at any offset will stay there.
   // @{
   bool SetLabel(Offset offset, const Label& label);
-  bool SetLabel(Offset offset, const base::StringPiece& name, LabelType type) {
+  // @note Deprecated.
+  // TODO(chrisha): Remove me post transition.
+  bool SetLabel(Offset offset,
+                const base::StringPiece& name,
+                LabelType type) {
     return SetLabel(offset, Label(name, type));
+  }
+  // TODO(chrisha): Remove @p type post transition.
+  bool SetLabel(Offset offset,
+                const base::StringPiece& name,
+                LabelType type,
+                LabelAttributes attributes) {
+    return SetLabel(offset, Label(name, type, attributes));
   }
   // @}
 

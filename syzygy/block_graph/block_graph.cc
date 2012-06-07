@@ -712,8 +712,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     // If the destination block is not a code block, preserve the old block
     // names as labels for debugging. We also need to make sure the label is
     // not empty, as that is verboten.
-    if (block_type != BlockGraph::CODE_BLOCK && !block->name().empty())
-      new_block->SetLabel(start_offset, block->name(), BlockGraph::DATA_LABEL);
+    if (block_type != BlockGraph::CODE_BLOCK && !block->name().empty()) {
+      new_block->SetLabel(start_offset,
+                          block->name(),
+                          BlockGraph::DATA_LABEL,
+                          BlockGraph::DATA_LABEL_ATTR);
+    }
 
     // Move labels.
     BlockGraph::Block::LabelMap::const_iterator
@@ -849,11 +853,10 @@ bool BlockGraph::Label::Load(InArchive* in_archive) {
 }
 
 bool BlockGraph::Label::IsValid() const {
-  const LabelAttributes kCodeAndStartLabelAttributes =
-      CODE_LABEL_ATTR | DEBUG_START_LABEL_ATTR | SCOPE_START_LABEL_ATTR;
-  const LabelAttributes kEndLabelAttributes =
-      DEBUG_END_LABEL_ATTR | SCOPE_END_LABEL_ATTR;
+  return AreValidAttributes(attributes_);
+}
 
+bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   // TODO(chrisha): Once we make the switch to VS2010 Determine where call
   //     site labels may land. Are they at the beginning of the call
   //     instruction (in which case they may coincide with *_START_LABEL_ATTR
@@ -861,30 +864,50 @@ bool BlockGraph::Label::IsValid() const {
   //     (in which case they must be completely on their own)?
 
   // A label needs to have at least one attribute.
-  if (attributes_ == 0)
+  if (attributes == 0)
     return false;
 
   // A code label can only be colocated with SCOPE_START and DEBUG_START.
-  if ((attributes_ & CODE_LABEL_ATTR) &&
-      (attributes_ & ~kCodeAndStartLabelAttributes)) {
+  const LabelAttributes kCodeAndStartLabelAttributes =
+      CODE_LABEL_ATTR | DEBUG_START_LABEL_ATTR | SCOPE_START_LABEL_ATTR;
+  if ((attributes & CODE_LABEL_ATTR) &&
+      (attributes & ~kCodeAndStartLabelAttributes)) {
     return false;
   }
 
-  // A jump table must be on its own.
-  if ((attributes_ & JUMP_TABLE_LABEL_ATTR) &&
-      (attributes_ & ~JUMP_TABLE_LABEL_ATTR)) {
-    return false;
+  // A jump table must be paired with a data label and nothing else.
+  const LabelAttributes kJumpDataLabelAttributes =
+      JUMP_TABLE_LABEL_ATTR | DATA_LABEL_ATTR;
+  if (attributes & JUMP_TABLE_LABEL_ATTR) {
+    if ((attributes & kJumpDataLabelAttributes) != kJumpDataLabelAttributes)
+      return false;
+    if (attributes & ~kJumpDataLabelAttributes)
+      return false;
+    return true;
   }
 
-  // A case table must be on its own.
-  if ((attributes_ & CASE_TABLE_LABEL_ATTR) &&
-      (attributes_ & ~CASE_TABLE_LABEL_ATTR)) {
+  // A case table must be paired with a data label and nothing else.
+  const LabelAttributes kCaseDataLabelAttributes =
+      CASE_TABLE_LABEL_ATTR | DATA_LABEL_ATTR;
+  if (attributes & CASE_TABLE_LABEL_ATTR) {
+    if ((attributes & kCaseDataLabelAttributes) != kCaseDataLabelAttributes)
+      return false;
+    if (attributes & ~kCaseDataLabelAttributes)
+      return false;
+    return true;
+  }
+
+  // If there is no case or jump label, then a data label must be on its own.
+  if ((attributes & DATA_LABEL_ATTR) &&
+      (attributes & ~DATA_LABEL_ATTR)) {
     return false;
   }
 
   // End labels must be on their own, but can coincide with each other.
-  if ((attributes_ & kEndLabelAttributes) &&
-      (attributes_ & ~kEndLabelAttributes)) {
+  const LabelAttributes kEndLabelAttributes =
+      DEBUG_END_LABEL_ATTR | SCOPE_END_LABEL_ATTR;
+  if ((attributes & kEndLabelAttributes) &&
+      (attributes & ~kEndLabelAttributes)) {
     return false;
   }
 
@@ -1270,9 +1293,12 @@ bool BlockGraph::Block::SetLabel(Offset offset, const Label& label) {
   LabelType old_type = result.first->second.type();
   LabelType new_type = label.type();
 
+  // TODO(chrisha): Switch this logic over to using label attributes.
   bool updated = (old_type != new_type && new_type == BlockGraph::CODE_LABEL);
-  if (updated)
+  if (updated) {
     result.first->second.set_type(new_type);
+    result.first->second.set_attributes(label.attributes());
+  }
 
   VLOG(2) << name() << ": " << (updated ? "" : "not ") << "changing label '"
           << result.first->second.name() << "' at offset " << offset << " from "
@@ -1516,6 +1542,7 @@ bool BlockGraph::Block::SaveLabels(OutArchive* out_archive,
   for (; label_iter != labels_.end(); label_iter++) {
     if (!out_archive->Save(label_iter->first) ||
         !out_archive->Save(static_cast<int8>(label_iter->second.type())) ||
+        !out_archive->Save(label_iter->second.attributes()) ||
         !MaybeSaveString(label_iter->second.name(), out_archive, attributes)) {
       return false;
     }
@@ -1537,12 +1564,14 @@ bool BlockGraph::Block::LoadLabels(InArchive* in_archive,
     int8 temp_type = 0;
     std::string temp_name;
     Offset temp_offset;
+    LabelAttributes temp_attr;
     if (!(in_archive->Load(&temp_offset)) ||
         !(in_archive->Load(&temp_type)) ||
+        !(in_archive->Load(&temp_attr)) ||
         !MaybeLoadString(in_archive, attributes, &temp_name)) {
       return false;
     }
-    Label temp_label(temp_name, static_cast<LabelType>(temp_type));
+    Label temp_label(temp_name, static_cast<LabelType>(temp_type), temp_attr);
     labels_.insert(std::make_pair(temp_offset, temp_label));
   }
   DCHECK_EQ(labels_count, labels_.size());

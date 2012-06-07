@@ -293,15 +293,24 @@ bool AreMatchedBlockAndLabelTypes(BlockGraph::BlockType bt,
       (bt == BlockGraph::DATA_BLOCK && lt == BlockGraph::DATA_LABEL);
 }
 
+bool AreMatchedBlockAndLabelAttributes(
+    BlockGraph::BlockType bt,
+    BlockGraph::LabelAttributes la) {
+  return (bt == BlockGraph::CODE_BLOCK && (la & BlockGraph::CODE_LABEL_ATTR)) ||
+      (bt == BlockGraph::DATA_BLOCK && (la & BlockGraph::DATA_LABEL_ATTR));
+}
+
 void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
                             const base::StringPiece& name_or_label,
                             BlockGraph::LabelType label_type,
+                            BlockGraph::LabelAttributes label_attributes,
                             BlockGraph::Block* block) {
   // This only make sense for positions strictly within the block.
   DCHECK_LE(0, offset);
   DCHECK(!name_or_label.empty());
   DCHECK(label_type == BlockGraph::CODE_LABEL ||
          label_type == BlockGraph::DATA_LABEL);
+  DCHECK(BlockGraph::Label::AreValidAttributes(label_attributes));
   DCHECK(block != NULL);
   DCHECK_GT(block->size(), unsigned(offset));
   DCHECK(block->type() == BlockGraph::CODE_BLOCK ||
@@ -316,9 +325,16 @@ void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
               << base::StringPrintf(" @ 0x%08X); ", block->addr().value())
               << "label='" << name_or_label << "' ("
               << BlockGraph::LabelTypeToString(label_type) << ")].";
+    if (!AreMatchedBlockAndLabelAttributes(block->type(), label_attributes))
+      VLOG(2) << "Mismatched block and label attributes [block='"
+              << block->name() << "'("
+              << BlockGraph::BlockTypeToString(block->type())
+              << base::StringPrintf(" @ 0x%08X); ", block->addr().value())
+              << "label='" << name_or_label << "', attr="
+              << base::StringPrintf("0x%08X", label_attributes) << "].";
     block->set_name(name_or_label);
   } else {
-    block->SetLabel(offset, name_or_label, label_type);
+    block->SetLabel(offset, name_or_label, label_type, label_attributes);
   }
 }
 
@@ -345,9 +361,33 @@ BlockGraph::LabelType SymTagToLabelType(enum SymTagEnum sym_tag) {
   return BlockGraph::LABEL_TYPE_UNKNOWN;
 }
 
+BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
+  switch (sym_tag) {
+    case SymTagData:
+      return BlockGraph::DATA_LABEL_ATTR;
+    case SymTagLabel:
+      return BlockGraph::CODE_LABEL_ATTR;
+    case SymTagFuncDebugStart:
+      return BlockGraph::DEBUG_START_LABEL_ATTR;
+    case SymTagFuncDebugEnd:
+      return BlockGraph::DEBUG_END_LABEL_ATTR;
+    case SymTagBlock:
+      return BlockGraph::SCOPE_START_LABEL_ATTR;
+#if _MSC_VER >= 1600
+    // The DIA SDK shipping with MSVS 2010 includes additional symbol types.
+    case SymTagCallSite:
+      return BlockGraph::CALL_SITE_LABEL_ATTR;
+#endif
+  }
+
+  NOTREACHED();
+  return 0;
+}
+
 void AddLabelToCodeBlock(RelativeAddress addr,
                          const base::StringPiece& name,
                          BlockGraph::LabelType label_type,
+                         BlockGraph::LabelAttributes label_attributes,
                          BlockGraph::Block* block) {
   // This only makes sense for code blocks that contain the given label
   // address.
@@ -356,7 +396,45 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   DCHECK_LE(block->addr(), addr);
   DCHECK_GT(block->addr() + block->size(), addr);
 
-  block->SetLabel(addr - block->addr(), name, label_type);
+  BlockGraph::Offset offset = addr - block->addr();
+
+  // If this is an END label, back it up a byte (these actually point to the
+  // first byte past a range of interest).
+  const BlockGraph::LabelAttributes kEndLabelAttributes =
+      BlockGraph::SCOPE_END_LABEL_ATTR |
+      BlockGraph::DEBUG_END_LABEL_ATTR;
+  if (label_attributes & kEndLabelAttributes)
+    offset--;
+
+  // We sometimes get debug end symbols before the beginning of the block.
+  // This is for blocks where the debug range is actually of size zero. We
+  // simply omit the debug end symbol for now, even though this is less than
+  // ideal.
+  if (offset < 0) {
+    DCHECK(label_attributes & BlockGraph::DEBUG_END_LABEL_ATTR);
+    return;
+  }
+
+  bool added = block->SetLabel(offset, name, label_type, label_attributes);
+
+#ifndef NDEBUG
+  // It is conceivable that there could be more than one scope with either the
+  // same beginning or the same ending. However, this doesn't appear to happen
+  // in any version of Chrome up to 20. We add this check in debug mode so that
+  // we'd at least be made aware of the situation.
+  const BlockGraph::LabelAttributes kScopeAttributes =
+      BlockGraph::SCOPE_START_LABEL_ATTR |
+      BlockGraph::SCOPE_END_LABEL_ATTR;
+  BlockGraph::LabelAttributes scope_attributes =
+      label_attributes & kScopeAttributes;
+  if (!added && scope_attributes) {
+    BlockGraph::Label label;
+    DCHECK(block->GetLabel(offset, &label));
+    if (label.attributes() & scope_attributes) {
+      LOG(WARNING) << "Detected colliding scope labels.";
+    }
+  }
+#endif
 }
 
 // The MS linker pads between code blocks with int3s.
@@ -997,7 +1075,8 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
     block->set_name(block_name);
 
   // Annotate the block with a label, as this is an entry point to it.
-  block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL);
+  block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL,
+                  BlockGraph::CODE_LABEL_ATTR);
 
   // Set the block attributes.
   if (no_return == TRUE)
@@ -1089,6 +1168,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
 
     enum SymTagEnum sym_tag = static_cast<enum SymTagEnum>(temp_sym_tag);
     BlockGraph::LabelType label_type = SymTagToLabelType(sym_tag);
+    BlockGraph::LabelAttributes label_attr = SymTagToLabelAttributes(sym_tag);
 
     // TODO(rogerm): Add a flag to include/exclude the symbol types that are
     //     interesting for debugging purposes, but not actually needed for
@@ -1128,22 +1208,18 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
         }
 
         case SymTagData: {
-          label_name =
-              reloc_set_.find(label_rva) != reloc_set_.end() ? "<jump-table?>" :
-                                                               "<case-table?>";
+          if (reloc_set_.count(label_rva)) {
+            label_name = "<jump-table>";
+            label_attr |= BlockGraph::JUMP_TABLE_LABEL_ATTR;
+          } else {
+            label_name = "<case-table>";
+            label_attr |= BlockGraph::CASE_TABLE_LABEL_ATTR;
+          }
           break;
         }
 
         case SymTagBlock: {
-          std::string rva_str(base::StringPrintf("0x%08X", label_rva.value()));
-          ULONGLONG length = 0;
-          if (symbol->get_length(&length) != S_OK) {
-            LOG(ERROR) << "Failed to extract code scope length for "
-                       << block->name() << " at " << rva_str << ".";
-            return false;
-          }
-          label_name =
-              base::StringPrintf("<scope-%s-%ld>", rva_str.c_str(), length);
+          label_name = "<scope-start>";
           break;
         }
 
@@ -1164,10 +1240,8 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
       }
     }
 
-
     // We expect that we'll never see a code label that refers to a reloc.
-    if (label_type == BlockGraph::CODE_LABEL &&
-        reloc_set_.find(label_rva) != reloc_set_.end()) {
+    if (label_type == BlockGraph::CODE_LABEL && reloc_set_.count(label_rva)) {
       LOG(WARNING) << "Collision between reloc and code label in "
                    << block->name() << " at " << label_name
                    << base::StringPrintf(" (0x%08X).", label_rva.value())
@@ -1186,17 +1260,22 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     // Add the label to the block.
-    AddLabelToCodeBlock(label_rva, label_name, label_type, block);
+    AddLabelToCodeBlock(label_rva, label_name, label_type, label_attr, block);
 
-    // TODO(rogerm): If the label type is BlockGraph::SCOPE_START_LABEL this
-    //     would be a good placed to insert a SCOPE_END_LABEL marking the end
-    //     of the scoped code block. The symbol will have a length (in bytes)
-    //     attached to it. One wrinkle is that that label_rva + length points
-    //     one past the last byte in the scoped area, which is awkward to track.
-    //     There's a good chance there is or will be a label marking the start
-    //     of the next byte range, with which the SCOPE_END_LABEL will collide.
-    //     Maybe have the end label point to the last instruction in the scope?
-    //     Or, better yet, (optionally?) augment the label with a length?
+    // Is this a scope? Then it also has a length. Use it to create the matching
+    // scope end.
+    if (sym_tag == SymTagBlock) {
+      ULONGLONG length = 0;
+      if (symbol->get_length(&length) != S_OK) {
+        LOG(ERROR) << "Failed to extract code scope length for "
+                   << block->name();
+        return false;
+      }
+      label_rva += length;
+      label_name = "<scope-end>";
+      label_attr = BlockGraph::SCOPE_END_LABEL_ATTR;
+      AddLabelToCodeBlock(label_rva, label_name, label_type, label_attr, block);
+    }
   }
 
   return true;
@@ -1331,6 +1410,7 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       AddLabelToCodeBlock(label_addr,
                           label_name,
                           BlockGraph::CODE_LABEL,
+                          BlockGraph::CODE_LABEL_ATTR,
                           block);
     }
   }
@@ -1677,7 +1757,8 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
       static const char kNaClPrefix[] = "NaCl";
       if (length == 1 &&
           name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
-        AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL, block);
+        AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL,
+                            BlockGraph::CODE_LABEL_ATTR, block);
         return;
       }
     }
@@ -1691,7 +1772,8 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
     }
 
     BlockGraph::Offset offset = addr - block->addr();
-    SetBlockNameOrAddLabel(offset, name.c_str(), BlockGraph::DATA_LABEL, block);
+    SetBlockNameOrAddLabel(offset, name.c_str(), BlockGraph::DATA_LABEL,
+                           BlockGraph::DATA_LABEL_ATTR, block);
 
     return;
   }
@@ -1771,8 +1853,12 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
   BlockGraph::LabelType label_type =
       is_in_code && is_function ? BlockGraph::CODE_LABEL :
                                   BlockGraph::DATA_LABEL;
+  BlockGraph::LabelAttributes label_attributes =
+      is_in_code && is_function ? BlockGraph::CODE_LABEL_ATTR :
+                                  BlockGraph::DATA_LABEL_ATTR;
 
-  SetBlockNameOrAddLabel(offset, name, label_type, block);
+
+  SetBlockNameOrAddLabel(offset, name, label_type, label_attributes, block);
 }
 
 bool Decomposer::ProcessStaticInitializers() {
@@ -1993,13 +2079,20 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
       continue;
 
     // If it had no label here, we add one.
+    // TODO(chrisha): Remove this post-transition. These are unnecessary as the
+    //     information is already present in the reference.
     std::string label_name(base::StringPrintf("From %s +0x%x",
                                               src_block->name().c_str(),
                                               src_offset));
+
+    BlockGraph::LabelAttributes label_attr = it->second.refers_to_code ?
+        BlockGraph::CODE_LABEL_ATTR : BlockGraph::DATA_LABEL_ATTR;
     dst_block->SetLabel(dst_offset,
                         label_name,
                         it->second.refers_to_code ? BlockGraph::CODE_LABEL :
-                                                    BlockGraph::DATA_LABEL);
+                                                    BlockGraph::DATA_LABEL,
+                        label_attr
+                        );
   }
 
   return true;
@@ -2239,7 +2332,9 @@ void Decomposer::OnInstruction(const Disassembler& walker,
 #endif
       bool added = block->SetLabel(offset,
                                    "<JUMP-TABLE>",  // Uppercase for debugging.
-                                   BlockGraph::DATA_LABEL);
+                                   BlockGraph::DATA_LABEL,
+                                   BlockGraph::DATA_LABEL_ATTR |
+                                      BlockGraph::JUMP_TABLE_LABEL_ATTR);
       if (added) {
         LOG(WARNING) << "Expected there to already be label marking the jump "
                      << "table at " << block->name() << " + " << offset << ".";
@@ -2337,7 +2432,8 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (!block->HasLabel(offset)) {
       // If it has no label here, we add one.
       std::string label(base::StringPrintf("From 0x%08X", instr_rel.value()));
-      block->SetLabel(offset, label, BlockGraph::CODE_LABEL);
+      block->SetLabel(offset, label, BlockGraph::CODE_LABEL,
+                      BlockGraph::CODE_LABEL_ATTR);
 
       // And then potentially re-schedule the block for disassembly,
       // as we may have turned up another entry to a block we already

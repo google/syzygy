@@ -103,8 +103,8 @@ class BlockUtilTest: public testing::Test {
     }
 
     // Set up a data label in the destination block, which splits it in half.
-    ASSERT_TRUE(dst->SetLabel(20, BlockGraph::Label("data",
-                                                    BlockGraph::DATA_LABEL)));
+    ASSERT_TRUE(dst->SetLabel(20, BlockGraph::Label(
+        "data", BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR)));
 
     // We need the data label to be self-referenced otherwise the referrers test
     // will always fail. This is from a different offset than what we would
@@ -284,20 +284,20 @@ TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistent) {
 
 TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistentUnreferencedData) {
   BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
-  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label("data",
-                                                   BlockGraph::DATA_LABEL)));
+  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label(
+      "data", BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR)));
   ASSERT_FALSE(CodeBlockReferrersAreClConsistent(code));
 }
 
 TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistentCodeAfterData) {
   // We make a code block with a data label. We make sure the data label
-  // is referenced. We expect thi to fail because the data comes before the
+  // is referenced. We expect this to fail because the data comes before the
   // code, which is not consistent with CL.EXE output.
   BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
-  ASSERT_TRUE(code->SetLabel(0, BlockGraph::Label("data",
-                                                  BlockGraph::DATA_LABEL)));
-  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label("code",
-                                                   BlockGraph::CODE_LABEL)));
+  ASSERT_TRUE(code->SetLabel(0, BlockGraph::Label(
+      "data", BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR)));
+  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label(
+      "code", BlockGraph::CODE_LABEL, BlockGraph::CODE_LABEL_ATTR)));
   ASSERT_TRUE(code->SetReference(20, BlockGraph::Reference(
       BlockGraph::ABSOLUTE_REF, 4, code, 0, 0)));
   ASSERT_FALSE(CodeBlockReferrersAreClConsistent(code));
@@ -309,8 +309,8 @@ TEST_F(BlockUtilTest, CodeBlockIsClConsistent) {
   BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
   ASSERT_TRUE(CodeBlockIsClConsistent(code));
 
-  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label("data",
-                                                   BlockGraph::DATA_LABEL)));
+  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label(
+      "data", BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR)));
   ASSERT_FALSE(CodeBlockIsClConsistent(code));
 
   ASSERT_TRUE(code->SetReference(8, BlockGraph::Reference(
@@ -333,8 +333,8 @@ TEST_F(BlockUtilTest, CodeBlockIsBasicBlockDecomposableBuiltBySyzygy) {
   ASSERT_TRUE(CodeBlockIsBasicBlockDecomposable(code));
 
   // Even if this block has unreferenced data, it should be fine.
-  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label("data",
-                                                   BlockGraph::DATA_LABEL)));
+  ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label(
+      "data", BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR)));
   ASSERT_TRUE(CodeBlockIsBasicBlockDecomposable(code));
 }
 
