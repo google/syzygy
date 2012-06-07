@@ -318,6 +318,12 @@ class GrinderApp : public common::AppImplBase {
   // @}
 
  protected:
+  // If @p path is an existing file, stores it in trace_files_, otherwise
+  // expands it to the files it references and stores in trace_files_.
+  // @returns true if path is an existing file, or a pattern that references
+  //     one or more files.
+  bool ExpandArgument(const FilePath& path);
+
   std::vector<FilePath> trace_files_;
   FilePath output_file_;
 };

@@ -100,7 +100,8 @@ TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
 TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_TRUE(impl_.output_file_.empty());
   cmd_line_.AppendSwitchPath("output-file", FilePath(L"output.txt"));
-  cmd_line_.AppendArg("foo.bin");
+  cmd_line_.AppendArgPath(
+      testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
 
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(L"output.txt", impl_.output_file_.value());
