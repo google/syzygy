@@ -115,8 +115,10 @@ class BasicBlockDecomposer : public core::Disassembler {
                                                 AbsoluteAddress dest) OVERRIDE;
   virtual CallbackDirective OnStartInstructionRun(
       AbsoluteAddress start_address) OVERRIDE;
-  virtual CallbackDirective OnEndInstructionRun(AbsoluteAddress addr,
-                                                const _DInst& inst) OVERRIDE;
+  virtual CallbackDirective OnEndInstructionRun(
+      AbsoluteAddress addr,
+      const _DInst& inst,
+      ControlFlowFlag control_flow) OVERRIDE;
   virtual CallbackDirective OnDisassemblyComplete() OVERRIDE;
   // @}
 

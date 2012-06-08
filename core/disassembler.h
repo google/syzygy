@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,6 +72,15 @@ class Disassembler {
     kWalkTerminated,
   };
 
+  // These flag values are passed to OnEndInstructionRun.
+  enum ControlFlowFlag {
+    // The instruction run ends with an explicit termination of control flow.
+    kControlFlowTerminates,
+
+    // The instruction implicitly flows into the next instruction run.
+    kControlFlowContinues,
+  };
+
   Disassembler(const uint8* code,
                size_t code_size,
                AbsoluteAddress code_addr,
@@ -107,7 +116,7 @@ class Disassembler {
   // Called every time a basic instruction is hit.
   // @param addr is the address of the branch instruction itself.
   // @param inst is the disassembled instruction data.
-  // @returns kWalkContinue on succcess or kWalkError on failure.
+  // @returns kWalkContinue on success or kWalkError on failure.
   virtual CallbackDirective OnInstruction(AbsoluteAddress addr,
                                           const _DInst& inst);
 
@@ -115,7 +124,7 @@ class Disassembler {
   // @param addr is the address of the branch instruction itself.
   // @param inst is the disassembled instruction data.
   // @param dest is the destination address of the branch instruction.
-  // @returns kWalkContinue on succcess or kWalkError on failure.
+  // @returns kWalkContinue on success or kWalkError on failure.
   virtual CallbackDirective OnBranchInstruction(AbsoluteAddress addr,
                                                 const _DInst& inst,
                                                 AbsoluteAddress dest);
@@ -123,20 +132,23 @@ class Disassembler {
   // Called every time disassembly is started from a new address. Will be
   // called at least once if unvisited_ is non-empty.
   // @param start_address denotes the beginning of the instruction run.
-  // @returns kWalkContinue on succcess or kWalkError on failure.
+  // @returns kWalkContinue on success or kWalkError on failure.
   virtual CallbackDirective OnStartInstructionRun(
       AbsoluteAddress start_address);
 
   // Called on every disassembled instruction.
   // @param addr is the address of the instruction that terminates the run.
   // @param inst is the terminating instruction.
-  // @returns kWalkContinue on succcess or kWalkError on failure.
+  // @param control_flow a flag denoting whether control flow terminates
+  //     for this instruction run, or flows into the next instruction run.
+  // @returns kWalkContinue on success or kWalkError on failure.
   virtual CallbackDirective OnEndInstructionRun(AbsoluteAddress addr,
-                                                const _DInst& inst);
+                                                const _DInst& inst,
+                                                ControlFlowFlag control_flow);
 
   // Called when disassembly is complete and no further entry points remain
   // to disassemble from.
-  // @returns kWalkContinue on succcess or kWalkError on failure.
+  // @returns kWalkContinue on success or kWalkError on failure.
   virtual CallbackDirective OnDisassemblyComplete();
 
   // Wrapper function to handle invoking both the internal and external

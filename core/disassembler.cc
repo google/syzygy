@@ -110,7 +110,7 @@ Disassembler::CallbackDirective Disassembler::OnStartInstructionRun(
 }
 
 Disassembler::CallbackDirective Disassembler::OnEndInstructionRun(
-    AbsoluteAddress addr, const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst, ControlFlowFlag control_flow) {
   return kDirectiveContinue;
 }
 
@@ -147,6 +147,7 @@ Disassembler::WalkResult Disassembler::Walk() {
     // notify of the start of a run, the end of a run and when branch
     // instructions with computable destination addresses are hit.
     bool terminate = false;
+    ControlFlowFlag control_flow = kControlFlowTerminates;
     _DInst inst = {};
     for (; addr != AbsoluteAddress(0) && !terminate; addr += inst.size) {
       code.codeOffset = addr.value();
@@ -298,13 +299,17 @@ Disassembler::WalkResult Disassembler::Walk() {
       // If the next instruction is flagged as a disassembly start point, we
       // should end this run of instructions (basic-block) and let it be picked
       // up on the next iteration.
-      if (unvisited_.count(addr + inst.size) != 0)
+      if (unvisited_.count(addr + inst.size) != 0 && !terminate) {
+        control_flow = kControlFlowContinues;
         terminate = true;
+      }
     }
 
     // Notify that we are terminating an instruction run. Note that we have to
     // back up the address by the last instruction size.
-    if (OnEndInstructionRun(addr - inst.size, inst) == kDirectiveAbort)
+    if (OnEndInstructionRun(addr - inst.size,
+                            inst,
+                            control_flow) == kDirectiveAbort)
       return kWalkError;
   }
 
