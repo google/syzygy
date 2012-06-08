@@ -28,7 +28,29 @@
 
 namespace pe {
 
+namespace {
+
+using block_graph::Instruction;
 using core::Disassembler;
+
+bool HasImplicitControlFlow(const Instruction& instruction) {
+  uint8 fc = META_GET_FC(instruction.representation().meta);
+  if (fc == FC_RET || fc == FC_SYS || fc == FC_INT) {
+    // Control flow jumps implicitly out of the block.
+    return true;
+  } else if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH) {
+    uint8 type = instruction.representation().ops[0].type;
+    if (type == O_REG || type == O_MEM ||
+        type == O_SMEM || type == O_DISP) {
+      // There is an explicit branch, but the target is computed, stored
+      // in a register, or indirect. We don't follow those.
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
 
 BasicBlockDecomposer::BasicBlockDecomposer(
     const uint8* code,
@@ -119,16 +141,9 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     jump_targets_.insert(dest);
   }
 
-  // Create the basic block. This will grab the instructions and successors.
-  size_t basic_block_size = addr - current_block_start_ + inst.size;
-  if (!InsertBlockRange(current_block_start_,
-                        basic_block_size,
-                        BlockGraph::BASIC_CODE_BLOCK)) {
-    LOG(ERROR) << "Failed to insert basic block range.";
-    return kDirectiveAbort;
-  }
-
-  current_block_start_ += basic_block_size;
+  // This marks the end of a basic block. Note that the disassembler will
+  // handle ending the instruction run and beginning a new one for the next
+  // basic block (including the branch-not-taken arc).
   return kDirectiveContinue;
 }
 
@@ -144,10 +159,25 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnStartInstructionRun(
 // Called when a walk from a given entry point has terminated or when
 // a conditional branch has been found.
 Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
-    AbsoluteAddress addr, const _DInst& inst) {
+    AbsoluteAddress addr, const _DInst& inst, ControlFlowFlag control_flow) {
   CallbackDirective result = kDirectiveContinue;
 
-  // We've reached the end of the current walk or we handled a conditional
+  // If an otherwise straight run of instructions is split because it crosses
+  // a basic block boundary we need to set up the implicit control flow arc
+  // here.
+  if (control_flow == kControlFlowContinues) {
+    DCHECK(current_successors_.empty());
+    DCHECK(!current_instructions_.empty());
+    DCHECK(!HasImplicitControlFlow(current_instructions_.back()));
+
+    current_successors_.push_front(
+        Successor(Successor::kConditionTrue,
+                  addr + inst.size,  // To be resolved later.
+                  -1,
+                  0));
+  }
+
+  // We have reached the end of the current walk or we handled a conditional
   // branch. Let's mark this as the end of a basic block.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
   if (basic_block_size > 0) {
