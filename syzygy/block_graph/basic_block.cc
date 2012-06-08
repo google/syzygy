@@ -74,6 +74,17 @@ namespace block_graph {
 
 namespace {
 
+ // A list of printable names corresponding to basic block types. This needs to
+// be kept in sync with the BasicBlock::BasicBlockType enum!
+const char* kBasicBlockType[] = {
+  "BASIC_CODE_BLOCK",
+  "BASIC_DATA_BLOCK",
+  "BASIC_PADDING_BLOCK",
+};
+
+COMPILE_ASSERT(arraysize(kBasicBlockType) == BasicBlock::BASIC_BLOCK_TYPE_MAX,
+               kBasicBlockType_not_in_sync);
+
 bool IsUnconditionalBranch(const Instruction& inst) {
   return META_GET_FC(inst.representation().meta) == FC_UNC_BRANCH;
 }
@@ -89,37 +100,43 @@ BasicBlockReference::BasicBlockReference()
       reference_type_(BlockGraph::RELATIVE_REF),
       size_(0),
       referred_(NULL),
-      offset_(-1) {
+      offset_(BasicBlock::kEphemeralSourceOffset),
+      base_(BasicBlock::kEphemeralSourceOffset) {
 }
+
 
 BasicBlockReference::BasicBlockReference(ReferenceType type,
                                          Size size,
                                          Block* block,
-                                         Offset offset)
+                                         Offset offset,
+                                         Offset base)
     : referred_type_(REFERRED_TYPE_BLOCK),
       reference_type_(type),
       size_(size),
       referred_(block),
-      offset_(offset) {
-  DCHECK(type > REFERRED_TYPE_UNKNOWN && type < MAX_REFERRED_TYPE);
+      offset_(offset),
+      base_(base) {
   DCHECK(size == 1 || size == 2 || size == 4);
   DCHECK(block != NULL);
-  DCHECK(offset >= 0);
+  DCHECK_LE(0, base);
+  DCHECK_LT(static_cast<size_t>(base), block->size());
 }
 
 BasicBlockReference::BasicBlockReference(ReferenceType type,
                                          Size size,
                                          BasicBlock* basic_block,
-                                         Offset offset)
+                                         Offset offset,
+                                         Offset base)
     : referred_type_(REFERRED_TYPE_BASIC_BLOCK),
       reference_type_(type),
       size_(size),
       referred_(basic_block),
-      offset_(offset) {
-  DCHECK(type > REFERRED_TYPE_UNKNOWN && type < MAX_REFERRED_TYPE);
+      offset_(offset),
+      base_(base) {
   DCHECK(size == 1 || size == 2 || size == 4);
   DCHECK(basic_block != NULL);
-  DCHECK(offset >= 0);
+  DCHECK_LE(0, base);
+  DCHECK_LT(static_cast<size_t>(base), basic_block->size());
 }
 
 BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
@@ -127,29 +144,34 @@ BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
       reference_type_(other.reference_type_),
       size_(other.size_),
       referred_(other.referred_),
-      offset_(other.offset_) {
+      offset_(other.offset_),
+      base_(other.base_) {
 }
 
 BasicBlockReferrer::BasicBlockReferrer()
     : referrer_type_(REFERRER_TYPE_UNKNOWN),
       referrer_(NULL),
-      offset_(-1) {
+      offset_(BasicBlock::kEphemeralSourceOffset) {
 }
 
-BasicBlockReferrer::BasicBlockReferrer(BasicBlock* basic_block, Offset offset)
+BasicBlockReferrer::BasicBlockReferrer(const BasicBlock* basic_block,
+                                       Offset offset)
     : referrer_type_(REFERRER_TYPE_BASIC_BLOCK),
       referrer_(basic_block),
       offset_(offset) {
   DCHECK(basic_block != NULL);
-  DCHECK(offset >= 0);
+
+  // An offset of kEphemeralSourceOffset is used to indicate that the referrer
+  // range is within a synthesized successor (for example, a branch-not-taken).
+  DCHECK_GE(offset, BasicBlock::kEphemeralSourceOffset);
 }
 
-BasicBlockReferrer::BasicBlockReferrer(Block* block, Offset offset)
+BasicBlockReferrer::BasicBlockReferrer(const Block* block, Offset offset)
     : referrer_type_(REFERRER_TYPE_BLOCK),
       referrer_(block),
       offset_(offset) {
   DCHECK(block != NULL);
-  DCHECK(offset >= 0);
+  DCHECK_GE(offset, 0);
 }
 
 BasicBlockReferrer::BasicBlockReferrer(const BasicBlockReferrer& other)
@@ -157,7 +179,6 @@ BasicBlockReferrer::BasicBlockReferrer(const BasicBlockReferrer& other)
       referrer_(other.referrer_),
       offset_(other.offset_) {
 }
-
 
 Instruction::Instruction(const Instruction::Representation& value,
                          Offset offset,
@@ -367,28 +388,33 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
   }
 }
 
-Successor::Successor() : condition_(kInvalidCondition), offset_(-1), size_(0) {
+Successor::Successor()
+    : condition_(kInvalidCondition),
+      bb_target_offset_(BasicBlock::kEphemeralSourceOffset),
+      instruction_offset_(BasicBlock::kEphemeralSourceOffset),
+      instruction_size_(0) {
 }
 
 Successor::Successor(Successor::Condition type,
-                     Successor::AbsoluteAddress target,
-                     Offset offset,
-                     Size size)
+                     Offset bb_target_offset,
+                     Offset instruction_offset,
+                     Size instruction_size)
     : condition_(type),
-      original_target_address_(target),
-      offset_(offset),
-      size_(size) {
+      bb_target_offset_(bb_target_offset),
+      instruction_offset_(instruction_offset),
+      instruction_size_(instruction_size) {
   DCHECK(condition_ != kInvalidCondition);
 }
 
 Successor::Successor(Successor::Condition type,
                      const BasicBlockReference& target,
-                     Offset offset,
-                     Size size)
+                     Offset instruction_offset,
+                     Size instruction_size)
     : condition_(type),
+      bb_target_offset_(BasicBlock::kEphemeralSourceOffset),
       branch_target_(target),
-      offset_(offset),
-      size_(size) {
+      instruction_offset_(instruction_offset),
+      instruction_size_(instruction_size) {
   DCHECK(condition_ != kInvalidCondition);
   DCHECK(branch_target_.IsValid());
 }
@@ -435,9 +461,11 @@ Successor::Condition Successor::InvertCondition(
   return kConditionInversionTable[condition];
 }
 
+const BasicBlock::Offset BasicBlock::kEphemeralSourceOffset = -1;
+
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
                        const base::StringPiece& name,
-                       BasicBlock::BlockType type,
+                       BasicBlock::BasicBlockType type,
                        BasicBlock::Offset offset,
                        BasicBlock::Size size,
                        const uint8* data )
@@ -451,11 +479,20 @@ BasicBlock::BasicBlock(BasicBlock::BlockId id,
   DCHECK(data != NULL);
 }
 
-bool BasicBlock::IsValid() const {
-  if (type() == BlockGraph::BASIC_DATA_BLOCK)
-    return true;
+const char* BasicBlock::BasicBlockTypeToString(
+    BasicBlock::BasicBlockType type) {
+  DCHECK_LE(BasicBlock::BASIC_CODE_BLOCK, type);
+  DCHECK_GT(BasicBlock::BASIC_BLOCK_TYPE_MAX, type);
+  return kBasicBlockType[type];
+}
 
-  if (type() != BlockGraph::BASIC_CODE_BLOCK)
+bool BasicBlock::IsValid() const {
+  if (type() == BasicBlock::BASIC_DATA_BLOCK ||
+      type() == BasicBlock::BASIC_PADDING_BLOCK) {
+    return true;
+  }
+
+  if (type() != BasicBlock::BASIC_CODE_BLOCK)
     return false;
 
 #ifndef NDEBUG

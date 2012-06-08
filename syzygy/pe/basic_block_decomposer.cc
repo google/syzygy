@@ -118,8 +118,8 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
 
     current_successors_.push_front(
         Successor(inverse_condition,
-                  AbsoluteAddress(addr + inst.size),
-                  -1, 0));
+                  (addr + inst.size) - code_addr_,
+                  BasicBlock::kEphemeralSourceOffset, 0));
   }
 
   // Move the branch instruction out of the instruction list and translate
@@ -127,7 +127,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
   Successor::Offset instr_offset = current_instructions_.back().offset();
   Successor::Size instr_size = current_instructions_.back().size();
   current_successors_.push_front(
-      Successor(condition, dest, instr_offset, instr_size));
+      Successor(condition, dest - code_addr_, instr_offset, instr_size));
   current_instructions_.pop_back();
 
   // If dest is inside the current macro block, then add it to the list of
@@ -172,8 +172,8 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
 
     current_successors_.push_front(
         Successor(Successor::kConditionTrue,
-                  addr + inst.size,  // To be resolved later.
-                  -1,
+                  (addr + inst.size) - code_addr_,  // To be resolved later.
+                  BasicBlock::kEphemeralSourceOffset,
                   0));
   }
 
@@ -186,7 +186,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
     // actually in a new run.
     if (InsertBlockRange(current_block_start_,
                          basic_block_size,
-                         BlockGraph::BASIC_CODE_BLOCK)) {
+                         BasicBlock::BASIC_CODE_BLOCK)) {
       current_block_start_ += basic_block_size;
     } else {
       result = kDirectiveAbort;
@@ -219,7 +219,7 @@ BasicBlockDecomposer::OnDisassemblyComplete() {
     // Huh, no code blocks. Add one giant "basic" block, let's call it data.
     if (!InsertBlockRange(code_addr_,
                           code_size_,
-                          BlockGraph::BASIC_DATA_BLOCK)) {
+                          BasicBlock::BASIC_DATA_BLOCK)) {
       result = kDirectiveAbort;
     }
   }
@@ -256,10 +256,10 @@ bool BasicBlockDecomposer::ValidateBasicBlockCoverage() const {
 
 bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
                                             size_t size,
-                                            BlockGraph::BlockType type) {
-  DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
+                                            BasicBlockType type) {
+  DCHECK(type == BasicBlock::BASIC_CODE_BLOCK ||
          current_instructions_.empty());
-  DCHECK(type == BlockGraph::BASIC_CODE_BLOCK ||
+  DCHECK(type == BasicBlock::BASIC_CODE_BLOCK ||
          current_successors_.empty());
 
   BasicBlock::Offset offset = addr - code_addr_;
@@ -269,7 +269,7 @@ bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
                              offset,
                              size,
                              code_ + offset);
-  if (type == BlockGraph::BASIC_CODE_BLOCK) {
+  if (type == BasicBlock::BASIC_CODE_BLOCK) {
     new_basic_block.instructions().swap(current_instructions_);
     new_basic_block.successors().swap(current_successors_);
   }
@@ -300,7 +300,7 @@ bool BasicBlockDecomposer::FillInGapBlocks() {
     size_t interstitial_size = curr_range->first.start() - code_addr_;
     if (!InsertBlockRange(code_addr_,
                           interstitial_size,
-                          BlockGraph::BASIC_DATA_BLOCK)) {
+                          BasicBlock::BASIC_DATA_BLOCK)) {
       LOG(ERROR) << "Failed to insert initial gap block at "
                  << code_addr_.value();
       success = false;
@@ -327,7 +327,7 @@ bool BasicBlockDecomposer::FillInGapBlocks() {
     if (interstitial_size > 0) {
       if (!InsertBlockRange(curr_range_end,
                             interstitial_size,
-                            BlockGraph::BASIC_DATA_BLOCK)) {
+                            BasicBlock::BASIC_DATA_BLOCK)) {
         LOG(ERROR) << "Failed to insert gap block at "
                    << curr_range_end.value();
         success = false;
@@ -367,8 +367,7 @@ bool BasicBlockDecomposer::SplitBlockOnJumpTargets() {
       // containing_range with the two new entries.
       size_t left_split_size =
           *jump_target_iter - containing_range_iter->first.start();
-      BlockGraph::BlockType original_type =
-          containing_range_iter->second.type();
+      BasicBlockType original_type = containing_range_iter->second.type();
 
       Range containing_range(containing_range_iter->first);
       BasicBlock original_bb(containing_range_iter->second);
@@ -393,14 +392,15 @@ bool BasicBlockDecomposer::SplitBlockOnJumpTargets() {
                   code_addr_ + original_bb.instructions().front().offset());
       } else {
         DCHECK(!original_bb.successors().empty());
-        DCHECK_EQ(*jump_target_iter,
-                  code_addr_ + original_bb.successors().front().offset());
+        DCHECK_EQ(
+            *jump_target_iter,
+            code_addr_ + original_bb.successors().front().instruction_offset());
       }
 #endif
       current_successors_.push_back(
           Successor(Successor::kConditionTrue,
-                    *jump_target_iter,
-                    -1, 0));
+                    *jump_target_iter - code_addr_,
+                    BasicBlock::kEphemeralSourceOffset, 0));
 
       if (!InsertBlockRange(containing_range.start(),
                             left_split_size,

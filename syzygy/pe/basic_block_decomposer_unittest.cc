@@ -56,6 +56,8 @@ using core::Disassembler;
 using testing::_;
 using testing::ElementsAre;
 
+typedef BasicBlock::BasicBlockType BasicBlockType;
+
 // This class provides a DSL for describing a basic block.
 //
 // It can be used to test whether a parsed block gets broken down into the
@@ -101,15 +103,15 @@ struct BasicBlockDesc {
 
   typedef std::vector<Instruction> Instructions;
   typedef BasicBlock::Successors Successors;
-  typedef BasicBlock::BlockType BlockType;
 
-  explicit BasicBlockDesc(AbsoluteAddress start)
-      : block_type(BlockGraph::BASIC_CODE_BLOCK),
+  explicit BasicBlockDesc(AbsoluteAddress base, AbsoluteAddress start)
+      : block_type(BasicBlock::BASIC_CODE_BLOCK),
+        base_addr(base),
         start_addr(start) {
   }
 
   // Mutate the expected block type.
-  BasicBlockDesc& SetType(BlockType& type) {
+  BasicBlockDesc& SetType(BasicBlockType& type) {
     block_type = type;
     return *this;
   }
@@ -124,13 +126,14 @@ struct BasicBlockDesc {
   BasicBlockDesc& AddSucc(uint16 opcode, AbsoluteAddress target) {
     successors.push_back(
         Successor(Successor::OpCodeToCondition(opcode),
-                  target,
-                  -1, 0));
+                  target - base_addr,
+                  BasicBlock::kEphemeralSourceOffset, 0));
     EXPECT_TRUE(successors.size() <= 2);
     return *this;
   }
 
-  BlockType block_type;
+  BasicBlockType block_type;
+  AbsoluteAddress base_addr;
   AbsoluteAddress start_addr;
   Instructions instructions;
   Successors successors;
@@ -166,8 +169,7 @@ bool SameSuccessors(const BasicBlock::Successors& bb_succ,
 
   while (bb_iter != bb_succ.end() && exp_iter != exp_succ.end()) {
     if (bb_iter->condition() != exp_iter->condition() ||
-        bb_iter->original_target_address() !=
-            exp_iter->original_target_address()) {
+        bb_iter->bb_target_offset() != exp_iter->bb_target_offset()) {
       return false;
     }
     ++bb_iter;
@@ -229,7 +231,7 @@ class BasicBlockDecomposerTest : public testing::Test {
   }
 
   static int BlockCount(const BasicBlockDecomposer::BBAddressSpace& range_map,
-                        BlockGraph::BlockType type) {
+                        BasicBlockType type) {
     int block_count = 0;
     BasicBlockDecomposer::RangeMapConstIter iter(range_map.begin());
     for (; iter != range_map.end(); ++iter) {
@@ -267,8 +269,8 @@ TEST_F(BasicBlockDecomposerTest, BasicCoverage) {
   // We should have one block that was not disassembled since it was reachable
   // only via a non-referenced internal label and was consequently marked as
   // data.
-  EXPECT_EQ(4, BlockCount(basic_blocks, BlockGraph::BASIC_CODE_BLOCK));
-  EXPECT_EQ(1, BlockCount(basic_blocks, BlockGraph::BASIC_DATA_BLOCK));
+  EXPECT_EQ(4, BlockCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
+  EXPECT_EQ(1, BlockCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
 }
 
 TEST_F(BasicBlockDecomposerTest, BasicCoverageWithLabels) {
@@ -300,8 +302,8 @@ TEST_F(BasicBlockDecomposerTest, BasicCoverageWithLabels) {
   EXPECT_EQ(6, basic_blocks.size());
 
   // All blocks should have been disassembled and marked as code.
-  EXPECT_EQ(6, BlockCount(basic_blocks, BlockGraph::BASIC_CODE_BLOCK));
-  EXPECT_EQ(0, BlockCount(basic_blocks, BlockGraph::BASIC_DATA_BLOCK));
+  EXPECT_EQ(6, BlockCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
+  EXPECT_EQ(0, BlockCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
 
   // Check that we have blocks starting at both the internally-referenced label
   // and the external label.
@@ -341,8 +343,8 @@ TEST_F(BasicBlockDecomposerTest, Instructions) {
   const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
       disasm.GetBasicBlockRanges());
   EXPECT_EQ(6, basic_blocks.size());
-  EXPECT_EQ(6, BlockCount(basic_blocks, BlockGraph::BASIC_CODE_BLOCK));
-  EXPECT_EQ(0, BlockCount(basic_blocks, BlockGraph::BASIC_DATA_BLOCK));
+  EXPECT_EQ(6, BlockCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
+  EXPECT_EQ(0, BlockCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
 
   // The JNZ instruction is 7 bytes after the beginning of bb_assembly func.
   const AbsoluteAddress kAddrJnzTarget = AddressOf(&bb_assembly_func) + 7;
@@ -360,33 +362,34 @@ TEST_F(BasicBlockDecomposerTest, Instructions) {
   const AbsoluteAddress kAddrLbl2 = AddressOf(&bb_internal_label) + 5;
 
   // Validate that we have the right instructions.
+  AbsoluteAddress base_addr(AddressOf(&bb_assembly_func));
   EXPECT_THAT(
       basic_blocks,
       ElementsAre(
           DescribedBy(
-              BasicBlockDesc(AddressOf(&bb_assembly_func))
+              BasicBlockDesc(base_addr, AddressOf(&bb_assembly_func))
                   .AddInst(I_MOV)
                   .AddInst(I_MOV)
                   .AddSucc(I_JMP, kAddrJnzTarget)),
           DescribedBy(
-              BasicBlockDesc(kAddrJnzTarget)
+              BasicBlockDesc(base_addr, kAddrJnzTarget)
                   .AddInst(I_SUB)
                   .AddSucc(I_JNZ, kAddrJnzTarget)
                   .AddSucc(I_JZ, kAddrJnzSuccessor)),
           DescribedBy(
-              BasicBlockDesc(kAddrJnzSuccessor)
+              BasicBlockDesc(base_addr, kAddrJnzSuccessor)
                   .AddInst(I_MOV)
                   .AddInst(I_NOP)
                   .AddSucc(I_JMP, AddressOf(&bb_external_label))),
           DescribedBy(
-              BasicBlockDesc(AddressOf(&bb_external_label))
+              BasicBlockDesc(base_addr, AddressOf(&bb_external_label))
                   .AddSucc(I_JMP, kAddrLbl2)),
           DescribedBy(
-              BasicBlockDesc(AddressOf(&bb_internal_label))
+              BasicBlockDesc(base_addr, AddressOf(&bb_internal_label))
                   .AddInst(I_CALL)
                   .AddSucc(I_JMP, kAddrLbl2)),
           DescribedBy(
-              BasicBlockDesc(kAddrLbl2)
+              BasicBlockDesc(base_addr, kAddrLbl2)
                   .AddInst(I_CALL)
                   .AddInst(I_RET))));
 }
