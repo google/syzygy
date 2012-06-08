@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -230,12 +230,14 @@ Disassembler::WalkResult Disassembler::Walk() {
           NOTREACHED() << "Unexpected SYS* instruction encountered";
           break;
 
-        case FC_UNC_BRANCH:
-          // Unconditional branch, stop here.
-          terminate = true;
+        case FC_CND_BRANCH:
+          // Conditional branch, schedule a visit to the branch-not-taken
+          // basic block.
+          Unvisited(addr + inst.size);
           // And fall through to visit branch target.
 
-        case FC_CND_BRANCH: {
+        case FC_UNC_BRANCH: {
+            terminate = true;  // The basic block ends here.
             AbsoluteAddress dest;
             switch (inst.ops[0].type) {
               case O_REG:
@@ -292,6 +294,12 @@ Disassembler::WalkResult Disassembler::Walk() {
           terminate = true;
           break;
       }
+
+      // If the next instruction is flagged as a disassembly start point, we
+      // should end this run of instructions (basic-block) and let it be picked
+      // up on the next iteration.
+      if (unvisited_.count(addr + inst.size) != 0)
+        terminate = true;
     }
 
     // Notify that we are terminating an instruction run. Note that we have to
