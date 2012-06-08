@@ -247,7 +247,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   iida_block->SetLabel(
       new_iid_offset,
       base::StringPrintf("Image Import Descriptor: %s", module_name),
-      BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR);
+      BlockGraph::DATA_LABEL);
 
   // We expect the new entry to be dereferencable using iida[descriptor_count].
   DCHECK_GT(iida.ElementCount(), descriptor_count);
@@ -276,7 +276,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   int_block->SetLabel(
       0,
       StringPrintf("%s INT: NULL entry", module_name),
-      BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR);
+      BlockGraph::DATA_LABEL);
   if (int_block->AllocateData(kPtrSize) == NULL) {
     LOG(ERROR) << "Failed to allocate block data.";
     return false;
@@ -307,7 +307,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   // Add a label for debugging purposes.
   iat_block->SetLabel(iat_offset,
                       StringPrintf("%s: NULL thunk", module_name),
-                      BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR);
+                      BlockGraph::DATA_LABEL);
 
   // Hook up these blocks.
   iida.SetReference(BlockGraph::RELATIVE_REF,
@@ -462,11 +462,11 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
   hna.block()->SetLabel(
       int_offset,
       StringPrintf("%s INT: %s", module_name->string, symbol_name),
-      BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR);
+      BlockGraph::DATA_LABEL);
   iat.block()->SetLabel(
       iat_offset,
       StringPrintf("%s IAT: %s", module_name->string, symbol_name),
-      BlockGraph::DATA_LABEL, BlockGraph::DATA_LABEL_ATTR);
+      BlockGraph::DATA_LABEL);
 
   // Hook up the newly created IMAGE_IMPORT_BY_NAME to both tables.
   BlockGraph::Reference iibn_ref(BlockGraph::RELATIVE_REF,

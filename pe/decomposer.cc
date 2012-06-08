@@ -287,29 +287,20 @@ void GuessDataBlockAlignment(BlockGraph::Block* block) {
   block->set_alignment(GuessAddressAlignment(block->addr()));
 }
 
-bool AreMatchedBlockAndLabelTypes(BlockGraph::BlockType bt,
-                                  BlockGraph::LabelType lt) {
-  return (bt == BlockGraph::CODE_BLOCK && lt == BlockGraph::CODE_LABEL) ||
-      (bt == BlockGraph::DATA_BLOCK && lt == BlockGraph::DATA_LABEL);
-}
-
 bool AreMatchedBlockAndLabelAttributes(
     BlockGraph::BlockType bt,
     BlockGraph::LabelAttributes la) {
-  return (bt == BlockGraph::CODE_BLOCK && (la & BlockGraph::CODE_LABEL_ATTR)) ||
-      (bt == BlockGraph::DATA_BLOCK && (la & BlockGraph::DATA_LABEL_ATTR));
+  return (bt == BlockGraph::CODE_BLOCK && (la & BlockGraph::CODE_LABEL)) ||
+      (bt == BlockGraph::DATA_BLOCK && (la & BlockGraph::DATA_LABEL));
 }
 
 void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
                             const base::StringPiece& name_or_label,
-                            BlockGraph::LabelType label_type,
                             BlockGraph::LabelAttributes label_attributes,
                             BlockGraph::Block* block) {
   // This only make sense for positions strictly within the block.
   DCHECK_LE(0, offset);
   DCHECK(!name_or_label.empty());
-  DCHECK(label_type == BlockGraph::CODE_LABEL ||
-         label_type == BlockGraph::DATA_LABEL);
   DCHECK(BlockGraph::Label::AreValidAttributes(label_attributes));
   DCHECK(block != NULL);
   DCHECK_GT(block->size(), unsigned(offset));
@@ -319,26 +310,20 @@ void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
   // If the offset is zero, change the block name. Otherwise, add a label.
   BlockGraph::BlockType type = block->type();
   if (offset == 0) {
-    if (!AreMatchedBlockAndLabelTypes(block->type(), label_type))
-      VLOG(2) << "Mismatched block and label types [block='" << block->name()
-              << "'(" << BlockGraph::BlockTypeToString(block->type())
-              << base::StringPrintf(" @ 0x%08X); ", block->addr().value())
-              << "label='" << name_or_label << "' ("
-              << BlockGraph::LabelTypeToString(label_type) << ")].";
     if (!AreMatchedBlockAndLabelAttributes(block->type(), label_attributes))
       VLOG(2) << "Mismatched block and label attributes [block='"
               << block->name() << "'("
               << BlockGraph::BlockTypeToString(block->type())
               << base::StringPrintf(" @ 0x%08X); ", block->addr().value())
               << "label='" << name_or_label << "', attr="
-              << base::StringPrintf("0x%08X", label_attributes) << "].";
+              << BlockGraph::LabelAttributesToString(label_attributes) << "].";
     block->set_name(name_or_label);
   } else {
-    block->SetLabel(offset, name_or_label, label_type, label_attributes);
+    block->SetLabel(offset, name_or_label, label_attributes);
   }
 }
 
-BlockGraph::LabelType SymTagToLabelType(enum SymTagEnum sym_tag) {
+BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
   switch (sym_tag) {
     case SymTagData:
       return BlockGraph::DATA_LABEL;
@@ -358,35 +343,11 @@ BlockGraph::LabelType SymTagToLabelType(enum SymTagEnum sym_tag) {
   }
 
   NOTREACHED();
-  return BlockGraph::LABEL_TYPE_UNKNOWN;
-}
-
-BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
-  switch (sym_tag) {
-    case SymTagData:
-      return BlockGraph::DATA_LABEL_ATTR;
-    case SymTagLabel:
-      return BlockGraph::CODE_LABEL_ATTR;
-    case SymTagFuncDebugStart:
-      return BlockGraph::DEBUG_START_LABEL_ATTR;
-    case SymTagFuncDebugEnd:
-      return BlockGraph::DEBUG_END_LABEL_ATTR;
-    case SymTagBlock:
-      return BlockGraph::SCOPE_START_LABEL_ATTR;
-#if _MSC_VER >= 1600
-    // The DIA SDK shipping with MSVS 2010 includes additional symbol types.
-    case SymTagCallSite:
-      return BlockGraph::CALL_SITE_LABEL_ATTR;
-#endif
-  }
-
-  NOTREACHED();
   return 0;
 }
 
 void AddLabelToCodeBlock(RelativeAddress addr,
                          const base::StringPiece& name,
-                         BlockGraph::LabelType label_type,
                          BlockGraph::LabelAttributes label_attributes,
                          BlockGraph::Block* block) {
   // This only makes sense for code blocks that contain the given label
@@ -401,8 +362,8 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   // If this is an END label, back it up a byte (these actually point to the
   // first byte past a range of interest).
   const BlockGraph::LabelAttributes kEndLabelAttributes =
-      BlockGraph::SCOPE_END_LABEL_ATTR |
-      BlockGraph::DEBUG_END_LABEL_ATTR;
+      BlockGraph::SCOPE_END_LABEL |
+      BlockGraph::DEBUG_END_LABEL;
   if (label_attributes & kEndLabelAttributes)
     offset--;
 
@@ -411,11 +372,11 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   // simply omit the debug end symbol for now, even though this is less than
   // ideal.
   if (offset < 0) {
-    DCHECK(label_attributes & BlockGraph::DEBUG_END_LABEL_ATTR);
+    DCHECK(label_attributes & BlockGraph::DEBUG_END_LABEL);
     return;
   }
 
-  bool added = block->SetLabel(offset, name, label_type, label_attributes);
+  bool added = block->SetLabel(offset, name, label_attributes);
 
 #ifndef NDEBUG
   // It is conceivable that there could be more than one scope with either the
@@ -423,14 +384,14 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   // in any version of Chrome up to 20. We add this check in debug mode so that
   // we'd at least be made aware of the situation.
   const BlockGraph::LabelAttributes kScopeAttributes =
-      BlockGraph::SCOPE_START_LABEL_ATTR |
-      BlockGraph::SCOPE_END_LABEL_ATTR;
+      BlockGraph::SCOPE_START_LABEL |
+      BlockGraph::SCOPE_END_LABEL;
   BlockGraph::LabelAttributes scope_attributes =
       label_attributes & kScopeAttributes;
   if (!added && scope_attributes) {
     BlockGraph::Label label;
     DCHECK(block->GetLabel(offset, &label));
-    if (label.attributes() & scope_attributes) {
+    if (label.has_any_attributes(scope_attributes)) {
       LOG(WARNING) << "Detected colliding scope labels.";
     }
   }
@@ -603,17 +564,15 @@ void GetCodeLabelAddresses(const BlockGraph::Block* block,
   BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
   for (; it != block->labels().end(); ++it) {
     BlockGraph::Offset offset = it->first;
-    BlockGraph::LabelType label_type = it->second.type();
 
     DCHECK_LE(0, offset);
     DCHECK_GT(block->size(), static_cast<size_t>(offset));
-    DCHECK_NE(BlockGraph::LABEL_TYPE_UNKNOWN, label_type);
 
-    if (label_type == BlockGraph::CODE_LABEL) {
-      // We sometimes receive labels for lookup tables; which we can detect
-      // because the label will point directly to a reloc. These should have
-      // already been marked as data. DCHECK to validate.
-      DCHECK(reloc_set.find(block->addr() + offset) == reloc_set.end());
+    if (it->second.has_attributes(BlockGraph::CODE_LABEL)) {
+      // We sometimes receive code labels that land on lookup tables; we can
+      // detect these because the label will point directly to a reloc. These
+      // should have already been marked as data. DCHECK to validate.
+      DCHECK_EQ(0u, reloc_set.count(block->addr() + offset));
       addresses->insert(abs_block_addr + offset);
     }
   }
@@ -1070,8 +1029,7 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
     block->set_name(block_name);
 
   // Annotate the block with a label, as this is an entry point to it.
-  block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL,
-                  BlockGraph::CODE_LABEL_ATTR);
+  block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL);
 
   // Set the block attributes.
   if (no_return == TRUE)
@@ -1162,7 +1120,6 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     enum SymTagEnum sym_tag = static_cast<enum SymTagEnum>(temp_sym_tag);
-    BlockGraph::LabelType label_type = SymTagToLabelType(sym_tag);
     BlockGraph::LabelAttributes label_attr = SymTagToLabelAttributes(sym_tag);
 
     // TODO(rogerm): Add a flag to include/exclude the symbol types that are
@@ -1205,10 +1162,10 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
         case SymTagData: {
           if (reloc_set_.count(label_rva)) {
             label_name = "<jump-table>";
-            label_attr |= BlockGraph::JUMP_TABLE_LABEL_ATTR;
+            label_attr |= BlockGraph::JUMP_TABLE_LABEL;
           } else {
             label_name = "<case-table>";
-            label_attr |= BlockGraph::CASE_TABLE_LABEL_ATTR;
+            label_attr |= BlockGraph::CASE_TABLE_LABEL;
           }
           break;
         }
@@ -1236,26 +1193,29 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     // We expect that we'll never see a code label that refers to a reloc.
-    if (label_type == BlockGraph::CODE_LABEL && reloc_set_.count(label_rva)) {
+    if ((label_attr & BlockGraph::CODE_LABEL) &&
+        reloc_set_.count(label_rva)) {
       LOG(WARNING) << "Collision between reloc and code label in "
                    << block->name() << " at " << label_name
                    << base::StringPrintf(" (0x%08X).", label_rva.value())
                    << " Falling back to data label.";
-      label_type = BlockGraph::DATA_LABEL;
+      label_attr = BlockGraph::DATA_LABEL |
+          BlockGraph::JUMP_TABLE_LABEL;
       DCHECK_EQ(block_addr, block->addr());
       BlockGraph::Offset offset = label_rva - block_addr;
       BlockGraph::Label label;
       if (block->GetLabel(offset, &label) &&
-          label.type() != BlockGraph::DATA_LABEL) {
+          !label.has_attributes(BlockGraph::DATA_LABEL)) {
         LOG(WARNING) << block->name() << ": Replacing label " << label.name()
-                     << " (" << BlockGraph::LabelTypeToString(label.type())
+                     << " ("
+                     << BlockGraph::LabelAttributesToString(label.attributes())
                      << ") at offset " << offset << ".";
         block->RemoveLabel(offset);
       }
     }
 
     // Add the label to the block.
-    AddLabelToCodeBlock(label_rva, label_name, label_type, label_attr, block);
+    AddLabelToCodeBlock(label_rva, label_name, label_attr, block);
 
     // Is this a scope? Then it also has a length. Use it to create the matching
     // scope end.
@@ -1268,8 +1228,8 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
       }
       label_rva += length;
       label_name = "<scope-end>";
-      label_attr = BlockGraph::SCOPE_END_LABEL_ATTR;
-      AddLabelToCodeBlock(label_rva, label_name, label_type, label_attr, block);
+      label_attr = BlockGraph::SCOPE_END_LABEL;
+      AddLabelToCodeBlock(label_rva, label_name, label_attr, block);
     }
   }
 
@@ -1405,7 +1365,6 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       AddLabelToCodeBlock(label_addr,
                           label_name,
                           BlockGraph::CODE_LABEL,
-                          BlockGraph::CODE_LABEL_ATTR,
                           block);
     }
   }
@@ -1752,8 +1711,7 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
       static const char kNaClPrefix[] = "NaCl";
       if (length == 1 &&
           name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
-        AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL,
-                            BlockGraph::CODE_LABEL_ATTR, block);
+        AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL, block);
         return;
       }
     }
@@ -1767,8 +1725,8 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
     }
 
     BlockGraph::Offset offset = addr - block->addr();
-    SetBlockNameOrAddLabel(offset, name.c_str(), BlockGraph::DATA_LABEL,
-                           BlockGraph::DATA_LABEL_ATTR, block);
+    SetBlockNameOrAddLabel(
+        offset, name, BlockGraph::DATA_LABEL, block);
 
     return;
   }
@@ -1845,15 +1803,12 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
   // Set the block name or add a label. For code blocks these are entry points,
   // while for data blocks these are simply to aid debugging.
   BlockGraph::Offset offset = addr - block->addr();
-  BlockGraph::LabelType label_type =
+  BlockGraph::LabelAttributes label_attributes =
       is_in_code && is_function ? BlockGraph::CODE_LABEL :
                                   BlockGraph::DATA_LABEL;
-  BlockGraph::LabelAttributes label_attributes =
-      is_in_code && is_function ? BlockGraph::CODE_LABEL_ATTR :
-                                  BlockGraph::DATA_LABEL_ATTR;
 
 
-  SetBlockNameOrAddLabel(offset, name, label_type, label_attributes, block);
+  SetBlockNameOrAddLabel(offset, name, label_attributes, block);
 }
 
 bool Decomposer::ProcessStaticInitializers() {
@@ -2064,7 +2019,7 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
 
     BlockGraph::Label label;
     if (dst_block->GetLabel(dst_offset, &label) &&
-        label.type() == BlockGraph::CODE_LABEL) {
+        label.has_attributes(BlockGraph::CODE_LABEL)) {
       continue;
     }
 
@@ -2084,13 +2039,8 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
                                               src_offset));
 
     BlockGraph::LabelAttributes label_attr = it->second.refers_to_code ?
-        BlockGraph::CODE_LABEL_ATTR : BlockGraph::DATA_LABEL_ATTR;
-    dst_block->SetLabel(dst_offset,
-                        label_name,
-                        it->second.refers_to_code ? BlockGraph::CODE_LABEL :
-                                                    BlockGraph::DATA_LABEL,
-                        label_attr
-                        );
+        BlockGraph::CODE_LABEL : BlockGraph::DATA_LABEL;
+    dst_block->SetLabel(dst_offset, label_name, label_attr);
   }
 
   return true;
@@ -2304,13 +2254,12 @@ void Decomposer::OnInstruction(const Disassembler& walker,
 #ifndef NDEBUG
       BlockGraph::Label label;
       DCHECK(block->GetLabel(offset, &label));
-      DCHECK_EQ(BlockGraph::DATA_LABEL, label.type());
+      DCHECK(label.has_attributes(BlockGraph::DATA_LABEL));
 #endif
       bool added = block->SetLabel(offset,
                                    "<JUMP-TABLE>",  // Uppercase for debugging.
-                                   BlockGraph::DATA_LABEL,
-                                   BlockGraph::DATA_LABEL_ATTR |
-                                      BlockGraph::JUMP_TABLE_LABEL_ATTR);
+                                   BlockGraph::DATA_LABEL |
+                                      BlockGraph::JUMP_TABLE_LABEL);
       if (added) {
         LOG(WARNING) << "Expected there to already be label marking the jump "
                      << "table at " << block->name() << " + " << offset << ".";
@@ -2409,8 +2358,7 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     if (block->SetLabel(dst - block->addr(),
                         base::StringPrintf("From 0x%08X",
                         instr_rel.value()),
-                        BlockGraph::CODE_LABEL,
-                        BlockGraph::CODE_LABEL_ATTR)) {
+                        BlockGraph::CODE_LABEL)) {
       // And then potentially re-schedule the block for disassembly,
       // as we may have turned up another entry to a block we already
       // disassembled.

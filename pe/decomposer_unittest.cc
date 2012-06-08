@@ -302,22 +302,22 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     for (; it != dll_main_block->labels().end(); ++it) {
       BlockGraph::LabelAttributes attr_mask = 1;
       for (; attr_mask != BlockGraph::LABEL_ATTR_MAX; attr_mask <<= 1) {
-        if (it->second.attributes() & attr_mask)
+        if (it->second.has_attributes(attr_mask))
           label_attr_counts[attr_mask]++;
       }
     }
   }
 
 #ifdef NDEBUG
-  EXPECT_EQ(17, label_attr_counts[BlockGraph::CODE_LABEL_ATTR]);
+  EXPECT_EQ(17, label_attr_counts[BlockGraph::CODE_LABEL]);
 #else
   EXPECT_EQ(18, label_attr_counts[BlockGraph::CODE_LABEL]);
 #endif
-  EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL_ATTR]);
-  EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL_ATTR]);
-  EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL_ATTR]);
-  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL_ATTR]);
-  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL_ATTR]);
+  EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL]);
+  EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
+  EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL]);
 }
 
 namespace {
