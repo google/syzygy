@@ -108,41 +108,39 @@ TEST(ReferenceTest, IndirectReference) {
 TEST(LabelTest, Initialization) {
   BlockGraph::Label label;
   ASSERT_TRUE(label.name().empty());
-  ASSERT_EQ(BlockGraph::LABEL_TYPE_UNKNOWN, label.type());
-  ASSERT_EQ(0u, label.attributes());
-}
-
-// TODO(chrisha): This is deprecated. Kill it after the transition.
-TEST(LabelTest, InitializationOldConstructor) {
-  BlockGraph::Label label("foo", BlockGraph::CODE_LABEL);
-  ASSERT_EQ(std::string("foo"), label.name());
-  ASSERT_EQ(BlockGraph::CODE_LABEL, label.type());
   ASSERT_EQ(0u, label.attributes());
 }
 
 TEST(LabelTest, InitializationFullConstructor) {
-  BlockGraph::Label label(
-      "foo", BlockGraph::CODE_LABEL, BlockGraph::CODE_LABEL_ATTR);
+  BlockGraph::Label label("foo", BlockGraph::CODE_LABEL);
   ASSERT_EQ(std::string("foo"), label.name());
-  ASSERT_EQ(BlockGraph::CODE_LABEL, label.type());
-  ASSERT_EQ(BlockGraph::CODE_LABEL_ATTR, label.attributes());
+  ASSERT_EQ(BlockGraph::CODE_LABEL, label.attributes());
 }
 
 TEST(LabelTest, Attributes) {
   BlockGraph::Label label;
   ASSERT_EQ(0u, label.attributes());
 
-  label.set_attribute(BlockGraph::CODE_LABEL_ATTR);
-  ASSERT_EQ(BlockGraph::CODE_LABEL_ATTR, label.attributes());
+  label.set_attribute(BlockGraph::CODE_LABEL);
+  ASSERT_EQ(BlockGraph::CODE_LABEL, label.attributes());
 
-  label.set_attribute(BlockGraph::JUMP_TABLE_LABEL_ATTR);
-  ASSERT_EQ(BlockGraph::CODE_LABEL_ATTR | BlockGraph::JUMP_TABLE_LABEL_ATTR,
+  label.set_attribute(BlockGraph::JUMP_TABLE_LABEL);
+  ASSERT_EQ(BlockGraph::CODE_LABEL | BlockGraph::JUMP_TABLE_LABEL,
             label.attributes());
 
-  label.set_attributes(BlockGraph::CASE_TABLE_LABEL_ATTR);
-  ASSERT_EQ(BlockGraph::CASE_TABLE_LABEL_ATTR, label.attributes());
+  ASSERT_TRUE(label.has_attributes(
+      BlockGraph::CODE_LABEL | BlockGraph::JUMP_TABLE_LABEL));
+  ASSERT_TRUE(label.has_attributes(BlockGraph::CODE_LABEL));
+  ASSERT_TRUE(label.has_attributes(BlockGraph::JUMP_TABLE_LABEL));
+  ASSERT_FALSE(label.has_attributes(BlockGraph::DATA_LABEL));
 
-  label.clear_attribute(BlockGraph::CASE_TABLE_LABEL_ATTR);
+  ASSERT_TRUE(label.has_any_attributes(
+      BlockGraph::CODE_LABEL | BlockGraph::DATA_LABEL));
+
+  label.set_attributes(BlockGraph::CASE_TABLE_LABEL);
+  ASSERT_EQ(BlockGraph::CASE_TABLE_LABEL, label.attributes());
+
+  label.clear_attribute(BlockGraph::CASE_TABLE_LABEL);
   ASSERT_EQ(0u, label.attributes());
 }
 
@@ -154,43 +152,43 @@ TEST(LabelTest, IsValid) {
 
   // A code label is fine on its own and also with start labels, but not with
   // anything else.
-  label.set_attribute(BlockGraph::CODE_LABEL_ATTR);
+  label.set_attribute(BlockGraph::CODE_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::DEBUG_START_LABEL_ATTR);
+  label.set_attribute(BlockGraph::DEBUG_START_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::SCOPE_START_LABEL_ATTR);
+  label.set_attribute(BlockGraph::SCOPE_START_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::SCOPE_END_LABEL_ATTR);
+  label.set_attribute(BlockGraph::SCOPE_END_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // A jump table must be with a data label and nothing else.
-  label.set_attributes(BlockGraph::JUMP_TABLE_LABEL_ATTR);
+  label.set_attributes(BlockGraph::JUMP_TABLE_LABEL);
   ASSERT_FALSE(label.IsValid());
-  label.set_attribute(BlockGraph::DATA_LABEL_ATTR);
+  label.set_attribute(BlockGraph::DATA_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // A case table must be with a data label and nothing else.
-  label.set_attributes(BlockGraph::CASE_TABLE_LABEL_ATTR);
+  label.set_attributes(BlockGraph::CASE_TABLE_LABEL);
   ASSERT_FALSE(label.IsValid());
-  label.set_attribute(BlockGraph::DATA_LABEL_ATTR);
+  label.set_attribute(BlockGraph::DATA_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // A data label with no case or jump table must be on its own.
-  label.set_attributes(BlockGraph::DATA_LABEL_ATTR);
+  label.set_attributes(BlockGraph::DATA_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // End labels must be on their own (but can coincide with each other).
-  label.set_attributes(BlockGraph::DEBUG_END_LABEL_ATTR);
+  label.set_attributes(BlockGraph::DEBUG_END_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::SCOPE_END_LABEL_ATTR);
+  label.set_attribute(BlockGraph::SCOPE_END_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL_ATTR);
+  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
   ASSERT_FALSE(label.IsValid());
 }
 
@@ -328,12 +326,9 @@ TEST_F(BlockTest, InsertData) {
                                      0, 0);
   block1->SetReference(0, outgoing_ref);
   block1->SetReference(kPtrSize, outgoing_ref);
-  block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL,
-                   BlockGraph::DATA_LABEL_ATTR);
-  block1->SetLabel(kPtrSize, "Pointer2", BlockGraph::DATA_LABEL,
-                   BlockGraph::DATA_LABEL_ATTR);
-  block1->SetLabel(2 * kPtrSize, "Pointer3", BlockGraph::DATA_LABEL,
-                   BlockGraph::DATA_LABEL_ATTR);
+  block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL);
+  block1->SetLabel(kPtrSize, "Pointer2", BlockGraph::DATA_LABEL);
+  block1->SetLabel(2 * kPtrSize, "Pointer3", BlockGraph::DATA_LABEL);
   TypedBlock<uint32> data1;
   ASSERT_TRUE(data1.Init(0, block1));
   data1[0] = 0xAAAAAAAA;
@@ -385,16 +380,13 @@ TEST_F(BlockTest, InsertData) {
   BlockGraph::Block::LabelMap expected_labels;
   expected_labels.insert(std::make_pair(
       0 * kPtrSize,
-      BlockGraph::Label("Pointer1", BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR)));
+      BlockGraph::Label("Pointer1", BlockGraph::DATA_LABEL)));
   expected_labels.insert(std::make_pair(
       2 * kPtrSize,
-      BlockGraph::Label("Pointer2", BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR)));
+      BlockGraph::Label("Pointer2", BlockGraph::DATA_LABEL)));
   expected_labels.insert(std::make_pair(
       3 * kPtrSize,
-      BlockGraph::Label("Pointer3", BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR)));
+      BlockGraph::Label("Pointer3", BlockGraph::DATA_LABEL)));
   EXPECT_THAT(expected_labels, testing::ContainerEq(block1->labels()));
 
   // Ensure that the referrers are as expected.
@@ -502,12 +494,9 @@ TEST_F(BlockTest, RemoveData) {
   block1->SetReference(0, outgoing_ref);
   block1->SetReference(2 * kPtrSize, outgoing_ref);
   block1->SetReference(5 * kPtrSize, outgoing_ref);
-  block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL,
-                   BlockGraph::DATA_LABEL_ATTR);
-  block1->SetLabel(2 * kPtrSize, "Pointer3", BlockGraph::DATA_LABEL,
-                   BlockGraph::DATA_LABEL_ATTR);
-  block1->SetLabel(3 * kPtrSize, "EndOfPointers", BlockGraph::DATA_LABEL,
-                   BlockGraph::DATA_LABEL_ATTR);
+  block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL);
+  block1->SetLabel(2 * kPtrSize, "Pointer3", BlockGraph::DATA_LABEL);
+  block1->SetLabel(3 * kPtrSize, "EndOfPointers", BlockGraph::DATA_LABEL);
   TypedBlock<uint32> data1;
   ASSERT_TRUE(data1.Init(0, block1));
   data1[0] = 0xAAAAAAAA;
@@ -576,16 +565,13 @@ TEST_F(BlockTest, RemoveData) {
   BlockGraph::Block::LabelMap expected_labels;
   expected_labels.insert(std::make_pair(
       0 * kPtrSize,
-      BlockGraph::Label("Pointer1", BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR)));
+      BlockGraph::Label("Pointer1", BlockGraph::DATA_LABEL)));
   expected_labels.insert(std::make_pair(
       1 * kPtrSize,
-      BlockGraph::Label("Pointer3", BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR)));
+      BlockGraph::Label("Pointer3", BlockGraph::DATA_LABEL)));
   expected_labels.insert(std::make_pair(
       2 * kPtrSize,
-      BlockGraph::Label("EndOfPointers", BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR)));
+      BlockGraph::Label("EndOfPointers", BlockGraph::DATA_LABEL)));
   EXPECT_THAT(expected_labels, testing::ContainerEq(block1->labels()));
 
   // Ensure that the referrers are as expected.
@@ -736,12 +722,16 @@ TEST(BlockGraphTest, BlockTypeToString) {
   }
 }
 
-TEST(BlockGraphTest, LabelTypeToString) {
-  for (int type = 0; type < BlockGraph::LABEL_TYPE_MAX; ++type) {
-    BlockGraph::LabelType label_type =
-        static_cast<BlockGraph::LabelType>(type);
-    EXPECT_TRUE(BlockGraph::LabelTypeToString(label_type) != NULL);
+TEST(BlockGraphTest, LabelAttributesToString) {
+  BlockGraph::LabelAttributes label_attr = 1;
+  for (; label_attr != BlockGraph::LABEL_ATTR_MAX; label_attr <<= 1) {
+    std::string s = BlockGraph::LabelAttributesToString(label_attr);
+    EXPECT_FALSE(s.empty());
   }
+
+  label_attr = BlockGraph::LABEL_ATTR_MAX - 1;
+  std::string s = BlockGraph::LabelAttributesToString(label_attr);
+  EXPECT_FALSE(s.empty());
 }
 
 TEST(BlockGraphTest, AddSections) {
@@ -965,18 +955,13 @@ TEST(BlockGraphTest, Labels) {
     EXPECT_FALSE(block->RemoveLabel(i));
   }
 
-  EXPECT_TRUE(block->SetLabel(13, "foo", BlockGraph::DATA_LABEL,
-                              BlockGraph::DATA_LABEL_ATTR));
-  EXPECT_FALSE(block->SetLabel(13, "foo2", BlockGraph::DATA_LABEL,
-                               BlockGraph::DATA_LABEL_ATTR));
+  EXPECT_TRUE(block->SetLabel(13, "foo", BlockGraph::DATA_LABEL));
+  EXPECT_FALSE(block->SetLabel(13, "foo2", BlockGraph::DATA_LABEL));
 
-  EXPECT_TRUE(block->SetLabel(17, "bar", BlockGraph::DATA_LABEL,
-                              BlockGraph::DATA_LABEL_ATTR));
-  EXPECT_TRUE(block->SetLabel(17, "bar2", BlockGraph::CODE_LABEL,
-                              BlockGraph::CODE_LABEL_ATTR));
+  EXPECT_TRUE(block->SetLabel(17, "bar", BlockGraph::DATA_LABEL));
+  EXPECT_TRUE(block->SetLabel(17, "bar2", BlockGraph::CODE_LABEL));
 
-  EXPECT_TRUE(block->SetLabel(15, "baz", BlockGraph::CODE_LABEL,
-                              BlockGraph::CODE_LABEL_ATTR));
+  EXPECT_TRUE(block->SetLabel(15, "baz", BlockGraph::CODE_LABEL));
   EXPECT_TRUE(block->HasLabel(15));
   EXPECT_TRUE(block->RemoveLabel(15));
   EXPECT_FALSE(block->HasLabel(15));
@@ -987,10 +972,8 @@ TEST(BlockGraphTest, Labels) {
       ASSERT_TRUE(block->HasLabel(i));
       EXPECT_TRUE(block->GetLabel(i, &label));
       EXPECT_EQ(std::string(i == 13 ? "foo" : "bar"), label.name());
-      EXPECT_EQ(i == 13 ? BlockGraph::DATA_LABEL : BlockGraph::CODE_LABEL,
-                label.type());
-      EXPECT_EQ(i == 13 ? BlockGraph::DATA_LABEL_ATTR :
-                    BlockGraph::CODE_LABEL_ATTR,
+      EXPECT_EQ(i == 13 ? BlockGraph::DATA_LABEL :
+                    BlockGraph::CODE_LABEL,
                 label.attributes());
     } else {
       ASSERT_FALSE(block->HasLabel(i));
@@ -1000,11 +983,9 @@ TEST(BlockGraphTest, Labels) {
 
   BlockGraph::Block::LabelMap expected;
   expected.insert(std::make_pair(
-      13, BlockGraph::Label("foo", BlockGraph::DATA_LABEL,
-                            BlockGraph::DATA_LABEL_ATTR)));
+      13, BlockGraph::Label("foo", BlockGraph::DATA_LABEL)));
   expected.insert(std::make_pair(
-      17, BlockGraph::Label("bar", BlockGraph::CODE_LABEL,
-                            BlockGraph::CODE_LABEL_ATTR)));
+      17, BlockGraph::Label("bar", BlockGraph::CODE_LABEL)));
   EXPECT_THAT(block->labels(), testing::ContainerEq(expected));
 }
 
@@ -1299,14 +1280,10 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
                                                      addr3,
                                                      0x10,
                                                      "block3");
-  ASSERT_TRUE(block2->SetLabel(0, "0x1010", BlockGraph::CODE_LABEL,
-                               BlockGraph::CODE_LABEL_ATTR));
-  ASSERT_TRUE(block2->SetLabel(4, "0x1014", BlockGraph::CODE_LABEL,
-                               BlockGraph::CODE_LABEL_ATTR));
-  ASSERT_TRUE(block3->SetLabel(0, "0x1030", BlockGraph::CODE_LABEL,
-                               BlockGraph::CODE_LABEL_ATTR));
-  ASSERT_TRUE(block3->SetLabel(4, "0x1034", BlockGraph::CODE_LABEL,
-                               BlockGraph::CODE_LABEL_ATTR));
+  ASSERT_TRUE(block2->SetLabel(0, "0x1010", BlockGraph::CODE_LABEL));
+  ASSERT_TRUE(block2->SetLabel(4, "0x1014", BlockGraph::CODE_LABEL));
+  ASSERT_TRUE(block3->SetLabel(0, "0x1030", BlockGraph::CODE_LABEL));
+  ASSERT_TRUE(block3->SetLabel(4, "0x1034", BlockGraph::CODE_LABEL));
 
   block1->source_ranges().Push(BlockGraph::Block::DataRange(0, 0x10),
                                BlockGraph::Block::SourceRange(addr1, 0x10));
@@ -1346,17 +1323,13 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
 
   BlockGraph::Block::LabelMap expected_labels;
   expected_labels.insert(std::make_pair(
-      0x00, BlockGraph::Label("0x1010", BlockGraph::CODE_LABEL,
-                              BlockGraph::CODE_LABEL_ATTR)));
+      0x00, BlockGraph::Label("0x1010", BlockGraph::CODE_LABEL)));
   expected_labels.insert(std::make_pair(
-      0x04, BlockGraph::Label("0x1014", BlockGraph::CODE_LABEL,
-                              BlockGraph::CODE_LABEL_ATTR)));
+      0x04, BlockGraph::Label("0x1014", BlockGraph::CODE_LABEL)));
   expected_labels.insert(std::make_pair(
-      0x20, BlockGraph::Label("0x1030", BlockGraph::CODE_LABEL,
-                              BlockGraph::CODE_LABEL_ATTR)));
+      0x20, BlockGraph::Label("0x1030", BlockGraph::CODE_LABEL)));
   expected_labels.insert(std::make_pair(
-      0x24, BlockGraph::Label("0x1034", BlockGraph::CODE_LABEL,
-                              BlockGraph::CODE_LABEL_ATTR)));
+      0x24, BlockGraph::Label("0x1034", BlockGraph::CODE_LABEL)));
   EXPECT_THAT(merged->labels(), testing::ContainerEq(expected_labels));
 
   BlockGraph::Block::ReferenceMap expected_refs;

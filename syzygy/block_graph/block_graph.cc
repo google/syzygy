@@ -31,18 +31,6 @@ const char* kBlockType[] = {
 COMPILE_ASSERT(arraysize(kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
                kBlockType_not_in_sync);
 
-// A list of printable names corresponding to label types. This needs to
-// be kept in sync with the BlockGraph::LabelType enum!
-const char* kLabelType[] = {
-  "unknown",
-  "code", "data", "padding",
-  "debug-start", "debug-end",
-  "scope-start", "scope-end",
-  "call-site"
-};
-COMPILE_ASSERT(arraysize(kLabelType) == BlockGraph::LABEL_TYPE_MAX,
-               kLabelType_not_in_sync);
-
 // Shift all items in an offset -> item map by 'distance', provided the initial
 // item offset was >= @p offset.
 template<typename ItemType>
@@ -197,10 +185,24 @@ const char* BlockGraph::BlockTypeToString(BlockGraph::BlockType type) {
   return kBlockType[type];
 }
 
-const char* BlockGraph::LabelTypeToString(BlockGraph::LabelType type) {
-  DCHECK_LE(BlockGraph::LABEL_TYPE_UNKNOWN, type);
-  DCHECK_GT(BlockGraph::LABEL_TYPE_MAX, type);
-  return kLabelType[type];
+std::string BlockGraph::LabelAttributesToString(
+    BlockGraph::LabelAttributes label_attributes) {
+  static const char* kLabelAttributes[] = {
+      "Code", "DebugStart", "DebugEnd", "ScopeStart", "ScopeEnd",
+      "CallSite", "JumpTable", "CaseTable", "Data" };
+  COMPILE_ASSERT((1 << arraysize(kLabelAttributes)) == LABEL_ATTR_MAX,
+                 label_attribute_names_not_in_sync_with_enum);
+
+  size_t i = 0;
+  std::string s;
+  for (size_t i = 0; i < arraysize(kLabelAttributes); ++i) {
+    if (label_attributes & (1 << i)) {
+      if (!s.empty())
+        s.append("|");
+      s.append(kLabelAttributes[i]);
+    }
+  }
+  return s;
 }
 
 const core::RelativeAddress kInvalidAddress(0xFFFFFFFF);
@@ -714,8 +716,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     if (block_type != BlockGraph::CODE_BLOCK && !block->name().empty()) {
       new_block->SetLabel(start_offset,
                           block->name(),
-                          BlockGraph::DATA_LABEL,
-                          BlockGraph::DATA_LABEL_ATTR);
+                          BlockGraph::DATA_LABEL);
     }
 
     // Move labels.
@@ -822,32 +823,22 @@ bool BlockGraph::Section::Load(InArchive* in_archive) {
 }
 
 std::string BlockGraph::Label::ToString() const {
-  return base::StringPrintf("%s (%s)", name_.c_str(), LabelTypeToString(type_));
+  return base::StringPrintf("%s (%s)",
+                            name_.c_str(),
+                            LabelAttributesToString(attributes_).c_str());
 }
 
 bool BlockGraph::Label::Save(OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
-  DCHECK_LE(std::numeric_limits<int8>::min(), type_);
-  DCHECK_GE(std::numeric_limits<int8>::max(), type_);
-  int8 temp_type = static_cast<int8>(type_);
-  return out_archive->Save(name_) && out_archive->Save(temp_type);
+  return out_archive->Save(name_) && out_archive->Save(attributes_);
 }
 
 bool BlockGraph::Label::Load(InArchive* in_archive) {
   DCHECK(in_archive != NULL);
 
-  std::string temp_name;
-  int8 temp_type = 0;
-  if (!in_archive->Load(&temp_name) || !in_archive->Load(&temp_type))
+  if (!in_archive->Load(&name_) || !in_archive->Load(&attributes_))
     return false;
 
-  if (temp_type <= LABEL_TYPE_UNKNOWN || temp_type >= LABEL_TYPE_MAX) {
-    LOG(ERROR) << "Read invalid label type: " << temp_type << ".";
-    return false;
-  }
-
-  name_.swap(temp_name);
-  type_ = static_cast<LabelType>(temp_type);
   return true;
 }
 
@@ -858,8 +849,8 @@ bool BlockGraph::Label::IsValid() const {
 bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   // TODO(chrisha): Once we make the switch to VS2010 Determine where call
   //     site labels may land. Are they at the beginning of the call
-  //     instruction (in which case they may coincide with *_START_LABEL_ATTR
-  //     and CODE_LABEL_ATTR), or do they point at the address of the call
+  //     instruction (in which case they may coincide with *_START_LABEL
+  //     and CODE_LABEL), or do they point at the address of the call
   //     (in which case they must be completely on their own)?
 
   // A label needs to have at least one attribute.
@@ -868,16 +859,16 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
 
   // A code label can only be colocated with SCOPE_START and DEBUG_START.
   const LabelAttributes kCodeAndStartLabelAttributes =
-      CODE_LABEL_ATTR | DEBUG_START_LABEL_ATTR | SCOPE_START_LABEL_ATTR;
-  if ((attributes & CODE_LABEL_ATTR) &&
+      CODE_LABEL | DEBUG_START_LABEL | SCOPE_START_LABEL;
+  if ((attributes & CODE_LABEL) &&
       (attributes & ~kCodeAndStartLabelAttributes)) {
     return false;
   }
 
   // A jump table must be paired with a data label and nothing else.
   const LabelAttributes kJumpDataLabelAttributes =
-      JUMP_TABLE_LABEL_ATTR | DATA_LABEL_ATTR;
-  if (attributes & JUMP_TABLE_LABEL_ATTR) {
+      JUMP_TABLE_LABEL | DATA_LABEL;
+  if (attributes & JUMP_TABLE_LABEL) {
     if ((attributes & kJumpDataLabelAttributes) != kJumpDataLabelAttributes)
       return false;
     if (attributes & ~kJumpDataLabelAttributes)
@@ -887,8 +878,8 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
 
   // A case table must be paired with a data label and nothing else.
   const LabelAttributes kCaseDataLabelAttributes =
-      CASE_TABLE_LABEL_ATTR | DATA_LABEL_ATTR;
-  if (attributes & CASE_TABLE_LABEL_ATTR) {
+      CASE_TABLE_LABEL | DATA_LABEL;
+  if (attributes & CASE_TABLE_LABEL) {
     if ((attributes & kCaseDataLabelAttributes) != kCaseDataLabelAttributes)
       return false;
     if (attributes & ~kCaseDataLabelAttributes)
@@ -897,14 +888,14 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   }
 
   // If there is no case or jump label, then a data label must be on its own.
-  if ((attributes & DATA_LABEL_ATTR) &&
-      (attributes & ~DATA_LABEL_ATTR)) {
+  if ((attributes & DATA_LABEL) &&
+      (attributes & ~DATA_LABEL)) {
     return false;
   }
 
   // End labels must be on their own, but can coincide with each other.
   const LabelAttributes kEndLabelAttributes =
-      DEBUG_END_LABEL_ATTR | SCOPE_END_LABEL_ATTR;
+      DEBUG_END_LABEL | SCOPE_END_LABEL;
   if ((attributes & kEndLabelAttributes) &&
       (attributes & ~kEndLabelAttributes)) {
     return false;
@@ -1276,8 +1267,9 @@ bool BlockGraph::Block::RemoveReference(Offset offset) {
 bool BlockGraph::Block::SetLabel(Offset offset, const Label& label) {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
-  VLOG(2) << name() << ": adding " << LabelTypeToString(label.type())
-          << " label '" << label.name() << "' at offset " << offset << ".";
+  VLOG(2) << name() << ": adding "
+          << LabelAttributesToString(label.attributes()) << " label '"
+          << label.name() << "' at offset " << offset << ".";
 
   // Try inserting the label into the label map.
   std::pair<LabelMap::iterator, bool> result(
@@ -1287,24 +1279,24 @@ bool BlockGraph::Block::SetLabel(Offset offset, const Label& label) {
   if (result.second)
     return true;
 
-  // Otherwise we'll consider modifying the label type if the types are
-  // different and the new label is a code label.
-  LabelType old_type = result.first->second.type();
-  LabelType new_type = label.type();
+  // TODO(chrisha): This logic does not belong here, but should really be
+  //     kept internal to the decomposer.
 
-  // TODO(chrisha): Switch this logic over to using label attributes.
-  bool updated = (old_type != new_type && new_type == BlockGraph::CODE_LABEL);
-  if (updated) {
-    result.first->second.set_type(new_type);
-    result.first->second.set_attributes(label.attributes());
+  // If this is already a code label, or the new label is not a code label then
+  // no update is possible.
+  if (result.first->second.has_attributes(CODE_LABEL) ||
+      !label.has_attributes(CODE_LABEL)) {
+    return false;
   }
 
-  VLOG(2) << name() << ": " << (updated ? "" : "not ") << "changing label '"
-          << result.first->second.name() << "' at offset " << offset << " from "
-          << LabelTypeToString(old_type) << "' to '"
-          << LabelTypeToString(new_type) << "'.";
+  VLOG(2) << name() << ": changing label '" << result.first->second.name()
+          << "' at offset " << offset << " from "
+          << LabelAttributesToString(result.first->second.attributes())
+          << "' to '" << LabelAttributesToString(label.attributes()) << "'.";
 
-  return updated;
+  result.first->second.set_attributes(label.attributes());
+
+  return true;
 }
 
 bool BlockGraph::Block::GetLabel(Offset offset, Label* label) const {
@@ -1540,7 +1532,6 @@ bool BlockGraph::Block::SaveLabels(OutArchive* out_archive,
   out_archive->Save(labels_.size());
   for (; label_iter != labels_.end(); label_iter++) {
     if (!out_archive->Save(label_iter->first) ||
-        !out_archive->Save(static_cast<int8>(label_iter->second.type())) ||
         !out_archive->Save(label_iter->second.attributes()) ||
         !MaybeSaveString(label_iter->second.name(), out_archive, attributes)) {
       return false;
@@ -1560,17 +1551,15 @@ bool BlockGraph::Block::LoadLabels(InArchive* in_archive,
     return false;
   }
   for (size_t i = 0; i < labels_count; ++i) {
-    int8 temp_type = 0;
     std::string temp_name;
     Offset temp_offset;
     LabelAttributes temp_attr;
     if (!(in_archive->Load(&temp_offset)) ||
-        !(in_archive->Load(&temp_type)) ||
         !(in_archive->Load(&temp_attr)) ||
         !MaybeLoadString(in_archive, attributes, &temp_name)) {
       return false;
     }
-    Label temp_label(temp_name, static_cast<LabelType>(temp_type), temp_attr);
+    Label temp_label(temp_name, temp_attr);
     labels_.insert(std::make_pair(temp_offset, temp_label));
   }
   DCHECK_EQ(labels_count, labels_.size());

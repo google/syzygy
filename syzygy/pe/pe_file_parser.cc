@@ -610,8 +610,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
   // Add a label to the start of the table.
   thunk_block->SetLabel(thunk_start - thunk_block->addr(),
                         ixt_name,
-                        BlockGraph::DATA_LABEL,
-                        BlockGraph::DATA_LABEL_ATTR);
+                        BlockGraph::DATA_LABEL);
 
   // Determine the type of data in the table. We only chunk out names for
   // import name tables. This prevents us from doing the work twice for an

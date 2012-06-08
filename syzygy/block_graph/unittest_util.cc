@@ -50,15 +50,15 @@ bool BlocksEqual(const BlockGraph::Block& b1,
   if ((attributes & BlockGraph::OMIT_LABELS) == 0) {
     if (b1.labels().size() != b2.labels().size())
       return false;
-    BlockGraph::Block::LabelMap::const_iterator label1_iter =
+    BlockGraph::Block::LabelMap::const_iterator it1 =
         b1.labels().begin();
-    BlockGraph::Block::LabelMap::const_iterator label2_iter =
+    BlockGraph::Block::LabelMap::const_iterator it2 =
         b1.labels().begin();
-    for (; label1_iter != b1.labels().end(); label1_iter++, label2_iter++) {
-      if (label1_iter->first != label2_iter->first ||
-          label1_iter->second.type() != label2_iter->second.type() ||
-          !MaybeCompareString(label1_iter->second.name(),
-                              label2_iter->second.name(),
+    for (; it1 != b1.labels().end(); it1++, it2++) {
+      if (it1->first != it2->first ||
+          it1->second.attributes() != it2->second.attributes() ||
+          !MaybeCompareString(it1->second.name(),
+                              it2->second.name(),
                               attributes)) {
         return false;
       }
@@ -166,14 +166,10 @@ bool GenerateTestBlockGraph(block_graph::BlockGraph* image) {
       b3->section() != s2->id())
       return false;
 
-  b1->SetLabel(0x04, "label1", BlockGraph::CODE_LABEL,
-               BlockGraph::CODE_LABEL_ATTR);
-  b2->SetLabel(0x08, "label2", BlockGraph::DATA_LABEL,
-               BlockGraph::DATA_LABEL_ATTR);
-  b3->SetLabel(0x0C, "label3", BlockGraph::CODE_LABEL,
-               BlockGraph::CODE_LABEL_ATTR);
-  b3->SetLabel(0x10, "label4", BlockGraph::DATA_LABEL,
-               BlockGraph::DATA_LABEL_ATTR);
+  b1->SetLabel(0x04, "label1", BlockGraph::CODE_LABEL);
+  b2->SetLabel(0x08, "label2", BlockGraph::DATA_LABEL);
+  b3->SetLabel(0x0C, "label3", BlockGraph::CODE_LABEL);
+  b3->SetLabel(0x10, "label4", BlockGraph::DATA_LABEL);
 
   uint8* b1_data = b1->AllocateData(b1->size());
   for (size_t i = 0; i < b1->size(); ++i) {

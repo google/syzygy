@@ -119,62 +119,43 @@ class BlockGraph {
 
   static const char* BlockTypeToString(BlockType type);
 
-  enum LabelType {
-    LABEL_TYPE_UNKNOWN,
-    CODE_LABEL,
-    DATA_LABEL,
-    PADDING_LABEL,
-    DEBUG_START_LABEL,
-    DEBUG_END_LABEL,
-    SCOPE_START_LABEL,
-    SCOPE_END_LABEL,  // TODO(rogerm): Infer these from block length.
-    CALL_SITE_LABEL,
-
-    // Note: This must always be last.
-    LABEL_TYPE_MAX
-  };
-
-  // Label attributes. Attributes of the form _END_LABEL_ATTR type actually
+  // Label attributes. Attributes of the form _END_LABEL type actually
   // point to the first byte past the range they delineate. To make the
   // semantics of moving labels easier, we shift these labels left by one and
   // make them follow the last byte of the delineated range.
-  //
-  // TODO(chrisha): Once the switch to label attributes it complete, remove the
-  //     '_ATTR' suffix. This is only there currently to avoid collisions with
-  //     the LabelType enum.
   enum LabelAttributeEnum {
     // The label points to an entry-point in a code block.
-    CODE_LABEL_ATTR = (1 << 0),
+    CODE_LABEL = (1 << 0),
 
     // Mark the start and end of the debuggable portion of a code block.
-    DEBUG_START_LABEL_ATTR = (1 << 1),
-    DEBUG_END_LABEL_ATTR = (1 << 2),
+    DEBUG_START_LABEL = (1 << 1),
+    DEBUG_END_LABEL = (1 << 2),
 
     // Mark the start and end of an embedded scope in a code block.
-    SCOPE_START_LABEL_ATTR = (1 << 3),
-    SCOPE_END_LABEL_ATTR = (1 << 4),
+    SCOPE_START_LABEL = (1 << 3),
+    SCOPE_END_LABEL = (1 << 4),
 
     // Marks the location of a (virtual table?) call.
-    CALL_SITE_LABEL_ATTR = (1 << 5),
+    CALL_SITE_LABEL = (1 << 5),
 
     // The label points to the start of a jump table. The length is inferred
     // by the location of the next label, or the end of the block. This will
-    // also have DATA_LABEL_ATTR set.
-    JUMP_TABLE_LABEL_ATTR = (1 << 6),
+    // also have DATA_LABEL set.
+    JUMP_TABLE_LABEL = (1 << 6),
     // The label points to the start of a case table. The length is inferred
     // by the location of the next label, or the end of the block. This will
-    // also have DATA_LABEL_ATTR set.
-    CASE_TABLE_LABEL_ATTR = (1 << 7),
+    // also have DATA_LABEL set.
+    CASE_TABLE_LABEL = (1 << 7),
     // The label originated from a data symbol. The length is inferred by the
     // location of the next label, or the end of the block. The type of data
     // is unknown.
-    DATA_LABEL_ATTR = (1 << 8),
+    DATA_LABEL = (1 << 8),
 
     // This always needs to be the most significant bit.
     LABEL_ATTR_MAX = (1 << 9),
   };
 
-  static const char* LabelTypeToString(LabelType type);
+  static std::string LabelAttributesToString(LabelAttributes label_attributes);
 
   enum ReferenceType {
     PC_RELATIVE_REF,
@@ -427,37 +408,18 @@ struct BlockGraph::Section {
 class BlockGraph::Label {
  public:
   // Default constructor.
-  Label() : type_(LABEL_TYPE_UNKNOWN), attributes_(0) {
-  }
-
-  // Old constructor.
-  // @note deprecated.
-  // TODO(chrisha): Kill me post-transition.
-  Label(const base::StringPiece& name,
-        LabelType type)
-      : name_(name.begin(), name.end()), type_(type), attributes_(0) {
-    DCHECK_LE(LABEL_TYPE_UNKNOWN, type);
-    DCHECK_GT(LABEL_TYPE_MAX, type);
+  Label() : attributes_(0) {
   }
 
   // Full constructor.
-  // TODO(chrisha): Kill the label type post-transition.
-  Label(const base::StringPiece& name,
-        LabelType type,
-        LabelAttributes attributes)
-      : name_(name.begin(), name.end()), type_(type), attributes_(attributes) {
-    DCHECK_LE(LABEL_TYPE_UNKNOWN, type);
-    DCHECK_GT(LABEL_TYPE_MAX, type);
+  Label(const base::StringPiece& name, LabelAttributes attributes)
+      : name_(name.begin(), name.end()), attributes_(attributes) {
   }
 
   // @name Accessors.
   // @{
   const std::string& name() const { return name_; }
-  LabelType type() const { return type_; }
   // @}
-
-  // Change a label's type.
-  void set_type(LabelType new_type) { type_ = new_type; }
 
   // A helper function for logging and debugging.
   std::string ToString() const;
@@ -470,8 +432,7 @@ class BlockGraph::Label {
 
   // Equality comparator for unittesting.
   bool operator==(const Label& other) const {
-    return name_ == other.name_ && type_ == other.type_ &&
-        attributes_ == other.attributes_;
+    return name_ == other.name_ && attributes_ == other.attributes_;
   }
 
   // The label attributes are a bitmask. You can set them wholesale,
@@ -482,6 +443,14 @@ class BlockGraph::Label {
   // Set or clear one or more attributes.
   void set_attribute(LabelAttributes attribute) { attributes_ |= attribute; }
   void clear_attribute(LabelAttributes attribute) { attributes_ &= ~attribute; }
+
+  // Determines if all or any of the given attributes are set.
+  bool has_attributes(LabelAttributes attributes) const {
+    return (attributes_ & attributes) == attributes;
+  }
+  bool has_any_attributes(LabelAttributes attributes) const {
+    return (attributes_ & attributes) != 0;
+  }
 
   // @returns true if this label is valid, false otherwise.
   bool IsValid() const;
@@ -496,7 +465,6 @@ class BlockGraph::Label {
   std::string name_;
 
   // The disposition of the bytes found at this label.
-  LabelType type_;
   LabelAttributes attributes_;
 };
 
@@ -701,26 +669,16 @@ class BlockGraph::Block {
   // of the jump destinations.
   // @param offset the offset of the label to set.
   // @param name the name of the label.
-  // @param type the type of the label.
   // @param attributes the attributes of the label.
   // @returns true iff a new label is inserted.
   // @note that only one label can exist at each offset, and the first
   //     label set at any offset will stay there.
   // @{
   bool SetLabel(Offset offset, const Label& label);
-  // @note Deprecated.
-  // TODO(chrisha): Remove me post transition.
   bool SetLabel(Offset offset,
                 const base::StringPiece& name,
-                LabelType type) {
-    return SetLabel(offset, Label(name, type));
-  }
-  // TODO(chrisha): Remove @p type post transition.
-  bool SetLabel(Offset offset,
-                const base::StringPiece& name,
-                LabelType type,
                 LabelAttributes attributes) {
-    return SetLabel(offset, Label(name, type, attributes));
+    return SetLabel(offset, Label(name, attributes));
   }
   // @}
 

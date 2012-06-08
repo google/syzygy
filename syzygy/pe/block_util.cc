@@ -32,7 +32,7 @@ bool HasDataLabel(const BlockGraph::Block* block,
       block->labels().find(offset);
   if (label_it == block->labels().end())
     return false;
-  if (label_it->second.type() != BlockGraph::DATA_LABEL)
+  if (!label_it->second.has_attributes(BlockGraph::DATA_LABEL))
     return false;
   return true;
 }
@@ -186,15 +186,13 @@ bool CodeBlockReferrersAreClConsistent(const BlockGraph::Block* block) {
   for (; label_it != block->labels().end(); ++label_it) {
     // Have we already seen at least one data label?
     if (!data_label_offsets.empty()) {
-      // We only expect to see padding and other data labels thereafter.
-      if (label_it->second.type() != BlockGraph::DATA_LABEL &&
-          label_it->second.type() != BlockGraph::PADDING_LABEL) {
+      // We only expect to see other data labels thereafter.
+      if (!label_it->second.has_attributes(BlockGraph::DATA_LABEL))
         return false;
-      }
     }
 
     // Not data? Skip it.
-    if (label_it->second.type() != BlockGraph::DATA_LABEL)
+    if (!label_it->second.has_attributes(BlockGraph::DATA_LABEL))
       continue;
 
     // If we get here it's another data label.
