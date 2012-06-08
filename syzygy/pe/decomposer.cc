@@ -2067,14 +2067,17 @@ bool Decomposer::CreateCodeLabelsFromFixups() {
     BlockGraph::Offset src_offset = ref_it->first - src_block->addr();
     BlockGraph::Offset dst_offset = ref.base - dst_block->addr();
 
-    if (dst_block->HasLabel(dst_offset))
+    BlockGraph::Label label;
+    if (dst_block->GetLabel(dst_offset, &label) &&
+        label.type() == BlockGraph::CODE_LABEL) {
       continue;
+    }
 
     FixupMap::const_iterator it = fixup_map_.find(ref_it->first);
     DCHECK(it != fixup_map_.end());
 
     // Only add labels for PC_RELATIVE references or references that are
-    // directly labelled as pointing to code.
+    // directly labeled as pointing to code.
     if (it->second.type != BlockGraph::PC_RELATIVE_REF)
       continue;
 
@@ -2427,14 +2430,14 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       return;
     }
 
-    // See whether the block has a label at the offset.
-    BlockGraph::Offset offset = dst - block->addr();
-    if (!block->HasLabel(offset)) {
-      // If it has no label here, we add one.
-      std::string label(base::StringPrintf("From 0x%08X", instr_rel.value()));
-      block->SetLabel(offset, label, BlockGraph::CODE_LABEL,
-                      BlockGraph::CODE_LABEL_ATTR);
-
+    // If it has no code label here, we add one.
+    // TODO(chrisha, rogerm): Synthesized labels should go away once we drive
+    //     basic-block decomposition based on the referrers.
+    if (block->SetLabel(dst - block->addr(),
+                        base::StringPrintf("From 0x%08X",
+                        instr_rel.value()),
+                        BlockGraph::CODE_LABEL,
+                        BlockGraph::CODE_LABEL_ATTR)) {
       // And then potentially re-schedule the block for disassembly,
       // as we may have turned up another entry to a block we already
       // disassembled.
