@@ -78,7 +78,7 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
           str << StringPrintf("\t+0x%04X->%s:%s[%d]\n",
                               ref_it->first,
                               ref.referenced()->name().c_str(),
-                              label->second.ToString(),
+                              label->second.ToString().c_str(),
                               ref.size());
         } else {
           str << StringPrintf("\t+0x%04X->%s+0x%04X(%d)\n",
@@ -94,9 +94,7 @@ void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
     *num_refs = refs;
 }
 
-bool DumpImageToText(const FilePath& image_path,
-                     std::ostream& str,
-                     bool basic_block_decomposition) {
+bool DumpImageToText(const FilePath& image_path, std::ostream& str) {
   // Load the image file.
   PEFile image_file;
   if (!image_file.Init(image_path)) {
@@ -119,21 +117,6 @@ bool DumpImageToText(const FilePath& image_path,
   str << "Discovered: " << block_graph.blocks().size() << " blocks\n"
       << "and " << num_refs << " references.";
 
-  if (basic_block_decomposition) {
-    Decomposer::BasicBlockBreakdown breakdown;
-    if (!decomposer.BasicBlockDecompose(image_layout, &breakdown)) {
-      LOG(ERROR) << "Unable to decompose basic blocks for image \""
-                 << image_path.value() << "\".";
-      return false;
-    }
-
-    str << "\n\nBASIC BLOCKS:\n\n";
-    DumpAddressSpaceToText(breakdown.basic_block_address_space, str, NULL);
-
-    str << "Discovered: " << breakdown.basic_block_graph.blocks().size()
-        << " basic blocks.";
-  }
-
   return true;
 }
 
@@ -150,8 +133,7 @@ int Usage(char** argv, const char* message) {
       "  the references between them.\n"
       "\n"
       "Available options\n"
-      "  --image=<image file>\n"
-      "  --bb\t(Enables basic block decomposition)\n";
+      "  --image=<image file>\n";
 
   return 1;
 }
@@ -173,9 +155,5 @@ int main(int argc, char** argv) {
   if (image_file.empty())
     return Usage(argv, "You must provide the path to an image file.");
 
-  bool basic_block_decomposition = cmd_line->HasSwitch("bb");
-
-  return DumpImageToText(FilePath(image_file),
-                         std::cout,
-                         basic_block_decomposition) ? 0 : 1;
+  return DumpImageToText(FilePath(image_file), std::cout) ? 0 : 1;
 }

@@ -49,8 +49,6 @@ using pcrecpp::RE;
 
 class Decomposer {
  public:
-  // Output type for basic block decomposition.
-  class BasicBlockBreakdown;
   // A struct for storing fixups.
   struct Fixup;
   // Used for storing references before the block graph is complete.
@@ -75,11 +73,6 @@ class Decomposer {
   // @returns true on success, false on failure. If @p stats is non-null, it
   // will be populated with decomposition coverage statistics.
   bool Decompose(ImageLayout* image_layout);
-
-  // Decomposes the decomposed image into basic blocks.
-  // @returns true on success, false on failure.
-  bool BasicBlockDecompose(const ImageLayout& image_layout,
-                           BasicBlockBreakdown* basic_block_breakdown);
 
   // Registers a pair of static initializer search patterns. Each of these
   // patterns will be converted to a regular expression, and they are required
@@ -180,11 +173,6 @@ class Decomposer {
   // finalized.
   bool FindPaddingBlocks();
 
-  // Invokable once we have completed our original block graphs, this breaks
-  // up code-blocks into their basic sub-components.
-  bool BuildBasicBlockGraph(const ImageLayout& image_layout,
-                            BasicBlockBreakdown* breakdown);
-
   // Parses the section headers and creates BlockGraph sections.
   bool CreateSections();
 
@@ -258,10 +246,6 @@ class Decomposer {
   void OnInstruction(const Disassembler& disassembler,
                      const _DInst& instruction,
                      Disassembler::CallbackDirective* directive);
-  // Called through a callback during function disassembly.
-  void OnBasicInstruction(const Disassembler& disassembler,
-                          const _DInst& instruction,
-                          Disassembler::CallbackDirective* directive);
 
   // Repairs the DIA "FIXUPS" with any loaded OMAP information, validates them,
   // and stores them in the given FixupMap.
@@ -342,15 +326,6 @@ class Decomposer {
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
-};
-
-class Decomposer::BasicBlockBreakdown {
- public:
-  BasicBlockBreakdown() : basic_block_address_space(&basic_block_graph) {
-  }
-
-  BlockGraph basic_block_graph;
-  BlockGraph::AddressSpace basic_block_address_space;
 };
 
 // This is for serializing a PEFile/BlockGraph/ImageLayout triple, which
