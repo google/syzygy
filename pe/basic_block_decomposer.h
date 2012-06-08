@@ -68,6 +68,7 @@ class BasicBlockDecomposer : public core::Disassembler {
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlock BasicBlock;
+  typedef BasicBlock::BasicBlockType BasicBlockType;
   typedef block_graph::Successor Successor;
   typedef block_graph::Instruction Instruction;
 
@@ -140,7 +141,7 @@ class BasicBlockDecomposer : public core::Disassembler {
   // Inserts a range and associated block into @p basic_block_ranges.
   bool InsertBlockRange(AbsoluteAddress addr,
                         size_t size,
-                        BlockGraph::BlockType type);
+                        BasicBlockType type);
 
   // An address space that keeps the basic block range mapping.
   BBAddressSpace basic_block_address_space_;

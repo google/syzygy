@@ -26,7 +26,7 @@ namespace {
 // A list of printable names corresponding to block types. This needs to
 // be kept in sync with the BlockGraph::BlockType enum!
 const char* kBlockType[] = {
-  "CODE_BLOCK", "DATA_BLOCK", "BASIC_CODE_BLOCK", "BASIC_DATA_BLOCK",
+  "CODE_BLOCK", "DATA_BLOCK",
 };
 COMPILE_ASSERT(arraysize(kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
                kBlockType_not_in_sync);
@@ -35,11 +35,10 @@ COMPILE_ASSERT(arraysize(kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
 // be kept in sync with the BlockGraph::LabelType enum!
 const char* kLabelType[] = {
   "unknown",
-  "code", "data",
+  "code", "data", "padding",
   "debug-start", "debug-end",
   "scope-start", "scope-end",
-  "call-site",
-  "padding"
+  "call-site"
 };
 COMPILE_ASSERT(arraysize(kLabelType) == BlockGraph::LABEL_TYPE_MAX,
                kLabelType_not_in_sync);

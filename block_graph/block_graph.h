@@ -111,8 +111,6 @@ class BlockGraph {
   enum BlockType {
     CODE_BLOCK,
     DATA_BLOCK,
-    BASIC_CODE_BLOCK,
-    BASIC_DATA_BLOCK,
 
     // NOTE: This must always be last, and kBlockType must be kept in sync
     // with this enum.
@@ -125,12 +123,12 @@ class BlockGraph {
     LABEL_TYPE_UNKNOWN,
     CODE_LABEL,
     DATA_LABEL,
+    PADDING_LABEL,
     DEBUG_START_LABEL,
     DEBUG_END_LABEL,
     SCOPE_START_LABEL,
     SCOPE_END_LABEL,  // TODO(rogerm): Infer these from block length.
     CALL_SITE_LABEL,
-    PADDING_LABEL,
 
     // Note: This must always be last.
     LABEL_TYPE_MAX

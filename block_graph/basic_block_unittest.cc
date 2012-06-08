@@ -93,22 +93,22 @@ class BasicBlockTest: public testing::Test {
   }
 
   // Helper function to create a successor branch instruction.
-  Successor CreateBranch(uint16 opcode, core::AbsoluteAddress target) {
+  Successor CreateBranch(uint16 opcode, Successor::Offset target) {
     return Successor(Successor::OpCodeToCondition(opcode), target, -1, 0);
   }
 
   // Some handy constants we'll use throughout the tests.
   // @{
   static const BasicBlock::BlockId kBlockId;
-  static const BasicBlock::BlockType kBasicBlockType;
-  static const BasicBlock::BlockType kMacroBlockType;
+  static const BasicBlock::BasicBlockType kBasicBlockType;
+  static const BlockGraph::BlockType kMacroBlockType;
   static const char kBlockName[];
   static const BasicBlock::Offset kBlockOffset;
   static const BasicBlock::Size kBlockSize;
   static const uint8 kBlockData[];
   static const size_t kRefSize;
-  static const AbsoluteAddress kAddr1;
-  static const AbsoluteAddress kAddr2;
+  static const Successor::Offset kOffset1;
+  static const Successor::Offset kOffset2;
   // @}
 
  protected:
@@ -117,17 +117,17 @@ class BasicBlockTest: public testing::Test {
 };
 
 const BasicBlock::BlockId BasicBlockTest::kBlockId = 1;
-const BasicBlock::BlockType BasicBlockTest::kBasicBlockType =
-    BlockGraph::BASIC_CODE_BLOCK;
-const BasicBlock::BlockType BasicBlockTest::kMacroBlockType =
+const BasicBlock::BasicBlockType BasicBlockTest::kBasicBlockType =
+    BasicBlock::BASIC_CODE_BLOCK;
+const BlockGraph::BlockType BasicBlockTest::kMacroBlockType =
     BlockGraph::CODE_BLOCK;
 const char BasicBlockTest::kBlockName[] = "test block";
 const BasicBlock::Offset BasicBlockTest::kBlockOffset = 0;
 const BasicBlock::Size BasicBlockTest::kBlockSize = 32;
 const uint8 BasicBlockTest::kBlockData[BasicBlockTest::kBlockSize] = {};
 const size_t BasicBlockTest::kRefSize = BlockGraph::Reference::kMaximumSize;
-const AbsoluteAddress BasicBlockTest::kAddr1(0xAABBCCDD);
-const AbsoluteAddress BasicBlockTest::kAddr2(0x11223344);
+const Successor::Offset BasicBlockTest::kOffset1(0xAABBCCDD);
+const Successor::Offset BasicBlockTest::kOffset2(0x11223344);
 
 TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_EQ(kBlockId, basic_block_.id());
@@ -147,20 +147,20 @@ TEST_F(BasicBlockTest, EmptyBasicBlockIsNotValid) {
 }
 
 TEST_F(BasicBlockTest, BasicBlockWithOnlyConditionalSuccessorIsNotValid) {
-  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
+  basic_block_.successors().push_back(CreateBranch(I_JNZ, kOffset1));
   ASSERT_FALSE(basic_block_.IsValid());
 }
 
 TEST_F(BasicBlockTest,
        BasicBlockWithConditionalAndFallThroughSuccessorsIsValid) {
-  basic_block_.successors().push_back(CreateBranch(I_JNZ, kAddr1));
-  basic_block_.successors().push_back(CreateBranch(I_JZ, kAddr2));
+  basic_block_.successors().push_back(CreateBranch(I_JNZ, kOffset1));
+  basic_block_.successors().push_back(CreateBranch(I_JZ, kOffset2));
   ASSERT_TRUE(basic_block_.IsValid());
 }
 
 TEST_F(BasicBlockTest,
        BasicBlockWithFallThroughSuccessorIsValid) {
-  basic_block_.successors().push_back(CreateBranch(I_JMP, kAddr2));
+  basic_block_.successors().push_back(CreateBranch(I_JMP, kOffset2));
   ASSERT_TRUE(basic_block_.IsValid());
 }
 
@@ -184,11 +184,13 @@ TEST_F(BasicBlockTest, InvalidBasicBlockReference) {
 
 TEST_F(BasicBlockTest, BasicBlockReference) {
   static const BasicBlockReference::Offset kOffset = 48;
+  static const BasicBlockReference::Offset kBase = kBlockSize / 2;
 
   BasicBlockReference ref(BlockGraph::RELATIVE_REF,
                           kRefSize,
                           &basic_block_,
-                          kOffset);
+                          kOffset,
+                          kBase);
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
             ref.referred_type());
@@ -196,29 +198,36 @@ TEST_F(BasicBlockTest, BasicBlockReference) {
   EXPECT_EQ(&basic_block_, ref.basic_block());
   EXPECT_EQ(kRefSize, ref.size());
   EXPECT_EQ(kOffset, ref.offset());
+  EXPECT_EQ(kBase, ref.base());
   EXPECT_TRUE(ref.IsValid());
 }
 
 TEST_F(BasicBlockTest, BlockReference) {
   static const BasicBlockReference::Offset kOffset = 48;
+  static const BasicBlockReference::Offset kBase = kBlockSize / 2;
 
   BasicBlockReference ref(BlockGraph::RELATIVE_REF,
                           kRefSize,
                           &macro_block_,
-                          kOffset);
+                          kOffset,
+                          kBase);
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref.referred_type());
   EXPECT_EQ(NULL, ref.basic_block());
   EXPECT_EQ(&macro_block_, ref.block());
   EXPECT_EQ(kRefSize, ref.size());
   EXPECT_EQ(kOffset, ref.offset());
+  EXPECT_EQ(kBase, ref.base());
   EXPECT_TRUE(ref.IsValid());
 }
 
 TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
-  BasicBlockReference r1(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4);
-  BasicBlockReference r2(BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4);
-  BasicBlockReference r3(BlockGraph::RELATIVE_REF, kRefSize, &macro_block_, 8);
+  BasicBlockReference r1(
+      BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4, 4);
+  BasicBlockReference r2(
+      BlockGraph::RELATIVE_REF, kRefSize, &basic_block_, 4, 4);
+  BasicBlockReference r3(
+      BlockGraph::RELATIVE_REF, kRefSize, &macro_block_, 8, 8);
 
   EXPECT_TRUE(r1 == r2);
   EXPECT_TRUE(r2 == r1);
@@ -326,51 +335,54 @@ TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
 TEST(Successor, DefaultConstructor) {
   Successor s;
   EXPECT_EQ(Successor::kInvalidCondition, s.condition());
-  EXPECT_EQ(Successor::AbsoluteAddress(), s.original_target_address());
+  EXPECT_EQ(-1, s.bb_target_offset());
   EXPECT_EQ(BasicBlockReference(), s.branch_target());
-  EXPECT_EQ(-1, s.offset());
-  EXPECT_EQ(0, s.size());
+  EXPECT_EQ(-1, s.instruction_offset());
+  EXPECT_EQ(0, s.instruction_size());
 }
 
-TEST(Successor, AddressConstructor) {
+TEST(Successor, OffsetConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
-  const AbsoluteAddress kAddr(0x12345678);
-  const Successor::Offset kOffset = 32;
-  const Successor::Size kSize = 5;
-  Successor s(Successor::kConditionAbove, kAddr, kOffset, kSize);
+  const Successor::Offset kTargetOffset(0x12345678);
+  const Successor::Offset kInstructinOffset = 32;
+  const Successor::Size kInstructionSize = 5;
+
+  Successor s(kCondition,
+              kTargetOffset,
+              kInstructinOffset,
+              kInstructionSize);
 
   EXPECT_EQ(kCondition, s.condition());
-  EXPECT_EQ(kAddr, s.original_target_address());
+  EXPECT_EQ(kTargetOffset, s.bb_target_offset());
   EXPECT_EQ(BasicBlockReference(), s.branch_target());
-  EXPECT_EQ(kOffset, s.offset());
-  EXPECT_EQ(kSize, s.size());
+  EXPECT_EQ(kInstructinOffset, s.instruction_offset());
+  EXPECT_EQ(kInstructionSize, s.instruction_size());
 }
 
 TEST(Successor, BasicBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
-  const Successor::AbsoluteAddress kAddr(0x12345678);
   const Successor::Offset kSuccessorOffset = 4;
   const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
-  BasicBlock bb(1, "bb", BlockGraph::BASIC_CODE_BLOCK, 16, sizeof(data), data);
-  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0);
+  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0, 0);
 
-  Successor s(Successor::kConditionAbove,
+  Successor s(kCondition,
               bb_ref,
               kSuccessorOffset,
               kSuccessorSize);
 
   EXPECT_EQ(kCondition, s.condition());
-  EXPECT_EQ(Successor::AbsoluteAddress(), s.original_target_address());
+  EXPECT_EQ(-1, s.bb_target_offset());
   EXPECT_EQ(bb_ref, s.branch_target());
-  EXPECT_EQ(kSuccessorOffset, s.offset());
-  EXPECT_EQ(kSuccessorSize, s.size());
+  EXPECT_EQ(kSuccessorOffset, s.instruction_offset());
+  EXPECT_EQ(kSuccessorSize, s.instruction_size());
 }
 
 TEST(Successor, SetBranchTarget) {
   uint8 data[20] = {};
-  BasicBlock bb(1, "bb", BlockGraph::BASIC_CODE_BLOCK, 16, sizeof(data), data);
-  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0);
+  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0, 0);
 
   Successor s;
   s.set_branch_target(bb_ref);
