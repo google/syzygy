@@ -13,22 +13,30 @@
 :: See the License for the specific language governing permissions and
 :: limitations under the License.
 
-:: Make a full copy of the Chrome directory provided.
-xcopy "%1" instrumented /ei
-:: Copy the instrumentation DLL into the directory.
-copy "%~dp0profile_client.dll" instrumented
+:: Grab the input directory.
+set CHROME_DIR=%1
+set ORIGINALS_DIR=%CHROME_DIR%\original
 
+if "%CHROME_DIR%"=="" (
+  echo You must provide the directory of the Chrome to instrument.
+  goto END
+)
+
+:: Copy the instrumentation DLL into the directory.
+copy /y "%~dp0profile_client.dll" "%CHROME_DIR%"
+
+:: Make a copy of chrome.dll and chrome_dll.pdb in the directory "original".
+if not exist "%ORIGINALS_DIR%". (
+  echo Making a copy of chrome.dll and chrome_dll.pdb in "%ORIGINALS_DIR%".
+  mkdir "%ORIGINALS_DIR%"
+  copy "%CHROME_DIR%\chrome.dll" "%CHROME_DIR%\chrome_dll.pdb" "%ORIGINALS_DIR%"
+) else (
+  echo "%ORIGINALS_DIR%" already exists.
+)
 :: Instrument Chrome.dll.
 instrument.exe --overwrite^
     --call-trace-client=PROFILER^
-    --input-dll="%1\chrome.dll"^
-    --output-dll=instrumented\chrome.dll
+    --input-dll="%ORIGINALS_DIR%\chrome.dll"^
+    --output-dll="%CHROME_DIR%\chrome.dll"
 
-:: Uncomment this to also instrument Chrome.exe.
-:: Note that instrumented Chrome.exe cannot run with sandboxing enabled,
-:: so you'll have to run it with --no-sandbox.
-::
-:: instrument.exe --overwrite^
-::     --call-trace-client=PROFILER^
-::     --input-dll="%1\chrome.exe"^
-::     --output-dll=instrumented\chrome.exe
+:END

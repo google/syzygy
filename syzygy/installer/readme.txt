@@ -8,20 +8,19 @@ To use SyzyProf you need to follow these steps:
 5. View the KCacheGrind files.
 
 A typical session to profile Chrome might look like this.
-> InstrumentChrome.bat original
+> InstrumentChrome.bat <chrome directory>
 > mkdir traces
 > start call_trace_service.exe start --verbose --trace-dir=traces
-> instrumented\chrome.exe
+> <chrome directory>\chrome.exe
     ... time passes ...
 > call_trace_service.exe stop
 > grinder.exe --output-file=chrome.callgrind traces\*.bin
 > kcachegrind.exe chrome.callgrind
 
-Note that for these instructions to work, the "original" directory must contain
+Note that for these instructions to work, the <chrome directory> must contain
 a flat Chrome directory, such as is to be found in the Chrome continuous
-builder chrome-win32.zip archives. The "original" directory must also contain
-symbols for the binaries, and the binaries must be linked with the/PROFILE
-flag.
+builder chrome-win32.zip archives. The directory must also contain symbols for
+the binaries, and the binaries must be linked with the /PROFILE flag.
 
 Note that KCacheGrind is not distributed as part of SyzyProf, but you
 can download pre-built Windows binaries from
