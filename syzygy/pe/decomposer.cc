@@ -942,11 +942,6 @@ bool Decomposer::Decompose(ImageLayout* image_layout) {
   return CopyHeaderToImageLayout(header.nt_headers, image_layout);
 }
 
-bool Decomposer::BasicBlockDecompose(const ImageLayout& image_layout,
-                                     BasicBlockBreakdown* breakdown) {
-  return BuildBasicBlockGraph(image_layout, breakdown);
-}
-
 bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
   HANDLE process = reinterpret_cast<HANDLE>(this);
 
@@ -2272,28 +2267,6 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
   return CreateBlock(type, addr, size, name);
 }
 
-void Decomposer::OnBasicInstruction(
-    const Disassembler& walker,
-    const _DInst& instruction,
-    Disassembler::CallbackDirective* directive) {
-  DCHECK(directive != NULL);
-
-  AbsoluteAddress instr_abs(static_cast<uint32>(instruction.addr));
-  RelativeAddress instr_rel;
-  if (!image_file_.Translate(instr_abs, &instr_rel)) {
-    LOG(ERROR) << "Unable to translate instruction address.";
-    *directive = Disassembler::kDirectiveAbort;
-    return;
-  }
-
-  // If this instruction terminates at a data boundary (ie: the *next*
-  // instruction will be data or a reloc), indicate that the path should be
-  // terminated.
-  RelativeAddress after_instr_rel = instr_rel + instruction.size;
-  if (reloc_set_.find(after_instr_rel) != reloc_set_.end())
-    *directive = Disassembler::kDirectiveTerminatePath;
-}
-
 void Decomposer::OnInstruction(const Disassembler& walker,
                                const _DInst& instruction,
                                Disassembler::CallbackDirective* directive) {
@@ -2748,90 +2721,6 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   }
 
   return true;
-}
-
-bool Decomposer::BuildBasicBlockGraph(const ImageLayout& image_layout,
-                                      BasicBlockBreakdown* breakdown) {
-  DCHECK(breakdown != NULL);
-  BlockGraph::AddressSpace::RangeMapConstIter block_iter =
-      image_layout.blocks.begin();
-
-  BlockGraph& basic_blocks = breakdown->basic_block_graph;
-  BlockGraph::AddressSpace* basic_blocks_image =
-      &breakdown->basic_block_address_space;
-  DCHECK(basic_blocks_image != NULL);
-
-  bool success = true;
-  for (; block_iter != image_layout.blocks.end(); ++block_iter) {
-    const BlockGraph::Block* block = block_iter->second;
-    const BlockGraph::Block::ReferenceMap& ref_map = block->references();
-    RelativeAddress block_addr;
-    if (!image_layout.blocks.GetAddressOf(block, &block_addr)) {
-      LOG(DFATAL) << "Block " << block->name() << " has no address, "
-                  << block->addr() << ":" << block->size();
-      // Expect this to be the result of a merge?
-      continue;
-    }
-
-    if (block->type() != BlockGraph::CODE_BLOCK) {
-      // Don't try to break up non-code blocks into basic blocks.
-      basic_blocks_image->AddBlock(block->type(),   // Block type
-                                   block_addr,      // Range start (rel)
-                                   block->size(),   // Range size
-                                   block->name());  // Block name
-
-    } else {
-      // We have a code block, disassemble it!
-      AbsoluteAddress abs_block_addr;
-      if (!image_file_.Translate(block_addr, &abs_block_addr)) {
-        LOG(ERROR) << "Unable to get absolute address for " << block_addr;
-        return false;
-      }
-
-      Disassembler::AddressSet labels;
-      GetCodeLabelAddresses(block, abs_block_addr, reloc_set_, &labels);
-
-      Disassembler::InstructionCallback on_basic_instruction(
-          base::Bind(&Decomposer::OnBasicInstruction, base::Unretained(this)));
-
-      BasicBlockDecomposer bb_decomposer(block->data(),
-                                         block->data_size(),
-                                         abs_block_addr,
-                                         labels,
-                                         block->name(),
-                                         on_basic_instruction);
-      Disassembler::WalkResult result = bb_decomposer.Walk();
-
-      if (result == Disassembler::kWalkSuccess ||
-          result == Disassembler::kWalkIncomplete) {
-        BasicBlockDecomposer::BBAddressSpace basic_blocks(
-            bb_decomposer.GetBasicBlockRanges());
-
-        BasicBlockDecomposer::RangeMapConstIter iter(
-            basic_blocks.begin());
-        for (; iter != basic_blocks.end(); ++iter) {
-          RelativeAddress rva_start;
-          if (!image_file_.Translate(iter->first.start(), &rva_start)) {
-            LOG(ERROR) << "Unable to get absolute address for " << block_addr;
-            return false;
-          }
-
-          basic_blocks_image->AddBlock(
-              iter->second.type(),   // Block type
-              rva_start,             // Range start (rel)
-              iter->first.size(),    // Range size
-              iter->second.name());  // Block name
-        }
-      } else {
-        LOG(ERROR) << "Failed to disassemble block at "
-                   << abs_block_addr.value();
-        success = false;
-        break;
-      }
-    }
-  }
-
-  return success;
 }
 
 bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,

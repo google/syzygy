@@ -241,25 +241,6 @@ TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
   }
 }
 
-TEST_F(DecomposerTest, BasicBlockDecompose) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
-  PEFile image_file;
-
-  ASSERT_TRUE(image_file.Init(image_path));
-
-  // Decompose the test image and look at the result.
-  Decomposer decomposer(image_file);
-
-  BlockGraph block_graph;
-  ImageLayout image_layout(&block_graph);
-  ASSERT_TRUE(decomposer.Decompose(&image_layout));
-
-  Decomposer::BasicBlockBreakdown breakdown;
-  ASSERT_TRUE(decomposer.BasicBlockDecompose(image_layout, &breakdown));
-  ASSERT_TRUE(breakdown.basic_block_address_space.begin() !=
-      breakdown.basic_block_address_space.end());
-}
-
 TEST_F(DecomposerTest, LabelsAndAttributes) {
   FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
