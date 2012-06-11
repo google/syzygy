@@ -150,15 +150,19 @@ TEST(LabelTest, IsValid) {
   // A label must have some attributes.
   ASSERT_FALSE(label.IsValid());
 
-  // A code label is fine on its own and also with start labels, but not with
-  // anything else.
+  // A code label is fine on its own and also with debug and scope labels, but
+  // not with anything else.
   label.set_attribute(BlockGraph::CODE_LABEL);
   ASSERT_TRUE(label.IsValid());
   label.set_attribute(BlockGraph::DEBUG_START_LABEL);
   ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::DEBUG_END_LABEL);
+  ASSERT_TRUE(label.IsValid());
   label.set_attribute(BlockGraph::SCOPE_START_LABEL);
   ASSERT_TRUE(label.IsValid());
   label.set_attribute(BlockGraph::SCOPE_END_LABEL);
+  ASSERT_TRUE(label.IsValid());
+  label.set_attribute(BlockGraph::JUMP_TABLE_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // A jump table must be with a data label and nothing else.
@@ -166,7 +170,7 @@ TEST(LabelTest, IsValid) {
   ASSERT_FALSE(label.IsValid());
   label.set_attribute(BlockGraph::DATA_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
+  label.set_attribute(BlockGraph::CODE_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // A case table must be with a data label and nothing else.
@@ -174,21 +178,13 @@ TEST(LabelTest, IsValid) {
   ASSERT_FALSE(label.IsValid());
   label.set_attribute(BlockGraph::DATA_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
+  label.set_attribute(BlockGraph::CODE_LABEL);
   ASSERT_FALSE(label.IsValid());
 
   // A data label with no case or jump table must be on its own.
   label.set_attributes(BlockGraph::DATA_LABEL);
   ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
-  ASSERT_FALSE(label.IsValid());
-
-  // End labels must be on their own (but can coincide with each other).
-  label.set_attributes(BlockGraph::DEBUG_END_LABEL);
-  ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::SCOPE_END_LABEL);
-  ASSERT_TRUE(label.IsValid());
-  label.set_attribute(BlockGraph::CALL_SITE_LABEL);
+  label.set_attribute(BlockGraph::CODE_LABEL);
   ASSERT_FALSE(label.IsValid());
 }
 
@@ -958,8 +954,8 @@ TEST(BlockGraphTest, Labels) {
   EXPECT_TRUE(block->SetLabel(13, "foo", BlockGraph::DATA_LABEL));
   EXPECT_FALSE(block->SetLabel(13, "foo2", BlockGraph::DATA_LABEL));
 
-  EXPECT_TRUE(block->SetLabel(17, "bar", BlockGraph::DATA_LABEL));
-  EXPECT_TRUE(block->SetLabel(17, "bar2", BlockGraph::CODE_LABEL));
+  EXPECT_TRUE(block->SetLabel(17, "bar", BlockGraph::CODE_LABEL));
+  EXPECT_FALSE(block->SetLabel(17, "bar2", BlockGraph::CODE_LABEL));
 
   EXPECT_TRUE(block->SetLabel(15, "baz", BlockGraph::CODE_LABEL));
   EXPECT_TRUE(block->HasLabel(15));
