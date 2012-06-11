@@ -847,21 +847,25 @@ bool BlockGraph::Label::IsValid() const {
 }
 
 bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
-  // TODO(chrisha): Once we make the switch to VS2010 Determine where call
-  //     site labels may land. Are they at the beginning of the call
-  //     instruction (in which case they may coincide with *_START_LABEL
-  //     and CODE_LABEL), or do they point at the address of the call
-  //     (in which case they must be completely on their own)?
-
   // A label needs to have at least one attribute.
   if (attributes == 0)
     return false;
 
-  // A code label can only be colocated with SCOPE_START and DEBUG_START.
-  const LabelAttributes kCodeAndStartLabelAttributes =
-      CODE_LABEL | DEBUG_START_LABEL | SCOPE_START_LABEL;
-  if ((attributes & CODE_LABEL) &&
-      (attributes & ~kCodeAndStartLabelAttributes)) {
+  // TODO(chrisha): Once we make the switch to VS2010 determine where call
+  //     site labels may land. Are they at the beginning of the call
+  //     instruction (in which case they may coincide with *_START_LABEL,
+  //     *_END_LABEL and CODE_LABEL), or do they point at the address of the
+  //     call (in which case they must be completely on their own)? For now, we
+  //     simply ignore them entirely from consideration.
+  attributes &= ~CALL_SITE_LABEL;
+
+  // A code label can coincide with a debug and scope labels. (It can coincide
+  // with *_END_LABEL labels because of 1-byte instructions, like RET or INT.)
+  const LabelAttributes kCodeDebugScopeLabels =
+      CODE_LABEL | DEBUG_START_LABEL | DEBUG_END_LABEL | SCOPE_START_LABEL |
+      SCOPE_END_LABEL;
+  if ((attributes & CODE_LABEL) != 0 &&
+      (attributes & ~kCodeDebugScopeLabels) != 0) {
     return false;
   }
 
@@ -871,7 +875,7 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   if (attributes & JUMP_TABLE_LABEL) {
     if ((attributes & kJumpDataLabelAttributes) != kJumpDataLabelAttributes)
       return false;
-    if (attributes & ~kJumpDataLabelAttributes)
+    if ((attributes & ~kJumpDataLabelAttributes) != 0)
       return false;
     return true;
   }
@@ -882,24 +886,14 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   if (attributes & CASE_TABLE_LABEL) {
     if ((attributes & kCaseDataLabelAttributes) != kCaseDataLabelAttributes)
       return false;
-    if (attributes & ~kCaseDataLabelAttributes)
+    if ((attributes & ~kCaseDataLabelAttributes) != 0)
       return false;
     return true;
   }
 
   // If there is no case or jump label, then a data label must be on its own.
-  if ((attributes & DATA_LABEL) &&
-      (attributes & ~DATA_LABEL)) {
+  if ((attributes & DATA_LABEL) != 0 && (attributes & ~DATA_LABEL) != 0)
     return false;
-  }
-
-  // End labels must be on their own, but can coincide with each other.
-  const LabelAttributes kEndLabelAttributes =
-      DEBUG_END_LABEL | SCOPE_END_LABEL;
-  if ((attributes & kEndLabelAttributes) &&
-      (attributes & ~kEndLabelAttributes)) {
-    return false;
-  }
 
   return true;
 }
@@ -1279,24 +1273,7 @@ bool BlockGraph::Block::SetLabel(Offset offset, const Label& label) {
   if (result.second)
     return true;
 
-  // TODO(chrisha): This logic does not belong here, but should really be
-  //     kept internal to the decomposer.
-
-  // If this is already a code label, or the new label is not a code label then
-  // no update is possible.
-  if (result.first->second.has_attributes(CODE_LABEL) ||
-      !label.has_attributes(CODE_LABEL)) {
-    return false;
-  }
-
-  VLOG(2) << name() << ": changing label '" << result.first->second.name()
-          << "' at offset " << offset << " from "
-          << LabelAttributesToString(result.first->second.attributes())
-          << "' to '" << LabelAttributesToString(label.attributes()) << "'.";
-
-  result.first->second.set_attributes(label.attributes());
-
-  return true;
+  return false;
 }
 
 bool BlockGraph::Block::GetLabel(Offset offset, Label* label) const {

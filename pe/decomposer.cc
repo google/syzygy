@@ -290,8 +290,8 @@ void GuessDataBlockAlignment(BlockGraph::Block* block) {
 bool AreMatchedBlockAndLabelAttributes(
     BlockGraph::BlockType bt,
     BlockGraph::LabelAttributes la) {
-  return (bt == BlockGraph::CODE_BLOCK && (la & BlockGraph::CODE_LABEL)) ||
-      (bt == BlockGraph::DATA_BLOCK && (la & BlockGraph::DATA_LABEL));
+  return (bt == BlockGraph::CODE_BLOCK && (la & BlockGraph::CODE_LABEL) != 0) ||
+      (bt == BlockGraph::DATA_BLOCK && (la & BlockGraph::DATA_LABEL) != 0);
 }
 
 void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
@@ -346,7 +346,7 @@ BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
   return 0;
 }
 
-void AddLabelToCodeBlock(RelativeAddress addr,
+bool AddLabelToCodeBlock(RelativeAddress addr,
                          const base::StringPiece& name,
                          BlockGraph::LabelAttributes label_attributes,
                          BlockGraph::Block* block) {
@@ -364,7 +364,7 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   const BlockGraph::LabelAttributes kEndLabelAttributes =
       BlockGraph::SCOPE_END_LABEL |
       BlockGraph::DEBUG_END_LABEL;
-  if (label_attributes & kEndLabelAttributes)
+  if ((label_attributes & kEndLabelAttributes) != 0)
     offset--;
 
   // We sometimes get debug end symbols before the beginning of the block.
@@ -372,30 +372,61 @@ void AddLabelToCodeBlock(RelativeAddress addr,
   // simply omit the debug end symbol for now, even though this is less than
   // ideal.
   if (offset < 0) {
-    DCHECK(label_attributes & BlockGraph::DEBUG_END_LABEL);
-    return;
+    DCHECK((label_attributes & BlockGraph::DEBUG_END_LABEL) != 0);
+    return true;
   }
 
-  bool added = block->SetLabel(offset, name, label_attributes);
+  // Try to create the label.
+  if (block->SetLabel(offset, name, label_attributes))
+    return true;
 
-#ifndef NDEBUG
+  // If we get here there's an already existing label. Update it.
+  BlockGraph::Label label;
+  CHECK(block->GetLabel(offset, &label));
+
   // It is conceivable that there could be more than one scope with either the
   // same beginning or the same ending. However, this doesn't appear to happen
-  // in any version of Chrome up to 20. We add this check in debug mode so that
-  // we'd at least be made aware of the situation.
-  const BlockGraph::LabelAttributes kScopeAttributes =
-      BlockGraph::SCOPE_START_LABEL |
-      BlockGraph::SCOPE_END_LABEL;
-  BlockGraph::LabelAttributes scope_attributes =
-      label_attributes & kScopeAttributes;
-  if (!added && scope_attributes) {
-    BlockGraph::Label label;
-    DCHECK(block->GetLabel(offset, &label));
-    if (label.has_any_attributes(scope_attributes)) {
-      LOG(WARNING) << "Detected colliding scope labels.";
+  // in any version of Chrome up to 20. We add this check so that we'd at least
+  // be made aware of the situation. (We don't rely on these labels, so we
+  // merely output a warning rather than an error.)
+  {
+    const BlockGraph::LabelAttributes kScopeAttributes =
+        BlockGraph::SCOPE_START_LABEL |
+        BlockGraph::SCOPE_END_LABEL;
+    BlockGraph::LabelAttributes scope_attributes =
+        label_attributes & kScopeAttributes;
+    if (scope_attributes != 0) {
+      if (label.has_any_attributes(scope_attributes)) {
+        LOG(WARNING) << "Detected colliding scope labels at offset "
+                     << offset << " of block \"" << block->name() << "\".";
+      }
     }
   }
-#endif
+
+  // Merge the names.
+  std::string new_name = label.name();
+  new_name.append(", ");
+  name.AppendToString(&new_name);
+
+  // Merge the attributes.
+  BlockGraph::LabelAttributes new_label_attr = label.attributes() |
+      label_attributes;
+  if (!BlockGraph::Label::AreValidAttributes(new_label_attr)) {
+    // It's not clear which attributes should be the winner here, so we log an
+    // error.
+    LOG(ERROR) << "Trying to merge conflicting label attributes \""
+               << BlockGraph::LabelAttributesToString(label_attributes)
+               << "\" for label \"" << label.ToString() << "\" at offset "
+               << offset << " of block \"" << block->name() << "\".";
+    return false;
+  }
+
+  // Update the label.
+  label = BlockGraph::Label(new_name, new_label_attr);
+  CHECK(block->RemoveLabel(offset));
+  CHECK(block->SetLabel(offset, label));
+
+  return true;
 }
 
 // The MS linker pads between code blocks with int3s.
@@ -1193,14 +1224,15 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     // We expect that we'll never see a code label that refers to a reloc.
-    if ((label_attr & BlockGraph::CODE_LABEL) &&
-        reloc_set_.count(label_rva)) {
+    // This happens sometimes, however, as we generally get a code label for
+    // the first byte after a switch statement. This can sometimes land on the
+    // following jump table.
+    if ((label_attr & BlockGraph::CODE_LABEL) && reloc_set_.count(label_rva)) {
       LOG(WARNING) << "Collision between reloc and code label in "
                    << block->name() << " at " << label_name
                    << base::StringPrintf(" (0x%08X).", label_rva.value())
                    << " Falling back to data label.";
-      label_attr = BlockGraph::DATA_LABEL |
-          BlockGraph::JUMP_TABLE_LABEL;
+      label_attr = BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL;
       DCHECK_EQ(block_addr, block->addr());
       BlockGraph::Offset offset = label_rva - block_addr;
       BlockGraph::Label label;
@@ -1215,7 +1247,10 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     // Add the label to the block.
-    AddLabelToCodeBlock(label_rva, label_name, label_attr, block);
+    if (!AddLabelToCodeBlock(label_rva, label_name, label_attr, block)) {
+      LOG(ERROR) << "Failed to add label to code block.";
+      return false;
+    }
 
     // Is this a scope? Then it also has a length. Use it to create the matching
     // scope end.
@@ -1229,7 +1264,10 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
       label_rva += length;
       label_name = "<scope-end>";
       label_attr = BlockGraph::SCOPE_END_LABEL;
-      AddLabelToCodeBlock(label_rva, label_name, label_attr, block);
+      if (!AddLabelToCodeBlock(label_rva, label_name, label_attr, block)) {
+        LOG(ERROR) << "Failed to add label to code block.";
+        return false;
+      }
     }
   }
 
@@ -1362,10 +1400,13 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
         return false;
       }
 
-      AddLabelToCodeBlock(label_addr,
-                          label_name,
-                          BlockGraph::CODE_LABEL,
-                          block);
+      if (!AddLabelToCodeBlock(label_addr,
+                               label_name,
+                               BlockGraph::CODE_LABEL,
+                               block)) {
+        LOG(ERROR) << "Failed to add label to code block.";
+        return false;
+      }
     }
   }
 
@@ -1711,7 +1752,10 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
       static const char kNaClPrefix[] = "NaCl";
       if (length == 1 &&
           name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
-        AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL, block);
+        if (!AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL, block)) {
+          LOG(ERROR) << "Failed to add label to code block.";
+          *directive = DiaBrowser::kBrowserAbort;
+        }
         return;
       }
     }
