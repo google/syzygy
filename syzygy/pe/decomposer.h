@@ -61,6 +61,7 @@ class Decomposer {
   typedef std::map<RelativeAddress, Fixup> FixupMap;
   typedef std::map<RelativeAddress, IntermediateReference>
       IntermediateReferenceMap;
+  typedef std::set<RelativeAddress> IntermediateReferencedSet;
 
   // Initializes the decomposer for a given image file.
   // @param image_file the image file to decompose.
@@ -297,6 +298,7 @@ class Decomposer {
 
   // Stores intermediate references before the block graph is complete.
   IntermediateReferenceMap references_;
+  IntermediateReferencedSet referenced_code_;
 
   typedef std::set<BlockGraph::Block*> BlockSet;
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
