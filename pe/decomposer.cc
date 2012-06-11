@@ -447,37 +447,6 @@ int RepeatedValue(const uint8* data, size_t size) {
 
 const BlockGraph::BlockId kNullBlockId(-1);
 
-// Given a block pointer, saves it to an OutArchive. Does so using the
-// block id, and reserving a special block id as NULL.
-bool SaveBlockPointer(const BlockGraph::Block* block,
-                      core::OutArchive* out_archive) {
-  if (block == NULL)
-    return out_archive->Save(kNullBlockId);
-  return out_archive->Save(block->id());
-}
-
-// Given a block graph and an InArchive, deserializes a block by id
-// and converts it to a block pointer.
-bool LoadBlockPointer(BlockGraph& block_graph,
-                      BlockGraph::Block** block,
-                      core::InArchive* in_archive) {
-  BlockGraph::BlockId id = 0;
-  if (!in_archive->Load(&id))
-    return false;
-  if (id == kNullBlockId) {
-    *block = NULL;
-    return true;
-  }
-
-  *block = block_graph.GetBlockById(id);
-  if (*block == NULL) {
-    LOG(ERROR) << "No block exists with given id: " << id << ".";
-    return false;
-  }
-
-  return true;
-}
-
 // After deserialization of a block graph, blocks that did not own the data
 // they pointed to may be left with NULL data pointers, but a non-zero
 // data-size. These blocks pointed to data in a PEFile, and this function fixes
@@ -577,34 +546,50 @@ bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
   return true;
 }
 
-void GetCodeLabelAddresses(const BlockGraph::Block* block,
-                           AbsoluteAddress abs_block_addr,
-                           const PEFile::RelocSet& reloc_set,
-                           Disassembler::AddressSet* addresses) {
+void GetDisassemblyStartingPoints(
+    const BlockGraph::Block* block,
+    AbsoluteAddress abs_block_addr,
+    const PEFile::RelocSet& reloc_set,
+    const Decomposer::IntermediateReferencedSet& referenced_code,
+    Disassembler::AddressSet* addresses) {
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
   DCHECK(addresses != NULL);
 
   addresses->clear();
 
-  // Use block labels as starting points for disassembly. Any labels that
-  // lie within a known data block or reloc should not be added.
-  // TODO(chrisha): Should we actually remove these from the Block?
-  // TODO(robertshield): See if we would be better served by considering all
-  //     inbound references instead.
+  // Use intermediate referenced-code addresses as starting points for
+  // disassembly.
+  Decomposer::IntermediateReferencedSet::const_iterator ref_it =
+      referenced_code.lower_bound(block->addr());
+  Decomposer::IntermediateReferencedSet::const_iterator ref_end =
+      referenced_code.lower_bound(block->addr() + block->size());
+  for (; ref_it != ref_end; ++ref_it) {
+    BlockGraph::Offset offset = *ref_it - block->addr();
+    DCHECK_LT(0, offset);
+    DCHECK_GT(block->size(), static_cast<size_t>(offset));
+
+    addresses->insert(abs_block_addr + offset);
+  }
+
+  // Augment the list of starting points with any code labels in the block.
   BlockGraph::Block::LabelMap::const_iterator it(block->labels().begin());
   for (; it != block->labels().end(); ++it) {
     BlockGraph::Offset offset = it->first;
-
     DCHECK_LE(0, offset);
     DCHECK_GT(block->size(), static_cast<size_t>(offset));
 
     if (it->second.has_attributes(BlockGraph::CODE_LABEL)) {
       // We sometimes receive code labels that land on lookup tables; we can
       // detect these because the label will point directly to a reloc. These
-      // should have already been marked as data. DCHECK to validate.
+      // should have already been marked as data by now. DCHECK to validate.
+      // TODO(chrisha): Get rid of this DCHECK, and allow mixed CODE and DATA
+      //     labels. Simply only use ones that are DATA only.
       DCHECK_EQ(0u, reloc_set.count(block->addr() + offset));
-      addresses->insert(abs_block_addr + offset);
+
+      // The list of labels and code references should be disjoint.
+      bool inserted = addresses->insert(abs_block_addr + offset).second;
+      DCHECK(inserted);
     }
   }
 }
@@ -2134,6 +2119,9 @@ bool Decomposer::CreateCodeReferences() {
     }
   }
 
+  // We don't need the intermediate code references after this.
+  referenced_code_.clear();
+
   return true;
 }
 
@@ -2156,15 +2144,16 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
   Disassembler::InstructionCallback on_instruction(
       base::Bind(&Decomposer::OnInstruction, base::Unretained(this)));
 
-  // Use block labels as starting points for disassembly.
-  Disassembler::AddressSet labels;
-  GetCodeLabelAddresses(block, abs_block_addr, reloc_set_, &labels);
+  // Use block labels and code references as starting points for disassembly.
+  Disassembler::AddressSet starting_points;
+  GetDisassemblyStartingPoints(block, abs_block_addr, reloc_set_,
+                               referenced_code_, &starting_points);
 
   // Disassemble the block.
   Disassembler disasm(block->data(),
                       block->data_size(),
                       abs_block_addr,
-                      labels,
+                      starting_points,
                       on_instruction);
   Disassembler::WalkResult result = disasm.Walk();
 
@@ -2396,17 +2385,16 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       return;
     }
 
-    // If it has no code label here, we add one.
-    // TODO(chrisha, rogerm): Synthesized labels should go away once we drive
-    //     basic-block decomposition based on the referrers.
-    if (block->SetLabel(dst - block->addr(),
-                        base::StringPrintf("From 0x%08X",
-                        instr_rel.value()),
-                        BlockGraph::CODE_LABEL)) {
-      // And then potentially re-schedule the block for disassembly,
-      // as we may have turned up another entry to a block we already
-      // disassembled.
-      to_disassemble_.insert(block);
+    // If there's no code label here, then add a code reference and mark this
+    // block for disassembly again.
+    BlockGraph::Label block_label;
+    if (!block->GetLabel(dst - block->addr(), &block_label) ||
+        !block_label.has_attributes(BlockGraph::CODE_LABEL)) {
+      if (referenced_code_.insert(dst).second) {
+        // Reschedule the block for disassembly, as we have turned up another
+        // entry to a block we already disassembled.
+        to_disassemble_.insert(block);
+      }
     }
 
     // For short references across blocks, we want to make sure we merge
