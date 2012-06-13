@@ -1103,32 +1103,6 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
   if (has_eh || has_seh)
     block->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
 
-  // If this function was not previously chunked out as a section contribution
-  // we need to get compiler details.
-  // TODO(chrisha): It appears that our current mechanism is overly complex.
-  //     We actually get 100% coverage of code blocks via section contributions
-  //     and parsing functions in a seperate pass is not strictly required. We
-  //     could instead be descending into the functions from the section
-  //     contribution.
-  if ((block->attributes() & BlockGraph::SECTION_CONTRIB) == 0) {
-    // Get the compiland to which this function/thunk belongs.
-    ScopedComPtr<IDiaSymbol> compiland;
-    hr = function->get_lexicalParent(compiland.Receive());
-    DCHECK_EQ(S_OK, hr);
-
-    // If the lexical parent is a compiland, we can use it to determine if the
-    // function was built by a supported compiler. If this fails we take the
-    // conservative approach and assume otherwise.
-    bool is_built_by_supported_compiler = false;
-    if (IsSymTag(compiland.get(), SymTagCompiland)) {
-      is_built_by_supported_compiler = IsBuiltBySupportedCompiler(
-          compiland.get());
-    }
-
-    if (!is_built_by_supported_compiler)
-      block->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
-  }
-
   if (!CreateLabelsForFunction(function, block)) {
     LOG(ERROR) << "Failed to create labels for '" << block->name() << "'.";
     return false;
@@ -2431,6 +2405,8 @@ void Decomposer::OnInstruction(const Disassembler& walker,
         }
       }
     }
+
+    return;
   }
 
   // For all branches, calls and conditional branches to PC-relative
@@ -2519,6 +2495,8 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       *directive = Disassembler::kDirectiveAbort;
       return;
     }
+
+    return;
   }
 
   // Look out for blocks where disassembly seems to run off the end.
@@ -2532,6 +2510,8 @@ void Decomposer::OnInstruction(const Disassembler& walker,
       AbortOrTerminateDisassembly(be_strict_with_current_block_, directive);
       return;
     }
+
+    return;
   }
 
   if (fc == FC_CALL) {
