@@ -24,6 +24,9 @@ const size_t kPdbHeaderInfoStream = 1;
 // The version we've observed in the Pdb info header.
 const uint32 kPdbCurrentVersion = 20000404;
 
+// The index of the Tpi (Type info) stream.
+const size_t kTpiStream = 2;
+
 // The index of the Dbi info stream.
 const size_t kDbiStream = 3;
 
