@@ -445,6 +445,8 @@ class Successor {
 // for example).
 class BasicBlock {
  public:
+  // TODO(rogerm): Get rid of BasicBlockType and reuse LabelAttributes
+  //     instead? There isn't quite parity there, as padding isn't labeled.
   enum BasicBlockType {
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,

@@ -289,6 +289,11 @@ bool CodeBlockIsBasicBlockDecomposable(
   if (block->attributes() & BlockGraph::BUILT_BY_SYZYGY)
     return true;
 
+  // We don't decompose gap or padding blocks.
+  if (block->attributes() & (BlockGraph::GAP_BLOCK | BlockGraph::PADDING_BLOCK))
+    return false;
+
+  // We only decompose code blocks produced by cl.exe.
   if (!CodeBlockIsClConsistent(block))
     return false;
 
