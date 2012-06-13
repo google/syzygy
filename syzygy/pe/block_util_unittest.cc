@@ -152,6 +152,18 @@ TEST_F(BlockUtilTest, CodeBlockAttributesAreClConsistentUnsupportedCompiler) {
   ASSERT_FALSE(CodeBlockAttributesAreClConsistent(code));
 }
 
+TEST_F(BlockUtilTest, CodeBlockAttributesAreClConsistentErroredDisassembly) {
+  BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
+  code->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
+  ASSERT_FALSE(CodeBlockAttributesAreClConsistent(code));
+}
+
+TEST_F(BlockUtilTest, CodeBlockAttributesAreClConsistentHasExceptionHandling) {
+  BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
+  code->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
+  ASSERT_FALSE(CodeBlockAttributesAreClConsistent(code));
+}
+
 TEST_F(BlockUtilTest, DirectReferencesFromCodeAreClConsistent) {
   BlockGraph::Block* code1 = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c1");
   BlockGraph::Block* code2 = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c2");

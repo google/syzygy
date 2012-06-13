@@ -65,13 +65,6 @@ class BlockGraph {
 
   static const SectionId kInvalidSectionId;
 
-  // Attributes are phrased such that if true for a part, they are also true
-  // for the whole. That way, if an attribute is set for any block it can also
-  // be set for a block that is created via any merger that contains the
-  // original block.
-  //
-  // For example, the attribute is HAS_INLINE_ASSEMBLY (the positive), rather
-  // than HAS_NO_INLINE_ASSEMBLY (the negative).
   enum BlockAttributeEnum {
     // Set for functions declared non-returning.
     NON_RETURN_FUNCTION = (1 << 0),
@@ -84,8 +77,6 @@ class BlockGraph {
     // Set for blocks that are created from section contribution information.
     SECTION_CONTRIB = (1 << 3),
     // This is used to indicate that a block consists purely of padding data.
-    // This is only filled out post-merging, so does not obey the "true for the
-    // part, true for the whole" convention.
     PADDING_BLOCK = (1 << 4),
     // Indicates blocks that contain inline assembly.
     HAS_INLINE_ASSEMBLY = (1 << 5),
@@ -94,10 +85,21 @@ class BlockGraph {
     BUILT_BY_UNSUPPORTED_COMPILER = (1 << 6),
     // Indicates that the block has been built by the Syzygy toolchain, and thus
     // is inherently safe for basic-block decomposition without having to
-    // perform the myriad of safety checks we do otherwise. This is only ever
-    // set long after decomposition, so does not obey the "true for the part,
-    // true for the whole" convention.
+    // perform the myriad of safety checks we do otherwise.
     BUILT_BY_SYZYGY = (1 << 7),
+    // This is set for blocks whose initial disassembly was incomplete. This is
+    // not necessarily an error, as we see have seen blocks with unreachable
+    // code, even in release mode.
+    INCOMPLETE_DISASSEMBLY = (1 << 8),
+    // This is set for blocks whose disassembly was unable to finish due to
+    // an error. This block has violated assumptions that we make or conventions
+    // that we have observed the compiler to use. It is not safe for basic
+    // block disassembly.
+    ERRORED_DISASSEMBLY = (1 << 9),
+    // This is set for functions that have exception handling enabled. Without
+    // delving far deeper into the specifics, it is unsafe to basic block
+    // decompose these blocks.
+    HAS_EXCEPTION_HANDLING = (1 << 10),
   };
 
   // Attributes that can be passed to the save function.

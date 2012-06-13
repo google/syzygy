@@ -57,7 +57,6 @@ class AddressSpace {
   typedef typename RangeMap::value_type value_type;
   // @}
 
-
   // Create an empy address space.
   AddressSpace();
 

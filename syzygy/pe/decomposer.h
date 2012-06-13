@@ -61,7 +61,6 @@ class Decomposer {
   typedef std::map<RelativeAddress, Fixup> FixupMap;
   typedef std::map<RelativeAddress, IntermediateReference>
       IntermediateReferenceMap;
-  typedef std::set<RelativeAddress> IntermediateReferencedSet;
 
   // Initializes the decomposer for a given image file.
   // @param image_file the image file to decompose.
@@ -206,9 +205,6 @@ class Decomposer {
   // encountered.
   bool CreateCodeReferencesForBlock(BlockGraph::Block* block);
 
-  // Schedules the address range covering block1 and block2 for merging.
-  void ScheduleForMerging(BlockGraph::Block* block1, BlockGraph::Block* block2);
-
   // Parses the PE BlockGraph header and other important PE structures,
   // adds them as blocks to the image, and creates the references
   // they contain.
@@ -298,7 +294,6 @@ class Decomposer {
 
   // Stores intermediate references before the block graph is complete.
   IntermediateReferenceMap references_;
-  IntermediateReferencedSet referenced_code_;
 
   typedef std::set<BlockGraph::Block*> BlockSet;
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
@@ -307,15 +302,12 @@ class Decomposer {
   typedef std::pair<RE, RE> REPair;
   typedef std::vector<REPair> REPairs;
 
-  // The block we're currently disassembling.
+  // The block we're currently disassembling. We need this for use in the
+  // OnInstruction callback.
   BlockGraph::Block* current_block_;
-  // Keeps track of which blocks we've yet to disassemble.
-  BlockSet to_disassemble_;
-  // Keeps track of address ranges that we want to merge because
-  // we've found control flow from one block to another within the range,
-  // either through short branches or by execution continuing past the tail
-  // of a block.
-  RangeSet to_merge_;
+  // Used to indicate the decomposer's handling of the current block. Needed
+  // for OnInstruction callback.
+  bool be_strict_with_current_block_;
   // Keeps track of reloc entry information, which is used by various
   // pieces of the decomposer.
   PEFile::RelocSet reloc_set_;

@@ -24,10 +24,11 @@ namespace pe {
 
 // Determines if this code block's attributes are consistent with CL.EXE
 // compiled code. That is, neither HAS_INLINE_ASSEMBLY nor
-// BUILT_BY_UNSUPPORTED_COMPILER are set.
+// BUILT_BY_UNSUPPORTED_COMPILER are set. It also ensures that no unsafe
+// attributes are set on the block, indicating compiler features that we are
+// not confidently able to basic-block decompose.
 // @param block the code block whose attributes are to be inspected.
-// @returns true if the block attributes are consistent with a block that has
-//     been compiled by CL.EXE.
+// @returns true if the block attributes are safe for basic-block decomposition.
 // @pre block has type CODE_BLOCK.
 bool CodeBlockAttributesAreClConsistent(
     const block_graph::BlockGraph::Block* block);
