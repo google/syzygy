@@ -173,6 +173,7 @@ int PdbDumpApp::Run() {
       std::map<size_t, std::wstring> stream_suffixes;
       stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
       stream_suffixes[pdb::kDbiStream] = L"-dbi";
+      stream_suffixes[pdb::kTpiStream] = L"-tpi";
 
       stream_suffixes[dbi_header.global_symbol_info_stream] = L"-globals";
       stream_suffixes[dbi_header.public_symbol_info_stream] = L"-public";

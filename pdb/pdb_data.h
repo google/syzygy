@@ -17,6 +17,10 @@
 
 #include <windows.h>
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include "base/basictypes.h"
 
 namespace pdb {
@@ -74,6 +78,70 @@ struct DbiDbgHeader {
   int16 p_data;
   int16 new_fpo;
   int16 section_header_origin;
+};
+
+// Dbi Section Contrib
+// Represent an element for the section contrib substream of the Dbi stream.
+struct DbiSectionContrib {
+  int16 section;
+  int16 pad1;
+  int32 offset;
+  int32 size;
+  uint32 flags;
+  int16 module;
+  int16 pad2;
+  uint32 data_crc;
+  uint32 reloc_crc;
+};
+
+// Dbi Module Info
+// Represent an element for the module info substream of the Dbi stream.
+struct DbiModuleInfo {
+  uint32 opened;
+  uint16 flags;
+  int16 stream;
+  uint32 symbol_bytes;
+  uint32 old_lines_bytes;
+  uint32 lines_bytes;
+  int16 num_files;
+  uint16 padding;
+  uint32 offsets;
+  uint32 num_source;
+  uint32 num_compiler;
+  std::string module_name;
+  std::string object_name;
+};
+
+// Dbi Section Map
+// Represent an element for the section map substream of the Dbi stream.
+struct DbiSectionMapItem {
+  uint8 flags;
+  uint8 section_type;
+  // Value added to the address offset when calculating the RVA.
+  uint32 rva_offset;
+  uint32 section_length;
+};
+
+// Typedefs used to store the content of the Dbi Stream.
+typedef std::vector<DbiModuleInfo> DbiModuleVector;
+typedef std::vector<DbiSectionContrib> DbiSectionContribVector;
+typedef std::vector<size_t> DbiFileInfoFileList;
+typedef std::vector<DbiFileInfoFileList> DbiFileInfoVector;
+typedef std::map<size_t, std::string> DbiFileInfoNameMap;
+typedef std::pair<DbiFileInfoVector, DbiFileInfoNameMap> DbiFileInfo;
+typedef std::map<uint16, DbiSectionMapItem> DbiSectionMap;
+typedef std::map<size_t, std::string> DbiEcInfoMap;
+
+// Dbi stream
+// Contains a struct for each substream of this stream.
+struct DbiStream {
+  DbiHeader header;
+  DbiModuleVector modules;
+  DbiSectionContribVector sections_contrib;
+  DbiSectionMap section_map;
+  DbiFileInfo file_info;
+  DbiEcInfoMap ec_info_map;
+  DbiDbgHeader dbg_header;
 };
 
 // Multi-Stream Format (MSF) Header
