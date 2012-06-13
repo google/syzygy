@@ -197,7 +197,7 @@ Disassembler::WalkResult Disassembler::Walk() {
       // Tally the code bytes we just disassembled.
       disassembled_bytes_ += inst.size;
 
-      // Invoke the callback and terminate if need be
+      // Invoke the callback and terminate if need be.
       switch (NotifyOnInstruction(addr, inst)) {
         case kDirectiveTerminateWalk:
           return kWalkTerminated;

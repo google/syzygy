@@ -129,12 +129,11 @@ bool CodeBlockAttributesAreClConsistent(
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
 
-  // TODO(chrisha): Implement and set a PARTIAL_DISASSEMBLY_COVERAGE bit in
-  //     decomposer.
-
   const BlockGraph::BlockAttributes kInvalidAttributes =
       BlockGraph::HAS_INLINE_ASSEMBLY |
-      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER;
+      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
+      BlockGraph::ERRORED_DISASSEMBLY |
+      BlockGraph::HAS_EXCEPTION_HANDLING;
   if (block->attributes() & kInvalidAttributes)
     return false;
 
@@ -293,7 +292,7 @@ bool CodeBlockIsBasicBlockDecomposable(
   if (block->attributes() & (BlockGraph::GAP_BLOCK | BlockGraph::PADDING_BLOCK))
     return false;
 
-  // We only decompose code blocks produced by cl.exe.
+  // We only decompose code blocks produced by a known-safe subset of cl.exe.
   if (!CodeBlockIsClConsistent(block))
     return false;
 
