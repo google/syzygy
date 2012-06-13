@@ -1,0 +1,10 @@
+URL: http://ccimetadata.codeplex.com/
+Version: commit #69212
+License: Ms-PL
+License File: LICENSE
+
+Description:
+This directory contains the a local copy of the CvInfo file from the Microsoft
+Research Common Compiler Infrastructure (CCI) Metadata API.
+
+Local Modifications:
