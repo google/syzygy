@@ -131,6 +131,19 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
                            const NameStreamMap& name_stream_map,
                            WritablePdbStream* pdb_stream);
 
+// Reads a string from the given PDB stream.
+// @param pdb_stream the stream containing the string.
+// @param out the string to be read.
+// @returns true on success, false on error.
+bool ReadString(PdbStream* stream, std::string* out);
+
+// Reads a string from the given PDB stream at a given position.
+// @param pdb_stream the stream containing the string.
+// @param pos the position where to read the string.
+// @param out the string to be read.
+// @returns true on success, false on error.
+bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out);
+
 }  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_UTIL_H_

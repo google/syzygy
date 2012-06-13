@@ -23,29 +23,6 @@ namespace pdb {
 
 namespace {
 
-bool ReadString(PdbStream* stream, std::string* out) {
-  DCHECK(out != NULL);
-
-  std::string result;
-  char c = 0;
-  while (stream->Read(&c, 1)) {
-    if (c == '\0') {
-      out->swap(result);
-      return true;
-    }
-    result.push_back(c);
-  }
-
-  return false;
-}
-
-bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
-  size_t save = stream->pos();
-  bool read = stream->Seek(pos) && ReadString(stream, out);
-  stream->Seek(save);
-  return read;
-}
-
 // Sets the stream associated with a given entry in the DBI DBG header.
 // Gets the index at position @p index_offset of the DBI DBG header. If invalid,
 // adds a new stream to the PDB and updates the index to point to it. If a valid
@@ -193,6 +170,29 @@ bool PdbBitSet::IsSet(size_t bit) const {
 
 bool PdbBitSet::IsEmpty() const {
   return bits_.size() == 0;
+}
+
+bool ReadString(PdbStream* stream, std::string* out) {
+  DCHECK(out != NULL);
+
+  std::string result;
+  char c = 0;
+  while (stream->Read(&c, 1)) {
+    if (c == '\0') {
+      out->swap(result);
+      return true;
+    }
+    result.push_back(c);
+  }
+
+  return false;
+}
+
+bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
+  size_t save = stream->pos();
+  bool read = stream->Seek(pos) && ReadString(stream, out);
+  stream->Seek(save);
+  return read;
 }
 
 uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {

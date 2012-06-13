@@ -46,9 +46,11 @@ class PdbDumpApp : public common::AppImplBase {
   void DumpInfoStream(const PdbInfoHeader70& info,
                       const NameStreamMap& name_streams);
 
-  // Dumps @p dbi_header and @p dbg_header to out().
-  void DumpDbiHeaders(const DbiHeader& dbi_header,
-                      const DbiDbgHeader& dbg_header);
+  // Dumps headers from @p dbi_stream to out().
+  void DumpDbiHeaders(const DbiStream& dbi_stream);
+
+  // Dumps @p dbi_stream to out().
+  void DumpDbiStream(const DbiStream& dbi_stream);
 
   // The PDB files to dump.
   std::vector<FilePath> pdb_files_;

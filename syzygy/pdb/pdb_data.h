@@ -98,6 +98,7 @@ struct DbiSectionContrib {
 // Represent an element for the module info substream of the Dbi stream.
 struct DbiModuleInfo {
   uint32 opened;
+  DbiSectionContrib section;
   uint16 flags;
   int16 stream;
   uint32 symbol_bytes;
