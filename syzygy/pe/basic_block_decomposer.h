@@ -40,21 +40,30 @@ namespace pe {
 
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
+//
 // A basic block is defined here as one of:
+//
 // 1) A series of code instructions that will be executed contiguously.
-// 2) A chunk of data (or at least something we couldn't identify as code).
-// TODO(robertshield) 3) Padding.
+// 2) A chunk of data (as determined by it being labeled as such).
+// 3) Padding (or unreachable code)
 //
-// The break-down into basic blocks happens in three passes:
-// 1) Code disassembly starting from the given set of unvisited labels.
-// 2) Data block construction to fill any gaps.
-// 3) Block break up that splits up previously discovered blocks if it is
-//    discovered that they contain jump targets or unvisited labels.
+// The break-down into basic blocks happens in six passes:
 //
-// In order for this to work, all jump targets from external blocks must already
-// have been marked with labels. To get this, run the standard disassembly phase
-// using Decomposer and Disassembler first. Failing to do this will result in
-// missing some potential basic-block splits.
+// 1) Code disassembly starting from the block's inbound code references. This
+//    carves all of the basic code blocks and creates control flow (successor)
+//    relationships. While the basic blocks are being created, intra-block
+//    successors cannot be resolved and are instead referenced by block offset;
+//    inter-block successors are immediately resolved.
+// 2) Data block construction to carve out statically embedded data.
+// 3) Padding block construction to fill any gaps.
+// 4) Copying all inbound references (referrers) to their corresponding
+//    basic block.
+// 5) Copying all references originating in the block to their corresponding
+//    basic block.
+// 6) Wiring up all unresolved intra-block successors.
+//
+// The block to be decomposed must have been produced by a successful
+// PE decomposition (or some facsimile thereof).
 //
 // TODO(rogerm): Refactor the Disassembler interface to expose more callbacks.
 //     The BasicBlockDecomposer doesn't really have an IS-A relationship with
@@ -66,38 +75,26 @@ namespace pe {
 class BasicBlockDecomposer : public core::Disassembler {
  public:
   typedef core::AbsoluteAddress AbsoluteAddress;
-  typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlock BasicBlock;
   typedef BasicBlock::BasicBlockType BasicBlockType;
-  typedef block_graph::Successor Successor;
-  typedef block_graph::Instruction Instruction;
-
-  // Use the AddressSpace primitives to represent the set of basic blocks.
-  typedef core::AddressSpace<AbsoluteAddress, size_t, BasicBlock>
-      BBAddressSpace;
-  typedef BBAddressSpace::Range Range;
-  typedef BBAddressSpace::RangeMap RangeMap;
-  typedef BBAddressSpace::RangeMapConstIter RangeMapConstIter;
-  typedef BBAddressSpace::RangeMapIter RangeMapIter;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef BlockGraph::Offset Offset;
+  typedef core::AddressSpace<Offset, size_t, BasicBlock> BBAddressSpace;
 
   // Creates and sets up a BasicBlockDecomposer that decomposes a function
   // macro block into basic blocks.
-  // @param code pointer to the data bytes the containing macro block refers to.
-  // @param code_size the size of the containing macro block.
-  // @param code_addr the starting address of the macro code block (e.g. as
-  //     given by a BlockGraph::AddressSpace).
-  // @param entry_points The set of addresses within the macro block from which
-  //     to start disassembly walks. These will typically be labels within
-  //     the macro block.
-  // @param containing_block_name The name of the containing macro block.
+  // @param block The block to be disassembled
+  explicit BasicBlockDecomposer(const BlockGraph::Block* block);
+
+  // Creates and sets up a BasicBlockDecomposer that decomposes a function
+  // macro block into basic blocks.
+  // @param block The block to be disassembled
   // @param on_instruction Pointer to a callback routine called during
   //     disassembly.
-  BasicBlockDecomposer(const uint8* code,
-                       size_t code_size,
-                       AbsoluteAddress code_addr,
-                       const AddressSet& entry_points,
-                       const base::StringPiece& containing_block_name,
+  BasicBlockDecomposer(const BlockGraph::Block* block,
                        Disassembler::InstructionCallback on_instruction);
+
+  bool Decompose();
 
   // Returns a RangeMap mapping ranges that each cover a single basic block
   // to BlockGraph::Block instances that contain some information about that
@@ -107,7 +104,11 @@ class BasicBlockDecomposer : public core::Disassembler {
   }
 
  protected:
-  // Overrides from Disassembler. See disassembler.h for comments.
+  // Set up the queue of addresses to disassemble from as well as the set of
+  // internal jump targets. Called from the constructors.
+  void InitUnvisitedAndJumpTargets();
+
+  // Overrides from Disassembler. See syzygy/core/disassembler.h for comments.
   // @{
   virtual CallbackDirective OnInstruction(AbsoluteAddress addr,
                                           const _DInst& inst) OVERRIDE;
@@ -123,20 +124,53 @@ class BasicBlockDecomposer : public core::Disassembler {
   virtual CallbackDirective OnDisassemblyComplete() OVERRIDE;
   // @}
 
+  // @name Validation functions.
+  // @{
+
+  // Verifies that basic_block_address_space_ fully covers the macro block
+  // with no gaps or overlap. This is protected for unit-testing purposes.
+  // This is a NOP if check_decomposition_constraints_ is false.
+  void CheckHasCompleteBasicBlockCoverage() const;
+
+  // Verifies that every identified jump target in the code resolves to the
+  // start of a basic code block. This is protected for unit-testing purposes.
+  // This is a NOP if check_decomposition_constraints_ is false.
+  void CheckAllJumpTargetsStartABasicCodeBlock() const;
+
+  // Verifies that all basic blocks have valid successors or end in an
+  // instruction that does not yield successors. This is a NOP if
+  // check_decomposition_constraints_ is false.
+  void CheckAllControlFlowIsValid() const;
+
+  // @}
+
+  // Creates basic blocks for all known data symbols in the block.
+  // @returns true on success.
+  bool FillInDataBlocks();
+
   // Fills in all gaps in the range
-  // [code_addr_, code_addr_ + code_size_[ with data basic blocks.
+  // [code_addr_, code_addr_ + code_size_[ with padding basic blocks.
   // @returns true on success.
-  bool FillInGapBlocks();
+  bool FillInPaddingBlocks();
 
-  // For every range in basic_block_address_space_ that contains an address in
-  // jump_targets_ (not counting addresses that point to the beginning of the
-  // range), split that range in two.
-  // @returns true on success.
-  bool SplitBlockOnJumpTargets();
+  // Propagate the referrers from the original block into the basic blocks
+  // so that referrers can be tracked as the basic blocks are manipulated.
+  bool PopulateBasicBlockReferrers();
 
-  // Returns true if basic_block_ranges_ fully covers the macro block with
-  // no gaps or overlap.
-  bool ValidateBasicBlockCoverage() const;
+  // Helper function to populate @p item with the set of references to
+  // originating from its source range in the original block. I.e., if item is
+  // an instruction that occupied bytes j through k in the original block, then
+  // all references found between bytes j through k of the original block will
+  // be copied to the set of references tracked by @p item.
+  template<typename Item>
+  bool CopyReferences(Item* item);
+
+  // Propagate the references from the original block into the basic blocks
+  // so that they can be tracked as the basic blocks are manipulated.
+  bool PopulateBasicBlockReferences();
+
+  // Resolve intra-block control flow references and referrers.
+  bool ResolveSuccessors();
 
   // Inserts a range and associated block into @p basic_block_ranges.
   bool InsertBlockRange(AbsoluteAddress addr,
@@ -152,10 +186,10 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // An incrementing counter used to number the temporary basic blocks as
   // they are constructed.
-  int next_block_id_;
+  int next_basic_block_id_;
 
-  // The name of the containing block.
-  std::string containing_block_name_;
+  // The block being disassembled.
+  const BlockGraph::Block* const block_;
 
   // The start of the current basic block during a walk.
   AbsoluteAddress current_block_start_;
@@ -165,6 +199,10 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // The set of successors for the current basic block.
   BasicBlock::Successors current_successors_;
+
+  // A debugging flag indicating whether the decomposition results should be
+  // CHECKed.
+  bool check_decomposition_results_;
 };
 
 }  // namespace pe

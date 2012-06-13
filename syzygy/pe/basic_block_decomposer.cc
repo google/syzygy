@@ -23,6 +23,7 @@
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/pe/block_util.h"
 
 #include "mnemonics.h"  // NOLINT
 
@@ -30,12 +31,43 @@ namespace pe {
 
 namespace {
 
+using block_graph::BasicBlock;
+using block_graph::BasicBlockReference;
+using block_graph::BasicBlockReferrer;
+using block_graph::BlockGraph;
 using block_graph::Instruction;
+using block_graph::Successor;
 using core::Disassembler;
 
+typedef BasicBlockDecomposer::BBAddressSpace::Range Range;
+typedef BasicBlockDecomposer::BBAddressSpace::RangeMap RangeMap;
+typedef BasicBlockDecomposer::BBAddressSpace::RangeMapConstIter
+    RangeMapConstIter;
+typedef BasicBlockDecomposer::BBAddressSpace::RangeMapIter RangeMapIter;
+
+// We use a (somewhat) arbitrary value as the disassembly address for a block
+// so we can tell the difference between a reference to the beginning of the
+// block (offset=0) and a null address.
+const size_t kDisassemblyAddress = 65536;
+
+// TODO(rogerm): The core of this function belongs as a helper on Instruction,
+//     with a convenience ranged loop check on BasicBlock.
+bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
+                    BasicBlock::Instructions::const_iterator end) {
+  for (; start != end; ++start) {
+    uint8 fc = META_GET_FC(start->representation().meta);
+    if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH ||
+        fc == FC_RET || fc == FC_SYS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// TODO(rogerm): Belongs as a helper on Instruction.
 bool HasImplicitControlFlow(const Instruction& instruction) {
   uint8 fc = META_GET_FC(instruction.representation().meta);
-  if (fc == FC_RET || fc == FC_SYS || fc == FC_INT) {
+  if (fc == FC_RET || fc == FC_SYS) {
     // Control flow jumps implicitly out of the block.
     return true;
   } else if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH) {
@@ -52,34 +84,63 @@ bool HasImplicitControlFlow(const Instruction& instruction) {
 
 }  // namespace
 
-BasicBlockDecomposer::BasicBlockDecomposer(
-    const uint8* code,
-    size_t code_size,
-    AbsoluteAddress code_addr,
-    const AddressSet& entry_points,
-    const base::StringPiece& containing_block_name,
-    InstructionCallback on_instruction) :
-        Disassembler(code,
-                     code_size,
-                     code_addr,
-                     entry_points,
-                     on_instruction),
-        containing_block_name_(containing_block_name.begin(),
-                               containing_block_name.end()),
-        next_block_id_(0),
-        current_block_start_(0) {
-  // Initialize our jump_targets_ to our set of entry points. This will ensure
-  // that any externally referenced labels are considered as basic-block
-  // start points (which might be overly aggressive, but ought to ensure no
-  // misses).
-  AddressSet::const_iterator entry_point_iter = entry_points.begin();
-  for (; entry_point_iter != entry_points.end(); ++entry_point_iter) {
-    jump_targets_.insert(*entry_point_iter);
+BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block)
+    : Disassembler(block->data(),
+                   block->size(),
+                   AbsoluteAddress(kDisassemblyAddress),
+                   Disassembler::InstructionCallback()),
+      block_(block),
+      next_basic_block_id_(0),
+      current_block_start_(0),
+      check_decomposition_results_(true) {
+  // TODO(rogerm): Once we're certain this is stable for all input binaries
+  //     turn on check_decomposition_results_ by default only ifndef NDEBUG.
+  DCHECK(block != NULL);
+  DCHECK(block->type() == BlockGraph::CODE_BLOCK);
+  DCHECK(CodeBlockIsClConsistent(block));
+}
+
+bool BasicBlockDecomposer::Decompose() {
+  InitUnvisitedAndJumpTargets();
+  WalkResult result = Walk();
+  return result == Disassembler::kWalkSuccess ||
+      result == Disassembler::kWalkIncomplete;
+}
+
+void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
+  // We initialize our jump_targets_ and unvisited sets to the set of
+  // referenced code locations. This covers all locations which are
+  // externally referenced, as well as those that are internally referenced
+  // via a branching instruction or jump table.
+  DCHECK(!block_->labels().empty());
+  BlockGraph::Block::ReferrerSet::const_iterator ref_iter =
+      block_->referrers().begin();
+  for (; ref_iter != block_->referrers().end(); ++ref_iter) {
+    BlockGraph::Reference ref;
+    bool found = ref_iter->first->GetReference(ref_iter->second, &ref);
+    DCHECK(found);
+    DCHECK_EQ(block_, ref.referenced());
+    DCHECK_LE(0, ref.base());
+    DCHECK_LT(static_cast<size_t>(ref.base()), block_->size());
+    DCHECK_EQ(ref.base(), ref.offset());
+
+    BlockGraph::Block::LabelMap::const_iterator label_iter =
+        block_->labels().upper_bound(ref.base());
+    DCHECK(label_iter != block_->labels().begin());
+    --label_iter;
+    if (!label_iter->second.has_attributes(BlockGraph::DATA_LABEL)) {
+      AbsoluteAddress addr(code_addr_ + ref.base());
+      Unvisited(addr);
+      jump_targets_.insert(addr);
+    }
   }
 }
 
 Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
     AbsoluteAddress addr, const _DInst& inst) {
+  VLOG(3) << "Disassembled " << GET_MNEMONIC_NAME(inst.opcode)
+          << " instruction (" << static_cast<int>(inst.size)
+          << " bytes) at offset " << (addr - code_addr_) << ".";
   current_instructions_.push_back(
       Instruction(inst, addr - code_addr_, inst.size));
   return kDirectiveContinue;
@@ -87,58 +148,101 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
 
 Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     AbsoluteAddress addr, const _DInst& inst, AbsoluteAddress dest) {
+  // Note: Both addr and dest are fabricated addresses. The code_addr_ has
+  //     been selected such that addr will never be 0; similarly, dest should
+  //     only be 0 for control flow instructions having no explicit destination.
+  //     Do not use dest to resolve the destination, instead find the
+  //     corresponding reference in the byte range of the original instruction.
+
   // The branch instruction should have already been appended to the
-  // instruction list. Dest should also refer to the branch target.
+  // instruction list.
   DCHECK_EQ(0, ::memcmp(&current_instructions_.back().representation(),
                         &inst,
                         sizeof(inst)));
 
   // Make sure we understand the branching condition. If we don't, then there's
-  // an instruction we've failed to consider.
+  // an instruction we have failed to consider.
   Successor::Condition condition = Successor::OpCodeToCondition(inst.opcode);
-  DCHECK(condition != Successor::kInvalidCondition);
-  if (condition == Successor::kInvalidCondition) {
-    LOG(ERROR) << "Received unexpected instruction for branch: "
-               << GET_MNEMONIC_NAME(inst.opcode) << ".";
-    return kDirectiveAbort;
-  }
+  CHECK_NE(Successor::kInvalidCondition, condition)
+      << "Received unknown condition for branch instruction: "
+      << GET_MNEMONIC_NAME(inst.opcode) << ".";
 
   // If this is a conditional branch add the inverse conditional successor to
   // represent the fall-through. If we don't understand the inverse, then
-  // there's an instruction we've failed to consider.
+  // there's an instruction we have failed to consider.
   if (META_GET_FC(inst.meta) == FC_CND_BRANCH) {
     Successor::Condition inverse_condition =
         Successor::InvertCondition(condition);
-    DCHECK(inverse_condition != Successor::kInvalidCondition);
-    if (inverse_condition == Successor::kInvalidCondition) {
-      LOG(ERROR) << "Unexpected uninvertible instruction seen for branch: "
-                 << GET_MNEMONIC_NAME(inst.opcode) << ".";
-      return kDirectiveAbort;
-    }
+    CHECK_NE(Successor::kInvalidCondition, inverse_condition)
+        << "Non-invertible condition seen for branch instruction: "
+        << GET_MNEMONIC_NAME(inst.opcode) << ".";
 
+    // Create an (unresolved) successor pointing to the next instruction.
     current_successors_.push_front(
         Successor(inverse_condition,
                   (addr + inst.size) - code_addr_,
-                  BasicBlock::kEphemeralSourceOffset, 0));
+                  BasicBlock::kEphemeralSourceOffset,
+                  0));
   }
 
-  // Move the branch instruction out of the instruction list and translate
-  // it into the successor list.
-  Successor::Offset instr_offset = current_instructions_.back().offset();
-  Successor::Size instr_size = current_instructions_.back().size();
-  current_successors_.push_front(
-      Successor(condition, dest - code_addr_, instr_offset, instr_size));
-  current_instructions_.pop_back();
+  // Note that some control flow instructions have no explicit target (for
+  // example, RET, SYS* and computed branches); for these dest will be 0.
+  // We do not explicitly model these with successor relationships. Instead,
+  // we leave the instruction (and its corresponding references, in the case
+  // of computed jumps) intact and move on.
+  if (dest.value() != 0) {
+    // Take the last instruction out of the instruction list, we'll represent
+    // it as a successor instead.
+    Successor::Offset instr_offset = current_instructions_.back().offset();
+    Successor::Size instr_size = current_instructions_.back().size();
+    current_instructions_.pop_back();
+    DCHECK_EQ(addr - code_addr_, instr_offset);
+    DCHECK_EQ(inst.size, instr_size);
 
-  // If dest is inside the current macro block, then add it to the list of
-  // jump sites discovered so far. At the end, if any of these jump sites
-  // are into a basic block and don't correspond to the beginning of said
-  // basic block, we cut the block in twain. Note that if the jump target is
-  // into another block, we assume that it can only be to a label and those
-  // will already be tracked. Note that some branches have no explicit target
-  // (the INT* instructions, for example); for these the dest will be 0.
-  if (dest.value() != 0 && IsInBlock(dest)) {
-    jump_targets_.insert(dest);
+    // Figure out where the branch is going by finding the reference that's
+    // inside the instruction's byte range. There should be exactly 1 reference
+    // in the instruction byte range.
+    BlockGraph::Block::ReferenceMap::const_iterator ref_iter =
+        block_->references().upper_bound(instr_offset);
+    DCHECK(ref_iter != block_->references().end());
+#ifndef NDEBUG
+    if (ref_iter != block_->references().begin()) {
+      BlockGraph::Block::ReferenceMap::const_iterator prev_iter = ref_iter;
+      --prev_iter;
+      DCHECK(prev_iter->first < instr_offset);
+    }
+    BlockGraph::Block::ReferenceMap::const_iterator next_iter = ref_iter;
+    ++next_iter;
+    DCHECK(next_iter == block_->references().end() ||
+           next_iter->first >= instr_offset + static_cast<Offset>(instr_size));
+#endif
+
+    // Create the appropriate successor depending on whether or not the target
+    // is intra- or inter-block.
+    if (ref_iter->second.referenced() == block_) {
+      // This is an intra-block reference. The target basic block may not
+      // exist yet, so we'll defer patching up this reference until later.
+      // The self reference should already have been considered in the list
+      // of disassembly start points and jump targets.
+      DCHECK_EQ(1U,
+                jump_targets_.count(code_addr_ + ref_iter->second.offset()));
+      current_successors_.push_front(
+          Successor(condition,
+                    ref_iter->second.offset(),  // To be resolved later.
+                    instr_offset,
+                    instr_size));
+    } else {
+      // This is an inter-block jump. We can create a fully resolved reference.
+      current_successors_.push_front(
+          Successor(condition,
+                    BasicBlockReference(ref_iter->second.type(),
+                                        ref_iter->second.size(),
+                                        ref_iter->second.referenced(),
+                                        ref_iter->second.offset(),
+                                        ref_iter->second.base()),
+                    instr_offset,
+                    instr_size));
+    }
   }
 
   // This marks the end of a basic block. Note that the disassembler will
@@ -156,12 +260,9 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnStartInstructionRun(
   return kDirectiveContinue;
 }
 
-// Called when a walk from a given entry point has terminated or when
-// a conditional branch has been found.
+// Called when a walk from a given entry point has terminated.
 Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
     AbsoluteAddress addr, const _DInst& inst, ControlFlowFlag control_flow) {
-  CallbackDirective result = kDirectiveContinue;
-
   // If an otherwise straight run of instructions is split because it crosses
   // a basic block boundary we need to set up the implicit control flow arc
   // here.
@@ -180,91 +281,212 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
   // We have reached the end of the current walk or we handled a conditional
   // branch. Let's mark this as the end of a basic block.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
-  if (basic_block_size > 0) {
-    // We may get an end-of-run notification on a branch instruction in which
-    // case we will already have closed the block. Only close one here if we're
-    // actually in a new run.
-    if (InsertBlockRange(current_block_start_,
-                         basic_block_size,
-                         BasicBlock::BASIC_CODE_BLOCK)) {
-      current_block_start_ += basic_block_size;
-    } else {
-      result = kDirectiveAbort;
-    }
+  DCHECK_LT(0U, basic_block_size);
+  if (!InsertBlockRange(current_block_start_,
+                        basic_block_size,
+                        BasicBlock::BASIC_CODE_BLOCK)) {
+    return kDirectiveAbort;
   }
-  return result;
+
+  return kDirectiveContinue;
 }
 
-// Called when disassembly is complete and no further entry points remain
-// to disassemble from.
-Disassembler::CallbackDirective
-BasicBlockDecomposer::OnDisassemblyComplete() {
-  // When we get here, we should have carved out basic blocks for all visited
-  // code. There are two fixups we now need to do:
-  // 1) We may not have covered some ranges of the macro block. For all such
-  //    ranges, build basic blocks and mark them as data. This might be wrong.
-  // 2) Some basic blocks may have jump targets into them somewhere in the
-  //    middle. These blocks must be broken up such that all jump targets only
-  //    hit the beginning of a basic block.
-  CallbackDirective result = kDirectiveContinue;
+Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
+  // By this point, we should have basic blocks for all visited code.
+  CheckAllJumpTargetsStartABasicCodeBlock();
 
-  if (!basic_block_address_space_.empty()) {
-    // Fill in all the interstitials with data basic blocks, then break up the
-    // basic blocks that are jumped into.
-    if (!FillInGapBlocks() || !SplitBlockOnJumpTargets()) {
-      LOG(ERROR) << "Failed to fix up basic block ranges.";
-      result = kDirectiveAbort;
-    }
-  } else {
-    // Huh, no code blocks. Add one giant "basic" block, let's call it data.
-    if (!InsertBlockRange(code_addr_,
-                          code_size_,
-                          BasicBlock::BASIC_DATA_BLOCK)) {
-      result = kDirectiveAbort;
-    }
+  // Demarcate the data basic blocks. There should be no overlap with code.
+  if (!FillInDataBlocks()) {
+    LOG(ERROR) << "Failed to fill in data basic-block ranges.";
+    return kDirectiveAbort;
   }
 
-#ifndef NDEBUG
+  // We may not have covered some ranges of the macro block. For all such
+  // ranges, build basic blocks and mark them as padding. This might
+  // include unreachable code in unoptimized input binaries.
+  if (!FillInPaddingBlocks()) {
+    LOG(ERROR) << "Failed to fill in padding basic-block ranges.";
+    return kDirectiveAbort;
+  }
+
   // We should now have contiguous block ranges that cover every byte in the
   // macro block. Verify that this is so.
-  if (!ValidateBasicBlockCoverage()) {
-    NOTREACHED() << "Incomplete basic block coverage during disassembly.";
-    result = kDirectiveAbort;
-  }
-#endif
+  CheckHasCompleteBasicBlockCoverage();
 
-  return result;
+  // Populate the referrers in the basic block data structures by copying
+  // them from the original source block.
+  if (!PopulateBasicBlockReferrers()) {
+    LOG(ERROR) << "Failed to populate basic-block referrers.";
+    return kDirectiveAbort;
+  }
+
+  // Populate the references in the basic block data structures by copying
+  // them from the original source block.
+  if (!PopulateBasicBlockReferences()) {
+    LOG(ERROR) << "Failed to populate basic-block referrences.";
+    return kDirectiveAbort;
+  }
+
+  // Wire up the the basic-block successors.
+  if (!ResolveSuccessors()) {
+    LOG(ERROR) << "Failed to resolve basic-block successors.";
+    return kDirectiveAbort;
+  }
+
+  // All the control flow we have derived should be valid.
+  CheckAllControlFlowIsValid();
+
+  // ... and we're done.
+  return kDirectiveContinue;
 }
 
-bool BasicBlockDecomposer::ValidateBasicBlockCoverage() const {
-  bool valid = true;
-  AbsoluteAddress next_start(code_addr_);
-  RangeMapConstIter verify_range(basic_block_address_space_.begin());
-  for (; verify_range != basic_block_address_space_.end() && valid;
-       ++verify_range) {
-    valid = (verify_range->first.start() == next_start);
-    next_start += verify_range->first.size();
-  }
+void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
+  if (!check_decomposition_results_)
+    return;
 
-  if (valid) {
-    valid = (next_start == code_addr_ + code_size_);
-  }
+  AddressSet::const_iterator addr_iter(jump_targets_.begin());
+  for (; addr_iter != jump_targets_.end(); ++addr_iter) {
+    // Find the basic block that maps to the jump target.
+    Offset target_offset = *addr_iter - code_addr_;
+    RangeMapConstIter target_bb_iter =
+        basic_block_address_space_.FindFirstIntersection(
+            Range(target_offset, 1));
 
-  return valid;
+    // The target must exist.
+    CHECK(target_bb_iter != basic_block_address_space_.end());
+
+    // The target offset should refer to the start of the basic block.
+    CHECK_EQ(target_offset, target_bb_iter->first.start());
+
+    // The target basic-block should be a code basic-block.
+    CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb_iter->second.type());
+  }
 }
 
+void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
+  if (!check_decomposition_results_)
+    return;
+
+  // Walk through the basic-block address space.
+  Offset next_start = 0;
+  RangeMapConstIter it(basic_block_address_space_.begin());
+  for (; it != basic_block_address_space_.end(); ++it) {
+    CHECK_EQ(it->first.start(), next_start);
+    CHECK_EQ(it->first.size(), it->second.size());
+    next_start += it->first.size();
+  }
+
+  // At this point, if there were no gaps, next start will be the same as the
+  // full size of the block we're decomposing.
+  CHECK_EQ(code_size_, static_cast<size_t>(next_start));
+}
+
+void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
+  if (!check_decomposition_results_)
+    return;
+
+  RangeMapConstIter it(basic_block_address_space_.begin());
+  for (; it != basic_block_address_space_.end(); ++it) {
+    const BasicBlock& bb = it->second;
+    if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
+      continue;
+
+    // TODO(rogerm): All references to this block should be to its head.
+
+    const BasicBlock::Instructions& instructions = bb.instructions();
+    const BasicBlock::Successors& successors = bb.successors();
+
+    // There may be at most 2 successors.
+    size_t num_successors = successors.size();
+    CHECK_GE(2U, num_successors);
+    switch (num_successors) {
+      case 0: {
+        // If there are no successors, then there must be some instructions in
+        // the basic block.
+        CHECK(!instructions.empty());
+
+        // There should be no control flow in anything but the last instruction.
+        CHECK(!HasControlFlow(instructions.begin(), --instructions.end()));
+
+        // Either there's is an implicit control flow insruction at the end
+        // or this function has been tagged as non-returning.
+        bool no_return =
+            (block_->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0;
+        CHECK(HasImplicitControlFlow(instructions.back()) || no_return);
+        break;
+      }
+
+      case 1: {
+        // There should be no control flow instructions in the entire sequence.
+        CHECK(!HasControlFlow(instructions.begin(), instructions.end()));
+
+        // The successor must be unconditional.
+        const Successor& successor = successors.back();
+        CHECK_EQ(Successor::kConditionTrue, successor.condition());
+
+        // If the successor is synthesized, then flow is from this basic-block
+        // to the next adjacent one.
+        if (successors.back().instruction_offset() == -1) {
+          RangeMapConstIter next(it);
+          ++next;
+          CHECK(next != basic_block_address_space_.end());
+          CHECK_EQ(successor.branch_target().basic_block(), &next->second);
+        }
+        break;
+      }
+
+      case 2: {
+        // There should be no control flow instructions in the entire sequence.
+        CHECK(!HasControlFlow(instructions.begin(), instructions.end()));
+
+        // The conditions on the successors should be inverses of one another.
+        CHECK_EQ(successors.front().condition(),
+                 Successor::InvertCondition(successors.back().condition()));
+
+        // Exactly one of the successors should have been synthesized.
+        bool front_synthesized = successors.front().instruction_offset() == -1;
+        bool back_synthesized = successors.back().instruction_offset() == -1;
+        CHECK_NE(front_synthesized, back_synthesized);
+
+        // The synthesized successor flows from this basic-block to the next
+        // adjacent one.
+        const Successor& synthesized =
+            front_synthesized ? successors.front() : successors.back();
+        RangeMapConstIter next(it);
+        ++next;
+        CHECK(next != basic_block_address_space_.end());
+        CHECK_EQ(synthesized.branch_target().basic_block(), &next->second);
+        break;
+      }
+
+      default:
+        NOTREACHED();
+    }
+  }
+}
 
 bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
                                             size_t size,
                                             BasicBlockType type) {
-  DCHECK(type == BasicBlock::BASIC_CODE_BLOCK ||
-         current_instructions_.empty());
-  DCHECK(type == BasicBlock::BASIC_CODE_BLOCK ||
-         current_successors_.empty());
+  DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_instructions_.empty());
+  DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_successors_.empty());
 
   BasicBlock::Offset offset = addr - code_addr_;
-  BasicBlock new_basic_block(next_block_id_++,
-                             containing_block_name_,
+  DCHECK_LE(0, offset);
+
+  // Find or create a name for this basic block.
+  BlockGraph::Label label;
+  std::string basic_block_name;
+  if (block_->GetLabel(offset, &label)) {
+    basic_block_name = label.ToString();
+  } else {
+    basic_block_name = base::StringPrintf(
+        "<anonymous-%s>", BasicBlock::BasicBlockTypeToString(type));
+  }
+
+  // Insert the basic block for the given range.
+  BasicBlock new_basic_block(next_basic_block_id_++,
+                             basic_block_name,
                              type,
                              offset,
                              size,
@@ -274,155 +496,270 @@ bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
     new_basic_block.successors().swap(current_successors_);
   }
 
-  if (!basic_block_address_space_.Insert(Range(addr, size),
+  if (!basic_block_address_space_.Insert(Range(offset, size),
                                          new_basic_block)) {
     LOG(DFATAL) << "Attempted to insert overlapping basic block.";
     return false;
   }
-
   return true;
 }
 
+bool BasicBlockDecomposer::FillInDataBlocks() {
+  BlockGraph::Block::LabelMap::const_iterator iter = block_->labels().begin();
+  BlockGraph::Block::LabelMap::const_iterator end = block_->labels().end();
+  for (; iter != end; ++iter) {
+    if (!iter->second.has_attributes(BlockGraph::DATA_LABEL))
+      continue;
 
-// TODO(robertshield): This currently marks every non-walked block as data. It
-// could be smarter and mark some as padding blocks as well. Fix this.
-bool BasicBlockDecomposer::FillInGapBlocks() {
-  bool success = true;
+    BlockGraph::Block::LabelMap::const_iterator next = iter;
+    ++next;
 
-  // Fill in the interstitial ranges.
-  RangeMapConstIter curr_range(basic_block_address_space_.begin());
+    BlockGraph::Offset bb_start = iter->first;
+    BlockGraph::Offset bb_end = (next == end) ? block_->size() : next->first;
+    size_t bb_size = bb_end - bb_start;
+    AbsoluteAddress bb_addr(code_addr_ + bb_start);
+    if (!InsertBlockRange(bb_addr, bb_size, BasicBlock::BASIC_DATA_BLOCK))
+      return false;
+  }
+  return true;
+}
 
-  // Make sure we didn't run under.
-  DCHECK(curr_range->first.start() >= code_addr_);
-
+bool BasicBlockDecomposer::FillInPaddingBlocks() {
   // Add an initial interstitial if needed.
-  if (curr_range->first.start() > code_addr_) {
-    size_t interstitial_size = curr_range->first.start() - code_addr_;
+  size_t interstitial_size = basic_block_address_space_.empty() ?
+      code_size_ : basic_block_address_space_.begin()->first.start();
+  DCHECK_LE(0U, interstitial_size);
+  if (interstitial_size > 0) {
     if (!InsertBlockRange(code_addr_,
                           interstitial_size,
-                          BasicBlock::BASIC_DATA_BLOCK)) {
-      LOG(ERROR) << "Failed to insert initial gap block at "
-                 << code_addr_.value();
-      success = false;
+                          BasicBlock::BASIC_PADDING_BLOCK)) {
+      LOG(ERROR) << "Failed to insert initial padding block at 0";
+      return false;
     }
   }
 
   // Handle all remaining gaps, including the end.
-  for (; success && curr_range != basic_block_address_space_.end();
-       ++curr_range) {
+  RangeMapConstIter curr_range = basic_block_address_space_.begin();
+  for (; curr_range != basic_block_address_space_.end(); ++curr_range) {
     RangeMapConstIter next_range = curr_range;
     ++next_range;
-    AbsoluteAddress curr_range_end = curr_range->first.start() +
-                                     curr_range->first.size();
+    AbsoluteAddress curr_range_end =
+        code_addr_ + curr_range->first.start() + curr_range->first.size();
 
-    size_t interstitial_size = 0;
+    interstitial_size = 0;
     if (next_range == basic_block_address_space_.end()) {
-      DCHECK(curr_range_end <= code_addr_ + code_size_);
+      DCHECK_LE(curr_range_end, code_addr_ + code_size_);
       interstitial_size = code_addr_ + code_size_ - curr_range_end;
     } else {
-      DCHECK(curr_range_end <= next_range->first.start());
-      interstitial_size = next_range->first.start() - curr_range_end;
+      DCHECK_LE(curr_range_end, code_addr_ + next_range->first.start());
+      interstitial_size =
+          code_addr_ + next_range->first.start() - curr_range_end;
     }
 
     if (interstitial_size > 0) {
       if (!InsertBlockRange(curr_range_end,
                             interstitial_size,
-                            BasicBlock::BASIC_DATA_BLOCK)) {
-        LOG(ERROR) << "Failed to insert gap block at "
+                            BasicBlock::BASIC_PADDING_BLOCK)) {
+        LOG(ERROR) << "Failed to insert padding block at "
                    << curr_range_end.value();
-        success = false;
+        return false;
       }
     }
   }
 
-  return success;
+  return true;
 }
 
-bool BasicBlockDecomposer::SplitBlockOnJumpTargets() {
-  bool success = true;
-  AddressSet::const_iterator jump_target_iter(jump_targets_.begin());
-  for (; success && jump_target_iter != jump_targets_.end();
-       ++jump_target_iter) {
-    Range find_range(*jump_target_iter, 1);
-    RangeMapIter containing_range_iter(
-        basic_block_address_space_.FindFirstIntersection(find_range));
+bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
+  const BlockGraph::Block::ReferrerSet& referrers = block_->referrers();
+  BlockGraph::Block::ReferrerSet::const_iterator iter = referrers.begin();
+  for (; iter != referrers.end(); ++iter) {
+    // Find the reference this referrer record describes.
+    const BlockGraph::Block* referrer = iter->first;
+    DCHECK(referrer != NULL);
+    Offset source_offset = iter->second;
+    BlockGraph::Reference reference;
+    bool found = referrer->GetReference(source_offset, &reference);
+    DCHECK(found);
 
-    if (containing_range_iter == basic_block_address_space_.end()) {
-      LOG(ERROR) << "Found out of bounds jump target.";
-      return false;
-    }
+    // Find the basic block the reference refers to.
+    Offset target_base = reference.base();
+    RangeMapIter bb_iter = basic_block_address_space_.FindFirstIntersection(
+        Range(target_base, 1));
 
-    // Two possible cases:
-    //  1) We found a range that starts at the jump target.
-    //  2) We found a range containing the jump target.
-    if (*jump_target_iter == containing_range_iter->first.start()) {
-      // If we're jumping to the start of a basic block, there isn't any work
-      // to do.
+    // We have complete coverage of the block; there must be an intersection.
+    // And, we break up the basic blocks by code references, so the target
+    // offset must coincide with the start of the target block.
+    DCHECK(bb_iter != basic_block_address_space_.end());
+    BasicBlock& target_bb = bb_iter->second;
+    DCHECK_EQ(target_base, bb_iter->first.start());
+    DCHECK(target_base == reference.offset() ||
+           target_bb.type() != BasicBlock::BASIC_CODE_BLOCK);
+
+    // Add the referrer to the basic block.
+    if (referrer != block_) {
+      // This is an inter-block reference.
+      bool inserted = target_bb.referrers().insert(
+          BasicBlockReferrer(referrer, source_offset)).second;
+      DCHECK(inserted);
     } else {
-      DCHECK(*jump_target_iter >= containing_range_iter->first.start());
-      DCHECK(*jump_target_iter <= containing_range_iter->first.start() +
-                                  containing_range_iter->first.size());
+      // This is an intra-block reference. The referrer is a basic block.
+      RangeMapIter src_bb_iter =
+          basic_block_address_space_.FindFirstIntersection(
+              Range(source_offset, 1));
+      // The reference came from this block and we have complete coverage,
+      // so we must be able to find the source basic block.
+      DCHECK(src_bb_iter != basic_block_address_space_.end());
 
-      // Now we split up containing_range into two new ranges and replace
-      // containing_range with the two new entries.
-      size_t left_split_size =
-          *jump_target_iter - containing_range_iter->first.start();
-      BasicBlockType original_type = containing_range_iter->second.type();
+      // Convert the offset to one that's local to the basic block.
+      BasicBlock& source_bb = src_bb_iter->second;
+      Offset local_offset = source_offset - source_bb.offset();
+      DCHECK_LE(0, local_offset);
+      DCHECK_LE(local_offset + reference.size(), source_bb.size());
 
-      Range containing_range(containing_range_iter->first);
-      BasicBlock original_bb(containing_range_iter->second);
-      basic_block_address_space_.Remove(containing_range_iter);
-
-      // Setup the first "half" of the basic block.
-      DCHECK(current_instructions_.size() == 0);
-      DCHECK(current_successors_.size() == 0);
-      size_t bytes_moved = 0;
-      while (!original_bb.instructions().empty() &&
-             bytes_moved < left_split_size) {
-        bytes_moved += original_bb.instructions().front().size();
-        current_instructions_.push_back(original_bb.instructions().front());
-        original_bb.instructions().pop_front();
-      }
-
-      DCHECK_EQ(left_split_size, bytes_moved);
-
-#ifndef NDEBUG
-      if (!original_bb.instructions().empty()) {
-        DCHECK_EQ(*jump_target_iter,
-                  code_addr_ + original_bb.instructions().front().offset());
-      } else {
-        DCHECK(!original_bb.successors().empty());
-        DCHECK_EQ(
-            *jump_target_iter,
-            code_addr_ + original_bb.successors().front().instruction_offset());
-      }
-#endif
-      current_successors_.push_back(
-          Successor(Successor::kConditionTrue,
-                    *jump_target_iter - code_addr_,
-                    BasicBlock::kEphemeralSourceOffset, 0));
-
-      if (!InsertBlockRange(containing_range.start(),
-                            left_split_size,
-                            original_type)) {
-        LOG(ERROR) << "Failed to insert first half of split block.";
-        return false;
-      }
-
-      DCHECK(current_instructions_.size() == 0);
-      DCHECK(current_successors_.size() == 0);
-      current_instructions_.swap(original_bb.instructions());
-      current_successors_.swap(original_bb.successors());
-      if (!InsertBlockRange(*jump_target_iter,
-                            containing_range.size() - left_split_size,
-                            original_type)) {
-        LOG(ERROR) << "Failed to insert second half of split block.";
-        return false;
-      }
+      // Insert the referrer.
+      bool inserted = target_bb.referrers().insert(
+          BasicBlockReferrer(&source_bb, local_offset)).second;
+      DCHECK(inserted);
     }
   }
 
-  return success;
+  return true;
+}
+
+template<typename ItemType>
+bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
+  DCHECK(item != NULL);
+
+  // Figure out the bounds of item.
+  BlockGraph::Offset start_offset = item->offset();
+  BlockGraph::Offset end_offset = start_offset + item->size();
+
+  // Get iterators encompassing all references within the bounds of item.
+  BlockGraph::Block::ReferenceMap::const_iterator ref_iter =
+     block_->references().lower_bound(start_offset);
+  BlockGraph::Block::ReferenceMap::const_iterator end_iter =
+     block_->references().upper_bound(end_offset);
+
+  for (; ref_iter != end_iter; ++ref_iter) {
+    // Calculate the local offset of this reference within item.
+    BlockGraph::Offset local_offset = ref_iter->first - start_offset;
+    const BlockGraph::Reference& reference = ref_iter->second;
+
+    if (reference.referenced() == block_) {
+      // For intra block_ references, find the corresponding basic block in
+      // the basic block address space.
+      Offset target_base = reference.base();
+      RangeMapIter bb_iter = basic_block_address_space_.FindFirstIntersection(
+          Range(target_base, 1));
+
+      // We have complete coverage of the block; there must be an intersection.
+      // And, we break up the basic blocks by code references, so the target
+      // offset must coincide with the start of the target block.
+      DCHECK(bb_iter != basic_block_address_space_.end());
+      BasicBlock& target_bb = bb_iter->second;
+      DCHECK_EQ(target_base, bb_iter->first.start());
+
+      // Create target basic-block relative values for the base and offset.
+      Offset target_offset = reference.offset() - target_base;
+      target_base = 0;
+
+      // Insert a reference to the target basic block.
+      bool inserted = item->references().insert(
+          std::make_pair(local_offset,
+                         BasicBlockReference(reference.type(),
+                                             reference.size(),
+                                             &target_bb,
+                                             target_offset,
+                                             target_base))).second;
+      DCHECK(inserted);
+    } else {
+      // For external references, we can directly reference the other block.
+      bool inserted = item->references().insert(
+          std::make_pair(local_offset,
+                         BasicBlockReference(reference.type(),
+                                             reference.size(),
+                                             reference.referenced(),
+                                             reference.offset(),
+                                             reference.base()))).second;
+      DCHECK(inserted);
+    }
+  }
+
+  return true;
+}
+
+bool BasicBlockDecomposer::PopulateBasicBlockReferences() {
+  // Copy the references for the source range of each basic-block (by
+  // instruction for code basic-blocks). The referrers and successors are
+  // handled in a separate pass.
+  RangeMapIter bb_iter = basic_block_address_space_.begin();
+  for (; bb_iter != basic_block_address_space_.end(); ++bb_iter) {
+    BasicBlock& bb = bb_iter->second;
+    BasicBlockType bb_type = bb.type();
+    if (bb_type == BasicBlock::BASIC_CODE_BLOCK) {
+      BasicBlock::Instructions::iterator inst_iter = bb.instructions().begin();
+      for (; inst_iter != bb.instructions().end(); ++inst_iter) {
+        if (!CopyReferences(&(*inst_iter)))
+          return false;
+      }
+    } else {
+      if (!CopyReferences(&(bb_iter->second)))
+        return false;
+    }
+  }
+  return true;
+}
+
+bool BasicBlockDecomposer::ResolveSuccessors() {
+  RangeMapIter bb_iter = basic_block_address_space_.begin();
+  for (; bb_iter != basic_block_address_space_.end(); ++bb_iter) {
+    // Only code basic-blocks have successors and instructions.
+    BasicBlock& bb = bb_iter->second;
+    BasicBlockType bb_type = bb.type();
+    if (bb_type != BasicBlock::BASIC_CODE_BLOCK) {
+      DCHECK(bb.successors().empty());
+      DCHECK(bb.instructions().empty());
+      continue;
+    }
+
+    BasicBlock::Successors::iterator succ_iter = bb.successors().begin();
+    BasicBlock::Successors::iterator succ_iter_end = bb.successors().end();
+    for (; succ_iter != succ_iter_end; ++succ_iter) {
+      if (succ_iter->branch_target().IsValid()) {
+        // The branch target is already resolved; it must have been inter-block.
+        DCHECK(succ_iter->branch_target().block() != block_);
+        DCHECK(succ_iter->branch_target().block() != NULL);
+        continue;
+      }
+
+      // Find the basic block the successor references.
+      RangeMapIter bb_iter = basic_block_address_space_.FindFirstIntersection(
+          Range(succ_iter->bb_target_offset(), 1));
+      DCHECK(bb_iter != basic_block_address_space_.end());
+      BasicBlock& target_bb = bb_iter->second;
+      DCHECK_EQ(succ_iter->bb_target_offset(), bb_iter->first.start());
+
+      // TODO(rogerm): It's not clear to me that BasicBlockReference objects
+      //     need to track the reference type and size. We'll be re-synthesizing
+      //     them later anyway, without regard for these initial values.
+      succ_iter->set_branch_target(
+          BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, &target_bb, 0, 0));
+      DCHECK(succ_iter->branch_target().IsValid());
+
+      // TODO(rogerm): This is awkward. We want the offset of the reference if
+      //     this came from a real instruction but -1 as a special sentinel if
+      //     this is a synthesized branch-not-taken. But the resulting offset
+      //     will actually be variable depending on how we re-synthesize the
+      //     branch. For now, successors are special case in that referrers
+      //     will point to the offset where the instruction would start.
+      bool inserted = target_bb.referrers().insert(
+          BasicBlockReferrer(&bb, succ_iter->instruction_offset())).second;
+      DCHECK(inserted);
+    }
+  }
+
+  return true;
 }
 
 }  // namespace pe

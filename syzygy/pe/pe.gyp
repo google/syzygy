@@ -155,7 +155,6 @@
       'includes': ['../build/masm.gypi'],
       'sources': [
         'basic_block_decomposer_unittest.cc',
-        'basic_block_test_code.asm',
         'block_util_unittest.cc',
         'decompose_app_unittest.cc',
         'decomposer_unittest.cc',

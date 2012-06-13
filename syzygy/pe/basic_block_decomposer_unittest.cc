@@ -19,30 +19,18 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/address.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/block_util.h"
+#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
-
-extern "C" {
-// functions and labels exposed from our .asm test stub.
-extern int bb_assembly_func();
-extern int bb_internal_label();
-extern int bb_external_label();
-extern int bb_assembly_func_end();
-
-// Functions invoked or referred by the .asm test stub.
-int bb_ext_func1() {
-  return 1;
-}
-
-int bb_ext_func2() {
-  return 2;
-}
-
-}  // extern "C"
 
 namespace pe {
 
@@ -54,344 +42,153 @@ using block_graph::Successor;
 using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
-using testing::ElementsAre;
 
-typedef BasicBlock::BasicBlockType BasicBlockType;
+class TestBasicBlockDecomposer : public BasicBlockDecomposer {
+public:
+  using BasicBlockDecomposer::on_instruction_;
 
-// This class provides a DSL for describing a basic block.
-//
-// It can be used to test whether a parsed block gets broken down into the
-// expected basic blocks. For example:
-//
-//   EXPECT_THAT(
-//       basic_block,
-//       DescribedBy(
-//           BasicBlockDesk(0x11223344)
-//               .AddInst(I_MOV)
-//               .AddInst(I_SUB)
-//               .AddInst(I_MUL)
-//               .AddInst(I_CMP)
-//               .AddSucc(I_JNE, 0xAABBCCDD)
-//               .AddSucc(I_JMP, 0x99887766)));
-//
-// Or...
-//
-//   EXPECT_THAT(
-//       basic_block_collection,
-//       testing::ElementsAre(
-//           DescribedBy(
-//               BasicBlockDesk(BlockGraph::BASIC_CODE_BLOCK, 0x11223344)
-//                   .AddInst(I_MOV)
-//                   .AddSucc(I_JMP, 0x99887766)),
-//           DescribedBy(
-//               BasicBlockDesk(BlockGraph::BASIC_CODE_BLOCK, 0x11223344)
-//                   .AddInst(I_MOV)
-//                   .AddSucc(I_JMP, 0x99887766)),
-//           ...);
-//
-// where AddInst() and AddSucc() add instructions and successors to the
-// basic block, respectively.
-struct BasicBlockDesc {
-  struct Instruction {
-    uint16 opcode;
-    AbsoluteAddress target_addr;
-    Instruction(uint16 o, AbsoluteAddress t)
-        : opcode(o),
-          target_addr(t) {
-    }
-  };
-
-  typedef std::vector<Instruction> Instructions;
-  typedef BasicBlock::Successors Successors;
-
-  explicit BasicBlockDesc(AbsoluteAddress base, AbsoluteAddress start)
-      : block_type(BasicBlock::BASIC_CODE_BLOCK),
-        base_addr(base),
-        start_addr(start) {
+  explicit TestBasicBlockDecomposer(const BlockGraph::Block* block)
+      : BasicBlockDecomposer(block) {
+    check_decomposition_results_ = true;
   }
 
-  // Mutate the expected block type.
-  BasicBlockDesc& SetType(BasicBlockType& type) {
-    block_type = type;
-    return *this;
-  }
-
-  // Append an instruction to the basic block.
-  BasicBlockDesc& AddInst(uint16 opcode) {
-    instructions.push_back(Instruction(opcode, AbsoluteAddress(0)));
-    return *this;
-  }
-
-  // Append an successor (branching) instruction to the basic block.
-  BasicBlockDesc& AddSucc(uint16 opcode, AbsoluteAddress target) {
-    successors.push_back(
-        Successor(Successor::OpCodeToCondition(opcode),
-                  target - base_addr,
-                  BasicBlock::kEphemeralSourceOffset, 0));
-    EXPECT_TRUE(successors.size() <= 2);
-    return *this;
-  }
-
-  BasicBlockType block_type;
-  AbsoluteAddress base_addr;
-  AbsoluteAddress start_addr;
-  Instructions instructions;
-  Successors successors;
 };
 
-// Helper function to compare a set of instructions to an expected set.
-// @param bb_inst the actual basic block instructions.
-// @param exp_inst the expected instructions.
-// @returns true if the instruction sequences are the same.
-bool SameInstructions(const BasicBlock::Instructions& bb_inst,
-                      const BasicBlockDesc::Instructions& exp_inst) {
-  BasicBlock::Instructions::const_iterator bb_iter = bb_inst.begin();
-  BasicBlockDesc::Instructions::const_iterator exp_iter = exp_inst.begin();
+class BasicBlockDecomposerTest : public testing::PELibUnitTest {
+public:
+  typedef testing::PELibUnitTest Super;
 
-  while (bb_iter != bb_inst.end() && exp_iter != exp_inst.end()) {
-    if (bb_iter->representation().opcode != exp_iter->opcode)
-      return false;
-    ++bb_iter;
-    ++exp_iter;
+  BasicBlockDecomposerTest()
+      : image_init_(image_file_.Init(testing::GetExeRelativePath(kDllName))),
+        image_layout_(&block_graph_),
+        decomposer_(image_file_),
+        decomposed_(decomposer_.Decompose(&image_layout_)) {
   }
 
-  return bb_iter == bb_inst.end() && exp_iter == exp_inst.end();
-}
-
-// Helper function to compare a set of successors to an expected set.
-// @param bb_succ the actual basic block successors.
-// @param exp_succ the expected successors.
-// @returns true if the succcessors are the same.
-bool SameSuccessors(const BasicBlock::Successors& bb_succ,
-                    const BasicBlockDesc::Successors& exp_succ) {
-  BasicBlock::Successors::const_iterator bb_iter = bb_succ.begin();
-  BasicBlockDesc::Successors::const_iterator exp_iter = exp_succ.begin();
-
-  while (bb_iter != bb_succ.end() && exp_iter != exp_succ.end()) {
-    if (bb_iter->condition() != exp_iter->condition() ||
-        bb_iter->bb_target_offset() != exp_iter->bb_target_offset()) {
-      return false;
-    }
-    ++bb_iter;
-    ++exp_iter;
+  virtual void SetUp() OVERRIDE {
+    Super::SetUp();
+    ASSERT_TRUE(image_init_);
+    ASSERT_TRUE(decomposed_);
   }
 
-  return bb_iter == bb_succ.end() && exp_iter == exp_succ.end();
+  MOCK_METHOD3(OnInstruction, void(const Disassembler&,
+                                   const _DInst&,
+                                   Disassembler::CallbackDirective*));
+ protected:
+  PEFile image_file_;
+  bool image_init_;
+  BlockGraph block_graph_;
+  ImageLayout image_layout_;
+  Decomposer decomposer_;
+  bool decomposed_;
+};
+
+
+int TypeCount(const BasicBlockDecomposer::BBAddressSpace& the_map,
+              BasicBlock::BasicBlockType the_type) {
+  int count = 0;
+  BasicBlockDecomposer::BBAddressSpace::RangeMapConstIter iter(the_map.begin());
+  for (; iter != the_map.end(); ++iter) {
+    if (iter->second.type() == the_type)
+      ++count;
+  }
+  return count;
 }
 
-// Helper funciton to determine if an given start address and basic block
-// is described by a BasicBlockDesc.
-// @param expected the description of the expected basic block.
-// @param start_addr the actual start address.
-// @param bb the actual basic block.
-// @returns true if the expected block describes the actual block.
-bool DescribesBlock(const BasicBlockDesc& expected,
-                    AbsoluteAddress start_addr,
-                    const BasicBlock& bb ) {
-  if (bb.type() != expected.block_type)
-    return false;
-
-  if (start_addr != expected.start_addr)
-    return false;
-
-  if (!SameInstructions(bb.instructions(), expected.instructions))
-    return false;
-
-  if (!SameSuccessors(bb.successors(), expected.successors))
-    return false;
-
-  return true;
+int AttributeCount(const BlockGraph::Block::LabelMap& the_map, uint32 mask) {
+  int count = 0;
+  BlockGraph::Block::LabelMap::const_iterator iter(the_map.begin());
+  for (; iter != the_map.end(); ++iter) {
+    if (iter->second.has_attributes(mask))
+      ++count;
+  }
+  return count;
 }
 
-// A wrapper to integrate the DescribesBlock utility function into the GMock
-// framework.
-MATCHER_P(DescribedBy, expected, "") {
-  return DescribesBlock(expected, arg.first.start(), arg.second);
+const BlockGraph::Block* FindBlockByName(const BlockGraph& block_graph,
+                                         const base::StringPiece& name) {
+  BlockGraph::BlockMap::const_iterator iter = block_graph.blocks().begin();
+  BlockGraph::BlockMap::const_iterator iter_end = block_graph.blocks().end();
+  for (; iter != iter_end; ++iter) {
+    if (name.compare(iter->second.name()) == 0)
+      return &iter->second;
+  }
+  return NULL;
 }
 
 }  // namespace
 
-class BasicBlockDecomposerTest : public testing::Test {
- public:
-  virtual void SetUp() {
-    on_instruction_ =
-        base::Bind(&BasicBlockDecomposerTest::OnInstruction,
-                   base::Unretained(this));
-  }
+TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
+  // Setup our expected constants.
+#ifndef NDEBUG
+  static const size_t kNumInstructions = 209;
+  static const size_t kNumBasicBlocks = 26;
+  static const size_t kNumPaddingBlocks = 2;
+#else
+  static const size_t kNumInstructions = 183;
+  static const size_t kNumBasicBlocks = 24;
+  static const size_t kNumPaddingBlocks = 1;
+#endif  // NDEBUG
 
-  MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&,
-                                   Disassembler::CallbackDirective*));
+  static const size_t kNumLabels = 19;
+  static const size_t kNumDataLabels = 4;
+  static const size_t kNumDebugLabels = 2;  // Start and end;
+  static const size_t kNumCodeLabels =
+      kNumLabels - kNumDataLabels - kNumDebugLabels;
+  static const size_t kNumDataBlocks = kNumDataLabels;
+  static const size_t kNumCodeBlocks =
+      kNumBasicBlocks - kNumDataBlocks - kNumPaddingBlocks;
 
-  static AbsoluteAddress AddressOf(const void* ptr) {
-    return AbsoluteAddress(reinterpret_cast<size_t>(ptr));
-  }
+  const BlockGraph::Block* block = FindBlockByName(block_graph_, "DllMain@12");
+  ASSERT_FALSE(block == NULL);
 
-  static const uint8* PointerTo(const void* ptr) {
-    return reinterpret_cast<const uint8*>(ptr);
-  }
+  const BlockGraph::Block::LabelMap& labels = block->labels();
+  EXPECT_FALSE(labels.empty());
 
-  static int BlockCount(const BasicBlockDecomposer::BBAddressSpace& range_map,
-                        BasicBlockType type) {
-    int block_count = 0;
-    BasicBlockDecomposer::RangeMapConstIter iter(range_map.begin());
-    for (; iter != range_map.end(); ++iter) {
-      if (iter->second.type() == type) {
-        ++block_count;
-      }
-    }
-    return block_count;
-  }
+  // Inspect the labels.
+  BlockGraph::Block::LabelMap::const_iterator label_iter = labels.begin();
 
- protected:
-  Disassembler::InstructionCallback on_instruction_;
-};
+  EXPECT_EQ(kNumLabels, labels.size());
+  EXPECT_EQ(kNumCodeLabels, AttributeCount(labels, BlockGraph::CODE_LABEL));
+  EXPECT_EQ(kNumDataLabels, AttributeCount(labels, BlockGraph::DATA_LABEL));
+  EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_START_LABEL));
+  EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_END_LABEL));
 
-TEST_F(BasicBlockDecomposerTest, BasicCoverage) {
-  Disassembler::AddressSet labels;
-  labels.insert(AddressOf(&bb_assembly_func));
+  TestBasicBlockDecomposer bb_decomposer(block);
+  bb_decomposer.on_instruction_ =
+      base::Bind(&BasicBlockDecomposerTest::OnInstruction,
+                 base::Unretained(this));
 
-  EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(9);
+  // We should hit kNumInstructions instructions during bb decomposition.
+  EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(kNumInstructions);
+  ASSERT_TRUE(bb_decomposer.Decompose());
 
-  BasicBlockDecomposer disasm(
-      PointerTo(&bb_assembly_func),
-      PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
-      AddressOf(&bb_assembly_func),
-      labels,
-      "test",
-      on_instruction_);
-  Disassembler::WalkResult result = disasm.Walk();
-  EXPECT_EQ(Disassembler::kWalkSuccess, result);
+  const BasicBlockDecomposer::BBAddressSpace& basic_blocks =
+      bb_decomposer.GetBasicBlockRanges();
 
-  const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
-      disasm.GetBasicBlockRanges());
-  EXPECT_EQ(5, basic_blocks.size());
-
-  // We should have one block that was not disassembled since it was reachable
-  // only via a non-referenced internal label and was consequently marked as
-  // data.
-  EXPECT_EQ(4, BlockCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
-  EXPECT_EQ(1, BlockCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
+  // All blocks should have been disassembled.
+  EXPECT_EQ(kNumBasicBlocks, basic_blocks.size());
+  EXPECT_EQ(kNumCodeBlocks,
+            TypeCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
+  EXPECT_EQ(kNumDataBlocks,
+            TypeCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
+  EXPECT_EQ(kNumPaddingBlocks,
+            TypeCount(basic_blocks, BasicBlock::BASIC_PADDING_BLOCK));
 }
 
-TEST_F(BasicBlockDecomposerTest, BasicCoverageWithLabels) {
-  Disassembler::AddressSet labels;
-  labels.insert(AddressOf(&bb_assembly_func));
+TEST_F(BasicBlockDecomposerTest, DecomposeAllCodeBlocks) {
+  BlockGraph::BlockMap::const_iterator it = block_graph_.blocks().begin();
+  for (; it != block_graph_.blocks().end(); ++it) {
+    const BlockGraph::Block* block = &it->second;
+    if (block->type() != BlockGraph::CODE_BLOCK)
+      continue;
 
-  // This should cause the block that was previously marked as data to be
-  // disassembled and marked as code.
-  labels.insert(AddressOf(&bb_internal_label));
+    if (!CodeBlockIsBasicBlockDecomposable(block))
+      continue;
 
-  // This should cause the basic block containing this label to be broken up.
-  labels.insert(AddressOf(&bb_external_label));
-
-  // We should hit 10 instructions.
-  EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(10);
-
-  BasicBlockDecomposer disasm(
-      PointerTo(&bb_assembly_func),
-      PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
-      AddressOf(&bb_assembly_func),
-      labels,
-      "test",
-      on_instruction_);
-  Disassembler::WalkResult result = disasm.Walk();
-  EXPECT_EQ(Disassembler::kWalkSuccess, result);
-
-  const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
-      disasm.GetBasicBlockRanges());
-  EXPECT_EQ(6, basic_blocks.size());
-
-  // All blocks should have been disassembled and marked as code.
-  EXPECT_EQ(6, BlockCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
-  EXPECT_EQ(0, BlockCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
-
-  // Check that we have blocks starting at both the internally-referenced label
-  // and the external label.
-  bool block_starts_at_internal_label = false;
-  bool block_starts_at_external_label = false;
-  BasicBlockDecomposer::RangeMapConstIter iter(basic_blocks.begin());
-  for (; iter != basic_blocks.end(); ++iter) {
-    if (iter->first.start() == AddressOf(&bb_internal_label)) {
-      block_starts_at_internal_label = true;
-    } else if (iter->first.start() == AddressOf(&bb_external_label)) {
-      block_starts_at_external_label = true;
-    }
+    TestBasicBlockDecomposer bb_decomposer(block);
+    ASSERT_TRUE(bb_decomposer.Decompose());
   }
-  EXPECT_TRUE(block_starts_at_internal_label);
-  EXPECT_TRUE(block_starts_at_external_label);
-}
-
-TEST_F(BasicBlockDecomposerTest, Instructions) {
-  // Setup all of the label.
-  Disassembler::AddressSet labels;
-  labels.insert(AddressOf(&bb_assembly_func));
-  labels.insert(AddressOf(&bb_internal_label));
-  labels.insert(AddressOf(&bb_external_label));
-
-  // Disassemble to basic blocks.
-  BasicBlockDecomposer disasm(
-      PointerTo(&bb_assembly_func),
-      PointerTo(&bb_assembly_func_end) - PointerTo(&bb_assembly_func),
-      AddressOf(&bb_assembly_func),
-      labels,
-      "test",
-      Disassembler::InstructionCallback());
-  Disassembler::WalkResult result = disasm.Walk();
-  EXPECT_EQ(Disassembler::kWalkSuccess, result);
-
-  // Validate that we have the expected number and types of blocks
-  const BasicBlockDecomposer::BBAddressSpace& basic_blocks(
-      disasm.GetBasicBlockRanges());
-  EXPECT_EQ(6, basic_blocks.size());
-  EXPECT_EQ(6, BlockCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
-  EXPECT_EQ(0, BlockCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
-
-  // The JNZ instruction is 7 bytes after the beginning of bb_assembly func.
-  const AbsoluteAddress kAddrJnzTarget = AddressOf(&bb_assembly_func) + 7;
-
-  // The immediate value for the JNZ instruction is to jump -3 instructions
-  // from the current instruction pointer. This requires backing up an extra
-  // two bytes for the JNZ instruction itself.
-  const AbsoluteAddress kJnzImmOffset(-5);
-
-  // The fall-through of the JNZ instrucion is 3 bytes before bb_external_label.
-  const AbsoluteAddress kAddrJnzSuccessor = AddressOf(&bb_external_label) - 3;
-
-  // The address of lbl2 is offset from the start of bb_internal_label by one
-  // call instruction (1 byte plus a 4-byte address)
-  const AbsoluteAddress kAddrLbl2 = AddressOf(&bb_internal_label) + 5;
-
-  // Validate that we have the right instructions.
-  AbsoluteAddress base_addr(AddressOf(&bb_assembly_func));
-  EXPECT_THAT(
-      basic_blocks,
-      ElementsAre(
-          DescribedBy(
-              BasicBlockDesc(base_addr, AddressOf(&bb_assembly_func))
-                  .AddInst(I_MOV)
-                  .AddInst(I_MOV)
-                  .AddSucc(I_JMP, kAddrJnzTarget)),
-          DescribedBy(
-              BasicBlockDesc(base_addr, kAddrJnzTarget)
-                  .AddInst(I_SUB)
-                  .AddSucc(I_JNZ, kAddrJnzTarget)
-                  .AddSucc(I_JZ, kAddrJnzSuccessor)),
-          DescribedBy(
-              BasicBlockDesc(base_addr, kAddrJnzSuccessor)
-                  .AddInst(I_MOV)
-                  .AddInst(I_NOP)
-                  .AddSucc(I_JMP, AddressOf(&bb_external_label))),
-          DescribedBy(
-              BasicBlockDesc(base_addr, AddressOf(&bb_external_label))
-                  .AddSucc(I_JMP, kAddrLbl2)),
-          DescribedBy(
-              BasicBlockDesc(base_addr, AddressOf(&bb_internal_label))
-                  .AddInst(I_CALL)
-                  .AddSucc(I_JMP, kAddrLbl2)),
-          DescribedBy(
-              BasicBlockDesc(base_addr, kAddrLbl2)
-                  .AddInst(I_CALL)
-                  .AddInst(I_RET))));
 }
 
 }  // namespace block_graph
