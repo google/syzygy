@@ -54,10 +54,12 @@ class Decomposer {
   // Used for storing references before the block graph is complete.
   struct IntermediateReference;
 
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef core::AbsoluteAddress AbsoluteAddress;
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressSpace<RelativeAddress, size_t, std::string> DataSpace;
-  typedef block_graph::BlockGraph BlockGraph;
   typedef core::Disassembler Disassembler;
+  typedef Disassembler::CallbackDirective CallbackDirective;
   typedef std::map<RelativeAddress, Fixup> FixupMap;
   typedef std::map<RelativeAddress, IntermediateReference>
       IntermediateReferenceMap;
@@ -239,10 +241,23 @@ class Decomposer {
                                        const char* name,
                                        FindOrCreateBlockDirective directive);
 
+  // @name OnInstruction helper functions.
+  // @{
+  CallbackDirective LookPastInstructionForData(RelativeAddress instr_end);
+  CallbackDirective VisitNonFlowControlInstruction(RelativeAddress instr_start,
+                                                   RelativeAddress instr_end);
+  CallbackDirective VisitPcRelativeFlowControlInstruction(
+      AbsoluteAddress instr_abs,
+      RelativeAddress instr_rel,
+      const _DInst& instruction);
+  CallbackDirective OnInstructionImpl(const Disassembler& disassembler,
+                                      const _DInst& instruction);
+  // @}
+
   // Called through a callback during function disassembly.
   void OnInstruction(const Disassembler& disassembler,
                      const _DInst& instruction,
-                     Disassembler::CallbackDirective* directive);
+                     CallbackDirective* directive);
 
   // Repairs the DIA "FIXUPS" with any loaded OMAP information, validates them,
   // and stores them in the given FixupMap.
