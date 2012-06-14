@@ -560,6 +560,13 @@ void Grinder::OnInvocationBatch(base::Time time,
   // Process and aggregate the individual invocation entries.
   for (size_t i = 0; i < num_invocations; ++i) {
     const InvocationInfo& info = data->invocations[i];
+    if (info.caller == NULL || info.function == NULL) {
+      // This may happen due to a termination race when the traces are captured.
+      LOG(WARNING) << "Empty invocation record. Record " << i << " of " <<
+          num_invocations << ".";
+      break;
+    }
+
     AbsoluteAddress64 function =
         reinterpret_cast<AbsoluteAddress64>(info.function);
 
