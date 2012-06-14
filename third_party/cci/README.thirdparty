@@ -8,3 +8,4 @@ This directory contains the a local copy of the CvInfo file from the Microsoft
 Research Common Compiler Infrastructure (CCI) Metadata API.
 
 Local Modifications:
+The CvInfo file has been converted from C# to C++.
