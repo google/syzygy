@@ -20,7 +20,6 @@ limitations under the License.
 
   <?define ProductVersion=
       '$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)' ?>
-  <?define RTMProductVersion='0.1.0.0' ?>
   <?define UpgradeCode='{B869815E-511D-4de0-8EDA-C4EC959F3613}' ?>
 
   <Product Id='*'
@@ -39,13 +38,20 @@ limitations under the License.
       and to prevent downgrades for good measure.
     -->
     <Upgrade Id='$(var.UpgradeCode)'>
+      <!-- Detect self-overinstall. -->
       <UpgradeVersion
           OnlyDetect='yes' Property='SELFFOUND'
           Minimum='$(var.ProductVersion)' IncludeMinimum='yes'
           Maximum='$(var.ProductVersion)' IncludeMaximum='yes' />
+      <!-- Detect downgrade. -->
       <UpgradeVersion
           OnlyDetect='yes' Property='NEWERFOUND'
           Minimum='$(var.ProductVersion)' IncludeMinimum='no' />
+      <!-- Detect upgrade. -->
+      <UpgradeVersion
+          OnlyDetect='no' Property='OLDERFOUND'
+          Minimum='0.0.0.0' Maximum='$(var.ProductVersion)'
+          IncludeMinimum='yes' IncludeMaximum='no' />
     </Upgrade>
 
     <!--
@@ -113,12 +119,19 @@ limitations under the License.
       <!-- Component for our program menu shortcut. -->
       <Component Id='SyzyProfShortcutComponent'
           Guid='{8EE1A6DF-CFE0-41ef-949B-BC5DA14BA00B}'>
+        <!-- The SyzyProf shell shortcut. -->
         <Shortcut Id='SyzyProfStartMenuShortcut'
                   Name='SyzyProf shell'
                   Description='SyzyProf shell'
                   Target='[System64Folder]cmd.exe'
                   Arguments='/k "[!SyzyProfBatFile]"'
                   WorkingDirectory='SYZYPROFAPPLICATIONDIRECTORY'/>
+        <!-- Put an uninstall shortcut in there as well. -->
+        <Shortcut Id='UninstallSyzyProfShortcut'
+                  Name='Uninstall SyzyProf'
+                  Target='[System64Folder]msiexec.exe'
+                  Arguments='/x [ProductCode]'
+                  Description='Uninstalls SyzyProf' />
         <RemoveFolder Id='SyzyProfProgramsFolder' On='uninstall'/>
         <RegistryValue
             Root='HKCU'
