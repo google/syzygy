@@ -31,14 +31,14 @@ class Disassembler {
   typedef core::AddressSpace<AbsoluteAddress, size_t, uint8> VisitedSpace;
 
   enum CallbackDirective {
-    // Indicates that the disassembler should continue
+    // Indicates that the disassembler should continue.
     kDirectiveContinue,
 
     // Indicates that the disassembler should terminate its current
     // path in the walk, and continue at the next unvisited location.
     kDirectiveTerminatePath,
 
-    // Indicates that the disassembler should halt all disassembly
+    // Indicates that the disassembler should halt all disassembly.
     kDirectiveTerminateWalk,
 
     // Indicate that the disassembler should terminate with an error.

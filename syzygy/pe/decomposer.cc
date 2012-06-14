@@ -56,6 +56,8 @@ using core::RelativeAddress;
 
 namespace {
 
+typedef Disassembler::CallbackDirective CallbackDirective;
+
 const size_t kPointerSize = sizeof(AbsoluteAddress);
 
 // Converts from PdbFixup::Type to BlockGraph::ReferenceType.
@@ -728,21 +730,54 @@ bool ReadAddressSpaceFromPDBStream(core::InArchive* in_archive,
   return true;
 }
 
-// Logs an error if error is true, a warning otherwise.
-#define LOG_ERROR_OR_WARNING(error) \
-    logging::LogMessage( \
-        __FILE__, __LINE__, \
-        (error) ? logging::LOG_ERROR : logging::LOG_WARNING).stream()
+// Logs an error if @p error is true, a verbose logging message otherwise.
+#define LOG_ERROR_OR_VLOG1(error) LAZY_STREAM( \
+    ::logging::LogMessage(__FILE__, \
+                          __LINE__, \
+                          (error) ? ::logging::LOG_ERROR : -1).stream(), \
+    (error ? LOG_IS_ON(ERROR) : VLOG_IS_ON(1)))
 
 // Sets the disassembler directive to an error if @p strict is true, otherwise
 // sets it to an early termination.
-void AbortOrTerminateDisassembly(bool strict,
-                                 Disassembler::CallbackDirective* directive) {
-  DCHECK(directive != NULL);
+CallbackDirective AbortOrTerminateDisassembly(bool strict) {
   if (strict)
-    *directive = Disassembler::kDirectiveAbort;
+    return Disassembler::kDirectiveAbort;
   else
-    *directive = Disassembler::kDirectiveTerminateWalk;
+    return Disassembler::kDirectiveTerminateWalk;
+}
+
+// Returns true if the callback-directive is an early termination that should be
+// returned immediately.
+bool IsFatalCallbackDirective(CallbackDirective directive) {
+  switch (directive) {
+    case Disassembler::kDirectiveContinue:
+    case Disassembler::kDirectiveTerminatePath:
+      return false;
+
+    case Disassembler::kDirectiveTerminateWalk:
+    case Disassembler::kDirectiveAbort:
+      return true;
+
+    default:
+      NOTREACHED();
+  }
+
+  return true;
+}
+
+// Combines two callback directives. Higher codes supersede lower ones.
+CallbackDirective CombineCallbackDirectives(CallbackDirective d1,
+                                            CallbackDirective d2) {
+  // This ensures that this logic remains valid. This should prevent people
+  // from tinkering with CallbackDirective and breaking this code.
+  COMPILE_ASSERT(Disassembler::kDirectiveContinue <
+                     Disassembler::kDirectiveTerminatePath &&
+                 Disassembler::kDirectiveTerminatePath <
+                     Disassembler::kDirectiveTerminateWalk &&
+                 Disassembler::kDirectiveTerminateWalk <
+                     Disassembler::kDirectiveAbort,
+                 callback_directive_enum_is_not_sorted);
+  return std::max(d1, d2);
 }
 
 }  // namespace
@@ -1237,20 +1272,20 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     // the first byte after a switch statement. This can sometimes land on the
     // following jump table.
     if ((label_attr & BlockGraph::CODE_LABEL) && reloc_set_.count(label_rva)) {
-      LOG(WARNING) << "Collision between reloc and code label in "
-                   << block->name() << " at " << label_name
-                   << base::StringPrintf(" (0x%08X).", label_rva.value())
-                   << " Falling back to data label.";
+      VLOG(1) << "Collision between reloc and code label in "
+              << block->name() << " at " << label_name
+              << base::StringPrintf(" (0x%08X).", label_rva.value())
+              << " Falling back to data label.";
       label_attr = BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL;
       DCHECK_EQ(block_addr, block->addr());
       BlockGraph::Offset offset = label_rva - block_addr;
       BlockGraph::Label label;
       if (block->GetLabel(offset, &label) &&
           !label.has_attributes(BlockGraph::DATA_LABEL)) {
-        LOG(WARNING) << block->name() << ": Replacing label " << label.name()
-                     << " ("
-                     << BlockGraph::LabelAttributesToString(label.attributes())
-                     << ") at offset " << offset << ".";
+        VLOG(1) << block->name() << ": Replacing label " << label.name()
+                << " ("
+                << BlockGraph::LabelAttributesToString(label.attributes())
+                << ") at offset " << offset << ".";
         block->RemoveLabel(offset);
       }
     }
@@ -2267,21 +2302,217 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
   return CreateBlock(type, addr, size, name);
 }
 
-// TODO(chrisha): Break this function up into different handlers depending
-//     on the instruction type (no flow control, flow control) and with common
-//     preamble factored out.
-void Decomposer::OnInstruction(const Disassembler& walker,
-                               const _DInst& instruction,
-                               Disassembler::CallbackDirective* directive) {
-  DCHECK(directive != NULL);
+CallbackDirective Decomposer::LookPastInstructionForData(
+    RelativeAddress instr_end) {
+  // If this instruction terminates at a data boundary (ie: the *next*
+  // instruction will be data or a reloc), we can be certain that a new
+  // lookup table is starting at this address.
+  if (reloc_set_.find(instr_end) == reloc_set_.end())
+    return Disassembler::kDirectiveContinue;
 
+  // Find the block housing the reloc. We expect the reloc to be contained
+  // completely within this block.
+  BlockGraph::Block* block = image_->GetContainingBlock(instr_end, 4);
+  if (block != current_block_) {
+    CHECK(block != NULL);
+    LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
+        << "Found an instruction/data boundary between blocks: "
+        << current_block_->name() << " and " << block->name();
+    return AbortOrTerminateDisassembly(be_strict_with_current_block_);
+  }
+
+  BlockGraph::Offset offset = instr_end - block->addr();
+
+  // We expect there to be a jump-table data label already.
+  BlockGraph::Label label;
+  bool have_label = block->GetLabel(offset, &label);
+  if (!have_label || !label.has_attributes(
+          BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL)) {
+    LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
+        << "Expected there to be a data label marking the jump "
+        << "table at " << block->name() << " + " << offset << ".";
+
+    // If we're in strict mode, we're a block that obeys standard conventions.
+    // Which means we should already be aware of any jump tables in this block.
+    if (be_strict_with_current_block_)
+      return Disassembler::kDirectiveAbort;
+
+    // If we're not in strict mode, add the jump-table label.
+    if (have_label)
+      CHECK(block->RemoveLabel(offset));
+    CHECK(block->SetLabel(offset, BlockGraph::Label(
+        "<JUMP-TABLE>",
+        BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL)));
+  }
+
+  return Disassembler::kDirectiveTerminatePath;
+}
+
+CallbackDirective Decomposer::VisitNonFlowControlInstruction(
+    RelativeAddress instr_start, RelativeAddress instr_end) {
+  // TODO(chrisha): We could walk the operands and follow references
+  //     explicitly. If any of them are of reference type and there's no
+  //     matching reference, this would be cause to blow up and die (we
+  //     should get all of these as relocs and/or fixups).
+
+  IntermediateReferenceMap::const_iterator ref_it =
+      references_.upper_bound(instr_start);
+  IntermediateReferenceMap::const_iterator ref_end =
+      references_.lower_bound(instr_end);
+
+  for (; ref_it != ref_end; ++ref_it) {
+    BlockGraph::Block* ref_block = image_->GetContainingBlock(
+        ref_it->second.base, 1);
+    DCHECK(ref_block != NULL);
+
+    // This is an inter-block reference.
+    if (ref_block != current_block_) {
+      // There should be no cross-block references to the middle of other
+      // code blocks (to the top is fine, as we could be passing around a
+      // function pointer). The exception is if the remote block is not
+      // generated by cl.exe. In this case, there could be arbitrary labels
+      // that act like functions within the body of that block, and referring
+      // to them is perfectly fine.
+      if (ref_block->type() == BlockGraph::CODE_BLOCK &&
+          ref_it->second.base != ref_block->addr() &&
+          CodeBlockAttributesAreClConsistent(ref_block)) {
+        LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
+            << "Found a non-control-flow code-block to middle-of-code-block "
+            << "reference from block \"" << current_block_->name()
+            << "\" to block \"" << ref_block->name() << "\".";
+        return AbortOrTerminateDisassembly(be_strict_with_current_block_);
+      }
+    } else {
+      // This is an intra-block reference.
+      BlockGraph::Offset ref_offset =
+          ref_it->second.base - current_block_->addr();
+
+      // If this is to offset zero, we assume we are taking a pointer to
+      // ourself, which is safe.
+      if (ref_offset != 0) {
+        // If this is 'clean' code it should be to data, and there should be a
+        // label.
+        BlockGraph::Label label;
+        if (!current_block_->GetLabel(ref_offset, &label)) {
+          LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
+              << "Found an intra-block data-reference with no label.";
+          return AbortOrTerminateDisassembly(be_strict_with_current_block_);
+        } else {
+          if (!label.has_attributes(BlockGraph::DATA_LABEL) ||
+              label.has_attributes(BlockGraph::CODE_LABEL)) {
+            LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
+                << "Found an intra-block data-like reference to a non-data "
+                << "or code label in block \"" << current_block_->name()
+                << "\".";
+            return AbortOrTerminateDisassembly(be_strict_with_current_block_);
+          }
+        }
+      }
+    }
+  }
+
+  return Disassembler::kDirectiveContinue;
+}
+
+CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
+    AbsoluteAddress instr_abs,
+    RelativeAddress instr_rel,
+    const _DInst& instruction) {
+  int fc = META_GET_FC(instruction.meta);
+  DCHECK(fc == FC_UNC_BRANCH || fc == FC_CALL || fc == FC_CND_BRANCH);
+  DCHECK_EQ(O_PC, instruction.ops[0].type);
+  DCHECK_EQ(O_NONE, instruction.ops[1].type);
+  DCHECK_EQ(O_NONE, instruction.ops[2].type);
+  DCHECK_EQ(O_NONE, instruction.ops[3].type);
+  DCHECK(instruction.ops[0].size == 8 ||
+      instruction.ops[0].size == 16 ||
+      instruction.ops[0].size == 32);
+  // Distorm gives us size in bits, we want bytes.
+  BlockGraph::Size size = instruction.ops[0].size / 8;
+
+  // Get the reference's address. Note we assume it's in the instruction's
+  // tail end - I don't know of a case where a PC-relative offset in a branch
+  // or call is not the very last thing in an x86 instruction.
+  AbsoluteAddress abs_src = instr_abs + instruction.size - size;
+  AbsoluteAddress abs_dst = instr_abs + instruction.size +
+      static_cast<size_t>(instruction.imm.addr);
+
+  RelativeAddress src, dst;
+  if (!image_file_.Translate(abs_src, &src) ||
+      !image_file_.Translate(abs_dst, &dst)) {
+    LOG(ERROR) << "Unable to translate absolute to relative addresses.";
+    return Disassembler::kDirectiveAbort;
+  }
+
+  // Get the block associated with the destination address. It must exist
+  // and be a code block.
+  BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
+  DCHECK(block != NULL);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+
+  std::string label(StringPrintf("From %s +0x%x",
+                                 block->name().c_str(),
+                                 instr_rel - block->addr()));
+
+  // For short references, we should not see a fixup.
+  ValidateOrAddReferenceMode mode = FIXUP_MUST_NOT_EXIST;
+  if (size == kPointerSize) {
+    // Long PC_RELATIVE reference within a single block? FIXUPs aren't
+    // strictly necessary.
+    if (block->Contains(src, kPointerSize))
+      mode = FIXUP_MAY_EXIST;
+    else
+      // But if they're between blocks (section contributions), we expect to
+      // find them.
+      mode = FIXUP_MUST_EXIST;
+  } else {
+    // Since we slice by section contributions we no longer see short
+    // references across blocks. If we do, bail!
+    if (block != current_block_) {
+      LOG(ERROR) << "Found a short PC-relative reference out of block \""
+                 << current_block_->name() << "\".";
+      return Disassembler::kDirectiveAbort;
+    }
+  }
+
+  // Validate or create the reference, as necessary.
+  if (!ValidateOrAddReference(mode, src, BlockGraph::PC_RELATIVE_REF, size,
+                              dst, 0, label.c_str(), &fixup_map_,
+                              &references_)) {
+    LOG(ERROR) << "Failed to validate/create reference originating from "
+               << "block \"" << current_block_->name() << "\".";
+    return Disassembler::kDirectiveAbort;
+  }
+
+  // If this is a call and the destination is a non-returning function,
+  // then indicate that we should terminate this disassembly path.
+  if (fc == FC_CALL &&
+      (block->attributes() & BlockGraph::NON_RETURN_FUNCTION)) {
+    // TODO(chrisha): For now, we enforce that the call be to the beginning
+    //    of the function. This may not be necessary, but better safe than
+    //    sorry for now.
+    if (block->addr() != dst) {
+      LOG(ERROR) << "Calling inside the body of a non-returning function: "
+                 << block->name();
+      return Disassembler::kDirectiveAbort;
+    }
+
+    return Disassembler::kDirectiveTerminatePath;
+  }
+
+  return Disassembler::kDirectiveContinue;
+}
+
+CallbackDirective Decomposer::OnInstructionImpl(const Disassembler& walker,
+                                                const _DInst& instruction) {
+  // Get the relative address of this instruction.
   AbsoluteAddress instr_abs(static_cast<uint32>(instruction.addr));
   RelativeAddress instr_rel;
   if (!image_file_.Translate(instr_abs, &instr_rel)) {
     LOG(ERROR) << "Unable to translate instruction address.";
-    *directive = Disassembler::kDirectiveAbort;
-    return;
+    return Disassembler::kDirectiveAbort;
   }
+  RelativeAddress after_instr_rel = instr_rel + instruction.size;
 
 #ifndef NDEBUG
   // If we're in debug mode, it's helpful to have a pointer directly to the
@@ -2290,228 +2521,42 @@ void Decomposer::OnInstruction(const Disassembler& walker,
   const uint8* instr_data = current_block_->data() + instr_offset;
 #endif
 
-  // If this instruction terminates at a data boundary (ie: the *next*
-  // instruction will be data or a reloc), we can be certain that a new
-  // lookup table is starting at this address.
-  RelativeAddress after_instr_rel = instr_rel + instruction.size;
-  if (reloc_set_.find(after_instr_rel) != reloc_set_.end()) {
-    BlockGraph::Block* block = image_->GetContainingBlock(after_instr_rel, 4);
-    if (block != current_block_) {
-      CHECK(block != NULL);
-      LOG_ERROR_OR_WARNING(be_strict_with_current_block_)
-          << "Found an instruction/data boundary between blocks: "
-          << current_block_->name() << " and " << block->name();
-      AbortOrTerminateDisassembly(be_strict_with_current_block_, directive);
-      return;
-    } else {
-      BlockGraph::Offset offset = after_instr_rel - block->addr();
-
-      // We expect there to be a jump-table data label already.
-      BlockGraph::Label label;
-      bool have_label = block->GetLabel(offset, &label);
-      if (!have_label || !label.has_attributes(
-              BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL)) {
-        LOG_ERROR_OR_WARNING(be_strict_with_current_block_)
-            << "Expected there to be a data label marking the jump "
-            << "table at " << block->name() << " + " << offset << ".";
-        if (be_strict_with_current_block_) {
-          *directive = Disassembler::kDirectiveAbort;
-          return;
-        } else {
-          // If we're not in strict mode, add the jump-table label.
-          if (have_label)
-            CHECK(block->RemoveLabel(offset));
-          CHECK(block->SetLabel(offset, BlockGraph::Label(
-              "<JUMP-TABLE>",
-              BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL)));
-        }
-      }
-    }
-
-    // We don't disassemble into known data, so terminate this path.
-    *directive = Disassembler::kDirectiveTerminatePath;
-  }
-
   // TODO(chrisha): Certain instructions require aligned data (ie: MMX/SSE
   //     instructions). We need to follow the data that these instructions
   //     refer to, and set their alignment appropriately. For now, alignment
   //     is simply preserved from the original image.
 
+  CallbackDirective directive = LookPastInstructionForData(after_instr_rel);
+  if (IsFatalCallbackDirective(directive))
+    return directive;
+
   int fc = META_GET_FC(instruction.meta);
 
-  // No flow control, but contain a reference?
   if (fc == FC_NONE) {
-    // TODO(chrisha): We could walk the operands and follow references
-    //     explicitly. If any of them are of reference type and there's no
-    //     matching reference, this would be cause to blow up and die (we
-    //     should get all of these as relocs and/or fixups).
-
-    IntermediateReferenceMap::const_iterator ref_it =
-        references_.upper_bound(instr_rel);
-    IntermediateReferenceMap::const_iterator ref_end =
-        references_.lower_bound(after_instr_rel);
-
-    for (; ref_it != ref_end; ++ref_it) {
-      BlockGraph::Block* ref_block = image_->GetContainingBlock(
-          ref_it->second.base, 1);
-      DCHECK(ref_block != NULL);
-
-      if (ref_block != current_block_) {
-        // There should be no cross-block references to the middle of other
-        // code blocks (to the top is fine, as we could be passing around a
-        // function pointer). The exception is if the remote block is not
-        // generated by cl.exe. In this case, there could be arbitrary labels
-        // that act like functions within the body of that block, and referring
-        // to them is perfectly fine.
-        if (ref_block->type() == BlockGraph::CODE_BLOCK &&
-            ref_it->second.base != ref_block->addr() &&
-            CodeBlockAttributesAreClConsistent(ref_block)) {
-          LOG_ERROR_OR_WARNING(be_strict_with_current_block_)
-              << "Found a non-control-flow code-block to middle-of-code-block "
-              << "reference from block \"" << current_block_->name()
-              << "\" to block \"" << ref_block->name() << "\".";
-          AbortOrTerminateDisassembly(be_strict_with_current_block_, directive);
-          return;
-        }
-      } else {
-        // The reference is to this same block.
-        BlockGraph::Offset ref_offset =
-            ref_it->second.base - current_block_->addr();
-
-        // If this is to offset zero, we assume we are taking a pointer to
-        // ourself, which is safe.
-        if (ref_offset != 0) {
-          // If this is 'clean' code it should be to data, and there should be a
-          // label.
-          BlockGraph::Label label;
-          if (!current_block_->GetLabel(ref_offset, &label)) {
-            LOG_ERROR_OR_WARNING(be_strict_with_current_block_)
-                << "Found an intra-block data-reference with no label.";
-            AbortOrTerminateDisassembly(be_strict_with_current_block_,
-                                        directive);
-            return;
-          } else {
-            if (!label.has_attributes(BlockGraph::DATA_LABEL) ||
-                label.has_attributes(BlockGraph::CODE_LABEL)) {
-              LOG_ERROR_OR_WARNING(be_strict_with_current_block_)
-                  << "Found an intra-block data-like reference to a non-data "
-                  << "or code label in block \"" << current_block_->name()
-                  << "\".";
-              AbortOrTerminateDisassembly(be_strict_with_current_block_,
-                                          directive);
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    return;
+    return CombineCallbackDirectives(directive,
+        VisitNonFlowControlInstruction(instr_rel, after_instr_rel));
   }
 
-  // For all branches, calls and conditional branches to PC-relative
-  // addresses, record a PC-relative reference.
   if ((fc == FC_UNC_BRANCH || fc == FC_CALL || fc == FC_CND_BRANCH) &&
       instruction.ops[0].type == O_PC) {
-    DCHECK_EQ(O_PC, instruction.ops[0].type);
-    DCHECK_EQ(O_NONE, instruction.ops[1].type);
-    DCHECK_EQ(O_NONE, instruction.ops[2].type);
-    DCHECK_EQ(O_NONE, instruction.ops[3].type);
-    DCHECK(instruction.ops[0].size == 8 ||
-        instruction.ops[0].size == 16 ||
-        instruction.ops[0].size == 32);
-    // Distorm gives us size in bits, we want bytes.
-    BlockGraph::Size size = instruction.ops[0].size / 8;
-
-    // Get the reference's address. Note we assume it's in the instruction's
-    // tail end - I don't know of a case where a PC-relative offset in a branch
-    // or call is not the very last thing in an x86 instruction.
-    AbsoluteAddress abs_src = instr_abs + instruction.size - size;
-    AbsoluteAddress abs_dst = instr_abs + instruction.size +
-        static_cast<size_t>(instruction.imm.addr);
-
-    RelativeAddress src, dst;
-    if (!image_file_.Translate(abs_src, &src) ||
-        !image_file_.Translate(abs_dst, &dst)) {
-      LOG(ERROR) << "Unable to translate absolute to relative addresses.";
-      *directive = Disassembler::kDirectiveAbort;
-      return;
-    }
-
-    // Get the block associated with the destination address. It must exist
-    // and be a code block.
-    BlockGraph::Block* block = image_->GetContainingBlock(dst, 1);
-    DCHECK(block != NULL);
-    DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-
-    // If this is a call and the destination is a non-returning function,
-    // then indicate that we should terminate this disassembly path.
-    if (fc == FC_CALL &&
-        (block->attributes() & BlockGraph::NON_RETURN_FUNCTION)) {
-      // TODO(chrisha): For now, we enforce that the call be to the beginning
-      //    of the function. This may not be necessary, but better safe than
-      //    sorry for now.
-      if (block->addr() != dst) {
-        LOG(ERROR) << "Calling inside the body of a non-returning function: "
-                   << block->name();
-        *directive = Disassembler::kDirectiveAbort;
-        return;
-      }
-      *directive = Disassembler::kDirectiveTerminatePath;
-    }
-
-    std::string label(StringPrintf("From %s +0x%x",
-                                   block->name().c_str(),
-                                   instr_rel - block->addr()));
-
-    // For short references, we should not see a fixup.
-    ValidateOrAddReferenceMode mode = FIXUP_MUST_NOT_EXIST;
-    if (size == kPointerSize) {
-      // Long PC_RELATIVE reference within a single block? FIXUPs aren't
-      // strictly necessary.
-      if (block->Contains(src, kPointerSize))
-        mode = FIXUP_MAY_EXIST;
-      else
-        // But if they're between blocks (section contributions), we expect to
-        // find them.
-        mode = FIXUP_MUST_EXIST;
-    } else {
-      // Since we slice by section contributions we no longer see short
-      // references across blocks. If we do, bail!
-      if (block != current_block_) {
-        LOG(ERROR) << "Found a short reference out of block \""
-                   << current_block_->name() << "\".";
-        *directive = Disassembler::kDirectiveAbort;
-        return;
-      }
-    }
-
-    // Validate or create the reference, as necessary.
-    if (!ValidateOrAddReference(mode, src, BlockGraph::PC_RELATIVE_REF, size,
-                                dst, 0, label.c_str(), &fixup_map_,
-                                &references_)) {
-      LOG(ERROR) << "Failed to validate/create reference originating from "
-                 << "block \"" << current_block_->name() << "\".";
-      *directive = Disassembler::kDirectiveAbort;
-      return;
-    }
-
-    return;
+    // For all branches, calls and conditional branches to PC-relative
+    // addresses, record a PC-relative reference.
+    return CombineCallbackDirectives(directive,
+        VisitPcRelativeFlowControlInstruction(instr_abs,
+                                              instr_rel,
+                                              instruction));
   }
 
-  // Look out for blocks where disassembly seems to run off the end.
+  // Look out for blocks where disassembly seems to run off the end of the
+  // block.
   if (fc != FC_RET && fc != FC_UNC_BRANCH && fc != FC_INT) {
-    RelativeAddress instr_end(instr_rel + instruction.size);
     RelativeAddress block_end(current_block_->addr() + current_block_->size());
-    if (instr_end == block_end) {
-      LOG_ERROR_OR_WARNING(be_strict_with_current_block_)
+    if (after_instr_rel >= block_end) {
+      LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
           << "Instruction flow runs off the end of block \""
           << current_block_->name() << "\".";
-      AbortOrTerminateDisassembly(be_strict_with_current_block_, directive);
-      return;
+      return AbortOrTerminateDisassembly(be_strict_with_current_block_);
     }
-
-    return;
   }
 
   if (fc == FC_CALL) {
@@ -2524,6 +2569,16 @@ void Decomposer::OnInstruction(const Disassembler& walker,
     //     currently have meta-data regarding these symbols, so do not know if
     //     they are non-returning.
   }
+
+  return directive;
+}
+
+void Decomposer::OnInstruction(const Disassembler& disassembler,
+                               const _DInst& instruction,
+                               CallbackDirective* directive) {
+  // TODO(chrisha): Reword the callback to use a return value directly.
+  DCHECK(directive != NULL);
+  *directive = OnInstructionImpl(disassembler, instruction);
 }
 
 bool Decomposer::CreatePEImageBlocksAndReferences(
