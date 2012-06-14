@@ -19,10 +19,12 @@
 
 #include "base/file_path.h"
 #include "syzygy/common/application.h"
-#include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
+
+// Forward declarations.
+class DbiStream;
 
 // The PdbDump application dumps data for one or more PDB files to stdout,
 // and can optionally explode the streams from each PDB file to a set of files

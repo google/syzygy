@@ -61,6 +61,9 @@ struct DbiHeader {
   uint16 machine;
   uint32 reserved;
 };
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 64 bytes in size.
+COMPILE_ASSERT(sizeof(DbiHeader) == 64, pdb_dbi_header_wrong_size);
 
 // Dbi Debug Header
 // See http://ccimetadata.codeplex.com/SourceControl/changeset/view/52123#96529
@@ -79,6 +82,9 @@ struct DbiDbgHeader {
   int16 new_fpo;
   int16 section_header_origin;
 };
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 22 bytes in size.
+COMPILE_ASSERT(sizeof(DbiDbgHeader) == 22, pdb_dbidbg_header_wrong_size);
 
 // Dbi Section Contrib
 // Represent an element for the section contrib substream of the Dbi stream.
@@ -93,10 +99,15 @@ struct DbiSectionContrib {
   uint32 data_crc;
   uint32 reloc_crc;
 };
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 28 bytes in size.
+COMPILE_ASSERT(sizeof(DbiSectionContrib) == 28,
+               pdb_dbi_sectioncontrib_wrong_size);
 
 // Dbi Module Info
-// Represent an element for the module info substream of the Dbi stream.
-struct DbiModuleInfo {
+// Represent an element for the module info substream of the Dbi stream. This
+// struct doesn't contain the full module and object name.
+struct DbiModuleInfoBase {
   uint32 opened;
   DbiSectionContrib section;
   uint16 flags;
@@ -109,41 +120,34 @@ struct DbiModuleInfo {
   uint32 offsets;
   uint32 num_source;
   uint32 num_compiler;
-  std::string module_name;
-  std::string object_name;
+  // There are two trailing null-terminated 8-bit strings, the first being the
+  // module_name and the second being the object_name. Then this structure is
+  // padded with zeros to have a length that is a multiple of 4.
 };
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 64 bytes in size.
+COMPILE_ASSERT(sizeof(DbiModuleInfoBase) == 64,
+               pdb_dbi_moduleinfo_wrong_size);
 
 // Dbi Section Map
 // Represent an element for the section map substream of the Dbi stream.
 struct DbiSectionMapItem {
   uint8 flags;
   uint8 section_type;
+  // This field hasn't been deciphered but it is always 0x00000000 or 0xFFFFFFFF
+  // and modifying it doesn't seem to invalidate the PDB.
+  uint16 unknown_data_1[2];
+  uint16 section_number;
+  // Same thing as for unknown_data_1.
+  uint16 unknown_data_2[2];
   // Value added to the address offset when calculating the RVA.
   uint32 rva_offset;
   uint32 section_length;
 };
-
-// Typedefs used to store the content of the Dbi Stream.
-typedef std::vector<DbiModuleInfo> DbiModuleVector;
-typedef std::vector<DbiSectionContrib> DbiSectionContribVector;
-typedef std::vector<size_t> DbiFileInfoFileList;
-typedef std::vector<DbiFileInfoFileList> DbiFileInfoVector;
-typedef std::map<size_t, std::string> DbiFileInfoNameMap;
-typedef std::pair<DbiFileInfoVector, DbiFileInfoNameMap> DbiFileInfo;
-typedef std::map<uint16, DbiSectionMapItem> DbiSectionMap;
-typedef std::map<size_t, std::string> DbiEcInfoMap;
-
-// Dbi stream
-// Contains a struct for each substream of this stream.
-struct DbiStream {
-  DbiHeader header;
-  DbiModuleVector modules;
-  DbiSectionContribVector sections_contrib;
-  DbiSectionMap section_map;
-  DbiFileInfo file_info;
-  DbiEcInfoMap ec_info_map;
-  DbiDbgHeader dbg_header;
-};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 20 bytes in size.
+COMPILE_ASSERT(sizeof(DbiSectionMapItem) == 20,
+               pdb_dbi_sectionmapitem_wrong_size);
 
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
