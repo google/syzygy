@@ -166,7 +166,7 @@ class BlockGraph {
     FILE_OFFSET_REF,
   };
 
-  // Forward declarations;
+  // Forward declarations.
   class AddressSpace;
   class Block;
   class Label;

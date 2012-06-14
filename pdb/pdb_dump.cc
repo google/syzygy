@@ -28,10 +28,8 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "syzygy/common/align.h"
+#include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
-#include "syzygy/pdb/pdb_util.h"
-
 
 std::ostream& operator<<(std::ostream& str, const GUID& guid) {
   wchar_t buf[128] = {};
@@ -43,75 +41,6 @@ std::ostream& operator<<(std::ostream& str, const GUID& guid) {
 namespace pdb {
 
 namespace {
-
-// Reads the header from the Dbi stream of the PDB.
-bool ReadDbiHeaders(pdb::PdbStream* stream, pdb::DbiStream* dbi_stream) {
-  DCHECK(stream != NULL);
-  DCHECK(dbi_stream != NULL);
-
-  if (!stream->Seek(0) || !stream->Read(&dbi_stream->header, 1)) {
-    LOG(ERROR) << "Unable to read Dbi Stream";
-    return false;
-  }
-
-  if (!stream->Seek(pdb::GetDbiDbgHeaderOffset(dbi_stream->header)) ||
-      !stream->Read(&dbi_stream->dbg_header, 1)) {
-    LOG(ERROR) << "Unable to read Dbg Stream";
-    return false;
-  }
-
-  return true;
-}
-
-// Reads the module info substream from the Dbi stream of the PDB.
-bool ReadDbiModuleInfo(pdb::PdbStream* stream, pdb::DbiStream* dbi_stream) {
-  DCHECK(stream != NULL);
-  DCHECK(dbi_stream != NULL);
-
-  // This substream starts just after the Dbi header in the Dbi stream.
-  size_t module_start = sizeof(pdb::DbiHeader);
-  size_t module_end = module_start + dbi_stream->header.gp_modi_size;
-  if (!stream->Seek(module_start)) {
-    LOG(ERROR) << "Unable to read the modules information substream of the Dbi "
-               << "stream.";
-    return false;
-  }
-  // Read each module info block.
-  while (stream->pos() < module_end) {
-    DbiModuleInfo module_info;
-    size_t bytes_read = 0;
-    size_t to_read = offsetof(DbiModuleInfo, module_name);
-    if (!stream->ReadBytes(&module_info, to_read, &bytes_read) ||
-        bytes_read != to_read ||
-        !ReadString(stream, &module_info.module_name) ||
-        !ReadString(stream, &module_info.object_name) ||
-        !stream->Seek(common::AlignUp(stream->pos(), 4))) {
-      LOG(ERROR) << "Unable to read module information.";
-      return false;
-    }
-
-    dbi_stream->modules.push_back(module_info);
-  }
-
-  if (stream->pos() != module_end) {
-    LOG(ERROR) << "Module info substream of the Dbi stream is not valid.";
-    return false;
-  }
-  return true;
-}
-
-bool ReadDbiStream(pdb::PdbStream* stream, pdb::DbiStream* dbi_stream) {
-  DCHECK(stream != NULL);
-  DCHECK(dbi_stream != NULL);
-
-  if (!ReadDbiHeaders(stream, dbi_stream))
-    return false;
-
-  if (!ReadDbiModuleInfo(stream, dbi_stream))
-    return false;
-
-  return true;
-}
 
 bool WriteStreamToPath(pdb::PdbStream* pdb_stream,
                        const FilePath& output_file_name) {
@@ -207,9 +136,9 @@ int PdbDumpApp::Run() {
       LOG(ERROR) << "No header info stream.";
     }
 
-    pdb::DbiStream dbi_stream;
+    DbiStream dbi_stream;
     stream = pdb_file.GetStream(pdb::kDbiStream);
-    if (stream != NULL && ReadDbiStream(stream, &dbi_stream)) {
+    if (stream != NULL && dbi_stream.Read(stream)) {
       DumpDbiStream(dbi_stream);
     } else {
       LOG(ERROR) << "No Dbi stream.";
@@ -223,23 +152,27 @@ int PdbDumpApp::Run() {
       stream_suffixes[pdb::kDbiStream] = L"-dbi";
       stream_suffixes[pdb::kTpiStream] = L"-tpi";
 
-      stream_suffixes[dbi_stream.header.global_symbol_info_stream] =
+      stream_suffixes[dbi_stream.header().global_symbol_info_stream] =
           L"-globals";
-      stream_suffixes[dbi_stream.header.public_symbol_info_stream] = L"-public";
-      stream_suffixes[dbi_stream.header.symbol_record_stream] = L"-sym-record";
+      stream_suffixes[dbi_stream.header().public_symbol_info_stream] =
+          L"-public";
+      stream_suffixes[dbi_stream.header().symbol_record_stream] =
+          L"-sym-record";
 
-      stream_suffixes[dbi_stream.dbg_header.fpo] = L"-fpo";
-      stream_suffixes[dbi_stream.dbg_header.exception] = L"-exception";
-      stream_suffixes[dbi_stream.dbg_header.fixup] = L"-fixup";
-      stream_suffixes[dbi_stream.dbg_header.omap_to_src] = L"-omap-to-src";
-      stream_suffixes[dbi_stream.dbg_header.omap_from_src] = L"-omap-from-src";
-      stream_suffixes[dbi_stream.dbg_header.section_header] =
+      stream_suffixes[dbi_stream.dbg_header().fpo] = L"-fpo";
+      stream_suffixes[dbi_stream.dbg_header().exception] = L"-exception";
+      stream_suffixes[dbi_stream.dbg_header().fixup] = L"-fixup";
+      stream_suffixes[dbi_stream.dbg_header().omap_to_src] = L"-omap-to-src";
+      stream_suffixes[dbi_stream.dbg_header().omap_from_src] =
+          L"-omap-from-src";
+      stream_suffixes[dbi_stream.dbg_header().section_header] =
           L"-section-header";
-      stream_suffixes[dbi_stream.dbg_header.token_rid_map] = L"-token-rid-map";
-      stream_suffixes[dbi_stream.dbg_header.x_data] = L"-x-data";
-      stream_suffixes[dbi_stream.dbg_header.p_data] = L"-p-data";
-      stream_suffixes[dbi_stream.dbg_header.new_fpo] = L"-new-fpo";
-      stream_suffixes[dbi_stream.dbg_header.section_header_origin] =
+      stream_suffixes[dbi_stream.dbg_header().token_rid_map] =
+          L"-token-rid-map";
+      stream_suffixes[dbi_stream.dbg_header().x_data] = L"-x-data";
+      stream_suffixes[dbi_stream.dbg_header().p_data] = L"-p-data";
+      stream_suffixes[dbi_stream.dbg_header().new_fpo] = L"-new-fpo";
+      stream_suffixes[dbi_stream.dbg_header().section_header_origin] =
           L"-section-header-origin";
 
       NameStreamMap::const_iterator it(name_streams.begin());
@@ -303,52 +236,53 @@ void PdbDumpApp::DumpInfoStream(const PdbInfoHeader70& info,
 
 void PdbDumpApp::DumpDbiHeaders(const DbiStream& dbi_stream) {
   ::fprintf(out(), "Dbi Header:\n");
-  ::fprintf(out(), "\tsignature: %d\n", dbi_stream.header.signature);
-  ::fprintf(out(), "\tversion: %d\n", dbi_stream.header.version);
-  ::fprintf(out(), "\tage: %d\n", dbi_stream.header.age);
+  ::fprintf(out(), "\tsignature: %d\n", dbi_stream.header().signature);
+  ::fprintf(out(), "\tversion: %d\n", dbi_stream.header().version);
+  ::fprintf(out(), "\tage: %d\n", dbi_stream.header().age);
   ::fprintf(out(), "\tglobal_symbol_info_stream: %d\n",
-            dbi_stream.header.global_symbol_info_stream);
+            dbi_stream.header().global_symbol_info_stream);
   ::fprintf(out(), "\tpdb_dll_version: %d\n",
-            dbi_stream.header.pdb_dll_version);
+            dbi_stream.header().pdb_dll_version);
   ::fprintf(out(), "\tpublic_symbol_info_stream: %d\n",
-            dbi_stream.header.public_symbol_info_stream);
+            dbi_stream.header().public_symbol_info_stream);
   ::fprintf(out(), "\tpdb_dll_build_major: %d\n",
-            dbi_stream.header.pdb_dll_build_major);
+            dbi_stream.header().pdb_dll_build_major);
   ::fprintf(out(), "\tsymbol_record_stream: %d\n",
-            dbi_stream.header.symbol_record_stream);
+            dbi_stream.header().symbol_record_stream);
   ::fprintf(out(), "\tpdb_dll_build_minor: %d\n",
-            dbi_stream.header.pdb_dll_build_minor);
-  ::fprintf(out(), "\tgp_modi_size: %d\n", dbi_stream.header.gp_modi_size);
+            dbi_stream.header().pdb_dll_build_minor);
+  ::fprintf(out(), "\tgp_modi_size: %d\n", dbi_stream.header().gp_modi_size);
   ::fprintf(out(), "\tsection_contribution_size: %d\n",
-            dbi_stream.header.section_contribution_size);
+            dbi_stream.header().section_contribution_size);
   ::fprintf(out(), "\tsection_map_size: %d\n",
-            dbi_stream.header.section_map_size);
-  ::fprintf(out(), "\tfile_info_size: %d\n", dbi_stream.header.file_info_size);
-  ::fprintf(out(), "\tts_map_size: %d\n", dbi_stream.header.ts_map_size);
-  ::fprintf(out(), "\tmfc_index: %d\n", dbi_stream.header.mfc_index);
+            dbi_stream.header().section_map_size);
+  ::fprintf(out(), "\tfile_info_size: %d\n",
+            dbi_stream.header().file_info_size);
+  ::fprintf(out(), "\tts_map_size: %d\n", dbi_stream.header().ts_map_size);
+  ::fprintf(out(), "\tmfc_index: %d\n", dbi_stream.header().mfc_index);
   ::fprintf(out(), "\tdbg_header_size: %d\n",
-            dbi_stream.header.dbg_header_size);
-  ::fprintf(out(), "\tec_info_size: %d\n", dbi_stream.header.ec_info_size);
-  ::fprintf(out(), "\tflags: %d\n", dbi_stream.header.flags);
-  ::fprintf(out(), "\tmachine: %d\n", dbi_stream.header.machine);
-  ::fprintf(out(), "\treserved: %d\n", dbi_stream.header.reserved);
+            dbi_stream.header().dbg_header_size);
+  ::fprintf(out(), "\tec_info_size: %d\n", dbi_stream.header().ec_info_size);
+  ::fprintf(out(), "\tflags: %d\n", dbi_stream.header().flags);
+  ::fprintf(out(), "\tmachine: %d\n", dbi_stream.header().machine);
+  ::fprintf(out(), "\treserved: %d\n", dbi_stream.header().reserved);
 
   ::fprintf(out(), "Dbg Header:\n");
-  ::fprintf(out(), "\tfpo: %d\n", dbi_stream.dbg_header.fpo);
-  ::fprintf(out(), "\texception: %d\n", dbi_stream.dbg_header.exception);
-  ::fprintf(out(), "\tfixup: %d\n", dbi_stream.dbg_header.fixup);
-  ::fprintf(out(), "\tomap_to_src: %d\n", dbi_stream.dbg_header.omap_to_src);
+  ::fprintf(out(), "\tfpo: %d\n", dbi_stream.dbg_header().fpo);
+  ::fprintf(out(), "\texception: %d\n", dbi_stream.dbg_header().exception);
+  ::fprintf(out(), "\tfixup: %d\n", dbi_stream.dbg_header().fixup);
+  ::fprintf(out(), "\tomap_to_src: %d\n", dbi_stream.dbg_header().omap_to_src);
   ::fprintf(out(), "\tomap_from_src: %d\n",
-            dbi_stream.dbg_header.omap_from_src);
+            dbi_stream.dbg_header().omap_from_src);
   ::fprintf(out(), "\tsection_header: %d\n",
-            dbi_stream.dbg_header.section_header);
+            dbi_stream.dbg_header().section_header);
   ::fprintf(out(), "\ttoken_rid_map: %d\n",
-            dbi_stream.dbg_header.token_rid_map);
-  ::fprintf(out(), "\tx_data: %d\n", dbi_stream.dbg_header.x_data);
-  ::fprintf(out(), "\tp_data: %d\n", dbi_stream.dbg_header.p_data);
-  ::fprintf(out(), "\tnew_fpo: %d\n", dbi_stream.dbg_header.new_fpo);
+            dbi_stream.dbg_header().token_rid_map);
+  ::fprintf(out(), "\tx_data: %d\n", dbi_stream.dbg_header().x_data);
+  ::fprintf(out(), "\tp_data: %d\n", dbi_stream.dbg_header().p_data);
+  ::fprintf(out(), "\tnew_fpo: %d\n", dbi_stream.dbg_header().new_fpo);
   ::fprintf(out(), "\tsection_header_origin: %d\n",
-            dbi_stream.dbg_header.section_header_origin);
+            dbi_stream.dbg_header().section_header_origin);
 }
 
 void PdbDumpApp::DumpDbiStream(const pdb::DbiStream& dbi_stream) {

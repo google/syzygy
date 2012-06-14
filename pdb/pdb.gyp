@@ -34,6 +34,8 @@
         'pdb_constants.h',
         'pdb_data.cc',
         'pdb_data.h',
+        'pdb_dbi_stream.cc',
+        'pdb_dbi_stream.h',
         'pdb_dump.cc',
         'pdb_dump.h',
         'pdb_file.cc',
