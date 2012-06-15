@@ -1,0 +1,192 @@
+# Copyright 2012 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Wrapper for running a unittest under Application Verifier."""
+
+import logging
+import optparse
+import os
+import re
+import subprocess
+import sys
+import verifier
+
+
+_THIRD_PARTY = os.path.abspath(os.path.join(os.path.basename(__file__),
+                                            '..', '..', 'third_party'))
+sys.path.append(_THIRD_PARTY)
+import colorama
+
+
+_LOGGER = logging.getLogger(os.path.basename(__file__))
+
+
+# A list of per-test Application Verifier exceptions.
+_EXCEPTIONS = {
+  'profile_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
+  ],
+  'parse_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
+  ],
+}
+
+
+class Error(Exception):
+  """Base class used for exceptions thrown in this module."""
+  pass
+
+
+def Colorize(text):
+  """Colorizes the given app verifier output with ANSI color codes."""
+  fore = colorama.Fore
+  style = colorama.Style
+  def _ColorizeLine(line):
+    line = re.sub('^(Error.*:)(.*)',
+                  style.BRIGHT + fore.RED + '\\1' + fore.YELLOW + '\\2' +
+                      style.RESET_ALL,
+                  line)
+    line = re.sub('^(Warning:)(.*)',
+                  style.BRIGHT + fore.YELLOW + '\\1' + style.RESET_ALL + '\\2',
+                  line)
+    return line
+
+  return '\n'.join([_ColorizeLine(line) for line in text.split('\n')])
+
+
+def FilterExceptions(image_name, errors):
+  """Filter out the Application Verifier errors that have exceptions."""
+  exceptions = _EXCEPTIONS.get(image_name, [])
+
+  def _HasNoException(error):
+    # Iterate over all the exceptions.
+    for (severity, layer, stopcode, regexp) in exceptions:
+      # And see if they match, first by type.
+      if (error.severity == severity and
+          error.layer == layer and
+          error.stopcode == stopcode):
+        # And then by regexpr match to the trace symbols.
+        for trace in error.trace:
+          if trace.symbol and re.match(regexp, trace.symbol):
+            import random
+            return False if random.random() < 0.5 else True
+            return False
+
+    return True
+
+  filtered_errors = filter(_HasNoException, errors)
+  error_count = len(filtered_errors)
+  filtered_count = len(errors) - error_count
+
+  if error_count:
+    suffix = '' if error_count == 1 else 's'
+    filtered_errors.append(
+        'Error: Encountered %d AppVerifier exception%s for %s.' %
+            (error_count, suffix, image_name))
+
+  if filtered_count:
+    suffix1 = '' if filtered_count == 1 else 's'
+    suffix2 = '' if len(exceptions) == 1 else 's'
+    filtered_errors.append(
+        'Warning: Filtered %d AppVerifier exception%s for %s using %d rule%s.' %
+            (filtered_count, suffix1, image_name, len(exceptions), suffix2))
+
+  return (error_count, filtered_errors)
+
+
+def _RunUnderAppVerifier(command):
+  runner = verifier.AppverifierTestRunner(False)
+  image_path = os.path.abspath(command[0])
+  image_name = os.path.basename(image_path)
+
+  if not os.path.isfile(image_path):
+    raise Error('Path not found: %s' % image_path)
+
+  # Set up the verifier configuration.
+  runner.SetImageDefaults(image_name)
+  runner.ClearImageLogs(image_name)
+
+  # Run the executable.
+  command = [image_path, command[1:]]
+  _LOGGER.info('Running %s.', command)
+  popen = subprocess.Popen(command)
+  (dummy_stdout, dummy_stderr) = popen.communicate()
+
+  # Process the AppVerifier logs, outputting any errors.
+  app_verifier_errors = runner.ProcessLogs(image_name)
+  (error_count, app_verifier_errors) = FilterExceptions(
+      image_name, app_verifier_errors)
+  for error in app_verifier_errors:
+    msg = Colorize(str(error) + '\n')
+    sys.stderr.write(msg)
+
+  # Clear the verifier settings for the image.
+  runner.ClearImageLogs(image_name)
+  runner.ResetImage(image_name)
+
+  if popen.returncode:
+    _LOGGER.error('%s failed with return code %d.', image_name,
+                 popen.returncode)
+
+  if error_count:
+    suffix = '' if error_count == 1 else 's'
+    _LOGGER.error('%s failed AppVerifier test with %d exception%s.',
+                  image_name, error_count, suffix)
+
+
+  if popen.returncode:
+    return popen.returncode
+
+  return error_count
+
+
+_USAGE = '%prog [options] APPLICATION -- [application options]'
+
+
+def _ParseArgs():
+  parser = optparse.OptionParser(usage=_USAGE)
+  parser.add_option('-v', '--verbose', dest='verbose',
+                    action='store_true', default=False,
+                    help='Enable verbose logging.')
+  parser.add_option('--on-waterfall', dest='on_waterfall',
+                    action='store_true', default=False,
+                    help='Indicate that we are running on the waterfall.')
+  (opts, args) = parser.parse_args()
+
+  if not len(args):
+    parser.error('You must specify an application.')
+
+  if opts.verbose:
+    logging.basicConfig(level=logging.INFO)
+  else:
+    logging.basicConfig(level=logging.ERROR)
+
+  return (opts, args)
+
+
+if __name__ == '__main__':
+  colorama.init()
+  (opts, args) = _ParseArgs()
+  return_code = _RunUnderAppVerifier(args)
+  if return_code and opts.on_waterfall:
+    command = 'python build\\app_verifier.py %s' % ' '.join(args)
+    sys.stderr.write('To reproduce this error locally run the following '
+                     'command from the Syzygy root directory:\n')
+    sys.stderr.write(command + '\n')
+
+  sys.exit(return_code)
