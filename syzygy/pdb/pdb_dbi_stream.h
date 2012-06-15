@@ -106,7 +106,7 @@ class DbiStream {
   DbiStream(const DbiStream& other)
       : header_(other.header_),
         modules_(other.modules_),
-        sections_contribs_(other.sections_contribs_),
+        section_contribs_(other.section_contribs_),
         section_map_(other.section_map_),
         file_info_(other.file_info_),
         ec_info_map_(other.ec_info_map_),
@@ -130,17 +130,63 @@ class DbiStream {
   bool Read(pdb::PdbStream* stream);
 
  private:
+  // Serialization of the Dbi header.
+  //
+  // @param stream The stream containing the Dbi header.
+  // @returns true on success, false otherwise.
+  bool ReadDbiHeaders(pdb::PdbStream* stream);
+
   // Serialization of the module info substream.
   //
   // @param stream The stream containing the module info substream.
   // @returns true on success, false otherwise.
   bool ReadDbiModuleInfo(pdb::PdbStream* stream);
 
-  // Serialization of the Dbi header.
+  // Serialization of the section contribs substream.
   //
-  // @param stream The stream containing the Dbi header.
+  // @param stream The stream containing the section contribs substream.
   // @returns true on success, false otherwise.
-  bool ReadDbiHeaders(pdb::PdbStream* stream);
+  bool ReadDbiSectionContribs(pdb::PdbStream* stream);
+
+  // Serialization of the section map substream.
+  //
+  // @param stream The stream containing the section map substream.
+  // @returns true on success, false otherwise.
+  bool ReadDbiSectionMap(pdb::PdbStream* stream);
+
+  // Serialization of the file info substream.
+  //
+  // @param stream The stream containing the file info substream.
+  // @returns true on success, false otherwise.
+  bool ReadDbiFileInfo(pdb::PdbStream* stream);
+
+  // Serialization of the file-blocks section of the file info substream.
+  //
+  // @param stream The stream containing the file info substream.
+  // @param file_blocks_table_size The size of the file-blocks table.
+  // @param file_blocks_table_start The address of the beginning of the
+  //     file-blocks table in the stream.
+  // @param offset_table_size The size of the offset table.
+  // @param offset_table_start The address of the beginning of the
+  //     offset table in the stream.
+  // @returns true on success, false otherwise.
+  bool ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
+                             uint16 file_blocks_table_size,
+                             size_t file_blocks_table_start,
+                             uint16 offset_table_size,
+                             size_t offset_table_start);
+
+  // Serialization of the name table in the file info substream.
+  //
+  // @param stream The stream containing the file info substream.
+  // @param name_table_start The address of the beginning of the name table in
+  //     the stream.
+  // @param name_table_end The address of the end of the name table in the
+  //     stream.
+  // @returns true on success, false otherwise.
+  bool ReadDbiFileNameTable(pdb::PdbStream* stream,
+                            size_t name_table_start,
+                            size_t name_table_end);
 
   // Header of the stream.
   DbiHeader header_;
@@ -149,15 +195,12 @@ class DbiStream {
   DbiModuleVector modules_;
 
   // All section contributions we contain.
-  // TODO(sebmarchand): Read this substream.
-  DbiSectionContribVector sections_contribs_;
+  DbiSectionContribVector section_contribs_;
 
   // Map of the sections that we contain.
-  // TODO(sebmarchand): Read this substream.
   DbiSectionMap section_map_;
 
   // File info that we contain.
-  // TODO(sebmarchand): Read this substream.
   DbiFileInfo file_info_;
 
   // Map of the EC info that we contain.
