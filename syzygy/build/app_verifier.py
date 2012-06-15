@@ -23,7 +23,7 @@ import sys
 import verifier
 
 
-_THIRD_PARTY = os.path.abspath(os.path.join(os.path.basename(__file__),
+_THIRD_PARTY = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                             '..', '..', 'third_party'))
 sys.path.append(_THIRD_PARTY)
 import colorama
