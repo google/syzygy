@@ -14,6 +14,8 @@
 
 #include "syzygy/core/assembler.h"
 
+#include <limits>
+
 #include "base/logging.h"
 
 namespace core {
@@ -123,16 +125,19 @@ class AssemblerImpl::InstructionBuffer {
                               RegisterCode index,
                               RegisterCode base);
 
-  // Emit an 8 bit displacement, with optional reference info.
+  // Emit an 8-bit displacement, with optional reference info.
   void Emit8BitDisplacement(const DisplacementImpl& disp);
 
-  // Emit a 32 bit displacement with optional reference info.
+  // Emit a 32-bit displacement with optional reference info.
   void Emit32BitDisplacement(const DisplacementImpl& disp);
 
-  // Emit a 32 bit PC-relative value.
+  // Emit an 8-bit PC-relative value.
+  void Emit8BitPCRelative(uint32 location, const ValueImpl& disp);
+
+  // Emit a 32-bit PC-relative value.
   void Emit32BitPCRelative(uint32 location, const ValueImpl& disp);
 
-  // Emit a 16 bit immediate value.
+  // Emit a 16-bit immediate value.
   void Emit16BitValue(uint16 value);
 
  protected:
@@ -206,6 +211,24 @@ void AssemblerImpl::InstructionBuffer::Emit32BitDisplacement(
   EmitByte(value >> 24);
 }
 
+void AssemblerImpl::InstructionBuffer::Emit8BitPCRelative(
+    uint32 location, const ValueImpl& value) {
+  DCHECK_EQ(kSize8Bit, value.size());
+
+  if (value.reference() != NULL) {
+    DCHECK_GT(arraysize(references_), num_references_);
+    reference_offsets_[num_references_] = len();
+    references_[num_references_] = value.reference();
+  }
+
+  // Turn the absolute value into a value relative to the address of
+  // the end of the emitted constant.
+  int32 relative_value = value.value() - (location + len_ + 1);
+  DCHECK_LE(std::numeric_limits<int8>::min(), relative_value);
+  DCHECK_GE(std::numeric_limits<int8>::max(), relative_value);
+  EmitByte(relative_value);
+}
+
 void AssemblerImpl::InstructionBuffer::Emit32BitPCRelative(
     uint32 location, const ValueImpl& value) {
   DCHECK_EQ(kSize32Bit, value.size());
@@ -256,6 +279,31 @@ void AssemblerImpl::call(const OperandImpl& dst) {
   instr.EmitOpCodeByte(0xFF);
   EncodeOperand(0x2, dst, &instr);
 
+  Output(instr);
+}
+
+void AssemblerImpl::j(ConditionCode cc, const ImmediateImpl& dst) {
+  DCHECK_LE(0, cc);
+  DCHECK_GE(15, cc);
+
+  InstructionBuffer instr;
+  if (dst.size() == kSize32Bit) {
+    instr.EmitOpCodeByte(0x0F);
+    instr.EmitOpCodeByte(0x80 | cc);
+    instr.Emit32BitPCRelative(location_, dst);
+  } else {
+    DCHECK_EQ(kSize8Bit, dst.size());
+    instr.EmitOpCodeByte(0x70 | cc);
+    instr.Emit8BitPCRelative(location_, dst);
+  }
+  Output(instr);
+}
+
+void AssemblerImpl::jecxz(const ImmediateImpl& dst) {
+  DCHECK_EQ(kSize8Bit, dst.size());
+  InstructionBuffer instr;
+  instr.EmitOpCodeByte(0xE3);
+  instr.Emit8BitPCRelative(location_, dst);
   Output(instr);
 }
 
@@ -382,10 +430,10 @@ void AssemblerImpl::EncodeOperand(uint8 reg_op,
 
   // The op operand can encode any one of the following things:
   // An indirect register access [EAX].
-  // An indirect 32 bit displacement only [0xDEADBEEF].
-  // An indirect base register + 32/8 bit displacement [EAX+0xDEADBEEF].
+  // An indirect 32-bit displacement only [0xDEADBEEF].
+  // An indirect base register + 32/8-bit displacement [EAX+0xDEADBEEF].
   // An indirect base + index register*scale [EAX+ECX*4].
-  // An indirect base + index register*scale + 32/8 bit displacement
+  // An indirect base + index register*scale + 32/8-bit displacement
   //   [EAX+ECX*4+0xDEADBEEF].
   // To complicate things, there are certain combinations that can't be encoded
   // canonically. The mode [ESP] or [ESP+disp] can never be encoded in a

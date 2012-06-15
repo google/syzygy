@@ -24,9 +24,6 @@
 
 namespace core {
 
-enum ScaleFactor;
-enum RegisterCode;
-
 enum RegisterCode {
   kRegisterNone = -1,
   kRegisterEax = 0,
@@ -38,6 +35,48 @@ enum RegisterCode {
   kRegisterEsi = 6,
   kRegisterEdi = 7,
 };
+
+// The condition codes by which conditional branches are determined. This enum
+// is taken from the V8 project, and has the property that the conditions are
+// defined to be bit-wise ORed into the base conditional branch opcode, and
+// they can be easily negated/inverted.
+//
+// See:
+//     http://code.google.com/p/v8/source/browse/trunk/src/ia32/assembler-ia32.h
+enum ConditionCode {
+  // Any value < 0 is considered no_condition
+  kNoCondition  = -1,
+
+  kOverflow =  0,
+  kNoOverflow =  1,
+  kBelow =  2,
+  kAboveEqual =  3,
+  kEqual =  4,
+  kNotEqual =  5,
+  kBelowEqual =  6,
+  kAbove =  7,
+  kNegative =  8,
+  kPositive =  9,
+  kParityEven = 10,
+  kParityOdd = 11,
+  kLess = 12,
+  kGreaterEqual = 13,
+  kLessEqual = 14,
+  kGreater = 15,
+
+  // Aliases.
+  kCarry = kBelow,
+  kNotCarry = kAboveEqual,
+  kZero = kEqual,
+  kNotZero = kNotEqual,
+  kSign = kNegative,
+  kNotSign = kPositive
+};
+
+inline ConditionCode NegateConditionCode(ConditionCode cc) {
+  DCHECK_GT(16, cc);
+  return static_cast<ConditionCode>(cc ^ 1);
+}
 
 // Each instance of this class names a register.
 class Register {
@@ -174,6 +213,8 @@ class AssemblerImpl {
   // @{
   void call(const ImmediateImpl& dst);
   void call(const OperandImpl& dst);
+  void j(ConditionCode cc, const ImmediateImpl& dst);
+  void jecxz(const ImmediateImpl& dst);
   void jmp(const ImmediateImpl& dst);
   void jmp(const OperandImpl& dst);
   void ret();

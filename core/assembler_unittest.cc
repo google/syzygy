@@ -316,7 +316,7 @@ TEST_F(AssemblerTest, MovRegisterDisplacementIndirect) {
   asm_.mov(OperandImpl(edi, cafebabe), eax);
   EXPECT_BYTES(0x89, 0x87, 0xBE, 0xBA, 0xFE, 0xCA);
 
-  // Test a sampling of 8 bit displacements.
+  // Test a sampling of 8-bit displacements.
   DisplacementImpl ca(0xCA, kSize8Bit, NULL);
 
   // Source.
@@ -457,6 +457,215 @@ TEST_F(AssemblerTest, Push) {
   // General push, try one variant as the rest are OperandImpl encodings.
   asm_.push(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
   EXPECT_BYTES(0xFF, 0x35, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, Ja) {
+  ConditionCode cc = kAbove;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x77, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x87, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jae) {
+  ConditionCode cc = kAboveEqual;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x73, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x83, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jb) {
+  ConditionCode cc = kBelow;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x72, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x82, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jbe) {
+  ConditionCode cc = kBelowEqual;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x76, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x86, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jc) {
+  ConditionCode cc = kCarry;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x72, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x82, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Je) {
+  ConditionCode cc = kEqual;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x74, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x84, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jecxz) {
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.jecxz(ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0xE3, 0xFE);
+}
+
+TEST_F(AssemblerTest, Jg) {
+  ConditionCode cc = kGreater;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x7F, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x8F, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jge) {
+  ConditionCode cc = kGreaterEqual;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x7D, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x8D, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jl) {
+  ConditionCode cc = kLess;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x7C, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x8C, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jle) {
+  ConditionCode cc = kLessEqual;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x7E, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x8E, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jo) {
+  ConditionCode cc = kOverflow;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x70, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x80, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jpe) {
+  ConditionCode cc = kParityEven;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x7A, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x8A, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jpo) {
+  ConditionCode cc = kParityOdd;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x7B, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x8B, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Js) {
+  ConditionCode cc = kSign;
+  asm_.set_location(0xCAFEBABE);
+  COMPILE_ASSERT(kSign == kNegative, kSignAndPositiveAreAliases);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x78, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x88, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jz) {
+  ConditionCode cc = kZero;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x74, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x84, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jnc) {
+  ConditionCode cc = kNotCarry;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x73, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x83, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jne) {
+  ConditionCode cc = kNotEqual;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x75, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x85, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jno) {
+  ConditionCode cc = kNoOverflow;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x71, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x81, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jns) {
+  COMPILE_ASSERT(kNotSign == kPositive, kSignAndPositiveAreAliases);
+  ConditionCode cc = kNotSign;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x79, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x89, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Jnz) {
+  ConditionCode cc = kNotZero;
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0x75, 0xFE);
+  asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x0F, 0x85, 0xF8, 0xFF, 0xFF, 0xFF);
 }
 
 }  // namespace core
