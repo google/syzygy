@@ -94,7 +94,7 @@
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:test_dll',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:etw_instrumented_test_dll',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_instrumented_test_dll',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],

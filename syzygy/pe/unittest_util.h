@@ -35,8 +35,6 @@ class PELibUnitTest : public testing::ApplicationTestBase {
   // GetExeTestDataRelativePath to build paths to them.
   static const wchar_t kRandomizedTestDllName[];
   static const wchar_t kRandomizedTestDllPdbName[];
-  static const wchar_t kEtwInstrumentedDllName[];
-  static const wchar_t kEtwInstrumentedDllPdbName[];
   static const wchar_t kRpcInstrumentedDllName[];
   static const wchar_t kRpcInstrumentedDllPdbName[];
 
