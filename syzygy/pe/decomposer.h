@@ -189,8 +189,7 @@ class Decomposer {
   bool AddReferenceCallback(RelativeAddress src_addr,
                             BlockGraph::ReferenceType type,
                             BlockGraph::Size size,
-                            RelativeAddress dst_addr,
-                            const char* name);
+                            RelativeAddress dst_addr);
   // Parse the relocation entries.
   bool ParseRelocs();
   // Uses the fixup map to create cross-block references. These contain
@@ -375,7 +374,6 @@ struct Decomposer::IntermediateReference {
   // into data as seen in loop induction variables, etc.
   RelativeAddress base;
   BlockGraph::Offset offset;
-  std::string name;
 };
 
 }  // namespace pe

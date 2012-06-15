@@ -90,9 +90,8 @@ class PEFileParserTest: public testing::PELibUnitTest {
   bool AddReference(RelativeAddress src,
                     BlockGraph::ReferenceType type,
                     BlockGraph::Size size,
-                    RelativeAddress dst,
-                    const char* name) {
-    Reference ref = { type, size, dst, name };
+                    RelativeAddress dst) {
+    Reference ref = { type, size, dst };
     bool inserted = references_.insert(std::make_pair(src, ref)).second;
     EXPECT_TRUE(inserted);
     return inserted;
@@ -149,7 +148,6 @@ class PEFileParserTest: public testing::PELibUnitTest {
     BlockGraph::ReferenceType type;
     BlockGraph::Size size;
     RelativeAddress dst;
-    std::string name;
   };
 
   typedef std::map<RelativeAddress, Reference> ReferenceMap;

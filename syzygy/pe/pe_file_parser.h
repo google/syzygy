@@ -35,8 +35,7 @@ class PEFileParser {
   typedef base::Callback<bool(RelativeAddress,
                               BlockGraph::ReferenceType,
                               BlockGraph::Size,
-                              RelativeAddress,
-                              const char*)>
+                              RelativeAddress)>
       AddReferenceCallback;
 
   PEFileParser(const PEFile& image_file,
@@ -180,23 +179,19 @@ class PEFileParser {
   bool AddReference(RelativeAddress src,
                     BlockGraph::ReferenceType type,
                     BlockGraph::Size size,
-                    RelativeAddress dst,
-                    const char* name);
+                    RelativeAddress dst);
 
   template <typename ItemType>
   bool AddRelative(const PEFileStructPtr<ItemType>& structure,
-                   const DWORD* item,
-                   const char* name);
+                   const DWORD* item);
 
   template <typename ItemType>
   bool AddAbsolute(const PEFileStructPtr<ItemType>& structure,
-                   const DWORD* item,
-                   const char* name = NULL);
+                   const DWORD* item);
 
   template <typename ItemType>
   bool AddFileOffset(const PEFileStructPtr<ItemType>& structure,
-                     const DWORD* item,
-                     const char* name = NULL);
+                     const DWORD* item);
 
   bool ParseResourceDirImpl(BlockGraph::Block* resource_block,
                             size_t root_offset);
