@@ -121,8 +121,9 @@ def _RunUnderAppVerifier(command):
   runner.SetImageDefaults(image_name)
   runner.ClearImageLogs(image_name)
 
-  # Run the executable.
-  command = [image_path, command[1:]]
+  # Run the executable. We disable exception catching as it interferes with
+  # Application Verifier.
+  command = [image_path, command[1:], '--gtest_catch_exceptions=0']
   _LOGGER.info('Running %s.', command)
   popen = subprocess.Popen(command)
   (dummy_stdout, dummy_stderr) = popen.communicate()

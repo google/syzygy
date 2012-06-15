@@ -24,28 +24,10 @@ import presubmit
 import re
 import subprocess
 import sys
-import verifier
 
 
 _LOGGER = logging.getLogger(os.path.basename(__file__))
 
-
-# A list of per-test Application Verifier exceptions. This doesn't really
-# belong here, this should be plumbed in to individual tests from the invoker.
-# In the interest of temporary expediency, we leave it here for now.
-# TODO(siggi): Move the exception list out of here.
-_EXCEPTIONS = {
-  'profile_unittests.exe': [
-    # This leak occurs only in Debug, which leaks a thread local variable
-    # used to check thread restrictions.
-    ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
-  ],
-  'parse_unittests.exe': [
-    # This leak occurs only in Debug, which leaks a thread local variable
-    # used to check thread restrictions.
-    ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
-  ],
-}
 
 class Error(Exception):
   """An error class used for reporting problems while running tests."""
@@ -100,7 +82,6 @@ class Test(object):
     self._project_dir = project_dir
     self._name = name
     self._force = False
-    self._app_verifier = None
 
     # Tests are to direct all of their output to these streams.
     # NOTE: These streams aren't directly compatible with subprocess.Popen.
@@ -220,7 +201,7 @@ class Test(object):
     self._stderr = cStringIO.StringIO()
     return stderr
 
-  def Run(self, configuration, force=False, app_verifier=False):
+  def Run(self, configuration, force=False):
     """Runs the test in the given configuration. The derived instance of Test
     must implement '_Run(self, configuration)', which raises an exception on
     error or does nothing on success. Upon success of _Run, this will generate
@@ -231,8 +212,6 @@ class Test(object):
       configuration: The configuration in which to run.
       force: If True, this will force the test to re-run even if _NeedToRun
           would return False.
-      app_verifier: If True, this will run the given test using the
-          AppVerifier tool.
 
     Returns:
       True on success, False otherwise.
@@ -240,7 +219,6 @@ class Test(object):
     # Store optional arguments in a side-channel, so as to allow additions
     # without changing the _Run/_NeedToRun/_CanRun API.
     self._force = force
-    self._app_verifier = app_verifier
 
     success = True
     try:
@@ -302,9 +280,6 @@ class Test(object):
     parser.add_option('-f', '--force', dest='force',
                       action='store_true', default=False,
                       help='Force tests to re-run even if not necessary.')
-    parser.add_option('--no-app-verifier', dest='app_verifier',
-                      action='store_false', default=True,
-                      help='Run tests without AppVerifier.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
                       const=logging.INFO, default=logging.WARNING,
                       help='Run the script with verbose logging.')
@@ -327,9 +302,7 @@ class Test(object):
       # We don't catch any exceptions that may be raised as these indicate
       # something has gone really wrong, and we want them to interrupt further
       # tests.
-      if not self.Run(config,
-                      force=options.force,
-                      app_verifier=options.app_verifier):
+      if not self.Run(config, force=options.force):
         _LOGGER.error('Configuration "%s" of test "%s" failed.',
                       config, self._name)
         result = 1
@@ -338,41 +311,6 @@ class Test(object):
     sys.stdout.write(self._GetStderr())
 
     return result
-
-
-def _AppVerifierColorize(text):
-  """Colorizes the given app verifier output with ANSI color codes."""
-  fore = colorama.Fore
-  style = colorama.Style
-  def _ColorizeLine(line):
-    line = re.sub('^(Error\([^,]+, [^\)]+\):)( .*)',
-                  style.BRIGHT + fore.RED + '\\1' + fore.YELLOW + '\\2' +
-                      style.RESET_ALL,
-                  line)
-    return line
-
-  return '\n'.join([_ColorizeLine(line) for line in text.split('\n')])
-
-
-def _FilterAppVerifierExceptions(image_name, errors):
-  """Filter out the Application Verifier errors that have exceptions."""
-  exceptions = _EXCEPTIONS.get(image_name, [])
-
-  def _HasNoException(error):
-    # Iterate over all the exceptions.
-    for (severity, layer, stopcode, regexp) in exceptions:
-      # And see if they match, first by type.
-      if (error.severity == severity and
-          error.layer == layer and
-          error.stopcode == stopcode):
-        # And then by regexpr match to the trace symbols.
-        for trace in error.trace:
-          if trace.symbol and re.match(regexp, trace.symbol):
-            return False
-
-    return True
-
-  return filter(_HasNoException, errors)
 
 
 class ExecutableTest(Test):
@@ -402,17 +340,6 @@ class ExecutableTest(Test):
   def _Run(self, configuration):
     test_path = self._GetTestPath(configuration)
 
-    # Create the app verifier test runner.
-    runner = None
-    image_name = None
-    if self._app_verifier:
-      runner = verifier.AppverifierTestRunner(False)
-      image_name = os.path.basename(test_path)
-
-      # Set up the verifier configuration.
-      runner.SetImageDefaults(image_name)
-      runner.ClearImageLogs(image_name)
-
     # Run the executable.
     command = self._GetCmdLine(configuration)
     popen = subprocess.Popen(command, stdout=subprocess.PIPE,
@@ -425,26 +352,10 @@ class ExecutableTest(Test):
       # unittest, making errors have better visibility.
       self._WriteStderr(stdout)
 
-    # Process the AppVerifier logs, outputting any errors.
-    app_verifier_errors = []
-    if self._app_verifier:
-      app_verifier_errors = runner.ProcessLogs(image_name)
-      app_verifier_errors = _FilterAppVerifierExceptions(
-          image_name, app_verifier_errors)
-      for error in app_verifier_errors:
-        msg = _AppVerifierColorize(str(error) + '\n')
-        self._WriteStdout(msg)
-        self._WriteStderr(msg)
-
-      # Clear the verifier settings for the image.
-      runner.ResetImage(image_name)
-
     # Bail if we had any errors.
-    if popen.returncode != 0 or app_verifier_errors:
+    if popen.returncode != 0:
       msg = 'Test "%s" failed in configuration "%s". Exit code %d.' % \
                 (self._name, configuration, popen.returncode)
-      if self._app_verifier:
-        msg = msg + ' %d AppVerifier errors.' % len(app_verifier_errors)
       raise TestFailure(msg)
 
     # If we get here, all has gone well.
@@ -476,9 +387,7 @@ class GTest(ExecutableTest):
     super(GTest, self).__init__(*args, **kwargs)
 
   def _GetCmdLine(self, configuration):
-    # Run unittests without the exception filter, as it gets in the way of
-    # Application Verifier.
-    return [self._GetTestPath(configuration), '--gtest_catch_exceptions=0']
+    return [self._GetTestPath(configuration)]
 
   def _WriteStdout(self, value):
     """Colorizes the stdout of this test."""
@@ -531,9 +440,7 @@ class TestSuite(Test):
     """
     success = True
     for test in self._tests:
-      if not test.Run(configuration,
-                      force=self._force,
-                      app_verifier=self._app_verifier):
+      if not test.Run(configuration, force=self._force):
         # Keep a cumulative log of all stderr from each test that fails.
         self._WriteStderr(test._GetStderr())  # pylint: disable=W0212
         success = False
