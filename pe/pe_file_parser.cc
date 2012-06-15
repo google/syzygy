@@ -389,8 +389,7 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
   COMPILE_ASSERT(sizeof(DWORD) == sizeof(dos_header_ptr->e_lfanew),
                  dos_header_e_lfanew_is_wrong_size);
   if (!AddRelative(dos_header_ptr,
-                   reinterpret_cast<const DWORD*>(&dos_header_ptr->e_lfanew),
-                   "NT Headers")) {
+                   reinterpret_cast<const DWORD*>(&dos_header_ptr->e_lfanew))) {
     LOG(ERROR) << "Unable to add DOS to NT headers reference.";
     return false;
   }
@@ -403,8 +402,7 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
 
   for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; ++i) {
     if (!AddRelative(nt_headers_ptr,
-            &nt_headers_ptr->OptionalHeader.DataDirectory[i].VirtualAddress,
-            kDirEntryNames[i])) {
+            &nt_headers_ptr->OptionalHeader.DataDirectory[i].VirtualAddress)) {
       LOG(ERROR) << "Unable to add data directory reference for "
                  << kDirEntryNames[i];
       return false;
@@ -426,8 +424,7 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
   }
 
   if (!AddRelative(nt_headers_ptr,
-                   &nt_headers_ptr->OptionalHeader.AddressOfEntryPoint,
-                   "Entry Point")) {
+                   &nt_headers_ptr->OptionalHeader.AddressOfEntryPoint)) {
     LOG(ERROR) << "Unable to add entry point reference.";
     return false;
   }
@@ -472,29 +469,25 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
 
   // Add the export directory references.
   if (!AddRelative(export_dir,
-                   &export_dir->Name,
-                   "Export Name")) {
+                   &export_dir->Name)) {
     LOG(ERROR) << "Unable to add export functions reference.";
     return NULL;
   }
 
   if (!AddRelative(export_dir,
-                   &export_dir->AddressOfFunctions,
-                   "Export Functions")) {
+                   &export_dir->AddressOfFunctions)) {
     LOG(ERROR) << "Unable to add export functions reference.";
     return NULL;
   }
 
   if (!AddRelative(export_dir,
-                   &export_dir->AddressOfNames,
-                   "Export Address Of Names")) {
+                   &export_dir->AddressOfNames)) {
     LOG(ERROR) << "Unable to add export address of names reference.";
     return NULL;
   }
 
   if (!AddRelative(export_dir,
-                   &export_dir->AddressOfNameOrdinals,
-                   "Export Address Of Name Ordinals")) {
+                   &export_dir->AddressOfNameOrdinals)) {
     LOG(ERROR) << "Unable to add export address of ordinals reference.";
     return NULL;
   }
@@ -509,7 +502,7 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
   for (size_t i = 0; i < export_dir->NumberOfFunctions; ++i) {
     // TODO(siggi): This could be labeled with the exported function's
     //    name, if one is available.
-    if (!AddRelative(function, function.ptr(), "Exported Function")) {
+    if (!AddRelative(function, function.ptr())) {
       LOG(ERROR) << "Unable to add reference to exported function.";
       return NULL;
     }
@@ -534,7 +527,7 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
         RelativeAddress(*name.ptr()),
         sizeof(RelativeAddress)));
 
-    if (!AddRelative(name, name.ptr(), "Export Function Name")) {
+    if (!AddRelative(name, name.ptr())) {
       LOG(ERROR) << "Unable to add reference to export function name.";
       return NULL;
     }
@@ -664,8 +657,7 @@ bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
       // IMAGE_IMPORT_BY_NAME.
 
       // Add the IAT/INT->thunk reference.
-      if (!AddRelative(thunk, &thunk->u1.AddressOfData,
-                       "IAT/INT Reference")) {
+      if (!AddRelative(thunk, &thunk->u1.AddressOfData)) {
         LOG(ERROR) << "Unable to add import thunk reference.";
         return false;
       }
@@ -717,8 +709,7 @@ bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
       // Add the code reference. This will check that it is in fact a reference
       // to an address in the image, and track the associated block
       // automatically.
-      if (!AddAbsolute(thunk, &thunk->u1.AddressOfData,
-                       "IAT/INT Reference")) {
+      if (!AddAbsolute(thunk, &thunk->u1.AddressOfData)) {
         LOG(ERROR) << "Unable to add import thunk reference.";
         return false;
       }
@@ -863,8 +854,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->Name,
-                     "Import name")) {
+                     &import_descriptor->Name)) {
       LOG(ERROR) << "Unable to add import name reference.";
       return NULL;
     }
@@ -891,15 +881,13 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->OriginalFirstThunk,
-                     "Import Name Table")) {
+                     &import_descriptor->OriginalFirstThunk)) {
       LOG(ERROR) << "Unable to add import name table reference.";
       return NULL;
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->FirstThunk,
-                     "Import Address Table")) {
+                     &import_descriptor->FirstThunk)) {
       LOG(ERROR) << "Unable to add import address table reference.";
       return NULL;
     }
@@ -962,8 +950,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaDLLName,
-                     "Delay import name")) {
+                     &import_descriptor->rvaDLLName)) {
       LOG(ERROR) << "Unable to add delay import name reference.";
       return NULL;
     }
@@ -979,8 +966,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaHmod,
-                     "Delay import module handle")) {
+                     &import_descriptor->rvaHmod)) {
       LOG(ERROR) << "Unable to delay import module handle reference.";
       return NULL;
     }
@@ -999,8 +985,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaINT,
-                     "Delay Import Name Table")) {
+                     &import_descriptor->rvaINT)) {
       LOG(ERROR) << "Unable to add delay import name table reference.";
       return NULL;
     }
@@ -1014,8 +999,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaIAT,
-                     "Delay Import Address Table")) {
+                     &import_descriptor->rvaIAT)) {
       LOG(ERROR) << "Unable to add delay import address table reference.";
       return NULL;
     }
@@ -1030,8 +1014,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     }
 
     if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaBoundIAT,
-                     "Delay Bound Import Address Table")) {
+                     &import_descriptor->rvaBoundIAT)) {
       LOG(ERROR) << "Unable to add delay bound import address table reference.";
       return NULL;
     }
@@ -1140,12 +1123,10 @@ BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
   }
 
   if (!AddAbsolute(
-          load_config, &load_config->LockPrefixTable, "LockPrefixTable") ||
-      !AddAbsolute(load_config, &load_config->EditList, "EditList") ||
-      !AddAbsolute(
-          load_config, &load_config->SecurityCookie, "SecurityCookie") ||
-      !AddAbsolute(
-          load_config, &load_config->SEHandlerTable, "SEHandlerTable")) {
+          load_config, &load_config->LockPrefixTable) ||
+      !AddAbsolute(load_config, &load_config->EditList) ||
+      !AddAbsolute(load_config, &load_config->SecurityCookie) ||
+      !AddAbsolute(load_config, &load_config->SEHandlerTable)) {
     LOG(ERROR) << "Unable to add load config directory references.";
     return NULL;
   }
@@ -1162,7 +1143,7 @@ BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
   }
 
   for (size_t i = 0; i < load_config->SEHandlerCount; ++i) {
-    if (!AddRelative(seh_handlers, seh_handlers.ptr() + i, "SEH Handler")) {
+    if (!AddRelative(seh_handlers, seh_handlers.ptr() + i)) {
       LOG(ERROR) << "Unable to add SEH handler reference.";
       return NULL;
     }
@@ -1189,11 +1170,9 @@ BlockGraph::Block* PEFileParser::ParseDebugDir(
 
   do {
     if (!AddRelative(debug_directory,
-                     &debug_directory->AddressOfRawData,
-                     "Debug Directory") ||
+                     &debug_directory->AddressOfRawData) ||
         !AddFileOffset(debug_directory,
-                       &debug_directory->PointerToRawData,
-                       "Debug Directory")) {
+                       &debug_directory->PointerToRawData)) {
       LOG(ERROR) << "Failed to add debug directory references.";
       return NULL;
     }
@@ -1265,8 +1244,7 @@ bool PEFileParser::ParseResourceDirImpl(BlockGraph::Block* resource_block,
       }
       // The offsets in the data entries are RVAs.
       if (!AddRelative(data_entry,
-                       &data_entry->OffsetToData,
-                       "Resource data")) {
+                       &data_entry->OffsetToData)) {
         LOG(ERROR) << "Failed to add resouce data reference.";
         return false;
       }
@@ -1280,9 +1258,8 @@ bool PEFileParser::ParseResourceDirImpl(BlockGraph::Block* resource_block,
 bool PEFileParser::AddReference(RelativeAddress src,
                                 BlockGraph::ReferenceType type,
                                 BlockGraph::Size size,
-                                RelativeAddress dst,
-                                const char* name) {
-  return add_reference_.Run(src, type, size, dst, name);
+                                RelativeAddress dst) {
+  return add_reference_.Run(src, type, size, dst);
 }
 
 BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
@@ -1324,8 +1301,7 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
 
 template <typename ItemType>
 bool PEFileParser::AddRelative(const PEFileStructPtr<ItemType>& structure,
-                               const DWORD* item,
-                               const char* name) {
+                               const DWORD* item) {
   DCHECK(item != NULL);
   if (*item == 0)
     return true;
@@ -1333,14 +1309,12 @@ bool PEFileParser::AddRelative(const PEFileStructPtr<ItemType>& structure,
   return AddReference(structure.AddressOf(item),
                       BlockGraph::RELATIVE_REF,
                       sizeof(*item),
-                      RelativeAddress(*item),
-                      name);
+                      RelativeAddress(*item));
 }
 
 template <typename ItemType>
 bool PEFileParser::AddAbsolute(const PEFileStructPtr<ItemType>& structure,
-                               const DWORD* item,
-                               const char* name) {
+                               const DWORD* item) {
   DCHECK(item != NULL);
   if (*item == 0)
     return true;
@@ -1352,14 +1326,12 @@ bool PEFileParser::AddAbsolute(const PEFileStructPtr<ItemType>& structure,
       AddReference(structure.AddressOf(item),
                    BlockGraph::ABSOLUTE_REF,
                    sizeof(*item),
-                   rel,
-                   name);
+                   rel);
 }
 
 template <typename ItemType>
 bool PEFileParser::AddFileOffset(const PEFileStructPtr<ItemType>& structure,
-                                 const DWORD* item,
-                                 const char* name) {
+                                 const DWORD* item) {
   DCHECK(item != NULL);
   if (*item == 0)
     return true;
@@ -1371,8 +1343,7 @@ bool PEFileParser::AddFileOffset(const PEFileStructPtr<ItemType>& structure,
       AddReference(structure.AddressOf(item),
                    BlockGraph::FILE_OFFSET_REF,
                    sizeof(*item),
-                   rel,
-                   name);
+                   rel);
 }
 
 }  // namespace pe

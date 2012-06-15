@@ -87,7 +87,6 @@ bool AddReference(RelativeAddress src_addr,
                   BlockGraph::Size size,
                   RelativeAddress dst_base,
                   BlockGraph::Offset dst_offset,
-                  const char* name,
                   Decomposer::IntermediateReferenceMap* references) {
   DCHECK(references != NULL);
 
@@ -102,19 +101,12 @@ bool AddReference(RelativeAddress src_addr,
                     "references.";
       return false;
     }
-
-    // Found existing and consistent intermediate reference. Change the name
-    // if one is provided.
-    if (name != NULL)
-      it->second.name = name;
-    return true;
   }
 
   Decomposer::IntermediateReference ref = { type,
                                             size,
                                             dst_base,
-                                            dst_offset,
-                                            name == NULL ? "" : name };
+                                            dst_offset };
 
   // Since we used lower_bound above, we can use it as a hint for the
   // insertion. This saves us from incurring the lookup cost twice.
@@ -157,7 +149,6 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
                             BlockGraph::Size size,
                             RelativeAddress dst_base,
                             BlockGraph::Offset dst_offset,
-                            const char* name,
                             Decomposer::FixupMap* fixup_map,
                             Decomposer::IntermediateReferenceMap* references) {
   DCHECK(fixup_map != NULL);
@@ -170,7 +161,7 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
       if (it != fixup_map->end() &&
           !ValidateReference(src_addr, type, size, it))
         return false;
-      return AddReference(src_addr, type, size, dst_base, dst_offset, name,
+      return AddReference(src_addr, type, size, dst_base, dst_offset,
                           references);
     }
 
@@ -191,7 +182,7 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
                    << " collides with an existing fixup.";
         return false;
       }
-      return AddReference(src_addr, type, size, dst_base, dst_offset, name,
+      return AddReference(src_addr, type, size, dst_base, dst_offset,
                           references);
     }
 
@@ -1533,12 +1524,11 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
 bool Decomposer::AddReferenceCallback(RelativeAddress src_addr,
                                       BlockGraph::ReferenceType type,
                                       BlockGraph::Size size,
-                                      RelativeAddress dst_addr,
-                                      const char* name) {
+                                      RelativeAddress dst_addr) {
   // This is only called by the PEFileParser, and it creates some references
   // for which there are no corresponding fixup entries.
   return ValidateOrAddReference(FIXUP_MAY_EXIST, src_addr, type, size, dst_addr,
-                                0, name, &fixup_map_, &references_);
+                                0, &fixup_map_, &references_);
 }
 
 bool Decomposer::ParseRelocs() {
@@ -1611,10 +1601,10 @@ bool Decomposer::CreateReferencesFromFixups() {
 
     RelativeAddress dst_base(it->second.base);
     BlockGraph::Offset dst_offset = dst_addr - dst_base;
-    std::string label(StringPrintf("From 0x%08X (FIXUP)", src_addr.value()));
     if (!AddReference(src_addr, it->second.type, kPointerSize, dst_base,
-                      dst_offset, label.c_str(), &references_))
+                      dst_offset, &references_)) {
       return false;
+    }
   }
 
   return true;
@@ -1632,8 +1622,7 @@ bool Decomposer::ValidateRelocs(const PEFile::RelocMap& reloc_map) {
     }
 
     if (!ValidateOrAddReference(FIXUP_MUST_EXIST, src, BlockGraph::ABSOLUTE_REF,
-                                sizeof(dst), dst, 0, NULL, &fixup_map_,
-                                &references_))
+                                sizeof(dst), dst, 0, &fixup_map_, &references_))
       return false;
   }
 
@@ -2450,10 +2439,6 @@ CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
 
-  std::string label(StringPrintf("From %s +0x%x",
-                                 block->name().c_str(),
-                                 instr_rel - block->addr()));
-
   // For short references, we should not see a fixup.
   ValidateOrAddReferenceMode mode = FIXUP_MUST_NOT_EXIST;
   if (size == kPointerSize) {
@@ -2477,8 +2462,7 @@ CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
 
   // Validate or create the reference, as necessary.
   if (!ValidateOrAddReference(mode, src, BlockGraph::PC_RELATIVE_REF, size,
-                              dst, 0, label.c_str(), &fixup_map_,
-                              &references_)) {
+                              dst, 0, &fixup_map_, &references_)) {
     LOG(ERROR) << "Failed to validate/create reference originating from "
                << "block \"" << current_block_->name() << "\".";
     return Disassembler::kDirectiveAbort;
