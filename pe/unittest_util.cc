@@ -158,10 +158,6 @@ const wchar_t PELibUnitTest::kRandomizedTestDllName[] =
     L"randomized_test_dll.dll";
 const wchar_t PELibUnitTest::kRandomizedTestDllPdbName[] =
     L"randomized_test_dll.pdb";
-const wchar_t PELibUnitTest::kEtwInstrumentedDllName[] =
-    L"etw_instrumented_test_dll.dll";
-const wchar_t PELibUnitTest::kEtwInstrumentedDllPdbName[] =
-    L"etw_instrumented_test_dll.pdb";
 const wchar_t PELibUnitTest::kRpcInstrumentedDllName[] =
     L"rpc_instrumented_test_dll.dll";
 const wchar_t PELibUnitTest::kRpcInstrumentedDllPdbName[] =

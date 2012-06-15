@@ -37,38 +37,6 @@
       ],
     },
     {
-      'target_name': 'etw_instrumented_test_dll',
-      'type': 'none',
-      'msvs_cygwin_shell': 0,
-      'sources': [
-      ],
-      'dependencies': [
-        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
-        'test_dll',
-      ],
-      'actions': [
-        {
-          'action_name': 'etw_instrument_test_data_test_dll',
-          'inputs': [
-            '$(OutDir)/instrument.exe',
-            '$(OutDir)/test_data/test_dll.dll',
-          ],
-          'outputs': [
-            '$(OutDir)/test_data/etw_instrumented_test_dll.dll',
-            '$(OutDir)/test_data/etw_instrumented_test_dll.pdb',
-          ],
-          'action': [
-            '"$(OutDir)/instrument.exe"',
-            '--call-trace-client=ETW',
-            '--input-dll=$(OutDir)/test_data/test_dll.dll',
-            '--output-dll=$(OutDir)/test_data/etw_instrumented_test_dll.dll',
-            '--output-pdb=$(OutDir)/test_data/etw_instrumented_test_dll.pdb',
-            '--overwrite',
-          ],
-        },
-      ],
-    },
-    {
       'target_name': 'rpc_instrumented_test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
