@@ -468,26 +468,22 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
       sizeof(RelativeAddress)));
 
   // Add the export directory references.
-  if (!AddRelative(export_dir,
-                   &export_dir->Name)) {
+  if (!AddRelative(export_dir, &export_dir->Name)) {
     LOG(ERROR) << "Unable to add export functions reference.";
     return NULL;
   }
 
-  if (!AddRelative(export_dir,
-                   &export_dir->AddressOfFunctions)) {
+  if (!AddRelative(export_dir, &export_dir->AddressOfFunctions)) {
     LOG(ERROR) << "Unable to add export functions reference.";
     return NULL;
   }
 
-  if (!AddRelative(export_dir,
-                   &export_dir->AddressOfNames)) {
+  if (!AddRelative(export_dir, &export_dir->AddressOfNames)) {
     LOG(ERROR) << "Unable to add export address of names reference.";
     return NULL;
   }
 
-  if (!AddRelative(export_dir,
-                   &export_dir->AddressOfNameOrdinals)) {
+  if (!AddRelative(export_dir, &export_dir->AddressOfNameOrdinals)) {
     LOG(ERROR) << "Unable to add export address of ordinals reference.";
     return NULL;
   }
@@ -853,8 +849,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->Name)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->Name)) {
       LOG(ERROR) << "Unable to add import name reference.";
       return NULL;
     }
@@ -886,8 +881,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->FirstThunk)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->FirstThunk)) {
       LOG(ERROR) << "Unable to add import address table reference.";
       return NULL;
     }
@@ -949,8 +943,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaDLLName)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->rvaDLLName)) {
       LOG(ERROR) << "Unable to add delay import name reference.";
       return NULL;
     }
@@ -965,8 +958,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaHmod)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->rvaHmod)) {
       LOG(ERROR) << "Unable to delay import module handle reference.";
       return NULL;
     }
@@ -984,8 +976,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaINT)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->rvaINT)) {
       LOG(ERROR) << "Unable to add delay import name table reference.";
       return NULL;
     }
@@ -998,8 +989,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaIAT)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->rvaIAT)) {
       LOG(ERROR) << "Unable to add delay import address table reference.";
       return NULL;
     }
@@ -1013,8 +1003,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
       return NULL;
     }
 
-    if (!AddRelative(import_descriptor,
-                     &import_descriptor->rvaBoundIAT)) {
+    if (!AddRelative(import_descriptor, &import_descriptor->rvaBoundIAT)) {
       LOG(ERROR) << "Unable to add delay bound import address table reference.";
       return NULL;
     }
@@ -1122,8 +1111,7 @@ BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
     return NULL;
   }
 
-  if (!AddAbsolute(
-          load_config, &load_config->LockPrefixTable) ||
+  if (!AddAbsolute(load_config, &load_config->LockPrefixTable) ||
       !AddAbsolute(load_config, &load_config->EditList) ||
       !AddAbsolute(load_config, &load_config->SecurityCookie) ||
       !AddAbsolute(load_config, &load_config->SEHandlerTable)) {
@@ -1169,10 +1157,8 @@ BlockGraph::Block* PEFileParser::ParseDebugDir(
   }
 
   do {
-    if (!AddRelative(debug_directory,
-                     &debug_directory->AddressOfRawData) ||
-        !AddFileOffset(debug_directory,
-                       &debug_directory->PointerToRawData)) {
+    if (!AddRelative(debug_directory, &debug_directory->AddressOfRawData) ||
+        !AddFileOffset(debug_directory, &debug_directory->PointerToRawData)) {
       LOG(ERROR) << "Failed to add debug directory references.";
       return NULL;
     }
@@ -1243,8 +1229,7 @@ bool PEFileParser::ParseResourceDirImpl(BlockGraph::Block* resource_block,
         return false;
       }
       // The offsets in the data entries are RVAs.
-      if (!AddRelative(data_entry,
-                       &data_entry->OffsetToData)) {
+      if (!AddRelative(data_entry, &data_entry->OffsetToData)) {
         LOG(ERROR) << "Failed to add resouce data reference.";
         return false;
       }
