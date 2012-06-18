@@ -96,7 +96,7 @@ class DbiStream {
   typedef std::map<size_t, std::string> DbiFileInfoNameMap;
   typedef std::pair<DbiFileInfoVector, DbiFileInfoNameMap> DbiFileInfo;
   typedef std::map<uint16, DbiSectionMapItem> DbiSectionMap;
-  typedef std::map<size_t, std::string> DbiEcInfoMap;
+  typedef std::vector<std::string> DbiEcInfoVector;
 
   // Default constructor.
   DbiStream() {
@@ -109,7 +109,7 @@ class DbiStream {
         section_contribs_(other.section_contribs_),
         section_map_(other.section_map_),
         file_info_(other.file_info_),
-        ec_info_map_(other.ec_info_map_),
+        ec_info_vector_(other.ec_info_vector_),
         dbg_header_(other.dbg_header_) {
   }
 
@@ -188,6 +188,14 @@ class DbiStream {
                             size_t name_table_start,
                             size_t name_table_end);
 
+  // Serialization of the EC info substream. For now we don't know for what the
+  // EC acronym stand for. This substream is composed of a list of source file
+  // and PDB names.
+  //
+  // @param stream The stream containing the EC info substream.
+  // @returns true on success, false otherwise.
+  bool ReadDbiECInfo(pdb::PdbStream* stream);
+
   // Header of the stream.
   DbiHeader header_;
 
@@ -203,9 +211,8 @@ class DbiStream {
   // File info that we contain.
   DbiFileInfo file_info_;
 
-  // Map of the EC info that we contain.
-  // TODO(sebmarchand): Read this substream.
-  DbiEcInfoMap ec_info_map_;
+  // Vector of the EC info that we contain.
+  DbiEcInfoVector ec_info_vector_;
 
   // Debug header.
   DbiDbgHeader dbg_header_;
