@@ -22,7 +22,9 @@
 
 #include "base/string_util.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
+#include "syzygy/instrument/transforms/thunk_import_references_transform.h"
 #include "syzygy/pe/decomposer.h"
+
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -43,26 +45,28 @@ static const char kUsageFormatStr[] =
     "    --augment-pdb       Indicates that the relinker should augment the\n"
     "                        output PDB with additional metadata\n"
     "    --call-trace-client=RPC|PROFILER|<other.dll>\n"
-    "                        The call-trace client DLL to reference in the\n"
-    "                        instrumented binary. The default value is RPC,\n"
-    "                        which maps to the RPC based call-trace client.\n"
-    "                        The value PROFILER maps to the profiler client.\n"
-    "                        You may also specify the name of any DLL which\n"
-    "                        which implements the call trace client\n"
-    "                        interface.\n"
-    "    --debug-friendly    Generate more debugger friendly output by making\n"
-    "                        the thunks resolve to the original function's\n"
-    "                        name. This is at the cost of the uniqueness of\n"
-    "                        address->name resolution.\n"
-    "    --input-pdb=<path>  The PDB for the DLL to instrument. If not\n"
-    "                        explicitly provided will be searched for.\n"
+    "                         The call-trace client DLL to reference in the\n"
+    "                         instrumented binary. The default value is ETW,\n"
+    "                         which maps to the ETW based call-trace client.\n"
+    "                         The value RPC maps to the RPC based call-trace\n"
+    "                         client. The value PROFILER maps to the profiler\n"
+    "                         client. You may also specify the name of any\n"
+    "                         DLL which implements the call trace client\n"
+    "                         interface.\n"
+    "    --debug-friendly     Generate more debugger friendly output by\n"
+    "                         making the thunks resolve to the original\n"
+    "                         function's name. This is at the cost of the\n"
+    "                         uniqueness of address->name resolution.\n"
+    "    --input-pdb=<path>   The PDB for the DLL to instrument. If not\n"
+    "                         explicitly provided will be searched for.\n"
+    "    --instrument-imports Also instrument calls to imports.\n"
     "    --no-unsafe-refs    Perform no instrumentation of references between\n"
     "                        code blocks that contain anything but C/C++.\n"
     "                        Implicit when --call-trace-client=PROFILER is\n"
     "                        specified.\n"
-    "    --output-pdb=<path> The PDB for the instrumented DLL. If not\n"
-    "                        provided will attempt to generate one.\n"
-    "    --overwrite         Allow output files to be overwritten.\n"
+    "    --output-pdb=<path>  The PDB for the instrumented DLL. If not\n"
+    "                         provided will attempt to generate one.\n"
+    "    --overwrite          Allow output files to be overwritten.\n"
     "    --strip-strings     Indicates that the relinker should strip the\n"
     "                        strings when generating the PDB. It has no\n"
     "                        effect if the option augment-pdb is not set.\n"
@@ -96,6 +100,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
   strip_strings_ = cmd_line->HasSwitch("strip-strings");
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
+  thunk_imports_ = cmd_line->HasSwitch("instrument-imports");
   instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
 
   if (input_dll_path_.empty() || output_dll_path_.empty())
@@ -134,6 +139,13 @@ int InstrumentApp::Run() {
       instrument_unsafe_references_);
   entry_thunk_tx.set_src_ranges_for_thunks(debug_friendly_);
   relinker.AppendTransform(&entry_thunk_tx);
+
+  // Set up the IAT thunking transform and add it to the relinker.
+  instrument::transforms::ThunkImportReferencesTransform import_thunk_tx;
+  import_thunk_tx.ExcludeModule(client_dll_);
+  if (thunk_imports_) {
+    relinker.AppendTransform(&import_thunk_tx);
+  }
 
   // We let the PERelinker use the implicit OriginalOrderer.
   if (!relinker.Relink()) {

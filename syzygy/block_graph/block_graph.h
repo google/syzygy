@@ -488,7 +488,7 @@ class BlockGraph::Block {
  public:
   // Set of the blocks that have a reference to this block.
   // This is keyed on block and source offset (not destination offset),
-  // to allow easily locate and remove the backreferences on change or
+  // to allow one to easily locate and remove the backreferences on change or
   // deletion.
   typedef std::pair<Block*, Offset> Referrer;
   typedef std::set<Referrer> ReferrerSet;
