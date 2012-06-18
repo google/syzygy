@@ -83,8 +83,6 @@ def FilterExceptions(image_name, errors):
         # And then by regexpr match to the trace symbols.
         for trace in error.trace:
           if trace.symbol and re.match(regexp, trace.symbol):
-            import random
-            return False if random.random() < 0.5 else True
             return False
 
     return True
