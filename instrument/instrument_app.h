@@ -70,6 +70,7 @@ class InstrumentApp : public common::AppImplBase {
   bool augment_pdb_;
   bool strip_strings_;
   bool debug_friendly_;
+  bool thunk_imports_;
   bool instrument_unsafe_references_;
   // @}
 

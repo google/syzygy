@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,8 +39,8 @@
 #ifndef SYZYGY_PE_TRANSFORMS_ADD_IMPORTS_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_ADD_IMPORTS_TRANSFORM_H_
 
-#include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {
 namespace transforms {
@@ -79,6 +79,16 @@ class AddImportsTransform : public NamedTransformImpl<AddImportsTransform> {
   // @returns the number of imported symbols that were added to the image.
   size_t symbols_added() const { return symbols_added_; }
 
+  // @returns a pointer to the Block containing the Image Import Descriptor.
+  BlockGraph::Block* image_import_descriptor_block() {
+    return image_import_descriptor_block_;
+  }
+
+  // @returns a pointer to the Block containing the Import Address Table.
+  BlockGraph::Block* import_address_table_block() {
+    return import_address_table_block_;
+  }
+
   // The name of this transform.
   static const char kTransformName[];
 
@@ -90,6 +100,10 @@ class AddImportsTransform : public NamedTransformImpl<AddImportsTransform> {
   // Statistics regarding the completed transform.
   size_t modules_added_;
   size_t symbols_added_;
+
+  // We cache the blocks containing the IDT and IAT.
+  BlockGraph::Block* image_import_descriptor_block_;
+  BlockGraph::Block* import_address_table_block_;
 };
 
 // Describes a list of symbols to be imported from a module.

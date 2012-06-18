@@ -30,6 +30,8 @@
         'instrument_app.h',
         'transforms/entry_thunk_transform.cc',
         'transforms/entry_thunk_transform.h',
+        'transforms/thunk_import_references_transform.cc',
+        'transforms/thunk_import_references_transform.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -66,6 +68,7 @@
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
         'transforms/entry_thunk_transform_unittest.cc',
+        'transforms/thunk_import_references_transform_unittest.cc',
       ],
       'dependencies': [
         'instrument_lib',
@@ -73,6 +76,7 @@
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
         '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',

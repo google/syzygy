@@ -535,8 +535,12 @@ bool AddImportsTransform::Apply(BlockGraph* block_graph,
 
   // We expect the image import descriptor to have been parsed as its own block,
   // so the reference needs to be to offset 0.
-  CHECK_EQ(0, image_import_descriptor.offset());
-  BlockGraph::Block* iida_block = image_import_descriptor.block();
+  if (image_import_descriptor.offset() != 0) {
+    LOG(ERROR) << "Unexpected offset on Image Import Descriptor.";
+    return false;
+  }
+
+  image_import_descriptor_block_ = image_import_descriptor.block();
 
   // Similarly, get the block containing the IAT.
   if (!EnsureDataDirectoryExists(IMAGE_DIRECTORY_ENTRY_IAT,
@@ -556,6 +560,14 @@ bool AddImportsTransform::Apply(BlockGraph* block_graph,
     return false;
   }
 
+  // We expect the import address table to have been parsed as its own block,
+  // so the reference needs to be to offset 0.
+  if (iat.offset() != 0) {
+    LOG(ERROR) << "Unexpected offset on Image Address Table";
+    return false;
+  }
+  import_address_table_block_ = iat.block();
+
   // Handle each library individually.
   for (size_t i = 0; i < imported_modules_.size(); ++i) {
     ImportedModule* module = imported_modules_[i];
@@ -568,8 +580,8 @@ bool AddImportsTransform::Apply(BlockGraph* block_graph,
     bool module_added = false;
     if (!FindOrAddImageImportDescriptor(module->name().c_str(),
                                         block_graph,
-                                        iida_block,
-                                        iat.block(),
+                                        image_import_descriptor_block_,
+                                        import_address_table_block_,
                                         &iid,
                                         &module_added)) {
       LOG(ERROR) << "Failed to find or import module.";
@@ -591,7 +603,7 @@ bool AddImportsTransform::Apply(BlockGraph* block_graph,
       if (!FindOrAddImportedSymbol(symbol.name.c_str(),
                                    iid,
                                    block_graph,
-                                   iat.block(),
+                                   import_address_table_block_,
                                    &symbol_index,
                                    &symbol_added)) {
         LOG(ERROR) << "Failed to find or import symbol.";
@@ -603,8 +615,8 @@ bool AddImportsTransform::Apply(BlockGraph* block_graph,
   }
 
   // Update the data directory sizes.
-  import_directory->Size = image_import_descriptor.block()->size();
-  iat_directory->Size = iat.block()->size();
+  import_directory->Size = image_import_descriptor_block_->size();
+  iat_directory->Size = import_address_table_block_->size();
 
   return true;
 }
