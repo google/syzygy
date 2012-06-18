@@ -419,29 +419,21 @@ Successor::Successor(Successor::Condition type,
   DCHECK(branch_target_.IsValid());
 }
 
-Successor::Condition Successor::InvertCondition(
-    Successor::Condition condition) {
-  static const Condition kConditionInversionTable[] = {
-      // Note that these must match the order specified in the Condition
-      // enumeration (see basic_block.h).
-      /* kInvalidBranchType */  kInvalidCondition,
+Successor::Condition Successor::InvertCondition(Condition cond) {
+  DCHECK_LT(kInvalidCondition, cond);
+  DCHECK_LE(kMinConditionalBranch, cond);
+  DCHECK_GT(kMaxCondition, cond);
+
+  // The conditional branches correspond exactly to those from core::Assembler.
+  if (cond <= kMaxConditionalBranch) {
+    return static_cast<Condition>(
+        core::NegateConditionCode(static_cast<core::ConditionCode>(cond)));
+  }
+
+  // The extra ones we have to map ourselves.
+  static const size_t kTableSize = kMaxCondition - kMaxConditionalBranch;
+  static const Condition kConditionInversionTable[kTableSize] = {
       /* kConditionTrue */  kInvalidCondition,
-      /* kConditionAbove */  kConditionBelowOrEqual,
-      /* kConditionAboveOrEqual */ kConditionBelow,
-      /* kConditionBelow */  kConditionAboveOrEqual,
-      /* kConditionBelowOrEqual */  kConditionAbove,
-      /* kConditionEqual */  kConditionNotEqual,
-      /* kConditionGreater */  kConditionLessOrEqual,
-      /* kConditionGreaterOrEqual */  kConditionLess,
-      /* kConditionLess */  kConditionGreaterOrEqual,
-      /* kConditionLessOrEqual */  kConditionGreater,
-      /* kConditionNotEqual */  kConditionEqual,
-      /* kConditionNotOverflow */  kConditionOverflow,
-      /* kConditionNotParity */  kConditionParity,
-      /* kConditionNotSigned */  kConditionSigned,
-      /* kConditionOverflow */  kConditionNotOverflow,
-      /* kConditionParity */  kConditionNotParity,
-      /* kConditionSigned */  kConditionNotSigned,
       /* kCounterIsZero */  kInverseCounterIsZero,
       /* kLoopTrue */  kInverseLoopTrue,
       /* kLoopIfEqual */  kInverseLoopIfEqual,
@@ -452,13 +444,7 @@ Successor::Condition Successor::InvertCondition(
       /* kInverseLoopIfNotEqual */ kLoopIfNotEqual,
   };
 
-  COMPILE_ASSERT(arraysize(kConditionInversionTable) == kMaxCondition,
-                 unexpected_number_of_inversion_table_entries);
-
-  if (condition < 0 || condition >= kMaxCondition)
-    return kInvalidCondition;
-
-  return kConditionInversionTable[condition];
+  return kConditionInversionTable[cond - kMaxConditionalBranch - 1];
 }
 
 const BasicBlock::Offset BasicBlock::kEphemeralSourceOffset = -1;

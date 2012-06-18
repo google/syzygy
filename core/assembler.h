@@ -70,7 +70,11 @@ enum ConditionCode {
   kZero = kEqual,
   kNotZero = kNotEqual,
   kSign = kNegative,
-  kNotSign = kPositive
+  kNotSign = kPositive,
+
+  // Extents.
+  kMinConditionCode = 0,
+  kMaxConditionCode = 15
 };
 
 inline ConditionCode NegateConditionCode(ConditionCode cc) {
