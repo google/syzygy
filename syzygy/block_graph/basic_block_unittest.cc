@@ -425,9 +425,9 @@ TEST(Successor, OpCodeToCondition) {
   // inverses kInverseCounterIsZero, kInverseLoop, kInverseLoopIfEqual, and
   // kInverseLoopIfNotEqual); two instructions map to kCounterIsZero; and we
   // test kInvalidCondition with MOV. So the total number of instructions we
-  // expect is three less than the total number of branch types.
+  // expect is two less than the total number of branch types.
   COMPILE_ASSERT(
-      arraysize(kOpCodeToConditionTable) == Successor::kMaxCondition - 3,
+      arraysize(kOpCodeToConditionTable) == Successor::kMaxCondition - 2,
       unexpected_number_of_map_entries);
 
   for (size_t i = 0; i < arraysize(kOpCodeToConditionTable); ++i) {
@@ -442,7 +442,6 @@ TEST(Successor, InvertCondition) {
     Successor::Condition inverse;
   };
   static const TableEntry kConditionInversionTable[] = {
-      { Successor::kInvalidCondition, Successor::kInvalidCondition },
       { Successor::kConditionTrue, Successor::kInvalidCondition },
       { Successor::kConditionAbove, Successor::kConditionBelowOrEqual },
       { Successor::kConditionAboveOrEqual, Successor::kConditionBelow },

@@ -22,6 +22,7 @@
 
 #include "base/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/core/assembler.h"
 
 #include "distorm.h"  // NOLINT
 
@@ -301,42 +302,48 @@ class Successor {
   // The set of logical branching flow a successor may embody.
   enum Condition {
     // Sentinel value denoting an invalid branch condition.
-    kInvalidCondition,
-
-    // Unconditional control flow instructions.
-    // @{
-    kConditionTrue,  // Equivalent to JMP.
-    // @}
+    kInvalidCondition = -1,
 
     // These correspond to the conditional branch instructions.
     // @{
-    kConditionAbove,  // Equivalent to JA and JNBE.
-    kConditionAboveOrEqual,  // Equivalent to JAE, JNB and JNC.
-    kConditionBelow,  // Equivalent to JB, JNAE and JC.
-    kConditionBelowOrEqual,  // Equivalent to JBE and JNA.
-    kConditionEqual,  // Equivalent to JE and JZ.
-    kConditionGreater,  // Equivalent to JG and JNLE.
-    kConditionGreaterOrEqual,  // Equivalent to JGE and JNL.
-    kConditionLess,  // Equivalent to JL and JNGE.
-    kConditionLessOrEqual,  // Equivalent to JLE and JNG.
-    kConditionNotEqual,  // Equivalent to JNZ, JNE.
-    kConditionNotOverflow,  // Equivalent to JNO
-    kConditionNotParity,  // Equivalent to JNP and JPO.
-    kConditionNotSigned,  // Equivalent to JNS.
-    kConditionOverflow,  // Equivalent to JO.
-    kConditionParity,  // Equivalent to JP, JPE.
-    kConditionSigned,  // Equivalent to JS.
+    kConditionAbove = core::kAbove,  // JA and JNBE.
+    kConditionAboveOrEqual = core::kAboveEqual,  // JAE, JNB and JNC.
+    kConditionBelow = core::kBelow,  // JB, JNAE and JC.
+    kConditionBelowOrEqual = core::kBelowEqual,  // JBE and JNA.
+    kConditionEqual = core::kEqual,  // JE and JZ.
+    kConditionGreater =  core::kGreater,  // JG and JNLE.
+    kConditionGreaterOrEqual = core::kGreaterEqual,  // JGE and JNL.
+    kConditionLess = core::kLess,  // JL and JNGE.
+    kConditionLessOrEqual = core::kLessEqual,  // JLE and JNG.
+    kConditionNotEqual = core::kNotEqual,  // JNZ, JNE.
+    kConditionNotOverflow = core::kNoOverflow,  // JNO.
+    kConditionNotParity = core::kParityOdd,  // JNP and JPO.
+    kConditionNotSigned = core::kNotSign,  // JNS.
+    kConditionOverflow = core::kOverflow,  // JO.
+    kConditionParity = core::kParityEven,  // JP and JPE.
+    kConditionSigned = core::kSign,  // JS.
+
+    // Definitions for the bounding values for the conditional branches.
+    // Note: that the maximum must be defined here to let all subsequent
+    //     enum values be properly incremented.
+    kMinConditionalBranch = core::kMinConditionCode,
+    kMaxConditionalBranch = core::kMaxConditionCode,
+
+    // Unconditional control flow instructions.
+    // @{
+    kConditionTrue,  // JMP.
+    // @}
 
     // The countdown conditional.
     // @{
-    kCounterIsZero,  // Equivalent to JCXZ and JECXZ.
+    kCounterIsZero,  // JCXZ and JECXZ.
     // @}
 
     // The looping branch family of conditionals.
     // @{
-    kLoopTrue,  // Equivalent to LOOP
-    kLoopIfEqual,  // Equivalent to LOOPE and LOOPZ.
-    kLoopIfNotEqual,  // Equivalent to LOOPNE and LOOPNZ.
+    kLoopTrue,  // LOOP
+    kLoopIfEqual,  // LOOPE and LOOPZ.
+    kLoopIfNotEqual,  // LOOPNE and LOOPNZ.
     // @}
 
     // The following are pseudo instructions used to denote the logical
@@ -349,7 +356,7 @@ class Successor {
     kInverseLoopIfNotEqual,
     // @}
 
-    // A sentinel for the largest successor condition value.
+    // Sentinels for the largest successor condition values.
     kMaxCondition,
   };
 
