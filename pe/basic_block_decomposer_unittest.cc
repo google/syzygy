@@ -149,7 +149,7 @@ TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
   static const size_t kNumCodeBlocks =
       kNumBasicBlocks - kNumDataBlocks - kNumPaddingBlocks;
 
-  const BlockGraph::Block* block = FindBlockByName(block_graph_, "DllMain@12");
+  const BlockGraph::Block* block = FindBlockByName(block_graph_, "DllMain");
   ASSERT_FALSE(block == NULL);
 
   const BlockGraph::Block::LabelMap& labels = block->labels();

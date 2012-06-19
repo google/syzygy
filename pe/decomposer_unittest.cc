@@ -261,14 +261,14 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     BlockGraph::BlockMap::const_iterator it =
         block_graph.blocks().begin();
     for (; it != block_graph.blocks().end(); ++it) {
-      if (it->second.name().find("DllMain@12") != std::string::npos) {
+      if (it->second.name() == "DllMain") {
         ASSERT_TRUE(dll_main_block == NULL);
         dll_main_block = &it->second;
-      } else if (it->second.name().find("FunctionWithInlineAssembly") !=
-          std::string::npos) {
+      } else if (it->second.name() == "FunctionWithInlineAssembly") {
         ASSERT_TRUE(func_with_inl_asm_block == NULL);
         func_with_inl_asm_block = &it->second;
-      } else if (it->second.name().find("strchr.obj") != std::string::npos) {
+      } else if (it->second.name() == "found_bx") {
+        // This corresponds to the section contribution "strchr.obj".
         ASSERT_TRUE(strchr_block == NULL);
         strchr_block = &it->second;
       }

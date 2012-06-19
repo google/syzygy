@@ -288,35 +288,6 @@ bool AreMatchedBlockAndLabelAttributes(
       (bt == BlockGraph::DATA_BLOCK && (la & BlockGraph::DATA_LABEL) != 0);
 }
 
-void SetBlockNameOrAddLabel(BlockGraph::Offset offset,
-                            const base::StringPiece& name_or_label,
-                            BlockGraph::LabelAttributes label_attributes,
-                            BlockGraph::Block* block) {
-  // This only make sense for positions strictly within the block.
-  DCHECK_LE(0, offset);
-  DCHECK(!name_or_label.empty());
-  DCHECK(BlockGraph::Label::AreValidAttributes(label_attributes));
-  DCHECK(block != NULL);
-  DCHECK_GT(block->size(), unsigned(offset));
-  DCHECK(block->type() == BlockGraph::CODE_BLOCK ||
-         block->type() == BlockGraph::DATA_BLOCK);
-
-  // If the offset is zero, change the block name. Otherwise, add a label.
-  BlockGraph::BlockType type = block->type();
-  if (offset == 0) {
-    if (!AreMatchedBlockAndLabelAttributes(block->type(), label_attributes))
-      VLOG(2) << "Mismatched block and label attributes [block='"
-              << block->name() << "'("
-              << BlockGraph::BlockTypeToString(block->type())
-              << base::StringPrintf(" @ 0x%08X); ", block->addr().value())
-              << "label='" << name_or_label << "', attr="
-              << BlockGraph::LabelAttributesToString(label_attributes) << "].";
-    block->set_name(name_or_label);
-  } else {
-    block->SetLabel(offset, name_or_label, label_attributes);
-  }
-}
-
 BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
   switch (sym_tag) {
     case SymTagData:
@@ -340,14 +311,11 @@ BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
   return 0;
 }
 
-bool AddLabelToCodeBlock(RelativeAddress addr,
-                         const base::StringPiece& name,
-                         BlockGraph::LabelAttributes label_attributes,
-                         BlockGraph::Block* block) {
-  // This only makes sense for code blocks that contain the given label
-  // address.
+bool AddLabelToBlock(RelativeAddress addr,
+                     const base::StringPiece& name,
+                     BlockGraph::LabelAttributes label_attributes,
+                     BlockGraph::Block* block) {
   DCHECK(block != NULL);
-  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
   DCHECK_LE(block->addr(), addr);
   DCHECK_GT(block->addr() + block->size(), addr);
 
@@ -371,8 +339,17 @@ bool AddLabelToCodeBlock(RelativeAddress addr,
   }
 
   // Try to create the label.
-  if (block->SetLabel(offset, name, label_attributes))
+  if (block->SetLabel(offset, name, label_attributes)) {
+    // If there was no label at offset 0, then this block has not yet been
+    // renamed, and still has its section contribution as a name. Update it to
+    // the first symbol we get for it. We parse symbols from most useful
+    // (undecorated function names) to least useful (mangled public symbols), so
+    // this ensures a block has the most useful name.
+    if (offset == 0)
+      block->set_name(name);
+
     return true;
+  }
 
   // If we get here there's an already existing label. Update it.
   BlockGraph::Label label;
@@ -397,10 +374,12 @@ bool AddLabelToCodeBlock(RelativeAddress addr,
     }
   }
 
-  // Merge the names.
+  // Merge the names if this isn't a repeated name.
   std::string new_name = label.name();
-  new_name.append(", ");
-  name.AppendToString(&new_name);
+  if (new_name.find(name.data()) == new_name.npos) {
+    new_name.append(", ");
+    name.AppendToString(&new_name);
+  }
 
   // Merge the attributes.
   BlockGraph::LabelAttributes new_label_attr = label.attributes() |
@@ -873,24 +852,28 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
   if (success)
     success = CreateBlocksFromSectionContribs(dia_session);
 
-  // Chunk out blocks for each function and thunk in the image.
+  // Process the function and thunk symbols in the image. This does not create
+  // any blocks, as all functions are covered by section contributions.
   if (success)
-    success = CreateCodeBlocks(global);
+    success = ProcessCodeSymbols(global);
 
-  // Chunk out data blocks.
+  // Process data symbols. This can cause the creation of some blocks as the
+  // data sections are not fully covered by section contributions.
   if (success)
-    success = CreateDataBlocks(global);
+    success = ProcessDataSymbols(global);
 
-  // Create labels in code blocks. These are created first so that the
-  // labels will have meaningful names.
+  // Create labels in code blocks.
   if (success)
     success = CreateGlobalLabels(global);
 
-  // Now we use fixup information to create further code labels.
+  // Create gap blocks. This ensures that we have complete coverage of the
+  // entire image.
   if (success)
-    success = CreateCodeLabelsFromFixups();
+    success = CreateGapBlocks();
 
   // Parse public symbols, augmenting code and data labels where possible.
+  // Some public symbols land on gap blocks, so they need to have been parsed
+  // already.
   if (success)
     success = ProcessPublicSymbols(global);
 
@@ -985,31 +968,16 @@ bool Decomposer::Decompose(ImageLayout* image_layout) {
   return CopyHeaderToImageLayout(header.nt_headers, image_layout);
 }
 
-bool Decomposer::CreateCodeBlocks(IDiaSymbol* global) {
-  HANDLE process = reinterpret_cast<HANDLE>(this);
-
-  if (!CreateFunctionBlocks(global))
+bool Decomposer::ProcessCodeSymbols(IDiaSymbol* global) {
+  if (!ProcessFunctionSymbols(global))
     return false;
-  if (!CreateThunkBlocks(global))
+  if (!ProcessThunkSymbols(global))
     return false;
-
-  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
-  for (size_t i = 0; i < num_sections; ++i)  {
-    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
-    // Skip non-code sections.
-    if ((header->Characteristics & IMAGE_SCN_CNT_CODE) != 0) {
-      if (!CreateSectionGapBlocks(header, BlockGraph::CODE_BLOCK)) {
-        LOG(ERROR) << "Failed to create gap blocks for code section \""
-                   << pe::PEFile::GetSectionName(*header) << "\".";
-        return false;
-      }
-    }
-  }
 
   return true;
 }
 
-bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
+bool Decomposer::ProcessFunctionSymbols(IDiaSymbol* global) {
   DCHECK(IsSymTag(global, SymTagExe));
 
   // Otherwise enumerate its offspring.
@@ -1043,14 +1011,14 @@ bool Decomposer::CreateFunctionBlocks(IDiaSymbol* global) {
 
     // Create the block representing the function.
     DCHECK(IsSymTag(function, SymTagFunction));
-    if (!CreateFunctionBlock(function))
+    if (!ProcessFunctionOrThunkSymbol(function))
       return false;
   }
 
   return true;
 }
 
-bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
+bool Decomposer::ProcessFunctionOrThunkSymbol(IDiaSymbol* function) {
   DCHECK(IsSymTag(function, SymTagFunction) || IsSymTag(function, SymTagThunk));
 
   DWORD location_type = LocIsNull;
@@ -1100,26 +1068,24 @@ bool Decomposer::CreateFunctionBlock(IDiaSymbol* function) {
     return false;
   }
 
+  // Find the block to which this symbol maps, and ensure it fully covers the
+  // symbol.
   RelativeAddress block_addr(rva);
-  BlockGraph::Block* block =
-      FindOrCreateBlock(BlockGraph::CODE_BLOCK,
-                        block_addr,
-                        static_cast<BlockGraph::Size>(length),
-                        block_name.c_str(),
-                        kAllowCoveringBlock);
-  if (block == NULL)
+  BlockGraph::Block* block = image_->GetBlockByAddress(block_addr);
+  if (block == NULL) {
+    LOG(ERROR) << "No block found for function/thunk symbol \""
+               << block_name << "\".";
     return false;
-  DCHECK(block->data() != NULL);
+  }
+  if (block->addr() + block->size() < block_addr + length) {
+    LOG(ERROR) << "Section contribution \"" << block->name() << "\" does not "
+               << "fully cover function/thunk symbol \"" << block_name << "\".";
+    return false;
+  }
 
-  // We override the name as it may have been created by section contributions
-  // before hand. Offset may be non-zero, because FindOrCreateBlock may return a
-  // block that is a superset of our range.
-  size_t offset = block_addr - block->addr();
-  if (offset == 0)
-    block->set_name(block_name);
-
-  // Annotate the block with a label, as this is an entry point to it.
-  block->SetLabel(offset, block_name, BlockGraph::CODE_LABEL);
+  // Annotate the block with a label, as this is an entry point to it. This is
+  // the routine that adds labels, so there should never be any collisions.
+  CHECK(AddLabelToBlock(block_addr, block_name, BlockGraph::CODE_LABEL, block));
 
   // Set the block attributes.
   if (no_return == TRUE)
@@ -1282,7 +1248,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     // Add the label to the block.
-    if (!AddLabelToCodeBlock(label_rva, label_name, label_attr, block)) {
+    if (!AddLabelToBlock(label_rva, label_name, label_attr, block)) {
       LOG(ERROR) << "Failed to add label to code block.";
       return false;
     }
@@ -1299,7 +1265,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
       label_rva += length;
       label_name = "<scope-end>";
       label_attr = BlockGraph::SCOPE_END_LABEL;
-      if (!AddLabelToCodeBlock(label_rva, label_name, label_attr, block)) {
+      if (!AddLabelToBlock(label_rva, label_name, label_attr, block)) {
         LOG(ERROR) << "Failed to add label to code block.";
         return false;
       }
@@ -1309,7 +1275,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
   return true;
 }
 
-bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
+bool Decomposer::ProcessThunkSymbols(IDiaSymbol* globals) {
   ScopedComPtr<IDiaEnumSymbols> enum_compilands;
   HRESULT hr = globals->findChildren(SymTagCompiland,
                                      NULL,
@@ -1358,7 +1324,7 @@ bool Decomposer::CreateThunkBlocks(IDiaSymbol* globals) {
 
       DCHECK(IsSymTag(thunk, SymTagThunk));
 
-      if (!CreateFunctionBlock(thunk))
+      if (!ProcessFunctionOrThunkSymbol(thunk))
         return false;
     }
   }
@@ -1435,10 +1401,10 @@ bool Decomposer::CreateGlobalLabels(IDiaSymbol* globals) {
         return false;
       }
 
-      if (!AddLabelToCodeBlock(label_addr,
-                               label_name,
-                               BlockGraph::CODE_LABEL,
-                               block)) {
+      if (!AddLabelToBlock(label_addr,
+                           label_name,
+                           BlockGraph::CODE_LABEL,
+                           block)) {
         LOG(ERROR) << "Failed to add label to code block.";
         return false;
       }
@@ -1516,6 +1482,41 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
       if (!CreateGapBlock(
           block_type, block_end, next->first.start() - block_end))
         return false;
+  }
+
+  return true;
+}
+
+bool Decomposer::CreateGapBlocks() {
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+
+  // Iterate through all the image sections.
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
+    DCHECK(header != NULL);
+
+    BlockGraph::BlockType type = BlockGraph::CODE_BLOCK;
+    const char* section_type = NULL;
+    switch (GetSectionType(header)) {
+      case kSectionCode:
+        type = BlockGraph::CODE_BLOCK;
+        section_type = "code";
+        break;
+
+      case kSectionData:
+        type = BlockGraph::DATA_BLOCK;
+        section_type = "data";
+        break;
+
+      default:
+        continue;
+    }
+
+    if (!CreateSectionGapBlocks(header, type)) {
+      LOG(ERROR) << "Unable to create gap blocks for " << section_type
+                 << " section \"" << header->Name << "\".";
+      return false;
+    }
   }
 
   return true;
@@ -1773,51 +1774,32 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
     return;
   }
 
-  // If there is an existing block, and we are completely contained within it,
-  // then simply add ourselves as a label.
-  BlockGraph::Block* block =
-      image_->GetFirstIntersectingBlock(addr, length == 0 ? 1 : length);
-  if (block != NULL) {
-    if (block->type() == BlockGraph::CODE_BLOCK) {
-      // The NativeClient bits of chrome.dll consists of hand-written assembly
-      // that is compiled using a custom non-Microsoft toolchain. Unfortunately
-      // for us this toolchain emits 1-byte data symbols instead of code labels.
-      static const char kNaClPrefix[] = "NaCl";
-      if (length == 1 &&
-          name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
-        if (!AddLabelToCodeBlock(addr, name, BlockGraph::CODE_LABEL, block)) {
-          LOG(ERROR) << "Failed to add label to code block.";
-          *directive = DiaBrowser::kBrowserAbort;
-        }
-        return;
-      }
-    }
+  BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
+                                               addr, length, name.c_str(),
+                                               kAllowCoveringBlock);
 
-    // Check for symbol conflicts.
-    if (addr < block->addr() || addr + length > block->addr() + block->size()) {
-      LOG(ERROR) << "Data symbol " << name
-                 << " in conflict with existing block " << block->name() << ".";
-      *directive = DiaBrowser::kBrowserAbort;
+  if (block->type() == BlockGraph::CODE_BLOCK) {
+    // The NativeClient bits of chrome.dll consists of hand-written assembly
+    // that is compiled using a custom non-Microsoft toolchain. Unfortunately
+    // for us this toolchain emits 1-byte data symbols instead of code labels.
+    static const char kNaClPrefix[] = "NaCl";
+    if (length == 1 &&
+        name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
+      if (!AddLabelToBlock(addr, name, BlockGraph::CODE_LABEL, block)) {
+        LOG(ERROR) << "Failed to add label to code block.";
+        *directive = DiaBrowser::kBrowserAbort;
+      }
       return;
     }
-
-    BlockGraph::Offset offset = addr - block->addr();
-    SetBlockNameOrAddLabel(
-        offset, name, BlockGraph::DATA_LABEL, block);
-
-    return;
   }
 
-  // If we get here, there is no conflicting block and we can create a new one.
-  block = CreateBlock(BlockGraph::DATA_BLOCK,
-                      addr,
-                      length,
-                      name.c_str());
-  if (block == NULL) {
-    LOG(ERROR) << "Unable to create data block.";
+  if (!AddLabelToBlock(addr, name, BlockGraph::DATA_LABEL, block)) {
+    LOG(ERROR) << "Failed to add data label to block.";
     *directive = DiaBrowser::kBrowserAbort;
     return;
   }
+
+  return;
 }
 
 void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
@@ -1843,31 +1825,17 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
     return;
   }
 
-  BOOL is_in_code = FALSE;
-  if (S_OK != symbol->get_code(&is_in_code)) {
-    LOG(ERROR) << "Failed to determine if public symbol is in code.";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
-  }
-
-  BOOL is_function = FALSE;
-  if (S_OK != symbol->get_function(&is_function)) {
-    LOG(ERROR) << "Failed to determine if public symbol is a function.";
+  std::string name;
+  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+    LOG(ERROR) << "Failed to convert symbol name to UTF8.";
     *directive = DiaBrowser::kBrowserAbort;
     return;
   }
 
   RelativeAddress addr(rva);
-  BlockGraph::Block* block = image_->GetContainingBlock(addr, 1);
-  // PublicSymbols are parsed after the sections have been filled out with
-  // gap blocks, so they should always land in a code or data block.
-  DCHECK(block != NULL);
-  DCHECK(block->type() == BlockGraph::CODE_BLOCK ||
-         block->type() == BlockGraph::DATA_BLOCK);
-
-  std::string name;
-  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
-    LOG(ERROR) << "Failed to convert symbol name to UTF8.";
+  BlockGraph::Block* block = image_->GetBlockByAddress(addr);
+  if (block == NULL) {
+    LOG(ERROR) << "No block found for public symbol \"" << name << "\".";
     *directive = DiaBrowser::kBrowserAbort;
     return;
   }
@@ -1879,12 +1847,11 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
 
   // Set the block name or add a label. For code blocks these are entry points,
   // while for data blocks these are simply to aid debugging.
-  BlockGraph::Offset offset = addr - block->addr();
   BlockGraph::LabelAttributes label_attributes =
-      is_in_code && is_function ? BlockGraph::CODE_LABEL :
-                                  BlockGraph::DATA_LABEL;
-
-  SetBlockNameOrAddLabel(offset, name, label_attributes, block);
+      block->type() == BlockGraph::CODE_BLOCK ? BlockGraph::CODE_LABEL :
+                                                BlockGraph::DATA_LABEL;
+  if (!AddLabelToBlock(addr, name, label_attributes, block))
+    *directive = DiaBrowser::kBrowserAbort;
 }
 
 bool Decomposer::ProcessStaticInitializers() {
@@ -1989,26 +1956,6 @@ bool Decomposer::ProcessStaticInitializers() {
   return true;
 }
 
-bool Decomposer::CreateDataGapBlocks() {
-  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
-  // Iterate through all the image sections.
-  for (size_t i = 0; i < num_sections; ++i) {
-    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
-    DCHECK(header != NULL);
-
-    // And create a block for any gaps in data sections.
-    if (GetSectionType(header) != kSectionData)
-      continue;
-    if (!CreateSectionGapBlocks(header, BlockGraph::DATA_BLOCK)) {
-      LOG(ERROR) << "Unable to create gap blocks for data section "
-                 << header->Name;
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool Decomposer::ProcessDataSymbols(IDiaSymbol* root) {
   DiaBrowser::MatchCallback on_data_symbol(
       base::Bind(&Decomposer::OnDataSymbol, base::Unretained(this)));
@@ -2031,18 +1978,6 @@ bool Decomposer::ProcessPublicSymbols(IDiaSymbol* root) {
   dia_browser.AddPattern(SymTagPublicSymbol, on_public_symbol);
 
   return dia_browser.Browse(root);
-}
-
-bool Decomposer::CreateDataBlocks(IDiaSymbol* global) {
-  // Create data blocks using data symbols.
-  if (!ProcessDataSymbols(global))
-    return false;
-
-  // Flesh out the data sections with gap blocks.
-  if (!CreateDataGapBlocks())
-    return false;
-
-  return true;
 }
 
 bool Decomposer::GuessDataBlockAlignments() {
@@ -2069,54 +2004,6 @@ bool Decomposer::GuessDataBlockAlignments() {
       BlockGraph::Block* block = it->second;
       GuessDataBlockAlignment(block);
     }
-  }
-
-  return true;
-}
-
-bool Decomposer::CreateCodeLabelsFromFixups() {
-  // We iterate through all intermediate references, and create code labels
-  // for those references we know to be pointing directly to code.
-  IntermediateReferenceMap::const_iterator ref_it(references_.begin());
-  for (; ref_it != references_.end(); ++ref_it) {
-    RelativeAddress src = ref_it->first;
-    const IntermediateReference& ref = ref_it->second;
-    BlockGraph::Block* src_block = image_->GetContainingBlock(src, 1);
-    BlockGraph::Block* dst_block =
-        image_->GetContainingBlock(ref.base, 1);
-    DCHECK(src_block != NULL);
-    DCHECK(dst_block != NULL);
-
-    if (dst_block->type() != BlockGraph::CODE_BLOCK)
-      continue;
-
-    BlockGraph::Offset src_offset = ref_it->first - src_block->addr();
-    BlockGraph::Offset dst_offset = ref.base - dst_block->addr();
-
-    BlockGraph::Label label;
-    if (dst_block->GetLabel(dst_offset, &label) &&
-        label.has_attributes(BlockGraph::CODE_LABEL)) {
-      continue;
-    }
-
-    FixupMap::const_iterator it = fixup_map_.find(ref_it->first);
-    DCHECK(it != fixup_map_.end());
-
-    // Only add labels for PC_RELATIVE references or references that are
-    // directly labeled as pointing to code.
-    if (it->second.type != BlockGraph::PC_RELATIVE_REF)
-      continue;
-
-    // If it had no label here, we add one.
-    // TODO(chrisha): Remove this post-transition. These are unnecessary as the
-    //     information is already present in the reference.
-    std::string label_name(base::StringPrintf("From %s +0x%x",
-                                              src_block->name().c_str(),
-                                              src_offset));
-
-    BlockGraph::LabelAttributes label_attr = it->second.refers_to_code ?
-        BlockGraph::CODE_LABEL : BlockGraph::DATA_LABEL;
-    dst_block->SetLabel(dst_offset, label_name, label_attr);
   }
 
   return true;
@@ -2217,7 +2104,7 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
 BlockGraph::Block* Decomposer::CreateBlock(BlockGraph::BlockType type,
                                            RelativeAddress address,
                                            BlockGraph::Size size,
-                                           const char* name) {
+                                           const base::StringPiece& name) {
   BlockGraph::Block* block = image_->AddBlock(type, address, size, name);
   if (block == NULL) {
     LOG(ERROR) << "Unable to add block at " << address << " with size "
@@ -2250,7 +2137,7 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
     BlockGraph::BlockType type,
     RelativeAddress addr,
     BlockGraph::Size size,
-    const char* name,
+    const base::StringPiece& name,
     FindOrCreateBlockDirective directive) {
   BlockGraph::Block* block = image_->GetBlockByAddress(addr);
   if (block != NULL) {

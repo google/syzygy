@@ -111,18 +111,19 @@ class Decomposer {
   // and validates that the file exists and matches the module.
   bool FindAndValidatePdbPath();
 
-  // Create blocks for all code.
-  bool CreateCodeBlocks(IDiaSymbol* globals);
-  // Create blocks for all functions in @p globals.
-  bool CreateFunctionBlocks(IDiaSymbol* globals);
-  // Create a function block for @p function.
+  // Parse functions and thunks, using their data to annotate blocks.
+  bool ProcessCodeSymbols(IDiaSymbol* globals);
+  // Parses all function symbols.
+  bool ProcessFunctionSymbols(IDiaSymbol* globals);
+  // Create a function or thunk symbol.
   // @pre @p function is a function or a thunk.
-  bool CreateFunctionBlock(IDiaSymbol* function);
+  bool ProcessFunctionOrThunkSymbol(IDiaSymbol* function);
   // Create labels for @p function, which corresponds to @p block.
   bool CreateLabelsForFunction(IDiaSymbol* function, BlockGraph::Block* block);
   // Create blocks for all thunks in @p globals.
   // @note thunks are offspring of Compilands.
-  bool CreateThunkBlocks(IDiaSymbol* globals);
+  bool ProcessThunkSymbols(IDiaSymbol* globals);
+
   // Enumerates labels in @p globals and adds them to the corresponding (code)
   // blocks.
   bool CreateGlobalLabels(IDiaSymbol* globals);
@@ -136,14 +137,12 @@ class Decomposer {
   // section represented by @p header.
   bool CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
                               BlockGraph::BlockType block_type);
+  // Creates gap blocks.
+  bool CreateGapBlocks();
 
   // Processes the SectionContribution table, creating code/data blocks from it.
   bool CreateBlocksFromSectionContribs(IDiaSession* session);
 
-    // Creates data blocks.
-  bool CreateDataBlocks(IDiaSymbol* global);
-  // Creates data gap blocks.
-  bool CreateDataGapBlocks();
   // Guesses data block alignments and padding.
   bool GuessDataBlockAlignments();
   // Process static initializer data labels, ensuring they remain contiguous.
@@ -198,8 +197,6 @@ class Decomposer {
   bool CreateReferencesFromFixups();
   // Walk relocations and validate them against the fixups.
   bool ValidateRelocs(const PEFile::RelocMap& reloc_map);
-  // Creates an initial set of code labels from fixups.
-  bool CreateCodeLabelsFromFixups();
   // Disassemble all code blocks and create code->code references.
   bool CreateCodeReferences();
   // Disassemble @p block and invoke @p on_instruction for each instruction
@@ -216,7 +213,7 @@ class Decomposer {
   BlockGraph::Block* CreateBlock(BlockGraph::BlockType type,
                                  RelativeAddress address,
                                  BlockGraph::Size size,
-                                 const char* name);
+                                 const base::StringPiece& name);
 
   enum FindOrCreateBlockDirective {
     // Expect that no block exists in the given range and that a block will be
@@ -237,7 +234,7 @@ class Decomposer {
   BlockGraph::Block* FindOrCreateBlock(BlockGraph::BlockType type,
                                        RelativeAddress address,
                                        BlockGraph::Size size,
-                                       const char* name,
+                                       const base::StringPiece& name,
                                        FindOrCreateBlockDirective directive);
 
   // @name OnInstruction helper functions.
