@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
 
@@ -96,7 +97,7 @@ class DbiStream {
   typedef std::map<size_t, std::string> DbiFileInfoNameMap;
   typedef std::pair<DbiFileInfoVector, DbiFileInfoNameMap> DbiFileInfo;
   typedef std::map<uint16, DbiSectionMapItem> DbiSectionMap;
-  typedef std::vector<std::string> DbiEcInfoVector;
+  typedef StringVector DbiEcInfoVector;
 
   // Default constructor.
   DbiStream() {

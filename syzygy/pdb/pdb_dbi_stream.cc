@@ -100,10 +100,9 @@ bool DbiStream::ReadDbiSectionContribs(pdb::PdbStream* stream) {
 
   if (signature != kPdbDbiSectionContribsSignature) {
     LOG(ERROR) << "Unexpected signature for the section contribs substream. "
-               << "Expected " << StringPrintf("0x08X",
+               << "Expected " << StringPrintf("0x%08X",
                                               kPdbDbiSectionContribsSignature)
-               << ", read "
-               << StringPrintf("0x08X", signature) << ".";
+               << ", read " << StringPrintf("0x%08X", signature) << ".";
     return false;
   }
 
@@ -320,83 +319,12 @@ bool DbiStream::ReadDbiECInfo(pdb::PdbStream* stream) {
       + header_.file_info_size
       + header_.ts_map_size;
   size_t ec_info_end = ec_info_start + header_.ec_info_size;
-  uint32 ec_info_signature = 0;
-  uint32 ec_info_version = 0;
 
-  if (!stream->Seek(ec_info_start) ||
-      !stream->Read(&ec_info_signature, 1) ||
-      !stream->Read(&ec_info_version, 1)) {
-    LOG(ERROR) << "Unable to seek to EC info substream.";
-    return false;
-  }
-
-  if (ec_info_signature != kPdbDbiEcInfoSignature ||
-      ec_info_version != kPdbDbiEcInfoVersion) {
-    LOG(ERROR) << "Unexpected EC info header. Expected signature/version "
-               << StringPrintf("0x08X", kPdbDbiEcInfoSignature) << "/"
-               << kPdbDbiEcInfoVersion << ", read "
-               << StringPrintf("0x08X", ec_info_signature) << "/"
-               << ec_info_version << ".";
-    return false;
-  }
-
-  size_t ec_info_string_table_size = 0;
-  if (!stream->Read(&ec_info_string_table_size, 1)) {
-    LOG(ERROR) << "Unable to read the size of the EC info string table.";
-    return false;
-  }
-
-  size_t ec_info_string_table_start = stream->pos();
-  size_t ec_info_offset_table_start = stream->pos() + ec_info_string_table_size;
-
-  // Skip the string table and seek to the offset table.
-  if (!stream->Seek(ec_info_offset_table_start)) {
-    LOG(ERROR) << "Unable to seek to the EC info offset table.";
-    return false;
-  }
-
-  size_t ec_info_entries_count = 0;
-  if (!stream->Read(&ec_info_entries_count, 1)) {
-    LOG(ERROR) << "Unable to read the number of entries in the EC info offset "
-               << "table.";
-    return false;
-  }
-
-  ec_info_vector_.resize(ec_info_entries_count);
-  // Some of the offset present in the offset table have the value 0, which
-  // refers to an empty string present at the beginning of the string table. If
-  // we want to keep these empty strings we must also count the number of non
-  // empty strings to make sure it matches the value following this offset table
-  // in the stream (which seems to be the number of filenames present in the
-  // string table).
-  uint32 non_empty_strings_count = 0;
-  for (size_t i = 0; i < ec_info_entries_count; ++i) {
-    size_t string_offset = 0;
-    if (!stream->Read(&string_offset, 1) ||
-        !ReadStringAt(stream, ec_info_string_table_start + string_offset,
-            &ec_info_vector_.at(i))) {
-      LOG(ERROR) << "Unable to read the EC info name table.";
-      return false;
-    }
-    if (ec_info_vector_[i].length() > 0)
-      non_empty_strings_count++;
-  }
-
-  uint32 ec_info_file_count = 0;
-  if (!stream->Read(&ec_info_file_count, 1)) {
-    LOG(ERROR) << "Unable to read the number of files present in the EC info "
-               << "substream.";
-    return false;
-  }
-
-  if (non_empty_strings_count != ec_info_file_count) {
-    LOG(ERROR) << "Unexpected number of filenames in the ec info name table "
-               << "(expected " << ec_info_file_count << ", read "
-               << ec_info_file_count << ").";
-    return false;
-  }
-
-  return true;
+  return ReadStringTable(stream,
+                         "EC info",
+                         ec_info_start,
+                         ec_info_end,
+                         &ec_info_vector_);
 }
 
 bool DbiStream::Read(pdb::PdbStream* stream ) {

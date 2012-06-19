@@ -42,7 +42,18 @@ namespace pdb {
 
 namespace {
 
-bool WriteStreamToPath(pdb::PdbStream* pdb_stream,
+// Read the stream containing the filenames listed in the Pdb.
+bool ReadNameStream(PdbStream* stream, StringVector* index_strings) {
+  size_t stream_start = stream->pos();
+  size_t stream_end = stream->pos() + stream->length();
+  return ReadStringTable(stream,
+                         "Name table",
+                         stream_start,
+                         stream_end,
+                         index_strings);
+}
+
+bool WriteStreamToPath(PdbStream* pdb_stream,
                        const FilePath& output_file_name) {
   // Open the file for output.
   FilePath output_path(output_file_name);
@@ -81,6 +92,65 @@ bool WriteStreamToPath(pdb::PdbStream* pdb_stream,
 
     bytes_read += bytes_just_read;
   }
+  return true;
+}
+
+bool ExplodeStreams(const FilePath& input_pdb_path,
+                    const DbiStream& dbi_stream,
+                    const NameStreamMap& name_streams,
+                    const PdbFile& pdb_file) {
+  FilePath output_dir_path(input_pdb_path.value() + L"-streams");
+  DCHECK(!output_dir_path.empty());
+
+  std::map<size_t, std::wstring> stream_suffixes;
+  stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
+  stream_suffixes[pdb::kDbiStream] = L"-dbi";
+  stream_suffixes[pdb::kTpiStream] = L"-tpi";
+
+  stream_suffixes[dbi_stream.header().global_symbol_info_stream] = L"-globals";
+  stream_suffixes[dbi_stream.header().public_symbol_info_stream] = L"-public";
+  stream_suffixes[dbi_stream.header().symbol_record_stream] = L"-sym-record";
+
+  stream_suffixes[dbi_stream.dbg_header().fpo] = L"-fpo";
+  stream_suffixes[dbi_stream.dbg_header().exception] = L"-exception";
+  stream_suffixes[dbi_stream.dbg_header().fixup] = L"-fixup";
+  stream_suffixes[dbi_stream.dbg_header().omap_to_src] = L"-omap-to-src";
+  stream_suffixes[dbi_stream.dbg_header().omap_from_src] = L"-omap-from-src";
+  stream_suffixes[dbi_stream.dbg_header().section_header] = L"-section-header";
+  stream_suffixes[dbi_stream.dbg_header().token_rid_map] = L"-token-rid-map";
+  stream_suffixes[dbi_stream.dbg_header().x_data] = L"-x-data";
+  stream_suffixes[dbi_stream.dbg_header().p_data] = L"-p-data";
+  stream_suffixes[dbi_stream.dbg_header().new_fpo] = L"-new-fpo";
+  stream_suffixes[dbi_stream.dbg_header().section_header_origin] =
+    L"-section-header-origin";
+
+  NameStreamMap::const_iterator it(name_streams.begin());
+  for (; it != name_streams.end(); ++it) {
+    std::wstring suffix = UTF8ToWide(it->first);
+    std::replace(suffix.begin(), suffix.end(), L'/', L'-');
+    stream_suffixes[it->second] = suffix;
+  }
+
+  if (!file_util::CreateDirectory(output_dir_path)) {
+    LOG(ERROR) << "Unable to create output directory '"
+               << output_dir_path.value() << "'.";
+    return false;
+  }
+
+  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+    pdb::PdbStream* stream = pdb_file.GetStream(i);
+    if (stream == NULL)
+      continue;
+
+    FilePath stream_path = output_dir_path.Append(
+        base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
+
+    if (!WriteStreamToPath(stream, stream_path)) {
+      LOG(ERROR) << "Failed to write stream " << i << ".";
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -130,10 +200,17 @@ int PdbDumpApp::Run() {
     pdb::PdbInfoHeader70 info = {};
     NameStreamMap name_streams;
     pdb::PdbStream* stream = pdb_file.GetStream(pdb::kPdbHeaderInfoStream);
-    if (stream != NULL && ReadHeaderInfoStream(stream,  &info, &name_streams)) {
+    if (stream != NULL && ReadHeaderInfoStream(stream, &info, &name_streams)) {
       DumpInfoStream(info, name_streams);
     } else {
       LOG(ERROR) << "No header info stream.";
+    }
+
+    NameStreamMap::const_iterator it(name_streams.find("/names"));
+    StringVector index_names;
+    if (it != name_streams.end() &&
+        !ReadNameStream(pdb_file.GetStream(it->second), &index_names)) {
+      return 1;
     }
 
     DbiStream dbi_stream;
@@ -142,69 +219,14 @@ int PdbDumpApp::Run() {
       DumpDbiStream(dbi_stream);
     } else {
       LOG(ERROR) << "No Dbi stream.";
+      return 1;
     }
 
-    if (explode_streams_) {
-      FilePath output_dir_path(input_pdb_path.value() + L"-streams");
-
-      std::map<size_t, std::wstring> stream_suffixes;
-      stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
-      stream_suffixes[pdb::kDbiStream] = L"-dbi";
-      stream_suffixes[pdb::kTpiStream] = L"-tpi";
-
-      stream_suffixes[dbi_stream.header().global_symbol_info_stream] =
-          L"-globals";
-      stream_suffixes[dbi_stream.header().public_symbol_info_stream] =
-          L"-public";
-      stream_suffixes[dbi_stream.header().symbol_record_stream] =
-          L"-sym-record";
-
-      stream_suffixes[dbi_stream.dbg_header().fpo] = L"-fpo";
-      stream_suffixes[dbi_stream.dbg_header().exception] = L"-exception";
-      stream_suffixes[dbi_stream.dbg_header().fixup] = L"-fixup";
-      stream_suffixes[dbi_stream.dbg_header().omap_to_src] = L"-omap-to-src";
-      stream_suffixes[dbi_stream.dbg_header().omap_from_src] =
-          L"-omap-from-src";
-      stream_suffixes[dbi_stream.dbg_header().section_header] =
-          L"-section-header";
-      stream_suffixes[dbi_stream.dbg_header().token_rid_map] =
-          L"-token-rid-map";
-      stream_suffixes[dbi_stream.dbg_header().x_data] = L"-x-data";
-      stream_suffixes[dbi_stream.dbg_header().p_data] = L"-p-data";
-      stream_suffixes[dbi_stream.dbg_header().new_fpo] = L"-new-fpo";
-      stream_suffixes[dbi_stream.dbg_header().section_header_origin] =
-          L"-section-header-origin";
-
-      NameStreamMap::const_iterator it(name_streams.begin());
-      for (; it != name_streams.end(); ++it) {
-        std::wstring suffix = UTF8ToWide(it->first);
-        std::replace(suffix.begin(), suffix.end(), L'/', L'-');
-
-        stream_suffixes[it->second] = suffix;
-      }
-
-      if (!output_dir_path.empty()) {
-        if (!file_util::CreateDirectory(output_dir_path)) {
-          LOG(ERROR) << "Unable to create output directory '" <<
-              output_dir_path.value() << "'.";
-
-          return 1;
-        }
-
-        for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
-          pdb::PdbStream* stream = pdb_file.GetStream(i);
-          if (stream == NULL)
-            continue;
-
-          FilePath stream_path = output_dir_path.Append(
-              base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
-
-          if (!WriteStreamToPath(stream, stream_path)) {
-            LOG(ERROR) << "Failed to write stream " << i << ".";
-            return 1;
-          }
-        }
-      }
+    if (explode_streams_ && !ExplodeStreams(input_pdb_path,
+                                            dbi_stream,
+                                            name_streams,
+                                            pdb_file)) {
+      return 1;
     }
   }
 
@@ -285,7 +307,7 @@ void PdbDumpApp::DumpDbiHeaders(const DbiStream& dbi_stream) {
             dbi_stream.dbg_header().section_header_origin);
 }
 
-void PdbDumpApp::DumpDbiStream(const pdb::DbiStream& dbi_stream) {
+void PdbDumpApp::DumpDbiStream(const DbiStream& dbi_stream) {
   DumpDbiHeaders(dbi_stream);
 }
 
