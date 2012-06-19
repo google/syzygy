@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Tests for BasicBlockDecomposition.
+// Tests for BasicBlockSubGraph.
 
-#include "syzygy/pe/basic_block_decomposition.h"
+#include "syzygy/pe/basic_block_subgraph.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
@@ -28,35 +28,35 @@ using block_graph::BasicBlockReferrer;
 using block_graph::BlockGraph;
 using block_graph::Successor;
 
-typedef BasicBlockDecomposition::BlockDescription BlockDescription;
+typedef BasicBlockSubGraph::BlockDescription BlockDescription;
 typedef BlockGraph::Reference Reference;
 
-class TestBasicBlockDecomposition : public BasicBlockDecomposition {
+class TestBasicBlockSubGraph : public BasicBlockSubGraph {
  public:
-   using BasicBlockDecomposition::HasValidReferrers;
-   using BasicBlockDecomposition::HasValidSuccessors;
-   using BasicBlockDecomposition::MapsBasicBlocksToAtMostOneDescription;
+   using BasicBlockSubGraph::HasValidReferrers;
+   using BasicBlockSubGraph::HasValidSuccessors;
+   using BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription;
 };
 
-TEST(BasicBlockDecomposition, AddBasicBlock) {
+TEST(BasicBlockSubGraph, AddBasicBlock) {
   static const size_t kDataSize = 32;
   uint8 data[kDataSize] = {0};
   BlockGraph::Block block;
-  BasicBlockDecomposition bb_decomposition;
-  bb_decomposition.set_original_block(&block);
+  BasicBlockSubGraph subgraph;
+  subgraph.set_original_block(&block);
 
   // Add a basic block.
-  BasicBlock* bb1 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb1 = subgraph.AddBasicBlock(
       "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, kDataSize, data);
   ASSERT_FALSE(bb1 == NULL);
 
   // Cannot add one that overlaps.
-  BasicBlock* bb2 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb2 = subgraph.AddBasicBlock(
       "bb2", BasicBlock::BASIC_CODE_BLOCK, kDataSize / 2, kDataSize, data);
   ASSERT_TRUE(bb2 == NULL);
 
   // But can add one that doesn't overlap.
-  BasicBlock* bb3 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb3 = subgraph.AddBasicBlock(
       "bb3", BasicBlock::BASIC_CODE_BLOCK, kDataSize, kDataSize, data);
   ASSERT_FALSE(bb3 == NULL);
 
@@ -64,18 +64,18 @@ TEST(BasicBlockDecomposition, AddBasicBlock) {
   ASSERT_FALSE(bb1 == bb3);
 }
 
-TEST(BasicBlockDecomposition, MapsBasicBlocksToAtMostOneDescription) {
-  TestBasicBlockDecomposition bb_decomposition;
+TEST(BasicBlockSubGraph, MapsBasicBlocksToAtMostOneDescription) {
+  TestBasicBlockSubGraph subgraph;
   uint8 data[32] = {0};
 
   // Add three non-overlapping basic-blocks.
-  BasicBlock* bb1 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb1 = subgraph.AddBasicBlock(
       "bb1", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb1 == NULL);
-  BasicBlock* bb2 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb2 = subgraph.AddBasicBlock(
       "bb2", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb2 == NULL);
-  BasicBlock* bb3 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb3 = subgraph.AddBasicBlock(
       "bb3", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb3 == NULL);
 
@@ -85,59 +85,59 @@ TEST(BasicBlockDecomposition, MapsBasicBlocksToAtMostOneDescription) {
   ASSERT_FALSE(bb1 == bb3);
 
   // Add a block description for a mythical b1.
-  bb_decomposition.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b1 = bb_decomposition.block_descriptions().back();
+  subgraph.block_descriptions().push_back(BlockDescription());
+  BlockDescription& b1 = subgraph.block_descriptions().back();
   b1.type = BlockGraph::CODE_BLOCK;
   b1.name = "b1";
   b1.basic_block_order.push_back(bb1);
 
   // Add a block description for a mythical b2.
-  bb_decomposition.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b2 = bb_decomposition.block_descriptions().back();
+  subgraph.block_descriptions().push_back(BlockDescription());
+  BlockDescription& b2 = subgraph.block_descriptions().back();
   b2.type = BlockGraph::CODE_BLOCK;
   b2.name = "b2";
   b2.basic_block_order.push_back(bb2);
 
   // There are no blocks assigned twice (bb1 and bb2 are in separate blocks).
-  ASSERT_TRUE(bb_decomposition.MapsBasicBlocksToAtMostOneDescription());
+  ASSERT_TRUE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 
   // Adding bb3 to b1 is still valid.
   b1.basic_block_order.push_back(bb3);
-  ASSERT_TRUE(bb_decomposition.MapsBasicBlocksToAtMostOneDescription());
+  ASSERT_TRUE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 
   // But adding bb3 to b2, as well, is no longer valid.
   b2.basic_block_order.push_back(bb3);
-  ASSERT_FALSE(bb_decomposition.MapsBasicBlocksToAtMostOneDescription());
+  ASSERT_FALSE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 }
 
-TEST(BasicBlockDecomposition, DISABLED_HasValidSuccessors) {
+TEST(BasicBlockSubGraph, DISABLED_HasValidSuccessors) {
   // TODO(rogerm): Enable this test when HasValidSuccessors is implemented.
-  TestBasicBlockDecomposition bb_decomposition;
+  TestBasicBlockSubGraph subgraph;
 
-  BasicBlock* bb1 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb1 = subgraph.AddBasicBlock(
       "bb1", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb1 == NULL);
 
-  BasicBlock* bb2 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb2 = subgraph.AddBasicBlock(
       "bb2", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb2 == NULL);
 
   // Add a block description for a mythical b1.
-  bb_decomposition.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b1 = bb_decomposition.block_descriptions().back();
+  subgraph.block_descriptions().push_back(BlockDescription());
+  BlockDescription& b1 = subgraph.block_descriptions().back();
   b1.type = BlockGraph::CODE_BLOCK;
   b1.name = "b1";
   b1.basic_block_order.push_back(bb1);
 
   // Add a block description for a mythical b2.
-  bb_decomposition.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b2 = bb_decomposition.block_descriptions().back();
+  subgraph.block_descriptions().push_back(BlockDescription());
+  BlockDescription& b2 = subgraph.block_descriptions().back();
   b2.type = BlockGraph::CODE_BLOCK;
   b2.name = "b2";
   b2.basic_block_order.push_back(bb2);
 
   // Successors are not valid yet.
-  EXPECT_FALSE(bb_decomposition.HasValidSuccessors());
+  EXPECT_FALSE(subgraph.HasValidSuccessors());
 
   // Add an unconditional succession from bb1 to bb2.
   bb1->successors().push_back(
@@ -146,7 +146,7 @@ TEST(BasicBlockDecomposition, DISABLED_HasValidSuccessors) {
                 -1, 0));
 
   // Successors are still not valid.
-  EXPECT_FALSE(bb_decomposition.HasValidSuccessors());
+  EXPECT_FALSE(subgraph.HasValidSuccessors());
 
   // Add half of a conditional succession from bb2 to bb1.
   bb2->successors().push_back(
@@ -155,7 +155,7 @@ TEST(BasicBlockDecomposition, DISABLED_HasValidSuccessors) {
                 -1, 0));
 
   // Successors are still not valid.
-  EXPECT_FALSE(bb_decomposition.HasValidSuccessors());
+  EXPECT_FALSE(subgraph.HasValidSuccessors());
 
   // Add second conditional succession from bb2 to bb1, but not the inverse
   // of the first condtition.
@@ -165,7 +165,7 @@ TEST(BasicBlockDecomposition, DISABLED_HasValidSuccessors) {
                 -1, 0));
 
   // Successors are still not valid because the conditions are not inverses.
-  EXPECT_FALSE(bb_decomposition.HasValidSuccessors());
+  EXPECT_FALSE(subgraph.HasValidSuccessors());
 
   // Remove the bad successor and add a correct secondary successor.
   bb2->successors().pop_back();
@@ -175,10 +175,10 @@ TEST(BasicBlockDecomposition, DISABLED_HasValidSuccessors) {
                 -1, 0));
 
   // Successors are now valid.
-  EXPECT_TRUE(bb_decomposition.HasValidSuccessors());
+  EXPECT_TRUE(subgraph.HasValidSuccessors());
 }
 
-TEST(BasicBlockDecomposition, HasValidReferrers) {
+TEST(BasicBlockSubGraph, HasValidReferrers) {
   BlockGraph::Block b1 = BlockGraph::Block(0, BlockGraph::DATA_BLOCK, 4, "b1");
   BlockGraph::Block b2 = BlockGraph::Block(0, BlockGraph::DATA_BLOCK, 4, "b2");
 
@@ -186,25 +186,25 @@ TEST(BasicBlockDecomposition, HasValidReferrers) {
   ASSERT_TRUE(b2.SetReference(0, ref));
   ASSERT_FALSE(b1.referrers().empty());
 
-  TestBasicBlockDecomposition bb_decomposition;
-  bb_decomposition.set_original_block(&b1);
+  TestBasicBlockSubGraph subgraph;
+  subgraph.set_original_block(&b1);
 
-  ASSERT_FALSE(bb_decomposition.HasValidReferrers());
+  ASSERT_FALSE(subgraph.HasValidReferrers());
 
-  BasicBlock* bb1 = bb_decomposition.AddBasicBlock(
+  BasicBlock* bb1 = subgraph.AddBasicBlock(
       "bb1", BasicBlock::BASIC_DATA_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb1 == NULL);
 
-  bb_decomposition.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b1_desc = bb_decomposition.block_descriptions().back();
+  subgraph.block_descriptions().push_back(BlockDescription());
+  BlockDescription& b1_desc = subgraph.block_descriptions().back();
   b1_desc.name = b1.name();
   b1_desc.type = BlockGraph::DATA_BLOCK;
   b1_desc.basic_block_order.push_back(bb1);
 
-  ASSERT_FALSE(bb_decomposition.HasValidReferrers());
+  ASSERT_FALSE(subgraph.HasValidReferrers());
 
   bb1->referrers().insert(BasicBlockReferrer(&b2, 0));
-  ASSERT_TRUE(bb_decomposition.HasValidReferrers());
+  ASSERT_TRUE(subgraph.HasValidReferrers());
 }
 
 }  // namespace pe

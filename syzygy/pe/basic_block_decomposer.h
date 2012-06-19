@@ -39,7 +39,7 @@
 namespace pe {
 
 // Forward declaration.
-class BasicBlockDecomposition;
+class BasicBlockSubGraph;
 
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
@@ -85,19 +85,19 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // Initialize the BasicBlockDecomposer instance.
   // @param block The block to be decomposed
-  // @param decomposition The decomposition data structure to populate.
+  // @param subgraph The basic-block sub-graph data structure to populate.
   BasicBlockDecomposer(const BlockGraph::Block* block,
-                       BasicBlockDecomposition* decomposition);
+                       BasicBlockSubGraph* subgraph);
 
   // Decomposes a function macro block into its constituent basic blocks.
   //
-  // Immediately following a successful basic-block decomposition, the
-  // decomposition will contain all the basic-blocks found in the source
-  // block and exactly one block description: that of the source block.
+  // Immediately following a successful decomposition of a block to
+  // basic-blocks, subgraph will contain all the basic-blocks found in the
+  // source block and exactly one block description: that of the source block.
   //
   // Following decomposition, additional block descriptions can be created,
   // new basic blocks added, and basic blocks shuffled between the descriptions.
-  // The decomposition can then be coalesced back into the BlockGraph from
+  // The subgraph can then be coalesced back into the BlockGraph from
   // which the original block came.
   bool Decompose();
 
@@ -178,8 +178,8 @@ class BasicBlockDecomposer : public core::Disassembler {
   // The block being disassembled.
   const BlockGraph::Block* const block_;
 
-  // An address space that keeps the basic block range mapping.
-  BasicBlockDecomposition* decomposition_;
+  // The basic-block sub-graph to which the block will be decomposed.
+  BasicBlockSubGraph* subgraph_;
 
   // Tracks locations our conditional branches jump to. Used to fix up basic
   // blocks by breaking up those that have a jump target in the middle.

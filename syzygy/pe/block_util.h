@@ -28,7 +28,8 @@ namespace pe {
 // attributes are set on the block, indicating compiler features that we are
 // not confidently able to basic-block decompose.
 // @param block the code block whose attributes are to be inspected.
-// @returns true if the block attributes are safe for basic-block decomposition.
+// @returns true if the block attributes are safe for decomposition to basic-
+//     blocks.
 // @pre block has type CODE_BLOCK.
 bool CodeBlockAttributesAreClConsistent(
     const block_graph::BlockGraph::Block* block);

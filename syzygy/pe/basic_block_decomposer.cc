@@ -23,7 +23,7 @@
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/pe/basic_block_decomposition.h"
+#include "syzygy/pe/basic_block_subgraph.h"
 #include "syzygy/pe/block_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -40,7 +40,7 @@ using block_graph::Instruction;
 using block_graph::Successor;
 using core::Disassembler;
 
-typedef BasicBlockDecomposition::BBAddressSpace BBAddressSpace;
+typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
 typedef BBAddressSpace::Range Range;
 typedef BBAddressSpace::RangeMap RangeMap;
 typedef BBAddressSpace::RangeMapConstIter RangeMapConstIter;
@@ -85,14 +85,14 @@ bool HasImplicitControlFlow(const Instruction& instruction) {
 
 }  // namespace
 
-BasicBlockDecomposer::BasicBlockDecomposer(
-    const BlockGraph::Block* block, BasicBlockDecomposition* decomposition)
+BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
+                                           BasicBlockSubGraph* subgraph)
     : Disassembler(block->data(),
                    block->size(),
                    AbsoluteAddress(kDisassemblyAddress),
                    Disassembler::InstructionCallback()),
       block_(block),
-      decomposition_(decomposition),
+      subgraph_(subgraph),
       current_block_start_(0),
       check_decomposition_results_(true) {
   // TODO(rogerm): Once we're certain this is stable for all input binaries
@@ -100,14 +100,14 @@ BasicBlockDecomposer::BasicBlockDecomposer(
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
   DCHECK(CodeBlockIsClConsistent(block));
-  DCHECK(decomposition != NULL);
+  DCHECK(subgraph != NULL);
 }
 
 bool BasicBlockDecomposer::Decompose() {
-  DCHECK(decomposition_->basic_blocks().empty());
-  DCHECK(decomposition_->block_descriptions().empty());
-  DCHECK(decomposition_->original_address_space().empty());
-  decomposition_->set_original_block(block_);
+  DCHECK(subgraph_->basic_blocks().empty());
+  DCHECK(subgraph_->block_descriptions().empty());
+  DCHECK(subgraph_->original_address_space().empty());
+  subgraph_->set_original_block(block_);
 
   InitUnvisitedAndJumpTargets();
 
@@ -117,9 +117,9 @@ bool BasicBlockDecomposer::Decompose() {
     return false;
   }
 
-  typedef BasicBlockDecomposition::BlockDescription BlockDescription;
-  decomposition_->block_descriptions().push_back(BlockDescription());
-  BlockDescription& desc = decomposition_->block_descriptions().back();
+  typedef BasicBlockSubGraph::BlockDescription BlockDescription;
+  subgraph_->block_descriptions().push_back(BlockDescription());
+  BlockDescription& desc = subgraph_->block_descriptions().back();
   desc.name = block_->name();
   desc.type = block_->type();
   desc.alignment = block_->alignment();
@@ -127,8 +127,8 @@ bool BasicBlockDecomposer::Decompose() {
   desc.section = block_->section();
 
   Offset offset = 0;
-  RangeMapConstIter it = decomposition_->original_address_space().begin();
-  for (; it != decomposition_->original_address_space().end(); ++it) {
+  RangeMapConstIter it = subgraph_->original_address_space().begin();
+  for (; it != subgraph_->original_address_space().end(); ++it) {
     DCHECK_EQ(it->first.start(), offset);
     desc.basic_block_order.push_back(it->second);
     offset += it->first.size();
@@ -378,7 +378,7 @@ void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
     return;
 
   const BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   AddressSet::const_iterator addr_iter(jump_targets_.begin());
   for (; addr_iter != jump_targets_.end(); ++addr_iter) {
@@ -404,7 +404,7 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
     return;
 
   const BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   // Walk through the basic-block address space.
   Offset next_start = 0;
@@ -425,7 +425,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
     return;
 
   const BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   RangeMapConstIter it(basic_block_address_space.begin());
   for (; it != basic_block_address_space.end(); ++it) {
@@ -526,7 +526,7 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
         "<anonymous-%s>", BasicBlock::BasicBlockTypeToString(type));
   }
 
-  BasicBlock* new_basic_block = decomposition_->AddBasicBlock(
+  BasicBlock* new_basic_block = subgraph_->AddBasicBlock(
       basic_block_name, type, offset, size, code_ + offset);
   if (new_basic_block == NULL)
     return false;
@@ -561,7 +561,7 @@ bool BasicBlockDecomposer::FillInDataBlocks() {
 
 bool BasicBlockDecomposer::FillInPaddingBlocks() {
   BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   // Add an initial interstitial if needed.
   size_t interstitial_size = basic_block_address_space.empty() ?
@@ -610,7 +610,7 @@ bool BasicBlockDecomposer::FillInPaddingBlocks() {
 
 bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
   BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   const BlockGraph::Block::ReferrerSet& referrers = block_->referrers();
   BlockGraph::Block::ReferrerSet::const_iterator iter = referrers.begin();
@@ -673,7 +673,7 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
   DCHECK(item != NULL);
 
   BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   // Figure out the bounds of item.
   BlockGraph::Offset start_offset = item->offset();
@@ -735,7 +735,7 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
 
 bool BasicBlockDecomposer::PopulateBasicBlockReferences() {
   BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   // Copy the references for the source range of each basic-block (by
   // instruction for code basic-blocks). The referrers and successors are
@@ -759,7 +759,7 @@ bool BasicBlockDecomposer::PopulateBasicBlockReferences() {
 
 bool BasicBlockDecomposer::ResolveSuccessors() {
   BBAddressSpace& basic_block_address_space =
-      decomposition_->original_address_space();
+      subgraph_->original_address_space();
 
   RangeMapIter bb_iter = basic_block_address_space.begin();
   for (; bb_iter != basic_block_address_space.end(); ++bb_iter) {
