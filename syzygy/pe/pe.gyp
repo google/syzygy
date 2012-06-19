@@ -71,6 +71,8 @@
       'sources': [
         'basic_block_decomposer.cc',
         'basic_block_decomposer.h',
+        'basic_block_decomposition.cc',
+        'basic_block_decomposition.h',
         'block_util.cc',
         'block_util.h',
         'dia_browser.cc',
@@ -155,6 +157,7 @@
       'includes': ['../build/masm.gypi'],
       'sources': [
         'basic_block_decomposer_unittest.cc',
+        'basic_block_decomposition_unittest.cc',
         'block_util_unittest.cc',
         'decompose_app_unittest.cc',
         'decomposer_unittest.cc',

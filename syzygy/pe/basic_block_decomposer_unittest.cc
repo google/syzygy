@@ -16,6 +16,7 @@
 
 #include "syzygy/pe/basic_block_decomposer.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "base/bind.h"
@@ -26,6 +27,7 @@
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/basic_block_decomposition.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -43,12 +45,15 @@ using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
 
+typedef BasicBlockDecomposition::BBAddressSpace BBAddressSpace;
+
 class TestBasicBlockDecomposer : public BasicBlockDecomposer {
 public:
   using BasicBlockDecomposer::on_instruction_;
 
-  explicit TestBasicBlockDecomposer(const BlockGraph::Block* block)
-      : BasicBlockDecomposer(block) {
+  explicit TestBasicBlockDecomposer(const BlockGraph::Block* block,
+                                    BasicBlockDecomposition* decomposition)
+      : BasicBlockDecomposer(block, decomposition) {
     check_decomposition_results_ = true;
   }
 
@@ -84,12 +89,12 @@ public:
 };
 
 
-int TypeCount(const BasicBlockDecomposer::BBAddressSpace& the_map,
+int TypeCount(const BBAddressSpace& the_map,
               BasicBlock::BasicBlockType the_type) {
   int count = 0;
-  BasicBlockDecomposer::BBAddressSpace::RangeMapConstIter iter(the_map.begin());
+  BBAddressSpace::RangeMapConstIter iter(the_map.begin());
   for (; iter != the_map.end(); ++iter) {
-    if (iter->second.type() == the_type)
+    if (iter->second->type() == the_type)
       ++count;
   }
   return count;
@@ -114,6 +119,11 @@ const BlockGraph::Block* FindBlockByName(const BlockGraph& block_graph,
       return &iter->second;
   }
   return NULL;
+}
+
+bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
+  typedef BasicBlock::Size Size;
+  return lhs->offset() + lhs->size() != static_cast<Size>(rhs->offset());
 }
 
 }  // namespace
@@ -154,7 +164,8 @@ TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
   EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_START_LABEL));
   EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_END_LABEL));
 
-  TestBasicBlockDecomposer bb_decomposer(block);
+  BasicBlockDecomposition bb_decomposition;
+  TestBasicBlockDecomposer bb_decomposer(block, &bb_decomposition);
   bb_decomposer.on_instruction_ =
       base::Bind(&BasicBlockDecomposerTest::OnInstruction,
                  base::Unretained(this));
@@ -162,9 +173,10 @@ TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
   // We should hit kNumInstructions instructions during bb decomposition.
   EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(kNumInstructions);
   ASSERT_TRUE(bb_decomposer.Decompose());
+  EXPECT_TRUE(bb_decomposition.IsValid());
 
-  const BasicBlockDecomposer::BBAddressSpace& basic_blocks =
-      bb_decomposer.GetBasicBlockRanges();
+  const BasicBlockDecomposition::BBAddressSpace& basic_blocks =
+      bb_decomposition.original_address_space();
 
   // All blocks should have been disassembled.
   EXPECT_EQ(kNumBasicBlocks, basic_blocks.size());
@@ -186,8 +198,24 @@ TEST_F(BasicBlockDecomposerTest, DecomposeAllCodeBlocks) {
     if (!CodeBlockIsBasicBlockDecomposable(block))
       continue;
 
-    TestBasicBlockDecomposer bb_decomposer(block);
+    BasicBlockDecomposition bb_decomposition;
+    TestBasicBlockDecomposer bb_decomposer(block, &bb_decomposition);
     ASSERT_TRUE(bb_decomposer.Decompose());
+    EXPECT_TRUE(bb_decomposition.IsValid());
+    EXPECT_EQ(1U, bb_decomposition.block_descriptions().size());
+
+    typedef BasicBlockDecomposition::BlockDescription BlockDescription;
+    const BlockDescription& desc = bb_decomposition.block_descriptions().back();
+    EXPECT_EQ(block->type(), desc.type);
+    EXPECT_EQ(block->alignment(), desc.alignment);
+    EXPECT_EQ(block->name(), desc.name);
+    EXPECT_EQ(block->section(), desc.section);
+    EXPECT_EQ(block->attributes(), desc.attributes);
+    EXPECT_TRUE(
+        std::adjacent_find(
+            desc.basic_block_order.begin(),
+            desc.basic_block_order.end(),
+            &HasGapOrIsOutOfOrder) == desc.basic_block_order.end());
   }
 }
 

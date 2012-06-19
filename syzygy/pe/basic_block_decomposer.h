@@ -38,6 +38,9 @@
 
 namespace pe {
 
+// Forward declaration.
+class BasicBlockDecomposition;
+
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
 //
@@ -79,29 +82,24 @@ class BasicBlockDecomposer : public core::Disassembler {
   typedef BasicBlock::BasicBlockType BasicBlockType;
   typedef block_graph::BlockGraph BlockGraph;
   typedef BlockGraph::Offset Offset;
-  typedef core::AddressSpace<Offset, size_t, BasicBlock> BBAddressSpace;
 
-  // Creates and sets up a BasicBlockDecomposer that decomposes a function
-  // macro block into basic blocks.
-  // @param block The block to be disassembled
-  explicit BasicBlockDecomposer(const BlockGraph::Block* block);
-
-  // Creates and sets up a BasicBlockDecomposer that decomposes a function
-  // macro block into basic blocks.
-  // @param block The block to be disassembled
-  // @param on_instruction Pointer to a callback routine called during
-  //     disassembly.
+  // Initialize the BasicBlockDecomposer instance.
+  // @param block The block to be decomposed
+  // @param decomposition The decomposition data structure to populate.
   BasicBlockDecomposer(const BlockGraph::Block* block,
-                       Disassembler::InstructionCallback on_instruction);
+                       BasicBlockDecomposition* decomposition);
 
+  // Decomposes a function macro block into its constituent basic blocks.
+  //
+  // Immediately following a successful basic-block decomposition, the
+  // decomposition will contain all the basic-blocks found in the source
+  // block and exactly one block description: that of the source block.
+  //
+  // Following decomposition, additional block descriptions can be created,
+  // new basic blocks added, and basic blocks shuffled between the descriptions.
+  // The decomposition can then be coalesced back into the BlockGraph from
+  // which the original block came.
   bool Decompose();
-
-  // Returns a RangeMap mapping ranges that each cover a single basic block
-  // to BlockGraph::Block instances that contain some information about that
-  // basic block.
-  const BBAddressSpace& GetBasicBlockRanges() const {
-    return basic_block_address_space_;
-  }
 
  protected:
   // Set up the queue of addresses to disassemble from as well as the set of
@@ -127,19 +125,19 @@ class BasicBlockDecomposer : public core::Disassembler {
   // @name Validation functions.
   // @{
 
-  // Verifies that basic_block_address_space_ fully covers the macro block
-  // with no gaps or overlap. This is protected for unit-testing purposes.
-  // This is a NOP if check_decomposition_constraints_ is false.
-  void CheckHasCompleteBasicBlockCoverage() const;
-
-  // Verifies that every identified jump target in the code resolves to the
-  // start of a basic code block. This is protected for unit-testing purposes.
-  // This is a NOP if check_decomposition_constraints_ is false.
+  // Verifies that every identified jump target in the original code block
+  // resolves to the start of a basic code block in the original code blocks
+  // basic-block address space. This is protected for unit-testing purposes.
   void CheckAllJumpTargetsStartABasicCodeBlock() const;
 
-  // Verifies that all basic blocks have valid successors or end in an
-  // instruction that does not yield successors. This is a NOP if
-  // check_decomposition_constraints_ is false.
+  // Verifies that the address space derived from the original code block
+  // fully covers the original code block. This is protected for unit-testing
+  // purposes.
+  void CheckHasCompleteBasicBlockCoverage() const;
+
+  // Verifies that all basic blocks in the address space derived from the
+  // original code block have valid successors or end in an instruction that
+  // does not yield successors.  This is protected for unit-testing purposes.
   void CheckAllControlFlowIsValid() const;
 
   // @}
@@ -172,24 +170,20 @@ class BasicBlockDecomposer : public core::Disassembler {
   // Resolve intra-block control flow references and referrers.
   bool ResolveSuccessors();
 
-  // Inserts a range and associated block into @p basic_block_ranges.
-  bool InsertBlockRange(AbsoluteAddress addr,
-                        size_t size,
-                        BasicBlockType type);
+  // Inserts a basic block range into the decompsition.
+  bool InsertBasicBlockRange(AbsoluteAddress addr,
+                             size_t size,
+                             BasicBlockType type);
+
+  // The block being disassembled.
+  const BlockGraph::Block* const block_;
 
   // An address space that keeps the basic block range mapping.
-  BBAddressSpace basic_block_address_space_;
+  BasicBlockDecomposition* decomposition_;
 
   // Tracks locations our conditional branches jump to. Used to fix up basic
   // blocks by breaking up those that have a jump target in the middle.
   AddressSet jump_targets_;
-
-  // An incrementing counter used to number the temporary basic blocks as
-  // they are constructed.
-  int next_basic_block_id_;
-
-  // The block being disassembled.
-  const BlockGraph::Block* const block_;
 
   // The start of the current basic block during a walk.
   AbsoluteAddress current_block_start_;

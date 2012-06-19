@@ -23,6 +23,7 @@
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/pe/basic_block_decomposition.h"
 #include "syzygy/pe/block_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -39,11 +40,11 @@ using block_graph::Instruction;
 using block_graph::Successor;
 using core::Disassembler;
 
-typedef BasicBlockDecomposer::BBAddressSpace::Range Range;
-typedef BasicBlockDecomposer::BBAddressSpace::RangeMap RangeMap;
-typedef BasicBlockDecomposer::BBAddressSpace::RangeMapConstIter
-    RangeMapConstIter;
-typedef BasicBlockDecomposer::BBAddressSpace::RangeMapIter RangeMapIter;
+typedef BasicBlockDecomposition::BBAddressSpace BBAddressSpace;
+typedef BBAddressSpace::Range Range;
+typedef BBAddressSpace::RangeMap RangeMap;
+typedef BBAddressSpace::RangeMapConstIter RangeMapConstIter;
+typedef BBAddressSpace::RangeMapIter RangeMapIter;
 
 // We use a (somewhat) arbitrary value as the disassembly address for a block
 // so we can tell the difference between a reference to the beginning of the
@@ -84,13 +85,14 @@ bool HasImplicitControlFlow(const Instruction& instruction) {
 
 }  // namespace
 
-BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block)
+BasicBlockDecomposer::BasicBlockDecomposer(
+    const BlockGraph::Block* block, BasicBlockDecomposition* decomposition)
     : Disassembler(block->data(),
                    block->size(),
                    AbsoluteAddress(kDisassemblyAddress),
                    Disassembler::InstructionCallback()),
       block_(block),
-      next_basic_block_id_(0),
+      decomposition_(decomposition),
       current_block_start_(0),
       check_decomposition_results_(true) {
   // TODO(rogerm): Once we're certain this is stable for all input binaries
@@ -98,16 +100,45 @@ BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block)
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
   DCHECK(CodeBlockIsClConsistent(block));
+  DCHECK(decomposition != NULL);
 }
 
 bool BasicBlockDecomposer::Decompose() {
+  DCHECK(decomposition_->basic_blocks().empty());
+  DCHECK(decomposition_->block_descriptions().empty());
+  DCHECK(decomposition_->original_address_space().empty());
+  decomposition_->set_original_block(block_);
+
   InitUnvisitedAndJumpTargets();
+
   WalkResult result = Walk();
-  return result == Disassembler::kWalkSuccess ||
-      result == Disassembler::kWalkIncomplete;
+  if (result != Disassembler::kWalkSuccess &&
+      result != Disassembler::kWalkIncomplete) {
+    return false;
+  }
+
+  typedef BasicBlockDecomposition::BlockDescription BlockDescription;
+  decomposition_->block_descriptions().push_back(BlockDescription());
+  BlockDescription& desc = decomposition_->block_descriptions().back();
+  desc.name = block_->name();
+  desc.type = block_->type();
+  desc.alignment = block_->alignment();
+  desc.attributes = block_->attributes();
+  desc.section = block_->section();
+
+  Offset offset = 0;
+  RangeMapConstIter it = decomposition_->original_address_space().begin();
+  for (; it != decomposition_->original_address_space().end(); ++it) {
+    DCHECK_EQ(it->first.start(), offset);
+    desc.basic_block_order.push_back(it->second);
+    offset += it->first.size();
+  }
+
+  return true;
 }
 
 void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
+  jump_targets_.clear();
   // We initialize our jump_targets_ and unvisited sets to the set of
   // referenced code locations. This covers all locations which are
   // externally referenced, as well as those that are internally referenced
@@ -257,6 +288,8 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnStartInstructionRun(
     AbsoluteAddress start_address) {
   // The address of the beginning of the current basic block.
   current_block_start_ = start_address;
+  DCHECK(current_instructions_.empty());
+  DCHECK(current_successors_.empty());
   return kDirectiveContinue;
 }
 
@@ -282,9 +315,9 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
   // branch. Let's mark this as the end of a basic block.
   size_t basic_block_size = addr - current_block_start_ + inst.size;
   DCHECK_LT(0U, basic_block_size);
-  if (!InsertBlockRange(current_block_start_,
-                        basic_block_size,
-                        BasicBlock::BASIC_CODE_BLOCK)) {
+  if (!InsertBasicBlockRange(current_block_start_,
+                             basic_block_size,
+                             BasicBlock::BASIC_CODE_BLOCK)) {
     return kDirectiveAbort;
   }
 
@@ -344,22 +377,25 @@ void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
   if (!check_decomposition_results_)
     return;
 
+  const BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
   AddressSet::const_iterator addr_iter(jump_targets_.begin());
   for (; addr_iter != jump_targets_.end(); ++addr_iter) {
     // Find the basic block that maps to the jump target.
     Offset target_offset = *addr_iter - code_addr_;
     RangeMapConstIter target_bb_iter =
-        basic_block_address_space_.FindFirstIntersection(
+        basic_block_address_space.FindFirstIntersection(
             Range(target_offset, 1));
 
     // The target must exist.
-    CHECK(target_bb_iter != basic_block_address_space_.end());
+    CHECK(target_bb_iter != basic_block_address_space.end());
 
     // The target offset should refer to the start of the basic block.
     CHECK_EQ(target_offset, target_bb_iter->first.start());
 
     // The target basic-block should be a code basic-block.
-    CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb_iter->second.type());
+    CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb_iter->second->type());
   }
 }
 
@@ -367,12 +403,15 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
   if (!check_decomposition_results_)
     return;
 
+  const BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
   // Walk through the basic-block address space.
   Offset next_start = 0;
-  RangeMapConstIter it(basic_block_address_space_.begin());
-  for (; it != basic_block_address_space_.end(); ++it) {
+  RangeMapConstIter it(basic_block_address_space.begin());
+  for (; it != basic_block_address_space.end(); ++it) {
     CHECK_EQ(it->first.start(), next_start);
-    CHECK_EQ(it->first.size(), it->second.size());
+    CHECK_EQ(it->first.size(), it->second->size());
     next_start += it->first.size();
   }
 
@@ -385,16 +424,19 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
   if (!check_decomposition_results_)
     return;
 
-  RangeMapConstIter it(basic_block_address_space_.begin());
-  for (; it != basic_block_address_space_.end(); ++it) {
-    const BasicBlock& bb = it->second;
-    if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
+  const BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
+  RangeMapConstIter it(basic_block_address_space.begin());
+  for (; it != basic_block_address_space.end(); ++it) {
+    const BasicBlock* bb = it->second;
+    if (bb->type() != BasicBlock::BASIC_CODE_BLOCK)
       continue;
 
     // TODO(rogerm): All references to this block should be to its head.
 
-    const BasicBlock::Instructions& instructions = bb.instructions();
-    const BasicBlock::Successors& successors = bb.successors();
+    const BasicBlock::Instructions& instructions = bb->instructions();
+    const BasicBlock::Successors& successors = bb->successors();
 
     // There may be at most 2 successors.
     size_t num_successors = successors.size();
@@ -429,8 +471,8 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         if (successors.back().instruction_offset() == -1) {
           RangeMapConstIter next(it);
           ++next;
-          CHECK(next != basic_block_address_space_.end());
-          CHECK_EQ(successor.branch_target().basic_block(), &next->second);
+          CHECK(next != basic_block_address_space.end());
+          CHECK_EQ(successor.branch_target().basic_block(), next->second);
         }
         break;
       }
@@ -454,8 +496,8 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
             front_synthesized ? successors.front() : successors.back();
         RangeMapConstIter next(it);
         ++next;
-        CHECK(next != basic_block_address_space_.end());
-        CHECK_EQ(synthesized.branch_target().basic_block(), &next->second);
+        CHECK(next != basic_block_address_space.end());
+        CHECK_EQ(synthesized.branch_target().basic_block(), next->second);
         break;
       }
 
@@ -465,9 +507,9 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
   }
 }
 
-bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
-                                            size_t size,
-                                            BasicBlockType type) {
+bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
+                                                 size_t size,
+                                                 BasicBlockType type) {
   DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_instructions_.empty());
   DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_successors_.empty());
 
@@ -484,23 +526,16 @@ bool BasicBlockDecomposer::InsertBlockRange(AbsoluteAddress addr,
         "<anonymous-%s>", BasicBlock::BasicBlockTypeToString(type));
   }
 
-  // Insert the basic block for the given range.
-  BasicBlock new_basic_block(next_basic_block_id_++,
-                             basic_block_name,
-                             type,
-                             offset,
-                             size,
-                             code_ + offset);
+  BasicBlock* new_basic_block = decomposition_->AddBasicBlock(
+      basic_block_name, type, offset, size, code_ + offset);
+  if (new_basic_block == NULL)
+    return false;
+
   if (type == BasicBlock::BASIC_CODE_BLOCK) {
-    new_basic_block.instructions().swap(current_instructions_);
-    new_basic_block.successors().swap(current_successors_);
+    new_basic_block->instructions().swap(current_instructions_);
+    new_basic_block->successors().swap(current_successors_);
   }
 
-  if (!basic_block_address_space_.Insert(Range(offset, size),
-                                         new_basic_block)) {
-    LOG(DFATAL) << "Attempted to insert overlapping basic block.";
-    return false;
-  }
   return true;
 }
 
@@ -518,36 +553,39 @@ bool BasicBlockDecomposer::FillInDataBlocks() {
     BlockGraph::Offset bb_end = (next == end) ? block_->size() : next->first;
     size_t bb_size = bb_end - bb_start;
     AbsoluteAddress bb_addr(code_addr_ + bb_start);
-    if (!InsertBlockRange(bb_addr, bb_size, BasicBlock::BASIC_DATA_BLOCK))
+    if (!InsertBasicBlockRange(bb_addr, bb_size, BasicBlock::BASIC_DATA_BLOCK))
       return false;
   }
   return true;
 }
 
 bool BasicBlockDecomposer::FillInPaddingBlocks() {
+  BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
   // Add an initial interstitial if needed.
-  size_t interstitial_size = basic_block_address_space_.empty() ?
-      code_size_ : basic_block_address_space_.begin()->first.start();
+  size_t interstitial_size = basic_block_address_space.empty() ?
+      code_size_ : basic_block_address_space.begin()->first.start();
   DCHECK_LE(0U, interstitial_size);
   if (interstitial_size > 0) {
-    if (!InsertBlockRange(code_addr_,
-                          interstitial_size,
-                          BasicBlock::BASIC_PADDING_BLOCK)) {
+    if (!InsertBasicBlockRange(code_addr_,
+                               interstitial_size,
+                               BasicBlock::BASIC_PADDING_BLOCK)) {
       LOG(ERROR) << "Failed to insert initial padding block at 0";
       return false;
     }
   }
 
   // Handle all remaining gaps, including the end.
-  RangeMapConstIter curr_range = basic_block_address_space_.begin();
-  for (; curr_range != basic_block_address_space_.end(); ++curr_range) {
+  RangeMapConstIter curr_range = basic_block_address_space.begin();
+  for (; curr_range != basic_block_address_space.end(); ++curr_range) {
     RangeMapConstIter next_range = curr_range;
     ++next_range;
     AbsoluteAddress curr_range_end =
         code_addr_ + curr_range->first.start() + curr_range->first.size();
 
     interstitial_size = 0;
-    if (next_range == basic_block_address_space_.end()) {
+    if (next_range == basic_block_address_space.end()) {
       DCHECK_LE(curr_range_end, code_addr_ + code_size_);
       interstitial_size = code_addr_ + code_size_ - curr_range_end;
     } else {
@@ -557,9 +595,9 @@ bool BasicBlockDecomposer::FillInPaddingBlocks() {
     }
 
     if (interstitial_size > 0) {
-      if (!InsertBlockRange(curr_range_end,
-                            interstitial_size,
-                            BasicBlock::BASIC_PADDING_BLOCK)) {
+      if (!InsertBasicBlockRange(curr_range_end,
+                                 interstitial_size,
+                                 BasicBlock::BASIC_PADDING_BLOCK)) {
         LOG(ERROR) << "Failed to insert padding block at "
                    << curr_range_end.value();
         return false;
@@ -571,6 +609,9 @@ bool BasicBlockDecomposer::FillInPaddingBlocks() {
 }
 
 bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
+  BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
   const BlockGraph::Block::ReferrerSet& referrers = block_->referrers();
   BlockGraph::Block::ReferrerSet::const_iterator iter = referrers.begin();
   for (; iter != referrers.end(); ++iter) {
@@ -584,42 +625,42 @@ bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
 
     // Find the basic block the reference refers to.
     Offset target_base = reference.base();
-    RangeMapIter bb_iter = basic_block_address_space_.FindFirstIntersection(
+    RangeMapIter bb_iter = basic_block_address_space.FindFirstIntersection(
         Range(target_base, 1));
 
     // We have complete coverage of the block; there must be an intersection.
     // And, we break up the basic blocks by code references, so the target
     // offset must coincide with the start of the target block.
-    DCHECK(bb_iter != basic_block_address_space_.end());
-    BasicBlock& target_bb = bb_iter->second;
+    DCHECK(bb_iter != basic_block_address_space.end());
+    BasicBlock* target_bb = bb_iter->second;
     DCHECK_EQ(target_base, bb_iter->first.start());
     DCHECK(target_base == reference.offset() ||
-           target_bb.type() != BasicBlock::BASIC_CODE_BLOCK);
+           target_bb->type() != BasicBlock::BASIC_CODE_BLOCK);
 
     // Add the referrer to the basic block.
     if (referrer != block_) {
       // This is an inter-block reference.
-      bool inserted = target_bb.referrers().insert(
+      bool inserted = target_bb->referrers().insert(
           BasicBlockReferrer(referrer, source_offset)).second;
       DCHECK(inserted);
     } else {
       // This is an intra-block reference. The referrer is a basic block.
       RangeMapIter src_bb_iter =
-          basic_block_address_space_.FindFirstIntersection(
+          basic_block_address_space.FindFirstIntersection(
               Range(source_offset, 1));
       // The reference came from this block and we have complete coverage,
       // so we must be able to find the source basic block.
-      DCHECK(src_bb_iter != basic_block_address_space_.end());
+      DCHECK(src_bb_iter != basic_block_address_space.end());
 
       // Convert the offset to one that's local to the basic block.
-      BasicBlock& source_bb = src_bb_iter->second;
-      Offset local_offset = source_offset - source_bb.offset();
+      BasicBlock* source_bb = src_bb_iter->second;
+      Offset local_offset = source_offset - source_bb->offset();
       DCHECK_LE(0, local_offset);
-      DCHECK_LE(local_offset + reference.size(), source_bb.size());
+      DCHECK_LE(local_offset + reference.size(), source_bb->size());
 
       // Insert the referrer.
-      bool inserted = target_bb.referrers().insert(
-          BasicBlockReferrer(&source_bb, local_offset)).second;
+      bool inserted = target_bb->referrers().insert(
+          BasicBlockReferrer(source_bb, local_offset)).second;
       DCHECK(inserted);
     }
   }
@@ -630,6 +671,9 @@ bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
 template<typename ItemType>
 bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
   DCHECK(item != NULL);
+
+  BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
 
   // Figure out the bounds of item.
   BlockGraph::Offset start_offset = item->offset();
@@ -650,14 +694,14 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
       // For intra block_ references, find the corresponding basic block in
       // the basic block address space.
       Offset target_base = reference.base();
-      RangeMapIter bb_iter = basic_block_address_space_.FindFirstIntersection(
+      RangeMapIter bb_iter = basic_block_address_space.FindFirstIntersection(
           Range(target_base, 1));
 
       // We have complete coverage of the block; there must be an intersection.
       // And, we break up the basic blocks by code references, so the target
       // offset must coincide with the start of the target block.
-      DCHECK(bb_iter != basic_block_address_space_.end());
-      BasicBlock& target_bb = bb_iter->second;
+      DCHECK(bb_iter != basic_block_address_space.end());
+      BasicBlock* target_bb = bb_iter->second;
       DCHECK_EQ(target_base, bb_iter->first.start());
 
       // Create target basic-block relative values for the base and offset.
@@ -669,7 +713,7 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
           std::make_pair(local_offset,
                          BasicBlockReference(reference.type(),
                                              reference.size(),
-                                             &target_bb,
+                                             target_bb,
                                              target_offset,
                                              target_base))).second;
       DCHECK(inserted);
@@ -690,21 +734,23 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
 }
 
 bool BasicBlockDecomposer::PopulateBasicBlockReferences() {
+  BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
   // Copy the references for the source range of each basic-block (by
   // instruction for code basic-blocks). The referrers and successors are
   // handled in a separate pass.
-  RangeMapIter bb_iter = basic_block_address_space_.begin();
-  for (; bb_iter != basic_block_address_space_.end(); ++bb_iter) {
-    BasicBlock& bb = bb_iter->second;
-    BasicBlockType bb_type = bb.type();
-    if (bb_type == BasicBlock::BASIC_CODE_BLOCK) {
-      BasicBlock::Instructions::iterator inst_iter = bb.instructions().begin();
-      for (; inst_iter != bb.instructions().end(); ++inst_iter) {
+  RangeMapIter bb_iter = basic_block_address_space.begin();
+  for (; bb_iter != basic_block_address_space.end(); ++bb_iter) {
+    BasicBlock* bb = bb_iter->second;
+    if (bb->type() == BasicBlock::BASIC_CODE_BLOCK) {
+      BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
+      for (; inst_iter != bb->instructions().end(); ++inst_iter) {
         if (!CopyReferences(&(*inst_iter)))
           return false;
       }
     } else {
-      if (!CopyReferences(&(bb_iter->second)))
+      if (!CopyReferences(bb_iter->second))
         return false;
     }
   }
@@ -712,19 +758,21 @@ bool BasicBlockDecomposer::PopulateBasicBlockReferences() {
 }
 
 bool BasicBlockDecomposer::ResolveSuccessors() {
-  RangeMapIter bb_iter = basic_block_address_space_.begin();
-  for (; bb_iter != basic_block_address_space_.end(); ++bb_iter) {
+  BBAddressSpace& basic_block_address_space =
+      decomposition_->original_address_space();
+
+  RangeMapIter bb_iter = basic_block_address_space.begin();
+  for (; bb_iter != basic_block_address_space.end(); ++bb_iter) {
     // Only code basic-blocks have successors and instructions.
-    BasicBlock& bb = bb_iter->second;
-    BasicBlockType bb_type = bb.type();
-    if (bb_type != BasicBlock::BASIC_CODE_BLOCK) {
-      DCHECK(bb.successors().empty());
-      DCHECK(bb.instructions().empty());
+    BasicBlock* bb = bb_iter->second;
+    if (bb->type() != BasicBlock::BASIC_CODE_BLOCK) {
+      DCHECK(bb->successors().empty());
+      DCHECK(bb->instructions().empty());
       continue;
     }
 
-    BasicBlock::Successors::iterator succ_iter = bb.successors().begin();
-    BasicBlock::Successors::iterator succ_iter_end = bb.successors().end();
+    BasicBlock::Successors::iterator succ_iter = bb->successors().begin();
+    BasicBlock::Successors::iterator succ_iter_end = bb->successors().end();
     for (; succ_iter != succ_iter_end; ++succ_iter) {
       if (succ_iter->branch_target().IsValid()) {
         // The branch target is already resolved; it must have been inter-block.
@@ -734,17 +782,17 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
       }
 
       // Find the basic block the successor references.
-      RangeMapIter bb_iter = basic_block_address_space_.FindFirstIntersection(
+      RangeMapIter bb_iter = basic_block_address_space.FindFirstIntersection(
           Range(succ_iter->bb_target_offset(), 1));
-      DCHECK(bb_iter != basic_block_address_space_.end());
-      BasicBlock& target_bb = bb_iter->second;
+      DCHECK(bb_iter != basic_block_address_space.end());
+      BasicBlock* target_bb = bb_iter->second;
       DCHECK_EQ(succ_iter->bb_target_offset(), bb_iter->first.start());
 
       // TODO(rogerm): It's not clear to me that BasicBlockReference objects
       //     need to track the reference type and size. We'll be re-synthesizing
       //     them later anyway, without regard for these initial values.
       succ_iter->set_branch_target(
-          BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, &target_bb, 0, 0));
+          BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, target_bb, 0, 0));
       DCHECK(succ_iter->branch_target().IsValid());
 
       // TODO(rogerm): This is awkward. We want the offset of the reference if
@@ -753,8 +801,8 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
       //     will actually be variable depending on how we re-synthesize the
       //     branch. For now, successors are special case in that referrers
       //     will point to the offset where the instruction would start.
-      bool inserted = target_bb.referrers().insert(
-          BasicBlockReferrer(&bb, succ_iter->instruction_offset())).second;
+      bool inserted = target_bb->referrers().insert(
+          BasicBlockReferrer(bb, succ_iter->instruction_offset())).second;
       DCHECK(inserted);
     }
   }

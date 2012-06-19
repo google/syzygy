@@ -462,7 +462,7 @@ BasicBlock::BasicBlock(BasicBlock::BlockId id,
       size_(size),
       data_(data) {
   DCHECK((offset < 0 && size == 0) || (offset >= 0 && size > 0));
-  DCHECK(data != NULL);
+  DCHECK(data != NULL || size == 0);
 }
 
 const char* BasicBlock::BasicBlockTypeToString(
