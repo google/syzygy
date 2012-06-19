@@ -43,7 +43,7 @@ namespace pdb {
 namespace {
 
 // Read the stream containing the filenames listed in the Pdb.
-bool ReadNameStream(PdbStream* stream, StringVector* index_strings) {
+bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
   size_t stream_start = stream->pos();
   size_t stream_end = stream->pos() + stream->length();
   return ReadStringTable(stream,
@@ -207,9 +207,16 @@ int PdbDumpApp::Run() {
     }
 
     NameStreamMap::const_iterator it(name_streams.find("/names"));
-    StringVector index_names;
-    if (it != name_streams.end() &&
-        !ReadNameStream(pdb_file.GetStream(it->second), &index_names)) {
+    OffsetStringMap index_names;
+    if (it != name_streams.end()) {
+      if (ReadNameStream(pdb_file.GetStream(it->second), &index_names)) {
+        DumpNameTable(&index_names);
+      } else {
+        LOG(ERROR) << "Unable to read the name table.";
+        return 1;
+      }
+    } else {
+      LOG(ERROR) << "No name table.";
       return 1;
     }
 
@@ -253,6 +260,17 @@ void PdbDumpApp::DumpInfoStream(const PdbInfoHeader70& info,
   NameStreamMap::const_iterator it(name_streams.begin());
   for (; it != name_streams.end(); ++it) {
     ::fprintf(out(), "\t%s: %d\n", it->first.c_str(), it->second);
+  }
+}
+
+void PdbDumpApp::DumpNameTable(OffsetStringMap* name_table) {
+  DCHECK(name_table != NULL);
+
+  ::fprintf(out(), "PDB Name table:\n");
+  OffsetStringMap::iterator iter_names = name_table->begin();
+  for (; iter_names != name_table->end(); ++iter_names) {
+    ::fprintf(out(), "0x%04X: %s\n", iter_names->first,
+              iter_names->second.c_str());
   }
 }
 

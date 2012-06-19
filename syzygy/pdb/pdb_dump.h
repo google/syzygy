@@ -51,6 +51,9 @@ class PdbDumpApp : public common::AppImplBase {
   // Dumps headers from @p dbi_stream to out().
   void DumpDbiHeaders(const DbiStream& dbi_stream);
 
+  // Dumps the name table from the PDB file to out().
+  void DumpNameTable(OffsetStringMap* name_table);
+
   // Dumps @p dbi_stream to out().
   void DumpDbiStream(const DbiStream& dbi_stream);
 
