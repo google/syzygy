@@ -158,7 +158,6 @@ class BasicBlockReferrer {
  public:
   typedef BlockGraph::Block Block;
   typedef BlockGraph::Offset Offset;
-  typedef BlockGraph::Size Size;
 
   enum ReferrerType {
     REFERRER_TYPE_UNKNOWN,
@@ -482,17 +481,6 @@ class BasicBlock {
   typedef std::set<BasicBlockReferrer, BasicBlockReferrer::CompareAsLess>
       BasicBlockReferrerSet;
 
-  // The collection of references this basic block makes to other macro
-  // blocks (other than the original macro block in which this basic
-  // block resides).
-  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
-
-  // The set of macro blocks that have a reference to this basic block.
-  // @{
-  typedef BlockGraph::Block::Referrer Referrer;
-  typedef BlockGraph::Block::ReferrerSet ReferrerSet;
-  // @}
-
   // This offset is used to denote that an instruction, successor, or
   // basic block has been synthesized and has no corresponding image in
   // the original block.
@@ -530,7 +518,9 @@ class BasicBlock {
   Instructions& instructions() { return instructions_; }
   const Successors& successors() const { return successors_; }
   Successors& successors() { return successors_; }
+  const BasicBlockReferenceMap& references() const { return references_; }
   BasicBlockReferenceMap& references() { return references_; }
+  const BasicBlockReferrerSet& referrers() const { return referrers_; }
   BasicBlockReferrerSet& referrers() { return referrers_; }
   // @}
 

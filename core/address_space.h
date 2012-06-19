@@ -137,6 +137,8 @@ class AddressSpace {
   // Remove the items in the given range.
   void Remove(RangeMapIterPair its) { ranges_.erase(its.first, its.second); }
   void Remove(RangeMapIter it1, RangeMapIter it2) { ranges_.erase(it1, it2); }
+  // Remove all items from the address space.
+  void Clear() { ranges_.clear(); }
 
   const RangeMap& ranges() const { return ranges_; }
   const bool empty() const { return ranges_.empty(); }

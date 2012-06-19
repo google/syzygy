@@ -237,6 +237,20 @@ TEST(AddressSpaceTest, RemoveByIter) {
   EXPECT_TRUE(address_space.ranges().empty());
 }
 
+TEST(AddressSpaceTest, Clear) {
+  IntegerAddressSpace address_space;
+  void* item = "Something to point at";
+
+  // Insert some items.
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(100, 10), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(110, 5), item));
+  ASSERT_TRUE(address_space.Insert(IntegerAddressSpace::Range(120, 10), item));
+  ASSERT_TRUE(!address_space.ranges().empty());
+
+  address_space.Clear();
+  EXPECT_TRUE(address_space.ranges().empty());
+}
+
 TEST(AddressSpaceTest, Intersects) {
   IntegerAddressSpace address_space;
   void* item = "Something to point at";
