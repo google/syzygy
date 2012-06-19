@@ -14,6 +14,9 @@
 #include "syzygy/pdb/pdb_util.h"
 
 #include <algorithm>
+#include <string>
+
+#include "base/stringprintf.h"
 #include "sawbuck/common/buffer_parser.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
@@ -493,6 +496,87 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   // The run must be terminated with a single NULL entry.
   if (!pdb_stream->Write(static_cast<uint32>(0))) {
     LOG(ERROR) << "Failed to write terminating NULL.";
+    return false;
+  }
+
+  return true;
+}
+
+bool ReadStringTable(PdbStream* stream,
+                     const char* table_name,
+                     size_t table_start,
+                     size_t table_end,
+                     StringVector* string_vector) {
+  uint32 string_table_signature = 0;
+  uint32 string_table_version = 0;
+
+  if (!stream->Seek(table_start) ||
+      !stream->Read(&string_table_signature, 1) ||
+      !stream->Read(&string_table_version, 1)) {
+    LOG(ERROR) << "Unable to seek to " << table_name << " stream.";
+    return false;
+  }
+
+  if (string_table_signature != kPdbNameTableSignature ||
+      string_table_version != kPdbNameTableVersion) {
+    LOG(ERROR) << "Unexpected " << table_name << " header. Expected "
+               << "signature/version "
+               << StringPrintf("0x%08X", kPdbNameTableSignature) << "/"
+               << kPdbNameTableVersion << ", read "
+               << StringPrintf("0x%08X", string_table_signature) << "/"
+               << string_table_version << ".";
+    return false;
+  }
+
+  size_t string_table_size = 0;
+  if (!stream->Read(&string_table_size, 1)) {
+    LOG(ERROR) << "Unable to read the size of the " << table_name << " string "
+               << "table.";
+    return false;
+  }
+
+  size_t string_table_start = stream->pos();
+  size_t offset_table_start = stream->pos() + string_table_size;
+
+  // Skip the string table and seek to the offset table.
+  if (!stream->Seek(offset_table_start)) {
+    LOG(ERROR) << "Unable to seek to the " << table_name << " offset table.";
+    return false;
+  }
+
+  size_t entries_count = 0;
+  if (!stream->Read(&entries_count, 1)) {
+    LOG(ERROR) << "Unable to read the number of entries in the " << table_name
+               << " offset table.";
+    return false;
+  }
+
+  string_vector->resize(entries_count);
+  // Some of the offsets present in the offset table have the value 0, which
+  // refers to an empty string present at the beginning of the string table.
+  for (size_t i = 0; i < entries_count; ++i) {
+    size_t string_offset = 0;
+    if (!stream->Read(&string_offset, 1) ||
+        !ReadStringAt(stream, string_table_start + string_offset,
+                      &string_vector->at(i))) {
+      LOG(ERROR) << "Unable to read the " << table_name << " name table.";
+      return false;
+    }
+  }
+
+  uint32 string_count = 0;
+  // Sometimes the string_count field matches the number of non-empty strings
+  // in the string_vector and sometimes it doesn't.
+  // TODO(sebmarchand) : understand what's this value once the compiland streams
+  //     are deciphered.
+  if (!stream->Read(&string_count, 1)) {
+    LOG(ERROR) << "Unable to read the number of files present in the "
+               << table_name << " stream.";
+    return false;
+  }
+
+  if (stream->pos() != table_end) {
+    LOG(ERROR) << table_name << " stream is not valid.";
     return false;
   }
 
