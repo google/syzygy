@@ -33,9 +33,8 @@ class WritablePdbStream;
 // A map of names to stream IDs, stored in the header stream.
 typedef std::map<std::string, uint32> NameStreamMap;
 
-// Vector of strings stored in the same order as they are in some string tables
-// present in different substreams of the PDB.
-typedef std::vector<std::string> StringVector;
+// A map of position offset to strings, stored in some streams of the Pdb.
+typedef std::map<size_t, std::string> OffsetStringMap;
 
 // Used for parsing a variable sized bitset as found in PDB streams.
 class PdbBitSet {
@@ -154,13 +153,13 @@ bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out);
 //     messages).
 // @param string_table_start start position of the name table.
 // @param string_table_end end position of the name table.
-// @param string_vector the string vector to be filled.
+// @param string_map the string map to be filled.
 // @returns true on success, false on error.
 bool ReadStringTable(PdbStream* stream,
                      const char* table_name,
                      size_t string_table_start,
                      size_t string_table_end,
-                     StringVector* string_vector);
+                     OffsetStringMap* string_map);
 
 }  // namespace pdb
 

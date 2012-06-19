@@ -506,7 +506,11 @@ bool ReadStringTable(PdbStream* stream,
                      const char* table_name,
                      size_t table_start,
                      size_t table_end,
-                     StringVector* string_vector) {
+                     OffsetStringMap* string_map) {
+  DCHECK(stream != NULL);
+  DCHECK(table_name != NULL);
+  DCHECK(string_map != NULL);
+
   uint32 string_table_signature = 0;
   uint32 string_table_version = 0;
 
@@ -551,22 +555,24 @@ bool ReadStringTable(PdbStream* stream,
     return false;
   }
 
-  string_vector->resize(entries_count);
   // Some of the offsets present in the offset table have the value 0, which
   // refers to an empty string present at the beginning of the string table.
   for (size_t i = 0; i < entries_count; ++i) {
     size_t string_offset = 0;
+    std::string temp_string;
     if (!stream->Read(&string_offset, 1) ||
         !ReadStringAt(stream, string_table_start + string_offset,
-                      &string_vector->at(i))) {
+                      &temp_string)) {
       LOG(ERROR) << "Unable to read the " << table_name << " name table.";
       return false;
     }
+
+    string_map->insert(std::make_pair(string_offset, temp_string));
   }
 
   uint32 string_count = 0;
   // Sometimes the string_count field matches the number of non-empty strings
-  // in the string_vector and sometimes it doesn't.
+  // in the string_map and sometimes it doesn't.
   // TODO(sebmarchand) : understand what's this value once the compiland streams
   //     are deciphered.
   if (!stream->Read(&string_count, 1)) {
