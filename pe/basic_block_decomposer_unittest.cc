@@ -27,7 +27,7 @@
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/basic_block_decomposition.h"
+#include "syzygy/pe/basic_block_subgraph.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -45,15 +45,15 @@ using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
 
-typedef BasicBlockDecomposition::BBAddressSpace BBAddressSpace;
+typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
 
 class TestBasicBlockDecomposer : public BasicBlockDecomposer {
 public:
   using BasicBlockDecomposer::on_instruction_;
 
   explicit TestBasicBlockDecomposer(const BlockGraph::Block* block,
-                                    BasicBlockDecomposition* decomposition)
-      : BasicBlockDecomposer(block, decomposition) {
+                                    BasicBlockSubGraph* subgraph)
+      : BasicBlockDecomposer(block, subgraph) {
     check_decomposition_results_ = true;
   }
 
@@ -164,19 +164,19 @@ TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
   EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_START_LABEL));
   EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_END_LABEL));
 
-  BasicBlockDecomposition bb_decomposition;
-  TestBasicBlockDecomposer bb_decomposer(block, &bb_decomposition);
+  BasicBlockSubGraph subgraph;
+  TestBasicBlockDecomposer bb_decomposer(block, &subgraph);
   bb_decomposer.on_instruction_ =
       base::Bind(&BasicBlockDecomposerTest::OnInstruction,
                  base::Unretained(this));
 
-  // We should hit kNumInstructions instructions during bb decomposition.
+  // We should hit kNumInstructions instructions during decomposition.
   EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(kNumInstructions);
   ASSERT_TRUE(bb_decomposer.Decompose());
-  EXPECT_TRUE(bb_decomposition.IsValid());
+  EXPECT_TRUE(subgraph.IsValid());
 
-  const BasicBlockDecomposition::BBAddressSpace& basic_blocks =
-      bb_decomposition.original_address_space();
+  const BasicBlockSubGraph::BBAddressSpace& basic_blocks =
+      subgraph.original_address_space();
 
   // All blocks should have been disassembled.
   EXPECT_EQ(kNumBasicBlocks, basic_blocks.size());
@@ -198,14 +198,14 @@ TEST_F(BasicBlockDecomposerTest, DecomposeAllCodeBlocks) {
     if (!CodeBlockIsBasicBlockDecomposable(block))
       continue;
 
-    BasicBlockDecomposition bb_decomposition;
-    TestBasicBlockDecomposer bb_decomposer(block, &bb_decomposition);
+    BasicBlockSubGraph subgraph;
+    TestBasicBlockDecomposer bb_decomposer(block, &subgraph);
     ASSERT_TRUE(bb_decomposer.Decompose());
-    EXPECT_TRUE(bb_decomposition.IsValid());
-    EXPECT_EQ(1U, bb_decomposition.block_descriptions().size());
+    EXPECT_TRUE(subgraph.IsValid());
+    EXPECT_EQ(1U, subgraph.block_descriptions().size());
 
-    typedef BasicBlockDecomposition::BlockDescription BlockDescription;
-    const BlockDescription& desc = bb_decomposition.block_descriptions().back();
+    typedef BasicBlockSubGraph::BlockDescription BlockDescription;
+    const BlockDescription& desc = subgraph.block_descriptions().back();
     EXPECT_EQ(block->type(), desc.type);
     EXPECT_EQ(block->alignment(), desc.alignment);
     EXPECT_EQ(block->name(), desc.name);

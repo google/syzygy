@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declaration of BasicBlockDecomposition class.
+// Declaration of BasicBlockGraph class.
 
-#ifndef SYZYGY_PE_BASIC_BLOCK_DECOMPOSITION_H_
-#define SYZYGY_PE_BASIC_BLOCK_DECOMPOSITION_H_
+#ifndef SYZYGY_PE_BASIC_BLOCK_SUBGRAPH_H_
+#define SYZYGY_PE_BASIC_BLOCK_SUBGRAPH_H_
 
 #include <map>
 #include <set>
@@ -28,17 +28,15 @@
 
 namespace pe {
 
-// A class which holds a basic block composition.
-//
-// A basic block composition describes the make-up and layout of one or
+// A basic-block sub-graph describes the make-up and layout of one or
 // more blocks as a set of code, data, and/or padding basic-blocks. Optionally,
-// it holds a pointer to a block from which the composition was originally
+// it holds a pointer to a block from which the sub-graph was originally
 // derived.
 //
-// In manipulating the basic block composition, note that the composition
+// In manipulating the basic block sub-graph, note that the sub-graph
 // acts as a basic-block factory and retains ownership of all basic-blocks
 // that participate in the composition.
-class BasicBlockDecomposition {
+class BasicBlockSubGraph {
  public:
   typedef block_graph::BasicBlock BasicBlock;
   typedef BasicBlock::BasicBlockType BasicBlockType;
@@ -67,8 +65,8 @@ class BasicBlockDecomposition {
   typedef std::map<BasicBlock::BlockId, BasicBlock> BBCollection;
   typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
 
-  // Initialize a basic block decomposition.
-  BasicBlockDecomposition();
+  // Initialize a basic block sub-graph.
+  BasicBlockSubGraph();
 
   // @name Accessors.
   // @{
@@ -79,7 +77,7 @@ class BasicBlockDecomposition {
   BlockDescriptionList& block_descriptions() { return block_descriptions_; }
   // @}
 
-  // Add a new basic block to the decomposition.
+  // Add a new basic block to the sub-graph.
   // @param name A textual identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
   // @param offset The offset (in the original block) where this basic block
@@ -114,12 +112,13 @@ class BasicBlockDecomposition {
   bool HasValidReferrers() const;
   // @}
 
-  // The original block corresponding from which this decomposition derives.
+  // The original block corresponding from which this sub-graph derives. This
+  // is optional, and may be NULL.
   const Block* original_block_;
 
-  // The set of basic blocks in this decomposition. This includes any basic
-  // blocks created during the initial basic block decomposition process, as
-  // well as any additional basic blocks synthesized thereafter.
+  // The set of basic blocks in this sub-graph. This includes any basic-blocks
+  // created during the initial decomposition process, as well as any additional
+  // basic-blocks synthesized thereafter.
   BBCollection basic_blocks_;
 
   // The breakdown and layout of the original block into basic blocks. This
@@ -127,7 +126,7 @@ class BasicBlockDecomposition {
   BBAddressSpace original_address_space_;
 
   // A list of block descriptions for the blocks that are to be created from
-  // this basic block decomposition.
+  // this basic block sub-graph.
   BlockDescriptionList block_descriptions_;
 
   // An counter used to assign IDs to basic blocks as they are constructed.
@@ -136,4 +135,4 @@ class BasicBlockDecomposition {
 
 }  // namespace pe
 
-#endif  // SYZYGY_PE_BASIC_BLOCK_DECOMPOSITION_H_
+#endif  // SYZYGY_PE_BASIC_BLOCK_SUBGRAPH_H_

@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implementation of BasicBlockDecomposition class.
+// Implementation of BasicBlockSubGraph class.
 
-#include "syzygy/pe/basic_block_decomposition.h"
+#include "syzygy/pe/basic_block_subgraph.h"
 
 #include <algorithm>
 
 namespace pe {
 
-BasicBlockDecomposition::BasicBlockDecomposition()
+BasicBlockSubGraph::BasicBlockSubGraph()
     : original_block_(NULL), next_basic_block_id_(0) {
 }
 
-block_graph::BasicBlock* BasicBlockDecomposition::AddBasicBlock(
+block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
     const base::StringPiece& name,
     BasicBlockType type,
     Offset offset,
@@ -57,13 +57,13 @@ block_graph::BasicBlock* BasicBlockDecomposition::AddBasicBlock(
   return new_basic_block;
 }
 
-bool BasicBlockDecomposition::IsValid() const {
+bool BasicBlockSubGraph::IsValid() const {
   return MapsBasicBlocksToAtMostOneDescription() &&
       HasValidSuccessors() &&
       HasValidReferrers();
 }
 
-bool BasicBlockDecomposition::MapsBasicBlocksToAtMostOneDescription() const {
+bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {
   std::set<BasicBlock*> bb_set;
   BlockDescriptionList::const_iterator desc_iter = block_descriptions_.begin();
   for (; desc_iter != block_descriptions_.end(); ++desc_iter) {
@@ -80,7 +80,7 @@ bool BasicBlockDecomposition::MapsBasicBlocksToAtMostOneDescription() const {
   return true;
 }
 
-bool BasicBlockDecomposition::HasValidSuccessors() const {
+bool BasicBlockSubGraph::HasValidSuccessors() const {
   // TODO(rogerm): Refactor the control flow test helpers from
   //     basic_block_decomposer.cc to a common location accessible from here.
   //     This should be a subset of the BasicBlockDecomposer's successor
@@ -89,7 +89,7 @@ bool BasicBlockDecomposition::HasValidSuccessors() const {
   return true;
 }
 
-bool BasicBlockDecomposition::HasValidReferrers() const {
+bool BasicBlockSubGraph::HasValidReferrers() const {
   if (original_block_ == NULL)
     return true;
 
