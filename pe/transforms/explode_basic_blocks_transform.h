@@ -41,8 +41,9 @@ class ExplodeBasicBlocksTransform
   // @param block_graph The block graph to transform.
   // @param dos_header_block The DOS header block of the block graph.
   // @returns true on success, false otherwise.
-  virtual bool Apply(BlockGraph* block_graph,
-                     BlockGraph::Block* dos_header_block) OVERRIDE;
+  virtual bool TransformBlockGraph(
+      BlockGraph* block_graph,
+      BlockGraph::Block* dos_header_block) OVERRIDE;
 
   // The tranform name.
   static const char kTransformName[];

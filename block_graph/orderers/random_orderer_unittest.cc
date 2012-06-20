@@ -16,8 +16,8 @@
 
 #include "syzygy/block_graph/orderers/random_orderer.h"
 
-#include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 namespace block_graph {
 namespace orderers {
@@ -112,7 +112,7 @@ TEST_F(RandomOrdererTest, Shuffle) {
 
     // Shuffle the blocks.
     RandomOrderer random(true, i);
-    EXPECT_TRUE(random.Apply(&obg, NULL));
+    EXPECT_TRUE(random.OrderBlockGraph(&obg, NULL));
 
     // Get the shuffled order.
     Blocks shuffled1, shuffled2;

@@ -41,7 +41,7 @@ namespace {
 typedef block_graph::BlockGraphTransformInterface Transform;
 typedef block_graph::BlockGraphOrdererInterface Orderer;
 
-using block_graph::ApplyTransform;
+using block_graph::ApplyBlockGraphTransform;
 using block_graph::BlockGraph;
 using block_graph::OrderedBlockGraph;
 using core::RelativeAddress;
@@ -100,7 +100,7 @@ bool ApplyOrderer(Orderer* orderer,
   DCHECK(obg != NULL);
   DCHECK(header_block != NULL);
 
-  if (!orderer->Apply(obg, header_block)) {
+  if (!orderer->OrderBlockGraph(obg, header_block)) {
     LOG(ERROR) << "Orderer failed: " << orderer->name();
     return false;
   }
@@ -242,9 +242,12 @@ bool ApplyTransforms(const FilePath& input_path,
   // Apply the transforms.
   for (size_t i = 0; i < local_transforms.size(); ++i) {
     LOG(INFO) << "Applying transform: " << local_transforms[i]->name() << ".";
-    // ApplyTransform takes care of verbosely logging any failures.
-    if (!ApplyTransform(local_transforms[i], block_graph, dos_header_block))
+    // ApplyBlockGraphTransform takes care of verbosely logging any failures.
+    if (!ApplyBlockGraphTransform(local_transforms[i],
+                                  block_graph,
+                                  dos_header_block)) {
       return false;
+    }
   }
 
   return true;

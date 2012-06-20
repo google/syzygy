@@ -33,7 +33,7 @@ typedef TypedBlock<CvInfoPdb70> CvInfoPdb;
 const char AddPdbInfoTransform::kTransformName[] =
     "AddPdbInfoTransform";
 
-bool AddPdbInfoTransform::Apply(
+bool AddPdbInfoTransform::TransformBlockGraph(
     BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
@@ -47,8 +47,8 @@ bool AddPdbInfoTransform::Apply(
   // Find or create the appropriate debug directory entry.
   AddDebugDirectoryEntryTransform debug_dir_tx(IMAGE_DEBUG_TYPE_CODEVIEW,
                                                false);
-  if (!block_graph::ApplyTransform(&debug_dir_tx, block_graph,
-                                   dos_header_block)) {
+  if (!block_graph::ApplyBlockGraphTransform(&debug_dir_tx, block_graph,
+                                             dos_header_block)) {
     LOG(ERROR) << debug_dir_tx.name() << " failed.";
     return false;
   }

@@ -85,8 +85,8 @@ struct SectionCompareFunctor {
 
 const char OriginalOrderer::kOrdererName[] = "OriginalOrderer";
 
-bool OriginalOrderer::Apply(OrderedBlockGraph* ordered_block_graph,
-                            BlockGraph::Block* header_block) {
+bool OriginalOrderer::OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
+                                      BlockGraph::Block* header_block) {
   DCHECK(ordered_block_graph != NULL);
   DCHECK(header_block != NULL);
 

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,8 +44,8 @@ class IterativeTransformImpl : public NamedTransformImpl<DerivedType> {
   // @param block_graph the block graph being transformed.
   // @param block the block to process.
   // @returns true on success, false otherwise.
-  virtual bool Apply(BlockGraph* block_graph,
-                     BlockGraph::Block* header_block);
+  virtual bool TransformBlockGraph(BlockGraph* block_graph,
+                                   BlockGraph::Block* header_block) OVERRIDE;
 
  protected:
   // This function is called prior to the iterative portion of the transform.
@@ -55,15 +55,15 @@ class IterativeTransformImpl : public NamedTransformImpl<DerivedType> {
   // @param block_graph the block graph being transformed.
   // @param header_block the header block.
   // @returns true on success, false otherwise.
-  bool PreIteration(BlockGraph* block_graph,
-                    BlockGraph::Block* header_block) {
+  bool PreBlockGraphIteration(BlockGraph* block_graph,
+                              BlockGraph::Block* header_block) {
     return true;
   }
 
   // This function is called for every block returned by the iterator. If it
   // returns false the transform will be aborted and is considered to have
   // failed. This function must be implemented by the derived class. This will
-  // not be called if PreIteration fails.
+  // not be called if PreBlockGraphIteration fails.
   //
   // @param block_graph the block graph being transformed.
   // @param block the block to process.
@@ -74,24 +74,25 @@ class IterativeTransformImpl : public NamedTransformImpl<DerivedType> {
   // This function is called after the iterative portion of the transform. If
   // it fails, the transform is considered to have failed. A default
   // implementation is provided but it may be overridden. This will not be
-  // called if PreIteration fails or any call to OnBlock fails.
+  // called if PreBlockGraphIteration fails or any call to OnBlock fails.
   //
   // @param block_graph the block graph being transformed.
   // @param header_block the header block.
   // @returns true on success, false otherwise.
-  bool PostIteration(BlockGraph* block_graph,
-                     BlockGraph::Block* header_block) {
+  bool PostBlockGraphIteration(BlockGraph* block_graph,
+                               BlockGraph::Block* header_block) {
     return true;
   }
 };
 
 template <class DerivedType>
-bool IterativeTransformImpl<DerivedType>::Apply(
+bool IterativeTransformImpl<DerivedType>::TransformBlockGraph(
     BlockGraph* block_graph, BlockGraph::Block* header_block) {
   DerivedType* self = static_cast<DerivedType*>(this);
 
-  if (!self->PreIteration(block_graph, header_block)) {
-    LOG(ERROR) << "Pre-transform failed for \"" << name() << "\" transform.";
+  if (!self->PreBlockGraphIteration(block_graph, header_block)) {
+    LOG(ERROR) << "PreBlockGraphIteration failed for \"" << name()
+               << "\" transform.";
     return false;
   }
 
@@ -104,8 +105,9 @@ bool IterativeTransformImpl<DerivedType>::Apply(
     return false;
   }
 
-  if (!self->PostIteration(block_graph, header_block)) {
-    LOG(ERROR) << "Post-transform failed for \"" << name() << "\" transform.";
+  if (!self->PostBlockGraphIteration(block_graph, header_block)) {
+    LOG(ERROR) << "PostBlockGraphIteration failed for \"" << name()
+               << "\" transform.";
     return false;
   }
 

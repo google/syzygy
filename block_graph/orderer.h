@@ -37,8 +37,8 @@ class BlockGraphOrdererInterface {
   // @param ordered_block_graph the block graph to order.
   // @param header_block The header block of the block graph to transform.
   // @returns true on success, false otherwise.
-  virtual bool Apply(OrderedBlockGraph* ordered_block_graph,
-                     BlockGraph::Block* header_block) = 0;
+  virtual bool OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
+                               BlockGraph::Block* header_block) = 0;
 };
 
 }  // namespace block_graph

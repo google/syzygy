@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,8 +40,9 @@ class AddMetadataTransform
   // @param dos_header_block The DOS header block of the block graph. This is
   //     unused in this transform.
   // @returns true on success, false otherwise.
-  virtual bool Apply(BlockGraph* block_graph,
-                     BlockGraph::Block* /*dos_header_block*/);
+  virtual bool TransformBlockGraph(
+      BlockGraph* block_graph,
+      BlockGraph::Block* /*dos_header_block*/) OVERRIDE;
 
   BlockGraph::Block* metadata_block() const { return metadata_block_; }
 

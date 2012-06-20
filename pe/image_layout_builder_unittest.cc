@@ -28,8 +28,8 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
-#include "syzygy/pe/transforms/prepare_headers_transform.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/pe/transforms/prepare_headers_transform.h"
 
 namespace pe {
 
@@ -71,8 +71,8 @@ class ImageLayoutBuilderTest : public testing::PELibUnitTest {
 
     // Prepare the headers. This puts our DOS stub in place.
     transforms::PrepareHeadersTransform prep_headers;
-    ASSERT_TRUE(block_graph::ApplyTransform(&prep_headers, &block_graph_,
-                                            dos_header_block_));
+    ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+        &prep_headers, &block_graph_, dos_header_block_));
   }
 
  protected:
@@ -142,7 +142,7 @@ TEST_F(ImageLayoutBuilderTest, AddSection) {
 TEST_F(ImageLayoutBuilderTest, RewriteTestDll) {
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::OriginalOrderer orig_orderer;
-  ASSERT_TRUE(orig_orderer.Apply(&obg, dos_header_block_));
+  ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   ImageLayout layout(&block_graph_);
   ImageLayoutBuilder builder(&layout);
@@ -171,7 +171,7 @@ TEST_F(ImageLayoutBuilderTest, RewriteTestDll) {
 TEST_F(ImageLayoutBuilderTest, PadTestDll) {
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::OriginalOrderer orig_orderer;
-  ASSERT_TRUE(orig_orderer.Apply(&obg, dos_header_block_));
+  ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   ImageLayout layout(&block_graph_);
   ImageLayoutBuilder builder(&layout);
@@ -227,7 +227,7 @@ TEST_F(ImageLayoutBuilderTest, PadTestDll) {
 TEST_F(ImageLayoutBuilderTest, RandomizeTestDll) {
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::RandomOrderer random_orderer(true);
-  ASSERT_TRUE(random_orderer.Apply(&obg, dos_header_block_));
+  ASSERT_TRUE(random_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   ImageLayout layout(&block_graph_);
   ImageLayoutBuilder builder(&layout);
@@ -256,12 +256,12 @@ TEST_F(ImageLayoutBuilderTest, ShiftTestDll) {
   // headers accurately reflect the number of sections as we've added a new
   // one.
   transforms::PrepareHeadersTransform prep_headers;
-  ASSERT_TRUE(block_graph::ApplyTransform(&prep_headers, &block_graph_,
-                                          dos_header_block_));
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &prep_headers, &block_graph_, dos_header_block_));
 
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::OriginalOrderer orig_orderer;
-  ASSERT_TRUE(orig_orderer.Apply(&obg, dos_header_block_));
+  ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   // Move the new section to the beginning of the image. This causes everything
   // to be shifted by a fixed amount.

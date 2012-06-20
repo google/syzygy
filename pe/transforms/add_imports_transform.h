@@ -24,7 +24,7 @@
 //
 //   AddImportsTransform add_imports_transform;
 //   add_imports_transform.AddModule(&foo_dll);
-//   add_imports_transform.Apply(block_graph, dos_header_block);
+//   add_imports_transform.TransformBlockGraph(block_graph, dos_header_block);
 //
 //   // Create a reference to function 'bar' in 'foo.dll'.
 //   BlockGraph::Reference foo_bar_ref;
@@ -70,8 +70,8 @@ class AddImportsTransform : public NamedTransformImpl<AddImportsTransform> {
   // @param block_graph the BlockGraph to populate.
   // @param dos_header_block the block containing the module's DOS header.
   // @returns true on success, false otherwise.
-  virtual bool Apply(BlockGraph* block_graph,
-                     BlockGraph::Block* dos_header_block);
+  virtual bool TransformBlockGraph(
+      BlockGraph* block_graph, BlockGraph::Block* dos_header_block) OVERRIDE;
 
   // @returns the number of imported modules that were added to the image.
   size_t modules_added() const { return modules_added_; }

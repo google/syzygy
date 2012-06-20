@@ -59,7 +59,7 @@ ThunkImportReferencesTransform::ThunkImportReferencesTransform()
       instrument_dll_name_(kDefaultInstrumentDll) {
 }
 
-bool ThunkImportReferencesTransform::Apply(
+bool ThunkImportReferencesTransform::TransformBlockGraph(
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
   DCHECK(thunk_section_ == NULL);
@@ -70,7 +70,7 @@ bool ThunkImportReferencesTransform::Apply(
 
   add_imports_transform_.AddModule(&import_module);
 
-  if (!add_imports_transform_.Apply(block_graph, header_block)) {
+  if (!add_imports_transform_.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for instrumentation DLL.";
     return false;
   }

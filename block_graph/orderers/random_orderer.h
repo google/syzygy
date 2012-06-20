@@ -61,8 +61,8 @@ class RandomOrderer
   //     This transform does not use this value, so NULL may safely be passed
   //     in.
   // @returns true on success, false otherwise.
-  virtual bool Apply(OrderedBlockGraph* ordered_block_graph,
-                     BlockGraph::Block* header_block) OVERRIDE;
+  virtual bool OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
+                               BlockGraph::Block* header_block) OVERRIDE;
 
   static const char kOrdererName[];
 

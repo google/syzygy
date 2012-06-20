@@ -54,7 +54,7 @@ TEST(TrimTransformTest, BlocksAreTrimmed) {
                                             kPtrSize, b1, 0, 0));
 
   TrimTransform trim_transform;
-  EXPECT_TRUE(ApplyTransform(&trim_transform, &bg, b1));
+  EXPECT_TRUE(ApplyBlockGraphTransform(&trim_transform, &bg, b1));
   EXPECT_EQ(sizeof(kDummyData), b1->data_size());
   EXPECT_EQ(sizeof(kDummyData), b2->data_size());
   EXPECT_EQ(kPtrSize, b3->data_size());

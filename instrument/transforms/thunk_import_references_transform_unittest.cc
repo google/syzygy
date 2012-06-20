@@ -95,7 +95,8 @@ TEST_F(ThunkImportReferencesTransformTest, TestImports) {
   EXPECT_EQ(NULL, null_thunks_section);
 
   TestThunkImportReferencesTransform transform;
-  ASSERT_TRUE(ApplyTransform(&transform, &block_graph_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
 
   // Check that we now have a thunks section.
   BlockGraph::Section* thunks_section = block_graph_.FindSection(".thunks");

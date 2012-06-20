@@ -28,8 +28,8 @@ typedef TypedBlock<IMAGE_NT_HEADERS> NtHeaders;
 const char PrepareHeadersTransform::kTransformName[] =
     "PrepareHeadersTransform";
 
-bool PrepareHeadersTransform::Apply(BlockGraph* block_graph,
-                                    BlockGraph::Block* dos_header_block) {
+bool PrepareHeadersTransform::TransformBlockGraph(
+    BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 

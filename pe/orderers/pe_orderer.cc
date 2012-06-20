@@ -194,8 +194,8 @@ bool LayoutSectionAndDataDirEntry(
 
 const char PEOrderer::kOrdererName[] = "PEOrderer";
 
-bool PEOrderer::Apply(OrderedBlockGraph* ordered_block_graph,
-                      BlockGraph::Block* dos_header_block) {
+bool PEOrderer::OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
+                                BlockGraph::Block* dos_header_block) {
   DCHECK(ordered_block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 

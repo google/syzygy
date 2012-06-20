@@ -90,7 +90,7 @@ TEST_F(PrepareHeadersTransformTest, ShrinkHeaders) {
   BuildHeaders(100, block_graph_.sections().size() + 2);
 
   PrepareHeadersTransform tx;
-  EXPECT_TRUE(tx.Apply(&block_graph_, dos_header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, dos_header_block_));
 
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
   ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));
@@ -108,7 +108,7 @@ TEST_F(PrepareHeadersTransformTest, GrowHeaders) {
   BuildHeaders(0, section_count);
 
   PrepareHeadersTransform tx;
-  EXPECT_TRUE(tx.Apply(&block_graph_, dos_header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, dos_header_block_));
 
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
   ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));

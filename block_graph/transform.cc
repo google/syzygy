@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 namespace block_graph {
 
-bool ApplyTransform(BlockGraphTransformInterface* transform,
-                    BlockGraph* block_graph,
-                    BlockGraph::Block* header_block) {
+bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
+                              BlockGraph* block_graph,
+                              BlockGraph::Block* header_block) {
   DCHECK(transform != NULL);
   DCHECK(transform->name() != NULL);
   DCHECK_GT(strlen(transform->name()), 0u);
@@ -29,7 +29,7 @@ bool ApplyTransform(BlockGraphTransformInterface* transform,
   // that it still exists after the transform.
   BlockGraph::BlockId header_block_id = header_block->id();
 
-  if (!transform->Apply(block_graph, header_block)) {
+  if (!transform->TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Transform \"" << transform->name() << "\" failed.";
     return false;
   }

@@ -29,7 +29,7 @@ typedef TypedBlock<IMAGE_DEBUG_DIRECTORY> ImageDebugDirectory;
 const char AddDebugDirectoryEntryTransform::kTransformName[] =
     "AddDebugDirectoryEntryTransform";
 
-bool AddDebugDirectoryEntryTransform::Apply(
+bool AddDebugDirectoryEntryTransform::TransformBlockGraph(
     BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
