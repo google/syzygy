@@ -26,6 +26,7 @@
       'target_name': 'pdb_lib',
       'type': 'static_library',
       'sources': [
+        'cvinfo_ext.h',
         'omap.cc',
         'omap.h',
         'pdb_byte_stream.cc',
