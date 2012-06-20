@@ -27,7 +27,6 @@
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/basic_block_subgraph.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -39,6 +38,7 @@ namespace pe {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
 using block_graph::Successor;
 using core::AbsoluteAddress;

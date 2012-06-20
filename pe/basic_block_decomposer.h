@@ -31,15 +31,13 @@
 #include "base/callback.h"
 #include "base/string_piece.h"
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/disassembler.h"
 #include "distorm.h"  // NOLINT
 
 namespace pe {
-
-// Forward declaration.
-class BasicBlockSubGraph;
 
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
@@ -82,6 +80,7 @@ class BasicBlockDecomposer : public core::Disassembler {
   typedef BasicBlock::BasicBlockType BasicBlockType;
   typedef block_graph::BlockGraph BlockGraph;
   typedef BlockGraph::Offset Offset;
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
   // Initialize the BasicBlockDecomposer instance.
   // @param block The block to be decomposed

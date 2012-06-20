@@ -28,6 +28,8 @@
       'sources': [
         'basic_block.cc',
         'basic_block.h',
+        'basic_block_subgraph.cc',
+        'basic_block_subgraph.h',
         'block_graph.cc',
         'block_graph.h',
         'iterate.cc',
@@ -66,6 +68,7 @@
       'type': 'executable',
       'sources': [
         'basic_block_unittest.cc',
+        'basic_block_subgraph_unittest.cc',
         'block_graph_unittest.cc',
         'block_graph_unittests_main.cc',
         'iterate_unittest.cc',

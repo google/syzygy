@@ -14,11 +14,11 @@
 //
 // Implementation of BasicBlockSubGraph class.
 
-#include "syzygy/pe/basic_block_subgraph.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 
 #include <algorithm>
 
-namespace pe {
+namespace block_graph {
 
 BasicBlockSubGraph::BasicBlockSubGraph()
     : original_block_(NULL), next_basic_block_id_(0) {
@@ -142,4 +142,4 @@ bool BasicBlockSubGraph::HasValidReferrers() const {
   return true;
 }
 
-}  // namespace pe
+}  // namespace block_graph

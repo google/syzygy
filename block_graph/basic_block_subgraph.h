@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declaration of BasicBlockGraph class.
+// Declaration of BasicBlockSubGraph class.
 
-#ifndef SYZYGY_PE_BASIC_BLOCK_SUBGRAPH_H_
-#define SYZYGY_PE_BASIC_BLOCK_SUBGRAPH_H_
+#ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_SUBGRAPH_H_
+#define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_SUBGRAPH_H_
 
 #include <map>
 #include <set>
@@ -26,7 +26,7 @@
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
 
-namespace pe {
+namespace block_graph {
 
 // A basic-block sub-graph describes the make-up and layout of one or
 // more blocks as a set of code, data, and/or padding basic-blocks. Optionally,
@@ -133,6 +133,6 @@ class BasicBlockSubGraph {
   int next_basic_block_id_;
 };
 
-}  // namespace pe
+}  // namespace block_graph
 
-#endif  // SYZYGY_PE_BASIC_BLOCK_SUBGRAPH_H_
+#endif  // SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_SUBGRAPH_H_
