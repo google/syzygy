@@ -35,7 +35,7 @@ namespace instrument {
 namespace transforms {
 
 class ThunkImportReferencesTransform
-    : public block_graph::transforms::NamedTransformImpl<
+    : public block_graph::transforms::NamedBlockGraphTransformImpl<
           ThunkImportReferencesTransform> {
  public:
   ThunkImportReferencesTransform();
@@ -88,9 +88,9 @@ class ThunkImportReferencesTransform
   }
 
  private:
-  friend NamedTransformImpl<ThunkImportReferencesTransform>;
+  friend NamedBlockGraphTransformImpl<ThunkImportReferencesTransform>;
 
-  // For NamedTransformImpl.
+  // For NamedBlockGraphTransformImpl.
   static const char kTransformName[];
 
   // The section we put our thunks in.

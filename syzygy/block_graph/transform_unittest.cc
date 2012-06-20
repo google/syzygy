@@ -27,7 +27,7 @@ using testing::Return;
 
 namespace {
 
-class ApplyTransformTest : public testing::Test {
+class ApplyBlockGraphTransformTest : public testing::Test {
  public:
   virtual void SetUp() {
     header_block_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 10, "Header");
@@ -53,9 +53,33 @@ class MockBlockGraphTransform : public BlockGraphTransformInterface {
   }
 };
 
+class ApplyBasicBlockSubGraphTransformTest : public testing::Test {
+ public:
+  virtual void SetUp() {
+    header_block_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 10, "Header");
+    code_block_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "Code");
+  }
+
+ protected:
+  BlockGraph block_graph_;
+  BlockGraph::Block* header_block_;
+  BlockGraph::Block* code_block_;
+};
+
+class MockBasicBlockSubGraphTransform :
+    public BasicBlockSubGraphTransformInterface {
+ public:
+  virtual ~MockBasicBlockSubGraphTransform() { }
+
+  virtual const char* name() const { return "MockBasicBlockSubGraphTransform"; }
+
+  MOCK_METHOD2(TransformBasicBlockSubGraph,
+               bool(BlockGraph*, BasicBlockSubGraph*));
+};
+
 }  // namespace
 
-TEST_F(ApplyTransformTest, NormalTransformSucceeds) {
+TEST_F(ApplyBlockGraphTransformTest, NormalTransformSucceeds) {
   MockBlockGraphTransform transform;
   EXPECT_CALL(transform, TransformBlockGraph(_, _)).Times(1).
       WillOnce(Return(true));
@@ -64,13 +88,24 @@ TEST_F(ApplyTransformTest, NormalTransformSucceeds) {
                                        header_block_));
 }
 
-TEST_F(ApplyTransformTest, DeletingHeaderFails) {
+TEST_F(ApplyBlockGraphTransformTest, DeletingHeaderFails) {
   MockBlockGraphTransform transform;
   EXPECT_CALL(transform, TransformBlockGraph(_, _)).Times(1).WillOnce(
       Invoke(&transform, &MockBlockGraphTransform::DeleteHeader));
   EXPECT_FALSE(ApplyBlockGraphTransform(&transform,
                                         &block_graph_,
                                         header_block_));
+}
+
+TEST_F(ApplyBasicBlockSubGraphTransformTest, TransformFails) {
+  // TODO(chrisha): Make proper unittests once the implementation has been
+  //     fleshed out.
+  MockBasicBlockSubGraphTransform transform;
+  EXPECT_CALL(transform, TransformBasicBlockSubGraph(_, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_FALSE(ApplyBasicBlockSubGraphTransform(&transform,
+                                                &block_graph_,
+                                                code_block_));
 }
 
 }  // namespace block_graph

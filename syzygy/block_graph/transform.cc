@@ -47,4 +47,23 @@ bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
   return true;
 }
 
+bool ApplyBasicBlockSubGraphTransform(
+    BasicBlockSubGraphTransformInterface* transform,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block) {
+  DCHECK(transform != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(block != NULL);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+
+  // TODO(chrisha): Implement this once basic_block_decomposer is moved to
+  //     block_graph_lib, and once we have the rehydration code.
+
+  // We call the transform function simply for unittest coverage for now.
+  BasicBlockSubGraph bbsg;
+  transform->TransformBasicBlockSubGraph(block_graph, &bbsg);
+
+  return false;
+}
+
 }  // namespace block_graph

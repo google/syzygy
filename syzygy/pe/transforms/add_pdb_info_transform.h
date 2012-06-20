@@ -22,6 +22,8 @@
 #ifndef SYZYGY_PE_TRANSFORMS_ADD_PDB_INFO_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_ADD_PDB_INFO_TRANSFORM_H_
 
+#include <guiddef.h>
+
 #include "base/file_path.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
@@ -29,12 +31,12 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
-using block_graph::transforms::NamedTransformImpl;
+using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 // A PE BlockGraph transform for adding/updating the a debug directory entry
 // of a given type.
 class AddPdbInfoTransform
-    : public NamedTransformImpl<AddPdbInfoTransform> {
+    : public NamedBlockGraphTransformImpl<AddPdbInfoTransform> {
  public:
   // Configures this transform.
   //

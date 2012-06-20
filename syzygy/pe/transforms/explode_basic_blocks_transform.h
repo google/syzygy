@@ -28,7 +28,7 @@ namespace transforms {
 // A sample BlockGraph transform that explodes all basic-blocks in each code
 // block into individual code or data blocks.
 class ExplodeBasicBlocksTransform
-    : public block_graph::transforms::NamedTransformImpl<
+    : public block_graph::transforms::NamedBlockGraphTransformImpl<
           ExplodeBasicBlocksTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;

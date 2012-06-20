@@ -37,9 +37,9 @@ class TrimTransform : public IterativeTransformImpl<TrimTransform> {
 
  private:
   friend IterativeTransformImpl<TrimTransform>;
-  friend NamedTransformImpl<TrimTransform>;
+  friend NamedBlockGraphTransformImpl<TrimTransform>;
 
-  // For NamedTransformImpl.
+  // For NamedBlockGraphTransformImpl.
   static const char kTransformName[];
 
   // For IterativeTransformImpl.

@@ -23,7 +23,8 @@ namespace transforms {
 
 namespace {
 
-class MockNamedTransform : public NamedTransformImpl<MockNamedTransform> {
+class MockNamedBlockGraphTransform :
+    public NamedBlockGraphTransformImpl<MockNamedBlockGraphTransform> {
  public:
   bool TransformBlockGraph(BlockGraph* /*block_graph*/,
                            BlockGraph::Block* /*header_block*/) {
@@ -33,14 +34,36 @@ class MockNamedTransform : public NamedTransformImpl<MockNamedTransform> {
   static const char kTransformName[];
 };
 
+class MockNamedBasicBlockSubGraphTransform :
+    public NamedBasicBlockSubGraphTransformImpl<
+        MockNamedBasicBlockSubGraphTransform> {
+ public:
+  bool TransformBasicBlockSubGraph(
+      BlockGraph* /*block_graph*/,
+      BasicBlockSubGraph* /*basic_block_subgraph*/) {
+    return true;
+  }
+
+  static const char kTransformName[];
+};
+
+const char MockNamedBlockGraphTransform::kTransformName[] =
+    "MockNamedBlockGraphTransform";
+
+const char MockNamedBasicBlockSubGraphTransform::kTransformName[] =
+    "MockNamedBasicBlockSubGraphTransform";
+
 }  // namespace
 
-const char MockNamedTransform::kTransformName[] =
-    "MockNamedTransform";
+TEST(NamedBlockGraphTransformTest, NameWorks) {
+  MockNamedBlockGraphTransform transform;
+  EXPECT_EQ(std::string("MockNamedBlockGraphTransform"), transform.name());
+}
 
-TEST(NamedTransformTest, NameWork) {
-  MockNamedTransform transform;
-  EXPECT_EQ(std::string("MockNamedTransform"), transform.name());
+TEST(NamedBasicBlockSubGraphTransformTest, NameWorks) {
+  MockNamedBasicBlockSubGraphTransform transform;
+  EXPECT_EQ(std::string("MockNamedBasicBlockSubGraphTransform"),
+            transform.name());
 }
 
 }  // namespace transforms

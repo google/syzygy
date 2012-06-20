@@ -23,6 +23,8 @@
 #ifndef SYZYGY_PE_TRANSFORMS_ADD_DEBUG_DIRECTORY_ENTRY_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_ADD_DEBUG_DIRECTORY_ENTRY_TRANSFORM_H_
 
+#include <windows.h>
+
 #include "base/file_path.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
@@ -30,12 +32,12 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
-using block_graph::transforms::NamedTransformImpl;
+using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 // A PE BlockGraph transform for adding/updating the a debug directory entry
 // of a given type.
 class AddDebugDirectoryEntryTransform
-    : public NamedTransformImpl<AddDebugDirectoryEntryTransform> {
+    : public NamedBlockGraphTransformImpl<AddDebugDirectoryEntryTransform> {
  public:
   // Configures this transform.
   //

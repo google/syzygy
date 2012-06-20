@@ -25,9 +25,10 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
+using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 class AddMetadataTransform
-    : public block_graph::transforms::NamedTransformImpl<AddMetadataTransform> {
+    : public NamedBlockGraphTransformImpl<AddMetadataTransform> {
  public:
   // @param module_path the path to the module that the metadata will refer to.
   //     This should be the original module from which the block-graph was
