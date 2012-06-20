@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,15 +88,14 @@ class DiaBrowser {
 
   // The match callback is invoked for each symbol on a matched pattern element
   // that has a callback. The callback receives the following parameters:
-  // 1. const DiaBrowser& dia_browser the invoking DiaBrowser
-  // 2. const SymTagVector& tag_lineage the stack of matched tags.
-  // 3. const SymbolPtrVector& symbol_lineage the stack of matched symbols.
-  // 4. BrowserDirective* directive tells DiaBrowser how to proceed (defaults
-  //        to kBrowserContinue).
-  typedef base::Callback<void(const DiaBrowser&,
-                              const SymTagVector&,
-                              const SymbolPtrVector&,
-                              BrowserDirective*)> MatchCallback;
+  //   1. const DiaBrowser& dia_browser the invoking DiaBrowser
+  //   2. const SymTagVector& tag_lineage the stack of matched tags.
+  //   3. const SymbolPtrVector& symbol_lineage the stack of matched symbols.
+  // It returns a BrowserDirective, telling DiaBrowser how to proceed.
+  typedef base::Callback<BrowserDirective(
+      const DiaBrowser&,
+      const SymTagVector&,
+      const SymbolPtrVector&)> MatchCallback;
 
   // The basic element of a pattern.
   struct PatternElement;

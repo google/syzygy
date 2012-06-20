@@ -26,8 +26,6 @@
       'target_name': 'reorder_lib',
       'type': 'static_library',
       'sources': [
-        'comdat_order.cc',
-        'comdat_order.h',
         'dead_code_finder.cc',
         'dead_code_finder.h',
         'linear_order_generator.cc',
@@ -65,7 +63,6 @@
           '--input-dll=..\\reorder\\test_data\\test_dll.dll',
           '--instrumented-dll=$(OutDir)\\instrumented_test_dll.dll',
           '--output-file=$(OutDir)\\test_dll_order.json',
-          '--output-comdats=$(OutDir)\\test_dll_comdats.txt',
           '--output-stats',
           '--pretty-print',
           '..\\reorder\\test_data\\call_trace.etl',

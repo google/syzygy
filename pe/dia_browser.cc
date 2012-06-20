@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ struct DiaBrowser::PatternElement {
                                   const SymbolPtrVector& symbol_lineage) const {
     BrowserDirective directive = kBrowserContinue;
     if (!callback.is_null())
-      callback.Run(browser, tag_lineage, symbol_lineage, &directive);
+      directive = callback.Run(browser, tag_lineage, symbol_lineage);
 
     if (directive == kBrowserContinue && links.size() == 0)
       directive = kBrowserTerminatePath;
