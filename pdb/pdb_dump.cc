@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <string>
 #include <vector>
 
 #include "base/at_exit.h"
@@ -28,6 +29,8 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "syzygy/common/align.h"
+#include "syzygy/pdb/cvinfo_ext.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
 
@@ -42,6 +45,87 @@ namespace pdb {
 
 namespace {
 
+namespace cci = Microsoft_Cci_Pdb;
+
+// Return the string value associated with a symbol type.
+const char* SymbolTypeName(uint16 symbol_type) {
+  switch (symbol_type) {
+// Just print the name of the enum.
+#define SYM_TYPE_NAME(sym_type, unused) \
+    case cci::sym_type: { \
+      return #sym_type; \
+    }
+    SYM_TYPE_CASE_TABLE(SYM_TYPE_NAME);
+#undef SYM_TYPE_NAME
+    default :
+      return NULL;
+  }
+}
+
+
+// Dump a symbol record using RefSym2 struct to out.
+bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len) {
+  cci::RefSym2 symbol_info;
+  size_t to_read = offsetof(cci::RefSym2, name);
+  size_t bytes_read = 0;
+  std::string symbol_name;
+  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
+      !ReadString(stream, &symbol_name)) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  ::fprintf(out, "\t\tName: %s\n", symbol_name.c_str());
+  ::fprintf(out, "\t\tSUC: %d\n", symbol_info.sumName);
+  ::fprintf(out, "\t\tOffset: 0x%08X\n", symbol_info.ibSym);
+  ::fprintf(out, "\t\tModule: %d\n", symbol_info.imod);
+
+  return true;
+}
+
+// Dump a symbol record using DatasSym32 struct to out.
+bool DumpDatasSym32(FILE* out, PdbStream* stream, uint16 len) {
+  size_t to_read = offsetof(cci::DatasSym32, name);
+  size_t bytes_read = 0;
+  size_t start_position = stream->pos();
+  cci::DatasSym32 symbol_info;
+  std::string symbol_name;
+  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
+      !ReadString(stream, &symbol_name)) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  ::fprintf(out, "\t\tName: %s\n", symbol_name.c_str());
+  ::fprintf(out, "\t\tType index: %d\n", symbol_info.typind);
+  ::fprintf(out, "\t\tOffset: 0x%08X\n", symbol_info.off);
+  ::fprintf(out, "\t\tSegment: 0x%04X\n", symbol_info.seg);
+  return true;
+}
+
+// Hexdump the data of the undeciphered symbol records.
+bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len) {
+  ::fprintf(out, "\t\tUnsupported symbol type. Data:\n");
+  uint8 buffer[32];
+  size_t bytes_read = 0;
+  while (bytes_read < len) {
+    size_t bytes_to_read = len - bytes_read;
+    if (bytes_to_read > sizeof(buffer))
+      bytes_to_read = sizeof(buffer);
+    size_t bytes_just_read = 0;
+    if (!stream->ReadBytes(buffer, bytes_to_read, &bytes_just_read) ||
+        bytes_just_read == 0) {
+      LOG(ERROR) << "Unable to read symbol record.";
+      return false;
+    }
+    ::fprintf(out, "\t\t");
+    for (size_t i = 0; i < bytes_just_read; ++i)
+      ::fprintf(out, "%X", buffer[i]);
+    ::fprintf(out, "\n");
+    bytes_read += bytes_just_read;
+  }
+
+  return true;
+}
+
 // Read the stream containing the filenames listed in the Pdb.
 bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
   size_t stream_start = stream->pos();
@@ -51,6 +135,47 @@ bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
                          stream_start,
                          stream_end,
                          index_strings);
+}
+
+// Read the stream containing the symbol record.
+bool ReadSymbolRecord(PdbStream* stream,
+                      PdbDumpApp::SymbolRecordVector* symbol_vector) {
+  DCHECK(stream != NULL);
+  DCHECK(symbol_vector != NULL);
+
+  if (!stream->Seek(0)) {
+    LOG(ERROR) << "Unable to seek to the beginning of the symbol record "
+               << "stream.";
+    return false;
+  }
+  size_t stream_end = stream->pos() + stream->length();
+
+  // Process each symbol present in the stream. For now we only save their
+  // starting position and their type to be able to dump them.
+  while (stream->pos() < stream_end) {
+    uint16 len = 0;
+    uint16 symbol_type = 0;
+    if (!stream->Read(&len, 1)) {
+      LOG(ERROR) << "Unable to read a symbol record length.";
+      return false;
+    }
+    size_t symbol_start = stream->pos();
+    if (!stream->Read(&symbol_type, 1))  {
+      LOG(ERROR) << "Unable to read a symbol record type.";
+      return false;
+    }
+    PdbDumpApp::SymbolRecord sym_record;
+    sym_record.type = symbol_type;
+    sym_record.start_position = stream->pos();
+    sym_record.len = len - sizeof(symbol_type);
+    symbol_vector->push_back(sym_record);
+    if (!stream->Seek(symbol_start + len)) {
+      LOG(ERROR) << "Unable to seek to the end of the symbol record.";
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool WriteStreamToPath(PdbStream* pdb_stream,
@@ -206,11 +331,12 @@ int PdbDumpApp::Run() {
       LOG(ERROR) << "No header info stream.";
     }
 
+    // Read the name table.
     NameStreamMap::const_iterator it(name_streams.find("/names"));
     OffsetStringMap index_names;
     if (it != name_streams.end()) {
       if (ReadNameStream(pdb_file.GetStream(it->second), &index_names)) {
-        DumpNameTable(&index_names);
+        DumpNameTable(index_names);
       } else {
         LOG(ERROR) << "Unable to read the name table.";
         return 1;
@@ -220,12 +346,29 @@ int PdbDumpApp::Run() {
       return 1;
     }
 
+    // Read the dbi stream.
     DbiStream dbi_stream;
     stream = pdb_file.GetStream(pdb::kDbiStream);
     if (stream != NULL && dbi_stream.Read(stream)) {
       DumpDbiStream(dbi_stream);
     } else {
       LOG(ERROR) << "No Dbi stream.";
+      return 1;
+    }
+
+    // Read the symbol record stream.
+    if (dbi_stream.header().symbol_record_stream == -1) {
+      LOG(ERROR) << "No symbol record stream.";
+      return 1;
+    }
+    PdbStream* sym_record_stream = pdb_file.GetStream(
+        dbi_stream.header().symbol_record_stream);
+    SymbolRecordVector symbol_vector;
+    if (sym_record_stream != NULL &&
+        ReadSymbolRecord(sym_record_stream, &symbol_vector)) {
+      DumpSymbolRecord(sym_record_stream, symbol_vector);
+    } else {
+      LOG(ERROR) << "Unable to read the symbol record stream.";
       return 1;
     }
 
@@ -263,12 +406,51 @@ void PdbDumpApp::DumpInfoStream(const PdbInfoHeader70& info,
   }
 }
 
-void PdbDumpApp::DumpNameTable(OffsetStringMap* name_table) {
-  DCHECK(name_table != NULL);
+void PdbDumpApp::DumpSymbolRecord(PdbStream* stream,
+                                  const SymbolRecordVector& sym_record_vector) {
+  DCHECK(stream != NULL);
 
+  ::fprintf(out(), "%d symbol record in the stream:\n",
+            sym_record_vector.size());
+  SymbolRecordVector::const_iterator symbol_iter = sym_record_vector.begin();
+  // Dump each symbol contained in the vector.
+  for (; symbol_iter != sym_record_vector.end(); symbol_iter++) {
+    if (!stream->Seek(symbol_iter->start_position)) {
+      LOG(ERROR) << "Unable to seek to symbol record at position "
+                 << StringPrintf("0x%08X.", symbol_iter->start_position);
+      return;
+    }
+    const char* symbol_type_text = SymbolTypeName(symbol_iter->type);
+    if (symbol_type_text != NULL) {
+      ::fprintf(out(), "\tSymbol Type: 0x%04X %s\n",
+                symbol_iter->type,
+                symbol_type_text);
+    } else {
+      ::fprintf(out(), "\tUnknown symbol Type: 0x%04X\n", symbol_iter->type);
+    }
+    switch (symbol_iter->type) {
+// Call a function to dump a specific (struct_type) kind of structure.
+#define SYM_TYPE_DUMP(sym_type, struct_type) \
+    case cci::sym_type: { \
+      Dump ## struct_type(out(), stream, symbol_iter->len); \
+      break; \
+    }
+      SYM_TYPE_CASE_TABLE(SYM_TYPE_DUMP);
+#undef SYM_TYPE_DUMP
+    }
+
+    stream->Seek(common::AlignUp(stream->pos(), 4));
+    if (stream->pos() != symbol_iter->start_position + symbol_iter->len) {
+      LOG(ERROR) << "Symbol record stream is not valid.";
+      return;
+    }
+  }
+}
+
+void PdbDumpApp::DumpNameTable(const OffsetStringMap& name_table) {
   ::fprintf(out(), "PDB Name table:\n");
-  OffsetStringMap::iterator iter_names = name_table->begin();
-  for (; iter_names != name_table->end(); ++iter_names) {
+  OffsetStringMap::const_iterator iter_names = name_table.begin();
+  for (; iter_names != name_table.end(); ++iter_names) {
     ::fprintf(out(), "0x%04X: %s\n", iter_names->first,
               iter_names->second.c_str());
   }
