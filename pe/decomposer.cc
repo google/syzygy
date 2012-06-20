@@ -2366,8 +2366,8 @@ CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
   return Disassembler::kDirectiveContinue;
 }
 
-CallbackDirective Decomposer::OnInstructionImpl(const Disassembler& walker,
-                                                const _DInst& instruction) {
+CallbackDirective Decomposer::OnInstruction(const Disassembler& walker,
+                                            const _DInst& instruction) {
   // Get the relative address of this instruction.
   AbsoluteAddress instr_abs(static_cast<uint32>(instruction.addr));
   RelativeAddress instr_rel;
@@ -2434,14 +2434,6 @@ CallbackDirective Decomposer::OnInstructionImpl(const Disassembler& walker,
   }
 
   return directive;
-}
-
-void Decomposer::OnInstruction(const Disassembler& disassembler,
-                               const _DInst& instruction,
-                               CallbackDirective* directive) {
-  // TODO(chrisha): Reword the callback to use a return value directly.
-  DCHECK(directive != NULL);
-  *directive = OnInstructionImpl(disassembler, instruction);
 }
 
 bool Decomposer::CreatePEImageBlocksAndReferences(
