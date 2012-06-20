@@ -319,7 +319,8 @@ TEST_F(PEOrdererTest, SucceedsWithDummyImage) {
   ASSERT_NO_FATAL_FAILURE(RandomizeOrderedBlockGraph());
 
   PEOrderer pe_orderer;
-  EXPECT_TRUE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_TRUE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                         dos_header_block_));
   ASSERT_NO_FATAL_FAILURE(VerifyValidLayout(ordered_block_graph_.get(),
                                             dos_header_block_));
 }
@@ -330,7 +331,8 @@ TEST_F(PEOrdererTest, FailsWithInvalidHeaders) {
   ASSERT_NO_FATAL_FAILURE(InitOrderedBlockGraph());
 
   PEOrderer pe_orderer;
-  EXPECT_FALSE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_FALSE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                          dos_header_block_));
 }
 
 TEST_F(PEOrdererTest, FailsOnMultipleRsrcSections) {
@@ -339,7 +341,8 @@ TEST_F(PEOrdererTest, FailsOnMultipleRsrcSections) {
   ASSERT_NO_FATAL_FAILURE(InitOrderedBlockGraph());
 
   PEOrderer pe_orderer;
-  EXPECT_FALSE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_FALSE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                          dos_header_block_));
 }
 
 TEST_F(PEOrdererTest, FailsWithRsrcDataDirButNoRsrcSection) {
@@ -349,7 +352,8 @@ TEST_F(PEOrdererTest, FailsWithRsrcDataDirButNoRsrcSection) {
   ASSERT_NO_FATAL_FAILURE(InitOrderedBlockGraph());
 
   PEOrderer pe_orderer;
-  EXPECT_FALSE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_FALSE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                          dos_header_block_));
 }
 
 TEST_F(PEOrdererTest, FailsOnMultipleRelocSections) {
@@ -358,7 +362,8 @@ TEST_F(PEOrdererTest, FailsOnMultipleRelocSections) {
   ASSERT_NO_FATAL_FAILURE(InitOrderedBlockGraph());
 
   PEOrderer pe_orderer;
-  EXPECT_FALSE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_FALSE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                          dos_header_block_));
 }
 
 TEST_F(PEOrdererTest, FailsWithRelocDataDirButNoRelocSection) {
@@ -368,7 +373,8 @@ TEST_F(PEOrdererTest, FailsWithRelocDataDirButNoRelocSection) {
   ASSERT_NO_FATAL_FAILURE(InitOrderedBlockGraph());
 
   PEOrderer pe_orderer;
-  EXPECT_FALSE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_FALSE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                          dos_header_block_));
 }
 
 TEST_F(PEOrdererTest, SucceedsWithTestDll) {
@@ -381,7 +387,8 @@ TEST_F(PEOrdererTest, SucceedsWithTestDll) {
   //     a little simplistic.
 
   PEOrderer pe_orderer;
-  EXPECT_TRUE(pe_orderer.Apply(ordered_block_graph_.get(), dos_header_block_));
+  EXPECT_TRUE(pe_orderer.OrderBlockGraph(ordered_block_graph_.get(),
+                                         dos_header_block_));
   ASSERT_NO_FATAL_FAILURE(VerifyValidLayout(ordered_block_graph_.get(),
                                             dos_header_block_));
 

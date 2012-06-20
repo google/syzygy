@@ -58,9 +58,8 @@ TEST_F(AddPdbInfoTransformTest, UpdateExisting) {
   ASSERT_TRUE(dos_header_block_ != NULL);
 
   AddPdbInfoTransform transform(kPdbPath, kPdbAge, kPdbGuid);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
 
   // TODO(chrisha): Create the image and the PDB in a temp directory and
   //     see if pe::FindPdbForModule can find it. If so, then so will the
@@ -88,9 +87,8 @@ TEST_F(AddPdbInfoTransformTest, CreateNew) {
 
 
   AddPdbInfoTransform transform(kPdbPath, kPdbAge, kPdbGuid);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
 }
 
 }  // namespace transforms

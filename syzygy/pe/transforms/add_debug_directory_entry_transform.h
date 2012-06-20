@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,8 +53,8 @@ class AddDebugDirectoryEntryTransform
   // @param block_graph The block graph to transform.
   // @param dos_header_block The DOS header block of the block graph.
   // @returns true on success, false otherwise.
-  virtual bool Apply(BlockGraph* block_graph,
-                     BlockGraph::Block* dos_header_block);
+  virtual bool TransformBlockGraph(
+      BlockGraph* block_graph, BlockGraph::Block* dos_header_block) OVERRIDE;
 
   // Returns true if a new debug directory entry was created.
   bool added() const { return added_; }

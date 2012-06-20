@@ -57,7 +57,8 @@ class ThunkImportReferencesTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool Apply(BlockGraph* block_graph, BlockGraph::Block* header_block);
+  virtual bool TransformBlockGraph(
+      BlockGraph* block_graph, BlockGraph::Block* header_block) OVERRIDE;
   // @}
 
   // Accessor.

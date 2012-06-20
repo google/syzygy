@@ -331,7 +331,7 @@ class EntryThunkTransformTest : public testing::Test {
 TEST_F(EntryThunkTransformTest, InstrumentAll) {
   EntryThunkTransform transform;
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar(),
   // and one for the middle of foo().
@@ -345,7 +345,7 @@ TEST_F(EntryThunkTransformTest, InstrumentAllDebugFriendly) {
   EntryThunkTransform transform;
   transform.set_src_ranges_for_thunks(true);
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // Verify the source ranges on the thunks.
   VerifySourceRanges(FindThunks());
@@ -361,7 +361,7 @@ TEST_F(EntryThunkTransformTest, InstrumentNoUnsafe) {
   foo_->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
   bar_->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have two thunks - one each for the start of foo() and bar().
   ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 2, 1));
@@ -381,7 +381,7 @@ TEST_F(EntryThunkTransformTest, InstrumentDllEntrypoint) {
   // Set the entrypoint to foo(), and make us a DLL.
   ASSERT_NO_FATAL_FAILURE(SetEntryPoint(foo_, DLL_IMAGE));
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar().
   // One of the thunks should use the DllMain entrypoint.
@@ -397,7 +397,7 @@ TEST_F(EntryThunkTransformTest, InstrumentExeEntrypoint) {
   // Set the entrypoint to foo(), and make us an EXE.
   ASSERT_NO_FATAL_FAILURE(SetEntryPoint(foo_, EXE_IMAGE));
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar().
   // None of the thunks should use the DllMain entrypoint.
@@ -413,7 +413,7 @@ TEST_F(EntryThunkTransformTest, InstrumentDllTLSEntrypoint) {
   // Set foo() up as a TLS entrypoint, and make us a DLL.
   ASSERT_NO_FATAL_FAILURE(SetTLSEntryPoint(foo_, DLL_IMAGE));
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar().
   // One of the thunks should use the DllMain entrypoint.
@@ -429,7 +429,7 @@ TEST_F(EntryThunkTransformTest, InstrumentExeTLSEntrypoint) {
   // Set foo() up as a TLS entrypoint, and make us an EXE.
   ASSERT_NO_FATAL_FAILURE(SetTLSEntryPoint(foo_, EXE_IMAGE));
 
-  ASSERT_TRUE(ApplyTransform(&transform, &bg_, dos_header_block_));
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar().
   // One of the thunks should use the DllMain entrypoint.

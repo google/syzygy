@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/metadata.h"
+#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
-using block_graph::ApplyTransform;
+using block_graph::ApplyBlockGraphTransform;
 
 namespace {
 
@@ -67,7 +67,8 @@ class AddMetadataTransformTest : public testing::PELibUnitTest {
 
 TEST_F(AddMetadataTransformTest, SucceedsWhenNoMetadata) {
   AddMetadataTransform transform(module_path_);
-  EXPECT_TRUE(ApplyTransform(&transform, &block_graph_, header_block_));
+  EXPECT_TRUE(ApplyBlockGraphTransform(
+      &transform, &block_graph_, header_block_));
   EXPECT_TRUE(transform.metadata_block() != NULL);
 
   // Expect the metadata to decode.
@@ -79,7 +80,8 @@ TEST_F(AddMetadataTransformTest, SucceedsWhenNoMetadata) {
 TEST_F(AddMetadataTransformTest, ReplaceSucceeds) {
   AddMetadataTransform transform(module_path_);
   AddMetadataBlock();
-  EXPECT_TRUE(ApplyTransform(&transform, &block_graph_, header_block_));
+  EXPECT_TRUE(ApplyBlockGraphTransform(
+      &transform, &block_graph_, header_block_));
   EXPECT_EQ(metadata_block_, transform.metadata_block());
 
   // Expect the metadata to decode.
@@ -92,7 +94,8 @@ TEST_F(AddMetadataTransformTest, FailsIfMultipleMetadataBlocks) {
   AddMetadataTransform transform(module_path_);
   AddMetadataBlock();
   AddMetadataBlock();
-  EXPECT_FALSE(ApplyTransform(&transform, &block_graph_, header_block_));
+  EXPECT_FALSE(ApplyBlockGraphTransform(
+      &transform, &block_graph_, header_block_));
   EXPECT_EQ(NULL, transform.metadata_block());
 }
 

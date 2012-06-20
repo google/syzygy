@@ -30,8 +30,8 @@ const char ExplodeBasicBlocksTransform::kTransformName[] =
 ExplodeBasicBlocksTransform::ExplodeBasicBlocksTransform() {
 }
 
-bool ExplodeBasicBlocksTransform::Apply(BlockGraph* block_graph,
-                                        BlockGraph::Block* dos_header_block) {
+bool ExplodeBasicBlocksTransform::TransformBlockGraph(
+    BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   return true;
 }
 

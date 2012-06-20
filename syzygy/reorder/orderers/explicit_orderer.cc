@@ -51,8 +51,9 @@ void GetSortedBlocks(BlockGraph* block_graph, Blocks* blocks) {
 
 const char ExplicitOrderer::kOrdererName[] = "ExplicitOrderer";
 
-bool ExplicitOrderer::Apply(OrderedBlockGraph* ordered_block_graph,
-                         BlockGraph::Block* /* header_block */) {
+bool ExplicitOrderer::OrderBlockGraph(
+    OrderedBlockGraph* ordered_block_graph,
+    BlockGraph::Block* /* header_block */) {
   DCHECK(ordered_block_graph != NULL);
   DCHECK(order_ != NULL);
 

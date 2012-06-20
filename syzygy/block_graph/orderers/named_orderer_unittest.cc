@@ -16,8 +16,8 @@
 
 #include "syzygy/block_graph/orderers/named_orderer.h"
 
-#include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 namespace block_graph {
 namespace orderers {
@@ -26,8 +26,8 @@ namespace {
 
 class MockNamedOrderer : public NamedOrdererImpl<MockNamedOrderer> {
  public:
-  bool Apply(OrderedBlockGraph* /*ordered_block_graph*/,
-             BlockGraph::Block* /*header_block*/) OVERRIDE {
+  bool OrderBlockGraph(OrderedBlockGraph* /*ordered_block_graph*/,
+                       BlockGraph::Block* /*header_block*/) OVERRIDE {
     return true;
   }
 

@@ -71,7 +71,8 @@ class EntryThunkTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool PreIteration(BlockGraph* block_graph, BlockGraph::Block* header_block);
+  bool PreBlockGraphIteration(
+      BlockGraph* block_graph, BlockGraph::Block* header_block);
   bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
   // @}
 
@@ -105,11 +106,12 @@ class EntryThunkTransform
   // For NamedTransformImpl.
   static const char kTransformName[];
 
-  // The section we put our thunks in. Valid after successful PreIteration.
+  // The section we put our thunks in. Valid after successful
+  // PreBlockGraphIteration.
   BlockGraph::Section* thunk_section_;
 
   // References to _indirect_penter and _indirect_penter_dllmain import
-  // entries. Valid after successful PreIteration.
+  // entries. Valid after successful PreBlockGraphIteration.
   BlockGraph::Reference hook_ref_;
   BlockGraph::Reference hook_dllmain_ref_;
 
@@ -128,7 +130,7 @@ class EntryThunkTransform
 
   // This contains the set of entrypoints that have DllMain calling conventions.
   // These are thunked to the dllmain hook import, instead of the generic
-  // hook import. Valid after successful PreIteration.
+  // hook import. Valid after successful PreBlockGraphIteration.
   typedef std::pair<BlockGraph::Block*, BlockGraph::Offset> EntryPointKey;
   typedef std::set<EntryPointKey> EntryPointSet;
   EntryPointSet dllmain_entrypoints_;

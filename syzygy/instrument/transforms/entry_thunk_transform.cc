@@ -94,8 +94,8 @@ EntryThunkTransform::EntryThunkTransform()
       instrument_dll_name_(kDefaultInstrumentDll) {
 }
 
-bool EntryThunkTransform::PreIteration(BlockGraph* block_graph,
-                                       BlockGraph::Block* header_block) {
+bool EntryThunkTransform::PreBlockGraphIteration(
+    BlockGraph* block_graph, BlockGraph::Block* header_block) {
   DCHECK(thunk_section_ == NULL);
 
   AddImportsTransform::ImportedModule import_module(
@@ -106,7 +106,7 @@ bool EntryThunkTransform::PreIteration(BlockGraph* block_graph,
   AddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&import_module);
 
-  if (!add_imports_transform.Apply(block_graph, header_block)) {
+  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for instrumentation DLL.";
     return false;
   }

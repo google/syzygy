@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,9 +49,9 @@ class IterativeTransformTest : public testing::Test {
 class MockIterativeTransform
     : public IterativeTransformImpl<MockIterativeTransform> {
  public:
-  MOCK_METHOD2(PreIteration, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD2(PreBlockGraphIteration, bool(BlockGraph*, BlockGraph::Block*));
   MOCK_METHOD2(OnBlock, bool(BlockGraph*, BlockGraph::Block*));
-  MOCK_METHOD2(PostIteration, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD2(PostBlockGraphIteration, bool(BlockGraph*, BlockGraph::Block*));
 
   bool DeleteBlock(BlockGraph* block_graph,
                    BlockGraph::Block* block) {
@@ -73,76 +73,88 @@ const char MockIterativeTransform::kTransformName[] =
 
 }  // namespace
 
-TEST_F(IterativeTransformTest, PreIterationFails) {
+TEST_F(IterativeTransformTest, PreBlockGraphIterationFails) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(false));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(false));
   EXPECT_CALL(transform, OnBlock(_, _)).Times(0);
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(0);
-  EXPECT_FALSE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(0);
+  EXPECT_FALSE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, OnBlockFails) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(true));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
   EXPECT_CALL(transform, OnBlock(_, _)).Times(1).WillOnce(Return(false));
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(0);
-  EXPECT_FALSE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(0);
+  EXPECT_FALSE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
-TEST_F(IterativeTransformTest, PostIterationFails) {
+TEST_F(IterativeTransformTest, PostBlockGraphIterationFails) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(true));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
   EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillRepeatedly(Return(true));
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(1).WillOnce(Return(false));
-  EXPECT_FALSE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(false));
+  EXPECT_FALSE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, Normal) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(true));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
   EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillRepeatedly(Return(true));
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(1).WillOnce(Return(true));
-  EXPECT_TRUE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, Add) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(true));
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(1).WillOnce(Return(true));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
 
   EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillOnce(Return(true)).
       WillOnce(Invoke(&transform, &MockIterativeTransform::AddBlock));
 
-  EXPECT_TRUE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(3u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, Delete) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(true));
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(1).WillOnce(Return(true));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
 
   EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillOnce(Return(true)).
       WillOnce(Invoke(&transform, &MockIterativeTransform::DeleteBlock));
 
-  EXPECT_TRUE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(1u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, AddAndDelete) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreIteration(_, _)).Times(1).WillOnce(Return(true));
-  EXPECT_CALL(transform, PostIteration(_, _)).Times(1).WillOnce(Return(true));
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+      WillOnce(Return(true));
 
   EXPECT_CALL(transform, OnBlock(_, _)).Times(2).
       WillOnce(Invoke(&transform, &MockIterativeTransform::AddBlock)).
       WillOnce(Invoke(&transform, &MockIterativeTransform::DeleteBlock));
 
-  EXPECT_TRUE(transform.Apply(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 

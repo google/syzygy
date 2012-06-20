@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ class BlockGraphTransformInterface {
   // @param block_graph The block graph to transform.
   // @param header_block The header block of the block graph to transform.
   // @returns true on success, false otherwise.
-  virtual bool Apply(BlockGraph* block_graph,
-                     BlockGraph::Block* header_block) = 0;
+  virtual bool TransformBlockGraph(BlockGraph* block_graph,
+                                   BlockGraph::Block* header_block) = 0;
 };
 
 // This applies the provided BlockGraphTransform and checks that that invariant
@@ -49,9 +49,9 @@ class BlockGraphTransformInterface {
 // @param transform the transform to apply.
 // @param block_graph the block graph to transform.
 // @param header_block the header block from block_graph.
-bool ApplyTransform(BlockGraphTransformInterface* transform,
-                    BlockGraph* block_graph,
-                    BlockGraph::Block* header_block);
+bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
+                              BlockGraph* block_graph,
+                              BlockGraph::Block* header_block);
 
 }  // namespace block_graph
 

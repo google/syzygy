@@ -16,8 +16,8 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace pe {
 namespace transforms {
@@ -52,9 +52,9 @@ TEST_F(ExplodeBasicBlocksTransformTest, Apply) {
   ASSERT_TRUE(dos_header_block_ != NULL);
 
   ExplodeBasicBlocksTransform transform;
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(&transform,
+                                                    &block_graph_,
+                                                    dos_header_block_));
 
   // TODO(rogerm): Flesh out with validations.
 }

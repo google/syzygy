@@ -59,9 +59,8 @@ TEST_F(AddDebugDirectoryEntryTransformTest, FindExisting) {
   ASSERT_TRUE(dos_header_block_ != NULL);
 
   AddDebugDirectoryEntryTransform transform(IMAGE_DEBUG_TYPE_CODEVIEW, false);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
 
   EXPECT_FALSE(transform.added());
   EXPECT_TRUE(transform.block() != NULL);
@@ -93,9 +92,8 @@ TEST_F(AddDebugDirectoryEntryTransformTest, CreateNew) {
 
 
   AddDebugDirectoryEntryTransform transform(IMAGE_DEBUG_TYPE_CODEVIEW, false);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
 
   EXPECT_TRUE(transform.added());
   EXPECT_TRUE(transform.block() != NULL);

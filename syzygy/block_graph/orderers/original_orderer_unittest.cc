@@ -120,7 +120,7 @@ TEST(OriginalOrdererTest, OrderIsAsExpected) {
 
   // Run the default orderer.
   OriginalOrderer orderer;
-  EXPECT_TRUE(orderer.Apply(&obg, block1));
+  EXPECT_TRUE(orderer.OrderBlockGraph(&obg, block1));
 
   EXPECT_THAT(obg.ordered_sections(),
               Pointwise(SectionEq(), sections));

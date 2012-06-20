@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ namespace {
 
 class MockNamedTransform : public NamedTransformImpl<MockNamedTransform> {
  public:
-  bool Apply(BlockGraph* /*block_graph*/,
-             BlockGraph::Block* /*header_block*/) {
+  bool TransformBlockGraph(BlockGraph* /*block_graph*/,
+                           BlockGraph::Block* /*header_block*/) {
     return true;
   }
 

@@ -66,7 +66,7 @@ TEST_F(ExplicitOrdererTest, FailsWithInvalidSection) {
 
   OrderedBlockGraph obg(&block_graph_);
   ExplicitOrderer orderer(&order_);
-  EXPECT_FALSE(orderer.Apply(&obg, NULL));
+  EXPECT_FALSE(orderer.OrderBlockGraph(&obg, NULL));
 }
 
 TEST_F(ExplicitOrdererTest, FailsWithInvalidBlock) {
@@ -77,7 +77,7 @@ TEST_F(ExplicitOrdererTest, FailsWithInvalidBlock) {
 
   OrderedBlockGraph obg(&block_graph_);
   ExplicitOrderer orderer(&order_);
-  EXPECT_FALSE(orderer.Apply(&obg, NULL));
+  EXPECT_FALSE(orderer.OrderBlockGraph(&obg, NULL));
 }
 
 TEST_F(ExplicitOrdererTest, OrderIsAsExpected) {
@@ -91,7 +91,7 @@ TEST_F(ExplicitOrdererTest, OrderIsAsExpected) {
 
   OrderedBlockGraph obg(&block_graph_);
   ExplicitOrderer orderer(&order_);
-  EXPECT_TRUE(orderer.Apply(&obg, NULL));
+  EXPECT_TRUE(orderer.OrderBlockGraph(&obg, NULL));
 
   EXPECT_THAT(order_.section_block_lists[sid0],
               ContainerEq(ToBlockList(

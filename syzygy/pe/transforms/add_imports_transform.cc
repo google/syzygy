@@ -493,8 +493,8 @@ AddImportsTransform::AddImportsTransform()
     : modules_added_(0), symbols_added_(0) {
 }
 
-bool AddImportsTransform::Apply(BlockGraph* block_graph,
-                                BlockGraph::Block* dos_header_block) {
+bool AddImportsTransform::TransformBlockGraph(
+    BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 

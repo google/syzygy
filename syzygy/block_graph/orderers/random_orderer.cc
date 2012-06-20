@@ -45,8 +45,8 @@ bool RandomOrderer::ShouldShuffleSection(
   return default_shuffle_section_;
 }
 
-bool RandomOrderer::Apply(OrderedBlockGraph* ordered_block_graph,
-                          BlockGraph::Block* /* header_block */) {
+bool RandomOrderer::OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
+                                    BlockGraph::Block* /* header_block */) {
   DCHECK(ordered_block_graph != NULL);
 
   // Run through the sections shuffling those that we need to.

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,9 +80,8 @@ TEST_F(AddImportsTransformTest, AddImportsExisting) {
 
   AddImportsTransform transform;
   transform.AddModule(&module);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 
@@ -100,9 +99,8 @@ TEST_F(AddImportsTransformTest, AddImportsNewSymbol) {
 
   AddImportsTransform transform;
   transform.AddModule(&module);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(1u, transform.symbols_added());
 
@@ -122,9 +120,8 @@ TEST_F(AddImportsTransformTest, AddImportsNewModule) {
 
   AddImportsTransform transform;
   transform.AddModule(&module);
-  EXPECT_TRUE(block_graph::ApplyTransform(&transform,
-                                          &block_graph_,
-                                          dos_header_block_));
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
   EXPECT_EQ(1u, transform.modules_added());
   EXPECT_EQ(2u, transform.symbols_added());
 

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ AddMetadataTransform::AddMetadataTransform(const FilePath& module_path)
     : module_path_(module_path) {
 }
 
-bool AddMetadataTransform::Apply(BlockGraph* block_graph,
-                                 BlockGraph::Block* /*dos_header_block*/) {
+bool AddMetadataTransform::TransformBlockGraph(
+    BlockGraph* block_graph, BlockGraph::Block* /*dos_header_block*/) {
   DCHECK(block_graph != NULL);
 
   metadata_block_ = NULL;

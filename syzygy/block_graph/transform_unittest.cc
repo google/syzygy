@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ class MockBlockGraphTransform : public BlockGraphTransformInterface {
 
   virtual const char* name() const { return "MockBlockGraphTransform"; }
 
-  MOCK_METHOD2(Apply, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD2(TransformBlockGraph, bool(BlockGraph*, BlockGraph::Block*));
 
   bool DeleteHeader(BlockGraph* block_graph,
                     BlockGraph::Block* header_block) {
@@ -57,19 +57,20 @@ class MockBlockGraphTransform : public BlockGraphTransformInterface {
 
 TEST_F(ApplyTransformTest, NormalTransformSucceeds) {
   MockBlockGraphTransform transform;
-  EXPECT_CALL(transform, Apply(_, _)).Times(1).WillOnce(Return(true));
-  EXPECT_TRUE(ApplyTransform(&transform,
-                             &block_graph_,
-                             header_block_));
+  EXPECT_CALL(transform, TransformBlockGraph(_, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_TRUE(ApplyBlockGraphTransform(&transform,
+                                       &block_graph_,
+                                       header_block_));
 }
 
 TEST_F(ApplyTransformTest, DeletingHeaderFails) {
   MockBlockGraphTransform transform;
-  EXPECT_CALL(transform, Apply(_, _)).Times(1).WillOnce(
+  EXPECT_CALL(transform, TransformBlockGraph(_, _)).Times(1).WillOnce(
       Invoke(&transform, &MockBlockGraphTransform::DeleteHeader));
-  EXPECT_FALSE(ApplyTransform(&transform,
-                              &block_graph_,
-                              header_block_));
+  EXPECT_FALSE(ApplyBlockGraphTransform(&transform,
+                                        &block_graph_,
+                                        header_block_));
 }
 
 }  // namespace block_graph
