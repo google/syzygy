@@ -154,14 +154,14 @@ class Decomposer {
   bool ProcessPublicSymbols(IDiaSymbol* root);
 
   // DiaBrowser callbacks.
-  void OnDataSymbol(const DiaBrowser& dia_browser,
-                    const DiaBrowser::SymTagVector& sym_tags,
-                    const DiaBrowser::SymbolPtrVector& symbols,
-                    DiaBrowser::BrowserDirective* directive);
-  void OnPublicSymbol(const DiaBrowser& dia_browser,
-                      const DiaBrowser::SymTagVector& sym_tags,
-                      const DiaBrowser::SymbolPtrVector& symbols,
-                      DiaBrowser::BrowserDirective* directive);
+  DiaBrowser::BrowserDirective OnDataSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  DiaBrowser::BrowserDirective OnPublicSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
 
   // Translates intermediate references to block->block references.
   bool FinalizeIntermediateReferences();

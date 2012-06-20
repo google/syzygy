@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 
 #include "base/bind.h"
 #include "base/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -26,6 +26,7 @@
 
 using base::win::ScopedComPtr;
 using testing::_;
+using testing::Return;
 
 namespace pe {
 
@@ -44,10 +45,10 @@ class PatternTest: public testing::Test {
   PatternTest() {
   }
 
-  MOCK_METHOD4(OnMatch, void(const DiaBrowser&,
-                             const DiaBrowser::SymTagVector&,
-                             const DiaBrowser::SymbolPtrVector&,
-                             DiaBrowser::BrowserDirective*));
+  MOCK_METHOD3(OnMatch, DiaBrowser::BrowserDirective(
+      const DiaBrowser&,
+      const DiaBrowser::SymTagVector&,
+      const DiaBrowser::SymbolPtrVector&));
 
   virtual void SetUp() {
     on_match_ = base::Bind(&PatternTest::OnMatch, base::Unretained(this));
@@ -65,28 +66,26 @@ class DiaBrowserTest: public testing::Test {
   DiaBrowserTest() {
   }
 
-  void OnPartialMatchTerminate(
+  DiaBrowser::BrowserDirective OnPartialMatchTerminate(
       const DiaBrowser& dia_browser,
       const DiaBrowser::SymTagVector& tag_lineage,
-      const DiaBrowser::SymbolPtrVector& symbol_lineage,
-      DiaBrowser::BrowserDirective* directive) {
+      const DiaBrowser::SymbolPtrVector& symbol_lineage) {
     // Call the 'OnPartialMatch' for bookkeeping reasons.
-    OnPartialMatch(dia_browser, tag_lineage, symbol_lineage, directive);
+    OnPartialMatch(dia_browser, tag_lineage, symbol_lineage);
     if (!tag_lineage.empty() && tag_lineage.back() == SymTagUDT)
-      *directive = DiaBrowser::kBrowserTerminatePath;
+      return DiaBrowser::kBrowserTerminatePath;
+    return DiaBrowser::kBrowserContinue;
   }
 
-  MOCK_METHOD4(OnPartialMatch, void(
+  MOCK_METHOD3(OnPartialMatch, DiaBrowser::BrowserDirective(
       const DiaBrowser& dia_browser,
       const DiaBrowser::SymTagVector& tag_lineage,
-      const DiaBrowser::SymbolPtrVector& symbol_lineage,
-      DiaBrowser::BrowserDirective*));
+      const DiaBrowser::SymbolPtrVector& symbol_lineage));
 
-  MOCK_METHOD4(OnFullMatch, void(
+  MOCK_METHOD3(OnFullMatch, DiaBrowser::BrowserDirective(
       const DiaBrowser& dia_browser,
       const DiaBrowser::SymTagVector& tag_lineage,
-      const DiaBrowser::SymbolPtrVector& symbol_lineage,
-      DiaBrowser::BrowserDirective*));
+      const DiaBrowser::SymbolPtrVector& symbol_lineage));
 
   virtual void SetUp() {
     on_partial_match_term_ =
@@ -394,7 +393,8 @@ TEST_F(DiaBrowserTest, AllCompilandSymbolsExplored) {
 
   dia_browser.AddPattern(Tag(SymTagCompiland), on_full_match_);
 
-  EXPECT_CALL(*this, OnFullMatch(_, _, _, _)).Times(154);
+  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(154).
+      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
   dia_browser.Browse(global_.get());
 }
 
@@ -405,7 +405,8 @@ TEST_F(DiaBrowserTest, AllDataSymbolsExplored) {
   dia_browser.AddPattern(Seq(Star(SymTagNull), SymTagData),
                          on_full_match_);
 
-  EXPECT_CALL(*this, OnFullMatch(_, _, _, _)).Times(2883);
+  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(2883).
+      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
   dia_browser.Browse(global_.get());
 }
 
@@ -424,8 +425,10 @@ TEST_F(DiaBrowserTest, SomePathsTerminated) {
 
   // There are 247 UDT nodes and 28 Enum nodes: OnPartialMatch should hit all
   // of them. However, only the 428 Enum.Data full matches should be hit.
-  EXPECT_CALL(*this, OnPartialMatch(_, _, _, _)).Times(247 + 28);
-  EXPECT_CALL(*this, OnFullMatch(_, _, _, _)).Times(428);
+  EXPECT_CALL(*this, OnPartialMatch(_, _, _)).Times(247 + 28).
+      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
+  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(428).
+      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
   dia_browser.Browse(global_.get());
 }
 

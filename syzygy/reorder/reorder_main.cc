@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,12 +24,10 @@
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
-#include "syzygy/reorder/comdat_order.h"
 #include "syzygy/reorder/dead_code_finder.h"
 #include "syzygy/reorder/linear_order_generator.h"
 #include "syzygy/reorder/random_order_generator.h"
 
-using reorder::ComdatOrder;
 using reorder::DeadCodeFinder;
 using reorder::LinearOrderGenerator;
 using reorder::RandomOrderGenerator;
@@ -48,16 +46,12 @@ static const char kUsage[] =
     "    --list-dead-code instead of an ordering, output the set of functions\n"
     "        not visited during the trace.\n"
     "    --pretty-print enables pretty printing of the JSON output file.\n"
-    "    --output-comdats=<path> an output file that will be populated\n"
-    "        with an MS LINKER compatible COMDAT order file equivalent to\n"
-    "        the generated ordering.\n"
     "    --reorderer-flags=<comma separated reorderer flags>\n"
     "  Reorderer Flags:\n"
     "    no-code: Do not reorder code sections.\n"
     "    no-data: Do not reorder data sections.\n";
 
 const char kFlags[] = "reorderer-flags";
-const char kOutputComdats[] = "output-comdats";
 
 static int Usage(const char* message) {
   std::cerr << message << std::endl << kUsage;
@@ -186,21 +180,6 @@ int main(int argc, char** argv) {
   if (!order.SerializeToJSON(input_dll, output_file, pretty_print)) {
     LOG(ERROR) << "Unable to output order.";
     return 1;
-  }
-
-  // If requested, output the ordering as an MS LINKER compatible list of
-  // COMDATs.
-  if (cmd_line->HasSwitch(kOutputComdats)) {
-    FilePath path = cmd_line->GetSwitchValuePath(kOutputComdats);
-    ComdatOrder comdat_order(input_dll_path);
-    if (!comdat_order.LoadSymbols()) {
-      LOG(ERROR) << "Unable to load symbols.";
-      return 1;
-    }
-    if (!comdat_order.OutputOrder(path, order)) {
-      LOG(ERROR) << "Unable to output COMDAT order file.";
-      return 1;
-    }
   }
 
   CoUninitialize();

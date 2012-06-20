@@ -1718,15 +1718,13 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
   return true;
 }
 
-void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
-                              const DiaBrowser::SymTagVector& sym_tags,
-                              const DiaBrowser::SymbolPtrVector& symbols,
-                              DiaBrowser::BrowserDirective* directive) {
+DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
   DCHECK_LT(0u, sym_tags.size());
   DCHECK_EQ(sym_tags.size(), symbols.size());
   DCHECK_EQ(SymTagData, sym_tags.back());
-  DCHECK(directive != NULL);
-  DCHECK_EQ(DiaBrowser::kBrowserContinue, *directive);
 
   const DiaBrowser::SymbolPtr& data(symbols.back());
 
@@ -1738,18 +1736,17 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
       FAILED(hr = data->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = data->get_name(name_bstr.Receive()))) {
     LOG(ERROR) << "Failed to get data properties: " << com::LogHr(hr) << ".";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
 
   // We only parse data symbols with static storage.
   if (location_type != LocIsStatic)
-    return;
+    return DiaBrowser::kBrowserContinue;
 
   // Symbols with an address of zero are essentially invalid. They appear to
   // have been optimized away by the compiler, but they are still reported.
   if (rva == 0)
-    return;
+    return DiaBrowser::kBrowserContinue;
 
   // TODO(chrisha): We eventually want to get alignment info from the type
   //     information. This is strictly a lower bound, however, as certain
@@ -1757,21 +1754,19 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
   //     requirements.
   size_t length = 0;
   if (!GetTypeInfo(data, &length)) {
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
   // Zero-length data symbols act as 'forward declares' in some sense. They
   // are always followed by a non-zero length data symbol with the same name
   // and location.
   if (length == 0)
-    return;
+    return DiaBrowser::kBrowserContinue;
 
   RelativeAddress addr(rva);
   std::string name;
   if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
     LOG(ERROR) << "Failed to convert data symbol name to UTF8.";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
 
   BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
@@ -1787,57 +1782,52 @@ void Decomposer::OnDataSymbol(const DiaBrowser& dia_browser,
         name.compare(0, arraysize(kNaClPrefix) - 1, kNaClPrefix) == 0) {
       if (!AddLabelToBlock(addr, name, BlockGraph::CODE_LABEL, block)) {
         LOG(ERROR) << "Failed to add label to code block.";
-        *directive = DiaBrowser::kBrowserAbort;
+        return DiaBrowser::kBrowserAbort;
       }
-      return;
+
+      return DiaBrowser::kBrowserContinue;
     }
   }
 
   if (!AddLabelToBlock(addr, name, BlockGraph::DATA_LABEL, block)) {
     LOG(ERROR) << "Failed to add data label to block.";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
 
-  return;
+  return DiaBrowser::kBrowserContinue;
 }
 
-void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
-                                const DiaBrowser::SymTagVector& sym_tags,
-                                const DiaBrowser::SymbolPtrVector& symbols,
-                                DiaBrowser::BrowserDirective* directive) {
+DiaBrowser::BrowserDirective Decomposer::OnPublicSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
   DCHECK_LT(0u, sym_tags.size());
   DCHECK_EQ(sym_tags.size(), symbols.size());
   DCHECK_EQ(SymTagPublicSymbol, sym_tags.back());
-  DCHECK(directive != NULL);
-  DCHECK_EQ(DiaBrowser::kBrowserContinue, *directive);
   const DiaBrowser::SymbolPtr& symbol(symbols.back());
 
   // We don't care about symbols that don't have addresses.
   DWORD rva = 0;
   if (S_OK != symbol->get_relativeVirtualAddress(&rva))
-    return;
+    return DiaBrowser::kBrowserContinue;
 
   ScopedBstr name_bstr;
   if (S_OK != symbol->get_name(name_bstr.Receive())) {
     LOG(ERROR) << "Failed to get public symbol name.";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
 
   std::string name;
   if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
     LOG(ERROR) << "Failed to convert symbol name to UTF8.";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
 
   RelativeAddress addr(rva);
   BlockGraph::Block* block = image_->GetBlockByAddress(addr);
   if (block == NULL) {
     LOG(ERROR) << "No block found for public symbol \"" << name << "\".";
-    *directive = DiaBrowser::kBrowserAbort;
-    return;
+    return DiaBrowser::kBrowserAbort;
   }
 
   // Public symbol names are mangled. Remove leading '_' as per
@@ -1851,7 +1841,9 @@ void Decomposer::OnPublicSymbol(const DiaBrowser& dia_browser,
       block->type() == BlockGraph::CODE_BLOCK ? BlockGraph::CODE_LABEL :
                                                 BlockGraph::DATA_LABEL;
   if (!AddLabelToBlock(addr, name, label_attributes, block))
-    *directive = DiaBrowser::kBrowserAbort;
+    return DiaBrowser::kBrowserAbort;
+
+  return DiaBrowser::kBrowserContinue;
 }
 
 bool Decomposer::ProcessStaticInitializers() {
