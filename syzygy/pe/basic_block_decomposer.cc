@@ -22,8 +22,8 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/pe/basic_block_subgraph.h"
 #include "syzygy/pe/block_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -35,6 +35,7 @@ namespace {
 using block_graph::BasicBlock;
 using block_graph::BasicBlockReference;
 using block_graph::BasicBlockReferrer;
+using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
 using block_graph::Instruction;
 using block_graph::Successor;

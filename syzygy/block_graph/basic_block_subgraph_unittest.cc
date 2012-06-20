@@ -14,13 +14,13 @@
 //
 // Tests for BasicBlockSubGraph.
 
-#include "syzygy/pe/basic_block_subgraph.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
 
-namespace pe {
+namespace block_graph {
 
 using block_graph::BasicBlock;
 using block_graph::BasicBlockReference;
@@ -207,4 +207,4 @@ TEST(BasicBlockSubGraph, HasValidReferrers) {
   ASSERT_TRUE(subgraph.HasValidReferrers());
 }
 
-}  // namespace pe
+}  // namespace block_graph
