@@ -35,7 +35,8 @@ namespace transforms {
 //
 // @tparam DerivedType the type of the derived class.
 template<class DerivedType>
-class IterativeTransformImpl : public NamedTransformImpl<DerivedType> {
+class IterativeTransformImpl
+    : public NamedBlockGraphTransformImpl<DerivedType> {
  public:
   // This is the main body of the transform. This takes care of calling Pre,
   // iterating through the blocks and calling OnBlock for each one, and finally

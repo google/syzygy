@@ -31,7 +31,7 @@ namespace pe {
 namespace transforms {
 
 class PrepareHeadersTransform
-    : public block_graph::transforms::NamedTransformImpl<
+    : public block_graph::transforms::NamedBlockGraphTransformImpl<
         PrepareHeadersTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;

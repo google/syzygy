@@ -17,7 +17,7 @@
 #ifndef SYZYGY_BLOCK_GRAPH_TRANSFORM_H_
 #define SYZYGY_BLOCK_GRAPH_TRANSFORM_H_
 
-#include "base/callback.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 
 namespace block_graph {
@@ -52,6 +52,41 @@ class BlockGraphTransformInterface {
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
                               BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
+
+// A BasicBlockSubGraphTransform is a pure virtual base class defining the
+// basic-block transform API.
+class BasicBlockSubGraphTransformInterface {
+ public:
+  virtual ~BasicBlockSubGraphTransformInterface() { }
+
+  // Gets the name of this transform.
+  //
+  // @returns the name of this transform.
+  virtual const char* name() const = 0;
+
+  // Applies this transform to the provided block.
+  //
+  // @param block_graph the block-graph of which the basic block subgraph
+  //     is a part.
+  // @param basic_block_subgraph the basic block subgraph to be transformed./
+  // @returns true on success, false otherwise.
+  virtual bool TransformBasicBlockSubGraph(
+      BlockGraph* block_graph,
+      BasicBlockSubGraph* basic_block_subgraph) = 0;
+};
+
+// Applies the provided BasicBlockSubGraphTransform to a single block. Takes
+// care of basic-block decomposing the block, passes it to the transform, and
+// recomposes the block.
+//
+// @param transform the transform to apply.
+// @param block_graph the block containing the block to be transformed.
+// @param block the block to be transformed.
+// @pre block must be a code block.
+bool ApplyBasicBlockSubGraphTransform(
+    BasicBlockSubGraphTransformInterface* transform,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block);
 
 }  // namespace block_graph
 

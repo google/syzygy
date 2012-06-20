@@ -22,7 +22,6 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
-using block_graph::transforms::NamedTransformImpl;
 
 const char ExplodeBasicBlocksTransform::kTransformName[] =
     "ExplodeBasicBlocksTransform";

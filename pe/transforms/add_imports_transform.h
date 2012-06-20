@@ -39,16 +39,19 @@
 #ifndef SYZYGY_PE_TRANSFORMS_ADD_IMPORTS_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_ADD_IMPORTS_TRANSFORM_H_
 
+#include <windows.h>
+
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {
 namespace transforms {
 
-using block_graph::transforms::NamedTransformImpl;
+using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 // A transform for adding imported modules/symbols to a given block-graph.
-class AddImportsTransform : public NamedTransformImpl<AddImportsTransform> {
+class AddImportsTransform
+    : public NamedBlockGraphTransformImpl<AddImportsTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
 

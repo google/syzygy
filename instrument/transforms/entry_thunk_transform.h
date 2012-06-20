@@ -101,9 +101,9 @@ class EntryThunkTransform
 
  private:
   friend IterativeTransformImpl<EntryThunkTransform>;
-  friend NamedTransformImpl<EntryThunkTransform>;
+  friend NamedBlockGraphTransformImpl<EntryThunkTransform>;
 
-  // For NamedTransformImpl.
+  // For NamedBlockGraphTransformImpl.
   static const char kTransformName[];
 
   // The section we put our thunks in. Valid after successful
