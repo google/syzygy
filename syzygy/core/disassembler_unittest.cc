@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 using testing::_;
 using testing::Invoke;
-using testing::SetArgumentPointee;
+using testing::Return;
 
 extern "C" {
 
@@ -69,8 +69,9 @@ class DisassemblerTest: public testing::Test {
                                  base::Unretained(this));
   }
 
-  MOCK_METHOD3(OnInstruction, void(const Disassembler&, const _DInst&,
-                                   Disassembler::CallbackDirective*));
+  MOCK_METHOD2(OnInstruction,
+               Disassembler::CallbackDirective(const Disassembler&,
+                                               const _DInst&));
 
   static AbsoluteAddress AddressOf(const void* ptr) {
     return AbsoluteAddress(reinterpret_cast<size_t>(ptr));
@@ -80,18 +81,17 @@ class DisassemblerTest: public testing::Test {
     return reinterpret_cast<const uint8*>(ptr);
   }
 
-  void RecordFunctionEncounter(const Disassembler& disasm,
-                               const _DInst& inst,
-                               Disassembler::CallbackDirective* directive) {
+  Disassembler::CallbackDirective RecordFunctionEncounter(
+      const Disassembler& disasm, const _DInst& inst) {
     switch (META_GET_FC(inst.meta)) {
       case FC_CALL:
       case FC_UNC_BRANCH:
-        ASSERT_EQ(O_PC, inst.ops[0].type);
+        EXPECT_EQ(O_PC, inst.ops[0].type);
         if (inst.ops[0].size == 8) {
-          ASSERT_EQ(2, inst.size);
+          EXPECT_EQ(2, inst.size);
         } else {
-          ASSERT_EQ(32, inst.ops[0].size);
-          ASSERT_EQ(5, inst.size);
+          EXPECT_EQ(32, inst.ops[0].size);
+          EXPECT_EQ(5, inst.size);
           functions_.push_back(
               AbsoluteAddress(
                   static_cast<size_t>(inst.addr + inst.size + inst.imm.addr)));
@@ -100,6 +100,7 @@ class DisassemblerTest: public testing::Test {
       default:
         break;
     }
+    return Disassembler::kDirectiveContinue;
   }
 
  protected:
@@ -116,9 +117,8 @@ TEST_F(DisassemblerTest, Terminate) {
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
 
   // Terminate the walk on first visit.
-  EXPECT_CALL(*this, OnInstruction(_, _, _))
-      .WillRepeatedly(SetArgumentPointee<2>(
-          Disassembler::kDirectiveTerminateWalk));
+  EXPECT_CALL(*this, OnInstruction(_, _)).
+      WillRepeatedly(Return(Disassembler::kDirectiveTerminateWalk));
 
   ASSERT_EQ(Disassembler::kWalkTerminated, disasm.Walk());
 }
@@ -131,7 +131,8 @@ TEST_F(DisassemblerTest, DisassemblePartial) {
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&assembly_func)));
 
   // We should hit 6 instructions.
-  EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(6);
+  EXPECT_CALL(*this, OnInstruction(_, _)).Times(6).
+      WillRepeatedly(Return(Disassembler::kDirectiveContinue));
 
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
   // We should have disassembled everything save one call to func3 and
@@ -150,7 +151,8 @@ TEST_F(DisassemblerTest, DisassembleFull) {
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&internal_label)));
 
   // We should hit 7 instructions.
-  EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(7);
+  EXPECT_CALL(*this, OnInstruction(_, _)).Times(7).
+      WillRepeatedly(Return(Disassembler::kDirectiveContinue));
 
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
 
@@ -169,8 +171,8 @@ TEST_F(DisassemblerTest, EncounterFunctions) {
   ASSERT_TRUE(disasm.Unvisited(AddressOf(&internal_label)));
 
   // Record the functions we encounter along the way.
-  EXPECT_CALL(*this, OnInstruction(_, _, _))
-      .WillRepeatedly(Invoke(this,
+  EXPECT_CALL(*this, OnInstruction(_, _)).
+      WillRepeatedly(Invoke(this,
                              &DisassemblerTest::RecordFunctionEncounter));
 
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
@@ -195,11 +197,11 @@ TEST_F(DisassemblerTest, RunOverDataWhenNoTerminatePathGiven) {
 
   // We expect the disassembly to walk into the data section which starts
   // immediately after "case_default".
-  EXPECT_CALL(*this, OnInstruction(_, _, _))
+  EXPECT_CALL(*this, OnInstruction(_, _))
       .Times(3)
-      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveContinue))
-      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveContinue))
-      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveTerminateWalk));
+      .WillOnce(Return(Disassembler::kDirectiveContinue))
+      .WillOnce(Return(Disassembler::kDirectiveContinue))
+      .WillOnce(Return(Disassembler::kDirectiveTerminateWalk));
 
   // We expect a terminated walk
   ASSERT_EQ(Disassembler::kWalkTerminated, disasm.Walk());
@@ -223,10 +225,10 @@ TEST_F(DisassemblerTest, StopsAtTerminateNoReturnFunctionCall) {
 
   // We expect to hit all the instructions in the case
   // "case_default" from disassembler_test_code.asm.
-  EXPECT_CALL(*this, OnInstruction(_, _, _))
+  EXPECT_CALL(*this, OnInstruction(_, _))
       .Times(2)
-      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveContinue))
-      .WillOnce(SetArgumentPointee<2>(Disassembler::kDirectiveTerminatePath));
+      .WillOnce(Return(Disassembler::kDirectiveContinue))
+      .WillOnce(Return(Disassembler::kDirectiveTerminatePath));
 
   // We expect a complete walk from this, as there are no branches to
   // chase down

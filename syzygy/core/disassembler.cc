@@ -341,9 +341,8 @@ Disassembler::CallbackDirective Disassembler::NotifyOnInstruction(
   CallbackDirective directive = OnInstruction(addr, inst);
 
   // Invoke the external callback if we're not already aborted.
-  if (directive == kDirectiveContinue && !on_instruction_.is_null()) {
-    on_instruction_.Run(*this, inst, &directive);
-  }
+  if (directive == kDirectiveContinue && !on_instruction_.is_null())
+    directive = on_instruction_.Run(*this, inst);
 
   return directive;
 }

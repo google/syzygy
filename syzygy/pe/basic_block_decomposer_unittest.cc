@@ -44,6 +44,7 @@ using block_graph::Successor;
 using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
+using testing::Return;
 
 typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
 
@@ -76,9 +77,9 @@ public:
     ASSERT_TRUE(decomposed_);
   }
 
-  MOCK_METHOD3(OnInstruction, void(const Disassembler&,
-                                   const _DInst&,
-                                   Disassembler::CallbackDirective*));
+  MOCK_METHOD2(OnInstruction,
+               Disassembler::CallbackDirective(const Disassembler&,
+                                               const _DInst&));
  protected:
   PEFile image_file_;
   bool image_init_;
@@ -171,7 +172,8 @@ TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
                  base::Unretained(this));
 
   // We should hit kNumInstructions instructions during decomposition.
-  EXPECT_CALL(*this, OnInstruction(_, _, _)).Times(kNumInstructions);
+  EXPECT_CALL(*this, OnInstruction(_, _)).Times(kNumInstructions).
+      WillRepeatedly(Return(Disassembler::kDirectiveContinue));
   ASSERT_TRUE(bb_decomposer.Decompose());
   EXPECT_TRUE(subgraph.IsValid());
 

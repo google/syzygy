@@ -246,14 +246,9 @@ class Decomposer {
       AbsoluteAddress instr_abs,
       RelativeAddress instr_rel,
       const _DInst& instruction);
-  CallbackDirective OnInstructionImpl(const Disassembler& disassembler,
-                                      const _DInst& instruction);
+  CallbackDirective OnInstruction(const Disassembler& disassembler,
+                                  const _DInst& instruction);
   // @}
-
-  // Called through a callback during function disassembly.
-  void OnInstruction(const Disassembler& disassembler,
-                     const _DInst& instruction,
-                     CallbackDirective* directive);
 
   // Repairs the DIA "FIXUPS" with any loaded OMAP information, validates them,
   // and stores them in the given FixupMap.

@@ -47,12 +47,11 @@ class Disassembler {
 
   // The instruction callback is invoked for each instruction the disassembler
   // encounters. The callback receives three parameters:
-  // 1. const Disassembler& disasm the disassembler.
-  // 2. const _DInst& inst the current instruction.
-  // 3. CallbackDirective* directive tells the disassembler how to proceed.
-  typedef base::Callback<void(const Disassembler&,
-                              const _DInst&,
-                              CallbackDirective*)>
+  //   1. const Disassembler& disasm the disassembler.
+  //   2. const _DInst& inst the current instruction.
+  // Returns a CallbackDirective telling the disassembler how to proceed.
+  typedef base::Callback<CallbackDirective(const Disassembler&,
+                                           const _DInst&)>
       InstructionCallback;
 
   enum WalkResult {
