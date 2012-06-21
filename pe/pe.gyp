@@ -253,7 +253,9 @@
       'target_name': 'decompose_image_to_text',
       'type': 'executable',
       'sources': [
-        'decompose_image_to_text.cc',
+        'decompose_image_to_text_main.cc',
+        'decompose_image_to_text_app.cc',
+        'decompose_image_to_text_app.h',
       ],
       'dependencies': [
         'pe_lib',
