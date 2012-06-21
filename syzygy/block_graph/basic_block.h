@@ -256,7 +256,13 @@ class Instruction {
   //     was located.
   // @param size The length (in bytes) that the instruction occupied in the
   //     original block.
-  Instruction(const Representation& value, Offset offset, Size size);
+  // @param data A pointer to a buffer containing a machine executable
+  //     encoding of the instruction. The buffer is expected to be @p size
+  //     bytes long.
+  Instruction(const Representation& value,
+              Offset offset,
+              Size size,
+              const uint8* data);
 
   // Accessors.
   // @{
@@ -264,6 +270,7 @@ class Instruction {
   Representation& representation() { return representation_; }
   const BasicBlockReferenceMap& references() const { return references_; }
   BasicBlockReferenceMap& references() { return references_; }
+  const uint8* data() const { return data_; }
   Offset offset() const { return offset_; }
   Size size() const { return size_; }
   /// @}
@@ -283,6 +290,7 @@ class Instruction {
   // @{
   Offset offset_;
   Size size_;
+  const uint8* const data_;
   // @}
 };
 
@@ -411,6 +419,10 @@ class Successor {
   Size instruction_size() const { return instruction_size_; }
   // @}
 
+  // Return the maximum size needed to synthesize this successor as one
+  // or more instructions.
+  Size GetMaxSize() const;
+
   // Get the branch type that corresponds to the given @p op_code.
   // @returns kInvalidCondition if @p op_code isn't a recognized branch
   //     instruction.
@@ -494,8 +506,8 @@ class BasicBlock {
   //     originated. Set to kEphemeralSourceOffset to indicate that this is a
   //     programmatically generated basic block.
   // @param size The number of bytes this basic block occupied in the original
-  //     block. Set to 0 if this is programmatically generated basic block.
-  // @param
+  //     block. Set to 0 if this is a programmatically generated basic block.
+  // @param data The underlying data representing the basic block.
   BasicBlock(BlockId id,
              const base::StringPiece& name,
              BasicBlockType type,
@@ -528,6 +540,10 @@ class BasicBlock {
   // is a BASIC_DATA_BLOCK the contains data XOR a BASIC_CODE_BLOCK that
   // contains instructions and/or successors.
   bool IsValid() const;
+
+  // Return the maximum number of bytes this basic block can require (not
+  // including any trailing padding).
+  size_t GetMaxSize() const;
 
  protected:
   // The ID for this basic block.

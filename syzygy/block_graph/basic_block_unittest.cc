@@ -18,11 +18,14 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/assembler.h"
 
 #include "distorm.h"  // NOLINT
 #include "mnemonics.h"  // NOLINT
 
 namespace block_graph {
+
+namespace {
 
 using core::AbsoluteAddress;
 
@@ -84,12 +87,13 @@ class BasicBlockTest: public testing::Test {
 
   // Helper function to create a RET instruction.
   Instruction CreateRet() {
+    static const uint8 data[] = { 0xC3 };
     Instruction::Representation ret = {};
     ret.addr = 0;
     ret.opcode = I_RET;
     ret.size = 1;
     META_SET_ISC(&ret, ISC_INTEGER);
-    return Instruction(ret, -1, 0);
+    return Instruction(ret, -1, sizeof(data), data);
   }
 
   // Helper function to create a successor branch instruction.
@@ -129,6 +133,8 @@ const size_t BasicBlockTest::kRefSize = BlockGraph::Reference::kMaximumSize;
 const Successor::Offset BasicBlockTest::kOffset1(0xAABBCCDD);
 const Successor::Offset BasicBlockTest::kOffset2(0x11223344);
 
+}  // namespace
+
 TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_EQ(kBlockId, basic_block_.id());
   EXPECT_EQ(kBasicBlockType, basic_block_.type());
@@ -137,6 +143,24 @@ TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_EQ(kBlockSize, basic_block_.size());
   EXPECT_TRUE(basic_block_.references().empty());
   EXPECT_TRUE(basic_block_.referrers().empty());
+}
+
+TEST_F(BasicBlockTest, GetMaxCodeSize) {
+  basic_block_.instructions().push_back(CreateRet());
+  basic_block_.instructions().push_back(CreateRet());
+  basic_block_.instructions().push_back(CreateRet());
+  basic_block_.instructions().push_back(CreateRet());
+  basic_block_.successors().push_back(CreateBranch(I_JZ, kOffset1));
+
+  ASSERT_EQ(4 * CreateRet().size() + core::AssemblerImpl::kMaxInstructionLength,
+            basic_block_.GetMaxSize());
+}
+
+TEST_F(BasicBlockTest, GetMaxDataSize) {
+  BasicBlock bb(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
+                kBlockOffset, kBlockSize, kBlockData);
+
+  ASSERT_EQ(kBlockSize, bb.GetMaxSize());
 }
 
 TEST_F(BasicBlockTest, EmptyBasicBlockIsNotValid) {

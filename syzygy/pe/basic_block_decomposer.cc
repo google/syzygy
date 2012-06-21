@@ -170,11 +170,12 @@ void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
 
 Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
     AbsoluteAddress addr, const _DInst& inst) {
+  Offset offset = addr - code_addr_;
   VLOG(3) << "Disassembled " << GET_MNEMONIC_NAME(inst.opcode)
           << " instruction (" << static_cast<int>(inst.size)
-          << " bytes) at offset " << (addr - code_addr_) << ".";
+          << " bytes) at offset " << offset << ".";
   current_instructions_.push_back(
-      Instruction(inst, addr - code_addr_, inst.size));
+      Instruction(inst, offset, inst.size, code_ + offset ));
   return kDirectiveContinue;
 }
 

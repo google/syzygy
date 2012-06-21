@@ -239,6 +239,9 @@ class AssemblerImpl {
   void push(const OperandImpl& src);
   // @}
 
+  // The maximum length a single instruction will assemble to.
+  static const size_t kMaxInstructionLength;
+
  private:
   class InstructionBuffer;
   // Output the instruction data in @p instr to our delegate.

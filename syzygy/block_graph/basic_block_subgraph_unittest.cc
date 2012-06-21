@@ -19,18 +19,27 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/core/assembler.h"
 
 namespace block_graph {
+
+namespace {
 
 using block_graph::BasicBlock;
 using block_graph::BasicBlockReference;
 using block_graph::BasicBlockReferrer;
 using block_graph::BlockGraph;
+using block_graph::Instruction;
 using block_graph::Successor;
 
 typedef BasicBlockSubGraph::BlockDescription BlockDescription;
 typedef BlockGraph::Reference Reference;
 
+// Some handy constants.
+const size_t kDataSize = 32;
+const uint8 kData[kDataSize] = {0};
+
+// A derived class to expose protected members for unit-testing.
 class TestBasicBlockSubGraph : public BasicBlockSubGraph {
  public:
    using BasicBlockSubGraph::HasValidReferrers;
@@ -38,26 +47,26 @@ class TestBasicBlockSubGraph : public BasicBlockSubGraph {
    using BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription;
 };
 
+}  // namespace
+
 TEST(BasicBlockSubGraph, AddBasicBlock) {
-  static const size_t kDataSize = 32;
-  uint8 data[kDataSize] = {0};
   BlockGraph::Block block;
   BasicBlockSubGraph subgraph;
   subgraph.set_original_block(&block);
 
   // Add a basic block.
   BasicBlock* bb1 = subgraph.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, kDataSize, data);
+      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
 
   // Cannot add one that overlaps.
   BasicBlock* bb2 = subgraph.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, kDataSize / 2, kDataSize, data);
+      "bb2", BasicBlock::BASIC_CODE_BLOCK, kDataSize / 2, kDataSize, kData);
   ASSERT_TRUE(bb2 == NULL);
 
   // But can add one that doesn't overlap.
   BasicBlock* bb3 = subgraph.AddBasicBlock(
-      "bb3", BasicBlock::BASIC_CODE_BLOCK, kDataSize, kDataSize, data);
+      "bb3", BasicBlock::BASIC_CODE_BLOCK, kDataSize, kDataSize, kData);
   ASSERT_FALSE(bb3 == NULL);
 
   // And they were not the same basic-block.
@@ -192,7 +201,7 @@ TEST(BasicBlockSubGraph, HasValidReferrers) {
   ASSERT_FALSE(subgraph.HasValidReferrers());
 
   BasicBlock* bb1 = subgraph.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_DATA_BLOCK, -1, 0, NULL);
+      "bb1", BasicBlock::BASIC_DATA_BLOCK, -1, kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
 
   subgraph.block_descriptions().push_back(BlockDescription());
@@ -205,6 +214,40 @@ TEST(BasicBlockSubGraph, HasValidReferrers) {
 
   bb1->referrers().insert(BasicBlockReferrer(&b2, 0));
   ASSERT_TRUE(subgraph.HasValidReferrers());
+}
+
+TEST(BasicBlockSubGraph, GetMaxSize) {
+  TestBasicBlockSubGraph subgraph;
+
+  // Add three non-overlapping basic-blocks.
+  BasicBlock* code = subgraph.AddBasicBlock(
+      "code", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+  ASSERT_FALSE(code == NULL);
+  BasicBlock* data = subgraph.AddBasicBlock(
+      "data", BasicBlock::BASIC_DATA_BLOCK, -1, kDataSize / 2, kData);
+  ASSERT_FALSE(data == NULL);
+  BasicBlock* padding = subgraph.AddBasicBlock(
+      "padding", BasicBlock::BASIC_PADDING_BLOCK, -1, kDataSize, kData);
+  ASSERT_FALSE(padding == NULL);
+
+  Instruction::Representation dummy;
+
+  code->instructions().push_back(Instruction(dummy, -1, 5, kData));
+  code->instructions().push_back(Instruction(dummy, -1, 1, kData));
+  code->instructions().push_back(Instruction(dummy, -1, 3, kData));
+  code->successors().push_back(Successor());
+  code->successors().push_back(Successor());
+
+  subgraph.block_descriptions().push_back(BlockDescription());
+  BlockDescription& desc = subgraph.block_descriptions().back();
+  desc.basic_block_order.push_back(code);
+  desc.basic_block_order.push_back(data);
+  desc.basic_block_order.push_back(padding);
+
+  size_t max_block_length = kDataSize + (kDataSize / 2 ) + (5 + 1 + 3) +
+      (2 * core::AssemblerImpl::kMaxInstructionLength);
+
+  DCHECK_EQ(max_block_length, desc.GetMaxSize());
 }
 
 }  // namespace block_graph

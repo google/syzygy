@@ -68,6 +68,8 @@
 #include <ostream>
 
 #include "base/stringprintf.h"
+#include "syzygy/core/assembler.h"
+
 #include "mnemonics.h"  // NOLINT
 
 namespace block_graph {
@@ -182,8 +184,13 @@ BasicBlockReferrer::BasicBlockReferrer(const BasicBlockReferrer& other)
 
 Instruction::Instruction(const Instruction::Representation& value,
                          Offset offset,
-                         Size size)
-    : representation_(value), offset_(offset), size_(size) {
+                         Size size,
+                         const uint8* data)
+    : representation_(value), offset_(offset), size_(size), data_(data) {
+  DCHECK(data != NULL);
+  DCHECK(offset == BasicBlock::kEphemeralSourceOffset || offset >= 0);
+  DCHECK_LT(0U, size);
+  DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
 }
 
 bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
@@ -447,6 +454,12 @@ Successor::Condition Successor::InvertCondition(Condition cond) {
   return kConditionInversionTable[cond - kMaxConditionalBranch - 1];
 }
 
+Successor::Size Successor::GetMaxSize() const {
+  // TODO(rogerm): Update this to return the actual number of bytes needed to
+  //     synthesize condition_. In particular, take care of multi-instruction
+  //     inverse cases: kInverseCounterIsZero and kInverseLoop*.
+  return core::AssemblerImpl::kMaxInstructionLength;
+}
 const BasicBlock::Offset BasicBlock::kEphemeralSourceOffset = -1;
 
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
@@ -461,8 +474,9 @@ BasicBlock::BasicBlock(BasicBlock::BlockId id,
       offset_(offset),
       size_(size),
       data_(data) {
-  DCHECK((offset < 0 && size == 0) || (offset >= 0 && size > 0));
+  DCHECK((offset < 0) || (offset >= 0 && size > 0));
   DCHECK(data != NULL || size == 0);
+  DCHECK(type == BASIC_CODE_BLOCK || size > 0);
 }
 
 const char* BasicBlock::BasicBlockTypeToString(
@@ -516,6 +530,25 @@ bool BasicBlock::IsValid() const {
       NOTREACHED();
       return false;
   }
+}
+
+size_t BasicBlock::GetMaxSize() const {
+  // If it's a data or padding basic-block, then we have its exact size.
+  if (type_ != BASIC_CODE_BLOCK)
+    return size_;
+
+  // Otherwise, we must account for the instructions and successors.
+  size_t max_size = 0;
+
+  Instructions::const_iterator instr_iter = instructions_.begin();
+  for (; instr_iter != instructions_.end(); ++instr_iter)
+    max_size += instr_iter->size();
+
+  Successors::const_iterator succ_iter = successors_.begin();
+  for (; succ_iter != successors_.end(); ++succ_iter)
+    max_size += succ_iter->GetMaxSize();
+
+  return max_size;
 }
 
 }  // namespace block_graph
