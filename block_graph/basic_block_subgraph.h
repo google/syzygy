@@ -59,6 +59,10 @@ class BasicBlockSubGraph {
     SectionId section;
     BlockAttributes attributes;
     BasicBlockOrdering basic_block_order;
+
+    // Calculate the current maximum possible size of the block described by
+    // this BlockDescription, not including any trailing padding.
+    size_t GetMaxSize() const;
   };
 
   typedef std::list<BlockDescription> BlockDescriptionList;
@@ -71,9 +75,16 @@ class BasicBlockSubGraph {
   // @name Accessors.
   // @{
   void set_original_block(const Block* block) { original_block_ = block; }
-  const Block* original_block() { return original_block_; }
+  const Block* original_block() const { return original_block_; }
+  const BBCollection& basic_blocks() const { return  basic_blocks_; }
   BBCollection& basic_blocks() { return  basic_blocks_; }
+  const BBAddressSpace& original_address_space() const {
+    return original_address_space_;
+  }
   BBAddressSpace& original_address_space() { return original_address_space_; }
+  const BlockDescriptionList& block_descriptions() const {
+    return block_descriptions_;
+  }
   BlockDescriptionList& block_descriptions() { return block_descriptions_; }
   // @}
 

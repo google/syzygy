@@ -48,6 +48,9 @@ bool IsDisplacementOnly(const OperandImpl& operand) {
 
 }  // namespace
 
+// No instruction on x86 can exceed 15 bytes, per specs.
+const size_t AssemblerImpl::kMaxInstructionLength = 15;
+
 OperandImpl::OperandImpl(Register base)
     : base_(base.code()),
       index_(kRegisterNone),
@@ -146,9 +149,6 @@ class AssemblerImpl::InstructionBuffer {
   size_t num_references_;
   const void* (references_)[2];
   size_t reference_offsets_[2];
-
-  // No instruction on x86 can exceed 15 bytes, per specs.
-  static const size_t kMaxInstructionLength = 15;
   size_t len_;
   uint8 buf_[kMaxInstructionLength];
 };
