@@ -77,6 +77,14 @@ enum ConditionCode {
   kMaxConditionCode = 15
 };
 
+// The conditions on which a loop instruction should branch. These are modeled
+// in the same manner as ConditionCode (above).
+enum LoopCode {
+  kLoopOnCounterAndNotZeroFlag = 0,  // LOOPNE and LOOPNZ
+  kLoopOnCounterAndZeroFlag = 1,  // LOOPE and NOOPZ.
+  kLoopOnCounter = 2,  // LOOP.
+};
+
 inline ConditionCode NegateConditionCode(ConditionCode cc) {
   DCHECK_GT(16, cc);
   return static_cast<ConditionCode>(cc ^ 1);
@@ -221,6 +229,7 @@ class AssemblerImpl {
   void jecxz(const ImmediateImpl& dst);
   void jmp(const ImmediateImpl& dst);
   void jmp(const OperandImpl& dst);
+  void l(LoopCode lc, const ImmediateImpl& dst);
   void ret();
   void ret(uint16 n);
   // @}

@@ -668,4 +668,28 @@ TEST_F(AssemblerTest, Jnz) {
   EXPECT_BYTES(0x0F, 0x85, 0xF8, 0xFF, 0xFF, 0xFF);
 }
 
+TEST_F(AssemblerTest, Loop) {
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.l(kLoopOnCounter, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0xE2, 0xFE);
+}
+
+TEST_F(AssemblerTest, Loopz) {
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.l(kLoopOnCounterAndZeroFlag,
+            ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0xE1, 0xFE);
+}
+
+TEST_F(AssemblerTest, Loopnz) {
+  asm_.set_location(0xCAFEBABE);
+
+  asm_.l(kLoopOnCounterAndNotZeroFlag,
+            ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  EXPECT_BYTES(0xE0, 0xFE);
+}
+
+
 }  // namespace core
