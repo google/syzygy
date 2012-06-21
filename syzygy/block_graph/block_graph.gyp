@@ -32,6 +32,8 @@
         'basic_block_subgraph.h',
         'block_graph.cc',
         'block_graph.h',
+        'block_graph_serializer.cc',
+        'block_graph_serializer.h',
         'iterate.cc',
         'iterate.h',
         'ordered_block_graph.cc',
@@ -69,6 +71,7 @@
       'sources': [
         'basic_block_unittest.cc',
         'basic_block_subgraph_unittest.cc',
+        'block_graph_serializer_unittest.cc',
         'block_graph_unittest.cc',
         'block_graph_unittests_main.cc',
         'iterate_unittest.cc',
