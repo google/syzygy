@@ -92,7 +92,7 @@ class BasicBlockSubGraph {
   // @param name A textual identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
   // @param offset The offset (in the original block) where this basic block
-  //     originated. Set to kEphemeralSourceOffset to indicate that this is a
+  //     originated. Set to BasicBlock::kNoOffset to indicate that this is a
   //     generated basic block.
   // @param size The number of bytes this basic block occupied in the original
   //     block. Set to 0 if this is a generated basic block.

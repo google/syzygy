@@ -214,7 +214,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     current_successors_.push_front(
         Successor(inverse_condition,
                   (addr + inst.size) - code_addr_,
-                  BasicBlock::kEphemeralSourceOffset,
+                  BasicBlock::kNoOffset,
                   0));
   }
 
@@ -309,7 +309,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
     current_successors_.push_front(
         Successor(Successor::kConditionTrue,
                   (addr + inst.size) - code_addr_,  // To be resolved later.
-                  BasicBlock::kEphemeralSourceOffset,
+                  BasicBlock::kNoOffset,
                   0));
   }
 

@@ -496,14 +496,14 @@ class BasicBlock {
   // This offset is used to denote that an instruction, successor, or
   // basic block has been synthesized and has no corresponding image in
   // the original block.
-  static const Offset kEphemeralSourceOffset;
+  static const Offset kNoOffset;
 
   // Initialize a basic block.
   // @param id A unique identifier for this basic block.
   // @param name A textual identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
   // @param offset The offset (in the original block) where this basic block
-  //     originated. Set to kEphemeralSourceOffset to indicate that this is a
+  //     originated. Set to kNoOffset to indicate that this is a
   //     programmatically generated basic block.
   // @param size The number of bytes this basic block occupied in the original
   //     block. Set to 0 if this is a programmatically generated basic block.
