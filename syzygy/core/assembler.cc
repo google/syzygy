@@ -326,6 +326,18 @@ void AssemblerImpl::jmp(const OperandImpl& dst) {
   Output(instr);
 }
 
+void AssemblerImpl::l(LoopCode lc, const ImmediateImpl& dst) {
+  DCHECK_EQ(kSize8Bit, dst.size());
+  DCHECK_LE(0, lc);
+  DCHECK_GE(2, lc);
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xE0 | lc);
+  instr.Emit8BitPCRelative(location_, dst);
+
+  Output(instr);
+}
+
 void AssemblerImpl::ret() {
   InstructionBuffer instr;
 
