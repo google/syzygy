@@ -102,8 +102,8 @@ BasicBlockReference::BasicBlockReference()
       reference_type_(BlockGraph::RELATIVE_REF),
       size_(0),
       referred_(NULL),
-      offset_(BasicBlock::kEphemeralSourceOffset),
-      base_(BasicBlock::kEphemeralSourceOffset) {
+      offset_(BasicBlock::kNoOffset),
+      base_(BasicBlock::kNoOffset) {
 }
 
 
@@ -153,7 +153,7 @@ BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
 BasicBlockReferrer::BasicBlockReferrer()
     : referrer_type_(REFERRER_TYPE_UNKNOWN),
       referrer_(NULL),
-      offset_(BasicBlock::kEphemeralSourceOffset) {
+      offset_(BasicBlock::kNoOffset) {
 }
 
 BasicBlockReferrer::BasicBlockReferrer(const BasicBlock* basic_block,
@@ -163,9 +163,9 @@ BasicBlockReferrer::BasicBlockReferrer(const BasicBlock* basic_block,
       offset_(offset) {
   DCHECK(basic_block != NULL);
 
-  // An offset of kEphemeralSourceOffset is used to indicate that the referrer
+  // An offset of kNoOffset is used to indicate that the referrer
   // range is within a synthesized successor (for example, a branch-not-taken).
-  DCHECK_GE(offset, BasicBlock::kEphemeralSourceOffset);
+  DCHECK_GE(offset, BasicBlock::kNoOffset);
 }
 
 BasicBlockReferrer::BasicBlockReferrer(const Block* block, Offset offset)
@@ -188,7 +188,7 @@ Instruction::Instruction(const Instruction::Representation& value,
                          const uint8* data)
     : representation_(value), offset_(offset), size_(size), data_(data) {
   DCHECK(data != NULL);
-  DCHECK(offset == BasicBlock::kEphemeralSourceOffset || offset >= 0);
+  DCHECK(offset == BasicBlock::kNoOffset || offset >= 0);
   DCHECK_LT(0U, size);
   DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
 }
@@ -397,8 +397,8 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
 
 Successor::Successor()
     : condition_(kInvalidCondition),
-      bb_target_offset_(BasicBlock::kEphemeralSourceOffset),
-      instruction_offset_(BasicBlock::kEphemeralSourceOffset),
+      bb_target_offset_(BasicBlock::kNoOffset),
+      instruction_offset_(BasicBlock::kNoOffset),
       instruction_size_(0) {
 }
 
@@ -418,7 +418,7 @@ Successor::Successor(Successor::Condition type,
                      Offset instruction_offset,
                      Size instruction_size)
     : condition_(type),
-      bb_target_offset_(BasicBlock::kEphemeralSourceOffset),
+      bb_target_offset_(BasicBlock::kNoOffset),
       branch_target_(target),
       instruction_offset_(instruction_offset),
       instruction_size_(instruction_size) {
@@ -460,7 +460,7 @@ Successor::Size Successor::GetMaxSize() const {
   //     inverse cases: kInverseCounterIsZero and kInverseLoop*.
   return core::AssemblerImpl::kMaxInstructionLength;
 }
-const BasicBlock::Offset BasicBlock::kEphemeralSourceOffset = -1;
+const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
                        const base::StringPiece& name,
