@@ -49,7 +49,7 @@ class TestBasicBlockSubGraph : public BasicBlockSubGraph {
 
 }  // namespace
 
-TEST(BasicBlockSubGraph, AddBasicBlock) {
+TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   BlockGraph::Block block;
   BasicBlockSubGraph subgraph;
   subgraph.set_original_block(&block);
@@ -73,7 +73,20 @@ TEST(BasicBlockSubGraph, AddBasicBlock) {
   ASSERT_FALSE(bb1 == bb3);
 }
 
-TEST(BasicBlockSubGraph, MapsBasicBlocksToAtMostOneDescription) {
+TEST(BasicBlockSubGraphTest, AddBlockDescription) {
+  TestBasicBlockSubGraph subgraph;
+  BlockDescription* b1 = subgraph.AddBlockDescription(
+      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+  ASSERT_FALSE(b1 == NULL);
+  EXPECT_EQ("b1", b1->name);
+  EXPECT_EQ(BlockGraph::CODE_BLOCK, b1->type);
+  EXPECT_EQ(7, b1->section);
+  EXPECT_EQ(2, b1->alignment);
+  EXPECT_EQ(42, b1->attributes);
+  EXPECT_TRUE(b1->basic_block_order.empty());
+}
+
+TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
   TestBasicBlockSubGraph subgraph;
   uint8 data[32] = {0};
 
@@ -94,32 +107,28 @@ TEST(BasicBlockSubGraph, MapsBasicBlocksToAtMostOneDescription) {
   ASSERT_FALSE(bb1 == bb3);
 
   // Add a block description for a mythical b1.
-  subgraph.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b1 = subgraph.block_descriptions().back();
-  b1.type = BlockGraph::CODE_BLOCK;
-  b1.name = "b1";
-  b1.basic_block_order.push_back(bb1);
+  BlockDescription* b1 = subgraph.AddBlockDescription(
+      "b1", BlockGraph::CODE_BLOCK, 0, 1, 0);
+  ASSERT_FALSE(b1 == NULL);
 
   // Add a block description for a mythical b2.
-  subgraph.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b2 = subgraph.block_descriptions().back();
-  b2.type = BlockGraph::CODE_BLOCK;
-  b2.name = "b2";
-  b2.basic_block_order.push_back(bb2);
+  BlockDescription* b2 = subgraph.AddBlockDescription(
+      "b2", BlockGraph::CODE_BLOCK, 0, 1, 0);
+  ASSERT_FALSE(b2 == NULL);
 
   // There are no blocks assigned twice (bb1 and bb2 are in separate blocks).
   ASSERT_TRUE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 
   // Adding bb3 to b1 is still valid.
-  b1.basic_block_order.push_back(bb3);
+  b1->basic_block_order.push_back(bb3);
   ASSERT_TRUE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 
   // But adding bb3 to b2, as well, is no longer valid.
-  b2.basic_block_order.push_back(bb3);
+  b2->basic_block_order.push_back(bb3);
   ASSERT_FALSE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 }
 
-TEST(BasicBlockSubGraph, DISABLED_HasValidSuccessors) {
+TEST(BasicBlockSubGraphTest, DISABLED_HasValidSuccessors) {
   // TODO(rogerm): Enable this test when HasValidSuccessors is implemented.
   TestBasicBlockSubGraph subgraph;
 
@@ -132,18 +141,16 @@ TEST(BasicBlockSubGraph, DISABLED_HasValidSuccessors) {
   ASSERT_FALSE(bb2 == NULL);
 
   // Add a block description for a mythical b1.
-  subgraph.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b1 = subgraph.block_descriptions().back();
-  b1.type = BlockGraph::CODE_BLOCK;
-  b1.name = "b1";
-  b1.basic_block_order.push_back(bb1);
+  BlockDescription* b1 = subgraph.AddBlockDescription(
+      "b1", BlockGraph::CODE_BLOCK, 0, 1, 0);
+  ASSERT_FALSE(b1 == NULL);
+  b1->basic_block_order.push_back(bb1);
 
   // Add a block description for a mythical b2.
-  subgraph.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b2 = subgraph.block_descriptions().back();
-  b2.type = BlockGraph::CODE_BLOCK;
-  b2.name = "b2";
-  b2.basic_block_order.push_back(bb2);
+  BlockDescription* b2 = subgraph.AddBlockDescription(
+      "b2", BlockGraph::CODE_BLOCK, 0, 1, 0);
+  ASSERT_FALSE(b2 == NULL);
+  b2->basic_block_order.push_back(bb2);
 
   // Successors are not valid yet.
   EXPECT_FALSE(subgraph.HasValidSuccessors());
@@ -187,7 +194,7 @@ TEST(BasicBlockSubGraph, DISABLED_HasValidSuccessors) {
   EXPECT_TRUE(subgraph.HasValidSuccessors());
 }
 
-TEST(BasicBlockSubGraph, HasValidReferrers) {
+TEST(BasicBlockSubGraphTest, HasValidReferrers) {
   BlockGraph::Block b1 = BlockGraph::Block(0, BlockGraph::DATA_BLOCK, 4, "b1");
   BlockGraph::Block b2 = BlockGraph::Block(0, BlockGraph::DATA_BLOCK, 4, "b2");
 
@@ -204,11 +211,10 @@ TEST(BasicBlockSubGraph, HasValidReferrers) {
       "bb1", BasicBlock::BASIC_DATA_BLOCK, -1, kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
 
-  subgraph.block_descriptions().push_back(BlockDescription());
-  BlockDescription& b1_desc = subgraph.block_descriptions().back();
-  b1_desc.name = b1.name();
-  b1_desc.type = BlockGraph::DATA_BLOCK;
-  b1_desc.basic_block_order.push_back(bb1);
+  BlockDescription* b1_desc = subgraph.AddBlockDescription(
+      "b1_desc", BlockGraph::DATA_BLOCK, 0, 1, 0);
+  ASSERT_FALSE(b1_desc == NULL);
+  b1_desc->basic_block_order.push_back(bb1);
 
   ASSERT_FALSE(subgraph.HasValidReferrers());
 
@@ -216,7 +222,7 @@ TEST(BasicBlockSubGraph, HasValidReferrers) {
   ASSERT_TRUE(subgraph.HasValidReferrers());
 }
 
-TEST(BasicBlockSubGraph, GetMaxSize) {
+TEST(BasicBlockSubGraphTest, GetMaxSize) {
   TestBasicBlockSubGraph subgraph;
 
   // Add three non-overlapping basic-blocks.
