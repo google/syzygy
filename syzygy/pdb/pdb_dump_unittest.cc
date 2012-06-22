@@ -52,7 +52,6 @@ class PdbDumpAppTest : public testing::PELibUnitTest {
     stderr_path_ = temp_dir_.Append(L"stderr.txt");
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
-
     pdb_file_ = temp_dir_.Append(kDllPdbName);
     ASSERT_TRUE(file_util::CopyFile(
         testing::GetExeTestDataRelativePath(kDllPdbName), pdb_file_));

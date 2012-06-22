@@ -89,7 +89,22 @@ void DumpLeafULong(FILE* out, PdbStream* stream) {
   ::fprintf(out, "%d", numeric_value.val);
 }
 
+// In the tests used to validate these function I've added a const double to my
+// test program to make sure that it is saved as a LeafReal64 in the PDB (I've
+// initialized it to Pi to make sure it is not implicitly converted to an
+// integer) but the type associated with its value is LF_ULONG. I've verified in
+// the PDB to make sure this is not an error in my code and this is really the
+// type present for this value (0x8004). This is also the case for the float
+// type. It may be related to the type index. For each symbol there is a field
+// for the value (and the type associated with it if it's a numeric type) and a
+// field called "type index" which seems to refer to a type present in the type
+// info stream. An error is logged if we encounter a LeafReal type for one
+// symbol.
+
+const char* unexpected_real_type = "This type is unexpected.";
+
 void DumpLeafReal32(FILE* out, PdbStream* stream) {
+  LOG(WARNING) << unexpected_real_type;
   cci::LeafReal32 numeric_value = {};
   if (!stream->Read(&numeric_value, 1)) {
     LOG(ERROR) << "Unable to read numeric value.";
@@ -99,6 +114,7 @@ void DumpLeafReal32(FILE* out, PdbStream* stream) {
 }
 
 void DumpLeafReal64(FILE* out, PdbStream* stream) {
+  LOG(WARNING) << unexpected_real_type;
   cci::LeafReal64 numeric_value = {};
   if (!stream->Read(&numeric_value, 1)) {
     LOG(ERROR) << "Unable to read numeric value.";
@@ -108,6 +124,7 @@ void DumpLeafReal64(FILE* out, PdbStream* stream) {
 }
 
 void DumpLeafReal80(FILE* out, PdbStream* stream) {
+  LOG(WARNING) << unexpected_real_type;
   cci::LeafReal80 numeric_value = {};
   if (!stream->Read(&numeric_value, 1)) {
     LOG(ERROR) << "Unable to read numeric value.";
@@ -117,6 +134,7 @@ void DumpLeafReal80(FILE* out, PdbStream* stream) {
 }
 
 void DumpLeafReal128(FILE* out, PdbStream* stream) {
+  LOG(WARNING) << unexpected_real_type;
   cci::LeafReal128 numeric_value = {};
   if (!stream->Read(&numeric_value, 1)) {
     LOG(ERROR) << "Unable to read numeric value.";
