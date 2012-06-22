@@ -25,13 +25,11 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "syzygy/common/align.h"
-#include "syzygy/pdb/cvinfo_ext.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
+#include "syzygy/pdb/pdb_dump_symbols.h"
 #include "syzygy/pdb/pdb_reader.h"
 
 std::ostream& operator<<(std::ostream& str, const GUID& guid) {
@@ -47,85 +45,6 @@ namespace {
 
 namespace cci = Microsoft_Cci_Pdb;
 
-// Return the string value associated with a symbol type.
-const char* SymbolTypeName(uint16 symbol_type) {
-  switch (symbol_type) {
-// Just print the name of the enum.
-#define SYM_TYPE_NAME(sym_type, unused) \
-    case cci::sym_type: { \
-      return #sym_type; \
-    }
-    SYM_TYPE_CASE_TABLE(SYM_TYPE_NAME);
-#undef SYM_TYPE_NAME
-    default :
-      return NULL;
-  }
-}
-
-
-// Dump a symbol record using RefSym2 struct to out.
-bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len) {
-  cci::RefSym2 symbol_info;
-  size_t to_read = offsetof(cci::RefSym2, name);
-  size_t bytes_read = 0;
-  std::string symbol_name;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      !ReadString(stream, &symbol_name)) {
-    LOG(ERROR) << "Unable to read symbol record.";
-    return false;
-  }
-  ::fprintf(out, "\t\tName: %s\n", symbol_name.c_str());
-  ::fprintf(out, "\t\tSUC: %d\n", symbol_info.sumName);
-  ::fprintf(out, "\t\tOffset: 0x%08X\n", symbol_info.ibSym);
-  ::fprintf(out, "\t\tModule: %d\n", symbol_info.imod);
-
-  return true;
-}
-
-// Dump a symbol record using DatasSym32 struct to out.
-bool DumpDatasSym32(FILE* out, PdbStream* stream, uint16 len) {
-  size_t to_read = offsetof(cci::DatasSym32, name);
-  size_t bytes_read = 0;
-  size_t start_position = stream->pos();
-  cci::DatasSym32 symbol_info;
-  std::string symbol_name;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      !ReadString(stream, &symbol_name)) {
-    LOG(ERROR) << "Unable to read symbol record.";
-    return false;
-  }
-  ::fprintf(out, "\t\tName: %s\n", symbol_name.c_str());
-  ::fprintf(out, "\t\tType index: %d\n", symbol_info.typind);
-  ::fprintf(out, "\t\tOffset: 0x%08X\n", symbol_info.off);
-  ::fprintf(out, "\t\tSegment: 0x%04X\n", symbol_info.seg);
-  return true;
-}
-
-// Hexdump the data of the undeciphered symbol records.
-bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len) {
-  ::fprintf(out, "\t\tUnsupported symbol type. Data:\n");
-  uint8 buffer[32];
-  size_t bytes_read = 0;
-  while (bytes_read < len) {
-    size_t bytes_to_read = len - bytes_read;
-    if (bytes_to_read > sizeof(buffer))
-      bytes_to_read = sizeof(buffer);
-    size_t bytes_just_read = 0;
-    if (!stream->ReadBytes(buffer, bytes_to_read, &bytes_just_read) ||
-        bytes_just_read == 0) {
-      LOG(ERROR) << "Unable to read symbol record.";
-      return false;
-    }
-    ::fprintf(out, "\t\t");
-    for (size_t i = 0; i < bytes_just_read; ++i)
-      ::fprintf(out, "%X", buffer[i]);
-    ::fprintf(out, "\n");
-    bytes_read += bytes_just_read;
-  }
-
-  return true;
-}
-
 // Read the stream containing the filenames listed in the Pdb.
 bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
   size_t stream_start = stream->pos();
@@ -139,7 +58,7 @@ bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
 
 // Read the stream containing the symbol record.
 bool ReadSymbolRecord(PdbStream* stream,
-                      PdbDumpApp::SymbolRecordVector* symbol_vector) {
+                      SymbolRecordVector* symbol_vector) {
   DCHECK(stream != NULL);
   DCHECK(symbol_vector != NULL);
 
@@ -164,7 +83,7 @@ bool ReadSymbolRecord(PdbStream* stream,
       LOG(ERROR) << "Unable to read a symbol record type.";
       return false;
     }
-    PdbDumpApp::SymbolRecord sym_record;
+    SymbolRecord sym_record;
     sym_record.type = symbol_type;
     sym_record.start_position = stream->pos();
     sym_record.len = len - sizeof(symbol_type);
@@ -366,7 +285,7 @@ int PdbDumpApp::Run() {
     SymbolRecordVector symbol_vector;
     if (sym_record_stream != NULL &&
         ReadSymbolRecord(sym_record_stream, &symbol_vector)) {
-      DumpSymbolRecord(sym_record_stream, symbol_vector);
+      DumpSymbolRecord(out(), sym_record_stream, symbol_vector);
     } else {
       LOG(ERROR) << "Unable to read the symbol record stream.";
       return 1;
@@ -379,7 +298,6 @@ int PdbDumpApp::Run() {
       return 1;
     }
   }
-
   return 0;
 }
 
@@ -403,47 +321,6 @@ void PdbDumpApp::DumpInfoStream(const PdbInfoHeader70& info,
   NameStreamMap::const_iterator it(name_streams.begin());
   for (; it != name_streams.end(); ++it) {
     ::fprintf(out(), "\t%s: %d\n", it->first.c_str(), it->second);
-  }
-}
-
-void PdbDumpApp::DumpSymbolRecord(PdbStream* stream,
-                                  const SymbolRecordVector& sym_record_vector) {
-  DCHECK(stream != NULL);
-
-  ::fprintf(out(), "%d symbol record in the stream:\n",
-            sym_record_vector.size());
-  SymbolRecordVector::const_iterator symbol_iter = sym_record_vector.begin();
-  // Dump each symbol contained in the vector.
-  for (; symbol_iter != sym_record_vector.end(); symbol_iter++) {
-    if (!stream->Seek(symbol_iter->start_position)) {
-      LOG(ERROR) << "Unable to seek to symbol record at position "
-                 << StringPrintf("0x%08X.", symbol_iter->start_position);
-      return;
-    }
-    const char* symbol_type_text = SymbolTypeName(symbol_iter->type);
-    if (symbol_type_text != NULL) {
-      ::fprintf(out(), "\tSymbol Type: 0x%04X %s\n",
-                symbol_iter->type,
-                symbol_type_text);
-    } else {
-      ::fprintf(out(), "\tUnknown symbol Type: 0x%04X\n", symbol_iter->type);
-    }
-    switch (symbol_iter->type) {
-// Call a function to dump a specific (struct_type) kind of structure.
-#define SYM_TYPE_DUMP(sym_type, struct_type) \
-    case cci::sym_type: { \
-      Dump ## struct_type(out(), stream, symbol_iter->len); \
-      break; \
-    }
-      SYM_TYPE_CASE_TABLE(SYM_TYPE_DUMP);
-#undef SYM_TYPE_DUMP
-    }
-
-    stream->Seek(common::AlignUp(stream->pos(), 4));
-    if (stream->pos() != symbol_iter->start_position + symbol_iter->len) {
-      LOG(ERROR) << "Symbol record stream is not valid.";
-      return;
-    }
   }
 }
 
