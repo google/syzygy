@@ -671,23 +671,21 @@ TEST_F(AssemblerTest, Jnz) {
 TEST_F(AssemblerTest, Loop) {
   asm_.set_location(0xCAFEBABE);
 
-  asm_.l(kLoopOnCounter, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  asm_.loop(ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
   EXPECT_BYTES(0xE2, 0xFE);
 }
 
-TEST_F(AssemblerTest, Loopz) {
+TEST_F(AssemblerTest, Loope) {
   asm_.set_location(0xCAFEBABE);
 
-  asm_.l(kLoopOnCounterAndZeroFlag,
-            ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  asm_.loope(ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
   EXPECT_BYTES(0xE1, 0xFE);
 }
 
-TEST_F(AssemblerTest, Loopnz) {
+TEST_F(AssemblerTest, Loopne) {
   asm_.set_location(0xCAFEBABE);
 
-  asm_.l(kLoopOnCounterAndNotZeroFlag,
-            ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
+  asm_.loopne(ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
   EXPECT_BYTES(0xE0, 0xFE);
 }
 
