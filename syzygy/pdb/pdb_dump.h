@@ -32,13 +32,6 @@ class DbiStream;
 // in a directory named <pdbfile>-streams.
 class PdbDumpApp : public common::AppImplBase {
  public:
-  // Typedefs used to store the content of the different PDB streams.
-   struct SymbolRecord {
-     size_t start_position;
-     uint16 len;
-     uint16 type;
-   };
-  typedef std::vector<SymbolRecord> SymbolRecordVector;
 
   PdbDumpApp();
 
@@ -65,10 +58,6 @@ class PdbDumpApp : public common::AppImplBase {
 
   // Dumps @p dbi_stream to out().
   void DumpDbiStream(const DbiStream& dbi_stream);
-
-  // Dumps @p symbol_record_vector from @p stream to out().
-  void DumpSymbolRecord(PdbStream* stream,
-                        const SymbolRecordVector& symbol_record_vector);
 
   // The PDB files to dump.
   std::vector<FilePath> pdb_files_;

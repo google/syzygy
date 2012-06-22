@@ -36,6 +36,8 @@ typedef uint64 ulong;
 typedef int8 sbyte;
 typedef char string[1];
 typedef GUID Guid;
+COMPILE_ASSERT(sizeof(short) == 2, Size_of_short_must_equal_two);
+COMPILE_ASSERT(sizeof(int) == 4, Size_of_int_must_equal_four);
 
   /*internal*/ struct FLOAT10 {
     /*internal*/ byte Data_0;
@@ -1179,7 +1181,7 @@ typedef GUID Guid;
 
   /*internal*/ struct LeafQuad {
     // internal ushort leaf;      // LF_QUAD [TYPTYPE]
-    /*internal*/ long val;        // signed 64-bit value
+    /*internal*/ int64 val;        // signed 64-bit value
   };
 
   //  unsigned quad leaf

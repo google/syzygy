@@ -39,6 +39,8 @@
         'pdb_dbi_stream.h',
         'pdb_dump.cc',
         'pdb_dump.h',
+        'pdb_dump_symbols.cc',
+        'pdb_dump_symbols.h',
         'pdb_file.cc',
         'pdb_file.h',
         'pdb_file_stream.cc',
