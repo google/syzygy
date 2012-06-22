@@ -33,6 +33,22 @@ BasicBlockSubGraph::BasicBlockSubGraph()
     : original_block_(NULL), next_basic_block_id_(0) {
 }
 
+BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
+    const base::StringPiece& name,
+    BlockType type,
+    SectionId section,
+    Size alignment,
+    BlockAttributes attributes) {
+  block_descriptions_.push_back(BlockDescription());
+  BlockDescription* desc = &block_descriptions_.back();
+  desc->name.assign(name.begin(), name.end());
+  desc->type = type;
+  desc->section = section;
+  desc->alignment = alignment;
+  desc->attributes = attributes;
+  return desc;
+}
+
 block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
     const base::StringPiece& name,
     BasicBlockType type,

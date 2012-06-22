@@ -53,10 +53,10 @@ class BasicBlockSubGraph {
   // constituent ordered basic-blocks). A given basic-block may participate
   // in at most one BlockDescription at any time.
   struct BlockDescription {
-    BlockType type;
-    Size alignment;
     std::string name;
+    BlockType type;
     SectionId section;
+    Size alignment;
     BlockAttributes attributes;
     BasicBlockOrdering basic_block_order;
 
@@ -87,6 +87,20 @@ class BasicBlockSubGraph {
   }
   BlockDescriptionList& block_descriptions() { return block_descriptions_; }
   // @}
+
+  // Initializes and returns a new block description.
+  // @param name The name of the block.
+  // @param type The type of the block.
+  // @param section The ID of the section in which the block should reside.
+  // @param alignment The alignment of the block.
+  //     (i.e., location % alignment == 0)
+  // @param attributes The attributes of the block.
+  // @returns A pointer to the newly created block description.
+  BlockDescription* AddBlockDescription(const base::StringPiece& name,
+                                        BlockType type,
+                                        SectionId section,
+                                        Size alignment,
+                                        BlockAttributes attributes);
 
   // Add a new basic block to the sub-graph.
   // @param name A textual identifier for this basic block.
