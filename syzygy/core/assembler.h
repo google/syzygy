@@ -248,6 +248,15 @@ class AssemblerImpl {
   void push(const OperandImpl& src);
   // @}
 
+  // @name Aliases
+  // @{
+  void loop(const ImmediateImpl& dst) { l(kLoopOnCounter, dst); }
+  void loope(const ImmediateImpl& dst) { l(kLoopOnCounterAndZeroFlag, dst); }
+  void loopne(const ImmediateImpl& dst) {
+    l(kLoopOnCounterAndNotZeroFlag, dst);
+  }
+  // @}
+
   // The maximum length a single instruction will assemble to.
   static const size_t kMaxInstructionLength;
 
