@@ -19,6 +19,7 @@
 #define SYZYGY_PE_DECOMPOSE_IMAGE_TO_TEXT_APP_H_
 
 #include "base/file_path.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
 
@@ -30,6 +31,8 @@ namespace pe {
 // this utility.
 class DecomposeImageToTextApp : public common::AppImplBase {
  public:
+  DecomposeImageToTextApp();
+
   // @name Implementation of the AppImplBase interface.
   // @{
   bool ParseCommandLine(const CommandLine* command_line);
@@ -39,22 +42,40 @@ class DecomposeImageToTextApp : public common::AppImplBase {
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BasicBlock BasicBlock;
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
   void DecomposeImageToTextApp::PrintUsage(const FilePath& program,
                                            const base::StringPiece& message);
 
-  // Given @p address_space, dump it in text format to @p out. Also, increment
-  // @p num_refs with the count of the number of block references in the address
-  // space if @p num_refs is not NULL.
-  void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space,
-                              FILE* out,
-                              size_t* num_refs);
+  // Given @p address_space, dump it in text format to out().
+  void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space);
 
-  // Dump the image at @p image_path to @p out.
-  bool DumpImageToText(const FilePath& image_path, FILE* out);
+  // Given @p subgraph, dump it in text format to out().
+  void DumpSubGraphToText(BasicBlockSubGraph& subgraph);
+
+  // Given the code basic block @p bb, dump it in text format to out().
+  void DumpCodeBBToText(const BlockGraph::Block* block,
+                        const BasicBlock* bb);
+  // Given the data basic block @p bb, dump it in text format to out().
+  void DumpDataBBToText(const BlockGraph::Block* block,
+                        const BasicBlock* bb);
+
+  // Dump @p block at @p addr in text format to out().
+  void DumpBlockToText(core::RelativeAddress addr,
+                       const BlockGraph::Block* block);
+
+  // Dump the image at @p image_path to out().
+  bool DumpImageToText(const FilePath& image_path);
 
   // The image to decompose.
   FilePath image_path_;
+
+  // True if we're to dump basic block information.
+  bool dump_basic_blocks_;
+
+  // Number of references we've encountered.
+  size_t num_refs_;
 };
 
 }  // namespace pe
