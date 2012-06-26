@@ -524,8 +524,10 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
   if (block_->GetLabel(offset, &label)) {
     basic_block_name = label.ToString();
   } else {
-    basic_block_name = base::StringPrintf(
-        "<anonymous-%s>", BasicBlock::BasicBlockTypeToString(type));
+    basic_block_name =
+        base::StringPrintf("<anonymous-%04X-%s>",
+                           addr.value(),
+                           BasicBlock::BasicBlockTypeToString(type));
   }
 
   BasicBlock* new_basic_block = subgraph_->AddBasicBlock(

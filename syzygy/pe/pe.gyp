@@ -78,8 +78,6 @@
         'dia_util.cc',
         'dia_util.h',
         'dia_util_internal.h',
-        'decompose_app.cc',
-        'decompose_app.h',
         'decomposer.cc',
         'decomposer.h',
         'dos_stub.asm',
@@ -135,6 +133,19 @@
       },
     },
     {
+      'target_name': 'pe_app_lib',
+      'type': 'static_library',
+      'sources': [
+        'decompose_image_to_text_app.cc',
+        'decompose_image_to_text_app.h',
+        'decompose_app.cc',
+        'decompose_app.h',
+      ],
+      'dependencies': [
+        'pe_lib',
+      ],
+    },
+    {
       'target_name': 'pe_unittest_utils',
       'type': 'static_library',
       'sources': [
@@ -157,6 +168,7 @@
         'basic_block_decomposer_unittest.cc',
         'block_util_unittest.cc',
         'decompose_app_unittest.cc',
+        'decompose_image_to_text_unittest.cc',
         'decomposer_unittest.cc',
         'dia_browser_unittest.cc',
         'dia_util_unittest.cc',
@@ -174,6 +186,7 @@
         'pe_relinker_unittest.cc',
       ],
       'dependencies': [
+        'pe_app_lib',
         'pe_lib',
         'test_dll',
         'pe_unittest_utils',
@@ -254,10 +267,9 @@
       'type': 'executable',
       'sources': [
         'decompose_image_to_text_main.cc',
-        'decompose_image_to_text_app.cc',
-        'decompose_image_to_text_app.h',
       ],
       'dependencies': [
+        'pe_app_lib',
         'pe_lib',
         '<(DEPTH)/base/base.gyp:base',
       ],
@@ -265,7 +277,8 @@
         'working_directory': '$(ConfigurationDir)',
         'action': [
           '$(TargetPath)',
-          '--image=test_dll.dll'
+          '--image=test_dll.dll',
+          '--basic-blocks',
         ],
       },
     },
@@ -277,6 +290,7 @@
         'decompose.rc',
       ],
       'dependencies': [
+        'pe_app_lib',
         'pe_lib',
         '<(DEPTH)/base/base.gyp:base',
       ],

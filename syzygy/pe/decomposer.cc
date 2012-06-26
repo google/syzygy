@@ -1179,6 +1179,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
 
     // Not all symbols have a name, if we've found one without a name, make
     // one up.
+    BlockGraph::Offset offset = label_rva - block_addr;
     if (label_name.empty()) {
       switch (sym_tag) {
         case SymTagFuncDebugStart: {
@@ -1193,10 +1194,10 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
 
         case SymTagData: {
           if (reloc_set_.count(label_rva)) {
-            label_name = "<jump-table>";
+            label_name = base::StringPrintf("<jump-table-%d>", offset);
             label_attr |= BlockGraph::JUMP_TABLE_LABEL;
           } else {
-            label_name = "<case-table>";
+            label_name = base::StringPrintf("<case-table-%d>", offset);
             label_attr |= BlockGraph::CASE_TABLE_LABEL;
           }
           break;
@@ -1235,7 +1236,6 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
               << " Falling back to data label.";
       label_attr = BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL;
       DCHECK_EQ(block_addr, block->addr());
-      BlockGraph::Offset offset = label_rva - block_addr;
       BlockGraph::Label label;
       if (block->GetLabel(offset, &label) &&
           !label.has_attributes(BlockGraph::DATA_LABEL)) {
@@ -2206,10 +2206,12 @@ CallbackDirective Decomposer::LookPastInstructionForData(
       return Disassembler::kDirectiveAbort;
 
     // If we're not in strict mode, add the jump-table label.
-    if (have_label)
+    if (have_label) {
       CHECK(block->RemoveLabel(offset));
+    }
+
     CHECK(block->SetLabel(offset, BlockGraph::Label(
-        "<JUMP-TABLE>",
+        base::StringPrintf("<JUMP-TABLE-%d>", offset),
         BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL)));
   }
 
