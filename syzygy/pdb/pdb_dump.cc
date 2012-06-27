@@ -31,6 +31,7 @@
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_dump_symbols.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_type_info_stream.h"
 
 std::ostream& operator<<(std::ostream& str, const GUID& guid) {
   wchar_t buf[128] = {};
@@ -231,6 +232,19 @@ int PdbDumpApp::Run() {
       DumpDbiStream(dbi_stream);
     } else {
       LOG(ERROR) << "No Dbi stream.";
+      return 1;
+    }
+
+    // Read the type info stream.
+    TypeInfoHeader type_info_header = {};
+    TypeInfoRecordMap type_info_records;
+    stream = pdb_file.GetStream(pdb::kTpiStream);
+    if (stream != NULL && ReadTypeInfoStream(stream,
+                                             &type_info_header,
+                                             &type_info_records)) {
+      DumpTypeInfoStream(out(), stream, type_info_header, type_info_records);
+    } else {
+      LOG(ERROR) << "No type info stream.";
       return 1;
     }
 

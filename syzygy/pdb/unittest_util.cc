@@ -31,6 +31,15 @@ const wchar_t kValidPDBSymbolRecordStreamPath[] =
 const wchar_t kInvalidPDBSymbolRecordStreamPath[] =
     L"syzygy\\pdb\\test_data\\invalid_sym_record.pdb_stream";
 
+const wchar_t kValidPDBTypeInfoStreamPath[] =
+    L"syzygy\\pdb\\test_data\\valid_type_info.pdb_stream";
+
+const wchar_t kInvalidHeaderPDBTypeInfoStreamPath[] =
+    L"syzygy\\pdb\\test_data\\invalid_type_info_header_corrupted.pdb_stream";
+
+const wchar_t kInvalidDataPDBTypeInfoStreamPath[] =
+    L"syzygy\\pdb\\test_data\\invalid_type_info_data_corrupted.pdb_stream";
+
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path) {
   int64 file_size = 0;
   file_util::GetFileSize(file_path, &file_size);

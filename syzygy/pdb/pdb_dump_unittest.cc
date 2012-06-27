@@ -17,7 +17,6 @@
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_dump_symbols.h"
 #include "syzygy/pdb/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -126,27 +125,6 @@ TEST_F(PdbDumpAppTest, Run) {
   FilePath exploded_dir =
       temp_dir_.Append(std::wstring(kDllPdbName) + L"-streams");
   ASSERT_TRUE(file_util::DirectoryExists(exploded_dir));
-}
-
-TEST_F(PdbDumpAppTest, ReadValidSymRecordStream) {
-  FilePath valid_sym_record_path = testing::GetSrcRelativePath(
-      testing::kValidPDBSymbolRecordStreamPath);
-
-  scoped_refptr<pdb::PdbFileStream> valid_sym_record_stream =
-      testing::GetStreamFromFile(valid_sym_record_path);
-  SymbolRecordVector symbol_vector;
-  EXPECT_TRUE(ReadSymbolRecord(valid_sym_record_stream.get(), &symbol_vector));
-}
-
-TEST_F(PdbDumpAppTest, ReadInvalidSymRecordStream) {
-  FilePath invalid_sym_record_path = testing::GetSrcRelativePath(
-      testing::kInvalidPDBSymbolRecordStreamPath);
-
-  scoped_refptr<pdb::PdbFileStream> invalid_sym_record_stream =
-      testing::GetStreamFromFile(invalid_sym_record_path);
-  SymbolRecordVector symbol_vector;
-  EXPECT_FALSE(ReadSymbolRecord(invalid_sym_record_stream.get(),
-                                &symbol_vector));
 }
 
 }  // namespace pdb

@@ -37,6 +37,40 @@ struct PdbInfoHeader70 {
   GUID signature;
 };
 
+// A structure that we find in the type info hash header, this is not totally
+// deciphered yet.
+struct OffsetCb {
+  uint32 offset;
+  uint32 cb;
+};
+
+// Type Info Stream Hash, this is contained in the type info header. This part
+// hasn't been deciphered yet (the field names are known but we still need to
+// find out what their content mean).
+struct TypeInfoHashHeader {
+  uint16 stream_number;
+  uint16 padding;
+  uint32 hash_key;
+  uint32 cb_hash_buckets;
+  OffsetCb offset_cb_hash_vals;
+  OffsetCb offset_cb_type_info_offset;
+  OffsetCb offset_cb_hash_adj;
+};
+
+// Type Info Stream Header, this is at the beginning of stream #2.
+// See http://moyix.blogspot.ca/2007_10_01_archive.html
+struct TypeInfoHeader {
+  uint32 version;
+  uint32 len;
+  uint32 type_min;
+  uint32 type_max;
+  uint32 type_info_data_size;
+  TypeInfoHashHeader type_info_hash;
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 56 bytes in size.
+COMPILE_ASSERT(sizeof(TypeInfoHeader) == 56, pdb_type_info_header_wrong_size);
+
 // Dbi Info Stream Header, this is at the start of stream #3.
 // See http://code.google.com/p/pdbparser/wiki/DBI_Format
 struct DbiHeader {
