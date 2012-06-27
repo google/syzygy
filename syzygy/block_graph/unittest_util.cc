@@ -16,16 +16,125 @@
 
 namespace testing {
 
+namespace {
+
+// TODO(chrisha): Break up the functions below into smaller reusable
+//     components.
+
 using block_graph::BlockGraph;
+using block_graph::BlockGraphSerializer;
 
 // Compare two strings to each others if the OMIT_STRINGS flag isn't set.
-bool MaybeCompareString(const std::string string1,
-                        const std::string string2,
-                        BlockGraph::SerializationAttributes attributes) {
+bool MaybeCompareStrings(const std::string string1,
+                         const std::string string2,
+                         const BlockGraphSerializer& bgs) {
+  if (bgs.has_attributes(BlockGraphSerializer::OMIT_STRINGS)) {
+    if (!string1.empty() && !string2.empty())
+      return false;
+    return true;
+  }
+  if (string1 != string2)
+    return false;
+  return true;
+}
+bool MaybeCompareStrings(const std::string string1,
+                         const std::string string2,
+                         BlockGraph::SerializationAttributes attributes) {
   if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
     if (string1 != string2)
       return false;
   }
+  return true;
+}
+
+}
+
+// Compares two Blocks to each other.
+bool BlocksEqual(const BlockGraph::Block& b1,
+                 const BlockGraph::Block& b2,
+                 const BlockGraphSerializer& bgs) {
+  // Compare the basic block properties.
+  if (b1.id() != b2.id() || b1.type() != b2.type() ||
+      b1.size() != b2.size() || b1.alignment() != b2.alignment() ||
+      b1.addr() != b2.addr() || b1.section() != b2.section() ||
+      b1.attributes() != b2.attributes() ||
+      b1.source_ranges() != b2.source_ranges() ||
+      b1.data_size() != b2.data_size()) {
+    return false;
+  }
+
+  if (!MaybeCompareStrings(b1.name(), b2.name(), bgs))
+    return false;
+
+  // Compare the labels.
+  if (!bgs.has_attributes(BlockGraphSerializer::OMIT_LABELS)) {
+    if (b1.labels().size() != b2.labels().size())
+      return false;
+    BlockGraph::Block::LabelMap::const_iterator it1 =
+        b1.labels().begin();
+    BlockGraph::Block::LabelMap::const_iterator it2 =
+        b1.labels().begin();
+    for (; it1 != b1.labels().end(); it1++, it2++) {
+      if (it1->first != it2->first ||
+          it1->second.attributes() != it2->second.attributes() ||
+          !MaybeCompareStrings(it1->second.name(),
+                               it2->second.name(),
+                               bgs)) {
+        return false;
+      }
+    }
+  }
+
+  // Both data pointers should be null or non-null. We can't say anything
+  // about data ownership, as this doesn't affect block equality.
+  if ((b1.data() == NULL) != (b2.data() == NULL))
+    return false;
+
+  // Compare the data.
+  if (b1.data_size() > 0 &&
+      memcmp(b1.data(), b2.data(), b1.data_size()) != 0) {
+    return false;
+  }
+
+  if (b1.references().size() != b2.references().size())
+    return false;
+
+  {
+    // Compare the references. They should point to blocks with the same id.
+    BlockGraph::Block::ReferenceMap::const_iterator
+        it1 = b1.references().begin();
+    for (; it1 != b1.references().end(); ++it1) {
+      BlockGraph::Block::ReferenceMap::const_iterator it2 =
+          b2.references().find(it1->first);
+      if (it2 == b2.references().end() ||
+          it1->second.referenced()->id() != it2->second.referenced()->id()) {
+        LOG(ERROR) << "References not equal.";
+        return false;
+      }
+    }
+  }
+
+  if (b1.referrers().size() != b2.referrers().size())
+    return false;
+
+  {
+    // Compare the referrers. They should point to blocks with the same id.
+    // We store a list of unique referrer id/offset pairs. This allows us to
+    // efficiently search for an equivalent referrer.
+    typedef std::set<std::pair<size_t, size_t> > IdOffsetSet;
+    IdOffsetSet id_offset_set;
+    BlockGraph::Block::ReferrerSet::const_iterator it = b1.referrers().begin();
+    for (; it != b1.referrers().end(); ++it)
+      id_offset_set.insert(std::make_pair(it->first->id(), it->second));
+
+    for (it = b2.referrers().begin(); it != b2.referrers().end(); ++it) {
+      IdOffsetSet::const_iterator set_it = id_offset_set.find(
+          std::make_pair(it->first->id(), it->second));
+      if (set_it == id_offset_set.end())
+        return false;
+    }
+  }
+
   return true;
 }
 
@@ -43,7 +152,7 @@ bool BlocksEqual(const BlockGraph::Block& b1,
     return false;
   }
 
-  if (!MaybeCompareString(b1.name(), b2.name(), attributes))
+  if (!MaybeCompareStrings(b1.name(), b2.name(), attributes))
     return false;
 
   // Compare the labels.
@@ -57,9 +166,9 @@ bool BlocksEqual(const BlockGraph::Block& b1,
     for (; it1 != b1.labels().end(); it1++, it2++) {
       if (it1->first != it2->first ||
           it1->second.attributes() != it2->second.attributes() ||
-          !MaybeCompareString(it1->second.name(),
-                              it2->second.name(),
-                              attributes)) {
+          !MaybeCompareStrings(it1->second.name(),
+                               it2->second.name(),
+                               attributes)) {
         return false;
       }
     }
@@ -121,6 +230,28 @@ bool BlocksEqual(const BlockGraph::Block& b1,
 }
 
 // Compares two BlockGraphs to each other.
+bool BlockGraphsEqual(const BlockGraph& b1,
+                      const BlockGraph& b2,
+                      const BlockGraphSerializer& bgs) {
+  if (b1.sections() != b2.sections() ||
+      b1.blocks().size() != b2.blocks().size()) {
+    return false;
+  }
+
+  // We manually iterate through the blocks and use BlocksEqual,
+  // because they don't otherwise have a comparison operator.
+  BlockGraph::BlockMap::const_iterator it1 = b1.blocks().begin();
+  for (; it1 != b1.blocks().end(); ++it1) {
+    BlockGraph::BlockMap::const_iterator it2 = b2.blocks().find(it1->first);
+    if (it2 == b2.blocks().end())
+      return false;
+
+    if (!BlocksEqual(it1->second, it2->second, bgs))
+      return false;
+  }
+
+  return true;
+}
 bool BlockGraphsEqual(const BlockGraph& b1,
                       const BlockGraph& b2,
                       BlockGraph::SerializationAttributes attributes) {

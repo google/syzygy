@@ -18,17 +18,28 @@
 #define SYZYGY_BLOCK_GRAPH_UNITTEST_UTIL_H_
 
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/block_graph_serializer.h"
 
 namespace testing {
 
+// TODO(chrisha): Once we transition fully to BlockGraphSerializer, remove
+//     the redundant comparison functions.
+
 // Compares two Blocks (from different BlockGraphs) to each other. Intended for
 // testing BlockGraph serialization.
+bool BlocksEqual(const block_graph::BlockGraph::Block& b1,
+                 const block_graph::BlockGraph::Block& b2,
+                 const block_graph::BlockGraphSerializer& bgs);
 bool BlocksEqual(const block_graph::BlockGraph::Block& b1,
                  const block_graph::BlockGraph::Block& b2,
                  block_graph::BlockGraph::SerializationAttributes attributes);
 
 // Compares two BlockGraphs to each other. Intended for testing BlockGraph
 // serialization.
+bool BlockGraphsEqual(
+    const block_graph::BlockGraph& b1,
+    const block_graph::BlockGraph& b2,
+    const block_graph::BlockGraphSerializer& bgs);
 bool BlockGraphsEqual(
     const block_graph::BlockGraph& b1,
     const block_graph::BlockGraph& b2,

@@ -314,7 +314,7 @@ class NativeBinaryOutArchive {
     DCHECK(out_stream != NULL);
   }
 
-  ~NativeBinaryOutArchive() { Flush(); }
+  ~NativeBinaryOutArchive() { }
 
   template<class Data> bool Save(const Data& data) {
     return core::Save(data, this);
