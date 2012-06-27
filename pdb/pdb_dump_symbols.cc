@@ -616,7 +616,7 @@ bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector) {
   size_t stream_end = stream->pos() + stream->length();
 
   // Process each symbol present in the stream. For now we only save their
-  // starting position and their type to be able to dump them.
+  // starting positions, their lengths and their types to be able to dump them.
   while (stream->pos() < stream_end) {
     uint16 len = 0;
     uint16 symbol_type = 0;
