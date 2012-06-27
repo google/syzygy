@@ -17,12 +17,20 @@
 #ifndef SYZYGY_PDB_UNITTEST_UTIL_H_
 #define SYZYGY_PDB_UNITTEST_UTIL_H_
 
+#include "base/file_util.h"
+#include "syzygy/pdb/pdb_file_stream.h"
+
 namespace testing {
 
 // Paths to various files in syzygy/pdb/test_data.
 extern const wchar_t kTestPdbFilePath[];
 extern const wchar_t kTestDllFilePath[];
 extern const wchar_t kOmappedTestPdbFilePath[];
+extern const wchar_t kValidPDBSymbolRecordStreamPath[];
+extern const wchar_t kInvalidPDBSymbolRecordStreamPath[];
+
+// Get a PDB stream from a file.
+scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path);
 
 }  // namespace testing
 

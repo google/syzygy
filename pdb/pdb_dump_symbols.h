@@ -35,6 +35,9 @@ struct SymbolRecord {
 };
 typedef std::vector<SymbolRecord> SymbolRecordVector;
 
+// Read the @p symbol_vector from @p stream.
+bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector);
+
 // Dumps @p symbol_record_vector from @p stream to out.
 void DumpSymbolRecord(FILE* out,
                       PdbStream* stream,

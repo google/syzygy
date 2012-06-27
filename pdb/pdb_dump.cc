@@ -56,47 +56,6 @@ bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
                          index_strings);
 }
 
-// Read the stream containing the symbol record.
-bool ReadSymbolRecord(PdbStream* stream,
-                      SymbolRecordVector* symbol_vector) {
-  DCHECK(stream != NULL);
-  DCHECK(symbol_vector != NULL);
-
-  if (!stream->Seek(0)) {
-    LOG(ERROR) << "Unable to seek to the beginning of the symbol record "
-               << "stream.";
-    return false;
-  }
-  size_t stream_end = stream->pos() + stream->length();
-
-  // Process each symbol present in the stream. For now we only save their
-  // starting position and their type to be able to dump them.
-  while (stream->pos() < stream_end) {
-    uint16 len = 0;
-    uint16 symbol_type = 0;
-    if (!stream->Read(&len, 1)) {
-      LOG(ERROR) << "Unable to read a symbol record length.";
-      return false;
-    }
-    size_t symbol_start = stream->pos();
-    if (!stream->Read(&symbol_type, 1))  {
-      LOG(ERROR) << "Unable to read a symbol record type.";
-      return false;
-    }
-    SymbolRecord sym_record;
-    sym_record.type = symbol_type;
-    sym_record.start_position = stream->pos();
-    sym_record.len = len - sizeof(symbol_type);
-    symbol_vector->push_back(sym_record);
-    if (!stream->Seek(symbol_start + len)) {
-      LOG(ERROR) << "Unable to seek to the end of the symbol record.";
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool WriteStreamToPath(PdbStream* pdb_stream,
                        const FilePath& output_file_name) {
   // Open the file for output.

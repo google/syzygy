@@ -25,4 +25,23 @@ const wchar_t kTestDllFilePath[] =
 const wchar_t kOmappedTestPdbFilePath[] =
     L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
 
+const wchar_t kValidPDBSymbolRecordStreamPath[] =
+    L"syzygy\\pdb\\test_data\\valid_sym_record.pdb_stream";
+
+const wchar_t kInvalidPDBSymbolRecordStreamPath[] =
+    L"syzygy\\pdb\\test_data\\invalid_sym_record.pdb_stream";
+
+scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path) {
+  int64 file_size = 0;
+  file_util::GetFileSize(file_path, &file_size);
+  size_t pages[] = {0};
+
+  scoped_refptr<pdb::RefCountedFILE> file = new pdb::RefCountedFILE(
+      file_util::OpenFile(file_path, "rb"));
+  scoped_refptr<pdb::PdbFileStream> stream(
+    new pdb::PdbFileStream(file, file_size, pages, file_size));
+
+  return stream;
+}
+
 }  // namespace testing
