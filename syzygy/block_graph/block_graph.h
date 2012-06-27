@@ -647,6 +647,9 @@ class BlockGraph::Block {
   SourceRanges& source_ranges() { return source_ranges_; }
   const LabelMap& labels() const { return labels_; }
 
+  // Returns true if there are any other bocks holding a reference to this one.
+  bool HasExternalReferrers() const;
+
   // Set the reference at @p offset to @p ref.
   // If there's a pre-existing reference at @p offset, this overrides it.
   // @param offset offset of the reference into this block.
@@ -662,6 +665,10 @@ class BlockGraph::Block {
   // Remove the reference at @p offset.
   // @returns true iff there was a reference at @p offset.
   bool RemoveReference(Offset offset);
+
+  // Remove all references from this block. This is handy when removing a block
+  // from the block graph.
+  bool RemoveAllReferences();
 
   // Set a label to @p offset.
   // A label in code marks the location of the start of an instruction -

@@ -710,6 +710,55 @@ TEST_F(BlockTest, InsertOrRemoveShrinkAllocate) {
   EXPECT_EQ(10u, block1->data_size());
 }
 
+TEST_F(BlockTest, HasExternalReferrers) {
+  // Create block1 that refers to itself. It has no external referrers.
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+  ASSERT_TRUE(block1 != NULL);
+  EXPECT_TRUE(block1->SetReference(
+      0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block1, 0, 0)));
+  EXPECT_FALSE(block1->HasExternalReferrers());
+
+  // Create a second block that refers to block1.
+  BlockGraph::Block* block2 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block2");
+  ASSERT_TRUE(block2 != NULL);
+  EXPECT_TRUE(block2->SetReference(
+      0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block1, 0, 0)));
+
+  // There should now be an external referrer to block1.
+  EXPECT_TRUE(block1->HasExternalReferrers());
+}
+
+TEST_F(BlockTest, RemoveAllReferences) {
+  // Create block1 that refers to itself. It has no external referrers.
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block1");
+  ASSERT_TRUE(block1 != NULL);
+  EXPECT_TRUE(block1->SetReference(
+      0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block1, 0, 0)));
+
+  // Create a second block for block1 to refer to.
+  BlockGraph::Block* block2 = image_.AddBlock(
+      BlockGraph::DATA_BLOCK, 40, "Block2");
+  ASSERT_TRUE(block2 != NULL);
+  EXPECT_TRUE(block1->SetReference(
+      4, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, block2, 0, 0)));
+
+  // Verify that the references are as expected.
+  EXPECT_EQ(2U, block1->references().size());
+  EXPECT_EQ(1U, block1->referrers().size());
+  EXPECT_EQ(1U, block2->referrers().size());
+
+  // Remove all references from block1.
+  EXPECT_TRUE(block1->RemoveAllReferences());
+
+  // Veify that the references are as expected.
+  EXPECT_EQ(0U, block1->references().size());
+  EXPECT_EQ(0U, block1->referrers().size());
+  EXPECT_EQ(0U, block2->referrers().size());
+}
+
 TEST(BlockGraphTest, BlockTypeToString) {
   for (int type = 0; type < BlockGraph::BLOCK_TYPE_MAX; ++type) {
     BlockGraph::BlockType block_type =
