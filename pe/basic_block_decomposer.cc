@@ -467,6 +467,8 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         // The successor must be unconditional.
         const Successor& successor = successors.back();
         CHECK_EQ(Successor::kConditionTrue, successor.condition());
+        CHECK_EQ(BlockGraph::PC_RELATIVE_REF,
+                 successor.branch_target().reference_type());
 
         // If the successor is synthesized, then flow is from this basic-block
         // to the next adjacent one.
@@ -486,6 +488,10 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         // The conditions on the successors should be inverses of one another.
         CHECK_EQ(successors.front().condition(),
                  Successor::InvertCondition(successors.back().condition()));
+        CHECK_EQ(BlockGraph::PC_RELATIVE_REF,
+                 successors.front().branch_target().reference_type());
+        CHECK_EQ(BlockGraph::PC_RELATIVE_REF,
+                 successors.back().branch_target().reference_type());
 
         // Exactly one of the successors should have been synthesized.
         bool front_synthesized = successors.front().instruction_offset() == -1;
@@ -687,12 +693,14 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
   BlockGraph::Block::ReferenceMap::const_iterator ref_iter =
      block_->references().lower_bound(start_offset);
   BlockGraph::Block::ReferenceMap::const_iterator end_iter =
-     block_->references().upper_bound(end_offset);
+     block_->references().lower_bound(end_offset);
 
   for (; ref_iter != end_iter; ++ref_iter) {
     // Calculate the local offset of this reference within item.
     BlockGraph::Offset local_offset = ref_iter->first - start_offset;
     const BlockGraph::Reference& reference = ref_iter->second;
+
+    DCHECK_LE(local_offset + reference.size(), item->size());
 
     if (reference.referenced() == block_) {
       // For intra block_ references, find the corresponding basic block in
@@ -796,7 +804,7 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
       //     need to track the reference type and size. We'll be re-synthesizing
       //     them later anyway, without regard for these initial values.
       succ_iter->set_branch_target(
-          BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, target_bb, 0, 0));
+          BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target_bb, 0, 0));
       DCHECK(succ_iter->branch_target().IsValid());
 
       // TODO(rogerm): This is awkward. We want the offset of the reference if
