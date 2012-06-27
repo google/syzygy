@@ -1159,6 +1159,15 @@ uint8* BlockGraph::Block::GetMutableData() {
   return const_cast<uint8*>(data_);
 }
 
+bool BlockGraph::Block::HasExternalReferrers() const {
+  ReferrerSet::const_iterator it = referrers().begin();
+  for (; it != referrers().end(); ++it) {
+    if (it->first != this)
+      return true;
+  }
+  return false;
+}
+
 bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
   DCHECK(ref.referenced() != NULL);
 
@@ -1254,6 +1263,29 @@ bool BlockGraph::Block::RemoveReference(Offset offset) {
   size_t removed = referenced->referrers_.erase(referrer);
   DCHECK_EQ(1U, removed);
   references_.erase(it);
+
+  return true;
+}
+
+bool BlockGraph::Block::RemoveAllReferences() {
+  ReferenceMap::iterator it = references_.begin();
+  while (it != references_.end()) {
+    ReferenceMap::iterator to_remove = it;
+    ++it;
+
+    // TODO(rogerm): As an optimization, we don't need to drop intra-block
+    //     references when disconnecting from the block_graph. Consider having
+    //     BlockGraph::RemoveBlockByIterator() check that the block has no
+    //     external referrers before calling this function and erasing the
+    //     block.
+
+    // Unregister this reference from the referred block then erase it.
+    BlockGraph::Block* referenced = to_remove->second.referenced();
+    Referrer referrer(this, to_remove->first);
+    size_t removed = referenced->referrers_.erase(referrer);
+    DCHECK_EQ(1U, removed);
+    references_.erase(to_remove);
+  }
 
   return true;
 }
