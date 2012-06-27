@@ -274,7 +274,7 @@ bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len) {
   std::string symbol_name;
   if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
       !ReadString(stream, &symbol_name) ||
-      to_read != bytes_read) {
+      bytes_read != to_read) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -294,7 +294,7 @@ bool DumpDatasSym32(FILE* out, PdbStream* stream, uint16 len) {
   std::string symbol_name;
   if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
       !ReadString(stream, &symbol_name) ||
-      to_read != bytes_read) {
+      bytes_read != to_read) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -365,7 +365,7 @@ bool DumpConstSym(FILE* out, PdbStream* stream, uint16 len) {
   size_t bytes_read = 0;
   cci::ConstSym symbol_info = {};
   if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      to_read != bytes_read) {
+      bytes_read != to_read) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -405,8 +405,19 @@ bool DumpConstSym(FILE* out, PdbStream* stream, uint16 len) {
 }
 
 bool DumpUdtSym(FILE* out, PdbStream* stream, uint16 len) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::UdtSym symbol_info = {};
+  size_t to_read = offsetof(cci::UdtSym, name);
+  size_t bytes_read = 0;
+  std::string symbol_name;
+  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
+      !ReadString(stream, &symbol_name) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  ::fprintf(out, "\t\tName: %s\n", symbol_name.c_str());
+  ::fprintf(out, "\t\tType index: %d\n", symbol_info.typind);
+  return true;
 }
 
 bool DumpManyRegSym(FILE* out, PdbStream* stream, uint16 len) {
@@ -430,8 +441,21 @@ bool DumpRegRel32(FILE* out, PdbStream* stream, uint16 len) {
 }
 
 bool DumpThreadSym32(FILE* out, PdbStream* stream, uint16 len) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::ThreadSym32 symbol_info = {};
+  size_t to_read = offsetof(cci::ThreadSym32, name);
+  size_t bytes_read = 0;
+  std::string symbol_name;
+  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
+      !ReadString(stream, &symbol_name) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  ::fprintf(out, "\t\tName: %s\n", symbol_name.c_str());
+  ::fprintf(out, "\t\tOffset: %d\n", symbol_info.off);
+  ::fprintf(out, "\t\tSegment: %d\n", symbol_info.seg);
+  ::fprintf(out, "\t\tType index: %d\n", symbol_info.typind);
+  return true;
 }
 
 bool DumpProcSymMips(FILE* out, PdbStream* stream, uint16 len) {
