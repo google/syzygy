@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_dump_symbols.h"
+#include "syzygy/pdb/pdb_symbol_record_stream.h"
 
 #include "base/file_util.h"
 #include "gtest/gtest.h"
