@@ -190,7 +190,7 @@ std::string BlockGraph::LabelAttributesToString(
   static const char* kLabelAttributes[] = {
       "Code", "DebugStart", "DebugEnd", "ScopeStart", "ScopeEnd",
       "CallSite", "JumpTable", "CaseTable", "Data" };
-  COMPILE_ASSERT((1 << arraysize(kLabelAttributes)) == LABEL_ATTR_MAX,
+  COMPILE_ASSERT((1 << arraysize(kLabelAttributes)) == LABEL_ATTRIBUTES_MAX,
                  label_attribute_names_not_in_sync_with_enum);
 
   size_t i = 0;
@@ -1608,8 +1608,5 @@ bool BlockGraph::Reference::IsValidTypeSize(ReferenceType type, Size size) {
 
   return false;
 }
-
-// This needs to be kept in sync with the values in IsValid.
-const BlockGraph::Size BlockGraph::Reference::kMaximumSize = 4;
 
 }  // namespace block_graph

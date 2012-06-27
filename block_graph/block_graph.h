@@ -38,6 +38,9 @@
 
 namespace block_graph {
 
+// Forward declaration.
+class BlockGraphSerializer;
+
 // The invalid address can never occur in an graph, it's used as default
 // value for block addresses.
 extern const core::RelativeAddress kInvalidAddress;
@@ -100,6 +103,9 @@ class BlockGraph {
     // delving far deeper into the specifics, it is unsafe to basic block
     // decompose these blocks.
     HAS_EXCEPTION_HANDLING = (1 << 10),
+
+    // This always needs to be set to the next available attribute bit.
+    BLOCK_ATTRIBUTES_MAX = (1 << 11),
   };
 
   // Attributes that can be passed to the save function.
@@ -125,7 +131,7 @@ class BlockGraph {
   // point to the first byte past the range they delineate. To make the
   // semantics of moving labels easier, we shift these labels left by one and
   // make them follow the last byte of the delineated range.
-  enum LabelAttributeEnum {
+  enum LabelAttributesEnum {
     // The label points to an entry-point in a code block.
     CODE_LABEL = (1 << 0),
 
@@ -154,7 +160,7 @@ class BlockGraph {
     DATA_LABEL = (1 << 8),
 
     // This always needs to be the most significant bit.
-    LABEL_ATTR_MAX = (1 << 9),
+    LABEL_ATTRIBUTES_MAX = (1 << 9),
   };
 
   static std::string LabelAttributesToString(LabelAttributes label_attributes);
@@ -164,6 +170,8 @@ class BlockGraph {
     ABSOLUTE_REF,
     RELATIVE_REF,
     FILE_OFFSET_REF,
+    // Must be last!
+    REFERENCE_TYPE_MAX,
   };
 
   // Forward declarations.
@@ -275,6 +283,9 @@ class BlockGraph {
   bool Load(InArchive* in_archive, SerializationAttributes* attributes);
 
  private:
+  // Give BlockGraphSerializer access to our innards for serialization.
+  friend BlockGraphSerializer;
+
   // Removes a block by the iterator to it. The iterator must be valid.
   bool RemoveBlockByIterator(BlockMap::iterator it);
 
@@ -718,12 +729,14 @@ class BlockGraph::Block {
   bool Contains(RelativeAddress address, size_t size) const;
 
  protected:
+  // Give BlockGraph access to our innards for serialization.
+  friend class BlockGraph;
+  // Give BlockGraphSerializer access to our innards for serialization.
+  friend class BlockGraphSerializer;
+
   // Allocates and returns a new data buffer of the given size. The returned
   // data buffer will not have been initialized in any way.
   uint8* AllocateRawData(size_t size);
-
-  // Give BlockGraph access to our innards for serialization.
-  friend class BlockGraph;
 
   BlockId id_;
   BlockType type_;
@@ -971,8 +984,9 @@ class BlockGraph::Reference {
         base_ == other.base_;
   }
 
-  // The maximum size that a reference may have.
-  static const Size kMaximumSize;
+  // The maximum size that a reference may have. This needs to be kept in sync
+  // with the expectations of IsValid().
+  static const size_t kMaximumSize = 4;
 
   // Returns true if the given reference type and size combination is valid.
   static bool IsValidTypeSize(ReferenceType type, Size size);

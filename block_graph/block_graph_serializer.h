@@ -28,6 +28,8 @@ namespace block_graph {
 class BlockGraphSerializer {
  public:
   typedef uint32 Attributes;
+  typedef core::InArchive InArchive;
+  typedef core::OutArchive OutArchive;
   typedef core::RelativeAddress RelativeAddress;
 
   // An enumeration that governs the mode of data serialization.
@@ -45,6 +47,9 @@ class BlockGraphSerializer {
     // In this mode all block data is serialized. The generated serialization
     // is completely independent of any external data sources.
     OUTPUT_ALL_DATA,
+
+    // This needs to be last.
+    DATA_MODE_MAX,
   };
 
   // Attributes that govern the serializer behaviour.
@@ -61,6 +66,9 @@ class BlockGraphSerializer {
     // They are not needed for block level motion, but this will make basic
     // block disassembly impossible.
     OMIT_LABELS = (1 << 1),
+
+    // This needs to be last, and the next unused attributes enum bit.
+    ATTRIBUTES_MAX = (1 << 2),
   };
 
   // Defines the callback used to get data for a block. The callback is given
@@ -76,7 +84,7 @@ class BlockGraphSerializer {
   // return it is expected that block->data_size() == data_size and that
   // block->data() != NULL. It is up to the callback to ensure that the contents
   // match those that were there at serialization time.
-  typedef base::Callback<bool(BlockGraph::Block*)> BlockDataCallback;
+  typedef base::Callback<bool(size_t, BlockGraph::Block*)> BlockDataCallback;
 
   // Default constructor.
   BlockGraphSerializer()
@@ -138,7 +146,58 @@ class BlockGraphSerializer {
   // @returns true on success, false otherwise.
   bool Load(BlockGraph* block_graph, core::InArchive* in_archive);
 
- private:
+ protected:
+  // @{
+  // The block-graph is serialized by breaking it down into its constituent
+  // pieces, and saving each of these using the following functions.
+  bool SaveBlockGraphProperties(const BlockGraph& block_graph,
+                                OutArchive* out_archive) const;
+  bool LoadBlockGraphProperties(BlockGraph* block_graph,
+                                InArchive* in_archive) const;
+
+  bool SaveBlocks(const BlockGraph& block_graph, OutArchive* out_archive) const;
+  bool LoadBlocks(BlockGraph* block_graph, InArchive* in_archive) const;
+
+  bool SaveBlockGraphReferences(const BlockGraph& block_graph,
+                                OutArchive* out_archive) const;
+  bool LoadBlockGraphReferences(BlockGraph* block_graph,
+                                InArchive* in_archive) const;
+
+  bool SaveBlockProperties(const BlockGraph::Block& block,
+                           OutArchive* out_archive) const;
+  bool LoadBlockProperties(BlockGraph::Block* block,
+                           InArchive* in_archive) const;
+
+  bool SaveBlockLabels(const BlockGraph::Block& block,
+                       OutArchive* out_archive) const;
+  bool LoadBlockLabels(BlockGraph::Block* block, InArchive* in_archive) const;
+
+  bool SaveBlockData(const BlockGraph::Block& block,
+                     OutArchive* out_archive) const;
+  bool LoadBlockData(BlockGraph::Block* block, InArchive* in_archive) const;
+
+  bool SaveBlockReferences(const BlockGraph::Block& block,
+                           OutArchive* out_archive) const;
+  bool LoadBlockReferences(BlockGraph* block_graph,
+                           BlockGraph::Block* block,
+                           InArchive* in_archive) const;
+
+  bool SaveReference(const BlockGraph::Reference& ref,
+                     OutArchive* out_archive) const;
+  bool LoadReference(BlockGraph* block_graph,
+                     BlockGraph::Reference* ref,
+                     InArchive* in_archive) const;
+  // @}
+
+  // @{
+  // Utility functions for loading and saving integer values with a simple
+  // variable-length encoding.
+  bool SaveUint30(uint32 value, OutArchive* out_archive) const;
+  bool LoadUint30(uint32* value, InArchive* in_archive) const;
+  bool SaveInt30(int32 value, OutArchive* out_archive) const;
+  bool LoadInt30(int32* value, InArchive* in_archive) const;
+  // @}
+
   // The mode in which the serializer is operating for block data.
   DataMode data_mode_;
   // Controls the specifics of how the serialization is performed.

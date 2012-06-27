@@ -769,12 +769,12 @@ TEST(BlockGraphTest, BlockTypeToString) {
 
 TEST(BlockGraphTest, LabelAttributesToString) {
   BlockGraph::LabelAttributes label_attr = 1;
-  for (; label_attr != BlockGraph::LABEL_ATTR_MAX; label_attr <<= 1) {
+  for (; label_attr != BlockGraph::LABEL_ATTRIBUTES_MAX; label_attr <<= 1) {
     std::string s = BlockGraph::LabelAttributesToString(label_attr);
     EXPECT_FALSE(s.empty());
   }
 
-  label_attr = BlockGraph::LABEL_ATTR_MAX - 1;
+  label_attr = BlockGraph::LABEL_ATTRIBUTES_MAX - 1;
   std::string s = BlockGraph::LabelAttributesToString(label_attr);
   EXPECT_FALSE(s.empty());
 }

@@ -297,7 +297,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
         dll_main_block->labels().begin();
     for (; it != dll_main_block->labels().end(); ++it) {
       BlockGraph::LabelAttributes attr_mask = 1;
-      for (; attr_mask != BlockGraph::LABEL_ATTR_MAX; attr_mask <<= 1) {
+      for (; attr_mask != BlockGraph::LABEL_ATTRIBUTES_MAX; attr_mask <<= 1) {
         if (it->second.has_attributes(attr_mask))
           label_attr_counts[attr_mask]++;
       }
