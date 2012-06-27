@@ -14,8 +14,8 @@
 //
 // This file allows to dump the content of the symbol record stream of a PDB.
 
-#ifndef SYZYGY_PDB_PDB_DUMP_SYMBOLS_H_
-#define SYZYGY_PDB_PDB_DUMP_SYMBOLS_H_
+#ifndef SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
+#define SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
 
 #include <vector>
 
@@ -45,4 +45,4 @@ void DumpSymbolRecord(FILE* out,
 
 }  // namespace pdb
 
-#endif  // SYZYGY_PDB_PDB_DUMP_SYMBOLS_H_
+#endif  // SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_

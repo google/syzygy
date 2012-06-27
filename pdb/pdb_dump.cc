@@ -29,8 +29,8 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
-#include "syzygy/pdb/pdb_dump_symbols.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_symbol_record_stream.h"
 #include "syzygy/pdb/pdb_type_info_stream.h"
 
 std::ostream& operator<<(std::ostream& str, const GUID& guid) {
