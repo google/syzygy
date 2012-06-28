@@ -19,8 +19,7 @@
 
 #include <vector>
 
-#include "syzygy/common/application.h"
-#include "syzygy/pdb/cvinfo_ext.h"
+#include "base\basictypes.h"
 
 namespace pdb {
 

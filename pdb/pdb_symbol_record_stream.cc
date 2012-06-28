@@ -18,7 +18,8 @@
 
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
-#include "syzygy/pdb/pdb_dump.h"
+#include "syzygy/pdb/cvinfo_ext.h"
+#include "syzygy/pdb/pdb_dump_util.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 
@@ -580,26 +581,7 @@ bool DumpDiscardedSym(FILE* out, PdbStream* stream, uint16 len) {
 // Hexdump the data of the undeciphered symbol records.
 bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len) {
   ::fprintf(out, "\t\tUnsupported symbol type. Data:\n");
-  uint8 buffer[32];
-  size_t bytes_read = 0;
-  while (bytes_read < len) {
-    size_t bytes_to_read = len - bytes_read;
-    if (bytes_to_read > sizeof(buffer))
-      bytes_to_read = sizeof(buffer);
-    size_t bytes_just_read = 0;
-    if (!stream->ReadBytes(buffer, bytes_to_read, &bytes_just_read) ||
-        bytes_just_read == 0) {
-      LOG(ERROR) << "Unable to read symbol record.";
-      return false;
-    }
-    ::fprintf(out, "\t\t");
-    for (size_t i = 0; i < bytes_just_read; ++i)
-      ::fprintf(out, "%X", buffer[i]);
-    ::fprintf(out, "\n");
-    bytes_read += bytes_just_read;
-  }
-
-  return true;
+  return DumpUnknownBlock(out, stream, len);
 }
 
 }  //  namespace
