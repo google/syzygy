@@ -20,6 +20,7 @@
 
 #include <vector>
 
+#include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data.h"
 
 namespace pdb {

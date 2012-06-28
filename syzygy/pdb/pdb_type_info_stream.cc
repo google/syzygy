@@ -14,10 +14,41 @@
 
 #include "syzygy/pdb/pdb_type_info_stream.h"
 
-#include "base/logging.h"
+#include "base/stringprintf.h"
+#include "syzygy/common/align.h"
+#include "syzygy/pdb/cvinfo_ext.h"
+#include "syzygy/pdb/pdb_dump_util.h"
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
+
+namespace cci = Microsoft_Cci_Pdb;
+
+namespace {
+
+// Return the string value associated with a type info.
+const char* TypeInfoName(uint16 type_info_type) {
+  switch (type_info_type) {
+// Just print the name of the enum.
+#define TYPE_INFO_TYPE_NAME(record_type, unused) \
+    case cci::record_type: { \
+      return #record_type; \
+    }
+    TYPE_INFO_CASE_TABLE(TYPE_INFO_TYPE_NAME);
+#undef TYPE_INFO_TYPE_NAME
+    default :
+      return NULL;
+  }
+}
+
+// Hexdump the data of the undeciphered type info.
+bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len) {
+  ::fprintf(out, "\t\tUnsupported type info. Data:\n");
+  return DumpUnknownBlock(out, stream, len);
+}
+
+}  //  namespace
 
 bool ReadTypeInfoStream(PdbStream* stream,
                         TypeInfoHeader* type_info_header,
@@ -91,7 +122,59 @@ void DumpTypeInfoStream(FILE* out,
                         PdbStream* stream,
                         const TypeInfoHeader& type_info_header,
                         const TypeInfoRecordMap& type_info_record_map) {
-  // TODO(sebmarchand): Dump the type info stream.
+  DCHECK(stream != NULL);
+
+  ::fprintf(out, "%d type info record in the stream:\n",
+            type_info_record_map.size());
+  TypeInfoRecordMap::const_iterator type_info_iter =
+      type_info_record_map.begin();
+  // Dump each symbol contained in the vector.
+  for (; type_info_iter != type_info_record_map.end(); type_info_iter++) {
+    if (!stream->Seek(type_info_iter->second.start_position)) {
+      LOG(ERROR) << "Unable to seek to type info record at position "
+                 << StringPrintf("0x%08X.",
+                                 type_info_iter->second.start_position);
+      return;
+    }
+    const char* type_info_type_text = TypeInfoName(type_info_iter->second.type);
+    if (type_info_type_text != NULL) {
+      ::fprintf(out, "\tType info 0x%04X, Type: 0x%04X %s\n",
+                type_info_iter->first,
+                type_info_iter->second.type,
+                type_info_type_text);
+    } else {
+      ::fprintf(out, "\tUnknown type info type: 0x%04X\n",
+                type_info_iter->second.type);
+    }
+    bool success = false;
+    switch (type_info_iter->second.type) {
+// Call a function to dump a specific (struct_type) kind of structure.
+#define TYPE_INFO_TYPE_DUMP(type_info_type, struct_type) \
+    case cci::type_info_type: { \
+      success = Dump ## struct_type(out, stream, type_info_iter->second.len); \
+      break; \
+    }
+      TYPE_INFO_CASE_TABLE(TYPE_INFO_TYPE_DUMP);
+#undef TYPE_INFO_TYPE_DUMP
+    }
+
+    if (!success) {
+      // In case of failure we just dump the hex data of this type info.
+      if (!stream->Seek(type_info_iter->second.start_position)) {
+        LOG(ERROR) << "Unable to seek to type info record at position "
+                   << StringPrintf("0x%08X.",
+                                   type_info_iter->second.start_position);
+        return;
+      }
+      DumpUnknown(out, stream, type_info_iter->second.len);
+    }
+    stream->Seek(common::AlignUp(stream->pos(), 4));
+    if (stream->pos() != type_info_iter->second.start_position
+        + type_info_iter->second.len) {
+      LOG(ERROR) << "Type info stream is not valid.";
+      return;
+    }
+  }
 }
 
 }  // namespace pdb

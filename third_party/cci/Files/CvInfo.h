@@ -30,6 +30,7 @@
 
 namespace Microsoft_Cci_Pdb {
 
+typedef unsigned char byte;
 typedef uint16 ushort;
 typedef uint32 uint;
 typedef uint64 ulong;

@@ -28,6 +28,7 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "syzygy/pdb/cvinfo_ext.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_symbol_record_stream.h"
