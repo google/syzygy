@@ -79,7 +79,7 @@ RpcStatus InvokeRpc(const Func& func,
                     const T1& p1, const T2& p2, const T3& p3) {
   RpcStatus status = { FALSE, FALSE };
   RpcTryExcept {
-    status.result = func(p1, p2, p3, p4);
+    status.result = func(p1, p2, p3);
   } RpcExcept(1) {
     status.exception_occurred = TRUE;
   } RpcEndExcept;

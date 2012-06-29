@@ -179,6 +179,10 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
 }
 
 bool Session::GetNextBuffer(Buffer** out_buffer) {
+  return GetBuffer(0, out_buffer);
+}
+
+bool Session::GetBuffer(size_t minimum_size, Buffer** out_buffer) {
   DCHECK(out_buffer != NULL);
 
   *out_buffer = NULL;
@@ -190,7 +194,17 @@ bool Session::GetNextBuffer(Buffer** out_buffer) {
     return false;
   }
 
-  return GetNextBufferUnlocked(out_buffer);
+  // If this is an ordinary buffer request, delegate to the usual channel.
+  if (minimum_size <= call_trace_service_->buffer_size_in_bytes()) {
+    if (!GetNextBufferUnlocked(out_buffer))
+      return false;
+    return true;
+  }
+
+  if (!AllocateBufferForImmediateUse(minimum_size, out_buffer))
+    return false;
+
+  return true;
 }
 
 bool Session::ReturnBuffer(Buffer* buffer) {
@@ -220,6 +234,19 @@ bool Session::ReturnBuffer(Buffer* buffer) {
 bool Session::RecycleBuffer(Buffer* buffer) {
   DCHECK(buffer != NULL);
   DCHECK(buffer->session == this);
+
+  // Is this a special singleton buffer? If so, we don't want to return it to
+  // the pool but rather destroy it immediately.
+  size_t normal_buffer_size = common::AlignUp(
+      call_trace_service_->buffer_size_in_bytes(),
+      buffer_consumer_->block_size());
+  if (buffer->buffer_offset == 0 &&
+      buffer->mapping_size == buffer->buffer_size &&
+      buffer->buffer_size > normal_buffer_size) {
+    if (!DestroySingletonBuffer(buffer))
+      return false;
+    return true;
+  }
 
   base::AutoLock lock(lock_);
 
@@ -296,10 +323,14 @@ bool Session::CopyBufferHandleToClient(HANDLE client_process_handle,
   return true;
 }
 
-bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
+bool Session::AllocateBufferPool(
+    size_t num_buffers, size_t buffer_size, BufferPool** out_pool) {
   DCHECK_GT(num_buffers, 0u);
   DCHECK_GT(buffer_size, 0u);
+  DCHECK(out_pool != NULL);
   lock_.AssertAcquired();
+
+  *out_pool = NULL;
 
   // Allocate the record for the shared memory buffer.
   scoped_ptr<BufferPool> pool(new BufferPool());
@@ -340,7 +371,21 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
 
   // Save the shared memory block so that it's managed by the session.
   shared_memory_buffers_.push_back(pool.get());
-  BufferPool* pool_ptr = pool.release();
+  *out_pool = pool.release();
+
+  return true;
+}
+
+bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
+  DCHECK_GT(num_buffers, 0u);
+  DCHECK_GT(buffer_size, 0u);
+  lock_.AssertAcquired();
+
+  BufferPool* pool_ptr = NULL;
+  if (!AllocateBufferPool(num_buffers, buffer_size, &pool_ptr)) {
+    LOG(ERROR) << "Failed to allocate buffer pool.";
+    return false;
+  }
 
   // Put the client buffers into the list of available buffers and update
   // the buffer state information.
@@ -355,13 +400,36 @@ bool Session::AllocateBuffers(size_t num_buffers, size_t buffer_size) {
     buffer_is_available_.Signal();
   }
 
-  // Make sure we updated everything correctly.
-  DCHECK_EQ(buffer_state_counts_[Buffer::kAvailable] +
-                buffer_state_counts_[Buffer::kInUse] +
-                buffer_state_counts_[Buffer::kPendingWrite],
-            buffers_.size());
-  DCHECK_EQ(buffers_available_.size(),
-            buffer_state_counts_[Buffer::kAvailable]);
+  DCHECK(BufferBookkeepingIsConsistent());
+
+  return true;
+}
+
+bool Session::AllocateBufferForImmediateUse(size_t minimum_size,
+                                            Buffer** out_buffer) {
+  DCHECK_LT(call_trace_service_->buffer_size_in_bytes(), minimum_size);
+  DCHECK(out_buffer != NULL);
+  lock_.AssertAcquired();
+
+  BufferPool* pool_ptr = NULL;
+  if (!AllocateBufferPool(1, minimum_size, &pool_ptr)) {
+    LOG(ERROR) << "Failed to allocate buffer pool.";
+    return false;
+  }
+
+  // Get the buffer.
+  DCHECK_EQ(pool_ptr->begin() + 1, pool_ptr->end());
+  Buffer* buffer = pool_ptr->begin();
+  Buffer::ID buffer_id = Buffer::GetID(*buffer);
+
+  // Update the bookkeeping.
+  buffer->state = Buffer::kInUse;
+  CHECK(buffers_.insert(std::make_pair(buffer_id, buffer)).second);
+  buffer_state_counts_[Buffer::kInUse]++;
+
+  DCHECK(BufferBookkeepingIsConsistent());
+
+  *out_buffer = buffer;
 
   return true;
 }
@@ -425,6 +493,54 @@ bool Session::GetNextBufferUnlocked(Buffer** out_buffer) {
   ChangeBufferState(Buffer::kInUse, buffer);
 
   *out_buffer = buffer;
+  return true;
+}
+
+bool Session::DestroySingletonBuffer(Buffer* buffer) {
+  DCHECK(buffer != NULL);
+  DCHECK_EQ(0u, buffer->buffer_offset);
+  DCHECK_EQ(buffer->mapping_size, buffer->buffer_size);
+  DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
+
+  base::AutoLock lock(lock_);
+
+  // Look for the pool that houses this buffer.
+  SharedMemoryBufferCollection::iterator it = shared_memory_buffers_.begin();
+  BufferPool* pool = NULL;
+  for (; it != shared_memory_buffers_.end(); ++it) {
+    pool = *it;
+    if (buffer >= pool->begin() && buffer < pool->end())
+      break;
+  }
+
+  // Didn't find the pool?
+  if (it == shared_memory_buffers_.end()) {
+    LOG(ERROR) << "Unable to find pool for buffer to be destroyed.";
+    return false;
+  }
+
+  // If the pool contains more than one buffer, bail.
+  if (pool->end() - pool->begin() > 1) {
+    LOG(ERROR) << "Trying to destroy a pool that contains more than 1 buffer.";
+    return false;
+  }
+
+  // Call our testing seam notification.
+  OnDestroySingletonBuffer(buffer);
+
+  // Remove the pool from our collection of pools.
+  shared_memory_buffers_.erase(it);
+
+  // Remove the buffer from the buffer map.
+  CHECK_EQ(1u, buffers_.erase(Buffer::GetID(*buffer)));
+
+  // Remove the buffer from our buffer statistics.
+  buffer_state_counts_[Buffer::kPendingWrite]--;
+  DCHECK(BufferBookkeepingIsConsistent());
+
+  // Finally, delete the pool. This will clean up the buffer.
+  delete pool;
+
   return true;
 }
 
@@ -495,6 +611,20 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
   event_prefix->version.hi = TRACE_VERSION_HI;
   event_prefix->version.lo = TRACE_VERSION_LO;
 
+  return true;
+}
+
+bool Session::BufferBookkeepingIsConsistent() const {
+  lock_.AssertAcquired();
+
+  size_t buffer_states_ = buffer_state_counts_[Buffer::kAvailable] +
+      buffer_state_counts_[Buffer::kInUse] +
+      buffer_state_counts_[Buffer::kPendingWrite];
+  if (buffer_states_ != buffers_.size())
+    return false;
+
+  if (buffers_available_.size() != buffer_state_counts_[Buffer::kAvailable])
+    return false;
   return true;
 }
 

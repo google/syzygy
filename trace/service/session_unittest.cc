@@ -142,6 +142,10 @@ class TestSession : public Session {
       : Session(service),
         waiting_for_buffer_to_be_recycled_(&lock_),
         waiting_for_buffer_to_be_recycled_state_(false),
+        destroying_singleton_buffer_(&lock_),
+        destroying_singleton_buffer_state_(false),
+        last_singleton_buffer_destroyed_(NULL),
+        singleton_buffers_destroyed_(0),
         allocating_buffers_(&lock_),
         allocating_buffers_state_(false) {
   }
@@ -163,6 +167,18 @@ class TestSession : public Session {
     waiting_for_buffer_to_be_recycled_state_ = false;
   }
 
+  void ClearDestroyingSingletonBufferState() {
+    base::AutoLock lock(lock_);
+    destroying_singleton_buffer_state_ = false;
+  }
+
+  void PauseUntilDestroyingSingletonBuffer() {
+    base::AutoLock lock(lock_);
+    while (!destroying_singleton_buffer_state_)
+      destroying_singleton_buffer_.Wait();
+    destroying_singleton_buffer_state_ = true;
+  }
+
   void ClearAllocatingBuffersState() {
     base::AutoLock lock(lock_);
     allocating_buffers_state_ = false;
@@ -180,11 +196,18 @@ class TestSession : public Session {
     return buffer_requests_waiting_for_recycle_;
   }
 
- protected:
   virtual void OnWaitingForBufferToBeRecycled() OVERRIDE {
     lock_.AssertAcquired();
     waiting_for_buffer_to_be_recycled_state_ = true;
     waiting_for_buffer_to_be_recycled_.Signal();
+  }
+
+  virtual void OnDestroySingletonBuffer(Buffer* buffer) OVERRIDE {
+    lock_.AssertAcquired();
+    last_singleton_buffer_destroyed_ = buffer;
+    singleton_buffers_destroyed_++;
+    destroying_singleton_buffer_state_ = true;
+    destroying_singleton_buffer_.Signal();
   }
 
   bool InitializeProcessInfo(ProcessId process_id,
@@ -222,10 +245,15 @@ class TestSession : public Session {
     return Session::AllocateBuffers(count, size);
   }
 
- private:
   // Under lock_.
   base::ConditionVariable waiting_for_buffer_to_be_recycled_;
   bool waiting_for_buffer_to_be_recycled_state_;
+
+  // Under lock_.
+  base::ConditionVariable destroying_singleton_buffer_;
+  bool destroying_singleton_buffer_state_;
+  Buffer* last_singleton_buffer_destroyed_;
+  size_t singleton_buffers_destroyed_;
 
   // Under lock_.
   base::ConditionVariable allocating_buffers_;
@@ -503,6 +531,45 @@ TEST_F(SessionTest, BackPressureIsLimited) {
   ASSERT_TRUE(session->ReturnBuffer(buffer3));
   ASSERT_TRUE(session->ReturnBuffer(buffer4));
   session->AllowBuffersToBeRecycled(9999);
+}
+
+TEST_F(SessionTest, LargeBufferRequestAvoidsBackPressure) {
+  // Configure things so that back-pressure will be easily forced.
+  call_trace_service_.set_max_buffers_pending_write(1);
+  ASSERT_TRUE(call_trace_service_.Start(true));
+
+  TestSessionPtr session = call_trace_service_.CreateTestSession();
+  ASSERT_TRUE(session != NULL);
+
+  Buffer* buffer1 = NULL;
+  ASSERT_TRUE(session->GetNextBuffer(&buffer1));
+  ASSERT_TRUE(buffer1 != NULL);
+
+  Buffer* buffer2 = NULL;
+  ASSERT_TRUE(session->GetNextBuffer(&buffer2));
+  ASSERT_TRUE(buffer2 != NULL);
+
+  // Return both buffers so we have 2 pending writes. Neither of these will
+  // go through because we have not allowed any buffers to be written yet.
+  ASSERT_TRUE(session->ReturnBuffer(buffer1));
+  ASSERT_TRUE(session->ReturnBuffer(buffer2));
+
+  // Ask for a big buffer. This should go through immediately and side-step the
+  // usual buffer pool. Thus, it is not subject to back-pressure.
+  Buffer* buffer3 = NULL;
+  ASSERT_TRUE(session->GetBuffer(10 * 1024 * 1024, &buffer3));
+  ASSERT_EQ(10u * 1024 * 1024, buffer3->mapping_size);
+  ASSERT_EQ(10u * 1024 * 1024, buffer3->buffer_size);
+  ASSERT_EQ(0u, buffer3->buffer_offset);
+
+  // Return the buffer and allow them all to be recycled.
+  ASSERT_TRUE(session->ReturnBuffer(buffer3));
+  session->AllowBuffersToBeRecycled(9999);
+
+  // Wait until the singleton buffer has been destroyed.
+  session->PauseUntilDestroyingSingletonBuffer();
+  ASSERT_EQ(1, session->singleton_buffers_destroyed_);
+  ASSERT_EQ(buffer3, session->last_singleton_buffer_destroyed_);
 }
 
 }  // namespace trace

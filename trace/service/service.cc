@@ -444,7 +444,6 @@ bool Service::AllocateBuffer(SessionHandle session_handle,
     return false;
   }
 
-
   scoped_refptr<Session> session;
   if (!GetExistingSession(session_handle, &session))
     return false;
@@ -453,6 +452,32 @@ bool Service::AllocateBuffer(SessionHandle session_handle,
   // Request a buffer for the client.
   Buffer* client_buffer = NULL;
   if (!session->GetNextBuffer(&client_buffer))
+    return false;
+
+  // Copy buffer info into the RPC struct, slicing off the private bits.
+  DCHECK(client_buffer != NULL);
+  *call_trace_buffer = *client_buffer;
+
+  return true;
+}
+
+// RPC entry point.
+bool Service::AllocateLargeBuffer(SessionHandle session_handle,
+                                  size_t minimum_size,
+                                  CallTraceBuffer* call_trace_buffer) {
+  if (session_handle == NULL || call_trace_buffer == NULL) {
+    LOG(WARNING) << "Invalid RPC parameters.";
+    return false;
+  }
+
+  scoped_refptr<Session> session;
+  if (!GetExistingSession(session_handle, &session))
+    return false;
+  DCHECK(session.get() != NULL);
+
+  // Request a buffer for the client.
+  Buffer* client_buffer = NULL;
+  if (!session->GetBuffer(minimum_size, &client_buffer))
     return false;
 
   // Copy buffer info into the RPC struct, slicing off the private bits.
