@@ -26,7 +26,7 @@ class PdbStream;
 
 // Dump a block of unknown data to a specific output.
 // @param out The output where the data should be dumped.
-// @param stream The stream containing the data. It should be positionned at the
+// @param stream The stream containing the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data block.
 // @returns true on success, false on error.
