@@ -30,6 +30,8 @@ class TestPdbDumpApp : public PdbDumpApp {
   // @{
   using PdbDumpApp::pdb_files_;
   using PdbDumpApp::explode_streams_;
+  using PdbDumpApp::dump_symbol_record_;
+  using PdbDumpApp::dump_type_info_;
   // @}
 };
 
@@ -104,6 +106,8 @@ TEST_F(PdbDumpAppTest, ParseCommandlineSucceedsWithFile) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
 
   ASSERT_FALSE(impl_.explode_streams_);
+  ASSERT_FALSE(impl_.dump_symbol_record_);
+  ASSERT_FALSE(impl_.dump_type_info_);
   ASSERT_EQ(1, impl_.pdb_files_.size());
   ASSERT_EQ(pdb_file_, impl_.pdb_files_[0]);
 }
@@ -114,6 +118,22 @@ TEST_F(PdbDumpAppTest, ParseCommandlineExplodeStreams) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
 
   ASSERT_TRUE(impl_.explode_streams_);
+}
+
+TEST_F(PdbDumpAppTest, ParseCommandlineDumpSymbolRecord) {
+  cmd_line_.AppendArgPath(pdb_file_);
+  cmd_line_.AppendSwitch("--dump-symbol-record");
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  ASSERT_TRUE(impl_.dump_symbol_record_);
+}
+
+TEST_F(PdbDumpAppTest, ParseCommandlineDumpTypeInfo) {
+  cmd_line_.AppendArgPath(pdb_file_);
+  cmd_line_.AppendSwitch("--dump-type-info");
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  ASSERT_TRUE(impl_.dump_type_info_);
 }
 
 TEST_F(PdbDumpAppTest, Run) {

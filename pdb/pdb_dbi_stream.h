@@ -74,7 +74,9 @@ class DbiModuleInfo {
 
   // @name Accessors.
   // @{
-  const DbiModuleInfoBase& module_info_base() { return module_info_base_; }
+  const DbiModuleInfoBase& module_info_base() const {
+    return module_info_base_;
+  }
   const std::string& module_name() { return module_name_; }
   const std::string& object_name() { return object_name_; }
   // @}
@@ -120,8 +122,9 @@ class DbiStream {
 
   // @name Accessors.
   // @{
-  const DbiDbgHeader& dbg_header() const {return dbg_header_; }
-  const DbiHeader& header() const {return header_; }
+  const DbiDbgHeader& dbg_header() const { return dbg_header_; }
+  const DbiHeader& header() const { return header_; }
+  const DbiModuleVector& modules() const { return modules_; }
   // @}
 
   // Reads the Dbi stream of a PDB.

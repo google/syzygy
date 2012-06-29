@@ -103,11 +103,13 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
 bool ExplodeStreams(const FilePath& input_pdb_path,
                     const DbiStream& dbi_stream,
                     const NameStreamMap& name_streams,
+                    const TypeInfoHeader type_info_header,
                     const PdbFile& pdb_file) {
   FilePath output_dir_path(input_pdb_path.value() + L"-streams");
   DCHECK(!output_dir_path.empty());
 
   std::map<size_t, std::wstring> stream_suffixes;
+  stream_suffixes[pdb::kPdbOldDirectoryStream] = L"-old-directory";
   stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
   stream_suffixes[pdb::kDbiStream] = L"-dbi";
   stream_suffixes[pdb::kTpiStream] = L"-tpi";
@@ -127,7 +129,16 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
   stream_suffixes[dbi_stream.dbg_header().p_data] = L"-p-data";
   stream_suffixes[dbi_stream.dbg_header().new_fpo] = L"-new-fpo";
   stream_suffixes[dbi_stream.dbg_header().section_header_origin] =
-    L"-section-header-origin";
+      L"-section-header-origin";
+
+  stream_suffixes[type_info_header.type_info_hash.stream_number] =
+      L"-type-info-hash";
+
+  DbiStream::DbiModuleVector::const_iterator iter_modules =
+      dbi_stream.modules().begin();
+  for (; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
+    stream_suffixes[iter_modules->module_info_base().stream] = L"-module";
+  }
 
   NameStreamMap::const_iterator it(name_streams.begin());
   for (; it != name_streams.end(); ++it) {
@@ -142,11 +153,17 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
     return false;
   }
 
+  // If we want to ensure that we have a suffix for each stream we can't just
+  // compare the number of streams to the size of the suffixes map because
+  // the map contains suffixes for streams with constant ID who might not exist.
+  size_t stream_without_suffixes = 0;
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
     pdb::PdbStream* stream = pdb_file.GetStream(i);
     if (stream == NULL)
       continue;
 
+    if (stream_suffixes.find(i) == stream_suffixes.end())
+      stream_without_suffixes++;
     FilePath stream_path = output_dir_path.Append(
         base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
 
@@ -156,28 +173,42 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
     }
   }
 
+  if (stream_without_suffixes != 0) {
+    LOG(WARNING) << "PDB file contains unrecognized streams.";
+  }
+
   return true;
 }
 
 const char kUsage[] =
     "Usage: pdb_dump [options] <PDB file>...\n"
-    "  Dumps information from headers in a supplied PDB files, and optionally\n"
+    "  Dumps information from streams in a supplied PDB files, and optionally\n"
     "  explodes the streams in the PDB files to individual files in an\n"
     "  output directory named '<PDB file>.streams'.\n"
     "\n"
     "  Optional Options:\n"
+    "    --dump-symbol-records if provided the symbol record stream will be\n"
+    "       dumped. This is a big stream so it could take a lot of time to\n"
+    "       process."
+    "    --dump-type-info if provided the type info stream will be dumped.\n"
+    "       This is a big stream so it could take a lot of time to process.\n"
     "    --explode-streams if provided, each PDB file's streams will be\n"
     "       exploded into a directory named '<PDB file>.streams'\n";
 
 }  // namespace
 
-PdbDumpApp::PdbDumpApp() : explode_streams_(false) {
+PdbDumpApp::PdbDumpApp()
+    : explode_streams_(false),
+      dump_symbol_record_(false),
+      dump_type_info_(false) {
 }
 
 bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   explode_streams_ = command_line->HasSwitch("explode-streams");
+  dump_symbol_record_ = command_line->HasSwitch("dump-symbol-record");
+  dump_type_info_ = command_line->HasSwitch("dump-type-info");
 
   CommandLine::StringVector args = command_line->GetArgs();
   if (args.empty())
@@ -243,7 +274,8 @@ int PdbDumpApp::Run() {
     if (stream != NULL && ReadTypeInfoStream(stream,
                                              &type_info_header,
                                              &type_info_records)) {
-      DumpTypeInfoStream(out(), stream, type_info_header, type_info_records);
+      if (dump_type_info_)
+        DumpTypeInfoStream(out(), stream, type_info_header, type_info_records);
     } else {
       LOG(ERROR) << "No type info stream.";
       return 1;
@@ -259,7 +291,8 @@ int PdbDumpApp::Run() {
     SymbolRecordVector symbol_vector;
     if (sym_record_stream != NULL &&
         ReadSymbolRecord(sym_record_stream, &symbol_vector)) {
-      DumpSymbolRecord(out(), sym_record_stream, symbol_vector);
+      if (dump_symbol_record_)
+        DumpSymbolRecord(out(), sym_record_stream, symbol_vector);
     } else {
       LOG(ERROR) << "Unable to read the symbol record stream.";
       return 1;
@@ -268,6 +301,7 @@ int PdbDumpApp::Run() {
     if (explode_streams_ && !ExplodeStreams(input_pdb_path,
                                             dbi_stream,
                                             name_streams,
+                                            type_info_header,
                                             pdb_file)) {
       return 1;
     }

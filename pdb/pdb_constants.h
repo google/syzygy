@@ -18,6 +18,9 @@
 
 namespace pdb {
 
+// The index of the Pdb old directory stream.
+const size_t kPdbOldDirectoryStream = 0;
+
 // The index of the Pdb info header stream.
 const size_t kPdbHeaderInfoStream = 1;
 

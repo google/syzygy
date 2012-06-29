@@ -112,25 +112,25 @@ bool DumpLeafEndPreComp(const TypeInfoRecordMap& type_map,
 }
 
 bool DumpLeafList(const TypeInfoRecordMap& type_map,
-                     FILE* out,
-                     PdbStream* stream,
-                     uint16 len) {
+                  FILE* out,
+                  PdbStream* stream,
+                  uint16 len) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
   return false;
 }
 
 bool DumpLeafRefSym(const TypeInfoRecordMap& type_map,
-                     FILE* out,
-                     PdbStream* stream,
-                     uint16 len) {
+                    FILE* out,
+                    PdbStream* stream,
+                    uint16 len) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
   return false;
 }
 
 bool DumpLeafModifier(const TypeInfoRecordMap& type_map,
-                     FILE* out,
-                     PdbStream* stream,
-                     uint16 len) {
+                      FILE* out,
+                      PdbStream* stream,
+                      uint16 len) {
   cci::LeafModifier type_info = {};
   uint16 modifier_attributes;
   // We need to read the attribute field separately because if we read it
