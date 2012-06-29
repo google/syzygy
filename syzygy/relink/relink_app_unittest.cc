@@ -260,4 +260,19 @@ TEST_F(RelinkAppTest, RandomRelink) {
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
 }
 
+TEST_F(RelinkAppTest, RandomRelinkBasicBlocks) {
+  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
+  cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
+  cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("basic-blocks");
+  cmd_line_.AppendSwitch("exclude-bb-padding");
+
+  ASSERT_EQ(0, test_app_.Run());
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
+}
+
 }  // namespace pe

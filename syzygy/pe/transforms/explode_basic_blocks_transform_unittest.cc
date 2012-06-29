@@ -15,8 +15,10 @@
 #include "syzygy/pe/transforms/explode_basic_blocks_transform.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/orderers/random_orderer.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace pe {
@@ -30,33 +32,68 @@ class ExplodeBasicBlocksTransformTest : public testing::PELibUnitTest {
  public:
   ExplodeBasicBlocksTransformTest()
       : image_layout_(&block_graph_),
-        dos_header_block_(NULL) {
+        dos_header_block_(NULL),
+        input_path_(testing::GetExeRelativePath(kDllName)) {
+  }
+
+  virtual void SetUp() OVERRIDE {
+    this->CreateTemporaryDir(&temp_dir_);
+    output_path_ = temp_dir_.Append(kDllName);
+  }
+
+  void PerformRandomizationTest(ExplodeBasicBlocksTransform* transform) {
+    pe::PERelinker relinker;
+    relinker.set_input_path(input_path_);
+    relinker.set_output_path(output_path_);
+    relinker.set_padding(8);
+    relinker.set_add_metadata(true);
+    relinker.set_allow_overwrite(true);
+    relinker.set_augment_pdb(true);
+    ASSERT_TRUE(relinker.Init());
+
+    relinker.AppendTransform(transform);
+
+    block_graph::orderers::RandomOrderer orderer(true, 123456);
+    relinker.AppendOrderer(&orderer);
+
+    // Perform the actual relink.
+    ASSERT_TRUE(relinker.Relink());
+
+    // Validate that the binary still loads.
+    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_path_));
   }
 
   BlockGraph block_graph_;
   ImageLayout image_layout_;
   BlockGraph::Block* dos_header_block_;
+  FilePath input_path_;
+  FilePath temp_dir_;
+  FilePath output_path_;
+};
+
+class DllMainRandomizer : public ExplodeBasicBlocksTransform {
+ protected:
+  bool SkipThisBlock(const BlockGraph::Block* candidate) OVERRIDE {
+    return candidate->name() != "DllMain";
+  }
 };
 
 }  // namespace
 
-TEST_F(ExplodeBasicBlocksTransformTest, Apply) {
-  PEFile pe_file;
-  ASSERT_TRUE(pe_file.Init(testing::GetExeRelativePath(kDllName)));
+TEST_F(ExplodeBasicBlocksTransformTest, RandomizeDllMain) {
+  DllMainRandomizer transform;
+  PerformRandomizationTest(&transform);
+}
 
-  Decomposer decomposer(pe_file);
-  ASSERT_TRUE(decomposer.Decompose(&image_layout_));
-
-  dos_header_block_ = image_layout_.blocks.GetBlockByAddress(
-      core::RelativeAddress(0));
-  ASSERT_TRUE(dos_header_block_ != NULL);
-
+TEST_F(ExplodeBasicBlocksTransformTest, RandomizeAllBasicBlocks) {
   ExplodeBasicBlocksTransform transform;
-  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(&transform,
-                                                    &block_graph_,
-                                                    dos_header_block_));
+  PerformRandomizationTest(&transform);
+}
 
-  // TODO(rogerm): Flesh out with validations.
+TEST_F(ExplodeBasicBlocksTransformTest, RandomizeAllBasicBlocksNoPadding) {
+  ExplodeBasicBlocksTransform transform;
+  transform.set_exclude_padding(true);
+  PerformRandomizationTest(&transform);
 }
 
 }  // namespace transforms

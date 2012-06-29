@@ -33,7 +33,9 @@ class RelinkApp : public common::AppImplBase {
         padding_(0),
         augment_pdb_(false),
         output_metadata_(false),
-        overwrite_(false) {
+        overwrite_(false),
+        basic_blocks_(false),
+        exclude_bb_padding_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -62,6 +64,8 @@ class RelinkApp : public common::AppImplBase {
   bool augment_pdb_;
   bool output_metadata_;
   bool overwrite_;
+  bool basic_blocks_;
+  bool exclude_bb_padding_;
   // @}
 
  private:
