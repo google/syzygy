@@ -18,6 +18,7 @@
 #include "base/string_number_conversions.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
 #include "syzygy/pe/pe_relinker.h"
+#include "syzygy/pe/transforms/explode_basic_blocks_transform.h"
 #include "syzygy/reorder/orderers/explicit_orderer.h"
 
 namespace relink {
@@ -42,6 +43,11 @@ const char kUsageFormatStr[] =
     "    --overwrite          Allow output files to be overwritten.\n"
     "    --padding=<integer>  Add bytes of padding between blocks.\n"
     "    --seed=<integer>     Randomly reorder based on the given seed.\n"
+    "    --basic-blocks       Reorder at the basic-block level. At present,\n"
+    "                         this is only supported for random reorderings.\n"
+    "    --exclude-bb-padding When randomly reordering basic blocks, exclude\n"
+    "                         padding and unreachable code from the relinked\n"
+    "                         output binary.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-dll is optional.\n";
@@ -79,6 +85,8 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
   output_metadata_ = !cmd_line->HasSwitch("no-metadata");
   overwrite_ = cmd_line->HasSwitch("overwrite");
+  basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
+  exclude_bb_padding_ = cmd_line->HasSwitch("exclude-bb-padding");
 
   // The --output-dll argument is required.
   if (output_dll_path_.empty()) {
@@ -153,6 +161,7 @@ int RelinkApp::Run() {
   }
 
   // Set up the orderer.
+  scoped_ptr<pe::transforms::ExplodeBasicBlocksTransform> bb_explode;
   scoped_ptr<block_graph::BlockGraphOrdererInterface> orderer;
   scoped_ptr<reorder::Reorderer::Order> order;
   if (!order_file_path_.empty()) {
@@ -167,6 +176,11 @@ int RelinkApp::Run() {
     orderer.reset(new reorder::orderers::ExplicitOrderer(order.get()));
   } else {
     orderer.reset(new block_graph::orderers::RandomOrderer(true, seed_));
+    if (basic_blocks_) {
+      bb_explode.reset(new pe::transforms::ExplodeBasicBlocksTransform());
+      bb_explode->set_exclude_padding(exclude_bb_padding_);
+      relinker.AppendTransform(bb_explode.get());
+    }
   }
 
   // Append the orderer to the relinker.

@@ -84,6 +84,11 @@ bool HasImplicitControlFlow(const Instruction& instruction) {
   return false;
 }
 
+// TODO(rogerm): Belongs as a helper on Instruction.
+bool IsInterrupt(const Instruction& instruction) {
+  return META_GET_FC(instruction.representation().meta) == FC_INT;
+}
+
 }  // namespace
 
 BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
@@ -456,7 +461,9 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         // or this function has been tagged as non-returning.
         bool no_return =
             (block_->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0;
-        CHECK(HasImplicitControlFlow(instructions.back()) || no_return);
+        CHECK(HasImplicitControlFlow(instructions.back()) ||
+              IsInterrupt(instructions.back()) ||
+              no_return);
         break;
       }
 

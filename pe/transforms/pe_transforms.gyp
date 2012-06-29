@@ -44,6 +44,7 @@
         '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
       ],
     },

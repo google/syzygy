@@ -20,7 +20,7 @@
 #define SYZYGY_PE_TRANSFORMS_EXPLODE_BASIC_BLOCKS_TRANSFORM_H_
 
 #include "base/file_path.h"
-#include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/block_graph/transforms/iterative_transform.h"
 
 namespace pe {
 namespace transforms {
@@ -28,27 +28,36 @@ namespace transforms {
 // A sample BlockGraph transform that explodes all basic-blocks in each code
 // block into individual code or data blocks.
 class ExplodeBasicBlocksTransform
-    : public block_graph::transforms::NamedBlockGraphTransformImpl<
+    : public block_graph::transforms::IterativeTransformImpl<
           ExplodeBasicBlocksTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
 
   ExplodeBasicBlocksTransform();
 
-  // Seperates all basic blocks in the given block graph into individual code
-  // and data blocks.
-  //
-  // @param block_graph The block graph to transform.
-  // @param dos_header_block The DOS header block of the block graph.
-  // @returns true on success, false otherwise.
-  virtual bool TransformBlockGraph(
-      BlockGraph* block_graph,
-      BlockGraph::Block* dos_header_block) OVERRIDE;
+  // Explodes each basic code block in @p block referenced by into separate
+  // blocks, then erases @p block from @p block_graph.
+  // @param block_graph The block graph being modified.
+  // @param block The block to explode, this must be in @p block_graph.
+  // @note This method is required by the IterativeTransformImpl parent class.
+  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
 
-  // The tranform name.
+  // @name Accessors.
+  // @{
+  bool exclude_padding() const { return exclude_padding_; }
+  void set_exclude_padding(bool value) { exclude_padding_ = value; }
+  // @}
+
+  // The transform name.
   static const char kTransformName[];
 
- private:
+ protected:
+  // Hooks for unit-testing.
+  virtual bool SkipThisBlock(const BlockGraph::Block* candidate);
+
+  // A flag for whether padding (and dead code) basic-blocks should be excluded
+  // when reconstituting the exploded blocks.
+  bool exclude_padding_;
 
   DISALLOW_COPY_AND_ASSIGN(ExplodeBasicBlocksTransform);
 };
