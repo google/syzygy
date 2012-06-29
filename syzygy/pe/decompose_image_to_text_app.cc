@@ -240,7 +240,7 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
                 decoded.mnemonic.p,
                 decoded.operands.p);
 
-      DumpReference(succ.branch_target(), out());
+      DumpReference(succ.reference(), out());
       ::fprintf(out(), "\n");
     }
   }

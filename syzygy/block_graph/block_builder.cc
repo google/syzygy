@@ -338,7 +338,7 @@ bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
   // it cannot be a fall-through or branch-not-taken successor.
   const Successor& successor_a = successors.front();
   if (next_bb_in_ordering == NULL ||
-      successor_a.branch_target().basic_block() != next_bb_in_ordering) {
+      successor_a.reference().basic_block() != next_bb_in_ordering) {
     if (!SynthesizeSuccessor(successor_a, successor_a.condition(), ctx))
       return false;
     branch_has_already_been_generated = true;
@@ -357,7 +357,7 @@ bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
   DCHECK_EQ(successor_a.condition(),
             Successor::InvertCondition(successor_b.condition()));
   if (next_bb_in_ordering == NULL ||
-      successor_b.branch_target().basic_block() != next_bb_in_ordering) {
+      successor_b.reference().basic_block() != next_bb_in_ordering) {
     Successor::Condition condition = successor_b.condition();
     if (branch_has_already_been_generated)
       condition = Successor::kConditionTrue;
@@ -653,7 +653,7 @@ void UpdateSuccessorReferences(const MergeContext& ctx,
     // the location at which the target reference should live (as opposed
     // to the start of the instruction sequence).
     bool inserted = block->SetReference(
-        offset, ctx.locations.Resolve(succ_iter->branch_target()));
+        offset, ctx.locations.Resolve(succ_iter->reference()));
     DCHECK(inserted);
   }
 }
