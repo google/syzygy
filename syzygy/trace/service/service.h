@@ -176,10 +176,16 @@ class Service {
                      CallTraceBuffer* call_trace_buffer,
                      unsigned long* flags);
 
-  // RPC implementation of both CallTraceService::AllocateBuffer().
+  // RPC implementation of CallTraceService::AllocateBuffer().
   // See call_trace_rpc.idl for further info.
   bool AllocateBuffer(SessionHandle session_handle,
                       CallTraceBuffer* call_trace_buffer);
+
+  // RPC implementation of CallTraceService::AllocateLargeBuffer().
+  // See call_trace_rpc.idl for further info.
+  bool AllocateLargeBuffer(SessionHandle session_handle,
+                           size_t minimum_size,
+                           CallTraceBuffer* call_trace_buffer);
 
   // RPC implementation of both CallTraceService::ExchangeBuffer()
   // and CallTraceService::ReturnBuffer(). See call_trace_rpc.idl

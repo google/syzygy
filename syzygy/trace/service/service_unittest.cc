@@ -82,6 +82,13 @@ class CallTraceServiceTest : public testing::Test {
     char message[128];
   };
 
+  struct LargeRecordType {
+    enum { kTypeId = 0xF00D };
+    // This needs to be bigger than the default buffer size, which is
+    // 2 MB.
+    unsigned char binary_data[4 * 1024 * 1024];
+  };
+
   CallTraceServiceTest()
       : consumer_thread_("profiler-test-consumer-thread"),
         consumer_thread_has_started_(
@@ -195,6 +202,20 @@ class CallTraceServiceTest : public testing::Test {
                       TraceFileSegment* segment) {
     RpcStatus status = InvokeRpc(CallTraceClient_AllocateBuffer,
                                  session_handle,
+                                 &segment->buffer_info);
+
+    ASSERT_FALSE(status.exception_occurred);
+    ASSERT_TRUE(status.result);
+
+    MapSegmentBuffer(segment);
+  }
+
+  void AllocateLargeBuffer(SessionHandle session_handle,
+                           size_t minimum_size,
+                           TraceFileSegment* segment) {
+    RpcStatus status = InvokeRpc(CallTraceClient_AllocateLargeBuffer,
+                                 session_handle,
+                                 minimum_size,
                                  &segment->buffer_info);
 
     ASSERT_FALSE(status.exception_occurred);
@@ -569,6 +590,97 @@ TEST_F(CallTraceServiceTest, Allocate) {
   ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
   record = reinterpret_cast<MyRecordType*>(prefix + 1);
   ASSERT_STREQ(record->message, "Message 1");
+}
+
+TEST_F(CallTraceServiceTest, AllocateLargeBuffer) {
+  SessionHandle session_handle = NULL;
+  TraceFileSegment segment1;
+  TraceFileSegment segment2;
+
+  ASSERT_TRUE(call_trace_service_.Start(true));
+
+  // Simulate some work on the main thread.
+  ASSERT_NO_FATAL_FAILURE(CreateSession(&session_handle, &segment1));
+  segment1.WriteSegmentHeader(session_handle);
+  MyRecordType* record1 = segment1.AllocateTraceRecord<MyRecordType>();
+  base::strlcpy(record1->message, "Message 1", arraysize(record1->message));
+  size_t length1 = segment1.header->segment_length;
+
+  // Allocate a large buffer.
+  ASSERT_NO_FATAL_FAILURE(AllocateLargeBuffer(
+      session_handle,
+      sizeof(LargeRecordType) + sizeof(RecordPrefix),
+      &segment2));
+  segment2.WriteSegmentHeader(session_handle);
+  LargeRecordType* record2 = segment2.AllocateTraceRecord<LargeRecordType>();
+  size_t length2 = segment2.header->segment_length;
+
+  // Commit the buffers and close the session.
+  ASSERT_NO_FATAL_FAILURE(ReturnBuffer(session_handle, &segment1));
+  ASSERT_NO_FATAL_FAILURE(ReturnBuffer(session_handle, &segment2));
+  ASSERT_NO_FATAL_FAILURE(CloseSession(&session_handle));
+
+  // Make sure everything is flushed.
+  ASSERT_TRUE(call_trace_service_.Stop());
+
+  std::string trace_file_contents;
+  ASSERT_NO_FATAL_FAILURE(ReadTraceFile(&trace_file_contents));
+
+  TraceFileHeader* header =
+      reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);
+
+  ASSERT_NO_FATAL_FAILURE(ValidateTraceFileHeader(*header));
+  ASSERT_EQ(trace_file_contents.length(),
+            RoundedSize(*header) + 3 * header->block_size +
+                sizeof(LargeRecordType));
+
+  // Locate and validate the segment header prefix and segment header.
+  // This should be segment 1.
+  size_t offset = AlignUp(header->header_size, header->block_size);
+  RecordPrefix* prefix =
+      reinterpret_cast<RecordPrefix*>(&trace_file_contents[0] + offset);
+  ASSERT_EQ(prefix->type, TraceFileSegmentHeader::kTypeId);
+  ASSERT_EQ(prefix->size, sizeof(TraceFileSegmentHeader));
+  ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
+  ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
+  TraceFileSegmentHeader* segment_header =
+      reinterpret_cast<TraceFileSegmentHeader*>(prefix + 1);
+  ASSERT_EQ(segment_header->segment_length, length1);
+  ASSERT_EQ(segment_header->thread_id, ::GetCurrentThreadId());
+
+  // The segment header is followed by the message prefix and record.
+  // This should be message 1.
+  prefix = reinterpret_cast<RecordPrefix*>(segment_header + 1);
+  ASSERT_EQ(prefix->type, MyRecordType::kTypeId);
+  ASSERT_EQ(prefix->size, sizeof(MyRecordType));
+  ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
+  ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
+  MyRecordType* record = reinterpret_cast<MyRecordType*>(prefix + 1);
+  ASSERT_STREQ(record->message, "Message 1");
+
+  // Locate and validate the next segment header prefix and segment header.
+  // This should be segment 2.
+
+  offset = AlignUp(RawPtrDiff(record + 1, &trace_file_contents[0]),
+                   header->block_size);
+  prefix = reinterpret_cast<RecordPrefix*>(&trace_file_contents[0] + offset);
+  ASSERT_EQ(prefix->type, TraceFileSegmentHeader::kTypeId);
+  ASSERT_EQ(prefix->size, sizeof(TraceFileSegmentHeader));
+  ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
+  ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
+  segment_header = reinterpret_cast<TraceFileSegmentHeader*>(prefix + 1);
+  ASSERT_EQ(segment_header->segment_length, length2);
+  ASSERT_EQ(segment_header->thread_id, ::GetCurrentThreadId());
+
+  // The segment header is followed by the message prefix and record.
+  // This should be the large buffer contents.
+  prefix = reinterpret_cast<RecordPrefix*>(segment_header + 1);
+  ASSERT_EQ(prefix->type, LargeRecordType::kTypeId);
+  ASSERT_EQ(prefix->size, sizeof(LargeRecordType));
+  ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
+  ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
+  LargeRecordType* large_record =
+      reinterpret_cast<LargeRecordType*>(prefix + 1);
 }
 
 TEST_F(CallTraceServiceTest, SendBuffer) {

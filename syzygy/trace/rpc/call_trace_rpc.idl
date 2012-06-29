@@ -71,6 +71,20 @@ interface CallTrace {
   boolean AllocateBuffer([in] SessionHandle session_handle,
                          [out] CallTraceBuffer* call_trace_buffer);
 
+  // Allocate a large persistent call trace buffer.
+  //
+  // This function should be called when a newly created client thread needs to
+  // acquire a larger than usual buffer. This function is not throttled so
+  // should only be used for buffers that have process lifespan. They should be
+  // returned using the normal ExchangeBuffer or ReturnBuffer mechanism.
+  //
+  // @param session_handle The handle used to identify the client.
+  // @param minimum_size the minimum size of the buffer to be returned.
+  // @param call_trace_buffer The CallTraceBuffer structure to populate.
+  boolean AllocateLargeBuffer([in] SessionHandle session_handle,
+                              [in] unsigned long minimum_size,
+                              [out] CallTraceBuffer* call_trace_buffer);
+
   // Commit a CallTraceBuffer and get a fresh one to continue writing to.
   //
   // This function should be called when a client thread exhausts its current

@@ -46,6 +46,16 @@ boolean CallTraceService_AllocateBuffer(
   return instance->AllocateBuffer(session_handle, call_trace_buffer);
 }
 
+// RPC entrypoint for CallTraceService:AllocateLargeBuffer().
+boolean CallTraceService_AllocateLargeBuffer(
+    /* [in] */ SessionHandle session_handle,
+    /* [in] */ unsigned long minimum_size,
+    /* [out] */ CallTraceBuffer* call_trace_buffer) {
+  Service* instance = RpcServiceInstanceManager::GetInstance();
+  return instance->AllocateLargeBuffer(
+      session_handle, minimum_size, call_trace_buffer);
+}
+
 // RPC entrypoint for CallTraceService::ExchangeBuffer().
 boolean CallTraceService_ExchangeBuffer(
     /* [in] */ SessionHandle session_handle,

@@ -66,6 +66,18 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // @returns true on success, false otherwise.
   bool GetNextBuffer(Buffer** buffer);
 
+  // Gets a buffer with a size at least as big as that requested. If the size
+  // is consistent with the common buffer pool, this will be satisfied from
+  // there. Otherwise, it will result in a specific allocation. The buffer
+  // should be returned/recycled in the normal way. Buffers requested in this
+  // method are not specifically subject to throttling and thus should only be
+  // called for large and long lifespan uses.
+  // @param minimum_size the minimum size of the buffer.
+  // @param buffer will be populated with a pointer to the buffer to be provided
+  //     to the client.
+  // @returns true on success, false otherwise.
+  bool GetBuffer(size_t minimum_size, Buffer** out_buffer);
+
   // Returns a full buffer back to the session. After being returned here the
   // session will ensure the buffer gets written to disk before being returned
   // to service.
@@ -111,6 +123,8 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // @{
   virtual void OnWaitingForBufferToBeRecycled() { }
 
+  virtual void OnDestroySingletonBuffer(Buffer* buffer) { }
+
   // Initialize process information for @p process_id.
   // @param process_id the process we want to capture information for.
   // @param client the record where we store the captured info.
@@ -138,10 +152,28 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // buffer_size and adds them to the free list.
   // @param num_nuffers the number of buffers to allocate.
   // @param buffer_size the size of each buffer to be allocated.
+  // @param pool a pointer to the pool of allocated buffers.
+  // @returns true on success, false otherwise.
+  // @pre Under lock_.
+  bool AllocateBufferPool(
+      size_t num_buffers, size_t buffer_size, BufferPool** out_pool);
+
+  // Allocates num_buffers shared client buffers, each of size
+  // buffer_size and adds them to the free list.
+  // @param num_nuffers the number of buffers to allocate.
+  // @param buffer_size the size of each buffer to be allocated.
   // @returns true on success, false otherwise.
   // @pre Under lock_.
   // @note this is virtual to provide a testing seam.
   virtual bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
+
+  // Allocates a buffer for immediate use, not releasing it to the common buffer
+  // pool and signalling its availability.
+  // @param minimum_size the minimum size of the buffer.
+  // @param out_buffer will be set to point to the newly allocated buffer.
+  // @pre Under lock_.
+  // @pre minimum_size must be bigger than the common buffer allocation size.
+  bool AllocateBufferForImmediateUse(size_t minimum_size, Buffer** out_buffer);
 
   // A private implementation of GetNextBuffer, but which assumes the lock has
   // already been acquired.
@@ -150,6 +182,18 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // @returns true on success, false otherwise.
   // @pre Under lock_.
   bool GetNextBufferUnlocked(Buffer** buffer);
+
+  // Destroys the given buffer, and its containing pool. The buffer must be the
+  // only buffer in its pool, and must be in the pending write state. This is
+  // meant for destroying singleton buffers that have been allocated with
+  // custom sizes. We don't want to return them to the general pool.
+  // @param buffer the buffer whose pool is to be destroyed.
+  // @returns true on success, false otherwise.
+  // @pre buffer is in the 'pending write' state. It should already have been
+  //     written but not yet transitioned.
+  // @pre buffer is a singleton. That is, is part of a pool that contains only
+  //     a single buffer.
+  bool DestroySingletonBuffer(Buffer* buffer);
 
   // Transitions the buffer to the given state. This only updates the buffer's
   // internal state and buffer_state_counts_, but not buffers_available_.
@@ -166,6 +210,10 @@ class Session : public base::RefCountedThreadSafe<Session> {
   // @returns true on success, false otherwise.
   // @pre Under lock_.
   bool CreateProcessEndedEvent(Buffer** buffer);
+
+  // Returns true if the buffer book-keeping is self-consistent.
+  // @pre Under lock_.
+  bool BufferBookkeepingIsConsistent() const;
 
   // The call trace service this session lives in.  We do not own this
   // object.
