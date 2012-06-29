@@ -150,93 +150,210 @@
     decl(LF_COMPLEX80, LeafCmplx80) \
     decl(LF_COMPLEX128, LeafCmplx128)
 
-// This macro allow the easy construction of switch statements over the type
-// info enum. It define the case table, the first parameter of each entry is the
-// type of the type info record and the second one is the type of structure used
-// to represent this type info.
-#define TYPE_INFO_CASE_TABLE(decl) \
-    decl(LF_VTSHAPE, Unknown) \
-    decl(LF_COBOL1, Unknown) \
-    decl(LF_LABEL, Unknown) \
+// This macro allow the easy construction of switch statements over the leaf
+// enum. It define the case table, the first parameter of each entry is the type
+// of the leaf record and the second one is the type of structure used to
+// represent this leaf.
+#define LEAF_CASE_TABLE(decl) \
+    decl(LF_VTSHAPE, LeafVTShape) \
+    decl(LF_COBOL1, LeafCobol1) \
+    decl(LF_LABEL, LeafLabel) \
     decl(LF_NULL, Unknown) \
     decl(LF_NOTTRAN, Unknown) \
-    decl(LF_ENDPRECOMP, Unknown) \
+    decl(LF_ENDPRECOMP, LeafEndPreComp) \
     decl(LF_TYPESERVER_ST, Unknown) \
-    decl(LF_LIST, Unknown) \
-    decl(LF_REFSYM, Unknown) \
+    decl(LF_LIST, LeafList) \
+    decl(LF_REFSYM, LeafRefSym) \
     decl(LF_ENUMERATE_ST, Unknown) \
     decl(LF_TI16_MAX, Unknown) \
-    decl(LF_MODIFIER, Unknown) \
-    decl(LF_POINTER, Unknown) \
+    decl(LF_MODIFIER, LeafModifier) \
+    decl(LF_POINTER, LeafPointer) \
     decl(LF_ARRAY_ST, Unknown) \
     decl(LF_CLASS_ST, Unknown) \
     decl(LF_STRUCTURE_ST, Unknown) \
     decl(LF_UNION_ST, Unknown) \
     decl(LF_ENUM_ST, Unknown) \
-    decl(LF_PROCEDURE, Unknown) \
-    decl(LF_MFUNCTION, Unknown) \
-    decl(LF_COBOL0, Unknown) \
-    decl(LF_BARRAY, Unknown) \
+    decl(LF_PROCEDURE, LeafProc) \
+    decl(LF_MFUNCTION, LeafMFunc) \
+    decl(LF_COBOL0, LeafCobol0) \
+    decl(LF_BARRAY, LeafBArray) \
     decl(LF_DIMARRAY_ST, Unknown) \
-    decl(LF_VFTPATH, Unknown) \
+    decl(LF_VFTPATH, LeafVFTPath) \
     decl(LF_PRECOMP_ST, Unknown) \
-    decl(LF_OEM, Unknown) \
+    decl(LF_OEM, LeafOEM) \
     decl(LF_ALIAS_ST, Unknown) \
-    decl(LF_OEM2, Unknown) \
-    decl(LF_SKIP, Unknown) \
-    decl(LF_ARGLIST, Unknown) \
+    decl(LF_OEM2, LeafOEM2) \
+    decl(LF_SKIP, LeafSkip) \
+    decl(LF_ARGLIST, LeafArgList) \
     decl(LF_DEFARG_ST, Unknown) \
-    decl(LF_FIELDLIST, Unknown) \
-    decl(LF_DERIVED, Unknown) \
-    decl(LF_BITFIELD, Unknown) \
-    decl(LF_METHODLIST, Unknown) \
-    decl(LF_DIMCONU, Unknown) \
-    decl(LF_DIMCONLU, Unknown) \
-    decl(LF_DIMVARU, Unknown) \
-    decl(LF_DIMVARLU, Unknown) \
-    decl(LF_BCLASS, Unknown) \
-    decl(LF_VBCLASS, Unknown) \
-    decl(LF_IVBCLASS, Unknown) \
+    decl(LF_FIELDLIST, LeafFieldList) \
+    decl(LF_DERIVED, LeafDerived) \
+    decl(LF_BITFIELD, LeafBitfield) \
+    decl(LF_METHODLIST, LeafMethodList) \
+    decl(LF_DIMCONU, LeafDimCon) \
+    decl(LF_DIMCONLU, LeafDimCon) \
+    decl(LF_DIMVARU, LeafDimVar) \
+    decl(LF_DIMVARLU, LeafDimVar) \
+    decl(LF_BCLASS, LeafBClass) \
+    decl(LF_VBCLASS, LeafVBClass) \
+    decl(LF_IVBCLASS, LeafVBClass) \
     decl(LF_FRIENDFCN_ST, Unknown) \
-    decl(LF_INDEX, Unknown) \
+    decl(LF_INDEX, LeafIndex) \
     decl(LF_MEMBER_ST, Unknown) \
     decl(LF_STMEMBER_ST, Unknown) \
     decl(LF_METHOD_ST, Unknown) \
     decl(LF_NESTTYPE_ST, Unknown) \
-    decl(LF_VFUNCTAB, Unknown) \
+    decl(LF_VFUNCTAB, LeafVFuncTab) \
     decl(LF_FRIENDCLS, Unknown) \
     decl(LF_ONEMETHOD_ST, Unknown) \
-    decl(LF_VFUNCOFF, Unknown) \
+    decl(LF_VFUNCOFF, LeafVFuncOff) \
     decl(LF_NESTTYPEEX_ST, Unknown) \
     decl(LF_MEMBERMODIFY_ST, Unknown) \
     decl(LF_MANAGED_ST, Unknown) \
-    decl(LF_ST_MAX, Unknown) \
-    decl(LF_TYPESERVER, Unknown) \
-    decl(LF_ENUMERATE, Unknown) \
-    decl(LF_ARRAY, Unknown) \
-    decl(LF_CLASS, Unknown) \
-    decl(LF_STRUCTURE, Unknown) \
-    decl(LF_UNION, Unknown) \
-    decl(LF_ENUM, Unknown) \
-    decl(LF_DIMARRAY, Unknown) \
-    decl(LF_PRECOMP, Unknown) \
-    decl(LF_ALIAS, Unknown) \
-    decl(LF_DEFARG, Unknown) \
-    decl(LF_FRIENDFCN, Unknown) \
-    decl(LF_MEMBER, Unknown) \
-    decl(LF_STMEMBER, Unknown) \
-    decl(LF_METHOD, Unknown) \
-    decl(LF_NESTTYPE, Unknown) \
-    decl(LF_ONEMETHOD, Unknown) \
-    decl(LF_NESTTYPEEX, Unknown) \
-    decl(LF_MEMBERMODIFY, Unknown) \
-    decl(LF_MANAGED, Unknown) \
-    decl(LF_TYPESERVER2, Unknown) \
-    decl(LF_VARSTRING, Unknown) \
-    decl(LF_OCTWORD, Unknown) \
-    decl(LF_UOCTWORD, Unknown) \
-    decl(LF_DECIMAL, Unknown) \
-    decl(LF_DATE, Unknown) \
-    decl(LF_UTF8STRING, Unknown)
+    decl(LF_TYPESERVER, LeafTypeServer) \
+    decl(LF_ENUMERATE, LeafEnumerate) \
+    decl(LF_ARRAY, LeafArray) \
+    decl(LF_CLASS, LeafClass) \
+    decl(LF_STRUCTURE, LeafClass) \
+    decl(LF_UNION, LeafUnion) \
+    decl(LF_ENUM, LeafEnum) \
+    decl(LF_DIMARRAY, LeafDimArray) \
+    decl(LF_PRECOMP, LeafPreComp) \
+    decl(LF_ALIAS, LeafAlias) \
+    decl(LF_DEFARG, LeafDefArg) \
+    decl(LF_FRIENDFCN, LeafFriendFcn) \
+    decl(LF_MEMBER, LeafMember) \
+    decl(LF_STMEMBER, LeafSTMember) \
+    decl(LF_METHOD, LeafMethod) \
+    decl(LF_NESTTYPE, LeafNestType) \
+    decl(LF_ONEMETHOD, LeafOneMethod) \
+    decl(LF_NESTTYPEEX, LeafNestTypeEx) \
+    decl(LF_MEMBERMODIFY, LeafMemberModify) \
+    decl(LF_MANAGED, LeafManaged) \
+    decl(LF_TYPESERVER2, LeafTypeServer2) \
+    decl(LF_VARSTRING, LeafVarString)
+
+// This macro allow the easy construction of switch statements over the special
+// types enum. It define the case table, the parameter of each entry is the type
+// of the special type record.
+#define SPECIAL_TYPE_CASE_TABLE(decl) \
+    decl(T_NOTYPE) \
+    decl(T_ABS) \
+    decl(T_SEGMENT) \
+    decl(T_VOID) \
+    decl(T_HRESULT) \
+    decl(T_32PHRESULT) \
+    decl(T_64PHRESULT) \
+    decl(T_PVOID) \
+    decl(T_PFVOID) \
+    decl(T_PHVOID) \
+    decl(T_32PVOID) \
+    decl(T_64PVOID) \
+    decl(T_CURRENCY) \
+    decl(T_NOTTRANS) \
+    decl(T_BIT) \
+    decl(T_PASCHAR) \
+    decl(T_CHAR) \
+    decl(T_32PCHAR) \
+    decl(T_64PCHAR) \
+    decl(T_UCHAR) \
+    decl(T_32PUCHAR) \
+    decl(T_64PUCHAR) \
+    decl(T_RCHAR) \
+    decl(T_32PRCHAR) \
+    decl(T_64PRCHAR) \
+    decl(T_WCHAR) \
+    decl(T_32PWCHAR) \
+    decl(T_64PWCHAR) \
+    decl(T_INT1) \
+    decl(T_32PINT1) \
+    decl(T_64PINT1) \
+    decl(T_UINT1) \
+    decl(T_32PUINT1) \
+    decl(T_64PUINT1) \
+    decl(T_SHORT) \
+    decl(T_32PSHORT) \
+    decl(T_64PSHORT) \
+    decl(T_USHORT) \
+    decl(T_32PUSHORT) \
+    decl(T_64PUSHORT) \
+    decl(T_INT2) \
+    decl(T_32PINT2) \
+    decl(T_64PINT2) \
+    decl(T_UINT2) \
+    decl(T_32PUINT2) \
+    decl(T_64PUINT2) \
+    decl(T_LONG) \
+    decl(T_ULONG) \
+    decl(T_32PLONG) \
+    decl(T_32PULONG) \
+    decl(T_64PLONG) \
+    decl(T_64PULONG) \
+    decl(T_INT4) \
+    decl(T_32PINT4) \
+    decl(T_64PINT4) \
+    decl(T_UINT4) \
+    decl(T_32PUINT4) \
+    decl(T_64PUINT4) \
+    decl(T_QUAD) \
+    decl(T_32PQUAD) \
+    decl(T_64PQUAD) \
+    decl(T_UQUAD) \
+    decl(T_32PUQUAD) \
+    decl(T_64PUQUAD) \
+    decl(T_INT8) \
+    decl(T_32PINT8) \
+    decl(T_64PINT8) \
+    decl(T_UINT8) \
+    decl(T_32PUINT8) \
+    decl(T_64PUINT8) \
+    decl(T_OCT) \
+    decl(T_32POCT) \
+    decl(T_64POCT) \
+    decl(T_UOCT) \
+    decl(T_32PUOCT) \
+    decl(T_64PUOCT) \
+    decl(T_INT16) \
+    decl(T_32PINT16) \
+    decl(T_64PINT16) \
+    decl(T_UINT16) \
+    decl(T_32PUINT16) \
+    decl(T_64PUINT16) \
+    decl(T_REAL32) \
+    decl(T_32PREAL32) \
+    decl(T_64PREAL32) \
+    decl(T_REAL64) \
+    decl(T_32PREAL64) \
+    decl(T_64PREAL64) \
+    decl(T_REAL80) \
+    decl(T_32PREAL80) \
+    decl(T_64PREAL80) \
+    decl(T_REAL128) \
+    decl(T_32PREAL128) \
+    decl(T_64PREAL128) \
+    decl(T_CPLX32) \
+    decl(T_32PCPLX32) \
+    decl(T_64PCPLX32) \
+    decl(T_CPLX64) \
+    decl(T_32PCPLX64) \
+    decl(T_64PCPLX64) \
+    decl(T_CPLX80) \
+    decl(T_32PCPLX80) \
+    decl(T_64PCPLX80) \
+    decl(T_CPLX128) \
+    decl(T_32PCPLX128) \
+    decl(T_64PCPLX128) \
+    decl(T_BOOL08) \
+    decl(T_32PBOOL08) \
+    decl(T_64PBOOL08) \
+    decl(T_BOOL16) \
+    decl(T_32PBOOL16) \
+    decl(T_64PBOOL16) \
+    decl(T_BOOL32) \
+    decl(T_32PBOOL32) \
+    decl(T_64PBOOL32) \
+    decl(T_BOOL64) \
+    decl(T_32PBOOL64) \
+    decl(T_64PBOOL64)
 
 #endif  // SYZYGY_PDB_CVINFO_EXT_H_

@@ -210,7 +210,7 @@ void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
 // Return the string value associated with a symbol type.
 const char* SymbolTypeName(uint16 symbol_type) {
   switch (symbol_type) {
-// Just print the name of the enum.
+// Just return the name of the enum.
 #define SYM_TYPE_NAME(sym_type, unused) \
     case cci::sym_type: { \
       return #sym_type; \
@@ -239,7 +239,7 @@ size_t NumericLeafSize(uint16 symbol_type) {
 // Returns the name associated with a numeric leaf type.
 const char* NumericLeafName(uint16 leaf_type) {
   switch (leaf_type) {
-// Just print the name of the leaf type.
+// Just return the name of the leaf type.
 #define LEAF_TYPE_NAME(leaf_type, unused) \
     case cci::leaf_type: { \
       return #leaf_type; \
