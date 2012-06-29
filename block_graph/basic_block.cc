@@ -138,7 +138,6 @@ BasicBlockReference::BasicBlockReference(ReferenceType type,
   DCHECK(size == 1 || size == 2 || size == 4);
   DCHECK(basic_block != NULL);
   DCHECK_LE(0, base);
-  DCHECK_LT(static_cast<size_t>(base), basic_block->size());
 }
 
 BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
