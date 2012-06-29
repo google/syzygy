@@ -33,7 +33,10 @@ class TestBlockGraphSerializer : public BlockGraphSerializer {
 
 class BlockGraphSerializerTest : public ::testing::Test {
  public:
-  BlockGraphSerializerTest() : block_data_callback_count_(0) { }
+  BlockGraphSerializerTest()
+      : save_block_data_callback_count_(0),
+        load_block_data_callback_count_(0) {
+  }
 
   virtual void SetUp() OVERRIDE {
   }
@@ -119,16 +122,28 @@ class BlockGraphSerializerTest : public ::testing::Test {
         BlockGraph::ABSOLUTE_REF, 4, rd2, 0, 0));
   }
 
-  void InitBlockDataCallback() {
-    s_.set_block_data_callback(
-        base::Bind(&BlockGraphSerializerTest::BlockDataCallback,
+  void InitBlockDataCallbacks1() {
+    s_.set_load_block_data_callback(
+        base::Bind(&BlockGraphSerializerTest::LoadBlockDataCallback1,
                    base::Unretained(this)));
   }
 
-  bool BlockDataCallback(size_t size, BlockGraph::Block* block) {
-    // We use the source range to determine which block gets which data, as the
-    // name is not always present.
-    ++block_data_callback_count_;
+  void InitBlockDataCallbacks2() {
+    s_.set_save_block_data_callback(
+        base::Bind(&BlockGraphSerializerTest::SaveBlockDataCallback2,
+                   base::Unretained(this)));
+    s_.set_load_block_data_callback(
+        base::Bind(&BlockGraphSerializerTest::LoadBlockDataCallback2,
+                   base::Unretained(this)));
+  }
+
+  bool LoadBlockDataCallback1(size_t size,
+                              BlockGraph::Block* block,
+                              core::InArchive* in_archive) {
+    DCHECK(block != NULL);
+    DCHECK(in_archive != NULL);
+
+    ++load_block_data_callback_count_;
 
     EXPECT_LT(0u, size);
     if (size == 0)
@@ -138,6 +153,8 @@ class BlockGraphSerializerTest : public ::testing::Test {
     if (block->source_ranges().size() != 1)
       return false;
 
+    // We use the source range to determine which block gets which data, as the
+    // name is not always present.
     size_t data_size = 0;
     const uint8* data = NULL;
     switch (block->source_ranges().range_pairs()[0].second.start().value()) {
@@ -174,28 +191,112 @@ class BlockGraphSerializerTest : public ::testing::Test {
     return true;
   }
 
+  bool SaveBlockDataCallback2(const BlockGraph::Block& block,
+                              core::OutArchive* out_archive) {
+    DCHECK(out_archive != NULL);
+
+    ++save_block_data_callback_count_;
+
+    EXPECT_LT(0u, block.data_size());
+    if (block.data_size() == 0)
+      return false;
+
+    // Determine which data buffer the block holds, and save an index value
+    // representing it.
+    char data_index = -1;
+    if (memcmp(kCode1Data, block.data(), block.data_size()) == 0)
+      data_index = 0;
+    else if (memcmp(kCode2Data, block.data(), block.data_size()) == 0)
+      data_index = 1;
+    else if (memcmp(kData1Data, block.data(), block.data_size()) == 0)
+      data_index = 2;
+    else if (memcmp(kRdata1Data, block.data(), block.data_size()) == 0)
+      data_index = 3;
+
+    EXPECT_NE(-1, data_index);
+    if (data_index == -1)
+      return false;
+
+    if (!out_archive->Save(data_index))
+      return false;
+
+    return true;
+  }
+
+  bool LoadBlockDataCallback2(size_t size,
+                              BlockGraph::Block* block,
+                              core::InArchive* in_archive) {
+    DCHECK(block != NULL);
+    DCHECK(in_archive != NULL);
+
+    ++load_block_data_callback_count_;
+
+    EXPECT_LT(0u, size);
+    if (size == 0)
+      return false;
+
+    char data_index = -1;
+    if (!in_archive->Load(&data_index))
+      return false;
+
+    EXPECT_LE(0, data_index);
+    EXPECT_GT(4, data_index);
+
+    static const uint8* kData[] = {
+        kCode1Data, kCode2Data, kData1Data, kRdata1Data };
+    block->SetData(kData[data_index], size);
+
+    return true;
+  }
+
+  enum InitCallbacksType {
+    eNoBlockDataCallbacks,
+    eInitBlockDataCallbacks1,
+    eInitBlockDataCallbacks2
+  };
+
   void TestRoundTrip(BlockGraphSerializer::DataMode data_mode,
                      BlockGraphSerializer::Attributes attributes,
-                     bool init_callback,
-                     size_t expected_block_data_callback_count) {
+                     InitCallbacksType init_callback,
+                     size_t expected_save_block_data_callback_count,
+                     size_t expected_load_block_data_callback_count) {
     InitBlockGraph();
     InitOutArchive();
 
     s_.set_data_mode(data_mode);
     s_.set_attributes(attributes);
 
+    // Initialize the callbacks.
+    switch (init_callback) {
+      case eInitBlockDataCallbacks1: {
+        InitBlockDataCallbacks1();
+        break;
+      }
+
+      case eInitBlockDataCallbacks2: {
+        InitBlockDataCallbacks2();
+        break;
+      }
+
+      case eNoBlockDataCallbacks:
+      default:
+        // Do nothing.
+        break;
+    }
+
     ASSERT_TRUE(s_.Save(bg_, oa_.get()));
     ASSERT_LT(0u, v_.size());
+    ASSERT_EQ(expected_save_block_data_callback_count,
+              save_block_data_callback_count_);
 
     InitInArchive();
-    if (init_callback)
-      InitBlockDataCallback();
 
     BlockGraph bg;
     ASSERT_TRUE(s_.Load(&bg, ia_.get()));
     ASSERT_EQ(data_mode, s_.data_mode());
     ASSERT_EQ(attributes, s_.attributes());
-    ASSERT_EQ(expected_block_data_callback_count, block_data_callback_count_);
+    ASSERT_EQ(expected_load_block_data_callback_count,
+              load_block_data_callback_count_);
 
     ASSERT_TRUE(testing::BlockGraphsEqual(bg_, bg, s_));
   }
@@ -217,7 +318,8 @@ class BlockGraphSerializerTest : public ::testing::Test {
   static const uint8 kData1Data[16];
   static const uint8 kRdata1Data[16];
 
-  size_t block_data_callback_count_;
+  size_t save_block_data_callback_count_;
+  size_t load_block_data_callback_count_;
 };
 
 const uint8 BlockGraphSerializerTest::kCode1Data[16] = {
@@ -371,24 +473,40 @@ TEST_F(BlockGraphSerializerTest, RoundTripNoData) {
   ASSERT_NO_FATAL_FAILURE(TestRoundTrip(
       BlockGraphSerializer::OUTPUT_NO_DATA,
       BlockGraphSerializer::DEFAULT_ATTRIBUTES,
-      true,
-      4));
+      eInitBlockDataCallbacks1,
+      0, 4));
+}
+
+TEST_F(BlockGraphSerializerTest, RoundTripNoDataCustomRepresentation) {
+  ASSERT_NO_FATAL_FAILURE(TestRoundTrip(
+      BlockGraphSerializer::OUTPUT_NO_DATA,
+      BlockGraphSerializer::DEFAULT_ATTRIBUTES,
+      eInitBlockDataCallbacks2,
+      4, 4));
 }
 
 TEST_F(BlockGraphSerializerTest, RoundTripOwnedData) {
   ASSERT_NO_FATAL_FAILURE(TestRoundTrip(
       BlockGraphSerializer::OUTPUT_OWNED_DATA,
       BlockGraphSerializer::DEFAULT_ATTRIBUTES,
-      true,
-      2));
+      eInitBlockDataCallbacks1,
+      0, 2));
+}
+
+TEST_F(BlockGraphSerializerTest, RoundTripOwnedDataCustomRepresentation) {
+  ASSERT_NO_FATAL_FAILURE(TestRoundTrip(
+      BlockGraphSerializer::OUTPUT_OWNED_DATA,
+      BlockGraphSerializer::DEFAULT_ATTRIBUTES,
+      eInitBlockDataCallbacks2,
+      2, 2));
 }
 
 TEST_F(BlockGraphSerializerTest, RoundTripAllData) {
   ASSERT_NO_FATAL_FAILURE(TestRoundTrip(
       BlockGraphSerializer::OUTPUT_ALL_DATA,
       BlockGraphSerializer::DEFAULT_ATTRIBUTES,
-      true,
-      0));
+      eNoBlockDataCallbacks,
+      0, 0));
 }
 
 // TODO(chrisha): Do a heck of a lot more testing of protected member functions.
