@@ -472,8 +472,11 @@ bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
     default:
         NOTREACHED();
 
-    case OUTPUT_NO_DATA:
+    case OUTPUT_NO_DATA: {
+        if (!CallSaveBlockDataCallback(block, out_archive))
+          return false;
         return true;
+      }
 
     case OUTPUT_OWNED_DATA: {
       uint8 owns_data = block.owns_data();
@@ -483,9 +486,13 @@ bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
         return false;
       }
 
-      // If we don't own the data, we're not responsible for saving it.
-      if (!block.owns_data())
+      // If we don't own the data, we're not responsible for saving it. We feed
+      // it to the callback to do so.
+      if (!block.owns_data()) {
+        if (!CallSaveBlockDataCallback(block, out_archive))
+          return false;
         return true;
+      }
       // Otherwise we need to write the data, so we let this fall through.
     }
 
@@ -559,19 +566,19 @@ bool BlockGraphSerializer::LoadBlockData(BlockGraph::Block* block,
   // source.
   DCHECK_LT(0u, data_size);
 
-  if (block_data_callback_.get() == NULL) {
-    LOG(ERROR) << "No block data callback specified.";
+  if (load_block_data_callback_.get() == NULL) {
+    LOG(ERROR) << "No load block data callback specified.";
     return false;
   }
 
-  if (!block_data_callback_->Run(data_size, block)) {
+  if (!load_block_data_callback_->Run(data_size, block, in_archive)) {
     LOG(ERROR) << "Block data callback failed.";
     return false;
   }
 
   // The block data should be appropriately set.
   if (block->data_size() != data_size || block->data() == NULL) {
-    LOG(ERROR) << "Block data callback failed to set block data.";
+    LOG(ERROR) << "Load block data callback failed to set block data.";
     return false;
   }
 
@@ -823,6 +830,17 @@ bool BlockGraphSerializer::LoadInt30(int32* value,
   *value = static_cast<int32>(uvalue >> 1);
   if ((uvalue & 1) != 0)
     *value = -(*value);
+
+  return true;
+}
+
+bool BlockGraphSerializer::CallSaveBlockDataCallback(
+    const BlockGraph::Block& block, OutArchive* out_archive) const {
+  if (save_block_data_callback_.get() == NULL)
+    return true;
+
+  if (!save_block_data_callback_->Run(block, out_archive))
+    return false;
 
   return true;
 }

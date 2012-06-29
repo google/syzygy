@@ -35,17 +35,21 @@ class BlockGraphSerializer {
   // An enumeration that governs the mode of data serialization.
   enum DataMode {
     // In this mode no block data is serialized. The data will be recovered from
-    // an external data source.
+    // an external data source via the LoadBlockDataCallback. While serializing
+    // an optional SaveBlockDataCallback may save any metadata necessary to
+    // recover the original block data.
     OUTPUT_NO_DATA,
     DEFAULT_DATA_MODE = OUTPUT_NO_DATA,
 
     // In this mode of serialization, only blocks that own their own data will
     // will have the data serialized explicitly. The other block data will be
-    // recovered from an external data source.
+    // recovered via LoadBlockDataCallback, and saved via the optional
+    // SaveBlockDataCallback.
     OUTPUT_OWNED_DATA,
 
-    // In this mode all block data is serialized. The generated serialization
-    // is completely independent of any external data sources.
+    // In this mode all block data is serialized directly. The generated
+    // serialization is completely independent of any external data sources.
+    // Even if either of the callbacks are set, they will never be invoked.
     OUTPUT_ALL_DATA,
 
     // This needs to be last.
@@ -71,20 +75,38 @@ class BlockGraphSerializer {
     ATTRIBUTES_MAX = (1 << 2),
   };
 
-  // Defines the callback used to get data for a block. The callback is given
-  // the following parameter:
+  // Defines the callback used to save data for a block. The callback is given
+  // the following parameters:
+  //   1. const BlockGraph::Block& block
+  //      The block whose data is to be saved.
+  //   2. OutArchive* out_archive
+  //      The output archive. Can be used to write data that will then be used
+  //      by LoadBlockDataCallback.
+  // If this callback writes any data the matching LoadBlockDataCallback must
+  // read the same data. Otherwise, serialization will lose its synchronization
+  // and derail.
+  typedef base::Callback<bool(const BlockGraph::Block&,
+                              core::OutArchive*)> SaveBlockDataCallback;
+
+  // Defines the callback used to load data for a block. The callback is given
+  // the following parameters:
   //   1. size_t data_size
   //      The size of the data that was in the block at serialization time.
   //   2. BlockGraph::Block* block
   //      The block whose data is to be retrieved. The block will have all of
   //      its attributes set except the data-size will be zero and the data
   //      pointer will be null.
+  //   3. InArchive* in_archive
+  //      The input archive. Can be used to read data that was written by the
+  //      corresponding SaveBlockDataCallback.
   // The callback should set the data associated with the block and return
   // true on success. If the call has failed it should return false. Upon
   // return it is expected that block->data_size() == data_size and that
   // block->data() != NULL. It is up to the callback to ensure that the contents
   // match those that were there at serialization time.
-  typedef base::Callback<bool(size_t, BlockGraph::Block*)> BlockDataCallback;
+  typedef base::Callback<bool(size_t,
+                              BlockGraph::Block*,
+                              core::InArchive*)> LoadBlockDataCallback;
 
   // Default constructor.
   BlockGraphSerializer()
@@ -123,6 +145,16 @@ class BlockGraphSerializer {
   }
   // @}
 
+  // Sets a callback to be used by the save function for writing block
+  // data. This is optional, and will only be used by the OUTPUT_NO_DATA or
+  // OUTPUT_OWNED_DATA data modes.
+  // @param save_block_data_callback the callback to be used.
+  void set_save_block_data_callback(
+      const SaveBlockDataCallback& save_block_data_callback) {
+    save_block_data_callback_ = scoped_ptr<SaveBlockDataCallback>(
+        new SaveBlockDataCallback(save_block_data_callback));
+  }
+
   // Saves the given block-graph to the provided output archive.
   // @param block_graph the block-graph to be serialized.
   // @param out_archive the archive to be written to.
@@ -133,9 +165,11 @@ class BlockGraphSerializer {
   // data. This is optional, but is required to be set prior to calling Load
   // for any block-graph that was serialized using OUTPUT_NO_DATA or
   // OUTPUT_OWNED_DATA.
-  void set_block_data_callback(const BlockDataCallback& block_data_callback) {
-    block_data_callback_ = scoped_ptr<BlockDataCallback>(
-        new BlockDataCallback(block_data_callback));
+  // @param load_block_data_callback the callback to be used.
+  void set_load_block_data_callback(
+      const LoadBlockDataCallback& load_block_data_callback) {
+    load_block_data_callback_ = scoped_ptr<LoadBlockDataCallback>(
+        new LoadBlockDataCallback(load_block_data_callback));
   }
 
   // Loads a block-graph from the provided input archive. The data-mode and
@@ -198,14 +232,20 @@ class BlockGraphSerializer {
   bool LoadInt30(int32* value, InArchive* in_archive) const;
   // @}
 
+  // A utility function for calling save_block_data_callback_, but only if it
+  // has been set. Does nothing and returns true if it has not been set. If it
+  // has been set returns true on success, false otherwise.
+  bool CallSaveBlockDataCallback(const BlockGraph::Block& block,
+                                 OutArchive* out_archive) const;
+
   // The mode in which the serializer is operating for block data.
   DataMode data_mode_;
   // Controls the specifics of how the serialization is performed.
   Attributes attributes_;
 
-  // The optional callback to be used for getting block data from an external
-  // source.
-  scoped_ptr<BlockDataCallback> block_data_callback_;
+  // Optional callbacks.
+  scoped_ptr<SaveBlockDataCallback> save_block_data_callback_;
+  scoped_ptr<LoadBlockDataCallback> load_block_data_callback_;
 };
 
 }  // namespace block_graph
