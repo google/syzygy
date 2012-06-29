@@ -355,19 +355,21 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
 
   // Populate the referrers in the basic block data structures by copying
   // them from the original source block.
-  if (!PopulateBasicBlockReferrers()) {
+  if (!CopyExternalReferrers()) {
     LOG(ERROR) << "Failed to populate basic-block referrers.";
     return kDirectiveAbort;
   }
 
   // Populate the references in the basic block data structures by copying
-  // them from the original source block.
-  if (!PopulateBasicBlockReferences()) {
+  // them from the original source block. This does not handle the successor
+  // referenes.
+  if (!CopyReferences()) {
     LOG(ERROR) << "Failed to populate basic-block referrences.";
     return kDirectiveAbort;
   }
 
-  // Wire up the the basic-block successors.
+  // Wire up the the basic-block successors. These are not handled by
+  // CopyReferences(), above.
   if (!ResolveSuccessors()) {
     LOG(ERROR) << "Failed to resolve basic-block successors.";
     return kDirectiveAbort;
@@ -384,25 +386,12 @@ void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
   if (!check_decomposition_results_)
     return;
 
-  const BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
-
   AddressSet::const_iterator addr_iter(jump_targets_.begin());
   for (; addr_iter != jump_targets_.end(); ++addr_iter) {
-    // Find the basic block that maps to the jump target.
-    Offset target_offset = *addr_iter - code_addr_;
-    RangeMapConstIter target_bb_iter =
-        basic_block_address_space.FindFirstIntersection(
-            Range(target_offset, 1));
-
-    // The target must exist.
-    CHECK(target_bb_iter != basic_block_address_space.end());
-
-    // The target offset should refer to the start of the basic block.
-    CHECK_EQ(target_offset, target_bb_iter->first.start());
-
     // The target basic-block should be a code basic-block.
-    CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb_iter->second->type());
+    BasicBlock* target_bb = subgraph_->FindBasicBlock(*addr_iter - code_addr_);
+    CHECK(target_bb != NULL);
+    CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb->type());
   }
 }
 
@@ -457,7 +446,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         // There should be no control flow in anything but the last instruction.
         CHECK(!HasControlFlow(instructions.begin(), --instructions.end()));
 
-        // Either there's is an implicit control flow insruction at the end
+        // Either there is an implicit control flow instruction at the end
         // or this function has been tagged as non-returning.
         bool no_return =
             (block_->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0;
@@ -474,8 +463,6 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         // The successor must be unconditional.
         const Successor& successor = successors.back();
         CHECK_EQ(Successor::kConditionTrue, successor.condition());
-        CHECK_EQ(BlockGraph::PC_RELATIVE_REF,
-                 successor.branch_target().reference_type());
 
         // If the successor is synthesized, then flow is from this basic-block
         // to the next adjacent one.
@@ -483,7 +470,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
           RangeMapConstIter next(it);
           ++next;
           CHECK(next != basic_block_address_space.end());
-          CHECK_EQ(successor.branch_target().basic_block(), next->second);
+          CHECK_EQ(successor.reference().basic_block(), next->second);
         }
         break;
       }
@@ -495,10 +482,6 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         // The conditions on the successors should be inverses of one another.
         CHECK_EQ(successors.front().condition(),
                  Successor::InvertCondition(successors.back().condition()));
-        CHECK_EQ(BlockGraph::PC_RELATIVE_REF,
-                 successors.front().branch_target().reference_type());
-        CHECK_EQ(BlockGraph::PC_RELATIVE_REF,
-                 successors.back().branch_target().reference_type());
 
         // Exactly one of the successors should have been synthesized.
         bool front_synthesized = successors.front().instruction_offset() == -1;
@@ -512,7 +495,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         RangeMapConstIter next(it);
         ++next;
         CHECK(next != basic_block_address_space.end());
-        CHECK_EQ(synthesized.branch_target().basic_block(), next->second);
+        CHECK_EQ(synthesized.reference().basic_block(), next->second);
         break;
       }
 
@@ -625,61 +608,40 @@ bool BasicBlockDecomposer::FillInPaddingBlocks() {
   return true;
 }
 
-bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
-  BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
-
+bool BasicBlockDecomposer::CopyExternalReferrers() {
   const BlockGraph::Block::ReferrerSet& referrers = block_->referrers();
   BlockGraph::Block::ReferrerSet::const_iterator iter = referrers.begin();
   for (; iter != referrers.end(); ++iter) {
     // Find the reference this referrer record describes.
     const BlockGraph::Block* referrer = iter->first;
     DCHECK(referrer != NULL);
+
+    // We only care about external referrers. All intra-block referrers and
+    // references will be handled when we populate block_'s references for
+    // basic code/padding blocks, instructions and successors.
+    if (referrer == block_)
+      continue;
+
+    // This is an external referrer. Find the reference in the referring block.
     Offset source_offset = iter->second;
     BlockGraph::Reference reference;
     bool found = referrer->GetReference(source_offset, &reference);
     DCHECK(found);
 
-    // Find the basic block the reference refers to.
-    Offset target_base = reference.base();
-    RangeMapIter bb_iter = basic_block_address_space.FindFirstIntersection(
-        Range(target_base, 1));
-
-    // We have complete coverage of the block; there must be an intersection.
-    // And, we break up the basic blocks by code references, so the target
-    // offset must coincide with the start of the target block.
-    DCHECK(bb_iter != basic_block_address_space.end());
-    BasicBlock* target_bb = bb_iter->second;
-    DCHECK_EQ(target_base, bb_iter->first.start());
-    DCHECK(target_base == reference.offset() ||
+    // Find the basic block the reference refers to. It can only have an
+    // offset that's different from the base if it's not a code block.
+    BasicBlock* target_bb = subgraph_->FindBasicBlock(reference.base());
+    DCHECK(target_bb != NULL);
+    DCHECK(reference.base() == reference.offset() ||
            target_bb->type() != BasicBlock::BASIC_CODE_BLOCK);
 
-    // Add the referrer to the basic block.
-    if (referrer != block_) {
-      // This is an inter-block reference.
-      bool inserted = target_bb->referrers().insert(
-          BasicBlockReferrer(referrer, source_offset)).second;
-      DCHECK(inserted);
-    } else {
-      // This is an intra-block reference. The referrer is a basic block.
-      RangeMapIter src_bb_iter =
-          basic_block_address_space.FindFirstIntersection(
-              Range(source_offset, 1));
-      // The reference came from this block and we have complete coverage,
-      // so we must be able to find the source basic block.
-      DCHECK(src_bb_iter != basic_block_address_space.end());
-
-      // Convert the offset to one that's local to the basic block.
-      BasicBlock* source_bb = src_bb_iter->second;
-      Offset local_offset = source_offset - source_bb->offset();
-      DCHECK_LE(0, local_offset);
-      DCHECK_LE(local_offset + reference.size(), source_bb->size());
-
-      // Insert the referrer.
-      bool inserted = target_bb->referrers().insert(
-          BasicBlockReferrer(source_bb, local_offset)).second;
-      DCHECK(inserted);
-    }
+    // Insert the referrer into the target bb's referrer set. Note that there
+    // is no corresponding reference update to the referring block. The
+    // target bb will track these so a BlockBuilder can properly update
+    // the referrers when merging a subgraph back into the block-graph.
+    bool inserted = target_bb->referrers().insert(
+        BasicBlockReferrer(referrer, source_offset)).second;
+    DCHECK(inserted);
   }
 
   return true;
@@ -688,9 +650,6 @@ bool BasicBlockDecomposer::PopulateBasicBlockReferrers() {
 template<typename ItemType>
 bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
   DCHECK(item != NULL);
-
-  BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
 
   // Figure out the bounds of item.
   BlockGraph::Offset start_offset = item->offset();
@@ -707,58 +666,45 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
     BlockGraph::Offset local_offset = ref_iter->first - start_offset;
     const BlockGraph::Reference& reference = ref_iter->second;
 
-    DCHECK_LE(local_offset + reference.size(), item->size());
+    // We expect long references for everything except flow control.
+    CHECK_EQ(4U, reference.size());
+    DCHECK_LE(local_offset + reference.size(), item->GetMaxSize());
 
-    if (reference.referenced() == block_) {
-      // For intra block_ references, find the corresponding basic block in
-      // the basic block address space.
-      Offset target_base = reference.base();
-      RangeMapIter bb_iter = basic_block_address_space.FindFirstIntersection(
-          Range(target_base, 1));
-
-      // We have complete coverage of the block; there must be an intersection.
-      // And, we break up the basic blocks by code references, so the target
-      // offset must coincide with the start of the target block.
-      DCHECK(bb_iter != basic_block_address_space.end());
-      BasicBlock* target_bb = bb_iter->second;
-      DCHECK_EQ(target_base, bb_iter->first.start());
-
-      // Create target basic-block relative values for the base and offset.
-      Offset target_offset = reference.offset() - target_base;
-      target_base = 0;
-
-      // Insert a reference to the target basic block.
-      bool inserted = item->references().insert(
-          std::make_pair(local_offset,
-                         BasicBlockReference(reference.type(),
-                                             reference.size(),
-                                             target_bb,
-                                             target_offset,
-                                             target_base))).second;
+    if (reference.referenced() != block_) {
+      // For external references, we can directly reference the other block.
+      bool inserted = item->SetReference(
+          local_offset,
+          BasicBlockReference(reference.type(), reference.size(),
+                              reference.referenced(), reference.offset(),
+                              reference.base()));
       DCHECK(inserted);
     } else {
-      // For external references, we can directly reference the other block.
-      bool inserted = item->references().insert(
-          std::make_pair(local_offset,
-                         BasicBlockReference(reference.type(),
-                                             reference.size(),
-                                             reference.referenced(),
-                                             reference.offset(),
-                                             reference.base()))).second;
+      // For intra block_ references, find the corresponding basic block in
+      // the basic block address space.
+      BasicBlock* target_bb = subgraph_->FindBasicBlock(reference.base());
+      DCHECK(target_bb != NULL);
+
+      // Create target basic-block relative values for the base and offset.
+      Offset target_offset = reference.offset() - reference.base();
+
+      // Insert a reference to the target basic block.
+      bool inserted = item->SetReference(
+          local_offset,
+          BasicBlockReference(reference.type(), reference.size(), target_bb,
+                              target_offset, 0));
       DCHECK(inserted);
     }
   }
-
   return true;
 }
 
-bool BasicBlockDecomposer::PopulateBasicBlockReferences() {
+bool BasicBlockDecomposer::CopyReferences() {
   BBAddressSpace& basic_block_address_space =
       subgraph_->original_address_space();
 
   // Copy the references for the source range of each basic-block (by
-  // instruction for code basic-blocks). The referrers and successors are
-  // handled in a separate pass.
+  // instruction for code basic-blocks). External referrers and successors are
+  // handled in separate passes.
   RangeMapIter bb_iter = basic_block_address_space.begin();
   for (; bb_iter != basic_block_address_space.end(); ++bb_iter) {
     BasicBlock* bb = bb_iter->second;
@@ -793,36 +739,23 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
     BasicBlock::Successors::iterator succ_iter = bb->successors().begin();
     BasicBlock::Successors::iterator succ_iter_end = bb->successors().end();
     for (; succ_iter != succ_iter_end; ++succ_iter) {
-      if (succ_iter->branch_target().IsValid()) {
+      if (succ_iter->reference().IsValid()) {
         // The branch target is already resolved; it must have been inter-block.
-        DCHECK(succ_iter->branch_target().block() != block_);
-        DCHECK(succ_iter->branch_target().block() != NULL);
+        DCHECK(succ_iter->reference().block() != block_);
+        DCHECK(succ_iter->reference().block() != NULL);
         continue;
       }
 
       // Find the basic block the successor references.
-      RangeMapIter bb_iter = basic_block_address_space.FindFirstIntersection(
-          Range(succ_iter->bb_target_offset(), 1));
-      DCHECK(bb_iter != basic_block_address_space.end());
-      BasicBlock* target_bb = bb_iter->second;
-      DCHECK_EQ(succ_iter->bb_target_offset(), bb_iter->first.start());
+      BasicBlock* target_bb =
+          subgraph_->FindBasicBlock(succ_iter->bb_target_offset());
+      DCHECK(target_bb != NULL);
 
-      // TODO(rogerm): It's not clear to me that BasicBlockReference objects
-      //     need to track the reference type and size. We'll be re-synthesizing
-      //     them later anyway, without regard for these initial values.
-      succ_iter->set_branch_target(
+      // We transform all successor branches into 4-byte pc-relative targets.
+      bool inserted = succ_iter->SetReference(
           BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target_bb, 0, 0));
-      DCHECK(succ_iter->branch_target().IsValid());
-
-      // TODO(rogerm): This is awkward. We want the offset of the reference if
-      //     this came from a real instruction but -1 as a special sentinel if
-      //     this is a synthesized branch-not-taken. But the resulting offset
-      //     will actually be variable depending on how we re-synthesize the
-      //     branch. For now, successors are special case in that referrers
-      //     will point to the offset where the instruction would start.
-      bool inserted = target_bb->referrers().insert(
-          BasicBlockReferrer(bb, succ_iter->instruction_offset())).second;
       DCHECK(inserted);
+      DCHECK(succ_iter->reference().IsValid());
     }
   }
 

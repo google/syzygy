@@ -95,6 +95,72 @@ bool IsConditionalBranch(const Instruction& inst) {
   return META_GET_FC(inst.representation().meta) == FC_CND_BRANCH;
 }
 
+template<typename T>
+BasicBlockReferrer MakeReferrer(T* object, BasicBlock::Offset offset) {
+  return BasicBlockReferrer(object, offset);
+}
+
+template<>
+BasicBlockReferrer MakeReferrer(Successor* object, BasicBlock::Offset offset) {
+  return BasicBlockReferrer(object);
+}
+
+template<typename T>
+bool UpdateBasicBlockReferenceMap(T* object,
+                                  BasicBlock::BasicBlockReferenceMap* ref_map,
+                                  BasicBlock::Offset offset,
+                                  const BasicBlockReference& ref) {
+  DCHECK(object != NULL);
+  DCHECK(ref_map != NULL);
+  DCHECK(ref.IsValid());
+  DCHECK_LE(BasicBlock::kNoOffset, offset);
+  DCHECK_LE(offset + ref.size(), object->GetMaxSize());
+
+  typedef BasicBlock::BasicBlockReferenceMap::iterator Iterator;
+
+  // Attempt to perform the insertion, returning the insert location and
+  // whether or not the value at the insert location has been set to ref.
+  std::pair<Iterator, bool> result =
+      ref_map->insert(std::make_pair(offset, ref));
+
+#ifndef NDEBUG
+  // Validate no overlap with the previous reference, if any.
+  if (result.first != ref_map->begin()) {
+   Iterator prev(result.first);
+    --prev;
+    DCHECK_GE(static_cast<BasicBlock::Size>(offset),
+              prev->first + prev->second.size());
+  }
+
+  // Validate no overlap with the next reference, if any.
+  Iterator next(result.first);
+  ++next;
+  DCHECK(next == ref_map->end() ||
+         static_cast<BasicBlock::Size>(next->first) >= offset + ref.size());
+#endif
+
+  // If the value wasn't actually inserted, then update it.
+  BasicBlockReferrer referrer(MakeReferrer(object, offset));
+  if (!result.second) {
+    BasicBlockReference old = result.first->second;
+    DCHECK_EQ(old.size(), ref.size());
+    DCHECK_EQ(old.reference_type(), ref.reference_type());
+    if (old.referred_type() == BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK) {
+      size_t num_erased = old.basic_block()->referrers().erase(referrer);
+      DCHECK_EQ(1U, num_erased);
+    }
+    old = ref;
+  }
+
+  if (ref.referred_type() == BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK) {
+    BasicBlock* referred = const_cast<BasicBlock*>(ref.basic_block());
+    bool inserted = referred->referrers().insert(referrer).second;
+    DCHECK(inserted);
+  }
+
+  return result.second;
+}
+
 }  // namespace
 
 BasicBlockReference::BasicBlockReference()
@@ -161,10 +227,8 @@ BasicBlockReferrer::BasicBlockReferrer(const BasicBlock* basic_block,
       referrer_(basic_block),
       offset_(offset) {
   DCHECK(basic_block != NULL);
-
-  // An offset of kNoOffset is used to indicate that the referrer
-  // range is within a synthesized successor (for example, a branch-not-taken).
-  DCHECK_GE(offset, BasicBlock::kNoOffset);
+  DCHECK_GE(offset, 0);
+  DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, basic_block->type());
 }
 
 BasicBlockReferrer::BasicBlockReferrer(const Block* block, Offset offset)
@@ -175,10 +239,41 @@ BasicBlockReferrer::BasicBlockReferrer(const Block* block, Offset offset)
   DCHECK_GE(offset, 0);
 }
 
+BasicBlockReferrer::BasicBlockReferrer(const Instruction* instruction,
+                                       Offset offset)
+    : referrer_type_(REFERRER_TYPE_INSTRUCTION),
+      referrer_(instruction),
+      offset_(offset) {
+  DCHECK(instruction != NULL);
+  DCHECK_GE(offset, 0);
+}
+
+BasicBlockReferrer::BasicBlockReferrer(const Successor* successor)
+    : referrer_type_(REFERRER_TYPE_SUCCESSOR),
+      referrer_(successor),
+      offset_(BasicBlock::kNoOffset) {
+  // An offset of BasicBlock::kNoOffset is used to indicate that the start
+  // offset of the reference is not known a priory (because successors can
+  // by synthesized to various instruction sequences).
+  DCHECK(successor != NULL);
+}
+
 BasicBlockReferrer::BasicBlockReferrer(const BasicBlockReferrer& other)
     : referrer_type_(other.referrer_type_),
       referrer_(other.referrer_),
       offset_(other.offset_) {
+}
+
+bool BasicBlockReferrer::IsValid() const {
+  if (referrer_type_ <= REFERRER_TYPE_UNKNOWN ||
+      referrer_type_ >= MAX_REFERRER_TYPE ||
+      referrer_ == NULL)
+    return false;
+
+  if (referrer_type_ == REFERRER_TYPE_SUCCESSOR)
+    return offset_ >= BasicBlock::kNoOffset;
+
+  return offset_ >= 0;
 }
 
 Instruction::Instruction(const Instruction::Representation& value,
@@ -190,6 +285,10 @@ Instruction::Instruction(const Instruction::Representation& value,
   DCHECK(offset == BasicBlock::kNoOffset || offset >= 0);
   DCHECK_LT(0U, size);
   DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
+}
+
+bool Instruction::SetReference(Offset offset, const BasicBlockReference& ref) {
+  return UpdateBasicBlockReferenceMap(this, &references_, offset, ref);
 }
 
 bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
@@ -412,17 +511,22 @@ Successor::Successor(Successor::Condition type,
   DCHECK(condition_ != kInvalidCondition);
 }
 
-Successor::Successor(Successor::Condition type,
+Successor::Successor(Successor::Condition condition,
                      const BasicBlockReference& target,
                      Offset instruction_offset,
                      Size instruction_size)
-    : condition_(type),
+    : condition_(condition),
       bb_target_offset_(BasicBlock::kNoOffset),
-      branch_target_(target),
       instruction_offset_(instruction_offset),
       instruction_size_(instruction_size) {
-  DCHECK(condition_ != kInvalidCondition);
-  DCHECK(branch_target_.IsValid());
+  DCHECK(condition != kInvalidCondition);
+  bool inserted = SetReference(target);
+  DCHECK(inserted);
+}
+
+const BasicBlockReference& Successor::reference() const {
+  static const BasicBlockReference kNullRef;
+  return references_.empty() ? kNullRef : references_.begin()->second;
 }
 
 Successor::Condition Successor::InvertCondition(Condition cond) {
@@ -459,6 +563,13 @@ Successor::Size Successor::GetMaxSize() const {
   //     inverse cases: kInverseCounterIsZero and kInverseLoop*.
   return core::AssemblerImpl::kMaxInstructionLength;
 }
+
+bool Successor::SetReference(const BasicBlockReference& ref) {
+  return UpdateBasicBlockReferenceMap(
+      this, &references_, BasicBlock::kNoOffset, ref);
+}
+
+
 const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
@@ -541,13 +652,18 @@ size_t BasicBlock::GetMaxSize() const {
 
   Instructions::const_iterator instr_iter = instructions_.begin();
   for (; instr_iter != instructions_.end(); ++instr_iter)
-    max_size += instr_iter->size();
+    max_size += instr_iter->GetMaxSize();
 
   Successors::const_iterator succ_iter = successors_.begin();
   for (; succ_iter != successors_.end(); ++succ_iter)
     max_size += succ_iter->GetMaxSize();
 
   return max_size;
+}
+
+bool BasicBlock::SetReference(Offset offset, const BasicBlockReference& ref) {
+  DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, type_);
+  return UpdateBasicBlockReferenceMap(this, &references_, offset, ref);
 }
 
 }  // namespace block_graph

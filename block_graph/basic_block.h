@@ -28,8 +28,10 @@
 
 namespace block_graph {
 
-class Instruction;
+// Forward declarations.
 class BasicBlock;
+class Instruction;
+class Successor;
 
 // Represents a reference from one basic-block to another basic-block or to
 // another code- or data-block altogether.
@@ -98,10 +100,24 @@ class BasicBlockReference {
         referred_type_ == REFERRED_TYPE_BLOCK ? referred_ : NULL);
   }
 
+  // Retrieves the referenced block or NULL if this reference does not
+  // refer to a block.
+  Block* block() {
+    return static_cast<Block*>(
+        referred_type_ == REFERRED_TYPE_BLOCK ? referred_ : NULL);
+  }
+
   // Retrieves the referenced basic-block or NULL if this reference does not
   // refer to a basic block.
   const BasicBlock* basic_block() const {
     return static_cast<const BasicBlock*>(
+        referred_type_ == REFERRED_TYPE_BASIC_BLOCK ? referred_ : NULL);
+  }
+
+  // Retrieves the referenced basic-block or NULL if this reference does not
+  // refer to a basic block.
+  BasicBlock* basic_block() {
+    return static_cast<BasicBlock*>(
         referred_type_ == REFERRED_TYPE_BASIC_BLOCK ? referred_ : NULL);
   }
 
@@ -163,6 +179,8 @@ class BasicBlockReferrer {
     REFERRER_TYPE_UNKNOWN,
     REFERRER_TYPE_BLOCK,
     REFERRER_TYPE_BASIC_BLOCK,
+    REFERRER_TYPE_INSTRUCTION,
+    REFERRER_TYPE_SUCCESSOR,
 
     // This enum value should always be last.
     MAX_REFERRER_TYPE,
@@ -183,6 +201,17 @@ class BasicBlockReferrer {
   // @param offset The offset in the basic block at which the reference occurs.
   BasicBlockReferrer(const BasicBlock* basic_block, Offset offset);
 
+  // Create a BasicBlockReferrer which tracks that an instruction makes
+  // reference to this basic block.
+  // @param instruction The instruction which refers to this basic block.
+  // @param offset The offset in the instruction at which the reference occurs.
+  BasicBlockReferrer(const Instruction* instruction, Offset offset);
+
+  // Create a BasicBlockReferrer which tracks that a successor makes
+  // reference to this basic block.
+  // @param successor The successor which refers to this basic block.
+  explicit BasicBlockReferrer(const Successor* successor);
+
   // Create a copy of the @p other BasicBlockReferrer.
   // @param other A basic block referrer record to be copy constructed.
   BasicBlockReferrer(const BasicBlockReferrer& other);
@@ -202,16 +231,24 @@ class BasicBlockReferrer {
       referrer_type_ == REFERRER_TYPE_BASIC_BLOCK ? referrer_ : NULL);
   }
 
+  // Returns the instruction which refers to this basic block, or NULL.
+  const Instruction* instruction() const {
+    return static_cast<const Instruction*>(
+        referrer_type_ == REFERRER_TYPE_INSTRUCTION ? referrer_ : NULL);
+  }
+
+  // Returns the basic block which refers to this basic block, or NULL.
+  const Successor* successor() const {
+    return static_cast<const Successor*>(
+      referrer_type_ == REFERRER_TYPE_SUCCESSOR ? referrer_ : NULL);
+  }
+
   // Returns the offset in the referrer at which the reference to
   // the basic block occurs.
   Offset offset() const { return offset_; }
 
   // Returns whether or not this is a valid basic block referrer object.
-  bool IsValid() const {
-    return referrer_type_ != REFERRER_TYPE_UNKNOWN &&
-        referrer_ != NULL &&
-        offset_ >= 0;
-  }
+  bool IsValid() const;
 
   // Equality comparator.
   bool operator==(const BasicBlockReferrer& other) const {
@@ -275,6 +312,13 @@ class Instruction {
   Size size() const { return size_; }
   /// @}
 
+  // Returns the maximum size required to serialize this instruction.
+  Size GetMaxSize() const { return size_; }
+
+  // Add a reference @p ref to this instruction at @p offset. If the reference
+  // is to a basic block, also update that basic blocks referrer set.
+  bool SetReference(Offset offset, const BasicBlockReference& ref);
+
   // Helper function to invert a conditional branching opcode.
   static bool InvertConditionalBranchOpcode(uint16* opcode);
 
@@ -302,6 +346,7 @@ class Successor {
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef BlockGraph::Offset Offset;
   typedef BlockGraph::Size Size;
+  typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
   // The op-code of an binary instruction.
   typedef uint16 OpCode;
@@ -379,7 +424,7 @@ class Successor {
   //
   // It is expected that a subsequent pass through the basic-block address
   // space will be used to resolve each absolute address to a basic block
-  // structure and that each successor will have its branch_target set.
+  // structure and that each successor will have its reference set.
   //
   // @param condition the branching condition for this successor.
   // @param target the absolute address to which this successor refers.
@@ -389,8 +434,8 @@ class Successor {
   //     occupies in the original block.
   Successor(Condition condition,
             Offset bb_target_offset,
-            Offset source_instruction_offset,
-            Size source_instruction_size);
+            Offset instruction_offset,
+            Size instruction_size);
 
   // Creates a successor that resolves to a known block or basic block.
   //
@@ -401,23 +446,26 @@ class Successor {
   // @param size the length (in bytes) that the instructions for this successor
   //     occupies in the original block.
   Successor(Condition condition,
-            const BasicBlockReference& target_,
-            Offset offset,
-            Size size);
+            const BasicBlockReference& target,
+            Offset instruction_offset,
+            Size instruction_size);
   // @}
 
   // Accessors.
   // @{
   // The type of branch represented by this successor.
   Condition condition() const { return condition_; }
-  const BasicBlockReference& branch_target() const { return branch_target_; }
-  void set_branch_target(const BasicBlockReference& target) {
-    branch_target_ = target;
-  }
+  const BasicBlockReference& reference() const;
   Offset bb_target_offset() const { return bb_target_offset_; }
   Offset instruction_offset() const { return instruction_offset_; }
   Size instruction_size() const { return instruction_size_; }
   // @}
+
+  // Set the target reference @p ref for this successor. If @p ref refers
+  // to a basic block, also update that basic block's referrer set.
+  // @pre The @p offset must be BasicBlock::kNoOffset. It is retained in this
+  //     interface for compatibility with utility functions.
+  bool SetReference(const BasicBlockReference& ref);
 
   // Return the maximum size needed to synthesize this successor as one
   // or more instructions.
@@ -445,8 +493,11 @@ class Successor {
   // facilitates resolving the target basic block after the fact.
   Offset bb_target_offset_;
 
-  // The basic block of instructions that are the target of this successor.
-  BasicBlockReference branch_target_;
+  // A container for the reference made by this successor. There will only
+  // ever be one entry here, but we reuse the reference map to allow us to
+  // leverage the same utility function for all the other basic-block
+  // subgraph elements.
+  BasicBlockReferenceMap references_;
 
   // The byte range in the original block where this instruction originates.
   // @{
@@ -544,6 +595,12 @@ class BasicBlock {
   // Return the maximum number of bytes this basic block can require (not
   // including any trailing padding).
   size_t GetMaxSize() const;
+
+  // Add a reference @p ref to this basic block at @p offset. If the reference
+  // is to a basic block, also update that basic blocks referrer set.
+  // @pre This should be a basic data block; otherwise the references should
+  //     be set on a code basic block's instructions and successors.
+  bool SetReference(Offset offset, const BasicBlockReference& ref);
 
  protected:
   // The ID for this basic block.

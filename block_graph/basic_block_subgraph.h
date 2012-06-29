@@ -129,6 +129,10 @@ class BasicBlockSubGraph {
   //    for in the new composition.
   bool IsValid() const;
 
+  // Find the basic block that begins at the given offset.
+  // @param base The starting address of the basic block you want to find.
+  BasicBlock* FindBasicBlock(Offset base) const;
+
  protected:
   // @name Validation Functions.
   // @{

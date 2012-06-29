@@ -88,6 +88,25 @@ bool BasicBlockSubGraph::IsValid() const {
       HasValidReferrers();
 }
 
+BasicBlock* BasicBlockSubGraph::FindBasicBlock(Offset base) const {
+  DCHECK_LE(0, base);
+  DCHECK(original_block_ != NULL);
+  DCHECK_GT(original_block_->size(), static_cast<size_t>(base));
+
+  BBAddressSpace::RangeMapConstIter bb_iter =
+      original_address_space_.FindFirstIntersection(
+          BBAddressSpace::Range(base, 1));
+
+  // We have complete coverage of the block; there must be an intersection.
+  // And, we break up the basic blocks by code references, so the target
+  // base must coincide with the start of the target block.
+  DCHECK(bb_iter != original_address_space_.end());
+  BasicBlock* bb = bb_iter->second;
+  DCHECK_EQ(base, bb_iter->first.start());
+
+  return bb;
+}
+
 bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {
   std::set<BasicBlock*> bb_set;
   BlockDescriptionList::const_iterator desc_iter = block_descriptions_.begin();

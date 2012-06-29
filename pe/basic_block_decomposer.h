@@ -152,7 +152,7 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // Propagate the referrers from the original block into the basic blocks
   // so that referrers can be tracked as the basic blocks are manipulated.
-  bool PopulateBasicBlockReferrers();
+  bool CopyExternalReferrers();
 
   // Helper function to populate @p item with the set of references to
   // originating from its source range in the original block. I.e., if item is
@@ -164,7 +164,7 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // Propagate the references from the original block into the basic blocks
   // so that they can be tracked as the basic blocks are manipulated.
-  bool PopulateBasicBlockReferences();
+  bool CopyReferences();
 
   // Resolve intra-block control flow references and referrers.
   bool ResolveSuccessors();
