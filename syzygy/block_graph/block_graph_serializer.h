@@ -77,34 +77,56 @@ class BlockGraphSerializer {
 
   // Defines the callback used to save data for a block. The callback is given
   // the following parameters:
-  //   1. const BlockGraph::Block& block
+  //
+  //   1. bool data_already_saved
+  //      If this is true the block's contents have been saved explicitly in the
+  //      stream.
+  //   2. const BlockGraph::Block& block
   //      The block whose data is to be saved.
-  //   2. OutArchive* out_archive
+  //   3. OutArchive* out_archive
   //      The output archive. Can be used to write data that will then be used
   //      by LoadBlockDataCallback.
+  //
   // If this callback writes any data the matching LoadBlockDataCallback must
   // read the same data. Otherwise, serialization will lose its synchronization
-  // and derail.
-  typedef base::Callback<bool(const BlockGraph::Block&,
+  // and derail. This callback is optional, but if present is called for every
+  // single block. It can be used to serialize additional data alongside a
+  // block.
+  typedef base::Callback<bool(bool,
+                              const BlockGraph::Block&,
                               core::OutArchive*)> SaveBlockDataCallback;
 
   // Defines the callback used to load data for a block. The callback is given
   // the following parameters:
-  //   1. size_t data_size
+  //
+  //   1. bool need_to_set_data
+  //      If this is true then the callback is responsible for filling in the
+  //      block's data. Otherwise, it will already have been set by the time of
+  //      this call.
+  //   2. size_t data_size
   //      The size of the data that was in the block at serialization time.
-  //   2. BlockGraph::Block* block
+  //      Can be ignored if need_to_set_data is false.
+  //   3. BlockGraph::Block* block
   //      The block whose data is to be retrieved. The block will have all of
-  //      its attributes set except the data-size will be zero and the data
-  //      pointer will be null.
-  //   3. InArchive* in_archive
+  //      its attributes set. If need_to_set_data is true then data-size will be
+  //      zero and the data pointer will be null.
+  //   4. InArchive* in_archive
   //      The input archive. Can be used to read data that was written by the
   //      corresponding SaveBlockDataCallback.
-  // The callback should set the data associated with the block and return
-  // true on success. If the call has failed it should return false. Upon
-  // return it is expected that block->data_size() == data_size and that
-  // block->data() != NULL. It is up to the callback to ensure that the contents
-  // match those that were there at serialization time.
-  typedef base::Callback<bool(size_t,
+  //
+  // The callback should read any data set by SaveBlockData. Additionally, if
+  // data_size is non-zero, block->data_size is 0 and the block's data is
+  // currently NULL it should also set the block's data. If the call has failed
+  // it should return false. Upon return it is expected that
+  // block->data_size() == data_size and that block->data() != NULL. It is up to
+  // the callback to ensure that the contents match those that were there at
+  // serialization time.
+  //
+  // If this function is provided it will be called for every single block in
+  // the block-graph. It must be provided if there are any blocks whose data
+  // needs to be set.
+  typedef base::Callback<bool(bool,
+                              size_t,
                               BlockGraph::Block*,
                               core::InArchive*)> LoadBlockDataCallback;
 
@@ -231,12 +253,6 @@ class BlockGraphSerializer {
   bool SaveInt30(int32 value, OutArchive* out_archive) const;
   bool LoadInt30(int32* value, InArchive* in_archive) const;
   // @}
-
-  // A utility function for calling save_block_data_callback_, but only if it
-  // has been set. Does nothing and returns true if it has not been set. If it
-  // has been set returns true on success, false otherwise.
-  bool CallSaveBlockDataCallback(const BlockGraph::Block& block,
-                                 OutArchive* out_archive) const;
 
   // The mode in which the serializer is operating for block data.
   DataMode data_mode_;
