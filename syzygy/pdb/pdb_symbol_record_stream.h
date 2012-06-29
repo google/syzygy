@@ -19,20 +19,13 @@
 
 #include <vector>
 
-#include "base\basictypes.h"
+#include "base/basictypes.h"
+#include "syzygy/pdb/pdb_data_types.h"
 
 namespace pdb {
 
 // Forward declarations.
 class PdbStream;
-
-// Typedefs used to store the content of the different PDB streams.
-struct SymbolRecord {
-  size_t start_position;
-  uint16 len;
-  uint16 type;
-};
-typedef std::vector<SymbolRecord> SymbolRecordVector;
 
 // Read the @p symbol_vector from @p stream.
 bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector);

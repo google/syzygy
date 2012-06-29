@@ -139,6 +139,8 @@ TEST_F(PdbDumpAppTest, ParseCommandlineDumpTypeInfo) {
 TEST_F(PdbDumpAppTest, Run) {
   cmd_line_.AppendArgPath(pdb_file_);
   cmd_line_.AppendSwitch("--explode-streams");
+  cmd_line_.AppendSwitch("--dump-symbol-record");
+  cmd_line_.AppendSwitch("--dump-type-info");
 
   ASSERT_EQ(0, app_.Run());
 
