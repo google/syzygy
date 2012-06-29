@@ -14,11 +14,17 @@
 
 #include "syzygy/pdb/pdb_dump_util.h"
 
+#include "syzygy/pdb/cvinfo_ext.h"
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
 
-bool DumpUnknownBlock(FILE* out, PdbStream* stream, uint16 len) {
+namespace cci = Microsoft_Cci_Pdb;
+
+bool DumpUnknownBlock(FILE* out,
+                      PdbStream* stream,
+                      uint16 len,
+                      uint8 level_of_indent) {
   uint8 buffer[32];
   size_t bytes_read = 0;
   while (bytes_read < len) {
@@ -31,7 +37,7 @@ bool DumpUnknownBlock(FILE* out, PdbStream* stream, uint16 len) {
       LOG(ERROR) << "Unable to read stream.";
       return false;
     }
-    ::fprintf(out, "\t\t");
+    DumpTabs(out, level_of_indent);
     for (size_t i = 0; i < bytes_just_read; ++i)
       ::fprintf(out, "%X", buffer[i]);
     ::fprintf(out, "\n");
@@ -39,6 +45,13 @@ bool DumpUnknownBlock(FILE* out, PdbStream* stream, uint16 len) {
   }
 
   return true;
+}
+
+void DumpTabs(FILE* out, uint8 level_of_indent) {
+  DCHECK(out != NULL);
+  for (uint8 i = 0; i < level_of_indent;  ++i) {
+    fputc('\t', out);
+  }
 }
 
 }  // namespace pdb

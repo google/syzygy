@@ -20,6 +20,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/cvinfo_ext.h"
 #include "syzygy/pdb/pdb_dump_util.h"
+#include "syzygy/pdb/pdb_leaf.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 
@@ -28,184 +29,6 @@ namespace pdb {
 namespace cci = Microsoft_Cci_Pdb;
 
 namespace {
-
-// These function allows to display a particular kind of numeric value in the
-// out stream.
-
-void DumpFLOAT10(FILE* out, cci::FLOAT10 float10) {
-  fprintf(out, "%d", float10.Data_0);
-  fprintf(out, "%d", float10.Data_1);
-  fprintf(out, "%d", float10.Data_2);
-  fprintf(out, "%d", float10.Data_3);
-  fprintf(out, "%d", float10.Data_4);
-  fprintf(out, "%d", float10.Data_5);
-  fprintf(out, "%d", float10.Data_6);
-  fprintf(out, "%d", float10.Data_7);
-  fprintf(out, "%d", float10.Data_8);
-  fprintf(out, "%d", float10.Data_9);
-}
-
-void DumpLeafChar(FILE* out, PdbStream* stream) {
-  cci::LeafChar numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-void DumpLeafShort(FILE* out, PdbStream* stream) {
-  cci::LeafShort numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-void DumpLeafUShort(FILE* out, PdbStream* stream) {
-  cci::LeafUShort numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-void DumpLeafLong(FILE* out, PdbStream* stream) {
-  cci::LeafLong numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-void DumpLeafULong(FILE* out, PdbStream* stream) {
-  cci::LeafULong numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-// In the tests used to validate these function I've added a const double to my
-// test program to make sure that it is saved as a LeafReal64 in the PDB (I've
-// initialized it to Pi to make sure it is not implicitly converted to an
-// integer) but the type associated with its value is LF_ULONG. I've verified in
-// the PDB to make sure this is not an error in my code and this is really the
-// type present for this value (0x8004). This is also the case for the float
-// type. It may be related to the type index. For each symbol there is a field
-// for the value (and the type associated with it if it's a numeric type) and a
-// field called "type index" which seems to refer to a type present in the type
-// info stream. An error is logged if we encounter a LeafReal type for one
-// symbol.
-
-const char* unexpected_real_type = "This type is unexpected.";
-
-void DumpLeafReal32(FILE* out, PdbStream* stream) {
-  LOG(WARNING) << unexpected_real_type;
-  cci::LeafReal32 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%f", numeric_value.val);
-}
-
-void DumpLeafReal64(FILE* out, PdbStream* stream) {
-  LOG(WARNING) << unexpected_real_type;
-  cci::LeafReal64 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%f", numeric_value.val);
-}
-
-void DumpLeafReal80(FILE* out, PdbStream* stream) {
-  LOG(WARNING) << unexpected_real_type;
-  cci::LeafReal80 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  DumpFLOAT10(out, numeric_value.val);
-}
-
-void DumpLeafReal128(FILE* out, PdbStream* stream) {
-  LOG(WARNING) << unexpected_real_type;
-  cci::LeafReal128 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d%d", numeric_value.val0, numeric_value.val1);
-}
-
-void DumpLeafQuad(FILE* out, PdbStream* stream) {
-  cci::LeafQuad numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-void DumpLeafUQuad(FILE* out, PdbStream* stream) {
-  cci::LeafUQuad numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "%d", numeric_value.val);
-}
-
-void DumpLeafCmplx32(FILE* out, PdbStream* stream) {
-  cci::LeafCmplx32 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "real: %f, imaginary: %f", numeric_value.val_real,
-            numeric_value.val_imag);
-}
-
-void DumpLeafCmplx64(FILE* out, PdbStream* stream) {
-  cci::LeafCmplx64 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "real: %f, imaginary: %f", numeric_value.val_real,
-            numeric_value.val_imag);
-}
-
-void DumpLeafCmplx80(FILE* out, PdbStream* stream) {
-  cci::LeafCmplx80 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "real: ");
-  DumpFLOAT10(out, numeric_value.val_real);
-  ::fprintf(out, ", imaginary: ");
-  DumpFLOAT10(out, numeric_value.val_imag);
-}
-
-void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
-  cci::LeafCmplx128 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
-    LOG(ERROR) << "Unable to read numeric value.";
-    return;
-  }
-  ::fprintf(out, "real: %f, imaginary: %f",
-            numeric_value.val0_real,
-            numeric_value.val1_real,
-            numeric_value.val0_imag,
-            numeric_value.val0_imag);
-}
 
 // Return the string value associated with a symbol type.
 const char* SymbolTypeName(uint16 symbol_type) {
@@ -220,51 +43,6 @@ const char* SymbolTypeName(uint16 symbol_type) {
     default :
       return NULL;
   }
-}
-
-// Returns the size of the struct associated with a numeric leaf type.
-size_t NumericLeafSize(uint16 symbol_type) {
-  switch (symbol_type) {
-#define LEAF_TYPE_SIZE(sym_type, struct_type) \
-    case cci::sym_type: { \
-      return sizeof(cci::struct_type); \
-    }
-    NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_SIZE);
-#undef LEAF_TYPE_SIZE
-    default:
-      return 0;
-  }
-}
-
-// Returns the name associated with a numeric leaf type.
-const char* NumericLeafName(uint16 leaf_type) {
-  switch (leaf_type) {
-// Just return the name of the leaf type.
-#define LEAF_TYPE_NAME(leaf_type, unused) \
-    case cci::leaf_type: { \
-      return #leaf_type; \
-    }
-    NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_NAME);
-#undef LEAF_TYPE_NAME
-    default:
-      return NULL;
-  }
-}
-
-// Get the name and the size associated with a numeric leaf.
-// Return NULL if the leaf is not of a numeric type.
-const char* GetNumericLeafNameAndSize(uint16 leaf_type, size_t* leaf_size) {
-  const char* leaf_name = NULL;
-  if (leaf_type >= cci::LF_NUMERIC) {
-    leaf_name = NumericLeafName(leaf_type);
-    if (leaf_name == NULL) {
-      LOG(ERROR) << "Unsupported leaf type " << StringPrintf("0x%04X.",
-                                                             leaf_type);
-      return false;
-    }
-    *leaf_size = NumericLeafSize(leaf_type);
-  }
-  return leaf_name;
 }
 
 // Dump a symbol record using RefSym2 struct to out.
@@ -382,16 +160,7 @@ bool DumpConstSym(FILE* out, PdbStream* stream, uint16 len) {
     ::fprintf(out, "\t\tValue: 0x%04X\n", symbol_info.value);
   } else {
     ::fprintf(out, "\t\tValue: type=%s, value=", value_type);
-    switch (symbol_info.value) {
-// Call a function to dump a specific (value_type) kind of numeric value.
-#define LEAF_TYPE_DUMP(sym_type, struct_type) \
-    case cci::sym_type: { \
-      Dump ## struct_type(out, stream); \
-      break; \
-    }
-      NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_DUMP);
-#undef function
-    }
+    DumpNumericLeaf(out, symbol_info.value, stream);
     ::fprintf(out, "\n");
   }
   std::string symbol_name;
@@ -580,8 +349,10 @@ bool DumpDiscardedSym(FILE* out, PdbStream* stream, uint16 len) {
 
 // Hexdump the data of the undeciphered symbol records.
 bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len) {
-  ::fprintf(out, "\t\tUnsupported symbol type. Data:\n");
-  return DumpUnknownBlock(out, stream, len);
+  uint8 level_of_indent = 2;
+  pdb::DumpTabs(out, level_of_indent);
+  ::fprintf(out, "Unsupported symbol type. Data:\n");
+  return DumpUnknownBlock(out, stream, len, level_of_indent);
 }
 
 }  //  namespace

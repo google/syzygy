@@ -158,34 +158,34 @@
     decl(LF_VTSHAPE, LeafVTShape) \
     decl(LF_COBOL1, LeafCobol1) \
     decl(LF_LABEL, LeafLabel) \
-    decl(LF_NULL, Unknown) \
-    decl(LF_NOTTRAN, Unknown) \
+    decl(LF_NULL, UnknownLeaf) \
+    decl(LF_NOTTRAN, UnknownLeaf) \
     decl(LF_ENDPRECOMP, LeafEndPreComp) \
-    decl(LF_TYPESERVER_ST, Unknown) \
+    decl(LF_TYPESERVER_ST, UnknownLeaf) \
     decl(LF_LIST, LeafList) \
     decl(LF_REFSYM, LeafRefSym) \
-    decl(LF_ENUMERATE_ST, Unknown) \
-    decl(LF_TI16_MAX, Unknown) \
+    decl(LF_ENUMERATE_ST, UnknownLeaf) \
+    decl(LF_TI16_MAX, UnknownLeaf) \
     decl(LF_MODIFIER, LeafModifier) \
     decl(LF_POINTER, LeafPointer) \
-    decl(LF_ARRAY_ST, Unknown) \
-    decl(LF_CLASS_ST, Unknown) \
-    decl(LF_STRUCTURE_ST, Unknown) \
-    decl(LF_UNION_ST, Unknown) \
-    decl(LF_ENUM_ST, Unknown) \
+    decl(LF_ARRAY_ST, UnknownLeaf) \
+    decl(LF_CLASS_ST, UnknownLeaf) \
+    decl(LF_STRUCTURE_ST, UnknownLeaf) \
+    decl(LF_UNION_ST, UnknownLeaf) \
+    decl(LF_ENUM_ST, UnknownLeaf) \
     decl(LF_PROCEDURE, LeafProc) \
     decl(LF_MFUNCTION, LeafMFunc) \
     decl(LF_COBOL0, LeafCobol0) \
     decl(LF_BARRAY, LeafBArray) \
-    decl(LF_DIMARRAY_ST, Unknown) \
+    decl(LF_DIMARRAY_ST, UnknownLeaf) \
     decl(LF_VFTPATH, LeafVFTPath) \
-    decl(LF_PRECOMP_ST, Unknown) \
+    decl(LF_PRECOMP_ST, UnknownLeaf) \
     decl(LF_OEM, LeafOEM) \
-    decl(LF_ALIAS_ST, Unknown) \
+    decl(LF_ALIAS_ST, UnknownLeaf) \
     decl(LF_OEM2, LeafOEM2) \
     decl(LF_SKIP, LeafSkip) \
     decl(LF_ARGLIST, LeafArgList) \
-    decl(LF_DEFARG_ST, Unknown) \
+    decl(LF_DEFARG_ST, UnknownLeaf) \
     decl(LF_FIELDLIST, LeafFieldList) \
     decl(LF_DERIVED, LeafDerived) \
     decl(LF_BITFIELD, LeafBitfield) \
@@ -197,19 +197,19 @@
     decl(LF_BCLASS, LeafBClass) \
     decl(LF_VBCLASS, LeafVBClass) \
     decl(LF_IVBCLASS, LeafVBClass) \
-    decl(LF_FRIENDFCN_ST, Unknown) \
+    decl(LF_FRIENDFCN_ST, UnknownLeaf) \
     decl(LF_INDEX, LeafIndex) \
-    decl(LF_MEMBER_ST, Unknown) \
-    decl(LF_STMEMBER_ST, Unknown) \
-    decl(LF_METHOD_ST, Unknown) \
-    decl(LF_NESTTYPE_ST, Unknown) \
+    decl(LF_MEMBER_ST, UnknownLeaf) \
+    decl(LF_STMEMBER_ST, UnknownLeaf) \
+    decl(LF_METHOD_ST, UnknownLeaf) \
+    decl(LF_NESTTYPE_ST, UnknownLeaf) \
     decl(LF_VFUNCTAB, LeafVFuncTab) \
-    decl(LF_FRIENDCLS, Unknown) \
-    decl(LF_ONEMETHOD_ST, Unknown) \
+    decl(LF_FRIENDCLS, UnknownLeaf) \
+    decl(LF_ONEMETHOD_ST, UnknownLeaf) \
     decl(LF_VFUNCOFF, LeafVFuncOff) \
-    decl(LF_NESTTYPEEX_ST, Unknown) \
-    decl(LF_MEMBERMODIFY_ST, Unknown) \
-    decl(LF_MANAGED_ST, Unknown) \
+    decl(LF_NESTTYPEEX_ST, UnknownLeaf) \
+    decl(LF_MEMBERMODIFY_ST, UnknownLeaf) \
+    decl(LF_MANAGED_ST, UnknownLeaf) \
     decl(LF_TYPESERVER, LeafTypeServer) \
     decl(LF_ENUMERATE, LeafEnumerate) \
     decl(LF_ARRAY, LeafArray) \

@@ -22,20 +22,12 @@
 
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_data_types.h"
 
 namespace pdb {
 
 // Forward declarations.
 class PdbStream;
-
-// Store the basic information for a type info record.
-struct TypeInfoRecord {
-  size_t start_position;
-  uint16 len;
-  uint16 type;
-};
-// Map with the type number as a key and the TypeInfoRecord as a value.
-typedef std::map<uint32, TypeInfoRecord> TypeInfoRecordMap;
 
 // Read @p type_info_header and @p type_info_record_map from @p stream.
 bool ReadTypeInfoStream(PdbStream* stream,
