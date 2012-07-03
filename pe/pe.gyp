@@ -104,6 +104,8 @@
         'pe_utils.h',
         'pe_relinker.cc',
         'pe_relinker.h',
+        'serialization.cc',
+        'serialization.h',
       ],
       'dependencies': [
         'dia_sdk',
@@ -184,6 +186,7 @@
         'pe_unittests_main.cc',
         'pe_utils_unittest.cc',
         'pe_relinker_unittest.cc',
+        'serialization_unittest.cc',
       ],
       'dependencies': [
         'pe_app_lib',

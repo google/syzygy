@@ -309,12 +309,14 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
   uint8 type = static_cast<uint8>(block.type());
   uint16 attributes = static_cast<uint16>(block.attributes());
 
+  // We use a signed integer for saving the section ID, as -1 is used to
+  // indicate 'no section'.
   if (!out_archive->Save(type) ||
       !SaveUint30(block.size(), out_archive) ||
       !SaveUint30(block.alignment(), out_archive) ||
       !out_archive->Save(block.source_ranges()) ||
       !out_archive->Save(block.addr()) ||
-      !SaveUint30(block.section(), out_archive) ||
+      !SaveInt30(static_cast<uint32>(block.section()), out_archive) ||
       !out_archive->Save(attributes) ||
       !MaybeSaveString(*this, block.name(), out_archive)) {
     LOG(ERROR) << "Unable to save properties for block with id "
@@ -349,7 +351,7 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
       !LoadUint30(&alignment, in_archive) ||
       !in_archive->Load(&block->source_ranges_) ||
       !in_archive->Load(&block->addr_) ||
-      !LoadUint30(&section, in_archive) ||
+      !LoadInt30(reinterpret_cast<int32*>(&section), in_archive) ||
       !in_archive->Load(&attributes) ||
       !MaybeLoadString(*this, &block->name_, in_archive)) {
     LOG(ERROR) << "Unable to load properties for block with id "
@@ -370,6 +372,7 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   block->size_ = size;
   block->alignment_ = alignment;
   block->section_ = section;
+  block->attributes_ = attributes;
 
   return true;
 }
@@ -456,6 +459,8 @@ bool BlockGraphSerializer::LoadBlockLabels(BlockGraph::Block* block,
 
 bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
                                          OutArchive* out_archive) const {
+  DCHECK(out_archive != NULL);
+
   // We always output the data size.
   uint32 data_size = block.data_size();
   if (!SaveUint30(data_size, out_archive)) {
@@ -464,38 +469,40 @@ bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
     return false;
   }
 
-  // If the block has no data, there's nothing to do!
-  if (block.data_size() == 0)
-    return true;
-
   bool output_data = false;
 
-  switch (data_mode_) {
-    default:
-      NOTREACHED();
+  if (block.data_size() > 0) {
+    switch (data_mode_) {
+      default:
+        NOTREACHED();
 
-    case OUTPUT_NO_DATA:
-      break;
-
-    case OUTPUT_OWNED_DATA: {
-      uint8 owns_data = block.owns_data();
-      if (!out_archive->Save(owns_data)) {
-        LOG(ERROR) << "Unable to save 'owns_data' field of block with id "
-                   << block.id() << ".";
-        return false;
+      case OUTPUT_NO_DATA: {
+        output_data = false;
+        break;
       }
 
-      output_data = block.owns_data();
-      break;
-    }
+      case OUTPUT_OWNED_DATA: {
+        uint8 owns_data = block.owns_data();
+        if (!out_archive->Save(owns_data)) {
+          LOG(ERROR) << "Unable to save 'owns_data' field of block with id "
+                     << block.id() << ".";
+          return false;
+        }
 
-    case OUTPUT_ALL_DATA: {
-      output_data = true;
-      break;
+        output_data = block.owns_data();
+        break;
+      }
+
+      case OUTPUT_ALL_DATA: {
+        output_data = true;
+        break;
+      }
     }
   }
 
+  // Save the data if we need to.
   if (output_data) {
+    DCHECK_LT(0u, block.data_size());
     if (!out_archive->out_stream()->Write(block.data_size(), block.data())) {
       LOG(ERROR) << "Unable to save data for block with id "
                  << block.id() << ".";
@@ -507,8 +514,12 @@ bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
   if (save_block_data_callback_.get() == NULL)
     return true;
 
-  if (!save_block_data_callback_->Run(output_data, block, out_archive))
+  // Invoke the callback.
+  bool data_already_saved = output_data || block.data_size() == 0;
+  if (!save_block_data_callback_->Run(data_already_saved,
+                                      block, out_archive)) {
     return false;
+  }
 
   return true;
 }
@@ -528,41 +539,45 @@ bool BlockGraphSerializer::LoadBlockData(BlockGraph::Block* block,
     return false;
   }
 
-  // If there's no data to read, we're done.
-  if (data_size == 0)
-    return true;
-
   // This indicates whether or not we need to explicitly load the data directly
   // from the serialized stream.
-  bool load_data = false;
+  bool data_in_stream = false;
 
-  switch (data_mode_) {
-    default:
-      NOTREACHED();
+  if (data_size > 0) {
+    switch (data_mode_) {
+      default:
+        NOTREACHED();
 
-    case OUTPUT_NO_DATA:
-      break;
-
-    case OUTPUT_OWNED_DATA: {
-      uint8 owns_data = 0;
-      if (!in_archive->Load(&owns_data)) {
-        LOG(ERROR) << "Unable to load 'owns_data' field of block with id "
-                   << block->id() << ".";
-        return false;
+      case OUTPUT_NO_DATA: {
+        data_in_stream = false;
+        break;
       }
 
-      // If we own the data, we'll read it explicitly.
-      load_data = owns_data != 0;
-      break;
-    }
+      case OUTPUT_OWNED_DATA: {
+        uint8 owns_data = 0;
+        if (!in_archive->Load(&owns_data)) {
+          LOG(ERROR) << "Unable to load 'owns_data' field of block with id "
+                     << block->id() << ".";
+          return false;
+        }
 
-    case OUTPUT_ALL_DATA: {
-      load_data = true;
-      break;
+        // If we own the data then it must have been serialized to the stream.
+        data_in_stream = owns_data != 0;
+        break;
+      }
+
+      case OUTPUT_ALL_DATA: {
+        data_in_stream = true;
+        break;
+      }
     }
   }
 
-  if (load_data) {
+  bool callback_needs_to_set_data = !data_in_stream && data_size > 0;
+
+  if (data_in_stream) {
+    DCHECK_LT(0u, data_size);
+
     // Read the data from the stream.
     block->AllocateData(data_size);
     DCHECK_EQ(data_size, block->data_size());
@@ -572,9 +587,11 @@ bool BlockGraphSerializer::LoadBlockData(BlockGraph::Block* block,
                  << block->id() << ".";
       return false;
     }
-  } else {
-    // If we didn't explicitly load the data, then we expect the callback to do
-    // it. We make sure there is one.
+  }
+
+  if (callback_needs_to_set_data) {
+    // If we didn't explicitly load the data, then we expect the callback to
+    // do it. We make sure there is one.
     if (load_block_data_callback_.get() == NULL) {
       LOG(ERROR) << "No load block data callback specified.";
       return false;
@@ -583,19 +600,23 @@ bool BlockGraphSerializer::LoadBlockData(BlockGraph::Block* block,
 
   // If there's a callback, invoke it.
   if (load_block_data_callback_.get()) {
-    if (!load_block_data_callback_->Run(
-        !load_data, data_size, block, in_archive)) {
+    if (!load_block_data_callback_->Run(callback_needs_to_set_data,
+                                        data_size,
+                                        block,
+                                        in_archive)) {
       LOG(ERROR) << "Block data callback failed.";
       return false;
     }
   }
 
-  if (!load_data) {
-    // The block data should be appropriately set after the callback.
-    if (block->data_size() != data_size || block->data() == NULL) {
-      LOG(ERROR) << "Load block data callback failed to set block data.";
-      return false;
-    }
+  if (data_size > 0 && block->data() == NULL) {
+    LOG(ERROR) << "Load block data callback failed to set block data.";
+    return false;
+  }
+
+  if (block->data_size() != data_size) {
+    LOG(ERROR) << "Load block data callback set incorrect data size.";
+    return false;
   }
 
   return true;
