@@ -130,26 +130,41 @@ const uint16 array_of_leaf_types[] = {
     cci::LF_UTF8STRING
 };
 
-TEST(PdbLeafTest, DumpInvalidLeafTypes) {
-  FilePath stdout_path;
-  ASSERT_TRUE(file_util::CreateTemporaryFile(&stdout_path));
-  FILE* out_file = file_util::OpenFile(stdout_path, "w");
+class PdbLeafTest : public testing::Test {
+ public:
+  virtual void SetUp() OVERRIDE {
+    FilePath stdout_path;
+    ASSERT_TRUE(file_util::CreateTemporaryFile(&stdout_path));
+    out_ = new RefCountedFILE(file_util::OpenFile(stdout_path, "w"));
+    stream_ = new PdbByteStream();
+    writable_stream_ = stream_->GetWritablePdbStream();
+    ASSERT_TRUE(writable_stream_ != NULL);
+  }
 
+  template<typename T>
+  void TestDumpNumericLeaf(uint16 leaf_type) {
+    T value_to_dump = {};
+    writable_stream_->Write(value_to_dump);
+    DumpNumericLeaf(out_->file(), leaf_type, stream_.get());
+  }
+
+ protected:
+  scoped_refptr<RefCountedFILE> out_;
+  scoped_refptr<PdbByteStream> stream_;
+  scoped_refptr<WritablePdbStream> writable_stream_;
+};
+
+TEST_F(PdbLeafTest, DumpInvalidLeafTypes) {
   // First we have to create a type info stream.
-
-  scoped_refptr<PdbByteStream> type_info_stream(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writable_stream =
-      type_info_stream->GetWritablePdbStream();
-  ASSERT_TRUE(writable_stream != NULL);
 
   TypeInfoHeader header = {};
   header.len = sizeof(header);
   // The minimal data size for a non-empty type info block is 4 bytes, 2 for
   // the record length and 2 for the type Id.
   header.type_info_data_size = 4;
-  ASSERT_TRUE(writable_stream->Write(header));
+  ASSERT_TRUE(writable_stream_->Write(header));
   const uint16 type_info_record_length = 2;
-  ASSERT_TRUE(writable_stream->Write(type_info_record_length));
+  ASSERT_TRUE(writable_stream_->Write(type_info_record_length));
 
   // Iterate over each leaf type and update the type info stream each time.
   for (uint16 i = 0; i < sizeof(array_of_leaf_types); ++i) {
@@ -158,29 +173,89 @@ TEST(PdbLeafTest, DumpInvalidLeafTypes) {
     uint16 current_type = array_of_leaf_types[i];
     uint32 min_type = current_type;
     uint32 max_type = min_type + 1;
-    writable_stream->set_pos(offsetof(TypeInfoHeader, type_min));
-    writable_stream->Write(min_type);
-    writable_stream->Write(max_type);
+    writable_stream_->set_pos(offsetof(TypeInfoHeader, type_min));
+    writable_stream_->Write(min_type);
+    writable_stream_->Write(max_type);
 
     // Then we have to modify the data section of this stream by setting the
     // type of the record.
     const size_t field_type_offset = sizeof(TypeInfoHeader)
         + sizeof(type_info_record_length);
-    writable_stream->set_pos(field_type_offset);
-    writable_stream->Write(current_type);
+    writable_stream_->set_pos(field_type_offset);
+    writable_stream_->Write(current_type);
 
     // Now this fake stream should be readable. An error will be logged if we
     // try to dump a kind of leaf for which the implementation have been done
     // because there's nothing in the data section.
     TypeInfoHeader header_temp;
     TypeInfoRecordMap types_map;
-    EXPECT_TRUE(ReadTypeInfoStream(type_info_stream.get(),
+    EXPECT_TRUE(ReadTypeInfoStream(stream_.get(),
                                    &header_temp,
                                    &types_map));
-    DumpTypeInfoStream(out_file, type_info_stream.get(), header, types_map);
+    DumpTypeInfoStream(out_->file(), stream_.get(), header, types_map);
   }
+}
 
-  ::file_util::CloseFile(out_file);
+// Unittest for the numeric types.
+
+TEST_F(PdbLeafTest, DumpLeafChar) {
+  TestDumpNumericLeaf<cci::LeafChar>(cci::LF_CHAR);
+}
+
+TEST_F(PdbLeafTest, DumpLeafShort) {
+  TestDumpNumericLeaf<cci::LeafShort>(cci::LF_SHORT);
+}
+
+TEST_F(PdbLeafTest, DumpLeafUShort) {
+  TestDumpNumericLeaf<cci::LeafUShort>(cci::LF_USHORT);
+}
+
+TEST_F(PdbLeafTest, DumpLeafLong) {
+  TestDumpNumericLeaf<cci::LeafLong>(cci::LF_LONG);
+}
+
+TEST_F(PdbLeafTest, DumpLeafULong) {
+  TestDumpNumericLeaf<cci::LeafULong>(cci::LF_ULONG);
+}
+
+TEST_F(PdbLeafTest, DumpLeafReal32) {
+  TestDumpNumericLeaf<cci::LeafReal32>(cci::LF_REAL32);
+}
+
+TEST_F(PdbLeafTest, DumpLeafReal64) {
+  TestDumpNumericLeaf<cci::LeafReal64>(cci::LF_REAL64);
+}
+
+TEST_F(PdbLeafTest, DumpLeafReal80) {
+  TestDumpNumericLeaf<cci::LeafReal80>(cci::LF_REAL80);
+}
+
+TEST_F(PdbLeafTest, DumpLeafReal128) {
+  TestDumpNumericLeaf<cci::LeafReal128>(cci::LF_REAL128);
+}
+
+TEST_F(PdbLeafTest, DumpLeafQuad) {
+  TestDumpNumericLeaf<cci::LeafQuad>(cci::LF_QUADWORD);
+}
+
+TEST_F(PdbLeafTest, DumpLeafUQuad) {
+  TestDumpNumericLeaf<cci::LeafUQuad>(cci::LF_UQUADWORD);
+}
+
+TEST_F(PdbLeafTest, DumpLeafCmplx32) {
+  TestDumpNumericLeaf<cci::LeafCmplx32>(cci::LF_COMPLEX32);
+}
+
+TEST_F(PdbLeafTest, DumpLeafCmplx64) {
+  TestDumpNumericLeaf<cci::LeafCmplx64>(cci::LF_COMPLEX64);
+}
+
+TEST_F(PdbLeafTest, DumpLeafCmplx80) {
+  TestDumpNumericLeaf<cci::LeafCmplx80>(cci::LF_COMPLEX80);
+}
+
+TEST_F(PdbLeafTest, DumpLeafCmplx128) {
+  TestDumpNumericLeaf<cci::LeafCmplx128>(cci::LF_COMPLEX128);
 }
 
 }  // namespace pdb
