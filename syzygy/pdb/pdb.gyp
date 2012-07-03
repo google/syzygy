@@ -80,9 +80,10 @@
       'sources': [
         'omap_unittest.cc',
         'pdb_byte_stream_unittest.cc',
+        'pdb_dump_unittest.cc',
         'pdb_file_stream_unittest.cc',
         'pdb_file_unittest.cc',
-        'pdb_dump_unittest.cc',
+        'pdb_leaf_unittest.cc',
         'pdb_reader_unittest.cc',
         'pdb_stream_unittest.cc',
         'pdb_symbol_record_stream_unittest.cc',
