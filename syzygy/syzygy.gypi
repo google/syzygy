@@ -17,6 +17,12 @@
 
 {
   'target_defaults': {
+    'msvs_settings': {
+      'VCLinkerTool': {
+        # Enable support for large address spaces.
+        'LargeAddressAware': 2,
+      },
+    },
     'configurations': {
       # A coverage build is for all intents and purposes a debug build with
       # profile information (and therefore no incremental linking). This allows
