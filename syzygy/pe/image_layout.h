@@ -62,10 +62,20 @@ struct ImageLayout {
 };
 
 // Copies section headers to section info.
+// @param num_sections the number of sections to copy.
+// @param section_headers the array of section headers.
+// @param sections the vector of section info structs to fill out.
 void CopySectionHeadersToImageLayout(
     size_t num_sections,
     const IMAGE_SECTION_HEADER* section_headers,
     std::vector<ImageLayout::SectionInfo>* sections);
+
+// Copies section headers to section info.
+// @param nt_headers_block the block containing the NT headers.
+// @param layout the image layout to be populated.
+bool CopyHeaderToImageLayout(
+    const block_graph::BlockGraph::Block* nt_headers_block,
+    ImageLayout* layout);
 
 // For testing.
 inline bool operator==(const ImageLayout::SectionInfo& a,

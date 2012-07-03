@@ -495,30 +495,6 @@ bool LoadBlockDataFromPEFile(const PEFile& pe_file,
   return true;
 }
 
-bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
-                             ImageLayout* layout) {
-  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
-  if (!nt_headers.Init(0, nt_headers_block)) {
-    LOG(ERROR) << "NT Headers too short.";
-    return false;
-  }
-
-  ConstTypedBlock<IMAGE_SECTION_HEADER> section_headers;
-  size_t size = sizeof(IMAGE_SECTION_HEADER) *
-      nt_headers->FileHeader.NumberOfSections;
-  if (!section_headers.InitWithSize(sizeof(IMAGE_NT_HEADERS),
-                                    size,
-                                    nt_headers_block)) {
-    LOG(ERROR) << "NT Headers too short to contain section headers.";
-    return false;
-  }
-
-  CopySectionHeadersToImageLayout(nt_headers->FileHeader.NumberOfSections,
-                                  section_headers.Get(),
-                                  &layout->sections);
-  return true;
-}
-
 void GetDisassemblyStartingPoints(
     const BlockGraph::Block* block,
     AbsoluteAddress abs_block_addr,

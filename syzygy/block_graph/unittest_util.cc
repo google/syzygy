@@ -73,7 +73,7 @@ bool BlocksEqual(const BlockGraph::Block& b1,
     BlockGraph::Block::LabelMap::const_iterator it1 =
         b1.labels().begin();
     BlockGraph::Block::LabelMap::const_iterator it2 =
-        b1.labels().begin();
+        b2.labels().begin();
     for (; it1 != b1.labels().end(); it1++, it2++) {
       if (it1->first != it2->first ||
           it1->second.attributes() != it2->second.attributes() ||

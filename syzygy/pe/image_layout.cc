@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -200,6 +200,30 @@ void CopySectionHeadersToImageLayout(
     section.data_size = section_headers[i].SizeOfRawData;
     section.characteristics = section_headers[i].Characteristics;
   }
+}
+
+bool CopyHeaderToImageLayout(const BlockGraph::Block* nt_headers_block,
+                             ImageLayout* layout) {
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, nt_headers_block)) {
+    LOG(ERROR) << "NT Headers too short.";
+    return false;
+  }
+
+  ConstTypedBlock<IMAGE_SECTION_HEADER> section_headers;
+  size_t size = sizeof(IMAGE_SECTION_HEADER) *
+      nt_headers->FileHeader.NumberOfSections;
+  if (!section_headers.InitWithSize(sizeof(IMAGE_NT_HEADERS),
+                                    size,
+                                    nt_headers_block)) {
+    LOG(ERROR) << "NT Headers too short to contain section headers.";
+    return false;
+  }
+
+  CopySectionHeadersToImageLayout(nt_headers->FileHeader.NumberOfSections,
+                                  section_headers.Get(),
+                                  &layout->sections);
+  return true;
 }
 
 ImageLayout::ImageLayout(BlockGraph* block_graph)
