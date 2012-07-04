@@ -41,6 +41,9 @@ using block_graph::Instruction;
 using block_graph::Successor;
 using core::Disassembler;
 
+typedef BlockGraph::Block Block;
+typedef BlockGraph::Offset Offset;
+typedef BlockGraph::Size Size;
 typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
 typedef BBAddressSpace::Range Range;
 typedef BBAddressSpace::RangeMap RangeMap;
@@ -66,6 +69,21 @@ bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
   return false;
 }
 
+// This is only safe to be called after the references have all been copied.
+bool CallsNonReturningFunction(const Instruction& instruction) {
+  if (META_GET_FC(instruction.representation().meta) == FC_CALL &&
+      instruction.representation().ops[0].type == O_PC) {
+    DCHECK_EQ(1U, instruction.references().size());
+    const Block* target = instruction.references().begin()->second.block();
+    if (target != NULL &&
+        (target->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0) {
+      // Called a non-returning function.
+      return true;
+    }
+  }
+  return false;
+}
+
 // TODO(rogerm): Belongs as a helper on Instruction.
 bool HasImplicitControlFlow(const Instruction& instruction) {
   uint8 fc = META_GET_FC(instruction.representation().meta);
@@ -82,6 +100,27 @@ bool HasImplicitControlFlow(const Instruction& instruction) {
     }
   }
   return false;
+}
+
+// Look up the reference made from an instruction's byte range within the
+// given block. The reference should start AFTER the instruction starts
+// and there should be exactly 1 reference in the byte range.
+const BlockGraph::Reference& GetReferenceOfInstructionAt(const Block* block,
+                                                         Offset instr_offset,
+                                                         Size instr_size) {
+  Block::ReferenceMap::const_iterator ref_iter =
+      block->references().upper_bound(instr_offset);
+  CHECK(ref_iter != block->references().end());
+  if (ref_iter != block->references().begin()) {
+    Block::ReferenceMap::const_iterator prev_iter = ref_iter;
+    --prev_iter;
+    CHECK(prev_iter->first < instr_offset);
+  }
+  Block::ReferenceMap::const_iterator next_iter = ref_iter;
+  ++next_iter;
+  CHECK(next_iter == block->references().end() ||
+         next_iter->first >= instr_offset + static_cast<Offset>(instr_size));
+  return ref_iter->second;
 }
 
 // TODO(rogerm): Belongs as a helper on Instruction.
@@ -176,11 +215,31 @@ void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
 Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
     AbsoluteAddress addr, const _DInst& inst) {
   Offset offset = addr - code_addr_;
+
+  // If this instruction has run into known data, then we have a problem in
+  // the decomposer.
+  BlockGraph::Label label;
+  CHECK(!block_->GetLabel(offset, &label) ||
+        !label.has_attributes(BlockGraph::DATA_LABEL))
+      << "Disassembling into data at offset " << offset << " of "
+      << block_->name() << ".";
+
   VLOG(3) << "Disassembled " << GET_MNEMONIC_NAME(inst.opcode)
           << " instruction (" << static_cast<int>(inst.size)
           << " bytes) at offset " << offset << ".";
   current_instructions_.push_back(
       Instruction(inst, offset, inst.size, code_ + offset ));
+
+  // If this instruction is a PC-relative call to a non-returning function,
+  // then this is essentially a control flow operation, and we need to end this
+  // basic block.
+  if (META_GET_FC(inst.meta) == FC_CALL && inst.ops[0].type == O_PC) {
+    const BlockGraph::Reference& ref =
+        GetReferenceOfInstructionAt(block_, offset, inst.size);
+    if ((ref.referenced()->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0)
+      return kDirectiveTerminatePath;
+  }
+
   return kDirectiveContinue;
 }
 
@@ -238,48 +297,26 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     DCHECK_EQ(inst.size, instr_size);
 
     // Figure out where the branch is going by finding the reference that's
-    // inside the instruction's byte range. There should be exactly 1 reference
-    // in the instruction byte range.
-    BlockGraph::Block::ReferenceMap::const_iterator ref_iter =
-        block_->references().upper_bound(instr_offset);
-    DCHECK(ref_iter != block_->references().end());
-#ifndef NDEBUG
-    if (ref_iter != block_->references().begin()) {
-      BlockGraph::Block::ReferenceMap::const_iterator prev_iter = ref_iter;
-      --prev_iter;
-      DCHECK(prev_iter->first < instr_offset);
-    }
-    BlockGraph::Block::ReferenceMap::const_iterator next_iter = ref_iter;
-    ++next_iter;
-    DCHECK(next_iter == block_->references().end() ||
-           next_iter->first >= instr_offset + static_cast<Offset>(instr_size));
-#endif
+    // inside the instruction's byte range.
+    const BlockGraph::Reference& ref =
+        GetReferenceOfInstructionAt(block_, instr_offset, instr_size);
 
     // Create the appropriate successor depending on whether or not the target
     // is intra- or inter-block.
-    if (ref_iter->second.referenced() == block_) {
+    if (ref.referenced() == block_) {
       // This is an intra-block reference. The target basic block may not
       // exist yet, so we'll defer patching up this reference until later.
       // The self reference should already have been considered in the list
       // of disassembly start points and jump targets.
-      DCHECK_EQ(1U,
-                jump_targets_.count(code_addr_ + ref_iter->second.offset()));
+      DCHECK_EQ(1U, jump_targets_.count(code_addr_ + ref.offset()));
       current_successors_.push_front(
-          Successor(condition,
-                    ref_iter->second.offset(),  // To be resolved later.
-                    instr_offset,
-                    instr_size));
+          Successor(condition, ref.offset(), instr_offset, instr_size));
     } else {
       // This is an inter-block jump. We can create a fully resolved reference.
+      BasicBlockReference bb_ref(
+          ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
       current_successors_.push_front(
-          Successor(condition,
-                    BasicBlockReference(ref_iter->second.type(),
-                                        ref_iter->second.size(),
-                                        ref_iter->second.referenced(),
-                                        ref_iter->second.offset(),
-                                        ref_iter->second.base()),
-                    instr_offset,
-                    instr_size));
+          Successor(condition, bb_ref, instr_offset, instr_size));
     }
   }
 
@@ -448,11 +485,13 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
 
         // Either there is an implicit control flow instruction at the end
         // or this function has been tagged as non-returning.
-        bool no_return =
+        const Instruction& last_instruction = instructions.back();
+        bool is_non_returning =
             (block_->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0;
-        CHECK(HasImplicitControlFlow(instructions.back()) ||
-              IsInterrupt(instructions.back()) ||
-              no_return);
+        CHECK(HasImplicitControlFlow(last_instruction) ||
+              IsInterrupt(last_instruction) ||
+              CallsNonReturningFunction(last_instruction) ||
+              is_non_returning);
         break;
       }
 

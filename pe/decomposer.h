@@ -45,8 +45,6 @@ class PdbFile;
 
 namespace pe {
 
-using pcrecpp::RE;
-
 class Decomposer {
  public:
   // A struct for storing fixups.
@@ -305,6 +303,7 @@ class Decomposer {
   typedef std::set<BlockGraph::AddressSpace::Range> RangeSet;
   typedef std::map<RelativeAddress, std::string> LabelMap;
   typedef std::set<RelativeAddress> RelativeAddressSet;
+  typedef pcrecpp::RE RE;
   typedef std::pair<RE, RE> REPair;
   typedef std::vector<REPair> REPairs;
 
@@ -326,6 +325,9 @@ class Decomposer {
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
+  // A regular expression to match for functions known to be non-returning
+  // but tagged as such in the debug symbols.
+  RE non_returning_functions_re_;
 };
 
 // This is for serializing a PEFile/BlockGraph/ImageLayout triple, which

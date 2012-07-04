@@ -42,6 +42,7 @@
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
+namespace {
 
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
@@ -54,11 +55,14 @@ using core::AbsoluteAddress;
 using core::Disassembler;
 using core::RelativeAddress;
 
-namespace {
-
 typedef Disassembler::CallbackDirective CallbackDirective;
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
+
+// Update this pattern as more non-returning functions are discovered.
+// This is a PCRE compatible regular expression. The simplest way to update
+// the pattern is as Name1|Name2|Name3.
+const char kNonReturningFunctionsRe[] = "_CxxThrowException";
 
 // Converts from PdbFixup::Type to BlockGraph::ReferenceType.
 BlockGraph::ReferenceType PdbFixupTypeToReferenceType(
@@ -732,7 +736,8 @@ Decomposer::Decomposer(const PEFile& image_file)
     : image_(NULL),
       image_file_(image_file),
       current_block_(NULL),
-      be_strict_with_current_block_(true) {
+      be_strict_with_current_block_(true),
+      non_returning_functions_re_(kNonReturningFunctionsRe) {
   // Register static initializer patterns that we know are always present.
   bool success =
       // CRT C/C++/etc initializers.
@@ -1064,8 +1069,13 @@ bool Decomposer::ProcessFunctionOrThunkSymbol(IDiaSymbol* function) {
   CHECK(AddLabelToBlock(block_addr, block_name, BlockGraph::CODE_LABEL, block));
 
   // Set the block attributes.
-  if (no_return == TRUE)
+  if (no_return == TRUE || non_returning_functions_re_.FullMatch(block_name)) {
     block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
+    if (!no_return) {
+      LOG(WARNING) << "Applying NON_RETURN_FUNCTION attribute to "
+                   << block_name << ".";
+    }
+  }
   if (has_inl_asm == TRUE)
     block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
   if (has_eh || has_seh)
