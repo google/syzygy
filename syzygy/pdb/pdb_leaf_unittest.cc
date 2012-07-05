@@ -14,6 +14,8 @@
 
 #include "syzygy/pdb/pdb_leaf.h"
 
+#include <string>
+
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -148,6 +150,22 @@ class PdbLeafTest : public testing::Test {
     DumpNumericLeaf(out_->file(), leaf_type, stream_.get());
   }
 
+  template<typename T>
+  bool TestDumpSimpleLeaf(uint16 leaf_type, T current_leaf) {
+    writable_stream_->set_pos(0);
+    if (!stream_->Seek(0))
+      return false;
+    if (!writable_stream_->Write(current_leaf))
+      return false;
+    TypeInfoRecordMap record_map;
+    return DumpLeaf(record_map,
+                    leaf_type,
+                    out_->file(),
+                    stream_.get(),
+                    sizeof(T),
+                    0);
+  }
+
  protected:
   scoped_refptr<RefCountedFILE> out_;
   scoped_refptr<PdbByteStream> stream_;
@@ -256,6 +274,42 @@ TEST_F(PdbLeafTest, DumpLeafCmplx80) {
 
 TEST_F(PdbLeafTest, DumpLeafCmplx128) {
   TestDumpNumericLeaf<cci::LeafCmplx128>(cci::LF_COMPLEX128);
+}
+
+TEST_F(PdbLeafTest, DumpLeafModifier) {
+  cci::LeafModifier current_leaf = {};
+  current_leaf.type = cci::T_NOTYPE;
+  current_leaf.attr = cci::MOD_const;
+  ASSERT_TRUE(TestDumpSimpleLeaf(cci::LF_MODIFIER, current_leaf));
+  current_leaf.attr = cci::MOD_unaligned;
+  ASSERT_TRUE(TestDumpSimpleLeaf(cci::LF_MODIFIER, current_leaf));
+  current_leaf.attr = cci::MOD_volatile;
+  ASSERT_TRUE(TestDumpSimpleLeaf(cci::LF_MODIFIER, current_leaf));
+}
+
+TEST_F(PdbLeafTest, DumpLeafProc) {
+  cci::LeafProc current_leaf = {};
+  current_leaf.rvtype = cci::T_NOTYPE;
+  current_leaf.arglist = cci::T_NOTYPE;
+  ASSERT_TRUE(TestDumpSimpleLeaf(cci::LF_PROCEDURE, current_leaf));
+}
+
+TEST_F(PdbLeafTest, DumpLeafEnumerate) {
+  uint16 current_leaf_attr = 0;
+  uint16 current_leaf_value_type = 0;
+  cci::LeafChar leaf_value = {};
+  std::string leaf_name = "leaf";
+  ASSERT_TRUE(writable_stream_->Write(current_leaf_attr));
+  ASSERT_TRUE(writable_stream_->Write(current_leaf_value_type));
+  ASSERT_TRUE(writable_stream_->Write(leaf_value));
+  ASSERT_TRUE(writable_stream_->WriteString(leaf_name));
+  TypeInfoRecordMap record_map;
+  ASSERT_TRUE(DumpLeaf(record_map,
+                       cci::LF_ENUMERATE,
+                       out_->file(),
+                       stream_.get(),
+                       stream_->length(),
+                       0));
 }
 
 }  // namespace pdb

@@ -72,7 +72,7 @@ bool DumpTypeIndexName(uint16 type_value,
       ::fprintf(out, "Reference to another type info.\n");
     } else {
       LOG(ERROR) << "Reference to an unknown type index: "
-                 << StringPrintf("0x%04X.", type_value);
+                 << StringPrintf("0x%04X.", type_value) << ".\n";
       return false;
     }
   }
@@ -601,13 +601,17 @@ bool DumpLeafProc(const TypeInfoRecordMap& type_map,
     return false;
   }
   DumpTabs(out, level_of_indent);
-  ::fprintf(out, "Return value type index : 0x%08X\n", type_info.rvtype);
+  ::fprintf(out, "Return value type index : 0x%08X, ", type_info.rvtype);
+  if (!DumpTypeIndexName(type_info.rvtype, type_map, out, level_of_indent))
+    return false;
   DumpTabs(out, level_of_indent);
   ::fprintf(out, "Calling convention: %d\n", type_info.calltype);
   DumpTabs(out, level_of_indent);
   ::fprintf(out, "Number of parameters: %d\n", type_info.parmcount);
   DumpTabs(out, level_of_indent);
-  ::fprintf(out, "Argument list type index: 0x%08X\n", type_info.arglist);
+  ::fprintf(out, "Argument list type index: 0x%08X, ", type_info.arglist);
+  if (!DumpTypeIndexName(type_info.arglist, type_map, out, level_of_indent))
+    return false;
   return true;
 }
 
