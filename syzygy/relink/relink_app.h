@@ -32,6 +32,8 @@ class RelinkApp : public common::AppImplBase {
       : seed_(0),
         padding_(0),
         augment_pdb_(false),
+        compress_pdb_(false),
+        strip_strings_(false),
         output_metadata_(false),
         overwrite_(false),
         basic_blocks_(false),
@@ -62,6 +64,8 @@ class RelinkApp : public common::AppImplBase {
   uint32 seed_;
   size_t padding_;
   bool augment_pdb_;
+  bool compress_pdb_;
+  bool strip_strings_;
   bool output_metadata_;
   bool overwrite_;
   bool basic_blocks_;

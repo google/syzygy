@@ -61,12 +61,6 @@
 #include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/pe_file.h"
 
-// Forward declares.
-namespace block_graph {
-class BlockGraphOrdererInterface;
-class BlockGraphTransformInterface;
-}  // namespace block_graph
-
 namespace pe {
 
 // Embodies a transformation on a PE image, from decomposing an original image
@@ -110,6 +104,7 @@ class PERelinker {
   bool add_metadata() const { return add_metadata_; }
   bool allow_overwrite() const { return allow_overwrite_; }
   bool augment_pdb() const { return augment_pdb_; }
+  bool compress_pdb() const { return compress_pdb_; }
   bool strip_strings() const { return strip_strings_; }
   size_t padding() const { return padding_; }
   // @}
@@ -136,6 +131,9 @@ class PERelinker {
   }
   void set_augment_pdb(bool augment_pdb) {
     augment_pdb_ = augment_pdb;
+  }
+  void set_compress_pdb(bool compress_pdb) {
+    compress_pdb_ = compress_pdb;
   }
   void set_strip_strings(bool strip_strings) {
     strip_strings_ = strip_strings;
@@ -227,16 +225,19 @@ class PERelinker {
   FilePath output_path_;
   FilePath output_pdb_path_;
 
-  // If true, strings associated with a block-graph will not be serialized into
-  // the PDB. Defaults to false.
-  bool strip_strings_;
   // If true, metadata will be added to the output image. Defaults to true.
   bool add_metadata_;
   // If true, allow the relinker to rewrite the input files in place. Defaults
   // to false.
   bool allow_overwrite_;
-  // If true, metadata will be added to the PDB. Defaults to true.
+  // If true, the PDB will be augmented with a serialized block-graph and
+  // image layout.
   bool augment_pdb_;
+  // If true, then the augmented PDB stream will be compressed as it is written.
+  bool compress_pdb_;
+  // If true, strings associated with a block-graph will not be serialized into
+  // the PDB. Defaults to false.
+  bool strip_strings_;
   // Indicates the amount of padding to be added between blocks. Zero is the
   // default value and indicates no padding will be added.
   size_t padding_;

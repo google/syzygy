@@ -30,6 +30,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/core/zstream.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -40,6 +41,7 @@
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_parser.h"
 #include "syzygy/pe/pe_utils.h"
+#include "syzygy/pe/serialization.h"
 
 namespace pe {
 namespace {
@@ -464,41 +466,6 @@ bool SetBlockDataPointers(const PEFile& pe_file,
   return true;
 }
 
-// Load the data of the blocks of a block-graph from the PE file the block-graph
-// corresponds to.
-bool LoadBlockDataFromPEFile(const PEFile& pe_file,
-                             const BlockGraph::AddressSpace& address_space,
-                             BlockGraph* block_graph) {
-  DCHECK(block_graph != NULL);
-  // Iterates through the blocks of the block-graph and tries to load their data
-  // from the PE file.
-  BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
-  for (; it != block_graph->blocks().end(); ++it) {
-    BlockGraph::Block& block = it->second;
-    DCHECK(block.data() == NULL);
-    if (block.data_size() > 0) {
-      RelativeAddress address;
-      // Tries to get the address of the block in the address-space. The
-      // block-graph and the address-space should be consistent at this point.
-      if (!address_space.GetAddressOf(&block, &address)) {
-        LOG(ERROR) << "Unable to get the address of a block from the "
-                   << "block-graph in the address-space (id="
-                   << block.id() << ", name=\"" << block.name() << ").";
-        return false;
-      }
-      // Tries to get the data from the PE file.
-      const uint8* data = pe_file.GetImageData(address, block.data_size());
-      if (data == NULL) {
-        LOG(ERROR) << "Unable to get Block data from PEFile.";
-        return false;
-      }
-      block.SetData(data, block.data_size());
-    }
-  }
-
-  return true;
-}
-
 void GetDisassemblyStartingPoints(
     const BlockGraph::Block* block,
     AbsoluteAddress abs_block_addr,
@@ -651,35 +618,6 @@ bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
   return false;
 }
 
-// This reads the serialized address space from a PDB stream.
-bool ReadAddressSpaceFromPDBStream(core::InArchive* in_archive,
-                                   BlockGraph::AddressSpace* address_space) {
-  DCHECK(address_space != NULL);
-
-  RelativeAddress address;
-  BlockGraph::BlockMap::iterator blocks_iter =
-      address_space->graph()->blocks_mutable().begin();
-
-  // Iterate over each block of the block-graph and try to read their address
-  // from the PDB stream. Then we try to insert this block in the address space.
-  for (; blocks_iter != address_space->graph()->blocks().end(); blocks_iter++) {
-    if (!in_archive->Load(&address)) {
-      LOG(ERROR) << "Unable to read a block address from the PDB stream.";
-      return false;
-    }
-    if (!address_space->InsertBlock(address, &blocks_iter->second)) {
-      LOG(ERROR) << "Unable to insert a block from the block-graph in the "
-                 << "address space (id=" << blocks_iter->second.id()
-                 << ", name=\"" << blocks_iter->second.name() << "\", "
-                 << "address=" << address  << ").";
-      return false;
-    }
-  }
-  DCHECK_EQ(address_space->size(), address_space->graph()->blocks().size());
-
-  return true;
-}
-
 // Logs an error if @p error is true, a verbose logging message otherwise.
 #define LOG_ERROR_OR_VLOG1(error) LAZY_STREAM( \
     ::logging::LogMessage(__FILE__, \
@@ -755,17 +693,16 @@ Decomposer::Decomposer(const PEFile& image_file)
   CHECK(success);
 }
 
-bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
-                               PEFileParser::PEHeader* header) {
+bool Decomposer::Decompose(ImageLayout* image_layout) {
   // We start by finding the PDB path.
   if (!FindAndValidatePdbPath())
     return false;
   DCHECK(!pdb_path_.empty());
 
   // Check if the block-graph has already been serialized into the PDB and load
-  // it from here in this case.
+  // it from here in this case. This allows round-trip decomposition.
   bool stream_exists = false;
-  if (LoadBlockGraphFromPDB(pdb_path_, image_file_, image, header,
+  if (LoadBlockGraphFromPDB(pdb_path_, image_file_, image_layout,
                             &stream_exists)) {
     return true;
   } else {
@@ -806,7 +743,7 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
     return false;
   }
 
-  image_ = image;
+  image_ = &image_layout->blocks;
 
   // Create the sections for the image.
   bool success = CreateSections();
@@ -821,8 +758,9 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
     success = CreateReferencesFromFixups();
 
   // Chunk out important PE image structures, like the headers and such.
+  PEFileParser::PEHeader header;
   if (success)
-    success = CreatePEImageBlocksAndReferences(header);
+    success = CreatePEImageBlocksAndReferences(&header);
 
   // Parse and validate the relocation entries.
   if (success)
@@ -892,6 +830,10 @@ bool Decomposer::DecomposeImpl(BlockGraph::AddressSpace* image,
   if (success)
     success = FindPaddingBlocks();
 
+  // Finally, copy the image headers over to the layout.
+  if (success)
+    success = CopyHeaderToImageLayout(header.nt_headers, image_layout);
+
   image_ = NULL;
 
   return success;
@@ -938,15 +880,6 @@ bool Decomposer::FindAndValidatePdbPath() {
   }
 
   return true;
-}
-
-bool Decomposer::Decompose(ImageLayout* image_layout) {
-  PEFileParser::PEHeader header;
-  if (!DecomposeImpl(&image_layout->blocks, &header)) {
-    return false;
-  }
-
-  return CopyHeaderToImageLayout(header.nt_headers, image_layout);
 }
 
 bool Decomposer::ProcessCodeSymbols(IDiaSymbol* global) {
@@ -2732,25 +2665,35 @@ bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
   return true;
 }
 
-bool Decomposer::LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
-                                             BlockGraph::AddressSpace* image) {
+bool Decomposer::LoadBlockGraphFromPDBStream(const PEFile& image_file,
+                                             pdb::PdbStream* block_graph_stream,
+                                             ImageLayout* image_layout) {
+  DCHECK(block_graph_stream != NULL);
+  DCHECK(image_layout != NULL);
   LOG(INFO) << "Reading block-graph and image layout from the PDB.";
+
   // Initialize an input archive pointing to the stream.
   scoped_refptr<pdb::PdbByteStream> byte_stream = new pdb::PdbByteStream();
   if (!byte_stream->Init(block_graph_stream))
     return false;
   DCHECK(byte_stream.get() != NULL);
-  core::ScopedInStreamPtr in_stream;
-  in_stream.reset(core::CreateByteInStream(byte_stream->data(),
-                  byte_stream->data() + byte_stream->length()));
-  core::NativeBinaryInArchive in_archive(in_stream.get());
 
-  // Check the version.
+  core::ScopedInStreamPtr pdb_in_stream;
+  pdb_in_stream.reset(core::CreateByteInStream(
+      byte_stream->data(), byte_stream->data() + byte_stream->length()));
+
+  // Read the header.
   uint32 stream_version = 0;
-  if (!in_archive.Load(&stream_version)) {
+  unsigned char compressed = 0;
+  if (!pdb_in_stream->Read(sizeof(stream_version),
+                           reinterpret_cast<core::Byte*>(&stream_version)) ||
+      !pdb_in_stream->Read(sizeof(compressed),
+                           reinterpret_cast<core::Byte*>(&compressed))) {
     LOG(ERROR) << "Failed to read existing Syzygy block-graph stream header.";
     return false;
   }
+
+  // Check the stream version.
   if (stream_version != pdb::kSyzygyBlockGraphStreamVersion) {
     LOG(ERROR) << "PDB contains an unsupported Syzygy block-graph stream"
                << " version (got " << stream_version << ", expected "
@@ -2758,23 +2701,24 @@ bool Decomposer::LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
     return false;
   }
 
-  // Read the block-graph from the stream. The data is not present in the
-  // stream, we'll load it later from the PE file.
-  BlockGraph::SerializationAttributes serialisation_attributes;
-  if (!image->graph()->Load(&in_archive, &serialisation_attributes)) {
-    LOG(ERROR) << "Unable to load the block-graph from Syzygy block-graph "
-               << "stream.";
-    return false;
-  }
-  if ((serialisation_attributes & BlockGraph::OMIT_DATA) == 0) {
-    LOG(ERROR) << "The data are present in the serialized block-graph then they"
-               << " should not.";
-    return false;
+  // If the stream is compressed insert the decompression filter.
+  core::InStream* in_stream = pdb_in_stream.get();
+  scoped_ptr<core::ZInStream> zip_in_stream;
+  if (compressed != 0) {
+    zip_in_stream.reset(new core::ZInStream(in_stream));
+    if (!zip_in_stream->Init()) {
+      LOG(ERROR) << "Unable to initialize ZInStream.";
+      return false;
+    }
+    in_stream = zip_in_stream.get();
   }
 
-  // Read the address space from the stream.
-  if (!ReadAddressSpaceFromPDBStream(&in_archive, image)) {
-    LOG(ERROR) << "Failed to read image layout from Syzygy block-graph stream.";
+  // Deserialize the image-layout.
+  core::NativeBinaryInArchive in_archive(in_stream);
+  block_graph::BlockGraphSerializer::Attributes attributes = 0;
+  if (!LoadBlockGraphAndImageLayout(
+      image_file, &attributes, image_layout, &in_archive)) {
+    LOG(ERROR) << "Failed to deserialize block-graph and image layout.";
     return false;
   }
 
@@ -2783,9 +2727,11 @@ bool Decomposer::LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
 
 bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
                                        const PEFile& image_file,
-                                       BlockGraph::AddressSpace* image,
-                                       PEFileParser::PEHeader* header,
-                                       bool* stream_exist) {
+                                       ImageLayout* image_layout,
+                                       bool* stream_exists) {
+  DCHECK(image_layout != NULL);
+  DCHECK(stream_exists != NULL);
+
   pdb::PdbFile pdb_file;
   pdb::PdbReader pdb_reader;
   if (!pdb_reader.Read(pdb_path, &pdb_file)) {
@@ -2798,44 +2744,18 @@ bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
   scoped_refptr<pdb::PdbStream> block_graph_stream =
       GetBlockGraphStreamFromPDB(&pdb_file);
   if (block_graph_stream.get() == NULL) {
-    *stream_exist = false;
+    *stream_exists = false;
     return false;
   }
 
   // The PDB contains a block-graph stream, the block-graph and the image layout
   // will be read from this stream.
-  *stream_exist = true;
-  if (!LoadBlockGraphFromPDBStream(block_graph_stream.get(), image))
-    return false;
-
-  // This sets any missing data pointers in the block graph. These
-  // are pointers to data that was not owned by the block graph, but
-  // rather by the PEFile.
-  PEFile* pe_file = const_cast<PEFile*>(&image_file);
-  if (!LoadBlockDataFromPEFile(*pe_file, *image, image->graph())) {
-    // An error has already been logged by the SetBlockDataPointers function,
-    // so we don't log another one here.
+  *stream_exists = true;
+  if (!LoadBlockGraphFromPDBStream(image_file, block_graph_stream.get(),
+                                   image_layout)) {
     return false;
   }
-  // We can now recreate the rest of the image layout from the PE data.
-  // Start by retrieving the DOS header block, which is always at the start of
-  // the image.
-  BlockGraph::Block* dos_header =
-      image->GetBlockByAddress(RelativeAddress(0));
-  if (dos_header == NULL)
-    return false;
 
-  // The next block is the NT headers block.
-  BlockGraph::Block* nt_headers =
-      image->GetBlockByAddress(
-          RelativeAddress(dos_header->size()));
-  if (nt_headers == NULL)
-    return false;
-
-  if (header != NULL) {
-    header->dos_header = dos_header;
-    header->nt_headers = nt_headers;
-  }
   return true;
 }
 

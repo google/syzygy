@@ -47,6 +47,106 @@ bool MaybeCompareStrings(const std::string string1,
   return true;
 }
 
+bool ReferencesEqual(const BlockGraph::Reference& ref1,
+                     const BlockGraph::Reference& ref2) {
+  if (ref1.base() != ref2.base() || ref1.offset() != ref2.offset() ||
+      ref1.size() != ref2.size() || ref1.type() != ref2.type() ||
+      ref1.referenced()->id() != ref2.referenced()->id()) {
+    return false;
+  }
+  return true;
+}
+
+// Determines if the data in two blocks are equivalent, including the
+// references. We do both at the same time so as to not check the actual data
+// where references lie, which may be different post- and pre- image writing.
+bool DataAndReferencesEqual(const BlockGraph::Block& b1,
+                            const BlockGraph::Block& b2) {
+  // The data and references need to be the same size.
+  if (b1.data_size() != b2.data_size() ||
+      b1.references().size() != b2.references().size()) {
+    return false;
+  }
+
+  // Both data pointers should be null or non-null. We can't say anything
+  // about data ownership, as this doesn't affect block equality.
+  if ((b1.data() == NULL) != (b2.data() == NULL))
+    return false;
+
+  typedef BlockGraph::Block::ReferenceMap::const_iterator Iterator;
+  Iterator it1 = b1.references().begin();
+  Iterator it2 = b2.references().begin();
+  Iterator end1 = b1.references().lower_bound(b1.data_size());
+
+  const uint8* d1 = b1.data();
+  const uint8* d2 = b2.data();
+  BlockGraph::Offset i = 0;
+  BlockGraph::Offset data_size = b1.data_size();
+
+  // If either of the blocks don't have data, then the data-size should be 0.
+  if (d1 == NULL || d2 == NULL)
+    DCHECK_EQ(0, data_size);
+
+  // Check the portion of data with embedded references.
+  while (i < data_size && it1 != end1) {
+    // Check the reference.
+    if (it1->first != it2->first ||
+        !ReferencesEqual(it1->second, it2->second)) {
+      return false;
+    }
+
+    // Before the next reference? Then check the data is the same.
+    if (i < it1->first) {
+      if (::memcmp(d1 + i, d2 + i, it1->first - i) != 0)
+        return false;
+    }
+
+    // Step past the reference.
+    i = it1->first + it1->second.size();
+    ++it1;
+    ++it2;
+  }
+
+  // Check any remaining data.
+  if (i < data_size && ::memcmp(d1 + i, d2 + i, data_size - i) != 0)
+    return false;
+
+  // Check the remaining references.
+  end1 = b1.references().end();
+  for (; it1 != end1; ++it1, ++it2) {
+    if (it1->first != it2->first ||
+        !ReferencesEqual(it1->second, it2->second)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool ReferrersEqual(const BlockGraph::Block& b1,
+                    const BlockGraph::Block& b2) {
+  if (b1.referrers().size() != b2.referrers().size())
+    return false;
+
+  // Compare the referrers. They should point to blocks with the same id.
+  // We store a list of unique referrer id/offset pairs. This allows us to
+  // efficiently search for an equivalent referrer.
+  typedef std::set<std::pair<size_t, size_t> > IdOffsetSet;
+  IdOffsetSet id_offset_set;
+  BlockGraph::Block::ReferrerSet::const_iterator it = b1.referrers().begin();
+  for (; it != b1.referrers().end(); ++it)
+    id_offset_set.insert(std::make_pair(it->first->id(), it->second));
+
+  for (it = b2.referrers().begin(); it != b2.referrers().end(); ++it) {
+    IdOffsetSet::const_iterator set_it = id_offset_set.find(
+        std::make_pair(it->first->id(), it->second));
+    if (set_it == id_offset_set.end())
+      return false;
+  }
+
+  return true;
+}
+
 }
 
 // Compares two Blocks to each other.
@@ -85,55 +185,13 @@ bool BlocksEqual(const BlockGraph::Block& b1,
     }
   }
 
-  // Both data pointers should be null or non-null. We can't say anything
-  // about data ownership, as this doesn't affect block equality.
-  if ((b1.data() == NULL) != (b2.data() == NULL))
+  // Compare the data and the references.
+  if (!DataAndReferencesEqual(b1, b2))
     return false;
 
-  // Compare the data.
-  if (b1.data_size() > 0 &&
-      memcmp(b1.data(), b2.data(), b1.data_size()) != 0) {
+  // Compare the referrers.
+  if (!ReferrersEqual(b1, b2))
     return false;
-  }
-
-  if (b1.references().size() != b2.references().size())
-    return false;
-
-  {
-    // Compare the references. They should point to blocks with the same id.
-    BlockGraph::Block::ReferenceMap::const_iterator
-        it1 = b1.references().begin();
-    for (; it1 != b1.references().end(); ++it1) {
-      BlockGraph::Block::ReferenceMap::const_iterator it2 =
-          b2.references().find(it1->first);
-      if (it2 == b2.references().end() ||
-          it1->second.referenced()->id() != it2->second.referenced()->id()) {
-        LOG(ERROR) << "References not equal.";
-        return false;
-      }
-    }
-  }
-
-  if (b1.referrers().size() != b2.referrers().size())
-    return false;
-
-  {
-    // Compare the referrers. They should point to blocks with the same id.
-    // We store a list of unique referrer id/offset pairs. This allows us to
-    // efficiently search for an equivalent referrer.
-    typedef std::set<std::pair<size_t, size_t> > IdOffsetSet;
-    IdOffsetSet id_offset_set;
-    BlockGraph::Block::ReferrerSet::const_iterator it = b1.referrers().begin();
-    for (; it != b1.referrers().end(); ++it)
-      id_offset_set.insert(std::make_pair(it->first->id(), it->second));
-
-    for (it = b2.referrers().begin(); it != b2.referrers().end(); ++it) {
-      IdOffsetSet::const_iterator set_it = id_offset_set.find(
-          std::make_pair(it->first->id(), it->second));
-      if (set_it == id_offset_set.end())
-        return false;
-    }
-  }
 
   return true;
 }
@@ -198,7 +256,8 @@ bool BlocksEqual(const BlockGraph::Block& b1,
       BlockGraph::Block::ReferenceMap::const_iterator it2 =
           b2.references().find(it1->first);
       if (it2 == b2.references().end() ||
-          it1->second.referenced()->id() != it2->second.referenced()->id()) {
+          it1->first != it2->first ||
+          !ReferencesEqual(it1->second, it2->second)) {
         LOG(ERROR) << "References not equal.";
         return false;
       }

@@ -170,7 +170,7 @@ bool SaveBlockData(const ImageLayout* image_layout,
 
 // This callback is used to load the data in a block. It also simultaneously
 // constructs the image-layout.
-bool LoadBlockData(PEFile* pe_file,
+bool LoadBlockData(const PEFile* pe_file,
                    ImageLayout* image_layout,
                    bool need_to_set_data,
                    size_t data_size,
@@ -217,11 +217,110 @@ bool LoadBlockData(PEFile* pe_file,
   return true;
 }
 
+bool LoadBlockGraphAndImageLayout(
+    const PEFile& pe_file,
+    PEFile* pe_file_ptr,
+    block_graph::BlockGraphSerializer::Attributes* attributes,
+    ImageLayout* image_layout,
+    core::InArchive* in_archive) {
+  DCHECK(pe_file_ptr == NULL || pe_file_ptr == &pe_file);
+  DCHECK(image_layout != NULL);
+  DCHECK(in_archive != NULL);
+
+  BlockGraph* block_graph = image_layout->blocks.graph();
+
+  // Load and check the stream version. This is where we could dispatch to
+  // different handlers for old versions of the stream if we wish to maintain
+  // backwards compatibility.
+  uint32 stream_version = 0;
+  if (!in_archive->Load(&stream_version)) {
+    LOG(ERROR) << "Unable to load serialized stream version.";
+    return false;
+  }
+  if (stream_version != kSerializedBlockGraphAndImageLayoutVersion) {
+    LOG(ERROR) << "Invalid stream version " << stream_version << ", expected "
+               << kSerializedBlockGraphAndImageLayoutVersion << ".";
+    return false;
+  }
+
+  // Load the metadata.
+  Metadata metadata;
+  if (!in_archive->Load(&metadata)) {
+    LOG(ERROR) << "Unable to load metadata.";
+    return false;
+  }
+
+  if (pe_file_ptr != NULL) {
+    // If we've been given a modifiable PE-file, then we can be more intelligent
+    // about our search. This call logs verbosely on failure so we don't have
+    // to.
+    if (!FindPEFile(metadata, pe_file_ptr))
+      return false;
+  } else {
+    if (!MetadataMatchesPEFile(metadata, pe_file)) {
+      LOG(ERROR) << "Provided PE file does not match signature in serialized "
+                 << "stream.";
+      return false;
+    }
+  }
+
+  // Set up the serializer.
+  BlockGraphSerializer bgs;
+  bgs.set_load_block_data_callback(
+      base::Bind(&LoadBlockData,
+                 base::Unretained(&pe_file),
+                 base::Unretained(image_layout)));
+
+  // Now deserialize the block-graph. This will simultaneously deserialize the
+  // image-layout address-space.
+  if (!bgs.Load(block_graph, in_archive)) {
+    LOG(ERROR) << "Unable to load block-graph.";
+    return false;
+  }
+
+  // Return the attributes if asked to.
+  if (attributes != NULL)
+    *attributes = bgs.attributes();
+
+  // We can now recreate the rest of the image-layout from the block-graph.
+  // Start by retrieving the DOS header block, which is always at the start of
+  // the image.
+  BlockGraph::Block* dos_header_block =
+      image_layout->blocks.GetBlockByAddress(core::RelativeAddress());
+  if (dos_header_block == NULL) {
+    LOG(ERROR) << "Unable to find DOS header in image-layout address-space.";
+    return false;
+  }
+
+  // Cast this as an IMAGE_DOS_HEADER.
+  block_graph::ConstTypedBlock<IMAGE_DOS_HEADER> dos_header;
+  if (!dos_header.Init(0, dos_header_block)) {
+    LOG(ERROR) << "Unable to cast DOS header block to IMAGE_DOS_HEADER.";
+    return false;
+  }
+
+  // Get the NT headers.
+  block_graph::ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!dos_header.Dereference(dos_header->e_lfanew, &nt_headers)) {
+    LOG(ERROR) << "Unable to dereference NT headers from DOS header.";
+    return false;
+  }
+
+  // Finally, use these headers to populate the section info vector of the
+  // image-layout.
+  if (!CopyHeaderToImageLayout(nt_headers.block(), image_layout)) {
+    LOG(ERROR) << "Unable to copy NT headers to image-layout.";
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace
 
 bool SaveBlockGraphAndImageLayout(
-    block_graph::BlockGraphSerializer::Attributes attributes,
     const PEFile& pe_file,
+    block_graph::BlockGraphSerializer::Attributes attributes,
     const ImageLayout& image_layout,
     core::OutArchive* out_archive) {
   DCHECK(out_archive != NULL);
@@ -271,88 +370,29 @@ bool SaveBlockGraphAndImageLayout(
 }
 
 bool LoadBlockGraphAndImageLayout(
+    const PEFile& pe_file,
     block_graph::BlockGraphSerializer::Attributes* attributes,
+    ImageLayout* image_layout,
+    core::InArchive* in_archive) {
+  if (!LoadBlockGraphAndImageLayout(pe_file, NULL, attributes,
+                                    image_layout, in_archive)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool LoadBlockGraphAndImageLayout(
     PEFile* pe_file,
+    block_graph::BlockGraphSerializer::Attributes* attributes,
     ImageLayout* image_layout,
     core::InArchive* in_archive) {
   DCHECK(pe_file != NULL);
   DCHECK(image_layout != NULL);
   DCHECK(in_archive != NULL);
 
-  BlockGraph* block_graph = image_layout->blocks.graph();
-
-  // Load and check the stream version. This is where we could dispatch to
-  // different handlers for old versions of the stream if we wish to maintain
-  // backwards compatibility.
-  uint32 stream_version = 0;
-  if (!in_archive->Load(&stream_version)) {
-    LOG(ERROR) << "Unable to load serialized stream version.";
-    return false;
-  }
-  if (stream_version != kSerializedBlockGraphAndImageLayoutVersion) {
-    LOG(ERROR) << "Invalid stream version " << stream_version << ", expected "
-               << kSerializedBlockGraphAndImageLayoutVersion << ".";
-    return false;
-  }
-
-  // Load the metadata.
-  Metadata metadata;
-  if (!in_archive->Load(&metadata)) {
-    LOG(ERROR) << "Unable to load metadata.";
-    return false;
-  }
-
-  // We need to find the original PE file from which to fetch data. This logs
-  // verbosely, so we don't have to.
-  if (!FindPEFile(metadata, pe_file))
-    return false;
-
-  // Set up the serializer.
-  BlockGraphSerializer bgs;
-  bgs.set_load_block_data_callback(
-      base::Bind(&LoadBlockData,
-                 base::Unretained(pe_file),
-                 base::Unretained(image_layout)));
-
-  // Now deserialize the block-graph. This will simultaneously deserialize the
-  // image-layout address-space.
-  if (!bgs.Load(block_graph, in_archive)) {
-    LOG(ERROR) << "Unable to load block-graph.";
-    return false;
-  }
-
-  // Return the attributes if asked to.
-  if (attributes != NULL)
-    *attributes = bgs.attributes();
-
-  // We can now recreate the rest of the image-layout from the block-graph.
-  // Start by retrieving the DOS header block, which is always at the start of
-  // the image.
-  BlockGraph::Block* dos_header_block =
-      image_layout->blocks.GetBlockByAddress(core::RelativeAddress());
-  if (dos_header_block == NULL) {
-    LOG(ERROR) << "Unable to find DOS header in image-layout address-space.";
-    return false;
-  }
-
-  // Cast this as an IMAGE_DOS_HEADER.
-  block_graph::ConstTypedBlock<IMAGE_DOS_HEADER> dos_header;
-  if (!dos_header.Init(0, dos_header_block)) {
-    LOG(ERROR) << "Unable to cast DOS header block to IMAGE_DOS_HEADER.";
-    return false;
-  }
-
-  // Get the NT headers.
-  block_graph::ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
-  if (!dos_header.Dereference(dos_header->e_lfanew, &nt_headers)) {
-    LOG(ERROR) << "Unable to dereference NT headers from DOS header.";
-    return false;
-  }
-
-  // Finally, use these headers to populate the section info vector of the
-  // image-layout.
-  if (!CopyHeaderToImageLayout(nt_headers.block(), image_layout)) {
-    LOG(ERROR) << "Unable to copy NT headers to image-layout.";
+  if (!LoadBlockGraphAndImageLayout(*pe_file, pe_file, attributes,
+                                    image_layout, in_archive)) {
     return false;
   }
 

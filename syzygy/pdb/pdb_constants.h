@@ -67,7 +67,7 @@ extern const char kSyzygyBlockGraphStreamName[];
 
 // The version of the Syzygy BlockGraph data stream. This needs to be
 // incremented whenever the format of the stream has changed.
-const uint32 kSyzygyBlockGraphStreamVersion = 0;
+const uint32 kSyzygyBlockGraphStreamVersion = 1;
 
 }  // namespace pdb
 
