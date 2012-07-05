@@ -101,10 +101,6 @@ class Decomposer {
   typedef std::map<RelativeAddress, std::string> DataLabels;
   typedef std::vector<pdb::PdbFixup> PdbFixups;
 
-  // Temporary bottleneck implementation function for decomposition.
-  bool DecomposeImpl(BlockGraph::AddressSpace* image,
-                     PEFileParser::PEHeader* header);
-
   // Searches for (if necessary) the PDB file to be used in the decomposition,
   // and validates that the file exists and matches the module.
   bool FindAndValidatePdbPath();
@@ -257,27 +253,28 @@ class Decomposer {
 
   // Check if there's a block-graph stream in the PDB and load it in this case.
   // @param pdb_path The path of the PDB file.
-  // @param image_file The image file we're decomposing. We use it to set block
-  //     data pointers.
-  // @param image The graph that we're trying to read.
-  // @param header The image header that we want to fill.
+  // @param image_file The image file we're decomposing. This is used to set
+  //     block data pointers.
+  // @param image_layout The image-layout we're trying to populate.
   // @param stream_exist A pointer to a boolean to indicate if the block-graph
   //     stream exists in the PDB.
   // @return true if the block-graph has been successfully loaded, false
   //     otherwise.
   bool LoadBlockGraphFromPDB(const FilePath& pdb_path,
                              const PEFile& image_file,
-                             BlockGraph::AddressSpace* image,
-                             PEFileParser::PEHeader* header,
-                             bool* stream_exist);
+                             ImageLayout* image,
+                             bool* stream_exists);
 
   // Load a block-graph from a PDB stream.
+  // @param image_file The image file we're decomposing. This is used to set
+  //     block data pointers.
   // @param block_graph_stream The stream containing the block-graph.
-  // @param image The graph that we're trying to read.
+  // @param image_layout The image-layout we're trying to populate.
   // @return true if the block-graph has been successfully loaded, false
   //     otherwise.
-  bool LoadBlockGraphFromPDBStream(pdb::PdbStream* block_graph_stream,
-                                   BlockGraph::AddressSpace* image);
+  bool LoadBlockGraphFromPDBStream(const PEFile& image_file,
+                                   pdb::PdbStream* block_graph_stream,
+                                   ImageLayout* image_layout);
 
   // Try to get the block-graph stream from a PDB.
   // @param pdb_file The PDB file from which the stream will be read.

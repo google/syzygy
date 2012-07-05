@@ -38,10 +38,16 @@ class ZOutStream : public OutStream {
   // Destructor.
   virtual ~ZOutStream();
 
+  // These are effectively forwarded from zlib.h.
+  static const int kZDefaultCompression = -1;
+  static const int kZNoCompression = 0;
+  static const int kZBestSpeed = 1;
+  static const int kZBestCompression = 9;
+
   // @{
   // Initializes this compressor. Must be called prior to calling Write.
-  // @param level the level of compression. Must be Z_DEFAULT_COMPRESSION, or
-  //     an integer in the range 0..9, inclusive. If not provided defaults to
+  // @param level the level of compression. Must be kZDefaultCompression (-1),
+  //     or an integer in the range 0..9, inclusive. If not provided defaults to
   //     Z_DEFAULT_COMPRESSION.
   // @returns true on success, false otherwise.
   bool Init();

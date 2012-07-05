@@ -80,13 +80,14 @@ class SerializationTest : public testing::PELibUnitTest {
   }
 
   void Serialize(BlockGraphSerializer::Attributes attributes) {
-    ASSERT_TRUE(SaveBlockGraphAndImageLayout(attributes,
-                                             pe_file_,
+    ASSERT_TRUE(SaveBlockGraphAndImageLayout(pe_file_,
+                                             attributes,
                                              image_layout_,
                                              oa_.get()));
   }
 
-  void TestRoundTrip(BlockGraphSerializer::Attributes attributes) {
+  void TestRoundTrip(BlockGraphSerializer::Attributes attributes,
+                     bool search_for_pe_file) {
     ASSERT_NO_FATAL_FAILURE(InitDecomposition());
     ASSERT_NO_FATAL_FAILURE(InitOutArchive());
     ASSERT_NO_FATAL_FAILURE(Serialize(attributes));
@@ -96,10 +97,18 @@ class SerializationTest : public testing::PELibUnitTest {
     PEFile pe_file;
     BlockGraph block_graph;
     ImageLayout image_layout(&block_graph);
-    ASSERT_TRUE(LoadBlockGraphAndImageLayout(&attributes2,
-                                             &pe_file,
-                                             &image_layout,
-                                             ia_.get()));
+
+    if (search_for_pe_file) {
+      ASSERT_TRUE(LoadBlockGraphAndImageLayout(&pe_file,
+                                               &attributes2,
+                                               &image_layout,
+                                               ia_.get()));
+    } else {
+      ASSERT_TRUE(LoadBlockGraphAndImageLayout(pe_file_,
+                                               &attributes2,
+                                               &image_layout,
+                                               ia_.get()));
+    }
 
     ASSERT_EQ(attributes, attributes2);
 
@@ -127,12 +136,12 @@ class SerializationTest : public testing::PELibUnitTest {
 
 TEST_F(SerializationTest, TestDllRoundTripFull) {
   ASSERT_NO_FATAL_FAILURE(
-      TestRoundTrip(BlockGraphSerializer::DEFAULT_ATTRIBUTES));
+      TestRoundTrip(BlockGraphSerializer::DEFAULT_ATTRIBUTES, true));
 }
 
 TEST_F(SerializationTest, TestDllRoundTripNoStrings) {
   ASSERT_NO_FATAL_FAILURE(
-      TestRoundTrip(BlockGraphSerializer::OMIT_STRINGS));
+      TestRoundTrip(BlockGraphSerializer::OMIT_STRINGS, false));
 }
 
 TEST_F(SerializationTest, FailsForInvalidVersion) {
@@ -148,7 +157,7 @@ TEST_F(SerializationTest, FailsForInvalidVersion) {
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   ASSERT_FALSE(LoadBlockGraphAndImageLayout(
-      NULL, &pe_file, &image_layout, ia_.get()));
+      &pe_file, NULL, &image_layout, ia_.get()));
 }
 
 // TODO(chrisha): Check in a serialized stream, and ensure that it can still be

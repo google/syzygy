@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
+#include "syzygy/core/zstream.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
@@ -29,6 +30,7 @@
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
+#include "syzygy/pe/serialization.h"
 #include "syzygy/pe/orderers/pe_orderer.h"
 #include "syzygy/pe/transforms/add_metadata_transform.h"
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
@@ -600,54 +602,16 @@ bool WriteSyzygyHistoryStream(const FilePath& input_path,
   return true;
 }
 
-// This writes the serialized image layout in a PDB stream. There's only the
-// address space that is saved to the stream because the sections can be
-// inferred from the PE file.
-bool WriteImageLayoutAddressSpace(const ImageLayout& image_layout,
-                                  core::OutArchive* out_archive) {
-  DCHECK(out_archive != NULL);
-
-  block_graph::BlockGraph::AddressSpace::RangeMapConstIter image_layout_iter =
-      image_layout.blocks.begin();
-
-  // Write all the block addresses to the stream. The block IDs are not written
-  // because the order of the serialized blocks is guaranteed to be the same
-  // after de-serialization. The blocks are saved in the same order as they are
-  // in the block-graph.
-
-  RelativeAddress address;
-  BlockGraph::BlockMap::const_iterator blocks_iter =
-      image_layout.blocks.graph()->blocks().begin();
-
-  // Iterates over each block of the block-graph and tries to get its address in
-  // the image layout.
-  for (; blocks_iter != image_layout.blocks.graph()->blocks().end();
-       blocks_iter++) {
-    if (image_layout.blocks.GetAddressOf(&blocks_iter->second, &address)) {
-      if (!out_archive->Save(address)) {
-        return false;
-      }
-    } else {
-      LOG(ERROR) << "There is a block in the image layout that is not in the "
-                 << "block-graph (id=" << blocks_iter->second.id()
-                 << ", name=\"" << blocks_iter->second.name() << "\", "
-                 << "original address=" << blocks_iter->second.addr()
-                 << ").";
-      return false;
-    }
-  }
-
-  return true;
-}
-
 // This writes the serialized block-graph and the image layout in a PDB stream
 // named /Syzygy/BlockGraph. If the format is changed, be sure to update this
 // documentation and pdb::kSyzygyBlockGraphStreamVersion (in pdb_constants.h).
 // The block graph stream will not include the data from the blocks of the
 // block-graph. If the strip-strings flag is set to true the strings contained
 // in the block-graph won't be saved.
-bool WriteSyzygyBlockGraphStream(const ImageLayout& image_layout,
-                                 const bool strip_strings,
+bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
+                                 const ImageLayout& image_layout,
+                                 bool strip_strings,
+                                 bool compress,
                                  NameStreamMap* name_stream_map,
                                  PdbFile* pdb_file) {
   // Get the redecomposition data stream.
@@ -667,27 +631,45 @@ bool WriteSyzygyBlockGraphStream(const ImageLayout& image_layout,
       block_graph_reader->GetWritablePdbStream();
   DCHECK(block_graph_writer.get() != NULL);
 
-  // Write the version of the BlockGraph stream.
-  if (!block_graph_writer->Write(
-          pdb::kSyzygyBlockGraphStreamVersion)) {
+  // Write the version of the BlockGraph stream, and whether or not its
+  // contents are compressed.
+  if (!block_graph_writer->Write(pdb::kSyzygyBlockGraphStreamVersion) ||
+      !block_graph_writer->Write(static_cast<unsigned char>(compress))) {
     LOG(ERROR) << "Failed to write Syzygy BlockGraph stream header.";
     return false;
   }
 
-  // Save the BlockGraph in the stream.
-  PdbOutStream out_stream(block_graph_writer.get());
-  core::OutArchive out_archive(&out_stream);
-  if (!image_layout.blocks.graph()->Save(&out_archive, BlockGraph::OMIT_DATA)) {
-    LOG(ERROR) << "Failed to write block-graph data to Syzygy "
-               << "BlockGraph stream.";
+  // Set up the output stream.
+  PdbOutStream pdb_out_stream(block_graph_writer.get());
+  core::OutStream* out_stream = &pdb_out_stream;
+
+  // If requested, compress the output.
+  scoped_ptr<core::ZOutStream> zip_stream;
+  if (compress) {
+    zip_stream.reset(new core::ZOutStream(&pdb_out_stream));
+    out_stream = zip_stream.get();
+    if (!zip_stream->Init(core::ZOutStream::kZBestCompression)) {
+      LOG(ERROR) << "Failed to initialize zlib compressor.";
+      return false;
+    }
+  }
+
+  core::OutArchive out_archive(out_stream);
+
+  // Set up the serialization properties.
+  block_graph::BlockGraphSerializer::Attributes attributes = 0;
+  if (strip_strings)
+    attributes |= block_graph::BlockGraphSerializer::OMIT_STRINGS;
+
+  // And finally, perform the serialization.
+  if (!SaveBlockGraphAndImageLayout(pe_file, attributes, image_layout,
+                                    &out_archive)) {
+    LOG(ERROR) << "SaveBlockGraphAndImageLayout failed.";
     return false;
   }
 
-  // Save the image layout in the stream.
-  if (!WriteImageLayoutAddressSpace(image_layout, &out_archive)) {
-    LOG(ERROR) << "Failed to write image layout to Syzygy BlockGraph stream.";
-    return false;
-  }
+  // We have to flush the stream in case it's a zstream.
+  out_stream->Flush();
 
   return true;
 }
@@ -817,8 +799,17 @@ bool PERelinker::Relink() {
   // Add redecomposition data in another stream, only if augment_pdb_ is set.
   if (augment_pdb_) {
     LOG(INFO) << "The block-graph stream is being written to the PDB.";
-    if (!WriteSyzygyBlockGraphStream(output_image_layout,
+
+    PEFile new_pe_file;
+    if (!new_pe_file.Init(output_path_)) {
+      LOG(ERROR) << "Failed to read newly written PE file.";
+      return false;
+    }
+
+    if (!WriteSyzygyBlockGraphStream(new_pe_file,
+                                     output_image_layout,
                                      strip_strings_,
+                                     compress_pdb_,
                                      &name_stream_map,
                                      &pdb_file)) {
       return false;
