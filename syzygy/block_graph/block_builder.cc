@@ -284,19 +284,22 @@ bool SynthesizeSuccessor(const Successor& successor,
 
   // Remember where the reference for this successor has been placed. In each
   // of the above synthesized cases, it is the last thing written to the buffer.
-  Offset offset = asm_.location() - k32BitsInBytes;
-  bool inserted = ctx->locations.Add(&successor, ctx->new_block, offset);
+  Offset ref_offset = asm_.location() - k32BitsInBytes;
+  bool inserted = ctx->locations.Add(&successor, ctx->new_block, ref_offset);
   DCHECK(inserted);
 
-  // Calculate the number of bytes written and the size of the source range.
+  // Calculate the number of bytes written.
   size_t bytes_written = asm_.location() - ctx->offset;
-  ctx->offset = asm_.location();
 
+  // Update the source range.
   UpdateSourceRange(successor.instruction_offset(),
                     successor.instruction_size(),
-                    offset,
+                    ctx->offset,  // This is where we started writing.
                     bytes_written,
                     ctx);
+
+  // Update the write location.
+  ctx->offset = asm_.location();
 
   // And we're done.
   return true;
