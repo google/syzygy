@@ -2204,6 +2204,19 @@ CallbackDirective Decomposer::LookPastInstructionForData(
   return Disassembler::kDirectiveTerminatePath;
 }
 
+void Decomposer::MarkDisassembledPastEnd() {
+  static size_t count = 0;
+  DCHECK(current_block_ != NULL);
+  current_block_->set_attribute(BlockGraph::DISASSEMBLED_PAST_END);
+  LOG(WARNING) << "Disassembled past end of block or into known data for "
+               << "block " << current_block_->name() << ".";
+
+  // TODO(chrisha): Look at the last disassembled instructions. If they consist
+  //     of a call followed by a sequence of no-ops or a sequence of int3s,
+  //     output a warning to the effect that we suspect the called function is
+  //     in fact non-returning.
+}
+
 CallbackDirective Decomposer::VisitNonFlowControlInstruction(
     RelativeAddress instr_start, RelativeAddress instr_end) {
   // TODO(chrisha): We could walk the operands and follow references
@@ -2273,7 +2286,8 @@ CallbackDirective Decomposer::VisitNonFlowControlInstruction(
 CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
     AbsoluteAddress instr_abs,
     RelativeAddress instr_rel,
-    const _DInst& instruction) {
+    const _DInst& instruction,
+    bool end_of_code) {
   int fc = META_GET_FC(instruction.meta);
   DCHECK(fc == FC_UNC_BRANCH || fc == FC_CALL || fc == FC_CND_BRANCH);
   DCHECK_EQ(O_PC, instruction.ops[0].type);
@@ -2351,6 +2365,12 @@ CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
     return Disassembler::kDirectiveTerminatePath;
   }
 
+  // If we get here, then we don't think it's a non-returning call. If it's
+  // not an unconditional jump and we're at the end of the code for this block
+  // then we consider this as disassembling past the end.
+  if (fc != FC_UNC_BRANCH && end_of_code)
+    MarkDisassembledPastEnd();
+
   return Disassembler::kDirectiveContinue;
 }
 
@@ -2381,9 +2401,20 @@ CallbackDirective Decomposer::OnInstruction(const Disassembler& walker,
   if (IsFatalCallbackDirective(directive))
     return directive;
 
+  // We're at the end of code in this block if we encountered data, or this is
+  // the last intruction to be processed.
+  RelativeAddress block_end(current_block_->addr() + current_block_->size());
+  bool end_of_code = (directive == Disassembler::kDirectiveTerminatePath) ||
+      (after_instr_rel >= block_end);
+
   int fc = META_GET_FC(instruction.meta);
 
   if (fc == FC_NONE) {
+    // There's no control flow and we're at the end of the block. Mark the
+    // block as dirty.
+    if (end_of_code)
+      MarkDisassembledPastEnd();
+
     return CombineCallbackDirectives(directive,
         VisitNonFlowControlInstruction(instr_rel, after_instr_rel));
   }
@@ -2395,20 +2426,15 @@ CallbackDirective Decomposer::OnInstruction(const Disassembler& walker,
     return CombineCallbackDirectives(directive,
         VisitPcRelativeFlowControlInstruction(instr_abs,
                                               instr_rel,
-                                              instruction));
+                                              instruction,
+                                              end_of_code));
   }
 
   // Look out for blocks where disassembly seems to run off the end of the
-  // block.
-  if (fc != FC_RET && fc != FC_UNC_BRANCH && fc != FC_INT) {
-    RelativeAddress block_end(current_block_->addr() + current_block_->size());
-    if (after_instr_rel >= block_end) {
-      LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
-          << "Instruction flow runs off the end of block \""
-          << current_block_->name() << "\".";
-      return AbortOrTerminateDisassembly(be_strict_with_current_block_);
-    }
-  }
+  // block. We do not treat interrupts as flow control as execution can
+  // continue past the interrupt.
+  if (fc != FC_RET && fc != FC_UNC_BRANCH && end_of_code)
+    MarkDisassembledPastEnd();
 
   if (fc == FC_CALL) {
     // TODO(chrisha): For call instructions, see whether they call a

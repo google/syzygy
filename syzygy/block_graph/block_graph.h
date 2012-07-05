@@ -103,9 +103,13 @@ class BlockGraph {
     // delving far deeper into the specifics, it is unsafe to basic block
     // decompose these blocks.
     HAS_EXCEPTION_HANDLING = (1 << 10),
+    // This is set for blocks whose disassembly went off the end of the block,
+    // or into data. These blocks have control flow that we are not aware of, or
+    // are otherwise malformed.
+    DISASSEMBLED_PAST_END = (1 << 11),
 
     // This always needs to be set to the next available attribute bit.
-    BLOCK_ATTRIBUTES_MAX = (1 << 11),
+    BLOCK_ATTRIBUTES_MAX = (1 << 12),
   };
 
   // Attributes that can be passed to the save function.
