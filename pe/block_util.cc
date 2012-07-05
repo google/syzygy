@@ -83,8 +83,7 @@ bool IsValidSelfReferenceDataToCode(
     const BlockGraph::Block* block,
     const BlockGraph::Reference& ref) {
   // Must be 4-byte direct absolute references.
-  if (ref.type() != BlockGraph::ABSOLUTE_REF ||
-      ref.size() != kPointerSize ||
+  if (ref.type() != BlockGraph::ABSOLUTE_REF || ref.size() != kPointerSize ||
       !ref.IsDirect()) {
     return false;
   }
@@ -99,9 +98,7 @@ bool IsValidExternalReferenceCodeBlockToCode(
       ref.type() != BlockGraph::PC_RELATIVE_REF) {
     return false;
   }
-  if (ref.size() != kPointerSize ||
-      ref.offset() != 0 ||
-      !ref.IsDirect())
+  if (ref.size() != kPointerSize || ref.offset() != 0 || !ref.IsDirect())
     return false;
   return true;
 }
@@ -115,9 +112,7 @@ bool IsValidExternalReferenceDataBlockToCode(
       ref.type() != BlockGraph::RELATIVE_REF) {
     return false;
   }
-  if (ref.size() != kPointerSize ||
-      ref.offset() != 0 ||
-      !ref.IsDirect())
+  if (ref.size() != kPointerSize || ref.offset() != 0 || !ref.IsDirect())
     return false;
   return true;
 }
@@ -133,8 +128,9 @@ bool CodeBlockAttributesAreClConsistent(
       BlockGraph::HAS_INLINE_ASSEMBLY |
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
       BlockGraph::ERRORED_DISASSEMBLY |
-      BlockGraph::HAS_EXCEPTION_HANDLING;
-  if (block->attributes() & kInvalidAttributes)
+      BlockGraph::HAS_EXCEPTION_HANDLING |
+      BlockGraph::DISASSEMBLED_PAST_END;
+  if ((block->attributes() & kInvalidAttributes) != 0)
     return false;
 
   return true;

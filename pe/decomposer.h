@@ -237,13 +237,15 @@ class Decomposer {
 
   // @name OnInstruction helper functions.
   // @{
+  void MarkDisassembledPastEnd();
   CallbackDirective LookPastInstructionForData(RelativeAddress instr_end);
   CallbackDirective VisitNonFlowControlInstruction(RelativeAddress instr_start,
                                                    RelativeAddress instr_end);
   CallbackDirective VisitPcRelativeFlowControlInstruction(
       AbsoluteAddress instr_abs,
       RelativeAddress instr_rel,
-      const _DInst& instruction);
+      const _DInst& instruction,
+      bool end_of_code);
   CallbackDirective OnInstruction(const Disassembler& disassembler,
                                   const _DInst& instruction);
   // @}
