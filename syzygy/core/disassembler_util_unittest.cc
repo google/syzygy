@@ -1,0 +1,124 @@
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "syzygy/core/disassembler_util.h"
+
+#include "base/basictypes.h"
+#include "gtest/gtest.h"
+
+namespace core {
+
+namespace {
+
+_DInst DecodeBuffer(const uint8* buffer, size_t length) {
+  _CodeInfo code = {};
+  code.dt = Decode32Bits;
+  code.features = DF_NONE;
+  code.codeOffset = 0x10000;
+  code.codeLen = length;
+  code.code = buffer;
+
+  unsigned int decoded = 0;
+  _DInst inst = {};
+  _DecodeResult result = distorm_decompose(&code, &inst, 1, &decoded);
+  EXPECT_TRUE(result == DECRES_MEMORYERR || result == DECRES_SUCCESS);
+  EXPECT_EQ(1U, decoded);
+  EXPECT_EQ(length, inst.size);
+
+  return inst;
+}
+
+// Nop Instruction byte sequences.
+const uint8 kNop2Mov[] = { 0x8B, 0xFF };
+const uint8 kNop3Lea[] = { 0x8D, 0x49, 0x00 };
+const uint8 kNop1[] = { 0x90 };
+const uint8 kNop2[] = { 0x66, 0x90 };
+const uint8 kNop3[] = { 0x66, 0x66, 0x90 };
+const uint8 kNop4[] = { 0x0F, 0x1F, 0x40, 0x00 };
+const uint8 kNop5[] = { 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+const uint8 kNop6[] = { 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+const uint8 kNop7[] = { 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 };
+const uint8 kNop8[] = { 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
+const uint8 kNop9[] = {
+    0x66,  // Prefix,
+    0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8.
+};
+const uint8 kNop10[] = {
+    0x66, 0x66,  // Prefix.
+    0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8.
+};
+const uint8 kNop11[] = {
+    0x66, 0x66, 0x66,  // Prefix.
+    0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8
+};
+
+// Control Flow byte sequences (note that the JMP is indirect).
+const uint8 kJmp[] = { 0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE };
+const uint8 kRet[] = { 0xC3 };
+const uint8 kRetN[] = { 0xC2, 0x08, 0x00 };
+const uint8 kJe[] = { 0x74, 0xCA };
+const uint8 kSysEnter[] = { 0x0F, 0x34 };
+
+// Interrupts.
+const uint8 kInt2[] = { 0xCD, 0x02 };
+const uint8 kInt3[] = { 0xCC };
+
+}  // namespace
+
+TEST(DisassemblerUtilTest, IsNop) {
+  EXPECT_FALSE(IsNop(DecodeBuffer(kJmp, sizeof(kJmp))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop1, sizeof(kNop1))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop2, sizeof(kNop2))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop3, sizeof(kNop3))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop4, sizeof(kNop4))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop5, sizeof(kNop5))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop6, sizeof(kNop6))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop7, sizeof(kNop7))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop8, sizeof(kNop8))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop9, sizeof(kNop9))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop10, sizeof(kNop10))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop11, sizeof(kNop11))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop2Mov, sizeof(kNop2Mov))));
+  EXPECT_TRUE(IsNop(DecodeBuffer(kNop3Lea, sizeof(kNop3Lea))));
+}
+
+TEST(DisassemblerUtilTest, IsControlFlow) {
+  EXPECT_FALSE(IsControlFlow(DecodeBuffer(kNop4, sizeof(kNop4))));
+  EXPECT_TRUE(IsControlFlow(DecodeBuffer(kJmp, sizeof(kJmp))));
+  EXPECT_TRUE(IsControlFlow(DecodeBuffer(kRet, sizeof(kRet))));
+  EXPECT_TRUE(IsControlFlow(DecodeBuffer(kRetN, sizeof(kRetN))));
+  EXPECT_TRUE(IsControlFlow(DecodeBuffer(kJe, sizeof(kJe))));
+  EXPECT_TRUE(IsControlFlow(DecodeBuffer(kSysEnter, sizeof(kSysEnter))));
+}
+
+TEST(DisassemblerUtilTest, IsImplicitControlFlow) {
+  EXPECT_FALSE(IsImplicitControlFlow(DecodeBuffer(kJe, sizeof(kJe))));
+  EXPECT_TRUE(IsImplicitControlFlow(DecodeBuffer(kRet, sizeof(kRet))));
+  EXPECT_TRUE(IsImplicitControlFlow(DecodeBuffer(kRetN, sizeof(kRetN))));
+  EXPECT_TRUE(IsImplicitControlFlow(DecodeBuffer(kJmp, sizeof(kJmp))));
+}
+
+TEST(DisassemblerUtilTest, IsInterrupt) {
+  EXPECT_FALSE(IsInterrupt(DecodeBuffer(kJe, sizeof(kJe))));
+  EXPECT_TRUE(IsInterrupt(DecodeBuffer(kInt2, sizeof(kInt2))));
+  EXPECT_TRUE(IsInterrupt(DecodeBuffer(kInt3, sizeof(kInt3))));
+}
+
+TEST(DisassemblerUtilTest, IsDebugInterrupt) {
+  EXPECT_FALSE(IsDebugInterrupt(DecodeBuffer(kJe, sizeof(kJe))));
+  EXPECT_FALSE(IsDebugInterrupt(DecodeBuffer(kInt2, sizeof(kInt2))));
+  EXPECT_TRUE(IsDebugInterrupt(DecodeBuffer(kInt3, sizeof(kInt3))));
+}
+
+}  // namespace core

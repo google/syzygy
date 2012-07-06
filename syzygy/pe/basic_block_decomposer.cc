@@ -55,21 +55,21 @@ typedef BBAddressSpace::RangeMapIter RangeMapIter;
 // block (offset=0) and a null address.
 const size_t kDisassemblyAddress = 65536;
 
-// TODO(rogerm): The core of this function belongs as a helper on Instruction,
-//     with a convenience ranged loop check on BasicBlock.
+// Returns true if any of the instructions in the range [@p start, @p end) is
+// a, for the purposes of basic-block decompsition, control flow instruction.
 bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
                     BasicBlock::Instructions::const_iterator end) {
   for (; start != end; ++start) {
-    uint8 fc = META_GET_FC(start->representation().meta);
-    if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH ||
-        fc == FC_RET || fc == FC_SYS) {
+    if (start->IsControlFlow())
       return true;
-    }
   }
   return false;
 }
 
-// This is only safe to be called after the references have all been copied.
+// Returns true if the given instruction is a call to a function block that
+// has been tagged as non-returning.
+// Note: This may only be called after all instruction references have been
+//     populated.
 bool CallsNonReturningFunction(const Instruction& instruction) {
   if (META_GET_FC(instruction.representation().meta) == FC_CALL &&
       instruction.representation().ops[0].type == O_PC) {
@@ -78,24 +78,6 @@ bool CallsNonReturningFunction(const Instruction& instruction) {
     if (target != NULL &&
         (target->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0) {
       // Called a non-returning function.
-      return true;
-    }
-  }
-  return false;
-}
-
-// TODO(rogerm): Belongs as a helper on Instruction.
-bool HasImplicitControlFlow(const Instruction& instruction) {
-  uint8 fc = META_GET_FC(instruction.representation().meta);
-  if (fc == FC_RET || fc == FC_SYS) {
-    // Control flow jumps implicitly out of the block.
-    return true;
-  } else if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH) {
-    uint8 type = instruction.representation().ops[0].type;
-    if (type == O_REG || type == O_MEM ||
-        type == O_SMEM || type == O_DISP) {
-      // There is an explicit branch, but the target is computed, stored
-      // in a register, or indirect. We don't follow those.
       return true;
     }
   }
@@ -121,11 +103,6 @@ const BlockGraph::Reference& GetReferenceOfInstructionAt(const Block* block,
   CHECK(next_iter == block->references().end() ||
          next_iter->first >= instr_offset + static_cast<Offset>(instr_size));
   return ref_iter->second;
-}
-
-// TODO(rogerm): Belongs as a helper on Instruction.
-bool IsInterrupt(const Instruction& instruction) {
-  return META_GET_FC(instruction.representation().meta) == FC_INT;
 }
 
 }  // namespace
@@ -346,7 +323,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
   if (control_flow == kControlFlowContinues) {
     DCHECK(current_successors_.empty());
     DCHECK(!current_instructions_.empty());
-    DCHECK(!HasImplicitControlFlow(current_instructions_.back()));
+    DCHECK(!current_instructions_.back().IsImplicitControlFlow());
 
     current_successors_.push_front(
         Successor(Successor::kConditionTrue,
@@ -484,14 +461,11 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         CHECK(!HasControlFlow(instructions.begin(), --instructions.end()));
 
         // Either there is an implicit control flow instruction at the end
-        // or this function has been tagged as non-returning.
-        const Instruction& last_instruction = instructions.back();
-        bool is_non_returning =
-            (block_->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0;
-        CHECK(HasImplicitControlFlow(last_instruction) ||
-              IsInterrupt(last_instruction) ||
-              CallsNonReturningFunction(last_instruction) ||
-              is_non_returning);
+        // or this basic block calls a non-returning function. Otherwise, it
+        // should have been flagged by the decomposer as unsafe to basic-
+        // block decompose.
+        CHECK(instructions.back().IsImplicitControlFlow() ||
+              CallsNonReturningFunction(instructions.back()));
         break;
       }
 

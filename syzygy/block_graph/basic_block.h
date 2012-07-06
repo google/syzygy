@@ -23,6 +23,7 @@
 #include "base/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/assembler.h"
+#include "syzygy/core/disassembler_util.h"
 
 #include "distorm.h"  // NOLINT
 
@@ -311,6 +312,20 @@ class Instruction {
   Offset offset() const { return offset_; }
   Size size() const { return size_; }
   /// @}
+
+  // @name Helper functions.
+  // @{
+  bool IsNop() const { return core::IsNop(representation_); }
+  bool IsControlFlow() const { return core::IsControlFlow(representation_); }
+  bool IsImplicitControlFlow() const {
+    return core::IsImplicitControlFlow(representation_);
+  }
+  bool IsInterrupt() const { return core::IsInterrupt(representation_); }
+  bool IsDebugInterrupt() const {
+    return core::IsDebugInterrupt(representation_);
+  }
+  // @}
+
 
   // Returns the maximum size required to serialize this instruction.
   Size GetMaxSize() const { return size_; }
