@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_EXPERIMENTAL_BLOCK_HASH_H_
-#define SYZYGY_EXPERIMENTAL_BLOCK_HASH_H_
+#ifndef SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_HASH_H_
+#define SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_HASH_H_
 
 #include "base/md5.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/experimental/comparable.h"
+#include "syzygy/experimental/compare/comparable.h"
 
 namespace experimental {
 
@@ -53,4 +53,4 @@ struct BlockHash : public Comparable<BlockHash> {
 
 }  // namespace experimental
 
-#endif  // SYZYGY_EXPERIMENTAL_BLOCK_HASH_H_
+#endif  // SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_HASH_H_

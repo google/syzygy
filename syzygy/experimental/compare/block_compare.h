@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 // constructed such that if two blocks compare equal, the hashes computed
 // by BlockHash will be equal. It can be used to resolve BlockHash conflicts.
 
-#ifndef SYZYGY_EXPERIMENTAL_BLOCK_COMPARE_H_
-#define SYZYGY_EXPERIMENTAL_BLOCK_COMPARE_H_
+#ifndef SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_COMPARE_H_
+#define SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_COMPARE_H_
 
 #include "syzygy/block_graph/block_graph.h"
 
@@ -32,4 +32,4 @@ int BlockCompare(const BlockGraph::Block* block0,
 
 }  // namespace experimental
 
-#endif  // SYZYGY_EXPERIMENTAL_BLOCK_COMPARE_H_
+#endif  // SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_COMPARE_H_

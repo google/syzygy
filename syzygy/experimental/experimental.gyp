@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,32 +16,12 @@
   'variables': {
     'chromium_code': 1,
   },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
-      'target_name': 'compare',
-      'type': 'executable',
-      'sources': [
-        'block_compare.cc',
-        'block_compare.h',
-        'block_hash.cc',
-        'block_hash.h',
-        'comparable.h',
-        'compare.cc',
-        'compare.h',
-        'compare.rc',
-        'compare_main.cc',
-      ],
+      'target_name': 'experimental',
+      'type': 'none',
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(DEPTH)/syzygy/experimental/compare/compare.gyp:*',
       ],
     },
   ]

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 // BlockGraphs that represent different versions of the same binary but it
 // should work for arbitrary BlockGraphs. See compare.cc for a full description
 // of the algorithm.
-#ifndef SYZYGY_EXPERIMENTAL_COMPARE_H_
-#define SYZYGY_EXPERIMENTAL_COMPARE_H_
+#ifndef SYZYGY_EXPERIMENTAL_COMPARE_COMPARE_H_
+#define SYZYGY_EXPERIMENTAL_COMPARE_COMPARE_H_
 
 #include <map>
 #include <vector>
@@ -49,4 +49,4 @@ bool ReverseBlockGraphMapping(const BlockGraphMapping& mapping,
 
 }  // experimental
 
-#endif  // SYZYGY_EXPERIMENTAL_COMPARE_H_
+#endif  // SYZYGY_EXPERIMENTAL_COMPARE_COMPARE_H_

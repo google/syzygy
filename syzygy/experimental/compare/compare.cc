@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,15 +68,15 @@
 // content. This situation is handled regardless of the feature that is
 // given priority.
 
-#include "syzygy/experimental/compare.h"
+#include "syzygy/experimental/compare/compare.h"
 
 #include <algorithm>
 
 #include "base/logging.h"
 #include "base/md5.h"
-#include "syzygy/experimental/block_compare.h"
-#include "syzygy/experimental/block_hash.h"
-#include "syzygy/experimental/comparable.h"
+#include "syzygy/experimental/compare/block_compare.h"
+#include "syzygy/experimental/compare/block_hash.h"
+#include "syzygy/experimental/compare/comparable.h"
 
 namespace experimental {
 
