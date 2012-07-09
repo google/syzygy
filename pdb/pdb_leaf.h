@@ -33,14 +33,14 @@ class PdbStream;
 // @param stream The stream containing the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data.
-// @param level_of_indent The level of indentation to use.
+// @param indent_level The level of indentation to use.
 // @returns true on success, false on error.
 bool DumpLeaf(const TypeInfoRecordMap& type_map,
               uint16 type_value,
               FILE* out,
               PdbStream* stream,
               uint16 len,
-              uint8 level_of_indent);
+              uint8 indent_level);
 
 // Returns the size of the struct associated with a numeric leaf type.
 size_t NumericLeafSize(uint16 symbol_type);
@@ -67,13 +67,13 @@ const char* GetNumericLeafNameAndSize(uint16 leaf_type, size_t* leaf_size);
 // @param stream The stream containing the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data.
-// @param level_of_indent The level of indentation to use.
+// @param indent_level The level of indentation to use.
 // @returns true on success, false on error.
 bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
                      FILE* out,
                      PdbStream* stream,
                      uint16 len,
-                     uint8 level_of_indent);
+                     uint8 indent_level);
 
 }  // namespace pdb
 

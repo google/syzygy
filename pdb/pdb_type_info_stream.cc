@@ -104,7 +104,7 @@ void DumpTypeInfoStream(FILE* out,
             type_info_record_map.size());
   TypeInfoRecordMap::const_iterator type_info_iter =
       type_info_record_map.begin();
-  uint8 level_of_indent = 1;
+  uint8 indent_level = 1;
   // Dump each symbol contained in the vector.
   for (; type_info_iter != type_info_record_map.end(); type_info_iter++) {
     if (!stream->Seek(type_info_iter->second.start_position)) {
@@ -113,14 +113,14 @@ void DumpTypeInfoStream(FILE* out,
                                  type_info_iter->second.start_position);
       return;
     }
-    DumpTabs(out, level_of_indent);
+    DumpTabs(out, indent_level);
     ::fprintf(out, "Type info 0x%04X:\n", type_info_iter->first);
     bool success = DumpLeaf(type_info_record_map,
                             type_info_iter->second.type,
                             out,
                             stream,
                             type_info_iter->second.len,
-                            level_of_indent + 1);
+                            indent_level + 1);
 
     if (!success) {
       // In case of failure we just dump the hex data of this type info.
@@ -134,7 +134,7 @@ void DumpTypeInfoStream(FILE* out,
                       out,
                       stream,
                       type_info_iter->second.len,
-                      level_of_indent + 1);
+                      indent_level + 1);
     }
     stream->Seek(common::AlignUp(stream->pos(), 4));
     size_t expected_position = type_info_iter->second.start_position

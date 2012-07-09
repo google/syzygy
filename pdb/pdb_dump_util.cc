@@ -24,7 +24,7 @@ namespace cci = Microsoft_Cci_Pdb;
 bool DumpUnknownBlock(FILE* out,
                       PdbStream* stream,
                       uint16 len,
-                      uint8 level_of_indent) {
+                      uint8 indent_level) {
   uint8 buffer[32];
   size_t bytes_read = 0;
   while (bytes_read < len) {
@@ -37,7 +37,7 @@ bool DumpUnknownBlock(FILE* out,
       LOG(ERROR) << "Unable to read stream.";
       return false;
     }
-    DumpTabs(out, level_of_indent);
+    DumpTabs(out, indent_level);
     for (size_t i = 0; i < bytes_just_read; ++i)
       ::fprintf(out, "%X", buffer[i]);
     ::fprintf(out, "\n");
@@ -47,11 +47,20 @@ bool DumpUnknownBlock(FILE* out,
   return true;
 }
 
-void DumpTabs(FILE* out, uint8 level_of_indent) {
+void DumpTabs(FILE* out, uint8 indent_level) {
   DCHECK(out != NULL);
-  for (uint8 i = 0; i < level_of_indent;  ++i) {
-    fputc('\t', out);
+  for (uint8 i = 0; i < indent_level;  ++i) {
+    ::fprintf(out, "  ");
   }
+}
+
+void DumpIndentedText(FILE* out, uint8 indent_level, const char* format, ...) {
+  DCHECK(out != NULL);
+  DCHECK(format != NULL);
+  DumpTabs(out, indent_level);
+  va_list arguments;
+  va_start(arguments, format);
+  ::vfprintf(out, format, arguments);
 }
 
 }  // namespace pdb

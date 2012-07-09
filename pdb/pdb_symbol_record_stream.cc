@@ -349,10 +349,10 @@ bool DumpDiscardedSym(FILE* out, PdbStream* stream, uint16 len) {
 
 // Hexdump the data of the undeciphered symbol records.
 bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len) {
-  uint8 level_of_indent = 2;
-  pdb::DumpTabs(out, level_of_indent);
+  uint8 indent_level = 2;
+  pdb::DumpTabs(out, indent_level);
   ::fprintf(out, "Unsupported symbol type. Data:\n");
-  return DumpUnknownBlock(out, stream, len, level_of_indent);
+  return DumpUnknownBlock(out, stream, len, indent_level);
 }
 
 }  //  namespace

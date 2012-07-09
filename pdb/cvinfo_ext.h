@@ -356,4 +356,83 @@
     decl(T_32PBOOL64) \
     decl(T_64PBOOL64)
 
+// This structure represent a bitfields for a leaf member attribute field as
+// it is describet in the document "Microsoft Symbol and Type Information". Here
+// is the bit format:
+// access      :2 Specifies the access protection of the item
+//             0 No access protection
+//             1 Private
+//             2 Protected
+// mprop       :3 Specifies the properties for methods
+//             0 Vanilla method
+//             1 Virtual method
+//             2 Static method
+//             3 Friend method
+//             4 Introducing virtual method
+//             5 Pure virtual method
+//             6 Pure introducing virtual method
+//             7 Reserved
+// pseudo      :1 True if the method is never instantiated by the compiler
+// noinherit   :1 True if the class cannot be inherited
+// noconstruct :1 True if the class cannot be constructed
+// reserved    :8
+union LeafMemberAttributeField {
+  enum accessProtection {
+    no_access_protection = 0,
+    private_access = 1,
+    protected_access = 2,
+    public_access = 3,
+  };
+  uint16 raw;
+  struct {
+    uint16 access      : 2;
+    uint16 mprop       : 3;
+    uint16 pseudo      : 1;
+    uint16 noinherit   : 1;
+    uint16 noconstruct : 1;
+    uint16 compgenx    : 1;
+    uint16 reserved    : 7;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT(sizeof(LeafMemberAttributeField) == 2,
+               pdb_size_of_LeafMemberAttributeField_invalid);
+
+// This structure represent a bitfield for a leaf property field.
+union LeafPropertyField {
+  uint16 raw;
+  struct {
+    uint16 packed     :1;
+    uint16 ctor       :1;
+    uint16 ovlops     :1;
+    uint16 isnested   :1;
+    uint16 cnested    :1;
+    uint16 opassign   :1;
+    uint16 opcast     :1;
+    uint16 fwdref     :1;
+    uint16 scoped     :1;
+    uint16 reserved   :7;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT(sizeof(LeafPropertyField) == 2,
+               pdb_size_of_LeafPropertyField_invalid);
+
+// This structure represent a bitfield for a leaf modifier attribute.
+union LeafModifierAttribute {
+  uint16 raw;
+  struct {
+    uint16 mod_const      :1;
+    uint16 mod_volatile   :1;
+    uint16 mod_unaligned  :1;
+    uint16 reserved   :13;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT(sizeof(LeafModifierAttribute) == 2,
+               pdb_size_of_LeafModifierAttribute_invalid);
+
 #endif  // SYZYGY_PDB_CVINFO_EXT_H_

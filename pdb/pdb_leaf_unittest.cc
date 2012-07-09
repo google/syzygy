@@ -298,7 +298,7 @@ TEST_F(PdbLeafTest, DumpLeafEnumerate) {
   uint16 current_leaf_attr = 0;
   uint16 current_leaf_value_type = 0;
   cci::LeafChar leaf_value = {};
-  std::string leaf_name = "leaf";
+  std::string leaf_name = "leaf_enumerate";
   ASSERT_TRUE(writable_stream_->Write(current_leaf_attr));
   ASSERT_TRUE(writable_stream_->Write(current_leaf_value_type));
   ASSERT_TRUE(writable_stream_->Write(leaf_value));
@@ -306,6 +306,58 @@ TEST_F(PdbLeafTest, DumpLeafEnumerate) {
   TypeInfoRecordMap record_map;
   ASSERT_TRUE(DumpLeaf(record_map,
                        cci::LF_ENUMERATE,
+                       out_->file(),
+                       stream_.get(),
+                       stream_->length(),
+                       0));
+}
+
+TEST_F(PdbLeafTest, DumpLeafClass) {
+  cci::LeafClass current_leaf = {};
+  ASSERT_TRUE(writable_stream_->Write(offsetof(cci::LeafClass, data),
+                                      &current_leaf));
+  // Write a short leaf to avoid the need for padding.
+  cci::LeafUShort leaf_value = {};
+  ASSERT_TRUE(writable_stream_->Write(leaf_value));
+  std::string leaf_name = "leaf_class";
+  std::string leaf_name_u = "leaf_class_u";
+  ASSERT_TRUE(writable_stream_->WriteString(leaf_name));
+  ASSERT_TRUE(writable_stream_->WriteString(leaf_name_u));
+  TypeInfoRecordMap record_map;
+  ASSERT_TRUE(DumpLeaf(record_map,
+                       cci::LF_CLASS,
+                       out_->file(),
+                       stream_.get(),
+                       stream_->length(),
+                       0));
+}
+
+TEST_F(PdbLeafTest, DumpLeafEnum) {
+  cci::LeafEnum current_leaf = {};
+  ASSERT_TRUE(writable_stream_->Write(offsetof(cci::LeafEnum, name),
+                                      &current_leaf));
+  std::string leaf_name = "leaf_enum";
+  ASSERT_TRUE(writable_stream_->WriteString(leaf_name));
+  TypeInfoRecordMap record_map;
+  ASSERT_TRUE(DumpLeaf(record_map,
+                       cci::LF_ENUM,
+                       out_->file(),
+                       stream_.get(),
+                       stream_->length(),
+                       0));
+}
+
+TEST_F(PdbLeafTest, DumpLeafMember) {
+  cci::LeafMember current_leaf = {};
+  ASSERT_TRUE(writable_stream_->Write(offsetof(cci::LeafMember, offset),
+                                      &current_leaf));
+  cci::LeafChar leaf_value = {};
+  ASSERT_TRUE(writable_stream_->Write(leaf_value));
+  std::string leaf_name = "leaf_member";
+  ASSERT_TRUE(writable_stream_->WriteString(leaf_name));
+  TypeInfoRecordMap record_map;
+  ASSERT_TRUE(DumpLeaf(record_map,
+                       cci::LF_MEMBER,
                        out_->file(),
                        stream_.get(),
                        stream_->length(),
