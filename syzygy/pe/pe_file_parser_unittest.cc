@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ namespace pe {
 using block_graph::BlockGraph;
 using core::RelativeAddress;
 using testing::ContainerEq;
+using testing::Contains;
 
 namespace {
 
@@ -75,6 +76,8 @@ class PEFileParserTest: public testing::PELibUnitTest {
 
     add_reference_ = base::Bind(&PEFileParserTest::AddReference,
                                 base::Unretained(this));
+    on_import_thunk_ = base::Bind(&PEFileParserTest::OnImportThunk,
+                                  base::Unretained(this));
 
     ASSERT_TRUE(image_file_.Init(testing::GetExeRelativePath(kDllName)));
   }
@@ -95,6 +98,19 @@ class PEFileParserTest: public testing::PELibUnitTest {
     bool inserted = references_.insert(std::make_pair(src, ref)).second;
     EXPECT_TRUE(inserted);
     return inserted;
+  }
+
+  bool OnImportThunk(const char* module_name,
+                     const char* symbol_name,
+                     BlockGraph::Block* thunk) {
+    EXPECT_TRUE(module_name != NULL);
+    EXPECT_TRUE(symbol_name != NULL);
+    EXPECT_TRUE(thunk != NULL);
+    import_map_[module_name]++;
+    EXPECT_TRUE(import_set_.insert(
+        std::make_pair(std::string(module_name),
+                       std::string(symbol_name))).second);
+    return true;
   }
 
   // Assert that an exported function in the test_dll is referenced
@@ -153,7 +169,15 @@ class PEFileParserTest: public testing::PELibUnitTest {
   typedef std::map<RelativeAddress, Reference> ReferenceMap;
   ReferenceMap references_;
 
+  // This is used to count the number of imported symbols per imported module,
+  // and is populated by the OnImportThunk callback.
+  typedef std::map<std::string, size_t> ImportMap;
+  typedef std::set<std::pair<std::string, std::string>> ImportSet;
+  ImportMap import_map_;
+  ImportSet import_set_;
+
   PEFileParser::AddReferenceCallback add_reference_;
+  PEFileParser::OnImportThunkCallback on_import_thunk_;
   PEFile image_file_;
   BlockGraph image_;
   BlockGraph::AddressSpace address_space_;
@@ -227,6 +251,7 @@ TEST_F(PEFileParserTest, ParseExportDir) {
 
 TEST_F(PEFileParserTest, ParseImportDir) {
   TestPEFileParser parser(image_file_, &address_space_, add_reference_);
+  parser.set_on_import_thunk(on_import_thunk_);
 
   PEFileParser::PEHeader header;
   EXPECT_TRUE(parser.ParseImageHeader(&header));
@@ -297,6 +322,26 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   expected.insert("KERNEL32.dll");
   expected.insert("export_dll.dll");
   EXPECT_THAT(import_names, ContainerEq(expected));
+
+#ifdef NDEBUG
+  // Release build.
+  size_t kernel32_symbols = 73;
+  size_t export_dll_symbols = 2;
+#else  // Debug/Coverage build.
+  size_t kernel32_symbols = 80;
+  size_t export_dll_symbols = 2;
+#endif
+
+  ImportMap expected_import_map;
+  expected_import_map["KERNEL32.dll"] = kernel32_symbols;
+  expected_import_map["export_dll.dll"] = export_dll_symbols;
+  EXPECT_THAT(expected_import_map, ContainerEq(import_map_));
+
+  EXPECT_EQ(kernel32_symbols + export_dll_symbols, import_set_.size());
+  EXPECT_THAT(import_set_, Contains(std::make_pair(
+      std::string("KERNEL32.dll"), std::string("ExitProcess"))));
+  EXPECT_THAT(import_set_, Contains(std::make_pair(
+      std::string("export_dll.dll"), std::string("function1"))));
 }
 
 TEST_F(PEFileParserTest, ParseDelayImportDir) {

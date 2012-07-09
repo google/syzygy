@@ -38,6 +38,20 @@ class PEFileParser {
                               RelativeAddress)>
       AddReferenceCallback;
 
+  // Callback that is invoked for every named import thunk that is parsed. The
+  // arguments are as follows:
+  //   1. const char* module_name
+  //      The name of the module being imported.
+  //   2. const char* symbol_name
+  //      The name of the imported symbol.
+  //   3. BlockGraph::Block* thunk
+  //      The block containing the thunk which will be initialized to point to
+  //      the symbol at runtime.
+  typedef base::Callback<bool(const char*,
+                              const char*,
+                              BlockGraph::Block*)>
+      OnImportThunkCallback;
+
   PEFileParser(const PEFile& image_file,
                BlockGraph::AddressSpace* address_space,
                const AddReferenceCallback& add_reference);
@@ -56,6 +70,10 @@ class PEFileParser {
     // The blocks that describe the data directory chunks.
     BlockGraph::Block* data_directory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
   };
+
+  void set_on_import_thunk(const OnImportThunkCallback& on_import_thunk) {
+    on_import_thunk_ = on_import_thunk;
+  }
 
   // Parses the image, chunks the various blocks it decomposes into and
   // invokes the AddReferenceCallback for all references encountered.
@@ -155,6 +173,7 @@ class PEFileParser {
   bool ParseImportThunk(RelativeAddress thunk_addr,
                         ThunkDataType thunk_data_type,
                         const char* thunk_type,
+                        const char* module_name,
                         bool chunk_name);
 
   // Special handling for delay-load bound import address tables. We've seen
@@ -213,6 +232,7 @@ class PEFileParser {
   const PEFile& image_file_;
   BlockGraph::AddressSpace* address_space_;
   AddReferenceCallback add_reference_;
+  OnImportThunkCallback on_import_thunk_;
 };
 
 }  // namespace pe

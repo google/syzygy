@@ -16,6 +16,7 @@
 
 #include <delayimp.h>
 
+#include "base/bind.h"
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
 
@@ -73,6 +74,12 @@ PEFileParser::ThunkDataType GetThunkDataType(
   }
   NOTREACHED() << "Unknown ThunkDataType.";
   return PEFileParser::kArbitraryThunkData;
+}
+
+bool DummyOnImportThunk(const char* module_name,
+                        const char* symbol_name,
+                        BlockGraph::Block* thunk) {
+  return true;
 }
 
 }  // namespace
@@ -251,7 +258,8 @@ PEFileParser::PEFileParser(const PEFile& image_file,
                            const AddReferenceCallback& add_reference)
     : image_file_(image_file),
       address_space_(address_space),
-      add_reference_(add_reference) {
+      add_reference_(add_reference),
+      on_import_thunk_(base::Bind(&DummyOnImportThunk)) {
   DCHECK(!add_reference.is_null());
 }
 
@@ -612,7 +620,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
   // if we're in an import name table.
   for (size_t i = 0; i < num_thunks; ++i) {
     if (!ParseImportThunk(thunk_start, thunk_data_type, thunk_type,
-                          chunk_names)) {
+                          import_name, chunk_names)) {
       return false;
     }
     thunk_start += sizeof(IMAGE_THUNK_DATA);
@@ -624,6 +632,7 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
 bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
                                     ThunkDataType thunk_data_type,
                                     const char* thunk_type,
+                                    const char* module_name,
                                     bool chunk_name) {
   // We can only chunk names if we're parsing an IMAGE_THUNK_DATA object.
   DCHECK(!chunk_name || thunk_data_type == kImageThunkData);
@@ -681,12 +690,19 @@ bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
       // Chunk the names only on request, as more than one IAT/INT may
       // point to the same name blocks.
       if (chunk_name) {
-        if (!AddBlock(BlockGraph::DATA_BLOCK,
-                      name_thunk_addr,
-                      name_thunk_size,
-                      base::StringPrintf("Import Name Thunk \"%s\"",
-                                         function_name.c_str()).c_str())) {
+        BlockGraph::Block* thunk = AddBlock(
+            BlockGraph::DATA_BLOCK,
+            name_thunk_addr,
+            name_thunk_size,
+            base::StringPrintf("Import Name Thunk \"%s\"",
+                               function_name.c_str()).c_str());
+        if (thunk == NULL) {
           LOG(ERROR) << "Unable to add function name block.";
+          return false;
+        }
+
+        if (!on_import_thunk_.Run(module_name, function_name.c_str(), thunk)) {
+          LOG(ERROR) << "OnImportThunk callback failed.";
           return false;
         }
       } else {
