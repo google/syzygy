@@ -30,6 +30,9 @@
 
 namespace Microsoft_Cci_Pdb {
 
+// Specify packing to get correct structure layout.
+#pragma pack(push, 1)
+
 typedef unsigned char byte;
 typedef uint16 ushort;
 typedef uint32 uint;
@@ -2456,4 +2459,6 @@ COMPILE_ASSERT(sizeof(int) == 4, Size_of_int_must_equal_four);
     FILECHKSMS=0xF4,
     FRAMEDATA=0xF5,
   };
+
+#pragma pack(pop)
 }

@@ -29,17 +29,23 @@ class PdbStream;
 // @param stream The stream containing the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data block.
-// @param level_of_indent The level of indentation to use.
+// @param indent_level The level of indentation to use.
 // @returns true on success, false on error.
 bool DumpUnknownBlock(FILE* out,
                       PdbStream* stream,
                       uint16 len,
-                      uint8 level_of_indent);
+                      uint8 indent_level);
 
 // Output the appropriate level of indentation.
 // @param out The output where the tabs should be dumped.
-// @param level_of_indent The number of tabs to put.
-void DumpTabs(FILE* out, uint8 level_of_indent);
+// @param indent_level The number of tabs to put.
+void DumpTabs(FILE* out, uint8 indent_level);
+
+// Output text with the appropriate level of indentation.
+// @param out The output where the text should be dumped.
+// @param text The text to dump.
+// @param indent_level The number of tabs to put.
+void DumpIndentedText(FILE* out, uint8 indent_level, const char* format, ...);
 
 }  // namespace pdb
 

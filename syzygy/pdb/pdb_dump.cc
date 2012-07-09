@@ -159,7 +159,9 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
   size_t stream_without_suffixes = 0;
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
     pdb::PdbStream* stream = pdb_file.GetStream(i);
-    if (stream == NULL)
+    // We avoid dumping the empty streams belonging to a previous version of the
+    // PDB file.
+    if (stream == NULL || stream->length() == 0)
       continue;
 
     if (stream_suffixes.find(i) == stream_suffixes.end())
