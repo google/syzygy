@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file allows reading the content of the symbol record stream of a PDB.
+// This file allows to read and dump the content of the type info stream of a
+// PDB.
 
-#ifndef SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
-#define SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
+#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_TYPE_INFO_STREAM_DUMPER_H_
+#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_TYPE_INFO_STREAM_DUMPER_H_
 
 #include <vector>
 
 #include "base/basictypes.h"
+#include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
 
 namespace pdb {
@@ -27,9 +29,13 @@ namespace pdb {
 // Forward declarations.
 class PdbStream;
 
-// Read the @p symbol_vector from @p stream.
-bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector);
+// Dump @p type_info_header and @p type_info_record_map from @p stream to @p
+// out.
+void DumpTypeInfoStream(FILE* out,
+                        PdbStream* stream,
+                        const TypeInfoHeader& type_info_header,
+                        const TypeInfoRecordMap& type_info_record_map);
 
 }  // namespace pdb
 
-#endif  // SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_TYPE_INFO_STREAM_DUMPER_H_

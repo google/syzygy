@@ -14,7 +14,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "syzygy/pdb/pdb_dump.h"
+#include "syzygy/experimental/pdb_dumper/pdb_dump.h"
 
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;

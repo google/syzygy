@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_dump.h"
+#include "syzygy/experimental/pdb_dumper/pdb_dump.h"
 
 #include <objbase.h>
 #include <algorithm>
@@ -28,7 +28,9 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "syzygy/pdb/cvinfo_ext.h"
+#include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
+#include "syzygy/experimental/pdb_dumper/pdb_symbol_record_stream_dumper.h"
+#include "syzygy/experimental/pdb_dumper/pdb_type_info_stream_dumper.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_symbol_record_stream.h"

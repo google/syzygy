@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_PDB_PDB_DUMP_H_
-#define SYZYGY_PDB_PDB_DUMP_H_
+#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_H_
+#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_H_
 
 #include <utility>
 #include <vector>
@@ -32,7 +32,6 @@ class DbiStream;
 // in a directory named <pdbfile>-streams.
 class PdbDumpApp : public common::AppImplBase {
  public:
-
   PdbDumpApp();
 
   // @name Application interface overrides.
@@ -75,4 +74,4 @@ class PdbDumpApp : public common::AppImplBase {
 
 }  // namespace pdb
 
-#endif  // SYZYGY_PDB_PDB_DUMP_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_H_
