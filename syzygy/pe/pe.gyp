@@ -69,8 +69,6 @@
       'type': 'static_library',
       'includes': ['../build/masm.gypi'],
       'sources': [
-        'basic_block_decomposer.cc',
-        'basic_block_decomposer.h',
         'block_util.cc',
         'block_util.h',
         'dia_browser.cc',
@@ -167,7 +165,6 @@
       'type': 'executable',
       'includes': ['../build/masm.gypi'],
       'sources': [
-        'basic_block_decomposer_unittest.cc',
         'block_util_unittest.cc',
         'decompose_app_unittest.cc',
         'decompose_image_to_text_unittest.cc',

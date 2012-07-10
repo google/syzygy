@@ -14,32 +14,33 @@
 //
 // Tests for basic block disassembler.
 
-#include "syzygy/pe/basic_block_decomposer.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
 
 #include <algorithm>
 #include <vector>
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/block_graph_serializer.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/block_util.h"
-#include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
 
-namespace pe {
+namespace block_graph {
 
 namespace {
 
 using block_graph::BasicBlock;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
+using block_graph::BlockGraphSerializer;
 using block_graph::Successor;
 using core::AbsoluteAddress;
 using core::Disassembler;
@@ -47,6 +48,17 @@ using testing::_;
 using testing::Return;
 
 typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
+
+const wchar_t kSerializedTestDllBlockGraph[] =
+    L"syzygy/block_graph/test_data/test_dll_"
+#ifdef NDEBUG
+    // Release build.
+    L"release"
+#else
+    // Debug/Coverage build.
+    L"debug"
+#endif
+    L".bg";
 
 class TestBasicBlockDecomposer : public BasicBlockDecomposer {
 public:
@@ -60,33 +72,24 @@ public:
 
 };
 
-class BasicBlockDecomposerTest : public testing::PELibUnitTest {
+class BasicBlockDecomposerTest : public ::testing::Test {
 public:
-  typedef testing::PELibUnitTest Super;
-
-  BasicBlockDecomposerTest()
-      : image_init_(image_file_.Init(testing::GetExeRelativePath(kDllName))),
-        image_layout_(&block_graph_),
-        decomposer_(image_file_),
-        decomposed_(decomposer_.Decompose(&image_layout_)) {
-  }
-
   virtual void SetUp() OVERRIDE {
-    Super::SetUp();
-    ASSERT_TRUE(image_init_);
-    ASSERT_TRUE(decomposed_);
+    ::testing::Test::SetUp();
+
+    BlockGraphSerializer bgs;
+    FilePath path = testing::GetSrcRelativePath(kSerializedTestDllBlockGraph);
+    file_util::ScopedFILE from_file(file_util::OpenFile(path, "rb"));
+    core::FileInStream in_stream(from_file.get());
+    core::NativeBinaryInArchive in_archive(&in_stream);
+    ASSERT_TRUE(bgs.Load(&block_graph_, &in_archive));
   }
 
   MOCK_METHOD2(OnInstruction,
                Disassembler::CallbackDirective(const Disassembler&,
                                                const _DInst&));
  protected:
-  PEFile image_file_;
-  bool image_init_;
   BlockGraph block_graph_;
-  ImageLayout image_layout_;
-  Decomposer decomposer_;
-  bool decomposed_;
 };
 
 
@@ -197,7 +200,7 @@ TEST_F(BasicBlockDecomposerTest, DecomposeAllCodeBlocks) {
     if (block->type() != BlockGraph::CODE_BLOCK)
       continue;
 
-    if (!CodeBlockIsBasicBlockDecomposable(block))
+    if (!CodeBlockAttributesAreBasicBlockSafe(block))
       continue;
 
     BasicBlockSubGraph subgraph;

@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/decompose_image_to_text_app.h"
 
-#include "syzygy/pe/basic_block_decomposer.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
@@ -23,9 +23,9 @@
 
 namespace pe {
 
+using block_graph::BasicBlockDecomposer;
 using core::RelativeAddress;
 using pe::Decomposer;
-using pe::BasicBlockDecomposer;
 using pe::ImageLayout;
 using pe::PEFile;
 

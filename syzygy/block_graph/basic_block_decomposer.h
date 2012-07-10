@@ -21,8 +21,8 @@
 // all external references to addresses within a function block have an
 // associated label.
 
-#ifndef SYZYGY_PE_BASIC_BLOCK_DECOMPOSER_H_
-#define SYZYGY_PE_BASIC_BLOCK_DECOMPOSER_H_
+#ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DECOMPOSER_H_
+#define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DECOMPOSER_H_
 
 #include <set>
 #include <string>
@@ -37,7 +37,7 @@
 #include "syzygy/core/disassembler.h"
 #include "distorm.h"  // NOLINT
 
-namespace pe {
+namespace block_graph {
 
 // This class re-disassembles an already-processed code block (referred to
 // herein as a macro block) and breaks it up into basic blocks.
@@ -85,6 +85,8 @@ class BasicBlockDecomposer : public core::Disassembler {
   // Initialize the BasicBlockDecomposer instance.
   // @param block The block to be decomposed
   // @param subgraph The basic-block sub-graph data structure to populate.
+  // @pre block is safe for basic-block decomposition. That is,
+  //     CodeBlockAttributesAreBasicBlockSafe(block) returns true.
   BasicBlockDecomposer(const BlockGraph::Block* block,
                        BasicBlockSubGraph* subgraph);
 
@@ -198,6 +200,6 @@ class BasicBlockDecomposer : public core::Disassembler {
   bool check_decomposition_results_;
 };
 
-}  // namespace pe
+}  // namespace block_graph
 
-#endif  // SYZYGY_PE_BASIC_BLOCK_DECOMPOSER_H_
+#endif  // SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_DECOMPOSER_H_

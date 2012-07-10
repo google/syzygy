@@ -29,12 +29,12 @@
 #include "base/win/scoped_comptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_util.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/metadata.h"
@@ -1920,7 +1920,7 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
                                &starting_points);
 
   // Determine whether or not we are being strict during disassembly.
-  bool strict = CodeBlockAttributesAreClConsistent(block);
+  bool strict = block_graph::CodeBlockAttributesAreBasicBlockSafe(block);
   be_strict_with_current_block_ = strict;
 
   // Determine the length of the code portion of the block by trimming off any
@@ -2137,7 +2137,7 @@ CallbackDirective Decomposer::VisitNonFlowControlInstruction(
       // to them is perfectly fine.
       if (ref_block->type() == BlockGraph::CODE_BLOCK &&
           ref_it->second.base != ref_block->addr() &&
-          CodeBlockAttributesAreClConsistent(ref_block)) {
+          block_graph::CodeBlockAttributesAreBasicBlockSafe(ref_block)) {
         LOG_ERROR_OR_VLOG1(be_strict_with_current_block_)
             << "Found a non-control-flow code-block to middle-of-code-block "
             << "reference from block \"" << current_block_->name()
