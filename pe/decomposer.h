@@ -31,7 +31,6 @@
 #include "syzygy/core/disassembler.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pdb/pdb_data.h"
-#include "syzygy/pe/basic_block_decomposer.h"
 #include "syzygy/pe/dia_browser.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"

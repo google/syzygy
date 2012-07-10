@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/block_util.h"
 
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/core/address.h"
 
 namespace pe {
@@ -118,23 +119,6 @@ bool IsValidExternalReferenceDataBlockToCode(
 }
 
 }  // namespace
-
-bool CodeBlockAttributesAreClConsistent(
-    const block_graph::BlockGraph::Block* block) {
-  DCHECK(block != NULL);
-  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-
-  const BlockGraph::BlockAttributes kInvalidAttributes =
-      BlockGraph::HAS_INLINE_ASSEMBLY |
-      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
-      BlockGraph::ERRORED_DISASSEMBLY |
-      BlockGraph::HAS_EXCEPTION_HANDLING |
-      BlockGraph::DISASSEMBLED_PAST_END;
-  if ((block->attributes() & kInvalidAttributes) != 0)
-    return false;
-
-  return true;
-}
 
 bool CodeBlockReferencesAreClConsistent(const BlockGraph::Block* block) {
   DCHECK(block != NULL);
@@ -265,7 +249,7 @@ bool CodeBlockIsClConsistent(
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
 
-  if (!CodeBlockAttributesAreClConsistent(block))
+  if (!block_graph::CodeBlockAttributesAreBasicBlockSafe(block))
     return false;
   if (!CodeBlockReferencesAreClConsistent(block))
     return false;

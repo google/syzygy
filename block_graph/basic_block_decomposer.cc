@@ -14,7 +14,7 @@
 //
 // Implementation of basic block disassembler.
 
-#include "syzygy/pe/basic_block_decomposer.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
 
 #include <algorithm>
 #include <vector>
@@ -24,11 +24,11 @@
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/pe/block_util.h"
+#include "syzygy/block_graph/block_util.h"
 
 #include "mnemonics.h"  // NOLINT
 
-namespace pe {
+namespace block_graph {
 
 namespace {
 
@@ -121,7 +121,7 @@ BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
   //     turn on check_decomposition_results_ by default only ifndef NDEBUG.
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(CodeBlockIsClConsistent(block));
+  DCHECK(CodeBlockAttributesAreBasicBlockSafe(block));
   DCHECK(subgraph != NULL);
 }
 
@@ -775,4 +775,4 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
   return true;
 }
 
-}  // namespace pe
+}  // namespace block_graph

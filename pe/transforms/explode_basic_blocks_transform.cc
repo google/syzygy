@@ -18,9 +18,9 @@
 
 #include "syzygy/pe/transforms/explode_basic_blocks_transform.h"
 
+#include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_builder.h"
-#include "syzygy/pe/basic_block_decomposer.h"
 #include "syzygy/pe/block_util.h"
 
 namespace pe {
@@ -28,6 +28,7 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicBlockDecomposer;
 using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::BasicBlockSubGraph;
