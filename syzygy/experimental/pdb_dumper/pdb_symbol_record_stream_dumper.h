@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file allows reading the content of the symbol record stream of a PDB.
+// This file allows dumping the content of the symbol record stream of a PDB.
 
-#ifndef SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
-#define SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
+#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_SYMBOL_RECORD_STREAM_DUMPER_H_
+#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_SYMBOL_RECORD_STREAM_DUMPER_H_
 
 #include <vector>
 
@@ -30,6 +30,11 @@ class PdbStream;
 // Read the @p symbol_vector from @p stream.
 bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector);
 
+// Dumps @p symbol_record_vector from @p stream to out.
+void DumpSymbolRecord(FILE* out,
+                      PdbStream* stream,
+                      const SymbolRecordVector& sym_record_vector);
+
 }  // namespace pdb
 
-#endif  // SYZYGY_PDB_PDB_SYMBOL_RECORD_STREAM_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_SYMBOL_RECORD_STREAM_DUMPER_H_

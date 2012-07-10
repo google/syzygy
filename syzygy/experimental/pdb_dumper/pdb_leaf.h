@@ -15,8 +15,8 @@
 // This file provides some function to read and dump the different kind of
 // leaves that we can encounter in a Pdb stream.
 
-#ifndef SYZYGY_PDB_PDB_LEAF_H_
-#define SYZYGY_PDB_PDB_LEAF_H_
+#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_LEAF_H_
+#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_LEAF_H_
 
 #include "base/file_util.h"
 #include "syzygy/pdb/pdb_data_types.h"
@@ -77,4 +77,4 @@ bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
 
 }  // namespace pdb
 
-#endif  // SYZYGY_PDB_PDB_LEAF_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_LEAF_H_

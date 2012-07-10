@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_leaf.h"
+#include "syzygy/experimental/pdb_dumper/pdb_leaf.h"
 
 #include <string>
 
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
-#include "syzygy/pdb/cvinfo_ext.h"
-#include "syzygy/pdb/pdb_dump_util.h"
+#include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
+#include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 

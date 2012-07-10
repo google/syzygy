@@ -14,8 +14,8 @@
 //
 // This header is an extension to the cvinfo.h file from the CCI project.
 
-#ifndef SYZYGY_PDB_CVINFO_EXT_H_
-#define SYZYGY_PDB_CVINFO_EXT_H_
+#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_
+#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_
 
 #include <windows.h>
 
@@ -435,4 +435,4 @@ union LeafModifierAttribute {
 COMPILE_ASSERT(sizeof(LeafModifierAttribute) == 2,
                pdb_size_of_LeafModifierAttribute_invalid);
 
-#endif  // SYZYGY_PDB_CVINFO_EXT_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_

@@ -22,6 +22,7 @@
       'type': 'none',
       'dependencies': [
         '<(DEPTH)/syzygy/experimental/compare/compare.gyp:*',
+        '<(DEPTH)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
       ],
     },
   ]

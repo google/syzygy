@@ -14,8 +14,8 @@
 //
 // This file provide some utility functions to dump the content of a PDB.
 
-#ifndef SYZYGY_PDB_PDB_DUMP_UTIL_H_
-#define SYZYGY_PDB_PDB_DUMP_UTIL_H_
+#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_UTIL_H_
+#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_UTIL_H_
 
 #include "base/file_util.h"
 
@@ -49,4 +49,4 @@ void DumpIndentedText(FILE* out, uint8 indent_level, const char* format, ...);
 
 }  // namespace pdb
 
-#endif  // SYZYGY_PDB_PDB_DUMP_UTIL_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_UTIL_H_

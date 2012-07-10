@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file allows to read and dump the content of the type info stream of a
-// PDB.
+// This file allows reading the content of the type info stream of a PDB.
 
 #ifndef SYZYGY_PDB_PDB_TYPE_INFO_STREAM_H_
 #define SYZYGY_PDB_PDB_TYPE_INFO_STREAM_H_
@@ -33,13 +32,6 @@ class PdbStream;
 bool ReadTypeInfoStream(PdbStream* stream,
                         TypeInfoHeader* type_info_header,
                         TypeInfoRecordMap* type_info_record_map);
-
-// Dump @p type_info_header and @p type_info_record_map from @p stream to @p
-// out.
-void DumpTypeInfoStream(FILE* out,
-                        PdbStream* stream,
-                        const TypeInfoHeader& type_info_header,
-                        const TypeInfoRecordMap& type_info_record_map);
 
 }  // namespace pdb
 
