@@ -403,16 +403,17 @@ COMPILE_ASSERT(sizeof(LeafMemberAttributeField) == 2,
 union LeafPropertyField {
   uint16 raw;
   struct {
-    uint16 packed     :1;
-    uint16 ctor       :1;
-    uint16 ovlops     :1;
-    uint16 isnested   :1;
-    uint16 cnested    :1;
-    uint16 opassign   :1;
-    uint16 opcast     :1;
-    uint16 fwdref     :1;
-    uint16 scoped     :1;
-    uint16 reserved   :7;
+    uint16 packed : 1;
+    uint16 ctor : 1;
+    uint16 ovlops : 1;
+    uint16 isnested : 1;
+    uint16 cnested : 1;
+    uint16 opassign : 1;
+    uint16 opcast : 1;
+    uint16 fwdref : 1;
+    uint16 scoped : 1;
+    uint16 decorated_name_present : 1;
+    uint16 reserved : 6;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -424,10 +425,10 @@ COMPILE_ASSERT(sizeof(LeafPropertyField) == 2,
 union LeafModifierAttribute {
   uint16 raw;
   struct {
-    uint16 mod_const      :1;
-    uint16 mod_volatile   :1;
-    uint16 mod_unaligned  :1;
-    uint16 reserved   :13;
+    uint16 mod_const : 1;
+    uint16 mod_volatile : 1;
+    uint16 mod_unaligned : 1;
+    uint16 reserved : 13;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
