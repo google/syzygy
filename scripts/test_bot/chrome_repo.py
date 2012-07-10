@@ -42,11 +42,10 @@ DEFAULT_BUILD_ID_PATTERN = r'\d+\.\d+\.\d+\.\d+'
 
 # The list of files we're interested in.
 FILE_LIST = [
+    'chrome-win32-syms.zip',
     'chrome-win32.zip',
     'chrome-win32.test/automated_ui_tests.exe',
     'chrome-win32.test/reliability_tests.exe',
-    'chrome_dll.pdb',
-    'chrome_exe.pdb',
     ]
 
 
@@ -175,6 +174,7 @@ class ChromeRepo(object):
         error_result = status, {}, url
         if status >= 400 and status < 500:
           break
+        out_stream.seek(0)
     return error_result
 
   def GetBuildIndex(self):
@@ -235,7 +235,7 @@ class ChromeRepo(object):
       true if the artifact exists.
     """
     status, _headers, _url = self._PerformRequest('HEAD', path, None,
-                                                  max_attempts=1)
+                                                  max_attempts=2)
     return status == 200
 
   def GetLatestBuildId(self, build_index=None):
@@ -283,7 +283,8 @@ class ChromeRepo(object):
 
     Returns:
       The final path to the extracted chrome directory; for
-      example, work_dir/build_id/chrome-win32/
+      example, work_dir/build_id. Under that directory will be the
+      chrome_win32 and chrome-win32-syms directories.
     """
     if build_id is None:
       build_id, unused_timestamp, subdir = self.GetLatestBuildId()
@@ -321,7 +322,7 @@ class ChromeRepo(object):
         os.remove(dest)
       else:
         shutil.move(dest, os.path.join(chrome_dir, name))
-    return chrome_dir
+    return build_dir
 
 
 def AddCommandLineOptions(option_parser):

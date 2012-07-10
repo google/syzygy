@@ -1,5 +1,5 @@
 @echo off
-rem Copyright 2011 Google Inc.
+rem Copyright 2012 Google Inc.
 rem
 rem Licensed under the Apache License, Version 2.0 (the "License");
 rem you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ set CONFIG=Debug
 set ITERATIONS=1
 set PADDING=32
 set NO_REVERT=
+set REORDER_BASIC_BLOCKS=
 set URL_LIST=%~dp0url-list.txt
 
 for %%A in (%*) do (
@@ -46,8 +47,11 @@ for %%A in (%*) do (
     if /I "%%b" == "/iterations" set ITERATIONS=%%~c
     if /I "%%b" == "/padding" set PADDING=%%~c
     if /I "%%b" == "/no-revert" set NO_REVERT=--reorder-no-revert-binaries
+    if /I "%%b" == "/reorder-basic-blocks" (
+      set REORDER_BASIC_BLOCKS=--reorder-basic-blocks
     )
   )
+)
 
 :checkargs
 if "%MODE%" == "ui" set MODE_LABEL=step4_ui_tests
@@ -81,6 +85,9 @@ echo:  /config:CONFIG     The configuration of Syzygy test (default: Debug)
 echo:  /iterations:NUM    The number of iterations of the test to run
 echo:  /padding:NUM       The amount of block padding to add when reordering
 echo:  /no-revert         Do not revert chrome DLL/PDB after running the tests
+echo:  /reorder-basic-blocks
+echo:                     Randomize at the basic block level (as opposed to the
+echo:                     function and data block level).
 echo:
 goto done
 
@@ -95,7 +102,7 @@ set REORDER_PY=%THISDIR%reorder.py
 set SEND_MAIL_PY=%THISDIR%send_mail.py
 set ACTIONS_XML=%THISDIR%actions.xml
 set REORDER_EXE=%BUILD_DIR%\%CONFIG%\relink.exe
-set CHROME_PTR=%WORKDIR%\chrome-dir.txt
+set BUILD_PTR=%WORKDIR%\chrome-build-dir.txt
 set SYNC_LOG=%WORKDIR%\sync-log.txt
 set BUILD_LOG=%WORKDIR%\build-log.txt
 set DOWNLOAD_LOG=%WORKDIR%\downoad-log.txt
@@ -135,15 +142,17 @@ call python "%DOWNLOAD_PY%" ^
   --log-file="%DOWNLOAD_LOG%" ^
   --log-verbose ^
   GET ^
-  > "%CHROME_PTR%"
+  > "%BUILD_PTR%"
 if %ERRORLEVEL% equ 0 goto step4
 copy %DOWNLOAD_LOG% %ERROR_MESSAGE%
 goto error
 
 :step4
-set /p CHROME_DIR= < "%CHROME_PTR%"
+set /p BUILD_DIR= < "%BUILD_PTR%"
+set CHROME_DIR=%BUILD_DIR%\chrome-win32
+set SYMBOL_DIR=%BUILD_DIR%\chrome-win32-syms
 set CHROME_DLL=%CHROME_DIR%\chrome.dll
-set CHROME_PDB=%CHROME_DIR%\chrome_dll.pdb
+set CHROME_PDB=%SYMBOL_DIR%\chrome_dll.pdb
 goto %MODE_LABEL%
 
 :step4_ui_tests
@@ -156,7 +165,7 @@ call python "%REORDER_PY%" ^
   --reorder-input-pdb="%CHROME_PDB%" ^
   --reorder-test-program="%UI_TESTS_EXE%" ^
   --reorder-num-iterations=%ITERATIONS% ^
-  %NO_REVERT% ^
+  %NO_REVERT% %REORDER_BASIC_BLOCKS% ^
   --reorder-padding="%PADDING%" ^
   --log-file="%REORDER_LOG%" ^
   --log-verbose ^
@@ -178,7 +187,7 @@ call python "%REORDER_PY%" ^
   --reorder-input-pdb="%CHROME_PDB%" ^
   --reorder-test-program="%RELIABILITY_TESTS_EXE%" ^
   --reorder-num-iterations=%ITERATIONS% ^
-  %NO_REVERT% ^
+  %NO_REVERT% %REORDER_BASIC_BLOCKS% ^
   --reorder-padding="%PADDING%" ^
   --log-file="%REORDER_LOG%" ^
   --log-verbose ^
