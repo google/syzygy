@@ -1,6 +1,5 @@
 #!/usr/bin/python2.4
-#
-# Copyright 2011 Google Inc.
+# Copyright 2012 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +60,8 @@ class ReorderTest(object):
      r'\[\s+(?P<status>OK|FAILED)\s+\]\s+(?P<test>\w+\.\w+)')
 
   def __init__(self, reorder_tool, input_bin, input_pdb,
-               test_program=None, test_arguments=None, padding=None):
+               test_program=None, test_arguments=None, padding=None,
+               reorder_basic_blocks=False):
     """Initializes an instance of the reorder test.
 
     Args:
@@ -81,6 +81,9 @@ class ReorderTest(object):
           test_program.  If not provided, no additional arguments will
           be given.
       padding: The amount of padding to put between blocks.
+      reorder_basic_blocks: True if the randomization should take place
+          at the basic block level (as opposed to at the code/data block
+          level). This defaults to false.
     """
     self._reorder_tool = reorder_tool
     self._input_bin = os.path.abspath(input_bin)
@@ -88,6 +91,7 @@ class ReorderTest(object):
     self._test_program = test_program or self._input_bin
     self._test_arguments = test_arguments or []
     self._padding = padding or 0
+    self._reorder_basic_blocks = reorder_basic_blocks
 
   def _ParseResultLine(self, line, run_id):
     """Parse a line of output from the test app.
@@ -206,10 +210,14 @@ class ReorderTest(object):
         '--output-pdb=%s' % new_pdb,
         '--padding=%s' % self._padding,
         ]
+    if self._reorder_basic_blocks:
+      command.append('--basic-blocks')
     _LOGGER.info(
         'run=%s; Rewriting %s', run_id, os.path.basename(self._input_bin))
     _LOGGER.info('run=%s; Using random seed = %s', run_id, seed)
     _LOGGER.info('run=%s; Using padding length = %s', run_id, self._padding)
+    _LOGGER.info(
+        'run=%s; Reorder basic blocks = %s', run_id, self._reorder_basic_blocks)
 
     with WorkingDirectory(os.path.dirname(self._reorder_tool)):
       proc = subprocess.Popen(
@@ -389,6 +397,9 @@ def AddCommandLineOptions(option_parser):
       '--reorder-test-program', metavar='EXE',
       help='Path to test executable to run, if different from EXE_OR_DLL')
   group.add_option(
+      '--reorder-basic-blocks', action='store_true', default=False,
+      help='Reorder at the basic block level')
+  group.add_option(
       '--reorder-seed', type='int', metavar='NUM', default=int(time.time()),
       help='Seed for the initial random reordering iteration')
   group.add_option(
@@ -472,8 +483,10 @@ def main():
   log_helper.InitLogger(options)
   test = ReorderTest(options.reorder_tool,
                      options.reorder_input_bin, options.reorder_input_pdb,
-                     options.reorder_test_program, reorder_test_args,
-                     options.reorder_padding)
+                     test_program=options.reorder_test_program,
+                     test_arguments=reorder_test_args,
+                     padding=options.reorder_padding,
+                     reorder_basic_blocks=options.reorder_basic_blocks)
   passed, failed = test.Run(
       seed=options.reorder_seed,
       num_iterations=options.reorder_num_iterations,
