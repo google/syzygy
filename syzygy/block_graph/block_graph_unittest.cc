@@ -1048,55 +1048,6 @@ class BlockGraphSerializationTest : public testing::Test {
 
 }  // namespace
 
-TEST_F(BlockGraphSerializationTest, SerializationFull) {
-  // We want to make sure that we can save a block-graph with the block data and
-  // read it back correctly.
-  BlockGraph image_with_data;
-  ASSERT_TRUE(testing::SerializeRoundTripTest(image_,
-                                              BlockGraph::DEFAULT,
-                                              &image_with_data));
-}
-
-TEST_F(BlockGraphSerializationTest, SerializationWithoutData) {
-  // We want to make sure that we can't save a block-graph without the data of
-  // its blocks and read it back correctly.
-  BlockGraph image_without_data;
-  ASSERT_TRUE(testing::SerializeRoundTripTest(image_,
-                                              BlockGraph::OMIT_DATA,
-                                              &image_without_data));
-}
-
-TEST_F(BlockGraphSerializationTest, SerializationWithoutLabels) {
-  BlockGraph image_without_labels;
-  ASSERT_TRUE(testing::SerializeRoundTripTest(image_,
-                                              BlockGraph::OMIT_LABELS,
-                                              &image_without_labels));
-}
-
-TEST_F(BlockGraphSerializationTest, SerializationWithoutStrings) {
-  BlockGraph image_without_strings;
-  ASSERT_TRUE(testing::SerializeRoundTripTest(image_,
-                                              BlockGraph::OMIT_STRINGS,
-                                              &image_without_strings));
-}
-
-TEST_F(BlockGraphSerializationTest, SerializationWithoutStringsAndLabels) {
-  BlockGraph image_without_strings_and_labels;
-  ASSERT_TRUE(testing::SerializeRoundTripTest(
-      image_,
-      BlockGraph::OMIT_LABELS | BlockGraph::OMIT_STRINGS,
-      &image_without_strings_and_labels));
-}
-
-TEST_F(BlockGraphSerializationTest, SerializationWithoutDataStringsAndLabels) {
-  BlockGraph image_without_data_strings_and_labels;
-  ASSERT_TRUE(testing::SerializeRoundTripTest(
-      image_,
-      BlockGraph::OMIT_LABELS | BlockGraph::OMIT_STRINGS |
-      BlockGraph::OMIT_DATA,
-      &image_without_data_strings_and_labels));
-}
-
 TEST(BlockGraphAddressSpaceTest, AddBlock) {
   BlockGraph image;
   BlockGraph::AddressSpace address_space(&image);

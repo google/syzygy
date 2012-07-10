@@ -18,8 +18,6 @@
 #ifndef SYZYGY_PE_DECOMPOSE_APP_H_
 #define SYZYGY_PE_DECOMPOSE_APP_H_
 
-#include "syzygy/common/application.h"
-
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
@@ -27,13 +25,14 @@
 #include "base/string_util.h"
 #include "base/time.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/common/application.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 
 
 namespace pe {
 
-// This class implements the Decompose command-line utility.
+// This class implements the decompose command-line utility.
 //
 // See the description given in DecomposeApp:::PrintUsage() for information
 // about running this utility.
@@ -61,27 +60,20 @@ class DecomposeApp : public common::AppImplBase {
   void PrintUsage(const FilePath& program,
                   const base::StringPiece& message);
 
-  static bool DumpBlockSet(const BlockSet& set, FILE* file);
+  bool SaveDecomposedImage(const pe::PEFile& pe_file,
+                           const ImageLayout& image_layout,
+                           const FilePath& output_path) const;
 
-  static bool DumpBlock(const Block* block, FILE* file);
-
-  static bool DumpMissingSectionContributions(const FilePath& path,
-                                              const AddressSpace& blocks);
-
-  static bool SaveDecomposedImage(const pe::PEFile& pe_file,
-                                  const BlockGraph& block_graph,
-                                  const ImageLayout& image_layout,
-                                  const FilePath& output_path);
-
-  static bool LoadDecomposedImage(const FilePath& file_path);
+  bool LoadDecomposedImage(const FilePath& file_path) const;
   // @}
 
   // @name Command-line options.
   // @{
   FilePath image_path_;
   FilePath output_path_;
-  FilePath missing_contribs_path_;
   bool benchmark_load_;
+  bool graph_only_;
+  bool strip_strings_;
   // @}
 
  private:

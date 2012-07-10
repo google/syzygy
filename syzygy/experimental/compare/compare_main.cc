@@ -28,6 +28,7 @@
 #include "syzygy/experimental/compare/compare.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/serialization.h"
 
 using block_graph::BlockGraph;
 using experimental::BlockGraphMapping;
@@ -71,8 +72,12 @@ bool LoadDecomposition(const FilePath& file_path,
   LOG(INFO) << "Loading decomposition \"" << file_path.value() << "\".";
   core::FileInStream in_stream(from_file.get());
   core::NativeBinaryInArchive in_archive(&in_stream);
-  if (!pe::LoadDecomposition(&in_archive, pe_file, block_graph, image_layout))
+  block_graph::BlockGraphSerializer::Attributes attributes = 0;
+  if (!LoadBlockGraphAndImageLayout(pe_file, &attributes, image_layout,
+                                    &in_archive)) {
+    LOG(ERROR) << "Failed to load serialized decomposition.";
     return false;
+  }
 
   return true;
 }

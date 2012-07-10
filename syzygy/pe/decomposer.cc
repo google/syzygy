@@ -426,46 +426,6 @@ int RepeatedValue(const uint8* data, size_t size) {
 
 const BlockGraph::BlockId kNullBlockId(-1);
 
-// After deserialization of a block graph, blocks that did not own the data
-// they pointed to may be left with NULL data pointers, but a non-zero
-// data-size. These blocks pointed to data in a PEFile, and this function fixes
-// these 'missing' data pointers.
-bool SetBlockDataPointers(const PEFile& pe_file,
-                          BlockGraph* block_graph) {
-  DCHECK(block_graph != NULL);
-  BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
-  for (; it != block_graph->blocks().end(); ++it) {
-    BlockGraph::Block& block = it->second;
-
-    // Is this block missing a data reference?
-    if (block.data() == NULL && block.data_size() > 0) {
-      // The only way this can happen is if the block didn't own its own data.
-      // In which case, it was a range of data from the original image on
-      // disk. Thus, we expect that the source range map is simple, and that it
-      // covers the block data.
-      if (!block.source_ranges().IsSimple() ||
-          !block.source_ranges().IsMapped(0, block.size())) {
-        LOG(ERROR) << "Block data is not simply mapped.";
-        return false;
-      }
-
-      // This block has a simple source range map, thus its original address
-      // is the start address of the first range pairs destination range.
-      RelativeAddress orig_addr =
-          block.source_ranges().range_pair(0).second.start();
-      const uint8* data = pe_file.GetImageData(orig_addr,
-                                               block.data_size());
-      if (data == NULL) {
-        LOG(ERROR) << "Unable to get Block data from PEFile.";
-        return false;
-      }
-      block.SetData(data, block.data_size());
-    }
-  }
-
-  return true;
-}
-
 void GetDisassemblyStartingPoints(
     const BlockGraph::Block* block,
     AbsoluteAddress abs_block_addr,
@@ -2789,82 +2749,6 @@ scoped_refptr<pdb::PdbStream> Decomposer::GetBlockGraphStreamFromPDB(
   }
 
   return block_graph_stream;
-}
-
-bool SaveDecomposition(const PEFile& pe_file,
-                       const BlockGraph& block_graph,
-                       const ImageLayout& image_layout,
-                       core::OutArchive* out_archive) {
-  // Get the metadata for this module and the toolchain. This will
-  // allow us to validate input files in other pieces of the toolchain.
-  Metadata metadata;
-  PEFile::Signature pe_file_signature;
-  pe_file.GetSignature(&pe_file_signature);
-  if (!metadata.Init(pe_file_signature) || !out_archive->Save(metadata))
-    return false;
-
-  // Now write out the decomposed image.
-  if (!block_graph.Save(out_archive, BlockGraph::DEFAULT) ||
-      !out_archive->Save(image_layout.blocks)) {
-    return false;
-  }
-
-  return true;
-}
-
-bool LoadDecomposition(core::InArchive* in_archive,
-                       PEFile* pe_file,
-                       BlockGraph* block_graph,
-                       ImageLayout* image_layout) {
-  DCHECK(in_archive != NULL);
-  DCHECK(pe_file != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(image_layout != NULL);
-
-  // Load the metadata and initialize the PE file decomposition.
-  Metadata metadata;
-  if (!in_archive->Load(&metadata) ||
-      !pe_file->Init(FilePath(metadata.module_signature().path))) {
-    return false;
-  }
-
-  // Validate the signature of the PE file on disk to make sure its
-  // still the same as when the decomposition was serialized.
-  PEFile::Signature pe_signature;
-  pe_file->GetSignature(&pe_signature);
-  if (!metadata.IsConsistent(pe_signature))
-    return false;
-
-  // Now deserialize the actual decomposed image.
-  BlockGraph::SerializationAttributes serialization_attributes;
-  if (!block_graph->Load(in_archive, &serialization_attributes) ||
-      !in_archive->Load(&image_layout->blocks)) {
-    return false;
-  }
-
-  // This sets any missing data pointers in the block graph. These
-  // are pointers to data that was not owned by the block graph, but
-  // rather by the PEFile.
-  if (!SetBlockDataPointers(*pe_file, block_graph)) {
-    return false;
-  }
-
-  // We can now recreate the rest of the image layout from the PE data.
-  // Start by retrieving the DOS header block, which is always at the start of
-  // the image.
-  BlockGraph::Block* dos_header =
-      image_layout->blocks.GetBlockByAddress(RelativeAddress());
-  if (dos_header == NULL)
-    return false;
-
-  // The next block is the NT headers block.
-  BlockGraph::Block* nt_headers =
-      image_layout->blocks.GetBlockByAddress(
-          RelativeAddress(dos_header->size()));
-  if (nt_headers == NULL)
-    return false;
-
-  return CopyHeaderToImageLayout(nt_headers, image_layout);
 }
 
 }  // namespace pe

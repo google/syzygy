@@ -37,15 +37,6 @@ bool MaybeCompareStrings(const std::string string1,
     return false;
   return true;
 }
-bool MaybeCompareStrings(const std::string string1,
-                         const std::string string2,
-                         BlockGraph::SerializationAttributes attributes) {
-  if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
-    if (string1 != string2)
-      return false;
-  }
-  return true;
-}
 
 bool ReferencesEqual(const BlockGraph::Reference& ref1,
                      const BlockGraph::Reference& ref2) {
@@ -196,98 +187,6 @@ bool BlocksEqual(const BlockGraph::Block& b1,
   return true;
 }
 
-// Compares two Blocks to each other.
-bool BlocksEqual(const BlockGraph::Block& b1,
-                 const BlockGraph::Block& b2,
-                 BlockGraph::SerializationAttributes attributes) {
-  // Compare the basic block properties.
-  if (b1.id() != b2.id() || b1.type() != b2.type() ||
-      b1.size() != b2.size() || b1.alignment() != b2.alignment() ||
-      b1.addr() != b2.addr() || b1.section() != b2.section() ||
-      b1.attributes() != b2.attributes() ||
-      b1.source_ranges() != b2.source_ranges() ||
-      b1.data_size() != b2.data_size()) {
-    return false;
-  }
-
-  if (!MaybeCompareStrings(b1.name(), b2.name(), attributes))
-    return false;
-
-  // Compare the labels.
-  if ((attributes & BlockGraph::OMIT_LABELS) == 0) {
-    if (b1.labels().size() != b2.labels().size())
-      return false;
-    BlockGraph::Block::LabelMap::const_iterator it1 =
-        b1.labels().begin();
-    BlockGraph::Block::LabelMap::const_iterator it2 =
-        b1.labels().begin();
-    for (; it1 != b1.labels().end(); it1++, it2++) {
-      if (it1->first != it2->first ||
-          it1->second.attributes() != it2->second.attributes() ||
-          !MaybeCompareStrings(it1->second.name(),
-                               it2->second.name(),
-                               attributes)) {
-        return false;
-      }
-    }
-  }
-
-  if ((attributes & BlockGraph::OMIT_DATA) == 0) {
-    // Both data pointers should be null or non-null.
-    if ((b1.data() == NULL) != (b2.data() == NULL) ||
-        b1.owns_data() != b2.owns_data())
-      return false;
-
-    // Compare the data.
-    if (b1.data_size() > 0 &&
-        memcmp(b1.data(), b2.data(), b1.data_size()) != 0) {
-      return false;
-    }
-
-    if (b1.references().size() != b2.references().size())
-      return false;
-  }
-
-  {
-    // Compare the references. They should point to blocks with the same id.
-    BlockGraph::Block::ReferenceMap::const_iterator
-        it1 = b1.references().begin();
-    for (; it1 != b1.references().end(); ++it1) {
-      BlockGraph::Block::ReferenceMap::const_iterator it2 =
-          b2.references().find(it1->first);
-      if (it2 == b2.references().end() ||
-          it1->first != it2->first ||
-          !ReferencesEqual(it1->second, it2->second)) {
-        LOG(ERROR) << "References not equal.";
-        return false;
-      }
-    }
-  }
-
-  if (b1.referrers().size() != b2.referrers().size())
-    return false;
-
-  {
-    // Compare the referrers. They should point to blocks with the same id.
-    // We store a list of unique referrer id/offset pairs. This allows us to
-    // efficiently search for an equivalent referrer.
-    typedef std::set<std::pair<size_t, size_t> > IdOffsetSet;
-    IdOffsetSet id_offset_set;
-    BlockGraph::Block::ReferrerSet::const_iterator it = b1.referrers().begin();
-    for (; it != b1.referrers().end(); ++it)
-      id_offset_set.insert(std::make_pair(it->first->id(), it->second));
-
-    for (it = b2.referrers().begin(); it != b2.referrers().end(); ++it) {
-      IdOffsetSet::const_iterator set_it = id_offset_set.find(
-          std::make_pair(it->first->id(), it->second));
-      if (set_it == id_offset_set.end())
-        return false;
-    }
-  }
-
-  return true;
-}
-
 // Compares two BlockGraphs to each other.
 bool BlockGraphsEqual(const BlockGraph& b1,
                       const BlockGraph& b2,
@@ -306,28 +205,6 @@ bool BlockGraphsEqual(const BlockGraph& b1,
       return false;
 
     if (!BlocksEqual(it1->second, it2->second, bgs))
-      return false;
-  }
-
-  return true;
-}
-bool BlockGraphsEqual(const BlockGraph& b1,
-                      const BlockGraph& b2,
-                      BlockGraph::SerializationAttributes attributes) {
-  if (b1.sections() != b2.sections() ||
-      b1.blocks().size() != b2.blocks().size()) {
-    return false;
-  }
-
-  // We manually compare iterate through the blocks and use BlocksEqual,
-  // because they don't otherwise have a comparison operator.
-  BlockGraph::BlockMap::const_iterator it1 = b1.blocks().begin();
-  for (; it1 != b1.blocks().end(); ++it1) {
-    BlockGraph::BlockMap::const_iterator it2 = b2.blocks().find(it1->first);
-    if (it2 == b2.blocks().end())
-      return false;
-
-    if (!BlocksEqual(it1->second, it2->second, attributes))
       return false;
   }
 
@@ -389,47 +266,6 @@ bool GenerateTestBlockGraph(block_graph::BlockGraph* image) {
   BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23, 23);
   if (!b1->SetReference(9, r_file))
     return false;
-
-  return true;
-}
-
-bool SerializeRoundTripTest(
-    const block_graph::BlockGraph& input_image,
-    block_graph::BlockGraph::SerializationAttributes input_attributes,
-    block_graph::BlockGraph* output_image) {
-  core::ByteVector byte_vector_with_data;
-  core::ScopedOutStreamPtr out_stream(
-      core::CreateByteOutStream(std::back_inserter(byte_vector_with_data)));
-  core::NativeBinaryOutArchive out_archive(out_stream.get());
-  if (!input_image.Save(&out_archive, input_attributes))
-    return false;
-  if (!out_archive.Flush())
-    return false;
-
-  core::ScopedInStreamPtr in_stream(
-      core::CreateByteInStream(byte_vector_with_data.begin(),
-                               byte_vector_with_data.end()));
-  core::NativeBinaryInArchive in_archive(in_stream.get());
-
-  block_graph::BlockGraph::SerializationAttributes attributes;
-  if (!output_image->Load(&in_archive, &attributes))
-    return false;
-
-  if (!BlockGraphsEqual(input_image, *output_image, input_attributes))
-    return false;
-
-  if (input_attributes != attributes)
-    return false;
-
-  if (input_attributes != block_graph::BlockGraph::DEFAULT) {
-    // If we don't use the default flag for the serialization then the graph
-    // shouldn't be equal.
-    if (testing::BlockGraphsEqual(input_image,
-                                  *output_image,
-                                  BlockGraph::DEFAULT)) {
-      return false;
-    }
-  }
 
   return true;
 }

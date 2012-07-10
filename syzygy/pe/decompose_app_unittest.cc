@@ -33,19 +33,11 @@ namespace {
 
 class TestDecomposeApp : public DecomposeApp {
  public:
-  // Methods
-  using DecomposeApp::PrintUsage;
-  using DecomposeApp::DumpBlockSet;
-  using DecomposeApp::DumpBlock;
-  using DecomposeApp::DumpMissingSectionContributions;
-  using DecomposeApp::SaveDecomposedImage;
-  using DecomposeApp::LoadDecomposedImage;
-
-  // Member variables
+  // Member variables.
   using DecomposeApp::image_path_;
   using DecomposeApp::output_path_;
-  using DecomposeApp::missing_contribs_path_;
   using DecomposeApp::benchmark_load_;
+  using DecomposeApp::strip_strings_;
 };
 
 class DecomposeAppTest : public testing::PELibUnitTest {
@@ -71,7 +63,6 @@ class DecomposeAppTest : public testing::PELibUnitTest {
     // Initialize the input and output path values.
     image_path_ = testing::GetExeTestDataRelativePath(kDllName);
     output_path_ = temp_dir_.Append(L"output.bg");
-    missing_contribs_path_ = temp_dir_.Append(L"missing_contribs.txt");
 
     // Point the application at the test's command-line and IO streams.
     app_.set_command_line(&cmd_line_);
@@ -104,7 +95,6 @@ class DecomposeAppTest : public testing::PELibUnitTest {
   // @{
   FilePath image_path_;
   FilePath output_path_;
-  FilePath missing_contribs_path_;
   // @{
 };
 
@@ -119,32 +109,35 @@ TEST_F(DecomposeAppTest, GetHelp) {
   ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
 }
 
-TEST_F(DecomposeAppTest, ParseCommandLine) {
+TEST_F(DecomposeAppTest, ParseCommandLineMinimal) {
   ASSERT_TRUE(impl_.image_path_.empty());
   ASSERT_TRUE(impl_.output_path_.empty());
-  ASSERT_TRUE(impl_.missing_contribs_path_.empty());
+  ASSERT_FALSE(impl_.benchmark_load_);
+
+  cmd_line_.AppendSwitchPath("image", image_path_);
+
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+  ASSERT_EQ(image_path_, impl_.image_path_);
+  ASSERT_EQ(image_path_.value() + L".bg", impl_.output_path_.value());
+  ASSERT_FALSE(impl_.benchmark_load_);
+  ASSERT_FALSE(impl_.strip_strings_);
+}
+
+TEST_F(DecomposeAppTest, ParseCommandLineFull) {
+  ASSERT_TRUE(impl_.image_path_.empty());
+  ASSERT_TRUE(impl_.output_path_.empty());
   ASSERT_FALSE(impl_.benchmark_load_);
 
   cmd_line_.AppendSwitchPath("image", image_path_);
   cmd_line_.AppendSwitchPath("output", output_path_);
-  cmd_line_.AppendSwitchPath("missing-contribs", missing_contribs_path_);
   cmd_line_.AppendSwitch("benchmark-load");
+  cmd_line_.AppendSwitch("strip-strings");
 
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(image_path_, impl_.image_path_);
   ASSERT_EQ(output_path_, impl_.output_path_);
-  ASSERT_EQ(missing_contribs_path_, impl_.missing_contribs_path_);
   ASSERT_TRUE(impl_.benchmark_load_);
-}
-
-TEST_F(DecomposeAppTest, DefaultOutputFile) {
-  cmd_line_.AppendSwitchPath("image", image_path_);
-  cmd_line_.AppendSwitch("benchmark-load");
-
-  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
-  ASSERT_EQ(image_path_.value() + L".bg", impl_.output_path_.value());
-
-  // TODO(rogerm): validate the output
+  ASSERT_TRUE(impl_.strip_strings_);
 }
 
 TEST_F(DecomposeAppTest, RunOnTestDll) {
@@ -153,13 +146,22 @@ TEST_F(DecomposeAppTest, RunOnTestDll) {
 
   cmd_line_.AppendSwitchPath("image", image_path_);
   cmd_line_.AppendSwitchPath("output", output_path_);
-  cmd_line_.AppendSwitchPath("missing-contribs", missing_contribs_path_);
   cmd_line_.AppendSwitch("benchmark-load");
 
   ASSERT_EQ(0, app_.Run());
-  // TODO(rogerm): Validate that the serialized block graph is correct for
-  //     the input image. See the BlockGraphSerializationRoundTrip test in
-  //     decomposer_unittest.cc for how to do this.
+}
+
+TEST_F(DecomposeAppTest, RunOnTestDllBlockGraphOnlyNoStrings) {
+  ScopedLogLevelSaver log_level_saver;
+  logging::SetMinLogLevel(logging::LOG_FATAL);
+
+  cmd_line_.AppendSwitchPath("image", image_path_);
+  cmd_line_.AppendSwitchPath("output", output_path_);
+  cmd_line_.AppendSwitch("benchmark-load");
+  cmd_line_.AppendSwitch("strip-strings");
+  cmd_line_.AppendSwitch("graph-only");
+
+  ASSERT_EQ(0, app_.Run());
 }
 
 }  // namespace pe

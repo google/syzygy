@@ -156,27 +156,6 @@ void ShiftReferrers(BlockGraph::Block* self,
   }
 }
 
-bool MaybeSaveString(const std::string& value,
-                     core::OutArchive* out_archive,
-                     BlockGraph::SerializationAttributes attributes) {
-  if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
-    if (!out_archive->Save(value))
-      return false;
-  }
-  return true;
-}
-
-bool MaybeLoadString(core::InArchive* in_archive,
-                     BlockGraph::SerializationAttributes attributes,
-                     std::string* value) {
-  DCHECK(value != NULL);
-  if ((attributes & BlockGraph::OMIT_STRINGS) == 0) {
-    if (!in_archive->Load(value))
-      return false;
-  }
-  return true;
-}
-
 }  // namespace
 
 const char* BlockGraph::BlockTypeToString(BlockGraph::BlockType type) {
@@ -333,159 +312,6 @@ const BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) const {
     return NULL;
 
   return &it->second;
-}
-
-bool BlockGraph::Save(OutArchive* out_archive,
-                      SerializationAttributes attributes) const {
-  DCHECK(out_archive != NULL);
-
-  // Save the serialization attributes so we can read this block-graph without
-  // having to be told how it was saved.
-  if (!out_archive->Save(attributes))
-    return false;
-
-  if (!SaveAttributes(out_archive))
-    return false;
-
-  // Output the basic block properties first.
-  BlockMap::const_iterator it = blocks_.begin();
-  for (; it != blocks_.end(); ++it) {
-    if (!out_archive->Save(it->first) ||
-        !it->second.SaveProps(out_archive, attributes)) {
-      return false;
-    }
-    if (!MaybeSaveLabels(&it->second, out_archive, attributes))
-      return false;
-    if ((attributes & OMIT_DATA) != 0) {
-      if (!it->second.SaveDataSize(out_archive))
-        return false;
-    } else {
-      if (!it->second.SaveData(out_archive))
-        return false;
-    }
-  }
-
-  // Now output the referrers and references.
-  if (!SaveBlocksRefs(out_archive))
-    return false;
-
-  return true;
-}
-
-bool BlockGraph::SaveAttributes(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-
-  if (!out_archive->Save(next_section_id_) ||
-      !out_archive->Save(sections_) ||
-      !out_archive->Save(next_block_id_) ||
-      !out_archive->Save(blocks_.size())) {
-    return false;
-  }
-  return true;
-}
-
-bool BlockGraph::SaveBlocksRefs(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-
-  BlockMap::const_iterator it = blocks_.begin();
-  for (; it != blocks_.end(); ++it) {
-    if (!it->second.SaveRefs(out_archive))
-      return false;
-  }
-  return true;
-}
-
-bool BlockGraph::Load(InArchive* in_archive,
-                      SerializationAttributes* attributes) {
-  DCHECK(in_archive != NULL);
-  DCHECK(attributes != NULL);
-
-  if (!in_archive->Load(attributes))
-    return false;
-
-  size_t num_blocks = 0;
-  if (!LoadAttributes(in_archive, &num_blocks))
-    return false;
-
-  // Load the basic block properties first, and keep track of the
-  // order of the blocks. We do this because we can't guarantee that the
-  // underlying map will provide us the blocks in the order that we created
-  // them, and this is the order in which the references are provided.
-  std::vector<BlockGraph::Block*> order;
-  for (size_t i = 0; i < num_blocks; ++i) {
-    BlockGraph::BlockId id = 0;
-    Block block;
-    if (!in_archive->Load(&id) ||
-        !block.LoadProps(in_archive, *attributes)) {
-      return false;
-    }
-    if (!MaybeLoadLabels(in_archive, *attributes, &block))
-      return false;
-    BlockMap::iterator it = blocks_.insert(std::make_pair(id, block)).first;
-    order.push_back(&it->second);
-
-    if ((*attributes & OMIT_DATA) != 0) {
-      if (!it->second.LoadDataSize(in_archive))
-        return false;
-    } else {
-      if (!it->second.LoadData(in_archive))
-        return false;
-    }
-  }
-  DCHECK_EQ(num_blocks, order.size());
-
-  // Load the references and referrers.
-  if (!LoadBlocksRefs(order, num_blocks, in_archive))
-    return false;
-
-  return true;
-}
-
-bool BlockGraph::LoadAttributes(InArchive* in_archive, size_t* num_blocks) {
-  DCHECK(in_archive != NULL);
-
-  if (!in_archive->Load(&next_section_id_) ||
-      !in_archive->Load(&sections_) ||
-      !in_archive->Load(&next_block_id_) ||
-      !in_archive->Load(num_blocks)) {
-    return false;
-  }
-  return true;
-}
-
-bool BlockGraph::LoadBlocksRefs(const std::vector<BlockGraph::Block*>& order,
-                                size_t num_blocks,
-                                InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-
-  for (size_t i = 0; i < num_blocks; ++i) {
-    if (!order[i]->LoadRefs(*this, in_archive))
-      return false;
-  }
-  return true;
-}
-
-bool BlockGraph::MaybeSaveLabels(
-    const Block* block,
-    core::OutArchive* out_archive,
-    SerializationAttributes attributes) const {
-  if ((attributes & OMIT_LABELS) == 0) {
-    if (!block->SaveLabels(out_archive, attributes))
-      return false;
-  }
-  return true;
-}
-
-bool BlockGraph::MaybeLoadLabels(
-    core::InArchive* in_archive,
-    SerializationAttributes attributes,
-    Block* block) {
-  DCHECK(block != NULL);
-  if ((attributes & OMIT_LABELS) == 0) {
-    if (!block->LoadLabels(in_archive, attributes))
-      return false;
-  }
-  return true;
 }
 
 bool BlockGraph::RemoveBlockByIterator(BlockMap::iterator it) {
@@ -751,54 +577,6 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   return new_block;
 }
 
-bool BlockGraph::AddressSpace::Save(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-
-  // Simply dump the ids of the blocks that are actually in the address space.
-  if (!out_archive->Save(address_space_.size()))
-    return false;
-
-  RangeMapConstIter it = address_space_.begin();
-  for (; it != address_space_.end(); ++it) {
-    if (!out_archive->Save(it->second->id()))
-      return false;
-  }
-
-  return true;
-}
-
-bool BlockGraph::AddressSpace::Load(InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-
-  size_t num_blocks = 0;
-  if (!in_archive->Load(&num_blocks)) {
-    LOG(ERROR) << "Unable to load BlockGraph::AddressSpace size.";
-    return false;
-  }
-
-  // Simply load the block ids. The address and length are implicit.
-  for (size_t i = 0; i < num_blocks; ++i) {
-    BlockId id = 0;
-    if (!in_archive->Load(&id)) {
-      LOG(ERROR) << "Unable to load block id.";
-      return false;
-    }
-
-    Block* block = graph_->GetBlockById(id);
-    if (block == NULL) {
-      LOG(ERROR) << "No block found with id " << id << ".";
-      return false;
-    }
-
-    if (!InsertBlock(block->addr(), block)) {
-      LOG(ERROR) << "Unable to insert block in BlockGraph::AddressSpace.";
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool BlockGraph::Section::set_name(const base::StringPiece& name) {
   if (name == NULL)
     return false;
@@ -810,13 +588,13 @@ bool BlockGraph::Section::set_name(const base::StringPiece& name) {
   return true;
 }
 
-bool BlockGraph::Section::Save(OutArchive* out_archive) const {
+bool BlockGraph::Section::Save(core::OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
   return out_archive->Save(id_) && out_archive->Save(name_) &&
       out_archive->Save(characteristics_);
 }
 
-bool BlockGraph::Section::Load(InArchive* in_archive) {
+bool BlockGraph::Section::Load(core::InArchive* in_archive) {
   DCHECK(in_archive != NULL);
   return in_archive->Load(&id_) && in_archive->Load(&name_) &&
       in_archive->Load(&characteristics_);
@@ -826,20 +604,6 @@ std::string BlockGraph::Label::ToString() const {
   return base::StringPrintf("%s (%s)",
                             name_.c_str(),
                             LabelAttributesToString(attributes_).c_str());
-}
-
-bool BlockGraph::Label::Save(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-  return out_archive->Save(name_) && out_archive->Save(attributes_);
-}
-
-bool BlockGraph::Label::Load(InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-
-  if (!in_archive->Load(&name_) || !in_archive->Load(&attributes_))
-    return false;
-
-  return true;
 }
 
 bool BlockGraph::Label::IsValid() const {
@@ -1375,204 +1139,6 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
 // Returns true if this block contains the given range of bytes.
 bool BlockGraph::Block::Contains(RelativeAddress address, size_t size) const {
   return (address >= addr_ && address + size <= addr_ + size_);
-}
-
-bool BlockGraph::Block::SaveProps(OutArchive* out_archive,
-                                  SerializationAttributes attributes) const {
-  DCHECK(out_archive != NULL);
-
-  if (out_archive->Save(id_) && out_archive->Save((int)type_) &&
-      out_archive->Save(size_) && out_archive->Save(alignment_) &&
-      out_archive->Save(source_ranges_) && out_archive->Save(addr_) &&
-      out_archive->Save(section_) && out_archive->Save(attributes_) &&
-      MaybeSaveString(name_, out_archive, attributes)) {
-    return true;
-  }
-  return false;
-}
-
-bool BlockGraph::Block::LoadProps(InArchive* in_archive,
-                                  SerializationAttributes attributes) {
-  DCHECK(in_archive != NULL);
-  if (in_archive->Load(&id_) && in_archive->Load((int*)&type_) &&
-      in_archive->Load(&size_) && in_archive->Load(&alignment_) &&
-      in_archive->Load(&source_ranges_) && in_archive->Load(&addr_) &&
-      in_archive->Load(&section_) && in_archive->Load(&attributes_) &&
-      MaybeLoadString(in_archive, attributes, &name_)) {
-    return true;
-  }
-  return false;
-}
-
-bool BlockGraph::Block::SaveRefs(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-
-  if (!out_archive->Save(references_.size()))
-    return false;
-
-  // Output the references.
-  ReferenceMap::const_iterator it1 = references_.begin();
-  for (; it1 != references_.end(); ++it1) {
-    DCHECK(it1->second.referenced() != NULL);
-    if (!out_archive->Save(it1->first) ||
-        !out_archive->Save((int)it1->second.type()) ||
-        !out_archive->Save(it1->second.size()) ||
-        !out_archive->Save(it1->second.referenced()->id()) ||
-        !out_archive->Save(it1->second.offset()) ||
-        !out_archive->Save(it1->second.base())) {
-      LOG(ERROR) << "Unable to save block reference.";
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool BlockGraph::Block::LoadRefs(BlockGraph& block_graph,
-                                 InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-
-  size_t num_references = 0;
-  if (!in_archive->Load(&num_references)) {
-    LOG(ERROR) << "Unable to load block reference count.";
-    return false;
-  }
-
-  // Load the references.
-  for (size_t i = 0; i < num_references; ++i) {
-    Offset local_offset = 0;
-    ReferenceType type = RELATIVE_REF;
-    Size size = 0;
-    BlockId id = 0;
-    Offset remote_offset = 0;
-    Offset remote_base = 0;
-    if (!in_archive->Load(&local_offset) ||
-        !in_archive->Load((int*)&type) || !in_archive->Load(&size) ||
-        !in_archive->Load(&id) || !in_archive->Load(&remote_offset) ||
-        !in_archive->Load(&remote_base)) {
-      LOG(ERROR) << "Unable to load block reference.";
-      return false;
-    }
-
-    Block* referenced = block_graph.GetBlockById(id);
-    if (referenced == NULL) {
-      LOG(ERROR) << "Unable to load block with id " << id << ".";
-      return false;
-    }
-    if (!SetReference(local_offset,
-                      Reference(type, size, referenced, remote_offset,
-                                remote_base))) {
-      LOG(ERROR) << "Unable to create block reference.";
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool BlockGraph::Block::SaveData(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-
-  if (!out_archive->Save(owns_data_) ||
-      !out_archive->Save(data_size_))
-    return false;
-
-  // If we own the data, we save it directly.
-  if (owns_data_) {
-    if (!out_archive->out_stream()->Write(data_size_, data_))
-      return false;
-  }
-
-  return true;
-}
-
-bool BlockGraph::Block::LoadData(InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-
-  if (!in_archive->Load(&owns_data_) ||
-      !in_archive->Load(&data_size_))
-    return false;
-
-  // No data? Nothing else to do.
-  if (data_size_ == 0)
-    return true;
-
-  // If we own the data, load it directly.
-  if (owns_data_) {
-    uint8* data = new uint8[data_size_];
-    data_ = data;
-    if (!in_archive->in_stream()->Read(data_size_, data))
-      return false;
-  }
-
-  return true;
-}
-
-bool BlockGraph::Block::SaveDataSize(OutArchive* out_archive) const {
-  DCHECK(out_archive != NULL);
-
-  if (!out_archive->Save(data_size_))
-    return false;
-
-  return true;
-}
-
-bool BlockGraph::Block::LoadDataSize(InArchive* in_archive) {
-  DCHECK(in_archive != NULL);
-  if (!in_archive->Load(&data_size_))
-    return false;
-
-  return true;
-}
-
-bool BlockGraph::Block::SaveLabels(OutArchive* out_archive,
-                                   SerializationAttributes attributes) const {
-  DCHECK(out_archive != NULL);
-  DCHECK_EQ(0u, (attributes & BlockGraph::OMIT_LABELS));
-
-  // TODO(chrisha): Transition this to using label attributes rather than
-  //     types.
-
-  // There are several ways to save the label map into the stream:
-  //   - Save the original label map with the original label names and offsets.
-  //   - Save the original label map but strip the label names.
-  //   - Don't save the label map at all.
-  LabelMap::const_iterator label_iter = labels_.begin();
-  out_archive->Save(labels_.size());
-  for (; label_iter != labels_.end(); label_iter++) {
-    if (!out_archive->Save(label_iter->first) ||
-        !out_archive->Save(label_iter->second.attributes()) ||
-        !MaybeSaveString(label_iter->second.name(), out_archive, attributes)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool BlockGraph::Block::LoadLabels(InArchive* in_archive,
-                                  SerializationAttributes attributes) {
-  DCHECK(in_archive != NULL);
-  DCHECK_EQ(0u, (attributes & BlockGraph::OMIT_LABELS));
-
-  size_t labels_count = 0;
-  if (!in_archive->Load(&labels_count)) {
-    LOG(ERROR) << "Unable to load labels count.";
-    return false;
-  }
-  for (size_t i = 0; i < labels_count; ++i) {
-    std::string temp_name;
-    Offset temp_offset;
-    LabelAttributes temp_attr;
-    if (!(in_archive->Load(&temp_offset)) ||
-        !(in_archive->Load(&temp_attr)) ||
-        !MaybeLoadString(in_archive, attributes, &temp_name)) {
-      return false;
-    }
-    Label temp_label(temp_name, temp_attr);
-    labels_.insert(std::make_pair(temp_offset, temp_label));
-  }
-  DCHECK_EQ(labels_count, labels_.size());
-  return true;
 }
 
 bool BlockGraph::Reference::IsValid() const {
