@@ -30,9 +30,6 @@ namespace testing {
 bool BlocksEqual(const block_graph::BlockGraph::Block& b1,
                  const block_graph::BlockGraph::Block& b2,
                  const block_graph::BlockGraphSerializer& bgs);
-bool BlocksEqual(const block_graph::BlockGraph::Block& b1,
-                 const block_graph::BlockGraph::Block& b2,
-                 block_graph::BlockGraph::SerializationAttributes attributes);
 
 // Compares two BlockGraphs to each other. Intended for testing BlockGraph
 // serialization.
@@ -40,19 +37,9 @@ bool BlockGraphsEqual(
     const block_graph::BlockGraph& b1,
     const block_graph::BlockGraph& b2,
     const block_graph::BlockGraphSerializer& bgs);
-bool BlockGraphsEqual(
-    const block_graph::BlockGraph& b1,
-    const block_graph::BlockGraph& b2,
-    block_graph::BlockGraph::SerializationAttributes attributes);
 
 // Generate a block-graph to use in the tests.
 bool GenerateTestBlockGraph(block_graph::BlockGraph* image);
-
-// Serialized a block-graph into a stream
-bool SerializeRoundTripTest(
-    const block_graph::BlockGraph& input_image,
-    block_graph::BlockGraph::SerializationAttributes input_attributes,
-    block_graph::BlockGraph* output_image);
 
 }  // namespace testing
 

@@ -15,6 +15,7 @@
 #ifndef SYZYGY_PE_SERIALIZATION_H_
 #define SYZYGY_PE_SERIALIZATION_H_
 
+#include "base/file_path.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
 #include "syzygy/core/serialization.h"
 

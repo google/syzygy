@@ -48,8 +48,6 @@ extern const core::RelativeAddress kInvalidAddress;
 // The BlockGraph is a top-level container for Blocks.
 class BlockGraph {
  public:
-  typedef core::InArchive InArchive;
-  typedef core::OutArchive OutArchive;
   typedef core::RelativeAddress RelativeAddress;
 
   typedef size_t SectionId;
@@ -58,7 +56,6 @@ class BlockGraph {
   typedef ptrdiff_t Offset;
   typedef uint32 BlockAttributes;
   typedef uint32 LabelAttributes;
-  typedef uint32 SerializationAttributes;
 
   // The BlockGraph maintains a list of sections, and each block belongs
   // to one of them. This is the set of information we keep regarding them.
@@ -110,14 +107,6 @@ class BlockGraph {
 
     // This always needs to be set to the next available attribute bit.
     BLOCK_ATTRIBUTES_MAX = (1 << 12),
-  };
-
-  // Attributes that can be passed to the save function.
-  enum SerializationAttributesEnum {
-    DEFAULT = 0,
-    OMIT_DATA = (1 << 0),
-    OMIT_STRINGS = (1 << 1),
-    OMIT_LABELS = (1 << 2),
   };
 
   enum BlockType {
@@ -274,42 +263,12 @@ class BlockGraph {
   const Block* GetBlockById(BlockId id) const;
   // @}
 
-  // Serialization is supported at the level of an entire BlockGraph, but not
-  // individual blocks. This is because blocks have pointers to other blocks
-  // and it is impossible to serialize one without serializing all others. The
-  // attributes allow to not serialize some information of the blocks.
-  bool Save(OutArchive* out_archive, SerializationAttributes attributes) const;
-  // Note that after a 'Load', it is possible to have 'data_size > 0' and
-  // 'data == NULL'. This indicates that the block was pointing to data that
-  // it did not own. To make the graph fully consistent, the data can be
-  // reattached after the graph is loaded. The @p attributes will contain the
-  // flags that have been used to save this block-graph.
-  bool Load(InArchive* in_archive, SerializationAttributes* attributes);
-
  private:
   // Give BlockGraphSerializer access to our innards for serialization.
   friend BlockGraphSerializer;
 
   // Removes a block by the iterator to it. The iterator must be valid.
   bool RemoveBlockByIterator(BlockMap::iterator it);
-
-  // Serialization of the attributes of the block-graph.
-  bool SaveAttributes(OutArchive* out_archive) const;
-  bool LoadAttributes(InArchive* in_archive, size_t* num_blocks);
-
-  // Serialization of the blocks references.
-  bool SaveBlocksRefs(OutArchive* out_archive) const;
-  bool LoadBlocksRefs(const std::vector<BlockGraph::Block*>& order,
-                      size_t num_blocks,
-                      InArchive* in_archive);
-
-  // Serialization of a label if needed (depending on the attributes passed).
-  bool MaybeSaveLabels(const Block* iter_block,
-                       OutArchive* out_archive,
-                       SerializationAttributes attributes) const;
-  bool MaybeLoadLabels(InArchive* in_archive,
-                       SerializationAttributes attributes,
-                       Block* block);
 
   // All sections we contain.
   SectionMap sections_;
@@ -327,7 +286,7 @@ class BlockGraph {
 // The BlockGraph maintains a list of sections, and each block belongs
 // to one of them. This is the set of information we keep regarding them.
 struct BlockGraph::Section {
-  // Default constructor.
+  // Default constructor. Required for serialization.
   Section() : id_(kInvalidSectionId), characteristics_(0) {
   }
 
@@ -386,15 +345,11 @@ struct BlockGraph::Section {
     characteristics_ &= ~characteristic;
   }
 
-  // For serializing this Section.
-  //
-  // @param out_archive The output archive which will store this Section.
-  bool Save(OutArchive* out_archive) const;
-
-  // For deserializing this Section.
-  //
-  // @param in_archive The input archive storing a Section.
-  bool Load(InArchive* in_archive);
+  // @name Serialization functions.
+  // @{
+  bool Save(core::OutArchive* out_archive) const;
+  bool Load(core::InArchive* in_archive);
+  // @}
 
   // A simple comparison operator for serialization tests.
   bool operator==(const Section& other) const {
@@ -440,12 +395,6 @@ class BlockGraph::Label {
 
   // A helper function for logging and debugging.
   std::string ToString() const;
-
-  // @name Persistence functions.
-  // @{
-  bool Save(OutArchive* out_archive) const;
-  bool Load(InArchive* in_archive);
-  // @}
 
   // Equality comparator for unittesting.
   bool operator==(const Label& other) const {
@@ -764,33 +713,6 @@ class BlockGraph::Block {
   const uint8* data_;
   // Size of the above.
   size_t data_size_;
-
-  // The following are serialization functions, and are intended for use by
-  // the BlockGraph that owns the Block.
-
-  // Serializes basic block properties.
-  bool SaveProps(OutArchive* out_archive,
-                 SerializationAttributes attributes) const;
-  bool LoadProps(InArchive* in_archive,
-                 SerializationAttributes attributes);
-
-  // Serializes block data.
-  bool SaveData(OutArchive* out_archive) const;
-  bool LoadData(InArchive* in_archive);
-
-  // Serialize the data size.
-  bool SaveDataSize(OutArchive* out_archive) const;
-  bool LoadDataSize(InArchive* in_archive);
-
-  // Saves referrers and references.
-  bool SaveRefs(OutArchive* out_archive) const;
-  bool LoadRefs(BlockGraph& block_graph, InArchive* in_archive);
-
-  // Saves the label map.
-  bool SaveLabels(OutArchive* out_archive,
-                  SerializationAttributes attributes) const;
-  bool LoadLabels(InArchive* in_archive,
-                  SerializationAttributes attributes);
 };
 
 // A graph address space endows a graph with a non-overlapping ordering
@@ -884,10 +806,6 @@ class BlockGraph::AddressSpace {
   const AddressSpaceImpl& address_space_impl() const {
     return address_space_;
   }
-
-  // For serialization.
-  bool Save(OutArchive* out_archive) const;
-  bool Load(InArchive* in_archive);
 
  private:
   bool InsertImpl(RelativeAddress addr, Block* block);

@@ -196,54 +196,6 @@ TEST_F(DecomposerTest, DecomposeFailsWithNonexistentPdb) {
   EXPECT_FALSE(decomposer.Decompose(&image_layout));
 }
 
-TEST_F(DecomposerTest, BlockGraphSerializationRoundTrip) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
-  PEFile image_file;
-
-  ASSERT_TRUE(image_file.Init(image_path));
-
-  // Decompose the test image and look at the result.
-  Decomposer decomposer(image_file);
-
-  BlockGraph block_graph;
-  ImageLayout image_layout(&block_graph);
-  ASSERT_TRUE(decomposer.Decompose(&image_layout));
-
-  FilePath temp_file_path = temp_dir_.Append(L"test_dll.dll.bg");
-
-  // Save the BlockGraph.
-  {
-    file_util::ScopedFILE temp_file(file_util::OpenFile(temp_file_path, "wb"));
-    core::FileOutStream out_stream(temp_file.get());
-    core::NativeBinaryOutArchive out_archive(&out_stream);
-    EXPECT_TRUE(
-        SaveDecomposition(image_file, block_graph, image_layout, &out_archive));
-    EXPECT_TRUE(out_archive.Flush());
-  }
-
-  // Load the BlockGraph, and compare it to the original.
-  {
-    file_util::ScopedFILE temp_file(file_util::OpenFile(temp_file_path, "rb"));
-    core::FileInStream in_stream(temp_file.get());
-    core::NativeBinaryInArchive in_archive(&in_stream);
-    PEFile in_image_file;
-    BlockGraph in_block_graph;
-    ImageLayout in_image_layout(&block_graph);
-    EXPECT_TRUE(LoadDecomposition(&in_archive,
-                                  &in_image_file,
-                                  &in_block_graph,
-                                  &in_image_layout));
-
-    EXPECT_TRUE(testing::BlockGraphsEqual(block_graph, in_block_graph, true));
-    EXPECT_THAT(image_layout.blocks.address_space_impl().ranges(),
-        testing::ContainerEq(
-            in_image_layout.blocks.address_space_impl().ranges()));
-
-    EXPECT_THAT(image_layout.sections,
-                testing::ContainerEq(in_image_layout.sections));
-  }
-}
-
 TEST_F(DecomposerTest, LabelsAndAttributes) {
   FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;

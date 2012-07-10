@@ -329,18 +329,6 @@ class Decomposer {
   RE non_returning_functions_re_;
 };
 
-// This is for serializing a PEFile/BlockGraph/ImageLayout triple, which
-// allows us to avoid doing decomposition repeatedly. The serialized format also
-// stores toolchain metadata for input validation.
-bool SaveDecomposition(const PEFile& pe_file,
-                       const block_graph::BlockGraph& block_graph,
-                       const ImageLayout& image_layout,
-                       core::OutArchive* out_archive);
-bool LoadDecomposition(core::InArchive* in_archive,
-                       PEFile* pe_file,
-                       block_graph::BlockGraph* block_graph,
-                       ImageLayout* image_layout);
-
 // This stores fixups, but in a format more convenient for us than the
 // basic PdbFixup struct.
 struct Decomposer::Fixup {
