@@ -254,8 +254,13 @@ bool ParseEngineRpc::ConsumeSegmentEvents(
     RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(read_ptr);
     read_ptr += sizeof(RecordPrefix) + prefix->size;
     if (read_ptr > end_ptr) {
-      LOG(ERROR) << "Reading off end of segment buffer.";
-      return false;
+      // For batch-oriented records (where the record size is updated after
+      // the record is initially written) there's a race condition between
+      // updating the size of the segment and updating the number of items
+      // in the batch record wherein the client process could be terminated
+      // leaving a truncated batch record.
+      LOG(WARNING) << "Encountered truncated record at end of segment.";
+      continue;
     }
 
     event_record.Header.Class.Type = prefix->type;
