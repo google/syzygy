@@ -14,6 +14,10 @@
 
 #include "syzygy/block_graph/transform.h"
 
+#include "syzygy/block_graph/basic_block_decomposer.h"
+#include "syzygy/block_graph/block_builder.h"
+#include "syzygy/block_graph/block_util.h"
+
 namespace block_graph {
 
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
@@ -55,15 +59,24 @@ bool ApplyBasicBlockSubGraphTransform(
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+  DCHECK(CodeBlockAttributesAreBasicBlockSafe(block));
 
-  // TODO(chrisha): Implement this once basic_block_decomposer is moved to
-  //     block_graph_lib, and once we have the rehydration code.
+  // Decompose block to basic blocks.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer bb_decomposer(block, &subgraph);
+  if (!bb_decomposer.Decompose())
+    return false;
 
-  // We call the transform function simply for unittest coverage for now.
-  BasicBlockSubGraph bbsg;
-  transform->TransformBasicBlockSubGraph(block_graph, &bbsg);
+  // Call the transform.
+  if (!transform->TransformBasicBlockSubGraph(block_graph, &subgraph))
+    return false;
 
-  return false;
+  // Update the block-graph post transform.
+  BlockBuilder builder(block_graph);
+  if (!builder.Merge(&subgraph))
+    return false;
+
+  return true;
 }
 
 }  // namespace block_graph
