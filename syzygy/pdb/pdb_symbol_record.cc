@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_symbol_record_stream.h"
+#include "syzygy/pdb/pdb_symbol_record.h"
 
 #include <string>
 
@@ -23,16 +23,18 @@
 
 namespace pdb {
 
-bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector) {
+bool ReadSymbolRecord(PdbStream* stream,
+                      size_t symbol_table_size,
+                      SymbolRecordVector* symbol_vector) {
   DCHECK(stream != NULL);
   DCHECK(symbol_vector != NULL);
 
-  if (!stream->Seek(0)) {
-    LOG(ERROR) << "Unable to seek to the beginning of the symbol record "
+  size_t stream_end = stream->pos() + symbol_table_size;
+  if (stream_end > stream->length()) {
+    LOG(ERROR) << "The specified symbol table size exceeds the size of the "
                << "stream.";
     return false;
   }
-  size_t stream_end = stream->length();
 
   // Process each symbol present in the stream. For now we only save their
   // starting positions, their lengths and their types to be able to dump them.
@@ -53,7 +55,7 @@ bool ReadSymbolRecord(PdbStream* stream, SymbolRecordVector* symbol_vector) {
     sym_record.start_position = stream->pos();
     sym_record.len = len - sizeof(symbol_type);
     symbol_vector->push_back(sym_record);
-    if (!stream->Seek(symbol_start + len)) {
+    if (stream->pos() != stream_end && !stream->Seek(symbol_start + len)) {
       LOG(ERROR) << "Unable to seek to the end of the symbol record.";
       return false;
     }

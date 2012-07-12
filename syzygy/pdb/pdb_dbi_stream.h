@@ -77,8 +77,8 @@ class DbiModuleInfo {
   const DbiModuleInfoBase& module_info_base() const {
     return module_info_base_;
   }
-  const std::string& module_name() { return module_name_; }
-  const std::string& object_name() { return object_name_; }
+  const std::string& module_name() const { return module_name_; }
+  const std::string& object_name() const { return object_name_; }
   // @}
 
  private:

@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// This file allows dumping the content of the type info stream of a PDB.
 
 #include "syzygy/experimental/pdb_dumper/pdb_type_info_stream_dumper.h"
 

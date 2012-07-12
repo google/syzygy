@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file allows to read and dump the content of the type info stream of a
-// PDB.
+// This file allows dumping the content of the type info stream of a PDB.
 
 #ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_TYPE_INFO_STREAM_DUMPER_H_
 #define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_TYPE_INFO_STREAM_DUMPER_H_
