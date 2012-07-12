@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implements the ExplodeBasicBlocksTransform. This transform seperates all
-// of the basic-blocks in a block-graph into individual code and data blocks.
-// This is primarily a test to exercise the basic-block motion machinery.
+// Implements the ExplodeBasicBlockSubGraphTransform and
+// ExplodeBasicBlocksTransform classes.
 
 #include "syzygy/pe/transforms/explode_basic_blocks_transform.h"
 
-#include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/pe/block_util.h"
@@ -28,15 +26,11 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
-using block_graph::BasicBlockDecomposer;
 using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::BasicBlockSubGraph;
 
 typedef BlockGraph::Block Block;
-
-const BlockGraph::BlockAttributes kPaddingAttributes =
-    BlockGraph::PADDING_BLOCK | BlockGraph::GAP_BLOCK;
 
 void GetTypeAndAttributes(const Block* original_block,
                           const BasicBlock& basic_block,
@@ -51,17 +45,44 @@ void GetTypeAndAttributes(const Block* original_block,
 
   *attributes = original_block->attributes();
   if (basic_block.type() == BasicBlock::BASIC_PADDING_BLOCK)
-    *attributes |= kPaddingAttributes;
+    *attributes |= BlockGraph::PADDING_BLOCK;
 }
 
 }  // namespace
 
+const char ExplodeBasicBlockSubGraphTransform::kTransformName[] =
+    "ExplodeBasicBlockSubGraphTransform";
+
+bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
+    BlockGraph* block_graph , BasicBlockSubGraph* subgraph) {
+  DCHECK(block_graph != NULL);
+  DCHECK(subgraph != NULL);
+
+  // Remove any extant block descriptions.
+  subgraph->block_descriptions().clear();
+
+  // Generate a new block description for each basic-block in the subgraph.
+  BasicBlockSubGraph::BBCollection::iterator it =
+      subgraph->basic_blocks().begin();
+  for (; it != subgraph->basic_blocks().end(); ++it) {
+    BasicBlock& bb = it->second;
+    BlockGraph::BlockType type = BlockGraph::CODE_BLOCK;
+    BlockGraph::BlockAttributes attributes = 0;
+    GetTypeAndAttributes(subgraph->original_block(), bb, &type, &attributes);
+    DCHECK_LT(0U, bb.size());
+
+    if (exclude_padding_ && (attributes & BlockGraph::PADDING_BLOCK) != 0)
+      continue;
+
+    BasicBlockSubGraph::BlockDescription* desc = subgraph->AddBlockDescription(
+        bb.name(), type, subgraph->original_block()->section(), 4, attributes);
+    desc->basic_block_order.push_back(&bb);
+  }
+  return true;
+}
+
 const char ExplodeBasicBlocksTransform::kTransformName[] =
     "ExplodeBasicBlocksTransform";
-
-ExplodeBasicBlocksTransform::ExplodeBasicBlocksTransform()
-    : exclude_padding_(false) {
-}
 
 bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
                                           BlockGraph::Block* block) {
@@ -77,34 +98,9 @@ bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
   if (SkipThisBlock(block))
     return true;
 
-  // Decompose block to basic blocks.
-  BasicBlockSubGraph subgraph;
-  BasicBlockDecomposer bb_decomposer(block, &subgraph);
-  if (!bb_decomposer.Decompose())
-    return false;
+  ExplodeBasicBlockSubGraphTransform bb_transform(exclude_padding_);
 
-  // Turn each basic block into a new block in the subgraph.
-  subgraph.block_descriptions().clear();
-  BasicBlockSubGraph::BBCollection::iterator it =
-      subgraph.basic_blocks().begin();
-  for (; it != subgraph.basic_blocks().end(); ++it) {
-    BasicBlock& bb = it->second;
-    BlockGraph::BlockType type = BlockGraph::CODE_BLOCK;
-    BlockGraph::BlockAttributes attributes = 0;
-    GetTypeAndAttributes(subgraph.original_block(), bb, &type, &attributes);
-    DCHECK_LT(0U, bb.size());
-
-    if (exclude_padding_ && (attributes & kPaddingAttributes) != 0)
-      continue;
-
-    BasicBlockSubGraph::BlockDescription* desc = subgraph.AddBlockDescription(
-        bb.name(), type, block->section(), 4, attributes);
-    desc->basic_block_order.push_back(&bb);
-  }
-
-  // Merge the exploded subgraph back into the block_graph.
-  BlockBuilder builder(block_graph);
-  if (!builder.Merge(&subgraph))
+  if (!ApplyBasicBlockSubGraphTransform(&bb_transform, block_graph, block))
     return false;
 
   return true;

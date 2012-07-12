@@ -12,28 +12,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares the ExplodeBasicBlocksTransform. This transform seperates all of
-// the basic-blocks in a block-graph into individual code and data blocks.
-// This is primarily a test to exercise the basic-block motion machinery.
+// Declares the ExplodeBasicBlockSubGraphTransform and
+// ExplodeBasicBlocksTransform classes. These transforms separate all
+// of the basic-blocks in a subgraph or block-graph respectively, into
+// individual code and data blocks. This is primarily a test to exercise
+// the basic-block motion machinery.
 
 #ifndef SYZYGY_PE_TRANSFORMS_EXPLODE_BASIC_BLOCKS_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_EXPLODE_BASIC_BLOCKS_TRANSFORM_H_
 
-#include "base/file_path.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
+#include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {
 namespace transforms {
 
-// A sample BlockGraph transform that explodes all basic-blocks in each code
-// block into individual code or data blocks.
+// A BasicBlockSubBlockGraph transform that explodes all basic-blocks in a
+// basic_block subgraph into individual code or data blocks.
+class ExplodeBasicBlockSubGraphTransform
+    : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
+          ExplodeBasicBlockSubGraphTransform> {
+ public:
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+
+  // Initialize a new ExplodeBasicBlockSubGraphTransform instance.
+  explicit ExplodeBasicBlockSubGraphTransform(bool exclude_padding)
+      : exclude_padding_(exclude_padding) {
+  }
+
+  // @name BasicBlockSubGraphTransformInterface methods.
+  // @{
+  virtual bool TransformBasicBlockSubGraph(
+      BlockGraph* block_graph,
+      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
+  // @}
+
+  // The transform name.
+  static const char kTransformName[];
+
+ protected:
+  // A flag for whether padding (and dead code) basic-blocks should be excluded
+  // when reconstituting the exploded blocks.
+  bool exclude_padding_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExplodeBasicBlockSubGraphTransform);
+};
+
+// A BlockGraph transform that, for every code block which is eligible for
+// decomposition to basic-blocks, and transforms every basic-blocks in each
+// code block into an individual code or data block.
 class ExplodeBasicBlocksTransform
     : public block_graph::transforms::IterativeTransformImpl<
           ExplodeBasicBlocksTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
 
-  ExplodeBasicBlocksTransform();
+  // Initialize a new ExplodeBasicBlocksTransform instance.
+  ExplodeBasicBlocksTransform() : exclude_padding_(false) {
+  }
 
   // Explodes each basic code block in @p block referenced by into separate
   // blocks, then erases @p block from @p block_graph.
