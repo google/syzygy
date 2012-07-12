@@ -51,7 +51,7 @@ rem = \"\"\"
 :: limitations under the License.
 
 python -x "%%~f0" %%*
-exit /b %ERRORLEVEL%
+exit /b %%ERRORLEVEL%%
 goto endofPython \"\"\"
 
 import sys
