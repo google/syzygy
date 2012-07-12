@@ -18,7 +18,6 @@
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/unittest_util.h"
-#include "syzygy/pe/unittest_util.h"
 
 namespace pdb {
 
