@@ -29,11 +29,12 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
-#include "syzygy/experimental/pdb_dumper/pdb_symbol_record_stream_dumper.h"
+#include "syzygy/experimental/pdb_dumper/pdb_module_info_stream_dumper.h"
+#include "syzygy/experimental/pdb_dumper/pdb_symbol_record_dumper.h"
 #include "syzygy/experimental/pdb_dumper/pdb_type_info_stream_dumper.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
-#include "syzygy/pdb/pdb_symbol_record_stream.h"
+#include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_type_info_stream.h"
 
 std::ostream& operator<<(std::ostream& str, const GUID& guid) {
@@ -294,12 +295,30 @@ int PdbDumpApp::Run() {
         dbi_stream.header().symbol_record_stream);
     SymbolRecordVector symbol_vector;
     if (sym_record_stream != NULL &&
-        ReadSymbolRecord(sym_record_stream, &symbol_vector)) {
+        ReadSymbolRecord(sym_record_stream,
+                         sym_record_stream->length(),
+                         &symbol_vector)) {
       if (dump_symbol_record_)
-        DumpSymbolRecord(out(), sym_record_stream, symbol_vector);
+        DumpSymbolRecord(out(), sym_record_stream, symbol_vector, 1);
     } else {
       LOG(ERROR) << "Unable to read the symbol record stream.";
       return 1;
+    }
+
+    // Read the module info streams.
+    DbiStream::DbiModuleVector::const_iterator iter_modules =
+        dbi_stream.modules().begin();
+    ::fprintf(out(), "Module info, %d records:\n", dbi_stream.modules().size());
+    for(; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
+      if (iter_modules->module_info_base().stream != -1) {
+        PdbStream* module_stream =
+            pdb_file.GetStream(iter_modules->module_info_base().stream);
+        if (module_stream == NULL) {
+          LOG(ERROR) << "Unable to read a module info stream.";
+          return 1;
+        }
+        DumpModuleInfoStream(*iter_modules, index_names, out(), module_stream);
+      }
     }
 
     if (explode_streams_ && !ExplodeStreams(input_pdb_path,

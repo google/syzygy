@@ -22,11 +22,19 @@
 #include "base/basictypes.h"
 #include "third_party/cci/files/cvinfo.h"
 
+namespace Microsoft_Cci_Pdb {
+
+// Symbols that are not in the enum in the cv_info file.
+const uint16 S_MSTOOLENV_V3 = 0x113D;
+
+}  // namespace Microsoft_Cci_Pdb
+
 // This macro allow the easy construction of switch statements over the symbol
 // type enum. It define the case table, the first parameter of each entry is the
 // type of the symbol and the second one is the type of structure used to
 // represent this symbol.
 #define SYM_TYPE_CASE_TABLE(decl) \
+    decl(S_END, Unknown) \
     decl(S_OEM, OemSymbol) \
     decl(S_REGISTER_ST, Unknown) \
     decl(S_CONSTANT_ST, Unknown) \
@@ -129,7 +137,8 @@
     decl(S_CALLSITEINFO, CallsiteInfo) \
     decl(S_FRAMECOOKIE, FrameCookie) \
     decl(S_DISCARDED, DiscardedSym) \
-    decl(S_RECTYPE_MAX, Unknown)
+    decl(S_RECTYPE_MAX, Unknown) \
+    decl(S_MSTOOLENV_V3, Unknown)
 
 // This macro allows the easy construction of switch statements over the
 // numeric leaves types.

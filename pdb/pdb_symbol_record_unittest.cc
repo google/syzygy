@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_symbol_record_stream.h"
+#include "syzygy/pdb/pdb_symbol_record.h"
 
 #include "base/file_util.h"
 #include "gtest/gtest.h"
@@ -30,7 +30,9 @@ TEST(PdbReadSymbolRecordTest, ReadValidSymRecordStream) {
   scoped_refptr<pdb::PdbFileStream> valid_sym_record_stream =
       testing::GetStreamFromFile(valid_sym_record_path);
   SymbolRecordVector symbol_vector;
-  EXPECT_TRUE(ReadSymbolRecord(valid_sym_record_stream.get(), &symbol_vector));
+  EXPECT_TRUE(ReadSymbolRecord(valid_sym_record_stream.get(),
+                               valid_sym_record_stream->length(),
+                               &symbol_vector));
 }
 
 TEST(PdbReadSymbolRecordTest, ReadInvalidSymRecordStream) {
@@ -41,6 +43,7 @@ TEST(PdbReadSymbolRecordTest, ReadInvalidSymRecordStream) {
       testing::GetStreamFromFile(invalid_sym_record_path);
   SymbolRecordVector symbol_vector;
   EXPECT_FALSE(ReadSymbolRecord(invalid_sym_record_stream.get(),
+                                invalid_sym_record_stream->length(),
                                 &symbol_vector));
 }
 
