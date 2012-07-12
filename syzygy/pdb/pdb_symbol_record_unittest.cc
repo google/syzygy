@@ -17,9 +17,7 @@
 #include "base/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/unittest_util.h"
-#include "syzygy/pe/unittest_util.h"
 
 namespace pdb {
 

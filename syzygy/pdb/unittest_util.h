@@ -31,6 +31,8 @@ extern const wchar_t kInvalidPDBSymbolRecordStreamPath[];
 extern const wchar_t kValidPDBTypeInfoStreamPath[];
 extern const wchar_t kInvalidHeaderPDBTypeInfoStreamPath[];
 extern const wchar_t kInvalidDataPDBTypeInfoStreamPath[];
+extern const wchar_t kValidPDBDbiStreamPath[];
+extern const wchar_t kInvalidPDBDbiStreamPath[];
 
 // Get a PDB stream from a file.
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path);

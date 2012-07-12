@@ -73,6 +73,7 @@
       'sources': [
         'omap_unittest.cc',
         'pdb_byte_stream_unittest.cc',
+        'pdb_dbi_stream_unittest.cc',
         'pdb_file_stream_unittest.cc',
         'pdb_file_unittest.cc',
         'pdb_reader_unittest.cc',

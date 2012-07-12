@@ -25,6 +25,12 @@ const wchar_t kTestDllFilePath[] =
 const wchar_t kOmappedTestPdbFilePath[] =
     L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
 
+const wchar_t kValidPDBDbiStreamPath[] =
+    L"syzygy\\pdb\\test_data\\valid_dbi.pdb_stream";
+
+const wchar_t kInvalidPDBDbiStreamPath[] =
+    L"syzygy\\pdb\\test_data\\invalid_dbi.pdb_stream";
+
 const wchar_t kValidPDBSymbolRecordStreamPath[] =
     L"syzygy\\pdb\\test_data\\valid_sym_record.pdb_stream";
 
