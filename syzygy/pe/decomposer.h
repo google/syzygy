@@ -73,15 +73,41 @@ class Decomposer {
   // will be populated with decomposition coverage statistics.
   bool Decompose(ImageLayout* image_layout);
 
+  // @{
+  // TODO(chrisha): Expose a mechanism for bulk-importing these via some JSON
+  //     representation. We will likely want to expose this on the command-line
+  //     of any utility using Decomposer.
+
   // Registers a pair of static initializer search patterns. Each of these
   // patterns will be converted to a regular expression, and they are required
   // to produce exactly one match group. The match group must be the same for
   // each of the patterns in order for the symbols to be correlated to each
   // other.
-  // TODO(chrisha): Expose a mechanism for bulk-importing these via some JSON
-  //     representation. We will likely want to expose this on the command-line
-  //     of any utility using Decomposer.
-  bool RegisterStaticInitializerPatterns(const char* begin, const char* end);
+  // @param begin the regular-expression used to find the open bracketing
+  //     symbol.
+  // @param end the regular-expression used to find the end bracketing symbol.
+  // @returns true on success, false otherwise.
+  bool RegisterStaticInitializerPatterns(const base::StringPiece& begin,
+                                         const base::StringPiece& end);
+
+  // Registers a function as non-returning. This can be used to set
+  // no-return semantics for functions whose debug information is missing or
+  // incomplete.
+  // @param function_name the undecorated function name.
+  // @returns true if the function was added, false if it already existed in
+  //     the set.
+  bool RegisterNonReturningFunction(const base::StringPiece& function_name);
+
+  // Registers an imported symbol as a non-returning function. This can be used
+  // to set no-return semantics for imported functions (we don't get symbol
+  // information for these).
+  // @param module_name the name of the imported module.
+  // @param function_name the undecorated function name.
+  // @returns true if the function was added, false if it already existed in
+  //     the set.
+  bool RegisterNonReturningImport(const base::StringPiece& module_name,
+                                  const base::StringPiece& function_name);
+  // @}
 
   // Sets the PDB path to be used. If this is not called it will be inferred
   // using the information in the module, and searched for using the OS
@@ -241,6 +267,8 @@ class Decomposer {
       RelativeAddress instr_rel,
       const _DInst& instruction,
       bool end_of_code);
+  CallbackDirective VisitIndirectMemoryCallInstruction(
+      const _DInst& instruction, bool end_of_code);
   CallbackDirective OnInstruction(const Disassembler& disassembler,
                                   const _DInst& instruction);
   // @}
@@ -282,6 +310,12 @@ class Decomposer {
   scoped_refptr<pdb::PdbStream> GetBlockGraphStreamFromPDB(
       pdb::PdbFile* pdb_file);
 
+  // Callback for use with PEFileParser. Will set the NON_RETURN_FUNCTION
+  // attribute for imports that are found in the non_returning_imports_ set.
+  bool OnImportThunkCallback(const char* module_name,
+                             const char* symbol_name,
+                             BlockGraph::Block* thunk);
+
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
 
@@ -304,13 +338,19 @@ class Decomposer {
   typedef pcrecpp::RE RE;
   typedef std::pair<RE, RE> REPair;
   typedef std::vector<REPair> REPairs;
+  typedef std::set<std::string> StringSet;
+  typedef std::map<std::string, StringSet> StringSetMap;
 
+  // @name State tracking for the disassembler.
+  // @{
   // The block we're currently disassembling. We need this for use in the
   // OnInstruction callback.
   BlockGraph::Block* current_block_;
   // Used to indicate the decomposer's handling of the current block. Needed
   // for OnInstruction callback.
   bool be_strict_with_current_block_;
+  // @}
+
   // Keeps track of reloc entry information, which is used by various
   // pieces of the decomposer.
   PEFile::RelocSet reloc_set_;
@@ -323,9 +363,12 @@ class Decomposer {
   // A set of static initializer search pattern pairs. These are used to
   // ensure we don't break up blocks of static initializer function pointers.
   REPairs static_initializer_patterns_;
-  // A regular expression to match for functions known to be non-returning
-  // but tagged as such in the debug symbols.
-  RE non_returning_functions_re_;
+  // A set of functions known to be non-returning but not tagged as such in the
+  // debug symbols.
+  StringSet non_returning_functions_;
+  // A map of module names, each containing a set of known non-returning
+  // functions.
+  StringSetMap non_returning_imports_;
 };
 
 // This stores fixups, but in a format more convenient for us than the

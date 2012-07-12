@@ -66,22 +66,65 @@ bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
   return false;
 }
 
+// Returns true if this PC-relative or indirect-memory call is to a non-
+// returning function. The block (and offset into it) being directly referenced
+// by the call need to be provided explicitly.
+bool CallsNonReturningFunction(const _DInst& inst,
+                               const Block* target,
+                               Offset offset) {
+  DCHECK_EQ(FC_CALL, META_GET_FC(inst.meta));
+  DCHECK(inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP);
+  DCHECK(target != NULL);
+  if (inst.ops[0].type == O_DISP) {
+    DCHECK(target->type() == BlockGraph::DATA_BLOCK);
+
+    // There need not always be a reference here. This could be to a data
+    // block whose contents will be filled in at runtime.
+    BlockGraph::Reference ref;
+    if (!target->GetReference(offset, &ref))
+      return false;
+
+    target = ref.referenced();
+
+    // If this is a relative reference it must be to a data block (it's a PE
+    // parsed structure pointing to an import name thunk). If it's absolute
+    // then it must be pointing to a code block.
+    DCHECK((ref.type() == BlockGraph::RELATIVE_REF &&
+                target->type() == BlockGraph::DATA_BLOCK) ||
+           (ref.type() == BlockGraph::ABSOLUTE_REF &&
+                target->type() == BlockGraph::CODE_BLOCK));
+  }
+
+  if ((target->attributes() & BlockGraph::NON_RETURN_FUNCTION) == 0)
+    return false;
+
+  return true;
+}
+
 // Returns true if the given instruction is a call to a function block that
 // has been tagged as non-returning.
 // Note: This may only be called after all instruction references have been
 //     populated.
 bool CallsNonReturningFunction(const Instruction& instruction) {
-  if (META_GET_FC(instruction.representation().meta) == FC_CALL &&
-      instruction.representation().ops[0].type == O_PC) {
-    DCHECK_EQ(1U, instruction.references().size());
-    const Block* target = instruction.references().begin()->second.block();
-    if (target != NULL &&
-        (target->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0) {
-      // Called a non-returning function.
-      return true;
-    }
+  const _DInst& inst = instruction.representation();
+  if (META_GET_FC(inst.meta) != FC_CALL ||
+      (inst.ops[0].type != O_PC && inst.ops[0].type != O_DISP)) {
+    return false;
   }
-  return false;
+  DCHECK_EQ(1U, instruction.references().size());
+  const BasicBlockReference& ref = instruction.references().begin()->second;
+
+  // This can happen if we are recursively calling ourselves. In which case the
+  // reference will be to another basic-block that is a part of the same
+  // parent block.
+  if (ref.block() == NULL)
+    return false;
+
+  DCHECK_EQ(ref.offset(), ref.base());
+  DCHECK_EQ(BlockGraph::Reference::kMaximumSize, ref.size());
+  if (!CallsNonReturningFunction(inst, ref.block(), ref.offset()))
+    return false;
+  return true;
 }
 
 // Look up the reference made from an instruction's byte range within the
@@ -207,13 +250,13 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
   current_instructions_.push_back(
       Instruction(inst, offset, inst.size, code_ + offset ));
 
-  // If this instruction is a PC-relative call to a non-returning function,
-  // then this is essentially a control flow operation, and we need to end this
-  // basic block.
-  if (META_GET_FC(inst.meta) == FC_CALL && inst.ops[0].type == O_PC) {
+  // If this instruction is a call to a non-returning function, then this is
+  // essentially a control flow operation, and we need to end this basic block.
+  if (META_GET_FC(inst.meta) == FC_CALL &&
+      (inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP)) {
     const BlockGraph::Reference& ref =
         GetReferenceOfInstructionAt(block_, offset, inst.size);
-    if ((ref.referenced()->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0)
+    if (CallsNonReturningFunction(inst, ref.referenced(), ref.offset()))
       return kDirectiveTerminatePath;
   }
 
