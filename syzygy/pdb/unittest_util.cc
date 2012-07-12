@@ -25,25 +25,25 @@ const wchar_t kTestDllFilePath[] =
 const wchar_t kOmappedTestPdbFilePath[] =
     L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
 
-const wchar_t kValidPDBDbiStreamPath[] =
+const wchar_t kValidPdbDbiStreamPath[] =
     L"syzygy\\pdb\\test_data\\valid_dbi.pdb_stream";
 
-const wchar_t kInvalidPDBDbiStreamPath[] =
+const wchar_t kInvalidPdbDbiStreamPath[] =
     L"syzygy\\pdb\\test_data\\invalid_dbi.pdb_stream";
 
-const wchar_t kValidPDBSymbolRecordStreamPath[] =
+const wchar_t kValidPdbSymbolRecordStreamPath[] =
     L"syzygy\\pdb\\test_data\\valid_sym_record.pdb_stream";
 
-const wchar_t kInvalidPDBSymbolRecordStreamPath[] =
+const wchar_t kInvalidPdbSymbolRecordStreamPath[] =
     L"syzygy\\pdb\\test_data\\invalid_sym_record.pdb_stream";
 
-const wchar_t kValidPDBTypeInfoStreamPath[] =
+const wchar_t kValidPdbTypeInfoStreamPath[] =
     L"syzygy\\pdb\\test_data\\valid_type_info.pdb_stream";
 
-const wchar_t kInvalidHeaderPDBTypeInfoStreamPath[] =
+const wchar_t kInvalidHeaderPdbTypeInfoStreamPath[] =
     L"syzygy\\pdb\\test_data\\invalid_type_info_header_corrupted.pdb_stream";
 
-const wchar_t kInvalidDataPDBTypeInfoStreamPath[] =
+const wchar_t kInvalidDataPdbTypeInfoStreamPath[] =
     L"syzygy\\pdb\\test_data\\invalid_type_info_data_corrupted.pdb_stream";
 
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path) {

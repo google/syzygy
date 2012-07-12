@@ -287,7 +287,7 @@ class Decomposer {
   //     stream exists in the PDB.
   // @return true if the block-graph has been successfully loaded, false
   //     otherwise.
-  bool LoadBlockGraphFromPDB(const FilePath& pdb_path,
+  bool LoadBlockGraphFromPdb(const FilePath& pdb_path,
                              const PEFile& image_file,
                              ImageLayout* image,
                              bool* stream_exists);
@@ -299,7 +299,7 @@ class Decomposer {
   // @param image_layout The image-layout we're trying to populate.
   // @return true if the block-graph has been successfully loaded, false
   //     otherwise.
-  bool LoadBlockGraphFromPDBStream(const PEFile& image_file,
+  bool LoadBlockGraphFromPdbStream(const PEFile& image_file,
                                    pdb::PdbStream* block_graph_stream,
                                    ImageLayout* image_layout);
 
@@ -307,7 +307,7 @@ class Decomposer {
   // @param pdb_file The PDB file from which the stream will be read.
   // @returns a scoped pointer to a the stream in case of success, otherwise
   //     the pointer will contain a NULL reference.
-  scoped_refptr<pdb::PdbStream> GetBlockGraphStreamFromPDB(
+  scoped_refptr<pdb::PdbStream> GetBlockGraphStreamFromPdb(
       pdb::PdbFile* pdb_file);
 
   // Callback for use with PEFileParser. Will set the NON_RETURN_FUNCTION

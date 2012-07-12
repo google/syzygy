@@ -50,7 +50,7 @@ namespace {
 
 namespace cci = Microsoft_Cci_Pdb;
 
-// Read the stream containing the filenames listed in the Pdb.
+// Read the stream containing the filenames listed in the PDB.
 bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
   size_t stream_start = stream->pos();
   size_t stream_end = stream->pos() + stream->length();

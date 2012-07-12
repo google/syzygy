@@ -668,7 +668,7 @@ bool Decomposer::Decompose(ImageLayout* image_layout) {
   // Check if the block-graph has already been serialized into the PDB and load
   // it from here in this case. This allows round-trip decomposition.
   bool stream_exists = false;
-  if (LoadBlockGraphFromPDB(pdb_path_, image_file_, image_layout,
+  if (LoadBlockGraphFromPdb(pdb_path_, image_file_, image_layout,
                             &stream_exists)) {
     return true;
   } else {
@@ -2713,7 +2713,7 @@ bool Decomposer::RegisterNonReturningImport(
   return module_set.insert(function_name.as_string()).second;
 }
 
-bool Decomposer::LoadBlockGraphFromPDBStream(const PEFile& image_file,
+bool Decomposer::LoadBlockGraphFromPdbStream(const PEFile& image_file,
                                              pdb::PdbStream* block_graph_stream,
                                              ImageLayout* image_layout) {
   DCHECK(block_graph_stream != NULL);
@@ -2773,7 +2773,7 @@ bool Decomposer::LoadBlockGraphFromPDBStream(const PEFile& image_file,
   return true;
 }
 
-bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
+bool Decomposer::LoadBlockGraphFromPdb(const FilePath& pdb_path,
                                        const PEFile& image_file,
                                        ImageLayout* image_layout,
                                        bool* stream_exists) {
@@ -2790,7 +2790,7 @@ bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
 
   // Try to get the block-graph stream from the PDB.
   scoped_refptr<pdb::PdbStream> block_graph_stream =
-      GetBlockGraphStreamFromPDB(&pdb_file);
+      GetBlockGraphStreamFromPdb(&pdb_file);
   if (block_graph_stream.get() == NULL) {
     *stream_exists = false;
     return false;
@@ -2799,7 +2799,7 @@ bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
   // The PDB contains a block-graph stream, the block-graph and the image layout
   // will be read from this stream.
   *stream_exists = true;
-  if (!LoadBlockGraphFromPDBStream(image_file, block_graph_stream.get(),
+  if (!LoadBlockGraphFromPdbStream(image_file, block_graph_stream.get(),
                                    image_layout)) {
     return false;
   }
@@ -2807,7 +2807,7 @@ bool Decomposer::LoadBlockGraphFromPDB(const FilePath& pdb_path,
   return true;
 }
 
-scoped_refptr<pdb::PdbStream> Decomposer::GetBlockGraphStreamFromPDB(
+scoped_refptr<pdb::PdbStream> Decomposer::GetBlockGraphStreamFromPdb(
     pdb::PdbFile* pdb_file) {
   scoped_refptr<pdb::PdbStream> block_graph_stream;
   // Get the PDB header and try to get the block-graph ID stream from it.
