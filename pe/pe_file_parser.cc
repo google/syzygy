@@ -771,8 +771,8 @@ BlockGraph::Block* PEFileParser::ChunkDelayBoundIATBlock(
 
   iat_block = address_space_->GetFirstIntersectingBlock(iat_addr,
                                                         iat_size);
-  LOG(WARNING) << iat_name << " collides with existing block "
-               << iat_block->name() << ".";
+  VLOG(1) << iat_name << " collides with existing block " << iat_block->name()
+          << ".";
 
   // If we're completely contained within the conflicting block, there's no
   // expanding and merging to do.
