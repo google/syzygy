@@ -61,11 +61,6 @@ typedef Disassembler::CallbackDirective CallbackDirective;
 
 const size_t kPointerSize = sizeof(AbsoluteAddress);
 
-// Update this pattern as more non-returning functions are discovered.
-// This is a PCRE compatible regular expression. The simplest way to update
-// the pattern is as Name1|Name2|Name3.
-const char kNonReturningFunctionsRe[] = "_CxxThrowException";
-
 // Converts from PdbFixup::Type to BlockGraph::ReferenceType.
 BlockGraph::ReferenceType PdbFixupTypeToReferenceType(
     pdb::PdbFixup::Type type) {
@@ -585,6 +580,13 @@ bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
                           (error) ? ::logging::LOG_ERROR : -1).stream(), \
     (error ? LOG_IS_ON(ERROR) : VLOG_IS_ON(1)))
 
+// Logs a warning if @p warn is true, a verbose logging message otherwise.
+#define LOG_WARNING_OR_VLOG1(warn) LAZY_STREAM( \
+    ::logging::LogMessage(__FILE__, \
+                          __LINE__, \
+                          (warn) ? ::logging::LOG_WARNING : -1).stream(), \
+    (warn ? LOG_IS_ON(WARNING) : VLOG_IS_ON(1)))
+
 // Sets the disassembler directive to an error if @p strict is true, otherwise
 // sets it to an early termination.
 CallbackDirective AbortOrTerminateDisassembly(bool strict) {
@@ -634,23 +636,27 @@ Decomposer::Decomposer(const PEFile& image_file)
     : image_(NULL),
       image_file_(image_file),
       current_block_(NULL),
-      be_strict_with_current_block_(true),
-      non_returning_functions_re_(kNonReturningFunctionsRe) {
+      be_strict_with_current_block_(true) {
   // Register static initializer patterns that we know are always present.
-  bool success =
-      // CRT C/C++/etc initializers.
-      RegisterStaticInitializerPatterns("(__x.*)_a",
-                                        "(__x.*)_z") &&
-      // RTC (run-time checks) initializers (part of CRT).
-      RegisterStaticInitializerPatterns("(__rtc_[it])aa",
-                                        "(__rtc_[it])zz") &&
-      // ATL object map initializers.
-      RegisterStaticInitializerPatterns("(__pobjMapEntry)First",
-                                        "(__pobjMapEntry)Last") &&
-      // Thread-local storage template.
-      RegisterStaticInitializerPatterns("(_tls_)start",
-                                        "(_tls_)end");
-  CHECK(success);
+  // CRT C/C++/etc initializers.
+  CHECK(RegisterStaticInitializerPatterns("(__x.*)_a", "(__x.*)_z"));
+  // RTC (run-time checks) initializers (part of CRT).
+  CHECK(RegisterStaticInitializerPatterns("(__rtc_[it])aa", "(__rtc_[it])zz"));
+  // ATL object map initializers.
+  CHECK(RegisterStaticInitializerPatterns("(__pobjMapEntry)First",
+                                          "(__pobjMapEntry)Last"));
+  // Thread-local storage template.
+  CHECK(RegisterStaticInitializerPatterns("(_tls_)start", "(_tls_)end"));
+
+  // Register non-returning functions that for some reason the symbols lie to
+  // us about.
+  CHECK(RegisterNonReturningFunction("_CxxThrowException"));
+  CHECK(RegisterNonReturningFunction("_longjmp"));
+
+  // Register non-returning imports that we know about.
+  CHECK(RegisterNonReturningImport("KERNEL32.dll", "ExitProcess"));
+  CHECK(RegisterNonReturningImport("KERNEL32.dll", "ExitThread"));
+  CHECK(RegisterNonReturningImport("KERNEL32.dll", "RaiseException"));
 }
 
 bool Decomposer::Decompose(ImageLayout* image_layout) {
@@ -961,14 +967,17 @@ bool Decomposer::ProcessFunctionOrThunkSymbol(IDiaSymbol* function) {
   // the routine that adds labels, so there should never be any collisions.
   CHECK(AddLabelToBlock(block_addr, block_name, BlockGraph::CODE_LABEL, block));
 
-  // Set the block attributes.
-  if (no_return == TRUE || non_returning_functions_re_.FullMatch(block_name)) {
-    block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
-    if (!no_return) {
-      LOG(WARNING) << "Applying NON_RETURN_FUNCTION attribute to "
-                   << block_name << ".";
-    }
+  // If we didn't get an explicit no-return flag from the symbols check our
+  // list of exceptions.
+  if (no_return == FALSE && non_returning_functions_.count(block->name()) > 0) {
+    VLOG(1) << "Forcing non-returning attribute on function \""
+            << block->name() << "\".";
+    no_return = TRUE;
   }
+
+  // Set the block attributes.
+  if (no_return == TRUE)
+    block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
   if (has_inl_asm == TRUE)
     block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
   if (has_eh || has_seh)
@@ -1948,9 +1957,7 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
 
   switch (result) {
     case Disassembler::kWalkIncomplete:
-      // This means that disassembly was successful, but some bytes in the
-      // block were unaccounted for. This generally means unreachable code,
-      // which we see quite often.
+      // There were computed branches that couldn't be chased down.
       block->set_attribute(BlockGraph::INCOMPLETE_DISASSEMBLY);
       return true;
 
@@ -1964,10 +1971,17 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
       return true;
 
     case Disassembler::kWalkSuccess:
+      // Were any bytes in the block not accounted for? This generally means
+      // unreachable code, which we see quite often, especially in debug builds.
+      if (disasm.code_size() != disasm.disassembled_bytes())
+        block->set_attribute(BlockGraph::INCOMPLETE_DISASSEMBLY);
       return true;
 
+    case Disassembler::kWalkError:
+      return false;
+
     default:
-      // Anything else is failure.
+      NOTREACHED() << "Unhandled Disassembler WalkResult.";
       return false;
   }
 }
@@ -2267,6 +2281,68 @@ CallbackDirective Decomposer::VisitPcRelativeFlowControlInstruction(
   return Disassembler::kDirectiveContinue;
 }
 
+CallbackDirective Decomposer::VisitIndirectMemoryCallInstruction(
+      const _DInst& instruction, bool end_of_code) {
+  DCHECK_EQ(FC_CALL, META_GET_FC(instruction.meta));
+  DCHECK_EQ(O_DISP, instruction.ops[0].type);
+
+  AbsoluteAddress disp_addr_abs(static_cast<uint32>(instruction.disp));
+  RelativeAddress disp_addr_rel;
+  if (!image_file_.Translate(disp_addr_abs, &disp_addr_rel)) {
+    LOG(ERROR) << "Unable to translate call address.";
+    return Disassembler::kDirectiveAbort;
+  }
+
+  // Try to dereference the address of the call instruction. This can fail
+  // for blocks that are only initialized at runtime, so we don't fail if
+  // we don't find a reference.
+  IntermediateReferenceMap::const_iterator ref_it =
+      references_.find(disp_addr_rel);
+  if (ref_it == references_.end())
+    return Disassembler::kDirectiveContinue;
+
+  // NOTE: This process derails for bound import tables. In this case the
+  //     attempted dereference above will fail, but we could still actually
+  //     find the import name thunk by inspecting the offset of the memory
+  //     location.
+
+  // The reference must be direct and 32-bit.
+  const IntermediateReference& ref = ref_it->second;
+  DCHECK_EQ(BlockGraph::Reference::kMaximumSize, ref.size);
+  DCHECK_EQ(0, ref.offset);
+
+  // Look up the thunk this refers to.
+  BlockGraph::Block* thunk = image_->GetBlockByAddress(ref.base);
+  if (thunk == NULL) {
+    LOG(ERROR) << "Unable to dereference intermediate reference at "
+               << disp_addr_rel << " to " << ref.base << ".";
+    return Disassembler::kDirectiveAbort;
+  }
+
+  if (ref.type == BlockGraph::RELATIVE_REF) {
+    // If this is a relative reference it must be part of an import address
+    // table (during runtime this address would be patched up with an absolute
+    // reference). Thus we expect the referenced block to be data, an import
+    // name thunk.
+    DCHECK_EQ(BlockGraph::DATA_BLOCK, thunk->type());
+  } else {
+    // If this is an absolute address it should actually point directly to
+    // code.
+    DCHECK_EQ(BlockGraph::ABSOLUTE_REF, ref.type);
+    DCHECK_EQ(BlockGraph::CODE_BLOCK, thunk->type());
+  }
+
+  // Either way, if the block is non-returning we terminate this path of
+  // disassembly.
+  if ((thunk->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0)
+    return Disassembler::kDirectiveTerminatePath;
+
+  if (end_of_code)
+    MarkDisassembledPastEnd();
+
+  return Disassembler::kDirectiveContinue;
+}
+
 CallbackDirective Decomposer::OnInstruction(const Disassembler& walker,
                                             const _DInst& instruction) {
   // Get the relative address of this instruction.
@@ -2323,22 +2399,19 @@ CallbackDirective Decomposer::OnInstruction(const Disassembler& walker,
                                               end_of_code));
   }
 
+  // We explicitly handle indirect memory call instructions. These can often
+  // be tracked down as pointing to a block in this image, or to an import
+  // name thunk from another module.
+  if (fc == FC_CALL && instruction.ops[0].type == O_DISP) {
+    return CombineCallbackDirectives(directive,
+        VisitIndirectMemoryCallInstruction(instruction, end_of_code));
+  }
+
   // Look out for blocks where disassembly seems to run off the end of the
   // block. We do not treat interrupts as flow control as execution can
   // continue past the interrupt.
   if (fc != FC_RET && fc != FC_UNC_BRANCH && end_of_code)
     MarkDisassembledPastEnd();
-
-  if (fc == FC_CALL) {
-    // TODO(chrisha): For call instructions, see whether they call a
-    //     non-returning function. Instruct the disassembler not to continue
-    //     disassembly past the instruction in that case.
-    //     The case where the address is PC-relative is handled in the above
-    //     code. However, the called function could also be at an
-    //     indirect absolute address when invoking imported symbols. We do not
-    //     currently have meta-data regarding these symbols, so do not know if
-    //     they are non-returning.
-  }
 
   return directive;
 }
@@ -2348,6 +2421,8 @@ bool Decomposer::CreatePEImageBlocksAndReferences(
   PEFileParser::AddReferenceCallback add_reference(
       base::Bind(&Decomposer::AddReferenceCallback, base::Unretained(this)));
   PEFileParser parser(image_file_, image_, add_reference);
+  parser.set_on_import_thunk(
+      base::Bind(&Decomposer::OnImportThunkCallback, base::Unretained(this)));
 
   if (!parser.ParseImage(header)) {
     LOG(ERROR) << "Unable to parse PE image.";
@@ -2612,10 +2687,11 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   return true;
 }
 
-bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
-                                                   const char* end) {
+bool Decomposer::RegisterStaticInitializerPatterns(
+    const base::StringPiece& begin, const base::StringPiece& end) {
   // Ensuring the patterns each have exactly one capturing group.
-  REPair re_pair = std::make_pair(RE(begin), RE(end));
+  REPair re_pair = std::make_pair(RE(begin.as_string()),
+                                  RE(end.as_string()));
   if (re_pair.first.NumberOfCapturingGroups() != 1 ||
       re_pair.second.NumberOfCapturingGroups() != 1)
     return false;
@@ -2623,6 +2699,18 @@ bool Decomposer::RegisterStaticInitializerPatterns(const char* begin,
   static_initializer_patterns_.push_back(re_pair);
 
   return true;
+}
+
+bool Decomposer::RegisterNonReturningFunction(
+    const base::StringPiece& function_name) {
+  return non_returning_functions_.insert(function_name.as_string()).second;
+}
+
+bool Decomposer::RegisterNonReturningImport(
+    const base::StringPiece& module_name,
+    const base::StringPiece& function_name) {
+  StringSet& module_set = non_returning_imports_[module_name.as_string()];
+  return module_set.insert(function_name.as_string()).second;
 }
 
 bool Decomposer::LoadBlockGraphFromPDBStream(const PEFile& image_file,
@@ -2749,6 +2837,31 @@ scoped_refptr<pdb::PdbStream> Decomposer::GetBlockGraphStreamFromPDB(
   }
 
   return block_graph_stream;
+}
+
+bool Decomposer::OnImportThunkCallback(const char* module_name,
+                                       const char* symbol_name,
+                                       BlockGraph::Block* thunk) {
+  DCHECK(module_name != NULL);
+  DCHECK(symbol_name != NULL);
+  DCHECK(thunk != NULL);
+
+  // Look for the module first.
+  StringSetMap::const_iterator module_it =
+      non_returning_imports_.find(std::string(module_name));
+  if (module_it == non_returning_imports_.end())
+    return true;
+
+  // Look for the symbol within the module.
+  if (module_it->second.count(std::string(symbol_name)) == 0)
+    return true;
+
+  // If we get here then the imported symbol is found. Decorate the thunk.
+  thunk->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
+  VLOG(1) << "Forcing non-returning attribute on imported symbol \""
+          << symbol_name << "\" from module \"" << module_name << "\".";
+
+  return true;
 }
 
 }  // namespace pe

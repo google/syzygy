@@ -105,11 +105,15 @@ class Disassembler {
   //    disassembler follows the code's control flow.
   virtual WalkResult Walk();
 
-  // Accessors.
+  // @name Accessors.
+  // @{
+  const uint8* code() const { return code_; }
+  size_t code_size() const { return code_size_; }
   const AbsoluteAddress code_addr() const { return code_addr_; }
   const AddressSet& unvisited() const { return unvisited_; }
   const VisitedSpace& visited() const { return visited_; }
   size_t disassembled_bytes() const { return disassembled_bytes_; }
+  // @}
 
  protected:
   // Called every time a basic instruction is hit.
