@@ -23,7 +23,7 @@ namespace pdb {
 
 TEST(PdbDbiStreamTest, ReadValidDbiStream) {
   FilePath valid_dbi_path = testing::GetSrcRelativePath(
-      testing::kValidPDBDbiStreamPath);
+      testing::kValidPdbDbiStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> valid_dbi_stream =
       testing::GetStreamFromFile(valid_dbi_path);
@@ -33,7 +33,7 @@ TEST(PdbDbiStreamTest, ReadValidDbiStream) {
 
 TEST(PdbDbiStreamTest, ReadInvalidDbiStream) {
   FilePath invalid_dbi_path = testing::GetSrcRelativePath(
-      testing::kInvalidPDBDbiStreamPath);
+      testing::kInvalidPdbDbiStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> invalid_dbi_stream =
       testing::GetStreamFromFile(invalid_dbi_path);

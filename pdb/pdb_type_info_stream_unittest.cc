@@ -23,7 +23,7 @@ namespace pdb {
 
 TEST(PdbTypeInfoStreamTest, ReadValidTypeInfoStream) {
   FilePath valid_type_info_path = testing::GetSrcRelativePath(
-      testing::kValidPDBTypeInfoStreamPath);
+      testing::kValidPdbTypeInfoStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> valid_type_info_stream =
       testing::GetStreamFromFile(valid_type_info_path);
@@ -36,7 +36,7 @@ TEST(PdbTypeInfoStreamTest, ReadValidTypeInfoStream) {
 
 TEST(PdbTypeInfoStreamTest, ReadInvalidDataTypeInfoStream) {
   FilePath invalid_type_info_path = testing::GetSrcRelativePath(
-      testing::kInvalidDataPDBTypeInfoStreamPath);
+      testing::kInvalidDataPdbTypeInfoStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> invalid_type_info_stream =
       testing::GetStreamFromFile(invalid_type_info_path);
@@ -50,7 +50,7 @@ TEST(PdbTypeInfoStreamTest, ReadInvalidDataTypeInfoStream) {
 
 TEST(PdbTypeInfoStreamTest, ReadInvalidHeaderTypeInfoStream) {
   FilePath invalid_type_info_path = testing::GetSrcRelativePath(
-      testing::kInvalidHeaderPDBTypeInfoStreamPath);
+      testing::kInvalidHeaderPdbTypeInfoStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> invalid_type_info_stream =
       testing::GetStreamFromFile(invalid_type_info_path);

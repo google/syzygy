@@ -23,7 +23,7 @@ namespace pdb {
 
 TEST(PdbReadSymbolRecordTest, ReadValidSymRecordStream) {
   FilePath valid_sym_record_path = testing::GetSrcRelativePath(
-      testing::kValidPDBSymbolRecordStreamPath);
+      testing::kValidPdbSymbolRecordStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> valid_sym_record_stream =
       testing::GetStreamFromFile(valid_sym_record_path);
@@ -35,7 +35,7 @@ TEST(PdbReadSymbolRecordTest, ReadValidSymRecordStream) {
 
 TEST(PdbReadSymbolRecordTest, ReadInvalidSymRecordStream) {
   FilePath invalid_sym_record_path = testing::GetSrcRelativePath(
-      testing::kInvalidPDBSymbolRecordStreamPath);
+      testing::kInvalidPdbSymbolRecordStreamPath);
 
   scoped_refptr<pdb::PdbFileStream> invalid_sym_record_stream =
       testing::GetStreamFromFile(invalid_sym_record_path);

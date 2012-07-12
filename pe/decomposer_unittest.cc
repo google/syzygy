@@ -51,8 +51,8 @@ class TestDecomposer: public Decomposer {
   }
 
   // Expose as public for testing.
-  using Decomposer::LoadBlockGraphFromPDBStream;
-  using Decomposer::GetBlockGraphStreamFromPDB;
+  using Decomposer::LoadBlockGraphFromPdbStream;
+  using Decomposer::GetBlockGraphStreamFromPdb;
 };
 
 class DecomposerTest : public testing::PELibUnitTest {
@@ -383,7 +383,7 @@ TEST_F(DecomposerAfterRelinkTest, FailToLoadBlockGraphWithInvalidVersion) {
   pdb::PdbReader pdb_reader;
   pdb_reader.Read(relinked_pdb_, &pdb_file);
   scoped_refptr<pdb::PdbStream> block_graph_stream =
-      decomposer.GetBlockGraphStreamFromPDB(&pdb_file);
+      decomposer.GetBlockGraphStreamFromPdb(&pdb_file);
 
   // Create a copy of the stream. We need to do this to have a stream that we
   // can modify.
@@ -401,7 +401,7 @@ TEST_F(DecomposerAfterRelinkTest, FailToLoadBlockGraphWithInvalidVersion) {
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   // We've invalided the version previously so this test should fail.
-  ASSERT_FALSE(decomposer.LoadBlockGraphFromPDBStream(image_file,
+  ASSERT_FALSE(decomposer.LoadBlockGraphFromPdbStream(image_file,
                                                       block_graph_stream.get(),
                                                       &image_layout));
 }

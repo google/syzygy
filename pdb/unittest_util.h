@@ -26,13 +26,13 @@ namespace testing {
 extern const wchar_t kTestPdbFilePath[];
 extern const wchar_t kTestDllFilePath[];
 extern const wchar_t kOmappedTestPdbFilePath[];
-extern const wchar_t kValidPDBSymbolRecordStreamPath[];
-extern const wchar_t kInvalidPDBSymbolRecordStreamPath[];
-extern const wchar_t kValidPDBTypeInfoStreamPath[];
-extern const wchar_t kInvalidHeaderPDBTypeInfoStreamPath[];
-extern const wchar_t kInvalidDataPDBTypeInfoStreamPath[];
-extern const wchar_t kValidPDBDbiStreamPath[];
-extern const wchar_t kInvalidPDBDbiStreamPath[];
+extern const wchar_t kValidPdbSymbolRecordStreamPath[];
+extern const wchar_t kInvalidPdbSymbolRecordStreamPath[];
+extern const wchar_t kValidPdbTypeInfoStreamPath[];
+extern const wchar_t kInvalidHeaderPdbTypeInfoStreamPath[];
+extern const wchar_t kInvalidDataPdbTypeInfoStreamPath[];
+extern const wchar_t kValidPdbDbiStreamPath[];
+extern const wchar_t kInvalidPdbDbiStreamPath[];
 
 // Get a PDB stream from a file.
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path);
