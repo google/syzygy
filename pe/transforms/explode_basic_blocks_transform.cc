@@ -98,9 +98,9 @@ bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
   if (SkipThisBlock(block))
     return true;
 
-  ExplodeBasicBlockSubGraphTransform bb_transform(exclude_padding_);
+  ExplodeBasicBlockSubGraphTransform transform(exclude_padding_);
 
-  if (!ApplyBasicBlockSubGraphTransform(&bb_transform, block_graph, block))
+  if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
     return false;
 
   return true;

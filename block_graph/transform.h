@@ -49,6 +49,7 @@ class BlockGraphTransformInterface {
 // @param transform the transform to apply.
 // @param block_graph the block graph to transform.
 // @param header_block the header block from block_graph.
+// @returns true on success, false otherwise.
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
                               BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
@@ -68,7 +69,7 @@ class BasicBlockSubGraphTransformInterface {
   //
   // @param block_graph the block-graph of which the basic block subgraph
   //     is a part.
-  // @param basic_block_subgraph the basic block subgraph to be transformed./
+  // @param basic_block_subgraph the basic block subgraph to be transformed.
   // @returns true on success, false otherwise.
   virtual bool TransformBasicBlockSubGraph(
       BlockGraph* block_graph,
@@ -82,11 +83,16 @@ class BasicBlockSubGraphTransformInterface {
 // @param transform the transform to apply.
 // @param block_graph the block containing the block to be transformed.
 // @param block the block to be transformed.
+// @param new_blocks On success, any newly created blocks will be returned
+//     here. Note that this parameter may be NULL if you are not interested
+//     in retrieving the set of new blocks.
 // @pre block must be a code block.
+// @returns true on success, false otherwise.
 bool ApplyBasicBlockSubGraphTransform(
     BasicBlockSubGraphTransformInterface* transform,
     BlockGraph* block_graph,
-    BlockGraph::Block* block);
+    BlockGraph::Block* block,
+    BlockVector* new_blocks);
 
 }  // namespace block_graph
 

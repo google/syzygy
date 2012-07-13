@@ -172,7 +172,8 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, TransformFails) {
       WillOnce(Return(false));
   EXPECT_FALSE(ApplyBasicBlockSubGraphTransform(&transform,
                                                 &block_graph_,
-                                                code_block_));
+                                                code_block_,
+                                                NULL));
 
   // The original block graph should be unchanged.
   EXPECT_EQ(2U, block_graph_.blocks().size());
@@ -187,11 +188,13 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, EmptyTransformSucceeds) {
 
   // Apply an empty transform that reports success.
   MockBasicBlockSubGraphTransform transform;
+  BlockVector new_blocks;
   EXPECT_CALL(transform, TransformBasicBlockSubGraph(_, _)).Times(1).
       WillOnce(Return(true));
   EXPECT_TRUE(ApplyBasicBlockSubGraphTransform(&transform,
                                                &block_graph_,
-                                               code_block_));
+                                               code_block_,
+                                               &new_blocks));
 
   // The code block should have been replaced with an equivalent one. We'll
   // have the same number of blocks, but the code block should no longer
@@ -204,26 +207,23 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, EmptyTransformSucceeds) {
   code_block_ = NULL;
 
   // Find the new block.
-  BlockGraph::BlockMap::const_iterator it = block_graph_.blocks().begin();
-  if (it->second.id() == data_block_id)
-    ++it;
-  ASSERT_TRUE(it != block_graph_.blocks().end());
-  const BlockGraph::Block& new_block = it->second;
+  ASSERT_EQ(1U, new_blocks.size());
+  const BlockGraph::Block* new_block = new_blocks[0];
 
   // Validate the references.
-  EXPECT_EQ(1U, new_block.references().size());
+  EXPECT_EQ(1U, new_block->references().size());
   BlockGraph::Reference ref;
-  EXPECT_TRUE(new_block.GetReference(kOffsetOfReferenceToData, &ref));
+  EXPECT_TRUE(new_block->GetReference(kOffsetOfReferenceToData, &ref));
   EXPECT_EQ(kOffsetOfData, ref.offset());
   EXPECT_EQ(data_block_, ref.referenced());
 
   // Validate the referrers.
-  EXPECT_EQ(1U, new_block.referrers().size());
-  EXPECT_EQ(data_block_, new_block.referrers().begin()->first);
-  EXPECT_EQ(kOffsetOfReferenceToCode, new_block.referrers().begin()->second);
-  EXPECT_TRUE(new_block.referrers().begin()->first->GetReference(
+  EXPECT_EQ(1U, new_block->referrers().size());
+  EXPECT_EQ(data_block_, new_block->referrers().begin()->first);
+  EXPECT_EQ(kOffsetOfReferenceToCode, new_block->referrers().begin()->second);
+  EXPECT_TRUE(new_block->referrers().begin()->first->GetReference(
       kOffsetOfReferenceToCode, &ref));
-  EXPECT_EQ(&new_block, ref.referenced());
+  EXPECT_EQ(new_block, ref.referenced());
 }
 
 }  // namespace block_graph
