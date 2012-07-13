@@ -17,8 +17,6 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BLOCK_BUILDER_H_
 #define SYZYGY_BLOCK_GRAPH_BLOCK_BUILDER_H_
 
-#include <vector>
-
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 
@@ -27,8 +25,6 @@ namespace block_graph {
 // This class incorporates a BasicBlockSubGraph into a BlockGraph.
 class BlockBuilder {
  public:
-  typedef std::vector<BlockGraph::Block*> BlockCollection;
-
   explicit BlockBuilder(BlockGraph* block_graph);
 
   // Merge the @p subgraph into the block graph. This will create all blocks
@@ -38,14 +34,14 @@ class BlockBuilder {
 
   // Returns the set of new blocks created upon merging in one or more
   // subgraphs.
-  const BlockCollection& new_blocks() const { return new_blocks_; }
+  const BlockVector& new_blocks() const { return new_blocks_; }
 
  private:
   // The block-graph that subgraphs will be merged into.
   BlockGraph* const block_graph_;
 
   // The set of blocks created so far.
-  BlockCollection new_blocks_;
+  BlockVector new_blocks_;
 
   DISALLOW_COPY_AND_ASSIGN(BlockBuilder);
 };

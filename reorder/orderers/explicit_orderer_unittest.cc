@@ -51,7 +51,7 @@ class ExplicitOrdererTest : public testing::Test {
   BlockGraph block_graph_;
 
   std::vector<BlockGraph::Section*> sections_;
-  std::vector<BlockGraph::Block*> blocks_;
+  block_graph::BlockVector blocks_;
 };
 
 template<typename Container>

@@ -24,12 +24,11 @@ namespace orderers {
 
 namespace {
 
+using block_graph::BlockGraph;
+using block_graph::BlockVector;
 using core::RelativeAddress;
 
-typedef block_graph::BlockGraph BlockGraph;
-typedef std::vector<BlockGraph::Block*> Blocks;
-
-void GetSortedBlocks(BlockGraph* block_graph, Blocks* blocks) {
+void GetSortedBlocks(BlockGraph* block_graph, BlockVector* blocks) {
   DCHECK(block_graph != NULL);
   DCHECK(blocks != NULL);
 
@@ -62,7 +61,7 @@ bool ExplicitOrderer::OrderBlockGraph(
   typedef Reorderer::Order::BlockListMap BlockListMap;
   typedef Reorderer::Order::BlockList BlockList;
 
-  Blocks sorted_blocks;
+  BlockVector sorted_blocks;
   GetSortedBlocks(bg, &sorted_blocks);
 
   BlockListMap::const_iterator section_it = order_->section_block_lists.begin();
@@ -83,7 +82,7 @@ bool ExplicitOrderer::OrderBlockGraph(
       // just in case the BlockGraph has evolved since the order object was
       // built.
       const BlockGraph::Block* block = section_it->second[i - 1];
-      Blocks::const_iterator block_it =
+      BlockVector::const_iterator block_it =
           std::lower_bound(sorted_blocks.begin(),
                            sorted_blocks.end(),
                            block);

@@ -30,8 +30,6 @@ namespace experimental {
 typedef std::map<const block_graph::BlockGraph::Block*,
                  const block_graph::BlockGraph::Block*> BlockGraphMapping;
 
-typedef std::vector<const block_graph::BlockGraph::Block*> BlockVector;
-
 // Builds a mapping between two related BlockGraphs. The mapping will be a
 // partial bijection between the blocks in each BlockGraph. If provided,
 // unmapped1 and unmapped2 will be populated with a list of blocks that were
@@ -39,8 +37,8 @@ typedef std::vector<const block_graph::BlockGraph::Block*> BlockVector;
 bool BuildBlockGraphMapping(const block_graph::BlockGraph& bg1,
                             const block_graph::BlockGraph& bg2,
                             BlockGraphMapping* mapping,
-                            BlockVector* unmapped1,
-                            BlockVector* unmapped2);
+                            block_graph::ConstBlockVector* unmapped1,
+                            block_graph::ConstBlockVector* unmapped2);
 
 // Reverses a block mapping. This can not be done in-place, so
 // @p reverse_mapping and @p mapping must not be the same object.

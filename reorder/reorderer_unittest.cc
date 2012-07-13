@@ -25,6 +25,7 @@
 namespace reorder {
 
 using block_graph::BlockGraph;
+using block_graph::ConstBlockVector;
 using testing::_;
 using testing::DoAll;
 using testing::InSequence;
@@ -80,7 +81,7 @@ class TestOrderGenerator : public Reorderer::OrderGenerator {
     return true;
   }
 
-  std::vector<const BlockGraph::Block*> blocks;
+  ConstBlockVector blocks;
 };
 
 class MockOrderGenerator : public Reorderer::OrderGenerator {
@@ -143,7 +144,7 @@ class TestParseEngine : public ParseEngine {
 
   // This will hold the list of blocks that we expect the order generator to
   // build.
-  std::vector<const BlockGraph::Block*> blocks;
+  ConstBlockVector blocks;
 
  private:
   // The parser needs to have a pointer to the reorderer in order to get image

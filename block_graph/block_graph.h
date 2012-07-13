@@ -933,6 +933,10 @@ class BlockGraph::Reference {
   Offset base_;
 };
 
+// Commonly used container types.
+typedef std::vector<BlockGraph::Block*> BlockVector;
+typedef std::vector<const BlockGraph::Block*> ConstBlockVector;
+
 }  // namespace block_graph
 
 #endif  // SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_

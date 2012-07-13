@@ -128,7 +128,7 @@ struct MergeContext {
   const Block* original_block;
 
   // The set of blocks generated in this context.
-  BlockBuilder::BlockCollection new_blocks;
+  BlockVector new_blocks;
 
   // The current new block being generated.
   Block* new_block;
@@ -540,7 +540,7 @@ bool GenerateBlocks(const BasicBlockSubGraph* subgraph, MergeContext* ctx) {
     if (!GenerateBlock(description, ctx)) {
       // Remove generated blocks (this is safe as they're all disconnected)
       // and return false.
-      BlockBuilder::BlockCollection::iterator it = ctx->new_blocks.begin();
+      BlockVector::iterator it = ctx->new_blocks.begin();
       for (; it != ctx->new_blocks.end(); ++it) {
         DCHECK((*it)->referrers().empty());
         DCHECK((*it)->references().empty());
