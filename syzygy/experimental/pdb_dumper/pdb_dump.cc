@@ -197,6 +197,9 @@ const char kUsage[] =
     "       process."
     "    --dump-type-info if provided the type info stream will be dumped.\n"
     "       This is a big stream so it could take a lot of time to process.\n"
+    "    --dump-modules if provided the module streams will be dumped. Note\n"
+    "       that this can take a long time as there may be many of these\n"
+    "       streams.\n"
     "    --explode-streams if provided, each PDB file's streams will be\n"
     "       exploded into a directory named '<PDB file>.streams'\n";
 
@@ -205,7 +208,8 @@ const char kUsage[] =
 PdbDumpApp::PdbDumpApp()
     : explode_streams_(false),
       dump_symbol_record_(false),
-      dump_type_info_(false) {
+      dump_type_info_(false),
+      dump_modules_(false) {
 }
 
 bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
@@ -214,6 +218,7 @@ bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
   explode_streams_ = command_line->HasSwitch("explode-streams");
   dump_symbol_record_ = command_line->HasSwitch("dump-symbol-record");
   dump_type_info_ = command_line->HasSwitch("dump-type-info");
+  dump_modules_ = command_line->HasSwitch("dump-modules");
 
   CommandLine::StringVector args = command_line->GetArgs();
   if (args.empty())
@@ -306,18 +311,24 @@ int PdbDumpApp::Run() {
     }
 
     // Read the module info streams.
-    DbiStream::DbiModuleVector::const_iterator iter_modules =
+    if (dump_modules_) {
+      DbiStream::DbiModuleVector::const_iterator iter_modules =
         dbi_stream.modules().begin();
-    ::fprintf(out(), "Module info, %d records:\n", dbi_stream.modules().size());
-    for(; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
-      if (iter_modules->module_info_base().stream != -1) {
-        PdbStream* module_stream =
-            pdb_file.GetStream(iter_modules->module_info_base().stream);
-        if (module_stream == NULL) {
-          LOG(ERROR) << "Unable to read a module info stream.";
-          return 1;
+      ::fprintf(out(), "Module info, %d records:\n",
+                dbi_stream.modules().size());
+      for(; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
+        if (iter_modules->module_info_base().stream != -1) {
+          PdbStream* module_stream =
+              pdb_file.GetStream(iter_modules->module_info_base().stream);
+          if (module_stream == NULL) {
+            LOG(ERROR) << "Unable to read a module info stream.";
+            return 1;
+          }
+          DumpModuleInfoStream(*iter_modules,
+                               index_names,
+                               out(),
+                               module_stream);
         }
-        DumpModuleInfoStream(*iter_modules, index_names, out(), module_stream);
       }
     }
 

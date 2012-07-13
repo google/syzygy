@@ -70,6 +70,9 @@ class PdbDumpApp : public common::AppImplBase {
 
   // Iff true, the type info stream will be dumped. Default fo false.
   bool dump_type_info_;
+
+  // Iff true, the module streams will be dumped. Default fo false.
+  bool dump_modules_;
 };
 
 }  // namespace pdb
