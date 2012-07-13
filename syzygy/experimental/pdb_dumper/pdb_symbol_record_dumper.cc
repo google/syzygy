@@ -451,8 +451,17 @@ bool DumpCallsiteInfo(FILE* out,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::CallsiteInfo symbol_info = {};
+  if (!stream->Read(&symbol_info, 1)) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "Offset: 0x%08X\n", symbol_info.off);
+  DumpIndentedText(out, indent_level, "Section index: 0x%04X\n",
+      symbol_info.ect);
+  DumpIndentedText(out, indent_level,
+      "Type index describing function signature: 0x%08X\n", symbol_info.typind);
+  return true;
 }
 
 bool DumpFrameCookie(FILE* out,
