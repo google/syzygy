@@ -54,7 +54,8 @@ bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
 bool ApplyBasicBlockSubGraphTransform(
     BasicBlockSubGraphTransformInterface* transform,
     BlockGraph* block_graph,
-    BlockGraph::Block* block) {
+    BlockGraph::Block* block,
+    BlockVector* new_blocks) {
   DCHECK(transform != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
@@ -75,6 +76,11 @@ bool ApplyBasicBlockSubGraphTransform(
   BlockBuilder builder(block_graph);
   if (!builder.Merge(&subgraph))
     return false;
+
+  if (new_blocks != NULL) {
+    new_blocks->assign(builder.new_blocks().begin(),
+                       builder.new_blocks().end());
+  }
 
   return true;
 }
