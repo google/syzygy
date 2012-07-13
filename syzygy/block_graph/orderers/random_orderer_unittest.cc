@@ -83,8 +83,6 @@ TEST_F(RandomOrdererTest, DefaultShuffleFalse) {
 }
 
 TEST_F(RandomOrdererTest, Shuffle) {
-  typedef std::vector<BlockGraph::Block*> Blocks;
-
   // Put some blocks in each section.
   for (size_t i = 0; i < 2; ++i) {
     BlockGraph::SectionId section_id = (i == 0 ? section1_ : section2_)->id();
@@ -106,7 +104,7 @@ TEST_F(RandomOrdererTest, Shuffle) {
     OrderedBlockGraph obg(&block_graph_);
 
     // Get the original order.
-    Blocks blocks1, blocks2;
+    BlockVector blocks1, blocks2;
     ToVector(obg.ordered_section(section1_).ordered_blocks(), &blocks1);
     ToVector(obg.ordered_section(section2_).ordered_blocks(), &blocks2);
 
@@ -115,7 +113,7 @@ TEST_F(RandomOrdererTest, Shuffle) {
     EXPECT_TRUE(random.OrderBlockGraph(&obg, NULL));
 
     // Get the shuffled order.
-    Blocks shuffled1, shuffled2;
+    BlockVector shuffled1, shuffled2;
     ToVector(obg.ordered_section(section1_).ordered_blocks(), &shuffled1);
     ToVector(obg.ordered_section(section2_).ordered_blocks(), &shuffled2);
 

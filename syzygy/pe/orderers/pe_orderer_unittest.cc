@@ -34,6 +34,8 @@ namespace orderers {
 namespace {
 
 using block_graph::BlockGraph;
+using block_graph::BlockVector;
+using block_graph::ConstBlockVector;
 using block_graph::ConstTypedBlock;
 using block_graph::OrderedBlockGraph;
 using block_graph::TypedBlock;
@@ -76,7 +78,7 @@ const BlockGraph::Block* GetDataDirEntryBlock(
 void VerifySectionStartsWith(
     const OrderedBlockGraph* obg,
     const BlockGraph::Section* section,
-    const std::vector<const BlockGraph::Block*>& blocks) {
+    const ConstBlockVector& blocks) {
   ASSERT_TRUE(obg != NULL);
 
   const OrderedBlockGraph::OrderedSection& ordered_section =
@@ -106,7 +108,7 @@ void VerifyValidLayout(const OrderedBlockGraph* obg,
   ASSERT_TRUE(dos_header.Dereference(dos_header->e_lfanew, &nt_headers));
 
   // Ensure the headers are in the right order.
-  std::vector<const BlockGraph::Block*> header_blocks;
+  ConstBlockVector header_blocks;
   header_blocks.push_back(dos_header.block());
   header_blocks.push_back(nt_headers.block());
   ASSERT_NO_FATAL_FAILURE(VerifySectionStartsWith(obg, NULL, header_blocks));
@@ -168,7 +170,7 @@ class PEOrdererTest : public testing::PELibUnitTest {
     for (; section_it != block_graph_.sections_mutable().end(); ++section_it)
       sections.push_back(&section_it->second);
 
-    std::vector<BlockGraph::Block*> blocks;
+    BlockVector blocks;
     BlockGraph::BlockMap::iterator block_it =
         block_graph_.blocks_mutable().begin();
     for (; block_it != block_graph_.blocks_mutable().end(); ++block_it)

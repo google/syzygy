@@ -68,8 +68,8 @@ void RandomOrderer::ShuffleBlocks(
     const OrderedBlockGraph::OrderedSection* section, OrderedBlockGraph* obg) {
   DCHECK(section != NULL);
 
-  std::vector<BlockGraph::Block*> blocks(section->ordered_blocks().begin(),
-                                         section->ordered_blocks().end());
+  BlockVector blocks(section->ordered_blocks().begin(),
+                     section->ordered_blocks().end());
   std::random_shuffle(blocks.begin(), blocks.end(), rng_);
 
   for (size_t i = 0; i < blocks.size(); ++i)

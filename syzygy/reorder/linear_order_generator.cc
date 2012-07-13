@@ -230,7 +230,7 @@ bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
   if (max_recursion_depth == 0)
     return true;
 
-  std::vector<const BlockGraph::Block*> data_blocks;
+  block_graph::ConstBlockVector data_blocks;
 
   // Iterate through any data blocks that are referenced by this
   // block, and also store them with the same time. This is a pessimistic

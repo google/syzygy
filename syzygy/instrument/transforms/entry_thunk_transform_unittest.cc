@@ -29,6 +29,7 @@ namespace transforms {
 namespace {
 
 using block_graph::BlockGraph;
+using block_graph::ConstBlockVector;
 using block_graph::TypedBlock;
 using core::AbsoluteAddress;
 using testing::_;
@@ -148,12 +149,12 @@ class EntryThunkTransformTest : public testing::Test {
   }
 
   // Retrieves the thunks.
-  typedef std::vector<const BlockGraph::Block*> Blocks;
-  Blocks FindThunks() {
-    Blocks ret;
+  void FindThunks(ConstBlockVector* ret) {
+    ASSERT_TRUE(ret != NULL);
+    EXPECT_TRUE(ret->empty());
     BlockGraph::Section* thunk_section = bg_.FindSection(".thunks");
     if (thunk_section == NULL)
-      return ret;
+      return;
 
     BlockGraph::BlockMap::const_iterator it = bg_.blocks().begin();
     for (; it != bg_.blocks().end(); ++it) {
@@ -163,14 +164,12 @@ class EntryThunkTransformTest : public testing::Test {
         EXPECT_EQ(2, block.references().size());
 
         // It's a thunk.
-        ret.push_back(&block);
+        ret->push_back(&block);
       }
     }
-
-    return ret;
   }
 
-  size_t CountDestinations(const Blocks& blocks) {
+  size_t CountDestinations(const ConstBlockVector& blocks) {
     typedef std::set<std::pair<BlockGraph::Block*, BlockGraph::Offset>>
         ReferenceMap;
     ReferenceMap destinations;
@@ -186,7 +185,7 @@ class EntryThunkTransformTest : public testing::Test {
     return destinations.size();
   }
 
-  size_t CountEntryPoints(const Blocks& blocks) {
+  size_t CountEntryPoints(const ConstBlockVector& blocks) {
     typedef std::set<std::pair<BlockGraph::Block*, BlockGraph::Offset>>
         ReferenceMap;
     ReferenceMap entrypoints;
@@ -201,7 +200,7 @@ class EntryThunkTransformTest : public testing::Test {
     return entrypoints.size();
   }
 
-  void VerifySourceRanges(const Blocks& thunks) {
+  void VerifySourceRanges(const ConstBlockVector& thunks) {
     for (size_t i = 0; i < thunks.size(); ++i) {
       // Test the source ranges on the thunk.
       ASSERT_EQ(1, thunks[i]->source_ranges().size());
@@ -232,7 +231,8 @@ class EntryThunkTransformTest : public testing::Test {
   void VerifyThunks(size_t expected_thunks,
                     size_t expected_destinations,
                     size_t expected_entrypoints) {
-    Blocks thunks = FindThunks();
+    ConstBlockVector thunks;
+    ASSERT_NO_FATAL_FAILURE(FindThunks(&thunks));
 
     EXPECT_EQ(expected_thunks, thunks.size());
     EXPECT_EQ(expected_destinations, CountDestinations(thunks));
@@ -348,7 +348,9 @@ TEST_F(EntryThunkTransformTest, InstrumentAllDebugFriendly) {
   ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // Verify the source ranges on the thunks.
-  VerifySourceRanges(FindThunks());
+  ConstBlockVector thunks;
+  ASSERT_NO_FATAL_FAILURE(FindThunks(&thunks));
+  VerifySourceRanges(thunks);
 }
 
 TEST_F(EntryThunkTransformTest, InstrumentNoUnsafe) {

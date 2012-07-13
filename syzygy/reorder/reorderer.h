@@ -213,7 +213,8 @@ struct Reorderer::Order {
   // to keep blocks in the same section from which they originate. Thus, we
   // separate the order information per section, with the section IDs coming
   // from the ImageLayout of the original module.
-  typedef std::vector<const BlockGraph::Block*> BlockList;
+  // TODO(rogerm): Fix the BlockList references to refer to ConstBlockVector.
+  typedef block_graph::ConstBlockVector BlockList;
   typedef std::map<size_t, BlockList> BlockListMap;
   BlockListMap section_block_lists;
 

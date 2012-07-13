@@ -81,6 +81,7 @@
 namespace experimental {
 
 using block_graph::BlockGraph;
+using block_graph::ConstBlockVector;
 
 namespace {
 
@@ -260,7 +261,7 @@ class FeatureIndex {
 
   // Returns the unmapped blocks from the given block-graph.
   void GetUnmappedBlocks(size_t block_graph_index,
-                         BlockVector* unmapped) const {
+                         ConstBlockVector* unmapped) const {
     DCHECK(block_graph_index == 0 || block_graph_index == 1);
     DCHECK(unmapped != NULL);
 
@@ -589,8 +590,8 @@ class BlockGraphMapper {
   bool BuildMapping(const BlockGraph& bg0,
                     const BlockGraph& bg1,
                     BlockGraphMapping* mapping,
-                    BlockVector* unmapped0,
-                    BlockVector* unmapped1);
+                    ConstBlockVector* unmapped0,
+                    ConstBlockVector* unmapped1);
 
  private:
   // Internally, most of the work is done by the FeatureIndex objects.
@@ -637,8 +638,8 @@ class BlockGraphMapper {
 bool BlockGraphMapper::BuildMapping(const BlockGraph& bg0,
                                     const BlockGraph& bg1,
                                     BlockGraphMapping* mapping,
-                                    BlockVector* unmapped0,
-                                    BlockVector* unmapped1) {
+                                    ConstBlockVector* unmapped0,
+                                    ConstBlockVector* unmapped1) {
   DCHECK(mapping != NULL);
   mapping_ = mapping;
   mapping_->clear();
@@ -895,8 +896,8 @@ bool BlockGraphMapper::ScheduleIfUnmapped(const BlockGraph::Block* block0,
 bool BuildBlockGraphMapping(const BlockGraph& bg1,
                             const BlockGraph& bg2,
                             BlockGraphMapping* mapping,
-                            BlockVector* unmapped1,
-                            BlockVector* unmapped2) {
+                            ConstBlockVector* unmapped1,
+                            ConstBlockVector* unmapped2) {
   DCHECK(mapping != NULL);
 
   // Pass the real work off to the BlockGraphMapper defined above.

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 #include "syzygy/reorder/linear_order_generator.h"
 
-#include "base/memory/scoped_ptr.h"
 #include "base/time.h"
+#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
@@ -73,7 +73,7 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
 
   // Get 5 random blocks.
   std::vector<core::RelativeAddress> addrs;
-  std::vector<const block_graph::BlockGraph::Block*> blocks;
+  block_graph::ConstBlockVector blocks;
   std::set<const block_graph::BlockGraph::Block*> block_set;
   while (blocks.size() < 5) {
     core::RelativeAddress addr(

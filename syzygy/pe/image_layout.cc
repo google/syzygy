@@ -26,12 +26,12 @@
 namespace pe {
 
 using block_graph::BlockGraph;
+using block_graph::BlockVector;
 using block_graph::ConstTypedBlock;
 using core::RelativeAddress;
 
 typedef std::vector<const BlockGraph::Section*> Sections;
-typedef std::vector<BlockGraph::Block*> Blocks;
-typedef std::map<BlockGraph::SectionId, Blocks> SectionBlocks;
+typedef std::map<BlockGraph::SectionId, BlockVector> SectionBlocks;
 
 namespace {
 
@@ -299,7 +299,7 @@ bool BuildCanonicalImageLayout(ImageLayout* image_layout) {
 
   // Output the sections one at a time.
   for (size_t i = 0; i < sections.size(); ++i) {
-    Blocks& blocks = section_blocks[sections[i]->id()];
+    BlockVector& blocks = section_blocks[sections[i]->id()];
 
     // NOTE: BlockCompare uses BlockIsZeros, which is a slightly simpler
     //     version of GetExplicitLength (checks for explicit length == 0).

@@ -31,8 +31,8 @@
 #include "syzygy/pe/serialization.h"
 
 using block_graph::BlockGraph;
+using block_graph::ConstBlockVector;
 using experimental::BlockGraphMapping;
-using experimental::BlockVector;
 
 namespace {
 
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
   LOG(INFO) << "Generating block graph mapping.";
 
   BlockGraphMapping mapping;
-  BlockVector unmapped1, unmapped2;
+  ConstBlockVector unmapped1, unmapped2;
   if (!experimental::BuildBlockGraphMapping(block_graph_from,
                                             block_graph_to,
                                             &mapping,

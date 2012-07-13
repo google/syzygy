@@ -107,7 +107,7 @@ TEST(OriginalOrdererTest, OrderIsAsExpected) {
     obg.PlaceAtTail(shuffled_sections[i]);
 
   // Shuffle the blocks in section1.
-  std::vector<BlockGraph::Block*> blocks, shuffled_blocks;
+  BlockVector blocks, shuffled_blocks;
   blocks.push_back(block1);
   blocks.push_back(block2);
   blocks.push_back(block3);
