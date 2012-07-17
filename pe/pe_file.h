@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,10 +88,13 @@ class PEFile {
   // Decodes the export information in the image.
   bool DecodeExports(ExportInfoVector* exports) const;
 
+  // @{
   // Translate between relative and absolute addresses.
   bool Translate(RelativeAddress rel, AbsoluteAddress* abs) const;
   bool Translate(AbsoluteAddress abs, RelativeAddress* rel) const;
   bool Translate(FileOffsetAddress offs, RelativeAddress* rel) const;
+  bool Translate(RelativeAddress rel, FileOffsetAddress* offs) const;
+  // @}
 
   // Read len bytes from image at offset offs to data.
   bool ReadImage(RelativeAddress rel, void* data, size_t len) const;
