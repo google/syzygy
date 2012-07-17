@@ -230,13 +230,18 @@ bool PEFile::ReadSections(FILE* file) {
 
 bool PEFile::Translate(RelativeAddress rel, AbsoluteAddress* abs) const {
   DCHECK(abs != NULL);
+  if (rel.value() >= nt_headers_->OptionalHeader.SizeOfImage)
+    return false;
   abs->set_value(rel.value() + nt_headers_->OptionalHeader.ImageBase);
   return true;
 }
 
 bool PEFile::Translate(AbsoluteAddress abs, RelativeAddress* rel) const {
   DCHECK(rel != NULL);
-  rel->set_value(abs.value() - nt_headers_->OptionalHeader.ImageBase);
+  size_t rel_addr = abs.value() - nt_headers_->OptionalHeader.ImageBase;
+  if (rel_addr >= nt_headers_->OptionalHeader.SizeOfImage)
+    return false;
+  rel->set_value(rel_addr);
   return true;
 }
 
@@ -246,18 +251,51 @@ bool PEFile::Translate(FileOffsetAddress offs, RelativeAddress* rel) const {
   // The first "previous section" is the headers.
   RelativeAddress previous_section_start(0);
   FileOffsetAddress previous_section_file_start(0);
+  const IMAGE_SECTION_HEADER* previous_section = NULL;
   for (size_t i = 0; i < nt_headers_->FileHeader.NumberOfSections; ++i) {
-    if (offs.value() < section_headers_[i].PointerToRawData) {
-      size_t file_offs = offs - previous_section_file_start;
-      *rel =  previous_section_start + file_offs;
-      return true;
-    }
+    if (offs.value() < section_headers_[i].PointerToRawData)
+      break;
 
     previous_section_start.set_value(section_headers_[i].VirtualAddress);
     previous_section_file_start.set_value(section_headers_[i].PointerToRawData);
+    previous_section = section_headers_ + i;
   }
 
-  return false;
+  size_t section_offset = offs - previous_section_file_start;
+  if (previous_section != NULL &&
+      section_offset >= previous_section->SizeOfRawData) {
+    return false;
+  }
+
+  *rel =  previous_section_start + section_offset;
+
+  return true;
+}
+
+bool PEFile::Translate(RelativeAddress rel, FileOffsetAddress* offs) const {
+  DCHECK(offs != NULL);
+
+  // In the headers?
+  if (rel.value() < section_header(0)->VirtualAddress) {
+    offs->set_value(rel.value());
+    return true;
+  }
+
+  // Find the section in which this address lies.
+  const IMAGE_SECTION_HEADER* section = GetSectionHeader(rel, 1);
+  if (section == NULL)
+    return false;
+
+  // Calculate the offset of this address and ensure it can be expressed as
+  // a file offset (lies in the explicit data part of the section, not the
+  // implicit virtual data at the end).
+  size_t section_offset = rel.value() - section->VirtualAddress;
+  if (section_offset >= section->SizeOfRawData)
+    return false;
+
+  offs->set_value(section->PointerToRawData + section_offset);
+
+  return true;
 }
 
 const uint8* PEFile::GetImageData(RelativeAddress rel, size_t len) const {

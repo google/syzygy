@@ -22,7 +22,13 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 
+namespace pe {
+
 namespace {
+
+using core::AbsoluteAddress;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
 
 class PEFileTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
@@ -31,7 +37,7 @@ public:
   PEFileTest() : test_dll_(NULL) {
   }
 
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     Super::SetUp();
 
     FilePath test_dll = testing::GetExeRelativePath(kDllName);
@@ -41,9 +47,29 @@ public:
     ASSERT_TRUE(image_file_.Init(test_dll));
   }
 
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     base::UnloadNativeLibrary(test_dll_);
     Super::TearDown();
+  }
+
+  void TestAddressesAreConsistent(RelativeAddress rel,
+                                  AbsoluteAddress abs,
+                                  FileOffsetAddress off) {
+    AbsoluteAddress abs2;
+    RelativeAddress rel2;
+    FileOffsetAddress off2;
+
+    ASSERT_TRUE(image_file_.Translate(rel, &abs2));
+    ASSERT_EQ(abs, abs2);
+
+    ASSERT_TRUE(image_file_.Translate(abs, &rel2));
+    ASSERT_EQ(rel, rel2);
+
+    ASSERT_TRUE(image_file_.Translate(off, &rel2));
+    ASSERT_EQ(rel, rel2);
+
+    ASSERT_TRUE(image_file_.Translate(rel, &off2));
+    ASSERT_EQ(off, off2);
   }
 
  protected:
@@ -52,11 +78,6 @@ public:
 };
 
 }  // namespace
-
-namespace pe {
-
-using core::AbsoluteAddress;
-using core::RelativeAddress;
 
 TEST_F(PEFileTest, Create) {
   PEFile image_file;
@@ -150,14 +171,13 @@ TEST_F(PEFileTest, Contains) {
   AbsoluteAddress absolute_base;
   size_t image_size = image_file_.nt_headers()->OptionalHeader.SizeOfImage;
   RelativeAddress relative_end(image_size);
-  AbsoluteAddress absolute_end;
+  AbsoluteAddress absolute_end(
+      image_file_.nt_headers()->OptionalHeader.ImageBase + image_size);
 
   ASSERT_TRUE(image_file_.Translate(relative_base, &absolute_base));
   ASSERT_TRUE(image_file_.Contains(relative_base, 1));
   ASSERT_TRUE(image_file_.Contains(absolute_base, 1));
   ASSERT_FALSE(image_file_.Contains(absolute_base - 1, 1));
-  ASSERT_TRUE(image_file_.Translate(relative_end, &absolute_end));
-  ASSERT_EQ(absolute_end, absolute_base + image_size);
   ASSERT_FALSE(image_file_.Contains(absolute_end, 1));
   ASSERT_FALSE(image_file_.Contains(relative_end, 1));
 
@@ -172,7 +192,64 @@ TEST_F(PEFileTest, Contains) {
 }
 
 TEST_F(PEFileTest, Translate) {
-  // TODO(siggi): Writeme!
+  // Try an address inside the headers (outside of any section).
+  AbsoluteAddress abs(image_file_.nt_headers()->OptionalHeader.ImageBase + 3);
+  RelativeAddress rel(3);
+  FileOffsetAddress off(3);
+  ASSERT_NO_FATAL_FAILURE(TestAddressesAreConsistent(rel, abs, off));
+
+  // Now try an address in each of the sections.
+  size_t i = 0;
+  for (; i < image_file_.nt_headers()->FileHeader.NumberOfSections; ++i) {
+    const IMAGE_SECTION_HEADER* section = image_file_.section_header(i);
+
+    AbsoluteAddress abs(section->VirtualAddress +
+        image_file_.nt_headers()->OptionalHeader.ImageBase + i);
+    RelativeAddress rel(section->VirtualAddress + i);
+    FileOffsetAddress off(section->PointerToRawData + i);
+
+    ASSERT_NO_FATAL_FAILURE(TestAddressesAreConsistent(rel, abs, off));
+  }
+}
+
+TEST_F(PEFileTest, TranslateOffImageFails) {
+  const IMAGE_SECTION_HEADER* section = image_file_.section_header(
+      image_file_.nt_headers()->FileHeader.NumberOfSections - 1);
+
+  AbsoluteAddress abs_end(image_file_.nt_headers()->OptionalHeader.ImageBase +
+      image_file_.nt_headers()->OptionalHeader.SizeOfImage);
+  RelativeAddress rel_end(image_file_.nt_headers()->OptionalHeader.SizeOfImage);
+  FileOffsetAddress off_end(section->PointerToRawData + section->SizeOfRawData);
+
+  AbsoluteAddress abs;
+  RelativeAddress rel;
+  FileOffsetAddress off;
+  ASSERT_FALSE(image_file_.Translate(rel_end, &abs));
+  ASSERT_FALSE(image_file_.Translate(abs_end, &rel));
+  ASSERT_FALSE(image_file_.Translate(off_end, &rel));
+  ASSERT_FALSE(image_file_.Translate(rel_end, &off));
+}
+
+TEST_F(PEFileTest, TranslateFileOffsetSpaceNotContiguous) {
+  size_t data_index = image_file_.GetSectionIndex(".data");
+  ASSERT_NE(kInvalidSection, data_index);
+
+  const IMAGE_SECTION_HEADER* data =
+      image_file_.section_header(data_index);
+  ASSERT_TRUE(data != NULL);
+
+  RelativeAddress rel1, rel2;
+  rel1.set_value(data->VirtualAddress + data->SizeOfRawData - 1);
+  rel2.set_value(data->VirtualAddress + data->SizeOfRawData);
+
+  FileOffsetAddress off1, off2;
+  ASSERT_TRUE(image_file_.Translate(rel1, &off1));
+  ASSERT_FALSE(image_file_.Translate(rel2, &off2));
+
+  RelativeAddress rel3;
+  off2 = off1 + 1;
+  ASSERT_TRUE(image_file_.Translate(off2, &rel3));
+  ASSERT_LT(1, rel3 - rel2);
 }
 
 TEST_F(PEFileTest, DecodeRelocs) {
