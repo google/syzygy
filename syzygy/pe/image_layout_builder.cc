@@ -540,6 +540,7 @@ bool ImageLayoutBuilder::CreateRelocsSection() {
 
   // Update the block and the data directory.
   relocs_block->source_ranges().clear();
+  relocs_block->SetData(NULL, 0);
   relocs_block->set_size(relocs.size());
   if (!relocs_block->CopyData(relocs.size(), &relocs.at(0))) {
     LOG(ERROR) << "Unable to copy relocs data.";

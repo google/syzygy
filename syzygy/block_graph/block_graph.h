@@ -474,7 +474,7 @@ class BlockGraph::Block {
   // while others (of type DATA_LABEL) represent the start of embedded data
   // within the block. Note that, while possible, it is NOT guaranteed that
   // all basic blocks are marked with a label. Basic block decomposition should
-  // dissassemble from the code labels to discover all basic blocks.
+  // disassemble from the code labels to discover all basic blocks.
   typedef std::map<Offset, Label> LabelMap;
 
   // Blocks need to be default constructible for serialization.
@@ -492,7 +492,13 @@ class BlockGraph::Block {
   void set_type(BlockType type) { type_ = type; }
 
   Size size() const { return size_; }
-  void set_size(Size size) { size_ = size; }
+
+  // Set the total size of the block. Note that allocated data_size_ must
+  // always be less than or equal to the total size.
+  void set_size(Size size) {
+    DCHECK_LE(data_size_, size);
+    size_ = size;
+  }
 
   const std::string& name() const { return name_; }
   void set_name(const base::StringPiece& name) { name.CopyToString(&name_); }

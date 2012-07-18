@@ -195,8 +195,8 @@ bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
     dos_header_block->source_ranges().RemoveMappedRange(range);
   }
 
-  dos_header_block->set_size(dos_header_size);
   dos_header_block->ResizeData(dos_header_size);
+  dos_header_block->set_size(dos_header_size);
   DCHECK_EQ(dos_header_size, dos_header_block->size());
   DCHECK_EQ(dos_header_size, dos_header_block->data_size());
 

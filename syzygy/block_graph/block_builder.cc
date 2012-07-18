@@ -510,6 +510,7 @@ bool GenerateBlock(const BlockDescription& description, MergeContext* ctx) {
   DCHECK_LE(static_cast<BlockGraph::Size>(ctx->offset), max_size);
 
   // Truncate the block to the number of bytes actually written.
+  ctx->new_block->ResizeData(ctx->offset);
   ctx->new_block->set_size(ctx->offset);
 
   // Reset the current working block.
