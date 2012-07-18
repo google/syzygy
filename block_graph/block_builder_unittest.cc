@@ -174,8 +174,9 @@ TEST(BlockBuilderTest, Merge) {
   BlockGraph::Block* new_block = builder.new_blocks().front();
   EXPECT_EQ(new_block, bg.GetBlockById(new_block->id()));
   EXPECT_EQ(57U, new_block->size());
+  EXPECT_EQ(new_block->data_size(), new_block->size());
 
-  // Vaidat the new block's referenes.
+  // Validate the new block's references.
   Block::ReferenceMap expected_references;
   expected_references[1] = Reference(
       BlockGraph::ABSOLUTE_REF, 4, other, 0, 0);
