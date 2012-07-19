@@ -23,6 +23,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/dia_util.h"
 
 using base::win::ScopedComPtr;
 using testing::_;
@@ -98,7 +99,7 @@ class DiaBrowserTest: public testing::Test {
 
     if (!SUCCEEDED(dia_source_.CreateInstance(CLSID_DiaSource)))
       ASSERT_HRESULT_SUCCEEDED(NoRegCoCreate(
-          L"msdia90.dll", CLSID_DiaSource, IID_IDiaDataSource,
+          pe::kDiaDllName, CLSID_DiaSource, IID_IDiaDataSource,
           reinterpret_cast<void**>(&dia_source_)));
 
     HRESULT hr = dia_source_->loadDataFromPdb(
@@ -423,11 +424,23 @@ TEST_F(DiaBrowserTest, SomePathsTerminated) {
                              SymTagData),
                          on_full_match_);
 
-  // There are 247 UDT nodes and 28 Enum nodes: OnPartialMatch should hit all
-  // of them. However, only the 428 Enum.Data full matches should be hit.
-  EXPECT_CALL(*this, OnPartialMatch(_, _, _)).Times(247 + 28).
+#if _MSC_VER == 1500
+  // With VC++ 2008, there are 247 UDT nodes and 28 Enum nodes: OnPartialMatch
+  // should hit all of them.
+  static const size_t kNumPartialMatches = 247 + 28;
+#elif _MSC_VER == 1600
+  // With VC++ 2010, OnPartialMatch hits 174 nodes.
+  static const size_t kNumPartialMatches = 174;
+#else
+#error Unrecognized compiler version.
+#endif
+
+  // Only the 428 Enum.Data full matches should be hit.
+  static const size_t kNumFullMatches = 428;
+
+  EXPECT_CALL(*this, OnPartialMatch(_, _, _)).Times(kNumPartialMatches).
       WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
-  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(428).
+  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(kNumFullMatches).
       WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
   dia_browser.Browse(global_.get());
 }

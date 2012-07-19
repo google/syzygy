@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,13 +16,16 @@
 #ifndef SYZYGY_PE_DIA_UTIL_H_
 #define SYZYGY_PE_DIA_UTIL_H_
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <dia2.h>
 #include <vector>
 
 #include "base/file_path.h"
 
 namespace pe {
+
+// The name of the DIA SDK DLL.
+extern const wchar_t kDiaDllName[];
 
 // The names of various debug streams.
 extern const wchar_t kFixupDiaDebugStreamName[];

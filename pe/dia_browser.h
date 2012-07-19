@@ -46,7 +46,7 @@ namespace pe {
 // (declared in cvconst.h).
 enum SymTagConstants {
   kSymTagBegin = SymTagExe,
-  kSymTagEnd = SymTagDimension + 1,
+  kSymTagEnd = SymTagMax,
   kSymTagCount = kSymTagEnd - kSymTagBegin
 };
 
