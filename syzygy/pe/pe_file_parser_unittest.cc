@@ -323,21 +323,32 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   expected.insert("export_dll.dll");
   EXPECT_THAT(import_names, ContainerEq(expected));
 
-#ifdef NDEBUG
-  // Release build.
-  size_t kernel32_symbols = 73;
-  size_t export_dll_symbols = 2;
-#else  // Debug/Coverage build.
-  size_t kernel32_symbols = 80;
-  size_t export_dll_symbols = 2;
+  // The number of expected symbols imported from kernel32.dll.
+#if _MSC_VER == 1500 && defined(NDEBUG)
+  // VC++ 2008 Release Build.
+  static size_t kNumKernel32Symbols = 73;
+#elif _MSC_VER == 1500 && !defined(NDEBUG)
+  // VC++ 2008 Debug/Coverage Build.
+  static size_t kNumKernel32Symbols = 80;
+#elif _MSC_VER == 1600 && defined(NDEBUG)
+  // VC++ 2010 Release Build.
+  static size_t kNumKernel32Symbols = 68;
+#elif _MSC_VER == 1600 && !defined(NDEBUG)
+  // VC++ 2010 Debug/Coverage build.
+  static size_t kNumKernel32Symbols = 72;
+#else
+#error Unrecognized compiler version or build configuration.
 #endif
 
-  ImportMap expected_import_map;
-  expected_import_map["KERNEL32.dll"] = kernel32_symbols;
-  expected_import_map["export_dll.dll"] = export_dll_symbols;
-  EXPECT_THAT(expected_import_map, ContainerEq(import_map_));
+  // The number of expected symbols imported from export_dll.dll.
+  static const size_t kNumExportDllSymbols = 2;
 
-  EXPECT_EQ(kernel32_symbols + export_dll_symbols, import_set_.size());
+  ImportMap expected_import_map;
+  expected_import_map["KERNEL32.dll"] = kNumKernel32Symbols;
+  expected_import_map["export_dll.dll"] = kNumExportDllSymbols;
+  EXPECT_THAT(import_map_, ContainerEq(expected_import_map));
+
+  EXPECT_EQ(kNumKernel32Symbols + kNumExportDllSymbols, import_set_.size());
   EXPECT_THAT(import_set_, Contains(std::make_pair(
       std::string("KERNEL32.dll"), std::string("ExitProcess"))));
   EXPECT_THAT(import_set_, Contains(std::make_pair(
