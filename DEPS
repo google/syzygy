@@ -55,9 +55,8 @@ deps = {
     Var("chrome_base") + "/src/third_party/modp_b64@" +
         Var("chrome_revision"),
 
-  # TODO(chrisha): Update this as soon as the AVX fix lands!
   "src/third_party/distorm/files":
-    "http://distorm.googlecode.com/svn/trunk@193",
+    "http://distorm.googlecode.com/svn/trunk@214",
 
   "src/third_party/python_26":
      Var("chrome_base") + "/tools/third_party/python_26@" +
