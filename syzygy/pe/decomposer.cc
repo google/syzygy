@@ -31,6 +31,7 @@
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/core/disassembler_util.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
@@ -628,6 +629,153 @@ CallbackDirective CombineCallbackDirectives(CallbackDirective d1,
                      Disassembler::kDirectiveAbort,
                  callback_directive_enum_is_not_sorted);
   return std::max(d1, d2);
+}
+
+// Determines if the given block has a data label in the given range of bytes.
+bool HasDataLabelInRange(const BlockGraph::Block* block,
+                         BlockGraph::Offset offset,
+                         BlockGraph::Size size) {
+  BlockGraph::Block::LabelMap::const_iterator it =
+      block->labels().lower_bound(offset);
+  BlockGraph::Block::LabelMap::const_iterator end =
+      block->labels().lower_bound(offset + size);
+
+  for (; it != end; ++it) {
+    if (it->second.has_attributes(BlockGraph::DATA_LABEL))
+      return true;
+  }
+
+  return false;
+}
+
+void ReportPotentialNonReturningFunction(
+    const Decomposer::IntermediateReferenceMap& refs,
+    const BlockGraph::AddressSpace& image,
+    const BlockGraph::Block* block,
+    BlockGraph::Offset call_ref_offset,
+    const char* reason) {
+  typedef Decomposer::IntermediateReferenceMap::const_iterator RefIter;
+
+  // Try and track down the block being pointed at by the call. If this is a
+  // computed address there will be no reference.
+  RefIter ref_it = refs.find(block->addr() + call_ref_offset);
+  if (ref_it == refs.end()) {
+    LOG(WARNING) << "Suspected non-returning function call from offset "
+                 << call_ref_offset << " (followed by " << reason
+                 << ") of block \"" << block->name()
+                 << "\", but target can not be tracked down.";
+    return;
+  }
+
+  BlockGraph::Block* target = image.GetBlockByAddress(ref_it->second.base);
+  DCHECK(target != NULL);
+
+  // If this was marked as non-returning, then its not suspicious.
+  if ((target->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0)
+    return;
+
+  // If the target is a code block then this is a direct call.
+  if (target->type() == BlockGraph::CODE_BLOCK) {
+    LOG(WARNING) << "Suspected non-returning call from offset "
+                 << call_ref_offset << " (followed by " << reason
+                 << ") of block \"" << block->name() << "\" to code block \""
+                 << target->name() << "\".";
+    return;
+  }
+  // Otherwise the target is a data block and this is a memory indirect call
+  // to a thunk.
+  DCHECK_EQ(BlockGraph::DATA_BLOCK, target->type());
+
+  // Track down the import thunk.
+  RefIter thunk_ref_it = refs.find(ref_it->second.base);
+  DCHECK(thunk_ref_it != refs.end());
+  BlockGraph::Block* thunk = image.GetBlockByAddress(thunk_ref_it->second.base);
+
+  // If this was marked as non-returning, then its not suspicious.
+  if ((thunk->attributes() & BlockGraph::NON_RETURN_FUNCTION) != 0)
+    return;
+
+  // Otherwise, this is an import thunk. Get the module and symbol names.
+  LOG(WARNING) << "Suspected non-returning call from offset "
+               << call_ref_offset << " (followed by " << reason
+               << ") of block \"" << block->name() << "\" to import thunk \""
+               << thunk->name() << "\".";
+}
+
+void LookForNonReturningFunctions(
+    const Decomposer::IntermediateReferenceMap& refs,
+    const BlockGraph::AddressSpace& image,
+    const BlockGraph::Block* block,
+    const Disassembler& disasm) {
+  bool saw_call = false;
+  bool saw_call_then_nop = false;
+  BlockGraph::Offset call_ref_offset = 0;
+
+  AbsoluteAddress end_of_last_inst;
+  Disassembler::VisitedSpace::const_iterator inst_it =
+      disasm.visited().begin();
+  for (; inst_it != disasm.visited().end(); ++inst_it) {
+    // Not contiguous with the last instruction? Then we're spanning a gap. If
+    // it's an instruction then we didn't parse it; thus, we already know that
+    // if the last instruction is a call it's to a non-returning function. So,
+    // we only need to check for data.
+    if (inst_it->first.start() != end_of_last_inst) {
+      if (saw_call || saw_call_then_nop) {
+        BlockGraph::Offset offset = end_of_last_inst - disasm.code_addr();
+        BlockGraph::Size size = inst_it->first.start() - end_of_last_inst;
+        if (HasDataLabelInRange(block, offset, size))
+          // We do not expect this to ever occur in cl.exe generated code.
+          // However, it is entirely possible in hand-written assembly.
+          ReportPotentialNonReturningFunction(
+              refs, image, block, call_ref_offset,
+              saw_call ? "data" : "nop(s) and data");
+      }
+
+      saw_call = false;
+      saw_call_then_nop = false;
+    }
+
+    _DInst inst = { 0 };
+    BlockGraph::Offset offset = inst_it->first.start() - disasm.code_addr();
+    const uint8* code = disasm.code() + offset;
+    CHECK(core::DecodeOneInstruction(code, inst_it->first.size(), &inst));
+
+    // Previous instruction was a call?
+    if (saw_call) {
+      if (core::IsNop(inst)) {
+        saw_call_then_nop = true;
+      } else if (core::IsDebugInterrupt(inst)) {
+        ReportPotentialNonReturningFunction(
+            refs, image, block, call_ref_offset, "int3");
+      }
+      saw_call = false;
+    } else if (saw_call_then_nop) {
+      // The previous instructions we've seen have been a call followed by
+      // arbitrary many nops. Look for another nop to continue the pattern.
+      saw_call_then_nop = core::IsNop(inst);
+    } else {
+      // The previous instruction was not a call, so we're looking for one.
+      // If this instruction is a call, remember that fact and also remember
+      // the offset of its operand (the call target).
+      if (core::IsCall(inst)) {
+        saw_call = true;
+        call_ref_offset = offset + inst_it->first.size() -
+            BlockGraph::Reference::kMaximumSize;
+      }
+    }
+
+    // Remember the end of the last instruction we processed.
+    end_of_last_inst = inst_it->first.end();
+  }
+
+  // If the last instruction was a call and we've marked that we've disassembled
+  // past the end, then this is also a suspected non-returning function.
+  if ((saw_call || saw_call_then_nop) &&
+      (block->attributes() & BlockGraph::DISASSEMBLED_PAST_END) != 0) {
+    const char* reason = saw_call ? "end of block" : "nop(s) and end of block";
+    ReportPotentialNonReturningFunction(
+        refs, image, block, call_ref_offset, reason);
+  }
 }
 
 }  // namespace
@@ -1951,6 +2099,12 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
                       on_instruction);
   Disassembler::WalkResult result = disasm.Walk();
 
+  // If we're strict (that is, we're confident that the block was produced by
+  // cl.exe), then we can use that knowledge to look for calls that appear to be
+  // to non-returning functions that we may not have symbol info for.
+  if (be_strict_with_current_block_)
+    LookForNonReturningFunctions(references_, *image_, current_block_, disasm);
+
   DCHECK_EQ(block, current_block_);
   current_block_ = NULL;
   be_strict_with_current_block_ = true;
@@ -2115,13 +2269,9 @@ void Decomposer::MarkDisassembledPastEnd() {
   static size_t count = 0;
   DCHECK(current_block_ != NULL);
   current_block_->set_attribute(BlockGraph::DISASSEMBLED_PAST_END);
-  LOG(WARNING) << "Disassembled past end of block or into known data for "
-               << "block " << current_block_->name() << ".";
-
-  // TODO(chrisha): Look at the last disassembled instructions. If they consist
-  //     of a call followed by a sequence of no-ops or a sequence of int3s,
-  //     output a warning to the effect that we suspect the called function is
-  //     in fact non-returning.
+  LOG_WARNING_OR_VLOG1(be_strict_with_current_block_)
+      << "Disassembled past end of block or into known data for block \""
+      << current_block_->name() << "\" at " << current_block_->addr() << ".";
 }
 
 CallbackDirective Decomposer::VisitNonFlowControlInstruction(

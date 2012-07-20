@@ -694,8 +694,9 @@ bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
             BlockGraph::DATA_BLOCK,
             name_thunk_addr,
             name_thunk_size,
-            base::StringPrintf("Import Name Thunk \"%s\"",
-                               function_name.c_str()).c_str());
+            base::StringPrintf("Import Name Thunk \"%s\" from \"%s\"",
+                               function_name.c_str(),
+                               module_name).c_str());
         if (thunk == NULL) {
           LOG(ERROR) << "Unable to add function name block.";
           return false;
