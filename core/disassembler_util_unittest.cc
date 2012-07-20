@@ -15,6 +15,7 @@
 #include "syzygy/core/disassembler_util.h"
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 #include "gtest/gtest.h"
 
 namespace core {
@@ -22,22 +23,15 @@ namespace core {
 namespace {
 
 _DInst DecodeBuffer(const uint8* buffer, size_t length) {
-  _CodeInfo code = {};
-  code.dt = Decode32Bits;
-  code.features = DF_NONE;
-  code.codeOffset = 0x10000;
-  code.codeLen = length;
-  code.code = buffer;
-
-  unsigned int decoded = 0;
   _DInst inst = {};
-  _DecodeResult result = distorm_decompose(&code, &inst, 1, &decoded);
-  EXPECT_TRUE(result == DECRES_MEMORYERR || result == DECRES_SUCCESS);
-  EXPECT_EQ(1U, decoded);
+  EXPECT_TRUE(DecodeOneInstruction(buffer, length, &inst));
   EXPECT_EQ(length, inst.size);
-
   return inst;
 }
+
+// One of the AVX instructions that is currently not supported by distorm.
+// vxorps ymm0, ymm0, ymm0
+const uint8 kVxorps[] = { 0xC5, 0xFC, 0x57, 0xC0 };
 
 // Nop Instruction byte sequences.
 const uint8 kNop2Mov[] = { 0x8B, 0xFF };
@@ -63,6 +57,9 @@ const uint8 kNop11[] = {
     0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8
 };
 
+// Call instruction.
+const uint8 kCall[] = { 0xE8, 0xCA, 0xFE, 0xBA, 0xBE };
+
 // Control Flow byte sequences (note that the JMP is indirect).
 const uint8 kJmp[] = { 0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE };
 const uint8 kRet[] = { 0xC3 };
@@ -75,6 +72,11 @@ const uint8 kInt2[] = { 0xCD, 0x02 };
 const uint8 kInt3[] = { 0xCC };
 
 }  // namespace
+
+TEST(DisassemblerUtilTest, DistormWrapperVxorpsPasses) {
+  _DInst inst = {};
+  EXPECT_TRUE(DecodeOneInstruction(kVxorps, sizeof(kVxorps), &inst));
+}
 
 TEST(DisassemblerUtilTest, IsNop) {
   EXPECT_FALSE(IsNop(DecodeBuffer(kJmp, sizeof(kJmp))));
@@ -91,6 +93,12 @@ TEST(DisassemblerUtilTest, IsNop) {
   EXPECT_TRUE(IsNop(DecodeBuffer(kNop11, sizeof(kNop11))));
   EXPECT_TRUE(IsNop(DecodeBuffer(kNop2Mov, sizeof(kNop2Mov))));
   EXPECT_TRUE(IsNop(DecodeBuffer(kNop3Lea, sizeof(kNop3Lea))));
+}
+
+TEST(DisassemblerUtilTest, IsCall) {
+  EXPECT_FALSE(IsCall(DecodeBuffer(kJmp, sizeof(kJmp))));
+  EXPECT_FALSE(IsCall(DecodeBuffer(kNop1, sizeof(kNop1))));
+  EXPECT_TRUE(IsCall(DecodeBuffer(kCall, sizeof(kCall))));
 }
 
 TEST(DisassemblerUtilTest, IsControlFlow) {

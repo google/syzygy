@@ -14,10 +14,45 @@
 
 #include "syzygy/core/disassembler_util.h"
 
-#include "base/basictypes.h"
+#include "base/logging.h"
 #include "mnemonics.h"  // NOLINT
 
 namespace core {
+
+bool DecodeOneInstruction(
+    uint32 address, const uint8* buffer, size_t length, _DInst* instruction) {
+  DCHECK(buffer != NULL);
+  DCHECK(instruction != NULL);
+
+  _CodeInfo code = {};
+  code.dt = Decode32Bits;
+  code.features = DF_NONE;
+  code.codeOffset = address;
+  code.codeLen = length;
+  code.code = buffer;
+
+  unsigned int decoded = 0;
+  ::memset(instruction, 0, sizeof(instruction));
+  _DecodeResult result = distorm_decompose(&code, instruction, 1, &decoded);
+
+  if (result != DECRES_MEMORYERR && result != DECRES_SUCCESS)
+    return false;
+
+  DCHECK_EQ(1u, decoded);
+  DCHECK_GE(length, instruction->size);
+  DCHECK_LT(0, instruction->size);
+
+  return true;
+}
+
+bool DecodeOneInstruction(
+    const uint8* buffer, size_t length, _DInst* instruction) {
+  DCHECK(buffer != NULL);
+  DCHECK(instruction != NULL);
+  if (!DecodeOneInstruction(0x10000000, buffer, length, instruction))
+    return false;
+  return true;
+}
 
 bool IsNop(const _DInst& instruction) {
   switch (instruction.opcode) {
@@ -58,6 +93,13 @@ bool IsNop(const _DInst& instruction) {
           instruction.ops[1].type == O_REG &&
           instruction.ops[0].index == instruction.ops[1].index;
   }
+}
+
+bool IsCall(const _DInst& instruction) {
+  uint8 fc = META_GET_FC(instruction.meta);
+  if (fc == FC_CALL)
+    return true;
+  return false;
 }
 
 bool IsControlFlow(const _DInst& instruction) {
