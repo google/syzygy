@@ -17,6 +17,9 @@
 
 #include "syzygy/common/application.h"
 
+#include "base/file_path.h"
+#include "base/file_util.h"
+
 namespace common {
 
 AppImplBase::AppImplBase()
@@ -36,6 +39,17 @@ int AppImplBase::Run() {
 }
 
 void AppImplBase::TearDown() {
+}
+
+FilePath AppImplBase::AbsolutePath(const FilePath& path) {
+  if (path.empty())
+    return FilePath();
+
+  FilePath temp(path);
+  if (file_util::AbsolutePath(&temp))
+    return temp;
+  else
+    return path;
 }
 
 }  // namespace common

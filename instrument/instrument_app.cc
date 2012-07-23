@@ -91,8 +91,8 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("help"))
     return Usage(cmd_line, "");
 
-  input_dll_path_ = cmd_line->GetSwitchValuePath("input-dll");
-  input_pdb_path_ = cmd_line->GetSwitchValuePath("input-pdb");
+  input_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-dll"));
+  input_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-pdb"));
   output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   client_dll_ = cmd_line->GetSwitchValueASCII("call-trace-client");
