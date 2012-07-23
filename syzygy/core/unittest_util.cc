@@ -14,6 +14,7 @@
 
 #include "syzygy/core/unittest_util.h"
 
+#include "base/file_util.h"
 #include "base/path_service.h"
 
 namespace testing {
@@ -60,5 +61,55 @@ FilePath GetExeTestDataRelativePath(const wchar_t* rel_path) {
   FilePath test_data = exe_dir.Append(L"test_data");
   return test_data.Append(rel_path);
 }
+
+FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path) {
+  DCHECK(abs_path.IsAbsolute());
+  DCHECK(!abs_path.empty());
+  DCHECK(root_path.IsAbsolute());
+  DCHECK(!root_path.empty());
+
+  typedef std::vector<FilePath::StringType> PathComponents;
+
+  // Get the components of the target path.
+  PathComponents abs_parts;
+  abs_path.GetComponents(&abs_parts);
+
+  // Get the components of the current working directory.
+  PathComponents root_parts;
+  root_path.GetComponents(&root_parts);
+
+  // Make sure they have a common root.
+  if (!FilePath::CompareEqualIgnoreCase(root_parts[0], abs_parts[0]))
+    return FilePath();
+
+  // Figure out how much is shared.
+  size_t i = 1;
+  while (i < std::min(root_parts.size(), abs_parts.size()) &&
+         FilePath::CompareEqualIgnoreCase(root_parts[i], abs_parts[i])) {
+    ++i;
+  }
+
+  FilePath rel_path;
+
+  // Add parent directory traversal.
+  for (size_t j = i; j < root_parts.size(); ++j)
+    rel_path = rel_path.Append(FilePath::kParentDirectory);
+
+  // Append the rest of the path.
+  for (size_t k = i; k < abs_parts.size(); ++k)
+    rel_path = rel_path.Append(abs_parts[k]);
+
+  if (rel_path.empty())
+    rel_path = FilePath(FilePath::kCurrentDirectory);
+
+  return rel_path;
+}
+
+FilePath GetRelativePath(const FilePath& abs_path) {
+  FilePath cur_dir;
+  file_util::GetCurrentDirectory(&cur_dir);
+  return GetRelativePath(abs_path, cur_dir);
+}
+
 
 }  // namespace testing

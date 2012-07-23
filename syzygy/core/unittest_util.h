@@ -95,6 +95,24 @@ FilePath GetOutputRelativePath(const wchar_t* rel_path);
 // @returns an absolute path.
 FilePath GetExeTestDataRelativePath(const wchar_t* rel_path);
 
+// Converts an absolute path to a relative path using the given root directory
+// as a base.
+//
+// @param abs_path the absolute path to convert.
+// @param root_path the root path to use.
+// @returns the relative path to abs_path, starting from root. If there is no
+//     relative path, it returns the empty path.
+// @pre Both abs_path and root_path must be absolute paths.
+FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path);
+
+// Converts an absolute path to a relative path using the current working
+// directory as a base.
+//
+// @param abs_path the absolute path to convert.
+// @returns the relative path to abs_path, starting from the current workign
+//     directory. If there is no relative path, it returns the empty path.
+FilePath GetRelativePath(const FilePath& abs_path);
+
 }  // namespace testing
 
 #endif  // SYZYGY_CORE_UNITTEST_UTIL_H_

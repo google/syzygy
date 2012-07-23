@@ -86,11 +86,11 @@ void GuessPdbPath(const FilePath& module_path, FilePath* pdb_path) {
 }  // namespace
 
 bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
-  input_dll_path_ = cmd_line->GetSwitchValuePath("input-dll");
-  input_pdb_path_ = cmd_line->GetSwitchValuePath("input-pdb");
+  input_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-dll"));
+  input_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-pdb"));
   output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
-  order_file_path_ = cmd_line->GetSwitchValuePath("order-file");
+  order_file_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("order-file"));
   augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
   compress_pdb_ = cmd_line->HasSwitch("compress-pdb");
   strip_strings_ = cmd_line->HasSwitch("strip-strings");

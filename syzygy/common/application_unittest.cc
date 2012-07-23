@@ -147,4 +147,17 @@ TEST_F(ApplicationTest, MockAppFailsRun) {
   EXPECT_EQ(2, mock_app_.Run());
 }
 
+TEST_F(ApplicationTest, AbsolutePath) {
+  AppImplBase& app_impl = test_app_.implementation();
+  FilePath current_dir;
+  ASSERT_TRUE(file_util::GetCurrentDirectory(&current_dir));
+
+  const FilePath kRelativePath(L"foo\\bar\\file.txt");
+  const FilePath kAbsolutePath(current_dir.Append(kRelativePath));
+
+  EXPECT_EQ(FilePath(), app_impl.AbsolutePath(FilePath()));
+  EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kRelativePath));
+  EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kAbsolutePath));
+}
+
 }  // namespace common

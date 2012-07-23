@@ -82,6 +82,7 @@
         'file_util_unittest.cc',
         'json_file_writer_unittest.cc',
         'serialization_unittest.cc',
+        'unittest_util_unittest.cc',
         'zstream_unittest.cc',
       ],
       'dependencies': [

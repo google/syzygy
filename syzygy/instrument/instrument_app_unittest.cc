@@ -84,8 +84,10 @@ class InstrumentAppTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    input_dll_path_ = testing::GetExeRelativePath(kDllName);
-    input_pdb_path_ = testing::GetExeRelativePath(kDllPdbName);
+    abs_input_dll_path_ = testing::GetExeRelativePath(kDllName);
+    input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
+    abs_input_pdb_path_ = testing::GetExeRelativePath(kDllPdbName);
+    input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
 
@@ -123,6 +125,12 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   bool debug_friendly_;
   bool instrument_unsafe_references_;
   // @}
+
+  // @name Expected final values of input parameters.
+  // @{
+  FilePath abs_input_dll_path_;
+  FilePath abs_input_pdb_path_;
+  // @}
 };
 
 }  // namespace
@@ -155,7 +163,7 @@ TEST_F(InstrumentAppTest, ParseMinimalCommandLine) {
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(test_impl_.SetUp());
 
-  EXPECT_EQ(input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_TRUE(test_impl_.input_pdb_path_.empty());
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_TRUE(test_impl_.output_pdb_path_.empty());
@@ -182,8 +190,8 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineRpc) {
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(test_impl_.SetUp());
 
-  EXPECT_EQ(input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
+  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
@@ -209,8 +217,8 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineProfiler) {
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(test_impl_.SetUp());
 
-  EXPECT_EQ(input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
+  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfiler),
@@ -236,8 +244,8 @@ TEST_F(InstrumentAppTest, ParseFullCommandLineOther) {
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(input_pdb_path_, test_impl_.input_pdb_path_);
+  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(output_pdb_path_.value(), test_impl_.output_pdb_path_.value());
   EXPECT_EQ(kOtherDll, test_impl_.client_dll_);

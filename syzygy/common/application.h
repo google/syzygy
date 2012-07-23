@@ -127,6 +127,11 @@ class AppImplBase {
   }
   // @}
 
+  // A helper function to return an absolute path (if possible) for the given
+  // path. If the conversion to an absolute path fails, the original path is
+  // returned.
+  static FilePath AbsolutePath(const FilePath& path);
+
  protected:
   // @name Standard file streams.
   // @{
