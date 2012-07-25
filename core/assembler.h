@@ -246,6 +246,7 @@ class AssemblerImpl {
   // @{
   void push(const ImmediateImpl& src);
   void push(const OperandImpl& src);
+  void push(Register src);
   // @}
 
   // @name Aliases
