@@ -423,6 +423,14 @@ void AssemblerImpl::push(const OperandImpl& dst) {
   Output(instr);
 }
 
+void AssemblerImpl::push(Register src) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0x50 | src.code());
+
+  Output(instr);
+}
+
 void AssemblerImpl::Output(const InstructionBuffer& instr) {
   serializer_->AppendInstruction(location_,
                                  instr.buf(),
