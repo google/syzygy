@@ -81,7 +81,7 @@ class GypTests(testing.TestSuite):
     testing.TestSuite.__init__(self, project_dir, name, [])
 
     self._solution_path = re.sub('\.gyp$', '.sln', gyp_path)
-    self._project_path = os.path.join(project_dir, 'build_unittests.vcproj')
+    self._project = 'build_unittests'
     self._configuration_built = {}
 
     # Parse the gypi file and extract the tests.
@@ -144,7 +144,7 @@ class GypTests(testing.TestSuite):
       return
     self._configuration_built[configuration] = True
     testing.BuildProjectConfig(self._solution_path,
-                               self._project_path,
+                               self._project,
                                configuration)
 
   def _NeedToRun(self, configuration):

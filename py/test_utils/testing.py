@@ -152,8 +152,8 @@ class Test(object):
     configuration.
     """
     success_path = self.GetSuccessFilePath(configuration)
-    _LOGGER.info('Creating success file "%s".',
-                 os.path.relpath(success_path, self._project_dir))
+    _LOGGER.debug('Creating success file "%s".',
+                  os.path.relpath(success_path, self._project_dir))
     success_file = open(success_path, 'wb')
     success_file.write(str(datetime.datetime.now()))
     success_file.close()
@@ -229,16 +229,16 @@ class Test(object):
 
       # Always run _NeedToRun, even if force is true. This is because it may
       # do some setup work that is required prior to calling _Run.
-      _LOGGER.info('Checking to see if we need to run test "%s" in '
-                   'configuration "%s".', self._name, configuration)
+      _LOGGER.debug('Checking to see if we need to run test "%s" in '
+                    'configuration "%s".', self._name, configuration)
       need_to_run = self._NeedToRun(configuration)
 
       if need_to_run:
         _LOGGER.info('Running test "%s" in configuration "%s".',
                      self._name, configuration)
       else:
-        _LOGGER.info('No need to re-run test "%s" in configuration "%s".',
-                     self._name, configuration)
+        _LOGGER.debug('No need to re-run test "%s" in configuration "%s".',
+                      self._name, configuration)
 
       if not need_to_run and force:
         _LOGGER.info('Forcing re-run of test "%s" in configuration "%s".',

@@ -16,11 +16,11 @@ limitations under the License.
 -->
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
   <!-- Version information -->
-  <?include 'version.wxi' ?>
+  <?include '$(var.VERSION_WXI)' ?>
 
   <?define ProductVersion=
       '$(var.VER_MAJOR).$(var.VER_MINOR).$(var.VER_BUILD).$(var.VER_PATCH)' ?>
-  <?define UpgradeCode='{B869815E-511D-4de0-8EDA-C4EC959F3613}' ?>
+  <?define UpgradeCode='{B869815E-511D-4DE0-8EDA-C4EC959F3613}' ?>
 
   <Product Id='*'
       Name='SyzyProf'
@@ -150,7 +150,7 @@ limitations under the License.
         <File Id='CallTraceServiceExeFile'
             Name='call_trace_service.exe'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\call_trace_service.exe' />
+            Source='$(var.CALL_TRACE_SERVICE_EXE)' />
       </Component>
 
       <!-- Component for instrument.exe. -->
@@ -159,11 +159,11 @@ limitations under the License.
         <File Id='InstrumentExeFile'
             Name='instrument.exe'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\instrument.exe' />
+            Source='$(var.INSTRUMENT_EXE)' />
         <File Id='InstrumentPdbFile'
             Name='instrument.pdb'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\instrument.pdb' />
+            Source='$(var.INSTRUMENT_PDB)' />
       </Component>
 
       <!-- Component for grinder.exe. -->
@@ -172,11 +172,11 @@ limitations under the License.
         <File Id='GrinderExeFile'
             Name='grinder.exe'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\grinder.exe' />
+            Source='$(var.GRINDER_EXE)' />
         <File Id='GrinderPdbFile'
             Name='grinder.pdb'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\grinder.pdb' />
+            Source='$(var.GRINDER_PDB)' />
       </Component>
 
       <!-- Component for profile_client.dll. -->
@@ -185,11 +185,11 @@ limitations under the License.
         <File Id='ProfileClientDllFile'
             Name='profile_client.dll'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\profile_client.dll' />
+            Source='$(var.PROFILE_CLIENT_DLL)' />
         <File Id='ProfileClientPdbFile'
             Name='profile_client.pdb'
             DiskId='1'
-            Source='$(var.BINARY_DIR)\profile_client.pdb' />
+            Source='$(var.PROFILE_CLIENT_PDB)' />
       </Component>
 
       <!-- Component for SyzyProf.bat. -->
