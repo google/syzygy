@@ -18,7 +18,7 @@
   },
   'targets': [
     {
-      'target_name': 'test_dll',
+      'target_name': 'copy_test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
       'sources': [
@@ -28,10 +28,10 @@
       ],
       'copies': [
         {
-          'destination': '$(OutDir)/test_data',
+          'destination': '<(PRODUCT_DIR)/test_data',
           'files': [
-            '$(OutDir)/test_dll.dll',
-            '$(OutDir)/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_dll.dll',
+            '<(PRODUCT_DIR)/test_dll.pdb',
           ],
         },
       ],
@@ -44,25 +44,29 @@
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
-        'test_dll',
+        'copy_test_dll',
       ],
       'actions': [
         {
           'action_name': 'rpc_instrument_test_data_test_dll',
           'inputs': [
-            '$(OutDir)/instrument.exe',
-            '$(OutDir)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/instrument.exe',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
           ],
           'outputs': [
-            '$(OutDir)/test_data/rpc_instrumented_test_dll.dll',
-            '$(OutDir)/test_data/rpc_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
           ],
           'action': [
-            '"$(OutDir)/instrument.exe"',
+            '"<(PRODUCT_DIR)/instrument.exe"',
             '--call-trace-client=RPC',
-            '--input-dll=$(OutDir)/test_data/test_dll.dll',
-            '--output-dll=$(OutDir)/test_data/rpc_instrumented_test_dll.dll',
-            '--output-pdb=$(OutDir)/test_data/rpc_instrumented_test_dll.pdb',
+            '--input-dll=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--output-dll='
+                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+            '--output-pdb='
+                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
             '--overwrite',
           ],
         },
@@ -76,26 +80,28 @@
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
-        'test_dll',
+        'copy_test_dll',
       ],
       'actions': [
         {
           'action_name': 'profile_instrument_test_data_test_dll',
           'inputs': [
-            '$(OutDir)/instrument.exe',
-            '$(OutDir)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/instrument.exe',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
           ],
           'outputs': [
-            '$(OutDir)/test_data/profile_instrumented_test_dll.dll',
-            '$(OutDir)/test_data/profile_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.pdb',
           ],
           'action': [
-            '"$(OutDir)/instrument.exe"',
+            '"<(PRODUCT_DIR)/instrument.exe"',
             '--call-trace-client=PROFILER',
-            '--input-dll=$(OutDir)/test_data/test_dll.dll',
-            '--output-dll=$(OutDir)/test_data/'
+            '--input-dll=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--output-dll=<(PRODUCT_DIR)/test_data/'
                 'profile_instrumented_test_dll.dll',
-            '--output-pdb=$(OutDir)/test_data/'
+            '--output-pdb=<(PRODUCT_DIR)/test_data/'
                 'profile_instrumented_test_dll.pdb',
             '--overwrite',
           ],
@@ -110,26 +116,27 @@
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/relink/relink.gyp:relink',
-        'test_dll'
+        'copy_test_dll'
       ],
       'actions': [
         {
           'action_name': 'randomize_test_data_test_dll',
           'inputs': [
-            '$(OutDir)/relink.exe',
-            '$(OutDir)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/relink.exe',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
           ],
           'outputs': [
-            '$(OutDir)/test_data/randomized_test_dll.dll',
-            '$(OutDir)/test_data/randomized_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/randomized_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/randomized_test_dll.pdb',
           ],
           'action': [
-            '"$(OutDir)/relink.exe"',
+            '"<(PRODUCT_DIR)/relink.exe"',
             '--seed=0',
-            '--input-dll=$(OutDir)/test_data/test_dll.dll',
-            '--input-pdb=$(OutDir)/test_data/test_dll.pdb',
-            '--output-dll=$(OutDir)/test_data/randomized_test_dll.dll',
-            '--output-pdb=$(OutDir)/test_data/randomized_test_dll.pdb',
+            '--input-dll=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--output-dll=<(PRODUCT_DIR)/test_data/randomized_test_dll.dll',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/randomized_test_dll.pdb',
             '--overwrite',
           ],
         },
@@ -151,28 +158,29 @@
         {
           'action_name': 'generate_rpc_traces',
           'inputs': [
-            '$(OutDir)/call_trace_client.dll',
-            '$(OutDir)/call_trace_service.exe',
-            '$(OutDir)/test_data/rpc_instrumented_test_dll.dll',
-            '$(OutDir)/test_data/rpc_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/call_trace_client.dll',
+            '<(PRODUCT_DIR)/call_trace_service.exe',
+            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
-            '$(OutDir)/test_data/rpc_traces/trace-1.bin',
-            '$(OutDir)/test_data/rpc_traces/trace-2.bin',
-            '$(OutDir)/test_data/rpc_traces/trace-3.bin',
-            '$(OutDir)/test_data/rpc_traces/trace-4.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
           ],
           'action': [
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
-            '--output-dir=$(OutDir)/test_data/rpc_traces',
+            '--output-dir=<(PRODUCT_DIR)/test_data/rpc_traces',
             '--instrumented-dll='
-                '$(OutDir)/test_data/rpc_instrumented_test_dll.dll',
+                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
             '--verbose',
-            # The build-dir arg must be last to work around a GYP bug.
-            # http://code.google.com/p/gyp/issues/detail?id=272
-            '--build-dir=$(OutDir)',
+            # The build-dir arg must be last to work around a bug in the
+            # interaction between GYP and VS2010.
+            # See: http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=<(PRODUCT_DIR)',
           ],
         },
       ],
@@ -185,10 +193,6 @@
         'generate_traces.py',
       ],
       'dependencies': [
-        # This is not a dependency, but it's necessary to make sure that
-        # we don't run multiple instances of the call_trace_service
-        # concurrently.
-        'rpc_traces',
         '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_client',
         '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         'profile_instrumented_test_dll',
@@ -197,28 +201,29 @@
         {
           'action_name': 'generate_profile_traces',
           'inputs': [
-            '$(OutDir)/profile_client.dll',
-            '$(OutDir)/call_trace_service.exe',
-            '$(OutDir)/test_data/profile_instrumented_test_data.dll',
-            '$(OutDir)/test_data/profile_instrumented_test_data.pdb',
+            '<(PRODUCT_DIR)/profile_client.dll',
+            '<(PRODUCT_DIR)/call_trace_service.exe',
+            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.pdb',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
-            '$(OutDir)/test_data/profile_traces/trace-1.bin',
-            '$(OutDir)/test_data/profile_traces/trace-2.bin',
-            '$(OutDir)/test_data/profile_traces/trace-3.bin',
-            '$(OutDir)/test_data/profile_traces/trace-4.bin',
+            '<(PRODUCT_DIR)/test_data/profile_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/profile_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/profile_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/profile_traces/trace-4.bin',
           ],
           'action': [
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
-            '--output-dir=$(OutDir)/test_data/profile_traces',
+            '--output-dir=<(PRODUCT_DIR)/test_data/profile_traces',
             '--instrumented-dll='
-                '$(OutDir)/test_data/profile_instrumented_test_dll.dll',
+                '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
             '--verbose',
-            # The build-dir arg must be last to work around a GYP bug.
-            # http://code.google.com/p/gyp/issues/detail?id=272
-            '--build-dir=$(OutDir)',
+            # The build-dir arg must be last to work around a bug in the
+            # interaction between GYP and VS2010.
+            # See: http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=<(PRODUCT_DIR)',
           ],
         },
       ],

@@ -91,9 +91,10 @@ _LOGGER = logging.getLogger(__name__)
 def _FindEggs(root_dir):
   eggs = []
   for pattern in _EGG_PATTERNS:
-    new_eggs = glob.glob(os.path.join(root_dir, pattern))
+    file_spec = os.path.join(root_dir, pattern)
+    new_eggs = glob.glob(file_spec)
     if not new_eggs:
-      raise RuntimeError('Found no egg for "%s".' % pattern)
+      raise RuntimeError('Found no egg for "%s".' % file_spec)
 
     def SortEggs(e1, e2):
       d1 = pkg_resources.Distribution.from_filename(e1)
@@ -165,6 +166,9 @@ def _ParseArgs():
     parser.error('This script takes no arguments')
   if not opts.root_dir:
     parser.error('You must provide a root directory')
+  # We strip the root-dir param of trailing quotes as a workaround for:
+  # http://code.google.com/p/gyp/issues/detail?id=272
+  opts.root_dir = os.path.abspath(opts.root_dir.rstrip('"\''))
   return opts
 
 

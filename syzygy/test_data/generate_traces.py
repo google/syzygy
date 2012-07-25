@@ -226,7 +226,9 @@ def _MainGenerateTraces(opts):
   # mode we direct its output to /dev/null.
   _LOGGER.info('Starting the call trace service.')
   call_trace_service_exe = os.path.join(opts.build_dir, _CALL_TRACE_SERVICE_EXE)
-  cmd = [call_trace_service_exe, '--verbose',
+  instance_id_param = '--instance-id=%d' % os.getpid()
+  os.environ['SYZYGY_RPC_INSTANCE_ID'] = str(os.getpid())
+  cmd = [call_trace_service_exe, '--verbose', instance_id_param,
          '--trace-dir=%s' % temp_trace_dir.path, 'start']
   call_trace_service = subprocess.Popen(cmd, stdout=stdout_dst,
                                         stderr=stdout_dst)
@@ -245,7 +247,7 @@ def _MainGenerateTraces(opts):
   # settle down.
   _LOGGER.info('Stopping the call trace service.')
   time.sleep(1)
-  cmd = [call_trace_service_exe, 'stop']
+  cmd = [call_trace_service_exe, instance_id_param, 'stop']
   result = subprocess.call(cmd, stdout=stdout_dst, stderr=stdout_dst)
   if result != 0:
     _LOGGER.error('"%s" returned with an error: %d.', cmd[0], result)

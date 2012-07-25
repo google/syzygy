@@ -19,6 +19,7 @@ of testing.Test."""
 import os
 import re
 import sys
+import logging
 
 
 _SELF_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,4 +47,8 @@ def MakeTest():
 
 
 if __name__ == "__main__":
+  logging.basicConfig(
+      format='[%(asctime)s:%(levelname)s:%(filename)s(%(lineno)d)] %(message)s',
+      datefmt='%m%d/%H%M%S',
+      level=logging.INFO)
   sys.exit(MakeTest().Main())

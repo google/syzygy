@@ -15,12 +15,13 @@
 {
   'variables': {
     'chromium_code': 1,
+    'dia_sdk_dir': '$(VSInstallDir)/DIA SDK',
     'conditions': [
       ['MSVS_VERSION=="2010"', {
-        'dia_sdk_version': '100',
+        'dia_sdk_dll': 'msdia100.dll',
       }],
       ['MSVS_VERSION=="2008"', {
-        'dia_sdk_version': '90',
+        'dia_sdk_dll': 'msdia90.dll',
       }],
     ],
   },
@@ -40,18 +41,18 @@
         {
           'destination': '<(PRODUCT_DIR)',
           'files': [
-            '$(VSInstallDir)/DIA SDK/bin/msdia<(dia_sdk_version).dll',
+            '<(dia_sdk_dir)/bin/<(dia_sdk_dll)',
           ],
         },
       ],
       'all_dependent_settings': {
         'include_dirs': [
-          '$(VSInstallDir)/DIA SDK/include',
+          '<(dia_sdk_dir)/include',
         ],
         'msvs_settings': {
           'VCLinkerTool': {
             'AdditionalLibraryDirectories': [
-              '$(VSInstallDir)/DIA SDK/lib',
+              '<(dia_sdk_dir)/lib',
             ],
             # GYP has a bug or misfeature whereby a library dependency used
             # from another GYP file in a different directory picks up the path

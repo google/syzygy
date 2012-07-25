@@ -33,13 +33,13 @@ class BuildAll(testing.Test):
   def __init__(self):
     testing.Test.__init__(self, _SYZYGY_DIR, 'build_all')
     self._solution_path = os.path.join(_SYZYGY_DIR, 'syzygy.sln')
-    self._project_path = os.path.join(_SYZYGY_DIR, 'build_all.vcproj')
+    self._projects = ['build_all']
 
   def _Run(self, configuration):
     try:
       testing.BuildProjectConfig(self._solution_path,
-                                 self._project_path,
-                                 configuration)
+                                 self._projects,
+                                 [configuration])
     except testing.BuildFailure:
       # Recast this error as a test failure.
       raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
