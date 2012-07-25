@@ -56,8 +56,8 @@ class EntryThunkTransformTest : public testing::Test {
     //     it should be concentrated in a test fixture in pe someplace.
     // Create the DOS/NT headers.
     dos_header_block_ = bg_.AddBlock(BlockGraph::DATA_BLOCK,
-                                 sizeof(IMAGE_DOS_HEADER),
-                                 "DOS Header");
+                                     sizeof(IMAGE_DOS_HEADER),
+                                     "DOS Header");
     ASSERT_TRUE(
         dos_header_block_->AllocateData(dos_header_block_->size()) != NULL);
 
@@ -336,6 +336,65 @@ TEST_F(EntryThunkTransformTest, InstrumentAll) {
   // We should have three thunks - one each for the start of foo() and bar(),
   // and one for the middle of foo().
   ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 1));
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyNone) {
+  EntryThunkTransform transform;
+  transform.set_only_instrument_module_entry(true);
+
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
+
+  // We should have no thunks.
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(0, 0, 0));
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyDllMainOnly) {
+  EntryThunkTransform transform;
+  ASSERT_NO_FATAL_FAILURE(SetEntryPoint(foo_, DLL_IMAGE));
+  transform.set_only_instrument_module_entry(true);
+
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
+
+  // We should have one thunk, for the DLL main entry point to the start of
+  // foo_.
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(1, 1, 1));
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyDllMainAndTls) {
+  EntryThunkTransform transform;
+  ASSERT_NO_FATAL_FAILURE(SetEntryPoint(foo_, DLL_IMAGE));
+  ASSERT_NO_FATAL_FAILURE(SetTLSEntryPoint(bar_, DLL_IMAGE));
+  transform.set_only_instrument_module_entry(true);
+
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
+
+  // We should have two thunk, for the DLL main entry point and another for the
+  // TLS. One is to foo_ and one is to bar_.
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 2, 1));
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyExeMainAndTls) {
+  EntryThunkTransform transform;
+  ASSERT_NO_FATAL_FAILURE(SetEntryPoint(foo_, EXE_IMAGE));
+  ASSERT_NO_FATAL_FAILURE(SetTLSEntryPoint(bar_, EXE_IMAGE));
+  transform.set_only_instrument_module_entry(true);
+
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
+
+  // We should only have thunk for the TLS initializer.
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(1, 1, 1));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_+ 1, bg_.sections().size());

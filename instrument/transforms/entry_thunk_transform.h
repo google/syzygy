@@ -13,6 +13,9 @@
 // limitations under the License.
 //
 // Implementation of the entry thunk instrumentation transform.
+//
+// TODO(chrisha): Add another function for EXE entries, which have a different
+//     signature than DLL entries.
 
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ENTRY_THUNK_TRANSFORM_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_ENTRY_THUNK_TRANSFORM_H_
@@ -49,6 +52,14 @@ class EntryThunkTransform
     return src_ranges_for_thunks_;
   }
 
+  void set_only_instrument_module_entry(bool only_instrument_module_entry) {
+    only_instrument_module_entry_ = only_instrument_module_entry;
+  }
+
+  bool only_instrument_module_entry() const {
+    return only_instrument_module_entry_;
+  }
+
   void set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
     instrument_dll_name.CopyToString(&instrument_dll_name_);
   }
@@ -67,6 +78,7 @@ class EntryThunkTransform
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef std::map<BlockGraph::Offset, BlockGraph::Block*> ThunkBlockMap;
   struct Thunk;
 
   // @name IterativeTransformImpl implementation.
@@ -81,6 +93,12 @@ class EntryThunkTransform
 
   // Instrument a single block.
   bool InstrumentCodeBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+
+  // Instruments a single referrer to a code block.
+  bool InstrumentCodeBlockReferrer(const BlockGraph::Block::Referrer& referrer,
+                                   BlockGraph* block_graph,
+                                   BlockGraph::Block* block,
+                                   ThunkBlockMap* thunk_block_map);
 
   // Create a single thunk to destination.
   // @param destination the destination reference.
@@ -123,6 +141,9 @@ class EntryThunkTransform
   // with the function they address. This makes the output more debugging
   // friendly, at the cost of the uniqueness of address->name resolution.
   bool src_ranges_for_thunks_;
+
+  // If true, only instrument DLL entry points.
+  bool only_instrument_module_entry_;
 
   // Name of the instrumentation DLL we import.
   // Defaults to "call_trace_client.dll".

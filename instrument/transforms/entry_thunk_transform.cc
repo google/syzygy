@@ -65,7 +65,6 @@ bool IsUnsafeReference(const BlockGraph::Block* referrer,
 
 }  // namespace
 
-
 using pe::transforms::AddImportsTransform;
 
 const char EntryThunkTransform::kTransformName[] =
@@ -91,6 +90,7 @@ EntryThunkTransform::EntryThunkTransform()
     : thunk_section_(NULL),
       instrument_unsafe_references_(true),
       src_ranges_for_thunks_(false),
+      only_instrument_module_entry_(false),
       instrument_dll_name_(kDefaultInstrumentDll) {
 }
 
@@ -100,8 +100,11 @@ bool EntryThunkTransform::PreBlockGraphIteration(
 
   AddImportsTransform::ImportedModule import_module(
       instrument_dll_name_.c_str());
-  size_t hook_index = import_module.AddSymbol(kEntryHookName);
   size_t hook_dllmain_index = import_module.AddSymbol(kDllMainEntryHookName);
+
+  size_t hook_index = 0;
+  if (!only_instrument_module_entry_)
+    hook_index = import_module.AddSymbol(kEntryHookName);
 
   AddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&import_module);
@@ -111,10 +114,17 @@ bool EntryThunkTransform::PreBlockGraphIteration(
     return false;
   }
 
-  if (!import_module.GetSymbolReference(hook_index, &hook_ref_) ||
-      !import_module.GetSymbolReference(hook_dllmain_index,
+  if (!import_module.GetSymbolReference(hook_dllmain_index,
                                         &hook_dllmain_ref_)) {
-    LOG(ERROR) << "Unable to get import references.";
+    LOG(ERROR) << "Unable to get reference to import "
+               << kDllMainEntryHookName << ".";
+    return false;
+  }
+
+  // We only need the ordinary entry hook if we're instrumenting all functions.
+  if (!only_instrument_module_entry_ &&
+      !import_module.GetSymbolReference(hook_index, &hook_ref_)) {
+    LOG(ERROR) << "Unable to get reference to import " << kEntryHookName << ".";
     return false;
   }
 
@@ -143,10 +153,12 @@ bool EntryThunkTransform::OnBlock(BlockGraph* block_graph,
 
 bool EntryThunkTransform::InstrumentCodeBlock(
     BlockGraph* block_graph, BlockGraph::Block* block) {
+  DCHECK(block_graph != NULL);
+  DCHECK(block != NULL);
+
   // Typedef for the thunk block map. The key is the offset within the callee
   // block and the value is the thunk block that forwards to the callee at that
   // offset.
-  typedef std::map<BlockGraph::Offset, BlockGraph::Block*> ThunkBlockMap;
   ThunkBlockMap thunk_block_map;
 
   // Iterate through all the block's referrers, creating thunks as we go.
@@ -156,70 +168,91 @@ bool EntryThunkTransform::InstrumentCodeBlock(
   BlockGraph::Block::ReferrerSet::const_iterator referrer_it(referrers.begin());
   for (; referrer_it != referrers.end(); ++referrer_it) {
     const BlockGraph::Block::Referrer& referrer = *referrer_it;
-
-    // Get the reference.
-    BlockGraph::Reference ref;
-    if (!referrer.first->GetReference(referrer.second, &ref)) {
-      LOG(ERROR) << "Unable to get reference from referrer.";
+    if (!InstrumentCodeBlockReferrer(
+        referrer, block_graph, block, &thunk_block_map)) {
       return false;
     }
-
-    // Skip self-references, except long references to the start of the block.
-    // TODO(siggi): This needs refining, as it may currently miss important
-    //     cases. Notably if a block contains more than one function, and the
-    //     functions are mutually recursive, we'll only record the original
-    //     entry to the block, but will miss the internal recursion.
-    //     As-is, this does work for the common case where a block contains
-    //     one self-recursive function, however.
-    if (referrer.first == block) {
-      // Skip short references.
-      if (ref.size() < sizeof(core::AbsoluteAddress))
-        continue;
-
-      // Skip interior references. The rationale for this is because these
-      // references will tend to be switch tables, and we don't need the
-      // overhead of instrumenting and recording all switch statement executions
-      // for now.
-      if (ref.offset() != 0)
-        continue;
-    }
-
-    if (!instrument_unsafe_references_ &&
-        IsUnsafeReference(referrer.first, ref)) {
-      LOG(INFO) << "Skipping reference between unsafe block pair '"
-                << referrer.first->name() << "' and '"
-                << block->name() << "'";
-      continue;
-    }
-
-    // Look for the reference in the thunk block map, and only create a new one
-    // if it does not already exist.
-    BlockGraph::Block* thunk_block = NULL;
-    ThunkBlockMap::const_iterator thunk_it = thunk_block_map.find(ref.offset());
-    if (thunk_it == thunk_block_map.end()) {
-      // See whether this is one of the special entrypoints.
-      EntryPointSet::const_iterator entry_it(dllmain_entrypoints_.find(
-          std::make_pair(ref.referenced(), ref.offset())));
-      bool is_dllmain_entry = entry_it != dllmain_entrypoints_.end();
-
-      thunk_block = CreateOneThunk(block_graph, ref, is_dllmain_entry);
-      if (thunk_block == NULL) {
-        LOG(ERROR) << "Unable to create thunk block.";
-        return false;
-      }
-      thunk_block_map[ref.offset()] = thunk_block;
-    } else {
-      thunk_block = thunk_it->second;
-    }
-    DCHECK(thunk_block != NULL);
-
-    // Update the referrer to point to the thunk.
-    BlockGraph::Reference new_ref(ref.type(),
-                                  ref.size(),
-                                  thunk_block,
-                                  0, 0);
-    referrer.first->SetReference(referrer.second, new_ref);
   }
+
+  return true;
+}
+
+bool EntryThunkTransform::InstrumentCodeBlockReferrer(
+    const BlockGraph::Block::Referrer& referrer,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block,
+    ThunkBlockMap* thunk_block_map) {
+  DCHECK(block_graph != NULL);
+  DCHECK(block != NULL);
+  DCHECK(thunk_block_map != NULL);
+
+  // Get the reference.
+  BlockGraph::Reference ref;
+  if (!referrer.first->GetReference(referrer.second, &ref)) {
+    LOG(ERROR) << "Unable to get reference from referrer.";
+    return false;
+  }
+
+  // Skip self-references, except long references to the start of the block.
+  // TODO(siggi): This needs refining, as it may currently miss important
+  //     cases. Notably if a block contains more than one function, and the
+  //     functions are mutually recursive, we'll only record the original
+  //     entry to the block, but will miss the internal recursion.
+  //     As-is, this does work for the common case where a block contains
+  //     one self-recursive function, however.
+  if (referrer.first == block) {
+    // Skip short references.
+    if (ref.size() < sizeof(core::AbsoluteAddress))
+      return true;
+
+    // Skip interior references. The rationale for this is because these
+    // references will tend to be switch tables, and we don't need the
+    // overhead of instrumenting and recording all switch statement executions
+    // for now.
+    if (ref.offset() != 0)
+      return true;
+  }
+
+  if (!instrument_unsafe_references_ &&
+      IsUnsafeReference(referrer.first, ref)) {
+    LOG(INFO) << "Skipping reference between unsafe block pair '"
+              << referrer.first->name() << "' and '"
+              << block->name() << "'";
+    return true;
+  }
+
+  // See whether this is one of the special entrypoints.
+  EntryPointSet::const_iterator entry_it(dllmain_entrypoints_.find(
+      std::make_pair(ref.referenced(), ref.offset())));
+  bool is_dllmain_entry = entry_it != dllmain_entrypoints_.end();
+
+  // If we're only instrumenting DLL entry points and this isn't one, then
+  // skip it.
+  if (only_instrument_module_entry_ && !is_dllmain_entry)
+    return true;
+
+  // Look for the reference in the thunk block map, and only create a new one
+  // if it does not already exist.
+  BlockGraph::Block* thunk_block = NULL;
+  ThunkBlockMap::const_iterator thunk_it = thunk_block_map->find(ref.offset());
+  if (thunk_it == thunk_block_map->end()) {
+    thunk_block = CreateOneThunk(block_graph, ref, is_dllmain_entry);
+    if (thunk_block == NULL) {
+      LOG(ERROR) << "Unable to create thunk block.";
+      return false;
+    }
+    (*thunk_block_map)[ref.offset()] = thunk_block;
+  } else {
+    thunk_block = thunk_it->second;
+  }
+  DCHECK(thunk_block != NULL);
+
+  // Update the referrer to point to the thunk.
+  BlockGraph::Reference new_ref(ref.type(),
+                                ref.size(),
+                                thunk_block,
+                                0, 0);
+  referrer.first->SetReference(referrer.second, new_ref);
 
   return true;
 }
