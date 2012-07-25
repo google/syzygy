@@ -449,6 +449,128 @@ TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {
   EXPECT_BYTES(0x89, 0x9C, 0xC1, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
+TEST_F(AssemblerTest, LeaRegisterIndirect) {
+  // Indirect register only source modes.
+  asm_.lea(ebx, OperandImpl(eax));
+  EXPECT_BYTES(0x8D, 0x18);
+  asm_.lea(eax, OperandImpl(ecx));
+  EXPECT_BYTES(0x8D, 0x01);
+  asm_.lea(edx, OperandImpl(ebx));
+  EXPECT_BYTES(0x8D, 0x13);
+  asm_.lea(ecx, OperandImpl(edx));
+  EXPECT_BYTES(0x8D, 0x0A);
+
+  // Note that EBP is a special case that always requires a displacement.
+  asm_.lea(ebx, OperandImpl(ebp));
+  EXPECT_BYTES(0x8D, 0x5D, 0x00);
+
+  // Note that ESP is a special case that always requires a SIB byte.
+  asm_.lea(ecx, OperandImpl(esp));
+  EXPECT_BYTES(0x8D, 0x0C, 0x24);
+
+  asm_.lea(ebx, OperandImpl(esi));
+  EXPECT_BYTES(0x8D, 0x1E);
+  asm_.lea(eax, OperandImpl(edi));
+  EXPECT_BYTES(0x8D, 0x07);
+}
+
+TEST_F(AssemblerTest, LeaRegisterDisplacementIndirect) {
+  // Register & displacement source modes.
+  DisplacementImpl cafebabe(0xCAFEBABE, kSize32Bit, NULL);
+
+  asm_.lea(ebx, OperandImpl(eax, cafebabe));
+  EXPECT_BYTES(0x8D, 0x98, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(ecx, cafebabe));
+  EXPECT_BYTES(0x8D, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(ebx, cafebabe));
+  EXPECT_BYTES(0x8D, 0x83, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(edx, cafebabe));
+  EXPECT_BYTES(0x8D, 0x82, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(ebp, cafebabe));
+  EXPECT_BYTES(0x8D, 0x85, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // ESP requires a SIB byte and has a longer encoding.
+  asm_.lea(eax, OperandImpl(esp, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x24, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  asm_.lea(eax, OperandImpl(esi, cafebabe));
+  EXPECT_BYTES(0x8D, 0x86, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(edi, cafebabe));
+  EXPECT_BYTES(0x8D, 0x87, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // Test a sampling of 8-bit displacements.
+  DisplacementImpl ca(0xCA, kSize8Bit, NULL);
+
+  // Source.
+  asm_.lea(ebx, OperandImpl(eax, ca));
+  EXPECT_BYTES(0x8D, 0x58, 0xCA);
+
+  // ESP requires a SIB byte and has a longer encoding.
+  asm_.lea(eax, OperandImpl(esp, ca));
+  EXPECT_BYTES(0x8D, 0x44, 0x24, 0xCA);
+}
+
+TEST_F(AssemblerTest, LeaDisplacementIndirect) {
+  // Displacement-only mode.
+  DisplacementImpl cafebabe(0xCAFEBABE, kSize32Bit, NULL);
+
+  asm_.lea(eax, OperandImpl(cafebabe));
+  EXPECT_BYTES(0x8D, 0x05, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(ecx, OperandImpl(cafebabe));
+  EXPECT_BYTES(0x8D, 0x0D, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, LeaRegisterDisplacementScaleIndirect) {
+  // There are 8 base * 7 index * 4 scales = 224 combinations.
+  // We don't test all of them, but rather cycle through each of base,
+  // index and scale individually.
+  DisplacementImpl cafebabe(0xCAFEBABE, kSize32Bit, NULL);
+
+  // Source mode, base register.
+  asm_.lea(edx, OperandImpl(ecx, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x94, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(ecx, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(edx, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x82, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(ebx, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x83, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(esp, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x84, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(ebp, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x85, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(esi, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x86, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(edi, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x87, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // Source mode, index register.
+  asm_.lea(ebx, OperandImpl(ecx, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x9C, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(eax, ecx, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x88, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(eax, edx, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x90, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(eax, ebx, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0x98, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(eax, ebp, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0xA8, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(eax, esi, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0xB0, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(eax, OperandImpl(eax, edi, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x84, 0xB8, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // Source mode, Scale.
+  asm_.lea(ebx, OperandImpl(ecx, eax, kTimes1, cafebabe));
+  EXPECT_BYTES(0x8D, 0x9C, 0x01, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(ebx, OperandImpl(ecx, eax, kTimes2, cafebabe));
+  EXPECT_BYTES(0x8D, 0x9C, 0x41, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(ebx, OperandImpl(ecx, eax, kTimes4, cafebabe));
+  EXPECT_BYTES(0x8D, 0x9C, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.lea(ebx, OperandImpl(ecx, eax, kTimes8, cafebabe));
+  EXPECT_BYTES(0x8D, 0x9C, 0xC1, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
 TEST_F(AssemblerTest, Push) {
   // Immediate push.
   asm_.push(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));

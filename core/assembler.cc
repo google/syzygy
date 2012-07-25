@@ -404,6 +404,15 @@ void AssemblerImpl::mov(Register dst, const ValueImpl& src) {
   Output(instr);
 }
 
+void AssemblerImpl::lea(Register dst, const OperandImpl& src) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0x8D);
+  EncodeOperand(dst.code(), src, &instr);
+
+  Output(instr);
+}
+
 void AssemblerImpl::push(const ImmediateImpl& src) {
   DCHECK_EQ(kSize32Bit, src.size());
   InstructionBuffer instr;

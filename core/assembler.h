@@ -242,6 +242,9 @@ class AssemblerImpl {
   void mov(Register dst, const ImmediateImpl& src);
   // @}
 
+  // @name load effective address.
+  void lea(Register dst, const OperandImpl& src);
+
   // @name stack manipulation.
   // @{
   void push(const ImmediateImpl& src);
