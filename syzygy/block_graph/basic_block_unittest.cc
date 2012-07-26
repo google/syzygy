@@ -210,22 +210,17 @@ TEST_F(BasicBlockTest, InvalidBasicBlockReference) {
 }
 
 TEST_F(BasicBlockTest, BasicBlockReference) {
-  static const BasicBlockReference::Offset kOffset = 48;
-  static const BasicBlockReference::Offset kBase = kBlockSize / 2;
-
   BasicBlockReference ref(BlockGraph::RELATIVE_REF,
                           kRefSize,
-                          &basic_code_block_,
-                          kOffset,
-                          kBase);
+                          &basic_code_block_);
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
             ref.referred_type());
   EXPECT_EQ(NULL, ref.block());
   EXPECT_EQ(&basic_code_block_, ref.basic_block());
   EXPECT_EQ(kRefSize, ref.size());
-  EXPECT_EQ(kOffset, ref.offset());
-  EXPECT_EQ(kBase, ref.base());
+  EXPECT_EQ(0, ref.offset());
+  EXPECT_EQ(0, ref.base());
   EXPECT_TRUE(ref.IsValid());
 }
 
@@ -250,9 +245,9 @@ TEST_F(BasicBlockTest, BlockReference) {
 
 TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
   BasicBlockReference r1(
-      BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_, 4, 4);
+      BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
   BasicBlockReference r2(
-      BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_, 4, 4);
+      BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
   BasicBlockReference r3(
       BlockGraph::RELATIVE_REF, kRefSize, &macro_block_, 8, 8);
 
@@ -425,7 +420,7 @@ TEST(Successor, BasicBlockConstructor) {
   const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
   BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
-  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0, 0);
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
 
   Successor s(kCondition,
               bb_ref,
@@ -442,7 +437,7 @@ TEST(Successor, BasicBlockConstructor) {
 TEST(Successor, SetBranchTarget) {
   uint8 data[20] = {};
   BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
-  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb, 0, 0);
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
 
   Successor s;
   s.SetReference(bb_ref);
@@ -537,6 +532,62 @@ TEST(Successor, InvertCondition) {
     const TableEntry& entry = kConditionInversionTable[i];
     EXPECT_EQ(entry.inverse, Successor::InvertCondition(entry.original));
   }
+}
+
+TEST(InstructionTest, CallsNonReturningFunction) {
+  // Create a returning code block.
+  BlockGraph::Block returning(0, BlockGraph::CODE_BLOCK, 1, "return");
+
+  // Create a non-returning code block.
+  BlockGraph::Block non_returning(1, BlockGraph::CODE_BLOCK, 1, "non-return");
+  non_returning.set_attribute(BlockGraph::NON_RETURN_FUNCTION);
+
+  _DInst repr = {};
+  repr.opcode = I_CALL;
+  repr.meta = FC_CALL;
+  repr.ops[0].type = O_PC;
+  const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+  Instruction call_relative(repr, 0, sizeof(kCallRelative), kCallRelative);
+
+  // Call the returning function directly.
+  call_relative.SetReference(
+      1, BasicBlockReference(BlockGraph::RELATIVE_REF,
+                              BlockGraph::Reference::kMaximumSize,
+                              &returning, 0, 0));
+  EXPECT_FALSE(call_relative.CallsNonReturningFunction());
+
+  // Call the non-returning function directly.
+  call_relative.SetReference(
+      1, BasicBlockReference(BlockGraph::RELATIVE_REF,
+                              BlockGraph::Reference::kMaximumSize,
+                              &non_returning, 0, 0));
+  EXPECT_TRUE(call_relative.CallsNonReturningFunction());
+
+  // Setup an indirect call via a static function pointer (for example, an
+  // import table).
+  repr.ops[0].type = O_DISP;
+  BlockGraph::Block function_pointer(
+      2, BlockGraph::DATA_BLOCK, BlockGraph::Reference::kMaximumSize, "ptr");
+  const uint8 kCallIndirect[] = { 0xFF, 0x15, 0xDE, 0xAD, 0xBE, 0xEF };
+  Instruction call_indirect(repr, 0, sizeof(kCallIndirect), kCallIndirect);
+  call_indirect.SetReference(
+      2, BasicBlockReference(BlockGraph::RELATIVE_REF,
+                             BlockGraph::Reference::kMaximumSize,
+                             &function_pointer, 0, 0));
+
+  // Call the returning function via the pointer.
+  function_pointer.SetReference(
+      0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                BlockGraph::Reference::kMaximumSize,
+                                &returning, 0, 0));
+  EXPECT_FALSE(call_indirect.CallsNonReturningFunction());
+
+  // Call the returning function via the pointer.
+  function_pointer.SetReference(
+      0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                BlockGraph::Reference::kMaximumSize,
+                                &non_returning, 0, 0));
+  EXPECT_TRUE(call_indirect.CallsNonReturningFunction());
 }
 
 }  // namespace block_graph

@@ -121,11 +121,11 @@ TEST(BlockBuilderTest, Merge) {
                                             other, 0, 0))).second);
   bb1->successors().push_back(
       Successor(Successor::kConditionEqual,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
                 -1, 0));
   bb1->successors().push_back(
       Successor(Successor::kConditionNotEqual,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb3, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb3),
                 -1, 0));
   ASSERT_TRUE(bb1->referrers().insert(BasicBlockReferrer(other, 0)).second);
 
@@ -138,7 +138,7 @@ TEST(BlockBuilderTest, Merge) {
   ASSERT_TRUE(AddInstruction(bb3, 1) != NULL);
   bb3->successors().push_back(
       Successor(Successor::kConditionTrue,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
                 -1, 0));
 
   // Flesh out bb4 with some instructions and a single  successor.
@@ -146,16 +146,16 @@ TEST(BlockBuilderTest, Merge) {
   ASSERT_TRUE(AddInstruction(bb4, 9) != NULL);
   bb4->successors().push_back(
       Successor(Successor::kConditionTrue,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
                 -1, 0));
 
   // Flesh out table with references.
   ASSERT_TRUE(table->references().insert(std::make_pair(
-      0, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb1, 0, 0))).second);
+      0, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb1))).second);
   ASSERT_TRUE(table->references().insert(std::make_pair(
-      4, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb2, 0, 0))).second);
+      4, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb2))).second);
   ASSERT_TRUE(table->references().insert(std::make_pair(
-      8, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb3, 0, 0))).second);
+      8, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb3))).second);
 
   BasicBlockSubGraph::BlockDescription* d1 = subgraph.AddBlockDescription(
       "new_block", BlockGraph::CODE_BLOCK, 0, 1, 0);

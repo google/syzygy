@@ -128,7 +128,7 @@ TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
   ASSERT_FALSE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 }
 
-TEST(BasicBlockSubGraphTest, DISABLED_HasValidSuccessors) {
+TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   // TODO(rogerm): Enable this test when HasValidSuccessors is implemented.
   TestBasicBlockSubGraph subgraph;
 
@@ -158,7 +158,7 @@ TEST(BasicBlockSubGraphTest, DISABLED_HasValidSuccessors) {
   // Add an unconditional succession from bb1 to bb2.
   bb1->successors().push_back(
       Successor(Successor::kConditionTrue,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
                 -1, 0));
 
   // Successors are still not valid.
@@ -167,7 +167,7 @@ TEST(BasicBlockSubGraphTest, DISABLED_HasValidSuccessors) {
   // Add half of a conditional succession from bb2 to bb1.
   bb2->successors().push_back(
       Successor(Successor::kConditionAbove,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
                 -1, 0));
 
   // Successors are still not valid.
@@ -177,7 +177,7 @@ TEST(BasicBlockSubGraphTest, DISABLED_HasValidSuccessors) {
   // of the first condtition.
   bb2->successors().push_back(
       Successor(Successor::kConditionAboveOrEqual,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
                 -1, 0));
 
   // Successors are still not valid because the conditions are not inverses.
@@ -187,7 +187,7 @@ TEST(BasicBlockSubGraphTest, DISABLED_HasValidSuccessors) {
   bb2->successors().pop_back();
   bb2->successors().push_back(
       Successor(Successor::kConditionBelowOrEqual,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1, 0, 0),
+                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
                 -1, 0));
 
   // Successors are now valid.
