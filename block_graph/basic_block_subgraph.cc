@@ -20,6 +20,21 @@
 
 namespace block_graph {
 
+namespace {
+
+// Returns true if any of the instructions in the range [@p start, @p end) is
+// a, for the purposes of basic-block decompsition, control flow instruction.
+bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
+                    BasicBlock::Instructions::const_iterator end) {
+  for (; start != end; ++start) {
+    if (start->IsControlFlow())
+      return true;
+  }
+  return false;
+}
+
+}  // namespace
+
 size_t BasicBlockSubGraph::BlockDescription::GetMaxSize() const {
   size_t max_size = 0;
   BasicBlockOrdering::const_iterator it = basic_block_order.begin();
@@ -125,11 +140,76 @@ bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {
 }
 
 bool BasicBlockSubGraph::HasValidSuccessors() const {
-  // TODO(rogerm): Refactor the control flow test helpers from
-  //     basic_block_decomposer.cc to a common location accessible from here.
-  //     This should be a subset of the BasicBlockDecomposer's successor
-  //     validation function (it does not expect any ordering relationship
-  //     for a flow-through or branch-not-taken successor.
+  BlockDescriptionList::const_iterator desc_iter = block_descriptions_.begin();
+  for (; desc_iter != block_descriptions_.end(); ++desc_iter) {
+    BasicBlockOrdering::const_iterator bb_iter =
+        desc_iter->basic_block_order.begin();
+    for (; bb_iter != desc_iter->basic_block_order.end(); ++bb_iter) {
+      const BasicBlock* bb = *bb_iter;
+      if (bb->type() != BasicBlock::BASIC_CODE_BLOCK)
+        continue;
+
+      const BasicBlock::Instructions& instructions = bb->instructions();
+      const BasicBlock::Successors& successors = bb->successors();
+
+      // There may be at most 2 successors.
+      size_t num_successors = successors.size();
+      switch (num_successors) {
+        case 0: {
+          // If there are no successors, then there must be some instructions
+          // in the basic block.
+          if (instructions.empty())
+            return false;
+
+          // There should be no control flow instructions except the last one.
+          if (HasControlFlow(instructions.begin(), --instructions.end()))
+            return false;
+
+          // Either there is an implicit control flow instruction at the end
+          // or this basic block calls a non-returning function. Otherwise, it
+          // should have been flagged by the decomposer as unsafe to basic-
+          // block decompose.
+          if (!instructions.back().IsImplicitControlFlow() &&
+              !instructions.back().CallsNonReturningFunction()) {
+            return false;
+          }
+          break;
+        }
+
+        case 1: {
+          // There should be no control flow instructions.
+          if (HasControlFlow(instructions.begin(), instructions.end()))
+            return false;
+
+          // The successor must be unconditional.
+          if (successors.back().condition() != Successor::kConditionTrue)
+            return false;
+
+          break;
+        }
+
+        case 2: {
+          // There should be no control flow instructions.
+          if (HasControlFlow(instructions.begin(), instructions.end()))
+            return false;
+
+          // The conditions on the successors should be inverses of one another.
+          if (successors.front().condition() !=
+                  Successor::InvertCondition(successors.back().condition())) {
+            return false;
+          }
+
+          break;
+        }
+
+        default:
+          NOTREACHED();
+          return false;
+      }
+    }
+  }
+
+  // If we get here then everything was OK.
   return true;
 }
 
@@ -174,6 +254,8 @@ bool BasicBlockSubGraph::HasValidReferrers() const {
     }
   }
 
+  // Make sure all of the referrers were incremented to 1. If we missed any
+  // they will still be 0.
   ReferrerCountMap::const_iterator count_iter = external_referrers.begin();
   for (;count_iter != external_referrers.end(); ++count_iter) {
     if (count_iter->second != 1) {

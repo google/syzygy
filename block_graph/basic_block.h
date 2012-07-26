@@ -59,11 +59,12 @@ class BasicBlockReference {
   //
   // @param type type of reference.
   // @param size size of reference.
-  // @param basic_block the referenced basic block.
-  // @param offset offset of reference into basic_block.
+  // @param block the referenced block.
+  // @param offset offset of reference into @p block.
+  // @param base base of the reference within @p block.
   BasicBlockReference(ReferenceType type,
                       Size size,
-                      Block* basic_block,
+                      Block* block,
                       Offset offset,
                       Offset base);
 
@@ -72,12 +73,9 @@ class BasicBlockReference {
   // @param type type of reference.
   // @param size size of reference.
   // @param basic_block the referenced basic block.
-  // @param offset offset of reference into basic_block.
   BasicBlockReference(ReferenceType type,
                       Size size,
-                      BasicBlock* basic_block,
-                      Offset offset,
-                      Offset base);
+                      BasicBlock* basic_block);
 
   // Copy constructor.
   BasicBlockReference(const BasicBlockReference& other);
@@ -324,6 +322,7 @@ class Instruction {
   bool IsDebugInterrupt() const {
     return core::IsDebugInterrupt(representation_);
   }
+  bool CallsNonReturningFunction() const;
   // @}
 
 
@@ -336,6 +335,13 @@ class Instruction {
 
   // Helper function to invert a conditional branching opcode.
   static bool InvertConditionalBranchOpcode(uint16* opcode);
+
+  // Returns true if the given PC-relative or indirect-memory call instruction
+  // is to a non-returning function. The block (and offset into it) being
+  // directly referenced by the call need to be provided explicitly.
+  static bool CallsNonReturningFunction(const Representation& inst,
+                                        const BlockGraph::Block* target,
+                                        Offset offset);
 
  protected:
   // The internal representation of this instruction.

@@ -142,7 +142,7 @@ bool UpdateBasicBlockReferenceMap(T* object,
   // If the value wasn't actually inserted, then update it.
   BasicBlockReferrer referrer(MakeReferrer(object, offset));
   if (!result.second) {
-    BasicBlockReference old = result.first->second;
+    BasicBlockReference& old = result.first->second;
     DCHECK_EQ(old.size(), ref.size());
     DCHECK_EQ(old.reference_type(), ref.reference_type());
     if (old.referred_type() == BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK) {
@@ -192,18 +192,15 @@ BasicBlockReference::BasicBlockReference(ReferenceType type,
 
 BasicBlockReference::BasicBlockReference(ReferenceType type,
                                          Size size,
-                                         BasicBlock* basic_block,
-                                         Offset offset,
-                                         Offset base)
+                                         BasicBlock* basic_block)
     : referred_type_(REFERRED_TYPE_BASIC_BLOCK),
       reference_type_(type),
       size_(size),
       referred_(basic_block),
-      offset_(offset),
-      base_(base) {
-  DCHECK(size == 1 || size == 2 || size == 4);
+      offset_(0),
+      base_(0) {
+  DCHECK(size == 1 || size == 4);
   DCHECK(basic_block != NULL);
-  DCHECK_LE(0, base);
 }
 
 BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
@@ -285,6 +282,38 @@ Instruction::Instruction(const Instruction::Representation& value,
   DCHECK(offset == BasicBlock::kNoOffset || offset >= 0);
   DCHECK_LT(0U, size);
   DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
+}
+
+bool Instruction::CallsNonReturningFunction() const {
+  // Is this a call instruction?
+  if (META_GET_FC(representation_.meta) != FC_CALL)
+    return false;
+
+  // Is the target something we can follow?
+  uint8 operand_type = representation_.ops[0].type;
+  if (operand_type != O_PC && operand_type != O_DISP)
+    return false;
+
+  // Get the reference.
+  DCHECK_EQ(1U, references_.size());
+  const BasicBlockReference& ref = references_.begin()->second;
+
+  // This can happen if  the call is recursive to the currently decomposed
+  // function calling ourselves. In this case the reference will be to another
+  // basic-block that is a part of the same parent block.
+  if (ref.block() == NULL) {
+    DCHECK(ref.basic_block() != NULL);
+    return false;
+  }
+
+  // Check whether the referenced block is a non-returning function.
+  DCHECK_EQ(ref.offset(), ref.base());
+  DCHECK_EQ(BlockGraph::Reference::kMaximumSize, ref.size());
+  if (!CallsNonReturningFunction(representation_, ref.block(), ref.offset()))
+    return false;
+
+  // If we got here, then this is a non-returning call.
+  return true;
 }
 
 bool Instruction::SetReference(Offset offset, const BasicBlockReference& ref) {
@@ -419,6 +448,38 @@ bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
                  << " is not supported.";
       return false;
   }
+}
+
+bool Instruction::CallsNonReturningFunction(const Representation& inst,
+                                            const BlockGraph::Block* target,
+                                            Offset offset) {
+  DCHECK_EQ(FC_CALL, META_GET_FC(inst.meta));
+  DCHECK(inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP);
+  DCHECK(target != NULL);
+  if (inst.ops[0].type == O_DISP) {
+    DCHECK(target->type() == BlockGraph::DATA_BLOCK);
+
+    // There need not always be a reference here. This could be to a data
+    // block whose contents will be filled in at runtime.
+    BlockGraph::Reference ref;
+    if (!target->GetReference(offset, &ref))
+      return false;
+
+    target = ref.referenced();
+
+    // If this is a relative reference it must be to a data block (it's a PE
+    // parsed structure pointing to an import name thunk). If it's absolute
+    // then it must be pointing to a code block.
+    DCHECK((ref.type() == BlockGraph::RELATIVE_REF &&
+                target->type() == BlockGraph::DATA_BLOCK) ||
+           (ref.type() == BlockGraph::ABSOLUTE_REF &&
+                target->type() == BlockGraph::CODE_BLOCK));
+  }
+
+  if ((target->attributes() & BlockGraph::NON_RETURN_FUNCTION) == 0)
+    return false;
+
+  return true;
 }
 
 Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {

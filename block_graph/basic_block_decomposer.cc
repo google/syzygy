@@ -55,78 +55,6 @@ typedef BBAddressSpace::RangeMapIter RangeMapIter;
 // block (offset=0) and a null address.
 const size_t kDisassemblyAddress = 65536;
 
-// Returns true if any of the instructions in the range [@p start, @p end) is
-// a, for the purposes of basic-block decompsition, control flow instruction.
-bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
-                    BasicBlock::Instructions::const_iterator end) {
-  for (; start != end; ++start) {
-    if (start->IsControlFlow())
-      return true;
-  }
-  return false;
-}
-
-// Returns true if this PC-relative or indirect-memory call is to a non-
-// returning function. The block (and offset into it) being directly referenced
-// by the call need to be provided explicitly.
-bool CallsNonReturningFunction(const _DInst& inst,
-                               const Block* target,
-                               Offset offset) {
-  DCHECK_EQ(FC_CALL, META_GET_FC(inst.meta));
-  DCHECK(inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP);
-  DCHECK(target != NULL);
-  if (inst.ops[0].type == O_DISP) {
-    DCHECK(target->type() == BlockGraph::DATA_BLOCK);
-
-    // There need not always be a reference here. This could be to a data
-    // block whose contents will be filled in at runtime.
-    BlockGraph::Reference ref;
-    if (!target->GetReference(offset, &ref))
-      return false;
-
-    target = ref.referenced();
-
-    // If this is a relative reference it must be to a data block (it's a PE
-    // parsed structure pointing to an import name thunk). If it's absolute
-    // then it must be pointing to a code block.
-    DCHECK((ref.type() == BlockGraph::RELATIVE_REF &&
-                target->type() == BlockGraph::DATA_BLOCK) ||
-           (ref.type() == BlockGraph::ABSOLUTE_REF &&
-                target->type() == BlockGraph::CODE_BLOCK));
-  }
-
-  if ((target->attributes() & BlockGraph::NON_RETURN_FUNCTION) == 0)
-    return false;
-
-  return true;
-}
-
-// Returns true if the given instruction is a call to a function block that
-// has been tagged as non-returning.
-// Note: This may only be called after all instruction references have been
-//     populated.
-bool CallsNonReturningFunction(const Instruction& instruction) {
-  const _DInst& inst = instruction.representation();
-  if (META_GET_FC(inst.meta) != FC_CALL ||
-      (inst.ops[0].type != O_PC && inst.ops[0].type != O_DISP)) {
-    return false;
-  }
-  DCHECK_EQ(1U, instruction.references().size());
-  const BasicBlockReference& ref = instruction.references().begin()->second;
-
-  // This can happen if we are recursively calling ourselves. In which case the
-  // reference will be to another basic-block that is a part of the same
-  // parent block.
-  if (ref.block() == NULL)
-    return false;
-
-  DCHECK_EQ(ref.offset(), ref.base());
-  DCHECK_EQ(BlockGraph::Reference::kMaximumSize, ref.size());
-  if (!CallsNonReturningFunction(inst, ref.block(), ref.offset()))
-    return false;
-  return true;
-}
-
 // Look up the reference made from an instruction's byte range within the
 // given block. The reference should start AFTER the instruction starts
 // and there should be exactly 1 reference in the byte range.
@@ -256,8 +184,10 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
       (inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP)) {
     const BlockGraph::Reference& ref =
         GetReferenceOfInstructionAt(block_, offset, inst.size);
-    if (CallsNonReturningFunction(inst, ref.referenced(), ref.offset()))
+    if (Instruction::CallsNonReturningFunction(inst, ref.referenced(),
+                                               ref.offset())) {
       return kDirectiveTerminatePath;
+    }
   }
 
   return kDirectiveContinue;
@@ -477,68 +407,38 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
   if (!check_decomposition_results_)
     return;
 
-  const BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
+  // Check that the subgraph is valid. This will make sure that the
+  // instructions and successors generally make sense.
+  CHECK(subgraph_->IsValid());
 
-  RangeMapConstIter it(basic_block_address_space.begin());
-  for (; it != basic_block_address_space.end(); ++it) {
+  // The only thing left to check is that synthesized flow-through
+  // successors refer to the adjacent basic-blocks.
+  RangeMapConstIter it(subgraph_->original_address_space().begin());
+  for (; it != subgraph_->original_address_space().end(); ++it) {
     const BasicBlock* bb = it->second;
     if (bb->type() != BasicBlock::BASIC_CODE_BLOCK)
       continue;
-
-    // TODO(rogerm): All references to this block should be to its head.
 
     const BasicBlock::Instructions& instructions = bb->instructions();
     const BasicBlock::Successors& successors = bb->successors();
 
     // There may be at most 2 successors.
-    size_t num_successors = successors.size();
-    CHECK_GE(2U, num_successors);
-    switch (num_successors) {
-      case 0: {
-        // If there are no successors, then there must be some instructions in
-        // the basic block.
-        CHECK(!instructions.empty());
-
-        // There should be no control flow in anything but the last instruction.
-        CHECK(!HasControlFlow(instructions.begin(), --instructions.end()));
-
-        // Either there is an implicit control flow instruction at the end
-        // or this basic block calls a non-returning function. Otherwise, it
-        // should have been flagged by the decomposer as unsafe to basic-
-        // block decompose.
-        CHECK(instructions.back().IsImplicitControlFlow() ||
-              CallsNonReturningFunction(instructions.back()));
+    switch (successors.size()) {
+      case 0:
         break;
-      }
 
-      case 1: {
-        // There should be no control flow instructions in the entire sequence.
-        CHECK(!HasControlFlow(instructions.begin(), instructions.end()));
-
-        // The successor must be unconditional.
-        const Successor& successor = successors.back();
-        CHECK_EQ(Successor::kConditionTrue, successor.condition());
-
+      case 1:
         // If the successor is synthesized, then flow is from this basic-block
         // to the next adjacent one.
         if (successors.back().instruction_offset() == -1) {
           RangeMapConstIter next(it);
           ++next;
-          CHECK(next != basic_block_address_space.end());
-          CHECK_EQ(successor.reference().basic_block(), next->second);
+          CHECK(next != subgraph_->original_address_space().end());
+          CHECK_EQ(successors.back().reference().basic_block(), next->second);
         }
         break;
-      }
 
       case 2: {
-        // There should be no control flow instructions in the entire sequence.
-        CHECK(!HasControlFlow(instructions.begin(), instructions.end()));
-
-        // The conditions on the successors should be inverses of one another.
-        CHECK_EQ(successors.front().condition(),
-                 Successor::InvertCondition(successors.back().condition()));
-
         // Exactly one of the successors should have been synthesized.
         bool front_synthesized = successors.front().instruction_offset() == -1;
         bool back_synthesized = successors.back().instruction_offset() == -1;
@@ -550,7 +450,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
             front_synthesized ? successors.front() : successors.back();
         RangeMapConstIter next(it);
         ++next;
-        CHECK(next != basic_block_address_space.end());
+        CHECK(next != subgraph_->original_address_space().end());
         CHECK_EQ(synthesized.reference().basic_block(), next->second);
         break;
       }
@@ -741,13 +641,12 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
       DCHECK(target_bb != NULL);
 
       // Create target basic-block relative values for the base and offset.
-      Offset target_offset = reference.offset() - reference.base();
+      CHECK_EQ(reference.offset(), reference.base());
 
       // Insert a reference to the target basic block.
       bool inserted = item->SetReference(
           local_offset,
-          BasicBlockReference(reference.type(), reference.size(), target_bb,
-                              target_offset, 0));
+          BasicBlockReference(reference.type(), reference.size(), target_bb));
       DCHECK(inserted);
     }
   }
@@ -809,7 +708,7 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
 
       // We transform all successor branches into 4-byte pc-relative targets.
       bool inserted = succ_iter->SetReference(
-          BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target_bb, 0, 0));
+          BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target_bb));
       DCHECK(inserted);
       DCHECK(succ_iter->reference().IsValid());
     }
