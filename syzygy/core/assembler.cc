@@ -143,6 +143,9 @@ class AssemblerImpl::InstructionBuffer {
   // Emit a 16-bit immediate value.
   void Emit16BitValue(uint16 value);
 
+  // Add reference at current location.
+  void AddReference(const void* reference);
+
  protected:
   void EmitByte(uint8 byte);
 
@@ -185,24 +188,14 @@ void AssemblerImpl::InstructionBuffer::Emit8BitDisplacement(
     const DisplacementImpl& disp) {
   DCHECK(disp.size() == kSize8Bit);
 
-  if (disp.reference() != NULL) {
-    DCHECK_GT(arraysize(references_), num_references_);
-    reference_offsets_[num_references_] = len();
-    references_[num_references_] = disp.reference();
-  }
+  AddReference(disp.reference());
 
   EmitByte(disp.value());
 }
 
 void AssemblerImpl::InstructionBuffer::Emit32BitDisplacement(
     const DisplacementImpl& disp) {
-  DCHECK(disp.size() == kSize32Bit);
-
-  if (disp.reference() != NULL) {
-    DCHECK_GT(arraysize(references_), num_references_);
-    reference_offsets_[num_references_] = len();
-    references_[num_references_] = disp.reference();
-  }
+  AddReference(disp.reference());
 
   uint32 value = disp.value();
   EmitByte(value);
@@ -215,11 +208,7 @@ void AssemblerImpl::InstructionBuffer::Emit8BitPCRelative(
     uint32 location, const ValueImpl& value) {
   DCHECK_EQ(kSize8Bit, value.size());
 
-  if (value.reference() != NULL) {
-    DCHECK_GT(arraysize(references_), num_references_);
-    reference_offsets_[num_references_] = len();
-    references_[num_references_] = value.reference();
-  }
+  AddReference(value.reference());
 
   // Turn the absolute value into a value relative to the address of
   // the end of the emitted constant.
@@ -233,11 +222,7 @@ void AssemblerImpl::InstructionBuffer::Emit32BitPCRelative(
     uint32 location, const ValueImpl& value) {
   DCHECK_EQ(kSize32Bit, value.size());
 
-  if (value.reference() != NULL) {
-    DCHECK_GT(arraysize(references_), num_references_);
-    reference_offsets_[num_references_] = len();
-    references_[num_references_] = value.reference();
-  }
+  AddReference(value.reference());
 
   // Turn the absolute value into a value relative to the address of
   // the end of the emitted constant.
@@ -251,6 +236,16 @@ void AssemblerImpl::InstructionBuffer::Emit32BitPCRelative(
 void AssemblerImpl::InstructionBuffer::Emit16BitValue(uint16 value) {
   EmitByte(value);
   EmitByte(value >> 8);
+}
+
+void AssemblerImpl::InstructionBuffer::AddReference(const void* reference) {
+  if (reference == NULL)
+    return;
+
+  DCHECK_GT(arraysize(references_), num_references_);
+  reference_offsets_[num_references_] = len();
+  references_[num_references_] = reference;
+  ++num_references_;
 }
 
 void AssemblerImpl::InstructionBuffer::EmitByte(uint8 byte) {
@@ -399,6 +394,16 @@ void AssemblerImpl::mov(Register dst, const ValueImpl& src) {
   InstructionBuffer instr;
 
   instr.EmitOpCodeByte(0xB8 | dst.code());
+  instr.Emit32BitDisplacement(src);
+
+  Output(instr);
+}
+
+void AssemblerImpl::mov(const OperandImpl& dst, const ImmediateImpl& src) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xC7);
+  EncodeOperand(0, dst, &instr);
   instr.Emit32BitDisplacement(src);
 
   Output(instr);

@@ -19,13 +19,15 @@
 
 namespace core {
 
-// using testing::StrictMock;
-// using testing::_;
-
 namespace {
 
 class TestSerializer : public core::AssemblerImpl::InstructionSerializer {
  public:
+  struct Reference {
+    uint32 location;
+    const void* ref;
+  };
+
   TestSerializer () {
   }
 
@@ -35,10 +37,15 @@ class TestSerializer : public core::AssemblerImpl::InstructionSerializer {
                                  const uint32 *ref_locations,
                                  const void* const* refs,
                                  size_t num_refs) {
+    for (size_t i = 0; i < num_refs; ++i) {
+      Reference ref = { code.size() + ref_locations[i], refs[i] };
+      references.push_back(ref);
+    }
     code.insert(code.end(), bytes, bytes + num_bytes);
   }
 
   std::vector<uint8> code;
+  std::vector<Reference> references;
 };
 
 class AssemblerTest : public testing::Test {
@@ -449,6 +456,18 @@ TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {
   EXPECT_BYTES(0x89, 0x9C, 0xC1, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
+TEST_F(AssemblerTest, MovImmToRegisterDisplacementScaleIndirect) {
+  DisplacementImpl cafebabe(0xCAFEBABE, kSize32Bit, NULL);
+  ImmediateImpl deadbeef(0xDEADBEEF, kSize32Bit, NULL);
+
+  // We expect the operand encoding has been adequately tested elsewhere,
+  // so we only test one variant here.
+  asm_.mov(OperandImpl(ecx, eax, kTimes4, cafebabe), deadbeef);
+  EXPECT_BYTES(0xC7, 0x84, 0x81,
+               0xBE, 0xBA, 0xFE, 0xCA,
+               0xEF, 0xBE, 0xAD, 0xDE);
+}
+
 TEST_F(AssemblerTest, LeaRegisterIndirect) {
   // Indirect register only source modes.
   asm_.lea(ebx, OperandImpl(eax));
@@ -822,5 +841,34 @@ TEST_F(AssemblerTest, Loopne) {
   EXPECT_BYTES(0xE0, 0xFE);
 }
 
+TEST_F(AssemblerTest, References) {
+  // We arbitrarily use the MOV instruction to test reference propagation.
+  static const int ref1 = 1;
+  asm_.mov(eax, ImmediateImpl(0, kSize8Bit, &ref1));
+
+  static const int ref2 = 2;
+  asm_.mov(eax, OperandImpl(eax, ebx, kTimes4,
+                            DisplacementImpl(0, kSize32Bit, &ref2)));
+
+  static const int ref3 = 3;
+  static const int ref4 = 4;
+  asm_.mov(OperandImpl(eax, ebx, kTimes4,
+                       DisplacementImpl(0, kSize32Bit, &ref3)),
+           ImmediateImpl(0, kSize32Bit, &ref4));
+
+  EXPECT_EQ(4, serializer_.references.size());
+
+  EXPECT_EQ(1, serializer_.references[0].location);
+  EXPECT_EQ(&ref1, serializer_.references[0].ref);
+
+  EXPECT_EQ(8, serializer_.references[1].location);
+  EXPECT_EQ(&ref2, serializer_.references[1].ref);
+
+  EXPECT_EQ(15, serializer_.references[2].location);
+  EXPECT_EQ(&ref3, serializer_.references[2].ref);
+
+  EXPECT_EQ(19, serializer_.references[3].location);
+  EXPECT_EQ(&ref4, serializer_.references[3].ref);
+}
 
 }  // namespace core
