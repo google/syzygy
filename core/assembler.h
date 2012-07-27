@@ -240,6 +240,7 @@ class AssemblerImpl {
   void mov(Register dst, const OperandImpl& src);
   void mov(const OperandImpl& dst, Register src);
   void mov(Register dst, const ImmediateImpl& src);
+  void mov(const OperandImpl& dst, const ImmediateImpl& src);
   // @}
 
   // @name load effective address.
