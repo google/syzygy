@@ -264,6 +264,25 @@ class TraceFileDumper : public ParseEventHandler {
               process_id, thread_id, thread_name.as_string().c_str());
   }
 
+  virtual void OnBasicBlockFrequency(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceBasicBlockFrequencyData* data) OVERRIDE {
+    DCHECK(data != NULL);
+    ::fprintf(file_,
+              "OnBasicBlockFrequency: process-id=%d; thread-id=%d;\n"
+              "    module-base-addr=0x%08X; module-base-size=%d\n"
+              "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
+              "    frequency-size=%d; basic-block-count=%d\n",
+              data->module_base_addr,
+              data->module_base_size,
+              data->module_checksum,
+              data->module_time_date_stamp,
+              data->frequency_size,
+              data->basic_block_count);
+  }
+
  private:
   FILE* file_;
   const char* indentation_;

@@ -65,6 +65,11 @@ class MockParseEventHandler : public trace::parser::ParseEventHandler {
                                   DWORD process_id,
                                   DWORD thread_id,
                                   const base::StringPiece& thread_name));
+  MOCK_METHOD4(OnBasicBlockFrequency,
+               void(base::Time time,
+                    DWORD process_id,
+                    DWORD thread_id,
+                    const TraceBasicBlockFrequencyData* data));
 };
 
 typedef testing::StrictMock<MockParseEventHandler> StrictMockParseEventHandler;
