@@ -130,5 +130,72 @@ bool Parser::SetActiveParseEngine(const FilePath& trace_file_path) {
   return false;
 }
 
+void ParseEventHandlerImpl::OnProcessStarted(base::Time time,
+                                             DWORD process_id,
+                                             const TraceSystemInfo* data) {
+}
+
+void ParseEventHandlerImpl::OnProcessEnded(base::Time time, DWORD process_id) {
+}
+
+void ParseEventHandlerImpl::OnFunctionEntry(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceEnterExitEventData* data) {
+}
+
+void ParseEventHandlerImpl::OnFunctionExit(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceEnterExitEventData* data) {
+}
+
+void ParseEventHandlerImpl::OnBatchFunctionEntry(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceBatchEnterData* data) {
+}
+
+void ParseEventHandlerImpl::OnProcessAttach(base::Time time,
+                                            DWORD process_id,
+                                            DWORD thread_id,
+                                            const TraceModuleData* data) {
+}
+
+void ParseEventHandlerImpl::OnProcessDetach(base::Time time,
+                                            DWORD process_id,
+                                            DWORD thread_id,
+                                            const TraceModuleData* data) {
+}
+
+void ParseEventHandlerImpl::OnThreadAttach(base::Time time,
+                                           DWORD process_id,
+                                           DWORD thread_id,
+                                           const TraceModuleData* data) {
+}
+
+void ParseEventHandlerImpl::OnThreadDetach(base::Time time,
+                                           DWORD process_id,
+                                           DWORD thread_id,
+                                           const TraceModuleData* data) {
+}
+
+void ParseEventHandlerImpl::OnInvocationBatch(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    size_t num_invocations,
+    const TraceBatchInvocationInfo* data) {
+}
+
+void ParseEventHandlerImpl::OnThreadName(base::Time time,
+                                         DWORD process_id,
+                                         DWORD thread_id,
+                                         const base::StringPiece& thread_name) {
+}
+
 }  // namespace trace::parser
 }  // namespace trace

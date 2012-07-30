@@ -27,7 +27,7 @@ namespace simulate {
 
 // This class consumes a set of call-trace logs and reports the number of
 // pagefaults on them.
-class Simulator : public trace::parser::ParseEventHandler {
+class Simulator : public trace::parser::ParseEventHandlerImpl {
  public:
   typedef playback::Playback Playback;
   typedef Playback::TraceFileList TraceFileList;
@@ -53,41 +53,17 @@ class Simulator : public trace::parser::ParseEventHandler {
   typedef pe::ImageLayout ImageLayout;
   typedef trace::parser::Parser Parser;
 
-  // @name ParseEventHandler implementation.
+  // @name ParseEventHandler overrides.
   // @{
-  // The implementation for these functions is provided in here so that
-  // derived classes of Simulator only need to reimplement the ones they use.
   virtual void OnProcessStarted(
       base::Time time, DWORD process_id,
       const TraceSystemInfo* data) OVERRIDE;
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
   virtual void OnFunctionEntry(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceEnterExitEventData* data) OVERRIDE;
-  virtual void OnFunctionExit(
       base::Time time, DWORD process_id, DWORD thread_id,
       const TraceEnterExitEventData* data) OVERRIDE;
   virtual void OnBatchFunctionEntry(
       base::Time time, DWORD process_id, DWORD thread_id,
       const TraceBatchEnterData* data) OVERRIDE;
-  virtual void OnProcessAttach(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE;
-  virtual void OnProcessDetach(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE;
-  virtual void OnThreadAttach(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE;
-  virtual void OnThreadDetach(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceModuleData* data) OVERRIDE;
-  virtual void OnInvocationBatch(
-      base::Time time, DWORD process_id, DWORD thread_id, size_t num_batches,
-      const TraceBatchInvocationInfo* data) OVERRIDE;
-  virtual void OnThreadName(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const base::StringPiece& thread_name) OVERRIDE;
   // @}
 
   // The input files.

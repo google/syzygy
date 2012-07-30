@@ -152,13 +152,6 @@ bool Reorderer::CalculateReordering(Order* order) {
   return true;
 }
 
-void Reorderer::OnProcessStarted(base::Time time,
-                                 DWORD process_id,
-                                 const TraceSystemInfo* data) {
-  // We ignore these events and infer/pretend that a process we're interested
-  // in has started when it begins to generate trace events.
-}
-
 void Reorderer::OnProcessEnded(base::Time time, DWORD process_id) {
   // Notify the order generator.
   if (!order_generator_->OnProcessEnded(process_id, UniqueTime(time))) {
@@ -212,13 +205,6 @@ void Reorderer::OnFunctionEntry(base::Time time,
   }
 }
 
-void Reorderer::OnFunctionExit(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceEnterExitEventData* data) {
-  // We currently don't care about TraceExit events.
-}
-
 void Reorderer::OnBatchFunctionEntry(base::Time time,
                                      DWORD process_id,
                                      DWORD thread_id,
@@ -229,49 +215,6 @@ void Reorderer::OnBatchFunctionEntry(base::Time time,
     new_data.function = data->calls[i].function;
     OnFunctionEntry(time, process_id, thread_id, &new_data);
   }
-}
-
-void Reorderer::OnProcessAttach(base::Time time,
-                                DWORD process_id,
-                                DWORD thread_id,
-                                const TraceModuleData* data) {
-  // We don't do anything with these events.
-}
-
-void Reorderer::OnProcessDetach(base::Time time,
-                                DWORD process_id,
-                                DWORD thread_id,
-                                const TraceModuleData* data) {
-  // We don't do anything with these events.
-}
-
-void Reorderer::OnThreadAttach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) {
-  // We don't do anything with these events.
-}
-
-void Reorderer::OnThreadDetach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) {
-  // We don't do anything with these events.
-}
-
-void Reorderer::OnInvocationBatch(base::Time time,
-                                  DWORD process_id,
-                                  DWORD thread_id,
-                                  size_t num_batches,
-                                  const TraceBatchInvocationInfo* data) {
-  // We don't do anything with these events.
-}
-
-void Reorderer::OnThreadName(base::Time time,
-                             DWORD process_id,
-                             DWORD thread_id,
-                             const base::StringPiece& thread_name) {
-  // We don't do anything with these events.
 }
 
 bool Reorderer::Order::SerializeToJSON(const PEFile& pe,

@@ -63,6 +63,7 @@
         'parse_engine_rpc_unittest.cc',
         'parse_engine_unittest.cc',
         'parse_utils_unittest.cc',
+        'parser_unittest.cc',
         'unittests_main.cc',
       ],
       'dependencies': [

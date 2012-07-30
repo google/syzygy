@@ -63,7 +63,7 @@ typedef uint32 RVA;
 //
 // For information on the KCacheGrind file format, see:
 // http://kcachegrind.sourceforge.net/cgi-bin/show.cgi/KcacheGrindCalltreeFormat
-class Grinder : public trace::parser::ParseEventHandler {
+class Grinder : public trace::parser::ParseEventHandlerImpl {
  public:
   typedef trace::parser::Parser Parser;
 
@@ -93,45 +93,14 @@ class Grinder : public trace::parser::ParseEventHandler {
   // @returns true on success, false on failure.
   bool OutputData(FILE* file);
 
-  // @name ParseEventHandler implementation.
+  // @name ParseEventHandler overrides.
   // @{
-  void OnProcessStarted(base::Time time,
-                        DWORD process_id,
-                        const TraceSystemInfo* data) OVERRIDE;
-  void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
-  void OnFunctionEntry(base::Time time,
-                       DWORD process_id,
-                       DWORD thread_id,
-                       const TraceEnterExitEventData* data) OVERRIDE;
-  void OnFunctionExit(base::Time time,
-                      DWORD process_id,
-                      DWORD thread_id,
-                      const TraceEnterExitEventData* data) OVERRIDE;
-  void OnBatchFunctionEntry(base::Time time,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            const TraceBatchEnterData* data) OVERRIDE;
-  void OnProcessAttach(base::Time time,
-                       DWORD process_id,
-                       DWORD thread_id,
-                       const TraceModuleData* data) OVERRIDE;
-  void OnProcessDetach(base::Time time,
-                       DWORD process_id,
-                       DWORD thread_id,
-                       const TraceModuleData* data) OVERRIDE;
-  void OnThreadAttach(base::Time time,
-                      DWORD process_id,
-                      DWORD thread_id,
-                      const TraceModuleData* data) OVERRIDE;
-  void OnThreadDetach(base::Time time,
-                      DWORD process_id,
-                      DWORD thread_id,
-                      const TraceModuleData* data) OVERRIDE;
-  void OnInvocationBatch(base::Time time,
-                         DWORD process_id,
-                         DWORD thread_id,
-                         size_t num_invocations,
-                         const TraceBatchInvocationInfo* data) OVERRIDE;
+  virtual void OnInvocationBatch(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      size_t num_invocations,
+      const TraceBatchInvocationInfo* data) OVERRIDE;
   virtual void OnThreadName(base::Time time,
                             DWORD process_id,
                             DWORD thread_id,
