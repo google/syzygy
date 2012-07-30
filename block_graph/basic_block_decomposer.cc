@@ -136,7 +136,6 @@ void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
   // referenced code locations. This covers all locations which are
   // externally referenced, as well as those that are internally referenced
   // via a branching instruction or jump table.
-  DCHECK(!block_->labels().empty());
   BlockGraph::Block::ReferrerSet::const_iterator ref_iter =
       block_->referrers().begin();
   for (; ref_iter != block_->referrers().end(); ++ref_iter) {
@@ -148,11 +147,17 @@ void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
     DCHECK_LT(static_cast<size_t>(ref.base()), block_->size());
     DCHECK_EQ(ref.base(), ref.offset());
 
+    // Look for the first label past the reference. Back up if we can to the
+    // previous label.
     BlockGraph::Block::LabelMap::const_iterator label_iter =
         block_->labels().upper_bound(ref.base());
-    DCHECK(label_iter != block_->labels().begin());
-    --label_iter;
-    if (!label_iter->second.has_attributes(BlockGraph::DATA_LABEL)) {
+    if (label_iter != block_->labels().begin())
+      --label_iter;
+
+    // If there is no previous label, or it is not a data label, then this is
+    // a safe jump target.
+    if (label_iter == block_->labels().end() ||
+        !label_iter->second.has_attributes(BlockGraph::DATA_LABEL)) {
       AbsoluteAddress addr(code_addr_ + ref.base());
       Unvisited(addr);
       jump_targets_.insert(addr);
