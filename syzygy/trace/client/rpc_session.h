@@ -42,6 +42,7 @@ class RpcSession {
   // by the call-trace client.
   bool CreateSession(TraceFileSegment* segment);
   bool AllocateBuffer(TraceFileSegment* segment);
+  bool AllocateBuffer(size_t min_size, TraceFileSegment* segment);
   bool ExchangeBuffer(TraceFileSegment* segment);
   bool ReturnBuffer(TraceFileSegment* segment);
   bool CloseSession();
