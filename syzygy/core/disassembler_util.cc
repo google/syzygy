@@ -116,14 +116,11 @@ bool IsImplicitControlFlow(const _DInst& instruction) {
   if (fc == FC_RET || fc == FC_SYS) {
     // Control flow jumps implicitly out of the block.
     return true;
-  } else if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH) {
-    uint8 type = instruction.ops[0].type;
-    if (type == O_REG || type == O_MEM ||
-        type == O_SMEM || type == O_DISP) {
-        // There is an explicit branch, but the target is computed, stored
-        // in a register, or indirect. We don't follow those.
-        return true;
-    }
+  } else if (fc == FC_UNC_BRANCH && instruction.ops[0].type != O_PC) {
+    // There is an explicit branch but the target is not explicitly given as
+    // a PC relative value (i.e., the target is computed, stored in a register,
+    // stored in a memory location, or otherwise indirect).
+    return true;
   }
   return false;
 }
