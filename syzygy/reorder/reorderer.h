@@ -47,7 +47,7 @@ typedef uint64 Size64;
 
 // This class can consume a set of call-trace logs captured for a PE image
 // while driving an OrderGenerator instance to produce an ordering file.
-class Reorderer : public trace::parser::ParseEventHandler {
+class Reorderer : public trace::parser::ParseEventHandlerImpl {
  public:
   typedef trace::parser::Parser Parser;
   typedef pe::ImageLayout ImageLayout;
@@ -114,49 +114,17 @@ class Reorderer : public trace::parser::ParseEventHandler {
   // Calculates the actual reordering.
   bool CalculateReordering(Order* order);
 
-  // @name ParseEventHandler Implementation
+  // @name ParseEventHandler overrides.
   // @{
-  virtual void OnProcessStarted(base::Time time,
-                                DWORD process_id,
-                                const TraceSystemInfo* data) OVERRIDE;
   virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
   virtual void OnFunctionEntry(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
                                const TraceEnterExitEventData* data) OVERRIDE;
-  virtual void OnFunctionExit(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceEnterExitEventData* data) OVERRIDE;
   virtual void OnBatchFunctionEntry(base::Time time,
                                     DWORD process_id,
                                     DWORD thread_id,
                                     const TraceBatchEnterData* data) OVERRIDE;
-  virtual void OnProcessAttach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) OVERRIDE;
-  virtual void OnProcessDetach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) OVERRIDE;
-  virtual void OnThreadAttach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) OVERRIDE;
-  virtual void OnThreadDetach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) OVERRIDE;
-  virtual void OnInvocationBatch(base::Time time,
-                                 DWORD process_id,
-                                 DWORD thread_id,
-                                 size_t num_batches,
-                                 const TraceBatchInvocationInfo* data) OVERRIDE;
-  virtual void OnThreadName(base::Time time,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            const base::StringPiece& thread_name) OVERRIDE;
   // @}
 
   // A playback, which will decompose the image for us.

@@ -490,65 +490,6 @@ bool Grinder::OutputDataForPart(const PartData& part, FILE* file) {
   return true;
 }
 
-void Grinder::OnProcessStarted(base::Time time,
-                               DWORD process_id,
-                               const TraceSystemInfo* data) {
-  // Ignored.
-}
-
-void Grinder::OnProcessEnded(base::Time time, DWORD process_id) {
-  // Ignored.
-}
-
-void Grinder::OnFunctionEntry(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceEnterExitEventData* data) {
-  // Ignored.
-}
-
-void Grinder::OnFunctionExit(base::Time time,
-                             DWORD process_id,
-                             DWORD thread_id,
-                             const TraceEnterExitEventData* data) {
-  // Ignored.
-}
-
-void Grinder::OnBatchFunctionEntry(base::Time time,
-                                   DWORD process_id,
-                                   DWORD thread_id,
-                                   const TraceBatchEnterData* data) {
-  // Ignored.
-}
-
-void Grinder::OnProcessAttach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) {
-  // Ignored.
-}
-
-void Grinder::OnProcessDetach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) {
-  // Ignored.
-}
-
-void Grinder::OnThreadAttach(base::Time time,
-                             DWORD process_id,
-                             DWORD thread_id,
-                             const TraceModuleData* data) {
-  // Ignored.
-}
-
-void Grinder::OnThreadDetach(base::Time time,
-                             DWORD process_id,
-                             DWORD thread_id,
-                             const TraceModuleData* data) {
-  // Ignored.
-}
-
 void Grinder::OnInvocationBatch(base::Time time,
                                 DWORD process_id,
                                 DWORD thread_id,

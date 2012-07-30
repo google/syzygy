@@ -113,49 +113,4 @@ void Simulator::OnBatchFunctionEntry(base::Time time,
   }
 }
 
-void Simulator::OnProcessEnded(base::Time time, DWORD process_id) {
-}
-
-void Simulator::OnFunctionExit(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceEnterExitEventData* data) {
-}
-
-void Simulator::OnProcessAttach(base::Time time,
-                                DWORD process_id,
-                                DWORD thread_id,
-                                const TraceModuleData* data) {
-}
-
-void Simulator::OnProcessDetach(base::Time time, DWORD process_id,
-                                DWORD thread_id,
-                                const TraceModuleData* data) {
-}
-
-void Simulator::OnThreadAttach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) {
-}
-
-void Simulator::OnThreadDetach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) {
-}
-
-void Simulator::OnInvocationBatch(base::Time time,
-                                  DWORD process_id,
-                                  DWORD thread_id,
-                                  size_t num_batches,
-                                  const TraceBatchInvocationInfo* data) {
-}
-
-void Simulator::OnThreadName(base::Time time,
-                             DWORD process_id,
-                             DWORD thread_id,
-                             const base::StringPiece& thread_name) {
-}
-
 } // namespace simulate
