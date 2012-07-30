@@ -213,14 +213,6 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
       return true;
   }
 
-  if (!instrument_unsafe_references_ &&
-      IsUnsafeReference(referrer.first, ref)) {
-    LOG(INFO) << "Skipping reference between unsafe block pair '"
-              << referrer.first->name() << "' and '"
-              << block->name() << "'";
-    return true;
-  }
-
   // See whether this is one of the special entrypoints.
   EntryPointSet::const_iterator entry_it(dllmain_entrypoints_.find(
       std::make_pair(ref.referenced(), ref.offset())));
@@ -230,6 +222,14 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
   // skip it.
   if (only_instrument_module_entry_ && !is_dllmain_entry)
     return true;
+
+  if (!instrument_unsafe_references_ &&
+      IsUnsafeReference(referrer.first, ref)) {
+    LOG(INFO) << "Skipping reference between unsafe block pair '"
+              << referrer.first->name() << "' and '"
+              << block->name() << "'";
+    return true;
+  }
 
   // Look for the reference in the thunk block map, and only create a new one
   // if it does not already exist.
