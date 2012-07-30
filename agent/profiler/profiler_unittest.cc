@@ -30,6 +30,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
+#include "syzygy/trace/parse/unittest_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
@@ -71,7 +72,7 @@ using agent::common::ModuleVector;
 using file_util::FileEnumerator;
 using testing::_;
 using testing::Return;
-using testing::StrictMock;
+using testing::StrictMockParseEventHandler;
 using trace::service::RpcServiceInstanceManager;
 using trace::service::TraceFileWriterFactory;
 using trace::service::Service;
@@ -111,51 +112,6 @@ typedef uintptr_t (__cdecl *ResolveReturnAddressLocationFunc)(
 MATCHER_P(ModuleAtAddress, module, "") {
   return arg->module_base_addr == module;
 }
-
-class MockParseEventHandler : public ParseEventHandler {
- public:
-  MOCK_METHOD3(OnProcessStarted, void (base::Time time,
-                                       DWORD process_id,
-                                       const TraceSystemInfo* data));
-  MOCK_METHOD2(OnProcessEnded, void (base::Time time, DWORD process_id));
-  MOCK_METHOD4(OnFunctionEntry, void (base::Time time,
-                                      DWORD process_id,
-                                      DWORD thread_id,
-                                      const TraceEnterExitEventData* data));
-  MOCK_METHOD4(OnFunctionExit, void (base::Time time,
-                                     DWORD process_id,
-                                     DWORD thread_id,
-                                     const TraceEnterExitEventData* data));
-  MOCK_METHOD4(OnBatchFunctionEntry, void (base::Time time,
-                                           DWORD process_id,
-                                           DWORD thread_id,
-                                           const TraceBatchEnterData* data));
-  MOCK_METHOD4(OnProcessAttach, void (base::Time time,
-                                      DWORD process_id,
-                                      DWORD thread_id,
-                                      const TraceModuleData* data));
-  MOCK_METHOD4(OnProcessDetach, void (base::Time time,
-                                      DWORD process_id,
-                                      DWORD thread_id,
-                                      const TraceModuleData* data));
-  MOCK_METHOD4(OnThreadAttach, void (base::Time time,
-                                     DWORD process_id,
-                                     DWORD thread_id,
-                                     const TraceModuleData* data));
-  MOCK_METHOD4(OnThreadDetach, void (base::Time time,
-                                     DWORD process_id,
-                                     DWORD thread_id,
-                                     const TraceModuleData* data));
-  MOCK_METHOD5(OnInvocationBatch, void (base::Time time,
-                                        DWORD process_id,
-                                        DWORD thread_id,
-                                        size_t num_batches,
-                                        const TraceBatchInvocationInfo* data));
-  MOCK_METHOD4(OnThreadName, void (base::Time time,
-                                   DWORD process_id,
-                                   DWORD thread_id,
-                                   const base::StringPiece& thread_name));
-};
 
 // TODO(rogerm): Create a base fixture (perhaps templatized) to factor out
 //     the common bits of testing various clients with the call trace service.
@@ -262,7 +218,7 @@ class ProfilerTest : public testing::Test {
   ScopedTempDir temp_dir_;
 
   // The handler to which the trace file parser will delegate events.
-  StrictMock<MockParseEventHandler> handler_;
+  StrictMockParseEventHandler handler_;
 
   // The address resolution function exported from the profiler dll.
   ResolveReturnAddressLocationFunc resolution_func_;

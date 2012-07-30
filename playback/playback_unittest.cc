@@ -23,6 +23,7 @@
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/parse/unittest_util.h"
 
 namespace playback {
 
@@ -32,35 +33,8 @@ using testing::_;
 using testing::GetSrcRelativePath;
 using testing::GetExeRelativePath;
 using testing::GetExeTestDataRelativePath;
+using testing::MockParseEventHandler;
 using testing::Return;
-
-using trace::parser::ParseEventHandler;
-
-class MockParseEventHandler : public testing::StrictMock<ParseEventHandler> {
- public:
-  MOCK_METHOD3(OnProcessStarted, void(base::Time,
-                                      DWORD,
-                                      const TraceSystemInfo*));
-  MOCK_METHOD2(OnProcessEnded, void(base::Time, DWORD));
-  MOCK_METHOD4(OnFunctionEntry, void(base::Time, DWORD, DWORD,
-               const TraceEnterExitEventData*));
-  MOCK_METHOD4(OnFunctionExit, void(base::Time, DWORD, DWORD,
-               const TraceEnterExitEventData*));
-  MOCK_METHOD4(OnBatchFunctionEntry, void(base::Time, DWORD, DWORD,
-               const TraceBatchEnterData*));
-  MOCK_METHOD4(OnProcessAttach, void(base::Time, DWORD, DWORD,
-               const TraceModuleData*));
-  MOCK_METHOD4(OnProcessDetach, void(base::Time, DWORD, DWORD,
-               const TraceModuleData*));
-  MOCK_METHOD4(OnThreadAttach, void(base::Time, DWORD, DWORD,
-               const TraceModuleData*));
-  MOCK_METHOD4(OnThreadDetach, void(base::Time, DWORD, DWORD,
-               const TraceModuleData*));
-  MOCK_METHOD5(OnInvocationBatch, void(base::Time, DWORD, DWORD,
-               size_t, const TraceBatchInvocationInfo*));
-  MOCK_METHOD4(OnThreadName, void(base::Time, DWORD, DWORD,
-               const base::StringPiece&));
-};
 
 class PlaybackTest : public testing::PELibUnitTest {
  public:
