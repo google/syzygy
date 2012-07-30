@@ -128,6 +128,32 @@ bool RpcSession::AllocateBuffer(TraceFileSegment* segment) {
   return succeeded ? MapSegmentBuffer(segment) : false;
 }
 
+bool RpcSession::AllocateBuffer(size_t min_size, TraceFileSegment* segment) {
+  DCHECK(IsTracing());
+  DCHECK(segment != NULL);
+
+  // We want the actual buffer to have the provided minimum size. The call is
+  // going to prepend the buffer with a RecordPrefix and a
+  // TraceFileSegmentHeader, so we make room for those.
+  const size_t kHeaderSize = sizeof(RecordPrefix) +
+      sizeof(TraceFileSegmentHeader);
+
+  bool succeeded = InvokeRpc(CallTraceClient_AllocateLargeBuffer,
+                             session_handle_,
+                             min_size + kHeaderSize,
+                             &segment->buffer_info).succeeded();
+  if (!succeeded)
+    return false;
+
+  if (!MapSegmentBuffer(segment))
+    return false;
+
+  // We want to make sure the mapped buffer has sufficient size.
+  DCHECK(segment->CanAllocateRaw(min_size));
+
+  return true;
+}
+
 bool RpcSession::ExchangeBuffer(TraceFileSegment* segment) {
   DCHECK(IsTracing());
   DCHECK(segment != NULL);
