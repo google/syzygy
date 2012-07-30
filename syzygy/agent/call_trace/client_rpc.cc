@@ -29,6 +29,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
@@ -36,6 +37,7 @@
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 using agent::client::Client;
+using agent::common::ScopedLastErrorKeeper;
 
 namespace {
 
@@ -54,19 +56,6 @@ void CopyArguments(ArgumentWord *dst, const ArgumentWord *src, size_t num) {
   } __except(EXCEPTION_EXECUTE_HANDLER) {
   }
 }
-
-// Helper structure to capture and restore the current threads last win32
-// error-code value.
-struct ScopedLastErrorKeeper {
-  ScopedLastErrorKeeper() : last_error(::GetLastError()) {
-  }
-
-  ~ScopedLastErrorKeeper() {
-    ::SetLastError(last_error);
-  }
-
-  DWORD last_error;
-};
 
 }  // namespace
 
@@ -204,7 +193,7 @@ BOOL Client::DllMain(HMODULE /* module */,
     case DLL_PROCESS_ATTACH:
       // Initialize logging ASAP.
       CommandLine::Init(0, NULL);
-      common::InitLoggingForDll(L"call_trace");
+      ::common::InitLoggingForDll(L"call_trace");
       break;
 
     case DLL_THREAD_ATTACH:
@@ -329,7 +318,7 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
   }
   FilePath device_path(module_name);
   FilePath drive_path;
-  if (!common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
+  if (!::common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
     LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
   }
   ::wcsncpy(module_event->module_name, drive_path.value().c_str(),

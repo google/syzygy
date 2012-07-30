@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_AGENT_PROFILER_SCOPED_LAST_ERROR_KEEPER_H_
-#define SYZYGY_AGENT_PROFILER_SCOPED_LAST_ERROR_KEEPER_H_
+#ifndef SYZYGY_AGENT_COMMON_SCOPED_LAST_ERROR_KEEPER_H_
+#define SYZYGY_AGENT_COMMON_SCOPED_LAST_ERROR_KEEPER_H_
+
+namespace agent {
+namespace common {
 
 // Helper structure to capture and restore the current thread's last win32
 // error-code value.
-// TODO(siggi): Move more central.
 struct ScopedLastErrorKeeper {
   ScopedLastErrorKeeper() : last_error(::GetLastError()) {
   }
@@ -29,4 +31,7 @@ struct ScopedLastErrorKeeper {
   DWORD last_error;
 };
 
-#endif  // SYZYGY_AGENT_PROFILER_SCOPED_LAST_ERROR_KEEPER_H_
+}  // namespace common
+}  // namespace agent
+
+#endif  // SYZYGY_AGENT_COMMON_SCOPED_LAST_ERROR_KEEPER_H_
