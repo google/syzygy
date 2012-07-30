@@ -137,9 +137,13 @@ class Solution(object):
       _LOGGER.info('Building %s in %s configuration', project_name, config)
       project = self._projects[project_name]
       builder = self._solution.SolutionBuild
-      builder.SolutionConfigurations(config).Activate()
-      builder.BuildProject(config, project.FullName, True)
-      num_errors = builder.LastBuildInfo
+      saved_config = self._GetActiveConfiguration(project)
+      try:
+        builder.SolutionConfigurations(config).Activate()
+        builder.BuildProject(config, project.FullName, True)
+        num_errors = builder.LastBuildInfo
+      finally:
+        builder.SolutionConfigurations(saved_config).Activate()
     except pywintypes.com_error:  # pylint: disable=E1101
       _LOGGER.error('Failed to build "%s" in %s configuration.',
                     project, config)
@@ -192,6 +196,14 @@ class Solution(object):
         self._LoadProjectsFromItem(item.SubProject, indent, output)
     elif item.Kind == _FOLDER_GUID:
       self._LoadProjectsFromItems(item.ProjectItems, indent, output)
+
+  @staticmethod
+  def _GetActiveConfiguration(project):
+    # For some reason, stringing these property accesses into a single
+    # expression does not work. They need to be on separate lines.
+    cm = project.ConfigurationManager
+    ac = cm.ActiveConfiguration
+    return ac.ConfigurationName
 
 
 def BuildProjectConfig(solution_path, project_names, configs, show_ui=True):
