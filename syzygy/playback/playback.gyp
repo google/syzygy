@@ -53,6 +53,7 @@
         '<(DEPTH)/syzygy/test_data/test_data.gyp:randomized_test_dll',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_instrumented_test_dll',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_traces',
+        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittest_util',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest'
       ],

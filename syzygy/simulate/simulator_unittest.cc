@@ -31,7 +31,7 @@ using testing::AtLeast;
 using testing::GetExeTestDataRelativePath;
 using testing::Gt;
 
-class MockParseEventHandler : public SimulationEventHandler {
+class MockSimulationEventHandler : public SimulationEventHandler {
  public:
   MOCK_METHOD2(OnProcessStarted, void(base::Time time,
                                       size_t default_page_size));
@@ -74,7 +74,7 @@ class SimulatorTest : public testing::PELibUnitTest {
   FilePath module_path_;
   FilePath instrumented_path_;
   TraceFileList trace_files_;
-  testing::StrictMock<MockParseEventHandler> simulation_event_handler_;
+  testing::StrictMock<MockSimulationEventHandler> simulation_event_handler_;
 
   scoped_ptr<Simulator> simulator_;
 };

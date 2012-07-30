@@ -70,6 +70,7 @@
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:copy_test_dll',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_traces',
+        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittest_util',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
       ],

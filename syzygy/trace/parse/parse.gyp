@@ -57,6 +57,18 @@
       ],
     },
     {
+      'target_name': 'parse_unittest_util',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
+      ],
+    },
+    {
       'target_name': 'parse_unittests',
       'type': 'executable',
       'sources': [
@@ -68,6 +80,7 @@
       ],
       'dependencies': [
         'parse_lib',
+        'parse_unittest_util',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/sawbuck/common/common.gyp:common',

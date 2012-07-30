@@ -67,6 +67,7 @@
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittest_util',
         '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
         '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
