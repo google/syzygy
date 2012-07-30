@@ -29,6 +29,7 @@
         'entry_frame.h',
         'process_utils.cc',
         'process_utils.h',
+        'scoped_last_error_keeper.h',
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',

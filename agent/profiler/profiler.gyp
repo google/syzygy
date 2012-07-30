@@ -28,7 +28,6 @@
       'sources': [
         'return_thunk_factory.cc',
         'return_thunk_factory.h',
-        'scoped_last_error_keeper.h',
       ],
     },
     {

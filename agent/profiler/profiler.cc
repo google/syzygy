@@ -33,14 +33,16 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/common/dlist.h"
 #include "syzygy/agent/common/process_utils.h"
+#include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/agent/profiler/return_thunk_factory.h"
-#include "syzygy/agent/profiler/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace {
+
+using agent::common::ScopedLastErrorKeeper;
 
 // Our AtExit manager required by base.
 base::AtExitManager at_exit;
