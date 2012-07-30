@@ -192,6 +192,14 @@ class ParseEventHandler {
                             DWORD process_id,
                             DWORD thread_id,
                             const base::StringPiece& thread_name) = 0;
+
+  // Issued for basic-block frequency counts. Depending on the mode of
+  // instrumentation these may be per thread, per process, or per module.
+  virtual void OnBasicBlockFrequency(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceBasicBlockFrequencyData* data) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -199,71 +207,55 @@ class ParseEventHandler {
 // the events they are interested in.
 class ParseEventHandlerImpl : public ParseEventHandler {
  public:
-  // Issued for the first call-trace event occurring in an instrumented module.
-  // data may be NULL for parse engines in which it is unsupported or for
-  // processes for which it has not been recorded.
+  // @name ParseEventHandler implementation.
+  // @{
   virtual void OnProcessStarted(base::Time time,
                                 DWORD process_id,
                                 const TraceSystemInfo* data) OVERRIDE;
-
-  // Issued following the last call-trace event for the process given by
-  // @p process_id.
   virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
-
-  // Issued for non-batch function entry traces.
   virtual void OnFunctionEntry(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
                                const TraceEnterExitEventData* data) OVERRIDE;
-
-  // Issued for function exit traces.
   virtual void OnFunctionExit(base::Time time,
                               DWORD process_id,
                               DWORD thread_id,
                               const TraceEnterExitEventData* data) OVERRIDE;
-
-  // Issued for batch function entry traces.
   virtual void OnBatchFunctionEntry(base::Time time,
                                     DWORD process_id,
                                     DWORD thread_id,
                                     const TraceBatchEnterData* data) OVERRIDE;
-
-  // Issued for DLL_PROCESS_ATTACH on an instrumented module.
   virtual void OnProcessAttach(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
                                const TraceModuleData* data) OVERRIDE;
-
-  // Issued for DLL_PROCESS_DETACH on an instrumented module.
   virtual void OnProcessDetach(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
                                const TraceModuleData* data) OVERRIDE;
-
-  // Issued for DLL_THREAD_ATTACH on an instrumented module.
   virtual void OnThreadAttach(base::Time time,
                               DWORD process_id,
                               DWORD thread_id,
                               const TraceModuleData* data) OVERRIDE;
-
-  // Issued for DLL_THREAD_DETACH on an instrumented module.
   virtual void OnThreadDetach(base::Time time,
                               DWORD process_id,
                               DWORD thread_id,
                               const TraceModuleData* data) OVERRIDE;
-
-  // Issued for each batch of invocations on an instrumented module.
   virtual void OnInvocationBatch(base::Time time,
                                  DWORD process_id,
                                  DWORD thread_id,
                                  size_t num_invocations,
                                  const TraceBatchInvocationInfo* data) OVERRIDE;
-
-  // Issued for each thread name captured.
   virtual void OnThreadName(base::Time time,
                             DWORD process_id,
                             DWORD thread_id,
                             const base::StringPiece& thread_name) OVERRIDE;
+  virtual void OnBasicBlockFrequency(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceBasicBlockFrequencyData* data) OVERRIDE;
+  // @}
 };
 
 }  // namespace trace::parser

@@ -43,7 +43,7 @@ namespace service {
 namespace {
 
 using ::trace::parser::Parser;
-using ::trace::parser::ParseEventHandler;
+using ::trace::parser::ParseEventHandlerImpl;
 
 static const uint32 kConstantInThisModule = 0;
 
@@ -92,20 +92,12 @@ typedef std::multiset<Call> OrderedCalls;
 typedef OrderedCalls::iterator OrderedCallsIter;
 typedef std::list<ModuleEvent> ModuleEvents;
 
-class TestParseEventHandler : public ParseEventHandler {
+class TestParseEventHandler : public ParseEventHandlerImpl {
  public:
   TestParseEventHandler(): process_id_(::GetCurrentProcessId()) {
   }
 
   ~TestParseEventHandler() {
-  }
-
-  virtual void OnProcessStarted(base::Time time,
-                                DWORD process_id,
-                                const TraceSystemInfo* data) {
-  }
-
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) {
   }
 
   virtual void OnFunctionEntry(base::Time time,
@@ -189,6 +181,14 @@ class TestParseEventHandler : public ParseEventHandler {
                             DWORD process_id,
                             DWORD thread_id,
                             const base::StringPiece& thread_name) {
+    ADD_FAILURE() << "Unexpected event.";
+  }
+
+  virtual void OnBasicBlockFrequency(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceBasicBlockFrequencyData* data) {
     ADD_FAILURE() << "Unexpected event.";
   }
 

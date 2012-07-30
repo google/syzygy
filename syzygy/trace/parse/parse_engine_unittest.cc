@@ -28,7 +28,7 @@
 
 using trace::parser::Parser;
 using trace::parser::ParseEngine;
-using trace::parser::ParseEventHandler;
+using trace::parser::ParseEventHandlerImpl;
 using trace::parser::ModuleInformation;
 
 namespace {
@@ -39,7 +39,7 @@ typedef std::vector<TraceModuleData> ModuleSet;
 class ParseEngineUnitTest
     : public testing::Test,
       public ParseEngine,
-      public ParseEventHandler {
+      public ParseEventHandlerImpl {
  public:
   ParseEngineUnitTest() : ParseEngine("Test", true), expected_data(NULL) {
     set_event_handler(this);
@@ -151,16 +151,6 @@ class ParseEngineUnitTest
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     thread_detaches.push_back(*data);
   }
-
-  MOCK_METHOD5(OnInvocationBatch, void (base::Time time,
-                                        DWORD process_id,
-                                        DWORD thread_id,
-                                        size_t num_batches,
-                                        const TraceBatchInvocationInfo* data));
-  MOCK_METHOD4(OnThreadName, void (base::Time time,
-                                   DWORD process_id,
-                                   DWORD thread_id,
-                                   const base::StringPiece& thread_name));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;

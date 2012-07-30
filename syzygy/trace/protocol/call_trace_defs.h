@@ -80,6 +80,7 @@ enum TraceEventType {
   TRACE_BATCH_ENTER,
   TRACE_BATCH_INVOCATION,
   TRACE_THREAD_NAME,
+  TRACE_BASIC_BLOCK_FREQUENCY,
 };
 
 // All traces are emitted at this trace level.
@@ -326,6 +327,27 @@ struct TraceThreadNameInfo {
   // In fact as many as our enclosing record's size allows for,
   // zero terminated.
   char thread_name[1];
+};
+
+struct TraceBasicBlockFrequencyData {
+  enum { kTypeId = TRACE_BASIC_BLOCK_FREQUENCY };
+
+  // This is used to tie the data to a particular module, which has already
+  // been reported via a TraceModuleData struct.
+  ModuleAddr module_base_addr;
+  size_t module_base_size;
+  uint32 module_checksum;
+  uint32 module_time_date_stamp;
+
+  // The size of the frequency reports: 1, 2 or 4 bytes.
+  uint32 frequency_size;
+  // The number of basic blocks being reported. It is up to the instrumentation
+  // to output any other metadata that is required to map an index to a basic
+  // block address. (Typically, the OMAP data is sufficient for this.)
+  uint32 basic_block_count;
+
+  // In fact, there are frequency_size * basic_block_count bytes that follow.
+  uint8 frequency_data[1];
 };
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_
