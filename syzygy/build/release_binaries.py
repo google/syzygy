@@ -15,6 +15,7 @@
 
 import glob
 import logging
+import optparse
 import os
 import re
 import shutil
@@ -61,11 +62,24 @@ def _GetFileVersion(file_path):
 
 
 def main():
+  option_parser = optparse.OptionParser()
+  option_parser.add_option(
+      '--revision', type="int",
+      help=('The SVN revision associated with the release build. '
+            'If omitted, the SVN revision of the latest VERSION '
+            'file will be used.'))
+  options, args = option_parser.parse_args()
+  if args:
+    option_parser.error('Unexpected arguments: %s' % args)
+
   # Enable info logging.
   logging.basicConfig(level=logging.INFO)
 
   # Retrieve the VERSION file's SVN revision number.
-  revision = _GetFileVersion(_VERSION_FILE)
+  if options.revision is not None:
+    revision = options.revision
+  else:
+    revision = _GetFileVersion(_VERSION_FILE)
 
   # And build the corresponding archive URL.
   url = _SYZYGY_RELEASE_URL % { 'revision': revision }
