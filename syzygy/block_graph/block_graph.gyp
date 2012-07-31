@@ -28,6 +28,8 @@
       'sources': [
         'basic_block.cc',
         'basic_block.h',
+        'basic_block_assembler.cc',
+        'basic_block_assembler.h',
         'basic_block_decomposer.cc',
         'basic_block_decomposer.h',
         'basic_block_subgraph.cc',
@@ -75,6 +77,7 @@
       'target_name': 'block_graph_unittests',
       'type': 'executable',
       'sources': [
+        'basic_block_assembler_unittest.cc',
         'basic_block_decomposer_unittest.cc',
         'basic_block_unittest.cc',
         'basic_block_subgraph_unittest.cc',
