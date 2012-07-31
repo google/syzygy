@@ -26,6 +26,7 @@
       'dependencies': [
         'agent/call_trace/call_trace.gyp:*',
         'agent/common/common.gyp:*',
+        'agent/coverage/coverage.gyp:*',
         'agent/profiler/profiler.gyp:*',
         'block_graph/block_graph.gyp:*',
         'block_graph/transforms/block_graph_transforms.gyp:*',
