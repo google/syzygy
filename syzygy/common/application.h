@@ -90,7 +90,8 @@ class AppImplBase {
  public:
   // Initializes an application implementation with the standard IO streams.
   // Use the stream IO accessors to customize the IO streams.
-  AppImplBase();
+  // @param name the name of the application.
+  explicit AppImplBase(const base::StringPiece& name);
 
   // Parse the given command line in preparation for execution.
   bool ParseCommandLine(const CommandLine* command_line);
@@ -104,6 +105,9 @@ class AppImplBase {
 
   // A hook called just after Run().
   void TearDown();
+
+  // Get the application name.
+  const std::string& name() const { return name_; }
 
   // @name IO Stream Accessors
   // @{
@@ -133,6 +137,9 @@ class AppImplBase {
   static FilePath AbsolutePath(const FilePath& path);
 
  protected:
+  // The name of this application.
+  std::string name_;
+
   // @name Standard file streams.
   // @{
   FILE* in_;
@@ -154,7 +161,7 @@ enum AppLoggingFlag { INIT_LOGGING_NO, INIT_LOGGING_YES };
 template <typename Impl, AppLoggingFlag kInitLogging = INIT_LOGGING_YES>
 class Application {
  public:
-  // The application implementaiton class.
+  // The application implementation class.
   typedef typename Impl Implementation;
 
   // Initializes the application with the current processes command line and
@@ -177,6 +184,9 @@ class Application {
   }
   // @}
 
+  // Get the application name.
+  const std::string& name() const { return implementation_.name(); }
+
   // The main skeleton for actually running an application.
   // @returns the exit status for the application.
   int Run();
@@ -193,7 +203,7 @@ class Application {
   // @}
 
  protected:
-  // Initializes the logging sybsystem for this application. This includes
+  // Initializes the logging subsystem for this application. This includes
   // checking the command line for the --verbose[=level] flag and handling
   // it appropriately.
   bool InitializeLogging();

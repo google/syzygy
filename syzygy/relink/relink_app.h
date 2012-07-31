@@ -29,7 +29,8 @@ namespace relink {
 class RelinkApp : public common::AppImplBase {
  public:
   RelinkApp()
-      : seed_(0),
+      : AppImplBase("Relinker"),
+        seed_(0),
         padding_(0),
         augment_pdb_(false),
         compress_pdb_(false),

@@ -46,7 +46,7 @@ class DecomposeApp : public common::AppImplBase {
 
   // @name Implementation of the AppImplBase interface.
   // @{
-  DecomposeApp() : benchmark_load_(false) {
+  DecomposeApp() : common::AppImplBase("Decomposer"), benchmark_load_(false) {
   }
 
   bool ParseCommandLine(const CommandLine* command_line);

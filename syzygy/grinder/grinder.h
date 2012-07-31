@@ -274,6 +274,8 @@ struct InvocationEdge {
 // profiler trace files.
 class GrinderApp : public common::AppImplBase {
  public:
+  GrinderApp();
+
   // @name Implementation of the AppImplbase interface.
   // @{
   bool ParseCommandLine(const CommandLine* command_line);

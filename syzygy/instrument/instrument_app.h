@@ -39,7 +39,8 @@ class InstrumentApp : public common::AppImplBase {
   static const char InstrumentApp::kCallTraceClientDllRpc[];
 
   InstrumentApp()
-      : allow_overwrite_(false),
+      : common::AppImplBase("Instrumenter"),
+        allow_overwrite_(false),
         augment_pdb_(false),
         strip_strings_(false),
         debug_friendly_(false),
