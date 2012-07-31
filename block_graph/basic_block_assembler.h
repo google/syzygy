@@ -100,6 +100,12 @@ class BasicBlockAssembler {
   BasicBlockAssembler(const Instructions::iterator& where,
                       Instructions *list);
 
+  // @name Call instructions.
+  // @{
+  void call(const Immediate& dst);
+  void call(const Operand& dst);
+  // @}
+
   // @name mov in several varieties.
   // @{
   void mov(Register dst, Register src);
@@ -107,6 +113,19 @@ class BasicBlockAssembler {
   void mov(const Operand& dst, Register src);
   void mov(Register dst, const Immediate& src);
   void mov(const Operand& dst, const Immediate& src);
+  // @}
+
+  // @name load effective address.
+  void lea(Register dst, const Operand& src);
+
+  // @name stack manipulation.
+  // @{
+  void push(Register src);
+  void push(const Immediate& src);
+  void push(const Operand& src);
+
+  void pop(Register src);
+  void pop(const Operand& src);
   // @}
 
  private:

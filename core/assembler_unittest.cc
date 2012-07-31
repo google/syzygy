@@ -591,14 +591,6 @@ TEST_F(AssemblerTest, LeaRegisterDisplacementScaleIndirect) {
 }
 
 TEST_F(AssemblerTest, Push) {
-  // Immediate push.
-  asm_.push(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
-  EXPECT_BYTES(0x68, 0xBE, 0xBA, 0xFE, 0xCA);
-
-  // General push, try one variant as the rest are OperandImpl encodings.
-  asm_.push(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
-  EXPECT_BYTES(0xFF, 0x35, 0xBE, 0xBA, 0xFE, 0xCA);
-
   // Register push.
   asm_.push(eax);
   asm_.push(ecx);
@@ -609,6 +601,31 @@ TEST_F(AssemblerTest, Push) {
   asm_.push(esi);
   asm_.push(edi);
   EXPECT_BYTES(0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57);
+
+  // Immediate push.
+  asm_.push(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
+  EXPECT_BYTES(0x68, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // General push, try one variant as the rest are OperandImpl encodings.
+  asm_.push(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
+  EXPECT_BYTES(0xFF, 0x35, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, Pop) {
+  // Register pop.
+  asm_.pop(eax);
+  asm_.pop(ecx);
+  asm_.pop(edx);
+  asm_.pop(ebx);
+  asm_.pop(esp);
+  asm_.pop(ebp);
+  asm_.pop(esi);
+  asm_.pop(edi);
+  EXPECT_BYTES(0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F);
+
+  // General pop, try one variant as the rest are OperandImpl encodings.
+  asm_.pop(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
+  EXPECT_BYTES(0x8F, 0x05, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
 TEST_F(AssemblerTest, Ja) {

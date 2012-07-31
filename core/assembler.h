@@ -221,10 +221,14 @@ class AssemblerImpl {
   void set_location(uint32 location) { location_ = location; }
   // @}
 
-  // @name Control flow instructions.
+  // @name Call instructions.
   // @{
   void call(const ImmediateImpl& dst);
   void call(const OperandImpl& dst);
+  // @}
+
+  // @name Control flow instructions.
+  // @{
   void j(ConditionCode cc, const ImmediateImpl& dst);
   void jecxz(const ImmediateImpl& dst);
   void jmp(const ImmediateImpl& dst);
@@ -248,9 +252,12 @@ class AssemblerImpl {
 
   // @name stack manipulation.
   // @{
+  void push(Register src);
   void push(const ImmediateImpl& src);
   void push(const OperandImpl& src);
-  void push(Register src);
+
+  void pop(Register dst);
+  void pop(const OperandImpl& src);
   // @}
 
   // @name Aliases

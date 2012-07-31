@@ -259,7 +259,6 @@ AssemblerImpl::AssemblerImpl(uint32 location, InstructionSerializer* serializer)
 }
 
 void AssemblerImpl::call(const ImmediateImpl& dst) {
-  DCHECK_EQ(kSize32Bit, dst.size());
   InstructionBuffer instr;
 
   instr.EmitOpCodeByte(0xE8);
@@ -418,6 +417,14 @@ void AssemblerImpl::lea(Register dst, const OperandImpl& src) {
   Output(instr);
 }
 
+void AssemblerImpl::push(Register src) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0x50 | src.code());
+
+  Output(instr);
+}
+
 void AssemblerImpl::push(const ImmediateImpl& src) {
   DCHECK_EQ(kSize32Bit, src.size());
   InstructionBuffer instr;
@@ -437,13 +444,23 @@ void AssemblerImpl::push(const OperandImpl& dst) {
   Output(instr);
 }
 
-void AssemblerImpl::push(Register src) {
+void AssemblerImpl::pop(Register src) {
   InstructionBuffer instr;
 
-  instr.EmitOpCodeByte(0x50 | src.code());
+  instr.EmitOpCodeByte(0x58 | src.code());
 
   Output(instr);
 }
+
+void AssemblerImpl::pop(const OperandImpl& dst) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0x8F);
+  EncodeOperand(0, dst, &instr);
+
+  Output(instr);
+}
+
 
 void AssemblerImpl::Output(const InstructionBuffer& instr) {
   serializer_->AppendInstruction(location_,
