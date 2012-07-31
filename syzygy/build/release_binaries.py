@@ -107,7 +107,6 @@ def main():
   egg_file = glob.glob(os.path.join(_BINARIES_DIR, 'Benchmark_Chrome*.egg'))[0]
   archive = zipfile.ZipFile(egg_file, 'r')
   exes = filter(lambda path: path.startswith('exe'), archive.namelist())
-  print exes
   archive.extractall(_BINARIES_DIR, exes)
 
   # Add all the new files to the repo.
