@@ -41,7 +41,10 @@ class ParseEngineUnitTest
       public ParseEngine,
       public ParseEventHandlerImpl {
  public:
-  ParseEngineUnitTest() : ParseEngine("Test", true), expected_data(NULL) {
+  ParseEngineUnitTest()
+      : ParseEngine("Test", true),
+        basic_block_frequencies(0),
+        expected_data(NULL) {
     set_event_handler(this);
   }
 
@@ -152,11 +155,24 @@ class ParseEngineUnitTest
     thread_detaches.push_back(*data);
   }
 
+  virtual void OnBasicBlockFrequency(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceBasicBlockFrequencyData* data) {
+    ASSERT_EQ(process_id, kProcessId);
+    ASSERT_EQ(thread_id, kThreadId);
+    ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
+    ++basic_block_frequencies;
+  }
+
   static const DWORD kProcessId;
   static const DWORD kThreadId;
   static const ModuleInformation kExeInfo;
   static const ModuleInformation kDllInfo;
   static const TraceModuleData kModuleData;
+  static const TraceBasicBlockFrequencyData kBasicBlockFrequencyData;
+  static const TraceBasicBlockFrequencyData kShortBasicBlockFrequencyData;
 
   FunctionSet function_entries;
   FunctionSet function_exits;
@@ -164,6 +180,7 @@ class ParseEngineUnitTest
   ModuleSet process_detaches;
   ModuleSet thread_attaches;
   ModuleSet thread_detaches;
+  size_t basic_block_frequencies;
 
   const void* expected_data;
 };
@@ -185,6 +202,28 @@ const TraceModuleData ParseEngineUnitTest::kModuleData = {
     0x33333333,
     L"module",
     L"executable" };
+
+const TraceBasicBlockFrequencyData
+ParseEngineUnitTest::kBasicBlockFrequencyData = {
+    reinterpret_cast<ModuleAddr>(0x11111111),
+    0x22222222,
+    0x33333333,
+    0x44444444,
+    1,
+    1,
+    0 };
+
+// This basic-block frequency struct does not contain enough data for its
+// implicitly encoded length.
+const TraceBasicBlockFrequencyData
+ParseEngineUnitTest::kShortBasicBlockFrequencyData = {
+    reinterpret_cast<ModuleAddr>(0x11111111),
+    0x22222222,
+    0x33333333,
+    0x44444444,
+    4,
+    10,
+    0 };
 
 // A test function to show up in the trace events.
 void TestFunc1() {
@@ -511,6 +550,52 @@ TEST_F(ParseEngineUnitTest, ThreadDetach) {
   event_record.MofLength -= 1;
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, BasicBlockFrequencyTooSmallForHeader) {
+  EVENT_TRACE event_record = {};
+  event_record.Header.ProcessId = kProcessId;
+  event_record.Header.ThreadId = kThreadId;
+  event_record.Header.Guid = kCallTraceEventClass;
+  event_record.Header.Class.Type = TRACE_BASIC_BLOCK_FREQUENCY;
+  event_record.MofData = const_cast<TraceBasicBlockFrequencyData*>(
+      &kBasicBlockFrequencyData);
+  event_record.MofLength = sizeof(kBasicBlockFrequencyData) - 1;
+
+  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_TRUE(error_occurred());
+  ASSERT_EQ(basic_block_frequencies, 0);
+}
+
+TEST_F(ParseEngineUnitTest, BasicBlockFrequencyTooSmallForContents) {
+  EVENT_TRACE event_record = {};
+  event_record.Header.ProcessId = kProcessId;
+  event_record.Header.ThreadId = kThreadId;
+  event_record.Header.Guid = kCallTraceEventClass;
+  event_record.Header.Class.Type = TRACE_BASIC_BLOCK_FREQUENCY;
+  event_record.MofData = const_cast<TraceBasicBlockFrequencyData*>(
+      &kShortBasicBlockFrequencyData);
+  event_record.MofLength = sizeof(kShortBasicBlockFrequencyData);
+
+  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_TRUE(error_occurred());
+  ASSERT_EQ(basic_block_frequencies, 0);
+}
+
+TEST_F(ParseEngineUnitTest, BasicBlockFrequency) {
+  EVENT_TRACE event_record = {};
+  event_record.Header.ProcessId = kProcessId;
+  event_record.Header.ThreadId = kThreadId;
+  event_record.Header.Guid = kCallTraceEventClass;
+  event_record.Header.Class.Type = TRACE_BASIC_BLOCK_FREQUENCY;
+  event_record.MofData = const_cast<TraceBasicBlockFrequencyData*>(
+      &kBasicBlockFrequencyData);
+  event_record.MofLength = sizeof(kBasicBlockFrequencyData);
+  expected_data = &kBasicBlockFrequencyData;
+
+  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_FALSE(error_occurred());
+  ASSERT_EQ(basic_block_frequencies, 1);
 }
 
 }  // namespace

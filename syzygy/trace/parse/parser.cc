@@ -159,28 +159,32 @@ void ParseEventHandlerImpl::OnBatchFunctionEntry(
     const TraceBatchEnterData* data) {
 }
 
-void ParseEventHandlerImpl::OnProcessAttach(base::Time time,
-                                            DWORD process_id,
-                                            DWORD thread_id,
-                                            const TraceModuleData* data) {
+void ParseEventHandlerImpl::OnProcessAttach(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceModuleData* data) {
 }
 
-void ParseEventHandlerImpl::OnProcessDetach(base::Time time,
-                                            DWORD process_id,
-                                            DWORD thread_id,
-                                            const TraceModuleData* data) {
+void ParseEventHandlerImpl::OnProcessDetach(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceModuleData* data) {
 }
 
-void ParseEventHandlerImpl::OnThreadAttach(base::Time time,
-                                           DWORD process_id,
-                                           DWORD thread_id,
-                                           const TraceModuleData* data) {
+void ParseEventHandlerImpl::OnThreadAttach(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceModuleData* data) {
 }
 
-void ParseEventHandlerImpl::OnThreadDetach(base::Time time,
-                                           DWORD process_id,
-                                           DWORD thread_id,
-                                           const TraceModuleData* data) {
+void ParseEventHandlerImpl::OnThreadDetach(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceModuleData* data) {
 }
 
 void ParseEventHandlerImpl::OnInvocationBatch(
@@ -191,10 +195,11 @@ void ParseEventHandlerImpl::OnInvocationBatch(
     const TraceBatchInvocationInfo* data) {
 }
 
-void ParseEventHandlerImpl::OnThreadName(base::Time time,
-                                         DWORD process_id,
-                                         DWORD thread_id,
-                                         const base::StringPiece& thread_name) {
+void ParseEventHandlerImpl::OnThreadName(
+    base::Time time,
+    DWORD process_id,
+    DWORD thread_id,
+    const base::StringPiece& thread_name) {
 }
 
 void ParseEventHandlerImpl::OnBasicBlockFrequency(
