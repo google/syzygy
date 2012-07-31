@@ -30,9 +30,21 @@ using ::testing::_;
 
 namespace {
 
+const char kTestAppImplName[] = "Test Application (Unit Test)";
+
+// A test application that simply makes the AppImplBase concrete.
+class TestAppImpl : public AppImplBase {
+ public:
+  TestAppImpl() : AppImplBase(kTestAppImplName) {
+  }
+};
+
 // A mock application implementation class
 class MockAppImpl : public AppImplBase {
  public:
+  MockAppImpl() : AppImplBase("Mock Application (Unit Test)") {
+  }
+
   MOCK_METHOD1(ParseCommandLine, bool(const CommandLine*));
   MOCK_METHOD0(SetUp, bool());
   MOCK_METHOD0(Run, int());
@@ -40,7 +52,7 @@ class MockAppImpl : public AppImplBase {
 };
 
 // Handy types we'll use below.
-typedef Application<AppImplBase, INIT_LOGGING_YES> BaseApp;
+typedef Application<TestAppImpl, INIT_LOGGING_YES> TestApp;
 typedef Application<StrictMock<MockAppImpl>, INIT_LOGGING_NO> MockApp;
 
 // A basic test fixture that sets up dummy standard streams.
@@ -82,10 +94,9 @@ class ApplicationTest : public testing::ApplicationTestBase {
   }
 
   CommandLine cmd_line_;
-  BaseApp test_app_;
+  TestApp test_app_;
   MockApp mock_app_;
 };
-
 
 }  // namespace
 
@@ -95,6 +106,9 @@ TEST_F(ApplicationTest, AppImplBaseDefault) {
   // command line.
   const CommandLine* current_command_line = CommandLine::ForCurrentProcess();
   ASSERT_TRUE(current_command_line != NULL);
+
+  // Validate the application name.
+  EXPECT_EQ(kTestAppImplName, test_app_.name());
 
   // Check the default command line and streams.
   EXPECT_EQ(current_command_line, test_app_.command_line());

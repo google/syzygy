@@ -93,7 +93,8 @@ void HexDump(const uint8* data, size_t size, FILE* out) {
 
 
 DecomposeImageToTextApp::DecomposeImageToTextApp()
-    : dump_basic_blocks_(false),
+    : common::AppImplBase("Image To Text Decomposer"),
+      dump_basic_blocks_(false),
       num_refs_(0) {
 }
 

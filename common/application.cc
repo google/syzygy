@@ -22,8 +22,9 @@
 
 namespace common {
 
-AppImplBase::AppImplBase()
+AppImplBase::AppImplBase(const base::StringPiece& name)
     : in_(stdin), out_(stdout), err_(stderr) {
+  name_.assign(name.begin(), name.end());
 }
 
 bool AppImplBase::ParseCommandLine(const CommandLine* command_line) {

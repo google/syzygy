@@ -637,6 +637,9 @@ const char kUsageFormatStr[] =
 
 }  // namespace
 
+GrinderApp::GrinderApp() : common::AppImplBase("Grinder") {
+}
+
 void GrinderApp::PrintUsage(const FilePath& program,
                             const base::StringPiece& message) {
   if (!message.empty()) {

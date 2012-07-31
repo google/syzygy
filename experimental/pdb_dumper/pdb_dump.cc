@@ -206,7 +206,8 @@ const char kUsage[] =
 }  // namespace
 
 PdbDumpApp::PdbDumpApp()
-    : explode_streams_(false),
+    : common::AppImplBase("PDB Dumper"),
+      explode_streams_(false),
       dump_symbol_record_(false),
       dump_type_info_(false),
       dump_modules_(false) {
