@@ -23,6 +23,7 @@
       'dependencies': [
         '<(DEPTH)/syzygy/experimental/compare/compare.gyp:*',
         '<(DEPTH)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
+        '<(DEPTH)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
       ],
     },
   ]
