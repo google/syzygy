@@ -235,6 +235,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchThreadNameEvent(event);
       break;
 
+    case TRACE_BASIC_BLOCK_FREQUENCY:
+      success = DispatchBasicBlockFrequencyEvent(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -399,6 +403,42 @@ bool ParseEngine::DispatchThreadNameEvent(EVENT_TRACE* event) {
                                process_id,
                                thread_id,
                                base::StringPiece(thread_name, thread_name_len));
+
+  return true;
+}
+
+bool ParseEngine::DispatchBasicBlockFrequencyEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+  DCHECK(event_handler_ != NULL);
+  DCHECK(error_occurred_ == false);
+
+  if (event->MofLength < sizeof(TraceBasicBlockFrequencyData)) {
+    LOG(ERROR) << "Data too small for TraceBasicBlockFrequency struct.";
+    return false;
+  }
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceBasicBlockFrequencyData* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty coverage data event.";
+    return false;
+  }
+  DCHECK(data != NULL);
+
+  // Calculate the expected size of the entire payload, headers included.
+  size_t expected_length = data->frequency_size * data->basic_block_count +
+      sizeof(TraceBasicBlockFrequencyData) - 1;
+  if (event->MofLength < expected_length) {
+    LOG(ERROR) << "Payload smaller than size implied by "
+               << "TraceBasicBlockFrequencyData header.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
+  event_handler_->OnBasicBlockFrequency(time, process_id, thread_id, data);
 
   return true;
 }

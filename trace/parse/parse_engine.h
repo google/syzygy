@@ -192,6 +192,15 @@ class ParseEngine {
   //     true.
   bool DispatchThreadNameEvent(EVENT_TRACE* event);
 
+  // Parses and dispatches basic block frequency events.
+  //
+  // @param event the event to dispatch.
+  // @param type Must be TRACE_BASIC_BLOCK_FREQUENCY.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     Does not explicitly set error occurred.
+  bool DispatchBasicBlockFrequencyEvent(EVENT_TRACE* event);
+
   // The name by which this parse engine is known.
   std::string name_;
 
