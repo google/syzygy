@@ -93,6 +93,14 @@ BasicBlockAssembler::BasicBlockAssembler(const Instructions::iterator& where,
     : serializer_(where, list), asm_(0, &serializer_) {
 }
 
+void BasicBlockAssembler::call(const Immediate& dst) {
+  asm_.call(dst.value_);
+}
+
+void BasicBlockAssembler::call(const Operand& dst) {
+  asm_.call(dst.operand_);
+}
+
 void BasicBlockAssembler::mov(Register dst, Register src) {
   asm_.mov(dst, src);
 }
@@ -111,6 +119,30 @@ void BasicBlockAssembler::mov(Register dst, const Immediate& src) {
 
 void BasicBlockAssembler::mov(const Operand& dst, const Immediate& src) {
   asm_.mov(dst.operand_, src.value_);
+}
+
+void BasicBlockAssembler::lea(Register dst, const Operand& src) {
+  asm_.lea(dst, src.operand_);
+}
+
+void BasicBlockAssembler::push(Register src) {
+  asm_.push(src);
+}
+
+void BasicBlockAssembler::push(const Immediate& src) {
+  asm_.push(src.value_);
+}
+
+void BasicBlockAssembler::push(const Operand& src) {
+  asm_.push(src.operand_);
+}
+
+void BasicBlockAssembler::pop(Register src) {
+  asm_.pop(src);
+}
+
+void BasicBlockAssembler::pop(const Operand& src) {
+  asm_.pop(src.operand_);
 }
 
 }  // namespace block_graph
