@@ -295,10 +295,25 @@ class Instruction {
   // @param data A pointer to a buffer containing a machine executable
   //     encoding of the instruction. The buffer is expected to be @p size
   //     bytes long.
+  // @note @p data must have a lifetime that exceeds this instruction.
+  // TODO(rogerm): Retire this constructor along with the representation_
+  //     member.
   Instruction(const Representation& value,
               Offset offset,
               Size size,
               const uint8* data);
+
+  // Initialize an Instruction instance.
+  // @param size the length (in bytes) of @p data.
+  // @param data the data comprising the instruction.
+  // @note this instruction will copy @p data.
+  Instruction(Size size, const uint8* data);
+
+  // Copy constructor.
+  Instruction(const Instruction& other);
+
+  // Destructor.
+  ~Instruction();
 
   // Accessors.
   // @{
@@ -307,6 +322,7 @@ class Instruction {
   const BasicBlockReferenceMap& references() const { return references_; }
   BasicBlockReferenceMap& references() { return references_; }
   const uint8* data() const { return data_; }
+  bool owns_data() const { return owns_data_; }
   Offset offset() const { return offset_; }
   Size size() const { return size_; }
   /// @}
@@ -355,7 +371,8 @@ class Instruction {
   // @{
   Offset offset_;
   Size size_;
-  const uint8* const data_;
+  const uint8* data_;
+  bool owns_data_;
   // @}
 };
 

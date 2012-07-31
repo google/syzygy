@@ -138,6 +138,25 @@ const Successor::Offset BasicBlockTest::kOffset2(0x11223344);
 
 }  // namespace
 
+TEST_F(BasicBlockTest, InstructionConstructor) {
+  Instruction ret_instr(CreateRet());
+  ASSERT_FALSE(ret_instr.owns_data());
+
+  {
+    // This should not copy the data.
+    Instruction ret_temp(ret_instr);
+    ASSERT_FALSE(ret_temp.owns_data());
+    ASSERT_EQ(ret_instr.data(), ret_temp.data());
+  }
+
+  {
+    // Construction from data should make a copy of the data.
+    Instruction ret_temp(ret_instr.size(), ret_instr.data());
+    ASSERT_TRUE(ret_temp.owns_data());
+    ASSERT_NE(ret_instr.data(), ret_temp.data());
+  }
+}
+
 TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_EQ(kBlockId, basic_code_block_.id());
   EXPECT_EQ(kBasicBlockType, basic_code_block_.type());

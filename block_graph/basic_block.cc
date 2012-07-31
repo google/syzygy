@@ -69,6 +69,7 @@
 
 #include "base/stringprintf.h"
 #include "syzygy/core/assembler.h"
+#include "syzygy/core/disassembler_util.h"
 
 #include "mnemonics.h"  // NOLINT
 
@@ -277,11 +278,48 @@ Instruction::Instruction(const Instruction::Representation& value,
                          Offset offset,
                          Size size,
                          const uint8* data)
-    : representation_(value), offset_(offset), size_(size), data_(data) {
+    : representation_(value),
+      offset_(offset),
+      size_(size),
+      data_(data),
+      owns_data_(false) {
   DCHECK(data != NULL);
   DCHECK(offset == BasicBlock::kNoOffset || offset >= 0);
   DCHECK_LT(0U, size);
   DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
+}
+
+Instruction::Instruction(Size size, const uint8* data)
+    : offset_(0), size_(0), data_(NULL), owns_data_(false) {
+  DCHECK(data != NULL);
+  DCHECK_LT(0U, size);
+  DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
+
+  CHECK(core::DecodeOneInstruction(data, size, &representation_));
+
+  uint8* new_data = new uint8[size];
+  memcpy(new_data, data, size);
+  data_ = new_data;
+  size_ = size;
+  owns_data_ = true;
+}
+
+Instruction::Instruction(const Instruction& other)
+    : representation_(other.representation_),
+      offset_(other.offset_),
+      size_(other.size_),
+      data_(other.data_),
+      owns_data_(other.owns_data_) {
+  if (owns_data_) {
+    uint8* new_data = new uint8[size_];
+    memcpy(new_data, data_, size_);
+    data_ = new_data;
+  }
+}
+
+Instruction::~Instruction() {
+  if (owns_data_)
+    delete [] data_;
 }
 
 bool Instruction::CallsNonReturningFunction() const {
@@ -638,7 +676,7 @@ BasicBlock::BasicBlock(BasicBlock::BlockId id,
                        BasicBlock::BasicBlockType type,
                        BasicBlock::Offset offset,
                        BasicBlock::Size size,
-                       const uint8* data )
+                       const uint8* data)
     : id_(id),
       name_(name.begin(), name.end()),
       type_(type),
