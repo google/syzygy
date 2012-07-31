@@ -57,7 +57,7 @@
       ],
     },
     {
-      'target_name': 'parse_unittest_util',
+      'target_name': 'parse_unittest_utils',
       'type': 'static_library',
       'sources': [
         'unittest_util.cc',
@@ -80,7 +80,7 @@
       ],
       'dependencies': [
         'parse_lib',
-        'parse_unittest_util',
+        'parse_unittest_utils',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
