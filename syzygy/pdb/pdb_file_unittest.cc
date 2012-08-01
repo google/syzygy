@@ -59,6 +59,11 @@ TEST(PdbFileTest, Clear) {
   EXPECT_EQ(2u, pdb_file.StreamCount());
   EXPECT_EQ(2u, DummyPdbStream::instance_count());
 
+  pdb_file.SetStream(100, new DummyPdbStream());
+  EXPECT_EQ(101u, pdb_file.StreamCount());
+  EXPECT_TRUE(pdb_file.GetStream(99) == NULL);
+  EXPECT_EQ(3u, DummyPdbStream::instance_count());
+
   pdb_file.Clear();
   EXPECT_EQ(0u, pdb_file.StreamCount());
   EXPECT_EQ(0u, DummyPdbStream::instance_count());

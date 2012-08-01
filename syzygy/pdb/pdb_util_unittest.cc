@@ -40,8 +40,14 @@ const GUID kSampleGuid = {0xACDC900D, 0x9009, 0xFEED, {7, 6, 5, 4, 3, 2, 1, 0}};
 const PdbInfoHeader70 kSamplePdbHeader = {
   kPdbCurrentVersion,
   1336402486,  // 7 May 2012, 14:54:00 GMT.
-  0,
+  999,
   {0xDEADBEEF, 0x900D, 0xF00D, {0, 1, 2, 3, 4, 5, 6, 7}}
+};
+
+const DbiHeader kSampleDbiHeader = {
+  -1,   // signature.
+  19990903,  // version.
+  999,  // age.
 };
 
 const OMAP kOmapToData[] = {
@@ -450,56 +456,68 @@ TEST(EnsureStreamWritableTest, FailsWhenNonExistent) {
   EXPECT_FALSE(EnsureStreamWritable(45, &pdb_file));
 }
 
-TEST(SetGuidTest, FailsWhenStreamDoesNotExist) {
+TEST(SetGuidTest, FailsWhenStreamsDoNotExist) {
   PdbFile pdb_file;
+
+  // Leave the Pdb header missing.
+  pdb_file.SetStream(kPdbHeaderInfoStream, NULL);
+  pdb_file.SetStream(kDbiStream, new TestPdbStream(kSampleDbiHeader));
+  EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
+
+  // Add the header stream, but leave the Dbi header missing.
+  pdb_file.SetStream(kPdbHeaderInfoStream, new TestPdbStream(kSamplePdbHeader));
+  pdb_file.SetStream(kDbiStream, NULL);
   EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
 }
 
-TEST(SetGuidTest, FailsWhenStreamIsTooShort) {
+TEST(SetGuidTest, FailsWhenStreamsAreTooShort) {
   PdbFile pdb_file;
 
   const uint8 kByte = 6;
-  scoped_refptr<PdbStream> short_stream(new TestPdbStream(kByte));
-  for (size_t i = 0; i <= kPdbHeaderInfoStream; ++i) {
-    pdb_file.AppendStream(short_stream);
-  }
+  pdb_file.SetStream(kPdbHeaderInfoStream, new TestPdbStream(kByte));
+  pdb_file.SetStream(kDbiStream, new TestPdbStream(kSampleDbiHeader));
+  EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
 
-  scoped_refptr<PdbStream> header_stream =
-      pdb_file.GetStream(kPdbHeaderInfoStream);
-  ASSERT_TRUE(header_stream.get() != NULL);
-  ASSERT_LT(header_stream->length(), sizeof(PdbInfoHeader70));
-
+  pdb_file.SetStream(kPdbHeaderInfoStream, new TestPdbStream(kSamplePdbHeader));
+  pdb_file.SetStream(kDbiStream, new TestPdbStream(kByte));
   EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
 }
 
 TEST(SetGuidTest, Succeeds) {
   PdbFile pdb_file;
 
-  scoped_refptr<PdbStream> stream(new TestPdbStream(kSamplePdbHeader));
-  for (size_t i = 0; i <= kPdbHeaderInfoStream; ++i) {
-    pdb_file.AppendStream(stream);
-  }
+  pdb_file.SetStream(kPdbHeaderInfoStream, new TestPdbStream(kSamplePdbHeader));
+  pdb_file.SetStream(kDbiStream, new TestPdbStream(kSampleDbiHeader));
 
-  scoped_refptr<PdbStream> header_stream =
+  scoped_refptr<PdbStream> stream =
       pdb_file.GetStream(kPdbHeaderInfoStream);
-  ASSERT_TRUE(header_stream.get() != NULL);
-  ASSERT_EQ(header_stream->length(), sizeof(PdbInfoHeader70));
+  ASSERT_TRUE(stream.get() != NULL);
+  ASSERT_EQ(stream->length(), sizeof(PdbInfoHeader70));
 
   uint32 time1 = static_cast<uint32>(time(NULL));
   EXPECT_TRUE(SetGuid(kSampleGuid, &pdb_file));
   uint32 time2 = static_cast<uint32>(time(NULL));
 
   // Read the new header.
-  PdbInfoHeader70 header = {};
-  header_stream = pdb_file.GetStream(kPdbHeaderInfoStream);
-  EXPECT_TRUE(header_stream->Seek(0));
-  EXPECT_TRUE(header_stream->Read(&header, 1));
+  PdbInfoHeader70 pdb_header = {};
+  stream = pdb_file.GetStream(kPdbHeaderInfoStream);
+  EXPECT_TRUE(stream->Seek(0));
+  EXPECT_TRUE(stream->Read(&pdb_header, 1));
 
   // Validate that the fields are as expected.
-  EXPECT_LE(time1, header.timestamp);
-  EXPECT_LE(header.timestamp, time2);
-  EXPECT_EQ(1u, header.pdb_age);
-  EXPECT_EQ(kSampleGuid, header.signature);
+  EXPECT_LE(time1, pdb_header.timestamp);
+  EXPECT_LE(pdb_header.timestamp, time2);
+  EXPECT_EQ(1u, pdb_header.pdb_age);
+  EXPECT_EQ(kSampleGuid, pdb_header.signature);
+
+  DbiHeader dbi_header = {};
+  stream = pdb_file.GetStream(kDbiStream);
+  ASSERT_TRUE(stream.get() != NULL);
+  ASSERT_EQ(stream->length(), sizeof(dbi_header));
+
+  EXPECT_TRUE(stream->Seek(0));
+  EXPECT_TRUE(stream->Read(&dbi_header, 1));
+  EXPECT_EQ(1u, dbi_header.age);
 }
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
