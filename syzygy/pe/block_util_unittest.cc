@@ -226,6 +226,10 @@ TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistent) {
       { kSelfData, kTopOfBlock, BlockGraph::ABSOLUTE_REF, 4, true },
       { kSelfData, kInCode, BlockGraph::ABSOLUTE_REF, 4, true },
 
+      // Self-references from data to data.
+      { kSelfData, kDataLabel, BlockGraph::ABSOLUTE_REF, 4, true },
+      { kSelfData, kInData, BlockGraph::ABSOLUTE_REF, 4, true },
+
       // External references from code to code.
       { kCodeBlock, kTopOfBlock, BlockGraph::PC_RELATIVE_REF, 4, true },
       { kCodeBlock, kTopOfBlock, BlockGraph::ABSOLUTE_REF, 4, true },
