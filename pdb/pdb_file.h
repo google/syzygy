@@ -55,8 +55,15 @@ class PdbFile {
   //     a stream index that already exists.
   // @param pdb_stream a pointer to the heap allocated stream to be placed at
   //     the given position. This may be NULL, which is equivalent to erasing
-  // the given stream.
+  //     the given stream.
   void ReplaceStream(uint32 index, PdbStream* pdb_stream);
+
+  // Sets the nth stream. Overwrites an existing stream if there is one.
+  // @param index the index of the stream.
+  // @param pdb_stream a pointer to the heap allocated stream to be placed at
+  //     the given position. This may be NULL, which is equivalent to erasing
+  //     the given stream.
+  void SetStream(uint32 index, PdbStream* pdb_stream);
 
   // Returns the number of streams in the PDB file. There are streams with
   // IDs 0 through StreamCount() - 1.

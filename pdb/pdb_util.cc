@@ -264,8 +264,13 @@ bool SetOmapFromStream(const std::vector<OMAP>& omap_from_list,
 bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
   DCHECK(pdb_file != NULL);
 
+  // Make sure the Pdb header and the Dbi streams are writable.
   if (!EnsureStreamWritable(kPdbHeaderInfoStream, pdb_file)) {
     LOG(ERROR) << "Failed to make PDB Header Info stream writable.";
+    return false;
+  }
+  if (!EnsureStreamWritable(kDbiStream, pdb_file)) {
+    LOG(ERROR) << "Failed to make DBI Info stream writable.";
     return false;
   }
 
@@ -290,6 +295,30 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
   writer->set_pos(0);
   if (!writer->Write(info_header)) {
     LOG(ERROR) << "Failed to write PdbInfoHeader70.";
+    return false;
+  }
+
+  // Now update the age in the DBI stream to match the age we set above.
+  reader = pdb_file->GetStream(kDbiStream);
+  if (reader.get() == NULL) {
+    LOG(ERROR) << "No DBI stream in PDB.";
+    return false;
+  }
+  writer = reader->GetWritablePdbStream();
+
+  DCHECK(writer.get() != NULL);
+
+  // Read the header.
+  DbiHeader dbi_header = {};
+  if (!reader->Seek(0) || !reader->Read(&dbi_header, 1)) {
+    LOG(ERROR) << "Failed to read DbiHeader.";
+    return false;
+  }
+
+  dbi_header.age = 1;
+  writer->set_pos(0);
+  if (!writer->Write(dbi_header)) {
+    LOG(ERROR) << "Failed to write DbiHeader";
     return false;
   }
 

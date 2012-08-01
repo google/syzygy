@@ -43,4 +43,11 @@ void PdbFile::ReplaceStream(uint32 index, PdbStream* pdb_stream) {
   streams_[index] = pdb_stream;
 }
 
+void PdbFile::SetStream(uint32 index, PdbStream* pdb_stream) {
+  if (index >= streams_.size())
+    streams_.resize(index + 1);
+
+  streams_[index] = pdb_stream;
+}
+
 }  // namespace pdb

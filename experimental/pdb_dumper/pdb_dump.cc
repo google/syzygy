@@ -37,13 +37,6 @@
 #include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_type_info_stream.h"
 
-std::ostream& operator<<(std::ostream& str, const GUID& guid) {
-  wchar_t buf[128] = {};
-  ::StringFromGUID2(guid, buf, arraysize(buf));
-  str << buf;
-  return str;
-}
-
 namespace pdb {
 
 namespace {
@@ -355,7 +348,10 @@ void PdbDumpApp::DumpInfoStream(const PdbInfoHeader70& info,
   ::fprintf(out(), "\tversion: %d\n", info.version);
   ::fprintf(out(), "\ttimestamp: %d\n", info.timestamp);
   ::fprintf(out(), "\tpdb_age: %d\n", info.pdb_age);
-  ::fprintf(out(), "\tsignature: %d\n", info.signature);
+
+  wchar_t buf[128] = {};
+  ::StringFromGUID2(info.signature, buf, arraysize(buf));
+  ::fprintf(out(), "\tsignature: %ws\n", buf);
 
   if (name_streams.empty())
     return;
