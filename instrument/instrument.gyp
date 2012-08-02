@@ -28,6 +28,8 @@
       'sources': [
         'instrument_app.cc',
         'instrument_app.h',
+        'transforms/asan_transform.cc',
+        'transforms/asan_transform.h',
         'transforms/entry_thunk_transform.cc',
         'transforms/entry_thunk_transform.h',
         'transforms/thunk_import_references_transform.cc',

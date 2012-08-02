@@ -51,7 +51,7 @@ class BasicBlockTest: public testing::Test {
   //     branch.
   static uint8 BranchToType(uint16 opcode) {
     switch (opcode) {
-      // Uncoditional branch instructions.
+      // Unconditional branch instructions.
       case I_JMP:
       case I_JMP_FAR:
         return FC_UNC_BRANCH;
@@ -96,6 +96,19 @@ class BasicBlockTest: public testing::Test {
     ret.size = 1;
     META_SET_ISC(&ret, ISC_INTEGER);
     return Instruction(ret, -1, sizeof(data), data);
+  }
+
+  // Helper function to create a CALL instruction.
+  Instruction CreateCall(BasicBlockReference ref) {
+    static const uint8 data[] = { 0xE8, 0x00, 0x00, 0x00, 0x00 };
+    Instruction::Representation call = {};
+    call.addr = 0;
+    call.opcode = I_CALL;
+    call.size = 5;
+    META_SET_ISC(&call, ISC_INTEGER);
+    Instruction call_inst(call, -1, sizeof(data), data);
+    call_inst.SetReference(1, ref);
+    return call_inst;
   }
 
   // Helper function to create a successor branch instruction.
@@ -154,6 +167,16 @@ TEST_F(BasicBlockTest, InstructionConstructor) {
     Instruction ret_temp(ret_instr.size(), ret_instr.data());
     ASSERT_TRUE(ret_temp.owns_data());
     ASSERT_NE(ret_instr.data(), ret_temp.data());
+  }
+
+  {
+    // This should copy the references.
+    BasicBlockReference r1(
+        BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
+    Instruction call_instr = CreateCall(r1);
+    ASSERT_TRUE(call_instr.references().size() == 1);
+    Instruction call_temp(call_instr);
+    ASSERT_EQ(call_instr.references(), call_temp.references());
   }
 }
 
