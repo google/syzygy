@@ -185,6 +185,13 @@ TEST_F(AssemblerTest, Ret) {
   EXPECT_BYTES(0xC2, 0x04, 0x00);
 }
 
+TEST_F(AssemblerTest, MovByte) {
+  asm_.mov_b(OperandImpl(eax, ebx, kTimes4,
+                         DisplacementImpl(0xCAFEBABE, kSize32Bit)),
+             ImmediateImpl(0xCB, kSize8Bit));
+  EXPECT_BYTES(0xC6, 0x84, 0x98, 0xBE, 0xBA, 0xFE, 0xCA, 0xCB);
+}
+
 TEST_F(AssemblerTest, MovImmediate) {
   // Immediate moves.
   asm_.mov(eax, ImmediateImpl(0xCAFEBABE, kSize32Bit));

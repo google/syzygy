@@ -16,6 +16,7 @@
 
 #include "syzygy/agent/coverage/coverage_constants.h"
 #include "syzygy/agent/coverage/coverage_data.h"
+#include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pe/block_util.h"
@@ -26,10 +27,15 @@ namespace coverage {
 
 namespace {
 
-typedef block_graph::BasicBlock BasicBlock;
-typedef block_graph::BasicBlockReference BasicBlockReference;
-typedef block_graph::BlockGraph BlockGraph;
-typedef block_graph::Instruction Instruction;
+using core::eax;
+using block_graph::BasicBlock;
+using block_graph::BasicBlockAssembler;
+using block_graph::BasicBlockReference;
+using block_graph::BlockGraph;
+using block_graph::Displacement;
+using block_graph::Immediate;
+using block_graph::Operand;
+
 typedef block_graph::TypedBlock<CoverageData> CoverageDataBlock;
 
 bool AddCoverageDataSection(BlockGraph* block_graph,
@@ -67,70 +73,6 @@ bool AddCoverageDataSection(BlockGraph* block_graph,
   return true;
 }
 
-// 0x50 : push eax
-// 0xA1 [4 bytes ptr] : mov eax, dword ptr[byte_array_pointer]
-// 0xC6 0x80 [4 bytes ptr] [1 byte value] : mov byte ptr[eax + 200], 1
-// 0x58 : pop eax
-#pragma pack(push, 1)
-struct CoverageInstrumentationCode {
-  CoverageInstrumentationCode()
-      : byte_0_0(0x50),
-        byte_1_0(0xA1), basic_block_seen_array(0),
-        byte_2_0(0xC6), byte_2_1(0x80), basic_block_index(0), byte_2_6(0x01),
-        byte_3_0(0x58) {
-  };
-
-  // 0x50 : push eax
-  union {
-    uint8 inst0[1];
-    uint8 byte_0_0;
-  };
-
-  union {
-    // 0xA1 [4 bytes ptr] : mov eax, dword ptr[byte_array_pointer]
-    uint8 inst1[5];
-    struct {
-      uint8 byte_1_0;
-      uint32 basic_block_seen_array;
-    };
-  };
-
-  // 0xC6 0x80 [4 bytes ptr] 0x01 : mov byte ptr[eax + basic_block_index], 1
-  union {
-    uint8 inst2[7];
-    struct {
-      uint8 byte_2_0;
-      uint8 byte_2_1;
-      uint32 basic_block_index;
-      uint8 byte_2_6;
-    };
-  };
-
-  // 0x58: pop eax
-  union {
-    uint8 inst3[1];
-    uint8 byte_3_0;
-  };
-};
-#pragma pack(pop)
-COMPILE_ASSERT(sizeof(CoverageInstrumentationCode) == 14,
-               coverage_instrumention_code_must_be_14_bytes);
-
-BasicBlock::Instructions::iterator PrependInstruction(
-    const uint8* bytes,
-    size_t length,
-    BasicBlock::Instructions* instructions) {
-  DCHECK(bytes != NULL);
-  DCHECK(instructions != NULL);
-
-  _DInst rep;
-  CHECK(core::DecodeOneInstruction(0x10000000, bytes, length, &rep));
-
-  return instructions->insert(
-      instructions->begin(),
-      Instruction(rep, BasicBlock::kNoOffset, length, bytes));
-}
-
 }  // namespace
 
 const char CoverageInstrumentationTransform::kTransformName[] =
@@ -161,47 +103,15 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     //   1. mov eax, dword ptr[basic_block_seen_array]
     //   2. mov byte ptr[eax + basic_block_index], 1
     //   3. pop eax
-    // TODO(chrisha): Get around to using the assembler.
-    static const CoverageInstrumentationCode kCode;
-    static const uint8* kCodeBegin = reinterpret_cast<const uint8*>(&kCode);
-    static const uint8* kCodeEnd = kCodeBegin + sizeof(kCode);
-    ByteVector& byte_vector =
-        instruction_byte_map_[instruction_byte_map_.size()];
-    byte_vector.assign(kCodeBegin, kCodeEnd);
-    CoverageInstrumentationCode* code =
-        reinterpret_cast<CoverageInstrumentationCode*>(&byte_vector.at(0));
-
-    // Set the basic block index. This is an immediate operand.
-    code->basic_block_index = basic_block_count_;
-
-    // TODO(chrisha): Remove representation from the instruction.
-    const uint8* pinst0 = reinterpret_cast<const uint8*>(&code->inst0);
-    const uint8* pinst1 = reinterpret_cast<const uint8*>(&code->inst1);
-    const uint8* pinst2 = reinterpret_cast<const uint8*>(&code->inst2);
-    const uint8* pinst3 = reinterpret_cast<const uint8*>(&code->inst3);
-    const uint8* pinst4 = pinst0 + sizeof(kCode);
-
+    BasicBlockAssembler assm(it->second.instructions().begin(),
+                             &it->second.instructions());
     // Prepend the instrumentation instructions.
-    BasicBlock::Instructions* insts = &it->second.instructions();
-    PrependInstruction(pinst3, pinst4 - pinst3, insts);
-    PrependInstruction(pinst2, pinst3 - pinst2, insts);
-    BasicBlock::Instructions::iterator inst1_it =
-        PrependInstruction(pinst1, pinst2 - pinst1, insts);
-    PrependInstruction(pinst0, pinst1 - pinst0, insts);
-
-    // Hook up the reference to the basic_block_seen_array.
-    static const BlockGraph::Offset kSrcOffset =
-        offsetof(CoverageInstrumentationCode, basic_block_seen_array) -
-        offsetof(CoverageInstrumentationCode, inst1);
+    assm.push(eax);
     static const BlockGraph::Offset kDstOffset =
         offsetof(CoverageData, basic_block_seen_array);
-    inst1_it->SetReference(
-        kSrcOffset,
-        BasicBlockReference(BlockGraph::ABSOLUTE_REF,
-                            sizeof(code->basic_block_seen_array),
-                            coverage_data_block_,
-                            kDstOffset,
-                            kDstOffset));
+    assm.mov(eax, Operand(Displacement(coverage_data_block_, kDstOffset)));
+    assm.mov_b(Operand(eax, Displacement(basic_block_count_)), Immediate(1));
+    assm.pop(eax);
 
     ++basic_block_count_;
   }

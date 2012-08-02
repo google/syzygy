@@ -238,7 +238,12 @@ class AssemblerImpl {
   void ret(uint16 n);
   // @}
 
-  // @name mov in several varieties.
+  // @name byte mov varieties.
+  // @{
+  void mov_b(const OperandImpl& dst, const ImmediateImpl& src);
+  // @}
+
+  // @name Double-word mov varieties.
   // @{
   void mov(Register dst, Register src);
   void mov(Register dst, const OperandImpl& src);
