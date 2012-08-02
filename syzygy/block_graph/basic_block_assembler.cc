@@ -101,6 +101,10 @@ void BasicBlockAssembler::call(const Operand& dst) {
   asm_.call(dst.operand_);
 }
 
+void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {
+  asm_.mov_b(dst.operand_, src.value_);
+}
+
 void BasicBlockAssembler::mov(Register dst, Register src) {
   asm_.mov(dst, src);
 }

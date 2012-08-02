@@ -349,6 +349,16 @@ void AssemblerImpl::ret(uint16 n) {
   Output(instr);
 }
 
+void AssemblerImpl::mov_b(const OperandImpl& dst, const ImmediateImpl& src) {
+  InstructionBuffer instr;
+
+  instr.EmitOpCodeByte(0xC6);
+  EncodeOperand(0, dst, &instr);
+  instr.Emit8BitDisplacement(src);
+
+  Output(instr);
+}
+
 void AssemblerImpl::mov(Register dst, Register src) {
   InstructionBuffer instr;
 
