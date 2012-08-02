@@ -306,6 +306,7 @@ Instruction::Instruction(Size size, const uint8* data)
 
 Instruction::Instruction(const Instruction& other)
     : representation_(other.representation_),
+      references_(other.references_),
       offset_(other.offset_),
       size_(other.size_),
       data_(other.data_),
