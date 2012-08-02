@@ -53,7 +53,7 @@ Operand::Operand(core::Register base) : operand_(base) {
 }
 
 Operand::Operand(core::Register base, const Displacement& displ)
-    : operand_(base, displacement_.value_) {
+    : operand_(base, displ.value_) {
 }
 
 Operand::Operand(const Displacement& displ)
