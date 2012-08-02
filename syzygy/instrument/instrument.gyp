@@ -30,6 +30,8 @@
         'instrument_app.h',
         'transforms/asan_transform.cc',
         'transforms/asan_transform.h',
+        'transforms/coverage_transform.cc',
+        'transforms/coverage_transform.h',
         'transforms/entry_thunk_transform.cc',
         'transforms/entry_thunk_transform.h',
         'transforms/thunk_import_references_transform.cc',
@@ -37,6 +39,8 @@
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
+            'block_graph_transforms_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
@@ -69,6 +73,7 @@
       'sources': [
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
+        'transforms/coverage_transform_unittest.cc',
         'transforms/entry_thunk_transform_unittest.cc',
         'transforms/thunk_import_references_transform_unittest.cc',
       ],

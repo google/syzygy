@@ -24,8 +24,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
-#include "syzygy/agent/coverage/coverage_constants.h"
-#include "syzygy/agent/coverage/coverage_data.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -87,6 +85,7 @@ namespace coverage {
 namespace {
 
 using agent::common::ScopedLastErrorKeeper;
+using ::common::CoverageData;
 
 // Our AtExit manager required by base.
 base::AtExitManager at_exit;
@@ -101,7 +100,7 @@ bool FindCoverageData(const base::win::PEImage& image,
 
   *coverage_data = NULL;
 
-  size_t comparison_length = ::strlen(kCoverageClientDataSectionName);
+  size_t comparison_length = ::strlen(::common::kCoverageClientDataSectionName);
   if (IMAGE_SIZEOF_SHORT_NAME < comparison_length)
     comparison_length = IMAGE_SIZEOF_SHORT_NAME;
 
@@ -110,12 +109,13 @@ bool FindCoverageData(const base::win::PEImage& image,
     const IMAGE_SECTION_HEADER* section = image.GetSectionHeader(i);
     DCHECK(section != NULL);
 
-    if (::memcmp(section->Name, kCoverageClientDataSectionName,
+    if (::memcmp(section->Name, ::common::kCoverageClientDataSectionName,
                  comparison_length) == 0 &&
         section->SizeOfRawData >= sizeof(CoverageData)) {
       if (*coverage_data != NULL) {
         LOG(ERROR) << "Encountered multiple \""
-                   << kCoverageClientDataSectionName << "\" sections.";
+                   << ::common::kCoverageClientDataSectionName
+                   << "\" sections.";
         return false;
       }
       *coverage_data = reinterpret_cast<CoverageData*>(
@@ -124,7 +124,7 @@ bool FindCoverageData(const base::win::PEImage& image,
   }
 
   if (coverage_data == NULL) {
-    LOG(ERROR) << "Did not find \"" << kCoverageClientDataSectionName
+    LOG(ERROR) << "Did not find \"" << ::common::kCoverageClientDataSectionName
                << "\" section.";
     return false;
   }
@@ -204,8 +204,8 @@ bool Coverage::InitializeCoverageData(const base::win::PEImage& image,
   DCHECK(coverage_data != NULL);
 
   // We can only handle this if it looks right.
-  if (coverage_data->magic != kCoverageClientMagic ||
-      coverage_data->version != kCoverageClientVersion) {
+  if (coverage_data->magic != ::common::kCoverageClientMagic ||
+      coverage_data->version != ::common::kCoverageClientVersion) {
     LOG(ERROR) << "Invalid coverage magic and/or version.";
     return false;
   }

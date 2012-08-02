@@ -20,13 +20,13 @@
 // (3) Adds a read/write data section containing code coverage information.
 // (4) Instruments each basic block to gather basic block visit information.
 
-#ifndef SYZYGY_AGENT_COVERAGE_COVERAGE_TRANSFORM_H_
-#define SYZYGY_AGENT_COVERAGE_COVERAGE_TRANSFORM_H_
+#ifndef SYZYGY_INSTRUMENT_TRANSFORMS_COVERAGE_TRANSFORM_H_
+#define SYZYGY_INSTRUMENT_TRANSFORMS_COVERAGE_TRANSFORM_H_
 
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 
-namespace agent {
-namespace coverage {
+namespace instrument {
+namespace transforms {
 
 class CoverageInstrumentationTransform
     : public block_graph::transforms::IterativeTransformImpl<
@@ -85,7 +85,7 @@ class CoverageInstrumentationTransform
   DISALLOW_COPY_AND_ASSIGN(CoverageInstrumentationTransform);
 };
 
-}  // namespace coverage
-}  // namespace agent
+}  // namespace transforms
+}  // namespace instrument
 
-#endif  // SYZYGY_AGENT_COVERAGE_COVERAGE_TRANSFORM_H_
+#endif  // SYZYGY_INSTRUMENT_TRANSFORMS_COVERAGE_TRANSFORM_H_

@@ -86,6 +86,8 @@
         'application_impl.h',
         'buffer_writer.cc',
         'buffer_writer.h',
+        'coverage.cc',
+        'coverage.h',
         'defs.cc',
         'defs.h',
         'logging.cc',

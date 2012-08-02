@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares data structures used by the various pieces of the code coverage
-// client.
+// Declares data structures and constants used by the various pieces of the code
+// coverage client and instrumentation.
 
-#ifndef SYZYGY_AGENT_COVERAGE_COVERAGE_DATA_H_
-#define SYZYGY_AGENT_COVERAGE_COVERAGE_DATA_H_
+#ifndef SYZYGY_COMMON_COVERAGE_H_
+#define SYZYGY_COMMON_COVERAGE_H_
 
-namespace agent {
-namespace coverage {
+#include <windows.h>
+
+#include "base/basictypes.h"
+
+namespace common {
 
 // This data structure is injected into an instrumented image in a read-write
 // section of its own. It will be initialized by the runtime client library
@@ -54,7 +57,19 @@ struct CoverageData {
   uint8* basic_block_seen_array;
 };
 
-}  // namespace coverage
-}  // namespace agent
+// The coverage client 'magic'.
+extern const uint32 kCoverageClientMagic;
 
-#endif  // SYZYGY_AGENT_COVERAGE_COVERAGE_DATA_H_
+// The coverage client version.
+extern const uint32 kCoverageClientVersion;
+
+// This is the name of the data section added to an instrumented image by
+// the coverage client.
+extern const char kCoverageClientDataSectionName[];
+
+// The characteristics given to the coverage instrumentation section.
+extern const DWORD kCoverageClientDataSectionCharacteristics;
+
+}  // namespace common
+
+#endif  // SYZYGY_COMMON_COVERAGE_H_
