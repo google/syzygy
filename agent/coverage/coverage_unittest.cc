@@ -20,8 +20,7 @@
 #include "base/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/coverage/coverage_constants.h"
-#include "syzygy/agent/coverage/coverage_data.h"
+#include "syzygy/common/coverage.h"
 #include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/unittest_util.h"
 
@@ -30,6 +29,7 @@ namespace coverage {
 
 namespace {
 
+using ::common::CoverageData;
 using testing::_;
 using testing::StrictMockParseEventHandler;
 using trace::parser::Parser;
@@ -44,8 +44,8 @@ uint8 bb_seen_array[kBasicBlockCount] = {};
 #pragma data_seg(push, old_seg)
 #pragma data_seg(".cover")
 CoverageData coverage_data = {
-    kCoverageClientMagic,
-    kCoverageClientVersion,
+    ::common::kCoverageClientMagic,
+    ::common::kCoverageClientVersion,
     0,
     kBasicBlockCount,
     bb_seen_array };

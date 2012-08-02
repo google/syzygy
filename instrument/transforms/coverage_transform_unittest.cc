@@ -14,20 +14,20 @@
 //
 // Coverage instrumentation transform unittests.
 
-#include "syzygy/agent/coverage/coverage_transform.h"
+#include "syzygy/instrument/transforms/coverage_transform.h"
 
 #include "gtest/gtest.h"
-#include "syzygy/agent/coverage/coverage_constants.h"
-#include "syzygy/agent/coverage/coverage_data.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/coverage.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
 
-namespace agent {
-namespace coverage {
+namespace instrument {
+namespace transforms {
 
+using common::CoverageData;
 using block_graph::BlockGraph;
 
 class CoverageInstrumentationTransformTest : public testing::PELibUnitTest {
@@ -60,8 +60,8 @@ TEST_F(CoverageInstrumentationTransformTest, FailsWhenCoverageSectionExists) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   BlockGraph::Section* coverage_section = block_graph_.AddSection(
-      kCoverageClientDataSectionName,
-      kCoverageClientDataSectionCharacteristics);
+      common::kCoverageClientDataSectionName,
+      common::kCoverageClientDataSectionCharacteristics);
   ASSERT_TRUE(coverage_section != NULL);
 
   CoverageInstrumentationTransform tx;
@@ -78,7 +78,7 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
 
   // There should be a coverage section, and it should contain 1 block.
   BlockGraph::Section* coverage_section = block_graph_.FindSection(
-      kCoverageClientDataSectionName);
+      common::kCoverageClientDataSectionName);
   ASSERT_TRUE(coverage_section != NULL);
 
   const BlockGraph::Block* coverage_block = NULL;
@@ -97,12 +97,12 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
 
   block_graph::ConstTypedBlock<CoverageData> coverage_data;
   ASSERT_TRUE(coverage_data.Init(0, coverage_block));
-  ASSERT_EQ(kCoverageClientMagic, coverage_data->magic);
-  ASSERT_EQ(kCoverageClientVersion, coverage_data->version);
+  ASSERT_EQ(common::kCoverageClientMagic, coverage_data->magic);
+  ASSERT_EQ(common::kCoverageClientVersion, coverage_data->version);
   ASSERT_LT(0u, coverage_data->basic_block_count);
   ASSERT_TRUE(coverage_data.HasReferenceAt(
       coverage_data.OffsetOf(coverage_data->basic_block_seen_array)));
 }
 
-}  // namespace coverage
-}  // namespace agent
+}  // namespace transforms
+}  // namespace instrument

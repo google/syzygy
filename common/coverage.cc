@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/coverage/coverage_constants.h"
+#include "syzygy/common/coverage.h"
 
-namespace agent {
-namespace coverage {
+namespace common {
 
 const uint32 kCoverageClientMagic = 0xC05E4A6E;
 
@@ -28,5 +27,4 @@ const char kCoverageClientDataSectionName[] = ".cover";
 const DWORD kCoverageClientDataSectionCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
 
-}  // namespace coverage
-}  // namespace agent
+}  // namespace common

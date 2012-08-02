@@ -23,26 +23,6 @@
   },
   'targets': [
     {
-      'target_name': 'coverage_lib',
-      'type': 'static_library',
-      'sources': [
-        'coverage_constants.cc',
-        'coverage_constants.h',
-        'coverage_data.h',
-        'coverage_transform.cc',
-        'coverage_transform.h',
-      ],
-      'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
-            'block_graph_transforms_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
-      ],
-    },
-    {
       'target_name': 'coverage_client',
       'type': 'shared_library',
       'sources': [
@@ -52,7 +32,6 @@
         'coverage.rc',
       ],
       'dependencies': [
-        'coverage_lib',
         '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
@@ -66,12 +45,10 @@
       'type': 'executable',
       'sources': [
         'coverage_unittest.cc',
-        'coverage_transform_unittest.cc',
         'coverage_unittests_main.cc',
       ],
       'dependencies': [
         'coverage_client',
-        'coverage_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',

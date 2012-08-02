@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/coverage/coverage_transform.h"
+#include "syzygy/instrument/transforms/coverage_transform.h"
 
-#include "syzygy/agent/coverage/coverage_constants.h"
-#include "syzygy/agent/coverage/coverage_data.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/coverage.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 
-namespace agent {
-namespace coverage {
+namespace instrument {
+namespace transforms {
 
 namespace {
 
+using common::CoverageData;
 using core::eax;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
@@ -44,16 +44,16 @@ bool AddCoverageDataSection(BlockGraph* block_graph,
   DCHECK(coverage_data_block != NULL);
 
   BlockGraph::Section* coverage_section = block_graph->FindSection(
-      kCoverageClientDataSectionName);
+      common::kCoverageClientDataSectionName);
   if (coverage_section != NULL) {
     LOG(ERROR) << "Block-graph already contains a code coverage data section ("
-               << kCoverageClientDataSectionName << ").";
+               << common::kCoverageClientDataSectionName << ").";
     return false;
   }
 
   coverage_section = block_graph->AddSection(
-      kCoverageClientDataSectionName,
-      kCoverageClientDataSectionCharacteristics);
+      common::kCoverageClientDataSectionName,
+      common::kCoverageClientDataSectionCharacteristics);
   DCHECK(coverage_section != NULL);
 
   BlockGraph::Block* block =
@@ -64,8 +64,8 @@ bool AddCoverageDataSection(BlockGraph* block_graph,
   block->set_section(coverage_section->id());
 
   CoverageData coverage_data = {};
-  coverage_data.magic = kCoverageClientMagic;
-  coverage_data.version = kCoverageClientVersion;
+  coverage_data.magic = common::kCoverageClientMagic;
+  coverage_data.version = common::kCoverageClientVersion;
 
   block->CopyData(sizeof(coverage_data), &coverage_data);
   *coverage_data_block = block;
@@ -204,5 +204,5 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   return true;
 }
 
-}  // namespace coverage
-}  // namespace agent
+}  // namespace transforms
+}  // namespace instrument

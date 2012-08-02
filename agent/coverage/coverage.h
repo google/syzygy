@@ -28,6 +28,7 @@
 #include "base/lazy_instance.h"
 #include "base/win/pe_image.h"
 #include "syzygy/agent/common/entry_frame.h"
+#include "syzygy/common/coverage.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 // Instrumentation stubs to handle the loading of the library.
@@ -35,9 +36,6 @@ extern "C" void _cdecl _indirect_penter_dllmain();
 
 namespace agent {
 namespace coverage {
-
-// Forward declaration.
-struct CoverageData;
 
 // There's a single instance of this class.
 class Coverage {
@@ -50,6 +48,8 @@ class Coverage {
   static Coverage* Instance();
 
  private:
+  typedef common::CoverageData CoverageData;
+
   // Make sure the LazyInstance can be created.
   friend struct base::DefaultLazyInstanceTraits<Coverage>;
 
