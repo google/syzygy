@@ -20,6 +20,14 @@
 #include <windows.h>
 #include <vector>
 
+// Forward declarations.
+namespace trace {
+namespace client {
+class RpcSession;
+class TraceFileSegment;
+}  // namespace client
+}  // namespace trace
+
 namespace agent {
 namespace common {
 
@@ -33,6 +41,17 @@ typedef std::vector<HMODULE> ModuleVector;
 //     running under the loader's lock, such as e.g. in a DllMain notification
 //     or e.g. a TLS callback function.
 void GetProcessModules(ModuleVector* modules);
+
+// Logs a TRACE_PROCESS_ATTACH_EVENT to the provided @p segment and @p session.
+// If there is insufficient room in @p segment, returns the buffer to @p service
+// and allocates a new one.
+// @param module the module to be logged.
+// @param session the session owning @p segment.
+// @param segment the segment in which the event will be written.
+// @returns true on success, false otherwise.
+bool LogModule(HMODULE module,
+               trace::client::RpcSession* session,
+               trace::client::TraceFileSegment* segment);
 
 }  // namespace common
 }  // namespace agent
