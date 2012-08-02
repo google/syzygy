@@ -34,6 +34,7 @@
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',

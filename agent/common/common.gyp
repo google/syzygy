@@ -32,6 +32,9 @@
         'scoped_last_error_keeper.h',
       ],
       'dependencies': [
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
@@ -45,6 +48,10 @@
       'dependencies': [
         'agent_common_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
       ],

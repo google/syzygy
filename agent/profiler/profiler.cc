@@ -15,7 +15,6 @@
 // Implementation of the profiler DLL.
 #include "syzygy/agent/profiler/profiler.h"
 
-#include <psapi.h>
 #include <windows.h>
 #include <algorithm>
 
@@ -30,13 +29,11 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/common/dlist.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 #include "syzygy/common/logging.h"
-#include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -346,43 +343,8 @@ void Profiler::ThreadState::LogAllModules(HMODULE module) {
 }
 
 void Profiler::ThreadState::LogModule(HMODULE module) {
-  // Make sure the event we're about to write will fit.
-  if (!segment_.CanAllocate(sizeof(TraceModuleData)) || !FlushSegment()) {
-    // Failed to allocate a new segment.
-    return;
-  }
-
-  DCHECK(segment_.CanAllocate(sizeof(TraceModuleData)));
   batch_ = NULL;
-
-  // Allocate a record in the log.
-  TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
-      segment_.AllocateTraceRecordImpl(
-          TRACE_PROCESS_ATTACH_EVENT, sizeof(TraceModuleData)));
-  DCHECK(module_event != NULL);
-
-  // Populate the log record.
-  base::win::PEImage image(module);
-  module_event->module_base_addr = module;
-  if (!CaptureModuleInformation(image, module_event)) {
-    LOG(ERROR) << "Failed to capture module information.";
-  }
-
-  wchar_t module_name[MAX_PATH] = { 0 };
-  if (::GetMappedFileName(::GetCurrentProcess(), module,
-                          module_name, arraysize(module_name)) == 0) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
-  }
-  FilePath device_path(module_name);
-  FilePath drive_path;
-  if (!::common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
-    LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
-  }
-  ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
-            arraysize(module_event->module_name));
-
-  module_event->module_exe[0] = L'\0';
+  agent::common::LogModule(module, &profiler_->session_, &segment_);
 }
 
 void Profiler::ThreadState::LogThreadName(

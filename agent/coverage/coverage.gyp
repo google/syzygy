@@ -43,13 +43,34 @@
       ],
     },
     {
+      'target_name': 'coverage_client',
+      'type': 'shared_library',
+      'sources': [
+        'coverage.cc',
+        'coverage.def',
+        'coverage.h',
+        'coverage.rc',
+      ],
+      'dependencies': [
+        'coverage_lib',
+        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
+      ],
+    },
+    {
       'target_name': 'coverage_unittests',
       'type': 'executable',
       'sources': [
+        'coverage_unittest.cc',
         'coverage_transform_unittest.cc',
         'coverage_unittests_main.cc',
       ],
       'dependencies': [
+        'coverage_client',
         'coverage_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',

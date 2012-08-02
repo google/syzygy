@@ -34,6 +34,14 @@ struct CoverageData {
   // aborted.
   uint32 version;
 
+  // Code coverage uses a single process wide basic block array, thus only needs
+  // to be initialized once. Our hooks grab various other entry points
+  // (including TLS constructors/destructors), so the initialization routine may
+  // be called repeatedly. We use this to determine whether or not we should try
+  // initializing things. Upon first entry this is protected by the loader lock
+  // and afterwards it is only read, so synchronization is not an issue.
+  uint32 initialization_attempted;
+
   // The number of basic blocks in the instrumented image. This is required by
   // the runtime client library so it knows how big an array to allocate.
   uint32 basic_block_count;

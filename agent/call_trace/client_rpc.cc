@@ -29,6 +29,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/common/path_util.h"
@@ -289,60 +290,15 @@ void Client::LogEvent_ModuleEvent(ThreadLocalData *data,
       return;
   }
 
-  // Make sure the event we're about to write will fit.
-  if (!data->segment.CanAllocate(sizeof(TraceModuleData))) {
-    data->FlushSegment();
-  }
-
-  // Allocate a record in the log.
-  TraceModuleData* module_event = reinterpret_cast<TraceModuleData*>(
-      data->segment.AllocateTraceRecordImpl(
-          trace::client::ReasonToEventType(reason), sizeof(TraceModuleData)));
-  DCHECK(module_event!= NULL);
-
-  // Populate the log record.
-  base::win::PEImage image(module);
-  module_event->module_base_size =
-      image.GetNTHeaders()->OptionalHeader.SizeOfImage;
-  module_event->module_checksum = image.GetNTHeaders()->OptionalHeader.CheckSum;
-  module_event->module_time_date_stamp =
-      image.GetNTHeaders()->FileHeader.TimeDateStamp;
-
-  // Get the module name, and be sure to convert it to a path with a drive
-  // letter rather than a device name.
-  wchar_t module_name[MAX_PATH] = { 0 };
-  if (::GetMappedFileName(::GetCurrentProcess(), module,
-                          module_name, arraysize(module_name)) == 0) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
-  }
-  FilePath device_path(module_name);
-  FilePath drive_path;
-  if (!::common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
-    LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
-  }
-  ::wcsncpy(module_event->module_name, drive_path.value().c_str(),
-            arraysize(module_event->module_name));
-
-  // TODO(rogerm): get rid of the module_exe field of TraceModuleData?
-#ifdef NDEBUG
-  module_event->module_exe[0] = L'\0';
-#else
-  ZeroMemory(&module_event->module_exe[0], sizeof(module_event->module_exe));
-#endif
-
-  // We set the address of the module last. If it is still zero (from the
-  // allocation above), then the parser will know that this module event
-  // record was incompletely written and will ignore it.
-  module_event->module_base_addr = module;
+  // This already logs verbosely.
+  if (!agent::common::LogModule(module, &session_, &data->segment))
+    return;
 
   // We need to flush module events right away, so that the module is
   // defined in the trace file before events using that module start to
   // occur (in another thread).
-  //
-  // TODO(rogerm): We don't really need to flush right away for detach
-  //     events. We could be a little more efficient here.
-  data->FlushSegment();
+  if (reason == DLL_PROCESS_ATTACH)
+    data->FlushSegment();
 }
 
 
