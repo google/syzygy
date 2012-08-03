@@ -26,6 +26,7 @@
 #include "base/string_piece.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
 namespace transforms {
@@ -107,10 +108,6 @@ class EntryThunkTransform
                                     const BlockGraph::Reference& destination,
                                     bool is_dll_entry_signature);
 
-  // Locates the image entrypoints that should be thunked with the
-  // dllmain hook import and stores them in dllmain_entrypoints_.
-  bool PopulateDllMainEntryPoints(BlockGraph::Block* header_block);
-
   // Initializes the references in thunk_block, which must be an allocated
   // thunk of size sizeof(Thunk), containing data of the same size.
   static bool InitializeThunk(BlockGraph::Block* thunk_block,
@@ -152,9 +149,7 @@ class EntryThunkTransform
   // This contains the set of entrypoints that have DllMain calling conventions.
   // These are thunked to the dllmain hook import, instead of the generic
   // hook import. Valid after successful PreBlockGraphIteration.
-  typedef std::pair<BlockGraph::Block*, BlockGraph::Offset> EntryPointKey;
-  typedef std::set<EntryPointKey> EntryPointSet;
-  EntryPointSet dllmain_entrypoints_;
+  pe::EntryPointSet dllmain_entrypoints_;
 
   static const Thunk kThunkTemplate;
 

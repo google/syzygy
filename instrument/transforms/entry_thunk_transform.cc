@@ -128,8 +128,23 @@ bool EntryThunkTransform::PreBlockGraphIteration(
     return false;
   }
 
-  if (!PopulateDllMainEntryPoints(header_block)) {
-    LOG(ERROR) << "Failed to populate DLL entrypoints.";
+  // Get the DLL entry-point.
+  pe::EntryPoint dll_entry_point;
+  if (!pe::GetDllEntryPoint(header_block, &dll_entry_point)) {
+    LOG(ERROR) << "Failed to resolve the Dll entry-point.";
+    return false;
+  }
+
+  // If the image is an EXE or is a DLL that does not specify an entry-point
+  // (the entry-point is optional for DLLs) then the dll_entry_point will have
+  // a NULL block pointer. Otherwise, add it to the entry-point set.
+  if (dll_entry_point.first != NULL)
+    dllmain_entrypoints_.insert(dll_entry_point);
+
+  // Get the TLS initializer entry-points. These have the same signature and
+  // call patterns to DllMain.
+  if (!pe::GetTlsInitializers(header_block, &dllmain_entrypoints_)) {
+    LOG(ERROR) << "Failed to populate the TLS Initializer entry-points.";
     return false;
   }
 
@@ -214,7 +229,7 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
   }
 
   // See whether this is one of the special entrypoints.
-  EntryPointSet::const_iterator entry_it(dllmain_entrypoints_.find(
+  pe::EntryPointSet::const_iterator entry_it(dllmain_entrypoints_.find(
       std::make_pair(ref.referenced(), ref.offset())));
   bool is_dllmain_entry = entry_it != dllmain_entrypoints_.end();
 
@@ -316,72 +331,6 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   }
 
   return thunk;
-}
-
-bool EntryThunkTransform::PopulateDllMainEntryPoints(
-    BlockGraph::Block* header_block) {
-  BlockGraph::Block* nt_headers_block =
-      pe::GetNtHeadersBlockFromDosHeaderBlock(header_block);
-
-  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
-  if (nt_headers_block == NULL || !nt_headers.Init(0, nt_headers_block)) {
-    LOG(ERROR) << "Unable to retrieve NT Headers.";
-    return false;
-  }
-
-  // Note the entrypoint for DLLs.
-  if (nt_headers->FileHeader.Characteristics & IMAGE_FILE_DLL) {
-    BlockGraph::Reference ref;
-    if (nt_headers.block()->GetReference(
-            offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint),
-            &ref)) {
-      // Note this entrypoint.
-      dllmain_entrypoints_.insert(
-          std::make_pair(ref.referenced(), ref.offset()));
-    }
-  }
-
-  // If the module has no TLS directory then there are no TLS initializers
-  // and hence nothing to do.
-  const IMAGE_DATA_DIRECTORY& data_dir =
-      nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS];
-  if (data_dir.Size == 0 || !nt_headers.HasReference(data_dir.VirtualAddress)) {
-    return true;
-  }
-
-  // Find the TLS directory.
-  TypedBlock<IMAGE_TLS_DIRECTORY> tls_dir;
-  if (!nt_headers.Dereference(data_dir.VirtualAddress, &tls_dir)) {
-    LOG(ERROR) << "Failed to cast TLS directory.";
-    return false;
-  }
-
-  // Get the TLS initializer callbacks. We manually lookup the reference
-  // because it is an indirect reference, which can't be dereferenced by
-  // TypedBlock.
-  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
-  ReferenceMap::const_iterator callback_ref =
-      tls_dir.block()->references().find(
-          tls_dir.OffsetOf(tls_dir->AddressOfCallBacks));
-  if (callback_ref == tls_dir.block()->references().end()) {
-    LOG(ERROR) << "Failed to locate TLS initializers.";
-    return false;
-  }
-
-  // Note each of the thunks.
-  const BlockGraph::Block* callbacks_block = callback_ref->second.referenced();
-  const ReferenceMap& ref_map = callbacks_block->references();
-  ReferenceMap::const_iterator iter = ref_map.begin();
-  for (; iter != ref_map.end(); ++iter) {
-    const BlockGraph::Reference& ref = iter->second;
-    DCHECK(ref.size() == sizeof(core::AbsoluteAddress));
-
-    // Note this TLS entrypoint.
-    dllmain_entrypoints_.insert(
-        std::make_pair(ref.referenced(), ref.offset()));
-  }
-
-  return true;
 }
 
 bool EntryThunkTransform::InitializeThunk(
