@@ -235,4 +235,117 @@ bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
   return true;
 }
 
+namespace {
+
+enum EntryPointTypeEnum { kExeEntryPoint, kDllEntryPoint };
+
+bool GetImageEntryPoint(BlockGraph::Block* dos_header_block,
+                        EntryPointTypeEnum desired_entry_point_type,
+                        EntryPoint* entry_point) {
+  DCHECK(dos_header_block != NULL);
+  DCHECK(entry_point != NULL);
+
+  *entry_point = EntryPoint(static_cast<BlockGraph::Block*>(NULL), 0);
+
+  BlockGraph::Block* nt_headers_block =
+      pe::GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+
+  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (nt_headers_block == NULL || !nt_headers.Init(0, nt_headers_block)) {
+    LOG(ERROR) << "Unable to retrieve NT Headers.";
+    return false;
+  }
+
+  EntryPointTypeEnum entry_point_type = kExeEntryPoint;
+  if ((nt_headers->FileHeader.Characteristics & IMAGE_FILE_DLL) != 0)
+    entry_point_type = kDllEntryPoint;
+
+  if (entry_point_type != desired_entry_point_type)
+    return true;
+
+  BlockGraph::Reference entry_point_ref;
+  bool found = nt_headers.block()->GetReference(
+      offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint),
+      &entry_point_ref);
+
+  if (!found && entry_point_type == kExeEntryPoint) {
+    LOG(ERROR) << "Malformed PE Headers: No entry point found for executable.";
+    return false;
+  }
+
+  if (found) {
+    *entry_point = EntryPoint(entry_point_ref.referenced(),
+                              entry_point_ref.offset());
+  }
+
+  return true;
+}
+
+}  // namespace
+
+bool GetExeEntryPoint(BlockGraph::Block* dos_header_block,
+                      EntryPoint* entry_point) {
+  return GetImageEntryPoint(dos_header_block, kExeEntryPoint, entry_point);
+}
+
+bool GetDllEntryPoint(BlockGraph::Block* dos_header_block,
+                      EntryPoint* entry_point) {
+  return GetImageEntryPoint(dos_header_block, kDllEntryPoint, entry_point);
+}
+
+bool GetTlsInitializers(BlockGraph::Block* dos_header_block,
+                        EntryPointSet* entry_points) {
+  DCHECK(dos_header_block != NULL);
+  DCHECK(entry_points != NULL);
+
+  BlockGraph::Block* nt_headers_block =
+      pe::GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+
+  TypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (nt_headers_block == NULL || !nt_headers.Init(0, nt_headers_block)) {
+    LOG(ERROR) << "Unable to retrieve NT Headers.";
+    return false;
+  }
+
+  // If the module has no TLS directory then there are no TLS initializers
+  // and hence nothing to do.
+  const IMAGE_DATA_DIRECTORY& data_dir =
+      nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS];
+  if (data_dir.Size == 0 || !nt_headers.HasReference(data_dir.VirtualAddress)) {
+    return true;
+  }
+
+  // Find the TLS directory.
+  TypedBlock<IMAGE_TLS_DIRECTORY> tls_dir;
+  if (!nt_headers.Dereference(data_dir.VirtualAddress, &tls_dir)) {
+    LOG(ERROR) << "Failed to cast TLS directory.";
+    return false;
+  }
+
+  // Get the TLS initializer callbacks. We manually lookup the reference
+  // because it is an indirect reference, which can't be dereferenced by
+  // TypedBlock.
+  typedef BlockGraph::Block::ReferenceMap ReferenceMap;
+  ReferenceMap::const_iterator callback_ref =
+      tls_dir.block()->references().find(
+          tls_dir.OffsetOf(tls_dir->AddressOfCallBacks));
+  if (callback_ref == tls_dir.block()->references().end()) {
+    LOG(ERROR) << "Failed to locate TLS initializers.";
+    return false;
+  }
+
+  // Note each of the TLS entry points.
+  const BlockGraph::Block* callbacks_block = callback_ref->second.referenced();
+  const ReferenceMap& ref_map = callbacks_block->references();
+  ReferenceMap::const_iterator iter = ref_map.begin();
+  for (; iter != ref_map.end(); ++iter) {
+    const BlockGraph::Reference& ref = iter->second;
+    DCHECK(ref.size() == sizeof(core::AbsoluteAddress));
+    entry_points->insert(
+        std::make_pair(ref.referenced(), ref.offset()));
+  }
+
+  return true;
+}
+
 }  // namespace pe

@@ -29,6 +29,8 @@ class PEUtilsTest : public testing::Test {
   PEUtilsTest()
       : nt_headers_block_(NULL),
         dos_header_block_(NULL),
+        main_entry_point_block_(NULL),
+        tls_initializer_block_(NULL),
         nt_headers_(NULL),
         dos_header_(NULL) {
   }
@@ -38,16 +40,21 @@ class PEUtilsTest : public testing::Test {
     ASSERT_NO_FATAL_FAILURE(CreateNtHeadersBlock());
     // And the DOS header block.
     ASSERT_NO_FATAL_FAILURE(CreateDosHeaderBlock());
+    // And set-up some entry points.
+    ASSERT_NO_FATAL_FAILURE(CreateEntryPoints());
   }
 
  protected:
   void CreateDosHeaderBlock();
   void CreateNtHeadersBlock();
+  void CreateEntryPoints();
 
   BlockGraph block_graph_;
 
   BlockGraph::Block* nt_headers_block_;
   BlockGraph::Block* dos_header_block_;
+  BlockGraph::Block* main_entry_point_block_;
+  BlockGraph::Block* tls_initializer_block_;
   IMAGE_DOS_HEADER* dos_header_;
   IMAGE_NT_HEADERS* nt_headers_;
 };
@@ -97,6 +104,62 @@ void PEUtilsTest::CreateDosHeaderBlock() {
                               nt_headers_block_,
                               0, 0));
   }
+}
+
+void PEUtilsTest::CreateEntryPoints() {
+  // Setup the main entry-point.
+  main_entry_point_block_ = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 1, "main_entry_point");
+  ASSERT_TRUE(main_entry_point_block_ != NULL);
+  ASSERT_TRUE(nt_headers_block_->SetReference(
+      offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint),
+      BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                            BlockGraph::Reference::kMaximumSize,
+                            main_entry_point_block_, 0, 0)));
+
+  // Setup the TLS directory.
+  static const size_t kTlsDirectoryOffset = offsetof(
+      IMAGE_NT_HEADERS,
+      OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress);
+  BlockGraph::Block* tls_directory_block = block_graph_.AddBlock(
+      BlockGraph::DATA_BLOCK,
+      sizeof(IMAGE_TLS_DIRECTORY),
+      "tls_directory");
+  ASSERT_TRUE(tls_directory_block != NULL);
+  ASSERT_TRUE(tls_directory_block->AllocateData(tls_directory_block->size()));
+  nt_headers_->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].Size =
+      tls_directory_block->size();
+  ASSERT_TRUE(nt_headers_block_->SetReference(
+      kTlsDirectoryOffset,
+      BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                            BlockGraph::Reference::kMaximumSize,
+                            tls_directory_block, 0, 0)));
+
+  // Setup the TLS callbacks table. Reserving enough space for one callback
+  // and the trailing NULL sentinel.
+  BlockGraph::Block* tls_callbacks_block = block_graph_.AddBlock(
+      BlockGraph::DATA_BLOCK,
+      2 * BlockGraph::Reference::kMaximumSize,
+      "tls_callbacks");
+  ASSERT_TRUE(tls_callbacks_block != NULL);
+  ASSERT_TRUE(tls_callbacks_block->AllocateData(tls_callbacks_block->size()));
+  nt_headers_->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].Size =
+      tls_directory_block->size();
+  ASSERT_TRUE(tls_directory_block->SetReference(
+      offsetof(IMAGE_TLS_DIRECTORY, AddressOfCallBacks),
+      BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                            BlockGraph::Reference::kMaximumSize,
+                            tls_callbacks_block, 0, 0)));
+
+  // Add a TLS initializer.
+  tls_initializer_block_ = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 1, "tls_initializer");
+  ASSERT_TRUE(tls_initializer_block_ != NULL);
+  ASSERT_TRUE(tls_callbacks_block->SetReference(
+      0,
+      BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                            BlockGraph::Reference::kMaximumSize,
+                            tls_initializer_block_, 0, 0)));
 }
 
 }  // namespace
@@ -186,6 +249,59 @@ TEST_F(PEUtilsTest, GetNtHeadersBlockFromDosHeaderBlockConst) {
   ASSERT_EQ(nt_headers_block_,
             GetNtHeadersBlockFromDosHeaderBlock(
                 const_cast<const BlockGraph::Block*>(dos_header_block_)));
+}
+
+TEST_F(PEUtilsTest, GetExeEntryPoint) {
+  EntryPoint entry_point;
+
+  // Get the entry point for an EXE.
+  nt_headers_->FileHeader.Characteristics &= ~IMAGE_FILE_DLL;
+  EXPECT_TRUE(GetExeEntryPoint(dos_header_block_, &entry_point));
+  EXPECT_EQ(main_entry_point_block_, entry_point.first);
+  EXPECT_EQ(0, entry_point.second);
+
+  // Should return no entry points if the image is a DLL.
+  nt_headers_->FileHeader.Characteristics |= IMAGE_FILE_DLL;
+  EXPECT_TRUE(GetExeEntryPoint(dos_header_block_, &entry_point));
+  EXPECT_EQ(NULL, entry_point.first);
+
+  // Should fail if the image is an EXE with no entry-point.
+  nt_headers_->FileHeader.Characteristics &= ~IMAGE_FILE_DLL;
+  ASSERT_TRUE(nt_headers_block_->RemoveReference(
+      offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint)));
+  EXPECT_FALSE(GetExeEntryPoint(dos_header_block_, &entry_point));
+}
+
+TEST_F(PEUtilsTest, GetDllEntryPoint) {
+  EntryPoint entry_point;
+
+  // Get the DLL entry point.
+  nt_headers_->FileHeader.Characteristics |= IMAGE_FILE_DLL;
+  EXPECT_TRUE(GetDllEntryPoint(dos_header_block_, &entry_point));
+  EXPECT_EQ(main_entry_point_block_, entry_point.first);
+  EXPECT_EQ(0, entry_point.second);
+
+  // Should return no entry points if the image is an EXE.
+  nt_headers_->FileHeader.Characteristics &= ~IMAGE_FILE_DLL;
+  EXPECT_TRUE(GetDllEntryPoint(dos_header_block_, &entry_point));
+  EXPECT_EQ(NULL, entry_point.first);
+
+  // Should return no entry points if the image is a DLL without an entry-point.
+  nt_headers_->FileHeader.Characteristics |= IMAGE_FILE_DLL;
+  ASSERT_TRUE(nt_headers_block_->RemoveReference(
+      offsetof(IMAGE_NT_HEADERS, OptionalHeader.AddressOfEntryPoint)));
+  EXPECT_TRUE(GetDllEntryPoint(dos_header_block_, &entry_point));
+  EXPECT_EQ(NULL, entry_point.first);
+}
+
+TEST_F(PEUtilsTest, GetTlsInitializers) {
+  // A container to store the entry-points.
+  EntryPointSet entry_points;
+
+  // Get the entry points.
+  EXPECT_TRUE(GetTlsInitializers(dos_header_block_, &entry_points));
+  EXPECT_EQ(1U, entry_points.size());
+  EXPECT_EQ(tls_initializer_block_, entry_points.begin()->first);
 }
 
 }  // namespace pe
