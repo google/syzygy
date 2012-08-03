@@ -29,7 +29,7 @@
 //     block for the name of the symbol we reuse the module filename block and
 //     insert the name of the symbol immediately prior to the module filename.
 //     This ensures that all of the strings for a module are laid out together,
-//     mimicking the observed behaviour of the MS linker.
+//     mimicking the observed behavior of the MS linker.
 //
 // We give a quick rundown of the PE structures involved, their layout in
 // typical PE images and how we parse them into blocks. This helps visualize
@@ -108,6 +108,7 @@
 
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
+#include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/typed_block.h"
@@ -623,8 +624,9 @@ bool AddImportsTransform::TransformBlockGraph(
 
 const size_t AddImportsTransform::ImportedModule::kInvalidIndex = -1;
 
-size_t AddImportsTransform::ImportedModule::AddSymbol(const char* symbol_name) {
-  Symbol symbol = {symbol_name, kInvalidIndex};
+size_t AddImportsTransform::ImportedModule::AddSymbol(
+    const base::StringPiece& symbol_name) {
+  Symbol symbol = {symbol_name.as_string(), kInvalidIndex};
   symbols_.push_back(symbol);
   return symbols_.size() - 1;
 }

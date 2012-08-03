@@ -114,7 +114,8 @@ struct AddImportsTransform::ImportedModule {
   ImportedModule() { }
 
   // @param module_name the name of the module to import.
-  explicit ImportedModule(const char* module_name) : name_(module_name) {
+  explicit ImportedModule(const base::StringPiece& module_name)
+      : name_(module_name.begin(), module_name.end()) {
   }
 
   // Accesses the name of the module.
@@ -122,7 +123,7 @@ struct AddImportsTransform::ImportedModule {
   const std::string& name() const { return name_; }
 
   // Adds a symbol to be imported, returning its index.
-  size_t AddSymbol(const char* symbol_name);
+  size_t AddSymbol(const base::StringPiece& symbol_name);
 
   // Returns the number of symbols that are to be imported from this module.
   size_t size() const { return symbols_.size(); }
