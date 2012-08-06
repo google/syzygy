@@ -53,6 +53,13 @@ void GetTypeAndAttributes(const Block* original_block,
 const char ExplodeBasicBlockSubGraphTransform::kTransformName[] =
     "ExplodeBasicBlockSubGraphTransform";
 
+ExplodeBasicBlockSubGraphTransform::ExplodeBasicBlockSubGraphTransform(
+    bool exclude_padding)
+        : exclude_padding_(exclude_padding),
+          output_code_blocks_(0),
+          output_data_blocks_(0) {
+}
+
 bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
     BlockGraph* block_graph , BasicBlockSubGraph* subgraph) {
   DCHECK(block_graph != NULL);
@@ -74,6 +81,11 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
     if (exclude_padding_ && (attributes & BlockGraph::PADDING_BLOCK) != 0)
       continue;
 
+    if (type == BlockGraph::CODE_BLOCK)
+      ++output_code_blocks_;
+    else
+      ++output_data_blocks_;
+
     BasicBlockSubGraph::BlockDescription* desc = subgraph->AddBlockDescription(
         bb.name(), type, subgraph->original_block()->section(), 4, attributes);
     desc->basic_block_order.push_back(&bb);
@@ -84,6 +96,15 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
 const char ExplodeBasicBlocksTransform::kTransformName[] =
     "ExplodeBasicBlocksTransform";
 
+ExplodeBasicBlocksTransform::ExplodeBasicBlocksTransform()
+    : exclude_padding_(false),
+      non_decomposable_code_blocks_(0),
+      skipped_code_blocks_(0),
+      input_code_blocks_(0),
+      output_code_blocks_(0),
+      output_data_blocks_(0) {
+}
+
 bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
                                           BlockGraph::Block* block) {
   DCHECK(block_graph != NULL);
@@ -92,16 +113,35 @@ bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
-  if (!CodeBlockIsBasicBlockDecomposable(block))
+  if (!CodeBlockIsBasicBlockDecomposable(block)) {
+    ++non_decomposable_code_blocks_;
     return true;
+  }
 
-  if (SkipThisBlock(block))
+  if (SkipThisBlock(block)) {
+    ++skipped_code_blocks_;
     return true;
+  }
 
   ExplodeBasicBlockSubGraphTransform transform(exclude_padding_);
 
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
     return false;
+
+  ++input_code_blocks_;
+  output_code_blocks_ += transform.output_code_blocks();
+  output_data_blocks_ += transform.output_data_blocks();
+
+  return true;
+}
+
+bool ExplodeBasicBlocksTransform::PostBlockGraphIteration(
+    BlockGraph* unused_block_graph, BlockGraph::Block* unused_header_block) {
+  LOG(INFO) << "Exploded " << input_code_blocks_ << " input code blocks to";
+  LOG(INFO) << "  Code blocks: " << output_code_blocks_;
+  LOG(INFO) << "  Data blocks: " << output_data_blocks_;
+  LOG(INFO) << "Non-decomposable blocks: " << non_decomposable_code_blocks_;
+  LOG(INFO) << "Skipped blocks: " << skipped_code_blocks_;
 
   return true;
 }
