@@ -44,8 +44,8 @@ def BuildTestDllAndDecompose(config):
   _LOGGER.info('Building test_dll and decompose.')
 
   syzygy_sln = os.path.join(_SYZYGY_DIR, 'syzygy.sln')
-  test_dll_proj = os.path.join(_SYZYGY_DIR, 'pe', 'test_dll.vcproj')
-  decompose_proj = os.path.join(_SYZYGY_DIR, 'pe', 'decompose.vcproj')
+  test_dll_proj = 'test_dll'
+  decompose_proj = 'decompose'
   build_project.BuildProjectConfig(syzygy_sln, test_dll_proj, config)
   build_project.BuildProjectConfig(syzygy_sln, decompose_proj, config)
 
