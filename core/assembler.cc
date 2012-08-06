@@ -88,6 +88,18 @@ OperandImpl::OperandImpl(Register base,
   DCHECK_NE(kSizeNone, displacement.size());
 }
 
+OperandImpl::OperandImpl(Register index,
+                         ScaleFactor scale,
+                         const DisplacementImpl& displacement)
+    : base_(kRegisterNone),
+      index_(index.code()),
+      scale_(scale),
+      displacement_(displacement) {
+  // ESP cannot be used as an index register.
+  DCHECK_NE(kRegisterEsp, index.code());
+  DCHECK_NE(kSizeNone, displacement.size());
+}
+
 ValueImpl::ValueImpl()
     : value_(0), reference_(NULL), size_(kSizeNone) {
 }
@@ -265,8 +277,18 @@ void AssemblerImpl::InstructionBuffer::EmitOperand(
         Emit32BitDisplacement(op.displacement());
       }
     }
+  } else if (op.base() == kRegisterNone) {
+    // Index, no base.
+    DCHECK_NE(kRegisterNone, op.index());
+    DCHECK_EQ(kRegisterNone, op.base());
+
+    // This mode always has a 32 bit displacement.
+    EmitModRMByte(Reg1Ind, reg_op, kRegisterEsp);
+    EmitScaleIndexBaseByte(op.scale(), op.index(), kRegisterEbp);
+    Emit32BitDisplacement(op.displacement());
   } else {
-    // There must be a base register as well.
+    // Index and base case.
+    DCHECK_NE(kRegisterNone, op.index());
     DCHECK_NE(kRegisterNone, op.base());
 
     // Is there a displacement?

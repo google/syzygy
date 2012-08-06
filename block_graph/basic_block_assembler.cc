@@ -67,6 +67,12 @@ Operand::Operand(core::Register base,
     : operand_(base, index, scale, displ.value_) {
 }
 
+Operand::Operand(core::Register index,
+                 core::ScaleFactor scale,
+                 const Displacement& displ)
+    : operand_(index, scale, displ.value_) {
+}
+
 BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(
     const Instructions::iterator& where, Instructions* list)
         : where_(where), list_(list) {
