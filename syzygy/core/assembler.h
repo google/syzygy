@@ -282,13 +282,6 @@ class AssemblerImpl {
   // Output the instruction data in @p instr to our delegate.
   void Output(const InstructionBuffer& instr);
 
-  // Encode the operand in @p op to ModR/W, SIB and displacement
-  // bytes as appropriate, and append them to @p instr.
-  // @p op_reg is either a register or opcode extension as appropriate.
-  static void EncodeOperand(uint8 op_reg,
-                            const OperandImpl& op,
-                            InstructionBuffer* instr);
-
   // Stores the current location of assembly.
   uint32 location_;
 
