@@ -37,9 +37,7 @@ class ExplodeBasicBlockSubGraphTransform
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
   // Initialize a new ExplodeBasicBlockSubGraphTransform instance.
-  explicit ExplodeBasicBlockSubGraphTransform(bool exclude_padding)
-      : exclude_padding_(exclude_padding) {
-  }
+  explicit ExplodeBasicBlockSubGraphTransform(bool exclude_padding);
 
   // @name BasicBlockSubGraphTransformInterface methods.
   // @{
@@ -51,10 +49,18 @@ class ExplodeBasicBlockSubGraphTransform
   // The transform name.
   static const char kTransformName[];
 
+  // @name Accessors.
+  // @{
+  size_t output_code_blocks() const { return output_code_blocks_; }
+  size_t output_data_blocks() const { return output_data_blocks_; }
+  // @}
+
  protected:
   // A flag for whether padding (and dead code) basic-blocks should be excluded
   // when reconstituting the exploded blocks.
   bool exclude_padding_;
+  size_t output_code_blocks_;
+  size_t output_data_blocks_;
 
   DISALLOW_COPY_AND_ASSIGN(ExplodeBasicBlockSubGraphTransform);
 };
@@ -69,8 +75,7 @@ class ExplodeBasicBlocksTransform
   typedef block_graph::BlockGraph BlockGraph;
 
   // Initialize a new ExplodeBasicBlocksTransform instance.
-  ExplodeBasicBlocksTransform() : exclude_padding_(false) {
-  }
+  ExplodeBasicBlocksTransform();
 
   // Explodes each basic code block in @p block referenced by into separate
   // blocks, then erases @p block from @p block_graph.
@@ -78,6 +83,10 @@ class ExplodeBasicBlocksTransform
   // @param block The block to explode, this must be in @p block_graph.
   // @note This method is required by the IterativeTransformImpl parent class.
   bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+
+  // Logs metrics about the performed transform.
+  bool PostBlockGraphIteration(BlockGraph* block_graph,
+                               BlockGraph::Block* header_block);
 
   // @name Accessors.
   // @{
@@ -95,6 +104,13 @@ class ExplodeBasicBlocksTransform
   // A flag for whether padding (and dead code) basic-blocks should be excluded
   // when reconstituting the exploded blocks.
   bool exclude_padding_;
+
+  // Statistics on blocks encountered and generated.
+  size_t non_decomposable_code_blocks_;
+  size_t skipped_code_blocks_;
+  size_t input_code_blocks_;
+  size_t output_code_blocks_;
+  size_t output_data_blocks_;
 
   DISALLOW_COPY_AND_ASSIGN(ExplodeBasicBlocksTransform);
 };
