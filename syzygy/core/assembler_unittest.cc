@@ -368,7 +368,7 @@ TEST_F(AssemblerTest, MovDisplacementIndirect) {
   EXPECT_BYTES(0x89, 0x0D, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
-TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {
+TEST_F(AssemblerTest, MovRegisterBaseDisplacementScaleIndirect) {
   // There are 8 base * 7 index * 4 scales = 224 combinations.
   // We don't test all of them, but rather cycle through each of base,
   // index and scale individually.
@@ -461,6 +461,46 @@ TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {
   EXPECT_BYTES(0x89, 0x9C, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
   asm_.mov(OperandImpl(ecx, eax, kTimes8, cafebabe), ebx);
   EXPECT_BYTES(0x89, 0x9C, 0xC1, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {
+  // Tests [index * scale + displ] modes, which are always encoded with a
+  // 32-bit displacement, including [index * scale], which has a zero 32-bit
+  // displacement that will be omitted from disassembly.
+
+  DisplacementImpl one(1, kSize8Bit, NULL);
+
+  // Source mode.
+  asm_.mov(edx, OperandImpl(eax, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0x85, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(edx, OperandImpl(ecx, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0x8D, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(edx, OperandImpl(edx, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0x95, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(edx, OperandImpl(ebx, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0x9D, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(edx, OperandImpl(ebp, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0xAD, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(edx, OperandImpl(esi, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0xB5, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(edx, OperandImpl(edi, kTimes4, one));
+  EXPECT_BYTES(0x8B, 0x14, 0xBD, 0x01, 0x00, 0x00, 0x00);
+
+  // Destination mode.
+  asm_.mov(OperandImpl(eax, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0x85, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(OperandImpl(ecx, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0x8D, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(OperandImpl(edx, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0x95, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(OperandImpl(ebx, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0x9D, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(OperandImpl(ebp, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0xAD, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(OperandImpl(esi, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0xB5, 0x01, 0x00, 0x00, 0x00);
+  asm_.mov(OperandImpl(edi, kTimes4, one), edx);
+  EXPECT_BYTES(0x89, 0x14, 0xBD, 0x01, 0x00, 0x00, 0x00);
 }
 
 TEST_F(AssemblerTest, MovImmToRegisterDisplacementScaleIndirect) {

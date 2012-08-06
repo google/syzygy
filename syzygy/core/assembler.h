@@ -176,6 +176,12 @@ class OperandImpl {
               ScaleFactor scale,
               const DisplacementImpl& displ);
 
+  // The [index * scale + displ32] mode - e.g. no base.
+  // @note esp cannot be used as an index register.
+  OperandImpl(Register index,
+              ScaleFactor scale,
+              const DisplacementImpl& displ);
+
   // @name Accessors.
   // @{
   RegisterCode base() const { return base_; }

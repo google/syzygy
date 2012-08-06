@@ -75,6 +75,12 @@ class Operand {
           core::ScaleFactor scale,
           const Displacement& displ);
 
+  // The [index * scale + displ32] mode.
+  // @note esp cannot be used as an index register.
+  Operand(core::Register index,
+          core::ScaleFactor scale,
+          const Displacement& displ);
+
   // @name Accessors.
   // @{
   core::RegisterCode base() const { return operand_.base(); }
