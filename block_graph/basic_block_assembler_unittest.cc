@@ -91,24 +91,27 @@ BasicBlockAssemblerTest::BasicBlockAssemblerTest()
       asm_(instructions_.end(), &instructions_) {
 }
 
-template <class InputType>
-void Test8BitValue(InputType input_value, uint32 expected_value) {
-  Value value(input_value);
-
-  ASSERT_EQ(core::kSize8Bit, value.size());
-  ASSERT_EQ(expected_value, value.value());
-  ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+void TestValue(const Value& value,
+               uint32 expected_value,
+               core::ValueSize expected_size) {
+  EXPECT_EQ(expected_size, value.size());
+  EXPECT_EQ(expected_value, value.value());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
             value.reference().referred_type());
 }
 
 template <class InputType>
-void Test32BitValue(InputType input_value, uint32 expected_value) {
-  Value value(input_value);
+void Test8BitValue(InputType input_value, uint32 expected_value) {
+  TestValue(Value(input_value), expected_value, core::kSize8Bit);
+  TestValue(
+      Value(input_value, core::kSize8Bit), expected_value, core::kSize8Bit);
+}
 
-  ASSERT_EQ(core::kSize32Bit, value.size());
-  ASSERT_EQ(expected_value, value.value());
-  ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
-            value.reference().referred_type());
+template <class InputType>
+void Test32BitValue(InputType input_value, uint32 expected_value) {
+  TestValue(Value(input_value), expected_value, core::kSize32Bit);
+  TestValue(
+      Value(input_value, core::kSize32Bit), expected_value, core::kSize32Bit);
 }
 
 }  // namespace

@@ -28,8 +28,13 @@ class Operand;
 class Value {
  public:
   Value();
-  // Constructs an 8 or 32 bit value.
+  // Constructs an 8- or 32-bit value, depending on the minimum number of bits
+  // required to represent the Value. If the value can be encoded using 8-bits
+  // to have the same representation under sign extension, then an 8-bit Value
+  // will be created; otherwise, a 32-bit absolute Value will be created.
   explicit Value(uint32 value);
+  // Constructs an absolute value having a specific bit width.
+  explicit Value(uint32 value, core::ValueSize size);
   // Constructs a 32 bit absolute value referring to the basic block @p bb.
   explicit Value(BasicBlock* bb);
   // Constructs a 32 bit absolute value referring to @p block at @p offset.

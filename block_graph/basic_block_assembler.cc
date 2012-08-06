@@ -38,6 +38,9 @@ Value::Value() {
 Value::Value(uint32 value) : value_(value, ValueSizeFromConstant(value)) {
 }
 
+Value::Value(uint32 value, core::ValueSize size) : value_(value, size) {
+}
+
 Value::Value(BasicBlock* bb)
     : reference_(BlockGraph::ABSOLUTE_REF, sizeof(core::AbsoluteAddress), bb),
       value_(0, core::kSize32Bit, &reference_) {
