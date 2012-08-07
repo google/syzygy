@@ -4,8 +4,8 @@ License: Redistribution
 License File: files\LICENSE.txt
 
 Description:
-Version 6.12.2.633 of the redistributable DLLs dbghelp, symsrv and srcsrv from
-Debugging Tools for Windows, as distributed with WDK 7.1.
+Version 6.12.2.633 of the redistributable dbghelp.dll, symsrv.dll, srcsrv.dll
+and pdbstr.exe from Debugging Tools for Windows, as distributed with WDK 7.1.
 
 Local Modifications:
 The files above were extracted from the Debugging Tools for Windows program

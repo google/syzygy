@@ -105,6 +105,91 @@ bool SetOmapStream(size_t dbi_dbg_index_offset,
   return SetDbiDbgStream(dbi_dbg_index_offset, stream.get(), pdb_file);
 }
 
+// Calculates the size of the hash table required to represent a named stream
+// hash containing the given number of entries. This has been determined from
+// inspection of the output produced by pdbstr.exe.
+size_t GetNamedStreamsHashTableSize(size_t entries) {
+  // This produces the sequence of sizes: 6, 10, 14, 20, 28, 38, 52, etc.
+  size_t size = 3;
+  while (true) {
+    size_t threshold = 2 * size / 3;
+    if (entries <= threshold)
+      return size;
+    size = 2 * (threshold + 1);
+  }
+}
+
+// Calculates the hash value associated with a stream name, as used by the
+// named streams hash table. This is required for interoperability with
+// dbghelp and srcsrv tools.
+uint16 NamedStreamsHash(const base::StringPiece& name) {
+  size_t length = name.size();
+  const char* data = name.data();
+
+  uint32 hash = 0;
+  while (length >= 4) {
+    hash ^= *reinterpret_cast<const uint32*>(data);
+    data += 4;
+    length -= 4;
+  }
+
+  if (length >= 2) {
+    hash ^= *reinterpret_cast<const uint16*>(data);
+    data += 2;
+    length -= 2;
+  }
+
+  if (length >= 1)
+    hash ^= *data;
+
+  hash |= 0x20202020;
+  hash ^= hash >> 11;
+  hash ^= hash >> 16;
+
+  return hash & 0xFFFF;
+}
+
+// Sets the bit at the given index, with collision semantics. Returns the index
+// of the bit that was set. Note that there must be at least one bit that is not
+// already set, otherwise this will loop forever.
+size_t SetNamedStreamsHashTableBit(
+    size_t index, size_t max, PdbBitSet* bitset) {
+  DCHECK(bitset != NULL);
+
+  while (bitset->IsSet(index)) {
+    ++index;
+    if (index > max)
+      index = 0;
+  }
+
+  bitset->Set(index);
+  return index;
+}
+
+// A small struct that is used for storing information regarding the name-stream
+// map, and the associated hash table. The (string table offset, stream id)
+// pairs need to be output in order of the hash value, which is the default sort
+// order of this object.
+struct NamedStreamInfo {
+  NamedStreamInfo(NameStreamMap::const_iterator it,
+                  uint32 offset,
+                  uint32 bucket)
+      : it(it), offset(offset), bucket(bucket) {
+  }
+
+  bool operator<(const NamedStreamInfo& rhs) const {
+    return bucket < rhs.bucket;
+  }
+
+  // An iterator into the (name, stream_id) map.
+  NameStreamMap::const_iterator it;
+  // The offset of the name in the string table.
+  uint32 offset;
+  // The bucket that this name occupies in the hash map, after collision
+  // resolution. This is the sort key.
+  uint32 bucket;
+};
+
 }  // namespace
 
 bool PdbBitSet::Read(PdbStream* stream) {
@@ -463,66 +548,80 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
     return false;
   }
 
-  // Get the string table length.
-  std::vector<uint32> offsets;
-  offsets.reserve(name_stream_map.size());
+  // Calculate the hash table entry count and size.
+  uint32 string_count = name_stream_map.size();
+  uint32 table_size = GetNamedStreamsHashTableSize(string_count);
+
+  // Initialize the 'used' bitset.
+  PdbBitSet used;
+  used.Resize(table_size);
+
+  // Get the string table length. We also calculate hashes for each name,
+  // populating the 'used' bitset and determining the order in which to output
+  // the stream names.
+  std::vector<NamedStreamInfo> name_infos;
+  name_infos.reserve(string_count);
   uint32 string_length = 0;
   NameStreamMap::const_iterator name_it = name_stream_map.begin();
   for (; name_it != name_stream_map.end(); ++name_it) {
-    offsets.push_back(string_length);
+    uint16 hash = NamedStreamsHash(name_it->first);
+    size_t bucket = hash % table_size;
+    bucket = SetNamedStreamsHashTableBit(bucket, table_size, &used);
+    name_infos.push_back(NamedStreamInfo(name_it, 0, bucket));
     string_length += name_it->first.size() + 1;  // Include the trailing zero.
   }
+
+  // Sort the strings in the order in which they will be output.
+  std::sort(name_infos.begin(), name_infos.end());
 
   // Dump the string table.
   if (!pdb_stream->Write(string_length)) {
     LOG(ERROR) << "Failed to write stream name table length.";
     return false;
   }
-  name_it = name_stream_map.begin();
-  for (; name_it != name_stream_map.end(); ++name_it) {
+  string_length = 0;
+  for (size_t i = 0; i < name_infos.size(); ++i) {
+    name_infos[i].offset = string_length;
+    name_it = name_infos[i].it;
+    string_length += name_it->first.size() + 1;
     if (!pdb_stream->Write(name_it->first.size() + 1, name_it->first.c_str())) {
       LOG(ERROR) << "Failed to write stream name.";
       return false;
     }
   }
 
-  // Write the string table size. We write the value twice, and use the smallest
-  // possible bitset. See ReadHeaderInfoStream for a detailed discussion of the
-  // layout.
-  const uint32 kStringCount = name_stream_map.size();
-  if (!pdb_stream->Write(kStringCount) || !pdb_stream->Write(kStringCount)) {
+  // Write the string hash table size.
+  if (!pdb_stream->Write(string_count) || !pdb_stream->Write(table_size)) {
     LOG(ERROR) << "Failed to write string table size.";
     return false;
   }
 
   // Write the 'used' bitset.
-  PdbBitSet bitset;
-  bitset.Resize(kStringCount);
-  for (size_t i = 0; i < kStringCount; ++i) {
-    bitset.Set(i);
-  }
-  if (!bitset.Write(pdb_stream)) {
+  if (!used.Write(pdb_stream)) {
     LOG(ERROR) << "Failed to write 'used' bitset.";
     return false;
   }
 
-  // The first bitset is always empty.
-  bitset.Resize(0);
-  if (!bitset.Write(pdb_stream)) {
+  // The 'deleted' bitset is always empty.
+  PdbBitSet deleted;
+  DCHECK(deleted.IsEmpty());
+  if (!deleted.Write(pdb_stream)) {
     LOG(ERROR) << "Failed to write 'deleted' bitset.";
     return false;
   }
 
-  // Now output the actual mapping, a run of [offset, id] pairs.
-  name_it = name_stream_map.begin();
-  for (size_t i = 0; name_it != name_stream_map.end(); ++i, ++name_it) {
-    if (!pdb_stream->Write(offsets[i]) || !pdb_stream->Write(name_it->second)) {
+  // Now output the actual mapping, a run of (string table offset, stream id)
+  // pairs. We output these in order of hash table buckets of each name,
+  // mimicking the output produced by pdbstr.exe.
+  for (size_t i = 0; i < name_infos.size(); ++i) {
+    if (!pdb_stream->Write(name_infos[i].offset) ||
+        !pdb_stream->Write(name_infos[i].it->second)) {
       LOG(ERROR) << "Failed to write stream name mapping.";
       return false;
     }
   }
 
-  // The run must be terminated with a single NULL entry.
+  // The run of pairs must be terminated with a single NULL entry.
   if (!pdb_stream->Write(static_cast<uint32>(0))) {
     LOG(ERROR) << "Failed to write terminating NULL.";
     return false;
