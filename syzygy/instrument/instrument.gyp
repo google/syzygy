@@ -73,6 +73,7 @@
       'sources': [
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
+        'transforms/asan_transform_unittest.cc',
         'transforms/coverage_transform_unittest.cc',
         'transforms/entry_thunk_transform_unittest.cc',
         'transforms/thunk_import_references_transform_unittest.cc',
