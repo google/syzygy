@@ -42,6 +42,8 @@ class BasicBlockTest: public testing::Test {
         basic_data_block_(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
                           kBlockOffset, kBlockSize, kBlockData),
         macro_block_(kBlockId, kMacroBlockType, kBlockSize, kBlockName) {
+     basic_data_block_.set_label(BlockGraph::Label(
+         "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
   }
 
   // Convert @p opcode to a branch type.
@@ -108,6 +110,10 @@ class BasicBlockTest: public testing::Test {
     META_SET_ISC(&call, ISC_INTEGER);
     Instruction call_inst(call, -1, sizeof(data), data);
     call_inst.SetReference(1, ref);
+    EXPECT_FALSE(call_inst.has_label());
+    call_inst.set_label(BlockGraph::Label("call", BlockGraph::CALL_SITE_LABEL));
+    EXPECT_TRUE(call_inst.has_label());
+    EXPECT_TRUE(call_inst.label().has_attributes(BlockGraph::CALL_SITE_LABEL));
     return call_inst;
   }
 
@@ -188,6 +194,10 @@ TEST_F(BasicBlockTest, BasicBlockAccessors) {
   EXPECT_EQ(kBlockSize, basic_code_block_.size());
   EXPECT_TRUE(basic_code_block_.references().empty());
   EXPECT_TRUE(basic_code_block_.referrers().empty());
+  EXPECT_FALSE(basic_code_block_.has_label());
+  EXPECT_TRUE(basic_data_block_.has_label());
+  EXPECT_TRUE(basic_data_block_.label().has_attributes(
+      BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
 }
 
 TEST_F(BasicBlockTest, GetMaxCodeSize) {
@@ -594,15 +604,15 @@ TEST(InstructionTest, CallsNonReturningFunction) {
   // Call the returning function directly.
   call_relative.SetReference(
       1, BasicBlockReference(BlockGraph::RELATIVE_REF,
-                              BlockGraph::Reference::kMaximumSize,
-                              &returning, 0, 0));
+                             BlockGraph::Reference::kMaximumSize,
+                             &returning, 0, 0));
   EXPECT_FALSE(call_relative.CallsNonReturningFunction());
 
   // Call the non-returning function directly.
   call_relative.SetReference(
       1, BasicBlockReference(BlockGraph::RELATIVE_REF,
-                              BlockGraph::Reference::kMaximumSize,
-                              &non_returning, 0, 0));
+                             BlockGraph::Reference::kMaximumSize,
+                             &non_returning, 0, 0));
   EXPECT_TRUE(call_relative.CallsNonReturningFunction());
 
   // Setup an indirect call via a static function pointer (for example, an
