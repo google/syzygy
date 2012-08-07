@@ -325,6 +325,9 @@ class Instruction {
   bool owns_data() const { return owns_data_; }
   Offset offset() const { return offset_; }
   Size size() const { return size_; }
+  const BlockGraph::Label& label() const { return label_; }
+  void set_label(const BlockGraph::Label& label) { label_ = label; }
+  bool has_label() const { return label_.IsValid(); }
   /// @}
 
   // @name Helper functions.
@@ -367,12 +370,14 @@ class Instruction {
   // basic block or macro block.
   BasicBlockReferenceMap references_;
 
-  // The byte range in the original block where this instruction originates.
+  // Information about the byte range in the original block where this
+  // instruction originates.
   // @{
   Offset offset_;
   Size size_;
   const uint8* data_;
   bool owns_data_;
+  BlockGraph::Label label_;
   // @}
 };
 
@@ -623,6 +628,9 @@ class BasicBlock {
   BasicBlockReferenceMap& references() { return references_; }
   const BasicBlockReferrerSet& referrers() const { return referrers_; }
   BasicBlockReferrerSet& referrers() { return referrers_; }
+  const BlockGraph::Label& label() const { return label_; }
+  void set_label(const BlockGraph::Label& label) { label_ = label; }
+  bool has_label() const { return label_.IsValid(); }
   // @}
 
   // Returns true if this basic block represents a valid block (i.e., it
@@ -684,6 +692,9 @@ class BasicBlock {
   // instruction (if any) is a conditional branch.
   // TODO(rogerm): reverse this order? infer which is which?
   Successors successors_;
+
+  // The label associated with this basic block.
+  BlockGraph::Label label_;
 };
 
 }  // namespace block_graph
