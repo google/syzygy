@@ -44,7 +44,8 @@ class InstrumentApp : public common::AppImplBase {
         augment_pdb_(false),
         strip_strings_(false),
         debug_friendly_(false),
-        instrument_unsafe_references_(true) {
+        instrument_unsafe_references_(true),
+        instrument_for_asan_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -73,6 +74,7 @@ class InstrumentApp : public common::AppImplBase {
   bool debug_friendly_;
   bool thunk_imports_;
   bool instrument_unsafe_references_;
+  bool instrument_for_asan_;
   // @}
 
   // @name Internal machinery, replaceable for testing purposes.

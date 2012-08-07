@@ -17,28 +17,110 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/memory/ref_counted.h"
+#include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
+#include "third_party/distorm/files/include/mnemonics.h"
+#include "third_party/distorm/files/src/x86defs.h"
 
 namespace pe {
 namespace transforms {
+namespace {
 
 using block_graph::BasicBlock;
-using block_graph::TypedBlock;
-using block_graph::BlockGraph;
+using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockSubGraph;
+using block_graph::BlockGraph;
+using block_graph::Displacement;
+using block_graph::Immediate;
 using block_graph::Instruction;
-using core::DisplacementImpl;
-using core::OperandImpl;
+using block_graph::Operand;
+using block_graph::Value;
 using core::Register;
 using core::RegisterCode;
+
+// Represent the different kind of access to the memory.
+enum MemoryAccessMode {
+  kNoAccess,
+  kReadAccess,
+  kWriteAccess,
+};
+
+// Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
+// corresponding Operand.
+MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
+                                    Operand* access) {
+  DCHECK(access != NULL);
+
+  MemoryAccessMode access_mode = kNoAccess;
+  if (instr.ops[0].type == O_SMEM || instr.ops[1].type == O_SMEM) {
+    // Simple memory dereference with optional displacement.
+    uint8 mem_op_id = instr.ops[0].type == O_SMEM ? 0 : 1;
+    access_mode = mem_op_id == 0 ? kWriteAccess : kReadAccess;
+    Register base_reg(RegisterCode(instr.ops[mem_op_id].index - R_EAX));
+    *access = Operand(base_reg, Displacement(instr.disp));
+  } else if (instr.ops[0].type == O_MEM || instr.ops[1].type == O_MEM) {
+    // Complex memory dereference.
+    uint8 mem_op_id = instr.ops[0].type == O_MEM ? 0 : 1;
+    access_mode = mem_op_id == 0 ? kWriteAccess : kReadAccess;
+    // For now the assembler don't support an operand with no base register.
+    if (instr.base == R_NONE)
+      return kNoAccess;
+    Register index_reg(RegisterCode(instr.ops[mem_op_id].index - R_EAX));
+    Register base_reg(RegisterCode(instr.base - R_EAX));
+    core::ScaleFactor scale = core::kTimes1;
+    switch (instr.scale) {
+      case 2:
+        scale = core::kTimes2;
+        break;
+      case 4:
+        scale = core::kTimes4;
+        break;
+      case 8:
+        scale = core::kTimes8;
+        break;
+      default:
+        break;
+    }
+    *access = Operand(base_reg, index_reg, scale, Displacement(instr.disp));
+  }
+  return access_mode;
+}
+
+// Use @p bb_asm to inject a hook to @p hook to instrument the access to the
+// address stored in the operand @p op.
+void InjectAsanHook(BasicBlockAssembler* bb_asm, Operand op,
+                    BlockGraph::Reference* hook) {
+  DCHECK(hook != NULL);
+  bb_asm->push(core::eax);
+  bb_asm->lea(core::eax, op);
+  bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
+}
+
+}  // namespace
 
 const char AsanBasicBlockTransform::kTransformName[] =
     "SyzyAsanBasicBlockTransform";
 
 bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
   DCHECK(basic_block != NULL);
-  // TODO(sebmarchand): Instrument the basic block !
+  BasicBlock::Instructions::iterator iter_inst =
+      basic_block->instructions().begin();
+  // Process each instruction and inject a call to Asan when we find a memory
+  // access.
+  for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
+    Operand operand(core::eax);
+    MemoryAccessMode access_mode = DecodeMemoryAccess(
+        iter_inst->representation(), &operand);
+    if (access_mode != kNoAccess &&
+        iter_inst->representation().opcode == I_MOV &&
+        iter_inst->data()[0] != PREFIX_OP_SIZE) {
+      BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
+      Instruction::Representation inst = iter_inst->representation();
+      InjectAsanHook(&bb_asm, operand,
+          access_mode == kWriteAccess ? hook_write_ : hook_read_);
+    }
+  }
   return true;
 }
 

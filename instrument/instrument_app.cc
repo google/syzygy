@@ -21,6 +21,7 @@
 #include <iostream>
 
 #include "base/string_util.h"
+#include "syzygy/instrument/transforms/asan_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/instrument/transforms/thunk_import_references_transform.h"
 #include "syzygy/pe/decomposer.h"
@@ -42,8 +43,10 @@ static const char kUsageFormatStr[] =
     "    --output-dll=<path> The instrumented output DLL.\n"
     "\n"
     "  Options:\n"
-    "    --augment-pdb       Indicates that the relinker should augment the\n"
-    "                        output PDB with additional metadata\n"
+    "    --asan               Indicates that the memory access should be\n"
+    "                         instrumented for SyzyAsan.\n"
+    "    --augment-pdb        Indicates that the relinker should augment the\n"
+    "                         output PDB with additional metadata\n"
     "    --call-trace-client=RPC|PROFILER|<other.dll>\n"
     "                         The call-trace client DLL to reference in the\n"
     "                         instrumented binary. The default value is ETW,\n"
@@ -60,16 +63,16 @@ static const char kUsageFormatStr[] =
     "    --input-pdb=<path>   The PDB for the DLL to instrument. If not\n"
     "                         explicitly provided will be searched for.\n"
     "    --instrument-imports Also instrument calls to imports.\n"
-    "    --no-unsafe-refs    Perform no instrumentation of references between\n"
-    "                        code blocks that contain anything but C/C++.\n"
-    "                        Implicit when --call-trace-client=PROFILER is\n"
-    "                        specified.\n"
+    "    --no-unsafe-refs     Perform no instrumentation of references\n"
+    "                         between code blocks that contain anything but\n"
+    "                         C/C++. Implicit when\n"
+    "                         --call-trace-client=PROFILER is specified.\n"
     "    --output-pdb=<path>  The PDB for the instrumented DLL. If not\n"
     "                         provided will attempt to generate one.\n"
     "    --overwrite          Allow output files to be overwritten.\n"
-    "    --strip-strings     Indicates that the relinker should strip the\n"
-    "                        strings when generating the PDB. It has no\n"
-    "                        effect if the option augment-pdb is not set.\n"
+    "    --strip-strings      Indicates that the relinker should strip the\n"
+    "                         strings when generating the PDB. It has no\n"
+    "                         effect if the option augment-pdb is not set.\n"
     "\n";
 
 }  // namespace
@@ -102,6 +105,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
   thunk_imports_ = cmd_line->HasSwitch("instrument-imports");
   instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
+  instrument_for_asan_ = cmd_line->HasSwitch("asan");
 
   if (input_dll_path_.empty() || output_dll_path_.empty())
     return Usage(cmd_line, "You must provide input and output file names.");
@@ -132,7 +136,7 @@ int InstrumentApp::Run() {
     return 1;
   }
 
-  // Set up the instrumenting transform and add it to the relinker.
+  // Set up the entry thunk instrumenting transform and add it to the relinker.
   instrument::transforms::EntryThunkTransform entry_thunk_tx;
   entry_thunk_tx.set_instrument_dll_name(client_dll_);
   entry_thunk_tx.set_instrument_unsafe_references(
@@ -145,6 +149,13 @@ int InstrumentApp::Run() {
   import_thunk_tx.ExcludeModule(client_dll_);
   if (thunk_imports_) {
     relinker.AppendTransform(&import_thunk_tx);
+  }
+
+  // Set up the Asan transform if required.
+  scoped_ptr<pe::transforms::AsanTransform> asan_transform;
+  if (instrument_for_asan_) {
+    asan_transform.reset(new pe::transforms::AsanTransform);
+    relinker.AppendTransform(asan_transform.get());
   }
 
   // We let the PERelinker use the implicit OriginalOrderer.
