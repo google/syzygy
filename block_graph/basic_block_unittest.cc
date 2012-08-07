@@ -496,6 +496,16 @@ TEST(Successor, SetBranchTarget) {
   EXPECT_EQ(bb_ref, s.reference());
 }
 
+TEST(Successor, Labels) {
+  Successor successor;
+  EXPECT_FALSE(successor.has_label());
+
+  BlockGraph::Label label("Foo", BlockGraph::CODE_LABEL);
+  successor.set_label(label);
+  EXPECT_TRUE(successor.has_label());
+  EXPECT_TRUE(successor.label() == label);
+}
+
 TEST(Successor, OpCodeToCondition) {
   struct TableEntry {
     uint16 op_code;

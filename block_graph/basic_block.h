@@ -502,6 +502,9 @@ class Successor {
   Offset bb_target_offset() const { return bb_target_offset_; }
   Offset instruction_offset() const { return instruction_offset_; }
   Size instruction_size() const { return instruction_size_; }
+  const BlockGraph::Label& label() const { return label_; }
+  void set_label(const BlockGraph::Label& label) { label_ = label; }
+  bool has_label() const { return label_.IsValid(); }
   // @}
 
   // Set the target reference @p ref for this successor. If @p ref refers
@@ -542,10 +545,12 @@ class Successor {
   // subgraph elements.
   BasicBlockReferenceMap references_;
 
-  // The byte range in the original block where this instruction originates.
+  // Information about the byte range in the original block where this
+  // instruction originates.
   // @{
   Offset instruction_offset_;
   Size instruction_size_;
+  BlockGraph::Label label_;
   // @}
 };
 
