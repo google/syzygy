@@ -110,10 +110,18 @@ bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
+  // Skip non-code blocks.
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
+  // Skip gap blocks.
+  if (block->attributes() & BlockGraph::GAP_BLOCK)
+    return true;
+
   if (!CodeBlockIsBasicBlockDecomposable(block)) {
+    VLOG(1) << "Skipping block '" << block->name() << "', attributes: "
+            << BlockGraph::BlockAttributesToString(block->attributes());
+
     ++non_decomposable_code_blocks_;
     return true;
   }

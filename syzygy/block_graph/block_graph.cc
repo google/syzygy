@@ -156,7 +156,31 @@ void ShiftReferrers(BlockGraph::Block* self,
   }
 }
 
+const char* BlockAttributeToString(BlockGraph::BlockAttributeEnum attr) {
+  switch (attr) {
+#define DEFINE_CASE(name, unused) case BlockGraph::name: return #name;
+    BLOCK_ATTRIBUTE_ENUM(DEFINE_CASE)
+#undef DEFINE_CASE
+    default:
+      NOTREACHED();
+      return NULL;
+  }
+}
+
 }  // namespace
+
+std::string BlockGraph::BlockAttributesToString(BlockAttributes attrs) {
+  BlockAttributes attr = 1;
+  std::string s;
+  for (; attr < BLOCK_ATTRIBUTES_MAX; attr <<= 1) {
+    if (attr & attrs) {
+      if (!s.empty())
+        s.append("|");
+      s.append(BlockAttributeToString(static_cast<BlockAttributeEnum>(attr)));
+    }
+  }
+  return s;
+}
 
 const char* BlockGraph::BlockTypeToString(BlockGraph::BlockType type) {
   DCHECK_LE(BlockGraph::CODE_BLOCK, type);
