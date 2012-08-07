@@ -327,6 +327,16 @@ bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
   if (num_successors == 0)
     return true;
 
+  // If a successor is labeled, preserve it. Note that we expect at most one
+  // successor to be labeled. We apply the label before synthesis because it
+  // is possible that the labeled successor may be elided if control flow is
+  // straightened.
+  if (successors.front().has_label()) {
+    ctx->new_block->SetLabel(ctx->offset, successors.front().label());
+  } else if (num_successors == 2 && successors.back().has_label()) {
+    ctx->new_block->SetLabel(ctx->offset, successors.back().label());
+  }
+
   // Track whether we have already generated a successor. We can use this to
   // optimize the branch not taken case in the event both successors are
   // generated (the next_bb_in_ordering does not match any of the successors).

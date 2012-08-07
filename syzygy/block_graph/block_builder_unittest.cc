@@ -62,13 +62,13 @@ Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
 // bb3   21  | 2 bytes |  Label3 (code).
 //           +---------+
 //           | 1 bytes |
-//           +---------+  Successor: elided here.
+//           +---------+  Successor: elided here. Label4
 // bb4   24  | 7 bytes |
 //           +---------+
 //           | 9 bytes |
 //           +---------+
 //           | 5 bytes |  Successor: 4-byte ref to bb2 @ 11
-// data  45  +---------+  Label4 (data).
+// data  45  +---------+  Label5 (data).
 //           | 4 bytes |  Ref: 4-byte ref to bb1 @ 45
 //           +---------+
 //           | 4 bytes |  Ref: 4-byte ref to bb2 @ 49
@@ -149,6 +149,8 @@ TEST(BlockBuilderTest, Merge) {
       Successor(Successor::kConditionTrue,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
                 -1, 0));
+  Label label_4("4", BlockGraph::CODE_LABEL);
+  bb3->successors().back().set_label(label_4);
 
   // Flesh out bb4 with some instructions and a single  successor.
   ASSERT_TRUE(AddInstruction(bb4, 7) != NULL);
@@ -159,8 +161,8 @@ TEST(BlockBuilderTest, Merge) {
                 -1, 0));
 
   // Flesh out table with references.
-  Label label_4("4", BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL);
-  table->set_label(label_4);
+  Label label_5("5", BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL);
+  table->set_label(label_5);
   ASSERT_TRUE(table->references().insert(std::make_pair(
       0, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb1))).second);
   ASSERT_TRUE(table->references().insert(std::make_pair(
@@ -232,7 +234,8 @@ TEST(BlockBuilderTest, Merge) {
   expected_labels.insert(std::make_pair(0, label_1));
   expected_labels.insert(std::make_pair(16, label_2));
   expected_labels.insert(std::make_pair(21, label_3));
-  expected_labels.insert(std::make_pair(45, label_4));
+  expected_labels.insert(std::make_pair(24, label_4));
+  expected_labels.insert(std::make_pair(45, label_5));
   EXPECT_EQ(expected_labels, new_block->labels());
 }
 
