@@ -46,6 +46,18 @@ enum MemoryAccessMode {
   kWriteAccess,
 };
 
+// Returns true iff opcode is instrumentable.
+bool IsInstrumentable(uint16 opcode) {
+  switch (opcode) {
+    case I_LEA:
+    case I_CALL:
+    case I_JMP:
+      return false;
+    default:
+      return true;
+  }
+}
+
 // Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
 // corresponding Operand.
 MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
@@ -63,11 +75,7 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
     // Complex memory dereference.
     uint8 mem_op_id = instr.ops[0].type == O_MEM ? 0 : 1;
     access_mode = mem_op_id == 0 ? kWriteAccess : kReadAccess;
-    // For now the assembler don't support an operand with no base register.
-    if (instr.base == R_NONE)
-      return kNoAccess;
     Register index_reg(RegisterCode(instr.ops[mem_op_id].index - R_EAX));
-    Register base_reg(RegisterCode(instr.base - R_EAX));
     core::ScaleFactor scale = core::kTimes1;
     switch (instr.scale) {
       case 2:
@@ -82,7 +90,12 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
       default:
         break;
     }
-    *access = Operand(base_reg, index_reg, scale, Displacement(instr.disp));
+    if (instr.base != R_NONE) {
+      Register base_reg(RegisterCode(instr.base - R_EAX));
+      *access = Operand(base_reg, index_reg, scale, Displacement(instr.disp));
+    } else {
+      *access = Operand(index_reg, scale, Displacement(instr.disp));
+    }
   }
   return access_mode;
 }
@@ -113,7 +126,7 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
     MemoryAccessMode access_mode = DecodeMemoryAccess(
         iter_inst->representation(), &operand);
     if (access_mode != kNoAccess &&
-        iter_inst->representation().opcode == I_MOV &&
+        IsInstrumentable(iter_inst->representation().opcode) &&
         iter_inst->data()[0] != PREFIX_OP_SIZE) {
       BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
       Instruction::Representation inst = iter_inst->representation();
