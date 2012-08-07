@@ -225,6 +225,8 @@ bool CodeBlockReferrersAreClConsistent(const BlockGraph::Block* block) {
         } else {                                              //     To data.
           if (!IsValidSelfReferenceDataToData(block, ref))
             return false;
+          // Mark the data label as having been seen.
+          data_label_offsets.erase(ref.offset());
         }
       }
     } else {                                                  // External.

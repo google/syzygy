@@ -274,6 +274,34 @@ TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistent) {
   }
 }
 
+TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistentUnreferencedLabels) {
+  BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
+  const BlockGraph::Offset kDataLabelOffset = 0x10;
+  code->SetLabel(kDataLabelOffset,
+                 BlockGraph::Label("data", BlockGraph::DATA_LABEL));
+
+  // We have a single unreferenced data label.
+  ASSERT_FALSE(CodeBlockReferrersAreClConsistent(code));
+
+  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF,
+                            sizeof(core::AbsoluteAddress),
+                            code,
+                            kDataLabelOffset,
+                            kDataLabelOffset);
+  // Add a reference from code to the data label.
+  code->SetReference(kDataLabelOffset - 0x8, ref);
+
+  // We're now consistent.
+  ASSERT_TRUE(CodeBlockReferrersAreClConsistent(code));
+
+  // Remove the reference and move it into code.
+  code->RemoveReference(kDataLabelOffset - 0x8);
+  code->SetReference(kDataLabelOffset + 0x8, ref);
+
+  // Consistent again.
+  ASSERT_TRUE(CodeBlockReferrersAreClConsistent(code));
+}
+
 TEST_F(BlockUtilTest, CodeBlockReferrersAreClConsistentUnreferencedData) {
   BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
   ASSERT_TRUE(code->SetLabel(20, BlockGraph::Label(
