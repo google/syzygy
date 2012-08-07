@@ -16,8 +16,12 @@
 
 #include <objbase.h>
 
+#include "base/command_line.h"
 #include "base/path_service.h"
+#include "base/process_util.h"
 #include "base/scoped_native_library.h"
+#include "base/scoped_temp_dir.h"
+#include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -34,6 +38,8 @@ namespace {
 
 const wchar_t* kTempPdbFileName = L"temp.pdb";
 const wchar_t* kTempPdbFileName2 = L"temp2.pdb";
+const wchar_t* kPdbStrPath =
+    L"third_party\\debugging_tools\\files\\srcsrv\\pdbstr.exe";
 
 const GUID kSampleGuid = {0xACDC900D, 0x9009, 0xFEED, {7, 6, 5, 4, 3, 2, 1, 0}};
 
@@ -72,18 +78,14 @@ class PdbUtilTest : public testing::Test {
     ASSERT_TRUE(::SymInitialize(process_, NULL, FALSE));
 
     ASSERT_HRESULT_SUCCEEDED(::CoCreateGuid(&new_guid_));
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
 
-    FilePath temp_dir;
-    ASSERT_TRUE(file_util::GetTempDir(&temp_dir));
-    temp_pdb_file_path_ = temp_dir.Append(kTempPdbFileName);
-    temp_pdb_file_path2_ = temp_dir.Append(kTempPdbFileName2);
+    temp_pdb_file_path_ = temp_dir_.path().Append(kTempPdbFileName);
+    temp_pdb_file_path2_ = temp_dir_.path().Append(kTempPdbFileName2);
   }
 
   void TearDown() {
     ASSERT_TRUE(::SymCleanup(process_));
-
-    file_util::Delete(temp_pdb_file_path_, false);
-    file_util::Delete(temp_pdb_file_path2_, false);
   }
 
   void VerifyGuidData(const FilePath& pdb_path,
@@ -145,6 +147,7 @@ class PdbUtilTest : public testing::Test {
  protected:
   HANDLE process_;
   GUID new_guid_;
+  ScopedTempDir temp_dir_;
   FilePath temp_pdb_file_path_;
   FilePath temp_pdb_file_path2_;
 };
@@ -647,6 +650,143 @@ TEST(WriteHeaderInfoStreamTest, WriteNonEmpty) {
                         &read_pdb_header,
                         sizeof(kSamplePdbHeader)));
   EXPECT_THAT(name_stream_map, testing::ContainerEq(read_name_stream_map));
+}
+
+TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
+  // We start by creating a PDB file (a copy of a checked in sample one) and
+  // adding a new stream to it using our named-stream implementation.
+  {
+    FilePath orig_pdb_path = testing::GetSrcRelativePath(
+        testing::kTestPdbFilePath);
+
+    // Read the sample PDB.
+    PdbReader pdb_reader;
+    PdbFile pdb_file;
+    ASSERT_TRUE(pdb_reader.Read(orig_pdb_path, &pdb_file));
+
+    // Add a new stream to it.
+    scoped_refptr<PdbStream> foo_reader(new PdbByteStream());
+    scoped_refptr<WritablePdbStream> foo_writer(
+        foo_reader->GetWritablePdbStream());
+    size_t foo_index = pdb_file.AppendStream(foo_reader.get());
+    foo_writer->WriteString("foo");
+
+    // Get the PDB header stream.
+    scoped_refptr<PdbStream> header_stream(pdb_file.GetStream(
+        kPdbHeaderInfoStream));
+    ASSERT_TRUE(header_stream.get() != NULL);
+
+    // Read the existing name-stream map.
+    PdbInfoHeader70 pdb_header = {};
+    NameStreamMap name_stream_map;
+    ASSERT_TRUE(ReadHeaderInfoStream(
+        header_stream, &pdb_header, &name_stream_map));
+
+    // Add an entry for the new stream.
+    name_stream_map["foo"] = foo_index;
+
+    // Write the new header stream to it.
+    scoped_refptr<PdbStream> new_header_reader(new PdbByteStream());
+    scoped_refptr<WritablePdbStream> new_header_writer(
+        new_header_reader->GetWritablePdbStream());
+    ASSERT_TRUE(pdb::WriteHeaderInfoStream(
+        pdb_header, name_stream_map, new_header_writer));
+    pdb_file.ReplaceStream(kPdbHeaderInfoStream, new_header_reader);
+
+    // Write the PDB.
+    PdbWriter pdb_writer;
+    ASSERT_TRUE(pdb_writer.Write(temp_pdb_file_path_, pdb_file));
+  }
+
+  // We've now created a new PDB file. We want to make sure that pdbstr.exe
+  // plays nicely with our named streams by doing a few things:
+  // (1) If we try to read a non-existing stream, we should get empty output.
+  // (2) We should be able to read an existing stream and get non-empty output.
+  // (3) We should be able to add a new stream, and then read it using our
+  //     mechanisms.
+
+  // Get the path to pdbstr.exe, which we redistribute in third_party.
+  FilePath pdbstr_path = testing::GetSrcRelativePath(kPdbStrPath);
+
+  // Create the argument specifying the PDB path.
+  std::string pdb_arg = ::WideToUTF8(temp_pdb_file_path_.value());
+  pdb_arg.insert(0, "-p:");
+
+  // First test: try to read a non-existing stream. Should produce no output.
+  {
+    CommandLine cmd(pdbstr_path);
+    cmd.AppendArg(pdb_arg);
+    cmd.AppendArg("-r");
+    cmd.AppendArg("-s:nonexistent-stream-name");
+    std::string output;
+    ASSERT_TRUE(base::GetAppOutput(cmd, &output));
+    ASSERT_TRUE(output.empty());
+  }
+
+  // Second test: read an existing stream (the one we just added). Should
+  // exit without error and return the expected contents (with a trailing
+  // newline).
+  {
+    CommandLine cmd(pdbstr_path);
+    cmd.AppendArg(pdb_arg);
+    cmd.AppendArg("-r");
+    cmd.AppendArg("-s:foo");
+    std::string output;
+    ASSERT_TRUE(base::GetAppOutput(cmd, &output));
+    ASSERT_EQ(std::string("foo\r\n"), output);
+  }
+
+  // Third test: Add another new stream. This should return without error, and
+  // we should then be able to read the stream using our mechanisms.
+  {
+    FilePath bar_txt = temp_dir_.path().Append(L"bar.txt");
+    file_util::ScopedFILE bar_file(file_util::OpenFile(
+        bar_txt, "wb"));
+    fprintf(bar_file.get(), "bar");
+    bar_file.reset();
+
+    std::string bar_arg = WideToUTF8(bar_txt.value());
+    bar_arg.insert(0, "-i:");
+
+    CommandLine cmd(pdbstr_path);
+    cmd.AppendArg(pdb_arg);
+    cmd.AppendArg("-w");
+    cmd.AppendArg("-s:bar");
+    cmd.AppendArg(bar_arg);
+    std::string output;
+    ASSERT_TRUE(base::GetAppOutput(cmd, &output));
+    ASSERT_TRUE(output.empty());
+
+    PdbFile pdb_file;
+    PdbReader pdb_reader;
+    ASSERT_TRUE(pdb_reader.Read(temp_pdb_file_path_, &pdb_file));
+
+    // Get the PDB header stream.
+    scoped_refptr<PdbStream> header_stream(pdb_file.GetStream(
+        kPdbHeaderInfoStream));
+    ASSERT_TRUE(header_stream.get() != NULL);
+
+    // Read the existing name-stream map.
+    PdbInfoHeader70 pdb_header = {};
+    NameStreamMap name_stream_map;
+    ASSERT_TRUE(ReadHeaderInfoStream(
+        header_stream, &pdb_header, &name_stream_map));
+
+    // There should be a 'bar' stream.
+    ASSERT_TRUE(name_stream_map.count("bar"));
+
+    // Get the bar stream.
+    scoped_refptr<PdbStream> bar_stream(pdb_file.GetStream(
+        name_stream_map["bar"]));
+    ASSERT_TRUE(bar_stream.get() != NULL);
+
+    // Read all of the data and ensure it is as expected.
+    bar_stream->Seek(0);
+    std::string bar_data;
+    bar_data.resize(bar_stream->length());
+    ASSERT_TRUE(bar_stream->Read(&bar_data.at(0), bar_data.size()));
+    ASSERT_EQ("bar", bar_data);
+  }
 }
 
 }  // namespace pdb
