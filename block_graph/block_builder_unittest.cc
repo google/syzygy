@@ -27,6 +27,7 @@ namespace block_graph {
 namespace {
 
 typedef BlockGraph::Block Block;
+typedef BlockGraph::Label Label;
 typedef BlockGraph::Reference Reference;
 typedef Block::Referrer Referrer;
 
@@ -48,17 +49,17 @@ Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
 // +---+---+
 //     |
 //     +-->  +---------+
-// bb1   0   | 5 bytes |  Ref: 4-byte ref to data block @ 1
+// bb1   0   | 5 bytes |  Ref: 4-byte ref to data block @ 1, Label1 (code+call)
 //           +---------+
 //           | 6 bytes |  Successor: 4-byte ref to bb1 @ 7
 //           +---------+
 //           | 5 bytes |  Successor: 4-byte ref to bb3 @ 11
 //           +---------+
-// bb2   16  | 2 bytes |
+// bb2   16  | 2 bytes |  Label2 (code)
 //           +---------+
 //           | 3 bytes |
 //           +---------+
-// bb3   21  | 2 bytes |
+// bb3   21  | 2 bytes |  Label3 (code).
 //           +---------+
 //           | 1 bytes |
 //           +---------+  Successor: elided here.
@@ -67,7 +68,7 @@ Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
 //           | 9 bytes |
 //           +---------+
 //           | 5 bytes |  Successor: 4-byte ref to bb2 @ 11
-// data  45  +---------+
+// data  45  +---------+  Label4 (data).
 //           | 4 bytes |  Ref: 4-byte ref to bb1 @ 45
 //           +---------+
 //           | 4 bytes |  Ref: 4-byte ref to bb2 @ 49
@@ -115,6 +116,8 @@ TEST(BlockBuilderTest, Merge) {
 
   // Flesh out bb1 with an instruction having a reference and 2 successors.
   Instruction* inst = AddInstruction(bb1, 5);
+  Label label_1("1", BlockGraph::CODE_LABEL | BlockGraph::CALL_SITE_LABEL);
+  inst->set_label(label_1);
   ASSERT_TRUE(inst != NULL);
   ASSERT_TRUE(inst->references().insert(
       std::make_pair(1, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4,
@@ -130,11 +133,17 @@ TEST(BlockBuilderTest, Merge) {
   ASSERT_TRUE(bb1->referrers().insert(BasicBlockReferrer(other, 0)).second);
 
   // Flesh out bb2 with some instructions and no successor.
-  ASSERT_TRUE(AddInstruction(bb2, 2) != NULL);
+  inst = AddInstruction(bb2, 2);
+  Label label_2("2", BlockGraph::CODE_LABEL);
+  inst->set_label(label_2);
+  ASSERT_TRUE(inst != NULL);
   ASSERT_TRUE(AddInstruction(bb2, 3) != NULL);
 
   // Flesh out bb3 with some instructions and a single  successor.
-  ASSERT_TRUE(AddInstruction(bb3, 2) != NULL);
+  inst = AddInstruction(bb3, 2);
+  Label label_3("3", BlockGraph::CODE_LABEL);
+  inst->set_label(label_3);
+  ASSERT_TRUE(inst != NULL);
   ASSERT_TRUE(AddInstruction(bb3, 1) != NULL);
   bb3->successors().push_back(
       Successor(Successor::kConditionTrue,
@@ -150,6 +159,8 @@ TEST(BlockBuilderTest, Merge) {
                 -1, 0));
 
   // Flesh out table with references.
+  Label label_4("4", BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL);
+  table->set_label(label_4);
   ASSERT_TRUE(table->references().insert(std::make_pair(
       0, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb1))).second);
   ASSERT_TRUE(table->references().insert(std::make_pair(
@@ -215,6 +226,14 @@ TEST(BlockBuilderTest, Merge) {
   Block::ReferrerSet expected_other_referrers;
   expected_other_referrers.insert(Referrer(new_block, 1));
   EXPECT_EQ(expected_other_referrers, other->referrers());
+
+  // Validate the labels.
+  BlockGraph::Block::LabelMap expected_labels;
+  expected_labels.insert(std::make_pair(0, label_1));
+  expected_labels.insert(std::make_pair(16, label_2));
+  expected_labels.insert(std::make_pair(21, label_3));
+  expected_labels.insert(std::make_pair(45, label_4));
+  EXPECT_EQ(expected_labels, new_block->labels());
 }
 
 }  // namespace block_graph
