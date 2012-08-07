@@ -49,7 +49,10 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
 
 class AsanTransformTest : public testing::PELibUnitTest {
  public:
-  AsanTransformTest() : dos_header_block_(NULL) {
+  AsanTransformTest() :
+      dos_header_block_(NULL),
+      basic_block_(0, "test block", BasicBlock::BASIC_CODE_BLOCK,
+                   BasicBlock::kNoOffset, kDataSize, kBlockData) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -69,12 +72,38 @@ class AsanTransformTest : public testing::PELibUnitTest {
     ASSERT_TRUE(dos_header_block_ != NULL);
   }
 
+  void InitTransformHooksReferences() {
+    hook_write_access_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4,
+                                               "hook_write_access"),
+    hook_read_access_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4,
+                                              "hook_read_access"),
+    // Set up the references to the hooks needed by SyzyAsan.
+    hook_write_access_ref_ = BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
+        hook_write_access_, 0, 0);
+    hook_read_access_ref_ = BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
+        hook_read_access_, 4, 0);
+  }
+
+  // Some handy constants we'll use throughout the tests.
+  // @{
+  static const BasicBlock::Size kDataSize;
+  static const uint8 kBlockData[];
+  // @}
+
  protected:
   pe::PEFile pe_file_;
   BlockGraph block_graph_;
   BlockGraph::Block* dos_header_block_;
   AsanTransform asan_transform_;
+  BlockGraph::Block* hook_write_access_;
+  BlockGraph::Reference hook_write_access_ref_;
+  BlockGraph::Block* hook_read_access_;
+  BlockGraph::Reference hook_read_access_ref_;
+  BasicBlock basic_block_;
 };
+
+const BasicBlock::Size AsanTransformTest::kDataSize = 32;
+const uint8 AsanTransformTest::kBlockData[AsanTransformTest::kDataSize] = {};
 
 }  // namespace
 
@@ -96,43 +125,30 @@ TEST_F(AsanTransformTest, ApplyAsanTransform) {
 }
 
 TEST_F(AsanTransformTest, InjectAsanHooks) {
-  // Set up the references to the hooks needed by SyzyAsan.
-  BlockGraph::Block hook_write_access = BlockGraph::Block(0,
-      BlockGraph::CODE_BLOCK, 4, "hook_write_access");
-  BlockGraph::Reference hook_write_access_ref(BlockGraph::ABSOLUTE_REF, 4,
-      &hook_write_access, 0, 0);
-  BlockGraph::Block hook_read_access = BlockGraph::Block(0,
-      BlockGraph::CODE_BLOCK, 4, "hook_read_access");
-  BlockGraph::Reference hook_read_access_ref(BlockGraph::ABSOLUTE_REF, 4,
-      &hook_read_access, 4, 0);
+  InitTransformHooksReferences();
+  block_graph::BasicBlockAssembler bb_asm(basic_block_.instructions().begin(),
+                                          &basic_block_.instructions());
 
-  // Generate a basic block with a read and a write access to the memory.
-  const int kDataBlockSize = 32;
-  uint8 block_data[kDataBlockSize];
-  BasicBlock basic_block(0, "test block", BasicBlock::BASIC_CODE_BLOCK,
-      BasicBlock::kNoOffset, kDataBlockSize, block_data);
-  block_graph::BasicBlockAssembler bb_asm(basic_block.instructions().begin(),
-      &basic_block.instructions());
   // Add a read access to the memory.
   bb_asm.mov(core::eax, block_graph::Operand(core::ebx));
   // Add a write access to the memory.
   bb_asm.mov(block_graph::Operand(core::ecx), core::edx);
 
   // Instrument this basic block.
-  TestAsanBasicBlockTransform bb_transform(&hook_write_access_ref,
-                                           &hook_read_access_ref);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block));
+  TestAsanBasicBlockTransform bb_transform(&hook_write_access_ref_,
+                                           &hook_read_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
 
   // Ensure that the basic block is well instrumented.
 
   // We had 2 instructions initially, and for each of them we add 3 other one to
   // call the asan hooks, so we expect to have 2 + 3*2 = 8 instructions.
-  ASSERT_EQ(basic_block.instructions().size(), 8);
+  ASSERT_EQ(basic_block_.instructions().size(), 8);
 
   // Walk through the instructions to ensure that the Asan hooks have been
   // injected.
   BasicBlock::Instructions::const_iterator iter_inst =
-      basic_block.instructions().begin();
+      basic_block_.instructions().begin();
 
   // First we check if the first memory access is instrumented as a read
   // access.
@@ -140,7 +156,7 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   ASSERT_TRUE(
-      iter_inst->references().begin()->second.block() == &hook_read_access);
+      iter_inst->references().begin()->second.block() == hook_read_access_);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
@@ -150,11 +166,36 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   ASSERT_TRUE(
-      iter_inst->references().begin()->second.block() == &hook_write_access);
+      iter_inst->references().begin()->second.block() == hook_write_access_);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
-  ASSERT_TRUE(iter_inst == basic_block.instructions().end());
+  ASSERT_TRUE(iter_inst == basic_block_.instructions().end());
+}
+
+TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
+  InitTransformHooksReferences();
+  block_graph::BasicBlockAssembler bb_asm(basic_block_.instructions().begin(),
+                                          &basic_block_.instructions());
+  uint32 instrumentable_instructions = 0;
+
+  // Generate a bunch of instrumentable and non instrumentable instructions.
+  bb_asm.mov(core::eax, block_graph::Operand(core::ebx));
+  instrumentable_instructions++;
+  bb_asm.mov(block_graph::Operand(core::ecx), core::edx);
+  instrumentable_instructions++;
+  bb_asm.call(block_graph::Operand(core::ecx));
+  bb_asm.push(block_graph::Operand(core::eax));
+  instrumentable_instructions++;
+  bb_asm.lea(core::eax, block_graph::Operand(core::ecx));
+
+  uint32 expected_instructions_count = basic_block_.instructions().size()
+      + 3 * instrumentable_instructions;
+  // Instrument this basic block.
+  TestAsanBasicBlockTransform bb_transform(&hook_write_access_ref_,
+                                           &hook_read_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
 }
 
 }  // namespace transforms
