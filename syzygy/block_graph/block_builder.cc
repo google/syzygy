@@ -398,6 +398,10 @@ bool CopyInstructions(const BasicBlock::Instructions& instructions,
              instruction.data(),
              instruction.size());
 
+    // Preserve the label on the instruction, if any.
+    if (instruction.has_label())
+      ctx->new_block->SetLabel(ctx->offset, instruction.label());
+
     // Update the offset/bytes_written.
     ctx->offset += instruction.size();
 
@@ -478,6 +482,11 @@ bool GenerateBlock(const BlockDescription& description, MergeContext* ctx) {
     bool inserted = ctx->locations.Add(bb, ctx->new_block, ctx->offset);
     DCHECK(inserted);
 
+    // If the basic-block is labeled, copy the label.
+    if (bb->has_label())
+      ctx->new_block->SetLabel(ctx->offset, bb->label());
+
+    // Copy the contents of the basic block into the new block.
     if (bb->type() != BasicBlock::BASIC_CODE_BLOCK) {
       // If it's not a code basic-block then all we need to do is copy its data.
       if (!CopyData(bb, ctx)) {
