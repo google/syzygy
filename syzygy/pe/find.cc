@@ -62,11 +62,54 @@ bool GetEnvVar(const char* name, std::wstring* value) {
   return true;
 }
 
+// Return TRUE to continue searching, FALSE if we want the search to stop.
+BOOL CALLBACK FindPdbFileCallback(PCTSTR path, PVOID context) {
+  DCHECK(path != NULL);
+  DCHECK(context != NULL);
+
+  FilePath pdb_path(path);
+  const PdbInfo* pdb_info = static_cast<PdbInfo*>(context);
+
+  pdb::PdbInfoHeader70 pdb_header;
+  if (!pdb::ReadPdbHeader(pdb_path, &pdb_header))
+    return TRUE;
+  if (!pdb_info->IsConsistent(pdb_header))
+    return TRUE;
+
+  return FALSE;
+}
+
+// Return TRUE to continue searching, FALSE if we want the search to stop.
+BOOL CALLBACK FindPeFileCallback(PCTSTR path, PVOID context) {
+  DCHECK(path != NULL);
+  DCHECK(context != NULL);
+
+  FilePath pe_path(path);
+  const PEFile::Signature* pe_info = static_cast<PEFile::Signature*>(context);
+
+  PEFile pe_file;
+  if (!pe_file.Init(pe_path))
+    return TRUE;
+  PEFile::Signature pe_sig;
+  pe_file.GetSignature(&pe_sig);
+
+  // We don't care about the base address or the path.
+  if (pe_sig.module_checksum != pe_info->module_checksum ||
+      pe_sig.module_size != pe_info->module_size ||
+      pe_sig.module_time_date_stamp != pe_info->module_time_date_stamp) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
 bool FindFile(const FilePath& file_path,
               const wchar_t* search_paths,
               const void* id,
               uint32 data,
               uint32 flags,
+              PFINDFILEINPATHCALLBACKW callback,
+              void* callback_context,
               FilePath* found_file) {
   DCHECK(search_paths != NULL);
   DCHECK(found_file != NULL);
@@ -105,8 +148,8 @@ bool FindFile(const FilePath& file_path,
                                 0,
                                 flags,
                                 &buffer[0],
-                                NULL,
-                                NULL);
+                                callback,
+                                callback_context);
   if (::SymCleanup(handle) == FALSE) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error);
@@ -131,6 +174,18 @@ bool FindFile(const FilePath& file_path,
 
 }  // namespace
 
+bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path) {
+  pe::PdbInfo pe_pdb_info;
+  if (!pe_pdb_info.Init(pe_path))
+    return false;
+  pdb::PdbInfoHeader70 pdb_info;
+  if (!pdb::ReadPdbHeader(pdb_path, &pdb_info))
+    return false;
+  if (!pe_pdb_info.IsConsistent(pdb_info))
+    return false;
+  return true;
+}
+
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            const wchar_t* search_paths,
                            FilePath* module_path) {
@@ -145,6 +200,8 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
                   id,
                   module_signature.module_size,
                   SSRVOPT_DWORD,
+                  FindPeFileCallback,
+                  const_cast<PEFile::Signature*>(&module_signature),
                   module_path);
 }
 
@@ -181,6 +238,8 @@ bool FindPdbForModule(const FilePath& module_path,
                   &pdb_info.signature(),
                   pdb_info.pdb_age(),
                   SSRVOPT_GUIDPTR,
+                  FindPdbFileCallback,
+                  &pdb_info,
                   pdb_path);
 }
 
