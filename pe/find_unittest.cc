@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +50,24 @@ class FindTest: public testing::PELibUnitTest {
 };
 
 }  // namespace
+
+TEST_F(FindTest, PeAndPdbAreMatchedMissingFiles) {
+  EXPECT_FALSE(PeAndPdbAreMatched(
+      FilePath(L"nonexistent_pe_file.dll"),
+      FilePath(L"nonexistent_pdb_file.pdb")));
+}
+
+TEST_F(FindTest, PeAndPdbAreMatchedMismatchedInputs) {
+  EXPECT_FALSE(PeAndPdbAreMatched(
+      testing::GetOutputRelativePath(kDllName),
+      testing::GetOutputRelativePath(L"pe_unittests.pdb")));
+}
+
+TEST_F(FindTest, PeAndPdbAreMatched) {
+  EXPECT_TRUE(PeAndPdbAreMatched(
+      testing::GetOutputRelativePath(kDllName),
+      testing::GetOutputRelativePath(kDllPdbName)));
+}
 
 TEST_F(FindTest, FindTestDll) {
   const FilePath module_path(testing::GetOutputRelativePath(kDllName));

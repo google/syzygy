@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,14 @@
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
+
+// Determines if the given PE file and PDB file are indeed matched. Does no
+// logging.
+// @param pe_path the path to the PE file to inspect.
+// @param pdb_path the path to the PDB file to inspect.
+// @returns true if the files both exist, are valid and are matched, false
+//     otherwise.
+bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path);
 
 // Looks for the module matching a given module signature. Uses the module
 // signature path as the starting point of the search.
