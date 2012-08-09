@@ -142,8 +142,8 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   // Ensure that the basic block is well instrumented.
 
   // We had 2 instructions initially, and for each of them we add 3 other one to
-  // call the asan hooks, so we expect to have 2 + 3*2 = 8 instructions.
-  ASSERT_EQ(basic_block_.instructions().size(), 8);
+  // call the asan hooks, so we expect to have 2 + 5*2 = 12 instructions.
+  ASSERT_EQ(basic_block_.instructions().size(), 12);
 
   // Walk through the instructions to ensure that the Asan hooks have been
   // injected.
@@ -153,7 +153,9 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   // First we check if the first memory access is instrumented as a read
   // access.
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
   ASSERT_EQ(iter_inst->references().size(), 1);
   ASSERT_TRUE(
       iter_inst->references().begin()->second.block() == hook_read_access_);
@@ -163,7 +165,9 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   // Then we check if the second memory access is well instrumented as a write
   // access.
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
   ASSERT_EQ(iter_inst->references().size(), 1);
   ASSERT_TRUE(
       iter_inst->references().begin()->second.block() == hook_write_access_);
@@ -190,7 +194,7 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   bb_asm.lea(core::eax, block_graph::Operand(core::ecx));
 
   uint32 expected_instructions_count = basic_block_.instructions().size()
-      + 3 * instrumentable_instructions;
+      + 5 * instrumentable_instructions;
   // Instrument this basic block.
   TestAsanBasicBlockTransform bb_transform(&hook_write_access_ref_,
                                            &hook_read_access_ref_);

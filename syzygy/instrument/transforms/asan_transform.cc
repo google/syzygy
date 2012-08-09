@@ -61,7 +61,8 @@ bool IsInstrumentable(uint16 opcode) {
 // Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
 // corresponding Operand.
 MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
-                                    Operand* access) {
+                                    Operand* access,
+                                    size_t* access_size) {
   DCHECK(access != NULL);
 
   MemoryAccessMode access_mode = kNoAccess;
@@ -71,6 +72,7 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
     access_mode = mem_op_id == 0 ? kWriteAccess : kReadAccess;
     Register base_reg(RegisterCode(instr.ops[mem_op_id].index - R_EAX));
     *access = Operand(base_reg, Displacement(instr.disp));
+    *access_size = instr.ops[mem_op_id].size;
   } else if (instr.ops[0].type == O_MEM || instr.ops[1].type == O_MEM) {
     // Complex memory dereference.
     uint8 mem_op_id = instr.ops[0].type == O_MEM ? 0 : 1;
@@ -96,6 +98,7 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
     } else {
       *access = Operand(index_reg, scale, Displacement(instr.disp));
     }
+    *access_size = instr.ops[mem_op_id].size;
   }
   return access_mode;
 }
@@ -103,10 +106,12 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction::Representation& instr,
 // Use @p bb_asm to inject a hook to @p hook to instrument the access to the
 // address stored in the operand @p op.
 void InjectAsanHook(BasicBlockAssembler* bb_asm, Operand op,
-                    BlockGraph::Reference* hook) {
+                    BlockGraph::Reference* hook, size_t access_size) {
   DCHECK(hook != NULL);
   bb_asm->push(core::eax);
+  bb_asm->push(core::edx);
   bb_asm->lea(core::eax, op);
+  bb_asm->mov(core::edx, Value(access_size / 8));
   bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
 }
 
@@ -123,15 +128,16 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
   // access.
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
     Operand operand(core::eax);
+    size_t access_size = 0;
     MemoryAccessMode access_mode = DecodeMemoryAccess(
-        iter_inst->representation(), &operand);
+        iter_inst->representation(), &operand, &access_size);
     if (access_mode != kNoAccess &&
         IsInstrumentable(iter_inst->representation().opcode) &&
         iter_inst->data()[0] != PREFIX_OP_SIZE) {
       BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
       Instruction::Representation inst = iter_inst->representation();
       InjectAsanHook(&bb_asm, operand,
-          access_mode == kWriteAccess ? hook_write_ : hook_read_);
+          access_mode == kWriteAccess ? hook_write_ : hook_read_, access_size);
     }
   }
   return true;
