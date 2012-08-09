@@ -136,26 +136,32 @@ int InstrumentApp::Run() {
     return 1;
   }
 
-  // Set up the entry thunk instrumenting transform and add it to the relinker.
-  instrument::transforms::EntryThunkTransform entry_thunk_tx;
-  entry_thunk_tx.set_instrument_dll_name(client_dll_);
-  entry_thunk_tx.set_instrument_unsafe_references(
-      instrument_unsafe_references_);
-  entry_thunk_tx.set_src_ranges_for_thunks(debug_friendly_);
-  relinker.AppendTransform(&entry_thunk_tx);
-
-  // Set up the IAT thunking transform and add it to the relinker.
-  instrument::transforms::ThunkImportReferencesTransform import_thunk_tx;
-  import_thunk_tx.ExcludeModule(client_dll_);
-  if (thunk_imports_) {
-    relinker.AppendTransform(&import_thunk_tx);
-  }
+  scoped_ptr<pe::transforms::AsanTransform> asan_transform;
+  scoped_ptr<instrument::transforms::EntryThunkTransform> entry_thunk_tx;
+  scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
+      import_thunk_tx;
 
   // Set up the Asan transform if required.
-  scoped_ptr<pe::transforms::AsanTransform> asan_transform;
   if (instrument_for_asan_) {
     asan_transform.reset(new pe::transforms::AsanTransform);
     relinker.AppendTransform(asan_transform.get());
+  } else {
+    // Set up the entry thunk instrumenting transform and add it to the
+    // relinker.
+    entry_thunk_tx.reset(new instrument::transforms::EntryThunkTransform);
+    entry_thunk_tx->set_instrument_dll_name(client_dll_);
+    entry_thunk_tx->set_instrument_unsafe_references(
+        instrument_unsafe_references_);
+    entry_thunk_tx->set_src_ranges_for_thunks(debug_friendly_);
+    relinker.AppendTransform(entry_thunk_tx.get());
+
+    // Set up the IAT thunking transform and add it to the relinker.
+    import_thunk_tx.reset(
+        new instrument::transforms::ThunkImportReferencesTransform);
+    import_thunk_tx->ExcludeModule(client_dll_);
+    if (thunk_imports_) {
+      relinker.AppendTransform(import_thunk_tx.get());
+    }
   }
 
   // We let the PERelinker use the implicit OriginalOrderer.
