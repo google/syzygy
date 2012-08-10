@@ -176,6 +176,17 @@ TEST_F(BasicBlockAssemblerTest, call) {
   ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 }
 
+TEST_F(BasicBlockAssemblerTest, jmp) {
+  asm_.jmp(Immediate(0xCAFEBABE));
+  ASSERT_NO_REFS();
+
+  asm_.jmp(Immediate(&test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+
+  asm_.jmp(Operand(Displacement(&test_bb_)));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
+}
+
 TEST_F(BasicBlockAssemblerTest, mov_b) {
   // mov [base + index * scale + displ], immediate
   asm_.mov(Operand(core::eax, core::ebx, core::kTimes4,
