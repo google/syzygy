@@ -133,6 +133,7 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
         iter_inst->representation(), &operand, &access_size);
     if (access_mode != kNoAccess &&
         IsInstrumentable(iter_inst->representation().opcode) &&
+        operand.base() != core::kRegisterEsp &&
         iter_inst->data()[0] != PREFIX_OP_SIZE) {
       BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
       Instruction::Representation inst = iter_inst->representation();
