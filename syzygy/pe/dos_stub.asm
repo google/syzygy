@@ -12,6 +12,11 @@
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
 ;
+; Compile this with:
+;
+;   ml.exe /safeseh /Fo dos_stub.obj /c dos_stub.asm
+;
+; The output of this is then converted into an array in dos_stub.h.
 
 .386
 .MODEL TINY, C

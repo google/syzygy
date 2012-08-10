@@ -15,6 +15,7 @@
 #include "syzygy/pe/pe_utils.h"
 
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/pe/dos_stub.h"
 
 namespace pe {
 
@@ -24,10 +25,6 @@ using block_graph::TypedBlock;
 using core::RelativeAddress;
 
 namespace {
-
-// Reference to the associated .asm file that constructs the DOS stub.
-extern "C" void begin_dos_stub();
-extern "C" void end_dos_stub();
 
 template <typename BlockPtr>
 BlockPtr UncheckedGetNtHeadersBlockFromDosHeaderBlock(
@@ -178,14 +175,9 @@ BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
 bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
   DCHECK(dos_header_block != NULL);
 
-  const uint8* begin_dos_stub_ptr =
-      reinterpret_cast<const uint8*>(&begin_dos_stub);
-  const uint8* end_dos_stub_ptr =
-      reinterpret_cast<const uint8*>(&end_dos_stub);
-
   // The DOS header has to be a multiple of 16 bytes for historic reasons.
   size_t dos_header_size = common::AlignUp(
-      sizeof(IMAGE_DOS_HEADER) + end_dos_stub_ptr - begin_dos_stub_ptr, 16);
+      sizeof(IMAGE_DOS_HEADER) + pe::kDosStubSize, 16);
 
   // If the new header block is shorter than it was, go ahead and
   // trim the source ranges to match the new, shorter size.
@@ -208,9 +200,7 @@ bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
 
   // Wipe the DOS header and fill in the stub.
   memset(dos_header.Get(), 0, sizeof(IMAGE_DOS_HEADER));
-  memcpy(dos_header.Get() + 1,
-         begin_dos_stub_ptr,
-         end_dos_stub_ptr - begin_dos_stub_ptr);
+  memcpy(dos_header.Get() + 1, pe::kDosStub, pe::kDosStubSize);
 
   dos_header->e_magic = IMAGE_DOS_SIGNATURE;
   // Calculate the number of bytes used on the last DOS executable "page".
