@@ -68,7 +68,6 @@
     {
       'target_name': 'pe_lib',
       'type': 'static_library',
-      'includes': ['../build/masm.gypi'],
       'sources': [
         'block_util.cc',
         'block_util.h',
@@ -80,6 +79,8 @@
         'decomposer.cc',
         'decomposer.h',
         'dos_stub.asm',
+        'dos_stub.cc',
+        'dos_stub.h',
         'find.cc',
         'find.h',
         'image_layout.cc',
@@ -164,7 +165,6 @@
     {
       'target_name': 'pe_unittests',
       'type': 'executable',
-      'includes': ['../build/masm.gypi'],
       'sources': [
         'block_util_unittest.cc',
         'decompose_app_unittest.cc',
