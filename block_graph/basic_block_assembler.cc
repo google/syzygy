@@ -110,6 +110,14 @@ void BasicBlockAssembler::call(const Operand& dst) {
   asm_.call(dst.operand_);
 }
 
+void BasicBlockAssembler::jmp(const Immediate& dst) {
+  asm_.jmp(dst.value_);
+}
+
+void BasicBlockAssembler::jmp(const Operand& dst) {
+  asm_.jmp(dst.operand_);
+}
+
 void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {
   asm_.mov_b(dst.operand_, src.value_);
 }

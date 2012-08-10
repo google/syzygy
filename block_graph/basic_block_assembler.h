@@ -117,6 +117,12 @@ class BasicBlockAssembler {
   void call(const Operand& dst);
   // @}
 
+  // @name Jmp instructions.
+  // @{
+  void jmp(const Immediate& dst);
+  void jmp(const Operand& dst);
+  // @}
+
   // @name Byte mov varieties.
   // @{
   void mov_b(const Operand& dst, const Immediate& src);
