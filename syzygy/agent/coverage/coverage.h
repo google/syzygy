@@ -40,9 +40,9 @@ namespace coverage {
 // There's a single instance of this class.
 class Coverage {
  public:
-  // The _indirect_penter_dllmain is redirected here.
-  static void WINAPI DllMainEntryHook(EntryFrame *entry_frame,
-                                      FuncAddr function);
+  // The thunks _indirect_penter_dllmain and _indirect_exe_entry are redirected
+  // here.
+  static void WINAPI EntryHook(EntryFrame *entry_frame, FuncAddr function);
 
   // Retrieves the coverage singleton instance.
   static Coverage* Instance();
