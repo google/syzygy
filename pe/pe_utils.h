@@ -76,14 +76,15 @@ typedef std::set<EntryPoint> EntryPointSet;
 //     image in question is an executable.
 // @returns true on success, false otherwise. It is not considered a failure
 //     if @p entry_points is left unchanged because @p dos_header_block
-//     indicates that the image is not an executable
+//     indicates that the image is not an executable.
 // @note The returned @p entry_point will have a call-signature taking no
 //     arguments.
 bool GetExeEntryPoint(block_graph::BlockGraph::Block* dos_header_block,
                       EntryPoint* entry_point);
 
 // Retrieves the image entry point into @p entry_points IFF the image is a
-// DLL. If the image is not a DLL then this is a NOP.
+// DLL. If the image is not a DLL, or if the DLL has no entry point, then this
+// is a NOP.
 // @param dos_header_block the DOS header block of the image.
 // @param entry_points the entry-point will be inserted into this set if the
 //     image in question is a DLL. Note that the entry-point for a DLL is
@@ -100,10 +101,9 @@ bool GetDllEntryPoint(block_graph::BlockGraph::Block* dos_header_block,
 // Retrieves the TLS initializer entry-points into @p entry_points.
 // @param dos_header_block the DOS header block of the image.
 // @param entry_points the entry-point will be inserted into this set if the
-//     image in question is a DLL.
-// @returns true on success, false otherwise. It is not considered a failure
-//     if @p entry_points is left unchanged because @p dos_header_block
-//     indicates that the image is not a DLL.
+//     image in question is a DLL. If the set already contains elements it will
+//     be added to.
+// @returns true on success, false otherwise.
 // @note The returned @p entry_points, if any, will have a call-signature
 //     matching that of DllMain.
 // TODO(rogerm): We may want to change this to output to an EntryPointVector

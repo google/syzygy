@@ -13,9 +13,6 @@
 // limitations under the License.
 //
 // Implementation of the entry thunk instrumentation transform.
-//
-// TODO(chrisha): Add another function for EXE entries, which have a different
-//     signature than DLL entries.
 
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ENTRY_THUNK_TRANSFORM_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_ENTRY_THUNK_TRANSFORM_H_
@@ -73,6 +70,8 @@ class EntryThunkTransform
   static const char kEntryHookName[];
   // The name of the import for DllMain-like function entry hooks.
   static const char kDllMainEntryHookName[];
+  // The name of the import for EXE entry point hook.
+  static const char kExeEntryHookName[];
 
   // The name of the DLL imported default.
   static const char kDefaultInstrumentDll[];
@@ -102,11 +101,12 @@ class EntryThunkTransform
                                    ThunkBlockMap* thunk_block_map);
 
   // Create a single thunk to destination.
+  // @param block_graph the block-graph being instrumented.
   // @param destination the destination reference.
-  // @param is_dll_entry_signature true iff this should be a DLL entry thunk.
+  // @param hook a reference to the hook to use.
   BlockGraph::Block* CreateOneThunk(BlockGraph* block_graph,
                                     const BlockGraph::Reference& destination,
-                                    bool is_dll_entry_signature);
+                                    const BlockGraph::Reference& hook);
 
   // Initializes the references in thunk_block, which must be an allocated
   // thunk of size sizeof(Thunk), containing data of the same size.
@@ -117,6 +117,8 @@ class EntryThunkTransform
  private:
   friend IterativeTransformImpl<EntryThunkTransform>;
   friend NamedBlockGraphTransformImpl<EntryThunkTransform>;
+
+  bool GetEntryPoints(BlockGraph::Block* header_block);
 
   // For NamedBlockGraphTransformImpl.
   static const char kTransformName[];
@@ -129,6 +131,7 @@ class EntryThunkTransform
   // entries. Valid after successful PreBlockGraphIteration.
   BlockGraph::Reference hook_ref_;
   BlockGraph::Reference hook_dllmain_ref_;
+  BlockGraph::Reference hook_exe_entry_ref_;
 
   // Iff true, instrument references with a non-zero offset into the
   // destination block.
@@ -148,8 +151,11 @@ class EntryThunkTransform
 
   // This contains the set of entrypoints that have DllMain calling conventions.
   // These are thunked to the dllmain hook import, instead of the generic
-  // hook import. Valid after successful PreBlockGraphIteration.
+  // hook import. Valid after successful call to GetEntryPoints.
   pe::EntryPointSet dllmain_entrypoints_;
+  // If the module being instrumented is an executable, this will hold the
+  // EXE main entry point. Valid after successful call to GetEntryPoints.
+  pe::EntryPoint exe_entry_point_;
 
   static const Thunk kThunkTemplate;
 

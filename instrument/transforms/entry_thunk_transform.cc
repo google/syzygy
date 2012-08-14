@@ -73,6 +73,8 @@ const char EntryThunkTransform::kTransformName[] =
 const char EntryThunkTransform::kEntryHookName[] = "_indirect_penter";
 const char EntryThunkTransform::kDllMainEntryHookName[] =
     "_indirect_penter_dllmain";
+const char EntryThunkTransform::kExeEntryHookName[] =
+    "_indirect_penter_exe_entry";
 const char EntryThunkTransform::kDefaultInstrumentDll[] =
     "call_trace_client.dll";
 
@@ -98,54 +100,61 @@ bool EntryThunkTransform::PreBlockGraphIteration(
     BlockGraph* block_graph, BlockGraph::Block* header_block) {
   DCHECK(thunk_section_ == NULL);
 
+  if (!GetEntryPoints(header_block))
+    return false;
+
   AddImportsTransform::ImportedModule import_module(
       instrument_dll_name_.c_str());
-  size_t hook_dllmain_index = import_module.AddSymbol(kDllMainEntryHookName);
 
-  size_t hook_index = 0;
-  if (!only_instrument_module_entry_)
-    hook_index = import_module.AddSymbol(kEntryHookName);
+  // We import the minimal set of symbols necessary, depending on the types of
+  // entry points we find in the module. We maintain a list of symbol indices/
+  // reference pointers, which will be traversed after the import to populate
+  // the references.
+  typedef std::pair<size_t, BlockGraph::Reference*> ImportHook;
+  std::vector<ImportHook> import_hooks;
 
+  // If there are any DllMain-like entry points (TLS initializers or DllMain
+  // itself) then we need the DllMain entry hook.
+  if (dllmain_entrypoints_.size() > 0) {
+    import_hooks.push_back(std::make_pair(
+        import_module.AddSymbol(kDllMainEntryHookName),
+        &hook_dllmain_ref_));
+  }
+
+  // If this was an EXE then we need the EXE entry hook.
+  if (exe_entry_point_.first != NULL) {
+    import_hooks.push_back(std::make_pair(
+        import_module.AddSymbol(kExeEntryHookName),
+        &hook_exe_entry_ref_));
+  }
+
+  // If we're not only instrumenting module entry then we need the function
+  // entry hook.
+  if (!only_instrument_module_entry_) {
+    import_hooks.push_back(std::make_pair(
+        import_module.AddSymbol(kEntryHookName),
+        &hook_ref_));
+  }
+
+  // Nothing to do if we don't need any import hooks.
+  if (import_hooks.empty())
+    return true;
+
+  // Run the transform.
   AddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&import_module);
-
   if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for instrumentation DLL.";
     return false;
   }
 
-  if (!import_module.GetSymbolReference(hook_dllmain_index,
-                                        &hook_dllmain_ref_)) {
-    LOG(ERROR) << "Unable to get reference to import "
-               << kDllMainEntryHookName << ".";
-    return false;
-  }
-
-  // We only need the ordinary entry hook if we're instrumenting all functions.
-  if (!only_instrument_module_entry_ &&
-      !import_module.GetSymbolReference(hook_index, &hook_ref_)) {
-    LOG(ERROR) << "Unable to get reference to import " << kEntryHookName << ".";
-    return false;
-  }
-
-  // Get the DLL entry-point.
-  pe::EntryPoint dll_entry_point;
-  if (!pe::GetDllEntryPoint(header_block, &dll_entry_point)) {
-    LOG(ERROR) << "Failed to resolve the Dll entry-point.";
-    return false;
-  }
-
-  // If the image is an EXE or is a DLL that does not specify an entry-point
-  // (the entry-point is optional for DLLs) then the dll_entry_point will have
-  // a NULL block pointer. Otherwise, add it to the entry-point set.
-  if (dll_entry_point.first != NULL)
-    dllmain_entrypoints_.insert(dll_entry_point);
-
-  // Get the TLS initializer entry-points. These have the same signature and
-  // call patterns to DllMain.
-  if (!pe::GetTlsInitializers(header_block, &dllmain_entrypoints_)) {
-    LOG(ERROR) << "Failed to populate the TLS Initializer entry-points.";
-    return false;
+  // Get references to each of the imported symbols.
+  for (size_t i = 0; i < import_hooks.size(); ++i) {
+    if (!import_module.GetSymbolReference(import_hooks[i].first,
+                                          import_hooks[i].second)) {
+      LOG(ERROR) << "Unable to get reference to import.";
+      return false;
+    }
   }
 
   // Find or create the section we put our thunks in.
@@ -228,14 +237,20 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
       return true;
   }
 
-  // See whether this is one of the special entrypoints.
+  // See whether this is one of the DLL entrypoints.
+  pe::EntryPoint entry(ref.referenced(), ref.offset());
   pe::EntryPointSet::const_iterator entry_it(dllmain_entrypoints_.find(
-      std::make_pair(ref.referenced(), ref.offset())));
+      entry));
   bool is_dllmain_entry = entry_it != dllmain_entrypoints_.end();
 
-  // If we're only instrumenting DLL entry points and this isn't one, then
-  // skip it.
-  if (only_instrument_module_entry_ && !is_dllmain_entry)
+  // Determine if this is an EXE entry point.
+  bool is_exe_entry = entry == exe_entry_point_;
+
+  // It can't be both an EXE and a DLL entry.
+  DCHECK(!is_dllmain_entry || !is_exe_entry);
+
+  // If we're only instrumenting entry points and this isn't one, then skip it.
+  if (only_instrument_module_entry_ && !is_dllmain_entry && !is_exe_entry)
     return true;
 
   if (!instrument_unsafe_references_ &&
@@ -246,12 +261,20 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
     return true;
   }
 
+  // Determine which hook function to use.
+  BlockGraph::Reference* hook_ref = &hook_ref_;
+  if (is_dllmain_entry)
+    hook_ref = &hook_dllmain_ref_;
+  else if (is_exe_entry)
+    hook_ref = &hook_exe_entry_ref_;
+  DCHECK(hook_ref->referenced() != NULL);
+
   // Look for the reference in the thunk block map, and only create a new one
   // if it does not already exist.
   BlockGraph::Block* thunk_block = NULL;
   ThunkBlockMap::const_iterator thunk_it = thunk_block_map->find(ref.offset());
   if (thunk_it == thunk_block_map->end()) {
-    thunk_block = CreateOneThunk(block_graph, ref, is_dllmain_entry);
+    thunk_block = CreateOneThunk(block_graph, ref, *hook_ref);
     if (thunk_block == NULL) {
       LOG(ERROR) << "Unable to create thunk block.";
       return false;
@@ -273,8 +296,9 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
 }
 
 BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
-    BlockGraph* block_graph, const BlockGraph::Reference& destination,
-    bool is_dll_entry_signature) {
+    BlockGraph* block_graph,
+    const BlockGraph::Reference& destination,
+    const BlockGraph::Reference& hook) {
   std::string name;
   if (destination.offset() == 0) {
     name = base::StringPrintf("%s%s",
@@ -320,10 +344,7 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
     }
   }
 
-  const BlockGraph::Reference& import_ref =
-      is_dll_entry_signature ? hook_dllmain_ref_ : hook_ref_;
-
-  if (!InitializeThunk(thunk, destination, import_ref)) {
+  if (!InitializeThunk(thunk, destination, hook)) {
     bool removed = block_graph->RemoveBlock(thunk);
     DCHECK(removed);
 
@@ -355,6 +376,38 @@ bool EntryThunkTransform::InitializeThunk(
                           import_entry.offset(),
                           import_entry.offset())) {
     return false;
+  }
+
+  return true;
+}
+
+bool EntryThunkTransform::GetEntryPoints(BlockGraph::Block* header_block) {
+  // Get the TLS initializer entry-points. These have the same signature and
+  // call patterns to DllMain.
+  if (!pe::GetTlsInitializers(header_block, &dllmain_entrypoints_)) {
+    LOG(ERROR) << "Failed to populate the TLS Initializer entry-points.";
+    return false;
+  }
+
+  // Get the DLL entry-point.
+  pe::EntryPoint dll_entry_point;
+  if (!pe::GetDllEntryPoint(header_block, &dll_entry_point)) {
+    LOG(ERROR) << "Failed to resolve the DLL entry-point.";
+    return false;
+  }
+
+  // If the image is an EXE or is a DLL that does not specify an entry-point
+  // (the entry-point is optional for DLLs) then the dll_entry_point will have
+  // a NULL block pointer. Otherwise, add it to the entry-point set.
+  if (dll_entry_point.first != NULL) {
+    dllmain_entrypoints_.insert(dll_entry_point);
+  } else {
+    // Get the EXE entry point. We only need to bother looking if we didn't get
+    // a DLL entry point, as we can't have both.
+    if (!pe::GetExeEntryPoint(header_block, &exe_entry_point_)) {
+      LOG(ERROR) << "Failed to resolve the EXE entry-point.";
+      return false;
+    }
   }
 
   return true;
