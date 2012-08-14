@@ -31,33 +31,33 @@ const char kUsageFormatStr[] =
     "    --input-dll=<path>   The input DLL to relink.\n"
     "    --output-dll=<path>  Output path for the rewritten DLL.\n"
     "  Optional Options:\n"
-    "    --augment-pdb        Indicates that the relinker should augment the\n"
-    "                         output PDB with additional metadata\n"
     "    --basic-blocks       Reorder at the basic-block level. At present,\n"
     "                         this is only supported for random reorderings.\n"
-    "    --compress-pdb       If --augment-pdb is specified, causes the\n"
+    "    --compress-pdb       If --no-augment-pdb is specified, causes the\n"
     "                         augmented PDB stream to be compressed.\n"
     "    --exclude-bb-padding When randomly reordering basic blocks, exclude\n"
     "                         padding and unreachable code from the relinked\n"
     "                         output binary.\n"
     "    --input-pdb=<path>   The PDB file associated with the input DLL.\n"
     "                         Default is inferred from input-dll.\n"
+    "    --no-augment-pdb     Indicates that the relinker should not augment\n"
+    "                         the PDB with roundtrip decomposition info.\n"
     "    --no-metadata        Prevents the relinker from adding metadata\n"
     "                         to the output DLL.\n"
+    "    --no-strip-strings   Causes strings to be output in the augmented\n"
+    "                         PDB stream. The default is to omit these to\n"
+    "                         make smaller PDBs.\n"
     "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
     "    --output-pdb=<path>  Output path for the rewritten PDB file.\n"
     "                         Default is inferred from output-dll.\n"
     "    --overwrite          Allow output files to be overwritten.\n"
     "    --padding=<integer>  Add bytes of padding between blocks.\n"
     "    --seed=<integer>     Randomly reorder based on the given seed.\n"
-    "    --strip-strings      If --augment-pdb is specified, causes the\n"
-    "                         augmented PDB stream to be output without debug\n"
-    "                         strings. This is significantly more compact.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-dll is optional.\n"
-    "    * The --compress-pdb and --strip-strings options are only effective\n"
-    "      if --augment-pdb is specified.\n"
+    "    * The --compress-pdb and --no-strip-strings options are only\n"
+    "      effective if --no-augment-pdb is not specified.\n"
     "    * The --exclude-bb-padding option is only effective if\n"
     "      --basic-blocks is specified.\n";
 
@@ -91,9 +91,9 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   order_file_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("order-file"));
-  augment_pdb_ = cmd_line->HasSwitch("augment-pdb");
+  no_augment_pdb_ = cmd_line->HasSwitch("no-augment-pdb");
   compress_pdb_ = cmd_line->HasSwitch("compress-pdb");
-  strip_strings_ = cmd_line->HasSwitch("strip-strings");
+  no_strip_strings_ = cmd_line->HasSwitch("no-strip-strings");
   output_metadata_ = !cmd_line->HasSwitch("no-metadata");
   overwrite_ = cmd_line->HasSwitch("overwrite");
   basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
@@ -163,9 +163,9 @@ int RelinkApp::Run() {
   relinker.set_padding(padding_);
   relinker.set_add_metadata(output_metadata_);
   relinker.set_allow_overwrite(overwrite_);
-  relinker.set_augment_pdb(augment_pdb_);
+  relinker.set_augment_pdb(!no_augment_pdb_);
   relinker.set_compress_pdb(compress_pdb_);
-  relinker.set_strip_strings(strip_strings_);
+  relinker.set_strip_strings(!no_strip_strings_);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {

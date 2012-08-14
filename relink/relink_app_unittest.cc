@@ -41,9 +41,9 @@ class TestRelinkApp : public RelinkApp {
   using RelinkApp::order_file_path_;
   using RelinkApp::seed_;
   using RelinkApp::padding_;
-  using RelinkApp::augment_pdb_;
+  using RelinkApp::no_augment_pdb_;
   using RelinkApp::compress_pdb_;
-  using RelinkApp::strip_strings_;
+  using RelinkApp::no_strip_strings_;
   using RelinkApp::output_metadata_;
   using RelinkApp::overwrite_;
 };
@@ -59,9 +59,9 @@ class RelinkAppTest : public testing::PELibUnitTest {
         test_impl_(test_app_.implementation()),
         seed_(1234567),
         padding_(32),
-        augment_pdb_(false),
+        no_augment_pdb_(false),
         compress_pdb_(false),
-        strip_strings_(false),
+        no_strip_strings_(false),
         output_metadata_(false),
         overwrite_(false) {
   }
@@ -120,9 +120,9 @@ class RelinkAppTest : public testing::PELibUnitTest {
   FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
-  bool augment_pdb_;
+  bool no_augment_pdb_;
   bool compress_pdb_;
-  bool strip_strings_;
+  bool no_strip_strings_;
   bool output_metadata_;
   bool overwrite_;
   // @}
@@ -212,9 +212,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchPath("order-file", order_file_path_);
-  cmd_line_.AppendSwitch("augment-pdb");
+  cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("compress-pdb");
-  cmd_line_.AppendSwitch("strip-strings");
+  cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitch("no-metadata");
   cmd_line_.AppendSwitch("overwrite");
 
@@ -226,9 +226,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   EXPECT_EQ(order_file_path_, test_impl_.order_file_path_);
   EXPECT_EQ(0, test_impl_.seed_);
   EXPECT_EQ(0, test_impl_.padding_);
-  EXPECT_TRUE(test_impl_.augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_augment_pdb_);
   EXPECT_TRUE(test_impl_.compress_pdb_);
-  EXPECT_TRUE(test_impl_.strip_strings_);
+  EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
 
@@ -246,9 +246,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
-  cmd_line_.AppendSwitch("augment-pdb");
+  cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("compress-pdb");
-  cmd_line_.AppendSwitch("strip-strings");
+  cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitch("overwrite");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -259,9 +259,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   EXPECT_TRUE(test_impl_.order_file_path_.empty());
   EXPECT_EQ(seed_, test_impl_.seed_);
   EXPECT_EQ(padding_, test_impl_.padding_);
-  EXPECT_TRUE(test_impl_.augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_augment_pdb_);
   EXPECT_TRUE(test_impl_.compress_pdb_);
-  EXPECT_TRUE(test_impl_.strip_strings_);
+  EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
 
