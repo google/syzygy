@@ -22,6 +22,7 @@
 #include "base/lazy_instance.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
+#include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
@@ -29,27 +30,40 @@
 
 extern "C" void __declspec(naked) _indirect_penter_dllmain() {
   __asm {
+    // Stack: ..., arg0, ret_addr.
+
     // Stash volatile registers.
     push eax
     push ecx
     push edx
     pushfd
 
+    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd.
+
     // Retrieve the address pushed by our caller.
     mov eax, DWORD PTR[esp + 0x10]
     push eax
+
+    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd, call_addr.
 
     // Calculate the position of the return address on stack, and
     // push it. This becomes the EntryFrame argument.
     lea eax, DWORD PTR[esp + 0x18]
     push eax
-    call agent::coverage::Coverage::DllMainEntryHook
+
+    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd, call_addr, entry_frame.
+
+    call agent::coverage::Coverage::EntryHook
+
+    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd.
 
     // Restore volatile registers.
     popfd
     pop edx
     pop ecx
     pop eax
+
+    // Stack: ..., arg0, ret_addr.
 
     // Return to the address pushed by our caller.
     ret
@@ -149,12 +163,21 @@ Coverage::Coverage() {
 Coverage::~Coverage() {
 }
 
-void WINAPI Coverage::DllMainEntryHook(EntryFrame *entry_frame,
-                                       FuncAddr function) {
+void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
 
-  // The function we've intercepted has a DllMain-like signature.
-  HMODULE module = reinterpret_cast<HMODULE>(entry_frame->args[0]);
+  // Get the address of the module. We do this by querying for the allocation
+  // that contains the address of the function we intercepted. This must lie
+  // within the instrumented module, and be part of the single allocation in
+  // which the image of the module lies. The base of the module will be the
+  // base address of the allocation.
+  MEMORY_BASIC_INFORMATION mem_info = {};
+  if (::VirtualQuery(function, &mem_info, sizeof(mem_info)) == 0) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "VirtualQuery failed: " << com::LogWe(error) << ".";
+    return;
+  }
+  HMODULE module = reinterpret_cast<HMODULE>(mem_info.AllocationBase);
 
   // Get the coverage singleton.
   Coverage* coverage = Coverage::Instance();
