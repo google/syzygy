@@ -32,9 +32,9 @@ class RelinkApp : public common::AppImplBase {
       : AppImplBase("Relinker"),
         seed_(0),
         padding_(0),
-        augment_pdb_(false),
+        no_augment_pdb_(false),
         compress_pdb_(false),
-        strip_strings_(false),
+        no_strip_strings_(false),
         output_metadata_(false),
         overwrite_(false),
         basic_blocks_(false),
@@ -64,9 +64,9 @@ class RelinkApp : public common::AppImplBase {
   FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
-  bool augment_pdb_;
+  bool no_augment_pdb_;
   bool compress_pdb_;
-  bool strip_strings_;
+  bool no_strip_strings_;
   bool output_metadata_;
   bool overwrite_;
   bool basic_blocks_;
