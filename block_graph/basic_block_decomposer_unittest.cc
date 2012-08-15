@@ -33,6 +33,32 @@
 
 #include "mnemonics.h"  // NOLINT
 
+extern "C" {
+
+// Functions and labels exposed from our .asm test stub.
+extern int assembly_func();
+extern int unreachable_label();
+extern int interrupt_label();
+extern int assembly_func_end();
+
+extern int case_0();
+extern int case_1();
+extern int case_default();
+extern int jump_table();
+extern int case_table();
+
+// Functions invoked or referred by the .asm test stub.
+int func1() {
+  return 1;
+}
+
+int func2() {
+  return 2;
+}
+
+}  // extern "C"
+
+
 namespace block_graph {
 
 namespace {
@@ -48,180 +74,266 @@ using testing::_;
 using testing::Return;
 
 typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
+typedef BlockGraph::Block Block;
+typedef BlockGraph::Offset Offset;
+typedef BlockGraph::Reference Reference;
+typedef BlockGraph::Size Size;
 
-const wchar_t kSerializedTestDllBlockGraph[] =
-    L"syzygy/block_graph/test_data/test_dll_"
-#ifdef NDEBUG
-    // Release build.
-    L"release"
-#else
-    // Debug/Coverage build.
-    L"debug"
-#endif
-    L".bg";
+#define POINTER_DIFF(x, y) \
+    (reinterpret_cast<const uint8*>(x) - reinterpret_cast<const uint8*>(y))
+const Size kAssemblyFuncSize = POINTER_DIFF(assembly_func_end, assembly_func);
+const Offset kCaseTableOffset = POINTER_DIFF(case_table, assembly_func);
+const Offset kJumpTableOffset = POINTER_DIFF(jump_table, assembly_func);
+const Offset kCase0Offset = POINTER_DIFF(case_0, assembly_func);
+const Offset kCase1Offset = POINTER_DIFF(case_1, assembly_func);
+const Offset kCaseDefaultOffset = POINTER_DIFF(case_default, assembly_func);
+const Offset kInterruptOffset = POINTER_DIFF(interrupt_label, assembly_func);
+const Offset kUnreachableOffset = POINTER_DIFF(unreachable_label,
+                                               assembly_func);
+#undef POINTER_DIFF
 
-class TestBasicBlockDecomposer : public BasicBlockDecomposer {
-public:
-  using BasicBlockDecomposer::on_instruction_;
+// The number and type of basic blocks.
+// TODO(rogerm): The padding block will go away once the decomposer switches
+//     to doing a straight disassembly of the entire code region.
+const size_t kNumCodeBasicBlocks = 7;
+const size_t kNumDataBasicBlocks = 2;
+const size_t kNumPaddingBasicBlocks = 1;
+const size_t kNumBasicBlocks =
+    kNumCodeBasicBlocks + kNumDataBasicBlocks + kNumPaddingBasicBlocks;
 
-  explicit TestBasicBlockDecomposer(const BlockGraph::Block* block,
-                                    BasicBlockSubGraph* subgraph)
-      : BasicBlockDecomposer(block, subgraph) {
-    check_decomposition_results_ = true;
+const BlockGraph::LabelAttributes kCaseTableAttributes =
+    BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL;
+
+const BlockGraph::LabelAttributes kJumpTableAttributes =
+    BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL;
+
+// A helper to count basic blocks of a given type.
+size_t CountBasicBlocks(const BasicBlockSubGraph& subgraph,
+                        BasicBlock::BasicBlockType type) {
+  size_t counter = 0;
+  BasicBlockSubGraph::BBCollection::const_iterator it =
+      subgraph.basic_blocks().begin();
+  for (; it != subgraph.basic_blocks().end(); ++it) {
+    if (it->second.type() == type)
+      ++counter;
   }
-
-};
-
-class BasicBlockDecomposerTest : public ::testing::Test {
-public:
-  virtual void SetUp() OVERRIDE {
-    ::testing::Test::SetUp();
-
-    BlockGraphSerializer bgs;
-    FilePath path = testing::GetSrcRelativePath(kSerializedTestDllBlockGraph);
-    file_util::ScopedFILE from_file(file_util::OpenFile(path, "rb"));
-    core::FileInStream in_stream(from_file.get());
-    core::NativeBinaryInArchive in_archive(&in_stream);
-    ASSERT_TRUE(bgs.Load(&block_graph_, &in_archive));
-  }
-
-  MOCK_METHOD2(OnInstruction,
-               Disassembler::CallbackDirective(const Disassembler&,
-                                               const _DInst&));
- protected:
-  BlockGraph block_graph_;
-};
-
-
-int TypeCount(const BBAddressSpace& the_map,
-              BasicBlock::BasicBlockType the_type) {
-  int count = 0;
-  BBAddressSpace::RangeMapConstIter iter(the_map.begin());
-  for (; iter != the_map.end(); ++iter) {
-    if (iter->second->type() == the_type)
-      ++count;
-  }
-  return count;
+  return counter;
 }
 
-int AttributeCount(const BlockGraph::Block::LabelMap& the_map, uint32 mask) {
-  int count = 0;
-  BlockGraph::Block::LabelMap::const_iterator iter(the_map.begin());
-  for (; iter != the_map.end(); ++iter) {
-    if (iter->second.has_attributes(mask))
-      ++count;
-  }
-  return count;
-}
 
-const BlockGraph::Block* FindBlockByName(const BlockGraph& block_graph,
-                                         const base::StringPiece& name) {
-  BlockGraph::BlockMap::const_iterator iter = block_graph.blocks().begin();
-  BlockGraph::BlockMap::const_iterator iter_end = block_graph.blocks().end();
-  for (; iter != iter_end; ++iter) {
-    if (name.compare(iter->second.name()) == 0)
-      return &iter->second;
-  }
-  return NULL;
-}
-
+// A helper comparator to that returns true if lhs and rhs are not adjacent
+// and in order.
 bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
   typedef BasicBlock::Size Size;
   return lhs->offset() + lhs->size() != static_cast<Size>(rhs->offset());
 }
 
-}  // namespace
+// A test fixture which generates a block-graph to use for basic-block
+// related testing.
+// See: basic_block_assembly_func.asm
+class BasicBlockDecomposerTest : public ::testing::Test {
+ public:
+  virtual void SetUp() OVERRIDE {
+    testing::Test::SetUp();
 
-TEST_F(BasicBlockDecomposerTest, DecomposeDllMain) {
-  // Setup our expected constants.
-#ifndef NDEBUG
-  static const size_t kNumInstructions = 209;
-  static const size_t kNumBasicBlocks = 26;
-  static const size_t kNumPaddingBlocks = 2;
-#else
-  static const size_t kNumInstructions = 183;
-  static const size_t kNumBasicBlocks = 24;
-  static const size_t kNumPaddingBlocks = 1;
-#endif  // NDEBUG
+    // Create func1, which will be called from assembly_func.
+    func1_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1, "func1");
+    ASSERT_TRUE(func1_ != NULL);
 
-  static const size_t kNumLabels = 19;
-  static const size_t kNumDataLabels = 4;
-  static const size_t kNumDebugLabels = 2;  // Start and end;
-  static const size_t kNumCodeLabels =
-      kNumLabels - kNumDataLabels - kNumDebugLabels;
-  static const size_t kNumDataBlocks = kNumDataLabels;
-  static const size_t kNumCodeBlocks =
-      kNumBasicBlocks - kNumDataBlocks - kNumPaddingBlocks;
+    // Create func2, a non-returning function called from assembly_func.
+    func2_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1, "func2");
+    ASSERT_TRUE(func2_ != NULL);
+    func2_->set_attributes(BlockGraph::NON_RETURN_FUNCTION);
 
-  const BlockGraph::Block* block = FindBlockByName(block_graph_, "DllMain");
-  ASSERT_FALSE(block == NULL);
+    // Create a data block to refer to assembly_func.
+    data_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 4, "data");
+    ASSERT_TRUE(data_ != NULL);
 
-  const BlockGraph::Block::LabelMap& labels = block->labels();
-  EXPECT_FALSE(labels.empty());
+    // Create assembly_func, and mark it as BUILT_BY_SYZYGY so the basic-block
+    // decomposer is willing to process it.
+    assembly_func_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                           kAssemblyFuncSize,
+                                           "assembly_func_");
+    ASSERT_TRUE(assembly_func_ != NULL);
+    assembly_func_->SetData(reinterpret_cast<const uint8*>(assembly_func),
+                            kAssemblyFuncSize);
+    assembly_func_->set_attributes(BlockGraph::BUILT_BY_SYZYGY);
 
-  // Inspect the labels.
-  BlockGraph::Block::LabelMap::const_iterator label_iter = labels.begin();
+    // Add the data labels.
+    ASSERT_TRUE(assembly_func_->SetLabel(
+        kCaseTableOffset, "case_table", kCaseTableAttributes));
+    ASSERT_TRUE(assembly_func_->SetLabel(
+        kJumpTableOffset, "jump_table", kCaseTableAttributes));
 
-  EXPECT_EQ(kNumLabels, labels.size());
-  EXPECT_EQ(kNumCodeLabels, AttributeCount(labels, BlockGraph::CODE_LABEL));
-  EXPECT_EQ(kNumDataLabels, AttributeCount(labels, BlockGraph::DATA_LABEL));
-  EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_START_LABEL));
-  EXPECT_EQ(1, AttributeCount(labels, BlockGraph::DEBUG_END_LABEL));
+    // Add the instruction references to the jump and case tables. Note that
+    // the jump table reference is at the end of the indirect jmp instruction
+    // (7-bytes) that immediately precedes the unreachable label and that the
+    // case table reference is at the end of the movzx instruction which
+    // immediately preceeds the jmp.
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kUnreachableOffset - (Reference::kMaximumSize + 7),
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  assembly_func_, kCaseTableOffset, kCaseTableOffset)));
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kUnreachableOffset - Reference::kMaximumSize,
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  assembly_func_, kJumpTableOffset, kJumpTableOffset)));
+    // Add the jump table references to the cases.
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kJumpTableOffset + (Reference::kMaximumSize * 0),
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  assembly_func_, kCase0Offset, kCase0Offset)));
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kJumpTableOffset + (Reference::kMaximumSize * 1),
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  assembly_func_, kCase1Offset, kCase1Offset)));
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kJumpTableOffset + (Reference::kMaximumSize * 2),
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  assembly_func_, kCaseDefaultOffset, kCaseDefaultOffset)));
 
-  BasicBlockSubGraph subgraph;
-  TestBasicBlockDecomposer bb_decomposer(block, &subgraph);
-  bb_decomposer.on_instruction_ =
-      base::Bind(&BasicBlockDecomposerTest::OnInstruction,
-                 base::Unretained(this));
+    // Add the external outbound references.
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kCase1Offset + 1,
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  func1_, 0, 0)));
+    ASSERT_TRUE(assembly_func_->SetReference(
+        kInterruptOffset - Reference::kMaximumSize,
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  func2_, 0, 0)));
 
-  // We should hit kNumInstructions instructions during decomposition.
-  EXPECT_CALL(*this, OnInstruction(_, _)).Times(kNumInstructions).
-      WillRepeatedly(Return(Disassembler::kDirectiveContinue));
-  ASSERT_TRUE(bb_decomposer.Decompose());
-  EXPECT_TRUE(subgraph.IsValid());
+    // Add an inbound reference to the top of the function.
+    ASSERT_TRUE(data_->SetReference(
+        0,
+        Reference(BlockGraph::RELATIVE_REF, Reference::kMaximumSize,
+                  assembly_func_, 0, 0)));
+  }
 
-  const BasicBlockSubGraph::BBAddressSpace& basic_blocks =
-      subgraph.original_address_space();
+ protected:
+  BlockGraph block_graph_;
+  BlockGraph::Block* assembly_func_;
+  BlockGraph::Block* func1_;
+  BlockGraph::Block* func2_;
+  BlockGraph::Block* data_;
+};
 
-  // All blocks should have been disassembled.
-  EXPECT_EQ(kNumBasicBlocks, basic_blocks.size());
-  EXPECT_EQ(kNumCodeBlocks,
-            TypeCount(basic_blocks, BasicBlock::BASIC_CODE_BLOCK));
-  EXPECT_EQ(kNumDataBlocks,
-            TypeCount(basic_blocks, BasicBlock::BASIC_DATA_BLOCK));
-  EXPECT_EQ(kNumPaddingBlocks,
-            TypeCount(basic_blocks, BasicBlock::BASIC_PADDING_BLOCK));
 }
 
-TEST_F(BasicBlockDecomposerTest, DecomposeAllCodeBlocks) {
-  BlockGraph::BlockMap::const_iterator it = block_graph_.blocks().begin();
-  for (; it != block_graph_.blocks().end(); ++it) {
-    const BlockGraph::Block* block = &it->second;
-    if (block->type() != BlockGraph::CODE_BLOCK)
-      continue;
+TEST_F(BasicBlockDecomposerTest, Decompose) {
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer bb_decomposer(assembly_func_, &subgraph);
+  logging::SetMinLogLevel(3);
+  ASSERT_TRUE(bb_decomposer.Decompose());
+  ASSERT_TRUE(subgraph.IsValid());
 
-    if (!CodeBlockAttributesAreBasicBlockSafe(block))
-      continue;
+  // Ensure we have the expected number and types of blocks.
+  ASSERT_EQ(kNumBasicBlocks, subgraph.basic_blocks().size());
+  ASSERT_EQ(kNumBasicBlocks, subgraph.original_address_space().size());
+  ASSERT_EQ(kNumCodeBasicBlocks,
+            CountBasicBlocks(subgraph, BasicBlock::BASIC_CODE_BLOCK));
+  ASSERT_EQ(kNumDataBasicBlocks,
+            CountBasicBlocks(subgraph, BasicBlock::BASIC_DATA_BLOCK));
+  ASSERT_EQ(kNumPaddingBasicBlocks,
+            CountBasicBlocks(subgraph, BasicBlock::BASIC_PADDING_BLOCK));
 
-    BasicBlockSubGraph subgraph;
-    TestBasicBlockDecomposer bb_decomposer(block, &subgraph);
-    ASSERT_TRUE(bb_decomposer.Decompose());
-    EXPECT_TRUE(subgraph.IsValid());
-    EXPECT_EQ(1U, subgraph.block_descriptions().size());
+  // There should be no gaps and all of the blocks should be used.
+  ASSERT_EQ(1U, subgraph.block_descriptions().size());
+  const BasicBlockSubGraph::BlockDescription& desc =
+      subgraph.block_descriptions().back();
+  EXPECT_EQ(kNumBasicBlocks, desc.basic_block_order.size());
+  EXPECT_TRUE(
+      std::adjacent_find(
+          desc.basic_block_order.begin(),
+          desc.basic_block_order.end(),
+          &HasGapOrIsOutOfOrder) == desc.basic_block_order.end());
 
-    typedef BasicBlockSubGraph::BlockDescription BlockDescription;
-    const BlockDescription& desc = subgraph.block_descriptions().back();
-    EXPECT_EQ(block->type(), desc.type);
-    EXPECT_EQ(block->alignment(), desc.alignment);
-    EXPECT_EQ(block->name(), desc.name);
-    EXPECT_EQ(block->section(), desc.section);
-    EXPECT_EQ(block->attributes(), desc.attributes);
-    EXPECT_TRUE(
-        std::adjacent_find(
-            desc.basic_block_order.begin(),
-            desc.basic_block_order.end(),
-            &HasGapOrIsOutOfOrder) == desc.basic_block_order.end());
-  }
+  // Let's validate the contents of the basic blocks.
+  std::vector<BasicBlock*> bb;
+  bb.reserve(desc.basic_block_order.size());
+  bb.assign(desc.basic_block_order.begin(), desc.basic_block_order.end());
+
+  BasicBlockSubGraph::ReachabilityMap rm;
+  subgraph.GetReachabilityMap(&rm);
+
+  // Basic-block 0 - assembly_func.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[0]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[0]->type());
+  ASSERT_EQ(4u, bb[0]->instructions().size());
+  ASSERT_EQ(0u, bb[0]->successors().size());;
+  BasicBlock::Instructions::const_iterator inst_iter =
+      bb[0]->instructions().begin();
+  std::advance(inst_iter, 2);
+  ASSERT_EQ(1u, inst_iter->references().size());
+  ASSERT_EQ(bb[9], inst_iter->references().begin()->second.basic_block());
+  std::advance(inst_iter, 1);
+  ASSERT_EQ(1u, inst_iter->references().size());
+  ASSERT_EQ(bb[8], inst_iter->references().begin()->second.basic_block());
+
+  // Basic-block 1 - unreachable-label.
+  // TODO(rogerm): This is classified as padding for now, it will become code
+  //     once the decomposer switches to just doing a straight disassembly of
+  //     the entire code region.
+  ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bb[1]));
+  ASSERT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bb[1]->type());
+  // ASSERT_EQ(1u, bb[1]->instructions().size());
+  // ASSERT_EQ(1u, bb[1]->successors().size());;
+  // ASSERT_EQ(bb[2], bb[1]->successors().front().reference().basic_block());
+
+  // Basic-block 2 - case_0.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[2]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[2]->type());
+  ASSERT_EQ(2u, bb[2]->instructions().size());
+  ASSERT_EQ(1u, bb[2]->successors().size());;
+  ASSERT_EQ(bb[3], bb[2]->successors().front().reference().basic_block());
+
+  // Basic-block 3 - sub eax to jnz.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[3]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[3]->type());
+  ASSERT_EQ(1u, bb[3]->instructions().size());
+  ASSERT_EQ(2u, bb[3]->successors().size());;
+  ASSERT_EQ(bb[3], bb[3]->successors().front().reference().basic_block());
+  ASSERT_EQ(bb[4], bb[3]->successors().back().reference().basic_block());
+
+  // Basic-block 4 - ret.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[4]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[4]->type());
+  ASSERT_EQ(1u, bb[4]->instructions().size());
+  ASSERT_EQ(0u, bb[4]->successors().size());;
+
+  // Basic-block 5 - case_1.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[5]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[5]->type());
+  ASSERT_EQ(1u, bb[5]->instructions().size());
+  ASSERT_EQ(func1_,
+            bb[5]->instructions().front().references().begin()->second.block());
+  ASSERT_EQ(1u, bb[5]->successors().size());
+  ASSERT_EQ(bb[6], bb[5]->successors().front().reference().basic_block());
+
+  // Basic-block 6 - case_default.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[6]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[6]->type());
+  ASSERT_EQ(2u, bb[6]->instructions().size());
+  ASSERT_EQ(func2_,
+            bb[6]->instructions().back().references().begin()->second.block());
+  ASSERT_EQ(0u, bb[6]->successors().size());
+
+  // Basic-block 7 - interrupt_label.
+  ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bb[7]));
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb[7]->type());
+  ASSERT_EQ(1u, bb[7]->instructions().size());
+  ASSERT_EQ(0u, bb[7]->successors().size());
+
+  // Basic-block 8 - jump_table.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[8]));
+  ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bb[8]->type());
+  ASSERT_EQ(3 * Reference::kMaximumSize, bb[8]->size());
+  ASSERT_EQ(3u, bb[8]->references().size());
+
+  // Basic-block 9 - case_table.
+  ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bb[9]));
+  ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bb[9]->type());
+  ASSERT_EQ(256, bb[9]->size());
+  ASSERT_EQ(0u, bb[9]->references().size());
 }
 
 }  // namespace block_graph

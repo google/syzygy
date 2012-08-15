@@ -1079,7 +1079,8 @@ bool BlockGraph::Block::RemoveAllReferences() {
 }
 
 bool BlockGraph::Block::SetLabel(Offset offset, const Label& label) {
-  DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
+  DCHECK_LE(0, offset);
+  DCHECK_LE(static_cast<size_t>(offset), size_);
 
   VLOG(2) << name() << ": adding "
           << LabelAttributesToString(label.attributes()) << " label '"

@@ -76,8 +76,10 @@
     {
       'target_name': 'block_graph_unittests',
       'type': 'executable',
+      'includes': ['../build/masm.gypi'],
       'sources': [
         'basic_block_assembler_unittest.cc',
+        'basic_block_assembly_func.asm',
         'basic_block_decomposer_unittest.cc',
         'basic_block_unittest.cc',
         'basic_block_subgraph_unittest.cc',
