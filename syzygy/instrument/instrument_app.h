@@ -35,17 +35,28 @@ class InstrumentApp : public common::AppImplBase {
  public:
 
   // A list of known clients libraries.
+  static const char InstrumentApp::kCallTraceClientDllCoverage[];
   static const char InstrumentApp::kCallTraceClientDllProfiler[];
   static const char InstrumentApp::kCallTraceClientDllRpc[];
 
+  // The mode of the instrumenter.
+  enum Mode {
+    kInstrumentInvalidMode,
+    kInstrumentAsanMode,
+    kInstrumentCallTraceMode,
+    kInstrumentCoverageMode,
+    kInstrumentProfilerMode,
+  };
+
   InstrumentApp()
       : common::AppImplBase("Instrumenter"),
+        mode_(kInstrumentInvalidMode),
         allow_overwrite_(false),
-        augment_pdb_(false),
-        strip_strings_(false),
+        no_augment_pdb_(false),
+        no_strip_strings_(false),
         debug_friendly_(false),
         instrument_unsafe_references_(true),
-        instrument_for_asan_(false) {
+        module_entry_only_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -61,6 +72,15 @@ class InstrumentApp : public common::AppImplBase {
              const base::StringPiece& message) const;
   // @}
 
+  // Used to parse old-style deprecated command-lines.
+  // TODO(chrisha): Remove this once build scripts and profiling tools have
+  //     been updated.
+  void ParseDeprecatedMode(const CommandLine* command_line);
+
+  // The mode of the instrumenter. This is valid after a successful call to
+  // ParseCommandLine.
+  Mode mode_;
+
   // @name Command-line parameters.
   // @{
   FilePath input_dll_path_;
@@ -69,12 +89,12 @@ class InstrumentApp : public common::AppImplBase {
   FilePath output_pdb_path_;
   std::string client_dll_;
   bool allow_overwrite_;
-  bool augment_pdb_;
-  bool strip_strings_;
+  bool no_augment_pdb_;
+  bool no_strip_strings_;
   bool debug_friendly_;
   bool thunk_imports_;
   bool instrument_unsafe_references_;
-  bool instrument_for_asan_;
+  bool module_entry_only_;
   // @}
 
   // @name Internal machinery, replaceable for testing purposes.
