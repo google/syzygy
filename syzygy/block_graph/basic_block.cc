@@ -624,9 +624,9 @@ Successor::Successor(Successor::Condition condition,
   DCHECK(inserted);
 }
 
-const BasicBlockReference& Successor::reference() const {
-  static const BasicBlockReference kNullRef;
-  return references_.empty() ? kNullRef : references_.begin()->second;
+BasicBlockReference Successor::reference() const {
+  return references_.empty() ? BasicBlockReference() :
+                               references_.begin()->second;
 }
 
 Successor::Condition Successor::InvertCondition(Condition cond) {

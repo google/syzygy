@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implementation of basic block disassembler.
+// Implementation of basic block decomposer.
+//
+// TODO(rogerm): Refactor this to just do a straight disassembly of all bytes
+//     (up to the start of embedded data: jump and case tables) to a list of
+//     instructions, then chop up the instruction list into basic blocks in
+//     a second pass, splicing the instructions into the basic-block instruction
+//     lists and generating successors.
 
 #include "syzygy/block_graph/basic_block_decomposer.h"
 
@@ -58,22 +64,47 @@ const size_t kDisassemblyAddress = 65536;
 // Look up the reference made from an instruction's byte range within the
 // given block. The reference should start AFTER the instruction starts
 // and there should be exactly 1 reference in the byte range.
-const BlockGraph::Reference& GetReferenceOfInstructionAt(const Block* block,
-                                                         Offset instr_offset,
-                                                         Size instr_size) {
+// Returns true if the reference was found, false otherwise.
+bool GetReferenceOfInstructionAt(const Block* block,
+                                 Offset instr_offset,
+                                 Size instr_size,
+                                 BlockGraph::Reference* ref) {
+  DCHECK(block != NULL);
+  DCHECK_LE(0, instr_offset);
+  DCHECK_LT(0U, instr_size);
+  DCHECK(ref != NULL);
+
+  // Find the first reference following the instruction offset.
   Block::ReferenceMap::const_iterator ref_iter =
       block->references().upper_bound(instr_offset);
-  CHECK(ref_iter != block->references().end());
+
+  // If no reference is found then we're done.
+  if (ref_iter == block->references().end())
+    return false;
+
+  // If the reference occurs outside the instruction then we're done.
+  Offset next_instr_offset = instr_offset + instr_size;
+  if (ref_iter->first >= next_instr_offset)
+    return false;
+
+  // Otherwise, the reference should fit into the instruction.
+  CHECK_LE(static_cast<size_t>(next_instr_offset),
+           ref_iter->first + ref_iter->second.size());
+
+  // And it should be the only reference in the instruction.
   if (ref_iter != block->references().begin()) {
     Block::ReferenceMap::const_iterator prev_iter = ref_iter;
     --prev_iter;
-    CHECK(prev_iter->first < instr_offset);
+    CHECK_GE(static_cast<size_t>(instr_offset),
+             prev_iter->first + prev_iter->second.size());
   }
   Block::ReferenceMap::const_iterator next_iter = ref_iter;
   ++next_iter;
   CHECK(next_iter == block->references().end() ||
-         next_iter->first >= instr_offset + static_cast<Offset>(instr_size));
-  return ref_iter->second;
+        next_iter->first >= next_instr_offset);
+
+  *ref = ref_iter->second;
+  return true;
 }
 
 }  // namespace
@@ -157,6 +188,7 @@ void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
     // If there is no previous label, or it is not a data label, then this is
     // a safe jump target.
     if (label_iter == block_->labels().end() ||
+        label_iter->first > ref.offset() ||
         !label_iter->second.has_attributes(BlockGraph::DATA_LABEL)) {
       AbsoluteAddress addr(code_addr_ + ref.base());
       Unvisited(addr);
@@ -180,19 +212,34 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
   VLOG(3) << "Disassembled " << GET_MNEMONIC_NAME(inst.opcode)
           << " instruction (" << static_cast<int>(inst.size)
           << " bytes) at offset " << offset << ".";
+
   current_instructions_.push_back(
-      Instruction(inst, offset, inst.size, code_ + offset ));
+      Instruction(inst, offset, inst.size, code_ + offset));
+  if (label.IsValid())
+    current_instructions_.back().set_label(label);
 
   // If this instruction is a call to a non-returning function, then this is
   // essentially a control flow operation, and we need to end this basic block.
+  // We'll schedule the disassembly of any instructions which follow it as
+  // a separate basic block, and mark that basic block as unreachable in a
+  // post pass.
   if (META_GET_FC(inst.meta) == FC_CALL &&
       (inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP)) {
-    const BlockGraph::Reference& ref =
-        GetReferenceOfInstructionAt(block_, offset, inst.size);
+    BlockGraph::Reference ref;
+    bool found = GetReferenceOfInstructionAt(block_, offset, inst.size, &ref);
+    CHECK(found);
     if (Instruction::CallsNonReturningFunction(inst, ref.referenced(),
                                                ref.offset())) {
+      Unvisited(addr + inst.size);
       return kDirectiveTerminatePath;
     }
+  }
+
+  // If continuing this basic-block would disassemble into known data then
+  // end the current basic-block.
+  if (block_->GetLabel(offset + inst.size, &label) &&
+      label.has_attributes(BlockGraph::DATA_LABEL)) {
+    return kDirectiveTerminatePath;
   }
 
   return kDirectiveContinue;
@@ -235,6 +282,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
                   (addr + inst.size) - code_addr_,
                   BasicBlock::kNoOffset,
                   0));
+    jump_targets_.insert(addr + inst.size);
   }
 
   // Note that some control flow instructions have no explicit target (for
@@ -247,25 +295,28 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     // it as a successor instead.
     Successor::Offset instr_offset = current_instructions_.back().offset();
     Successor::Size instr_size = current_instructions_.back().size();
+    BlockGraph::Label instr_label = current_instructions_.back().label();
     current_instructions_.pop_back();
     DCHECK_EQ(addr - code_addr_, instr_offset);
     DCHECK_EQ(inst.size, instr_size);
 
     // Figure out where the branch is going by finding the reference that's
     // inside the instruction's byte range.
-    const BlockGraph::Reference& ref =
-        GetReferenceOfInstructionAt(block_, instr_offset, instr_size);
+    BlockGraph::Reference ref;
+    bool found = GetReferenceOfInstructionAt(
+        block_, instr_offset, instr_size, &ref);
 
     // Create the appropriate successor depending on whether or not the target
     // is intra- or inter-block.
-    if (ref.referenced() == block_) {
+    if (!found || ref.referenced() == block_) {
       // This is an intra-block reference. The target basic block may not
       // exist yet, so we'll defer patching up this reference until later.
-      // The self reference should already have been considered in the list
-      // of disassembly start points and jump targets.
-      DCHECK_EQ(1U, jump_targets_.count(code_addr_ + ref.offset()));
+      Offset target_offset = dest - code_addr_;
+      CHECK_LE(0, target_offset);
+      CHECK_LT(static_cast<size_t>(target_offset), code_size_);
       current_successors_.push_front(
-          Successor(condition, ref.offset(), instr_offset, instr_size));
+          Successor(condition, target_offset, instr_offset, instr_size));
+      jump_targets_.insert(dest);
     } else {
       // This is an inter-block jump. We can create a fully resolved reference.
       BasicBlockReference bb_ref(
@@ -273,6 +324,9 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
       current_successors_.push_front(
           Successor(condition, bb_ref, instr_offset, instr_size));
     }
+
+    if (instr_label.IsValid())
+      current_successors_.front().set_label(instr_label);
   }
 
   // This marks the end of a basic block. Note that the disassembler will
@@ -324,6 +378,12 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
 }
 
 Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
+  // Split code blocks at branch targets.
+  if (!SplitCodeBlocksAtBranchTargets()) {
+    LOG(ERROR) << "Failed to split code blocks at branch targets.";
+    return kDirectiveAbort;
+  }
+
   // By this point, we should have basic blocks for all visited code.
   CheckAllJumpTargetsStartABasicCodeBlock();
 
@@ -345,6 +405,10 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
   // macro block. Verify that this is so.
   CheckHasCompleteBasicBlockCoverage();
 
+  // We should have propagated all of the labels in the original block into
+  // the basic-block subgraph.
+  CheckAllLabelsArePreserved();
+
   // Populate the referrers in the basic block data structures by copying
   // them from the original source block.
   if (!CopyExternalReferrers()) {
@@ -354,9 +418,9 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
 
   // Populate the references in the basic block data structures by copying
   // them from the original source block. This does not handle the successor
-  // referenes.
+  // references.
   if (!CopyReferences()) {
-    LOG(ERROR) << "Failed to populate basic-block referrences.";
+    LOG(ERROR) << "Failed to populate basic-block references.";
     return kDirectiveAbort;
   }
 
@@ -381,7 +445,7 @@ void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
   AddressSet::const_iterator addr_iter(jump_targets_.begin());
   for (; addr_iter != jump_targets_.end(); ++addr_iter) {
     // The target basic-block should be a code basic-block.
-    BasicBlock* target_bb = subgraph_->FindBasicBlock(*addr_iter - code_addr_);
+    BasicBlock* target_bb = subgraph_->GetBasicBlockAt(*addr_iter - code_addr_);
     CHECK(target_bb != NULL);
     CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb->type());
   }
@@ -466,6 +530,78 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
   }
 }
 
+void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
+  if (!check_decomposition_results_)
+    return;
+
+  const Block* original_block = subgraph_->original_block();
+  if (original_block == NULL)
+    return;
+
+  const Block::LabelMap original_labels = original_block->labels();
+  if (original_labels.empty())
+    return;
+
+  // A map to track which labels (by offset) have been found in the subgraph.
+  std::map<Offset, bool> labels_found;
+
+  // Initialize the map of labels found in the subgraph.
+  Block::LabelMap::const_iterator label_iter = original_labels.begin();
+  for (; label_iter != original_labels.end(); ++label_iter)
+    labels_found.insert(std::make_pair(label_iter->first, false));
+
+  // Walk through the subgraph and mark all of the labels found.
+  BasicBlockSubGraph::BBCollection::const_iterator bb_iter =
+      subgraph_->basic_blocks().begin();
+  for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
+    // Account for labels attached to basic-blocks.
+    const BasicBlock& bb = bb_iter->second;
+    if (bb.has_label()) {
+      BlockGraph::Label label;
+      CHECK(original_block->GetLabel(bb.offset(), &label));
+      CHECK(bb.label() == label);
+      labels_found[bb.offset()] = true;
+    }
+
+    // Account for labels attached to instructions.
+    BasicBlock::Instructions::const_iterator inst_iter =
+        bb.instructions().begin();
+    for (; inst_iter != bb.instructions().end(); ++inst_iter) {
+      const Instruction& inst = *inst_iter;
+      if (inst.has_label()) {
+        BlockGraph::Label label;
+        CHECK(original_block->GetLabel(inst.offset(), &label));
+        CHECK(inst.label() == label);
+        labels_found[inst.offset()] = true;
+      }
+    }
+
+    // Account for labels attached to successors.
+    BasicBlock::Successors::const_iterator succ_iter =
+        bb.successors().begin();
+    for (; succ_iter != bb.successors().end(); ++succ_iter) {
+      const Successor& succ = *succ_iter;
+      if (succ.has_label()) {
+        BlockGraph::Label label;
+        CHECK_NE(BasicBlock::kNoOffset, succ.instruction_offset());
+        CHECK(original_block->GetLabel(succ.instruction_offset(), &label));
+        CHECK(succ.label() == label);
+        labels_found[succ.instruction_offset()] = true;
+      }
+    }
+  }
+
+  // We should have the right number of labels_found (check if we added
+  // something to the wrong place).
+  CHECK_EQ(original_labels.size(), labels_found.size());
+
+  // Make sure all of the items in labels_found have been set to true.
+  std::map<Offset, bool>::const_iterator found_iter = labels_found.begin();
+  for (; found_iter != labels_found.end(); ++found_iter) {
+    CHECK(found_iter->second);
+  }
+}
+
 bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
                                                  size_t size,
                                                  BasicBlockType type) {
@@ -475,7 +611,9 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
   BasicBlock::Offset offset = addr - code_addr_;
   DCHECK_LE(0, offset);
 
-  // Find or create a name for this basic block.
+  // Find or create a name for this basic block. Reserve the label, if any,
+  // to propagate to the basic block if there are no instructions in the
+  // block to carry the label(s).
   BlockGraph::Label label;
   std::string basic_block_name;
   if (block_->GetLabel(offset, &label)) {
@@ -487,14 +625,108 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
                            BasicBlock::BasicBlockTypeToString(type));
   }
 
+  // Create the basic block.
   BasicBlock* new_basic_block = subgraph_->AddBasicBlock(
       basic_block_name, type, offset, size, code_ + offset);
   if (new_basic_block == NULL)
     return false;
 
+  // Code basic-blocks carry their labels in their instructions and successors.
+  // Data basic-blocks carry their labels at the head of the basic blocks.
+  // A padding basic-block might also be labeled if the block contains
+  // unreachable code (for example, INT3 or NOP instructions following a call
+  // to a non-returning function).
+  if (type != BasicBlock::BASIC_CODE_BLOCK && label.IsValid()) {
+    new_basic_block->set_label(label);
+  }
+
+  // Populate code basic-block with instructions and successors.
   if (type == BasicBlock::BASIC_CODE_BLOCK) {
     new_basic_block->instructions().swap(current_instructions_);
     new_basic_block->successors().swap(current_successors_);
+  }
+
+  return true;
+}
+
+bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
+  // TODO(rogerm): Refactor the basic-block splitting inner-function to the
+  //     BasicBlockSubGraph. Note that the subgraph currently maintains a
+  //     picture of the original address space of the source block. This should
+  //     also be factored out; the original address space is only relevant to
+  //     the BasicBlockDecomposer.
+  AddressSet::const_iterator jump_target_iter(jump_targets_.begin());
+  for (; jump_target_iter != jump_targets_.end(); ++jump_target_iter) {
+    // Resolve the target basic-block.
+    Offset target_offset = *jump_target_iter - code_addr_;
+    BasicBlock* target_bb = NULL;
+    BBAddressSpace::Range target_bb_range;
+    CHECK(subgraph_->FindBasicBlock(target_offset, &target_bb,
+                                    &target_bb_range));
+
+    // If we're jumping to the start of a basic block, there isn't any work
+    // to do.
+    if (target_offset == target_bb_range.start())
+      continue;
+
+    // Otherwise, we have found a basic-block that we need to split. Let's
+    // create a backup copy of the target basic-block and remove the original
+    // from the basic-block address space. We'll replace it with two new
+    // blocks split at the target offset.
+    size_t left_split_size = target_offset - target_bb_range.start();
+    BasicBlock target_bb_copy(*target_bb);
+    subgraph_->original_address_space().Remove(target_bb_range);
+    subgraph_->basic_blocks().erase(target_bb->id());
+    target_bb = &target_bb_copy;
+
+    // Now we split up containing_range into two new ranges and replace
+    // containing_range with the two new entries.
+
+    // Setup the first "half" of the basic block. Note that we are reusing
+    // current_instructions_ and current_successors_ so that we can use
+    // InsertBlockRange to create the new basic-blocks.
+    DCHECK(current_instructions_.empty());
+    DCHECK(current_successors_.empty());
+    while (!target_bb->instructions().empty() &&
+           target_bb->instructions().front().offset() < target_offset) {
+      current_instructions_.splice(current_instructions_.end(),
+                                   target_bb->instructions(),
+                                   target_bb->instructions().begin());
+    }
+
+    // The next offset (to an instruction or successor) should correspond to
+    // the target offset.
+    if (!target_bb->instructions().empty()) {
+      DCHECK_EQ(target_offset, target_bb->instructions().front().offset());
+    } else {
+      DCHECK(!target_bb->successors().empty());
+      DCHECK_EQ(target_offset,
+                target_bb->successors().front().instruction_offset());
+    }
+
+    // Set-up the flow-through successor for the first "half".
+    current_successors_.push_back(Successor(
+        Successor::kConditionTrue, target_offset, BasicBlock::kNoOffset, 0));
+
+    // Create the basic-block representing the first "half".
+    if (!InsertBasicBlockRange(code_addr_ + target_bb_range.start(),
+                               left_split_size,
+                               target_bb->type())) {
+      LOG(ERROR) << "Failed to insert first half of split block.";
+      return false;
+    }
+
+    // Create the basic-block representing the second "half".
+    DCHECK(current_instructions_.empty());
+    DCHECK(current_successors_.empty());
+    current_instructions_.swap(target_bb->instructions());
+    current_successors_.swap(target_bb->successors());
+    if (!InsertBasicBlockRange(code_addr_ + target_offset,
+                               target_bb_range.size() - left_split_size,
+                               target_bb->type())) {
+      LOG(ERROR) << "Failed to insert second half of split block.";
+      return false;
+    }
   }
 
   return true;
@@ -591,7 +823,7 @@ bool BasicBlockDecomposer::CopyExternalReferrers() {
 
     // Find the basic block the reference refers to. It can only have an
     // offset that's different from the base if it's not a code block.
-    BasicBlock* target_bb = subgraph_->FindBasicBlock(reference.base());
+    BasicBlock* target_bb = subgraph_->GetBasicBlockAt(reference.base());
     DCHECK(target_bb != NULL);
     DCHECK(reference.base() == reference.offset() ||
            target_bb->type() != BasicBlock::BASIC_CODE_BLOCK);
@@ -642,7 +874,7 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
     } else {
       // For intra block_ references, find the corresponding basic block in
       // the basic block address space.
-      BasicBlock* target_bb = subgraph_->FindBasicBlock(reference.base());
+      BasicBlock* target_bb = subgraph_->GetBasicBlockAt(reference.base());
       DCHECK(target_bb != NULL);
 
       // Create target basic-block relative values for the base and offset.
@@ -659,15 +891,13 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
 }
 
 bool BasicBlockDecomposer::CopyReferences() {
-  BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
-
   // Copy the references for the source range of each basic-block (by
   // instruction for code basic-blocks). External referrers and successors are
   // handled in separate passes.
-  RangeMapIter bb_iter = basic_block_address_space.begin();
-  for (; bb_iter != basic_block_address_space.end(); ++bb_iter) {
-    BasicBlock* bb = bb_iter->second;
+  BasicBlockSubGraph::BBCollection::iterator bb_iter =
+      subgraph_->basic_blocks().begin();
+  for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
+    BasicBlock* bb = &bb_iter->second;
     if (bb->type() == BasicBlock::BASIC_CODE_BLOCK) {
       BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
       for (; inst_iter != bb->instructions().end(); ++inst_iter) {
@@ -675,7 +905,7 @@ bool BasicBlockDecomposer::CopyReferences() {
           return false;
       }
     } else {
-      if (!CopyReferences(bb_iter->second))
+      if (!CopyReferences(bb))
         return false;
     }
   }
@@ -683,13 +913,11 @@ bool BasicBlockDecomposer::CopyReferences() {
 }
 
 bool BasicBlockDecomposer::ResolveSuccessors() {
-  BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
-
-  RangeMapIter bb_iter = basic_block_address_space.begin();
-  for (; bb_iter != basic_block_address_space.end(); ++bb_iter) {
+  BasicBlockSubGraph::BBCollection::iterator bb_iter =
+      subgraph_->basic_blocks().begin();
+  for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
     // Only code basic-blocks have successors and instructions.
-    BasicBlock* bb = bb_iter->second;
+    BasicBlock* bb = &bb_iter->second;
     if (bb->type() != BasicBlock::BASIC_CODE_BLOCK) {
       DCHECK(bb->successors().empty());
       DCHECK(bb->instructions().empty());
@@ -708,7 +936,7 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
 
       // Find the basic block the successor references.
       BasicBlock* target_bb =
-          subgraph_->FindBasicBlock(succ_iter->bb_target_offset());
+          subgraph_->GetBasicBlockAt(succ_iter->bb_target_offset());
       DCHECK(target_bb != NULL);
 
       // We transform all successor branches into 4-byte pc-relative targets.

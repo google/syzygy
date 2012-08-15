@@ -16,6 +16,7 @@
 
 #include "syzygy/block_graph/basic_block_subgraph.h"
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
@@ -128,13 +129,69 @@ TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
   ASSERT_FALSE(subgraph.MapsBasicBlocksToAtMostOneDescription());
 }
 
+TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
+  BlockGraph::Block external_block;
+  BasicBlockSubGraph subgraph;
+  static const uint8 kData[Reference::kMaximumSize] = { 0 };
+
+  // Create basic-blocks.
+  BasicBlock* bb1 = subgraph.AddBasicBlock(
+      "bb1", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+  ASSERT_FALSE(bb1 == NULL);
+  BasicBlock* bb2 = subgraph.AddBasicBlock(
+      "bb2", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+  ASSERT_FALSE(bb2 == NULL);
+  BasicBlock* bb3 = subgraph.AddBasicBlock(
+      "bb3", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+  ASSERT_FALSE(bb3 == NULL);
+  BasicBlock* bb4 = subgraph.AddBasicBlock(
+      "bb4", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+  ASSERT_FALSE(bb4 == NULL);
+  BasicBlock* data = subgraph.AddBasicBlock(
+      "data", BasicBlock::BASIC_DATA_BLOCK, -1, sizeof(kData), kData);
+  ASSERT_FALSE(data == NULL);
+
+  // Setup references.
+  static const uint8 kJmp[] = { 0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE };
+  static const uint8 kRet[] = { 0xC3 };
+  bb1->referrers().insert(BasicBlockReferrer(&external_block, 0));
+  bb1->instructions().push_back(Instruction(sizeof(kJmp), kJmp));
+  bb1->instructions().back().SetReference(
+      3, BasicBlockReference(BlockGraph::RELATIVE_REF,
+                             BlockGraph::Reference::kMaximumSize,
+                             data));
+  data->SetReference(0, BasicBlockReference(BlockGraph::RELATIVE_REF,
+                                            BlockGraph::Reference::kMaximumSize,
+                                            bb2));
+  bb2->successors().push_back(
+      Successor(Successor::kConditionTrue,
+                BasicBlockReference(BlockGraph::RELATIVE_REF,
+                                    BlockGraph::Reference::kMaximumSize,
+                                    bb3),
+                 BasicBlock::kNoOffset, 0));
+  bb3->instructions().push_back(Instruction(sizeof(kRet), kRet));
+
+  // Check reachability.
+  BasicBlockSubGraph::ReachabilityMap expected_rm;
+  expected_rm.insert(std::make_pair(bb1, true));
+  expected_rm.insert(std::make_pair(bb2, true));
+  expected_rm.insert(std::make_pair(bb3, true));
+  expected_rm.insert(std::make_pair(bb4, false));
+  expected_rm.insert(std::make_pair(data, true));
+
+  BasicBlockSubGraph::ReachabilityMap actual_rm;
+  subgraph.GetReachabilityMap(&actual_rm);
+  EXPECT_THAT(actual_rm, testing::ContainerEq(expected_rm));
+}
+
 TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
-  // TODO(rogerm): Enable this test when HasValidSuccessors is implemented.
+  BlockGraph::Block external_block;
   TestBasicBlockSubGraph subgraph;
 
   BasicBlock* bb1 = subgraph.AddBasicBlock(
       "bb1", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_FALSE(bb1 == NULL);
+  bb1->referrers().insert(BasicBlockReferrer(&external_block, 0));
 
   BasicBlock* bb2 = subgraph.AddBasicBlock(
       "bb2", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);

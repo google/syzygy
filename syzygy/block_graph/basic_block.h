@@ -498,7 +498,7 @@ class Successor {
   // @{
   // The type of branch represented by this successor.
   Condition condition() const { return condition_; }
-  const BasicBlockReference& reference() const;
+  BasicBlockReference reference() const;
   Offset bb_target_offset() const { return bb_target_offset_; }
   Offset instruction_offset() const { return instruction_offset_; }
   Size instruction_size() const { return instruction_size_; }
@@ -680,7 +680,7 @@ class BasicBlock {
   // from the original block.
   BasicBlockReferenceMap references_;
 
-  // The set of basic blocks referenes (from other basic blocks in same
+  // The set of basic blocks references (from other basic blocks in same
   // original block) to this basic block.
   BasicBlockReferrerSet referrers_;
 

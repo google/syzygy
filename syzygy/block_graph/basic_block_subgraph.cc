@@ -103,24 +103,40 @@ bool BasicBlockSubGraph::IsValid() const {
       HasValidReferrers();
 }
 
-BasicBlock* BasicBlockSubGraph::FindBasicBlock(Offset base) const {
-  DCHECK_LE(0, base);
+bool BasicBlockSubGraph::FindBasicBlock(Offset offset,
+                                        BasicBlock** basic_block,
+                                        BBAddressSpace::Range* range) const {
+  DCHECK_LE(0, offset);
+  DCHECK(basic_block != NULL);
+  DCHECK(range != NULL);
   DCHECK(original_block_ != NULL);
-  DCHECK_GT(original_block_->size(), static_cast<size_t>(base));
+  DCHECK_GT(original_block_->size(), static_cast<size_t>(offset));
 
   BBAddressSpace::RangeMapConstIter bb_iter =
       original_address_space_.FindFirstIntersection(
-          BBAddressSpace::Range(base, 1));
+          BBAddressSpace::Range(offset, 1));
 
-  // We have complete coverage of the block; there must be an intersection.
-  // And, we break up the basic blocks by code references, so the target
-  // base must coincide with the start of the target block.
-  DCHECK(bb_iter != original_address_space_.end());
-  BasicBlock* bb = bb_iter->second;
-  DCHECK_EQ(base, bb_iter->first.start());
+  if (bb_iter == original_address_space_.end())
+    return false;
 
+  *basic_block = bb_iter->second;
+  *range = bb_iter->first;
+  return true;
+}
+
+BasicBlock* BasicBlockSubGraph::GetBasicBlockAt(Offset offset) const {
+  DCHECK_LE(0, offset);
+  DCHECK(original_block_ != NULL);
+  DCHECK_GT(original_block_->size(), static_cast<size_t>(offset));
+
+  BasicBlock* bb = NULL;
+  BBAddressSpace::Range range;
+  CHECK(FindBasicBlock(offset, &bb, &range));
+  DCHECK(bb != NULL);
+  DCHECK_EQ(offset, range.start());
   return bb;
 }
+
 
 bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {
   std::set<BasicBlock*> bb_set;
@@ -140,6 +156,9 @@ bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {
 }
 
 bool BasicBlockSubGraph::HasValidSuccessors() const {
+  ReachabilityMap rm;
+  GetReachabilityMap(&rm);
+
   BlockDescriptionList::const_iterator desc_iter = block_descriptions_.begin();
   for (; desc_iter != block_descriptions_.end(); ++desc_iter) {
     BasicBlockOrdering::const_iterator bb_iter =
@@ -165,11 +184,12 @@ bool BasicBlockSubGraph::HasValidSuccessors() const {
           if (HasControlFlow(instructions.begin(), --instructions.end()))
             return false;
 
-          // Either there is an implicit control flow instruction at the end
-          // or this basic block calls a non-returning function. Otherwise, it
-          // should have been flagged by the decomposer as unsafe to basic-
-          // block decompose.
-          if (!instructions.back().IsImplicitControlFlow() &&
+          // If this basic block is reachable then either there is an implicit
+          // control flow instruction at the end or this basic block calls a
+          // non-returning function. Otherwise, it should have been flagged by
+          // the decomposer as unsafe to basic-block decompose.
+          if (IsReachable(rm, bb) &&
+              !instructions.back().IsImplicitControlFlow() &&
               !instructions.back().CallsNonReturningFunction()) {
             return false;
           }
@@ -266,6 +286,74 @@ bool BasicBlockSubGraph::HasValidReferrers() const {
   }
 
   return true;
+}
+
+void BasicBlockSubGraph::GetReachabilityMap(ReachabilityMap* rm) const {
+  DCHECK(rm != NULL);
+  DCHECK(rm->empty());
+  std::set<const BasicBlock*> reachability_queue;
+
+  // Mark all basic-blocks as unreachable and put all externally referenced
+  // basic-blocks into the reachability queue.
+  BBCollection::const_iterator  bb_iter = basic_blocks_.begin();
+  for (; bb_iter != basic_blocks_.end(); ++bb_iter) {
+    const BasicBlock& bb = bb_iter->second;
+    rm->insert(std::make_pair(&bb, false));
+    BasicBlock::BasicBlockReferrerSet::const_iterator ref_iter =
+        bb.referrers().begin();
+    for (; ref_iter != bb.referrers().end(); ++ref_iter) {
+      if (ref_iter->referrer_type() == BasicBlockReferrer::REFERRER_TYPE_BLOCK)
+        reachability_queue.insert(&bb);
+    }
+  }
+
+  // Traverse the reachability queue marking basic blocks as reachable.
+  while (!reachability_queue.empty()) {
+    const BasicBlock* bb = *reachability_queue.begin();
+    reachability_queue.erase(reachability_queue.begin());
+    (*rm)[bb] = true;
+
+    // Put all bb-to-bb references into the reachability queue.
+    BasicBlock::BasicBlockReferenceMap::const_iterator ref_iter =
+        bb->references().begin();
+    for (; ref_iter != bb->references().end(); ++ref_iter) {
+      if (ref_iter->second.basic_block() != NULL &&
+          !IsReachable(*rm, ref_iter->second.basic_block())) {
+        reachability_queue.insert(ref_iter->second.basic_block());
+      }
+    }
+
+    // Put all instruction-to-bb references into the reachability queue.
+    BasicBlock::Instructions::const_iterator inst_iter =
+        bb->instructions().begin();
+    for (; inst_iter != bb->instructions().end(); ++inst_iter) {
+      ref_iter = inst_iter->references().begin();
+      for (; ref_iter != inst_iter->references().end(); ++ref_iter) {
+        if (ref_iter->second.basic_block() != NULL &&
+            !IsReachable(*rm, ref_iter->second.basic_block())) {
+          reachability_queue.insert(ref_iter->second.basic_block());
+        }
+      }
+    }
+
+    // Put all successor-to-bb references into the reachability queue.
+    BasicBlock::Successors::const_iterator succ_iter =
+        bb->successors().begin();
+    for (; succ_iter != bb->successors().end(); ++succ_iter) {
+      if (succ_iter->reference().basic_block() != NULL &&
+          !IsReachable(*rm, succ_iter->reference().basic_block())) {
+        reachability_queue.insert(succ_iter->reference().basic_block());
+      }
+    }
+  }
+}
+
+bool BasicBlockSubGraph::IsReachable(const ReachabilityMap& rm,
+                                     const BasicBlock* bb) {
+  DCHECK(bb != NULL);
+  BasicBlockSubGraph::ReachabilityMap::const_iterator it = rm.find(bb);
+  DCHECK(it != rm.end());
+  return it->second;
 }
 
 }  // namespace block_graph

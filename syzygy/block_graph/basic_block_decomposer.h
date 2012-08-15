@@ -125,7 +125,6 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // @name Validation functions.
   // @{
-
   // Verifies that every identified jump target in the original code block
   // resolves to the start of a basic code block in the original code blocks
   // basic-block address space. This is protected for unit-testing purposes.
@@ -141,7 +140,14 @@ class BasicBlockDecomposer : public core::Disassembler {
   // does not yield successors.  This is protected for unit-testing purposes.
   void CheckAllControlFlowIsValid() const;
 
+  // Verifies that all labels in the original block are present in the
+  // decomposed basic-block subgraph.
+  void CheckAllLabelsArePreserved() const;
   // @}
+
+  // Split code basic-blocks at branch targets such that no basic-block
+  // has a reference that it not to its head.
+  bool SplitCodeBlocksAtBranchTargets();
 
   // Creates basic blocks for all known data symbols in the block.
   // @returns true on success.

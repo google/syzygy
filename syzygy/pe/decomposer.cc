@@ -323,23 +323,6 @@ bool AddLabelToBlock(RelativeAddress addr,
 
   BlockGraph::Offset offset = addr - block->addr();
 
-  // If this is an END label, back it up a byte (these actually point to the
-  // first byte past a range of interest).
-  const BlockGraph::LabelAttributes kEndLabelAttributes =
-      BlockGraph::SCOPE_END_LABEL |
-      BlockGraph::DEBUG_END_LABEL;
-  if ((label_attributes & kEndLabelAttributes) != 0)
-    offset--;
-
-  // We sometimes get debug end symbols before the beginning of the block.
-  // This is for blocks where the debug range is actually of size zero. We
-  // simply omit the debug end symbol for now, even though this is less than
-  // ideal.
-  if (offset < 0) {
-    DCHECK((label_attributes & BlockGraph::DEBUG_END_LABEL) != 0);
-    return true;
-  }
-
   // Try to create the label.
   if (block->SetLabel(offset, name, label_attributes)) {
     // If there was no label at offset 0, then this block has not yet been
