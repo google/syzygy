@@ -60,10 +60,10 @@
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
-            '--call-trace-client=RPC',
-            '--input-dll=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--mode=CALLTRACE',
+            '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
-            '--output-dll='
+            '--output-image='
                 '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
             '--output-pdb='
                 '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
@@ -96,13 +96,49 @@
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
-            '--call-trace-client=PROFILER',
-            '--input-dll=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--mode=PROFILER',
+            '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
-            '--output-dll=<(PRODUCT_DIR)/test_data/'
+            '--output-image=<(PRODUCT_DIR)/test_data/'
                 'profile_instrumented_test_dll.dll',
             '--output-pdb=<(PRODUCT_DIR)/test_data/'
                 'profile_instrumented_test_dll.pdb',
+            '--overwrite',
+          ],
+        },
+      ],
+    },
+    {
+      'target_name': 'coverage_instrumented_test_dll',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
+        'copy_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'coverage_instrument_test_data_test_dll',
+          'inputs': [
+            '<(PRODUCT_DIR)/instrument.exe',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.pdb',
+          ],
+          'action': [
+            '"<(PRODUCT_DIR)/instrument.exe"',
+            '--mode=COVERAGE',
+            '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--output-image=<(PRODUCT_DIR)/test_data/'
+                'coverage_instrumented_test_dll.dll',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/'
+                'coverage_instrumented_test_dll.pdb',
             '--overwrite',
           ],
         },
@@ -227,6 +263,49 @@
           ],
         },
       ],
-    }
+    },
+    {
+      'target_name': 'coverage_traces',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'generate_traces.py',
+      ],
+      'dependencies': [
+        '<(DEPTH)/syzygy/agent/coverage/coverage.gyp:coverage_client',
+        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        'coverage_instrumented_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_coverage_traces',
+          'inputs': [
+            '<(PRODUCT_DIR)/coverage_client.dll',
+            '<(PRODUCT_DIR)/call_trace_service.exe',
+            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.pdb',
+            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/coverage_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/coverage_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/coverage_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/coverage_traces/trace-4.bin',
+          ],
+          'action': [
+            'python',
+            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '--output-dir=<(PRODUCT_DIR)/test_data/coverage_traces',
+            '--instrumented-dll='
+                '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
+            '--verbose',
+            # The build-dir arg must be last to work around a bug in the
+            # interaction between GYP and VS2010.
+            # See: http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=<(PRODUCT_DIR)',
+          ],
+        },
+      ],
+    },
   ],
 }
