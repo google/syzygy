@@ -62,8 +62,9 @@
         'action': [
           '$(TargetPath)',
           '--overwrite',
-          '--input-dll=$(OutDir)\\test_dll.dll',
-          '--output-dll=$(OutDir)\\instrumented_test_dll.dll',
+          '--mode=CALLTRACE',
+          '--input-image=$(OutDir)\\test_dll.dll',
+          '--output-image=$(OutDir)\\instrumented_test_dll.dll',
         ]
       },
     },
