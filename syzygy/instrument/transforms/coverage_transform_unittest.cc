@@ -99,7 +99,7 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
   ASSERT_TRUE(coverage_data.Init(0, coverage_block));
   ASSERT_EQ(common::kCoverageClientMagic, coverage_data->magic);
   ASSERT_EQ(common::kCoverageClientVersion, coverage_data->version);
-  ASSERT_LT(0u, coverage_data->basic_block_count);
+  ASSERT_EQ(tx.bb_addresses().size(), coverage_data->basic_block_count);
   ASSERT_TRUE(coverage_data.HasReferenceAt(
       coverage_data.OffsetOf(coverage_data->basic_block_seen_array)));
 }
