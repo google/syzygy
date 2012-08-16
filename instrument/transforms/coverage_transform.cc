@@ -79,7 +79,7 @@ const char CoverageInstrumentationTransform::kTransformName[] =
     "CoverageInstrumentationTransform";
 
 CoverageInstrumentationTransform::CoverageInstrumentationTransform()
-    : coverage_data_block_(NULL), basic_block_count_(0) {
+    : coverage_data_block_(NULL) {
 }
 
 bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
@@ -88,32 +88,49 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
   DCHECK(block_graph != NULL);
   DCHECK(basic_block_subgraph != NULL);
 
-  instruction_byte_map_.clear();
-
   // Iterate over the basic blocks.
   BasicBlockSubGraph::BBCollection::iterator it =
       basic_block_subgraph->basic_blocks().begin();
   for (; it != basic_block_subgraph->basic_blocks().end(); ++it) {
+    BasicBlockSubGraph::BasicBlock& bb = it->second;
+
     // We're only interested in code blocks.
-    if (it->second.type() != BasicBlock::BASIC_CODE_BLOCK)
+    if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
       continue;
+
+    // Find the source range associated with this basic-block.
+    // TODO(chrisha): Make this a utility function on BasicBlock and eventually
+    //     move all of the data into instructions and successors.
+    const BlockGraph::Block::SourceRanges::RangePair* range_pair =
+        basic_block_subgraph->original_block()->source_ranges().FindRangePair(
+            BlockGraph::Block::SourceRanges::SourceRange(bb.offset(), 1));
+
+    // If there's no source data, something has gone terribly wrong. In fact, it
+    // likely means that we've stacked transforms and new instructions have
+    // been prepended to this BB. We don't support this yet.
+    DCHECK(range_pair != NULL);
 
     // We prepend each basic code block with the following instructions:
     //   0. push eax
     //   1. mov eax, dword ptr[basic_block_seen_array]
     //   2. mov byte ptr[eax + basic_block_index], 1
     //   3. pop eax
-    BasicBlockAssembler assm(it->second.instructions().begin(),
-                             &it->second.instructions());
+    BasicBlockAssembler assm(bb.instructions().begin(),
+                             &bb.instructions());
     // Prepend the instrumentation instructions.
     assm.push(eax);
     static const BlockGraph::Offset kDstOffset =
         offsetof(CoverageData, basic_block_seen_array);
     assm.mov(eax, Operand(Displacement(coverage_data_block_, kDstOffset)));
-    assm.mov_b(Operand(eax, Displacement(basic_block_count_)), Immediate(1));
+    assm.mov_b(Operand(eax, Displacement(bb_addresses_.size())), Immediate(1));
     assm.pop(eax);
 
-    ++basic_block_count_;
+    // Get the RVA of the BB by translating its offset.
+    const BlockGraph::Block::DataRange& data_range = range_pair->first;
+    const BlockGraph::Block::SourceRange& src_range = range_pair->second;
+    core::RelativeAddress bb_addr = src_range.start() +
+        (bb.offset() - data_range.start());
+    bb_addresses_.push_back(bb_addr);
   }
 
   return true;
@@ -158,8 +175,8 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  if (basic_block_count_ == 0) {
-    LOG(WARNING) << "Encounted no basic code blocks during instrumentation.";
+  if (bb_addresses_.size() == 0) {
+    LOG(WARNING) << "Encountered no basic code blocks during instrumentation.";
     return true;
   }
 
@@ -168,7 +185,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   CoverageDataBlock coverage_data;
   DCHECK(coverage_data_block_ != NULL);
   CHECK(coverage_data.Init(0, coverage_data_block_));
-  coverage_data->basic_block_count = basic_block_count_;
+  coverage_data->basic_block_count = bb_addresses_.size();
 
   // Get/create a read/write .rdata section.
   BlockGraph::Section* rdata_section = block_graph->FindOrAddSection(
@@ -186,7 +203,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   // block.
   BlockGraph::Block* bb_seen_array_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            basic_block_count_,
+                            bb_addresses_.size(),
                             "Basic Blocks Seen Array");
   DCHECK(bb_seen_array_block != NULL);
   bb_seen_array_block->set_section(rdata_section->id());
