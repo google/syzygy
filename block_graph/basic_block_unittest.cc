@@ -18,7 +18,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/core/assembler.h"
+#include "syzygy/block_graph/basic_block_assembler.h"
 
 #include "distorm.h"  // NOLINT
 #include "mnemonics.h"  // NOLINT
@@ -439,7 +439,9 @@ TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
   }
 }
 
-TEST(Successor, DefaultConstructor) {
+typedef BasicBlockTest SuccessorTest;
+
+TEST_F(SuccessorTest, DefaultConstructor) {
   Successor s;
   EXPECT_EQ(Successor::kInvalidCondition, s.condition());
   EXPECT_EQ(-1, s.bb_target_offset());
@@ -448,7 +450,7 @@ TEST(Successor, DefaultConstructor) {
   EXPECT_EQ(0, s.instruction_size());
 }
 
-TEST(Successor, OffsetConstructor) {
+TEST_F(SuccessorTest, OffsetConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
   const Successor::Offset kTargetOffset(0x12345678);
   const Successor::Offset kInstructinOffset = 32;
@@ -466,7 +468,7 @@ TEST(Successor, OffsetConstructor) {
   EXPECT_EQ(kInstructionSize, s.instruction_size());
 }
 
-TEST(Successor, BasicBlockConstructor) {
+TEST_F(SuccessorTest, BasicBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
   const Successor::Offset kSuccessorOffset = 4;
   const Successor::Size kSuccessorSize = 5;
@@ -486,7 +488,7 @@ TEST(Successor, BasicBlockConstructor) {
   EXPECT_EQ(kSuccessorSize, s.instruction_size());
 }
 
-TEST(Successor, SetBranchTarget) {
+TEST_F(SuccessorTest, SetBranchTarget) {
   uint8 data[20] = {};
   BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
@@ -496,7 +498,7 @@ TEST(Successor, SetBranchTarget) {
   EXPECT_EQ(bb_ref, s.reference());
 }
 
-TEST(Successor, Labels) {
+TEST_F(SuccessorTest, Labels) {
   Successor successor;
   EXPECT_FALSE(successor.has_label());
 
@@ -506,7 +508,7 @@ TEST(Successor, Labels) {
   EXPECT_TRUE(successor.label() == label);
 }
 
-TEST(Successor, OpCodeToCondition) {
+TEST_F(SuccessorTest, OpCodeToCondition) {
   struct TableEntry {
     uint16 op_code;
     Successor::Condition condition;
@@ -553,7 +555,7 @@ TEST(Successor, OpCodeToCondition) {
   }
 }
 
-TEST(Successor, InvertCondition) {
+TEST_F(SuccessorTest, InvertCondition) {
   struct TableEntry {
     Successor::Condition original;
     Successor::Condition inverse;
@@ -596,7 +598,9 @@ TEST(Successor, InvertCondition) {
   }
 }
 
-TEST(InstructionTest, CallsNonReturningFunction) {
+typedef BasicBlockTest InstructionTest;
+
+TEST_F(InstructionTest, CallsNonReturningFunction) {
   // Create a returning code block.
   BlockGraph::Block returning(0, BlockGraph::CODE_BLOCK, 1, "return");
 
@@ -650,6 +654,54 @@ TEST(InstructionTest, CallsNonReturningFunction) {
                                 BlockGraph::Reference::kMaximumSize,
                                 &non_returning, 0, 0));
   EXPECT_TRUE(call_indirect.CallsNonReturningFunction());
+}
+
+TEST_F(InstructionTest, FindOperandReference) {
+  BasicBlock::Instructions instructions;
+  BasicBlockAssembler assm(instructions.begin(), &instructions);
+
+  {
+    // Generate a dual-reference instruction.
+    assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
+                     Displacement(&basic_code_block_)),
+             Immediate(&macro_block_, 30));
+    const Instruction& inst = instructions.back();
+
+    BasicBlockReference ref0;
+    EXPECT_TRUE(inst.FindOperandReference(0, &ref0));
+    EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
+              ref0.referred_type());
+    EXPECT_EQ(&basic_code_block_, ref0.basic_block());
+
+    BasicBlockReference ref1;
+    EXPECT_TRUE(inst.FindOperandReference(1, &ref1));
+    EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref1.referred_type());
+    EXPECT_EQ(&macro_block_, ref1.block());
+
+    BasicBlockReference ignore;
+    EXPECT_FALSE(inst.FindOperandReference(2, &ignore));
+    EXPECT_FALSE(inst.FindOperandReference(3, &ignore));
+  }
+
+  {
+    // Generate a singe-reference instruction with an 8-bit immediate.
+    assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
+                     Displacement(&basic_code_block_)),
+             Immediate(0x10, core::kSize8Bit));
+
+    const Instruction& inst = instructions.back();
+
+    BasicBlockReference ref0;
+    EXPECT_TRUE(inst.FindOperandReference(0, &ref0));
+    EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
+              ref0.referred_type());
+    EXPECT_EQ(&basic_code_block_, ref0.basic_block());
+
+    BasicBlockReference ignore;
+    EXPECT_FALSE(inst.FindOperandReference(1, &ignore));
+    EXPECT_FALSE(inst.FindOperandReference(2, &ignore));
+    EXPECT_FALSE(inst.FindOperandReference(3, &ignore));
+  }
 }
 
 }  // namespace block_graph

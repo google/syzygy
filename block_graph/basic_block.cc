@@ -168,7 +168,7 @@ BasicBlockReference::BasicBlockReference()
     : referred_type_(REFERRED_TYPE_UNKNOWN),
       reference_type_(BlockGraph::RELATIVE_REF),
       size_(0),
-      referred_(NULL),
+      referred_block_(NULL),
       offset_(BasicBlock::kNoOffset),
       base_(BasicBlock::kNoOffset) {
 }
@@ -182,7 +182,7 @@ BasicBlockReference::BasicBlockReference(ReferenceType type,
     : referred_type_(REFERRED_TYPE_BLOCK),
       reference_type_(type),
       size_(size),
-      referred_(block),
+      referred_block_(block),
       offset_(offset),
       base_(base) {
   DCHECK(size == 1 || size == 2 || size == 4);
@@ -197,7 +197,7 @@ BasicBlockReference::BasicBlockReference(ReferenceType type,
     : referred_type_(REFERRED_TYPE_BASIC_BLOCK),
       reference_type_(type),
       size_(size),
-      referred_(basic_block),
+      referred_basic_block_(basic_block),
       offset_(0),
       base_(0) {
   DCHECK(size == 1 || size == 4);
@@ -208,7 +208,7 @@ BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
     : referred_type_(other.referred_type_),
       reference_type_(other.reference_type_),
       size_(other.size_),
-      referred_(other.referred_),
+      referred_block_(other.referred_block_),
       offset_(other.offset_),
       base_(other.base_) {
 }
@@ -357,6 +357,48 @@ bool Instruction::CallsNonReturningFunction() const {
 
 bool Instruction::SetReference(Offset offset, const BasicBlockReference& ref) {
   return UpdateBasicBlockReferenceMap(this, &references_, offset, ref);
+}
+
+bool Instruction::FindOperandReference(size_t operand_index,
+                                       BasicBlockReference* reference) const {
+  DCHECK(reference != NULL);
+
+  // We walk backwards through the operands, and back up the operand
+  // location by the size of each operand, until we're at ours.
+  size_t operand_location = representation_.size;
+  size_t i = 0;
+  for (i = arraysize(representation_.ops); i != operand_index; --i) {
+    switch (representation_.ops[i - 1].type) {
+      case O_NONE:
+      case O_REG:
+        break;
+
+      case O_IMM:
+      case O_IMM1:
+      case O_IMM2:
+      case O_PTR:
+      case O_PC:
+        operand_location -= representation_.ops[i - 1].size / 8;
+        break;
+
+      case O_SMEM:
+      case O_MEM:
+      case O_DISP:
+        operand_location -= representation_.dispSize / 8;
+        break;
+    }
+  }
+  DCHECK_EQ(i, operand_index);
+
+  Instruction::BasicBlockReferenceMap::const_iterator
+      it(references_.find(operand_location));
+
+  if (it != references_.end()) {
+    *reference = it->second;
+    return true;
+  }
+
+  return false;
 }
 
 bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
