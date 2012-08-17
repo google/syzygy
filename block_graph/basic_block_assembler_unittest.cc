@@ -98,17 +98,21 @@ void TestValue(const Value& value,
   EXPECT_EQ(expected_value, value.value());
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
             value.reference().referred_type());
+
+  Value value_copy(value);
+  EXPECT_EQ(expected_size, value_copy.size());
+  EXPECT_EQ(expected_value, value_copy.value());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+            value_copy.reference().referred_type());
 }
 
-template <class InputType>
-void Test8BitValue(InputType input_value, uint32 expected_value) {
+void Test8BitValue(uint32 input_value, uint32 expected_value) {
   TestValue(Value(input_value), expected_value, core::kSize8Bit);
   TestValue(
       Value(input_value, core::kSize8Bit), expected_value, core::kSize8Bit);
 }
 
-template <class InputType>
-void Test32BitValue(InputType input_value, uint32 expected_value) {
+void Test32BitValue(uint32 input_value, uint32 expected_value) {
   TestValue(Value(input_value), expected_value, core::kSize32Bit);
   TestValue(
       Value(input_value, core::kSize32Bit), expected_value, core::kSize32Bit);
@@ -116,28 +120,36 @@ void Test32BitValue(InputType input_value, uint32 expected_value) {
 
 }  // namespace
 
-TEST_F(BasicBlockAssemblerTest, Value) {
+typedef BasicBlockAssemblerTest ValueTest;
+
+TEST_F(ValueTest, Construction) {
   {
     Value value_empty;
     ASSERT_EQ(0, value_empty.value());
     ASSERT_EQ(core::kSizeNone, value_empty.size());
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
               value_empty.reference().referred_type());
+
+    Value copy_empty(value_empty);
+    ASSERT_EQ(0, copy_empty.value());
+    ASSERT_EQ(core::kSizeNone, copy_empty.size());
+    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+              copy_empty.reference().referred_type());
   }
 
-  Test8BitValue<uint32>(0, 0);
-  Test8BitValue<uint32>(127, 127);
+  Test8BitValue(0, 0);
+  Test8BitValue(127, 127);
 
-  Test8BitValue<int32>(-128, 0xFFFFFF80);
-  Test8BitValue<int32>(0, 0);
-  Test8BitValue<int32>(127, 0x0000007F);
+  Test8BitValue(-128, 0xFFFFFF80);
+  Test8BitValue(0, 0);
+  Test8BitValue(127, 0x0000007F);
 
-  Test32BitValue<uint32>(128, 0x00000080);
-  Test32BitValue<uint32>(0xCAFEBABE, 0xCAFEBABE);
+  Test32BitValue(128, 0x00000080);
+  Test32BitValue(0xCAFEBABE, 0xCAFEBABE);
 
-  Test32BitValue<int32>(-129, 0xFFFFFF7F);
-  Test32BitValue<int32>(128, 0x000000080);
-  Test32BitValue<int32>(0xBABE, 0xBABE);
+  Test32BitValue(-129, 0xFFFFFF7F);
+  Test32BitValue(128, 0x000000080);
+  Test32BitValue(0xBABE, 0xBABE);
 
   {
     const BlockGraph::Offset kOffs = 10;
@@ -150,6 +162,17 @@ TEST_F(BasicBlockAssemblerTest, Value) {
     ASSERT_EQ(&test_block_, value_block_ref.reference().block());
     ASSERT_EQ(kOffs, value_block_ref.reference().offset());
     ASSERT_EQ(0, value_block_ref.reference().base());
+
+    // Make sure copying the value works.
+    Value copy_block_ref(value_block_ref);
+
+    ASSERT_EQ(0, copy_block_ref.value());
+    ASSERT_EQ(core::kSize32Bit, copy_block_ref.size());
+    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
+              copy_block_ref.reference().referred_type());
+    ASSERT_EQ(&test_block_, copy_block_ref.reference().block());
+    ASSERT_EQ(kOffs, copy_block_ref.reference().offset());
+    ASSERT_EQ(0, copy_block_ref.reference().base());
   }
 
   {
@@ -162,8 +185,74 @@ TEST_F(BasicBlockAssemblerTest, Value) {
     ASSERT_EQ(&test_bb_, value_bb_ref.reference().basic_block());
     ASSERT_EQ(0, value_bb_ref.reference().offset());
     ASSERT_EQ(0, value_bb_ref.reference().base());
+
+    // Make sure copying the value works.
+    Value copy_bb_ref(value_bb_ref);
+    ASSERT_EQ(0, copy_bb_ref.value());
+    ASSERT_EQ(core::kSize32Bit, copy_bb_ref.size());
+    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
+              copy_bb_ref.reference().referred_type());
+    ASSERT_EQ(&test_bb_, copy_bb_ref.reference().basic_block());
+    ASSERT_EQ(0, copy_bb_ref.reference().offset());
+    ASSERT_EQ(0, copy_bb_ref.reference().base());
   }
 }
+
+typedef BasicBlockAssemblerTest OperandTest;
+
+void TestOperandCopy(const Operand& input) {
+  Operand copy(input);
+
+  ASSERT_EQ(input.base(), copy.base());
+  ASSERT_EQ(input.index(), copy.index());
+  ASSERT_EQ(input.scale(), copy.scale());
+  ASSERT_EQ(input.displacement().value(), copy.displacement().value());
+  ASSERT_EQ(input.displacement().size(), copy.displacement().size());
+  ASSERT_EQ(input.displacement().reference(), copy.displacement().reference());
+}
+
+TEST_F(OperandTest, Construction) {
+  // A register-indirect.
+  TestOperandCopy(Operand(core::eax));
+
+  // Register-indirect with displacement.
+  TestOperandCopy(Operand(core::eax, Displacement(100)));
+  TestOperandCopy(Operand(core::eax, Displacement(&test_block_, 2)));
+  TestOperandCopy(Operand(core::eax, Displacement(&test_bb_)));
+
+  // Displacement-only mode.
+  TestOperandCopy(Operand(Displacement(100)));
+  TestOperandCopy(Operand(Displacement(&test_block_, 2)));
+  TestOperandCopy(Operand(Displacement(&test_bb_)));
+
+  TestOperandCopy(Operand(core::eax,
+                          core::ebp,
+                          core::kTimes2,
+                          Displacement(100)));
+  TestOperandCopy(Operand(core::eax,
+                          core::ebp,
+                          core::kTimes2,
+                          Displacement(&test_block_, 2)));
+  TestOperandCopy(Operand(core::eax,
+                          core::ebp,
+                          core::kTimes2,
+                          Displacement(&test_bb_)));
+
+  // The [base + index * scale] mode - no displ.
+  TestOperandCopy(Operand(core::eax, core::ebp, core::kTimes2));
+
+  // The [index * scale + displ32] mode - no base.
+  TestOperandCopy(Operand(core::ebp,
+                          core::kTimes2,
+                          Displacement(100)));
+  TestOperandCopy(Operand(core::ebp,
+                          core::kTimes2,
+                          Displacement(&test_block_, 2)));
+  TestOperandCopy(Operand(core::ebp,
+                          core::kTimes2,
+                          Displacement(&test_bb_)));
+}
+
 
 TEST_F(BasicBlockAssemblerTest, call) {
   asm_.call(Immediate(0xCAFEBABE));

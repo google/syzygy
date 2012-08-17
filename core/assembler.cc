@@ -88,6 +88,17 @@ OperandImpl::OperandImpl(Register base,
   DCHECK_NE(kSizeNone, displacement.size());
 }
 
+OperandImpl::OperandImpl(Register base,
+                         Register index,
+                         ScaleFactor scale)
+    : base_(base.code()),
+      index_(index.code()),
+      scale_(scale) {
+  // ESP cannot be used as an index register.
+  DCHECK_NE(kRegisterEsp, index.code());
+  DCHECK_EQ(kSizeNone, displacement_.size());
+}
+
 OperandImpl::OperandImpl(Register index,
                          ScaleFactor scale,
                          const DisplacementImpl& displacement)
@@ -98,6 +109,16 @@ OperandImpl::OperandImpl(Register index,
   // ESP cannot be used as an index register.
   DCHECK_NE(kRegisterEsp, index.code());
   DCHECK_NE(kSizeNone, displacement.size());
+}
+
+OperandImpl::OperandImpl(RegisterCode base,
+                         RegisterCode index,
+                         ScaleFactor scale,
+                         const DisplacementImpl& displacement)
+    : base_(base),
+      index_(index),
+      scale_(scale),
+      displacement_(displacement) {
 }
 
 ValueImpl::ValueImpl()
