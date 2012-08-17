@@ -178,6 +178,12 @@ class TestPdbStream : public PdbStream {
   const uint8* const bytes_;
 };
 
+// Comparison operator for PdbInfoHeader70 objects.
+bool AreEqual(const PdbInfoHeader70& header1,
+              const PdbInfoHeader70& header2) {
+  return ::memcmp(&header1, &header2, sizeof(header1)) == 0;
+}
+
 }  // namespace
 
 TEST(PdbBitSetTest, ReadEmptyStream) {
@@ -423,15 +429,8 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
 TEST_F(PdbUtilTest, ReadPdbHeader) {
   const FilePath pdb_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
-  PdbInfoHeader70 pdb_header;
+  PdbInfoHeader70 pdb_header = {};
   EXPECT_TRUE(ReadPdbHeader(pdb_path, &pdb_header));
-}
-
-TEST(ReadHeaderInfoStreamTest, ReadEmptyStream) {
-  scoped_refptr<PdbStream> stream(new TestPdbStream());
-  PdbInfoHeader70 pdb_header = {0};
-  NameStreamMap name_stream_map;
-  EXPECT_FALSE(ReadHeaderInfoStream(stream, &pdb_header, &name_stream_map));
 }
 
 TEST(EnsureStreamWritableTest, DoesNothingWhenAlreadyWritable) {
@@ -523,11 +522,31 @@ TEST(SetGuidTest, Succeeds) {
   EXPECT_EQ(1u, dbi_header.age);
 }
 
+TEST(ReadHeaderInfoStreamTest, ReadFromPdbFile) {
+  const FilePath pdb_path = testing::GetSrcRelativePath(
+      testing::kTestPdbFilePath);
+
+  PdbFile pdb_file;
+  PdbReader pdb_reader;
+  ASSERT_TRUE(pdb_reader.Read(pdb_path, &pdb_file));
+
+  PdbInfoHeader70 pdb_header = {};
+  NameStreamMap name_stream_map;
+  EXPECT_TRUE(ReadHeaderInfoStream(pdb_file, &pdb_header, &name_stream_map));
+}
+
+TEST(ReadHeaderInfoStreamTest, ReadEmptyStream) {
+  scoped_refptr<PdbStream> stream(new TestPdbStream());
+  PdbInfoHeader70 pdb_header = {};
+  NameStreamMap name_stream_map;
+  EXPECT_FALSE(ReadHeaderInfoStream(stream, &pdb_header, &name_stream_map));
+}
+
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
 
-  PdbInfoHeader70 pdb_header = {0};
+  PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
 
   NameStreamMap name_stream_map;
@@ -538,7 +557,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithEmptyNameStreamMap) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
 
-  PdbInfoHeader70 pdb_header = {0};
+  PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
   ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // total string length.
   ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // number of names.
@@ -555,7 +574,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
 
-  PdbInfoHeader70 pdb_header = {0};
+  PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
   ASSERT_TRUE(writer->Write(static_cast<uint32>(9)));  // total string length.
   uint32 offset1 = writer->pos();
@@ -600,11 +619,36 @@ TEST(ReadHeaderInfoStreamTest, ReadFromPdb) {
   PdbReader pdb_reader;
   EXPECT_TRUE(pdb_reader.Read(pdb_path, &pdb_file));
 
-  PdbInfoHeader70 pdb_header = {0};
+  PdbInfoHeader70 pdb_header = {};
   NameStreamMap name_stream_map;
   EXPECT_TRUE(ReadHeaderInfoStream(pdb_file.GetStream(kPdbHeaderInfoStream),
                                    &pdb_header,
                                    &name_stream_map));
+}
+
+TEST(WriteHeaderInfoStreamTest, WriteToPdbFile) {
+  const FilePath pdb_path = testing::GetSrcRelativePath(
+      testing::kTestPdbFilePath);
+
+  PdbFile pdb_file;
+  PdbReader pdb_reader;
+  ASSERT_TRUE(pdb_reader.Read(pdb_path, &pdb_file));
+
+  PdbInfoHeader70 pdb_header = {};
+  NameStreamMap name_stream_map;
+  ASSERT_TRUE(ReadHeaderInfoStream(pdb_file, &pdb_header, &name_stream_map));
+
+  pdb_header.pdb_age++;
+  name_stream_map["NewStream!"] = 999;
+
+  EXPECT_TRUE(WriteHeaderInfoStream(pdb_header, name_stream_map, &pdb_file));
+
+  PdbInfoHeader70 pdb_header2 = {};
+  NameStreamMap name_stream_map2;
+  ASSERT_TRUE(ReadHeaderInfoStream(pdb_file, &pdb_header2, &name_stream_map2));
+
+  EXPECT_TRUE(AreEqual(pdb_header, pdb_header2));
+  EXPECT_EQ(name_stream_map, name_stream_map2);
 }
 
 TEST(WriteHeaderInfoStreamTest, WriteEmpty) {

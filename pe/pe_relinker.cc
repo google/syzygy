@@ -413,57 +413,6 @@ bool WritePdbFile(const FilePath& output_pdb_path, const PdbFile& pdb_file) {
   return true;
 }
 
-bool ReadHeaderInfoStream(PdbInfoHeader70* header,
-                          NameStreamMap* name_stream_map,
-                          PdbFile* pdb_file) {
-  DCHECK(header != NULL);
-  DCHECK(name_stream_map != NULL);
-  DCHECK(pdb_file != NULL);
-
-  // Get the stream reader.
-  scoped_refptr<PdbStream> header_reader(
-      pdb_file->GetStream(pdb::kPdbHeaderInfoStream));
-  DCHECK(header_reader.get() != NULL);
-
-  // Read the header.
-  if (!pdb::ReadHeaderInfoStream(header_reader.get(), header,
-                                 name_stream_map)) {
-    LOG(ERROR) << "Failed to read header info stream.";
-    return false;
-  }
-
-  return true;
-}
-
-bool WriteHeaderInfoStream(const PdbInfoHeader70& header,
-                           const NameStreamMap& name_stream_map,
-                           PdbFile* pdb_file) {
-  DCHECK(pdb_file != NULL);
-
-  if (!pdb::EnsureStreamWritable(pdb::kPdbHeaderInfoStream, pdb_file)) {
-    LOG(ERROR) << "Failed to make PDB Header Info stream writable.";
-    return false;
-  }
-
-  // Get the stream reader.
-  scoped_refptr<PdbStream> header_reader(
-      pdb_file->GetStream(pdb::kPdbHeaderInfoStream));
-  DCHECK(header_reader.get() != NULL);
-
-  // Get the stream writer.
-  scoped_refptr<WritablePdbStream> header_writer(
-      header_reader->GetWritablePdbStream());
-  DCHECK(header_writer.get() != NULL);
-
-  // Write the new header.
-  if (!WriteHeaderInfoStream(header, name_stream_map, header_writer.get())) {
-    LOG(ERROR) << "Failed to write PDB Header Info stream.";
-    return false;
-  }
-
-  return true;
-}
-
 // Get a specific named stream if it already exists, otherwise create one.
 // @param stream_name The name of the stream.
 // @param name_stream_map The map containing the names of the streams in the
@@ -789,7 +738,7 @@ bool PERelinker::Relink() {
   // Parse the header and named streams.
   pdb::PdbInfoHeader70 header = {};
   pdb::NameStreamMap name_stream_map;
-  if (!ReadHeaderInfoStream(&header, &name_stream_map, &pdb_file))
+  if (!pdb::ReadHeaderInfoStream(pdb_file, &header, &name_stream_map))
     return false;
 
   // Update/create the Syzygy history stream.
@@ -817,7 +766,7 @@ bool PERelinker::Relink() {
   }
 
   // Write the updated name-stream map back to the header info stream.
-  if (!WriteHeaderInfoStream(header, name_stream_map, &pdb_file))
+  if (!pdb::WriteHeaderInfoStream(header, name_stream_map, &pdb_file))
     return false;
 
   // Stream 0 contains a copy of the previous PDB's directory. This, combined

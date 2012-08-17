@@ -443,6 +443,34 @@ bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header) {
   return true;
 }
 
+bool ReadHeaderInfoStream(const PdbFile& pdb_file,
+                          PdbInfoHeader70* pdb_header,
+                          NameStreamMap* name_stream_map) {
+  DCHECK(pdb_header != NULL);
+  DCHECK(name_stream_map != NULL);
+
+  // Get the stream reader.
+  if (kPdbHeaderInfoStream >= pdb_file.StreamCount()) {
+    LOG(ERROR) << "No header info stream found.";
+    return false;
+  }
+  scoped_refptr<PdbStream> header_reader(
+      pdb_file.GetStream(kPdbHeaderInfoStream));
+  if (header_reader.get() == NULL) {
+    LOG(ERROR) << "No header info stream found.";
+    return false;
+  }
+
+  // Read the header.
+  if (!pdb::ReadHeaderInfoStream(header_reader.get(), pdb_header,
+                                 name_stream_map)) {
+    LOG(ERROR) << "Failed to read header info stream.";
+    return false;
+  }
+
+  return true;
+}
+
 bool ReadHeaderInfoStream(PdbStream* pdb_stream,
                           PdbInfoHeader70* pdb_header,
                           NameStreamMap* name_stream_map) {
@@ -533,6 +561,35 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
     }
 
     (*name_stream_map)[name] = stream_no;
+  }
+
+  return true;
+}
+
+bool WriteHeaderInfoStream(const PdbInfoHeader70& header,
+                           const NameStreamMap& name_stream_map,
+                           PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  if (!pdb::EnsureStreamWritable(pdb::kPdbHeaderInfoStream, pdb_file)) {
+    LOG(ERROR) << "Failed to make PDB Header Info stream writable.";
+    return false;
+  }
+
+  // Get the stream reader.
+  scoped_refptr<PdbStream> header_reader(
+      pdb_file->GetStream(pdb::kPdbHeaderInfoStream));
+  DCHECK(header_reader.get() != NULL);
+
+  // Get the stream writer.
+  scoped_refptr<WritablePdbStream> header_writer(
+      header_reader->GetWritablePdbStream());
+  DCHECK(header_writer.get() != NULL);
+
+  // Write the new header.
+  if (!WriteHeaderInfoStream(header, name_stream_map, header_writer.get())) {
+    LOG(ERROR) << "Failed to write PDB Header Info stream.";
+    return false;
   }
 
   return true;
