@@ -95,29 +95,27 @@ class BasicBlockReference {
   // Retrieves the referenced block or NULL if this reference does not
   // refer to a block.
   const Block* block() const {
-    return static_cast<const Block*>(
-        referred_type_ == REFERRED_TYPE_BLOCK ? referred_ : NULL);
+    return referred_type_ == REFERRED_TYPE_BLOCK ? referred_block_ : NULL;
   }
 
   // Retrieves the referenced block or NULL if this reference does not
   // refer to a block.
   Block* block() {
-    return static_cast<Block*>(
-        referred_type_ == REFERRED_TYPE_BLOCK ? referred_ : NULL);
+    return referred_type_ == REFERRED_TYPE_BLOCK ? referred_block_ : NULL;
   }
 
   // Retrieves the referenced basic-block or NULL if this reference does not
   // refer to a basic block.
   const BasicBlock* basic_block() const {
-    return static_cast<const BasicBlock*>(
-        referred_type_ == REFERRED_TYPE_BASIC_BLOCK ? referred_ : NULL);
+    return referred_type_ == REFERRED_TYPE_BASIC_BLOCK ?
+        referred_basic_block_ : NULL;
   }
 
   // Retrieves the referenced basic-block or NULL if this reference does not
   // refer to a basic block.
   BasicBlock* basic_block() {
-    return static_cast<BasicBlock*>(
-        referred_type_ == REFERRED_TYPE_BASIC_BLOCK ? referred_ : NULL);
+    return referred_type_ == REFERRED_TYPE_BASIC_BLOCK ?
+        referred_basic_block_ : NULL;
   }
 
   // Retrieves the offset into the referenced macro- or basic-block.
@@ -132,13 +130,13 @@ class BasicBlockReference {
     return (referred_type_ == other.referred_type_ &&
             reference_type_ == other.reference_type_ &&
             size_ == other.size_ &&
-            referred_ == other.referred_ &&
+            referred_block_ == other.referred_block_ &&
             offset_ == other.offset_);
   }
 
   // Test if this reference has been initialized to refer to something.
   bool IsValid() const {
-    return size_ != 0 && referred_ != NULL;
+    return size_ != 0 && referred_block_ != NULL;
   }
 
  protected:
@@ -154,7 +152,10 @@ class BasicBlockReference {
   Size size_;
 
   // The block or basic-block that is referenced.
-  void* referred_;
+  union {
+    Block* referred_block_;
+    BasicBlock* referred_basic_block_;
+  };
 
   // The offset into the referenced block or basic-block. This may or may not
   // end up referring into the target block's byte range.
@@ -351,6 +352,13 @@ class Instruction {
   // Add a reference @p ref to this instruction at @p offset. If the reference
   // is to a basic block, also update that basic blocks referrer set.
   bool SetReference(Offset offset, const BasicBlockReference& ref);
+
+  // Finds the reference, if any, for @p operand_index of this instruction.
+  // @param operand_index the desired operand, in the range 0-3.
+  // @param reference on success returns the reference.
+  // @returns true iff @p operand_index exists and has a reference.
+  bool FindOperandReference(size_t operand_index,
+                            BasicBlockReference* reference) const;
 
   // Helper function to invert a conditional branching opcode.
   static bool InvertConditionalBranchOpcode(uint16* opcode);
