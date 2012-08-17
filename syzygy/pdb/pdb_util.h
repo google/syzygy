@@ -116,6 +116,15 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file);
 // @returns true on success, false otherwise.
 bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header);
 
+// Reads the header info from the given PDB file.
+// @param pdb_file the file to read from.
+// @param pdb_header the header to be filled in.
+// @param name_stream_map the name-stream map to be filled in.
+// @returns true on success, false on error.
+bool ReadHeaderInfoStream(const PdbFile& pdb_file,
+                          PdbInfoHeader70* pdb_header,
+                          NameStreamMap* name_stream_map);
+
 // Reads the header info from the given PDB stream.
 // @param pdb_stream the stream containing the header.
 // @param pdb_header the header to be filled in.
@@ -124,6 +133,16 @@ bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header);
 bool ReadHeaderInfoStream(PdbStream* pdb_stream,
                           PdbInfoHeader70* pdb_header,
                           NameStreamMap* name_stream_map);
+
+// Writes the header info the given PDB file. Will look up the header stream
+// and convert it to a writable stream type if necessary.
+// @param pdb_header the header to write.
+// @param name_stream_map the name-stream map to write.
+// @param pdb_file the file to be written to.
+// @returns true on success, false on error.
+bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
+                           const NameStreamMap& name_stream_map,
+                           PdbFile* pdb_file);
 
 // Writes the header info to the given PDB stream.
 // @param pdb_header the header to write.
