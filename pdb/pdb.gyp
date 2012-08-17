@@ -26,6 +26,7 @@
       'target_name': 'pdb_lib',
       'type': 'static_library',
       'sources': [
+        'mutators/named_mutator.h',
         'omap.cc',
         'omap.h',
         'pdb_byte_stream.cc',
@@ -41,6 +42,7 @@
         'pdb_file.h',
         'pdb_file_stream.cc',
         'pdb_file_stream.h',
+        'pdb_mutator.h',
         'pdb_reader.cc',
         'pdb_reader.h',
         'pdb_stream.cc',
@@ -71,6 +73,7 @@
       'target_name': 'pdb_unittests',
       'type': 'executable',
       'sources': [
+        'mutators/named_mutator_unittest.cc',
         'omap_unittest.cc',
         'pdb_byte_stream_unittest.cc',
         'pdb_dbi_stream_unittest.cc',
