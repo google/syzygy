@@ -107,47 +107,57 @@ TEST_F(AssemblerTest, ValueImpl) {
 
 TEST_F(AssemblerTest, OperandImpl) {
   {
-    OperandImpl op1(edi);
-    EXPECT_EQ(kRegisterEdi, op1.base());
-    EXPECT_EQ(kRegisterNone, op1.index());
-    EXPECT_EQ(kTimes1, op1.scale());
-    EXPECT_EQ(0, op1.displacement().value());
-    EXPECT_EQ(NULL, op1.displacement().reference());
-    EXPECT_EQ(kSizeNone, op1.displacement().size());
+    OperandImpl op(edi);
+    EXPECT_EQ(kRegisterEdi, op.base());
+    EXPECT_EQ(kRegisterNone, op.index());
+    EXPECT_EQ(kTimes1, op.scale());
+    EXPECT_EQ(0, op.displacement().value());
+    EXPECT_EQ(NULL, op.displacement().reference());
+    EXPECT_EQ(kSizeNone, op.displacement().size());
   }
 
   {
-    int ref2 = 0;
-    OperandImpl op2(ecx, DisplacementImpl(0xCAFEBABE, kSize32Bit, &ref2));
-    EXPECT_EQ(kRegisterEcx, op2.base());
-    EXPECT_EQ(kRegisterNone, op2.index());
-    EXPECT_EQ(kTimes1, op2.scale());
-    EXPECT_EQ(0xCAFEBABE, op2.displacement().value());
-    EXPECT_EQ(&ref2, op2.displacement().reference());
-    EXPECT_EQ(kSize32Bit, op2.displacement().size());
+    int ref = 0;
+    OperandImpl op(ecx, DisplacementImpl(0xCAFEBABE, kSize32Bit, &ref));
+    EXPECT_EQ(kRegisterEcx, op.base());
+    EXPECT_EQ(kRegisterNone, op.index());
+    EXPECT_EQ(kTimes1, op.scale());
+    EXPECT_EQ(0xCAFEBABE, op.displacement().value());
+    EXPECT_EQ(&ref, op.displacement().reference());
+    EXPECT_EQ(kSize32Bit, op.displacement().size());
   }
 
   {
-    int ref3 = 0;
-    OperandImpl op3(DisplacementImpl(0xCAFEBABE, kSize32Bit, &ref3));
-    EXPECT_EQ(kRegisterNone, op3.base());
-    EXPECT_EQ(kRegisterNone, op3.index());
-    EXPECT_EQ(kTimes1, op3.scale());
-    EXPECT_EQ(0xCAFEBABE, op3.displacement().value());
-    EXPECT_EQ(&ref3, op3.displacement().reference());
-    EXPECT_EQ(kSize32Bit, op3.displacement().size());
+    int ref = 0;
+    OperandImpl op(DisplacementImpl(0xCAFEBABE, kSize32Bit, &ref));
+    EXPECT_EQ(kRegisterNone, op.base());
+    EXPECT_EQ(kRegisterNone, op.index());
+    EXPECT_EQ(kTimes1, op.scale());
+    EXPECT_EQ(0xCAFEBABE, op.displacement().value());
+    EXPECT_EQ(&ref, op.displacement().reference());
+    EXPECT_EQ(kSize32Bit, op.displacement().size());
   }
 
   {
-    int ref4 = 0;
+    OperandImpl op(ebp, ecx, kTimes8);
+    EXPECT_EQ(kRegisterEbp, op.base());
+    EXPECT_EQ(kRegisterEcx, op.index());
+    EXPECT_EQ(kTimes8, op.scale());
+    EXPECT_EQ(0, op.displacement().value());
+    EXPECT_EQ(NULL, op.displacement().reference());
+    EXPECT_EQ(kSizeNone, op.displacement().size());
+  }
+
+  {
+    int ref = 0;
     OperandImpl
-        op4(ebp, ecx, kTimes2, DisplacementImpl(0xCA, kSize8Bit, &ref4));
-    EXPECT_EQ(kRegisterEbp, op4.base());
-    EXPECT_EQ(kRegisterEcx, op4.index());
-    EXPECT_EQ(kTimes2, op4.scale());
-    EXPECT_EQ(0xCA, op4.displacement().value());
-    EXPECT_EQ(&ref4, op4.displacement().reference());
-    EXPECT_EQ(kSize8Bit, op4.displacement().size());
+        op(ebp, ecx, kTimes2, DisplacementImpl(0xCA, kSize8Bit, &ref));
+    EXPECT_EQ(kRegisterEbp, op.base());
+    EXPECT_EQ(kRegisterEcx, op.index());
+    EXPECT_EQ(kTimes2, op.scale());
+    EXPECT_EQ(0xCA, op.displacement().value());
+    EXPECT_EQ(&ref, op.displacement().reference());
+    EXPECT_EQ(kSize8Bit, op.displacement().size());
   }
 }
 
@@ -461,6 +471,12 @@ TEST_F(AssemblerTest, MovRegisterBaseDisplacementScaleIndirect) {
   EXPECT_BYTES(0x89, 0x9C, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
   asm_.mov(OperandImpl(ecx, eax, kTimes8, cafebabe), ebx);
   EXPECT_BYTES(0x89, 0x9C, 0xC1, 0xBE, 0xBA, 0xFE, 0xCA);
+}
+
+TEST_F(AssemblerTest, MovRegisterBaseIndexScaleIndirect) {
+  // Tests the displacement-less [base + index * scale].
+  asm_.mov(edx, OperandImpl(esi, eax, kTimes8));
+  EXPECT_BYTES(0x8B, 0x14, 0xC6);
 }
 
 TEST_F(AssemblerTest, MovRegisterDisplacementScaleIndirect) {

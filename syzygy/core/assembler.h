@@ -176,11 +176,23 @@ class OperandImpl {
               ScaleFactor scale,
               const DisplacementImpl& displ);
 
+  // The [base + index * scale] mode.
+  // @note esp cannot be used as an index register.
+  OperandImpl(Register base,
+              Register index,
+              ScaleFactor scale);
+
   // The [index * scale + displ32] mode - e.g. no base.
   // @note esp cannot be used as an index register.
   OperandImpl(Register index,
               ScaleFactor scale,
               const DisplacementImpl& displ);
+
+  // Low-level constructor, none of the parameters are checked.
+  OperandImpl(RegisterCode base,
+              RegisterCode index,
+              ScaleFactor scale,
+              const DisplacementImpl& displacement);
 
   // @name Accessors.
   // @{

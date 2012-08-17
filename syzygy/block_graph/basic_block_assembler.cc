@@ -30,6 +30,13 @@ core::ValueSize ValueSizeFromConstant(uint32 input_value) {
   return core::kSize32Bit;
 }
 
+core::ValueImpl CopyValue(const BasicBlockReference* ref,
+                          const core::ValueImpl& value) {
+  return core::ValueImpl(value.value(),
+                         value.size(),
+                         value.reference() ? ref : NULL);
+}
+
 }  // namespace
 
 Value::Value() {
@@ -52,28 +59,72 @@ Value::Value(BlockGraph::Block* block, BlockGraph::Offset offset)
       value_(0, core::kSize32Bit, &reference_) {
 }
 
+Value::Value(const Value& o)
+    : reference_(o.reference()), value_(CopyValue(&reference_, o.value_)) {
+}
+
+Value::Value(const BasicBlockReference& ref, const core::ValueImpl& value)
+    : reference_(ref), value_(CopyValue(&reference_, value)) {
+}
+
+Value::~Value() {
+#ifndef NDEBUG
+  if (reference_.IsValid()) {
+    DCHECK(value_.reference() == &reference_);
+  } else {
+    DCHECK(value_.reference() == NULL);
+  }
+#endif
+}
+
 Operand::Operand(core::Register base) : operand_(base) {
 }
 
 Operand::Operand(core::Register base, const Displacement& displ)
-    : operand_(base, displ.value_) {
+    : reference_(displ.reference()),
+      operand_(base, CopyValue(&reference_, displ.value_)) {
 }
 
 Operand::Operand(const Displacement& displ)
-    : operand_(displ.value_) {
+    : reference_(displ.reference()),
+      operand_(CopyValue(&reference_, displ.value_)) {
 }
 
 Operand::Operand(core::Register base,
                  core::Register index,
                  core::ScaleFactor scale,
                  const Displacement& displ)
-    : operand_(base, index, scale, displ.value_) {
+    : reference_(displ.reference_),
+      operand_(base, index, scale, CopyValue(&reference_, displ.value_)) {
+}
+
+Operand::Operand(core::Register base,
+                 core::Register index,
+                 core::ScaleFactor scale)
+    : operand_(base, index, scale) {
 }
 
 Operand::Operand(core::Register index,
                  core::ScaleFactor scale,
                  const Displacement& displ)
-    : operand_(index, scale, displ.value_) {
+    : reference_(displ.reference_),
+      operand_(index, scale, CopyValue(&reference_, displ.value_)) {
+}
+
+Operand::Operand(const Operand& o)
+    : reference_(o.reference_),
+      operand_(o.base(), o.index(), o.scale(),
+               CopyValue(&reference_, o.operand_.displacement())) {
+}
+
+Operand::~Operand() {
+#ifndef NDEBUG
+  if (reference_.IsValid()) {
+    DCHECK(operand_.displacement().reference() == &reference_);
+  } else {
+    DCHECK(operand_.displacement().reference() == NULL);
+  }
+#endif
 }
 
 BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(

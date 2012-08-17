@@ -34,11 +34,16 @@ class Value {
   // will be created; otherwise, a 32-bit absolute Value will be created.
   explicit Value(uint32 value);
   // Constructs an absolute value having a specific bit width.
-  explicit Value(uint32 value, core::ValueSize size);
+  Value(uint32 value, core::ValueSize size);
   // Constructs a 32 bit absolute value referring to the basic block @p bb.
   explicit Value(BasicBlock* bb);
   // Constructs a 32 bit absolute value referring to @p block at @p offset.
   Value(BlockGraph::Block* block, BlockGraph::Offset offset);
+  // Copy construction.
+  Value(const Value& other);
+
+  // Destructor.
+  ~Value();
 
   // @name Accessors.
   // @{
@@ -48,6 +53,9 @@ class Value {
   // @}
 
  private:
+  // Private constructor for Operand.
+  Value(const BasicBlockReference& ref, const core::ValueImpl& value);
+
   friend class BasicBlockAssembler;
   friend class Operand;
 
@@ -80,25 +88,39 @@ class Operand {
           core::ScaleFactor scale,
           const Displacement& displ);
 
+  // The full [base + index * scale] mode.
+  // @note esp cannot be used as an index register.
+  Operand(core::Register base,
+          core::Register index,
+          core::ScaleFactor scale);
+
   // The [index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
   Operand(core::Register index,
           core::ScaleFactor scale,
           const Displacement& displ);
 
+  // Copy constructor.
+  Operand(const Operand& o);
+
+  // Destructor.
+  ~Operand();
+
   // @name Accessors.
   // @{
   core::RegisterCode base() const { return operand_.base(); }
   core::RegisterCode index() const { return operand_.index(); }
   core::ScaleFactor scale() const { return operand_.scale(); }
-  const Displacement& displacement() const { return displacement_; }
+  Displacement displacement() const {
+    return Displacement(reference_, operand_.displacement());
+  }
   // @}
 
  private:
   friend class BasicBlockAssembler;
 
+  BasicBlockReference reference_;
   core::OperandImpl operand_;
-  Displacement displacement_;
 };
 
 class BasicBlockAssembler {
