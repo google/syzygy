@@ -122,6 +122,32 @@ void Test32BitValue(uint32 input_value, uint32 expected_value) {
 
 typedef BasicBlockAssemblerTest ValueTest;
 
+void TestValueCopy(const Value& input) {
+  // Make sure copy-constructing the value works.
+  Value copy(input);
+
+  ASSERT_EQ(input.value(), copy.value());
+  ASSERT_EQ(input.size(), copy.size());
+  ASSERT_EQ(input.reference().referred_type(),
+            copy.reference().referred_type());
+  ASSERT_EQ(input.reference().block(), copy.reference().block());
+  ASSERT_EQ(input.reference().basic_block(), copy.reference().basic_block());
+  ASSERT_EQ(input.reference().offset(), copy.reference().offset());
+  ASSERT_EQ(input.reference().base(), copy.reference().base());
+
+  // Make sure assignment operator works.
+  Value copy2;
+  copy2 = input;
+  ASSERT_EQ(input.value(), copy2.value());
+  ASSERT_EQ(input.size(), copy2.size());
+  ASSERT_EQ(input.reference().referred_type(),
+            copy2.reference().referred_type());
+  ASSERT_EQ(input.reference().block(), copy2.reference().block());
+  ASSERT_EQ(input.reference().basic_block(), copy2.reference().basic_block());
+  ASSERT_EQ(input.reference().offset(), copy2.reference().offset());
+  ASSERT_EQ(input.reference().base(), copy2.reference().base());
+}
+
 TEST_F(ValueTest, Construction) {
   {
     Value value_empty;
@@ -130,11 +156,7 @@ TEST_F(ValueTest, Construction) {
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
               value_empty.reference().referred_type());
 
-    Value copy_empty(value_empty);
-    ASSERT_EQ(0, copy_empty.value());
-    ASSERT_EQ(core::kSizeNone, copy_empty.size());
-    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
-              copy_empty.reference().referred_type());
+    TestValueCopy(value_empty);
   }
 
   Test8BitValue(0, 0);
@@ -163,16 +185,7 @@ TEST_F(ValueTest, Construction) {
     ASSERT_EQ(kOffs, value_block_ref.reference().offset());
     ASSERT_EQ(0, value_block_ref.reference().base());
 
-    // Make sure copying the value works.
-    Value copy_block_ref(value_block_ref);
-
-    ASSERT_EQ(0, copy_block_ref.value());
-    ASSERT_EQ(core::kSize32Bit, copy_block_ref.size());
-    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
-              copy_block_ref.reference().referred_type());
-    ASSERT_EQ(&test_block_, copy_block_ref.reference().block());
-    ASSERT_EQ(kOffs, copy_block_ref.reference().offset());
-    ASSERT_EQ(0, copy_block_ref.reference().base());
+    TestValueCopy(value_block_ref);
   }
 
   {
@@ -186,15 +199,7 @@ TEST_F(ValueTest, Construction) {
     ASSERT_EQ(0, value_bb_ref.reference().offset());
     ASSERT_EQ(0, value_bb_ref.reference().base());
 
-    // Make sure copying the value works.
-    Value copy_bb_ref(value_bb_ref);
-    ASSERT_EQ(0, copy_bb_ref.value());
-    ASSERT_EQ(core::kSize32Bit, copy_bb_ref.size());
-    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
-              copy_bb_ref.reference().referred_type());
-    ASSERT_EQ(&test_bb_, copy_bb_ref.reference().basic_block());
-    ASSERT_EQ(0, copy_bb_ref.reference().offset());
-    ASSERT_EQ(0, copy_bb_ref.reference().base());
+    TestValueCopy(value_bb_ref);
   }
 }
 
@@ -209,6 +214,16 @@ void TestOperandCopy(const Operand& input) {
   ASSERT_EQ(input.displacement().value(), copy.displacement().value());
   ASSERT_EQ(input.displacement().size(), copy.displacement().size());
   ASSERT_EQ(input.displacement().reference(), copy.displacement().reference());
+
+  Operand copy2(core::eax);
+
+  copy2 = input;
+  ASSERT_EQ(input.base(), copy2.base());
+  ASSERT_EQ(input.index(), copy2.index());
+  ASSERT_EQ(input.scale(), copy2.scale());
+  ASSERT_EQ(input.displacement().value(), copy2.displacement().value());
+  ASSERT_EQ(input.displacement().size(), copy2.displacement().size());
+  ASSERT_EQ(input.displacement().reference(), copy2.displacement().reference());
 }
 
 TEST_F(OperandTest, Construction) {
