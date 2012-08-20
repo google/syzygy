@@ -77,6 +77,12 @@ Value::~Value() {
 #endif
 }
 
+const Value& Value::operator=(const Value& other) {
+  reference_ = other.reference_;
+  value_ = CopyValue(&reference_, other.value_);
+  return *this;
+}
+
 Operand::Operand(core::Register base) : operand_(base) {
 }
 
@@ -125,6 +131,14 @@ Operand::~Operand() {
     DCHECK(operand_.displacement().reference() == NULL);
   }
 #endif
+}
+
+const Operand& Operand::operator=(const Operand& other) {
+  reference_ = other.reference_;
+  operand_ =
+      core::OperandImpl(other.base(), other.index(), other.scale(),
+                        CopyValue(&reference_, other.operand_.displacement()));
+  return *this;
 }
 
 BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(

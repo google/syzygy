@@ -45,6 +45,9 @@ class Value {
   // Destructor.
   ~Value();
 
+  // Assignment operator.
+  const Value& operator=(const Value& other);
+
   // @name Accessors.
   // @{
   uint32 value() const { return value_.value(); }
@@ -105,6 +108,9 @@ class Operand {
 
   // Destructor.
   ~Operand();
+
+  // Assignment operator.
+  const Operand& operator=(const Operand& other);
 
   // @name Accessors.
   // @{
