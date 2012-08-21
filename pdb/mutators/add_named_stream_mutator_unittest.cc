@@ -44,7 +44,19 @@ class MockAddNamedStreamMutator
     EXPECT_TRUE(stream->Init(reinterpret_cast<const uint8*>(kMutatorName),
                              ::strlen(kMutatorName)));
     added_stream_ = stream;
-    AddNamedStream("foo", stream.get());
+    EXPECT_TRUE(SetNamedStream("foo", stream.get()));
+    return true;
+  }
+
+  bool GetAndReplaceFooStream(const PdbFile& pdb_file) {
+    scoped_refptr<PdbStream> foo = GetNamedStream("foo");
+    EXPECT_TRUE(foo.get() != NULL);
+
+    scoped_refptr<PdbByteStream> stream(new PdbByteStream());
+    EXPECT_TRUE(stream->Init(foo));
+
+    added_stream_ = stream;
+    EXPECT_FALSE(SetNamedStream("foo", stream.get()));
     return true;
   }
 
@@ -80,48 +92,58 @@ class AddNamedStreamMutatorTest : public testing::Test {
     pdb_file_.SetStream(kPdbHeaderInfoStream, stream);
   }
 
+  void CheckFooStreamAdded() {
+    // Read the named stream map and ensure the stream was properly added.
+    PdbInfoHeader70 header = {};
+    NameStreamMap name_stream_map;
+    ASSERT_TRUE(pdb::ReadHeaderInfoStream(pdb_file_, &header,
+                                          &name_stream_map));
+    ASSERT_TRUE(name_stream_map.count("foo"));
+    size_t stream_id = name_stream_map["foo"];
+    ASSERT_GT(pdb_file_.StreamCount(), stream_id);
+    scoped_refptr<PdbStream> stream(pdb_file_.GetStream(stream_id));
+    ASSERT_EQ(mutator_.added_stream_.get(), stream.get());
+  }
+
+  StrictMock<MockAddNamedStreamMutator> mutator_;
   PdbFile pdb_file_;
 };
 
 }  // namespace
 
 TEST_F(AddNamedStreamMutatorTest, FailsWithNoHeaderInfoStream) {
-  StrictMock<MockAddNamedStreamMutator> mutator;
-  EXPECT_FALSE(mutator.MutatePdb(&pdb_file_));
+  EXPECT_FALSE(mutator_.MutatePdb(&pdb_file_));
 }
 
 TEST_F(AddNamedStreamMutatorTest, FailsIfAddNamedStreamsFails) {
-  StrictMock<MockAddNamedStreamMutator> mutator;
   InitMockPdb();
-  EXPECT_CALL(mutator, AddNamedStreams(Ref(pdb_file_))).Times(1).
+  EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
       WillOnce(Return(false));
-  EXPECT_FALSE(mutator.MutatePdb(&pdb_file_));
+  EXPECT_FALSE(mutator_.MutatePdb(&pdb_file_));
 }
 
 TEST_F(AddNamedStreamMutatorTest, SucceedsWithNoInsertion) {
-  StrictMock<MockAddNamedStreamMutator> mutator;
   InitMockPdb();
-  EXPECT_CALL(mutator, AddNamedStreams(Ref(pdb_file_))).Times(1).
+  EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
       WillOnce(Return(true));
-  EXPECT_TRUE(mutator.MutatePdb(&pdb_file_));
+  EXPECT_TRUE(mutator_.MutatePdb(&pdb_file_));
 }
 
-TEST_F(AddNamedStreamMutatorTest, SucceedsWithInsertion) {
-  StrictMock<MockAddNamedStreamMutator> mutator;
+TEST_F(AddNamedStreamMutatorTest, SucceedsWithInsertionAndReplacement) {
   InitMockPdb();
-  EXPECT_CALL(mutator, AddNamedStreams(Ref(pdb_file_))).Times(1).
-      WillOnce(Invoke(&mutator, &MockAddNamedStreamMutator::AddFooStream));
-  EXPECT_TRUE(mutator.MutatePdb(&pdb_file_));
 
-  // Read the named stream map and ensure the stream was properly added.
-  PdbInfoHeader70 header = {};
-  NameStreamMap name_stream_map;
-  ASSERT_TRUE(pdb::ReadHeaderInfoStream(pdb_file_, &header, &name_stream_map));
-  EXPECT_TRUE(name_stream_map.count("foo"));
-  size_t stream_id = name_stream_map["foo"];
-  EXPECT_GT(pdb_file_.StreamCount(), stream_id);
-  scoped_refptr<PdbStream> stream(pdb_file_.GetStream(stream_id));
-  EXPECT_EQ(mutator.added_stream_.get(), stream.get());
+  EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
+      WillOnce(Invoke(&mutator_, &MockAddNamedStreamMutator::AddFooStream));
+  EXPECT_TRUE(mutator_.MutatePdb(&pdb_file_));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFooStreamAdded());
+
+  EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
+    WillOnce(Invoke(&mutator_,
+                    &MockAddNamedStreamMutator::GetAndReplaceFooStream));
+  EXPECT_TRUE(mutator_.MutatePdb(&pdb_file_));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFooStreamAdded());
 }
 
 }  // namespace mutators

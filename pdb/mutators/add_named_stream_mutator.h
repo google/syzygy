@@ -49,26 +49,39 @@ class AddNamedStreamMutatorImpl : public NamedPdbMutatorImpl<DerivedType> {
   // @returns true on success, false otherwise.
   // bool AddNamedStreams(const PdbFile& pdb_file);
 
-  // A utility function for adding an individual name stream to a PDB.
+  // TODO(chrisha): The following utility functions need to be members of
+  //     PdbFile. In fact, the current PdbFile should become MsfFile, and we
+  //     need to have a 'smarter' PdbFile than the one we have now (aware of
+  //     the header streams, named streams, stream types, etc). With all of that
+  //     machinery available this entire class can disappear. In the meantime,
+  //     we'll live with the ugliness.
+
+  // A utility function for retrieving an individual named stream from a PDB.
+  // @param name the name of the stream to lookup.
+  // @returns a pointer to the stream if found, NULL if none exists.
+  scoped_refptr<PdbStream> GetNamedStream(const base::StringPiece& name) const;
+
+  // A utility function for adding an individual name stream to a PDB. If a
+  // stream already exists with this name, it will be replaced.
   // @param name the name of the stream to add.
   // @param stream the stream to add.
-  void AddNamedStream(const base::StringPiece& name, PdbStream* stream) {
-    name_stream_map_[name.as_string()] = stream;
-  }
+  // @returns true if the stream was added, false if it replaced an existing
+  //     stream.
+  bool SetNamedStream(const base::StringPiece& name, PdbStream* stream);
 
  private:
-  typedef std::map<std::string, scoped_refptr<PdbStream>> NameStreamMap;
-
-  // Houses a set of named streams to be added to the PDB.
+  PdbFile* pdb_file_;
   NameStreamMap name_stream_map_;
 };
 
 template<typename DerivedType>
 bool AddNamedStreamMutatorImpl<DerivedType>::MutatePdb(PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
   // Parse the header and named streams.
+  pdb_file_ = pdb_file;
   pdb::PdbInfoHeader70 header = {};
-  pdb::NameStreamMap name_stream_map;
-  if (!ReadHeaderInfoStream(*pdb_file, &header, &name_stream_map))
+  if (!ReadHeaderInfoStream(*pdb_file, &header, &name_stream_map_))
     return false;
 
   // Call the hook.
@@ -76,19 +89,49 @@ bool AddNamedStreamMutatorImpl<DerivedType>::MutatePdb(PdbFile* pdb_file) {
   if (!self->AddNamedStreams(*pdb_file))
     return false;
 
-  // Add each stream to the PDB file and update the name to stream id map.
-  NameStreamMap::const_iterator it = name_stream_map_.begin();
-  for (; it != name_stream_map_.end(); ++it) {
-    LOG(INFO) << "Adding named stream \"" << it->first << "\" to PDB.";
-    size_t stream_id = pdb_file->AppendStream(it->second);
-    name_stream_map[it->first] = stream_id;
-  }
-
   // Write back the header with the updated map.
-  if (!WriteHeaderInfoStream(header, name_stream_map, pdb_file))
+  if (!WriteHeaderInfoStream(header, name_stream_map_, pdb_file))
     return false;
 
+  pdb_file_ = NULL;
+  name_stream_map_.clear();
+
   return true;
+}
+
+template<typename DerivedType>
+scoped_refptr<PdbStream>
+AddNamedStreamMutatorImpl<DerivedType>::GetNamedStream(
+    const base::StringPiece& name) const {
+  DCHECK(pdb_file_ != NULL);
+
+  NameStreamMap::const_iterator it = name_stream_map_.find(name.as_string());
+  if (it == name_stream_map_.end())
+    return NULL;
+
+  size_t index = it->second;
+  return pdb_file_->GetStream(index);
+}
+
+template<typename DerivedType>
+bool AddNamedStreamMutatorImpl<DerivedType>::SetNamedStream(
+    const base::StringPiece& name, PdbStream* stream) {
+  DCHECK(pdb_file_ != NULL);
+
+  size_t index = 0;
+  NameStreamMap::const_iterator it = name_stream_map_.find(name.as_string());
+
+  // We are adding a new stream.
+  if (it == name_stream_map_.end()) {
+    index = pdb_file_->AppendStream(stream);
+    name_stream_map_.insert(std::make_pair(name.as_string(), index));
+    return true;
+  }
+
+  // We are replacing an existing stream.
+  index = it->second;
+  pdb_file_->ReplaceStream(index, stream);
+  return false;
 }
 
 }  // namespace mutators
