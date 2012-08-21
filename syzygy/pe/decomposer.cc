@@ -2252,9 +2252,15 @@ void Decomposer::MarkDisassembledPastEnd() {
   static size_t count = 0;
   DCHECK(current_block_ != NULL);
   current_block_->set_attribute(BlockGraph::DISASSEMBLED_PAST_END);
-  LOG_WARNING_OR_VLOG1(be_strict_with_current_block_)
-      << "Disassembled past end of block or into known data for block \""
-      << current_block_->name() << "\" at " << current_block_->addr() << ".";
+  // TODO(chrisha): The entire "disassembled past end" and non-returning
+  //     function infrastructure can be ripped out once we rework the BB
+  //     disassembler to be straight path, and remove the disassembly phase
+  //     from the decomposer (where it's no longer needed). In the meantime
+  //     we simply crank down this log verbosity due to all of the false
+  //     positives.
+  VLOG(1) << "Disassembled past end of block or into known data for block \""
+          << current_block_->name() << "\" at " << current_block_->addr()
+          << ".";
 }
 
 CallbackDirective Decomposer::VisitNonFlowControlInstruction(
