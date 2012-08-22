@@ -14,6 +14,11 @@
 
 #include "syzygy/pdb/unittest_util.h"
 
+#include "gtest/gtest.h"
+#include "syzygy/pdb/pdb_byte_stream.h"
+#include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_util.h"
+
 namespace testing {
 
 const wchar_t kTestPdbFilePath[] =
@@ -57,6 +62,20 @@ scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path) {
     new pdb::PdbFileStream(file, file_size, pages, file_size));
 
   return stream;
+}
+
+void InitMockPdbFile(pdb::PdbFile* pdb_file) {
+  scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
+  scoped_refptr<pdb::WritablePdbStream> writer(
+      stream->GetWritablePdbStream());
+
+  pdb::PdbInfoHeader70 header = {
+      pdb::kPdbCurrentVersion, 123456789, 1,
+      { 0xDEADBEEF, 0xCAFE, 0xBABE, { 0, 1, 2, 3, 4, 5, 6, 7 } } };
+  pdb::NameStreamMap name_stream_map;
+  ASSERT_TRUE(pdb::WriteHeaderInfoStream(header, name_stream_map, writer));
+
+  pdb_file->SetStream(pdb::kPdbHeaderInfoStream, stream);
 }
 
 }  // namespace testing

@@ -70,6 +70,10 @@ extern const char kCoverageClientDataSectionName[];
 // The characteristics given to the coverage instrumentation section.
 extern const DWORD kCoverageClientDataSectionCharacteristics;
 
+// The name of the basic-block addresses stream added to the PDB by the
+// coverage instrumentation.
+extern const char kCoverageAddressesStreamName[];
+
 }  // namespace common
 
 #endif  // SYZYGY_COMMON_COVERAGE_H_

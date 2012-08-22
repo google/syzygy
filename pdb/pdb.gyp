@@ -69,6 +69,10 @@
         'unittest_util.cc',
         'unittest_util.h',
       ],
+      'dependencies': [
+        'pdb_lib',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
+      ],
     },
     {
       'target_name': 'pdb_unittests',

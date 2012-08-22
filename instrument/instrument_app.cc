@@ -22,6 +22,7 @@
 
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "syzygy/instrument/mutators/add_bb_addresses_stream.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
 #include "syzygy/instrument/transforms/coverage_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
@@ -256,6 +257,8 @@ int InstrumentApp::Run() {
       import_thunk_tx;
   scoped_ptr<instrument::transforms::CoverageInstrumentationTransform>
       coverage_tx;
+  scoped_ptr<instrument::mutators::AddBasicBlockAddressesStreamPdbMutator>
+      add_bb_addr_stream_mutator;
 
   // We are instrumenting in ASAN mode.
   if (mode_ == kInstrumentAsanMode) {
@@ -265,12 +268,18 @@ int InstrumentApp::Run() {
     // We're either in call-trace mode, coverage or profiler mode. Each of these
     // use the entry_thunk_tx, so we handle them in the same manner.
 
-    // If we're in coverage mode, we first need to add coverage structures to
-    // the image.
+    // If we're in coverage mode, we need to add coverage structures to
+    // the image and we need to augment the PDB file with the basic block
+    // addresses.
     if (mode_ == kInstrumentCoverageMode) {
       coverage_tx.reset(
           new instrument::transforms::CoverageInstrumentationTransform);
       relinker.AppendTransform(coverage_tx.get());
+
+      add_bb_addr_stream_mutator.reset(
+          new instrument::mutators::AddBasicBlockAddressesStreamPdbMutator(
+              coverage_tx->bb_addresses()));
+      relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
     }
 
     // Set up the entry thunk instrumenting transform and add it to the

@@ -79,19 +79,6 @@ class AddNamedStreamMutatorTest : public testing::Test {
     EXPECT_TRUE(pdb_reader.Read(pdb_path, &pdb_file_));
   }
 
-  void InitMockPdb() {
-    scoped_refptr<PdbByteStream> stream(new PdbByteStream());
-    scoped_refptr<WritablePdbStream> writer(stream->GetWritablePdbStream());
-
-    PdbInfoHeader70 header = {
-        kPdbCurrentVersion, 123456789, 1,
-        { 0xDEADBEEF, 0xCAFE, 0xBABE, { 0, 1, 2, 3, 4, 5, 6, 7 } } };
-    pdb::NameStreamMap name_stream_map;
-    EXPECT_TRUE(WriteHeaderInfoStream(header, name_stream_map, writer));
-
-    pdb_file_.SetStream(kPdbHeaderInfoStream, stream);
-  }
-
   void CheckFooStreamAdded() {
     // Read the named stream map and ensure the stream was properly added.
     PdbInfoHeader70 header = {};
@@ -116,21 +103,21 @@ TEST_F(AddNamedStreamMutatorTest, FailsWithNoHeaderInfoStream) {
 }
 
 TEST_F(AddNamedStreamMutatorTest, FailsIfAddNamedStreamsFails) {
-  InitMockPdb();
+  ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file_));
   EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
       WillOnce(Return(false));
   EXPECT_FALSE(mutator_.MutatePdb(&pdb_file_));
 }
 
 TEST_F(AddNamedStreamMutatorTest, SucceedsWithNoInsertion) {
-  InitMockPdb();
+  ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file_));
   EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
       WillOnce(Return(true));
   EXPECT_TRUE(mutator_.MutatePdb(&pdb_file_));
 }
 
 TEST_F(AddNamedStreamMutatorTest, SucceedsWithInsertionAndReplacement) {
-  InitMockPdb();
+  ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file_));
 
   EXPECT_CALL(mutator_, AddNamedStreams(Ref(pdb_file_))).Times(1).
       WillOnce(Invoke(&mutator_, &MockAddNamedStreamMutator::AddFooStream));

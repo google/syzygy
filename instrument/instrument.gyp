@@ -28,6 +28,8 @@
       'sources': [
         'instrument_app.cc',
         'instrument_app.h',
+        'mutators/add_bb_addresses_stream.cc',
+        'mutators/add_bb_addresses_stream.h',
         'transforms/asan_transform.cc',
         'transforms/asan_transform.h',
         'transforms/basic_block_entry_hook_transform.cc',
@@ -76,6 +78,7 @@
       'sources': [
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
+        'mutators/add_bb_addresses_stream_unittest.cc',
         'transforms/asan_transform_unittest.cc',
         'transforms/basic_block_entry_hook_transform_unittest.cc',
         'transforms/coverage_transform_unittest.cc',

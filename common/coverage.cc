@@ -27,4 +27,6 @@ const char kCoverageClientDataSectionName[] = ".cover";
 const DWORD kCoverageClientDataSectionCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
 
+const char kCoverageAddressesStreamName[] = "/Syzygy/CoverageAddresses";
+
 }  // namespace common
