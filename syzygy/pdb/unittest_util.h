@@ -18,6 +18,7 @@
 #define SYZYGY_PDB_UNITTEST_UTIL_H_
 
 #include "base/file_util.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_file_stream.h"
 
 namespace testing {
@@ -36,6 +37,12 @@ extern const wchar_t kInvalidPdbDbiStreamPath[];
 
 // Get a PDB stream from a file.
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path);
+
+// Initializes an empty PdbFile so that it looks like a valid PDB by creating
+// a valid PdbHeaderInfo stream. Contains gtest assertions, so is intended to be
+// used with ASSERT_NO_FATAL_FAILURE.
+// @param pdb_file The empty PdbFile to be initialized.
+void InitMockPdbFile(pdb::PdbFile* pdb_file);
 
 }  // namespace testing
 
