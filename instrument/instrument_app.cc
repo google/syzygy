@@ -250,7 +250,7 @@ int InstrumentApp::Run() {
   }
 
   // A list of all possible transforms that we will need.
-  scoped_ptr<pe::transforms::AsanTransform> asan_transform;
+  scoped_ptr<instrument::transforms::AsanTransform> asan_transform;
   scoped_ptr<instrument::transforms::EntryThunkTransform> entry_thunk_tx;
   scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
       import_thunk_tx;
@@ -259,7 +259,7 @@ int InstrumentApp::Run() {
 
   // We are instrumenting in ASAN mode.
   if (mode_ == kInstrumentAsanMode) {
-    asan_transform.reset(new pe::transforms::AsanTransform);
+    asan_transform.reset(new instrument::transforms::AsanTransform);
     relinker.AppendTransform(asan_transform.get());
   } else {
     // We're either in call-trace mode, coverage or profiler mode. Each of these
