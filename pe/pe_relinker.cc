@@ -51,6 +51,7 @@ using pdb::NameStreamMap;
 using pdb::PdbByteStream;
 using pdb::PdbFile;
 using pdb::PdbInfoHeader70;
+using pdb::PdbMutatorInterface;
 using pdb::PdbStream;
 using pdb::WritablePdbStream;
 
@@ -104,6 +105,19 @@ bool ApplyOrderer(Orderer* orderer,
 
   if (!orderer->OrderBlockGraph(obg, header_block)) {
     LOG(ERROR) << "Orderer failed: " << orderer->name();
+    return false;
+  }
+
+  return true;
+}
+
+bool ApplyPdbMutator(PdbMutatorInterface* pdb_mutator,
+                     PdbFile* pdb_file) {
+  DCHECK(pdb_mutator != NULL);
+  DCHECK(pdb_file != NULL);
+
+  if (!pdb_mutator->MutatePdb(pdb_file)) {
+    LOG(ERROR) << "PDB mutator failed: " << pdb_mutator->name();
     return false;
   }
 
@@ -280,6 +294,22 @@ bool ApplyOrderers(std::vector<Orderer*>* orderers,
   for (size_t i = 0; i < local_orderers.size(); ++i) {
     LOG(INFO) << "Applying orderer: " << local_orderers[i]->name();
     if (!ApplyOrderer(local_orderers[i], obg, dos_header_block))
+      return false;
+  }
+
+  return true;
+}
+
+bool ApplyPdbMutators(const std::vector<PdbMutatorInterface*>& pdb_mutators,
+                      PdbFile* pdb_file) {
+  DCHECK(pdb_file != NULL);
+
+  LOG(INFO) << "Mutating PDB.";
+
+  // Apply the orderers.
+  for (size_t i = 0; i < pdb_mutators.size(); ++i) {
+    LOG(INFO) << "Applying PDB mutator: " << pdb_mutators[i]->name();
+    if (!ApplyPdbMutator(pdb_mutators[i], pdb_file))
       return false;
   }
 
@@ -650,6 +680,18 @@ void PERelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
   orderers_.insert(orderers_.end(), orderers.begin(), orderers.end());
 }
 
+void PERelinker::AppendPdbMutator(PdbMutatorInterface* pdb_mutator) {
+  DCHECK(pdb_mutator != NULL);
+  pdb_mutators_.push_back(pdb_mutator);
+}
+
+void PERelinker::AppendPdbMutators(
+    const std::vector<PdbMutatorInterface*>& pdb_mutators) {
+  pdb_mutators_.insert(pdb_mutators_.end(),
+                       pdb_mutators.begin(),
+                       pdb_mutators.end());
+}
+
 bool PERelinker::Init() {
   DCHECK(inited_ == false);
 
@@ -726,6 +768,13 @@ bool PERelinker::Relink() {
     LOG(ERROR) << "Unable to read PDB file: " << input_pdb_path_.value();
     return false;
   }
+
+  // Apply the mutators to the PDB file.
+  if (!ApplyPdbMutators(pdb_mutators_, &pdb_file))
+    return false;
+
+  // TODO(chrisha): Make the following 3 PDB updates PdbMutatorInterface
+  //     implementations.
 
   // Update the OMAP and GUID information.
   RelativeAddressRange input_range;

@@ -16,7 +16,12 @@
 // applying a sequence of block-graph transforms (some applied implicitly, and
 // others provided by the user), followed by a sequence of orderers (again, some
 // implicit, some provided by the user), laying-out, finalizing and finally
-// writing a new image. PERelinker encapsulates this workflow.
+// writing a new image. After writing the image a similar transformation
+// workflow is applied to the corresponding PDB file, consisting of applying
+// any user defined PDB mutations, followed by 2-3 (depending on PeRelinker
+// configuration) internal mutations (updating the GUID/age, adding the history
+// stream and adding the serialized block-graph stream). PERelinker encapsulates
+// this workflow.
 //
 // It is intended to be used as follows:
 //
@@ -36,6 +41,7 @@
 //
 //   relinker.AppendTransform(...);  // May be called repeatedly.
 //   relinker.AppendOrderer(...);  // May be called repeatedly.
+//   relinker.AppendPdbMutator(...);  // May be called repeatedly.
 //
 //   relinker.Relink();  // Check the return value!
 //
@@ -58,6 +64,7 @@
 #include "base/file_path.h"
 #include "syzygy/block_graph/orderer.h"
 #include "syzygy/block_graph/transform.h"
+#include "syzygy/pdb/pdb_mutator.h"
 #include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -160,7 +167,7 @@ class PERelinker {
   //     The pointers must remain valid for the lifespan of the relinker.
   void AppendTransforms(const std::vector<Transform*>& transforms);
 
-  // Appends a list of orderers to be applied by this relinker.
+  // Appends an orderer to be applied by this relinker.
   //
   // If no orderers are specified the default orderer will be applied. If no
   // transforms have been applied this makes the entire relinker an identity
@@ -168,7 +175,7 @@ class PERelinker {
   // assuming all earlier orderers have succeeded.
   //
   // @param orderer a orderer to be applied to the input image. The pointer must
-  //     remain valid for hte lifespan of the relinker.
+  //     remain valid for the lifespan of the relinker.
   void AppendOrderer(Orderer* orderer);
 
   // Appends a list of orderers to be applied by this relinker.
@@ -179,8 +186,27 @@ class PERelinker {
   // assuming all earlier orderers have succeeded.
   //
   // @param orderers a vector of orderers to be applied to the input image.
-  //     The pointers must remain valid for hte lifespan of the relinker.
+  //     The pointers must remain valid for the lifespan of the relinker.
   void AppendOrderers(const std::vector<Orderer*>& orderers);
+
+  // Appends a PDB mutator to be applied by this relinker.
+  //
+  // Each mutator will be applied in the order added to the relinker,
+  // assuming all earlier mutators have succeeded.
+  //
+  // @param pdb_mutator a PDB mutator to be applied to the input image. The
+  //     pointer must remain valid for the lifespan of the relinker.
+  void AppendPdbMutator(pdb::PdbMutatorInterface* pdb_mutator);
+
+  // Appends a list of PDB mutators to be applied by this relinker.
+  //
+  // Each mutator will be applied in the order added to the relinker,
+  // assuming all earlier mutators have succeeded.
+  //
+  // @param pdb_mutators a vector of mutators to be applied to the input image.
+  //     The pointers must remain valid for the lifespan of the relinker.
+  void AppendPdbMutators(
+      const std::vector<pdb::PdbMutatorInterface*>& pdb_mutators);
 
   // Runs the initialization phase of the relinker. This consists of decomposing
   // the input image, after which the intermediate data accessors declared below
@@ -219,7 +245,7 @@ class PERelinker {
   const GUID& output_guid() const { return output_guid_; }
   // @}
 
- private:
+ protected:
   FilePath input_path_;
   FilePath input_pdb_path_;
   FilePath output_path_;
@@ -242,9 +268,11 @@ class PERelinker {
   // default value and indicates no padding will be added.
   size_t padding_;
 
-  // The vector of user supplied transforms and orderers to be applied.
+  // The vectors of user supplied transforms, orderers and mutators to be
+  // applied.
   std::vector<Transform*> transforms_;
   std::vector<Orderer*> orderers_;
+  std::vector<pdb::PdbMutatorInterface*> pdb_mutators_;
 
   // The internal state of the relinker.
   bool inited_;

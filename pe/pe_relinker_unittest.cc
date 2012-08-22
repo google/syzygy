@@ -15,6 +15,7 @@
 #include "syzygy/pe/pe_relinker.h"
 
 #include "base/file_util.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/serialization.h"
@@ -31,6 +32,22 @@
 namespace pe {
 
 namespace {
+
+using block_graph::BlockGraphOrdererInterface;
+using block_graph::BlockGraphTransformInterface;
+using block_graph::OrderedBlockGraph;
+using pdb::PdbFile;
+using pdb::PdbMutatorInterface;
+using testing::_;
+using testing::Return;
+using testing::StrictMock;
+
+class TestPERelinker : public PERelinker {
+ public:
+  using PERelinker::transforms_;
+  using PERelinker::orderers_;
+  using PERelinker::pdb_mutators_;
+};
 
 class PERelinkerTest : public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
@@ -54,10 +71,28 @@ class PERelinkerTest : public testing::PELibUnitTest {
   FilePath temp_pdb_;
 };
 
+class MockTransform : public BlockGraphTransformInterface {
+ public:
+  const char* name() const { return "MockTransform"; }
+  MOCK_METHOD2(TransformBlockGraph, bool(BlockGraph*, BlockGraph::Block*));
+};
+
+class MockOrderer : public BlockGraphOrdererInterface {
+ public:
+  const char* name() const { return "MockOrderer"; }
+  MOCK_METHOD2(OrderBlockGraph, bool(OrderedBlockGraph*, BlockGraph::Block*));
+};
+
+class MockPdbMutator : public PdbMutatorInterface {
+ public:
+  const char* name() const { return "MockPdbMutator"; }
+  MOCK_METHOD1(MutatePdb, bool(PdbFile*));
+};
+
 }  // namespace
 
 TEST_F(PERelinkerTest, Properties) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   EXPECT_EQ(FilePath(), relinker.input_path());
   EXPECT_EQ(FilePath(), relinker.input_pdb_path());
@@ -88,22 +123,73 @@ TEST_F(PERelinkerTest, Properties) {
   EXPECT_EQ(10u, relinker.padding());
 }
 
+TEST_F(PERelinkerTest, AppendTransforms) {
+  TestPERelinker relinker;
+
+  MockTransform transform1, transform2;
+  std::vector<BlockGraphTransformInterface*> transforms;
+  transforms.push_back(&transform2);
+
+  relinker.AppendTransform(&transform1);
+  relinker.AppendTransforms(transforms);
+
+  std::vector<BlockGraphTransformInterface*> expected;
+  expected.push_back(&transform1);
+  expected.push_back(&transform2);
+
+  EXPECT_EQ(expected, relinker.transforms_);
+}
+
+TEST_F(PERelinkerTest, AppendOrderers) {
+  TestPERelinker relinker;
+
+  MockOrderer orderer1, orderer2;
+  std::vector<BlockGraphOrdererInterface*> orderers;
+  orderers.push_back(&orderer2);
+
+  relinker.AppendOrderer(&orderer1);
+  relinker.AppendOrderers(orderers);
+
+  std::vector<BlockGraphOrdererInterface*> expected;
+  expected.push_back(&orderer1);
+  expected.push_back(&orderer2);
+
+  EXPECT_EQ(expected, relinker.orderers_);
+}
+
+TEST_F(PERelinkerTest, AppendPdbMutators) {
+  TestPERelinker relinker;
+
+  MockPdbMutator pdb_mutator1, pdb_mutator2;
+  std::vector<PdbMutatorInterface*> pdb_mutators;
+  pdb_mutators.push_back(&pdb_mutator2);
+
+  relinker.AppendPdbMutator(&pdb_mutator1);
+  relinker.AppendPdbMutators(pdb_mutators);
+
+  std::vector<PdbMutatorInterface*> expected;
+  expected.push_back(&pdb_mutator1);
+  expected.push_back(&pdb_mutator2);
+
+  EXPECT_EQ(expected, relinker.pdb_mutators_);
+}
+
 TEST_F(PERelinkerTest, InitFailsOnUnspecifiedInput) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_output_path(temp_dll_);
   EXPECT_FALSE(relinker.Init());
 }
 
 TEST_F(PERelinkerTest, InitFailsOnUnspecifiedOutput) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(input_dll_);
   EXPECT_FALSE(relinker.Init());
 }
 
 TEST_F(PERelinkerTest, InitFailsOnNonexistentInput) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(temp_dir_.Append(L"nonexistent.dll"));
   relinker.set_output_path(temp_dll_);
@@ -111,7 +197,7 @@ TEST_F(PERelinkerTest, InitFailsOnNonexistentInput) {
 }
 
 TEST_F(PERelinkerTest, InitFailsOnDisallowedOverwrite) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   // Copy the image in case the test actually does overwrite the input; this
   // way we don't accidentally turf our test data.
@@ -125,7 +211,7 @@ TEST_F(PERelinkerTest, InitFailsOnDisallowedOverwrite) {
 }
 
 TEST_F(PERelinkerTest, InitSucceeds) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -134,7 +220,7 @@ TEST_F(PERelinkerTest, InitSucceeds) {
 }
 
 TEST_F(PERelinkerTest, IntermediateAccessors) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -145,8 +231,68 @@ TEST_F(PERelinkerTest, IntermediateAccessors) {
   EXPECT_TRUE(relinker.dos_header_block() != NULL);
 }
 
+TEST_F(PERelinkerTest, FailsWhenTransformFails) {
+  TestPERelinker relinker;
+  StrictMock<MockTransform> transform;
+
+  EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(false));
+
+  relinker.AppendTransform(&transform);
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+  EXPECT_TRUE(relinker.Init());
+  EXPECT_FALSE(relinker.Relink());
+}
+
+TEST_F(PERelinkerTest, FailsWhenOrdererFails) {
+  TestPERelinker relinker;
+  StrictMock<MockOrderer> orderer;
+
+  EXPECT_CALL(orderer, OrderBlockGraph(_, _)).WillOnce(Return(false));
+
+  relinker.AppendOrderer(&orderer);
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+  EXPECT_TRUE(relinker.Init());
+  EXPECT_FALSE(relinker.Relink());
+}
+
+TEST_F(PERelinkerTest, FailsWhenPdbMutatorFails) {
+  TestPERelinker relinker;
+  StrictMock<MockPdbMutator> pdb_mutator;
+
+  EXPECT_CALL(pdb_mutator, MutatePdb(_)).WillOnce(Return(false));
+
+  relinker.AppendPdbMutator(&pdb_mutator);
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+  EXPECT_TRUE(relinker.Init());
+  EXPECT_FALSE(relinker.Relink());
+}
+
+TEST_F(PERelinkerTest, Success) {
+  TestPERelinker relinker;
+  StrictMock<MockTransform> transform;
+  StrictMock<MockOrderer> orderer;
+  StrictMock<MockPdbMutator> pdb_mutator;
+
+  EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(true));
+  EXPECT_CALL(orderer, OrderBlockGraph(_, _)).WillOnce(Return(true));
+  EXPECT_CALL(pdb_mutator, MutatePdb(_)).WillOnce(Return(true));
+
+  relinker.AppendTransform(&transform);
+  relinker.AppendOrderer(&orderer);
+  relinker.AppendPdbMutator(&pdb_mutator);
+
+  relinker.set_input_path(input_dll_);
+  relinker.set_output_path(temp_dll_);
+
+  EXPECT_TRUE(relinker.Init());
+  EXPECT_TRUE(relinker.Relink());
+}
+
 TEST_F(PERelinkerTest, IdentityRelink) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -191,7 +337,7 @@ TEST_F(PERelinkerTest, IdentityRelink) {
 }
 
 TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -223,7 +369,7 @@ TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
 }
 
 TEST_F(PERelinkerTest, BlockGraphStreamVersionIsTheCurrentOne) {
-  PERelinker relinker;
+  TestPERelinker relinker;
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
