@@ -26,12 +26,7 @@
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
-// Forward declarations.
-namespace block_graph {
-class BasicBlock;
-}
-
-namespace pe {
+namespace instrument {
 namespace transforms {
 
 // This class implements the transformation applied to each basic block.
@@ -89,6 +84,8 @@ class AsanTransform
   bool PreBlockGraphIteration(BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
   bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+  bool PostBlockGraphIteration(BlockGraph* block_graph,
+                               BlockGraph::Block* header_block);
   // @}
 
   // @name Accessors.
@@ -127,6 +124,6 @@ class AsanTransform
 };
 
 }  // namespace transforms
-}  // namespace pe
+}  // namespace instrument
 
 #endif  // SYZYGY_INSTRUMENT_TRANSFORMS_ASAN_TRANSFORM_H_

@@ -16,18 +16,23 @@
 
 #include "syzygy/instrument/transforms/asan_transform.h"
 
+#include <set>
 #include <vector>
 
+#include "base/scoped_native_library.h"
+#include "base/scoped_temp_dir.h"
+#include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 
-namespace pe {
+namespace instrument {
 namespace transforms {
 
 namespace {
@@ -42,8 +47,8 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
   using AsanBasicBlockTransform::InstrumentBasicBlock;
 
   TestAsanBasicBlockTransform(BlockGraph::Reference* hook_write,
-                              BlockGraph::Reference* hook_read) :
-      AsanBasicBlockTransform(hook_write, hook_read) {
+                              BlockGraph::Reference* hook_read)
+      : AsanBasicBlockTransform(hook_write, hook_read) {
   }
 };
 
@@ -52,10 +57,9 @@ class AsanTransformTest : public testing::PELibUnitTest {
   AsanTransformTest() :
       dos_header_block_(NULL),
       basic_block_(0, "test block", BasicBlock::BASIC_CODE_BLOCK,
-                   BasicBlock::kNoOffset, kDataSize, kBlockData) {
-  }
-
-  virtual void SetUp() OVERRIDE {
+                   BasicBlock::kNoOffset, kDataSize, kBlockData),
+      bb_asm_(basic_block_.instructions().begin(),
+              &basic_block_.instructions()) {
   }
 
   void DecomposeTestDll() {
@@ -67,12 +71,12 @@ class AsanTransformTest : public testing::PELibUnitTest {
     pe::Decomposer decomposer(pe_file_);
     ASSERT_TRUE(decomposer.Decompose(&layout));
 
-    dos_header_block_ = layout.blocks.GetBlockByAddress(
-      core::RelativeAddress(0));
+    dos_header_block_ =
+        layout.blocks.GetBlockByAddress(core::RelativeAddress(0));
     ASSERT_TRUE(dos_header_block_ != NULL);
   }
 
-  void InitTransformHooksReferences() {
+  void InitHookRefs() {
     hook_write_access_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4,
                                                "hook_write_access"),
     hook_read_access_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4,
@@ -91,6 +95,7 @@ class AsanTransformTest : public testing::PELibUnitTest {
   // @}
 
  protected:
+  ScopedTempDir temp_dir_;
   pe::PEFile pe_file_;
   BlockGraph block_graph_;
   BlockGraph::Block* dos_header_block_;
@@ -100,6 +105,8 @@ class AsanTransformTest : public testing::PELibUnitTest {
   BlockGraph::Block* hook_read_access_;
   BlockGraph::Reference hook_read_access_ref_;
   BasicBlock basic_block_;
+  block_graph::BasicBlockAssembler bb_asm_;
+
 };
 
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
@@ -125,16 +132,13 @@ TEST_F(AsanTransformTest, ApplyAsanTransform) {
 }
 
 TEST_F(AsanTransformTest, InjectAsanHooks) {
-  InitTransformHooksReferences();
-  block_graph::BasicBlockAssembler bb_asm(basic_block_.instructions().begin(),
-                                          &basic_block_.instructions());
-
   // Add a read access to the memory.
-  bb_asm.mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
   // Add a write access to the memory.
-  bb_asm.mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
 
   // Instrument this basic block.
+  InitHookRefs();
   TestAsanBasicBlockTransform bb_transform(&hook_write_access_ref_,
                                            &hook_read_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
@@ -178,28 +182,96 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
 }
 
 TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
-  InitTransformHooksReferences();
-  block_graph::BasicBlockAssembler bb_asm(basic_block_.instructions().begin(),
-                                          &basic_block_.instructions());
   uint32 instrumentable_instructions = 0;
 
   // Generate a bunch of instrumentable and non instrumentable instructions.
-  bb_asm.mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
   instrumentable_instructions++;
-  bb_asm.mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
   instrumentable_instructions++;
-  bb_asm.call(block_graph::Operand(core::ecx));
-  bb_asm.push(block_graph::Operand(core::eax));
+
+  // Non-instrumentable.
+  bb_asm_.call(block_graph::Operand(core::ecx));
+  bb_asm_.push(block_graph::Operand(core::eax));
   instrumentable_instructions++;
-  bb_asm.lea(core::eax, block_graph::Operand(core::ecx));
+
+  // Non-instrumentable.
+  bb_asm_.lea(core::eax, block_graph::Operand(core::ecx));
 
   uint32 expected_instructions_count = basic_block_.instructions().size()
       + 5 * instrumentable_instructions;
   // Instrument this basic block.
+  InitHookRefs();
   TestAsanBasicBlockTransform bb_transform(&hook_write_access_ref_,
                                            &hook_read_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
   ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
+}
+
+namespace {
+using base::win::PEImage;
+typedef std::set<std::string> StringSet;
+
+bool EnumImports(const PEImage &image, LPCSTR module,
+                 DWORD ordinal, LPCSTR name, DWORD hint,
+                 PIMAGE_THUNK_DATA iat, PVOID cookie) {
+  StringSet* modules = reinterpret_cast<StringSet*>(cookie);
+
+  if (strcmp("asan_rtl.dll", module) == 0)
+    modules->insert(name);
+
+  return true;
+}
+
+};
+
+TEST_F(AsanTransformTest, ImportsAreRedirected) {
+  pe::PERelinker relinker;
+
+  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+
+  relinker.set_input_path(::testing::GetOutputRelativePath(kDllName));
+  relinker.set_output_path(temp_dir_.path().Append(kDllName));
+
+  relinker.AppendTransform(&asan_transform_);
+  ASSERT_TRUE(relinker.Init());
+  ASSERT_TRUE(relinker.Relink());
+
+  // Load the transformed module without resolving its dependencies.
+  base::NativeLibrary lib =
+      ::LoadLibraryEx(relinker.output_path().value().c_str(),
+                      NULL,
+                      DONT_RESOLVE_DLL_REFERENCES);
+  ASSERT_TRUE(lib != NULL);
+  // Make sure it's unloaded on failure.
+  base::ScopedNativeLibrary lib_keeper(lib);
+
+  PEImage image(lib);
+  ASSERT_TRUE(image.VerifyMagic());
+  StringSet imports;
+  ASSERT_TRUE(image.EnumAllImports(&EnumImports, &imports));
+
+  // This isn't strictly speaking a full test, as we only check that the new
+  // imports have been added. It's however more trouble than it's worth to
+  // test this fully for now.
+  StringSet expected;
+  expected.insert("asan_HeapCreate");
+  expected.insert("asan_HeapDestroy");
+  expected.insert("asan_HeapAlloc");
+  expected.insert("asan_HeapReAlloc");
+  expected.insert("asan_HeapFree");
+  expected.insert("asan_HeapSize");
+  expected.insert("asan_HeapValidate");
+  expected.insert("asan_HeapCompact");
+  expected.insert("asan_HeapLock");
+  expected.insert("asan_HeapUnlock");
+  expected.insert("asan_HeapWalk");
+  expected.insert("asan_HeapSetInformation");
+  expected.insert("asan_HeapQueryInformation");
+  expected.insert("asan_read_access_sized");
+  expected.insert("asan_write_access_sized");
+
+  EXPECT_EQ(expected, imports);
 }
 
 }  // namespace transforms
