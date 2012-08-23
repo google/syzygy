@@ -125,11 +125,3 @@ TEST_F(GrinderAppTest, EndToEnd) {
 }
 
 } //  namespace grinder
-
-int main(int argc, char** argv) {
-  base::AtExitManager at_exit;
-  CommandLine::Init(argc, argv);
-
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
