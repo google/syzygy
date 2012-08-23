@@ -213,6 +213,14 @@ void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
     return;
   }
 
+  // We immediately flush the segment containing the module data so that it
+  // appears prior to the coverage data in the trace file. This makes parsing
+  // easier.
+  if (!coverage->session_.ReturnBuffer(&coverage->segment_)) {
+    LOG(ERROR) << "Failed to return module event buffer.";
+    return;
+  }
+
   // Initialize the coverage data for this module.
   if (!coverage->InitializeCoverageData(image, coverage_data)) {
     LOG(ERROR) << "Failed to initialize coverage data.";
