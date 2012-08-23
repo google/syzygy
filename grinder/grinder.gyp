@@ -28,6 +28,8 @@
       'sources': [
         'grinder.cc',
         'grinder.h',
+        'grinder_util.cc',
+        'grinder_util.h',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
@@ -43,6 +45,8 @@
       'type': 'executable',
       'sources': [
         'grinder_unittest.cc',
+        'grinder_util_unittest.cc',
+        'grinder_unittests_main.cc',
       ],
       'dependencies': [
         'grinder_lib',
@@ -50,6 +54,7 @@
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:profile_traces',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:coverage_traces',
       ],
     },
     {
