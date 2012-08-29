@@ -218,6 +218,13 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
   if (label.IsValid())
     current_instructions_.back().set_label(label);
 
+  // If continuing this basic-block would disassemble into known data then
+  // end the current basic-block.
+  if (block_->GetLabel(offset + inst.size, &label) &&
+      label.has_attributes(BlockGraph::DATA_LABEL)) {
+    return kDirectiveTerminatePath;
+  }
+
   // If this instruction is a call to a non-returning function, then this is
   // essentially a control flow operation, and we need to end this basic block.
   // We'll schedule the disassembly of any instructions which follow it as
@@ -233,13 +240,6 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
       Unvisited(addr + inst.size);
       return kDirectiveTerminatePath;
     }
-  }
-
-  // If continuing this basic-block would disassemble into known data then
-  // end the current basic-block.
-  if (block_->GetLabel(offset + inst.size, &label) &&
-      label.has_attributes(BlockGraph::DATA_LABEL)) {
-    return kDirectiveTerminatePath;
   }
 
   return kDirectiveContinue;
