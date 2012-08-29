@@ -1,0 +1,188 @@
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "syzygy/grinder/line_info.h"
+
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+
+namespace grinder {
+
+namespace {
+
+const wchar_t kCoverageInstrumentedTestDllPdb[] =
+    L"coverage_instrumented_test_dll.pdb";
+
+class TestLineInfo : public LineInfo {
+ public:
+  using LineInfo::source_files_;
+  using LineInfo::source_lines_;
+
+  void ResetVisitedLines() {
+    for (size_t i = 0; i < source_lines_.size(); ++i) {
+      source_lines_[i].visited = false;
+    }
+  }
+
+  void GetVisitedLines(std::vector<size_t>* visited_lines) const {
+    DCHECK(visited_lines != NULL);
+    visited_lines->clear();
+    for (size_t i = 0; i < source_lines_.size(); ++i) {
+      if (source_lines_[i].visited)
+        visited_lines->push_back(source_lines_[i].line_number);
+    }
+  }
+};
+
+class LineInfoTest : public testing::Test {
+ public:
+  virtual void SetUp() OVERRIDE {
+    testing::Test::SetUp();
+
+    pdb_path_ = testing::GetExeTestDataRelativePath(
+        kCoverageInstrumentedTestDllPdb);
+
+
+    std::wstring static_pdb_path(L"syzygy/grinder/test_data/");
+    static_pdb_path.append(kCoverageInstrumentedTestDllPdb);
+    static_pdb_path_ = testing::GetSrcRelativePath(static_pdb_path.c_str());
+  }
+
+  FilePath pdb_path_;
+  FilePath static_pdb_path_;
+};
+
+void PushBackSourceLine(
+    TestLineInfo* line_info,
+    const std::string* source_file_name,
+    size_t line_number,
+    uint32 address,
+    size_t size) {
+  DCHECK(line_info != NULL);
+  line_info->source_lines_.push_back(LineInfo::SourceLine(
+      source_file_name,
+      line_number,
+      core::RelativeAddress(address),
+      size));
+}
+
+#define EXPECT_LINES_VISITED(line_info, ...) \
+    { \
+      const size_t kLineNumbers[] = { __VA_ARGS__ }; \
+      std::vector<size_t> visited, expected; \
+      expected.assign(kLineNumbers, kLineNumbers + arraysize(kLineNumbers)); \
+      line_info.GetVisitedLines(&visited); \
+      std::sort(expected.begin(), expected.end()); \
+      std::sort(visited.begin(), visited.end()); \
+      EXPECT_THAT(expected, ::testing::ContainerEq(visited)); \
+    }
+
+#define EXPECT_NO_LINES_VISITED(line_info) \
+    { \
+      std::vector<size_t> visited; \
+      line_info.GetVisitedLines(&visited); \
+      EXPECT_EQ(0u, visited.size()); \
+    }
+
+}  // namespace
+
+TEST_F(LineInfoTest, InitDynamicPdb) {
+  TestLineInfo line_info;
+  EXPECT_TRUE(line_info.Init(pdb_path_));
+}
+
+TEST_F(LineInfoTest, InitStaticPdb) {
+  TestLineInfo line_info;
+  EXPECT_TRUE(line_info.Init(static_pdb_path_));
+
+  // The expected values were taken by running "pdb_dumper --dump-modules
+  // syzygy/grinder/test_data/coverage_instrumented_test_dll.pdb" and running
+  // through the following filters:
+  // grep "line at" | sed 's/(.*$//' | uniq | sort | uniq | wc -l
+  EXPECT_EQ(138u, line_info.source_files().size());
+  // grep "line at" | wc -l
+  EXPECT_EQ(8379u, line_info.source_lines().size());
+}
+
+TEST_F(LineInfoTest, Visit) {
+  TestLineInfo line_info;
+
+  // Create a single dummy source file.
+  std::string source_file("foo.cc");
+
+  // The first two entries have identical ranges, and map multiple lines to
+  // those ranges.
+  PushBackSourceLine(&line_info, &source_file, 1, 4096, 2);
+  PushBackSourceLine(&line_info, &source_file, 2, 4096, 2);
+  PushBackSourceLine(&line_info, &source_file, 3, 4098, 2);
+  PushBackSourceLine(&line_info, &source_file, 5, 4100, 2);
+  // Leave a gap between these two entries.
+  PushBackSourceLine(&line_info, &source_file, 6, 4104, 6);
+  PushBackSourceLine(&line_info, &source_file, 7, 4110, 2);
+
+  // So, our line info looks like this:
+  //  1,2   3    5         6    7        <-- line numbers
+  // +----+----+----+----+----+----+
+  // |0,1 | 2  | 3  |gap | 4  | 5  |     <-- source_lines_ indices
+  // +----+----+----+----+----+----+
+  // 4096 4098 4100 4102 4104 4110 4112  <-- address ranges
+
+  // Visit a repeated BB (multiple lines).
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2));
+  EXPECT_LINES_VISITED(line_info, 1, 2);
+
+  // Visit a range spanning multiple BBs (we don't reset the previously
+  // visited lines to ensure that stats are kept correctly across multiple
+  // calls to LineInfo::Visit).
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4098), 4));
+  EXPECT_LINES_VISITED(line_info, 1, 2, 3, 5);
+
+  // Visit a gap and no blocks.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4102), 2));
+  EXPECT_NO_LINES_VISITED(line_info);
+
+  // Visit a range spanning a gap (at the left) and a BB.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4102), 8));
+  EXPECT_LINES_VISITED(line_info, 6);
+
+  // Visit a range spanning a gap (at the right) and a BB.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 4));
+  EXPECT_LINES_VISITED(line_info, 5);
+
+  // Visit a range spanning 2 BBs with a gap in the middle.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 10));
+  EXPECT_LINES_VISITED(line_info, 5, 6);
+
+  // Visit a range only partially spanning a single BB.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 1));
+  EXPECT_LINES_VISITED(line_info, 5);
+
+  // Visit a range partially spanning a BB on the left.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4108), 4));
+  EXPECT_LINES_VISITED(line_info, 6, 7);
+
+  // Visit a range partially spanning a BB on the right.
+  line_info.ResetVisitedLines();
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4104), 7));
+  EXPECT_LINES_VISITED(line_info, 6, 7);
+}
+
+}  // namespace grinder
