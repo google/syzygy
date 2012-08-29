@@ -119,7 +119,7 @@ def main():
   # Now commit and upload the new binaries.
   message = 'Checking in version %d release binaries.' % revision
   _Shell('git', 'commit', '-m', message)
-  _Shell('git', 'cl', 'upload', '-m', message)
+  _Shell('git', 'cl', 'upload', '-t', message)
 
 
 if __name__ == '__main__':
