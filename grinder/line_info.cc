@@ -30,6 +30,7 @@ namespace {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 
+typedef core::AddressRange<core::RelativeAddress, size_t> RelativeAddressRange;
 typedef std::map<DWORD, const std::string*> SourceFileMap;
 
 bool GetDiaSessionForPdb(const FilePath& pdb_path,
@@ -118,21 +119,11 @@ const std::string* GetSourceFileName(DWORD source_file_id,
   return source_file_name;
 }
 
-struct SourceLineAddressComparatorLowerBound {
-  bool operator()(const LineInfo::SourceLine& lhs,
-                  core::RelativeAddress rhs) const {
-    return lhs.address + lhs.size <= rhs;
-  }
-};
-
-struct SourceLineAddressComparatorUpperBound {
-  // This is called with @p lhs being the upper bound (exclusive) of the range
-  // being queried. We want to find the first range that is strictly beyond
-  // us, and since the lower bound of a range is inclusive we use <= in the
-  // comparison.
-  bool operator()(core::RelativeAddress lhs,
-                  const LineInfo::SourceLine& rhs) const {
-    return lhs <= rhs.address;
+// Used for comparing the ranges covered by two source lines.
+struct SourceLineAddressComparator {
+  bool operator()(const LineInfo::SourceLine& sl1,
+                  const LineInfo::SourceLine& sl2) const {
+    return sl1.address + sl1.size <= sl2.address;
   }
 };
 
@@ -250,29 +241,29 @@ bool LineInfo::Init(const FilePath& pdb_path) {
 }
 
 bool LineInfo::Visit(core::RelativeAddress address, size_t size) {
-  typedef core::AddressRange<core::RelativeAddress, size_t> Range;
-
   // Visiting a range of size zero is a nop.
   if (size == 0)
     return true;
 
-  Range visit(address, size);
+  // Create a dummy 'source line' for the search.
+  SourceLine visit_source_line(NULL, 0, address, size);
 
   SourceLines::iterator begin_it =
       std::lower_bound(source_lines_.begin(),
                        source_lines_.end(),
-                       visit.start(),
-                       SourceLineAddressComparatorLowerBound());
+                       visit_source_line,
+                       SourceLineAddressComparator());
 
   SourceLines::iterator end_it =
       std::upper_bound(source_lines_.begin(),
                        source_lines_.end(),
-                       visit.end(),
-                       SourceLineAddressComparatorUpperBound());
+                       visit_source_line,
+                       SourceLineAddressComparator());
 
   SourceLines::iterator it = begin_it;
+  RelativeAddressRange visit(address, size);
   for (; it != end_it; ++it) {
-    Range range(it->address, it->size);
+    RelativeAddressRange range(it->address, it->size);
     if (visit.Intersects(range))
       it->visited = true;
   }
