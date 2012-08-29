@@ -14,12 +14,13 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
 
 int main(int argc, char** argv) {
+  base::win::ScopedCOMInitializer com_init;
   base::AtExitManager at_exit;
   CommandLine::Init(argc, argv);
-
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -30,6 +30,8 @@
         'grinder.h',
         'grinder_util.cc',
         'grinder_util.h',
+        'line_info.cc',
+        'line_info.h',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
@@ -47,9 +49,11 @@
         'grinder_unittest.cc',
         'grinder_util_unittest.cc',
         'grinder_unittests_main.cc',
+        'line_info_unittest.cc',
       ],
       'dependencies': [
         'grinder_lib',
+        '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',

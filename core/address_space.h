@@ -24,6 +24,7 @@
 #define SYZYGY_CORE_ADDRESS_SPACE_H_
 
 #include <algorithm>
+#include <iosfwd>
 #include <map>
 #include <utility>
 #include <vector>
@@ -1141,6 +1142,15 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
   if (begin_affected_ranges < end_affected_ranges)
     range_pairs_.erase(range_pairs_.begin() + begin_affected_ranges,
                        range_pairs_.begin() + end_affected_ranges);
+}
+
+// An ostream operator for AddressRanges.
+template<typename AddressType, typename SizeType>
+std::ostream& operator<<(
+    std::ostream& str,
+    const AddressRange<AddressType, SizeType>& range) {
+  str << "AddressRange(" << range.start() << ", " << range.size() << ")";
+  return str;
 }
 
 }  // namespace core
