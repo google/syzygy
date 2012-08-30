@@ -26,6 +26,8 @@
       'target_name': 'asan_rtl_lib',
       'type': 'static_library',
       'sources': [
+        'asan_heap.cc',
+        'asan_heap.h',
         'asan_shadow.cc',
         'asan_shadow.h',
       ],
@@ -34,6 +36,7 @@
       'target_name': 'asan_rtl_unittests',
       'type': 'executable',
       'sources': [
+        'asan_heap_unittest.cc',
         'asan_shadow_unittest.cc',
         'asan_rtl_unittests_main.cc',
       ],
