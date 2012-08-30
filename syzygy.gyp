@@ -24,6 +24,7 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
+        'agent/asan/asan.gyp:*',
         'agent/call_trace/call_trace.gyp:*',
         'agent/common/common.gyp:*',
         'agent/coverage/coverage.gyp:*',
