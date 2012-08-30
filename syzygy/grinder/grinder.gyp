@@ -30,6 +30,8 @@
         'grinder.h',
         'grinder_util.cc',
         'grinder_util.h',
+        'lcov_writer.cc',
+        'lcov_writer.h',
         'line_info.cc',
         'line_info.h',
       ],
@@ -49,6 +51,7 @@
         'grinder_unittest.cc',
         'grinder_util_unittest.cc',
         'grinder_unittests_main.cc',
+        'lcov_writer_unittest.cc',
         'line_info_unittest.cc',
       ],
       'dependencies': [
