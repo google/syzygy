@@ -46,10 +46,10 @@ bool GetBasicBlockAddresses(const FilePath& pdb_path,
   }
 
   pdb::NameStreamMap::const_iterator stream_id_it =
-      name_stream_map.find(common::kCoverageAddressesStreamName);
+      name_stream_map.find(common::kCoverageRangesStreamName);
   if (stream_id_it == name_stream_map.end()) {
     LOG(ERROR) << "Failed to find stream \""
-               << common::kCoverageAddressesStreamName << "\" in PDB file: "
+               << common::kCoverageRangesStreamName << "\" in PDB file: "
                << pdb_path.value();
     return false;
   }
@@ -65,7 +65,7 @@ bool GetBasicBlockAddresses(const FilePath& pdb_path,
   stream->Seek(0);
   bb_addresses->clear();
   if (!stream->Read(bb_addresses)) {
-    LOG(ERROR) << "Failed to parse basic block address stream from PDB file: "
+    LOG(ERROR) << "Failed to parse basic block range stream from PDB file: "
                << pdb_path.value();
     return false;
   }

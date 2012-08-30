@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/mutators/add_bb_addresses_stream.h"
+#include "syzygy/instrument/mutators/add_bb_ranges_stream.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -23,12 +23,23 @@
 namespace instrument {
 namespace mutators {
 
-TEST(AddBasicBlockAddressesStreamPdbMutatorTest, FailsIfStreamAlreadyExists) {
-  AddBasicBlockAddressesStreamPdbMutator::RelativeAddressVector bb_addresses;
-  AddBasicBlockAddressesStreamPdbMutator mutator(bb_addresses);
+namespace {
 
-  bb_addresses.push_back(core::RelativeAddress(0x11111111));
-  bb_addresses.push_back(core::RelativeAddress(0x22222222));
+typedef AddBasicBlockRangesStreamPdbMutator::RelativeAddressRange
+    RelativeAddressRange;
+typedef AddBasicBlockRangesStreamPdbMutator::RelativeAddressRangeVector
+    RelativeAddressRangeVector;
+
+using core::RelativeAddress;
+
+}  // namespace
+
+TEST(AddBasicBlockRangesStreamPdbMutatorTest, FailsIfStreamAlreadyExists) {
+  RelativeAddressRangeVector bb_addresses;
+  AddBasicBlockRangesStreamPdbMutator mutator(bb_addresses);
+
+  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
+  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
 
   pdb::PdbFile pdb_file;
   ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file));
@@ -40,16 +51,16 @@ TEST(AddBasicBlockAddressesStreamPdbMutatorTest, FailsIfStreamAlreadyExists) {
                                         &name_stream_map));
   scoped_refptr<pdb::PdbStream> stream(new pdb::PdbByteStream);
   size_t stream_id = pdb_file.AppendStream(stream.get());
-  name_stream_map[common::kCoverageAddressesStreamName] = stream_id;
+  name_stream_map[common::kCoverageRangesStreamName] = stream_id;
   EXPECT_TRUE(pdb::WriteHeaderInfoStream(pdb_header, name_stream_map,
                                          &pdb_file));
 
   EXPECT_FALSE(mutator.MutatePdb(&pdb_file));
 }
 
-TEST(AddBasicBlockAddressesStreamPdbMutatorTest, DoesNotAddEmptyStream) {
-  AddBasicBlockAddressesStreamPdbMutator::RelativeAddressVector bb_addresses;
-  AddBasicBlockAddressesStreamPdbMutator mutator(bb_addresses);
+TEST(AddBasicBlockRangesStreamPdbMutatorTest, DoesNotAddEmptyStream) {
+  RelativeAddressRangeVector bb_addresses;
+  AddBasicBlockRangesStreamPdbMutator mutator(bb_addresses);
 
   pdb::PdbFile pdb_file;
   ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file));
@@ -62,15 +73,15 @@ TEST(AddBasicBlockAddressesStreamPdbMutatorTest, DoesNotAddEmptyStream) {
                                         &name_stream_map));
 
   // We expect no named stream to have been added.
-  EXPECT_EQ(0u, name_stream_map.count(common::kCoverageAddressesStreamName));
+  EXPECT_EQ(0u, name_stream_map.count(common::kCoverageRangesStreamName));
 }
 
-TEST(AddBasicBlockAddressesStreamPdbMutatorTest, AddsStream) {
-  AddBasicBlockAddressesStreamPdbMutator::RelativeAddressVector bb_addresses;
-  AddBasicBlockAddressesStreamPdbMutator mutator(bb_addresses);
+TEST(AddBasicBlockRangesStreamPdbMutatorTest, AddsStream) {
+  RelativeAddressRangeVector bb_addresses;
+  AddBasicBlockRangesStreamPdbMutator mutator(bb_addresses);
 
-  bb_addresses.push_back(core::RelativeAddress(0x11111111));
-  bb_addresses.push_back(core::RelativeAddress(0x22222222));
+  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
+  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
 
   pdb::PdbFile pdb_file;
   ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file));
@@ -83,15 +94,15 @@ TEST(AddBasicBlockAddressesStreamPdbMutatorTest, AddsStream) {
                                         &name_stream_map));
 
   // We expect the named stream to have been added.
-  EXPECT_EQ(1u, name_stream_map.count(common::kCoverageAddressesStreamName));
+  EXPECT_EQ(1u, name_stream_map.count(common::kCoverageRangesStreamName));
 
   // Get the stream.
-  size_t stream_id = name_stream_map[common::kCoverageAddressesStreamName];
+  size_t stream_id = name_stream_map[common::kCoverageRangesStreamName];
   scoped_refptr<pdb::PdbStream> stream = pdb_file.GetStream(stream_id);
   EXPECT_TRUE(stream.get() != NULL);
 
   // Validate the stream contents.
-  AddBasicBlockAddressesStreamPdbMutator::RelativeAddressVector bb_addresses2;
+  RelativeAddressRangeVector bb_addresses2;
   EXPECT_TRUE(stream->Seek(0));
   EXPECT_TRUE(stream->Read(&bb_addresses2));
   EXPECT_THAT(bb_addresses, testing::ContainerEq(bb_addresses2));

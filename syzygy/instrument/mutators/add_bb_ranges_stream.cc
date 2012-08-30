@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/mutators/add_bb_addresses_stream.h"
+#include "syzygy/instrument/mutators/add_bb_ranges_stream.h"
 
 #include "syzygy/common/coverage.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
@@ -20,26 +20,26 @@
 namespace instrument {
 namespace mutators {
 
-const char AddBasicBlockAddressesStreamPdbMutator::kMutatorName[] =
-    "AddBasicBlockAddressesStreamPdbMutator";
+const char AddBasicBlockRangesStreamPdbMutator::kMutatorName[] =
+    "AddBasicBlockRangesStreamPdbMutator";
 
-bool AddBasicBlockAddressesStreamPdbMutator::AddNamedStreams(
+bool AddBasicBlockRangesStreamPdbMutator::AddNamedStreams(
     const pdb::PdbFile& pdb_file) {
-  if (rel_addr_vector_.size() == 0) {
+  if (bb_ranges_.size() == 0) {
     LOG(INFO) << "Basic-block addresses vector is empty. Not adding stream.";
     return true;
   }
 
   // Create the stream.
   scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream);
-  CHECK(stream->Init(reinterpret_cast<const uint8*>(&rel_addr_vector_.at(0)),
-                     rel_addr_vector_.size() * sizeof(rel_addr_vector_.at(0))));
+  CHECK(stream->Init(reinterpret_cast<const uint8*>(&bb_ranges_.at(0)),
+                     bb_ranges_.size() * sizeof(bb_ranges_.at(0))));
 
   // Add the stream to the PDB.
-  if (!SetNamedStream(common::kCoverageAddressesStreamName, stream.get())) {
+  if (!SetNamedStream(common::kCoverageRangesStreamName, stream.get())) {
     // This should not happen, as it indicates we are trying to doubly
     // instrument a given binary.
-    LOG(ERROR) << "Basic-block addresses stream already exists.";
+    LOG(ERROR) << "Basic-block ranges stream already exists.";
     return false;
   }
 

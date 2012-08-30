@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "syzygy/block_graph/transforms/iterative_transform.h"
+#include "syzygy/core/address_space.h"
 
 namespace instrument {
 namespace transforms {
@@ -38,7 +39,9 @@ class CoverageInstrumentationTransform
  public:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
-  typedef std::vector<core::RelativeAddress> RelativeAddressVector;
+  typedef core::RelativeAddress RelativeAddress;
+  typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
+  typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
 
   // Constructor.
   CoverageInstrumentationTransform();
@@ -51,11 +54,11 @@ class CoverageInstrumentationTransform
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
 
-  // @returns the RVAs in the original image of the instrumented basic blocks.
-  //    They are in the order in which they were encountered during
+  // @returns the RVAs and sizes in the original image of the instrumented basic
+  //    blocks. They are in the order in which they were encountered during
   //    instrumentation, such that the index of the BB in the vector serves
   //    as its unique ID.
-  const RelativeAddressVector& bb_addresses() const { return bb_addresses_; }
+  const RelativeAddressRangeVector& bb_ranges() const { return bb_ranges_; }
 
  protected:
   friend block_graph::transforms::IterativeTransformImpl<
@@ -81,7 +84,7 @@ class CoverageInstrumentationTransform
   // Points to the block containing coverage data.
   BlockGraph::Block* coverage_data_block_;
   // Stores the RVAs in the original image for each instrumented basic block.
-  RelativeAddressVector bb_addresses_;
+  RelativeAddressRangeVector bb_ranges_;
 
   DISALLOW_COPY_AND_ASSIGN(CoverageInstrumentationTransform);
 };
