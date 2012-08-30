@@ -22,7 +22,7 @@
 
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "syzygy/instrument/mutators/add_bb_addresses_stream.h"
+#include "syzygy/instrument/mutators/add_bb_ranges_stream.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
 #include "syzygy/instrument/transforms/coverage_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
@@ -257,7 +257,7 @@ int InstrumentApp::Run() {
       import_thunk_tx;
   scoped_ptr<instrument::transforms::CoverageInstrumentationTransform>
       coverage_tx;
-  scoped_ptr<instrument::mutators::AddBasicBlockAddressesStreamPdbMutator>
+  scoped_ptr<instrument::mutators::AddBasicBlockRangesStreamPdbMutator>
       add_bb_addr_stream_mutator;
 
   // We are instrumenting in ASAN mode.
@@ -277,8 +277,8 @@ int InstrumentApp::Run() {
       relinker.AppendTransform(coverage_tx.get());
 
       add_bb_addr_stream_mutator.reset(
-          new instrument::mutators::AddBasicBlockAddressesStreamPdbMutator(
-              coverage_tx->bb_addresses()));
+          new instrument::mutators::AddBasicBlockRangesStreamPdbMutator(
+              coverage_tx->bb_ranges()));
       relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
     }
 

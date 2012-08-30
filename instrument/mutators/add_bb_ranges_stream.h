@@ -11,37 +11,43 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Declares a PDB mutator for adding basic-block addresses and sizes to a
+// named PDB stream.
 
-#ifndef SYZYGY_INSTRUMENT_MUTATORS_ADD_BB_ADDRESSES_STREAM_H_
-#define SYZYGY_INSTRUMENT_MUTATORS_ADD_BB_ADDRESSES_STREAM_H_
+#ifndef SYZYGY_INSTRUMENT_MUTATORS_ADD_BB_RANGES_STREAM_H_
+#define SYZYGY_INSTRUMENT_MUTATORS_ADD_BB_RANGES_STREAM_H_
 
 #include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 #include "syzygy/pdb/mutators/add_named_stream_mutator.h"
 
 namespace instrument {
 namespace mutators {
 
-class AddBasicBlockAddressesStreamPdbMutator
+class AddBasicBlockRangesStreamPdbMutator
     : public pdb::mutators::AddNamedStreamMutatorImpl<
-          AddBasicBlockAddressesStreamPdbMutator> {
+          AddBasicBlockRangesStreamPdbMutator> {
  public:
-  typedef std::vector<core::RelativeAddress> RelativeAddressVector;
+  typedef core::AddressRange<core::RelativeAddress, size_t>
+      RelativeAddressRange;
+  typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
 
   // Constructor.
-  // @param rel_addr_vector a reference to the vector that contains the relative
-  //     addresses associated with the basic blocks in an image. This need not
-  //     be populated at the time of construction, so long as it exists before
-  //     MutatePdb is called.
-  AddBasicBlockAddressesStreamPdbMutator(
-      const RelativeAddressVector& rel_addr_vector)
-          : rel_addr_vector_(rel_addr_vector) {
+  // @param bb_ranges a reference to the vector that contains the
+  //     relative addresses associated with the basic blocks in an image. This
+  //     need not be populated at the time of construction, so long as it exists
+  //     before MutatePdb is called.
+  AddBasicBlockRangesStreamPdbMutator(
+      const RelativeAddressRangeVector& bb_ranges)
+          : bb_ranges_(bb_ranges) {
   }
 
  protected:
   friend pdb::mutators::AddNamedStreamMutatorImpl<
-      AddBasicBlockAddressesStreamPdbMutator>;
+      AddBasicBlockRangesStreamPdbMutator>;
   friend pdb::mutators::NamedPdbMutatorImpl<
-      AddBasicBlockAddressesStreamPdbMutator>;
+      AddBasicBlockRangesStreamPdbMutator>;
 
   // Implementation of AddNamedStreamMutatorImpl.
   bool AddNamedStreams(const pdb::PdbFile& pdb_file);
@@ -49,10 +55,10 @@ class AddBasicBlockAddressesStreamPdbMutator
   // Implementation of NamedPdbMutatorImpl.
   static const char kMutatorName[];
 
-  const RelativeAddressVector& rel_addr_vector_;
+  const RelativeAddressRangeVector& bb_ranges_;
 };
 
 }  // namespace mutators
 }  // namespace instrument
 
-#endif  // SYZYGY_INSTRUMENT_MUTATORS_ADD_BB_ADDRESSES_STREAM_H_
+#endif  // SYZYGY_INSTRUMENT_MUTATORS_ADD_BB_RANGES_STREAM_H_

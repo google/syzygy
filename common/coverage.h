@@ -70,9 +70,9 @@ extern const char kCoverageClientDataSectionName[];
 // The characteristics given to the coverage instrumentation section.
 extern const DWORD kCoverageClientDataSectionCharacteristics;
 
-// The name of the basic-block addresses stream added to the PDB by the
+// The name of the basic-block ranges stream added to the PDB by the
 // coverage instrumentation.
-extern const char kCoverageAddressesStreamName[];
+extern const char kCoverageRangesStreamName[];
 
 }  // namespace common
 

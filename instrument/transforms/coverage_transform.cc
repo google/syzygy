@@ -122,15 +122,18 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     static const BlockGraph::Offset kDstOffset =
         offsetof(CoverageData, basic_block_seen_array);
     assm.mov(eax, Operand(Displacement(coverage_data_block_, kDstOffset)));
-    assm.mov_b(Operand(eax, Displacement(bb_addresses_.size())), Immediate(1));
+    assm.mov_b(Operand(eax, Displacement(bb_ranges_.size())), Immediate(1));
     assm.pop(eax);
 
-    // Get the RVA of the BB by translating its offset.
+    // Get the RVA of the BB by translating its offset. We also get its size
+    // from the source range. This assumes that the BB is an original
+    // untransformed BB.
     const BlockGraph::Block::DataRange& data_range = range_pair->first;
     const BlockGraph::Block::SourceRange& src_range = range_pair->second;
     core::RelativeAddress bb_addr = src_range.start() +
         (bb.offset() - data_range.start());
-    bb_addresses_.push_back(bb_addr);
+    size_t bb_size = src_range.size();
+    bb_ranges_.push_back(RelativeAddressRange(bb_addr, bb_size));
   }
 
   return true;
@@ -175,7 +178,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  if (bb_addresses_.size() == 0) {
+  if (bb_ranges_.size() == 0) {
     LOG(WARNING) << "Encountered no basic code blocks during instrumentation.";
     return true;
   }
@@ -185,7 +188,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   CoverageDataBlock coverage_data;
   DCHECK(coverage_data_block_ != NULL);
   CHECK(coverage_data.Init(0, coverage_data_block_));
-  coverage_data->basic_block_count = bb_addresses_.size();
+  coverage_data->basic_block_count = bb_ranges_.size();
 
   // Get/create a read/write .rdata section.
   BlockGraph::Section* rdata_section = block_graph->FindOrAddSection(
@@ -203,7 +206,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   // block.
   BlockGraph::Block* bb_seen_array_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            bb_addresses_.size(),
+                            bb_ranges_.size(),
                             "Basic Blocks Seen Array");
   DCHECK(bb_seen_array_block != NULL);
   bb_seen_array_block->set_section(rdata_section->id());
