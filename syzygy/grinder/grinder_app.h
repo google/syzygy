@@ -16,6 +16,7 @@
 
 #include "base/file_path.h"
 #include "syzygy/common/application.h"
+#include "syzygy/grinder/grinder.h"
 
 namespace grinder {
 
@@ -53,6 +54,7 @@ class GrinderApp : public common::AppImplBase {
   std::vector<FilePath> trace_files_;
   FilePath output_file_;
   Mode mode_;
+  scoped_ptr<GrinderInterface> grinder_;
 };
 
 }  // namespace grinder

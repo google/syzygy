@@ -20,15 +20,10 @@
 
 #include "base/file_path.h"
 #include "base/win/scoped_comptr.h"
-#include "syzygy/trace/parse/parser.h"
+#include "syzygy/grinder/grinder.h"
 
 namespace grinder {
 
-// Fwd.
-struct InvocationEdge;
-struct InvocationNode;
-struct Metrics;
-struct ModuleRVA;
 typedef uint32 RVA;
 
 // A worker class to sink profile trace events and output the aggregate data in
@@ -62,35 +57,26 @@ typedef uint32 RVA;
 //
 // For information on the KCacheGrind file format, see:
 // http://kcachegrind.sourceforge.net/cgi-bin/show.cgi/KcacheGrindCalltreeFormat
-class ProfileGrinder : public trace::parser::ParseEventHandlerImpl {
+class ProfileGrinder : public GrinderInterface {
  public:
-  typedef trace::parser::Parser Parser;
-
   ProfileGrinder();
   ~ProfileGrinder();
 
-  // @name Accessors.
+  // @name Accessors and mutators.
   // @{
-
   // If thread_parts is true, the grinder will aggregate and output
   // separate parts for each thread seen in the trace file(s).
   bool thread_parts() const { return thread_parts_; }
   void set_thread_parts(bool thread_parts) { thread_parts_ = thread_parts; }
-
-  const Parser* parser() const { return parser_; }
-  void set_parser(Parser* parser) { parser_ = parser; }
   // @}
 
-  // Invoke after processing all traces.
-  // This functions adds all caller edges to each function node's linked list of
-  // callers. In so doing, it also computes each function node's inclusive cost.
-  // @returns true on success, false on failure.
-  bool ResolveCallers();
-
-  // Invoke after ResolveCallers.
-  // Outputs the aggregated data to @p file.
-  // @returns true on success, false on failure.
-  bool OutputData(FILE* file);
+  // @name GrinderInterface implementation.
+  // @{
+  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
+  virtual void SetParser(Parser* parser) OVERRIDE;
+  virtual bool Grind() OVERRIDE;
+  virtual bool OutputData(FILE* file) OVERRIDE;
+  // @}
 
   // @name ParseEventHandler overrides.
   // @{
@@ -105,6 +91,7 @@ class ProfileGrinder : public trace::parser::ParseEventHandlerImpl {
                             DWORD thread_id,
                             const base::StringPiece& thread_name) OVERRIDE;
   // @}
+
  private:
   typedef sym_util::ModuleInformation ModuleInformation;
 
@@ -157,6 +144,11 @@ class ProfileGrinder : public trace::parser::ParseEventHandlerImpl {
                             const ModuleRVA& caller_rva,
                             const InvocationInfo& info,
                             PartData* part);
+
+  // This functions adds all caller edges to each function node's linked list of
+  // callers. In so doing, it also computes each function node's inclusive cost.
+  // @returns true on success, false on failure.
+  bool ResolveCallers();
 
   // Resolves callers for @p part.
   bool ResolveCallersForPart(PartData* part);
