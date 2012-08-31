@@ -14,7 +14,7 @@
 
 #include "syzygy/instrument/mutators/add_bb_ranges_stream.h"
 
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 
 namespace instrument {
@@ -36,7 +36,7 @@ bool AddBasicBlockRangesStreamPdbMutator::AddNamedStreams(
                      bb_ranges_.size() * sizeof(bb_ranges_.at(0))));
 
   // Add the stream to the PDB.
-  if (!SetNamedStream(common::kCoverageRangesStreamName, stream.get())) {
+  if (!SetNamedStream(common::kBasicBlockRangesStreamName, stream.get())) {
     // This should not happen, as it indicates we are trying to doubly
     // instrument a given binary.
     LOG(ERROR) << "Basic-block ranges stream already exists.";

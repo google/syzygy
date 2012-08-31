@@ -16,7 +16,7 @@
 
 #include "base/file_util.h"
 #include "mnemonics.h"  // NOLINT
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pdb/omap.h"
@@ -46,10 +46,10 @@ bool GetBasicBlockAddresses(const FilePath& pdb_path,
   }
 
   pdb::NameStreamMap::const_iterator stream_id_it =
-      name_stream_map.find(common::kCoverageRangesStreamName);
+      name_stream_map.find(common::kBasicBlockRangesStreamName);
   if (stream_id_it == name_stream_map.end()) {
     LOG(ERROR) << "Failed to find stream \""
-               << common::kCoverageRangesStreamName << "\" in PDB file: "
+               << common::kBasicBlockRangesStreamName << "\" in PDB file: "
                << pdb_path.value();
     return false;
   }

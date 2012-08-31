@@ -19,7 +19,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/block_graph/typed_block.h"
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -27,7 +27,7 @@
 namespace instrument {
 namespace transforms {
 
-using common::CoverageData;
+using common::BasicBlockFrequencyData;
 using block_graph::BlockGraph;
 
 class CoverageInstrumentationTransformTest : public testing::PELibUnitTest {
@@ -60,8 +60,8 @@ TEST_F(CoverageInstrumentationTransformTest, FailsWhenCoverageSectionExists) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   BlockGraph::Section* coverage_section = block_graph_.AddSection(
-      common::kCoverageClientDataSectionName,
-      common::kCoverageClientDataSectionCharacteristics);
+      common::kBasicBlockFrequencySectionName,
+      common::kBasicBlockFrequencySectionCharacteristics);
   ASSERT_TRUE(coverage_section != NULL);
 
   CoverageInstrumentationTransform tx;
@@ -78,7 +78,7 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
 
   // There should be a coverage section, and it should contain 1 block.
   BlockGraph::Section* coverage_section = block_graph_.FindSection(
-      common::kCoverageClientDataSectionName);
+      common::kBasicBlockFrequencySectionName);
   ASSERT_TRUE(coverage_section != NULL);
 
   const BlockGraph::Block* coverage_block = NULL;
@@ -92,16 +92,16 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
   ASSERT_TRUE(coverage_block != NULL);
 
   // The coverage block should have the appropriate size, etc.
-  ASSERT_EQ(sizeof(CoverageData), coverage_block->size());
-  ASSERT_EQ(sizeof(CoverageData), coverage_block->data_size());
+  ASSERT_EQ(sizeof(BasicBlockFrequencyData), coverage_block->size());
+  ASSERT_EQ(sizeof(BasicBlockFrequencyData), coverage_block->data_size());
 
-  block_graph::ConstTypedBlock<CoverageData> coverage_data;
+  block_graph::ConstTypedBlock<BasicBlockFrequencyData> coverage_data;
   ASSERT_TRUE(coverage_data.Init(0, coverage_block));
-  ASSERT_EQ(common::kCoverageClientMagic, coverage_data->magic);
-  ASSERT_EQ(common::kCoverageClientVersion, coverage_data->version);
-  ASSERT_EQ(tx.bb_ranges().size(), coverage_data->basic_block_count);
+  ASSERT_EQ(common::kBasicBlockCoverageAgentId, coverage_data->agent_id);
+  ASSERT_EQ(common::kBasicBlockFrequencyDataVersion, coverage_data->version);
+  ASSERT_EQ(tx.bb_ranges().size(), coverage_data->num_basic_blocks);
   ASSERT_TRUE(coverage_data.HasReferenceAt(
-      coverage_data.OffsetOf(coverage_data->basic_block_seen_array)));
+      coverage_data.OffsetOf(coverage_data->frequency_data)));
 }
 
 }  // namespace transforms
