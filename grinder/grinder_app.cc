@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "syzygy/grinder/grinder.h"
 #include "syzygy/grinder/profile_grinder.h"
 
 namespace grinder {
@@ -39,7 +40,11 @@ const char kUsageFormatStr[] =
     "    The processing mode. Must be one of 'profile' or 'coverage'.\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
-    "    The location of output file. If not specified, output is to stdout.\n";
+    "    The location of output file. If not specified, output is to stdout.\n"
+    "Profile mode optional parameters\n"
+    "  --thread-parts\n"
+    "    Aggregate and output separate parts for each thread seen in the\n"
+    "    trace files.\n";
 
 }  // namespace
 
@@ -84,6 +89,7 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   std::string mode = command_line->GetSwitchValueASCII("mode");
   if (mode == "profile") {
     mode_ = kProfile;
+    grinder_.reset(new ProfileGrinder());
   } else if (mode == "coverage") {
     mode_ = kCoverage;
     PrintUsage(command_line->GetProgram(), "Coverage mode not yet supported.");
@@ -93,6 +99,15 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
                base::StringPrintf("Unknown mode: %s.", mode.c_str()));
     return false;
   }
+  DCHECK(grinder_.get() != NULL);
+
+  // Parse the command-line for the grinder.
+  if (!grinder_->ParseCommandLine(command_line)) {
+    PrintUsage(command_line->GetProgram(),
+               base::StringPrintf("Failed to parse %s parameters.",
+                                  mode.c_str()));
+    return false;
+  }
 
   output_file_ = command_line->GetSwitchValuePath("output-file");
 
@@ -100,14 +115,14 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
 }
 
 int GrinderApp::Run() {
+  DCHECK(grinder_.get() != NULL);
+
   // We currently only support profile mode.
   DCHECK_EQ(kProfile, mode_);
 
-  grinder::ProfileGrinder profile_grinder;
   trace::parser::Parser parser;
-
-  profile_grinder.set_parser(&parser);
-  if (!parser.Init(&profile_grinder))
+  grinder_->SetParser(&parser);
+  if (!parser.Init(grinder_.get()))
     return 1;
 
   // Open the input files.
@@ -139,14 +154,14 @@ int GrinderApp::Run() {
     return 1;
   }
 
-  if (!profile_grinder.ResolveCallers()) {
-    LOG(ERROR) << "Error resolving callers.";
+  if (!grinder_->Grind()) {
+    LOG(ERROR) << "Failed to grind data.";
     return 1;
   }
 
   DCHECK(output != NULL);
-  if (!profile_grinder.OutputData(output)) {
-    LOG(ERROR) << "Error writing output.";
+  if (!grinder_->OutputData(output)) {
+    LOG(ERROR) << "Failed to output data.";
     return 1;
   }
 

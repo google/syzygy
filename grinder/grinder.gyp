@@ -30,6 +30,7 @@
         'grinder_app.h',
         'grinder_util.cc',
         'grinder_util.h',
+        'grinder.h',
         'lcov_writer.cc',
         'lcov_writer.h',
         'line_info.cc',

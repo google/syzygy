@@ -67,6 +67,24 @@ ProfileGrinder::ProfileGrinder()
 ProfileGrinder::~ProfileGrinder() {
 }
 
+bool ProfileGrinder::ParseCommandLine(const CommandLine* command_line) {
+  thread_parts_ = command_line->HasSwitch("thread-parts");
+  return true;
+}
+
+void ProfileGrinder::SetParser(Parser* parser) {
+  DCHECK(parser != NULL);
+  parser_ = parser;
+}
+
+bool ProfileGrinder::Grind() {
+  if (!ResolveCallers()) {
+    LOG(ERROR) << "Error resolving callers.";
+    return false;
+  }
+  return true;
+}
+
 bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
                                          IDiaSession** session_out) {
   DCHECK(module != NULL);
