@@ -14,7 +14,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "syzygy/grinder/grinder.h"
+#include "syzygy/grinder/grinder_app.h"
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
