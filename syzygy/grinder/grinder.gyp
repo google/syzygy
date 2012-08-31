@@ -26,14 +26,16 @@
       'target_name': 'grinder_lib',
       'type': 'static_library',
       'sources': [
-        'grinder.cc',
-        'grinder.h',
+        'grinder_app.cc',
+        'grinder_app.h',
         'grinder_util.cc',
         'grinder_util.h',
         'lcov_writer.cc',
         'lcov_writer.h',
         'line_info.cc',
         'line_info.h',
+        'profile_grinder.cc',
+        'profile_grinder.h',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/common/common.gyp:common',
@@ -48,11 +50,12 @@
       'target_name': 'grinder_unittests',
       'type': 'executable',
       'sources': [
-        'grinder_unittest.cc',
+        'grinder_app_unittest.cc',
         'grinder_util_unittest.cc',
         'grinder_unittests_main.cc',
         'lcov_writer_unittest.cc',
         'line_info_unittest.cc',
+        'profile_grinder_unittest.cc',
       ],
       'dependencies': [
         'grinder_lib',

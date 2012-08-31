@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SYZYGY_GRINDER_GRINDER_H_
-#define SYZYGY_GRINDER_GRINDER_H_
+#ifndef SYZYGY_GRINDER_PROFILE_GRINDER_H_
+#define SYZYGY_GRINDER_PROFILE_GRINDER_H_
 
 #include <dia2.h>
 #include <iostream>
@@ -20,7 +20,6 @@
 
 #include "base/file_path.h"
 #include "base/win/scoped_comptr.h"
-#include "syzygy/common/application.h"
 #include "syzygy/trace/parse/parser.h"
 
 namespace grinder {
@@ -57,18 +56,18 @@ typedef uint32 RVA;
 // This class aggregates the data from a trace log, and builds a graph of
 // function nodes and call edges. For each call edge, it aggregates the data
 // from one or more log records, by summing up the call counts and inclusive
-// metrics. For each function node, it also computes the exlusive cost, by
+// metrics. For each function node, it also computes the exclusive cost, by
 // summing up the cost of the incoming edges, and subtracting the cost of the
 // outgoing edges.
 //
 // For information on the KCacheGrind file format, see:
 // http://kcachegrind.sourceforge.net/cgi-bin/show.cgi/KcacheGrindCalltreeFormat
-class Grinder : public trace::parser::ParseEventHandlerImpl {
+class ProfileGrinder : public trace::parser::ParseEventHandlerImpl {
  public:
   typedef trace::parser::Parser Parser;
 
-  Grinder();
-  ~Grinder();
+  ProfileGrinder();
+  ~ProfileGrinder();
 
   // @name Accessors.
   // @{
@@ -108,7 +107,13 @@ class Grinder : public trace::parser::ParseEventHandlerImpl {
   // @}
  private:
   typedef sym_util::ModuleInformation ModuleInformation;
+
+  // Forward declarations.
   struct PartData;
+  struct ModuleRVA;
+  struct Metrics;
+  struct InvocationNode;
+  struct InvocationEdge;
 
   typedef std::set<ModuleInformation,
       bool (*)(const ModuleInformation& a, const ModuleInformation& b)>
@@ -165,26 +170,6 @@ class Grinder : public trace::parser::ParseEventHandlerImpl {
   // Stores the DIA session objects we have going for each module.
   ModuleSessionMap module_sessions_;
 
-  // The data we store for each part.
-  struct PartData {
-    PartData();
-
-    // The thread name for this part.
-    std::string thread_name_;
-
-    // The process ID for this part.
-    uint32 process_id_;
-
-    // The thread ID for this part.
-    uint32 thread_id_;
-
-    // Stores the invocation nodes, aka the functions.
-    InvocationNodeMap nodes_;
-
-    // Stores the invocation edges.
-    InvocationEdgeMap edges_;
-  };
-
   // The parts we store. If thread_parts_ is false, we store only a single
   // part with id 0.
   typedef std::map<uint32, PartData> PartDataMap;
@@ -196,10 +181,30 @@ class Grinder : public trace::parser::ParseEventHandlerImpl {
   Parser* parser_;
 };
 
+// The data we store for each part.
+struct ProfileGrinder::PartData {
+  PartData();
+
+  // The thread name for this part.
+  std::string thread_name_;
+
+  // The process ID for this part.
+  uint32 process_id_;
+
+  // The thread ID for this part.
+  uint32 thread_id_;
+
+  // Stores the invocation nodes, aka the functions.
+  InvocationNodeMap nodes_;
+
+  // Stores the invocation edges.
+  InvocationEdgeMap edges_;
+};
+
 // RVA in a module. The module should be a canonical pointer
 // to the module information to make this comparable against
 // other RVAs in the same module.
-struct ModuleRVA {
+struct ProfileGrinder::ModuleRVA {
   ModuleRVA() : module(NULL), rva(0) {
   }
 
@@ -225,7 +230,7 @@ struct ModuleRVA {
 };
 
 // The metrics we capture per function and per caller.
-struct Metrics {
+struct ProfileGrinder::Metrics {
   Metrics() : num_calls(0), cycles_min(0), cycles_max(0), cycles_sum(0) {
   }
 
@@ -236,7 +241,7 @@ struct Metrics {
 };
 
 // An invocation node represents a function.
-struct InvocationNode {
+struct ProfileGrinder::InvocationNode {
   InvocationNode() : first_call(NULL) {
   }
 
@@ -251,7 +256,7 @@ struct InvocationNode {
 };
 
 // An invocation edge represents a caller->function pair.
-struct InvocationEdge {
+struct ProfileGrinder::InvocationEdge {
   InvocationEdge() : caller_function(NULL), line(0), next_call(NULL) {
   }
 
@@ -270,35 +275,6 @@ struct InvocationEdge {
   InvocationEdge* next_call;
 };
 
-// The application class that takes care of running Grinder over a set of
-// profiler trace files.
-class GrinderApp : public common::AppImplBase {
- public:
-  GrinderApp();
-
-  // @name Implementation of the AppImplbase interface.
-  // @{
-  bool ParseCommandLine(const CommandLine* command_line);
-  int Run();
-  // @}
-
-  // @name Utility functions
-  // @{
-  void PrintUsage(const FilePath& program,
-                  const base::StringPiece& message);
-  // @}
-
- protected:
-  // If @p path is an existing file, stores it in trace_files_, otherwise
-  // expands it to the files it references and stores in trace_files_.
-  // @returns true if path is an existing file, or a pattern that references
-  //     one or more files.
-  bool ExpandArgument(const FilePath& path);
-
-  std::vector<FilePath> trace_files_;
-  FilePath output_file_;
-};
-
 }  // namespace grinder
 
-#endif  // SYZYGY_GRINDER_GRINDER_H_
+#endif  // SYZYGY_GRINDER_PROFILE_GRINDER_H_

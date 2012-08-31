@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/grinder.h"
+#include "syzygy/grinder/profile_grinder.h"
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
-#include "base/logging.h"
-#include "base/stringprintf.h"
 #include "base/win/scoped_bstr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/pe/find.h"
@@ -58,20 +55,20 @@ bool ModuleInformationKeyLess(const ModuleInformation& a,
 
 }  // namespace
 
-Grinder::PartData::PartData() {
+ProfileGrinder::PartData::PartData() {
 }
 
-Grinder::Grinder()
+ProfileGrinder::ProfileGrinder()
     : modules_(ModuleInformationKeyLess),
       thread_parts_(true),
       parser_(NULL) {
 }
 
-Grinder::~Grinder() {
+ProfileGrinder::~ProfileGrinder() {
 }
 
-bool Grinder::GetSessionForModule(const ModuleInformation* module,
-                                  IDiaSession** session_out) {
+bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
+                                         IDiaSession** session_out) {
   DCHECK(module != NULL);
   DCHECK(session_out != NULL);
   DCHECK(*session_out == NULL);
@@ -162,8 +159,8 @@ bool Grinder::GetSessionForModule(const ModuleInformation* module,
   return true;
 }
 
-Grinder::PartData* Grinder::FindOrCreatePart(DWORD process_id,
-                                             DWORD thread_id) {
+ProfileGrinder::PartData* ProfileGrinder::FindOrCreatePart(DWORD process_id,
+                                                           DWORD thread_id) {
   if (!thread_parts_) {
     process_id = 0;
     thread_id = 0;
@@ -183,9 +180,9 @@ Grinder::PartData* Grinder::FindOrCreatePart(DWORD process_id,
 }
 
 
-bool Grinder::GetFunctionByRVA(IDiaSession* session,
-                               RVA address,
-                               IDiaSymbol** symbol) {
+bool ProfileGrinder::GetFunctionByRVA(IDiaSession* session,
+                                      RVA address,
+                                      IDiaSymbol** symbol) {
   DCHECK(session != NULL);
   DCHECK(symbol != NULL && *symbol == NULL);
 
@@ -211,9 +208,9 @@ bool Grinder::GetFunctionByRVA(IDiaSession* session,
   return true;
 }
 
-bool Grinder::GetInfoForCallerRVA(const ModuleRVA& caller,
-                                  RVA* function_rva,
-                                  size_t* line) {
+bool ProfileGrinder::GetInfoForCallerRVA(const ModuleRVA& caller,
+                                         RVA* function_rva,
+                                         size_t* line) {
   DCHECK(function_rva != NULL);
   DCHECK(line != NULL);
 
@@ -281,10 +278,10 @@ bool Grinder::GetInfoForCallerRVA(const ModuleRVA& caller,
   return true;
 }
 
-bool Grinder::GetInfoForFunctionRVA(const ModuleRVA& function,
-                                    std::wstring* function_name,
-                                    std::wstring* file_name,
-                                    size_t* line) {
+bool ProfileGrinder::GetInfoForFunctionRVA(const ModuleRVA& function,
+                                           std::wstring* function_name,
+                                           std::wstring* file_name,
+                                           size_t* line) {
   DCHECK(function_name != NULL);
   DCHECK(file_name != NULL);
   DCHECK(line != NULL);
@@ -362,7 +359,7 @@ bool Grinder::GetInfoForFunctionRVA(const ModuleRVA& function,
   return true;
 }
 
-bool Grinder::ResolveCallers() {
+bool ProfileGrinder::ResolveCallers() {
   PartDataMap::iterator it = parts_.begin();
   for (; it != parts_.end(); ++it) {
     if (!ResolveCallersForPart(&it->second))
@@ -372,7 +369,7 @@ bool Grinder::ResolveCallers() {
   return true;
 }
 
-bool Grinder::ResolveCallersForPart(PartData* part) {
+bool ProfileGrinder::ResolveCallersForPart(PartData* part) {
   // We start by iterating all the edges, connecting them up to their caller,
   // and subtracting the edge metric(s) to compute the inclusive metrics for
   // each function.
@@ -423,7 +420,7 @@ bool Grinder::ResolveCallersForPart(PartData* part) {
   return true;
 }
 
-bool Grinder::OutputData(FILE* file) {
+bool ProfileGrinder::OutputData(FILE* file) {
   // Output the file header.
 
   bool succeeded = true;
@@ -438,7 +435,7 @@ bool Grinder::OutputData(FILE* file) {
   return succeeded;
 }
 
-bool Grinder::OutputDataForPart(const PartData& part, FILE* file) {
+bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
   // TODO(siggi): Output command line here.
   ::fprintf(file, "pid: %d\n", part.process_id_);
   if (part.thread_id_ != 0)
@@ -490,11 +487,11 @@ bool Grinder::OutputDataForPart(const PartData& part, FILE* file) {
   return true;
 }
 
-void Grinder::OnInvocationBatch(base::Time time,
-                                DWORD process_id,
-                                DWORD thread_id,
-                                size_t num_invocations,
-                                const TraceBatchInvocationInfo* data) {
+void ProfileGrinder::OnInvocationBatch(base::Time time,
+                                       DWORD process_id,
+                                       DWORD thread_id,
+                                       size_t num_invocations,
+                                       const TraceBatchInvocationInfo* data) {
   PartData* part = FindOrCreatePart(process_id, thread_id);
   DCHECK(data != NULL);
 
@@ -526,10 +523,10 @@ void Grinder::OnInvocationBatch(base::Time time,
   }
 }
 
-void Grinder::OnThreadName(base::Time time,
-                           DWORD process_id,
-                           DWORD thread_id,
-                           const base::StringPiece& thread_name) {
+void ProfileGrinder::OnThreadName(base::Time time,
+                                  DWORD process_id,
+                                  DWORD thread_id,
+                                  const base::StringPiece& thread_name) {
   if (!thread_parts_)
     return;
 
@@ -537,10 +534,10 @@ void Grinder::OnThreadName(base::Time time,
   part->thread_name_ = thread_name.as_string();
 }
 
-void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
-                                   const ModuleRVA& caller_rva,
-                                   const InvocationInfo& info,
-                                   PartData* part) {
+void ProfileGrinder::AggregateEntryToPart(const ModuleRVA& function_rva,
+                                          const ModuleRVA& caller_rva,
+                                          const InvocationInfo& info,
+                                          PartData* part) {
   // Have we recorded this node before?
   InvocationNodeMap::iterator node_it(part->nodes_.find(function_rva));
   if (node_it != part->nodes_.end()) {
@@ -594,9 +591,9 @@ void Grinder::AggregateEntryToPart(const ModuleRVA& function_rva,
   }
 }
 
-void Grinder::ConvertToModuleRVA(uint32 process_id,
-                                 AbsoluteAddress64 addr,
-                                 ModuleRVA* rva) {
+void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
+                                        AbsoluteAddress64 addr,
+                                        ModuleRVA* rva) {
   DCHECK(rva != NULL);
 
   const ModuleInformation* module =
@@ -621,125 +618,6 @@ void Grinder::ConvertToModuleRVA(uint32 process_id,
   DCHECK(it != modules_.end());
 
   rva->module = &(*it);
-}
-
-namespace {
-
-const char kUsageFormatStr[] =
-    "Usage: %ls <trace files> [options]\n"
-    "\n"
-    "  A tool that parses profile trace files and outputs KCacheGrind-\n"
-    "  compatible output files for visualization.\n"
-    "\n"
-    "Optional parameters\n"
-    "  --output-file=<output file>\n"
-    "    The location of output file. If not specified, output is to stdout.\n";
-
-}  // namespace
-
-GrinderApp::GrinderApp() : common::AppImplBase("Grinder") {
-}
-
-void GrinderApp::PrintUsage(const FilePath& program,
-                            const base::StringPiece& message) {
-  if (!message.empty()) {
-    ::fwrite(message.data(), 1, message.length(), out());
-    ::fprintf(out(), "\n\n");
-  }
-
-  ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str());
-}
-
-bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
-  DCHECK(command_line != NULL);
-
-  CommandLine::StringVector args = command_line->GetArgs();
-  if (args.empty()) {
-    PrintUsage(command_line->GetProgram(),
-               "You must provide at least one trace file");
-    return false;
-  }
-
-  for (size_t i = 0; i < args.size(); ++i) {
-    if (!ExpandArgument(FilePath(args[i]))) {
-      PrintUsage(command_line->GetProgram(),
-                 base::StringPrintf("No such file '%ws'.", args[i].c_str()));
-      return false;
-    }
-  }
-
-  output_file_ = command_line->GetSwitchValuePath("output-file");
-
-  return true;
-}
-
-int GrinderApp::Run() {
-  grinder::Grinder grinder;
-  trace::parser::Parser parser;
-
-  grinder.set_parser(&parser);
-  if (!parser.Init(&grinder))
-    return 1;
-
-  for (size_t i = 0; i < trace_files_.size(); ++i) {
-    if (!parser.OpenTraceFile(trace_files_[i])) {
-      LOG(ERROR) << "Unable to open trace file \'"
-                 << trace_files_[i].value() << "'";
-      return 1;
-    }
-  }
-
-  if (!parser.Consume()) {
-    LOG(ERROR) << "Error parsing trace files.";
-    return 1;
-  }
-
-  if (!grinder.ResolveCallers()) {
-    LOG(ERROR) << "Error resolving callers.";
-    return 1;
-  }
-
-  FILE* output = out();
-  file_util::ScopedFILE auto_close;
-  if (!output_file_.empty()) {
-    output = file_util::OpenFile(output_file_, "w");
-    if (output == NULL) {
-      LOG(ERROR) << "Unable to create output file \'"
-                 << output_file_.value() << "'";
-      return 1;
-    }
-
-    auto_close.reset(output);
-  }
-
-  DCHECK(output != NULL);
-  if (!grinder.OutputData(output)) {
-    LOG(ERROR) << "Error writing output.";
-    return 1;
-  }
-
-  return 0;
-}
-
-bool GrinderApp::ExpandArgument(const FilePath& path) {
-  bool success = false;
-
-  // Whether the path is an existing file or not, we expand it as a glob.
-  // If it's a file, it'll match itself and nothing else.
-  file_util::FileEnumerator files(path.DirName(),
-                                  false,
-                                  file_util::FileEnumerator::FILES,
-                                  path.BaseName().value());
-  while (true) {
-    FilePath file = files.Next();
-    if (file.empty())
-      break;
-
-    success = true;
-    trace_files_.push_back(file);
-  }
-
-  return success;
 }
 
 }  // namespace grinder

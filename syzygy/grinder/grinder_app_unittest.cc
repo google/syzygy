@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/grinder.h"
+#include "syzygy/grinder/grinder_app.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
@@ -80,12 +80,19 @@ class GrinderAppTest : public testing::PELibUnitTest {
 
 }  // namespace
 
+TEST_F(GrinderAppTest, ParseCommandLineFailsWithNoMode) {
+  cmd_line_.AppendArgPath(FilePath(L"foo.dat"));
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
 TEST_F(GrinderAppTest, ParseCommandLineFailsWithNoFiles) {
+  cmd_line_.AppendSwitchASCII("mode", "profile");
   ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
   std::vector<FilePath> temp_files;
+  cmd_line_.AppendSwitchASCII("mode", "profile");
   for (size_t i = 0; i < 10; ++i) {
     FilePath temp_file;
     ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
@@ -99,6 +106,7 @@ TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
 
 TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_TRUE(impl_.output_file_.empty());
+  cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendSwitchPath("output-file", FilePath(L"output.txt"));
   cmd_line_.AppendArgPath(
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
@@ -108,6 +116,7 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
 }
 
 TEST_F(GrinderAppTest, EndToEnd) {
+  cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendArgPath(
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
 
@@ -124,4 +133,4 @@ TEST_F(GrinderAppTest, EndToEnd) {
   EXPECT_TRUE(file_util::PathExists(output_file));
 }
 
-} //  namespace grinder
+}  // namespace grinder
