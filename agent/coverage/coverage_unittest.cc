@@ -20,7 +20,7 @@
 #include "base/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/unittest_util.h"
 
@@ -29,7 +29,7 @@ namespace coverage {
 
 namespace {
 
-using ::common::CoverageData;
+using ::common::BasicBlockFrequencyData;
 using testing::_;
 using testing::StrictMockParseEventHandler;
 using trace::parser::Parser;
@@ -42,13 +42,15 @@ uint8 bb_seen_array[kBasicBlockCount] = {};
 // Force ourselves to have a .coverage section identical to one that would be
 // injected by the coverage instrumentation transform.
 #pragma data_seg(push, old_seg)
-#pragma data_seg(".cover")
-CoverageData coverage_data = {
-    ::common::kCoverageClientMagic,
-    ::common::kCoverageClientVersion,
-    0,
+#pragma data_seg(".bbfreq")
+BasicBlockFrequencyData coverage_data = {
+    ::common::kBasicBlockCoverageAgentId,
+    ::common::kBasicBlockFrequencyDataVersion,
+    TLS_OUT_OF_INDEXES,
+    bb_seen_array,
     kBasicBlockCount,
-    bb_seen_array };
+    1U,  // frequency_size.
+    0U };  // initialization_attempted.
 #pragma data_seg(pop, old_seg)
 
 MATCHER_P(ModuleAtAddress, module, "") {
@@ -62,7 +64,7 @@ MATCHER_P3(CoverageDataMatches, module, bb_count, bb_freqs, "") {
   if (arg->frequency_size != 1)
     return false;
 
-  if (arg->basic_block_count != bb_count)
+  if (arg->num_basic_blocks != bb_count)
     return false;
 
   return ::memcmp(bb_freqs, arg->frequency_data, bb_count) == 0;
@@ -77,7 +79,8 @@ class CoverageClientTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     testing::Test::SetUp();
 
-    coverage_data.basic_block_seen_array = bb_seen_array;
+    coverage_data.initialization_attempted = 0U;
+    coverage_data.frequency_data = bb_seen_array;
     ::memset(bb_seen_array, 0, sizeof(bb_seen_array));
 
     // Call trace files will be stuffed here.
@@ -187,8 +190,8 @@ BOOL __declspec(naked) WINAPI CoverageClientTest::DllMainThunk(
 }
 
 void VisitBlock(size_t i) {
-  EXPECT_GT(coverage_data.basic_block_count, i);
-  coverage_data.basic_block_seen_array[i] = 1;
+  EXPECT_GT(coverage_data.num_basic_blocks, i);
+  coverage_data.frequency_data[i] = 1;
 }
 
 }  // namespace
@@ -196,11 +199,11 @@ void VisitBlock(size_t i) {
 TEST_F(CoverageClientTest, NoServerNoCrash) {
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
-  const uint8* data = coverage_data.basic_block_seen_array;
+  const uint8* data = coverage_data.frequency_data;
   EXPECT_TRUE(DllMainThunk(::GetModuleHandle(NULL), DLL_PROCESS_ATTACH, NULL));
 
   // There should be no allocation.
-  ASSERT_EQ(data, coverage_data.basic_block_seen_array);
+  ASSERT_EQ(data, coverage_data.frequency_data);
 
   // Visiting blocks should not fail.
   VisitBlock(0);
@@ -221,17 +224,17 @@ TEST_F(CoverageClientTest, VisitOneBB) {
   DWORD process_id = ::GetCurrentProcessId();
   DWORD thread_id = ::GetCurrentThreadId();
 
-  const uint8* data = coverage_data.basic_block_seen_array;
+  const uint8* data = coverage_data.frequency_data;
   EXPECT_TRUE(DllMainThunk(self, DLL_PROCESS_ATTACH, NULL));
 
   // There should have been an allocation.
-  ASSERT_NE(data, coverage_data.basic_block_seen_array);
-  data = coverage_data.basic_block_seen_array;
+  ASSERT_NE(data, coverage_data.frequency_data);
+  data = coverage_data.frequency_data;
 
   // Calling the entry thunk repeatedly should not fail, and should not cause
   // a reallocation.
   EXPECT_TRUE(DllMainThunk(self, DLL_PROCESS_ATTACH, NULL));
-  ASSERT_EQ(data, coverage_data.basic_block_seen_array);
+  ASSERT_EQ(data, coverage_data.frequency_data);
 
   VisitBlock(0);
 

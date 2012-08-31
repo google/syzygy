@@ -16,7 +16,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/unittest_util.h"
 
@@ -31,6 +31,7 @@ typedef AddBasicBlockRangesStreamPdbMutator::RelativeAddressRangeVector
     RelativeAddressRangeVector;
 
 using core::RelativeAddress;
+using common::kBasicBlockRangesStreamName;
 
 }  // namespace
 
@@ -51,7 +52,7 @@ TEST(AddBasicBlockRangesStreamPdbMutatorTest, FailsIfStreamAlreadyExists) {
                                         &name_stream_map));
   scoped_refptr<pdb::PdbStream> stream(new pdb::PdbByteStream);
   size_t stream_id = pdb_file.AppendStream(stream.get());
-  name_stream_map[common::kCoverageRangesStreamName] = stream_id;
+  name_stream_map[kBasicBlockRangesStreamName] = stream_id;
   EXPECT_TRUE(pdb::WriteHeaderInfoStream(pdb_header, name_stream_map,
                                          &pdb_file));
 
@@ -73,7 +74,7 @@ TEST(AddBasicBlockRangesStreamPdbMutatorTest, DoesNotAddEmptyStream) {
                                         &name_stream_map));
 
   // We expect no named stream to have been added.
-  EXPECT_EQ(0u, name_stream_map.count(common::kCoverageRangesStreamName));
+  EXPECT_EQ(0u, name_stream_map.count(kBasicBlockRangesStreamName));
 }
 
 TEST(AddBasicBlockRangesStreamPdbMutatorTest, AddsStream) {
@@ -94,10 +95,10 @@ TEST(AddBasicBlockRangesStreamPdbMutatorTest, AddsStream) {
                                         &name_stream_map));
 
   // We expect the named stream to have been added.
-  EXPECT_EQ(1u, name_stream_map.count(common::kCoverageRangesStreamName));
+  EXPECT_EQ(1u, name_stream_map.count(kBasicBlockRangesStreamName));
 
   // Get the stream.
-  size_t stream_id = name_stream_map[common::kCoverageRangesStreamName];
+  size_t stream_id = name_stream_map[kBasicBlockRangesStreamName];
   scoped_refptr<pdb::PdbStream> stream = pdb_file.GetStream(stream_id);
   EXPECT_TRUE(stream.get() != NULL);
 

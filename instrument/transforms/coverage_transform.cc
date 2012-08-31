@@ -16,7 +16,7 @@
 
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/typed_block.h"
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
@@ -26,7 +26,7 @@ namespace transforms {
 
 namespace {
 
-using common::CoverageData;
+using common::BasicBlockFrequencyData;
 using core::eax;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
@@ -36,7 +36,7 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
 
-typedef block_graph::TypedBlock<CoverageData> CoverageDataBlock;
+typedef block_graph::TypedBlock<BasicBlockFrequencyData> CoverageDataBlock;
 
 bool AddCoverageDataSection(BlockGraph* block_graph,
                             BlockGraph::Block** coverage_data_block) {
@@ -44,28 +44,29 @@ bool AddCoverageDataSection(BlockGraph* block_graph,
   DCHECK(coverage_data_block != NULL);
 
   BlockGraph::Section* coverage_section = block_graph->FindSection(
-      common::kCoverageClientDataSectionName);
+      common::kBasicBlockFrequencySectionName);
   if (coverage_section != NULL) {
     LOG(ERROR) << "Block-graph already contains a code coverage data section ("
-               << common::kCoverageClientDataSectionName << ").";
+               << common::kBasicBlockFrequencySectionName << ").";
     return false;
   }
 
   coverage_section = block_graph->AddSection(
-      common::kCoverageClientDataSectionName,
-      common::kCoverageClientDataSectionCharacteristics);
+      common::kBasicBlockFrequencySectionName,
+      common::kBasicBlockFrequencySectionCharacteristics);
   DCHECK(coverage_section != NULL);
 
   BlockGraph::Block* block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            sizeof(CoverageData),
+                            sizeof(BasicBlockFrequencyData),
                             "Coverage data");
   DCHECK(block != NULL);
   block->set_section(coverage_section->id());
 
-  CoverageData coverage_data = {};
-  coverage_data.magic = common::kCoverageClientMagic;
-  coverage_data.version = common::kCoverageClientVersion;
+  BasicBlockFrequencyData coverage_data = {};
+  coverage_data.agent_id = common::kBasicBlockCoverageAgentId;
+  coverage_data.version = common::kBasicBlockFrequencyDataVersion;
+  coverage_data.tls_index = TLS_OUT_OF_INDEXES;
 
   block->CopyData(sizeof(coverage_data), &coverage_data);
   *coverage_data_block = block;
@@ -120,7 +121,7 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     // Prepend the instrumentation instructions.
     assm.push(eax);
     static const BlockGraph::Offset kDstOffset =
-        offsetof(CoverageData, basic_block_seen_array);
+        offsetof(BasicBlockFrequencyData, frequency_data);
     assm.mov(eax, Operand(Displacement(coverage_data_block_, kDstOffset)));
     assm.mov_b(Operand(eax, Displacement(bb_ranges_.size())), Immediate(1));
     assm.pop(eax);
@@ -188,7 +189,8 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   CoverageDataBlock coverage_data;
   DCHECK(coverage_data_block_ != NULL);
   CHECK(coverage_data.Init(0, coverage_data_block_));
-  coverage_data->basic_block_count = bb_ranges_.size();
+  coverage_data->num_basic_blocks = bb_ranges_.size();
+  coverage_data->frequency_size = 1U;
 
   // Get/create a read/write .rdata section.
   BlockGraph::Section* rdata_section = block_graph->FindOrAddSection(
@@ -202,7 +204,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   // Create an empty block that is sufficient to hold all of the coverage
   // results. We will initially point basic_block_seen_array at this so that
   // even if the call-trace service is down the program can run without
-  // crashing. We put this in .rdata so that .cover contains only a single
+  // crashing. We put this in .rdata so that .bbfreq contains only a single
   // block.
   BlockGraph::Block* bb_seen_array_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
@@ -213,10 +215,10 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
 
   // Hook it up to the coverage_data array pointer.
   coverage_data_block_->SetReference(
-      coverage_data.OffsetOf(coverage_data->basic_block_seen_array),
+      coverage_data.OffsetOf(coverage_data->frequency_data),
       BlockGraph::Reference(
           BlockGraph::ABSOLUTE_REF,
-          sizeof(coverage_data->basic_block_seen_array),
+          sizeof(coverage_data->frequency_data),
           bb_seen_array_block,
           0,
           0));

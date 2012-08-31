@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 
 namespace common {
 
-const uint32 kCoverageClientMagic = 0xC05E4A6E;
+const uint32 kBasicBlockCoverageAgentId = 0xC05E4A6E;
+const uint32 kBasicBlockEntryAgentId = 0xBBEABBEA;
 
-// This should be incremented when incompatible changes are made to the
-// coverage client.
-const uint32 kCoverageClientVersion = 0;
+// This should be incremented when incompatible changes are made to a
+// basic-block tracing client.
+const uint32 kBasicBlockFrequencyDataVersion = 1;
 
-const char kCoverageClientDataSectionName[] = ".cover";
+const char kBasicBlockFrequencySectionName[] = ".bbfreq";
 
-const DWORD kCoverageClientDataSectionCharacteristics =
+const DWORD kBasicBlockFrequencySectionCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
 
-const char kCoverageRangesStreamName[] = "/Syzygy/CoverageRanges";
+const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";
 
 }  // namespace common

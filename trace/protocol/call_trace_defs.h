@@ -344,9 +344,9 @@ struct TraceBasicBlockFrequencyData {
   // The number of basic blocks being reported. It is up to the instrumentation
   // to output any other metadata that is required to map an index to a basic
   // block address. (Typically, the OMAP data is sufficient for this.)
-  uint32 basic_block_count;
+  uint32 num_basic_blocks;
 
-  // In fact, there are frequency_size * basic_block_count bytes that follow.
+  // In fact, there are frequency_size * num_basic_blocks bytes that follow.
   uint8 frequency_data[1];
 };
 

@@ -99,7 +99,10 @@ namespace coverage {
 namespace {
 
 using agent::common::ScopedLastErrorKeeper;
-using ::common::CoverageData;
+using ::common::BasicBlockFrequencyData;
+using ::common::kBasicBlockCoverageAgentId;
+using ::common::kBasicBlockFrequencySectionName;
+using ::common::kBasicBlockFrequencyDataVersion;
 
 // Our AtExit manager required by base.
 base::AtExitManager at_exit;
@@ -109,36 +112,37 @@ base::LazyInstance<agent::coverage::Coverage> static_coverage_instance =
     LAZY_INSTANCE_INITIALIZER;
 
 bool FindCoverageData(const base::win::PEImage& image,
-                      CoverageData** coverage_data) {
+                      BasicBlockFrequencyData** coverage_data) {
   DCHECK(coverage_data != NULL);
 
   *coverage_data = NULL;
 
-  size_t comparison_length = ::strlen(::common::kCoverageClientDataSectionName);
-  if (IMAGE_SIZEOF_SHORT_NAME < comparison_length)
-    comparison_length = IMAGE_SIZEOF_SHORT_NAME;
+  size_t comparison_length = std::min(
+      ::strlen(kBasicBlockFrequencySectionName),
+      static_cast<size_t>(IMAGE_SIZEOF_SHORT_NAME));
 
   size_t section_count = image.GetNTHeaders()->FileHeader.NumberOfSections;
   for (size_t i = 0; i < section_count; ++i) {
     const IMAGE_SECTION_HEADER* section = image.GetSectionHeader(i);
     DCHECK(section != NULL);
 
-    if (::memcmp(section->Name, ::common::kCoverageClientDataSectionName,
+    if (::memcmp(section->Name, kBasicBlockFrequencySectionName,
                  comparison_length) == 0 &&
-        section->SizeOfRawData >= sizeof(CoverageData)) {
+        section->SizeOfRawData >= sizeof(BasicBlockFrequencyData)) {
       if (*coverage_data != NULL) {
         LOG(ERROR) << "Encountered multiple \""
-                   << ::common::kCoverageClientDataSectionName
+                   << kBasicBlockFrequencySectionName
                    << "\" sections.";
         return false;
       }
-      *coverage_data = reinterpret_cast<CoverageData*>(
+      *coverage_data = reinterpret_cast<BasicBlockFrequencyData*>(
           image.RVAToAddr(section->VirtualAddress));
     }
   }
 
   if (coverage_data == NULL) {
-    LOG(ERROR) << "Did not find \"" << ::common::kCoverageClientDataSectionName
+    LOG(ERROR) << "Did not find \""
+               << kBasicBlockFrequencySectionName
                << "\" section.";
     return false;
   }
@@ -193,7 +197,7 @@ void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
 
   // Find the section containing the coverage data.
   base::win::PEImage image(module);
-  CoverageData* coverage_data = NULL;
+  BasicBlockFrequencyData* coverage_data = NULL;
   if (!FindCoverageData(image, &coverage_data))
     return;
 
@@ -231,18 +235,19 @@ void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
 }
 
 bool Coverage::InitializeCoverageData(const base::win::PEImage& image,
-                                      CoverageData* coverage_data) {
+                                      BasicBlockFrequencyData* coverage_data) {
   DCHECK(coverage_data != NULL);
 
   // We can only handle this if it looks right.
-  if (coverage_data->magic != ::common::kCoverageClientMagic ||
-      coverage_data->version != ::common::kCoverageClientVersion) {
-    LOG(ERROR) << "Invalid coverage magic and/or version.";
+  if (coverage_data->agent_id != kBasicBlockCoverageAgentId ||
+      coverage_data->version != kBasicBlockFrequencyDataVersion ||
+      coverage_data->frequency_size != 1U) {
+    LOG(ERROR) << "Unexpected values in the coverage data structures.";
     return false;
   }
 
   // Nothing to allocate? We're done!
-  if (coverage_data->basic_block_count == 0) {
+  if (coverage_data->num_basic_blocks == 0) {
     LOG(WARNING) << "Module contains no instrumented basic blocks, not "
                  << "allocating coverage data segment.";
     return true;
@@ -250,7 +255,7 @@ bool Coverage::InitializeCoverageData(const base::win::PEImage& image,
 
   // Determine the size of the basic block frequency struct.
   size_t bb_freq_size = sizeof(TraceBasicBlockFrequencyData) +
-      coverage_data->basic_block_count - 1;
+      coverage_data->num_basic_blocks - 1;
 
   // Determine the size of the buffer we need. We need room for the basic block
   // frequency struct plus a single RecordPrefix header.
@@ -289,10 +294,10 @@ bool Coverage::InitializeCoverageData(const base::win::PEImage& image,
   trace_coverage_data->module_time_date_stamp =
       nt_headers->FileHeader.TimeDateStamp;
   trace_coverage_data->frequency_size = 1;
-  trace_coverage_data->basic_block_count = coverage_data->basic_block_count;
+  trace_coverage_data->num_basic_blocks = coverage_data->num_basic_blocks;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
-  coverage_data->basic_block_seen_array =
+  coverage_data->frequency_data =
       trace_coverage_data->frequency_data;
 
   return true;

@@ -28,7 +28,7 @@
 #include "base/lazy_instance.h"
 #include "base/win/pe_image.h"
 #include "syzygy/agent/common/entry_frame.h"
-#include "syzygy/common/coverage.h"
+#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 // Instrumentation stubs to handle the loading of the library.
@@ -48,8 +48,6 @@ class Coverage {
   static Coverage* Instance();
 
  private:
-  typedef common::CoverageData CoverageData;
-
   // Make sure the LazyInstance can be created.
   friend struct base::DefaultLazyInstanceTraits<Coverage>;
 
@@ -58,7 +56,7 @@ class Coverage {
 
   // Initializes the given coverage data element.
   bool InitializeCoverageData(const base::win::PEImage& image,
-                              CoverageData* coverage_data);
+                              ::common::BasicBlockFrequencyData* coverage_data);
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
