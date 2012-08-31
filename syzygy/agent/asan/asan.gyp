@@ -33,14 +33,33 @@
       ],
     },
     {
+      'target_name': 'asan_rtl',
+      'type': 'shared_library',
+      'sources': [
+        'asan_rtl.cc',
+        'asan_rtl.def',
+        'asan_rtl.rc',
+      ],
+      'dependencies': [
+        'asan_rtl_lib',
+        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+      ],
+    },
+    {
       'target_name': 'asan_rtl_unittests',
       'type': 'executable',
       'sources': [
         'asan_heap_unittest.cc',
         'asan_shadow_unittest.cc',
+        'asan_rtl_unittest.cc',
         'asan_rtl_unittests_main.cc',
       ],
       'dependencies': [
+        'asan_rtl',
         'asan_rtl_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
