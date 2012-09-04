@@ -26,10 +26,13 @@
       'target_name': 'agent_common_lib',
       'type': 'static_library',
       'sources': [
+        'dlist.h',
         'entry_frame.h',
         'process_utils.cc',
         'process_utils.h',
         'scoped_last_error_keeper.h',
+        'thread_state.cc',
+        'thread_state.h',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
@@ -44,6 +47,7 @@
       'sources': [
         'agent_common_unittests_main.cc',
         'process_utils_unittest.cc',
+        'thread_state_unittest.cc',
       ],
       'dependencies': [
         'agent_common_lib',

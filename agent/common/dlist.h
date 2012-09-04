@@ -20,6 +20,7 @@
 #ifndef SYZYGY_AGENT_COMMON_DLIST_H_
 #define SYZYGY_AGENT_COMMON_DLIST_H_
 
+#include <windows.h>
 #include <winnt.h>
 
 //
@@ -128,11 +129,6 @@
     _EX_Flink->Blink = (Entry);\
     _EX_ListHead->Flink = (Entry);\
     }
-
-
-
-BOOL IsNodeOnList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry);
-
 
 #endif  // InitializeListHead
 
