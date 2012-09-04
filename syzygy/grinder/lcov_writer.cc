@@ -60,10 +60,22 @@ bool LcovWriter::Write(const FilePath& path) const {
     return false;
   }
 
+  if (!Write(file.get())) {
+    LOG(ERROR) << "Failed to write LCOV file.";
+    return false;
+  }
+
+  return true;
+}
+
+bool LcovWriter::Write(FILE* file) const {
+  DCHECK(file != NULL);
+
   SourceFileCoverageInfoMap::const_iterator source_it =
       source_file_coverage_info_map_.begin();
   for (; source_it != source_file_coverage_info_map_.end(); ++source_it) {
-    ::fprintf(file.get(), "SF:%s\n", source_it->first.c_str());
+    if (::fprintf(file, "SF:%s\n", source_it->first.c_str()) < 0)
+      return false;
 
     // Iterate over the line execution data, keeping summary statistics as we
     // go.
@@ -73,17 +85,19 @@ bool LcovWriter::Write(const FilePath& path) const {
     LineExecutionCountMap::const_iterator line_it_end =
         source_it->second.line_execution_count_map.end();
     for (; line_it != line_it_end; ++line_it) {
-      ::fprintf(file.get(), "DA:%d,%d\n", line_it->first, line_it->second);
+      if (::fprintf(file, "DA:%d,%d\n", line_it->first, line_it->second) < 0)
+        return false;
       if (line_it->second > 0)
         ++lines_executed;
     }
 
     // Output the summary statistics for this file.
-    ::fprintf(file.get(), "LH:%d\n", lines_executed);
-    ::fprintf(file.get(), "LF:%d\n",
-              source_it->second.line_execution_count_map.size());
-
-    ::fprintf(file.get(), "end_of_record\n");
+    if (::fprintf(file, "LH:%d\n", lines_executed) < 0 ||
+        ::fprintf(file, "LF:%d\n",
+                  source_it->second.line_execution_count_map.size()) < 0 ||
+        ::fprintf(file, "end_of_record\n") < 0) {
+      return false;
+    }
   }
 
   return true;

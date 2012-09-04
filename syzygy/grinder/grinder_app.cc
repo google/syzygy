@@ -17,7 +17,7 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
-#include "syzygy/grinder/grinder.h"
+#include "syzygy/grinder/coverage_grinder.h"
 #include "syzygy/grinder/profile_grinder.h"
 
 namespace grinder {
@@ -92,8 +92,7 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
     grinder_.reset(new ProfileGrinder());
   } else if (mode == "coverage") {
     mode_ = kCoverage;
-    PrintUsage(command_line->GetProgram(), "Coverage mode not yet supported.");
-    return false;
+    grinder_.reset(new CoverageGrinder());
   } else {
     PrintUsage(command_line->GetProgram(),
                base::StringPrintf("Unknown mode: %s.", mode.c_str()));
@@ -116,9 +115,6 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
 
 int GrinderApp::Run() {
   DCHECK(grinder_.get() != NULL);
-
-  // We currently only support profile mode.
-  DCHECK_EQ(kProfile, mode_);
 
   trace::parser::Parser parser;
   grinder_->SetParser(&parser);
@@ -149,16 +145,22 @@ int GrinderApp::Run() {
     auto_close.reset(output);
   }
 
+  LOG(INFO) << "Parsing trace files.";
   if (!parser.Consume()) {
     LOG(ERROR) << "Error parsing trace files.";
     return 1;
   }
 
+  LOG(INFO) << "Aggregating data.";
   if (!grinder_->Grind()) {
     LOG(ERROR) << "Failed to grind data.";
     return 1;
   }
 
+  std::wstring output_name(L"stdout");
+  if (!output_file_.empty())
+    output_name = base::StringPrintf(L"\"%ls\"", output_file_.value().c_str());
+  LOG(INFO) << "Writing output to " << output_name << ".";
   DCHECK(output != NULL);
   if (!grinder_->OutputData(output)) {
     LOG(ERROR) << "Failed to output data.";
