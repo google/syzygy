@@ -40,7 +40,7 @@ class GrinderAppTest : public testing::PELibUnitTest {
         impl_(app_.implementation()) {
   }
 
-  void SetUp() {
+  virtual void SetUp() OVERRIDE {
     Super::SetUp();
 
     // Setup the IO streams.
@@ -115,10 +115,28 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_EQ(L"output.txt", impl_.output_file_.value());
 }
 
-TEST_F(GrinderAppTest, EndToEnd) {
+TEST_F(GrinderAppTest, ProfileEndToEnd) {
   cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendArgPath(
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
+
+  FilePath output_file;
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(file_util::Delete(output_file, false));
+  cmd_line_.AppendSwitchPath("output-file", output_file);
+
+  ASSERT_TRUE(!file_util::PathExists(output_file));
+
+  EXPECT_EQ(0, app_.Run());
+
+  // Verify that the output file was created.
+  EXPECT_TRUE(file_util::PathExists(output_file));
+}
+
+TEST_F(GrinderAppTest, CoverageEndToEnd) {
+  cmd_line_.AppendSwitchASCII("mode", "coverage");
+  cmd_line_.AppendArgPath(
+      testing::GetExeTestDataRelativePath(L"coverage_traces/trace-1.bin"));
 
   FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));

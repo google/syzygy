@@ -114,8 +114,10 @@ class LcovWriter {
 
   // Dumps the coverage information to an LCOV file.
   // @param path the path to the file to be created or overwritten.
+  // @param file the file handle to be written to.
   // @returns true on success, false otherwise.
   bool Write(const FilePath& path) const;
+  bool Write(FILE* file) const;
 
   const SourceFileCoverageInfoMap& source_file_coverage_info_map() const {
     return source_file_coverage_info_map_;

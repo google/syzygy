@@ -26,6 +26,8 @@
       'target_name': 'grinder_lib',
       'type': 'static_library',
       'sources': [
+        'coverage_grinder.cc',
+        'coverage_grinder.h',
         'grinder_app.cc',
         'grinder_app.h',
         'grinder_util.cc',
@@ -51,6 +53,7 @@
       'target_name': 'grinder_unittests',
       'type': 'executable',
       'sources': [
+        'coverage_grinder_unittest.cc',
         'grinder_app_unittest.cc',
         'grinder_util_unittest.cc',
         'grinder_unittests_main.cc',
