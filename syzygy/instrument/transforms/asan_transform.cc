@@ -73,22 +73,21 @@ Displacement ComputeDisplacementForOperand(const Instruction& instr,
   DCHECK(repr.ops[operand].type == O_SMEM ||
          repr.ops[operand].type == O_MEM);
 
-  Displacement displ;
+  size_t access_size_bytes = repr.ops[operand].size / 8;
   if (repr.dispSize == 0)
-    return displ;
+    return Displacement(access_size_bytes - 1);
 
   BasicBlockReference reference;
   if (instr.FindOperandReference(operand, &reference)) {
     if (reference.referred_type() == BasicBlockReference::REFERRED_TYPE_BLOCK) {
-      displ = Displacement(reference.block(), reference.offset());
+      return Displacement(reference.block(),
+                          reference.offset() + access_size_bytes - 1);
     } else {
-      displ = Displacement(reference.basic_block());
+      return Displacement(reference.basic_block());
     }
   } else {
-    displ = Displacement(repr.disp);
+    return Displacement(repr.disp + access_size_bytes - 1);
   }
-
-  return displ;
 }
 
 // Returns true if operand @p op is instrumentable, e.g.
@@ -106,9 +105,7 @@ bool IsInstrumentable(const _Operand& op) {
 
 // Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
 // corresponding Operand.
-MemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
-                                    Operand* access,
-                                    size_t* access_size) {
+MemoryAccessMode DecodeMemoryAccess(const Instruction& instr, Operand* access) {
   DCHECK(access != NULL);
   const _DInst& repr = instr.representation();
 
@@ -132,7 +129,6 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
     Displacement displ = ComputeDisplacementForOperand(instr, mem_op_id);
 
     *access = Operand(base_reg, displ);
-    *access_size = repr.ops[mem_op_id].size;
   } else if (repr.ops[0].type == O_MEM || repr.ops[1].type == O_MEM) {
     // Complex memory dereference.
     Register index_reg(RegisterCode(repr.ops[mem_op_id].index - R_EAX));
@@ -172,7 +168,6 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
 
       *access = Operand(index_reg, scale, displ);
     }
-    *access_size = repr.ops[mem_op_id].size;
   } else {
     NOTREACHED();
 
@@ -189,13 +184,12 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
 
 // Use @p bb_asm to inject a hook to @p hook to instrument the access to the
 // address stored in the operand @p op.
-void InjectAsanHook(BasicBlockAssembler* bb_asm, const Operand& op,
-                    BlockGraph::Reference* hook, size_t access_size) {
+void InjectAsanHook(BasicBlockAssembler* bb_asm,
+                    const Operand& op,
+                    BlockGraph::Reference* hook) {
   DCHECK(hook != NULL);
   bb_asm->push(core::eax);
-  bb_asm->push(core::edx);
   bb_asm->lea(core::eax, op);
-  bb_asm->mov(core::edx, Value(access_size / 8));
   bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
 }
 
@@ -254,12 +248,10 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
   // instrumentable memory access.
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
     Operand operand(core::eax);
-    size_t access_size = 0;
     const Instruction& instr = *iter_inst;
     const _DInst& repr = instr.representation();
 
-    MemoryAccessMode access_mode =
-        DecodeMemoryAccess(instr, &operand, &access_size);
+    MemoryAccessMode access_mode = DecodeMemoryAccess(instr, &operand);
 
     // Bail if this is not a memory access.
     if (access_mode == kNoAccess)
@@ -296,8 +288,7 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
 
     BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
     Instruction::Representation inst = iter_inst->representation();
-    InjectAsanHook(&bb_asm, operand,
-        access_mode == kWriteAccess ? hook_write_ : hook_read_, access_size);
+    InjectAsanHook(&bb_asm, operand, hook_access_);
   }
   return true;
 }
@@ -320,11 +311,8 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
 const char AsanTransform::kTransformName[] =
     "SyzyAsanTransform";
 
-const char AsanTransform::kAsanHookWriteTestName[] =
-    "asan_write_access_sized";
-
-const char AsanTransform::kAsanHookReadTestName[] =
-    "asan_read_access_sized";
+const char AsanTransform::kCheckAccessName[] =
+    "asan_check_access";
 
 const char AsanTransform::kSyzyAsanDll[] = "asan_rtl.dll";
 
@@ -336,11 +324,9 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   // Add an import entry for the ASAN runtime.
   AddImportsTransform::ImportedModule import_module(asan_dll_name_.c_str());
 
-  // Add the read/write probe function imports.
-  size_t asan_hook_write_test_index =
-      import_module.AddSymbol(kAsanHookWriteTestName);
-  size_t asan_hook_read_test_index =
-      import_module.AddSymbol(kAsanHookReadTestName);
+  // Add the probe function import.
+  size_t asan_hook_check_access_index =
+      import_module.AddSymbol(kCheckAccessName);
 
   AddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&import_module);
@@ -350,11 +336,9 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
     return false;
   }
 
-  if (!import_module.GetSymbolReference(asan_hook_write_test_index,
-                                        &hook_asan_write_test_) ||
-      !import_module.GetSymbolReference(asan_hook_read_test_index,
-                                        &hook_asan_read_test_)) {
-    LOG(ERROR) << "Unable to get import references for Asan.";
+  if (!import_module.GetSymbolReference(asan_hook_check_access_index ,
+                                        &hook_asan_check_access_)) {
+    LOG(ERROR) << "Unable to get import reference for Asan.";
     return false;
   }
 
@@ -371,9 +355,7 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
   if (!pe::CodeBlockIsBasicBlockDecomposable(block))
     return true;
 
-  AsanBasicBlockTransform transform(&hook_asan_write_test_,
-                                    &hook_asan_read_test_);
-
+  AsanBasicBlockTransform transform(&hook_asan_check_access_);
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
     return false;
 

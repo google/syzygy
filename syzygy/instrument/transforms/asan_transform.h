@@ -38,16 +38,10 @@ class AsanBasicBlockTransform
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
   // Constructor.
-  // @param hook_write a reference to the hook to call when we found a write
-  //     access to the memory.
-  // @param hook_read a reference to the hook to call when we found a read
-  //     access to the memory.
-  AsanBasicBlockTransform(BlockGraph::Reference* hook_write,
-                          BlockGraph::Reference* hook_read) :
-      hook_write_(hook_write),
-      hook_read_(hook_read) {
-    DCHECK(hook_write != NULL);
-    DCHECK(hook_read != NULL);
+  // @param hook_access a reference to the access check import entry.
+  explicit AsanBasicBlockTransform(BlockGraph::Reference* hook_access) :
+      hook_access_(hook_access) {
+    DCHECK(hook_access != NULL);
   }
 
   // The transform name.
@@ -64,9 +58,8 @@ class AsanBasicBlockTransform
   bool InstrumentBasicBlock(block_graph::BasicBlock* basic_block);
 
  private:
-  // The references to the Asan hooks.
-  BlockGraph::Reference* hook_write_;
-  BlockGraph::Reference* hook_read_;
+  // The references to the Asan access check import entry.
+  BlockGraph::Reference* hook_access_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
@@ -99,8 +92,7 @@ class AsanTransform
   // @}
 
   // The names of the imports for the Asan hooks.
-  static const char kAsanHookWriteTestName[];
-  static const char kAsanHookReadTestName[];
+  static const char kCheckAccessName[];
 
   // The name of the DLL that is imported by default.
   static const char kSyzyAsanDll[];
@@ -112,13 +104,9 @@ class AsanTransform
   // Name of the asan_rtl DLL we import. Defaults to "asan_rtl.dll".
   std::string asan_dll_name_;
 
-  // References to __asan_write_access import entry. Valid after successful
+  // References to "asan_check_access" import entry. Valid after successful
   // PreBlockGraphIteration.
-  BlockGraph::Reference hook_asan_write_test_;
-
-  // References to __asan_read_access import entry. Valid after successful
-  // PreBlockGraphIteration.
-  BlockGraph::Reference hook_asan_read_test_;
+  BlockGraph::Reference hook_asan_check_access_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanTransform);
 };
