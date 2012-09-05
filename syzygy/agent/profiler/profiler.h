@@ -33,6 +33,7 @@
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
 #include "syzygy/agent/common/entry_frame.h"
+#include "syzygy/agent/common/thread_state.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 // Assembly instrumentation stubs to handle function entry and exit.
@@ -90,9 +91,6 @@ class Profiler {
   // Called on a first chance exception declaring thread name.
   void OnThreadName(const base::StringPiece& thread_name);
 
-  // Scavenges dead thread states, call at opportune times.
-  void ScavengeThreadStates();
-
   // Our vectored exception handler that takes care
   // of capturing thread name debug exceptions.
   static LONG CALLBACK ExceptionHandler(EXCEPTION_POINTERS* ex_info);
@@ -119,13 +117,9 @@ class Profiler {
   typedef base::hash_set<HMODULE> ModuleSet;
   ModuleSet logged_modules_;  // Under lock_.
 
-  // A doubly-linked list of all thread states whose thread
-  // has not yet seen a thread detach notification.
-  LIST_ENTRY thread_states_;  // Under lock_.
-
-  // A doubly-linked list of thread states whole thread
-  // has seen a thread detach notification.
-  LIST_ENTRY death_row_;  // Under lock_.
+  // A helper to manage the life-cycle of the ThreadState instances allocated
+  // by this agent.
+  agent::common::ThreadStateManager thread_state_manager_;
 
   // Stores our vectored exception handler registration handle.
   void* handler_registration_;
