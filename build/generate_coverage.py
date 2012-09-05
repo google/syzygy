@@ -26,6 +26,7 @@ import tempfile
 # The list of DLLs we want to instrument in addition to _unittests executables.
 _DLLS_TO_INSTRUMENT = [
     'asan_rtl.dll',
+    'basic_block_entry_client.dll',
     'call_trace_client.dll',
     'coverage_client.dll',
     'profile_client.dll',

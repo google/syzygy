@@ -25,6 +25,7 @@
       'type': 'none',
       'dependencies': [
         'agent/asan/asan.gyp:*',
+        'agent/basic_block_entry/basic_block_entry.gyp:*',
         'agent/call_trace/call_trace.gyp:*',
         'agent/common/common.gyp:*',
         'agent/coverage/coverage.gyp:*',
