@@ -60,7 +60,7 @@ struct BasicBlockFrequencyData {
   //
   // The total size (in bytes) of the buffer pointed to by is
   // num_basic_blocks * frequency_size.
-  uint8* frequency_data;
+  void* frequency_data;
 
   // The number of basic blocks in the instrumented image. This is required by
   // the runtime client library so it knows how big an array to allocate.

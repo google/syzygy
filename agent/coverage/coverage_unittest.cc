@@ -191,7 +191,7 @@ BOOL __declspec(naked) WINAPI CoverageClientTest::DllMainThunk(
 
 void VisitBlock(size_t i) {
   EXPECT_GT(coverage_data.num_basic_blocks, i);
-  coverage_data.frequency_data[i] = 1;
+  static_cast<uint8*>(coverage_data.frequency_data)[i] = 1;
 }
 
 }  // namespace
@@ -199,7 +199,7 @@ void VisitBlock(size_t i) {
 TEST_F(CoverageClientTest, NoServerNoCrash) {
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
-  const uint8* data = coverage_data.frequency_data;
+  void* data = coverage_data.frequency_data;
   EXPECT_TRUE(DllMainThunk(::GetModuleHandle(NULL), DLL_PROCESS_ATTACH, NULL));
 
   // There should be no allocation.
@@ -224,7 +224,7 @@ TEST_F(CoverageClientTest, VisitOneBB) {
   DWORD process_id = ::GetCurrentProcessId();
   DWORD thread_id = ::GetCurrentThreadId();
 
-  const uint8* data = coverage_data.frequency_data;
+  void* data = coverage_data.frequency_data;
   EXPECT_TRUE(DllMainThunk(self, DLL_PROCESS_ATTACH, NULL));
 
   // There should have been an allocation.
