@@ -107,6 +107,11 @@ case_table \
 
 assembly_func_end LABEL PROC
 
+  ; Place some padding after the end of the function so that the
+  ; assembly_func_end label lies within the block. This allows our decomposer
+  ; to handle this (artificial) code.
+  int 3
+
 assembly_start ENDP
 
 END
