@@ -33,6 +33,8 @@
       '<(DEPTH)/syzygy/agent/asan/asan.gyp:asan_rtl_unittests',
       '<(DEPTH)/syzygy/agent/coverage/coverage.gyp:coverage_unittests',
       '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
+      '<(DEPTH)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
+          'basic_block_entry_unittests',
 
       # Block graph tests.
       '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
