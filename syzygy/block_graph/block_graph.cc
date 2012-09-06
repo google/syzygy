@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -192,7 +192,7 @@ std::string BlockGraph::LabelAttributesToString(
     BlockGraph::LabelAttributes label_attributes) {
   static const char* kLabelAttributes[] = {
       "Code", "DebugStart", "DebugEnd", "ScopeStart", "ScopeEnd",
-      "CallSite", "JumpTable", "CaseTable", "Data" };
+      "CallSite", "JumpTable", "CaseTable", "Data", "PublicSymbol" };
   COMPILE_ASSERT((1 << arraysize(kLabelAttributes)) == LABEL_ATTRIBUTES_MAX,
                  label_attribute_names_not_in_sync_with_enum);
 
@@ -646,6 +646,10 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   //     call (in which case they must be completely on their own)? For now, we
   //     simply ignore them entirely from consideration.
   attributes &= ~CALL_SITE_LABEL;
+
+  // Public symbols can coincide with anything, so we can basically ignore
+  // them.
+  attributes &= ~PUBLIC_SYMBOL_LABEL;
 
   // A code label can coincide with a debug and scope labels. (It can coincide
   // with *_END_LABEL labels because of 1-byte instructions, like RET or INT.)

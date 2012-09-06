@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1854,12 +1854,7 @@ DiaBrowser::BrowserDirective Decomposer::OnPublicSymbol(
   if (name[0] == '_')
     name = name.substr(1);
 
-  // Set the block name or add a label. For code blocks these are entry points,
-  // while for data blocks these are simply to aid debugging.
-  BlockGraph::LabelAttributes label_attributes =
-      block->type() == BlockGraph::CODE_BLOCK ? BlockGraph::CODE_LABEL :
-                                                BlockGraph::DATA_LABEL;
-  if (!AddLabelToBlock(addr, name, label_attributes, block))
+  if (!AddLabelToBlock(addr, name, BlockGraph::PUBLIC_SYMBOL_LABEL, block))
     return DiaBrowser::kBrowserAbort;
 
   return DiaBrowser::kBrowserContinue;
