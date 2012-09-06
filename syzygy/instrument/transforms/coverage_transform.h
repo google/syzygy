@@ -54,11 +54,23 @@ class CoverageInstrumentationTransform
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
 
+  // @name Accessors.
+  // @{
+
   // @returns the RVAs and sizes in the original image of the instrumented basic
-  //    blocks. They are in the order in which they were encountered during
-  //    instrumentation, such that the index of the BB in the vector serves
-  //    as its unique ID.
+  //      blocks. They are in the order in which they were encountered during
+  //      instrumentation, such that the index of the BB in the vector serves
+  //      as its unique ID.
   const RelativeAddressRangeVector& bb_ranges() const { return bb_ranges_; }
+
+  // @returns the RVAs and sizes in the original image of the instructions
+  //     corresponding to conditional branch points. They are stored in order
+  //     of increasing address.
+  const RelativeAddressRangeVector& conditional_ranges() const {
+    return conditional_ranges_;
+  }
+
+  // @}
 
  protected:
   friend block_graph::transforms::IterativeTransformImpl<
@@ -85,6 +97,11 @@ class CoverageInstrumentationTransform
   BlockGraph::Block* coverage_data_block_;
   // Stores the RVAs in the original image for each instrumented basic block.
   RelativeAddressRangeVector bb_ranges_;
+  // Stores the RVAs in the original image for the conditional control flow
+  // arcs. We sometimes get line information for these (ie: 'else' statements)
+  // and the VS tools ignore those, marking them as 'not instrumented'. This
+  // information allows us to mimic that behaviour.
+  RelativeAddressRangeVector conditional_ranges_;
 
   DISALLOW_COPY_AND_ASSIGN(CoverageInstrumentationTransform);
 };
