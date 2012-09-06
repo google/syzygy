@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -162,8 +162,14 @@ class BlockGraph {
     // is unknown.
     DATA_LABEL = (1 << 8),
 
+    // Used to mark a label that was derived from a public symbol. These are
+    // usually actually pointing to code and global data symbols, but we can't
+    // always tell (there may be public symbols pointing to data in a code
+    // block).
+    PUBLIC_SYMBOL_LABEL = (1 << 9),
+
     // This always needs to be the most significant bit.
-    LABEL_ATTRIBUTES_MAX = (1 << 9),
+    LABEL_ATTRIBUTES_MAX = (1 << 10),
   };
 
   static std::string LabelAttributesToString(LabelAttributes label_attributes);
