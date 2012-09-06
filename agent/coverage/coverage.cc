@@ -73,8 +73,14 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   using agent::coverage::Coverage;
 
+  // Our AtExit manager required by base.
+  static base::AtExitManager* at_exit;
+
   switch (reason) {
     case DLL_PROCESS_ATTACH:
+      DCHECK(at_exit == NULL);
+      at_exit = new base::AtExitManager();
+
       CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"coverage");
       LOG(INFO) << "Initialized coverage client library.";
@@ -84,6 +90,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
+      DCHECK(at_exit != NULL);
+      delete at_exit;
+      at_exit = NULL;
       break;
 
     default:
@@ -103,9 +112,6 @@ using ::common::BasicBlockFrequencyData;
 using ::common::kBasicBlockCoverageAgentId;
 using ::common::kBasicBlockFrequencySectionName;
 using ::common::kBasicBlockFrequencyDataVersion;
-
-// Our AtExit manager required by base.
-base::AtExitManager at_exit;
 
 // All tracing runs through this object.
 base::LazyInstance<agent::coverage::Coverage> static_coverage_instance =
