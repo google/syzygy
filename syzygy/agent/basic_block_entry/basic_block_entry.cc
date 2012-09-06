@@ -122,8 +122,14 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
+  // Our AtExit manager required by base.
+  static base::AtExitManager* at_exit = NULL;
+
   switch (reason) {
     case DLL_PROCESS_ATTACH:
+      DCHECK(at_exit == NULL);
+      at_exit = new base::AtExitManager();
+
       CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"basic_block_entry");
       LOG(INFO) << "Initialized basic-block entry counting agent library.";
@@ -136,6 +142,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
+      DCHECK(at_exit != NULL);
+      delete at_exit;
+      at_exit = NULL;
       break;
 
     default:
@@ -154,9 +163,6 @@ namespace {
 using ::common::BasicBlockFrequencyData;
 using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
-
-// Our AtExit manager required by base.
-base::AtExitManager at_exit;
 
 // All tracing runs through this object.
 base::LazyInstance<BasicBlockEntry> static_coverage_instance =

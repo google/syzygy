@@ -41,9 +41,6 @@ namespace {
 
 using agent::common::ScopedLastErrorKeeper;
 
-// Our AtExit manager required by base.
-base::AtExitManager at_exit;
-
 // All tracing runs through this object.
 base::LazyInstance<agent::profiler::Profiler> static_profiler_instance =
     LAZY_INSTANCE_INITIALIZER;
@@ -190,8 +187,14 @@ extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   using agent::profiler::Profiler;
 
+  // Our AtExit manager required by base.
+  static base::AtExitManager* at_exit = NULL;
+
   switch (reason) {
     case DLL_PROCESS_ATTACH:
+      DCHECK(at_exit == NULL);
+      at_exit = new base::AtExitManager();
+
       CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"profiler");
       break;
@@ -201,6 +204,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
+      DCHECK(at_exit != NULL);
+      delete at_exit;
+      at_exit = NULL;
       break;
 
     default:

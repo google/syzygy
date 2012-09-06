@@ -42,9 +42,6 @@ using agent::common::ScopedLastErrorKeeper;
 
 namespace {
 
-// Our AtExit manager required by base.
-base::AtExitManager at_exit;
-
 // All tracing runs through this object.
 base::LazyInstance<Client> static_client_instance = LAZY_INSTANCE_INITIALIZER;
 
@@ -61,7 +58,23 @@ void CopyArguments(ArgumentWord *dst, const ArgumentWord *src, size_t num) {
 }  // namespace
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
-  return Client::Instance()->DllMain(instance, reason, reserved);
+  // Our AtExit manager required by base.
+  static base::AtExitManager* at_exit = NULL;
+
+  if (reason == DLL_PROCESS_ATTACH) {
+    DCHECK(at_exit == NULL);
+    at_exit = new base::AtExitManager();
+  }
+
+  BOOL ret = Client::Instance()->DllMain(instance, reason, reserved);
+
+  if (reason == DLL_PROCESS_DETACH) {
+    DCHECK(at_exit != NULL);
+    delete at_exit;
+    at_exit = NULL;
+  }
+
+  return ret;
 }
 
 // This instrumentation hook is used for all function calls except for
