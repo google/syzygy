@@ -37,6 +37,8 @@ using block_graph::Immediate;
 using block_graph::Operand;
 
 typedef block_graph::TypedBlock<BasicBlockFrequencyData> CoverageDataBlock;
+typedef instrument::transforms::CoverageInstrumentationTransform::
+    RelativeAddressRange RelativeAddressRange;
 
 bool AddCoverageDataSection(BlockGraph* block_graph,
                             BlockGraph::Block** coverage_data_block) {
@@ -73,6 +75,20 @@ bool AddCoverageDataSection(BlockGraph* block_graph,
 
   return true;
 }
+
+// Compares two relative address ranges to see if they overlap. Assumes they
+// are already sorted. This is used to validate basic-block ranges.
+struct RelativeAddressRangesOverlapFunctor {
+  bool operator()(const RelativeAddressRange& r1,
+                  const RelativeAddressRange& r2) const {
+    DCHECK_LT(r1.start(), r2.start());
+
+    if (r1.end() > r2.start())
+      return true;
+
+    return false;
+  }
+};
 
 }  // namespace
 
@@ -126,15 +142,31 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     assm.mov_b(Operand(eax, Displacement(bb_ranges_.size())), Immediate(1));
     assm.pop(eax);
 
-    // Get the RVA of the BB by translating its offset. We also get its size
-    // from the source range. This assumes that the BB is an original
-    // untransformed BB.
     const BlockGraph::Block::DataRange& data_range = range_pair->first;
     const BlockGraph::Block::SourceRange& src_range = range_pair->second;
+
+    // If we have multiple successors then the instruction following this BB
+    // is a conditional. The arcs of the conditional will often be referred to
+    // by the line information in a PDB (for example, an 'else' on its own
+    // line) but it is meaningless to mark that line as instrumented and/or
+    // executed. Thus, we keep a list of conditional successor address ranges
+    // so they can be excluded from coverage results.
+    if (bb.successors().size() == 2) {
+      const block_graph::Successor& succ = bb.successors().front();
+      DCHECK_NE(BasicBlock::kNoOffset, succ.instruction_offset());
+      DCHECK_NE(0u, succ.instruction_size());
+
+      RelativeAddress succ_addr = src_range.start() +
+          (succ.instruction_offset() - data_range.start());
+      conditional_ranges_.push_back(
+          RelativeAddressRange(succ_addr, succ.instruction_size()));
+    }
+
+    // Get the RVA of the BB by translating its offset, and remember the range
+    // associated with this BB.
     core::RelativeAddress bb_addr = src_range.start() +
         (bb.offset() - data_range.start());
-    size_t bb_size = src_range.size();
-    bb_ranges_.push_back(RelativeAddressRange(bb_addr, bb_size));
+    bb_ranges_.push_back(RelativeAddressRange(bb_addr, bb.size()));
   }
 
   return true;
@@ -183,6 +215,25 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
     LOG(WARNING) << "Encountered no basic code blocks during instrumentation.";
     return true;
   }
+
+  // Sort these for efficient searching in the coverage grinder.
+  std::sort(conditional_ranges_.begin(), conditional_ranges_.end());
+
+#ifndef NDEBUG
+  // If we're in debug mode then sanity check the basic block ranges. When
+  // sorted, they should not overlap.
+  RelativeAddressRangeVector bb_ranges(bb_ranges_);
+  std::sort(bb_ranges.begin(), bb_ranges.end());
+  DCHECK(std::adjacent_find(bb_ranges.begin(), bb_ranges.end(),
+                            RelativeAddressRangesOverlapFunctor()) ==
+      bb_ranges.end());
+
+  // Also sanity check the conditional instruction ranges.
+  DCHECK(std::adjacent_find(conditional_ranges_.begin(),
+                            conditional_ranges_.end(),
+                            RelativeAddressRangesOverlapFunctor()) ==
+      conditional_ranges_.end());
+#endif
 
   // Set the final basic block count. This is used by the runtime library to
   // know how big an array to allocate for the statistics.

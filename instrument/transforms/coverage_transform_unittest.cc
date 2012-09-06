@@ -100,6 +100,7 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
   ASSERT_EQ(common::kBasicBlockCoverageAgentId, coverage_data->agent_id);
   ASSERT_EQ(common::kBasicBlockFrequencyDataVersion, coverage_data->version);
   ASSERT_EQ(tx.bb_ranges().size(), coverage_data->num_basic_blocks);
+  ASSERT_LT(0u, tx.conditional_ranges().size());
   ASSERT_TRUE(coverage_data.HasReferenceAt(
       coverage_data.OffsetOf(coverage_data->frequency_data)));
 }
