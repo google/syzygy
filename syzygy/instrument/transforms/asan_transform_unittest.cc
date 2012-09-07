@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_relinker.h"
@@ -51,28 +52,13 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
   }
 };
 
-class AsanTransformTest : public testing::PELibUnitTest {
+class AsanTransformTest : public testing::TestDllTransformTest {
  public:
   AsanTransformTest() :
-      dos_header_block_(NULL),
       basic_block_(0, "test block", BasicBlock::BASIC_CODE_BLOCK,
                    BasicBlock::kNoOffset, kDataSize, kBlockData),
       bb_asm_(basic_block_.instructions().begin(),
               &basic_block_.instructions()) {
-  }
-
-  void DecomposeTestDll() {
-    FilePath test_dll_path = ::testing::GetOutputRelativePath(kDllName);
-
-    ASSERT_TRUE(pe_file_.Init(test_dll_path));
-
-    pe::ImageLayout layout(&block_graph_);
-    pe::Decomposer decomposer(pe_file_);
-    ASSERT_TRUE(decomposer.Decompose(&layout));
-
-    dos_header_block_ =
-        layout.blocks.GetBlockByAddress(core::RelativeAddress(0));
-    ASSERT_TRUE(dos_header_block_ != NULL);
   }
 
   void InitHookRefs() {
@@ -91,9 +77,6 @@ class AsanTransformTest : public testing::PELibUnitTest {
 
  protected:
   ScopedTempDir temp_dir_;
-  pe::PEFile pe_file_;
-  BlockGraph block_graph_;
-  BlockGraph::Block* dos_header_block_;
   AsanTransform asan_transform_;
   BlockGraph::Block* hook_check_access_;
   BlockGraph::Reference hook_check_access_ref_;
