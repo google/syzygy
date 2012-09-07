@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,9 @@ namespace basic_block_entry {
 // @note: There's a single instance of this class.
 class BasicBlockEntry {
  public:
+  typedef ::common::BasicBlockFrequencyData BasicBlockFrequencyData;
+  typedef ::agent::common::ThreadStateManager ThreadStateManager;
+
   // This structure describes the contents of the stack above a call to
   // BasicBlockEntry::BasicBlockEntryHook. A pointer to this structure will
   // be given to the BasicBlockEntryHook by _basic_block_enter.
@@ -53,8 +56,13 @@ class BasicBlockEntry {
 
   // This structure describes the contents of the stack above a call to
   // BasicBlockEntry::DllMainEntryHook(). A pointer to this structure will
-  // be given to the BasicBlockEntryHook by _indirect_penter_dllmain.
+  // be given to the DllMainEntryHook by _indirect_penter_dllmain.
   struct DllMainEntryFrame;
+
+  // This structure describes the contents of the stack above a call to
+  // BasicBlockEntry::ExeMainEntryHook(). A pointer to this structure will
+  // be given to the ExeMainEntryHook by _indirect_penter_exemain.
+  struct ExeMainEntryFrame;
 
   // Retrieves the coverage singleton instance.
   static BasicBlockEntry* Instance();
@@ -64,6 +72,9 @@ class BasicBlockEntry {
 
   // Called from _indirect_penter_dllmain.
   static void WINAPI DllMainEntryHook(DllMainEntryFrame* entry_frame);
+
+  // Called from _indirect_penter_exemain.
+  static void WINAPI ExeMainEntryHook(ExeMainEntryFrame* entry_frame);
 
  protected:
   // This class defines the per-thread-per-instrumented-module state managed
@@ -77,26 +88,27 @@ class BasicBlockEntry {
   BasicBlockEntry();
   ~BasicBlockEntry();
 
-  // Handles DLL_PROCESS_ATTACH messages received by DllMainEntryHook().
-  void OnProcessAttach(DllMainEntryFrame* entry_frame);
+  // Handles EXE startup on ExeMainEntryHook and DLL_PROCESS_ATTACH messages
+  // received by DllMainEntryHook().
+  void OnProcessAttach(BasicBlockFrequencyData* module_data);
 
   // Handles DLL_THREAD_DETACH and DLL_PROCESS_DETACH messages received by
   // DllMainEntryHook().
-  void OnThreadDetach(DllMainEntryFrame* entry_frame);
+  void OnThreadDetach(BasicBlockFrequencyData* module_data);
 
   // Registers the module containing @p addr with the call_trace_service.
   void RegisterModule(const void* addr);
 
   // Create the local thread state for the current thread. This should only
   // be called if the local thread state has not already been created.
-  ThreadState* CreateThreadState(BasicBlockEntryFrame* entry_frame);
+  ThreadState* CreateThreadState(BasicBlockFrequencyData* module_data);
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
 
   // A helper to manage the life-cycle of the ThreadState instances allocated
   // by this agent.
-  agent::common::ThreadStateManager thread_state_manager_;
+  ThreadStateManager thread_state_manager_;
 };
 
 }  // namespace coverage
