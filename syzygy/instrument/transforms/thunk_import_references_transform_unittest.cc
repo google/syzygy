@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
@@ -48,42 +49,20 @@ class TestThunkImportReferencesTransform
   }
 };
 
-class ThunkImportReferencesTransformTest : public testing::Test {
+class ThunkImportReferencesTransformTest
+    : public testing::TestDllTransformTest {
  public:
-  ThunkImportReferencesTransformTest()
-      : input_image_layout_(&block_graph_), dos_header_block_(NULL) {
+  ThunkImportReferencesTransformTest() : input_image_layout_(&block_graph_) {
   }
 
   virtual void SetUp() {
     tmp_dir_.CreateUniqueTempDir();
-    ASSERT_TRUE(input_pe_file_.Init(
-        testing::GetOutputRelativePath(L"test_dll.dll")));
-    ASSERT_NO_FATAL_FAILURE(Decompose());
-  }
-
-  void Decompose() {
-    // Decompose the input image.
-    pe::Decomposer decomposer(input_pe_file_);
-    decomposer.set_pdb_path(
-        FilePath(testing::GetOutputRelativePath(L"test_dll.pdb")));
-    ASSERT_TRUE(decomposer.Decompose(&input_image_layout_))
-        << "Unable to decompose module: "
-        << input_pe_file_.path().value();
-
-    // Get the DOS header block.
-    dos_header_block_ =
-        input_image_layout_.blocks.GetBlockByAddress(
-            BlockGraph::RelativeAddress(0));
-    ASSERT_TRUE(dos_header_block_ != NULL)
-        << "Unable to find the DOS header block.";
+    ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
   }
 
  protected:
-  pe::PEFile input_pe_file_;
-  pe::ImageLayout input_image_layout_;
-  BlockGraph block_graph_;
-  BlockGraph::Block* dos_header_block_;
   ScopedTempDir tmp_dir_;
+  pe::ImageLayout input_image_layout_;
 };
 
 }  // namespace
