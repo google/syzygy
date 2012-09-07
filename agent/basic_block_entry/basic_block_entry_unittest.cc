@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,6 +142,10 @@ class BasicBlockEntryTest : public testing::Test {
     indirect_penter_dllmain_stub_ =
         ::GetProcAddress(agent_module_, "_indirect_penter_dllmain");
     ASSERT_TRUE(indirect_penter_dllmain_stub_ != NULL);
+
+    indirect_penter_exemain_stub_ =
+        ::GetProcAddress(agent_module_, "_indirect_penter_exemain");
+    ASSERT_TRUE(indirect_penter_exemain_stub_ != NULL);
   }
 
   void UnloadDll() {
@@ -150,6 +154,7 @@ class BasicBlockEntryTest : public testing::Test {
       agent_module_ = NULL;
       basic_block_enter_stub_ = NULL;
       indirect_penter_dllmain_stub_ = NULL;
+      indirect_penter_exemain_stub_ = NULL;
     }
   }
 
@@ -157,6 +162,8 @@ class BasicBlockEntryTest : public testing::Test {
   static BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID reserved);
   static BOOL WINAPI DllMainThunk(
       HMODULE module, DWORD reason, LPVOID reserved);
+  static int __cdecl ExeMain();
+  static int __cdecl ExeMainThunk();
 
    void SimulateModuleEvent(DWORD reason) {
      DllMainThunk(kThisModule, reason, NULL);
@@ -193,8 +200,11 @@ class BasicBlockEntryTest : public testing::Test {
   // The basic-block entry entrance hook.
   static FARPROC basic_block_enter_stub_;
 
-  // The DllMain entry hook.
+  // The DllMain entry stub.
   static FARPROC indirect_penter_dllmain_stub_;
+
+  // The ExeMain entry stub.
+  static FARPROC indirect_penter_exemain_stub_;
 };
 
 BOOL WINAPI BasicBlockEntryTest::DllMain(
@@ -211,10 +221,23 @@ BOOL __declspec(naked) WINAPI BasicBlockEntryTest::DllMainThunk(
   }
 }
 
+int __cdecl BasicBlockEntryTest::ExeMain() {
+  return 0;
+}
+
+BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
+  __asm {
+    push offset module_data_
+    push ExeMain
+    jmp indirect_penter_exemain_stub_
+  }
+}
+
 BasicBlockFrequencyData BasicBlockEntryTest::module_data_ = {};
 uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_dllmain_stub_ = NULL;
+FARPROC BasicBlockEntryTest::indirect_penter_exemain_stub_ = NULL;
 
 }  // namespace
 
@@ -264,7 +287,7 @@ TEST_F(BasicBlockEntryTest, NoServerNoCrash) {
   ASSERT_NO_FATAL_FAILURE(ReplayLogs(0));
 }
 
-TEST_F(BasicBlockEntryTest, SingleThreadedBasicBlockEvents) {
+TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -294,6 +317,60 @@ TEST_F(BasicBlockEntryTest, SingleThreadedBasicBlockEvents) {
 
   // Simulate the process attach event.
   SimulateModuleEvent(DLL_PROCESS_DETACH);
+
+  // Unload the DLL and stop the service.
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+
+  HMODULE self = ::GetModuleHandle(NULL);
+  DWORD process_id = ::GetCurrentProcessId();
+  DWORD thread_id = ::GetCurrentThreadId();
+
+  static const uint32 kExpectedFrequencyData[kNumBasicBlocks] = { 3, 1 };
+
+  // Set up expectations for what should be in the trace.
+  EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
+  EXPECT_CALL(handler_, OnProcessAttach(_,
+                                        process_id,
+                                        thread_id,
+                                        ModuleAtAddress(self)));;
+  EXPECT_CALL(handler_, OnBasicBlockFrequency(
+      _,
+      process_id,
+      thread_id,
+      FrequencyDataMatches(self, kNumBasicBlocks, kExpectedFrequencyData)));
+  EXPECT_CALL(handler_, OnProcessEnded(_, process_id));
+
+  // Replay the log.
+  ASSERT_NO_FATAL_FAILURE(ReplayLogs(1));
+}
+
+TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Simulate the process attach event.
+  ExeMainThunk();
+
+  // Validate that it does not modify any of our initialization values.
+  ASSERT_EQ(::common::kBasicBlockEntryAgentId, module_data_.agent_id);
+  ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
+  ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
+  ASSERT_NE(0U, module_data_.initialization_attempted);
+  ASSERT_EQ(kNumBasicBlocks, module_data_.num_basic_blocks);
+  ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
+
+  // Visiting an initial basic-block should not fail. It should initialize the
+  // TLS index, allocate a frequency map for this thread, and increment the
+  // call count in the allocated frequency map. The default frequency data
+  // should be left unchanged.
+  SimulateBasicBlockEntry(0);
+  ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
+  ASSERT_EQ(0U, default_frequency_data_[0]);
+
+  // Make a few more calls, just to keep things interesting.
+  SimulateBasicBlockEntry(0);
+  SimulateBasicBlockEntry(1);
+  SimulateBasicBlockEntry(0);
 
   // Unload the DLL and stop the service.
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
