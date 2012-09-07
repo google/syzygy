@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/core/address_space.h"
+#include "syzygy/instrument/transforms/add_basic_block_frequency_data_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -93,8 +94,9 @@ class CoverageInstrumentationTransform
                                BlockGraph::Block* header_block);
   // @}
 
-  // Points to the block containing coverage data.
-  BlockGraph::Block* coverage_data_block_;
+  // Adds the basic-block frequency data referenced by the coverage agent.
+  AddBasicBlockFrequencyDataTransform add_frequency_data_;
+
   // Stores the RVAs in the original image for each instrumented basic block.
   RelativeAddressRangeVector bb_ranges_;
   // Stores the RVAs in the original image for the conditional control flow

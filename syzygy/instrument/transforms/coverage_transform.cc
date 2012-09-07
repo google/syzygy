@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #include "syzygy/instrument/transforms/coverage_transform.h"
 
 #include "syzygy/block_graph/basic_block_assembler.h"
-#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pe/block_util.h"
@@ -27,7 +26,10 @@ namespace transforms {
 namespace {
 
 using common::BasicBlockFrequencyData;
+using common::kBasicBlockCoverageAgentId;
 using core::eax;
+using block_graph::ApplyBasicBlockSubGraphTransform;
+using block_graph::ApplyBlockGraphTransform;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
@@ -36,45 +38,11 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
 
-typedef block_graph::TypedBlock<BasicBlockFrequencyData> CoverageDataBlock;
-typedef instrument::transforms::CoverageInstrumentationTransform::
-    RelativeAddressRange RelativeAddressRange;
+typedef CoverageInstrumentationTransform::RelativeAddressRange
+    RelativeAddressRange;
 
-bool AddCoverageDataSection(BlockGraph* block_graph,
-                            BlockGraph::Block** coverage_data_block) {
-  DCHECK(block_graph != NULL);
-  DCHECK(coverage_data_block != NULL);
-
-  BlockGraph::Section* coverage_section = block_graph->FindSection(
-      common::kBasicBlockFrequencySectionName);
-  if (coverage_section != NULL) {
-    LOG(ERROR) << "Block-graph already contains a code coverage data section ("
-               << common::kBasicBlockFrequencySectionName << ").";
-    return false;
-  }
-
-  coverage_section = block_graph->AddSection(
-      common::kBasicBlockFrequencySectionName,
-      common::kBasicBlockFrequencySectionCharacteristics);
-  DCHECK(coverage_section != NULL);
-
-  BlockGraph::Block* block =
-      block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            sizeof(BasicBlockFrequencyData),
-                            "Coverage data");
-  DCHECK(block != NULL);
-  block->set_section(coverage_section->id());
-
-  BasicBlockFrequencyData coverage_data = {};
-  coverage_data.agent_id = common::kBasicBlockCoverageAgentId;
-  coverage_data.version = common::kBasicBlockFrequencyDataVersion;
-  coverage_data.tls_index = TLS_OUT_OF_INDEXES;
-
-  block->CopyData(sizeof(coverage_data), &coverage_data);
-  *coverage_data_block = block;
-
-  return true;
-}
+const BlockGraph::Offset kFrequencyDataOffset =
+    offsetof(BasicBlockFrequencyData, frequency_data);
 
 // Compares two relative address ranges to see if they overlap. Assumes they
 // are already sorted. This is used to validate basic-block ranges.
@@ -96,7 +64,7 @@ const char CoverageInstrumentationTransform::kTransformName[] =
     "CoverageInstrumentationTransform";
 
 CoverageInstrumentationTransform::CoverageInstrumentationTransform()
-    : coverage_data_block_(NULL) {
+    : add_frequency_data_(kBasicBlockCoverageAgentId) {
 }
 
 bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
@@ -104,6 +72,10 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     BasicBlockSubGraph* basic_block_subgraph) {
   DCHECK(block_graph != NULL);
   DCHECK(basic_block_subgraph != NULL);
+
+  BlockGraph::Block* data_block = add_frequency_data_.frequency_data_block();
+  DCHECK(data_block != NULL);
+  DCHECK_EQ(sizeof(BasicBlockFrequencyData), data_block->data_size());
 
   // Iterate over the basic blocks.
   BasicBlockSubGraph::BBCollection::iterator it =
@@ -129,16 +101,14 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
 
     // We prepend each basic code block with the following instructions:
     //   0. push eax
-    //   1. mov eax, dword ptr[basic_block_seen_array]
+    //   1. mov eax, dword ptr[data.frequency_data]
     //   2. mov byte ptr[eax + basic_block_index], 1
     //   3. pop eax
-    BasicBlockAssembler assm(bb.instructions().begin(),
-                             &bb.instructions());
+    BasicBlockAssembler assm(bb.instructions().begin(), &bb.instructions());
+
     // Prepend the instrumentation instructions.
     assm.push(eax);
-    static const BlockGraph::Offset kDstOffset =
-        offsetof(BasicBlockFrequencyData, frequency_data);
-    assm.mov(eax, Operand(Displacement(coverage_data_block_, kDstOffset)));
+    assm.mov(eax, Operand(Displacement(data_block, kFrequencyDataOffset)));
     assm.mov_b(Operand(eax, Displacement(bb_ranges_.size())), Immediate(1));
     assm.pop(eax);
 
@@ -177,9 +147,11 @@ bool CoverageInstrumentationTransform::PreBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  if (!AddCoverageDataSection(block_graph, &coverage_data_block_))
+  if (!ApplyBlockGraphTransform(
+          &add_frequency_data_, block_graph, header_block)) {
+    LOG(ERROR) << "Failed to insert basic-block frequency data.";
     return false;
-  DCHECK(coverage_data_block_ != NULL);
+  }
 
   return true;
 }
@@ -198,8 +170,7 @@ bool CoverageInstrumentationTransform::OnBlock(
     return true;
 
   // Apply our basic block transform.
-  if (!block_graph::ApplyBasicBlockSubGraphTransform(
-      this, block_graph, block, NULL)) {
+  if (!ApplyBasicBlockSubGraphTransform(this, block_graph, block, NULL)) {
     return false;
   }
 
@@ -211,9 +182,16 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  if (bb_ranges_.size() == 0) {
+  size_t num_basic_blocks = bb_ranges_.size();
+  if (num_basic_blocks == 0) {
     LOG(WARNING) << "Encountered no basic code blocks during instrumentation.";
     return true;
+  }
+
+  if (!add_frequency_data_.AllocateFrequencyDataBuffer(num_basic_blocks,
+                                                       sizeof(uint8))) {
+    LOG(ERROR) << "Failed to allocate frequency data buffer.";
+    return false;
   }
 
   // Sort these for efficient searching in the coverage grinder.
@@ -234,45 +212,6 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
                             RelativeAddressRangesOverlapFunctor()) ==
       conditional_ranges_.end());
 #endif
-
-  // Set the final basic block count. This is used by the runtime library to
-  // know how big an array to allocate for the statistics.
-  CoverageDataBlock coverage_data;
-  DCHECK(coverage_data_block_ != NULL);
-  CHECK(coverage_data.Init(0, coverage_data_block_));
-  coverage_data->num_basic_blocks = bb_ranges_.size();
-  coverage_data->frequency_size = 1U;
-
-  // Get/create a read/write .rdata section.
-  BlockGraph::Section* rdata_section = block_graph->FindOrAddSection(
-      pe::kReadWriteDataSectionName, pe::kReadWriteDataCharacteristics);
-  if (rdata_section == NULL) {
-    LOG(ERROR) << "Unable to find or create section \""
-               << pe::kReadWriteDataSectionName << "\".";
-    return false;
-  }
-
-  // Create an empty block that is sufficient to hold all of the coverage
-  // results. We will initially point basic_block_seen_array at this so that
-  // even if the call-trace service is down the program can run without
-  // crashing. We put this in .rdata so that .bbfreq contains only a single
-  // block.
-  BlockGraph::Block* bb_seen_array_block =
-      block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            bb_ranges_.size(),
-                            "Basic Blocks Seen Array");
-  DCHECK(bb_seen_array_block != NULL);
-  bb_seen_array_block->set_section(rdata_section->id());
-
-  // Hook it up to the coverage_data array pointer.
-  coverage_data_block_->SetReference(
-      coverage_data.OffsetOf(coverage_data->frequency_data),
-      BlockGraph::Reference(
-          BlockGraph::ABSOLUTE_REF,
-          sizeof(coverage_data->frequency_data),
-          bb_seen_array_block,
-          0,
-          0));
 
   return true;
 }
