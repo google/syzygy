@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,9 @@ class Value {
   core::ValueSize size() const { return value_.size(); }
   const BasicBlockReference &reference() const { return reference_; }
   // @}
+
+  // Comparison operator.
+  bool operator==(const Value& rhs) const;
 
  private:
   // Private constructor for Operand.

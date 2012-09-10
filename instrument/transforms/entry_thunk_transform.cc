@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include "base/logging.h"
 #include "base/stringprintf.h"
-#include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/block_builder.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
@@ -25,8 +25,14 @@ namespace transforms {
 
 namespace {
 
+using block_graph::BasicBlock;
+using block_graph::BasicBlockAssembler;
+using block_graph::BasicBlockReference;
+using block_graph::BasicBlockSubGraph;
+using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
-using block_graph::TypedBlock;
+using block_graph::Displacement;
+using block_graph::Operand;
 
 // We add this suffix to the destination
 const char kThunkSuffix[] = "_thunk";
@@ -78,22 +84,39 @@ const char EntryThunkTransform::kExeEntryHookName[] =
 const char EntryThunkTransform::kDefaultInstrumentDll[] =
     "call_trace_client.dll";
 
-// We push the absolute address of the function to be called on the
-// stack, and then we invoke the instrumentation function indirectly
-// through the import table.
-// 6844332211    push  offset (11223344)
-// FF2588776655  jmp   dword ptr [(55667788)]
-const EntryThunkTransform::Thunk EntryThunkTransform::kThunkTemplate = {
-    0x68, NULL, // push immediate
-    0x25FF, NULL  // jmp DWORD PTR[immediate]
-  };
-
 EntryThunkTransform::EntryThunkTransform()
     : thunk_section_(NULL),
       instrument_unsafe_references_(true),
       src_ranges_for_thunks_(false),
       only_instrument_module_entry_(false),
       instrument_dll_name_(kDefaultInstrumentDll) {
+}
+
+bool EntryThunkTransform::SetEntryThunkParameter(const Immediate& immediate) {
+  if (immediate.size() != core::kSizeNone &&
+      immediate.size() != core::kSize32Bit) {
+    return false;
+  }
+  entry_thunk_parameter_ = immediate;
+  return true;
+}
+
+bool EntryThunkTransform::SetFunctionThunkParameter(
+    const Immediate& immediate) {
+  if (immediate.size() != core::kSizeNone &&
+      immediate.size() != core::kSize32Bit) {
+    return false;
+  }
+  function_thunk_parameter_ = immediate;
+  return true;
+}
+
+bool EntryThunkTransform::EntryThunkIsParameterized() const {
+  return entry_thunk_parameter_.size() != core::kSizeNone;
+}
+
+bool EntryThunkTransform::FunctionThunkIsParameterized() const {
+  return function_thunk_parameter_.size() != core::kSizeNone;
 }
 
 bool EntryThunkTransform::PreBlockGraphIteration(
@@ -269,12 +292,20 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
     hook_ref = &hook_exe_entry_ref_;
   DCHECK(hook_ref->referenced() != NULL);
 
+  // Determine which parameter to use, if any.
+  const Immediate* param = NULL;
+  if ((is_dllmain_entry || is_exe_entry) && EntryThunkIsParameterized()) {
+    param = &entry_thunk_parameter_;
+  } else if (FunctionThunkIsParameterized()) {
+    param = &function_thunk_parameter_;
+  }
+
   // Look for the reference in the thunk block map, and only create a new one
   // if it does not already exist.
   BlockGraph::Block* thunk_block = NULL;
   ThunkBlockMap::const_iterator thunk_it = thunk_block_map->find(ref.offset());
   if (thunk_it == thunk_block_map->end()) {
-    thunk_block = CreateOneThunk(block_graph, ref, *hook_ref);
+    thunk_block = CreateOneThunk(block_graph, ref, *hook_ref, param);
     if (thunk_block == NULL) {
       LOG(ERROR) << "Unable to create thunk block.";
       return false;
@@ -298,7 +329,8 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
 BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
     BlockGraph* block_graph,
     const BlockGraph::Reference& destination,
-    const BlockGraph::Reference& hook) {
+    const BlockGraph::Reference& hook,
+    const Immediate* parameter) {
   std::string name;
   if (destination.offset() == 0) {
     name = base::StringPrintf("%s%s",
@@ -311,16 +343,39 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
                               destination.offset());
   }
 
-  // Create and initialize the new thunk.
-  BlockGraph::Block* thunk = block_graph->AddBlock(BlockGraph::CODE_BLOCK,
-                                                   sizeof(kThunkTemplate),
-                                                   name.c_str());
-  if (thunk == NULL)
-    return NULL;
+  // Set up a basic block subgraph containing a single block description, with
+  // that block description containing a single empty basic block, and get an
+  // assembler writing into that basic block.
+  // TODO(chrisha): Make this reusable somehow. Creating a code block via an
+  //     assembler is likely to be pretty common.
+  BasicBlockSubGraph bbsg;
+  BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
+      name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
+  BasicBlock* bb = bbsg.AddBasicBlock(
+      name, BasicBlock::BASIC_CODE_BLOCK, BasicBlock::kNoOffset, 0, NULL);
+  block_desc->basic_block_order.push_back(bb);
+  BasicBlockAssembler assm(bb->instructions().begin(),
+                           &bb->instructions());
 
-  thunk->set_section(thunk_section_->id());
-  thunk->SetData(reinterpret_cast<const uint8*>(&kThunkTemplate),
-                 sizeof(kThunkTemplate));
+  // Set up our thunk:
+  // 1. push parameter
+  // 2. push func_addr
+  // 3. jmp hook_addr
+  if (parameter != NULL)
+    assm.push(*parameter);
+  assm.push(Immediate(destination.referenced(), destination.offset()));
+  assm.jmp(Operand(Displacement(hook.referenced(), hook.offset())));
+
+  // Condense the whole mess into a block.
+  BlockBuilder block_builder(block_graph);
+  if (!block_builder.Merge(&bbsg)) {
+    LOG(ERROR) << "Failed to build thunk block.";
+    return false;
+  }
+
+  // Exactly one new block should have been created.
+  DCHECK_EQ(1u, block_builder.new_blocks().size());
+  BlockGraph::Block* thunk = block_builder.new_blocks().front();
 
   if (src_ranges_for_thunks_) {
     // Give the thunk a source range synonymous with the destination.
@@ -344,41 +399,7 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
     }
   }
 
-  if (!InitializeThunk(thunk, destination, hook)) {
-    bool removed = block_graph->RemoveBlock(thunk);
-    DCHECK(removed);
-
-    thunk = NULL;
-  }
-
   return thunk;
-}
-
-bool EntryThunkTransform::InitializeThunk(
-    BlockGraph::Block* thunk_block,
-    const BlockGraph::Reference& destination,
-    const BlockGraph::Reference& import_entry) {
-  TypedBlock<Thunk> thunk;
-  if (!thunk.Init(0, thunk_block))
-    return false;
-
-  if (!thunk.SetReference(BlockGraph::ABSOLUTE_REF,
-                          thunk->func_addr,
-                          destination.referenced(),
-                          destination.offset(),
-                          destination.offset())) {
-    return false;
-  }
-
-  if (!thunk.SetReference(BlockGraph::ABSOLUTE_REF,
-                          thunk->hook_addr,
-                          import_entry.referenced(),
-                          import_entry.offset(),
-                          import_entry.offset())) {
-    return false;
-  }
-
-  return true;
 }
 
 bool EntryThunkTransform::GetEntryPoints(BlockGraph::Block* header_block) {

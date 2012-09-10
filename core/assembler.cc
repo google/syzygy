@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -133,6 +133,12 @@ ValueImpl::ValueImpl(uint32 value,
                      ValueSize size,
                      const void* value_ref)
     : value_(value), reference_(value_ref), size_(size) {
+}
+
+bool ValueImpl::operator==(const ValueImpl& rhs) const {
+  return value_ == rhs.value_ &&
+      reference_ == rhs.reference_ &&
+      size_ == rhs.size_;
 }
 
 // This class is used to buffer a single instruction during it's creation.

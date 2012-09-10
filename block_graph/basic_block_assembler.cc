@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,6 +81,12 @@ const Value& Value::operator=(const Value& other) {
   reference_ = other.reference_;
   value_ = CopyValue(&reference_, other.value_);
   return *this;
+}
+
+bool Value::operator==(const Value& rhs) const {
+  if (reference_.IsValid())
+    return reference_ == rhs.reference();
+  return value_ == rhs.value_;
 }
 
 Operand::Operand(core::Register base) : operand_(base) {
