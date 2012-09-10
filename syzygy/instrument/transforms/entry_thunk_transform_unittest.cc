@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,16 +30,31 @@ namespace {
 
 using block_graph::BlockGraph;
 using block_graph::ConstBlockVector;
+using block_graph::Immediate;
 using block_graph::TypedBlock;
 using core::AbsoluteAddress;
 using testing::_;
 using testing::Return;
 
-// Expose protected members for testing.
-class TestEntryThunkTransform : public EntryThunkTransform {
- public:
-  using EntryThunkTransform::Thunk;
+// This defines the memory layout for the thunks that are created by the
+// transform.
+#pragma pack(push)
+#pragma pack(1)
+struct Thunk {
+  BYTE push;
+  DWORD func_addr;  // The real function to invoke.
+  WORD indirect_jmp;
+  DWORD hook_addr;  // The instrumentation hook that gets called indirectly.
 };
+struct ParamThunk {
+  BYTE push1;
+  DWORD param;  // The parameter for the instrumentation hook.
+  BYTE push2;
+  DWORD func_addr;  // The real function to invoke.
+  WORD indirect_jmp;
+  DWORD hook_addr;  // The instrumentation hook that gets called indirectly.
+};
+#pragma pack(pop)
 
 class EntryThunkTransformTest : public testing::Test {
  public:
@@ -145,13 +160,17 @@ class EntryThunkTransformTest : public testing::Test {
     num_sections_pre_transform_ = bg_.sections().size();
 
     // No thunks so far.
-    ASSERT_NO_FATAL_FAILURE(VerifyThunks(0, 0, 0));
+    ASSERT_NO_FATAL_FAILURE(VerifyThunks(0, 0, 0, 0));
   }
 
   // Retrieves the thunks.
-  void FindThunks(ConstBlockVector* ret) {
+  void FindThunks(ConstBlockVector* ret, int* param_thunks) {
     ASSERT_TRUE(ret != NULL);
     EXPECT_TRUE(ret->empty());
+    ASSERT_TRUE(param_thunks != NULL);
+
+    *param_thunks = 0;
+
     BlockGraph::Section* thunk_section = bg_.FindSection(".thunks");
     if (thunk_section == NULL)
       return;
@@ -162,6 +181,11 @@ class EntryThunkTransformTest : public testing::Test {
       if (block.section() == thunk_section->id()) {
         EXPECT_EQ(BlockGraph::CODE_BLOCK, block.type());
         EXPECT_EQ(2, block.references().size());
+        EXPECT_TRUE(block.size() == sizeof(Thunk) ||
+                    block.size() == sizeof(ParamThunk));
+
+        if (block.size() == sizeof(ParamThunk))
+          ++(*param_thunks);
 
         // It's a thunk.
         ret->push_back(&block);
@@ -174,10 +198,13 @@ class EntryThunkTransformTest : public testing::Test {
         ReferenceMap;
     ReferenceMap destinations;
     for (size_t i = 0; i < blocks.size(); ++i) {
+      size_t func_addr_offset = offsetof(Thunk, func_addr);
+      if (blocks[i]->size() == sizeof(ParamThunk))
+        func_addr_offset = offsetof(ParamThunk, func_addr);
+
       // Lookup and record the destination.
       BlockGraph::Reference ref;
-      EXPECT_TRUE(blocks[i]->GetReference(
-          offsetof(TestEntryThunkTransform::Thunk, func_addr), &ref));
+      EXPECT_TRUE(blocks[i]->GetReference(func_addr_offset, &ref));
       EXPECT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
       destinations.insert(std::make_pair(ref.referenced(), ref.offset()));
     }
@@ -189,10 +216,14 @@ class EntryThunkTransformTest : public testing::Test {
         ReferenceMap;
     ReferenceMap entrypoints;
     for (size_t i = 0; i < blocks.size(); ++i) {
+      size_t hook_addr_offset = offsetof(Thunk, hook_addr);
+      if (blocks[i]->size() == sizeof(ParamThunk))
+        hook_addr_offset = offsetof(ParamThunk, hook_addr);
+
       // Lookup and record the entrypoint.
       BlockGraph::Reference ref;
       EXPECT_TRUE(blocks[i]->GetReference(
-          offsetof(TestEntryThunkTransform::Thunk, hook_addr), &ref));
+          hook_addr_offset, &ref));
       EXPECT_EQ(BlockGraph::ABSOLUTE_REF, ref.type());
       entrypoints.insert(std::make_pair(ref.referenced(), ref.offset()));
     }
@@ -206,11 +237,13 @@ class EntryThunkTransformTest : public testing::Test {
       BlockGraph::Block::SourceRanges::RangePair r =
           thunks[i]->source_ranges().range_pairs()[0];
       ASSERT_EQ(0, r.first.start());
-      ASSERT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.first.size());
+
+      ASSERT_TRUE(r.first.size() == sizeof(Thunk) ||
+                  r.first.size() == sizeof(ParamThunk));
 
       BlockGraph::Reference ref;
       EXPECT_TRUE(thunks[i]->GetReference(
-          offsetof(TestEntryThunkTransform::Thunk, func_addr), &ref));
+          offsetof(Thunk, func_addr), &ref));
 
       // Retrieve the referenced block's source ranges to calculate
       // the destination start address.
@@ -221,19 +254,23 @@ class EntryThunkTransformTest : public testing::Test {
       // The thunk's destination should be the block's start, plus the
       // reference offset.
       EXPECT_EQ(o.second.start() + ref.offset(), r.second.start());
-      EXPECT_EQ(sizeof(TestEntryThunkTransform::Thunk), r.second.size());
+      EXPECT_TRUE(r.second.size() == sizeof(Thunk) ||
+                  r.second.size() == sizeof(ParamThunk));
     }
   }
 
   // Verifies that there are num_thunks thunks in the image, and that they
   // have the expected properties.
-  void VerifyThunks(size_t expected_thunks,
+  void VerifyThunks(size_t expected_total_thunks,
+                    size_t expected_param_thunks,
                     size_t expected_destinations,
                     size_t expected_entrypoints) {
     ConstBlockVector thunks;
-    ASSERT_NO_FATAL_FAILURE(FindThunks(&thunks));
+    int param_thunks = 0;
+    ASSERT_NO_FATAL_FAILURE(FindThunks(&thunks, &param_thunks));
 
-    EXPECT_EQ(expected_thunks, thunks.size());
+    EXPECT_EQ(expected_total_thunks, thunks.size());
+    EXPECT_EQ(expected_param_thunks, param_thunks);
     EXPECT_EQ(expected_destinations, CountDestinations(thunks));
     EXPECT_EQ(expected_entrypoints, CountEntryPoints(thunks));
   }
@@ -333,6 +370,60 @@ class EntryThunkTransformTest : public testing::Test {
 
 }  // namespace
 
+TEST_F(EntryThunkTransformTest, AccessorsAndMutators) {
+  EntryThunkTransform tx;
+
+  EXPECT_TRUE(tx.instrument_unsafe_references());
+  EXPECT_FALSE(tx.src_ranges_for_thunks());
+  EXPECT_FALSE(tx.only_instrument_module_entry());
+
+  tx.set_instrument_unsafe_references(false);
+  tx.set_src_ranges_for_thunks(true);
+  tx.set_only_instrument_module_entry(true);
+
+  EXPECT_FALSE(tx.instrument_unsafe_references());
+  EXPECT_TRUE(tx.src_ranges_for_thunks());
+  EXPECT_TRUE(tx.only_instrument_module_entry());
+}
+
+TEST_F(EntryThunkTransformTest, ParameterizedThunks) {
+  EntryThunkTransform tx;
+
+  EXPECT_FALSE(tx.EntryThunkIsParameterized());
+  EXPECT_FALSE(tx.FunctionThunkIsParameterized());
+  EXPECT_EQ(core::kSizeNone, tx.entry_thunk_parameter().size());
+  EXPECT_EQ(core::kSizeNone, tx.function_thunk_parameter().size());
+
+  // We shouldn't be allowed to set an 8-bit parameter.
+  Immediate imm8(43, core::kSize8Bit);
+  EXPECT_FALSE(tx.SetEntryThunkParameter(imm8));
+  EXPECT_FALSE(tx.SetFunctionThunkParameter(imm8));
+
+  EXPECT_FALSE(tx.EntryThunkIsParameterized());
+  EXPECT_FALSE(tx.FunctionThunkIsParameterized());
+  EXPECT_EQ(core::kSizeNone, tx.entry_thunk_parameter().size());
+  EXPECT_EQ(core::kSizeNone, tx.function_thunk_parameter().size());
+
+  // A 32-bit parameter should be accepted just fine.
+  Immediate imm32(static_cast<int32>(0x11223344));
+  EXPECT_TRUE(tx.SetEntryThunkParameter(imm32));
+  EXPECT_TRUE(tx.SetFunctionThunkParameter(imm32));
+
+  EXPECT_TRUE(tx.EntryThunkIsParameterized());
+  EXPECT_TRUE(tx.FunctionThunkIsParameterized());
+  EXPECT_EQ(imm32, tx.entry_thunk_parameter());
+  EXPECT_EQ(imm32, tx.function_thunk_parameter());
+
+  // A default contructured (with no size) parameter should be accepted.
+  EXPECT_TRUE(tx.SetEntryThunkParameter(Immediate()));
+  EXPECT_TRUE(tx.SetFunctionThunkParameter(Immediate()));
+
+  EXPECT_FALSE(tx.EntryThunkIsParameterized());
+  EXPECT_FALSE(tx.FunctionThunkIsParameterized());
+  EXPECT_EQ(core::kSizeNone, tx.entry_thunk_parameter().size());
+  EXPECT_EQ(core::kSizeNone, tx.function_thunk_parameter().size());
+}
+
 TEST_F(EntryThunkTransformTest, InstrumentAll) {
   EntryThunkTransform transform;
   ASSERT_NO_FATAL_FAILURE(SetEmptyDllEntryPoint());
@@ -341,7 +432,23 @@ TEST_F(EntryThunkTransformTest, InstrumentAll) {
 
   // We should have three thunks - one each for the start of foo() and bar(),
   // and one for the middle of foo().
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 1));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 0, 3, 1));
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentAllWithParam) {
+  EntryThunkTransform transform;
+  ASSERT_NO_FATAL_FAILURE(SetEmptyDllEntryPoint());
+  transform.SetEntryThunkParameter(Immediate(0x11223344));
+  transform.SetFunctionThunkParameter(Immediate(0x11223344));
+
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
+
+  // We should have three thunks - one each for the start of foo() and bar(),
+  // and one for the middle of foo().
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 3, 1));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -355,7 +462,7 @@ TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyNone) {
   ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have no thunks.
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(0, 0, 0));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(0, 0, 0, 0));
 
   // The .thunks section should not have been added, as there are no hooks
   // added.
@@ -371,7 +478,23 @@ TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyDllMainOnly) {
 
   // We should have one thunk, for the DLL main entry point to the start of
   // foo_.
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(1, 1, 1));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(1, 0, 1, 1));
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
+}
+
+TEST_F(EntryThunkTransformTest, InstrumentOnlyDllMainWithParamThunk) {
+  EntryThunkTransform transform;
+  ASSERT_NO_FATAL_FAILURE(SetEntryPoint(foo_, DLL_IMAGE));
+  transform.set_only_instrument_module_entry(true);
+  transform.SetEntryThunkParameter(Immediate(0x11223344));
+
+  ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
+
+  // We should have one thunk, for the DLL main entry point to the start of
+  // foo_ and it should be parameterized.
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(1, 1, 1, 1));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -387,7 +510,7 @@ TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyDllMainAndTls) {
 
   // We should have two thunk, for the DLL main entry point and another for the
   // TLS. One is to foo_ and one is to bar_.
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 2, 1));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 0, 2, 1));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -402,7 +525,7 @@ TEST_F(EntryThunkTransformTest, InstrumentModuleEntriesOnlyExeMainAndTls) {
   ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have one TLS thunk and an EXE entry thunk.
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 2, 2));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 0, 2, 2));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -417,8 +540,10 @@ TEST_F(EntryThunkTransformTest, InstrumentAllDebugFriendly) {
 
   // Verify the source ranges on the thunks.
   ConstBlockVector thunks;
-  ASSERT_NO_FATAL_FAILURE(FindThunks(&thunks));
-  VerifySourceRanges(thunks);
+  int param_thunks = 0;
+  ASSERT_NO_FATAL_FAILURE(FindThunks(&thunks, &param_thunks));
+  EXPECT_EQ(0u, param_thunks);
+  ASSERT_NO_FATAL_FAILURE(VerifySourceRanges(thunks));
 }
 
 TEST_F(EntryThunkTransformTest, InstrumentNoUnsafe) {
@@ -435,7 +560,7 @@ TEST_F(EntryThunkTransformTest, InstrumentNoUnsafe) {
   ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have two thunks - one each for the start of foo() and bar().
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 2, 1));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(2, 0, 2, 1));
 
   // The foo->bar reference should not have been thunked.
   BlockGraph::Reference ref;
@@ -454,7 +579,7 @@ TEST_F(EntryThunkTransformTest, InstrumentDllEntrypoint) {
 
   // We should have three thunks - one each for the start of foo() and bar().
   // One of the thunks should use the DllMain entrypoint.
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 2));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 0, 3, 2));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -467,7 +592,7 @@ TEST_F(EntryThunkTransformTest, InstrumentExeEntrypoint) {
   ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar().
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 2));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 0, 3, 2));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -482,7 +607,7 @@ TEST_F(EntryThunkTransformTest, InstrumentDllTLSEntrypoint) {
 
   // We should have three thunks - one each for the start of foo() and bar().
   // One of the thunks should use the DllMain entrypoint.
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 2));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 0, 3, 2));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());
@@ -496,7 +621,7 @@ TEST_F(EntryThunkTransformTest, InstrumentExeTLSEntrypoint) {
   ASSERT_TRUE(ApplyBlockGraphTransform(&transform, &bg_, dos_header_block_));
 
   // We should have three thunks - one each for the start of foo() and bar().
-  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 3, 3));
+  ASSERT_NO_FATAL_FAILURE(VerifyThunks(3, 0, 3, 3));
 
   // The .thunks section should have been added.
   EXPECT_EQ(num_sections_pre_transform_ + 1, bg_.sections().size());

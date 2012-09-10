@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,6 +104,11 @@ void TestValue(const Value& value,
   EXPECT_EQ(expected_value, value_copy.value());
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
             value_copy.reference().referred_type());
+
+  EXPECT_TRUE(value == value_copy);
+
+  Value value_diff(expected_value - 1);
+  EXPECT_FALSE(value == value_diff);
 }
 
 void Test8BitValue(uint32 input_value, uint32 expected_value) {

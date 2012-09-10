@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,30 +79,30 @@ TEST_F(AssemblerTest, Registers) {
 }
 
 TEST_F(AssemblerTest, ValueImpl) {
-  {
-    ValueImpl imm1;
+  ValueImpl imm1;
+  EXPECT_EQ(0, imm1.value());
+  EXPECT_EQ(NULL, imm1.reference());
+  EXPECT_EQ(kSizeNone, imm1.size());
+  EXPECT_TRUE(imm1 == imm1);
 
-    EXPECT_EQ(0, imm1.value());
-    EXPECT_EQ(NULL, imm1.reference());
-    EXPECT_EQ(kSizeNone, imm1.size());
-  }
+  ValueImpl imm2(0xCAFEBABE, kSize32Bit);
+  EXPECT_EQ(0xCAFEBABE, imm2.value());
+  EXPECT_EQ(NULL, imm2.reference());
+  EXPECT_EQ(kSize32Bit, imm2.size());
+  EXPECT_TRUE(imm2 == imm2);
+  EXPECT_FALSE(imm2 == imm1);
 
-  {
-    ValueImpl imm2(0xCAFEBABE, kSize32Bit);
+  int ref2 = 0;
+  ValueImpl imm3(0xCAFEBABE, kSize32Bit, &ref2);
+  EXPECT_EQ(0xCAFEBABE, imm3.value());
+  EXPECT_EQ(&ref2, imm3.reference());
+  EXPECT_EQ(kSize32Bit, imm3.size());
+  EXPECT_TRUE(imm3 == imm3);
+  EXPECT_FALSE(imm3 == imm2);
+  EXPECT_FALSE(imm3 == imm1);
 
-    EXPECT_EQ(0xCAFEBABE, imm2.value());
-    EXPECT_EQ(NULL, imm2.reference());
-    EXPECT_EQ(kSize32Bit, imm2.size());
-  }
-
-  {
-    int ref2 = 0;
-    ValueImpl imm3(0xCAFEBABE, kSize32Bit, &ref2);
-
-    EXPECT_EQ(0xCAFEBABE, imm3.value());
-    EXPECT_EQ(&ref2, imm3.reference());
-    EXPECT_EQ(kSize32Bit, imm3.size());
-  }
+  ValueImpl imm4(0xCAFEBABE, kSize32Bit, &ref2);
+  EXPECT_TRUE(imm4 == imm3);
 }
 
 TEST_F(AssemblerTest, OperandImpl) {

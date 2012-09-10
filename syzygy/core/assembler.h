@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,6 +144,9 @@ class ValueImpl  {
   const void* reference() const { return reference_; }
   ValueSize size() const { return size_; }
   // @}
+
+  // Comparison operator.
+  bool operator==(const ValueImpl& rhs) const;
 
  private:
   uint32 value_;
