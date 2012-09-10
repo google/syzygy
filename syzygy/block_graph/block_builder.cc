@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -109,32 +109,123 @@ class LocationMap {
 // A utility structure to package up the context in which a new block is
 // generated. This reduces the amount of context parameters being passed
 // around from call to call.
-// TODO(rogerm): Make the calls that take MergeContext members functions
-//     as soon as it is convenient to do so.
-struct MergeContext {
+class MergeContext {
+ public:
   // Initialize a MergeContext with the block graph and original block.
   MergeContext(BlockGraph* bg, const Block* ob)
-      : block_graph(bg), original_block(ob), new_block(NULL), offset(0) {
+      : block_graph_(bg), original_block_(ob), new_block_(NULL), offset_(0) {
     DCHECK(bg != NULL);
   }
 
+  // Accessor.
+  const BlockVector& new_blocks() const { return new_blocks_; }
+
+  // Generate all of the blocks described in @p subgraph.
+  // @param subgraph Defines the block properties and basic blocks to use
+  //     for each of the blocks to be created.
+  bool GenerateBlocks(const BasicBlockSubGraph* subgraph);
+
+  // A wrapper function to resolve all of the references in the merged subgraph
+  // to point to their final locations in the block graph.
+  // @param subgraph The subgraph.
+  void TransferReferences(const BasicBlockSubGraph* subgraph) const;
+
+  // A clean-up function to remove the original block from which @p subgraph
+  // is derived (if any) from the block graph. This must only be performed
+  // after having updated the block graph with the new blocks and transfered
+  // all references to the new block(s).
+  // @param subgraph The subgraph.
+  void RemoveOriginalBlock(BasicBlockSubGraph* subgraph);
+
+ private:
+  // Update the new working block with the source range for the bytes in the
+  // range [new_offset, new_offset + new_size).
+  // @param original_offset The offset in the original block corresponding to
+  //     the bytes in the new block. This may be BlockGraphh::kNoOffset, if
+  //     the source range in question is for synthesized bytes (for example,
+  //     a flow-through successor that will be synthesized as a branch).
+  // @param original_size The number of bytes in the original range.
+  // @param new_offset The offset in the new block where the original bytes
+  //     will now live.
+  // @param new_size The number of bytes the new range occupies.
+  void UpdateSourceRange(Offset original_offset,
+                         Size original_size,
+                         Offset new_offset,
+                         Size new_size);
+
+  // Synthesize the instruction(s) to implement the given @p successor.
+  // @param successor The successor to synthesize.
+  // @param condition The condition to synthesize (overrides that of successor).
+  bool SynthesizeSuccessor(const Successor& successor,
+                           Successor::Condition condition);
+
+  // Generate the byte sequence for the given @p successors. This function
+  // handles the elision of successors that would naturally flow through to
+  // the @p next_bb_in_ordering.
+  // @param successors The successors to synthesize.
+  // @param next_bb_in_ordering The next basic block in the basic block
+  //     ordering. If a successor refers to the next basic-block in the
+  //     ordering it does not have to be synthesized into a branch instruction
+  //     as control flow will naturally continue into it.
+  bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
+                            const BasicBlock* next_bb_in_ordering);
+
+  // Copy the given @p instructions to the current working block.
+  // @param instructions The instructions to copy.
+  bool CopyInstructions(const BasicBlock::Instructions& instructions);
+
+  // Copy the data (or padding bytes) in @p basic_block into new working block.
+  // @param basic_block The basic_block to copy.
+  bool CopyData(const BasicBlock* basic_block);
+
+  // Generate a new block based on the given block @p description.
+  // @param description Defines the block properties and basic blocks to use
+  //     when creating the @p new_block_.
+  bool GenerateBlock(const BlockDescription& description);
+
+  // Transfer all external referrers that refer to @p bb to point to
+  // bb's new location instead of to the original block.
+  // @param bb The basic block.
+  void UpdateReferrers(const BasicBlock* bb) const;
+
+  // Resolves all of @p object's references (where object is a basic-block,
+  // or instruction) to point to their final locations in the block graph.
+  // @param object The referring object.
+  // @param references The references made from object.
+  void UpdateReferences(
+      const void* object,
+      const BasicBlock::BasicBlockReferenceMap& references) const;
+
+  // Update all of references in the given basic-block's instructions to
+  // point to their final locations in the block graph.
+  // @param basic_block The basic block.
+  void UpdateInstructionReferences(const BasicBlock* basic_block) const;
+
+  // Update all of references for the given basic-block's successors to
+  // point to their final locations in the block graph.
+  // @param basic_block The basic block.
+  void UpdateSuccessorReferences(const BasicBlock* basic_block) const;
+
+ private:
   // The mapped locations of the block elements.
-  LocationMap locations;
+  LocationMap locations_;
 
   // The block graph in which the new blocks are generated.
-  BlockGraph* const block_graph;
+  BlockGraph* const block_graph_;
 
   // The original block from which the new blocks are derived.
-  const Block* original_block;
+  const Block* original_block_;
 
   // The set of blocks generated in this context.
-  BlockVector new_blocks;
+  BlockVector new_blocks_;
 
   // The current new block being generated.
-  Block* new_block;
+  Block* new_block_;
 
   // The current write offset into the new block.
-  Offset offset;
+  Offset offset_;
+
+  DISALLOW_COPY_AND_ASSIGN(MergeContext);
 };
 
 // Serializes instruction bytes to a target buffer.
@@ -159,30 +250,17 @@ class Serializer : public core::AssemblerImpl::InstructionSerializer {
   uint8* const buffer_;
 };
 
-// Update the new working block with the source range for the bytes in the
-// range [new_offset, new_offset + new_size).
-// @param original_offset The offset in the original block corresponding to
-//     the bytes in the new block. This may be BlockGraphh::kNoOffset, if
-//     the source range in question is for synthesized bytes (for example,
-//     a flow-through successor that will be synthesized as a branch).
-// @param original_size The number of bytes in the original range.
-// @param new_offset The offset in the new block where the original bytes
-//     will now live.
-// @param new_size The number of bytes the new range occupies.
-// @param ctx The merge context.
-void UpdateSourceRange(Offset original_offset,
-                       Size original_size,
-                       Offset new_offset,
-                       Size new_size,
-                       MergeContext* ctx) {
+void MergeContext::UpdateSourceRange(Offset original_offset,
+                                     Size original_size,
+                                     Offset new_offset,
+                                     Size new_size) {
   DCHECK_LE(0, new_offset);
   DCHECK_NE(0U, new_size);
-  DCHECK(ctx != NULL);
-  DCHECK(ctx->new_block != NULL);
+  DCHECK(new_block_ != NULL);
 
   // If the entire block is synthesized or just this new byte range is
   // synthesized, there's nothing to do.
-  if (ctx->original_block == NULL || original_offset == BasicBlock::kNoOffset) {
+  if (original_block_ == NULL || original_offset == BasicBlock::kNoOffset) {
     return;
   }
 
@@ -192,7 +270,7 @@ void UpdateSourceRange(Offset original_offset,
   //     incorporate the source ranges for each subgraph element (data/padding
   //     basic-blocks, instructions and successors) into each element itself.
   const Block::SourceRanges::RangePair* range_pair =
-      ctx->original_block->source_ranges().FindRangePair(original_offset,
+      original_block_->source_ranges().FindRangePair(original_offset,
                                                          original_size);
   if (range_pair == NULL)
     return;
@@ -219,23 +297,16 @@ void UpdateSourceRange(Offset original_offset,
   }
 
   // Insert the new source range mapping into the new block.
-  bool inserted = ctx->new_block->source_ranges().Insert(
+  bool inserted = new_block_->source_ranges().Insert(
       Block::DataRange(new_offset, new_size),
       Block::SourceRange(source_addr, source_size));
   DCHECK(inserted);
 }
 
-// Synthesize the instruction(s) to implement the given @p successor.
-// @param successor The successor to synthesize.
-// @param condition The condition to synthesize (overrides that of successor).
-// @param ctx The merge context describing where the instructions should be
-//     synthesized.
-bool SynthesizeSuccessor(const Successor& successor,
-                         Successor::Condition condition,
-                         MergeContext* ctx) {
+bool MergeContext::SynthesizeSuccessor(const Successor& successor,
+                                       Successor::Condition condition) {
   DCHECK_LT(Successor::kInvalidCondition, condition);
-  DCHECK(ctx != NULL);
-  DCHECK(ctx->new_block != NULL);
+  DCHECK(new_block_ != NULL);
 
   // We use a temporary target location when assembling only to satisfy the
   // assembler interface. We will actually synthesize references that will
@@ -245,8 +316,8 @@ bool SynthesizeSuccessor(const Successor& successor,
   static const size_t k32BitsInBytes = 4;
 
   // Create the assembler.
-  Serializer serializer(ctx->new_block->GetMutableData());
-  core::AssemblerImpl asm_(ctx->offset, &serializer);
+  Serializer serializer(new_block_->GetMutableData());
+  core::AssemblerImpl asm_(offset_, &serializer);
 
   // Synthesize the instruction(s) corresponding to the condition.
   if (condition <= Successor::kMaxConditionalBranch) {
@@ -285,41 +356,28 @@ bool SynthesizeSuccessor(const Successor& successor,
   // Remember where the reference for this successor has been placed. In each
   // of the above synthesized cases, it is the last thing written to the buffer.
   Offset ref_offset = asm_.location() - k32BitsInBytes;
-  bool inserted = ctx->locations.Add(&successor, ctx->new_block, ref_offset);
+  bool inserted = locations_.Add(&successor, new_block_, ref_offset);
   DCHECK(inserted);
 
   // Calculate the number of bytes written.
-  size_t bytes_written = asm_.location() - ctx->offset;
+  size_t bytes_written = asm_.location() - offset_;
 
   // Update the source range.
   UpdateSourceRange(successor.instruction_offset(),
                     successor.instruction_size(),
-                    ctx->offset,  // This is where we started writing.
-                    bytes_written,
-                    ctx);
+                    offset_,  // This is where we started writing.
+                    bytes_written);
 
   // Update the write location.
-  ctx->offset = asm_.location();
+  offset_ = asm_.location();
 
   // And we're done.
   return true;
 }
 
-// Generate the byte sequence for the given @p successors. This function
-// handles the elision of successors that would naturally flow through to
-// the @p next_bb_in_ordering.
-// @param successors The successors to synthesize.
-// @param next_bb_in_ordering The next basic block in the basic block ordering.
-//     If a successor refers to the next basic-block in the ordering it does
-//     not have to be synthesized into a branch instruction as control flow
-//     will naturally continue into it.
-// @param ctx The merge context describing where the successors should be
-//     synthesized.
-bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
-                          const BasicBlock* next_bb_in_ordering,
-                          MergeContext* ctx) {
-  DCHECK(ctx != NULL);
-
+bool MergeContext::SynthesizeSuccessors(
+    const BasicBlock::Successors& successors,
+    const BasicBlock* next_bb_in_ordering) {
   size_t num_successors = successors.size();
   DCHECK_GE(2U, num_successors);
 
@@ -332,9 +390,9 @@ bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
   // is possible that the labeled successor may be elided if control flow is
   // straightened.
   if (successors.front().has_label()) {
-    ctx->new_block->SetLabel(ctx->offset, successors.front().label());
+    new_block_->SetLabel(offset_, successors.front().label());
   } else if (num_successors == 2 && successors.back().has_label()) {
-    ctx->new_block->SetLabel(ctx->offset, successors.back().label());
+    new_block_->SetLabel(offset_, successors.back().label());
   }
 
   // Track whether we have already generated a successor. We can use this to
@@ -352,7 +410,7 @@ bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
   const Successor& successor_a = successors.front();
   if (next_bb_in_ordering == NULL ||
       successor_a.reference().basic_block() != next_bb_in_ordering) {
-    if (!SynthesizeSuccessor(successor_a, successor_a.condition(), ctx))
+    if (!SynthesizeSuccessor(successor_a, successor_a.condition()))
       return false;
     branch_has_already_been_generated = true;
   }
@@ -374,33 +432,28 @@ bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
     Successor::Condition condition = successor_b.condition();
     if (branch_has_already_been_generated)
       condition = Successor::kConditionTrue;
-    if (!SynthesizeSuccessor(successor_b, condition, ctx))
+    if (!SynthesizeSuccessor(successor_b, condition))
       return false;
   }
 
   return true;
 }
 
-// Copy the given @p instructions to the current working block.
-// @param instructions The instructions to copy.
-// @param ctx The merge context describing where the instructions should be
-//     copied.
-bool CopyInstructions(const BasicBlock::Instructions& instructions,
-                      MergeContext* ctx) {
-  DCHECK(ctx != NULL);
-  DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, ctx->new_block->type());
+bool MergeContext::CopyInstructions(
+    const BasicBlock::Instructions& instructions) {
+  DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, new_block_->type());
   // Get the target buffer.
-  uint8* buffer = ctx->new_block->GetMutableData();
+  uint8* buffer = new_block_->GetMutableData();
   DCHECK(buffer != NULL);
 
   // Copy the instruction data and assign each instruction an offset.
   InstructionConstIter it = instructions.begin();
   for (; it != instructions.end(); ++it) {
     const Instruction& instruction = *it;
-    Offset offset = ctx->offset;
+    Offset offset = offset_;
 
     // Remember where this instruction begins.
-    bool inserted = ctx->locations.Add(&instruction, ctx->new_block, offset);
+    bool inserted = locations_.Add(&instruction, new_block_, offset);
     DCHECK(inserted);
 
     // Copy the instruction bytes.
@@ -410,77 +463,67 @@ bool CopyInstructions(const BasicBlock::Instructions& instructions,
 
     // Preserve the label on the instruction, if any.
     if (instruction.has_label())
-      ctx->new_block->SetLabel(ctx->offset, instruction.label());
+      new_block_->SetLabel(offset, instruction.label());
 
     // Update the offset/bytes_written.
-    ctx->offset += instruction.size();
+    offset_ += instruction.size();
 
     // Record the source range.
     UpdateSourceRange(instruction.offset(), instruction.size(),
-                      offset, instruction.size(), ctx);
+                      offset, instruction.size());
   }
 
   return true;
 }
 
-// Copy the data (or padding bytes) in @p basic_block into new working block.
-// @param basic_block The basic_block to copy.
-// @param ctx The merge context describing where the data should be copied.
-bool CopyData(const BasicBlock* basic_block, MergeContext* ctx) {
+bool MergeContext::CopyData(const BasicBlock* basic_block) {
   DCHECK(basic_block != NULL);
   DCHECK(basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
          basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
-  DCHECK(ctx != NULL);
 
   // Get the target buffer.
-  uint8* buffer = ctx->new_block->GetMutableData();
+  uint8* buffer = new_block_->GetMutableData();
   DCHECK(buffer != NULL);
 
-  // Copy the basic-new_block's data bytes.
-  Offset offset = ctx->offset;
-  ::memcpy(buffer + ctx->offset, basic_block->data(), basic_block->size());
-  ctx->offset += basic_block->size();
+  // Copy the basic-new_block_'s data bytes.
+  Offset offset = offset_;
+  ::memcpy(buffer + offset_, basic_block->data(), basic_block->size());
+  offset_ += basic_block->size();
 
   // Record the source range.
   UpdateSourceRange(basic_block->offset(), basic_block->size(),
-                    offset, basic_block->size(), ctx);
+                    offset, basic_block->size());
 
   return true;
 }
 
-// Generate a new block based on the given block @p description.
-// @param description Defines the block properties and basic blocks to use
-//     when creating the @p new_block.
-// @param ctx The merge context into which the new block will be generated.
-bool GenerateBlock(const BlockDescription& description, MergeContext* ctx) {
-  DCHECK(ctx != NULL);
-
+bool MergeContext::GenerateBlock(const BlockDescription& description) {
   // Remember the max size of the described block.
   size_t max_size = description.GetMaxSize();
 
   // Allocate a new block for this description.
-  ctx->offset = 0;
-  ctx->new_block = ctx->block_graph->AddBlock(
+  offset_ = 0;
+  new_block_ = block_graph_->AddBlock(
       description.type, max_size, description.name);
-  if (ctx->new_block == NULL) {
+  if (new_block_ == NULL) {
     LOG(ERROR) << "Failed to create block '" << description.name << "'.";
     return false;
   }
 
   // Save this block in the set of newly generated blocks. On failure, this
   // list will be used by GenerateBlocks() to clean up after itself.
-  ctx->new_blocks.push_back(ctx->new_block);
+  new_blocks_.push_back(new_block_);
 
   // Allocate the data buffer for the new block.
-  if (ctx->new_block->AllocateData(max_size) == NULL) {
+  if (new_block_->AllocateData(max_size) == NULL) {
     LOG(ERROR) << "Failed to allocate block data '" << description.name << "'.";
     return false;
   }
 
   // Initialize the new block's properties.
-  ctx->new_block->set_alignment(description.alignment);
-  ctx->new_block->set_section(description.section);
-  ctx->new_block->set_attributes(description.attributes);
+  new_block_->set_alignment(description.alignment);
+  new_block_->set_section(description.section);
+  new_block_->set_attributes(description.attributes);
 
   // Populate the new block with basic blocks.
   BasicBlockOrderingConstIter bb_iter = description.basic_block_order.begin();
@@ -489,23 +532,23 @@ bool GenerateBlock(const BlockDescription& description, MergeContext* ctx) {
     const BasicBlock* bb = *bb_iter;
 
     // Remember where this basic block begins.
-    bool inserted = ctx->locations.Add(bb, ctx->new_block, ctx->offset);
+    bool inserted = locations_.Add(bb, new_block_, offset_);
     DCHECK(inserted);
 
     // If the basic-block is labeled, copy the label.
     if (bb->has_label())
-      ctx->new_block->SetLabel(ctx->offset, bb->label());
+      new_block_->SetLabel(offset_, bb->label());
 
     // Copy the contents of the basic block into the new block.
     if (bb->type() != BasicBlock::BASIC_CODE_BLOCK) {
       // If it's not a code basic-block then all we need to do is copy its data.
-      if (!CopyData(bb, ctx)) {
+      if (!CopyData(bb)) {
         LOG(ERROR) << "Failed to copy data for '" << bb->name() << "'.";
         return false;
       }
     } else {
       // Copy the instructions.
-      if (!CopyInstructions(bb->instructions(), ctx)) {
+      if (!CopyInstructions(bb->instructions())) {
         LOG(ERROR) << "Failed to copy instructions for '" << bb->name() << "'.";
         return false;
       }
@@ -518,35 +561,30 @@ bool GenerateBlock(const BlockDescription& description, MergeContext* ctx) {
         next_bb = *next_bb_iter;
 
       // Synthesize the successor instructions and assign each to an offset.
-      if (!SynthesizeSuccessors(bb->successors(), next_bb, ctx)) {
+      if (!SynthesizeSuccessors(bb->successors(), next_bb)) {
         LOG(ERROR) << "Failed to create successors for '" << bb->name() << "'.";
         return false;
       }
     }
   }
 
-  DCHECK_LT(0, ctx->offset);
-  DCHECK_LE(static_cast<BlockGraph::Size>(ctx->offset), max_size);
+  DCHECK_LT(0, offset_);
+  DCHECK_LE(static_cast<BlockGraph::Size>(offset_), max_size);
 
   // Truncate the block to the number of bytes actually written.
-  ctx->new_block->ResizeData(ctx->offset);
-  ctx->new_block->set_size(ctx->offset);
+  new_block_->ResizeData(offset_);
+  new_block_->set_size(offset_);
 
   // Reset the current working block.
-  ctx->new_block = NULL;
-  ctx->offset = 0;
+  new_block_ = NULL;
+  offset_ = 0;
 
   // And we're done.
   return true;
 }
 
-// Generate all of the blocks described in @p subgraph.
-// @param subgraph Defines the block properties and basic blocks to use
-//     for each of the blocks to be created.
-// @param ctx The merge context into which the new blocks will be generated.
-bool GenerateBlocks(const BasicBlockSubGraph* subgraph, MergeContext* ctx) {
+bool MergeContext::GenerateBlocks(const BasicBlockSubGraph* subgraph) {
   DCHECK(subgraph != NULL);
-  DCHECK(ctx != NULL);
 
   // Create a new block for each block description and remember the association.
   BlockDescriptionConstIter bd_iter = subgraph->block_descriptions().begin();
@@ -557,18 +595,18 @@ bool GenerateBlocks(const BasicBlockSubGraph* subgraph, MergeContext* ctx) {
     if (description.basic_block_order.empty())
       continue;
 
-    if (!GenerateBlock(description, ctx)) {
+    if (!GenerateBlock(description)) {
       // Remove generated blocks (this is safe as they're all disconnected)
       // and return false.
-      BlockVector::iterator it = ctx->new_blocks.begin();
-      for (; it != ctx->new_blocks.end(); ++it) {
+      BlockVector::iterator it = new_blocks_.begin();
+      for (; it != new_blocks_.end(); ++it) {
         DCHECK((*it)->referrers().empty());
         DCHECK((*it)->references().empty());
-        ctx->block_graph->RemoveBlock(*it);
+        block_graph_->RemoveBlock(*it);
       }
-      ctx->new_blocks.clear();
-      ctx->new_block = NULL;
-      ctx->offset = 0;
+      new_blocks_.clear();
+      new_block_ = NULL;
+      offset_ = 0;
       return false;
     }
   }
@@ -576,17 +614,13 @@ bool GenerateBlocks(const BasicBlockSubGraph* subgraph, MergeContext* ctx) {
   return true;
 }
 
-// Transfer all external referrers that refer to @p bb to point to
-// bb's new location instead of to the original block.
-// @param ctx The merge context.
-// @param bb The basic block.
-void UpdateReferrers(const MergeContext& ctx, const BasicBlock* bb) {
+void MergeContext::UpdateReferrers(const BasicBlock* bb) const {
   DCHECK(bb != NULL);
 
   // Find the current location of this basic block.
-  Block* new_block = NULL;
+  Block* new_block_ = NULL;
   Offset new_base = 0;
-  bool found = ctx.locations.Find(bb, &new_block, &new_base);
+  bool found = locations_.Find(bb, &new_block_, &new_base);
   DCHECK(found);
 
   // Update all external referrers to point to the new location.
@@ -609,7 +643,7 @@ void UpdateReferrers(const MergeContext& ctx, const BasicBlock* bb) {
 
     BlockGraph::Reference new_ref(old_ref.type(),
                                   old_ref.size(),
-                                  new_block,
+                                  new_block_,
                                   old_ref.offset(),
                                   new_base);
 
@@ -618,57 +652,44 @@ void UpdateReferrers(const MergeContext& ctx, const BasicBlock* bb) {
   }
 }
 
-// Resolves all of @p object's references (where object is a basic-block,
-// or instruction) to point to their final locations in the block graph.
-// @param ctx The merge context.
-// @param object The referring object.
-// @param references The references made from object.
-void UpdateReferences(const MergeContext& ctx,
-                      const void* object,
-                      const BasicBlock::BasicBlockReferenceMap& references) {
+void MergeContext::UpdateReferences(
+    const void* object,
+    const BasicBlock::BasicBlockReferenceMap& references) const {
   DCHECK(object != NULL);
 
   // Find the location of the object in the new block_graph.
   Block* block = NULL;
   Offset offset = 0;
-  bool found = ctx.locations.Find(object, &block, &offset);
+  bool found = locations_.Find(object, &block, &offset);
   DCHECK(found);
 
   // Transfer all of this basic-block's references to the new block.
   BasicBlock::BasicBlockReferenceMap::const_iterator it = references.begin();
   for (; it != references.end(); ++it) {
     bool inserted = block->SetReference(offset + it->first,
-                                        ctx.locations.Resolve(it->second));
+                                        locations_.Resolve(it->second));
     DCHECK(inserted);
   }
 }
 
-// Update all of references in the given basic-block's instructions to
-// point to their final locations in the block graph.
-// @param ctx The merge context.
-// @param basic_block The basic block.
-void UpdateInstructionReferences(const MergeContext& ctx,
-                                 const BasicBlock* basic_block) {
+void MergeContext::UpdateInstructionReferences(
+    const BasicBlock* basic_block) const {
   DCHECK(basic_block != NULL);
   DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_block->type());
   InstructionConstIter inst_iter = basic_block->instructions().begin();
   for (; inst_iter != basic_block->instructions().end(); ++inst_iter)
-    UpdateReferences(ctx, &(*inst_iter), inst_iter->references());
+    UpdateReferences(&(*inst_iter), inst_iter->references());
 }
 
-// Update all of references for the given basic-block's successors to
-// point to their final locations in the block graph.
-// @param ctx The merge context.
-// @param basic_block The basic block.
-void UpdateSuccessorReferences(const MergeContext& ctx,
-                               const BasicBlock* basic_block) {
+void MergeContext::UpdateSuccessorReferences(
+    const BasicBlock* basic_block) const {
   DCHECK(basic_block != NULL);
   DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_block->type());
   SuccessorConstIter succ_iter = basic_block->successors().begin();
   for (; succ_iter != basic_block->successors().end(); ++succ_iter) {
     Block* block = NULL;
     Offset offset = 0;
-    bool found = ctx.locations.Find(&(*succ_iter), &block, &offset);
+    bool found = locations_.Find(&(*succ_iter), &block, &offset);
     if (!found)
       continue;  // This successor didn't generate any instructions.
 
@@ -676,17 +697,13 @@ void UpdateSuccessorReferences(const MergeContext& ctx,
     // the location at which the target reference should live (as opposed
     // to the start of the instruction sequence).
     bool inserted = block->SetReference(
-        offset, ctx.locations.Resolve(succ_iter->reference()));
+        offset, locations_.Resolve(succ_iter->reference()));
     DCHECK(inserted);
   }
 }
 
-// A wrapper function to resolve all of the references in the merged subgraph
-// to point to their final locations in the block graph.
-// @param ctx The merge context.
-// @param subgraph The subgraph.
-void TransferReferences(const MergeContext& ctx,
-                        const BasicBlockSubGraph* subgraph) {
+void MergeContext::TransferReferences(
+    const BasicBlockSubGraph* subgraph) const {
   // Transfer references to and from the original source block to the
   // corresponding new block.
   BlockDescriptionConstIter bd_iter = subgraph->block_descriptions().begin();
@@ -702,7 +719,7 @@ void TransferReferences(const MergeContext& ctx,
     for (; bb_iter != basic_block_order.end(); ++bb_iter) {
       const BasicBlock* basic_block = *bb_iter;
       // All referrers are stored at the basic block level.
-      UpdateReferrers(ctx, basic_block);
+      UpdateReferrers(basic_block);
 
       // Either this is a basic code block, which stores all of its outbound
       // references at the instruction and successor levels, or it's a basic
@@ -710,40 +727,33 @@ void TransferReferences(const MergeContext& ctx,
       // all of its references at the basic block level.
       if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK) {
         DCHECK_EQ(0U, basic_block->references().size());
-        UpdateInstructionReferences(ctx, basic_block);
-        UpdateSuccessorReferences(ctx, basic_block);
+        UpdateInstructionReferences(basic_block);
+        UpdateSuccessorReferences(basic_block);
       } else {
-        UpdateReferences(ctx, basic_block, basic_block->references());
+        UpdateReferences(basic_block, basic_block->references());
       }
     }
   }
 }
 
-// A clean-up function to remove the original block from which @p subgraph
-// is derived (if any) from the block graph. This must only be performed
-// after having updated the block graph with the new blocks and transfered
-// all references to the new block(s).
-// @param subgraph The subgraph.
-// @param ctx The merge context.
-void RemoveOriginalBlock(BasicBlockSubGraph* subgraph, MergeContext* ctx) {
+void MergeContext::RemoveOriginalBlock(BasicBlockSubGraph* subgraph) {
   DCHECK(subgraph != NULL);
-  DCHECK(ctx != NULL);
-  DCHECK_EQ(ctx->original_block, subgraph->original_block());
+  DCHECK_EQ(original_block_, subgraph->original_block());
 
-  Block* original_block = const_cast<Block*>(ctx->original_block);
-  if (original_block == NULL)
+  Block* original_block_ = const_cast<Block*>(this->original_block_);
+  if (original_block_ == NULL)
     return;
 
-  DCHECK(!original_block->HasExternalReferrers());
+  DCHECK(!original_block_->HasExternalReferrers());
 
-  bool removed = original_block->RemoveAllReferences();
+  bool removed = original_block_->RemoveAllReferences();
   DCHECK(removed);
 
-  removed = ctx->block_graph->RemoveBlock(original_block);
+  removed = block_graph_->RemoveBlock(original_block_);
   DCHECK(removed);
 
   subgraph->set_original_block(NULL);
-  ctx->original_block = NULL;
+  original_block_ = NULL;
 }
 
 }  // namespace
@@ -756,16 +766,17 @@ bool BlockBuilder::Merge(BasicBlockSubGraph* subgraph) {
 
   MergeContext context(block_graph_, subgraph->original_block());
 
-  if (!GenerateBlocks(subgraph, &context))
+  if (!context.GenerateBlocks(subgraph))
     return false;
 
-  TransferReferences(context, subgraph);
-  RemoveOriginalBlock(subgraph, &context);
+  context.TransferReferences(subgraph);
+  context.RemoveOriginalBlock(subgraph);
 
   // Track the newly created blocks.
-  new_blocks_.reserve(new_blocks_.size() + context.new_blocks.size());
-  new_blocks_.insert(
-      new_blocks_.end(), context.new_blocks.begin(), context.new_blocks.end());
+  new_blocks_.reserve(new_blocks_.size() + context.new_blocks().size());
+  new_blocks_.insert(new_blocks_.end(),
+                     context.new_blocks().begin(),
+                     context.new_blocks().end());
 
   // And we're done.
   return true;
