@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/instrument/transforms/add_basic_block_frequency_data_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -41,55 +42,34 @@ class BasicBlockEntryHookTransform
       public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           BasicBlockEntryHookTransform> {
  public:
-  typedef block_graph::BasicBlock BasicBlock;
-  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::BlockGraph BlockGraph;
-  typedef BlockGraph::Block Block;
-  typedef BlockGraph::Offset Offset;
-  typedef BlockGraph::Reference Reference;
-  typedef std::vector<core::RelativeAddress> RelativeAddressVector;
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef core::RelativeAddress RelativeAddress;
+  typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
+  typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
 
   // Initialize a new BasicBlockEntryHookTransform instance using the default
   // module and function names.
   BasicBlockEntryHookTransform();
 
-  // Initialize a new BasicBlockEntryHookTransform instance.
-  // @param module_name The name of the module containing the basic-block
-  //     entry-hook function.
-  // @param function_name The name of basic-block entry-hook function.
-  // @param id_generator The functor that will return a unique id for each
-  //     basic-block in the image under transformation.
-  BasicBlockEntryHookTransform(const base::StringPiece& module_name,
-                               const base::StringPiece& function_name);
-
-  const std::string& module_name() const { return module_name_; }
-  void set_module_name(const base::StringPiece& value) {
-    DCHECK(!value.empty());
-    value.CopyToString(&module_name_);
-  }
-
-  const std::string& function_name() const { return function_name_; }
-  void set_function_name(const base::StringPiece& value) {
-    DCHECK(!value.empty());
-    value.CopyToString(&function_name_);
-  }
-
-  // Get the entry-hook reference that was used to instrument each basic-block.
-  // This will only be valid after a successful application of the transform.
-  const Reference& bb_entry_hook_ref() const { return bb_entry_hook_ref_; }
-
-  // Gen an id-to-address map for the basic-block entry-hook calls.
-  // @returns the RVAs in the original image of the instrumented basic blocks.
-  //    They are in the order in which they were encountered during
+  // @returns the RVAs and sizes in the original image of the instrumented basic
+  //    blocks. They are in the order in which they were encountered during
   //    instrumentation, such that the index of the BB in the vector serves
   //    as its unique ID.
-  const RelativeAddressVector& bb_addresses() const { return bb_addresses_; }
+  const RelativeAddressRangeVector& bb_ranges() const { return bb_ranges_; }
 
-  // The default module name to which to bind the instrumentation.
-  static const char kDefaultModuleName[];
+  // @returns the RVAs and sizes in the original image of the instructions
+  //     corresponding to conditional branch points. They are stored in order
+  //     of increasing address.
+  const RelativeAddressRangeVector& conditional_ranges() const {
+    return conditional_ranges_;
+  }
 
-  // The default function name to which to bind the instrumentation.
-  static const char kDefaultFunctionName[];
+  // Set a flag denoting whether or not src ranges should be created for the
+  // thunks to the module entry hooks.
+  void set_src_ranges_for_thunks(bool value) {
+    set_src_ranges_for_thunks_ = value;
+  }
 
  protected:
   friend NamedBlockGraphTransformImpl<BasicBlockEntryHookTransform>;
@@ -101,6 +81,8 @@ class BasicBlockEntryHookTransform
   bool PreBlockGraphIteration(BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
   bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+  bool PostBlockGraphIteration(BlockGraph* block_graph,
+                               BlockGraph::Block* header_block);
   // @}
 
   // @name BasicBlockSubGraphTransformInterface methods.
@@ -110,21 +92,34 @@ class BasicBlockEntryHookTransform
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
   // @}
 
-  // Name of the instrumentation DLL we import.
-  std::string module_name_;
-
-  // Name of the hook function (in module_name) to which we insert calls.
-  std::string function_name_;
+  // Adds the basic-block frequency data referenced by the coverage agent.
+  AddBasicBlockFrequencyDataTransform add_frequency_data_;
 
   // Stores the RVAs in the original image for each instrumented basic block.
-  RelativeAddressVector bb_addresses_;
+  RelativeAddressRangeVector bb_ranges_;
+
+  // Stores the RVAs in the original image for the conditional control flow
+  // arcs. We sometimes get line information for these (ie: 'else' statements)
+  // and the VS tools ignore those, marking them as 'not instrumented'. This
+  // information allows us to mimic that behavior.
+  RelativeAddressRangeVector conditional_ranges_;
 
   // The entry hook to which basic-block entry events are directed.
-  Reference bb_entry_hook_ref_;
+  BlockGraph::Reference bb_entry_hook_ref_;
+
+  // The section where the entry-point thunks were placed. This will only be
+  // non-NULL after a successful application of the transform. This value is
+  // retained for unit-testing purposes.
+  BlockGraph::Section* thunk_section_;
+
+  // If true, the thunks will have src ranges corresponding to the original
+  // code; otherwise, the thunks will not have src ranges set.
+  bool set_src_ranges_for_thunks_;
 
   // The name of this transform.
   static const char kTransformName[];
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlockEntryHookTransform);
 };
 

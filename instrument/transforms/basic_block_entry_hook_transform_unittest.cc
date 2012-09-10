@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Coverage instrumentation transform unittests.
+// Basic-block entry hook instrumentation transform unit-tests.
 
 #include "syzygy/instrument/transforms/basic_block_entry_hook_transform.h"
 
@@ -21,12 +21,11 @@
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/block_graph/transform.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/block_util.h"
-#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -40,71 +39,52 @@ using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
 using block_graph::Instruction;
+using common::BasicBlockFrequencyData;
+using common::kBasicBlockEntryAgentId;
+using common::kBasicBlockFrequencyDataVersion;
 
-class BasicBlockEntryHookTransformTest : public testing::PELibUnitTest {
+class TestBasicBlockEntryHookTransform : public BasicBlockEntryHookTransform {
  public:
-  BasicBlockEntryHookTransformTest() : dos_header_block_(NULL) { }
+  using BasicBlockEntryHookTransform::bb_entry_hook_ref_;
+  using BasicBlockEntryHookTransform::thunk_section_;
 
-  void DecomposeTestDll() {
-    // Open the PE file.
-    ASSERT_TRUE(pe_file_.Init(::testing::GetOutputRelativePath(kDllName)));
-
-    // Initialize the block-graph.
-    pe::ImageLayout layout(&block_graph_);
-    pe::Decomposer decomposer(pe_file_);
-    ASSERT_TRUE(decomposer.Decompose(&layout));
-
-    // Get the DOS header block.
-    dos_header_block_ = layout.blocks.GetBlockByAddress(
-        core::RelativeAddress(0));
-    ASSERT_TRUE(dos_header_block_ != NULL);
+  BlockGraph::Block* frequency_data_block() {
+    return add_frequency_data_.frequency_data_block();
   }
-
-  pe::PEFile pe_file_;
-  BlockGraph block_graph_;
-  BlockGraph::Block* dos_header_block_;
 };
+
+typedef testing::TestDllTransformTest BasicBlockEntryHookTransformTest;
 
 }  // namespace
 
-TEST_F(BasicBlockEntryHookTransformTest, DefaultConstructor) {
-  BasicBlockEntryHookTransform tx;
+TEST_F(BasicBlockEntryHookTransformTest, Apply) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
-  std::string module_name(BasicBlockEntryHookTransform::kDefaultModuleName);
-  std::string function_name(BasicBlockEntryHookTransform::kDefaultFunctionName);
-  EXPECT_EQ(module_name, tx.module_name());
-  EXPECT_EQ(function_name, tx.function_name());
-  EXPECT_EQ(0U, tx.bb_addresses().size());
-  EXPECT_FALSE(tx.bb_entry_hook_ref().IsValid());
-}
-
-TEST_F(BasicBlockEntryHookTransformTest, NamedConstructor) {
-  std::string module_name("foo.dll");
-  std::string function_name("bar");
-
-  BasicBlockEntryHookTransform tx(module_name, function_name);
-  EXPECT_EQ(module_name, tx.module_name());
-  EXPECT_EQ(function_name, tx.function_name());
-  EXPECT_EQ(0U, tx.bb_addresses().size());
-  EXPECT_FALSE(tx.bb_entry_hook_ref().IsValid());
-}
-
-TEST_F(BasicBlockEntryHookTransformTest, SetNames) {
-  std::string module_name("foo.dll");
-  std::string function_name("bar");
-
-  BasicBlockEntryHookTransform tx;
-  tx.set_module_name(module_name);
-  tx.set_function_name(function_name);
-  EXPECT_EQ(module_name, tx.module_name());
-  EXPECT_EQ(function_name, tx.function_name());
-}
-
-TEST_F(BasicBlockEntryHookTransformTest, ApplyBasicBlockEntryHookTransform) {
-  DecomposeTestDll();
-  BasicBlockEntryHookTransform tx;
+  // Apply the transform.
+  TestBasicBlockEntryHookTransform tx;
+  tx.set_src_ranges_for_thunks(true);
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx, &block_graph_,
                                                     dos_header_block_));
+  ASSERT_TRUE(tx.frequency_data_block() != NULL);
+  ASSERT_TRUE(tx.thunk_section_ != NULL);
+  ASSERT_TRUE(tx.bb_entry_hook_ref_.IsValid());
+  ASSERT_LT(0u, tx.conditional_ranges().size());
+  ASSERT_LT(0u, tx.bb_ranges().size());
+
+  // Validate the basic-block frequency data structure.
+  block_graph::ConstTypedBlock<BasicBlockFrequencyData> frequency_data;
+  ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
+  EXPECT_EQ(kBasicBlockEntryAgentId, frequency_data->agent_id);
+  EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
+  EXPECT_EQ(tx.bb_ranges().size(), frequency_data->num_basic_blocks);
+  EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
+  EXPECT_TRUE(
+      frequency_data.HasReferenceAt(
+          frequency_data.OffsetOf(frequency_data->frequency_data)));
+  EXPECT_EQ(
+      sizeof(BasicBlockFrequencyData) +
+          (frequency_data->num_basic_blocks * frequency_data->frequency_size),
+      tx.frequency_data_block()->size());
 
   // Let's examine each eligible block to verify that its BB's have been
   // instrumented.
@@ -119,6 +99,8 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyBasicBlockEntryHookTransform) {
     if (block.type() != BlockGraph::CODE_BLOCK)
       continue;
     if (!pe::CodeBlockIsBasicBlockDecomposable(&block))
+      continue;
+    if (block.section() == tx.thunk_section_->id())
       continue;
 
     // Note that we have attempted to validate a block.
@@ -138,21 +120,34 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyBasicBlockEntryHookTransform) {
       if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
         continue;
       ++num_basic_blocks;
-      ASSERT_LE(2U, bb.instructions().size());
-      const Instruction& inst1 = *(bb.instructions().begin());
-      const Instruction& inst2 = *(++bb.instructions().begin());
+      ASSERT_LE(3U, bb.instructions().size());
+      BasicBlock::Instructions::const_iterator inst_iter =
+          bb.instructions().begin();
+
+      // Instruction 1 should push the basic block id.
+      const Instruction& inst1 = *inst_iter;
       EXPECT_EQ(I_PUSH, inst1.representation().opcode);
-      EXPECT_EQ(I_CALL, inst2.representation().opcode);
-      EXPECT_EQ(1U, inst2.references().size());
-      EXPECT_EQ(tx.bb_entry_hook_ref().referenced(),
+
+      // Instruction 2 should push the frequency data block pointer.
+      const Instruction& inst2 = *(++inst_iter);
+      EXPECT_EQ(I_PUSH, inst2.representation().opcode);
+      ASSERT_EQ(1U, inst2.references().size());
+      EXPECT_EQ(tx.frequency_data_block(),
                 inst2.references().begin()->second.block());
+
+      // Instruction 3 should be a call to the bb entry hook.
+      const Instruction& inst3 = *(++inst_iter);
+      EXPECT_EQ(I_CALL, inst3.representation().opcode);
+      ASSERT_EQ(1U, inst3.references().size());
+      EXPECT_EQ(tx.bb_entry_hook_ref_.referenced(),
+                inst3.references().begin()->second.block());
     }
     EXPECT_NE(0U, num_basic_blocks);
     total_basic_blocks += num_basic_blocks;
   }
 
   EXPECT_NE(0U, num_decomposed_blocks);
-  EXPECT_EQ(total_basic_blocks, tx.bb_addresses().size());
+  EXPECT_EQ(total_basic_blocks, tx.bb_ranges().size());
 }
 
 }  // namespace transforms
