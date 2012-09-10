@@ -64,6 +64,7 @@ class EntryThunkTransform
         EntryThunkTransform> {
  public:
   typedef block_graph::Immediate Immediate;
+  typedef block_graph::BlockGraph BlockGraph;
 
   EntryThunkTransform();
 
@@ -104,6 +105,8 @@ class EntryThunkTransform
   const Immediate& function_thunk_parameter() const {
     return function_thunk_parameter_;
   }
+
+  BlockGraph::Section* thunk_section() const { return thunk_section_; }
   // @}
 
   // @{
@@ -133,7 +136,6 @@ class EntryThunkTransform
   static const char kDefaultInstrumentDll[];
 
  protected:
-  typedef block_graph::BlockGraph BlockGraph;
   typedef std::map<BlockGraph::Offset, BlockGraph::Block*> ThunkBlockMap;
 
   // @name IterativeTransformImpl implementation.
@@ -142,9 +144,6 @@ class EntryThunkTransform
       BlockGraph* block_graph, BlockGraph::Block* header_block);
   bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
   // @}
-
-  // Accessor.
-  BlockGraph::Section* thunk_section() const { return thunk_section_; }
 
   // Instrument a single block.
   bool InstrumentCodeBlock(BlockGraph* block_graph, BlockGraph::Block* block);
