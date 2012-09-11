@@ -90,6 +90,13 @@ class CoverageInstrumentationTransform
   }
   // @}
 
+  // @name Pass-throughs for AddBasicBlockFrequencyDataTransform.
+  // @{
+  BlockGraph::Block* frequency_data_block() {
+    return add_bb_freq_data_tx_.frequency_data_block();
+  }
+  // @}
+
  protected:
   friend block_graph::transforms::IterativeTransformImpl<
       CoverageInstrumentationTransform>;

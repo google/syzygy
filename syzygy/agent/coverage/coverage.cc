@@ -109,7 +109,6 @@ namespace {
 using agent::common::ScopedLastErrorKeeper;
 using ::common::BasicBlockFrequencyData;
 using ::common::kBasicBlockCoverageAgentId;
-using ::common::kBasicBlockFrequencySectionName;
 using ::common::kBasicBlockFrequencyDataVersion;
 
 // All tracing runs through this object.
