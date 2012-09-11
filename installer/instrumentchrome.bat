@@ -1,5 +1,5 @@
 @echo off
-:: Copyright 2012 Google Inc.
+:: Copyright 2012 Google Inc. All Rights Reserved.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -35,9 +35,9 @@ if not exist "%ORIGINALS_DIR%". (
   echo "%ORIGINALS_DIR%" already exists.
 )
 :: Instrument Chrome.dll.
-instrument.exe --overwrite^
-    --call-trace-client=PROFILER^
-    --input-dll="%ORIGINALS_DIR%\chrome.dll"^
-    --output-dll="%CHROME_DIR%\chrome.dll"
+instrument.exe --overwrite ^
+    --call-trace-client=PROFILER ^
+    --input-image="%ORIGINALS_DIR%\chrome.dll" ^
+    --output-image="%CHROME_DIR%\chrome.dll"
 
 :END

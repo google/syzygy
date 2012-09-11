@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ def _LoadInstrumentedDllInNewProc(opts):
     True on success, False otherwise.
   """
   cmd = [sys.executable, __file__, '--build-dir', opts.build_dir,
-         '--instrumented-dll', opts.instrumented_dll, '--load-dll']
+         '--instrumented-image', opts.instrumented_dll, '--load-dll']
   return not subprocess.call(cmd)
 
 
@@ -94,7 +94,7 @@ def _ParseArgs():
                     help='Enable verbose logging.')
   parser.add_option('--build-dir', dest='build_dir',
                     help='The build directory to use.')
-  parser.add_option('--instrumented-dll', dest='instrumented_dll',
+  parser.add_option('--instrumented-image', dest='instrumented_dll',
                     help='The instrumented DLL to use.')
   parser.add_option('--load-dll', dest='load_dll',
                     action='store_true', default=False,
@@ -104,7 +104,7 @@ def _ParseArgs():
   (opts, dummy_args) = parser.parse_args()
 
   if not opts.instrumented_dll:
-    parser.error('You must specify --instrumented-dll.')
+    parser.error('You must specify --instrumented-image.')
   opts.instrumented_dll = os.path.abspath(opts.instrumented_dll)
   if not os.path.isfile(opts.instrumented_dll):
     parser.error('Instrumented DLL does not exist: %s' % opts.instrumented_dll)

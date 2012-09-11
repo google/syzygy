@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -203,7 +203,7 @@ struct Reorderer::Order {
                     const FilePath& path);
 
   // Extracts the name of the original module from an order file. This is
-  // used to guess the value of --input-dll.
+  // used to guess the value of --input-image.
   static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
 
  private:

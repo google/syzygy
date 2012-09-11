@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,8 +60,8 @@
       'run_as': {
         'action': [
           '$(TargetPath)',
-          '--input-dll=..\\reorder\\test_data\\test_dll.dll',
-          '--instrumented-dll=$(OutDir)\\instrumented_test_dll.dll',
+          '--input-image=..\\reorder\\test_data\\test_dll.dll',
+          '--instrumented-image=$(OutDir)\\instrumented_test_dll.dll',
           '--output-file=$(OutDir)\\test_dll_order.json',
           '--output-stats',
           '--pretty-print',

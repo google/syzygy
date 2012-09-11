@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,9 +44,10 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
   cmd = [runner._GetExePath('reorder.exe'),
          '--verbose',
          '--output-stats',
-         '--input-dll=%s' % os.path.join(chrome_dir, 'chrome.dll'),
-         '--instrumented-dll=%s' % os.path.join(temp_dir,
-                                                r'instrumented', 'chrome.dll'),
+         '--input-image=%s' % os.path.join(chrome_dir, 'chrome.dll'),
+         '--instrumented-image=%s' % os.path.join(temp_dir,
+                                                  'instrumented',
+                                                  'chrome.dll'),
          '--output-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),]
   cmd.extend(log_files)
   ret = chrome_utils.Subprocess(cmd)
@@ -61,9 +62,9 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
   cmd = [runner._GetExePath('relink.exe'),
          '--verbose',
-         '--input-dll=%s' % os.path.join(chrome_dir, 'chrome.dll'),
+         '--input-image=%s' % os.path.join(chrome_dir, 'chrome.dll'),
          '--input-pdb=%s' % os.path.join(chrome_dir, 'chrome_dll.pdb'),
-         '--output-dll=%s' % os.path.join(output_dir, 'chrome.dll'),
+         '--output-image=%s' % os.path.join(output_dir, 'chrome.dll'),
          '--output-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
          '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),
          '--overwrite']

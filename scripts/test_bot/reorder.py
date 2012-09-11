@@ -1,5 +1,5 @@
 #!/usr/bin/python2.4
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -204,9 +204,9 @@ class ReorderTest(object):
     command = [
         self._reorder_tool,
         '--seed=%s' % seed,
-        '--input-dll=%s' % self._input_bin,
+        '--input-image=%s' % self._input_bin,
         '--input-pdb=%s' % self._input_pdb,
-        '--output-dll=%s' % new_bin,
+        '--output-image=%s' % new_bin,
         '--output-pdb=%s' % new_pdb,
         '--padding=%s' % self._padding,
         ]

@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,8 +59,8 @@ def InstrumentChrome(chrome_dir, output_dir, client_dll):
     src_file = os.path.join(chrome_dir, file)
     dst_file = os.path.join(output_dir, file)
     cmd = [runner._GetExePath('instrument.exe'),
-           '--input-dll=%s' % src_file,
-           '--output-dll=%s' % dst_file,
+           '--input-image=%s' % src_file,
+           '--output-image=%s' % dst_file,
            '--call-trace-client=%s' % client_dll,
            '--overwrite']
 
