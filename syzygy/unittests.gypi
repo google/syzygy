@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@
       '<(DEPTH)/syzygy/simulate/simulate.gyp:simulate_unittests',
 
       # Trace tests.
+      '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib_unittests',
       '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
       '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_unittests',
       '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',
