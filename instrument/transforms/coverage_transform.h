@@ -28,6 +28,7 @@
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/instrument/transforms/add_basic_block_frequency_data_transform.h"
+#include "syzygy/instrument/transforms/entry_thunk_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -73,6 +74,22 @@ class CoverageInstrumentationTransform
 
   // @}
 
+  // @name Pass-throughs to EntryThunkTransform.
+  // @{
+  bool src_ranges_for_thunks() const {
+    return entry_thunk_tx_.src_ranges_for_thunks();
+  }
+  void set_src_ranges_for_thunks(bool value) {
+    entry_thunk_tx_.set_src_ranges_for_thunks(value);
+  }
+  void set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
+    entry_thunk_tx_.set_instrument_dll_name(instrument_dll_name);
+  }
+  const char* instrument_dll_name() const {
+    return entry_thunk_tx_.instrument_dll_name();
+  }
+  // @}
+
  protected:
   friend block_graph::transforms::IterativeTransformImpl<
       CoverageInstrumentationTransform>;
@@ -95,7 +112,9 @@ class CoverageInstrumentationTransform
   // @}
 
   // Adds the basic-block frequency data referenced by the coverage agent.
-  AddBasicBlockFrequencyDataTransform add_frequency_data_;
+  AddBasicBlockFrequencyDataTransform add_bb_freq_data_tx_;
+  // The entry hook transform used by the coverage agent.
+  EntryThunkTransform entry_thunk_tx_;
 
   // Stores the RVAs in the original image for each instrumented basic block.
   RelativeAddressRangeVector bb_ranges_;

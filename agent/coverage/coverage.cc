@@ -26,11 +26,12 @@
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/common/logging.h"
+#include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 extern "C" void __declspec(naked) _indirect_penter_dllmain() {
   __asm {
-    // Stack: ..., arg0, ret_addr.
+    // Stack: ..., ret_addr, freq_data, func_addr.
 
     // Stash volatile registers.
     push eax
@@ -38,24 +39,19 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     push edx
     pushfd
 
-    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd.
+    // Stack: ..., ret_addr, freq_data, func_addr, eax, ecx, edx, fd.
 
-    // Retrieve the address pushed by our caller.
-    mov eax, DWORD PTR[esp + 0x10]
+    // Retrieve the address pushed by the calling thunk. This is the argument to
+    // our entry hook.
+    lea eax, DWORD PTR[esp + 0x10]
     push eax
 
-    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd, call_addr.
-
-    // Calculate the position of the return address on stack, and
-    // push it. This becomes the EntryFrame argument.
-    lea eax, DWORD PTR[esp + 0x18]
-    push eax
-
-    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd, call_addr, entry_frame.
+    // Stack: ..., ret_addr, freq_data, func_addr, eax, ecx, edx, fd,
+    //        &func_addr.
 
     call agent::coverage::Coverage::EntryHook
 
-    // Stack: ..., arg0, ret_addr, eax, ecx, edx, fd.
+    // Stack: ..., ret_addr, freq_data, func_addr, eax, ecx, edx, fd.
 
     // Restore volatile registers.
     popfd
@@ -63,10 +59,13 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     pop ecx
     pop eax
 
-    // Stack: ..., arg0, ret_addr.
+    // Stack: ..., ret_addr, freq_data, func_addr.
 
-    // Return to the address pushed by our caller.
-    ret
+    // Return to the address pushed by our calling thunk, func_addr. We make
+    // sure to pop off the freq_data passed to us by the thunks.
+    ret 4
+
+    // Stack: ..., ret_addr.
   }
 }
 
@@ -117,45 +116,6 @@ using ::common::kBasicBlockFrequencyDataVersion;
 base::LazyInstance<agent::coverage::Coverage> static_coverage_instance =
     LAZY_INSTANCE_INITIALIZER;
 
-bool FindCoverageData(const base::win::PEImage& image,
-                      BasicBlockFrequencyData** coverage_data) {
-  DCHECK(coverage_data != NULL);
-
-  *coverage_data = NULL;
-
-  size_t comparison_length = std::min(
-      ::strlen(kBasicBlockFrequencySectionName),
-      static_cast<size_t>(IMAGE_SIZEOF_SHORT_NAME));
-
-  size_t section_count = image.GetNTHeaders()->FileHeader.NumberOfSections;
-  for (size_t i = 0; i < section_count; ++i) {
-    const IMAGE_SECTION_HEADER* section = image.GetSectionHeader(i);
-    DCHECK(section != NULL);
-
-    if (::memcmp(section->Name, kBasicBlockFrequencySectionName,
-                 comparison_length) == 0 &&
-        section->SizeOfRawData >= sizeof(BasicBlockFrequencyData)) {
-      if (*coverage_data != NULL) {
-        LOG(ERROR) << "Encountered multiple \""
-                   << kBasicBlockFrequencySectionName
-                   << "\" sections.";
-        return false;
-      }
-      *coverage_data = reinterpret_cast<BasicBlockFrequencyData*>(
-          image.RVAToAddr(section->VirtualAddress));
-    }
-  }
-
-  if (coverage_data == NULL) {
-    LOG(ERROR) << "Did not find \""
-               << kBasicBlockFrequencySectionName
-               << "\" section.";
-    return false;
-  }
-
-  return true;
-}
-
 }  // namespace
 
 Coverage* Coverage::Instance() {
@@ -171,21 +131,27 @@ Coverage::Coverage() {
 Coverage::~Coverage() {
 }
 
-void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
+void WINAPI Coverage::EntryHook(EntryHookFrame* entry_frame) {
+  DCHECK(entry_frame != NULL);
+
   ScopedLastErrorKeeper scoped_last_error_keeper;
 
-  // Get the address of the module. We do this by querying for the allocation
-  // that contains the address of the function we intercepted. This must lie
-  // within the instrumented module, and be part of the single allocation in
-  // which the image of the module lies. The base of the module will be the
-  // base address of the allocation.
-  MEMORY_BASIC_INFORMATION mem_info = {};
-  if (::VirtualQuery(function, &mem_info, sizeof(mem_info)) == 0) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "VirtualQuery failed: " << com::LogWe(error) << ".";
+  // Prevent repeated initializations. We don't log on this so as to keep the
+  // spew down for processes that create lots of threads. The first entry to
+  // this is under the loader lock, so we don't need to protect the write.
+  // After that we are only ever reading the value.
+  if (entry_frame->coverage_data->initialization_attempted != 0)
+    return;
+  entry_frame->coverage_data->initialization_attempted = 1;
+
+  // Get the address of the module.
+  void* module_base = NULL;
+  if (!trace::client::GetModuleBaseAddress(entry_frame->coverage_data,
+                                           &module_base)) {
+    LOG(ERROR) << "Unable to get module base address.";
     return;
   }
-  HMODULE module = reinterpret_cast<HMODULE>(mem_info.AllocationBase);
+  HMODULE module = reinterpret_cast<HMODULE>(module_base);
 
   // Get the coverage singleton.
   Coverage* coverage = Coverage::Instance();
@@ -198,20 +164,6 @@ void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
                  << "tracing.";
     return;
   }
-
-  // Find the section containing the coverage data.
-  base::win::PEImage image(module);
-  BasicBlockFrequencyData* coverage_data = NULL;
-  if (!FindCoverageData(image, &coverage_data))
-    return;
-
-  // Prevent repeated initializations. We don't log on this so as to keep the
-  // spew down for processes that create lots of threads. The first entry to
-  // this is under the loader lock, so we don't need to protect the write.
-  // After that we are only ever reading the value.
-  if (coverage_data->initialization_attempted != 0)
-    return;
-  coverage_data->initialization_attempted = 1;
 
   // Log the module. This is required in order to associate basic-block
   // frequency with a module and PDB file during post-processing.
@@ -230,7 +182,8 @@ void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
   }
 
   // Initialize the coverage data for this module.
-  if (!coverage->InitializeCoverageData(image, coverage_data)) {
+  if (!coverage->InitializeCoverageData(module_base,
+                                        entry_frame->coverage_data)) {
     LOG(ERROR) << "Failed to initialize coverage data.";
     return;
   }
@@ -238,7 +191,7 @@ void WINAPI Coverage::EntryHook(EntryFrame *entry_frame, FuncAddr function) {
   LOG(INFO) << "Coverage client initialized.";
 }
 
-bool Coverage::InitializeCoverageData(const base::win::PEImage& image,
+bool Coverage::InitializeCoverageData(void* module_base,
                                       BasicBlockFrequencyData* coverage_data) {
   DCHECK(coverage_data != NULL);
 
@@ -289,6 +242,7 @@ bool Coverage::InitializeCoverageData(const base::win::PEImage& image,
   DCHECK(trace_coverage_data != NULL);
 
   // Initialize the coverage data struct.
+  base::win::PEImage image(module_base);
   const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
   trace_coverage_data->module_base_addr =
       reinterpret_cast<ModuleAddr>(image.module());

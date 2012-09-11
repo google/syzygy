@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,10 +39,8 @@ using trace::parser::Parser;
 const uint32 kBasicBlockCount = 2;
 uint8 bb_seen_array[kBasicBlockCount] = {};
 
-// Force ourselves to have a .coverage section identical to one that would be
+// Force ourselves to have coverage data identical to that which would be
 // injected by the coverage instrumentation transform.
-#pragma data_seg(push, old_seg)
-#pragma data_seg(".bbfreq")
 BasicBlockFrequencyData coverage_data = {
     ::common::kBasicBlockCoverageAgentId,
     ::common::kBasicBlockFrequencyDataVersion,
@@ -51,7 +49,6 @@ BasicBlockFrequencyData coverage_data = {
     kBasicBlockCount,
     1U,  // frequency_size.
     0U };  // initialization_attempted.
-#pragma data_seg(pop, old_seg)
 
 MATCHER_P(ModuleAtAddress, module, "") {
   return arg->module_base_addr == module;
@@ -184,6 +181,7 @@ BOOL WINAPI CoverageClientTest::IndirectDllMain(HMODULE module,
 BOOL __declspec(naked) WINAPI CoverageClientTest::DllMainThunk(
     HMODULE module, DWORD reason, LPVOID reserved) {
   __asm {
+    push offset coverage_data
     push IndirectDllMain
     jmp _indirect_penter_dllmain_
   }
