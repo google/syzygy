@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,9 +34,9 @@ namespace {
 
 class TestRelinkApp : public RelinkApp {
  public:
-  using RelinkApp::input_dll_path_;
+  using RelinkApp::input_image_path_;
   using RelinkApp::input_pdb_path_;
-  using RelinkApp::output_dll_path_;
+  using RelinkApp::output_image_path_;
   using RelinkApp::output_pdb_path_;
   using RelinkApp::order_file_path_;
   using RelinkApp::seed_;
@@ -81,11 +81,11 @@ class RelinkAppTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_dll_path_ = testing::GetExeRelativePath(kDllName);
-    input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
+    abs_input_image_path_ = testing::GetExeRelativePath(kDllName);
+    input_image_path_ = testing::GetRelativePath(abs_input_image_path_);
     abs_input_pdb_path_ = testing::GetExeRelativePath(kDllPdbName);
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
-    output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
+    output_image_path_ = temp_dir_.Append(input_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
     order_file_path_ = temp_dir_.Append(L"order.json");
 
@@ -113,9 +113,9 @@ class RelinkAppTest : public testing::PELibUnitTest {
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  FilePath input_dll_path_;
+  FilePath input_image_path_;
   FilePath input_pdb_path_;
-  FilePath output_dll_path_;
+  FilePath output_image_path_;
   FilePath output_pdb_path_;
   FilePath order_file_path_;
   uint32 seed_;
@@ -129,7 +129,7 @@ class RelinkAppTest : public testing::PELibUnitTest {
 
   // @name Expected final values of input parameters.
   // @{
-  FilePath abs_input_dll_path_;
+  FilePath abs_input_image_path_;
   FilePath abs_input_pdb_path_;
   // @}
 };
@@ -146,13 +146,13 @@ TEST_F(RelinkAppTest, EmptyCommandLineFails) {
 }
 
 TEST_F(RelinkAppTest, ParseWithNeitherInputNorOrderFails) {
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(RelinkAppTest, ParseWithSeedAndOrderFails) {
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchPath("order_file", order_file_path_);
 
@@ -160,36 +160,36 @@ TEST_F(RelinkAppTest, ParseWithSeedAndOrderFails) {
 }
 
 TEST_F(RelinkAppTest, ParseWithEmptySeedFails) {
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitch("seed");
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(RelinkAppTest, ParseWithInvalidSeedFails) {
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchASCII("seed", "hello");
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(RelinkAppTest, ParseWithEmptyPaddingFails) {
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitch("padding");
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(RelinkAppTest, ParseWithInvalidPaddingFails) {
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchASCII("padding", "hello");
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(RelinkAppTest, ParseMinimalCommandLineWithInputDll) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(test_impl_.SetUp());
@@ -199,7 +199,7 @@ TEST_F(RelinkAppTest, ParseMinimalCommandLineWithOrderFile) {
   // The order file doesn't actually exist, so setup should fail to infer the
   // input dll.
   cmd_line_.AppendSwitchPath("order-file", order_file_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_FALSE(test_impl_.SetUp());
@@ -209,7 +209,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   // Note that we specify the no-metadata flag, so we expect false below
   // for the output_metadata_ member. Also note that neither seed nor padding
   // are given, and should default to 0.
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchPath("order-file", order_file_path_);
   cmd_line_.AppendSwitch("no-augment-pdb");
@@ -219,9 +219,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   cmd_line_.AppendSwitch("overwrite");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(test_impl_.input_dll_path_.empty());
+  EXPECT_TRUE(test_impl_.input_image_path_.empty());
   EXPECT_TRUE(test_impl_.input_pdb_path_.empty());
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
+  EXPECT_EQ(output_image_path_, test_impl_.output_image_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(order_file_path_, test_impl_.order_file_path_);
   EXPECT_EQ(0, test_impl_.seed_);
@@ -240,9 +240,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
 TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   // Note that we omit the no-metadata flag, so we expect true below for the
   // output_metadata_ member.
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
@@ -252,9 +252,9 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   cmd_line_.AppendSwitch("overwrite");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
+  EXPECT_EQ(output_image_path_, test_impl_.output_image_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_TRUE(test_impl_.order_file_path_.empty());
   EXPECT_EQ(seed_, test_impl_.seed_);
@@ -269,23 +269,46 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   EXPECT_TRUE(test_impl_.SetUp());
 }
 
+TEST_F(RelinkAppTest, DeprecatedFlagsSucceeds) {
+  cmd_line_.AppendSwitchPath("input-dll", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-dll", output_image_path_);
+  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
+  EXPECT_EQ(output_image_path_, test_impl_.output_image_path_);
+}
+
+TEST_F(RelinkAppTest, DeprecatedFlagsConflictingInputsFail) {
+  cmd_line_.AppendSwitchPath("input-dll", input_image_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-dll", output_image_path_);
+  EXPECT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(RelinkAppTest, DeprecatedFlagsConflictingOutputsFail) {
+  cmd_line_.AppendSwitchPath("input-dll", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-dll", output_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  EXPECT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+}
+
 TEST_F(RelinkAppTest, RandomRelink) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
   cmd_line_.AppendSwitch("overwrite");
 
   ASSERT_EQ(0, test_app_.Run());
-  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
 }
 
 TEST_F(RelinkAppTest, RandomRelinkBasicBlocks) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
   cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
@@ -294,7 +317,7 @@ TEST_F(RelinkAppTest, RandomRelinkBasicBlocks) {
   cmd_line_.AppendSwitch("exclude-bb-padding");
 
   ASSERT_EQ(0, test_app_.Run());
-  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
 }
 
 }  // namespace pe

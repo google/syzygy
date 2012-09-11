@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,34 +28,37 @@ namespace {
 const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required Options:\n"
-    "    --input-dll=<path>   The input DLL to relink.\n"
-    "    --output-dll=<path>  Output path for the rewritten DLL.\n"
+    "    --input-image=<path>  The input image file to relink.\n"
+    "    --output-image=<path> Output path for the rewritten image file.\n"
     "  Optional Options:\n"
-    "    --basic-blocks       Reorder at the basic-block level. At present,\n"
-    "                         this is only supported for random reorderings.\n"
-    "    --compress-pdb       If --no-augment-pdb is specified, causes the\n"
-    "                         augmented PDB stream to be compressed.\n"
-    "    --exclude-bb-padding When randomly reordering basic blocks, exclude\n"
-    "                         padding and unreachable code from the relinked\n"
-    "                         output binary.\n"
-    "    --input-pdb=<path>   The PDB file associated with the input DLL.\n"
-    "                         Default is inferred from input-dll.\n"
-    "    --no-augment-pdb     Indicates that the relinker should not augment\n"
-    "                         the PDB with roundtrip decomposition info.\n"
-    "    --no-metadata        Prevents the relinker from adding metadata\n"
-    "                         to the output DLL.\n"
-    "    --no-strip-strings   Causes strings to be output in the augmented\n"
-    "                         PDB stream. The default is to omit these to\n"
-    "                         make smaller PDBs.\n"
-    "    --order-file=<path>  Reorder based on a JSON ordering file.\n"
-    "    --output-pdb=<path>  Output path for the rewritten PDB file.\n"
-    "                         Default is inferred from output-dll.\n"
-    "    --overwrite          Allow output files to be overwritten.\n"
-    "    --padding=<integer>  Add bytes of padding between blocks.\n"
-    "    --seed=<integer>     Randomly reorder based on the given seed.\n"
+    "    --basic-blocks        Reorder at the basic-block level. At present,\n"
+    "                          this is only supported for random reorderings.\n"
+    "    --compress-pdb        If --no-augment-pdb is specified, causes the\n"
+    "                          augmented PDB stream to be compressed.\n"
+    "    --exclude-bb-padding  When randomly reordering basic blocks, exclude\n"
+    "                          padding and unreachable code from the relinked\n"
+    "                          output binary.\n"
+    "    --input-pdb=<path>    The PDB file associated with the input DLL.\n"
+    "                          Default is inferred from input-image.\n"
+    "    --no-augment-pdb      Indicates that the relinker should not augment\n"
+    "                          the PDB with roundtrip decomposition info.\n"
+    "    --no-metadata         Prevents the relinker from adding metadata\n"
+    "                          to the output DLL.\n"
+    "    --no-strip-strings    Causes strings to be output in the augmented\n"
+    "                          PDB stream. The default is to omit these to\n"
+    "                          make smaller PDBs.\n"
+    "    --order-file=<path>   Reorder based on a JSON ordering file.\n"
+    "    --output-pdb=<path>   Output path for the rewritten PDB file.\n"
+    "                          Default is inferred from output-image.\n"
+    "    --overwrite           Allow output files to be overwritten.\n"
+    "    --padding=<integer>   Add bytes of padding between blocks.\n"
+    "    --seed=<integer>      Randomly reorder based on the given seed.\n"
+    "  Deprecated Options:\n"
+    "    --input-dll=<path>    Aliased to --input-image.\n"
+    "    --output-dll=<path>   Aliased to --output-image.\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
-    "    * If --order-file is specified, --input-dll is optional.\n"
+    "    * If --order-file is specified, --input-image is optional.\n"
     "    * The --compress-pdb and --no-strip-strings options are only\n"
     "      effective if --no-augment-pdb is not specified.\n"
     "    * The --exclude-bb-padding option is only effective if\n"
@@ -86,9 +89,31 @@ void GuessPdbPath(const FilePath& module_path, FilePath* pdb_path) {
 }  // namespace
 
 bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
-  input_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-dll"));
+  input_image_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-image"));
+  if (cmd_line->HasSwitch("input-dll")) {
+    if (input_image_path_.empty()) {
+      LOG(WARNING) << "Using deprecated switch --input-dll.";
+      input_image_path_ =
+          AbsolutePath(cmd_line->GetSwitchValuePath("input-dll"));
+    } else {
+      return Usage(cmd_line,
+                   "Can't specify both --input-dll and --input-image.");
+    }
+  }
   input_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-pdb"));
-  output_dll_path_ = cmd_line->GetSwitchValuePath("output-dll");
+
+  output_image_path_ = cmd_line->GetSwitchValuePath("output-image");
+  if (cmd_line->HasSwitch("output-dll")) {
+    if (output_image_path_.empty()) {
+      LOG(WARNING) << "Using deprecated switch --output-dll.";
+      output_image_path_ =
+          AbsolutePath(cmd_line->GetSwitchValuePath("output-dll"));
+    } else {
+      return Usage(cmd_line,
+                   "Can't specify both --output-dll and --output-image.");
+    }
+  }
+
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   order_file_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("order-file"));
   no_augment_pdb_ = cmd_line->HasSwitch("no-augment-pdb");
@@ -99,17 +124,17 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
   exclude_bb_padding_ = cmd_line->HasSwitch("exclude-bb-padding");
 
-  // The --output-dll argument is required.
-  if (output_dll_path_.empty()) {
-    return Usage(cmd_line, "You must specify --output-dll.");
+  // The --output-image argument is required.
+  if (output_image_path_.empty()) {
+    return Usage(cmd_line, "You must specify --output-image.");
   }
 
-  // Ensure that we have an input-dll, either explicity specified, or to be
+  // Ensure that we have an input-image, either explicity specified, or to be
   // taken from an order file.
-  if (input_dll_path_.empty() && order_file_path_.empty()) {
+  if (input_image_path_.empty() && order_file_path_.empty()) {
     return Usage(
         cmd_line,
-        "You must specify --input-dll if --order-file is not given.");
+        "You must specify --input-image if --order-file is not given.");
   }
 
   // Parse the random seed, if given. Note that the --seed and --order-file
@@ -135,20 +160,20 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
 }
 
 bool RelinkApp::SetUp() {
-  if (input_dll_path_.empty()) {
+  if (input_image_path_.empty()) {
     DCHECK(!order_file_path_.empty());
     if (!reorder::Reorderer::Order::GetOriginalModulePath(order_file_path_,
-                                                          &input_dll_path_)) {
-      LOG(ERROR) << "Unable to infer input-dll.";
+                                                          &input_image_path_)) {
+      LOG(ERROR) << "Unable to infer input-image.";
       return false;
     }
 
     LOG(INFO) << "Inferring input DLL path from order file: "
-              << input_dll_path_.value();
+              << input_image_path_.value();
   }
 
-  DCHECK(!input_dll_path_.empty());
-  DCHECK(!output_dll_path_.empty());
+  DCHECK(!input_image_path_.empty());
+  DCHECK(!output_image_path_.empty());
   DCHECK(order_file_path_.empty() || seed_ == 0);
 
   return true;
@@ -156,9 +181,9 @@ bool RelinkApp::SetUp() {
 
 int RelinkApp::Run() {
   pe::PERelinker relinker;
-  relinker.set_input_path(input_dll_path_);
+  relinker.set_input_path(input_image_path_);
   relinker.set_input_pdb_path(input_pdb_path_);
-  relinker.set_output_path(output_dll_path_);
+  relinker.set_output_path(output_image_path_);
   relinker.set_output_pdb_path(output_pdb_path_);
   relinker.set_padding(padding_);
   relinker.set_add_metadata(output_metadata_);

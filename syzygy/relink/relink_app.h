@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,9 +57,9 @@ class RelinkApp : public common::AppImplBase {
 
   // @name Command-line parameters.
   // @{
-  FilePath input_dll_path_;
+  FilePath input_image_path_;
   FilePath input_pdb_path_;
-  FilePath output_dll_path_;
+  FilePath output_image_path_;
   FilePath output_pdb_path_;
   FilePath order_file_path_;
   uint32 seed_;

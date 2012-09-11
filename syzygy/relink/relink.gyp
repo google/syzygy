@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,9 +53,9 @@
       'run_as': {
         'action': [
           '$(TargetPath)',
-          '--input-dll=$(OutDir)\\test_dll.dll',
+          '--input-image=$(OutDir)\\test_dll.dll',
           '--input-pdb=$(OutDir)\\test_dll.pdb',
-          '--output-dll=$(OutDir)\\randomized_test_dll.dll',
+          '--output-image=$(OutDir)\\randomized_test_dll.dll',
           '--output-pdb=$(OutDir)\\randomized_test_dll.pdb',
         ]
       },

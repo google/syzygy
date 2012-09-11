@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,13 +34,13 @@ using reorder::RandomOrderGenerator;
 using reorder::Reorderer;
 
 static const char kUsage[] =
-    "Usage: reorder [options] [ETW log files ...]\n"
+    "Usage: reorder [options] [log files ...]\n"
     "  Required Options:\n"
-    "    --instrumented-dll=<path> the path to the instrumented DLL.\n"
+    "    --instrumented-image=<path> the path to the instrumented image file.\n"
     "    --output-file=<path> the output file.\n"
     "  Optional Options:\n"
-    "    --input-dll=<path> the input DLL to reorder. If this is not\n"
-    "        specified it will be inferred from the instrumented DLL\n"
+    "    --input-image=<path> the input image file to reorder. If this is not\n"
+    "        specified it will be inferred from the instrumented image's\n"
     "        metadata.\n"
     "    --seed=INT generates a random ordering; don't specify ETW log files.\n"
     "    --list-dead-code instead of an ordering, output the set of functions\n"
@@ -49,7 +49,10 @@ static const char kUsage[] =
     "    --reorderer-flags=<comma separated reorderer flags>\n"
     "  Reorderer Flags:\n"
     "    no-code: Do not reorder code sections.\n"
-    "    no-data: Do not reorder data sections.\n";
+    "    no-data: Do not reorder data sections.\n"
+    "  Deprecated Options:\n"
+    "    --instrumented-dll=<path> aliases to --instrumented-image.\n"
+    "    --input-dll=<path> aliases to --input-image.\n";
 
 const char kFlags[] = "reorderer-flags";
 
@@ -107,10 +110,30 @@ int main(int argc, char** argv) {
 
   // Parse the command line.
   typedef CommandLine::StringType StringType;
-  FilePath instrumented_dll_path =
-      cmd_line->GetSwitchValuePath("instrumented-dll");
-  FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
+  FilePath instrumented_image_path =
+      cmd_line->GetSwitchValuePath("instrumented-image");
+  FilePath input_image_path = cmd_line->GetSwitchValuePath("input-image");
   FilePath output_file = cmd_line->GetSwitchValuePath("output-file");
+
+  if (cmd_line->HasSwitch("instrumented-dll")) {
+    if (instrumented_image_path.empty()) {
+      LOG(WARNING) << "Using deprecated switch --instrumented-dll.";
+      instrumented_image_path =
+          cmd_line->GetSwitchValuePath("instrumented-dll");
+    } else {
+      return Usage(
+          "Can't supply both --instrumented-dll and --instrumented-image.");
+    }
+  }
+
+  if (cmd_line->HasSwitch("input-dll")) {
+    if (input_image_path.empty()) {
+      LOG(WARNING) << "Using deprecated switch --input-dll.";
+      input_image_path = cmd_line->GetSwitchValuePath("input-dll");
+    } else {
+      return Usage("Can't supply both --input-image and --input-dll.");
+    }
+  }
 
   int seed = 0;
   StringType seed_str(cmd_line->GetSwitchValueNative("seed"));
@@ -124,9 +147,9 @@ int main(int argc, char** argv) {
   bool pretty_print = cmd_line->HasSwitch("pretty-print");
   bool list_dead_code = cmd_line->HasSwitch("list-dead-code");
 
-  if (instrumented_dll_path.empty() || output_file.empty()) {
+  if (instrumented_image_path.empty() || output_file.empty()) {
     return Usage(
-        "You must specify instrumented-dll and output-file.");
+        "You must specify instrumented-image and output-file.");
   }
 
   if (seed_str.empty()) {
@@ -165,8 +188,8 @@ int main(int argc, char** argv) {
   block_graph::BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   reorder::Reorderer::Order order;
-  Reorderer reorderer(input_dll_path,
-                      instrumented_dll_path,
+  Reorderer reorderer(input_image_path,
+                      instrumented_image_path,
                       trace_paths,
                       reorderer_flags);
   if (!reorderer.Reorder(order_generator.get(),

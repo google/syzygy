@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -169,9 +169,9 @@
           'action': [
             '"<(PRODUCT_DIR)/relink.exe"',
             '--seed=0',
-            '--input-dll=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
-            '--output-dll=<(PRODUCT_DIR)/test_data/randomized_test_dll.dll',
+            '--output-image=<(PRODUCT_DIR)/test_data/randomized_test_dll.dll',
             '--output-pdb=<(PRODUCT_DIR)/test_data/randomized_test_dll.pdb',
             '--overwrite',
           ],
@@ -210,7 +210,7 @@
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/rpc_traces',
-            '--instrumented-dll='
+            '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
             '--verbose',
             # The build-dir arg must be last to work around a bug in the
@@ -253,7 +253,7 @@
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/profile_traces',
-            '--instrumented-dll='
+            '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
             '--verbose',
             # The build-dir arg must be last to work around a bug in the
@@ -296,7 +296,7 @@
             'python',
             '<(DEPTH)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/coverage_traces',
-            '--instrumented-dll='
+            '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
             '--verbose',
             # The build-dir arg must be last to work around a bug in the
