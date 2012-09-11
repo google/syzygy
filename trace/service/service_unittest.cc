@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -117,11 +117,14 @@ class CallTraceServiceTest : public testing::Test {
     call_trace_service_.set_instance_id(instance_id_);
 
     // The instance id needs to be in the environment to be picked up by the
-    // client library.
+    // client library. We prefix the existing environment variable, if any.
     scoped_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_FALSE(env.get() == NULL);
-    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar,
-                            ::WideToUTF8(instance_id_)));
+    std::string env_var;
+    env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &env_var);
+    env_var.insert(0, ";");
+    env_var.insert(0, ::WideToUTF8(instance_id_));
+    ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, env_var));
   }
 
   // Cleans up after each test invocation.

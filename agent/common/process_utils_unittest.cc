@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,9 +124,7 @@ TEST_F(ProcessUtilsTest, LogModule) {
   // Initialize the session.
   trace::client::RpcSession session;
   trace::client::TraceFileSegment segment;
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  std::string id;
-  env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &id);
+  std::string id = trace::client::GetInstanceIdForThisModule();
   session.set_instance_id(UTF8ToWide(id));
   session.CreateSession(&segment);
 

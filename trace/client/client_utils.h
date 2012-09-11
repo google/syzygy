@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #ifndef SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_
 #define SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_
 
+#include "base/file_path.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 
@@ -95,12 +96,58 @@ class TraceFileSegment {
   uint8* end_ptr;
 };
 
-// Helper function to transform a DllMain reason to a call trace even type.
+// Helper function to transform a DllMain reason to a call trace event type.
 int ReasonToEventType(DWORD reason);
 
 // Helper function to get pointer to the prefix for any record
 // in a trace file segment.
 RecordPrefix* GetRecordPrefix(void *record);
+
+// Given an address in memory returns a pointer to the base address of the
+// loaded module in which it lies. Logs verbosely on failure.
+// @param address_in_module an address in the image.
+// @param module_base will receive a pointer to the base address of the image.
+// @returns true on success, false otherwise.
+bool GetModuleBaseAddress(void* address_in_module, void** module_base);
+
+// Determines the full path associated with a given module in memory. This is
+// replicating functionality from base::PathService, but it uses
+// GetModuleFileName which grabs the loader lock. This can cause us issues
+// thus we use GetMappedFileName instead.
+// @param module_base the base address of the module to be queried.
+// @param module_path will receive the path of the module, upon success.
+// @returns true on success, false otherwise.
+bool GetModulePath(void* module_base, FilePath* module_path);
+
+// Given the path to a module, determines the RPC instance ID to be used for
+// it. This works by looking at the SYZYGY_RPC_INSTANCE_ID environment variable.
+// This environment variable contains a semi-colon separated list of instance
+// IDs, where each entry may consist of a comma separated module path and
+// instance ID pair. The first semi-colon delimited entry that is a singleton
+// is used as the instance ID if no path matches are found. Exact path matches
+// have higher priority over basename-only path matches. If no match is found
+// and no default ID exists (or the environment variable is not specified), then
+// the returned instance ID is empty.
+//
+// For example, consider the following environment variable:
+//
+//   SYZYGY_RPC_INSTANCE_ID="1;foo.dll,2;C:\dll\foo.dll,3"
+//
+// If called with the path "C:\src\foo.dll" then the returned instance ID will
+// be "2". If called with the path "C:\dll\foo.dll" the returned instance ID
+// will be "3". If called with "C:\bar.dll" the returned instance ID will be
+// "1".
+//
+// @param module_path the path to the module for which we wish to find an
+//     instance ID. If it is not absolute it will be made so using the current
+//     working directory.
+// @returns the instance ID.
+std::string GetInstanceIdForModule(const FilePath& module_path);
+
+// Encapsulates calls to GetModuleBaseAddress, GetModulePath and
+// GetInstanceIdForModule.
+// @returns the instance ID for the module in which this function is found.
+std::string GetInstanceIdForThisModule();
 
 }  // namespace trace::client
 }  // namespace trace

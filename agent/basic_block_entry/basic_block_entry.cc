@@ -384,9 +384,7 @@ BasicBlockEntry* BasicBlockEntry::Instance() {
 }
 
 BasicBlockEntry::BasicBlockEntry() {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  std::string id;
-  env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &id);
+  std::string id = trace::client::GetInstanceIdForThisModule();
   session_.set_instance_id(UTF8ToWide(id));
 
   // Create a session. We immediately return the buffer that gets allocated

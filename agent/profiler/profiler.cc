@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -639,9 +639,7 @@ Profiler::ThreadState* Profiler::CreateFirstThreadStateAndSession() {
   Profiler::ThreadState* data = GetOrAllocateThreadStateImpl();
 
   // Create the session (and allocate the first segment).
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  std::string id;
-  env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &id);
+  std::string id = trace::client::GetInstanceIdForThisModule();
   session_.set_instance_id(UTF8ToWide(id));
   session_.CreateSession(data->segment());
 

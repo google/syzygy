@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,7 +90,17 @@ void CallTraceService::SetEnvironment() {
   // client library.
   scoped_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_FALSE(env.get() == NULL);
-  ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, instance_id_));
+
+  // Get the existing value.
+  std::string env_var;
+  env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &env_var);
+
+  // Prefix the existing environment variable with the instance ID we've
+  // chosen. This allows previously intended behaviour to persist.
+  env_var.insert(0, ";");
+  env_var.insert(0, instance_id_);
+
+  ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, env_var));
 }
 
 }  // namespace testing
