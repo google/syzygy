@@ -43,51 +43,30 @@ class CoverageInstrumentationTransformTest
 
 }  // namespace
 
-TEST_F(CoverageInstrumentationTransformTest, FailsWhenCoverageSectionExists) {
-  BlockGraph::Section* section = block_graph_.AddSection(
-      common::kBasicBlockFrequencySectionName,
-      common::kBasicBlockFrequencySectionCharacteristics);
-  ASSERT_TRUE(section != NULL);
-
-  CoverageInstrumentationTransform tx;
-  ASSERT_FALSE(block_graph::ApplyBlockGraphTransform(
-      &tx, &block_graph_, dos_header_block_));
-}
-
 TEST_F(CoverageInstrumentationTransformTest, Apply) {
+  // TODO(chrisha): This is simply a clone of
+  //     AddBasicBlockFrequencyDataTransformTest for now. Make this more
+  //     meaningful once finished porting CoverageInstrumentationTransform.
   CoverageInstrumentationTransform tx;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &tx, &block_graph_, dos_header_block_));
 
-  // There should be a frequency data section.
-  BlockGraph::Section* section = block_graph_.FindSection(
-      common::kBasicBlockFrequencySectionName);
-  ASSERT_TRUE(section != NULL);
-
-  // The section should contain exactly 1 block.
-  const BlockGraph::Block* coverage_block = NULL;
-  BlockGraph::BlockMap::const_iterator it = block_graph_.blocks().begin();
-  for (; it != block_graph_.blocks().end(); ++it) {
-    if (it->second.section() == section->id()) {
-      ASSERT_TRUE(coverage_block == NULL);
-      coverage_block = &it->second;
-    }
-  }
-  ASSERT_TRUE(coverage_block != NULL);
-
-  // The coverage block should have the appropriate size, etc.
-  ASSERT_EQ(sizeof(BasicBlockFrequencyData), coverage_block->data_size());
+  BlockGraph::Block* frequency_data_block = tx.frequency_data_block();
 
   block_graph::ConstTypedBlock<BasicBlockFrequencyData> coverage_data;
-  ASSERT_TRUE(coverage_data.Init(0, coverage_block));
+  ASSERT_TRUE(coverage_data.Init(0, frequency_data_block));
+
+  // The frequency data block should have the appropriate size.
+  ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());
+  EXPECT_EQ(sizeof(BasicBlockFrequencyData) + coverage_data->num_basic_blocks,
+            frequency_data_block->size());
+
   EXPECT_EQ(common::kBasicBlockCoverageAgentId, coverage_data->agent_id);
   EXPECT_EQ(common::kBasicBlockFrequencyDataVersion, coverage_data->version);
   EXPECT_EQ(tx.bb_ranges().size(), coverage_data->num_basic_blocks);
   EXPECT_LT(0u, tx.conditional_ranges().size());
   EXPECT_TRUE(coverage_data.HasReferenceAt(
       coverage_data.OffsetOf(coverage_data->frequency_data)));
-  EXPECT_EQ(sizeof(BasicBlockFrequencyData) + coverage_data->num_basic_blocks,
-            coverage_block->size());
 }
 
 }  // namespace transforms

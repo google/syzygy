@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace instrument {
@@ -33,8 +34,6 @@ namespace {
 using block_graph::BlockGraph;
 using common::BasicBlockFrequencyData;
 using common::kBasicBlockFrequencyDataVersion;
-using common::kBasicBlockFrequencySectionName;
-using common::kBasicBlockFrequencySectionCharacteristics;
 
 const uint32 kAgentId = 0xDEADBEEF;
 const uint32 kNumBasicBlocks = 7;
@@ -50,43 +49,12 @@ class AddBasicBlockFrequencyDataTransformTest
 
 }  // namespace
 
-TEST_F(AddBasicBlockFrequencyDataTransformTest, FailsWhenSectionExists) {
-  BlockGraph::Section* section = block_graph_.AddSection(
-      kBasicBlockFrequencySectionName,
-      kBasicBlockFrequencySectionCharacteristics);
-  ASSERT_TRUE(section != NULL);
-
-  AddBasicBlockFrequencyDataTransform tx(kAgentId);
-  EXPECT_TRUE(tx.frequency_data_block() == NULL);
-  EXPECT_FALSE(block_graph::ApplyBlockGraphTransform(
-      &tx, &block_graph_, dos_header_block_));
-  EXPECT_TRUE(tx.frequency_data_block() == NULL);
-}
-
 TEST_F(AddBasicBlockFrequencyDataTransformTest, Apply) {
-  ASSERT_TRUE(
-      block_graph_.FindSection(kBasicBlockFrequencySectionName) == NULL);
-
   AddBasicBlockFrequencyDataTransform tx(kAgentId);
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &tx, &block_graph_, dos_header_block_));
 
-  // There should be a frequency data section, and it should contain 1 block.
-  BlockGraph::Section* section =
-      block_graph_.FindSection(kBasicBlockFrequencySectionName);
-  ASSERT_TRUE(section != NULL);
-
-  // The frequency data section should contain just one block.
-  const BlockGraph::Block* frequency_data_block = NULL;
-  BlockGraph::BlockMap::const_iterator it = block_graph_.blocks().begin();
-  for (; it != block_graph_.blocks().end(); ++it) {
-    if (it->second.section() == section->id()) {
-      ASSERT_TRUE(frequency_data_block == NULL);
-      frequency_data_block = &it->second;
-    }
-  }
-  ASSERT_TRUE(frequency_data_block != NULL);
-  ASSERT_EQ(tx.frequency_data_block(), frequency_data_block);
+  BlockGraph::Block* frequency_data_block = tx.frequency_data_block();
 
   // The frequency data block should have the appropriate size.
   ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());

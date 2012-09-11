@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +22,6 @@ const uint32 kBasicBlockEntryAgentId = 0xBBEABBEA;
 // This should be incremented when incompatible changes are made to a
 // basic-block tracing client.
 const uint32 kBasicBlockFrequencyDataVersion = 1;
-
-const char kBasicBlockFrequencySectionName[] = ".bbfreq";
-
-const DWORD kBasicBlockFrequencySectionCharacteristics =
-    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
 
 const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";
 

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@
 
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
 namespace transforms {
 
 using common::BasicBlockFrequencyData;
-using common::kBasicBlockFrequencySectionName;
-using common::kBasicBlockFrequencySectionCharacteristics;
 
 const char AddBasicBlockFrequencyDataTransform::kTransformName[] =
     "AddBasicBlockFrequencyDataTransform";
@@ -40,24 +39,12 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
   DCHECK(header_block != NULL);
   DCHECK(frequency_data_block_ == NULL);
 
-  // We only allow this transformation to be performed once.
-  // TODO(chrisha): Remove/rework the section handling once the parameterized
-  //     entry-thunk is in use. Once the frequency data is passed as a param
-  //     it doesn't matter where it lives in the image and this can be changed
-  //     to FindOrAddSection.
-  BlockGraph::Section* section =
-      block_graph->FindSection(kBasicBlockFrequencySectionName);
-  if (section != NULL) {
-    LOG(ERROR) << "Block-graph already contains a frequency data section "
-               << "(" << kBasicBlockFrequencySectionName << ").";
-    return false;
-  }
-
-  // Add a new section for the frequency data.
-  section = block_graph->AddSection(kBasicBlockFrequencySectionName,
-                                    kBasicBlockFrequencySectionCharacteristics);
+  // Get the read/write ".data" section. We will add our block to it.
+  BlockGraph::Section* section = block_graph->FindOrAddSection(
+      pe::kReadWriteDataSectionName, pe::kReadWriteDataCharacteristics);
   if (section == NULL) {
-    LOG(ERROR) << "Failed to add the basic-block frequency section.";
+    LOG(ERROR) << "Failed to find/add read-write data section \""
+               << pe::kReadWriteDataSectionName << "\".";
     return false;
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,13 +88,6 @@ extern const uint32 kBasicBlockEntryAgentId;
 
 // The basic-block trace agent version.
 extern const uint32 kBasicBlockFrequencyDataVersion;
-
-// This is the name of the data section added to an instrumented image by
-// the coverage client.
-extern const char kBasicBlockFrequencySectionName[];
-
-// The characteristics given to the coverage instrumentation section.
-extern const DWORD kBasicBlockFrequencySectionCharacteristics;
 
 // The name of the basic-block ranges stream added to the PDB by the
 // any instrumentation employing basic-block trace data.
