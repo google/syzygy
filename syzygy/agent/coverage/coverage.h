@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,9 +40,16 @@ namespace coverage {
 // There's a single instance of this class.
 class Coverage {
  public:
+  // This is overlaid on a hand-crafted ASM generated stack frame. See
+  // syzygy/agent/coverage/coverage.cc for details.
+  struct EntryHookFrame {
+    void* func_addr;
+    common::BasicBlockFrequencyData* coverage_data;
+  };
+
   // The thunks _indirect_penter_dllmain and _indirect_exe_entry are redirected
   // here.
-  static void WINAPI EntryHook(EntryFrame *entry_frame, FuncAddr function);
+  static void WINAPI EntryHook(EntryHookFrame* entry_frame);
 
   // Retrieves the coverage singleton instance.
   static Coverage* Instance();
@@ -55,7 +62,7 @@ class Coverage {
   ~Coverage();
 
   // Initializes the given coverage data element.
-  bool InitializeCoverageData(const base::win::PEImage& image,
+  bool InitializeCoverageData(void* module_base,
                               ::common::BasicBlockFrequencyData* coverage_data);
 
   // The RPC session we're logging to/through.

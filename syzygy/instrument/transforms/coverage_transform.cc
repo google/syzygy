@@ -64,7 +64,10 @@ const char CoverageInstrumentationTransform::kTransformName[] =
     "CoverageInstrumentationTransform";
 
 CoverageInstrumentationTransform::CoverageInstrumentationTransform()
-    : add_frequency_data_(kBasicBlockCoverageAgentId) {
+    : add_bb_freq_data_tx_(kBasicBlockCoverageAgentId) {
+  // Initialize the EntryThunkTransform.
+  entry_thunk_tx_.set_instrument_unsafe_references(false);
+  entry_thunk_tx_.set_only_instrument_module_entry(true);
 }
 
 bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
@@ -73,7 +76,7 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
   DCHECK(block_graph != NULL);
   DCHECK(basic_block_subgraph != NULL);
 
-  BlockGraph::Block* data_block = add_frequency_data_.frequency_data_block();
+  BlockGraph::Block* data_block = add_bb_freq_data_tx_.frequency_data_block();
   DCHECK(data_block != NULL);
   DCHECK_EQ(sizeof(BasicBlockFrequencyData), data_block->data_size());
 
@@ -148,7 +151,7 @@ bool CoverageInstrumentationTransform::PreBlockGraphIteration(
   DCHECK(header_block != NULL);
 
   if (!ApplyBlockGraphTransform(
-          &add_frequency_data_, block_graph, header_block)) {
+          &add_bb_freq_data_tx_, block_graph, header_block)) {
     LOG(ERROR) << "Failed to insert basic-block frequency data.";
     return false;
   }
@@ -182,13 +185,26 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
+  // Get a reference to the frequency data and make that the parameter that
+  // we pass to the entry thunks. We run the thunk transform after the coverage
+  // instrumentation transform as it creates new code blocks that we don't
+  // want to instrument.
+  block_graph::Immediate ref_to_freq_data(
+      add_bb_freq_data_tx_.frequency_data_block(), 0);
+  entry_thunk_tx_.SetEntryThunkParameter(ref_to_freq_data);
+  if (!ApplyBlockGraphTransform(
+          &entry_thunk_tx_, block_graph, header_block)) {
+    LOG(ERROR) << "Failed to thunk image entry points.";
+    return false;
+  }
+
   size_t num_basic_blocks = bb_ranges_.size();
   if (num_basic_blocks == 0) {
     LOG(WARNING) << "Encountered no basic code blocks during instrumentation.";
     return true;
   }
 
-  if (!add_frequency_data_.AllocateFrequencyDataBuffer(num_basic_blocks,
+  if (!add_bb_freq_data_tx_.AllocateFrequencyDataBuffer(num_basic_blocks,
                                                        sizeof(uint8))) {
     LOG(ERROR) << "Failed to allocate frequency data buffer.";
     return false;

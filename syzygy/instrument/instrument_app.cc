@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -264,23 +264,25 @@ int InstrumentApp::Run() {
   if (mode_ == kInstrumentAsanMode) {
     asan_transform.reset(new instrument::transforms::AsanTransform);
     relinker.AppendTransform(asan_transform.get());
-  } else {
-    // We're either in call-trace mode, coverage or profiler mode. Each of these
-    // use the entry_thunk_tx, so we handle them in the same manner.
-
+  } else if (mode_ == kInstrumentCoverageMode) {
     // If we're in coverage mode, we need to add coverage structures to
     // the image and we need to augment the PDB file with the basic block
     // addresses.
-    if (mode_ == kInstrumentCoverageMode) {
-      coverage_tx.reset(
-          new instrument::transforms::CoverageInstrumentationTransform);
-      relinker.AppendTransform(coverage_tx.get());
+    coverage_tx.reset(
+        new instrument::transforms::CoverageInstrumentationTransform);
+    coverage_tx->set_instrument_dll_name(client_dll_);
+    coverage_tx->set_src_ranges_for_thunks(debug_friendly_);
+    relinker.AppendTransform(coverage_tx.get());
 
-      add_bb_addr_stream_mutator.reset(
-          new instrument::mutators::AddBasicBlockRangesStreamPdbMutator(
-              coverage_tx->bb_ranges()));
-      relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
-    }
+    add_bb_addr_stream_mutator.reset(
+        new instrument::mutators::AddBasicBlockRangesStreamPdbMutator(
+            coverage_tx->bb_ranges()));
+    relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
+  } else {
+    // We're either in call-trace mode or profiler mode. Each of these
+    // use the entry_thunk_tx, so we handle them in the same manner.
+    DCHECK(mode_ == kInstrumentCallTraceMode ||
+           mode_ == kInstrumentProfilerMode);
 
     // Set up the entry thunk instrumenting transform and add it to the
     // relinker.
