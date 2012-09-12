@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,15 +32,20 @@ typedef AddBasicBlockRangesStreamPdbMutator::RelativeAddressRangeVector
 
 using core::RelativeAddress;
 using common::kBasicBlockRangesStreamName;
+using common::kConditionalRangesStreamName;
 
 }  // namespace
 
-TEST(AddBasicBlockRangesStreamPdbMutatorTest, FailsIfStreamAlreadyExists) {
-  RelativeAddressRangeVector bb_addresses;
-  AddBasicBlockRangesStreamPdbMutator mutator(bb_addresses);
+TEST(AddBasicBlockRangesStreamPdbMutatorTest,
+     FailsIfBasicBlockRangesStreamAlreadyExists) {
+  RelativeAddressRangeVector bb_ranges;
+  RelativeAddressRangeVector cond_ranges;
+  AddBasicBlockRangesStreamPdbMutator mutator(bb_ranges, cond_ranges);
 
-  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
-  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
+  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
+  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
+  cond_ranges.push_back(RelativeAddressRange(RelativeAddress(0x33333333), 4));
+  cond_ranges.push_back(RelativeAddressRange(RelativeAddress(0x44444444), 4));
 
   pdb::PdbFile pdb_file;
   ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file));
@@ -59,30 +64,43 @@ TEST(AddBasicBlockRangesStreamPdbMutatorTest, FailsIfStreamAlreadyExists) {
   EXPECT_FALSE(mutator.MutatePdb(&pdb_file));
 }
 
-TEST(AddBasicBlockRangesStreamPdbMutatorTest, DoesNotAddEmptyStream) {
-  RelativeAddressRangeVector bb_addresses;
-  AddBasicBlockRangesStreamPdbMutator mutator(bb_addresses);
+TEST(AddBasicBlockRangesStreamPdbMutatorTest,
+     FailsIfConditionalRangesStreamAlreadyExists) {
+  RelativeAddressRangeVector bb_ranges;
+  RelativeAddressRangeVector cond_ranges;
+  AddBasicBlockRangesStreamPdbMutator mutator(bb_ranges, cond_ranges);
+
+  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
+  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
+  cond_ranges.push_back(RelativeAddressRange(RelativeAddress(0x33333333), 4));
+  cond_ranges.push_back(RelativeAddressRange(RelativeAddress(0x44444444), 4));
 
   pdb::PdbFile pdb_file;
   ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file));
 
-  EXPECT_TRUE(mutator.MutatePdb(&pdb_file));
-
+  // Add a dummy stream with the same name as the one we want to add.
   pdb::PdbInfoHeader70 pdb_header = {};
   pdb::NameStreamMap name_stream_map;
   EXPECT_TRUE(pdb::ReadHeaderInfoStream(pdb_file, &pdb_header,
                                         &name_stream_map));
+  scoped_refptr<pdb::PdbStream> stream(new pdb::PdbByteStream);
+  size_t stream_id = pdb_file.AppendStream(stream.get());
+  name_stream_map[kConditionalRangesStreamName] = stream_id;
+  EXPECT_TRUE(pdb::WriteHeaderInfoStream(pdb_header, name_stream_map,
+                                         &pdb_file));
 
-  // We expect no named stream to have been added.
-  EXPECT_EQ(0u, name_stream_map.count(kBasicBlockRangesStreamName));
+  EXPECT_FALSE(mutator.MutatePdb(&pdb_file));
 }
 
-TEST(AddBasicBlockRangesStreamPdbMutatorTest, AddsStream) {
-  RelativeAddressRangeVector bb_addresses;
-  AddBasicBlockRangesStreamPdbMutator mutator(bb_addresses);
+TEST(AddBasicBlockRangesStreamPdbMutatorTest, AddsStreams) {
+  RelativeAddressRangeVector bb_ranges;
+  RelativeAddressRangeVector cond_ranges;
+  AddBasicBlockRangesStreamPdbMutator mutator(bb_ranges, cond_ranges);
 
-  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
-  bb_addresses.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
+  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(0x11111111), 4));
+  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(0x22222222), 4));
+  cond_ranges.push_back(RelativeAddressRange(RelativeAddress(0x33333333), 4));
+  cond_ranges.push_back(RelativeAddressRange(RelativeAddress(0x44444444), 4));
 
   pdb::PdbFile pdb_file;
   ASSERT_NO_FATAL_FAILURE(testing::InitMockPdbFile(&pdb_file));
@@ -98,15 +116,25 @@ TEST(AddBasicBlockRangesStreamPdbMutatorTest, AddsStream) {
   EXPECT_EQ(1u, name_stream_map.count(kBasicBlockRangesStreamName));
 
   // Get the stream.
-  size_t stream_id = name_stream_map[kBasicBlockRangesStreamName];
-  scoped_refptr<pdb::PdbStream> stream = pdb_file.GetStream(stream_id);
-  EXPECT_TRUE(stream.get() != NULL);
+  size_t bb_stream_id = name_stream_map[kBasicBlockRangesStreamName];
+  size_t cond_stream_id = name_stream_map[kConditionalRangesStreamName];
+  scoped_refptr<pdb::PdbStream> bb_stream = pdb_file.GetStream(bb_stream_id);
+  scoped_refptr<pdb::PdbStream> cond_stream =
+      pdb_file.GetStream(cond_stream_id);
+  EXPECT_TRUE(bb_stream.get() != NULL);
+  EXPECT_TRUE(cond_stream.get() != NULL);
 
-  // Validate the stream contents.
-  RelativeAddressRangeVector bb_addresses2;
-  EXPECT_TRUE(stream->Seek(0));
-  EXPECT_TRUE(stream->Read(&bb_addresses2));
-  EXPECT_THAT(bb_addresses, testing::ContainerEq(bb_addresses2));
+  // Validate the basic block ranges stream contents.
+  RelativeAddressRangeVector bb_ranges2;
+  EXPECT_TRUE(bb_stream->Seek(0));
+  EXPECT_TRUE(bb_stream->Read(&bb_ranges2));
+  EXPECT_THAT(bb_ranges, testing::ContainerEq(bb_ranges2));
+
+  // Validate the conditional ranges stream contents.
+  RelativeAddressRangeVector cond_ranges2;
+  EXPECT_TRUE(cond_stream->Seek(0));
+  EXPECT_TRUE(cond_stream->Read(&cond_ranges2));
+  EXPECT_THAT(cond_ranges, testing::ContainerEq(cond_ranges2));
 }
 
 }  // namespace mutators
