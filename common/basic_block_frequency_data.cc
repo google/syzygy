@@ -25,6 +25,4 @@ const uint32 kBasicBlockFrequencyDataVersion = 1;
 
 const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";
 
-const char kConditionalRangesStreamName[] = "/Syzygy/ConditionalRanges";
-
 }  // namespace common

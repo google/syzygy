@@ -118,23 +118,6 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     const BlockGraph::Block::DataRange& data_range = range_pair->first;
     const BlockGraph::Block::SourceRange& src_range = range_pair->second;
 
-    // If we have multiple successors then the instruction following this BB
-    // is a conditional. The arcs of the conditional will often be referred to
-    // by the line information in a PDB (for example, an 'else' on its own
-    // line) but it is meaningless to mark that line as instrumented and/or
-    // executed. Thus, we keep a list of conditional successor address ranges
-    // so they can be excluded from coverage results.
-    if (bb.successors().size() == 2) {
-      const block_graph::Successor& succ = bb.successors().front();
-      DCHECK_NE(BasicBlock::kNoOffset, succ.instruction_offset());
-      DCHECK_NE(0u, succ.instruction_size());
-
-      RelativeAddress succ_addr = src_range.start() +
-          (succ.instruction_offset() - data_range.start());
-      conditional_ranges_.push_back(
-          RelativeAddressRange(succ_addr, succ.instruction_size()));
-    }
-
     // Get the RVA of the BB by translating its offset, and remember the range
     // associated with this BB.
     core::RelativeAddress bb_addr = src_range.start() +
@@ -210,9 +193,6 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
     return false;
   }
 
-  // Sort these for efficient searching in the coverage grinder.
-  std::sort(conditional_ranges_.begin(), conditional_ranges_.end());
-
 #ifndef NDEBUG
   // If we're in debug mode then sanity check the basic block ranges. When
   // sorted, they should not overlap.
@@ -221,12 +201,6 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   DCHECK(std::adjacent_find(bb_ranges.begin(), bb_ranges.end(),
                             RelativeAddressRangesOverlapFunctor()) ==
       bb_ranges.end());
-
-  // Also sanity check the conditional instruction ranges.
-  DCHECK(std::adjacent_find(conditional_ranges_.begin(),
-                            conditional_ranges_.end(),
-                            RelativeAddressRangesOverlapFunctor()) ==
-      conditional_ranges_.end());
 #endif
 
   return true;
