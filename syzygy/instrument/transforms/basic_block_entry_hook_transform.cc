@@ -140,8 +140,7 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
   // TODO(rogerm): A lot of this is boilerplate that can be hoisted to an
   //     IterativeBasicBlockSubgraphTransform (or some such). In particular,
   //     iterating the subgraph, dispatch on code/data basic block, and the
-  //     bb_ranges_ & conditional_ranges_ management are duplicated in the
-  //     coverage transform.
+  //     bb_ranges_ are duplicated in the coverage transform.
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
   DCHECK(bb_entry_hook_ref_.IsValid());
@@ -185,24 +184,6 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
 
     const BlockGraph::Block::DataRange& data_range = range_pair->first;
     const BlockGraph::Block::SourceRange& src_range = range_pair->second;
-
-    // If we have multiple successors then the instruction following this BB
-    // is a conditional. The arcs of the conditional will often be referred to
-    // by the line information in a PDB (for example, an 'else' on its own
-    // line) but it is meaningless to mark that line as instrumented and/or
-    // executed. Thus, we keep a list of conditional successor address ranges
-    // so they can be excluded when the basic block entry count is used for
-    // coverage reporting.
-    if (bb.successors().size() == 2) {
-      const block_graph::Successor& succ = bb.successors().front();
-      DCHECK_NE(BasicBlock::kNoOffset, succ.instruction_offset());
-      DCHECK_NE(0u, succ.instruction_size());
-
-      RelativeAddress succ_addr = src_range.start() +
-          (succ.instruction_offset() - data_range.start());
-      conditional_ranges_.push_back(
-          RelativeAddressRange(succ_addr, succ.instruction_size()));
-    }
 
     // Get the RVA of the BB by translating its offset, and remember the range
     // associated with this BB.
@@ -251,9 +232,6 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
   thunk_section_ = add_thunks.thunk_section();
   DCHECK(thunk_section_ != NULL);
 
-  // Sort these for efficient searching when used by the coverage grinder.
-  std::sort(conditional_ranges_.begin(), conditional_ranges_.end());
-
 #ifndef NDEBUG
   // If we're in debug mode then sanity check the basic block ranges. When
   // sorted, they should not overlap.
@@ -263,12 +241,6 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
                             bb_ranges_copy.end(),
                             RelativeAddressRangesOverlapFunctor()) ==
              bb_ranges_copy.end());
-
-  // Also sanity check the conditional instruction ranges.
-  DCHECK(std::adjacent_find(conditional_ranges_.begin(),
-                            conditional_ranges_.end(),
-                            RelativeAddressRangesOverlapFunctor()) ==
-             conditional_ranges_.end());
 #endif
 
   return true;

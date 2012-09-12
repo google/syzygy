@@ -90,14 +90,8 @@ extern const uint32 kBasicBlockEntryAgentId;
 extern const uint32 kBasicBlockFrequencyDataVersion;
 
 // The name of the basic-block ranges stream added to the PDB by
-// any instrumentation employing basic-block trace data. Specifically, this
-// is added by the AddBasicBlockRangesMutator.
+// any instrumentation employing basic-block trace data.
 extern const char kBasicBlockRangesStreamName[];
-
-// The name of the conditional ranges steam added to the PDB by
-// any instrumentation employing basic-block trace data. Specifically, this
-// is added by the AddBasicBlockRangesMutator.
-extern const char kConditionalRangesStreamName[];
 
 }  // namespace common
 

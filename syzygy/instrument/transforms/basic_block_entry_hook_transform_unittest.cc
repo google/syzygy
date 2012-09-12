@@ -68,7 +68,6 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
   ASSERT_TRUE(tx.frequency_data_block() != NULL);
   ASSERT_TRUE(tx.thunk_section_ != NULL);
   ASSERT_TRUE(tx.bb_entry_hook_ref_.IsValid());
-  ASSERT_LT(0u, tx.conditional_ranges().size());
   ASSERT_LT(0u, tx.bb_ranges().size());
 
   // Validate the basic-block frequency data structure.

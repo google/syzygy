@@ -276,8 +276,7 @@ int InstrumentApp::Run() {
 
     add_bb_addr_stream_mutator.reset(
         new instrument::mutators::AddBasicBlockRangesStreamPdbMutator(
-            coverage_tx->bb_ranges(),
-            coverage_tx->conditional_ranges()));
+            coverage_tx->bb_ranges()));
     relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
   } else {
     // We're either in call-trace mode or profiler mode. Each of these

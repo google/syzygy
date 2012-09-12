@@ -58,13 +58,6 @@ class BasicBlockEntryHookTransform
   //    as its unique ID.
   const RelativeAddressRangeVector& bb_ranges() const { return bb_ranges_; }
 
-  // @returns the RVAs and sizes in the original image of the instructions
-  //     corresponding to conditional branch points. They are stored in order
-  //     of increasing address.
-  const RelativeAddressRangeVector& conditional_ranges() const {
-    return conditional_ranges_;
-  }
-
   // Set a flag denoting whether or not src ranges should be created for the
   // thunks to the module entry hooks.
   void set_src_ranges_for_thunks(bool value) {
@@ -97,12 +90,6 @@ class BasicBlockEntryHookTransform
 
   // Stores the RVAs in the original image for each instrumented basic block.
   RelativeAddressRangeVector bb_ranges_;
-
-  // Stores the RVAs in the original image for the conditional control flow
-  // arcs. We sometimes get line information for these (ie: 'else' statements)
-  // and the VS tools ignore those, marking them as 'not instrumented'. This
-  // information allows us to mimic that behavior.
-  RelativeAddressRangeVector conditional_ranges_;
 
   // The entry hook to which basic-block entry events are directed.
   BlockGraph::Reference bb_entry_hook_ref_;
