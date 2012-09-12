@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,21 +25,35 @@ const char AddBasicBlockRangesStreamPdbMutator::kMutatorName[] =
 
 bool AddBasicBlockRangesStreamPdbMutator::AddNamedStreams(
     const pdb::PdbFile& pdb_file) {
-  if (bb_ranges_.size() == 0) {
-    LOG(INFO) << "Basic-block addresses vector is empty. Not adding stream.";
-    return true;
+  // Create the basic block ranges stream.
+  scoped_refptr<pdb::PdbByteStream> bb_stream(new pdb::PdbByteStream);
+  if (bb_ranges_.size() > 0) {
+    CHECK(bb_stream->Init(reinterpret_cast<const uint8*>(&bb_ranges_.at(0)),
+                          bb_ranges_.size() * sizeof(bb_ranges_.at(0))));
   }
 
-  // Create the stream.
-  scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream);
-  CHECK(stream->Init(reinterpret_cast<const uint8*>(&bb_ranges_.at(0)),
-                     bb_ranges_.size() * sizeof(bb_ranges_.at(0))));
+  // Create the conditional ranges stream.
+  scoped_refptr<pdb::PdbByteStream> cond_stream(new pdb::PdbByteStream);
+  if (conditional_ranges_.size() > 0) {
+    CHECK(cond_stream->Init(
+        reinterpret_cast<const uint8*>(&conditional_ranges_.at(0)),
+        conditional_ranges_.size() * sizeof(conditional_ranges_.at(0))));
+  }
 
-  // Add the stream to the PDB.
-  if (!SetNamedStream(common::kBasicBlockRangesStreamName, stream.get())) {
+  // Add the BB stream to the PDB.
+  if (!SetNamedStream(common::kBasicBlockRangesStreamName, bb_stream.get())) {
     // This should not happen, as it indicates we are trying to doubly
     // instrument a given binary.
     LOG(ERROR) << "Basic-block ranges stream already exists.";
+    return false;
+  }
+
+  // Add the conditional ranges stream to the PDB.
+  if (!SetNamedStream(common::kConditionalRangesStreamName,
+                      cond_stream.get())) {
+    // This should not happen, as it indicates we are trying to doubly
+    // instrument a given binary.
+    LOG(ERROR) << "Conditional ranges stream already exists.";
     return false;
   }
 
