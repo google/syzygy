@@ -205,8 +205,8 @@ bool SpawnService(const CommandLine* cmd_line) {
 
   // Copy over any other switches.
   CommandLine::SwitchMap::const_iterator it =
-      service_cmd.GetSwitches().begin();
-  for (; it != service_cmd.GetSwitches().end(); ++it)
+      cmd_line->GetSwitches().begin();
+  for (; it != cmd_line->GetSwitches().end(); ++it)
     service_cmd.AppendSwitchNative(it->first, it->second);
 
   // Get the instance id.
