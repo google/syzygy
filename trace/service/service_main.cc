@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/environment.h"
 #include "base/file_path.h"
 #include "base/logging.h"
+#include "base/path_service.h"
+#include "base/process_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
@@ -68,7 +69,12 @@ const char kUsage[] =
     "Usage: call_trace_service ACTION [OPTIONS]\n"
     "\n"
     "Actions:\n"
-    "  start              Start the call trace service.\n"
+    "  start              Start the call trace service. This causes an\n"
+    "                     instance of the service to be launched as a\n"
+    "                     foreground process.\n"
+    "  spawn              Spawns an instance of the call trace service, waits\n"
+    "                     for it to be ready, and returns. The call trace\n"
+    "                     service continues running in the background.\n"
     "  stop               Stop the call trace service.\n"
     "\n"
     "Options:\n"
@@ -84,9 +90,7 @@ const char kUsage[] =
     "                     debug-level information.\n"
     "  --instance-id=ID   A unique identifier to use for the RPC endoint.\n"
     "                     This allows multiple instances of the service to\n"
-    "                     run concurently. By default, this will be the value\n"
-    "                     of the SYZYGY_RPC_INSTANCE_ID environment variable,\n"
-    "                     or empty.\n"
+    "                     run concurrently. By default this is empty.\n"
     "\n";
 
 int Usage() {
@@ -98,14 +102,8 @@ bool GetInstanceId(const CommandLine* cmd_line, std::wstring* id) {
   DCHECK(cmd_line != NULL);
   DCHECK(id != NULL);
 
+  // If not specified, this defaults to the empty string.
   *id = cmd_line->GetSwitchValueNative(kInstanceId);
-  if (id->empty()) {
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    CHECK(env.get() != NULL);
-    std::string value;
-    env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &value);
-    *id = ::UTF8ToWide(value);
-  }
 
   const size_t kMaxLength = arraysize(saved_instance_id) - 1;
   if (id->length() > kMaxLength) {
@@ -189,10 +187,71 @@ bool RunService(const CommandLine* cmd_line) {
   // has been externally stopped.
   call_trace_service.Start(false);
 
-  // We no longer need to look out exit signals.
+  // We no longer need to look out for exit signals.
   SetConsoleCtrlHandler(&OnConsoleCtrl, FALSE);
 
   // The call trace service will be stopped on destruction.
+  return true;
+}
+
+bool SpawnService(const CommandLine* cmd_line) {
+  // Get the path to ourselves.
+  FilePath self_path;
+  PathService::Get(base::FILE_EXE, &self_path);
+
+  // Build a command line for starting a new instance of the service.
+  CommandLine service_cmd(self_path);
+  service_cmd.AppendArg("start");
+
+  // Copy over any other switches.
+  CommandLine::SwitchMap::const_iterator it =
+      service_cmd.GetSwitches().begin();
+  for (; it != service_cmd.GetSwitches().end(); ++it)
+    service_cmd.AppendSwitchNative(it->first, it->second);
+
+  // Get the instance id.
+  std::wstring instance_id;
+  if (!GetInstanceId(cmd_line, &instance_id))
+    return false;
+
+  // Launch a new process in the background.
+  LOG(INFO) << "Launching background call trace service with instance ID \""
+            << instance_id << "\".";
+  base::ProcessHandle service_process;
+  base::LaunchOptions options;
+  options.start_hidden = true;
+  if (!base::LaunchProcess(service_cmd, options, &service_process)) {
+    LOG(ERROR) << "Failed to launch process.";
+    return false;
+  }
+  DCHECK_NE(base::kNullProcessHandle, service_process);
+
+  // Get the name of the event that will be signalled when the service is up
+  // and running.
+  std::wstring event_name;
+  ::GetSyzygyCallTraceRpcEventName(instance_id, &event_name);
+  base::win::ScopedHandle rpc_event(
+      ::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
+  if (!rpc_event.IsValid()) {
+    LOG(ERROR) << "Unable to create RPC event for instance id \""
+               << instance_id << "\".";
+    return false;
+  }
+
+  // We wait on both the RPC event and the process, as if the process fails for
+  // any reason, it'll exit and its handle will become signalled.
+  HANDLE handles[] = { rpc_event.Get(), service_process };
+  if (::WaitForMultipleObjects(arraysize(handles),
+                               handles,
+                               FALSE,
+                               INFINITE) != WAIT_OBJECT_0) {
+    LOG(ERROR) << "The spawned call trace service exited in error.";
+    return false;
+  }
+
+  LOG(INFO) << "Background call trace service with instance ID \""
+            << instance_id << "\" is ready.";
+
   return true;
 }
 
@@ -257,6 +316,10 @@ extern "C" int main(int argc, char** argv) {
 
   if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "start")) {
     return RunService(cmd_line) ? 0 : 1;
+  }
+
+  if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "spawn")) {
+    return SpawnService(cmd_line) ? 0 : 1;
   }
 
   return Usage();
