@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,12 @@
     # Exclude experimental projects.
     {
       'regexp': 'Syzygy/experimental',
+      'include': 0,
+    },
+    # Exclude assembly files. The MSVS coverage tool does this implicitly,
+    # but we are explicit for the benefit of the Syzygy coverage tool.
+    {
+      'regexp': '.*\\.(asm)$',
       'include': 0,
     },
 

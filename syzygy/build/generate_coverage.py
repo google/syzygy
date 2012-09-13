@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,18 +65,38 @@ def _Subprocess(command, failure_msg, **kw):
     raise RuntimeError(failure_msg)
 
 
-class _CodeCoverageRunner(object):
+class _ScopedTempDir(object):
+  """A utility class for creating a scoped temporary directory."""
+  def __init__(self):
+    self._path = None
+
+  def Create(self):
+    self._path = tempfile.mkdtemp()
+
+  def path(self):
+    return self._path
+
+  def __del__(self):
+    if self._path:
+      shutil.rmtree(self._path)
+
+
+class _CodeCoverageRunnerBase(object):
   """A worker class to take care of running through instrumentation,
-  profiling and coverage generation."""
+  profiling and coverage generation. This base class expects derived
+  classes to implement the following (see class definition for details):
+
+    _InstrumentOneFile(self, file_path)
+    _StartCoverageCapture(self)
+    _StopCoverageCapture(self)
+    _ProcessCoverage(self, output_path)
+  """
 
   _COVERAGE_FILE = 'unittests'
 
-  def __init__(self, build_dir, perf_tools_dir, coverage_analyzer_dir,
-               keep_work_dir):
+  def __init__(self, build_dir, keep_work_dir):
     build_dir = os.path.abspath(build_dir)
     self._build_dir = build_dir
-    self._perf_tools_dir = os.path.abspath(perf_tools_dir)
-    self._coverage_analyzer_dir = os.path.abspath(coverage_analyzer_dir)
     self._keep_work_dir = keep_work_dir
     self._work_dir = None
 
@@ -90,6 +110,31 @@ class _CodeCoverageRunner(object):
       self._CaptureCoverage()
     finally:
       self._CleanupWorkdir()
+
+  def _InstrumentOneFile(self, file_path):
+    """Instruments the provided module for coverage, in place.
+
+    Args:
+      file_path: The path of the module to be instrumented.
+    """
+    raise Exception('_InstrumentOneFile must be overridden.')
+
+  def _StartCoverageCapture(self):
+    """Starts the coverage capture process."""
+    raise Exception('_StartCoverageCapture must be overridden.')
+
+  def _StopCoverageCapture(self):
+    """Stops the coverage capture process."""
+    raise Exception('_StopCoverageCapture must be overridden.')
+
+  def _ProcessCoverage(self, output_path):
+    """Processes coverage results and produces an GCOV/LCOV formatted
+    coverage results file in |output_path|.
+
+    Args:
+      output_path: The path of the output file to produce.
+    """
+    raise Exception('_ProcessCoverage must be overridden.')
 
   def _CreateWorkdir(self):
     assert(self._work_dir == None)
@@ -138,26 +183,6 @@ class _CodeCoverageRunner(object):
     for dll in _DLLS_TO_INSTRUMENT:
       self._InstrumentOneFile(os.path.join(work_dir, dll))
 
-  def _InstrumentOneFile(self, file_path):
-    cmd = [os.path.join(self._perf_tools_dir, 'vsinstr.exe'),
-           '/coverage',
-           '/verbose',
-           file_path]
-    _LOGGER.info('Instrumenting "%s".', file_path)
-    _Subprocess(cmd, 'Failed to instrument "%s"' % file_path)
-
-  def _StartCoverageCapture(self):
-    cmd = [os.path.join(self._perf_tools_dir, 'vsperfcmd.exe'),
-           '/start:coverage',
-           '/output:"%s"' % os.path.join(self._work_dir, self._COVERAGE_FILE)]
-    _LOGGER.info('Starting coverage capture.')
-    _Subprocess(cmd, 'Failed to start coverage capture.')
-
-  def _StopCoverageCapture(self):
-    cmd = [os.path.join(self._perf_tools_dir, 'vsperfcmd.exe'), '/shutdown']
-    _LOGGER.info('Halting coverage capture.')
-    _Subprocess(cmd, 'Failed to stop coverage capture.')
-
   def _RunUnittests(self):
     unittests = glob.glob(os.path.join(self._work_dir, '*_unittests.exe'))
     print unittests
@@ -165,15 +190,6 @@ class _CodeCoverageRunner(object):
       _LOGGER.info('Running unittest "%s".', unittest)
       _Subprocess(unittest,
                   'Unittests "%s" failed.' % os.path.basename(unittest))
-
-  def _ProcessCoverage(self):
-    coverage_file = os.path.join(self._work_dir,
-                                 '%s.coverage' % self._COVERAGE_FILE)
-    cmd = [os.path.join(self._coverage_analyzer_dir, 'coverage_analyzer.exe'),
-           '-noxml', '-sym_path=%s' % self._work_dir,
-           coverage_file]
-    _LOGGER.info('Generating LCOV file.')
-    _Subprocess(cmd, 'LCOV generation failed.')
 
   def _GenerateHtml(self):
     croc = os.path.abspath(
@@ -207,8 +223,111 @@ class _CodeCoverageRunner(object):
     finally:
       self._StopCoverageCapture()
 
-    self._ProcessCoverage()
+    output_path = os.path.join(self._work_dir,
+                              '%s.coverage.lcov' % self._COVERAGE_FILE)
+    self._ProcessCoverage(output_path)
     self._GenerateHtml()
+
+
+class _CodeCoverageRunnerVS(_CodeCoverageRunnerBase):
+  """Code coverage runner that uses the Microsoft Visual Studio Team Tools
+  instrumenter.
+  """
+
+  def __init__(self, build_dir, perf_tools_dir, coverage_analyzer_dir,
+               keep_work_dir):
+    super(_CodeCoverageRunnerVS, self).__init__(build_dir, keep_work_dir)
+    self._perf_tools_dir = os.path.abspath(perf_tools_dir)
+    self._coverage_analyzer_dir = os.path.abspath(coverage_analyzer_dir)
+
+  def _InstrumentOneFile(self, file_path):
+    cmd = [os.path.join(self._perf_tools_dir, 'vsinstr.exe'),
+           '/coverage',
+           '/verbose',
+           file_path]
+    _LOGGER.info('Instrumenting "%s".', file_path)
+    _Subprocess(cmd, 'Failed to instrument "%s"' % file_path)
+
+  def _StartCoverageCapture(self):
+    cmd = [os.path.join(self._perf_tools_dir, 'vsperfcmd.exe'),
+           '/start:coverage',
+           '/output:"%s"' % os.path.join(self._work_dir, self._COVERAGE_FILE)]
+    _LOGGER.info('Starting coverage capture.')
+    _Subprocess(cmd, 'Failed to start coverage capture.')
+
+  def _StopCoverageCapture(self):
+    cmd = [os.path.join(self._perf_tools_dir, 'vsperfcmd.exe'), '/shutdown']
+    _LOGGER.info('Halting coverage capture.')
+    _Subprocess(cmd, 'Failed to stop coverage capture.')
+
+  def _ProcessCoverage(self, output_path):
+    cmd = [os.path.join(self._coverage_analyzer_dir, 'coverage_analyzer.exe'),
+           '-noxml', '-sym_path=%s' % self._work_dir,
+           output_path]
+    _LOGGER.info('Generating LCOV file.')
+    _Subprocess(cmd, 'LCOV generation failed.')
+
+
+class _CodeCoverageRunnerSyzygy(_CodeCoverageRunnerBase):
+  """Code coverage runner that uses the Syzygy code coverage client."""
+
+  _SYZYCOVER = 'syzycover'
+
+  def __init__(self, build_dir, keep_work_dir):
+    super(_CodeCoverageRunnerSyzygy, self).__init__(build_dir, keep_work_dir)
+    self._temp_dir = _ScopedTempDir()
+    self._temp_dir.Create()
+
+  def _InstrumentOneFile(self, file_path):
+    temp_path = os.path.join(self._temp_dir.path(),
+                             os.path.basename(file_path))
+    shutil.copy(file_path, temp_path)
+    cmd = [os.path.join(self._build_dir, 'instrument.exe'),
+           '--mode=COVERAGE',
+           '--agent=%s.dll' % self._SYZYCOVER,
+           '--input-image=%s' % temp_path,
+           '--output-image=%s' % file_path,
+           '--no-augment-pdb',
+           '--overwrite']
+    _LOGGER.info('Instrumenting "%s".', file_path)
+    _Subprocess(cmd, 'Failed to instrument "%s"' % file_path)
+
+  def _StartCoverageCapture(self):
+    # Grab a copy of the coverage client and place it in the work directory.
+    # We give it a different name so that it doesn't conflict with the
+    # instrumented coverage_client.dll.
+    syzycover = os.path.abspath(os.path.join(
+        self._work_dir, '%s.dll' % self._SYZYCOVER))
+    shutil.copy(os.path.join(self._build_dir, 'coverage_client.dll'),
+                syzycover)
+
+    # Set up the environment so that the coverage client will connect to
+    # the appropriate call trace client.
+    os.environ['SYZYGY_RPC_INSTANCE_ID'] = '%s,%s' % (syzycover,
+                                                      self._SYZYCOVER)
+
+    # Start an instance of the call-trace service in the background.
+    cmd = [os.path.join(self._build_dir, 'call_trace_service.exe'),
+           'spawn',
+           '--instance-id=%s' % self._SYZYCOVER,
+           '--trace-dir=%s' % self._work_dir]
+    _LOGGER.info('Starting coverage capture.')
+    _Subprocess(cmd, 'Failed to start coverage capture.')
+
+  def _StopCoverageCapture(self):
+    cmd = [os.path.join(self._build_dir, 'call_trace_service.exe'),
+           'stop',
+           '--instance-id=%s' % self._SYZYCOVER]
+    _LOGGER.info('Halting coverage capture.')
+    _Subprocess(cmd, 'Failed to stop coverage capture.')
+
+  def _ProcessCoverage(self, output_path):
+    bin_files = glob.glob(os.path.join(self._work_dir, 'trace-*.bin'))
+    _LOGGER.info('Generating LCOV file.')
+    cmd = [os.path.join(self._build_dir, 'grinder.exe'),
+           '--mode=coverage',
+           '--output-file=%s' % output_path] + bin_files
+    _Subprocess(cmd, 'LCOV generation failed.')
 
 
 _USAGE = """\
@@ -231,13 +350,16 @@ def _ParseArguments():
   parser.add_option('', '--perf-tools-dir', dest='perf_tools_dir',
                     default=_PERF_TOOLS_DIR,
                     help='The directory where the VS performance tools, '
-                         '"vsinstr.exe" and "vsperfcmd.exe" are found.')
+                         '"vsinstr.exe" and "vsperfcmd.exe" are found. '
+                         'Ignored if --syzygy is specified.')
   parser.add_option('', '--coverage-analyzer-dir', dest='coverage_analyzer_dir',
                     default=_COVERAGE_ANALYZER_DIR,
                     help='The directory where "coverage_analyzer.exe" '
-                         'is found.')
+                         'is found. Ignored if --syzygy is specified.')
   parser.add_option('', '--keep-work-dir', action='store_true', default=False,
                     help='Keep temporary directory after run.')
+  parser.add_option('', '--syzygy', action='store_true', default=False,
+                    help='Use Syzygy coverage tools.')
 
   (opts, args) = parser.parse_args()
   if args:
@@ -256,10 +378,16 @@ def _ParseArguments():
 
 def main():
   opts = _ParseArguments()
-  runner = _CodeCoverageRunner(opts.build_dir,
-                               opts.perf_tools_dir,
-                               opts.coverage_analyzer_dir,
-                               opts.keep_work_dir)
+
+  if opts.syzygy:
+    runner = _CodeCoverageRunnerSyzygy(opts.build_dir,
+                                       opts.keep_work_dir)
+  else:
+    runner = _CodeCoverageRunnerVS(opts.build_dir,
+                                   opts.perf_tools_dir,
+                                   opts.coverage_analyzer_dir,
+                                   opts.keep_work_dir)
+
   runner.Run()
 
 
