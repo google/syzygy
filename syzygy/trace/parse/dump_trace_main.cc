@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -275,6 +275,8 @@ class TraceFileDumper : public ParseEventHandler {
               "    module-base-addr=0x%08X; module-base-size=%d\n"
               "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
               "    frequency-size=%d; basic-block-count=%d\n",
+              process_id,
+              thread_id,
               data->module_base_addr,
               data->module_base_size,
               data->module_checksum,

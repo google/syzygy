@@ -174,9 +174,10 @@ void WINAPI Coverage::EntryHook(EntryHookFrame* entry_frame) {
 
   // We immediately flush the segment containing the module data so that it
   // appears prior to the coverage data in the trace file. This makes parsing
-  // easier.
-  if (!coverage->session_.ReturnBuffer(&coverage->segment_)) {
-    LOG(ERROR) << "Failed to return module event buffer.";
+  // easier. We exchange for another buffer so that if any other instrumented
+  // modules use this same agent they are also able to log a module event.
+  if (!coverage->session_.ExchangeBuffer(&coverage->segment_)) {
+    LOG(ERROR) << "Failed to exchange module event buffer.";
     return;
   }
 
