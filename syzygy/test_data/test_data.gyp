@@ -109,6 +109,44 @@
       ],
     },
     {
+      'target_name': 'basic_block_entry_instrumented_test_dll',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
+        'copy_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'basic_block_entry_instrument_test_data_test_dll',
+          'inputs': [
+            '<(PRODUCT_DIR)/instrument.exe',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.pdb',
+          ],
+          'action': [
+            '"<(PRODUCT_DIR)/instrument.exe"',
+            '--mode=basic_block_entry',
+            '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--output-image=<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.dll',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.pdb',
+            '--overwrite',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'coverage_instrumented_test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
@@ -178,6 +216,10 @@
         },
       ],
     },
+    # TODO(rogerm): The GYP snippets to generate the trace files are all
+    #     pretty much identical to one other if parameterized by the mode,
+    #     dll/pdb name, and output directory. Find a way to consolidate to
+    #     a reusable rule or gypi.
     {
       'target_name': 'rpc_traces',
       'type': 'none',
@@ -298,6 +340,52 @@
             '--output-dir=<(PRODUCT_DIR)/test_data/coverage_traces',
             '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
+            '--verbose',
+            # The build-dir arg must be last to work around a bug in the
+            # interaction between GYP and VS2010.
+            # See: http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=<(PRODUCT_DIR)',
+          ],
+        },
+      ],
+    },
+    {
+      'target_name': 'basic_block_entry_traces',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'generate_traces.py',
+      ],
+      'dependencies': [
+        '<(DEPTH)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
+            'basic_block_entry_client',
+        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        'basic_block_entry_instrumented_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_basic_block_entry_traces',
+          'inputs': [
+            '<(PRODUCT_DIR)/basic_block_entry_client.dll',
+            '<(PRODUCT_DIR)/call_trace_service.exe',
+            '<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.pdb',
+            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-4.bin',
+          ],
+          'action': [
+            'python',
+            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '--output-dir=<(PRODUCT_DIR)/test_data/basic_block_entry_traces',
+            '--instrumented-image=<(PRODUCT_DIR)/test_data/'
+                'basic_block_entry_instrumented_test_dll.dll',
             '--verbose',
             # The build-dir arg must be last to work around a bug in the
             # interaction between GYP and VS2010.

@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,8 +67,9 @@
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:profile_traces',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:basic_block_entry_traces',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:coverage_traces',
+        '<(DEPTH)/syzygy/test_data/test_data.gyp:profile_traces',
       ],
     },
     {

@@ -58,6 +58,12 @@ class BasicBlockEntryHookTransform
   //    as its unique ID.
   const RelativeAddressRangeVector& bb_ranges() const { return bb_ranges_; }
 
+  // Overrides the default instrument dll name used by this transform.
+  void set_instrument_dll_name(const base::StringPiece& value) {
+    DCHECK(!value.empty());
+    instrument_dll_name_.assign(value.begin(), value.end());
+  }
+
   // Set a flag denoting whether or not src ranges should be created for the
   // thunks to the module entry hooks.
   void set_src_ranges_for_thunks(bool value) {
@@ -98,6 +104,9 @@ class BasicBlockEntryHookTransform
   // non-NULL after a successful application of the transform. This value is
   // retained for unit-testing purposes.
   BlockGraph::Section* thunk_section_;
+
+  // The instrumentation dll used by this transform.
+  std::string instrument_dll_name_;
 
   // If true, the thunks will have src ranges corresponding to the original
   // code; otherwise, the thunks will not have src ranges set.

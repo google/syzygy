@@ -24,6 +24,7 @@
 #include "base/stringprintf.h"
 #include "syzygy/instrument/mutators/add_bb_ranges_stream.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
+#include "syzygy/instrument/transforms/basic_block_entry_hook_transform.h"
 #include "syzygy/instrument/transforms/coverage_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/instrument/transforms/thunk_import_references_transform.h"
@@ -42,7 +43,7 @@ static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required arguments:\n"
     "    --input-image=<path> The input image to instrument.\n"
-    "    --mode=ASAN|CALLTRACE|COVERAGE|PROFILER\n"
+    "    --mode=ASAN|BASIC_BLOCK_ENTRY|CALLTRACE|COVERAGE|PROFILER\n"
     "                         Specifies which instrumentation mode is to be\n"
     "                         used. If this is not specified it is equivalent\n"
     "                         to specifying --mode=CALLTRACE (this default\n"
@@ -91,6 +92,8 @@ static const char kUsageFormatStr[] =
 
 }  // namespace
 
+const char InstrumentApp::kCallTraceClientDllBasicBlockEntry[] =
+    "basic_block_entry_client.dll";
 const char InstrumentApp::kCallTraceClientDllCoverage[] = "coverage_client.dll";
 const char InstrumentApp::kCallTraceClientDllProfiler[] = "profile_client.dll";
 const char InstrumentApp::kCallTraceClientDllRpc[] = "call_trace_client.dll";
@@ -169,6 +172,9 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
     if (LowerCaseEqualsASCII(mode, "asan")) {
       mode_ = kInstrumentAsanMode;
+    } else if (LowerCaseEqualsASCII(mode, "basic_block_entry")) {
+      mode_ = kInstrumentBasicBlockEntryMode;
+      client_dll_ = kCallTraceClientDllBasicBlockEntry;
     } else if (LowerCaseEqualsASCII(mode, "calltrace")) {
       mode_ = kInstrumentCallTraceMode;
       client_dll_ = kCallTraceClientDllRpc;
@@ -212,9 +218,9 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
   module_entry_only_ = cmd_line->HasSwitch("module-entry-only");
 
-
   // Set per-mode overrides as necessary.
   switch (mode_) {
+    case kInstrumentBasicBlockEntryMode:
     case kInstrumentCoverageMode: {
       thunk_imports_ = false;
       instrument_unsafe_references_ = false;
@@ -252,6 +258,8 @@ int InstrumentApp::Run() {
 
   // A list of all possible transforms that we will need.
   scoped_ptr<instrument::transforms::AsanTransform> asan_transform;
+  scoped_ptr<instrument::transforms::BasicBlockEntryHookTransform>
+      basic_block_entry_transform;
   scoped_ptr<instrument::transforms::EntryThunkTransform> entry_thunk_tx;
   scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
       import_thunk_tx;
@@ -264,6 +272,21 @@ int InstrumentApp::Run() {
   if (mode_ == kInstrumentAsanMode) {
     asan_transform.reset(new instrument::transforms::AsanTransform);
     relinker.AppendTransform(asan_transform.get());
+  } else if (mode_ == kInstrumentBasicBlockEntryMode) {
+    // If we're in basic-block-entry mode, we need to apply the basic block
+    // entry hook transform (which adds basic-block frequency structures to
+    // the image and thunks the entry points) and we need to augment the PDB
+    // file with the basic block addresses.
+    basic_block_entry_transform.reset(
+        new instrument::transforms::BasicBlockEntryHookTransform);
+    basic_block_entry_transform->set_instrument_dll_name(client_dll_);
+    basic_block_entry_transform->set_src_ranges_for_thunks(debug_friendly_);
+    relinker.AppendTransform(basic_block_entry_transform.get());
+
+    add_bb_addr_stream_mutator.reset(
+        new instrument::mutators::AddBasicBlockRangesStreamPdbMutator(
+            basic_block_entry_transform->bb_ranges()));
+    relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
   } else if (mode_ == kInstrumentCoverageMode) {
     // If we're in coverage mode, we need to add coverage structures to
     // the image and we need to augment the PDB file with the basic block
