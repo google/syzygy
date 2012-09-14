@@ -265,7 +265,7 @@ class _CodeCoverageRunnerVS(_CodeCoverageRunnerBase):
 
     # Coverage analyzer will go ahead and place its output in
     # input_file + '.lcov'.
-    default_output_path = input_file + '.lcov'
+    default_output_path = input_path + '.lcov'
 
     cmd = [os.path.join(self._coverage_analyzer_dir, 'coverage_analyzer.exe'),
            '-noxml', '-sym_path=%s' % self._work_dir,
