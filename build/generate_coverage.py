@@ -191,12 +191,10 @@ class _CodeCoverageRunnerBase(object):
       _Subprocess(unittest,
                   'Unittests "%s" failed.' % os.path.basename(unittest))
 
-  def _GenerateHtml(self):
+  def _GenerateHtml(self, input_path):
     croc = os.path.abspath(
         os.path.join(_SYZYGY_DIR, '../tools/code_coverage/croc.py'))
     config = os.path.join(_SYZYGY_DIR, 'build/syzygy.croc')
-    input_path = os.path.join(self._work_dir,
-                              '%s.coverage.lcov' % self._COVERAGE_FILE)
     html = os.path.join(self._build_dir, 'cov')
 
     # Clean up old coverage results.
@@ -226,7 +224,7 @@ class _CodeCoverageRunnerBase(object):
     output_path = os.path.join(self._work_dir,
                               '%s.coverage.lcov' % self._COVERAGE_FILE)
     self._ProcessCoverage(output_path)
-    self._GenerateHtml()
+    self._GenerateHtml(output_path)
 
 
 class _CodeCoverageRunnerVS(_CodeCoverageRunnerBase):
@@ -261,11 +259,23 @@ class _CodeCoverageRunnerVS(_CodeCoverageRunnerBase):
     _Subprocess(cmd, 'Failed to stop coverage capture.')
 
   def _ProcessCoverage(self, output_path):
+    # The vsperf tool creates an output with suffix '.coverage'.
+    input_path = os.path.join(self._work_dir,
+                              '%s.coverage' % self._COVERAGE_FILE)
+
+    # Coverage analyzer will go ahead and place its output in
+    # input_file + '.lcov'.
+    default_output_path = input_file + '.lcov'
+
     cmd = [os.path.join(self._coverage_analyzer_dir, 'coverage_analyzer.exe'),
            '-noxml', '-sym_path=%s' % self._work_dir,
-           output_path]
+           input_path]
     _LOGGER.info('Generating LCOV file.')
     _Subprocess(cmd, 'LCOV generation failed.')
+
+    # Move the default output location if necessary.
+    if default_output_path != output_path:
+      shutil.move(default_output_path, output_path)
 
 
 class _CodeCoverageRunnerSyzygy(_CodeCoverageRunnerBase):
