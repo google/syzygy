@@ -38,7 +38,7 @@ using block_graph::Operand;
 
 typedef BasicBlockEntryHookTransform::RelativeAddressRange RelativeAddressRange;
 
-const char kModuleName[] = "basic_block_entry.dll";
+const char kDefaultModuleName[] = "basic_block_entry.dll";
 const char kBasicBlockEnter[] = "_basic_block_enter";
 
 // Compares two relative address ranges to see if they overlap. Assumes they
@@ -58,13 +58,14 @@ struct RelativeAddressRangesOverlapFunctor {
 // Sets up the basic-block entry hook import.
 bool SetupEntryHook(BlockGraph* block_graph,
                     BlockGraph::Block* header_block,
+                    const std::string& module_name,
                     BlockGraph::Reference* basic_block_enter) {
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
   DCHECK(basic_block_enter != NULL);
 
   // Setup the import module.
-  pe::transforms::AddImportsTransform::ImportedModule module(kModuleName);
+  pe::transforms::AddImportsTransform::ImportedModule module(module_name);
   size_t bb_index = module.AddSymbol(kBasicBlockEnter);
 
   // Setup the add-imports transform.
@@ -95,6 +96,7 @@ const char BasicBlockEntryHookTransform::kTransformName[] =
 BasicBlockEntryHookTransform::BasicBlockEntryHookTransform()
   : add_frequency_data_(kBasicBlockEntryAgentId),
     thunk_section_(NULL),
+    instrument_dll_name_(kDefaultModuleName),
     set_src_ranges_for_thunks_(false) {
 }
 
@@ -105,8 +107,12 @@ bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
   DCHECK(header_block != NULL);
 
   // Setup basic block entry hook.
-  if (!SetupEntryHook(block_graph, header_block, &bb_entry_hook_ref_))
+  if (!SetupEntryHook(block_graph,
+                      header_block,
+                      instrument_dll_name_,
+                      &bb_entry_hook_ref_)) {
     return false;
+  }
 
   // Add the static basic-block frequency data.
   if (!ApplyBlockGraphTransform(
@@ -215,7 +221,7 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
   // Add the module entry thunks.
   EntryThunkTransform add_thunks;
   add_thunks.set_only_instrument_module_entry(true);
-  add_thunks.set_instrument_dll_name(kModuleName);
+  add_thunks.set_instrument_dll_name(instrument_dll_name_);
   add_thunks.set_src_ranges_for_thunks(set_src_ranges_for_thunks_);
 
   Immediate module_data(add_frequency_data_.frequency_data_block(), 0);

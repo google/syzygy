@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,14 +35,16 @@ class InstrumentApp : public common::AppImplBase {
  public:
 
   // A list of known clients libraries.
-  static const char InstrumentApp::kCallTraceClientDllCoverage[];
-  static const char InstrumentApp::kCallTraceClientDllProfiler[];
-  static const char InstrumentApp::kCallTraceClientDllRpc[];
+  static const char kCallTraceClientDllBasicBlockEntry[];
+  static const char kCallTraceClientDllCoverage[];
+  static const char kCallTraceClientDllProfiler[];
+  static const char kCallTraceClientDllRpc[];
 
   // The mode of the instrumenter.
   enum Mode {
     kInstrumentInvalidMode,
     kInstrumentAsanMode,
+    kInstrumentBasicBlockEntryMode,
     kInstrumentCallTraceMode,
     kInstrumentCoverageMode,
     kInstrumentProfilerMode,

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -192,6 +192,50 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_TRUE(test_impl_.client_dll_.empty());
+  EXPECT_TRUE(test_impl_.allow_overwrite_);
+  EXPECT_TRUE(test_impl_.no_augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_strip_strings_);
+  EXPECT_TRUE(test_impl_.debug_friendly_);
+}
+
+TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
+  cmd_line_.AppendSwitchASCII("mode", "BASIC_BLOCK_ENTRY");
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+
+  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_EQ(InstrumentApp::kInstrumentBasicBlockEntryMode, test_impl_.mode_);
+  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllBasicBlockEntry),
+            test_impl_.client_dll_);
+  EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_strip_strings_);
+  EXPECT_FALSE(test_impl_.debug_friendly_);
+}
+
+TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
+  cmd_line_.AppendSwitchASCII("mode", "basic_block_entry");
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
+  cmd_line_.AppendSwitch("debug-friendly");
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-strip-strings");
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitch("overwrite");
+
+  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_EQ(InstrumentApp::kInstrumentBasicBlockEntryMode, test_impl_.mode_);
+  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
+  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
+  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
+  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
+  EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
