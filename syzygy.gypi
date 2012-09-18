@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,11 @@
 {
   'target_defaults': {
     'msvs_settings': {
+      'VCCLCompilerTool': {
+        # See http://msdn.microsoft.com/en-us/library/aa652260(v=vs.71).aspx
+        # Equivalent to debugEnabled, which is equivalent to /Zi.
+        'DebugInformationFormat': 3,
+      },
       'VCLinkerTool': {
         # Enable support for large address spaces.
         'LargeAddressAware': 2,
