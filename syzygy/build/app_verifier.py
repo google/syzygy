@@ -44,6 +44,11 @@ _EXCEPTIONS = {
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
   ],
+  'coverage_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
+  ],
 }
 
 
