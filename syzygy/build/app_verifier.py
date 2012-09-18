@@ -44,6 +44,11 @@ _EXCEPTIONS = {
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
   ],
+  'basic_block_entry_unittests.exe': [
+    # This is a known (semi-intentional) leak of the TLS index and the last
+    # active thread's TLS data on module unload.
+    ('Error', 'TLS', 848, '.*::BasicBlockEntryTest::UnloadDll'),
+  ],
   'coverage_unittests.exe': [
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
