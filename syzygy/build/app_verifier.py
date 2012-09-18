@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,15 @@ _EXCEPTIONS = {
     ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
   ],
 }
+
+
+# A list of unittests that should not be run under the application verifier at
+# all.
+_BLACK_LIST = [
+  # This can't be run under AppVerifier because we end up double hooking the
+  # operating system heap function, leading to nonsense.
+  'asan_rtl_unittests.exe',
+]
 
 
 class Error(Exception):
@@ -126,7 +135,7 @@ def _RunUnderAppVerifier(command):
 
   # Run the executable. We disable exception catching as it interferes with
   # Application Verifier.
-  command = [image_path, command[1:], '--gtest_catch_exceptions=0']
+  command = [image_path] + command[1:] + ['--gtest_catch_exceptions=0']
   _LOGGER.info('Running %s.', command)
   popen = subprocess.Popen(command)
   (dummy_stdout, dummy_stderr) = popen.communicate()
@@ -159,7 +168,24 @@ def _RunUnderAppVerifier(command):
   return error_count
 
 
+def _RunNormally(command):
+  image_path = os.path.abspath(command[0])
+  command = [image_path] + command[1:]
+  _LOGGER.info('Running %s outside of AppVerifier.' % command)
+  popen = subprocess.Popen(command)
+  (dummy_stdout, dummy_stderr) = popen.communicate()
+  return popen.returncode
+
+
 _USAGE = '%prog [options] APPLICATION -- [application options]'
+
+
+def _IsBlacklisted(command):
+  image_base = os.path.basename(command[0])
+  if image_base in _BLACK_LIST:
+    _LOGGER.info('Executable is blacklisted: %s.' % image_base)
+    return True
+  return False
 
 
 def _ParseArgs():
@@ -186,11 +212,16 @@ def _ParseArgs():
 if __name__ == '__main__':
   colorama.init()
   (opts, args) = _ParseArgs()
-  return_code = _RunUnderAppVerifier(args)
-  if return_code and opts.on_waterfall:
-    command = 'python build\\app_verifier.py %s' % ' '.join(args)
-    sys.stderr.write('To reproduce this error locally run the following '
-                     'command from the Syzygy root directory:\n')
-    sys.stderr.write(command + '\n')
+
+  if _IsBlacklisted(args):
+    return_code = _RunNormally(args)
+  else:
+    return_code = _RunUnderAppVerifier(args)
+    if return_code and opts.on_waterfall:
+      command = [args[0]] + ['--'] + args[1:]
+      command = 'python build\\app_verifier.py %s' % ' '.join(command)
+      sys.stderr.write('To reproduce this error locally run the following '
+                       'command from the Syzygy root directory:\n')
+      sys.stderr.write(command + '\n')
 
   sys.exit(return_code)
