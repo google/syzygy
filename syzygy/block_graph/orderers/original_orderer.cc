@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,15 +40,13 @@ struct BlockCompareFunctor {
     DCHECK(block1 != NULL);
     DCHECK(block2 != NULL);
 
+    // Determine if the blocks have source data.
     bool have_source1 = block1->source_ranges().size() > 0;
     bool have_source2 = block2->source_ranges().size() > 0;
 
-    // Blocks with source data go to the beginning.
-    if (have_source1 != have_source2)
-      return have_source1;
-
     // If both blocks have source data the block with earlier source
-    // data wins.
+    // data comes first. This preserves the original order where
+    // possible.
     if (have_source1 && have_source2) {
       BlockGraph::Block::SourceRanges::RangePairs::const_iterator it1 =
           block1->source_ranges().range_pairs().begin();
@@ -58,12 +56,16 @@ struct BlockCompareFunctor {
         return it1->second.start() < it2->second.start();
     }
 
-    // After source addresses we use initialized/uninitialized data as a key.
-    // Blocks containing strictly unitialized data go to the end.
+    // Next, we sort by initialized and uninitialized data. Blocks containing
+    // strictly uninitialized data go to the end of the section.
     bool is_zeros1 = BlockIsZeros(block1);
     bool is_zeros2 = BlockIsZeros(block2);
     if (is_zeros1 != is_zeros2)
       return is_zeros2;
+
+    // Blocks with source data go to the beginning.
+    if (have_source1 != have_source2)
+      return have_source1;
 
     // Finally we break ties using the block ID.
     return block1->id() < block2->id();

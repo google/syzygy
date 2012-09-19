@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 // image. If it has been changed, it will be substantially similar. The blocks
 // in each section are ordered as follows:
 //
-//   1. Presence of source range data as primary key.
-//   2. Source address of first data byte with source data as secondary key.
-//   3. Blocks with initialized data before blocks without.
+//   1. Blocks with initialized data before blocks without.
+//   2. Presence of source range data as primary key.
+//   3. Source address of first data byte with source data as secondary key.
 //   4. Finally, break ties with the always unique block ID.
 //
 // Sections are ordered by section ID, as the Decomposer currently guarantees
