@@ -44,9 +44,6 @@ class CoverageInstrumentationTransformTest
 }  // namespace
 
 TEST_F(CoverageInstrumentationTransformTest, Apply) {
-  // TODO(chrisha): This is simply a clone of
-  //     AddBasicBlockFrequencyDataTransformTest for now. Make this more
-  //     meaningful once finished porting CoverageInstrumentationTransform.
   CoverageInstrumentationTransform tx;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &tx, &block_graph_, dos_header_block_));
@@ -57,9 +54,10 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
   ASSERT_TRUE(coverage_data.Init(0, frequency_data_block));
 
   // The frequency data block should have the appropriate size.
+  ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->size());
   ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());
-  EXPECT_EQ(sizeof(BasicBlockFrequencyData) + coverage_data->num_basic_blocks,
-            frequency_data_block->size());
+  EXPECT_EQ(coverage_data->num_basic_blocks,
+            tx.frequency_data_buffer_block()->size());
 
   EXPECT_EQ(common::kBasicBlockCoverageAgentId, coverage_data->agent_id);
   EXPECT_EQ(common::kBasicBlockFrequencyDataVersion, coverage_data->version);

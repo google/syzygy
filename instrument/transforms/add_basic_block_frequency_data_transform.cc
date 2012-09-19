@@ -29,7 +29,10 @@ const char AddBasicBlockFrequencyDataTransform::kTransformName[] =
     "AddBasicBlockFrequencyDataTransform";
 
 AddBasicBlockFrequencyDataTransform::AddBasicBlockFrequencyDataTransform(
-    uint32 agent_id) : agent_id_(agent_id), frequency_data_block_(NULL) {
+    uint32 agent_id)
+        : agent_id_(agent_id),
+          frequency_data_block_(NULL),
+          frequency_data_buffer_block_(NULL) {
 }
 
 bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
@@ -39,7 +42,7 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
   DCHECK(header_block != NULL);
   DCHECK(frequency_data_block_ == NULL);
 
-  // Get the read/write ".data" section. We will add our block to it.
+  // Get the read/write ".data" section. We will add our blocks to it.
   BlockGraph::Section* section = block_graph->FindOrAddSection(
       pe::kReadWriteDataSectionName, pe::kReadWriteDataCharacteristics);
   if (section == NULL) {
@@ -49,22 +52,33 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
   }
 
   // Add a block for the basic-block frequency data.
-  BlockGraph::Block* block =
+  BlockGraph::Block* data_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
                             sizeof(BasicBlockFrequencyData),
                             "Basic-Block Frequency Data");
-  if (block == NULL) {
+  if (data_block == NULL) {
     LOG(ERROR) << "Failed to add the basic-block frequency data block.";
     return false;
   }
 
-  block->set_section(section->id());
+  // Add a block for the array of frequency data. We give this block an initial
+  // size of 1 because drawing a reference to an empty block is not possible.
+  BlockGraph::Block* buffer_block = block_graph->AddBlock(
+      BlockGraph::DATA_BLOCK, 1, "Basic-Block Frequency Data Buffer");
+  if (buffer_block == NULL) {
+    LOG(ERROR) << "Failed to allocate frequency data buffer block.";
+    return false;
+  }
+
+  // Put them both in the data section.
+  data_block->set_section(section->id());
+  buffer_block->set_section(section->id());
 
   // Allocate the data that will be used to initialize the static instance.
   // The allocated bytes will be zero-initialized.
   BasicBlockFrequencyData* frequency_data =
       reinterpret_cast<BasicBlockFrequencyData*>(
-          block->AllocateData(block->size()));
+          data_block->AllocateData(data_block->size()));
   if (frequency_data == NULL) {
     LOG(ERROR) << "Failed to allocate frequency data.";
     return false;
@@ -75,46 +89,46 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
   frequency_data->version = common::kBasicBlockFrequencyDataVersion;
   frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
-  // Setup the frequency_data pointer such that it points to the next byte
-  // after the BasicBlockFrequencyData structure. This allows the frequency
-  // data block to simply be resized to accommodate the data buffer and the
-  // pointer will already be setup.
-  if (!block->SetReference(
+  // Setup the frequency_data pointer such that it points to the newly allocated
+  // buffer.
+  if (!data_block->SetReference(
           offsetof(BasicBlockFrequencyData, frequency_data),
-                   BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
-                                         BlockGraph::Reference::kMaximumSize,
-                                         block,
-                                         sizeof(BasicBlockFrequencyData),
-                                         0))) {
+          BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                BlockGraph::Reference::kMaximumSize,
+                                buffer_block,
+                                0,
+                                0))) {
     LOG(ERROR) << "Failed to initialize frequency_data buffer pointer.";
     return false;
   }
 
-  // Remember the new block.
-  frequency_data_block_ = block;
+  // Remember the new blocks.
+  frequency_data_block_ = data_block;
+  frequency_data_buffer_block_ = buffer_block;
 
   // And we're done.
   return true;
 }
 
-bool AddBasicBlockFrequencyDataTransform::AllocateFrequencyDataBuffer(
-    uint32 num_basic_blocks, uint8 frequency_size) {
+bool AddBasicBlockFrequencyDataTransform::ConfigureFrequencyDataBuffer(
+    uint32 num_basic_blocks,
+    uint8 frequency_size) {
   DCHECK_NE(0U, num_basic_blocks);
   DCHECK(frequency_size == 1 || frequency_size == 2 || frequency_size == 4);
   DCHECK(frequency_data_block_ != NULL);
+  DCHECK(frequency_data_buffer_block_ != NULL);
   DCHECK_EQ(sizeof(BasicBlockFrequencyData),
             frequency_data_block_->data_size());
 
-  // Resize the (virtual part of) the block to accommodate the data buffer.
-  size_t buffer_size = num_basic_blocks * frequency_size;
-  size_t total_size = sizeof(BasicBlockFrequencyData) + buffer_size;
-  frequency_data_block_->set_size(total_size);
-
   // Update the related fields in the data structure.
   block_graph::TypedBlock<BasicBlockFrequencyData> frequency_data;
-  frequency_data.Init(0, frequency_data_block_);
+  CHECK(frequency_data.Init(0, frequency_data_block_));
   frequency_data->num_basic_blocks = num_basic_blocks;
   frequency_data->frequency_size = frequency_size;
+
+  // Resize the buffer block.
+  size_t buffer_size = num_basic_blocks * frequency_size;
+  frequency_data_buffer_block_->set_size(buffer_size);
 
   // And we're done.
   return true;

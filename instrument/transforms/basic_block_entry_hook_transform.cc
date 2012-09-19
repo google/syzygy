@@ -212,9 +212,9 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
     return true;
   }
 
-  if (!add_frequency_data_.AllocateFrequencyDataBuffer(num_basic_blocks,
-                                                       sizeof(uint32))) {
-    LOG(ERROR) << "Failed to allocate frequency data buffer.";
+  if (!add_frequency_data_.ConfigureFrequencyDataBuffer(num_basic_blocks,
+                                                        sizeof(uint32))) {
+    LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;
   }
 

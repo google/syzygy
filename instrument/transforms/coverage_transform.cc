@@ -187,9 +187,9 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
     return true;
   }
 
-  if (!add_bb_freq_data_tx_.AllocateFrequencyDataBuffer(num_basic_blocks,
-                                                       sizeof(uint8))) {
-    LOG(ERROR) << "Failed to allocate frequency data buffer.";
+  if (!add_bb_freq_data_tx_.ConfigureFrequencyDataBuffer(num_basic_blocks,
+                                                         sizeof(uint8))) {
+    LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;
   }
 
