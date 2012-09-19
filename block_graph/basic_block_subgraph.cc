@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -301,10 +301,8 @@ void BasicBlockSubGraph::GetReachabilityMap(ReachabilityMap* rm) const {
     rm->insert(std::make_pair(&bb, false));
     BasicBlock::BasicBlockReferrerSet::const_iterator ref_iter =
         bb.referrers().begin();
-    for (; ref_iter != bb.referrers().end(); ++ref_iter) {
-      if (ref_iter->referrer_type() == BasicBlockReferrer::REFERRER_TYPE_BLOCK)
-        reachability_queue.insert(&bb);
-    }
+    for (; ref_iter != bb.referrers().end(); ++ref_iter)
+      reachability_queue.insert(&bb);
   }
 
   // Traverse the reachability queue marking basic blocks as reachable.
