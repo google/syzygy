@@ -88,6 +88,9 @@ class CoverageInstrumentationTransform
   BlockGraph::Block* frequency_data_block() {
     return add_bb_freq_data_tx_.frequency_data_block();
   }
+  BlockGraph::Block* frequency_data_buffer_block() {
+    return add_bb_freq_data_tx_.frequency_data_buffer_block();
+  }
   // @}
 
  protected:

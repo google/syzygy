@@ -39,6 +39,12 @@ class AddBasicBlockFrequencyDataTransform
   // be non-NULL after a successful application of this transform.
   BlockGraph::Block* frequency_data_block() { return frequency_data_block_; }
 
+  // Returns the block which holds the frequency data buffer. This will only
+  // be non-NULL after a successful application of this transform.
+  BlockGraph::Block* frequency_data_buffer_block() {
+    return frequency_data_buffer_block_;
+ }
+
   // BlockGraphTransformInterface Implementation.
   virtual bool TransformBlockGraph(BlockGraph* block_graph,
                                    BlockGraph::Block* header_block) OVERRIDE;
@@ -48,8 +54,8 @@ class AddBasicBlockFrequencyDataTransform
   // @param num_basic_blocks The number of frequency counters to allocate.
   // @param frequency_size The size (in bytes) of each frequency counter. This
   //     must be 1, 2 or 4.
-  bool AllocateFrequencyDataBuffer(uint32 num_basic_blocks,
-                                   uint8 frequency_size);
+  bool ConfigureFrequencyDataBuffer(uint32 num_basic_blocks,
+                                    uint8 frequency_size);
 
   // The transform name.
   static const char kTransformName[];
@@ -62,6 +68,11 @@ class AddBasicBlockFrequencyDataTransform
   // transform. This becomes non-NULL after a successful application of the
   // transform.
   BlockGraph::Block* frequency_data_block_;
+  // The statically allocated frequency data buffer block that is added by the
+  // transform. This becomes non-NULL after a successful application of the
+  // transform. This is allocated as a separate block because it is
+  // uninitialized and may be written to the image for free.
+  BlockGraph::Block* frequency_data_buffer_block_;
 };
 
 }  // transforms

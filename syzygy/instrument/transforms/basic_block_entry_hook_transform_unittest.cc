@@ -51,6 +51,10 @@ class TestBasicBlockEntryHookTransform : public BasicBlockEntryHookTransform {
   BlockGraph::Block* frequency_data_block() {
     return add_frequency_data_.frequency_data_block();
   }
+
+  BlockGraph::Block* frequency_data_buffer_block() {
+    return add_frequency_data_.frequency_data_buffer_block();
+  }
 };
 
 typedef testing::TestDllTransformTest BasicBlockEntryHookTransformTest;
@@ -77,13 +81,13 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
   EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
   EXPECT_EQ(tx.bb_ranges().size(), frequency_data->num_basic_blocks);
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
-  EXPECT_TRUE(
-      frequency_data.HasReferenceAt(
-          frequency_data.OffsetOf(frequency_data->frequency_data)));
-  EXPECT_EQ(
-      sizeof(BasicBlockFrequencyData) +
-          (frequency_data->num_basic_blocks * frequency_data->frequency_size),
-      tx.frequency_data_block()->size());
+  EXPECT_TRUE(frequency_data.HasReferenceAt(
+      frequency_data.OffsetOf(frequency_data->frequency_data)));
+  EXPECT_EQ(sizeof(BasicBlockFrequencyData), tx.frequency_data_block()->size());
+  EXPECT_EQ(sizeof(BasicBlockFrequencyData),
+            tx.frequency_data_block()->data_size());
+  EXPECT_EQ(frequency_data->num_basic_blocks * frequency_data->frequency_size,
+            tx.frequency_data_buffer_block()->size());
 
   // Let's examine each eligible block to verify that its BB's have been
   // instrumented.

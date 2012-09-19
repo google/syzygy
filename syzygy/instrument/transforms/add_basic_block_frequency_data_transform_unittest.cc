@@ -69,32 +69,20 @@ TEST_F(AddBasicBlockFrequencyDataTransformTest, Apply) {
   EXPECT_EQ(0U, frequency_data->num_basic_blocks);
   EXPECT_EQ(0U, frequency_data->frequency_size);
   EXPECT_EQ(0U, frequency_data->initialization_attempted);
+
+  // Configure the frequency data buffer.
+  ASSERT_TRUE(tx.ConfigureFrequencyDataBuffer(kNumBasicBlocks,
+                                              kFrequencySize));
+  BlockGraph::Block* buffer_block = tx.frequency_data_buffer_block();
+  EXPECT_TRUE(buffer_block != NULL);
+
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
 
-  // Allocate the frequency data buffer.
-  ASSERT_TRUE(tx.AllocateFrequencyDataBuffer(kNumBasicBlocks, kFrequencySize));
   EXPECT_EQ(kNumBasicBlocks, frequency_data->num_basic_blocks);
   EXPECT_EQ(kFrequencySize, frequency_data->frequency_size);
-  EXPECT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());
-  EXPECT_EQ(
-    sizeof(BasicBlockFrequencyData) + (kNumBasicBlocks * kFrequencySize),
-    frequency_data_block->size());
-
-  // Reallocate the frequency data buffer. While not expected that you'll
-  // need to do this in practice, this is a safe and fast operation (for
-  // example, one could incrementally expand the frequency data buffer as
-  // basic-blocks are instrumented... but it's simpler to just perform the
-  // allocation at the end.
-  static const uint32 kNewNumBasicBlocks = kNumBasicBlocks + 7;
-  ASSERT_TRUE(
-      tx.AllocateFrequencyDataBuffer(kNewNumBasicBlocks, kFrequencySize));
-  EXPECT_EQ(kNewNumBasicBlocks, frequency_data->num_basic_blocks);
-  EXPECT_EQ(kFrequencySize, frequency_data->frequency_size);
-  EXPECT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());
-  EXPECT_EQ(
-    sizeof(BasicBlockFrequencyData) + (kNewNumBasicBlocks * kFrequencySize),
-    frequency_data_block->size());
+  EXPECT_EQ(0, buffer_block->data_size());
+  EXPECT_EQ((kNumBasicBlocks * kFrequencySize), buffer_block->size());
 }
 
 }  // namespace transforms
