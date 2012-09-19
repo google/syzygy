@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "base/file_path.h"
+#include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/serialization.h"
@@ -191,6 +192,14 @@ class PEFile {
 // This structure holds a PE file signature.
 struct PEFile::Signature {
   Signature() : module_size(0), module_time_date_stamp(0), module_checksum(0) {
+  }
+
+  explicit Signature(const sym_util::ModuleInformation& module_info)
+      : path(module_info.image_file_name),
+        base_address(module_info.base_address),
+        module_size(module_info.module_size),
+        module_time_date_stamp(module_info.time_date_stamp),
+        module_checksum(module_info.image_checksum) {
   }
 
   // The original path is kept for convenience. This should always be an
