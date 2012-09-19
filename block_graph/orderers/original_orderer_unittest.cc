@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,18 +78,18 @@ TEST(OriginalOrdererTest, OrderIsAsExpected) {
   BlockGraph::Section* section2 = bg.AddSection("section2", 0);
   BlockGraph::Section* section3 = bg.AddSection("section3", 0);
 
-  // Blocks 1-3 have source range data, block 4-5 do not. This tests criteria 1.
-  // Blocks 1 and 2 have differing source ranges, testing criteria 2.
   // Blocks 2 and 3 have the same source range but 3 is not initialized,
-  //     testing criteria 3.
+  //     testing criteria 1.
+  // Blocks 1-3 have source range data, block 4-5 do not. This tests criteria 2.
+  // Blocks 1 and 2 have differing source ranges, testing criteria 3.
   // Blocks 4 and 5 are identical except block 5 has a higher block ID, testing
   //     criteria 4.
 
   // These blocks are scrambled so that ordering them by ID is not correct.
-  BlockGraph::Block* block3 = AddBlock(&bg, section1, 3, 30, false);
+  BlockGraph::Block* block1 = AddBlock(&bg, section1, 3, 30, false);
   BlockGraph::Block* block2 = AddBlock(&bg, section1, 2, 30, true);
-  BlockGraph::Block* block4 = AddBlock(&bg, section1, 4, 0, false);
-  BlockGraph::Block* block1 = AddBlock(&bg, section1, 1, 10, true);
+  BlockGraph::Block* block3 = AddBlock(&bg, section1, 4, 0, false);
+  BlockGraph::Block* block4 = AddBlock(&bg, section1, 1, 10, true);
 
   // Needs to be created last so that the ID is the greatest.
   BlockGraph::Block* block5 = AddBlock(&bg, section1, 5, 0, false);
@@ -108,10 +108,10 @@ TEST(OriginalOrdererTest, OrderIsAsExpected) {
 
   // Shuffle the blocks in section1.
   BlockVector blocks, shuffled_blocks;
-  blocks.push_back(block1);
-  blocks.push_back(block2);
-  blocks.push_back(block3);
   blocks.push_back(block4);
+  blocks.push_back(block2);
+  blocks.push_back(block1);
+  blocks.push_back(block3);
   blocks.push_back(block5);
   shuffled_blocks = blocks;
   std::random_shuffle(shuffled_blocks.begin(), shuffled_blocks.end());
