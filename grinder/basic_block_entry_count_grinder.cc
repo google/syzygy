@@ -14,6 +14,8 @@
 
 #include "syzygy/grinder/basic_block_entry_count_grinder.h"
 
+#include <limits>
+
 #include "base/file_path.h"
 #include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/common/syzygy_version.h"
