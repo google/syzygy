@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,75 +22,14 @@
 
 namespace grinder {
 
-namespace {
-
-using sym_util::ModuleInformation;
+using basic_block_util::ModuleInformation;
+using basic_block_util::RelativeAddressRange;
+using basic_block_util::GetFrequency;
+using basic_block_util::GetPdbInfo;
+using basic_block_util::IsValidFrequencySize;
+using basic_block_util::PdbInfo;
+using basic_block_util::PdbInfoMap;
 using trace::parser::AbsoluteAddress64;
-
-bool GetBasicBlockRanges(
-    const FilePath& pdb_path,
-    CoverageGrinder::RelativeAddressRangeVector* bb_ranges) {
-  DCHECK(!pdb_path.empty());
-  DCHECK(bb_ranges != NULL);
-
-  // Read the PDB file.
-  pdb::PdbReader pdb_reader;
-  pdb::PdbFile pdb_file;
-  if (!pdb_reader.Read(pdb_path, &pdb_file)) {
-    LOG(ERROR) << "Failed to read PDB: " << pdb_path.value();
-    return false;
-  }
-
-  // Get the name-stream map from the PDB.
-  pdb::PdbInfoHeader70 pdb_header = {};
-  pdb::NameStreamMap name_stream_map;
-  if (!pdb::ReadHeaderInfoStream(pdb_file, &pdb_header, &name_stream_map)) {
-    LOG(ERROR) << "Failed to read PDB header info stream: " << pdb_path.value();
-    return false;
-  }
-
-  // Get the basic block addresses from the PDB file.
-  pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
-      common::kBasicBlockRangesStreamName);
-  if (name_it == name_stream_map.end()) {
-    LOG(ERROR) << "PDB does not contain basic block ranges stream: "
-               << pdb_path.value();
-    return false;
-  }
-  scoped_refptr<pdb::PdbStream> bb_ranges_stream;
-  bb_ranges_stream = pdb_file.GetStream(name_it->second);
-  if (bb_ranges_stream.get() == NULL) {
-    LOG(ERROR) << "PDB basic block ranges stream has invalid index: "
-               << name_it->second;
-    return false;
-  }
-
-  // Read the basic block range stream.
-  if (!bb_ranges_stream->Seek(0) ||
-      !bb_ranges_stream->Read(bb_ranges)) {
-    LOG(ERROR) << "Failed to read basic block range stream from PDB: "
-               << pdb_path.value();
-    return false;
-  }
-
-  return true;
-}
-
-uint32 GetFrequency(const uint8* data, size_t size, size_t bb_index) {
-  DCHECK(data != NULL);
-  DCHECK(size == 1 || size == 2 || size == 4);
-
-  switch (size) {
-    case 1: return data[bb_index];
-    case 2: return reinterpret_cast<const uint16*>(data)[bb_index];
-    case 4: return reinterpret_cast<const uint32*>(data)[bb_index];
-  }
-
-  NOTREACHED();
-  return 0;
-}
-
-}  // namespace
 
 CoverageGrinder::CoverageGrinder()
     : parser_(NULL), event_handler_errored_(false) {
@@ -105,6 +44,7 @@ bool CoverageGrinder::ParseCommandLine(const CommandLine* command_line) {
 }
 
 void CoverageGrinder::SetParser(Parser* parser) {
+  DCHECK(parser != NULL);
   parser_ = parser;
 }
 
@@ -114,13 +54,13 @@ bool CoverageGrinder::Grind() {
                  << "coverage results will be partial.";
   }
 
-  if (pdb_info_map_.empty()) {
+  if (pdb_info_cache_.empty()) {
     LOG(ERROR) << "No coverage data was encountered.";
     return false;
   }
 
-  PdbInfoMap::const_iterator it = pdb_info_map_.begin();
-  for (; it != pdb_info_map_.end(); ++it) {
+  PdbInfoMap::const_iterator it = pdb_info_cache_.begin();
+  for (; it != pdb_info_cache_.end(); ++it) {
     if (!lcov_writer_.Add(it->second.line_info)) {
       LOG(ERROR) << "Failed to aggregate line information from PDB: "
                  << it->first;
@@ -149,6 +89,7 @@ void CoverageGrinder::OnBasicBlockFrequency(
     DWORD process_id,
     DWORD thread_id,
     const TraceBasicBlockFrequencyData* data) {
+  DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
   if (data->num_basic_blocks == 0) {
@@ -156,8 +97,7 @@ void CoverageGrinder::OnBasicBlockFrequency(
     return;
   }
 
-  if (data->frequency_size != 1 && data->frequency_size != 2 &&
-      data->frequency_size != 4) {
+  if (!IsValidFrequencySize(data->frequency_size)) {
     LOG(ERROR) << "Basic block frequency data has invalid frequency_size ("
                << data->frequency_size << ").";
     event_handler_errored_ = true;
@@ -178,22 +118,14 @@ void CoverageGrinder::OnBasicBlockFrequency(
   //     expected? This isn't strictly necessary but would add another level of
   //     safety checking.
 
-  // Find the PDB for the module.
-  FilePath module_path(module_info->image_file_name);
-  FilePath pdb_path;
-  if (!pe::FindPdbForModule(module_path, &pdb_path) || pdb_path.empty()) {
-    LOG(ERROR) << "Failed to find PDB for module: " << module_path.value();
+  // Get the PDB info. This loads the line information and the basic-block
+  // ranges if not already done, otherwise it returns the cached version.
+  PdbInfo* pdb_info = NULL;
+  if (!GetPdbInfo(&pdb_info_cache_, module_info, &pdb_info)) {
     event_handler_errored_ = true;
     return;
   }
 
-  // Get the PDB info. This loads the line information and the basic-block
-  // ranges if not already done, otherwise it returns the cached version.
-  PdbInfo* pdb_info = NULL;
-  if (!GetPdbInfo(pdb_path, &pdb_info)) {
-    event_handler_errored_ = true;
-    return;
-  }
   DCHECK(pdb_info != NULL);
 
   // Sanity check the contents.
@@ -206,9 +138,7 @@ void CoverageGrinder::OnBasicBlockFrequency(
   // Run over the BB frequency data and mark non-zero frequency BBs as having
   // been visited.
   for (size_t bb_index = 0; bb_index < data->num_basic_blocks; ++bb_index) {
-    uint32 bb_freq = GetFrequency(data->frequency_data,
-                                  data->frequency_size,
-                                  bb_index);
+    uint32 bb_freq = GetFrequency(data, bb_index);
 
     if (bb_freq == 0)
       continue;
@@ -221,35 +151,6 @@ void CoverageGrinder::OnBasicBlockFrequency(
       return;
     }
   }
-}
-
-bool CoverageGrinder::GetPdbInfo(const FilePath& pdb_path, PdbInfo** pdb_info) {
-  DCHECK(pdb_info != NULL);
-
-  *pdb_info = NULL;
-
-  // Look for a cached entry first.
-  PdbInfoMap::iterator it = pdb_info_map_.find(pdb_path.value());
-  if (it != pdb_info_map_.end()) {
-    *pdb_info = &(it->second);
-    return true;
-  }
-
-  // Load the line information from the PDB.
-  PdbInfo& pdb_info_ref = pdb_info_map_[pdb_path.value()];
-  if (!pdb_info_ref.line_info.Init(pdb_path)) {
-    LOG(ERROR) << "Failed to extract line information from PDB file: "
-               << pdb_path.value();
-    return false;
-  }
-
-  // This logs verbosely for us.
-  if (!GetBasicBlockRanges(pdb_path, &pdb_info_ref.bb_ranges))
-    return false;
-
-  *pdb_info = &pdb_info_ref;
-
-  return true;
 }
 
 }  // namespace grinder
