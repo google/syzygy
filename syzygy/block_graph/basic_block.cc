@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,16 +97,6 @@ bool IsConditionalBranch(const Instruction& inst) {
 }
 
 template<typename T>
-BasicBlockReferrer MakeReferrer(T* object, BasicBlock::Offset offset) {
-  return BasicBlockReferrer(object, offset);
-}
-
-template<>
-BasicBlockReferrer MakeReferrer(Successor* object, BasicBlock::Offset offset) {
-  return BasicBlockReferrer(object);
-}
-
-template<typename T>
 bool UpdateBasicBlockReferenceMap(T* object,
                                   BasicBlock::BasicBlockReferenceMap* ref_map,
                                   BasicBlock::Offset offset,
@@ -141,22 +131,11 @@ bool UpdateBasicBlockReferenceMap(T* object,
 #endif
 
   // If the value wasn't actually inserted, then update it.
-  BasicBlockReferrer referrer(MakeReferrer(object, offset));
   if (!result.second) {
     BasicBlockReference& old = result.first->second;
     DCHECK_EQ(old.size(), ref.size());
     DCHECK_EQ(old.reference_type(), ref.reference_type());
-    if (old.referred_type() == BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK) {
-      size_t num_erased = old.basic_block()->referrers().erase(referrer);
-      DCHECK_EQ(1U, num_erased);
-    }
     old = ref;
-  }
-
-  if (ref.referred_type() == BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK) {
-    BasicBlock* referred = const_cast<BasicBlock*>(ref.basic_block());
-    bool inserted = referred->referrers().insert(referrer).second;
-    DCHECK(inserted);
   }
 
   return result.second;
@@ -214,62 +193,25 @@ BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
 }
 
 BasicBlockReferrer::BasicBlockReferrer()
-    : referrer_type_(REFERRER_TYPE_UNKNOWN),
-      referrer_(NULL),
+    : referrer_(NULL),
       offset_(BasicBlock::kNoOffset) {
 }
 
-BasicBlockReferrer::BasicBlockReferrer(const BasicBlock* basic_block,
-                                       Offset offset)
-    : referrer_type_(REFERRER_TYPE_BASIC_BLOCK),
-      referrer_(basic_block),
-      offset_(offset) {
-  DCHECK(basic_block != NULL);
-  DCHECK_GE(offset, 0);
-  DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, basic_block->type());
-}
-
 BasicBlockReferrer::BasicBlockReferrer(const Block* block, Offset offset)
-    : referrer_type_(REFERRER_TYPE_BLOCK),
-      referrer_(block),
+    : referrer_(block),
       offset_(offset) {
   DCHECK(block != NULL);
   DCHECK_GE(offset, 0);
 }
 
-BasicBlockReferrer::BasicBlockReferrer(const Instruction* instruction,
-                                       Offset offset)
-    : referrer_type_(REFERRER_TYPE_INSTRUCTION),
-      referrer_(instruction),
-      offset_(offset) {
-  DCHECK(instruction != NULL);
-  DCHECK_GE(offset, 0);
-}
-
-BasicBlockReferrer::BasicBlockReferrer(const Successor* successor)
-    : referrer_type_(REFERRER_TYPE_SUCCESSOR),
-      referrer_(successor),
-      offset_(BasicBlock::kNoOffset) {
-  // An offset of BasicBlock::kNoOffset is used to indicate that the start
-  // offset of the reference is not known a priory (because successors can
-  // by synthesized to various instruction sequences).
-  DCHECK(successor != NULL);
-}
-
 BasicBlockReferrer::BasicBlockReferrer(const BasicBlockReferrer& other)
-    : referrer_type_(other.referrer_type_),
-      referrer_(other.referrer_),
+    : referrer_(other.referrer_),
       offset_(other.offset_) {
 }
 
 bool BasicBlockReferrer::IsValid() const {
-  if (referrer_type_ <= REFERRER_TYPE_UNKNOWN ||
-      referrer_type_ >= MAX_REFERRER_TYPE ||
-      referrer_ == NULL)
+  if (referrer_ == NULL)
     return false;
-
-  if (referrer_type_ == REFERRER_TYPE_SUCCESSOR)
-    return offset_ >= BasicBlock::kNoOffset;
 
   return offset_ >= 0;
 }

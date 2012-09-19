@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -312,27 +312,9 @@ TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
 TEST_F(BasicBlockTest, InvalidBasicBlockReferrer) {
   // Validate that an empty referrer is not valid.
   BasicBlockReferrer referrer;
-  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
-            referrer.referrer_type());
   EXPECT_EQ(NULL, referrer.block());
-  EXPECT_EQ(NULL, referrer.basic_block());
   EXPECT_EQ(-1, referrer.offset());
   EXPECT_FALSE(referrer.IsValid());
-}
-
-TEST_F(BasicBlockTest, BasicBlockReferrer) {
-  static const BasicBlockReference::Offset kOffset = kBlockSize / 2;
-
-  BasicBlockReferrer referrer(&basic_data_block_, kOffset);
-
-  EXPECT_EQ(BasicBlockReferrer::REFERRER_TYPE_BASIC_BLOCK,
-            referrer.referrer_type());
-  EXPECT_EQ(NULL, referrer.block());
-  EXPECT_EQ(NULL, referrer.successor());
-  EXPECT_EQ(NULL, referrer.instruction());
-  EXPECT_EQ(&basic_data_block_, referrer.basic_block());
-  EXPECT_EQ(kOffset, referrer.offset());
-  EXPECT_TRUE(referrer.IsValid());
 }
 
 TEST_F(BasicBlockTest, BlockReferrer) {
@@ -340,47 +322,16 @@ TEST_F(BasicBlockTest, BlockReferrer) {
 
   BasicBlockReferrer referrer(&macro_block_, kOffset);
 
-  EXPECT_EQ(BasicBlockReferrer::REFERRER_TYPE_BLOCK, referrer.referrer_type());
-  EXPECT_EQ(NULL, referrer.basic_block());
-  EXPECT_EQ(NULL, referrer.successor());
-  EXPECT_EQ(NULL, referrer.instruction());
   EXPECT_EQ(&macro_block_, referrer.block());
   EXPECT_EQ(kOffset, referrer.offset());
   EXPECT_TRUE(referrer.IsValid());
 }
 
-TEST_F(BasicBlockTest, InstructionReferrer) {
-  static const BasicBlockReference::Offset kOffset = 2;
-  Instruction instr(Instruction::Representation(), kOffset, 5, kBlockData);
-  BasicBlockReferrer referrer(&instr, kOffset);
-
-  EXPECT_EQ(BasicBlockReferrer::REFERRER_TYPE_INSTRUCTION,
-            referrer.referrer_type());
-  EXPECT_EQ(NULL, referrer.basic_block());
-  EXPECT_EQ(NULL, referrer.block());
-  EXPECT_EQ(NULL, referrer.successor());
-  EXPECT_EQ(&instr, referrer.instruction());
-  EXPECT_EQ(kOffset, referrer.offset());
-  EXPECT_TRUE(referrer.IsValid());
-}
-
-TEST_F(BasicBlockTest, SuccessorReferrer) {
-  Successor succ(Successor::kConditionGreater, -12, 5, 5);
-  BasicBlockReferrer referrer(&succ);
-
-  EXPECT_EQ(BasicBlockReferrer::REFERRER_TYPE_SUCCESSOR,
-            referrer.referrer_type());
-  EXPECT_EQ(NULL, referrer.basic_block());
-  EXPECT_EQ(NULL, referrer.block());
-  EXPECT_EQ(NULL, referrer.instruction());
-  EXPECT_EQ(&succ, referrer.successor());
-  EXPECT_EQ(BasicBlock::kNoOffset, referrer.offset());
-  EXPECT_TRUE(referrer.IsValid());
-}
-
 TEST_F(BasicBlockTest, CompareBasicBlockRefererrs) {
-  BasicBlockReferrer r1(&basic_data_block_, 4);
-  BasicBlockReferrer r2(&basic_data_block_, 4);
+  BlockGraph::Block b2(kBlockId + 1, kMacroBlockType , kBlockSize, kBlockName);
+
+  BasicBlockReferrer r1(&b2, 4);
+  BasicBlockReferrer r2(&b2, 4);
   BasicBlockReferrer r3(&macro_block_, 8);
 
   EXPECT_TRUE(r1 == r2);

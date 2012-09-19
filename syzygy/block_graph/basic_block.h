@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -167,24 +167,13 @@ class BasicBlockReference {
   Offset base_;
 };
 
-// This class denotes a block or basic block have a reference to a basic
-// block. Instances of this only make sense in the context of a give
-// basic block.
+// This class keeps track of a reference from an external block to a basic
+// block. Instances of this only make sense in the context of a given basic
+// block breakdown.
 class BasicBlockReferrer {
  public:
   typedef BlockGraph::Block Block;
   typedef BlockGraph::Offset Offset;
-
-  enum ReferrerType {
-    REFERRER_TYPE_UNKNOWN,
-    REFERRER_TYPE_BLOCK,
-    REFERRER_TYPE_BASIC_BLOCK,
-    REFERRER_TYPE_INSTRUCTION,
-    REFERRER_TYPE_SUCCESSOR,
-
-    // This enum value should always be last.
-    MAX_REFERRER_TYPE,
-  };
 
   // Create an empty (invalid) BasicBlockReferrer.
   BasicBlockReferrer();
@@ -195,52 +184,13 @@ class BasicBlockReferrer {
   // @param offset The offset in the block at which the reference occurs.
   BasicBlockReferrer(const Block* block, Offset offset);
 
-  // Create a BasicBlockReferrer which tracks that another basic block makes
-  // reference to this basic block.
-  // @param basic_block The basic block which refers to this basic block.
-  // @param offset The offset in the basic block at which the reference occurs.
-  BasicBlockReferrer(const BasicBlock* basic_block, Offset offset);
-
-  // Create a BasicBlockReferrer which tracks that an instruction makes
-  // reference to this basic block.
-  // @param instruction The instruction which refers to this basic block.
-  // @param offset The offset in the instruction at which the reference occurs.
-  BasicBlockReferrer(const Instruction* instruction, Offset offset);
-
-  // Create a BasicBlockReferrer which tracks that a successor makes
-  // reference to this basic block.
-  // @param successor The successor which refers to this basic block.
-  explicit BasicBlockReferrer(const Successor* successor);
-
   // Create a copy of the @p other BasicBlockReferrer.
   // @param other A basic block referrer record to be copy constructed.
   BasicBlockReferrer(const BasicBlockReferrer& other);
 
-  // Returns the type of referrer this object describes.
-  ReferrerType referrer_type() const { return referrer_type_; }
-
   // Returns the block which refers to this basic block, or NULL.
   const Block* block() const {
-    return static_cast<const Block*>(
-        referrer_type_ == REFERRER_TYPE_BLOCK ? referrer_ : NULL);
-  }
-
-  // Returns the basic block which refers to this basic block, or NULL.
-  const BasicBlock* basic_block() const {
-    return static_cast<const BasicBlock*>(
-      referrer_type_ == REFERRER_TYPE_BASIC_BLOCK ? referrer_ : NULL);
-  }
-
-  // Returns the instruction which refers to this basic block, or NULL.
-  const Instruction* instruction() const {
-    return static_cast<const Instruction*>(
-        referrer_type_ == REFERRER_TYPE_INSTRUCTION ? referrer_ : NULL);
-  }
-
-  // Returns the basic block which refers to this basic block, or NULL.
-  const Successor* successor() const {
-    return static_cast<const Successor*>(
-      referrer_type_ == REFERRER_TYPE_SUCCESSOR ? referrer_ : NULL);
+    return referrer_;
   }
 
   // Returns the offset in the referrer at which the reference to
@@ -252,9 +202,7 @@ class BasicBlockReferrer {
 
   // Equality comparator.
   bool operator==(const BasicBlockReferrer& other) const {
-    return referrer_type_ == other.referrer_type_ &&
-        referrer_ == other.referrer_ &&
-        offset_ == other.offset_;
+    return referrer_ == other.referrer_ && offset_ == other.offset_;
   }
 
   // Less-than comparator. Useful for putting BasicBlockReferrers into
@@ -268,14 +216,10 @@ class BasicBlockReferrer {
   };
 
  protected:
-  // Flags whether the referrer is a block or basic block.
-  ReferrerType referrer_type_;
+  // The referring block.
+  const Block* referrer_;
 
-  // The referring block or basic block.
-  const void* referrer_;
-
-  // The source offset in the block or basic block where the reference
-  // occurs.
+  // The source offset in the block where the reference occurs.
   Offset offset_;
 };
 
