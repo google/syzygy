@@ -206,6 +206,22 @@ TEST_F(ValueTest, Construction) {
 
     TestValueCopy(value_bb_ref);
   }
+
+  {
+    // Explicitly specified size and reference info.
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF, 1, &test_block_, 1, 2);
+    Value value_expl_ref(0xBE, core::kSize8Bit, ref);
+
+    ASSERT_EQ(0xBE, value_expl_ref.value());
+    ASSERT_EQ(core::kSize8Bit, value_expl_ref.size());
+    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
+              value_expl_ref.reference().referred_type());
+    ASSERT_EQ(&test_block_, value_expl_ref.reference().block());
+    ASSERT_EQ(1, value_expl_ref.reference().offset());
+    ASSERT_EQ(2, value_expl_ref.reference().base());
+
+    TestValueCopy(value_expl_ref);
+  }
 }
 
 typedef BasicBlockAssemblerTest OperandTest;

@@ -22,11 +22,14 @@
 
 namespace block_graph {
 
+using core::ValueSize;
+
 class BasicBlockAssembler;
 class Operand;
 
 class Value {
  public:
+  // Default construction.
   Value();
   // Constructs an 8- or 32-bit value, depending on the minimum number of bits
   // required to represent the Value. If the value can be encoded using 8-bits
@@ -39,6 +42,8 @@ class Value {
   explicit Value(BasicBlock* bb);
   // Constructs a 32 bit absolute value referring to @p block at @p offset.
   Value(BlockGraph::Block* block, BlockGraph::Offset offset);
+  // Explicitly specified size and reference info.
+  Value(uint32 value, ValueSize size, const BasicBlockReference& ref);
   // Copy construction.
   Value(const Value& other);
 
@@ -136,6 +141,7 @@ class BasicBlockAssembler {
  public:
   typedef BasicBlock::Instructions Instructions;
   typedef core::Register Register;
+  typedef core::ConditionCode ConditionCode;
 
   // Constructs a basic block assembler that inserts new instructions
   // into @p *list at @p where.
@@ -152,6 +158,11 @@ class BasicBlockAssembler {
   // @{
   void jmp(const Immediate& dst);
   void jmp(const Operand& dst);
+  // @}
+
+  // @name Conditional branch instruction.
+  // @{
+  void j(ConditionCode code, const Immediate& dst);
   // @}
 
   // @name Byte mov varieties.
