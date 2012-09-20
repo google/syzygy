@@ -59,6 +59,10 @@ Value::Value(BlockGraph::Block* block, BlockGraph::Offset offset)
       value_(0, core::kSize32Bit, &reference_) {
 }
 
+Value::Value(uint32 value, ValueSize size, const BasicBlockReference& ref)
+    : reference_(ref), value_(value, size, &reference_) {
+}
+
 Value::Value(const Value& o)
     : reference_(o.reference()), value_(CopyValue(&reference_, o.value_)) {
 }
@@ -187,6 +191,10 @@ void BasicBlockAssembler::jmp(const Immediate& dst) {
 
 void BasicBlockAssembler::jmp(const Operand& dst) {
   asm_.jmp(dst.operand_);
+}
+
+void BasicBlockAssembler::j(ConditionCode code, const Immediate& dst) {
+  asm_.j(code, dst.value_);
 }
 
 void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {

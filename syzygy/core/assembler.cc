@@ -48,6 +48,18 @@ bool IsDisplacementOnly(const OperandImpl& operand) {
 
 }  // namespace
 
+const size_t AssemblerImpl::kShortBranchOpcodeSize = 1;
+const size_t AssemblerImpl::kShortBranchSize = kShortBranchOpcodeSize + 1;
+
+const size_t AssemblerImpl::kLongBranchOpcodeSize = 2;
+const size_t AssemblerImpl::kLongBranchSize = kLongBranchOpcodeSize + 4;
+
+const size_t AssemblerImpl::kShortJumpOpcodeSize = 1;
+const size_t AssemblerImpl::kShortJumpSize = kShortJumpOpcodeSize + 1;
+
+const size_t AssemblerImpl::kLongJumpOpcodeSize = 1;
+const size_t AssemblerImpl::kLongJumpSize = kLongJumpOpcodeSize + 4;
+
 // No instruction on x86 can exceed 15 bytes, per specs.
 const size_t AssemblerImpl::kMaxInstructionLength = 15;
 
@@ -447,11 +459,16 @@ void AssemblerImpl::jecxz(const ImmediateImpl& dst) {
 }
 
 void AssemblerImpl::jmp(const ImmediateImpl& dst) {
-  DCHECK_EQ(kSize32Bit, dst.size());
   InstructionBuffer instr(this);
 
-  instr.EmitOpCodeByte(0xE9);
-  instr.Emit32BitPCRelative(location_, dst);
+  if (dst.size() == kSize32Bit) {
+    instr.EmitOpCodeByte(0xE9);
+    instr.Emit32BitPCRelative(location_, dst);
+  } else {
+    DCHECK_EQ(kSize8Bit, dst.size());
+    instr.EmitOpCodeByte(0xEB);
+    instr.Emit8BitPCRelative(location_, dst);
+  }
 }
 
 void AssemblerImpl::jmp(const OperandImpl& dst) {

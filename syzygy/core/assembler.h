@@ -295,6 +295,26 @@ class AssemblerImpl {
   }
   // @}
 
+  // Size of an 8 bit reach branch opcode.
+  static const size_t kShortBranchOpcodeSize;
+  // Size of an 8 bit reach branch.
+  static const size_t kShortBranchSize;
+
+  // Size of a 32 bit reach branch op code.
+  static const size_t kLongBranchOpcodeSize;
+  // Size of an 8bit reach branch.
+  static const size_t kLongBranchSize;
+
+  // Size of an 8 bit reach jump opcode.
+  static const size_t kShortJumpOpcodeSize;
+  // Size of an 8 bit reach jump.
+  static const size_t kShortJumpSize;
+
+  // Size of a 32 bit reach jump op code.
+  static const size_t kLongJumpOpcodeSize;
+  // Size of an 8bit reach jump.
+  static const size_t kLongJumpSize;
+
   // The maximum length a single instruction will assemble to.
   static const size_t kMaxInstructionLength;
 
