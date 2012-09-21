@@ -77,6 +77,16 @@ class BasicBlockReference {
                       Size size,
                       BasicBlock* basic_block);
 
+  // Creates a reference to the same destination as @p ref, but with
+  // a potentially new type and size.
+  //
+  // @param type type of reference.
+  // @param size size of reference.
+  // @param basic_block the destination for the new reference.
+  BasicBlockReference(ReferenceType type,
+                      Size size,
+                      const BasicBlockReference& ref);
+
   // Copy constructor.
   BasicBlockReference(const BasicBlockReference& other);
 
@@ -269,6 +279,7 @@ class Instruction {
   const uint8* data() const { return data_; }
   bool owns_data() const { return owns_data_; }
   Offset offset() const { return offset_; }
+  void set_offset(Offset offset) { offset_ = offset; }
   Size size() const { return size_; }
   const BlockGraph::Label& label() const { return label_; }
   void set_label(const BlockGraph::Label& label) { label_ = label; }
@@ -288,7 +299,6 @@ class Instruction {
   }
   bool CallsNonReturningFunction() const;
   // @}
-
 
   // Returns the maximum size required to serialize this instruction.
   Size GetMaxSize() const { return size_; }
@@ -444,6 +454,9 @@ class Successor {
             const BasicBlockReference& target,
             Offset instruction_offset,
             Size instruction_size);
+
+  // Copy-constructor.
+  Successor(const Successor& other);
   // @}
 
   // Accessors.
@@ -491,11 +504,8 @@ class Successor {
   // facilitates resolving the target basic block after the fact.
   Offset bb_target_offset_;
 
-  // A container for the reference made by this successor. There will only
-  // ever be one entry here, but we reuse the reference map to allow us to
-  // leverage the same utility function for all the other basic-block
-  // subgraph elements.
-  BasicBlockReferenceMap references_;
+  // The destination for this successor.
+  BasicBlockReference reference_;
 
   // Information about the byte range in the original block where this
   // instruction originates.
@@ -530,12 +540,11 @@ class BasicBlock {
   typedef BlockGraph::Size Size;
   typedef std::list<Successor> Successors;
   typedef BlockGraph::Offset Offset;
-  typedef core::AddressRange<core::AbsoluteAddress, Size> SourceRange;
 
   // The collection of references this basic block makes to other basic
   // blocks, keyed by the references offset relative to the start of this
   // basic block.
-  typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
+  typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 
   // The set of the basic blocks that have a reference to this basic block.
   // This is keyed on basic block and source offset (not destination offset),
@@ -595,9 +604,13 @@ class BasicBlock {
   // contains instructions and/or successors.
   bool IsValid() const;
 
+  // Return the number of bytes required to store the instructions or data
+  // this basic block contains, exclusive successors if applicable.
+  Size GetDataSize() const;
+
   // Return the maximum number of bytes this basic block can require (not
   // including any trailing padding).
-  size_t GetMaxSize() const;
+  Size GetMaxSize() const;
 
   // Add a reference @p ref to this basic block at @p offset. If the reference
   // is to a basic block, also update that basic blocks referrer set.

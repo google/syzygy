@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -312,6 +312,14 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
       // This is an intra-block reference. The target basic block may not
       // exist yet, so we'll defer patching up this reference until later.
       Offset target_offset = dest - code_addr_;
+
+      // If a reference was found, prefer its destination information
+      // to the information conveyed by the bytes in the instruction.
+      if (found) {
+        target_offset = dest - code_addr_;
+        dest = AbsoluteAddress(kDisassemblyAddress + target_offset);
+      }
+
       CHECK_LE(0, target_offset);
       CHECK_LT(static_cast<size_t>(target_offset), code_size_);
       current_successors_.push_front(
@@ -809,9 +817,7 @@ bool BasicBlockDecomposer::CopyExternalReferrers() {
     const BlockGraph::Block* referrer = iter->first;
     DCHECK(referrer != NULL);
 
-    // We only care about external referrers. All intra-block referrers and
-    // references will be handled when we populate block_'s references for
-    // basic code/padding blocks, instructions and successors.
+    // We only care about external referrers.
     if (referrer == block_)
       continue;
 

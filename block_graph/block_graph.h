@@ -404,6 +404,11 @@ class BlockGraph::Label {
       : name_(name.begin(), name.end()), attributes_(attributes) {
   }
 
+  // Copy construction.
+  Label(const Label& other)
+      : name_(other.name_), attributes_(other.attributes_) {
+  }
+
   // @name Accessors.
   // @{
   const std::string& name() const { return name_; }
