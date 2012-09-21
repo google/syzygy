@@ -200,6 +200,24 @@ TEST_F(BasicBlockTest, BasicBlockAccessors) {
       BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
 }
 
+TEST_F(BasicBlockTest, GetCodeSize) {
+  basic_code_block_.instructions().push_back(CreateRet());
+  basic_code_block_.instructions().push_back(CreateRet());
+  basic_code_block_.instructions().push_back(CreateRet());
+  basic_code_block_.instructions().push_back(CreateRet());
+  basic_code_block_.successors().push_back(CreateBranch(I_JZ, kOffset1));
+
+  ASSERT_EQ(4 * CreateRet().size(), basic_code_block_.GetDataSize());
+}
+
+TEST_F(BasicBlockTest, GetDataSize) {
+  BasicBlock bb(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
+                kBlockOffset, kBlockSize, kBlockData);
+
+  ASSERT_EQ(kBlockSize, bb.GetDataSize());
+}
+
+
 TEST_F(BasicBlockTest, GetMaxCodeSize) {
   basic_code_block_.instructions().push_back(CreateRet());
   basic_code_block_.instructions().push_back(CreateRet());
@@ -249,10 +267,27 @@ TEST_F(BasicBlockTest,
   ASSERT_TRUE(basic_code_block_.IsValid());
 }
 
+namespace {
+
+void TestReferenceCopy(const BasicBlockReference& input) {
+  BasicBlockReference copy(input);
+
+  EXPECT_EQ(input.referred_type(), copy.referred_type());
+  EXPECT_EQ(input.block(), copy.block());
+  EXPECT_EQ(input.basic_block(), copy.basic_block());
+  EXPECT_EQ(input.offset(), copy.offset());
+  EXPECT_EQ(input.size(), copy.size());
+  EXPECT_EQ(input.IsValid(), copy.IsValid());
+}
+
+}  // namespace
+
 TEST_F(BasicBlockTest, InvalidBasicBlockReference) {
   // Validate that a ref that points to nothing is not valid and doesn't claim
   // to point to anything.
   BasicBlockReference ref;
+  TestReferenceCopy(ref);
+
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN, ref.referred_type());
   EXPECT_EQ(NULL, ref.block());
   EXPECT_EQ(NULL, ref.basic_block());
@@ -268,6 +303,8 @@ TEST_F(BasicBlockTest, BasicBlockReference) {
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
             ref.referred_type());
+  TestReferenceCopy(ref);
+
   EXPECT_EQ(NULL, ref.block());
   EXPECT_EQ(&basic_code_block_, ref.basic_block());
   EXPECT_EQ(kRefSize, ref.size());
@@ -285,6 +322,7 @@ TEST_F(BasicBlockTest, BlockReference) {
                           &macro_block_,
                           kOffset,
                           kBase);
+  TestReferenceCopy(ref);
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref.referred_type());
   EXPECT_EQ(NULL, ref.basic_block());
@@ -293,6 +331,16 @@ TEST_F(BasicBlockTest, BlockReference) {
   EXPECT_EQ(kOffset, ref.offset());
   EXPECT_EQ(kBase, ref.base());
   EXPECT_TRUE(ref.IsValid());
+
+  BasicBlockReference retyped(BlockGraph::PC_RELATIVE_REF, 1, ref);
+  EXPECT_EQ(BlockGraph::PC_RELATIVE_REF, retyped.reference_type());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, retyped.referred_type());
+  EXPECT_EQ(NULL, retyped.basic_block());
+  EXPECT_EQ(&macro_block_, retyped.block());
+  EXPECT_EQ(1, retyped.size());
+  EXPECT_EQ(kOffset, retyped.offset());
+  EXPECT_EQ(kBase, retyped.base());
+  EXPECT_TRUE(retyped.IsValid());
 }
 
 TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
@@ -392,13 +440,33 @@ TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
 
 typedef BasicBlockTest SuccessorTest;
 
+namespace {
+
+void TestSuccessorCopy(const Successor& input) {
+  Successor copy(input);
+
+  EXPECT_EQ(input.condition(), copy.condition());
+  EXPECT_EQ(input.reference(), copy.reference());
+  EXPECT_EQ(input.bb_target_offset(), copy.bb_target_offset());
+  EXPECT_EQ(input.instruction_offset(), copy.instruction_offset());
+  EXPECT_EQ(input.instruction_size(), copy.instruction_size());
+  EXPECT_EQ(input.label(), copy.label());
+  EXPECT_EQ(input.has_label(), copy.has_label());
+}
+
+}  // namespace
+
+
 TEST_F(SuccessorTest, DefaultConstructor) {
   Successor s;
+
+  TestSuccessorCopy(s);
   EXPECT_EQ(Successor::kInvalidCondition, s.condition());
   EXPECT_EQ(-1, s.bb_target_offset());
   EXPECT_EQ(BasicBlockReference(), s.reference());
   EXPECT_EQ(-1, s.instruction_offset());
   EXPECT_EQ(0, s.instruction_size());
+  EXPECT_FALSE(s.has_label());
 }
 
 TEST_F(SuccessorTest, OffsetConstructor) {
@@ -412,11 +480,13 @@ TEST_F(SuccessorTest, OffsetConstructor) {
               kInstructinOffset,
               kInstructionSize);
 
+  TestSuccessorCopy(s);
   EXPECT_EQ(kCondition, s.condition());
   EXPECT_EQ(kTargetOffset, s.bb_target_offset());
   EXPECT_EQ(BasicBlockReference(), s.reference());
   EXPECT_EQ(kInstructinOffset, s.instruction_offset());
   EXPECT_EQ(kInstructionSize, s.instruction_size());
+  EXPECT_FALSE(s.has_label());
 }
 
 TEST_F(SuccessorTest, BasicBlockConstructor) {
@@ -432,6 +502,7 @@ TEST_F(SuccessorTest, BasicBlockConstructor) {
               kSuccessorOffset,
               kSuccessorSize);
 
+  TestSuccessorCopy(s);
   EXPECT_EQ(kCondition, s.condition());
   EXPECT_EQ(-1, s.bb_target_offset());
   EXPECT_EQ(bb_ref, s.reference());
@@ -446,6 +517,8 @@ TEST_F(SuccessorTest, SetBranchTarget) {
 
   Successor s;
   s.SetReference(bb_ref);
+  TestSuccessorCopy(s);
+
   EXPECT_EQ(bb_ref, s.reference());
 }
 
@@ -455,6 +528,8 @@ TEST_F(SuccessorTest, Labels) {
 
   BlockGraph::Label label("Foo", BlockGraph::CODE_LABEL);
   successor.set_label(label);
+
+  TestSuccessorCopy(successor);
   EXPECT_TRUE(successor.has_label());
   EXPECT_TRUE(successor.label() == label);
 }
@@ -551,6 +626,40 @@ TEST_F(SuccessorTest, InvertCondition) {
 
 typedef BasicBlockTest InstructionTest;
 
+namespace {
+
+void TestInstructionCopy(const Instruction& input) {
+  Instruction copy(input);
+
+  EXPECT_EQ(input.references(), copy.references());
+  EXPECT_EQ(0, memcmp(input.data(), copy.data(), copy.size()));
+  EXPECT_EQ(input.owns_data(), copy.owns_data());
+  EXPECT_EQ(input.offset(), copy.offset());
+  EXPECT_EQ(input.size(), copy.size());
+  EXPECT_EQ(input.label(), copy.label());
+  EXPECT_EQ(input.has_label(), copy.has_label());
+}
+
+const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+
+}  // namespace
+
+TEST_F(InstructionTest, ConstructionFromData) {
+  const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+  Instruction call(arraysize(kCallRelative), kCallRelative);
+
+  _DInst& repr = call.representation();
+  EXPECT_EQ(I_CALL, repr.opcode);
+  EXPECT_EQ(FC_CALL, META_GET_FC(repr.meta));
+  EXPECT_EQ(O_PC, repr.ops[0].type);
+  TestInstructionCopy(call);
+
+  BlockGraph::Label label("Foo", BlockGraph::CODE_LABEL);
+  call.set_label(label);
+  EXPECT_EQ(label, call.label());
+  TestInstructionCopy(call);
+}
+
 TEST_F(InstructionTest, CallsNonReturningFunction) {
   // Create a returning code block.
   BlockGraph::Block returning(0, BlockGraph::CODE_BLOCK, 1, "return");
@@ -563,8 +672,8 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   repr.opcode = I_CALL;
   repr.meta = FC_CALL;
   repr.ops[0].type = O_PC;
-  const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
   Instruction call_relative(repr, 0, sizeof(kCallRelative), kCallRelative);
+  TestInstructionCopy(call_relative);
 
   // Call the returning function directly.
   call_relative.SetReference(
@@ -591,6 +700,7 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
       2, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,
                              &function_pointer, 0, 0));
+  TestInstructionCopy(call_indirect);
 
   // Call the returning function via the pointer.
   function_pointer.SetReference(

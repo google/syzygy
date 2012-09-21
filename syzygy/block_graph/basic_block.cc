@@ -183,6 +183,18 @@ BasicBlockReference::BasicBlockReference(ReferenceType type,
   DCHECK(basic_block != NULL);
 }
 
+BasicBlockReference::BasicBlockReference(ReferenceType type,
+                                         Size size,
+                                         const BasicBlockReference& ref)
+    : referred_type_(ref.referred_type_),
+      reference_type_(type),
+      size_(size),
+      referred_block_(ref.referred_block_),
+      offset_(ref.offset_),
+      base_(ref.base_) {
+  DCHECK(size == 1 || size == 4);
+}
+
 BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
     : referred_type_(other.referred_type_),
       reference_type_(other.reference_type_),
@@ -252,7 +264,8 @@ Instruction::Instruction(const Instruction& other)
       offset_(other.offset_),
       size_(other.size_),
       data_(other.data_),
-      owns_data_(other.owns_data_) {
+      owns_data_(other.owns_data_),
+      label_(other.label_) {
   if (owns_data_) {
     uint8* new_data = new uint8[size_];
     memcpy(new_data, data_, size_);
@@ -608,9 +621,17 @@ Successor::Successor(Successor::Condition condition,
   DCHECK(inserted);
 }
 
+Successor::Successor(const Successor& other)
+    : condition_(other.condition_),
+      bb_target_offset_(other.bb_target_offset_),
+      reference_(other.reference_),
+      instruction_offset_(other.instruction_offset_),
+      instruction_size_(other.instruction_size_),
+      label_(other.label_) {
+}
+
 BasicBlockReference Successor::reference() const {
-  return references_.empty() ? BasicBlockReference() :
-                               references_.begin()->second;
+  return reference_;
 }
 
 Successor::Condition Successor::InvertCondition(Condition cond) {
@@ -649,10 +670,10 @@ Successor::Size Successor::GetMaxSize() const {
 }
 
 bool Successor::SetReference(const BasicBlockReference& ref) {
-  return UpdateBasicBlockReferenceMap(
-      this, &references_, BasicBlock::kNoOffset, ref);
+  bool inserted = !reference_.IsValid();
+  reference_ = ref;
+  return inserted;
 }
-
 
 const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 
@@ -726,7 +747,21 @@ bool BasicBlock::IsValid() const {
   }
 }
 
-size_t BasicBlock::GetMaxSize() const {
+BasicBlock::Size BasicBlock::GetDataSize() const {
+  // If it's a data or padding basic-block, then we have the size on hand.
+  if (type_ != BASIC_CODE_BLOCK)
+    return size_;
+
+  // Otherwise, we must tally the size of the instructions.
+  Size data_size = 0;
+  Instructions::const_iterator instr_iter = instructions_.begin();
+  for (; instr_iter != instructions_.end(); ++instr_iter)
+    data_size += instr_iter->size();
+
+  return data_size;
+}
+
+BasicBlock::Size BasicBlock::GetMaxSize() const {
   // If it's a data or padding basic-block, then we have its exact size.
   if (type_ != BASIC_CODE_BLOCK)
     return size_;
