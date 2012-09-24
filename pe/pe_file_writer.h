@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,22 +46,42 @@ class PEFileWriter {
   // Validates the DOS header and the NT headers in the image.
   // On success, sets the nt_headers_ pointer.
   bool ValidateHeaders();
-  bool InitializeSectionFileAddressSpace();
+
+  // Validates that the section info is consistent and populates
+  // section_file_range_map_ and section_index_space_.
+  bool CalculateSectionRanges();
+
+  // Writes the entire image to the given file. Delegates to FlushSection and
+  // WriteOneBlock.
   bool WriteBlocks(FILE* file);
+
+  // Closes off the writing of a section by adding any necessary padding to the
+  // output buffer.
+  void FlushSection(size_t section_index,
+                    std::vector<uint8>* buffer);
+
+  // Writes a single block to the buffer, first writing any necessary padding
+  // (the content of which depends on the section type), followed by the
+  // block data (containing finalized references).
   bool WriteOneBlock(AbsoluteAddress image_base,
+                     size_t section_index,
                      const BlockGraph::Block* block,
-                     FILE* file);
+                     std::vector<uint8>* buffer);
 
-  // Maps from the relative offset to the start of a section to
-  // the file offset for the start of that same section.
-  typedef core::AddressSpace<RelativeAddress, size_t, FileOffsetAddress>
-      SectionFileAddressSpace;
-  SectionFileAddressSpace section_file_offsets_;
+  // The file ranges of each section. This is populated by
+  // CalculateSectionRanges and is a map from section index (as ordered in
+  // the image layout) to section ranges on disk.
+  typedef core::AddressRange<core::FileOffsetAddress, size_t> FileRange;
+  typedef std::map<size_t, FileRange> SectionIndexFileRangeMap;
+  SectionIndexFileRangeMap section_file_range_map_;
 
-  // Maps from section virtual address range to section index.
-  typedef core::AddressSpace<RelativeAddress, size_t, size_t>
-      SectionAddressSpace;
-  SectionAddressSpace sections_;
+  // This stores an address-space from RVAs to section indices and is populated
+  // by CalculateSectionRanges. This can be used to map from a block's
+  // address to the index of its section. This is needed for finalizing
+  // references.
+  typedef core::AddressSpace<core::RelativeAddress, size_t, size_t>
+      SectionIndexSpace;
+  SectionIndexSpace section_index_space_;
 
   // Our image layout as provided to the constructor.
   const ImageLayout& image_layout_;
