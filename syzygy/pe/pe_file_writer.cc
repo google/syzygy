@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 
 #include <windows.h>
 #include <winnt.h>
-#include <imagehlp.h>
+#include <imagehlp.h>  // NOLINT
 
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/buffer_parser.h"
 #include "sawbuck/common/com_utils.h"
-#include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
@@ -32,6 +31,7 @@ using block_graph::BlockGraph;
 using core::AbsoluteAddress;
 using core::FileOffsetAddress;
 using core::RelativeAddress;
+using pe::ImageLayout;
 
 namespace {
 
@@ -47,6 +47,62 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
   *ref_ptr = new_value;
 
   return true;
+}
+
+// Returns the type of padding byte to use for a given section. Int3s will be
+// used for executable sections, nulls for everything else.
+uint8 GetSectionPaddingByte(const ImageLayout& image_layout,
+                            size_t section_index) {
+  const uint8 kZero = 0;
+  const uint8 kInt3 = 0xCC;
+
+  if (section_index == BlockGraph::kInvalidSectionId)
+    return kZero;
+  DCHECK_GT(image_layout.sections.size(), section_index);
+
+  const ImageLayout::SectionInfo& section_info =
+      image_layout.sections[section_index];
+  bool is_executable =
+      (section_info.characteristics & IMAGE_SCN_MEM_EXECUTE) != 0;
+  if (is_executable)
+    return kInt3;
+  return kZero;
+}
+
+// Returns the length of explicitly initialized data in a block.
+// TODO(chrisha): Move this to block_util and unittest it.
+size_t GetBlockInitializedDataSize(const BlockGraph::Block* block) {
+  DCHECK(block != NULL);
+
+  // All references contain initialized data so must be explicitly written.
+  // Use the position and the size of the last offset as the initialized length.
+  size_t length = 0;
+  if (!block->references().empty()) {
+    BlockGraph::Block::ReferenceMap::const_reverse_iterator ref_it =
+        block->references().rbegin();
+    length = ref_it->first + ref_it->second.size();
+  }
+
+  // Otherwise, we use the block data size.
+  // TODO(chrisha): If we really wanted to, we could strip off trailing zeros
+  //     from the block data, but that's maybe a little overkill.
+  length = std::max(length, block->data_size());
+
+  return length;
+}
+
+size_t GetSectionOffset(const ImageLayout& image_layout,
+                        const RelativeAddress rel_addr,
+                        size_t section_index) {
+  if (section_index == BlockGraph::kInvalidSectionId)
+    return rel_addr.value();
+
+  DCHECK_GT(image_layout.sections.size(), section_index);
+  const ImageLayout::SectionInfo& section_info =
+      image_layout.sections[section_index];
+
+  DCHECK_GE(rel_addr, section_info.addr);
+  return rel_addr - section_info.addr;
 }
 
 }  // namespace
@@ -68,7 +124,7 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
 
   DCHECK(nt_headers_ != NULL);
 
-  bool success = InitializeSectionFileAddressSpace();
+  bool success = CalculateSectionRanges();
   if (success)
     success = WriteBlocks(file.get());
 
@@ -163,40 +219,59 @@ bool PEFileWriter::ValidateHeaders() {
       reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
   DCHECK(nt_headers != NULL);
 
-  // TODO(siggi): Validate that NT headers and ImageLayout match, or else
-  //     from an AddressSpace, and forget the ImageLayout.
   nt_headers_ = nt_headers;
 
   return true;
 }
 
-bool PEFileWriter::InitializeSectionFileAddressSpace() {
+bool PEFileWriter::CalculateSectionRanges() {
   DCHECK(nt_headers_ != NULL);
+  DCHECK_EQ(0u, section_file_range_map_.size());
+  DCHECK_EQ(0u, section_index_space_.size());
 
-  // Now set up the address mappings from RVA to disk offset for the entire
-  // image. The first mapping starts at zero, and covers the header(s).
-  SectionFileAddressSpace::Range header_range(
-      RelativeAddress(0), nt_headers_->OptionalHeader.SizeOfHeaders);
-  section_file_offsets_.Insert(header_range, FileOffsetAddress(0));
+  size_t section_alignment = nt_headers_->OptionalHeader.SectionAlignment;
+  size_t file_alignment = nt_headers_->OptionalHeader.FileAlignment;
+
+  // Keep track of the end of each section, both in memory and on disk.
+  RelativeAddress previous_section_end =
+      RelativeAddress(nt_headers_->OptionalHeader.SizeOfHeaders).AlignUp(
+          section_alignment);
+  FileOffsetAddress previous_section_file_end =
+      FileOffsetAddress(nt_headers_->OptionalHeader.SizeOfHeaders).AlignUp(
+          file_alignment);
+
+  // This first range is for the header and doesn't correspond to any section.
+  CHECK(section_file_range_map_.insert(
+      std::make_pair(BlockGraph::kInvalidSectionId,
+                     FileRange(FileOffsetAddress(0),
+                               previous_section_file_end.value()))).second);
+
+  // Validate the number of sections in the headers.
+  if (nt_headers_->FileHeader.NumberOfSections !=
+          image_layout_.sections.size()) {
+    LOG(ERROR) << "NT headers section count mismatch.";
+    return false;
+  }
 
   // The remainder of the mappings are for the sections. While we run through
-  // and set up the section mappings, we also make sure they're sane by
+  // and calculate the section ranges, we also make sure they're sane by
   // checking that:
   //  - they're arranged sequentially,
   //  - there are no gaps between sections,
   //  - that they don't run into one another.
-  RelativeAddress previous_section_end(
-      header_range.start() + header_range.size());
-  FileOffsetAddress previous_section_file_end(previous_section_end.value());
 
-  for (size_t i = 0; i < image_layout_.sections.size(); ++i) {
+  IMAGE_SECTION_HEADER* section_header = IMAGE_FIRST_SECTION(nt_headers_);
+  for (size_t i = 0; i < image_layout_.sections.size(); ++i, ++section_header) {
     const ImageLayout::SectionInfo& section = image_layout_.sections[i];
     RelativeAddress section_start(section.addr);
     size_t section_size = section.size;
+
     // Calculate the file offset start for this section.
-    FileOffsetAddress section_file_start(previous_section_file_end);
+    FileOffsetAddress section_file_start =
+        previous_section_file_end.AlignUp(file_alignment);
     size_t section_file_size = section.data_size;
 
+    // Validate that the section doesn't overlap in memory or on disk.
     if (section_start < previous_section_end ||
         section_file_start < previous_section_file_end) {
       LOG(ERROR) << "Section " << section.name <<
@@ -204,31 +279,41 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
       return false;
     }
 
-    if ((section_start.value() %
-            nt_headers_->OptionalHeader.SectionAlignment) != 0 ||
-        (section_file_start.value() %
-            nt_headers_->OptionalHeader.FileAlignment) != 0) {
+    // Validate the alignment of the section start addresses in memory and on
+    // disk.
+    if ((section_start.value() % section_alignment) != 0 ||
+        (section_file_start.value() % file_alignment) != 0) {
       LOG(ERROR) << "Section " << section.name <<
           " has incorrect alignment.";
       return false;
     }
 
-    if ((section_start - previous_section_end > static_cast<ptrdiff_t>(
-            nt_headers_->OptionalHeader.SectionAlignment)) ||
+    // Make sure there are no unexpected gaps between sections (the packing
+    // should be as tight as possible).
+    if ((section_start - previous_section_end >
+            static_cast<ptrdiff_t>(section_alignment)) ||
         (section_file_start - previous_section_file_end >
-            static_cast<ptrdiff_t>(
-                nt_headers_->OptionalHeader.FileAlignment))) {
+            static_cast<ptrdiff_t>(file_alignment))) {
       LOG(ERROR) << "Section " << section.name <<
           " leaves a gap from previous section.";
       return false;
     }
 
-    // Ok, it all passes inspection so far. If the file size is non-zero,
-    // go ahead and record the mapping.
-    size_t file_size = section.data_size;
-    if (file_size != 0) {
-      SectionFileAddressSpace::Range file_range(section_start, file_size);
-      section_file_offsets_.Insert(file_range, section_file_start);
+    // Ok, it all passes inspection so far. Record the mapping.
+    FileRange section_file_range(section_file_start, section_file_size);
+    CHECK(section_file_range_map_.insert(
+        std::make_pair(i, section_file_range)).second);
+
+    CHECK(section_index_space_.Insert(
+        SectionIndexSpace::Range(section_start, section_size), i, NULL));
+
+    // Validate that the NT section headers match what we calculate.
+    if (section_header->VirtualAddress != section_start.value() ||
+        section_header->SizeOfRawData != section_file_size ||
+        section_header->PointerToRawData != section_file_start.value() ||
+        section_header->Misc.VirtualSize != section_size) {
+      LOG(ERROR) << "NT section headers are inconsistent with image layout.";
+      return false;
     }
 
     previous_section_end = section_start + section_size;
@@ -239,61 +324,88 @@ bool PEFileWriter::InitializeSectionFileAddressSpace() {
 }
 
 bool PEFileWriter::WriteBlocks(FILE* file) {
+  DCHECK(file != NULL);
+
   AbsoluteAddress image_base(nt_headers_->OptionalHeader.ImageBase);
 
-  // Iterate through all blocks in the address space.
-  BlockGraph::AddressSpace::RangeMap::const_iterator it(
+  // Create the output buffer, reserving enough room for the whole file.
+  DCHECK(!image_layout_.sections.empty());
+  size_t last_section_index = image_layout_.sections.size() - 1;
+  size_t image_size = section_file_range_map_[last_section_index].end().value();
+  std::vector<uint8> buffer;
+  buffer.reserve(image_size);
+
+  // Iterate through all blocks in the address space writing them as we go.
+  BlockGraph::AddressSpace::RangeMap::const_iterator block_it(
       image_layout_.blocks.address_space_impl().ranges().begin());
-  BlockGraph::AddressSpace::RangeMap::const_iterator end(
+  BlockGraph::AddressSpace::RangeMap::const_iterator block_end(
       image_layout_.blocks.address_space_impl().ranges().end());
 
-  for (; it != end; ++it) {
-    BlockGraph::Block* block = const_cast<BlockGraph::Block*>(it->second);
+  // Write all of the blocks. We take care of writing the padding at the
+  // end of each section. Note that the section index is not the same thing as
+  // the section_id stored in the block; the section IDs are relative to the
+  // section data stored in the block-graph, not the ordered section infos
+  // stored in the image layout.
+  BlockGraph::SectionId section_id = BlockGraph::kInvalidSectionId;
+  size_t section_index = BlockGraph::kInvalidSectionId;
+  for (; block_it != block_end; ++block_it) {
+    BlockGraph::Block* block = const_cast<BlockGraph::Block*>(block_it->second);
 
-    if (!WriteOneBlock(image_base, block, file)) {
-      LOG(ERROR) << "Failed to write block " << block->name();
+    // If we're jumping to a new section output the necessary padding.
+    if (block->section() != section_id) {
+      FlushSection(section_index, &buffer);
+      section_id = block->section();
+      section_index++;
+      DCHECK_GT(image_layout_.sections.size(), section_index);
+    }
+
+    if (!WriteOneBlock(image_base, section_index, block, &buffer)) {
+      LOG(ERROR) << "Failed to write block \"" << block->name() << "\".";
       return false;
     }
   }
 
-  // Now round the file to the required size.
-  if (image_layout_.sections.size() == 0) {
-    LOG(ERROR) << "Missing or corrupt image section headers";
+  FlushSection(last_section_index, &buffer);
+  DCHECK_EQ(image_size, buffer.size());
+
+  // Write the whole image to disk in one go.
+  if (::fwrite(&buffer[0], sizeof(buffer[0]), buffer.size(), file) !=
+          buffer.size()) {
+    LOG(ERROR) << "Failed to write image to file.";
     return false;
-  }
-
-  const ImageLayout::SectionInfo& last_section = image_layout_.sections.back();
-  if (last_section.data_size > last_section.size) {
-    DCHECK_LT(0u, section_file_offsets_.size());
-    SectionFileAddressSpace::const_iterator section_it =
-      --section_file_offsets_.end();
-    size_t file_size = section_it->second.value() + section_it->first.size();
-    DCHECK_EQ(0U, file_size % nt_headers_->OptionalHeader.FileAlignment);
-
-    if (fseek(file, file_size - 1, SEEK_SET) != 0 ||
-        fwrite("\0", 1, 1, file) != 1) {
-      LOG(ERROR) << "Unable to round out file size.";
-      return false;
-    }
   }
 
   return true;
 }
 
+void PEFileWriter::FlushSection(size_t section_index,
+                                std::vector<uint8>* buffer) {
+  DCHECK(buffer != NULL);
+
+  size_t section_file_end =
+      section_file_range_map_[section_index].end().value();
+
+  // We've already sanity checked this in CalculateSectionFileRanges, so this
+  // should be true.
+  DCHECK_GE(section_file_end, buffer->size());
+  if (section_file_end == buffer->size())
+    return;
+
+  uint8 padding_byte = GetSectionPaddingByte(image_layout_, section_index);
+  buffer->resize(section_file_end, padding_byte);
+
+  return;
+}
+
 bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
+                                 size_t section_index,
                                  const BlockGraph::Block* block,
-                                 FILE* file) {
+                                 std::vector<uint8>* buffer) {
   // This function walks through the data referred by the input block, and
   // patches it to reflect the addresses and offsets of the blocks
   // referenced before writing the block's data to the file.
   DCHECK(block != NULL);
-  DCHECK(file != NULL);
-  // If the block has no data, there's nothing to write.
-  if (block->data() == NULL) {
-    // A block with no data can't have references to anything else.
-    DCHECK(block->references().empty());
-    return true;
-  }
+  DCHECK(buffer != NULL);
 
   RelativeAddress addr;
   if (!image_layout_.blocks.GetAddressOf(block, &addr)) {
@@ -301,24 +413,85 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     return false;
   }
 
-  // Find the section that contains this block.
-  SectionFileAddressSpace::RangeMap::const_iterator it(
-      section_file_offsets_.FindContaining(
-          SectionFileAddressSpace::Range(addr, block->data_size())));
-  if (it == section_file_offsets_.ranges().end()) {
-    LOG(ERROR) << "Block with data outside defined sections at: " << addr;
+  // Get the start address of the section containing this block as well as the
+  // padding byte we need to use.
+  RelativeAddress section_start(0);
+  RelativeAddress section_end(image_layout_.sections[0].addr);
+  uint8 padding_byte = GetSectionPaddingByte(image_layout_, section_index);
+  if (section_index != BlockGraph::kInvalidSectionId) {
+    const ImageLayout::SectionInfo& section_info =
+        image_layout_.sections[section_index];
+    section_start = RelativeAddress(section_info.addr);
+    section_end = section_start + section_info.size;
+  }
+
+  const FileRange& section_file_range = section_file_range_map_[section_index];
+
+  // The block should lie entirely within the section.
+  if (addr < section_start || addr + block->size() > section_end) {
+    LOG(ERROR) << "Block lies outside of section.";
     return false;
   }
 
   // Calculate the offset from the start of the section to
   // the start of the block, and the block's file offset.
-  BlockGraph::Offset offs = addr - it->first.start();
-  DCHECK_GE(offs, 0);
-  FileOffsetAddress file_offs = it->second + offs;
+  BlockGraph::Offset section_offs = addr - section_start;
+  FileOffsetAddress file_offs = section_file_range.start() + section_offs;
 
-  // Copy the block data.
-  std::vector<uint8> data(block->data_size());
-  std::copy(block->data(), block->data() + block->data_size(), data.begin());
+  // We shouldn't have written anything to the spot where the block belongs.
+  // This is only a DCHECK because the address space of the image layout and
+  // the consistency of the sections guarantees this for us.
+  DCHECK_LE(buffer->size(), file_offs.value());
+
+  size_t inited_data_size = GetBlockInitializedDataSize(block);
+
+  // If this block is entirely in the virtual portion of the section, skip it.
+  if (file_offs >= section_file_range.end()) {
+    if (inited_data_size != 0) {
+      LOG(ERROR) << "Block contains explicit data or references but is in "
+                 << "virtual portion of section.";
+      return false;
+    }
+
+    return true;
+  }
+
+  // The initialized portion of data for this block must lie entirely within the
+  // initialized data for this section (this includes references to be filled in
+  // and the explicit block data).
+  if (file_offs + inited_data_size > section_file_range.end()) {
+    LOG(ERROR) << "Initialized portion of block data lies outside of section.";
+    return false;
+  }
+
+  // Add any necessary padding to get us to the block offset.
+  if (buffer->size() < file_offs.value())
+    buffer->resize(file_offs.value(), padding_byte);
+
+  // Copy the block data into the buffer.
+  buffer->insert(buffer->end(),
+                 block->data(),
+                 block->data() + block->data_size());
+
+  // We now want to append zeros for the implicit portion of the block data.
+  size_t trailing_zeros = block->size() - block->data_size();
+  if (trailing_zeros > 0) {
+    // It is possible for a block to be laid out at the end of a section such
+    // that part of its data lies within the virtual portion of the section.
+    // Since padding between blocks can be non-zero we explicitly write out any
+    // trailing zeros here. So use the section size to determine how much we are
+    // supposed to write.
+    FileOffsetAddress block_file_end = file_offs + block->size();
+    if (block_file_end > section_file_range.end()) {
+      size_t implicit_trailing_zeros =
+          block_file_end - section_file_range.end();
+      DCHECK_LE(implicit_trailing_zeros, trailing_zeros);
+      trailing_zeros -= implicit_trailing_zeros;
+    }
+
+    // Write the implicit trailing zeros.
+    buffer->insert(buffer->end(), trailing_zeros, 0);
+  }
 
   // Patch up all the references.
   BlockGraph::Block::ReferenceMap::const_iterator ref_it(
@@ -327,13 +500,13 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
       block->references().end());
   for (; ref_it != ref_end; ++ref_it) {
     BlockGraph::Offset start = ref_it->first;
-    BlockGraph::Reference ref = ref_it->second;
+    const BlockGraph::Reference& ref = ref_it->second;
     BlockGraph::Block* dst = ref.referenced();
 
     RelativeAddress src_addr(addr + start);
     RelativeAddress dst_addr;
     if (!image_layout_.blocks.GetAddressOf(dst, &dst_addr)) {
-      LOG(ERROR) << "All blocks must have an address";
+      LOG(ERROR) << "All blocks must have an address.";
       return false;
     }
     dst_addr += ref.offset();
@@ -360,15 +533,31 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
         break;
 
       case BlockGraph::FILE_OFFSET_REF: {
-          // Find the section that contains the destination address.
-          SectionFileAddressSpace::RangeMap::const_iterator it(
-              section_file_offsets_.FindContaining(
-                  SectionFileAddressSpace::Range(dst_addr, 1)));
-          DCHECK(it != section_file_offsets_.ranges().end());
+        // Get the index of the section containing the destination block.
+        SectionIndexSpace::const_iterator section_index_space_it =
+            section_index_space_.FindContaining(
+                SectionIndexSpace::Range(dst_addr, 1));
+        DCHECK(section_index_space_it != section_index_space_.end());
+        size_t dst_section_index = section_index_space_it->second;
 
-          value = it->second.value() + (dst_addr - it->first.start());
+        // Get the offset of the block in its section, as well as the range of
+        // the section on disk. Validate that the referred location is
+        // actually directly represented on disk (not in implicit virtual data).
+        const FileRange& file_range =
+            section_file_range_map_[dst_section_index];
+        size_t section_offset = GetSectionOffset(image_layout_,
+                                                 dst_addr,
+                                                 dst_section_index);
+        if (section_offset >= file_range.size()) {
+          LOG(ERROR) << "Encountered file offset reference that refers to "
+                     << "a location outside of the explicit section data.";
+          return false;
         }
-        break;
+
+        // Finally, calculate the value of the file offset.
+        value = file_range.start().value() + section_offset;
+      }
+      break;
 
       default:
         LOG(ERROR) << "Impossible reference type";
@@ -377,19 +566,20 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     }
 
     // Now store the new value.
+    BlockGraph::Offset ref_offset = file_offs.value() + start;
     switch (ref.size()) {
       case sizeof(uint8):
-        if (!UpdateReference(start, static_cast<uint8>(value), &data))
+        if (!UpdateReference(ref_offset, static_cast<uint8>(value), buffer))
           return false;
         break;
 
       case sizeof(uint16):
-        if (!UpdateReference(start, static_cast<uint16>(value), &data))
+        if (!UpdateReference(ref_offset, static_cast<uint16>(value), buffer))
           return false;
         break;
 
       case sizeof(uint32):
-        if (!UpdateReference(start, static_cast<uint32>(value), &data))
+        if (!UpdateReference(ref_offset, static_cast<uint32>(value), buffer))
           return false;
         break;
 
@@ -399,14 +589,6 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     }
   }
 
-  if (fseek(file, file_offs.value(), SEEK_SET) != 0) {
-    LOG(ERROR) << "Unable to seek file";
-    return false;
-  }
-  if (fwrite(&data[0], sizeof(data[0]), data.size(), file) != data.size()) {
-    LOG(ERROR) << "Unable to write block";
-    return false;
-  }
   return true;
 }
 
