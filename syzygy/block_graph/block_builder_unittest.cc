@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,12 +33,77 @@ typedef Block::Referrer Referrer;
 
 static const uint8 kEmptyData[32] = {0};
 
-Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
-  CHECK(bb != NULL);
-  bb->instructions().push_back(
-      Instruction(Instruction::Representation(), -1, size, kEmptyData));
-  return &bb->instructions().back();
-}
+class BlockBuilderTest : public testing::Test {
+ public:
+   static Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
+    CHECK(bb != NULL);
+    bb->instructions().push_back(
+        Instruction(Instruction::Representation(), -1, size, kEmptyData));
+    return &bb->instructions().back();
+  }
+
+  BasicBlock* CreateCodeBB(const base::StringPiece& name, size_t len) {
+    BasicBlock* bb = subgraph_.AddBasicBlock(name,
+                                             BasicBlock::BASIC_CODE_BLOCK,
+                                             -1, 0, NULL);
+    EXPECT_TRUE(bb != NULL);
+    while (len > 0) {
+      size_t instr_len =
+          std::min(len, core::AssemblerImpl::kMaxInstructionLength);
+      len -= instr_len;
+      AddInstruction(bb, instr_len);
+    }
+    return bb;
+  }
+
+  Block* CreateLayout(size_t size1, size_t size2, size_t size3, size_t size4) {
+    // Generate a set of puzzle blocks.
+    BasicBlock* bb1 = CreateCodeBB("bb1", size1);
+    BasicBlock* bb2 = CreateCodeBB("bb2", size2);
+    BasicBlock* bb3 = CreateCodeBB("bb3", size3);
+    BasicBlock* bb4 = CreateCodeBB("bb3", size4);
+
+    // BB1 has BB4 and BB2 as successors.
+    bb1->successors().push_back(
+        Successor(Successor::kConditionEqual,
+                  BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
+                  -1, 0));
+    bb1->successors().push_back(
+        Successor(Successor::kConditionNotEqual,
+                  BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
+                  -1, 0));
+
+    // BB2 has BB1 as successor.
+    bb2->successors().push_back(
+        Successor(Successor::kConditionTrue,
+                  BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
+                  -1, 0));
+
+    // BB3 has BB4 as successor.
+    bb3->successors().push_back(
+        Successor(Successor::kConditionTrue,
+                  BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
+                  -1, 0));
+
+    BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
+        "new_block", BlockGraph::CODE_BLOCK, 0, 1, 0);
+    d1->basic_block_order.push_back(bb1);
+    d1->basic_block_order.push_back(bb2);
+    d1->basic_block_order.push_back(bb3);
+    d1->basic_block_order.push_back(bb4);
+
+    BlockBuilder builder(&block_graph_);
+    EXPECT_TRUE(builder.Merge(&subgraph_));
+    EXPECT_EQ(1, builder.new_blocks().size());
+
+    Block* new_block = builder.new_blocks()[0];
+    EXPECT_TRUE(new_block != NULL);
+    return new_block;
+  }
+
+  BlockGraph block_graph_;
+  BasicBlockSubGraph subgraph_;
+};
 
 }  // namespace
 
@@ -51,66 +116,63 @@ Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
 //     +-->  +---------+
 // bb1   0   | 5 bytes |  Ref: 4-byte ref to data block @ 1, Label1 (code+call)
 //           +---------+
-//           | 6 bytes |  Successor: 4-byte ref to bb1 @ 7
+//           | 2 bytes |  Successor: 1-byte ref to bb1 @ 6
 //           +---------+
-//           | 5 bytes |  Successor: 4-byte ref to bb3 @ 11
+//           | 2 bytes |  Successor: 1-byte ref to bb3 @ 8
 //           +---------+
-// bb2   16  | 2 bytes |  Label2 (code)
+// bb2   9   | 2 bytes |  Label2 (code)
 //           +---------+
 //           | 3 bytes |
 //           +---------+
-// bb3   21  | 2 bytes |  Label3 (code).
+// bb3   14  | 2 bytes |  Label3 (code).
 //           +---------+
 //           | 1 bytes |
 //           +---------+  Successor: elided here. Label4
-// bb4   24  | 7 bytes |
+// bb4   17  | 7 bytes |
 //           +---------+
 //           | 9 bytes |
 //           +---------+
-//           | 5 bytes |  Successor: 4-byte ref to bb2 @ 11
-// data  45  +---------+  Label5 (data).
-//           | 4 bytes |  Ref: 4-byte ref to bb1 @ 45
+//           | 2 bytes |  Successor: 1-byte ref to bb2 @ 34
+// data  35  +---------+  Label5 (data).
+//           | 4 bytes |  Ref: 4-byte ref to bb1 @ 35
 //           +---------+
-//           | 4 bytes |  Ref: 4-byte ref to bb2 @ 49
+//           | 4 bytes |  Ref: 4-byte ref to bb2 @ 39
 //           +---------+
-//           | 4 bytes |  Ref: 4-byte ref to bb3 @ 53
-//       57  +---------+
+//           | 4 bytes |  Ref: 4-byte ref to bb3 @ 43
+//       47  +---------+
 //
-TEST(BlockBuilderTest, Merge) {
-  BlockGraph bg;
-
+TEST_F(BlockBuilderTest, Merge) {
   // Setup a code block which is referenced from a data block.
   BlockGraph::Block* original =
-      bg.AddBlock(BlockGraph::CODE_BLOCK, 32, "original");
+      block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 32, "original");
   ASSERT_TRUE(original != NULL);
   BlockGraph::BlockId original_id = original->id();
   BlockGraph::Block* other =
-      bg.AddBlock(BlockGraph::DATA_BLOCK, 4, "other");
+      block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 4, "other");
   ASSERT_TRUE(other != NULL);
   BlockGraph::BlockId other_id = other->id();
   ASSERT_TRUE(other->SetReference(
       0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, original, 0, 0)));
 
   // Verify some expectations.
-  ASSERT_EQ(2, bg.blocks().size());
+  ASSERT_EQ(2, block_graph_.blocks().size());
   ASSERT_EQ(1, original->referrers().size());
 
   // Generate a mock decomposition of the original block.
-  BasicBlockSubGraph subgraph;
-  subgraph.set_original_block(original);
-  BasicBlock* bb1 = subgraph.AddBasicBlock(
+  subgraph_.set_original_block(original);
+  BasicBlock* bb1 = subgraph_.AddBasicBlock(
       "bb1", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_TRUE(bb1 != NULL);
-  BasicBlock* bb2 = subgraph.AddBasicBlock(
+  BasicBlock* bb2 = subgraph_.AddBasicBlock(
       "bb2", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_TRUE(bb2 != NULL);
-  BasicBlock* bb3 = subgraph.AddBasicBlock(
+  BasicBlock* bb3 = subgraph_.AddBasicBlock(
       "bb3", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_TRUE(bb3 != NULL);
-  BasicBlock* bb4 = subgraph.AddBasicBlock(
+  BasicBlock* bb4 = subgraph_.AddBasicBlock(
       "bb4", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
   ASSERT_TRUE(bb4 != NULL);
-  BasicBlock* table = subgraph.AddBasicBlock(
+  BasicBlock* table = subgraph_.AddBasicBlock(
       "table", BasicBlock::BASIC_DATA_BLOCK, -1, 12, kEmptyData);
   ASSERT_TRUE(table != NULL);
 
@@ -170,7 +232,7 @@ TEST(BlockBuilderTest, Merge) {
   ASSERT_TRUE(table->references().insert(std::make_pair(
       8, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb3))).second);
 
-  BasicBlockSubGraph::BlockDescription* d1 = subgraph.AddBlockDescription(
+  BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
       "new_block", BlockGraph::CODE_BLOCK, 0, 1, 0);
   d1->basic_block_order.push_back(bb1);
   d1->basic_block_order.push_back(bb2);
@@ -178,44 +240,44 @@ TEST(BlockBuilderTest, Merge) {
   d1->basic_block_order.push_back(bb4);
   d1->basic_block_order.push_back(table);
 
-  BlockBuilder builder(&bg);
-  ASSERT_TRUE(builder.Merge(&subgraph));
-  EXPECT_EQ(NULL, bg.GetBlockById(original_id));
-  EXPECT_EQ(other, bg.GetBlockById(other_id));
-  EXPECT_EQ(2, bg.blocks().size());
+  BlockBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.Merge(&subgraph_));
+  EXPECT_EQ(NULL, block_graph_.GetBlockById(original_id));
+  EXPECT_EQ(other, block_graph_.GetBlockById(other_id));
+  EXPECT_EQ(2, block_graph_.blocks().size());
   ASSERT_EQ(1, builder.new_blocks().size());
   BlockGraph::Block* new_block = builder.new_blocks().front();
-  EXPECT_EQ(new_block, bg.GetBlockById(new_block->id()));
-  EXPECT_EQ(57U, new_block->size());
+  EXPECT_EQ(new_block, block_graph_.GetBlockById(new_block->id()));
+  EXPECT_EQ(47U, new_block->size());
   EXPECT_EQ(new_block->data_size(), new_block->size());
 
   // Validate the new block's references.
   Block::ReferenceMap expected_references;
   expected_references[1] = Reference(
       BlockGraph::ABSOLUTE_REF, 4, other, 0, 0);
-  expected_references[7] = Reference(
-      BlockGraph::RELATIVE_REF, 4, new_block, 0, 0);
-  expected_references[12] = Reference(
-      BlockGraph::RELATIVE_REF, 4, new_block, 21, 21);
-  expected_references[41] = Reference(
-      BlockGraph::RELATIVE_REF, 4, new_block, 16, 16);
-  expected_references[45] = Reference(
+  expected_references[6] = Reference(
+      BlockGraph::PC_RELATIVE_REF, 1, new_block, 0, 0);
+  expected_references[8] = Reference(
+      BlockGraph::PC_RELATIVE_REF, 1, new_block, 14, 14);
+  expected_references[34] = Reference(
+      BlockGraph::PC_RELATIVE_REF, 1, new_block, 9, 9);
+  expected_references[35] = Reference(
       BlockGraph::ABSOLUTE_REF, 4, new_block, 0, 0);
-  expected_references[49] = Reference(
-      BlockGraph::ABSOLUTE_REF, 4, new_block, 16, 16);
-  expected_references[53] = Reference(
-      BlockGraph::ABSOLUTE_REF, 4, new_block, 21, 21);
+  expected_references[39] = Reference(
+      BlockGraph::ABSOLUTE_REF, 4, new_block, 9, 9);
+  expected_references[43] = Reference(
+      BlockGraph::ABSOLUTE_REF, 4, new_block, 14, 14);
   EXPECT_EQ(expected_references, new_block->references());
 
   // Validate the new block's referrers.
   Block::ReferrerSet expected_referrers;
   expected_referrers.insert(Referrer(other, 0));
-  expected_referrers.insert(Referrer(new_block, 7));
-  expected_referrers.insert(Referrer(new_block, 12));
-  expected_referrers.insert(Referrer(new_block, 41));
-  expected_referrers.insert(Referrer(new_block, 45));
-  expected_referrers.insert(Referrer(new_block, 49));
-  expected_referrers.insert(Referrer(new_block, 53));
+  expected_referrers.insert(Referrer(new_block, 6));
+  expected_referrers.insert(Referrer(new_block, 8));
+  expected_referrers.insert(Referrer(new_block, 34));
+  expected_referrers.insert(Referrer(new_block, 35));
+  expected_referrers.insert(Referrer(new_block, 39));
+  expected_referrers.insert(Referrer(new_block, 43));
   EXPECT_EQ(expected_referrers, new_block->referrers());
 
   // Validate the references of the other block.
@@ -232,11 +294,98 @@ TEST(BlockBuilderTest, Merge) {
   // Validate the labels.
   BlockGraph::Block::LabelMap expected_labels;
   expected_labels.insert(std::make_pair(0, label_1));
-  expected_labels.insert(std::make_pair(16, label_2));
-  expected_labels.insert(std::make_pair(21, label_3));
-  expected_labels.insert(std::make_pair(24, label_4));
-  expected_labels.insert(std::make_pair(45, label_5));
+  expected_labels.insert(std::make_pair(9, label_2));
+  expected_labels.insert(std::make_pair(14, label_3));
+  expected_labels.insert(std::make_pair(17, label_4));
+  expected_labels.insert(std::make_pair(35, label_5));
   EXPECT_EQ(expected_labels, new_block->labels());
+}
+
+TEST_F(BlockBuilderTest, ShortLayout) {
+  // This is the block structure we construct. If either of BB1 or BB2's
+  // successors is manifested too long, they will both have to grow.
+  // 0    [BB1] 62 bytes
+  // 62   jeq BB4 (+127 bytes).
+  // 64   [BB2] 62 bytes
+  // 126  jmp BB1  (-128 bytes).
+  // 128  [BB3] 63 bytes.
+  // 191  [BB4] 1 byte.
+  Block* new_block = CreateLayout(62, 62, 63, 1);
+  ASSERT_TRUE(new_block != NULL);
+
+  EXPECT_EQ(192, new_block->size());
+  Block::ReferenceMap expected_refs;
+  expected_refs.insert(
+      std::make_pair(63,
+                     Reference(BlockGraph::PC_RELATIVE_REF,
+                               1, new_block, 191, 191)));
+  expected_refs.insert(
+      std::make_pair(127,
+                     Reference(BlockGraph::PC_RELATIVE_REF,
+                               1, new_block, 0, 0)));
+  EXPECT_EQ(expected_refs, new_block->references());
+}
+
+TEST_F(BlockBuilderTest, OutofReachBranchLayout) {
+  // 54 + 72 + 2 = 128 - the BB1->BB4 branch is just out of reach.
+  Block* new_block = CreateLayout(62, 54, 72, 1);
+  ASSERT_TRUE(new_block != NULL);
+
+  size_t expected_size = 62 +
+                         core::AssemblerImpl::kLongBranchSize +
+                         54 +
+                         core::AssemblerImpl::kShortJumpSize +
+                         72 +
+                         1;
+  EXPECT_EQ(expected_size, new_block->size());
+  Block::ReferenceMap expected_refs;
+  expected_refs.insert(
+      std::make_pair(62 + core::AssemblerImpl::kLongBranchOpcodeSize,
+                     Reference(BlockGraph::PC_RELATIVE_REF,
+                               4,
+                               new_block,
+                               expected_size - 1,
+                               expected_size - 1)));
+  size_t succ_location = 62 +
+                         core::AssemblerImpl::kLongBranchSize +
+                         54 +
+                         core::AssemblerImpl::kShortJumpOpcodeSize;
+  expected_refs.insert(
+      std::make_pair(succ_location,
+                     Reference(BlockGraph::PC_RELATIVE_REF,
+                               1, new_block, 0, 0)));
+  EXPECT_EQ(expected_refs, new_block->references());
+}
+
+TEST_F(BlockBuilderTest, OutofReachJmpLayout) {
+  // 0 - (62 + 2 + 63 + 2) = -129, the jump from BB2->BB1 is just out of reach.
+  Block* new_block = CreateLayout(62, 63, 55, 1);
+  ASSERT_TRUE(new_block != NULL);
+
+  size_t expected_size = 62 +
+                         core::AssemblerImpl::kShortBranchSize+
+                         63 +
+                         core::AssemblerImpl::kLongJumpSize+
+                         55 +
+                         1;
+  EXPECT_EQ(expected_size, new_block->size());
+  Block::ReferenceMap expected_refs;
+  expected_refs.insert(
+      std::make_pair(62 + core::AssemblerImpl::kShortBranchOpcodeSize,
+                     Reference(BlockGraph::PC_RELATIVE_REF,
+                               1,
+                               new_block,
+                               expected_size - 1,
+                               expected_size - 1)));
+  size_t succ_location = 62 +
+                         core::AssemblerImpl::kShortBranchSize +
+                         63 +
+                         core::AssemblerImpl::kLongJumpOpcodeSize;
+  expected_refs.insert(
+      std::make_pair(succ_location,
+                     Reference(BlockGraph::PC_RELATIVE_REF,
+                               4, new_block, 0, 0)));
+  EXPECT_EQ(expected_refs, new_block->references());
 }
 
 }  // namespace block_graph

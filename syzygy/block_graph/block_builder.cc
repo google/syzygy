@@ -20,11 +20,13 @@
 
 #include "syzygy/block_graph/block_builder.h"
 
+#include <limits>
 #include <map>
 #include <utility>
 #include <vector>
 
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/assembler.h"
@@ -45,75 +47,13 @@ typedef BlockDescriptionList::const_iterator BlockDescriptionConstIter;
 typedef BasicBlock::Instructions::const_iterator InstructionConstIter;
 typedef BasicBlock::Successors::const_iterator SuccessorConstIter;
 
-// A helper class to track the location to which a block element (a basic-block,
-// instruction, or successor reference) has been mapped.
-class LocationMap {
- public:
-  // Remember the location of the given @p obj in the current context.
-  // @param obj The object to remember.
-  // @param b The block in which @p obj was placed.
-  // @param n The offset in @p b at which @p obj was placed.
-  // Returns false if the @p obj has already been assigned a location.
-  bool Add(const void* obj, Block* b, Offset n) {
-    DCHECK(obj != NULL);
-    DCHECK(b != NULL);
-    DCHECK_LE(0, n);
-    return map_.insert(std::make_pair(obj, std::make_pair(b, n))).second;
-  }
 
-  // Find the location of the given @p object in the current context.
-  // @param obj The object to find.
-  // @param b The block in which @p object was place is returned here.
-  // @param n The offset in @p b at which @p obj was placed is returned here.
-  // Returns false if the object is not found.
-  bool Find(const void* obj, Block** b, Offset* n) const {
-    DCHECK(obj != NULL);
-    DCHECK(b != NULL);
-    DCHECK(n != NULL);
-    Map::const_iterator loc_iter = map_.find(obj);
-    if (loc_iter == map_.end())
-      return false;
-    *b = loc_iter->second.first;
-    *n = loc_iter->second.second;
-    return true;
-  }
-
-  // Returns the final block reference corresponding to a basic-block reference.
-  BlockGraph::Reference Resolve(const BasicBlockReference& bb_ref) const {
-    if (bb_ref.block() != NULL) {
-      return BlockGraph::Reference(bb_ref.reference_type(), bb_ref.size(),
-                                   const_cast<Block*>(bb_ref.block()),
-                                   bb_ref.offset(),
-                                   bb_ref.base());
-    }
-
-    DCHECK(bb_ref.basic_block() != NULL);
-    DCHECK_EQ(0, bb_ref.base());
-
-    Block* block = NULL;
-    Offset base = 0;
-    bool found = Find(bb_ref.basic_block(), &block, &base);
-    DCHECK(found);
-
-    return BlockGraph::Reference(bb_ref.reference_type(), bb_ref.size(), block,
-                                 base + bb_ref.offset(), base);
-  }
-
- private:
-  // The underlying data structures.
-  typedef std::pair<Block*, Offset> Location;
-  typedef std::map<const void*, Location> Map;
-  Map map_;
-};
-
-// A utility structure to package up the context in which a new block is
-// generated. This reduces the amount of context parameters being passed
-// around from call to call.
+// A utility class to package up the context in which new blocks are generated.
 class MergeContext {
  public:
   // Initialize a MergeContext with the block graph and original block.
   MergeContext(BlockGraph* bg, const Block* ob)
-      : block_graph_(bg), original_block_(ob), new_block_(NULL), offset_(0) {
+      : block_graph_(bg), original_block_(ob) {
     DCHECK(bg != NULL);
   }
 
@@ -123,12 +63,12 @@ class MergeContext {
   // Generate all of the blocks described in @p subgraph.
   // @param subgraph Defines the block properties and basic blocks to use
   //     for each of the blocks to be created.
-  bool GenerateBlocks(const BasicBlockSubGraph* subgraph);
+  bool GenerateBlocks(const BasicBlockSubGraph& subgraph);
 
-  // A wrapper function to resolve all of the references in the merged subgraph
-  // to point to their final locations in the block graph.
+  // Transfers incoming references from the original block to the
+  // newly generated block or blocks.
   // @param subgraph The subgraph.
-  void TransferReferences(const BasicBlockSubGraph* subgraph) const;
+  void TransferReferrers(const BasicBlockSubGraph* subgraph) const;
 
   // A clean-up function to remove the original block from which @p subgraph
   // is derived (if any) from the block graph. This must only be performed
@@ -138,77 +78,149 @@ class MergeContext {
   void RemoveOriginalBlock(BasicBlockSubGraph* subgraph);
 
  private:
-  // Update the new working block with the source range for the bytes in the
+  // Temporary data structures used during layouting.
+  struct SuccessorLayoutInfo {
+    // The condition flags for this successor.
+    // Set to Successor::kInvalidCondition if unused.
+    Successor::Condition condition;
+    // The reference this condition refers to.
+    BasicBlockReference reference;
+    // The size of this successor's manifestation.
+    Size size;
+  };
+  struct BasicBlockLayoutInfo {
+    // The basic block this layout info concerns. Useful for debugging.
+    const BasicBlock* basic_block;
+
+    // Stores the block that basic_block will be manifested in.
+    Block* block;
+
+    // Current start offset for basic_block in block.
+    Offset start_offset;
+
+    // Size of basic_block.
+    Size basic_block_size;
+
+    // The label to assign our successor(s), if any.
+    BlockGraph::Label successor_label;
+
+    // The offset and size of our successor(s) from the original block, if any.
+    Offset successor_offset;
+    Size successor_size;
+
+    // Layout info for this block's successors.
+    SuccessorLayoutInfo successors[2];
+  };
+  typedef std::map<const BasicBlock*, BasicBlockLayoutInfo>
+      BasicBlockLayoutInfoMap;
+
+  // Update the new block with the source range for the bytes in the
   // range [new_offset, new_offset + new_size).
   // @param original_offset The offset in the original block corresponding to
-  //     the bytes in the new block. This may be BlockGraphh::kNoOffset, if
+  //     the bytes in the new block. This may be BlockGraph::kNoOffset, if
   //     the source range in question is for synthesized bytes (for example,
   //     a flow-through successor that will be synthesized as a branch).
   // @param original_size The number of bytes in the original range.
   // @param new_offset The offset in the new block where the original bytes
   //     will now live.
   // @param new_size The number of bytes the new range occupies.
-  void UpdateSourceRange(Offset original_offset,
-                         Size original_size,
-                         Offset new_offset,
-                         Size new_size);
+  void CopySourceRange(Offset original_offset,
+                       Size original_size,
+                       Offset new_offset,
+                       Size new_size,
+                       Block* new_block);
 
-  // Synthesize the instruction(s) to implement the given @p successor.
-  // @param successor The successor to synthesize.
-  // @param condition The condition to synthesize (overrides that of successor).
-  bool SynthesizeSuccessor(const Successor& successor,
-                           Successor::Condition condition);
+  // Copy @p references to @p new_block, starting at @p offset.
+  // @param references The references to copy.
+  // @param offset The starting offset in @p new_block to copy to.
+  // @param new_block The block to copy the references to.
+  // @pre Layouting has been done for all referred basic blocks.
+  void CopyReferences(const BasicBlock::BasicBlockReferenceMap& references,
+                      Offset offset,
+                      Block* new_block);
 
-  // Generate the byte sequence for the given @p successors. This function
-  // handles the elision of successors that would naturally flow through to
-  // the @p next_bb_in_ordering.
-  // @param successors The successors to synthesize.
-  // @param next_bb_in_ordering The next basic block in the basic block
-  //     ordering. If a successor refers to the next basic-block in the
-  //     ordering it does not have to be synthesized into a branch instruction
-  //     as control flow will naturally continue into it.
-  bool SynthesizeSuccessors(const BasicBlock::Successors& successors,
-                            const BasicBlock* next_bb_in_ordering);
+  // Assemble the instruction(s) to implement the successors in @p info.
+  // @param info The layout info for the basic block in question.
+  bool AssembleSuccessors(const BasicBlockLayoutInfo& info);
 
   // Copy the given @p instructions to the current working block.
+  // @param offset The offset where the @p instructions should be inserted.
   // @param instructions The instructions to copy.
-  bool CopyInstructions(const BasicBlock::Instructions& instructions);
+  bool CopyInstructions(const BasicBlock::Instructions& instructions,
+                        Offset offset,
+                        Block* new_block);
 
   // Copy the data (or padding bytes) in @p basic_block into new working block.
+  // @param offset The offset where the @p basic_block should be inserted.
   // @param basic_block The basic_block to copy.
-  bool CopyData(const BasicBlock* basic_block);
+  bool CopyData(const BasicBlock* basic_block, Offset offset, Block* new_block);
 
-  // Generate a new block based on the given block @p description.
-  // @param description Defines the block properties and basic blocks to use
-  //     when creating the @p new_block_.
-  bool GenerateBlock(const BlockDescription& description);
+  // Initializes layout information for @p order and stores it in layout_info_.
+  // @param order The basic block ordering to process.
+  // @param block The destination block for this ordering.
+  bool InitializeBlockLayout(const BasicBlockOrdering& order, Block* block);
+
+  // Generates a layout for @p order. This layout will arrange each basic block
+  // in the ordering back-to-back with minimal reach encodings on each
+  // successor.
+  // @param order The basic block ordering to process.
+  bool GenerateBlockLayout(const BasicBlockOrdering& order);
+
+  // Generates a layout for @p subgraph and stores it in layout_info_.
+  // @param subgraph The subgraph to process.
+  bool GenerateLayout(const BasicBlockSubGraph& subgraph);
+
+  // Populate a new block with data and/or instructions per
+  // its corresponding layout.
+  // @param order their ordering.
+  bool PopulateBlock(const BasicBlockOrdering& order);
+
+  // Populate all new blocks with data and/or instructions per layout_info_.
+  // @param order their ordering.
+  // @param new_block The resultant block.
+  bool PopulateBlocks(const BasicBlockSubGraph& subgraph);
 
   // Transfer all external referrers that refer to @p bb to point to
   // bb's new location instead of to the original block.
   // @param bb The basic block.
   void UpdateReferrers(const BasicBlock* bb) const;
 
-  // Resolves all of @p object's references (where object is a basic-block,
-  // or instruction) to point to their final locations in the block graph.
-  // @param object The referring object.
-  // @param references The references made from object.
-  void UpdateReferences(
-      const void* object,
-      const BasicBlock::BasicBlockReferenceMap& references) const;
+  // Returns the minimal successor size for @p condition.
+  static Size GetShortSuccessorSize(Successor::Condition condition);
+  // Returns the maximal successor size for @p condition.
+  static Size GetLongSuccessorSize(Successor::Condition condition);
 
-  // Update all of references in the given basic-block's instructions to
-  // point to their final locations in the block graph.
-  // @param basic_block The basic block.
-  void UpdateInstructionReferences(const BasicBlock* basic_block) const;
+  // Computes and returns the required successor size for @p successor.
+  // @param info The layout info for the basic block.
+  // @param start_offset Offeset from the start of @p info.basic_block to
+  //     the first byte of the successor.
+  // @param successor The successor to size.
+  Size ComputeRequiredSuccessorSize(const BasicBlockLayoutInfo& info,
+                                    Offset start_offset,
+                                    const SuccessorLayoutInfo& successor);
 
-  // Update all of references for the given basic-block's successors to
-  // point to their final locations in the block graph.
-  // @param basic_block The basic block.
-  void UpdateSuccessorReferences(const BasicBlock* basic_block) const;
+  // Finds the layout info for a given basic block.
+  // @param bb The basic block whose layout info is desired.
+  BasicBlockLayoutInfo& FindLayoutInfo(const BasicBlock* bb);
+  const BasicBlockLayoutInfo& FindLayoutInfo(const BasicBlock* bb) const;
+
+  // Resolves a basic block reference to a block reference.
+  // @param type The desired type of the returned reference.
+  // @param size The desired size of the returned reference.
+  // @param ref The basic block reference to resolve.
+  // @pre GenerateLayout has succeeded.
+  BlockGraph::Reference ResolveReference(BlockGraph::ReferenceType type,
+                                         Size size,
+                                         const BasicBlockReference& ref) const;
+
+  // Resolves a basic block reference to a block reference.
+  // @param ref The basic block reference to resolve.
+  // @pre GenerateLayout has succeeded.
+  BlockGraph::Reference ResolveReference(const BasicBlockReference& ref) const;
 
  private:
-  // The mapped locations of the block elements.
-  LocationMap locations_;
+  // Layout info.
+  BasicBlockLayoutInfoMap layout_info_;
 
   // The block graph in which the new blocks are generated.
   BlockGraph* const block_graph_;
@@ -216,47 +228,43 @@ class MergeContext {
   // The original block from which the new blocks are derived.
   const Block* original_block_;
 
-  // The set of blocks generated in this context.
+  // The set of blocks generated in this context so far.
   BlockVector new_blocks_;
-
-  // The current new block being generated.
-  Block* new_block_;
-
-  // The current write offset into the new block.
-  Offset offset_;
 
   DISALLOW_COPY_AND_ASSIGN(MergeContext);
 };
 
-// Serializes instruction bytes to a target buffer.
-// TODO(siggi, rogerm): Reconsider this approach when there's a BlockAssembler.
-class Serializer : public core::AssemblerImpl::InstructionSerializer {
- public:
-  explicit Serializer(uint8* buffer) : buffer_(buffer) {
-    DCHECK(buffer != NULL);
+bool MergeContext::GenerateBlocks(const BasicBlockSubGraph& subgraph) {
+  if (!GenerateLayout(subgraph) || !PopulateBlocks(subgraph)) {
+    // Remove generated blocks (this is safe as they're all disconnected)
+    // and return false.
+    BlockVector::iterator it = new_blocks_.begin();
+    for (; it != new_blocks_.end(); ++it) {
+      DCHECK((*it)->referrers().empty());
+      DCHECK((*it)->references().empty());
+      block_graph_->RemoveBlock(*it);
+    }
+    new_blocks_.clear();
+    return false;
   }
 
-  virtual void AppendInstruction(uint32 location,
-                                 const uint8* bytes,
-                                 size_t num_bytes,
-                                 const size_t* /* ref_locations */,
-                                 const void* const* /* refs */,
-                                 size_t /* num_refs */) OVERRIDE {
-    DCHECK(bytes != NULL);
-    ::memcpy(buffer_ + location, bytes, num_bytes);
-  }
+  return true;
+}
 
- protected:
-  uint8* const buffer_;
-};
+void MergeContext::TransferReferrers(const BasicBlockSubGraph* subgraph) const {
+  // Iterate through the layout info, and update each referenced BB.
+  BasicBlockLayoutInfoMap::const_iterator it = layout_info_.begin();
+  for (; it != layout_info_.end(); ++it)
+    UpdateReferrers(it->second.basic_block);
+}
 
-void MergeContext::UpdateSourceRange(Offset original_offset,
-                                     Size original_size,
-                                     Offset new_offset,
-                                     Size new_size) {
+void MergeContext::CopySourceRange(Offset original_offset,
+                                   Size original_size,
+                                   Offset new_offset,
+                                   Size new_size,
+                                   Block* new_block) {
   DCHECK_LE(0, new_offset);
   DCHECK_NE(0U, new_size);
-  DCHECK(new_block_ != NULL);
 
   // If the entire block is synthesized or just this new byte range is
   // synthesized, there's nothing to do.
@@ -271,7 +279,7 @@ void MergeContext::UpdateSourceRange(Offset original_offset,
   //     basic-blocks, instructions and successors) into each element itself.
   const Block::SourceRanges::RangePair* range_pair =
       original_block_->source_ranges().FindRangePair(original_offset,
-                                                         original_size);
+                                                     original_size);
   if (range_pair == NULL)
     return;
 
@@ -297,48 +305,81 @@ void MergeContext::UpdateSourceRange(Offset original_offset,
   }
 
   // Insert the new source range mapping into the new block.
-  bool inserted = new_block_->source_ranges().Insert(
+  bool inserted = new_block->source_ranges().Insert(
       Block::DataRange(new_offset, new_size),
       Block::SourceRange(source_addr, source_size));
   DCHECK(inserted);
 }
 
-bool MergeContext::SynthesizeSuccessor(const Successor& successor,
-                                       Successor::Condition condition) {
-  DCHECK_LT(Successor::kInvalidCondition, condition);
-  DCHECK(new_block_ != NULL);
+bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
+  BasicBlock::Instructions instructions;
+  BasicBlockAssembler assm(info.start_offset + info.basic_block_size,
+                           instructions.begin(), &instructions);
 
-  // We use a temporary target location when assembling only to satisfy the
-  // assembler interface. We will actually synthesize references that will
-  // be responsible for filling in the correct values.
-  // TODO(siggi, rogerm): Revisit once the BlockAssembler becomes available.
-  static const core::ImmediateImpl kTempTarget(0, core::kSize32Bit);
-  static const size_t k32BitsInBytes = 4;
+  // Copy the successor label, if any, to where it belongs.
+  if (info.successor_label.IsValid()) {
+    info.block->SetLabel(info.start_offset + info.basic_block_size,
+                         info.successor_label);
+  }
 
-  // Create the assembler.
-  Serializer serializer(new_block_->GetMutableData());
-  core::AssemblerImpl asm_(offset_, &serializer);
+  Offset successor_start = info.start_offset + info.basic_block_size;
+  for (size_t i = 0; i < arraysize(info.successors); ++i) {
+    const SuccessorLayoutInfo& successor = info.successors[i];
 
-  // Synthesize the instruction(s) corresponding to the condition.
-  if (condition <= Successor::kMaxConditionalBranch) {
-    asm_.j(static_cast<core::ConditionCode>(condition), kTempTarget);
-  } else {
-    switch (condition) {
+    // Exit loop early if appropriate.
+    if (successor.condition == Successor::kInvalidCondition)
+      break;
+
+    // Default to a short reference.
+    ValueSize reference_size = core::kSize8Bit;
+    if (successor.size != GetShortSuccessorSize(successor.condition))
+      reference_size = core::kSize32Bit;
+
+    // Construct the reference we're going to deposit into the instruction
+    // list first. This will be a PC-relative reference of size 8 or 32,
+    // depending on whether the successor has been manifested long or short.
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
+                            reference_size == core::kSize8Bit ? 1 : 4,
+                            successor.reference);
+    // For debugging, we stomp the correct offset into the re-generated block
+    // for block-internal references.
+    BlockGraph::Reference resolved_ref = ResolveReference(successor.reference);
+    // Default to the offset immediately following the successor, which
+    // will translate to a zero pc-relative offset.
+    Offset ref_offset = successor_start + info.successor_size;
+    if (resolved_ref.referenced() == info.block)
+      ref_offset = resolved_ref.offset();
+    Immediate dest(ref_offset, reference_size, ref);
+
+    // Assemble the instruction.
+    switch (successor.condition) {
+      case Successor::kConditionAbove:
+      case Successor::kConditionAboveOrEqual:
+      case Successor::kConditionBelow:
+      case Successor::kConditionBelowOrEqual:
+      case Successor::kConditionEqual:
+      case Successor::kConditionGreater:
+      case Successor::kConditionGreaterOrEqual:
+      case Successor::kConditionLess:
+      case Successor::kConditionLessOrEqual:
+      case Successor::kConditionNotEqual:
+      case Successor::kConditionNotOverflow:
+      case Successor::kConditionNotParity:
+      case Successor::kConditionNotSigned:
+      case Successor::kConditionOverflow:
+      case Successor::kConditionParity:
+      case Successor::kConditionSigned:
+        assm.j(static_cast<core::ConditionCode>(successor.condition), dest);
+        break;
+
       case Successor::kConditionTrue:
-        asm_.jmp(kTempTarget);
+        assm.jmp(dest);
         break;
+
       case Successor::kCounterIsZero:
-        asm_.jecxz(kTempTarget);
-        break;
       case Successor::kLoopTrue:
-        asm_.loop(kTempTarget);
-        break;
       case Successor::kLoopIfEqual:
-        asm_.loope(kTempTarget);
-        break;
       case Successor::kLoopIfNotEqual:
-        asm_.loopne(kTempTarget);
-        break;
       case Successor::kInverseCounterIsZero:
       case Successor::kInverseLoopTrue:
       case Successor::kInverseLoopIfEqual:
@@ -351,110 +392,46 @@ bool MergeContext::SynthesizeSuccessor(const Successor& successor,
         NOTREACHED();
         return false;
     }
+
+    // Make sure the assembler produced what we expected.
+    DCHECK_EQ(successor.size, instructions.back().size());
+
+    // Walk our start address forwards.
+    successor_start += successor.size;
+
+    if (info.successor_offset != BasicBlock::kNoOffset) {
+      Instruction& instr = instructions.back();
+
+      // Attribute this instruction to the original successor's source range.
+      // TODO(siggi): Note that this can lead to an ambiguity where the newly
+      //    manifested successor is larger than the original instruction that
+      //    engendered it. Each instruction & successor really need to carry a
+      //    source range from decomposition through to recomposition.
+      instr.set_offset(info.successor_offset);
+    }
   }
 
-  // Remember where the reference for this successor has been placed. In each
-  // of the above synthesized cases, it is the last thing written to the buffer.
-  Offset ref_offset = asm_.location() - k32BitsInBytes;
-  bool inserted = locations_.Add(&successor, new_block_, ref_offset);
-  DCHECK(inserted);
-
-  // Calculate the number of bytes written.
-  size_t bytes_written = asm_.location() - offset_;
-
-  // Update the source range.
-  UpdateSourceRange(successor.instruction_offset(),
-                    successor.instruction_size(),
-                    offset_,  // This is where we started writing.
-                    bytes_written);
-
-  // Update the write location.
-  offset_ = asm_.location();
-
-  // And we're done.
-  return true;
-}
-
-bool MergeContext::SynthesizeSuccessors(
-    const BasicBlock::Successors& successors,
-    const BasicBlock* next_bb_in_ordering) {
-  size_t num_successors = successors.size();
-  DCHECK_GE(2U, num_successors);
-
-  // If there are no successors then we have nothing to do.
-  if (num_successors == 0)
-    return true;
-
-  // If a successor is labeled, preserve it. Note that we expect at most one
-  // successor to be labeled. We apply the label before synthesis because it
-  // is possible that the labeled successor may be elided if control flow is
-  // straightened.
-  if (successors.front().has_label()) {
-    new_block_->SetLabel(offset_, successors.front().label());
-  } else if (num_successors == 2 && successors.back().has_label()) {
-    new_block_->SetLabel(offset_, successors.back().label());
-  }
-
-  // Track whether we have already generated a successor. We can use this to
-  // optimize the branch not taken case in the event both successors are
-  // generated (the next_bb_in_ordering does not match any of the successors).
-  // Since we have at most 2 successors (and they'll have inverse conditions
-  // if there are two) then the second successor (if generated) can be modified
-  // to be an unconditional branch. Note that if we generalize to an arbitrary
-  // set of successors this optimization must be removed.
-  bool branch_has_already_been_generated = false;
-
-  // If there is no next_bb_in_ordering or the first successor does not refer
-  // to next_bb_in_ordering, then we must generate the instruction for it, as
-  // it cannot be a fall-through or branch-not-taken successor.
-  const Successor& successor_a = successors.front();
-  if (next_bb_in_ordering == NULL ||
-      successor_a.reference().basic_block() != next_bb_in_ordering) {
-    if (!SynthesizeSuccessor(successor_a, successor_a.condition()))
-      return false;
-    branch_has_already_been_generated = true;
-  }
-
-  // If there is only one successor, then we have nothing further to do.
-  if (num_successors == 1) {
-    DCHECK_EQ(Successor::kConditionTrue, successor_a.condition());
-    return true;
-  }
-
-  // If there is no next_bb_in_ordering or the second successor does not refer
-  // to next_bb_in_ordering, then we must generate the instruction for it, as
-  // it cannot be the branch-not-taken fall-through successor.
-  const Successor& successor_b = successors.back();
-  DCHECK_EQ(successor_a.condition(),
-            Successor::InvertCondition(successor_b.condition()));
-  if (next_bb_in_ordering == NULL ||
-      successor_b.reference().basic_block() != next_bb_in_ordering) {
-    Successor::Condition condition = successor_b.condition();
-    if (branch_has_already_been_generated)
-      condition = Successor::kConditionTrue;
-    if (!SynthesizeSuccessor(successor_b, condition))
-      return false;
+  if (instructions.size() != 0) {
+    Offset start_offset = info.start_offset + info.basic_block_size;
+    return CopyInstructions(instructions, start_offset, info.block);
   }
 
   return true;
 }
 
 bool MergeContext::CopyInstructions(
-    const BasicBlock::Instructions& instructions) {
-  DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, new_block_->type());
+    const BasicBlock::Instructions& instructions,
+    Offset offset, Block* new_block) {
+  DCHECK(new_block != NULL);
+  DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, new_block->type());
   // Get the target buffer.
-  uint8* buffer = new_block_->GetMutableData();
+  uint8* buffer = new_block->GetMutableData();
   DCHECK(buffer != NULL);
 
   // Copy the instruction data and assign each instruction an offset.
   InstructionConstIter it = instructions.begin();
   for (; it != instructions.end(); ++it) {
     const Instruction& instruction = *it;
-    Offset offset = offset_;
-
-    // Remember where this instruction begins.
-    bool inserted = locations_.Add(&instruction, new_block_, offset);
-    DCHECK(inserted);
 
     // Copy the instruction bytes.
     ::memcpy(buffer + offset,
@@ -463,152 +440,337 @@ bool MergeContext::CopyInstructions(
 
     // Preserve the label on the instruction, if any.
     if (instruction.has_label())
-      new_block_->SetLabel(offset, instruction.label());
-
-    // Update the offset/bytes_written.
-    offset_ += instruction.size();
+      new_block->SetLabel(offset, instruction.label());
 
     // Record the source range.
-    UpdateSourceRange(instruction.offset(), instruction.size(),
-                      offset, instruction.size());
+    CopySourceRange(instruction.offset(), instruction.size(),
+                    offset, instruction.size(),
+                    new_block);
+
+    // Copy references.
+    CopyReferences(instruction.references(), offset, new_block);
+
+    // Update the offset/bytes_written.
+    offset += instruction.size();
   }
 
   return true;
 }
 
-bool MergeContext::CopyData(const BasicBlock* basic_block) {
+void MergeContext::CopyReferences(
+    const BasicBlock::BasicBlockReferenceMap& references,
+    Offset offset, Block* new_block) {
+  BasicBlock::BasicBlockReferenceMap::const_iterator it = references.begin();
+  for (; it != references.end(); ++it) {
+    BlockGraph::Reference resolved = ResolveReference(it->second);
+
+    CHECK(new_block->SetReference(offset + it->first, resolved));
+  }
+}
+
+bool MergeContext::CopyData(const BasicBlock* basic_block,
+                            Offset offset,
+                            Block* new_block) {
   DCHECK(basic_block != NULL);
   DCHECK(basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
          basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
 
   // Get the target buffer.
-  uint8* buffer = new_block_->GetMutableData();
+  uint8* buffer = new_block->GetMutableData();
   DCHECK(buffer != NULL);
 
   // Copy the basic-new_block_'s data bytes.
-  Offset offset = offset_;
-  ::memcpy(buffer + offset_, basic_block->data(), basic_block->size());
-  offset_ += basic_block->size();
+  ::memcpy(buffer + offset, basic_block->data(), basic_block->size());
 
   // Record the source range.
-  UpdateSourceRange(basic_block->offset(), basic_block->size(),
-                    offset, basic_block->size());
+  CopySourceRange(basic_block->offset(), basic_block->size(),
+                  offset, basic_block->size(),
+                  new_block);
+
+  CopyReferences(basic_block->references(), offset, new_block);
+  return true;
+}
+
+bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
+                                         Block* new_block) {
+  // Populate the initial layout info.
+  BasicBlockOrderingConstIter it = order.begin();
+  for (; it != order.end(); ++it) {
+    const BasicBlock* bb = *it;
+
+    // Create and initialize the layout info for this block.
+    DCHECK(layout_info_.find(bb) == layout_info_.end());
+
+    BasicBlockLayoutInfo& info = layout_info_[bb];
+    info.basic_block = bb;
+    info.block = new_block;
+    info.start_offset = 0;
+    info.basic_block_size = bb->GetDataSize();
+    info.successor_offset = BasicBlock::kNoOffset;
+    info.successor_size = 0;
+    for (size_t i = 0; i < arraysize(info.successors); ++i) {
+      info.successors[i].condition = Successor::kInvalidCondition;
+      info.successors[i].size = 0;
+    }
+
+    // Find the next basic block, if any.
+    BasicBlockOrderingConstIter next_it(it);
+    ++next_it;
+    const BasicBlock* next_bb = NULL;
+    if (next_it != order.end())
+      next_bb = *(next_it);
+
+    // Go through and decide how to manifest the successors for the current
+    // basic block. A basic block has zero, one or two successors, and any
+    // successor that successor that refers to the next basic block in sequence
+    // is elided, as it's most efficient for execution to simply fall through.
+    // We do this in two nearly-identical code blocks, as the handling is only
+    // near-identical for each of two possible successors.
+    DCHECK_GE(2U, bb->successors().size());
+    SuccessorConstIter succ_it = bb->successors().begin();
+    SuccessorConstIter succ_end = bb->successors().end();
+
+    // Process the first successor, if any.
+    size_t manifested_successors = 0;
+    if (succ_it != succ_end) {
+      const BasicBlock* destination_bb = succ_it->reference().basic_block();
+
+      // Record the source range of the original successor.
+      if (succ_it->instruction_offset() != BasicBlock::kNoOffset) {
+        info.successor_offset = succ_it->instruction_offset();
+        info.successor_size = succ_it->instruction_size();
+      }
+      // Record the label of the original successor.
+      if (succ_it->has_label())
+        info.successor_label = succ_it->label();
+
+      // Only manifest this successor if it's not referencing the next block.
+      if (destination_bb == NULL || destination_bb != next_bb) {
+        SuccessorLayoutInfo& successor =
+            info.successors[manifested_successors++];
+        successor.condition = succ_it->condition();
+        successor.reference = succ_it->reference();
+      }
+
+      // Go to the next successor, if any.
+      ++succ_it;
+    }
+
+    // Process the second successor, if any.
+    if (succ_it != succ_end) {
+      const BasicBlock* destination_bb = succ_it->reference().basic_block();
+
+      // Record the source range of the original successor.
+      if (succ_it->instruction_offset() != BasicBlock::kNoOffset) {
+        DCHECK_EQ(BasicBlock::kNoOffset, info.successor_offset);
+        info.successor_offset = succ_it->instruction_offset();
+        info.successor_size = succ_it->instruction_size();
+      }
+      // Record the label of the original successor.
+      if (succ_it->has_label()) {
+        DCHECK_EQ(false, info.successor_label.IsValid());
+        info.successor_label = succ_it->label();
+      }
+
+      // Only manifest this successor if it's not referencing the next block.
+      if (destination_bb == NULL || destination_bb != next_bb) {
+        Successor::Condition condition = succ_it->condition();
+
+        // If we've already manifested a successor above, it'll be for the
+        // complementary condition to ours. While it's correct to manifest it
+        // as a conditional branch, it's more efficient to manifest as an
+        // unconditional jump.
+        if (manifested_successors != 0) {
+          DCHECK_EQ(Successor::InvertCondition(info.successors[0].condition),
+                    succ_it->condition());
+
+          condition = Successor::kConditionTrue;
+        }
+
+        SuccessorLayoutInfo& successor =
+            info.successors[manifested_successors++];
+
+        successor.condition = condition;
+        successor.reference = succ_it->reference();
+      }
+    }
+  }
 
   return true;
 }
 
-bool MergeContext::GenerateBlock(const BlockDescription& description) {
-  // Remember the max size of the described block.
-  size_t max_size = description.GetMaxSize();
+bool MergeContext::GenerateBlockLayout(const BasicBlockOrdering& order) {
+  BasicBlockOrderingConstIter it = order.begin();
 
-  // Allocate a new block for this description.
-  offset_ = 0;
-  new_block_ = block_graph_->AddBlock(
-      description.type, max_size, description.name);
-  if (new_block_ == NULL) {
-    LOG(ERROR) << "Failed to create block '" << description.name << "'.";
-    return false;
+  // Loop over the layout, expanding successors until stable.
+  while (true) {
+    bool expanded_successor = false;
+
+    // Update the start offset for each of the BBs.
+    it = order.begin();
+    Offset next_block_start = 0;
+    Block* new_block = NULL;
+    for (; it != order.end(); ++it) {
+      BasicBlockLayoutInfo& info = FindLayoutInfo(*it);
+      info.start_offset = next_block_start;
+
+      if (new_block == NULL)
+        new_block = info.block;
+      DCHECK(new_block == info.block);
+
+      next_block_start += info.basic_block_size +
+                          info.successors[0].size +
+                          info.successors[1].size;
+    }
+
+    // See whether there's a need to expand the successor sizes.
+    it = order.begin();
+    for (; it != order.end(); ++it) {
+      const BasicBlock* bb = *it;
+      BasicBlockLayoutInfo& info = FindLayoutInfo(bb);
+
+      // Compute the start offset for this block's first successor.
+      Offset start_offset = info.start_offset + info.basic_block_size;
+      for (size_t i = 0; i < arraysize(info.successors); ++i) {
+        SuccessorLayoutInfo& successor = info.successors[i];
+
+        // Exit the loop if this (and possibly the subsequent) successor
+        // is un-manifested.
+        if (successor.condition == Successor::kInvalidCondition)
+          break;
+
+        // Compute the new size and update the start offset for the next
+        // successor (if any).
+        Size new_size =
+            ComputeRequiredSuccessorSize(info, start_offset, successor);
+        start_offset += new_size;
+
+        // Check whether we're expanding this successor.
+        if (new_size != successor.size) {
+          DCHECK_LT(successor.size, new_size);
+          successor.size = new_size;
+          expanded_successor = true;
+        }
+      }
+    }
+
+    if (!expanded_successor) {
+      // We've achieved a stable layout and we know that next_block_start
+      // is the size of the new block, so resize it and allocate the data now.
+      new_block->set_size(next_block_start);
+      new_block->AllocateData(next_block_start);
+
+      return true;
+    }
+  }
+}
+
+bool MergeContext::GenerateLayout(const BasicBlockSubGraph& subgraph) {
+  // Create each new block and initialize a layout for it.
+  BlockDescriptionConstIter it = subgraph.block_descriptions().begin();
+  for (; it != subgraph.block_descriptions().end(); ++it) {
+    const BlockDescription& description = *it;
+
+    // Skip the block if it's empty.
+    if (description.basic_block_order.empty())
+      continue;
+
+    Block* new_block = block_graph_->AddBlock(
+      description.type, 0, description.name);
+    if (new_block == NULL) {
+      LOG(ERROR) << "Failed to create block '" << description.name << "'.";
+      return false;
+    }
+
+    // Save this block in the set of newly generated blocks. On failure, this
+    // list will be used by GenerateBlocks() to clean up after itself.
+    new_blocks_.push_back(new_block);
+
+    // Initialize the new block's properties.
+    new_block->set_alignment(description.alignment);
+    new_block->set_section(description.section);
+    new_block->set_attributes(description.attributes);
+
+    // Initialize the layout for this block.
+    if (!InitializeBlockLayout(description.basic_block_order, new_block)) {
+      LOG(ERROR) << "Failed to initialize layout for basic block '" <<
+          description.name << "'";
+      return false;
+    }
   }
 
-  // Save this block in the set of newly generated blocks. On failure, this
-  // list will be used by GenerateBlocks() to clean up after itself.
-  new_blocks_.push_back(new_block_);
+  // Now generate a layout for each ordering.
+  it = subgraph.block_descriptions().begin();
+  for (; it != subgraph.block_descriptions().end(); ++it) {
+    const BlockDescription& description = *it;
 
-  // Allocate the data buffer for the new block.
-  if (new_block_->AllocateData(max_size) == NULL) {
-    LOG(ERROR) << "Failed to allocate block data '" << description.name << "'.";
-    return false;
+    // Skip the block if it's empty.
+    if (description.basic_block_order.empty())
+      continue;
+
+    // Generate the layout for this block.
+    if (!GenerateBlockLayout(description.basic_block_order)) {
+      LOG(ERROR) << "Failed to generate a layout for basic block '" <<
+          description.name << "'";
+      return false;
+    }
   }
 
-  // Initialize the new block's properties.
-  new_block_->set_alignment(description.alignment);
-  new_block_->set_section(description.section);
-  new_block_->set_attributes(description.attributes);
+  return true;
+}
 
+bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
   // Populate the new block with basic blocks.
-  BasicBlockOrderingConstIter bb_iter = description.basic_block_order.begin();
-  BasicBlockOrderingConstIter bb_end = description.basic_block_order.end();
+  BasicBlockOrderingConstIter bb_iter = order.begin();
+  BasicBlockOrderingConstIter bb_end = order.end();
+
   for (; bb_iter != bb_end; ++bb_iter) {
     const BasicBlock* bb = *bb_iter;
-
-    // Remember where this basic block begins.
-    bool inserted = locations_.Add(bb, new_block_, offset_);
-    DCHECK(inserted);
+    const BasicBlockLayoutInfo& info = FindLayoutInfo(bb);
 
     // If the basic-block is labeled, copy the label.
     if (bb->has_label())
-      new_block_->SetLabel(offset_, bb->label());
+      info.block->SetLabel(info.start_offset, bb->label());
 
     // Copy the contents of the basic block into the new block.
     if (bb->type() != BasicBlock::BASIC_CODE_BLOCK) {
       // If it's not a code basic-block then all we need to do is copy its data.
-      if (!CopyData(bb)) {
+      if (!CopyData(bb, info.start_offset, info.block)) {
         LOG(ERROR) << "Failed to copy data for '" << bb->name() << "'.";
         return false;
       }
     } else {
       // Copy the instructions.
-      if (!CopyInstructions(bb->instructions())) {
+      if (!CopyInstructions(bb->instructions(),
+                            info.start_offset,
+                            info.block)) {
         LOG(ERROR) << "Failed to copy instructions for '" << bb->name() << "'.";
         return false;
       }
 
-      // Calculate the next basic block in the ordering.
-      BasicBlockOrderingConstIter next_bb_iter = bb_iter;
-      ++next_bb_iter;
-      const BasicBlock* next_bb = NULL;
-      if (next_bb_iter != bb_end)
-        next_bb = *next_bb_iter;
-
       // Synthesize the successor instructions and assign each to an offset.
-      if (!SynthesizeSuccessors(bb->successors(), next_bb)) {
+      if (!AssembleSuccessors(info)) {
         LOG(ERROR) << "Failed to create successors for '" << bb->name() << "'.";
         return false;
       }
     }
   }
 
-  DCHECK_LT(0, offset_);
-  DCHECK_LE(static_cast<BlockGraph::Size>(offset_), max_size);
-
-  // Truncate the block to the number of bytes actually written.
-  new_block_->ResizeData(offset_);
-  new_block_->set_size(offset_);
-
-  // Reset the current working block.
-  new_block_ = NULL;
-  offset_ = 0;
-
-  // And we're done.
   return true;
 }
 
-bool MergeContext::GenerateBlocks(const BasicBlockSubGraph* subgraph) {
-  DCHECK(subgraph != NULL);
-
-  // Create a new block for each block description and remember the association.
-  BlockDescriptionConstIter bd_iter = subgraph->block_descriptions().begin();
-  for (; bd_iter != subgraph->block_descriptions().end(); ++bd_iter) {
-    const BlockDescription& description = *bd_iter;
+bool MergeContext::PopulateBlocks(const BasicBlockSubGraph& subgraph) {
+  // Create each new block and generate a layout for it.
+  BlockDescriptionConstIter it = subgraph.block_descriptions().begin();
+  for (; it != subgraph.block_descriptions().end(); ++it) {
+    const BasicBlockOrdering& order = it->basic_block_order;
 
     // Skip the block if it's empty.
-    if (description.basic_block_order.empty())
+    if (order.empty())
       continue;
 
-    if (!GenerateBlock(description)) {
-      // Remove generated blocks (this is safe as they're all disconnected)
-      // and return false.
-      BlockVector::iterator it = new_blocks_.begin();
-      for (; it != new_blocks_.end(); ++it) {
-        DCHECK((*it)->referrers().empty());
-        DCHECK((*it)->references().empty());
-        block_graph_->RemoveBlock(*it);
-      }
-      new_blocks_.clear();
-      new_block_ = NULL;
-      offset_ = 0;
+    if (!PopulateBlock(order))
       return false;
-    }
   }
 
   return true;
@@ -618,10 +780,10 @@ void MergeContext::UpdateReferrers(const BasicBlock* bb) const {
   DCHECK(bb != NULL);
 
   // Find the current location of this basic block.
-  Block* new_block_ = NULL;
-  Offset new_base = 0;
-  bool found = locations_.Find(bb, &new_block_, &new_base);
-  DCHECK(found);
+  BasicBlockLayoutInfoMap::const_iterator layout_it = layout_info_.find(bb);
+  DCHECK(layout_it != layout_info_.end());
+  const BasicBlockLayoutInfo& info = layout_it->second;
+  DCHECK_EQ(bb, info.basic_block);
 
   // Update all external referrers to point to the new location.
   const BasicBlock::BasicBlockReferrerSet& referrers = bb->referrers();
@@ -631,108 +793,21 @@ void MergeContext::UpdateReferrers(const BasicBlock* bb) const {
     // modify the set property on referrers as we update the block's references.
     const BasicBlockReferrer& referrer = *it;
     Block* referring_block = const_cast<Block*>(referrer.block());
-
-    // We only care about references from other blocks.
-    if (referring_block == NULL)
-      continue;
-
     BlockGraph::Reference old_ref;
     bool found = referring_block->GetReference(referrer.offset(), &old_ref);
     DCHECK(found);
     DCHECK_EQ(BlockGraph::Reference::kMaximumSize, old_ref.size());
 
+    // The base of the reference is directed to the corresponding BB's
+    // start address in the new block.
     BlockGraph::Reference new_ref(old_ref.type(),
                                   old_ref.size(),
-                                  new_block_,
-                                  old_ref.offset(),
-                                  new_base);
+                                  info.block,
+                                  info.start_offset,
+                                  info.start_offset);
 
     bool is_new = referring_block->SetReference(referrer.offset(), new_ref);
     DCHECK(!is_new);  // TODO(rogerm): Is this a valid DCHECK?
-  }
-}
-
-void MergeContext::UpdateReferences(
-    const void* object,
-    const BasicBlock::BasicBlockReferenceMap& references) const {
-  DCHECK(object != NULL);
-
-  // Find the location of the object in the new block_graph.
-  Block* block = NULL;
-  Offset offset = 0;
-  bool found = locations_.Find(object, &block, &offset);
-  DCHECK(found);
-
-  // Transfer all of this basic-block's references to the new block.
-  BasicBlock::BasicBlockReferenceMap::const_iterator it = references.begin();
-  for (; it != references.end(); ++it) {
-    bool inserted = block->SetReference(offset + it->first,
-                                        locations_.Resolve(it->second));
-    DCHECK(inserted);
-  }
-}
-
-void MergeContext::UpdateInstructionReferences(
-    const BasicBlock* basic_block) const {
-  DCHECK(basic_block != NULL);
-  DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_block->type());
-  InstructionConstIter inst_iter = basic_block->instructions().begin();
-  for (; inst_iter != basic_block->instructions().end(); ++inst_iter)
-    UpdateReferences(&(*inst_iter), inst_iter->references());
-}
-
-void MergeContext::UpdateSuccessorReferences(
-    const BasicBlock* basic_block) const {
-  DCHECK(basic_block != NULL);
-  DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_block->type());
-  SuccessorConstIter succ_iter = basic_block->successors().begin();
-  for (; succ_iter != basic_block->successors().end(); ++succ_iter) {
-    Block* block = NULL;
-    Offset offset = 0;
-    bool found = locations_.Find(&(*succ_iter), &block, &offset);
-    if (!found)
-      continue;  // This successor didn't generate any instructions.
-
-    // Note that for successors, the (block, offset) points directly to
-    // the location at which the target reference should live (as opposed
-    // to the start of the instruction sequence).
-    bool inserted = block->SetReference(
-        offset, locations_.Resolve(succ_iter->reference()));
-    DCHECK(inserted);
-  }
-}
-
-void MergeContext::TransferReferences(
-    const BasicBlockSubGraph* subgraph) const {
-  // Transfer references to and from the original source block to the
-  // corresponding new block.
-  BlockDescriptionConstIter bd_iter = subgraph->block_descriptions().begin();
-  for (; bd_iter != subgraph->block_descriptions().end(); ++bd_iter) {
-    const BlockDescription& description = *bd_iter;
-    const BasicBlockOrdering& basic_block_order = description.basic_block_order;
-
-    // Skip the block description if it's empty.
-    if (basic_block_order.empty())
-      continue;
-
-    BasicBlockOrderingConstIter bb_iter = basic_block_order.begin();
-    for (; bb_iter != basic_block_order.end(); ++bb_iter) {
-      const BasicBlock* basic_block = *bb_iter;
-      // All referrers are stored at the basic block level.
-      UpdateReferrers(basic_block);
-
-      // Either this is a basic code block, which stores all of its outbound
-      // references at the instruction and successor levels, or it's a basic
-      // data or padding block (which includes unreachable code) and stores
-      // all of its references at the basic block level.
-      if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK) {
-        DCHECK_EQ(0U, basic_block->references().size());
-        UpdateInstructionReferences(basic_block);
-        UpdateSuccessorReferences(basic_block);
-      } else {
-        UpdateReferences(basic_block, basic_block->references());
-      }
-    }
   }
 }
 
@@ -756,6 +831,154 @@ void MergeContext::RemoveOriginalBlock(BasicBlockSubGraph* subgraph) {
   original_block_ = NULL;
 }
 
+Size MergeContext::GetShortSuccessorSize(Successor::Condition condition) {
+  switch (condition) {
+    case Successor::kConditionAbove:
+    case Successor::kConditionAboveOrEqual:
+    case Successor::kConditionBelow:
+    case Successor::kConditionBelowOrEqual:
+    case Successor::kConditionEqual:
+    case Successor::kConditionGreater:
+    case Successor::kConditionGreaterOrEqual:
+    case Successor::kConditionLess:
+    case Successor::kConditionLessOrEqual:
+    case Successor::kConditionNotEqual:
+    case Successor::kConditionNotOverflow:
+    case Successor::kConditionNotParity:
+    case Successor::kConditionNotSigned:
+    case Successor::kConditionOverflow:
+    case Successor::kConditionParity:
+    case Successor::kConditionSigned:
+      // Translates to a conditional branch.
+      return core::AssemblerImpl::kShortBranchSize;
+
+    case Successor::kConditionTrue:
+      // Translates to a jump.
+      return core::AssemblerImpl::kShortJumpSize;
+
+    default:
+      NOTREACHED() << "Unsupported successor type.";
+      return 0;
+  }
+}
+
+Size MergeContext::GetLongSuccessorSize(Successor::Condition condition) {
+  switch (condition) {
+    case Successor::kConditionAbove:
+    case Successor::kConditionAboveOrEqual:
+    case Successor::kConditionBelow:
+    case Successor::kConditionBelowOrEqual:
+    case Successor::kConditionEqual:
+    case Successor::kConditionGreater:
+    case Successor::kConditionGreaterOrEqual:
+    case Successor::kConditionLess:
+    case Successor::kConditionLessOrEqual:
+    case Successor::kConditionNotEqual:
+    case Successor::kConditionNotOverflow:
+    case Successor::kConditionNotParity:
+    case Successor::kConditionNotSigned:
+    case Successor::kConditionOverflow:
+    case Successor::kConditionParity:
+    case Successor::kConditionSigned:
+      // Translates to a conditional branch.
+      return core::AssemblerImpl::kLongBranchSize;
+
+    case Successor::kConditionTrue:
+      // Translates to a jump.
+      return core::AssemblerImpl::kLongJumpSize;
+
+    default:
+      NOTREACHED() << "Unsupported successor type.";
+      return 0;
+  }
+}
+
+Size MergeContext::ComputeRequiredSuccessorSize(
+    const BasicBlockLayoutInfo& info,
+    Offset start_offset,
+    const SuccessorLayoutInfo& successor) {
+  switch (successor.reference.referred_type()) {
+    case BasicBlockReference::REFERRED_TYPE_BLOCK:
+      return GetLongSuccessorSize(successor.condition);
+
+    case BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK: {
+        Size short_size = GetShortSuccessorSize(successor.condition);
+        const BasicBlock* dest_bb = successor.reference.basic_block();
+        DCHECK(dest_bb != NULL);
+        const BasicBlockLayoutInfo& dest = FindLayoutInfo(dest_bb);
+
+        // If the destination is within the same destination block,
+        // let's see if we can use a short reach here.
+        if (info.block == dest.block) {
+          Offset destination_offset =
+              dest.start_offset - (start_offset + short_size);
+
+          // Are we in-bounds for a short reference?
+          if (destination_offset <= std::numeric_limits<int8>::max() &&
+              destination_offset >= std::numeric_limits<int8>::min()) {
+            return short_size;
+          }
+        }
+
+        return GetLongSuccessorSize(successor.condition);
+      }
+
+    default:
+      NOTREACHED() << "Impossible Successor reference type.";
+      return 0;
+  }
+}
+
+MergeContext::BasicBlockLayoutInfo& MergeContext::FindLayoutInfo(
+    const BasicBlock* bb) {
+  BasicBlockLayoutInfoMap::iterator it = layout_info_.find(bb);
+  DCHECK(it != layout_info_.end());
+  DCHECK_EQ(bb, it->second.basic_block);
+
+  return it->second;
+}
+
+const MergeContext::BasicBlockLayoutInfo& MergeContext::FindLayoutInfo(
+    const BasicBlock* bb) const {
+  BasicBlockLayoutInfoMap::const_iterator it = layout_info_.find(bb);
+  DCHECK(it != layout_info_.end());
+  DCHECK_EQ(bb, it->second.basic_block);
+
+  return it->second;
+}
+
+BlockGraph::Reference MergeContext::ResolveReference(
+    BlockGraph::ReferenceType type, Size size,
+    const BasicBlockReference& ref) const {
+  if (ref.referred_type() == BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK) {
+    // It's a basic block reference, we need to resolve it to a
+    // block reference.
+    const BasicBlockLayoutInfo& info = FindLayoutInfo(ref.basic_block());
+
+    // TODO(siggi): Is this the right thing to do by base?
+    //     Maybe we want the base relative to the start of the BB for
+    //     data blocks?
+    return BlockGraph::Reference(type,
+                                 size,
+                                 info.block,
+                                 info.start_offset,
+                                 info.start_offset);
+  } else {
+    DCHECK_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref.referred_type());
+
+    return BlockGraph::Reference(type,
+                                 size,
+                                 const_cast<Block*>(ref.block()),
+                                 ref.offset(),
+                                 ref.base());
+  }
+}
+
+BlockGraph::Reference MergeContext::ResolveReference(
+    const BasicBlockReference& ref) const {
+  return ResolveReference(ref.reference_type(), ref.size(), ref);
+}
+
 }  // namespace
 
 BlockBuilder::BlockBuilder(BlockGraph* bg) : block_graph_(bg) {
@@ -766,10 +989,10 @@ bool BlockBuilder::Merge(BasicBlockSubGraph* subgraph) {
 
   MergeContext context(block_graph_, subgraph->original_block());
 
-  if (!context.GenerateBlocks(subgraph))
+  if (!context.GenerateBlocks(*subgraph))
     return false;
 
-  context.TransferReferences(subgraph);
+  context.TransferReferrers(subgraph);
   context.RemoveOriginalBlock(subgraph);
 
   // Track the newly created blocks.
