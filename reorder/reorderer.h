@@ -55,6 +55,7 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   typedef std::vector<FilePath> TraceFileList;
 
   struct Order;
+  struct NewOrder;
   class OrderGenerator;
   class UniqueTime;
 
@@ -208,6 +209,110 @@ struct Reorderer::Order {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Order);
+};
+
+// An ordering consists of a series of section specications, where each
+// section specification describes the section (allowing it to be identified
+// in the original image or created it it does not already exist) and the
+// list of blocks that go into that section.
+//
+// Each block denotes the source block plus an optional ordered set of RVAs
+// falling within said block which denotes the basic blocks to include.
+//
+// TODO(rogerm): Flesh out support for synthesized blocks. In this scenario,
+//     the referenced source block would be NULL and the basic-blocks RVAs
+//     included in the synthesized block would be allowed to come from anywhere
+//     in the image.
+//
+// An order may be serialized to and from JSON, in the following format:
+//
+// {
+//   'metadata': {
+//     this contains toolchain information, command-line info, etc
+//   },
+//   'sections': [
+//     {
+//       "section_id": 1,
+//       "section_name": ".foo",
+//       "section_characteristics": 11111.
+//       "blocks": [
+//         22222,  # Use this block in it's entirety.
+//         33333,  # Ditto.
+//         [ 44444, [ 44444, 44448, .... ]],  // Use selected basic-blocks.
+//         ...
+//       ]
+//     },
+//     ...
+//   ]
+// }
+struct Reorderer::NewOrder {
+  // A type denoting a collection of RVAs.
+  typedef std::vector<core::RelativeAddress> RvaVector;
+
+  // The structure describing a block in the ordering.
+  struct BlockSpec {
+    // The source block.
+    const BlockGraph::Block* block;
+    // The start RVAs of the basic-blocks to include when placing this block
+    // in the reordered image.
+    RvaVector basic_block_rvas;
+  };
+
+  // A type denoting an ordered collection of BlockSpec objects.
+  typedef std::vector<BlockSpec> BlockSpecVector;
+
+  // The structure describing a section in the ordering.
+  struct SectionSpec {
+    // The id of the section this corresponds to in the original image, or -1.
+    // TODO(rogerm): This isn't really necessary. Given the name and
+    //     characteristics, the section can be resolved in the image image
+    //     without the id.
+    size_t id;
+
+    // The name this section should have in the final image.
+    std::string name;
+
+    // The characteristics this section should have in the final image.
+    // If there exists a section with a matching name/id in the original
+    // image, the characteristics must match.
+    DWORD characteristics;
+
+    // The ordered collection of blocks in this section.
+    BlockSpecVector blocks;
+  };
+
+  typedef std::vector<SectionSpec> SectionSpecVector;
+
+  // A comment describing the ordering.
+  std::string comment;
+
+  // The ordered collection of sections specifications.
+  SectionSpecVector sections;
+
+  // Serializes the order to JSON. Returns true on success, false otherwise.
+  // The serialization simply consists of the start addresses of each block
+  // in a JSON list. Pretty-printing adds further information from the
+  // BlockGraph via inline comments.
+  // @{
+  bool SerializeToJSON(const PEFile& pe,
+                       const FilePath& path,
+                       bool pretty_print) const;
+  bool SerializeToJSON(const PEFile& pe,
+                       core::JSONFileWriter* json_file) const;
+  // @}
+
+  // Loads an ordering from a JSON file. 'pe' and 'image' must already be
+  // populated prior to calling this.
+  bool LoadFromJSON(const PEFile& pe,
+                    const ImageLayout& image,
+                    const FilePath& path);
+
+  // Extracts the name of the original module from an order file. This is
+  // used to guess the value of --input-image.
+  static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(NewOrder);
 };
 
 // The actual class that does the work, an order generator. It receives
