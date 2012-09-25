@@ -177,6 +177,12 @@ BasicBlockAssembler::BasicBlockAssembler(const Instructions::iterator& where,
     : serializer_(where, list), asm_(0, &serializer_) {
 }
 
+BasicBlockAssembler::BasicBlockAssembler(uint32 location,
+                                         const Instructions::iterator& where,
+                                         Instructions* list)
+    : serializer_(where, list), asm_(location, &serializer_) {
+}
+
 void BasicBlockAssembler::call(const Immediate& dst) {
   asm_.call(dst.value_);
 }

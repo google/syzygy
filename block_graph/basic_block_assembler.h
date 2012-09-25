@@ -148,6 +148,12 @@ class BasicBlockAssembler {
   BasicBlockAssembler(const Instructions::iterator& where,
                       Instructions *list);
 
+  // Constructs a basic block assembler that inserts new instructions into
+  // @p *list at @p where, assuming a starting address of @p location.
+  BasicBlockAssembler(uint32 location,
+                      const Instructions::iterator& where,
+                      Instructions *list);
+
   // @name Call instructions.
   // @{
   void call(const Immediate& dst);
