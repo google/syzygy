@@ -31,6 +31,7 @@
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
     {
