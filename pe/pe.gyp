@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -145,6 +145,7 @@
       ],
       'dependencies': [
         'pe_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
     {

@@ -44,6 +44,7 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/common/common.gyp:common',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
     {
