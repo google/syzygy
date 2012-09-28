@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,7 +62,11 @@
     {
       'target_name': 'block_graph_unittest_lib',
       'type': 'static_library',
+      'includes': ['../build/masm.gypi'],
       'sources': [
+        'basic_block_assembly_func.asm',
+        'basic_block_test_util.cc',
+        'basic_block_test_util.h',
         'unittest_util.cc',
         'unittest_util.h',
       ],
@@ -71,15 +75,14 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
     },
     {
       'target_name': 'block_graph_unittests',
       'type': 'executable',
-      'includes': ['../build/masm.gypi'],
       'sources': [
         'basic_block_assembler_unittest.cc',
-        'basic_block_assembly_func.asm',
         'basic_block_decomposer_unittest.cc',
         'basic_block_unittest.cc',
         'basic_block_subgraph_unittest.cc',
