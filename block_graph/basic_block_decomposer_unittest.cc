@@ -46,7 +46,6 @@ using testing::_;
 using testing::BasicBlockTest;
 using testing::Return;
 
-typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
 typedef BlockGraph::Block Block;
 typedef BlockGraph::Offset Offset;
 typedef BlockGraph::Reference Reference;
@@ -90,7 +89,6 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Ensure we have the expected number and types of blocks.
   ASSERT_EQ(kNumBasicBlocks, subgraph_.basic_blocks().size());
-  ASSERT_EQ(kNumBasicBlocks, subgraph_.original_address_space().size());
   ASSERT_EQ(kNumCodeBasicBlocks,
             CountBasicBlocks(subgraph_, BasicBlock::BASIC_CODE_BLOCK));
   ASSERT_EQ(kNumDataBasicBlocks,

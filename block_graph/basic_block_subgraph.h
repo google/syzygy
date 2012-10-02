@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,7 +67,6 @@ class BasicBlockSubGraph {
 
   typedef std::list<BlockDescription> BlockDescriptionList;
   typedef std::map<BasicBlock::BlockId, BasicBlock> BBCollection;
-  typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
   typedef std::map<const BasicBlock*, bool> ReachabilityMap;
 
   // Initialize a basic block sub-graph.
@@ -79,10 +78,6 @@ class BasicBlockSubGraph {
   const Block* original_block() const { return original_block_; }
   const BBCollection& basic_blocks() const { return  basic_blocks_; }
   BBCollection& basic_blocks() { return  basic_blocks_; }
-  const BBAddressSpace& original_address_space() const {
-    return original_address_space_;
-  }
-  BBAddressSpace& original_address_space() { return original_address_space_; }
   const BlockDescriptionList& block_descriptions() const {
     return block_descriptions_;
   }
@@ -130,25 +125,6 @@ class BasicBlockSubGraph {
   //    for in the new composition.
   bool IsValid() const;
 
-  // Find the basic block, and corresponding byte-range, that contains the
-  // given offset.
-  // @param offset the starting offset you with the returned basic-block/range
-  //     to contain.
-  // @param basic_block the basic-block containing @p offset.
-  // @param range the byte-range in which @p basic_offset resides, which
-  //     contains @p offset.
-  bool FindBasicBlock(Offset offset,
-                      BasicBlock** basic_block,
-                      BBAddressSpace::Range* range) const;
-
-  // Find the basic block that begins at the given offset.
-  // @param offset The starting offset of the basic block you want to find.
-  // @pre The basic block subgraph is derived from an original block (and
-  //     thus has an address space) and has been broken down into all of its
-  //     constituent basic blocks (i.e., post disassembly and basic-block
-  //     splitting).
-  BasicBlock* GetBasicBlockAt(Offset offset) const;
-
   // Traverses the basic-block subgraph and computes the reachability of all
   // basic-blocks starting from the entry-point.
   void GetReachabilityMap(ReachabilityMap* rm) const;
@@ -172,11 +148,6 @@ class BasicBlockSubGraph {
   // created during the initial decomposition process, as well as any additional
   // basic-blocks synthesized thereafter.
   BBCollection basic_blocks_;
-
-  // The breakdown and layout of the original block into basic blocks. This
-  // may reference only a subset of the blocks in basic_blocks_;
-  // TODO(rogerm): Move this to the BasicBlockDecomposer.
-  BBAddressSpace original_address_space_;
 
   // A list of block descriptions for the blocks that are to be created from
   // this basic block sub-graph.

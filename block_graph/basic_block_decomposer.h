@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,6 +103,27 @@ class BasicBlockDecomposer : public core::Disassembler {
   bool Decompose();
 
  protected:
+  typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
+
+  // Find the basic block, and corresponding byte-range, that contains the
+  // given offset.
+  // @param offset the starting offset you with the returned basic-block/range
+  //     to contain.
+  // @param basic_block the basic-block containing @p offset.
+  // @param range the byte-range in which @p basic_offset resides, which
+  //     contains @p offset.
+  bool FindBasicBlock(Offset offset,
+                      BasicBlock** basic_block,
+                      BBAddressSpace::Range* range) const;
+
+  // Find the basic block that begins at the given offset.
+  // @param offset The starting offset of the basic block you want to find.
+  // @pre The basic block subgraph is derived from an original block (and
+  //     thus has an address space) and has been broken down into all of its
+  //     constituent basic blocks (i.e., post disassembly and basic-block
+  //     splitting).
+  BasicBlock* GetBasicBlockAt(Offset offset) const;
+
   // Set up the queue of addresses to disassemble from as well as the set of
   // internal jump targets. Called from the constructors.
   void InitUnvisitedAndJumpTargets();
@@ -187,6 +208,9 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // The basic-block sub-graph to which the block will be decomposed.
   BasicBlockSubGraph* subgraph_;
+
+  // The layout of the original block into basic blocks in subgraph_.
+  BBAddressSpace original_address_space_;
 
   // Tracks locations our conditional branches jump to. Used to fix up basic
   // blocks by breaking up those that have a jump target in the middle.

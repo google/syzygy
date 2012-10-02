@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
       "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
 
-  // Cannot add one that overlaps.
+  // Can add one that overlaps.
   BasicBlock* bb2 = subgraph.AddBasicBlock(
       "bb2", BasicBlock::BASIC_CODE_BLOCK, kDataSize / 2, kDataSize, kData);
-  ASSERT_TRUE(bb2 == NULL);
+  ASSERT_FALSE(bb2 == NULL);
 
   // But can add one that doesn't overlap.
   BasicBlock* bb3 = subgraph.AddBasicBlock(

@@ -72,8 +72,6 @@ block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
     const uint8* data) {
   DCHECK(!name.empty());
 
-  typedef BBAddressSpace::Range Range;
-
   std::pair<BBCollection::iterator, bool> insert_result =
       basic_blocks_.insert(std::make_pair(
           next_basic_block_id_,
@@ -81,16 +79,6 @@ block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
   DCHECK(insert_result.second);
 
   block_graph::BasicBlock* new_basic_block = &insert_result.first->second;
-
-  if (offset >= 0) {
-    DCHECK(original_block_ != NULL);
-    BBAddressSpace::Range byte_range(offset, size);
-    if (!original_address_space_.Insert(byte_range, new_basic_block)) {
-      LOG(ERROR) << "Attempted to insert overlapping basic block.";
-      basic_blocks_.erase(insert_result.first);  // Undo bb insertion.
-      return NULL;
-    }
-  }
 
   ++next_basic_block_id_;
 
@@ -102,41 +90,6 @@ bool BasicBlockSubGraph::IsValid() const {
       HasValidSuccessors() &&
       HasValidReferrers();
 }
-
-bool BasicBlockSubGraph::FindBasicBlock(Offset offset,
-                                        BasicBlock** basic_block,
-                                        BBAddressSpace::Range* range) const {
-  DCHECK_LE(0, offset);
-  DCHECK(basic_block != NULL);
-  DCHECK(range != NULL);
-  DCHECK(original_block_ != NULL);
-  DCHECK_GT(original_block_->size(), static_cast<size_t>(offset));
-
-  BBAddressSpace::RangeMapConstIter bb_iter =
-      original_address_space_.FindFirstIntersection(
-          BBAddressSpace::Range(offset, 1));
-
-  if (bb_iter == original_address_space_.end())
-    return false;
-
-  *basic_block = bb_iter->second;
-  *range = bb_iter->first;
-  return true;
-}
-
-BasicBlock* BasicBlockSubGraph::GetBasicBlockAt(Offset offset) const {
-  DCHECK_LE(0, offset);
-  DCHECK(original_block_ != NULL);
-  DCHECK_GT(original_block_->size(), static_cast<size_t>(offset));
-
-  BasicBlock* bb = NULL;
-  BBAddressSpace::Range range;
-  CHECK(FindBasicBlock(offset, &bb, &range));
-  DCHECK(bb != NULL);
-  DCHECK_EQ(offset, range.start());
-  return bb;
-}
-
 
 bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {
   std::set<BasicBlock*> bb_set;

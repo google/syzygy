@@ -50,7 +50,7 @@ using core::Disassembler;
 typedef BlockGraph::Block Block;
 typedef BlockGraph::Offset Offset;
 typedef BlockGraph::Size Size;
-typedef BasicBlockSubGraph::BBAddressSpace BBAddressSpace;
+typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
 typedef BBAddressSpace::Range Range;
 typedef BBAddressSpace::RangeMap RangeMap;
 typedef BBAddressSpace::RangeMapConstIter RangeMapConstIter;
@@ -130,7 +130,7 @@ BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
 bool BasicBlockDecomposer::Decompose() {
   DCHECK(subgraph_->basic_blocks().empty());
   DCHECK(subgraph_->block_descriptions().empty());
-  DCHECK(subgraph_->original_address_space().empty());
+  DCHECK(original_address_space_.empty());
   subgraph_->set_original_block(block_);
 
   InitUnvisitedAndJumpTargets();
@@ -151,14 +151,47 @@ bool BasicBlockDecomposer::Decompose() {
   desc.section = block_->section();
 
   Offset offset = 0;
-  RangeMapConstIter it = subgraph_->original_address_space().begin();
-  for (; it != subgraph_->original_address_space().end(); ++it) {
+  RangeMapConstIter it = original_address_space_.begin();
+  for (; it != original_address_space_.end(); ++it) {
     DCHECK_EQ(it->first.start(), offset);
     desc.basic_block_order.push_back(it->second);
     offset += it->first.size();
   }
 
   return true;
+}
+
+bool BasicBlockDecomposer::FindBasicBlock(Offset offset,
+                                          BasicBlock** basic_block,
+                                          Range* range) const {
+  DCHECK_LE(0, offset);
+  DCHECK(basic_block != NULL);
+  DCHECK(range != NULL);
+  DCHECK(subgraph_->original_block() != NULL);
+  DCHECK_GT(subgraph_->original_block()->size(), static_cast<size_t>(offset));
+
+  RangeMapConstIter bb_iter =
+      original_address_space_.FindFirstIntersection(Range(offset, 1));
+
+  if (bb_iter == original_address_space_.end())
+    return false;
+
+  *basic_block = bb_iter->second;
+  *range = bb_iter->first;
+  return true;
+}
+
+BasicBlock* BasicBlockDecomposer::GetBasicBlockAt(Offset offset) const {
+  DCHECK_LE(0, offset);
+  DCHECK(subgraph_->original_block() != NULL);
+  DCHECK_GT(subgraph_->original_block()->size(), static_cast<size_t>(offset));
+
+  BasicBlock* bb = NULL;
+  Range range;
+  CHECK(FindBasicBlock(offset, &bb, &range));
+  DCHECK(bb != NULL);
+  DCHECK_EQ(offset, range.start());
+  return bb;
 }
 
 void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
@@ -453,7 +486,7 @@ void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
   AddressSet::const_iterator addr_iter(jump_targets_.begin());
   for (; addr_iter != jump_targets_.end(); ++addr_iter) {
     // The target basic-block should be a code basic-block.
-    BasicBlock* target_bb = subgraph_->GetBasicBlockAt(*addr_iter - code_addr_);
+    BasicBlock* target_bb = GetBasicBlockAt(*addr_iter - code_addr_);
     CHECK(target_bb != NULL);
     CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb->type());
   }
@@ -463,13 +496,10 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
   if (!check_decomposition_results_)
     return;
 
-  const BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
-
   // Walk through the basic-block address space.
   Offset next_start = 0;
-  RangeMapConstIter it(basic_block_address_space.begin());
-  for (; it != basic_block_address_space.end(); ++it) {
+  RangeMapConstIter it(original_address_space_.begin());
+  for (; it != original_address_space_.end(); ++it) {
     CHECK_EQ(it->first.start(), next_start);
     CHECK_EQ(it->first.size(), it->second->size());
     next_start += it->first.size();
@@ -490,8 +520,8 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
 
   // The only thing left to check is that synthesized flow-through
   // successors refer to the adjacent basic-blocks.
-  RangeMapConstIter it(subgraph_->original_address_space().begin());
-  for (; it != subgraph_->original_address_space().end(); ++it) {
+  RangeMapConstIter it(original_address_space_.begin());
+  for (; it != original_address_space_.end(); ++it) {
     const BasicBlock* bb = it->second;
     if (bb->type() != BasicBlock::BASIC_CODE_BLOCK)
       continue;
@@ -510,7 +540,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
         if (successors.back().instruction_offset() == -1) {
           RangeMapConstIter next(it);
           ++next;
-          CHECK(next != subgraph_->original_address_space().end());
+          CHECK(next != original_address_space_.end());
           CHECK_EQ(successors.back().reference().basic_block(), next->second);
         }
         break;
@@ -527,7 +557,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
             front_synthesized ? successors.front() : successors.back();
         RangeMapConstIter next(it);
         ++next;
-        CHECK(next != subgraph_->original_address_space().end());
+        CHECK(next != original_address_space_.end());
         CHECK_EQ(synthesized.reference().basic_block(), next->second);
         break;
       }
@@ -633,11 +663,22 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
                            BasicBlock::BasicBlockTypeToString(type));
   }
 
+  // Pre-flight address space insertion to make sure there's no
+  // pre-existing conflicting range.
+  Range byte_range(offset, size);
+  if (original_address_space_.FindFirstIntersection(byte_range) !=
+          original_address_space_.end()) {
+    LOG(ERROR) << "Attempted to insert overlapping basic block.";
+    return false;
+  }
+
   // Create the basic block.
   BasicBlock* new_basic_block = subgraph_->AddBasicBlock(
       basic_block_name, type, offset, size, code_ + offset);
   if (new_basic_block == NULL)
     return false;
+
+  CHECK(original_address_space_.Insert(byte_range, new_basic_block));
 
   // Code basic-blocks carry their labels in their instructions and successors.
   // Data basic-blocks carry their labels at the head of the basic blocks.
@@ -668,9 +709,8 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
     // Resolve the target basic-block.
     Offset target_offset = *jump_target_iter - code_addr_;
     BasicBlock* target_bb = NULL;
-    BBAddressSpace::Range target_bb_range;
-    CHECK(subgraph_->FindBasicBlock(target_offset, &target_bb,
-                                    &target_bb_range));
+    Range target_bb_range;
+    CHECK(FindBasicBlock(target_offset, &target_bb, &target_bb_range));
 
     // If we're jumping to the start of a basic block, there isn't any work
     // to do.
@@ -683,7 +723,7 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
     // blocks split at the target offset.
     size_t left_split_size = target_offset - target_bb_range.start();
     BasicBlock target_bb_copy(*target_bb);
-    subgraph_->original_address_space().Remove(target_bb_range);
+    original_address_space_.Remove(target_bb_range);
     subgraph_->basic_blocks().erase(target_bb->id());
     target_bb = &target_bb_copy;
 
@@ -761,12 +801,9 @@ bool BasicBlockDecomposer::FillInDataBlocks() {
 }
 
 bool BasicBlockDecomposer::FillInPaddingBlocks() {
-  BBAddressSpace& basic_block_address_space =
-      subgraph_->original_address_space();
-
   // Add an initial interstitial if needed.
-  size_t interstitial_size = basic_block_address_space.empty() ?
-      code_size_ : basic_block_address_space.begin()->first.start();
+  size_t interstitial_size = original_address_space_.empty() ?
+      code_size_ : original_address_space_.begin()->first.start();
   DCHECK_LE(0U, interstitial_size);
   if (interstitial_size > 0) {
     if (!InsertBasicBlockRange(code_addr_,
@@ -778,15 +815,15 @@ bool BasicBlockDecomposer::FillInPaddingBlocks() {
   }
 
   // Handle all remaining gaps, including the end.
-  RangeMapConstIter curr_range = basic_block_address_space.begin();
-  for (; curr_range != basic_block_address_space.end(); ++curr_range) {
+  RangeMapConstIter curr_range = original_address_space_.begin();
+  for (; curr_range != original_address_space_.end(); ++curr_range) {
     RangeMapConstIter next_range = curr_range;
     ++next_range;
     AbsoluteAddress curr_range_end =
         code_addr_ + curr_range->first.start() + curr_range->first.size();
 
     interstitial_size = 0;
-    if (next_range == basic_block_address_space.end()) {
+    if (next_range == original_address_space_.end()) {
       DCHECK_LE(curr_range_end, code_addr_ + code_size_);
       interstitial_size = code_addr_ + code_size_ - curr_range_end;
     } else {
@@ -829,7 +866,7 @@ bool BasicBlockDecomposer::CopyExternalReferrers() {
 
     // Find the basic block the reference refers to. It can only have an
     // offset that's different from the base if it's not a code block.
-    BasicBlock* target_bb = subgraph_->GetBasicBlockAt(reference.base());
+    BasicBlock* target_bb = GetBasicBlockAt(reference.base());
     DCHECK(target_bb != NULL);
     DCHECK(reference.base() == reference.offset() ||
            target_bb->type() != BasicBlock::BASIC_CODE_BLOCK);
@@ -880,7 +917,7 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
     } else {
       // For intra block_ references, find the corresponding basic block in
       // the basic block address space.
-      BasicBlock* target_bb = subgraph_->GetBasicBlockAt(reference.base());
+      BasicBlock* target_bb = GetBasicBlockAt(reference.base());
       DCHECK(target_bb != NULL);
 
       // Create target basic-block relative values for the base and offset.
@@ -941,8 +978,7 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
       }
 
       // Find the basic block the successor references.
-      BasicBlock* target_bb =
-          subgraph_->GetBasicBlockAt(succ_iter->bb_target_offset());
+      BasicBlock* target_bb = GetBasicBlockAt(succ_iter->bb_target_offset());
       DCHECK(target_bb != NULL);
 
       // We transform all successor branches into 4-byte pc-relative targets.
