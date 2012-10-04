@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,9 +38,9 @@ class DeadCodeFinderTest : public testing::OrderGeneratorTest {
 
 TEST_F(DeadCodeFinderTest, TestDLL) {
   const size_t kNumBlocks = 20;
-
+  const char kSectionName[] = ".text";
   // Get the .text code section.
-  size_t section_index = input_dll_.GetSectionIndex(".text");
+  size_t section_index = input_dll_.GetSectionIndex(kSectionName);
   const IMAGE_SECTION_HEADER* section =
       input_dll_.section_header(section_index);
   ASSERT_TRUE(section != NULL);
@@ -79,7 +79,7 @@ TEST_F(DeadCodeFinderTest, TestDLL) {
   dead_code_finder_.OnProcessEnded(1, GetSystemTime());
 
   // Do the reordering.
-  EXPECT_TRUE(dead_code_finder_.CalculateReordering(input_dll_,
+  ASSERT_TRUE(dead_code_finder_.CalculateReordering(input_dll_,
                                                     image_layout_,
                                                     true,
                                                     false,
@@ -100,13 +100,21 @@ TEST_F(DeadCodeFinderTest, TestDLL) {
   }
 
   // Check the ordering.
-  ASSERT_TRUE(order_.section_block_lists.size() == 1);
-  ASSERT_TRUE(order_.section_block_lists[0].size() >= dead_blocks_.size());
-  typedef Reorderer::Order::BlockList BlockList;
-  BlockList::iterator iter = order_.section_block_lists[0].begin();
-  for (; iter != order_.section_block_lists[0].end(); ++iter) {
-    ASSERT_TRUE(dead_code_finder_.IsDead(*iter));
-    ASSERT_TRUE(live_blocks_.find(*iter) == live_blocks_.end());
+  ASSERT_EQ(image_layout_.sections.size(), order_.sections.size());
+  for (size_t i = 0; i < order_.sections.size(); ++i) {
+    EXPECT_EQ(image_layout_.sections[i].name, order_.sections[i].name);
+    EXPECT_EQ(image_layout_.sections[i].characteristics,
+              order_.sections[i].characteristics);
+    if (i != section_index)
+      continue;
+    ASSERT_EQ(kSectionName, order_.sections[i].name);
+    EXPECT_GE(order_.sections[i].blocks.size(), dead_blocks_.size());
+    Reorderer::Order::BlockSpecVector::const_iterator it =
+        order_.sections[0].blocks.begin();
+    for (; it != order_.sections[0].blocks.end(); ++it) {
+      EXPECT_TRUE(dead_code_finder_.IsDead(it->block));
+      EXPECT_TRUE(live_blocks_.find(it->block) == live_blocks_.end());
+    }
   }
 }
 

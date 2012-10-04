@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,8 +48,14 @@ bool DeadCodeFinder::CalculateReordering(const PEFile& pe_file,
                                          Order* order) {
   DCHECK(order != NULL);
 
+  order->comment = "Unvisited blocks per section";
+  order->sections.clear();
+  order->sections.resize(image.sections.size());
   for (size_t i = 0; i < image.sections.size(); ++i) {
     const ImageLayout::SectionInfo& section = image.sections[i];
+    order->sections[i].id = i;
+    order->sections[i].name = section.name;
+    order->sections[i].characteristics = section.characteristics;
     if ((section.characteristics & IMAGE_SCN_CNT_CODE) == 0)
       continue;
 
@@ -62,11 +68,11 @@ bool DeadCodeFinder::CalculateReordering(const PEFile& pe_file,
     // Gather up all unvisited blocks within the section in the "order".
     AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
     const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
-    Order::BlockList& block_list = order->section_block_lists[i];
+    Order::BlockSpecVector& block_vector = order->sections[i].blocks;
     for (; section_it != section_end; ++section_it) {
       const BlockGraph::Block* block = section_it->second;
       if (IsDead(block)) {
-        block_list.push_back(block);
+        block_vector.push_back(Order::BlockSpec(block));
       }
     }
   }

@@ -55,7 +55,6 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   typedef std::vector<FilePath> TraceFileList;
 
   struct Order;
-  struct NewOrder;
   class OrderGenerator;
   class UniqueTime;
 
@@ -131,7 +130,7 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   // A playback, which will decompose the image for us.
   Playback playback_;
 
-  // A set of flags controlling the reorderer behaviour.
+  // A set of flags controlling the reorderer's behaviour.
   Flags flags_;
 
   // Number of CodeBlockEntry events processed.
@@ -157,61 +156,7 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   DISALLOW_COPY_AND_ASSIGN(Reorderer);
 };
 
-// Stores order information. An order may be serialized to and from JSON,
-// in the following format:
-//
-// {
-//   'metadata': {
-//     this contains toolchain information, command-line info, etc
-//   },
-//   'sections': {
-//     'section_id': <INTEGER SECTION ID>,
-//     'blocks': [
-//       list of integer block addresses
-//     ]
-//   ]
-// }
-struct Reorderer::Order {
-  Order() {}
-
-  // A comment describing the ordering.
-  std::string comment;
-
-  // An ordering of blocks. This list need not be exhaustive, but each
-  // block should only appear once within it. We currently constrain ourselves
-  // to keep blocks in the same section from which they originate. Thus, we
-  // separate the order information per section, with the section IDs coming
-  // from the ImageLayout of the original module.
-  // TODO(rogerm): Fix the BlockList references to refer to ConstBlockVector.
-  typedef block_graph::ConstBlockVector BlockList;
-  typedef std::map<size_t, BlockList> BlockListMap;
-  BlockListMap section_block_lists;
-
-  // Serializes the order to JSON. Returns true on success, false otherwise.
-  // The serialization simply consists of the start addresses of each block
-  // in a JSON list. Pretty-printing adds further information from the
-  // BlockGraph via inline comments.
-  bool SerializeToJSON(const PEFile& pe,
-                       const FilePath& path,
-                       bool pretty_print) const;
-  bool SerializeToJSON(const PEFile& pe,
-                       core::JSONFileWriter* json_file) const;
-
-  // Loads an ordering from a JSON file. 'pe' and 'image' must already be
-  // populated prior to calling this.
-  bool LoadFromJSON(const PEFile& pe,
-                    const ImageLayout& image,
-                    const FilePath& path);
-
-  // Extracts the name of the original module from an order file. This is
-  // used to guess the value of --input-image.
-  static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(Order);
-};
-
-// An ordering consists of a series of section specications, where each
+// An ordering consists of a series of section specifications, where each
 // section specification describes the section (allowing it to be identified
 // in the original image or created it it does not already exist) and the
 // list of blocks that go into that section.
@@ -228,13 +173,13 @@ struct Reorderer::Order {
 //
 // {
 //   'metadata': {
-//     this contains toolchain information, command-line info, etc
+//     // This contains tool-chain information, command-line info, etc.
 //   },
 //   'sections': [
 //     {
-//       "section_id": 1,
-//       "section_name": ".foo",
-//       "section_characteristics": 11111.
+//       "id": 1,
+//       "name": ".foo",
+//       "characteristics": 11111,
 //       "blocks": [
 //         22222,  # Use this block in it's entirety.
 //         33333,  # Ditto.
@@ -245,17 +190,30 @@ struct Reorderer::Order {
 //     ...
 //   ]
 // }
-struct Reorderer::NewOrder {
-  // A type denoting a collection of RVAs.
-  typedef std::vector<core::RelativeAddress> RvaVector;
+//
+// A section may be given either by its id (zero-based index) in the original
+// image layout and/or by name and characteristics. If given by id, the name
+// and characteristics are optional. These values will be populated from the
+// corresponding section in the original image. If the name and characteristics
+// are also specified in addition to the id, they will over-ride the values in
+// the original image. If the id is not specified, then name and characteristics
+// are required and denote a newly created section.
+struct Reorderer::Order {
+  typedef BlockGraph::Block Block;
+  typedef BlockGraph::Offset Offset;
+  typedef std::vector<Offset> OffsetVector;
 
   // The structure describing a block in the ordering.
   struct BlockSpec {
+    BlockSpec() : block(NULL) {}
+    explicit BlockSpec(const Block* b) : block(b) { DCHECK(b != NULL); }
+
     // The source block.
-    const BlockGraph::Block* block;
-    // The start RVAs of the basic-blocks to include when placing this block
+    const Block* block;
+
+    // The offsets of block's basic-blocks to include when placing this block
     // in the reordered image.
-    RvaVector basic_block_rvas;
+    OffsetVector basic_block_offsets;
   };
 
   // A type denoting an ordered collection of BlockSpec objects.
@@ -263,30 +221,50 @@ struct Reorderer::NewOrder {
 
   // The structure describing a section in the ordering.
   struct SectionSpec {
-    // The id of the section this corresponds to in the original image, or -1.
-    // TODO(rogerm): This isn't really necessary. Given the name and
-    //     characteristics, the section can be resolved in the image image
-    //     without the id.
-    size_t id;
+    SectionSpec() : id(kNewSectionId), characteristics(0) {
+    }
 
-    // The name this section should have in the final image.
+    // A sentinel section id denoting that a new section should be created.
+    static const BlockGraph::SectionId kNewSectionId;
+
+    // Section ID. If this is kNewSectionId then this specification describes a
+    // new section to be added to the image. Otherwise, it refers to an existing
+    // section in the original image. If this is not explicitly specified in the
+    // JSON file, it defaults to kNewSectionId.
+    BlockGraph::SectionId id;
+
+    // The name this section should have in the final image. If id refers to
+    // an existing section and the name does not match, then the section will
+    // be renamed. If this is not explicitly set in the JSON file then the the
+    // ID must be specified and this well be populated with the section name of
+    // the original section in the the original image layout.
     std::string name;
 
-    // The characteristics this section should have in the final image.
-    // If there exists a section with a matching name/id in the original
-    // image, the characteristics must match.
+    // The characteristics this section should have in the final image. If id
+    // refers to an existing section and the characteristics do not match, then
+    // they will be changed. If this is not explicitly set in the JSON file then
+    // the id must be specified and this will be populated with the section
+    // characteristics of the original section in in the original image layout.
     DWORD characteristics;
 
     // The ordered collection of blocks in this section.
     BlockSpecVector blocks;
   };
 
+  // An ordered collection of section specifications. The order in which the
+  // section specifications occur in the collection will be the order in
+  // which the orderer will attempt to construct the output image. Note that
+  // not all orders may be valid. Each orderer is free to define whether or
+  // not it will honor the section ordering on a best-effort basis, or will
+  // reject outright an invalid ordering.
   typedef std::vector<SectionSpec> SectionSpecVector;
+
+  Order() {}
 
   // A comment describing the ordering.
   std::string comment;
 
-  // The ordered collection of sections specifications.
+  // The ordered collection of section specifications.
   SectionSpecVector sections;
 
   // Serializes the order to JSON. Returns true on success, false otherwise.
@@ -301,8 +279,8 @@ struct Reorderer::NewOrder {
                        core::JSONFileWriter* json_file) const;
   // @}
 
-  // Loads an ordering from a JSON file. 'pe' and 'image' must already be
-  // populated prior to calling this.
+  // Loads an ordering from a JSON file.
+  // @note @p pe and @p image must already be populated prior to calling this.
   bool LoadFromJSON(const PEFile& pe,
                     const ImageLayout& image,
                     const FilePath& path);
@@ -312,7 +290,7 @@ struct Reorderer::NewOrder {
   static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(NewOrder);
+  DISALLOW_COPY_AND_ASSIGN(Order);
 };
 
 // The actual class that does the work, an order generator. It receives

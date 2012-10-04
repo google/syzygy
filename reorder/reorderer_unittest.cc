@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,22 +19,30 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/reorder/order_generator_test.h"
 #include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/parse/parser.h"
 
 namespace reorder {
 
+namespace {
+
 using block_graph::BlockGraph;
 using block_graph::ConstBlockVector;
 using testing::_;
+using testing::BlockSpecsAreEqual;
 using testing::DoAll;
 using testing::InSequence;
 using testing::InvokeWithoutArgs;
+using testing::OrdersAreEqual;
 using testing::Return;
+using testing::SectionSpecsAreEqual;
 using trace::parser::ParseEngine;
 using trace::parser::Parser;
 
-namespace {
+typedef Reorderer::Order::BlockSpec BlockSpec;
+typedef Reorderer::Order::SectionSpec SectionSpec;
+typedef Reorderer::Order::SectionSpecVector SectionSpecVector;
 
 // A wrapper for Reorderer giving us access to some of its internals.
 class TestReorderer : public Reorderer {
@@ -391,6 +399,75 @@ TEST_F(ReordererTest, Reorder) {
             test_order_generator.blocks);
 }
 
+TEST(OrderTest, OrderConstructor) {
+  Reorderer::Order order;
+  EXPECT_TRUE(order.sections.empty());
+  EXPECT_TRUE(order.comment.empty());
+}
+
+TEST(OrderTest, SectionSpecConstructorsAndCopies) {
+  // Create default constructed section spec.
+  Reorderer::Order::SectionSpec default_section_spec;
+  EXPECT_EQ(Reorderer::Order::SectionSpec::kNewSectionId,
+            default_section_spec.id);
+  EXPECT_TRUE(default_section_spec.name.empty());
+  EXPECT_EQ(0U, default_section_spec.characteristics);
+  EXPECT_TRUE(default_section_spec.blocks.empty());
+
+  // Create a customized section spec.
+  Reorderer::Order::SectionSpec other_section_spec;
+  EXPECT_TRUE(SectionSpecsAreEqual(default_section_spec, other_section_spec));
+  other_section_spec.id = 7;
+  other_section_spec.characteristics = 19;
+  other_section_spec.name = "other";
+  EXPECT_FALSE(SectionSpecsAreEqual(default_section_spec, other_section_spec));
+
+  // Copy construct a section spec.
+  Reorderer::Order::SectionSpec copied_section_spec(other_section_spec);
+  EXPECT_TRUE(SectionSpecsAreEqual(other_section_spec, copied_section_spec));
+  EXPECT_FALSE(SectionSpecsAreEqual(copied_section_spec, default_section_spec));
+
+  // Assign to the default section spec.
+  default_section_spec = other_section_spec;
+  EXPECT_TRUE(SectionSpecsAreEqual(copied_section_spec, default_section_spec));
+}
+
+TEST(OrderTest, BlockSpecConstructorsAndCopier) {
+  static const BlockGraph::Block* kFauxBlockPtr =
+      reinterpret_cast<BlockGraph::Block*>(0xCCCCCCCC);
+
+  // Default construct a block spec.
+  Reorderer::Order::BlockSpec default_block_spec;
+  EXPECT_EQ(NULL, default_block_spec.block);
+  EXPECT_TRUE(default_block_spec.basic_block_offsets.empty());
+
+  // Explicitly construct a block spec.
+  Reorderer::Order::BlockSpec explicit_block_spec(kFauxBlockPtr);
+  EXPECT_EQ(kFauxBlockPtr, explicit_block_spec.block);
+  EXPECT_TRUE(explicit_block_spec.basic_block_offsets.empty());
+
+  // Default construct another block spec.
+  Reorderer::Order::BlockSpec block_spec;
+  EXPECT_TRUE(BlockSpecsAreEqual(default_block_spec, block_spec));
+
+  // Modify the block spec.
+  block_spec.block = kFauxBlockPtr;
+  block_spec.basic_block_offsets.push_back(0);
+  block_spec.basic_block_offsets.push_back(8);
+  EXPECT_FALSE(BlockSpecsAreEqual(default_block_spec, block_spec));
+  EXPECT_FALSE(BlockSpecsAreEqual(explicit_block_spec, block_spec));
+
+  // Copy construct a block spec.
+  Reorderer::Order::BlockSpec copied_block_spec(block_spec);
+  EXPECT_TRUE(BlockSpecsAreEqual(block_spec, copied_block_spec));
+  EXPECT_FALSE(BlockSpecsAreEqual(default_block_spec, block_spec));
+  EXPECT_FALSE(BlockSpecsAreEqual(explicit_block_spec, block_spec));
+
+  // Assign to the explicit block spec.
+  explicit_block_spec = block_spec;
+  EXPECT_TRUE(BlockSpecsAreEqual(copied_block_spec, explicit_block_spec));
+}
+
 TEST(OrderTest, SerializeToJsonRoundTrip) {
   // Build a dummy block graph.
   BlockGraph block_graph;
@@ -432,9 +509,18 @@ TEST(OrderTest, SerializeToJsonRoundTrip) {
   // Build a dummy order.
   Reorderer::Order order;
   order.comment = "This is a comment.";
-  order.section_block_lists[section1->id()].push_back(block1);
-  order.section_block_lists[section2->id()].push_back(block2);
-  order.section_block_lists[section2->id()].push_back(block3);
+  order.sections.resize(2);
+  order.sections[0].id = section1->id();
+  order.sections[0].name = section1->name();
+  order.sections[0].characteristics = section1->characteristics();
+  order.sections[0].blocks.push_back(BlockSpec(block1));
+  order.sections[0].blocks.back().basic_block_offsets.push_back(0);
+  order.sections[0].blocks.back().basic_block_offsets.push_back(8);
+  order.sections[1].id = section2->id();
+  order.sections[1].name = section2->name();
+  order.sections[1].characteristics = section2->characteristics();
+  order.sections[1].blocks.push_back(BlockSpec(block2));
+  order.sections[1].blocks.push_back(BlockSpec(block3));
 
   FilePath module = testing::GetExeTestDataRelativePath(
       testing::PELibUnitTest::kDllName);
@@ -453,10 +539,11 @@ TEST(OrderTest, SerializeToJsonRoundTrip) {
 
   // Deserialize it.
   Reorderer::Order order2;
+  EXPECT_FALSE(OrdersAreEqual(order, order2));
   EXPECT_TRUE(order2.LoadFromJSON(pe_file, layout, temp_file));
 
   // Expect them to be the same.
-  EXPECT_EQ(order.section_block_lists, order2.section_block_lists);
+  EXPECT_TRUE(OrdersAreEqual(order, order2));
 
   EXPECT_TRUE(file_util::Delete(temp_file, false));
 }

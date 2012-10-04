@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,24 +23,45 @@ namespace testing {
 
 class OrderGeneratorTest : public PELibUnitTest {
  protected:
+  typedef reorder::Reorderer::Order Order;
+  typedef Order::BlockSpec BlockSpec;
+  typedef Order::BlockSpecVector BlockSpecVector;
+  typedef Order::SectionSpec SectionSpec;
+  typedef Order::SectionSpecVector SectionSpecVector;
+
   OrderGeneratorTest();
 
   void SetUp();
 
   reorder::Reorderer::UniqueTime GetSystemTime();
 
+  void ExpectMatchingMetadata(const IMAGE_SECTION_HEADER* section,
+                              const SectionSpec& section_specs);
+
   void ExpectNoDuplicateBlocks();
-  void ExpectNoReorder(const IMAGE_SECTION_HEADER* section,
-                       const reorder::Reorderer::Order::BlockList& block_list);
+
+  void ExpectSameOrder(const IMAGE_SECTION_HEADER* section,
+                       const BlockSpecVector& block_specs);
+
+  void ExpectDifferentOrder(const IMAGE_SECTION_HEADER* section,
+                            const BlockSpecVector& block_specs);
 
   void GetBlockListForSection(const IMAGE_SECTION_HEADER* section,
-                              reorder::Reorderer::Order::BlockList* block_list);
+                              BlockSpecVector* block_specs);
 
   pe::PEFile input_dll_;
   block_graph::BlockGraph block_graph_;
   pe::ImageLayout image_layout_;
-  reorder::Reorderer::Order order_;
+  Order order_;
 };
+
+// Comparison functions for Orders and their parts.
+bool BlockSpecsAreEqual(const reorder::Reorderer::Order::BlockSpec& lhs,
+                        const reorder::Reorderer::Order::BlockSpec& rhs);
+bool SectionSpecsAreEqual(const reorder::Reorderer::Order::SectionSpec& lhs,
+                          const reorder::Reorderer::Order::SectionSpec& rhs);
+bool OrdersAreEqual(const reorder::Reorderer::Order& lhs,
+                    const reorder::Reorderer::Order& rhs);
 
 }  // namespace testing
 

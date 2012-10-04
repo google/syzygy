@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,30 +15,24 @@
 #include "syzygy/reorder/random_order_generator.h"
 
 #include "gtest/gtest.h"
-#include "syzygy/reorder/order_generator_test.h"
 #include "syzygy/pe/pe_utils.h"
+#include "syzygy/reorder/order_generator_test.h"
 
 namespace reorder {
+
+namespace {
+
+typedef Reorderer::Order::BlockSpec BlockSpec;
+typedef Reorderer::Order::SectionSpecVector SectionSpecVector;
 
 class RandomOrderGeneratorTest : public testing::OrderGeneratorTest {
  protected:
   RandomOrderGeneratorTest() : order_generator_(1234) {}
 
-  void ExpectRandomOrder(
-      const IMAGE_SECTION_HEADER* section,
-      const Reorderer::Order::BlockList& block_list) {
-    // Verifies that the blocks in block_list match in count but not in order
-    // to the blocks in the specified section.
-    Reorderer::Order::BlockList original_block_list;
-    GetBlockListForSection(section, &original_block_list);
-    EXPECT_EQ(original_block_list.size(), block_list.size());
-    EXPECT_FALSE(std::equal(original_block_list.begin(),
-                            original_block_list.end(),
-                            block_list.begin()));
-  }
-
   RandomOrderGenerator order_generator_;
 };
+
+}  // namespace
 
 TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
@@ -51,11 +45,9 @@ TEST_F(RandomOrderGeneratorTest, DoNotReorder) {
 
   // Verify that the order found in order_ matches the original decomposed
   // image.
-  Reorderer::Order::BlockListMap::const_iterator it =
-      order_.section_block_lists.begin();
-  for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
-    ExpectNoReorder(section, it->second);
+  for (size_t i = 0; i != order_.sections.size(); ++i) {
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(i);
+    ExpectSameOrder(section, order_.sections[i].blocks);
   }
 }
 
@@ -69,14 +61,12 @@ TEST_F(RandomOrderGeneratorTest, ReorderCode) {
   ExpectNoDuplicateBlocks();
 
   // Verify that code blocks have been reordered and that data blocks have not.
-  Reorderer::Order::BlockListMap::const_iterator it =
-      order_.section_block_lists.begin();
-  for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
-    if (section->Characteristics & IMAGE_SCN_CNT_CODE) {
-      ExpectRandomOrder(section, it->second);
+  for (size_t i = 0; i != order_.sections.size(); ++i) {
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(i);
+    if ((section->Characteristics & IMAGE_SCN_CNT_CODE) != 0) {
+      ExpectDifferentOrder(section, order_.sections[i].blocks);
     } else {
-      ExpectNoReorder(section, it->second);
+      ExpectSameOrder(section, order_.sections[i].blocks);
     }
   }
 }
@@ -91,17 +81,18 @@ TEST_F(RandomOrderGeneratorTest, ReorderData) {
   ExpectNoDuplicateBlocks();
 
   // Verify that data blocks have been reordered and that code blocks have not.
-  Reorderer::Order::BlockListMap::const_iterator it =
-      order_.section_block_lists.begin();
-  for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
-    if (section->Characteristics & pe::kReadOnlyDataCharacteristics) {
+  for (size_t i = 0; i != order_.sections.size(); ++i) {
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(i);
+    if ((section->Characteristics & IMAGE_SCN_CNT_CODE) == 0) {
       std::string name = input_dll_.GetSectionName(*section);
       // .tls and .rsrc only have one block.
-      if (name != ".tls" && name != ".rsrc")
-        ExpectRandomOrder(section, it->second);
+      if (name == ".tls" || name == ".rsrc") {
+        EXPECT_EQ(1U, order_.sections[i].blocks.size());
+      } else {
+        ExpectDifferentOrder(section, order_.sections[i].blocks);
+      }
     } else {
-      ExpectNoReorder(section, it->second);
+      ExpectSameOrder(section, order_.sections[i].blocks);
     }
   }
 }

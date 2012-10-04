@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -155,13 +155,24 @@ bool LinearOrderGenerator::CalculateReordering(const PEFile& pe_file,
   //     blocks (those with call_count == process_group_calls_.size()) among
   //     the remaining blocks.
 
+  // Initialize the section list and ordering meta data.
+  order->comment = "Linear ordering by earliest appearance";
+  order->sections.clear();
+  order->sections.resize(image.sections.size());
+  for (size_t i = 0; i < image.sections.size(); ++i) {
+    order->sections[i].id = i;
+    order->sections[i].name = image.sections[i].name;
+    order->sections[i].characteristics = image.sections[i].characteristics;
+  }
+
   // Create the ordering from this list.
   BlockSet inserted_blocks;
   for (size_t i = 0; i < average_block_calls.size(); ++i) {
     const BlockGraph::Block* code_block = average_block_calls[i].block;
 
     if (reorder_code) {
-      order->section_block_lists[code_block->section()].push_back(code_block);
+      order->sections[code_block->section()].blocks.push_back(
+         Order::BlockSpec(code_block));
       inserted_blocks.insert(code_block);
     }
 
@@ -190,7 +201,7 @@ bool LinearOrderGenerator::CalculateReordering(const PEFile& pe_file,
       BlockGraph::Block* block = section_it->second;
       if (inserted_blocks.count(block) > 0)
         continue;
-      order->section_block_lists[section_index].push_back(block);
+      order->sections[section_index].blocks.push_back(Order::BlockSpec(block));
     }
   }
 
@@ -252,7 +263,7 @@ bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
       continue;
 
     // Finally, insert this block to the appropriate section ordering.
-    order->section_block_lists[ref->section()].push_back(ref);
+    order->sections[ref->section()].blocks.push_back(Order::BlockSpec(ref));
 
     data_blocks.push_back(ref);
   }

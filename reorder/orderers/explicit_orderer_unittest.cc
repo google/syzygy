@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/reorder/order_generator_test.h"
 
 namespace reorder {
 namespace orderers {
@@ -26,7 +27,11 @@ namespace {
 
 using block_graph::BlockGraph;
 using block_graph::OrderedBlockGraph;
+using block_graph::ConstBlockVector;
 using testing::ContainerEq;
+
+typedef Reorderer::Order::BlockSpec BlockSpec;
+typedef Reorderer::Order::BlockSpecVector BlockSpecVector;
 
 class ExplicitOrdererTest : public testing::Test {
  public:
@@ -55,14 +60,28 @@ class ExplicitOrdererTest : public testing::Test {
 };
 
 template<typename Container>
-Reorderer::Order::BlockList ToBlockList(const Container& container) {
-  return Reorderer::Order::BlockList(container.begin(), container.end());
+ConstBlockVector ToBlockVector(const Container& container) {
+  return ConstBlockVector(container.begin(), container.end());
+}
+
+template<>
+ConstBlockVector ToBlockVector<BlockSpecVector>(
+    const BlockSpecVector& container) {
+  ConstBlockVector result;
+  result.reserve(container.size());
+  for (size_t i = 0; i < container.size(); ++i)
+    result.push_back(container[i].block);
+  return result;
 }
 
 }  // namespace
 
 TEST_F(ExplicitOrdererTest, FailsWithInvalidSection) {
-  order_.section_block_lists[0xCCCCCCCC].push_back(blocks_[0]);
+  order_.sections.resize(1);
+  order_.sections[0].id = 0xCCCCCCCC;
+  order_.sections[0].name = sections_[0]->name();
+  order_.sections[0].characteristics = sections_[0]->characteristics();
+  order_.sections[0].blocks.push_back(BlockSpec(blocks_[0]));
 
   OrderedBlockGraph obg(&block_graph_);
   ExplicitOrderer orderer(&order_);
@@ -70,10 +89,13 @@ TEST_F(ExplicitOrdererTest, FailsWithInvalidSection) {
 }
 
 TEST_F(ExplicitOrdererTest, FailsWithInvalidBlock) {
-  BlockGraph::SectionId sid = sections_[0]->id();
-  order_.section_block_lists[sid].push_back(blocks_[0]);
-  order_.section_block_lists[sid].push_back(
-      reinterpret_cast<BlockGraph::Block*>(0xCCCCCCCC));
+  order_.sections.resize(1);
+  order_.sections[0].id = sections_[0]->id();
+  order_.sections[0].name = sections_[0]->name();
+  order_.sections[0].characteristics = sections_[0]->characteristics();
+  order_.sections[0].blocks.push_back(BlockSpec(blocks_[0]));
+  order_.sections[0].blocks.push_back(
+      BlockSpec(reinterpret_cast<BlockGraph::Block*>(0xCCCCCCCC)));
 
   OrderedBlockGraph obg(&block_graph_);
   ExplicitOrderer orderer(&order_);
@@ -81,23 +103,29 @@ TEST_F(ExplicitOrdererTest, FailsWithInvalidBlock) {
 }
 
 TEST_F(ExplicitOrdererTest, OrderIsAsExpected) {
-  BlockGraph::SectionId sid0 = sections_[0]->id();
-  BlockGraph::SectionId sid1 = sections_[1]->id();
+  order_.sections.resize(2);
 
-  order_.section_block_lists[sid0].push_back(blocks_[2]);
-  order_.section_block_lists[sid0].push_back(blocks_[3]);
-  order_.section_block_lists[sid0].push_back(blocks_[1]);
-  order_.section_block_lists[sid1].push_back(blocks_[0]);
+  order_.sections[0].id = sections_[0]->id();
+  order_.sections[0].name = sections_[0]->name();
+  order_.sections[0].characteristics = sections_[0]->characteristics();
+  order_.sections[0].blocks.push_back(BlockSpec(blocks_[2]));
+  order_.sections[0].blocks.push_back(BlockSpec(blocks_[3]));
+  order_.sections[0].blocks.push_back(BlockSpec(blocks_[1]));
+
+  order_.sections[1].id = sections_[1]->id();
+  order_.sections[1].name = sections_[1]->name();
+  order_.sections[1].characteristics = sections_[1]->characteristics();
+  order_.sections[1].blocks.push_back(BlockSpec(blocks_[0]));
 
   OrderedBlockGraph obg(&block_graph_);
   ExplicitOrderer orderer(&order_);
-  EXPECT_TRUE(orderer.OrderBlockGraph(&obg, NULL));
+  ASSERT_TRUE(orderer.OrderBlockGraph(&obg, NULL));
 
-  EXPECT_THAT(order_.section_block_lists[sid0],
-              ContainerEq(ToBlockList(
+  EXPECT_THAT(ToBlockVector(order_.sections[0].blocks),
+              ContainerEq(ToBlockVector(
                   obg.ordered_section(sections_[0]).ordered_blocks())));
-  EXPECT_THAT(order_.section_block_lists[sid1],
-              ContainerEq(ToBlockList(
+  EXPECT_THAT(ToBlockVector(order_.sections[1].blocks),
+              ContainerEq(ToBlockVector(
                   obg.ordered_section(sections_[1]).ordered_blocks())));
 }
 
