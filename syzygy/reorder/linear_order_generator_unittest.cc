@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,17 +24,19 @@
 
 namespace reorder {
 
+namespace {
+
 class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
  protected:
-  void ExpectLinearOrdering(
-      Reorderer::Order::BlockList::const_iterator it,
-      Reorderer::Order::BlockList::const_iterator end) {
+  void ExpectLinearOrder(
+      Reorderer::Order::BlockSpecVector::const_iterator it,
+      Reorderer::Order::BlockSpecVector::const_iterator end) {
     // Verifies that the given block list appears in a linear order in the
     // original image.
     core::RelativeAddress cur_addr;
     for (; it != end; it++) {
       core::RelativeAddress addr;
-      EXPECT_TRUE(image_layout_.blocks.GetAddressOf(*it, &addr));
+      EXPECT_TRUE(image_layout_.blocks.GetAddressOf(it->block, &addr));
       EXPECT_LT(cur_addr, addr);
       cur_addr = addr;
     }
@@ -42,6 +44,13 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
 
   LinearOrderGenerator order_generator_;
 };
+
+bool IsSameBlock(const block_graph::BlockGraph::Block* block,
+                 const Reorderer::Order::BlockSpec& block_spec) {
+  return block == block_spec.block;
+}
+
+}  // namespace
 
 TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
   EXPECT_TRUE(order_generator_.CalculateReordering(input_dll_,
@@ -54,11 +63,9 @@ TEST_F(LinearOrderGeneratorTest, DoNotReorder) {
 
   // Verify that the order found in order_ matches the original decomposed
   // image.
-  Reorderer::Order::BlockListMap::const_iterator it =
-      order_.section_block_lists.begin();
-  for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
-    ExpectNoReorder(section, it->second);
+  for (size_t i = 0; i != order_.sections.size(); ++i) {
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(i);
+    ExpectSameOrder(section, order_.sections[i].blocks);
   }
 }
 
@@ -129,17 +136,21 @@ TEST_F(LinearOrderGeneratorTest, ReorderCode) {
   ExpectNoDuplicateBlocks();
 
   // Verify that code blocks have been reordered and that data blocks have not.
-  Reorderer::Order::BlockListMap::const_iterator it =
-      order_.section_block_lists.begin();
-  for (; it != order_.section_block_lists.end(); ++it) {
-    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(it->first);
+  for (size_t i = 0; i != order_.sections.size(); ++i) {
+    const IMAGE_SECTION_HEADER* section = input_dll_.section_header(i);
     if (input_dll_.GetSectionName(*section) == ".text") {
-      // Compare the first 5 elements.
-      EXPECT_TRUE(std::equal(blocks.begin(), blocks.end(), it->second.begin()));
-      // Expect a linear ordering in the rest.
-      ExpectLinearOrdering(it->second.begin() + 5, it->second.end());
+      // We expect that some reordering has occurred.
+      ExpectDifferentOrder(section, order_.sections[i].blocks);
+      // The first 5 blocks should be as given in the ordering.
+      EXPECT_TRUE(std::equal(blocks.begin(),
+                             blocks.end(),
+                             order_.sections[i].blocks.begin(),
+                             &IsSameBlock));
+      // The remaining blocks should be in linear order.
+      ExpectLinearOrder(order_.sections[i].blocks.begin() + 5,
+                        order_.sections[i].blocks.end());
     } else {
-      ExpectNoReorder(section, it->second);
+      ExpectSameOrder(section, order_.sections[i].blocks);
     }
   }
 }

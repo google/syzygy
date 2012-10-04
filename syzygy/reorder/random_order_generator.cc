@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,15 +44,14 @@ bool RandomOrderGenerator::CalculateReordering(const PEFile& pe_file,
                                                bool reorder_data,
                                                Order* order) {
   DCHECK(order != NULL);
-
+  order->comment = "Random block ordering";
+  order->sections.clear();
+  order->sections.resize(image.sections.size());
   for (size_t i = 0; i < image.sections.size(); ++i) {
     const ImageLayout::SectionInfo& section = image.sections[i];
-    if ((!reorder_code && section.characteristics & IMAGE_SCN_CNT_CODE) ||
-        (!reorder_data &&
-            section.characteristics & pe::kReadOnlyDataCharacteristics))
-      continue;
-
-    LOG(INFO) << "Randomizing section " << i  << " (" << section.name << ").";
+    order->sections[i].id = i;
+    order->sections[i].name = section.name;
+    order->sections[i].characteristics = section.characteristics;
 
     // Prepare to iterate over all block in the section.
     BlockGraph::AddressSpace::Range section_range(section.addr, section.size);
@@ -63,15 +62,22 @@ bool RandomOrderGenerator::CalculateReordering(const PEFile& pe_file,
     // Gather up all blocks within the section.
     AddressSpace::RangeMapConstIter& section_it = section_blocks.first;
     const AddressSpace::RangeMapConstIter& section_end = section_blocks.second;
-    Order::BlockList& block_list = order->section_block_lists[i];
     for (; section_it != section_end; ++section_it) {
       const BlockGraph::Block* block = section_it->second;
-      block_list.push_back(block);
+      order->sections[i].blocks.push_back(Order::BlockSpec(block));
     }
 
+    bool is_code = (section.characteristics & IMAGE_SCN_CNT_CODE) != 0;
+    bool is_data = !is_code;
+    // If we're not supposed to randomly reorder this section, then we're done.
+    if ((is_code && !reorder_code) || (is_data && !reorder_data))
+      continue;
+
+    // Otherwise, randomly shuffle blocks in this section.
+    LOG(INFO) << "Randomizing section " << i  << " (" << section.name << ").";
     core::RandomNumberGenerator random_number_generator(seed_ + i);
-    std::random_shuffle(block_list.begin(),
-                        block_list.end(),
+    std::random_shuffle(order->sections[i].blocks.begin(),
+                        order->sections[i].blocks.end(),
                         random_number_generator);
   }
 

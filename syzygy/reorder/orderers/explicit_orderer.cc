@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,37 +58,65 @@ bool ExplicitOrderer::OrderBlockGraph(
 
   BlockGraph* bg = ordered_block_graph->block_graph();
 
-  typedef Reorderer::Order::BlockListMap BlockListMap;
-  typedef Reorderer::Order::BlockList BlockList;
-
   BlockVector sorted_blocks;
   GetSortedBlocks(bg, &sorted_blocks);
 
-  BlockListMap::const_iterator section_it = order_->section_block_lists.begin();
-  for (; section_it != order_->section_block_lists.end(); ++section_it) {
+  Reorderer::Order::SectionSpecVector::const_iterator section_it =
+      order_->sections.begin();
+  for (; section_it != order_->sections.end(); ++section_it) {
     // Find the section in the original block-graph with the same ID.
-    BlockGraph::Section* section = bg->GetSectionById(section_it->first);
-    if (section == NULL) {
-      LOG(ERROR) << "No section found with ID " << section_it->first << ".";
-      return false;
+    const Reorderer::Order::SectionSpec& section_spec = *section_it;
+    BlockGraph::Section* section = NULL;
+
+    // Lookup or create the target section.
+    // TODO(rogerm, chrisha): This responsibility belongs in the bb-layout
+    //     transform. Remove/adjust this once that CL lands.
+    if (section_spec.id == Reorderer::Order::SectionSpec::kNewSectionId) {
+      // If the section is not given by id, then it needs to be created.
+      section = bg->FindOrAddSection(section_spec.name,
+                                     section_spec.characteristics);
+      if (section == NULL) {
+        LOG(ERROR) << "Failed to find or add section: "
+                   << section_spec.name << ".";
+        return false;
+      }
+    } else {  // section_spec.id != BlockGraph::kInvalidSection
+      // If the section is given by ID then find it and update it's name and
+      // characteristics as appropriate.
+      section = bg->GetSectionById(section_spec.id);
+      if (section == NULL) {
+        LOG(ERROR) << "No section found with ID " << section_spec.id << ".";
+        return false;
+      }
+      if (section->name() != section_spec.name) {
+        LOG(INFO) << "Renaming section " << section->id() << " ("
+                  << section->name() << ") to '" << section_spec.name << "'.";
+        section->set_name(section_spec.name);
+      }
+      if (section->characteristics() != section_spec.characteristics) {
+        LOG(INFO) << "Resetting section characteristics for section "
+                  << section->id() << " (" << section->name() << ").";
+        section->set_characteristic(section_spec.characteristics);
+      }
     }
 
-    LOG(INFO) << "Applying order to section " << section_it->first
+    DCHECK(section != NULL);
+    LOG(INFO) << "Applying order to section " << section->id()
               << "(" << section->name() << ").";
 
     // We walk through these in reverse order so that we can use PlaceAtHead.
-    for (size_t i = section_it->second.size(); i > 0; --i) {
+    for (size_t i = section_spec.blocks.size(); i > 0;) {
       // Look for the block with the matching address in memory. We do this
       // just in case the BlockGraph has evolved since the order object was
       // built.
-      const BlockGraph::Block* block = section_it->second[i - 1];
+      const Reorderer::Order::BlockSpec& block_spec = section_spec.blocks[--i];
       BlockVector::const_iterator block_it =
           std::lower_bound(sorted_blocks.begin(),
                            sorted_blocks.end(),
-                           block);
+                           block_spec.block);
 
       // Not found?
-      if (block_it == sorted_blocks.end() || *block_it != block) {
+      if (block_it == sorted_blocks.end() || *block_it != block_spec.block) {
         LOG(ERROR) << "Block specified in order does not exist in BlockGraph.";
         return false;
       }
