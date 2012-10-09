@@ -104,6 +104,17 @@ class BasicBlockDecomposer : public core::Disassembler {
 
  protected:
   typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
+  typedef BlockGraph::Block::SourceRange SourceRange;
+  typedef BlockGraph::Size Size;
+
+  // Returns the source range that coincides with the data range
+  // [@p offset, [@p offset + @p size) in the original block.
+  SourceRange GetSourceRange(Offset offset, Size size);
+
+  // Returns the offset of @p instr in the original block.
+  Offset GetOffset(const Instruction& instr) const;
+  // Returns the offset of @p bb in the original block.
+  Offset GetOffset(const BasicBlock& bb) const;
 
   // Find the basic block, and corresponding byte-range, that contains the
   // given offset.
@@ -198,7 +209,7 @@ class BasicBlockDecomposer : public core::Disassembler {
   // Resolve intra-block control flow references and referrers.
   bool ResolveSuccessors();
 
-  // Inserts a basic block range into the decompsition.
+  // Inserts a basic block range into the decomposition.
   bool InsertBasicBlockRange(AbsoluteAddress addr,
                              size_t size,
                              BasicBlockType type);

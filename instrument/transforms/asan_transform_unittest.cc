@@ -56,7 +56,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
  public:
   AsanTransformTest() :
       basic_block_(0, "test block", BasicBlock::BASIC_CODE_BLOCK,
-                   BasicBlock::kNoOffset, kDataSize, kBlockData),
+                   kDataSize, kBlockData),
       bb_asm_(basic_block_.instructions().begin(),
               &basic_block_.instructions()) {
   }

@@ -238,13 +238,13 @@ class Instruction {
  public:
   typedef BlockGraph::Size Size;
   typedef BlockGraph::Offset Offset;
+  typedef BlockGraph::Block::SourceRange SourceRange;
   typedef _DInst Representation;
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
   // Initialize an Instruction instance.
   // @param value The low-level object representing this instruction.
-  // @param offset The offset in the original block at which the instruction
-  //     was located.
+  // @param source_range The source range for the instruction if any.
   // @param size The length (in bytes) that the instruction occupied in the
   //     original block.
   // @param data A pointer to a buffer containing a machine executable
@@ -254,7 +254,7 @@ class Instruction {
   // TODO(rogerm): Retire this constructor along with the representation_
   //     member.
   Instruction(const Representation& value,
-              Offset offset,
+              SourceRange source_range,
               Size size,
               const uint8* data);
 
@@ -276,15 +276,25 @@ class Instruction {
   Representation& representation() { return representation_; }
   const BasicBlockReferenceMap& references() const { return references_; }
   BasicBlockReferenceMap& references() { return references_; }
-  const uint8* data() const { return data_; }
-  bool owns_data() const { return owns_data_; }
-  Offset offset() const { return offset_; }
-  void set_offset(Offset offset) { offset_ = offset; }
-  Size size() const { return size_; }
+
+  SourceRange source_range() const { return source_range_; }
+  void set_source_range(const SourceRange& source_range) {
+    source_range_ = source_range;
+  }
   const BlockGraph::Label& label() const { return label_; }
   void set_label(const BlockGraph::Label& label) { label_ = label; }
   bool has_label() const { return label_.IsValid(); }
+
+  Size size() const { return size_; }
+  const uint8* data() const { return data_; }
+  bool owns_data() const { return owns_data_; }
   /// @}
+
+  // @name Deprecated accessors.
+  // @{
+  Offset offset() const { return offset_; }
+  void set_offset(Offset offset) { offset_ = offset; }
+  // @}
 
   // @name Helper functions.
   // @{
@@ -332,15 +342,21 @@ class Instruction {
   // basic block or macro block.
   BasicBlockReferenceMap references_;
 
-  // Information about the byte range in the original block where this
-  // instruction originates.
+  // The label, if any, associated with this instruction.
+  BlockGraph::Label label_;
+
+  // The source range, if any, associated with this instruction.
+  SourceRange source_range_;
+
+  // The data associated with this instruction.
   // @{
-  Offset offset_;
   Size size_;
   const uint8* data_;
   bool owns_data_;
-  BlockGraph::Label label_;
   // @}
+
+  // Deprecated.
+  Offset offset_;
 };
 
 // This class represents a control flow transfer to a basic block, which
@@ -351,6 +367,7 @@ class Successor {
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef BlockGraph::Offset Offset;
   typedef BlockGraph::Size Size;
+  typedef BlockGraph::Block::SourceRange SourceRange;
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
   // The op-code of an binary instruction.
@@ -465,6 +482,11 @@ class Successor {
   Condition condition() const { return condition_; }
   BasicBlockReference reference() const;
   Offset bb_target_offset() const { return bb_target_offset_; }
+
+  SourceRange source_range() const { return source_range_; }
+  void set_source_range(const SourceRange& source_range) {
+    source_range_ = source_range;
+  }
   Offset instruction_offset() const { return instruction_offset_; }
   Size instruction_size() const { return instruction_size_; }
   const BlockGraph::Label& label() const { return label_; }
@@ -507,12 +529,15 @@ class Successor {
   // The destination for this successor.
   BasicBlockReference reference_;
 
-  // Information about the byte range in the original block where this
-  // instruction originates.
+  // The label, if any, associated with this successor.
+  BlockGraph::Label label_;
+
+  // The source range, if any, associated with this successor.
+  SourceRange source_range_;
+
   // @{
   Offset instruction_offset_;
   Size instruction_size_;
-  BlockGraph::Label label_;
   // @}
 };
 
@@ -571,7 +596,6 @@ class BasicBlock {
   BasicBlock(BlockId id,
              const base::StringPiece& name,
              BasicBlockType type,
-             Offset offset,
              Size size,
              const uint8* data);
 
@@ -583,7 +607,6 @@ class BasicBlock {
   BlockId id() const { return id_; }
   BasicBlockType type() const { return type_; }
   const std::string& name() const { return name_; }
-  Offset offset() const { return offset_; }
   Size size() const { return size_; }
   const uint8* data() const { return data_; }
   const Instructions& instructions() const { return instructions_; }
@@ -627,11 +650,6 @@ class BasicBlock {
 
   // The type of this basic block.
   BasicBlockType type_;
-
-  // The offset in the original block that corresponds with the start of this
-  // basic block. A negative offset denotes that there is no corresponding
-  // offset in the original block.
-  Offset offset_;
 
   // The number of bytes of data in the original block that corresponds with
   // this basic block.

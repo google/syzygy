@@ -63,6 +63,8 @@ BasicBlockTest::BasicBlockTest()
 }
 
 void BasicBlockTest::InitBlockGraph() {
+  start_addr_ = RelativeAddress(0xF00D);
+
   // Create func1, which will be called from assembly_func.
   func1_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1, "func1");
   ASSERT_TRUE(func1_ != NULL);
@@ -85,6 +87,9 @@ void BasicBlockTest::InitBlockGraph() {
   assembly_func_->SetData(reinterpret_cast<const uint8*>(assembly_func),
                           kAssemblyFuncSize);
   assembly_func_->set_attributes(BlockGraph::BUILT_BY_SYZYGY);
+  assembly_func_->
+      source_ranges().Push(Block::DataRange(0, kAssemblyFuncSize),
+                           Block::SourceRange(start_addr_, kAssemblyFuncSize));
 
   // Add the data labels.
   ASSERT_TRUE(assembly_func_->SetLabel(

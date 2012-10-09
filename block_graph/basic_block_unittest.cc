@@ -38,9 +38,9 @@ class BasicBlockTest: public testing::Test {
   // and macro_block_ to play with.
   BasicBlockTest()
       : basic_code_block_(kBlockId, kBlockName, BasicBlock::BASIC_CODE_BLOCK,
-                          kBlockOffset, kBlockSize, kBlockData),
+                          kBlockSize, kBlockData),
         basic_data_block_(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                          kBlockOffset, kBlockSize, kBlockData),
+                          kBlockSize, kBlockData),
         macro_block_(kBlockId, kMacroBlockType, kBlockSize, kBlockName) {
      basic_data_block_.set_label(BlockGraph::Label(
          "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
@@ -97,18 +97,13 @@ class BasicBlockTest: public testing::Test {
     ret.opcode = I_RET;
     ret.size = 1;
     META_SET_ISC(&ret, ISC_INTEGER);
-    return Instruction(ret, -1, sizeof(data), data);
+    return Instruction(ret, Instruction::SourceRange(), sizeof(data), data);
   }
 
   // Helper function to create a CALL instruction.
   Instruction CreateCall(BasicBlockReference ref) {
     static const uint8 data[] = { 0xE8, 0x00, 0x00, 0x00, 0x00 };
-    Instruction::Representation call = {};
-    call.addr = 0;
-    call.opcode = I_CALL;
-    call.size = 5;
-    META_SET_ISC(&call, ISC_INTEGER);
-    Instruction call_inst(call, -1, sizeof(data), data);
+    Instruction call_inst(sizeof(data), data);
     call_inst.SetReference(1, ref);
     EXPECT_FALSE(call_inst.has_label());
     call_inst.set_label(BlockGraph::Label("call", BlockGraph::CALL_SITE_LABEL));
@@ -212,7 +207,7 @@ TEST_F(BasicBlockTest, GetCodeSize) {
 
 TEST_F(BasicBlockTest, GetDataSize) {
   BasicBlock bb(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                kBlockOffset, kBlockSize, kBlockData);
+                kBlockSize, kBlockData);
 
   ASSERT_EQ(kBlockSize, bb.GetDataSize());
 }
@@ -231,7 +226,7 @@ TEST_F(BasicBlockTest, GetMaxCodeSize) {
 
 TEST_F(BasicBlockTest, GetMaxDataSize) {
   BasicBlock bb(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                kBlockOffset, kBlockSize, kBlockData);
+                kBlockSize, kBlockData);
 
   ASSERT_EQ(kBlockSize, bb.GetMaxSize());
 }
@@ -446,12 +441,13 @@ void TestSuccessorCopy(const Successor& input) {
   Successor copy(input);
 
   EXPECT_EQ(input.condition(), copy.condition());
-  EXPECT_EQ(input.reference(), copy.reference());
   EXPECT_EQ(input.bb_target_offset(), copy.bb_target_offset());
-  EXPECT_EQ(input.instruction_offset(), copy.instruction_offset());
-  EXPECT_EQ(input.instruction_size(), copy.instruction_size());
+  EXPECT_EQ(input.reference(), copy.reference());
   EXPECT_EQ(input.label(), copy.label());
   EXPECT_EQ(input.has_label(), copy.has_label());
+  EXPECT_EQ(input.source_range(), copy.source_range());
+  EXPECT_EQ(input.instruction_offset(), copy.instruction_offset());
+  EXPECT_EQ(input.instruction_size(), copy.instruction_size());
 }
 
 }  // namespace
@@ -494,7 +490,7 @@ TEST_F(SuccessorTest, BasicBlockConstructor) {
   const Successor::Offset kSuccessorOffset = 4;
   const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
-  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
+  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, sizeof(data), data);
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
 
   Successor s(kCondition,
@@ -512,7 +508,7 @@ TEST_F(SuccessorTest, BasicBlockConstructor) {
 
 TEST_F(SuccessorTest, SetBranchTarget) {
   uint8 data[20] = {};
-  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, 16, sizeof(data), data);
+  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, sizeof(data), data);
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
 
   Successor s;
@@ -632,12 +628,12 @@ void TestInstructionCopy(const Instruction& input) {
   Instruction copy(input);
 
   EXPECT_EQ(input.references(), copy.references());
-  EXPECT_EQ(0, memcmp(input.data(), copy.data(), copy.size()));
-  EXPECT_EQ(input.owns_data(), copy.owns_data());
-  EXPECT_EQ(input.offset(), copy.offset());
-  EXPECT_EQ(input.size(), copy.size());
   EXPECT_EQ(input.label(), copy.label());
   EXPECT_EQ(input.has_label(), copy.has_label());
+  EXPECT_EQ(input.source_range(), copy.source_range());
+  EXPECT_EQ(0, memcmp(input.data(), copy.data(), copy.size()));
+  EXPECT_EQ(input.owns_data(), copy.owns_data());
+  EXPECT_EQ(input.size(), copy.size());
 }
 
 const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
@@ -672,7 +668,10 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   repr.opcode = I_CALL;
   repr.meta = FC_CALL;
   repr.ops[0].type = O_PC;
-  Instruction call_relative(repr, 0, sizeof(kCallRelative), kCallRelative);
+  Instruction call_relative(repr,
+                            Instruction::SourceRange(),
+                            sizeof(kCallRelative),
+                            kCallRelative);
   TestInstructionCopy(call_relative);
 
   // Call the returning function directly.
@@ -695,7 +694,7 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   BlockGraph::Block function_pointer(
       2, BlockGraph::DATA_BLOCK, BlockGraph::Reference::kMaximumSize, "ptr");
   const uint8 kCallIndirect[] = { 0xFF, 0x15, 0xDE, 0xAD, 0xBE, 0xEF };
-  Instruction call_indirect(repr, 0, sizeof(kCallIndirect), kCallIndirect);
+  Instruction call_indirect(sizeof(kCallIndirect), kCallIndirect);
   call_indirect.SetReference(
       2, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,

@@ -161,6 +161,47 @@ bool BasicBlockDecomposer::Decompose() {
   return true;
 }
 
+BasicBlockDecomposer::SourceRange BasicBlockDecomposer::GetSourceRange(
+    Offset offset, Size size) {
+  // Find the source range for the original bytes. We may not have a data
+  // range for bytes that were synthesized in other transformations. As a
+  // rule, however, there should be a covered data range for each instruction,
+  // successor, that relates back to the original image.
+  const Block::SourceRanges::RangePair* range_pair =
+      block_->source_ranges().FindRangePair(offset, size);
+  // Return an empty range if we found nothing.
+  if (range_pair == NULL)
+    return SourceRange();
+
+  const Block::DataRange& data_range = range_pair->first;
+  const Block::SourceRange& source_range = range_pair->second;
+  if (offset == data_range.start() && size == data_range.size()) {
+    // We match a data range exactly, so let's use the entire
+    // matching source range.
+    return source_range;
+  }
+
+  // The data range doesn't match exactly, so let's slice the corresponding
+  // source range. The assumption here is that no transformation will ever
+  // slice the data or source ranges for an instruction, so we should always
+  // have a covering data and source ranges.
+  DCHECK_GE(offset, data_range.start());
+  DCHECK_LE(offset + size, data_range.start() + data_range.size());
+
+  Offset start_offs = offset - data_range.start();
+  return SourceRange(source_range.start() + start_offs, size);
+}
+
+Offset BasicBlockDecomposer::GetOffset(const Instruction& instr) const {
+  DCHECK_EQ(false, instr.owns_data());
+
+  return instr.data() - block_->data();
+}
+
+Offset BasicBlockDecomposer::GetOffset(const BasicBlock& bb) const {
+  return subgraph_->GetOffset(&bb);
+}
+
 bool BasicBlockDecomposer::FindBasicBlock(Offset offset,
                                           BasicBlock** basic_block,
                                           Range* range) const {
@@ -246,8 +287,10 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
           << " instruction (" << static_cast<int>(inst.size)
           << " bytes) at offset " << offset << ".";
 
+  Instruction::SourceRange source_range = GetSourceRange(offset, inst.size);
   current_instructions_.push_back(
-      Instruction(inst, offset, inst.size, code_ + offset));
+      Instruction(inst, source_range, inst.size, code_ + offset));
+
   if (label.IsValid())
     current_instructions_.back().set_label(label);
 
@@ -326,21 +369,20 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
   if (dest.value() != 0) {
     // Take the last instruction out of the instruction list, we'll represent
     // it as a successor instead.
-    Successor::Offset instr_offset = current_instructions_.back().offset();
-    Successor::Size instr_size = current_instructions_.back().size();
-    BlockGraph::Label instr_label = current_instructions_.back().label();
+    Instruction succ_instr = current_instructions_.back();
     current_instructions_.pop_back();
-    DCHECK_EQ(addr - code_addr_, instr_offset);
-    DCHECK_EQ(inst.size, instr_size);
+    DCHECK_EQ(addr - code_addr_, GetOffset(succ_instr));
+    DCHECK_EQ(inst.size, succ_instr.size());
 
     // Figure out where the branch is going by finding the reference that's
     // inside the instruction's byte range.
     BlockGraph::Reference ref;
     bool found = GetReferenceOfInstructionAt(
-        block_, instr_offset, instr_size, &ref);
+        block_, GetOffset(succ_instr), succ_instr.size(), &ref);
 
     // Create the appropriate successor depending on whether or not the target
     // is intra- or inter-block.
+    Successor succ;
     if (!found || ref.referenced() == block_) {
       // This is an intra-block reference. The target basic block may not
       // exist yet, so we'll defer patching up this reference until later.
@@ -355,19 +397,22 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
 
       CHECK_LE(0, target_offset);
       CHECK_LT(static_cast<size_t>(target_offset), code_size_);
-      current_successors_.push_front(
-          Successor(condition, target_offset, instr_offset, instr_size));
+      succ = Successor(
+          condition, target_offset, GetOffset(succ_instr), succ_instr.size());
       jump_targets_.insert(dest);
     } else {
       // This is an inter-block jump. We can create a fully resolved reference.
       BasicBlockReference bb_ref(
           ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
-      current_successors_.push_front(
-          Successor(condition, bb_ref, instr_offset, instr_size));
+      succ = Successor(
+          condition, bb_ref, GetOffset(succ_instr), succ_instr.size());
     }
 
-    if (instr_label.IsValid())
-      current_successors_.front().set_label(instr_label);
+    // Copy the source range and label, if any.
+    succ.set_source_range(succ_instr.source_range());
+    succ.set_label(succ_instr.label());
+
+    current_successors_.push_front(succ);
   }
 
   // This marks the end of a basic block. Note that the disassembler will
@@ -596,9 +641,9 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
     const BasicBlock& bb = bb_iter->second;
     if (bb.has_label()) {
       BlockGraph::Label label;
-      CHECK(original_block->GetLabel(bb.offset(), &label));
+      CHECK(original_block->GetLabel(GetOffset(bb), &label));
       CHECK(bb.label() == label);
-      labels_found[bb.offset()] = true;
+      labels_found[GetOffset(bb)] = true;
     }
 
     // Account for labels attached to instructions.
@@ -608,9 +653,9 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
       const Instruction& inst = *inst_iter;
       if (inst.has_label()) {
         BlockGraph::Label label;
-        CHECK(original_block->GetLabel(inst.offset(), &label));
+        CHECK(original_block->GetLabel(GetOffset(inst), &label));
         CHECK(inst.label() == label);
-        labels_found[inst.offset()] = true;
+        labels_found[GetOffset(inst)] = true;
       }
     }
 
@@ -674,7 +719,7 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
 
   // Create the basic block.
   BasicBlock* new_basic_block = subgraph_->AddBasicBlock(
-      basic_block_name, type, offset, size, code_ + offset);
+      basic_block_name, type, size, code_ + offset);
   if (new_basic_block == NULL)
     return false;
 
@@ -736,7 +781,7 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
     DCHECK(current_instructions_.empty());
     DCHECK(current_successors_.empty());
     while (!target_bb->instructions().empty() &&
-           target_bb->instructions().front().offset() < target_offset) {
+           GetOffset(target_bb->instructions().front()) < target_offset) {
       current_instructions_.splice(current_instructions_.end(),
                                    target_bb->instructions(),
                                    target_bb->instructions().begin());
@@ -745,7 +790,7 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
     // The next offset (to an instruction or successor) should correspond to
     // the target offset.
     if (!target_bb->instructions().empty()) {
-      DCHECK_EQ(target_offset, target_bb->instructions().front().offset());
+      DCHECK_EQ(target_offset, GetOffset(target_bb->instructions().front()));
     } else {
       DCHECK(!target_bb->successors().empty());
       DCHECK_EQ(target_offset,
@@ -888,7 +933,7 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
   DCHECK(item != NULL);
 
   // Figure out the bounds of item.
-  BlockGraph::Offset start_offset = item->offset();
+  BlockGraph::Offset start_offset = GetOffset(*item);
   BlockGraph::Offset end_offset = start_offset + item->size();
 
   // Get iterators encompassing all references within the bounds of item.

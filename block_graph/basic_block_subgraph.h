@@ -101,9 +101,6 @@ class BasicBlockSubGraph {
   // Add a new basic block to the sub-graph.
   // @param name A textual identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
-  // @param offset The offset (in the original block) where this basic block
-  //     originated. Set to BasicBlock::kNoOffset to indicate that this is a
-  //     generated basic block.
   // @param size The number of bytes this basic block occupied in the original
   //     block. Set to 0 if this is a generated basic block.
   // @param data The underlying data representing the basic block.
@@ -113,9 +110,13 @@ class BasicBlockSubGraph {
   //     by the composition.
   BasicBlock* AddBasicBlock(const base::StringPiece& name,
                             BasicBlockType type,
-                            Offset offset,
                             Size size,
                             const uint8* data);
+
+  // Retrieves the offset of @p bb in original_block_, if appropriate.
+  // @param bb A basic block from this subgraph.
+  // @returns The offset of @p bb in original_block_, or BasicBlock::kNoOffset.
+  Offset GetOffset(const BasicBlock* bb) const;
 
   // Returns true if the basic-block composition is valid. This tests the
   // for following conditions.
