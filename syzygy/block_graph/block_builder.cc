@@ -53,7 +53,7 @@ class MergeContext {
  public:
   // Initialize a MergeContext with the block graph and original block.
   MergeContext(BlockGraph* bg, const Block* ob)
-      : block_graph_(bg), original_block_(ob) {
+      : sub_graph_(NULL), block_graph_(bg), original_block_(ob) {
     DCHECK(bg != NULL);
   }
 
@@ -114,10 +114,15 @@ class MergeContext {
   typedef std::map<const BasicBlock*, BasicBlockLayoutInfo>
       BasicBlockLayoutInfoMap;
 
+  // Retrieves the offset of @p instr in the original block, or
+  // it's (deprecated) offset otherwise.
+  // TODO(siggi): Remove this once migrated to source ranges.
+  Offset GetOffset(const Instruction& instr);
+
   // Update the new block with the source range for the bytes in the
   // range [new_offset, new_offset + new_size).
   // @param original_offset The offset in the original block corresponding to
-  //     the bytes in the new block. This may be BlockGraph::kNoOffset, if
+  //     the bytes in the new block. This may be BasicBlock::kNoOffset, if
   //     the source range in question is for synthesized bytes (for example,
   //     a flow-through successor that will be synthesized as a branch).
   // @param original_size The number of bytes in the original range.
@@ -219,6 +224,9 @@ class MergeContext {
   BlockGraph::Reference ResolveReference(const BasicBlockReference& ref) const;
 
  private:
+  // The subgraph we're layouting.
+  const BasicBlockSubGraph* sub_graph_;
+
   // Layout info.
   BasicBlockLayoutInfoMap layout_info_;
 
@@ -226,7 +234,7 @@ class MergeContext {
   BlockGraph* const block_graph_;
 
   // The original block from which the new blocks are derived.
-  const Block* original_block_;
+  const Block* const original_block_;
 
   // The set of blocks generated in this context so far.
   BlockVector new_blocks_;
@@ -235,6 +243,8 @@ class MergeContext {
 };
 
 bool MergeContext::GenerateBlocks(const BasicBlockSubGraph& subgraph) {
+  sub_graph_ = &subgraph;
+
   if (!GenerateLayout(subgraph) || !PopulateBlocks(subgraph)) {
     // Remove generated blocks (this is safe as they're all disconnected)
     // and return false.
@@ -245,9 +255,12 @@ bool MergeContext::GenerateBlocks(const BasicBlockSubGraph& subgraph) {
       block_graph_->RemoveBlock(*it);
     }
     new_blocks_.clear();
+
+    sub_graph_ = NULL;
     return false;
   }
 
+  sub_graph_ = NULL;
   return true;
 }
 
@@ -256,6 +269,16 @@ void MergeContext::TransferReferrers(const BasicBlockSubGraph* subgraph) const {
   BasicBlockLayoutInfoMap::const_iterator it = layout_info_.begin();
   for (; it != layout_info_.end(); ++it)
     UpdateReferrers(it->second.basic_block);
+}
+
+Offset MergeContext::GetOffset(const Instruction& instr) {
+  if (original_block_ &&
+      instr.data() >= original_block_->data() &&
+      instr.data() < original_block_->data() + original_block_->size()) {
+    return instr.data() - original_block_->data();
+  }
+
+  return instr.offset();
 }
 
 void MergeContext::CopySourceRange(Offset original_offset,
@@ -443,7 +466,7 @@ bool MergeContext::CopyInstructions(
       new_block->SetLabel(offset, instruction.label());
 
     // Record the source range.
-    CopySourceRange(instruction.offset(), instruction.size(),
+    CopySourceRange(GetOffset(instruction), instruction.size(),
                     offset, instruction.size(),
                     new_block);
 
@@ -483,7 +506,7 @@ bool MergeContext::CopyData(const BasicBlock* basic_block,
   ::memcpy(buffer + offset, basic_block->data(), basic_block->size());
 
   // Record the source range.
-  CopySourceRange(basic_block->offset(), basic_block->size(),
+  CopySourceRange(sub_graph_->GetOffset(basic_block), basic_block->size(),
                   offset, basic_block->size(),
                   new_block);
 

@@ -38,14 +38,14 @@ class BlockBuilderTest : public testing::Test {
    static Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
     CHECK(bb != NULL);
     bb->instructions().push_back(
-        Instruction(Instruction::Representation(), -1, size, kEmptyData));
+        Instruction(size, kEmptyData));
     return &bb->instructions().back();
   }
 
   BasicBlock* CreateCodeBB(const base::StringPiece& name, size_t len) {
     BasicBlock* bb = subgraph_.AddBasicBlock(name,
                                              BasicBlock::BASIC_CODE_BLOCK,
-                                             -1, 0, NULL);
+                                             0, NULL);
     EXPECT_TRUE(bb != NULL);
     while (len > 0) {
       size_t instr_len =
@@ -161,19 +161,19 @@ TEST_F(BlockBuilderTest, Merge) {
   // Generate a mock decomposition of the original block.
   subgraph_.set_original_block(original);
   BasicBlock* bb1 = subgraph_.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
   ASSERT_TRUE(bb1 != NULL);
   BasicBlock* bb2 = subgraph_.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+      "bb2", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
   ASSERT_TRUE(bb2 != NULL);
   BasicBlock* bb3 = subgraph_.AddBasicBlock(
-      "bb3", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+      "bb3", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
   ASSERT_TRUE(bb3 != NULL);
   BasicBlock* bb4 = subgraph_.AddBasicBlock(
-      "bb4", BasicBlock::BASIC_CODE_BLOCK, -1, 0, NULL);
+      "bb4", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
   ASSERT_TRUE(bb4 != NULL);
   BasicBlock* table = subgraph_.AddBasicBlock(
-      "table", BasicBlock::BASIC_DATA_BLOCK, -1, 12, kEmptyData);
+      "table", BasicBlock::BASIC_DATA_BLOCK, 12, kEmptyData);
   ASSERT_TRUE(table != NULL);
 
   // Flesh out bb1 with an instruction having a reference and 2 successors.

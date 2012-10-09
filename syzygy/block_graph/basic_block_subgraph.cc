@@ -67,7 +67,6 @@ BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
 block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
     const base::StringPiece& name,
     BasicBlockType type,
-    Offset offset,
     Size size,
     const uint8* data) {
   DCHECK(!name.empty());
@@ -75,7 +74,7 @@ block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
   std::pair<BBCollection::iterator, bool> insert_result =
       basic_blocks_.insert(std::make_pair(
           next_basic_block_id_,
-          BasicBlock(next_basic_block_id_, name, type, offset, size, data)));
+          BasicBlock(next_basic_block_id_, name, type, size, data)));
   DCHECK(insert_result.second);
 
   block_graph::BasicBlock* new_basic_block = &insert_result.first->second;
@@ -83,6 +82,17 @@ block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
   ++next_basic_block_id_;
 
   return new_basic_block;
+}
+
+BasicBlock::Offset BasicBlockSubGraph::GetOffset(const BasicBlock* bb) const {
+  if (original_block_ == NULL || bb->data() == NULL)
+    return BasicBlock::kNoOffset;
+
+  if (bb->data() < original_block_->data() ||
+      bb->data() > original_block_->data() + original_block_->size())
+    return BasicBlock::kNoOffset;
+
+  return bb->data() - original_block_->data();
 }
 
 bool BasicBlockSubGraph::IsValid() const {

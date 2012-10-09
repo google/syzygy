@@ -68,7 +68,7 @@ size_t CountBasicBlocks(const BasicBlockSubGraph& subgraph,
 // and in order.
 bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
   typedef BasicBlock::Size Size;
-  return lhs->offset() + lhs->size() != static_cast<Size>(rhs->offset());
+  return lhs->data() + lhs->size() != rhs->data();
 }
 
 // A test fixture which generates a block-graph to use for basic-block
@@ -114,7 +114,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[0]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[0]->type());
   ASSERT_EQ(4u, bbs_[0]->instructions().size());
-  ASSERT_EQ(0u, bbs_[0]->successors().size());;
+  ASSERT_EQ(0u, bbs_[0]->successors().size());
   BasicBlock::Instructions::const_iterator inst_iter =
       bbs_[0]->instructions().begin();
   std::advance(inst_iter, 2);
@@ -192,6 +192,43 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bbs_[9]->type());
   ASSERT_EQ(256, bbs_[9]->size());
   ASSERT_EQ(0u, bbs_[9]->references().size());
+
+  // Validate all source ranges.
+  core::RelativeAddress next_addr(start_addr_);
+  for (size_t i = 0; i < bbs_.size(); ++i) {
+    const BasicBlock& bb = *bbs_[i];
+
+    if (bb.type() == BasicBlock::BASIC_CODE_BLOCK) {
+      BasicBlock::Instructions::const_iterator instr_it =
+          bb.instructions().begin();
+      for (; instr_it != bb.instructions().end(); ++instr_it) {
+        const Instruction& instr = *instr_it;
+        ASSERT_EQ(next_addr, instr.source_range().start());
+        ASSERT_EQ(instr.size(), instr.source_range().size());
+
+        next_addr += instr.size();
+      }
+
+      BasicBlock::Successors::const_iterator succ_it =
+          bb.successors().begin();
+      for (; succ_it != bb.successors().end(); ++succ_it) {
+        const Successor& succ = *succ_it;
+        if (succ.source_range().size() != 0) {
+          ASSERT_EQ(next_addr, succ.source_range().start());
+          ASSERT_EQ(succ.instruction_size(), succ.source_range().size());
+        } else {
+          ASSERT_EQ(0, succ.instruction_size());
+        }
+
+        next_addr += succ.instruction_size();
+      }
+    } else {
+      DCHECK(bb.type() == BasicBlock::BASIC_DATA_BLOCK ||
+             bb.type() == BasicBlock::BASIC_PADDING_BLOCK);
+
+      next_addr += bb.GetDataSize();
+    }
+  }
 }
 
 }  // namespace block_graph

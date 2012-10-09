@@ -164,9 +164,10 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
     // Find the source range associated with this basic-block.
     // TODO(chrisha, rogerm): Make this a utility function on BasicBlock and
     //     eventually move all of the data into instructions and successors.
+    BlockGraph::Offset bb_offs = subgraph->GetOffset(&bb);
     const BlockGraph::Block::SourceRanges::RangePair* range_pair =
         subgraph->original_block()->source_ranges().FindRangePair(
-            BlockGraph::Block::SourceRanges::SourceRange(bb.offset(), 1));
+            BlockGraph::Block::SourceRanges::SourceRange(bb_offs, 1));
 
     // If there's no source data, something has gone terribly wrong. In fact,
     // it likely means that we've stacked transforms and new instructions have
@@ -194,7 +195,7 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
     // Get the RVA of the BB by translating its offset, and remember the range
     // associated with this BB.
     core::RelativeAddress bb_addr = src_range.start() +
-        (bb.offset() - data_range.start());
+        (bb_offs - data_range.start());
     bb_ranges_.push_back(RelativeAddressRange(bb_addr, bb.size()));
   }
 

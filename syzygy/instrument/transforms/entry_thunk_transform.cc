@@ -352,7 +352,7 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
       name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
   BasicBlock* bb = bbsg.AddBasicBlock(
-      name, BasicBlock::BASIC_CODE_BLOCK, BasicBlock::kNoOffset, 0, NULL);
+      name, BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
   block_desc->basic_block_order.push_back(bb);
   BasicBlockAssembler assm(bb->instructions().begin(),
                            &bb->instructions());

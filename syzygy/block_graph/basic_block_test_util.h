@@ -46,6 +46,7 @@ namespace testing {
 // basic_block_assembly_func.asm.
 class BasicBlockTest : public ::testing::Test {
  public:
+  typedef core::RelativeAddress RelativeAddress;
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockDecomposer BasicBlockDecomposer;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
@@ -76,6 +77,9 @@ class BasicBlockTest : public ::testing::Test {
 
   // Initialized by InitBlockGraph.
   // @{
+  // Start address of the assembly function.
+  RelativeAddress start_addr_;
+
   BlockGraph block_graph_;
   Block* assembly_func_;
   Block* func1_;

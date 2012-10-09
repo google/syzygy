@@ -229,22 +229,22 @@ bool BasicBlockReferrer::IsValid() const {
 }
 
 Instruction::Instruction(const Instruction::Representation& value,
-                         Offset offset,
+                         SourceRange source_range,
                          Size size,
                          const uint8* data)
     : representation_(value),
-      offset_(offset),
+      source_range_(source_range),
       size_(size),
       data_(data),
-      owns_data_(false) {
+      owns_data_(false),
+      offset_(BasicBlock::kNoOffset) {
   DCHECK(data != NULL);
-  DCHECK(offset == BasicBlock::kNoOffset || offset >= 0);
   DCHECK_LT(0U, size);
   DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
 }
 
 Instruction::Instruction(Size size, const uint8* data)
-    : offset_(0), size_(0), data_(NULL), owns_data_(false) {
+    : size_(0), data_(NULL), owns_data_(false), offset_(BasicBlock::kNoOffset) {
   DCHECK(data != NULL);
   DCHECK_LT(0U, size);
   DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
@@ -261,11 +261,12 @@ Instruction::Instruction(Size size, const uint8* data)
 Instruction::Instruction(const Instruction& other)
     : representation_(other.representation_),
       references_(other.references_),
-      offset_(other.offset_),
+      source_range_(other.source_range_),
       size_(other.size_),
       data_(other.data_),
       owns_data_(other.owns_data_),
-      label_(other.label_) {
+      label_(other.label_),
+      offset_(BasicBlock::kNoOffset) {
   if (owns_data_) {
     uint8* new_data = new uint8[size_];
     memcpy(new_data, data_, size_);
@@ -626,6 +627,7 @@ Successor::Successor(const Successor& other)
       bb_target_offset_(other.bb_target_offset_),
       reference_(other.reference_),
       instruction_offset_(other.instruction_offset_),
+      source_range_(other.source_range_),
       instruction_size_(other.instruction_size_),
       label_(other.label_) {
 }
@@ -680,16 +682,13 @@ const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 BasicBlock::BasicBlock(BasicBlock::BlockId id,
                        const base::StringPiece& name,
                        BasicBlock::BasicBlockType type,
-                       BasicBlock::Offset offset,
                        BasicBlock::Size size,
                        const uint8* data)
     : id_(id),
       name_(name.begin(), name.end()),
       type_(type),
-      offset_(offset),
       size_(size),
       data_(data) {
-  DCHECK((offset < 0) || (offset >= 0 && size > 0));
   DCHECK(data != NULL || size == 0);
   DCHECK(type == BASIC_CODE_BLOCK || size > 0);
 }
