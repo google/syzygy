@@ -353,11 +353,13 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
         << GET_MNEMONIC_NAME(inst.opcode) << ".";
 
     // Create an (unresolved) successor pointing to the next instruction.
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
+                            1,  // The size is irrelevant in successors.
+                            const_cast<Block*>(block_),
+                            (addr + inst.size - code_addr_),
+                            (addr + inst.size - code_addr_));
     current_successors_.push_front(
-        Successor(inverse_condition,
-                  (addr + inst.size) - code_addr_,
-                  BasicBlock::kNoOffset,
-                  0));
+        Successor(inverse_condition, ref, BasicBlock::kNoOffset, 0));
     jump_targets_.insert(addr + inst.size);
   }
 
@@ -380,33 +382,28 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     bool found = GetReferenceOfInstructionAt(
         block_, GetOffset(succ_instr), succ_instr.size(), &ref);
 
-    // Create the appropriate successor depending on whether or not the target
-    // is intra- or inter-block.
-    Successor succ;
-    if (!found || ref.referenced() == block_) {
-      // This is an intra-block reference. The target basic block may not
-      // exist yet, so we'll defer patching up this reference until later.
+    if (!found) {
       Offset target_offset = dest - code_addr_;
-
+      ref = BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
+                                  1,  // Size is irrelevant in successors.
+                                  const_cast<Block*>(block_),
+                                  target_offset,
+                                  target_offset);
+    } else if (ref.referenced() == block_) {
       // If a reference was found, prefer its destination information
-      // to the information conveyed by the bytes in the instruction.
-      if (found) {
-        target_offset = dest - code_addr_;
-        dest = AbsoluteAddress(kDisassemblyAddress + target_offset);
-      }
-
-      CHECK_LE(0, target_offset);
-      CHECK_LT(static_cast<size_t>(target_offset), code_size_);
-      succ = Successor(
-          condition, target_offset, GetOffset(succ_instr), succ_instr.size());
-      jump_targets_.insert(dest);
-    } else {
-      // This is an inter-block jump. We can create a fully resolved reference.
-      BasicBlockReference bb_ref(
-          ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
-      succ = Successor(
-          condition, bb_ref, GetOffset(succ_instr), succ_instr.size());
+      // to the information conveyed by the bytes in the instruction,
+      // provided the destination is in this block.
+      dest = AbsoluteAddress(kDisassemblyAddress + ref.offset());
     }
+
+    // Create the successor.
+    BasicBlockReference bb_ref(
+        ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
+    Successor succ(
+        condition, bb_ref, GetOffset(succ_instr), succ_instr.size());
+
+    if (ref.referenced() == block_)
+      jump_targets_.insert(dest);
 
     // Copy the source range and label, if any.
     succ.set_source_range(succ_instr.source_range());
@@ -443,9 +440,14 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
     DCHECK(!current_instructions_.empty());
     DCHECK(!current_instructions_.back().IsImplicitControlFlow());
 
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
+                            1,  // Size is immaterial in successors.
+                            const_cast<Block*>(block_),
+                            (addr + inst.size) - code_addr_,
+                            (addr + inst.size) - code_addr_);
     current_successors_.push_front(
         Successor(Successor::kConditionTrue,
-                  (addr + inst.size) - code_addr_,  // To be resolved later.
+                  ref,
                   BasicBlock::kNoOffset,
                   0));
   }
@@ -798,8 +800,13 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
     }
 
     // Set-up the flow-through successor for the first "half".
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
+                            1,  // Size is immaterial in successors.
+                            const_cast<Block*>(block_),
+                            target_offset,
+                            target_offset);
     current_successors_.push_back(Successor(
-        Successor::kConditionTrue, target_offset, BasicBlock::kNoOffset, 0));
+        Successor::kConditionTrue, ref, BasicBlock::kNoOffset, 0));
 
     // Create the basic-block representing the first "half".
     if (!InsertBasicBlockRange(code_addr_ + target_bb_range.start(),
@@ -1015,21 +1022,16 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
     BasicBlock::Successors::iterator succ_iter = bb->successors().begin();
     BasicBlock::Successors::iterator succ_iter_end = bb->successors().end();
     for (; succ_iter != succ_iter_end; ++succ_iter) {
-      if (succ_iter->reference().IsValid()) {
-        // The branch target is already resolved; it must have been inter-block.
-        DCHECK(succ_iter->reference().block() != block_);
-        DCHECK(succ_iter->reference().block() != NULL);
+      if (succ_iter->reference().block() != block_)
         continue;
-      }
 
       // Find the basic block the successor references.
-      BasicBlock* target_bb = GetBasicBlockAt(succ_iter->bb_target_offset());
+      BasicBlock* target_bb = GetBasicBlockAt(succ_iter->reference().offset());
       DCHECK(target_bb != NULL);
 
       // We transform all successor branches into 4-byte pc-relative targets.
-      bool inserted = succ_iter->SetReference(
+      succ_iter->set_reference(
           BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target_bb));
-      DCHECK(inserted);
       DCHECK(succ_iter->reference().IsValid());
     }
   }

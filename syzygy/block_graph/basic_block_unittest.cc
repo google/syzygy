@@ -114,7 +114,12 @@ class BasicBlockTest: public testing::Test {
 
   // Helper function to create a successor branch instruction.
   Successor CreateBranch(uint16 opcode, Successor::Offset target) {
-    return Successor(Successor::OpCodeToCondition(opcode), target, -1, 0);
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
+                            1,  // Size is immaterial in successors.
+                            &macro_block_,
+                            target,
+                            target);
+    return Successor(Successor::OpCodeToCondition(opcode), ref, -1, 0);
   }
 
   // Some handy constants we'll use throughout the tests.
@@ -147,8 +152,8 @@ const BasicBlock::Offset BasicBlockTest::kBlockOffset = 0;
 const BasicBlock::Size BasicBlockTest::kBlockSize = 32;
 const uint8 BasicBlockTest::kBlockData[BasicBlockTest::kBlockSize] = {};
 const size_t BasicBlockTest::kRefSize = BlockGraph::Reference::kMaximumSize;
-const Successor::Offset BasicBlockTest::kOffset1(0xAABBCCDD);
-const Successor::Offset BasicBlockTest::kOffset2(0x11223344);
+const Successor::Offset BasicBlockTest::kOffset1(kBlockSize / 3);
+const Successor::Offset BasicBlockTest::kOffset2(kBlockSize / 2);
 
 }  // namespace
 
@@ -441,7 +446,6 @@ void TestSuccessorCopy(const Successor& input) {
   Successor copy(input);
 
   EXPECT_EQ(input.condition(), copy.condition());
-  EXPECT_EQ(input.bb_target_offset(), copy.bb_target_offset());
   EXPECT_EQ(input.reference(), copy.reference());
   EXPECT_EQ(input.label(), copy.label());
   EXPECT_EQ(input.has_label(), copy.has_label());
@@ -458,30 +462,9 @@ TEST_F(SuccessorTest, DefaultConstructor) {
 
   TestSuccessorCopy(s);
   EXPECT_EQ(Successor::kInvalidCondition, s.condition());
-  EXPECT_EQ(-1, s.bb_target_offset());
   EXPECT_EQ(BasicBlockReference(), s.reference());
   EXPECT_EQ(-1, s.instruction_offset());
   EXPECT_EQ(0, s.instruction_size());
-  EXPECT_FALSE(s.has_label());
-}
-
-TEST_F(SuccessorTest, OffsetConstructor) {
-  const Successor::Condition kCondition = Successor::kConditionAbove;
-  const Successor::Offset kTargetOffset(0x12345678);
-  const Successor::Offset kInstructinOffset = 32;
-  const Successor::Size kInstructionSize = 5;
-
-  Successor s(kCondition,
-              kTargetOffset,
-              kInstructinOffset,
-              kInstructionSize);
-
-  TestSuccessorCopy(s);
-  EXPECT_EQ(kCondition, s.condition());
-  EXPECT_EQ(kTargetOffset, s.bb_target_offset());
-  EXPECT_EQ(BasicBlockReference(), s.reference());
-  EXPECT_EQ(kInstructinOffset, s.instruction_offset());
-  EXPECT_EQ(kInstructionSize, s.instruction_size());
   EXPECT_FALSE(s.has_label());
 }
 
@@ -500,7 +483,6 @@ TEST_F(SuccessorTest, BasicBlockConstructor) {
 
   TestSuccessorCopy(s);
   EXPECT_EQ(kCondition, s.condition());
-  EXPECT_EQ(-1, s.bb_target_offset());
   EXPECT_EQ(bb_ref, s.reference());
   EXPECT_EQ(kSuccessorOffset, s.instruction_offset());
   EXPECT_EQ(kSuccessorSize, s.instruction_size());
