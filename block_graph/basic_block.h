@@ -442,23 +442,6 @@ class Successor {
   // This needs to exist so that successors can be stored in STL containers.
   Successor();
 
-  // Creates a successor without resolving it to a basic block.
-  //
-  // It is expected that a subsequent pass through the basic-block address
-  // space will be used to resolve each absolute address to a basic block
-  // structure and that each successor will have its reference set.
-  //
-  // @param condition the branching condition for this successor.
-  // @param target the absolute address to which this successor refers.
-  // @param offset the offset in the original block at which the instruction(s)
-  //     for this successor are located.
-  // @param size the length (in bytes) that the instructions for this successor
-  //     occupies in the original block.
-  Successor(Condition condition,
-            Offset bb_target_offset,
-            Offset instruction_offset,
-            Size instruction_size);
-
   // Creates a successor that resolves to a known block or basic block.
   //
   // @param condition the branching condition for this successor.
@@ -480,8 +463,11 @@ class Successor {
   // @{
   // The type of branch represented by this successor.
   Condition condition() const { return condition_; }
-  BasicBlockReference reference() const;
-  Offset bb_target_offset() const { return bb_target_offset_; }
+
+  BasicBlockReference reference() const { return reference_; }
+  void set_reference(const BasicBlockReference& reference) {
+    reference_ = reference;
+  };
 
   SourceRange source_range() const { return source_range_; }
   void set_source_range(const SourceRange& source_range) {
@@ -521,10 +507,6 @@ class Successor {
  protected:
   // The type of branch represented by this successor.
   Condition condition_;
-
-  // The original address of the branch target. Setting this on construction
-  // facilitates resolving the target basic block after the fact.
-  Offset bb_target_offset_;
 
   // The destination for this successor.
   BasicBlockReference reference_;

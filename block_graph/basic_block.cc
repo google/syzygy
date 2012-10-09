@@ -593,20 +593,8 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
 
 Successor::Successor()
     : condition_(kInvalidCondition),
-      bb_target_offset_(BasicBlock::kNoOffset),
       instruction_offset_(BasicBlock::kNoOffset),
       instruction_size_(0) {
-}
-
-Successor::Successor(Successor::Condition type,
-                     Offset bb_target_offset,
-                     Offset instruction_offset,
-                     Size instruction_size)
-    : condition_(type),
-      bb_target_offset_(bb_target_offset),
-      instruction_offset_(instruction_offset),
-      instruction_size_(instruction_size) {
-  DCHECK(condition_ != kInvalidCondition);
 }
 
 Successor::Successor(Successor::Condition condition,
@@ -614,7 +602,6 @@ Successor::Successor(Successor::Condition condition,
                      Offset instruction_offset,
                      Size instruction_size)
     : condition_(condition),
-      bb_target_offset_(BasicBlock::kNoOffset),
       instruction_offset_(instruction_offset),
       instruction_size_(instruction_size) {
   DCHECK(condition != kInvalidCondition);
@@ -624,16 +611,11 @@ Successor::Successor(Successor::Condition condition,
 
 Successor::Successor(const Successor& other)
     : condition_(other.condition_),
-      bb_target_offset_(other.bb_target_offset_),
       reference_(other.reference_),
       instruction_offset_(other.instruction_offset_),
       source_range_(other.source_range_),
       instruction_size_(other.instruction_size_),
       label_(other.label_) {
-}
-
-BasicBlockReference Successor::reference() const {
-  return reference_;
 }
 
 Successor::Condition Successor::InvertCondition(Condition cond) {
