@@ -214,7 +214,7 @@ def _ParseArgs():
   return (opts, args)
 
 
-if __name__ == '__main__':
+def Main():
   colorama.init()
   (opts, args) = _ParseArgs()
 
@@ -230,3 +230,7 @@ if __name__ == '__main__':
       sys.stderr.write(command + '\n')
 
   sys.exit(return_code)
+
+
+if __name__ == '__main__':
+  Main()

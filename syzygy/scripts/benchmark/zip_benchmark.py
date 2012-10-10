@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,12 @@ import glob
 import logging
 import optparse
 import os.path
-import pkg_resources
 import sys
 import zipfile
+
+# This is generally not present in the depot_tools Python installation.
+# pylint: disable=F0401
+import pkg_resources
 
 
 _YEAR = datetime.datetime.now().year
@@ -131,10 +134,10 @@ def _CreateFlatArchive(input_files, output_file):
   # Create a StringIO for the output.
   temp_file = cStringIO.StringIO()
 
-  zip = zipfile.ZipFile(temp_file, 'w', zipfile.ZIP_DEFLATED)
-  with contextlib.closing(zip):
+  zzip = zipfile.ZipFile(temp_file, 'w', zipfile.ZIP_DEFLATED)
+  with contextlib.closing(zzip):
     for input_file in input_files:
-      zip.write(input_file, os.path.basename(input_file))
+      zzip.write(input_file, os.path.basename(input_file))
 
   output = temp_file.getvalue()
 
@@ -183,7 +186,7 @@ def main():
                              module, egg_files)
     files_to_archive.append(src_path)
 
-  files_to_archive.extend(egg_files);
+  files_to_archive.extend(egg_files)
 
   _CreateFlatArchive(files_to_archive,
                      os.path.join(opts.root_dir, 'benchmark.zip'))

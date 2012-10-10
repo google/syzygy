@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 from etw.descriptors import event
 from etw.descriptors import field
+
 
 class Event(object):
   GUID = '{b967ae67-bb22-49d7-9406-55d91ee1d560}'

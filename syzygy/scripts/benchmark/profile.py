@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,13 @@
 """A utility script to automate the process of instrumenting, profiling and
 optimizing Chrome."""
 
-import chrome_utils
 import glob
 import logging
 import optparse
 import os
 import os.path
 import runner
-import shutil
 import sys
-import tempfile
 import time
 
 
@@ -85,6 +82,8 @@ class ChromeFrameProfileRunner(runner.ChromeFrameRunner):
     self._log_files = glob.glob(os.path.join(self._output_dir, '*.bin'))
 
 
+# Give us silent access to the internals of our runner.
+# pylint: disable=W0212
 def ProfileChrome(chrome_dir, output_dir, iterations, chrome_frame,
                   startup_type=runner.DEFAULT_STARTUP_TYPE,
                   startup_urls=None):
@@ -182,12 +181,12 @@ def main():
   opts = _ParseArguments()
 
   try:
-    trace_files = ProfileChrome(opts.input_dir,
-                                opts.output_dir,
-                                opts.iterations,
-                                opts.chrome_frame,
-                                opts.startup_type,
-                                opts.startup_urls)
+    ProfileChrome(opts.input_dir,
+                  opts.output_dir,
+                  opts.iterations,
+                  opts.chrome_frame,
+                  opts.startup_type,
+                  opts.startup_urls)
   except Exception:
     _LOGGER.exception('Profiling failed.')
     return 1

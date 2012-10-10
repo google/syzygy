@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@ from model import client as client_db
 from model import product as product_db
 from test.handler import handler_test
 
+
+# Ignore member variables being set outside of __init__.
+# pylint: disable=W0201
 class ProductTest(handler_test.TestCase):
 
   def setUp(self):
@@ -32,9 +35,9 @@ class ProductTest(handler_test.TestCase):
 
     product_db.Product(key_name='p2').put()
 
-  def _InitHandler(self, input):
+  def _InitHandler(self, input_data):
     self._handler = product.ProductHandler()
-    super(ProductTest, self)._InitHandler(self._handler, input)
+    super(ProductTest, self)._InitHandler(self._handler, input_data)
 
   def testGetAll(self):
     self._InitHandler('')

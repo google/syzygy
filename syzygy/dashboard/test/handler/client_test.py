@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,9 @@ from model import metric as metric_db
 from model import product as product_db
 from test.handler import handler_test
 
+# We define attributes on this object outside of __init__ (a common pattern
+# for unittests).
+# pylint: disable=W0201
 class ClientTest(handler_test.TestCase):
 
   def setUp(self):
@@ -42,9 +45,9 @@ class ClientTest(handler_test.TestCase):
                           units='furlongs')
     m2.put()
 
-  def _InitHandler(self, input):
+  def _InitHandler(self, input_data):
     self._handler = client.ClientHandler()
-    super(ClientTest, self)._InitHandler(self._handler, input)
+    super(ClientTest, self)._InitHandler(self._handler, input_data)
 
   def testGetAll(self):
     self._InitHandler('')

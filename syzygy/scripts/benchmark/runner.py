@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,25 +20,26 @@ import ctypes
 import ctypes.wintypes
 import etw
 import etw_db
-import etw.evntrace as evn
 import event_counter
-import exceptions
 import glob
 import ibmperf
 import json
 import logging
 import os
-import pkg_resources
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 import win32api
+import _winreg
+
+# The following packages are typically not installed in the depot_tools
+# Python installation, from which pylint is run.
+# pylint: disable=E0611,F0401
+import pkg_resources
 import win32com.shell.shell as shell
 import win32com.shell.shellcon as shellcon
-import _winreg
 
 
 # The Windows prefetch directory, this is possibly only valid on Windows XP.
@@ -72,7 +73,7 @@ ALL_STARTUP_TYPES = chrome_control.ALL_STARTUP_TYPES
 DEFAULT_STARTUP_TYPE = chrome_control.DEFAULT_STARTUP_TYPE
 
 
-class Prefetch:
+class Prefetch(object):
   """This class acts as an enumeration of Prefetch modes."""
 
   # If Prefetch is enabled, we leave the O/S to do its own thing. We also
@@ -98,13 +99,14 @@ def _DeletePrefetch():
   """
   files = glob.glob('%s\\Chrome.exe*.pf' % _PREFETCH_DIR)
   _LOGGER.info("Deleting %d prefetch files", len(files))
-  for file in files:
-    os.unlink(file)
+  for path in files:
+    os.unlink(path)
 
 
 def _GetExePath(name):
   """Gets the path to a named executable."""
   path = pkg_resources.resource_filename(__name__, os.path.join('exe', name))
+
   if not os.path.exists(path):
     # If we're not running packaged from an egg, we assume we're being
     # run from a virtual env in a build directory.
@@ -118,11 +120,11 @@ def _GetRunInSnapshotExeResourceName():
   """Return the name of the most appropriate run_in_snapshot executable for
   the system we're running on.
   """
-  maj, min = sys.getwindowsversion()[:2]
+  major, dummy_minor = sys.getwindowsversion()[:2]
   # 5 is XP.
-  if maj == _XP_MAJOR_VERSION:
+  if major == _XP_MAJOR_VERSION:
     return 'run_in_snapshot_xp.exe'
-  if maj < _XP_MAJOR_VERSION:
+  if major < _XP_MAJOR_VERSION:
     raise RunnerError('Unrecognized system version.')
 
   # We're on Vista or better, pick the 32 or 64 bit version as appropriate.
@@ -438,7 +440,7 @@ class ChromeRunner(object):
     _LOGGER.debug('Waiting until Chrome is running.')
     # Use a long timeout just in case the machine is REALLY bogged down.
     # This could be the case on the build-bot slave, for example.
-    for i in xrange(5 * 60):
+    for dummy_i in xrange(5 * 60):
       _LOGGER.info('Looking for Chrome instance with profile_dir %s.',
                    self._profile_dir)
       if chrome_control.IsProfileRunning(self._profile_dir):
@@ -517,7 +519,8 @@ class ChromeFrameRunner(ChromeRunner):
     _LOGGER.info('Launching command line [%s].', cmd)
     return subprocess.Popen(cmd)
 
-  def _GetIEPath(self):
+  @staticmethod
+  def _GetIEPath():
     """Returns the path to iexplore.exe.
 
     First looks in the registry and then tries some known paths on English
@@ -539,7 +542,8 @@ class ChromeFrameRunner(ChromeRunner):
 
     return ie_path
 
-  def _GetChromeFrameProfileDir(self):
+  @staticmethod
+  def _GetChromeFrameProfileDir():
     """Gets the Chrome Frame profile dir.
 
     Appends the relative path to the Chrome profile used by Chrome when running
@@ -555,6 +559,9 @@ class ChromeFrameRunner(ChromeRunner):
     ie_profile = os.path.join(local_appdata_dir, _IE_PROFILE_PATH)
     return ie_profile
 
+
+# Give us silent access to ChromeRunner internals.
+# pylint: disable=W0212,W0221
 class BenchmarkRunner(ChromeRunner):
   """A utility class to manage the running of Chrome startup time benchmarks.
 
@@ -604,6 +611,13 @@ class BenchmarkRunner(ChromeRunner):
     self._temp_dir = trace_file_archive_dir
     self._SetupIbmPerf(ibmperf_dir, ibmperf_run, ibmperf_metrics)
     self._session_urls = []
+
+    self._ibmperf_metrics = None
+    self._old_preload = None
+    self._chrome_file = None
+    self._kernel_file = None
+    self._ibmperf = None
+    self._ibmperf_groups = None
 
   def Run(self, iterations):
     """Overrides ChromeRunner.Run. We do this so that we can multiply
@@ -849,7 +863,7 @@ class BenchmarkRunner(ChromeRunner):
   def _CaptureWorkingSetMetrics(self):
     cmd = [_GetExePath('wsdump.exe'), '--process-name=chrome.exe']
     wsdump = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    stdout, stderr = wsdump.communicate()
+    stdout, dummy_stderr = wsdump.communicate()
     returncode = wsdump.returncode
     if returncode != 0:
       raise RunnerError('Failed to get working set stats.')

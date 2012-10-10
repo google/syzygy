@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 from ez_setup import use_setuptools
 use_setuptools()
 
+# ez_setup bootstraps our environment and ensures that setuptools are present.
+# So we can ignore pylint complaining that setuptools is not found.
+# pylint: disable=F0401
 from setuptools import setup
 
 setup(name = 'dashboard',

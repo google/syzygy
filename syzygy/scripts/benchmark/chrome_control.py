@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ _MESSAGE_WINDOW_CLASS = 'Chrome_MessageWindow'
 _WIDGET_WINDOW_BASE_CLASS = 'Chrome_WidgetWin_'
 
 
-def _SendChromeEndSession(window, extra):
+def _SendChromeEndSession(window, dummy_extra):
   # There may be more than one top level window that is a candidate for the
   # "root" instance. They will all have a class name starting with the common
   # prefix in _WIDGET_WINDOW_CLASS_NAME. All but the root will ignore (as of
@@ -76,6 +76,8 @@ def _FindProfileWindow(profile_dir):
                                  None,
                                  _MESSAGE_WINDOW_CLASS,
                                  profile_dir)
+  # This type is not found by the static analysis that pylint performs.
+  # pylint: disable=E1101
   except pywintypes.error:
     # On Windows 7, FindWindowEx returns None without raising an error.
     # On older versions, it raises a FILE_NOT_FOUND error.
@@ -129,7 +131,7 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
       if timeout_ms < curr_timeout_ms:
         curr_timeout_ms = timeout_ms
 
-      timeout_ms -= curr_timeout
+      timeout_ms -= curr_timeout_ms
 
     result = win32event.WaitForSingleObject(process_handle, curr_timeout_ms)
     # Exit the loop on successful wait.
@@ -163,7 +165,7 @@ _PREREAD_VALUE = 'PreRead'
 
 def _GetDWORDValue(key, name):
   try:
-    (value, value_type) = _winreg.QueryValueEx(key, name)
+    (value, dummy_value_type) = _winreg.QueryValueEx(key, name)
   except exceptions.WindowsError, ex:
     if ex.errno is not winerror.ERROR_FILE_NOT_FOUND:
       raise

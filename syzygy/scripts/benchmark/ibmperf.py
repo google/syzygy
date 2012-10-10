@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -155,6 +155,9 @@ class IbmPerfTool(object):
       raise ExecutionFailed("'%s' returned code '%d'.\n  STDOUT: %s\n"
                             "  STDERR: %s\n" %
                             (toolname, returncode, stdout, stderr))
+    # Pylint doesn't know the type of 'stdout', so complains about a missing
+    # member function. Ignore it.
+    # pylint: disable=E1103
     return stdout.splitlines()
 
 

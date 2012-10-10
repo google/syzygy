@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -161,12 +161,8 @@ def main():
                                             opts.ibmperf_run,
                                             opts.ibmperf_metrics,
                                             opts.trace_file_archive_dir)
-  try:
-    benchmark_runner.ConfigureStartup(opts.startup_type, opts.startup_urls)
-    benchmark_runner.Run(opts.iterations)
-  except:
-    logging.exception('Exception in Run.')
-    return 1
+  benchmark_runner.ConfigureStartup(opts.startup_type, opts.startup_urls)
+  benchmark_runner.Run(opts.iterations)
 
   return 0
 
