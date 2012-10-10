@@ -36,6 +36,8 @@
         'random_order_generator.h',
         'reorderer.cc',
         'reorderer.h',
+        'transforms/basic_block_layout_transform.cc',
+        'transforms/basic_block_layout_transform.h',
       ],
       'dependencies': [
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
@@ -82,12 +84,14 @@
         'random_order_generator_unittest.cc',
         'reorder_unittests_main.cc',
         'reorderer_unittest.cc',
+        'transforms/basic_block_layout_transform_unittest.cc',
         '<(DEPTH)/syzygy/pe/unittest_util.cc',
         '<(DEPTH)/syzygy/pe/unittest_util.h',
       ],
       'dependencies': [
         'reorder_lib',
         '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(DEPTH)/syzygy/test_data/test_data.gyp:copy_test_dll',
