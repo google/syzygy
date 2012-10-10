@@ -15,6 +15,7 @@
 #include "syzygy/instrument/transforms/coverage_transform.h"
 
 #include "syzygy/block_graph/basic_block_assembler.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pe/block_util.h"
@@ -91,17 +92,12 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
       continue;
 
     // Find the source range associated with this basic-block.
-    // TODO(chrisha): Make this a utility function on BasicBlock and eventually
-    //     move all of the data into instructions and successors.
-    BlockGraph::Offset bb_offs = basic_block_subgraph->GetOffset(&bb);
-    const BlockGraph::Block::SourceRanges::RangePair* range_pair =
-        basic_block_subgraph->original_block()->source_ranges().FindRangePair(
-            BlockGraph::Block::SourceRanges::SourceRange(bb_offs, 1));
-
-    // If there's no source data, something has gone terribly wrong. In fact, it
-    // likely means that we've stacked transforms and new instructions have
-    // been prepended to this BB. We don't support this yet.
-    DCHECK(range_pair != NULL);
+    BlockGraph::Block::SourceRange source_range;
+    if (!GetBasicBlockSourceRange(bb, &source_range)) {
+      LOG(ERROR) << "Unable to get source range for basic block '"
+                 << bb.name() << "'";
+      return false;
+    }
 
     // We prepend each basic code block with the following instructions:
     //   0. push eax
@@ -116,14 +112,7 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     assm.mov_b(Operand(eax, Displacement(bb_ranges_.size())), Immediate(1));
     assm.pop(eax);
 
-    const BlockGraph::Block::DataRange& data_range = range_pair->first;
-    const BlockGraph::Block::SourceRange& src_range = range_pair->second;
-
-    // Get the RVA of the BB by translating its offset, and remember the range
-    // associated with this BB.
-    core::RelativeAddress bb_addr = src_range.start() +
-        (bb_offs - data_range.start());
-    bb_ranges_.push_back(RelativeAddressRange(bb_addr, bb.size()));
+    bb_ranges_.push_back(source_range);
   }
 
   return true;
