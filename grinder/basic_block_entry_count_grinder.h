@@ -21,49 +21,23 @@
 #include <map>
 #include <vector>
 
+#include "base/values.h"
+#include "syzygy/grinder/basic_block_entry_count_serializer.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
 
-// This class processes trace files containing basic-block frequency data and
-// generates a summary JSON file.
+// This class processes trace files containing basic-block frequency data,
+// populating an EntryCountMap with summary entry counts, and
+// generating a JSON output file.
 //
-// The JSON file has the following structure.
+// See basic_block_entry_count_serializer.h for the resulting JSON structure.
 //
-//     [
-//       {
-//         "metadata": {
-//           "command_line": "\"foo.exe\"",
-//           "creation_time": "Wed, 19 Sep 2012 17:33:52 GMT",
-//           "toolchain_version": {
-//             "major": 0,
-//             "minor": 2,
-//             "build": 7,
-//             "patch": 0,
-//             "last_change": "0"
-//           },
-//           "module_signature": {
-//             "path": "C:\\foo\\bar.dll",
-//             "base_address": 1904279552,
-//             "module_size": 180224,
-//             "module_time_date_stamp": "0x46F7885059FE32",
-//             "module_checksum": "0x257AF"
-//           }
-//         },
-//         "num_basic_blocks": 2933,
-//         "entry_counts": [
-//           9, 100, 0, 0, ...  // A total of num_basic_blocks entries.
-//         ]
-//       }
-//     ]
+// The JSON output will be pretty printed if --pretty-print is included in the
+// command line passed to ParseCommandLine().
 class BasicBlockEntryCountGrinder : public GrinderInterface {
  public:
-  typedef basic_block_util::ModuleInformation ModuleInformation;
-  typedef uint64 CounterType;
-  typedef std::vector<CounterType> EntryCountVector;
-  typedef std::map<const ModuleInformation*, EntryCountVector> EntryCountMap;
-
   BasicBlockEntryCountGrinder();
 
   // @name GrinderInterface implementation.
@@ -84,7 +58,9 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // @}
 
   // @returns a map from ModuleInformation records to bb entry counts.
-  const EntryCountMap& entry_count_map() const { return entry_count_map_; }
+  const basic_block_util::EntryCountMap& entry_count_map() const {
+    return entry_count_map_;
+  }
 
  protected:
    // This method does the actual updating of the entry counts on receipt
@@ -92,11 +68,16 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
    // main hook for unit-testing purposes.
    // @param module_info the module whose basic-block entries are being counted.
    // @param data the basic-block entry counts being reported.
-   void UpdateBasicBlockEntryCount(const ModuleInformation* module_info,
-                                   const TraceBasicBlockFrequencyData* data);
+   void UpdateBasicBlockEntryCount(
+       const basic_block_util::ModuleInformation* module_info,
+       const TraceBasicBlockFrequencyData* data);
 
   // Stores the summarized basic-block entry counts, per module.
-  EntryCountMap entry_count_map_;
+  basic_block_util::EntryCountMap entry_count_map_;
+
+  // Used to save the JSON output to a file. Also tracks the pretty-printing
+  // status of this grinder.
+  BasicBlockEntryCountSerializer serializer_;
 
   // Points to the parser that is feeding us events. Used to get module
   // information.
@@ -105,10 +86,6 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // Set to true if any call to OnBasicBlockFrequency fails. Processing will
   // continue with a warning that results may be partial.
   bool event_handler_errored_;
-
-  // The JSON output will be pretty printed if this is true. This value is set
-  // if --pretty-print is on the command line passed to ParseCommandLine().
-  bool pretty_print_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlockEntryCountGrinder);
