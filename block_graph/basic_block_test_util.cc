@@ -59,24 +59,38 @@ const BlockGraph::LabelAttributes kJumpTableAttributes =
 }  // namespace
 
 BasicBlockTest::BasicBlockTest()
-    : assembly_func_(NULL), func1_(NULL), func2_(NULL), data_(NULL) {
+    : text_section_(NULL), data_section_(NULL), assembly_func_(NULL),
+      func1_(NULL), func2_(NULL), data_(NULL) {
 }
 
 void BasicBlockTest::InitBlockGraph() {
   start_addr_ = RelativeAddress(0xF00D);
 
+  text_section_ = block_graph_.AddSection(
+      ".text", IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_EXECUTE);
+  ASSERT_TRUE(text_section_ != NULL);
+
+  data_section_ = block_graph_.AddSection(
+      ".data",
+      IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ |
+          IMAGE_SCN_MEM_WRITE);
+  ASSERT_TRUE(data_section_ != NULL);
+
   // Create func1, which will be called from assembly_func.
   func1_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1, "func1");
   ASSERT_TRUE(func1_ != NULL);
+  func1_->set_section(text_section_->id());
 
   // Create func2, a non-returning function called from assembly_func.
   func2_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1, "func2");
   ASSERT_TRUE(func2_ != NULL);
   func2_->set_attributes(BlockGraph::NON_RETURN_FUNCTION);
+  func2_->set_section(text_section_->id());
 
   // Create a data block to refer to assembly_func.
   data_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 4, "data");
   ASSERT_TRUE(data_ != NULL);
+  data_->set_section(data_section_->id());
 
   // Create assembly_func, and mark it as BUILT_BY_SYZYGY so the basic-block
   // decomposer is willing to process it.
@@ -87,6 +101,7 @@ void BasicBlockTest::InitBlockGraph() {
   assembly_func_->SetData(reinterpret_cast<const uint8*>(assembly_func),
                           kAssemblyFuncSize);
   assembly_func_->set_attributes(BlockGraph::BUILT_BY_SYZYGY);
+  assembly_func_->set_section(text_section_->id());
   assembly_func_->
       source_ranges().Push(Block::DataRange(0, kAssemblyFuncSize),
                            Block::SourceRange(start_addr_, kAssemblyFuncSize));

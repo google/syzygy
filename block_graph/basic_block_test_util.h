@@ -43,7 +43,19 @@ extern int func2();
 namespace testing {
 
 // A utility class for generating test data built around the function in
-// basic_block_assembly_func.asm.
+// basic_block_assembly_func.asm. When assembly_func_ is decomposed as a basic
+// block subgraph the layout is as follows:
+//
+// BB0: offset 0, code, assembly_func, 4 instructions, 0 successors
+// BB1: offset 23, padding (unreachable code)
+// BB2: offset 24, code, case_0, 2 instructions, 1 successor
+// BB3: offset 31, code, sub eax to jnz, 1 instruction, 2 successors
+// BB4: offset 36, code, ret, 1 instruction, 0 successors
+// BB5: offset 37, code, case_1, 1 instruction, 1 successor
+// BB6: offset 42, code, case_default, 2 instructions, 0 successors
+// BB7: offset 49, code, interrupt_label, 1 instruction, 0 successors
+// BB8: offset 50, data, jump_table, 12 bytes
+// BB9: offset 62, data, case_table, 256 bytes
 class BasicBlockTest : public ::testing::Test {
  public:
   typedef core::RelativeAddress RelativeAddress;
@@ -54,6 +66,7 @@ class BasicBlockTest : public ::testing::Test {
   typedef BasicBlockSubGraph::BlockDescription BlockDescription;
   typedef BlockGraph::Block Block;
   typedef BlockGraph::Reference Reference;
+  typedef BlockGraph::Section Section;
 
   // The number and type of basic blocks.
   // TODO(rogerm): The padding block will go away once the decomposer switches
@@ -81,6 +94,8 @@ class BasicBlockTest : public ::testing::Test {
   RelativeAddress start_addr_;
 
   BlockGraph block_graph_;
+  Section* text_section_;
+  Section* data_section_;
   Block* assembly_func_;
   Block* func1_;
   Block* func2_;
