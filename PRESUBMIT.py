@@ -15,7 +15,6 @@
 #
 # Presubmit script for Syzygy.
 
-import datetime
 import itertools
 import os
 import re
@@ -180,11 +179,10 @@ def CheckUnittestsRan(input_api, output_api, committing, configuration):
 
 
 def CheckChange(input_api, output_api, committing):
-  # The list of (canned) checks we perform on all changes.
+  # The list of (canned) checks we perform on all files in all changes.
   checks = [
     CheckIncludeOrder,
     input_api.canned_checks.CheckChangeHasDescription,
-    input_api.canned_checks.CheckChangeLintsClean,
     input_api.canned_checks.CheckChangeHasNoCrAndHasOnlyOneEol,
     input_api.canned_checks.CheckChangeHasNoTabs,
     input_api.canned_checks.CheckChangeHasNoStrayWhitespace,
@@ -197,6 +195,14 @@ def CheckChange(input_api, output_api, committing):
   for check in checks:
     results += check(input_api, output_api)
 
+  # We run lint only on C/C++ files so that we avoid getting notices about
+  # files being ignored.
+  is_cc_file = lambda x: input_api.FilterSourceFile(x, white_list=_CC_FILES)
+  results += input_api.canned_checks.CheckChangeLintsClean(
+      input_api, output_api, source_file_filter=is_cc_file)
+
+  # We check the license on the default recognized source file types, as well
+  # as GYP and Python files.
   gyp_file_re = r'.+\.gypi?$'
   py_file_re = r'.+\.py$'
   white_list = input_api.DEFAULT_WHITE_LIST + (gyp_file_re, py_file_re)

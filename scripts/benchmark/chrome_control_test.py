@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ import win32api
 import _winreg
 
 
+# This is to allow access to private internals without raising a warning.
+# pylint: disable=W0212
 class TestChromeControl(unittest.TestCase):
   def setUp(self):
     # Wipe the current settings to normalize.
@@ -27,7 +29,7 @@ class TestChromeControl(unittest.TestCase):
                                   chrome_control._CHROME_FRAME_KEY,
                                   0,
                                   win32con.KEY_SET_VALUE)
-    except Exception, ex:
+    except Exception:
       return
 
     values = (chrome_control._PREREAD_VALUE,
@@ -37,7 +39,7 @@ class TestChromeControl(unittest.TestCase):
     for value in values:
       try:
         win32api.RegDeleteValue(key, value)
-      except Exception, ex:
+      except Exception:
         pass
 
 

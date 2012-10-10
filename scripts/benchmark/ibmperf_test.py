@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import ibmperf
 import logging
 import os
 import random
-import time
 import unittest
 
 
@@ -98,7 +97,7 @@ class MockHardwarePerformanceCounter(ibmperf.HardwarePerformanceCounter):
     """
     self._popen_results.append(result_tuple)
 
-  def _Popen(self, command_line_unused):
+  def _Popen(self, dummy_command_line):
     """Overrides _Popen from ibmperf.HardwarePerformanceCounter.
 
     Returns the mocked object from the head of the _popen_results queue.
@@ -130,15 +129,15 @@ _GENERIC_SUCCESS = (MockPopen, [], {})
 _DDQ_INSTALLED = _GENERIC_SUCCESS
 
 # The simulated output of a successful call to "ptt".
-_PTT_OUTPUT = "\n".join([" - %s" % metric for metric in _METRICS])
+_PTT_OUTPUT = "\n".join([" - %s" % _metric for _metric in _METRICS])
 _PTT_SUCCESS = (MockPopen, [], {"stdout": _PTT_OUTPUT})
 
 # The simulated output of a successful call to "mpevt -ld".
 _MPEVT_OUTPUT = "Id Name Description\n-- ---- -----------"
-for i, metric in enumerate(_METRICS):
-  desc = _METRICS[metric]
+for i, _metric in enumerate(_METRICS):
+  desc = _METRICS[_metric]
   if desc:
-    _MPEVT_OUTPUT += "\n%d %s %s" % (100 + i, metric, desc)
+    _MPEVT_OUTPUT += "\n%d %s %s" % (100 + i, _metric, desc)
 _MPEVT_SUCCESS = (MockPopen, [], {"stdout": _MPEVT_OUTPUT, "returncode": -1})
 
 # This is a set of MockPopen results that imitates a successful initialization
@@ -157,7 +156,7 @@ def _CreateQueryResults(metrics):
   for metric in metrics:
     pid_results = {}
     for pid in pids:
-      pid_results[pid] = random.randint(100000,1000000)
+      pid_results[pid] = random.randint(100000, 1000000)
     results[metric] = pid_results
   return results
 
@@ -238,6 +237,9 @@ class TestHardwarePerformanceCounter(unittest.TestCase):
     self._hpc.AddPopenResult(_GENERIC_SUCCESS)  # ptt term
     self._hpc.Stop()
 
+  # Pylint complains that this need not be a member function, but the
+  # unittest machinery requires this.
+  # pylint: disable=R0201
   def testInstallsIfNotInstalled(self):
     MockHardwarePerformanceCounter(
         [(MockPopen, [], {"returncode": -1}),  # ddq failure.

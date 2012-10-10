@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,6 +117,26 @@ def CheckChange(input_api, output_api, committing):
   results = []
   for check in checks:
     results += check(input_api, output_api, committing)
+
+
+  # We only check Python files in this directory. The others are checked by
+  # the PRESUBMIT in our root directory.
+  sys.path.append('../../third_party/googleappengine')
+  white_list = [r'^.*\.py$']
+  black_list = [r'^ez_setup\.py$']
+  disabled_warnings = [
+      # Differing number of arguments in override. We often override using
+      # a different signature than in the base class (using *args, **kwargs
+      # for things we don't care about, and simply passing them through).
+      'W0221',
+      # The Google AppEngine API seems to have runtime generated functions
+      # which pylint doesn't detect. It consistently complains that we are
+      # calling non-existing member functions, so we ignore this globally.
+      'E1101', 'E1103']
+  results += input_api.canned_checks.RunPylint(input_api, output_api,
+      white_list=white_list, black_list=black_list,
+      disabled_warnings=disabled_warnings)
+
 
   return results
 

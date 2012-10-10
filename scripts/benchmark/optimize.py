@@ -26,7 +26,6 @@ import runner
 import shutil
 import sys
 import tempfile
-import time
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +36,8 @@ class OptimizationError(Exception):
   pass
 
 
+# Give us silent access to the internals of our runner.
+# pylint: disable=W0212
 def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
   _LOGGER.info('Optimizing Chrome.')
   # Generate the ordering file for chrome.dll.
@@ -79,10 +80,10 @@ def _CopyBinaries(src_dir, tgt_dir):
     os.makedirs(tgt_dir)
 
   files = ('chrome.dll', 'chrome_dll.pdb')
-  for file in files:
-    src_file = os.path.join(src_dir, file)
-    tgt_file = os.path.join(tgt_dir, file)
-    _LOGGER.info('Placing optimized %s in %s', file, tgt_dir)
+  for path in files:
+    src_file = os.path.join(src_dir, path)
+    tgt_file = os.path.join(tgt_dir, path)
+    _LOGGER.info('Placing optimized %s in %s', path, tgt_dir)
     shutil.copy2(src_file, tgt_file)
 
 

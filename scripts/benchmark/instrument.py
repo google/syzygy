@@ -34,6 +34,8 @@ class InstrumentationError(Exception):
   pass
 
 
+# Give us silent access to internal member functions of the runner.
+# pylint: disable=W0212
 def InstrumentChrome(chrome_dir, output_dir, client_dll):
   """Makes an instrumented copy of the Chrome files in chrome_dir in
   output_dir.
@@ -54,10 +56,10 @@ def InstrumentChrome(chrome_dir, output_dir, client_dll):
   # Drop the call-trace client DLL into the temp dir.
   shutil.copy2(runner._GetExePath(client_dll), output_dir)
 
-  for file in _EXECUTABLES:
-    _LOGGER.info('Instrumenting "%s".', file)
-    src_file = os.path.join(chrome_dir, file)
-    dst_file = os.path.join(output_dir, file)
+  for path in _EXECUTABLES:
+    _LOGGER.info('Instrumenting "%s".', path)
+    src_file = os.path.join(chrome_dir, path)
+    dst_file = os.path.join(output_dir, path)
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-image=%s' % src_file,
            '--output-image=%s' % dst_file,
@@ -69,7 +71,7 @@ def InstrumentChrome(chrome_dir, output_dir, client_dll):
 
     ret = chrome_utils.Subprocess(cmd)
     if ret != 0:
-      raise InstrumentationError('Failed to instrument "%s".' % file)
+      raise InstrumentationError('Failed to instrument "%s".' % path)
 
 
 _USAGE = """\

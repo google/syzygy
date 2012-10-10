@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 
 import distutils.command.install_data
 import os.path
-import pprint
+
+# This is typically not present in the depot_tools Python installation.
+# pylint: disable=F0401
 import setuptools
-import sys
 
 
 class InstallData(distutils.command.install_data.install_data):
@@ -29,6 +30,10 @@ class InstallData(distutils.command.install_data.install_data):
        "base directory where our exe files are to be found "
        "(default: None)"))
 
+  def __init__(self, *args, **kwargs):
+    distutils.command.install_data.install_data.__init__(self, *args, **kwargs)
+    self.exe_dir = None
+
   def initialize_options(self):
     self.exe_dir = None
     distutils.command.install_data.install_data.initialize_options(self)
@@ -36,8 +41,8 @@ class InstallData(distutils.command.install_data.install_data):
   def finalize_options(self):
     distutils.command.install_data.install_data.finalize_options(self)
     if self.exe_dir:
-      for dir, files in self.data_files:
-        files[:] = [os.path.join(self.exe_dir, file) for file in files]
+      for dummy_dir, files in self.data_files:
+        files[:] = [os.path.join(self.exe_dir, path) for path in files]
 
 
 # Source directories for the packages we bundle.

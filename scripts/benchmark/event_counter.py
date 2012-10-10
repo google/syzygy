@@ -1,5 +1,5 @@
 #!/usr/bin/python2.6
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,17 @@
 
 import etw
 import etw.descriptors.pagefault as pagefault
-import etw.descriptors.pagefault_xp as pagefault_xp
 import etw.descriptors.process as process
-import etw_db
 import logging
-import optparse
 import os.path
 import re
 import trace_event
 
+# This import is required to have some setup performed behind the scenes, but
+# we don't ever directly refer to it. Ignore pylint complaining about an unused
+# import.
+# pylint: disable=W0611
+import etw.descriptors.pagefault_xp as pagefault_xp
 
 # TODO(siggi): Make these configurable?
 _CHROME_RE = re.compile(r'^chrome\.exe$', re.I)
@@ -72,6 +74,9 @@ class LogEventCounter(etw.EventConsumer):
         module_db: an etw_db.ModuleDatabase instance.
         process_db: an etw_db.ProcessThreadDatabase instance.
     """
+    # etw.EventConsumer is an old-style class, so super() doesn't work.
+    etw.EventConsumer.__init__(self)
+
     self._file_db = file_db
     self._module_db = module_db
     self._process_db = process_db
@@ -118,22 +123,22 @@ class LogEventCounter(etw.EventConsumer):
     # Create a catch-all module that sums each soft-fault type across all
     # modules.
     all_modules = _MakeEmptySoftFaultDict()
-    for (name, counts) in self._softfaults.iteritems():
+    for (dummy_name, counts) in self._softfaults.iteritems():
       for (fault_type, count) in counts.iteritems():
         all_modules[fault_type] += count
     self._softfaults[_ALL] = all_modules
 
     # For each module create a bucket that holds the sum of all soft-fault
     # counts.
-    for (name, counts) in self._softfaults.iteritems():
+    for (dummy_name, counts) in self._softfaults.iteritems():
       counts[_ALL] = sum(counts.itervalues())
 
-  def _GetModuleName(self, process, fault):
+  def _GetModuleName(self, process_desc, fault):
     """Given a fault event, and the process in which it occurred, tries to
     resolve the module to which the event belongs. If no matching module is
     found, returns the catch-all module name _OTHER."""
     module = self._module_db.GetProcessModuleAt(
-        process.process_id, fault.VirtualAddress)
+        process_desc.process_id, fault.VirtualAddress)
     if module:
       basename = os.path.basename(module.file_name).lower()
       if basename in _MODULES_TO_TRACK:
@@ -144,9 +149,9 @@ class LogEventCounter(etw.EventConsumer):
   @etw.EventHandler(pagefault.Event.HardFault)
   def _OnHardFault(self, event):
     # Resolve the thread id in the event back to the faulting process.
-    process = self._process_db.GetThreadProcess(event.TThreadId)
-    if process and _CHROME_RE.search(process.image_file_name):
-      module_name = self._GetModuleName(process, event)
+    process_desc = self._process_db.GetThreadProcess(event.TThreadId)
+    if process_desc and _CHROME_RE.search(process_desc.image_file_name):
+      module_name = self._GetModuleName(process_desc, event)
       self._hardfaults[module_name] += 1
 
   def _OnSoftFault(self, event, fault_type):
@@ -154,9 +159,9 @@ class LogEventCounter(etw.EventConsumer):
       self._softfaults[module_name][fault_type] += 1
 
     # Resolve the faulting process.
-    process = self._process_db.GetProcess(event.process_id)
-    if process and _CHROME_RE.search(process.image_file_name):
-      module_name = self._GetModuleName(process, event)
+    process_desc = self._process_db.GetProcess(event.process_id)
+    if process_desc and _CHROME_RE.search(process_desc.image_file_name):
+      module_name = self._GetModuleName(process_desc, event)
       UpdateModuleCount(module_name)
 
   @etw.EventHandler(pagefault.Event.AccessViolation)

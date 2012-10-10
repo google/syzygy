@@ -1,5 +1,5 @@
 #!python
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import unittest
 from google.appengine.ext import testbed
 from google.appengine.ext import webapp
 
+# Ignore member variables being set outside of __init__.
+# pylint: disable=W0201
 class TestCase(unittest.TestCase):
   """Base class for handler unit tests."""
 
@@ -29,11 +31,11 @@ class TestCase(unittest.TestCase):
   def tearDown(self):
     self._testbed.deactivate()
 
-  def _InitHandler(self, handler, input):
+  def _InitHandler(self, handler, input_data):
     """Create fake request, response and handler."""
     self._request = webapp.Request({
-        'wsgi.input': StringIO.StringIO(input),
-        'CONTENT_LENGTH': len(input),
+        'wsgi.input': StringIO.StringIO(input_data),
+        'CONTENT_LENGTH': len(input_data),
         'REQUEST_METHOD': 'POST'})
     self._response = webapp.Response()
 

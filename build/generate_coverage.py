@@ -117,15 +117,15 @@ class _CodeCoverageRunnerBase(object):
     Args:
       file_path: The path of the module to be instrumented.
     """
-    raise Exception('_InstrumentOneFile must be overridden.')
+    raise NotImplementedError()
 
   def _StartCoverageCapture(self):
     """Starts the coverage capture process."""
-    raise Exception('_StartCoverageCapture must be overridden.')
+    raise NotImplementedError()
 
   def _StopCoverageCapture(self):
     """Stops the coverage capture process."""
-    raise Exception('_StopCoverageCapture must be overridden.')
+    raise NotImplementedError()
 
   def _ProcessCoverage(self, output_path):
     """Processes coverage results and produces an GCOV/LCOV formatted
@@ -134,7 +134,7 @@ class _CodeCoverageRunnerBase(object):
     Args:
       output_path: The path of the output file to produce.
     """
-    raise Exception('_ProcessCoverage must be overridden.')
+    raise NotImplementedError()
 
   def _CreateWorkdir(self):
     assert(self._work_dir == None)

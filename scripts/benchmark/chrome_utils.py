@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,4 +89,3 @@ def CopyChromeFiles(src_dir, tgt_dir):
         # want will copy correctly, ignore the exeption, and hope for the best
         # on the other side.
         _LOGGER.warn('Skipped "%s".', rel_path)
-        pass
