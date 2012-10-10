@@ -30,9 +30,19 @@
 namespace grinder {
 namespace basic_block_util {
 
+// Address related types.
 typedef core::RelativeAddress RelativeAddress;
 typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
 typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
+
+// Module information.
+typedef sym_util::ModuleInformation ModuleInformation;
+
+// Type definitions for the basic block entry count data.
+typedef uint32 EntryCountType;
+typedef std::vector<EntryCountType> EntryCountVector;
+typedef std::map<ModuleInformation, EntryCountVector>
+    EntryCountMap;
 
 // This structure holds the information extracted from a PDB file for a
 // given module.
@@ -50,7 +60,6 @@ struct PdbInfo {
   RelativeAddressRangeVector bb_ranges;
 };
 
-typedef sym_util::ModuleInformation ModuleInformation;
 typedef std::map<const ModuleInformation*, PdbInfo> PdbInfoMap;
 
 // Loads a new or retrieves the cached PDB info for the given module. This

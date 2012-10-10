@@ -17,6 +17,7 @@
 #include <limits>
 
 #include "base/file_path.h"
+#include "base/json/json_reader.h"
 #include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/json_file_writer.h"
@@ -32,73 +33,28 @@ namespace  {
 
 using common::kSyzygyVersion;
 using core::JSONFileWriter;
+using basic_block_util::EntryCountMap;
+using basic_block_util::EntryCountType;
+using basic_block_util::EntryCountVector;
 using basic_block_util::GetFrequency;
 using basic_block_util::IsValidFrequencySize;
 using basic_block_util::ModuleInformation;
 using trace::parser::AbsoluteAddress64;
 
-bool OutputEntryCount(
-    JSONFileWriter* writer,
-    const ModuleInformation* module_information,
-    const BasicBlockEntryCountGrinder::EntryCountVector& entry_counts) {
-  DCHECK(writer != NULL);
-  DCHECK(module_information != NULL);
-
-  // Start a new dictionary.
-  if (!writer->OpenDict())
-    return false;
-
-  // Pour the module information into a PE Metadata object, for convenient
-  // JSON serialization.
-  pe::Metadata metadata;
-  if (!metadata.Init(pe::PEFile::Signature(*module_information)))
-    return false;
-
-  // Output the module metadata.
-  if (!writer->OutputKey("metadata") ||
-      !metadata.SaveToJSON(writer)) {
-    return false;
-  }
-
-  // Output the number of basic blocks.
-  if (!writer->OutputKey("num_basic_blocks") ||
-      !writer->OutputInteger(entry_counts.size())) {
-    return false;
-  }
-
-  // Output the entry count array.
-  if (!writer->OutputKey("entry_counts") ||
-      !writer->OpenList()) {
-    return false;
-  }
-
-  for (size_t i = 0; i < entry_counts.size(); ++i) {
-    if (!writer->OutputInteger(entry_counts[i]))
-      return false;
-  }
-
-  if (!writer->CloseList())
-    return false;
-
-  // Close the dictionary.
-  if (!writer->CloseDict())
-    return false;
-
-  // And we're done.
-  return true;
-}
+const char kMetadata[] = "metadata";
+const char kNumBasicBlocks[] = "num_basic_blocks";
+const char kEntryCounts[] = "entry_counts";
 
 }  // namespace
 
 BasicBlockEntryCountGrinder::BasicBlockEntryCountGrinder()
     : parser_(NULL),
-      event_handler_errored_(false),
-      pretty_print_(false) {
+      event_handler_errored_(false) {
 }
 
 bool BasicBlockEntryCountGrinder::ParseCommandLine(
     const CommandLine* command_line) {
-  pretty_print_ = command_line->HasSwitch("pretty-print");
+  serializer_.set_pretty_print(command_line->HasSwitch("pretty-print"));
   return true;
 }
 
@@ -117,21 +73,10 @@ bool BasicBlockEntryCountGrinder::Grind() {
 }
 
 bool BasicBlockEntryCountGrinder::OutputData(FILE* file) {
-  core::JSONFileWriter writer(file, pretty_print_);
+  DCHECK(file != NULL);
 
-  // Open the list;
-  if (!writer.OpenList())
-    return false;
-
-  // Output each entry;
-  EntryCountMap::const_iterator it = entry_count_map_.begin();
-  for (; it != entry_count_map_.end(); ++it) {
-    if (!OutputEntryCount(&writer, it->first, it->second))
-      return false;
-  }
-
-  // Close the list.
-  if (!writer.CloseList())
+  BasicBlockEntryCountSerializer serializer;
+  if (!serializer.SaveAsJson(entry_count_map_, file))
     return false;
 
   return true;
@@ -181,8 +126,7 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
   DCHECK_EQ(data->module_checksum, module_info->image_checksum);
   DCHECK_EQ(data->module_time_date_stamp, module_info->time_date_stamp);
 
-
-  EntryCountVector& bb_entries = entry_count_map_[module_info];
+  EntryCountVector& bb_entries = entry_count_map_[*module_info];
   if (bb_entries.size() != data->num_basic_blocks) {
     // This should be the first (and only) time we're initializing this
     // entry count vector.
@@ -198,9 +142,10 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
   // Run over the BB frequency data and increment bb_entries for each basic
   // block using saturation arithmetic.
   for (size_t bb_id = 0; bb_id < data->num_basic_blocks; ++bb_id) {
-    CounterType amount = GetFrequency(data, bb_id);
-    CounterType& value = bb_entries[bb_id];
-    value += std::min(amount, std::numeric_limits<CounterType>::max() - value);
+    EntryCountType amount = GetFrequency(data, bb_id);
+    EntryCountType& value = bb_entries[bb_id];
+    value += std::min(
+        amount, std::numeric_limits<EntryCountType>::max() - value);
   }
 }
 

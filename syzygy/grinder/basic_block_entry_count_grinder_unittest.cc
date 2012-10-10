@@ -15,6 +15,7 @@
 #include "syzygy/grinder/basic_block_entry_count_grinder.h"
 
 #include "base/file_util.h"
+#include "base/scoped_temp_dir.h"
 #include "base/values.h"
 #include "base/json/json_reader.h"
 #include "gmock/gmock.h"
@@ -31,15 +32,17 @@ namespace {
 using base::DictionaryValue;
 using base::ListValue;
 using base::Value;
+using basic_block_util::EntryCountMap;
+using basic_block_util::EntryCountType;
+using basic_block_util::EntryCountVector;
 using basic_block_util::IsValidFrequencySize;
 using basic_block_util::ModuleInformation;
 using common::kSyzygyVersion;
-using file_util::CreateAndOpenTemporaryFile;
+using file_util::CreateAndOpenTemporaryFileInDir;
 
 const wchar_t kBasicBlockEntryTraceFile[] =
     L"basic_block_entry_traces/trace-1.bin";
 const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
-
 const wchar_t kImageFileName[] = L"foo.dll";
 const uint32 kBaseAddress = 0xDEADBEEF;
 const uint32 kModuleSize = 0x1000;
@@ -50,7 +53,6 @@ class TestBasicBlockEntryCountGrinder : public BasicBlockEntryCountGrinder {
  public:
   using BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount;
   using BasicBlockEntryCountGrinder::parser_;
-  using BasicBlockEntryCountGrinder::pretty_print_;
 };
 
 class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
@@ -59,6 +61,10 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 
   BasicBlockEntryCountGrinderTest()
       : cmd_line_(FilePath(L"basic_block_entry_count_grinder.exe")) {
+  }
+
+  virtual void SetUp() OVERRIDE {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
 
   void InitParser(trace::parser::ParseEventHandlerImpl* handler,
@@ -71,18 +77,20 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 
 
   void RunGrinderTest(const wchar_t* trace_file,
-                      scoped_ptr<Value>* json_value) {
+                      EntryCountMap* entry_counts) {
     ASSERT_TRUE(trace_file != NULL);
-    ASSERT_TRUE(json_value != NULL);
-    EXPECT_TRUE(json_value->get() == NULL);
-    ASSERT_NO_FATAL_FAILURE(GrindTraceFileToJson(trace_file, json_value));
-    ASSERT_NO_FATAL_FAILURE(ValidateJson(json_value->get()));
+    ASSERT_TRUE(entry_counts != NULL);
+    FilePath json_path;
+    ASSERT_NO_FATAL_FAILURE(GrindTraceFileToJson(trace_file, &json_path));
+    ASSERT_NO_FATAL_FAILURE(LoadJson(json_path, entry_counts));
   }
 
   void GrindTraceFileToJson(const wchar_t* trace_file,
-                            scoped_ptr<Value>* json_value) {
+                            FilePath* json_path) {
     ASSERT_TRUE(trace_file != NULL);
-    ASSERT_TRUE(json_value != NULL);
+    ASSERT_TRUE(json_path != NULL);
+
+    json_path->clear();
 
     // Consume the the trace file.
     TestBasicBlockEntryCountGrinder grinder;
@@ -93,50 +101,21 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(parser_.Consume());
 
     // Grind and output the data to a JSON file.
-    FilePath json_path;
-    file_util::ScopedFILE json_file(CreateAndOpenTemporaryFile(&json_path));
+    FilePath temp_path;
+    file_util::ScopedFILE json_file(
+        CreateAndOpenTemporaryFileInDir(temp_dir_.path(), &temp_path));
     ASSERT_TRUE(json_file.get() != NULL);
     ASSERT_TRUE(grinder.Grind());
     ASSERT_TRUE(grinder.OutputData(json_file.get()));
-    json_file.reset();
-
-    // Read the JSON file to a string.
-    std::string json;
-    ASSERT_TRUE(file_util::ReadFileToString(json_path, &json));
-    ASSERT_FALSE(json.empty());
-
-    // Parse the string to a JSON value.
-    json_value->reset(base::JSONReader::Read(json, false));
-    ASSERT_TRUE(json_value->get() != NULL);
+    *json_path = temp_path;
   }
 
-  void ValidateJson(Value* json_value) {
-    ASSERT_TRUE(json_value != NULL);
-
-    // Verify that the json valus is a list of length 1.
-    ListValue* module_list = NULL;
-    ASSERT_TRUE(json_value->GetAsList(&module_list));
-    ASSERT_TRUE(module_list != NULL);
-    ASSERT_EQ(1U, module_list->GetSize());
-
-    // The first (and only) item in the module list is a dictionary.
-    DictionaryValue* module_dict = NULL;
-    ASSERT_TRUE(module_list->GetDictionary(0, &module_dict));
-    ASSERT_TRUE(module_dict != NULL);
-
-    // Verify that the names and types of the dictionary entries are correct.
-    DictionaryValue* metadata_dict = NULL;
-    int num_basic_blocks = 0;
-    ListValue* entry_counts = NULL;
-    pe::Metadata metadata;
-    EXPECT_TRUE(module_dict->GetDictionary("metadata", &metadata_dict));
-    ASSERT_TRUE(metadata_dict != NULL);
-    EXPECT_TRUE(metadata.LoadFromJSON(*metadata_dict));
-    EXPECT_TRUE(module_dict->GetInteger("num_basic_blocks", &num_basic_blocks));
-    EXPECT_LT(0, num_basic_blocks);
-    EXPECT_TRUE(module_dict->GetList("entry_counts", &entry_counts));
+  void LoadJson(const FilePath& json_path, EntryCountMap* entry_counts) {
+    ASSERT_TRUE(!json_path.empty());
     ASSERT_TRUE(entry_counts != NULL);
-    EXPECT_EQ(static_cast<size_t>(num_basic_blocks), entry_counts->GetSize());
+
+    BasicBlockEntryCountSerializer serializer;
+    ASSERT_TRUE(serializer.LoadFromJson(json_path, entry_counts));
   }
 
   void InitModuleInfo(ModuleInformation* module_info) {
@@ -189,6 +168,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
   }
 
  protected:
+  ScopedTempDir temp_dir_;
   CommandLine cmd_line_;
   trace::parser::Parser parser_;
 };
@@ -198,12 +178,10 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 TEST_F(BasicBlockEntryCountGrinderTest, ParseCommandLineSucceeds) {
   TestBasicBlockEntryCountGrinder grinder1;
   EXPECT_TRUE(grinder1.ParseCommandLine(&cmd_line_));
-  EXPECT_FALSE(grinder1.pretty_print_);
 
   TestBasicBlockEntryCountGrinder grinder2;
   cmd_line_.AppendSwitch("pretty-print");
   EXPECT_TRUE(grinder2.ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(grinder2.pretty_print_);
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, SetParserSucceeds) {
@@ -232,9 +210,9 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   ModuleInformation module_info;
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
-  BasicBlockEntryCountGrinder::EntryCountMap expected_entry_count_map;
-  BasicBlockEntryCountGrinder::EntryCountVector& expected_entry_count_vector =
-      expected_entry_count_map[&module_info];
+  EntryCountMap expected_entry_count_map;
+  EntryCountVector& expected_entry_count_vector =
+      expected_entry_count_map[module_info];
 
   TestBasicBlockEntryCountGrinder grinder;
   scoped_ptr<TraceBasicBlockFrequencyData> data1;
@@ -249,7 +227,6 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   ASSERT_EQ(1U, data1->frequency_size);
   grinder.UpdateBasicBlockEntryCount(&module_info, data1.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());
-  EXPECT_EQ(&module_info, grinder.entry_count_map().begin()->first);
   EXPECT_THAT(grinder.entry_count_map().begin()->second,
               testing::ElementsAreArray(kExpectedValues1));
 
@@ -258,7 +235,6 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   ASSERT_EQ(2U, data2->frequency_size);
   grinder.UpdateBasicBlockEntryCount(&module_info, data2.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());
-  EXPECT_EQ(&module_info, grinder.entry_count_map().begin()->first);
   EXPECT_THAT(grinder.entry_count_map().begin()->second,
               testing::ElementsAreArray(kExpectedValues2));
 
@@ -267,20 +243,20 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   ASSERT_EQ(4U, data4->frequency_size);
   grinder.UpdateBasicBlockEntryCount(&module_info, data4.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());
-  EXPECT_EQ(&module_info, grinder.entry_count_map().begin()->first);
   EXPECT_THAT(grinder.entry_count_map().begin()->second,
               testing::ElementsAreArray(kExpectedValues4));
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, GrindBasicBlockEntryDataSucceeds) {
-  scoped_ptr<Value> value;
-  ASSERT_NO_FATAL_FAILURE(RunGrinderTest(kBasicBlockEntryTraceFile, &value));
+  EntryCountMap entry_counts;
+  ASSERT_NO_FATAL_FAILURE(
+      RunGrinderTest(kBasicBlockEntryTraceFile, &entry_counts));
   // TODO(rogerm): Inspect value for bb-entry specific expected data.
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, GrindCoverageDataSucceeds) {
-  scoped_ptr<Value> value;
-  ASSERT_NO_FATAL_FAILURE(RunGrinderTest(kCoverageTraceFile, &value));
+  EntryCountMap entry_counts;
+  ASSERT_NO_FATAL_FAILURE(RunGrinderTest(kCoverageTraceFile, &entry_counts));
   // TODO(rogerm): Inspect value for coverage specific expected data.
 }
 

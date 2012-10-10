@@ -28,6 +28,8 @@
       'sources': [
         'basic_block_entry_count_grinder.cc',
         'basic_block_entry_count_grinder.h',
+        'basic_block_entry_count_serializer.cc',
+        'basic_block_entry_count_serializer.h',
         'basic_block_util.cc',
         'basic_block_util.h',
         'coverage_grinder.cc',
@@ -59,6 +61,7 @@
       'sources': [
         'basic_block_util_unittest.cc',
         'basic_block_entry_count_grinder_unittest.cc',
+        'basic_block_entry_count_serializer_unittest.cc',
         'coverage_grinder_unittest.cc',
         'grinder_app_unittest.cc',
         'grinder_util_unittest.cc',
