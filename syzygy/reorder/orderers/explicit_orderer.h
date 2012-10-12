@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,10 @@
 // limitations under the License.
 //
 // Declares an ordering that orders blocks as explicitly specified in an
-// Reorderer::Order object. Blocks are uniquely specified by their addresses
-// in the most recent ImageLayout in which they took part.
+// Reorderer::Order object. The order will be preserved for any sections without
+// an explicitly specified order. Sections whose order is only partially
+// specified will see the unspecified blocks pushed to the tail of the section
+// in their original relative order.
 
 #ifndef SYZYGY_REORDER_ORDERERS_EXPLICIT_ORDERER_H_
 #define SYZYGY_REORDER_ORDERERS_EXPLICIT_ORDERER_H_

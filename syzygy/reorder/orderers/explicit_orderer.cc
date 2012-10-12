@@ -64,52 +64,41 @@ bool ExplicitOrderer::OrderBlockGraph(
   Reorderer::Order::SectionSpecVector::const_iterator section_it =
       order_->sections.begin();
   for (; section_it != order_->sections.end(); ++section_it) {
-    // Find the section in the original block-graph with the same ID.
     const Reorderer::Order::SectionSpec& section_spec = *section_it;
-    BlockGraph::Section* section = NULL;
 
-    // Lookup or create the target section.
-    // TODO(rogerm, chrisha): This responsibility belongs in the bb-layout
-    //     transform. Remove/adjust this once that CL lands.
-    if (section_spec.id == Reorderer::Order::SectionSpec::kNewSectionId) {
-      // If the section is not given by id, then it needs to be created.
-      section = bg->FindOrAddSection(section_spec.name,
-                                     section_spec.characteristics);
-      if (section == NULL) {
-        LOG(ERROR) << "Failed to find or add section: "
-                   << section_spec.name << ".";
-        return false;
-      }
-    } else {  // section_spec.id != BlockGraph::kInvalidSection
-      // If the section is given by ID then find it and update it's name and
-      // characteristics as appropriate.
-      section = bg->GetSectionById(section_spec.id);
-      if (section == NULL) {
-        LOG(ERROR) << "No section found with ID " << section_spec.id << ".";
-        return false;
-      }
-      if (section->name() != section_spec.name) {
-        LOG(INFO) << "Renaming section " << section->id() << " ("
-                  << section->name() << ") to '" << section_spec.name << "'.";
-        section->set_name(section_spec.name);
-      }
-      if (section->characteristics() != section_spec.characteristics) {
-        LOG(INFO) << "Resetting section characteristics for section "
-                  << section->id() << " (" << section->name() << ").";
-        section->set_characteristic(section_spec.characteristics);
-      }
+    // The section specification should always refer to a section that already
+    // exists. They should all have been created by this point.
+    DCHECK_NE(Reorderer::Order::SectionSpec::kNewSectionId, section_spec.id);
+
+    // You can't specify ordering for 'special' blocks that lie outside of any
+    // explicit section.
+    DCHECK_NE(BlockGraph::kInvalidSectionId, section_spec.id);
+
+    // Look up the section.
+    BlockGraph::Section* section = bg->GetSectionById(section_spec.id);
+    if (section == NULL) {
+      LOG(ERROR) << "No section found with ID " << section_spec.id << ".";
+      return false;
     }
 
     DCHECK(section != NULL);
     LOG(INFO) << "Applying order to section " << section->id()
-              << "(" << section->name() << ").";
+              << "\"" << section->name() << "\".";
 
     // We walk through these in reverse order so that we can use PlaceAtHead.
     for (size_t i = section_spec.blocks.size(); i > 0;) {
+      const Reorderer::Order::BlockSpec& block_spec = section_spec.blocks[--i];
+
+      // Ensure the block-spec specifies a block without BB information. Any
+      // BB ordering must already have been applied.
+      if (block_spec.basic_block_offsets.size() != 0) {
+        LOG(ERROR) << "ExplicitOrderer can't handle basic-block orders.";
+        return false;
+      }
+
       // Look for the block with the matching address in memory. We do this
       // just in case the BlockGraph has evolved since the order object was
       // built.
-      const Reorderer::Order::BlockSpec& block_spec = section_spec.blocks[--i];
       BlockVector::const_iterator block_it =
           std::lower_bound(sorted_blocks.begin(),
                            sorted_blocks.end(),

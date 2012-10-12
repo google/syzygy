@@ -129,5 +129,20 @@ TEST_F(ExplicitOrdererTest, OrderIsAsExpected) {
                   obg.ordered_section(sections_[1]).ordered_blocks())));
 }
 
+TEST_F(ExplicitOrdererTest, BasicBlockOrderFails) {
+  order_.sections.resize(1);
+
+  order_.sections[0].id = sections_[0]->id();
+  order_.sections[0].name = sections_[0]->name();
+  order_.sections[0].characteristics = sections_[0]->characteristics();
+  order_.sections[0].blocks.push_back(BlockSpec(blocks_[2]));
+  order_.sections[0].blocks[0].basic_block_offsets.push_back(0);
+  order_.sections[0].blocks[0].basic_block_offsets.push_back(10);
+
+  OrderedBlockGraph obg(&block_graph_);
+  ExplicitOrderer orderer(&order_);
+  ASSERT_FALSE(orderer.OrderBlockGraph(&obg, NULL));
+}
+
 }  // namespace orderers
 }  // namespace reorder
