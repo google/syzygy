@@ -17,11 +17,15 @@
 #include "base/stringprintf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/reorder/reorderer.h"
 
 namespace relink {
 
@@ -94,6 +98,25 @@ class RelinkAppTest : public testing::PELibUnitTest {
     test_app_.set_in(in());
     test_app_.set_out(out());
     test_app_.set_err(err());
+  }
+
+  void GetDllMain(const pe::ImageLayout& layout, BlockGraph::Block** dll_main) {
+    ASSERT_TRUE(dll_main != NULL);
+    BlockGraph::Block* dos_header_block = layout.blocks.GetBlockByAddress(
+        RelativeAddress(0));
+    ASSERT_TRUE(dos_header_block != NULL);
+    BlockGraph::Block* nt_headers_block =
+        pe::GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+    ASSERT_TRUE(nt_headers_block != NULL);
+    block_graph::ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+    ASSERT_TRUE(nt_headers.Init(0, nt_headers_block));
+    BlockGraph::Reference dll_main_ref;
+    ASSERT_TRUE(nt_headers_block->GetReference(
+        nt_headers.OffsetOf(nt_headers->OptionalHeader.AddressOfEntryPoint),
+        &dll_main_ref));
+    ASSERT_EQ(0u, dll_main_ref.offset());
+    ASSERT_EQ(0u, dll_main_ref.base());
+    *dll_main = dll_main_ref.referenced();
   }
 
   // Stashes the current log-level before each test instance and restores it
@@ -316,6 +339,100 @@ TEST_F(RelinkAppTest, RandomRelinkBasicBlocks) {
   cmd_line_.AppendSwitch("basic-blocks");
   cmd_line_.AppendSwitch("exclude-bb-padding");
 
+  ASSERT_EQ(0, test_app_.Run());
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
+}
+
+TEST_F(RelinkAppTest, RelinkBlockOrder) {
+  pe::PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(input_image_path_));
+
+  BlockGraph bg;
+  pe::ImageLayout layout(&bg);
+  pe::Decomposer decomposer(pe_file);
+  ASSERT_TRUE(decomposer.Decompose(&layout));
+
+  // Get the DLL main entry point.
+  BlockGraph::Block* dll_main_block = NULL;
+  ASSERT_NO_FATAL_FAILURE(GetDllMain(layout, &dll_main_block));
+
+  // Build a block-level ordering by placing the DLL main entry point at the
+  // beginning of its section.
+  BlockGraph::Section* text_section = bg.FindSection(".text");
+  ASSERT_TRUE(text_section != NULL);
+  reorder::Reorderer::Order order;
+  order.sections.resize(1);
+  order.sections[0].id = text_section->id();
+  order.sections[0].name = text_section->name();
+  order.sections[0].characteristics = text_section->characteristics();
+  order.sections[0].blocks.resize(1);
+  order.sections[0].blocks[0].block = dll_main_block;
+
+  // Serialize the order file.
+  ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path_, false));
+
+  // Order the test DLL using the order file we just created.
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitchPath("order-file", order_file_path_);
+  ASSERT_EQ(0, test_app_.Run());
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
+}
+
+TEST_F(RelinkAppTest, RelinkBasicBlockOrder) {
+  pe::PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(input_image_path_));
+
+  BlockGraph bg;
+  pe::ImageLayout layout(&bg);
+  pe::Decomposer decomposer(pe_file);
+  ASSERT_TRUE(decomposer.Decompose(&layout));
+
+  // Get the DLL main entry point.
+  BlockGraph::Block* dll_main_block = NULL;
+  ASSERT_NO_FATAL_FAILURE(GetDllMain(layout, &dll_main_block));
+
+  // Build a block-level ordering by splitting the DLL main block into two
+  // blocks, each half in a different section.
+  BlockGraph::Section* text_section = bg.FindSection(".text");
+  ASSERT_TRUE(text_section != NULL);
+  reorder::Reorderer::Order order;
+  order.sections.resize(2);
+  order.sections[0].id = text_section->id();
+  order.sections[0].name = text_section->name();
+  order.sections[0].characteristics = text_section->characteristics();
+  order.sections[0].blocks.resize(1);
+  order.sections[0].blocks[0].block = dll_main_block;
+  order.sections[1].id = reorder::Reorderer::Order::SectionSpec::kNewSectionId;
+  order.sections[1].name = ".text2";
+  order.sections[1].characteristics = text_section->characteristics();
+  order.sections[1].blocks.resize(1);
+  order.sections[1].blocks[0].block = dll_main_block;
+
+  // Decompose the block. Iterate over its basic-blocks and take turns placing
+  // them into each of the two above blocks.
+  block_graph::BasicBlockSubGraph bbsg;
+  block_graph::BasicBlockDecomposer bb_decomposer(dll_main_block, &bbsg);
+  ASSERT_TRUE(bb_decomposer.Decompose());
+  ASSERT_LE(2u, bbsg.basic_blocks().size());
+  block_graph::BasicBlockSubGraph::BBCollection::const_iterator bb_it =
+      bbsg.basic_blocks().begin();
+  for (size_t i = 0; bb_it != bbsg.basic_blocks().end(); ++bb_it, i ^= 1) {
+    order.sections[i].blocks[0].basic_block_offsets.push_back(
+        bbsg.GetOffset(&bb_it->second));
+  }
+
+  // Serialize the order file.
+  ASSERT_TRUE(order.SerializeToJSON(pe_file, order_file_path_, false));
+
+  // Order the test DLL using the order file we just created.
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitchPath("order-file", order_file_path_);
   ASSERT_EQ(0, test_app_.Run());
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
 }

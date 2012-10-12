@@ -16,10 +16,12 @@
 
 #include "base/logging_win.h"
 #include "base/string_number_conversions.h"
+#include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/transforms/explode_basic_blocks_transform.h"
 #include "syzygy/reorder/orderers/explicit_orderer.h"
+#include "syzygy/reorder/transforms/basic_block_layout_transform.h"
 
 namespace relink {
 
@@ -142,7 +144,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("seed")) {
     if (cmd_line->HasSwitch("order-file")) {
       return Usage(cmd_line,
-                   "The seed and order-file arguments are mutually exclusive");
+                   "The seed and order-file arguments are mutually exclusive.");
     }
     std::wstring seed_str(cmd_line->GetSwitchValueNative("seed"));
     if (!ParseUInt32(seed_str, &seed_))
@@ -198,27 +200,53 @@ int RelinkApp::Run() {
     return 1;
   }
 
-  // Set up the orderer.
+  // Transforms that may be used.
   scoped_ptr<pe::transforms::ExplodeBasicBlocksTransform> bb_explode;
+  scoped_ptr<reorder::transforms::BasicBlockLayoutTransform> bb_layout;
+
+  // Orderers that may be used.
+  reorder::Reorderer::Order order;
+  scoped_ptr<block_graph::orderers::OriginalOrderer> orig_orderer;
   scoped_ptr<block_graph::BlockGraphOrdererInterface> orderer;
-  scoped_ptr<reorder::Reorderer::Order> order;
+
+  // If an order file is provided we are performing an explicit ordering.
   if (!order_file_path_.empty()) {
-    order.reset(new reorder::Reorderer::Order());
-    if (!order->LoadFromJSON(relinker.input_pe_file(),
-                             relinker.input_image_layout(),
-                             order_file_path_)) {
+    if (!order.LoadFromJSON(relinker.input_pe_file(),
+                            relinker.input_image_layout(),
+                            order_file_path_)) {
       LOG(ERROR) << "Failed to load order file: " << order_file_path_.value();
       return 1;
     }
 
-    orderer.reset(new reorder::orderers::ExplicitOrderer(order.get()));
+    // Allocate a BB layout transform. This applies the basic block portion of
+    // the order specification. It will modify it in place so that it is ready
+    // to be used by the ExplicitOrderer to finish the job.
+    bb_layout.reset(new reorder::transforms::BasicBlockLayoutTransform(&order));
+    relinker.AppendTransform(bb_layout.get());
+
+    // Append an OriginalOrderer to the relinker. We do this so that the
+    // original order is preserved entirely for sections that are not
+    // fully specified by the order file, and therefore not ordered by the
+    // ExplicitOrderer.
+    orig_orderer.reset(new block_graph::orderers::OriginalOrderer());
+    relinker.AppendOrderer(orig_orderer.get());
+
+    // Allocate an explicit orderer.
+    orderer.reset(new reorder::orderers::ExplicitOrderer(&order));
   } else {
-    orderer.reset(new block_graph::orderers::RandomOrderer(true, seed_));
+    // No order file was provided, so we're doing a random ordering.
+
+    // If we've been asked to go down to the basic block level, then we want to
+    // use an explode basic blocks transform so that we randomize the entire
+    // image at the BB level.
     if (basic_blocks_) {
       bb_explode.reset(new pe::transforms::ExplodeBasicBlocksTransform());
       bb_explode->set_exclude_padding(exclude_bb_padding_);
       relinker.AppendTransform(bb_explode.get());
     }
+
+    // Allocate the random block orderer.
+    orderer.reset(new block_graph::orderers::RandomOrderer(true, seed_));
   }
 
   // Append the orderer to the relinker.
