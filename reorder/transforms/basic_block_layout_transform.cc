@@ -81,20 +81,20 @@ bool BuildBasicBlockMap(BlockInfos::const_iterator begin,
   return true;
 }
 
-// Compares BlockInfos based on block pointers in the BlockSpec. Allows
-// comparing BlockInfos to each other, and Block pointers to BlockInfos.
+// Compares BlockInfos based on the original block pointer from the block_spec.
+// Allows comparing BlockInfos to each other, and Block pointers to BlockInfos.
 struct BlockInfoComparator {
   bool operator()(const BlockInfo& bi1,
                   const BlockInfo& bi2) const {
-    return bi1.block_spec->block < bi2.block_spec->block;
+    return bi1.original_block < bi2.original_block;
   }
   bool operator()(const BlockGraph::Block* block,
                   const BlockInfo& bi) const {
-    return block < bi.block_spec->block;
+    return block < bi.original_block;
   }
   bool operator()(const BlockInfo& bi,
                   const BlockGraph::Block* block) const {
-    return bi.block_spec->block < block;
+    return bi.original_block < block;
   }
 };
 
@@ -152,6 +152,15 @@ bool BasicBlockLayoutTransform::OnBlock(
 
   BlockVector new_blocks;
 
+#ifndef NDEBUG
+  // We expect the block_spec not to have been updated in place yet. If it
+  // has it's because this block has already been seen by the BB transform,
+  // which should never happen.
+  for (BlockInfos::iterator it = it_begin; it != it_end; ++it) {
+    DCHECK_EQ(it->original_block, it->block_spec->block);
+  }
+#endif  // NDEBUG
+
   // Special case: a single block with no BB layout specification. Simply
   // ensure the block is in the appropriate section, add an entry to the
   // block specification map and move on.
@@ -179,7 +188,7 @@ bool BasicBlockLayoutTransform::OnBlock(
   // The transform returns the newly created blocks in the same order as they
   // were specified by the BasicBlockMap, thus we can simply iterate through the
   // blocks to assign them to the appropriate sections and update the block
-  // specifications.
+  // infos.
   BlockInfos::iterator it = it_begin;
   for (size_t i = 0; i < new_blocks.size(); ++i, ++it) {
     new_blocks[i]->set_section(it->section_spec->id);
@@ -270,7 +279,7 @@ void BasicBlockLayoutTransform::BuildBlockInfos() {
     for (; block_spec_it != section_spec_it->blocks.end(); ++block_spec_it) {
       Order::BlockSpec* block_spec = &(*block_spec_it);
 
-      BlockInfo block_info = { section_spec, block_spec };
+      BlockInfo block_info = { block_spec->block, section_spec, block_spec };
       block_infos_.push_back(block_info);
     }
   }
