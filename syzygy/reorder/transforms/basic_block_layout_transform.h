@@ -114,6 +114,10 @@ class BasicBlockLayoutTransform
 // A small helper structure used for efficiently looking up order information
 // associated with a given source block.
 struct BasicBlockLayoutTransform::BlockInfo {
+  // This is a pointer to the block in the block_spec. We keep a copy of it
+  // because it is our primary sort key and block_spec->block gets updated as
+  // we work.
+  const BlockGraph::Block* original_block;
   Order::SectionSpec* section_spec;
   Order::BlockSpec* block_spec;
 };
