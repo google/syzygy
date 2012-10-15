@@ -657,13 +657,10 @@ class BasicCodeBlock : public BasicBlock {
   // successors_ member.
   Instructions instructions_;
 
-  // The set of (logical) branching instructions that terminate this basic
-  // block. There should be exactly 0, 1 or 2 branching instructions in this
-  // set, each referencing their respective branch target. The instructions
-  // in this list should be ordered such that the last instruction represents
-  // the fall-through (default) path of control flow and the penultimate
-  // instruction (if any) is a conditional branch.
-  // TODO(rogerm): reverse this order? infer which is which?
+  // The set of (logical) successors to this basic block. There can only be
+  // 0, 1 or 2 successors in this list.
+  // If there is a single successor, it must be unconditional.
+  // If there are two successors, they must have complementary conditions.
   Successors successors_;
 
  private:
