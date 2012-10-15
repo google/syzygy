@@ -37,10 +37,9 @@ class BasicBlockTest: public testing::Test {
   // fixture, so each will have its own fresh instance of basic_code_block_
   // and macro_block_ to play with.
   BasicBlockTest()
-      : basic_code_block_(kBlockId, kBlockName, BasicBlock::BASIC_CODE_BLOCK,
-                          kBlockSize, kBlockData),
-        basic_data_block_(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                          kBlockSize, kBlockData),
+      : basic_code_block_(kBlockName),
+        basic_data_block_(kBlockName, BasicBlock::BASIC_DATA_BLOCK,
+                          kBlockData, kBlockSize),
         macro_block_(kBlockId, kMacroBlockType, kBlockSize, kBlockName) {
      basic_data_block_.set_label(BlockGraph::Label(
          "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
@@ -137,8 +136,8 @@ class BasicBlockTest: public testing::Test {
   // @}
 
  protected:
-  BasicBlock basic_code_block_;
-  BasicBlock basic_data_block_;
+  BasicCodeBlock basic_code_block_;
+  BasicDataBlock basic_data_block_;
   BlockGraph::Block macro_block_;
 };
 
@@ -186,37 +185,36 @@ TEST_F(BasicBlockTest, InstructionConstructor) {
   }
 }
 
-TEST_F(BasicBlockTest, BasicBlockAccessors) {
-  EXPECT_EQ(kBlockId, basic_code_block_.id());
-  EXPECT_EQ(kBasicBlockType, basic_code_block_.type());
+TEST_F(BasicBlockTest, BasicCodeBlockAccessors) {
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_code_block_.type());
   EXPECT_STREQ(kBlockName, basic_code_block_.name().c_str());
-  EXPECT_EQ(&kBlockData[0], basic_code_block_.data());
-  EXPECT_EQ(kBlockSize, basic_code_block_.size());
-  EXPECT_TRUE(basic_code_block_.references().empty());
   EXPECT_TRUE(basic_code_block_.referrers().empty());
-  EXPECT_FALSE(basic_code_block_.has_label());
+
+  basic_code_block_.set_offset(kBlockSize);
+  EXPECT_EQ(kBlockSize, basic_code_block_.offset());
+}
+
+TEST_F(BasicBlockTest, BasicDataBlockAccessors) {
+  EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, basic_data_block_.type());
+  EXPECT_STREQ(kBlockName, basic_data_block_.name().c_str());
+  EXPECT_EQ(&kBlockData[0], basic_data_block_.data());
+  EXPECT_EQ(kBlockSize, basic_data_block_.size());
+  EXPECT_TRUE(basic_data_block_.references().empty());
+  EXPECT_TRUE(basic_data_block_.referrers().empty());
   EXPECT_TRUE(basic_data_block_.has_label());
   EXPECT_TRUE(basic_data_block_.label().has_attributes(
       BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
 }
 
-TEST_F(BasicBlockTest, GetCodeSize) {
+TEST_F(BasicBlockTest, GetInstructionSize) {
   basic_code_block_.instructions().push_back(CreateRet());
   basic_code_block_.instructions().push_back(CreateRet());
   basic_code_block_.instructions().push_back(CreateRet());
   basic_code_block_.instructions().push_back(CreateRet());
   basic_code_block_.successors().push_back(CreateBranch(I_JZ, kOffset1));
 
-  ASSERT_EQ(4 * CreateRet().size(), basic_code_block_.GetDataSize());
+  ASSERT_EQ(4 * CreateRet().size(), basic_code_block_.GetInstructionSize());
 }
-
-TEST_F(BasicBlockTest, GetDataSize) {
-  BasicBlock bb(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                kBlockSize, kBlockData);
-
-  ASSERT_EQ(kBlockSize, bb.GetDataSize());
-}
-
 
 TEST_F(BasicBlockTest, GetMaxCodeSize) {
   basic_code_block_.instructions().push_back(CreateRet());
@@ -230,16 +228,15 @@ TEST_F(BasicBlockTest, GetMaxCodeSize) {
 }
 
 TEST_F(BasicBlockTest, GetMaxDataSize) {
-  BasicBlock bb(kBlockId, kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                kBlockSize, kBlockData);
+  BasicDataBlock bb(kBlockName, BasicBlock::BASIC_DATA_BLOCK,
+                    kBlockData, kBlockSize);
 
   ASSERT_EQ(kBlockSize, bb.GetMaxSize());
 }
 
 TEST_F(BasicBlockTest, EmptyBasicBlockIsNotValid) {
-  // Upon creation the basic block (which happens to be a code block) has
-  // neither instructions nor successors, which we consider to be an invalid
-  // state.
+  // Upon creation the code block has neither instructions nor successors,
+  // which we consider to be an invalid state.
   ASSERT_FALSE(basic_code_block_.IsValid());
 }
 
@@ -468,12 +465,12 @@ TEST_F(SuccessorTest, DefaultConstructor) {
   EXPECT_FALSE(s.has_label());
 }
 
-TEST_F(SuccessorTest, BasicBlockConstructor) {
+TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
   const Successor::Offset kSuccessorOffset = 4;
   const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
-  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, sizeof(data), data);
+  BasicCodeBlock bb("bb");
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
 
   Successor s(kCondition,
@@ -490,7 +487,7 @@ TEST_F(SuccessorTest, BasicBlockConstructor) {
 
 TEST_F(SuccessorTest, SetBranchTarget) {
   uint8 data[20] = {};
-  BasicBlock bb(1, "bb", BasicBlock::BASIC_CODE_BLOCK, sizeof(data), data);
+  BasicCodeBlock bb("bb");
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
 
   Successor s;

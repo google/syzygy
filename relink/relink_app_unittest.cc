@@ -421,7 +421,7 @@ TEST_F(RelinkAppTest, RelinkBasicBlockOrder) {
       bbsg.basic_blocks().begin();
   for (size_t i = 0; bb_it != bbsg.basic_blocks().end(); ++bb_it, i ^= 1) {
     order.sections[i].blocks[0].basic_block_offsets.push_back(
-        bbsg.GetOffset(&bb_it->second));
+        (*bb_it)->offset());
   }
 
   // Serialize the order file.

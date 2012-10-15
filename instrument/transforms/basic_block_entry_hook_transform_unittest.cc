@@ -35,6 +35,7 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
@@ -119,13 +120,13 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
     BasicBlockSubGraph::BBCollection::const_iterator bb_iter =
         subgraph.basic_blocks().begin();
     for (; bb_iter != subgraph.basic_blocks().end(); ++bb_iter) {
-      const BasicBlock& bb = bb_iter->second;
-      if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
+      const BasicCodeBlock* bb = BasicCodeBlock::Cast(*bb_iter);
+      if (bb == NULL)
         continue;
       ++num_basic_blocks;
-      ASSERT_LE(3U, bb.instructions().size());
+      ASSERT_LE(3U, bb->instructions().size());
       BasicBlock::Instructions::const_iterator inst_iter =
-          bb.instructions().begin();
+          bb->instructions().begin();
 
       // Instruction 1 should push the basic block id.
       const Instruction& inst1 = *inst_iter;

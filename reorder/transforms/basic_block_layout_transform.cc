@@ -312,12 +312,11 @@ bool BasicBlockSubGraphLayoutTransform::TransformBasicBlockSubGraph(
     // isn't one the basic block is being deleted. If the BB is required for
     // layouting (is referenced by another BB) this will cause an error, but
     // we'll find that out when we build the block(s).
-    BasicBlockMap::const_iterator bb_map_it =
-        bb_map_.find(bbsg->GetOffset(&bb_it->second));
+    BasicBlock* bb = *bb_it;
+    BasicBlockMap::const_iterator bb_map_it = bb_map_.find(bb->offset());
     if (bb_map_it == bb_map_.end())
       continue;
 
-    BasicBlock* bb = &(bb_it->second);
     block_count = std::max(block_count, bb_map_it->second.first);
     CHECK(reverse_map.insert(std::make_pair(bb_map_it->second, bb)).second);
   }

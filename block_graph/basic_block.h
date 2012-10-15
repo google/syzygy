@@ -31,6 +31,8 @@ namespace block_graph {
 
 // Forward declarations.
 class BasicBlock;
+class BasicCodeBlock;
+class BasicDataBlock;
 class Instruction;
 class Successor;
 
@@ -531,8 +533,6 @@ class Successor {
 // for example).
 class BasicBlock {
  public:
-  // TODO(rogerm): Get rid of BasicBlockType and reuse LabelAttributes
-  //     instead? There isn't quite parity there, as padding isn't labeled.
   enum BasicBlockType {
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
@@ -553,8 +553,8 @@ class BasicBlock {
   // basic block.
   typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 
-  // The set of the basic blocks that have a reference to this basic block.
-  // This is keyed on basic block and source offset (not destination offset),
+  // The set of the blocks that have a reference to this basic block.
+  // This is keyed on block and source offset (not destination offset),
   // to allow us to easily locate and remove the back-references on change or
   // deletion.
   typedef std::set<BasicBlockReferrer, BasicBlockReferrer::CompareAsLess>
@@ -565,90 +565,93 @@ class BasicBlock {
   // the original block.
   static const Offset kNoOffset;
 
-  // Initialize a basic block.
-  // @param id A unique identifier for this basic block.
-  // @param name A textual identifier for this basic block.
-  // @param type The disposition (code, data, padding) of this basic block.
-  // @param offset The offset (in the original block) where this basic block
-  //     originated. Set to kNoOffset to indicate that this is a
-  //     programmatically generated basic block.
-  // @param size The number of bytes this basic block occupied in the original
-  //     block. Set to 0 if this is a programmatically generated basic block.
-  // @param data The underlying data representing the basic block.
-  BasicBlock(BlockId id,
-             const base::StringPiece& name,
-             BasicBlockType type,
-             Size size,
-             const uint8* data);
+  // Virtual destructor to allow subclassing.
+  virtual ~BasicBlock();
 
   // Return a textual label for a basic block type.
   static const char* BasicBlockTypeToString(BasicBlockType type);
 
   // Accessors.
   // @{
-  BlockId id() const { return id_; }
   BasicBlockType type() const { return type_; }
   const std::string& name() const { return name_; }
-  Size size() const { return size_; }
-  const uint8* data() const { return data_; }
-  const Instructions& instructions() const { return instructions_; }
-  Instructions& instructions() { return instructions_; }
-  const Successors& successors() const { return successors_; }
-  Successors& successors() { return successors_; }
-  const BasicBlockReferenceMap& references() const { return references_; }
-  BasicBlockReferenceMap& references() { return references_; }
+
+  Offset offset() const { return offset_; }
+  void set_offset(Offset offset) { offset_ = offset; }
+
   const BasicBlockReferrerSet& referrers() const { return referrers_; }
   BasicBlockReferrerSet& referrers() { return referrers_; }
-  const BlockGraph::Label& label() const { return label_; }
-  void set_label(const BlockGraph::Label& label) { label_ = label; }
-  bool has_label() const { return label_.IsValid(); }
   // @}
 
-  // Returns true if this basic block represents a valid block (i.e., it
+  // Returns true iff this basic block is a valid block (i.e., it
   // is a BASIC_DATA_BLOCK the contains data XOR a BASIC_CODE_BLOCK that
   // contains instructions and/or successors.
-  bool IsValid() const;
-
-  // Return the number of bytes required to store the instructions or data
-  // this basic block contains, exclusive successors if applicable.
-  Size GetDataSize() const;
+  virtual bool IsValid() const = 0;
 
   // Return the maximum number of bytes this basic block can require (not
   // including any trailing padding).
-  Size GetMaxSize() const;
-
-  // Add a reference @p ref to this basic block at @p offset. If the reference
-  // is to a basic block, also update that basic blocks referrer set.
-  // @pre This should be a basic data block; otherwise the references should
-  //     be set on a code basic block's instructions and successors.
-  bool SetReference(Offset offset, const BasicBlockReference& ref);
+  virtual Size GetMaxSize() const = 0;
 
  protected:
-  // The ID for this basic block.
-  BlockId id_;
+  // Initialize a basic block.
+  // @param name A textual identifier for this basic block.
+  // @param type The disposition (code, data, padding) of this basic block.
+  BasicBlock(const base::StringPiece& name,
+             BasicBlockType type);
+
+  // The type of this basic block.
+  const BasicBlockType type_;
 
   // The name of this basic block.
   std::string name_;
 
-  // The type of this basic block.
-  BasicBlockType type_;
-
-  // The number of bytes of data in the original block that corresponds with
-  // this basic block.
-  Size size_;
-
-  // The data in the original block that corresponds with this basic block
-  // will be referenced here.
-  const uint8* data_;
-
-  // The map of references (if any) that this block makes to other basic blocks
-  // from the original block.
-  BasicBlockReferenceMap references_;
+  // The offset of this basic block in the oritinal block. Set to the offset
+  // of the first byte the basic block originated from during decomposition.
+  // Useful as a stable, unique identifier for basic blocks in a decomposition.
+  Offset offset_;
 
   // The set of basic blocks references (from other basic blocks in same
   // original block) to this basic block.
   BasicBlockReferrerSet referrers_;
 
+  // The label associated with this basic block.
+  BlockGraph::Label label_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(BasicBlock);
+};
+
+class BasicCodeBlock : public BasicBlock {
+ public:
+  // Initialize a basic code block.
+  // @param name A textual identifier for this basic block.
+  explicit BasicCodeBlock(const base::StringPiece& name);
+
+  // Down-cast from basic block to basic code block.
+  static BasicCodeBlock* Cast(BasicBlock* basic_block);
+  static const BasicCodeBlock* Cast(const BasicBlock* basic_block);
+
+  // Accessors.
+  // @{
+  const Instructions& instructions() const { return instructions_; }
+  Instructions& instructions() { return instructions_; }
+  const Successors& successors() const { return successors_; }
+  Successors& successors() { return successors_; }
+  // @}
+
+  // Returns true iff this basic block is a valid code block - i.e., it
+  // contains at least one instruction and/or 0-2 successors.
+  virtual bool IsValid() const OVERRIDE;
+
+  // Return the maximum number of bytes this basic block can require (not
+  // including any trailing padding).
+  virtual Size GetMaxSize() const OVERRIDE;
+
+  // Return the number of bytes required to store the instructions
+  // this basic block contains, exclusive successors.
+  Size GetInstructionSize() const;
+
+ private:
   // The set of non-branching instructions comprising this basic-block.
   // Any branching at the end of the basic-block is represented using the
   // successors_ member.
@@ -663,8 +666,66 @@ class BasicBlock {
   // TODO(rogerm): reverse this order? infer which is which?
   Successors successors_;
 
-  // The label associated with this basic block.
-  BlockGraph::Label label_;
+ private:
+  DISALLOW_COPY_AND_ASSIGN(BasicCodeBlock);
+};
+
+class BasicDataBlock : public BasicBlock {
+ public:
+  // Initialize a basic data or padding block.
+  // @param name A textual identifier for this basic block.
+  // @param type The disposition (data or padding) of this basic block.
+  // @param data The block's data, must be non-NULL.
+  // @param size The size of @p data, must be greater than zero.
+  // @note The block does not take ownership of @p data, and @p data must have
+  //     a lifetime greater than the block.
+  BasicDataBlock(const base::StringPiece& name,
+                 BasicBlockType type,
+                 const uint8* data,
+                 Size size);
+
+  // Down-cast from basic block to basic data block.
+  static BasicDataBlock* Cast(BasicBlock* basic_block);
+  static const BasicDataBlock* Cast(const BasicBlock* basic_block);
+
+  // Accessors.
+  // @{
+  Size size() const { return size_; }
+  const uint8* data() const { return data_; }
+
+  const BasicBlockReferenceMap& references() const { return references_; }
+  BasicBlockReferenceMap& references() { return references_; }
+
+  const BlockGraph::Label& label() const { return label_; }
+  void set_label(const BlockGraph::Label& label) { label_ = label; }
+  bool has_label() const { return label_.IsValid(); }
+  // @}
+
+  // Add a reference @p ref to this basic block at @p offset.
+  bool SetReference(Offset offset, const BasicBlockReference& ref);
+
+  // Returns true iff this basic block is a valid block i.e., it contains data.
+  virtual bool IsValid() const OVERRIDE;
+
+  // Return the maximum number of bytes this basic block can require (not
+  // including any trailing padding).
+  virtual Size GetMaxSize() const OVERRIDE;
+
+ private:
+  // The number of bytes of data in the original block that corresponds with
+  // this basic block.
+  Size size_;
+
+  // The data in the original block that corresponds with this basic block
+  // will be referenced here.
+  const uint8* data_;
+
+  // The map of references (if any) that this block makes to other basic blocks
+  // from the original block.
+  BasicBlockReferenceMap references_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(BasicDataBlock);
 };
 
 }  // namespace block_graph

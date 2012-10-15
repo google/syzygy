@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ const char kUsageFormatStr[] =
 
 using block_graph::BlockGraph;
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
+using block_graph::BasicDataBlock;
 using block_graph::BasicBlockReference;
 
 void DumpReference(const BasicBlockReference& ref, FILE* out) {
@@ -169,12 +171,12 @@ void DecomposeImageToTextApp::DumpSubGraphToText(
 
     switch (bb->type()) {
       case BasicBlock::BASIC_CODE_BLOCK:
-        DumpCodeBBToText(block, bb);
+        DumpCodeBBToText(block, BasicCodeBlock::Cast(bb));
         break;
 
       case BasicBlock::BASIC_DATA_BLOCK:
       case BasicBlock::BASIC_PADDING_BLOCK:
-        DumpDataBBToText(block, bb);
+        DumpDataBBToText(block, BasicDataBlock::Cast(bb));
         break;
 
       default:
@@ -185,7 +187,7 @@ void DecomposeImageToTextApp::DumpSubGraphToText(
 }
 
 void DecomposeImageToTextApp::DumpCodeBBToText(
-    const BlockGraph::Block* block, const BasicBlock* bb) {
+    const BlockGraph::Block* block, const BasicCodeBlock* bb) {
   BasicBlock::Instructions::const_iterator instr_it(
       bb->instructions().begin());
   for (; instr_it != bb->instructions().end(); ++instr_it) {
@@ -248,7 +250,7 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
 }
 
 void DecomposeImageToTextApp::DumpDataBBToText(
-    const BlockGraph::Block* block, const BasicBlock* bb) {
+    const BlockGraph::Block* block, const BasicDataBlock* bb) {
   // Here we proceed by dumping a hex chunk up to the next reference, then
   // the reference and so on.
   size_t curr_start = 0;

@@ -55,12 +55,13 @@ typedef BlockGraph::Size Size;
 size_t CountBasicBlocks(const BasicBlockSubGraph& subgraph,
                         BasicBlock::BasicBlockType type) {
   size_t counter = 0;
-  BasicBlockSubGraph::BBCollection::const_iterator it =
+  BasicBlockSubGraph::BBCollection::const_iterator code_it =
       subgraph.basic_blocks().begin();
-  for (; it != subgraph.basic_blocks().end(); ++it) {
-    if (it->second.type() == type)
+  for (; code_it != subgraph.basic_blocks().end(); ++code_it) {
+    if ((*code_it)->type() == type)
       ++counter;
   }
+
   return counter;
 }
 
@@ -68,7 +69,23 @@ size_t CountBasicBlocks(const BasicBlockSubGraph& subgraph,
 // and in order.
 bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
   typedef BasicBlock::Size Size;
-  return lhs->data() + lhs->size() != rhs->data();
+
+  Offset lhs_end = lhs->offset();
+
+  const BasicCodeBlock* lhs_code = BasicCodeBlock::Cast(lhs);
+  if (lhs_code != NULL) {
+    lhs_end += lhs_code->GetInstructionSize();
+
+    BasicBlock::Successors::const_iterator it(lhs_code->successors().begin());
+    for (; it != lhs_code->successors().end(); ++it) {
+      lhs_end += it->instruction_size();
+    }
+  }
+  const BasicDataBlock* lhs_data = BasicDataBlock::Cast(lhs);
+  if (lhs_data != NULL)
+    lhs_end += lhs_data->size();
+
+  return lhs_end != rhs->offset();
 }
 
 // A test fixture which generates a block-graph to use for basic-block
@@ -88,7 +105,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
 
   // Ensure we have the expected number and types of blocks.
-  ASSERT_EQ(kNumBasicBlocks, subgraph_.basic_blocks().size());
+  ASSERT_EQ(kNumCodeBasicBlocks + kNumDataBasicBlocks + kNumPaddingBasicBlocks,
+            subgraph_.basic_blocks().size());
   ASSERT_EQ(kNumCodeBasicBlocks,
             CountBasicBlocks(subgraph_, BasicBlock::BASIC_CODE_BLOCK));
   ASSERT_EQ(kNumDataBasicBlocks,
@@ -113,10 +131,12 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   // Basic-block 0 - assembly_func.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[0]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[0]->type());
-  ASSERT_EQ(4u, bbs_[0]->instructions().size());
-  ASSERT_EQ(0u, bbs_[0]->successors().size());
+  BasicCodeBlock* bb0 = BasicCodeBlock::Cast(bbs_[0]);
+  ASSERT_TRUE(bb0 != NULL);
+  ASSERT_EQ(4u, bb0->instructions().size());
+  ASSERT_EQ(0u, bb0->successors().size());
   BasicBlock::Instructions::const_iterator inst_iter =
-      bbs_[0]->instructions().begin();
+      bb0->instructions().begin();
   std::advance(inst_iter, 2);
   ASSERT_EQ(1u, inst_iter->references().size());
   ASSERT_EQ(bbs_[9], inst_iter->references().begin()->second.basic_block());
@@ -138,70 +158,88 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   // Basic-block 2 - case_0.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[2]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[2]->type());
-  ASSERT_EQ(2u, bbs_[2]->instructions().size());
-  ASSERT_EQ(1u, bbs_[2]->successors().size());;
-  ASSERT_EQ(bbs_[3], bbs_[2]->successors().front().reference().basic_block());
+  BasicCodeBlock* bb2 = BasicCodeBlock::Cast(bbs_[2]);
+  ASSERT_TRUE(bb2 != NULL);
+  ASSERT_EQ(2u, bb2->instructions().size());
+  ASSERT_EQ(1u, bb2->successors().size());;
+  ASSERT_EQ(bbs_[3], bb2->successors().front().reference().basic_block());
 
   // Basic-block 3 - sub eax to jnz.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[3]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[3]->type());
-  ASSERT_EQ(1u, bbs_[3]->instructions().size());
-  ASSERT_EQ(2u, bbs_[3]->successors().size());;
-  ASSERT_EQ(bbs_[3], bbs_[3]->successors().front().reference().basic_block());
-  ASSERT_EQ(bbs_[4], bbs_[3]->successors().back().reference().basic_block());
+  BasicCodeBlock* bb3 = BasicCodeBlock::Cast(bbs_[3]);
+  ASSERT_TRUE(bb3 != NULL);
+  ASSERT_EQ(1u, bb3->instructions().size());
+  ASSERT_EQ(2u, bb3->successors().size());;
+  ASSERT_EQ(bb3, bb3->successors().front().reference().basic_block());
+  ASSERT_EQ(bbs_[4], bb3->successors().back().reference().basic_block());
 
   // Basic-block 4 - ret.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[4]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[4]->type());
-  ASSERT_EQ(1u, bbs_[4]->instructions().size());
-  ASSERT_EQ(0u, bbs_[4]->successors().size());;
+  BasicCodeBlock* bb4 = BasicCodeBlock::Cast(bbs_[4]);
+  ASSERT_TRUE(bb4 != NULL);
+  ASSERT_EQ(1u, bb4->instructions().size());
+  ASSERT_EQ(0u, bb4->successors().size());;
 
   // Basic-block 5 - case_1.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[5]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[5]->type());
-  ASSERT_EQ(1u, bbs_[5]->instructions().size());
+  BasicCodeBlock* bb5 = BasicCodeBlock::Cast(bbs_[5]);
+  ASSERT_TRUE(bb5 != NULL);
+  ASSERT_EQ(1u, bb5->instructions().size());
   ASSERT_EQ(
       func1_,
-      bbs_[5]->instructions().front().references().begin()->second.block());
-  ASSERT_EQ(1u, bbs_[5]->successors().size());
-  ASSERT_EQ(bbs_[6], bbs_[5]->successors().front().reference().basic_block());
+      bb5->instructions().front().references().begin()->second.block());
+  ASSERT_EQ(1u, bb5->successors().size());
+  ASSERT_EQ(bbs_[6], bb5->successors().front().reference().basic_block());
 
   // Basic-block 6 - case_default.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[6]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[6]->type());
-  ASSERT_EQ(2u, bbs_[6]->instructions().size());
+  BasicCodeBlock* bb6 = BasicCodeBlock::Cast(bbs_[6]);
+  ASSERT_TRUE(bb6 != NULL);
+  ASSERT_EQ(2u, bb6->instructions().size());
   ASSERT_EQ(
       func2_,
-      bbs_[6]->instructions().back().references().begin()->second.block());
-  ASSERT_EQ(0u, bbs_[6]->successors().size());
+      bb6->instructions().back().references().begin()->second.block());
+  ASSERT_EQ(0u, bb6->successors().size());
 
   // Basic-block 7 - interrupt_label.
   ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bbs_[7]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[7]->type());
-  ASSERT_EQ(1u, bbs_[7]->instructions().size());
-  ASSERT_EQ(0u, bbs_[7]->successors().size());
+  BasicCodeBlock* bb7 = BasicCodeBlock::Cast(bbs_[7]);
+  ASSERT_TRUE(bb7 != NULL);
+  ASSERT_EQ(1u, bb7->instructions().size());
+  ASSERT_EQ(0u, bb7->successors().size());
 
   // Basic-block 8 - jump_table.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[8]));
   ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bbs_[8]->type());
-  ASSERT_EQ(3 * Reference::kMaximumSize, bbs_[8]->size());
-  ASSERT_EQ(3u, bbs_[8]->references().size());
+  BasicDataBlock* bb8 = BasicDataBlock::Cast(bbs_[8]);
+  ASSERT_TRUE(bb8 != NULL);
+  ASSERT_EQ(3 * Reference::kMaximumSize, bb8->size());
+  ASSERT_EQ(3u, bb8->references().size());
 
   // Basic-block 9 - case_table.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[9]));
   ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bbs_[9]->type());
-  ASSERT_EQ(256, bbs_[9]->size());
-  ASSERT_EQ(0u, bbs_[9]->references().size());
+  BasicDataBlock* bb9 = BasicDataBlock::Cast(bbs_[9]);
+  ASSERT_TRUE(bb9 != NULL);
+  ASSERT_EQ(256, bb9->size());
+  ASSERT_EQ(0u, bb9->references().size());
 
   // Validate all source ranges.
   core::RelativeAddress next_addr(start_addr_);
   for (size_t i = 0; i < bbs_.size(); ++i) {
-    const BasicBlock& bb = *bbs_[i];
+    const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bbs_[i]);
+    const BasicDataBlock* data_block = BasicDataBlock::Cast(bbs_[i]);
+    if (code_block != NULL) {
+      ASSERT_TRUE(data_block == NULL);
 
-    if (bb.type() == BasicBlock::BASIC_CODE_BLOCK) {
       BasicBlock::Instructions::const_iterator instr_it =
-          bb.instructions().begin();
-      for (; instr_it != bb.instructions().end(); ++instr_it) {
+          code_block->instructions().begin();
+      for (; instr_it != code_block->instructions().end(); ++instr_it) {
         const Instruction& instr = *instr_it;
         ASSERT_EQ(next_addr, instr.source_range().start());
         ASSERT_EQ(instr.size(), instr.source_range().size());
@@ -210,8 +248,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
       }
 
       BasicBlock::Successors::const_iterator succ_it =
-          bb.successors().begin();
-      for (; succ_it != bb.successors().end(); ++succ_it) {
+          code_block->successors().begin();
+      for (; succ_it != code_block->successors().end(); ++succ_it) {
         const Successor& succ = *succ_it;
         if (succ.source_range().size() != 0) {
           ASSERT_EQ(next_addr, succ.source_range().start());
@@ -222,11 +260,14 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
         next_addr += succ.instruction_size();
       }
-    } else {
-      DCHECK(bb.type() == BasicBlock::BASIC_DATA_BLOCK ||
-             bb.type() == BasicBlock::BASIC_PADDING_BLOCK);
+    }
 
-      next_addr += bb.GetDataSize();
+    if (data_block != NULL) {
+      ASSERT_TRUE(code_block == NULL);
+      ASSERT_TRUE(data_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
+                  data_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
+
+      next_addr += data_block->size();
     }
   }
 }

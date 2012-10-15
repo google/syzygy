@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,11 +72,10 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
   BasicBlockSubGraph::BBCollection::iterator it =
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
-    BasicBlock& bb = it->second;
+    BasicBlock* bb = *it;
     BlockGraph::BlockType type = BlockGraph::CODE_BLOCK;
     BlockGraph::BlockAttributes attributes = 0;
-    GetTypeAndAttributes(subgraph->original_block(), bb, &type, &attributes);
-    DCHECK_LT(0U, bb.size());
+    GetTypeAndAttributes(subgraph->original_block(), *bb, &type, &attributes);
 
     if (exclude_padding_ && (attributes & BlockGraph::PADDING_BLOCK) != 0)
       continue;
@@ -87,8 +86,8 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
       ++output_data_blocks_;
 
     BasicBlockSubGraph::BlockDescription* desc = subgraph->AddBlockDescription(
-        bb.name(), type, subgraph->original_block()->section(), 4, attributes);
-    desc->basic_block_order.push_back(&bb);
+        bb->name(), type, subgraph->original_block()->section(), 4, attributes);
+    desc->basic_block_order.push_back(bb);
   }
   return true;
 }

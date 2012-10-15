@@ -54,24 +54,47 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   BlockGraph::Block block;
   BasicBlockSubGraph subgraph;
   subgraph.set_original_block(&block);
+  block.set_size(kDataSize);
+  block.SetData(kData, kDataSize);
 
-  // Add three code blocks.
-  BasicBlock* bb1 = subgraph.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, kDataSize, kData);
+  // Add a basic data block.
+  BasicDataBlock* bb1 = subgraph.AddBasicDataBlock(
+      "bb1", BasicBlock::BASIC_DATA_BLOCK, kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
+  ASSERT_EQ(bb1, BasicDataBlock::Cast(bb1));
+  ASSERT_TRUE(BasicCodeBlock::Cast(bb1) == NULL);
+  EXPECT_EQ("bb1", bb1->name());
+  EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, bb1->type());
+  EXPECT_EQ(kDataSize, bb1->size());
+  EXPECT_EQ(kData, bb1->data());
+  EXPECT_EQ(BasicBlock::kNoOffset, bb1->offset());
 
-  BasicBlock* bb2 = subgraph.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, kDataSize, kData + kDataSize / 2);
-  ASSERT_FALSE(bb2 == NULL);
+  // Add one that overlaps.
+  BasicDataBlock* bb2 =
+      subgraph.AddBasicDataBlock("bb2",
+                                 BasicBlock::BASIC_PADDING_BLOCK,
+                                 kDataSize / 2,
+                                 kData + kDataSize / 2);
+  ASSERT_FALSE(bb1 == NULL);
+  ASSERT_EQ(bb2, BasicDataBlock::Cast(bb2));
+  ASSERT_TRUE(BasicCodeBlock::Cast(bb2) == NULL);
+  EXPECT_EQ("bb2", bb2->name());
+  EXPECT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bb2->type());
+  EXPECT_EQ(kDataSize / 2, bb2->size());
+  EXPECT_EQ(kData + kDataSize / 2, bb2->data());
+  EXPECT_EQ(BasicBlock::kNoOffset, bb2->offset());
 
-  BasicBlock* bb3 = subgraph.AddBasicBlock(
-      "bb3", BasicBlock::BASIC_CODE_BLOCK, kDataSize, kData + kDataSize);
+  // Add a code block.
+  BasicCodeBlock* bb3 = subgraph.AddBasicCodeBlock("bb3");
   ASSERT_FALSE(bb3 == NULL);
+  ASSERT_EQ(bb3, BasicCodeBlock::Cast(bb3));
+  EXPECT_EQ("bb3", bb3->name());
+  ASSERT_TRUE(BasicDataBlock::Cast(bb3) == NULL);
 
   // And they were not the same basic-block.
-  ASSERT_FALSE(bb1 == bb2);
-  ASSERT_FALSE(bb1 == bb3);
-  ASSERT_FALSE(bb2 == bb3);
+  ASSERT_NE(bb1, bb2);
+  ASSERT_NE(implicit_cast<BasicBlock*>(bb1), bb3);
+  ASSERT_NE(implicit_cast<BasicBlock*>(bb2), bb3);
 }
 
 TEST(BasicBlockSubGraphTest, AddBlockDescription) {
@@ -91,15 +114,12 @@ TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
   TestBasicBlockSubGraph subgraph;
   uint8 data[32] = {0};
 
-  // Add three non-overlapping basic-blocks.
-  BasicBlock* bb1 = subgraph.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  // Add three basic code blocks.
+  BasicBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
   ASSERT_FALSE(bb1 == NULL);
-  BasicBlock* bb2 = subgraph.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicBlock* bb2 = subgraph.AddBasicCodeBlock("bb2");
   ASSERT_FALSE(bb2 == NULL);
-  BasicBlock* bb3 = subgraph.AddBasicBlock(
-      "bb3", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicBlock* bb3 = subgraph.AddBasicCodeBlock("bb3");
   ASSERT_FALSE(bb3 == NULL);
 
   // They should all be different blocks.
@@ -135,19 +155,15 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   static const uint8 kData[Reference::kMaximumSize] = { 0 };
 
   // Create basic-blocks.
-  BasicBlock* bb1 = subgraph.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
   ASSERT_FALSE(bb1 == NULL);
-  BasicBlock* bb2 = subgraph.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb2 = subgraph.AddBasicCodeBlock("bb2");
   ASSERT_FALSE(bb2 == NULL);
-  BasicBlock* bb3 = subgraph.AddBasicBlock(
-      "bb3", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb3 = subgraph.AddBasicCodeBlock("bb3");
   ASSERT_FALSE(bb3 == NULL);
-  BasicBlock* bb4 = subgraph.AddBasicBlock(
-      "bb4", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb4 = subgraph.AddBasicCodeBlock("bb4");
   ASSERT_FALSE(bb4 == NULL);
-  BasicBlock* data = subgraph.AddBasicBlock(
+  BasicDataBlock* data = subgraph.AddBasicDataBlock(
       "data", BasicBlock::BASIC_DATA_BLOCK, sizeof(kData), kData);
   ASSERT_FALSE(data == NULL);
 
@@ -188,13 +204,11 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   BlockGraph::Block external_block;
   TestBasicBlockSubGraph subgraph;
 
-  BasicBlock* bb1 = subgraph.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
   ASSERT_FALSE(bb1 == NULL);
   bb1->referrers().insert(BasicBlockReferrer(&external_block, 0));
 
-  BasicBlock* bb2 = subgraph.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb2 = subgraph.AddBasicCodeBlock("bb2");
   ASSERT_FALSE(bb2 == NULL);
 
   // Add a block description for a mythical b1.
@@ -264,7 +278,7 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
 
   ASSERT_FALSE(subgraph.HasValidReferrers());
 
-  BasicBlock* bb1 = subgraph.AddBasicBlock(
+  BasicDataBlock* bb1 = subgraph.AddBasicDataBlock(
       "bb1", BasicBlock::BASIC_DATA_BLOCK, kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
 
@@ -282,14 +296,13 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
 TEST(BasicBlockSubGraphTest, GetMaxSize) {
   TestBasicBlockSubGraph subgraph;
 
-  // Add three non-overlapping basic-blocks.
-  BasicBlock* code = subgraph.AddBasicBlock(
-      "code", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  // Add three basic-blocks.
+  BasicCodeBlock* code = subgraph.AddBasicCodeBlock("code");
   ASSERT_FALSE(code == NULL);
-  BasicBlock* data = subgraph.AddBasicBlock(
+  BasicDataBlock* data = subgraph.AddBasicDataBlock(
       "data", BasicBlock::BASIC_DATA_BLOCK, kDataSize / 2, kData);
   ASSERT_FALSE(data == NULL);
-  BasicBlock* padding = subgraph.AddBasicBlock(
+  BasicDataBlock* padding = subgraph.AddBasicDataBlock(
       "padding", BasicBlock::BASIC_PADDING_BLOCK, kDataSize, kData);
   ASSERT_FALSE(padding == NULL);
 

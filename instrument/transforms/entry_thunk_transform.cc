@@ -26,6 +26,7 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
 using block_graph::BasicBlockSubGraph;
@@ -351,8 +352,7 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   BasicBlockSubGraph bbsg;
   BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
       name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
-  BasicBlock* bb = bbsg.AddBasicBlock(
-      name, BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(name);
   block_desc->basic_block_order.push_back(bb);
   BasicBlockAssembler assm(bb->instructions().begin(),
                            &bb->instructions());

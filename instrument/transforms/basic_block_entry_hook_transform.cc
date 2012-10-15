@@ -31,6 +31,7 @@ namespace {
 
 using ::common::kBasicBlockEntryAgentId;
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BlockGraph;
 using block_graph::Displacement;
@@ -158,15 +159,15 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
   BasicBlockSubGraph::BBCollection::iterator it =
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
-    BasicBlock& bb = it->second;
-    if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
+    BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+    if (bb == NULL)
       continue;
 
     // Find the source range associated with this basic-block.
     BlockGraph::Block::SourceRange source_range;
-    if (!GetBasicBlockSourceRange(bb, &source_range)) {
+    if (!GetBasicBlockSourceRange(*bb, &source_range)) {
       LOG(ERROR) << "Unable to get source range for basic block '"
-                 << bb.name() << "'";
+                 << bb->name() << "'";
       return false;
     }
 
@@ -180,7 +181,7 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
                                        bb_entry_hook_ref_.offset()));
 
     // Assemble entry hook instrumentation into the instruction stream.
-    BasicBlockAssembler bb_asm(bb.instructions().begin(), &bb.instructions());
+    BasicBlockAssembler bb_asm(bb->instructions().begin(), &bb->instructions());
     bb_asm.push(basic_block_id);
     bb_asm.push(module_data);
     bb_asm.call(bb_entry_hook);

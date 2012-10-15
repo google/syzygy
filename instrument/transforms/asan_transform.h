@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ class AsanBasicBlockTransform
   // Instruments the memory accesses in a basic block.
   // @param basic_block The basic block to be instrumented.
   // @returns true on success, false otherwise.
-  bool InstrumentBasicBlock(block_graph::BasicBlock* basic_block);
+  bool InstrumentBasicBlock(block_graph::BasicCodeBlock* basic_block);
 
  private:
   // The references to the Asan access check import entry.
