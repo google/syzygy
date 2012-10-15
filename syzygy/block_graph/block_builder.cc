@@ -158,7 +158,9 @@ class MergeContext {
   // Copy the data (or padding bytes) in @p basic_block into new working block.
   // @param offset The offset where the @p basic_block should be inserted.
   // @param basic_block The basic_block to copy.
-  bool CopyData(const BasicBlock* basic_block, Offset offset, Block* new_block);
+  bool CopyData(const BasicDataBlock* basic_block,
+                Offset offset,
+                Block* new_block);
 
   // Initializes layout information for @p order and stores it in layout_info_.
   // @param order The basic block ordering to process.
@@ -274,7 +276,7 @@ void MergeContext::TransferReferrers(const BasicBlockSubGraph* subgraph) const {
 Offset MergeContext::GetOffset(const Instruction& instr) {
   if (original_block_ &&
       instr.data() >= original_block_->data() &&
-      instr.data() < original_block_->data() + original_block_->size()) {
+      instr.data() <= original_block_->data() + original_block_->size()) {
     return instr.data() - original_block_->data();
   }
 
@@ -491,26 +493,26 @@ void MergeContext::CopyReferences(
   }
 }
 
-bool MergeContext::CopyData(const BasicBlock* basic_block,
+bool MergeContext::CopyData(const BasicDataBlock* data_block,
                             Offset offset,
                             Block* new_block) {
-  DCHECK(basic_block != NULL);
-  DCHECK(basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
-         basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
+  DCHECK(data_block != NULL);
+  DCHECK(data_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
+         data_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
 
   // Get the target buffer.
   uint8* buffer = new_block->GetMutableData();
   DCHECK(buffer != NULL);
 
   // Copy the basic-new_block_'s data bytes.
-  ::memcpy(buffer + offset, basic_block->data(), basic_block->size());
+  ::memcpy(buffer + offset, data_block->data(), data_block->size());
 
   // Record the source range.
-  CopySourceRange(sub_graph_->GetOffset(basic_block), basic_block->size(),
-                  offset, basic_block->size(),
+  CopySourceRange(data_block->offset(), data_block->size(),
+                  offset, data_block->size(),
                   new_block);
 
-  CopyReferences(basic_block->references(), offset, new_block);
+  CopyReferences(data_block->references(), offset, new_block);
   return true;
 }
 
@@ -528,7 +530,14 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
     info.basic_block = bb;
     info.block = new_block;
     info.start_offset = 0;
-    info.basic_block_size = bb->GetDataSize();
+    const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bb);
+    if (code_block != NULL)
+      info.basic_block_size = code_block->GetInstructionSize();
+
+    const BasicDataBlock* data_block = BasicDataBlock::Cast(bb);
+    if (data_block != NULL)
+      info.basic_block_size = data_block->size();
+
     info.successor_offset = BasicBlock::kNoOffset;
     info.successor_size = 0;
     for (size_t i = 0; i < arraysize(info.successors); ++i) {
@@ -543,15 +552,18 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
     if (next_it != order.end())
       next_bb = *(next_it);
 
+    if (code_block == NULL)
+      continue;
+
     // Go through and decide how to manifest the successors for the current
     // basic block. A basic block has zero, one or two successors, and any
     // successor that successor that refers to the next basic block in sequence
     // is elided, as it's most efficient for execution to simply fall through.
     // We do this in two nearly-identical code blocks, as the handling is only
     // near-identical for each of two possible successors.
-    DCHECK_GE(2U, bb->successors().size());
-    SuccessorConstIter succ_it = bb->successors().begin();
-    SuccessorConstIter succ_end = bb->successors().end();
+    DCHECK_GE(2U, code_block->successors().size());
+    SuccessorConstIter succ_it = code_block->successors().begin();
+    SuccessorConstIter succ_end = code_block->successors().end();
 
     // Process the first successor, if any.
     size_t manifested_successors = 0;
@@ -751,20 +763,22 @@ bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
     const BasicBlock* bb = *bb_iter;
     const BasicBlockLayoutInfo& info = FindLayoutInfo(bb);
 
-    // If the basic-block is labeled, copy the label.
-    if (bb->has_label())
-      info.block->SetLabel(info.start_offset, bb->label());
+    const BasicDataBlock* data_block = BasicDataBlock::Cast(bb);
+    if (data_block != NULL) {
+      // If the basic-block is labeled, copy the label.
+      if (data_block->has_label())
+        info.block->SetLabel(info.start_offset, data_block->label());
 
-    // Copy the contents of the basic block into the new block.
-    if (bb->type() != BasicBlock::BASIC_CODE_BLOCK) {
-      // If it's not a code basic-block then all we need to do is copy its data.
-      if (!CopyData(bb, info.start_offset, info.block)) {
+      // Copy its data.
+      if (!CopyData(data_block, info.start_offset, info.block)) {
         LOG(ERROR) << "Failed to copy data for '" << bb->name() << "'.";
         return false;
       }
-    } else {
+    }
+    const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bb);
+    if (code_block != NULL) {
       // Copy the instructions.
-      if (!CopyInstructions(bb->instructions(),
+      if (!CopyInstructions(code_block->instructions(),
                             info.start_offset,
                             info.block)) {
         LOG(ERROR) << "Failed to copy instructions for '" << bb->name() << "'.";

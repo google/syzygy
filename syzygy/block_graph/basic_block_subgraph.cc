@@ -18,6 +18,8 @@
 
 #include <algorithm>
 
+#include "base/memory/scoped_ptr.h"
+
 namespace block_graph {
 
 namespace {
@@ -45,7 +47,17 @@ size_t BasicBlockSubGraph::BlockDescription::GetMaxSize() const {
 }
 
 BasicBlockSubGraph::BasicBlockSubGraph()
-    : original_block_(NULL), next_basic_block_id_(0) {
+    : original_block_(NULL) {
+}
+
+BasicBlockSubGraph::~BasicBlockSubGraph() {
+  // Delete all the BB's we've been entrusted with.
+  BBCollection::iterator it = basic_blocks_.begin();
+  for (; it != basic_blocks_.end(); ++it)
+    delete *it;
+
+  // And wipe the collection.
+  basic_blocks_.clear();
 }
 
 BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
@@ -64,35 +76,36 @@ BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
   return desc;
 }
 
-block_graph::BasicBlock* BasicBlockSubGraph::AddBasicBlock(
+block_graph::BasicCodeBlock* BasicBlockSubGraph::AddBasicCodeBlock(
+    const base::StringPiece& name) {
+  DCHECK(!name.empty());
+
+  scoped_ptr<BasicCodeBlock> new_code_block(new BasicCodeBlock(name));
+  bool inserted = basic_blocks_.insert(new_code_block.get()).second;
+  DCHECK(inserted);
+
+  return new_code_block.release();
+}
+
+block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
     const base::StringPiece& name,
     BasicBlockType type,
     Size size,
     const uint8* data) {
   DCHECK(!name.empty());
 
-  std::pair<BBCollection::iterator, bool> insert_result =
-      basic_blocks_.insert(std::make_pair(
-          next_basic_block_id_,
-          BasicBlock(next_basic_block_id_, name, type, size, data)));
-  DCHECK(insert_result.second);
+  scoped_ptr<BasicDataBlock> new_data_block(
+      new BasicDataBlock(name, type, data, size));
+  bool inserted = basic_blocks_.insert(new_data_block.get()).second;
+  DCHECK(inserted);
 
-  block_graph::BasicBlock* new_basic_block = &insert_result.first->second;
-
-  ++next_basic_block_id_;
-
-  return new_basic_block;
+  return new_data_block.release();
 }
 
-BasicBlock::Offset BasicBlockSubGraph::GetOffset(const BasicBlock* bb) const {
-  if (original_block_ == NULL || bb->data() == NULL)
-    return BasicBlock::kNoOffset;
+void BasicBlockSubGraph::Remove(BasicBlock* bb) {
+  DCHECK(basic_blocks_.find(bb) != basic_blocks_.end());
 
-  if (bb->data() < original_block_->data() ||
-      bb->data() > original_block_->data() + original_block_->size())
-    return BasicBlock::kNoOffset;
-
-  return bb->data() - original_block_->data();
+  basic_blocks_.erase(bb);
 }
 
 bool BasicBlockSubGraph::IsValid() const {
@@ -127,8 +140,8 @@ bool BasicBlockSubGraph::HasValidSuccessors() const {
     BasicBlockOrdering::const_iterator bb_iter =
         desc_iter->basic_block_order.begin();
     for (; bb_iter != desc_iter->basic_block_order.end(); ++bb_iter) {
-      const BasicBlock* bb = *bb_iter;
-      if (bb->type() != BasicBlock::BASIC_CODE_BLOCK)
+      const BasicCodeBlock* bb = BasicCodeBlock::Cast(*bb_iter);
+      if (bb == NULL)
         continue;
 
       const BasicBlock::Instructions& instructions = bb->instructions();
@@ -225,7 +238,8 @@ bool BasicBlockSubGraph::HasValidReferrers() const {
   BBCollection::const_iterator bb_iter = basic_blocks_.begin();
   for (; bb_iter != basic_blocks_.end(); ++bb_iter) {
     typedef BasicBlock::BasicBlockReferrerSet BasicBlockReferrerSet;
-    const BasicBlockReferrerSet& bb_referrers = bb_iter->second.referrers();
+    const BasicBlockReferrerSet& bb_referrers =
+        (*bb_iter)->referrers();
     BasicBlockReferrerSet::const_iterator ref_iter = bb_referrers.begin();
     for (; ref_iter != bb_referrers.end(); ++ref_iter) {
       size_t count = ++external_referrers[*ref_iter];
@@ -260,12 +274,12 @@ void BasicBlockSubGraph::GetReachabilityMap(ReachabilityMap* rm) const {
   // basic-blocks into the reachability queue.
   BBCollection::const_iterator  bb_iter = basic_blocks_.begin();
   for (; bb_iter != basic_blocks_.end(); ++bb_iter) {
-    const BasicBlock& bb = bb_iter->second;
-    rm->insert(std::make_pair(&bb, false));
+    const BasicBlock* bb = *bb_iter;
+    rm->insert(std::make_pair(bb, false));
     BasicBlock::BasicBlockReferrerSet::const_iterator ref_iter =
-        bb.referrers().begin();
-    for (; ref_iter != bb.referrers().end(); ++ref_iter)
-      reachability_queue.insert(&bb);
+        bb->referrers().begin();
+    for (; ref_iter != bb->referrers().end(); ++ref_iter)
+      reachability_queue.insert(bb);
   }
 
   // Traverse the reachability queue marking basic blocks as reachable.
@@ -274,22 +288,12 @@ void BasicBlockSubGraph::GetReachabilityMap(ReachabilityMap* rm) const {
     reachability_queue.erase(reachability_queue.begin());
     (*rm)[bb] = true;
 
-    // Put all bb-to-bb references into the reachability queue.
-    BasicBlock::BasicBlockReferenceMap::const_iterator ref_iter =
-        bb->references().begin();
-    for (; ref_iter != bb->references().end(); ++ref_iter) {
-      if (ref_iter->second.basic_block() != NULL &&
-          !IsReachable(*rm, ref_iter->second.basic_block())) {
-        reachability_queue.insert(ref_iter->second.basic_block());
-      }
-    }
-
-    // Put all instruction-to-bb references into the reachability queue.
-    BasicBlock::Instructions::const_iterator inst_iter =
-        bb->instructions().begin();
-    for (; inst_iter != bb->instructions().end(); ++inst_iter) {
-      ref_iter = inst_iter->references().begin();
-      for (; ref_iter != inst_iter->references().end(); ++ref_iter) {
+    const BasicDataBlock* data_block = BasicDataBlock::Cast(bb);
+    if (data_block != NULL) {
+      // Put all bb-to-bb references into the reachability queue.
+      BasicBlock::BasicBlockReferenceMap::const_iterator ref_iter =
+          data_block->references().begin();
+      for (; ref_iter != data_block->references().end(); ++ref_iter) {
         if (ref_iter->second.basic_block() != NULL &&
             !IsReachable(*rm, ref_iter->second.basic_block())) {
           reachability_queue.insert(ref_iter->second.basic_block());
@@ -297,13 +301,31 @@ void BasicBlockSubGraph::GetReachabilityMap(ReachabilityMap* rm) const {
       }
     }
 
-    // Put all successor-to-bb references into the reachability queue.
-    BasicBlock::Successors::const_iterator succ_iter =
-        bb->successors().begin();
-    for (; succ_iter != bb->successors().end(); ++succ_iter) {
-      if (succ_iter->reference().basic_block() != NULL &&
-          !IsReachable(*rm, succ_iter->reference().basic_block())) {
-        reachability_queue.insert(succ_iter->reference().basic_block());
+    const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bb);
+    if (code_block != NULL) {
+      // Put all instruction-to-code_block references into the
+      // reachability queue.
+      BasicBlock::Instructions::const_iterator inst_iter =
+          code_block->instructions().begin();
+      for (; inst_iter != code_block->instructions().end(); ++inst_iter) {
+        BasicBlock::BasicBlockReferenceMap::const_iterator ref_iter =
+            inst_iter->references().begin();
+        for (; ref_iter != inst_iter->references().end(); ++ref_iter) {
+          if (ref_iter->second.basic_block() != NULL &&
+              !IsReachable(*rm, ref_iter->second.basic_block())) {
+            reachability_queue.insert(ref_iter->second.basic_block());
+          }
+        }
+      }
+
+      // Put all successor-to-code_block references into the reachability queue.
+      BasicBlock::Successors::const_iterator succ_iter =
+          code_block->successors().begin();
+      for (; succ_iter != code_block->successors().end(); ++succ_iter) {
+        if (succ_iter->reference().basic_block() != NULL &&
+            !IsReachable(*rm, succ_iter->reference().basic_block())) {
+          reachability_queue.insert(succ_iter->reference().basic_block());
+        }
       }
     }
   }

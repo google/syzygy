@@ -32,6 +32,7 @@ using core::eax;
 using block_graph::ApplyBasicBlockSubGraphTransform;
 using block_graph::ApplyBlockGraphTransform;
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
 using block_graph::BlockGraph;
@@ -85,17 +86,16 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
   BasicBlockSubGraph::BBCollection::iterator it =
       basic_block_subgraph->basic_blocks().begin();
   for (; it != basic_block_subgraph->basic_blocks().end(); ++it) {
-    BasicBlockSubGraph::BasicBlock& bb = it->second;
-
     // We're only interested in code blocks.
-    if (bb.type() != BasicBlock::BASIC_CODE_BLOCK)
+    BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+    if (bb == NULL)
       continue;
 
     // Find the source range associated with this basic-block.
     BlockGraph::Block::SourceRange source_range;
-    if (!GetBasicBlockSourceRange(bb, &source_range)) {
+    if (!GetBasicBlockSourceRange(*bb, &source_range)) {
       LOG(ERROR) << "Unable to get source range for basic block '"
-                 << bb.name() << "'";
+                 << bb->name() << "'";
       return false;
     }
 
@@ -104,7 +104,7 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
     //   1. mov eax, dword ptr[data.frequency_data]
     //   2. mov byte ptr[eax + basic_block_index], 1
     //   3. pop eax
-    BasicBlockAssembler assm(bb.instructions().begin(), &bb.instructions());
+    BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
 
     // Prepend the instrumentation instructions.
     assm.push(eax);

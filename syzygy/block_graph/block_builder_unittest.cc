@@ -35,17 +35,16 @@ static const uint8 kEmptyData[32] = {0};
 
 class BlockBuilderTest : public testing::Test {
  public:
-   static Instruction* AddInstruction(BasicBlock* bb, Instruction::Size size) {
+   static Instruction* AddInstruction(BasicCodeBlock* bb,
+                                      Instruction::Size size) {
     CHECK(bb != NULL);
     bb->instructions().push_back(
         Instruction(size, kEmptyData));
     return &bb->instructions().back();
   }
 
-  BasicBlock* CreateCodeBB(const base::StringPiece& name, size_t len) {
-    BasicBlock* bb = subgraph_.AddBasicBlock(name,
-                                             BasicBlock::BASIC_CODE_BLOCK,
-                                             0, NULL);
+  BasicCodeBlock* CreateCodeBB(const base::StringPiece& name, size_t len) {
+    BasicCodeBlock* bb = subgraph_.AddBasicCodeBlock(name);
     EXPECT_TRUE(bb != NULL);
     while (len > 0) {
       size_t instr_len =
@@ -58,10 +57,10 @@ class BlockBuilderTest : public testing::Test {
 
   Block* CreateLayout(size_t size1, size_t size2, size_t size3, size_t size4) {
     // Generate a set of puzzle blocks.
-    BasicBlock* bb1 = CreateCodeBB("bb1", size1);
-    BasicBlock* bb2 = CreateCodeBB("bb2", size2);
-    BasicBlock* bb3 = CreateCodeBB("bb3", size3);
-    BasicBlock* bb4 = CreateCodeBB("bb3", size4);
+    BasicCodeBlock* bb1 = CreateCodeBB("bb1", size1);
+    BasicCodeBlock* bb2 = CreateCodeBB("bb2", size2);
+    BasicCodeBlock* bb3 = CreateCodeBB("bb3", size3);
+    BasicCodeBlock* bb4 = CreateCodeBB("bb3", size4);
 
     // BB1 has BB4 and BB2 as successors.
     bb1->successors().push_back(
@@ -160,19 +159,15 @@ TEST_F(BlockBuilderTest, Merge) {
 
   // Generate a mock decomposition of the original block.
   subgraph_.set_original_block(original);
-  BasicBlock* bb1 = subgraph_.AddBasicBlock(
-      "bb1", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb1 = subgraph_.AddBasicCodeBlock("bb1");
   ASSERT_TRUE(bb1 != NULL);
-  BasicBlock* bb2 = subgraph_.AddBasicBlock(
-      "bb2", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb2 = subgraph_.AddBasicCodeBlock("bb2");
   ASSERT_TRUE(bb2 != NULL);
-  BasicBlock* bb3 = subgraph_.AddBasicBlock(
-      "bb3", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb3 = subgraph_.AddBasicCodeBlock("bb3");
   ASSERT_TRUE(bb3 != NULL);
-  BasicBlock* bb4 = subgraph_.AddBasicBlock(
-      "bb4", BasicBlock::BASIC_CODE_BLOCK, 0, NULL);
+  BasicCodeBlock* bb4 = subgraph_.AddBasicCodeBlock("bb4");
   ASSERT_TRUE(bb4 != NULL);
-  BasicBlock* table = subgraph_.AddBasicBlock(
+  BasicDataBlock* table = subgraph_.AddBasicDataBlock(
       "table", BasicBlock::BASIC_DATA_BLOCK, 12, kEmptyData);
   ASSERT_TRUE(table != NULL);
 

@@ -661,18 +661,14 @@ bool Successor::SetReference(const BasicBlockReference& ref) {
 
 const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 
-BasicBlock::BasicBlock(BasicBlock::BlockId id,
-                       const base::StringPiece& name,
-                       BasicBlock::BasicBlockType type,
-                       BasicBlock::Size size,
-                       const uint8* data)
-    : id_(id),
-      name_(name.begin(), name.end()),
+BasicBlock::BasicBlock(const base::StringPiece& name,
+                       BasicBlock::BasicBlockType type)
+    : name_(name.begin(), name.end()),
       type_(type),
-      size_(size),
-      data_(data) {
-  DCHECK(data != NULL || size == 0);
-  DCHECK(type == BASIC_CODE_BLOCK || size > 0);
+      offset_(kNoOffset) {
+}
+
+BasicBlock::~BasicBlock() {
 }
 
 const char* BasicBlock::BasicBlockTypeToString(
@@ -682,15 +678,23 @@ const char* BasicBlock::BasicBlockTypeToString(
   return kBasicBlockType[type];
 }
 
-bool BasicBlock::IsValid() const {
-  if (type() == BasicBlock::BASIC_DATA_BLOCK ||
-      type() == BasicBlock::BASIC_PADDING_BLOCK) {
-    return true;
-  }
+BasicCodeBlock::BasicCodeBlock(const base::StringPiece& name)
+    : BasicBlock(name, BASIC_CODE_BLOCK) {
+}
 
-  if (type() != BasicBlock::BASIC_CODE_BLOCK)
-    return false;
+BasicCodeBlock* BasicCodeBlock::Cast(BasicBlock* basic_block) {
+  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
+    return static_cast<BasicCodeBlock*>(basic_block);
+  return NULL;
+}
 
+const BasicCodeBlock* BasicCodeBlock::Cast(const BasicBlock* basic_block) {
+  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
+    return static_cast<const BasicCodeBlock*>(basic_block);
+  return NULL;
+}
+
+bool BasicCodeBlock::IsValid() const {
 #ifndef NDEBUG
   Instructions::const_iterator it = instructions().begin();
   for (; it != instructions().end(); ++it) {
@@ -728,12 +732,8 @@ bool BasicBlock::IsValid() const {
   }
 }
 
-BasicBlock::Size BasicBlock::GetDataSize() const {
-  // If it's a data or padding basic-block, then we have the size on hand.
-  if (type_ != BASIC_CODE_BLOCK)
-    return size_;
-
-  // Otherwise, we must tally the size of the instructions.
+BasicBlock::Size BasicCodeBlock::GetInstructionSize() const {
+  // Tally the size of the instructions.
   Size data_size = 0;
   Instructions::const_iterator instr_iter = instructions_.begin();
   for (; instr_iter != instructions_.end(); ++instr_iter)
@@ -742,11 +742,7 @@ BasicBlock::Size BasicBlock::GetDataSize() const {
   return data_size;
 }
 
-BasicBlock::Size BasicBlock::GetMaxSize() const {
-  // If it's a data or padding basic-block, then we have its exact size.
-  if (type_ != BASIC_CODE_BLOCK)
-    return size_;
-
+BasicBlock::Size BasicCodeBlock::GetMaxSize() const {
   // Otherwise, we must account for the instructions and successors.
   size_t max_size = 0;
 
@@ -761,9 +757,45 @@ BasicBlock::Size BasicBlock::GetMaxSize() const {
   return max_size;
 }
 
-bool BasicBlock::SetReference(Offset offset, const BasicBlockReference& ref) {
+BasicDataBlock::BasicDataBlock(const base::StringPiece& name,
+                               BasicBlockType type,
+                               const uint8* data,
+                               Size size)
+    : BasicBlock(name, type), size_(size), data_(data) {
+  DCHECK(data != NULL);
+  DCHECK_NE(0u, size);
+  DCHECK(type == BasicBlock::BASIC_DATA_BLOCK ||
+         type == BasicBlock::BASIC_PADDING_BLOCK);
+}
+
+BasicDataBlock* BasicDataBlock::Cast(BasicBlock* basic_block) {
+  if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
+      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+    return static_cast<BasicDataBlock*>(basic_block);
+  }
+  return NULL;
+}
+
+const BasicDataBlock* BasicDataBlock::Cast(const BasicBlock* basic_block) {
+  if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
+      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+    return static_cast<const BasicDataBlock*>(basic_block);
+  }
+  return NULL;
+}
+
+bool BasicDataBlock::SetReference(
+    Offset offset, const BasicBlockReference& ref) {
   DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, type_);
   return UpdateBasicBlockReferenceMap(this, &references_, offset, ref);
+}
+
+bool BasicDataBlock::IsValid() const {
+  return true;
+}
+
+BasicBlock::Size BasicDataBlock::GetMaxSize() const {
+  return size_;
 }
 
 }  // namespace block_graph

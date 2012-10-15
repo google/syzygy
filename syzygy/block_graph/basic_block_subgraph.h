@@ -39,6 +39,8 @@ namespace block_graph {
 class BasicBlockSubGraph {
  public:
   typedef block_graph::BasicBlock BasicBlock;
+  typedef block_graph::BasicCodeBlock BasicCodeBlock;
+  typedef block_graph::BasicDataBlock BasicDataBlock;
   typedef BasicBlock::BasicBlockType BasicBlockType;
   typedef std::list<BasicBlock*> BasicBlockOrdering;
   typedef block_graph::BlockGraph BlockGraph;
@@ -66,18 +68,22 @@ class BasicBlockSubGraph {
   };
 
   typedef std::list<BlockDescription> BlockDescriptionList;
-  typedef std::map<BasicBlock::BlockId, BasicBlock> BBCollection;
+  typedef std::set<BasicBlock*> BBCollection;
   typedef std::map<const BasicBlock*, bool> ReachabilityMap;
 
   // Initialize a basic block sub-graph.
   BasicBlockSubGraph();
+  // Releases all resources.
+  ~BasicBlockSubGraph();
 
   // @name Accessors.
   // @{
   void set_original_block(const Block* block) { original_block_ = block; }
   const Block* original_block() const { return original_block_; }
+
   const BBCollection& basic_blocks() const { return  basic_blocks_; }
   BBCollection& basic_blocks() { return  basic_blocks_; }
+
   const BlockDescriptionList& block_descriptions() const {
     return block_descriptions_;
   }
@@ -98,25 +104,30 @@ class BasicBlockSubGraph {
                                         Size alignment,
                                         BlockAttributes attributes);
 
-  // Add a new basic block to the sub-graph.
+  // Add a new basic code block to the sub-graph.
+  // @param name A textual identifier for this basic block.
+  // @returns A pointer to a newly allocated basic code block.
+  BasicCodeBlock* AddBasicCodeBlock(const base::StringPiece& name);
+
+  // Add a new basic data block to the sub-graph.
   // @param name A textual identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
   // @param size The number of bytes this basic block occupied in the original
   //     block. Set to 0 if this is a generated basic block.
-  // @param data The underlying data representing the basic block.
-  // @returns A pointer to a newly allocated basic block representing the
+  // @param data The underlying data representing the basic data block.
+  // @returns A pointer to a newly allocated basic data block representing the
   //     original source range [@p offset, @p offset + @p size), or NULL on
   //     ERROR. Ownership of the returned basic-block (if any) is retained
   //     by the composition.
-  BasicBlock* AddBasicBlock(const base::StringPiece& name,
-                            BasicBlockType type,
-                            Size size,
-                            const uint8* data);
+  BasicDataBlock* AddBasicDataBlock(const base::StringPiece& name,
+                                    BasicBlockType type,
+                                    Size size,
+                                    const uint8* data);
 
-  // Retrieves the offset of @p bb in original_block_, if appropriate.
-  // @param bb A basic block from this subgraph.
-  // @returns The offset of @p bb in original_block_, or BasicBlock::kNoOffset.
-  Offset GetOffset(const BasicBlock* bb) const;
+  // Remove a basic block from the subgraph.
+  // @param bb The basic block to remove.
+  // @pre @p bb must be in the graph.
+  void Remove(BasicBlock* bb);
 
   // Returns true if the basic-block composition is valid. This tests the
   // for following conditions.
@@ -153,9 +164,6 @@ class BasicBlockSubGraph {
   // A list of block descriptions for the blocks that are to be created from
   // this basic block sub-graph.
   BlockDescriptionList block_descriptions_;
-
-  // An counter used to assign IDs to basic blocks as they are constructed.
-  int next_basic_block_id_;
 };
 
 }  // namespace block_graph

@@ -45,7 +45,7 @@ bool CodeBlockAttributesAreBasicBlockSafe(
   return true;
 }
 
-bool GetBasicBlockSourceRange(const BasicBlock& bb,
+bool GetBasicBlockSourceRange(const BasicCodeBlock& bb,
                               BlockGraph::Block::SourceRange* source_range) {
   DCHECK(source_range != NULL);
 

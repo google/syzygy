@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ class DecomposeImageToTextApp : public common::AppImplBase {
  protected:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlock BasicBlock;
+  typedef block_graph::BasicCodeBlock BasicCodeBlock;
+  typedef block_graph::BasicDataBlock BasicDataBlock;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
   void DecomposeImageToTextApp::PrintUsage(const FilePath& program,
@@ -56,10 +58,10 @@ class DecomposeImageToTextApp : public common::AppImplBase {
 
   // Given the code basic block @p bb, dump it in text format to out().
   void DumpCodeBBToText(const BlockGraph::Block* block,
-                        const BasicBlock* bb);
+                        const BasicCodeBlock* bb);
   // Given the data basic block @p bb, dump it in text format to out().
   void DumpDataBBToText(const BlockGraph::Block* block,
-                        const BasicBlock* bb);
+                        const BasicDataBlock* bb);
 
   // Dump @p block at @p addr in text format to out().
   void DumpBlockToText(core::RelativeAddress addr,

@@ -53,7 +53,7 @@ class BasicBlockSubGraphLayoutTransformTest : public BasicBlockTest {
       BasicBlockSubGraph::BasicBlockOrdering::const_iterator bb_it =
           bd_it->basic_block_order.begin();
       for (; bb_it != bd_it->basic_block_order.end(); ++bb_it, ++bb_idx) {
-        size_t bb_offset = subgraph_.GetOffset(*bb_it);
+        size_t bb_offset = (*bb_it)->offset();
         ASSERT_TRUE(bb_map.insert(std::make_pair(
             bb_offset, std::make_pair(bd_idx, bb_idx))).second);
       }

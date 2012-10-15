@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BasicBlockReference;
@@ -239,7 +240,8 @@ void RedirectReferences(const BlockSet& dst_blocks,
 const char AsanBasicBlockTransform::kTransformName[] =
     "SyzyAsanBasicBlockTransform";
 
-bool AsanBasicBlockTransform::InstrumentBasicBlock(BasicBlock* basic_block) {
+bool AsanBasicBlockTransform::InstrumentBasicBlock(
+    BasicCodeBlock* basic_block) {
   DCHECK(basic_block != NULL);
   BasicBlock::Instructions::iterator iter_inst =
       basic_block->instructions().begin();
@@ -302,7 +304,8 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
   BasicBlockSubGraph::BBCollection::iterator it =
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
-    if (!InstrumentBasicBlock(&it->second))
+    BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+    if (bb != NULL && !InstrumentBasicBlock(bb))
       return false;
   }
   return true;

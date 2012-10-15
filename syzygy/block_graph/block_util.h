@@ -41,7 +41,7 @@ bool CodeBlockAttributesAreBasicBlockSafe(const BlockGraph::Block* block);
 //     a single contiguous range, irrespective order. This means that this
 //     function may succeed even if instructions in @p bb have been added,
 //     reordered or mutated.
-bool GetBasicBlockSourceRange(const BasicBlock& bb,
+bool GetBasicBlockSourceRange(const BasicCodeBlock& bb,
                               BlockGraph::Block::SourceRange* source_range);
 
 }  // namespace block_graph

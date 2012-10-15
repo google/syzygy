@@ -71,7 +71,7 @@ class BasicBlockAssemblerTest : public testing::Test {
   }
 
   BlockGraph::Block test_block_;
-  BasicBlock test_bb_;
+  BasicCodeBlock test_bb_;
   BasicBlock::Instructions instructions_;
   BasicBlockAssembler asm_;
 };
@@ -86,7 +86,7 @@ class BasicBlockAssemblerTest : public testing::Test {
 
 BasicBlockAssemblerTest::BasicBlockAssemblerTest()
     : test_block_(99, BlockGraph::CODE_BLOCK, 10, "test block"),
-      test_bb_(100, "foo", BasicBlock::BASIC_CODE_BLOCK, 0, NULL),
+      test_bb_("foo"),
       asm_(instructions_.end(), &instructions_) {
 }
 

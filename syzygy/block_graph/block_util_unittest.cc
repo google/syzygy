@@ -24,7 +24,7 @@ namespace {
 class BlockUtilTest: public testing::Test {
  public:
   BlockUtilTest()
-      : bb_(1, "foo", BasicBlock::BASIC_CODE_BLOCK, 0, NULL),
+      : bb_("foo"),
         start_addr_(0xF00D) {
   }
 
@@ -78,7 +78,7 @@ class BlockUtilTest: public testing::Test {
  protected:
   BlockGraph image_;
   BlockGraph::RelativeAddress start_addr_;
-  BasicBlock bb_;
+  BasicCodeBlock bb_;
 };
 
 }  // namespace

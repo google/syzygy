@@ -39,6 +39,7 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
 
@@ -55,8 +56,7 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
 class AsanTransformTest : public testing::TestDllTransformTest {
  public:
   AsanTransformTest() :
-      basic_block_(0, "test block", BasicBlock::BASIC_CODE_BLOCK,
-                   kDataSize, kBlockData),
+      basic_block_("test block"),
       bb_asm_(basic_block_.instructions().begin(),
               &basic_block_.instructions()) {
   }
@@ -80,7 +80,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   AsanTransform asan_transform_;
   BlockGraph::Block* hook_check_access_;
   BlockGraph::Reference hook_check_access_ref_;
-  BasicBlock basic_block_;
+  BasicCodeBlock basic_block_;
   block_graph::BasicBlockAssembler bb_asm_;
 
 };
