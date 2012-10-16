@@ -45,10 +45,10 @@ class GrinderAppTest : public testing::PELibUnitTest {
     Super::SetUp();
 
     // Setup the IO streams.
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    stdin_path_ = temp_dir_.path().Append(L"NUL");
-    stdout_path_ = temp_dir_.path().Append(L"stdout.txt");
-    stderr_path_ = temp_dir_.path().Append(L"stderr.txt");
+    ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
+    stdin_path_ = temp_dir_.Append(L"NUL");
+    stdout_path_ = temp_dir_.Append(L"stdout.txt");
+    stderr_path_ = temp_dir_.Append(L"stderr.txt");
     ASSERT_NO_FATAL_FAILURE(InitStreams(
         stdin_path_, stdout_path_, stderr_path_));
 
@@ -57,12 +57,6 @@ class GrinderAppTest : public testing::PELibUnitTest {
     app_.set_in(in());
     app_.set_out(out());
     app_.set_err(err());
-  }
-
-  virtual void TearDown() OVERRIDE {
-    // We need to tear these down so that the temporary directory can be
-    // deleted successfully in our destructor.
-    ASSERT_NO_FATAL_FAILURE(TearDownStreams());
   }
 
  protected:
@@ -76,7 +70,7 @@ class GrinderAppTest : public testing::PELibUnitTest {
   TestGrinderApp& impl_;
 
   // A temporary folder where all IO will be stored.
-  ScopedTempDir temp_dir_;
+  FilePath temp_dir_;
 
   // @name File paths used for the standard IO streams.
   // @{
@@ -103,8 +97,7 @@ TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
   cmd_line_.AppendSwitchASCII("mode", "profile");
   for (size_t i = 0; i < 10; ++i) {
     FilePath temp_file;
-    ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_.path(),
-                                                    &temp_file));
+    ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
     cmd_line_.AppendArgPath(temp_file);
     temp_files.push_back(temp_file);
   }
@@ -130,8 +123,7 @@ TEST_F(GrinderAppTest, ProfileEndToEnd) {
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
 
   FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_.path(),
-                                                  &output_file));
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 
@@ -149,8 +141,7 @@ TEST_F(GrinderAppTest, CoverageEndToEnd) {
       testing::GetExeTestDataRelativePath(L"coverage_traces/trace-1.bin"));
 
   FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_.path(),
-                                                  &output_file));
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -162,20 +162,6 @@ const wchar_t PELibUnitTest::kRpcInstrumentedDllName[] =
     L"rpc_instrumented_test_dll.dll";
 const wchar_t PELibUnitTest::kRpcInstrumentedDllPdbName[] =
     L"rpc_instrumented_test_dll.pdb";
-
-void PELibUnitTest::CreateTemporaryDir(FilePath* temp_dir) {
-  ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
-  temp_dirs_.push_back(*temp_dir);
-}
-
-void PELibUnitTest::TearDown() {
-  DirList::const_iterator iter;
-  for (iter = temp_dirs_.begin(); iter != temp_dirs_.end(); ++iter) {
-    file_util::Delete(*iter, true);
-  }
-
-  Super::TearDown();
-}
 
 void PELibUnitTest::CheckTestDll(const FilePath& path) {
   LOADED_IMAGE loaded_image = {};
