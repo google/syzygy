@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -792,11 +792,9 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Insert(
       std::make_pair(src_range, dst_range),
       internal::RangePairLess<SourceRange, DestinationRange>());
 
-  // The search fell off the end of the vector? Simply insert it.
-  if (it == range_pairs_.end()) {
-    range_pairs_.push_back(std::make_pair(src_range, dst_range));
-    return true;
-  }
+  // The search fell off the end of the vector? Push it to the back.
+  if (it == range_pairs_.end())
+    return Push(src_range, dst_range);
 
   // Does this source range overlap at all with the existing one?
   if (it->first.Intersects(src_range))

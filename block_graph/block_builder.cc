@@ -78,6 +78,8 @@ class MergeContext {
   void RemoveOriginalBlock(BasicBlockSubGraph* subgraph);
 
  private:
+  typedef BlockGraph::Block::SourceRange SourceRange;
+
   // Temporary data structures used during layouting.
   struct SuccessorLayoutInfo {
     // The condition flags for this successor.
@@ -104,9 +106,8 @@ class MergeContext {
     // The label to assign our successor(s), if any.
     BlockGraph::Label successor_label;
 
-    // The offset and size of our successor(s) from the original block, if any.
-    Offset successor_offset;
-    Size successor_size;
+    // The source range this successor originally occupied, if any.
+    SourceRange source_range;
 
     // Layout info for this block's successors.
     SuccessorLayoutInfo successors[2];
@@ -114,23 +115,14 @@ class MergeContext {
   typedef std::map<const BasicBlock*, BasicBlockLayoutInfo>
       BasicBlockLayoutInfoMap;
 
-  // Retrieves the offset of @p instr in the original block, or
-  // it's (deprecated) offset otherwise.
-  // TODO(siggi): Remove this once migrated to source ranges.
-  Offset GetOffset(const Instruction& instr);
-
   // Update the new block with the source range for the bytes in the
   // range [new_offset, new_offset + new_size).
-  // @param original_offset The offset in the original block corresponding to
-  //     the bytes in the new block. This may be BasicBlock::kNoOffset, if
-  //     the source range in question is for synthesized bytes (for example,
-  //     a flow-through successor that will be synthesized as a branch).
-  // @param original_size The number of bytes in the original range.
+  // @param source_range The source range (if any) to assign.
   // @param new_offset The offset in the new block where the original bytes
   //     will now live.
+  // @param new_block The block to change.
   // @param new_size The number of bytes the new range occupies.
-  void CopySourceRange(Offset original_offset,
-                       Size original_size,
+  void CopySourceRange(const SourceRange& source_range,
                        Offset new_offset,
                        Size new_size,
                        Block* new_block);
@@ -273,66 +265,21 @@ void MergeContext::TransferReferrers(const BasicBlockSubGraph* subgraph) const {
     UpdateReferrers(it->second.basic_block);
 }
 
-Offset MergeContext::GetOffset(const Instruction& instr) {
-  if (original_block_ &&
-      instr.data() >= original_block_->data() &&
-      instr.data() <= original_block_->data() + original_block_->size()) {
-    return instr.data() - original_block_->data();
-  }
-
-  return instr.offset();
-}
-
-void MergeContext::CopySourceRange(Offset original_offset,
-                                   Size original_size,
+void MergeContext::CopySourceRange(const SourceRange& source_range,
                                    Offset new_offset,
                                    Size new_size,
                                    Block* new_block) {
   DCHECK_LE(0, new_offset);
   DCHECK_NE(0U, new_size);
 
-  // If the entire block is synthesized or just this new byte range is
-  // synthesized, there's nothing to do.
-  if (original_block_ == NULL || original_offset == BasicBlock::kNoOffset) {
+  // If the range is empty, there's nothing to do.
+  if (source_range.size() == 0) {
     return;
-  }
-
-  // Find the source range for the original bytes. We may not have source
-  // data for bytes that were synthesized in other transformations.
-  // TODO(rogerm): During decomposition the basic-block decomposer should
-  //     incorporate the source ranges for each subgraph element (data/padding
-  //     basic-blocks, instructions and successors) into each element itself.
-  const Block::SourceRanges::RangePair* range_pair =
-      original_block_->source_ranges().FindRangePair(original_offset,
-                                                     original_size);
-  if (range_pair == NULL)
-    return;
-
-  core::RelativeAddress source_addr;
-  Size source_size = 0;
-
-  if (original_offset != range_pair->first.start() ||
-      original_size != range_pair->first.size()) {
-    // It must be that the mapping is one-to-one, that is, the source and
-    // destination ranges must be the same size.
-    CHECK_EQ(range_pair->first.size(), range_pair->second.size());
-    Offset source_offset = original_offset - range_pair->first.start();
-    source_addr = range_pair->second.start() + source_offset;
-    source_size = original_size;
-  } else {
-    // Otherwise, we must have that the range_pair matches exactly the original
-    // offset and size, in which case we want to use the whole of the second
-    // part of the pair.
-    CHECK_EQ(original_offset, range_pair->first.start());
-    CHECK_EQ(original_size, range_pair->first.size());
-    source_addr = range_pair->second.start();
-    source_size = range_pair->second.size();
   }
 
   // Insert the new source range mapping into the new block.
   bool inserted = new_block->source_ranges().Insert(
-      Block::DataRange(new_offset, new_size),
-      Block::SourceRange(source_addr, source_size));
+      Block::DataRange(new_offset, new_size), source_range);
   DCHECK(inserted);
 }
 
@@ -371,7 +318,7 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     BlockGraph::Reference resolved_ref = ResolveReference(successor.reference);
     // Default to the offset immediately following the successor, which
     // will translate to a zero pc-relative offset.
-    Offset ref_offset = successor_start + info.successor_size;
+    Offset ref_offset = successor_start + successor.size;
     if (resolved_ref.referenced() == info.block)
       ref_offset = resolved_ref.offset();
     Immediate dest(ref_offset, reference_size, ref);
@@ -424,15 +371,11 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     // Walk our start address forwards.
     successor_start += successor.size;
 
-    if (info.successor_offset != BasicBlock::kNoOffset) {
+    if (info.source_range.size() != 0) {
       Instruction& instr = instructions.back();
 
       // Attribute this instruction to the original successor's source range.
-      // TODO(siggi): Note that this can lead to an ambiguity where the newly
-      //    manifested successor is larger than the original instruction that
-      //    engendered it. Each instruction & successor really need to carry a
-      //    source range from decomposition through to recomposition.
-      instr.set_offset(info.successor_offset);
+      instr.set_source_range(info.source_range);
     }
   }
 
@@ -468,7 +411,7 @@ bool MergeContext::CopyInstructions(
       new_block->SetLabel(offset, instruction.label());
 
     // Record the source range.
-    CopySourceRange(GetOffset(instruction), instruction.size(),
+    CopySourceRange(instruction.source_range(),
                     offset, instruction.size(),
                     new_block);
 
@@ -508,7 +451,7 @@ bool MergeContext::CopyData(const BasicDataBlock* data_block,
   ::memcpy(buffer + offset, data_block->data(), data_block->size());
 
   // Record the source range.
-  CopySourceRange(data_block->offset(), data_block->size(),
+  CopySourceRange(data_block->source_range(),
                   offset, data_block->size(),
                   new_block);
 
@@ -538,8 +481,6 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
     if (data_block != NULL)
       info.basic_block_size = data_block->size();
 
-    info.successor_offset = BasicBlock::kNoOffset;
-    info.successor_size = 0;
     for (size_t i = 0; i < arraysize(info.successors); ++i) {
       info.successors[i].condition = Successor::kInvalidCondition;
       info.successors[i].size = 0;
@@ -571,9 +512,9 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
       const BasicBlock* destination_bb = succ_it->reference().basic_block();
 
       // Record the source range of the original successor.
-      if (succ_it->instruction_offset() != BasicBlock::kNoOffset) {
-        info.successor_offset = succ_it->instruction_offset();
-        info.successor_size = succ_it->instruction_size();
+      if (succ_it->source_range().size() != 0) {
+        DCHECK_EQ(0U, info.source_range.size());
+        info.source_range = succ_it->source_range();
       }
       // Record the label of the original successor.
       if (succ_it->has_label())
@@ -596,10 +537,9 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
       const BasicBlock* destination_bb = succ_it->reference().basic_block();
 
       // Record the source range of the original successor.
-      if (succ_it->instruction_offset() != BasicBlock::kNoOffset) {
-        DCHECK_EQ(BasicBlock::kNoOffset, info.successor_offset);
-        info.successor_offset = succ_it->instruction_offset();
-        info.successor_size = succ_it->instruction_size();
+      if (succ_it->source_range().size() != 0) {
+        DCHECK_EQ(0U, info.source_range.size());
+        info.source_range = succ_it->source_range();
       }
       // Record the label of the original successor.
       if (succ_it->has_label()) {

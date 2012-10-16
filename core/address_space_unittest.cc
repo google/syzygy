@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -544,7 +544,7 @@ TEST(AddressRangeMapTest, Insert) {
   EXPECT_TRUE(map.Insert(IntegerRange(40, 10), IntegerRange(1040, 10)));
   EXPECT_EQ(3u, map.size());
 
-  // Attempting to insert a subet of an existing range should fail.
+  // Attempting to insert a subset of an existing range should fail.
   EXPECT_FALSE(map.Insert(IntegerRange(5, 2), IntegerRange(1005, 2)));
   EXPECT_EQ(3u, map.size());
 
@@ -556,13 +556,17 @@ TEST(AddressRangeMapTest, Insert) {
   EXPECT_FALSE(map.Insert(IntegerRange(5, 10), IntegerRange(1005, 10)));
   EXPECT_EQ(3u, map.size());
 
+  // Inserting a contiguous range at end should merge with previous.
+  EXPECT_TRUE(map.Insert(IntegerRange(50, 10), IntegerRange(1050, 10)));
+  EXPECT_EQ(3u, map.size());
+
   IntegerRangePairs expected;
   expected.push_back(
       IntegerRangePair(IntegerRange(0, 10), IntegerRange(1000, 10)));
   expected.push_back(
       IntegerRangePair(IntegerRange(20, 10), IntegerRange(1020, 10)));
   expected.push_back(
-      IntegerRangePair(IntegerRange(40, 10), IntegerRange(1040, 10)));
+      IntegerRangePair(IntegerRange(40, 20), IntegerRange(1040, 20)));
 
   EXPECT_THAT(expected, testing::ContainerEq(map.range_pairs()));
 }
