@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
+#include "syzygy/block_graph/basic_block_test_util.h"
 #include "syzygy/block_graph/block_graph.h"
 
 namespace block_graph {
@@ -33,7 +34,7 @@ typedef Block::Referrer Referrer;
 
 static const uint8 kEmptyData[32] = {0};
 
-class BlockBuilderTest : public testing::Test {
+class BlockBuilderTest : public testing::BasicBlockTest {
  public:
    static Instruction* AddInstruction(BasicCodeBlock* bb,
                                       Instruction::Size size) {
@@ -99,9 +100,6 @@ class BlockBuilderTest : public testing::Test {
     EXPECT_TRUE(new_block != NULL);
     return new_block;
   }
-
-  BlockGraph block_graph_;
-  BasicBlockSubGraph subgraph_;
 };
 
 }  // namespace
@@ -381,6 +379,24 @@ TEST_F(BlockBuilderTest, OutofReachJmpLayout) {
                      Reference(BlockGraph::PC_RELATIVE_REF,
                                4, new_block, 0, 0)));
   EXPECT_EQ(expected_refs, new_block->references());
+}
+
+TEST_F(BlockBuilderTest, MergeAssemblesSourceRangesCorrectly) {
+  ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
+  ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
+
+  // Test that re-assembling this decomposition produces an unbroken,
+  // identical source range as the original block had.
+  BlockGraph::Block::SourceRanges expected_source_ranges(
+      assembly_func_->source_ranges());
+
+  BlockBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.Merge(&subgraph_));
+
+  ASSERT_EQ(1, builder.new_blocks().size());
+
+  BlockGraph::Block* new_block = builder.new_blocks()[0];
+  ASSERT_EQ(expected_source_ranges, new_block->source_ranges());
 }
 
 }  // namespace block_graph
