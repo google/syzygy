@@ -234,6 +234,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   for (size_t i = 0; i < bbs_.size(); ++i) {
     const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bbs_[i]);
     const BasicDataBlock* data_block = BasicDataBlock::Cast(bbs_[i]);
+
     if (code_block != NULL) {
       ASSERT_TRUE(data_block == NULL);
 
@@ -266,6 +267,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
       ASSERT_TRUE(code_block == NULL);
       ASSERT_TRUE(data_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
                   data_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
+      ASSERT_EQ(next_addr, data_block->source_range().start());
+      ASSERT_EQ(data_block->size(), data_block->source_range().size());
 
       next_addr += data_block->size();
     }

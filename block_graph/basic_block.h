@@ -669,6 +669,8 @@ class BasicCodeBlock : public BasicBlock {
 
 class BasicDataBlock : public BasicBlock {
  public:
+  typedef BlockGraph::Block::SourceRange SourceRange;
+
   // Initialize a basic data or padding block.
   // @param name A textual identifier for this basic block.
   // @param type The disposition (data or padding) of this basic block.
@@ -693,6 +695,11 @@ class BasicDataBlock : public BasicBlock {
   const BasicBlockReferenceMap& references() const { return references_; }
   BasicBlockReferenceMap& references() { return references_; }
 
+  SourceRange source_range() const { return source_range_; }
+  void set_source_range(const SourceRange& source_range) {
+    source_range_ = source_range;
+  }
+
   const BlockGraph::Label& label() const { return label_; }
   void set_label(const BlockGraph::Label& label) { label_ = label; }
   bool has_label() const { return label_.IsValid(); }
@@ -716,6 +723,9 @@ class BasicDataBlock : public BasicBlock {
   // The data in the original block that corresponds with this basic block
   // will be referenced here.
   const uint8* data_;
+
+  // The source range, if any, associated with this data block.
+  SourceRange source_range_;
 
   // The map of references (if any) that this block makes to other basic blocks
   // from the original block.

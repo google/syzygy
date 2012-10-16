@@ -781,6 +781,9 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
       return false;
     CHECK(original_address_space_.Insert(byte_range, data_block));
 
+    // Capture the source range (if any) for the data block.
+    data_block->set_source_range(GetSourceRange(offset, size));
+
     // Data basic-blocks carry their labels at the head of the basic blocks.
     // A padding basic-block might also be labeled if the block contains
     // unreachable code (for example, INT3 or NOP instructions following a call
