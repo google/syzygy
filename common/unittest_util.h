@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,22 @@ class ApplicationTestBase : public testing::Test {
     ASSERT_TRUE(err_.get() != NULL);
   }
 
+  // Manually tear down the various streams.
+  void TearDownStreams() {
+    ASSERT_NO_FATAL_FAILURE(TearDownStream(&in_));
+    ASSERT_NO_FATAL_FAILURE(TearDownStream(&out_));
+    ASSERT_NO_FATAL_FAILURE(TearDownStream(&err_));
+  }
+
  protected:
+  void TearDownStream(file_util::ScopedFILE* stream) {
+    ASSERT_TRUE(stream != NULL);
+    if (stream->get() == NULL)
+      return;
+    ASSERT_EQ(0, ::fclose(stream->get()));
+    stream->reset();
+  }
+
   // Helper to initialize a given stream to refer to the NUL device on first
   // use if it hasn't already been associated with a file.
   static FILE* GetOrInitFile(file_util::ScopedFILE* f, const char* mode) {

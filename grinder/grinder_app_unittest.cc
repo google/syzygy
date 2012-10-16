@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 #include "syzygy/grinder/grinder_app.h"
 
+#include "base/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/unittest_util.h"
@@ -44,17 +45,24 @@ class GrinderAppTest : public testing::PELibUnitTest {
     Super::SetUp();
 
     // Setup the IO streams.
-    CreateTemporaryDir(&temp_dir_);
-    stdin_path_ = temp_dir_.Append(L"NUL");
-    stdout_path_ = temp_dir_.Append(L"stdout.txt");
-    stderr_path_ = temp_dir_.Append(L"stderr.txt");
-    InitStreams(stdin_path_, stdout_path_, stderr_path_);
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    stdin_path_ = temp_dir_.path().Append(L"NUL");
+    stdout_path_ = temp_dir_.path().Append(L"stdout.txt");
+    stderr_path_ = temp_dir_.path().Append(L"stderr.txt");
+    ASSERT_NO_FATAL_FAILURE(InitStreams(
+        stdin_path_, stdout_path_, stderr_path_));
 
     // Point the application at the test's command-line and IO streams.
     app_.set_command_line(&cmd_line_);
     app_.set_in(in());
     app_.set_out(out());
     app_.set_err(err());
+  }
+
+  virtual void TearDown() OVERRIDE {
+    // We need to tear these down so that the temporary directory can be
+    // deleted successfully in our destructor.
+    ASSERT_NO_FATAL_FAILURE(TearDownStreams());
   }
 
  protected:
@@ -68,7 +76,7 @@ class GrinderAppTest : public testing::PELibUnitTest {
   TestGrinderApp& impl_;
 
   // A temporary folder where all IO will be stored.
-  FilePath temp_dir_;
+  ScopedTempDir temp_dir_;
 
   // @name File paths used for the standard IO streams.
   // @{
@@ -95,7 +103,8 @@ TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
   cmd_line_.AppendSwitchASCII("mode", "profile");
   for (size_t i = 0; i < 10; ++i) {
     FilePath temp_file;
-    ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
+    ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_.path(),
+                                                    &temp_file));
     cmd_line_.AppendArgPath(temp_file);
     temp_files.push_back(temp_file);
   }
@@ -121,7 +130,8 @@ TEST_F(GrinderAppTest, ProfileEndToEnd) {
       testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
 
   FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_.path(),
+                                                  &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 
@@ -139,7 +149,8 @@ TEST_F(GrinderAppTest, CoverageEndToEnd) {
       testing::GetExeTestDataRelativePath(L"coverage_traces/trace-1.bin"));
 
   FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_.path(),
+                                                  &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 
