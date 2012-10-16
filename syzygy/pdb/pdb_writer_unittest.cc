@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_reader.h"
 
@@ -30,9 +31,16 @@ uint32 GetNumPages(uint32 num_bytes) {
 class TestPdbWriter : public PdbWriter {
  public:
   TestPdbWriter() {
-    FilePath path;
-    file_.reset(file_util::CreateAndOpenTemporaryFile(&path));
+    file_.reset(file_util::CreateAndOpenTemporaryFile(&path_));
     EXPECT_TRUE(file_.get() != NULL);
+  }
+
+  ~TestPdbWriter() {
+    if (file_.get()) {
+      fclose(file_.get());
+      file_.reset();
+    }
+    file_util::Delete(path_, false);
   }
 
   FILE* file() { return file_.get(); }
@@ -44,6 +52,8 @@ class TestPdbWriter : public PdbWriter {
   using PdbWriter::WriteDirectory;
   using PdbWriter::WriteDirectoryPages;
   using PdbWriter::WriteHeader;
+
+  FilePath path_;
 };
 
 class TestPdbStream : public PdbStream {
@@ -82,17 +92,16 @@ TEST(PdbWriterTest, WritePdbFile) {
   }
 
   // Test that we can create a pdb file and then read it successfully.
-  FilePath path;
-  EXPECT_TRUE(file_util::CreateTemporaryFile(&path));
+  testing::ScopedTempFile file;
   {
     // Create a scope so that the file gets closed.
     TestPdbWriter writer;
-    EXPECT_TRUE(writer.Write(path, pdb_file));
+    EXPECT_TRUE(writer.Write(file.path(), pdb_file));
   }
 
   PdbFile pdb_file_read;
   PdbReader reader;
-  EXPECT_TRUE(reader.Read(path, &pdb_file_read));
+  EXPECT_TRUE(reader.Read(file.path(), &pdb_file_read));
   EXPECT_EQ(pdb_file.StreamCount(), pdb_file_read.StreamCount());
 
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {

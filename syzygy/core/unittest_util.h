@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,27 @@
 #define SYZYGY_CORE_UNITTEST_UTIL_H_
 
 #include "base/file_path.h"
+#include "base/file_util.h"
 #include "syzygy/core/serialization.h"
 
 namespace testing {
+
+// A simple utility class for creating and cleaning up a temporary file.
+class ScopedTempFile {
+ public:
+  ScopedTempFile() {
+    file_util::CreateTemporaryFile(&path_);
+  }
+
+  ~ScopedTempFile() {
+    file_util::Delete(path_, false);
+  }
+
+  const FilePath& path() const { return path_; }
+
+ private:
+  FilePath path_;
+};
 
 // This defines a simple test of serialization for a given object. Returns
 // true on success, false otherwise. The data object must be default
