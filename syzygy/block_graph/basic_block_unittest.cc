@@ -199,11 +199,18 @@ TEST_F(BasicBlockTest, BasicDataBlockAccessors) {
   EXPECT_STREQ(kBlockName, basic_data_block_.name().c_str());
   EXPECT_EQ(&kBlockData[0], basic_data_block_.data());
   EXPECT_EQ(kBlockSize, basic_data_block_.size());
+  EXPECT_EQ(BasicDataBlock::SourceRange(),
+            basic_data_block_.source_range());
   EXPECT_TRUE(basic_data_block_.references().empty());
   EXPECT_TRUE(basic_data_block_.referrers().empty());
   EXPECT_TRUE(basic_data_block_.has_label());
   EXPECT_TRUE(basic_data_block_.label().has_attributes(
       BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
+
+  const BasicDataBlock::SourceRange
+      kTestRange(core::RelativeAddress(0xF00D), 13);
+  basic_data_block_.set_source_range(kTestRange);
+  EXPECT_EQ(kTestRange, basic_data_block_.source_range());
 }
 
 TEST_F(BasicBlockTest, GetInstructionSize) {
