@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 #include "syzygy/simulate/page_fault_simulation.h"
 
-#include "base/json/json_reader.h"
 #include "base/scoped_temp_dir.h"
 #include "base/values.h"
+#include "base/json/json_reader.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/core/unittest_util.h"
@@ -62,10 +62,6 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     blocks_[1] = MockBlockInfo(0x0, 0x100);
     blocks_[2] = MockBlockInfo(0x350, 0x100);
     blocks_[3] = MockBlockInfo(0x1000, 0x50);
-  }
-
-  void TearDown() {
-    temp_dir_.clear();
   }
 
   // Checks if the given address is on one of our mock blocks.
