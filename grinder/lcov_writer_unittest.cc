@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 namespace grinder {
 
@@ -44,23 +45,6 @@ class TestLineInfo : public LineInfo {
     // Visits lines 1 and 2.
     Visit(core::RelativeAddress(0), 2);
   }
-};
-
-// A simple utility class for creating and cleaning up a temporary file.
-class ScopedTempFile {
- public:
-  ScopedTempFile() {
-    file_util::CreateTemporaryFile(&path_);
-  }
-
-  ~ScopedTempFile() {
-    file_util::Delete(path_, false);
-  }
-
-  const FilePath& path() const { return path_; }
-
- private:
-  FilePath path_;
 };
 
 }  // namespace
@@ -102,7 +86,7 @@ TEST(LcovWriterTest, Write) {
   LcovWriter lcov;
   EXPECT_TRUE(lcov.Add(line_info));
 
-  ScopedTempFile temp;
+  testing::ScopedTempFile temp;
   EXPECT_TRUE(lcov.Write(temp.path()));
 
   std::string actual_contents;
