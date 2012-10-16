@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,21 +38,8 @@ class PELibUnitTest : public testing::ApplicationTestBase {
   static const wchar_t kRpcInstrumentedDllName[];
   static const wchar_t kRpcInstrumentedDllPdbName[];
 
-  // Cleans up after each test invocation.
-  virtual void TearDown() OVERRIDE;
-
-  // Creates a temporary directory, which is cleaned up after the test runs.
-  void CreateTemporaryDir(FilePath* temp_dir);
-
   // Performs a series of assertations on the test DLL's integrity.
   static void CheckTestDll(const FilePath& path);
-
- private:
-  typedef testing::Test Super;
-  typedef std::vector<const FilePath> DirList;
-
-  // List of temporary directorys created during this test invocation.
-  DirList temp_dirs_;
 };
 
 }  // namespace testing

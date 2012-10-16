@@ -80,7 +80,29 @@ class ApplicationTestBase : public testing::Test {
     ASSERT_NO_FATAL_FAILURE(TearDownStream(&err_));
   }
 
+  // Creates a temporary directory, which is cleaned up after the test runs.
+  void CreateTemporaryDir(FilePath* temp_dir) {
+    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
+    temp_dirs_.push_back(*temp_dir);
+  }
+
+  // Cleans up after each test invocation.
+  virtual void TearDown() OVERRIDE {
+    // These need to be shut down before we can delete the temporary
+    // directories.
+    EXPECT_NO_FATAL_FAILURE(TearDownStreams());
+
+    DirList::const_iterator iter;
+    for (iter = temp_dirs_.begin(); iter != temp_dirs_.end(); ++iter) {
+      EXPECT_TRUE(file_util::Delete(*iter, true));
+    }
+
+    Super::TearDown();
+  }
+
  protected:
+  typedef testing::Test Super;
+
   void TearDownStream(file_util::ScopedFILE* stream) {
     ASSERT_TRUE(stream != NULL);
     if (stream->get() == NULL)
@@ -98,6 +120,10 @@ class ApplicationTestBase : public testing::Test {
       f->reset(file_util::OpenFile("NUL", mode));
     return f->get();
   }
+
+  // List of temporary directorys created during this test invocation.
+  typedef std::vector<const FilePath> DirList;
+  DirList temp_dirs_;
 
   // @name Replacements for the standard IO streams.
   //
