@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import presubmit
 import re
 import subprocess
 import sys
+import temp_watcher
 
 
 _LOGGER = logging.getLogger(os.path.basename(__file__))
@@ -340,17 +341,38 @@ class ExecutableTest(Test):
   def _Run(self, configuration):
     test_path = self._GetTestPath(configuration)
 
-    # Run the executable.
+    # Run the executable. We do this using a 'temp_watcher' Popen wrapper
+    # which redirects and monitors the temp directory.
     command = self._GetCmdLine(configuration)
-    popen = subprocess.Popen(command, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
+    popen = temp_watcher.Popen(command,
+                               cleanup=True,
+                               fail=True,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
     (stdout, dummy_stderr) = popen.communicate()
     self._WriteStdout(stdout)
+
+    # If the test has failed, dump its output to stderr as well. These are
+    # buffered and replayed at the end of all unittests so that errors have
+    # better visibility.
     if popen.returncode != 0:
-      # If the test failed, mirror its output to stderr as well. All stderrs of
-      # all failing tests will be concatenated at the end of the top-most
-      # unittest, making errors have better visibility.
-      self._WriteStderr(stdout)
+      # We output the test name so we can easily find out to which unittest
+      # the error message belongs.
+      self._WriteStderr('Error: Test "%s" failed in configuration "%s".\n' % (
+          self._name, configuration))
+
+      # If the unittest executable itself failed, replay its output.
+      if popen.origreturncode != 0:
+        self._WriteStderr(stdout)
+
+      # If there are orphaned files, dump a warning. We output to both stdout
+      # and stderr so that it is seen at the time it happens, and again at
+      # the end of running all tests.
+      if popen.orphaned_files:
+        msg = 'Error: Found %d orphaned files/directories in ' \
+              'temp directory.\n' % len(popen.orphaned_files)
+        self._WriteStdout(msg)
+        self._WriteStderr(msg)
 
     # Bail if we had any errors.
     if popen.returncode != 0:
@@ -375,6 +397,10 @@ def _GTestColorize(text):
                   line)
     line = re.sub('^(\s*(?:Note:|YOU HAVE .* DISABLED TEST).*)',
                   style.BRIGHT + fore.YELLOW + '\\1' + style.RESET_ALL,
+                  line)
+    # This colorizes the error messages inserted for orphaned files.
+    line = re.sub('(^Error: .*)',
+                  style.BRIGHT + fore.RED + '\\1' + style.RESET_ALL,
                   line)
     return line
 
