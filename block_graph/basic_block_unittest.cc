@@ -223,24 +223,6 @@ TEST_F(BasicBlockTest, GetInstructionSize) {
   ASSERT_EQ(4 * CreateRet().size(), basic_code_block_.GetInstructionSize());
 }
 
-TEST_F(BasicBlockTest, GetMaxCodeSize) {
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.successors().push_back(CreateBranch(I_JZ, kOffset1));
-
-  ASSERT_EQ(4 * CreateRet().size() + core::AssemblerImpl::kMaxInstructionLength,
-            basic_code_block_.GetMaxSize());
-}
-
-TEST_F(BasicBlockTest, GetMaxDataSize) {
-  BasicDataBlock bb(kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                    kBlockData, kBlockSize);
-
-  ASSERT_EQ(kBlockSize, bb.GetMaxSize());
-}
-
 TEST_F(BasicBlockTest, EmptyBasicBlockIsNotValid) {
   // Upon creation the code block has neither instructions nor successors,
   // which we consider to be an invalid state.
@@ -518,14 +500,10 @@ TEST_F(SuccessorTest, OpCodeToCondition) {
   };
 
   const TableEntry kOpCodeToConditionTable[] = {
-      { I_MOV, Successor::kInvalidCondition },
-      { I_JMP, Successor::kConditionTrue },
       { I_JA, Successor::kConditionAbove },
       { I_JAE, Successor::kConditionAboveOrEqual },
       { I_JB, Successor::kConditionBelow },
       { I_JBE, Successor::kConditionBelowOrEqual },
-      { I_JCXZ, Successor::kCounterIsZero },
-      { I_JECXZ, Successor::kCounterIsZero },
       { I_JG, Successor::kConditionGreater },
       { I_JGE, Successor::kConditionGreaterOrEqual },
       { I_JL, Successor::kConditionLess },
@@ -538,24 +516,22 @@ TEST_F(SuccessorTest, OpCodeToCondition) {
       { I_JP, Successor::kConditionParity },
       { I_JS, Successor::kConditionSigned },
       { I_JZ, Successor::kConditionEqual },
-      { I_LOOP, Successor::kLoopTrue },
-      { I_LOOPNZ, Successor::kLoopIfNotEqual },
-      { I_LOOPZ, Successor::kLoopIfEqual },
   };
 
-  // Four conditions do not have an corresponding instruction (the four symbolic
-  // inverses kInverseCounterIsZero, kInverseLoop, kInverseLoopIfEqual, and
-  // kInverseLoopIfNotEqual); two instructions map to kCounterIsZero; and we
-  // test kInvalidCondition with MOV. So the total number of instructions we
-  // expect is two less than the total number of branch types.
+
   COMPILE_ASSERT(
-      arraysize(kOpCodeToConditionTable) == Successor::kMaxCondition - 2,
+      arraysize(kOpCodeToConditionTable) ==
+          Successor::kMaxConditionalBranch + 1,
       unexpected_number_of_map_entries);
 
   for (size_t i = 0; i < arraysize(kOpCodeToConditionTable); ++i) {
     const TableEntry& entry = kOpCodeToConditionTable[i];
     EXPECT_EQ(entry.condition, Successor::OpCodeToCondition(entry.op_code));
   }
+
+  // These two are non-conditional exceptions.
+  EXPECT_EQ(Successor::kInvalidCondition, Successor::OpCodeToCondition(I_MOV));
+  EXPECT_EQ(Successor::kConditionTrue, Successor::OpCodeToCondition(I_JMP));
 }
 
 TEST_F(SuccessorTest, InvertCondition) {
@@ -581,14 +557,6 @@ TEST_F(SuccessorTest, InvertCondition) {
       { Successor::kConditionOverflow, Successor::kConditionNotOverflow },
       { Successor::kConditionParity, Successor::kConditionNotParity },
       { Successor::kConditionSigned, Successor::kConditionNotSigned },
-      { Successor::kCounterIsZero, Successor::kInverseCounterIsZero },
-      { Successor::kLoopTrue, Successor::kInverseLoopTrue },
-      { Successor::kLoopIfEqual, Successor::kInverseLoopIfEqual },
-      { Successor::kLoopIfNotEqual, Successor::kInverseLoopIfNotEqual },
-      { Successor::kInverseCounterIsZero, Successor::kCounterIsZero },
-      { Successor::kInverseLoopTrue, Successor::kLoopTrue },
-      { Successor::kInverseLoopIfEqual, Successor::kLoopIfEqual },
-      { Successor::kInverseLoopIfNotEqual, Successor::kLoopIfNotEqual },
   };
 
   COMPILE_ASSERT(

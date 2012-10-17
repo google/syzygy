@@ -96,16 +96,14 @@ bool IsConditionalBranch(const Instruction& inst) {
   return META_GET_FC(inst.representation().meta) == FC_CND_BRANCH;
 }
 
-template<typename T>
-bool UpdateBasicBlockReferenceMap(T* object,
+bool UpdateBasicBlockReferenceMap(BasicBlock::Size object_size,
                                   BasicBlock::BasicBlockReferenceMap* ref_map,
                                   BasicBlock::Offset offset,
                                   const BasicBlockReference& ref) {
-  DCHECK(object != NULL);
   DCHECK(ref_map != NULL);
   DCHECK(ref.IsValid());
   DCHECK_LE(BasicBlock::kNoOffset, offset);
-  DCHECK_LE(offset + ref.size(), object->GetMaxSize());
+  DCHECK_LE(offset + ref.size(), object_size);
 
   typedef BasicBlock::BasicBlockReferenceMap::iterator Iterator;
 
@@ -312,7 +310,7 @@ bool Instruction::CallsNonReturningFunction() const {
 }
 
 bool Instruction::SetReference(Offset offset, const BasicBlockReference& ref) {
-  return UpdateBasicBlockReferenceMap(this, &references_, offset, ref);
+  return UpdateBasicBlockReferenceMap(this->size(), &references_, offset, ref);
 }
 
 bool Instruction::FindOperandReference(size_t operand_index,
@@ -537,10 +535,6 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
     case I_JBE:  // Equivalent to JNA.
       return kConditionBelowOrEqual;
 
-    case I_JCXZ:
-    case I_JECXZ:
-      return kCounterIsZero;
-
     case I_JG:  // Equivalent to JNLE.
       return kConditionGreater;
 
@@ -579,15 +573,6 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
 
     case I_JZ:  // Equivalent to JE.
       return kConditionEqual;
-
-    case I_LOOP:
-      return kLoopTrue;
-
-    case I_LOOPNZ:  // Equivalent to LOOPNE.
-      return kLoopIfNotEqual;
-
-    case I_LOOPZ:  // Equivalent to LOOPE.
-      return kLoopIfEqual;
   }
 }
 
@@ -624,28 +609,8 @@ Successor::Condition Successor::InvertCondition(Condition cond) {
         core::NegateConditionCode(static_cast<core::ConditionCode>(cond)));
   }
 
-  // The extra ones we have to map ourselves.
-  static const size_t kTableSize = kMaxCondition - kMaxConditionalBranch;
-  static const Condition kConditionInversionTable[kTableSize] = {
-      /* kConditionTrue */  kInvalidCondition,
-      /* kCounterIsZero */  kInverseCounterIsZero,
-      /* kLoopTrue */  kInverseLoopTrue,
-      /* kLoopIfEqual */  kInverseLoopIfEqual,
-      /* kLoopIfNotEqual */  kInverseLoopIfNotEqual,
-      /* kInverseCounterIsZero */ kCounterIsZero,
-      /* kInverseLoop */  kLoopTrue,
-      /* kInverseLoopIfEqual */  kLoopIfEqual,
-      /* kInverseLoopIfNotEqual */ kLoopIfNotEqual,
-  };
-
-  return kConditionInversionTable[cond - kMaxConditionalBranch - 1];
-}
-
-Successor::Size Successor::GetMaxSize() const {
-  // TODO(rogerm): Update this to return the actual number of bytes needed to
-  //     synthesize condition_. In particular, take care of multi-instruction
-  //     inverse cases: kInverseCounterIsZero and kInverseLoop*.
-  return core::AssemblerImpl::kMaxInstructionLength;
+  DCHECK_EQ(kConditionTrue, cond);
+  return kInvalidCondition;
 }
 
 bool Successor::SetReference(const BasicBlockReference& ref) {
@@ -737,21 +702,6 @@ BasicBlock::Size BasicCodeBlock::GetInstructionSize() const {
   return data_size;
 }
 
-BasicBlock::Size BasicCodeBlock::GetMaxSize() const {
-  // Otherwise, we must account for the instructions and successors.
-  size_t max_size = 0;
-
-  Instructions::const_iterator instr_iter = instructions_.begin();
-  for (; instr_iter != instructions_.end(); ++instr_iter)
-    max_size += instr_iter->GetMaxSize();
-
-  Successors::const_iterator succ_iter = successors_.begin();
-  for (; succ_iter != successors_.end(); ++succ_iter)
-    max_size += succ_iter->GetMaxSize();
-
-  return max_size;
-}
-
 BasicDataBlock::BasicDataBlock(const base::StringPiece& name,
                                BasicBlockType type,
                                const uint8* data,
@@ -782,15 +732,11 @@ const BasicDataBlock* BasicDataBlock::Cast(const BasicBlock* basic_block) {
 bool BasicDataBlock::SetReference(
     Offset offset, const BasicBlockReference& ref) {
   DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, type_);
-  return UpdateBasicBlockReferenceMap(this, &references_, offset, ref);
+  return UpdateBasicBlockReferenceMap(this->size(), &references_, offset, ref);
 }
 
 bool BasicDataBlock::IsValid() const {
   return true;
-}
-
-BasicBlock::Size BasicDataBlock::GetMaxSize() const {
-  return size_;
 }
 
 }  // namespace block_graph

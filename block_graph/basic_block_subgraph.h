@@ -61,10 +61,6 @@ class BasicBlockSubGraph {
     Size alignment;
     BlockAttributes attributes;
     BasicBlockOrdering basic_block_order;
-
-    // Calculate the current maximum possible size of the block described by
-    // this BlockDescription, not including any trailing padding.
-    size_t GetMaxSize() const;
   };
 
   typedef std::list<BlockDescription> BlockDescriptionList;

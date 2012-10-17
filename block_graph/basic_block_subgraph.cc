@@ -37,15 +37,6 @@ bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
 
 }  // namespace
 
-size_t BasicBlockSubGraph::BlockDescription::GetMaxSize() const {
-  size_t max_size = 0;
-  BasicBlockOrdering::const_iterator it = basic_block_order.begin();
-  for (; it != basic_block_order.end(); ++it) {
-    max_size += (*it)->GetMaxSize();
-  }
-  return max_size;
-}
-
 BasicBlockSubGraph::BasicBlockSubGraph()
     : original_block_(NULL) {
 }
