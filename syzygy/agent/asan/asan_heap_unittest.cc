@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/agent/asan/asan_heap.h"
 
 #include "base/compiler_specific.h"
@@ -83,6 +84,14 @@ TEST_F(HeapTest, AllocFree) {
   mem = proxy_.ReAlloc(0, mem, kReAllocSize);
   ASSERT_EQ(kReAllocSize, proxy_.Size(0, mem));
   ASSERT_TRUE(proxy_.Free(0, mem));
+}
+
+TEST_F(HeapTest, DoubleFree) {
+  const size_t kAllocSize = 100;
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_FALSE(proxy_.Free(0, mem));
 }
 
 TEST_F(HeapTest, AllocsAccessibility) {

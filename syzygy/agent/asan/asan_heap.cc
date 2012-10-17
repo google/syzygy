@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/agent/asan/asan_heap.h"
 
 #include "base/logging.h"
@@ -52,6 +53,8 @@ bool HeapProxy::Create(DWORD options,
                        size_t initial_size,
                        size_t maximum_size) {
   DCHECK(heap_ == NULL);
+  COMPILE_ASSERT(sizeof(HeapProxy::BlockHeader) <= kRedZoneSize,
+                 asan_block_header_too_big);
 
   heap_ = ::HeapCreate(options, initial_size, maximum_size);
   if (heap_ != NULL)
@@ -86,12 +89,14 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes){
   memset(block, '0xCC', header_size);
   Shadow::Poison(block, kRedZoneSize);
 
+  block->magic_number = kBlockHeaderSignature;
+  block->size = bytes;
+  block->state = ALLOCATED;
+
   Shadow::Unpoison(ToAlloc(block), bytes);
 
   memset(ToAlloc(block) + bytes, '0xCD', trailer_size);
   Shadow::Poison(ToAlloc(block) + bytes, trailer_size);
-
-  block->size = bytes;
 
   return ToAlloc(block);
 }
@@ -114,6 +119,14 @@ bool HeapProxy::Free(DWORD flags, void* mem){
   BlockHeader* block = ToBlock(mem);
   if (block == NULL)
     return true;
+
+  if (block->state != ALLOCATED) {
+    LOG(ERROR) << "Trying to free a non-allocated block.";
+    return false;
+  }
+
+  if (!Shadow::IsAccessible(ToAlloc(block)))
+    return false;
 
   QuarantineBlock(block);
 
@@ -192,6 +205,8 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   memset(ToAlloc(free_block), 0xCC, free_block->size);
   Shadow::Poison(free_block, alloc_size);
   quarantine_size_ += alloc_size;
+  // Mark the block as quarantined.
+  free_block->state = QUARANTINED;
 
   // Arbitrarily keep ten megabytes of quarantine per heap.
   const size_t kMaxQuarantineSizeBytes = 10 * 1024 * 1024;
@@ -207,6 +222,9 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
 
     alloc_size = GetAllocSize(free_block->size);
     Shadow::Unpoison(free_block, alloc_size);
+    free_block->state = FREED;
+    free_block->magic_number = ~kBlockHeaderSignature;
+    DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
     ::HeapFree(heap_, 0, free_block);
 
     DCHECK_GE(quarantine_size_, alloc_size);
@@ -224,11 +242,16 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
     return NULL;
 
   uint8* mem = reinterpret_cast<uint8*>(const_cast<void*>(alloc));
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(mem - kRedZoneSize);
+  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
 
-  return reinterpret_cast<BlockHeader*>(mem - kRedZoneSize);
+  return header;
 }
 
 uint8* HeapProxy::ToAlloc(BlockHeader* block) {
+  DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
+  DCHECK(block->state == ALLOCATED);
+
   uint8* mem = reinterpret_cast<uint8*>(block);
 
   return mem + kRedZoneSize;
