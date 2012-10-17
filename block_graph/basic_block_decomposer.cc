@@ -214,16 +214,6 @@ BasicBlockDecomposer::SourceRange BasicBlockDecomposer::GetSourceRange(
   return SourceRange(source_range.start() + start_offs, size);
 }
 
-Offset BasicBlockDecomposer::GetOffset(const Instruction& instr) const {
-  DCHECK_EQ(false, instr.owns_data());
-
-  return instr.data() - block_->data();
-}
-
-Offset BasicBlockDecomposer::GetOffset(const BasicBlock& bb) const {
-  return bb.offset();
-}
-
 bool BasicBlockDecomposer::FindBasicBlock(Offset offset,
                                           BasicBlock** basic_block,
                                           Range* range) const {
@@ -357,6 +347,9 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
                         &inst,
                         sizeof(inst)));
 
+  // Compute the in-block offset to the successor instruction.
+  Offset succ_offs = addr - code_addr_;
+
   // Make sure we understand the branching condition. If we don't, then there's
   // an instruction we have failed to consider.
   Successor::Condition condition = Successor::OpCodeToCondition(inst.opcode);
@@ -381,7 +374,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
                             (addr + inst.size - code_addr_),
                             (addr + inst.size - code_addr_));
     current_successors_.push_front(
-        Successor(inverse_condition, ref, BasicBlock::kNoOffset, 0));
+        Successor(inverse_condition, ref, 0));
     jump_targets_.insert(addr + inst.size);
   }
 
@@ -395,14 +388,13 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     // it as a successor instead.
     Instruction succ_instr = current_instructions_.back();
     current_instructions_.pop_back();
-    DCHECK_EQ(addr - code_addr_, GetOffset(succ_instr));
     DCHECK_EQ(inst.size, succ_instr.size());
 
     // Figure out where the branch is going by finding the reference that's
     // inside the instruction's byte range.
     BlockGraph::Reference ref;
     bool found = GetReferenceOfInstructionAt(
-        block_, GetOffset(succ_instr), succ_instr.size(), &ref);
+        block_, succ_offs, succ_instr.size(), &ref);
 
     // If a reference was found, prefer its destination information
     // to the information conveyed by the bytes in the instruction.
@@ -420,8 +412,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
     // Create the successor.
     BasicBlockReference bb_ref(
         ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
-    Successor succ(
-        condition, bb_ref, GetOffset(succ_instr), succ_instr.size());
+    Successor succ(condition, bb_ref, succ_instr.size());
 
     if (ref.referenced() == block_)
       jump_targets_.insert(dest);
@@ -467,10 +458,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
                             (addr + inst.size) - code_addr_,
                             (addr + inst.size) - code_addr_);
     current_successors_.push_front(
-        Successor(Successor::kConditionTrue,
-                  ref,
-                  BasicBlock::kNoOffset,
-                  0));
+        Successor(Successor::kConditionTrue, ref, 0));
   }
 
   // We have reached the end of the current walk or we handled a conditional
@@ -579,9 +567,13 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
     BasicCodeBlock* code_block = BasicCodeBlock::Cast(it->second);
     if (code_block != NULL) {
       // Code blocks may be short the trailing successor instruction.
-      // TODO(siggi): Can match the difference to the allowed successor sizes,
-      //    or add successor instruction sizes to the DataSize?
-      CHECK_GE(it->first.size(), code_block->GetInstructionSize());
+      BasicCodeBlock::Successors::const_iterator succ_it(
+          code_block->successors().begin());
+      Size block_size = code_block->GetInstructionSize();
+      for (; succ_it != code_block->successors().end(); ++succ_it)
+        block_size += succ_it->instruction_size();
+
+      CHECK_GE(it->first.size(), block_size);
     }
     next_start += it->first.size();
   }
@@ -618,7 +610,7 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
       case 1:
         // If the successor is synthesized, then flow is from this basic-block
         // to the next adjacent one.
-        if (successors.back().instruction_offset() == -1) {
+        if (successors.back().instruction_size() == 0) {
           RangeMapConstIter next(it);
           ++next;
           CHECK(next != original_address_space_.end());
@@ -628,8 +620,8 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
 
       case 2: {
         // Exactly one of the successors should have been synthesized.
-        bool front_synthesized = successors.front().instruction_offset() == -1;
-        bool back_synthesized = successors.back().instruction_offset() == -1;
+        bool front_synthesized = successors.front().instruction_size() == 0;
+        bool back_synthesized = successors.back().instruction_size() == 0;
         CHECK_NE(front_synthesized, back_synthesized);
 
         // The synthesized successor flows from this basic-block to the next
@@ -692,7 +684,7 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
         const Instruction& inst = *inst_iter;
         if (inst.has_label()) {
           BlockGraph::Label label;
-          CHECK(original_block->GetLabel(GetOffset(inst), &label));
+          CHECK(original_block->GetLabel(inst_offset, &label));
           CHECK(inst.label() == label);
           labels_found[inst_offset] = true;
         }
@@ -706,8 +698,8 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
         const Successor& succ = *succ_iter;
         if (succ.has_label()) {
           BlockGraph::Label label;
-          CHECK_NE(BasicBlock::kNoOffset, succ.instruction_offset());
-          CHECK(original_block->GetLabel(succ.instruction_offset(), &label));
+          CHECK_NE(0U, succ.instruction_size());
+          CHECK(original_block->GetLabel(inst_offset, &label));
           CHECK(succ.label() == label);
           labels_found[inst_offset] = true;
         }
@@ -847,7 +839,7 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
                             target_offset,
                             target_offset);
     target_code_block->successors().push_back(
-        Successor(Successor::kConditionTrue, ref, BasicBlock::kNoOffset, 0));
+        Successor(Successor::kConditionTrue, ref, 0));
 
     // Create the basic-block representing the second "half".
     if (!InsertBasicBlockRange(code_addr_ + target_offset,
@@ -964,36 +956,37 @@ bool BasicBlockDecomposer::CopyExternalReferrers() {
   return true;
 }
 
-template<typename ItemType>
-bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
-  DCHECK(item != NULL);
+bool BasicBlockDecomposer::CopyReferences(
+    Offset item_offset, Size item_size, BasicBlockReferenceMap* refs) {
+  DCHECK_LE(0, item_offset);
+  DCHECK_LT(0U, item_size);
+  DCHECK(refs != NULL);
 
   // Figure out the bounds of item.
-  BlockGraph::Offset start_offset = GetOffset(*item);
-  BlockGraph::Offset end_offset = start_offset + item->size();
+  BlockGraph::Offset end_offset = item_offset + item_size;
 
   // Get iterators encompassing all references within the bounds of item.
   BlockGraph::Block::ReferenceMap::const_iterator ref_iter =
-     block_->references().lower_bound(start_offset);
+     block_->references().lower_bound(item_offset);
   BlockGraph::Block::ReferenceMap::const_iterator end_iter =
      block_->references().lower_bound(end_offset);
 
   for (; ref_iter != end_iter; ++ref_iter) {
     // Calculate the local offset of this reference within item.
-    BlockGraph::Offset local_offset = ref_iter->first - start_offset;
+    BlockGraph::Offset local_offset = ref_iter->first - item_offset;
     const BlockGraph::Reference& reference = ref_iter->second;
 
     // We expect long references for everything except flow control.
     CHECK_EQ(4U, reference.size());
-    DCHECK_LE(local_offset + reference.size(), item->GetMaxSize());
+    DCHECK_LE(local_offset + reference.size(), static_cast<Size>(end_offset));
 
     if (reference.referenced() != block_) {
       // For external references, we can directly reference the other block.
-      bool inserted = item->SetReference(
-          local_offset,
-          BasicBlockReference(reference.type(), reference.size(),
-                              reference.referenced(), reference.offset(),
-                              reference.base()));
+      bool inserted = refs->insert(std::make_pair(
+            local_offset,
+            BasicBlockReference(reference.type(), reference.size(),
+                                reference.referenced(), reference.offset(),
+                                reference.base()))).second;
       DCHECK(inserted);
     } else {
       // For intra block_ references, find the corresponding basic block in
@@ -1005,9 +998,11 @@ bool BasicBlockDecomposer::CopyReferences(ItemType* item) {
       CHECK_EQ(reference.offset(), reference.base());
 
       // Insert a reference to the target basic block.
-      bool inserted = item->SetReference(
+      bool inserted = refs->insert(std::make_pair(
           local_offset,
-          BasicBlockReference(reference.type(), reference.size(), target_bb));
+          BasicBlockReference(reference.type(),
+                              reference.size(),
+                              target_bb))).second;
       DCHECK(inserted);
     }
   }
@@ -1025,11 +1020,17 @@ bool BasicBlockDecomposer::CopyReferences() {
     if (code_block != NULL) {
       DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, code_block->type());
 
+      Offset inst_offset = code_block->offset();
       BasicBlock::Instructions::iterator inst_iter =
           code_block->instructions().begin();
       for (; inst_iter != code_block->instructions().end(); ++inst_iter) {
-        if (!CopyReferences(&(*inst_iter)))
+        if (!CopyReferences(inst_offset,
+                            inst_iter->size(),
+                            &inst_iter->references())) {
           return false;
+        }
+
+        inst_offset += inst_iter->size();
       }
     }
 
@@ -1037,8 +1038,11 @@ bool BasicBlockDecomposer::CopyReferences() {
     if (data_block != NULL) {
       DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, data_block->type());
 
-      if (!CopyReferences(data_block))
+      if (!CopyReferences(data_block->offset(),
+                          data_block->size(),
+                          &data_block->references())) {
         return false;
+      }
     }
   }
 

@@ -228,7 +228,7 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
     if (succ.instruction_size()) {
       _CodeInfo code = {};
       code.codeOffset = 0;
-      code.code = block->data() + succ.instruction_offset();
+      code.code = block->data() + bb->offset() + bb->GetInstructionSize();
       code.codeLen = succ.instruction_size();
       code.dt = Decode32Bits;
       _DecodedInst decoded = {};

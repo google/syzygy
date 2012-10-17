@@ -184,7 +184,7 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
                 BasicBlockReference(BlockGraph::RELATIVE_REF,
                                     BlockGraph::Reference::kMaximumSize,
                                     bb3),
-                 BasicBlock::kNoOffset, 0));
+                0));
   bb3->instructions().push_back(Instruction(sizeof(kRet), kRet));
 
   // Check reachability.
@@ -230,7 +230,7 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   bb1->successors().push_back(
       Successor(Successor::kConditionTrue,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
-                -1, 0));
+                0));
 
   // Successors are still not valid.
   EXPECT_FALSE(subgraph.HasValidSuccessors());
@@ -239,7 +239,7 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   bb2->successors().push_back(
       Successor(Successor::kConditionAbove,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
-                -1, 0));
+                0));
 
   // Successors are still not valid.
   EXPECT_FALSE(subgraph.HasValidSuccessors());
@@ -249,7 +249,7 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   bb2->successors().push_back(
       Successor(Successor::kConditionAboveOrEqual,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
-                -1, 0));
+                0));
 
   // Successors are still not valid because the conditions are not inverses.
   EXPECT_FALSE(subgraph.HasValidSuccessors());
@@ -259,7 +259,7 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   bb2->successors().push_back(
       Successor(Successor::kConditionBelowOrEqual,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
-                -1, 0));
+                0));
 
   // Successors are now valid.
   EXPECT_TRUE(subgraph.HasValidSuccessors());

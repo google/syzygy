@@ -454,7 +454,6 @@ class Successor {
   //     occupies in the original block.
   Successor(Condition condition,
             const BasicBlockReference& target,
-            Offset instruction_offset,
             Size instruction_size);
 
   // Copy-constructor.
@@ -475,7 +474,6 @@ class Successor {
   void set_source_range(const SourceRange& source_range) {
     source_range_ = source_range;
   }
-  Offset instruction_offset() const { return instruction_offset_; }
   Size instruction_size() const { return instruction_size_; }
   const BlockGraph::Label& label() const { return label_; }
   void set_label(const BlockGraph::Label& label) { label_ = label; }
@@ -484,8 +482,6 @@ class Successor {
 
   // Set the target reference @p ref for this successor. If @p ref refers
   // to a basic block, also update that basic block's referrer set.
-  // @pre The @p offset must be BasicBlock::kNoOffset. It is retained in this
-  //     interface for compatibility with utility functions.
   bool SetReference(const BasicBlockReference& ref);
 
   // Return the maximum size needed to synthesize this successor as one
@@ -519,10 +515,9 @@ class Successor {
   // The source range, if any, associated with this successor.
   SourceRange source_range_;
 
-  // @{
-  Offset instruction_offset_;
+  // The size of the instruction this successor is derived from,
+  // or zero if it's synthesized or added post-decomposition.
   Size instruction_size_;
-  // @}
 };
 
 // An indivisible portion of code or data within a code block.

@@ -67,23 +67,23 @@ class BlockBuilderTest : public testing::BasicBlockTest {
     bb1->successors().push_back(
         Successor(Successor::kConditionEqual,
                   BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
-                  -1, 0));
+                  0));
     bb1->successors().push_back(
         Successor(Successor::kConditionNotEqual,
                   BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
-                  -1, 0));
+                  0));
 
     // BB2 has BB1 as successor.
     bb2->successors().push_back(
         Successor(Successor::kConditionTrue,
                   BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
-                  -1, 0));
+                  0));
 
     // BB3 has BB4 as successor.
     bb3->successors().push_back(
         Successor(Successor::kConditionTrue,
                   BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
-                  -1, 0));
+                  0));
 
     BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
         "new_block", BlockGraph::CODE_BLOCK, 0, 1, 0);
@@ -180,11 +180,11 @@ TEST_F(BlockBuilderTest, Merge) {
   bb1->successors().push_back(
       Successor(Successor::kConditionEqual,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
-                -1, 0));
+                0));
   bb1->successors().push_back(
       Successor(Successor::kConditionNotEqual,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb3),
-                -1, 0));
+                0));
   ASSERT_TRUE(bb1->referrers().insert(BasicBlockReferrer(other, 0)).second);
 
   // Flesh out bb2 with some instructions and no successor.
@@ -203,7 +203,7 @@ TEST_F(BlockBuilderTest, Merge) {
   bb3->successors().push_back(
       Successor(Successor::kConditionTrue,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
-                -1, 0));
+                0));
   Label label_4("4", BlockGraph::CODE_LABEL);
   bb3->successors().back().set_label(label_4);
 
@@ -213,7 +213,7 @@ TEST_F(BlockBuilderTest, Merge) {
   bb4->successors().push_back(
       Successor(Successor::kConditionTrue,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
-                -1, 0));
+                0));
 
   // Flesh out table with references.
   Label label_5("5", BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL);

@@ -62,7 +62,7 @@ class BlockUtilTest: public testing::Test {
 
     BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF, 4, &bb_);
     bb_.successors().push_back(
-        Successor(Successor::kConditionAbove, ref, next_offs, 5));
+        Successor(Successor::kConditionAbove, ref, 5));
     next_offs += 5;
 
     if (add_source_ranges)
@@ -70,7 +70,7 @@ class BlockUtilTest: public testing::Test {
           Successor::SourceRange(next_addr, 5));
 
     bb_.successors().push_back(
-        Successor(Successor::kConditionBelowOrEqual, ref, 0, 0));
+        Successor(Successor::kConditionBelowOrEqual, ref, 0));
 
     return next_offs;
   }

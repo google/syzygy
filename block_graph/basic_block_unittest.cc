@@ -118,7 +118,7 @@ class BasicBlockTest: public testing::Test {
                             &macro_block_,
                             target,
                             target);
-    return Successor(Successor::OpCodeToCondition(opcode), ref, -1, 0);
+    return Successor(Successor::OpCodeToCondition(opcode), ref, 0);
   }
 
   // Some handy constants we'll use throughout the tests.
@@ -454,7 +454,6 @@ void TestSuccessorCopy(const Successor& input) {
   EXPECT_EQ(input.label(), copy.label());
   EXPECT_EQ(input.has_label(), copy.has_label());
   EXPECT_EQ(input.source_range(), copy.source_range());
-  EXPECT_EQ(input.instruction_offset(), copy.instruction_offset());
   EXPECT_EQ(input.instruction_size(), copy.instruction_size());
 }
 
@@ -467,14 +466,12 @@ TEST_F(SuccessorTest, DefaultConstructor) {
   TestSuccessorCopy(s);
   EXPECT_EQ(Successor::kInvalidCondition, s.condition());
   EXPECT_EQ(BasicBlockReference(), s.reference());
-  EXPECT_EQ(-1, s.instruction_offset());
   EXPECT_EQ(0, s.instruction_size());
   EXPECT_FALSE(s.has_label());
 }
 
 TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
-  const Successor::Offset kSuccessorOffset = 4;
   const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
   BasicCodeBlock bb("bb");
@@ -482,13 +479,11 @@ TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
 
   Successor s(kCondition,
               bb_ref,
-              kSuccessorOffset,
               kSuccessorSize);
 
   TestSuccessorCopy(s);
   EXPECT_EQ(kCondition, s.condition());
   EXPECT_EQ(bb_ref, s.reference());
-  EXPECT_EQ(kSuccessorOffset, s.instruction_offset());
   EXPECT_EQ(kSuccessorSize, s.instruction_size());
 }
 
