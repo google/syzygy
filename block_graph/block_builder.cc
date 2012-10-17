@@ -107,7 +107,7 @@ class MergeContext {
     BlockGraph::Label successor_label;
 
     // The source range this successor originally occupied, if any.
-    SourceRange source_range;
+    SourceRange successor_source_range;
 
     // Layout info for this block's successors.
     SuccessorLayoutInfo successors[2];
@@ -359,11 +359,11 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     // Walk our start address forwards.
     successor_start += successor.size;
 
-    if (info.source_range.size() != 0) {
+    if (info.successor_source_range.size() != 0) {
       Instruction& instr = instructions.back();
 
       // Attribute this instruction to the original successor's source range.
-      instr.set_source_range(info.source_range);
+      instr.set_source_range(info.successor_source_range);
     }
   }
 
@@ -501,8 +501,8 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
 
       // Record the source range of the original successor.
       if (succ_it->source_range().size() != 0) {
-        DCHECK_EQ(0U, info.source_range.size());
-        info.source_range = succ_it->source_range();
+        DCHECK_EQ(0U, info.successor_source_range.size());
+        info.successor_source_range = succ_it->source_range();
       }
       // Record the label of the original successor.
       if (succ_it->has_label())
@@ -526,8 +526,8 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
 
       // Record the source range of the original successor.
       if (succ_it->source_range().size() != 0) {
-        DCHECK_EQ(0U, info.source_range.size());
-        info.source_range = succ_it->source_range();
+        DCHECK_EQ(0U, info.successor_source_range.size());
+        info.successor_source_range = succ_it->source_range();
       }
       // Record the label of the original successor.
       if (succ_it->has_label()) {
