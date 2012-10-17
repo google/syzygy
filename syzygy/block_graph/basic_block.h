@@ -410,28 +410,6 @@ class Successor {
     kConditionTrue,  // JMP.
     // @}
 
-    // The countdown conditional.
-    // @{
-    kCounterIsZero,  // JCXZ and JECXZ.
-    // @}
-
-    // The looping branch family of conditionals.
-    // @{
-    kLoopTrue,  // LOOP
-    kLoopIfEqual,  // LOOPE and LOOPZ.
-    kLoopIfNotEqual,  // LOOPNE and LOOPNZ.
-    // @}
-
-    // The following are pseudo instructions used to denote the logical
-    // inverse of one of the above conditional branches, where no such
-    // actual inverse conditional branch exists in the instruction set.
-    // @{
-    kInverseCounterIsZero,
-    kInverseLoopTrue,
-    kInverseLoopIfEqual,
-    kInverseLoopIfNotEqual,
-    // @}
-
     // Sentinels for the largest successor condition values.
     kMaxCondition,
   };
@@ -483,10 +461,6 @@ class Successor {
   // Set the target reference @p ref for this successor. If @p ref refers
   // to a basic block, also update that basic block's referrer set.
   bool SetReference(const BasicBlockReference& ref);
-
-  // Return the maximum size needed to synthesize this successor as one
-  // or more instructions.
-  Size GetMaxSize() const;
 
   // Get the branch type that corresponds to the given @p op_code.
   // @returns kInvalidCondition if @p op_code isn't a recognized branch
@@ -583,10 +557,6 @@ class BasicBlock {
   // contains instructions and/or successors.
   virtual bool IsValid() const = 0;
 
-  // Return the maximum number of bytes this basic block can require (not
-  // including any trailing padding).
-  virtual Size GetMaxSize() const = 0;
-
  protected:
   // Initialize a basic block.
   // @param name A textual identifier for this basic block.
@@ -637,10 +607,6 @@ class BasicCodeBlock : public BasicBlock {
   // Returns true iff this basic block is a valid code block - i.e., it
   // contains at least one instruction and/or 0-2 successors.
   virtual bool IsValid() const OVERRIDE;
-
-  // Return the maximum number of bytes this basic block can require (not
-  // including any trailing padding).
-  virtual Size GetMaxSize() const OVERRIDE;
 
   // Return the number of bytes required to store the instructions
   // this basic block contains, exclusive successors.
@@ -705,10 +671,6 @@ class BasicDataBlock : public BasicBlock {
 
   // Returns true iff this basic block is a valid block i.e., it contains data.
   virtual bool IsValid() const OVERRIDE;
-
-  // Return the maximum number of bytes this basic block can require (not
-  // including any trailing padding).
-  virtual Size GetMaxSize() const OVERRIDE;
 
  private:
   // The number of bytes of data in the original block that corresponds with

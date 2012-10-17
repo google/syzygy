@@ -348,18 +348,6 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
         assm.jmp(dest);
         break;
 
-      case Successor::kCounterIsZero:
-      case Successor::kLoopTrue:
-      case Successor::kLoopIfEqual:
-      case Successor::kLoopIfNotEqual:
-      case Successor::kInverseCounterIsZero:
-      case Successor::kInverseLoopTrue:
-      case Successor::kInverseLoopIfEqual:
-      case Successor::kInverseLoopIfNotEqual:
-        LOG(ERROR) << "Synthesis of inverse loop and counter branches is "
-                   << "not supported yet.";
-        return false;
-
       default:
         NOTREACHED();
         return false;

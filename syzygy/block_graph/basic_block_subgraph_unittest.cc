@@ -293,35 +293,4 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
   ASSERT_TRUE(subgraph.HasValidReferrers());
 }
 
-TEST(BasicBlockSubGraphTest, GetMaxSize) {
-  TestBasicBlockSubGraph subgraph;
-
-  // Add three basic-blocks.
-  BasicCodeBlock* code = subgraph.AddBasicCodeBlock("code");
-  ASSERT_FALSE(code == NULL);
-  BasicDataBlock* data = subgraph.AddBasicDataBlock(
-      "data", BasicBlock::BASIC_DATA_BLOCK, kDataSize / 2, kData);
-  ASSERT_FALSE(data == NULL);
-  BasicDataBlock* padding = subgraph.AddBasicDataBlock(
-      "padding", BasicBlock::BASIC_PADDING_BLOCK, kDataSize, kData);
-  ASSERT_FALSE(padding == NULL);
-
-  code->instructions().push_back(Instruction(5, kData));
-  code->instructions().push_back(Instruction(1, kData));
-  code->instructions().push_back(Instruction(3, kData));
-  code->successors().push_back(Successor());
-  code->successors().push_back(Successor());
-
-  subgraph.block_descriptions().push_back(BlockDescription());
-  BlockDescription& desc = subgraph.block_descriptions().back();
-  desc.basic_block_order.push_back(code);
-  desc.basic_block_order.push_back(data);
-  desc.basic_block_order.push_back(padding);
-
-  size_t max_block_length = kDataSize + (kDataSize / 2 ) + (5 + 1 + 3) +
-      (2 * core::AssemblerImpl::kMaxInstructionLength);
-
-  DCHECK_EQ(max_block_length, desc.GetMaxSize());
-}
-
 }  // namespace block_graph
