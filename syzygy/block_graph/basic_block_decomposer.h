@@ -103,6 +103,7 @@ class BasicBlockDecomposer : public core::Disassembler {
   bool Decompose();
 
  protected:
+  typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
   typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
   typedef BlockGraph::Block::SourceRange SourceRange;
   typedef BlockGraph::Size Size;
@@ -110,11 +111,6 @@ class BasicBlockDecomposer : public core::Disassembler {
   // Returns the source range that coincides with the data range
   // [@p offset, [@p offset + @p size) in the original block.
   SourceRange GetSourceRange(Offset offset, Size size);
-
-  // Returns the offset of @p instr in the original block.
-  Offset GetOffset(const Instruction& instr) const;
-  // Returns the offset of @p bb in the original block.
-  Offset GetOffset(const BasicBlock& bb) const;
 
   // Find the basic block, and corresponding byte-range, that contains the
   // given offset.
@@ -194,13 +190,11 @@ class BasicBlockDecomposer : public core::Disassembler {
   // so that referrers can be tracked as the basic blocks are manipulated.
   bool CopyExternalReferrers();
 
-  // Helper function to populate @p item with the set of references to
-  // originating from its source range in the original block. I.e., if item is
-  // an instruction that occupied bytes j through k in the original block, then
-  // all references found between bytes j through k of the original block will
-  // be copied to the set of references tracked by @p item.
-  template<typename Item>
-  bool CopyReferences(Item* item);
+  // Helper function to populate @p refs with the set of references originating
+  // from its source range in the original block.
+  bool CopyReferences(Offset item_offset,
+                      Size item_size,
+                      BasicBlockReferenceMap* refs);
 
   // Propagate the references from the original block into the basic blocks
   // so that they can be tracked as the basic blocks are manipulated.

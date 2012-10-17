@@ -592,17 +592,13 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
 }
 
 Successor::Successor()
-    : condition_(kInvalidCondition),
-      instruction_offset_(BasicBlock::kNoOffset),
-      instruction_size_(0) {
+    : condition_(kInvalidCondition), instruction_size_(0) {
 }
 
 Successor::Successor(Successor::Condition condition,
                      const BasicBlockReference& target,
-                     Offset instruction_offset,
                      Size instruction_size)
     : condition_(condition),
-      instruction_offset_(instruction_offset),
       instruction_size_(instruction_size) {
   DCHECK(condition != kInvalidCondition);
   bool inserted = SetReference(target);
@@ -612,7 +608,6 @@ Successor::Successor(Successor::Condition condition,
 Successor::Successor(const Successor& other)
     : condition_(other.condition_),
       reference_(other.reference_),
-      instruction_offset_(other.instruction_offset_),
       source_range_(other.source_range_),
       instruction_size_(other.instruction_size_),
       label_(other.label_) {

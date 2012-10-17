@@ -932,9 +932,6 @@ BlockGraph::Reference MergeContext::ResolveReference(
     // block reference.
     const BasicBlockLayoutInfo& info = FindLayoutInfo(ref.basic_block());
 
-    // TODO(siggi): Is this the right thing to do by base?
-    //     Maybe we want the base relative to the start of the BB for
-    //     data blocks?
     return BlockGraph::Reference(type,
                                  size,
                                  info.block,
