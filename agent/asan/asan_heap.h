@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 //
 // Implements HeapProxy, a class that wraps Win32 heap allocations but adds
 // heap/tail redzones.
+
 #ifndef SYZYGY_AGENT_ASAN_ASAN_HEAP_H_
 #define SYZYGY_AGENT_ASAN_ASAN_HEAP_H_
 
@@ -62,9 +63,24 @@ class HeapProxy {
   // @}
 
  private:
+  // Magic number to identify the beginning of a block header.
+  static const size_t kBlockHeaderSignature = 0x3CA80E7;
+
+  enum BlockState {
+    ALLOCATED,
+    FREED,
+    QUARANTINED,
+
+    // This enum value should always be last.
+    MAX_STATE,
+  };
+
   // Every allocated block starts with a BlockHeader.
+  // TODO(sebmarchand): Add field for stack trace etc.
   struct BlockHeader {
+    size_t magic_number;
     size_t size;
+    uint8 state;
   };
 
   // Free blocks are linked together.
