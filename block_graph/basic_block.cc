@@ -643,12 +643,16 @@ BasicCodeBlock::BasicCodeBlock(const base::StringPiece& name)
 }
 
 BasicCodeBlock* BasicCodeBlock::Cast(BasicBlock* basic_block) {
+  if (basic_block == NULL)
+    return NULL;
   if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
     return static_cast<BasicCodeBlock*>(basic_block);
   return NULL;
 }
 
 const BasicCodeBlock* BasicCodeBlock::Cast(const BasicBlock* basic_block) {
+  if (basic_block == NULL)
+    return NULL;
   if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
     return static_cast<const BasicCodeBlock*>(basic_block);
   return NULL;
@@ -714,6 +718,8 @@ BasicDataBlock::BasicDataBlock(const base::StringPiece& name,
 }
 
 BasicDataBlock* BasicDataBlock::Cast(BasicBlock* basic_block) {
+  if (basic_block == NULL)
+    return NULL;
   if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
       basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
     return static_cast<BasicDataBlock*>(basic_block);
@@ -722,6 +728,8 @@ BasicDataBlock* BasicDataBlock::Cast(BasicBlock* basic_block) {
 }
 
 const BasicDataBlock* BasicDataBlock::Cast(const BasicBlock* basic_block) {
+  if (basic_block == NULL)
+    return NULL;
   if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
       basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
     return static_cast<const BasicDataBlock*>(basic_block);

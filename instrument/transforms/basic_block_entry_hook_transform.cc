@@ -134,8 +134,11 @@ bool BasicBlockEntryHookTransform::OnBlock(BlockGraph* block_graph,
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block))
+  if (!pe::CodeBlockIsBasicBlockDecomposable(block)) {
+    // TODO(rogerm): Thunk the entry-point to this block with a basic-block
+    //     entry-point hook that represents the entire block.
     return true;
+  }
 
   if (!ApplyBasicBlockSubGraphTransform(this, block_graph, block, NULL))
     return false;
