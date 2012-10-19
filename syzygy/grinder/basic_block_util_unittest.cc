@@ -106,11 +106,11 @@ TEST(GrinderBasicBlockUtilTest, BasicBlockIdMap) {
   // Setup the expected basic-block ID map.
   BasicBlockIdMap::ContainerType expected_map;
   expected_map.reserve(5);
-  expected_map.push_back(BasicBlockIdMap::ValueType(100, 0));
-  expected_map.push_back(BasicBlockIdMap::ValueType(200, 4));
-  expected_map.push_back(BasicBlockIdMap::ValueType(300, 2));
-  expected_map.push_back(BasicBlockIdMap::ValueType(400, 1));
-  expected_map.push_back(BasicBlockIdMap::ValueType(500, 3));
+  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(100), 0));
+  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(200), 4));
+  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(300), 2));
+  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(400), 1));
+  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(500), 3));
 
   // Test Init(), Begin(), and End().
   BasicBlockIdMap bb_id_map;
