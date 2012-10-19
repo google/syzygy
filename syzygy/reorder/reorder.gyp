@@ -26,6 +26,8 @@
       'target_name': 'reorder_lib',
       'type': 'static_library',
       'sources': [
+        'basic_block_optimizer.cc',
+        'basic_block_optimizer.h',
         'dead_code_finder.cc',
         'dead_code_finder.h',
         'linear_order_generator.cc',
@@ -43,6 +45,7 @@
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(DEPTH)/syzygy/grinder/grinder.gyp:grinder_lib',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
         '<(DEPTH)/syzygy/playback/playback.gyp:playback_lib',
@@ -76,6 +79,7 @@
       'target_name': 'reorder_unittests',
       'type': 'executable',
       'sources': [
+        'basic_block_optimizer_unittest.cc',
         'dead_code_finder_unittest.cc',
         'linear_order_generator_unittest.cc',
         'order_generator_test.cc',

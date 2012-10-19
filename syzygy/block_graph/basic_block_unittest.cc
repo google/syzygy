@@ -185,6 +185,35 @@ TEST_F(BasicBlockTest, InstructionConstructor) {
   }
 }
 
+TEST_F(BasicBlockTest, Cast) {
+  // Declare pointer variables to let us select between the const/non-const
+  // versions of the Cast method.
+  BasicBlock* bb_ptr = NULL;
+  const BasicBlock* const_bb_ptr = NULL;
+
+  // Should gracefully handle NULL.
+  EXPECT_EQ(NULL, BasicCodeBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicCodeBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(NULL, BasicDataBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
+
+  // Cast an underlying basic code block.
+  bb_ptr = &basic_code_block_;
+  const_bb_ptr = &basic_code_block_;
+  EXPECT_EQ(&basic_code_block_, BasicCodeBlock::Cast(bb_ptr));
+  EXPECT_EQ(&basic_code_block_, BasicCodeBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(NULL, BasicDataBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
+
+  // Should gracefully handle NULL.
+  bb_ptr = &basic_data_block_;
+  const_bb_ptr = &basic_data_block_;
+  EXPECT_EQ(NULL, BasicCodeBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicCodeBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(&basic_data_block_, BasicDataBlock::Cast(bb_ptr));
+  EXPECT_EQ(&basic_data_block_, BasicDataBlock::Cast(const_bb_ptr));
+}
+
 TEST_F(BasicBlockTest, BasicCodeBlockAccessors) {
   EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_code_block_.type());
   EXPECT_STREQ(kBlockName, basic_code_block_.name().c_str());

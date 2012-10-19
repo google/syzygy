@@ -25,7 +25,7 @@ namespace grinder {
 using basic_block_util::ModuleInformation;
 using basic_block_util::RelativeAddressRange;
 using basic_block_util::GetFrequency;
-using basic_block_util::GetPdbInfo;
+using basic_block_util::LoadPdbInfo;
 using basic_block_util::IsValidFrequencySize;
 using basic_block_util::PdbInfo;
 using basic_block_util::PdbInfoMap;
@@ -121,7 +121,7 @@ void CoverageGrinder::OnBasicBlockFrequency(
   // Get the PDB info. This loads the line information and the basic-block
   // ranges if not already done, otherwise it returns the cached version.
   PdbInfo* pdb_info = NULL;
-  if (!GetPdbInfo(&pdb_info_cache_, module_info, &pdb_info)) {
+  if (!LoadPdbInfo(&pdb_info_cache_, module_info, &pdb_info)) {
     event_handler_errored_ = true;
     return;
   }
