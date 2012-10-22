@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/memory/scoped_vector.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
@@ -465,6 +466,11 @@ class IndirectFunctionThread : public base::DelegateSimpleThread::Delegate {
   bool thread_detach_;
 };
 
+// IndirectFunctionThreads aren't copy constructible due to
+// base::win::ScopedHandle member variables. Thus we have to jump
+// through hoops to copy-initialize arrays of them.
+typedef ScopedVector<IndirectFunctionThread> IndirectFunctionThreads;
+
 }  // namespace
 
 TEST_F(ParseEngineRpcTest, LoadUnload) {
@@ -579,37 +585,43 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
 
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
-  IndirectFunctionThread runners[] = {
-      IndirectFunctionThread(1, IndirectThunkA, module_, 10),
-      IndirectFunctionThread(2, IndirectThunkB, module_, 10),
-      IndirectFunctionThread(3, IndirectThunkA, module_, 10),
-      IndirectFunctionThread(4, IndirectThunkB, module_, 10),
-      IndirectFunctionThread(5, IndirectThunkA, module_, 10),
-      IndirectFunctionThread(6, IndirectThunkB, module_, 10) };
+  IndirectFunctionThreads runners;
+  runners.push_back(
+      new IndirectFunctionThread(1, IndirectThunkA, module_, 10));
+  runners.push_back(
+      new IndirectFunctionThread(2, IndirectThunkB, module_, 10));
+  runners.push_back(
+      new IndirectFunctionThread(3, IndirectThunkA, module_, 10));
+  runners.push_back(
+      new IndirectFunctionThread(4, IndirectThunkB, module_, 10));
+  runners.push_back(
+      new IndirectFunctionThread(5, IndirectThunkA, module_, 10));
+  runners.push_back(
+      new IndirectFunctionThread(6, IndirectThunkB, module_, 10));
 
-  runners[0].set_thread_detach(false);
-  runners[5].set_thread_detach(false);
+  runners[0]->set_thread_detach(false);
+  runners[5]->set_thread_detach(false);
 
   base::DelegateSimpleThread threads[] = {
-      base::DelegateSimpleThread(&runners[0], "thread 0"),
-      base::DelegateSimpleThread(&runners[1], "thread 1"),
-      base::DelegateSimpleThread(&runners[2], "thread 2"),
-      base::DelegateSimpleThread(&runners[3], "thread 3"),
-      base::DelegateSimpleThread(&runners[4], "thread 4"),
-      base::DelegateSimpleThread(&runners[5], "thread 5")};
+      base::DelegateSimpleThread(runners[0], "thread 0"),
+      base::DelegateSimpleThread(runners[1], "thread 1"),
+      base::DelegateSimpleThread(runners[2], "thread 2"),
+      base::DelegateSimpleThread(runners[3], "thread 3"),
+      base::DelegateSimpleThread(runners[4], "thread 4"),
+      base::DelegateSimpleThread(runners[5], "thread 5")};
 
   std::vector<FuncAddr> expected_call_sequence;
   for (size_t i = 0; i < arraysize(threads); ++i) {
     // Thread i makes calls IndirectDllMain here and makes all of its calls to
     // IndirectFunctionA/B, but nothing gets committed yet.
     threads[i].Start();
-    runners[i].Wait();
+    runners[i]->Wait();
     ::Sleep(20);
 
     if (i == 1 || i == 3) {
       // Threads i==1 and i==3 detach here. This commits their i+1 calls to
       // IndirectFunctionB sandwiched between their 2 call to IndirectDllMain.
-      runners[i].Exit();
+      runners[i]->Exit();
       threads[i].Join();
       expected_call_sequence.push_back(IndirectDllMain);
       expected_call_sequence.insert(
@@ -620,7 +632,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
 
   // Threads 2 detaches here, which commits it's 3 calls to IndirectFunctionA
   // and sandwiched between its 2 calls to IndirectDllMain.
-  runners[2].Exit();
+  runners[2]->Exit();
   threads[2].Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
@@ -629,7 +641,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
 
   // Threads 4 detaches here, which commits it's 5 calls to IndirectFunctionA
   // and it's 1 call to IndirectDllMain.
-  runners[4].Exit();
+  runners[4]->Exit();
   threads[4].Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
@@ -643,7 +655,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   // Threads 0 does not detach. We get its 1 call to IndirectFunctionA
   // prefaced by its initial call IndirectDllMain. No trailing call to
   // IndirectDllMain is recorded.
-  runners[0].Exit();
+  runners[0]->Exit();
   threads[0].Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
@@ -652,7 +664,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   // Threads 5 does not detach. We get its 6 calls to IndirectFunctionB
   // prefaced by its initial call IndirectDllMain. No trailing call to
   // IndirectDllMain is recorded.
-  runners[5].Exit();
+  runners[5]->Exit();
   threads[5].Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
@@ -678,30 +690,36 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
 
   DWORD delay = 30;  // milliseconds
-  IndirectFunctionThread runners[] = {
-      IndirectFunctionThread(1, IndirectThunkA, module_, delay),
-      IndirectFunctionThread(2, IndirectThunkB, module_, delay),
-      IndirectFunctionThread(3, IndirectThunkA, module_, delay),
-      IndirectFunctionThread(4, IndirectThunkB, module_, delay),
-      IndirectFunctionThread(5, IndirectThunkA, module_, delay),
-      IndirectFunctionThread(6, IndirectThunkB, module_, delay) };
+  IndirectFunctionThreads runners;
+  runners.push_back(
+      new IndirectFunctionThread(1, IndirectThunkA, module_, delay));
+  runners.push_back(
+      new IndirectFunctionThread(2, IndirectThunkB, module_, delay));
+  runners.push_back(
+      new IndirectFunctionThread(3, IndirectThunkA, module_, delay));
+  runners.push_back(
+      new IndirectFunctionThread(4, IndirectThunkB, module_, delay));
+  runners.push_back(
+      new IndirectFunctionThread(5, IndirectThunkA, module_, delay));
+  runners.push_back(
+      new IndirectFunctionThread(6, IndirectThunkB, module_, delay));
 
-  runners[0].set_thread_detach(false);
-  runners[5].set_thread_detach(false);
+  runners[0]->set_thread_detach(false);
+  runners[5]->set_thread_detach(false);
 
   base::DelegateSimpleThread threads[] = {
-      base::DelegateSimpleThread(&runners[0], "thread 0"),
-      base::DelegateSimpleThread(&runners[1], "thread 1"),
-      base::DelegateSimpleThread(&runners[2], "thread 2"),
-      base::DelegateSimpleThread(&runners[3], "thread 3"),
-      base::DelegateSimpleThread(&runners[4], "thread 4"),
-      base::DelegateSimpleThread(&runners[5], "thread 5")};
+      base::DelegateSimpleThread(runners[0], "thread 0"),
+      base::DelegateSimpleThread(runners[1], "thread 1"),
+      base::DelegateSimpleThread(runners[2], "thread 2"),
+      base::DelegateSimpleThread(runners[3], "thread 3"),
+      base::DelegateSimpleThread(runners[4], "thread 4"),
+      base::DelegateSimpleThread(runners[5], "thread 5")};
 
   std::vector<FuncAddr> expected_call_sequence;
   for (size_t i = 0; i < arraysize(threads); ++i) {
     // Thread i calls IndirectDllMain makes i+1 calls to its indirect function.
     threads[i].Start();
-    runners[i].Wait();
+    runners[i]->Wait();
     expected_call_sequence.push_back(IndirectDllMain);
     expected_call_sequence.insert(
         expected_call_sequence.end(),
@@ -710,19 +728,19 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
 
     if (i == 1 || i == 3) {
       // Threads i==1 and i==3 call IndirectDllMain here (on detach).
-      runners[i].Exit();
+      runners[i]->Exit();
       threads[i].Join();
       expected_call_sequence.push_back(IndirectDllMain);
     }
   }
 
   // Threads 2 detaches here, calling IndirectDllMain.
-  runners[2].Exit();
+  runners[2]->Exit();
   threads[2].Join();
   expected_call_sequence.push_back(IndirectDllMain);
 
   // Threads 4 detaches here, calling IndirectDllMain.
-  runners[4].Exit();
+  runners[4]->Exit();
   threads[4].Join();
   expected_call_sequence.push_back(IndirectDllMain);
 
@@ -731,11 +749,11 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
   UnloadCallTraceDll();
 
   // Threads 0 does not detach.
-  runners[0].Exit();
+  runners[0]->Exit();
   threads[0].Join();
 
   // Threads 5 does not detach.
-  runners[5].Exit();
+  runners[5]->Exit();
   threads[5].Join();
 
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());

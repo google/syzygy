@@ -383,7 +383,7 @@ void StopExternalCallTraceService(const std::wstring& instance_id_,
   ScopedHandle controller_handle;
   ControlExternalCallTraceService("stop", instance_id_, &controller_handle);
 
-  static const int k30Seconds = 30 * 1000;  // In milliseconds.
+  static base::TimeDelta k30Seconds = base::TimeDelta::FromSeconds(30);
   int exit_code;
   EXPECT_TRUE(base::WaitForExitCodeWithTimeout(controller_handle.Take(),
                                                &exit_code,

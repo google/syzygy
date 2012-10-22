@@ -117,7 +117,7 @@ class ApplicationTestBase : public testing::Test {
     DCHECK(f != NULL);
     DCHECK(mode != NULL);
     if (f->get() == NULL)
-      f->reset(file_util::OpenFile("NUL", mode));
+      f->reset(file_util::OpenFile(FilePath(L"NUL"), mode));
     return f->get();
   }
 

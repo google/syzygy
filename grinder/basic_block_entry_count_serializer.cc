@@ -93,7 +93,7 @@ bool ReadEntryCount(const base::DictionaryValue* dict_value,
   DCHECK(entry_count_map != NULL);
 
   // Load the metadata about the image.
-  base::DictionaryValue* metadata_dict = NULL;
+  const base::DictionaryValue* metadata_dict = NULL;
   if (!dict_value->GetDictionary(kMetadata, &metadata_dict)) {
     LOG(ERROR) << "Missing or invalid " << kMetadata << " entry.";
     return false;
@@ -106,7 +106,7 @@ bool ReadEntryCount(const base::DictionaryValue* dict_value,
   }
 
   // Extract the entry count list.
-  base::ListValue* entry_count_list = NULL;
+  const base::ListValue* entry_count_list = NULL;
   if (!dict_value->GetList(kEntryCounts, &entry_count_list)) {
     LOG(ERROR) << "Missing or invalid " << kEntryCounts << " entry.";
     return false;
@@ -239,7 +239,7 @@ bool BasicBlockEntryCountSerializer::PopulateFromJsonValue(
   // Extract each module.
   size_t num_modules = module_list->GetSize();
   for (size_t i = 0; i < num_modules; ++i) {
-    base::DictionaryValue* dict_value = NULL;
+    const base::DictionaryValue* dict_value = NULL;
     if (!module_list->GetDictionary(i, &dict_value)) {
       LOG(ERROR) << "Invalid type for entry " << i << ".";
       return false;

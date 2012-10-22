@@ -186,7 +186,7 @@ bool LoadBlockSpec(const pe::ImageLayout& image,
   // where the first element is the address and the second element is a list
   // of basic-block RVAs.
   int address = 0;
-  ListValue* rva_list = NULL;
+  const ListValue* rva_list = NULL;
   if (!block_value->GetAsInteger(&address)) {
     const ListValue* pair = NULL;
     if (!block_value->GetAsList(&pair) ||
@@ -309,7 +309,7 @@ bool LoadSectionSpec(const pe::ImageLayout& image,
   }
 
   // Get the list of block specifications.
-  ListValue* blocks = NULL;
+  const ListValue* blocks = NULL;
   if (!section_value->GetList(blocks_key, &blocks)) {
     LOG(ERROR) << "Invalid or missing value for " << blocks_key << ".";
     return false;
@@ -318,9 +318,9 @@ bool LoadSectionSpec(const pe::ImageLayout& image,
   if (!blocks->empty()) {
     // Populate the block spec vector.
     section_spec->blocks.resize(blocks->GetSize());
-    ListValue::iterator block_it = blocks->begin();
+    ListValue::const_iterator block_it = blocks->begin();
     for (size_t block_idx = 0; block_idx != blocks->GetSize(); ++block_idx) {
-      Value* block_value = NULL;
+      const Value* block_value = NULL;
       if (!blocks->Get(block_idx, &block_value)) {
         LOG(ERROR) << "Failed to access item " << block_idx << ".";
         return false;
@@ -567,7 +567,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
   pe::Metadata metadata;
   PEFile::Signature pe_sig;
   pe.GetSignature(&pe_sig);
-  DictionaryValue* metadata_dict = NULL;
+  const DictionaryValue* metadata_dict = NULL;
   if (!outer_dict->GetDictionary(kMetadataKey, &metadata_dict) ||
       !metadata.LoadFromJSON(*metadata_dict) ||
       !metadata.IsConsistent(pe_sig)) {
@@ -583,7 +583,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
   }
 
   // Grab the sections list.
-  ListValue* order = NULL;
+  const ListValue* order = NULL;
   if (!outer_dict->GetList(kSectionsKey, &order)) {
     LOG(ERROR) << "Missing or invalid " << kSectionsKey << ".";
     return false;
@@ -598,7 +598,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
   std::set<size_t> seen_section_ids;
   sections.resize(order->GetSize());
   for (size_t index = 0; index < order->GetSize(); ++index) {
-    DictionaryValue* section = NULL;
+    const DictionaryValue* section = NULL;
     if (!order->GetDictionary(index, &section)) {
       LOG(ERROR) << "Item " << index << "of " << kSectionsKey
                  << " list is not a dictionary.";
@@ -629,7 +629,7 @@ bool Reorderer::Order::GetOriginalModulePath(const FilePath& path,
       reinterpret_cast<const DictionaryValue*>(value.get());
 
   std::string metadata_key("metadata");
-  DictionaryValue* metadata_dict = NULL;
+  const DictionaryValue* metadata_dict = NULL;
   if (!outer_dict->GetDictionary(metadata_key, &metadata_dict)) {
     LOG(ERROR) << "Order dictionary must contain 'metadata'.";
     return false;
