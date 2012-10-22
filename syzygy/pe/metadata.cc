@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #include "syzygy/pe/metadata.h"
 
 #include <time.h>
+
 #include "base/command_line.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -249,8 +250,8 @@ bool Metadata::SaveToJSON(core::JSONFileWriter* json_file) const {
 
 bool Metadata::LoadFromJSON(const DictionaryValue& metadata) {
   std::string creation_time;
-  DictionaryValue* toolchain_version_dict = NULL;
-  DictionaryValue* module_signature_dict = NULL;
+  const DictionaryValue* toolchain_version_dict = NULL;
+  const DictionaryValue* module_signature_dict = NULL;
   if (!metadata.GetString(kCommandLineKey, &command_line_) ||
       !metadata.GetString(kCreationTimeKey, &creation_time) ||
       !metadata.GetDictionary(kToolchainVersionKey, &toolchain_version_dict) ||

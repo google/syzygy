@@ -387,7 +387,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   static const char loaded_pages_key[] = "loaded_pages";
 
   int page_size = 0, pages_per_code_fault = 0, fault_count = 0;
-  base::ListValue* loaded_pages = NULL;
+  const base::ListValue* loaded_pages = NULL;
 
   outer_dict->GetInteger(page_size_key, &page_size);
   outer_dict->GetInteger(pages_per_code_fault_key, &pages_per_code_fault);
@@ -405,7 +405,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   ASSERT_EQ(expected_pages.size(), loaded_pages->GetSize());
 
   PageSet::iterator expected_pages_iter = expected_pages.begin();
-  base::ListValue::iterator loaded_pages_iter = loaded_pages->begin();
+  base::ListValue::const_iterator loaded_pages_iter = loaded_pages->begin();
 
   for (; expected_pages_iter != expected_pages.end();
        expected_pages_iter++, loaded_pages_iter++) {

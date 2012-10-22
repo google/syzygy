@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #include "syzygy/pe/pe_file_parser.h"
-
-#include <delayimp.h>
 
 #include "base/bind.h"
 #include "base/file_path.h"

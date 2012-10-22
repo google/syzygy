@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "116861",
-  "gmock_revision": "374",
-  "gtest_revision": "560",
-  "googleurl_revision": "175",
-  "gyp_revision": "1386",
+  "chrome_revision": "162687",
+  "gmock_revision": "405",
+  "gtest_revision": "621",
+  "googleurl_revision": "180",
+  "gyp_revision": "1520",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
@@ -29,13 +29,15 @@ deps = {
   "src/base":
     Var("chrome_base") + "/src/base@" + Var("chrome_revision"),
 
+  "src/google_apis":
+    Var("chrome_base") + "/src/google_apis@" + Var("chrome_revision"),
+
   "src/googleurl":
     "http://google-url.googlecode.com/svn/trunk@" + Var("googleurl_revision"),
 
   "src/third_party/wtl":
     Var("chrome_base") + "/src/third_party/wtl@" +
         Var("chrome_revision"),
-
   "src/third_party/zlib":
     Var("chrome_base") + "/src/third_party/zlib@" +
         Var("chrome_revision"),
@@ -53,6 +55,12 @@ deps = {
         Var("chrome_revision"),
   "src/third_party/modp_b64":
     Var("chrome_base") + "/src/third_party/modp_b64@" +
+        Var("chrome_revision"),
+  "src/third_party/jemalloc":
+    Var("chrome_base") + "/src/third_party/jemalloc@" +
+        Var("chrome_revision"),
+  "src/third_party/tcmalloc":
+    Var("chrome_base") + "/src/third_party/tcmalloc@" +
         Var("chrome_revision"),
 
   "src/third_party/distorm/files":

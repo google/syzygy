@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,13 @@
 #include "syzygy/core/json_file_writer.h"
 
 #include <stdarg.h>
-#include "base/json/json_writer.h"
-#include "base/json/string_escape.h"
+
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "base/json/json_writer.h"
+#include "base/json/string_escape.h"
+#include "base/memory/scoped_ptr.h"
 
 namespace core {
 
@@ -221,7 +222,7 @@ bool JSONFileWriter::PrintValue(const base::Value* value) {
     case Value::TYPE_STRING:
     case Value::TYPE_BINARY: {
       std::string str;
-      base::JSONWriter::Write(value, false, &str);
+      base::JSONWriter::Write(value, &str);
       return Printf("%s", str.c_str());
     }
 
