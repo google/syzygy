@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
       'target_name': 'experimental',
       'type': 'none',
       'dependencies': [
+        '<(DEPTH)/syzygy/experimental/code_tally/code_tally.gyp:*',
         '<(DEPTH)/syzygy/experimental/compare/compare.gyp:*',
         '<(DEPTH)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
         '<(DEPTH)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
