@@ -99,6 +99,7 @@ class _CodeCoverageRunnerBase(object):
     self._build_dir = build_dir
     self._keep_work_dir = keep_work_dir
     self._work_dir = None
+    self._html_dir = os.path.join(self._build_dir, 'cov')
 
   def __del__(self):
     self._CleanupWorkdir()
@@ -195,17 +196,15 @@ class _CodeCoverageRunnerBase(object):
     croc = os.path.abspath(
         os.path.join(_SYZYGY_DIR, '../tools/code_coverage/croc.py'))
     config = os.path.join(_SYZYGY_DIR, 'build/syzygy.croc')
-    html = os.path.join(self._build_dir, 'cov')
 
-    # Clean up old coverage results.
-    shutil.rmtree(html, ignore_errors=True)
-    os.makedirs(html)
+    # The HTML directory is already deleted. Create it now.
+    os.makedirs(self._html_dir)
 
     cmd = [sys.executable, croc,
            '--tree',
            '--config', config,
            '--input', input_path,
-           '--html', html]
+           '--html', self._html_dir]
 
     # The coverage html generator wants to run in the directory
     # containing our src root.
@@ -214,6 +213,10 @@ class _CodeCoverageRunnerBase(object):
     _Subprocess(cmd, 'Failed to generate HTML coverage report.', cwd=cwd)
 
   def _CaptureCoverage(self):
+    # Clean up old coverage results. We do this immediately so that previous
+    # coverage results won't still be around if this script fails.
+    shutil.rmtree(self._html_dir, ignore_errors=True)
+
     self._InstrumentExecutables()
     self._StartCoverageCapture()
     try:
