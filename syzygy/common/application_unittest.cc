@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,6 +172,35 @@ TEST_F(ApplicationTest, AbsolutePath) {
   EXPECT_EQ(FilePath(), app_impl.AbsolutePath(FilePath()));
   EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kRelativePath));
   EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kAbsolutePath));
+}
+
+TEST_F(ApplicationTest, GetDeprecatedSwitch) {
+  const std::string kFoo("foo");
+  const std::string kBar("bar");
+  const std::string kMissing("missing");
+  const FilePath kFooPath(L"C:\\foo");
+  const FilePath kBarPath(L"C:\\bar");
+  ASSERT_NE(kFoo, kBar);
+  ASSERT_NE(kFooPath, kBarPath);
+
+  FilePath path;
+  EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
+      &cmd_line_, kFoo, kBar, &CommandLine::GetSwitchValuePath, &path));
+  EXPECT_TRUE(path.empty());
+
+  cmd_line_.AppendSwitchPath(kFoo, kFooPath);
+  cmd_line_.AppendSwitchPath(kBar, kBarPath);
+
+  EXPECT_FALSE(TestAppImpl::GetDeprecatedSwitch(
+      &cmd_line_, kFoo, kBar, &CommandLine::GetSwitchValuePath, &path));
+
+  EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
+      &cmd_line_, kFoo, kMissing, &CommandLine::GetSwitchValuePath, &path));
+  EXPECT_EQ(kFooPath, path);
+
+  EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
+      &cmd_line_, kMissing, kBar, &CommandLine::GetSwitchValuePath, &path));
+  EXPECT_EQ(kBarPath, path);
 }
 
 }  // namespace common
