@@ -43,6 +43,9 @@
         'defines': [
           # This global define is in addition to _DEBUG.
           '_COVERAGE_BUILD',
+          # Turn off iterator debugging for coverage, as it slows down
+          # all iterator-related operations without improving coverage.
+          '_HAS_ITERATOR_DEBUGGING=0',
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
