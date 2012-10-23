@@ -47,13 +47,13 @@ class TestReorderApp : public ReorderApp {
   using ReorderApp::mode_;
   using ReorderApp::instrumented_image_path_;
   using ReorderApp::input_image_path_;
-  using ReorderApp::order_file_path_;
+  using ReorderApp::output_file_path_;
   using ReorderApp::bb_entry_count_file_path_;
   using ReorderApp::trace_file_paths_;
   using ReorderApp::seed_;
   using ReorderApp::pretty_print_;
   using ReorderApp::kInstrumentedImage;
-  using ReorderApp::kOrderFile;
+  using ReorderApp::kOutputFile;
   using ReorderApp::kInputImage;
   using ReorderApp::kBasicBlockEntryCounts;
   using ReorderApp::kSeed;
@@ -62,7 +62,6 @@ class TestReorderApp : public ReorderApp {
   using ReorderApp::kReordererFlags;
   using ReorderApp::kInstrumentedDll;
   using ReorderApp::kInputDll;
-  using ReorderApp::kOutputFile;
 };
 
 typedef common::Application<TestReorderApp> TestApp;
@@ -100,8 +99,8 @@ class ReorderAppTest : public testing::PELibUnitTest {
     instrumented_image_path_ = testing::GetRelativePath(
         abs_instrumented_image_path_);
 
-    abs_order_file_path_ = testing::GetExeTestDataRelativePath(L"order.json");
-    order_file_path_ = testing::GetRelativePath(abs_order_file_path_);
+    abs_output_file_path_ = testing::GetExeTestDataRelativePath(L"order.json");
+    output_file_path_ = testing::GetRelativePath(abs_output_file_path_);
 
     abs_bb_entry_count_file_path_ = testing::GetExeTestDataRelativePath(
         L"entry_counts.json");
@@ -138,7 +137,7 @@ class ReorderAppTest : public testing::PELibUnitTest {
   CommandLine cmd_line_;
   FilePath instrumented_image_path_;
   FilePath input_image_path_;
-  FilePath order_file_path_;
+  FilePath output_file_path_;
   FilePath bb_entry_count_file_path_;
   FilePath trace_file_path_;
   uint32 seed_;
@@ -149,7 +148,7 @@ class ReorderAppTest : public testing::PELibUnitTest {
   // @{
   FilePath abs_input_image_path_;
   FilePath abs_instrumented_image_path_;
-  FilePath abs_order_file_path_;
+  FilePath abs_output_file_path_;
   FilePath abs_bb_entry_count_file_path_;
   FilePath abs_trace_file_path_;
   // @}
@@ -175,7 +174,7 @@ TEST_F(ReorderAppTest, ParseWithNeitherInstrumentedNorOrderFails) {
 TEST_F(ReorderAppTest, ParseWithSeedAndListDeadCodeFails) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOrderFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitchPath(TestReorderApp::kInputImage, input_image_path_);
   cmd_line_.AppendSwitchASCII(
       TestReorderApp::kSeed, base::StringPrintf("%d", seed_));
@@ -187,7 +186,7 @@ TEST_F(ReorderAppTest, ParseWithSeedAndListDeadCodeFails) {
 TEST_F(ReorderAppTest, ParseWithEmptySeedFails) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOrderFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitch(TestReorderApp::kSeed);
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -196,7 +195,7 @@ TEST_F(ReorderAppTest, ParseWithEmptySeedFails) {
 TEST_F(ReorderAppTest, ParseWithInvalidSeedFails) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOrderFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitchASCII(TestReorderApp::kSeed, "hello");
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -205,7 +204,7 @@ TEST_F(ReorderAppTest, ParseWithInvalidSeedFails) {
 TEST_F(ReorderAppTest, ParseLinearOrderWithNoTraceFilesFails) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOrderFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
@@ -214,7 +213,7 @@ TEST_F(ReorderAppTest, ParseLinearOrderWithNoTraceFilesFails) {
 TEST_F(ReorderAppTest, ParseMinimalLinearOrderCommandLine) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOrderFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendArgPath(trace_file_path_);
 
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -222,7 +221,7 @@ TEST_F(ReorderAppTest, ParseMinimalLinearOrderCommandLine) {
   EXPECT_EQ(TestReorderApp::kLinearOrderMode, test_impl_.mode_);
   EXPECT_TRUE(test_impl_.input_image_path_.empty());
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
-  EXPECT_EQ(abs_order_file_path_, test_impl_.order_file_path_);
+  EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
   EXPECT_EQ(0U,test_impl_.seed_);
   EXPECT_FALSE(test_impl_.pretty_print_);
@@ -233,7 +232,7 @@ TEST_F(ReorderAppTest, ParseMinimalLinearOrderCommandLine) {
 TEST_F(ReorderAppTest, ParseFullLinearOrderCommandLine) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOrderFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitchPath(TestReorderApp::kInputImage, input_image_path_);
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kBasicBlockEntryCounts, bb_entry_count_file_path_);
@@ -245,7 +244,7 @@ TEST_F(ReorderAppTest, ParseFullLinearOrderCommandLine) {
   EXPECT_EQ(TestReorderApp::kLinearOrderMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
-  EXPECT_EQ(abs_order_file_path_, test_impl_.order_file_path_);
+  EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_bb_entry_count_file_path_,
             test_impl_.bb_entry_count_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
@@ -258,7 +257,7 @@ TEST_F(ReorderAppTest, ParseFullLinearOrderCommandLine) {
 TEST_F(ReorderAppTest, ParseMinimalDeprecatedLinearOrderCommandLine) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedDll, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendArgPath(trace_file_path_);
 
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -266,7 +265,7 @@ TEST_F(ReorderAppTest, ParseMinimalDeprecatedLinearOrderCommandLine) {
   EXPECT_EQ(TestReorderApp::kLinearOrderMode, test_impl_.mode_);
   EXPECT_TRUE(test_impl_.input_image_path_.empty());
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
-  EXPECT_EQ(abs_order_file_path_, test_impl_.order_file_path_);
+  EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
   EXPECT_EQ(0U,test_impl_.seed_);
   EXPECT_FALSE(test_impl_.pretty_print_);
@@ -277,7 +276,7 @@ TEST_F(ReorderAppTest, ParseMinimalDeprecatedLinearOrderCommandLine) {
 TEST_F(ReorderAppTest, ParseFullDeprecatedLinearOrderCommandLine) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedDll, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitchPath(TestReorderApp::kInputDll, input_image_path_);
   cmd_line_.AppendSwitch(TestReorderApp::kPrettyPrint);
   cmd_line_.AppendArgPath(trace_file_path_);
@@ -287,7 +286,7 @@ TEST_F(ReorderAppTest, ParseFullDeprecatedLinearOrderCommandLine) {
   EXPECT_EQ(TestReorderApp::kLinearOrderMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
-  EXPECT_EQ(abs_order_file_path_, test_impl_.order_file_path_);
+  EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(0U,test_impl_.seed_);
   EXPECT_TRUE(test_impl_.pretty_print_);
 
@@ -297,7 +296,7 @@ TEST_F(ReorderAppTest, ParseFullDeprecatedLinearOrderCommandLine) {
 TEST_F(ReorderAppTest, ParseRandomOrderCommandLine) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedDll, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitchASCII(
       TestReorderApp::kSeed, base::StringPrintf("%d", seed_));
 
@@ -306,7 +305,7 @@ TEST_F(ReorderAppTest, ParseRandomOrderCommandLine) {
   EXPECT_EQ(TestReorderApp::kRandomOrderMode, test_impl_.mode_);
   EXPECT_TRUE(test_impl_.input_image_path_.empty());
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
-  EXPECT_EQ(abs_order_file_path_, test_impl_.order_file_path_);
+  EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(seed_, test_impl_.seed_);
   EXPECT_TRUE(test_impl_.trace_file_paths_.empty());
   EXPECT_FALSE(test_impl_.pretty_print_);
@@ -317,7 +316,7 @@ TEST_F(ReorderAppTest, ParseRandomOrderCommandLine) {
 TEST_F(ReorderAppTest, ParseDeadCodeFinderCommandLine) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedDll, instrumented_image_path_);
-  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, order_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
   cmd_line_.AppendSwitch(TestReorderApp::kListDeadCode);
   cmd_line_.AppendSwitch(TestReorderApp::kPrettyPrint);
   cmd_line_.AppendArgPath(trace_file_path_);
@@ -327,7 +326,7 @@ TEST_F(ReorderAppTest, ParseDeadCodeFinderCommandLine) {
   EXPECT_EQ(TestReorderApp::kDeadCodeFinderMode, test_impl_.mode_);
   EXPECT_TRUE(test_impl_.input_image_path_.empty());
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
-  EXPECT_EQ(abs_order_file_path_, test_impl_.order_file_path_);
+  EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
   EXPECT_EQ(0U,test_impl_.seed_);
   EXPECT_TRUE(test_impl_.pretty_print_);

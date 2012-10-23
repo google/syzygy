@@ -64,7 +64,7 @@ class ReorderApp : public common::AppImplBase {
   // @{
   FilePath instrumented_image_path_;
   FilePath input_image_path_;
-  FilePath order_file_path_;
+  FilePath output_file_path_;
   FilePath bb_entry_count_file_path_;
   FilePathVector trace_file_paths_;
   uint32 seed_;
@@ -75,7 +75,7 @@ class ReorderApp : public common::AppImplBase {
   // Command-line parameter names. Exposed as protected for unit-testing.
   // @{
   static const char kInstrumentedImage[];
-  static const char kOrderFile[];
+  static const char kOutputFile[];
   static const char kInputImage[];
   static const char kBasicBlockEntryCounts[];
   static const char kSeed[];
@@ -84,7 +84,6 @@ class ReorderApp : public common::AppImplBase {
   static const char kReordererFlags[];
   static const char kInstrumentedDll[];
   static const char kInputDll[];
-  static const char kOutputFile[];
   // @}
  private:
   DISALLOW_COPY_AND_ASSIGN(ReorderApp);

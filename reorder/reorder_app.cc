@@ -47,7 +47,7 @@ static const char kUsageFormatStr[] =
     "Usage: %s [options] [log files ...]\n"
     "  Required Options:\n"
     "    --instrumented-image=<path> the path to the instrumented image file.\n"
-    "    --order-file=<path> the output file.\n"
+    "    --output-file=<path> the output file.\n"
     "  Optional Options:\n"
     "    --input-image=<path> the input image file to reorder. If this is not\n"
     "        specified it will be inferred from the instrumented image's\n"
@@ -65,8 +65,7 @@ static const char kUsageFormatStr[] =
     "    no-data: Do not reorder data sections.\n"
     "  Deprecated Options:\n"
     "    --instrumented-dll=<path> aliases to --instrumented-image.\n"
-    "    --input-dll=<path> aliases to --input-image.\n"
-    "    --output-file=<path> aliases to --order-file.\n";
+    "    --input-dll=<path> aliases to --input-image.\n";
 
 // Parses reorderer flags. Returns true on success, false otherwise. On
 // failure, also outputs Usage with an error message.
@@ -104,7 +103,7 @@ bool ParseFlags(const std::string& flags_str, Reorderer::Flags* flags) {
 }  // namespace
 
 const char ReorderApp::kInstrumentedImage[] = "instrumented-image";
-const char ReorderApp::kOrderFile[] = "order-file";
+const char ReorderApp::kOutputFile[] = "output-file";
 const char ReorderApp::kInputImage[] = "input-image";
 const char ReorderApp::kBasicBlockEntryCounts[] = "basic-block-entry-counts";
 const char ReorderApp::kSeed[] = "seed";
@@ -113,7 +112,6 @@ const char ReorderApp::kPrettyPrint[] = "pretty-print";
 const char ReorderApp::kReordererFlags[] = "reorderer-flags";
 const char ReorderApp::kInstrumentedDll[] = "instrumented-dll";
 const char ReorderApp::kInputDll[] = "input-dll";
-const char ReorderApp::kOutputFile[] = "output-file";
 
 ReorderApp::ReorderApp()
     : AppImplBase("Reorder"),
@@ -137,14 +135,10 @@ bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
     return Usage(command_line, "Invalid or missing instrumented image path.");
   }
 
-  // Parse the order file path.
-  if (!GetDeprecatedSwitch(command_line,
-                           kOrderFile,
-                           kOutputFile,
-                           &CommandLine::GetSwitchValuePath,
-                           &order_file_path_) ||
-      order_file_path_.empty()) {
-    return Usage(command_line, "Invalid or missing order file path.");
+  // Parse the output file path.
+  output_file_path_ = command_line->GetSwitchValuePath(kOutputFile);
+  if (output_file_path_.empty()) {
+    return Usage(command_line, "Invalid or missing output file path.");
   }
 
   // Parse the (optional) input image path.
@@ -171,7 +165,7 @@ bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
   // Make all of the input paths absolute.
   input_image_path_ = AbsolutePath(input_image_path_);
   instrumented_image_path_ = AbsolutePath(instrumented_image_path_);
-  order_file_path_ = AbsolutePath(order_file_path_);
+  output_file_path_ = AbsolutePath(output_file_path_);
   bb_entry_count_file_path_ = AbsolutePath(bb_entry_count_file_path_);
 
   // Capture the (possibly empty) set of trace files to read.
@@ -285,7 +279,7 @@ int ReorderApp::Run() {
   }
 
   // Serialize the order to JSON.
-  if (!order.SerializeToJSON(input_image, order_file_path_, pretty_print_)) {
+  if (!order.SerializeToJSON(input_image, output_file_path_, pretty_print_)) {
     LOG(ERROR) << "Unable to output order.";
     return 1;
   }
