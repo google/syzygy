@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,6 +135,33 @@ class AppImplBase {
   // path. If the conversion to an absolute path fails, the original path is
   // returned.
   static FilePath AbsolutePath(const FilePath& path);
+
+  // A helper function to get a command line parameter that has both a current
+  // and a deprecated name.
+  template <typename ValueType>
+  static bool GetDeprecatedSwitch(
+      const CommandLine* cmd_line,
+      const std::string& current_switch_name,
+      const std::string& deprecated_switch_name,
+      ValueType (CommandLine::*getter)(const std::string&) const,
+      ValueType* value) {
+    DCHECK(cmd_line != NULL);
+    DCHECK(getter != NULL);
+    DCHECK(value != NULL);
+    if (cmd_line->HasSwitch(deprecated_switch_name)) {
+      if (cmd_line->HasSwitch(current_switch_name)) {
+        LOG(ERROR) << "Cannot specify both --" << current_switch_name
+                   << " and --" << deprecated_switch_name << ".";
+        return false;
+      }
+      LOG(WARNING)
+          << "Using deprecated switch: --" << deprecated_switch_name << ".";
+      *value = (cmd_line->*getter)(deprecated_switch_name);
+    } else {
+      *value = (cmd_line->*getter)(current_switch_name);
+    }
+    return true;
+  }
 
  protected:
   // The name of this application.
