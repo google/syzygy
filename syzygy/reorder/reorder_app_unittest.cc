@@ -107,7 +107,8 @@ class ReorderAppTest : public testing::PELibUnitTest {
     bb_entry_count_file_path_ = testing::GetRelativePath(
         abs_bb_entry_count_file_path_);
 
-    abs_trace_file_path_ = testing::GetExeTestDataRelativePath(L"trace1.bin");
+    abs_trace_file_path_ =
+        testing::GetExeTestDataRelativePath(L"rpc_traces\\trace-1.bin");
     trace_file_path_ = testing::GetRelativePath(abs_trace_file_path_);
 
     // Point the application at the test's command-line and IO streams.
