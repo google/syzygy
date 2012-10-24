@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <windows.h>
+
+#include <windows.h>  // NOLINT
+
+#include <algorithm>
+#include <list>
 
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -23,6 +27,8 @@ extern "C" {
 using agent::asan::HeapProxy;
 
 static HANDLE process_heap = GetProcessHeap();
+// TODO(sebmarchand): Use an intrusive list.
+static std::list<HeapProxy*> heap_proxy_list;
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
@@ -30,6 +36,8 @@ HANDLE WINAPI asan_HeapCreate(DWORD options,
   scoped_ptr<HeapProxy> proxy(new HeapProxy());
   if (!proxy->Create(options, initial_size, maximum_size))
     proxy.reset();
+
+  heap_proxy_list.push_back(proxy.get());
 
   return HeapProxy::ToHandle(proxy.release());
 }
@@ -41,6 +49,10 @@ BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
   HeapProxy* proxy = HeapProxy::FromHandle(heap);
   if (!proxy)
     return FALSE;
+
+  DCHECK(std::find(heap_proxy_list.begin(), heap_proxy_list.end(), proxy)
+      != heap_proxy_list.end());
+  heap_proxy_list.remove(proxy);
 
   if (proxy->Destroy()) {
     delete proxy;
@@ -204,8 +216,18 @@ namespace asan {
 
 void __cdecl CheckAccessSlow(const uint8* location) {
   if (!Shadow::IsAccessible(location)) {
-    LOG(FATAL) << "Invalid write access to location "
-               << reinterpret_cast<const void*>(location);
+    std::list<HeapProxy*>::iterator heap_iter = heap_proxy_list.begin();
+    for (; heap_iter != heap_proxy_list.end(); ++heap_iter) {
+      HeapProxy* proxy = HeapProxy::FromHandle(*heap_iter);
+      if (proxy->OnBadAccess(location)) {
+        break;
+      }
+    }
+    // If we didn't found a heap with a memory block containing this address we
+    // report an unknown crash.
+    if (heap_iter == heap_proxy_list.end()) {
+      HeapProxy::ReportUnknownError(location);
+    }
   }
 }
 

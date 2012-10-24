@@ -62,9 +62,22 @@ class HeapProxy {
                         unsigned long* return_length);
   // @}
 
- private:
-  // Magic number to identify the beginning of a block header.
-  static const size_t kBlockHeaderSignature = 0x3CA80E7;
+  // Report a bad access to the heap.
+  // @param addr The red-zoned address causing a bad access.
+  // @returns true if the address belongs to a memory block, false otherwise.
+  bool OnBadAccess(const uint8* addr);
+
+  // Report an unknown error while attempting the red-zoned heap address @addr.
+  static void ReportUnknownError(const uint8* addr);
+
+ protected:
+  // Enumeration of the different kind of bad heap access that we can encounter.
+  enum BadAccessKind {
+    UNKNOWN_BAD_ACCESS,
+    USE_AFTER_FREE,
+    HEAP_BUFFER_OVERFLOW,
+    HEAP_BUFFER_UNDERFLOW,
+  };
 
   enum BlockState {
     ALLOCATED,
@@ -80,13 +93,35 @@ class HeapProxy {
   struct BlockHeader {
     size_t magic_number;
     size_t size;
-    uint8 state;
+    BlockState state;
   };
+
+  // Returns the block header for an alloc.
+  BlockHeader* ToBlock(const void* alloc);
+
+  // Returns alloc for a block.
+  uint8* ToAlloc(BlockHeader* block);
+
+  // Find the memory block containing @p addr.
+  // @returns a pointer to this memory block in case of success, NULL otherwise.
+  BlockHeader* FindAddressBlock(const uint8* addr);
+
+  // Give the type of a bad heap access corresponding to an address.
+  // @param addr The address causing a bad heap access.
+  // @param header The header of the block containing this address.
+  BadAccessKind GetBadAccessKind(const uint8* addr, BlockHeader* header);
+
+ private:
+  // Magic number to identify the beginning of a block header.
+  static const size_t kBlockHeaderSignature = 0x03CA80E7;
 
   // Free blocks are linked together.
   struct FreeBlockHeader : public BlockHeader {
     FreeBlockHeader* next;
   };
+
+  // Returns a string describing a bad access kind.
+  static char* AccessTypeToStr(BadAccessKind bad_access_kind);
 
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
@@ -95,11 +130,36 @@ class HeapProxy {
   // allocation of @p bytes.
   static size_t GetAllocSize(size_t bytes);
 
-  // Returns the block header for an alloc.
-  static BlockHeader* ToBlock(const void* alloc);
+  // Print the information about an address belonging to a memory block. This
+  // function will print the relative position of this address inside a block
+  // and the bounds of this block.
+  // @param addr The address for which we want information.
+  // @param header The block containing the address.
+  // @param bad_access_kind The kind of bad access corresponding to this
+  //     address.
+  void PrintAddressInformation(const uint8* addr,
+                               BlockHeader* header,
+                               BadAccessKind bad_access_kind);
 
-  // Returns alloc for a block.
-  static uint8* ToAlloc(BlockHeader* block);
+  // Report a basic Asan error to stderr. This function just dump the stack
+  // without providing information relative to the shadow memory.
+  // @param bug_descr The description of the error.
+  // @param addr The address causing an error.
+  // @param bad_access_kind The kind of error.
+  static void ReportAsanErrorBase(const char* bug_descr,
+                                  const uint8* addr,
+                                  BadAccessKind bad_access_kind);
+
+  // Report an Asan error to stderr with information about the address causing
+  // this error.
+  // @param bug_descr The description of the error.
+  // @param addr The address causing an error.
+  // @param bad_access_kind The kind of error.
+  // @param header The header of the block containing this address.
+  void ReportAsanError(const char* bug_descr,
+                       const uint8* addr,
+                       BadAccessKind bad_access_kind,
+                       BlockHeader* header);
 
   // Contains the underlying heap we delegate to.
   HANDLE heap_;

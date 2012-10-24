@@ -27,6 +27,31 @@ namespace asan {
 
 namespace {
 
+// A derived class to expose protected members for unit-testing.
+class TestHeapProxy : public HeapProxy {
+ public:
+  using HeapProxy::BlockHeader;
+  using HeapProxy::FindAddressBlock;
+  using HeapProxy::GetBadAccessKind;
+  using HeapProxy::ToBlock;
+
+  // Verify that the access to @p addr contained in @p header is an underflow.
+  bool IsUnderflowAccess(uint8* addr, BlockHeader* header) {
+    return GetBadAccessKind(addr, header) == HEAP_BUFFER_UNDERFLOW;
+  }
+
+  // Verify that the access to @p addr contained in @p header is an overflow.
+  bool IsOverflowAccess(uint8* addr, BlockHeader* header) {
+    return GetBadAccessKind(addr, header) == HEAP_BUFFER_OVERFLOW;
+  }
+
+  // Verify that the access to @p addr contained in @p header is an use after
+  // free.
+  bool IsUseAfterAccess(uint8* addr, BlockHeader* header) {
+    return GetBadAccessKind(addr, header) == USE_AFTER_FREE;
+  }
+};
+
 class HeapTest : public testing::Test {
  public:
   virtual void SetUp() OVERRIDE {
@@ -64,7 +89,7 @@ class HeapTest : public testing::Test {
   // Arbitrary constant for all size limit.
   static const size_t kMaxAllocSize = 134584;
 
-  HeapProxy proxy_;
+  TestHeapProxy proxy_;
 };
 
 }  // namespace
@@ -190,6 +215,30 @@ TEST_F(HeapTest, SetQueryInformation) {
   ASSERT_TRUE(
       proxy_.SetInformation(HeapCompatibilityInformation,
                             &compat_flag, sizeof(compat_flag)));
+}
+
+TEST_F(HeapTest, FindAddressBlock) {
+  const size_t kAllocSize = 100;
+  void* mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_FALSE(mem == NULL);
+  ASSERT_FALSE(proxy_.FindAddressBlock(static_cast<const uint8*>(mem)) == NULL);
+  uint8* out_of_bounds_address =
+      static_cast<uint8*>(mem) + kAllocSize * 2;
+  ASSERT_TRUE(proxy_.FindAddressBlock(out_of_bounds_address) == NULL);
+  ASSERT_TRUE(proxy_.Free(0, mem));
+}
+
+TEST_F(HeapTest, GetBadAccessKind) {
+  const size_t kAllocSize = 100;
+  uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
+  ASSERT_FALSE(mem == NULL);
+  TestHeapProxy::BlockHeader* header = proxy_.ToBlock(mem);
+  uint8* heap_underflow_address = mem - 1;
+  uint8* heap_overflow_address = mem + kAllocSize * sizeof(uint8);
+  ASSERT_TRUE(proxy_.IsUnderflowAccess(heap_underflow_address, header));
+  ASSERT_TRUE(proxy_.IsOverflowAccess(heap_overflow_address, header));
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.IsUseAfterAccess(mem, header));
 }
 
 }  // namespace asan
