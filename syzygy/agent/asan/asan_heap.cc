@@ -15,15 +15,38 @@
 #include "syzygy/agent/asan/asan_heap.h"
 
 #include "base/logging.h"
+#include "base/debug/stack_trace.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace agent {
 namespace asan {
-
 namespace {
 
 // Redzone size allocated at the start of every heap block.
 const size_t kRedZoneSize = 32;
+
+// Utility class which implements an auto lock for a HeapProxy.
+class HeapLocker {
+ public:
+  explicit HeapLocker(HeapProxy* const heap) : heap_(heap) {
+    DCHECK(heap != NULL);
+    if (!heap->Lock()) {
+      LOG(ERROR) << "Unable to lock the heap.";
+    }
+  }
+
+  ~HeapLocker() {
+    DCHECK(heap_ != NULL);
+    if (!heap_->Unlock()) {
+      LOG(ERROR) << "Unable to lock the heap.";
+    }
+  }
+
+ private:
+  HeapProxy* const heap_;
+
+  DISALLOW_COPY_AND_ASSIGN(HeapLocker);
+};
 
 }  // namespace
 
@@ -93,12 +116,13 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes){
   block->size = bytes;
   block->state = ALLOCATED;
 
-  Shadow::Unpoison(ToAlloc(block), bytes);
+  uint8* block_alloc = ToAlloc(block);
+  Shadow::Unpoison(block_alloc, bytes);
 
-  memset(ToAlloc(block) + bytes, '0xCD', trailer_size);
-  Shadow::Poison(ToAlloc(block) + bytes, trailer_size);
+  memset(block_alloc + bytes, '0xCD', trailer_size);
+  Shadow::Poison(block_alloc + bytes, trailer_size);
 
-  return ToAlloc(block);
+  return block_alloc;
 }
 
 void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes){
@@ -121,10 +145,19 @@ bool HeapProxy::Free(DWORD flags, void* mem){
     return true;
 
   if (block->state != ALLOCATED) {
-    LOG(ERROR) << "Trying to free a non-allocated block.";
+    // We're not supposed to see another kind of block here, the FREED state
+    // is only applied to block after invalidating their magic number and freed
+    // them.
+    DCHECK(block->state == QUARANTINED);
+    BadAccessKind bad_access_kind =
+        GetBadAccessKind(static_cast<const uint8*>(mem), block);
+    ReportAsanError("attempting double-free", static_cast<const uint8*>(mem),
+        bad_access_kind, block);
+
     return false;
   }
 
+  DCHECK(ToAlloc(block) == mem);
   if (!Shadow::IsAccessible(ToAlloc(block)))
     return false;
 
@@ -243,18 +276,166 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
 
   uint8* mem = reinterpret_cast<uint8*>(const_cast<void*>(alloc));
   BlockHeader* header = reinterpret_cast<BlockHeader*>(mem - kRedZoneSize);
-  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
+  if (header->magic_number != kBlockHeaderSignature) {
+    OnBadAccess(reinterpret_cast<const uint8*>(alloc));
+    return NULL;
+  }
 
   return header;
 }
 
 uint8* HeapProxy::ToAlloc(BlockHeader* block) {
   DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
-  DCHECK(block->state == ALLOCATED);
+  DCHECK(block->state == ALLOCATED || block->state == QUARANTINED);
 
   uint8* mem = reinterpret_cast<uint8*>(block);
 
   return mem + kRedZoneSize;
+}
+
+void HeapProxy::PrintAddressInformation(const uint8* addr,
+                                        BlockHeader* header,
+                                        BadAccessKind bad_access_kind) {
+  DCHECK(addr != NULL);
+  DCHECK(header != NULL);
+
+  uint8* block_alloc = ToAlloc(header);
+  int offset = 0;
+  char* offset_relativity = "";
+  switch (bad_access_kind) {
+    case HEAP_BUFFER_OVERFLOW:
+      offset = addr - block_alloc - header->size;
+      offset_relativity = "to the right";
+      break;
+    case HEAP_BUFFER_UNDERFLOW:
+      offset = block_alloc - addr;
+      offset_relativity = "to the left";
+      break;
+    case USE_AFTER_FREE:
+      offset = addr - block_alloc;
+      offset_relativity = "inside";
+      break;
+    default:
+      NOTREACHED() << "Error trying to dump address information.";
+  }
+
+  fprintf(stderr, "0x%08X is located %d bytes %s of %d-bytes region "
+          "[0x%08X,0x%08X)",
+          addr,
+          offset,
+          offset_relativity,
+          header->size,
+          block_alloc,
+          block_alloc + header->size);
+}
+
+HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const uint8* addr,
+    BlockHeader* header) {
+  BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
+
+  if (header->state == QUARANTINED) {
+    // At this point we can't know if this address belongs to this
+    // quarantined block... If the block containing this address has been
+    // moved from the quarantine list its memory space could have been re-used
+    // and freed again (so having this block in the quarantine list don't
+    // guarantee that this is the original block).
+    // TODO(sebmarchand): Find a way to fix this bug.
+    bad_access_kind = USE_AFTER_FREE;
+  } else {
+    if (addr < (ToAlloc(header)))
+      bad_access_kind = HEAP_BUFFER_UNDERFLOW;
+    else if (addr >= (ToAlloc(header) + header->size))
+      bad_access_kind = HEAP_BUFFER_OVERFLOW;
+  }
+  return bad_access_kind;
+}
+
+HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const uint8* addr) {
+  PROCESS_HEAP_ENTRY heap_entry = {};
+  memset(&heap_entry, 0, sizeof(heap_entry));
+  BlockHeader* header = NULL;
+
+  // Walk through the heap to find the block containing @p addr.
+  HeapLocker heap_locker(this);
+  while (Walk(&heap_entry)) {
+    uint8* entry_upper_bound =
+        static_cast<uint8*>(heap_entry.lpData) + heap_entry.cbData;
+
+    if (heap_entry.lpData <= addr && entry_upper_bound > addr) {
+      header = reinterpret_cast<BlockHeader*>(heap_entry.lpData);
+      // Ensures that the block have been allocated by this proxy.
+      if (header->magic_number == kBlockHeaderSignature) {
+        DCHECK(header->state != FREED);
+        break;
+      } else {
+        header = NULL;
+      }
+    }
+  }
+
+  return header;
+}
+
+bool HeapProxy::OnBadAccess(const uint8* addr) {
+  base::AutoLock lock(lock_);
+  BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
+  BlockHeader* header = FindAddressBlock(addr);
+
+  if (header == NULL)
+    return false;
+
+  bad_access_kind = GetBadAccessKind(addr, header);
+  // Get the bad access description if we've been able to determine its kind.
+  if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
+    const char* bug_descr = AccessTypeToStr(bad_access_kind);
+    ReportAsanError(bug_descr, addr, bad_access_kind, header);
+  } else {
+    // Otherwise we report this bad access as an unknown error.
+    ReportUnknownError(addr);
+  }
+
+  return true;
+}
+
+void HeapProxy::ReportUnknownError(const uint8* addr) {
+  ReportAsanErrorBase("unknown-crash", addr, UNKNOWN_BAD_ACCESS);
+}
+
+void HeapProxy::ReportAsanError(const char* bug_descr,
+                                const uint8* addr,
+                                BadAccessKind bad_access_kind,
+                                BlockHeader* header) {
+  DCHECK(header != NULL);
+
+  ReportAsanErrorBase(bug_descr, addr, bad_access_kind);
+  PrintAddressInformation(addr, header, bad_access_kind);
+}
+
+void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
+                                    const uint8* addr,
+                                    BadAccessKind bad_access_kind) {
+  DCHECK(bug_descr != NULL);
+  DCHECK(addr != NULL);
+
+  // TODO(sebmarchand): Print PC, BP and SP.
+  fprintf(stderr, "SyzyASAN error: %s on address 0x%08X\n", bug_descr, addr);
+
+  base::debug::StackTrace stack_trace;
+  stack_trace.PrintBacktrace();
+}
+
+char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
+  switch (bad_access_kind) {
+    case USE_AFTER_FREE:
+      return "heap-use-after-free";
+    case HEAP_BUFFER_UNDERFLOW:
+      return "heap-buffer-underflow";
+    case HEAP_BUFFER_OVERFLOW:
+      return "heap-buffer-overflow";
+    default:
+      NOTREACHED() << "Unexpected bad access kind.";
+      return NULL;
+  }
 }
 
 }  // namespace asan
