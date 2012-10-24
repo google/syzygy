@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,6 +51,31 @@ FilePath AppImplBase::AbsolutePath(const FilePath& path) {
     return temp;
   else
     return path;
+}
+
+bool AppImplBase::AppendMatchingPaths(const FilePath& pattern,
+                                      std::vector<FilePath>* matches) {
+  DCHECK(matches != NULL);
+  bool found_a_match = false;
+
+  // Whether the pattern is an existing file or not, we expand it as a glob.
+  // If it's a file, it'll match itself and nothing else.
+  file_util::FileEnumerator files(AbsolutePath(pattern.DirName()),
+                                  false,
+                                  file_util::FileEnumerator::FILES,
+                                  pattern.BaseName().value());
+  while (true) {
+    FilePath file = files.Next();
+    if (file.empty())
+      break;
+
+    DCHECK(file.IsAbsolute());
+
+    found_a_match = true;
+    matches->push_back(file);
+  }
+
+  return found_a_match;
 }
 
 }  // namespace common

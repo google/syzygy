@@ -69,6 +69,7 @@
 #define SYZYGY_COMMON_APPLICATION_H_
 
 #include <objbase.h>
+#include <vector>
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
@@ -135,6 +136,12 @@ class AppImplBase {
   // path. If the conversion to an absolute path fails, the original path is
   // returned.
   static FilePath AbsolutePath(const FilePath& path);
+
+  // A helper function which appends the set of absolute file paths matching
+  // the @p pattern (for example ..\foo\*.bin) to the end of @p matches.
+  // @returns true if at least one matching file was found.
+  static bool AppendMatchingPaths(const FilePath& pattern,
+                                  std::vector<FilePath>* matches);
 
   // A helper function to get a command line parameter that has both a current
   // and a deprecated name.
