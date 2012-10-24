@@ -170,8 +170,11 @@ bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
 
   // Capture the (possibly empty) set of trace files to read.
   for (size_t i = 0; i < command_line->GetArgs().size(); ++i) {
-    trace_file_paths_.push_back(
-        AbsolutePath(FilePath(command_line->GetArgs()[i])));
+    const FilePath pattern(command_line->GetArgs()[i]);
+    if (!AppendMatchingPaths(pattern, &trace_file_paths_)) {
+      LOG(ERROR) << "Found no files matching '" << pattern.value() << "'.";
+      return Usage(command_line, "");
+    }
   }
 
   // Check if we are in random order mode. Look for and parse --seed.
