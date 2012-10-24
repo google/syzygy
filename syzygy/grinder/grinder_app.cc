@@ -80,7 +80,7 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   }
 
   for (size_t i = 0; i < args.size(); ++i) {
-    if (!ExpandArgument(FilePath(args[i]))) {
+    if (!AppendMatchingPaths(FilePath(args[i]), &trace_files_)) {
       PrintUsage(command_line->GetProgram(),
                  base::StringPrintf("No such file '%ws'.", args[i].c_str()));
       return false;
@@ -173,27 +173,6 @@ int GrinderApp::Run() {
   }
 
   return 0;
-}
-
-bool GrinderApp::ExpandArgument(const FilePath& path) {
-  bool success = false;
-
-  // Whether the path is an existing file or not, we expand it as a glob.
-  // If it's a file, it'll match itself and nothing else.
-  file_util::FileEnumerator files(path.DirName(),
-                                  false,
-                                  file_util::FileEnumerator::FILES,
-                                  path.BaseName().value());
-  while (true) {
-    FilePath file = files.Next();
-    if (file.empty())
-      break;
-
-    success = true;
-    trace_files_.push_back(file);
-  }
-
-  return success;
 }
 
 }  // namespace grinder
