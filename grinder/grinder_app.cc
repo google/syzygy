@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "syzygy/grinder/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/coverage_grinder.h"
 #include "syzygy/grinder/profile_grinder.h"
 
@@ -37,7 +38,8 @@ const char kUsageFormatStr[] =
     "\n"
     "Required parameters\n"
     "  --mode=<mode>\n"
-    "    The processing mode. Must be one of 'profile' or 'coverage'.\n"
+    "    The processing mode. Must be one of 'profile', 'basic-block-entry'\n"
+    "    or 'coverage'.\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
     "    The location of output file. If not specified, output is to stdout.\n"
@@ -93,6 +95,9 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   } else if (mode == "coverage") {
     mode_ = kCoverage;
     grinder_.reset(new CoverageGrinder());
+  } else if (mode == "basic-block-entry") {
+    mode_ = kBasicBlockEntry;
+    grinder_.reset(new BasicBlockEntryCountGrinder());
   } else {
     PrintUsage(command_line->GetProgram(),
                base::StringPrintf("Unknown mode: %s.", mode.c_str()));
