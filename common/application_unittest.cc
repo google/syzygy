@@ -98,6 +98,13 @@ class ApplicationTest : public testing::ApplicationTestBase {
   MockApp mock_app_;
 };
 
+bool CreateEmptyFile(const FilePath& path) {
+  file_util::ScopedFILE f(file_util::OpenFile(path, "wb"));
+  if (f.get() == NULL)
+    return false;
+  return true;
+}
+
 }  // namespace
 
 TEST_F(ApplicationTest, AppImplBaseDefault) {
@@ -172,6 +179,39 @@ TEST_F(ApplicationTest, AbsolutePath) {
   EXPECT_EQ(FilePath(), app_impl.AbsolutePath(FilePath()));
   EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kRelativePath));
   EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kAbsolutePath));
+}
+
+TEST_F(ApplicationTest, AppendMatchingPaths) {
+  // Create some files to match against.
+  FilePath temp_dir;
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
+  ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"a.txt")));
+  ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"b.txt")));
+  ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"c.txt")));
+  ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"a.bin")));
+
+  // Should get false on no match.
+  std::vector<FilePath> no_matching_paths;
+  ASSERT_FALSE(TestAppImpl::AppendMatchingPaths(temp_dir.Append(L"d.*"),
+                                                &no_matching_paths));
+  EXPECT_TRUE(no_matching_paths.empty());
+
+  // Match a pattern where the extension is a wildcard.
+  std::vector<FilePath> a_star_paths;
+  ASSERT_TRUE(TestAppImpl::AppendMatchingPaths(temp_dir.Append(L"a.*"),
+              &a_star_paths));
+  EXPECT_THAT(a_star_paths,
+              testing::ElementsAre(temp_dir.Append(L"a.bin"),
+                                   temp_dir.Append(L"a.txt")));
+
+  // Match a pattern where the extension is set but the root name is a wildcard.
+  std::vector<FilePath> star_txt_paths;
+  ASSERT_TRUE(TestAppImpl::AppendMatchingPaths(temp_dir.Append(L"*.txt"),
+                                               &star_txt_paths));
+  EXPECT_THAT(star_txt_paths,
+              testing::ElementsAre(temp_dir.Append(L"a.txt"),
+                                   temp_dir.Append(L"b.txt"),
+                                   temp_dir.Append(L"c.txt")));
 }
 
 TEST_F(ApplicationTest, GetDeprecatedSwitch) {
