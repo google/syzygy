@@ -320,13 +320,15 @@ void HeapProxy::PrintAddressInformation(const uint8* addr,
   }
 
   fprintf(stderr, "0x%08X is located %d bytes %s of %d-bytes region "
-          "[0x%08X,0x%08X)",
+          "[0x%08X,0x%08X)\n",
           addr,
           offset,
           offset_relativity,
           header->size,
           block_alloc,
           block_alloc + header->size);
+
+  Shadow::PrintShadowMemoryForAddress(reinterpret_cast<void*>(block_alloc));
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const uint8* addr,

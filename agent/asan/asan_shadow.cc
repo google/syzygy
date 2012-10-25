@@ -65,5 +65,28 @@ bool Shadow::IsAccessible(const void* addr) {
   return start < shadow;
 }
 
+void Shadow::PrintShadowBytes(const char *prefix, uintptr_t index) {
+  fprintf(stderr, "%s0x%08x:", prefix, reinterpret_cast<void*>(index << 3));
+  for (uint32 i = 0; i < 8; i++) {
+    uint8 shadow_value = shadow_[index + i];
+    fprintf(stderr, " %x%x", shadow_value >> 4, shadow_value & 15);
+  }
+  fprintf(stderr, "\n");
+}
+
+void Shadow::PrintShadowMemoryForAddress(const void* addr) {
+  uintptr_t index = reinterpret_cast<uintptr_t>(addr);
+  index >>= 3;
+  fprintf(stderr, "Shadow byte and word:\n");
+  fprintf(stderr, "  0x%08x: %x\n", addr, shadow_[index]);
+  index &= ~0x7;
+  PrintShadowBytes("  ", index);
+  fprintf(stderr, "More shadow bytes:\n");
+  for (int i = -4; i <= 4; i++) {
+    const char *prefix = (i == 0) ? "=>" : "  ";
+    PrintShadowBytes(prefix, (index + i * 8));
+  }
+}
+
 }  // namespace asan
 }  // namespace agent
