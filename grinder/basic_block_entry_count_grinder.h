@@ -63,14 +63,16 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   }
 
  protected:
-   // This method does the actual updating of the entry counts on receipt
-   // of basic-block frequency data. It is implemented separately from the
-   // main hook for unit-testing purposes.
-   // @param module_info the module whose basic-block entries are being counted.
-   // @param data the basic-block entry counts being reported.
-   void UpdateBasicBlockEntryCount(
-       const basic_block_util::ModuleInformation* module_info,
-       const TraceBasicBlockFrequencyData* data);
+  typedef basic_block_util::ModuleInformation ModuleInformation;
+
+  // This method does the actual updating of the entry counts on receipt
+  // of basic-block frequency data. It is implemented separately from the
+  // main hook for unit-testing purposes.
+  // @param module_info the module whose basic-block entries are being counted.
+  // @param data the basic-block entry counts being reported.
+  void UpdateBasicBlockEntryCount(
+      const ModuleInformation* module_info,
+      const TraceBasicBlockFrequencyData* data);
 
   // Stores the summarized basic-block entry counts, per module.
   basic_block_util::EntryCountMap entry_count_map_;
