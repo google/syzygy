@@ -86,7 +86,7 @@ bool HeapProxy::Create(DWORD options,
   return false;
 }
 
-bool HeapProxy::Destroy(){
+bool HeapProxy::Destroy() {
   DCHECK(heap_ != NULL);
   if (::HeapDestroy(heap_)) {
     heap_ = NULL;
@@ -96,7 +96,7 @@ bool HeapProxy::Destroy(){
   return false;
 }
 
-void* HeapProxy::Alloc(DWORD flags, size_t bytes){
+void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   DCHECK(heap_ != NULL);
 
   size_t alloc_size = GetAllocSize(bytes);
@@ -125,7 +125,7 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes){
   return block_alloc;
 }
 
-void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes){
+void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
   DCHECK(heap_ != NULL);
 
   void *new_mem = Alloc(flags, bytes);
@@ -138,7 +138,7 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes){
   return new_mem;
 }
 
-bool HeapProxy::Free(DWORD flags, void* mem){
+bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(heap_ != NULL);
   BlockHeader* block = ToBlock(mem);
   if (block == NULL)
@@ -166,7 +166,7 @@ bool HeapProxy::Free(DWORD flags, void* mem){
   return true;
 }
 
-size_t HeapProxy::Size(DWORD flags, const void* mem){
+size_t HeapProxy::Size(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
   BlockHeader* block = ToBlock(mem);
   if (block == NULL)
@@ -175,34 +175,34 @@ size_t HeapProxy::Size(DWORD flags, const void* mem){
   return block->size;
 }
 
-bool HeapProxy::Validate(DWORD flags, const void* mem){
+bool HeapProxy::Validate(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
   return ::HeapValidate(heap_, flags, ToBlock(mem)) == TRUE;
 }
 
-size_t HeapProxy::Compact(DWORD flags){
+size_t HeapProxy::Compact(DWORD flags) {
   DCHECK(heap_ != NULL);
   return ::HeapCompact(heap_, flags);
 }
 
-bool HeapProxy::Lock(){
+bool HeapProxy::Lock() {
   DCHECK(heap_ != NULL);
   return ::HeapLock(heap_) == TRUE;
 }
 
-bool HeapProxy::Unlock(){
+bool HeapProxy::Unlock() {
   DCHECK(heap_ != NULL);
   return ::HeapUnlock(heap_) == TRUE;
 }
 
-bool HeapProxy::Walk(PROCESS_HEAP_ENTRY* entry){
+bool HeapProxy::Walk(PROCESS_HEAP_ENTRY* entry) {
   DCHECK(heap_ != NULL);
   return ::HeapWalk(heap_, entry) == TRUE;
 }
 
 bool HeapProxy::SetInformation(HEAP_INFORMATION_CLASS info_class,
                                void* info,
-                               size_t info_length){
+                               size_t info_length) {
   DCHECK(heap_ != NULL);
   return ::HeapSetInformation(heap_, info_class, info, info_length) == TRUE;
 }
@@ -210,7 +210,7 @@ bool HeapProxy::SetInformation(HEAP_INFORMATION_CLASS info_class,
 bool HeapProxy::QueryInformation(HEAP_INFORMATION_CLASS info_class,
                                  void* info,
                                  size_t info_length,
-                                 unsigned long* return_length){
+                                 unsigned long* return_length) {
   DCHECK(heap_ != NULL);
   return ::HeapQueryInformation(heap_,
                                 info_class,
@@ -436,6 +436,16 @@ char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       NOTREACHED() << "Unexpected bad access kind.";
       return NULL;
   }
+}
+
+LIST_ENTRY* HeapProxy::ToListEntry(HeapProxy* proxy) {
+  DCHECK(proxy != NULL);
+  return &proxy->list_entry_;
+}
+
+HeapProxy* HeapProxy::FromListEntry(LIST_ENTRY* list_entry) {
+  DCHECK(list_entry != NULL);
+  return CONTAINING_RECORD(list_entry, HeapProxy, list_entry_);
 }
 
 }  // namespace asan

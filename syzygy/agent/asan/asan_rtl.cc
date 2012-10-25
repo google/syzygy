@@ -17,18 +17,43 @@
 #include <algorithm>
 #include <list>
 
+#include "base/at_exit.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/common/dlist.h"
+
+namespace {
+
+// A helper function to find if an intrusive list contains a given entry.
+// @param list The list in which we want to look for the entry.
+// @param item The entry we want to look for.
+// @returns true if the list contains this entry, false otherwise.
+bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
+  LIST_ENTRY* current = list->Flink;
+  while (current != NULL) {
+    LIST_ENTRY* next_item = NULL;
+    if (current->Flink != list) {
+      next_item = current->Flink;
+    }
+
+    if (current == item) {
+      return true;
+    }
+
+    current = next_item;
+  }
+  return false;
+}
+
+}  // namespace
 
 extern "C" {
-
 using agent::asan::HeapProxy;
 
-static HANDLE process_heap = GetProcessHeap();
-// TODO(sebmarchand): Use an intrusive list.
-static std::list<HeapProxy*> heap_proxy_list;
+static HANDLE process_heap = NULL;
+LIST_ENTRY heap_proxy_dlist = {};
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
@@ -37,7 +62,7 @@ HANDLE WINAPI asan_HeapCreate(DWORD options,
   if (!proxy->Create(options, initial_size, maximum_size))
     proxy.reset();
 
-  heap_proxy_list.push_back(proxy.get());
+  InsertTailList(&heap_proxy_dlist, HeapProxy::ToListEntry(proxy.get()));
 
   return HeapProxy::ToHandle(proxy.release());
 }
@@ -50,9 +75,9 @@ BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
   if (!proxy)
     return FALSE;
 
-  DCHECK(std::find(heap_proxy_list.begin(), heap_proxy_list.end(), proxy)
-      != heap_proxy_list.end());
-  heap_proxy_list.remove(proxy);
+  DCHECK(HeapListContainsEntry(&heap_proxy_dlist, HeapProxy::ToListEntry(proxy))
+      == TRUE);
+  RemoveEntryList(HeapProxy::ToListEntry(proxy));
 
   if (proxy->Destroy()) {
     delete proxy;
@@ -209,6 +234,38 @@ BOOL WINAPI asan_HeapQueryInformation(
   return ret == true;
 }
 
+BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
+  // Our AtExit manager required by base.
+  static base::AtExitManager* at_exit = NULL;
+
+  switch (reason) {
+    case DLL_PROCESS_ATTACH:
+      DCHECK(at_exit == NULL);
+      at_exit = new base::AtExitManager();
+      InitializeListHead(&heap_proxy_dlist);
+      process_heap = GetProcessHeap();
+      break;
+
+    case DLL_THREAD_ATTACH:
+      break;
+
+    case DLL_THREAD_DETACH:
+      break;
+
+    case DLL_PROCESS_DETACH:
+      DCHECK(IsListEmpty(&heap_proxy_dlist) == TRUE);
+      DCHECK(at_exit != NULL);
+      delete at_exit;
+      at_exit = NULL;
+      break;
+
+    default:
+      NOTREACHED();
+      break;
+  }
+
+  return TRUE;
+}
 }  // extern "C"
 
 namespace agent {
@@ -216,16 +273,24 @@ namespace asan {
 
 void __cdecl CheckAccessSlow(const uint8* location) {
   if (!Shadow::IsAccessible(location)) {
-    std::list<HeapProxy*>::iterator heap_iter = heap_proxy_list.begin();
-    for (; heap_iter != heap_proxy_list.end(); ++heap_iter) {
-      HeapProxy* proxy = HeapProxy::FromHandle(*heap_iter);
-      if (proxy->OnBadAccess(location)) {
+    // Iterates over the HeapProxy list to find a memory block containing this
+    // address.
+    LIST_ENTRY* item = heap_proxy_dlist.Flink;
+    while (item != NULL) {
+      LIST_ENTRY* next_item = NULL;
+      if (item->Flink != &heap_proxy_dlist) {
+        next_item = item->Flink;
+      }
+
+      if (HeapProxy::FromListEntry(item)->OnBadAccess(location)) {
         break;
       }
+
+      item = next_item;
     }
     // If we didn't found a heap with a memory block containing this address we
     // report an unknown crash.
-    if (heap_iter == heap_proxy_list.end()) {
+    if (item == NULL) {
       HeapProxy::ReportUnknownError(location);
     }
   }
