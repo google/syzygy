@@ -94,10 +94,17 @@ class BasicBlockIdMap {
 // Module information.
 typedef sym_util::ModuleInformation ModuleInformation;
 
+// Compares module information on identity properties alone.
+struct ModuleIdentityComparator {
+  bool operator()(const ModuleInformation& lhs, const ModuleInformation& rhs);
+};
+
 // Type definitions for the basic block entry count data.
 typedef uint32 EntryCountType;
 typedef std::vector<EntryCountType> EntryCountVector;
-typedef std::map<ModuleInformation, EntryCountVector> EntryCountMap;
+typedef std::map<ModuleInformation,
+                 EntryCountVector,
+                 ModuleIdentityComparator> EntryCountMap;
 
 // This structure holds the information extracted from a PDB file for a
 // given module.
@@ -115,7 +122,9 @@ struct PdbInfo {
   RelativeAddressRangeVector bb_ranges;
 };
 
-typedef std::map<const ModuleInformation*, PdbInfo> PdbInfoMap;
+typedef std::map<ModuleInformation,
+                 PdbInfo,
+                 ModuleIdentityComparator> PdbInfoMap;
 
 // A helper function to populate a ModuleInforamtion structure from a PE
 // signature.
@@ -142,7 +151,7 @@ bool LoadBasicBlockRanges(const FilePath& pdb_path,
 // @param pdb_info a pointer to the pdb info will be returned here.
 // @return true on success, false otherwise.
 bool LoadPdbInfo(PdbInfoMap* pdb_info_cache,
-                 const ModuleInformation* module_info,
+                 const ModuleInformation& module_info,
                  PdbInfo** pdb_info);
 
 // @returns true if the given @p size is a valid frequency size.

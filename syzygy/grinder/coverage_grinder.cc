@@ -63,7 +63,7 @@ bool CoverageGrinder::Grind() {
   for (; it != pdb_info_cache_.end(); ++it) {
     if (!lcov_writer_.Add(it->second.line_info)) {
       LOG(ERROR) << "Failed to aggregate line information from PDB: "
-                 << it->first;
+                 << it->first.image_file_name;
       return false;
     }
   }
@@ -121,7 +121,7 @@ void CoverageGrinder::OnBasicBlockFrequency(
   // Get the PDB info. This loads the line information and the basic-block
   // ranges if not already done, otherwise it returns the cached version.
   PdbInfo* pdb_info = NULL;
-  if (!LoadPdbInfo(&pdb_info_cache_, module_info, &pdb_info)) {
+  if (!LoadPdbInfo(&pdb_info_cache_, *module_info, &pdb_info)) {
     event_handler_errored_ = true;
     return;
   }

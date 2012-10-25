@@ -28,6 +28,21 @@
 namespace grinder {
 namespace basic_block_util {
 
+bool ModuleIdentityComparator::operator()(
+    const ModuleInformation& lhs, const ModuleInformation& rhs) {
+  if (lhs.module_size < rhs.module_size)
+    return true;
+  if (lhs.module_size > rhs.module_size)
+    return false;
+
+  if (lhs.time_date_stamp < rhs.time_date_stamp)
+    return true;
+  if (lhs.time_date_stamp > rhs.time_date_stamp)
+    return false;
+
+  return lhs.image_file_name < rhs.image_file_name;
+}
+
 BasicBlockIdMap::BasicBlockIdMap() {
 }
 
@@ -184,10 +199,9 @@ bool LoadBasicBlockRanges(const FilePath& pdb_path,
 }
 
 bool LoadPdbInfo(PdbInfoMap* pdb_info_cache,
-                 const ModuleInformation* module_info,
+                 const ModuleInformation& module_info,
                  PdbInfo** pdb_info) {
   DCHECK(pdb_info_cache != NULL);
-  DCHECK(module_info != NULL);
   DCHECK(pdb_info != NULL);
 
   *pdb_info = NULL;
@@ -208,7 +222,7 @@ bool LoadPdbInfo(PdbInfoMap* pdb_info_cache,
 
   // Find the PDB file for the module.
   FilePath pdb_path;
-  FilePath module_path(module_info->image_file_name);
+  FilePath module_path(module_info.image_file_name);
   if (!pe::FindPdbForModule(module_path, &pdb_path) || pdb_path.empty()) {
     LOG(ERROR) << "Failed to find PDB for module: " << module_path.value();
     return false;

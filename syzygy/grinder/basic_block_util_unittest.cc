@@ -68,12 +68,12 @@ class TestGrinder : public GrinderInterface {
 
     // Load the PDB information.
     PdbInfo* pdb_info = NULL;
-    ASSERT_TRUE(LoadPdbInfo(&pdb_info_cache_, module_info, &pdb_info));
+    ASSERT_TRUE(LoadPdbInfo(&pdb_info_cache_, *module_info, &pdb_info));
     ASSERT_TRUE(pdb_info != NULL);
 
     // Validate that the cache works.
     PdbInfo* dup_pdb_info = NULL;
-    ASSERT_TRUE(LoadPdbInfo(&pdb_info_cache_, module_info, &dup_pdb_info));
+    ASSERT_TRUE(LoadPdbInfo(&pdb_info_cache_, *module_info, &dup_pdb_info));
     ASSERT_EQ(pdb_info, dup_pdb_info);
   }
 
@@ -92,6 +92,39 @@ void PopulateModuleInformation(ModuleInformation* module_info) {
 }
 
 }  // namespace
+
+TEST(GrinderBasicBlockUtilTest, ModuleIdentityComparator) {
+  ModuleInformation a;
+  PopulateModuleInformation(&a);
+
+  ModuleInformation b = a;
+  ModuleIdentityComparator comp;
+  // The two should compare equal.
+  EXPECT_FALSE(comp(a, b));
+  EXPECT_FALSE(comp(b, a));
+
+  // Jiggle b's base address and checksum.
+  b.base_address -= 10;
+  b.image_checksum += 100;
+  // The two should still compare equal.
+  EXPECT_FALSE(comp(a, b));
+  EXPECT_FALSE(comp(b, a));
+
+  b = a;
+  b.module_size -= 1;
+  EXPECT_FALSE(comp(a, b));
+  EXPECT_TRUE(comp(b, a));
+
+  b = a;
+  b.time_date_stamp += 1;
+  EXPECT_TRUE(comp(a, b));
+  EXPECT_FALSE(comp(b, a));
+
+  b = a;
+  b.image_file_name = L"foo";
+  EXPECT_FALSE(comp(a, b));
+  EXPECT_TRUE(comp(b, a));
+}
 
 TEST(GrinderBasicBlockUtilTest, BasicBlockIdMap) {
   // Setup the basic-block range vector.
