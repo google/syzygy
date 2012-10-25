@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,5 +17,5 @@
 
 MAJOR=0
 MINOR=2
-BUILD=7
+BUILD=8
 PATCH=0
