@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
         {
           'action_name': 'make_lastchange_gen',
           'inputs': [
-            '<(DEPTH)/build/util/lastchange.py'
+            '<(DEPTH)/third_party/chromium/lastchange.py'
           ],
           # We include a fake output target to ensure that this command
           # is always run as part of any build.
@@ -42,8 +42,10 @@
             'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
+          # lastchange.py is copied from build/tools/lastchange.py so that
+          # we can run it in the context of the Syzygy repository.
           'action': [
-            'python', '<(DEPTH)/build/util/lastchange.py',
+            'python', '<(DEPTH)/third_party/chromium/lastchange.py',
             '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
         },
