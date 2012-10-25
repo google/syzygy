@@ -29,24 +29,6 @@
 
 namespace grinder {
 
-namespace  {
-
-using common::kSyzygyVersion;
-using core::JSONFileWriter;
-using basic_block_util::EntryCountMap;
-using basic_block_util::EntryCountType;
-using basic_block_util::EntryCountVector;
-using basic_block_util::GetFrequency;
-using basic_block_util::IsValidFrequencySize;
-using basic_block_util::ModuleInformation;
-using trace::parser::AbsoluteAddress64;
-
-const char kMetadata[] = "metadata";
-const char kNumBasicBlocks[] = "num_basic_blocks";
-const char kEntryCounts[] = "entry_counts";
-
-}  // namespace
-
 BasicBlockEntryCountGrinder::BasicBlockEntryCountGrinder()
     : parser_(NULL),
       event_handler_errored_(false) {
@@ -95,12 +77,14 @@ void BasicBlockEntryCountGrinder::OnBasicBlockFrequency(
     return;
   }
 
-  if (!IsValidFrequencySize(data->frequency_size)) {
+  if (!basic_block_util::IsValidFrequencySize(data->frequency_size)) {
      LOG(ERROR) << "Basic block frequency data has invalid frequency_size ("
                 << data->frequency_size << ").";
      event_handler_errored_ = true;
      return;
   }
+
+  using trace::parser::AbsoluteAddress64;
 
   // Get the module information for which this BB frequency data belongs.
   const ModuleInformation* module_info = parser_->GetModuleInformation(
@@ -117,6 +101,10 @@ void BasicBlockEntryCountGrinder::OnBasicBlockFrequency(
 void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
     const ModuleInformation* module_info,
     const TraceBasicBlockFrequencyData* data) {
+  using basic_block_util::EntryCountType;
+  using basic_block_util::EntryCountVector;
+  using basic_block_util::GetFrequency;
+
   DCHECK(module_info != NULL);
   DCHECK(data != NULL);
   DCHECK_NE(0U, data->num_basic_blocks);
