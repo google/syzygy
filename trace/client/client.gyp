@@ -25,9 +25,6 @@
     {
       'target_name': 'rpc_client_lib',
       'type': 'static_library',
-      'dependencies': [
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib'
-      ],
       'sources': [
         'client_utils.cc',
         'client_utils.h',
@@ -37,6 +34,7 @@
       'dependencies': [
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
     {
