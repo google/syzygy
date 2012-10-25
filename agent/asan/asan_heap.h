@@ -18,9 +18,10 @@
 #ifndef SYZYGY_AGENT_ASAN_ASAN_HEAP_H_
 #define SYZYGY_AGENT_ASAN_ASAN_HEAP_H_
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/common/dlist.h"
 
 namespace agent {
 namespace asan {
@@ -69,6 +70,12 @@ class HeapProxy {
 
   // Report an unknown error while attempting the red-zoned heap address @addr.
   static void ReportUnknownError(const uint8* addr);
+
+  // @name Cast to/from HANDLE.
+  // @{
+  static LIST_ENTRY* ToListEntry(HeapProxy* proxy);
+  static HeapProxy* FromListEntry(LIST_ENTRY* list_entry);
+  // @}
 
  protected:
   // Enumeration of the different kind of bad heap access that we can encounter.
@@ -171,6 +178,9 @@ class HeapProxy {
   FreeBlockHeader* tail_;  // Under lock_.
   // Total size of blocks in quarantine.
   size_t quarantine_size_;  // Under lock_.
+
+   // The entry linking to us.
+  LIST_ENTRY list_entry_;
 };
 
 }  // namespace asan
