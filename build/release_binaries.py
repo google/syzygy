@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,29 +13,34 @@
 # limitations under the License.
 """A utility script to prepare a binary release."""
 
-import glob
+import cStringIO
+import json
 import logging
 import optparse
 import os
-import re
 import shutil
 import subprocess
 import urllib
+import urllib2
 import zipfile
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(os.path.basename(__file__))
+
+
 _SRC_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '../..'))
 _VERSION_FILE = os.path.join(_SRC_DIR, 'syzygy/VERSION')
 _BINARIES_DIR = os.path.join(_SRC_DIR, 'syzygy/binaries')
+_EXE_DIR = os.path.join(_BINARIES_DIR, 'exe')
 
 
-_GIT_VERSION_RE = re.compile('git-svn-id:[^@]+@([0-9]+)', re.M)
+_SYZYGY_WATERFALL_URL = 'http://build.chromium.org/p/client.syzygy'
+_SYZYGY_OFFICIAL = 'Syzygy Official'
 
 
-_SYZYGY_RELEASE_URL = ('http://syzygy-archive.commondatastorage.googleapis.com/'
-    'builds/official/%(revision)d/benchmark.zip')
+_SYZYGY_ARCHIVE_URL = ('http://syzygy-archive.commondatastorage.googleapis.com/'
+    'builds/official/%(revision)d')
 
 
 def _Shell(*cmd, **kw):
@@ -49,25 +54,48 @@ def _Shell(*cmd, **kw):
   return (stdout, stderr)
 
 
-def _GetFileVersion(file_path):
-  # Get the most recent log message for the file, capture STDOUT.
-  (stdout, dummy_stderr) = _Shell('git', 'log',
-                                  '-1', file_path,
-                                  stdout=subprocess.PIPE)
-  match = _GIT_VERSION_RE.search(stdout)
-  if not match:
-    raise RuntimeError('Could not determine release version.')
+def _Download(url):
+  """Downloads the given URL and returns the contents as a string."""
+  response = urllib2.urlopen(url)
+  if response.code != 200:
+    raise RuntimeError('Failed to download "%s".' % url)
+  return response.read()
 
-  return int(match.group(1))
+
+def _QueryWaterfall(path):
+  """Queries the JSON API of the Syzygy waterfall."""
+  url = _SYZYGY_WATERFALL_URL + '/json' + path
+  data = _Download(url)
+  return json.loads(data)
+
+
+def _GetLastOfficialBuildRevision():
+  """Query the Syzygy waterfall to get the SVN revision associated with the
+  last successful official build.
+  """
+  # First make sure the builder doesn't have any pending builds and is idle.
+  builders = _QueryWaterfall('/builders')
+  if builders[_SYZYGY_OFFICIAL]['pendingBuilds'] > 0:
+    raise RuntimeError('There are pending official builds.')
+  if builders[_SYZYGY_OFFICIAL]['state'] != 'idle':
+    raise RuntimeError('An official build is in progress.')
+
+  # Get the information from the last build and make sure it passed before
+  # extracting the revision number.
+  build = _QueryWaterfall('/builders/%s/builds/-1' %
+      urllib.quote(_SYZYGY_OFFICIAL))
+  if 'successful' not in build['text']:
+    raise RuntimeError('Last official build failed.')
+  return int(build['sourceStamp']['revision'])
 
 
 def main():
   option_parser = optparse.OptionParser()
   option_parser.add_option(
       '--revision', type="int",
-      help=('The SVN revision associated with the release build. '
-            'If omitted, the SVN revision of the latest VERSION '
-            'file will be used.'))
+      help='The SVN revision associated with the release build. '
+           'If omitted, the SVN revision of the last successful official '
+           'build will be used.')
   options, args = option_parser.parse_args()
   if args:
     option_parser.error('Unexpected arguments: %s' % args)
@@ -75,39 +103,43 @@ def main():
   # Enable info logging.
   logging.basicConfig(level=logging.INFO)
 
-  # Retrieve the VERSION file's SVN revision number.
+  # Get the SVN revision associated with the archived binaries to use.
   if options.revision is not None:
     revision = options.revision
   else:
-    revision = _GetFileVersion(_VERSION_FILE)
+    revision = _GetLastOfficialBuildRevision()
+    _LOGGER.info('Using official build at revision %d.' % revision)
 
   # And build the corresponding archive URL.
-  url = _SYZYGY_RELEASE_URL % { 'revision': revision }
+  archive_url = _SYZYGY_ARCHIVE_URL % { 'revision': revision }
+  benchmark_url = archive_url + '/benchmark.zip'
+  binaries_url = archive_url + '/binaries.zip'
 
-  # Retrieve the corresponding archive to a temp file.
-  _LOGGER.info('Retrieving release archive at "%s".', url)
-  (temp_file, dummy_response) = urllib.urlretrieve(url)
+  # Download the archives.
+  _LOGGER.info('Retrieving benchmark archive at "%s".', benchmark_url)
+  benchmark_data = _Download(benchmark_url)
+  _LOGGER.info('Retrieving binaries archive at "%s".', binaries_url)
+  binaries_data = _Download(binaries_url)
 
   # Create a new feature branch off the master branch for the release
   # before we start changing any files.
   _LOGGER.info('Creating a release-binaries feature branch.')
   _Shell('git', 'checkout', '-b', 'release-binaries', 'master')
 
-  # Clean out the binaries directory.
-  shutil.rmtree(_BINARIES_DIR)
+  # Clean out the output directories.
+  shutil.rmtree(_BINARIES_DIR, True)
   os.makedirs(_BINARIES_DIR)
+  os.makedirs(_EXE_DIR)
 
-  # Extract the contents of the archive to the binaries directory.
-  _LOGGER.info('Unzipping release archive.')
-  archive = zipfile.ZipFile(temp_file, 'r')
+  # Extract the contents of the benchmark archive to the binaries directory.
+  _LOGGER.info('Unzipping benchmark archive.')
+  archive = zipfile.ZipFile(cStringIO.StringIO(benchmark_data))
   archive.extractall(_BINARIES_DIR)
 
-  # Now extract the executables from the Benchmark_Chrome egg to the
-  # 'exe' subdir of the binaries dir.
-  egg_file = glob.glob(os.path.join(_BINARIES_DIR, 'Benchmark_Chrome*.egg'))[0]
-  archive = zipfile.ZipFile(egg_file, 'r')
-  exes = filter(lambda path: path.startswith('exe'), archive.namelist())
-  archive.extractall(_BINARIES_DIR, exes)
+  # Extract the binaries archives to the exe directory.
+  _LOGGER.info('Unzipping binaries archive.')
+  archive = zipfile.ZipFile(cStringIO.StringIO(binaries_data))
+  archive.extractall(_EXE_DIR)
 
   # Add all the new files to the repo.
   _LOGGER.info('Committing release files.')
