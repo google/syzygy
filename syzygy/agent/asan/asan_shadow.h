@@ -35,7 +35,14 @@ class Shadow {
   // Returns true iff the byte at @p addr is not poisoned.
   static bool IsAccessible(const void* addr);
 
+  // Print the content of the shadow memory for @p addr.
+  static void PrintShadowMemoryForAddress(const void* addr);
+
  private:
+  // Print the shadow bytes from shadow_[index] to shadow_[index + 7] on a line
+  // prefixed by @p prefix.
+  static void PrintShadowBytes(const char *prefix, uintptr_t index);
+
   // One shadow byte for every 8 bytes in a 4G address space.
   static const size_t kShadowSize = 1 << (32 - 3);
   static uint8 shadow_[kShadowSize];
