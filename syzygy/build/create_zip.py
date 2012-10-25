@@ -22,7 +22,7 @@ import sys
 import zipfile
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def _CreateZipArchive(input_dict, output_file):

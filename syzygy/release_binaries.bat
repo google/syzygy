@@ -1,5 +1,5 @@
 @echo off
-:: Copyright 2011 Google Inc.
+:: Copyright 2011 Google Inc. All Rights Reserved.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -16,6 +16,6 @@
 :: Invoke this script to release new binaries after an official build
 :: has completed successfully.
 set PYTHON="%~dp0..\third_party\python_26\python.exe"
-set SCRIPT="%~dp0build\release_binaries.py
+set SCRIPT="%~dp0build\release_binaries.py"
 
-%PYTHON% %SCRIPT%
+%PYTHON% %SCRIPT% %*
