@@ -18,6 +18,7 @@
 #include <list>
 
 #include "base/at_exit.h"
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/asan_heap.h"
@@ -25,6 +26,9 @@
 #include "syzygy/agent/common/dlist.h"
 
 namespace {
+
+typedef base::Callback<void()> AsanCallBack;
+AsanCallBack asan_callback;
 
 // A helper function to find if an intrusive list contains a given entry.
 // @param list The list in which we want to look for the entry.
@@ -45,6 +49,10 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
     current = next_item;
   }
   return false;
+}
+
+void OnAsanError() {
+  ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
 }
 
 }  // namespace
@@ -234,6 +242,11 @@ BOOL WINAPI asan_HeapQueryInformation(
   return ret == true;
 }
 
+void WINAPI asan_SetCallBack(void (*callback)()) {
+  asan_callback = base::Bind(callback);
+  return;
+}
+
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   // Our AtExit manager required by base.
   static base::AtExitManager* at_exit = NULL;
@@ -243,6 +256,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       DCHECK(at_exit == NULL);
       at_exit = new base::AtExitManager();
       InitializeListHead(&heap_proxy_dlist);
+      asan_SetCallBack(&OnAsanError);
       process_heap = GetProcessHeap();
       break;
 
@@ -255,6 +269,8 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
     case DLL_PROCESS_DETACH:
       DCHECK(IsListEmpty(&heap_proxy_dlist) == TRUE);
       DCHECK(at_exit != NULL);
+      DCHECK(asan_callback.is_null() == FALSE);
+      asan_callback.Reset();
       delete at_exit;
       at_exit = NULL;
       break;
@@ -293,6 +309,10 @@ void __cdecl CheckAccessSlow(const uint8* location) {
     if (item == NULL) {
       HeapProxy::ReportUnknownError(location);
     }
+
+    // Call the callback to handle this error.
+    DCHECK(asan_callback.is_null() == FALSE);
+    asan_callback.Run();
   }
 }
 

@@ -26,8 +26,8 @@ namespace asan {
 
 namespace {
 
-// Shorthand for discussing all the heap functions.
-#define HEAP_FUNCTIONS(F)  \
+// Shorthand for discussing all the asan runtime functions.
+#define ASAN_RTL_FUNCTIONS(F)  \
     F(HANDLE, HeapCreate,  \
       (DWORD options, SIZE_T initial_size, SIZE_T maximum_size))  \
     F(BOOL, HeapDestroy,   \
@@ -54,13 +54,15 @@ namespace {
     F(BOOL, HeapQueryInformation,  \
       (HANDLE heap, HEAP_INFORMATION_CLASS info_class,  \
        PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
+    F(void, SetCallBack,  \
+      (void (*callback)()))  \
 
-#define DECLARE_HEAP_FUNCTION_PTR(ret, name, args) \
+#define DECLARE_ASAN_FUNCTION_PTR(ret, name, args) \
     typedef ret (WINAPI* name##FunctionPtr)args;
 
-HEAP_FUNCTIONS(DECLARE_HEAP_FUNCTION_PTR)
+ASAN_RTL_FUNCTIONS(DECLARE_ASAN_FUNCTION_PTR)
 
-#undef DECLARE_HEAP_FUNCTION_PTR
+#undef DECLARE_ASAN_FUNCTION_PTR
 
 class AsanRtlTest : public testing::Test {
  public:
@@ -78,7 +80,7 @@ class AsanRtlTest : public testing::Test {
         ::GetProcAddress(asan_rtl_, "asan_" #name));  \
     ASSERT_TRUE(name##Function != NULL);
 
-    HEAP_FUNCTIONS(LOAD_ASAN_FUNCTION)
+    ASAN_RTL_FUNCTIONS(LOAD_ASAN_FUNCTION)
 
 #undef LOAD_ASAN_FUNCTION
 
@@ -112,7 +114,7 @@ class AsanRtlTest : public testing::Test {
 #define DECLARE_FUNCTION_PTR_VARIABLE(ret, name, args)  \
     static name##FunctionPtr AsanRtlTest::name##Function;
 
-  HEAP_FUNCTIONS(DECLARE_FUNCTION_PTR_VARIABLE)
+  ASAN_RTL_FUNCTIONS(DECLARE_FUNCTION_PTR_VARIABLE)
 
 #undef DECLARE_FUNCTION_PTR_VARIABLE
 };
@@ -121,7 +123,7 @@ class AsanRtlTest : public testing::Test {
 #define DEFINE_FUNCTION_PTR_VARIABLE(ret, name, args)  \
     name##FunctionPtr AsanRtlTest::name##Function;
 
-  HEAP_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
+  ASAN_RTL_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
 
 #undef DEFINE_FUNCTION_PTR_VARIABLE
 
@@ -218,6 +220,8 @@ namespace {
 
 // The access check function invoked by the below.
 FARPROC check_access_fn = NULL;
+// A flag used in asan callback to ensure that a memory error has been detected.
+bool memory_error_detected = false;
 
 void __declspec(naked) CheckAccessAndCaptureContexts(CONTEXT* before,
                                                      CONTEXT* after,
@@ -241,6 +245,19 @@ void __declspec(naked) CheckAccessAndCaptureContexts(CONTEXT* before,
     // Capture the CPU context after calling the access check function.
     push dword ptr[esp + 0x8]
     call dword ptr[RtlCaptureContext]
+
+    ret
+  }
+}
+
+void __declspec(naked) CheckAccess(void* ptr) {
+  __asm {
+    // Push eax as we're required to do by the custom calling convention.
+    push eax
+    // Ptr is the pointer to check.
+    mov eax, dword ptr[esp + 0x8]
+    // Call through.
+    call dword ptr[check_access_fn + 0]
 
     ret
   }
@@ -272,9 +289,20 @@ void CheckAccessAndCompareContexts(void* ptr) {
   EXPECT_EQ(before.SegSs, after.SegSs);
 }
 
+void AsanErrorCallback() {
+  EXPECT_FALSE(memory_error_detected);
+  memory_error_detected = true;
+}
+
+void AssertMemoryErrorIsDetected(void* ptr) {
+  memory_error_detected = false;
+  CheckAccess(ptr);
+  ASSERT_TRUE(memory_error_detected);
+}
+
 }  // namespace
 
-TEST_F(AsanRtlTest, asan_check_access) {
+TEST_F(AsanRtlTest, asan_check_good_access) {
   check_access_fn = ::GetProcAddress(asan_rtl_, "asan_check_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
@@ -290,6 +318,21 @@ TEST_F(AsanRtlTest, asan_check_access) {
     ASSERT_NO_FATAL_FAILURE(CheckAccessAndCompareContexts(mem + i));
   }
 
+  ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
+}
+
+TEST_F(AsanRtlTest, asan_check_bad_access) {
+  check_access_fn = ::GetProcAddress(asan_rtl_, "asan_check_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  const size_t kAllocSize = 13;
+  uint8* mem = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem != NULL);
+
+  SetCallBackFunction(&AsanErrorCallback);
+  AssertMemoryErrorIsDetected(mem - 1);
+  AssertMemoryErrorIsDetected(mem + kAllocSize);
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
