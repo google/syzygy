@@ -33,3 +33,4 @@ EXPORTS
   asan_HeapWalk
   asan_HeapSetInformation
   asan_HeapQueryInformation
+  asan_SetCallBack
