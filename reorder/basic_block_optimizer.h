@@ -38,6 +38,11 @@ class BasicBlockOptimizer {
   typedef grinder::basic_block_util::RelativeAddressRangeVector
       RelativeAddressRangeVector;
 
+  // A helper class with utility functions used by the optimization functions.
+  // Exposed as public to facilitate unit-testing.
+  class BasicBlockOrderer;
+
+  // Constructor.
   BasicBlockOptimizer();
 
   // @returns the name that will be assigned to the cold block section.
@@ -59,10 +64,6 @@ class BasicBlockOptimizer {
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::ConstBlockVector ConstBlockVector;
   typedef grinder::basic_block_util::BasicBlockIdMap BasicBlockIdMap;
-
-  // A helper class with utility functions used by the optimization functions.
-  // Exposed as protected for unit-testing.
-  class BasicBlockOrderer;
 
   // Optimize the layout of all basic-blocks in a block.
   static bool OptimizeBlock(const BlockGraph::Block* block,
