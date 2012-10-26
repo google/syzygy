@@ -1,6 +1,6 @@
 #!/usr/bin/python2.4
 #
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 """Browse and retrieve builds from a chrome build repository."""
 
 # Standard imports
-import contextlib
 import cStringIO as StringIO
 import datetime
 import httplib
@@ -287,11 +286,11 @@ class ChromeRepo(object):
       chrome_win32 and chrome-win32-syms directories.
     """
     if build_id is None:
-      build_id, unused_timestamp, subdir = self.GetLatestBuildId()
+      build_id, dummy_timestamp, subdir = self.GetLatestBuildId()
     elif subdir is None:
-      for dir in SUBDIRS:
-        if self._FileExists(self._GetFilePath(build_id, dir, FILE_LIST[0])):
-          subdir = dir
+      for ddir in SUBDIRS:
+        if self._FileExists(self._GetFilePath(build_id, ddir, FILE_LIST[0])):
+          subdir = ddir
           break
       if subdir is None:
         raise NotFoundError(

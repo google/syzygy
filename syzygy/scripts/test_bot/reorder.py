@@ -375,7 +375,7 @@ class ReorderTest(object):
 # is much larger (on the order of a page or two).
 _MAX_PADDING = 1024
 _SAFEST_ALIGNMENT = 8
-def _PaddingHandler(option, opt, value, parser):
+def _PaddingHandler(option, dummy_opt, value, parser):
   """Validates the parameter to the reorder-padding parameter."""
   if value > _MAX_PADDING or value % _SAFEST_ALIGNMENT != 0:
     raise optparse.OptionValueError('Invalid padding value')
