@@ -34,7 +34,7 @@
         {
           'action_name': 'make_lastchange_gen',
           'inputs': [
-            '<(DEPTH)/third_party/chromium/lastchange.py'
+            '<(DEPTH)/build/util/lastchange.py'
           ],
           # We include a fake output target to ensure that this command
           # is always run as part of any build.
@@ -42,10 +42,9 @@
             'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
-          # lastchange.py is copied from build/tools/lastchange.py so that
-          # we can run it in the context of the Syzygy repository.
           'action': [
-            'python', '<(DEPTH)/third_party/chromium/lastchange.py',
+            'python', '<(DEPTH)/build/util/lastchange.py',
+            '-s', '<(DEPTH)/syzygy',
             '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
         },
