@@ -17,11 +17,6 @@
 
 {
   'target_defaults': {
-    'defines': [
-      # We require this for base_lib to build. This is temporary pending a
-      # fix in Chromium.
-      'NTDDI_VERSION=0x06020000',
-    ],
     'msvs_settings': {
       'VCCLCompilerTool': {
         # See http://msdn.microsoft.com/en-us/library/aa652260(v=vs.71).aspx
