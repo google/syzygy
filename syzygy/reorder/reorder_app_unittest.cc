@@ -52,6 +52,7 @@ class TestReorderApp : public ReorderApp {
   using ReorderApp::trace_file_paths_;
   using ReorderApp::seed_;
   using ReorderApp::pretty_print_;
+  using ReorderApp::flags_;
   using ReorderApp::kInstrumentedImage;
   using ReorderApp::kOutputFile;
   using ReorderApp::kInputImage;
@@ -202,6 +203,16 @@ TEST_F(ReorderAppTest, ParseWithInvalidSeedFails) {
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
+TEST_F(ReorderAppTest, ParseWithInvalidFlagsFails) {
+  cmd_line_.AppendSwitchPath(
+      TestReorderApp::kInstrumentedImage, instrumented_image_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
+  cmd_line_.AppendSwitchASCII(
+      TestReorderApp::kReordererFlags, "no-data,no-code,hello");
+
+  ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+}
+
 TEST_F(ReorderAppTest, ParseLinearOrderWithNoTraceFilesFails) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
@@ -226,6 +237,8 @@ TEST_F(ReorderAppTest, ParseMinimalLinearOrderCommandLine) {
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
   EXPECT_EQ(0U,test_impl_.seed_);
   EXPECT_FALSE(test_impl_.pretty_print_);
+  EXPECT_EQ(Reorderer::kFlagReorderCode | Reorderer::kFlagReorderData,
+            test_impl_.flags_);
 
   EXPECT_TRUE(test_impl_.SetUp());
 }
@@ -237,6 +250,8 @@ TEST_F(ReorderAppTest, ParseFullLinearOrderCommandLine) {
   cmd_line_.AppendSwitchPath(TestReorderApp::kInputImage, input_image_path_);
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kBasicBlockEntryCounts, bb_entry_count_file_path_);
+  cmd_line_.AppendSwitchASCII(
+      TestReorderApp::kReordererFlags, "no-data,no-code");
   cmd_line_.AppendSwitch(TestReorderApp::kPrettyPrint);
   cmd_line_.AppendArgPath(trace_file_path_);
 
@@ -251,6 +266,8 @@ TEST_F(ReorderAppTest, ParseFullLinearOrderCommandLine) {
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
   EXPECT_EQ(0U,test_impl_.seed_);
   EXPECT_TRUE(test_impl_.pretty_print_);
+  EXPECT_EQ(0, test_impl_.flags_ & Reorderer::kFlagReorderCode);
+  EXPECT_EQ(0, test_impl_.flags_ & Reorderer::kFlagReorderData);
 
   EXPECT_TRUE(test_impl_.SetUp());
 }
