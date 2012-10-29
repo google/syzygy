@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,14 +26,7 @@ namespace pe {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 
-#if _MSC_VER == 1500
-    const wchar_t kDiaDllName[] = L"msdia90.dll";
-#elif _MSC_VER == 1600
-    const wchar_t kDiaDllName[] = L"msdia100.dll";
-#else
-#error Cannot determine DIA DLL name.
-#endif
-
+const wchar_t kDiaDllName[] = L"msdia100.dll";
 const wchar_t kFixupDiaDebugStreamName[] = L"FIXUP";
 const wchar_t kOmapToDiaDebugStreamName[] = L"OMAPTO";
 const wchar_t kOmapFromDiaDebugStreamName[] = L"OMAPFROM";

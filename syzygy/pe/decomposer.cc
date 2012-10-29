@@ -302,11 +302,8 @@ BlockGraph::LabelAttributes SymTagToLabelAttributes(enum SymTagEnum sym_tag) {
       return BlockGraph::DEBUG_END_LABEL;
     case SymTagBlock:
       return BlockGraph::SCOPE_START_LABEL;
-#if _MSC_VER >= 1600
-    // The DIA SDK shipping with MSVS 2010 includes additional symbol types.
     case SymTagCallSite:
       return BlockGraph::CALL_SITE_LABEL;
-#endif
   }
 
   NOTREACHED();
@@ -1227,13 +1224,11 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
           break;
         }
 
-#if _MSC_VER >= 1600
         // The DIA SDK shipping with MSVS 2010 includes additional symbol types.
         case SymTagCallSite: {
           label_name = "<call-site>";
           break;
         }
-#endif
 
         default: {
           LOG(WARNING) << "Unexpected symbol type " << sym_tag << " in "

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -424,16 +424,8 @@ TEST_F(DiaBrowserTest, SomePathsTerminated) {
                              SymTagData),
                          on_full_match_);
 
-#if _MSC_VER == 1500
-  // With VC++ 2008, there are 247 UDT nodes and 28 Enum nodes: OnPartialMatch
-  // should hit all of them.
-  static const size_t kNumPartialMatches = 247 + 28;
-#elif _MSC_VER == 1600
   // With VC++ 2010, OnPartialMatch hits 174 nodes.
   static const size_t kNumPartialMatches = 174;
-#else
-#error Unrecognized compiler version.
-#endif
 
   // Only the 428 Enum.Data full matches should be hit.
   static const size_t kNumFullMatches = 428;
