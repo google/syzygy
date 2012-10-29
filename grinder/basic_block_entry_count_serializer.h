@@ -33,7 +33,9 @@ namespace grinder {
 // The JSON file has the following structure.
 //
 //     [
-//       // Basic-block entry counts for module 1.
+//       // Basic-block entry counts for module 1. Note that the module
+//       // information refers to the original module, as opposed to the
+//       // instrumented copy.
 //       {
 //         "metadata": {
 //           "command_line": "\"foo.exe\"",
@@ -53,9 +55,12 @@ namespace grinder {
 //             "module_checksum": "0x257AF"
 //           }
 //         },
-//         // NNNN basic-block counter values.
+//         // Basic-block entry count pairs, encoded as pairs of
+//         // [offset, count], where offset is the RVA to the first instruction
+//         // byte of the basic block in the original image.
 //         "entry_counts": [
-//           9, 100, 0, 0, ...
+//           [100, 10000],
+//           [200, 123456]
 //         ]
 //       },
 //       // Basic-block entry counts for module 2.
@@ -63,28 +68,30 @@ namespace grinder {
 //     ]
 class BasicBlockEntryCountSerializer {
  public:
+  typedef basic_block_util::ModuleEntryCountMap ModuleEntryCountMap;
+
   BasicBlockEntryCountSerializer();
 
   // Sets the pretty-printing status.
   void set_pretty_print(bool value) { pretty_print_ = value; }
 
   // Saves the given entry count map to a file at @p file_path.
-  bool SaveAsJson(const basic_block_util::EntryCountMap& entry_counts,
+  bool SaveAsJson(const ModuleEntryCountMap& entry_counts,
                   const FilePath& file_path);
 
   // Saves the given entry count map to a file previously opened for writing.
-  bool SaveAsJson(const basic_block_util::EntryCountMap& entry_counts,
+  bool SaveAsJson(const ModuleEntryCountMap& entry_counts,
                   FILE* file);
 
   // Populates an entry count map from a JSON file, given by @p file_path.
   bool LoadFromJson(const FilePath& file_path,
-                    basic_block_util::EntryCountMap* entry_counts);
+                    ModuleEntryCountMap* entry_counts);
 
  protected:
   // Populates an entry count map from JSON data. Exposed for unit-testing
   // purposes.
   bool PopulateFromJsonValue(const base::Value* json_value,
-                             basic_block_util::EntryCountMap* entry_counts);
+                             ModuleEntryCountMap* entry_counts);
 
   // If true, the JSON output will be pretty printed for easier human
   // consumption.

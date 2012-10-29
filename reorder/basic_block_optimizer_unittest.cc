@@ -33,9 +33,9 @@ using block_graph::BasicCodeBlock;
 using block_graph::BasicDataBlock;
 using block_graph::BlockGraph;
 using core::RelativeAddress;
-using grinder::basic_block_util::BasicBlockIdMap;
 using grinder::basic_block_util::EntryCountType;
-using grinder::basic_block_util::EntryCountVector;
+using grinder::basic_block_util::EntryCountMap;
+using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::LoadBasicBlockRanges;
 using grinder::basic_block_util::RelativeAddressRange;
 using grinder::basic_block_util::RelativeAddressRangeVector;
@@ -59,10 +59,9 @@ class TestBasicBlockOrderer : public BasicBlockOptimizer::BasicBlockOrderer {
       const BasicBlockSubGraph& subgraph,
       const RelativeAddress& addr,
       Size size,
-      const EntryCountVector& entry_counts,
-      const BasicBlockIdMap& bb_id_map)
+      const EntryCountMap& entry_counts)
           : BasicBlockOptimizer::BasicBlockOrderer(
-                subgraph, addr, size, entry_counts, bb_id_map) {
+                subgraph, addr, size, entry_counts) {
   }
 };
 
@@ -72,15 +71,11 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
     ASSERT_NO_FATAL_FAILURE(testing::BasicBlockTest::SetUp());
     ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
     ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
-    ASSERT_NO_FATAL_FAILURE(InitBasicBlockRanges());
     ASSERT_NO_FATAL_FAILURE(SetEntryCounts(0, 0, 0, 0, 0, 0, 0, 0));
-    ASSERT_TRUE(bb_id_map_.Init(bb_ranges_));
-    ASSERT_EQ(entry_counts_.size(), bb_id_map_.Size());
     orderer_.reset(new TestBasicBlockOrderer(subgraph_,
                                              start_addr_,
                                              assembly_func_->size(),
-                                             entry_counts_,
-                                             bb_id_map_));
+                                             entry_counts_));
     ASSERT_TRUE(orderer_.get() != NULL);
   }
 
@@ -100,49 +95,31 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
     return NULL;
   }
 
-  void InitBasicBlockRanges() {
-    // Create the basic-block ranges as described in the documentation for
-    // testing::BasicBlockTest. Note that no bb ranges are created for the
-    // data ranges.
-    // TODO(rogerm): Host this into BasicBlockTest, which implies hoisting some
-    //     types and utilities from grinder::basic_block_util.
-    bb_ranges_.clear();
-    bb_ranges_.reserve(kNumBasicBlockRanges);
-    bb_ranges_.push_back(MakeRange(0, 23));
-    bb_ranges_.push_back(MakeRange(23, 1));  // Unreachable code.
-    bb_ranges_.push_back(MakeRange(24, 7));
-    bb_ranges_.push_back(MakeRange(31, 53));
-    bb_ranges_.push_back(MakeRange(36, 1));
-    bb_ranges_.push_back(MakeRange(37, 5));
-    bb_ranges_.push_back(MakeRange(42, 7));
-    bb_ranges_.push_back(MakeRange(49, 1));
-    ASSERT_EQ(kNumBasicBlockRanges, bb_ranges_.size());
-    ASSERT_TRUE(bb_id_map_.Init(bb_ranges_));
-  }
-
   void SetEntryCounts(uint32 bb0, uint32 bb1, uint32 bb2, uint32 bb3,
                       uint32 bb4, uint32 bb5, uint32 bb6, uint32 bb7) {
     entry_counts_.clear();
-    entry_counts_.reserve(kNumBasicBlockRanges);
-    entry_counts_.push_back(bb0);
-    entry_counts_.push_back(bb1);
-    entry_counts_.push_back(bb2);
-    entry_counts_.push_back(bb3);
-    entry_counts_.push_back(bb4);
-    entry_counts_.push_back(bb5);
-    entry_counts_.push_back(bb6);
-    entry_counts_.push_back(bb7);
-    ASSERT_EQ(kNumBasicBlockRanges, entry_counts_.size());
+
+    entry_counts_[kBasicBlockOffsets[0]] = bb0;
+    entry_counts_[kBasicBlockOffsets[1]] = bb1;
+    entry_counts_[kBasicBlockOffsets[2]] = bb2;
+    entry_counts_[kBasicBlockOffsets[3]] = bb3;
+    entry_counts_[kBasicBlockOffsets[4]] = bb4;
+    entry_counts_[kBasicBlockOffsets[5]] = bb5;
+    entry_counts_[kBasicBlockOffsets[6]] = bb6;
+    entry_counts_[kBasicBlockOffsets[7]] = bb7;
+    ASSERT_EQ(kNumBasicBlocks, entry_counts_.size());
   }
 
-  static const size_t kNumBasicBlockRanges =
+  static const size_t kNumBasicBlocks =
       kNumCodeBasicBlocks + kNumPaddingBasicBlocks;
+  static const size_t kBasicBlockOffsets[kNumBasicBlocks];
 
-  RelativeAddressRangeVector bb_ranges_;
-  EntryCountVector entry_counts_;
-  BasicBlockIdMap bb_id_map_;
+  EntryCountMap entry_counts_;
   scoped_ptr<TestBasicBlockOrderer> orderer_;
 };
+
+const size_t BasicBlockOrdererTest::kBasicBlockOffsets[kNumBasicBlocks] =
+   { 0, 23, 24, 31, 36, 37, 42, 49 };
 
 class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
  public:
@@ -158,8 +135,6 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
     ASSERT_NO_FATAL_FAILURE(Super::SetUp());
     ASSERT_NO_FATAL_FAILURE(InitBlockCounts());
     FilePath pdb_path(GetExeTestDataRelativePath(kInstrumentedPdbName));
-    ASSERT_TRUE(LoadBasicBlockRanges(pdb_path, &bb_ranges_));
-    ASSERT_TRUE(bb_id_map_.Init(bb_ranges_));
   }
 
   void InitBlockCounts() {
@@ -203,8 +178,6 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
   }
 
  protected:
-  RelativeAddressRangeVector bb_ranges_;
-  BasicBlockIdMap bb_id_map_;
   BasicBlockOptimizer optimizer_;
   size_t num_decomposable_blocks_;
   size_t num_non_decomposable_blocks_;
@@ -340,10 +313,9 @@ TEST_F(BasicBlockOptimizerTest, Accessors) {
 
 TEST_F(BasicBlockOptimizerTest, EmptyOrderingAllCold) {
   Order order;
-  EntryCountVector entry_counts;
-  entry_counts.resize(bb_ranges_.size());
+  EntryCountMap entry_counts;
   ASSERT_TRUE(
-      optimizer_.Optimize(image_layout_, bb_ranges_, entry_counts, &order));
+      optimizer_.Optimize(image_layout_, entry_counts, &order));
 
   EXPECT_EQ(image_layout_.sections.size() + 1, order.sections.size());
   EXPECT_EQ(optimizer_.cold_section_name(), order.sections.back().name);
@@ -390,17 +362,33 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   ASSERT_TRUE(FindBlockByName("DllMain", &dllmain, &range));
   ASSERT_TRUE(dllmain != NULL);
 
-  // Assign zero and non-zero counts to alternating basic-blocks of DllMain.
-  // Put a non-zero entry count everywhere else.
-  EntryCountVector entry_counts(bb_ranges_.size(), 1);
-  BasicBlockIdMap::ConstIterator iter = bb_id_map_.LowerBound(range.start());
-  BasicBlockIdMap::ConstIterator iter_end =
-      bb_id_map_.UpperBound(range.start() + range.size());
-  size_t num_basic_blocks = std::distance(iter, iter_end);
-  for (EntryCountType count = 1; iter != iter_end; ++iter, count = 1 - count) {
-    ASSERT_TRUE(range.Contains(iter->first));
-    ASSERT_EQ(bb_ranges_[iter->second].start(), iter->first);
-    entry_counts[iter->second] = count;
+  using block_graph::BasicBlockSubGraph;
+  using block_graph::BasicBlockDecomposer;
+
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer decomposer(dllmain, &subgraph);
+  ASSERT_TRUE(decomposer.Decompose());
+  ASSERT_EQ(1U, subgraph.block_descriptions().size());
+
+  // Generate an entry count map with a non-zero count for every other BB.
+  EntryCountMap entry_counts;
+  const BasicBlockSubGraph::BlockDescription& desc =
+      subgraph.block_descriptions().front();
+  BasicBlockSubGraph::BasicBlockOrdering::const_iterator it(
+      desc.basic_block_order.begin());
+  size_t num_basic_blocks = desc.basic_block_order.size();
+  size_t num_hot_blocks = 0;
+
+
+  bool is_hot = true;
+  for (; it != desc.basic_block_order.end(); ++it) {
+    if (is_hot && BasicCodeBlock::Cast(*it) != NULL) {
+      entry_counts[(*it)->offset()] = 1;
+      ++num_hot_blocks;
+    }
+
+    // Toggle hotness for next block.
+    is_hot = !is_hot;
   }
 
   // Create an ordering that moves dllmain to a new section.
@@ -413,7 +401,7 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   order.sections[0].blocks.push_back(Order::BlockSpec(dllmain));
 
   ASSERT_TRUE(
-      optimizer_.Optimize(image_layout_, bb_ranges_, entry_counts, &order));
+      optimizer_.Optimize(image_layout_, entry_counts, &order));
 
   ASSERT_EQ(image_layout_.sections.size() + 2, order.sections.size());
   ASSERT_EQ(section_name, order.sections[0].name);
@@ -421,9 +409,9 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   ASSERT_TRUE(!order.sections.back().blocks.empty());
   ASSERT_EQ(dllmain, order.sections[0].blocks[0].block);
   ASSERT_EQ(dllmain, order.sections.back().blocks[0].block);
-  ASSERT_LE((num_basic_blocks + 1) / 2,
+  ASSERT_LE(num_hot_blocks,
             order.sections[0].blocks[0].basic_block_offsets.size());
-  ASSERT_LE(num_basic_blocks / 2,
+  ASSERT_LE(num_basic_blocks - num_hot_blocks,
             order.sections.back().blocks[0].basic_block_offsets.size());
 }
 

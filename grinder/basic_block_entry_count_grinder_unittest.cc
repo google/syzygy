@@ -34,7 +34,7 @@ using base::ListValue;
 using base::Value;
 using basic_block_util::EntryCountMap;
 using basic_block_util::EntryCountType;
-using basic_block_util::EntryCountVector;
+using basic_block_util::ModuleEntryCountMap;
 using basic_block_util::IsValidFrequencySize;
 using basic_block_util::ModuleInformation;
 using common::kSyzygyVersion;
@@ -52,12 +52,17 @@ const uint32 kTimeDateStamp = 0xBABECAFE;
 class TestBasicBlockEntryCountGrinder : public BasicBlockEntryCountGrinder {
  public:
   using BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount;
+  using BasicBlockEntryCountGrinder::InstrumentedModuleInformation;
   using BasicBlockEntryCountGrinder::parser_;
 };
 
 class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
+  typedef TestBasicBlockEntryCountGrinder::InstrumentedModuleInformation
+      InstrumentedModuleInformation;
+
+  static const size_t kNumBasicBlocks = 5;
 
   BasicBlockEntryCountGrinderTest()
       : cmd_line_(FilePath(L"basic_block_entry_count_grinder.exe")) {
@@ -77,12 +82,12 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 
 
   void RunGrinderTest(const wchar_t* trace_file,
-                      EntryCountMap* entry_counts) {
+                      ModuleEntryCountMap* module_entry_counts) {
     ASSERT_TRUE(trace_file != NULL);
-    ASSERT_TRUE(entry_counts != NULL);
+    ASSERT_TRUE(module_entry_counts != NULL);
     FilePath json_path;
     ASSERT_NO_FATAL_FAILURE(GrindTraceFileToJson(trace_file, &json_path));
-    ASSERT_NO_FATAL_FAILURE(LoadJson(json_path, entry_counts));
+    ASSERT_NO_FATAL_FAILURE(LoadJson(json_path, module_entry_counts));
   }
 
   void GrindTraceFileToJson(const wchar_t* trace_file,
@@ -110,21 +115,39 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     *json_path = temp_path;
   }
 
-  void LoadJson(const FilePath& json_path, EntryCountMap* entry_counts) {
+  void LoadJson(const FilePath& json_path,
+                ModuleEntryCountMap* module_entry_counts) {
     ASSERT_TRUE(!json_path.empty());
-    ASSERT_TRUE(entry_counts != NULL);
+    ASSERT_TRUE(module_entry_counts != NULL);
 
     BasicBlockEntryCountSerializer serializer;
-    ASSERT_TRUE(serializer.LoadFromJson(json_path, entry_counts));
+    ASSERT_TRUE(serializer.LoadFromJson(json_path, module_entry_counts));
   }
 
-  void InitModuleInfo(ModuleInformation* module_info) {
+  void CreateExpectedCounts(int multiplier, EntryCountMap* expected) {
+    ASSERT_TRUE(expected != NULL);
+    expected->clear();
+
+    for (size_t i = 0; i < kNumBasicBlocks; ++i) {
+      (*expected)[i * i] = (i + 1) * multiplier;
+    }
+  }
+
+  void InitModuleInfo(InstrumentedModuleInformation* module_info) {
     ASSERT_TRUE(module_info != NULL);
-    module_info->image_file_name = kImageFileName;
-    module_info->base_address = kBaseAddress;
-    module_info->module_size = kModuleSize;
-    module_info->image_checksum = kImageChecksum;
-    module_info->time_date_stamp = kTimeDateStamp;
+    module_info->original_module.image_file_name = kImageFileName;
+    module_info->original_module.base_address = kBaseAddress;
+    module_info->original_module.module_size = kModuleSize;
+    module_info->original_module.image_checksum = kImageChecksum;
+    module_info->original_module.time_date_stamp = kTimeDateStamp;
+
+    for (size_t i = 0; i < kNumBasicBlocks; ++i) {
+      using grinder::basic_block_util::RelativeAddress;
+      using grinder::basic_block_util::RelativeAddressRange;
+
+      module_info->block_ranges.push_back(
+          RelativeAddressRange(RelativeAddress(i * i), i + 1));
+    }
   }
 
   void GetFrequencyData(const ModuleInformation& module_info,
@@ -133,7 +156,6 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(IsValidFrequencySize(frequency_size));
     ASSERT_TRUE(data != NULL);
 
-    static const size_t kNumBasicBlocks = 5;
     static const size_t kMaxDataSize = kNumBasicBlocks * sizeof(uint32);
     static const size_t kBufferSize =
         sizeof(TraceBasicBlockFrequencyData) + kMaxDataSize - 1;
@@ -207,55 +229,54 @@ TEST_F(BasicBlockEntryCountGrinderTest, GrindFailsOnNoEvents) {
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
-  ModuleInformation module_info;
+  InstrumentedModuleInformation module_info;
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
-  EntryCountMap expected_entry_count_map;
-  EntryCountVector& expected_entry_count_vector =
-      expected_entry_count_map[module_info];
-
   TestBasicBlockEntryCountGrinder grinder;
-  scoped_ptr<TraceBasicBlockFrequencyData> data1;
-  scoped_ptr<TraceBasicBlockFrequencyData> data2;
-  scoped_ptr<TraceBasicBlockFrequencyData> data4;
-  static const uint32 kExpectedValues1[] = { 1, 2, 3, 4, 5 };
-  static const uint32 kExpectedValues2[] = { 2, 4, 6, 8, 10 };
-  static const uint32 kExpectedValues4[] = { 3, 6, 9, 12, 15 };
-
+  scoped_ptr<TraceBasicBlockFrequencyData> data;
   // Validate 1-byte frequency data.
-  ASSERT_NO_FATAL_FAILURE(GetFrequencyData(module_info, 1, &data1));
-  ASSERT_EQ(1U, data1->frequency_size);
-  grinder.UpdateBasicBlockEntryCount(&module_info, data1.get());
+  ASSERT_NO_FATAL_FAILURE(
+      GetFrequencyData(module_info.original_module, 1, &data));
+  ASSERT_EQ(1U, data->frequency_size);
+  grinder.UpdateBasicBlockEntryCount(module_info, data.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());
-  EXPECT_THAT(grinder.entry_count_map().begin()->second,
-              testing::ElementsAreArray(kExpectedValues1));
 
+  EntryCountMap expected_counts;
+  CreateExpectedCounts(1, &expected_counts);
+  EXPECT_EQ(grinder.entry_count_map().begin()->second, expected_counts);
+
+  data.reset();
   // Validate 2-byte frequency data.
-  ASSERT_NO_FATAL_FAILURE(GetFrequencyData(module_info, 2, &data2));
-  ASSERT_EQ(2U, data2->frequency_size);
-  grinder.UpdateBasicBlockEntryCount(&module_info, data2.get());
+  ASSERT_NO_FATAL_FAILURE(
+      GetFrequencyData(module_info.original_module, 2, &data));
+  ASSERT_EQ(2U, data->frequency_size);
+  grinder.UpdateBasicBlockEntryCount(module_info, data.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());
-  EXPECT_THAT(grinder.entry_count_map().begin()->second,
-              testing::ElementsAreArray(kExpectedValues2));
 
+  CreateExpectedCounts(2, &expected_counts);
+  EXPECT_EQ(grinder.entry_count_map().begin()->second, expected_counts);
+
+  data.reset();
   // Validate 4-byte frequency data.
-  ASSERT_NO_FATAL_FAILURE(GetFrequencyData(module_info, 4, &data4));
-  ASSERT_EQ(4U, data4->frequency_size);
-  grinder.UpdateBasicBlockEntryCount(&module_info, data4.get());
+  ASSERT_NO_FATAL_FAILURE(
+      GetFrequencyData(module_info.original_module, 4, &data));
+  ASSERT_EQ(4U, data->frequency_size);
+  grinder.UpdateBasicBlockEntryCount(module_info, data.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());
-  EXPECT_THAT(grinder.entry_count_map().begin()->second,
-              testing::ElementsAreArray(kExpectedValues4));
+
+  CreateExpectedCounts(3, &expected_counts);
+  EXPECT_EQ(grinder.entry_count_map().begin()->second, expected_counts);
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, GrindBasicBlockEntryDataSucceeds) {
-  EntryCountMap entry_counts;
+  ModuleEntryCountMap entry_counts;
   ASSERT_NO_FATAL_FAILURE(
       RunGrinderTest(kBasicBlockEntryTraceFile, &entry_counts));
   // TODO(rogerm): Inspect value for bb-entry specific expected data.
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, GrindCoverageDataSucceeds) {
-  EntryCountMap entry_counts;
+  ModuleEntryCountMap entry_counts;
   ASSERT_NO_FATAL_FAILURE(RunGrinderTest(kCoverageTraceFile, &entry_counts));
   // TODO(rogerm): Inspect value for coverage specific expected data.
 }

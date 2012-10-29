@@ -58,12 +58,30 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // @}
 
   // @returns a map from ModuleInformation records to bb entry counts.
-  const basic_block_util::EntryCountMap& entry_count_map() const {
+  const basic_block_util::ModuleEntryCountMap& entry_count_map() const {
     return entry_count_map_;
   }
 
  protected:
+  typedef basic_block_util::RelativeAddressRangeVector
+      RelativeAddressRangeVector;
   typedef basic_block_util::ModuleInformation ModuleInformation;
+  typedef basic_block_util::ModuleIdentityComparator ModuleIdentityComparator;
+
+  // The data we store per encountered instrumented module.
+  struct InstrumentedModuleInformation {
+    // The basic block ranges allow us to resolve the ordinal basic block
+    // IDs to relative offsets in the original image.
+    RelativeAddressRangeVector block_ranges;
+
+    // The module information for the original image is what goes into the
+    // ModuleEntryCount map.
+    ModuleInformation original_module;
+  };
+
+  typedef std::map<ModuleInformation,
+                   InstrumentedModuleInformation,
+                   ModuleIdentityComparator> InstrumentedModuleMap;
 
   // This method does the actual updating of the entry counts on receipt
   // of basic-block frequency data. It is implemented separately from the
@@ -71,11 +89,21 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // @param module_info the module whose basic-block entries are being counted.
   // @param data the basic-block entry counts being reported.
   void UpdateBasicBlockEntryCount(
-      const ModuleInformation* module_info,
+      const InstrumentedModuleInformation& module_info,
       const TraceBasicBlockFrequencyData* data);
 
-  // Stores the summarized basic-block entry counts, per module.
-  basic_block_util::EntryCountMap entry_count_map_;
+  // Finds or creates a new entry for an encountered instrumented module.
+  // @param module_info the module info for the instrumented module encountered.
+  // @returns the initialized instrumented module on success, or NULL on failure
+  //     to locate the instrumented module or initialize the module information.
+  const InstrumentedModuleInformation* FindOrCreateInstrumentedModule(
+      const ModuleInformation* module_info);
+
+  // Stores the summarized basic-block entry counts for each module encountered.
+  basic_block_util::ModuleEntryCountMap entry_count_map_;
+
+  // Stores the basic block ID maps for each module encountered.
+  InstrumentedModuleMap instrumented_modules_;
 
   // Used to save the JSON output to a file. Also tracks the pretty-printing
   // status of this grinder.

@@ -32,11 +32,9 @@ namespace reorder {
 // basic-block entry count data.
 class BasicBlockOptimizer {
  public:
-  typedef grinder::basic_block_util::EntryCountVector EntryCountVector;
+  typedef grinder::basic_block_util::EntryCountMap EntryCountMap;
   typedef pe::ImageLayout ImageLayout;
   typedef Reorderer::Order Order;
-  typedef grinder::basic_block_util::RelativeAddressRangeVector
-      RelativeAddressRangeVector;
 
   // A helper class with utility functions used by the optimization functions.
   // Exposed as public to facilitate unit-testing.
@@ -56,29 +54,25 @@ class BasicBlockOptimizer {
 
   // Basic-block optimize the given @p order.
   bool Optimize(const ImageLayout& image_layout,
-                const RelativeAddressRangeVector& bb_ranges,
-                const EntryCountVector& entry_counts,
+                const EntryCountMap& entry_counts,
                 Order* order);
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::ConstBlockVector ConstBlockVector;
-  typedef grinder::basic_block_util::BasicBlockIdMap BasicBlockIdMap;
 
   // Optimize the layout of all basic-blocks in a block.
   static bool OptimizeBlock(const BlockGraph::Block* block,
                             const ImageLayout& image_layout,
-                            const EntryCountVector& entry_counts,
-                            const BasicBlockIdMap& bb_id_map,
+                            const EntryCountMap& entry_counts,
                             Order::BlockSpecVector* warm_block_specs,
                             Order::BlockSpecVector* cold_block_specs);
 
   // Optimize the layout of all basic-blocks in a section, as defined by the
   // given @p section_spec and the original @p image_layout.
   static bool OptimizeSection(const ImageLayout& image_layout,
-                              const EntryCountVector& entry_counts,
+                              const EntryCountMap& entry_counts,
                               const ConstBlockVector& explicit_blocks,
-                              const BasicBlockIdMap& bb_id_map,
                               Order::SectionSpec* orig_section_spec,
                               Order::BlockSpecVector* warm_block_specs,
                               Order::BlockSpecVector* cold_block_specs);
@@ -108,8 +102,7 @@ class BasicBlockOptimizer::BasicBlockOrderer {
   BasicBlockOrderer(const BasicBlockSubGraph& subgraph,
                     const RelativeAddress& addr,
                     Size size,
-                    const EntryCountVector& entry_counts,
-                    const BasicBlockIdMap& bb_id_map);
+                    const EntryCountMap& entry_counts);
 
   // Get the number of times the block itself was entered. This assumes that
   // the entry point of the block is its first basic block.
@@ -151,8 +144,7 @@ class BasicBlockOptimizer::BasicBlockOrderer {
   const BasicBlockSubGraph& subgraph_;
   const RelativeAddress& addr_;
   const Size size_;
-  const EntryCountVector& entry_counts_;
-  const BasicBlockIdMap& bb_id_map_;
+  const EntryCountMap& entry_counts_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlockOrderer);
