@@ -35,11 +35,10 @@ namespace reorder {
 
 namespace {
 
-using grinder::basic_block_util::BasicBlockIdMap;
 using grinder::basic_block_util::EntryCountMap;
-using grinder::basic_block_util::EntryCountVector;
+using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::LoadBasicBlockRanges;
-using grinder::basic_block_util::FindEntryCountVector;
+using grinder::basic_block_util::FindEntryCountMap;
 using grinder::basic_block_util::RelativeAddressRangeVector;
 using grinder::BasicBlockEntryCountSerializer;
 
@@ -311,15 +310,16 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
   DCHECK(order != NULL);
 
   // Load the basic-block entry count data.
-  EntryCountMap entry_count_map;
+  ModuleEntryCountMap module_entry_count_map;
   BasicBlockEntryCountSerializer serializer;
-  if (!serializer.LoadFromJson(bb_entry_count_file_path_, &entry_count_map)) {
+  if (!serializer.LoadFromJson(bb_entry_count_file_path_,
+                               &module_entry_count_map)) {
     LOG(ERROR) << "Failed to load basic-block entry count data";
     return false;
   }
 
-  const EntryCountVector* entry_counts = NULL;
-  if (!FindEntryCountVector(signature, entry_count_map, &entry_counts)) {
+  const EntryCountMap* entry_counts = NULL;
+  if (!FindEntryCountMap(signature, module_entry_count_map, &entry_counts)) {
     LOG(ERROR) << "Failed to find entry count vector for '"
                << signature.path << "'.";
     return false;
@@ -334,23 +334,9 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
     return false;
   }
 
-  // Load the basic-block ranges.
-  RelativeAddressRangeVector bb_ranges;
-  if (!LoadBasicBlockRanges(pdb_path, &bb_ranges)) {
-    LOG(ERROR) << "Failed to load basic-block ranges from PDB file";
-    return false;
-  }
-
-  // Invert the basic-block ranges to a basic-block ID map.
-  BasicBlockIdMap bb_id_map;
-  if (!bb_id_map.Init(bb_ranges)) {
-    LOG(ERROR) << "Failed to initialize basic-block ID map.";
-    return false;
-  }
-
   // Optimize the ordering for at the basic-block level.
   BasicBlockOptimizer optimizer;
-  if (!optimizer.Optimize(image_layout, bb_ranges, *entry_counts, order)) {
+  if (!optimizer.Optimize(image_layout, *entry_counts, order)) {
     LOG(ERROR) << "Failed to optimize basic-block ordering.";
     return false;
   }

@@ -35,7 +35,7 @@ using base::ListValue;
 using base::Value;
 using basic_block_util::EntryCountMap;
 using basic_block_util::EntryCountType;
-using basic_block_util::EntryCountVector;
+using basic_block_util::ModuleEntryCountMap;
 using basic_block_util::ModuleInformation;
 using testing::ContainerEq;
 
@@ -86,7 +86,7 @@ TEST_F(BasicBlockEntryCountSerializerTest, Accessors) {
 
 TEST_F(BasicBlockEntryCountSerializerTest, LoadFromJsonFails) {
   TestBasicBlockEntryCountSerializer serializer;
-  EntryCountMap entry_count_map;
+  ModuleEntryCountMap entry_count_map;
 
   FilePath does_not_exist(temp_dir_.path().AppendASCII("does_not_exist.json"));
   EXPECT_FALSE(serializer.LoadFromJson(does_not_exist, &entry_count_map));
@@ -96,7 +96,7 @@ TEST_F(BasicBlockEntryCountSerializerTest, LoadFromJsonFails) {
 }
 
 TEST_F(BasicBlockEntryCountSerializerTest, PopulateFromJsonValueFails) {
-  EntryCountMap entry_count_map;
+  ModuleEntryCountMap entry_count_map;
   TestBasicBlockEntryCountSerializer serializer;
 
   // It should fail if the outermost JSON object is not a list.
@@ -165,13 +165,16 @@ TEST_F(BasicBlockEntryCountSerializerTest, PopulateFromJsonValueFails) {
                                                 &entry_count_map));
 
   // It should succeed once we start putting numbers into the entry_counts list.
-  EntryCountVector expected_values;
-  expected_values.push_back(100);
-  expected_values.push_back(200);
-  expected_values.push_back(300);
+  EntryCountMap expected_values;
   entry_counts->Clear();
-  for (size_t i = 0; i < expected_values.size(); ++i)
-    entry_counts->Append(Value::CreateIntegerValue(expected_values[i]));
+  for (size_t i = 0; i < expected_values.size(); ++i) {
+    scoped_ptr<ListValue> entry(new ListValue());
+    entry->Append(Value::CreateIntegerValue(i * i));
+    entry->Append(Value::CreateIntegerValue(100 * i));
+    expected_values[i * i] = 100 * i;
+
+    entry_counts->Append(entry.release());
+  }
 
   ASSERT_TRUE(serializer.PopulateFromJsonValue(list_value.get(),
                                                &entry_count_map));
@@ -185,12 +188,11 @@ TEST_F(BasicBlockEntryCountSerializerTest, RoundTrip) {
   ModuleInformation module_info;
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
-  EntryCountMap entry_count_map;
-  EntryCountVector& counters = entry_count_map[module_info];
+  ModuleEntryCountMap entry_count_map;
+  EntryCountMap& counters = entry_count_map[module_info];
   size_t num_basic_blocks = 100;
-  counters.reserve(num_basic_blocks);
   for (size_t i = 0; i < num_basic_blocks; ++i)
-    counters.push_back(i);
+    counters[i * i] = i + 1;
 
   FilePath json_path(temp_dir_.path().AppendASCII("test.json"));
 
@@ -198,7 +200,7 @@ TEST_F(BasicBlockEntryCountSerializerTest, RoundTrip) {
   serializer.set_pretty_print(true);
   ASSERT_TRUE(serializer.SaveAsJson(entry_count_map, json_path));
 
-  EntryCountMap new_entry_count_map;
+  ModuleEntryCountMap new_entry_count_map;
   serializer.LoadFromJson(json_path, &new_entry_count_map);
 
   EXPECT_THAT(new_entry_count_map, ContainerEq(entry_count_map));

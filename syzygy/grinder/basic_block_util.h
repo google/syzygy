@@ -23,7 +23,6 @@
 
 #include "base/file_path.h"
 #include "sawbuck/sym_util/types.h"
-#include "syzygy/core/address_space.h"
 #include "syzygy/grinder/line_info.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -36,61 +35,6 @@ typedef core::RelativeAddress RelativeAddress;
 typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
 typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
 
-// A wrapper class that inverts RelativeAddressRangeVector and interprets it
-// as a map from a basic-block address to its id.
-class BasicBlockIdMap {
- public:
-  typedef size_t BasicBlockId;
-  typedef std::pair<RelativeAddress, BasicBlockId> ValueType;
-  typedef std::vector<ValueType> ContainerType;
-  typedef ContainerType::const_iterator ConstIterator;
-
-  // Default constructor.
-  BasicBlockIdMap();
-
-  // Initialize the basic-block ID map from a relative address range vector.
-  bool Init(const RelativeAddressRangeVector& bb_ranges);
-
-  // Find the basic-block ID for the basic-block range starting with @p bb_addr.
-  bool Find(const RelativeAddress& bb_addr, BasicBlockId* id) const;
-
-  // Iterator functions.
-  // @{
-  ConstIterator Begin() const { return container_.begin(); }
-  ConstIterator End() const { return container_.end(); }
-  ConstIterator LowerBound(const RelativeAddress& addr) const {
-    return std::lower_bound(Begin(), End(), addr, AddrCompareLess());
-  }
-  ConstIterator UpperBound(const RelativeAddress& addr) const {
-    return std::upper_bound(Begin(), End(), addr, AddrCompareLess());
-  }
-  // @}
-
-  // Get the number of basic-blocks represented in this basic-block ID map.
-  size_t Size() const { return container_.size(); }
-
- protected:
-  // A comparator to use when searching the sorted range/id vector.
-  struct AddrCompareLess
-      : public std::binary_function<ValueType, ValueType, bool> {
-    bool operator()(const ValueType& lhs, const ValueType& rhs) const {
-      return lhs.first < rhs.first;
-    }
-    bool operator()(const ValueType& lhs, const RelativeAddress& rhs) const {
-      return lhs.first < rhs;
-    }
-    bool operator()(const RelativeAddress& lhs, const ValueType& rhs) const {
-      return lhs < rhs.first;
-    }
-  };
-
-  // The map from a range to the corresponding ID.
-  ContainerType container_;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(BasicBlockIdMap);
-};
-
 // Module information.
 typedef sym_util::ModuleInformation ModuleInformation;
 
@@ -100,11 +44,15 @@ struct ModuleIdentityComparator {
 };
 
 // Type definitions for the basic block entry count data.
-typedef uint32 EntryCountType;
-typedef std::vector<EntryCountType> EntryCountVector;
+typedef int EntryCountType;
+typedef int BasicBlockOffset;
+// An entry count map maps from the relative virtual address of the first
+// instruction or data byte in the basic bloc, to its entry count.
+typedef std::map<BasicBlockOffset, EntryCountType> EntryCountMap;
+
 typedef std::map<ModuleInformation,
-                 EntryCountVector,
-                 ModuleIdentityComparator> EntryCountMap;
+                 EntryCountMap,
+                 ModuleIdentityComparator> ModuleEntryCountMap;
 
 // This structure holds the information extracted from a PDB file for a
 // given module.
@@ -132,10 +80,11 @@ void InitModuleInfo(const pe::PEFile::Signature& signature,
                     ModuleInformation* module_info);
 
 // Given a module @p signature, find the matching @p module_information
-// and @p entry_count_vector in the given @p entry_count_map.
-bool FindEntryCountVector(const pe::PEFile::Signature& signature,
-                          const EntryCountMap& entry_count_map,
-                          const EntryCountVector** entry_count_vector);
+// and @p entry_count_map in the given @p module_entry_count_map.
+// @returns true on success, false otherwise.
+bool FindEntryCountMap(const pe::PEFile::Signature& signature,
+                       const ModuleEntryCountMap& module_entry_count_map,
+                       const EntryCountMap** entry_count_map);
 
 // A helper function to populate @p bb_ranges from the PDB file given by
 // @p pdb_path.

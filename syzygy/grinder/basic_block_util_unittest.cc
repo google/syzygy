@@ -126,71 +126,6 @@ TEST(GrinderBasicBlockUtilTest, ModuleIdentityComparator) {
   EXPECT_TRUE(comp(b, a));
 }
 
-TEST(GrinderBasicBlockUtilTest, BasicBlockIdMap) {
-  // Setup the basic-block range vector.
-  RelativeAddressRangeVector bb_ranges;
-  bb_ranges.reserve(5);
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(100), 100));
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(400), 100));
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(300), 100));
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(500), 100));
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(200), 100));
-
-  // Setup the expected basic-block ID map.
-  BasicBlockIdMap::ContainerType expected_map;
-  expected_map.reserve(5);
-  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(100), 0));
-  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(200), 4));
-  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(300), 2));
-  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(400), 1));
-  expected_map.push_back(BasicBlockIdMap::ValueType(RelativeAddress(500), 3));
-
-  // Test Init(), Begin(), and End().
-  BasicBlockIdMap bb_id_map;
-  ASSERT_TRUE(bb_id_map.Init(bb_ranges));
-  ASSERT_EQ(expected_map.size(), bb_id_map.Size());
-  ASSERT_TRUE(
-      std::equal(bb_id_map.Begin(), bb_id_map.End(), expected_map.begin()));
-
-  // Test LowerBound().
-  EXPECT_TRUE(
-      bb_id_map.LowerBound(RelativeAddress(50)) == bb_id_map.Begin());
-  EXPECT_TRUE(
-      bb_id_map.LowerBound(RelativeAddress(200)) == ++bb_id_map.Begin());
-  EXPECT_TRUE(
-      bb_id_map.LowerBound(RelativeAddress(500)) == --bb_id_map.End());
-  EXPECT_TRUE(
-      bb_id_map.LowerBound(RelativeAddress(600)) == bb_id_map.End());
-
-  // Test UpperBound().
-  EXPECT_TRUE(
-      bb_id_map.UpperBound(RelativeAddress(50)) == bb_id_map.Begin());
-  EXPECT_TRUE(
-      bb_id_map.UpperBound(RelativeAddress(200)) == ++(++bb_id_map.Begin()));
-  EXPECT_TRUE(
-      bb_id_map.UpperBound(RelativeAddress(500)) == bb_id_map.End());
-
-  // Test Find().
-  BasicBlockIdMap::BasicBlockId id = 0;
-  EXPECT_TRUE(bb_id_map.Find(RelativeAddress(300), &id));
-  EXPECT_EQ(2U, id);
-  EXPECT_TRUE(bb_id_map.Find(RelativeAddress(500), &id));
-  EXPECT_EQ(3U, id);
-  EXPECT_FALSE(bb_id_map.Find(RelativeAddress(50), &id));
-  EXPECT_FALSE(bb_id_map.Find(RelativeAddress(301), &id));
-  EXPECT_FALSE(bb_id_map.Find(RelativeAddress(600), &id));
-
-  // Test corner cases of Init() - Empty relative address range vector.
-  bb_ranges.clear();
-  EXPECT_TRUE(bb_id_map.Init(bb_ranges));
-  EXPECT_EQ(0U, bb_id_map.Size());
-
-  // Test error cases of Init() - Duplicate entry in bb_ranges.
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(100), 100));
-  bb_ranges.push_back(RelativeAddressRange(RelativeAddress(100), 100));
-  EXPECT_FALSE(bb_id_map.Init(bb_ranges));
-}
-
 TEST(GrinderBasicBlockUtilTest, InitModuleInfo) {
   // Create a prototype module info structure.
   ModuleInformation orig_module_info;
@@ -215,28 +150,28 @@ TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
   pe::PEFile::Signature signature(module_info);
 
   // Create an empty entry count map.
-  EntryCountMap entry_count_map;
-  EXPECT_TRUE(entry_count_map.empty());
+  ModuleEntryCountMap module_entry_count_map;
+  EXPECT_TRUE(module_entry_count_map.empty());
 
   // Search the empty map for the module..
-  const EntryCountVector* entry_count_vector = NULL;
+  const EntryCountMap* entry_count_map = NULL;
   EXPECT_FALSE(
-      FindEntryCountVector(signature, entry_count_map, &entry_count_vector));
-  EXPECT_EQ(NULL, entry_count_vector);
+      FindEntryCountMap(signature, module_entry_count_map, &entry_count_map));
+  EXPECT_EQ(NULL, entry_count_map);
 
   // Insert a matching module and search again.
-  const EntryCountVector* entry_count_vector_1 = &entry_count_map[module_info];
+  const EntryCountMap* entry_count_map_1 = &module_entry_count_map[module_info];
   EXPECT_TRUE(
-      FindEntryCountVector(signature, entry_count_map, &entry_count_vector));
-  EXPECT_EQ(entry_count_vector_1, entry_count_vector);
+      FindEntryCountMap(signature, module_entry_count_map, &entry_count_map));
+  EXPECT_EQ(entry_count_map_1, entry_count_map);
 
-  // Insert a second matching module and search again. This shoudl fail.
+  // Insert a second matching module and search again. This should fail.
   module_info.image_file_name = L"Some other file name";
-  const EntryCountVector* entry_count_vector_2 = &entry_count_map[module_info];
-  ASSERT_NE(entry_count_vector_1, entry_count_vector_2);
+  const EntryCountMap* entry_count_map_2 = &module_entry_count_map[module_info];
+  ASSERT_NE(entry_count_map_1, entry_count_map_2);
   EXPECT_FALSE(
-      FindEntryCountVector(signature, entry_count_map, &entry_count_vector));
-  EXPECT_EQ(NULL, entry_count_vector);
+      FindEntryCountMap(signature, module_entry_count_map, &entry_count_map));
+  EXPECT_EQ(NULL, entry_count_map);
 }
 
 TEST(GrinderBasicBlockUtilTest, LoadBasicBlockRanges) {

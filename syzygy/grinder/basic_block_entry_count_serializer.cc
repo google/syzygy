@@ -33,9 +33,9 @@ namespace grinder {
 namespace  {
 
 using core::JSONFileWriter;
-using basic_block_util::EntryCountMap;
 using basic_block_util::EntryCountType;
-using basic_block_util::EntryCountVector;
+using basic_block_util::EntryCountMap;
+using basic_block_util::ModuleEntryCountMap;
 using basic_block_util::ModuleInformation;
 
 const char kMetadata[] = "metadata";
@@ -44,7 +44,7 @@ const char kEntryCounts[] = "entry_counts";
 bool OutputEntryCount(
     JSONFileWriter* writer,
     const ModuleInformation& module_information,
-    const EntryCountVector& entry_counts) {
+    const EntryCountMap& entry_counts) {
   DCHECK(writer != NULL);
 
   // Start a new dictionary.
@@ -71,8 +71,12 @@ bool OutputEntryCount(
     return false;
   }
 
-  for (size_t i = 0; i < entry_counts.size(); ++i) {
-    if (!writer->OutputInteger(entry_counts[i]))
+  EntryCountMap::const_iterator it = entry_counts.begin();
+  for (; it != entry_counts.end(); ++it) {
+    if (!writer->OpenList() ||
+        !writer->OutputInteger(it->first) ||
+        !writer->OutputInteger(it->second)||
+        !writer->CloseList())
       return false;
   }
 
@@ -88,9 +92,9 @@ bool OutputEntryCount(
 }
 
 bool ReadEntryCount(const base::DictionaryValue* dict_value,
-                    EntryCountMap* entry_count_map) {
+                    ModuleEntryCountMap* module_entry_count_map) {
   DCHECK(dict_value != NULL);
-  DCHECK(entry_count_map != NULL);
+  DCHECK(module_entry_count_map != NULL);
 
   // Load the metadata about the image.
   const base::DictionaryValue* metadata_dict = NULL;
@@ -122,9 +126,9 @@ bool ReadEntryCount(const base::DictionaryValue* dict_value,
   module_information.time_date_stamp = signature.module_time_date_stamp;
 
   // Insert a new entry count record for this module.
-  std::pair<EntryCountMap::iterator, bool> result =
-      entry_count_map->insert(std::make_pair(
-          module_information, EntryCountVector()));
+  std::pair<ModuleEntryCountMap::iterator, bool> result =
+      module_entry_count_map->insert(std::make_pair(
+          module_information, EntryCountMap()));
 
   // Validate that we really did insert a new module into the map.
   if (!result.second) {
@@ -133,16 +137,25 @@ bool ReadEntryCount(const base::DictionaryValue* dict_value,
   }
 
   // Populate the entry count vector with the values in the list.
-  EntryCountVector& values = result.first->second;
-  size_t num_basic_blocks = entry_count_list->GetSize();
-  values.reserve(num_basic_blocks);
-  for (size_t i = 0; i < num_basic_blocks; ++i) {
-    int number = 0;
-    if (!entry_count_list->GetInteger(i, &number) || number < 0) {
+  EntryCountMap& values = result.first->second;
+  size_t num_entries = entry_count_list->GetSize();
+  for (size_t i = 0; i < num_entries; ++i) {
+    basic_block_util::BasicBlockOffset offset = 0;
+    basic_block_util::EntryCountType entry_count = 0;
+    const base::ListValue* entry = NULL;
+    if (!entry_count_list->GetList(i, &entry) ||
+        entry->GetSize() != 2 ||
+        !entry->GetInteger(0, &offset) ||
+        !entry->GetInteger(1, &entry_count) ||
+        offset < 0 || entry_count < 0) {
       LOG(ERROR) << "Invalid value in entry count list.";
       return false;
     }
-    values.push_back(number);
+
+    if (!values.insert(std::make_pair(offset, entry_count)).second) {
+      LOG(ERROR) << "Duplicate basic block offset in entry count list.";
+      return false;
+    }
   }
 
   // And we're done.
@@ -156,7 +169,7 @@ BasicBlockEntryCountSerializer::BasicBlockEntryCountSerializer()
 }
 
 bool BasicBlockEntryCountSerializer::SaveAsJson(
-    const EntryCountMap& entry_count_map, FILE* file) {
+    const ModuleEntryCountMap& entry_count_map, FILE* file) {
   DCHECK(file != NULL);
   core::JSONFileWriter writer(file, pretty_print_);
 
@@ -165,7 +178,7 @@ bool BasicBlockEntryCountSerializer::SaveAsJson(
     return false;
 
   // Output each entry;
-  EntryCountMap::const_iterator it = entry_count_map.begin();
+  ModuleEntryCountMap::const_iterator it = entry_count_map.begin();
   for (; it != entry_count_map.end(); ++it) {
     if (!OutputEntryCount(&writer, it->first, it->second))
       return false;
@@ -179,7 +192,7 @@ bool BasicBlockEntryCountSerializer::SaveAsJson(
 }
 
 bool BasicBlockEntryCountSerializer::SaveAsJson(
-    const EntryCountMap& entry_count_map, const FilePath& path) {
+    const ModuleEntryCountMap& entry_count_map, const FilePath& path) {
   DCHECK(!path.empty());
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
@@ -196,8 +209,8 @@ bool BasicBlockEntryCountSerializer::SaveAsJson(
 }
 
 bool BasicBlockEntryCountSerializer::LoadFromJson(
-    const FilePath& path, EntryCountMap* entry_count_map) {
-  DCHECK(entry_count_map != NULL);
+    const FilePath& path, ModuleEntryCountMap* module_entry_count_map) {
+  DCHECK(module_entry_count_map != NULL);
   DCHECK(!path.empty());
 
   std::string json_string;
@@ -216,18 +229,19 @@ bool BasicBlockEntryCountSerializer::LoadFromJson(
     return false;
   }
 
-  if (!PopulateFromJsonValue(json_value.get(), entry_count_map))
+  if (!PopulateFromJsonValue(json_value.get(), module_entry_count_map))
     return false;
 
   return true;
 }
 
 bool BasicBlockEntryCountSerializer::PopulateFromJsonValue(
-    const base::Value* json_value, EntryCountMap* entry_count_map) {
+    const base::Value* json_value,
+    ModuleEntryCountMap* module_entry_count_map) {
   DCHECK(json_value != NULL);
-  DCHECK(entry_count_map != NULL);
+  DCHECK(module_entry_count_map != NULL);
 
-  entry_count_map->clear();
+  module_entry_count_map->clear();
 
   // Extract the top level list of module.
   const base::ListValue* module_list = NULL;
@@ -244,7 +258,7 @@ bool BasicBlockEntryCountSerializer::PopulateFromJsonValue(
       LOG(ERROR) << "Invalid type for entry " << i << ".";
       return false;
     }
-    if (!ReadEntryCount(dict_value, entry_count_map)) {
+    if (!ReadEntryCount(dict_value, module_entry_count_map)) {
       // ReadEntryCount() has already logged the error.
       return false;
     }

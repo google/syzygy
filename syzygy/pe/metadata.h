@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,9 @@ class Metadata {
   const std::string& command_line() const { return command_line_; }
   Time creation_time() const { return creation_time_; }
   const SyzygyVersion& toolchain_version() const { return toolchain_version_; }
-  const PEFile::Signature module_signature() const { return module_signature_; }
+  const PEFile::Signature& module_signature() const {
+    return module_signature_;
+  }
 
   // Mutators. These are mainly for explicit testing.
   void set_command_line(const std::string& command_line) {

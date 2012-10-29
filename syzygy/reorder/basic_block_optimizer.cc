@@ -37,11 +37,11 @@ using block_graph::BasicDataBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::Successor;
-using grinder::basic_block_util::BasicBlockIdMap;
 using grinder::basic_block_util::EntryCountMap;
 using grinder::basic_block_util::EntryCountType;
-using grinder::basic_block_util::EntryCountVector;
+using grinder::basic_block_util::EntryCountMap;
 using grinder::basic_block_util::InitModuleInfo;
+using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::ModuleInformation;
 using grinder::basic_block_util::RelativeAddress;
 using grinder::basic_block_util::RelativeAddressRange;
@@ -155,14 +155,11 @@ BasicBlockOptimizer::BasicBlockOrderer::BasicBlockOrderer(
     const BasicBlockSubGraph& subgraph,
     const RelativeAddress& addr,
     Size size,
-    const EntryCountVector& entry_counts,
-    const BasicBlockIdMap& bb_id_map)
+    const EntryCountMap& entry_counts)
         : subgraph_(subgraph),
           addr_(addr),
           size_(size),
-          entry_counts_(entry_counts),
-          bb_id_map_(bb_id_map) {
-  DCHECK_EQ(entry_counts.size(), bb_id_map_.Size());
+          entry_counts_(entry_counts) {
   DCHECK_LT(0U, size);
 }
 
@@ -323,20 +320,12 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetEntryCountByOffset(
   DCHECK_GT(size_, static_cast<Size>(offset));
   DCHECK(entry_count != NULL);
 
-  // TODO(rogerm): It would be nice to have an easy way to check that the
-  //     offset corresponds to some basic block in the subgraph_.
-
   *entry_count = 0;
+  EntryCountMap::const_iterator it(entry_counts_.find(offset));
 
-  // Lookup the basic-block id for the basic-block at offset.
-  BasicBlockIdMap::BasicBlockId bb_id = 0;
-  RelativeAddress bb_start_addr = addr_ + offset;
-  if (!bb_id_map_.Find(bb_start_addr, &bb_id))
-    return false;
+  if (it != entry_counts_.end())
+    *entry_count = it->second;
 
-  // Return the found value.
-  DCHECK_LT(bb_id, entry_counts_.size());
-  *entry_count = entry_counts_[bb_id];
   return true;
 }
 
@@ -484,16 +473,9 @@ BasicBlockOptimizer::BasicBlockOptimizer()
 }
 
 bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
-                                   const RelativeAddressRangeVector& bb_ranges,
-                                   const EntryCountVector& entry_counts,
+                                   const EntryCountMap& entry_counts,
                                    Order* order) {
   DCHECK(order != NULL);
-
-  // Invert bb_ranges such that we can find the ID (therefore the entry count)
-  // for each basic-block.
-  BasicBlockIdMap bb_ids;
-  if (!bb_ids.Init(bb_ranges))
-    return false;
 
   // Keep track of which blocks have been explicitly ordered. This will be used
   // when implicitly placing blocks.
@@ -525,7 +507,6 @@ bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
     if (!OptimizeSection(image_layout,
                          entry_counts,
                          explicit_blocks,
-                         bb_ids,
                          section_spec,
                          &warm_block_specs,
                          &cold_block_specs)) {
@@ -547,8 +528,7 @@ bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
 bool BasicBlockOptimizer::OptimizeBlock(
     const BlockGraph::Block* block,
     const ImageLayout& image_layout,
-    const EntryCountVector& entry_counts,
-    const BasicBlockIdMap& bb_id_map,
+    const EntryCountMap& entry_counts,
     Order::BlockSpecVector* warm_block_specs,
     Order::BlockSpecVector* cold_block_specs) {
   DCHECK(block != NULL);
@@ -581,7 +561,7 @@ bool BasicBlockOptimizer::OptimizeBlock(
 
   // Create the basic-block orderer.
   BasicBlockOrderer orderer(
-      subgraph, addr, block->size(), entry_counts, bb_id_map);
+      subgraph, addr, block->size(), entry_counts);
 
   // Determine the number of times the block has been entered.
   EntryCountType entry_count = 0;
@@ -637,9 +617,8 @@ bool BasicBlockOptimizer::OptimizeBlock(
 
 bool BasicBlockOptimizer::OptimizeSection(
     const ImageLayout& image_layout,
-    const EntryCountVector& entry_counts,
+    const EntryCountMap& entry_counts,
     const ConstBlockVector& explicit_blocks,
-    const BasicBlockIdMap& bb_id_map,
     Order::SectionSpec* orig_section_spec,
     Order::BlockSpecVector* warm_block_specs,
     Order::BlockSpecVector* cold_block_specs) {
@@ -657,7 +636,6 @@ bool BasicBlockOptimizer::OptimizeSection(
     if (!OptimizeBlock(block_spec->block,
                        image_layout,
                        entry_counts,
-                       bb_id_map,
                        warm_block_specs,
                        cold_block_specs)) {
       return false;
@@ -688,7 +666,6 @@ bool BasicBlockOptimizer::OptimizeSection(
       if (!OptimizeBlock(it->second,
                          image_layout,
                          entry_counts,
-                         bb_id_map,
                          warm_block_specs,
                          cold_block_specs)) {
         return false;

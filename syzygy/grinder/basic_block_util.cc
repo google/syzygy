@@ -43,72 +43,6 @@ bool ModuleIdentityComparator::operator()(
   return lhs.image_file_name < rhs.image_file_name;
 }
 
-BasicBlockIdMap::BasicBlockIdMap() {
-}
-
-bool BasicBlockIdMap::Init(const RelativeAddressRangeVector& bb_ranges) {
-  // Clear the container.
-  container_.clear();
-
-  // If there aren't any ranges to consider then we're done.
-  if (bb_ranges.empty())
-    return true;
-
-  // Otherwise, populate the container.
-  container_.reserve(bb_ranges.size());
-  for (size_t id = 0; id < bb_ranges.size(); ++id) {
-    container_.push_back(std::make_pair(bb_ranges[id].start(), id));
-  }
-
-  DCHECK(!container_.empty());
-
-  // Sort the resulting vector.
-  std::sort(container_.begin(), container_.end(), AddrCompareLess());
-
-  // Make sure there are no duplicate or out-of-order start addresses in
-  // the container.
-  ContainerType::const_iterator next_iter = container_.begin();
-  ContainerType::const_iterator end_iter = --container_.end();
-  while (next_iter != end_iter) {
-    ContainerType::const_iterator curr_iter = next_iter++;
-    // Check for duplicates.
-    if (curr_iter->first == next_iter->first) {
-      LOG(ERROR) << "Duplicate address found in relative address range vector.";
-      return false;
-    }
-    // The sort should preclude them being out-of-order.
-    DCHECK_LT(curr_iter->first, next_iter->first);
-  }
-
-  // And we're done.
-  return true;
-}
-
-bool BasicBlockIdMap::Find(const RelativeAddress& bb_addr,
-                           BasicBlockId* id) const {
-  DCHECK(id != NULL);
-
-  // Look for the first range with an address greater than or equal to bb_addr.
-  ContainerType::const_iterator it = std::lower_bound(container_.begin(),
-                                                      container_.end(),
-                                                      bb_addr,
-                                                      AddrCompareLess());
-
-  // If we found no such range, then bb_addr is outside the known address
-  // space of basic-blocks.
-  if (it == container_.end())
-    return false;
-
-  // The range should start exactly with bb_addr, otherwise bb_addr doesn't
-  // represent the start of a known basic block.
-  if (it->first != bb_addr)
-    return false;
-
-  // Return the ID corresponding to the found range.
-  *id = it->second;
-  return true;
-}
-
 void InitModuleInfo(const pe::PEFile::Signature& signature,
                     ModuleInformation* module_info) {
   DCHECK(module_info != NULL);
@@ -119,34 +53,34 @@ void InitModuleInfo(const pe::PEFile::Signature& signature,
   module_info->time_date_stamp = signature.module_time_date_stamp;
 }
 
-bool FindEntryCountVector(const pe::PEFile::Signature& signature,
-                          const EntryCountMap& entry_count_map,
-                          const EntryCountVector** entry_count_vector) {
-  DCHECK(entry_count_vector != NULL);
-  *entry_count_vector = NULL;
+bool FindEntryCountMap(const pe::PEFile::Signature& signature,
+                       const ModuleEntryCountMap& module_entry_count_map,
+                       const EntryCountMap** entry_count_map) {
+  DCHECK(entry_count_map != NULL);
+  *entry_count_map = NULL;
 
   // Find exactly one consistent entry count vector in the map.
-  const EntryCountVector* tmp_entry_count_vector = NULL;
-  EntryCountMap::const_iterator it = entry_count_map.begin();
-  for (; it != entry_count_map.end(); ++it) {
+  const EntryCountMap* tmp_entry_count_map = NULL;
+  ModuleEntryCountMap::const_iterator it = module_entry_count_map.begin();
+  for (; it != module_entry_count_map.end(); ++it) {
     const pe::PEFile::Signature candidate(it->first);
     if (candidate.IsConsistent(signature)) {
-      if (tmp_entry_count_vector != NULL) {
+      if (tmp_entry_count_map != NULL) {
         LOG(ERROR) << "Found multiple module instances in the entry count map.";
         return false;
       }
-      tmp_entry_count_vector = &it->second;
+      tmp_entry_count_map = &it->second;
     }
   }
 
   // Handle the case where the is no consistent module found.
-  if (tmp_entry_count_vector == NULL) {
+  if (tmp_entry_count_map == NULL) {
     LOG(ERROR) << "Did not find module in the entry count map.";
     return false;
   }
 
   // Return the entry counts that were found.
-  *entry_count_vector = tmp_entry_count_vector;
+  *entry_count_map = tmp_entry_count_map;
   return true;
 }
 

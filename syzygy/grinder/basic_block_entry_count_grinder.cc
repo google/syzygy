@@ -57,8 +57,7 @@ bool BasicBlockEntryCountGrinder::Grind() {
 bool BasicBlockEntryCountGrinder::OutputData(FILE* file) {
   DCHECK(file != NULL);
 
-  BasicBlockEntryCountSerializer serializer;
-  if (!serializer.SaveAsJson(entry_count_map_, file))
+  if (!serializer_.SaveAsJson(entry_count_map_, file))
     return false;
 
   return true;
@@ -95,46 +94,104 @@ void BasicBlockEntryCountGrinder::OnBasicBlockFrequency(
     return;
   }
 
-  UpdateBasicBlockEntryCount(module_info, data);
+  const InstrumentedModuleInformation* instrumented_module =
+      FindOrCreateInstrumentedModule(module_info);
+  if (instrumented_module == NULL) {
+    LOG(ERROR) << "Failed to find instrumented module "
+               << module_info->image_file_name;
+    event_handler_errored_ = true;
+    return;
+  }
+
+  if (data->num_basic_blocks != instrumented_module->block_ranges.size()) {
+    LOG(ERROR) << "Unexpected data size for instrumented module "
+               << module_info->image_file_name;
+    event_handler_errored_ = true;
+    return;
+  }
+
+  UpdateBasicBlockEntryCount(*instrumented_module, data);
 }
 
 void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
-    const ModuleInformation* module_info,
+    const InstrumentedModuleInformation& instrumented_module,
     const TraceBasicBlockFrequencyData* data) {
+  using basic_block_util::BasicBlockOffset;
   using basic_block_util::EntryCountType;
-  using basic_block_util::EntryCountVector;
+  using basic_block_util::EntryCountMap;
   using basic_block_util::GetFrequency;
 
-  DCHECK(module_info != NULL);
   DCHECK(data != NULL);
   DCHECK_NE(0U, data->num_basic_blocks);
-  DCHECK_EQ(data->module_base_addr,
-            reinterpret_cast<ModuleAddr>(module_info->base_address));
-  DCHECK_EQ(data->module_base_size, module_info->module_size);
-  DCHECK_EQ(data->module_checksum, module_info->image_checksum);
-  DCHECK_EQ(data->module_time_date_stamp, module_info->time_date_stamp);
-
-  EntryCountVector& bb_entries = entry_count_map_[*module_info];
-  if (bb_entries.size() != data->num_basic_blocks) {
-    // This should be the first (and only) time we're initializing this
-    // entry count vector.
-    if (!bb_entries.empty()) {
-     LOG(ERROR) << "Inconsistent number of data block observed for "
-                << module_info->image_file_name << ".";
-     event_handler_errored_ = true;
-     return;
-    }
-    bb_entries.resize(data->num_basic_blocks, 0);
-  }
+  EntryCountMap& bb_entries =
+      entry_count_map_[instrumented_module.original_module];
 
   // Run over the BB frequency data and increment bb_entries for each basic
   // block using saturation arithmetic.
+
   for (size_t bb_id = 0; bb_id < data->num_basic_blocks; ++bb_id) {
     EntryCountType amount = GetFrequency(data, bb_id);
-    EntryCountType& value = bb_entries[bb_id];
-    value += std::min(
-        amount, std::numeric_limits<EntryCountType>::max() - value);
+    if (amount != 0) {
+      BasicBlockOffset offs =
+          instrumented_module.block_ranges[bb_id].start().value();
+
+      EntryCountType& value = bb_entries[offs];
+      value += std::min(
+          amount, std::numeric_limits<EntryCountType>::max() - value);
+    }
   }
+}
+
+const BasicBlockEntryCountGrinder::InstrumentedModuleInformation*
+BasicBlockEntryCountGrinder::FindOrCreateInstrumentedModule(
+    const ModuleInformation* module_info) {
+  // See if we already encountered this instrumented module.
+  InstrumentedModuleMap::iterator it(instrumented_modules_.find(*module_info));
+  if (it != instrumented_modules_.end())
+    return &it->second;
+
+  // Get the original file's metadata.
+  FilePath module_path(module_info->image_file_name);
+  pe::PEFile instrumented_module;
+  if (!instrumented_module.Init(module_path)) {
+    LOG(ERROR) << "Unable to locate instrumented module: "
+               << module_path.value();
+    return NULL;
+  }
+
+  pe::Metadata metadata;
+  if (!metadata.LoadFromPE(instrumented_module)) {
+    LOG(ERROR) << "Unable to load metadata from module: "
+               << module_path.value();
+    return NULL;
+  }
+
+  // Find the PDB file for the module.
+  FilePath pdb_path;
+  if (!pe::FindPdbForModule(module_path, &pdb_path) || pdb_path.empty()) {
+    LOG(ERROR) << "Failed to find PDB for module: " << module_path.value();
+    return NULL;
+  }
+
+  RelativeAddressRangeVector block_ranges;
+  // This logs verbosely for us.
+  if (!basic_block_util::LoadBasicBlockRanges(pdb_path, &block_ranges)) {
+    return NULL;
+  }
+
+  // We've located all the information we need, create and
+  // initialize the record.
+  InstrumentedModuleInformation& info = instrumented_modules_[*module_info];
+  const pe::PEFile::Signature& signature = metadata.module_signature();
+  info.original_module.base_address = signature.base_address.value();
+  info.original_module.module_size = signature.module_size;
+  info.original_module.image_checksum = signature.module_checksum;
+  info.original_module.time_date_stamp = signature.module_time_date_stamp;
+  info.original_module.image_file_name = signature.path;
+
+  info.block_ranges.swap(block_ranges);
+
+  return &info;
 }
 
 }  // namespace grinder
