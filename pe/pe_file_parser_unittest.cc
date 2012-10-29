@@ -322,20 +322,12 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   EXPECT_THAT(import_names, ContainerEq(expected));
 
   // The number of expected symbols imported from kernel32.dll.
-#if _MSC_VER == 1500 && defined(NDEBUG)
-  // VC++ 2008 Release Build.
-  static size_t kNumKernel32Symbols = 73;
-#elif _MSC_VER == 1500 && !defined(NDEBUG)
-  // VC++ 2008 Debug/Coverage Build.
-  static size_t kNumKernel32Symbols = 80;
-#elif _MSC_VER == 1600 && defined(NDEBUG)
+#if defined(NDEBUG)
   // VC++ 2010 Release Build.
   static size_t kNumKernel32Symbols = 68;
-#elif _MSC_VER == 1600 && !defined(NDEBUG)
+#else
   // VC++ 2010 Debug/Coverage build.
   static size_t kNumKernel32Symbols = 72;
-#else
-#error Unrecognized compiler version or build configuration.
 #endif
 
   // The number of expected symbols imported from export_dll.dll.

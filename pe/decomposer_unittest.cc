@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -243,9 +243,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 
   // Validate that the DllMain block has the expected population of labels.
   ASSERT_FALSE(dll_main_block == NULL);
-
-  static const size_t kNumDebugEndLabels = (_MSC_VER <= 1500) ? 1 : 0;
-  EXPECT_EQ(18 + kNumDebugEndLabels, dll_main_block->labels().size());
+  EXPECT_EQ(18, dll_main_block->labels().size());
 
   std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
   {
@@ -265,7 +263,6 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
   EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
   EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL]);
-  EXPECT_EQ(kNumDebugEndLabels, label_attr_counts[BlockGraph::DEBUG_END_LABEL]);
 }
 
 namespace {
