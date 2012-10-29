@@ -1,5 +1,5 @@
 @echo off
-rem Copyright 2012 Google Inc.
+rem Copyright 2012 Google Inc. All Rights Reserved.
 rem
 rem Licensed under the Apache License, Version 2.0 (the "License");
 rem you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ echo:
 goto done
 
 :setup
-call "C:\Program Files (x86)\Microsoft Visual Studio 9.0\Common7\Tools\vsvars32.bat"
+call "C:\Program Files (x86)\Microsoft Visual Studio 10.0\Common7\Tools\vsvars32.bat"
 
 echo Initializing local variables ...
 set THISDIR=%~dp0
@@ -210,6 +210,7 @@ copy %SUMMARY%+%REORDER_LOG% %ERROR_MESSAGE%
 goto error
 
 :step5
+rmdir /S /Q "%BUILD_DIR%"
 echo Sending out summary mail ...
 call python "%SEND_MAIL_PY%" ^
   --server="%SMTP_SERVER%" ^
