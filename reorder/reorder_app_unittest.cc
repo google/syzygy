@@ -103,7 +103,7 @@ class ReorderAppTest : public testing::PELibUnitTest {
     output_file_path_ = testing::GetRelativePath(abs_output_file_path_);
 
     abs_bb_entry_count_file_path_ = testing::GetExeTestDataRelativePath(
-        L"entry_counts.json");
+        L"basic_block_entry_traces\\entry_counts.json");
     bb_entry_count_file_path_ = testing::GetRelativePath(
         abs_bb_entry_count_file_path_);
 
@@ -333,6 +333,19 @@ TEST_F(ReorderAppTest, ParseDeadCodeFinderCommandLine) {
   EXPECT_TRUE(test_impl_.pretty_print_);
 
   EXPECT_TRUE(test_impl_.SetUp());
+}
+
+TEST_F(ReorderAppTest, LinearOrderEndToEnd) {
+  cmd_line_.AppendSwitchPath(
+      TestReorderApp::kInstrumentedImage, instrumented_image_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kInputImage, input_image_path_);
+  cmd_line_.AppendSwitchPath(
+      TestReorderApp::kBasicBlockEntryCounts, bb_entry_count_file_path_);
+  cmd_line_.AppendSwitch(TestReorderApp::kPrettyPrint);
+  cmd_line_.AppendArgPath(trace_file_path_);
+
+  ASSERT_EQ(0, test_app_.Run());
 }
 
 }  // namespace pe

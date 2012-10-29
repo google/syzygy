@@ -395,5 +395,42 @@
         },
       ],
     },
+    {
+      'target_name': 'basic_block_entry_counts',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        'basic_block_entry_traces',
+        '<(DEPTH)/syzygy/grinder/grinder.gyp:grinder',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_basic_block_entry_counts',
+          'inputs': [
+            '<(PRODUCT_DIR)/grinder.exe',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-4.bin',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/'
+                'entry_counts.json',
+          ],
+          'action': [
+            '<(PRODUCT_DIR)/grinder.exe',
+            '--mode=basic-block-entry',
+            '--output-file=<(PRODUCT_DIR)/test_data/basic_block_entry_traces/'
+                'entry_counts.json',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-4.bin',
+          ],
+        },
+      ],
+    },
   ],
 }
