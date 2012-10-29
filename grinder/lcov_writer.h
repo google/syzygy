@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ class LcovWriter {
   struct CoverageInfo;  // Forward declaration.
 
   // A map of line numbers to execution counts.
-  typedef std::map<size_t, size_t> LineExecutionCountMap;
+  typedef std::map<size_t, uint32> LineExecutionCountMap;
   // A map of file names to coverage information.
   typedef std::map<std::string, CoverageInfo> SourceFileCoverageInfoMap;
 

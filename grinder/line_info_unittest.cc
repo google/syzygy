@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ class TestLineInfo : public LineInfo {
 
   void ResetVisitedLines() {
     for (size_t i = 0; i < source_lines_.size(); ++i) {
-      source_lines_[i].visited = false;
+      source_lines_[i].visit_count = 0;
     }
   }
 
@@ -40,7 +40,7 @@ class TestLineInfo : public LineInfo {
     DCHECK(visited_lines != NULL);
     visited_lines->clear();
     for (size_t i = 0; i < source_lines_.size(); ++i) {
-      if (source_lines_[i].visited)
+      if (source_lines_[i].visit_count > 0)
         visited_lines->push_back(source_lines_[i].line_number);
     }
   }
@@ -140,49 +140,74 @@ TEST_F(LineInfoTest, Visit) {
   // 4096 4098 4100 4102 4104 4110 4112  <-- address ranges
 
   // Visit a repeated BB (multiple lines).
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2, 1));
   EXPECT_LINES_VISITED(line_info, 1, 2);
 
   // Visit a range spanning multiple BBs (we don't reset the previously
   // visited lines to ensure that stats are kept correctly across multiple
   // calls to LineInfo::Visit).
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4098), 4));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4098), 4, 1));
   EXPECT_LINES_VISITED(line_info, 1, 2, 3, 5);
 
   // Visit a gap and no blocks.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4102), 2));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4102), 2, 1));
   EXPECT_NO_LINES_VISITED(line_info);
 
   // Visit a range spanning a gap (at the left) and a BB.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4102), 8));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4102), 8, 1));
   EXPECT_LINES_VISITED(line_info, 6);
 
   // Visit a range spanning a gap (at the right) and a BB.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 4));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 4, 1));
   EXPECT_LINES_VISITED(line_info, 5);
 
   // Visit a range spanning 2 BBs with a gap in the middle.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 10));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 10, 1));
   EXPECT_LINES_VISITED(line_info, 5, 6);
 
   // Visit a range only partially spanning a single BB.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 1));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4100), 1, 1));
   EXPECT_LINES_VISITED(line_info, 5);
 
   // Visit a range partially spanning a BB on the left.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4108), 4));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4108), 4, 1));
   EXPECT_LINES_VISITED(line_info, 6, 7);
 
   // Visit a range partially spanning a BB on the right.
   line_info.ResetVisitedLines();
-  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4104), 7));
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4104), 7, 1));
   EXPECT_LINES_VISITED(line_info, 6, 7);
+}
+
+TEST_F(LineInfoTest, VisitCounterWorks) {
+  TestLineInfo line_info;
+
+  // Create a single dummy source file.
+  std::string source_file("foo.cc");
+
+  // Add a source line.
+  PushBackSourceLine(&line_info, &source_file, 1, 4096, 2);
+  LineInfo::SourceLines::const_iterator line_it =
+      line_info.source_lines().begin();
+  EXPECT_EQ(0u, line_it->visit_count);
+
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2, 1));
+  EXPECT_EQ(1u, line_it->visit_count);
+
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2, 2));
+  EXPECT_EQ(3u, line_it->visit_count);
+
+  // Ensure our saturation addition works by trying to overflow.
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2, 0xffffffff));
+  EXPECT_EQ(0xffffffff, line_it->visit_count);
+  EXPECT_TRUE(line_info.Visit(core::RelativeAddress(4096), 2, 10));
+  EXPECT_EQ(0xffffffff, line_it->visit_count);
 }
 
 }  // namespace grinder
