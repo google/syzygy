@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include <dia2.h>
 #include <algorithm>
+#include <limits>
 
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
@@ -240,7 +241,8 @@ bool LineInfo::Init(const FilePath& pdb_path) {
   return true;
 }
 
-bool LineInfo::Visit(core::RelativeAddress address, size_t size) {
+bool LineInfo::Visit(
+    core::RelativeAddress address, size_t size, size_t count) {
   // Visiting a range of size zero is a nop.
   if (size == 0)
     return true;
@@ -264,8 +266,13 @@ bool LineInfo::Visit(core::RelativeAddress address, size_t size) {
   RelativeAddressRange visit(address, size);
   for (; it != end_it; ++it) {
     RelativeAddressRange range(it->address, it->size);
-    if (visit.Intersects(range))
-      it->visited = true;
+    if (visit.Intersects(range)) {
+      // We use saturation arithmetic here as overflow is a real possibility in
+      // long trace files.
+      it->visit_count =
+          std::min(it->visit_count,
+                   std::numeric_limits<uint32>::max() - count) + count;
+    }
   }
 
   return true;

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,10 +44,13 @@ bool LcovWriter::Add(const LineInfo& line_info) {
         source_it->second.line_execution_count_map.insert(
             std::make_pair(line_it->line_number, 0)).first;
 
-    // Set the execution count. Since LineInfo only has a 'visited' boolean,
-    // we simply leave the execution count as initialized, or set it to 1.
-    if (line_it->visited)
-      line_exec_it->second = 1;
+    // Update the execution count using saturation arithmetic.
+    if (line_it->visit_count > 0) {
+      line_exec_it->second =
+          std::min(line_exec_it->second,
+                   std::numeric_limits<size_t>::max() - line_it->visit_count) +
+          line_it->visit_count;
+    }
   }
 
   return true;

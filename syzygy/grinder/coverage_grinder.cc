@@ -145,7 +145,9 @@ void CoverageGrinder::OnBasicBlockFrequency(
 
     // Mark this basic-block as visited.
     const RelativeAddressRange& bb_range = pdb_info->bb_ranges[bb_index];
-    if (!pdb_info->line_info.Visit(bb_range.start(), bb_range.size())) {
+    if (!pdb_info->line_info.Visit(bb_range.start(),
+                                   bb_range.size(),
+                                   bb_freq)) {
       LOG(ERROR) << "Failed to visit BB at " << bb_range << ".";
       event_handler_errored_ = true;
       return;

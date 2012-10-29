@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +52,8 @@ class LineInfo {
   // with a line is considered as a visit of that line.
   // @param address the starting address of the address range.
   // @param size the size of the address range to visit.
-  bool Visit(core::RelativeAddress address, size_t size);
+  // @param the number of times to visit this line.
+  bool Visit(core::RelativeAddress address, size_t size, size_t count);
 
   // @name Accessors.
   // @{
@@ -82,21 +83,20 @@ struct LineInfo::SourceLine {
         line_number(line_number),
         address(address),
         size(size),
-        visited(false) {
+        visit_count(0) {
   }
 
   // Points to the source file in which this line is found.
   const std::string* source_file_name;
   size_t line_number;
-
   // The address in the image corresponding to the line.
   core::RelativeAddress address;
   // The size may be zero if there are multiple lines mapping to a single
   // basic-block. This can happen during optimizations, etc.
   size_t size;
-
-  // Indicates whether or not this line has been visited.
-  bool visited;
+  // Indicates the number of visits to this line. A value of zero indicates
+  // that the line is instrumented, but has not been visited.
+  uint32 visit_count;
 };
 
 }  // namespace grinder

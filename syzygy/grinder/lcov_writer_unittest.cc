@@ -43,7 +43,7 @@ class TestLineInfo : public LineInfo {
         file_name, 3, core::RelativeAddress(2), 1));
 
     // Visits lines 1 and 2.
-    Visit(core::RelativeAddress(0), 2);
+    Visit(core::RelativeAddress(0), 2, 1);
   }
 };
 
