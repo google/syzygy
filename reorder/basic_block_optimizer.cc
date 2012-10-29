@@ -560,8 +560,7 @@ bool BasicBlockOptimizer::OptimizeBlock(
   }
 
   // Create the basic-block orderer.
-  BasicBlockOrderer orderer(
-      subgraph, addr, block->size(), entry_counts);
+  BasicBlockOrderer orderer(subgraph, addr, block->size(), entry_counts);
 
   // Determine the number of times the block has been entered.
   EntryCountType entry_count = 0;

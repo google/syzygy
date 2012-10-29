@@ -243,7 +243,8 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
 
   EntryCountMap expected_counts;
   CreateExpectedCounts(1, &expected_counts);
-  EXPECT_EQ(grinder.entry_count_map().begin()->second, expected_counts);
+  EXPECT_THAT(grinder.entry_count_map().begin()->second,
+              testing::ContainerEq(expected_counts));
 
   data.reset();
   // Validate 2-byte frequency data.
@@ -254,7 +255,8 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   EXPECT_EQ(1U, grinder.entry_count_map().size());
 
   CreateExpectedCounts(2, &expected_counts);
-  EXPECT_EQ(grinder.entry_count_map().begin()->second, expected_counts);
+  EXPECT_THAT(grinder.entry_count_map().begin()->second,
+              testing::ContainerEq(expected_counts));
 
   data.reset();
   // Validate 4-byte frequency data.
@@ -265,7 +267,8 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   EXPECT_EQ(1U, grinder.entry_count_map().size());
 
   CreateExpectedCounts(3, &expected_counts);
-  EXPECT_EQ(grinder.entry_count_map().begin()->second, expected_counts);
+  EXPECT_THAT(grinder.entry_count_map().begin()->second,
+              testing::ContainerEq(expected_counts));
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, GrindBasicBlockEntryDataSucceeds) {

@@ -182,12 +182,8 @@ BasicBlockEntryCountGrinder::FindOrCreateInstrumentedModule(
   // We've located all the information we need, create and
   // initialize the record.
   InstrumentedModuleInformation& info = instrumented_modules_[*module_info];
-  const pe::PEFile::Signature& signature = metadata.module_signature();
-  info.original_module.base_address = signature.base_address.value();
-  info.original_module.module_size = signature.module_size;
-  info.original_module.image_checksum = signature.module_checksum;
-  info.original_module.time_date_stamp = signature.module_time_date_stamp;
-  info.original_module.image_file_name = signature.path;
+  basic_block_util::InitModuleInfo(metadata.module_signature(),
+                                   &info.original_module);
 
   info.block_ranges.swap(block_ranges);
 
