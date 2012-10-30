@@ -18,8 +18,8 @@
 #define SYZYGY_GRINDER_COVERAGE_GRINDER_H_
 
 #include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/grinder/coverage_data.h"
 #include "syzygy/grinder/grinder.h"
-#include "syzygy/grinder/lcov_writer.h"
 
 namespace grinder {
 
@@ -53,8 +53,9 @@ class CoverageGrinder : public GrinderInterface {
   basic_block_util::PdbInfoMap pdb_info_cache_;
 
   // Stores the final coverage data, populated by Grind. Contains an aggregate
-  // of all LineInfo objects stored in the pdb_info_map_.
-  LcovWriter lcov_writer_;
+  // of all LineInfo objects stored in the pdb_info_map_, in a reverse map
+  // (where efficient lookup is by file name and line number).
+  CoverageData coverage_data_;
 
   // Points to the parser that is feeding us events. Used to get module
   // information.

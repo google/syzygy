@@ -15,77 +15,43 @@
 #include "syzygy/grinder/lcov_writer.h"
 
 #include "base/file_util.h"
+#include "syzygy/grinder/coverage_data.h"
 
 namespace grinder {
 
-bool LcovWriter::Add(const LineInfo& line_info) {
-  // Multiple entries for the same source file are stored consecutively in
-  // the LineInfo, hence we use this as a cache to prevent repeated lookups
-  // of source file names in our SourceFileCoverageInfoMap.
-  const std::string* old_source_file_name = NULL;
-  SourceFileCoverageInfoMap::iterator source_it;
-
-  LineInfo::SourceLines::const_iterator line_it =
-      line_info.source_lines().begin();
-  for (; line_it != line_info.source_lines().end(); ++line_it) {
-    DCHECK(line_it->source_file_name != NULL);
-
-    // Different source file? Then insert/lookup in our map.
-    if (old_source_file_name != line_it->source_file_name) {
-      // We don't care whether it already exists or not.
-      source_it = source_file_coverage_info_map_.insert(
-          std::make_pair(*line_it->source_file_name,
-                         CoverageInfo())).first;
-      old_source_file_name = line_it->source_file_name;
-    }
-
-    // Insert/lookup the execution count by line number.
-    LineExecutionCountMap::iterator line_exec_it =
-        source_it->second.line_execution_count_map.insert(
-            std::make_pair(line_it->line_number, 0)).first;
-
-    // Update the execution count using saturation arithmetic.
-    if (line_it->visit_count > 0) {
-      line_exec_it->second =
-          std::min(line_exec_it->second,
-                   std::numeric_limits<size_t>::max() - line_it->visit_count) +
-          line_it->visit_count;
-    }
-  }
-
-  return true;
-}
-
-bool LcovWriter::Write(const FilePath& path) const {
+bool WriteLcovCoverageFile(const CoverageData& coverage,
+                           const FilePath& path) {
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open file for writing: " << path.value();
     return false;
   }
 
-  if (!Write(file.get())) {
-    LOG(ERROR) << "Failed to write LCOV file.";
+  if (!WriteLcovCoverageFile(coverage, file.get())) {
+    LOG(ERROR) << "Failed to write LCOV file: " << path.value();
     return false;
   }
 
   return true;
 }
 
-bool LcovWriter::Write(FILE* file) const {
+bool WriteLcovCoverageFile(const CoverageData& coverage, FILE* file) {
   DCHECK(file != NULL);
 
-  SourceFileCoverageInfoMap::const_iterator source_it =
-      source_file_coverage_info_map_.begin();
-  for (; source_it != source_file_coverage_info_map_.end(); ++source_it) {
+  CoverageData::SourceFileCoverageDataMap::const_iterator source_it =
+      coverage.source_file_coverage_data_map().begin();
+  CoverageData::SourceFileCoverageDataMap::const_iterator source_it_end =
+      coverage.source_file_coverage_data_map().end();
+  for (; source_it != source_it_end; ++source_it) {
     if (::fprintf(file, "SF:%s\n", source_it->first.c_str()) < 0)
       return false;
 
     // Iterate over the line execution data, keeping summary statistics as we
     // go.
     size_t lines_executed = 0;
-    LineExecutionCountMap::const_iterator line_it =
+    CoverageData::LineExecutionCountMap::const_iterator line_it =
         source_it->second.line_execution_count_map.begin();
-    LineExecutionCountMap::const_iterator line_it_end =
+    CoverageData::LineExecutionCountMap::const_iterator line_it_end =
         source_it->second.line_execution_count_map.end();
     for (; line_it != line_it_end; ++line_it) {
       if (::fprintf(file, "DA:%d,%d\n", line_it->first, line_it->second) < 0)

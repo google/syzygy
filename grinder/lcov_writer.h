@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares LcovWriter, a utility class for accumulating LineInfo with
-// file and line centric indexing, and eventually outputting said data as
-// GNU coverage (gcov) and LCOV (Linux Test Project GNU Coverage Extensions)
-// compatible .lcov files.
+// Declares utility functions for outputting an LCOV formatted coverage file
+// from a populated CoverageData object.
 //
 // We only support the minimum subset of LCOV that is used by Chromium code
 // coverage report generating tool, croc. Namely, the DA, LF and LH tags.
-
-#ifndef SYZYGY_GRINDER_LCOV_WRITER_H_
-#define SYZYGY_GRINDER_LCOV_WRITER_H_
-
+//
 // There is no single document defining the LCOV file format so we summarize
 // it here. The information has been taken from LCOV source code and manpages
 // and collected here.
@@ -87,52 +82,21 @@
 // Finally, a record (information regarding a single source file) should be
 // terminated with a single line containing the string 'end_of_record'.
 
-#include <map>
+#ifndef SYZYGY_GRINDER_LCOV_WRITER_H_
+#define SYZYGY_GRINDER_LCOV_WRITER_H_
 
 #include "base/file_path.h"
-#include "syzygy/grinder/line_info.h"
+#include "syzygy/grinder/coverage_data.h"
 
 namespace grinder {
 
-// A simple class for accumulating data from LineInfo objects, representing
-// it with an alternative index, and finally dumping it to an LCOV text file.
-// Only handles line coverage results for now (DA, LF and LH tags).
-class LcovWriter {
- public:
-  struct CoverageInfo;  // Forward declaration.
-
-  // A map of line numbers to execution counts.
-  typedef std::map<size_t, uint32> LineExecutionCountMap;
-  // A map of file names to coverage information.
-  typedef std::map<std::string, CoverageInfo> SourceFileCoverageInfoMap;
-
-  // Adds the given line information to the internal representation.
-  // @param line_info the LineInfo object whose coverage information is to be
-  //     merged with our internal representation.
-  // @returns true on success, false otherwise.
-  bool Add(const LineInfo& line_info);
-
-  // Dumps the coverage information to an LCOV file.
-  // @param path the path to the file to be created or overwritten.
-  // @param file the file handle to be written to.
-  // @returns true on success, false otherwise.
-  bool Write(const FilePath& path) const;
-  bool Write(FILE* file) const;
-
-  const SourceFileCoverageInfoMap& source_file_coverage_info_map() const {
-    return source_file_coverage_info_map_;
-  }
-
- protected:
-  // Store coverage results, per source file.
-  SourceFileCoverageInfoMap source_file_coverage_info_map_;
-};
-
-// Coverage information that is stored per file. Right now this consists only
-// of line execution data, but branch and function data could be added.
-struct LcovWriter::CoverageInfo {
-  LineExecutionCountMap line_execution_count_map;
-};
+// Dumps the provided @p coverage information to an LCOV file.
+// @param coverage the summarized coverage info to be written.
+// @param path the path to the file to be created or overwritten.
+// @param file the file handle to be written to.
+// @returns true on success, false otherwise.
+bool WriteLcovCoverageFile(const CoverageData& coverage, const FilePath& path);
+bool WriteLcovCoverageFile(const CoverageData& coverage, FILE* file);
 
 }  // namespace grinder
 
