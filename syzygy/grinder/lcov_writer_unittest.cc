@@ -23,71 +23,31 @@ namespace grinder {
 
 namespace {
 
-using testing::ContainerEq;
-
-class TestLineInfo : public LineInfo {
+class TestCoverageData : public CoverageData {
  public:
-  using LineInfo::source_files_;
-  using LineInfo::source_lines_;
+  void InitDummyData() {
+    CoverageData::SourceFileCoverageDataMap::iterator source_it =
+        source_file_coverage_data_map_.insert(
+            std::make_pair(std::string("foo.cc"),
+                           CoverageData::SourceFileCoverageData())).first;
 
-  void InitDummyLineInfoFoo() {
-    LineInfo::SourceFileSet::iterator file_it =
-        source_files_.insert("foo.cc").first;
-    const std::string* file_name = &(*file_it);
-
-    source_lines_.push_back(LineInfo::SourceLine(
-        file_name, 1, core::RelativeAddress(0), 1));
-    source_lines_.push_back(LineInfo::SourceLine(
-        file_name, 2, core::RelativeAddress(1), 1));
-    source_lines_.push_back(LineInfo::SourceLine(
-        file_name, 3, core::RelativeAddress(2), 1));
-
-    // Visits lines 1 and 2.
-    Visit(core::RelativeAddress(0), 2, 1);
+    source_it->second.line_execution_count_map.insert(
+        std::make_pair(1, 1));
+    source_it->second.line_execution_count_map.insert(
+        std::make_pair(2, 1));
+    source_it->second.line_execution_count_map.insert(
+        std::make_pair(3, 0));
   }
 };
 
 }  // namespace
 
-// We provide this so that we can use ContainerEq. It must be outside of the
-// anonymous namespace for this to compile.
-bool operator==(const LcovWriter::CoverageInfo& lhs,
-                const LcovWriter::CoverageInfo& rhs) {
-  return lhs.line_execution_count_map == rhs.line_execution_count_map;
-}
-
-TEST(LcovWriterTest, Construct) {
-  LcovWriter lcov;
-  EXPECT_TRUE(lcov.source_file_coverage_info_map().empty());
-}
-
-TEST(LcovWriterTest, Add) {
-  TestLineInfo line_info;
-  ASSERT_NO_FATAL_FAILURE(line_info.InitDummyLineInfoFoo());
-
-  LcovWriter lcov;
-  EXPECT_TRUE(lcov.Add(line_info));
-
-  LcovWriter::SourceFileCoverageInfoMap expected_coverage_info_map;
-  LcovWriter::LineExecutionCountMap& expected_line_exec =
-      expected_coverage_info_map["foo.cc"].line_execution_count_map;
-  expected_line_exec[1] = 1;
-  expected_line_exec[2] = 1;
-  expected_line_exec[3] = 0;
-
-  EXPECT_THAT(expected_coverage_info_map,
-              ContainerEq(lcov.source_file_coverage_info_map()));
-}
-
 TEST(LcovWriterTest, Write) {
-  TestLineInfo line_info;
-  ASSERT_NO_FATAL_FAILURE(line_info.InitDummyLineInfoFoo());
-
-  LcovWriter lcov;
-  EXPECT_TRUE(lcov.Add(line_info));
+  TestCoverageData coverage_data;
+  ASSERT_NO_FATAL_FAILURE(coverage_data.InitDummyData());
 
   testing::ScopedTempFile temp;
-  EXPECT_TRUE(lcov.Write(temp.path()));
+  EXPECT_TRUE(WriteLcovCoverageFile(coverage_data, temp.path()) );
 
   std::string actual_contents;
   EXPECT_TRUE(file_util::ReadFileToString(temp.path(), &actual_contents));

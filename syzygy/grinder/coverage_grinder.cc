@@ -16,6 +16,7 @@
 
 #include "base/file_path.h"
 #include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/grinder/lcov_writer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/find.h"
@@ -61,22 +62,22 @@ bool CoverageGrinder::Grind() {
 
   PdbInfoMap::const_iterator it = pdb_info_cache_.begin();
   for (; it != pdb_info_cache_.end(); ++it) {
-    if (!lcov_writer_.Add(it->second.line_info)) {
+    if (!coverage_data_.Add(it->second.line_info)) {
       LOG(ERROR) << "Failed to aggregate line information from PDB: "
                  << it->first.image_file_name;
       return false;
     }
   }
-  DCHECK(!lcov_writer_.source_file_coverage_info_map().empty());
+  DCHECK(!coverage_data_.source_file_coverage_data_map().empty());
 
   return true;
 }
 
 bool CoverageGrinder::OutputData(FILE* file) {
   DCHECK(file != NULL);
-  DCHECK(!lcov_writer_.source_file_coverage_info_map().empty());
+  DCHECK(!coverage_data_.source_file_coverage_data_map().empty());
 
-  if (!lcov_writer_.Write(file)) {
+  if (!WriteLcovCoverageFile(coverage_data_, file)) {
     LOG(ERROR) << "Failed to write LCOV file.";
     return false;
   }
@@ -108,8 +109,8 @@ void CoverageGrinder::OnBasicBlockFrequency(
   const ModuleInformation* module_info = parser_->GetModuleInformation(
       process_id, AbsoluteAddress64(data->module_base_addr));
   if (module_info == NULL) {
-    LOG(ERROR) << "Failed to find module information for basic block frequency "
-               << "data.";
+    LOG(ERROR) << "Failed to find module information for basic block frequency"
+               << " data.";
     event_handler_errored_ = true;
     return;
   }
