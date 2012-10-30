@@ -232,7 +232,8 @@ TEST_F(HeapTest, GetBadAccessKind) {
   const size_t kAllocSize = 100;
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_FALSE(mem == NULL);
-  TestHeapProxy::BlockHeader* header = proxy_.ToBlock(mem);
+  TestHeapProxy::BlockHeader* header =
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlock(mem));
   uint8* heap_underflow_address = mem - 1;
   uint8* heap_overflow_address = mem + kAllocSize * sizeof(uint8);
   ASSERT_TRUE(proxy_.IsUnderflowAccess(heap_underflow_address, header));
