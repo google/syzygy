@@ -12,59 +12,68 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/lcov_writer.h"
+#include "syzygy/grinder/cache_grind_writer.h"
 
 #include "base/file_util.h"
 
 namespace grinder {
 
-bool WriteLcovCoverageFile(const CoverageData& coverage,
-                           const FilePath& path) {
+bool WriteCacheGrindCoverageFile(const CoverageData& coverage,
+                                 const FilePath& path) {
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open file for writing: " << path.value();
     return false;
   }
 
-  if (!WriteLcovCoverageFile(coverage, file.get())) {
-    LOG(ERROR) << "Failed to write LCOV file: " << path.value();
+  if (!WriteCacheGrindCoverageFile(coverage, file.get())) {
+    LOG(ERROR) << "Failed to write CacheGrind file: " << path.value();
     return false;
   }
 
   return true;
 }
 
-bool WriteLcovCoverageFile(const CoverageData& coverage, FILE* file) {
+bool WriteCacheGrindCoverageFile(const CoverageData& coverage, FILE* file) {
   DCHECK(file != NULL);
 
+  // Output the position and event types.
+  if (::fprintf(file, "positions: line\n") < 0)
+    return false;
+  if (::fprintf(file, "events: Instrumented Executed\n") < 0)
+    return false;
+
+  // Iterate over the source files.
   CoverageData::SourceFileCoverageDataMap::const_iterator source_it =
       coverage.source_file_coverage_data_map().begin();
   CoverageData::SourceFileCoverageDataMap::const_iterator source_it_end =
       coverage.source_file_coverage_data_map().end();
   for (; source_it != source_it_end; ++source_it) {
-    if (::fprintf(file, "SF:%s\n", source_it->first.c_str()) < 0)
+    if (::fprintf(file, "fl=%s\n", source_it->first.c_str()) < 0)
       return false;
 
-    // Iterate over the line execution data, keeping summary statistics as we
-    // go.
-    size_t lines_executed = 0;
+    // Iterate over the instrumented lines. We output deltas to save space so
+    // keep track of the previous line. Lines are 1 indexed so we can use zero
+    // as a special value.
+    size_t prev_line = 0;
     CoverageData::LineExecutionCountMap::const_iterator line_it =
         source_it->second.line_execution_count_map.begin();
     CoverageData::LineExecutionCountMap::const_iterator line_it_end =
         source_it->second.line_execution_count_map.end();
     for (; line_it != line_it_end; ++line_it) {
-      if (::fprintf(file, "DA:%d,%d\n", line_it->first, line_it->second) < 0)
-        return false;
-      if (line_it->second > 0)
-        ++lines_executed;
-    }
-
-    // Output the summary statistics for this file.
-    if (::fprintf(file, "LH:%d\n", lines_executed) < 0 ||
-        ::fprintf(file, "LF:%d\n",
-                  source_it->second.line_execution_count_map.size()) < 0 ||
-        ::fprintf(file, "end_of_record\n") < 0) {
-      return false;
+      if (prev_line == 0) {
+        // Output the raw line number.
+        if (::fprintf(file, "%d 1 %d\n", line_it->first, line_it->second) < 0)
+          return false;
+      } else {
+        // Output the line number as a delta from the previous line number.
+        DCHECK_LT(prev_line, line_it->first);
+        if (::fprintf(file, "+%d 1 %d\n", line_it->first - prev_line,
+                      line_it->second) < 0) {
+          return false;
+        }
+      }
+      prev_line = line_it->first;
     }
   }
 
