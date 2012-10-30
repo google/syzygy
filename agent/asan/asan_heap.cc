@@ -151,6 +151,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     DCHECK(block->state == QUARANTINED);
     BadAccessKind bad_access_kind =
         GetBadAccessKind(static_cast<const uint8*>(mem), block);
+    DCHECK_NE(UNKNOWN_BAD_ACCESS, bad_access_kind);
     ReportAsanError("attempting double-free", static_cast<const uint8*>(mem),
         bad_access_kind, block);
 
@@ -274,14 +275,18 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
   if (alloc == NULL)
     return NULL;
 
-  uint8* mem = reinterpret_cast<uint8*>(const_cast<void*>(alloc));
-  BlockHeader* header = reinterpret_cast<BlockHeader*>(mem - kRedZoneSize);
+  const uint8* mem = static_cast<const uint8*>(alloc);
+  const BlockHeader* header =
+      reinterpret_cast<const BlockHeader*>(mem -kRedZoneSize);
   if (header->magic_number != kBlockHeaderSignature) {
-    OnBadAccess(reinterpret_cast<const uint8*>(alloc));
+    if (!OnBadAccess(mem)) {
+      ReportUnknownError(mem);
+      Shadow::PrintShadowMemoryForAddress(alloc);
+    }
     return NULL;
   }
 
-  return header;
+  return const_cast<BlockHeader*>(header);
 }
 
 uint8* HeapProxy::ToAlloc(BlockHeader* block) {
@@ -293,7 +298,7 @@ uint8* HeapProxy::ToAlloc(BlockHeader* block) {
   return mem + kRedZoneSize;
 }
 
-void HeapProxy::PrintAddressInformation(const uint8* addr,
+void HeapProxy::PrintAddressInformation(const void* addr,
                                         BlockHeader* header,
                                         BadAccessKind bad_access_kind) {
   DCHECK(addr != NULL);
@@ -304,15 +309,15 @@ void HeapProxy::PrintAddressInformation(const uint8* addr,
   char* offset_relativity = "";
   switch (bad_access_kind) {
     case HEAP_BUFFER_OVERFLOW:
-      offset = addr - block_alloc - header->size;
+      offset = static_cast<const uint8*>(addr) - block_alloc - header->size;
       offset_relativity = "to the right";
       break;
     case HEAP_BUFFER_UNDERFLOW:
-      offset = block_alloc - addr;
+      offset = block_alloc - static_cast<const uint8*>(addr);
       offset_relativity = "to the left";
       break;
     case USE_AFTER_FREE:
-      offset = addr - block_alloc;
+      offset = static_cast<const uint8*>(addr) - block_alloc;
       offset_relativity = "inside";
       break;
     default:
@@ -328,10 +333,10 @@ void HeapProxy::PrintAddressInformation(const uint8* addr,
           block_alloc,
           block_alloc + header->size);
 
-  Shadow::PrintShadowMemoryForAddress(reinterpret_cast<void*>(block_alloc));
+  Shadow::PrintShadowMemoryForAddress(addr);
 }
 
-HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const uint8* addr,
+HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
     BlockHeader* header) {
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
 
@@ -352,7 +357,7 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const uint8* addr,
   return bad_access_kind;
 }
 
-HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const uint8* addr) {
+HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
   PROCESS_HEAP_ENTRY heap_entry = {};
   memset(&heap_entry, 0, sizeof(heap_entry));
   BlockHeader* header = NULL;
@@ -378,7 +383,7 @@ HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const uint8* addr) {
   return header;
 }
 
-bool HeapProxy::OnBadAccess(const uint8* addr) {
+bool HeapProxy::OnBadAccess(const void* addr) {
   base::AutoLock lock(lock_);
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
   BlockHeader* header = FindAddressBlock(addr);
@@ -391,30 +396,29 @@ bool HeapProxy::OnBadAccess(const uint8* addr) {
   if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
     const char* bug_descr = AccessTypeToStr(bad_access_kind);
     ReportAsanError(bug_descr, addr, bad_access_kind, header);
-  } else {
-    // Otherwise we report this bad access as an unknown error.
-    ReportUnknownError(addr);
+    return true;
   }
 
-  return true;
+  return false;
 }
 
-void HeapProxy::ReportUnknownError(const uint8* addr) {
+void HeapProxy::ReportUnknownError(const void* addr) {
   ReportAsanErrorBase("unknown-crash", addr, UNKNOWN_BAD_ACCESS);
 }
 
 void HeapProxy::ReportAsanError(const char* bug_descr,
-                                const uint8* addr,
+                                const void* addr,
                                 BadAccessKind bad_access_kind,
                                 BlockHeader* header) {
   DCHECK(header != NULL);
 
   ReportAsanErrorBase(bug_descr, addr, bad_access_kind);
-  PrintAddressInformation(addr, header, bad_access_kind);
+  PrintAddressInformation(static_cast<const uint8*>(addr),
+      header, bad_access_kind);
 }
 
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
-                                    const uint8* addr,
+                                    const void* addr,
                                     BadAccessKind bad_access_kind) {
   DCHECK(bug_descr != NULL);
   DCHECK(addr != NULL);

@@ -66,10 +66,10 @@ class HeapProxy {
   // Report a bad access to the heap.
   // @param addr The red-zoned address causing a bad access.
   // @returns true if the address belongs to a memory block, false otherwise.
-  bool OnBadAccess(const uint8* addr);
+  bool OnBadAccess(const void* addr);
 
   // Report an unknown error while attempting the red-zoned heap address @addr.
-  static void ReportUnknownError(const uint8* addr);
+  static void ReportUnknownError(const void* addr);
 
   // @name Cast to/from HANDLE.
   // @{
@@ -111,12 +111,12 @@ class HeapProxy {
 
   // Find the memory block containing @p addr.
   // @returns a pointer to this memory block in case of success, NULL otherwise.
-  BlockHeader* FindAddressBlock(const uint8* addr);
+  BlockHeader* FindAddressBlock(const void* addr);
 
   // Give the type of a bad heap access corresponding to an address.
   // @param addr The address causing a bad heap access.
   // @param header The header of the block containing this address.
-  BadAccessKind GetBadAccessKind(const uint8* addr, BlockHeader* header);
+  BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
 
  private:
   // Magic number to identify the beginning of a block header.
@@ -144,7 +144,7 @@ class HeapProxy {
   // @param header The block containing the address.
   // @param bad_access_kind The kind of bad access corresponding to this
   //     address.
-  void PrintAddressInformation(const uint8* addr,
+  void PrintAddressInformation(const void* addr,
                                BlockHeader* header,
                                BadAccessKind bad_access_kind);
 
@@ -154,7 +154,7 @@ class HeapProxy {
   // @param addr The address causing an error.
   // @param bad_access_kind The kind of error.
   static void ReportAsanErrorBase(const char* bug_descr,
-                                  const uint8* addr,
+                                  const void* addr,
                                   BadAccessKind bad_access_kind);
 
   // Report an Asan error to stderr with information about the address causing
@@ -164,7 +164,7 @@ class HeapProxy {
   // @param bad_access_kind The kind of error.
   // @param header The header of the block containing this address.
   void ReportAsanError(const char* bug_descr,
-                       const uint8* addr,
+                       const void* addr,
                        BadAccessKind bad_access_kind,
                        BlockHeader* header);
 
