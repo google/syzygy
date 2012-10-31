@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ class ProcessThreadDatabase(EventConsumer):
       no_pruning: if true, process and thread information is maintained past
           process/thread end events.
     """
+    EventConsumer.__init__(self)
     self._no_pruning = no_pruning
     # Processes by id maps from process ID to command line.
     self._processes_by_id = {}
