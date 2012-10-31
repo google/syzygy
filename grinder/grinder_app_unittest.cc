@@ -118,7 +118,7 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
 }
 
 TEST_F(GrinderAppTest, BasicBlockEntryEndToEnd) {
-  cmd_line_.AppendSwitchASCII("mode", "basic-block-entry");
+  cmd_line_.AppendSwitchASCII("mode", "bbentry");
   cmd_line_.AppendArgPath(
       testing::GetExeTestDataRelativePath(
           L"basic_block_entry_traces/trace-1.bin"));
@@ -163,6 +163,7 @@ TEST_F(GrinderAppTest, CoverageEndToEnd) {
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
+  cmd_line_.AppendSwitchASCII("output-format", "lcov");
 
   ASSERT_TRUE(!file_util::PathExists(output_file));
 

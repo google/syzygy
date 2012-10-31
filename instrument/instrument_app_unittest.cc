@@ -156,7 +156,7 @@ TEST_F(InstrumentAppTest, ParseWithNoOutputImageFails) {
 }
 
 TEST_F(InstrumentAppTest, ParseMinimalAsan) {
-  cmd_line_.AppendSwitchASCII("mode", "ASAN");
+  cmd_line_.AppendSwitchASCII("mode", "asan");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
@@ -173,7 +173,7 @@ TEST_F(InstrumentAppTest, ParseMinimalAsan) {
 }
 
 TEST_F(InstrumentAppTest, ParseFullAsan) {
-  cmd_line_.AppendSwitchASCII("mode", "ASAN");
+  cmd_line_.AppendSwitchASCII("mode", "asan");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
@@ -199,7 +199,7 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
 }
 
 TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
-  cmd_line_.AppendSwitchASCII("mode", "BASIC_BLOCK_ENTRY");
+  cmd_line_.AppendSwitchASCII("mode", "bbentry");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
@@ -217,7 +217,7 @@ TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
 }
 
 TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
-  cmd_line_.AppendSwitchASCII("mode", "basic_block_entry");
+  cmd_line_.AppendSwitchASCII("mode", "bbentry");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
@@ -243,7 +243,7 @@ TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
 }
 
 TEST_F(InstrumentAppTest, ParseMinimalCallTrace) {
-  cmd_line_.AppendSwitchASCII("mode", "CALLTRACE");
+  cmd_line_.AppendSwitchASCII("mode", "calltrace");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
@@ -264,7 +264,7 @@ TEST_F(InstrumentAppTest, ParseMinimalCallTrace) {
 }
 
 TEST_F(InstrumentAppTest, ParseFullCallTrace) {
-  cmd_line_.AppendSwitchASCII("mode", "CALLTRACE");
+  cmd_line_.AppendSwitchASCII("mode", "calltrace");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
@@ -297,7 +297,7 @@ TEST_F(InstrumentAppTest, ParseFullCallTrace) {
 }
 
 TEST_F(InstrumentAppTest, ParseMinimalCoverage) {
-  cmd_line_.AppendSwitchASCII("mode", "COVERAGE");
+  cmd_line_.AppendSwitchASCII("mode", "coverage");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
@@ -315,7 +315,7 @@ TEST_F(InstrumentAppTest, ParseMinimalCoverage) {
 }
 
 TEST_F(InstrumentAppTest, ParseFullCoverage) {
-  cmd_line_.AppendSwitchASCII("mode", "COVERAGE");
+  cmd_line_.AppendSwitchASCII("mode", "coverage");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
@@ -340,17 +340,17 @@ TEST_F(InstrumentAppTest, ParseFullCoverage) {
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
 
-TEST_F(InstrumentAppTest, ParseMinimalProfiler) {
-  cmd_line_.AppendSwitchASCII("mode", "PROFILER");
+TEST_F(InstrumentAppTest, ParseMinimalProfile) {
+  cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentProfilerMode, test_impl_.mode_);
+  EXPECT_EQ(InstrumentApp::kInstrumentProfileMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfiler),
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfile),
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
@@ -362,8 +362,8 @@ TEST_F(InstrumentAppTest, ParseMinimalProfiler) {
   EXPECT_FALSE(test_impl_.module_entry_only_);
 }
 
-TEST_F(InstrumentAppTest, ParseFullProfiler) {
-  cmd_line_.AppendSwitchASCII("mode", "PROFILER");
+TEST_F(InstrumentAppTest, ParseFullProfile) {
+  cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
@@ -377,7 +377,7 @@ TEST_F(InstrumentAppTest, ParseFullProfiler) {
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(InstrumentApp::kInstrumentProfilerMode, test_impl_.mode_);
+  EXPECT_EQ(InstrumentApp::kInstrumentProfileMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
@@ -434,16 +434,16 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientRpc) {
 }
 
 TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientProfiler) {
-  cmd_line_.AppendSwitchASCII("call-trace-client", "PROFILER");
+  cmd_line_.AppendSwitchASCII("call-trace-client", "profiler");
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentProfilerMode, test_impl_.mode_);
+  EXPECT_EQ(InstrumentApp::kInstrumentProfileMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfiler),
+  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfile),
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);

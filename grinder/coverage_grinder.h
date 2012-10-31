@@ -47,6 +47,13 @@ class CoverageGrinder : public GrinderInterface {
       const TraceBasicBlockFrequencyData* data) OVERRIDE;
   // @}
 
+  enum OutputFormat {
+    kLcovFormat,
+    kCacheGrindFormat,
+  };
+
+  OutputFormat output_format() const { return output_format_; }
+
  protected:
   // Stores per-module coverage data, populated during calls to
   // OnBasicBlockFrequency.
@@ -64,6 +71,9 @@ class CoverageGrinder : public GrinderInterface {
   // Set to true if any call to OnBasicBlockFrequency fails. Processing will
   // continue with a warning that results may be partial.
   bool event_handler_errored_;
+
+  // The output format to use.
+  OutputFormat output_format_;
 };
 
 }  // namespace grinder

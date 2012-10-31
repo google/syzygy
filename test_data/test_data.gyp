@@ -60,7 +60,7 @@
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
-            '--mode=CALLTRACE',
+            '--mode=calltrace',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
             '--output-image='
@@ -96,7 +96,7 @@
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
-            '--mode=PROFILER',
+            '--mode=profile',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
@@ -134,7 +134,7 @@
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
-            '--mode=basic_block_entry',
+            '--mode=bbentry',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
@@ -170,7 +170,7 @@
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
-            '--mode=COVERAGE',
+            '--mode=coverage',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
@@ -421,7 +421,7 @@
           ],
           'action': [
             '<(PRODUCT_DIR)/grinder.exe',
-            '--mode=basic-block-entry',
+            '--mode=bbentry',
             '--output-file=<(PRODUCT_DIR)/test_data/basic_block_entry_traces/'
                 'entry_counts.json',
             '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-1.bin',
