@@ -15,6 +15,7 @@
 #include "syzygy/grinder/cache_grind_writer.h"
 
 #include "base/file_util.h"
+#include "base/string_util.h"
 
 namespace grinder {
 
@@ -49,7 +50,17 @@ bool WriteCacheGrindCoverageFile(const CoverageData& coverage, FILE* file) {
   CoverageData::SourceFileCoverageDataMap::const_iterator source_it_end =
       coverage.source_file_coverage_data_map().end();
   for (; source_it != source_it_end; ++source_it) {
-    if (::fprintf(file, "fl=%s\n", source_it->first.c_str()) < 0)
+    // Output the path, being sure to use forward slashes instead of
+    // back slashes.
+    std::string path = source_it->first;
+    if (!::ReplaceChars(path, "\\", "/", &path))
+      return false;
+    if (::fprintf(file, "fl=%s\n", path.c_str()) < 0)
+      return false;
+
+    // We need to output a dummy function name for cache-grind aggregation to
+    // work appropriately.
+    if (::fprintf(file, "fn=all\n") < 0)
       return false;
 
     // Iterate over the instrumented lines. We output deltas to save space so
