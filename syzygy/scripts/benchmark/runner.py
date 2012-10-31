@@ -609,7 +609,6 @@ class BenchmarkRunner(ChromeRunner):
     self._keep_temp_dirs = keep_temp_dirs or trace_file_archive_dir
     self._results = {}
     self._temp_dir = trace_file_archive_dir
-    self._SetupIbmPerf(ibmperf_dir, ibmperf_run, ibmperf_metrics)
     self._session_urls = []
 
     self._ibmperf_metrics = None
@@ -618,6 +617,8 @@ class BenchmarkRunner(ChromeRunner):
     self._kernel_file = None
     self._ibmperf = None
     self._ibmperf_groups = None
+
+    self._SetupIbmPerf(ibmperf_dir, ibmperf_run, ibmperf_metrics)
 
   def Run(self, iterations):
     """Overrides ChromeRunner.Run. We do this so that we can multiply
