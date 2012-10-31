@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import etw.descriptors.fileio as fileio
 class FileNameDatabase(EventConsumer):
   """Keeps a database on file object to file name mappings."""
   def __init__(self):
+    EventConsumer.__init__(self)
     # Maps from file object to file name.
     self._file_objects = {}
 

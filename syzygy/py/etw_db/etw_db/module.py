@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ class _Process(object):
 class ModuleDatabase(EventConsumer):
   """Keeps a database of the modules loaded in a process."""
   def __init__(self):
+    EventConsumer.__init__(self)
     self._processes = {}
 
   def GetProcessModules(self, process_id):
@@ -109,30 +110,30 @@ class ModuleDatabase(EventConsumer):
       A _Module object for the found module, or None if no module
       is loaded at that address.
     """
-    process = self._processes.get(process_id)
-    if process:
-      return process.FindModuleAt(addr)
+    proc = self._processes.get(process_id)
+    if proc:
+      return proc.FindModuleAt(addr)
 
     return None
 
   @EventHandler(image.Event.DCStart, image.Event.Load)
   def _OnLoad(self, event):
-    process_id = event.process_id
-    process = self._processes.get(process_id, None)
-    if not process:
-      process = _Process();
-      self._processes[process_id] = process
+    proc_id = event.process_id
+    proc = self._processes.get(proc_id, None)
+    if not proc:
+      proc = _Process()
+      self._processes[proc_id] = proc
 
-    process.OnModuleLoaded(_Module(event))
+    proc.OnModuleLoaded(_Module(event))
 
   @EventHandler(image.Event.UnLoad)
   def _OnUnLoad(self, event):
-    process = self._processes.get(event.process_id, None)
-    if not process:
+    proc = self._processes.get(event.process_id, None)
+    if not proc:
       return
 
-    process.OnModuleUnloaded(event.ImageBase)
-    if process.IsEmpty():
+    proc.OnModuleUnloaded(event.ImageBase)
+    if proc.IsEmpty():
       del self._processes[event.process_id]
 
   @EventHandler(process.Event.End)

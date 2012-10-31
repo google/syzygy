@@ -1,5 +1,5 @@
 #!python
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 maintain the current state of files, modules and processes. The utility
 classes can then be queried on the current state of the world by other
 ETW consumers."""
-from file import FileNameDatabase
-from module import ModuleDatabase
-from process import ProcessThreadDatabase
+from etw_db.file import FileNameDatabase
+from etw_db.module import ModuleDatabase
+from etw_db.process import ProcessThreadDatabase
 
 __all__ = ['FileNameDatabase',
            'ModuleDatabase',
