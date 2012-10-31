@@ -43,22 +43,22 @@ static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required arguments:\n"
     "    --input-image=<path> The input image to instrument.\n"
-    "    --mode=ASAN|BASIC_BLOCK_ENTRY|CALLTRACE|COVERAGE|PROFILER\n"
+    "    --mode=asan|bbentry|calltrace|coverage|profile\n"
     "                         Specifies which instrumentation mode is to be\n"
     "                         used. If this is not specified it is equivalent\n"
-    "                         to specifying --mode=CALLTRACE (this default\n"
-    "                         behaviour is DEPRECATED.\n"
+    "                         to specifying --mode=calltrace (this default\n"
+    "                         behaviour is DEPRECATED).\n"
     "    --output-image=<path>\n"
     "                         The instrumented output image.\n"
     "  DEPRECATED options:\n"
     "    --input-dll is aliased to --input-image.\n"
     "    --output-dll is aliased to --output-image.\n"
     "    --call-trace-client=RPC\n"
-    "                         Equivalent to --mode=CALLTRACE.\n"
+    "                         Equivalent to --mode=calltrace.\n"
     "    --call-trace-client=PROFILER\n"
-    "                         Equivalent to --mode=PROFILER.\n"
+    "                         Equivalent to --mode=profile.\n"
     "    --call-trace-client=<path>\n"
-    "                         Equivalent to --mode=CALLTRACE --agent=<path>.\n"
+    "                         Equivalent to --mode=calltrace --agent=<path>.\n"
     "  General options (applicable in all modes):\n"
     "    --agent=<path>       If specified indicates exactly which DLL should\n"
     "                         be used in instrumenting the provided module.\n"
@@ -78,7 +78,7 @@ static const char kUsageFormatStr[] =
     "    --output-pdb=<path>  The PDB for the instrumented DLL. If not\n"
     "                         provided will attempt to generate one.\n"
     "    --overwrite          Allow output files to be overwritten.\n"
-    "  CALLTRACE mode options:\n"
+    "  calltrace mode options:\n"
     "    --instrument-imports Also instrument calls to imports.\n"
     "    --module-entry-only  If specified then the per-function entry hook\n"
     "                         will not be used and only module entry points\n"
@@ -86,7 +86,7 @@ static const char kUsageFormatStr[] =
     "    --no-unsafe-refs     Perform no instrumentation of references\n"
     "                         between code blocks that contain anything but\n"
     "                         C/C++.\n"
-    "  PROFILE mode options:\n"
+    "  profile mode options:\n"
     "    --instrument-imports Also instrument calls to imports.\n"
     "\n";
 
@@ -95,7 +95,7 @@ static const char kUsageFormatStr[] =
 const char InstrumentApp::kCallTraceClientDllBasicBlockEntry[] =
     "basic_block_entry_client.dll";
 const char InstrumentApp::kCallTraceClientDllCoverage[] = "coverage_client.dll";
-const char InstrumentApp::kCallTraceClientDllProfiler[] = "profile_client.dll";
+const char InstrumentApp::kCallTraceClientDllProfile[] = "profile_client.dll";
 const char InstrumentApp::kCallTraceClientDllRpc[] = "call_trace_client.dll";
 
 pe::PERelinker& InstrumentApp::GetRelinker() {
@@ -112,22 +112,22 @@ void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
   std::string client = cmd_line->GetSwitchValueASCII("call-trace-client");
 
   if (client.empty()) {
-    LOG(INFO) << "DEPRECATED: No mode specified, using --mode=CALLTRACE.";
+    LOG(INFO) << "DEPRECATED: No mode specified, using --mode=calltrace.";
     mode_ = kInstrumentCallTraceMode;
     client_dll_ = kCallTraceClientDllRpc;
     return;
   }
 
   if (LowerCaseEqualsASCII(client, "profiler")) {
-    LOG(INFO) << "DEPRECATED: Using --mode=PROFILER.";
-    mode_ = kInstrumentProfilerMode;
-    client_dll_ = kCallTraceClientDllProfiler;
+    LOG(INFO) << "DEPRECATED: Using --mode=profile.";
+    mode_ = kInstrumentProfileMode;
+    client_dll_ = kCallTraceClientDllProfile;
   } else if (LowerCaseEqualsASCII(client, "rpc")) {
-    LOG(INFO) << "DEPRECATED: Using --mode=CALLTRACE.";
+    LOG(INFO) << "DEPRECATED: Using --mode=calltrace.";
     mode_ = kInstrumentCallTraceMode;
     client_dll_ = kCallTraceClientDllRpc;
   } else {
-    LOG(INFO) << "DEPRECATED: Using --mode=CALLTRACE --agent=" << client << ".";
+    LOG(INFO) << "DEPRECATED: Using --mode=calltrace --agent=" << client << ".";
     mode_ = kInstrumentCallTraceMode;
     client_dll_ = client;
   }
@@ -172,7 +172,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
     if (LowerCaseEqualsASCII(mode, "asan")) {
       mode_ = kInstrumentAsanMode;
-    } else if (LowerCaseEqualsASCII(mode, "basic_block_entry")) {
+    } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
       mode_ = kInstrumentBasicBlockEntryMode;
       client_dll_ = kCallTraceClientDllBasicBlockEntry;
     } else if (LowerCaseEqualsASCII(mode, "calltrace")) {
@@ -181,9 +181,9 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     } else if (LowerCaseEqualsASCII(mode, "coverage")) {
       mode_ = kInstrumentCoverageMode;
       client_dll_ = kCallTraceClientDllCoverage;
-    } else if (LowerCaseEqualsASCII(mode, "profiler")) {
-      mode_ = kInstrumentProfilerMode;
-      client_dll_ = kCallTraceClientDllProfiler;
+    } else if (LowerCaseEqualsASCII(mode, "profile")) {
+      mode_ = kInstrumentProfileMode;
+      client_dll_ = kCallTraceClientDllProfile;
     } else {
       return Usage(cmd_line,
                    base::StringPrintf("Unknown instrumentation mode: %s.",
@@ -199,7 +199,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("agent")) {
     if (mode_ == kInstrumentAsanMode) {
       // TODO(siggi): Make this work properly!
-      LOG(WARNING) << "Ignoring --agent in ASAN mode.";
+      LOG(WARNING) << "Ignoring --agent in asan mode.";
     } else {
       client_dll_ = cmd_line->GetSwitchValueASCII("agent");
       LOG(INFO) << "Got custom agent \"" << client_dll_ << "\".";
@@ -227,7 +227,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
       module_entry_only_ = true;
     } break;
 
-    case kInstrumentProfilerMode: {
+    case kInstrumentProfileMode: {
       instrument_unsafe_references_ = false;
       module_entry_only_ = false;
     } break;
@@ -302,10 +302,10 @@ int InstrumentApp::Run() {
             coverage_tx->bb_ranges()));
     relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
   } else {
-    // We're either in call-trace mode or profiler mode. Each of these
+    // We're either in calltrace mode or profile mode. Each of these
     // use the entry_thunk_tx, so we handle them in the same manner.
     DCHECK(mode_ == kInstrumentCallTraceMode ||
-           mode_ == kInstrumentProfilerMode);
+           mode_ == kInstrumentProfileMode);
 
     // Set up the entry thunk instrumenting transform and add it to the
     // relinker.

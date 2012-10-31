@@ -37,7 +37,7 @@ class InstrumentApp : public common::AppImplBase {
   // A list of known clients libraries.
   static const char kCallTraceClientDllBasicBlockEntry[];
   static const char kCallTraceClientDllCoverage[];
-  static const char kCallTraceClientDllProfiler[];
+  static const char kCallTraceClientDllProfile[];
   static const char kCallTraceClientDllRpc[];
 
   // The mode of the instrumenter.
@@ -47,7 +47,7 @@ class InstrumentApp : public common::AppImplBase {
     kInstrumentBasicBlockEntryMode,
     kInstrumentCallTraceMode,
     kInstrumentCoverageMode,
-    kInstrumentProfilerMode,
+    kInstrumentProfileMode,
   };
 
   InstrumentApp()

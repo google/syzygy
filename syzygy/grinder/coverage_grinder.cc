@@ -15,7 +15,9 @@
 #include "syzygy/grinder/coverage_grinder.h"
 
 #include "base/file_path.h"
+#include "base/string_util.h"
 #include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/grinder/cache_grind_writer.h"
 #include "syzygy/grinder/lcov_writer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -33,14 +35,29 @@ using basic_block_util::PdbInfoMap;
 using trace::parser::AbsoluteAddress64;
 
 CoverageGrinder::CoverageGrinder()
-    : parser_(NULL), event_handler_errored_(false) {
+    : parser_(NULL),
+      event_handler_errored_(false),
+      output_format_(kLcovFormat) {
 }
 
 CoverageGrinder::~CoverageGrinder() {
 }
 
 bool CoverageGrinder::ParseCommandLine(const CommandLine* command_line) {
-  // We don't do any additional parsing.
+  // If the switch isn't present we have nothing to do!
+  const char kOutputFormat[] = "output-format";
+  if (!command_line->HasSwitch(kOutputFormat))
+    return true;
+
+  std::string format = command_line->GetSwitchValueASCII(kOutputFormat);
+  if (LowerCaseEqualsASCII(format, "lcov")) {
+    output_format_ = kLcovFormat;
+  } else if (LowerCaseEqualsASCII(format, "cachegrind")) {
+    output_format_ = kCacheGrindFormat;
+  } else {
+    LOG(ERROR) << "Unknown output format: " << format << ".";
+    return false;
+  }
   return true;
 }
 
@@ -77,9 +94,21 @@ bool CoverageGrinder::OutputData(FILE* file) {
   DCHECK(file != NULL);
   DCHECK(!coverage_data_.source_file_coverage_data_map().empty());
 
-  if (!WriteLcovCoverageFile(coverage_data_, file)) {
-    LOG(ERROR) << "Failed to write LCOV file.";
-    return false;
+  // These functions log verbosely for us.
+  switch (output_format_) {
+    case kLcovFormat: {
+      if (!WriteLcovCoverageFile(coverage_data_, file))
+        return false;
+      break;
+    }
+
+    case kCacheGrindFormat: {
+      if (!WriteCacheGrindCoverageFile(coverage_data_, file))
+        return false;
+      break;
+    }
+
+    default: NOTREACHED() << "Unknown OutputFormat.";
   }
 
   return true;

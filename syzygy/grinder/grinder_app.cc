@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "syzygy/grinder/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/coverage_grinder.h"
@@ -33,17 +34,22 @@ const char kUsageFormatStr[] =
     "  In 'profile' mode it outputs KCacheGrind-compatible output files for\n"
     "  visualization.\n"
     "\n"
-    "  In 'coverage' mode it outputs GCOV/LCOV-compatible output files for\n"
-    "  further processing with code coverage visualization tools.\n"
+    "  In 'coverage' mode it outputs GCOV/LCOV-compatible or\n"
+    "  KCacheGrind-compatible output files for further processing with code\n"
+    "  coverage or line profiler visualization tools.\n"
     "\n"
     "Required parameters\n"
     "  --mode=<mode>\n"
-    "    The processing mode. Must be one of 'profile', 'basic-block-entry'\n"
-    "    or 'coverage'.\n"
+    "    The processing mode. Must be one of 'bbentry', 'coverage' or \n"
+    "    or 'profile'.\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
     "    The location of output file. If not specified, output is to stdout.\n"
-    "Profile mode optional parameters\n"
+    "coverage mode optional parameters\n"
+    "  --output-format=<output format>\n"
+    "    Output format must be one of 'lcov' or 'cachegrind'. Defaults to\n"
+    "    'lcov' if not explicitly specified.\n"
+    "profile mode optional parameters\n"
     "  --thread-parts\n"
     "    Aggregate and output separate parts for each thread seen in the\n"
     "    trace files.\n";
@@ -89,13 +95,13 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
 
   // Parse the processing mode.
   std::string mode = command_line->GetSwitchValueASCII("mode");
-  if (mode == "profile") {
+  if (LowerCaseEqualsASCII(mode, "profile")) {
     mode_ = kProfile;
     grinder_.reset(new ProfileGrinder());
-  } else if (mode == "coverage") {
+  } else if (LowerCaseEqualsASCII(mode, "coverage")) {
     mode_ = kCoverage;
     grinder_.reset(new CoverageGrinder());
-  } else if (mode == "basic-block-entry") {
+  } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
     mode_ = kBasicBlockEntry;
     grinder_.reset(new BasicBlockEntryCountGrinder());
   } else {
