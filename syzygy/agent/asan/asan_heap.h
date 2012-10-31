@@ -20,6 +20,7 @@
 
 #include <windows.h>  // NOLINT
 
+#include "base/debug/stack_trace.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/common/dlist.h"
 
@@ -96,11 +97,14 @@ class HeapProxy {
   };
 
   // Every allocated block starts with a BlockHeader.
-  // TODO(sebmarchand): Add field for stack trace etc.
   struct BlockHeader {
     size_t magic_number;
     size_t size;
     BlockState state;
+    void* alloc_stack_trace;
+    void* free_stack_trace;
+    uint8 alloc_stack_trace_size;
+    uint8 free_stack_trace_size;
   };
 
   // Returns the block header for an alloc.
@@ -179,7 +183,7 @@ class HeapProxy {
   // Total size of blocks in quarantine.
   size_t quarantine_size_;  // Under lock_.
 
-   // The entry linking to us.
+  // The entry linking to us.
   LIST_ENTRY list_entry_;
 };
 
