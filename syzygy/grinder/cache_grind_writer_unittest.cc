@@ -28,7 +28,7 @@ class TestCoverageData : public CoverageData {
   void InitDummyData() {
     CoverageData::SourceFileCoverageDataMap::iterator source_it =
         source_file_coverage_data_map_.insert(
-            std::make_pair(std::string("foo.cc"),
+            std::make_pair(std::string("C:\\src\\foo.cc"),
                            CoverageData::SourceFileCoverageData())).first;
 
     source_it->second.line_execution_count_map.insert(
@@ -55,7 +55,8 @@ TEST(CacheGrindWriterTest, Write) {
   std::string expected_contents =
       "positions: line\n"
       "events: Instrumented Executed\n"
-      "fl=foo.cc\n"
+      "fl=C:/src/foo.cc\n"
+      "fn=all\n"
       "1 1 1\n"
       "+1 1 1\n"
       "+1 1 0\n";
