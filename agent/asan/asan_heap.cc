@@ -23,7 +23,7 @@ namespace asan {
 namespace {
 
 // Redzone size allocated at the start of every heap block.
-const size_t kRedZoneSize = 32;
+const size_t kRedZoneSize = 32U;
 
 // Utility class which implements an auto lock for a HeapProxy.
 class HeapLocker {
@@ -47,6 +47,28 @@ class HeapLocker {
 
   DISALLOW_COPY_AND_ASSIGN(HeapLocker);
 };
+
+// Capture a stack trace and store it in an array of instruction pointer values.
+// @param stack_trace A pointer to a non-allocated array of instruction pointer,
+//     *stack_trace is assumed to be equal NULL when we call this function, the
+//     array will be dynamically allocated.
+// @param trace_size A pointer to the variable where the stack size should be
+//     saved.
+void CaptureStackTrace(void** stack_trace, uint8* trace_size) {
+  DCHECK(stack_trace != NULL);
+  DCHECK(*stack_trace == NULL);
+
+  size_t trace_depth = 0;
+  base::debug::StackTrace trace;
+  const void* temp_trace = trace.Addresses(&trace_depth);
+  *stack_trace = new void*[trace_depth];
+  memcpy(*stack_trace, temp_trace, trace_depth * sizeof(void*));
+
+  // From http://msdn.microsoft.com/en-us/library/bb204633.aspx,
+  // the sum of FramesToSkip and FramesToCapture must be less than 63.
+  DCHECK_LE(trace_depth, 62U);
+  *trace_size = static_cast<uint8>(trace_depth);
+}
 
 }  // namespace
 
@@ -115,6 +137,9 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   block->magic_number = kBlockHeaderSignature;
   block->size = bytes;
   block->state = ALLOCATED;
+  block->alloc_stack_trace = NULL;
+  block->free_stack_trace = NULL;
+  CaptureStackTrace(&block->alloc_stack_trace, &block->alloc_stack_trace_size);
 
   uint8* block_alloc = ToAlloc(block);
   Shadow::Unpoison(block_alloc, bytes);
@@ -158,12 +183,12 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     return false;
   }
 
+  CaptureStackTrace(&block->free_stack_trace, &block->free_stack_trace_size);
   DCHECK(ToAlloc(block) == mem);
   if (!Shadow::IsAccessible(ToAlloc(block)))
     return false;
 
   QuarantineBlock(block);
-
   return true;
 }
 
@@ -241,7 +266,6 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   quarantine_size_ += alloc_size;
   // Mark the block as quarantined.
   free_block->state = QUARANTINED;
-
   // Arbitrarily keep ten megabytes of quarantine per heap.
   const size_t kMaxQuarantineSizeBytes = 10 * 1024 * 1024;
 
@@ -258,6 +282,16 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
     Shadow::Unpoison(free_block, alloc_size);
     free_block->state = FREED;
     free_block->magic_number = ~kBlockHeaderSignature;
+    if (free_block->alloc_stack_trace != NULL) {
+      delete free_block->alloc_stack_trace;
+      free_block->alloc_stack_trace = NULL;
+      free_block->alloc_stack_trace_size = 0;
+    }
+    if (free_block->free_stack_trace != NULL) {
+      delete free_block->free_stack_trace;
+      free_block->free_stack_trace = NULL;
+      free_block->free_stack_trace_size = 0;
+    }
     DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
     ::HeapFree(heap_, 0, free_block);
 
@@ -303,7 +337,6 @@ void HeapProxy::PrintAddressInformation(const void* addr,
                                         BadAccessKind bad_access_kind) {
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
-
   uint8* block_alloc = ToAlloc(header);
   int offset = 0;
   char* offset_relativity = "";
@@ -332,6 +365,20 @@ void HeapProxy::PrintAddressInformation(const void* addr,
           header->size,
           block_alloc,
           block_alloc + header->size);
+  if (header->free_stack_trace != NULL) {
+    fprintf(stderr, "freed here:\n");
+    base::debug::StackTrace alloc_trace(
+        static_cast<const void* const*>(header->free_stack_trace),
+        header->free_stack_trace_size);
+    alloc_trace.PrintBacktrace();
+  }
+  if (header->alloc_stack_trace != NULL) {
+    fprintf(stderr, "previously allocated here:\n");
+    base::debug::StackTrace alloc_trace(
+        static_cast<const void* const*>(header->alloc_stack_trace),
+        header->alloc_stack_trace_size);
+    alloc_trace.PrintBacktrace();
+  }
 
   Shadow::PrintShadowMemoryForAddress(addr);
 }
