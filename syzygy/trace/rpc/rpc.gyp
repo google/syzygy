@@ -1,10 +1,10 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@
   },
   'targets': [
     {
+      # TODO(rogerm): Use midl_rpc.gypi and make this a static_library target.
       # Builds our IDL file to the shared intermediate directory.
       # We invoke midl explicitly, because the rules for .idl files are
       # specific to COM interfaces, which causes RPC interfaces to always
@@ -63,6 +64,8 @@
       ],
     },
     {
+      # TODO(rogerm): Drop the IDL generated files and invert the dependency
+      #     on call_trace_rpc_idl when it is updated to use midl_rpc.gypi.
       'target_name': 'rpc_common_lib',
       'product_name': 'rpc_common',
       'type': 'static_library',
@@ -91,6 +94,24 @@
           },
         },
       },
+    },
+    {
+      'target_name': 'logger_rpc',
+      'type': 'static_library',
+      # Build our IDL file to the shared intermediate directory using the
+      # midl_rpc.gypi include (because the default rules for .idl files are
+      # specific to COM interfaces). This include expects the prefix and
+      # midl_out_dir variables to be defined.
+      'variables': {
+        'prefix': 'Logger',
+        'midl_out_dir': '<(SHARED_INTERMEDIATE_DIR)/syzygy/trace/rpc',
+      },
+      'includes': ['../../build/midl_rpc.gypi'],
+      'sources': ['logger_rpc.idl'],
+      'all_dependent_settings': {
+        'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
+      },
+      'dependencies': ['rpc_common_lib'],
     },
   ],
 }
