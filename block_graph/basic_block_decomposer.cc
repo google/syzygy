@@ -56,6 +56,8 @@ typedef BBAddressSpace::RangeMap RangeMap;
 typedef BBAddressSpace::RangeMapConstIter RangeMapConstIter;
 typedef BBAddressSpace::RangeMapIter RangeMapIter;
 
+const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
+
 // We use a (somewhat) arbitrary value as the disassembly address for a block
 // so we can tell the difference between a reference to the beginning of the
 // block (offset=0) and a null address.
@@ -172,11 +174,21 @@ bool BasicBlockDecomposer::Decompose() {
   desc.attributes = block_->attributes();
   desc.section = block_->section();
 
+  // Add the basic blocks to the block descriptor.
   Offset offset = 0;
   RangeMapConstIter it = original_address_space_.begin();
   for (; it != original_address_space_.end(); ++it) {
     DCHECK_EQ(it->first.start(), offset);
     desc.basic_block_order.push_back(it->second);
+
+    // Any data basic blocks (jump and case tables) with 0 mod 4 alignment
+    // are marked so that the alignment is preserved by the block builder.
+    if (desc.alignment >= kPointerSize &&
+        it->second->type() == BasicBlock::BASIC_DATA_BLOCK &&
+        (offset % kPointerSize) == 0) {
+      it->second->set_alignment(kPointerSize);
+    }
+
     offset += it->first.size();
   }
 

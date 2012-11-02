@@ -1,4 +1,4 @@
-; Copyright 2012 Google Inc.
+; Copyright 2012 Google Inc. All Rights Reserved.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -80,6 +80,10 @@ case_default LABEL PROC
   ; into it.
   call func2
 interrupt_label LABEL PROC
+  int 3
+
+  ; We add some padding so that jump_table ends up being 4-byte aligned.
+  int 3
   int 3
 
 jump_table \

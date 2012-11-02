@@ -244,8 +244,8 @@ TEST_F(BasicBlockOrdererTest, GetWarmestSuccessor) {
 TEST_F(BasicBlockOrdererTest, AddWarmDataReferences) {
   // Get basic block pointers to the switch, jump table, and case table.
   const BasicCodeBlock* code_bb = BasicCodeBlock::Cast(FindBasicBlockAt(0));
-  const BasicDataBlock* jump_table = BasicDataBlock::Cast(FindBasicBlockAt(50));
-  const BasicDataBlock* case_table = BasicDataBlock::Cast(FindBasicBlockAt(62));
+  const BasicDataBlock* jump_table = BasicDataBlock::Cast(FindBasicBlockAt(52));
+  const BasicDataBlock* case_table = BasicDataBlock::Cast(FindBasicBlockAt(64));
   ASSERT_TRUE(code_bb != NULL);
   ASSERT_TRUE(jump_table != NULL);
   ASSERT_TRUE(case_table != NULL);
@@ -269,8 +269,8 @@ TEST_F(BasicBlockOrdererTest, HotColdSeparation) {
   Order::OffsetVector warm;
   Order::OffsetVector cold;
   ASSERT_TRUE(orderer_->GetBasicBlockOrderings(&warm, &cold));
-  // Note that the bb's at 50 and 62 are the jump and case tables, respectively.
-  EXPECT_THAT(warm, testing::ElementsAre(0, 24, 31, 36, 50, 62));
+  // Note that the bb's at 52 and 64 are the jump and case tables, respectively.
+  EXPECT_THAT(warm, testing::ElementsAre(0, 24, 31, 36, 52, 64));
   EXPECT_THAT(cold, testing::ElementsAre(23, 37, 42, 49));
 }
 
@@ -298,8 +298,8 @@ TEST_F(BasicBlockOrdererTest, PathStraightening) {
   Order::OffsetVector warm;
   Order::OffsetVector cold;
   ASSERT_TRUE(orderer_->GetBasicBlockOrderings(&warm, &cold));
-  // Note that the bb's at 50 and 62 are the jump and case tables, respectively.
-  EXPECT_THAT(warm, testing::ElementsAre(0, 24, 31, 37, 36, 50, 62));
+  // Note that the bb's at 52 and 64 are the jump and case tables, respectively.
+  EXPECT_THAT(warm, testing::ElementsAre(0, 24, 31, 37, 36, 52, 64));
   EXPECT_THAT(cold, testing::ElementsAre(23, 42, 49));
 }
 

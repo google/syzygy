@@ -77,8 +77,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest, NonContiguousBlockIndicesFails) {
   ASSERT_TRUE(Insert(37, 2, 0));
   ASSERT_TRUE(Insert(42, 2, 1));
   ASSERT_TRUE(Insert(49, 2, 2));
-  ASSERT_TRUE(Insert(50, 2, 3));
-  ASSERT_TRUE(Insert(62, 2, 4));
+  ASSERT_TRUE(Insert(52, 2, 3));
+  ASSERT_TRUE(Insert(64, 2, 4));
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
   EXPECT_FALSE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
 }
@@ -94,8 +94,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest,
   ASSERT_TRUE(Insert(37, 0, 5));
   ASSERT_TRUE(Insert(42, 0, 6));
   ASSERT_TRUE(Insert(49, 0, 7));
-  ASSERT_TRUE(Insert(50, 0, 8));
-  ASSERT_TRUE(Insert(62, 0, 10));
+  ASSERT_TRUE(Insert(52, 0, 8));
+  ASSERT_TRUE(Insert(64, 0, 10));
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
   EXPECT_FALSE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
 }
@@ -109,8 +109,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest, Identity) {
   ASSERT_TRUE(Insert(37, 0, 5));
   ASSERT_TRUE(Insert(42, 0, 6));
   ASSERT_TRUE(Insert(49, 0, 7));
-  ASSERT_TRUE(Insert(50, 0, 8));
-  ASSERT_TRUE(Insert(62, 0, 9));
+  ASSERT_TRUE(Insert(52, 0, 8));
+  ASSERT_TRUE(Insert(64, 0, 9));
 
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
   EXPECT_TRUE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
@@ -128,8 +128,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest, CodeAndDataSplit) {
   ASSERT_TRUE(Insert(49, 0, 6));
 
   // Data blocks.
-  ASSERT_TRUE(Insert(50, 1, 0));
-  ASSERT_TRUE(Insert(62, 1, 1));
+  ASSERT_TRUE(Insert(52, 1, 0));
+  ASSERT_TRUE(Insert(64, 1, 1));
 
   // We explicitly do not specify the BB at offset 23, which consists of
   // padding that can be deleted.
@@ -258,8 +258,8 @@ TEST_F(BasicBlockLayoutTransformTest, SplitBlock) {
   assembly_func_code_bbs.push_back(49);
 
   Order::OffsetVector assembly_func_data_bbs;
-  assembly_func_data_bbs.push_back(50);
-  assembly_func_data_bbs.push_back(62);
+  assembly_func_data_bbs.push_back(52);
+  assembly_func_data_bbs.push_back(64);
 
   order.sections[0].id = text_section_->id();
   order.sections[0].name = text_section_->name();

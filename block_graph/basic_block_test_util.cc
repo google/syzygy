@@ -106,6 +106,10 @@ void BasicBlockTest::InitBlockGraph() {
       source_ranges().Push(Block::DataRange(0, kAssemblyFuncSize),
                            Block::SourceRange(start_addr_, kAssemblyFuncSize));
 
+  // This block contains aligned case and jump tables, so the decomposer would
+  // give it pointer alignment.
+  assembly_func_->set_alignment(4);
+
   // Add the data labels.
   ASSERT_TRUE(assembly_func_->SetLabel(
       kCaseTableOffset, "case_table", kCaseTableAttributes));
