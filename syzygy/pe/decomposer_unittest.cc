@@ -43,6 +43,8 @@ using core::RelativeAddress;
 
 namespace {
 
+const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
+
 // Exposes the protected methods for testing.
 class TestDecomposer: public Decomposer {
  public:
@@ -229,6 +231,9 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
       }
     }
   }
+
+  // DllMain has a jump table so it should have pointer alignment.
+  ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
   // Validate that the FunctionWithInlineAssembly block has the appropriate
   // attributes.

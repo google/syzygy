@@ -758,6 +758,54 @@ void LookForNonReturningFunctions(
   }
 }
 
+bool CodeBlockHasAlignedJumpTables(const BlockGraph::Block* block) {
+  DCHECK(block != NULL);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+
+  // Iterate over the labels of this block looking for jump tables.
+  bool has_jump_tables = false;
+  BlockGraph::Block::LabelMap::const_iterator label_it =
+      block->labels().begin();
+  for (; label_it != block->labels().end(); ++label_it) {
+    if (!label_it->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
+      continue;
+
+    has_jump_tables = true;
+
+    // If the jump table is misaligned we can return false immediately.
+    if (label_it->first % kPointerSize != 0)
+      return false;
+  }
+
+  return has_jump_tables;
+}
+
+bool AlignCodeBlocksWithJumpTables(ImageLayout* image_layout) {
+  DCHECK(image_layout != NULL);
+
+  BlockGraph::AddressSpace::RangeMapConstIter block_it =
+      image_layout->blocks.begin();
+  for (; block_it != image_layout->blocks.end(); ++block_it) {
+    BlockGraph::Block* block = block_it->second;
+
+    // We only care about code blocks that are already aligned 0 mod 4 but
+    // whose explicit alignment is currently less than that.
+    if (block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+    if (block->alignment() >= kPointerSize)
+      continue;
+    if (block_it->first.start().value() % kPointerSize != 0)
+      continue;
+
+    // Inspect them to see if they have aligned jump tables. If they do,
+    // set the alignment of the block itself.
+    if (CodeBlockHasAlignedJumpTables(block_it->second))
+      block->set_alignment(kPointerSize);
+  }
+
+  return true;
+}
+
 }  // namespace
 
 Decomposer::Decomposer(const PEFile& image_file)
@@ -924,9 +972,14 @@ bool Decomposer::Decompose(ImageLayout* image_layout) {
   if (success)
     success = FindPaddingBlocks();
 
-  // Finally, copy the image headers over to the layout.
+  // Copy the image headers over to the layout.
   if (success)
     success = CopyHeaderToImageLayout(header.nt_headers, image_layout);
+
+  // Set the alignment on code blocks with jump tables. This ensures that the
+  // jump tables remain aligned post-transform.
+  if (success)
+    success = AlignCodeBlocksWithJumpTables(image_layout);
 
   image_ = NULL;
 
