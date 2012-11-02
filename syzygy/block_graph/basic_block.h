@@ -22,6 +22,7 @@
 
 #include "base/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/common/align.h"
 #include "syzygy/core/assembler.h"
 #include "syzygy/core/disassembler_util.h"
 
@@ -545,6 +546,13 @@ class BasicBlock {
   BasicBlockType type() const { return type_; }
   const std::string& name() const { return name_; }
 
+  size_t alignment() const { return alignment_; }
+  void set_alignment(size_t alignment) {
+    DCHECK_LE(1u, alignment_);
+    DCHECK(common::IsPowerOfTwo(alignment));
+    alignment_ = alignment;
+  }
+
   Offset offset() const { return offset_; }
   void set_offset(Offset offset) { offset_ = offset; }
 
@@ -569,6 +577,9 @@ class BasicBlock {
 
   // The name of this basic block.
   std::string name_;
+
+  // The alignment of this basic block.
+  size_t alignment_;
 
   // The offset of this basic block in the oritinal block. Set to the offset
   // of the first byte the basic block originated from during decomposition.

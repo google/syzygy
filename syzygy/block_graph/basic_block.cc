@@ -624,6 +624,7 @@ const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 BasicBlock::BasicBlock(const base::StringPiece& name,
                        BasicBlock::BasicBlockType type)
     : name_(name.begin(), name.end()),
+      alignment_(1),
       type_(type),
       offset_(kNoOffset) {
 }

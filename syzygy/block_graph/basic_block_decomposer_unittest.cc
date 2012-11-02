@@ -143,6 +143,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   std::advance(inst_iter, 1);
   ASSERT_EQ(1u, inst_iter->references().size());
   ASSERT_EQ(bbs_[8], inst_iter->references().begin()->second.basic_block());
+  ASSERT_EQ(1u, bbs_[0]->alignment());
 
   // Basic-block 1 - unreachable-label.
   // TODO(rogerm): This is classified as padding for now, it will become code
@@ -154,6 +155,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   // ASSERT_EQ(1u, bbs_[1]->successors().size());;
   // ASSERT_EQ(bbs_[2],
   //           bbs_[1]->successors().front().reference().basic_block());
+  ASSERT_EQ(1u, bbs_[1]->alignment());
 
   // Basic-block 2 - case_0.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[2]));
@@ -163,6 +165,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_EQ(2u, bb2->instructions().size());
   ASSERT_EQ(1u, bb2->successors().size());;
   ASSERT_EQ(bbs_[3], bb2->successors().front().reference().basic_block());
+  ASSERT_EQ(1u, bbs_[2]->alignment());
 
   // Basic-block 3 - sub eax to jnz.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[3]));
@@ -173,6 +176,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_EQ(2u, bb3->successors().size());;
   ASSERT_EQ(bb3, bb3->successors().front().reference().basic_block());
   ASSERT_EQ(bbs_[4], bb3->successors().back().reference().basic_block());
+  ASSERT_EQ(1u, bbs_[3]->alignment());
 
   // Basic-block 4 - ret.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[4]));
@@ -181,6 +185,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_TRUE(bb4 != NULL);
   ASSERT_EQ(1u, bb4->instructions().size());
   ASSERT_EQ(0u, bb4->successors().size());;
+  ASSERT_EQ(1u, bbs_[4]->alignment());
 
   // Basic-block 5 - case_1.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[5]));
@@ -193,6 +198,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
       bb5->instructions().front().references().begin()->second.block());
   ASSERT_EQ(1u, bb5->successors().size());
   ASSERT_EQ(bbs_[6], bb5->successors().front().reference().basic_block());
+  ASSERT_EQ(1u, bbs_[5]->alignment());
 
   // Basic-block 6 - case_default.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[6]));
@@ -204,14 +210,16 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
       func2_,
       bb6->instructions().back().references().begin()->second.block());
   ASSERT_EQ(0u, bb6->successors().size());
+  ASSERT_EQ(1u, bbs_[6]->alignment());
 
   // Basic-block 7 - interrupt_label.
   ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bbs_[7]));
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[7]->type());
   BasicCodeBlock* bb7 = BasicCodeBlock::Cast(bbs_[7]);
   ASSERT_TRUE(bb7 != NULL);
-  ASSERT_EQ(1u, bb7->instructions().size());
+  ASSERT_EQ(3u, bb7->instructions().size());
   ASSERT_EQ(0u, bb7->successors().size());
+  ASSERT_EQ(1u, bbs_[7]->alignment());
 
   // Basic-block 8 - jump_table.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[8]));
@@ -220,6 +228,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_TRUE(bb8 != NULL);
   ASSERT_EQ(3 * Reference::kMaximumSize, bb8->size());
   ASSERT_EQ(3u, bb8->references().size());
+  ASSERT_EQ(4u, bbs_[8]->alignment());
 
   // Basic-block 9 - case_table.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[9]));
@@ -228,6 +237,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_TRUE(bb9 != NULL);
   ASSERT_EQ(256, bb9->size());
   ASSERT_EQ(0u, bb9->references().size());
+  ASSERT_EQ(4u, bbs_[9]->alignment());
 
   // Validate all source ranges.
   core::RelativeAddress next_addr(start_addr_);
