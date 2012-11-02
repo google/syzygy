@@ -1335,7 +1335,6 @@ bool Decomposer::ProcessThunkSymbols(IDiaSymbol* globals) {
       if (hr != S_OK || fetched == 0)
         break;
 
-
       DCHECK(IsSymTag(thunk, SymTagThunk));
 
       if (!ProcessFunctionOrThunkSymbol(thunk))
@@ -1786,6 +1785,13 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
   BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
                                                addr, length, name.c_str(),
                                                kAllowCoveringBlock);
+
+  // We've seen some null blocks for some symbol for modules that may have been
+  // compiled using a custom a non-Microsoft toolchain.
+  if (block == NULL) {
+    LOG(ERROR) << "Failed to get a block for symbol named " << name << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
 
   if (block->type() == BlockGraph::CODE_BLOCK) {
     // The NativeClient bits of chrome.dll consists of hand-written assembly
