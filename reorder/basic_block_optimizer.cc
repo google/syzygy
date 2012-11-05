@@ -321,7 +321,9 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetEntryCountByOffset(
   DCHECK(entry_count != NULL);
 
   *entry_count = 0;
-  EntryCountMap::const_iterator it(entry_counts_.find(offset));
+
+  // Translate the offset to an RVA and look up the count.
+  EntryCountMap::const_iterator it(entry_counts_.find(addr_.value() + offset));
 
   if (it != entry_counts_.end())
     *entry_count = it->second;
@@ -417,7 +419,7 @@ bool BasicBlockOptimizer::BasicBlockOrderer::AddWarmDataReferences(
   BasicBlock::Instructions::const_iterator inst_iter =
       code_bb->instructions().begin();
   for (; inst_iter != code_bb->instructions().end(); ++inst_iter) {
-    // For each instructions, iterate over all references it makes.
+    // For each instruction, iterate over all references it makes.
     BasicBlock::BasicBlockReferenceMap::const_iterator ref_iter =
         inst_iter->references().begin();
     for (; ref_iter != inst_iter->references().end(); ++ref_iter) {
@@ -425,13 +427,25 @@ bool BasicBlockOptimizer::BasicBlockOrderer::AddWarmDataReferences(
       const BasicBlock* bb = ref_iter->second.basic_block();
       if (bb == NULL)
         continue;
-      // For each reference (we should only see data references here) we
-      // add (recursively) all basic data block reachable.
-      const BasicDataBlock* data_bb = BasicDataBlock::Cast(bb);
-      if (data_bb == NULL) {
+
+      // We tolerate code->code references only for the special case of
+      // self-recursive functions.
+      const BasicCodeBlock* code_bb = BasicCodeBlock::Cast(bb);
+      if (code_bb != NULL) {
+        if (code_bb->offset() == 0) {
+          continue;
+        }
+
+        DCHECK_NE(0, code_bb->offset());
         LOG(ERROR) << "Invalid code to code reference from instruction.";
         return false;
       }
+
+      // For each data reference we recursively add all
+      // basic data blocks reachable.
+      const BasicDataBlock* data_bb = BasicDataBlock::Cast(bb);
+      DCHECK(data_bb != NULL);
+
       AddRecursiveDataReferences(data_bb, warm_references);
     }
   }

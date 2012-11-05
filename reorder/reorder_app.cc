@@ -309,6 +309,8 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
                                      Reorderer::Order* order) {
   DCHECK(order != NULL);
 
+  LOG(INFO) << "Performing basic block ordering.";
+
   // Load the basic-block entry count data.
   ModuleEntryCountMap module_entry_count_map;
   BasicBlockEntryCountSerializer serializer;
