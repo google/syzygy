@@ -215,9 +215,11 @@ TEST_F(BlockBuilderTest, Merge) {
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),
                 0));
 
-  // Flesh out table with references.
+  // Flesh out table with references. Make the table aligned so that we test
+  // our NOP insertion code.
   Label label_5("5", BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL);
   table->set_label(label_5);
+  table->set_alignment(4);
   ASSERT_TRUE(table->references().insert(std::make_pair(
       0, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb1))).second);
   ASSERT_TRUE(table->references().insert(std::make_pair(
@@ -241,8 +243,9 @@ TEST_F(BlockBuilderTest, Merge) {
   ASSERT_EQ(1, builder.new_blocks().size());
   BlockGraph::Block* new_block = builder.new_blocks().front();
   EXPECT_EQ(new_block, block_graph_.GetBlockById(new_block->id()));
-  EXPECT_EQ(47U, new_block->size());
+  EXPECT_EQ(48U, new_block->size());
   EXPECT_EQ(new_block->data_size(), new_block->size());
+  EXPECT_EQ(table->alignment(), new_block->alignment());
 
   // Validate the new block's references.
   Block::ReferenceMap expected_references;
@@ -254,11 +257,11 @@ TEST_F(BlockBuilderTest, Merge) {
       BlockGraph::PC_RELATIVE_REF, 1, new_block, 14, 14);
   expected_references[34] = Reference(
       BlockGraph::PC_RELATIVE_REF, 1, new_block, 9, 9);
-  expected_references[35] = Reference(
+  expected_references[36] = Reference(
       BlockGraph::ABSOLUTE_REF, 4, new_block, 0, 0);
-  expected_references[39] = Reference(
+  expected_references[40] = Reference(
       BlockGraph::ABSOLUTE_REF, 4, new_block, 9, 9);
-  expected_references[43] = Reference(
+  expected_references[44] = Reference(
       BlockGraph::ABSOLUTE_REF, 4, new_block, 14, 14);
   EXPECT_EQ(expected_references, new_block->references());
 
@@ -268,9 +271,9 @@ TEST_F(BlockBuilderTest, Merge) {
   expected_referrers.insert(Referrer(new_block, 6));
   expected_referrers.insert(Referrer(new_block, 8));
   expected_referrers.insert(Referrer(new_block, 34));
-  expected_referrers.insert(Referrer(new_block, 35));
-  expected_referrers.insert(Referrer(new_block, 39));
-  expected_referrers.insert(Referrer(new_block, 43));
+  expected_referrers.insert(Referrer(new_block, 36));
+  expected_referrers.insert(Referrer(new_block, 40));
+  expected_referrers.insert(Referrer(new_block, 44));
   EXPECT_EQ(expected_referrers, new_block->referrers());
 
   // Validate the references of the other block.
@@ -290,8 +293,12 @@ TEST_F(BlockBuilderTest, Merge) {
   expected_labels.insert(std::make_pair(9, label_2));
   expected_labels.insert(std::make_pair(14, label_3));
   expected_labels.insert(std::make_pair(17, label_4));
-  expected_labels.insert(std::make_pair(35, label_5));
+  expected_labels.insert(std::make_pair(36, label_5));
   EXPECT_EQ(expected_labels, new_block->labels());
+
+  // Validate that there is a single byte NOP at position 35, just prior to the
+  // table.
+  EXPECT_EQ(0x90, new_block->data()[35]);
 }
 
 TEST_F(BlockBuilderTest, ShortLayout) {

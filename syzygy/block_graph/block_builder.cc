@@ -29,6 +29,7 @@
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/common/align.h"
 #include "syzygy/core/assembler.h"
 
 namespace block_graph {
@@ -47,6 +48,31 @@ typedef BlockDescriptionList::const_iterator BlockDescriptionConstIter;
 typedef BasicBlock::Instructions::const_iterator InstructionConstIter;
 typedef BasicBlock::Successors::const_iterator SuccessorConstIter;
 
+// Definitions of various length NOP codes for 32-bit X86. We use the same
+// ones that are typically used by MSVC and recommended by Intel.
+
+// NOP (XCHG EAX, EAX)
+const uint8 kNop1[1] = { 0x90 };
+// 66 NOP
+const uint8 kNop2[2] = { 0x66, 0x90 };
+// LEA REG, 0 (REG) (8-bit displacement)
+const uint8 kNop3[3] = { 0x66, 0x66, 0x90 };
+// NOP DWORD PTR [EAX + 0] (8-bit displacement)
+const uint8 kNop4[4] = { 0x0F, 0x1F, 0x40, 0x00 };
+// NOP DWORD PTR [EAX + EAX*1 + 0] (8-bit displacement)
+const uint8 kNop5[5] = { 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+// LEA REG, 0 (REG) (32-bit displacement)
+const uint8 kNop6[6] = { 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+// LEA REG, 0 (REG) (32-bit displacement)
+const uint8 kNop7[7] = { 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 };
+// NOP DWORD PTR [EAX + EAX*1 + 0] (32-bit displacement)
+const uint8 kNop8[8] = { 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
+// NOP WORD  PTR [EAX + EAX*1 + 0] (32-bit displacement)
+const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+// Collect all of the various NOPs in an array indexable by their length.
+const uint8* kNops[] = { NULL, kNop1, kNop2, kNop3, kNop4, kNop5, kNop6,
+    kNop7, kNop8, kNop9 };
 
 // A utility class to package up the context in which new blocks are generated.
 class MergeContext {
@@ -140,6 +166,14 @@ class MergeContext {
   // @param info The layout info for the basic block in question.
   bool AssembleSuccessors(const BasicBlockLayoutInfo& info);
 
+  // Insert NOPs into the given byte range.
+  // @param offset the offset at which to insert NOPs.
+  // @param bytes the number of NOP bytes to insert.
+  // @param new_block the block in which to insert the NOPs.
+  bool InsertNops(Offset offset,
+                  Size bytes,
+                  Block* new_block);
+
   // Copy the given @p instructions to the current working block.
   // @param offset The offset where the @p instructions should be inserted.
   // @param instructions The instructions to copy.
@@ -161,7 +195,7 @@ class MergeContext {
 
   // Generates a layout for @p order. This layout will arrange each basic block
   // in the ordering back-to-back with minimal reach encodings on each
-  // successor.
+  // successor, while respecting basic block alignments.
   // @param order The basic block ordering to process.
   bool GenerateBlockLayout(const BasicBlockOrdering& order);
 
@@ -375,6 +409,30 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
   return true;
 }
 
+bool MergeContext::InsertNops(Offset offset,
+                              Size bytes,
+                              Block* new_block) {
+  DCHECK(new_block != NULL);
+
+  uint8* buffer = new_block->GetMutableData();
+  DCHECK(buffer != NULL);
+
+  size_t kMaxNopLength = arraysize(kNops) - 1;
+  buffer += offset;
+  while (bytes >= kMaxNopLength) {
+    ::memcpy(buffer, kNops[kMaxNopLength], kMaxNopLength);
+    buffer += kMaxNopLength;
+    bytes -= kMaxNopLength;
+  }
+
+  if (bytes > 0) {
+    DCHECK_GT(kMaxNopLength, bytes);
+    ::memcpy(buffer, kNops[bytes], bytes);
+  }
+
+  return true;
+}
+
 bool MergeContext::CopyInstructions(
     const BasicBlock::Instructions& instructions,
     Offset offset, Block* new_block) {
@@ -454,6 +512,10 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
   for (; it != order.end(); ++it) {
     const BasicBlock* bb = *it;
 
+    // Propagate BB alignment to the parent block.
+    if (bb->alignment() > new_block->alignment())
+      new_block->set_alignment(bb->alignment());
+
     // Create and initialize the layout info for this block.
     DCHECK(layout_info_.find(bb) == layout_info_.end());
 
@@ -486,10 +548,10 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
 
     // Go through and decide how to manifest the successors for the current
     // basic block. A basic block has zero, one or two successors, and any
-    // successor that successor that refers to the next basic block in sequence
-    // is elided, as it's most efficient for execution to simply fall through.
-    // We do this in two nearly-identical code blocks, as the handling is only
-    // near-identical for each of two possible successors.
+    // successor that refers to the next basic block in sequence is elided, as
+    // it's most efficient for execution to simply fall through. We do this in
+    // two nearly-identical code blocks, as the handling is only near-identical
+    // for each of two possible successors.
     DCHECK_GE(2U, code_block->successors().size());
     SuccessorConstIter succ_it = code_block->successors().begin();
     SuccessorConstIter succ_end = code_block->successors().end();
@@ -569,12 +631,15 @@ bool MergeContext::GenerateBlockLayout(const BasicBlockOrdering& order) {
   while (true) {
     bool expanded_successor = false;
 
-    // Update the start offset for each of the BBs.
+    // Update the start offset for each of the BBs, respecting the BB alignment
+    // constraints.
     it = order.begin();
     Offset next_block_start = 0;
     Block* new_block = NULL;
     for (; it != order.end(); ++it) {
       BasicBlockLayoutInfo& info = FindLayoutInfo(*it);
+      next_block_start = common::AlignUp(next_block_start,
+                                         info.basic_block->alignment());
       info.start_offset = next_block_start;
 
       if (new_block == NULL)
@@ -687,10 +752,24 @@ bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
   BasicBlockOrderingConstIter bb_iter = order.begin();
   BasicBlockOrderingConstIter bb_end = order.end();
 
+  BlockGraph::Offset prev_offset = 0;
+
   for (; bb_iter != bb_end; ++bb_iter) {
     const BasicBlock* bb = *bb_iter;
     const BasicBlockLayoutInfo& info = FindLayoutInfo(bb);
 
+    // Handle any padding for alignment.
+    if (info.start_offset > prev_offset) {
+      if (!InsertNops(prev_offset, info.start_offset - prev_offset,
+                      info.block)) {
+        LOG(ERROR) << "Failed to insert NOPs for '" << bb->name() << "'.";
+        return false;
+      }
+    }
+    prev_offset = info.start_offset + info.basic_block_size +
+        info.successors[0].size + info.successors[1].size;
+
+    // Handle data basic blocks.
     const BasicDataBlock* data_block = BasicDataBlock::Cast(bb);
     if (data_block != NULL) {
       // If the basic-block is labeled, copy the label.
@@ -703,6 +782,8 @@ bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
         return false;
       }
     }
+
+    // Handle code basic blocks.
     const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bb);
     if (code_block != NULL) {
       // Copy the instructions.
