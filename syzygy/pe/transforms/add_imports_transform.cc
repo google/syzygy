@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -219,6 +219,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
 
   // The array is NULL terminated with a potentially incomplete descriptor so
   // we can't use ElementCount - 1.
+  DCHECK_GT(iida_block->size(), 0U);
   size_t descriptor_count =
       (common::AlignUp(iida_block->size(), sizeof(IMAGE_IMPORT_DESCRIPTOR)) /
        sizeof(IMAGE_IMPORT_DESCRIPTOR)) - 1;
@@ -230,7 +231,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
       return false;
     }
 
-    size_t max_len = dll_name.block()->size() - dll_name.offset();
+    size_t max_len = dll_name.ElementCount();
     if (base::strncasecmp(dll_name->string, module_name, max_len) == 0) {
       // This should never fail, but we sanity check it nonetheless.
       bool result = iid->Init(iida.OffsetOf(iida[iida_index]), iida.block());
@@ -486,7 +487,6 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
 }
 
 }  // namespace
-
 
 const char AddImportsTransform::kTransformName[] = "AddImportsTransform";
 

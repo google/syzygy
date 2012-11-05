@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,6 +114,15 @@ bool GetDllEntryPoint(block_graph::BlockGraph::Block* dos_header_block,
 bool GetTlsInitializers(block_graph::BlockGraph::Block* dos_header_block,
                         EntryPointSet* entry_points);
 
+// Check if an image contains an import entry.
+// @param The image's header-block.
+// @param dll_name The name of the DLL.
+// @param contains_dependence Boolean to indicate if the image contains the
+//     import entry.
+// @returns true in case of success, false otherwise.
+bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
+                    const base::StringPiece& dll_name,
+                    bool* has_import_entry);
 }  // namespace pe
 
 #endif  // SYZYGY_PE_PE_UTILS_H_
