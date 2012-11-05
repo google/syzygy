@@ -99,14 +99,14 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
                       uint32 bb4, uint32 bb5, uint32 bb6, uint32 bb7) {
     entry_counts_.clear();
 
-    entry_counts_[kBasicBlockOffsets[0]] = bb0;
-    entry_counts_[kBasicBlockOffsets[1]] = bb1;
-    entry_counts_[kBasicBlockOffsets[2]] = bb2;
-    entry_counts_[kBasicBlockOffsets[3]] = bb3;
-    entry_counts_[kBasicBlockOffsets[4]] = bb4;
-    entry_counts_[kBasicBlockOffsets[5]] = bb5;
-    entry_counts_[kBasicBlockOffsets[6]] = bb6;
-    entry_counts_[kBasicBlockOffsets[7]] = bb7;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[0]] = bb0;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[1]] = bb1;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[2]] = bb2;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[3]] = bb3;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[4]] = bb4;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[5]] = bb5;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[6]] = bb6;
+    entry_counts_[start_addr_.value() + kBasicBlockOffsets[7]] = bb7;
     ASSERT_EQ(kNumBasicBlocks, entry_counts_.size());
   }
 
@@ -379,11 +379,12 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   size_t num_basic_blocks = desc.basic_block_order.size();
   size_t num_hot_blocks = 0;
 
-
   bool is_hot = true;
+  BlockGraph::Offset start_offs = subgraph.original_block()->addr().value();
   for (; it != desc.basic_block_order.end(); ++it) {
     if (is_hot && BasicCodeBlock::Cast(*it) != NULL) {
-      entry_counts[(*it)->offset()] = 1;
+
+      entry_counts[start_offs + (*it)->offset()] = 1;
       ++num_hot_blocks;
     }
 
