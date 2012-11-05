@@ -22,6 +22,7 @@
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/pe/block_util.h"
+#include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 #include "third_party/distorm/files/src/x86defs.h"
@@ -41,6 +42,7 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
 using block_graph::Operand;
+using block_graph::TypedBlock;
 using block_graph::Value;
 using core::Register;
 using core::RegisterCode;
@@ -324,6 +326,18 @@ AsanTransform::AsanTransform() : asan_dll_name_(kSyzyAsanDll) {
 
 bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
                                            BlockGraph::Block* header_block) {
+  bool already_instrumented = false;
+  // Ensure that this image has not already been instrumented.
+  if (!pe::HasImportEntry(header_block, kSyzyAsanDll, &already_instrumented)) {
+    LOG(ERROR) << "Unable to check if the image is already instrumented.";
+    return false;
+  }
+
+  if (already_instrumented) {
+    LOG(ERROR) << "The image is already instrumented.";
+    return false;
+  }
+
   // Add an import entry for the ASAN runtime.
   AddImportsTransform::ImportedModule import_module(asan_dll_name_.c_str());
 

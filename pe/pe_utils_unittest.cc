@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/pe/transforms/add_imports_transform.h"
 
 namespace pe {
 
 using block_graph::BlockGraph;
 using core::RelativeAddress;
+using pe::transforms::AddImportsTransform;
 
 namespace {
 
@@ -302,6 +304,28 @@ TEST_F(PEUtilsTest, GetTlsInitializers) {
   EXPECT_TRUE(GetTlsInitializers(dos_header_block_, &entry_points));
   EXPECT_EQ(1U, entry_points.size());
   EXPECT_EQ(tls_initializer_block_, entry_points.begin()->first);
+}
+
+TEST_F(PEUtilsTest, HasImportEntry) {
+  // Creates an imported module.
+  AddImportsTransform::ImportedModule module("foo.dll");
+  const char* kFooFunc = "foo_func";
+  size_t function_foo = module.AddSymbol(kFooFunc);
+  ASSERT_EQ(kFooFunc, module.GetSymbolName(function_foo));
+
+  // Apply the transform to add this module import to the block-graph.
+  AddImportsTransform transform;
+  transform.AddModule(&module);
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &block_graph_, dos_header_block_));
+
+  // Ensure that we can find this module, and that we can't find a
+  // non-imported module.
+  bool has_import = false;
+  EXPECT_TRUE(HasImportEntry(dos_header_block_, "foo.dll", &has_import));
+  EXPECT_TRUE(has_import);
+  EXPECT_TRUE(HasImportEntry(dos_header_block_, "bar.dll", &has_import));
+  EXPECT_FALSE(has_import);
 }
 
 }  // namespace pe

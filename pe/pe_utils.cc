@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/pe_utils.h"
 
+#include "base/string_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/dos_stub.h"
 
@@ -25,6 +26,16 @@ using block_graph::TypedBlock;
 using core::RelativeAddress;
 
 namespace {
+
+// A simple struct that can be used to let us access strings using TypedBlock.
+struct StringStruct {
+  const char string[1];
+};
+
+typedef TypedBlock<IMAGE_DOS_HEADER> DosHeader;
+typedef TypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
+typedef TypedBlock<IMAGE_NT_HEADERS> NtHeaders;
+typedef TypedBlock<StringStruct> String;
 
 template <typename BlockPtr>
 BlockPtr UncheckedGetNtHeadersBlockFromDosHeaderBlock(
@@ -333,6 +344,72 @@ bool GetTlsInitializers(BlockGraph::Block* dos_header_block,
     DCHECK(ref.size() == sizeof(core::AbsoluteAddress));
     entry_points->insert(
         std::make_pair(ref.referenced(), ref.offset()));
+  }
+
+  return true;
+}
+
+bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
+                    const base::StringPiece& dll_name,
+                    bool* has_import_entry) {
+  DCHECK(header_block != NULL);
+  DCHECK(dll_name != NULL);
+  DCHECK(!dll_name.empty());
+  DCHECK(has_import_entry != NULL);
+
+  *has_import_entry = false;
+
+  DosHeader dos_header;
+  NtHeaders nt_headers;
+  if (!dos_header.Init(0, header_block) ||
+      !dos_header.Dereference(dos_header->e_lfanew, &nt_headers)) {
+    LOG(ERROR) << "Unable to cast image headers.";
+    return false;
+  }
+
+  BlockGraph::Block* image_import_descriptor_block;
+  IMAGE_DATA_DIRECTORY* import_directory =
+      nt_headers->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_IMPORT;
+  DCHECK(nt_headers.HasReference(import_directory->VirtualAddress));
+
+  ImageImportDescriptor image_import_descriptor;
+  if (!nt_headers.Dereference(import_directory->VirtualAddress,
+                              &image_import_descriptor)) {
+    // This could happen if the image import descriptor array is empty, and
+    // terminated by a *partial* null entry. However, we've not yet seen that.
+    LOG(ERROR) << "Failed to dereference Image Import Descriptor Array.";
+    return false;
+  }
+
+  image_import_descriptor_block = image_import_descriptor.block();
+
+  ImageImportDescriptor iida;
+  if (!iida.Init(0, image_import_descriptor_block)) {
+    LOG(ERROR) << "Unable to cast Image Import Descriptor.";
+    return false;
+  }
+
+  // The array is NULL terminated with a potentially incomplete descriptor so
+  // we can't use ElementCount - 1.
+  DCHECK_GT(image_import_descriptor_block->size(), 0U);
+  size_t descriptor_count =
+      (common::AlignUp(image_import_descriptor_block->size(),
+                       sizeof(IMAGE_IMPORT_DESCRIPTOR)) /
+       sizeof(IMAGE_IMPORT_DESCRIPTOR)) - 1;
+
+  for (size_t iida_index = 0; iida_index < descriptor_count; ++iida_index) {
+    String ref_dll_name;
+    if (!iida.Dereference(iida[iida_index].Name, &ref_dll_name)) {
+      LOG(ERROR) << "Unable to dereference DLL name.";
+      return false;
+    }
+
+    size_t max_len = ref_dll_name.ElementCount();
+    if (base::strncasecmp(ref_dll_name->string, dll_name.data(),
+                          max_len) == 0) {
+      *has_import_entry = true;
+      break;
+    }
   }
 
   return true;
