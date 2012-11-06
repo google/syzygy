@@ -131,6 +131,13 @@ class BasicBlockOptimizer::BasicBlockOrderer {
                            const BasicBlockSet& placed_bbs,
                            const BasicBlock** succ_bb) const;
 
+  // Get the collection of the targets referenced from a given jmp instruction
+  // sorted in order of decreasing entry count (i.e., highest entry count
+  // first). Note that the sort is stable, targets having the same entry counts
+  // are returned in the same relative order as originally in the jump table.
+  bool GetSortedJumpTargets(const block_graph::Instruction& jmp_inst,
+                            std::vector<const BasicCodeBlock*>* targets) const;
+
   // Add all data basic-blocks referenced from @p code_bb to @p warm_references.
   bool AddWarmDataReferences(const BasicCodeBlock* code_bb,
                              BasicBlockSet* warm_references) const;

@@ -52,6 +52,7 @@ class TestBasicBlockOrderer : public BasicBlockOptimizer::BasicBlockOrderer {
   using BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockEntryCount;
   using BasicBlockOptimizer::BasicBlockOrderer::GetEntryCountByOffset;
   using BasicBlockOptimizer::BasicBlockOrderer::GetWarmestSuccessor;
+  using BasicBlockOptimizer::BasicBlockOrderer::GetSortedJumpTargets;
   using BasicBlockOptimizer::BasicBlockOrderer::AddRecursiveDataReferences;
   using BasicBlockOptimizer::BasicBlockOrderer::AddWarmDataReferences;
 
@@ -264,6 +265,40 @@ TEST_F(BasicBlockOrdererTest, AddWarmDataReferences) {
   EXPECT_TRUE(references.empty());
 }
 
+TEST_F(BasicBlockOrdererTest, GetSortedJumpTargets) {
+  ASSERT_NO_FATAL_FAILURE(SetEntryCounts(0, 0, 2, 0, 0, 1, 3, 0));
+  const BasicCodeBlock* first_bb = BasicCodeBlock::Cast(FindBasicBlockAt(0));
+  ASSERT_TRUE(first_bb->successors().empty());
+  ASSERT_TRUE(!first_bb->instructions().empty());
+  const block_graph::Instruction& jmp_inst = first_bb->instructions().back();
+  ASSERT_EQ(I_JMP, jmp_inst.representation().opcode);
+  logging::SetMinLogLevel(-1);
+  std::vector<const BasicCodeBlock*> targets;
+  ASSERT_TRUE(orderer_->GetSortedJumpTargets(jmp_inst, &targets));
+  ASSERT_THAT(targets,
+              testing::ElementsAre(
+                  BasicCodeBlock::Cast(FindBasicBlockAt(42)),
+                  BasicCodeBlock::Cast(FindBasicBlockAt(24)),
+                  BasicCodeBlock::Cast(FindBasicBlockAt(37))));
+}
+
+TEST_F(BasicBlockOrdererTest, GetStableSortedJumpTargets) {
+  ASSERT_NO_FATAL_FAILURE(SetEntryCounts(0, 0, 1, 0, 0, 2, 1, 0));
+  const BasicCodeBlock* first_bb = BasicCodeBlock::Cast(FindBasicBlockAt(0));
+  ASSERT_TRUE(first_bb->successors().empty());
+  ASSERT_TRUE(!first_bb->instructions().empty());
+  const block_graph::Instruction& jmp_inst = first_bb->instructions().back();
+  ASSERT_EQ(I_JMP, jmp_inst.representation().opcode);
+  logging::SetMinLogLevel(-1);
+  std::vector<const BasicCodeBlock*> targets;
+  ASSERT_TRUE(orderer_->GetSortedJumpTargets(jmp_inst, &targets));
+  ASSERT_THAT(targets,
+              testing::ElementsAre(
+                  BasicCodeBlock::Cast(FindBasicBlockAt(37)),
+                  BasicCodeBlock::Cast(FindBasicBlockAt(24)),
+                  BasicCodeBlock::Cast(FindBasicBlockAt(42))));
+}
+
 TEST_F(BasicBlockOrdererTest, HotColdSeparation) {
   ASSERT_NO_FATAL_FAILURE(SetEntryCounts(1, 0, 1, 5, 1, 0, 0, 0));
   Order::OffsetVector warm;
@@ -294,13 +329,27 @@ TEST_F(BasicBlockOrdererTest, PathStraightening) {
   jnz_bb->successors().front().set_reference(
       block_graph::BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 1, case_1));
 
-  ASSERT_NO_FATAL_FAILURE(SetEntryCounts(1, 0, 1, 5, 1, 7, 0, 0));
+  // Setup the entry counts such that the jump table stays in the same order
+  // but case 1 is promoted to follow the jnz basic block.
+  ASSERT_NO_FATAL_FAILURE(SetEntryCounts(1, 0, 10, 5, 1, 7, 0, 0));
   Order::OffsetVector warm;
   Order::OffsetVector cold;
   ASSERT_TRUE(orderer_->GetBasicBlockOrderings(&warm, &cold));
   // Note that the bb's at 52 and 64 are the jump and case tables, respectively.
   EXPECT_THAT(warm, testing::ElementsAre(0, 24, 31, 37, 36, 52, 64));
-  EXPECT_THAT(cold, testing::ElementsAre(23, 42, 49));
+  EXPECT_THAT(cold, testing::ElementsAre(42, 23, 49));
+}
+
+TEST_F(BasicBlockOrdererTest, PathStraighteningAcrossJumpTable) {
+  // Setup the entry counts such that case 1 (at offset 37) is promoted to be
+  // the warmest path through the jump table.
+  ASSERT_NO_FATAL_FAILURE(SetEntryCounts(1, 0, 1, 5, 1, 7, 0, 0));
+  Order::OffsetVector warm;
+  Order::OffsetVector cold;
+  ASSERT_TRUE(orderer_->GetBasicBlockOrderings(&warm, &cold));
+  // Note that the bb's at 52 and 64 are the jump and case tables, respectively.
+  EXPECT_THAT(warm, testing::ElementsAre(0, 37, 24, 31, 36, 52, 64));
+  EXPECT_THAT(cold, testing::ElementsAre(42, 23, 49));
 }
 
 TEST_F(BasicBlockOptimizerTest, Accessors) {

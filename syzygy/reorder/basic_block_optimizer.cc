@@ -25,6 +25,8 @@
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/pe_utils.h"
 
+#include "mnemonics.h"  // NOLINT
+
 namespace reorder {
 
 namespace {
@@ -149,6 +151,13 @@ const BasicCodeBlock* GetSuccessorBB(const Successor& successor) {
   return code_bb;
 }
 
+typedef std::pair<EntryCountType, const BasicCodeBlock*> CountForBasicBlock;
+
+bool HasHigherEntryCount(const CountForBasicBlock& lhs,
+                         const CountForBasicBlock& rhs) {
+  return lhs.first > rhs.first;
+}
+
 }  // namespace
 
 BasicBlockOptimizer::BasicBlockOrderer::BasicBlockOrderer(
@@ -264,14 +273,29 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockOrderings(
         if (!AddWarmDataReferences(code_bb, &warm_references))
           return false;
 
-        // Schedule its warmest not-yet-placed successor (if any) to be next.
-        // TODO(rogerm): Better handle the selection of the next chain to
-        //     build next when we reach a bb with no successors.
-        const BasicBlock* successor = NULL;
-        if (!GetWarmestSuccessor(code_bb, placed_bbs, &successor))
-          return false;
-        if (successor != NULL)
-          bbq.push_front(successor);
+        // If the basic-block has one or more successors, schedule the warmest
+        // not-yet-placed successor (if any) to be next. Otherwise, if the
+        // basic-block ended with an indirect jump through a jump table, queue
+        // up the destinations in decreasing entry count order.
+        if (!code_bb->successors().empty()) {
+          const BasicBlock* successor = NULL;
+          if (!GetWarmestSuccessor(code_bb, placed_bbs, &successor))
+            return false;
+          if (successor != NULL)
+            bbq.push_front(successor);
+        } else {
+          // If the instruction is a jump, look for a jump table reference and
+          // (if one is found) enqueue its referenced basic blocks in sorted
+          // (by decreasing entry count) order.
+          DCHECK(!code_bb->instructions().empty());
+          const block_graph::Instruction& inst = code_bb->instructions().back();
+          if (inst.representation().opcode == I_JMP) {
+            std::vector<const BasicCodeBlock*> targets;
+            if (!GetSortedJumpTargets(inst, &targets))
+              return false;
+            bbq.insert(bbq.begin(), targets.begin(), targets.end());
+          }
+        }
       }
     }
 
@@ -340,7 +364,7 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetWarmestSuccessor(
 
   *succ_bb = NULL;
 
-  // If there were no successors then there certainly isn't a warmest one.
+  // If there are no successors then there certainly isn't a warmest one.
   if (code_bb->successors().empty())
     return true;
 
@@ -406,6 +430,73 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetWarmestSuccessor(
     *succ_bb = succ1;
   else
     *succ_bb = succ2;
+
+  return true;
+}
+
+bool BasicBlockOptimizer::BasicBlockOrderer::GetSortedJumpTargets(
+    const block_graph::Instruction& jmp_inst,
+    std::vector<const BasicCodeBlock*>* targets) const {
+  DCHECK_EQ(I_JMP, jmp_inst.representation().opcode);
+  DCHECK(targets != NULL);
+
+  targets->clear();
+
+  // We store the targets and their entry counts in a temporary vector that
+  // we can sort by entry counts.
+  typedef std::vector<CountForBasicBlock> TempTargets;
+  TempTargets temp_targets;
+  temp_targets.reserve(jmp_inst.references().size());
+
+  // Find the jump-table reference.
+  BasicBlock::BasicBlockReferenceMap::const_iterator ref_iter =
+      jmp_inst.references().begin();
+  for (; ref_iter != jmp_inst.references().end(); ++ref_iter) {
+    // We're only interested in referred data basic blocks that are marked
+    // as being a jump table.
+    const BasicDataBlock* ref_bb =
+        BasicDataBlock::Cast(ref_iter->second.basic_block());
+    if (ref_bb == NULL ||
+        !ref_bb->label().IsValid() ||
+        !ref_bb->label().has_attributes(BlockGraph::JUMP_TABLE_LABEL)) {
+      continue;
+    }
+
+    DCHECK(ref_bb != NULL);
+    DCHECK(ref_bb->label().IsValid());
+    DCHECK(ref_bb->label().has_attributes(BlockGraph::JUMP_TABLE_LABEL));
+
+    // Populate temp_targets with each target and it's entry count.
+    BasicBlock::BasicBlockReferenceMap::const_iterator target_iter =
+        ref_bb->references().begin();
+    for (; target_iter != ref_bb->references().end(); ++target_iter) {
+      const BasicCodeBlock* target_bb =
+          BasicCodeBlock::Cast(target_iter->second.basic_block());
+      if (target_bb == NULL) {
+        LOG(ERROR) << "Found non-code-basic-block reference in a jump table.";
+        return false;
+      }
+      // Get the entry count.
+      EntryCountType entry_count = 0;
+      if (!GetBasicBlockEntryCount(target_bb, &entry_count))
+        return false;
+
+      // Append the entry count and the target into the temp target vector.
+      temp_targets.push_back(std::make_pair(entry_count, target_bb));
+    }
+  }
+
+  // Perform a stable sort of the temp target vector by decreasing entry count.
+  std::stable_sort(
+      temp_targets.begin(), temp_targets.end(), &HasHigherEntryCount);
+
+  // Copy the resulting basic block ordering into the target vector.
+  targets->reserve(temp_targets.size());
+  TempTargets::const_iterator temp_target_iter = temp_targets.begin();
+  for (; temp_target_iter != temp_targets.end(); ++temp_target_iter) {
+    if (temp_target_iter->first > 0)
+      targets->push_back(temp_target_iter->second);
+  }
 
   return true;
 }
