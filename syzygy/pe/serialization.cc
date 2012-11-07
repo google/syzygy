@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,12 @@ bool MetadataMatchesPEFile(const Metadata& metadata, const PEFile& pe_file) {
   PEFile::Signature pe_signature;
   pe_file.GetSignature(&pe_signature);
 
-  if (!metadata.IsConsistent(pe_signature))
+  // We are careful to use PEFile::Signature::IsConsistent rather than
+  // Metadata::IsConsistent. This is because we explicitly want to handle
+  // backwards compatibility with differing versions of the toolchain. Instead,
+  // we version the whole serialized stream and enforce consistency in
+  // LoadBlockGraphAndImageLayout.
+  if (!metadata.module_signature().IsConsistent(pe_signature))
     return false;
 
   return true;
