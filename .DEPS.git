@@ -6,7 +6,7 @@ vars = {
   'googleappengine_revision': 'c06f40e29990868cc01795c88aeb0c42b8d9e395',
   'googleurl_revision': 'ae822b39a0665aaca689c164305fd1690e36ae16',
   'gtest_revision': 'a92a6f792395e1ad462472d474ab0c76949813fa',
-  'gyp_revison': '10defb6b1dea70c51076dce765d2e359b7943de7'
+  'gyp_revision': '10defb6b1dea70c51076dce765d2e359b7943de7'
 }
 
 deps = {
