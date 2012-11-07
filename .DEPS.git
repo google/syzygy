@@ -22,7 +22,7 @@ deps = {
   'src/testing/gtest': Var('chrome_base') + 'chromium/testing/gtest.git@' +    
       Var('gtest_revision'), 
 
-  'src/tools/gyp': Var('chrome_base') + 'external/gyp@' +
+  'src/tools/gyp': Var('chrome_base') + 'external/gyp.git@' +
       Var('gyp_revision'),
 
   'src/third_party/distorm/files': Var('chrome_base') +
