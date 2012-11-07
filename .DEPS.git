@@ -1,65 +1,65 @@
 vars = {
-  "chrome_base": "http://chromium.googlesource.com/",
-  "chrome_revision": "f3270a06483665955d84c7553f2fcac875a8b689",
-  "distorm_revision": "6cf393edddb1353e0d28d4d7c0ac4ff257b5a4c7",
-  "gmock_revision": "9bc5e4afdb0407b5fd4acb101e3b11850a90a873",
-  "googleappengine_revision": "c06f40e29990868cc01795c88aeb0c42b8d9e395",
-  "googleurl_revision": "ae822b39a0665aaca689c164305fd1690e36ae16",
-  "gtest_revision": "a92a6f792395e1ad462472d474ab0c76949813fa",
-  "gyp_revison": "10defb6b1dea70c51076dce765d2e359b7943de7"
-},
+  'chrome_base': 'http://chromium.googlesource.com/',
+  'chrome_revision': 'f3270a06483665955d84c7553f2fcac875a8b689',
+  'distorm_revision': '6cf393edddb1353e0d28d4d7c0ac4ff257b5a4c7',
+  'gmock_revision': '9bc5e4afdb0407b5fd4acb101e3b11850a90a873',
+  'googleappengine_revision': 'c06f40e29990868cc01795c88aeb0c42b8d9e395',
+  'googleurl_revision': 'ae822b39a0665aaca689c164305fd1690e36ae16',
+  'gtest_revision': 'a92a6f792395e1ad462472d474ab0c76949813fa',
+  'gyp_revison': '10defb6b1dea70c51076dce765d2e359b7943de7'
+}
 
 deps = {
-  "src": Var("chrome_base") + "chromium/src.git@" +
-      Var("chrome_revision"),
+  'src': Var('chrome_base') + 'chromium/src.git@' +
+      Var('chrome_revision'),
 
-  "src/googleurl": Var("chrome_base") + "external/google-url.git@" +
-      Var("googleurl_revision"),
+  'src/googleurl': Var('chrome_base') + 'external/google-url.git@' +
+      Var('googleurl_revision'),
 
-  "src/testing/gmock": Var("chrome_base") + "external/gmock.git@" +
-      Var("gmock_revision"),
+  'src/testing/gmock': Var('chrome_base') + 'external/gmock.git@' +
+      Var('gmock_revision'),
 
-  "src/testing/gtest": Var("chrome_base") + "chromium/testing/gtest.git@" +    
-      Var("gtest_revision"), 
+  'src/testing/gtest': Var('chrome_base') + 'chromium/testing/gtest.git@' +    
+      Var('gtest_revision'), 
 
-  "src/tools/gyp": Var("chrome_base") + "external/gyp@" +
-      Var("gyp_revision"),
+  'src/tools/gyp': Var('chrome_base') + 'external/gyp@' +
+      Var('gyp_revision'),
 
-  "src/third_party/distorm/files": Var("chrome_base") +
-      "external/distorm.git@" + Var("distorm_revision"),
+  'src/third_party/distorm/files': Var('chrome_base') +
+      'external/distorm.git@' + Var('distorm_revision'),
 
-  "src/third_party/googleappengine": Var("chrome_base") +
-      "external/googleappengine/python.git@" + Var("googleappengine_revision")
+  'src/third_party/googleappengine': Var('chrome_base') +
+      'external/googleappengine/python.git@' + Var('googleappengine_revision')
 }
 
 include_rules = [
   # Everybody can use some things.
-  "+base",
-  "+build",
-  "+googleurl",
+  '+base',
+  '+build',
+  '+googleurl',
 ]
 
 hooks = [
   {
     # A change to a .gyp, .gypi, or to GYP itself should run the generator.
-    "pattern": ".",
-    "action": ["python",
-               "src/build/gyp_chromium",
-               "src/sawbuck/sawbuck.gyp"],
+    'pattern': '.',
+    'action': ['python',
+               'src/build/gyp_chromium',
+               'src/sawbuck/sawbuck.gyp'],
   },
   {
     # A change to a .gyp, .gypi, or to GYP itself should run the generator.
-    "pattern": ".",
-    "action": ["python",
-               "src/build/gyp_chromium",
-               "src/sawdust/sawdust.gyp"],
+    'pattern': '.',
+    'action': ['python',
+               'src/build/gyp_chromium',
+               'src/sawdust/sawdust.gyp'],
   },
   {
     # A change to a .gyp, .gypi, or to GYP itself should run the generator.
-    "pattern": ".",
-    "action": ["python",
-               "src/build/gyp_chromium",
-               "--include=src/syzygy/syzygy.gypi",
-               "src/syzygy/build/all.gyp"],
+    'pattern': '.',
+    'action': ['python',
+               'src/build/gyp_chromium',
+               '--include=src/syzygy/syzygy.gypi',
+               'src/syzygy/build/all.gyp'],
   },
 ]
