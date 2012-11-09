@@ -1,6 +1,5 @@
 vars = {
   'chrome_base': 'http://chromium.googlesource.com/',
-  'chrome_revision': 'f3270a06483665955d84c7553f2fcac875a8b689',
   'distorm_revision': '6cf393edddb1353e0d28d4d7c0ac4ff257b5a4c7',
   'gmock_revision': '9bc5e4afdb0407b5fd4acb101e3b11850a90a873',
   'googleappengine_revision': 'c06f40e29990868cc01795c88aeb0c42b8d9e395',
@@ -10,9 +9,6 @@ vars = {
 }
 
 deps = {
-  'src': Var('chrome_base') + 'chromium/src.git@' +
-      Var('chrome_revision'),
-
   'src/googleurl': Var('chrome_base') + 'external/google-url.git@' +
       Var('googleurl_revision'),
 
