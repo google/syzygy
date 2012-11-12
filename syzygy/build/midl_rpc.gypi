@@ -24,7 +24,7 @@
 #
 #     prefix: The common prefix to be assigned to the client and server
 #         generated stubs. For example, setting prefix to 'Foo' will yield
-#         FooClient_Function and FooServer_Function declarations and stubs
+#         FooClient_Function and FooService_Function declarations and stubs
 #         for each IDL generated interface member Function.
 #
 # Typically, your target would then add <(SHARED_INTERMEDIATE_DIR) to
@@ -64,13 +64,30 @@
             '/env', 'win32',
             '/Oicf',
             '/prefix', 'all', '<(prefix)Client_',
-            '/prefix', 'server', '<(prefix)Server_',
+            '/prefix', 'server', '<(prefix)Service_',
             '/robust',
             '/h', '<(RULE_INPUT_ROOT).h',
             '/out', '<(midl_out_dir)',
       ],
+      # This causes the output files to automatically be compiled into object
+      # code included in the current target.
       'process_outputs_as_sources': 1,
       'message': '<(RULE_INPUT_NAME)',
     },
   ],
+  'all_dependent_settings': {
+    'msvs_settings': {
+      'VCLinkerTool': {
+        # GYP has a bug or misfeature whereby a library dependency used
+        # from another GYP file in a different directory picks up the path
+        # to that directory, so instead of using 'library', we specify the
+        # library dependency here.
+        'AdditionalDependencies': [
+          'rpcrt4.lib',
+        ],
+      },
+    },
+  },
+  # This target exports a hard dependency because it generates header files.
+  'hard_dependency': 1,
 }
