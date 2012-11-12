@@ -84,7 +84,7 @@ class TestOrderGenerator : public Reorderer::OrderGenerator {
                                    const ImageLayout& image,
                                    bool reorder_code,
                                    bool reorder_data,
-                                   Reorderer::Order* order) OVERRIDE{
+                                   Reorderer::Order* order) OVERRIDE {
     // We don't actually generate an ordering.
     return true;
   }
@@ -218,13 +218,17 @@ bool TestParseEngine::ConsumeAllEvents() {
   if (!DispatchEvent(&event_record))
     return false;
 
-  // Get all of the code blocks in the original image.
+  // Get all of the non-padding code blocks in the original image. (Padding
+  // blocks don't make it to the instrumented DLL, so any events with addresses
+  // that refer to padding blocks will fail to resolve via the OMAP info.)
   BlockGraph::AddressSpace::RangeMapConstIter block_it =
       reorderer_->playback()->image()->blocks.begin();
   for (; block_it != reorderer_->playback()->image()->blocks.end();
        ++block_it) {
-    if (block_it->second->type() == BlockGraph::CODE_BLOCK)
+    if (block_it->second->type() == BlockGraph::CODE_BLOCK &&
+        (block_it->second->attributes() & BlockGraph::PADDING_BLOCK) == 0) {
       blocks.push_back(block_it->second);
+    }
   }
 
   // Shuffle the code blocks.
@@ -375,9 +379,9 @@ TEST_F(ReordererTest, ValidateCallbacks) {
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   EXPECT_TRUE(test_reorderer_->Reorder(&mock_order_generator,
-                                      &order,
-                                      &pe_file,
-                                      &image_layout));
+                                       &order,
+                                       &pe_file,
+                                       &image_layout));
 }
 
 TEST_F(ReordererTest, Reorder) {

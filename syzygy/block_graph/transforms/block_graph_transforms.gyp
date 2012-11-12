@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@
       'sources': [
         'iterative_transform.h',
         'named_transform.h',
-        'trim_transform.cc',
-        'trim_transform.h',
+        'remove_padding_transform.cc',
+        'remove_padding_transform.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -45,7 +45,7 @@
         'block_graph_transforms_unittests_main.cc',
         'iterative_transform_unittest.cc',
         'named_transform_unittest.cc',
-        'trim_transform_unittest.cc',
+        'remove_padding_transform_unittest.cc',
       ],
       'dependencies': [
         'block_graph_transforms_lib',

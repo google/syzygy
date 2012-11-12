@@ -107,6 +107,8 @@
         '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
             'block_graph_orderers_lib',
+        '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
+            'block_graph_transforms_lib',
         '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_lib',
         '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
@@ -297,6 +299,5 @@
         ],
       },
     },
-
   ]
 }

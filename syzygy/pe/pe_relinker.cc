@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
+#include "syzygy/block_graph/transforms/remove_padding_transform.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
@@ -246,13 +247,28 @@ bool ApplyTransforms(const FilePath& input_path,
 
   std::vector<Transform*> local_transforms(*transforms);
 
+  block_graph::transforms::RemovePaddingTransform rm_pad_tx;
+
   pe::transforms::AddMetadataTransform add_metadata_tx(input_path);
   pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb_path, 1, guid);
   pe::transforms::PrepareHeadersTransform prep_headers_tx;
 
+  // The first thing we do is remove unnecessary padding blocks from the
+  // decomposition. No point in carrying these through the pipeline.
+  local_transforms.insert(local_transforms.begin(), &rm_pad_tx);
+
+  // After the padding is removed the sequence of user requested transforms is
+  // run.
+
+  // If we've been requested to we add metadata to the image.
   if (add_metadata)
     local_transforms.push_back(&add_metadata_tx);
+
+  // Update the PDB information to point to the correct PDB file.
   local_transforms.push_back(&add_pdb_info_tx);
+
+  // Finally, run the prepare headers transform. This ensures that the header
+  // block is properly sized to receive layout information post-ordering.
   local_transforms.push_back(&prep_headers_tx);
 
   // Apply the transforms.
