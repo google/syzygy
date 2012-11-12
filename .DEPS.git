@@ -15,7 +15,7 @@ deps = {
   'src/testing/gmock': Var('chrome_base') + 'external/gmock.git@' +
       Var('gmock_revision'),
 
-  'src/testing/gtest': Var('chrome_base') + 'chromium/testing/gtest.git@' +    
+  'src/testing/gtest': Var('chrome_base') + 'external/gtest.git@' +    
       Var('gtest_revision'), 
 
   'src/tools/gyp': Var('chrome_base') + 'external/gyp.git@' +
