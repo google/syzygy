@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,6 +84,31 @@ TEST_F(ImageLayoutTest, BuildCanonicalImageLayout) {
 
     ++block_it1;
     ++block_it2;
+  }
+}
+
+TEST_F(ImageLayoutTest, CopyImageLayoutWithoutPadding) {
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  Decomposer decomposer(image_file);
+  BlockGraph block_graph;
+  ImageLayout orig_image_layout(&block_graph);
+  ASSERT_TRUE(decomposer.Decompose(&orig_image_layout));
+
+  ImageLayout image_layout(&block_graph);
+  EXPECT_TRUE(CopyImageLayoutWithoutPadding(orig_image_layout, &image_layout));
+
+  EXPECT_LT(image_layout.blocks.size(), orig_image_layout.blocks.size());
+  EXPECT_EQ(image_layout.blocks.size(), block_graph.blocks().size());
+
+  BlockGraph::BlockMap::const_iterator block_it =
+      block_graph.blocks().begin();
+  for (; block_it != block_graph.blocks().end(); ++block_it) {
+    const BlockGraph::Block* block = &(block_it->second);
+    EXPECT_EQ(0u, block->attributes() & BlockGraph::PADDING_BLOCK);
   }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -340,6 +340,41 @@ bool BuildCanonicalImageLayout(ImageLayout* image_layout) {
                                              file_alignment);
     section_info.characteristics = sections[i]->characteristics();
     image_layout->sections.push_back(section_info);
+  }
+
+  return true;
+}
+
+bool CopyImageLayoutWithoutPadding(const ImageLayout& input_image_layout,
+                                   ImageLayout* output_image_layout) {
+  DCHECK(output_image_layout != NULL);
+  DCHECK_EQ(input_image_layout.blocks.graph(),
+            output_image_layout->blocks.graph());
+  DCHECK_EQ(0u, output_image_layout->blocks.size());
+
+  output_image_layout->sections = input_image_layout.sections;
+  BlockGraph* block_graph = output_image_layout->blocks.graph();
+
+  // Remove the padding blocks from the decomposition. We also need to create
+  // a new version of the image layout not containing those blocks.
+  BlockGraph::AddressSpace::RangeMapConstIter block_it =
+      input_image_layout.blocks.begin();
+  for (; block_it != input_image_layout.blocks.end(); ++block_it) {
+    BlockGraph::Block* block = block_it->second;
+
+    // If it's a padding block, remove it from the block-graph and leave it
+    // out of the new image layout.
+    if ((block->attributes() & BlockGraph::PADDING_BLOCK)) {
+      if (!block_graph->RemoveBlock(block)) {
+        return false;
+      }
+    } else {
+      // If it's not a padding block, copy it over to the new image layout.
+      if (!output_image_layout->blocks.InsertBlock(block_it->first.start(),
+                                                   block)) {
+        return false;
+      }
+    }
   }
 
   return true;

@@ -28,8 +28,6 @@
       'sources': [
         'iterative_transform.h',
         'named_transform.h',
-        'remove_padding_transform.cc',
-        'remove_padding_transform.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -45,7 +43,6 @@
         'block_graph_transforms_unittests_main.cc',
         'iterative_transform_unittest.cc',
         'named_transform_unittest.cc',
-        'remove_padding_transform_unittest.cc',
       ],
       'dependencies': [
         'block_graph_transforms_lib',

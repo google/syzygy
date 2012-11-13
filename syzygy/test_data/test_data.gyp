@@ -307,6 +307,43 @@
       ],
     },
     {
+      'target_name': 'test_dll_order_json',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'dependencies': [
+        'rpc_traces',
+        'rpc_instrumented_test_dll',
+        '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_test_dll_order_file',
+          'inputs': [
+            '<(PRODUCT_DIR)/reorder.exe',
+            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/test_dll_order.json',
+          ],
+          'action': [
+            '<(PRODUCT_DIR)/reorder.exe',
+            '--instrumented-image='
+                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+            '--output-file=<(PRODUCT_DIR)/test_data/test_dll_order.json',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
+          ],
+        }
+      ],
+    },
+    {
       'target_name': 'coverage_traces',
       'type': 'none',
       'msvs_cygwin_shell': 0,

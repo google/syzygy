@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -150,12 +150,23 @@ bool Playback::DecomposeImage() {
   DCHECK(pe_file_ != NULL);
   DCHECK(image_ != NULL);
 
+  BlockGraph* block_graph = image_->blocks.graph();
+  ImageLayout image(block_graph);
+
   // Decompose the DLL to be reordered. This will let us map call-trace events
   // to actual Blocks.
-  LOG(INFO) << "Decomposing input image.";
+  LOG(INFO) << "Decomposing input image: " << module_path_.value();
   Decomposer decomposer(*pe_file_);
-  if (!decomposer.Decompose(image_)) {
+  if (!decomposer.Decompose(&image)) {
     LOG(ERROR) << "Unable to decompose input image: " << module_path_.value();
+    return false;
+  }
+
+  // Make a copy of the image layout without padding blocks, which are
+  // completely unnecessary in a playback.
+  LOG(INFO) << "Removing padding blocks.";
+  if (!pe::CopyImageLayoutWithoutPadding(image, image_)) {
+    LOG(ERROR) << "Failed to remove padding blocks.";
     return false;
   }
 

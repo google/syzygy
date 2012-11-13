@@ -83,7 +83,7 @@ bool ExplicitOrderer::OrderBlockGraph(
 
     DCHECK(section != NULL);
     LOG(INFO) << "Applying order to section " << section->id()
-              << "\"" << section->name() << "\".";
+              << " (" << section->name() << ").";
 
     // We walk through these in reverse order so that we can use PlaceAtHead.
     for (size_t i = section_spec.blocks.size(); i > 0;) {

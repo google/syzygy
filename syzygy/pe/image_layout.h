@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +95,18 @@ inline bool operator==(const ImageLayout::SectionInfo& a,
 // @returns true on success, false otherwise.
 // @pre The AddressSpace contained by image_layout is empty.
 bool BuildCanonicalImageLayout(ImageLayout* image_layout);
+
+// Given an @p input_image_layout generate a second @p output_image_layout that
+// is identical to the first but not containing any padding blocks. This also
+// removes the corresponding padding blocks from the underlying block-graph.
+// @note The @p input_image_layout is invalid after this operation as it
+//     will contain dangling block pointers.
+// @param input_image_layout The input image layout to be copied.
+// @param output_image_layout The image layout to receive the new layout minus
+//     padding blocks. This must be initially empty and over the same
+//     block-graph as @p input_image_layout.
+bool CopyImageLayoutWithoutPadding(const ImageLayout& input_image_layout,
+                                   ImageLayout* output_image_layout);
 
 }  // namespace pe
 
