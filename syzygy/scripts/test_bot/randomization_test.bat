@@ -127,7 +127,7 @@ call devenv.com "%SOLUTION%" /Rebuild "Release|Win32" > "%BUILD_LOG%" 2>&1
 if %ERRORLEVEL% equ 0 goto step3
 handle.exe >> "%BUILD_LOG%"
 echo Trying again to build "%SOLUTION%" ...
-call devenv.com "%SOLUTION%" /Build "Release|Win32" > "%BUILD_LOG%" 2>&1
+call devenv.com "%SOLUTION%" /Build "Release|Win32" >> "%BUILD_LOG%" 2>&1
 if %ERRORLEVEL% equ 0 goto step3
 handle.exe >> "%BUILD_LOG%"
 copy "%BUILD_LOG%" "%ERROR_MESSAGE%"
