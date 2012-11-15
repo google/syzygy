@@ -24,7 +24,7 @@
   'targets': [
     {
       'target_name': 'block_graph_transforms_lib',
-      'type': 'static_library',
+      'type': 'none',
       'sources': [
         'iterative_transform.h',
         'named_transform.h',
