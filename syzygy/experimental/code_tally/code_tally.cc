@@ -58,7 +58,7 @@ class LineVisitor {
   }
 
  private:
-  bool EnumerateSourceCompiland(IDiaSymbol* compiland,
+  bool EnumerateCompilandSource(IDiaSymbol* compiland,
                                 IDiaSourceFile* source_file) {
     DCHECK(compiland != NULL);
     DCHECK(source_file != NULL);
@@ -107,35 +107,9 @@ class LineVisitor {
     return true;
   }
 
-  bool EnumerateSourceCompilands(IDiaEnumSymbols* compilands,
-                                 IDiaSourceFile* source_file) {
-    DCHECK(compilands != NULL);
-    DCHECK(source_file != NULL);
-
-    while (true) {
-      base::win::ScopedComPtr<IDiaSymbol> compiland;
-      ULONG fetched = 0;
-      HRESULT hr = compilands->Next(1, compiland.Receive(), &fetched);
-      if (FAILED(hr)) {
-        DCHECK_EQ(0U, fetched);
-        DCHECK(compilands == NULL);
-        LOG(ERROR) << "Unable to iterate line numbers: " << com::LogHr(hr);
-        return false;
-      }
-      if (hr == S_FALSE)
-        break;
-
-      DCHECK_EQ(1U, fetched);
-      DCHECK(compiland != NULL);
-
-      if (!EnumerateSourceCompiland(compiland, source_file))
-        return false;
-    }
-
-    return true;
-  }
-
-  bool EnumerateSourceFiles(IDiaEnumSourceFiles* source_files) {
+  bool EnumerateCompilandSources(IDiaSymbol* compiland,
+                                 IDiaEnumSourceFiles* source_files) {
+    DCHECK(compiland != NULL);
     DCHECK(source_files != NULL);
 
     while (true) {
@@ -145,23 +119,53 @@ class LineVisitor {
       if (FAILED(hr)) {
         DCHECK_EQ(0U, fetched);
         DCHECK(source_file == NULL);
-        LOG(ERROR) << "Unable to iterate source file: " << com::LogHr(hr);
+        LOG(ERROR) << "Unable to iterate source files: " << com::LogHr(hr);
         return false;
       }
       if (hr == S_FALSE)
         break;
 
       DCHECK_EQ(1U, fetched);
-      DCHECK(source_file != NULL);
+      DCHECK(compiland != NULL);
 
-      base::win::ScopedComPtr<IDiaEnumSymbols> compilands;
-      hr = source_file->get_compilands(compilands.Receive());
+      if (!EnumerateCompilandSource(compiland, source_file))
+        return false;
+    }
+
+    return true;
+  }
+
+  bool EnumerateCompilands(IDiaEnumSymbols* compilands) {
+    DCHECK(compilands != NULL);
+
+    while (true) {
+      base::win::ScopedComPtr<IDiaSymbol> compiland;
+      ULONG fetched = 0;
+      HRESULT hr = compilands->Next(1, compiland.Receive(), &fetched);
       if (FAILED(hr)) {
-        LOG(ERROR) << "Unable to get compilands: " << com::LogHr(hr);
+        DCHECK_EQ(0U, fetched);
+        DCHECK(compiland == NULL);
+        LOG(ERROR) << "Unable to iterate compilands: " << com::LogHr(hr);
+        return false;
+      }
+      if (hr == S_FALSE)
+        break;
+
+      DCHECK_EQ(1U, fetched);
+      DCHECK(compiland != NULL);
+
+      // Enumerate all source files referenced by this compiland.
+      base::win::ScopedComPtr<IDiaEnumSourceFiles> source_files;
+      hr = session_->findFile(compiland.get(),
+                              NULL,
+                              nsNone,
+                              source_files.Receive());
+      if (FAILED(hr)) {
+        LOG(ERROR) << "Unable to get source files: " << com::LogHr(hr);
         return false;
       }
 
-      if (!EnumerateSourceCompilands(compilands, source_file))
+      if (!EnumerateCompilandSources(compiland, source_files))
         return false;
     }
 
@@ -178,36 +182,18 @@ class LineVisitor {
       return false;
     }
 
-    base::win::ScopedComPtr<IDiaEnumTables> tables;
-    hr = session_->getEnumTables(tables.Receive());
+    // Retrieve an enumerator for all compilands in this PDB.
+    base::win::ScopedComPtr<IDiaEnumSymbols> compilands;
+    hr = global->findChildren(SymTagCompiland,
+                              NULL,
+                              nsNone,
+                              compilands.Receive());
     if (FAILED(hr)) {
-      LOG(ERROR) << "Unable to get tables enumerator: " << com::LogHr(hr);
+      LOG(ERROR) << "Unable to get compilands: " << com::LogHr(hr);
       return false;
     }
 
-    while (true) {
-      base::win::ScopedComPtr<IDiaTable> table;
-      ULONG fetched = 0;
-      hr = tables->Next(1, table.Receive(), &fetched);
-      if (FAILED(hr)) {
-        DCHECK_EQ(0U, fetched);
-        DCHECK(table == NULL);
-        LOG(ERROR) << "Unable to fetch next table: " << com::LogHr(hr);
-        return true;
-      }
-      if (hr == S_FALSE)
-        break;
-
-      DCHECK_EQ(1U, fetched);
-      DCHECK(table != NULL);
-
-      base::win::ScopedComPtr<IDiaEnumSourceFiles> source_files;
-      hr = source_files.QueryFrom(table);
-      if (SUCCEEDED(hr))
-        return EnumerateSourceFiles(source_files);
-    }
-
-    return false;
+    return EnumerateCompilands(compilands);
   }
 
   void VisitSourceLine(const wchar_t* object_file,
