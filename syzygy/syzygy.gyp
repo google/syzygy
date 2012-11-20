@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@
         'test_data/test_data.gyp:*',
         'trace/client/client.gyp:*',
         'trace/etw_control/etw_control.gyp:*',
+        'trace/logger/logger.gyp:*',
         'trace/parse/parse.gyp:*',
         'trace/protocol/protocol.gyp:*',
         'trace/rpc/rpc.gyp:*',

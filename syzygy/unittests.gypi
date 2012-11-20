@@ -77,6 +77,7 @@
 
       # Trace tests.
       '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib_unittests',
+      '<(DEPTH)/syzygy/trace/logger/logger.gyp:logger_unittests',
       '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
       '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_unittests',
       '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',

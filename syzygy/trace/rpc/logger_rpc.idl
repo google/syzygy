@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+
+const wchar_t* const kLoggerRpcProtocol = L"ncalrpc";
+const wchar_t* const kLoggerRpcEndpointRoot = L"syzygy-logger";
+
 // Defines the Logger's RPC interface.
 [
     uuid(EAFBDDB2-713D-4FAC-B3F1-CC0944E82DDA),
@@ -21,8 +25,16 @@ interface Logger {
   // Write some text to the log.
   //
   // @param text The string to be logged.
-  boolean Log([in, string] const char* text);
+  boolean Write([in] handle_t binding, [in, string] const char* text);
+}
 
+// Defines the Logger's RPC Control interface.
+// TODO(rogerm): Move this to it's own IDL file and endpoint.
+[
+    uuid(6514F04C-4BD5-48AE-BD2D-8E071DA29752),
+    version(1.0)
+]
+interface LoggerControl {
   // Request a shutdown of the logging service.
   boolean Stop([in] handle_t binding);
 }
