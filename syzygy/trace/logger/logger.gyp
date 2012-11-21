@@ -28,12 +28,15 @@
       'sources': [
         'logger.cc',
         'logger.h',
+        'logger_app.cc',
+        'logger_app.h',
         'logger_rpc_impl.cc',
         'logger_rpc_impl.h',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
       ],
     },
@@ -41,6 +44,7 @@
       'target_name': 'logger_unittests',
       'type': 'executable',
       'sources': [
+        'logger_app_unittest.cc',
         'logger_unittest.cc',
         'logger_unittests_main.cc',
       ],
@@ -49,6 +53,19 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/testing/gmock.gyp:gmock',
+      ],
+    },
+    {
+      'target_name': 'logger',
+      'type': 'executable',
+      'sources': [
+        'logger_main.cc',
+        'logger.rc',
+      ],
+      'dependencies': [
+        'logger_lib',
+        '<(DEPTH)/base/base.gyp:base',
+        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
       ],
     },
   ],
