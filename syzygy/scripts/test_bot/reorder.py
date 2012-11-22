@@ -17,6 +17,7 @@
 
 # Standard modules
 import contextlib
+import glob
 import optparse
 import os
 import re
@@ -375,6 +376,8 @@ class ReorderTest(object):
 # is much larger (on the order of a page or two).
 _MAX_PADDING = 1024
 _SAFEST_ALIGNMENT = 8
+
+
 def _PaddingHandler(option, dummy_opt, value, parser):
   """Validates the parameter to the reorder-padding parameter."""
   if value > _MAX_PADDING or value % _SAFEST_ALIGNMENT != 0:
@@ -423,6 +426,17 @@ def AddCommandLineOptions(option_parser):
   option_parser.add_option_group(group)
 
 
+def _FindInputFileByPattern(pattern, parser):
+  """Returns the unique input file matching pattern.
+
+  If no unique matching file exist this invokes parser.error()
+  """
+  matches = glob.glob(pattern)
+  if len(matches) != 1:
+    return parser.error('No unique file matching "%s" was found.' % pattern)
+  return os.path.abspath(matches[0])
+
+
 def ValidateCommandLineOptions(option_parser, options):
   """Ensures that all required parameters are counter for.
 
@@ -443,10 +457,16 @@ def ValidateCommandLineOptions(option_parser, options):
   if (options.reorder_num_iterations != 1 and
       options.reorder_no_revert_binaries):
     option_parser.error('For now you must revert binaries between iterations.')
-  options.reorder_tool = os.path.abspath(options.reorder_tool)
-  options.reorder_input_bin = os.path.abspath(options.reorder_input_bin)
-  options.reorder_input_pdb = os.path.abspath(options.reorder_input_pdb)
-  options.reorder_test_program = os.path.abspath(options.reorder_test_program)
+
+  options.reorder_tool = _FindInputFileByPattern(
+      options.reorder_tool, option_parser)
+  options.reorder_input_bin = _FindInputFileByPattern(
+      options.reorder_input_bin, option_parser)
+  options.reorder_input_pdb = _FindInputFileByPattern(
+      options.reorder_input_pdb, option_parser)
+  options.reorder_test_program = _FindInputFileByPattern(
+      options.reorder_test_program, option_parser)
+
 
 def ParseArgs():
   """Parse the command line options and additional test arguments."""
@@ -461,6 +481,7 @@ def ParseArgs():
   ValidateCommandLineOptions(option_parser, options)
   return options, test_args
 
+
 def GetSummaryLine(title, passed, failed):
   """Summarize the number of iterations which passed and failed.
 
@@ -470,6 +491,7 @@ def GetSummaryLine(title, passed, failed):
     failed: The number of iterations that failed.
   """
   return '%s (%s passed, %s failed)' % (title, passed, failed)
+
 
 def main():
   """Main script function."""
@@ -493,6 +515,7 @@ def main():
       max_attempts=options.reorder_max_test_attempts,
       revert_binaries=not options.reorder_no_revert_binaries)
   print GetSummaryLine(options.summary_title, passed, failed)
+
 
 if __name__ == '__main__':
   main()

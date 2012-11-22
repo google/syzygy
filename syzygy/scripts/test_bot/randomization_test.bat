@@ -152,7 +152,7 @@ set /p BUILD_DIR= < "%BUILD_PTR%"
 set CHROME_DIR=%BUILD_DIR%\chrome-win32
 set SYMBOL_DIR=%BUILD_DIR%\chrome-win32-syms
 set CHROME_DLL=%CHROME_DIR%\chrome.dll
-set CHROME_PDB=%SYMBOL_DIR%\chrome_dll.pdb
+set CHROME_PDB=%SYMBOL_DIR%\chrome?dll.pdb
 goto %MODE_LABEL%
 
 :step4_ui_tests
