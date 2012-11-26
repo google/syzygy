@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "syzygy/core/disassembler_util.h"
 
 namespace core {
 
@@ -115,7 +116,7 @@ Disassembler::WalkResult Disassembler::Walk() {
       bool conditional_branch_handled = false;
 
       unsigned int decoded = 0;
-      _DecodeResult result = distorm_decompose(&code, &inst, 1, &decoded);
+      _DecodeResult result = DistormDecompose(&code, &inst, 1, &decoded);
 
       if (decoded == 0) {
         LOG(ERROR) << "Unable to decode instruction at " << addr << ".";

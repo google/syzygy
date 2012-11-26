@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,36 @@ namespace core {
 
 namespace {
 
+// Decompose a block of code using distorm wrapper.
+_DecodeResult DecomposeCode(const uint8* code_data,
+                            size_t length,
+                            _DInst result[],
+                            const unsigned int max_results,
+                            unsigned int* result_count) {
+  _CodeInfo code = {};
+  code.dt = Decode32Bits;
+  code.features = DF_NONE;
+  code.codeOffset = 0;
+  code.codeLen = length;
+  code.code = code_data;
+  return DistormDecompose(&code, result, max_results, result_count);
+}
+
+// Decompose a block of code using distorm directly.
+_DecodeResult RawDecomposeCode(const uint8* code_data,
+                               size_t length,
+                               _DInst result[],
+                               const unsigned int max_results,
+                               unsigned int* result_count) {
+  _CodeInfo code = {};
+  code.dt = Decode32Bits;
+  code.features = DF_NONE;
+  code.codeOffset = 0;
+  code.codeLen = length;
+  code.code = code_data;
+  return distorm_decompose(&code, result, max_results, result_count);
+}
+
 _DInst DecodeBuffer(const uint8* buffer, size_t length) {
   _DInst inst = {};
   EXPECT_TRUE(DecodeOneInstruction(buffer, length, &inst));
@@ -32,6 +62,13 @@ _DInst DecodeBuffer(const uint8* buffer, size_t length) {
 // One of the AVX instructions that is currently not supported by distorm.
 // vxorps ymm0, ymm0, ymm0
 const uint8 kVxorps[] = { 0xC5, 0xFC, 0x57, 0xC0 };
+
+// Instructions for which distorm indicates a size of 0 for the destination
+// operand size.
+// fnstcw m16
+const uint8 kFnstcw[] = { 0xD9, 0x7D, 0xEA };
+// fldcw m16
+const uint8 kFldcw[] = { 0xD9, 0x6D, 0xE4 };
 
 // Nop Instruction byte sequences.
 const uint8 kNop2Mov[] = { 0x8B, 0xFF };
@@ -127,6 +164,76 @@ TEST(DisassemblerUtilTest, IsDebugInterrupt) {
   EXPECT_FALSE(IsDebugInterrupt(DecodeBuffer(kJe, sizeof(kJe))));
   EXPECT_FALSE(IsDebugInterrupt(DecodeBuffer(kInt2, sizeof(kInt2))));
   EXPECT_TRUE(IsDebugInterrupt(DecodeBuffer(kInt3, sizeof(kInt3))));
+}
+
+TEST(DisassemblerUtilTest, DistormDecompose) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            DecomposeCode(kNop3Lea,
+                          sizeof(kNop3Lea),
+                          results,
+                          kMaxResults,
+                          &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(32U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, DistormDecomposeFnstcw) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            DecomposeCode(kFnstcw,
+                          sizeof(kFnstcw),
+                          results,
+                          kMaxResults,
+                          &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(16U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFnstcw) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            RawDecomposeCode(kFldcw,
+                             sizeof(kFldcw),
+                             results,
+                             kMaxResults,
+                             &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(0U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, DistormDecomposeFldcw) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            DecomposeCode(kFldcw,
+                          sizeof(kFldcw),
+                          results,
+                          kMaxResults,
+                          &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(16U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFldcw) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            RawDecomposeCode(kFldcw,
+                             sizeof(kFldcw),
+                             results,
+                             kMaxResults,
+                             &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(0U, results[0].ops[0].size);
 }
 
 }  // namespace core

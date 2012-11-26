@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,33 @@
 
 namespace core {
 
+_DecodeResult DistormDecompose(_CodeInfo* ci,
+                               _DInst result[],
+                               unsigned int max_instructions,
+                               unsigned int* used_instructions_count) {
+  _DecodeResult ret =
+      distorm_decompose(ci, result, max_instructions, used_instructions_count);
+
+  for (unsigned int i = 0; i < *used_instructions_count; ++i) {
+    // Distorm @229 has a bug where the access size for I_FNSTCW and I_FLDCW
+    // destination operand is 0 instead of 16. I've filed issue
+    // http://code.google.com/p/distorm/issues/detail?id=58 to have this fixed.
+    // In the meantime this is a workaround to have the correct operand size.
+    switch (result[i].opcode) {
+      case I_FNSTCW:
+      case I_FLDCW:
+        // If result[i].ops[0].size is not zero that means that distorm has been
+        // fixed and that this workaround is not needed anymore.
+        DCHECK(result[i].ops[0].size == 0);
+        result[i].ops[0].size = 16;
+        break;
+      default:
+        break;
+    }
+  }
+  return ret;
+}
+
 bool DecodeOneInstruction(
     uint32 address, const uint8* buffer, size_t length, _DInst* instruction) {
   DCHECK(buffer != NULL);
@@ -33,7 +60,7 @@ bool DecodeOneInstruction(
 
   unsigned int decoded = 0;
   ::memset(instruction, 0, sizeof(instruction));
-  _DecodeResult result = distorm_decompose(&code, instruction, 1, &decoded);
+  _DecodeResult result = DistormDecompose(&code, instruction, 1, &decoded);
 
   if (result != DECRES_MEMORYERR && result != DECRES_SUCCESS)
     return false;

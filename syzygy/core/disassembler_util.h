@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,26 @@
 #include "distorm.h"  // NOLINT
 
 namespace core {
+
+// Wrapper for the distorm_decompose function to patch a bug in distorm. The
+// access size for I_FNSTCW and I_FLDCW dst operand is 0 instead of 16.
+// TODO(sebmarchand): Remove this code once this is fixed in distorm.
+// @param ci Structure containing some information about the code to decompose
+//     (code origin, code data, code length, decoding mode and features).
+// @param result Array of type _DecodeInst which will be used by this function
+//     in order to return the disassembled instructions.
+// @param max_instructions The maximum number of entries in the result array
+//     that you pass to this function, so it won't exceed its bound.
+// @param used_instructions_count Number of the instruction that successfully
+//     were disassembled and written to the result array.
+// @returns DECRES_SUCCESS on success (no more to disassemble), DECRES_INPUTERR
+//     on input error (null code buffer, invalid decoding mode, etc...),
+//     DECRES_MEMORYERR when there are not enough entries to use in the result
+//     array, BUT YOU STILL have to check for usedInstructionsCount!
+_DecodeResult DistormDecompose(_CodeInfo* ci,
+                               _DInst result[],
+                               unsigned int max_instructions,
+                               unsigned int* used_instructions_count);
 
 // Decodes exactly one instruction from the given buffer.
 // @param address the address of the instruction, as an absolute address
