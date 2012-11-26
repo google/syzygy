@@ -47,13 +47,8 @@ using block_graph::Value;
 using core::Register;
 using core::RegisterCode;
 using pe::transforms::AddImportsTransform;
-
-// Represent the different kind of access to the memory.
-enum MemoryAccessMode {
-  kNoAccess,
-  kReadAccess,
-  kWriteAccess,
-};
+typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
+typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 
 // Returns true iff opcode should be instrumented.
 bool ShouldInstrumentOpcode(uint16 opcode) {
@@ -108,7 +103,9 @@ bool IsInstrumentable(const _Operand& op) {
 
 // Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
 // corresponding Operand.
-MemoryAccessMode DecodeMemoryAccess(const Instruction& instr, Operand* access) {
+AsanMemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
+                                        Operand* access,
+                                        size_t* access_size) {
   DCHECK(access != NULL);
   const _DInst& repr = instr.representation();
 
@@ -122,9 +119,10 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction& instr, Operand* access) {
     mem_op_id = 1;
   } else {
     // Neither of the first two operands is instrumentable.
-    return kNoAccess;
+    return AsanBasicBlockTransform::kNoAccess;
   }
 
+  *access_size = repr.ops[mem_op_id].size / 8;
   if (repr.ops[mem_op_id].type == O_SMEM) {
     // Simple memory dereference with optional displacement.
     Register base_reg(RegisterCode(repr.ops[mem_op_id].index - R_EAX));
@@ -174,14 +172,14 @@ MemoryAccessMode DecodeMemoryAccess(const Instruction& instr, Operand* access) {
   } else {
     NOTREACHED();
 
-    return kNoAccess;
+    return AsanBasicBlockTransform::kNoAccess;
   }
 
   if ((repr.flags & FLAG_DST_WR) && mem_op_id == 0) {
     // The first operand is written to.
-    return kWriteAccess;
+    return AsanBasicBlockTransform::kWriteAccess;
   } else {
-    return kReadAccess;
+    return AsanBasicBlockTransform::kReadAccess;
   }
 }
 
@@ -237,6 +235,68 @@ void RedirectReferences(const BlockSet& dst_blocks,
   }
 }
 
+// Get the name of an asan check access function for an @p access_mode access of
+// @p access_size bytes.
+std::string GetAsanCheckAccessFunctionName(uint8 access_size,
+                                           AsanMemoryAccessMode access_mode) {
+  DCHECK_NE(access_size, 0);
+  DCHECK(access_mode != AsanBasicBlockTransform::kNoAccess);
+
+  const char* access_mode_str = NULL;
+  if (access_mode == AsanBasicBlockTransform::kReadAccess)
+    access_mode_str = "read";
+  else
+    access_mode_str = "write";
+
+  return base::StringPrintf("asan_check_%d_byte_%s_access", access_size,
+                            access_mode_str);
+}
+
+// Add an import for an asan check access hook to the block-graph.
+// @param access_size The size of the access. This is needed to get the correct
+//     import function name.
+// @param access_mode The kind of the access. This is needed to get the correct
+//     import function name.
+// @param import_module The module for which the import should be added.
+// @param check_access_hook_map The map where the reference to the import should
+//     be stored.
+// @param block_graph The block-graph to populate.
+// @param header_block The block containing the module's DOS header of this
+//     block-graph.
+bool AddAsanCheckAccessHook(uint8 access_size,
+                            AsanMemoryAccessMode access_mode,
+                            AddImportsTransform::ImportedModule* import_module,
+                            HookMap* check_access_hook_map,
+                            BlockGraph* block_graph,
+                            BlockGraph::Block* header_block) {
+  DCHECK(import_module != NULL);
+  DCHECK(check_access_hook_map != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(header_block != NULL);
+
+  size_t asan_hook_check_access_index = import_module->AddSymbol(
+      GetAsanCheckAccessFunctionName(access_size, access_mode));
+
+  AddImportsTransform add_imports_transform;
+  add_imports_transform.AddModule(import_module);
+
+  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
+    LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";
+    return false;
+  }
+
+  BlockGraph::Reference import_reference;
+  if (!import_module->GetSymbolReference(asan_hook_check_access_index,
+                                         &import_reference)) {
+    LOG(ERROR) << "Unable to get import reference for Asan.";
+    return false;
+  }
+  HookMap& hook_map = *check_access_hook_map;
+  hook_map[std::make_pair(access_mode, access_size)] = import_reference;
+
+  return true;
+}
+
 }  // namespace
 
 const char AsanBasicBlockTransform::kTransformName[] =
@@ -252,10 +312,13 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
   // instrumentable memory access.
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
     Operand operand(core::eax);
+    size_t access_size = 0;
     const Instruction& instr = *iter_inst;
     const _DInst& repr = instr.representation();
 
-    MemoryAccessMode access_mode = DecodeMemoryAccess(instr, &operand);
+    MemoryAccessMode access_mode = DecodeMemoryAccess(instr,
+                                                      &operand,
+                                                      &access_size);
 
     // Bail if this is not a memory access.
     if (access_mode == kNoAccess)
@@ -292,7 +355,13 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
 
     BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
     Instruction::Representation inst = iter_inst->representation();
-    InjectAsanHook(&bb_asm, operand, hook_access_);
+    AsanHookMap::iterator hook;
+    hook = check_access_hooks_->find(std::make_pair(access_mode, access_size));
+    if (hook == check_access_hooks_->end()) {
+      LOG(ERROR) << "Invalid access size: " << access_size << " byte.";
+      return false;
+    }
+    InjectAsanHook(&bb_asm, operand, &hook->second);
   }
   return true;
 }
@@ -341,24 +410,43 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   // Add an import entry for the ASAN runtime.
   AddImportsTransform::ImportedModule import_module(asan_dll_name_.c_str());
 
-  // Add the probe function import.
-  size_t asan_hook_check_access_index =
-      import_module.AddSymbol(kCheckAccessName);
+  // Import the hooks for the read accesses.
+  for (int access_size = 1; access_size <= 32; access_size *= 2) {
+    if (!AddAsanCheckAccessHook(access_size,
+                                AsanBasicBlockTransform::kReadAccess,
+                                &import_module,
+                                &check_access_hooks_ref_,
+                                block_graph, header_block)) {
+      return false;
+    }
+  }
 
-  AddImportsTransform add_imports_transform;
-  add_imports_transform.AddModule(&import_module);
-
-  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
-    LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";
+  if (!AddAsanCheckAccessHook(10,
+                              AsanBasicBlockTransform::kReadAccess,
+                              &import_module,
+                              &check_access_hooks_ref_,
+                              block_graph, header_block)) {
     return false;
   }
 
-  if (!import_module.GetSymbolReference(asan_hook_check_access_index ,
-                                        &hook_asan_check_access_)) {
-    LOG(ERROR) << "Unable to get import reference for Asan.";
-    return false;
+  // Import the hooks for the write accesses.
+  for (int access_size = 1; access_size <= 32; access_size *= 2) {
+    if (!AddAsanCheckAccessHook(access_size,
+                                AsanBasicBlockTransform::kWriteAccess,
+                                &import_module,
+                                &check_access_hooks_ref_,
+                                block_graph, header_block)) {
+      return false;
+    }
   }
 
+  if (!AddAsanCheckAccessHook(10,
+                              AsanBasicBlockTransform::kWriteAccess,
+                              &import_module,
+                              &check_access_hooks_ref_,
+                              block_graph, header_block)) {
+    return false;
+  }
   return true;
 }
 
@@ -372,7 +460,7 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
   if (!pe::CodeBlockIsBasicBlockDecomposable(block))
     return true;
 
-  AsanBasicBlockTransform transform(&hook_asan_check_access_);
+  AsanBasicBlockTransform transform(&check_access_hooks_ref_);
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
     return false;
 

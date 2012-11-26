@@ -21,6 +21,7 @@
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/common/dlist.h"
@@ -61,7 +62,8 @@ extern "C" {
 using agent::asan::HeapProxy;
 
 static HANDLE process_heap = NULL;
-LIST_ENTRY heap_proxy_dlist = {};
+base::Lock heap_proxy_list_lock;
+LIST_ENTRY heap_proxy_dlist = {};  // Under heap_proxy_list_lock.
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
@@ -70,6 +72,7 @@ HANDLE WINAPI asan_HeapCreate(DWORD options,
   if (!proxy->Create(options, initial_size, maximum_size))
     proxy.reset();
 
+  base::AutoLock lock(heap_proxy_list_lock);
   InsertTailList(&heap_proxy_dlist, HeapProxy::ToListEntry(proxy.get()));
 
   return HeapProxy::ToHandle(proxy.release());
@@ -83,8 +86,9 @@ BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
   if (!proxy)
     return FALSE;
 
-  DCHECK(HeapListContainsEntry(&heap_proxy_dlist, HeapProxy::ToListEntry(proxy))
-      == TRUE);
+  base::AutoLock lock(heap_proxy_list_lock);
+  DCHECK(HeapListContainsEntry(&heap_proxy_dlist,
+                               HeapProxy::ToListEntry(proxy)));
   RemoveEntryList(HeapProxy::ToListEntry(proxy));
 
   if (proxy->Destroy()) {
@@ -287,76 +291,115 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 namespace agent {
 namespace asan {
 
-void __cdecl CheckAccessSlow(const uint8* location) {
-  if (!Shadow::IsAccessible(location)) {
-    // Iterates over the HeapProxy list to find a memory block containing this
-    // address.
-    LIST_ENTRY* item = heap_proxy_dlist.Flink;
-    while (item != NULL) {
-      LIST_ENTRY* next_item = NULL;
-      if (item->Flink != &heap_proxy_dlist) {
-        next_item = item->Flink;
-      }
-
-      if (HeapProxy::FromListEntry(item)->OnBadAccess(location)) {
-        break;
-      }
-
-      item = next_item;
+// Report a bad @p access_mode access of @p access_size at the address
+// @p location.
+void __stdcall ReportBadMemoryAccess(const uint8* location,
+                                     HeapProxy::AccessMode access_mode,
+                                     size_t access_size) {
+  // Iterates over the HeapProxy list to find a memory block containing this
+  // address.
+  base::AutoLock lock(heap_proxy_list_lock);
+  LIST_ENTRY* item = heap_proxy_dlist.Flink;
+  while (item != NULL) {
+    LIST_ENTRY* next_item = NULL;
+    if (item->Flink != &heap_proxy_dlist) {
+      next_item = item->Flink;
     }
-    // If we didn't found a heap with a memory block containing this address we
-    // report an unknown crash.
-    if (item == NULL) {
-      HeapProxy::ReportUnknownError(location);
+    if (HeapProxy::FromListEntry(item)->OnBadAccess(location,
+                                                    access_mode,
+                                                    access_size)) {
+      break;
     }
-
-    // Call the callback to handle this error.
-    DCHECK(asan_callback.is_null() == FALSE);
-    asan_callback.Run();
+    item = next_item;
   }
+  // If we didn't find a heap with a memory block containing this address we
+  // report an unknown crash.
+  if (item == NULL) {
+    HeapProxy::ReportUnknownError(location,
+                                  access_mode,
+                                  access_size);
+  }
+  // Call the callback to handle this error.
+  DCHECK_EQ(false, asan_callback.is_null());
+  asan_callback.Run();
 }
 
 }  // namespace asan
 }  // namespace agent
 
-// On entry, eax is the byte to check, e.g. the last byte accessed.
-// On stack above the return address we have the saved values of eax.
-extern "C" __declspec(naked) void asan_check_access() {
-  __asm {
-    // Save the flags and save eax for the slow case.
-    pushfd
-    push eax
-
-    // Check for zero shadow - fast case.
-    shr eax, 3
-    mov al, byte ptr[eax + agent::asan::Shadow::shadow_]
-    test al, 0xFF
-
-    // Uh-oh - non-zero shadow byte means we go to the slow case.
-    jne non_zero_shadow
-
-    // Drop the slow path's copy of the address.
-    add esp, 4
-    // Restore flags and original eax.
-    popfd
-    mov eax, DWORD PTR[esp + 4]
-    ret 4
-
- non_zero_shadow:
-    // Save ecx/edx, they're caller-save.
-    push edx
-    push ecx
-    // Push the address to check.
-    push dword ptr[esp + 8]
-    call agent::asan::CheckAccessSlow
-    add esp, 4
-
-    // Restore everything.
-    pop ecx
-    pop edx
-    add esp, 4
-    popfd
-    mov eax, DWORD PTR[esp + 4]
-    ret 4
+// Generates the asan check access functions. The name of the generated method
+// will be asan_check_(@p access_size)_byte_(@p access_mode_str)().
+// @param access_size The size of the access (in byte).
+// @param access_mode_str The string representing the access mode (read_access
+//     or write_access).
+// @param access_mode_value The internal value representing this kind of access.
+#define ASAN_CHECK_FUNCTION(access_size, access_mode_str, access_mode_value)  \
+  extern "C" __declspec(naked)  \
+      void asan_check_ ## access_size ## _byte_ ## access_mode_str ## () {  \
+    __asm {  \
+      /* Save the flags and save eax for the slow case. */  \
+      __asm pushfd  \
+      __asm push eax  \
+      /* Check for zero shadow - fast case. */  \
+      __asm shr eax, 3  \
+      __asm mov al, BYTE ptr[eax + agent::asan::Shadow::shadow_]  \
+      __asm test al, al  \
+      __asm jnz check_access_slow  \
+      /* Restore flags and original eax. */  \
+    __asm restore_eax_and_flags:  \
+      __asm add esp, 4  \
+      __asm mov eax, DWORD PTR[esp + 8]  \
+      __asm popfd  \
+      __asm ret 4  \
+    __asm check_access_slow:  \
+      /* Uh-oh - non-zero shadow byte means we go to the slow case. */  \
+      /* Save ecx/edx, they're caller-save. */  \
+      __asm push edx  \
+      __asm push ecx  \
+      /* Push the address to check. */  \
+      __asm push DWORD ptr[esp + 8]  \
+      __asm call agent::asan::Shadow::IsAccessible  \
+      /* We restore ecx and edx before testing the return value. */  \
+      __asm pop ecx  \
+      __asm pop edx  \
+      __asm test al, al  \
+      /* We've found a bad access, report this failure. */  \
+      __asm jz report_failure  \
+      /* Same code as in the restore_eax_and_flags label, we could jump */  \
+      /* there but it'll add an instruction. */  \
+      __asm add esp, 4  \
+      __asm mov eax, DWORD PTR[esp + 8]  \
+      __asm popfd  \
+      __asm ret 4  \
+    __asm report_failure:  \
+      /* Push the access size, mode and address and call the function to */  \
+      /* report the error. */  \
+      __asm push access_size  \
+      __asm push access_mode_value  \
+      __asm push DWORD ptr[esp + 8]  \
+      __asm call agent::asan::ReportBadMemoryAccess  \
+      __asm jmp restore_eax_and_flags  \
+    }  \
   }
-}
+
+enum AccessMode {
+  AsanReadAccess = HeapProxy::ASAN_READ_ACCESS,
+  AsanWriteAccess = HeapProxy::ASAN_WRITE_ACCESS,
+};
+
+ASAN_CHECK_FUNCTION(1, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(2, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(4, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(8, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(10, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(16, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(32, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION(1, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION(2, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION(4, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION(8, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION(10, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION(16, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION(32, write_access, AsanWriteAccess)
+
+#undef ASAN_CHECK_FUNCTION

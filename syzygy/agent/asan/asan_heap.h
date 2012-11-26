@@ -31,6 +31,13 @@ namespace asan {
 // each allocation and maintains a quarantine list of freed blocks.
 class HeapProxy {
  public:
+  // The different memory access modes that we can encounter.
+  enum AccessMode {
+    ASAN_READ_ACCESS,
+    ASAN_WRITE_ACCESS,
+    ASAN_UNKNOWN_ACCESS
+  };
+
   HeapProxy();
   ~HeapProxy();
 
@@ -66,11 +73,21 @@ class HeapProxy {
 
   // Report a bad access to the heap.
   // @param addr The red-zoned address causing a bad access.
+  // @param access_mode The kind of the access (read or write).
+  // @param access_size The size of the access (in bytes).
   // @returns true if the address belongs to a memory block, false otherwise.
-  bool OnBadAccess(const void* addr);
+  bool OnBadAccess(const void* addr,
+                   AccessMode access_mode,
+                   size_t access_size);
 
-  // Report an unknown error while attempting the red-zoned heap address @addr.
-  static void ReportUnknownError(const void* addr);
+  // Report an unknown error while attempting to access a red-zoned heap
+  // address.
+  // @param addr The address causing an error.
+  // @param access_mode The kind of the access (read or write).
+  // @param access_size The size of the access (in bytes).
+  static void ReportUnknownError(const void* addr,
+                                 AccessMode access_mode,
+                                 size_t access_size);
 
   // @name Cast to/from HANDLE.
   // @{
@@ -157,9 +174,13 @@ class HeapProxy {
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
   // @param bad_access_kind The kind of error.
+  // @param access_mode The mode of the access (read or write).
+  // @param access_size The size of the access (in bytes).
   static void ReportAsanErrorBase(const char* bug_descr,
                                   const void* addr,
-                                  BadAccessKind bad_access_kind);
+                                  BadAccessKind bad_access_kind,
+                                  AccessMode access_mode,
+                                  size_t access_size);
 
   // Report an Asan error to stderr with information about the address causing
   // this error.
@@ -167,10 +188,14 @@ class HeapProxy {
   // @param addr The address causing an error.
   // @param bad_access_kind The kind of error.
   // @param header The header of the block containing this address.
+  // @param access_mode The kind of the access (read or write).
+  // @param access_size The size of the access (in bytes).
   void ReportAsanError(const char* bug_descr,
                        const void* addr,
                        BadAccessKind bad_access_kind,
-                       BlockHeader* header);
+                       BlockHeader* header,
+                       AccessMode access_mode,
+                       size_t access_size);
 
   // Contains the underlying heap we delegate to.
   HANDLE heap_;

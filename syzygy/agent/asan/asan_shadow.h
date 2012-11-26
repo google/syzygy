@@ -33,7 +33,7 @@ class Shadow {
   static void Unpoison(const void* addr, size_t size);
 
   // Returns true iff the byte at @p addr is not poisoned.
-  static bool IsAccessible(const void* addr);
+  static bool __stdcall IsAccessible(const void* addr);
 
   // Print the content of the shadow memory for @p addr.
   static void PrintShadowMemoryForAddress(const void* addr);

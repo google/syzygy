@@ -131,7 +131,7 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   // Poison head and tail zones, and unpoison alloc.
   size_t header_size = kRedZoneSize;
   size_t trailer_size = alloc_size - kRedZoneSize - bytes;
-  memset(block, '0xCC', header_size);
+  memset(block, 0xCC, header_size);
   Shadow::Poison(block, kRedZoneSize);
 
   block->magic_number = kBlockHeaderSignature;
@@ -144,7 +144,7 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   uint8* block_alloc = ToAlloc(block);
   Shadow::Unpoison(block_alloc, bytes);
 
-  memset(block_alloc + bytes, '0xCD', trailer_size);
+  memset(block_alloc + bytes, 0xCD, trailer_size);
   Shadow::Poison(block_alloc + bytes, trailer_size);
 
   return block_alloc;
@@ -178,7 +178,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
         GetBadAccessKind(static_cast<const uint8*>(mem), block);
     DCHECK_NE(UNKNOWN_BAD_ACCESS, bad_access_kind);
     ReportAsanError("attempting double-free", static_cast<const uint8*>(mem),
-        bad_access_kind, block);
+        bad_access_kind, block, ASAN_UNKNOWN_ACCESS, 0);
 
     return false;
   }
@@ -313,8 +313,8 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
   const BlockHeader* header =
       reinterpret_cast<const BlockHeader*>(mem -kRedZoneSize);
   if (header->magic_number != kBlockHeaderSignature) {
-    if (!OnBadAccess(mem)) {
-      ReportUnknownError(mem);
+    if (!OnBadAccess(mem, ASAN_UNKNOWN_ACCESS, 0)) {
+      ReportUnknownError(mem, ASAN_UNKNOWN_ACCESS, 0);
       Shadow::PrintShadowMemoryForAddress(alloc);
     }
     return NULL;
@@ -430,7 +430,9 @@ HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
   return header;
 }
 
-bool HeapProxy::OnBadAccess(const void* addr) {
+bool HeapProxy::OnBadAccess(const void* addr,
+                            AccessMode access_mode,
+                            size_t access_size) {
   base::AutoLock lock(lock_);
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
   BlockHeader* header = FindAddressBlock(addr);
@@ -442,36 +444,64 @@ bool HeapProxy::OnBadAccess(const void* addr) {
   // Get the bad access description if we've been able to determine its kind.
   if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
     const char* bug_descr = AccessTypeToStr(bad_access_kind);
-    ReportAsanError(bug_descr, addr, bad_access_kind, header);
+    ReportAsanError(bug_descr,
+                    addr,
+                    bad_access_kind,
+                    header,
+                    access_mode,
+                    access_size);
     return true;
   }
 
   return false;
 }
 
-void HeapProxy::ReportUnknownError(const void* addr) {
-  ReportAsanErrorBase("unknown-crash", addr, UNKNOWN_BAD_ACCESS);
+void HeapProxy::ReportUnknownError(const void* addr,
+                                   AccessMode access_mode,
+                                   size_t access_size) {
+  ReportAsanErrorBase("unknown-crash",
+                      addr,
+                      UNKNOWN_BAD_ACCESS,
+                      access_mode,
+                      access_size);
 }
 
 void HeapProxy::ReportAsanError(const char* bug_descr,
                                 const void* addr,
                                 BadAccessKind bad_access_kind,
-                                BlockHeader* header) {
+                                BlockHeader* header,
+                                AccessMode access_mode,
+                                size_t access_size) {
   DCHECK(header != NULL);
 
-  ReportAsanErrorBase(bug_descr, addr, bad_access_kind);
+  ReportAsanErrorBase(bug_descr,
+                      addr,
+                      bad_access_kind,
+                      access_mode,
+                      access_size);
   PrintAddressInformation(static_cast<const uint8*>(addr),
-      header, bad_access_kind);
+                          header,
+                          bad_access_kind);
 }
 
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     const void* addr,
-                                    BadAccessKind bad_access_kind) {
+                                    BadAccessKind bad_access_kind,
+                                    AccessMode access_mode,
+                                    size_t access_size) {
   DCHECK(bug_descr != NULL);
   DCHECK(addr != NULL);
 
   // TODO(sebmarchand): Print PC, BP and SP.
   fprintf(stderr, "SyzyASAN error: %s on address 0x%08X\n", bug_descr, addr);
+  if (access_mode != ASAN_UNKNOWN_ACCESS) {
+    const char* access_mode_str = NULL;
+    if (access_mode == ASAN_READ_ACCESS)
+      access_mode_str = "READ";
+    else
+      access_mode_str = "WRITE";
+    fprintf(stderr, "%s of size %d at 0x%08X\n", access_mode_str, access_size);
+  }
 
   base::debug::StackTrace stack_trace;
   stack_trace.PrintBacktrace();

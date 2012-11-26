@@ -21,6 +21,7 @@
 
 #include "base/scoped_native_library.h"
 #include "base/scoped_temp_dir.h"
+#include "base/stringprintf.h"
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
@@ -42,14 +43,17 @@ using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
+typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
+typedef AsanBasicBlockTransform::AsanHookMap HookMap;
+typedef AsanBasicBlockTransform::AsanHookMapEntryKey HookMapEntryKey;
 
 // A derived class to expose protected members for unit-testing.
 class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
  public:
   using AsanBasicBlockTransform::InstrumentBasicBlock;
 
-  explicit TestAsanBasicBlockTransform(BlockGraph::Reference* hook)
-      : AsanBasicBlockTransform(hook) {
+  explicit TestAsanBasicBlockTransform(AsanHookMap* hooks_check_access)
+      : AsanBasicBlockTransform(hooks_check_access) {
   }
 };
 
@@ -61,12 +65,33 @@ class AsanTransformTest : public testing::TestDllTransformTest {
               &basic_block_.instructions()) {
   }
 
-  void InitHookRefs() {
-    hook_check_access_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4,
-                                               "hook_check_access"),
-    // Set up the references to the hooks needed by SyzyAsan.
-    hook_check_access_ref_ = BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
-        hook_check_access_, 0, 0);
+  void InitHooksRefs() {
+    // Initialize the read access hooks.
+    for (int access_size = 1; access_size <= 8; access_size *= 2) {
+      std::string hook_name =
+          base::StringPrintf("asan_check_%d_byte_read_access", access_size);
+      HookMapEntryKey map_key =
+          std::make_pair(AsanBasicBlockTransform::kReadAccess, access_size);
+      hooks_check_access_[map_key] =
+          block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4, hook_name);
+      // Set up the references to the hooks needed by SyzyAsan.
+      hooks_check_access_ref_[map_key] =
+          BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
+                                hooks_check_access_[map_key], 0, 0);
+    }
+    // Initialize the write access hooks.
+    for (int access_size = 1; access_size <= 8; access_size *= 2) {
+      std::string hook_name =
+          base::StringPrintf("asan_check_%d_byte_write_access", access_size);
+      HookMapEntryKey map_key =
+          std::make_pair(AsanBasicBlockTransform::kWriteAccess, access_size);
+      hooks_check_access_[map_key] =
+          block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4, hook_name);
+      // Set up the references to the hooks needed by SyzyAsan.
+      hooks_check_access_ref_[map_key] =
+          BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
+                                hooks_check_access_[map_key], 0, 0);
+    }
   }
 
   // Some handy constants we'll use throughout the tests.
@@ -78,8 +103,8 @@ class AsanTransformTest : public testing::TestDllTransformTest {
  protected:
   ScopedTempDir temp_dir_;
   AsanTransform asan_transform_;
-  BlockGraph::Block* hook_check_access_;
-  BlockGraph::Reference hook_check_access_ref_;
+  HookMap hooks_check_access_ref_;
+  std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
   BasicCodeBlock basic_block_;
   block_graph::BasicBlockAssembler bb_asm_;
 
@@ -114,8 +139,8 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
 
   // Instrument this basic block.
-  InitHookRefs();
-  TestAsanBasicBlockTransform bb_transform(&hook_check_access_ref_);
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
 
   // Ensure that the basic block is instrumented.
@@ -129,23 +154,27 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   BasicBlock::Instructions::const_iterator iter_inst =
       basic_block_.instructions().begin();
 
-  // First we check if the first memory access is instrumented as a read
+  // First we check if the first memory access is instrumented as a 4 byte read
   // access.
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
-  ASSERT_TRUE(
-      iter_inst->references().begin()->second.block() == hook_check_access_);
+  HookMapEntryKey check_4_byte_read_key =
+      std::make_pair(AsanBasicBlockTransform::kReadAccess, 4);
+  ASSERT_TRUE(iter_inst->references().begin()->second.block()
+      == hooks_check_access_[check_4_byte_read_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
-  // Then we check if the second memory access is well instrumented as a write
-  // access.
+  // Then we check if the second memory access is well instrumented as a 4 byte
+  // write access.
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
-  ASSERT_TRUE(
-      iter_inst->references().begin()->second.block() == hook_check_access_);
+  HookMapEntryKey check_4_byte_write_key =
+      std::make_pair(AsanBasicBlockTransform::kWriteAccess, 4);
+  ASSERT_TRUE(iter_inst->references().begin()->second.block()
+      == hooks_check_access_[check_4_byte_write_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
@@ -172,8 +201,8 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   uint32 expected_instructions_count = basic_block_.instructions().size()
       + 3 * instrumentable_instructions;
   // Instrument this basic block.
-  InitHookRefs();
-  TestAsanBasicBlockTransform bb_transform(&hook_check_access_ref_);
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
   ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
 }
@@ -238,7 +267,20 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_HeapWalk");
   expected.insert("asan_HeapSetInformation");
   expected.insert("asan_HeapQueryInformation");
-  expected.insert("asan_check_access");
+  expected.insert("asan_check_1_byte_read_access");
+  expected.insert("asan_check_2_byte_read_access");
+  expected.insert("asan_check_4_byte_read_access");
+  expected.insert("asan_check_8_byte_read_access");
+  expected.insert("asan_check_10_byte_read_access");
+  expected.insert("asan_check_16_byte_read_access");
+  expected.insert("asan_check_32_byte_read_access");
+  expected.insert("asan_check_1_byte_write_access");
+  expected.insert("asan_check_2_byte_write_access");
+  expected.insert("asan_check_4_byte_write_access");
+  expected.insert("asan_check_8_byte_write_access");
+  expected.insert("asan_check_10_byte_write_access");
+  expected.insert("asan_check_16_byte_write_access");
+  expected.insert("asan_check_32_byte_write_access");
 
   EXPECT_EQ(expected, imports);
 }

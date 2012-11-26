@@ -303,7 +303,8 @@ void AssertMemoryErrorIsDetected(void* ptr) {
 }  // namespace
 
 TEST_F(AsanRtlTest, asan_check_good_access) {
-  check_access_fn = ::GetProcAddress(asan_rtl_, "asan_check_access");
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
   // Run through access checking an allocation that's larger than our
@@ -322,7 +323,8 @@ TEST_F(AsanRtlTest, asan_check_good_access) {
 }
 
 TEST_F(AsanRtlTest, asan_check_bad_access) {
-  check_access_fn = ::GetProcAddress(asan_rtl_, "asan_check_access");
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
   const size_t kAllocSize = 13;

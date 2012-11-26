@@ -17,6 +17,7 @@
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ASAN_TRANSFORM_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_ASAN_TRANSFORM_H_
 
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -34,14 +35,25 @@ class AsanBasicBlockTransform
     : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           AsanBasicBlockTransform> {
  public:
+  // Represent the different kind of access to the memory.
+  enum MemoryAccessMode {
+    kNoAccess,
+    kReadAccess,
+    kWriteAccess,
+  };
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef std::pair<MemoryAccessMode, size_t> AsanHookMapEntryKey;
+  // Map of hooks to asan check access functions.
+  typedef std::map<AsanHookMapEntryKey, BlockGraph::Reference> AsanHookMap;
 
   // Constructor.
-  // @param hook_access a reference to the access check import entry.
-  explicit AsanBasicBlockTransform(BlockGraph::Reference* hook_access) :
-      hook_access_(hook_access) {
-    DCHECK(hook_access != NULL);
+  // @param hooks_read_access a reference to the read access check import entry.
+  // @param hooks_write_access a reference to the write access check import
+  //     entry.
+  explicit AsanBasicBlockTransform(AsanHookMap* check_access_hooks) :
+      check_access_hooks_(check_access_hooks) {
+    DCHECK(check_access_hooks != NULL);
   }
 
   // The transform name.
@@ -58,8 +70,8 @@ class AsanBasicBlockTransform
   bool InstrumentBasicBlock(block_graph::BasicCodeBlock* basic_block);
 
  private:
-  // The references to the Asan access check import entry.
-  BlockGraph::Reference* hook_access_;
+  // The references to the Asan access check import entries.
+  AsanHookMap* check_access_hooks_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
@@ -101,12 +113,13 @@ class AsanTransform
   static const char kTransformName[];
 
  protected:
+
   // Name of the asan_rtl DLL we import. Defaults to "asan_rtl.dll".
   std::string asan_dll_name_;
 
-  // References to "asan_check_access" import entry. Valid after successful
-  // PreBlockGraphIteration.
-  BlockGraph::Reference hook_asan_check_access_;
+  // References to the different asan check access import entries. Valid after
+  // successful PreBlockGraphIteration.
+  AsanBasicBlockTransform::AsanHookMap check_access_hooks_ref_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanTransform);
 };
