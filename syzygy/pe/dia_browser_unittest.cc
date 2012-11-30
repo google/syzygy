@@ -411,6 +411,18 @@ TEST_F(DiaBrowserTest, AllDataSymbolsExplored) {
   dia_browser.Browse(global_.get());
 }
 
+TEST_F(DiaBrowserTest, AllDataSymbolsExploredWithPopCallbacks) {
+  TestDiaBrowser dia_browser;
+
+  // Search for (Wildcard)*.Data
+  dia_browser.AddPattern(Seq(Star(SymTagNull), SymTagData),
+                         on_full_match_, on_full_match_);
+
+  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(2 * 2883).
+      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
+  dia_browser.Browse(global_.get());
+}
+
 TEST_F(DiaBrowserTest, SomePathsTerminated) {
   TestDiaBrowser dia_browser;
 

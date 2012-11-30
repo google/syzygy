@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,8 +120,19 @@ class DiaBrowser {
   //
   // For full details on how to construct patterns, see the comment preceding
   // the 'builder' namespace.
+  // @param pattern_builder_proxy The pattern to register, built by an
+  //     instance of builder::Proxy.
+  // @param push_callback The callback that will be invoked when the symbol is
+  //     matched and initially visited.
+  // @param pop_callback If provided this callback will be invoked when the
+  //     matched element is popped off the stack of matches as the browser
+  //     retreats up the stack in its depth-first search. Allows clients to
+  //     maintain a shadow stack with metadata.
   bool AddPattern(const builder::Proxy& pattern_builder_proxy,
-                  const MatchCallback& callback);
+                  const MatchCallback& push_callback);
+  bool AddPattern(const builder::Proxy& pattern_builder_proxy,
+                  const MatchCallback& push_callback,
+                  const MatchCallback& pop_callback);
 
   // Browses through the DIA tree starting from the given root,
   // matching existing patterns and calling their callbacks.
@@ -158,8 +169,8 @@ class DiaBrowser {
   BrowserDirective PushMatch(SymTag sym_tag, uint32 symbol_id,
                              SymTagBitSet* sym_tags);
 
-  // This rolls back our search stack by one level.
-  void PopMatch();
+  // This rolls back our search stack by one level, calling pop callbacks.
+  DiaBrowser::BrowserDirective PopMatch(bool do_callbacks);
 
   // The actual implementation of Browse, modulo some startup stuff.
   // This can return a reduced subset of BrowserDirective, namely:
@@ -350,7 +361,14 @@ Proxy Star(const Proxy& p);
 // Represents a pattern which, when fully matched, will invoke the given
 // @p callback. This callback can direct the behaviour of the match,
 // causing it to terminate early. See BrowserDirective for more details.
-Proxy Callback(const Proxy& p, const MatchCallback& callback);
+// If two callbacks are provided the first is called when the pattern is
+// matched and the second is called when the matching element is popped off
+// the symbol stack as the DFS retreats.
+Proxy Callback(const Proxy& p, const MatchCallback& push_callback);
+Proxy Callback(const Proxy& p,
+               const MatchCallback& push_callback,
+               const MatchCallback& pop_callback);
+
 
 }  // namespace builder
 

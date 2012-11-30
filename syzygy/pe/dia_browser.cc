@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,7 +70,8 @@ struct DiaBrowser::PatternElement {
   // Invokes the callback on this PatternElement, if present.
   BrowserDirective InvokeCallback(const DiaBrowser& browser,
                                   const SymTagVector& tag_lineage,
-                                  const SymbolPtrVector& symbol_lineage) const {
+                                  const SymbolPtrVector& symbol_lineage,
+                                  const MatchCallback& callback) const {
     BrowserDirective directive = kBrowserContinue;
     if (!callback.is_null())
       directive = callback.Run(browser, tag_lineage, symbol_lineage);
@@ -79,6 +80,20 @@ struct DiaBrowser::PatternElement {
       directive = kBrowserTerminatePath;
 
     return directive;
+  }
+
+  BrowserDirective InvokePushCallback(
+      const DiaBrowser& browser,
+      const SymTagVector& tag_lineage,
+      const SymbolPtrVector& symbol_lineage) const {
+    return InvokeCallback(browser, tag_lineage, symbol_lineage, push_callback);
+  }
+
+  BrowserDirective InvokePopCallback(
+      const DiaBrowser& browser,
+      const SymTagVector& tag_lineage,
+      const SymbolPtrVector& symbol_lineage) const {
+    return InvokeCallback(browser, tag_lineage, symbol_lineage, pop_callback);
   }
 
   // Calculates the outgoing sym_tags for this element.
@@ -101,9 +116,11 @@ struct DiaBrowser::PatternElement {
   // TODO(chrisha): Maybe a separate category_id for visited_ bookkeeping?
   size_t pattern_id;
 
-  // If this is non-null, when reaching this point in
-  // the pattern we will invoke the callback.
-  MatchCallback callback;
+  // If this is non-null, when reaching this point in the pattern we will
+  // invoke the callback.
+  MatchCallback pop_callback;
+  // This callback will be invoked when retreating back up the stack of matches.
+  MatchCallback push_callback;
 
   // If this is true, this node is an exit node for the pattern. Any time
   // we reach this node, a full match has been achieved.
@@ -166,12 +183,15 @@ class DiaBrowser::PatternBuilder {
   }
 
   // For constructing kPatternCallback patterns.
-  PatternBuilder(const PatternBuilder& pb, MatchCallback callback)
+  PatternBuilder(const PatternBuilder& pb,
+                 MatchCallback push_callback,
+                 MatchCallback pop_callback)
       : type_(kPatternCallback),
-        callback_(callback),
+        push_callback_(push_callback),
+        pop_callback_(pop_callback),
         pb0_(new PatternBuilder()),
         pb1_(NULL) {
-    DCHECK(!callback.is_null());
+    DCHECK(!push_callback.is_null());
     DCHECK(pb.type_ != kPatternNone);
     pb0_->CopyFrom(pb);
   }
@@ -180,7 +200,8 @@ class DiaBrowser::PatternBuilder {
   void CopyFrom(const PatternBuilder& pb) {
     type_ = pb.type_;
     sym_tags_ = pb.sym_tags_;
-    callback_ = pb.callback_;
+    push_callback_ = pb.push_callback_;
+    pop_callback_ = pb.pop_callback_;
 
     if (pb.pb0_.get() != NULL) {
       if (pb0_.get() == NULL)
@@ -407,7 +428,8 @@ class DiaBrowser::PatternBuilder {
         // Label the exit points of the sub-pattern with the provided
         // callback.
         for (size_t i = 0; i < out_exits->size(); ++i) {
-          (*out_exits)[i]->callback = callback_;
+          (*out_exits)[i]->push_callback = push_callback_;
+          (*out_exits)[i]->pop_callback = pop_callback_;
         }
         return;
       }
@@ -421,7 +443,8 @@ class DiaBrowser::PatternBuilder {
  private:
   PatternType type_;
   SymTagBitSet sym_tags_;
-  MatchCallback callback_;
+  MatchCallback push_callback_;
+  MatchCallback pop_callback_;
   scoped_ptr<PatternBuilder> pb0_;
   scoped_ptr<PatternBuilder> pb1_;
 
@@ -434,7 +457,13 @@ DiaBrowser::~DiaBrowser() {
 }
 
 bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
-                            const MatchCallback& callback) {
+                            const MatchCallback& push_callback) {
+  return AddPattern(pattern_builder_proxy, push_callback, MatchCallback());
+}
+
+bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
+                            const MatchCallback& push_callback,
+                            const MatchCallback& pop_callback) {
   const PatternBuilder& pattern_builder(pattern_builder_proxy);
   size_t pattern_length = pattern_builder.Length();
 
@@ -478,7 +507,8 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
   // Mark the exit nodes as being full match nodes, and set their callbacks.
   for (size_t i = 0; i < out_exits.size(); ++i) {
     out_exits[i]->full_match = true;
-    out_exits[i]->callback = callback;
+    out_exits[i]->push_callback = push_callback;
+    out_exits[i]->pop_callback = pop_callback;
   }
 
   // Label the pattern node with the id of this pattern, and precalculate
@@ -596,11 +626,16 @@ DiaBrowser::BrowserDirective DiaBrowser::PushMatch(
 
       // Invoke the callback for each valid destination, and truncate the
       // search if necessary.
-      BrowserDirective directive = elem->InvokeCallback(*this,
-                                                        tag_lineage_,
-                                                        symbol_lineage_);
+      BrowserDirective directive = elem->InvokePushCallback(*this,
+                                                            tag_lineage_,
+                                                            symbol_lineage_);
+
+      bool need_pop_callback = false;
       switch (directive) {
-        // Normal match. Add the destination to the new search front.
+        // Normal match. Add the destination to the new search front. We don't
+        // need a local pop callback because this node will be added to the
+        // search front. The pop callback will be invoked when we backtrack
+        // later on.
         case kBrowserContinue:
           *sym_tags |= elem->outgoing_sym_tags;
           ++new_front;
@@ -610,6 +645,7 @@ DiaBrowser::BrowserDirective DiaBrowser::PushMatch(
         // Stop searching on this path: do not add the destination to the
         // search front and carry on as usual.
         case kBrowserTerminatePath:
+          need_pop_callback = true;
           break;
 
         // Stop searching using this pattern: do not add the destination to the
@@ -617,6 +653,71 @@ DiaBrowser::BrowserDirective DiaBrowser::PushMatch(
         case kBrowserTerminatePattern:
           stopped_[patid] = true;
           l = front_[f]->links.size();
+          need_pop_callback = true;
+          break;
+
+        // Both of these cause the search to terminate prematurely so we can
+        // return immediately.
+        case kBrowserTerminateAll:
+        case kBrowserAbort:
+          return directive;
+      }
+
+      // Sometimes elements are the leaf node in a search, in which case we
+      // need to immediately follow the push callback with a pop callback.
+      // NOTE: We are currently handling the pop callback in two places: in
+      // PopMatch and here. We could move all the handling to PopMatch if we
+      // also pushed 'dead' search avenues to the front, but this would require
+      // keeping additional state in the search front, or changing the semantics
+      // of InvokeCallback and the logic in this routine, BrowseImpl and
+      // PopMatch. Handling terminated paths here is far simpler.
+      if (need_pop_callback) {
+        directive = elem->InvokePopCallback(*this,
+                                            tag_lineage_,
+                                            symbol_lineage_);
+        if (directive == kBrowserTerminateAll || directive == kBrowserAbort)
+          return directive;
+        if (directive == kBrowserTerminatePattern) {
+          stopped_[patid] = true;
+          break;  // This breaks out of the for loop.
+        }
+      }
+    }
+  }
+
+  front_size_.push_back(new_front);
+  return new_front == 0 ? kBrowserTerminatePath : kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective DiaBrowser::PopMatch(bool do_callbacks) {
+  if (do_callbacks) {
+    // Before popping this bunch of elements from the search front, invoke their
+    // callbacks with a 'pop' notification.
+    size_t i = front_.size() - front_size_.back();
+    for (; i < front_.size(); ++i) {
+      // If this pattern is already stopped then we don't call the pop
+      // callback.
+      size_t patid = front_[i]->pattern_id;
+      if (stopped_[patid])
+        continue;
+
+      // Call the pop callback.
+      BrowserDirective directive =
+          front_[i]->InvokePopCallback(*this,
+                                       tag_lineage_,
+                                       symbol_lineage_);
+
+      switch (directive) {
+        // The path can't be stopped during a 'pop' notification, as its already
+        // been explored by that point. So TerminatePath is a nop.
+        case kBrowserContinue:
+        case kBrowserTerminatePath:
+          break;
+
+        // Stop searching using this pattern. This will prevent it from being
+        // used in further search paths.
+        case kBrowserTerminatePattern:
+          stopped_[patid] = true;
           break;
 
         // Both of these cause the search to terminate prematurely.
@@ -627,13 +728,11 @@ DiaBrowser::BrowserDirective DiaBrowser::PushMatch(
     }
   }
 
-  front_size_.push_back(new_front);
-  return new_front == 0 ? kBrowserTerminatePath : kBrowserContinue;
-}
-
-void DiaBrowser::PopMatch() {
+  // Pop off the match history.
   front_.resize(front_.size() - front_size_.back());
   front_size_.pop_back();
+
+  return kBrowserContinue;
 }
 
 bool DiaBrowser::Browse(IDiaSymbol* root) {
@@ -726,8 +825,15 @@ DiaBrowser::BrowserDirective DiaBrowser::BrowseEnum(
     directive = PushMatch(actual_sym_tag, symbol_id, &sym_tags_[depth + 1]);
     if (directive == kBrowserContinue)
       directive = BrowseImpl(symbol.get(), depth + 1);
-    PopMatch();
+    if (directive == kBrowserTerminateAll || directive == kBrowserAbort) {
+      // We've terminated the search already, so we don't need to invoke the
+      // pop callbacks.
+      PopMatch(false);
+      break;
+    }
 
+    // Roll back the search front, and terminate the search if need be.
+    directive = PopMatch(true);
     if (directive == kBrowserTerminateAll || directive == kBrowserAbort)
       break;
   }
@@ -882,8 +988,14 @@ Proxy Star(const Proxy& p) {
   return Proxy(PatternBuilder(PatternBuilder::kPatternStar, p));
 }
 
-Proxy Callback(const Proxy& p, const MatchCallback& callback) {
-  return Proxy(PatternBuilder(*p, callback));
+Proxy Callback(const Proxy& p, const MatchCallback& push_callback) {
+  return Proxy(PatternBuilder(*p, push_callback, MatchCallback()));
+}
+
+Proxy Callback(const Proxy& p,
+               const MatchCallback& push_callback,
+               const MatchCallback& pop_callback) {
+  return Proxy(PatternBuilder(*p, push_callback, pop_callback));
 }
 
 }  // namespace builder
