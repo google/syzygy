@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -768,6 +768,41 @@ bool ReadStringTable(PdbStream* stream,
 
   if (stream->pos() != table_end) {
     LOG(ERROR) << table_name << " stream is not valid.";
+    return false;
+  }
+
+  return true;
+}
+
+bool LoadNamedStreamFromPdbFile(
+    const base::StringPiece& stream_name,
+    PdbFile* pdb_file,
+    scoped_refptr<PdbStream>* stream) {
+  DCHECK(pdb_file != NULL);
+  DCHECK(stream != NULL);
+  DCHECK(stream->get() == NULL);
+
+  // Get the PDB header and try to get the named stream ID from it.
+  pdb::PdbInfoHeader70 pdb_header = {0};
+  pdb::NameStreamMap name_stream_map;
+  if (!ReadHeaderInfoStream(pdb_file->GetStream(pdb::kPdbHeaderInfoStream),
+                            &pdb_header,
+                            &name_stream_map)) {
+    LOG(ERROR) << "Failed to read header info stream.";
+    return false;
+  }
+
+  // The stream with the given name does not exist.
+  pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
+      stream_name.as_string());
+  if (name_it == name_stream_map.end())
+    return true;
+
+  // Get the named stream and ensure that it's not empty.
+  *stream = pdb_file->GetStream(name_it->second);
+  if (stream->get() == NULL) {
+    LOG(ERROR) << "Failed to read the \"" << stream_name.as_string()
+               << "\" stream from the PDB.";
     return false;
   }
 

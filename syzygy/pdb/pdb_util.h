@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include "base/file_path.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
 
@@ -179,6 +180,21 @@ bool ReadStringTable(PdbStream* stream,
                      size_t string_table_start,
                      size_t string_table_end,
                      OffsetStringMap* string_map);
+
+// Loads a named stream from the given PDB file.
+// @param stream_name the name of the stream to load.
+// @param pdb_file the PDB file from which to read the stream.
+// @param stream if the stream is found it will be returned via this pointer.
+//     This should be an empty pointer (not referring to any stream currently).
+// @returns true if no errors were encountered, false otherwise. If the named
+//     stream exists it is returned via @p stream.
+// @note It is possible for this function to return true (no errors were
+//     encountered), but for @p stream to remain NULL.
+bool LoadNamedStreamFromPdbFile(
+    const base::StringPiece& stream_name,
+    PdbFile* pdb_file,
+    scoped_refptr<PdbStream>* stream
+    );
 
 }  // namespace pdb
 

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -831,6 +831,24 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     ASSERT_TRUE(bar_stream->Read(&bar_data.at(0), bar_data.size()));
     ASSERT_EQ("bar", bar_data);
   }
+}
+
+TEST_F(PdbUtilTest, LoadNamedStreamFromPdbFile) {
+  PdbReader reader;
+  PdbFile pdb_file;
+  EXPECT_TRUE(reader.Read(
+      testing::GetOutputRelativePath(L"test_dll.pdb"),
+      &pdb_file));
+
+  scoped_refptr<PdbStream> stream;
+  EXPECT_TRUE(LoadNamedStreamFromPdbFile(
+      "StreamThatDoesNotExist", &pdb_file, &stream));
+  EXPECT_TRUE(stream.get() == NULL);
+
+  // The MSVC toolchain produces a handful of named streams whose existence we
+  // can rely on.
+  EXPECT_TRUE(LoadNamedStreamFromPdbFile("/LinkInfo", &pdb_file, &stream));
+  ASSERT_TRUE(stream.get() != NULL);
 }
 
 }  // namespace pdb
