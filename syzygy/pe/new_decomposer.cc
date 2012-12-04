@@ -14,6 +14,12 @@
 
 #include "syzygy/pe/new_decomposer.h"
 
+#include <windows.h>  // NOLINT
+#include <dia2.h>
+
+#include "base/utf_string_conversions.h"
+#include "base/win/scoped_bstr.h"
+#include "base/win/scoped_comptr.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
@@ -25,6 +31,38 @@
 #include "syzygy/pe/serialization.h"
 
 namespace pe {
+
+namespace {
+
+using base::win::ScopedBstr;
+using base::win::ScopedComPtr;
+
+bool InitializeDia(const PEFile& image_file,
+                   const FilePath& pdb_path,
+                   IDiaDataSource** dia_source,
+                   IDiaSession** dia_session,
+                   IDiaSymbol** global) {
+  if (!CreateDiaSource(dia_source))
+    return false;
+  DCHECK(*dia_source != NULL);
+
+  // We create the session using the PDB file directly, as we've already
+  // validated that it matches the module.
+  if (!CreateDiaSession(pdb_path, *dia_source, dia_session))
+    return false;
+  DCHECK(*dia_session != NULL);
+
+  HRESULT hr = (*dia_session)->get_globalScope(global);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get the DIA global scope: "
+               << com::LogHr(hr) << ".";
+    return false;
+  }
+
+  return true;
+}
+
+}  // namespace
 
 NewDecomposer::NewDecomposer(const PEFile& image_file)
     : image_file_(image_file), image_layout_(NULL), image_(NULL) {
@@ -193,6 +231,47 @@ bool NewDecomposer::LoadBlockGraphFromPdb(const FilePath& pdb_path,
 }
 
 bool NewDecomposer::DecomposeImpl() {
+  // Instantiate and initialize our Debug Interface Access session. This logs
+  // verbosely for us.
+  ScopedComPtr<IDiaDataSource> dia_source;
+  ScopedComPtr<IDiaSession> dia_session;
+  ScopedComPtr<IDiaSymbol> global;
+  if (!InitializeDia(image_file_, pdb_path_, dia_source.Receive(),
+                     dia_session.Receive(), global.Receive())) {
+    return false;
+  }
+
+  // Copy the image headers to the layout.
+  CopySectionHeadersToImageLayout(
+      image_file_.nt_headers()->FileHeader.NumberOfSections,
+      image_file_.section_headers(),
+      &(image_layout_->sections));
+
+  // Create the sections in the underlying block-graph.
+  if (!CreateBlockGraphSections())
+    return false;
+
+  return true;
+}
+
+bool NewDecomposer::CreateBlockGraphSections() {
+  // Iterate through the image sections, and create sections in the BlockGraph.
+  size_t num_sections = image_file_.nt_headers()->FileHeader.NumberOfSections;
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
+    std::string name = pe::PEFile::GetSectionName(*header);
+    BlockGraph::Section* section = image_->graph()->AddSection(
+        name, header->Characteristics);
+    DCHECK(section != NULL);
+
+    // For now, we expect them to have been created with the same IDs as those
+    // in the original image.
+    if (section->id() != i) {
+      LOG(ERROR) << "Unexpected section ID.";
+      return false;
+    }
+  }
+
   return true;
 }
 

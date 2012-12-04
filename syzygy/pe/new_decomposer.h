@@ -77,8 +77,13 @@ class NewDecomposer {
                                     bool* stream_exists);
   // @}
 
+  // @name Decomposition steps.
+  // @{
   // Performs the actual decomposition.
   bool DecomposeImpl();
+  // Creates sections in the block-graph corresponding to those in the image.
+  bool CreateBlockGraphSections();
+  // @}
 
   // The PEFile that is being decomposed.
   const PEFile& image_file_;

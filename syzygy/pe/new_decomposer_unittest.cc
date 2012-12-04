@@ -74,13 +74,86 @@ TEST_F(NewDecomposerTest, Decompose) {
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   EXPECT_TRUE(decomposer.Decompose(&image_layout));
+  EXPECT_FALSE(decomposer.pdb_path().empty());
+
+  EXPECT_EQ(6u, block_graph.sections().size());
+  EXPECT_EQ(6u, image_layout.sections.size());
+
+  EXPECT_EQ(".text", image_layout.sections[0].name);
+  EXPECT_NE(0U, image_layout.sections[0].addr.value());
+  EXPECT_NE(0U, image_layout.sections[0].size);
+  EXPECT_NE(0U, image_layout.sections[0].data_size);
+  EXPECT_EQ(IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ,
+            image_layout.sections[0].characteristics);
+
+  EXPECT_EQ(".rdata", image_layout.sections[1].name);
+  EXPECT_NE(0U, image_layout.sections[1].addr.value());
+  EXPECT_NE(0U, image_layout.sections[1].size);
+  EXPECT_NE(0U, image_layout.sections[1].data_size);
+  EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+            image_layout.sections[1].characteristics);
+
+  EXPECT_EQ(".data", image_layout.sections[2].name);
+  EXPECT_NE(0U, image_layout.sections[2].addr.value());
+  EXPECT_NE(0U, image_layout.sections[2].size);
+  EXPECT_NE(0U, image_layout.sections[2].data_size);
+  EXPECT_EQ(
+      IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE,
+      image_layout.sections[2].characteristics);
+
+  EXPECT_EQ(".tls", image_layout.sections[3].name);
+  EXPECT_NE(0U, image_layout.sections[3].addr.value());
+  EXPECT_NE(0U, image_layout.sections[3].size);
+  EXPECT_NE(0U, image_layout.sections[3].data_size);
+  EXPECT_EQ(
+      IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE,
+      image_layout.sections[3].characteristics);
+
+  EXPECT_EQ(".rsrc", image_layout.sections[4].name);
+  EXPECT_NE(0U, image_layout.sections[4].addr.value());
+  EXPECT_NE(0U, image_layout.sections[4].size);
+  EXPECT_NE(0U, image_layout.sections[4].data_size);
+  EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+      image_layout.sections[4].characteristics);
+
+  EXPECT_EQ(".reloc", image_layout.sections[5].name);
+  EXPECT_NE(0U, image_layout.sections[5].addr.value());
+  EXPECT_NE(0U, image_layout.sections[5].size);
+  EXPECT_NE(0U, image_layout.sections[5].data_size);
+  EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_DISCARDABLE |
+      IMAGE_SCN_MEM_READ, image_layout.sections[5].characteristics);
+
+  // We expect the ImageLayout sections to agree with the BlockGraph sections
+  // in number, id, name and characteristics.
+  EXPECT_EQ(block_graph.sections().size(), image_layout.sections.size());
+  for (size_t i = 0; i < image_layout.sections.size(); ++i) {
+    const BlockGraph::Section* section =
+        block_graph.GetSectionById(i);
+    ASSERT_TRUE(section != NULL);
+    EXPECT_EQ(section->id(), i);
+    EXPECT_EQ(section->name(), image_layout.sections[i].name);
+    EXPECT_EQ(section->characteristics(),
+              image_layout.sections[i].characteristics);
+  }
 
   // TODO(chrisha): Test the various things that are decomposed as the
   //    decomposer implementation is fleshed out.
-  EXPECT_EQ(0u, block_graph.sections().size());
   EXPECT_EQ(0u, block_graph.blocks().size());
-  EXPECT_EQ(0u, image_layout.sections.size());
   EXPECT_EQ(0u, image_layout.blocks.size());
+}
+
+TEST_F(NewDecomposerTest, DecomposeFailsWithNonexistentPdb) {
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  NewDecomposer decomposer(image_file);
+  decomposer.set_pdb_path(testing::GetExeRelativePath(L"nonexistent.pdb"));
+
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  EXPECT_FALSE(decomposer.Decompose(&image_layout));
 }
 
 namespace {
