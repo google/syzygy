@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ extern const int kDefaultEtwTraceFlags;
 extern const int kDefaultEtwKernelFlags;
 
 // RPC protocol and endpoint.
-extern const char* const kSyzygyRpcInstanceIdEnvVar;
+extern const char kSyzygyRpcInstanceIdEnvVar[];
 void GetSyzygyCallTraceRpcProtocol(std::wstring* protocol);
 void GetSyzygyCallTraceRpcEndpoint(const base::StringPiece16& id,
                                    std::wstring* endpoint);

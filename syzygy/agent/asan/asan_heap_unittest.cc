@@ -20,6 +20,7 @@
 #include "base/sha1.h"
 #include "base/debug/debugger.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace agent {
@@ -55,11 +56,15 @@ class TestHeapProxy : public HeapProxy {
 class HeapTest : public testing::Test {
  public:
   virtual void SetUp() OVERRIDE {
+    logger_.set_instance_id(L"bogus");
+    logger_.Init();
+    AsanLogger::SetInstance(&logger_);
     ASSERT_TRUE(proxy_.Create(0, 0, 0));
   }
 
   virtual void TearDown() OVERRIDE {
     ASSERT_TRUE(proxy_.Destroy());
+    AsanLogger::SetInstance(NULL);
   }
 
   // Verifies that [alloc, alloc + size) is accessible, and that
@@ -90,6 +95,7 @@ class HeapTest : public testing::Test {
   static const size_t kMaxAllocSize = 134584;
 
   TestHeapProxy proxy_;
+  AsanLogger logger_;
 };
 
 }  // namespace

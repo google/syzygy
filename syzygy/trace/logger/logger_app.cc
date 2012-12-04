@@ -38,6 +38,8 @@ namespace logger {
 
 namespace {
 
+using trace::client::GetInstanceString;
+
 // The usage string for the logger app.
 const char kUsageFormatStr[] =
     "Usage: %ls [options] ACTION [-- command]\n"
@@ -75,8 +77,7 @@ const size_t kMaxInstanceIdLength = arraysize(saved_instance_id) - 1;
 // Send a stop request via RPC to the logger instance given by @p instance_id.
 bool SendStopRequest(const base::StringPiece16& instance_id) {
   std::wstring protocol(kLoggerRpcProtocol);
-  std::wstring endpoint(
-      Logger::GetInstanceString(kLoggerRpcEndpointRoot, instance_id));
+  std::wstring endpoint(GetInstanceString(kLoggerRpcEndpointRoot, instance_id));
 
   LOG(INFO) << "Stopping logging service instance at '"
             << endpoint << "' via " << protocol << '.';
@@ -395,19 +396,18 @@ const LoggerApp::ActionTableEntry* LoggerApp::FindActionHandler(
 
 bool LoggerApp::Start() {
   std::wstring logger_name(
-      Logger::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
 
   // Acquire the logger mutex.
   base::win::ScopedHandle mutex;
-  std::wstring mutex_name(
-    Logger::GetInstanceString(kLoggerMutexRoot, instance_id_));
+  std::wstring mutex_name(GetInstanceString(kLoggerMutexRoot, instance_id_));
   if (!AcquireMutex(mutex_name, &mutex))
     return false;
 
   // Setup the start event.
   base::win::ScopedHandle start_event;
   std::wstring start_event_name(
-      Logger::GetInstanceString(kLoggerStartEventRoot, instance_id_));
+      GetInstanceString(kLoggerStartEventRoot, instance_id_));
   if (!InitEvent(start_event_name, &start_event)) {
     LOG(ERROR) << "Unable to init start event for '" << logger_name << "'.";
     return false;
@@ -416,7 +416,7 @@ bool LoggerApp::Start() {
   // Setup the stop event.
   base::win::ScopedHandle stop_event;
   std::wstring stop_event_name(
-      Logger::GetInstanceString(kLoggerStopEventRoot, instance_id_));
+      GetInstanceString(kLoggerStopEventRoot, instance_id_));
   if (!InitEvent(stop_event_name, &stop_event)) {
     LOG(ERROR) << "Unable to init stop event for '" << logger_name << "'.";
     return false;
@@ -506,7 +506,7 @@ bool LoggerApp::Status() {
 
 bool LoggerApp::Spawn() {
   std::wstring logger_name(
-      Logger::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
 
   LOG(INFO) << "Launching background logging service '" << logger_name << "'.";
 
@@ -537,7 +537,7 @@ bool LoggerApp::Spawn() {
   // Setup the start event.
   base::win::ScopedHandle start_event;
   std::wstring start_event_name(
-      Logger::GetInstanceString(kLoggerStartEventRoot, instance_id_));
+      GetInstanceString(kLoggerStartEventRoot, instance_id_));
   if (!InitEvent(start_event_name, &start_event)) {
     LOG(ERROR) << "Unable to init start event for '" << logger_name << "'.";
     return false;
@@ -561,12 +561,12 @@ bool LoggerApp::Spawn() {
 
 bool LoggerApp::Stop() {
   std::wstring logger_name(
-      Logger::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
 
   // Setup the stop event.
   base::win::ScopedHandle stop_event;
   std::wstring stop_event_name(
-      Logger::GetInstanceString(kLoggerStopEventRoot, instance_id_));
+      GetInstanceString(kLoggerStopEventRoot, instance_id_));
   if (!InitEvent(stop_event_name, &stop_event)) {
     LOG(ERROR) << "Unable to init stop event for '" << logger_name << "'.";
     return false;

@@ -18,16 +18,31 @@
 #include <list>
 
 #include "base/at_exit.h"
+#include "base/atomicops.h"
 #include "base/bind.h"
+#include "base/command_line.h"
+#include "base/environment.h"
 #include "base/logging.h"
+#include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/common/dlist.h"
-
+#include "syzygy/trace/protocol/call_trace_defs.h"
+#include "syzygy/trace/rpc/logger_rpc.h"
+#include "syzygy/trace/rpc/rpc_helpers.h"
 namespace {
 
+using agent::asan::HeapProxy;
+using agent::asan::AsanLogger;
+
+// Our AtExit manager required by base.
+base::AtExitManager* at_exit = NULL;
+
+// The global asan callback functor.
 typedef base::Callback<void()> AsanCallBack;
 AsanCallBack asan_callback;
 
@@ -56,10 +71,61 @@ void OnAsanError() {
   ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
 }
 
+std::wstring GetInstanceId() {
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  CHECK(env.get() != NULL);
+  std::string value;
+  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &value);
+  return UTF8ToWide(value);
+}
+
+void SetUpAtExitManager() {
+  DCHECK(at_exit == NULL);
+  at_exit = new base::AtExitManager();
+  CHECK(at_exit != NULL);
+}
+
+void TearDownAtExitManager() {
+  DCHECK(at_exit != NULL);
+  delete at_exit;
+  at_exit = NULL;
+}
+
+void SetUpLogger() {
+  DCHECK(AsanLogger::Instance() == NULL);
+
+  // Setup variables we're going to use.
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  scoped_ptr<AsanLogger> client(new AsanLogger);
+  CHECK(env.get() != NULL);
+  CHECK(client.get() != NULL);
+
+  // Initialize the client.
+  std::string instance_id;
+  if (env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id))
+    client->set_instance_id(UTF8ToWide(instance_id));
+  client->Init();
+
+  // Announce the client.
+  client->Write(base::StringPrintf(
+      "PID=%d; cmd-line='%ls'\n",
+      ::GetCurrentProcessId(),
+      CommandLine::ForCurrentProcess()->GetCommandLineString().c_str()));
+
+  // Register the client singleton instance.
+  AsanLogger::SetInstance(client.release());
+}
+
+void TearDownLogger() {
+  AsanLogger* temp_instance = AsanLogger::Instance();
+  DCHECK(temp_instance != NULL);
+  AsanLogger::SetInstance(NULL);
+  delete temp_instance;
+}
+
 }  // namespace
 
 extern "C" {
-using agent::asan::HeapProxy;
 
 static HANDLE process_heap = NULL;
 base::Lock heap_proxy_list_lock;
@@ -252,31 +318,40 @@ void WINAPI asan_SetCallBack(void (*callback)()) {
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
-  // Our AtExit manager required by base.
-  static base::AtExitManager* at_exit = NULL;
-
   switch (reason) {
     case DLL_PROCESS_ATTACH:
-      DCHECK(at_exit == NULL);
-      at_exit = new base::AtExitManager();
+      // Create the At-Exit manager.
+      SetUpAtExitManager();
+
+      // Initialize the command-line structures. This is needed so that
+      // SetUpLogger() can include the command-line in the message announcing
+      // this process. Note: this is mostly for debugging purposes.
+      CommandLine::Init(0, NULL);
+
+      // Setup the "global" state.
+      SetUpLogger();
       InitializeListHead(&heap_proxy_dlist);
       asan_SetCallBack(&OnAsanError);
       process_heap = GetProcessHeap();
       break;
 
     case DLL_THREAD_ATTACH:
+      // Nothing to do here.
       break;
 
     case DLL_THREAD_DETACH:
+      // Nothing to do here.
       break;
 
     case DLL_PROCESS_DETACH:
+      // This should be the last thing called in the agent DLL before it
+      // gets unloaded. Everything should otherwise have been initialized
+      // and we're now just cleaning it up again.
       DCHECK(IsListEmpty(&heap_proxy_dlist) == TRUE);
-      DCHECK(at_exit != NULL);
       DCHECK(asan_callback.is_null() == FALSE);
       asan_callback.Reset();
-      delete at_exit;
-      at_exit = NULL;
+      TearDownLogger();
+      TearDownAtExitManager();
       break;
 
     default:

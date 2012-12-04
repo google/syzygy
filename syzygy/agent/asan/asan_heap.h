@@ -20,6 +20,7 @@
 
 #include <windows.h>  // NOLINT
 
+#include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/common/dlist.h"
@@ -149,7 +150,7 @@ class HeapProxy {
   };
 
   // Returns a string describing a bad access kind.
-  static char* AccessTypeToStr(BadAccessKind bad_access_kind);
+  static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
 
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
@@ -158,32 +159,37 @@ class HeapProxy {
   // allocation of @p bytes.
   static size_t GetAllocSize(size_t bytes);
 
-  // Print the information about an address belonging to a memory block. This
-  // function will print the relative position of this address inside a block
+  // Get the information about an address belonging to a memory block. This
+  // function will output the relative position of this address inside a block
   // and the bounds of this block.
   // @param addr The address for which we want information.
   // @param header The block containing the address.
   // @param bad_access_kind The kind of bad access corresponding to this
   //     address.
-  void PrintAddressInformation(const void* addr,
-                               BlockHeader* header,
-                               BadAccessKind bad_access_kind);
+  // @param output The textual output will be returned here.
+  void GetAddressInformation(const void* addr,
+                             BlockHeader* header,
+                             BadAccessKind bad_access_kind,
+                             std::string* output);
 
-  // Report a basic Asan error to stderr. This function just dump the stack
-  // without providing information relative to the shadow memory.
+  // Low-level ASAN reporting function. This function dumps the stack,
+  // optionally including an extra (free-form) description of the address
+  // being accessed when the error occurred.
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
+  // @param addr_info A (possibly empty) string describing @p addr.
   // @param bad_access_kind The kind of error.
   // @param access_mode The mode of the access (read or write).
   // @param access_size The size of the access (in bytes).
   static void ReportAsanErrorBase(const char* bug_descr,
                                   const void* addr,
+                                  const base::StringPiece& addr_info,
                                   BadAccessKind bad_access_kind,
                                   AccessMode access_mode,
                                   size_t access_size);
 
-  // Report an Asan error to stderr with information about the address causing
-  // this error.
+  // Report an ASAN error, automatically including information about the
+  // address being accessed when the error occurred.
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
   // @param bad_access_kind The kind of error.

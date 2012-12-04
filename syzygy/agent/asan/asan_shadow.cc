@@ -14,6 +14,7 @@
 #include "syzygy/agent/asan/asan_shadow.h"
 
 #include "base/logging.h"
+#include "base/stringprintf.h"
 
 namespace agent {
 namespace asan {
@@ -65,27 +66,39 @@ bool __stdcall Shadow::IsAccessible(const void* addr) {
   return start < shadow;
 }
 
-void Shadow::PrintShadowBytes(const char *prefix, uintptr_t index) {
-  fprintf(stderr, "%s0x%08x:", prefix, reinterpret_cast<void*>(index << 3));
+void Shadow::AppendShadowByteText(const char *prefix,
+                              uintptr_t index,
+                              std::string* output) {
+  base::StringAppendF(
+      output, "%s0x%08x:", prefix, reinterpret_cast<void*>(index << 3));
   for (uint32 i = 0; i < 8; i++) {
     uint8 shadow_value = shadow_[index + i];
-    fprintf(stderr, " %x%x", shadow_value >> 4, shadow_value & 15);
+    base::StringAppendF(
+        output, " %x%x", shadow_value >> 4, shadow_value & 15);
   }
-  fprintf(stderr, "\n");
+  base::StringAppendF(output, "\n");
 }
 
-void Shadow::PrintShadowMemoryForAddress(const void* addr) {
+void Shadow::AppendShadowMemoryText(const void* addr,
+                                                 std::string* output) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= 3;
-  fprintf(stderr, "Shadow byte and word:\n");
-  fprintf(stderr, "  0x%08x: %x\n", addr, shadow_[index]);
+  base::StringAppendF(output, "Shadow byte and word:\n");
+  base::StringAppendF(output, "  0x%08x: %x\n", addr, shadow_[index]);
   index &= ~0x7;
-  PrintShadowBytes("  ", index);
-  fprintf(stderr, "More shadow bytes:\n");
+  AppendShadowByteText("  ", index, output);
+  base::StringAppendF(output,  "More shadow bytes:\n");
   for (int i = -4; i <= 4; i++) {
-    const char *prefix = (i == 0) ? "=>" : "  ";
-    PrintShadowBytes(prefix, (index + i * 8));
+    const char * const prefix = (i == 0) ? "=>" : "  ";
+    AppendShadowByteText(prefix, (index + i * 8), output);
   }
+}
+
+
+void Shadow::PrintShadowMemoryForAddress(const void* addr) {
+  std::string output;
+  AppendShadowMemoryText(addr, &output);
+  fprintf(stderr, "%s", output.c_str());
 }
 
 }  // namespace asan

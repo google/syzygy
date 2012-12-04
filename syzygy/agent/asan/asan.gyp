@@ -28,8 +28,14 @@
       'sources': [
         'asan_heap.cc',
         'asan_heap.h',
+        'asan_logger.cc',
+        'asan_logger.h',
         'asan_shadow.cc',
         'asan_shadow.h',
+      ],
+      'dependencies': [
+        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
+        '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },
     {
@@ -54,6 +60,7 @@
       'type': 'executable',
       'sources': [
         'asan_heap_unittest.cc',
+        'asan_logger_unittest.cc',
         'asan_rtl_unittest.cc',
         'asan_rtl_unittests_main.cc',
         'asan_shadow_unittest.cc',
@@ -64,6 +71,7 @@
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(DEPTH)/syzygy/trace/logger/logger.gyp:logger_lib',
         '<(DEPTH)/testing/gmock.gyp:gmock',
         '<(DEPTH)/testing/gtest.gyp:gtest',
        ],

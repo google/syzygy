@@ -107,41 +107,6 @@ inline const unsigned char* MakeUnsigned(const char* s) {
   return reinterpret_cast<const unsigned char*>(s);
 }
 
-// TODO(rogerm): Move to rpc helpers?
-class RpcBinding {
- public:
-  RpcBinding() : rpc_binding_(NULL) {
-  }
-
-  ~RpcBinding() {
-    Close();
-  }
-
-  operator handle_t() const { return rpc_binding_; }
-
-  bool Open(const base::StringPiece16& protocol,
-            const base::StringPiece16& endpoint) {
-    if (!CreateRpcBinding(protocol, endpoint, &rpc_binding_))
-      return false;
-    return true;
-  }
-
-  bool Close() {
-    if (rpc_binding_ == NULL)
-      return true;
-
-    RPC_STATUS status = ::RpcBindingFree(&rpc_binding_);
-    rpc_binding_ = NULL;
-    if (status != RPC_S_OK)
-      return false;
-
-    return true;
-  }
-
- protected:
-  handle_t rpc_binding_;
-};
-
 }  // namespace
 
 TEST_F(LoggerTest, StartStop) {
@@ -209,16 +174,16 @@ TEST_F(LoggerTest, RpcEntryPoints) {
   ASSERT_EQ(Logger::kRunning, logger_.state_);
 
   // Connect to the logger over RPC.
-  RpcBinding rpc_binding;
+  trace::client::ScopedRpcBinding rpc_binding;
   std::wstring endpoint(
-      Logger::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
   ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
 
   // Write to and stop the logger via RPC.
-  ASSERT_TRUE(LoggerClient_Write(rpc_binding, MakeUnsigned(kLine1)));
-  ASSERT_TRUE(LoggerClient_Write(rpc_binding, MakeUnsigned(kLine2)));
-  ASSERT_TRUE(LoggerClient_Write(rpc_binding, MakeUnsigned(kLine3)));
-  ASSERT_TRUE(LoggerClient_Stop(rpc_binding));
+  ASSERT_TRUE(LoggerClient_Write(rpc_binding.Get(), MakeUnsigned(kLine1)));
+  ASSERT_TRUE(LoggerClient_Write(rpc_binding.Get(), MakeUnsigned(kLine2)));
+  ASSERT_TRUE(LoggerClient_Write(rpc_binding.Get(), MakeUnsigned(kLine3)));
+  ASSERT_TRUE(LoggerClient_Stop(rpc_binding.Get()));
   ASSERT_TRUE(rpc_binding.Close());
 
   // Run the logger to completion.

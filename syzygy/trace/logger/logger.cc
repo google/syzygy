@@ -21,9 +21,12 @@
 #include "base/string_util.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
 namespace logger {
+
+using trace::client::GetInstanceString;
 
 Logger::Logger()
     : owning_thread_id_(base::PlatformThread::CurrentId()),
@@ -38,17 +41,6 @@ Logger::~Logger() {
     ignore_result(RunToCompletion());
   }
   DCHECK_EQ(kStopped, state_);
-}
-
-std::wstring Logger::GetInstanceString(
-    const base::StringPiece16& root, const base::StringPiece16& instance_id) {
-  std::wstring result(root.begin(), root.end());
-  if (!instance_id.empty()) {
-    result += L'-';
-    result.append(instance_id.begin(), instance_id.end());
-  }
-
-  return result;
 }
 
 bool Logger::Start() {

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,5 +62,42 @@ bool CreateRpcBinding(const base::StringPiece16& protocol,
   return true;
 }
 
-}  // namespace trace::client
+std::wstring GetInstanceString(
+    const base::StringPiece16& root, const base::StringPiece16& instance_id) {
+  std::wstring result(root.begin(), root.end());
+  if (!instance_id.empty()) {
+    result += L'-';
+    result.append(instance_id.begin(), instance_id.end());
+  }
+
+  return result;
+}
+
+ScopedRpcBinding::ScopedRpcBinding() : rpc_binding_(NULL) {
+}
+
+ScopedRpcBinding::~ScopedRpcBinding() {
+  Close();
+}
+
+bool ScopedRpcBinding::Open(const base::StringPiece16& protocol,
+                            const base::StringPiece16& endpoint) {
+  if (!CreateRpcBinding(protocol, endpoint, &rpc_binding_))
+    return false;
+  return true;
+}
+
+bool ScopedRpcBinding::Close() {
+  if (rpc_binding_ == NULL)
+    return true;
+
+  RPC_STATUS status = ::RpcBindingFree(&rpc_binding_);
+  rpc_binding_ = NULL;
+  if (status != RPC_S_OK)
+    return false;
+
+  return true;
+}
+
+}  // namespace client
 }  // namespace trace

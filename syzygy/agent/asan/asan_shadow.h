@@ -16,6 +16,8 @@
 #ifndef SYZYGY_AGENT_ASAN_ASAN_SHADOW_H_
 #define SYZYGY_AGENT_ASAN_ASAN_SHADOW_H_
 
+#include <string>
+
 #include "base/basictypes.h"
 
 namespace agent {
@@ -35,13 +37,19 @@ class Shadow {
   // Returns true iff the byte at @p addr is not poisoned.
   static bool __stdcall IsAccessible(const void* addr);
 
-  // Print the content of the shadow memory for @p addr.
+  // Print the contents of the shadow memory for @p addr.
   static void PrintShadowMemoryForAddress(const void* addr);
 
+  // Appends a textual description of the shadow memory for @p addr to
+  // @p output.
+  static void AppendShadowMemoryText(const void* addr, std::string* output);
+
  private:
-  // Print the shadow bytes from shadow_[index] to shadow_[index + 7] on a line
-  // prefixed by @p prefix.
-  static void PrintShadowBytes(const char *prefix, uintptr_t index);
+  // Appends a line of shadow byte text from for the bytes ranging from
+  // shadow_[index] to shadow_[index + 7], prefixed by @p prefix.
+  static void AppendShadowByteText(const char *prefix,
+                                   uintptr_t index,
+                                   std::string* output);
 
   // One shadow byte for every 8 bytes in a 4G address space.
   static const size_t kShadowSize = 1 << (32 - 3);

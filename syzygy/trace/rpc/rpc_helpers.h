@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ namespace client {
 // Create an RPC binding.
 //
 // @param protocol The RPC protocol to bind.
-// @param endpoint The endoint/address to bind.
+// @param endpoint The endpoint/address to bind.
 // @param out_handle A handle to the rpc binding will be returned here.
 //
 // @return true on success.
@@ -114,7 +114,36 @@ RpcStatus InvokeRpc(const Func& func,
   return status;
 }
 
-}  // namespace trace::client
+// A helper function to get an @p instance_id specialized version of the
+// given @p root string.
+std::wstring GetInstanceString(const base::StringPiece16& root,
+                               const base::StringPiece16& instance_id);
+
+// A helper class to manage an RPC binding handle.
+class ScopedRpcBinding {
+ public:
+  ScopedRpcBinding();
+  ~ScopedRpcBinding();
+
+  // @returns the underlying RPC handle.
+  handle_t Get() const { return rpc_binding_; }
+
+  // Opens an RPC connection to @p endpoint using @p protocol.
+  bool Open(const base::StringPiece16& protocol,
+            const base::StringPiece16& endpoint);
+
+  // Closes this RPC connection.
+  bool Close();
+
+ protected:
+  // The OS level binding to the RPC layer.
+  handle_t rpc_binding_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ScopedRpcBinding);
+};
+
+}  // namespace client
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_RPC_RPC_HELPERS_H_

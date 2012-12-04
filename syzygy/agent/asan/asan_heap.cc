@@ -15,7 +15,9 @@
 #include "syzygy/agent/asan/asan_heap.h"
 
 #include "base/logging.h"
+#include "base/stringprintf.h"
 #include "base/debug/stack_trace.h"
+#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace agent {
@@ -332,9 +334,10 @@ uint8* HeapProxy::ToAlloc(BlockHeader* block) {
   return mem + kRedZoneSize;
 }
 
-void HeapProxy::PrintAddressInformation(const void* addr,
-                                        BlockHeader* header,
-                                        BadAccessKind bad_access_kind) {
+void HeapProxy::GetAddressInformation(const void* addr,
+                                      BlockHeader* header,
+                                      BadAccessKind bad_access_kind,
+                                      std::string* output) {
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
   uint8* block_alloc = ToAlloc(header);
@@ -357,30 +360,32 @@ void HeapProxy::PrintAddressInformation(const void* addr,
       NOTREACHED() << "Error trying to dump address information.";
   }
 
-  fprintf(stderr, "0x%08X is located %d bytes %s of %d-bytes region "
-          "[0x%08X,0x%08X)\n",
-          addr,
-          offset,
-          offset_relativity,
-          header->size,
-          block_alloc,
-          block_alloc + header->size);
+  base::StringAppendF(
+      output,
+      "0x%08X is located %d bytes %s of %d-bytes region [0x%08X,0x%08X)\n",
+      addr,
+      offset,
+      offset_relativity,
+      header->size,
+      block_alloc,
+      block_alloc + header->size);
   if (header->free_stack_trace != NULL) {
-    fprintf(stderr, "freed here:\n");
-    base::debug::StackTrace alloc_trace(
+    base::debug::StackTrace free_trace(
         static_cast<const void* const*>(header->free_stack_trace),
         header->free_stack_trace_size);
-    alloc_trace.PrintBacktrace();
+    base::StringAppendF(
+        output, "freed here:\n%s", free_trace.ToString().c_str());
   }
   if (header->alloc_stack_trace != NULL) {
-    fprintf(stderr, "previously allocated here:\n");
     base::debug::StackTrace alloc_trace(
         static_cast<const void* const*>(header->alloc_stack_trace),
         header->alloc_stack_trace_size);
-    alloc_trace.PrintBacktrace();
+    base::StringAppendF(output,
+                        "previously allocated here:\n%s",
+                        alloc_trace.ToString().c_str());
   }
 
-  Shadow::PrintShadowMemoryForAddress(addr);
+  Shadow::AppendShadowMemoryText(addr, output);
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
@@ -461,6 +466,7 @@ void HeapProxy::ReportUnknownError(const void* addr,
                                    size_t access_size) {
   ReportAsanErrorBase("unknown-crash",
                       addr,
+                      "",  // No extra address info.
                       UNKNOWN_BAD_ACCESS,
                       access_mode,
                       access_size);
@@ -473,19 +479,24 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
                                 AccessMode access_mode,
                                 size_t access_size) {
   DCHECK(header != NULL);
+  std::string addr_info;
+
+  GetAddressInformation(addr,
+                        header,
+                        bad_access_kind,
+                        &addr_info);
 
   ReportAsanErrorBase(bug_descr,
                       addr,
+                      addr_info,
                       bad_access_kind,
                       access_mode,
                       access_size);
-  PrintAddressInformation(static_cast<const uint8*>(addr),
-                          header,
-                          bad_access_kind);
 }
 
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     const void* addr,
+                                    const base::StringPiece& addr_info,
                                     BadAccessKind bad_access_kind,
                                     AccessMode access_mode,
                                     size_t access_size) {
@@ -493,21 +504,29 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
   DCHECK(addr != NULL);
 
   // TODO(sebmarchand): Print PC, BP and SP.
-  fprintf(stderr, "SyzyASAN error: %s on address 0x%08X\n", bug_descr, addr);
+  std::string output(base::StringPrintf(
+      "SyzyASAN error: %s on address 0x%08X\n", bug_descr, addr));
   if (access_mode != ASAN_UNKNOWN_ACCESS) {
     const char* access_mode_str = NULL;
     if (access_mode == ASAN_READ_ACCESS)
       access_mode_str = "READ";
     else
       access_mode_str = "WRITE";
-    fprintf(stderr, "%s of size %d at 0x%08X\n", access_mode_str, access_size);
+    base::StringAppendF(&output,
+                        "%s of size %d at 0x%08X\n",
+                        access_mode_str,
+                        access_size);
   }
 
   base::debug::StackTrace stack_trace;
-  stack_trace.PrintBacktrace();
+  base::StringAppendF(&output, "%s", stack_trace.ToString().c_str());
+
+  output.append(addr_info.begin(), addr_info.end());
+
+  AsanLogger::Instance()->Write(output);
 }
 
-char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
+const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
   switch (bad_access_kind) {
     case USE_AFTER_FREE:
       return "heap-use-after-free";

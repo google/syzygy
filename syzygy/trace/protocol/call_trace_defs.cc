@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ const int kDefaultEtwKernelFlags = EVENT_TRACE_FLAG_PROCESS |
                                    EVENT_TRACE_FLAG_FILE_IO;
 
 // Environment variable used for the RPC Instance ID suffix.
-const char* const kSyzygyRpcInstanceIdEnvVar = "SYZYGY_RPC_INSTANCE_ID";
+const char kSyzygyRpcInstanceIdEnvVar[] = "SYZYGY_RPC_INSTANCE_ID";
 
 namespace {
 

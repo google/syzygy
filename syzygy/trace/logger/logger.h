@@ -48,11 +48,6 @@ class Logger {
   Logger();
   ~Logger();
 
-  // A helper function to get an @p instance_id specialized version of the
-  // given @p root string.
-  static std::wstring GetInstanceString(const base::StringPiece16& root,
-                                        const base::StringPiece16& instance_id);
-
   // Set the id for this instance.
   void set_instance_id(const base::StringPiece16& id) {
     DCHECK_EQ(kStopped, state_);
