@@ -33,6 +33,7 @@ namespace {
 
 using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
+using core::RelativeAddress;
 
 // Exposes the protected methods for testing.
 class TestNewDecomposer : public NewDecomposer {
@@ -75,6 +76,24 @@ TEST_F(NewDecomposerTest, Decompose) {
   ImageLayout image_layout(&block_graph);
   EXPECT_TRUE(decomposer.Decompose(&image_layout));
   EXPECT_FALSE(decomposer.pdb_path().empty());
+
+    // Retrieve and validate the DOS header.
+  BlockGraph::Block* dos_header_block =
+      image_layout.blocks.GetBlockByAddress(RelativeAddress(0));
+  ASSERT_TRUE(dos_header_block != NULL);
+  ASSERT_TRUE(IsValidDosHeaderBlock(dos_header_block));
+
+  // Retrieve and validate the NT header.
+  BlockGraph::Block* nt_headers_block =
+      GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
+  ASSERT_TRUE(nt_headers_block != NULL);
+  ASSERT_TRUE(IsValidNtHeadersBlock(nt_headers_block));
+
+  // There should be some blocks in the graph and in the layout, and the same
+  // number in the block-graph and image layout.
+  EXPECT_LT(0u, block_graph.blocks().size());
+  EXPECT_LT(0u, image_layout.blocks.size());
+  EXPECT_EQ(block_graph.blocks().size(), image_layout.blocks.size());
 
   EXPECT_EQ(6u, block_graph.sections().size());
   EXPECT_EQ(6u, image_layout.sections.size());
@@ -136,10 +155,61 @@ TEST_F(NewDecomposerTest, Decompose) {
               image_layout.sections[i].characteristics);
   }
 
-  // TODO(chrisha): Test the various things that are decomposed as the
-  //    decomposer implementation is fleshed out.
-  EXPECT_EQ(0u, block_graph.blocks().size());
-  EXPECT_EQ(0u, image_layout.blocks.size());
+  // We expect every block to be associated with a section, and only two blocks
+  // should not be assigned to a section--the two header blocks.
+  size_t non_section_blocks = 0;
+  BlockGraph::BlockMap::const_iterator it =
+      block_graph.blocks().begin();
+  for (; it != block_graph.blocks().end(); ++it) {
+    const BlockGraph::Block& block = it->second;
+    if (block.section() == BlockGraph::kInvalidSectionId) {
+      ++non_section_blocks;
+    } else {
+      // If this is not a header block, it should refer to a valid section id.
+      EXPECT_LE(0u, block.section());
+      EXPECT_LT(block.section(), block_graph.sections().size());
+    }
+  }
+  EXPECT_EQ(2u, non_section_blocks);
+
+  // Every byte of each section must be accounted for by all of the non-header
+  // blocks.
+  size_t section_blocks = 0;
+  for (size_t i = 0; i < image_layout.sections.size(); ++i) {
+    BlockGraph::AddressSpace::RangeMapConstIterPair it_pair =
+        image_layout.blocks.GetIntersectingBlocks(
+            image_layout.sections[i].addr,
+            image_layout.sections[i].size);
+
+    // Make sure the first iterator is dereferenceable.
+    ASSERT_TRUE(it_pair.first != image_layout.blocks.end());
+
+    // The first and last iterators should not be the same.
+    EXPECT_TRUE(it_pair.first != it_pair.second);
+
+    // The first iterator should start at the beginning of the section.
+    EXPECT_EQ(image_layout.sections[i].addr, it_pair.first->first.start());
+
+    // Ensure the blocks are contiguous, and count the number of blocks as we
+    // go.
+    BlockGraph::AddressSpace::RangeMapConstIter it_old = it_pair.first;
+    BlockGraph::AddressSpace::RangeMapConstIter it_cur = it_pair.first;
+    ++it_cur;
+    ++section_blocks;
+    while (it_cur != it_pair.second) {
+      EXPECT_EQ(it_old->first.end(), it_cur->first.start());
+      it_old = it_cur;
+      ++it_cur;
+      ++section_blocks;
+    }
+
+    // Make sure the last block perfectly covers the section.
+    EXPECT_EQ(image_layout.sections[i].addr + image_layout.sections[i].size,
+              it_old->first.end());
+  }
+
+  // All of the blocks should have been covered, save the 2 header blocks.
+  EXPECT_EQ(section_blocks + 2, image_layout.blocks.size());
 }
 
 TEST_F(NewDecomposerTest, DecomposeFailsWithNonexistentPdb) {

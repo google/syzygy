@@ -21,6 +21,8 @@
 #ifndef SYZYGY_PE_NEW_DECOMPOSER_H_
 #define SYZYGY_PE_NEW_DECOMPOSER_H_
 
+#include <windows.h>  // NOLINT
+#include <dia2.h>
 #include <vector>
 
 #include "syzygy/pdb/pdb_file.h"
@@ -32,6 +34,9 @@ namespace pe {
 
 class NewDecomposer {
  public:
+  struct IntermediateReference;
+  typedef std::vector<IntermediateReference> IntermediateReferences;
+
   // Initialize the decomposer for a given image file.
   // @param image_file the image file to decompose. This must outlive the
   //     instance of the decomposer.
@@ -83,6 +88,41 @@ class NewDecomposer {
   bool DecomposeImpl();
   // Creates sections in the block-graph corresponding to those in the image.
   bool CreateBlockGraphSections();
+  // Parses PE-related blocks and references.
+  bool CreatePEImageBlocksAndReferences(IntermediateReferences* references);
+  // Processes the SectionContribution table, creating code/data blocks from it.
+  bool CreateBlocksFromSectionContribs(IDiaSession* session);
+  // Creates gap blocks to flesh out the image. After this has been run all
+  // references should be resolvable.
+  bool CreateGapBlocks();
+  // Finalizes the given vector of intermediate references.
+  bool FinalizeIntermediateReferences(const IntermediateReferences& references);
+  // @}
+
+  // @name Block creation members.
+  // @{
+  // Creates a new block with the given properties, and attaches the
+  // data to it. This assumes that no conflicting block exists.
+  BlockGraph::Block* CreateBlock(BlockGraph::BlockType type,
+                                 RelativeAddress address,
+                                 BlockGraph::Size size,
+                                 const base::StringPiece& name);
+  // Creates a new block with the given properties, or finds an existing PE
+  // parsed block that subsumes it.
+  BlockGraph::Block* CreateBlockOrFindCoveringPeBlock(
+      BlockGraph::BlockType type,
+      RelativeAddress address,
+      BlockGraph::Size size,
+      const base::StringPiece& name);
+  // Creates a gap block of type @p block_type for the given range. For use by
+  // CreateSectionGapBlocks.
+  bool CreateGapBlock(BlockGraph::BlockType block_type,
+                      RelativeAddress address,
+                      BlockGraph::Size size);
+  // Create blocks of type @p block_type for any gaps in the image
+  // section represented by @p header.
+  bool CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
+                              BlockGraph::BlockType block_type);
   // @}
 
   // The PEFile that is being decomposed.
