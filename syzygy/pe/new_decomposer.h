@@ -82,7 +82,7 @@ class NewDecomposer {
                                     bool* stream_exists);
   // @}
 
-  // @name Decomposition steps.
+  // @name Decomposition steps, in order.
   // @{
   // Performs the actual decomposition.
   bool DecomposeImpl();
@@ -97,6 +97,8 @@ class NewDecomposer {
   bool CreateGapBlocks();
   // Finalizes the given vector of intermediate references.
   bool FinalizeIntermediateReferences(const IntermediateReferences& references);
+  // Creates inter-block references from fixups.
+  bool CreateReferencesFromFixups(IDiaSession* session);
   // @}
 
   // @name Block creation members.

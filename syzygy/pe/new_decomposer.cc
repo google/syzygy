@@ -20,7 +20,9 @@
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/core/zstream.h"
+#include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
+#include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -47,6 +49,7 @@ namespace {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 using block_graph::BlockGraph;
+using core::AbsoluteAddress;
 using core::RelativeAddress;
 
 typedef BlockGraph::Block Block;
@@ -57,6 +60,8 @@ typedef BlockGraph::ReferenceType ReferenceType;
 typedef core::AddressRange<RelativeAddress, size_t> RelativeRange;
 typedef NewDecomposer::IntermediateReference IntermediateReference;
 typedef NewDecomposer::IntermediateReferences IntermediateReferences;
+typedef std::vector<OMAP> OMAPs;
+typedef std::vector<pdb::PdbFixup> PdbFixups;
 
 bool InitializeDia(const PEFile& image_file,
                    const FilePath& pdb_path,
@@ -287,6 +292,199 @@ bool CreateReference(RelativeAddress src_addr,
   return true;
 }
 
+// Loads FIXUP and OMAP_FROM debug streams.
+bool LoadDebugStreams(IDiaSession* dia_session,
+                      PdbFixups* pdb_fixups,
+                      OMAPs* omap_from) {
+  DCHECK(dia_session != NULL);
+  DCHECK(pdb_fixups != NULL);
+  DCHECK(omap_from != NULL);
+
+  // Load the fixups. These must exist.
+  SearchResult search_result = FindAndLoadDiaDebugStreamByName(
+      kFixupDiaDebugStreamName, dia_session, pdb_fixups);
+  if (search_result != kSearchSucceeded) {
+    if (search_result == kSearchFailed) {
+      LOG(ERROR) << "PDB file does not contain a FIXUP stream. Module must be "
+                    "linked with '/PROFILE' or '/DEBUGINFO:FIXUP' flag.";
+    }
+    return false;
+  }
+
+  // Load the omap_from table. It is not necessary that one exist.
+  search_result = FindAndLoadDiaDebugStreamByName(
+      kOmapFromDiaDebugStreamName, dia_session, omap_from);
+  if (search_result == kSearchErrored) {
+    LOG(ERROR) << "Error trying to read " << kOmapFromDiaDebugStreamName
+               << " stream.";
+    return false;
+  }
+
+  return true;
+}
+
+bool GetFixupDestinationAndType(const PEFile& image_file,
+                                const pdb::PdbFixup& fixup,
+                                RelativeAddress* dst_addr,
+                                ReferenceType* ref_type) {
+  DCHECK(dst_addr != NULL);
+  DCHECK(ref_type != NULL);
+
+  RelativeAddress src_addr(fixup.rva_location);
+
+  // Get the destination address from the actual image itself. We only see
+  // fixups for 32-bit references.
+  uint32 data = 0;
+  if (!image_file.ReadImage(src_addr, &data, sizeof(data))) {
+    LOG(ERROR) << "Unable to read image data for fixup with source address "
+                << "at" << src_addr << ".";
+    return false;
+  }
+
+  // Translate this to a relative address.
+  switch (fixup.type) {
+    case pdb::PdbFixup::TYPE_ABSOLUTE: {
+      *ref_type = BlockGraph::ABSOLUTE_REF;
+      AbsoluteAddress dst_addr_abs(data);
+      if (!image_file.Translate(dst_addr_abs, dst_addr)) {
+        LOG(ERROR) << "Unable to translate " << dst_addr_abs << ".";
+        return false;
+      }
+      break;
+    }
+
+    case pdb::PdbFixup::TYPE_PC_RELATIVE: {
+      *ref_type = BlockGraph::PC_RELATIVE_REF;
+      *dst_addr = RelativeAddress(fixup.rva_location) + sizeof(data) + data;
+      break;
+    }
+
+    case pdb::PdbFixup::TYPE_RELATIVE: {
+      *ref_type = BlockGraph::RELATIVE_REF;
+      *dst_addr = RelativeAddress(data);
+      break;
+    }
+
+    default: {
+      LOG(ERROR) << "Unexpected fixup type (" << fixup.type << ").";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Creates references from the @p pdb_fixups (translating them via the
+// provided @p omap_from information if it is not empty), all while removing the
+// corresponding entries from @p reloc_set. If @p reloc_set is not empty after
+// this then the PDB fixups are out of sync with the image and we are unable to
+// safely decompose.
+//
+// @note This function deliberately ignores fixup information for the resource
+//     section. This is because chrome.dll gets modified by a manifest tool
+//     which doesn't update the FIXUPs in the corresponding PDB. They are thus
+//     out of sync. Even if they were in sync this doesn't harm us as we have no
+//     need to reach in and modify resource data.
+bool CreateReferencesFromFixupsImpl(
+    const PEFile& image_file,
+    const PdbFixups& pdb_fixups,
+    const OMAPs& omap_from,
+    PEFile::RelocSet* reloc_set,
+    BlockGraph::AddressSpace* image) {
+  DCHECK(reloc_set != NULL);
+  DCHECK(image != NULL);
+
+  bool have_omap = omap_from.size() != 0;
+  size_t fixups_used = 0;
+
+  // The resource section in Chrome is modified post-link by a tool that adds a
+  // manifest to it. This causes all of the fixups in the resource section (and
+  // anything beyond it) to be invalid. As long as the resource section is the
+  // last section in the image, this is not a problem (we can safely ignore the
+  // .rsrc fixups, which we know how to parse without them). However, if there
+  // is a section after the resource section, things will have been shifted
+  // and potentially crucial fixups will be invalid.
+  const IMAGE_SECTION_HEADER* rsrc_header = image_file.GetSectionHeader(
+      kResourceSectionName);
+  RelativeAddress rsrc_start(0xffffffff);
+  RelativeAddress rsrc_end(0xffffffff);
+  if (rsrc_header != NULL) {
+    rsrc_start = RelativeAddress(rsrc_header->VirtualAddress);
+    rsrc_end = rsrc_start + rsrc_header->Misc.VirtualSize;
+  }
+
+  // Ensure the fixups are all valid.
+  size_t skipped = 0;
+  for (size_t i = 0; i < pdb_fixups.size(); ++i) {
+    if (!pdb_fixups[i].ValidHeader()) {
+      LOG(ERROR) << "Unknown fixup header: "
+                 << StringPrintf("0x%08X.", pdb_fixups[i].header);
+      return false;
+    }
+
+    // For now, we skip any offset fixups. We've only seen this in the context
+    // of TLS data access, and we don't mess with TLS structures.
+    if (pdb_fixups[i].is_offset())
+      continue;
+
+    // All fixups we handle should be full size pointers.
+    DCHECK_EQ(Reference::kMaximumSize, pdb_fixups[i].size());
+
+    // Get the original addresses, and map them through OMAP information.
+    // Normally DIA takes care of this for us, but there is no API for
+    // getting DIA to give us FIXUP information, so we have to do it manually.
+    RelativeAddress src_addr(pdb_fixups[i].rva_location);
+    RelativeAddress base_addr(pdb_fixups[i].rva_base);
+    if (have_omap) {
+      src_addr = pdb::TranslateAddressViaOmap(omap_from, src_addr);
+      base_addr = pdb::TranslateAddressViaOmap(omap_from, base_addr);
+    }
+
+    // If the reference originates beyond the .rsrc section then we can't
+    // trust it.
+    if (src_addr >= rsrc_end) {
+      LOG(ERROR) << "Found fixup originating beyond .rsrc section.";
+      return false;
+    }
+
+    // If the reference originates from a part of the .rsrc section, ignore it.
+    if (src_addr >= rsrc_start)
+      continue;
+
+    // Get the destination address of the fixup. This logs verbosely for us.
+    RelativeAddress dst_addr;
+    ReferenceType type = BlockGraph::RELATIVE_REF;
+    if (!GetFixupDestinationAndType(image_file, pdb_fixups[i], &dst_addr,
+                                    &type)) {
+      return false;
+    }
+
+    // Finally, create the reference. This logs verbosely for us on failure.
+    if (!CreateReference(src_addr, Reference::kMaximumSize, type, base_addr,
+                         dst_addr, image)) {
+      return false;
+    }
+
+    // Remove this reference from the relocs.
+    PEFile::RelocSet::iterator reloc_it = reloc_set->find(src_addr);
+    if (reloc_it != reloc_set->end()) {
+      // We should only find a reloc if the fixup was of absolute type.
+      if (type != BlockGraph::ABSOLUTE_REF) {
+        LOG(ERROR) << "Found a reloc corresponding to a non-absolute fixup.";
+        return false;
+      }
+
+      reloc_set->erase(reloc_it);
+    }
+
+    ++fixups_used;
+  }
+
+  LOG(INFO) << "Used " << fixups_used << " of " << pdb_fixups.size() << ".";
+
+  return true;
+}
+
 }  // namespace
 
 NewDecomposer::NewDecomposer(const PEFile& image_file)
@@ -500,6 +698,10 @@ bool NewDecomposer::DecomposeImpl() {
       return false;
   }
 
+  // Parse the fixups and use them to create references.
+  if (!CreateReferencesFromFixups(dia_session.get()))
+    return false;
+
   return true;
 }
 
@@ -679,6 +881,34 @@ bool NewDecomposer::FinalizeIntermediateReferences(
       return false;
     }
   }
+  return true;
+}
+
+bool NewDecomposer::CreateReferencesFromFixups(IDiaSession* session) {
+  DCHECK(session != NULL);
+
+  PEFile::RelocSet reloc_set;
+  if (!image_file_.DecodeRelocs(&reloc_set))
+    return false;
+
+  OMAPs omap_from;
+  PdbFixups fixups;
+  if (!LoadDebugStreams(session, &fixups, &omap_from))
+    return false;
+
+  // While creating references from the fixups this removes the
+  // corresponding reference data from the relocs. We use this as a kind of
+  // double-entry bookkeeping to ensure all is well and right in the world.
+  if (!CreateReferencesFromFixupsImpl(image_file_, fixups, omap_from,
+                                      &reloc_set, image_)) {
+    return false;
+  }
+
+  if (!reloc_set.empty()) {
+    LOG(ERROR) << "Found reloc entries without matching FIXUP entries.";
+    return false;
+  }
+
   return true;
 }
 
