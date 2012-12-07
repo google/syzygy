@@ -172,8 +172,10 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
 bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(heap_ != NULL);
   BlockHeader* block = ToBlock(mem);
+  // The standard allows to call free on a null pointer. ToBlock returns null if
+  // the given pointer is null so we return true here.
   if (block == NULL)
-    return false;
+    return true;
 
   if (block->state != ALLOCATED) {
     // We're not supposed to see another kind of block here, the FREED state
