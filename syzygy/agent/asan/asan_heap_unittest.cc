@@ -35,6 +35,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::FindAddressBlock;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::ToBlock;
+  using HeapProxy::quarantine_max_size_;
 
   // Verify that the access to @p addr contained in @p header is an underflow.
   bool IsUnderflowAccess(uint8* addr, BlockHeader* header) {
@@ -104,6 +105,16 @@ TEST_F(HeapTest, ToFromHandle) {
   HANDLE handle = HeapProxy::ToHandle(&proxy_);
   ASSERT_TRUE(handle != NULL);
   ASSERT_EQ(&proxy_, HeapProxy::FromHandle(handle));
+}
+
+TEST_F(HeapTest, SetMaxQuarantineSize) {
+  size_t quarantine_size = TestHeapProxy::quarantine_max_size_ * 2;
+  // Increments the quarantine max size if it was set to 0.
+  if (quarantine_size == 0)
+    quarantine_size++;
+  DCHECK_GT(quarantine_size, 0U);
+  HeapProxy::SetQuarantineMaxSize(quarantine_size);
+  ASSERT_EQ(quarantine_size, TestHeapProxy::quarantine_max_size_);
 }
 
 TEST_F(HeapTest, AllocFree) {

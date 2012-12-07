@@ -74,6 +74,10 @@ void CaptureStackTrace(void** stack_trace, uint8* trace_size) {
 
 }  // namespace
 
+// Arbitrarily keep 16 megabytes of quarantine per heap by default.
+const size_t HeapProxy::kDefaultQuarantineSize = 16 * 1024 * 1024;
+size_t HeapProxy::quarantine_max_size_ = kDefaultQuarantineSize;
+
 HeapProxy::HeapProxy()
     : heap_(NULL),
       head_(NULL),
@@ -169,7 +173,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(heap_ != NULL);
   BlockHeader* block = ToBlock(mem);
   if (block == NULL)
-    return true;
+    return false;
 
   if (block->state != ALLOCATED) {
     // We're not supposed to see another kind of block here, the FREED state
@@ -268,11 +272,9 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   quarantine_size_ += alloc_size;
   // Mark the block as quarantined.
   free_block->state = QUARANTINED;
-  // Arbitrarily keep ten megabytes of quarantine per heap.
-  const size_t kMaxQuarantineSizeBytes = 10 * 1024 * 1024;
 
   // Flush quarantine overage.
-  while (quarantine_size_ > kMaxQuarantineSizeBytes) {
+  while (quarantine_size_ > quarantine_max_size_) {
     DCHECK(head_ != NULL && tail_ != NULL);
 
     free_block = head_;

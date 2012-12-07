@@ -96,6 +96,16 @@ class HeapProxy {
   static HeapProxy* FromListEntry(LIST_ENTRY* list_entry);
   // @}
 
+  // Set the max size of the quarantine of a heap proxy.
+  // @param quarantine_max_size The maximum size of the quarantine list, in
+  //     bytes.
+  static void SetQuarantineMaxSize(size_t quarantine_max_size) {
+    quarantine_max_size_ = quarantine_max_size;
+  }
+
+  // Get the max size of the quarantine of a heap proxy.
+  static size_t GetQuarantineMaxSize() { return quarantine_max_size_; }
+
  protected:
   // Enumeration of the different kind of bad heap access that we can encounter.
   enum BadAccessKind {
@@ -125,6 +135,9 @@ class HeapProxy {
     uint8 free_stack_trace_size;
   };
 
+  // Default value for the quarantine size.
+  static const size_t kDefaultQuarantineSize;
+
   // Returns the block header for an alloc.
   BlockHeader* ToBlock(const void* alloc);
 
@@ -140,6 +153,8 @@ class HeapProxy {
   // @param header The header of the block containing this address.
   BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
 
+  // Max size of blocks in quarantine (in bytes).
+  static size_t quarantine_max_size_;
  private:
   // Magic number to identify the beginning of a block header.
   static const size_t kBlockHeaderSignature = 0x03CA80E7;

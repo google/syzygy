@@ -26,6 +26,8 @@
       'target_name': 'asan_rtl_lib',
       'type': 'static_library',
       'sources': [
+        'asan_flags.cc',
+        'asan_flags.h',
         'asan_heap.cc',
         'asan_heap.h',
         'asan_logger.cc',
@@ -59,6 +61,7 @@
       'target_name': 'asan_rtl_unittests',
       'type': 'executable',
       'sources': [
+        'asan_flags_unittest.cc',
         'asan_heap_unittest.cc',
         'asan_logger_unittest.cc',
         'asan_rtl_unittest.cc',

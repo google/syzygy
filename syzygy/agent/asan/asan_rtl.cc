@@ -27,6 +27,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/asan_flags.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
@@ -126,6 +127,7 @@ void TearDownLogger() {
 }  // namespace
 
 extern "C" {
+using agent::asan::FlagsManager;
 
 static HANDLE process_heap = NULL;
 base::Lock heap_proxy_list_lock;
@@ -331,6 +333,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // Setup the "global" state.
       SetUpLogger();
       InitializeListHead(&heap_proxy_dlist);
+      FlagsManager::Instance()->InitializeFlagsWithEnvVar();
       asan_SetCallBack(&OnAsanError);
       process_heap = GetProcessHeap();
       break;
