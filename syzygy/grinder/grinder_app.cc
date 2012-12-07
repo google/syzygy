@@ -181,4 +181,9 @@ int GrinderApp::Run() {
   return 0;
 }
 
+void GrinderApp::TearDown() {
+  // Release the grinder so it has a chance to clean up before COM goes away.
+  grinder_.reset();
+}
+
 }  // namespace grinder

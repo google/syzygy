@@ -37,6 +37,7 @@ class GrinderApp : public common::AppImplBase {
   // @{
   bool ParseCommandLine(const CommandLine* command_line);
   int Run();
+  void TearDown();
   // @}
 
   // @name Utility functions
