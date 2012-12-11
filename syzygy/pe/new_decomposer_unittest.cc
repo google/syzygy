@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/new_decomposer.h"
 
+#include "base/string_split.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
 #include "syzygy/block_graph/typed_block.h"
@@ -34,6 +35,8 @@ namespace {
 using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using core::RelativeAddress;
+
+const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
 // Exposes the protected methods for testing.
 class TestNewDecomposer : public NewDecomposer {
@@ -224,6 +227,96 @@ TEST_F(NewDecomposerTest, DecomposeFailsWithNonexistentPdb) {
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
   EXPECT_FALSE(decomposer.Decompose(&image_layout));
+}
+
+TEST_F(NewDecomposerTest, LabelsAndAttributes) {
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  // Decompose the test image and look at the result.
+  NewDecomposer decomposer(image_file);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  // Locate various specific function blocks in the block-graph.
+  const BlockGraph::Block* dll_main_block = NULL;
+  const BlockGraph::Block* func_with_inl_asm_block = NULL;
+  const BlockGraph::Block* strchr_block = NULL;
+  {
+    BlockGraph::BlockMap::const_iterator it =
+        block_graph.blocks().begin();
+    for (; it != block_graph.blocks().end(); ++it) {
+      const BlockGraph::Block* block = &(it->second);
+
+      BlockGraph::Label label;
+      if (!block->GetLabel(0, &label))
+        continue;
+      std::vector<std::string> names;
+      base::SplitStringUsingSubstr(label.name(), NewDecomposer::kLabelNameSep,
+                                   &names);
+
+      base::StringPiece block_name(block->name());
+
+      if (std::find(names.begin(), names.end(), "DllMain") != names.end() &&
+          block_name.ends_with("\\test_dll.obj")) {
+        ASSERT_TRUE(dll_main_block == NULL);
+        dll_main_block = &it->second;
+      } else if (std::find(names.begin(), names.end(),
+                           "FunctionWithInlineAssembly") != names.end() &&
+          block_name.ends_with("\\test_dll.obj")) {
+        ASSERT_TRUE(func_with_inl_asm_block == NULL);
+        func_with_inl_asm_block = &it->second;
+      } else if (std::find(names.begin(), names.end(),
+                           "found_bx") != names.end() &&
+            block_name.ends_with("\\strchr.obj")) {
+        ASSERT_TRUE(strchr_block == NULL);
+        strchr_block = &it->second;
+      }
+    }
+  }
+  ASSERT_TRUE(dll_main_block != NULL);
+  ASSERT_TRUE(func_with_inl_asm_block != NULL);
+  ASSERT_TRUE(strchr_block != NULL);
+
+  // TODO(chrisha): When alignment calculations are complete, re-enable this
+  //     test.
+  // DllMain has a jump table so it should have pointer alignment.
+  //ASSERT_EQ(kPointerSize, dll_main_block->alignment());
+
+  // Validate that the FunctionWithInlineAssembly block has the appropriate
+  // attributes.
+  ASSERT_TRUE(func_with_inl_asm_block->attributes() &
+      BlockGraph::HAS_INLINE_ASSEMBLY);
+
+  // Validate that the strchr block has the appropriate attributes.
+  ASSERT_TRUE(strchr_block->attributes() &
+      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
+
+  // Validate that the DllMain block has the expected population of labels.
+  EXPECT_EQ(19, dll_main_block->labels().size());
+
+  std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
+  {
+    BlockGraph::Block::LabelMap::const_iterator it =
+        dll_main_block->labels().begin();
+    for (; it != dll_main_block->labels().end(); ++it) {
+      BlockGraph::LabelAttributes attr_mask = 1;
+      for (; attr_mask != BlockGraph::LABEL_ATTRIBUTES_MAX; attr_mask <<= 1) {
+        if (it->second.has_attributes(attr_mask))
+          label_attr_counts[attr_mask]++;
+      }
+    }
+  }
+
+  EXPECT_EQ(13, label_attr_counts[BlockGraph::CODE_LABEL]);
+  EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL]);
+  EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
+  EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL]);
 }
 
 namespace {

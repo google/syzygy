@@ -27,6 +27,7 @@
 
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pe/dia_browser.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -36,6 +37,10 @@ class NewDecomposer {
  public:
   struct IntermediateReference;
   typedef std::vector<IntermediateReference> IntermediateReferences;
+
+  // The separator that is used between the multiple symbol names that can be
+  // associated with a single label.
+  static const char kLabelNameSep[];
 
   // Initialize the decomposer for a given image file.
   // @param image_file the image file to decompose. This must outlive the
@@ -99,6 +104,45 @@ class NewDecomposer {
   bool FinalizeIntermediateReferences(const IntermediateReferences& references);
   // Creates inter-block references from fixups.
   bool CreateReferencesFromFixups(IDiaSession* session);
+  // Processes symbols from the PDB, setting block names and labels.
+  bool ProcessSymbols(IDiaSymbol* root);
+  // @}
+
+  // @{
+  // @name Callbacks used when parsing DIA symbols. Symbols only need to be
+  //     parsed for debug information and can be completely ignored otherwise.
+  DiaBrowser::BrowserDirective OnPushFunctionOrThunkSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  DiaBrowser::BrowserDirective OnPopFunctionOrThunkSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  DiaBrowser::BrowserDirective OnFunctionChildSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  DiaBrowser::BrowserDirective OnDataSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  DiaBrowser::BrowserDirective OnPublicSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  DiaBrowser::BrowserDirective OnLabelSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols);
+  // @}
+
+  // @name These are called within the scope of OnFunctionChildSymbol, during
+  //     which current_block_ is always set.
+  // @{
+  DiaBrowser::BrowserDirective OnScopeSymbol(enum SymTagEnum type,
+                                             DiaBrowser::SymbolPtr symbol);
+  DiaBrowser::BrowserDirective OnCallSiteSymbol(DiaBrowser::SymbolPtr symbol);
   // @}
 
   // @name Block creation members.
@@ -134,11 +178,18 @@ class NewDecomposer {
 
   // @name Temporaries that are only valid while inside DecomposeImpl.
   //     Prevents us from having to pass these around everywhere.
-  // The image layout we're building.
   // @{
+  // The image layout we're building.
   ImageLayout* image_layout_;
   // The image address space we're decomposing to.
   BlockGraph::AddressSpace* image_;
+  // @}
+
+  // @name Temporaries that are only valid while in DiaBrowser.
+  // @{
+  BlockGraph::Block* current_block_;
+  RelativeAddress current_address_;
+  size_t current_scope_count_;
   // @}
 };
 

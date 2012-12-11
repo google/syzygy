@@ -118,9 +118,9 @@ struct DiaBrowser::PatternElement {
 
   // If this is non-null, when reaching this point in the pattern we will
   // invoke the callback.
-  MatchCallback pop_callback;
-  // This callback will be invoked when retreating back up the stack of matches.
   MatchCallback push_callback;
+  // This callback will be invoked when retreating back up the stack of matches.
+  MatchCallback pop_callback;
 
   // If this is true, this node is an exit node for the pattern. Any time
   // we reach this node, a full match has been achieved.

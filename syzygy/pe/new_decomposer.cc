@@ -15,6 +15,7 @@
 #include "syzygy/pe/new_decomposer.h"
 
 #include "base/bind.h"
+#include "base/string_split.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
@@ -49,6 +50,11 @@ namespace {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 using block_graph::BlockGraph;
+using builder::Callback;
+using builder::Opt;
+using builder::Or;
+using builder::Seq;
+using builder::Star;
 using core::AbsoluteAddress;
 using core::RelativeAddress;
 
@@ -62,6 +68,20 @@ typedef NewDecomposer::IntermediateReference IntermediateReference;
 typedef NewDecomposer::IntermediateReferences IntermediateReferences;
 typedef std::vector<OMAP> OMAPs;
 typedef std::vector<pdb::PdbFixup> PdbFixups;
+
+// Some helper functions for testing ranges.
+template<typename T1, typename T2, typename T3>
+bool InRange(T1 value, T2 lower_bound_incl, T3 length_excl) {
+  T1 upper_bound_excl = static_cast<T1>(lower_bound_incl) + length_excl;
+  return static_cast<T1>(lower_bound_incl) <= value &&
+      value < static_cast<T2>(upper_bound_excl);
+}
+template<typename T1, typename T2, typename T3>
+bool InRangeIncl(T1 value, T2 lower_bound_incl, T3 length_incl) {
+  T1 upper_bound_incl = static_cast<T1>(lower_bound_incl) + length_incl;
+  return static_cast<T1>(lower_bound_incl) <= value &&
+      value <= upper_bound_incl;
+}
 
 bool InitializeDia(const PEFile& image_file,
                    const FilePath& pdb_path,
@@ -485,10 +505,117 @@ bool CreateReferencesFromFixupsImpl(
   return true;
 }
 
+bool GetDataSymbolSize(IDiaSymbol* symbol, size_t* length) {
+  DCHECK(symbol != NULL);
+  DCHECK(length != NULL);
+
+  *length = 0;
+  ScopedComPtr<IDiaSymbol> type;
+  HRESULT hr = symbol->get_type(type.Receive());
+  // This happens if the symbol has no type information.
+  if (hr == S_FALSE)
+    return true;
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get type symbol: " << com::LogHr(hr) << ".";
+    return false;
+  }
+
+  ULONGLONG ull_length = 0;
+  hr = type->get_length(&ull_length);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to retrieve type length properties: "
+               << com::LogHr(hr) << ".";
+    return false;
+  }
+  DCHECK_LE(ull_length, 0xFFFFFFFF);
+  *length = static_cast<size_t>(ull_length);
+
+  return true;
+}
+
+bool ScopeSymTagToLabelProperties(enum SymTagEnum sym_tag,
+                                  size_t scope_count,
+                                  BlockGraph::LabelAttributes* attr,
+                                  std::string* name) {
+  DCHECK(attr != NULL);
+  DCHECK(name != NULL);
+
+  switch (sym_tag) {
+    case SymTagFuncDebugStart: {
+      *attr = BlockGraph::DEBUG_START_LABEL;
+      *name = "<debug-start>";
+      return true;
+    }
+    case SymTagFuncDebugEnd: {
+      *attr = BlockGraph::DEBUG_END_LABEL;
+      *name = "<debug-end>";
+      return true;
+    }
+    case SymTagBlock: {
+      *attr = BlockGraph::SCOPE_START_LABEL;
+      *name = base::StringPrintf("<scope-start-%d>", scope_count);
+      return true;
+    }
+    default:
+    return false;
+  }
+  return false;
+}
+
+bool AddLabelToBlock(Offset offset,
+                     const base::StringPiece& name,
+                     BlockGraph::LabelAttributes label_attributes,
+                     Block* block) {
+  DCHECK(block != NULL);
+
+  // It is possible for labels to be attached to the first byte past a block
+  // (things like debug end, scope end, etc). It is up to the caller to be more
+  // strict about the offset if need be.
+  DCHECK_LE(0, offset);
+  DCHECK_LE(offset, static_cast<Offset>(block->size()));
+
+  // Try to create the label.
+  if (block->SetLabel(offset, name, label_attributes))
+    return true;
+
+  // If we get here there's an already existing label. Update it.
+  BlockGraph::Label label;
+  CHECK(block->GetLabel(offset, &label));
+
+  // Merge the names if this isn't a repeated name.
+  std::string name_str = name.as_string();
+  std::string new_name = label.name();
+  std::vector<std::string> names;
+  base::SplitStringUsingSubstr(label.name(), NewDecomposer::kLabelNameSep,
+                               &names);
+  if (std::find(names.begin(), names.end(), name_str) == names.end()) {
+    names.push_back(name_str);
+    new_name.append(NewDecomposer::kLabelNameSep);
+    new_name.append(name_str);
+  }
+
+  // Merge the attributes.
+  BlockGraph::LabelAttributes new_label_attr = label.attributes() |
+      label_attributes;
+
+  // Update the label.
+  label = BlockGraph::Label(new_name, new_label_attr);
+  CHECK(block->RemoveLabel(offset));
+  CHECK(block->SetLabel(offset, label));
+
+  return true;
+}
+
 }  // namespace
 
+// We use ", " as a separator between symbol names. We sometimes see commas
+// in symbol names but do not see whitespace. Thus, this provides a useful
+// separator that is also human friendly to read.
+const char NewDecomposer::kLabelNameSep[] = ", ";
+
 NewDecomposer::NewDecomposer(const PEFile& image_file)
-    : image_file_(image_file), image_layout_(NULL), image_(NULL) {
+    : image_file_(image_file), image_layout_(NULL), image_(NULL),
+      current_block_(NULL), current_scope_count_(0) {
 }
 
 bool NewDecomposer::Decompose(ImageLayout* image_layout) {
@@ -702,6 +829,10 @@ bool NewDecomposer::DecomposeImpl() {
   if (!CreateReferencesFromFixups(dia_session.get()))
     return false;
 
+  // Annotate the block-graph with symbol information.
+  if (!ProcessSymbols(global.get()))
+    return false;
+
   return true;
 }
 
@@ -814,6 +945,11 @@ bool NewDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       return false;
     }
 
+    // TODO(chrisha): We see special section contributions with the name
+    //     "* CIL *". These are concatenations of data symbols and can very
+    //     likely be chunked using symbols directly. A cursory visual inspection
+    //     of symbol names hints that these might be related to WPO.
+
     // Create the block.
     BlockType block_type =
         code ? BlockGraph::CODE_BLOCK : BlockGraph::DATA_BLOCK;
@@ -910,6 +1046,461 @@ bool NewDecomposer::CreateReferencesFromFixups(IDiaSession* session) {
   }
 
   return true;
+}
+
+bool NewDecomposer::ProcessSymbols(IDiaSymbol* root) {
+  DCHECK(root != NULL);
+
+  DiaBrowser::MatchCallback on_push_function_or_thunk_symbol(
+      base::Bind(&NewDecomposer::OnPushFunctionOrThunkSymbol,
+                 base::Unretained(this)));
+  DiaBrowser::MatchCallback on_pop_function_or_thunk_symbol(
+      base::Bind(&NewDecomposer::OnPopFunctionOrThunkSymbol,
+                 base::Unretained(this)));
+  DiaBrowser::MatchCallback on_function_child_symbol(
+      base::Bind(&NewDecomposer::OnFunctionChildSymbol,
+                 base::Unretained(this)));
+  DiaBrowser::MatchCallback on_data_symbol(
+      base::Bind(&NewDecomposer::OnDataSymbol, base::Unretained(this)));
+  DiaBrowser::MatchCallback on_public_symbol(
+      base::Bind(&NewDecomposer::OnPublicSymbol, base::Unretained(this)));
+  DiaBrowser::MatchCallback on_label_symbol(
+      base::Bind(&NewDecomposer::OnLabelSymbol, base::Unretained(this)));
+
+  DiaBrowser dia_browser;
+
+  // Find thunks.
+  dia_browser.AddPattern(Seq(Opt(SymTagCompiland), SymTagThunk),
+                         on_push_function_or_thunk_symbol,
+                         on_pop_function_or_thunk_symbol);
+
+  // Find functions and all data, labels, callsites, debug start/end and block
+  // symbols below them. This is done in one single pattern so that the
+  // function pushes/pops happen in the right order.
+  dia_browser.AddPattern(
+      Seq(Opt(SymTagCompiland),
+          Callback(Or(SymTagFunction, SymTagThunk),
+                   on_push_function_or_thunk_symbol,
+                   on_pop_function_or_thunk_symbol),
+          Star(SymTagBlock),
+          Or(SymTagData,
+             SymTagLabel,
+             SymTagBlock,
+             SymTagFuncDebugStart,
+             SymTagFuncDebugEnd,
+             SymTagCallSite)),
+      on_function_child_symbol);
+
+  // Global data and code label symbols.
+  dia_browser.AddPattern(Seq(Opt(SymTagCompiland), SymTagLabel),
+                         on_label_symbol);
+  dia_browser.AddPattern(Seq(Opt(SymTagCompiland), SymTagData),
+                         on_data_symbol);
+
+  // Public symbols. These provide decorated names without any type info, but
+  // are useful for debugging.
+  dia_browser.AddPattern(SymTagPublicSymbol, on_public_symbol);
+
+  return dia_browser.Browse(root);
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnPushFunctionOrThunkSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
+  DCHECK(!symbols.empty());
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+  DiaBrowser::SymbolPtr symbol = symbols.back();
+
+  DCHECK(current_block_ == NULL);
+  DCHECK_EQ(current_address_, RelativeAddress(0));
+  DCHECK_EQ(0u, current_scope_count_);
+
+  HRESULT hr = E_FAIL;
+  DWORD location_type = LocIsNull;
+  DWORD rva = 0;
+  ULONGLONG length = 0;
+  ScopedBstr name_bstr;
+  if (FAILED(hr = symbol->get_locationType(&location_type)) ||
+      FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = symbol->get_length(&length)) ||
+      FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
+    LOG(ERROR) << "Failed to get function/thunk properties: " << com::LogHr(hr)
+               << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  // We only care about functions with static storage. We can stop looking at
+  // things below this node, as we won't be able to resolve them either.
+  if (location_type != LocIsStatic)
+    return DiaBrowser::kBrowserTerminatePath;
+
+  RelativeAddress addr(rva);
+  Block* block = image_->GetBlockByAddress(addr);
+  CHECK(block != NULL);
+  RelativeAddress block_addr;
+  CHECK(image_->GetAddressOf(block, &block_addr));
+  DCHECK(InRange(addr, block_addr, block->size()));
+
+  std::string name;
+  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+    LOG(ERROR) << "Failed to convert function/thunk name to UTF8.";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  // We know the function starts in this block but we need to make sure its
+  // end does not extend past the end of the block.
+  if (addr + length > block_addr + block->size()) {
+    LOG(ERROR) << "Got function/thunk \"" << name << "\" that is not contained "
+               << "by section contribution \"" << block->name() << "\".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  Offset offset = addr - block_addr;
+  if (!AddLabelToBlock(offset, name, BlockGraph::CODE_LABEL, block))
+    return DiaBrowser::kBrowserAbort;
+
+  // Keep track of the generated block. We will use this when parsing symbols
+  // that belong to this function. This prevents us from having to do repeated
+  // lookups and also allows us to associate labels outside of the block to the
+  // correct block.
+  current_block_ = block;
+  current_address_ = block_addr;
+
+  // Certain properties are not defined on all blocks, so the following calls
+  // may return S_FALSE.
+  BOOL no_return = FALSE;
+  if (symbol->get_noReturn(&no_return) != S_OK)
+    no_return = FALSE;
+
+  BOOL has_inl_asm = FALSE;
+  if (symbol->get_hasInlAsm(&has_inl_asm) != S_OK)
+    has_inl_asm = FALSE;
+
+  BOOL has_eh = FALSE;
+  if (symbol->get_hasEH(&has_eh) != S_OK)
+    has_eh = FALSE;
+
+  BOOL has_seh = FALSE;
+  if (symbol->get_hasSEH(&has_seh) != S_OK)
+    has_seh = FALSE;
+
+  // Set the block attributes.
+  if (no_return == TRUE)
+    block->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
+  if (has_inl_asm == TRUE)
+    block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
+  if (has_eh || has_seh)
+    block->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
+
+  return DiaBrowser::kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnPopFunctionOrThunkSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
+  // Simply clean up the current function block and address.
+  current_block_ = NULL;
+  current_address_ = RelativeAddress(0);
+  current_scope_count_ = 0;
+  return DiaBrowser::kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnFunctionChildSymbol(
+      const DiaBrowser& dia_browser,
+      const DiaBrowser::SymTagVector& sym_tags,
+      const DiaBrowser::SymbolPtrVector& symbols) {
+  DCHECK(!symbols.empty());
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+
+  // This can only be called from the context of a function, so we expect the
+  // parent function block to be set and remembered.
+  DCHECK(current_block_ != NULL);
+
+  // The set of sym tags here should match the pattern used in the DiaBrowser
+  // instance set up in ProcessSymbols.
+  switch (sym_tags.back()) {
+    case SymTagData:
+      return OnDataSymbol(dia_browser, sym_tags, symbols);
+
+    case SymTagLabel:
+      return OnLabelSymbol(dia_browser, sym_tags, symbols);
+
+    case SymTagBlock:
+    case SymTagFuncDebugStart:
+    case SymTagFuncDebugEnd:
+      return OnScopeSymbol(sym_tags.back(), symbols.back());
+
+    case SymTagCallSite:
+      return OnCallSiteSymbol(symbols.back());
+
+    default:
+      break;
+  }
+
+  LOG(ERROR) << "Unhandled function child symbol: " << sym_tags.back() << ".";
+  return DiaBrowser::kBrowserAbort;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnDataSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
+  DCHECK(!symbols.empty());
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+  DiaBrowser::SymbolPtr symbol = symbols.back();
+
+  HRESULT hr = E_FAIL;
+  DWORD location_type = LocIsNull;
+  DWORD rva = 0;
+  ScopedBstr name_bstr;
+  if (FAILED(hr = symbol->get_locationType(&location_type)) ||
+      FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
+    LOG(ERROR) << "Failed to get data properties: " << com::LogHr(hr) << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  // Symbols with an address of zero are essentially invalid. They appear to
+  // have been optimized away by the compiler, but they are still reported.
+  if (rva == 0)
+    return DiaBrowser::kBrowserTerminatePath;
+
+  // We only care about functions with static storage. We can stop looking at
+  // things below this node, as we won't be able to resolve them either.
+  if (location_type != LocIsStatic)
+    return DiaBrowser::kBrowserTerminatePath;
+
+  // Get the size of this datum from its type info.
+  size_t length = 0;
+  if (!GetDataSymbolSize(symbol, &length))
+    return DiaBrowser::kBrowserAbort;
+
+  // Reuse the parent function block if we can. This acts as small lookup
+  // cache.
+  RelativeAddress addr(rva);
+  Block* block = current_block_;
+  RelativeAddress block_addr(current_address_);
+  if (block == NULL || !InRange(addr, block_addr, block->size())) {
+    block = image_->GetBlockByAddress(addr);
+    CHECK(block != NULL);
+    CHECK(image_->GetAddressOf(block, &block_addr));
+    DCHECK(InRange(addr, block_addr, block->size()));
+  }
+
+  std::string name;
+  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+    LOG(ERROR) << "Failed to convert label name to UTF8.";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  // Zero-length data symbols mark case/jump tables, or are forward declares.
+  BlockGraph::LabelAttributes attr = BlockGraph::DATA_LABEL;
+  Offset offset = addr - block_addr;
+  if (length == 0) {
+    // Jump and case tables come in as data symbols with no name. Jump tables
+    // are always an array of pointers, thus they coincide exactly with a
+    // reference. Case tables are simple arrays of integer values (themselves
+    // indices into a jump table), thus do not coincide with a reference.
+    if (name.empty() && block->type() == BlockGraph::CODE_BLOCK) {
+      if (block->references().find(offset) != block->references().end()) {
+        name = "<jump-table>";
+        attr |= BlockGraph::JUMP_TABLE_LABEL;
+      } else {
+        name = "<case-table>";
+        attr |= BlockGraph::CASE_TABLE_LABEL;
+      }
+    } else {
+      // Zero-length data symbols act as 'forward declares' in some sense. They
+      // are always followed by a non-zero length data symbol with the same name
+      // and location.
+      return DiaBrowser::kBrowserTerminatePath;
+    }
+  }
+
+  // Verify that the data symbol does not exceed the size of the block.
+  if (addr + length > block_addr + block->size()) {
+    LOG(ERROR) << "Received data symbol \"" << name << "\" that extends past "
+               << "its parent block \"" << block->name() << "\".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  if (!AddLabelToBlock(offset, name, attr, block))
+    return DiaBrowser::kBrowserAbort;
+
+  return DiaBrowser::kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnPublicSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
+  DCHECK(!symbols.empty());
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+  DCHECK(current_block_ == NULL);
+  DiaBrowser::SymbolPtr symbol = symbols.back();
+
+  HRESULT hr = E_FAIL;
+  DWORD rva = 0;
+  ScopedBstr name_bstr;
+  if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
+    LOG(ERROR) << "Failed to get public symbol properties: " << com::LogHr(hr)
+               << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  RelativeAddress addr(rva);
+  Block* block = image_->GetBlockByAddress(addr);
+  CHECK(block != NULL);
+  RelativeAddress block_addr;
+  CHECK(image_->GetAddressOf(block, &block_addr));
+  DCHECK(InRange(addr, block_addr, block->size()));
+
+  std::string name;
+  WideToUTF8(name_bstr, name_bstr.Length(), &name);
+
+  // Public symbol names are mangled. Remove leading '_' as per
+  // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
+  if (name[0] == '_')
+    name = name.substr(1);
+
+  Offset offset = addr - block_addr;
+  if (!AddLabelToBlock(offset, name, BlockGraph::PUBLIC_SYMBOL_LABEL, block))
+    return DiaBrowser::kBrowserAbort;
+
+  return DiaBrowser::kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnLabelSymbol(
+    const DiaBrowser& dia_browser,
+    const DiaBrowser::SymTagVector& sym_tags,
+    const DiaBrowser::SymbolPtrVector& symbols) {
+  DCHECK(!symbols.empty());
+  DCHECK_EQ(sym_tags.size(), symbols.size());
+  DiaBrowser::SymbolPtr symbol = symbols.back();
+
+  HRESULT hr = E_FAIL;
+  DWORD rva = 0;
+  ScopedBstr name_bstr;
+  if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
+      FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
+    LOG(ERROR) << "Failed to get label symbol properties: " << com::LogHr(hr)
+               << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  // If we have a current_block_ the label should lie within its scope.
+  RelativeAddress addr(rva);
+  Block* block = current_block_;
+  RelativeAddress block_addr(current_address_);
+  if (block != NULL) {
+    if (!InRangeIncl(addr, current_address_, current_block_->size())) {
+      LOG(ERROR) << "Label falls outside of current block \""
+                 << current_block_->name() << "\".";
+      return DiaBrowser::kBrowserAbort;
+    }
+  } else {
+    // If there is no current block this is a compiland scope label.
+    block = image_->GetBlockByAddress(addr);
+    CHECK(block != NULL);
+    CHECK(image_->GetAddressOf(block, &block_addr));
+    DCHECK(InRange(addr, block_addr, block->size()));
+
+    // TODO(chrisha): This label is in compiland scope, so we should be
+    //     finding the block whose section contribution shares the same
+    //     compiland.
+  }
+
+  std::string name;
+  WideToUTF8(name_bstr, name_bstr.Length(), &name);
+
+  Offset offset = addr - block_addr;
+  if (!AddLabelToBlock(offset, name, BlockGraph::CODE_LABEL, block))
+    return DiaBrowser::kBrowserAbort;
+
+  return DiaBrowser::kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnScopeSymbol(
+    enum SymTagEnum type, DiaBrowser::SymbolPtr symbol) {
+  // We should only get here via the successful exploration of a SymTagFunction,
+  // so current_block_ should be set.
+  DCHECK(current_block_ != NULL);
+
+  HRESULT hr = E_FAIL;
+  DWORD rva = 0;
+  if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva))) {
+    LOG(ERROR) << "Failed to get scope symbol properties: " << com::LogHr(hr)
+               << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  // The label may potentially lay at the first byte past the function.
+  RelativeAddress addr(rva);
+  DCHECK_LE(current_address_, addr);
+  DCHECK_LE(addr, current_address_ + current_block_->size());
+
+  // Get the attributes for this label.
+  BlockGraph::LabelAttributes attr = 0;
+  std::string name;
+  CHECK(ScopeSymTagToLabelProperties(type, current_scope_count_, &attr, &name));
+
+  // Add the label.
+  Offset offset = addr - current_address_;
+  if (!AddLabelToBlock(offset, name, attr, current_block_))
+    return DiaBrowser::kBrowserAbort;
+
+  // If this is a scope we extract the length and explicitly add a corresponding
+  // end label.
+  if (type == SymTagBlock) {
+    ULONGLONG length = 0;
+    if (symbol->get_length(&length) != S_OK) {
+      LOG(ERROR) << "Failed to extract code scope length for block \""
+                  << current_block_->name() << "\".";
+      return DiaBrowser::kBrowserAbort;
+    }
+    DCHECK_LE(static_cast<size_t>(offset + length), current_block_->size());
+    name = base::StringPrintf("<scope-end-%d>", current_scope_count_);
+    ++current_scope_count_;
+    if (!AddLabelToBlock(offset + length, name,
+                         BlockGraph::SCOPE_END_LABEL, current_block_)) {
+      return DiaBrowser::kBrowserAbort;
+    }
+  }
+
+  return DiaBrowser::kBrowserContinue;
+}
+
+DiaBrowser::BrowserDirective NewDecomposer::OnCallSiteSymbol(
+    DiaBrowser::SymbolPtr symbol) {
+  // We should only get here via the successful exploration of a SymTagFunction,
+  // so current_block_ should be set.
+  DCHECK(current_block_ != NULL);
+
+  HRESULT hr = E_FAIL;
+  DWORD rva = 0;
+  if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva))) {
+    LOG(ERROR) << "Failed to get call site symbol properties: "
+               << com::LogHr(hr) << ".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  RelativeAddress addr(rva);
+  if (!InRange(addr, current_address_, current_block_->size())) {
+    LOG(ERROR) << "Call site falls outside of current block \""
+               << current_block_->name() << "\".";
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  Offset offset = addr - current_address_;
+  if (!AddLabelToBlock(offset, "<call-site>", BlockGraph::CALL_SITE_LABEL,
+                       current_block_)) {
+    return DiaBrowser::kBrowserAbort;
+  }
+
+  return DiaBrowser::kBrowserContinue;
 }
 
 Block* NewDecomposer::CreateBlock(BlockType type,
