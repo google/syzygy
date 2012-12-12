@@ -44,6 +44,10 @@ class Shadow {
   // @p output.
   static void AppendShadowMemoryText(const void* addr, std::string* output);
 
+ protected:
+  // Reset the shadow memory.
+  static void Reset();
+
  private:
   // Appends a line of shadow byte text from for the bytes ranging from
   // shadow_[index] to shadow_[index + 7], prefixed by @p prefix.

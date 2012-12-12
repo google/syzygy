@@ -21,7 +21,19 @@
 namespace agent {
 namespace asan {
 
+namespace {
+
+// A derived class to expose protected members for unit-testing.
+class TestShadow : public Shadow {
+ public:
+  using Shadow::Reset;
+};
+
+}  // namespace
+
 TEST(ShadowTest, PoisonUnpoisonAccess) {
+  // Reset the shadow memory.
+  TestShadow::Reset();
   for (size_t i = 0; i < 100; ++i) {
     // Use a random 8-byte aligned end address.
     const size_t size = base::RandInt(1, 16384);

@@ -21,6 +21,10 @@ namespace asan {
 
 uint8 Shadow::shadow_[kShadowSize];
 
+void Shadow::Reset() {
+  memset(shadow_, 0, kShadowSize);
+}
+
 void Shadow::Poison(const void* addr, size_t size) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   uintptr_t start = index & 0x7;
@@ -93,7 +97,6 @@ void Shadow::AppendShadowMemoryText(const void* addr,
     AppendShadowByteText(prefix, (index + i * 8), output);
   }
 }
-
 
 void Shadow::PrintShadowMemoryForAddress(const void* addr) {
   std::string output;

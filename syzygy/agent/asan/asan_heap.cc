@@ -116,6 +116,11 @@ bool HeapProxy::Create(DWORD options,
 
 bool HeapProxy::Destroy() {
   DCHECK(heap_ != NULL);
+
+  // Flush the quarantine.
+  while (head_ != NULL)
+    PopQuarantine();
+
   if (::HeapDestroy(heap_)) {
     heap_ = NULL;
     return true;
@@ -253,6 +258,35 @@ bool HeapProxy::QueryInformation(HEAP_INFORMATION_CLASS info_class,
                                 return_length) == TRUE;
 }
 
+void HeapProxy::PopQuarantine() {
+  DCHECK(head_ != NULL && tail_ != NULL);
+
+  FreeBlockHeader* free_block = head_;
+  head_ = free_block->next;
+  if (head_ == NULL)
+    tail_ = NULL;
+
+  size_t alloc_size = GetAllocSize(free_block->size);
+  Shadow::Unpoison(free_block, alloc_size);
+  free_block->state = FREED;
+  free_block->magic_number = ~kBlockHeaderSignature;
+  if (free_block->alloc_stack_trace != NULL) {
+    delete free_block->alloc_stack_trace;
+    free_block->alloc_stack_trace = NULL;
+    free_block->alloc_stack_trace_size = 0;
+  }
+  if (free_block->free_stack_trace != NULL) {
+    delete free_block->free_stack_trace;
+    free_block->free_stack_trace = NULL;
+    free_block->free_stack_trace_size = 0;
+  }
+  DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
+  ::HeapFree(heap_, 0, free_block);
+
+  DCHECK_GE(quarantine_size_, alloc_size);
+  quarantine_size_ -= alloc_size;
+}
+
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   base::AutoLock lock(lock_);
   FreeBlockHeader* free_block = static_cast<FreeBlockHeader*>(block);
@@ -277,32 +311,7 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
 
   // Flush quarantine overage.
   while (quarantine_size_ > quarantine_max_size_) {
-    DCHECK(head_ != NULL && tail_ != NULL);
-
-    free_block = head_;
-    head_ = free_block->next;
-    if (head_ == NULL)
-      tail_ = NULL;
-
-    alloc_size = GetAllocSize(free_block->size);
-    Shadow::Unpoison(free_block, alloc_size);
-    free_block->state = FREED;
-    free_block->magic_number = ~kBlockHeaderSignature;
-    if (free_block->alloc_stack_trace != NULL) {
-      delete free_block->alloc_stack_trace;
-      free_block->alloc_stack_trace = NULL;
-      free_block->alloc_stack_trace_size = 0;
-    }
-    if (free_block->free_stack_trace != NULL) {
-      delete free_block->free_stack_trace;
-      free_block->free_stack_trace = NULL;
-      free_block->free_stack_trace_size = 0;
-    }
-    DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
-    ::HeapFree(heap_, 0, free_block);
-
-    DCHECK_GE(quarantine_size_, alloc_size);
-    quarantine_size_ -= alloc_size;
+    PopQuarantine();
   }
 }
 

@@ -170,6 +170,9 @@ class HeapProxy {
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
 
+  // Free and remove the first block of the quarantine.
+  void PopQuarantine();
+
   // Calculates the underlying allocation size for a requested
   // allocation of @p bytes.
   static size_t GetAllocSize(size_t bytes);
