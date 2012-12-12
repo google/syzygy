@@ -94,6 +94,10 @@ deps = {
 
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
+  
+  "src/tools/sharding_supervisor":
+    Var("chrome_base") + "/src/tools/sharding_supervisor@" +
+        Var("chrome_revision"),
 }
 
 
