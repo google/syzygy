@@ -20,9 +20,11 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/scoped_temp_dir.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/trace/logger/logger.h"
 #include "syzygy/trace/logger/logger_rpc_impl.h"
@@ -41,7 +43,7 @@ class TestAsanLogger : public AsanLogger {
 
 class AsanLoggerTest : public testing::Test {
  public:
-  virtual void TearDown() OVERRIDE {
+  virtual void SetUp() OVERRIDE {
     AsanLogger::SetInstance(NULL);
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
@@ -92,7 +94,7 @@ TEST_F(AsanLoggerTest, EndToEnd) {
 
   std::string content;
   ASSERT_TRUE(file_util::ReadFileToString(temp_path, &content));
-  ASSERT_EQ(kMessage, content);
+  ASSERT_THAT(content, testing::EndsWith(kMessage));
 }
 
 }  // namespace asan

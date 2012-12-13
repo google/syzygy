@@ -51,25 +51,27 @@ class HeapLocker {
 };
 
 // Capture a stack trace and store it in an array of instruction pointer values.
-// @param stack_trace A pointer to a non-allocated array of instruction pointer,
-//     *stack_trace is assumed to be equal NULL when we call this function, the
+// @param trace A pointer to a non-allocated array of instruction pointer,
+//     *trace is assumed to be equal NULL when we call this function, the
 //     array will be dynamically allocated.
 // @param trace_size A pointer to the variable where the stack size should be
 //     saved.
-void CaptureStackTrace(void** stack_trace, uint8* trace_size) {
-  DCHECK(stack_trace != NULL);
-  DCHECK(*stack_trace == NULL);
+// @note The caller is responsible for freeing (with delete[]) the returned
+//     stack capture.
+void CaptureStackTrace(StackCapture* trace, uint8* trace_size) {
+  DCHECK(trace != NULL);
+  DCHECK(*trace == NULL);
 
-  size_t trace_depth = 0;
-  base::debug::StackTrace trace;
-  const void* temp_trace = trace.Addresses(&trace_depth);
-  *stack_trace = new void*[trace_depth];
-  memcpy(*stack_trace, temp_trace, trace_depth * sizeof(void*));
+  // From http://msdn.microsoft.com/en-us/library/bb204633.aspx, the sum of
+  // FramesToSkip and FramesToCapture must be less than 63.
+  static const size_t kMaxFrames = 62;
+  *trace = new void*[kMaxFrames];
 
-  // From http://msdn.microsoft.com/en-us/library/bb204633.aspx,
-  // the sum of FramesToSkip and FramesToCapture must be less than 63.
-  DCHECK_LE(trace_depth, 62U);
-  *trace_size = static_cast<uint8>(trace_depth);
+  // TODO(rogerm): Switch this to an allocation pool and free the entire pool
+  //     when the asan runtime is terminated.
+  USHORT num_frames = ::CaptureStackBackTrace(0, kMaxFrames, *trace, NULL);
+  DCHECK_LE(num_frames, kMaxFrames);
+  *trace_size = static_cast<uint8>(num_frames);
 }
 
 }  // namespace
@@ -347,10 +349,9 @@ uint8* HeapProxy::ToAlloc(BlockHeader* block) {
   return mem + kRedZoneSize;
 }
 
-void HeapProxy::GetAddressInformation(const void* addr,
-                                      BlockHeader* header,
-                                      BadAccessKind bad_access_kind,
-                                      std::string* output) {
+void HeapProxy::ReportAddressInformation(const void* addr,
+                                         BlockHeader* header,
+                                         BadAccessKind bad_access_kind) {
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
   uint8* block_alloc = ToAlloc(header);
@@ -373,32 +374,31 @@ void HeapProxy::GetAddressInformation(const void* addr,
       NOTREACHED() << "Error trying to dump address information.";
   }
 
-  base::StringAppendF(
-      output,
+  AsanLogger* logger = AsanLogger::Instance();
+  DCHECK(logger != NULL);
+
+  logger->Write(base::StringPrintf(
       "0x%08X is located %d bytes %s of %d-bytes region [0x%08X,0x%08X)\n",
       addr,
       offset,
       offset_relativity,
       header->size,
       block_alloc,
-      block_alloc + header->size);
+      block_alloc + header->size));
   if (header->free_stack_trace != NULL) {
-    base::debug::StackTrace free_trace(
-        static_cast<const void* const*>(header->free_stack_trace),
-        header->free_stack_trace_size);
-    base::StringAppendF(
-        output, "freed here:\n%s", free_trace.ToString().c_str());
+    logger->WriteWithStackTrace("freed here:\n%s",
+                                header->free_stack_trace,
+                                header->free_stack_trace_size);
   }
   if (header->alloc_stack_trace != NULL) {
-    base::debug::StackTrace alloc_trace(
-        static_cast<const void* const*>(header->alloc_stack_trace),
-        header->alloc_stack_trace_size);
-    base::StringAppendF(output,
-                        "previously allocated here:\n%s",
-                        alloc_trace.ToString().c_str());
+    logger->WriteWithStackTrace("previously allocated here:\n%s",
+                                header->alloc_stack_trace,
+                                header->alloc_stack_trace_size);
   }
 
-  Shadow::AppendShadowMemoryText(addr, output);
+  std::string shadow_text;
+  Shadow::AppendShadowMemoryText(addr, &shadow_text);
+  logger->Write(shadow_text);
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
@@ -479,7 +479,6 @@ void HeapProxy::ReportUnknownError(const void* addr,
                                    size_t access_size) {
   ReportAsanErrorBase("unknown-crash",
                       addr,
-                      "",  // No extra address info.
                       UNKNOWN_BAD_ACCESS,
                       access_mode,
                       access_size);
@@ -492,24 +491,18 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
                                 AccessMode access_mode,
                                 size_t access_size) {
   DCHECK(header != NULL);
-  std::string addr_info;
-
-  GetAddressInformation(addr,
-                        header,
-                        bad_access_kind,
-                        &addr_info);
 
   ReportAsanErrorBase(bug_descr,
                       addr,
-                      addr_info,
                       bad_access_kind,
                       access_mode,
                       access_size);
+
+  ReportAddressInformation(addr, header, bad_access_kind);
 }
 
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     const void* addr,
-                                    const base::StringPiece& addr_info,
                                     BadAccessKind bad_access_kind,
                                     AccessMode access_mode,
                                     size_t access_size) {
@@ -532,11 +525,9 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
   }
 
   base::debug::StackTrace stack_trace;
-  base::StringAppendF(&output, "%s", stack_trace.ToString().c_str());
-
-  output.append(addr_info.begin(), addr_info.end());
-
-  AsanLogger::Instance()->Write(output);
+  size_t trace_length = 0;
+  const void* const * trace_data = stack_trace.Addresses(&trace_length);
+  AsanLogger::Instance()->WriteWithStackTrace(output, trace_data, trace_length);
 }
 
 const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {

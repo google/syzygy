@@ -82,8 +82,11 @@ ScopedRpcBinding::~ScopedRpcBinding() {
 
 bool ScopedRpcBinding::Open(const base::StringPiece16& protocol,
                             const base::StringPiece16& endpoint) {
-  if (!CreateRpcBinding(protocol, endpoint, &rpc_binding_))
+  if (!CreateRpcBinding(protocol, endpoint, &rpc_binding_)) {
+    DCHECK(rpc_binding_ == NULL);
     return false;
+  }
+
   return true;
 }
 

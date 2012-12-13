@@ -14,10 +14,13 @@
 
 #include "syzygy/agent/asan/asan_logger.h"
 
+#include "base/command_line.h"
 #include "base/environment.h"
 #include "base/logging.h"
 #include "base/process_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/debug/stack_trace.h"
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -46,20 +49,60 @@ AsanLogger* AsanLogger::Instance() {
 
 void AsanLogger::Init() {
   base::RouteStdioToConsole();
-  rpc_binding_.Open(kLoggerRpcProtocol,
-                    GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+  bool success = rpc_binding_.Open(
+      kLoggerRpcProtocol,
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+
+  // TODO(rogerm): Add a notion of a session to the logger interface. Opening
+  //     a session (either here, or on first use) allows for better management
+  //     of symbol context across trace log messages for a given process.
+  if (success) {
+    const CommandLine* command_line = CommandLine::ForCurrentProcess();
+    std::string message = base::StringPrintf(
+        "PID=%d; cmd-line='%ls'\n",
+        ::GetCurrentProcessId(),
+        command_line->GetCommandLineString().c_str());
+    success = trace::client::InvokeRpc(
+        &LoggerClient_Write,
+        rpc_binding_.Get(),
+        reinterpret_cast<const unsigned char*>(message.c_str())).succeeded();
+    if (!success)
+      rpc_binding_.Close();
+  }
 }
 
 void AsanLogger::Write(const std::string& message) {
-  // We might as well always dump the stderr.
-  ::fprintf(stderr, "%s", message.c_str());
-
-  // If we're bound to a logging endpoint, send the message there as well.
+  // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {
     trace::client::InvokeRpc(
         &LoggerClient_Write,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()));
+  } else {
+    // Otherwise, log to stderr.
+     ::fprintf(stderr, "%s", message.c_str());
+  }
+}
+
+
+void AsanLogger::WriteWithStackTrace(const std::string& message,
+                                     const void * const * trace_data,
+                                     size_t trace_length) {
+  // If we're bound to a logging endpoint, log the message there.
+  if (rpc_binding_.Get() != NULL) {
+    trace::client::InvokeRpc(
+        &LoggerClient_WriteWithTrace,
+        rpc_binding_.Get(),
+        reinterpret_cast<const unsigned char*>(message.c_str()),
+        reinterpret_cast<const DWORD*>(trace_data),
+        trace_length);
+  } else {
+    // Otherwise, log to stderr.
+    const char* format_str =  "%s%s";
+    if (!message.empty() && message.back() != '\n')
+      format_str = "%s\n%s";
+    base::debug::StackTrace trace(trace_data, trace_length);
+    ::fprintf(stderr, format_str, message.c_str(), trace.ToString().c_str());
   }
 }
 

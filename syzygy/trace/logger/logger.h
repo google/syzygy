@@ -97,8 +97,20 @@ class Logger {
   // have been handled and all log messages have been flushed.
   bool RunToCompletion();
 
+  // Append a trace dump for @p process, given @p trace_data containing
+  // @p trace_length elements. The output will be appended to @p message.
+  //
+  // Note that the DWORD elements of @p trace_data are really void* values
+  // pointing to the frame pointers of a call stack in @p process.
+  //
+  // Calls to this method are serialized under symbol_lock_.
+  bool AppendTrace(HANDLE process,
+                   const DWORD* trace_data,
+                   size_t trace_length,
+                   std::string* message);
+
   // Write @p message to the log destination. Note that calls to this method
-  // are serialized using lock_.
+  // are serialized using write_lock_.
   bool Write(const base::StringPiece& message);
 
  protected:
@@ -127,7 +139,11 @@ class Logger {
   FILE* destination_;
 
   // The lock used to serializes writes to destination_;
-  base::Lock lock_;
+  base::Lock write_lock_;
+
+  // The lock used to serialize access to the debug help library used to
+  // symbolize traces.
+  base::Lock symbol_lock_;
 
   // A callback to be invoked when the logger has successfully started.
   LoggerCallback logger_started_callback_;

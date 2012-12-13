@@ -23,9 +23,18 @@ const wchar_t* const kLoggerRpcEndpointRoot = L"syzygy-logger";
 ]
 interface Logger {
   // Write some text to the log.
-  //
   // @param text The string to be logged.
   boolean Write([in] handle_t binding, [in, string] const char* text);
+
+  // Write a message and stack trace to the log.
+  // @param text The string to be logged.
+  // @param trace A pointer to the stack trace capture.
+  // @param trace_size The size (in bytes) if the stack trace capture.
+  boolean WriteWithTrace(
+      [in] handle_t binding,
+      [in, string] const char* text,
+      [in, size_is(trace_length)] const unsigned long trace_data[*],
+      [in] long trace_length);
 }
 
 // Defines the Logger's RPC Control interface.

@@ -17,8 +17,12 @@
 
 #include "syzygy/trace/logger/logger.h"
 
+#include <windows.h>  // NOLINT
+#include <dbghelp.h>
+
 #include "base/bind.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -26,7 +30,76 @@
 namespace trace {
 namespace logger {
 
+namespace {
+
 using trace::client::GetInstanceString;
+
+// A helper class to manage a SYMBOL_INFO structure.
+template <size_t max_name_len>
+class SymbolInfo {
+ public:
+  SymbolInfo() {
+    COMPILE_ASSERT(max_name_len > 0, error_maximum_name_length_is_zero);
+    COMPILE_ASSERT(
+        sizeof(buf_) - sizeof(info_) >= max_name_len * sizeof(wchar_t),
+        error_not_enough_buffer_space_for_max_name_len_wchars);
+
+    ::memset(buf_, 0, sizeof(buf_));
+    info_.SizeOfStruct = sizeof(info_);
+    info_.MaxNameLen = max_name_len;
+  }
+
+  PSYMBOL_INFO Get() { return &info_; }
+
+  PSYMBOL_INFO operator->() { return &info_; }
+
+ private:
+  // SYMBOL_INFO is a variable length structure ending with a string (the
+  // name of the symbol). The SYMBOL_INFO struct itself only declares the
+  // first byte of the Name array, the rest we reserve by holding it in
+  // union with a properly sized underlying buffer.
+  union {
+    SYMBOL_INFO info_;
+    char buf_[sizeof(SYMBOL_INFO) + max_name_len * sizeof(wchar_t)];
+  };
+};
+
+void GetSymbolInfo(HANDLE process,
+                   DWORD frame_ptr,
+                   std::string* name,
+                   DWORD64* offset) {
+  DCHECK(process != INVALID_HANDLE_VALUE);
+  DCHECK(frame_ptr != NULL);
+  DCHECK(name != NULL);
+  DCHECK(offset != NULL);
+
+  // Constants we'll need later.
+  static const size_t kMaxNameLength = 256;
+  SymbolInfo<kMaxNameLength> symbol;
+
+  // Lookup the symbol by address.
+  if (::SymFromAddr(process, frame_ptr, offset, symbol.Get())) {
+    *name = symbol->Name;
+  } else {
+    *name = "(unknown)";
+  }
+}
+
+void GetLineInfo(HANDLE process, DWORD_PTR frame, std::string* line_info) {
+  DCHECK(process != INVALID_HANDLE_VALUE);
+  DCHECK(frame != NULL);
+  DCHECK(line_info != NULL);
+
+  DWORD line_displacement = 0;
+  IMAGEHLP_LINE64 line = {};
+  line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+  if (::SymGetLineFromAddr64(process, frame, &line_displacement, &line))
+    base::SStringPrintf(line_info, "%s:%d", line.FileName, line.LineNumber);
+  else
+    line_info->clear();
+}
+
+}  // namespace
 
 Logger::Logger()
     : owning_thread_id_(base::PlatformThread::CurrentId()),
@@ -81,11 +154,64 @@ bool Logger::RunToCompletion() {
   return true;
 }
 
+bool Logger::AppendTrace(HANDLE process,
+                         const DWORD* trace_data,
+                         size_t trace_length,
+                         std::string* message) {
+  DCHECK(trace_data != NULL);
+  DCHECK(message != NULL);
+
+  // TODO(rogerm): Add an RPC session to the logger and its interface. This
+  //     would serialize calls per process and provide a convenient mechanism
+  //     for ensuring SymInitialize/Cleanup are called exactly once per client
+  //     process.
+
+  base::AutoLock auto_lock(symbol_lock_);
+
+  // Initializes the symbols for the process:
+  //     - Defer symbol load until they're needed
+  //     - Use undecorated names
+  //     - Get line numbers
+  ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
+  if (!::SymInitialize(process, NULL, TRUE)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  // Append each line of the trace to the message string.
+  for (size_t i = 0; i < trace_length; ++i) {
+    DWORD frame_ptr = trace_data[i];
+    DWORD64 offset = 0;
+    std::string symbol_name;
+    std::string line_info;
+
+    GetSymbolInfo(process, frame_ptr, &symbol_name, &offset);
+    GetLineInfo(process, frame_ptr, &line_info);
+
+    base::StringAppendF(message,
+                        "    #%d 0x%012llx in %s%s%s\n",
+                        i,
+                        frame_ptr + offset,
+                        symbol_name.c_str(),
+                        line_info.empty() ? "" : " ",
+                        line_info.c_str());
+  }
+
+  if (!::SymCleanup(process)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  return true;
+}
+
 bool Logger::Write(const base::StringPiece& message) {
   if (message.empty())
     return true;
 
-  base::AutoLock auto_lock(lock_);
+  base::AutoLock auto_lock(write_lock_);
 
   size_t chars_written = ::fwrite(message.data(),
                                   sizeof(std::string::value_type),

@@ -28,6 +28,10 @@
 namespace agent {
 namespace asan {
 
+// An alias for the Windoes Debug Help APIs representation of a stack trace
+// (as an array of frame pointers).
+typedef void** StackCapture;
+
 // Makes like a Win32 heap manager heap, but adds a redzone before and after
 // each allocation and maintains a quarantine list of freed blocks.
 class HeapProxy {
@@ -129,8 +133,8 @@ class HeapProxy {
     size_t magic_number;
     size_t size;
     BlockState state;
-    void* alloc_stack_trace;
-    void* free_stack_trace;
+    StackCapture alloc_stack_trace;
+    StackCapture free_stack_trace;
     uint8 alloc_stack_trace_size;
     uint8 free_stack_trace_size;
   };
@@ -184,24 +188,20 @@ class HeapProxy {
   // @param header The block containing the address.
   // @param bad_access_kind The kind of bad access corresponding to this
   //     address.
-  // @param output The textual output will be returned here.
-  void GetAddressInformation(const void* addr,
-                             BlockHeader* header,
-                             BadAccessKind bad_access_kind,
-                             std::string* output);
+  void ReportAddressInformation(const void* addr,
+                                BlockHeader* header,
+                                BadAccessKind bad_access_kind);
 
   // Low-level ASAN reporting function. This function dumps the stack,
   // optionally including an extra (free-form) description of the address
   // being accessed when the error occurred.
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
-  // @param addr_info A (possibly empty) string describing @p addr.
   // @param bad_access_kind The kind of error.
   // @param access_mode The mode of the access (read or write).
   // @param access_size The size of the access (in bytes).
   static void ReportAsanErrorBase(const char* bug_descr,
                                   const void* addr,
-                                  const base::StringPiece& addr_info,
                                   BadAccessKind bad_access_kind,
                                   AccessMode access_mode,
                                   size_t access_size);

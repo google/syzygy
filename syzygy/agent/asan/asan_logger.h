@@ -16,11 +16,14 @@
 #define SYZYGY_AGENT_ASAN_ASAN_LOGGER_H_
 
 #include <string>
+
+#include "base/logging.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace agent {
 namespace asan {
 
+// A wrapper class to manage the singleton ASAN RPC logger instance.
 class AsanLogger {
  public:
   AsanLogger();
@@ -31,17 +34,30 @@ class AsanLogger {
   static AsanLogger* Instance();
   // @}
 
+  // Set the RPC instance ID to use. If an instance-id is to be used by the
+  // logger, it must be set before calling Init().
   void set_instance_id(const base::StringPiece16& instance_id) {
+    DCHECK(rpc_binding_.Get() == NULL);
     instance_id_.assign(instance_id.begin(), instance_id.end());
   }
-  // Initialize the logger
+
+  // Initialize the logger.
   void Init();
 
-  // Write a message to the logger.
+  // Write a @p message to the logger.
   void Write(const std::string& message);
 
+  // Write a @p message to the logger, with an optional stack @p trace
+  // containing @p trace_length elements.
+  void WriteWithStackTrace(const std::string& message,
+                           const void* const* trace_data,
+                           size_t trace_length);
+
  protected:
+  // The RPC binding.
   trace::client::ScopedRpcBinding rpc_binding_;
+
+  // The logger's instance id.
   std::wstring instance_id_;
 
  private:

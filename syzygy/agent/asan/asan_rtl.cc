@@ -107,12 +107,6 @@ void SetUpLogger() {
     client->set_instance_id(UTF8ToWide(instance_id));
   client->Init();
 
-  // Announce the client.
-  client->Write(base::StringPrintf(
-      "PID=%d; cmd-line='%ls'\n",
-      ::GetCurrentProcessId(),
-      CommandLine::ForCurrentProcess()->GetCommandLineString().c_str()));
-
   // Register the client singleton instance.
   AsanLogger::SetInstance(client.release());
 }
