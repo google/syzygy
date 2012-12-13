@@ -55,6 +55,7 @@ class FlagsManagerTest : public testing::Test {
       ASSERT_TRUE(env.get() != NULL);
       ASSERT_TRUE(env->SetVar(flags_manager_.SyzyAsanEnvVar,
                               original_command_line_));
+      ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
     }
   }
 
@@ -89,12 +90,13 @@ TEST_F(FlagsManagerTest, InitializeFlagsWithEnvVar) {
   ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
 }
 
-TEST_F(FlagsManagerTest, SetQuarantineMaxSize) {
+TEST_F(FlagsManagerTest, SetDefaultQuarantineMaxSize) {
   // Initialize the flags with the original command line.
   ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
 
   // Double the max size of the quarantine.
-  unsigned int quarantine_max_size = HeapProxy::GetQuarantineMaxSize() * 2;
+  unsigned int quarantine_max_size =
+      HeapProxy::GetDefaultQuarantineMaxSize() * 2;
   // Increments the quarantine max size if it was set to 0.
   if (quarantine_max_size == 0)
     quarantine_max_size++;
@@ -108,7 +110,7 @@ TEST_F(FlagsManagerTest, SetQuarantineMaxSize) {
   ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
 
   // Ensure that the quarantine max size has been modified.
-  EXPECT_EQ(HeapProxy::GetQuarantineMaxSize(), quarantine_max_size);
+  EXPECT_EQ(HeapProxy::GetDefaultQuarantineMaxSize(), quarantine_max_size);
 }
 
 }  // namespace asan

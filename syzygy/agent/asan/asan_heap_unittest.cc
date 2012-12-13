@@ -33,9 +33,10 @@ class TestHeapProxy : public HeapProxy {
  public:
   using HeapProxy::BlockHeader;
   using HeapProxy::FindAddressBlock;
+  using HeapProxy::FreeBlockHeader;
+  using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::ToBlock;
-  using HeapProxy::quarantine_max_size_;
 
   // Verify that the access to @p addr contained in @p header is an underflow.
   bool IsUnderflowAccess(uint8* addr, BlockHeader* header) {
@@ -51,6 +52,20 @@ class TestHeapProxy : public HeapProxy {
   // free.
   bool IsUseAfterAccess(uint8* addr, BlockHeader* header) {
     return GetBadAccessKind(addr, header) == USE_AFTER_FREE;
+  }
+
+  // Determines if the address @p mem corresponds to a block in quarantine.
+  bool InQuarantine(const void* mem) {
+    base::AutoLock lock(lock_);
+    FreeBlockHeader* current_block = head_;
+    while (current_block != NULL) {
+      void* block_alloc = static_cast<void*>(ToAlloc(current_block));
+      EXPECT_TRUE(block_alloc != NULL);
+      if (block_alloc == mem)
+        return true;
+      current_block = current_block->next;
+    }
+    return false;
   }
 };
 
@@ -107,14 +122,50 @@ TEST_F(HeapTest, ToFromHandle) {
   ASSERT_EQ(&proxy_, HeapProxy::FromHandle(handle));
 }
 
-TEST_F(HeapTest, SetMaxQuarantineSize) {
-  size_t quarantine_size = TestHeapProxy::quarantine_max_size_ * 2;
+TEST_F(HeapTest, SetQuarantineMaxSize) {
+  size_t quarantine_size = proxy_.GetQuarantineMaxSize() * 2;
   // Increments the quarantine max size if it was set to 0.
   if (quarantine_size == 0)
     quarantine_size++;
   DCHECK_GT(quarantine_size, 0U);
-  HeapProxy::SetQuarantineMaxSize(quarantine_size);
-  ASSERT_EQ(quarantine_size, TestHeapProxy::quarantine_max_size_);
+  proxy_.SetQuarantineMaxSize(quarantine_size);
+  ASSERT_EQ(quarantine_size, proxy_.GetQuarantineMaxSize());
+}
+
+TEST_F(HeapTest, PopOnSetQuarantineMaxSize) {
+  const size_t kAllocSize = 100;
+  const size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_FALSE(proxy_.InQuarantine(mem));
+  proxy_.SetQuarantineMaxSize(real_alloc_size);
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  // The quarantine is just large enough to keep this block.
+  ASSERT_TRUE(proxy_.InQuarantine(mem));
+  // We resize the quarantine to a smaller size, the block should pop out.
+  proxy_.SetQuarantineMaxSize(real_alloc_size - 1);
+  ASSERT_FALSE(proxy_.InQuarantine(mem));
+}
+
+TEST_F(HeapTest, Quarantine) {
+  const size_t kAllocSize = 100;
+  const size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  const size_t number_of_allocs = 16;
+  proxy_.SetQuarantineMaxSize(real_alloc_size * number_of_allocs);
+
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  // Allocate a bunch of blocks until the first one is pushed out of the
+  // quarantine.
+  for (size_t i = 0;i < number_of_allocs; ++i) {
+    ASSERT_TRUE(proxy_.InQuarantine(mem));
+    LPVOID mem2 = proxy_.Alloc(0, kAllocSize);
+    ASSERT_TRUE(mem2 != NULL);
+    ASSERT_TRUE(proxy_.Free(0, mem2));
+    ASSERT_TRUE(proxy_.InQuarantine(mem2));
+  }
+
+  ASSERT_FALSE(proxy_.InQuarantine(mem));
 }
 
 TEST_F(HeapTest, AllocFree) {
@@ -130,6 +181,9 @@ TEST_F(HeapTest, AllocFree) {
 
 TEST_F(HeapTest, DoubleFree) {
   const size_t kAllocSize = 100;
+  // Ensure that the quarantine is large enough to keep this block, this is
+  // needed for the use-after-free check.
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
@@ -137,6 +191,9 @@ TEST_F(HeapTest, DoubleFree) {
 }
 
 TEST_F(HeapTest, AllocsAccessibility) {
+  // Ensure that the quarantine is large enough to keep the allocated blocks in
+  // this test.
+  proxy_.SetQuarantineMaxSize(kMaxAllocSize * 2);
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     // Do an alloc/realloc/free and test that access is correctly managed.
     void* mem = proxy_.Alloc(0, size);
@@ -247,6 +304,9 @@ TEST_F(HeapTest, FindAddressBlock) {
 
 TEST_F(HeapTest, GetBadAccessKind) {
   const size_t kAllocSize = 100;
+  // Ensure that the quarantine is large enough to keep this block, this is
+  // needed for the use-after-free check.
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_FALSE(mem == NULL);
   TestHeapProxy::BlockHeader* header =

@@ -53,7 +53,7 @@ bool FlagsManager::ParseFlagsFromString(const std::wstring& str) {
                  << " list.";
       return false;
     }
-    agent::asan::HeapProxy::SetQuarantineMaxSize(quarantine_size);
+    agent::asan::HeapProxy::SetDefaultQuarantineMaxSize(quarantine_size);
   }
   return true;
 }

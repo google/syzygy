@@ -77,14 +77,14 @@ void CaptureStackTrace(StackCapture* trace, uint8* trace_size) {
 }  // namespace
 
 // Arbitrarily keep 16 megabytes of quarantine per heap by default.
-const size_t HeapProxy::kDefaultQuarantineSize = 16 * 1024 * 1024;
-size_t HeapProxy::quarantine_max_size_ = kDefaultQuarantineSize;
+size_t HeapProxy::default_quarantine_max_size_ = 16 * 1024 * 1024;
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
       head_(NULL),
       tail_(NULL),
-      quarantine_size_(0) {
+      quarantine_size_(0),
+      quarantine_max_size_(0) {
 }
 
 HeapProxy::~HeapProxy() {
@@ -109,6 +109,8 @@ bool HeapProxy::Create(DWORD options,
   COMPILE_ASSERT(sizeof(HeapProxy::BlockHeader) <= kRedZoneSize,
                  asan_block_header_too_big);
 
+  SetQuarantineMaxSize(default_quarantine_max_size_);
+
   heap_ = ::HeapCreate(options, initial_size, maximum_size);
   if (heap_ != NULL)
     return true;
@@ -120,8 +122,7 @@ bool HeapProxy::Destroy() {
   DCHECK(heap_ != NULL);
 
   // Flush the quarantine.
-  while (head_ != NULL)
-    PopQuarantine();
+  SetQuarantineMaxSize(0);
 
   if (::HeapDestroy(heap_)) {
     heap_ = NULL;
@@ -260,8 +261,18 @@ bool HeapProxy::QueryInformation(HEAP_INFORMATION_CLASS info_class,
                                 return_length) == TRUE;
 }
 
-void HeapProxy::PopQuarantine() {
+void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
+  base::AutoLock lock(lock_);
+  quarantine_max_size_ = quarantine_max_size;
+
+  while (quarantine_size_ > quarantine_max_size_)
+    PopQuarantineUnlocked();
+}
+
+void HeapProxy::PopQuarantineUnlocked() {
   DCHECK(head_ != NULL && tail_ != NULL);
+  // The caller should have locked the quarantine.
+  lock_.AssertAcquired();
 
   FreeBlockHeader* free_block = head_;
   head_ = free_block->next;
@@ -312,9 +323,8 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   free_block->state = QUARANTINED;
 
   // Flush quarantine overage.
-  while (quarantine_size_ > quarantine_max_size_) {
-    PopQuarantine();
-  }
+  while (quarantine_size_ > quarantine_max_size_)
+    PopQuarantineUnlocked();
 }
 
 size_t HeapProxy::GetAllocSize(size_t bytes) {
