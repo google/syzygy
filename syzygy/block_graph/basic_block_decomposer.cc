@@ -677,13 +677,28 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
   BasicBlockSubGraph::BBCollection::const_iterator bb_iter =
       subgraph_->basic_blocks().begin();
   for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
-    // Account for labels attached to basic-blocks.
     const BasicDataBlock* data_block = BasicDataBlock::Cast(*bb_iter);
-    if (data_block != NULL && data_block->has_label()) {
-      BlockGraph::Label label;
-      CHECK(original_block->GetLabel(data_block->offset(), &label));
-      CHECK(data_block->label() == label);
-      labels_found[data_block->offset()] = true;
+    if (data_block != NULL) {
+      // Some labels are attached to unreachable code blocks, which we currently
+      // parse as padding blocks. Mark those labels as 'found' as well.
+      // TODO(chrisha): When we move to straight-path disassembly these will
+      //     actually be orphaned code blocks, rather than 'padding' blocks.
+      if (data_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+        std::map<Offset, bool>::iterator label_it =
+            labels_found.lower_bound(data_block->offset());
+        std::map<Offset, bool>::iterator label_end =
+            labels_found.lower_bound(data_block->offset() + data_block->size());
+        for (; label_it != label_end; ++label_it)
+          label_it->second = true;
+      }
+
+      // Account for labels attached to basic-blocks.
+      if (data_block->has_label()) {
+        BlockGraph::Label label;
+        CHECK(original_block->GetLabel(data_block->offset(), &label));
+        CHECK(data_block->label() == label);
+        labels_found[data_block->offset()] = true;
+      }
     }
 
     const BasicCodeBlock* code_block = BasicCodeBlock::Cast(*bb_iter);
