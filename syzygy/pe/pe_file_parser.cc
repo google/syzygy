@@ -595,10 +595,8 @@ bool PEFileParser::ParseImportThunks(RelativeAddress thunk_start,
     // The IAT may have been chunked while parsing the IAT data directory,
     // in which case we want to leave a label for the start of our entries. In
     // this case we should be wholly contained in an existing block.
-    if (thunk_block == NULL) {
-      thunk_block = address_space_->GetContainingBlock(thunk_start,
-                                                       ixt_size);
-    }
+    if (thunk_block == NULL)
+      thunk_block = address_space_->GetContainingBlock(thunk_start, ixt_size);
   }
 
   if (thunk_block == NULL) {
