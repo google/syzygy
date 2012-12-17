@@ -51,7 +51,7 @@ class TestThunkImportReferencesTransform
   using ThunkImportReferencesTransform::ImportAddressLocation;
   using ThunkImportReferencesTransform::ImportAddressLocationNameMap;
   using ThunkImportReferencesTransform::ModuleNameSet;
-  using ThunkImportReferencesTransform::LookupImportNames;
+  using ThunkImportReferencesTransform::LookupImportLocations;
 };
 
 class ThunkImportReferencesTransformTest
@@ -84,11 +84,11 @@ TEST_F(ThunkImportReferencesTransformTest, Initialization) {
   EXPECT_TRUE(transform.modules_to_exclude_.empty());
 }
 
-TEST_F(ThunkImportReferencesTransformTest, LookupImportNames) {
+TEST_F(ThunkImportReferencesTransformTest, LookupImportLocations) {
   ImportAddressLocationNameMap all_import_locations;
   // This should enumerate all imports.
   ASSERT_TRUE(
-      TestThunkImportReferencesTransform::LookupImportNames(
+      TestThunkImportReferencesTransform::LookupImportLocations(
           ModuleNameSet(), dos_header_block_, &all_import_locations));
 
   // Check that we found all the functions imported from export_dll.dll.
@@ -176,7 +176,7 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentationWithExclusion) {
   // imports, and that only thunks reference other imports.
   ImportAddressLocationNameMap all_import_locations;
     ASSERT_TRUE(
-      TestThunkImportReferencesTransform::LookupImportNames(
+      TestThunkImportReferencesTransform::LookupImportLocations(
           ModuleNameSet(), dos_header_block_, &all_import_locations));
 
   AddImportsTransform& ait = transform.add_imports_transform();

@@ -14,6 +14,8 @@
 
 #include "syzygy/instrument/transforms/thunk_import_references_transform.h"
 
+#include <limits>
+
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -37,16 +39,14 @@ struct StringStruct {
 };
 
 typedef BlockGraph::Offset Offset;
-typedef ConstTypedBlock<IMAGE_DOS_HEADER> DosHeader;
-typedef ConstTypedBlock<IMAGE_IMPORT_BY_NAME> ImageImportByName;
-typedef ConstTypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
-typedef ConstTypedBlock<IMAGE_NT_HEADERS> NtHeaders;
-typedef ConstTypedBlock<IMAGE_THUNK_DATA32> ImageThunkData32;
-typedef ConstTypedBlock<StringStruct> StringBlock;
+typedef TypedBlock<IMAGE_DOS_HEADER> DosHeader;
+typedef TypedBlock<IMAGE_IMPORT_BY_NAME> ImageImportByName;
+typedef TypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
+typedef TypedBlock<IMAGE_NT_HEADERS> NtHeaders;
+typedef TypedBlock<StringStruct> StringBlock;
 
 // We add this suffix to the destination
 const char kThunkSuffix[] = "_ImportThunk";
-
 
 }  // namespace
 
@@ -87,20 +87,18 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
     return false;
   }
 
-  ImportAddressLocationNameMap import_names;
-  if (!LookupImportNames(modules_to_exclude_, header_block, &import_names)) {
+  ImportAddressLocationNameMap import_locations;
+  if (!LookupImportLocations(modules_to_exclude_,
+                             header_block,
+                             &import_locations)) {
     LOG(ERROR) << "Unable to resolve import names and locations.";
     return false;
   }
 
   // Now grab the block containing the IAT so that we can instrument references
   // to it.
-  BlockGraph::Block* iat_block =
-      add_imports_transform_.import_address_table_block();
-  DCHECK(iat_block != NULL);
-
-  if (!InstrumentIATReferences(block_graph, import_names, iat_block)) {
-    LOG(ERROR) << "Unable to instrument references to the IAT.";
+  if (!InstrumentImportReferences(block_graph, import_locations)) {
+    LOG(ERROR) << "Unable to instrument import references.";
     return false;
   }
 
@@ -135,16 +133,21 @@ bool ThunkImportReferencesTransform::ModuleNameLess::operator()(
 // an indirect call or jump instruction, changing the address of the call
 // statement from an address into the IAT to an address into the thunk table
 // gets the thunk called properly.
-bool ThunkImportReferencesTransform::InstrumentIATReferences(
+bool ThunkImportReferencesTransform::InstrumentImportReferences(
     BlockGraph* block_graph,
-    const ImportAddressLocationNameMap& location_names,
-    BlockGraph::Block* iat_block) {
-
+    const ImportAddressLocationNameMap& import_locations) {
   // Find or create the section we put our thunks in.
   thunk_section_ = block_graph->FindOrAddSection(".thunks",
                                                  pe::kCodeCharacteristics);
   if (thunk_section_ == NULL) {
     LOG(ERROR) << "Unable to find or create .thunks section.";
+    return false;
+  }
+
+  // Find the set of blocks referred by import_locations.
+  BlockSet import_blocks;
+  if (!GetImportBlocks(import_locations, &import_blocks)) {
+    LOG(ERROR) << "Unable to get import blocks.";
     return false;
   }
 
@@ -154,99 +157,105 @@ bool ThunkImportReferencesTransform::InstrumentIATReferences(
   typedef std::map<BlockGraph::Offset, BlockGraph::Offset> ThunkBlockMap;
   ThunkBlockMap thunk_block_map;
 
-  // Create the thunk table. Make it the same size as the IAT, assuming that
-  // we will need a thunk for each import.
-  // TODO(siggi): Shrink the block afterwards if not all imports are thunked.
+  // Create the thunk table - we'll grow it as we go.
   BlockGraph::Block* thunk_table_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK, 0, "ImportsThunkTable");
-  thunk_table_block->set_size(iat_block->size());
   thunk_table_block->set_section(thunk_section_->id());
   BlockGraph::Offset thunk_table_offset = 0;
 
-  // Next, list all referrers to get all references into the IAT. For each
-  // eligible reference, create a thunk (in its own block) and add a pointer
-  // to it to the thunk table.
-  BlockGraph::Block::ReferrerSet iat_referrers(iat_block->referrers());
-  BlockGraph::Block::ReferrerSet::const_iterator iat_referrer_iter(
-      iat_referrers.begin());
-  for (; iat_referrer_iter != iat_referrers.end(); ++iat_referrer_iter) {
-    const BlockGraph::Block::Referrer& referrer = *iat_referrer_iter;
+  // Now iterate through the import blocks and instrument the references.
+  BlockSet::const_iterator it = import_blocks.begin();
+  for (; it != import_blocks.end(); ++it) {
+    BlockGraph::Block* iat_block = *it;
 
-    if (referrer.first == iat_block) {
-      LOG(WARNING) << "Unexpected self-reference in IAT.";
-      continue;
-    }
+    // Next, list all referrers to get all references into the IAT. For each
+    // eligible reference, create a thunk (in its own block) and add a pointer
+    // to it to the thunk table.
+    BlockGraph::Block::ReferrerSet iat_referrers(iat_block->referrers());
+    BlockGraph::Block::ReferrerSet::const_iterator iat_referrer_iter(
+        iat_referrers.begin());
+    for (; iat_referrer_iter != iat_referrers.end(); ++iat_referrer_iter) {
+      const BlockGraph::Block::Referrer& referrer = *iat_referrer_iter;
 
-    if (referrer.first->type() != BlockGraph::CODE_BLOCK) {
-      LOG(INFO) << "Skipping non-code block reference.";
-      continue;
-    }
+      if (referrer.first == iat_block) {
+        LOG(WARNING) << "Unexpected self-reference in IAT.";
+        continue;
+      }
 
-    // For now, let's not try and thunk thunks. This means that we can't
-    // e.g. double-instrument, which is a potentially legitimate use case,
-    // but it should only be supported if there's adequate testing for it.
-    if (referrer.first->section() == thunk_section_->id()) {
-      LOG(ERROR) << "Thunking a reference from the thunk section, "
-                 << "in block " << referrer.first->name();
-      return false;
-    }
+      if (referrer.first->type() != BlockGraph::CODE_BLOCK) {
+        LOG(INFO) << "Skipping non-code block reference.";
+        continue;
+      }
 
-    // Now that we know the referring block, we need to find out where in the
-    // IAT it refers to.
-    BlockGraph::Reference ref;
-    if (!referrer.first->GetReference(referrer.second, &ref)) {
-      LOG(ERROR) << "Unable to get reference from referrer.";
-      return false;
-    }
-
-    // See whether this is an eligible import.
-    ImportAddressLocationNameMap::const_iterator it(
-        location_names.find(std::make_pair(ref.referenced(), ref.offset())));
-    if (it == location_names.end()) {
-      // It's not an eligible location, skip it.
-      continue;
-    }
-
-    // Look for the reference in the thunk block map, and only create a new one
-    // if it does not already exist.
-    BlockGraph::Block* thunk_block = NULL;
-    BlockGraph::Offset new_ref_offset = 0;
-
-    ThunkBlockMap::const_iterator thunk_it = thunk_block_map.find(ref.offset());
-    if (thunk_it == thunk_block_map.end()) {
-      // Create the thunk block for this offset into the IAT.
-      thunk_block = CreateOneThunk(block_graph, ref, it->second);
-      if (thunk_block == NULL) {
-        LOG(DFATAL) << "Unable to create thunk block.";
+      // For now, let's not try and thunk thunks. This means that we can't
+      // e.g. double-instrument, which is a potentially legitimate use case,
+      // but it should only be supported if there's adequate testing for it.
+      if (referrer.first->section() == thunk_section_->id()) {
+        LOG(ERROR) << "Thunking a reference from the thunk section, "
+                   << "in block " << referrer.first->name();
         return false;
       }
 
-      // Now add a reference to the thunk in the thunk table.
-      BlockGraph::Reference thunk_ref(BlockGraph::ABSOLUTE_REF,
-                                      sizeof(core::AbsoluteAddress),
-                                      thunk_block, 0, 0);
-      thunk_table_block->SetReference(thunk_table_offset, thunk_ref);
+      // Now that we know the referring block, we need to find out where in the
+      // IAT it refers to.
+      BlockGraph::Reference ref;
+      if (!referrer.first->GetReference(referrer.second, &ref)) {
+        LOG(ERROR) << "Unable to get reference from referrer.";
+        return false;
+      }
 
-      // Remember this thunk in case we need to use it again.
-      thunk_block_map[ref.offset()] = thunk_table_offset;
+      // See whether this is an eligible import.
+      ImportAddressLocationNameMap::const_iterator it(
+          import_locations.find(
+              std::make_pair(ref.referenced(), ref.offset())));
+      if (it == import_locations.end()) {
+        // It's not an eligible location, skip it.
+        continue;
+      }
 
-      new_ref_offset = thunk_table_offset;
+      // Look for the reference in the thunk block map, and only create a
+      // new one if it does not already exist.
+      BlockGraph::Block* thunk_block = NULL;
+      BlockGraph::Offset new_ref_offset = 0;
 
-      // Move to the next empty entry in the thunk table.
-      thunk_table_offset += sizeof(core::AbsoluteAddress);
-      DCHECK_LT(static_cast<BlockGraph::Size>(thunk_table_offset),
-                thunk_table_block->size());
-    } else {
-      new_ref_offset = thunk_it->second;
+      ThunkBlockMap::const_iterator thunk_it =
+          thunk_block_map.find(ref.offset());
+      if (thunk_it == thunk_block_map.end()) {
+        // Create the thunk block for this offset into the IAT.
+        thunk_block = CreateOneThunk(block_graph, ref, it->second);
+        if (thunk_block == NULL) {
+          LOG(DFATAL) << "Unable to create thunk block.";
+          return false;
+        }
+
+        // Now add a reference to the thunk in the thunk table.
+        BlockGraph::Reference thunk_ref(BlockGraph::ABSOLUTE_REF,
+                                        sizeof(core::AbsoluteAddress),
+                                        thunk_block, 0, 0);
+        thunk_table_block->set_size(
+            thunk_table_offset + sizeof(core::AbsoluteAddress));
+        thunk_table_block->SetReference(thunk_table_offset, thunk_ref);
+
+        // Remember this thunk in case we need to use it again.
+        thunk_block_map[ref.offset()] = thunk_table_offset;
+        new_ref_offset = thunk_table_offset;
+
+        // Move to the next empty entry in the thunk table.
+        thunk_table_offset += sizeof(core::AbsoluteAddress);
+        DCHECK_EQ(static_cast<BlockGraph::Size>(thunk_table_offset),
+                  thunk_table_block->size());
+      } else {
+        new_ref_offset = thunk_it->second;
+      }
+
+      // Update the referrer to point to the new location in the thunk table.
+      BlockGraph::Reference new_ref(ref.type(),
+                                    ref.size(),
+                                    thunk_table_block,
+                                    new_ref_offset,
+                                    0);
+      referrer.first->SetReference(referrer.second, new_ref);
     }
-
-    // Update the referrer to point to the new location in the thunk table.
-    BlockGraph::Reference new_ref(ref.type(),
-                                  ref.size(),
-                                  thunk_table_block,
-                                  new_ref_offset,
-                                  0);
-    referrer.first->SetReference(referrer.second, new_ref);
   }
 
   return true;
@@ -299,12 +308,33 @@ BlockGraph::Block* ThunkImportReferencesTransform::CreateOneThunk(
   return thunk;
 }
 
-bool ThunkImportReferencesTransform::LookupImportNames(
+bool ThunkImportReferencesTransform::GetImportBlocks(
+    const ImportAddressLocationNameMap& import_locations,
+    BlockSet* import_blocks) {
+  DCHECK(import_blocks != NULL);
+
+  ImportAddressLocationNameMap::const_iterator it;
+  BlockGraph::Block* last_block = NULL;
+  while (true) {
+    it = import_locations.upper_bound(
+        std::make_pair(last_block, std::numeric_limits<Offset>::max()));
+
+    if (it == import_locations.end())
+      break;
+
+    last_block = it->first.first;
+    import_blocks->insert(last_block);
+  }
+
+  return true;
+}
+
+bool ThunkImportReferencesTransform::LookupImportLocations(
     const ModuleNameSet& exclusions,
     BlockGraph::Block* header_block,
-    ImportAddressLocationNameMap* location_names) {
+    ImportAddressLocationNameMap* import_locations) {
   DCHECK(header_block != NULL);
-  DCHECK(location_names != NULL);
+  DCHECK(import_locations != NULL);
 
   // Start by retrieving the NT headers.
   DosHeader dos_header;
@@ -348,7 +378,7 @@ bool ThunkImportReferencesTransform::LookupImportNames(
     // Walk the IAT and the INT(also know as hna) for this module concurrently
     // until we come to a zero terminator for one or the other and mark their
     // offsets and names in the location names map.
-    ConstTypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
+    TypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
     if (!iida.Dereference(iida[iida_index].OriginalFirstThunk, &hna) ||
         !iida.Dereference(iida[iida_index].FirstThunk, &iat)) {
       LOG(ERROR) << "Unable to dereference OriginalFirstThunk/FirstThunk.";
@@ -397,7 +427,7 @@ bool ThunkImportReferencesTransform::LookupImportNames(
 
       // Tag and name it.
       bool inserted =
-          location_names->insert(std::make_pair(key, import_name)).second;
+          import_locations->insert(std::make_pair(key, import_name)).second;
 
       DCHECK(inserted);
     }

@@ -70,10 +70,11 @@ class ThunkImportReferencesTransform
   // We keep a map from the blocks/offsets where there are imports we want to
   // thunk (e.g. imports to non-excluded modules) to their dll/function names,
   // during instrumentation.
-  typedef std::pair<const BlockGraph::Block*, BlockGraph::Offset>
+  typedef std::pair<BlockGraph::Block*, BlockGraph::Offset>
       ImportAddressLocation;
   typedef std::map<ImportAddressLocation, std::string>
       ImportAddressLocationNameMap;
+  typedef std::set<BlockGraph::Block*> BlockSet;
 
   // Comparator for module names, this class wants to be fully declared before
   // use of the typedefs referencing it.
@@ -92,20 +93,13 @@ class ThunkImportReferencesTransform
   BlockGraph::Section* thunk_section() const { return thunk_section_; }
 
   // Instrument all references to @p iat_block that have an entry
-  // in @p location_names, excluding references from @p iidt_block.
-  // @param block_grap the block graph to operate on.
-  // @param location_names tags the entries to instrument.
-  // @param iat_block the import address table to process.
-  // TODO(siggi): It should be possible to reuse this function for
-  //     delay imports.
-  // TODO(siggi): The iat_block parameter is redundant as the location_names
-  //     map references one or more import address tables. With that change
-  //     this function could instrument imports and delay imports in a
-  //     single go.
-  bool InstrumentIATReferences(
+  // in @p import_locations, excluding references from @p iidt_block.
+  // @param block_graph the block graph to operate on.
+  // @param import_locations tags the entries to instrument.
+  // @returns true on success, false on failure.
+  bool InstrumentImportReferences(
       BlockGraph* block_graph,
-      const ImportAddressLocationNameMap& location_names,
-      BlockGraph::Block* iat_block);
+      const ImportAddressLocationNameMap& import_locations);
 
   // Create a single thunk to destination.
   // @param destination the destination reference.
@@ -120,10 +114,16 @@ class ThunkImportReferencesTransform
     return add_imports_transform_;
   }
 
+  // Retrieves the set of blocks referenced by import_locations.
+  static bool GetImportBlocks(
+      const ImportAddressLocationNameMap& import_locations,
+      BlockSet* import_blocks);
+
   // Implementation function, exposed for testing.
-  static bool LookupImportNames(const ModuleNameSet& exclusions,
-                                BlockGraph::Block* header_block,
-                                ImportAddressLocationNameMap* location_names);
+  static bool LookupImportLocations(
+      const ModuleNameSet& exclusions,
+      BlockGraph::Block* header_block,
+      ImportAddressLocationNameMap* import_locations);
 
   // For NamedBlockGraphTransformImpl.
   static const char kTransformName[];
