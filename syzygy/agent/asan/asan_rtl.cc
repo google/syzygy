@@ -344,8 +344,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
       // and we're now just cleaning it up again.
-      DCHECK(IsListEmpty(&heap_proxy_dlist) == TRUE);
       DCHECK(asan_callback.is_null() == FALSE);
+      // We should check that all the heap have been destroyed but this is not
+      // the case in Chrome, so the heap list may not be empty here.
       asan_callback.Reset();
       TearDownLogger();
       TearDownAtExitManager();

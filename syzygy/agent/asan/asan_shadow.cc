@@ -71,8 +71,8 @@ bool __stdcall Shadow::IsAccessible(const void* addr) {
 }
 
 void Shadow::AppendShadowByteText(const char *prefix,
-                              uintptr_t index,
-                              std::string* output) {
+                                  uintptr_t index,
+                                  std::string* output) {
   base::StringAppendF(
       output, "%s0x%08x:", prefix, reinterpret_cast<void*>(index << 3));
   for (uint32 i = 0; i < 8; i++) {
@@ -84,7 +84,7 @@ void Shadow::AppendShadowByteText(const char *prefix,
 }
 
 void Shadow::AppendShadowMemoryText(const void* addr,
-                                                 std::string* output) {
+                                    std::string* output) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= 3;
   base::StringAppendF(output, "Shadow byte and word:\n");

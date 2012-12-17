@@ -138,9 +138,6 @@ class HeapProxy {
     ALLOCATED,
     FREED,
     QUARANTINED,
-
-    // This enum value should always be last.
-    MAX_STATE,
   };
 
   // Every allocated block starts with a BlockHeader.
@@ -158,6 +155,12 @@ class HeapProxy {
   struct FreeBlockHeader : public BlockHeader {
     FreeBlockHeader* next;
   };
+
+  // Magic number to identify the beginning of a block header.
+  static const size_t kBlockHeaderSignature = 0x03CA80E7;
+
+  // Returns a string describing a bad access kind.
+  static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
 
   // Returns the block header for an alloc.
   BlockHeader* ToBlock(const void* alloc);
@@ -177,22 +180,6 @@ class HeapProxy {
   // Calculates the underlying allocation size for a requested
   // allocation of @p bytes.
   static size_t GetAllocSize(size_t bytes);
-
-  // Default max size of blocks in quarantine (in bytes).
-  static size_t default_quarantine_max_size_;
-
-  base::Lock lock_;
-  // Points to the head of the quarantine queue.
-  FreeBlockHeader* head_;  // Under lock_.
-  // Points to the tail of the quarantine queue.
-  FreeBlockHeader* tail_;  // Under lock_.
-
- private:
-  // Magic number to identify the beginning of a block header.
-  static const size_t kBlockHeaderSignature = 0x03CA80E7;
-
-  // Returns a string describing a bad access kind.
-  static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
 
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
@@ -240,13 +227,21 @@ class HeapProxy {
                        AccessMode access_mode,
                        size_t access_size);
 
+  // Default max size of blocks in quarantine (in bytes).
+  static size_t default_quarantine_max_size_;
+
   // Contains the underlying heap we delegate to.
   HANDLE heap_;
 
+  base::Lock lock_;
+  // Points to the head of the quarantine queue.
+  FreeBlockHeader* head_;  // Under lock_.
+  // Points to the tail of the quarantine queue.
+  FreeBlockHeader* tail_;  // Under lock_.
   // Total size of blocks in quarantine.
   size_t quarantine_size_;  // Under lock_.
   // Max size of blocks in quarantine.
-  size_t quarantine_max_size_; // under lock_.
+  size_t quarantine_max_size_;  // Under lock_.
 
   // The entry linking to us.
   LIST_ENTRY list_entry_;
