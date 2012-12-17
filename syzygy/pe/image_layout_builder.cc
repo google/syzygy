@@ -422,12 +422,19 @@ bool ImageLayoutBuilder::SortSafeSehTable() {
     return false;
   }
 
+  // If there is no load config directory then we can exit early.
+  IMAGE_DATA_DIRECTORY* load_config =
+      nt_headers->OptionalHeader.DataDirectory +
+          IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG;
+  if (load_config->VirtualAddress == 0 && load_config->Size == 0 &&
+      !nt_headers.HasReference(load_config->VirtualAddress)) {
+    return true;
+  }
+
   TypedBlock<IMAGE_LOAD_CONFIG_DIRECTORY> load_config_directory;
-  if (!nt_headers.Dereference(
-      nt_headers->OptionalHeader.DataDirectory[
-          IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG].VirtualAddress,
-      &load_config_directory)) {
-    LOG(ERROR) << "Failed to dereference Load Config Directory.";
+  if (!nt_headers.Dereference(load_config->VirtualAddress,
+                              &load_config_directory)) {
+      LOG(ERROR) << "Failed to dereference Load Config Directory.";
     return false;
   }
 

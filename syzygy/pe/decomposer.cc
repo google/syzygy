@@ -2237,8 +2237,10 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
     }
 
     if (collision) {
-      LOG(ERROR) << "Block collision for function at "
-                 << addr.value() << "(" << size << ") with " << block->name();
+      LOG(ERROR) << "Block collision for \"" << name.as_string() << "\" at "
+                 << addr << "(" << size << ") with existing block \""
+                 << block->name() << "\" at " << block->addr() << " ("
+                 << block->size() << ").";
       return NULL;
     }
 
