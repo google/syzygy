@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -327,13 +327,12 @@ TEST_F(PEFileTest, DecodeImports) {
   for (size_t i = 0; i < imports.size(); ++i) {
     PEFile::ImportDll& dll = imports[i];
     if (0 == base::strcasecmp("export_dll.dll", dll.name.c_str())) {
-      ASSERT_EQ(3, dll.functions.size());
-      ASSERT_THAT(dll.functions,
-                  testing::Contains(PEFile::ImportInfo(0, 0, "function1")));
-      ASSERT_THAT(dll.functions,
-                  testing::Contains(PEFile::ImportInfo(1, 0, "function3")));
-      ASSERT_THAT(dll.functions,
-                  testing::Contains(PEFile::ImportInfo(0, 7, "")));
+      ASSERT_EQ(4, dll.functions.size());
+      ASSERT_THAT(dll.functions, testing::ElementsAre(
+          PEFile::ImportInfo(0, 0, "function1"),
+          PEFile::ImportInfo(1, 0, "function3"),
+          PEFile::ImportInfo(0, 7, ""),
+          PEFile::ImportInfo(2, 0, "kExportedData")));
     }
   }
 }

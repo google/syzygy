@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -242,6 +242,9 @@ class Decomposer {
     kAllowIdenticalBlock,
     // Allow the existence of a block that completely covers the provided range.
     kAllowCoveringBlock,
+    // Allow the existence of a block that contains the start of the provided
+    // range, but which may not fully contain the provided range.
+    kAllowPartialCoveringBlock,
   };
   // Create block for the given @p address and @p size of the given @p type,
   // or return an existant block that has the same @p type, @p address and

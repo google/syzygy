@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2010 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,9 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <cstdlib>
+
 #include <string.h>
 #include <time.h>
+#include <cstdlib>
+
+// A simple piece of data to be exported.
+extern int kExportedData[1024] = { 0 };
 
 int function1() {
   return rand();

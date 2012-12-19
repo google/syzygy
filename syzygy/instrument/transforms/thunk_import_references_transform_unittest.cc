@@ -105,7 +105,8 @@ TEST_F(ThunkImportReferencesTransformTest, LookupImportLocations) {
   EXPECT_THAT(export_dll_imports,
       testing::ElementsAre("export_dll.dll:#7",
                            "export_dll.dll:function1",
-                           "export_dll.dll:function3"));
+                           "export_dll.dll:function3",
+                           "export_dll.dll:kExportedData"));
 }
 
 TEST_F(ThunkImportReferencesTransformTest, ExcludeModule) {

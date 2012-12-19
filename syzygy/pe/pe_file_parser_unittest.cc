@@ -331,7 +331,7 @@ TEST_F(PEFileParserTest, ParseImportDir) {
 #endif
 
   // The number of expected symbols imported from export_dll.dll.
-  static const size_t kNumExportDllSymbols = 2;
+  static const size_t kNumExportDllSymbols = 3;
 
   ImportMap expected_import_map;
   expected_import_map["KERNEL32.dll"] = kNumKernel32Symbols;

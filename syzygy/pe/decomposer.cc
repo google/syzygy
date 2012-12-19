@@ -1835,12 +1835,31 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
     return DiaBrowser::kBrowserAbort;
   }
 
-  BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
-                                               addr, length, name.c_str(),
-                                               kAllowCoveringBlock);
+  // In general we expect data symbols to be completely contained by a block.
+  // The data symbol can exceed the size of the block in the case of data
+  // imports. For some reason the toolchain emits a global data symbol with
+  // type information equal to the type of the data *pointed* to by the import
+  // entry rather than the type of the entry itself. Thus, if the data type
+  // is bigger than the entire IAT this symbol will exceed it. To complicate
+  // matters even more, a poorly written module can import its own export in
+  // which case a linker generated pseudo-import-entry block will be
+  // generated. This won't be part of the IAT, so we can't even filter based
+  // on that. Instead, we simply ignore global data symbols that exceed the
+  // block size.
+  FindOrCreateBlockDirective directive = kAllowCoveringBlock;
+  base::StringPiece spname(name);
+  if (sym_tags.size() == 1 && spname.starts_with("_imp_")) {
+    // For global data symbols (no parent symbols) to imported data ("_imp_"
+    // prefix) we allow partially covering blocks.
+    directive = kAllowPartialCoveringBlock;
+  }
 
-  // We've seen some null blocks for some symbol for modules that may have been
-  // compiled using a custom a non-Microsoft toolchain.
+  BlockGraph::Block* block = FindOrCreateBlock(BlockGraph::DATA_BLOCK,
+                                               addr, length, spname,
+                                               directive);
+
+  // We've seen null blocks for some symbols in modules compiled using a custom
+  // non-Microsoft toolchain.
   if (block == NULL) {
     LOG(ERROR) << "Failed to get a block for symbol named " << name << ".";
     return DiaBrowser::kBrowserAbort;
@@ -2212,6 +2231,11 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
     FindOrCreateBlockDirective directive) {
   BlockGraph::Block* block = image_->GetBlockByAddress(addr);
   if (block != NULL) {
+    // If we got a block we're guaranteed that it at least partially covers
+    // the query range, so we can immediately return it in that case.
+    if (directive == kAllowPartialCoveringBlock)
+      return block;
+
     // Always allow collisions where the new block is a proper subset of
     // an existing PE parsed block. The PE parser often knows more than we do
     // about blocks that need to stick together.

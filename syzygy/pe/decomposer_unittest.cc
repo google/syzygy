@@ -248,7 +248,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 
   // Validate that the DllMain block has the expected population of labels.
   ASSERT_FALSE(dll_main_block == NULL);
-  EXPECT_EQ(18, dll_main_block->labels().size());
+  EXPECT_EQ(24, dll_main_block->labels().size());
 
   std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
   {
@@ -264,6 +264,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   }
 
   EXPECT_EQ(13, label_attr_counts[BlockGraph::CODE_LABEL]);
+  EXPECT_EQ(8, label_attr_counts[BlockGraph::CALL_SITE_LABEL]);
   EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL]);
   EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
   EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);

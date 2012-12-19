@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,14 @@
 
 #include <cstdlib>
 
+// Bring in a data import from export_dll.dll. This will cause a global data
+// symbol to be emitted pointing to the import entry, but with the type we give
+// here. If the type is bigger than the entire import table then the data
+// symbol will be bigger than the block it resolves to. The data must be
+// explicitly marked dllimport otherwise the linker will treat it as a code
+// symbol and create a thunk for it.
+__declspec(dllimport) extern int kExportedData[1024];
+
 // A handful of TLS variables, to cause TLS fixups to appear.
 __declspec(thread) int tls_int = 42;
 __declspec(thread) int tls_array[64] = { 0 };
@@ -41,7 +49,10 @@ extern "C" __declspec(allocate(".CRT$XLY"))
 extern "C" __declspec(allocate(".CRT$XLY"))
   PIMAGE_TLS_CALLBACK _xl_y2  = MyTlsCallback;
 
-extern int function1();
+// Use both mechanisms for importing functions (explicitly hinted with
+// 'dllimport' and not) so that both code generation mechanisms are present
+// in the final binary and subsequently tested by our decomposer.
+__declspec(dllimport) extern int function1();
 extern int function2();
 extern int function3();
 
@@ -95,12 +106,24 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   function1();
 
   int foo = FunctionWithInlineAssembly();
+  foo += kExportedData[0];
+
+  // We modify the exported data. If imports are improperly thunked this will
+  // cause us to write junk all over any created thunks and should hopefully
+  // cause the instrumented test_dll to explode.
+  for (size_t i = 0; i < sizeof(kExportedData) / sizeof(kExportedData[0]); ++i)
+    kExportedData[i] = i;
 
   // The following odd code and switch statement are to outsmart the
   // optimizer and coerce it to generate a case and jump table pair.
   // On decomposition, we expect to find and label the case and jump
   // tables individually.
   wchar_t c = rand() % static_cast<wchar_t>(-1);
+
+  // We also need to coerce the optimizer into keeping around kExportedData and
+  // FunctionWithInlineAssembly.
+  c ^= static_cast<wchar_t>(foo);
+
   bool is_whitespace = false;
   bool is_qwerty = false;
   bool is_asdfgh = false;

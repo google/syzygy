@@ -142,6 +142,7 @@ void CheckLoadedTestDll(HMODULE module) {
   ASSERT_TRUE(image.EnumAllImports(EnumImportsProc, &export_dll_imports));
 
   std::set<std::string> expected_imports;
+  expected_imports.insert("kExportedData");
   expected_imports.insert("function1");
   expected_imports.insert("#7");
   expected_imports.insert("function3");

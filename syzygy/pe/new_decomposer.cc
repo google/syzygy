@@ -1321,9 +1321,25 @@ DiaBrowser::BrowserDirective NewDecomposer::OnDataSymbol(
 
   // Verify that the data symbol does not exceed the size of the block.
   if (addr + length > block_addr + block->size()) {
-    LOG(ERROR) << "Received data symbol \"" << name << "\" that extends past "
-               << "its parent block \"" << block->name() << "\".";
-    return DiaBrowser::kBrowserAbort;
+    // The data symbol can exceed the size of the block in the case of data
+    // imports. For some reason the toolchain emits a global data symbol with
+    // type information equal to the type of the data *pointed* to by the import
+    // entry rather than the type of the entry itself. Thus, if the data type
+    // is bigger than the entire IAT this symbol will exceed it. To complicate
+    // matters even more, a poorly written module can import its own export in
+    // which case a linker generated pseudo-import-entry block will be
+    // generated. This won't be part of the IAT, so we can't even filter based
+    // on that. Instead, we simply ignore global data symbols that exceed the
+    // block size.
+    base::StringPiece spname(name);
+    if (sym_tags.size() == 1 && spname.starts_with("_imp_")) {
+      VLOG(1) << "Encountered an imported data symbol \"" << name << "\" that "
+              << "extends past its parent block \"" << block->name() << "\".";
+    } else {
+      LOG(ERROR) << "Received data symbol \"" << name << "\" that extends past "
+                 << "its parent block \"" << block->name() << "\".";
+      return DiaBrowser::kBrowserAbort;
+    }
   }
 
   if (!AddLabelToBlock(offset, name, attr, block))
