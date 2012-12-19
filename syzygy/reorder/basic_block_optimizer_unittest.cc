@@ -461,7 +461,10 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   ASSERT_EQ(dllmain, order.sections.back().blocks[0].block);
   ASSERT_LE(num_hot_blocks,
             order.sections[0].blocks[0].basic_block_offsets.size());
-  ASSERT_LE(num_basic_blocks - num_hot_blocks,
+
+  // Since data BBs that are referred to by 'hot' code BBs also make
+  // it into the hot BB list, there could be fewer cold blocks than expected.
+  ASSERT_GE(num_basic_blocks - num_hot_blocks,
             order.sections.back().blocks[0].basic_block_offsets.size());
 }
 
