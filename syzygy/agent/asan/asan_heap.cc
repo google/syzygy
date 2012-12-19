@@ -396,12 +396,12 @@ void HeapProxy::ReportAddressInformation(const void* addr,
       block_alloc,
       block_alloc + header->size));
   if (header->free_stack_trace != NULL) {
-    logger->WriteWithStackTrace("freed here:\n%s",
+    logger->WriteWithStackTrace("freed here:\n",
                                 header->free_stack_trace,
                                 header->free_stack_trace_size);
   }
   if (header->alloc_stack_trace != NULL) {
-    logger->WriteWithStackTrace("previously allocated here:\n%s",
+    logger->WriteWithStackTrace("previously allocated here:\n",
                                 header->alloc_stack_trace,
                                 header->alloc_stack_trace_size);
   }
