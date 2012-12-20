@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -121,9 +122,7 @@ TEST_F(PdbFindAppTest, Succeeds) {
   cmd_line_.AppendArgPath(test_dll);
   ASSERT_EQ(0, app_.Run());
 
-  FilePath test_dll_pdb = testing::GetExeRelativePath(kDllPdbName);
-  std::string expected_stdout =
-      base::StringPrintf("%ls", test_dll_pdb.value().c_str());
+  FilePath expected_pdb_path = testing::GetExeRelativePath(kDllPdbName);
 
   // We have to tear down the streams to make sure their contents are flushed
   // to disk.
@@ -131,8 +130,17 @@ TEST_F(PdbFindAppTest, Succeeds) {
   std::string actual_stdout;
   ASSERT_TRUE(file_util::ReadFileToString(stdout_path_, &actual_stdout));
   TrimWhitespaceASCII(actual_stdout, TRIM_TRAILING, &actual_stdout);
+  FilePath actual_pdb_path(ASCIIToWide(actual_stdout));
+  EXPECT_TRUE(file_util::PathExists(actual_pdb_path));
 
-  EXPECT_EQ(expected_stdout, actual_stdout);
+#ifdef _COVERAGE_BUILD
+  // In the coverage build the module is actually copied to a temporary
+  // directory, but the CodeView entry still points to the original PDB.
+  expected_pdb_path = expected_pdb_path.BaseName();
+  actual_pdb_path = actual_pdb_path.BaseName();
+#endif
+
+  EXPECT_EQ(expected_pdb_path, actual_pdb_path);
 }
 
 }  // namespace pdbfind
