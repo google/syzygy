@@ -44,19 +44,26 @@ typedef BlockGraph::Block::ReferrerSet ReferrerSet;
 class TestThunkImportReferencesTransform
     : public ThunkImportReferencesTransform {
  public:
-  // Make members public for testing.
+  // Make data members public for testing.
   using ThunkImportReferencesTransform::add_imports_transform;
   using ThunkImportReferencesTransform::modules_to_exclude_;
 
+  // Make member types public for testing.
+  using ThunkImportReferencesTransform::BlockSet;
   using ThunkImportReferencesTransform::ImportAddressLocation;
   using ThunkImportReferencesTransform::ImportAddressLocationNameMap;
   using ThunkImportReferencesTransform::ModuleNameSet;
+
+  // Make member functions public for testing.
+  using ThunkImportReferencesTransform::GetImportBlocks;
   using ThunkImportReferencesTransform::LookupImportLocations;
+  using ThunkImportReferencesTransform::LookupDelayImportLocations;
 };
 
 class ThunkImportReferencesTransformTest
     : public testing::TestDllTransformTest {
  public:
+  typedef TestThunkImportReferencesTransform::BlockSet BlockSet;
   typedef TestThunkImportReferencesTransform::ModuleNameSet ModuleNameSet;
   typedef TestThunkImportReferencesTransform::ImportAddressLocation
       ImportAddressLocation;
@@ -109,6 +116,20 @@ TEST_F(ThunkImportReferencesTransformTest, LookupImportLocations) {
                            "export_dll.dll:kExportedData"));
 }
 
+TEST_F(ThunkImportReferencesTransformTest, LookupDelayImportLocations) {
+  ImportAddressLocationNameMap all_import_locations;
+  // This should enumerate all delay imports.
+  ASSERT_TRUE(
+      TestThunkImportReferencesTransform::LookupDelayImportLocations(
+          ModuleNameSet(), dos_header_block_, &all_import_locations));
+
+  // There should be precisely one ole32.dll import.
+  ASSERT_EQ(1, all_import_locations.size());
+
+  ASSERT_STRCASEEQ("ole32.dll:CoInitialize",
+                   all_import_locations.begin()->second.c_str());
+}
+
 TEST_F(ThunkImportReferencesTransformTest, ExcludeModule) {
   TestThunkImportReferencesTransform transform;
 
@@ -128,40 +149,15 @@ TEST_F(ThunkImportReferencesTransformTest, ExcludeModule) {
               testing::ElementsAre("export_dll.dll", "kernel32.dll"));
 }
 
-TEST_F(ThunkImportReferencesTransformTest, TestFullInstrumentation) {
-  // Check that we don't have a thunks section yet.
-  EXPECT_EQ(NULL, block_graph_.FindSection(".thunks"));
-
-  TestThunkImportReferencesTransform transform;
-  ASSERT_TRUE(ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
-
-  // Check that we now have a thunks section.
-  BlockGraph::Section* thunks_section = block_graph_.FindSection(".thunks");
-  ASSERT_TRUE(thunks_section != NULL);
-
-  BlockGraph::SectionId thunks_section_id = thunks_section->id();
-
-  // The only CODE_BLOCK referrers to the IAT should be in the thunk section.
-  AddImportsTransform& ait = transform.add_imports_transform();
-  const ReferrerSet& referrers  =
-      ait.import_address_table_block()->referrers();
-  ReferrerSet::const_iterator ref_iter(referrers.begin()),
-                              ref_end(referrers.end());
-  for (; ref_iter != ref_end; ++ref_iter) {
-    // Use this check to exclude the NT headers and the IDT blocks.
-    if (ref_iter->first->type() == BlockGraph::CODE_BLOCK)
-      EXPECT_EQ(thunks_section_id, ref_iter->first->section());
-  }
-}
-
-TEST_F(ThunkImportReferencesTransformTest, TestInstrumentationWithExclusion) {
+TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
   // Check that we don't have a thunks section yet.
   EXPECT_EQ(NULL, block_graph_.FindSection(".thunks"));
 
   TestThunkImportReferencesTransform transform;
   // Exclude kernel32.dll.
   transform.ExcludeModule("kernel32.dll");
+
+  // Run the transform.
   ASSERT_TRUE(ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
 
@@ -171,45 +167,59 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentationWithExclusion) {
 
   BlockGraph::SectionId thunks_section_id = thunks_section->id();
 
-  // From here it gets a little tricky. We use the import name lookup to find
-  // where the import entries are, and what their names are. We then use that
-  // information to make sure that only non-thunks reference kernel32.dll
-  // imports, and that only thunks reference other imports.
+  // From here it gets a little tricky. We use the import/delay import lookups
+  // to find where the import entries are, and what their names are. We then
+  // use that information to make sure that only non-thunks reference
+  // kernel32.dll imports, and that only thunks reference other imports.
   ImportAddressLocationNameMap all_import_locations;
-    ASSERT_TRUE(
-      TestThunkImportReferencesTransform::LookupImportLocations(
-          ModuleNameSet(), dos_header_block_, &all_import_locations));
+  ASSERT_TRUE(TestThunkImportReferencesTransform::LookupImportLocations(
+      ModuleNameSet(), dos_header_block_, &all_import_locations));
+  ASSERT_TRUE(TestThunkImportReferencesTransform::LookupDelayImportLocations(
+      ModuleNameSet(), dos_header_block_, &all_import_locations));
 
-  AddImportsTransform& ait = transform.add_imports_transform();
-  const ReferrerSet& referrers  =
-      ait.import_address_table_block()->referrers();
-  ReferrerSet::const_iterator ref_iter(referrers.begin()),
-                              ref_end(referrers.end());
-  for (; ref_iter != ref_end; ++ref_iter) {
-    const BlockGraph::Block* referring_block = ref_iter->first;
-    BlockGraph::Offset referring_offset = ref_iter->second;
+  // Retrieve the import blocks.
+  BlockSet import_blocks;
+  ASSERT_TRUE(TestThunkImportReferencesTransform::GetImportBlocks(
+      all_import_locations, &import_blocks));
+  // There should be two import blocks, the IAT and the delay IAT.
+  ASSERT_EQ(2, import_blocks.size());
 
-    if (referring_block->type() != BlockGraph::CODE_BLOCK)
-      continue;
+  BlockSet::const_iterator block_it = import_blocks.begin();
+  for (; block_it != import_blocks.end(); ++block_it) {
+    const ReferrerSet& referrers = (*block_it)->referrers();
+    ReferrerSet::const_iterator ref_iter(referrers.begin()),
+                                ref_end(referrers.end());
+    for (; ref_iter != ref_end; ++ref_iter) {
+      const BlockGraph::Block* referring_block = ref_iter->first;
+      BlockGraph::Offset referring_offset = ref_iter->second;
 
-    BlockGraph::Reference ref;
-    ASSERT_TRUE(referring_block->GetReference(referring_offset, &ref));
+      if (referring_block->type() != BlockGraph::CODE_BLOCK)
+        continue;
 
-    ImportAddressLocation location(
-        std::make_pair(ref.referenced(), ref.offset()));
-    ImportAddressLocationNameMap::const_iterator location_it(
-        all_import_locations.find(location));
+      BlockGraph::Reference ref;
+      ASSERT_TRUE(referring_block->GetReference(referring_offset, &ref));
 
-    ASSERT_TRUE(location_it != all_import_locations.end());
+      ImportAddressLocation location(
+          std::make_pair(ref.referenced(), ref.offset()));
+      ImportAddressLocationNameMap::const_iterator location_it(
+          all_import_locations.find(location));
 
-    // Compare on the import name prefix case-insensitively to determine
-    // whether this is an eligible or excluded import.
-    if (StartsWithASCII(location_it->second, "kernel32.dll:", false)) {
-      // Excluded import, the referring block must not be in the thunks section.
-      EXPECT_NE(thunks_section_id, referring_block->section());
-    } else {
-      // Eligible import, the referring block must be in the thunks section.
-      EXPECT_EQ(thunks_section_id, referring_block->section());
+      ASSERT_TRUE(location_it != all_import_locations.end());
+
+      // Compare on the import name prefix case-insensitively to determine
+      // whether this is an eligible or excluded import.
+      if (StartsWithASCII(location_it->second, "kernel32.dll:", false)) {
+        // Excluded import, the referring block must not be in
+        // the thunks section.
+        EXPECT_NE(thunks_section_id, referring_block->section());
+      } else {
+        // Eligible import, if the referring block is not itself a thunk (such
+        // as a linker-generated import or delay import thunk), it must be in
+        // the thunks section.
+        if ((referring_block->attributes() & BlockGraph::THUNK) == 0) {
+          EXPECT_EQ(thunks_section_id, referring_block->section());
+        }
+      }
     }
   }
 }

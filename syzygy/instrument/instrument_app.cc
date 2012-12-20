@@ -321,9 +321,8 @@ int InstrumentApp::Run() {
     if (thunk_imports_) {
       import_thunk_tx.reset(
           new instrument::transforms::ThunkImportReferencesTransform);
-      // Use the right client DLL, and make sure we don't thunk it.
+      // Use the selected client DLL.
       import_thunk_tx->set_instrument_dll_name(client_dll_);
-      import_thunk_tx->ExcludeModule(client_dll_);
       relinker.AppendTransform(import_thunk_tx.get());
     }
   }

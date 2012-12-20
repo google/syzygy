@@ -14,6 +14,10 @@
 
 #include "syzygy/instrument/transforms/thunk_import_references_transform.h"
 
+// The Win8 SDK defines this in winerror.h, and it is subsequently redefined by
+// delayimp.h
+#undef FACILITY_VISUALCPP
+#include <delayimp.h>
 #include <limits>
 
 #include "base/logging.h"
@@ -44,9 +48,11 @@ typedef TypedBlock<IMAGE_IMPORT_BY_NAME> ImageImportByName;
 typedef TypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
 typedef TypedBlock<IMAGE_NT_HEADERS> NtHeaders;
 typedef TypedBlock<StringStruct> StringBlock;
+typedef TypedBlock<ImgDelayDescr> ImageDelayImportDescriptor;
 
 // We add this suffix to the destination
 const char kThunkSuffix[] = "_ImportThunk";
+const char kDelayThunkSuffix[] = "_DelayImportThunk";
 
 }  // namespace
 
@@ -69,6 +75,9 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
   DCHECK(thunk_section_ == NULL);
+
+  // We always exclude our own agent DLL from instrumentation.
+  modules_to_exclude_.insert(instrument_dll_name_);
 
   // Start by finding or adding import entries for our instrumentation hook.
   AddImportsTransform::ImportedModule import_module(
@@ -94,9 +103,14 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
     LOG(ERROR) << "Unable to resolve import names and locations.";
     return false;
   }
+  if (!LookupDelayImportLocations(modules_to_exclude_,
+                                  header_block,
+                                  &import_locations)) {
+    LOG(ERROR) << "Unable to resolve delay import names and locations.";
+    return false;
+  }
 
-  // Now grab the block containing the IAT so that we can instrument references
-  // to it.
+  // Now instrument all the import locations we located.
   if (!InstrumentImportReferences(block_graph, import_locations)) {
     LOG(ERROR) << "Unable to instrument import references.";
     return false;
@@ -151,10 +165,12 @@ bool ThunkImportReferencesTransform::InstrumentImportReferences(
     return false;
   }
 
-  // Typedef for the thunk block map. The key is the offset into the IAT block
+  // Typedef for the thunk block map. The key is the <iat block, offset> the
   // (since all callers can use the same thunk) and the value is the offset into
   // the thunk table that points to the thunk block for that IAT entry.
-  typedef std::map<BlockGraph::Offset, BlockGraph::Offset> ThunkBlockMap;
+  typedef std::pair<const BlockGraph::Block*, BlockGraph::Offset>
+      ThunkBlockKey;
+  typedef std::map<ThunkBlockKey, BlockGraph::Offset> ThunkBlockMap;
   ThunkBlockMap thunk_block_map;
 
   // Create the thunk table - we'll grow it as we go.
@@ -175,31 +191,33 @@ bool ThunkImportReferencesTransform::InstrumentImportReferences(
     BlockGraph::Block::ReferrerSet::const_iterator iat_referrer_iter(
         iat_referrers.begin());
     for (; iat_referrer_iter != iat_referrers.end(); ++iat_referrer_iter) {
-      const BlockGraph::Block::Referrer& referrer = *iat_referrer_iter;
+      BlockGraph::Block* referrer = iat_referrer_iter->first;
 
-      if (referrer.first == iat_block) {
+      if (referrer == iat_block) {
         LOG(WARNING) << "Unexpected self-reference in IAT.";
         continue;
       }
 
-      if (referrer.first->type() != BlockGraph::CODE_BLOCK) {
-        LOG(INFO) << "Skipping non-code block reference.";
+      if (referrer->type() != BlockGraph::CODE_BLOCK) {
+        // We shouldn't see data referring to import table entries, outside
+        // the PE structures.
+        DCHECK(referrer->attributes() & BlockGraph::PE_PARSED);
+
+        LOG(INFO) << "Skipping non-code block reference from block: '"
+                  << referrer->name() << "'";
         continue;
       }
 
-      // For now, let's not try and thunk thunks. This means that we can't
-      // e.g. double-instrument, which is a potentially legitimate use case,
-      // but it should only be supported if there's adequate testing for it.
-      if (referrer.first->section() == thunk_section_->id()) {
-        LOG(ERROR) << "Thunking a reference from the thunk section, "
-                   << "in block " << referrer.first->name();
-        return false;
+      if (referrer->attributes() & BlockGraph::THUNK) {
+        LOG(INFO) << "Skipping thunk block reference from block: '"
+                  << referrer->name() << "'";
+        continue;
       }
 
       // Now that we know the referring block, we need to find out where in the
       // IAT it refers to.
       BlockGraph::Reference ref;
-      if (!referrer.first->GetReference(referrer.second, &ref)) {
+      if (!referrer->GetReference(iat_referrer_iter->second, &ref)) {
         LOG(ERROR) << "Unable to get reference from referrer.";
         return false;
       }
@@ -213,13 +231,22 @@ bool ThunkImportReferencesTransform::InstrumentImportReferences(
         continue;
       }
 
+      // For now, let's not try and thunk thunks. This means that we can't
+      // e.g. double-instrument, which is a potentially legitimate use case,
+      // but it should only be supported if there's adequate testing for it.
+      if (referrer->section() == thunk_section_->id()) {
+        LOG(ERROR) << "Thunking a reference from the thunk section, "
+                   << "in block: '" << referrer->name() << "'";
+        return false;
+      }
+
       // Look for the reference in the thunk block map, and only create a
       // new one if it does not already exist.
       BlockGraph::Block* thunk_block = NULL;
       BlockGraph::Offset new_ref_offset = 0;
 
-      ThunkBlockMap::const_iterator thunk_it =
-          thunk_block_map.find(ref.offset());
+      ThunkBlockKey key(std::make_pair(iat_block, ref.offset()));
+      ThunkBlockMap::const_iterator thunk_it = thunk_block_map.find(key);
       if (thunk_it == thunk_block_map.end()) {
         // Create the thunk block for this offset into the IAT.
         thunk_block = CreateOneThunk(block_graph, ref, it->second);
@@ -237,7 +264,7 @@ bool ThunkImportReferencesTransform::InstrumentImportReferences(
         thunk_table_block->SetReference(thunk_table_offset, thunk_ref);
 
         // Remember this thunk in case we need to use it again.
-        thunk_block_map[ref.offset()] = thunk_table_offset;
+        thunk_block_map[key] = thunk_table_offset;
         new_ref_offset = thunk_table_offset;
 
         // Move to the next empty entry in the thunk table.
@@ -254,7 +281,7 @@ bool ThunkImportReferencesTransform::InstrumentImportReferences(
                                     thunk_table_block,
                                     new_ref_offset,
                                     0);
-      referrer.first->SetReference(referrer.second, new_ref);
+      referrer->SetReference(iat_referrer_iter->second, new_ref);
     }
   }
 
@@ -381,6 +408,118 @@ bool ThunkImportReferencesTransform::LookupImportLocations(
     TypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
     if (!iida.Dereference(iida[iida_index].OriginalFirstThunk, &hna) ||
         !iida.Dereference(iida[iida_index].FirstThunk, &iat)) {
+      LOG(ERROR) << "Unable to dereference OriginalFirstThunk/FirstThunk.";
+      return false;
+    }
+
+    // Loop through the imports, tag and bag them.
+    size_t i = 0;
+    for (; i < hna.ElementCount() && i < iat.ElementCount(); ++i) {
+      ConstTypedBlock<IMAGE_THUNK_DATA32> thunk;
+      if (!thunk.Init(hna.OffsetOf(hna[i]), hna.block())) {
+        LOG(ERROR) << "Unable to dereference IMAGE_THUNK_DATA32.";
+        return false;
+      }
+
+      // Construct the location for this entry.
+      ImportAddressLocation key(
+          std::make_pair(iat.block(), iat.OffsetOf(iat[i])));
+      std::string import_name = dll_name;
+
+      // Is this an ordinal import?
+      if (IMAGE_SNAP_BY_ORDINAL(thunk->u1.Ordinal)) {
+        // Ordinal imports are named <dll>:#<ordinal>.
+        base::StringAppendF(&import_name,
+                            ":#%d",
+                            IMAGE_ORDINAL(thunk->u1.Ordinal));
+      } else if (!thunk.HasReference(thunk->u1.AddressOfData)) {
+        // Have no reference? Then terminate the iteration.
+        // We sanity check that the actual data is null.
+        DCHECK_EQ(0u, thunk->u1.AddressOfData);
+        break;
+      } else {
+        // Otherwise this should point to an IMAGE_IMPORT_BY_NAME structure.
+        ImageImportByName iibn;
+        if (!hna.Dereference(hna[i], &iibn)) {
+          LOG(ERROR) << "Unable to dereference IMAGE_IMPORT_BY_NAME.";
+          return false;
+        }
+        size_t len =
+            strnlen(iibn->Name,
+                    iibn.block()->size() - iibn.OffsetOf(iibn->Name));
+        std::string function_name(iibn->Name, iibn->Name + len);
+
+        base::StringAppendF(&import_name, ":%s", function_name.c_str());
+      }
+
+      // Tag and name it.
+      bool inserted =
+          import_locations->insert(std::make_pair(key, import_name)).second;
+
+      DCHECK(inserted);
+    }
+  }
+
+  return true;
+}
+
+bool ThunkImportReferencesTransform::LookupDelayImportLocations(
+    const ModuleNameSet& exclusions,
+    BlockGraph::Block* header_block,
+    ImportAddressLocationNameMap* import_locations) {
+  DCHECK(header_block != NULL);
+  DCHECK(import_locations != NULL);
+
+  // Start by retrieving the NT headers.
+  DosHeader dos_header;
+  NtHeaders nt_headers;
+  if (!dos_header.Init(0, header_block) ||
+      !dos_header.Dereference(dos_header->e_lfanew, &nt_headers)) {
+    LOG(ERROR) << "Unable to cast image headers.";
+    return false;
+  }
+
+  // Get to the delay import directory.
+  const IMAGE_DATA_DIRECTORY* delay_import_directory =
+      &nt_headers->OptionalHeader
+          .DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT];
+
+  ImageDelayImportDescriptor idida;
+  if (!nt_headers.Dereference(delay_import_directory->VirtualAddress, &idida)) {
+    // Unable to dereference, this is only an error if there are delay imports.
+    if (!nt_headers.HasReference(delay_import_directory->VirtualAddress)) {
+      DCHECK_EQ(0U, delay_import_directory->VirtualAddress);
+      return true;
+    }
+
+    LOG(ERROR) << "Failed to dereference delay Image Import Descriptor Array.";
+    return false;
+  }
+
+  for (size_t idida_idx = 0; idida_idx < idida.ElementCount(); ++idida_idx) {
+    // The last descriptor is a sentinel.
+    if (idida[idida_idx].grAttrs == 0)
+      break;
+
+    StringBlock dll_name_block;
+    if (!idida.Dereference(idida[idida_idx].rvaDLLName, &dll_name_block)) {
+      LOG(ERROR) << "Unable to dereference DLL name.";
+      return false;
+    }
+
+    size_t len = strnlen(dll_name_block->string, dll_name_block.ElementCount());
+    std::string dll_name(dll_name_block->string, dll_name_block->string + len);
+
+    // Move to the next one if this is an excluded module.
+    if (exclusions.find(dll_name) != exclusions.end())
+      continue;
+
+    // Walk the IAT and the INT(also know as hna) for this module concurrently
+    // until we come to a zero terminator for one or the other and mark their
+    // offsets and names in the location names map.
+    TypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
+    if (!idida.Dereference(idida[idida_idx].rvaINT, &hna) ||
+        !idida.Dereference(idida[idida_idx].rvaIAT, &iat)) {
       LOG(ERROR) << "Unable to dereference OriginalFirstThunk/FirstThunk.";
       return false;
     }

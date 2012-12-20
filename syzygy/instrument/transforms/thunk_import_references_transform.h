@@ -43,8 +43,11 @@ class ThunkImportReferencesTransform
   ThunkImportReferencesTransform();
 
   // Adds a module to the list of those from which imports are excluded from
-  // being thunked. @p module_name is the name of the module including
-  // the extension, e.g. kernel32.dll.
+  // being thunked.
+  // @param module_name the base name, including extension, of the module
+  //   to exclude e.g. "kernel32.dll". The module name is case insensitive.
+  // @note that the instrumentation DLL is implicitly always excluded from
+  //     instrumentation.
   void ExcludeModule(const base::StringPiece& module_name);
 
   // Accessors.
@@ -121,6 +124,12 @@ class ThunkImportReferencesTransform
 
   // Implementation function, exposed for testing.
   static bool LookupImportLocations(
+      const ModuleNameSet& exclusions,
+      BlockGraph::Block* header_block,
+      ImportAddressLocationNameMap* import_locations);
+
+  // Implementation function, exposed for testing.
+  static bool LookupDelayImportLocations(
       const ModuleNameSet& exclusions,
       BlockGraph::Block* header_block,
       ImportAddressLocationNameMap* import_locations);
