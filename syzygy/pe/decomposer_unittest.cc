@@ -214,26 +214,35 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   const BlockGraph::Block* dll_main_block = NULL;
   const BlockGraph::Block* func_with_inl_asm_block = NULL;
   const BlockGraph::Block* strchr_block = NULL;
+  const BlockGraph::Block* imp_load_block = NULL;
+
   {
-    BlockGraph::BlockMap::const_iterator it =
-        block_graph.blocks().begin();
+    typedef std::map<std::string, const BlockGraph::Block**> TestBlockMap;
+
+    TestBlockMap test_blocks;
+    test_blocks.insert(std::make_pair("DllMain", &dll_main_block));
+    test_blocks.insert(std::make_pair("FunctionWithInlineAssembly",
+                                      &func_with_inl_asm_block));
+    test_blocks.insert(std::make_pair("found_bx", &strchr_block));
+    test_blocks.insert(std::make_pair("__imp_load_CoInitialize",
+                                      &imp_load_block));
+
+    BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
     for (; it != block_graph.blocks().end(); ++it) {
-      if (it->second.name() == "DllMain") {
-        ASSERT_TRUE(dll_main_block == NULL);
-        dll_main_block = &it->second;
-      } else if (it->second.name() == "FunctionWithInlineAssembly") {
-        ASSERT_TRUE(func_with_inl_asm_block == NULL);
-        func_with_inl_asm_block = &it->second;
-      } else if (it->second.name() == "found_bx") {
-        // This corresponds to the section contribution "strchr.obj".
-        ASSERT_TRUE(strchr_block == NULL);
-        strchr_block = &it->second;
-      }
+      const BlockGraph::Block& block = it->second;
+
+      TestBlockMap::const_iterator test_it = test_blocks.find(block.name());
+      if (test_it == test_blocks.end())
+        continue;
+
+      ASSERT_TRUE(*test_it->second == NULL);
+      *test_it->second = &block;
     }
   }
 
-  // DllMain has a jump table so it should have pointer alignment.
-  ASSERT_EQ(kPointerSize, dll_main_block->alignment());
+  // The __imp_load__ block should be a thunk.
+  ASSERT_FALSE(imp_load_block == NULL);
+  EXPECT_NE(0UL, imp_load_block->attributes() & BlockGraph::THUNK);
 
   // Validate that the FunctionWithInlineAssembly block has the appropriate
   // attributes.
@@ -249,6 +258,8 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Validate that the DllMain block has the expected population of labels.
   ASSERT_FALSE(dll_main_block == NULL);
   EXPECT_EQ(24, dll_main_block->labels().size());
+  // DllMain has a jump table so it should have pointer alignment.
+  ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
   std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
   {

@@ -23,6 +23,9 @@ namespace block_graph {
 
 namespace {
 
+COMPILE_ASSERT(BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT < 32,
+               too_many_block_attributes);
+
 // A list of printable names corresponding to block types. This needs to
 // be kept in sync with the BlockGraph::BlockType enum!
 const char* kBlockType[] = {
@@ -158,7 +161,7 @@ void ShiftReferrers(BlockGraph::Block* self,
 
 const char* BlockAttributeToString(BlockGraph::BlockAttributeEnum attr) {
   switch (attr) {
-#define DEFINE_CASE(name, unused) case BlockGraph::name: return #name;
+#define DEFINE_CASE(name) case BlockGraph::name: return #name;
     BLOCK_ATTRIBUTE_ENUM(DEFINE_CASE)
 #undef DEFINE_CASE
     default:

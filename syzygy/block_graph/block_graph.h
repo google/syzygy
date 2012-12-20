@@ -47,47 +47,51 @@ extern const core::RelativeAddress kInvalidAddress;
 
 #define BLOCK_ATTRIBUTE_ENUM(F) \
     /* Set for functions declared non-returning. */ \
-    F(NON_RETURN_FUNCTION, 0) \
+    F(NON_RETURN_FUNCTION) \
     /* Set for blocks that are inferred by the decomposer. */ \
-    F(GAP_BLOCK, 1) \
+    F(GAP_BLOCK) \
     /* Set for blocks that are parsed by the PEFileParser. These */ \
     /* blocks are unmovable, indivisible, etc, and have to be treated */ \
     /* specially. */ \
-    F(PE_PARSED, 2) \
+    F(PE_PARSED) \
     /* Set for blocks that are created from section contribution */ \
     /* information. */ \
-    F(SECTION_CONTRIB, 3) \
+    F(SECTION_CONTRIB) \
     /* This is used to indicate that a block consists purely of padding */ \
     /* data. */ \
-    F(PADDING_BLOCK, 4) \
+    F(PADDING_BLOCK) \
     /* Indicates blocks that contain inline assembly. */ \
-    F(HAS_INLINE_ASSEMBLY, 5) \
+    F(HAS_INLINE_ASSEMBLY) \
     /* Indicates that the block was built by a compiler whose precise */ \
     /* behaviour and semantics we are unfamiliar with. */ \
-    F(BUILT_BY_UNSUPPORTED_COMPILER, 6) \
+    F(BUILT_BY_UNSUPPORTED_COMPILER) \
     /* Indicates that the block has been built by the Syzygy toolchain, and */ \
     /* thus is inherently safe for basic-block decomposition without having */ \
     /* to perform the myriad of safety checks we do otherwise. */ \
-    F(BUILT_BY_SYZYGY, 7) \
+    F(BUILT_BY_SYZYGY) \
     /* This is set for blocks whose initial disassembly was incomplete. */ \
     /* This is not necessarily an error, as we see have seen blocks with */ \
     /* unreachable code, even in release mode. */ \
-    F(INCOMPLETE_DISASSEMBLY, 8) \
+    F(INCOMPLETE_DISASSEMBLY) \
     /* This is set for blocks whose disassembly was unable to finish due to */ \
     /* an error. This block has violated assumptions that we make or */ \
     /* conventions that we have observed the compiler to use. It is not safe */\
     /* for basic block disassembly. */ \
-    F(ERRORED_DISASSEMBLY, 9) \
+    F(ERRORED_DISASSEMBLY) \
     /* This is set for functions that have exception handling enabled. */ \
     /* Without delving far deeper into the specifics, it is unsafe to basic */ \
     /* block decompose these blocks. */ \
-    F(HAS_EXCEPTION_HANDLING, 10) \
+    F(HAS_EXCEPTION_HANDLING) \
     /* This is set for blocks whose disassembly went off the end of the */ \
     /* block, or into data. These blocks have control flow that we are not */ \
     /* aware of, or are otherwise malformed. */ \
-    F(DISASSEMBLED_PAST_END, 11) \
+    F(DISASSEMBLED_PAST_END) \
+    /* This is set for blocks that have a thunk symbol pointing to them. */ \
+    /* Typically thunk blocks are compiler or linker-generated, such as */ \
+    /* e.g. import thunks, delay load import thunks, etc. */ \
+    F(THUNK) \
     /* This always needs to be set to the next available attribute bit. */ \
-    F(BLOCK_ATTRIBUTES_MAX, 12)
+    F(BLOCK_ATTRIBUTES_MAX)
 
 
 // The BlockGraph is a top-level container for Blocks.
@@ -110,8 +114,15 @@ class BlockGraph {
 
   static const SectionId kInvalidSectionId;
 
+  // Assign distinct bit IDs to each attribute constant.
+  enum BlockAttributeIdEnum {
+#define DECLARE_ENUM_BIT(name) name##_BIT,
+    BLOCK_ATTRIBUTE_ENUM(DECLARE_ENUM_BIT)
+#undef DECLARE_ENUM_BIT
+  };
+
   enum BlockAttributeEnum {
-#define DECLARE_ENUM(name, bit) name = (1 << bit),
+#define DECLARE_ENUM(name) name = (1 << name##_BIT),
     BLOCK_ATTRIBUTE_ENUM(DECLARE_ENUM)
 #undef DECLARE_ENUM
   };

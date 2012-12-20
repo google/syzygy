@@ -1163,6 +1163,8 @@ bool Decomposer::ProcessFunctionOrThunkSymbol(IDiaSymbol* function) {
     block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
   if (has_eh || has_seh)
     block->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
+  if (IsSymTag(function, SymTagThunk))
+    block->set_attribute(BlockGraph::THUNK);
 
   if (!CreateLabelsForFunction(function, block)) {
     LOG(ERROR) << "Failed to create labels for '" << block->name() << "'.";

@@ -1192,6 +1192,8 @@ DiaBrowser::BrowserDirective NewDecomposer::OnPushFunctionOrThunkSymbol(
     block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
   if (has_eh || has_seh)
     block->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
+  if (IsSymTag(symbol, SymTagThunk))
+    block->set_attribute(BlockGraph::THUNK);
 
   return DiaBrowser::kBrowserContinue;
 }

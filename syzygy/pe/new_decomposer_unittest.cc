@@ -245,6 +245,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   const BlockGraph::Block* dll_main_block = NULL;
   const BlockGraph::Block* func_with_inl_asm_block = NULL;
   const BlockGraph::Block* strchr_block = NULL;
+  const BlockGraph::Block* imp_load_block = NULL;
   {
     BlockGraph::BlockMap::const_iterator it =
         block_graph.blocks().begin();
@@ -274,12 +275,19 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
             block_name.ends_with("\\strchr.obj")) {
         ASSERT_TRUE(strchr_block == NULL);
         strchr_block = &it->second;
+      } else if (std::find(names.begin(), names.end(),
+                           "__imp_load_CoInitialize") != names.end()) {
+        ASSERT_TRUE(imp_load_block == NULL);
+        imp_load_block = &it->second;
       }
     }
   }
   ASSERT_TRUE(dll_main_block != NULL);
   ASSERT_TRUE(func_with_inl_asm_block != NULL);
   ASSERT_TRUE(strchr_block != NULL);
+  ASSERT_TRUE(imp_load_block != NULL);
+
+  ASSERT_NE(0UL, imp_load_block->attributes() & BlockGraph::THUNK);
 
   // TODO(chrisha): When alignment calculations are complete, re-enable this
   //     test.
