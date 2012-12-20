@@ -1,0 +1,138 @@
+// Copyright 2012 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "syzygy/pdbfind/pdbfind_app.h"
+
+#include "base/file_util.h"
+#include "base/string_util.h"
+#include "base/stringprintf.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
+
+namespace pdbfind {
+
+namespace {
+
+class TestPdbFindApp : public PdbFindApp {
+ public:
+  using PdbFindApp::input_image_path_;
+};
+
+typedef common::Application<TestPdbFindApp> TestApp;
+
+class PdbFindAppTest : public testing::PELibUnitTest {
+ public:
+  typedef testing::PELibUnitTest Super;
+
+  PdbFindAppTest()
+      : app_impl_(app_.implementation()),
+        cmd_line_(FilePath(L"pdbfind.exe")),
+        old_log_level_(0) {
+  }
+
+  void SetUp() OVERRIDE {
+    Super::SetUp();
+
+    // Several of the tests generate progress and (deliberate) error messages
+    // that would otherwise clutter the unittest output.
+    old_log_level_ = logging::GetMinLogLevel();
+    logging::SetMinLogLevel(logging::LOG_FATAL);
+
+    // Setup the IO streams.
+    CreateTemporaryDir(&temp_dir_);
+    stdin_path_ = temp_dir_.Append(L"NUL");
+    stdout_path_ = temp_dir_.Append(L"stdout.txt");
+    stderr_path_ = temp_dir_.Append(L"stderr.txt");
+    InitStreams(stdin_path_, stdout_path_, stderr_path_);
+
+    // Point the application at the test's command-line, IO streams and mock
+    // machinery.
+    app_.set_command_line(&cmd_line_);
+    app_.set_in(in());
+    app_.set_out(out());
+    app_.set_err(err());
+  }
+
+  void TearDown() OVERRIDE {
+    logging::SetMinLogLevel(old_log_level_);
+
+    Super::TearDown();
+  }
+
+  TestApp app_;
+  TestApp::Implementation& app_impl_;
+
+  FilePath temp_dir_;
+  FilePath stdin_path_;
+  FilePath stdout_path_;
+  FilePath stderr_path_;
+
+  CommandLine cmd_line_;
+  int old_log_level_;
+};
+
+}  // namespace
+
+TEST_F(PdbFindAppTest, GetHelp) {
+  cmd_line_.AppendSwitch("help");
+  ASSERT_FALSE(app_impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(PdbFindAppTest, EmptyCommandLineFails) {
+  ASSERT_FALSE(app_impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(PdbFindAppTest, TooManyArgumentsFails) {
+  cmd_line_.AppendArg("foo.dll");
+  cmd_line_.AppendArg("bar.dll");
+  ASSERT_FALSE(app_impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(PdbFindAppTest, ParseWithOneArgumentPasses) {
+  cmd_line_.AppendArg("foo.dll");
+  ASSERT_TRUE(app_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_EQ(app_impl_.input_image_path_, FilePath(L"foo.dll"));
+}
+
+TEST_F(PdbFindAppTest, ModuleNotFound) {
+  FilePath module = testing::GetExeRelativePath(L"made_up_module.dll");
+  cmd_line_.AppendArgPath(module);
+  ASSERT_EQ(1, app_.Run());
+}
+
+// TODO(chrisha): More tests with images that are missing the corresponding
+//     PDB or are missing CodeView records.
+
+TEST_F(PdbFindAppTest, Succeeds) {
+  FilePath test_dll = testing::GetExeRelativePath(kDllName);
+  cmd_line_.AppendArgPath(test_dll);
+  ASSERT_EQ(0, app_.Run());
+
+  FilePath test_dll_pdb = testing::GetExeRelativePath(kDllPdbName);
+  std::string expected_stdout =
+      base::StringPrintf("%ls", test_dll_pdb.value().c_str());
+
+  // We have to tear down the streams to make sure their contents are flushed
+  // to disk.
+  TearDownStreams();
+  std::string actual_stdout;
+  ASSERT_TRUE(file_util::ReadFileToString(stdout_path_, &actual_stdout));
+  TrimWhitespaceASCII(actual_stdout, TRIM_TRAILING, &actual_stdout);
+
+  EXPECT_EQ(expected_stdout, actual_stdout);
+}
+
+}  // namespace pdbfind

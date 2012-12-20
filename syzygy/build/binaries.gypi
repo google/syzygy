@@ -35,6 +35,7 @@
       '<(PRODUCT_DIR)/grinder.exe',
       '<(PRODUCT_DIR)/instrument.exe',
       '<(PRODUCT_DIR)/logger.exe',
+      '<(PRODUCT_DIR)/pdbfind.exe',
       '<(PRODUCT_DIR)/relink.exe',
       '<(PRODUCT_DIR)/reorder.exe',
       '<(PRODUCT_DIR)/run_in_snapshot.exe',

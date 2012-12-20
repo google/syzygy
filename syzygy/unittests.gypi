@@ -58,6 +58,9 @@
       # PDB tests.
       '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
 
+      # pdbfind tests.
+      '<(DEPTH)/syzygy/pdbfind/pdbfind.gyp:pdbfind_unittests',
+
       # PE tests.
       '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
       '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_unittests',

@@ -40,6 +40,7 @@
         'instrument/instrument.gyp:*',
         'installer/installer.gyp:*',
         'pdb/pdb.gyp:*',
+        'pdbfind/pdbfind.gyp:*',
         'pe/pe.gyp:*',
         'pe/orderers/pe_orderers.gyp:*',
         'pe/transforms/pe_transforms.gyp:*',
