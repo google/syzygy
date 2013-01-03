@@ -41,31 +41,16 @@ class TestAsanLogger : public AsanLogger {
   using AsanLogger::rpc_binding_;
 };
 
-class AsanLoggerTest : public testing::Test {
- public:
-  virtual void SetUp() OVERRIDE {
-    AsanLogger::SetInstance(NULL);
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-  }
-
-  ScopedTempDir temp_dir_;
-};
-
 }  // namespace
 
-TEST_F(AsanLoggerTest, Instance) {
-  TestAsanLogger logger;
-  ASSERT_TRUE(AsanLogger::Instance() == NULL);
-  AsanLogger::SetInstance(&logger);
-  EXPECT_TRUE(AsanLogger::Instance() == &logger);
-}
-
-TEST_F(AsanLoggerTest, EndToEnd) {
+TEST(AsanLoggerTest, EndToEnd) {
   // Setup the instance id.
   std::wstring instance_id(base::StringPrintf(L"%d", ::GetCurrentProcessId()));
 
   // The location to which we'll write log messages.
-  FilePath temp_path(temp_dir_.path().Append(L"log.txt"));
+  ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  FilePath temp_path(temp_dir.path().Append(L"log.txt"));
   const std::string kMessage("This is the test message\n");
 
   {

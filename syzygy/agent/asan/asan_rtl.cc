@@ -35,13 +35,22 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
+
 namespace {
 
-using agent::asan::HeapProxy;
 using agent::asan::AsanLogger;
+using agent::asan::FlagsManager;
+using agent::asan::HeapProxy;
+using agent::asan::StackCaptureCache;
 
 // Our AtExit manager required by base.
 base::AtExitManager* at_exit = NULL;
+
+// The shared logger instance that will be used by all heap proxies.
+AsanLogger* logger = NULL;
+
+// The shared stack cache instance that will be used by all heap proxies.
+StackCaptureCache* stack_cache = NULL;
 
 // The global asan callback functor.
 typedef base::Callback<void()> AsanCallBack;
@@ -87,14 +96,11 @@ void SetUpAtExitManager() {
 }
 
 void TearDownAtExitManager() {
-  DCHECK(at_exit != NULL);
   delete at_exit;
   at_exit = NULL;
 }
 
 void SetUpLogger() {
-  DCHECK(AsanLogger::Instance() == NULL);
-
   // Setup variables we're going to use.
   scoped_ptr<base::Environment> env(base::Environment::Create());
   scoped_ptr<AsanLogger> client(new AsanLogger);
@@ -108,20 +114,27 @@ void SetUpLogger() {
   client->Init();
 
   // Register the client singleton instance.
-  AsanLogger::SetInstance(client.release());
+  logger = client.release();
 }
 
 void TearDownLogger() {
-  AsanLogger* temp_instance = AsanLogger::Instance();
-  DCHECK(temp_instance != NULL);
-  AsanLogger::SetInstance(NULL);
-  delete temp_instance;
+  delete logger;
+  logger = NULL;
+}
+
+void SetUpStackCache() {
+  DCHECK(stack_cache == NULL);
+  stack_cache = new StackCaptureCache();
+}
+
+void TearDownStackCache() {
+  delete stack_cache;
+  stack_cache = NULL;
 }
 
 }  // namespace
 
 extern "C" {
-using agent::asan::FlagsManager;
 
 static HANDLE process_heap = NULL;
 base::Lock heap_proxy_list_lock;
@@ -130,7 +143,7 @@ LIST_ENTRY heap_proxy_dlist = {};  // Under heap_proxy_list_lock.
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
                               SIZE_T maximum_size) {
-  scoped_ptr<HeapProxy> proxy(new HeapProxy());
+  scoped_ptr<HeapProxy> proxy(new HeapProxy(stack_cache, logger));
   if (!proxy->Create(options, initial_size, maximum_size))
     proxy.reset();
 
@@ -326,6 +339,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 
       // Setup the "global" state.
       SetUpLogger();
+      SetUpStackCache();
       InitializeListHead(&heap_proxy_dlist);
       FlagsManager::Instance()->InitializeFlagsWithEnvVar();
       asan_SetCallBack(&OnAsanError);
@@ -348,6 +362,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // We should check that all the heap have been destroyed but this is not
       // the case in Chrome, so the heap list may not be empty here.
       asan_callback.Reset();
+      TearDownStackCache();
       TearDownLogger();
       TearDownAtExitManager();
       break;
@@ -369,28 +384,31 @@ namespace asan {
 void __stdcall ReportBadMemoryAccess(const uint8* location,
                                      HeapProxy::AccessMode access_mode,
                                      size_t access_size) {
-  // Iterates over the HeapProxy list to find a memory block containing this
-  // address.
   base::AutoLock lock(heap_proxy_list_lock);
+
+  // Iterates over the HeapProxy list to find the memory block containing this
+  // address. We expect that there is at least one heap proxy extant.
+  HeapProxy* proxy = NULL;
   LIST_ENTRY* item = heap_proxy_dlist.Flink;
+  CHECK(item != NULL);
   while (item != NULL) {
     LIST_ENTRY* next_item = NULL;
     if (item->Flink != &heap_proxy_dlist) {
       next_item = item->Flink;
     }
-    if (HeapProxy::FromListEntry(item)->OnBadAccess(location,
-                                                    access_mode,
-                                                    access_size)) {
+
+    proxy = HeapProxy::FromListEntry(item);
+    if (proxy->OnBadAccess(location, access_mode, access_size))
       break;
-    }
+
     item = next_item;
   }
-  // If we didn't find a heap with a memory block containing this address we
-  // report an unknown crash.
+  // If item is NULL then we went through the list without finding the heap
+  // from which this address was allocated. We can just reuse the logger of
+  // the last heap proxy we saw to report an "unknown" error.
   if (item == NULL) {
-    HeapProxy::ReportUnknownError(location,
-                                  access_mode,
-                                  access_size);
+    CHECK(proxy != NULL);
+    proxy->ReportUnknownError(location, access_mode, access_size);
   }
   // Call the callback to handle this error.
   DCHECK_EQ(false, asan_callback.is_null());

@@ -24,14 +24,16 @@
 #include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/common/dlist.h"
 
 namespace agent {
 namespace asan {
 
-// An alias for the Windoes Debug Help APIs representation of a stack trace
-// (as an array of frame pointers).
-typedef void** StackCapture;
+// Forward declaration.
+class AsanLogger;
+class StackCapture;
+class StackCaptureCache;
 
 // Makes like a Win32 heap manager heap, but adds a redzone before and after
 // each allocation and maintains a quarantine list of freed blocks.
@@ -44,7 +46,7 @@ class HeapProxy {
     ASAN_UNKNOWN_ACCESS
   };
 
-  HeapProxy();
+  HeapProxy(StackCaptureCache* cache, AsanLogger* logger);
   ~HeapProxy();
 
   // @name Cast to/from HANDLE.
@@ -91,9 +93,9 @@ class HeapProxy {
   // @param addr The address causing an error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
-  static void ReportUnknownError(const void* addr,
-                                 AccessMode access_mode,
-                                 size_t access_size);
+  void ReportUnknownError(const void* addr,
+                          AccessMode access_mode,
+                          size_t access_size);
 
   // @name Cast to/from HANDLE.
   // @{
@@ -145,10 +147,8 @@ class HeapProxy {
     size_t magic_number;
     size_t size;
     BlockState state;
-    StackCapture alloc_stack_trace;
-    StackCapture free_stack_trace;
-    uint8 alloc_stack_trace_size;
-    uint8 free_stack_trace_size;
+    const StackCapture* alloc_stack;
+    const StackCapture* free_stack;
   };
 
   // Free blocks are linked together.
@@ -206,11 +206,11 @@ class HeapProxy {
   // @param bad_access_kind The kind of error.
   // @param access_mode The mode of the access (read or write).
   // @param access_size The size of the access (in bytes).
-  static void ReportAsanErrorBase(const char* bug_descr,
-                                  const void* addr,
-                                  BadAccessKind bad_access_kind,
-                                  AccessMode access_mode,
-                                  size_t access_size);
+  void ReportAsanErrorBase(const char* bug_descr,
+                           const void* addr,
+                           BadAccessKind bad_access_kind,
+                           AccessMode access_mode,
+                           size_t access_size);
 
   // Report an ASAN error, automatically including information about the
   // address being accessed when the error occurred.
@@ -230,16 +230,27 @@ class HeapProxy {
   // Default max size of blocks in quarantine (in bytes).
   static size_t default_quarantine_max_size_;
 
-  // Contains the underlying heap we delegate to.
+  // The underlying heap we delegate to.
   HANDLE heap_;
 
+  // A repository of unique stack captures recorded on alloc and free.
+  StackCaptureCache* const stack_cache_;
+
+  // The logger to use when an error occurs.
+  AsanLogger* const logger_;
+
+  // Protects concurrent access to HeapProxy internals.
   base::Lock lock_;
+
   // Points to the head of the quarantine queue.
   FreeBlockHeader* head_;  // Under lock_.
+
   // Points to the tail of the quarantine queue.
   FreeBlockHeader* tail_;  // Under lock_.
+
   // Total size of blocks in quarantine.
   size_t quarantine_size_;  // Under lock_.
+
   // Max size of blocks in quarantine.
   size_t quarantine_max_size_;  // Under lock_.
 

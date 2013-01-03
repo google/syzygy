@@ -38,6 +38,10 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::ToBlock;
 
+  explicit TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
+      : HeapProxy(stack_cache, logger) {
+  }
+
   // Verify that the access to @p addr contained in @p header is an underflow.
   bool IsUnderflowAccess(uint8* addr, BlockHeader* header) {
     return GetBadAccessKind(addr, header) == HEAP_BUFFER_UNDERFLOW;
@@ -71,16 +75,17 @@ class TestHeapProxy : public HeapProxy {
 
 class HeapTest : public testing::Test {
  public:
+  HeapTest() : proxy_(&stack_cache_, &logger_) {
+  }
+
   virtual void SetUp() OVERRIDE {
     logger_.set_instance_id(L"bogus");
     logger_.Init();
-    AsanLogger::SetInstance(&logger_);
     ASSERT_TRUE(proxy_.Create(0, 0, 0));
   }
 
   virtual void TearDown() OVERRIDE {
     ASSERT_TRUE(proxy_.Destroy());
-    AsanLogger::SetInstance(NULL);
   }
 
   // Verifies that [alloc, alloc + size) is accessible, and that
@@ -110,8 +115,9 @@ class HeapTest : public testing::Test {
   // Arbitrary constant for all size limit.
   static const size_t kMaxAllocSize = 134584;
 
-  TestHeapProxy proxy_;
   AsanLogger logger_;
+  StackCaptureCache stack_cache_;
+  TestHeapProxy proxy_;
 };
 
 }  // namespace

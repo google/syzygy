@@ -28,12 +28,6 @@ class AsanLogger {
  public:
   AsanLogger();
 
-  // Singleton management.
-  // @{
-  static void SetInstance(AsanLogger* instance);
-  static AsanLogger* Instance();
-  // @}
-
   // Set the RPC instance ID to use. If an instance-id is to be used by the
   // logger, it must be set before calling Init().
   void set_instance_id(const base::StringPiece16& instance_id) {

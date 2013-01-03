@@ -50,41 +50,21 @@ class HeapLocker {
   DISALLOW_COPY_AND_ASSIGN(HeapLocker);
 };
 
-// Capture a stack trace and store it in an array of instruction pointer values.
-// @param trace A pointer to a non-allocated array of instruction pointer,
-//     *trace is assumed to be equal NULL when we call this function, the
-//     array will be dynamically allocated.
-// @param trace_size A pointer to the variable where the stack size should be
-//     saved.
-// @note The caller is responsible for freeing (with delete[]) the returned
-//     stack capture.
-void CaptureStackTrace(StackCapture* trace, uint8* trace_size) {
-  DCHECK(trace != NULL);
-  DCHECK(*trace == NULL);
-
-  // From http://msdn.microsoft.com/en-us/library/bb204633.aspx, the sum of
-  // FramesToSkip and FramesToCapture must be less than 63.
-  static const size_t kMaxFrames = 62;
-  *trace = new void*[kMaxFrames];
-
-  // TODO(rogerm): Switch this to an allocation pool and free the entire pool
-  //     when the asan runtime is terminated.
-  USHORT num_frames = ::CaptureStackBackTrace(0, kMaxFrames, *trace, NULL);
-  DCHECK_LE(num_frames, kMaxFrames);
-  *trace_size = static_cast<uint8>(num_frames);
-}
-
 }  // namespace
 
 // Arbitrarily keep 16 megabytes of quarantine per heap by default.
 size_t HeapProxy::default_quarantine_max_size_ = 16 * 1024 * 1024;
 
-HeapProxy::HeapProxy()
+HeapProxy::HeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
     : heap_(NULL),
+      stack_cache_(stack_cache),
+      logger_(logger),
       head_(NULL),
       tail_(NULL),
       quarantine_size_(0),
       quarantine_max_size_(0) {
+  DCHECK(stack_cache != NULL);
+  DCHECK(logger != NULL);
 }
 
 HeapProxy::~HeapProxy() {
@@ -142,18 +122,27 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   if (block == NULL)
     return NULL;
 
-  // Poison head and tail zones, and unpoison alloc.
+  // Poison head and tail zones, and un-poison alloc.
   size_t header_size = kRedZoneSize;
   size_t trailer_size = alloc_size - kRedZoneSize - bytes;
   memset(block, 0xCC, header_size);
   Shadow::Poison(block, kRedZoneSize);
 
+  // Capture the current stack. We call the CaptureStackBackTrace function
+  // directly (instead of via a wrapper) to preserve the greatest number of
+  // frames we can capture.
+  ULONG stack_id = 0;
+  void* frames[StackCapture::kMaxNumFrames];
+  size_t num_frames = ::CaptureStackBackTrace(
+      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+
+  // Initialize the block fields.
   block->magic_number = kBlockHeaderSignature;
   block->size = bytes;
   block->state = ALLOCATED;
-  block->alloc_stack_trace = NULL;
-  block->free_stack_trace = NULL;
-  CaptureStackTrace(&block->alloc_stack_trace, &block->alloc_stack_trace_size);
+  block->alloc_stack =
+      stack_cache_->SaveStackTrace(stack_id, frames, num_frames);
+  block->free_stack = NULL;
 
   uint8* block_alloc = ToAlloc(block);
   Shadow::Unpoison(block_alloc, bytes);
@@ -199,7 +188,16 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     return false;
   }
 
-  CaptureStackTrace(&block->free_stack_trace, &block->free_stack_trace_size);
+  // Capture the current stack. We call the CaptureStackBackTrace function
+  // directly (instead of via a wrapper) to preserve the greatest number of
+  // frames we can capture.
+  ULONG stack_id = 0;
+  void* frames[StackCapture::kMaxNumFrames];
+  size_t num_frames = ::CaptureStackBackTrace(
+      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+
+  block->free_stack =
+      stack_cache_->SaveStackTrace(stack_id, frames, num_frames);
   DCHECK(ToAlloc(block) == mem);
   if (!Shadow::IsAccessible(ToAlloc(block)))
     return false;
@@ -283,16 +281,9 @@ void HeapProxy::PopQuarantineUnlocked() {
   Shadow::Unpoison(free_block, alloc_size);
   free_block->state = FREED;
   free_block->magic_number = ~kBlockHeaderSignature;
-  if (free_block->alloc_stack_trace != NULL) {
-    delete free_block->alloc_stack_trace;
-    free_block->alloc_stack_trace = NULL;
-    free_block->alloc_stack_trace_size = 0;
-  }
-  if (free_block->free_stack_trace != NULL) {
-    delete free_block->free_stack_trace;
-    free_block->free_stack_trace = NULL;
-    free_block->free_stack_trace_size = 0;
-  }
+  free_block->alloc_stack = NULL;
+  free_block->free_stack = NULL;
+
   DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
   ::HeapFree(heap_, 0, free_block);
 
@@ -384,10 +375,7 @@ void HeapProxy::ReportAddressInformation(const void* addr,
       NOTREACHED() << "Error trying to dump address information.";
   }
 
-  AsanLogger* logger = AsanLogger::Instance();
-  DCHECK(logger != NULL);
-
-  logger->Write(base::StringPrintf(
+  logger_->Write(base::StringPrintf(
       "0x%08X is located %d bytes %s of %d-bytes region [0x%08X,0x%08X)\n",
       addr,
       offset,
@@ -395,20 +383,20 @@ void HeapProxy::ReportAddressInformation(const void* addr,
       header->size,
       block_alloc,
       block_alloc + header->size));
-  if (header->free_stack_trace != NULL) {
-    logger->WriteWithStackTrace("freed here:\n",
-                                header->free_stack_trace,
-                                header->free_stack_trace_size);
+  if (header->free_stack != NULL) {
+    logger_->WriteWithStackTrace("freed here:\n",
+                                 header->free_stack->frames(),
+                                 header->free_stack->num_frames());
   }
-  if (header->alloc_stack_trace != NULL) {
-    logger->WriteWithStackTrace("previously allocated here:\n",
-                                header->alloc_stack_trace,
-                                header->alloc_stack_trace_size);
+  if (header->alloc_stack != NULL) {
+    logger_->WriteWithStackTrace("previously allocated here:\n",
+                                 header->alloc_stack->frames(),
+                                 header->alloc_stack->num_frames());
   }
 
   std::string shadow_text;
   Shadow::AppendShadowMemoryText(addr, &shadow_text);
-  logger->Write(shadow_text);
+  logger_->Write(shadow_text);
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
@@ -534,10 +522,19 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                         access_size);
   }
 
-  base::debug::StackTrace stack_trace;
-  size_t trace_length = 0;
-  const void* const * trace_data = stack_trace.Addresses(&trace_length);
-  AsanLogger::Instance()->WriteWithStackTrace(output, trace_data, trace_length);
+  // Capture the current stack. We call the CaptureStackBackTrace function
+  // directly (instead of via a wrapper) to preserve the greatest number of
+  // frames we can capture.
+  ULONG stack_id = 0;
+  void* frames[StackCapture::kMaxNumFrames];
+  size_t num_frames = ::CaptureStackBackTrace(
+      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+
+  // In case we're not going to treat this as fatal, we might as well cache it.
+  ignore_result(stack_cache_->SaveStackTrace(stack_id, frames, num_frames));
+
+  // Log the failure and stack.
+  logger_->WriteWithStackTrace(output, frames, num_frames);
 }
 
 const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {

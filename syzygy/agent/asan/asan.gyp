@@ -34,6 +34,8 @@
         'asan_logger.h',
         'asan_shadow.cc',
         'asan_shadow.h',
+        'stack_capture_cache.cc',
+        'stack_capture_cache.h',
       ],
       'dependencies': [
         '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
@@ -67,6 +69,7 @@
         'asan_rtl_unittest.cc',
         'asan_rtl_unittests_main.cc',
         'asan_shadow_unittest.cc',
+        'stack_capture_cache_unittest.cc',
       ],
       'dependencies': [
         'asan_rtl',

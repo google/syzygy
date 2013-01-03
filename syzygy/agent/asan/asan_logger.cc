@@ -39,14 +39,6 @@ AsanLogger* logger_instance = NULL;
 AsanLogger::AsanLogger() {
 }
 
-void AsanLogger::SetInstance(AsanLogger* instance) {
-  logger_instance = instance;
-}
-
-AsanLogger* AsanLogger::Instance() {
-  return logger_instance;
-}
-
 void AsanLogger::Init() {
   base::RouteStdioToConsole();
   bool success = rpc_binding_.Open(
