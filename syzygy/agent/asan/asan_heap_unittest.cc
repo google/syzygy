@@ -75,7 +75,7 @@ class TestHeapProxy : public HeapProxy {
 
 class HeapTest : public testing::Test {
  public:
-  HeapTest() : proxy_(&stack_cache_, &logger_) {
+  HeapTest() : stack_cache_(&logger_), proxy_(&stack_cache_, &logger_) {
   }
 
   virtual void SetUp() OVERRIDE {

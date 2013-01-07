@@ -78,6 +78,7 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
 }
 
 void OnAsanError() {
+  stack_cache->LogCompressionRatio();
   ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
 }
 
@@ -124,7 +125,8 @@ void TearDownLogger() {
 
 void SetUpStackCache() {
   DCHECK(stack_cache == NULL);
-  stack_cache = new StackCaptureCache();
+  DCHECK(logger != NULL);
+  stack_cache = new StackCaptureCache(logger);
 }
 
 void TearDownStackCache() {
@@ -355,13 +357,18 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
+      DCHECK(stack_cache != NULL);
+      stack_cache->LogCompressionRatio();
+
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
       // and we're now just cleaning it up again.
       DCHECK(asan_callback.is_null() == FALSE);
-      // We should check that all the heap have been destroyed but this is not
-      // the case in Chrome, so the heap list may not be empty here.
       asan_callback.Reset();
+
+      // In principle, we should also check that all the heaps have been
+      // destroyed but this is not guaranteed to be the case in Chrome, so
+      // the heap list may not be empty here.
       TearDownStackCache();
       TearDownLogger();
       TearDownAtExitManager();

@@ -23,6 +23,9 @@
 namespace agent {
 namespace asan {
 
+// Forward declaration.
+class AsanLogger;
+
 // A simple wrapper class to hold a stack trace capture.
 class StackCapture {
  public:
@@ -97,23 +100,69 @@ class StackCaptureCache {
   };
 
   // Initializes a new stack capture cache.
-  StackCaptureCache();
+  explicit StackCaptureCache(AsanLogger* logger);
 
   // Destroys a stack capture cache.
   ~StackCaptureCache();
 
+  // @returns the default compression reporting period value.
+  static size_t GetDefaultCompressionReportingPeriod() {
+    return kDefaultCompressionReportingPeriod;
+  }
+
+  // Sets a new (global) compression reporting period value. Note that this
+  // method is not thread safe. It is expected to be called once at startup,
+  // or not at all.
+  static void SetCompressionReportingPeriod(size_t period) {
+    compression_reporting_period_ = period;
+  }
+
+  // @returns the current (global) compression reporting period value. It is
+  //     expected that this value is a constant after initialization.
+  static size_t GetCompressionReportingPeriod() {
+    return compression_reporting_period_;
+  }
+
   // Save (or retrieve) the stack capture (the first @p num_frames elements
   // from  @p frames) into the cache using @p stack_id as the key.
+  // @param stack_id a unique identifier for this stack trace. It is expected
+  //     that identical stack traces will have the same @p stack_id.
+  // @param frames an array of stack frame pointers.
+  // @param num_frames the number of valid elements in @p frames. Note that
+  //     at most StackCapture::kMaxNumFrames will be saved.
   const StackCapture* SaveStackTrace(StackId stack_id,
                                      const void* const* frames,
                                      size_t num_frames);
+
+  // Logs the current stack capture cache compression ratio. This method is
+  // thread safe.
+  void LogCompressionRatio() const;
 
  protected:
   // The container type in which we store the cached stacks, by id.
   typedef base::hash_map<StackId, const StackCapture*> StackMap;
 
+  // @returns The compression ratio achieved by the stack capture cache. This
+  //     is the percentage of total allocation stack traces actually stored in
+  //     the cache. This method must be called while holding lock_.
+  double GetCompressionRatioUnlocked() const;
+
+  // Implementation function for logging the compression ratio.
+  void LogCompressionRatioImpl(double ratio) const;
+
+  // Arbitrarily, let's report the compression ratio achieved by the stack trace
+  // cache every 5000 allocations.
+  static const size_t kDefaultCompressionReportingPeriod = 5000;
+
+  // The number of allocations between reports of the stack trace cache
+  // compression ratio.
+  static size_t compression_reporting_period_;
+
+  // Logger instance to which to report the compression ratio.
+  AsanLogger* const logger_;
+
   // A lock to protect the known stacks map from concurrent access.
-  base::Lock lock_;
+  mutable base::Lock lock_;
 
   // The map of known stacks, by id. Accessed under lock_.
   StackMap known_stacks_;
@@ -121,6 +170,12 @@ class StackCaptureCache {
   // The current page from which new stack captures are allocated.
   // Accessed under lock_.
   CachePage* current_page_;
+
+  // The total number of stack allocations requested. Accessed under lock_.
+  uint64 total_allocations_;
+
+  // The total number of stack allocations requested. Accessed under lock_.
+  uint64 cached_allocations_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StackCaptureCache);

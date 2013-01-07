@@ -41,7 +41,13 @@ class FlagsManager {
   ~FlagsManager();
 
   // The name of the environment variable containing the command-line.
-  static const char SyzyAsanEnvVar[];
+  static const char kSyzyAsanEnvVar[];
+
+  // @name Flag strings.
+  // @{
+  static const char kQuarantineSize[];
+  static const char kCompressionReportingPeriod[];
+  // @}
 
   // Parse and set the flags from the wide string @p str.
   bool ParseFlagsFromString(const std::wstring& str);

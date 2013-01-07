@@ -15,9 +15,26 @@
 #include "syzygy/agent/asan/stack_capture_cache.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_logger.h"
 
 namespace agent {
 namespace asan {
+
+namespace {
+
+class TestStackCaptureCache : public StackCaptureCache {
+ public:
+  explicit TestStackCaptureCache(AsanLogger* logger)
+      : StackCaptureCache(logger) {
+  }
+
+  double GetCompressionRatio() {
+    base::AutoLock auto_lock(lock_);
+    return GetCompressionRatioUnlocked();
+  }
+};
+
+}  // namespace
 
 TEST(StackCaptureTest, InitFromBuffer) {
   StackCapture capture;
@@ -49,7 +66,8 @@ TEST(StackCaptureTest, InitFromBuffer) {
 }
 
 TEST(StackCaptureCacheTest, SaveStackTrace) {
-  StackCaptureCache cache;
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
 
   // Capture a stack trace.
   ULONG stack_id = 0;
@@ -74,6 +92,33 @@ TEST(StackCaptureCacheTest, SaveStackTrace) {
   // to save a different trace.
   const StackCapture* s3 = cache.SaveStackTrace(stack_id, frames, num_frames);
   EXPECT_NE(s1, s3);
+}
+
+TEST(StackCaptureCacheTest, GetCompressionRatio) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+
+  ULONG stack_id = 0;
+  void* frames[StackCapture::kMaxNumFrames] = { 0 };
+  size_t num_frames = 0;
+
+  ASSERT_NEAR(1.0, cache.GetCompressionRatio(), 0.001);
+
+  // Insert 4 identical stack frames.
+  for (int i = 0; i < 4; ++i) {
+    num_frames = ::CaptureStackBackTrace(
+        0, StackCapture::kMaxNumFrames, frames, &stack_id);
+    ASSERT_TRUE(cache.SaveStackTrace(stack_id, frames, num_frames) != NULL);
+  }
+
+  // There should now be a compression ration of 25%.
+  ASSERT_NEAR(0.25, cache.GetCompressionRatio(), 0.001);
+
+  // Insert a new unique stack frame. Taking the ratio to 40%.
+  num_frames = ::CaptureStackBackTrace(
+      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  ASSERT_TRUE(cache.SaveStackTrace(stack_id, frames, num_frames) != NULL);
+  ASSERT_NEAR(0.40, cache.GetCompressionRatio(), 0.001);
 }
 
 }  // namespace asan

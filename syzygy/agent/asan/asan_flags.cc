@@ -26,10 +26,31 @@
 namespace agent {
 namespace asan {
 
+namespace {
+
+bool UpdateSizetFromCommandLine(const CommandLine& cmd_line,
+                                const std::string& param_name,
+                                size_t* value) {
+  if (cmd_line.HasSwitch(param_name)) {
+    std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
+    size_t new_value = 0;
+    if (!base::StringToSizeT(value_str, &new_value))
+      return false;
+    *value = new_value;
+  }
+  return true;
+}
+
 base::LazyInstance<FlagsManager> static_flags_manager_instance =
     LAZY_INSTANCE_INITIALIZER;
 
-const char FlagsManager::SyzyAsanEnvVar[] = "ASAN_OPTIONS";
+}  // namespace
+
+const char FlagsManager::kQuarantineSize[] = "quarantine_size";
+const char FlagsManager::kCompressionReportingPeriod[] =
+    "compression_reporting_period";
+
+const char FlagsManager::kSyzyAsanEnvVar[] = "ASAN_OPTIONS";
 
 FlagsManager::FlagsManager() {
 }
@@ -44,17 +65,25 @@ FlagsManager* FlagsManager::Instance() {
 bool FlagsManager::ParseFlagsFromString(const std::wstring& str) {
   CommandLine cmd_line = CommandLine::FromString(str);
 
-  if (cmd_line.HasSwitch("quarantine_size")) {
-    std::string quarantine_size_str =
-        cmd_line.GetSwitchValueASCII("quarantine_size");
-    size_t quarantine_size = 0;
-    if (!base::StringToSizeT(quarantine_size_str, &quarantine_size)) {
-      LOG(ERROR) << "Unable to read the quarantine size from the argument"
-                 << " list.";
-      return false;
-    }
-    agent::asan::HeapProxy::SetDefaultQuarantineMaxSize(quarantine_size);
+  size_t quarantine_size = HeapProxy::GetDefaultQuarantineMaxSize();
+  if (!UpdateSizetFromCommandLine(cmd_line, kQuarantineSize,
+                                  &quarantine_size)) {
+    LOG(ERROR) << "Unable to read " << kQuarantineSize << " from the argument "
+               << "list.";
+    return false;
   }
+  HeapProxy::SetDefaultQuarantineMaxSize(quarantine_size);
+
+  size_t reporting_period =
+      StackCaptureCache::GetDefaultCompressionReportingPeriod();
+  if (!UpdateSizetFromCommandLine(cmd_line, kCompressionReportingPeriod,
+                                  &reporting_period)) {
+    LOG(ERROR) << "Unable to read " << kCompressionReportingPeriod
+               << " from the argument list.";
+    return false;
+  }
+  StackCaptureCache::SetCompressionReportingPeriod(reporting_period);
+
   return true;
 }
 
@@ -67,7 +96,7 @@ bool FlagsManager::InitializeFlagsWithEnvVar() {
 
   // If this fails, the environment variable simply does not exist.
   std::string env_var_str;
-  if (!env->GetVar("ASAN_OPTIONS", &env_var_str)) {
+  if (!env->GetVar(kSyzyAsanEnvVar, &env_var_str)) {
     return true;
   }
   // Prepends the flags with the agent name. We need to do this because the

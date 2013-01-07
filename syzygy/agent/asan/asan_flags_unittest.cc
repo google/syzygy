@@ -32,7 +32,9 @@ namespace {
 // A derived class to expose protected members for unit-testing.
 class TestFlagsManager : public FlagsManager {
  public:
-  using FlagsManager::SyzyAsanEnvVar;
+  using FlagsManager::kSyzyAsanEnvVar;
+  using FlagsManager::kQuarantineSize;
+  using FlagsManager::kCompressionReportingPeriod;
 };
 
 class FlagsManagerTest : public testing::Test {
@@ -44,7 +46,7 @@ class FlagsManagerTest : public testing::Test {
     scoped_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_TRUE(env.get() != NULL);
     // Saves the original value of the command-line.
-    env->GetVar(flags_manager_.SyzyAsanEnvVar, &original_command_line_);
+    env->GetVar(TestFlagsManager::kSyzyAsanEnvVar, &original_command_line_);
   }
 
   void TearDown() OVERRIDE {
@@ -53,7 +55,7 @@ class FlagsManagerTest : public testing::Test {
     if (original_command_line_.size()) {
       scoped_ptr<base::Environment> env(base::Environment::Create());
       ASSERT_TRUE(env.get() != NULL);
-      ASSERT_TRUE(env->SetVar(flags_manager_.SyzyAsanEnvVar,
+      ASSERT_TRUE(env->SetVar(TestFlagsManager::kSyzyAsanEnvVar,
                               original_command_line_));
       ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
     }
@@ -68,7 +70,7 @@ class FlagsManagerTest : public testing::Test {
     ASSERT_TRUE(env.get() != NULL);
     std::string current_command_line_str =
         WideToUTF8(current_command_line_.GetCommandLineString());
-    EXPECT_TRUE(env->SetVar(flags_manager_.SyzyAsanEnvVar,
+    EXPECT_TRUE(env->SetVar(TestFlagsManager::kSyzyAsanEnvVar,
                             current_command_line_str));
   }
 
@@ -102,7 +104,7 @@ TEST_F(FlagsManagerTest, SetDefaultQuarantineMaxSize) {
     quarantine_max_size++;
   DCHECK_GT(quarantine_max_size, 0U);
   std::string quarantine_max_size_str = base::UintToString(quarantine_max_size);
-  current_command_line_.AppendSwitchASCII("quarantine_size",
+  current_command_line_.AppendSwitchASCII(TestFlagsManager::kQuarantineSize,
                                           quarantine_max_size_str);
 
   // Update the asan environment variable and re-parse the flags.
@@ -111,6 +113,27 @@ TEST_F(FlagsManagerTest, SetDefaultQuarantineMaxSize) {
 
   // Ensure that the quarantine max size has been modified.
   EXPECT_EQ(HeapProxy::GetDefaultQuarantineMaxSize(), quarantine_max_size);
+}
+
+TEST_F(FlagsManagerTest, SetCompressionReportingPeriod) {
+  // Initialize the flags with the original command line.
+  ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
+
+  ASSERT_EQ(StackCaptureCache::GetDefaultCompressionReportingPeriod(),
+            StackCaptureCache::GetCompressionReportingPeriod());
+
+  size_t new_period =
+      StackCaptureCache::GetDefaultCompressionReportingPeriod() + 1024;
+  std::string new_period_str = base::UintToString(new_period);
+  current_command_line_.AppendSwitchASCII(
+      TestFlagsManager::kCompressionReportingPeriod, new_period_str);
+
+  // Update the asan environment variable and re-parse the flags.
+  ASSERT_NO_FATAL_FAILURE(UpdateEnvVar());
+  ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
+
+  // Ensure that the quarantine max size has been modified.
+  EXPECT_EQ(new_period, StackCaptureCache::GetCompressionReportingPeriod());
 }
 
 }  // namespace asan
