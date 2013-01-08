@@ -427,7 +427,7 @@ TEST(PEFileSignatureTest, Serialization) {
 
 TEST(PEFileSignatureTest, Consistency) {
   PEFile::Signature sig1;
-  sig1.path = L"C:\foo\bar.dll";
+  sig1.path = L"C:\\foo\\bar.dll";
   sig1.base_address = AbsoluteAddress(0x1000000);
   sig1.module_size = 12345;
   sig1.module_time_date_stamp = 9999999;
@@ -435,10 +435,25 @@ TEST(PEFileSignatureTest, Consistency) {
 
   // sig2 is the same, but with a different module path.
   PEFile::Signature sig2(sig1);
-  sig2.path = L"C:\foo\bar.exe";
+  sig2.path = L"C:\\foo\\bar.exe";
 
   EXPECT_FALSE(sig1 == sig2);
   EXPECT_TRUE(sig1.IsConsistent(sig2));
+  EXPECT_TRUE(sig1.IsConsistentExceptForChecksum(sig2));
+
+  sig2.module_checksum = sig1.module_checksum + 100;
+  EXPECT_FALSE(sig1.IsConsistent(sig2));
+  EXPECT_TRUE(sig1.IsConsistentExceptForChecksum(sig2));
+  sig2.module_checksum = sig1.module_checksum;
+
+  sig2.base_address = sig1.base_address + 0x1000;
+  EXPECT_FALSE(sig1.IsConsistent(sig2));
+  EXPECT_FALSE(sig1.IsConsistentExceptForChecksum(sig2));
+  sig2.base_address = sig1.base_address;
+
+  sig2.module_size = sig2.module_size + 0x1000;
+  EXPECT_FALSE(sig1.IsConsistent(sig2));
+  EXPECT_FALSE(sig1.IsConsistentExceptForChecksum(sig2));
 }
 
 }  // namespace pe

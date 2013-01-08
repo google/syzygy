@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -624,10 +624,15 @@ bool PEFile::DecodeImports(ImportDllVector* imports) const {
 }
 
 bool PEFile::Signature::IsConsistent(const Signature& signature) const {
+  return IsConsistentExceptForChecksum(signature) &&
+      module_checksum == signature.module_checksum;
+}
+
+bool PEFile::Signature::IsConsistentExceptForChecksum(
+    const Signature& signature) const {
   return base_address == signature.base_address &&
       module_size == signature.module_size &&
-      module_time_date_stamp == signature.module_time_date_stamp &&
-      module_checksum == signature.module_checksum;
+      module_time_date_stamp == signature.module_time_date_stamp;
 }
 
 bool PEFile::Signature::Save(core::OutArchive* out_archive) const {

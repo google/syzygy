@@ -217,6 +217,10 @@ struct PEFile::Signature {
   // Compares this signature to another one. The paths do not have to match.
   bool IsConsistent(const Signature& signature) const;
 
+  // Compares this signature to another one.
+  // The paths and the checksum do not have to match.
+  bool IsConsistentExceptForChecksum(const Signature& signature) const;
+
   // We need an equality operator for serialization unittests.
   bool operator==(const Signature& signature) const {
     return path == signature.path && IsConsistent(signature);

@@ -42,10 +42,27 @@ bool MetadataMatchesPEFile(const Metadata& metadata, const PEFile& pe_file) {
   // backwards compatibility with differing versions of the toolchain. Instead,
   // we version the whole serialized stream and enforce consistency in
   // LoadBlockGraphAndImageLayout.
-  if (!metadata.module_signature().IsConsistent(pe_signature))
-    return false;
+  if (metadata.module_signature().IsConsistent(pe_signature))
+    return true;
 
-  return true;
+  // If the PE signature doesn't match outright, it's perhaps because the PE
+  // file has been modified after we captured it's metadata. This can happen in
+  // the case where e.g. a file is signed, which updates the data directory
+  // to point to the signatures.
+  if (metadata.module_signature().IsConsistentExceptForChecksum(pe_signature)) {
+    LOG(WARNING) << "Matching PE module with modified checksum. "
+                    "Beware that this may be unsafe if the module has been "
+                    "significantly modified.\n"
+                    "Significant modification includes e.g. modifying "
+                    "resources.\n"
+                    "Signing files does, however, not constitute significant "
+                    "modification, so if you're e.g. instrumenting official "
+                    "Chrome binaries, you'll be fine.";
+
+    return true;
+  }
+
+  return false;
 }
 
 bool FindPEFile(const Metadata& metadata, PEFile* pe_file) {
