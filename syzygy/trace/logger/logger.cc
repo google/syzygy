@@ -229,6 +229,8 @@ bool Logger::Write(const base::StringPiece& message) {
     return false;
   }
 
+  ::fflush(destination_);
+
   return true;
 }
 

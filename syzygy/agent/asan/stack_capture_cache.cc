@@ -94,7 +94,8 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
     ++total_allocations_;
     stack_trace = result.first->second;
 
-    if (total_allocations_ % compression_reporting_period_ == 0) {
+    if (compression_reporting_period_ != 0 &&
+        total_allocations_ % compression_reporting_period_ == 0) {
       must_log_ratio = true;
       compression_ratio = GetCompressionRatioUnlocked();
     }

@@ -150,12 +150,13 @@ class StackCaptureCache {
   // Implementation function for logging the compression ratio.
   void LogCompressionRatioImpl(double ratio) const;
 
-  // Arbitrarily, let's report the compression ratio achieved by the stack trace
-  // cache every 5000 allocations.
-  static const size_t kDefaultCompressionReportingPeriod = 5000;
+  // The default number of iterations between each compression ratio report.
+  // Zero (0) means do not report.
+  static const size_t kDefaultCompressionReportingPeriod = 0;
 
   // The number of allocations between reports of the stack trace cache
-  // compression ratio.
+  // compression ratio. Zero (0) means do not report. Values like 1 million
+  // seem to be pretty good with Chrome.
   static size_t compression_reporting_period_;
 
   // Logger instance to which to report the compression ratio.

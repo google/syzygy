@@ -45,20 +45,7 @@ class FlagsManagerTest : public testing::Test {
   void SetUp() OVERRIDE {
     scoped_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_TRUE(env.get() != NULL);
-    // Saves the original value of the command-line.
-    env->GetVar(TestFlagsManager::kSyzyAsanEnvVar, &original_command_line_);
-  }
-
-  void TearDown() OVERRIDE {
-    Super::TearDown();
-    // Restores the original value of the command-line if there was one.
-    if (original_command_line_.size()) {
-      scoped_ptr<base::Environment> env(base::Environment::Create());
-      ASSERT_TRUE(env.get() != NULL);
-      ASSERT_TRUE(env->SetVar(TestFlagsManager::kSyzyAsanEnvVar,
-                              original_command_line_));
-      ASSERT_TRUE(flags_manager_.Instance()->InitializeFlagsWithEnvVar());
-    }
+    env->UnSetVar(TestFlagsManager::kSyzyAsanEnvVar);
   }
 
  protected:
@@ -74,9 +61,9 @@ class FlagsManagerTest : public testing::Test {
                             current_command_line_str));
   }
 
+  // Our test flags manager instance.
   TestFlagsManager flags_manager_;
-  // The original value of the command-line, we keep it so we can restore it.
-  std::string original_command_line_;
+
   // The value of the command-line that we want to test.
   CommandLine current_command_line_;
 };
