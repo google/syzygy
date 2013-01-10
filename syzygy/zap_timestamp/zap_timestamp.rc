@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
 #ifdef APSTUDIO_INVOKED
 #error Don't open this file in the GUI, it'll be massacred on save.
 #endif  // APSTUDIO_INVOKED
 
 #define SYZYGY_FILETYPE VFT_APP
-#define SYZYGY_DESCRIPTION "Syzygy ETW Call-Trace Controller"
-#define SYZYGY_INTERNALNAME "call_trace_control"
-#define SYZYGY_ORIGINALFILENAME "call_trace_control.exe"
+#define SYZYGY_DESCRIPTION "Syzygy Zap Timestamp"
+#define SYZYGY_INTERNALNAME "Zap Timestamp"
+#define SYZYGY_ORIGINALFILENAME "zap_timestamp.exe"
 
 #include "syzygy/common/version.rc"

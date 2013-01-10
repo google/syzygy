@@ -63,6 +63,7 @@
         'trace/rpc/rpc.gyp:*',
         'trace/service/service.gyp:*',
         'wsdump/wsdump.gyp:*',
+        'zap_timestamp/zap_timestamp.gyp:*',
       ],
     },
     {

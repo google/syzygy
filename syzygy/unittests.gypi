@@ -87,6 +87,9 @@
 
       # WSDump tests.
       '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
+
+      # Zap Timestamp tests.
+      '<(DEPTH)/syzygy/zap_timestamp/zap_timestamp.gyp:zap_timestamp_unittests',
     ],
   }
 }
