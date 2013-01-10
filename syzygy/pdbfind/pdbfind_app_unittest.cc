@@ -138,9 +138,14 @@ TEST_F(PdbFindAppTest, Succeeds) {
   // directory, but the CodeView entry still points to the original PDB.
   expected_pdb_path = expected_pdb_path.BaseName();
   actual_pdb_path = actual_pdb_path.BaseName();
-#endif
-
   EXPECT_EQ(expected_pdb_path, actual_pdb_path);
+#else
+  // Our typical build environment includes a secondary drive that is mounted
+  // at a location on the C drive. As such there are two possible paths to the
+  // same file. We actually care that the expected path and the returned path
+  // refer to the same file on disk rather than having exactly the same path.
+  EXPECT_SAME_FILE(expected_pdb_path, actual_pdb_path);
+#endif
 }
 
 }  // namespace pdbfind

@@ -29,27 +29,6 @@ namespace client {
 
 namespace {
 
-// A utility for ensuring that two file paths point to the same file. Upon
-// failure, outputs the actual paths as well.
-::testing::AssertionResult AssertAreSameFile(const char* path1_expr,
-                                             const char* path2_expr,
-                                             const FilePath& path1,
-                                             const FilePath& path2) {
-  core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
-  if (result == core::kEquivalentFilePaths)
-    return ::testing::AssertionSuccess();
-
-  return ::testing::AssertionFailure() << "FilePathsReferToSameFile("
-      << path1_expr << ", " << path2_expr << ") returned " << result
-      << ", expected " << core::kEquivalentFilePaths << " (" << path1_expr
-      << " = \"" << path1.value() << "\", " << path2_expr << " = \""
-      << path2.value() << "\").";
-}
-
-// A gtest-like macro for ensuring two paths refer to the same file.
-#define EXPECT_SAME_FILE(path1, path2) \
-    EXPECT_PRED_FORMAT2(AssertAreSameFile, path1, path2)
-
 class GetInstanceIdForModuleTest : public testing::Test {
  public:
   GetInstanceIdForModuleTest() : path_(L"C:\\path\\foo.exe") { }

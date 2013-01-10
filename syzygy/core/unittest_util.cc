@@ -15,6 +15,7 @@
 #include "syzygy/core/unittest_util.h"
 
 #include "base/path_service.h"
+#include "syzygy/core/file_util.h"
 
 namespace testing {
 
@@ -110,5 +111,19 @@ FilePath GetRelativePath(const FilePath& abs_path) {
   return GetRelativePath(abs_path, cur_dir);
 }
 
+AssertionResult AssertAreSameFile(const char* path1_expr,
+                                  const char* path2_expr,
+                                  const FilePath& path1,
+                                  const FilePath& path2) {
+  core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
+  if (result == core::kEquivalentFilePaths)
+    return ::testing::AssertionSuccess();
+
+  return ::testing::AssertionFailure() << "FilePathsReferToSameFile("
+      << path1_expr << ", " << path2_expr << ") returned " << result
+      << ", expected " << core::kEquivalentFilePaths << " (" << path1_expr
+      << " = \"" << path1.value() << "\", " << path2_expr << " = \""
+      << path2.value() << "\").";
+}
 
 }  // namespace testing

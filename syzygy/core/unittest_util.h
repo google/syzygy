@@ -19,6 +19,7 @@
 
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "gtest/gtest.h"
 #include "syzygy/core/serialization.h"
 
 namespace testing {
@@ -130,6 +131,30 @@ FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path);
 // @returns the relative path to abs_path, starting from the current workign
 //     directory. If there is no relative path, it returns the empty path.
 FilePath GetRelativePath(const FilePath& abs_path);
+
+// A utility for ensuring that two file paths point to the same file. Upon
+// failure, outputs the actual paths as well. This is not intended to be used
+// directly, but rather through the ASSERT_SAME_FILE and EXPECT_SAME_FILE
+// macros.
+// @param path1_expr the source code expression representing the contents of
+//     path1.
+// @param path2_expr the source code expression representing the contents of
+//     path2.
+// @param path1 the first path to compare.
+// @param path2 the second path to compare.
+// @returns AssertionSuccess if path1 and path2 refer to the same file on disk,
+//     even if they have different paths. Otherwise, returns an AssertionFailure
+//     with an informative error message.
+AssertionResult AssertAreSameFile(const char* path1_expr,
+                                  const char* path2_expr,
+                                  const FilePath& path1,
+                                  const FilePath& path2);
+
+// GTest macros for ensuring two paths refer to the same file.
+#define ASSERT_SAME_FILE(path1, path2) \
+    ASSERT_PRED_FORMAT2(::testing::AssertAreSameFile, path1, path2)
+#define EXPECT_SAME_FILE(path1, path2) \
+    EXPECT_PRED_FORMAT2(::testing::AssertAreSameFile, path1, path2)
 
 }  // namespace testing
 

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/pe/find.h"
 
 #include "base/win/scoped_handle.h"
@@ -23,27 +24,6 @@
 namespace pe {
 
 namespace {
-
-// A utility for ensuring that two file paths point to the same file. Upon
-// failure, outputs the actual paths as well.
-::testing::AssertionResult AssertAreSameFile(const char* path1_expr,
-                                             const char* path2_expr,
-                                             const FilePath& path1,
-                                             const FilePath& path2) {
-  core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
-  if (result == core::kEquivalentFilePaths)
-    return ::testing::AssertionSuccess();
-
-  return ::testing::AssertionFailure() << "FilePathsReferToSameFile("
-      << path1_expr << ", " << path2_expr << ") returned " << result
-      << ", expected " << core::kEquivalentFilePaths << " (" << path1_expr
-      << " = \"" << path1.value() << "\", " << path2_expr << " = \""
-      << path2.value() << "\").";
-}
-
-// A gtest-like macro for ensuring two paths refer to the same file.
-#define EXPECT_SAME_FILE(path1, path2) \
-    EXPECT_PRED_FORMAT2(AssertAreSameFile, path1, path2)
 
 class FindTest: public testing::PELibUnitTest {
   // Insert your customizations here.
