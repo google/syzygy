@@ -170,8 +170,12 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   // Setup references.
   static const uint8 kJmp[] = { 0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE };
   static const uint8 kRet[] = { 0xC3 };
+  Instruction jmp;
+  ASSERT_TRUE(Instruction::FromBuffer(kJmp, sizeof(kJmp), &jmp));
+  Instruction ret;
+  ASSERT_TRUE(Instruction::FromBuffer(kRet, sizeof(kRet), &ret));
   bb1->referrers().insert(BasicBlockReferrer(&external_block, 0));
-  bb1->instructions().push_back(Instruction(sizeof(kJmp), kJmp));
+  bb1->instructions().push_back(jmp);
   bb1->instructions().back().SetReference(
       3, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,
@@ -185,7 +189,7 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
                                     BlockGraph::Reference::kMaximumSize,
                                     bb3),
                 0));
-  bb3->instructions().push_back(Instruction(sizeof(kRet), kRet));
+  bb3->instructions().push_back(ret);
 
   // Check reachability.
   BasicBlockSubGraph::ReachabilityMap expected_rm;

@@ -160,8 +160,10 @@ BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(
 void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
     uint32 location, const uint8* bytes, size_t num_bytes,
     const size_t *ref_locations, const void* const* refs, size_t num_refs) {
-  Instructions::iterator it =
-      list_->insert(where_, Instruction(num_bytes, bytes));
+  Instruction instruction;
+  CHECK(Instruction::FromBuffer(bytes, num_bytes, &instruction));
+
+  Instructions::iterator it = list_->insert(where_, instruction);
 
   for (size_t i = 0; i < num_refs; ++i) {
     const BasicBlockReference* ref =

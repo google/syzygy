@@ -91,18 +91,18 @@ class BasicBlockTest: public testing::Test {
   // Helper function to create a RET instruction.
   Instruction CreateRet() {
     static const uint8 data[] = { 0xC3 };
-    Instruction::Representation ret = {};
-    ret.addr = 0;
-    ret.opcode = I_RET;
-    ret.size = 1;
-    META_SET_ISC(&ret, ISC_INTEGER);
-    return Instruction(ret, Instruction::SourceRange(), sizeof(data), data);
+    Instruction temp;
+    EXPECT_TRUE(Instruction::FromBuffer(data, sizeof(data), &temp));
+    EXPECT_TRUE(temp.IsReturn());
+    return temp;
   }
 
   // Helper function to create a CALL instruction.
   Instruction CreateCall(BasicBlockReference ref) {
     static const uint8 data[] = { 0xE8, 0x00, 0x00, 0x00, 0x00 };
-    Instruction call_inst(sizeof(data), data);
+    Instruction call_inst;
+    EXPECT_TRUE(Instruction::FromBuffer(data, sizeof(data), &call_inst));
+    EXPECT_TRUE(call_inst.IsCall());
     call_inst.SetReference(1, ref);
     EXPECT_FALSE(call_inst.has_label());
     call_inst.set_label(BlockGraph::Label("call", BlockGraph::CALL_SITE_LABEL));
@@ -111,7 +111,7 @@ class BasicBlockTest: public testing::Test {
     return call_inst;
   }
 
-  // Helper function to create a successor branch instruction.
+  // Helper function to create a successor branch.
   Successor CreateBranch(uint16 opcode, Successor::Offset target) {
     BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
                             1,  // Size is immaterial in successors.
@@ -157,23 +157,13 @@ const Successor::Offset BasicBlockTest::kOffset2(kBlockSize / 2);
 }  // namespace
 
 TEST_F(BasicBlockTest, InstructionConstructor) {
+  // This also tests Instruction::FromBuffer via CreateRet and CreateCall.
+  Instruction nop;
+  EXPECT_TRUE(nop.IsNop());
+
   Instruction ret_instr(CreateRet());
-  ASSERT_FALSE(ret_instr.owns_data());
 
-  {
-    // This should not copy the data.
-    Instruction ret_temp(ret_instr);
-    ASSERT_FALSE(ret_temp.owns_data());
-    ASSERT_EQ(ret_instr.data(), ret_temp.data());
-  }
-
-  {
-    // Construction from data should make a copy of the data.
-    Instruction ret_temp(ret_instr.size(), ret_instr.data());
-    ASSERT_TRUE(ret_temp.owns_data());
-    ASSERT_NE(ret_instr.data(), ret_temp.data());
-  }
-
+  ASSERT_TRUE(ret_instr.IsReturn());
   {
     // This should copy the references.
     BasicBlockReference r1(
@@ -610,7 +600,6 @@ void TestInstructionCopy(const Instruction& input) {
   EXPECT_EQ(input.has_label(), copy.has_label());
   EXPECT_EQ(input.source_range(), copy.source_range());
   EXPECT_EQ(0, memcmp(input.data(), copy.data(), copy.size()));
-  EXPECT_EQ(input.owns_data(), copy.owns_data());
   EXPECT_EQ(input.size(), copy.size());
 }
 
@@ -620,7 +609,9 @@ const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
 
 TEST_F(InstructionTest, ConstructionFromData) {
   const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
-  Instruction call(arraysize(kCallRelative), kCallRelative);
+  Instruction call;
+  ASSERT_TRUE(
+      Instruction::FromBuffer(kCallRelative, arraysize(kCallRelative), &call));
 
   _DInst& repr = call.representation();
   EXPECT_EQ(I_CALL, repr.opcode);
@@ -646,10 +637,11 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   repr.opcode = I_CALL;
   repr.meta = FC_CALL;
   repr.ops[0].type = O_PC;
-  Instruction call_relative(repr,
-                            Instruction::SourceRange(),
-                            sizeof(kCallRelative),
-                            kCallRelative);
+  Instruction call_relative;
+  ASSERT_TRUE(Instruction::FromBuffer(kCallRelative,
+                                      sizeof(kCallRelative),
+                                      &call_relative));
+
   TestInstructionCopy(call_relative);
 
   // Call the returning function directly.
@@ -672,7 +664,10 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   BlockGraph::Block function_pointer(
       2, BlockGraph::DATA_BLOCK, BlockGraph::Reference::kMaximumSize, "ptr");
   const uint8 kCallIndirect[] = { 0xFF, 0x15, 0xDE, 0xAD, 0xBE, 0xEF };
-  Instruction call_indirect(sizeof(kCallIndirect), kCallIndirect);
+  Instruction call_indirect;
+  ASSERT_TRUE(Instruction::FromBuffer(kCallIndirect,
+                                      sizeof(kCallIndirect),
+                                      &call_indirect));
   call_indirect.SetReference(
       2, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,

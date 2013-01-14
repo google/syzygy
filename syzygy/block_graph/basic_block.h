@@ -245,33 +245,26 @@ class Instruction {
   typedef _DInst Representation;
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
-  // Initialize an Instruction instance.
-  // @param value The low-level object representing this instruction.
-  // @param source_range The source range for the instruction if any.
-  // @param size The length (in bytes) that the instruction occupied in the
-  //     original block.
-  // @param data A pointer to a buffer containing a machine executable
-  //     encoding of the instruction. The buffer is expected to be @p size
-  //     bytes long.
-  // @note @p data must have a lifetime that exceeds this instruction.
-  // TODO(rogerm): Retire this constructor along with the representation_
-  //     member.
-  Instruction(const Representation& value,
-              SourceRange source_range,
-              Size size,
-              const uint8* data);
+  // The maximum size (in bytes) of an x86 instruction, per specs.
+  static const size_t kMaxSize = core::AssemblerImpl::kMaxInstructionLength;
 
-  // Initialize an Instruction instance.
-  // @param size the length (in bytes) of @p data.
-  // @param data the data comprising the instruction.
-  // @note this instruction will copy @p data.
-  Instruction(Size size, const uint8* data);
+  // A default constructed Instruction will be a single byte NOP.
+  Instruction();
+
+  // Construct an instruction from it's parsed representation and underlying
+  // memory buffer.
+  // TODO(rogerm): remove this from the public interface when BB decomposition
+  //     stops inheriting from Disassembler.
+  Instruction(const _DInst& repr, const uint8* data);
 
   // Copy constructor.
   Instruction(const Instruction& other);
 
-  // Destructor.
-  ~Instruction();
+  // Factory to construct an initialized an Instruction instance from a buffer.
+  // @param buf the data comprising the instruction.
+  // @param len the maximum length (in bytes) of @p buf to consume
+  // @returns true on success, false otherwise.
+  static bool FromBuffer(const uint8* buf, size_t len, Instruction* inst);
 
   // Accessors.
   // @{
@@ -288,9 +281,9 @@ class Instruction {
   void set_label(const BlockGraph::Label& label) { label_ = label; }
   bool has_label() const { return label_.IsValid(); }
 
-  Size size() const { return size_; }
+  uint16 opcode() const { return representation_.opcode; }
+  Size size() const { return representation_.size; }
   const uint8* data() const { return data_; }
-  bool owns_data() const { return owns_data_; }
   /// @}
 
   // @name Deprecated accessors.
@@ -302,6 +295,19 @@ class Instruction {
   // @name Helper functions.
   // @{
   bool IsNop() const { return core::IsNop(representation_); }
+  bool IsCall() const { return core::IsCall(representation_); }
+  bool IsReturn() const { return core::IsReturn(representation_); }
+  bool IsSystemCall() const { return core::IsSystemCall(representation_); }
+  bool IsConditionalBranch() const {
+      return core::IsConditionalBranch(representation_);
+  }
+  bool IsUnconditionalBranch() const {
+      return core::IsUnconditionalBranch(representation_);
+  }
+  bool IsBranch() const { return core::IsBranch(representation_); }
+  bool HasPcRelativeOperand(int operand_index) const {
+    return core::HasPcRelativeOperand(representation_, operand_index);
+  }
   bool IsControlFlow() const { return core::IsControlFlow(representation_); }
   bool IsImplicitControlFlow() const {
     return core::IsImplicitControlFlow(representation_);
@@ -313,8 +319,11 @@ class Instruction {
   bool CallsNonReturningFunction() const;
   // @}
 
+  // Returns the mnemonic name for this instruction.
+  const char* GetName() const;
+
   // Returns the maximum size required to serialize this instruction.
-  Size GetMaxSize() const { return size_; }
+  Size GetMaxSize() const { return representation_.size; }
 
   // Add a reference @p ref to this instruction at @p offset. If the reference
   // is to a basic block, also update that basic blocks referrer set.
@@ -333,9 +342,9 @@ class Instruction {
   // Returns true if the given PC-relative or indirect-memory call instruction
   // is to a non-returning function. The block (and offset into it) being
   // directly referenced by the call need to be provided explicitly.
-  static bool CallsNonReturningFunction(const Representation& inst,
-                                        const BlockGraph::Block* target,
-                                        Offset offset);
+  static bool IsCallToNonReturningFunction(const Representation& inst,
+                                           const BlockGraph::Block* target,
+                                           Offset offset);
 
  protected:
   // The internal representation of this instruction.
@@ -352,11 +361,7 @@ class Instruction {
   SourceRange source_range_;
 
   // The data associated with this instruction.
-  // @{
-  Size size_;
-  const uint8* data_;
-  bool owns_data_;
-  // @}
+  uint8 data_[kMaxSize];
 
   // Deprecated.
   Offset offset_;
@@ -581,7 +586,7 @@ class BasicBlock {
   // The alignment of this basic block.
   size_t alignment_;
 
-  // The offset of this basic block in the oritinal block. Set to the offset
+  // The offset of this basic block in the original block. Set to the offset
   // of the first byte the basic block originated from during decomposition.
   // Useful as a stable, unique identifier for basic blocks in a decomposition.
   Offset offset_;

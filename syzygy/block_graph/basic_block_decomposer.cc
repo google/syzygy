@@ -312,8 +312,8 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
           << " bytes) at offset " << offset << ".";
 
   Instruction::SourceRange source_range = GetSourceRange(offset, inst.size);
-  current_instructions_.push_back(
-      Instruction(inst, source_range, inst.size, code_ + offset));
+  current_instructions_.push_back(Instruction(inst, code_ + offset));
+  current_instructions_.back().set_source_range(source_range);
 
   if (label.IsValid())
     current_instructions_.back().set_label(label);
@@ -335,8 +335,8 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
     BlockGraph::Reference ref;
     bool found = GetReferenceOfInstructionAt(block_, offset, inst.size, &ref);
     CHECK(found);
-    if (Instruction::CallsNonReturningFunction(inst, ref.referenced(),
-                                               ref.offset())) {
+    if (Instruction::IsCallToNonReturningFunction(inst, ref.referenced(),
+                                                  ref.offset())) {
       Unvisited(addr + inst.size);
       return kDirectiveTerminatePath;
     }

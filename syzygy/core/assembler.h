@@ -316,7 +316,8 @@ class AssemblerImpl {
   static const size_t kLongJumpSize;
 
   // The maximum length a single instruction will assemble to.
-  static const size_t kMaxInstructionLength;
+  // No instruction on x86 can exceed 15 bytes, per specs.
+  static const size_t kMaxInstructionLength = 15;
 
  private:
   class InstructionBuffer;

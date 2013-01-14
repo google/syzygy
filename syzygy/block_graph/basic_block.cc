@@ -226,55 +226,47 @@ bool BasicBlockReferrer::IsValid() const {
   return offset_ >= 0;
 }
 
-Instruction::Instruction(const Instruction::Representation& value,
-                         SourceRange source_range,
-                         Size size,
-                         const uint8* data)
-    : representation_(value),
-      source_range_(source_range),
-      size_(size),
-      data_(data),
-      owns_data_(false),
-      offset_(BasicBlock::kNoOffset) {
-  DCHECK(data != NULL);
-  DCHECK_LT(0U, size);
-  DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
+Instruction::Instruction() : offset_(BasicBlock::kNoOffset) {
+  static const uint8 kNop[] = { 0x90 };
+  CHECK(core::DecodeOneInstruction(kNop, sizeof(kNop), &representation_));
+  DCHECK_EQ(sizeof(kNop), representation_.size),
+  ::memcpy(data_, kNop, representation_.size);
+  ::memset(data_ + sizeof(kNop), 0, sizeof(data_) - sizeof(kNop));
 }
 
-Instruction::Instruction(Size size, const uint8* data)
-    : size_(0), data_(NULL), owns_data_(false), offset_(BasicBlock::kNoOffset) {
+Instruction::Instruction(const _DInst& repr, const uint8* data)
+    : representation_(repr), offset_(BasicBlock::kNoOffset) {
+  DCHECK_LT(repr.size, sizeof(data_));
   DCHECK(data != NULL);
-  DCHECK_LT(0U, size);
-  DCHECK_GE(core::AssemblerImpl::kMaxInstructionLength, size);
-
-  CHECK(core::DecodeOneInstruction(data, size, &representation_));
-
-  uint8* new_data = new uint8[size];
-  memcpy(new_data, data, size);
-  data_ = new_data;
-  size_ = size;
-  owns_data_ = true;
+  ::memcpy(data_, data, repr.size);
+  ::memset(data_ + repr.size, 0, sizeof(data_) - repr.size);
 }
 
 Instruction::Instruction(const Instruction& other)
     : representation_(other.representation_),
       references_(other.references_),
       source_range_(other.source_range_),
-      size_(other.size_),
-      data_(other.data_),
-      owns_data_(other.owns_data_),
       label_(other.label_),
       offset_(BasicBlock::kNoOffset) {
-  if (owns_data_) {
-    uint8* new_data = new uint8[size_];
-    memcpy(new_data, data_, size_);
-    data_ = new_data;
-  }
+  ::memcpy(data_, other.data_, sizeof(data_));
 }
 
-Instruction::~Instruction() {
-  if (owns_data_)
-    delete [] data_;
+bool Instruction::FromBuffer(const uint8* buf, size_t len, Instruction* inst) {
+  DCHECK(buf != NULL);
+  DCHECK_LT(0U, len);
+  DCHECK(inst != NULL);
+
+  _DInst repr = {};
+  if (!core::DecodeOneInstruction(buf, len, &repr))
+    return false;
+
+  *inst = Instruction(repr, buf);
+  return true;
+}
+
+const char* Instruction::GetName() const {
+  // The mnemonics are defined as NUL terminated unsigned char arrays.
+  return reinterpret_cast<char*>(GET_MNEMONIC_NAME(representation_.opcode));
 }
 
 bool Instruction::CallsNonReturningFunction() const {
@@ -302,7 +294,7 @@ bool Instruction::CallsNonReturningFunction() const {
   // Check whether the referenced block is a non-returning function.
   DCHECK_EQ(ref.offset(), ref.base());
   DCHECK_EQ(BlockGraph::Reference::kMaximumSize, ref.size());
-  if (!CallsNonReturningFunction(representation_, ref.block(), ref.offset()))
+  if (!IsCallToNonReturningFunction(representation_, ref.block(), ref.offset()))
     return false;
 
   // If we got here, then this is a non-returning call.
@@ -485,12 +477,15 @@ bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
   }
 }
 
-bool Instruction::CallsNonReturningFunction(const Representation& inst,
-                                            const BlockGraph::Block* target,
-                                            Offset offset) {
+bool Instruction::IsCallToNonReturningFunction(const Representation& inst,
+                                               const BlockGraph::Block* target,
+                                               Offset offset) {
   DCHECK_EQ(FC_CALL, META_GET_FC(inst.meta));
-  DCHECK(inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP);
   DCHECK(target != NULL);
+
+  if (inst.ops[0].type != O_PC && inst.ops[0].type != O_DISP)
+    return false;
+
   if (inst.ops[0].type == O_DISP) {
     DCHECK(target->type() == BlockGraph::DATA_BLOCK);
 

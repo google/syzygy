@@ -60,9 +60,6 @@ const size_t AssemblerImpl::kShortJumpSize = kShortJumpOpcodeSize + 1;
 const size_t AssemblerImpl::kLongJumpOpcodeSize = 1;
 const size_t AssemblerImpl::kLongJumpSize = kLongJumpOpcodeSize + 4;
 
-// No instruction on x86 can exceed 15 bytes, per specs.
-const size_t AssemblerImpl::kMaxInstructionLength = 15;
-
 OperandImpl::OperandImpl(Register base)
     : base_(base.code()),
       index_(kRegisterNone),
