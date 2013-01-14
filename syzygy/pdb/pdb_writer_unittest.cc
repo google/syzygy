@@ -15,9 +15,11 @@
 #include "syzygy/pdb/pdb_writer.h"
 
 #include "base/file_util.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_reader.h"
 
 namespace pdb {
@@ -43,14 +45,9 @@ class TestPdbWriter : public PdbWriter {
     file_util::Delete(path_, false);
   }
 
-  FILE* file() { return file_.get(); }
+  file_util::ScopedFILE& file() { return file_; }
 
-  using PdbWriter::StreamInfo;
-  using PdbWriter::StreamInfoList;
-  using PdbWriter::PadToPageBoundary;
   using PdbWriter::AppendStream;
-  using PdbWriter::WriteDirectory;
-  using PdbWriter::WriteDirectoryPages;
   using PdbWriter::WriteHeader;
 
   FilePath path_;
@@ -58,7 +55,15 @@ class TestPdbWriter : public PdbWriter {
 
 class TestPdbStream : public PdbStream {
  public:
-  explicit TestPdbStream(uint32 length) : PdbStream(length) {
+  TestPdbStream(uint32 length, uint32 mask)
+      : PdbStream(length), data_(length) {
+    uint32* data = reinterpret_cast<uint32*>(data_.data());
+
+    // Just to make sure the data is non-repeating (so we can distinguish if it
+    // has been correctly written or not) fill it with integers encoding their
+    // own position in the stream.
+    for (size_t i = 0; i < data_.size() / sizeof(data[0]); ++i)
+      data[i] = i | mask;
   }
 
   bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
@@ -70,12 +75,15 @@ class TestPdbStream : public PdbStream {
     }
 
     count = std::min(count, length() - pos());
-    memset(dest, 0xFF, count);
+    ::memcpy(dest, data_.data() + pos(), count);
     Seek(pos() + count);
     *bytes_read = count;
 
     return true;
   }
+
+ private:
+  std::vector<uint8> data_;
 };
 
 }  // namespace
@@ -85,11 +93,89 @@ using pdb::kPdbPageSize;
 using pdb::PdbHeader;
 using pdb::PdbReader;
 
+TEST(PdbWriterTest, AppendStream) {
+  TestPdbWriter writer;
+
+  testing::ScopedTempFile temp_file;
+  writer.file().reset(file_util::OpenFile(temp_file.path(), "wb"));
+  ASSERT_TRUE(writer.file().get() != NULL);
+
+  scoped_refptr<PdbStream> stream(
+      new TestPdbStream(4 * kPdbPageSize, 0));
+
+  // Test writing a stream that will force allocation of the free page map
+  // pages.
+  std::vector<uint32> pages_written;
+  uint32 page_count = 0;
+  EXPECT_TRUE(writer.AppendStream(stream.get(), &pages_written, &page_count));
+  writer.file().reset();
+
+  // We expect pages_written to contain 4 pages, like the stream. However, we
+  // expect page_count to have 2 more pages for the free page map.
+  uint32 expected_pages_written[] = { 0, 3, 4, 5 };
+  EXPECT_THAT(pages_written,
+              ::testing::ElementsAreArray(expected_pages_written));
+  EXPECT_EQ(page_count, 6);
+
+  // Build the expected stream contents. Two blank pages should have been
+  // reserved by the append stream routine.
+  stream->Seek(0);
+  std::vector<uint8> expected_contents(6 * kPdbPageSize);
+  ASSERT_TRUE(stream->Read(expected_contents.data(), kPdbPageSize));
+  ASSERT_TRUE(stream->Read(expected_contents.data() + 3 * kPdbPageSize,
+                           3 * kPdbPageSize));
+
+  std::vector<uint8> contents(6 * kPdbPageSize);
+  ASSERT_EQ(contents.size(),
+            file_util::ReadFile(temp_file.path(),
+                                reinterpret_cast<char*>(contents.data()),
+                                contents.size()));
+
+  EXPECT_THAT(contents, ::testing::ContainerEq(expected_contents));
+}
+
+TEST(PdbWriterTest, WriteHeader) {
+  TestPdbWriter writer;
+
+  testing::ScopedTempFile temp_file;
+  writer.file().reset(file_util::OpenFile(temp_file.path(), "wb"));
+  ASSERT_TRUE(writer.file().get() != NULL);
+
+  std::vector<uint32> root_directory_pages(kPdbMaxDirPages + 10, 1);
+
+  // Try to write a root directorty that's too big and expect this to fail.
+  EXPECT_FALSE(writer.WriteHeader(root_directory_pages, 67 * 4, 438));
+
+  // Now write a reasonable root directory size.
+  root_directory_pages.resize(1);
+  EXPECT_TRUE(writer.WriteHeader(root_directory_pages, 67 * 4, 438));
+  writer.file().reset();
+
+  // Build the expected stream contents. Two blank pages should have been
+  // reserved by the append stream routine.
+  std::vector<uint8> expected_contents(sizeof(PdbHeader));
+  PdbHeader* header = reinterpret_cast<PdbHeader*>(expected_contents.data());
+  ::memcpy(header->magic_string, kPdbHeaderMagicString,
+           kPdbHeaderMagicStringSize);
+  header->page_size = kPdbPageSize;
+  header->free_page_map = 1;
+  header->num_pages = 438;
+  header->directory_size = 67 * 4;
+  header->root_pages[0] = 1;
+
+  std::vector<uint8> contents(sizeof(PdbHeader));
+  ASSERT_EQ(contents.size(),
+            file_util::ReadFile(temp_file.path(),
+                                reinterpret_cast<char*>(contents.data()),
+                                contents.size()));
+
+  EXPECT_THAT(contents, ::testing::ContainerEq(expected_contents));
+}
+
 TEST(PdbWriterTest, WritePdbFile) {
   PdbFile pdb_file;
-  for (uint32 i = 0; i < 4; ++i) {
-    pdb_file.AppendStream(new TestPdbStream(1 << (8 + i)));
-  }
+  for (uint32 i = 0; i < 4; ++i)
+    pdb_file.AppendStream(new TestPdbStream(1 << (8 + i), (i << 24)));
 
   // Test that we can create a pdb file and then read it successfully.
   testing::ScopedTempFile file;
@@ -105,176 +191,22 @@ TEST(PdbWriterTest, WritePdbFile) {
   EXPECT_EQ(pdb_file.StreamCount(), pdb_file_read.StreamCount());
 
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
-    ASSERT_TRUE(pdb_file.GetStream(i) != NULL);
-    ASSERT_TRUE(pdb_file_read.GetStream(i) != NULL);
-    EXPECT_EQ(pdb_file.GetStream(i)->length(),
-              pdb_file_read.GetStream(i)->length());
-  }
-}
+    PdbStream* stream = pdb_file.GetStream(i);
+    PdbStream* stream_read = pdb_file_read.GetStream(i);
 
-TEST(PdbWriterTest, PadToPageBoundary) {
-  // Test that the right amount is padded for the given offset.
-  uint32 test_cases[][2] = {
-    {0, 0},  // offset, padding.
-    {1, 1023},
-    {1023, 1},
-    {1024, 0},
-    {1025, 1023},
-    {2000, 48},
-    {3000, 72},
-    {4000, 96}
-  };
+    ASSERT_TRUE(stream != NULL);
+    ASSERT_TRUE(stream_read != NULL);
 
-  TestPdbWriter writer;
-  uint32 total_bytes = 0;
-  for (uint32 i = 0; i < arraysize(test_cases); ++i) {
-    uint32* test_case = test_cases[i];
-    uint32 padding = 0;
-    EXPECT_TRUE(writer.PadToPageBoundary("", test_case[0], &padding));
-    EXPECT_EQ(test_case[1], padding);
-    total_bytes += padding;
-  }
+    EXPECT_EQ(stream->length(), stream_read->length());
 
-  // Test that zeroes are padded successfully.
-  FILE* file = writer.file();
-  for (uint32 i = 0; i < total_bytes; ++i) {
-    EXPECT_EQ(0, fseek(file, i, SEEK_SET));
-    uint8 buffer;
-    EXPECT_EQ(1, fread(&buffer, 1, 1, file));
-    EXPECT_EQ(0, buffer);
-  }
-}
+    std::vector<uint8> data;
+    std::vector<uint8> data_read;
+    EXPECT_TRUE(stream->Seek(0));
+    EXPECT_TRUE(stream_read->Seek(0));
+    EXPECT_TRUE(stream->Read(&data, stream->length()));
+    EXPECT_TRUE(stream_read->Read(&data_read, stream_read->length()));
 
-TEST(PdbWriterTest, AppendStream) {
-  // Test that the bytes written corresponds to the stream length and padding.
-  TestPdbWriter writer;
-  size_t len = (1 << 17) + 123;
-  scoped_refptr<TestPdbStream> stream(new TestPdbStream(len));
-  uint32 bytes_written;
-  EXPECT_TRUE(writer.AppendStream(stream.get(), &bytes_written));
-  EXPECT_EQ(GetNumPages(len) * kPdbPageSize, bytes_written);
-
-  // Test that the correct data is written.
-  FILE* file = writer.file();
-  for (size_t i = 0; i < len; ++i) {
-    EXPECT_EQ(0, fseek(file, i, SEEK_SET));
-    uint8 buffer;
-    EXPECT_EQ(1, fread(&buffer, 1, 1, file));
-    EXPECT_EQ(0xFF, buffer);
-  }
-}
-
-TEST(PdbWriterTest, WriteDirectory) {
-  uint32 stream_lengths[] = {
-    kPdbPageSize + 10,
-    2 * kPdbPageSize + 20,
-    4 * kPdbPageSize + 40
-  };
-
-  TestPdbWriter::StreamInfoList stream_info_list;
-  uint32 total_bytes = 0;
-  for (uint32 i = 0; i < arraysize(stream_lengths); ++i) {
-    TestPdbWriter::StreamInfo stream_info;
-    stream_info.offset = total_bytes;
-    stream_info.length = stream_lengths[i];
-    stream_info_list.push_back(stream_info);
-    total_bytes += GetNumPages(stream_lengths[i]) * kPdbPageSize;
-  };
-
-  TestPdbWriter writer;
-  uint32 dir_size = 0;
-  uint32 bytes_written = 0;
-  EXPECT_TRUE(
-      writer.WriteDirectory(stream_info_list, &dir_size, &bytes_written));
-
-  // Test the directory size.
-  // The number of streams.
-  uint32 expected_dir_size = sizeof(uint32);
-  // The length of each stream.
-  expected_dir_size += stream_info_list.size() * sizeof(uint32);
-  // The page numbers of each stream.
-  for (uint32 i = 0; i < arraysize(stream_lengths); ++i) {
-    expected_dir_size += GetNumPages(stream_lengths[i]) * sizeof(uint32);
-  }
-  EXPECT_EQ(expected_dir_size, dir_size);
-  EXPECT_EQ(GetNumPages(dir_size) * kPdbPageSize, bytes_written);
-
-  // Test the directory contents.
-  FILE* file = writer.file();
-  EXPECT_EQ(0, fseek(file, 0, SEEK_SET));
-
-  uint32 num_streams;
-  EXPECT_EQ(1, fread(&num_streams, sizeof(uint32), 1, file));
-  EXPECT_EQ(arraysize(stream_lengths), num_streams);
-
-  for (uint32 i = 0; i < arraysize(stream_lengths); ++i) {
-    uint32 stream_length = 0;
-    EXPECT_EQ(1, fread(&stream_length, sizeof(uint32), 1, file));
-    EXPECT_EQ(stream_lengths[i], stream_length);
-  }
-
-  uint32 page_count = 0;
-  for (uint32 i = 0; i < arraysize(stream_lengths); ++i) {
-    uint32 num_pages = GetNumPages(stream_lengths[i]);
-    for (uint32 j = 0; j < num_pages; ++j) {
-      uint32 page_num = 0;
-      EXPECT_EQ(1, fread(&page_num, sizeof(uint32), 1, file));
-      EXPECT_EQ(page_count + j, page_num);
-    }
-    page_count += num_pages;
-  }
-}
-
-TEST(PdbWriterTest, WriteDirectoryPages) {
-  TestPdbWriter writer;
-  uint32 dir_size = (1 << 12) + 234;
-  uint32 dir_page = 15;
-  uint32 dir_pages_size = 0;
-  uint32 bytes_written = 0;
-  EXPECT_TRUE(writer.WriteDirectoryPages(dir_size, dir_page, &dir_pages_size,
-                                         &bytes_written));
-
-  // Test the directory pages size.
-  uint32 num_dir_pages = GetNumPages(dir_size);
-  EXPECT_EQ(num_dir_pages * sizeof(uint32), dir_pages_size);
-  EXPECT_EQ(GetNumPages(dir_pages_size) * kPdbPageSize, bytes_written);
-
-  // Test the directory pages contents.
-  FILE* file = writer.file();
-  EXPECT_EQ(0, fseek(file, 0, SEEK_SET));
-  for (uint32 i = 0; i < num_dir_pages; ++i) {
-    uint32 page_num = 0;
-    EXPECT_EQ(1, fread(&page_num, sizeof(uint32), 1, file));
-    EXPECT_EQ(dir_page + i, page_num);
-  }
-}
-
-TEST(PdbWriterTest, WriteHeader) {
-  TestPdbWriter writer;
-  uint32 file_size = 1 << 20;
-  uint32 dir_size = (1 << 12) + 234;
-  uint32 dir_root_size = (1 << 6) + 64;
-  uint32 dir_root_page = 4;
-  EXPECT_TRUE(writer.WriteHeader(file_size, dir_size, dir_root_size,
-                                 dir_root_page));
-
-  // Test the header contents.
-  FILE* file = writer.file();
-  EXPECT_EQ(0, fseek(file, 0, SEEK_SET));
-  PdbHeader header = { 0 };
-  EXPECT_EQ(1, fread(&header, sizeof(header), 1, file));
-
-  EXPECT_EQ(0, memcmp(header.magic_string, kPdbHeaderMagicString,
-                      sizeof(kPdbHeaderMagicString)));
-  EXPECT_EQ(kPdbPageSize, header.page_size);
-  EXPECT_EQ(1, header.free_page_map);
-  EXPECT_EQ(GetNumPages(file_size), header.num_pages);
-  EXPECT_EQ(dir_size, header.directory_size);
-  EXPECT_EQ(0, header.reserved);
-
-  uint32 num_dir_root_pages = GetNumPages(dir_root_size);
-  for (uint32 i = 0; i < num_dir_root_pages; ++i) {
-    EXPECT_EQ(dir_root_page + i, header.root_pages[i]);
+    EXPECT_THAT(data, ::testing::ContainerEq(data_read));
   }
 }
 

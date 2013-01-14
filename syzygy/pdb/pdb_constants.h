@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,14 +44,19 @@ const size_t kTpiStream = 2;
 const size_t kDbiStream = 3;
 
 // This is the magic value found at the start of all MSF v7.00 files.
-extern const uint8 kPdbHeaderMagicString[32];
+const size_t kPdbHeaderMagicStringSize = 32;
+extern const uint8 kPdbHeaderMagicString[kPdbHeaderMagicStringSize];
 
 // The maximum number of root pages in the Multi-Stream Format (MSF) header.
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
-extern const uint32 kPdbMaxDirPages;
+const uint32 kPdbMaxDirPages = 73;
 
 // This is the Multi-Stream Format (MSF) page size generally used for PDB
 // files. Check bytes 32 through 35 (little endian) of any PDB file.
+// TODO(chrisha): Make this configurable. We've seen 1024 or 4096, depending on
+//     the specifics of the file. Plausibly this could be any power of two
+//     greater than or equal to 512, but 2048 seems to actually be disallowed
+//     by the MS tools.
 const uint32 kPdbPageSize = 1024;
 
 // The named PDB stream containing the history of Syzygy transformations applied

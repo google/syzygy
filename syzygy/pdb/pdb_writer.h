@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,46 +39,19 @@ class PdbWriter {
   bool Write(const FilePath& pdb_path, const PdbFile& pdb_file);
 
  protected:
-  // Info about a stream that's been written to the file.
-  struct StreamInfo {
-    uint32 offset;    // Byte offset into the file.
-    uint32 length;    // Length of the stream in bytes.
-  };
-  typedef std::vector<StreamInfo> StreamInfoList;
-
-  // Write an unsigned 32 bit value to the output file.
-  bool WriteUint32(const char* func,
-                   const char* desc,
-                   uint32 value);
-
-  // Pad the output file with zeros to the boundary of the current page.
-  bool PadToPageBoundary(const char* func,
-                         uint32 offset,
-                         uint32* padding);
-
   // Append the contents of the stream onto the file handle at the offset. The
   // contents of the file are padded to reach the next page boundary in the
-  // output stream.
+  // output stream. The indices of the written pages are appended to
+  // @p pages_written, while @p page_count is updated to reflect the total
+  // number of pages written to disk.
   bool AppendStream(PdbStream* stream,
-                    uint32* bytes_written);
+                    std::vector<uint32>* pages_written,
+                    uint32* page_count);
 
-  // Write the directory to the file handle.
-  bool WriteDirectory(const StreamInfoList& stream_info_list,
-                      uint32* dir_size,
-                      uint32* bytes_written);
-
-  // Write the directory pages which form the MSF directory.
-  bool WriteDirectoryPages(uint32 dir_size,
-                           uint32 dir_page,
-                           uint32* dir_pages_size,
-                           uint32* bytes_written);
-
-  // Write the MSF/PDB file header once you know where the directory root
-  // pages are and what the directory size and the total size of the file are.
-  bool WriteHeader(uint32 file_size,
-                   uint32 dir_size,
-                   uint32 dir_root_size,
-                   uint32 dir_root_page);
+  // Writes the MSF header after the directory has been written.
+  bool WriteHeader(const std::vector<uint32>& root_directory_pages,
+                   size_t directory_size,
+                   uint32 page_count);
 
   // The current file handle open for writing.
   file_util::ScopedFILE file_;

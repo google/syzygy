@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "syzygy/pdb/pdb_constants.h"
 
 namespace pdb {
 
@@ -186,13 +187,13 @@ COMPILE_ASSERT(sizeof(DbiSectionMapItem) == 20,
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
 struct PdbHeader {
-  uint8 magic_string[32];
+  uint8 magic_string[kPdbHeaderMagicStringSize];
   uint32 page_size;
   uint32 free_page_map;
   uint32 num_pages;
   uint32 directory_size;
   uint32 reserved;
-  uint32 root_pages[73];
+  uint32 root_pages[kPdbMaxDirPages];
 };
 
 // This is for parsing the FIXUP stream in PDB files generated with the
