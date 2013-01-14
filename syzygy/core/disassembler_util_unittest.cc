@@ -103,6 +103,7 @@ const uint8 kRet[] = { 0xC3 };
 const uint8 kRetN[] = { 0xC2, 0x08, 0x00 };
 const uint8 kJe[] = { 0x74, 0xCA };
 const uint8 kSysEnter[] = { 0x0F, 0x34 };
+const uint8 kSysExit[] = { 0x0F, 0x35 };
 
 // Interrupts.
 const uint8 kInt2[] = { 0xCD, 0x02 };
@@ -136,6 +137,40 @@ TEST(DisassemblerUtilTest, IsCall) {
   EXPECT_FALSE(IsCall(DecodeBuffer(kJmp, sizeof(kJmp))));
   EXPECT_FALSE(IsCall(DecodeBuffer(kNop1, sizeof(kNop1))));
   EXPECT_TRUE(IsCall(DecodeBuffer(kCall, sizeof(kCall))));
+}
+
+TEST(DisassemblerUtilTest, IsSystemCall) {
+  EXPECT_FALSE(IsSystemCall(DecodeBuffer(kJmp, sizeof(kJmp))));
+  EXPECT_FALSE(IsSystemCall(DecodeBuffer(kNop1, sizeof(kNop1))));
+  EXPECT_TRUE(IsSystemCall(DecodeBuffer(kSysEnter, sizeof(kSysEnter))));
+  EXPECT_TRUE(IsSystemCall(DecodeBuffer(kSysExit, sizeof(kSysExit))));
+}
+
+TEST(DisassemblerUtilTest, IsConditionalBranch) {
+  EXPECT_FALSE(IsConditionalBranch(DecodeBuffer(kNop4, sizeof(kNop4))));
+  EXPECT_FALSE(IsConditionalBranch(DecodeBuffer(kJmp, sizeof(kJmp))));
+  EXPECT_FALSE(IsConditionalBranch(DecodeBuffer(kRet, sizeof(kRet))));
+  EXPECT_TRUE(IsConditionalBranch(DecodeBuffer(kJe, sizeof(kJe))));
+}
+
+TEST(DisassemblerUtilTest, IsUnconditionalBranch) {
+  EXPECT_FALSE(IsUnconditionalBranch(DecodeBuffer(kNop4, sizeof(kNop4))));
+  EXPECT_FALSE(IsUnconditionalBranch(DecodeBuffer(kRet, sizeof(kRet))));
+  EXPECT_FALSE(IsUnconditionalBranch(DecodeBuffer(kJe, sizeof(kJe))));
+  EXPECT_TRUE(IsUnconditionalBranch(DecodeBuffer(kJmp, sizeof(kJmp))));
+}
+
+TEST(DisassemblerUtilTest, IsBranch) {
+  EXPECT_FALSE(IsBranch(DecodeBuffer(kNop4, sizeof(kNop4))));
+  EXPECT_FALSE(IsBranch(DecodeBuffer(kRet, sizeof(kRet))));
+  EXPECT_TRUE(IsBranch(DecodeBuffer(kJe, sizeof(kJe))));
+  EXPECT_TRUE(IsBranch(DecodeBuffer(kJmp, sizeof(kJmp))));
+}
+
+TEST(DisassemblerUtilTest, HasPcRelativeOperand) {
+  EXPECT_FALSE(HasPcRelativeOperand(DecodeBuffer(kRetN, sizeof(kRet)), 0));
+  EXPECT_FALSE(HasPcRelativeOperand(DecodeBuffer(kJmp, sizeof(kJmp)), 0));
+  EXPECT_TRUE(HasPcRelativeOperand(DecodeBuffer(kJe, sizeof(kJe)), 0));
 }
 
 TEST(DisassemblerUtilTest, IsControlFlow) {

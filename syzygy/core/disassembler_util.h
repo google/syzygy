@@ -60,10 +60,42 @@ bool DecodeOneInstruction(
 // @returns true if @p instruction is a recognized no-op, false otherwise.
 bool IsNop(const _DInst& instruction);
 
-// Determines if the given instruction is a call.
+// Determines if the given instruction is a CALL.
 // @param instruction the instruction to evaluate.
 // @returns true if @p instruction is a call, false otherwise.
 bool IsCall(const _DInst& instruction);
+
+// Determines if the given instruction is a RET.
+// @param instruction the instruction to evaluate.
+// @returns true if @p instruction is a return, false otherwise.
+bool IsReturn(const _DInst& instruction);
+
+// Determines if the given instruction is a SYS.
+// @param instruction the instruction to evaluate.
+// @returns true if @p instruction is a return, false otherwise.
+bool IsSystemCall(const _DInst& instruction);
+
+// Determines if the given instruction is a conditional branch.
+// @param instruction the instruction to evaluate.
+// @returns true if @p instruction is a conditional branch, false otherwise.
+bool IsConditionalBranch(const _DInst& instruction);
+
+// Determines if the given instruction is a unconditional branch.
+// @param instruction the instruction to evaluate.
+// @returns true if @p instruction is a unconditional branch, false otherwise.
+bool IsUnconditionalBranch(const _DInst& instruction);
+
+// Determines if the given instruction is a branch or any kind
+// @param instruction the instruction to evaluate.
+// @returns true if @p instruction is a branch, false otherwise.
+bool IsBranch(const _DInst& instruction);
+
+// Determines if the given instruction has a PC-relative operand at the
+// given operand index.
+// @param instruction the instruction to evaluate.
+// @param operand_index the operand index to evaluate.
+// @returns true if @p instruction has a PC-relative operand at the given index.
+bool HasPcRelativeOperand(const _DInst& instruction, int operand_index);
 
 // Determines if the given instruction is a control-flow instruction.
 // @param instruction the instruction to evaluate.

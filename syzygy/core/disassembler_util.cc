@@ -123,32 +123,57 @@ bool IsNop(const _DInst& instruction) {
 }
 
 bool IsCall(const _DInst& instruction) {
-  uint8 fc = META_GET_FC(instruction.meta);
-  if (fc == FC_CALL)
-    return true;
-  return false;
+  return META_GET_FC(instruction.meta) == FC_CALL;
+}
+
+bool IsReturn(const _DInst& instruction) {
+  return META_GET_FC(instruction.meta) == FC_RET;
+}
+
+bool IsSystemCall(const _DInst& instruction) {
+  return META_GET_FC(instruction.meta) == FC_SYS;
+}
+
+bool IsConditionalBranch(const _DInst& instruction) {
+  return META_GET_FC(instruction.meta) == FC_CND_BRANCH;
+}
+
+bool IsUnconditionalBranch(const _DInst& instruction) {
+  return META_GET_FC(instruction.meta) == FC_UNC_BRANCH;
+}
+
+bool IsBranch(const _DInst& instruction) {
+  return IsConditionalBranch(instruction) || IsUnconditionalBranch(instruction);
+}
+
+bool HasPcRelativeOperand(const _DInst& instruction, int operand_index) {
+  DCHECK_LE(0, operand_index);
+  DCHECK_LT(operand_index, static_cast<int>(arraysize(instruction.ops)));
+  return instruction.ops[operand_index].type == O_PC;
 }
 
 bool IsControlFlow(const _DInst& instruction) {
-  uint8 fc = META_GET_FC(instruction.meta);
-  if (fc == FC_CND_BRANCH || fc == FC_UNC_BRANCH ||
-      fc == FC_RET || fc == FC_SYS) {
-    return true;
-  }
-  return false;
+  // For the purposes of Syzygy we include all of the control flow altering
+  // instruction EXCEPT for call as true control flow.
+  return IsBranch(instruction) ||
+      IsReturn(instruction) ||
+      IsSystemCall(instruction);
 }
 
 bool IsImplicitControlFlow(const _DInst& instruction) {
-  uint8 fc = META_GET_FC(instruction.meta);
-  if (fc == FC_RET || fc == FC_SYS) {
-    // Control flow jumps implicitly out of the block.
+  // Control flow jumps implicitly out of the block for RET and SYS
+  if (IsReturn(instruction) || IsSystemCall(instruction))
     return true;
-  } else if (fc == FC_UNC_BRANCH && instruction.ops[0].type != O_PC) {
-    // There is an explicit branch but the target is not explicitly given as
-    // a PC relative value (i.e., the target is computed, stored in a register,
-    // stored in a memory location, or otherwise indirect).
+
+  // Control flow is implicit for non PC-relative jumps (i.e., explicit
+  // branches where the target is computed, stored in a register, stored
+  // in a memory location, or otherwise indirect).
+  if (IsUnconditionalBranch(instruction) &&
+      !HasPcRelativeOperand(instruction, 0)) {
     return true;
   }
+
+  // Otherwise it's not implicit control flow.
   return false;
 }
 
