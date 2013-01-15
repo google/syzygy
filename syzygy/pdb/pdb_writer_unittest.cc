@@ -14,13 +14,19 @@
 
 #include "syzygy/pdb/pdb_writer.h"
 
+#include "base/command_line.h"
 #include "base/file_util.h"
+#include "base/process_util.h"
+#include "base/scoped_temp_dir.h"
+#include "base/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_util.h"
+#include "syzygy/pdb/unittest_util.h"
 
 namespace pdb {
 
@@ -82,9 +88,39 @@ class TestPdbStream : public PdbStream {
     return true;
   }
 
+  const std::vector<uint8> data() const { return data_; }
+
  private:
   std::vector<uint8> data_;
 };
+
+void EnsurePdbContentsAreIdentical(const PdbFile& pdb_file,
+                                   const PdbFile& pdb_file_read) {
+  ASSERT_EQ(pdb_file.StreamCount(), pdb_file_read.StreamCount());
+
+  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+    PdbStream* stream = pdb_file.GetStream(i);
+    PdbStream* stream_read = pdb_file_read.GetStream(i);
+
+    ASSERT_TRUE(stream != NULL);
+    ASSERT_TRUE(stream_read != NULL);
+
+    ASSERT_EQ(stream->length(), stream_read->length());
+
+    std::vector<uint8> data;
+    std::vector<uint8> data_read;
+    ASSERT_TRUE(stream->Seek(0));
+    ASSERT_TRUE(stream_read->Seek(0));
+    ASSERT_TRUE(stream->Read(&data, stream->length()));
+    ASSERT_TRUE(stream_read->Read(&data_read, stream_read->length()));
+
+    // We don't use ContainerEq because upon failure this generates a
+    // ridiculously long and useless error message. We don't use memcmp because
+    // it doesn't given any context as to where the failure occurs.
+    for (size_t j = 0; j < data.size(); ++j)
+      ASSERT_EQ(data[j], data_read[j]);
+  }
+}
 
 }  // namespace
 
@@ -188,26 +224,92 @@ TEST(PdbWriterTest, WritePdbFile) {
   PdbFile pdb_file_read;
   PdbReader reader;
   EXPECT_TRUE(reader.Read(file.path(), &pdb_file_read));
-  EXPECT_EQ(pdb_file.StreamCount(), pdb_file_read.StreamCount());
 
-  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
-    PdbStream* stream = pdb_file.GetStream(i);
-    PdbStream* stream_read = pdb_file_read.GetStream(i);
+  ASSERT_NO_FATAL_FAILURE(
+      EnsurePdbContentsAreIdentical(pdb_file, pdb_file_read));
+}
 
-    ASSERT_TRUE(stream != NULL);
-    ASSERT_TRUE(stream_read != NULL);
+TEST(PdbWriterTest, PdbStrCompatible) {
+  FilePath test_dll_pdb =
+      testing::GetSrcRelativePath(testing::kTestPdbFilePath);
 
-    EXPECT_EQ(stream->length(), stream_read->length());
+  PdbFile file;
+  PdbReader reader;
+  ASSERT_TRUE(reader.Read(test_dll_pdb, &file));
 
-    std::vector<uint8> data;
-    std::vector<uint8> data_read;
-    EXPECT_TRUE(stream->Seek(0));
-    EXPECT_TRUE(stream_read->Seek(0));
-    EXPECT_TRUE(stream->Read(&data, stream->length()));
-    EXPECT_TRUE(stream_read->Read(&data_read, stream_read->length()));
-
-    EXPECT_THAT(data, ::testing::ContainerEq(data_read));
+  // We need at least 8 MB of data in the DLL to ensure that the free page map
+  // requires a second page. We manually add data to it until we get to that
+  // point.
+  int64 test_dll_pdb_length = 0;
+  ASSERT_TRUE(file_util::GetFileSize(test_dll_pdb, &test_dll_pdb_length));
+  while (test_dll_pdb_length < 9 * 1024 * 1024) {
+    file.AppendStream(new TestPdbStream(1024 * 1024, file.StreamCount()));
+    test_dll_pdb_length += 1024 * 1024;
   }
+
+  // Write the Syzygy modified PDB to disk.
+  ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  FilePath pdb_path = temp_dir.path().AppendASCII("test_dll.pdb");
+  PdbWriter writer;
+  ASSERT_TRUE(writer.Write(pdb_path, file));
+
+  // Write a new stream to disk.
+  FilePath stream_path = temp_dir.path().AppendASCII("new_stream.dat");
+  scoped_refptr<TestPdbStream> new_stream(
+      new TestPdbStream(1024 * 1024, 0xff));
+  {
+    file_util::ScopedFILE stream_file(file_util::OpenFile(
+        stream_path, "wb"));
+    ASSERT_TRUE(stream_file.get() != NULL);
+    ASSERT_EQ(new_stream->data().size(),
+              ::fwrite(new_stream->data().data(),
+                       sizeof(new_stream->data()[0]),
+                       new_stream->data().size(),
+                       stream_file.get()));
+  }
+
+  // Get the path to pdbstr.exe, which we redistribute in third_party.
+  FilePath pdbstr_path = testing::GetSrcRelativePath(testing::kPdbStrPath);
+
+  // Create the arguments to pdbstr.
+  std::string pdb_arg = ::WideToUTF8(pdb_path.value());
+  pdb_arg.insert(0, "-p:");
+  std::string stream_arg = ::WideToUTF8(stream_path.value());
+  stream_arg.insert(0, "-i:");
+
+  // Add a new stream to the PDB in place. This should produce no output.
+  {
+    CommandLine cmd(pdbstr_path);
+    cmd.AppendArg(pdb_arg);
+    cmd.AppendArg(stream_arg);
+    cmd.AppendArg("-w");
+    cmd.AppendArg("-s:nonexistent-stream-name");
+
+    std::string output;
+    ASSERT_TRUE(base::GetAppOutput(cmd, &output));
+    ASSERT_TRUE(output.empty());
+  }
+
+  // Read the pdbstr modified PDB.
+  PdbFile file_read;
+  ASSERT_TRUE(reader.Read(pdb_path, &file_read));
+
+  // Add the new stream to the original PDB.
+  file.AppendStream(new_stream.get());
+
+  // Clear stream 0 (the previous directory) and stream 1 (the PDB header
+  // stream). These can vary but be functionally equivalent. We only care about
+  // the actual content streams, which are the rest of them.
+  scoped_refptr<PdbStream> empty_stream(new TestPdbStream(0, 0));
+  file.ReplaceStream(0, empty_stream.get());
+  file.ReplaceStream(1, empty_stream.get());
+  file_read.ReplaceStream(0, empty_stream.get());
+  file_read.ReplaceStream(1, empty_stream.get());
+
+  // Ensure that the two PDBs are identical.
+  ASSERT_NO_FATAL_FAILURE(
+      EnsurePdbContentsAreIdentical(file, file_read));
 }
 
 }  // namespace pdb

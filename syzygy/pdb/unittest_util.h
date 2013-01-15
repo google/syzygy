@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@
 
 namespace testing {
 
-// Paths to various files in syzygy/pdb/test_data.
+// Paths to various files.
 extern const wchar_t kTestPdbFilePath[];
 extern const wchar_t kTestDllFilePath[];
 extern const wchar_t kOmappedTestPdbFilePath[];
+extern const wchar_t kPdbStrPath[];
 extern const wchar_t kValidPdbSymbolRecordStreamPath[];
 extern const wchar_t kInvalidPdbSymbolRecordStreamPath[];
 extern const wchar_t kValidPdbTypeInfoStreamPath[];

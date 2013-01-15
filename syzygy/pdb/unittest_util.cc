@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,9 @@ const wchar_t kTestDllFilePath[] =
 
 const wchar_t kOmappedTestPdbFilePath[] =
     L"syzygy\\pdb\\test_data\\omapped_test_dll.pdb";
+
+const wchar_t kPdbStrPath[] =
+    L"third_party\\debugging_tools\\files\\srcsrv\\pdbstr.exe";
 
 const wchar_t kValidPdbDbiStreamPath[] =
     L"syzygy\\pdb\\test_data\\valid_dbi.pdb_stream";

@@ -38,8 +38,6 @@ namespace {
 
 const wchar_t* kTempPdbFileName = L"temp.pdb";
 const wchar_t* kTempPdbFileName2 = L"temp2.pdb";
-const wchar_t* kPdbStrPath =
-    L"third_party\\debugging_tools\\files\\srcsrv\\pdbstr.exe";
 
 const GUID kSampleGuid = {0xACDC900D, 0x9009, 0xFEED, {7, 6, 5, 4, 3, 2, 1, 0}};
 
@@ -750,7 +748,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
   //     mechanisms.
 
   // Get the path to pdbstr.exe, which we redistribute in third_party.
-  FilePath pdbstr_path = testing::GetSrcRelativePath(kPdbStrPath);
+  FilePath pdbstr_path = testing::GetSrcRelativePath(testing::kPdbStrPath);
 
   // Create the argument specifying the PDB path.
   std::string pdb_arg = ::WideToUTF8(temp_pdb_file_path_.value());
