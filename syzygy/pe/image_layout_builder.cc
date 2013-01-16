@@ -246,16 +246,6 @@ bool ImageLayoutBuilder::OpenSection(const BlockGraph::Section* section) {
   return OpenSection(section->name().c_str(), section->characteristics());
 }
 
-void ImageLayoutBuilder::AdvanceCursor(size_t distance) {
-  cursor_ += distance;
-}
-
-size_t ImageLayoutBuilder::AlignCursor(size_t alignment) {
-  RelativeAddress old_cursor(cursor_);
-  cursor_ = cursor_.AlignUp(alignment);
-  return cursor_ - old_cursor;
-}
-
 bool ImageLayoutBuilder::LayoutBlock(BlockGraph::Block* block) {
   DCHECK(block != NULL);
   return LayoutBlock(block->alignment(), block);

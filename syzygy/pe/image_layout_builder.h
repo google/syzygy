@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,16 +81,6 @@ class ImageLayoutBuilder {
   // @pre LayoutImageHeaders must have been called.
   bool OpenSection(const char* name, uint32 characteristics);
   bool OpenSection(const BlockGraph::Section* section);
-
-  // Advances the layout cursor by the provided distance.
-  // @param distance the distance by which to advance the output cursor.
-  void AdvanceCursor(size_t distance);
-
-  // Advances the layout cursor by the minimum distance necessary to satisfy
-  // the requested alignment.
-  // @param alignment the alignment to satisfy.
-  // @returns the distance that the output cursor was advanced.
-  size_t AlignCursor(size_t alignment);
 
   // Lays out the provided block using the blocks internal alignment.
   bool LayoutBlock(BlockGraph::Block* block);
