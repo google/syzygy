@@ -109,6 +109,15 @@ class Logger {
                    size_t trace_length,
                    std::string* message);
 
+  // Captures a stack trace in a @p process given a program @p context.
+  // @param process An open handle to the running process.
+  // @param context The program context from which to trace.
+  // @param trace_data The vector into which the trace will be populated.
+  // @returns true on success, false otherwise.
+  bool CaptureRemoteTrace(HANDLE process,
+                          CONTEXT* context,
+                          std::vector<DWORD>* trace_data);
+
   // Write @p message to the log destination. Note that calls to this method
   // are serialized using write_lock_.
   bool Write(const base::StringPiece& message);

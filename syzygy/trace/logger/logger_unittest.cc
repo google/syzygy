@@ -15,6 +15,7 @@
 #include "syzygy/trace/logger/logger.h"
 
 #include "base/bind.h"
+#include "base/callback.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/scoped_temp_dir.h"
@@ -35,6 +36,41 @@ using testing::Return;
 using trace::client::CreateRpcBinding;
 using trace::client::InvokeRpc;
 
+int __declspec(noinline) FunctionA(const base::Callback<void(void)>& callback) {
+  callback.Run();
+  return 1;
+}
+
+int __declspec(noinline) FunctionB(const base::Callback<void(void)>& callback) {
+  return FunctionA(callback) + 1;
+}
+
+int __declspec(noinline) FunctionC(const base::Callback<void(void)>& callback) {
+  return FunctionB(callback) + 1;
+}
+
+void __declspec(noinline) ExecuteCallbackWithKnownStack(
+    const base::Callback<void(void)>& callback) {
+  int value = FunctionC(callback);
+  ASSERT_EQ(3, value);
+}
+
+bool TextContainsKnownStack(const std::string& text, size_t start_offset) {
+  size_t function_a = text.find("FunctionA", start_offset);
+  if (function_a == std::string::npos)
+    return false;
+
+  size_t function_b = text.find("FunctionB", function_a);
+  if (function_b == std::string::npos)
+    return false;
+
+  size_t function_c = text.find("FunctionC", function_b);
+  if (function_c == std::string::npos)
+    return false;
+
+  return true;
+}
+
 class TestLogger : public Logger {
  public:
   using Logger::owning_thread_id_;
@@ -50,7 +86,8 @@ class LoggerTest : public testing::Test {
   MOCK_METHOD1(LoggerStartedCallback, bool(Logger*));
   MOCK_METHOD1(LoggerStoppedCallback, bool(Logger*));
 
-  LoggerTest() : io_thread_("LoggerTest IO Thread") {
+  LoggerTest()
+      : io_thread_("LoggerTest IO Thread"), instance_manager_(&logger_) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -85,6 +122,32 @@ class LoggerTest : public testing::Test {
     ASSERT_TRUE(!logger_.logger_started_callback_.is_null());
     ASSERT_TRUE(!logger_.logger_stopped_callback_.is_null());
     ASSERT_EQ(Logger::kStopped, logger_.state_);
+
+    // Start the logger.
+    EXPECT_CALL(*this, LoggerStartedCallback(&logger_))
+        .WillOnce(Return(true));
+    ASSERT_TRUE(logger_.Start());
+    ASSERT_EQ(Logger::kRunning, logger_.state_);
+  }
+
+  virtual void TearDown() OVERRIDE {
+    if (logger_.state_ != Logger::kStopped) {
+      ASSERT_TRUE(logger_.Stop());
+      ASSERT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
+    }
+  }
+
+  void WaitForLoggerToFinish() {
+    EXPECT_CALL(*this, LoggerStoppedCallback(&logger_))
+        .WillOnce(Return(true));
+    ASSERT_TRUE(logger_.RunToCompletion());
+    ASSERT_EQ(Logger::kStopped, logger_.state_);
+  }
+
+  void DoCaptureRemoteTrace(HANDLE process, std::vector<DWORD>* trace_data) {
+    CONTEXT context = {};
+    ::RtlCaptureContext(&context);
+    ASSERT_TRUE(logger_.CaptureRemoteTrace(process, &context, trace_data));
   }
 
   static const char kLine1[];
@@ -97,7 +160,30 @@ class LoggerTest : public testing::Test {
   std::wstring instance_id_;
   base::Thread io_thread_;
   TestLogger logger_;
+  RpcLoggerInstanceManager instance_manager_;
 };
+
+void DoRpcWriteWithContext(handle_t rpc_binding, const unsigned char* message) {
+  CONTEXT rtl_context = {};
+  ::RtlCaptureContext(&rtl_context);
+
+  ExecutionContext exc_context = {};
+  exc_context.edi = rtl_context.Edi;
+  exc_context.esi = rtl_context.Esi;
+  exc_context.ebx = rtl_context.Ebx;
+  exc_context.edx = rtl_context.Edx;
+  exc_context.ecx = rtl_context.Ecx;
+  exc_context.eax = rtl_context.Eax;
+  exc_context.ebp = rtl_context.Ebp;
+  exc_context.eip = rtl_context.Eip;
+  exc_context.seg_cs = rtl_context.SegCs;
+  exc_context.eflags = rtl_context.EFlags;
+  exc_context.esp = rtl_context.Esp;
+  exc_context.seg_ss = rtl_context.SegSs;
+
+  ASSERT_TRUE(
+      LoggerClient_WriteWithContext(rpc_binding, message, &exc_context));
+}
 
 const char LoggerTest::kLine1[] = "This is line 1\n";
 const char LoggerTest::kLine2[] = "This is line 2";  // Note no trailing '\n'.
@@ -109,42 +195,36 @@ inline const unsigned char* MakeUnsigned(const char* s) {
 
 }  // namespace
 
-TEST_F(LoggerTest, StartStop) {
-  // Start the logger.
-  EXPECT_CALL(*this, LoggerStartedCallback(&logger_))
-      .WillOnce(Return(true));
-  ASSERT_TRUE(logger_.Start());
-  ASSERT_EQ(Logger::kRunning, logger_.state_);
+TEST_F(LoggerTest, StackTraceHandling) {
+  HANDLE process = ::GetCurrentProcess();
+  std::vector<DWORD> trace_data;
+  ASSERT_NO_FATAL_FAILURE(ExecuteCallbackWithKnownStack(base::Bind(
+      &LoggerTest::DoCaptureRemoteTrace,
+      base::Unretained(this),
+      process,
+      &trace_data)));
 
-  // Stop the logger (asynchronously).
-  ASSERT_TRUE(logger_.Stop());
-
-  // Run the logger to completion.
-  EXPECT_CALL(*this, LoggerStoppedCallback(&logger_))
-      .WillOnce(Return(true));
-  ASSERT_TRUE(logger_.RunToCompletion());
-  ASSERT_EQ(Logger::kStopped, logger_.state_);
+  // Validate the returned textual stack trace.
+  std::string text;
+  ASSERT_TRUE(logger_.AppendTrace(
+      process, trace_data.data(), trace_data.size(), &text));
+  size_t function_a = text.find("FunctionA", 0);
+  ASSERT_TRUE(function_a != std::string::npos);
+  size_t function_b = text.find("FunctionB", function_a);
+  ASSERT_TRUE(function_b != std::string::npos);
+  size_t function_c = text.find("FunctionC", function_b);
+  ASSERT_TRUE(function_c != std::string::npos);
 }
 
 TEST_F(LoggerTest, Write) {
-  // Start the logger.
-  EXPECT_CALL(*this, LoggerStartedCallback(&logger_))
-      .WillOnce(Return(true));
-  ASSERT_TRUE(logger_.Start());
-
   // Write the lines.
   ASSERT_TRUE(logger_.Write(kLine1));
   ASSERT_TRUE(logger_.Write(kLine2));
   ASSERT_TRUE(logger_.Write(kLine3));
 
-  // Stop the logger (asynchronously).
+  // Stop the logger.
   ASSERT_TRUE(logger_.Stop());
-
-  // Run the logger to completion.
-  EXPECT_CALL(*this, LoggerStoppedCallback(&logger_))
-      .WillOnce(Return(true));
-  ASSERT_TRUE(logger_.RunToCompletion());
-  ASSERT_EQ(Logger::kStopped, logger_.state_);
+  ASSERT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
 
   // Close the log file.
   log_file_.reset(NULL);
@@ -163,16 +243,7 @@ TEST_F(LoggerTest, Write) {
   EXPECT_EQ(expected_contents, contents);
 }
 
-TEST_F(LoggerTest, RpcEntryPoints) {
-  // Hook up the logger instance to the RPC engine.
-  RpcLoggerInstanceManager instance_manager(&logger_);
-
-  // Start the logger.
-  EXPECT_CALL(*this, LoggerStartedCallback(&logger_))
-      .WillOnce(Return(true));
-  ASSERT_TRUE(logger_.Start());
-  ASSERT_EQ(Logger::kRunning, logger_.state_);
-
+TEST_F(LoggerTest, RpcWrite) {
   // Connect to the logger over RPC.
   trace::client::ScopedRpcBinding rpc_binding;
   std::wstring endpoint(
@@ -186,11 +257,8 @@ TEST_F(LoggerTest, RpcEntryPoints) {
   ASSERT_TRUE(LoggerClient_Stop(rpc_binding.Get()));
   ASSERT_TRUE(rpc_binding.Close());
 
-  // Run the logger to completion.
-  EXPECT_CALL(*this, LoggerStoppedCallback(&logger_))
-      .WillOnce(Return(true));
-  ASSERT_TRUE(logger_.RunToCompletion());
-  ASSERT_EQ(Logger::kStopped, logger_.state_);
+  // Wait for the logger to finish shutting down.
+  EXPECT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
 
   // Close the log file.
   log_file_.reset(NULL);
@@ -207,6 +275,76 @@ TEST_F(LoggerTest, RpcEntryPoints) {
 
   // Compare the log contents.
   EXPECT_EQ(expected_contents, contents);
+}
+
+TEST_F(LoggerTest, RpcWriteWithStack) {
+  // Connect to the logger over RPC.
+  trace::client::ScopedRpcBinding rpc_binding;
+  std::wstring endpoint(
+      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+  ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
+
+  HANDLE process = ::GetCurrentProcess();
+  std::vector<DWORD> trace_data;
+  ASSERT_NO_FATAL_FAILURE(ExecuteCallbackWithKnownStack(base::Bind(
+      &LoggerTest::DoCaptureRemoteTrace,
+      base::Unretained(this),
+      process,
+      &trace_data)));
+
+  // Write to and stop the logger via RPC.
+  ASSERT_TRUE(LoggerClient_WriteWithTrace(rpc_binding.Get(),
+                                          MakeUnsigned(kLine1),
+                                          trace_data.data(),
+                                          trace_data.size()));
+  ASSERT_TRUE(LoggerClient_Stop(rpc_binding.Get()));
+  ASSERT_TRUE(rpc_binding.Close());
+
+  // Wait for the logger to finish shutting down.
+  EXPECT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
+
+  // Close the log file.
+  log_file_.reset(NULL);
+
+  // Read in the log contents.
+  std::string text;
+  ASSERT_TRUE(file_util::ReadFileToString(log_file_path_, &text));
+
+  // Validate that we see the expected function chain.
+  size_t line_1 = text.find(kLine1, 0);
+  ASSERT_TRUE(line_1 != std::string::npos);
+  ASSERT_TRUE(TextContainsKnownStack(text, line_1));
+}
+
+TEST_F(LoggerTest, RpcWriteWithContext) {
+  // Connect to the logger over RPC.
+  trace::client::ScopedRpcBinding rpc_binding;
+  std::wstring endpoint(
+      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+  ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
+
+  // Write to and stop the logger via RPC.
+  ASSERT_NO_FATAL_FAILURE(ExecuteCallbackWithKnownStack(base::Bind(
+      &DoRpcWriteWithContext,
+      rpc_binding.Get(),
+      MakeUnsigned(kLine2))));
+  ASSERT_TRUE(LoggerClient_Stop(rpc_binding.Get()));
+  ASSERT_TRUE(rpc_binding.Close());
+
+  // Wait for the logger to finish shutting down.
+  EXPECT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
+
+  // Close the log file.
+  log_file_.reset(NULL);
+
+  // Read in the log contents.
+  std::string text;
+  ASSERT_TRUE(file_util::ReadFileToString(log_file_path_, &text));
+
+  // Validate that we see the expected function chain.
+  size_t line_2 = text.find(kLine2, 0);
+  ASSERT_TRUE(line_2 != std::string::npos);
+  ASSERT_TRUE(TextContainsKnownStack(text, line_2));
 }
 
 }  // namespace logger

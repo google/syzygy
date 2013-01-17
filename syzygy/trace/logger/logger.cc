@@ -68,7 +68,6 @@ void GetSymbolInfo(HANDLE process,
                    DWORD frame_ptr,
                    std::string* name,
                    DWORD64* offset) {
-  DCHECK(process != INVALID_HANDLE_VALUE);
   DCHECK(frame_ptr != NULL);
   DCHECK(name != NULL);
   DCHECK(offset != NULL);
@@ -86,7 +85,6 @@ void GetSymbolInfo(HANDLE process,
 }
 
 void GetLineInfo(HANDLE process, DWORD_PTR frame, std::string* line_info) {
-  DCHECK(process != INVALID_HANDLE_VALUE);
   DCHECK(frame != NULL);
   DCHECK(line_info != NULL);
 
@@ -97,6 +95,25 @@ void GetLineInfo(HANDLE process, DWORD_PTR frame, std::string* line_info) {
     base::SStringPrintf(line_info, "%s:%d", line.FileName, line.LineNumber);
   else
     line_info->clear();
+}
+
+// A callback function used with the StackWalk64 function. It is called when
+// StackWalk64 needs to read memory from the address space of the process.
+// http://msdn.microsoft.com/en-us/library/windows/desktop/ms680559.aspx
+BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
+                                      DWORD64 base_address_64,
+                                      PVOID buffer,
+                                      DWORD size,
+                                      LPDWORD bytes_read) {
+  DCHECK(buffer != NULL);
+  DCHECK(bytes_read != NULL);
+  LPCVOID base_address = reinterpret_cast<LPCVOID>(base_address_64);
+  if (::ReadProcessMemory(process, base_address, buffer, size, bytes_read))
+    return TRUE;
+
+  DWORD error = ::GetLastError();
+  LOG(ERROR) << "Failed to read process memory: " << com::LogWe(error) << ".";
+  return FALSE;
 }
 
 }  // namespace
@@ -204,6 +221,74 @@ bool Logger::AppendTrace(HANDLE process,
     return false;
   }
 
+  return true;
+}
+
+bool Logger::CaptureRemoteTrace(HANDLE process,
+                                CONTEXT* context,
+                                std::vector<DWORD>* trace_data) {
+  DCHECK(context != NULL);
+  DCHECK(trace_data != NULL);
+
+  // TODO(rogerm): Add an RPC session to the logger and its interface. This
+  //     would serialize calls per process and provide a convenient mechanism
+  //     for ensuring SymInitialize/Cleanup are called exactly once per client
+  //     process.
+
+  trace_data->clear();
+  trace_data->reserve(64);
+
+  base::AutoLock auto_lock(symbol_lock_);
+
+  // Initializes the symbols for the process:
+  //     - Defer symbol load until they're needed
+  //     - Use undecorated names
+  //     - Get line numbers
+  ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
+  if (!::SymInitialize(process, NULL, TRUE)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  // Initialize a stack frame structure.
+  STACKFRAME64 stack_frame;
+  ::memset(&stack_frame, 0, sizeof(stack_frame));
+#if defined(_WIN64)
+  int machine_type = IMAGE_FILE_MACHINE_AMD64;
+  stack_frame.AddrPC.Offset = context->Rip;
+  stack_frame.AddrFrame.Offset = context->Rbp;
+  stack_frame.AddrStack.Offset = context->Rsp;
+#else
+  int machine_type = IMAGE_FILE_MACHINE_I386;
+  stack_frame.AddrPC.Offset = context->Eip;
+  stack_frame.AddrFrame.Offset = context->Ebp;
+  stack_frame.AddrStack.Offset = context->Esp;
+#endif
+  stack_frame.AddrPC.Mode = AddrModeFlat;
+  stack_frame.AddrFrame.Mode = AddrModeFlat;
+  stack_frame.AddrStack.Mode = AddrModeFlat;
+
+  // Walk the stack.
+  while (::StackWalk64(machine_type,
+                       process,
+                       NULL,
+                       &stack_frame,
+                       context,
+                       &ReadProcessMemoryProc64,
+                       &::SymFunctionTableAccess64,
+                       &::SymGetModuleBase64,
+                       NULL)) {
+    trace_data->push_back(stack_frame.AddrPC.Offset);
+  }
+
+  if (!::SymCleanup(process)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error) << ".";
+    return false;
+  }
+
+  // And we're done.
   return true;
 }
 

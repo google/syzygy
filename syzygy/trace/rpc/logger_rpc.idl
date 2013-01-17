@@ -16,9 +16,27 @@
 const wchar_t* const kLoggerRpcProtocol = L"ncalrpc";
 const wchar_t* const kLoggerRpcEndpointRoot = L"syzygy-logger";
 
+typedef struct ExecutionContext {
+  // Integer registers.
+  unsigned long edi;
+  unsigned long esi;
+  unsigned long ebx;
+  unsigned long edx;
+  unsigned long ecx;
+  unsigned long eax;
+
+  // Control registers.
+  unsigned long ebp;
+  unsigned long eip;
+  unsigned long seg_cs;
+  unsigned long eflags;
+  unsigned long esp;
+  unsigned long seg_ss;
+} ExecutionContext;
+
 // Defines the Logger's RPC interface.
 [
-    uuid(EAFBDDB2-713D-4FAC-B3F1-CC0944E82DDA),
+    uuid(EDF08DFE-283A-450B-B81D-03737C9BC856),
     version(1.0)
 ]
 interface Logger {
@@ -27,6 +45,25 @@ interface Logger {
   boolean Write([in] handle_t binding, [in, string] const char* text);
 
   // Write a message and stack trace to the log.
+  //
+  // The log server will use the provided execution @p context and symbol
+  // information to resolve the most accurate textual stack trace possible.
+  //
+  // The context must remain valid throughout this call. This means that the
+  // context must either belong to the calling thread (which will block on this
+  // call) or else the thread whose execution context is provided should be
+  // blocked or suspended
+  //
+  // @param text The string to be logged.
+  // @param context The execution context from which to derive a stack trace.
+  boolean WriteWithContext(
+      [in] handle_t binding,
+      [in, string] const char* text,
+      [in] const ExecutionContext* context);
+
+  // Write a message and stack trace to the log. The stack trace must have
+  // been captured by the caller already. See RtlCaptureStackBacktrace for
+  // fast, but only approximate, in-proc stack capture.
   // @param text The string to be logged.
   // @param trace A pointer to the stack trace capture.
   // @param trace_size The size (in bytes) if the stack trace capture.
