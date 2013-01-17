@@ -212,6 +212,11 @@ void RedirectReferences(const BlockSet& dst_blocks,
     for (; referrer_it != referrers.end(); ++referrer_it) {
       BlockGraph::Block* referrer = referrer_it->first;
 
+      // Don't redirect references from PE parsed blocks. This actually ends up
+      // redirecting the IAT entries as well in the worst case.
+      if (referrer->attributes() & BlockGraph::PE_PARSED)
+        continue;
+
       // And redirect any references that happen to match a source reference.
       BlockGraph::Block::ReferenceMap::const_iterator reference_it =
           referrer->references().begin();

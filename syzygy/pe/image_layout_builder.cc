@@ -641,6 +641,11 @@ bool ImageLayoutBuilder::FinalizeHeaders() {
 
   // Iterate through our sections to initialize the code/data fields in the NT
   // headers.
+  nt_headers->OptionalHeader.SizeOfCode = 0;
+  nt_headers->OptionalHeader.SizeOfInitializedData = 0;
+  nt_headers->OptionalHeader.SizeOfUninitializedData = 0;
+  nt_headers->OptionalHeader.BaseOfCode = 0;
+  nt_headers->OptionalHeader.BaseOfData = 0;
   for (size_t i = 0; i < image_layout_->sections.size(); ++i) {
     const ImageLayout::SectionInfo& section = image_layout_->sections[i];
     IMAGE_SECTION_HEADER& hdr = section_headers[i];
