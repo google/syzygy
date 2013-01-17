@@ -179,8 +179,7 @@ TEST_F(BlockBuilderTest, Merge) {
   ASSERT_TRUE(bb3 != NULL);
   BasicCodeBlock* bb4 = subgraph_.AddBasicCodeBlock("bb4");
   ASSERT_TRUE(bb4 != NULL);
-  BasicDataBlock* table = subgraph_.AddBasicDataBlock(
-      "table", BasicBlock::BASIC_DATA_BLOCK, 12, kEmptyData);
+  BasicDataBlock* table = subgraph_.AddBasicDataBlock("table", 12, kEmptyData);
   ASSERT_TRUE(table != NULL);
 
   // Flesh out bb1 with an instruction having a reference and 2 successors.

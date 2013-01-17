@@ -251,12 +251,6 @@ class Instruction {
   // A default constructed Instruction will be a single byte NOP.
   Instruction();
 
-  // Construct an instruction from it's parsed representation and underlying
-  // memory buffer.
-  // TODO(rogerm): remove this from the public interface when BB decomposition
-  //     stops inheriting from Disassembler.
-  Instruction(const _DInst& repr, const uint8* data);
-
   // Copy constructor.
   Instruction(const Instruction& other);
 
@@ -347,6 +341,10 @@ class Instruction {
                                            Offset offset);
 
  protected:
+  // Construct an instruction from its parsed representation and underlying
+  // memory buffer.
+  Instruction(const _DInst& repr, const uint8* data);
+
   // The internal representation of this instruction.
   Representation representation_;
 
@@ -508,6 +506,8 @@ class Successor {
 // for example).
 class BasicBlock {
  public:
+  // TODO(rogerm): Remove BASIC_PADDING_BLOCK as a type and replace it with
+  //     basic-block attributes, one of which will be "is padding".
   enum BasicBlockType {
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
@@ -578,7 +578,7 @@ class BasicBlock {
              BasicBlockType type);
 
   // The type of this basic block.
-  const BasicBlockType type_;
+  BasicBlockType type_;
 
   // The name of this basic block.
   std::string name_;
@@ -611,6 +611,11 @@ class BasicCodeBlock : public BasicBlock {
   // Down-cast from basic block to basic code block.
   static BasicCodeBlock* Cast(BasicBlock* basic_block);
   static const BasicCodeBlock* Cast(const BasicBlock* basic_block);
+
+  // Mark this basic code block as padding/unreachable. This block should
+  // no longer be considered modifiable once this is called, and this is a
+  // one-way transformation.
+  void MarkAsPadding();
 
   // Accessors.
   // @{
@@ -656,7 +661,6 @@ class BasicDataBlock : public BasicBlock {
   // @note The block does not take ownership of @p data, and @p data must have
   //     a lifetime greater than the block.
   BasicDataBlock(const base::StringPiece& name,
-                 BasicBlockType type,
                  const uint8* data,
                  Size size);
 

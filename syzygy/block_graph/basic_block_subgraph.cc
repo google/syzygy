@@ -80,13 +80,12 @@ block_graph::BasicCodeBlock* BasicBlockSubGraph::AddBasicCodeBlock(
 
 block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
     const base::StringPiece& name,
-    BasicBlockType type,
     Size size,
     const uint8* data) {
   DCHECK(!name.empty());
 
   scoped_ptr<BasicDataBlock> new_data_block(
-      new BasicDataBlock(name, type, data, size));
+      new BasicDataBlock(name, data, size));
   bool inserted = basic_blocks_.insert(new_data_block.get()).second;
   DCHECK(inserted);
 
@@ -100,9 +99,16 @@ void BasicBlockSubGraph::Remove(BasicBlock* bb) {
 }
 
 bool BasicBlockSubGraph::IsValid() const {
-  return MapsBasicBlocksToAtMostOneDescription() &&
-      HasValidSuccessors() &&
-      HasValidReferrers();
+  if (!MapsBasicBlocksToAtMostOneDescription())
+    return false;
+
+  if (!HasValidSuccessors())
+    return false;
+
+  if (!HasValidReferrers())
+    return false;
+
+  return true;
 }
 
 bool BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription() const {

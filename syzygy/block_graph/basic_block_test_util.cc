@@ -174,7 +174,7 @@ void BasicBlockTest::InitBasicBlockSubGraph() {
     bds_.push_back(&(*bd_it));
   ASSERT_EQ(subgraph_.block_descriptions().size(), bds_.size());
 
-  ASSERT_EQ(10u, bds_[0]->basic_block_order.size());
+  ASSERT_EQ(kNumBasicBlocks, bds_[0]->basic_block_order.size());
   bbs_.reserve(bds_[0]->basic_block_order.size());
   bbs_.assign(bds_[0]->basic_block_order.begin(),
               bds_[0]->basic_block_order.end());

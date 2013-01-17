@@ -58,8 +58,7 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   block.SetData(kData, kDataSize);
 
   // Add a basic data block.
-  BasicDataBlock* bb1 = subgraph.AddBasicDataBlock(
-      "bb1", BasicBlock::BASIC_DATA_BLOCK, kDataSize, kData);
+  BasicDataBlock* bb1 = subgraph.AddBasicDataBlock("bb1", kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
   ASSERT_EQ(bb1, BasicDataBlock::Cast(bb1));
   ASSERT_TRUE(BasicCodeBlock::Cast(bb1) == NULL);
@@ -71,15 +70,12 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
 
   // Add one that overlaps.
   BasicDataBlock* bb2 =
-      subgraph.AddBasicDataBlock("bb2",
-                                 BasicBlock::BASIC_PADDING_BLOCK,
-                                 kDataSize / 2,
-                                 kData + kDataSize / 2);
+      subgraph.AddBasicDataBlock("bb2", kDataSize / 2, kData + kDataSize / 2);
   ASSERT_FALSE(bb1 == NULL);
   ASSERT_EQ(bb2, BasicDataBlock::Cast(bb2));
   ASSERT_TRUE(BasicCodeBlock::Cast(bb2) == NULL);
   EXPECT_EQ("bb2", bb2->name());
-  EXPECT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bb2->type());
+  EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, bb2->type());
   EXPECT_EQ(kDataSize / 2, bb2->size());
   EXPECT_EQ(kData + kDataSize / 2, bb2->data());
   EXPECT_EQ(BasicBlock::kNoOffset, bb2->offset());
@@ -164,7 +160,7 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   BasicCodeBlock* bb4 = subgraph.AddBasicCodeBlock("bb4");
   ASSERT_FALSE(bb4 == NULL);
   BasicDataBlock* data = subgraph.AddBasicDataBlock(
-      "data", BasicBlock::BASIC_DATA_BLOCK, sizeof(kData), kData);
+      "data", sizeof(kData), kData);
   ASSERT_FALSE(data == NULL);
 
   // Setup references.
@@ -282,8 +278,7 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
 
   ASSERT_FALSE(subgraph.HasValidReferrers());
 
-  BasicDataBlock* bb1 = subgraph.AddBasicDataBlock(
-      "bb1", BasicBlock::BASIC_DATA_BLOCK, kDataSize, kData);
+  BasicDataBlock* bb1 = subgraph.AddBasicDataBlock("bb1", kDataSize, kData);
   ASSERT_FALSE(bb1 == NULL);
 
   BlockDescription* b1_desc = subgraph.AddBlockDescription(

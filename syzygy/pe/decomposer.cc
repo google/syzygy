@@ -832,7 +832,6 @@ Decomposer::Decomposer(const PEFile& image_file)
   // Register non-returning imports that we know about.
   CHECK(RegisterNonReturningImport("KERNEL32.dll", "ExitProcess"));
   CHECK(RegisterNonReturningImport("KERNEL32.dll", "ExitThread"));
-  CHECK(RegisterNonReturningImport("KERNEL32.dll", "RaiseException"));
 }
 
 bool Decomposer::Decompose(ImageLayout* image_layout) {

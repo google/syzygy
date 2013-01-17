@@ -641,17 +641,25 @@ BasicCodeBlock::BasicCodeBlock(const base::StringPiece& name)
 BasicCodeBlock* BasicCodeBlock::Cast(BasicBlock* basic_block) {
   if (basic_block == NULL)
     return NULL;
-  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
+  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK ||
+      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
     return static_cast<BasicCodeBlock*>(basic_block);
+  }
   return NULL;
 }
 
 const BasicCodeBlock* BasicCodeBlock::Cast(const BasicBlock* basic_block) {
   if (basic_block == NULL)
     return NULL;
-  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
+  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK ||
+      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
     return static_cast<const BasicCodeBlock*>(basic_block);
+  }
   return NULL;
+}
+
+void BasicCodeBlock::MarkAsPadding() {
+  type_ = BasicBlock::BASIC_PADDING_BLOCK;
 }
 
 bool BasicCodeBlock::IsValid() const {
@@ -703,33 +711,28 @@ BasicBlock::Size BasicCodeBlock::GetInstructionSize() const {
 }
 
 BasicDataBlock::BasicDataBlock(const base::StringPiece& name,
-                               BasicBlockType type,
                                const uint8* data,
                                Size size)
-    : BasicBlock(name, type), size_(size), data_(data) {
+    : BasicBlock(name, BasicBlock::BASIC_DATA_BLOCK),
+      size_(size),
+      data_(data) {
   DCHECK(data != NULL);
   DCHECK_NE(0u, size);
-  DCHECK(type == BasicBlock::BASIC_DATA_BLOCK ||
-         type == BasicBlock::BASIC_PADDING_BLOCK);
 }
 
 BasicDataBlock* BasicDataBlock::Cast(BasicBlock* basic_block) {
   if (basic_block == NULL)
     return NULL;
-  if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
-      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+  if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK)
     return static_cast<BasicDataBlock*>(basic_block);
-  }
   return NULL;
 }
 
 const BasicDataBlock* BasicDataBlock::Cast(const BasicBlock* basic_block) {
   if (basic_block == NULL)
     return NULL;
-  if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
-      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+  if (basic_block->type() == BasicBlock::BASIC_DATA_BLOCK)
     return static_cast<const BasicDataBlock*>(basic_block);
-  }
   return NULL;
 }
 

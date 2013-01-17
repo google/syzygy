@@ -304,13 +304,9 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockOrderings(
     // list. Note that the data basic-blocks are at the end of the basic-
     // block layout so we will have already seen all of the warm referrers
     // by the time this case succeeds.
-    // TODO(rogerm): Once straight-line bb decomposition is in place we should
-    //     stop seeing padding blocks as data and the test before setting
-    //     have_seen_data_basic_blocks should be removed.
     const BasicDataBlock* data_bb = BasicDataBlock::Cast(bb);
     if (data_bb != NULL) {
-      if (data_bb->type() != BasicBlock::BASIC_PADDING_BLOCK)
-        have_seen_data_basic_block = true;
+      have_seen_data_basic_block = true;
       if (warm_references.count(bb) != 0)
         warm_basic_blocks->push_back(data_bb->offset());
       else

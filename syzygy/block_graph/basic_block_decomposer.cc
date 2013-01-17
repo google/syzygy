@@ -13,12 +13,6 @@
 // limitations under the License.
 //
 // Implementation of basic block decomposer.
-//
-// TODO(rogerm): Refactor this to just do a straight disassembly of all bytes
-//     (up to the start of embedded data: jump and case tables) to a list of
-//     instructions, then chop up the instruction list into basic blocks in
-//     a second pass, splicing the instructions into the basic-block instruction
-//     lists and generating successors.
 
 #include "syzygy/block_graph/basic_block_decomposer.h"
 
@@ -131,15 +125,34 @@ bool SplitInstructionListAt(Offset offset,
   return true;
 }
 
+bool GetCodeRange(const BlockGraph::Block* block, Offset* begin, Offset* end) {
+  DCHECK(block != NULL);
+  DCHECK(begin != NULL);
+  DCHECK(end != NULL);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+
+  // By default, we assume the entire block is code.
+  *begin = 0;
+  *end = block->size();
+
+  // We then move up the end offset if the block ends in data.
+  BlockGraph::Block::LabelMap::const_reverse_iterator it =
+      block->labels().rbegin();
+  for (; it != block->labels().rend(); ++it) {
+    const BlockGraph::Label& label = it->second;
+    if (!label.has_attributes(BlockGraph::DATA_LABEL))
+      break;
+    *end = it->first;
+  }
+
+  return TRUE;
+}
+
 }  // namespace
 
 BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
                                            BasicBlockSubGraph* subgraph)
-    : Disassembler(block->data(),
-                   block->size(),
-                   AbsoluteAddress(kDisassemblyAddress),
-                   Disassembler::InstructionCallback()),
-      block_(block),
+    : block_(block),
       subgraph_(subgraph),
       current_block_start_(0),
       check_decomposition_results_(true) {
@@ -157,13 +170,8 @@ bool BasicBlockDecomposer::Decompose() {
   DCHECK(original_address_space_.empty());
   subgraph_->set_original_block(block_);
 
-  InitUnvisitedAndJumpTargets();
-
-  WalkResult result = Walk();
-  if (result != Disassembler::kWalkSuccess &&
-      result != Disassembler::kWalkIncomplete) {
+  if (!Disassemble())
     return false;
-  }
 
   typedef BasicBlockSubGraph::BlockDescription BlockDescription;
   subgraph_->block_descriptions().push_back(BlockDescription());
@@ -195,8 +203,57 @@ bool BasicBlockDecomposer::Decompose() {
   return true;
 }
 
+bool BasicBlockDecomposer::DecodeInstruction(Offset offset,
+                                             Offset code_end_offset,
+                                             Instruction* instruction) const {
+  // The entire offset range should fall within the extent of block_ and the
+  // output instruction pointer must not be NULL.
+  DCHECK_LE(0, offset);
+  DCHECK_LT(offset, code_end_offset);
+  DCHECK_LE(static_cast<Size>(code_end_offset), block_->size());
+  DCHECK(instruction != NULL);
+
+  // Decode the instruction.
+  const uint8* buffer = block_->data() + offset;
+  size_t max_length = code_end_offset - offset;
+  if (!Instruction::FromBuffer(buffer, max_length, instruction)) {
+    LOG(ERROR) << "Failed to decode instruction at offset " << offset
+               << " of block '" << block_->name() << "'.";
+
+    // Dump the bytes to aid in debugging.
+    std::string dump;
+    size_t dump_length = std::min(max_length, Instruction::kMaxSize);
+    for (size_t i = 0; i < dump_length; ++i)
+      base::StringAppendF(&dump, " %02X", buffer[i]);
+    LOG(ERROR) << ".text =" << dump << (dump_length < max_length ? "..." : ".");
+
+    // Return false to indicate an error.
+    return false;
+  }
+
+  VLOG(3) << "Disassembled " << instruction->GetName()
+          << " instruction (" << instruction->size()
+          << " bytes) at offset " << offset << ".";
+
+  // Track the source range.
+  instruction->set_source_range(
+      GetSourceRange(offset, instruction->size()));
+
+  // If the block is labeled, preserve the label.
+  BlockGraph::Label label;
+  if (block_->GetLabel(offset, &label)) {
+    // If this instruction has run into known data, then we have a problem!
+    CHECK(!label.has_attributes(BlockGraph::DATA_LABEL))
+        << "Disassembling into data at offset " << offset << " of "
+        << block_->name() << ".";
+    instruction->set_label(label);
+  }
+
+  return true;
+}
+
 BasicBlockDecomposer::SourceRange BasicBlockDecomposer::GetSourceRange(
-    Offset offset, Size size) {
+    Offset offset, Size size) const {
   // Find the source range for the original bytes. We may not have a data
   // range for bytes that were synthesized in other transformations. As a
   // rule, however, there should be a covered data range for each instruction,
@@ -259,12 +316,15 @@ BasicBlock* BasicBlockDecomposer::GetBasicBlockAt(Offset offset) const {
   return bb;
 }
 
-void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
+void BasicBlockDecomposer::InitJumpTargets(Offset code_begin_offset,
+                                           Offset code_end_offset) {
+  DCHECK_LE(0, code_begin_offset);
+  DCHECK_LE(static_cast<Size>(code_end_offset), block_->size());
+
+  // Make sure the jump target set is empty.
   jump_targets_.clear();
-  // We initialize our jump_targets_ and unvisited sets to the set of
-  // referenced code locations. This covers all locations which are
-  // externally referenced, as well as those that are internally referenced
-  // via a branching instruction or jump table.
+
+  // For each referrer, check if it references code. If so, it's a jump target.
   BlockGraph::Block::ReferrerSet::const_iterator ref_iter =
       block_->referrers().begin();
   for (; ref_iter != block_->referrers().end(); ++ref_iter) {
@@ -276,221 +336,196 @@ void BasicBlockDecomposer::InitUnvisitedAndJumpTargets() {
     DCHECK_LT(static_cast<size_t>(ref.base()), block_->size());
     DCHECK_EQ(ref.base(), ref.offset());
 
-    // Look for the first label past the reference. Back up if we can to the
-    // previous label.
-    BlockGraph::Block::LabelMap::const_iterator label_iter =
-        block_->labels().upper_bound(ref.base());
-    if (label_iter != block_->labels().begin())
-      --label_iter;
-
-    // If there is no previous label, or it is not a data label, then this is
-    // a safe jump target.
-    if (label_iter == block_->labels().end() ||
-        label_iter->first > ref.offset() ||
-        !label_iter->second.has_attributes(BlockGraph::DATA_LABEL)) {
-      AbsoluteAddress addr(code_addr_ + ref.base());
-      Unvisited(addr);
-      jump_targets_.insert(addr);
-    }
+    // If the referred offset is within the code bounds, then it is a jump
+    // target.
+    if (code_begin_offset <= ref.base() && ref.base() < code_end_offset)
+      jump_targets_.insert(ref.base());
   }
 }
 
-Disassembler::CallbackDirective BasicBlockDecomposer::OnInstruction(
-    AbsoluteAddress addr, const _DInst& inst) {
-  Offset offset = addr - code_addr_;
-
-  // If this instruction has run into known data, then we have a problem in
-  // the decomposer.
-  BlockGraph::Label label;
-  CHECK(!block_->GetLabel(offset, &label) ||
-        !label.has_attributes(BlockGraph::DATA_LABEL))
-      << "Disassembling into data at offset " << offset << " of "
-      << block_->name() << ".";
-
-  VLOG(3) << "Disassembled " << GET_MNEMONIC_NAME(inst.opcode)
-          << " instruction (" << static_cast<int>(inst.size)
-          << " bytes) at offset " << offset << ".";
-
-  Instruction::SourceRange source_range = GetSourceRange(offset, inst.size);
-  current_instructions_.push_back(Instruction(inst, code_ + offset));
-  current_instructions_.back().set_source_range(source_range);
-
-  if (label.IsValid())
-    current_instructions_.back().set_label(label);
-
-  // If continuing this basic-block would disassemble into known data then
-  // end the current basic-block.
-  if (block_->GetLabel(offset + inst.size, &label) &&
-      label.has_attributes(BlockGraph::DATA_LABEL)) {
-    return kDirectiveTerminatePath;
+bool BasicBlockDecomposer::HandleInstruction(const Instruction& instruction,
+                                             Offset offset) {
+  // We do not handle the SYS* instructions. These should ONLY occur inside
+  // the OS system libraries, mediated by an OS system call. We expect that
+  // they NEVER occur in application code.
+  if (instruction.IsSystemCall()) {
+    LOG(ERROR) << "Encountered an unexpected " << instruction.GetName()
+               << " instruction at offset " << offset << " of block '"
+               << block_->name() << "'.";
+    return false;
   }
 
-  // If this instruction is a call to a non-returning function, then this is
-  // essentially a control flow operation, and we need to end this basic block.
-  // We'll schedule the disassembly of any instructions which follow it as
-  // a separate basic block, and mark that basic block as unreachable in a
-  // post pass.
-  if (META_GET_FC(inst.meta) == FC_CALL &&
-      (inst.ops[0].type == O_PC || inst.ops[0].type == O_DISP)) {
-    BlockGraph::Reference ref;
-    bool found = GetReferenceOfInstructionAt(block_, offset, inst.size, &ref);
-    CHECK(found);
-    if (Instruction::IsCallToNonReturningFunction(inst, ref.referenced(),
-                                                  ref.offset())) {
-      Unvisited(addr + inst.size);
-      return kDirectiveTerminatePath;
+  // Calculate the offset of the next instruction. We'll need this if this
+  // instruction marks the end of a basic block.
+  Offset next_instruction_offset = offset + instruction.size();
+
+  // If the instruction is not a branch then it needs to be appended to the
+  // current basic block... which we close if the instruction is a return or
+  // a call to a non-returning function.
+  if (!instruction.IsBranch()) {
+    current_instructions_.push_back(instruction);
+    if (instruction.IsReturn()) {
+      EndCurrentBasicBlock(next_instruction_offset);
+    } else if (instruction.IsCall()) {
+      BlockGraph::Reference ref;
+      bool found = GetReferenceOfInstructionAt(
+          block_, offset, instruction.size(), &ref);
+      if (found && Instruction::IsCallToNonReturningFunction(
+              instruction.representation(), ref.referenced(), ref.offset())) {
+        EndCurrentBasicBlock(next_instruction_offset);
+      }
     }
+    return true;
   }
 
-  return kDirectiveContinue;
-}
+  // If the branch is not PC-Relative then it also needs to be appended to
+  // the current basic block... which we then close.
+  if (!instruction.HasPcRelativeOperand(0)) {
+    current_instructions_.push_back(instruction);
+    EndCurrentBasicBlock(next_instruction_offset);
+    return true;
+  }
 
-Disassembler::CallbackDirective BasicBlockDecomposer::OnBranchInstruction(
-    AbsoluteAddress addr, const _DInst& inst, AbsoluteAddress dest) {
-  // Note: Both addr and dest are fabricated addresses. The code_addr_ has
-  //     been selected such that addr will never be 0; similarly, dest should
-  //     only be 0 for control flow instructions having no explicit destination.
-  //     Do not use dest to resolve the destination, instead find the
-  //     corresponding reference in the byte range of the original instruction.
+  // Otherwise, we're dealing with a branch whose destination is explicit.
+  DCHECK(instruction.IsBranch());
+  DCHECK(instruction.HasPcRelativeOperand(0));
 
-  // The branch instruction should have already been appended to the
-  // instruction list.
-  DCHECK_EQ(0, ::memcmp(&current_instructions_.back().representation(),
-                        &inst,
-                        sizeof(inst)));
-
-  // Compute the in-block offset to the successor instruction.
-  Offset succ_offs = addr - code_addr_;
-
-  // Make sure we understand the branching condition. If we don't, then there's
-  // an instruction we have failed to consider.
-  Successor::Condition condition = Successor::OpCodeToCondition(inst.opcode);
+  // Make sure we understand the branching condition. If we don't, then
+  // there's an instruction we have failed to consider.
+  Successor::Condition condition = Successor::OpCodeToCondition(
+      instruction.opcode());
   CHECK_NE(Successor::kInvalidCondition, condition)
       << "Received unknown condition for branch instruction: "
-      << GET_MNEMONIC_NAME(inst.opcode) << ".";
+      << instruction.GetName() << ".";
 
-  // If this is a conditional branch add the inverse conditional successor to
-  // represent the fall-through. If we don't understand the inverse, then
+  // If this is a conditional branch add the inverse conditional successor
+  // to represent the fall-through. If we don't understand the inverse, then
   // there's an instruction we have failed to consider.
-  if (META_GET_FC(inst.meta) == FC_CND_BRANCH) {
+  if (instruction.IsConditionalBranch()) {
     Successor::Condition inverse_condition =
         Successor::InvertCondition(condition);
     CHECK_NE(Successor::kInvalidCondition, inverse_condition)
         << "Non-invertible condition seen for branch instruction: "
-        << GET_MNEMONIC_NAME(inst.opcode) << ".";
+        << instruction.GetName() << ".";
 
     // Create an (unresolved) successor pointing to the next instruction.
     BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
                             1,  // The size is irrelevant in successors.
                             const_cast<Block*>(block_),
-                            (addr + inst.size - code_addr_),
-                            (addr + inst.size - code_addr_));
-    current_successors_.push_front(
-        Successor(inverse_condition, ref, 0));
-    jump_targets_.insert(addr + inst.size);
+                            next_instruction_offset,
+                            next_instruction_offset);
+    current_successors_.push_front(Successor(inverse_condition, ref, 0));
+    jump_targets_.insert(next_instruction_offset);
   }
 
-  // Note that some control flow instructions have no explicit target (for
-  // example, RET, SYS* and computed branches); for these dest will be 0.
-  // We do not explicitly model these with successor relationships. Instead,
-  // we leave the instruction (and its corresponding references, in the case
-  // of computed jumps) intact and move on.
-  if (dest.value() != 0) {
-    // Take the last instruction out of the instruction list, we'll represent
-    // it as a successor instead.
-    Instruction succ_instr = current_instructions_.back();
-    current_instructions_.pop_back();
-    DCHECK_EQ(inst.size, succ_instr.size());
+  // Attempt to figure out where the branch is going by finding a
+  // reference inside the instruction's byte range.
+  BlockGraph::Reference ref;
+  bool found = GetReferenceOfInstructionAt(
+      block_, offset, instruction.size(), &ref);
 
-    // Figure out where the branch is going by finding the reference that's
-    // inside the instruction's byte range.
-    BlockGraph::Reference ref;
-    bool found = GetReferenceOfInstructionAt(
-        block_, succ_offs, succ_instr.size(), &ref);
-
-    // If a reference was found, prefer its destination information
-    // to the information conveyed by the bytes in the instruction.
-    if (!found) {
-      Offset target_offset = dest - code_addr_;
-      ref = BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
-                                  1,  // Size is irrelevant in successors.
-                                  const_cast<Block*>(block_),
-                                  target_offset,
-                                  target_offset);
-    } else {
-      dest = AbsoluteAddress(kDisassemblyAddress + ref.offset());
-    }
-
-    // Create the successor.
-    BasicBlockReference bb_ref(
-        ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
-    Successor succ(condition, bb_ref, succ_instr.size());
-
-    if (ref.referenced() == block_)
-      jump_targets_.insert(dest);
-
-    // Copy the source range and label, if any.
-    succ.set_source_range(succ_instr.source_range());
-    succ.set_label(succ_instr.label());
-
-    current_successors_.push_front(succ);
+  // If a reference was found, prefer its destination information to the
+  // information conveyed by the bytes in the instruction. This should
+  // handle all inter-block jumps (thunks, tail-call elimination, etc).
+  // Otherwise, create a reference into the current block.
+  if (!found) {
+    Offset target_offset =
+        next_instruction_offset + instruction.representation().imm.addr;
+    DCHECK_LE(0, target_offset);
+    DCHECK_LT(static_cast<Size>(target_offset), block_->size());
+    ref = BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
+                                1,  // Size is irrelevant in successors.
+                                const_cast<Block*>(block_),
+                                target_offset,
+                                target_offset);
   }
 
-  // This marks the end of a basic block. Note that the disassembler will
-  // handle ending the instruction run and beginning a new one for the next
-  // basic block (including the branch-not-taken arc).
-  return kDirectiveContinue;
+  // If the reference points to the current block, track the target offset.
+  if (ref.referenced() == block_)
+    jump_targets_.insert(ref.offset());
+
+  // Create the successor, preserving the source range and label.
+  BasicBlockReference bb_ref(
+      ref.type(), ref.size(), ref.referenced(), ref.offset(), ref.base());
+  Successor succ(condition, bb_ref, instruction.size());
+  succ.set_source_range(instruction.source_range());
+  succ.set_label(instruction.label());
+  current_successors_.push_front(succ);
+
+  // Having just branched, we need to end the current basic block.
+  EndCurrentBasicBlock(next_instruction_offset);
+  return true;
 }
 
-// Called every time disassembly is started from a new address. Will be
-// called for at least every address in unvisited_.
-Disassembler::CallbackDirective BasicBlockDecomposer::OnStartInstructionRun(
-    AbsoluteAddress start_address) {
-  // The address of the beginning of the current basic block.
-  current_block_start_ = start_address;
-  DCHECK(current_instructions_.empty());
-  DCHECK(current_successors_.empty());
-  return kDirectiveContinue;
-}
-
-// Called when a walk from a given entry point has terminated.
-Disassembler::CallbackDirective BasicBlockDecomposer::OnEndInstructionRun(
-    AbsoluteAddress addr, const _DInst& inst, ControlFlowFlag control_flow) {
-  // If an otherwise straight run of instructions is split because it crosses
-  // a basic block boundary we need to set up the implicit control flow arc
-  // here.
-  if (control_flow == kControlFlowContinues) {
-    DCHECK(current_successors_.empty());
-    DCHECK(!current_instructions_.empty());
-    DCHECK(!current_instructions_.back().IsImplicitControlFlow());
-
-    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
-                            1,  // Size is immaterial in successors.
-                            const_cast<Block*>(block_),
-                            (addr + inst.size) - code_addr_,
-                            (addr + inst.size) - code_addr_);
-    current_successors_.push_front(
-        Successor(Successor::kConditionTrue, ref, 0));
-  }
-
+bool BasicBlockDecomposer::EndCurrentBasicBlock(Offset end_offset) {
   // We have reached the end of the current walk or we handled a conditional
   // branch. Let's mark this as the end of a basic block.
-  size_t basic_block_size = addr - current_block_start_ + inst.size;
-  DCHECK_LT(0U, basic_block_size);
+  int basic_block_size = end_offset - current_block_start_;
+  DCHECK_LT(0, basic_block_size);
   if (!InsertBasicBlockRange(current_block_start_,
                              basic_block_size,
                              BasicBlock::BASIC_CODE_BLOCK)) {
-    return kDirectiveAbort;
+    return false;
   }
 
-  return kDirectiveContinue;
+  // Remember the end offset as the start of the next basic block.
+  current_block_start_ = end_offset;
+  return true;
 }
 
-Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
-  // Split code blocks at branch targets.
+bool BasicBlockDecomposer::ParseInstructions() {
+  // Find the beginning and ending offsets of code bytes within the block.
+  Offset code_begin_offset = 0;
+  Offset code_end_offset = 0;
+  if (!GetCodeRange(block_, &code_begin_offset, &code_end_offset)) {
+    LOG(ERROR) << "Failed to determine code byte range.";
+    return false;
+  }
+
+  // Initialize jump_targets_ to include un-discoverable targets.
+  InitJumpTargets(code_begin_offset, code_end_offset);
+
+  // Disassemble the instruction stream into rudimentary basic blocks.
+  Offset offset = code_begin_offset;
+  current_block_start_ = offset;
+  while (offset < code_end_offset) {
+    // Decode the next instruction.
+    Instruction instruction;
+    if (!DecodeInstruction(offset, code_end_offset, &instruction))
+      return false;
+
+    // Handle the decoded instruction.
+    if (!HandleInstruction(instruction, offset))
+      return false;
+
+    // Advance the instruction offset.
+    offset += instruction.size();
+  }
+
+  // If we get here then we must have successfully consumed the entire code
+  // range; otherwise, we should have failed to decode a partial instruction.
+  CHECK_EQ(offset, code_end_offset);
+
+  // If the last bb we were working on didn't end with a RET or branch then
+  // we need to close it now. We can detect this if the current_block_start_
+  // does not match the current (end) offset.
+  if (current_block_start_ != code_end_offset)
+    EndCurrentBasicBlock(code_end_offset);
+
+  return true;
+}
+
+bool BasicBlockDecomposer::Disassemble() {
+  // Parse the code bytes into instructions and rudimentary basic blocks.
+  if (!ParseInstructions()) {
+    LOG(ERROR) << "Failed to parse instruction bytes.";
+    return false;
+  }
+
+  // Split the basic blocks at branch targets.
   if (!SplitCodeBlocksAtBranchTargets()) {
     LOG(ERROR) << "Failed to split code blocks at branch targets.";
-    return kDirectiveAbort;
+    return false;
   }
 
   // By this point, we should have basic blocks for all visited code.
@@ -499,15 +534,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
   // Demarcate the data basic blocks. There should be no overlap with code.
   if (!FillInDataBlocks()) {
     LOG(ERROR) << "Failed to fill in data basic-block ranges.";
-    return kDirectiveAbort;
-  }
-
-  // We may not have covered some ranges of the macro block. For all such
-  // ranges, build basic blocks and mark them as padding. This might
-  // include unreachable code in unoptimized input binaries.
-  if (!FillInPaddingBlocks()) {
-    LOG(ERROR) << "Failed to fill in padding basic-block ranges.";
-    return kDirectiveAbort;
+    return false;
   }
 
   // We should now have contiguous block ranges that cover every byte in the
@@ -522,7 +549,7 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
   // them from the original source block.
   if (!CopyExternalReferrers()) {
     LOG(ERROR) << "Failed to populate basic-block referrers.";
-    return kDirectiveAbort;
+    return false;
   }
 
   // Populate the references in the basic block data structures by copying
@@ -530,31 +557,34 @@ Disassembler::CallbackDirective BasicBlockDecomposer::OnDisassemblyComplete() {
   // references.
   if (!CopyReferences()) {
     LOG(ERROR) << "Failed to populate basic-block references.";
-    return kDirectiveAbort;
+    return false;
   }
 
   // Wire up the the basic-block successors. These are not handled by
   // CopyReferences(), above.
   if (!ResolveSuccessors()) {
     LOG(ERROR) << "Failed to resolve basic-block successors.";
-    return kDirectiveAbort;
+    return false;
   }
 
   // All the control flow we have derived should be valid.
   CheckAllControlFlowIsValid();
 
+  // Mark all unreachable code blocks as padding.
+  MarkUnreachableCodeAsPadding();
+
   // ... and we're done.
-  return kDirectiveContinue;
+  return true;
 }
 
 void BasicBlockDecomposer::CheckAllJumpTargetsStartABasicCodeBlock() const {
   if (!check_decomposition_results_)
     return;
 
-  AddressSet::const_iterator addr_iter(jump_targets_.begin());
-  for (; addr_iter != jump_targets_.end(); ++addr_iter) {
+  JumpTargets::const_iterator offset_iter(jump_targets_.begin());
+  for (; offset_iter != jump_targets_.end(); ++offset_iter) {
     // The target basic-block should be a code basic-block.
-    BasicBlock* target_bb = GetBasicBlockAt(*addr_iter - code_addr_);
+    BasicBlock* target_bb = GetBasicBlockAt(*offset_iter);
     CHECK(target_bb != NULL);
     CHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, target_bb->type());
   }
@@ -592,7 +622,7 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
 
   // At this point, if there were no gaps, next start will be the same as the
   // full size of the block we're decomposing.
-  CHECK_EQ(code_size_, static_cast<size_t>(next_start));
+  CHECK_EQ(block_->size(), static_cast<size_t>(next_start));
 }
 
 void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
@@ -679,19 +709,6 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
   for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
     const BasicDataBlock* data_block = BasicDataBlock::Cast(*bb_iter);
     if (data_block != NULL) {
-      // Some labels are attached to unreachable code blocks, which we currently
-      // parse as padding blocks. Mark those labels as 'found' as well.
-      // TODO(chrisha): When we move to straight-path disassembly these will
-      //     actually be orphaned code blocks, rather than 'padding' blocks.
-      if (data_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
-        std::map<Offset, bool>::iterator label_it =
-            labels_found.lower_bound(data_block->offset());
-        std::map<Offset, bool>::iterator label_end =
-            labels_found.lower_bound(data_block->offset() + data_block->size());
-        for (; label_it != label_end; ++label_it)
-          label_it->second = true;
-      }
-
       // Account for labels attached to basic-blocks.
       if (data_block->has_label()) {
         BlockGraph::Label label;
@@ -746,14 +763,14 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
   }
 }
 
-bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
+bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
                                                  size_t size,
                                                  BasicBlockType type) {
+  DCHECK_LE(0, offset);
+  DCHECK_LT(0U, size);
+  DCHECK_LE(offset + size, block_->size());
   DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_instructions_.empty());
   DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_successors_.empty());
-
-  BasicBlock::Offset offset = addr - code_addr_;
-  DCHECK_LE(0, offset);
 
   // Find or create a name for this basic block. Reserve the label, if any,
   // to propagate to the basic block if there are no instructions in the
@@ -764,8 +781,9 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
     basic_block_name = label.ToString();
   } else {
     basic_block_name =
-        base::StringPrintf("<anonymous-%04X-%s>",
-                           addr.value(),
+        base::StringPrintf("<%s+%04X-%s>",
+                           block_->name().c_str(),
+                           offset,
                            BasicBlock::BasicBlockTypeToString(type));
   }
 
@@ -790,12 +808,11 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
     code_block->instructions().swap(current_instructions_);
     code_block->successors().swap(current_successors_);
   } else {
-    DCHECK(type == BasicBlock::BASIC_DATA_BLOCK ||
-           type == BasicBlock::BASIC_PADDING_BLOCK);
+    DCHECK(type == BasicBlock::BASIC_DATA_BLOCK);
 
     // Create the data block.
     BasicDataBlock* data_block = subgraph_->AddBasicDataBlock(
-        basic_block_name, type, size, code_ + offset);
+        basic_block_name, size, block_->data() + offset);
     if (data_block == NULL)
       return false;
     CHECK(original_address_space_.Insert(byte_range, data_block));
@@ -815,12 +832,10 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(AbsoluteAddress addr,
 }
 
 bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
-  // TODO(rogerm): Refactor the basic-block splitting inner-function to the
-  //     BasicBlockSubGraph.
-  AddressSet::const_iterator jump_target_iter(jump_targets_.begin());
+  JumpTargets::const_iterator jump_target_iter(jump_targets_.begin());
   for (; jump_target_iter != jump_targets_.end(); ++jump_target_iter) {
     // Resolve the target basic-block.
-    Offset target_offset = *jump_target_iter - code_addr_;
+    Offset target_offset = *jump_target_iter;
     BasicBlock* target_bb = NULL;
     Range target_bb_range;
     CHECK(FindBasicBlock(target_offset, &target_bb, &target_bb_range));
@@ -869,7 +884,7 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
         Successor(Successor::kConditionTrue, ref, 0));
 
     // Create the basic-block representing the second "half".
-    if (!InsertBasicBlockRange(code_addr_ + target_offset,
+    if (!InsertBasicBlockRange(target_offset,
                                target_bb_range.size() - left_split_size,
                                target_code_block->type())) {
       LOG(ERROR) << "Failed to insert second half of split block.";
@@ -893,56 +908,9 @@ bool BasicBlockDecomposer::FillInDataBlocks() {
     BlockGraph::Offset bb_start = iter->first;
     BlockGraph::Offset bb_end = (next == end) ? block_->size() : next->first;
     size_t bb_size = bb_end - bb_start;
-    AbsoluteAddress bb_addr(code_addr_ + bb_start);
-    if (!InsertBasicBlockRange(bb_addr, bb_size, BasicBlock::BASIC_DATA_BLOCK))
+    if (!InsertBasicBlockRange(bb_start, bb_size, BasicBlock::BASIC_DATA_BLOCK))
       return false;
   }
-  return true;
-}
-
-bool BasicBlockDecomposer::FillInPaddingBlocks() {
-  // Add an initial interstitial if needed.
-  size_t interstitial_size = original_address_space_.empty() ?
-      code_size_ : original_address_space_.begin()->first.start();
-  DCHECK_LE(0U, interstitial_size);
-  if (interstitial_size > 0) {
-    if (!InsertBasicBlockRange(code_addr_,
-                               interstitial_size,
-                               BasicBlock::BASIC_PADDING_BLOCK)) {
-      LOG(ERROR) << "Failed to insert initial padding block at 0";
-      return false;
-    }
-  }
-
-  // Handle all remaining gaps, including the end.
-  RangeMapConstIter curr_range = original_address_space_.begin();
-  for (; curr_range != original_address_space_.end(); ++curr_range) {
-    RangeMapConstIter next_range = curr_range;
-    ++next_range;
-    AbsoluteAddress curr_range_end =
-        code_addr_ + curr_range->first.start() + curr_range->first.size();
-
-    interstitial_size = 0;
-    if (next_range == original_address_space_.end()) {
-      DCHECK_LE(curr_range_end, code_addr_ + code_size_);
-      interstitial_size = code_addr_ + code_size_ - curr_range_end;
-    } else {
-      DCHECK_LE(curr_range_end, code_addr_ + next_range->first.start());
-      interstitial_size =
-          code_addr_ + next_range->first.start() - curr_range_end;
-    }
-
-    if (interstitial_size > 0) {
-      if (!InsertBasicBlockRange(curr_range_end,
-                                 interstitial_size,
-                                 BasicBlock::BASIC_PADDING_BLOCK)) {
-        LOG(ERROR) << "Failed to insert padding block at "
-                   << curr_range_end.value();
-        return false;
-      }
-    }
-  }
-
   return true;
 }
 
@@ -1107,6 +1075,21 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
   }
 
   return true;
+}
+
+void BasicBlockDecomposer::MarkUnreachableCodeAsPadding() {
+  BasicBlockSubGraph::ReachabilityMap rm;
+  subgraph_->GetReachabilityMap(&rm);
+  DCHECK_EQ(rm.size(), subgraph_->basic_blocks().size());
+  BasicBlockSubGraph::BBCollection::iterator bb_iter =
+      subgraph_->basic_blocks().begin();
+  for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
+    BasicCodeBlock* code_bb = BasicCodeBlock::Cast(*bb_iter);
+    if (code_bb != NULL) {
+      if (!subgraph_->IsReachable(rm, code_bb))
+        code_bb->MarkAsPadding();
+    }
+  }
 }
 
 }  // namespace block_graph

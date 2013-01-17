@@ -38,8 +38,7 @@ class BasicBlockTest: public testing::Test {
   // and macro_block_ to play with.
   BasicBlockTest()
       : basic_code_block_(kBlockName),
-        basic_data_block_(kBlockName, BasicBlock::BASIC_DATA_BLOCK,
-                          kBlockData, kBlockSize),
+        basic_data_block_(kBlockName, kBlockData, kBlockSize),
         macro_block_(kBlockId, kMacroBlockType, kBlockSize, kBlockName) {
      basic_data_block_.set_label(BlockGraph::Label(
          "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));

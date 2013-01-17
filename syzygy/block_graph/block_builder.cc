@@ -486,8 +486,7 @@ bool MergeContext::CopyData(const BasicDataBlock* data_block,
                             Offset offset,
                             Block* new_block) {
   DCHECK(data_block != NULL);
-  DCHECK(data_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
-         data_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
+  DCHECK_EQ(BasicBlock::BASIC_DATA_BLOCK, data_block->type());
 
   // Get the target buffer.
   uint8* buffer = new_block->GetMutableData();

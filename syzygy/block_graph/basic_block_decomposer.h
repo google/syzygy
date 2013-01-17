@@ -65,15 +65,7 @@ namespace block_graph {
 //
 // The block to be decomposed must have been produced by a successful
 // PE decomposition (or some facsimile thereof).
-//
-// TODO(rogerm): Refactor the Disassembler interface to expose more callbacks.
-//     The BasicBlockDecomposer doesn't really have an IS-A relationship with
-//     the Disassembler, but inherits so as to over-ride the various event
-//     handlers the Disassembler exposes to itself. Private inheritance would
-//     fit nicely here, but is not allowed by the style guide. We could also
-//     create an adapter class that forwards the events, but that's about the
-//     same as fixing the Disassembler properly, hence this TODO.
-class BasicBlockDecomposer : public core::Disassembler {
+class BasicBlockDecomposer {
  public:
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef block_graph::BasicBlock BasicBlock;
@@ -107,10 +99,11 @@ class BasicBlockDecomposer : public core::Disassembler {
   typedef core::AddressSpace<Offset, size_t, BasicBlock*> BBAddressSpace;
   typedef BlockGraph::Block::SourceRange SourceRange;
   typedef BlockGraph::Size Size;
+  typedef std::set<Offset> JumpTargets;
 
   // Returns the source range that coincides with the data range
   // [@p offset, [@p offset + @p size) in the original block.
-  SourceRange GetSourceRange(Offset offset, Size size);
+  SourceRange GetSourceRange(Offset offset, Size size) const;
 
   // Find the basic block, and corresponding byte-range, that contains the
   // given offset.
@@ -131,24 +124,52 @@ class BasicBlockDecomposer : public core::Disassembler {
   //     splitting).
   BasicBlock* GetBasicBlockAt(Offset offset) const;
 
-  // Set up the queue of addresses to disassemble from as well as the set of
-  // internal jump targets. Called from the constructors.
-  void InitUnvisitedAndJumpTargets();
+  // Helper function to end the current basic block and begin a new one
+  // at @p offset. This is only to be used during disassembly.
+  bool EndCurrentBasicBlock(Offset end_offset);
 
-  // Overrides from Disassembler. See syzygy/core/disassembler.h for comments.
+  // Walk the function's code in a linear fashion, decomposing the block into
+  // code and data basic blocks forming an original address space.
+  bool Disassemble();
+
+  // Performs an initial linear pass at disassembling the code bytes of the
+  // block into rudimentary basic blocks. The initial set of basic blocks are
+  // each terminated at branch points. A subsequent pass will further split
+  // basic blocks at branch destinations, see SplitCodeBlocksAtBranchTargets().
+  bool ParseInstructions();
+
+  // @name Helpers for ParseInstructions().
   // @{
-  virtual CallbackDirective OnInstruction(AbsoluteAddress addr,
-                                          const _DInst& inst) OVERRIDE;
-  virtual CallbackDirective OnBranchInstruction(AbsoluteAddress addr,
-                                                const _DInst& inst,
-                                                AbsoluteAddress dest) OVERRIDE;
-  virtual CallbackDirective OnStartInstructionRun(
-      AbsoluteAddress start_address) OVERRIDE;
-  virtual CallbackDirective OnEndInstructionRun(
-      AbsoluteAddress addr,
-      const _DInst& inst,
-      ControlFlowFlag control_flow) OVERRIDE;
-  virtual CallbackDirective OnDisassemblyComplete() OVERRIDE;
+
+  // Initializes jump_targets_ to the set of referenced code locations.
+  // This covers all locations which are externally referenced, as well as
+  // those that are internally referenced via jump tables. These jump targets
+  // may be otherwise un-discoverable through disassembly.
+  // @param code_begin_offset the offset at which code bytes begin.
+  // @param code_end_offset the first offset above @p code_begin_offset at
+  //     which the bytes are no longer code.
+  void InitJumpTargets(Offset code_begin_offset, Offset code_end_offset);
+
+  // Decode the bytes at @p offset into @p instruction. This function takes
+  // into consideration the range of offsets which denote code.
+  // @param offset The offset of into block_ at which to start decoding.
+  // @param code_end_offset The offset at which the bytes cease to be code.
+  // @param instruction this value will be populated on success.
+  // @returns true on success; false otherwise.
+  // @note Used by ParseInstructions().
+  bool DecodeInstruction(Offset offset,
+                         Offset code_end_offset,
+                         Instruction* instruction) const;
+
+  // Called for each instruction, this creates the Instruction object
+  // corresponding to @p instruction, or terminates the current basic block
+  // if @p instruction is a branch point.
+  // @param instruction the decoded instruction.
+  // @param offset the offset at which @p instruction occurs in the block.
+  // @returns true on success; false otherwise.
+  // @note Used by ParseInstructions().
+  bool HandleInstruction(const Instruction& instruction, Offset offset);
+
   // @}
 
   // @name Validation functions.
@@ -181,11 +202,6 @@ class BasicBlockDecomposer : public core::Disassembler {
   // @returns true on success.
   bool FillInDataBlocks();
 
-  // Fills in all gaps in the range
-  // [code_addr_, code_addr_ + code_size_[ with padding basic blocks.
-  // @returns true on success.
-  bool FillInPaddingBlocks();
-
   // Propagate the referrers from the original block into the basic blocks
   // so that referrers can be tracked as the basic blocks are manipulated.
   bool CopyExternalReferrers();
@@ -203,8 +219,11 @@ class BasicBlockDecomposer : public core::Disassembler {
   // Resolve intra-block control flow references and referrers.
   bool ResolveSuccessors();
 
+  // Convert any unreachable code basic block into padding basic blocks.
+  void MarkUnreachableCodeAsPadding();
+
   // Inserts a basic block range into the decomposition.
-  bool InsertBasicBlockRange(AbsoluteAddress addr,
+  bool InsertBasicBlockRange(Offset offset,
                              size_t size,
                              BasicBlockType type);
 
@@ -219,10 +238,10 @@ class BasicBlockDecomposer : public core::Disassembler {
 
   // Tracks locations our conditional branches jump to. Used to fix up basic
   // blocks by breaking up those that have a jump target in the middle.
-  AddressSet jump_targets_;
+  JumpTargets jump_targets_;
 
-  // The start of the current basic block during a walk.
-  AbsoluteAddress current_block_start_;
+  // The start offset of the current basic block during a walk.
+  Offset current_block_start_;
 
   // The list of instructions in the current basic block.
   BasicBlock::Instructions current_instructions_;

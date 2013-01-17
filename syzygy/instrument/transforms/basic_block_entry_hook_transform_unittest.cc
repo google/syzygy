@@ -115,13 +115,14 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
     BasicBlockDecomposer bb_decomposer(&block, &subgraph);
     ASSERT_TRUE(bb_decomposer.Decompose());
 
-    // Check if each basic block begins with the instrumentation sequence.
+    // Check if each non-padding basic code-block begins with the
+    // instrumentation sequence.
     size_t num_basic_blocks = 0;
     BasicBlockSubGraph::BBCollection::const_iterator bb_iter =
         subgraph.basic_blocks().begin();
     for (; bb_iter != subgraph.basic_blocks().end(); ++bb_iter) {
       const BasicCodeBlock* bb = BasicCodeBlock::Cast(*bb_iter);
-      if (bb == NULL)
+      if (bb == NULL || bb->type() == BasicBlock::BASIC_PADDING_BLOCK)
         continue;
       ++num_basic_blocks;
       ASSERT_LE(3U, bb->instructions().size());

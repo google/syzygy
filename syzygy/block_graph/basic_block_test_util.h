@@ -47,13 +47,13 @@ namespace testing {
 // block subgraph the layout is as follows:
 //
 // BB0: offset 0, code, assembly_func, 4 instructions, 0 successors
-// BB1: offset 23, padding (unreachable code)
+// BB1: offset 23, code/padding (unreachable code)
 // BB2: offset 24, code, case_0, 2 instructions, 1 successor
 // BB3: offset 31, code, sub eax to jnz, 1 instruction, 2 successors
 // BB4: offset 36, code, ret, 1 instruction, 0 successors
 // BB5: offset 37, code, case_1, 1 instruction, 1 successor
 // BB6: offset 42, code, case_default, 2 instructions, 0 successors
-// BB7: offset 49, code, interrupt_label, 1 instruction, 0 successors
+// BB7: offset 49, code/padding, interrupt_label, 3 instruction, 0 successors
 // BB8: offset 50, data, jump_table, 12 bytes
 // BB9: offset 62, data, case_table, 256 bytes
 class BasicBlockTest : public ::testing::Test {
@@ -71,9 +71,9 @@ class BasicBlockTest : public ::testing::Test {
   // The number and type of basic blocks.
   // TODO(rogerm): The padding block will go away once the decomposer switches
   //     to doing a straight disassembly of the entire code region.
-  static const size_t kNumCodeBasicBlocks = 7;
+  static const size_t kNumCodeBasicBlocks = 6;
   static const size_t kNumDataBasicBlocks = 2;
-  static const size_t kNumPaddingBasicBlocks = 1;
+  static const size_t kNumPaddingBasicBlocks = 2;
   static const size_t kNumBasicBlocks =
       kNumCodeBasicBlocks + kNumDataBasicBlocks + kNumPaddingBasicBlocks;
 

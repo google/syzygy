@@ -107,7 +107,6 @@ class BasicBlockSubGraph {
 
   // Add a new basic data block to the sub-graph.
   // @param name A textual identifier for this basic block.
-  // @param type The disposition (code, data, padding) of this basic block.
   // @param size The number of bytes this basic block occupied in the original
   //     block. Set to 0 if this is a generated basic block.
   // @param data The underlying data representing the basic data block.
@@ -116,7 +115,6 @@ class BasicBlockSubGraph {
   //     ERROR. Ownership of the returned basic-block (if any) is retained
   //     by the composition.
   BasicDataBlock* AddBasicDataBlock(const base::StringPiece& name,
-                                    BasicBlockType type,
                                     Size size,
                                     const uint8* data);
 

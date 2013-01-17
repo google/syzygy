@@ -146,16 +146,14 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_EQ(1u, bbs_[0]->alignment());
 
   // Basic-block 1 - unreachable-label.
-  // TODO(rogerm): This is classified as padding for now, it will become code
-  //     once the decomposer switches to just doing a straight disassembly of
-  //     the entire code region.
   ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bbs_[1]));
   ASSERT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bbs_[1]->type());
-  // ASSERT_EQ(1u, bbs_[1]->instructions().size());
-  // ASSERT_EQ(1u, bbs_[1]->successors().size());;
-  // ASSERT_EQ(bbs_[2],
-  //           bbs_[1]->successors().front().reference().basic_block());
-  ASSERT_EQ(1u, bbs_[1]->alignment());
+  BasicCodeBlock* bb1 = BasicCodeBlock::Cast(bbs_[1]);
+  ASSERT_EQ(1u, bb1->instructions().size());
+  ASSERT_EQ(1u, bb1->successors().size());;
+  ASSERT_EQ(bbs_[2],
+            bb1->successors().front().reference().basic_block());
+  ASSERT_EQ(1u, bb1->alignment());
 
   // Basic-block 2 - case_0.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[2]));
@@ -214,7 +212,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 7 - interrupt_label.
   ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bbs_[7]));
-  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[7]->type());
+  ASSERT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bbs_[7]->type());
   BasicCodeBlock* bb7 = BasicCodeBlock::Cast(bbs_[7]);
   ASSERT_TRUE(bb7 != NULL);
   ASSERT_EQ(3u, bb7->instructions().size());
@@ -275,8 +273,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
     if (data_block != NULL) {
       ASSERT_TRUE(code_block == NULL);
-      ASSERT_TRUE(data_block->type() == BasicBlock::BASIC_DATA_BLOCK ||
-                  data_block->type() == BasicBlock::BASIC_PADDING_BLOCK);
+      ASSERT_TRUE(data_block->type() == BasicBlock::BASIC_DATA_BLOCK);
       ASSERT_EQ(next_addr, data_block->source_range().start());
       ASSERT_EQ(data_block->size(), data_block->source_range().size());
 
