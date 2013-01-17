@@ -386,12 +386,68 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 namespace agent {
 namespace asan {
 
-// Report a bad @p access_mode access of @p access_size at the address
-// @p location.
-void __stdcall ReportBadMemoryAccess(const uint8* location,
-                                     HeapProxy::AccessMode access_mode,
-                                     size_t access_size) {
+// Represent the content of the stack before calling the error function.
+// The original_* fields store the value of the registers as they were before
+// calling the asan hook, the do_not_use_* values are some stack variables used
+// by asan but shouldn't be used to produce the stack trace.
+// NOTE: As this structure describes the state of the stack at the time
+// ReportBadMemoryAccess is called. It is intimately tied to the implementation
+// of the asan_check functions.
+#pragma pack(push, 1)
+struct AsanContext {
+  DWORD original_edi;
+  DWORD original_esi;
+  DWORD original_ebp;
+  DWORD do_not_use_esp;
+  DWORD original_ebx;
+  DWORD original_edx;
+  DWORD original_ecx;
+  DWORD do_not_use_eax;
+  // This is the location of the bad access for this context.
+  void* location;
+  DWORD original_eflags;
+  DWORD original_eip;
+  DWORD original_eax;
+};
+#pragma pack(pop)
+
+// Report a bad access to the memory.
+// @param access_mode The mode of the access.
+// @param access_size The size of the access.
+// @param asan_context The context of the access.
+void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
+                                     size_t access_size,
+                                     struct AsanContext* asan_context) {
   base::AutoLock lock(heap_proxy_list_lock);
+
+  // Capture the context and restore the value of the register as before calling
+  // the asan hook.
+
+  // Capture the current context.
+  CONTEXT context = {};
+  context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
+
+  // Restore the original value of the flags.
+  context.Eip = asan_context->original_eip;
+  context.Eax = asan_context->original_eax;
+  context.Ecx = asan_context->original_ecx;
+  context.Edx = asan_context->original_edx;
+  context.Ebx = asan_context->original_ebx;
+  context.Ebp = asan_context->original_ebp;
+  context.Esi = asan_context->original_esi;
+  context.Edi = asan_context->original_edi;
+  context.EFlags = asan_context->original_eflags;
+
+  // Our AsanContext structure is in fact the whole stack frame for the asan
+  // hook, to compute the value of esp before the call to the hook we can just
+  // calculate the top address of this structure.
+  context.Esp = reinterpret_cast<DWORD>(asan_context) + sizeof(asan_context);
+
+  // TODO(sebmarchand): Pass this context to the logger once it supports it. As
+  //     StackWalk64 might modify this context we should give it a copy of it.
+
+  // Print the base of the Windbg help message.
+  ASANDbgMessage(L"An Asan error has been found, here are the details:");
 
   // Iterates over the HeapProxy list to find the memory block containing this
   // address. We expect that there is at least one heap proxy extant.
@@ -405,18 +461,24 @@ void __stdcall ReportBadMemoryAccess(const uint8* location,
     }
 
     proxy = HeapProxy::FromListEntry(item);
-    if (proxy->OnBadAccess(location, access_mode, access_size))
+    if (proxy->OnBadAccess(asan_context->location, access_mode, access_size))
       break;
 
     item = next_item;
   }
+
   // If item is NULL then we went through the list without finding the heap
   // from which this address was allocated. We can just reuse the logger of
   // the last heap proxy we saw to report an "unknown" error.
   if (item == NULL) {
     CHECK(proxy != NULL);
-    proxy->ReportUnknownError(location, access_mode, access_size);
+    proxy->ReportUnknownError(asan_context->location, access_mode, access_size);
   }
+
+  // Switch to the caller's context and print its stack trace in Windbg.
+  ASANDbgMessage(L"Caller's context and stack trace:");
+  ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
+
   // Call the callback to handle this error.
   DCHECK_EQ(false, asan_callback.is_null());
   asan_callback.Run();
@@ -470,12 +532,17 @@ void __stdcall ReportBadMemoryAccess(const uint8* location,
       __asm popfd  \
       __asm ret 4  \
     __asm report_failure:  \
-      /* Push the access size, mode and address and call the function to */  \
-      /* report the error. */  \
+      /* Push all the register to have the full asan context on the stack.*/  \
+      __asm pushad  \
+      /* Push a pointer to this context. */  \
+      __asm push esp  \
+      /* Push the access size. */  \
       __asm push access_size  \
+      /* Push the access type. */  \
       __asm push access_mode_value  \
-      __asm push DWORD ptr[esp + 8]  \
+      /* Call the error handler. */  \
       __asm call agent::asan::ReportBadMemoryAccess  \
+      __asm popad  \
       __asm jmp restore_eax_and_flags  \
     }  \
   }

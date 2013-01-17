@@ -35,6 +35,15 @@ class AsanLogger;
 class StackCapture;
 class StackCaptureCache;
 
+// An helper function to send a command to Windbg. Windbg should first receive
+// the ".ocommand ASAN" command to treat those messages as commands.
+// TODO(sebmarchand): Move this function and the following one to the
+//     AsanRuntime class once it's ready.
+void ASANDbgCmd(const wchar_t* fmt, ...);
+
+// An helper function to print a message to Windbg's console.
+void ASANDbgMessage(const wchar_t* fmt, ...);
+
 // Makes like a Win32 heap manager heap, but adds a redzone before and after
 // each allocation and maintains a quarantine list of freed blocks.
 class HeapProxy {

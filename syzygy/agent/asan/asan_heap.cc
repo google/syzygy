@@ -55,6 +55,38 @@ class HeapLocker {
 // Arbitrarily keep 16 megabytes of quarantine per heap by default.
 size_t HeapProxy::default_quarantine_max_size_ = 16 * 1024 * 1024;
 
+void ASANDbgCmd(const wchar_t* fmt, ...) {
+  // The string should start with "ASAN" to be interpreted by the debugger as a
+  // command.
+  std::wstring command_wstring = L"ASAN ";
+  va_list args;
+  va_start(args, fmt);
+
+  // Append the actual command to the wstring.
+  base::StringAppendV(&command_wstring, fmt, args);
+
+  // Append "; g" to make sure that the debugger continue its execution after
+  // executing this command. This is needed because when the .ocommand function
+  // is used under Windbg the debugger will break on OutputDebugString.
+  command_wstring.append(L"; g");
+
+  OutputDebugString(command_wstring.c_str());
+}
+
+void ASANDbgMessage(const wchar_t* fmt, ...) {
+  // Prepend the message with the .echo command so it'll be printed into the
+  // debugger's console.
+  std::wstring message_wstring = L".echo ";
+  va_list args;
+  va_start(args, fmt);
+
+  // Append the actual message to the wstring.
+  base::StringAppendV(&message_wstring, fmt, args);
+
+  // Treat the message as a command to print it.
+  ASANDbgCmd(message_wstring.c_str());
+}
+
 HeapProxy::HeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
     : heap_(NULL),
       stack_cache_(stack_cache),
@@ -495,6 +527,22 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
                       bad_access_kind,
                       access_mode,
                       access_size);
+
+  // Print the Windbg information to display the allocation stack if present.
+  if (header->alloc_stack != NULL) {
+    ASANDbgMessage(L"Allocation stack trace:");
+    ASANDbgCmd(L"dps %p l%d",
+               header->alloc_stack->frames(),
+               header->alloc_stack->num_frames());
+  }
+
+  // Print the Windbg information to display the free stack if present.
+  if (header->free_stack != NULL) {
+    ASANDbgMessage(L"Free stack trace:");
+    ASANDbgCmd(L"dps %p l%d",
+               header->free_stack->frames(),
+               header->free_stack->num_frames());
+  }
 
   ReportAddressInformation(addr, header, bad_access_kind);
 }
