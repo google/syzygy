@@ -90,19 +90,23 @@ class HeapProxy {
 
   // Report a bad access to the heap.
   // @param addr The red-zoned address causing a bad access.
+  // @param context The context at which the access occurred.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
   // @returns true if the address belongs to a memory block, false otherwise.
   bool OnBadAccess(const void* addr,
+                   const CONTEXT& context,
                    AccessMode access_mode,
                    size_t access_size);
 
   // Report an unknown error while attempting to access a red-zoned heap
   // address.
   // @param addr The address causing an error.
+  // @param context The context at which the access occurred.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
   void ReportUnknownError(const void* addr,
+                          const CONTEXT& context,
                           AccessMode access_mode,
                           size_t access_size);
 
@@ -212,11 +216,13 @@ class HeapProxy {
   // being accessed when the error occurred.
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
+  // @param context The context at which the access occurred.
   // @param bad_access_kind The kind of error.
   // @param access_mode The mode of the access (read or write).
   // @param access_size The size of the access (in bytes).
   void ReportAsanErrorBase(const char* bug_descr,
                            const void* addr,
+                           const CONTEXT& context,
                            BadAccessKind bad_access_kind,
                            AccessMode access_mode,
                            size_t access_size);
@@ -225,12 +231,14 @@ class HeapProxy {
   // address being accessed when the error occurred.
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
+  // @param context The context at which the access occurred.
   // @param bad_access_kind The kind of error.
   // @param header The header of the block containing this address.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
   void ReportAsanError(const char* bug_descr,
                        const void* addr,
+                       const CONTEXT& context,
                        BadAccessKind bad_access_kind,
                        BlockHeader* header,
                        AccessMode access_mode,

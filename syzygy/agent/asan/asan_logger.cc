@@ -34,7 +34,37 @@ using trace::client::GetInstanceString;
 
 AsanLogger* logger_instance = NULL;
 
+void InitExecutionContext(const CONTEXT& rtl_context,
+                          ExecutionContext* exc_context) {
+  DCHECK(exc_context != NULL);
+
+  exc_context->edi = rtl_context.Edi;
+  exc_context->esi = rtl_context.Esi;
+  exc_context->ebx = rtl_context.Ebx;
+  exc_context->edx = rtl_context.Edx;
+  exc_context->ecx = rtl_context.Ecx;
+  exc_context->eax = rtl_context.Eax;
+  exc_context->ebp = rtl_context.Ebp;
+  exc_context->eip = rtl_context.Eip;
+  exc_context->seg_cs = rtl_context.SegCs;
+  exc_context->eflags = rtl_context.EFlags;
+  exc_context->esp = rtl_context.Esp;
+  exc_context->seg_ss = rtl_context.SegSs;
 }
+
+void LogToFile(FILE* dest,
+               const std::string& message,
+               const base::debug::StackTrace* trace) {
+  const char* format_str =  "%s%s";
+  if (!message.empty() && message.back() != '\n')
+    format_str = "%s\n%s";
+  ::fprintf(dest,
+            format_str,
+            message.c_str(),
+            trace == NULL ? "" : trace->ToString().c_str());
+}
+
+}  // namespace
 
 AsanLogger::AsanLogger() {
 }
@@ -71,11 +101,30 @@ void AsanLogger::Write(const std::string& message) {
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()));
   } else {
-    // Otherwise, log to stderr.
-     ::fprintf(stderr, "%s", message.c_str());
+    LogToFile(stderr, message, NULL);
   }
 }
 
+void AsanLogger::WriteWithContext(const std::string& message,
+                                  const CONTEXT& context) {
+  // If we're bound to a logging endpoint, log the message there.
+  if (rpc_binding_.Get() != NULL) {
+    ExecutionContext exec_context = {};
+    InitExecutionContext(context, &exec_context);
+    trace::client::InvokeRpc(
+        &LoggerClient_WriteWithContext,
+        rpc_binding_.Get(),
+        reinterpret_cast<const unsigned char*>(message.c_str()),
+        &exec_context);
+  } else {
+    // Otherwise, log to stderr.
+    EXCEPTION_RECORD dummy_exc_record = {};
+    CONTEXT context_copy = context;
+    EXCEPTION_POINTERS pointers = { &dummy_exc_record, &context_copy };
+    base::debug::StackTrace trace(&pointers);
+    LogToFile(stderr, message, &trace);
+  }
+}
 
 void AsanLogger::WriteWithStackTrace(const std::string& message,
                                      const void * const * trace_data,
@@ -90,11 +139,8 @@ void AsanLogger::WriteWithStackTrace(const std::string& message,
         trace_length);
   } else {
     // Otherwise, log to stderr.
-    const char* format_str =  "%s%s";
-    if (!message.empty() && message.back() != '\n')
-      format_str = "%s\n%s";
     base::debug::StackTrace trace(trace_data, trace_length);
-    ::fprintf(stderr, format_str, message.c_str(), trace.ToString().c_str());
+    LogToFile(stderr, message, &trace);
   }
 }
 

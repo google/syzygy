@@ -107,10 +107,12 @@ HeapProxy::~HeapProxy() {
 }
 
 HANDLE HeapProxy::ToHandle(HeapProxy* proxy) {
+  DCHECK(proxy != NULL);
   return proxy;
 }
 
 HeapProxy* HeapProxy::FromHandle(HANDLE heap) {
+  DCHECK(heap != NULL);
   return reinterpret_cast<HeapProxy*>(heap);
 }
 
@@ -211,11 +213,14 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     // is only applied to block after invalidating their magic number and freed
     // them.
     DCHECK(block->state == QUARANTINED);
+
     BadAccessKind bad_access_kind =
         GetBadAccessKind(static_cast<const uint8*>(mem), block);
     DCHECK_NE(UNKNOWN_BAD_ACCESS, bad_access_kind);
+    CONTEXT context = {};
+    ::RtlCaptureContext(&context);
     ReportAsanError("attempting double-free", static_cast<const uint8*>(mem),
-        bad_access_kind, block, ASAN_UNKNOWN_ACCESS, 0);
+                    context, bad_access_kind, block, ASAN_UNKNOWN_ACCESS, 0);
 
     return false;
   }
@@ -324,6 +329,7 @@ void HeapProxy::PopQuarantineUnlocked() {
 }
 
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
+  DCHECK(block != NULL);
   base::AutoLock lock(lock_);
   FreeBlockHeader* free_block = static_cast<FreeBlockHeader*>(block);
 
@@ -363,8 +369,10 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
   const BlockHeader* header =
       reinterpret_cast<const BlockHeader*>(mem -kRedZoneSize);
   if (header->magic_number != kBlockHeaderSignature) {
-    if (!OnBadAccess(mem, ASAN_UNKNOWN_ACCESS, 0)) {
-      ReportUnknownError(mem, ASAN_UNKNOWN_ACCESS, 0);
+    CONTEXT context = {};
+    ::RtlCaptureContext(&context);
+    if (!OnBadAccess(mem, context, ASAN_UNKNOWN_ACCESS, 0)) {
+      ReportUnknownError(mem, context, ASAN_UNKNOWN_ACCESS, 0);
       Shadow::PrintShadowMemoryForAddress(alloc);
     }
     return NULL;
@@ -374,6 +382,7 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
 }
 
 uint8* HeapProxy::ToAlloc(BlockHeader* block) {
+  DCHECK(block != NULL);
   DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
   DCHECK(block->state == ALLOCATED || block->state == QUARANTINED);
 
@@ -432,7 +441,10 @@ void HeapProxy::ReportAddressInformation(const void* addr,
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
-    BlockHeader* header) {
+                                                     BlockHeader* header) {
+  DCHECK(addr != NULL);
+  DCHECK(header != NULL);
+
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
 
   if (header->state == QUARANTINED) {
@@ -453,6 +465,7 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
 }
 
 HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
+  DCHECK(addr != NULL);
   PROCESS_HEAP_ENTRY heap_entry = {};
   memset(&heap_entry, 0, sizeof(heap_entry));
   BlockHeader* header = NULL;
@@ -479,8 +492,10 @@ HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
 }
 
 bool HeapProxy::OnBadAccess(const void* addr,
+                            const CONTEXT& context,
                             AccessMode access_mode,
                             size_t access_size) {
+  DCHECK(addr != NULL);
   base::AutoLock lock(lock_);
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
   BlockHeader* header = FindAddressBlock(addr);
@@ -494,6 +509,7 @@ bool HeapProxy::OnBadAccess(const void* addr,
     const char* bug_descr = AccessTypeToStr(bad_access_kind);
     ReportAsanError(bug_descr,
                     addr,
+                    context,
                     bad_access_kind,
                     header,
                     access_mode,
@@ -505,10 +521,13 @@ bool HeapProxy::OnBadAccess(const void* addr,
 }
 
 void HeapProxy::ReportUnknownError(const void* addr,
+                                   const CONTEXT& context,
                                    AccessMode access_mode,
                                    size_t access_size) {
+  DCHECK(addr != NULL);
   ReportAsanErrorBase("unknown-crash",
                       addr,
+                      context,
                       UNKNOWN_BAD_ACCESS,
                       access_mode,
                       access_size);
@@ -516,14 +535,18 @@ void HeapProxy::ReportUnknownError(const void* addr,
 
 void HeapProxy::ReportAsanError(const char* bug_descr,
                                 const void* addr,
+                                const CONTEXT& context,
                                 BadAccessKind bad_access_kind,
                                 BlockHeader* header,
                                 AccessMode access_mode,
                                 size_t access_size) {
+  DCHECK(bug_descr != NULL);
+  DCHECK(addr != NULL);
   DCHECK(header != NULL);
 
   ReportAsanErrorBase(bug_descr,
                       addr,
+                      context,
                       bad_access_kind,
                       access_mode,
                       access_size);
@@ -549,6 +572,7 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
 
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     const void* addr,
+                                    const CONTEXT& context,
                                     BadAccessKind bad_access_kind,
                                     AccessMode access_mode,
                                     size_t access_size) {
@@ -570,19 +594,8 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                         access_size);
   }
 
-  // Capture the current stack. We call the CaptureStackBackTrace function
-  // directly (instead of via a wrapper) to preserve the greatest number of
-  // frames we can capture.
-  ULONG stack_id = 0;
-  void* frames[StackCapture::kMaxNumFrames];
-  size_t num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
-
-  // In case we're not going to treat this as fatal, we might as well cache it.
-  ignore_result(stack_cache_->SaveStackTrace(stack_id, frames, num_frames));
-
   // Log the failure and stack.
-  logger_->WriteWithStackTrace(output, frames, num_frames);
+  logger_->WriteWithContext(output, context);
 }
 
 const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {

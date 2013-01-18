@@ -443,9 +443,6 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // calculate the top address of this structure.
   context.Esp = reinterpret_cast<DWORD>(asan_context) + sizeof(asan_context);
 
-  // TODO(sebmarchand): Pass this context to the logger once it supports it. As
-  //     StackWalk64 might modify this context we should give it a copy of it.
-
   // Print the base of the Windbg help message.
   ASANDbgMessage(L"An Asan error has been found, here are the details:");
 
@@ -461,8 +458,10 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
     }
 
     proxy = HeapProxy::FromListEntry(item);
-    if (proxy->OnBadAccess(asan_context->location, access_mode, access_size))
+    if (proxy->OnBadAccess(
+            asan_context->location, context, access_mode, access_size)) {
       break;
+    }
 
     item = next_item;
   }
@@ -472,7 +471,8 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // the last heap proxy we saw to report an "unknown" error.
   if (item == NULL) {
     CHECK(proxy != NULL);
-    proxy->ReportUnknownError(asan_context->location, access_mode, access_size);
+    proxy->ReportUnknownError(
+        asan_context->location, context, access_mode, access_size);
   }
 
   // Switch to the caller's context and print its stack trace in Windbg.

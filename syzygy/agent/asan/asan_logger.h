@@ -41,6 +41,11 @@ class AsanLogger {
   // Write a @p message to the logger.
   void Write(const std::string& message);
 
+  // Write a @p message to the logger, and have the logger include the most
+  // detailed and accurate stack trace it can derive given the execution
+  // @p context .
+  void WriteWithContext(const std::string& message, const CONTEXT& context);
+
   // Write a @p message to the logger, with an optional stack @p trace
   // containing @p trace_length elements.
   void WriteWithStackTrace(const std::string& message,
