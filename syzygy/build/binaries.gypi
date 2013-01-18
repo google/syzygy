@@ -43,6 +43,7 @@
       '<(PRODUCT_DIR)/run_in_snapshot_xp.exe',
       '<(PRODUCT_DIR)/simulate.exe',
       '<(PRODUCT_DIR)/wsdump.exe',
+      '<(PRODUCT_DIR)/zap_timestamps.exe',
 
       # Agents.
       '<(PRODUCT_DIR)/asan_rtl.dll',

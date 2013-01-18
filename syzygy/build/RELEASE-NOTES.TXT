@@ -1,0 +1,15 @@
+Syzygy Release Notes
+====================
+
+Version 0.2.13.0
+
+[r1284] Started keeping release notes.
+[r1283] SyzyASAN uses remote stack tracing in RPC logging service so as to get
+        accurate traces even in sandboxed code.
+[r1282] Much simplified straight-path decomposer.
+[r1281] SyzyASAN no longer corrupts IAT entries and NT headers size/start values
+        are properly calculated.
+[r1276] PDB/MSF files contain properly formatted free page maps.
+[r1272] zap_timestamps for normalizing PE/PDB pairs.
+[r1263] pdbfind for locating the PDB associated with a PE file.
+[r1261] Proper parsing of imported data symbols.

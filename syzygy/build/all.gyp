@@ -60,6 +60,7 @@
           'inputs': [
             'create_zip.py',
             'LICENSE.TXT',
+            'RELEASE-NOTES.TXT',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
             '<@(binaries)',
             '<@(experimental_binaries)',
@@ -74,6 +75,7 @@
             '<(PRODUCT_DIR)/binaries.zip',
             '--files',
             'LICENSE.TXT',
+            'RELEASE-NOTES.TXT',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
             '<@(binaries)',
             '--subdir',
