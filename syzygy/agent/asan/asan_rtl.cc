@@ -14,47 +14,24 @@
 
 #include <windows.h>  // NOLINT
 
-#include <algorithm>
-#include <list>
-
 #include "base/at_exit.h"
 #include "base/atomicops.h"
-#include "base/bind.h"
-#include "base/command_line.h"
-#include "base/environment.h"
-#include "base/logging.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
-#include "syzygy/agent/asan/asan_flags.h"
 #include "syzygy/agent/asan/asan_heap.h"
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/common/dlist.h"
-#include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/rpc/logger_rpc.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace {
 
-using agent::asan::AsanLogger;
-using agent::asan::FlagsManager;
+using agent::asan::AsanRuntime;
 using agent::asan::HeapProxy;
-using agent::asan::StackCaptureCache;
 
 // Our AtExit manager required by base.
-base::AtExitManager* at_exit = NULL;
+static base::AtExitManager* at_exit = NULL;
 
-// The shared logger instance that will be used by all heap proxies.
-AsanLogger* logger = NULL;
-
-// The shared stack cache instance that will be used by all heap proxies.
-StackCaptureCache* stack_cache = NULL;
-
-// The global asan callback functor.
-typedef base::Callback<void()> AsanCallBack;
-AsanCallBack asan_callback;
+// The asan runtime manager.
+static AsanRuntime* asan_runtime = NULL;
 
 // A helper function to find if an intrusive list contains a given entry.
 // @param list The list in which we want to look for the entry.
@@ -77,19 +54,6 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
   return false;
 }
 
-void OnAsanError() {
-  stack_cache->LogCompressionRatio();
-  ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
-}
-
-std::wstring GetInstanceId() {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  CHECK(env.get() != NULL);
-  std::string value;
-  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &value);
-  return UTF8ToWide(value);
-}
-
 void SetUpAtExitManager() {
   DCHECK(at_exit == NULL);
   at_exit = new base::AtExitManager();
@@ -97,41 +61,27 @@ void SetUpAtExitManager() {
 }
 
 void TearDownAtExitManager() {
+  DCHECK(at_exit != NULL);
   delete at_exit;
   at_exit = NULL;
 }
 
-void SetUpLogger() {
-  // Setup variables we're going to use.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  scoped_ptr<AsanLogger> client(new AsanLogger);
-  CHECK(env.get() != NULL);
-  CHECK(client.get() != NULL);
-
-  // Initialize the client.
-  std::string instance_id;
-  if (env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id))
-    client->set_instance_id(UTF8ToWide(instance_id));
-  client->Init();
-
-  // Register the client singleton instance.
-  logger = client.release();
+void SetUpAsanRuntime() {
+  DCHECK(asan_runtime == NULL);
+  asan_runtime = new AsanRuntime();
+  CHECK(asan_runtime != NULL);
+  std::wstring asan_flags_str;
+  if (!AsanRuntime::GetAsanFlagsEnvVar(&asan_flags_str)) {
+    LOG(ERROR) << "Error while trying to read Asan command line.";
+  }
+  asan_runtime->SetUp(asan_flags_str);
 }
 
-void TearDownLogger() {
-  delete logger;
-  logger = NULL;
-}
-
-void SetUpStackCache() {
-  DCHECK(stack_cache == NULL);
-  DCHECK(logger != NULL);
-  stack_cache = new StackCaptureCache(logger);
-}
-
-void TearDownStackCache() {
-  delete stack_cache;
-  stack_cache = NULL;
+void TearDownAsanRuntime() {
+  DCHECK(asan_runtime != NULL);
+  asan_runtime->TearDown();
+  delete asan_runtime;
+  asan_runtime = NULL;
 }
 
 }  // namespace
@@ -145,7 +95,9 @@ LIST_ENTRY heap_proxy_dlist = {};  // Under heap_proxy_list_lock.
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
                               SIZE_T maximum_size) {
-  scoped_ptr<HeapProxy> proxy(new HeapProxy(stack_cache, logger));
+  DCHECK(asan_runtime != NULL);
+  scoped_ptr<HeapProxy> proxy(new HeapProxy(asan_runtime->stack_cache(),
+                                            asan_runtime->logger()));
   if (!proxy->Create(options, initial_size, maximum_size))
     proxy.reset();
 
@@ -324,8 +276,8 @@ BOOL WINAPI asan_HeapQueryInformation(
 }
 
 void WINAPI asan_SetCallBack(void (*callback)()) {
-  asan_callback = base::Bind(callback);
-  return;
+  DCHECK(asan_runtime != NULL);
+  asan_runtime->SetErrorCallBack(callback);
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
@@ -334,17 +286,8 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // Create the At-Exit manager.
       SetUpAtExitManager();
 
-      // Initialize the command-line structures. This is needed so that
-      // SetUpLogger() can include the command-line in the message announcing
-      // this process. Note: this is mostly for debugging purposes.
-      CommandLine::Init(0, NULL);
-
-      // Setup the "global" state.
-      SetUpLogger();
-      SetUpStackCache();
+      SetUpAsanRuntime();
       InitializeListHead(&heap_proxy_dlist);
-      FlagsManager::Instance()->InitializeFlagsWithEnvVar();
-      asan_SetCallBack(&OnAsanError);
       process_heap = GetProcessHeap();
       break;
 
@@ -357,20 +300,13 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
-      DCHECK(stack_cache != NULL);
-      stack_cache->LogCompressionRatio();
-
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
       // and we're now just cleaning it up again.
-      DCHECK(asan_callback.is_null() == FALSE);
-      asan_callback.Reset();
-
       // In principle, we should also check that all the heaps have been
       // destroyed but this is not guaranteed to be the case in Chrome, so
       // the heap list may not be empty here.
-      TearDownStackCache();
-      TearDownLogger();
+      TearDownAsanRuntime();
       TearDownAtExitManager();
       break;
 
@@ -480,8 +416,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
 
   // Call the callback to handle this error.
-  DCHECK_EQ(false, asan_callback.is_null());
-  asan_callback.Run();
+  asan_runtime->OnError();
 }
 
 }  // namespace asan

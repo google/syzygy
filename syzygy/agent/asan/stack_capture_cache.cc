@@ -42,6 +42,7 @@ StackCaptureCache::StackCaptureCache(AsanLogger* logger)
       total_allocations_(0),
       cached_allocations_(0) {
   CHECK(current_page_ != NULL);
+  DCHECK(logger_ != NULL);
 }
 
 StackCaptureCache::~StackCaptureCache() {
