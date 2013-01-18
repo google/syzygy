@@ -1,5 +1,6 @@
 Syzygy Release Notes
 ====================
+
 Version 0.2.14.0
 
 [r1285] Small fix to binaries script.

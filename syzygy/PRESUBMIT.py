@@ -178,6 +178,23 @@ def CheckUnittestsRan(input_api, output_api, committing, configuration):
                                     message=_UNITTEST_MESSAGE % configuration)
 
 
+def CheckReleaseNotes(input_api, output_api, committing):
+  version_changed = False
+  release_notes_changed = False
+  for f in input_api.AffectedFiles(include_deletes=False):
+    p = f.LocalPath()
+    if p == os.path.join('syzygy', 'VERSION'):
+      version_changed = True
+    elif p == os.path.join('syzygy', 'build', 'RELEASE-NOTES.TXT'):
+      release_notes_changed = True
+
+  if version_changed and not release_notes_changed:
+    return [output_api.PresubmitPromptWarning(
+        'syzygy/build/RELEASE-NOTES.TXT needs to be updated.')]
+
+  return []
+
+
 def CheckChange(input_api, output_api, committing):
   # The list of (canned) checks we perform on all files in all changes.
   checks = [
@@ -212,6 +229,7 @@ def CheckChange(input_api, output_api, committing):
                                                   _LICENSE_HEADER,
                                                   source_file_filter=sources)
 
+  results += CheckReleaseNotes(input_api, output_api, committing)
   results += CheckUnittestsRan(input_api, output_api, committing, "Debug")
   results += CheckUnittestsRan(input_api, output_api, committing, "Release")
 
