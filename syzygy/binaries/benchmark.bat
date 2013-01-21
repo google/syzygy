@@ -1,6 +1,6 @@
 @echo off
 rem = """
-:: Copyright 2012 Google Inc.
+:: Copyright 2013 Google Inc.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import os
 
 # Prepend the eggs we need to our python path.
 _EGGS = [
-    'Benchmark_Chrome-0.1_r1152-py2.6.egg',
+    'Benchmark_Chrome-0.1_r1222-py2.6.egg',
     'ETW-0.6.5.0-py2.6.egg',
-    'ETW_Db-0.1_r844-py2.6.egg',
+    'ETW_Db-0.1_r1213-py2.6.egg',
     'setuptools-0.6c11-py2.6.egg',
   ]
 dir = os.path.dirname(__file__)
