@@ -178,21 +178,46 @@ def CheckUnittestsRan(input_api, output_api, committing, configuration):
                                     message=_UNITTEST_MESSAGE % configuration)
 
 
-def CheckReleaseNotes(input_api, output_api, committing):
-  version_changed = False
-  release_notes_changed = False
+def CheckEnforcedChanges(input_api, output_api, committing, enforced):
+  """Enforces changes based on the provided rules.
+
+  |enforced| is a list of 2-tuples, where each entry is a list of file
+  names relative to the repository root. If all of the files in
+  the first list have been changed, then all of the files in the second
+  list must also be changed.
+  """
+
+  errors = []
+
+  changed = {}
   for f in input_api.AffectedFiles(include_deletes=False):
-    p = f.LocalPath()
-    if p == os.path.join('syzygy', 'VERSION'):
-      version_changed = True
-    elif p == os.path.join('syzygy', 'build', 'RELEASE-NOTES.TXT'):
-      release_notes_changed = True
+    changed[f.LocalPath()] = True
 
-  if version_changed and not release_notes_changed:
-    return [output_api.PresubmitPromptWarning(
-        'syzygy/build/RELEASE-NOTES.TXT needs to be updated.')]
+  for (a, b) in enforced:
+    all_changed = all(changed.get(f, False) for f in a)
+    if not all_changed:
+      continue
 
-  return []
+    for f in b:
+      if f not in changed:
+        errors.append(output_api.PresubmitPromptWarning(
+            '%s needs to be updated.' % f))
+
+  return errors
+
+
+def CheckReleaseNotes(input_api, output_api, committing):
+  version = os.path.join('syzygy', 'VERSION')
+  release_notes = os.path.join('syzygy', 'build', 'RELEASE-NOTES.TXT')
+  return CheckEnforcedChanges(input_api, output_api, committing,
+                              [[[version], [release_notes]]])
+
+
+def CheckReadMe(input_api, output_api, committing):
+  binaries = os.path.join('syzygy', 'build', 'binaries.gypi')
+  readme = os.path.join('syzygy', 'build', 'README.TXT.template')
+  return CheckEnforcedChanges(input_api, output_api, committing,
+                              [[[binaries], [readme]]])
 
 
 def CheckChange(input_api, output_api, committing):
@@ -230,6 +255,7 @@ def CheckChange(input_api, output_api, committing):
                                                   source_file_filter=sources)
 
   results += CheckReleaseNotes(input_api, output_api, committing)
+  results += CheckReadMe(input_api, output_api, committing)
   results += CheckUnittestsRan(input_api, output_api, committing, "Debug")
   results += CheckUnittestsRan(input_api, output_api, committing, "Release")
 

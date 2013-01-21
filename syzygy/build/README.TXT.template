@@ -44,6 +44,14 @@ grinder.exe
 instrument.exe
   Instruments a PE file with a given agent.
 
+logger.exe
+  A RPC logging service. For use with ASAN instrumented binaries, accepting
+  error logs across process boundaries. Works for sandboxed processes, like
+  Chrome.
+
+pdbfind.exe
+  A utility for locating the PDB file that is matched to a given PE file.
+
 relink.exe
   Relinks a PE file after applying specified transformations. Combined with
   output from grinder and reorder this is used to apply optimizations to a
@@ -66,6 +74,12 @@ simulate.exe
 wsdump.exe
   Dumps the working set associated with a running process. The output is in
   JSON format.
+
+zap_timestamp.exe
+  A utility for normalizing a PE/PDB file pair after a build. Used as a post-
+  build step this should allow for production of identical binary outputs
+  given identical inputs. Typical outputs vary in the timestamp, and various
+  unique IDs and checksums.
 
 Instrumentation Agents
 ----------------------
