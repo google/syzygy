@@ -427,16 +427,50 @@ bool DumpSectionSym(FILE* out,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::SectionSym section = {};
+  size_t to_read = offsetof(cci::SectionSym, name);
+  size_t bytes_read = 0;
+  std::string section_name;
+  if (!stream->ReadBytes(&section, to_read, &bytes_read) ||
+      !ReadString(stream, &section_name) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "isec: %d\n", section.isec);
+  DumpIndentedText(out, indent_level, "align: %d\n", section.align);
+  DumpIndentedText(out, indent_level, "bReserved: %d\n", section.bReserved);
+  DumpIndentedText(out, indent_level, "rva: 0x%08X\n", section.rva);
+  DumpIndentedText(out, indent_level, "cb: %d\n", section.cb);
+  DumpIndentedText(out, indent_level, "characteristics: 0x%08X\n",
+                   section.characteristics);
+  DumpIndentedText(out, indent_level, "name: %s\n", section_name.c_str());
+
+  return true;
 }
 
 bool DumpCoffGroupSym(FILE* out,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::CoffGroupSym coff_group = {};
+  size_t to_read = offsetof(cci::CoffGroupSym, name);
+  size_t bytes_read = 0;
+  std::string coff_group_name;
+  if (!stream->ReadBytes(&coff_group, to_read, &bytes_read) ||
+      !ReadString(stream, &coff_group_name) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "cb: %d\n", coff_group.cb);
+  DumpIndentedText(out, indent_level, "characteristics: 0x%08X\n",
+                   coff_group.characteristics);
+  DumpIndentedText(out, indent_level, "off: %d\n", coff_group.off);
+  DumpIndentedText(out, indent_level, "seg: %d\n", coff_group.seg);
+  DumpIndentedText(out, indent_level, "name: %s\n", coff_group_name.c_str());
+
+  return true;
 }
 
 bool DumpExportSym(FILE* out,

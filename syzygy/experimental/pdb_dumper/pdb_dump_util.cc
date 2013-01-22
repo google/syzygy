@@ -39,7 +39,7 @@ bool DumpUnknownBlock(FILE* out,
     }
     DumpTabs(out, indent_level);
     for (size_t i = 0; i < bytes_just_read; ++i)
-      ::fprintf(out, "%X", buffer[i]);
+      ::fprintf(out, "%02X", buffer[i]);
     ::fprintf(out, "\n");
     bytes_read += bytes_just_read;
   }
