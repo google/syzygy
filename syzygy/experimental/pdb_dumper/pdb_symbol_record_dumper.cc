@@ -30,6 +30,30 @@ namespace cci = Microsoft_Cci_Pdb;
 
 namespace {
 
+template <typename SymbolType>
+bool ReadSymbolAndName(PdbStream* stream,
+                       uint16 len,
+                       SymbolType* symbol_out,
+                       std::string* name_out) {
+  DCHECK(stream != NULL);
+  DCHECK(len > 0);
+  DCHECK(symbol_out != NULL);
+  DCHECK(name_out != NULL);
+
+  // Note the zero-terminated name field must be the trailing field
+  // of the symbol.
+  size_t to_read = offsetof(SymbolType, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(symbol_out, to_read, &bytes_read) ||
+      !ReadString(stream, name_out) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+
+  return true;
+}
+
 // Return the string value associated with a symbol type.
 const char* SymbolTypeName(uint16 symbol_type) {
   switch (symbol_type) {
@@ -48,15 +72,10 @@ const char* SymbolTypeName(uint16 symbol_type) {
 // Dump a symbol record using RefSym2 struct to out.
 bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
   cci::RefSym2 symbol_info = {};
-  size_t to_read = offsetof(cci::RefSym2, name);
-  size_t bytes_read = 0;
   std::string symbol_name;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      !ReadString(stream, &symbol_name) ||
-      bytes_read != to_read) {
-    LOG(ERROR) << "Unable to read symbol record.";
+  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
     return false;
-  }
+
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
   DumpIndentedText(out, indent_level, "SUC: %d\n", symbol_info.sumName);
   DumpIndentedText(out, indent_level, "Offset: 0x%08X\n", symbol_info.ibSym);
@@ -70,16 +89,11 @@ bool DumpDatasSym32(FILE* out,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  size_t to_read = offsetof(cci::DatasSym32, name);
-  size_t bytes_read = 0;
   cci::DatasSym32 symbol_info = {};
   std::string symbol_name;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      !ReadString(stream, &symbol_name) ||
-      bytes_read != to_read) {
-    LOG(ERROR) << "Unable to read symbol record.";
+  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
     return false;
-  }
+
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
   DumpIndentedText(out, indent_level, "Type index: %d\n", symbol_info.typind);
   DumpIndentedText(out, indent_level, "Offset: 0x%08X\n", symbol_info.off);
@@ -213,15 +227,10 @@ bool DumpConstSym(FILE* out,
 
 bool DumpUdtSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
   cci::UdtSym symbol_info = {};
-  size_t to_read = offsetof(cci::UdtSym, name);
-  size_t bytes_read = 0;
   std::string symbol_name;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      !ReadString(stream, &symbol_name) ||
-      bytes_read != to_read) {
-    LOG(ERROR) << "Unable to read symbol record.";
+  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
     return false;
-  }
+
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
   DumpIndentedText(out, indent_level, "Type index: %d\n", symbol_info.typind);
   return true;
@@ -264,15 +273,10 @@ bool DumpThreadSym32(FILE* out,
                      uint16 len,
                      uint8 indent_level) {
   cci::ThreadSym32 symbol_info = {};
-  size_t to_read = offsetof(cci::ThreadSym32, name);
-  size_t bytes_read = 0;
   std::string symbol_name;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      !ReadString(stream, &symbol_name) ||
-      bytes_read != to_read) {
-    LOG(ERROR) << "Unable to read symbol record.";
+  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
     return false;
-  }
+
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
   DumpIndentedText(out, indent_level, "Offset: %d\n", symbol_info.off);
   DumpIndentedText(out, indent_level, "Segment: %d\n", symbol_info.seg);
@@ -428,15 +432,10 @@ bool DumpSectionSym(FILE* out,
                     uint16 len,
                     uint8 indent_level) {
   cci::SectionSym section = {};
-  size_t to_read = offsetof(cci::SectionSym, name);
-  size_t bytes_read = 0;
   std::string section_name;
-  if (!stream->ReadBytes(&section, to_read, &bytes_read) ||
-      !ReadString(stream, &section_name) ||
-      bytes_read != to_read) {
-    LOG(ERROR) << "Unable to read symbol record.";
+  if (!ReadSymbolAndName(stream, len, &section, &section_name))
     return false;
-  }
+
   DumpIndentedText(out, indent_level, "isec: %d\n", section.isec);
   DumpIndentedText(out, indent_level, "align: %d\n", section.align);
   DumpIndentedText(out, indent_level, "bReserved: %d\n", section.bReserved);
@@ -454,15 +453,10 @@ bool DumpCoffGroupSym(FILE* out,
                       uint16 len,
                       uint8 indent_level) {
   cci::CoffGroupSym coff_group = {};
-  size_t to_read = offsetof(cci::CoffGroupSym, name);
-  size_t bytes_read = 0;
   std::string coff_group_name;
-  if (!stream->ReadBytes(&coff_group, to_read, &bytes_read) ||
-      !ReadString(stream, &coff_group_name) ||
-      bytes_read != to_read) {
-    LOG(ERROR) << "Unable to read symbol record.";
+  if (!ReadSymbolAndName(stream, len, &coff_group, &coff_group_name))
     return false;
-  }
+
   DumpIndentedText(out, indent_level, "cb: %d\n", coff_group.cb);
   DumpIndentedText(out, indent_level, "characteristics: 0x%08X\n",
                    coff_group.characteristics);
