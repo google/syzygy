@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'syzygy_version',
@@ -34,7 +26,7 @@
         {
           'action_name': 'make_lastchange_gen',
           'inputs': [
-            '<(DEPTH)/build/util/lastchange.py'
+            '<(src)/build/util/lastchange.py'
           ],
           # We include a fake output target to ensure that this command
           # is always run as part of any build.
@@ -43,8 +35,8 @@
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'action': [
-            'python', '<(DEPTH)/build/util/lastchange.py',
-            '-s', '<(DEPTH)/syzygy',
+            '<(python_exe)', '<(src)/build/util/lastchange.py',
+            '-s', '<(src)/syzygy',
             '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
         },
@@ -52,19 +44,19 @@
           'action_name': 'make_version_gen',
           'inputs': [
             'version.gen.template',
-            '<(DEPTH)/sawbuck/tools/template_replace.py',
-            '<(DEPTH)/syzygy/VERSION',
+            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/VERSION',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/sawbuck/tools/template_replace.py',
+            '<(python_exe)',
+            '<(src)/sawbuck/tools/template_replace.py',
             '--input', 'version.gen.template',
             '--output', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
-            '<(DEPTH)/syzygy/VERSION',
+            '<(src)/syzygy/VERSION',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'process_outputs_as_sources': 1,
@@ -100,7 +92,7 @@
       ],
       'dependencies': [
         'syzygy_version',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(src)/sawbuck/common/common.gyp:common',
       ],
       # This target exports a hard dependency because it exposes
       # files that from syzygy_version that are included from compiles.
@@ -121,9 +113,9 @@
       ],
       'dependencies': [
         'common_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
   ],

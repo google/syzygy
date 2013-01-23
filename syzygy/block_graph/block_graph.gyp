@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'block_graph_lib',
@@ -54,9 +46,9 @@
         'typed_block_internal.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
       ],
     },
     {
@@ -72,10 +64,10 @@
       ],
       'dependencies': [
         'block_graph_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -99,12 +91,12 @@
       'dependencies': [
         'block_graph_lib',
         'block_graph_unittest_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
   ],

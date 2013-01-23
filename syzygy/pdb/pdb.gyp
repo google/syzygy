@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'pdb_lib',
@@ -58,8 +50,8 @@
         'pdb_writer.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
       ],
     },
     {
@@ -71,7 +63,7 @@
       ],
       'dependencies': [
         'pdb_lib',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -96,14 +88,14 @@
       'dependencies': [
         'pdb_lib',
         'pdb_unittest_utils',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:copy_test_dll',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/test_data/test_data.gyp:copy_test_dll',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
       'libraries': [
         'imagehlp.lib',

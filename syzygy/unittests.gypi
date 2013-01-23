@@ -17,7 +17,7 @@
 # dependency, and should correspond to an executable that will be created
 # in the output directory. For example:
 #
-#   '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
+#   '<(src)/syzygy/pdb/pdb.gyp:pdb_unittests',
 #
 # The target of this dependency rule is 'pdb_unittests', and it
 # corresponds to the executable '<build_dir>/Debug/pdb_unittests.exe'.
@@ -27,69 +27,69 @@
   'variables': {
     'unittests': [
       # Common tests.
-      '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_unittests',
+      '<(src)/syzygy/agent/common/common.gyp:agent_common_unittests',
 
       # Agent tests.
-      '<(DEPTH)/syzygy/agent/asan/asan.gyp:asan_rtl_unittests',
-      '<(DEPTH)/syzygy/agent/coverage/coverage.gyp:coverage_unittests',
-      '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
-      '<(DEPTH)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
+      '<(src)/syzygy/agent/asan/asan.gyp:asan_rtl_unittests',
+      '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_unittests',
+      '<(src)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
+      '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
           'basic_block_entry_unittests',
 
       # Block graph tests.
-      '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
-      '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
+      '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
+      '<(src)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
           'block_graph_transforms_unittests',
-      '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
+      '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
           'block_graph_orderers_unittests',
 
       # Common tests.
-      '<(DEPTH)/syzygy/common/common.gyp:common_unittests',
+      '<(src)/syzygy/common/common.gyp:common_unittests',
 
       # Core tests.
-      '<(DEPTH)/syzygy/core/core.gyp:core_unittests',
+      '<(src)/syzygy/core/core.gyp:core_unittests',
 
       # Grinder tests.
-      '<(DEPTH)/syzygy/grinder/grinder.gyp:grinder_unittests',
+      '<(src)/syzygy/grinder/grinder.gyp:grinder_unittests',
 
       # Instrumenter tests.
-      '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument_unittests',
+      '<(src)/syzygy/instrument/instrument.gyp:instrument_unittests',
 
       # PDB tests.
-      '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittests',
+      '<(src)/syzygy/pdb/pdb.gyp:pdb_unittests',
 
       # pdbfind tests.
-      '<(DEPTH)/syzygy/pdbfind/pdbfind.gyp:pdbfind_unittests',
+      '<(src)/syzygy/pdbfind/pdbfind.gyp:pdbfind_unittests',
 
       # PE tests.
-      '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittests',
-      '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_unittests',
-      '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_unittests',
+      '<(src)/syzygy/pe/pe.gyp:pe_unittests',
+      '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_unittests',
+      '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_unittests',
 
       # Playback tests.
-      '<(DEPTH)/syzygy/playback/playback.gyp:playback_unittests',
+      '<(src)/syzygy/playback/playback.gyp:playback_unittests',
 
       # Relink tests.
-      '<(DEPTH)/syzygy/relink/relink.gyp:relink_unittests',
+      '<(src)/syzygy/relink/relink.gyp:relink_unittests',
 
       # Reorder tests.
-      '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_unittests',
+      '<(src)/syzygy/reorder/reorder.gyp:reorder_unittests',
 
       # Simulator tests.
-      '<(DEPTH)/syzygy/simulate/simulate.gyp:simulate_unittests',
+      '<(src)/syzygy/simulate/simulate.gyp:simulate_unittests',
 
       # Trace tests.
-      '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib_unittests',
-      '<(DEPTH)/syzygy/trace/logger/logger.gyp:logger_unittests',
-      '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittests',
-      '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_unittests',
-      '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_unittests',
+      '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib_unittests',
+      '<(src)/syzygy/trace/logger/logger.gyp:logger_unittests',
+      '<(src)/syzygy/trace/parse/parse.gyp:parse_unittests',
+      '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_unittests',
+      '<(src)/syzygy/trace/service/service.gyp:rpc_service_unittests',
 
       # WSDump tests.
-      '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
+      '<(src)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',
 
       # Zap Timestamp tests.
-      '<(DEPTH)/syzygy/zap_timestamp/zap_timestamp.gyp:zap_timestamp_unittests',
+      '<(src)/syzygy/zap_timestamp/zap_timestamp.gyp:zap_timestamp_unittests',
     ],
   }
 }

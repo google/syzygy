@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'etw_control_lib',
@@ -30,7 +22,7 @@
         'call_trace_control.h',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
     {
@@ -42,9 +34,9 @@
       ],
       'dependencies': [
         'etw_control_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
   ],

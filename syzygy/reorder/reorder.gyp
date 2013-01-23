@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'reorder_lib',
@@ -44,13 +36,13 @@
         'transforms/basic_block_layout_transform.h',
       ],
       'dependencies': [
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/grinder/grinder.gyp:grinder_lib',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/playback/playback.gyp:playback_lib',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/playback/playback.gyp:playback_lib',
       ],
     },
     {
@@ -62,18 +54,18 @@
       ],
       'dependencies': [
         'reorder_lib',
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
       'run_as': {
         'action': [
           '$(TargetPath)',
-          '--input-image=..\\reorder\\test_data\\test_dll.dll',
+          '--input-image=<(src)\\syzygy\\reorder\\test_data\\test_dll.dll',
           '--instrumented-image=$(OutDir)\\instrumented_test_dll.dll',
           '--output-file=$(OutDir)\\test_dll_order.json',
           '--output-stats',
           '--pretty-print',
-          '..\\reorder\\test_data\\call_trace.etl',
-          '..\\reorder\\test_data\\kernel.etl',
+          '<(src)\\syzygy\\reorder\\test_data\\call_trace.etl',
+          '<(src)\\syzygy\\reorder\\test_data\\kernel.etl',
         ]
       },
     },
@@ -92,21 +84,21 @@
         'reorder_unittests_main.cc',
         'reorderer_unittest.cc',
         'transforms/basic_block_layout_transform_unittest.cc',
-        '<(DEPTH)/syzygy/pe/unittest_util.cc',
-        '<(DEPTH)/syzygy/pe/unittest_util.h',
+        '<(src)/syzygy/pe/unittest_util.cc',
+        '<(src)/syzygy/pe/unittest_util.h',
       ],
       'dependencies': [
         'reorder_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:basic_block_entry_counts',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:copy_test_dll',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_instrumented_test_dll',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_traces',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/test_data/test_data.gyp:basic_block_entry_counts',
+        '<(src)/syzygy/test_data/test_data.gyp:copy_test_dll',
+        '<(src)/syzygy/test_data/test_data.gyp:rpc_instrumented_test_dll',
+        '<(src)/syzygy/test_data/test_data.gyp:rpc_traces',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     }
   ],

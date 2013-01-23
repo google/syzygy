@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'instrument_lib',
@@ -44,14 +36,14 @@
         'transforms/thunk_import_references_transform.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
             'block_graph_transforms_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
-        '<(DEPTH)/syzygy/relink/relink.gyp:relink_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
+        '<(src)/syzygy/relink/relink.gyp:relink_lib',
       ],
     },
     {
@@ -92,14 +84,14 @@
       ],
       'dependencies': [
         'instrument_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
       ],
     },
   ],

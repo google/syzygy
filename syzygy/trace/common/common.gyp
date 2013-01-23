@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +13,12 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'trace_unittest_utils',
       'type': 'static_library',
       'dependencies': [
-        '<(DEPTH)/testing/gtest.gyp:gtest'
+        '<(src)/testing/gtest.gyp:gtest'
       ],
       'sources': [
         'unittest_util.cc',

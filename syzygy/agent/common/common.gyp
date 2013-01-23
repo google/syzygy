@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'agent_common_lib',
@@ -35,10 +27,10 @@
         'thread_state.h',
       ],
       'dependencies': [
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
     {
@@ -51,13 +43,13 @@
       ],
       'dependencies': [
         'agent_common_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
       ],
       'libraries': [
         'imagehlp.lib',

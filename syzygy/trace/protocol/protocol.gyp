@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'protocol_lib',
@@ -30,7 +22,7 @@
         'call_trace_defs.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
     },
     {
@@ -42,7 +34,7 @@
       ],
       'dependencies': [
         'protocol_lib',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
   ],

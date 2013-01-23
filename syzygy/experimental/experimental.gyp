@@ -13,18 +13,15 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
   'targets': [
     {
       'target_name': 'experimental',
       'type': 'none',
       'dependencies': [
-        '<(DEPTH)/syzygy/experimental/code_tally/code_tally.gyp:*',
-        '<(DEPTH)/syzygy/experimental/compare/compare.gyp:*',
-        '<(DEPTH)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
-        '<(DEPTH)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
+        '<(src)/syzygy/experimental/code_tally/code_tally.gyp:*',
+        '<(src)/syzygy/experimental/compare/compare.gyp:*',
+        '<(src)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
+        '<(src)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
       ],
     },
   ]

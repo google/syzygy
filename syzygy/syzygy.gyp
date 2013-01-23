@@ -13,9 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
   'includes': [
     'unittests.gypi',
   ],
@@ -82,7 +79,7 @@
              'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
           ],
           'action': [
-            'python',
+            '<(python_exe)',
             'build/run_doxygen.py',
           ],
         },

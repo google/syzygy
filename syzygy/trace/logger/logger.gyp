@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'logger_lib',
@@ -34,10 +26,10 @@
         'logger_rpc_impl.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
       ],
     },
     {
@@ -50,9 +42,9 @@
       ],
       'dependencies': [
         'logger_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
       ],
     },
     {
@@ -64,8 +56,8 @@
       ],
       'dependencies': [
         'logger_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
       ],
     },
   ],

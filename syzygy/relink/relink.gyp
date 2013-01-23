@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'relink_lib',
@@ -30,14 +22,14 @@
         'relink_app.cc',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
-        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
-        '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
+        '<(src)/syzygy/reorder/reorder.gyp:reorder_lib',
       ],
     },
     {
@@ -69,13 +61,13 @@
       ],
       'dependencies': [
         'relink_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:test_dll_order_json',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/test_data/test_data.gyp:test_dll_order_json',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     }
   ],

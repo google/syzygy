@@ -1,4 +1,4 @@
-# Copyright 2011 Google Inc.
+# Copyright 2011 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
   'targets': [
     {
       'target_name': 'build_py_libs',
@@ -34,14 +31,14 @@
           'action_name': 'create_virtualenv',
           'msvs_cygwin_shell': 0,
           'inputs': [
-            '<(DEPTH)/syzygy/build/create_virtualenv.py',
+            '<(src)/syzygy/build/create_virtualenv.py',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/virtualenv-created.txt',
           ],
           'action': [
-            '"<(DEPTH)/third_party/python_26/python"',
-            '<(DEPTH)/syzygy/build/create_virtualenv.py',
+            '<(python_exe)',
+            '<(src)/syzygy/build/create_virtualenv.py',
             '--output-dir', '<(PRODUCT_DIR)/py',
             '--success-file', '<(PRODUCT_DIR)/virtualenv-created.txt',
           ],

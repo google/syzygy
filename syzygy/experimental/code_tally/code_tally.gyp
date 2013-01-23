@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'code_tally',
@@ -29,9 +21,9 @@
         'code_tally.cc',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/pe/pe.gyp:dia_sdk',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
       ],
     },
   ]

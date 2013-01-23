@@ -16,7 +16,23 @@
 # Syzygy tree.
 
 {
+  'variables': {
+    # All of our code is chromium code.
+    'chromium_code': 1,
+
+    # Make sure we use the bundled version of python rather than any others
+    # installed on the system,
+    'python_exe': '<(DEPTH)/third_party/python_26/python.exe',
+
+    # This allows us to decouple the repository root from '<(DEPTH)', as
+    # the relative depth of a pure git repository and an SVN repository
+    # is different.
+    'src': '<(DEPTH)',
+  },
   'target_defaults': {
+    'include_dirs': [
+      '<(DEPTH)',
+    ],
     'msvs_settings': {
       'VCCLCompilerTool': {
         # See http://msdn.microsoft.com/en-us/library/aa652260(v=vs.71).aspx

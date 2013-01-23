@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'simulate_lib',
@@ -35,12 +27,12 @@
         'simulator.h',
       ],
       'dependencies': [
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/playback/playback.gyp:playback_lib',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/playback/playback.gyp:playback_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
       ],
     },
     {
@@ -51,7 +43,7 @@
       ],
       'dependencies': [
         'simulate_lib',
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
     },
     {
@@ -65,14 +57,14 @@
       ],
       'dependencies': [
         'simulate_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:copy_test_dll',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:rpc_traces',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/test_data/test_data.gyp:copy_test_dll',
+        '<(src)/syzygy/test_data/test_data.gyp:rpc_traces',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
   ],

@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,29 +21,29 @@
       'type': 'none',
       'variables': {
         'etw_sources': [
-          '<(DEPTH)/sawbuck/py/etw/etw/__init__.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/consumer.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/controller.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/evntcons.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/evntrace.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/guiddef.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/provider.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/util.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/__init__.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/binary_buffer.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/event.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/field.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/fileio.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/image.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/pagefault.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/pagefault_xp.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/process.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/registry.py',
-          '<(DEPTH)/sawbuck/py/etw/etw/descriptors/thread.py',
+          '<(src)/sawbuck/py/etw/etw/__init__.py',
+          '<(src)/sawbuck/py/etw/etw/consumer.py',
+          '<(src)/sawbuck/py/etw/etw/controller.py',
+          '<(src)/sawbuck/py/etw/etw/evntcons.py',
+          '<(src)/sawbuck/py/etw/etw/evntrace.py',
+          '<(src)/sawbuck/py/etw/etw/guiddef.py',
+          '<(src)/sawbuck/py/etw/etw/provider.py',
+          '<(src)/sawbuck/py/etw/etw/util.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/__init__.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/binary_buffer.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/event.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/field.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/fileio.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/image.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/pagefault.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/pagefault_xp.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/process.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/registry.py',
+          '<(src)/sawbuck/py/etw/etw/descriptors/thread.py',
         ],
-        'setup_file': '<(DEPTH)/sawbuck/py/etw/setup.py',
+        'setup_file': '<(src)/sawbuck/py/etw/setup.py',
         'success_file': '<(PRODUCT_DIR)/ETW-egg-success.txt',
-        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
+        'script_file': '<(src)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<(script_file)',
@@ -51,7 +51,7 @@
         '<@(etw_sources)',
       ],
       'dependencies': [
-        '../py.gyp:virtualenv',
+        '<(src)/syzygy/py/py.gyp:virtualenv',
       ],
       'actions': [
         {
@@ -87,14 +87,14 @@
         ],
         'setup_file': 'setup.py',
         'success_file': '<(PRODUCT_DIR)/ETW-Db-egg-success.txt',
-        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
+        'script_file': '<(src)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<@(etw_db_sources)',
       ],
       'dependencies': [
         'etw',
-        '../py.gyp:virtualenv',
+        '<(src)/syzygy/py/py.gyp:virtualenv',
       ],
       'actions': [
         {

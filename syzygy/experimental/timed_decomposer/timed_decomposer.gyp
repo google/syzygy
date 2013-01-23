@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'timed_decomposer_lib',
@@ -30,8 +22,8 @@
         'timed_decomposer_app.h',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
     {

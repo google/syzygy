@@ -38,7 +38,8 @@
 #        'prefix': 'Foo',
 #        'midl_out_dir': '<(SHARED_INTERMEDIATE_DIR)/syzygy/foo',
 #      },
-#      'includes': ['../../build/midl_rpc.gypi'],
+#      # This path must be relative.
+#      'includes': ['../build/midl_rpc.gypi'],
 #      'sources': ['foo_rpc.idl'],
 #      'all_dependent_settings': {
 #        'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],

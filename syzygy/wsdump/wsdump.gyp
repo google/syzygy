@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'wsdump_lib',
@@ -30,7 +22,7 @@
         'process_working_set.cc'
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
     },
     {
@@ -42,10 +34,10 @@
       ],
       'dependencies': [
         'wsdump_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
     },
     {
@@ -57,11 +49,11 @@
       ],
       'dependencies': [
         'wsdump_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
     },
   ],

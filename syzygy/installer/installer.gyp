@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
 
 {
   'variables': {
-    'chromium_code': 1,
-    'candle_exe': '<(DEPTH)\\third_party\\wix\\files\\candle.exe',
-    'light_exe': '<(DEPTH)\\third_party\\wix\\files\\light.exe',
+    'candle_exe': '<(src)\\third_party\\wix\\files\\candle.exe',
+    'light_exe': '<(src)\\third_party\\wix\\files\\light.exe',
   },
   'targets': [
     {
@@ -24,8 +23,8 @@
       'type': 'none',
       'variables': {
         'binaries': [
-          '<(DEPTH)/third_party/debugging_tools/files/DbgHelp.dll',
-          '<(DEPTH)/third_party/debugging_tools/files/SymSrv.dll',
+          '<(src)/third_party/debugging_tools/files/DbgHelp.dll',
+          '<(src)/third_party/debugging_tools/files/SymSrv.dll',
           '<(PRODUCT_DIR)/call_trace_service.exe',
           '<(PRODUCT_DIR)/instrument.exe',
           '<(PRODUCT_DIR)/instrument.pdb',
@@ -47,29 +46,29 @@
         '<@(sources)',
       ],
       'dependencies': [
-        '../agent/profiler/profiler.gyp:profile_client',
-        '../grinder/grinder.gyp:grinder',
-        '../instrument/instrument.gyp:instrument',
-        '../trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
+        '<(src)/syzygy/grinder/grinder.gyp:grinder',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
       ],
       'msvs_cygwin_shell': 0,
       'actions': [
         {
           'action_name': 'make_version_wxi',
           'inputs': [
-            '<(DEPTH)/sawbuck/tools/template_replace.py',
-            '<(DEPTH)/syzygy/VERSION',
+            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/VERSION',
             'version.wxi.template',
           ],
           'outputs': [
             '<(INTERMEDIATE_DIR)/version.wxi',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/sawbuck/tools/template_replace.py',
+            '<(python_exe)',
+            '<(src)/sawbuck/tools/template_replace.py',
             '--input', 'version.wxi.template',
             '--output', '<(INTERMEDIATE_DIR)/version.wxi',
-            '../VERSION',
+            '<(src)/syzygy/VERSION',
           ],
           'process_outputs_as_sources': 1,
         },

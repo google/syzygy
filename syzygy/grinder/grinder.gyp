@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'grinder_lib',
@@ -51,12 +43,12 @@
         'profile_grinder.h',
       ],
       'dependencies': [
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:dia_sdk',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
       ],
     },
     {
@@ -78,13 +70,13 @@
       ],
       'dependencies': [
         'grinder_lib',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:basic_block_entry_traces',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:coverage_traces',
-        '<(DEPTH)/syzygy/test_data/test_data.gyp:profile_traces',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/test_data/test_data.gyp:basic_block_entry_traces',
+        '<(src)/syzygy/test_data/test_data.gyp:coverage_traces',
+        '<(src)/syzygy/test_data/test_data.gyp:profile_traces',
       ],
     },
     {

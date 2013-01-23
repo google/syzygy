@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'zap_timestamp_lib',
@@ -30,11 +22,11 @@
         'zap_timestamp.h',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:dia_sdk',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
       ],
     },
     {
@@ -46,8 +38,8 @@
       ],
       'dependencies': [
         'zap_timestamp_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {

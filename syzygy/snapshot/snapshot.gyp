@@ -1,4 +1,4 @@
-# Copyright 2010 Google Inc.
+# Copyright 2010 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'run_in_snapshot',
@@ -29,7 +21,7 @@
         'run_in_snapshot.cc'
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
       'libraries': [
         'vssapi.lib',
@@ -40,7 +32,7 @@
       # We bring this about by prepending the the VSS SDKs to the include and
       # library paths for this target.
       # Note, however that this needs the VSS SDK to be present in
-      # ..\..\third_party\vsssdk72\files. If the VSS SDK is not present
+      # <(src)\third_party\vsssdk72\files. If the VSS SDK is not present
       # there, the binary produced will be identical to the run_in_snapshot
       # binary, and will not successfully run on Windows XP.
       'target_name': 'run_in_snapshot_xp',
@@ -49,7 +41,7 @@
         'run_in_snapshot.cc'
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
       'libraries': [
         'vssapi.lib',
@@ -57,12 +49,12 @@
       'msvs_settings': {
         'VCCLCompilerTool': {
           'AdditionalIncludeDirectories+': [
-            '<(DEPTH)/third_party/vsssdk72/files/inc/winxp',
+            '<(src)/third_party/vsssdk72/files/inc/winxp',
           ],
         },
         'VCLinkerTool': {
           'AdditionalLibraryDirectories+': [
-            '<(DEPTH)/third_party/vsssdk72/files/lib/winxp/obj/i386',
+            '<(src)/third_party/vsssdk72/files/lib/winxp/obj/i386',
           ],
           'AdditionalDependencies': [
             'vssapi.lib',
@@ -79,7 +71,7 @@
         'run_in_snapshot.cc'
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base_nacl_win64',
+        '<(src)/base/base.gyp:base_nacl_win64',
       ],
       'libraries': [
         'vssapi.lib',

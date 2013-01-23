@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,26 +53,26 @@
         ],
         'setup_file': 'setup.py',
         'success_file': '<(PRODUCT_DIR)/Benchmark-egg-success.txt',
-        'script_file': '<(DEPTH)/syzygy/build/build_egg.py',
+        'script_file': '<(src)/syzygy/build/build_egg.py',
       },
       'sources': [
         '<@(benchmark_sources)',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
-        '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_client',
-        '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
-        '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
-        '<(DEPTH)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
-        '<(DEPTH)/syzygy/trace/etw_control/etw_control.gyp:call_trace_control',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
-        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
-        '<(DEPTH)/syzygy/relink/relink.gyp:relink',
-        '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder',
-        '<(DEPTH)/syzygy/py/py.gyp:virtualenv',
-        '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw',
-        '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw_db',
-        '<(DEPTH)/syzygy/wsdump/wsdump.gyp:wsdump',
+        '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
+        '<(src)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
+        '<(src)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
+        '<(src)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
+        '<(src)/syzygy/trace/etw_control/etw_control.gyp:call_trace_control',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/relink/relink.gyp:relink',
+        '<(src)/syzygy/reorder/reorder.gyp:reorder',
+        '<(src)/syzygy/py/py.gyp:virtualenv',
+        '<(src)/syzygy/py/etw_db/etw_db.gyp:etw',
+        '<(src)/syzygy/py/etw_db/etw_db.gyp:etw_db',
+        '<(src)/syzygy/wsdump/wsdump.gyp:wsdump',
       ],
       'actions': [
         {
@@ -105,9 +105,9 @@
       'type': 'none',
       'dependencies': [
         'benchmark',
-        '<(DEPTH)/sawbuck/py/etw/etw.gyp:etw',
-        '<(DEPTH)/syzygy/py/etw_db/etw_db.gyp:etw_db',
-        '<(DEPTH)/syzygy/scripts/scripts.gyp:setuptools',
+        '<(src)/sawbuck/py/etw/etw.gyp:etw',
+        '<(src)/syzygy/py/etw_db/etw_db.gyp:etw_db',
+        '<(src)/syzygy/scripts/scripts.gyp:setuptools',
       ],
       'actions': [
         {

@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'asan_rtl_lib',
@@ -38,8 +30,8 @@
         'stack_capture_cache.h',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
-        '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
+        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },
     {
@@ -52,11 +44,11 @@
       ],
       'dependencies': [
         'asan_rtl_lib',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/core/core.gyp:core_lib',
       ],
     },
     {
@@ -74,12 +66,12 @@
       'dependencies': [
         'asan_rtl',
         'asan_rtl_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/trace/logger/logger.gyp:logger_lib',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/trace/logger/logger.gyp:logger_lib',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
        ],
     },
   ],

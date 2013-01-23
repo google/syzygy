@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'block_graph_orderers_lib',
@@ -33,10 +25,10 @@
         'random_orderer.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
       ],
     },
     {
@@ -50,12 +42,12 @@
       ],
       'dependencies': [
         'block_graph_orderers_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
   ],

@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'pdb_dumper_lib',
@@ -41,10 +33,10 @@
         'pdb_type_info_stream_dumper.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
     {
@@ -55,8 +47,8 @@
       ],
       'dependencies': [
         'pdb_dumper_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
       ],
     },
   ],

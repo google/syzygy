@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'basic_block_entry_client',
@@ -32,12 +24,12 @@
         'basic_block_entry.rc',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
-        '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
       ],
     },
     {
@@ -49,17 +41,17 @@
       ],
       'dependencies': [
         'basic_block_entry_client',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
-        '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
+        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
        ],
     },
   ],

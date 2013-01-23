@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'rpc_client_lib',
@@ -32,9 +24,9 @@
         'rpc_session.h',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
     {
@@ -46,14 +38,14 @@
       ],
       'dependencies': [
         'rpc_client_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
-        '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
       ],
     },
   ],

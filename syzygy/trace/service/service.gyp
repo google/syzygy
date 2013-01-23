@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'rpc_service_lib',
@@ -43,9 +35,9 @@
         'trace_file_writer_factory.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
     {
@@ -60,15 +52,15 @@
       'dependencies': [
         'call_trace_service_exe',
         'rpc_service_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/trace/parse/parse.gyp:parse_lib',
-        '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
+        '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
       ],
     },
     {
@@ -81,9 +73,9 @@
       ],
       'dependencies': [
         'rpc_service_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

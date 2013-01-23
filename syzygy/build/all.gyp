@@ -14,7 +14,6 @@
 
 {
   'variables': {
-    'chromium_code': 1,
     # All files that should be archived after a
     # successful build are named here.
     'files_to_archive': [
@@ -38,7 +37,7 @@
       'target_name': 'archive_build_artifacts',
       'type': 'none',
       'dependencies': [
-        '<(DEPTH)/syzygy/syzygy.gyp:build_all',
+        '<(src)/syzygy/syzygy.gyp:build_all',
         'binaries_zip',
       ],
       'copies': [{
@@ -51,7 +50,7 @@
       'type': 'none',
       'dependencies': [
         'readme_txt',
-        '<(DEPTH)/syzygy/syzygy.gyp:build_all',
+        '<(src)/syzygy/syzygy.gyp:build_all',
       ],
       'actions': [
         {
@@ -69,7 +68,7 @@
             '<(PRODUCT_DIR)/binaries.zip',
           ],
           'action': [
-            'python',
+            '<(python_exe)',
             'create_zip.py',
             '--output',
             '<(PRODUCT_DIR)/binaries.zip',
@@ -94,7 +93,7 @@
       ],
       'dependencies': [
         # This generates the lastchange.gen file.
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
       'actions': [
         # Generate the timestamp.gen file.
@@ -110,7 +109,7 @@
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
           ],
           'action': [
-            'python',
+            '<(python_exe)',
             'timestamp.py',
             '--output',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
@@ -120,9 +119,9 @@
         {
           'action_name': 'make_readme_txt',
           'inputs': [
-            '<(DEPTH)/sawbuck/tools/template_replace.py',
-            '<(DEPTH)/syzygy/build/README.TXT.template',
-            '<(DEPTH)/syzygy/VERSION',
+            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/build/README.TXT.template',
+            '<(src)/syzygy/VERSION',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
           ],
@@ -130,13 +129,13 @@
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/sawbuck/tools/template_replace.py',
+            '<(python_exe)',
+            '<(src)/sawbuck/tools/template_replace.py',
             '--input',
-            '<(DEPTH)/syzygy/build/README.TXT.template',
+            '<(src)/syzygy/build/README.TXT.template',
             '--output',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
-            '<(DEPTH)/syzygy/VERSION',
+            '<(src)/syzygy/VERSION',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
           ],

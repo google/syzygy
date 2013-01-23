@@ -13,9 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
   'targets': [
     {
       'target_name': 'copy_test_dll',
@@ -24,7 +21,7 @@
       'sources': [
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
       ],
       'copies': [
         {
@@ -43,7 +40,7 @@
       'sources': [
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
         'copy_test_dll',
       ],
       'actions': [
@@ -79,7 +76,7 @@
       'sources': [
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
         'copy_test_dll',
       ],
       'actions': [
@@ -115,7 +112,7 @@
       'sources': [
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
         'copy_test_dll',
       ],
       'actions': [
@@ -153,7 +150,7 @@
       'sources': [
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
         'copy_test_dll',
       ],
       'actions': [
@@ -189,7 +186,7 @@
       'sources': [
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/relink/relink.gyp:relink',
+        '<(src)/syzygy/relink/relink.gyp:relink',
         'copy_test_dll'
       ],
       'actions': [
@@ -228,8 +225,8 @@
         'generate_traces.py',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         'rpc_instrumented_test_dll',
       ],
       'actions': [
@@ -240,7 +237,7 @@
             '<(PRODUCT_DIR)/call_trace_service.exe',
             '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
             '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
@@ -249,8 +246,8 @@
             '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(python_exe)',
+            '<(src)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/rpc_traces',
             '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
@@ -271,8 +268,8 @@
         'generate_traces.py',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/agent/profiler/profiler.gyp:profile_client',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         'profile_instrumented_test_dll',
       ],
       'actions': [
@@ -283,7 +280,7 @@
             '<(PRODUCT_DIR)/call_trace_service.exe',
             '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
             '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.pdb',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/profile_traces/trace-1.bin',
@@ -292,8 +289,8 @@
             '<(PRODUCT_DIR)/test_data/profile_traces/trace-4.bin',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(python_exe)',
+            '<(src)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/profile_traces',
             '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
@@ -313,7 +310,7 @@
       'dependencies': [
         'rpc_traces',
         'rpc_instrumented_test_dll',
-        '<(DEPTH)/syzygy/reorder/reorder.gyp:reorder',
+        '<(src)/syzygy/reorder/reorder.gyp:reorder',
       ],
       'actions': [
         {
@@ -351,8 +348,8 @@
         'generate_traces.py',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/agent/coverage/coverage.gyp:coverage_client',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_client',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         'coverage_instrumented_test_dll',
       ],
       'actions': [
@@ -363,7 +360,7 @@
             '<(PRODUCT_DIR)/call_trace_service.exe',
             '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
             '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.pdb',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/coverage_traces/trace-1.bin',
@@ -372,8 +369,8 @@
             '<(PRODUCT_DIR)/test_data/coverage_traces/trace-4.bin',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(python_exe)',
+            '<(src)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/coverage_traces',
             '--instrumented-image='
                 '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
@@ -394,9 +391,9 @@
         'generate_traces.py',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
+        '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         'basic_block_entry_instrumented_test_dll',
       ],
       'actions': [
@@ -409,7 +406,7 @@
                 'basic_block_entry_instrumented_test_dll.dll',
             '<(PRODUCT_DIR)/test_data/'
                 'basic_block_entry_instrumented_test_dll.pdb',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-1.bin',
@@ -418,8 +415,8 @@
             '<(PRODUCT_DIR)/test_data/basic_block_entry_traces/trace-4.bin',
           ],
           'action': [
-            'python',
-            '<(DEPTH)/syzygy/test_data/generate_traces.py',
+            '<(python_exe)',
+            '<(src)/syzygy/test_data/generate_traces.py',
             '--output-dir=<(PRODUCT_DIR)/test_data/basic_block_entry_traces',
             '--instrumented-image=<(PRODUCT_DIR)/test_data/'
                 'basic_block_entry_instrumented_test_dll.dll',
@@ -440,7 +437,7 @@
       ],
       'dependencies': [
         'basic_block_entry_traces',
-        '<(DEPTH)/syzygy/grinder/grinder.gyp:grinder',
+        '<(src)/syzygy/grinder/grinder.gyp:grinder',
       ],
       'actions': [
         {

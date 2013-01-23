@@ -1,4 +1,4 @@
-# Copyright 2009 Google Inc.
+# Copyright 2009 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
   'targets': [
     {
       # Add new unittests to this target as inputs.
@@ -35,7 +32,7 @@
         {
           'destination': '<(PRODUCT_DIR)',
           'files': [
-            '<(DEPTH)/third_party/setuptools/setuptools-0.6c11-py2.6.egg',
+            '<(src)/third_party/setuptools/setuptools-0.6c11-py2.6.egg',
           ]
         },
       ],

@@ -14,14 +14,8 @@
 
 {
   'variables': {
-    'chromium_code': 1,
     'dia_sdk_dir': '$(VSInstallDir)/DIA SDK',
     'dia_sdk_dll': 'msdia100.dll',
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
   },
   'targets': [
     {
@@ -104,18 +98,18 @@
       ],
       'dependencies': [
         'dia_sdk',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
+        '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
             'block_graph_orderers_lib',
-        '<(DEPTH)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
+        '<(src)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
             'block_graph_transforms_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_lib',
-        '<(DEPTH)/syzygy/pdb/pdb.gyp:pdb_lib',
-        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
-        '<(DEPTH)/third_party/pcre/pcre.gyp:pcre_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/third_party/distorm/distorm.gyp:distorm',
+        '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
       'all_dependent_settings': {
         'msvs_settings': {
@@ -142,7 +136,7 @@
       ],
       'dependencies': [
         'pe_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
     {
@@ -153,11 +147,11 @@
         'unittest_util.cc',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -190,16 +184,16 @@
         'pe_lib',
         'test_dll',
         'pe_unittest_utils',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
-        '<(DEPTH)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
+        '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
             'block_graph_orderers_lib',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
-        '<(DEPTH)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
+        '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -271,7 +265,7 @@
       'dependencies': [
         'pe_app_lib',
         'pe_lib',
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
       'run_as': {
         'working_directory': '$(ConfigurationDir)',
@@ -292,7 +286,7 @@
       'dependencies': [
         'pe_app_lib',
         'pe_lib',
-        '<(DEPTH)/base/base.gyp:base',
+        '<(src)/base/base.gyp:base',
       ],
       'run_as': {
         'working_directory': '$(ConfigurationDir)',

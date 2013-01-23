@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'core_lib',
@@ -50,10 +42,10 @@
         'zstream.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
-        '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/third_party/distorm/distorm.gyp:distorm',
+        '<(src)/third_party/zlib/zlib.gyp:zlib',
       ],
     },
     {
@@ -64,8 +56,8 @@
         'unittest_util.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -89,11 +81,11 @@
       'dependencies': [
         'core_lib',
         'core_unittest_utils',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/third_party/distorm/distorm.gyp:distorm',
-        '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/third_party/distorm/distorm.gyp:distorm',
+        '<(src)/third_party/zlib/zlib.gyp:zlib',
       ],
     },
   ],

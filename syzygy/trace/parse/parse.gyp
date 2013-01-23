@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'parse_lib',
@@ -36,7 +28,7 @@
         'parser.cc',
       ],
       'dependencies': [
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },
     {
@@ -47,10 +39,10 @@
       ],
       'dependencies': [
         'parse_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
       ],
       'libraries': [
         'imagehlp.lib',
@@ -64,8 +56,8 @@
         'unittest_util.h',
       ],
       'dependencies': [
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
       ],
     },
     {
@@ -81,18 +73,18 @@
       'dependencies': [
         'parse_lib',
         'parse_unittest_utils',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/sawbuck/common/common.gyp:common',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/sawbuck/common/common.gyp:common',
         # TODO(siggi,rogerm): Remove these "backward" dependencies.
-        '<(DEPTH)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/trace/common/common.gyp:trace_unittest_utils',
-        '<(DEPTH)/syzygy/trace/service/service.gyp:rpc_service_lib',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
+        '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/testing/gmock.gyp:gmock',
       ],
       'libraries': [
         'imagehlp.lib',

@@ -14,13 +14,9 @@
 
 {
   'variables': {
-    'chromium_code': 1,
     'midl_out_dir': '<(SHARED_INTERMEDIATE_DIR)/syzygy/trace/rpc',
   },
   'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
     'all_dependent_settings': {
       'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
     },
@@ -50,7 +46,7 @@
       ],
       'dependencies': [
         'call_trace_rpc_lib',
-        '<(DEPTH)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
+        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },
     {

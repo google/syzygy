@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'pdbfind_lib',
@@ -30,8 +22,8 @@
         'pdbfind_app.h',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
       ],
     },
     {
@@ -60,12 +52,12 @@
       ],
       'dependencies': [
         'pdbfind_lib',
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/testing/gmock.gyp:gmock',
-        '<(DEPTH)/testing/gtest.gyp:gtest',
-        '<(DEPTH)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(DEPTH)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
       ],
     },
   ],

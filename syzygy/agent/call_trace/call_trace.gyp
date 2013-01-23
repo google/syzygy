@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # limitations under the License.
 
 {
-  'variables': {
-    'chromium_code': 1,
-  },
-  'target_defaults': {
-    'include_dirs': [
-      '<(DEPTH)',
-    ],
-  },
   'targets': [
     {
       'target_name': 'call_trace_client',
@@ -32,13 +24,13 @@
         'client_rpc.rc',
       ],
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(DEPTH)/syzygy/agent/common/common.gyp:agent_common_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:common_lib',
-        '<(DEPTH)/syzygy/common/common.gyp:syzygy_version',
-        '<(DEPTH)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
-        '<(DEPTH)/syzygy/trace/client/client.gyp:rpc_client_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
        ],
      },
   ],
