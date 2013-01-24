@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
 // limitations under the License.
 
 #include "syzygy/core/serialization.h"
-#include "base/time.h"
-#include <algorithm>
+
+#include <windows.h>  // NOLINT
 #include <dbghelp.h>
 #include <stdio.h>
+#include <algorithm>
+
+#include "base/time.h"
 
 namespace core {
 

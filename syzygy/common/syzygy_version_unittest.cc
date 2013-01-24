@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 // limitations under the License.
 
 #include "syzygy/common/syzygy_version.h"
+
+#include "gtest/gtest.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/core/unittest_util.h"
-#include "gtest/gtest.h"
 
 namespace common {
 

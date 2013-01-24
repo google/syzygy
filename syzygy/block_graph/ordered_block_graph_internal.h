@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 #ifndef SYZYGY_BLOCK_GRAPH_ORDERED_BLOCK_GRAPH_INTERNAL_H_
 #define SYZYGY_BLOCK_GRAPH_ORDERED_BLOCK_GRAPH_INTERNAL_H_
 
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace block_graph {
 

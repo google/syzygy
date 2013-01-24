@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
 // to a drive letter, then run a command while the snapshot is mounted. This
 // is handy to simulate cold-start conditions, as a newly created and mounted
 // snapshot will be as cold as cold gets.
-#include <iostream>
+
+#include <atlbase.h>
 #include <vss.h>
 #include <vswriter.h>
-#include <vsbackup.h>
-#include <atlbase.h>
+#include <vsbackup.h>  // NOLINT: This has to be after vss.h and vswriter.h.
+#include <iostream>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"

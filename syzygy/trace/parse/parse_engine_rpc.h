@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #ifndef SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_
 #define SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_
 
-#include "base/time.h"
 #include "base/file_path.h"
+#include "base/time.h"
 #include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 

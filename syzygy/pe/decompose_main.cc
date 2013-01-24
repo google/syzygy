@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 // Command utility to decomposes an image and serializes the decomposition
 // to a file file. See decompose_app.* for the library implementation.
 
-#include "syzygy/pe/decompose_app.h"
-
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "syzygy/pe/decompose_app.h"
 
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;

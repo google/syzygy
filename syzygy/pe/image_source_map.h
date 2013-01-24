@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #ifndef SYZYGY_PE_IMAGE_SOURCE_MAP_H_
 #define SYZYGY_PE_IMAGE_SOURCE_MAP_H_
 
-#include <windows.h>
+#include <windows.h>  // NOLINT
 #include <dbghelp.h>
 
 #include "syzygy/pe/image_layout.h"

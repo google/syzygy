@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 
 #include "syzygy/wsdump/process_working_set.h"
 
-#include <algorithm>
-#include <map>
-
 #include <psapi.h>
 #include <tlhelp32.h>
+#include <algorithm>
+#include <map>
 
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"

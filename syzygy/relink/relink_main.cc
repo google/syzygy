@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/relink/relink_app.h"
-
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "syzygy/relink/relink_app.h"
 
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;

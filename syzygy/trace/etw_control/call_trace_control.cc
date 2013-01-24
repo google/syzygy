@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,14 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <windows.h>
+
+#include <windows.h>  // NOLINT
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/debug/trace_event_win.h"
 #include "base/file_path.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
+#include "base/debug/trace_event_win.h"
 #include "base/win/event_trace_controller.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
