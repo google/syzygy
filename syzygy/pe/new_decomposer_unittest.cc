@@ -213,6 +213,25 @@ TEST_F(NewDecomposerTest, Decompose) {
 
   // All of the blocks should have been covered, save the 2 header blocks.
   EXPECT_EQ(section_blocks + 2, image_layout.blocks.size());
+
+  // Make sure that all bracketed COFF groups have been parsed. There are 8
+  // of them that we currently know of:
+  // .CRT$XCA -> .CRT$XCZ: C initializers
+  // .CRT$XIA -> .CRT$XLZ: C++ initializers
+  // .CRT$XLA -> .CRT$XLZ: TLS callbacks
+  // .CRT$XPA -> .CRT$XPZ: CRT pre-termination functions.
+  // .CRT$XTA -> .CRT$XTZ: CRT termination functions.
+  // .rtc$IAA -> .rtc$IZZ: Run-time checking initializers.
+  // .rtc$TAA -> .rtc$TZZ: Run-time checking termination functions.
+  // .tls -> .tls$ZZZ: TLS data.
+  size_t coff_group_blocks = 0;
+  it = block_graph.blocks().begin();
+  for (; it != block_graph.blocks().end(); ++it) {
+    const BlockGraph::Block& block = it->second;
+    if (block.attributes() & BlockGraph::COFF_GROUP)
+      ++coff_group_blocks;
+  }
+  EXPECT_EQ(8u, coff_group_blocks);
 }
 
 TEST_F(NewDecomposerTest, DecomposeFailsWithNonexistentPdb) {
