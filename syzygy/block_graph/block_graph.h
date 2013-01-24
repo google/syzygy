@@ -90,6 +90,9 @@ extern const core::RelativeAddress kInvalidAddress;
     /* Typically thunk blocks are compiler or linker-generated, such as */ \
     /* e.g. import thunks, delay load import thunks, etc. */ \
     F(THUNK) \
+    /* This is set for blocks that have been parsed as COFF groups. The */ \
+    /* contents of these blocks are semantically indivisible. */ \
+    F(COFF_GROUP) \
     /* This always needs to be set to the next available attribute bit. */ \
     F(BLOCK_ATTRIBUTES_MAX)
 

@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/new_decomposer.h"
 
+#include "pcrecpp.h"  // NOLINT
 #include "base/bind.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
@@ -24,14 +25,19 @@
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_constants.h"
+#include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/pe_file_parser.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/serialization.h"
+#include "third_party/cci/Files/CvInfo.h"
+
+namespace cci = Microsoft_Cci_Pdb;
 
 namespace pe {
 
@@ -66,6 +72,7 @@ typedef BlockGraph::ReferenceType ReferenceType;
 typedef core::AddressRange<RelativeAddress, size_t> RelativeRange;
 typedef NewDecomposer::IntermediateReference IntermediateReference;
 typedef NewDecomposer::IntermediateReferences IntermediateReferences;
+typedef pcrecpp::RE RE;
 typedef std::vector<OMAP> OMAPs;
 typedef std::vector<pdb::PdbFixup> PdbFixups;
 
@@ -606,12 +613,105 @@ bool AddLabelToBlock(Offset offset,
   return true;
 }
 
+// Reads the linker module symbol stream from the given PDB file. This should
+// always exist as the last module.
+scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
+    const pdb::PdbFile& pdb_file) {
+  static const char kLinkerModuleName[] = "* Linker *";
+
+  scoped_refptr<pdb::PdbStream> dbi_stream =
+      pdb_file.GetStream(pdb::kDbiStream);
+  if (dbi_stream.get() == NULL) {
+    LOG(ERROR) << "PDB does not contain a DBI stream.";
+    return false;
+  }
+
+  pdb::DbiStream dbi;
+  if (!dbi.Read(dbi_stream.get())) {
+    LOG(ERROR) << "Unable to parse DBI stream.";
+    return false;
+  }
+
+  if (dbi.modules().empty()) {
+    LOG(ERROR) << "DBI stream contains no modules.";
+    return false;
+  }
+
+  // The last module has always been observed to be the linker module.
+  const pdb::DbiModuleInfo& linker = dbi.modules().back();
+  if (linker.module_name() != kLinkerModuleName) {
+    LOG(ERROR) << "Last module is not the linker module.";
+    return false;
+  }
+
+  scoped_refptr<pdb::PdbStream> symbols = pdb_file.GetStream(
+      linker.module_info_base().stream);
+  if (symbols.get() == NULL) {
+    LOG(ERROR) << "Unable to open linker symbol stream.";
+    return false;
+  }
+
+  return symbols;
+}
+
+// Parses a symbol from a PDB symbol stream. The @p buffer is populated with the
+// data and upon success this returns the symbol directly cast onto the
+// @p buffer data. On failure this returns NULL.
+template<typename SymbolType>
+const SymbolType* ParseSymbol(uint16 symbol_length,
+                              pdb::PdbStream* stream,
+                              std::vector<uint8>* buffer) {
+  DCHECK(stream != NULL);
+  DCHECK(buffer != NULL);
+
+  buffer->clear();
+
+  if (symbol_length < sizeof(SymbolType)) {
+    LOG(ERROR) << "Symbol too small for casting.";
+    return NULL;
+  }
+
+  if (!stream->Read(buffer, symbol_length)) {
+    LOG(ERROR) << "Failed to read symbol.";
+    return NULL;
+  }
+
+  return reinterpret_cast<const SymbolType*>(buffer->data());
+}
+
 }  // namespace
 
 // We use ", " as a separator between symbol names. We sometimes see commas
 // in symbol names but do not see whitespace. Thus, this provides a useful
 // separator that is also human friendly to read.
 const char NewDecomposer::kLabelNameSep[] = ", ";
+
+// This is by CreateBlocksFromCoffGroups to communicate shared state to
+// VisitLinkerSymbol via the VisitSymbols helper function.
+struct NewDecomposer::VisitLinkerSymbolContext {
+  int current_group_index;
+  std::string current_group_prefix;
+  RelativeAddress current_group_start;
+
+  // These are the set of patterns that indicate bracketing groups. They
+  // should match both the opening and the closing symbol, and have at least
+  // one match group returning the common prefix.
+  std::vector<RE> bracketing_groups;
+
+  VisitLinkerSymbolContext() : current_group_index(-1) {
+    // Matches groups like: .CRT$XCA -> .CRT$XCZ
+    bracketing_groups.push_back(RE("(\\.CRT\\$X.)[AZ]"));
+    // Matches groups like: .rtc$IAA -> .rtc$IZZ
+    bracketing_groups.push_back(RE("(\\.rtc\\$.*)(AA|ZZ)"));
+    // Matches exactly: ATL$__a -> ATL$__z
+    bracketing_groups.push_back(RE("(ATL\\$__)[az]"));
+    // Matches exactly: .tls -> .tls$ZZZ
+    bracketing_groups.push_back(RE("(\\.tls)(\\$ZZZ)?"));
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(VisitLinkerSymbolContext);
+};
 
 NewDecomposer::NewDecomposer(const PEFile& image_file)
     : image_file_(image_file), image_layout_(NULL), image_(NULL),
@@ -810,6 +910,12 @@ bool NewDecomposer::DecomposeImpl() {
     if (!CreatePEImageBlocksAndReferences(&references))
       return false;
 
+    // Now we parse the COFF group symbols from the linker's symbol stream.
+    // These indicate things like static initializers, which must stay together
+    // in a single block.
+    if (!CreateBlocksFromCoffGroups())
+      return false;
+
     // Next we parse out section contributions. Some of these may coincide with
     // existing PE parsed blocks, but when they do we expect them to be exact
     // collisions.
@@ -867,6 +973,36 @@ bool NewDecomposer::CreatePEImageBlocksAndReferences(
   PEFileParser::PEHeader header;
   if (!parser.ParseImage(&header)) {
     LOG(ERROR) << "Unable to parse PE image.";
+    return false;
+  }
+
+  return true;
+}
+
+bool NewDecomposer::CreateBlocksFromCoffGroups() {
+  pdb::PdbFile pdb_file;
+  pdb::PdbReader pdb_reader;
+  if (!pdb_reader.Read(pdb_path_, &pdb_file)) {
+    LOG(ERROR) << "Failed to load PDB: " << pdb_path_.value();
+    return false;
+  }
+
+  scoped_refptr<pdb::PdbStream> symbols = GetLinkerSymbolStream(pdb_file);
+
+  // Process the symbols in the linker module symbol stream.
+  VisitLinkerSymbolContext context;
+  pdb::VisitSymbolsCallback callback = base::Bind(
+      &NewDecomposer::VisitLinkerSymbol,
+      base::Unretained(this),
+      base::Unretained(&context));
+  if (!pdb::VisitSymbols(callback, symbols->length(), true, symbols.get()))
+    return false;
+
+  // Bail if we did not encounter a closing bracketing symbol where one was
+  // expected.
+  if (context.current_group_index != -1) {
+    LOG(ERROR) << "Unable to close bracketed COFF group \""
+               << context.current_group_prefix << "\".";
     return false;
   }
 
@@ -1102,6 +1238,85 @@ bool NewDecomposer::ProcessSymbols(IDiaSymbol* root) {
   dia_browser.AddPattern(SymTagPublicSymbol, on_public_symbol);
 
   return dia_browser.Browse(root);
+}
+
+bool NewDecomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
+                                      uint16 symbol_length,
+                                      uint16 symbol_type,
+                                      pdb::PdbStream* stream) {
+  DCHECK(context != NULL);
+  DCHECK(stream != NULL);
+
+  if (symbol_type != cci::S_COFFGROUP)
+    return true;
+
+  std::vector<uint8> buffer;
+  const cci::CoffGroupSym* coffgroup =
+      ParseSymbol<cci::CoffGroupSym>(symbol_length, stream, &buffer);
+  if (coffgroup == NULL)
+    return false;
+
+  // The PDB numbers sections starting at index 1 but we use index 0.
+  RelativeAddress rva(image_layout_->sections[coffgroup->seg - 1].addr +
+      coffgroup->off);
+
+  // We are looking for an opening symbol.
+  if (context->current_group_index == -1) {
+    for (size_t i = 0; i < context->bracketing_groups.size(); ++i) {
+      std::string prefix;
+      if (context->bracketing_groups[i].FullMatch(coffgroup->name, &prefix)) {
+        context->current_group_index = i;
+        context->current_group_prefix = prefix;
+        context->current_group_start = rva;
+        return true;
+      }
+    }
+
+    // No opening symbol was encountered. We can safely ignore this
+    // COFF group symbol.
+    return true;
+  }
+
+  // If we get here we've found an opening symbol and we're looking for the
+  // matching closing symbol.
+  std::string prefix;
+  if (!context->bracketing_groups[context->current_group_index].FullMatch(
+          coffgroup->name, &prefix)) {
+    return true;
+  }
+
+  if (prefix != context->current_group_prefix) {
+    // We see another symbol open/close while already in an opened symbol.
+    // This indicates nested bracketing information, which we've never seen
+    // before.
+    LOG(ERROR) << "Encountered nested bracket symbol \"" << prefix
+               << "\" while in \"" << context->current_group_prefix << "\".";
+    return false;
+  }
+
+  RelativeAddress end = rva + coffgroup->cb;
+  DCHECK_LT(context->current_group_start, end);
+
+  // Create a block for this bracketed COFF group.
+  BlockGraph::Block* block = CreateBlock(
+      BlockGraph::DATA_BLOCK,
+      context->current_group_start,
+      end - context->current_group_start,
+      base::StringPrintf("Bracketed COFF group: %s", prefix.c_str()));
+  if (block == NULL) {
+    LOG(ERROR) << "Failed to create bracketed COFF group \""
+               << prefix << "\".";
+    return false;
+  }
+  block->set_attribute(BlockGraph::COFF_GROUP);
+
+  // Indicate that this block is closed and we're looking for another opening
+  // bracket symbol.
+  context->current_group_index = -1;
+  context->current_group_prefix.clear();
+  context->current_group_start = RelativeAddress(0);
+
+  return true;
 }
 
 DiaBrowser::BrowserDirective NewDecomposer::OnPushFunctionOrThunkSymbol(
@@ -1527,8 +1742,8 @@ Block* NewDecomposer::CreateBlock(BlockType type,
                                   const base::StringPiece& name) {
   Block* block = image_->AddBlock(type, address, size, name);
   if (block == NULL) {
-    LOG(ERROR) << "Unable to add block at " << address << " with size "
-               << size << ".";
+    LOG(ERROR) << "Unable to add block \"" << name.as_string() << "\" at "
+               << address << " with size " << size << ".";
     return NULL;
   }
 
@@ -1542,8 +1757,8 @@ Block* NewDecomposer::CreateBlock(BlockType type,
 
   BlockGraph::SectionId section = image_file_.GetSectionIndex(address, size);
   if (section == BlockGraph::kInvalidSectionId) {
-    LOG(ERROR) << "Block at " << address << " with size " << size
-               << " lies outside of all sections.";
+    LOG(ERROR) << "Block \"" << name.as_string() << "\" at " << address
+               << " with size " << size << " lies outside of all sections.";
     return NULL;
   }
   block->set_section(section);
@@ -1567,9 +1782,11 @@ Block* NewDecomposer::CreateBlockOrFindCoveringPeBlock(
 
     RelativeRange existing_block(block_addr, block->size());
 
-    // If this is not a PE parsed block that covers us entirely, then this is
-    // an error.
-    if ((block->attributes() & BlockGraph::PE_PARSED) == 0 ||
+    // If this is not a PE parsed or COFF group block that covers us entirely,
+    // then this is an error.
+    static const BlockGraph::BlockAttributes kCoveringAttributes =
+        BlockGraph::PE_PARSED | BlockGraph::COFF_GROUP;
+    if ((block->attributes() & kCoveringAttributes) == 0 ||
         !existing_block.Contains(addr, size)) {
       LOG(ERROR) << "Trying to create block \"" << name.as_string() << "\" at "
                  << addr.value() << " with size " << size << " that conflicts "

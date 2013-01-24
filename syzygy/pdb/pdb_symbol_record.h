@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "syzygy/pdb/pdb_data_types.h"
 
 namespace pdb {
@@ -36,6 +37,31 @@ class PdbStream;
 bool ReadSymbolRecord(PdbStream* stream,
                       size_t symbol_table_size,
                       SymbolRecordVector* symbol_vector);
+
+// Defines a symbol visitor callback. This needs to return true on success
+// (indicating that the symbol visitor should continue), and false on failure
+// (indicating that it should terminate). The stream is positioned at the
+// beginning of the symbol data, which is of the provided length, the type
+// having already been read from the stream.
+typedef base::Callback<bool(uint16 /* symbol_length */,
+                            uint16 /* symbol_type */,
+                            PdbStream* /* symbol_stream */)>
+    VisitSymbolsCallback;
+
+// Reads symbols from the given symbol stream until the end of the stream.
+// @param callback The callback to be invoked for each symbol.
+// @param symbol_table_size The size of the symbol record table.
+// @param has_header If true then this will first parse the symbol stream
+//     header and ensure it is of the expected type. If false it will assume
+//     it is the expected type and start parsing symbols immediately.
+// @param symbols The stream containing symbols to be visited. The stream
+//     will be read starting from its current position, and will be advanced
+//     past the symbols one by one.
+// @returns true on success, false otherwise.
+bool VisitSymbols(VisitSymbolsCallback callback,
+                  size_t symbol_table_size,
+                  bool has_header,
+                  PdbStream* symbols);
 
 }  // namespace pdb
 

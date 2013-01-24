@@ -33,6 +33,10 @@
 
 namespace pe {
 
+// Forward declaration of a helper class where we hide our implementation
+// details.
+class NewDecomposerImpl;
+
 class NewDecomposer {
  public:
   struct IntermediateReference;
@@ -95,6 +99,8 @@ class NewDecomposer {
   bool CreateBlockGraphSections();
   // Parses PE-related blocks and references.
   bool CreatePEImageBlocksAndReferences(IntermediateReferences* references);
+  // Creates blocks from the COFF group symbols in the linker symbol stream.
+  bool CreateBlocksFromCoffGroups();
   // Processes the SectionContribution table, creating code/data blocks from it.
   bool CreateBlocksFromSectionContribs(IDiaSession* session);
   // Creates gap blocks to flesh out the image. After this has been run all
@@ -106,6 +112,16 @@ class NewDecomposer {
   bool CreateReferencesFromFixups(IDiaSession* session);
   // Processes symbols from the PDB, setting block names and labels.
   bool ProcessSymbols(IDiaSymbol* root);
+  // @}
+
+  // @{
+  // @name Callbacks and context structures used by the COFF group parsing
+  //     mechanism.
+  struct VisitLinkerSymbolContext;
+  bool VisitLinkerSymbol(VisitLinkerSymbolContext* context,
+                         uint16 symbol_length,
+                         uint16 symbol_type,
+                         pdb::PdbStream* stream);
   // @}
 
   // @{

@@ -2030,6 +2030,7 @@ bool Decomposer::ProcessStaticInitializers() {
     std::string name = StringPrintf("Bracketed Initializers: %s",
                                     init_it->first.c_str());
     merged->set_name(name);
+    merged->set_attribute(BlockGraph::COFF_GROUP);
     DCHECK(merged != NULL);
   }
 
