@@ -195,17 +195,6 @@ bool ValidateOrAddReference(ValidateOrAddReferenceMode mode,
   }
 }
 
-bool GetSymTag(IDiaSymbol* symbol, DWORD* sym_tag) {
-  DCHECK(sym_tag != NULL);
-  *sym_tag = SymTagNull;
-  HRESULT hr = symbol->get_symTag(sym_tag);
-  if (hr != S_OK) {
-    LOG(ERROR) << "Error getting sym tag: " << com::LogHr(hr) << ".";
-    return false;
-  }
-  return true;
-}
-
 bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   DCHECK(symbol != NULL);
   DCHECK(length != NULL);
@@ -246,14 +235,6 @@ SectionType GetSectionType(const IMAGE_SECTION_HEADER* header) {
   if ((header->Characteristics & kReadOnlyDataCharacteristics) != 0)
     return kSectionData;
   return kSectionUnknown;
-}
-
-bool IsSymTag(IDiaSymbol* symbol, DWORD expected_sym_tag) {
-  DWORD sym_tag = SymTagNull;
-  if (!GetSymTag(symbol, &sym_tag))
-    return false;
-
-  return sym_tag == expected_sym_tag;
 }
 
 size_t GuessAddressAlignment(RelativeAddress address) {

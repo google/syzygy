@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@
 #include <dia2.h>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/file_path.h"
+#include "base/win/scoped_comptr.h"
 
 namespace pe {
 
@@ -112,6 +114,91 @@ template <typename T>
 SearchResult FindAndLoadDiaDebugStreamByName(const wchar_t* name,
                                              IDiaSession* dia_session,
                                              std::vector<T>* list);
+
+// Gets the symbol tab associated with the given symbol.
+// @param symbol the symbol to examine.
+// @param sym_tag on success, returns @p symbol's tag.
+// @returns true on success, false on failure.
+bool GetSymTag(IDiaSymbol* symbol, enum SymTagEnum* sym_tag);
+
+// Checks to see if the given symbol is of the expected type.
+// @returns true if @p symbol is of type @p expected_sym_tag,
+//     false on error or mismatch.
+bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag);
+
+// A worker class that makes it easy to visit specific children of a given
+// DIA symbol.
+class ChildVisitor {
+ public:
+  typedef base::Callback<bool(IDiaSymbol*)> VisitSymbolCallback;
+
+  // Creates a visitor for the children of @p parent of type @p type.
+  ChildVisitor(IDiaSymbol* parent, enum SymTagEnum type);
+
+  // Visits all children of type type, of parent symbol,
+  // calling @p child_callback for each.
+  // @returns true on success.
+  bool VisitChildren(const VisitSymbolCallback& child_callback);
+
+ private:
+  bool VisitChildrenImpl();
+  bool EnumerateChildren(IDiaEnumSymbols* children);
+  bool VisitChild(IDiaSymbol* child);
+
+  base::win::ScopedComPtr<IDiaSymbol> parent_;
+  enum SymTagEnum type_;
+
+  const VisitSymbolCallback* child_callback_;
+
+  DISALLOW_COPY_AND_ASSIGN(ChildVisitor);
+};
+
+// A worker class that makes it easy to visit each compiland in
+// in a given DIA session.
+class CompilandVisitor {
+ public:
+  typedef ChildVisitor::VisitSymbolCallback VisitCompilandCallback;
+
+  // Creates a visitor for all compilands of @p session.
+  explicit CompilandVisitor(IDiaSession* session);
+
+  // Visits all compilands, calling @p compiland_callback for each.
+  // @returns true on success.
+  bool VisitAllCompilands(const VisitCompilandCallback& compiland_callback);
+
+ private:
+  base::win::ScopedComPtr<IDiaSession> session_;
+
+  DISALLOW_COPY_AND_ASSIGN(CompilandVisitor);
+};
+
+// A worker class that makes it easy to visit each source line record
+// in a given DIA compiland.
+class LineVisitor {
+ public:
+  typedef base::Callback<bool(IDiaLineNumber*)> VisitLineCallback;
+
+  // Create a line visitor for the given @p session and @p compiland.
+  LineVisitor(IDiaSession* session, IDiaSymbol* compiland);
+
+  // Visit all lines records in our compiland.
+  bool VisitLines(const VisitLineCallback& line_callback);
+
+ private:
+  bool VisitLinesImpl();
+  bool EnumerateCompilandSource(IDiaSymbol* compiland,
+                                IDiaSourceFile* source_file);
+  bool EnumerateCompilandSources(IDiaSymbol* compiland,
+                                 IDiaEnumSourceFiles* source_files);
+  bool VisitSourceLine(IDiaLineNumber* line_number);
+
+  base::win::ScopedComPtr<IDiaSession> session_;
+  base::win::ScopedComPtr<IDiaSymbol> compiland_;
+
+  const VisitLineCallback* line_callback_;
+
+  DISALLOW_COPY_AND_ASSIGN(LineVisitor);
+};
 
 }  // namespace pe
 

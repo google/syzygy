@@ -119,29 +119,6 @@ bool InitializeDia(const PEFile& image_file,
   return true;
 }
 
-// Gets the symbol tab associated with the given symbol.
-bool GetSymTag(IDiaSymbol* symbol, enum SymTagEnum* sym_tag) {
-  DCHECK(sym_tag != NULL);
-  DWORD dword = SymTagNull;
-  *sym_tag = SymTagNull;
-  HRESULT hr = symbol->get_symTag(&dword);
-  if (hr != S_OK) {
-    LOG(ERROR) << "Error getting sym tag: " << com::LogHr(hr) << ".";
-    return false;
-  }
-  *sym_tag = static_cast<enum SymTagEnum>(dword);
-  return true;
-}
-
-// Checks to see if the given symbol is of the expected type.
-bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag) {
-  enum SymTagEnum sym_tag = SymTagNull;
-  if (!GetSymTag(symbol, &sym_tag))
-    return false;
-
-  return sym_tag == expected_sym_tag;
-}
-
 enum SectionType {
   kSectionCode,
   kSectionData,

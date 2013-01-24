@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2011 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,15 @@
 
 #include "syzygy/pe/dia_util.h"
 
+#include <map>
+#include <set>
 #include <vector>
 
+#include "base/bind.h"
+#include "base/file_path.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
+#include "gmock/gmock.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/unittest_util.h"
@@ -29,6 +34,14 @@ using base::win::ScopedComPtr;
 
 static const wchar_t kNonsenseStreamName[] =
     L"ThisStreamNameCertainlyDoesNotExist";
+
+static const wchar_t kTestDllObjPath[] = L"obj\\test_dll\\test_dll.obj";
+
+struct FilePathLess {
+  bool operator()(const std::wstring& lhs, const std::wstring& rhs) {
+    return FilePath::CompareLessIgnoreCase(lhs, rhs);
+  }
+};
 
 class DiaUtilTest : public testing::PELibUnitTest {
 };
@@ -152,6 +165,142 @@ TEST_F(DiaUtilTest, FindAndLoadDiaDebugStreamByName) {
                                             dia_session.get(),
                                             &fixups));
   EXPECT_FALSE(fixups.empty());
+}
+
+class DiaUtilVisitorTest : public DiaUtilTest {
+ public:
+  virtual void SetUp() OVERRIDE {
+    ASSERT_TRUE(CreateDiaSource(dia_source_.Receive()));
+    ASSERT_TRUE(CreateDiaSession(testing::GetExeRelativePath(kDllName),
+                                 dia_source_.get(),
+                                 dia_session_.Receive()));
+    ASSERT_EQ(S_OK, dia_session_->get_globalScope(dia_globals_.Receive()));
+  }
+
+  typedef std::vector<std::wstring> StringVector;
+  bool OnFunction(StringVector* names, IDiaSymbol* function) {
+    EXPECT_TRUE(IsSymTag(function, SymTagFunction));
+    ScopedBstr name;
+    EXPECT_EQ(S_OK, function->get_name(name.Receive()));
+    names->push_back(com::ToString(name));
+    return true;
+  }
+
+  bool OnCompiland(StringVector* names, IDiaSymbol* compiland) {
+    EXPECT_TRUE(IsSymTag(compiland, SymTagCompiland));
+    ScopedBstr name;
+    EXPECT_EQ(S_OK, compiland->get_name(name.Receive()));
+    names->push_back(com::ToString(name));
+    return true;
+  }
+
+  bool OnCompilandFind(const std::wstring& compiland_path,
+                       ScopedComPtr<IDiaSymbol>* compiland_out,
+                       IDiaSymbol* compiland) {
+    EXPECT_TRUE(IsSymTag(compiland, SymTagCompiland));
+    ScopedBstr name;
+    EXPECT_EQ(S_OK, compiland->get_name(name.Receive()));
+    if (compiland_path == com::ToString(name)) {
+      *compiland_out = compiland;
+      return false;
+    }
+    return true;
+  }
+
+  typedef std::set<std::pair<DWORD, DWORD>> LineSet;
+  typedef std::map<std::wstring, LineSet, FilePathLess> LineMap;
+  bool OnLine(LineMap* line_map, IDiaLineNumber* line) {
+    ScopedComPtr<IDiaSourceFile> source_file;
+    EXPECT_HRESULT_SUCCEEDED(line->get_sourceFile(source_file.Receive()));
+
+    ScopedBstr source_name;
+    EXPECT_HRESULT_SUCCEEDED(source_file->get_fileName(source_name.Receive()));
+
+    ScopedComPtr<IDiaSymbol> compiland;
+    EXPECT_HRESULT_SUCCEEDED(line->get_compiland(compiland.Receive()));
+
+    DWORD line_number = 0;
+    EXPECT_HRESULT_SUCCEEDED(line->get_lineNumber(&line_number));
+    DWORD line_number_end = 0;
+    EXPECT_HRESULT_SUCCEEDED(line->get_lineNumberEnd(&line_number_end));
+
+    // This doesn't necessarily have to hold, but so far it seems to do so.
+    EXPECT_EQ(line_number, line_number_end);
+
+    (*line_map)[com::ToString(source_name)].insert(
+        std::make_pair(line_number, line_number_end));
+
+    return true;
+  }
+
+  ScopedComPtr<IDiaDataSource> dia_source_;
+  ScopedComPtr<IDiaSession> dia_session_;
+  ScopedComPtr<IDiaSymbol> dia_globals_;
+};
+
+TEST_F(DiaUtilVisitorTest, ChildVisitorTest) {
+  ChildVisitor visitor(dia_globals_, SymTagFunction);
+
+  StringVector function_names;
+  ASSERT_TRUE(visitor.VisitChildren(
+      base::Bind(&DiaUtilVisitorTest::OnFunction,
+                 base::Unretained(this),
+                 &function_names)));
+
+  // Expect that we found a bunch of functions.
+  ASSERT_LT(1U, function_names.size());
+  // One of them should be "DllMain".
+  ASSERT_THAT(function_names, testing::Contains(L"DllMain"));
+}
+
+TEST_F(DiaUtilVisitorTest, CompilandVisitorTest) {
+  CompilandVisitor visitor(dia_session_);
+
+  StringVector compiland_names;
+  ASSERT_TRUE(visitor.VisitAllCompilands(
+      base::Bind(&DiaUtilVisitorTest::OnCompiland,
+                 base::Unretained(this),
+                 &compiland_names)));
+
+  // We expect to have seen some compiland_names.
+  ASSERT_LT(0U, compiland_names.size());
+
+  // One of the compiland_names should be the test_dll.obj file.
+  FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
+  ASSERT_THAT(compiland_names, testing::Contains(test_dll_obj.value()));
+}
+
+TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
+  CompilandVisitor compiland_visitor(dia_session_);
+
+  // Start by finding the test dll compiland.
+  ScopedComPtr<IDiaSymbol> compiland;
+  FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
+  ASSERT_FALSE(compiland_visitor.VisitAllCompilands(
+      base::Bind(&DiaUtilVisitorTest::OnCompilandFind,
+                 base::Unretained(this),
+                 test_dll_obj.value(),
+                 &compiland)));
+
+  ASSERT_TRUE(compiland != NULL);
+
+  // Now enumerate all line entries in that compiland.
+  LineVisitor line_visitor(dia_session_, compiland);
+
+  LineMap line_map;
+  ASSERT_TRUE(line_visitor.VisitLines(
+      base::Bind(&DiaUtilVisitorTest::OnLine,
+                 base::Unretained(this),
+                 &line_map)));
+
+  // We expect to have at least one file.
+  ASSERT_LE(1U, line_map.size());
+
+  FilePath test_dll_cc =
+      testing::GetSrcRelativePath(L"syzygy\\pe\\test_dll.cc");
+  ASSERT_TRUE(line_map.find(test_dll_cc.value()) != line_map.end());
+
+  ASSERT_LT(1U, line_map[test_dll_cc.value()].size());
 }
 
 }  // namespace pe

@@ -180,4 +180,216 @@ SearchResult FindDiaDebugStream(const wchar_t* name,
   return kSearchFailed;
 }
 
+bool GetSymTag(IDiaSymbol* symbol, enum SymTagEnum* sym_tag) {
+  DCHECK(symbol != NULL);
+  DCHECK(sym_tag != NULL);
+  DWORD tmp_tag = SymTagNull;
+  *sym_tag = SymTagNull;
+  HRESULT hr = symbol->get_symTag(&tmp_tag);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting sym tag: " << com::LogHr(hr) << ".";
+    return false;
+  }
+  *sym_tag = static_cast<enum SymTagEnum>(tmp_tag);
+  return true;
+}
+
+bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag) {
+  DCHECK(symbol != NULL);
+  DCHECK(expected_sym_tag != SymTagNull);
+
+  enum SymTagEnum sym_tag = SymTagNull;
+  if (!GetSymTag(symbol, &sym_tag))
+    return false;
+
+  return sym_tag == expected_sym_tag;
+}
+
+ChildVisitor::ChildVisitor(IDiaSymbol* parent, enum SymTagEnum type)
+    : parent_(parent), type_(type), child_callback_(NULL) {
+  DCHECK(parent != NULL);
+}
+
+bool ChildVisitor::VisitChildren(const VisitSymbolCallback& child_callback) {
+  DCHECK(child_callback_ == NULL);
+
+  child_callback_ = &child_callback;
+  bool ret = VisitChildrenImpl();
+  child_callback_ = NULL;
+
+  return ret;
+}
+
+bool ChildVisitor::VisitChildrenImpl() {
+  DCHECK(child_callback_ != NULL);
+
+  // Retrieve an enumerator for all children in this PDB.
+  base::win::ScopedComPtr<IDiaEnumSymbols> children;
+  HRESULT hr = parent_->findChildren(type_,
+                                     NULL,
+                                     nsNone,
+                                     children.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to get children: " << com::LogHr(hr);
+    return false;
+  }
+
+  return EnumerateChildren(children);
+}
+
+bool ChildVisitor::EnumerateChildren(IDiaEnumSymbols* children) {
+  DCHECK(children!= NULL);
+
+  while (true) {
+    base::win::ScopedComPtr<IDiaSymbol> child;
+    ULONG fetched = 0;
+    HRESULT hr = children->Next(1, child.Receive(), &fetched);
+    if (FAILED(hr)) {
+      DCHECK_EQ(0U, fetched);
+      DCHECK(child == NULL);
+      LOG(ERROR) << "Unable to iterate children: " << com::LogHr(hr);
+      return false;
+    }
+    if (hr == S_FALSE)
+      break;
+
+    DCHECK_EQ(1U, fetched);
+    DCHECK(child != NULL);
+
+    if (!VisitChild(child))
+      return false;
+  }
+
+  return true;
+}
+
+bool ChildVisitor::VisitChild(IDiaSymbol* child) {
+  DCHECK(child_callback_ != NULL);
+
+  return child_callback_->Run(child);
+}
+
+CompilandVisitor::CompilandVisitor(IDiaSession* session) : session_(session) {
+  DCHECK(session != NULL);
+}
+
+bool CompilandVisitor::VisitAllCompilands(
+    const VisitCompilandCallback& compiland_callback) {
+  base::win::ScopedComPtr<IDiaSymbol> global;
+  HRESULT hr = session_->get_globalScope(global.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to get global scope: " << com::LogHr(hr);
+    return false;
+  }
+
+  ChildVisitor visitor(global, SymTagCompiland);
+
+  return visitor.VisitChildren(compiland_callback);
+}
+
+LineVisitor::LineVisitor(IDiaSession* session, IDiaSymbol* compiland)
+    : session_(session), compiland_(compiland), line_callback_(NULL) {
+  DCHECK(session != NULL);
+}
+
+bool LineVisitor::VisitLines(const VisitLineCallback& line_callback) {
+  DCHECK(line_callback_ == NULL);
+
+  line_callback_ = &line_callback;
+  bool ret = VisitLinesImpl();
+  line_callback_ = NULL;
+
+  return ret;
+}
+
+bool LineVisitor::EnumerateCompilandSource(IDiaSymbol* compiland,
+                                           IDiaSourceFile* source_file) {
+  DCHECK(compiland != NULL);
+  DCHECK(source_file != NULL);
+
+  base::win::ScopedComPtr<IDiaEnumLineNumbers> line_numbers;
+  HRESULT hr = session_->findLines(compiland,
+                                   source_file,
+                                   line_numbers.Receive());
+  if (FAILED(hr)) {
+    // This seems to happen for the occasional header file.
+    return true;
+  }
+
+  while (true) {
+    base::win::ScopedComPtr<IDiaLineNumber> line_number;
+    ULONG fetched = 0;
+    hr = line_numbers->Next(1, line_number.Receive(), &fetched);
+    if (FAILED(hr)) {
+      DCHECK_EQ(0U, fetched);
+      DCHECK(line_number == NULL);
+      LOG(ERROR) << "Unable to iterate line numbers: " << com::LogHr(hr);
+      return false;
+    }
+    if (hr == S_FALSE)
+      break;
+
+    DCHECK_EQ(1U, fetched);
+    DCHECK(line_number != NULL);
+
+    if (!VisitSourceLine(line_number))
+      return false;
+  }
+
+  return true;
+}
+
+bool LineVisitor::EnumerateCompilandSources(IDiaSymbol* compiland,
+                                            IDiaEnumSourceFiles* source_files) {
+  DCHECK(compiland != NULL);
+  DCHECK(source_files != NULL);
+
+  while (true) {
+    base::win::ScopedComPtr<IDiaSourceFile> source_file;
+    ULONG fetched = 0;
+    HRESULT hr = source_files->Next(1, source_file.Receive(), &fetched);
+    if (FAILED(hr)) {
+      DCHECK_EQ(0U, fetched);
+      DCHECK(source_file == NULL);
+      LOG(ERROR) << "Unable to iterate source files: " << com::LogHr(hr);
+      return false;
+    }
+    if (hr == S_FALSE)
+      break;
+
+    DCHECK_EQ(1U, fetched);
+    DCHECK(compiland != NULL);
+
+    if (!EnumerateCompilandSource(compiland, source_file))
+      return false;
+  }
+
+  return true;
+}
+
+bool LineVisitor::VisitLinesImpl() {
+  DCHECK(session_ != NULL);
+  DCHECK(compiland_ != NULL);
+  DCHECK(line_callback_ != NULL);
+
+  // Enumerate all source files referenced by this compiland.
+  base::win::ScopedComPtr<IDiaEnumSourceFiles> source_files;
+  HRESULT hr = session_->findFile(compiland_,
+                                  NULL,
+                                  nsNone,
+                                  source_files.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to get source files: " << com::LogHr(hr);
+    return false;
+  }
+
+  return EnumerateCompilandSources(compiland_, source_files);
+}
+
+bool LineVisitor::VisitSourceLine(IDiaLineNumber* line_number) {
+  DCHECK(line_callback_ != NULL);
+
+  return line_callback_->Run(line_number);
+}
+
 }  // namespace pe
