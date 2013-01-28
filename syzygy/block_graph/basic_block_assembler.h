@@ -198,6 +198,12 @@ class BasicBlockAssembler {
   void pop(const Operand& src);
   // @}
 
+  // @name Ret instructions.
+  // @{
+  void ret();
+  void ret(uint16 n);
+  // @}
+
  private:
   class BasicBlockSerializer
       : public core::AssemblerImpl::InstructionSerializer {

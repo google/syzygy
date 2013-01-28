@@ -253,4 +253,12 @@ void BasicBlockAssembler::pop(const Operand& src) {
   asm_.pop(src.operand_);
 }
 
+void BasicBlockAssembler::ret() {
+  asm_.ret();
+}
+
+void BasicBlockAssembler::ret(uint16 n) {
+  asm_.ret(n);
+}
+
 }  // namespace block_graph

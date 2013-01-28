@@ -288,7 +288,6 @@ TEST_F(OperandTest, Construction) {
                           Displacement(&test_bb_)));
 }
 
-
 TEST_F(BasicBlockAssemblerTest, call) {
   asm_.call(Immediate(0xCAFEBABE));
   ASSERT_NO_REFS();
@@ -378,4 +377,11 @@ TEST_F(BasicBlockAssemblerTest, pop) {
   ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 }
 
+TEST_F(BasicBlockAssemblerTest, ret) {
+  asm_.ret();
+  ASSERT_NO_REFS();
+
+  asm_.ret(4);
+  ASSERT_NO_REFS();
+}
 }  // namespace basic_block

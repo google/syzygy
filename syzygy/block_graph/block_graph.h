@@ -96,7 +96,6 @@ extern const core::RelativeAddress kInvalidAddress;
     /* This always needs to be set to the next available attribute bit. */ \
     F(BLOCK_ATTRIBUTES_MAX)
 
-
 // The BlockGraph is a top-level container for Blocks.
 class BlockGraph {
  public:
@@ -469,7 +468,6 @@ class BlockGraph::Label {
   LabelAttributes attributes_;
 };
 
-
 // A block represents a block of either code or data.
 //
 // Since blocks may be split and up and glued together in arbitrary ways, each
@@ -548,7 +546,7 @@ class BlockGraph::Block {
   // The address of the block is set any time the block is assigned
   // an address in an address space.
   RelativeAddress addr() const { return addr_; }
-  void set_addr(RelativeAddress addr) { return addr_ = addr; }
+  void set_addr(RelativeAddress addr) { addr_ = addr; }
 
   // The section ID for the block. These IDs are wrt to the SectionMap in the
   // parent BlockGraph.
