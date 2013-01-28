@@ -38,9 +38,9 @@ namespace {
 #define ASAN_RTL_FUNCTIONS(F)  \
     F(HANDLE, HeapCreate,  \
       (DWORD options, SIZE_T initial_size, SIZE_T maximum_size))  \
-    F(BOOL, HeapDestroy,   \
+    F(BOOL, HeapDestroy,  \
       (HANDLE heap))  \
-    F(LPVOID, HeapAlloc,   \
+    F(LPVOID, HeapAlloc,  \
       (HANDLE heap, DWORD flags, SIZE_T bytes))  \
     F(LPVOID, HeapReAlloc,  \
       (HANDLE heap, DWORD flags, LPVOID mem, SIZE_T bytes))  \
@@ -134,9 +134,6 @@ class AsanRtlTest : public testing::Test {
   }
 
  protected:
-  // Arbitrary constant for all size limit.
-  static const size_t kMaxAllocSize = 134584;
-
   // The ASAN runtime module to test.
   HMODULE asan_rtl_;
 
@@ -177,93 +174,6 @@ class AsanRtlTest : public testing::Test {
 #undef DEFINE_FUNCTION_PTR_VARIABLE
 
 } // namespace
-
-TEST_F(AsanRtlTest, CreateDestroy) {
-  HANDLE heap = HeapCreateFunction(0, 0, 0);
-  ASSERT_TRUE(heap != NULL);
-  ASSERT_TRUE(HeapDestroyFunction(heap));
-}
-
-TEST_F(AsanRtlTest, Alloc) {
-  for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
-    void* mem = HeapAllocFunction(heap_, 0, size);
-    ASSERT_TRUE(mem != NULL);
-    memset(mem, '\0', size);
-
-    size_t new_size = size;
-    while (new_size == size)
-      new_size = base::RandInt(size / 2, size * 2);
-
-    void* new_mem = HeapReAllocFunction(heap_, 0, mem, new_size);
-    ASSERT_TRUE(new_mem != NULL);
-    ASSERT_NE(mem, new_mem);
-
-    ASSERT_TRUE(HeapFreeFunction(heap_, 0, new_mem));
-  }
-}
-
-TEST_F(AsanRtlTest, Size) {
-  for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
-    void* mem = HeapAllocFunction(heap_, 0, size);
-    ASSERT_TRUE(mem != NULL);
-    ASSERT_EQ(size, HeapSizeFunction(heap_, 0, mem));
-    ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
-  }
-}
-
-TEST_F(AsanRtlTest, Validate) {
-  for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
-    void* mem = HeapAllocFunction(heap_, 0, size);
-    ASSERT_TRUE(mem != NULL);
-    ASSERT_TRUE(HeapValidateFunction(heap_, 0, mem));
-    ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
-  }
-}
-
-TEST_F(AsanRtlTest, Compact) {
-  // Compact should return a non-zero size.
-  ASSERT_LT(0U, HeapCompactFunction(heap_, 0));
-
-  // TODO(siggi): It may not be possible to allocate the size returned due
-  //     to padding - fix and test.
-}
-
-TEST_F(AsanRtlTest, LockUnlock) {
-  // We can't really test these, aside from not crashing.
-  ASSERT_TRUE(HeapLockFunction(heap_));
-  ASSERT_TRUE(HeapUnlockFunction(heap_));
-}
-
-TEST_F(AsanRtlTest, Walk) {
-  // We assume at least two entries to walk through.
-  PROCESS_HEAP_ENTRY entry = {};
-  ASSERT_TRUE(HeapWalkFunction(heap_, &entry));
-  ASSERT_TRUE(HeapWalkFunction(heap_, &entry));
-}
-
-TEST_F(AsanRtlTest, SetQueryInformation) {
-  ULONG compat_flag = -1;
-  unsigned long ret = 0;
-  // Get the current value of the compatibility flag.
-  ASSERT_TRUE(
-      HeapQueryInformationFunction(heap_, HeapCompatibilityInformation,
-                                   &compat_flag, sizeof(compat_flag), &ret));
-  ASSERT_EQ(sizeof(compat_flag), ret);
-  ASSERT_TRUE(compat_flag != -1);
-
-  // Put the heap in LFH, which should always succeed, except when a debugger
-  // is attached. When a debugger is attached, the heap is wedged in certain
-  // debug settings.
-  if (base::debug::BeingDebugged()) {
-    LOG(WARNING) << "Can't test HeapProxy::SetInformation under debugger.";
-    return;
-  }
-
-  compat_flag = 2;
-  ASSERT_TRUE(
-      HeapSetInformationFunction(heap_, HeapCompatibilityInformation,
-                                 &compat_flag, sizeof(compat_flag)));
-}
 
 namespace {
 

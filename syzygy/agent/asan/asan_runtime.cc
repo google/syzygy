@@ -21,7 +21,6 @@
 #include "base/string_number_conversions.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -37,6 +36,7 @@ using agent::asan::StackCaptureCache;
 
 // The default error handler.
 void OnAsanError() {
+  ::DebugBreak();
   ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
 }
 
@@ -57,6 +57,27 @@ bool UpdateSizetFromCommandLine(const CommandLine& cmd_line,
     *value = new_value;
   }
   return true;
+}
+
+// A helper function to find if an intrusive list contains a given entry.
+// @param list The list in which we want to look for the entry.
+// @param item The entry we want to look for.
+// @returns true if the list contains this entry, false otherwise.
+bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
+  LIST_ENTRY* current = list->Flink;
+  while (current != NULL) {
+    LIST_ENTRY* next_item = NULL;
+    if (current->Flink != list) {
+      next_item = current->Flink;
+    }
+
+    if (current == item) {
+      return true;
+    }
+
+    current = next_item;
+  }
+  return false;
 }
 
 }  // namespace
@@ -80,6 +101,8 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // this process. Note: this is mostly for debugging purposes.
   CommandLine::Init(0, NULL);
 
+  InitializeListHead(&heap_proxy_dlist_);
+
   // Setup the "global" state.
   SetUpLogger();
   SetUpStackCache();
@@ -99,6 +122,9 @@ void AsanRuntime::TearDown() {
   TearDownLogger();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
+  // In principle, we should also check that all the heaps have been destroyed
+  // but this is not guaranteed to be the case in Chrome, so the heap list may
+  // not be empty here.
 }
 
 void AsanRuntime::OnError() {
@@ -206,6 +232,51 @@ void AsanRuntime::PropagateFlagsValues() const {
 void AsanRuntime::set_flags(const AsanFlags* flags) {
   DCHECK(flags != NULL);
   flags_ = *flags;
+}
+
+void AsanRuntime::AddHeap(HeapProxy* heap) {
+  base::AutoLock lock(heap_proxy_dlist_lock_);
+  InsertTailList(&heap_proxy_dlist_, HeapProxy::ToListEntry(heap));
+}
+
+void AsanRuntime::RemoveHeap(HeapProxy* heap) {
+  base::AutoLock lock(heap_proxy_dlist_lock_);
+  DCHECK(HeapListContainsEntry(&heap_proxy_dlist_,
+                               HeapProxy::ToListEntry(heap)));
+  RemoveEntryList(HeapProxy::ToListEntry(heap));
+}
+
+void AsanRuntime::ReportAsanErrorDetails(const void* addr,
+                                         const CONTEXT& context,
+                                         HeapProxy::AccessMode access_mode,
+                                         size_t access_size) {
+  base::AutoLock lock(heap_proxy_dlist_lock_);
+  // Iterates over the HeapProxy list to find the memory block containing this
+  // address. We expect that there is at least one heap proxy extant.
+  HeapProxy* proxy = NULL;
+  LIST_ENTRY* item = heap_proxy_dlist_.Flink;
+  CHECK(item != NULL);
+  while (item != NULL) {
+    LIST_ENTRY* next_item = NULL;
+    if (item->Flink != &heap_proxy_dlist_) {
+      next_item = item->Flink;
+    }
+
+    proxy = HeapProxy::FromListEntry(item);
+    if (proxy->OnBadAccess(addr, context, access_mode, access_size)) {
+      break;
+    }
+
+    item = next_item;
+  }
+
+  // If item is NULL then we went through the list without finding the heap
+  // from which this address was allocated. We can just reuse the logger of
+  // the last heap proxy we saw to report an "unknown" error.
+  if (item == NULL) {
+    CHECK(proxy != NULL);
+    proxy->ReportUnknownError(addr, context, access_mode, access_size);
+  }
 }
 
 }  // namespace asan

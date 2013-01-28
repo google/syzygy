@@ -22,6 +22,9 @@
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/common/dlist.h"
 
 namespace agent {
 namespace asan {
@@ -76,6 +79,21 @@ class AsanRuntime {
   // returns true on success, false otherwise.
   static bool GetAsanFlagsEnvVar(std::wstring* env_var_wstr);
 
+  // Add an heap proxy to the heap proxies list.
+  void AddHeap(HeapProxy* heap);
+
+  // Remove an heap proxy from the heap proxies list.
+  void RemoveHeap(HeapProxy* heap);
+
+  // Report the details of an Asan error by walking the heap proxies list.
+  // @param addr The red-zoned address causing a bad access.
+  // @param context The context at which the access occurred.
+  // @param access_mode The kind of the access (read or write).
+  // @param access_size The size of the access (in bytes).
+  void ReportAsanErrorDetails(const void* addr,
+                              const CONTEXT& context,
+                              HeapProxy::AccessMode access_mode,
+                              size_t access_size);
  protected:
   // A structure to track the values of the flags.
   struct AsanFlags {
@@ -145,6 +163,12 @@ class AsanRuntime {
 
   // The values of the flags.
   AsanFlags flags_;
+
+  // The heap proxies list lock.
+  base::Lock heap_proxy_dlist_lock_;
+
+  // The heap proxies list.
+  LIST_ENTRY heap_proxy_dlist_;  // Under heap_proxy_dlist_lock.
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };
