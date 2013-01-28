@@ -49,6 +49,8 @@ using core::RegisterCode;
 using pe::transforms::AddImportsTransform;
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
+typedef std::vector<AsanBasicBlockTransform::AsanHookMapEntryKey>
+    AccessHookParamVector;
 
 // Returns true iff opcode should be instrumented.
 bool ShouldInstrumentOpcode(uint16 opcode) {
@@ -257,30 +259,42 @@ std::string GetAsanCheckAccessFunctionName(uint8 access_size,
                             access_mode_str);
 }
 
-// Add an import for an asan check access hook to the block-graph.
-// @param access_size The size of the access. This is needed to get the correct
-//     import function name.
-// @param access_mode The kind of the access. This is needed to get the correct
-//     import function name.
+// Add the imports for the asan check access hooks to the block-graph.
+// @param hooks_param_vector A vector of hook parameter values.
 // @param import_module The module for which the import should be added.
-// @param check_access_hook_map The map where the reference to the import should
-//     be stored.
+// @param check_access_hook_map The map where the reference to the imports
+//     should be stored.
 // @param block_graph The block-graph to populate.
 // @param header_block The block containing the module's DOS header of this
 //     block-graph.
-bool AddAsanCheckAccessHook(uint8 access_size,
-                            AsanMemoryAccessMode access_mode,
-                            AddImportsTransform::ImportedModule* import_module,
-                            HookMap* check_access_hook_map,
-                            BlockGraph* block_graph,
-                            BlockGraph::Block* header_block) {
+// @returns True on success, false otherwise.
+bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
+                             AddImportsTransform::ImportedModule* import_module,
+                             HookMap* check_access_hook_map,
+                             BlockGraph* block_graph,
+                             BlockGraph::Block* header_block) {
   DCHECK(import_module != NULL);
   DCHECK(check_access_hook_map != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  size_t asan_hook_check_access_index = import_module->AddSymbol(
-      GetAsanCheckAccessFunctionName(access_size, access_mode));
+  // Add the hooks to the import module.
+
+  typedef std::map<AsanBasicBlockTransform::AsanHookMapEntryKey, size_t>
+      HooksParamsToIdxMap;
+  HooksParamsToIdxMap hooks_params_to_idx;
+
+  AccessHookParamVector::const_iterator iter_params = hook_param_vector.begin();
+  for (; iter_params != hook_param_vector.end(); ++iter_params) {
+    size_t symbol_idx = import_module->AddSymbol(
+        GetAsanCheckAccessFunctionName(iter_params->second,
+                                       iter_params->first));
+    hooks_params_to_idx[*iter_params] = symbol_idx;
+  }
+
+  DCHECK_EQ(hooks_params_to_idx.size(), hook_param_vector.size());
+
+  // Transforms the block-graph.
 
   AddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(import_module);
@@ -290,14 +304,18 @@ bool AddAsanCheckAccessHook(uint8 access_size,
     return false;
   }
 
-  BlockGraph::Reference import_reference;
-  if (!import_module->GetSymbolReference(asan_hook_check_access_index,
-                                         &import_reference)) {
-    LOG(ERROR) << "Unable to get import reference for Asan.";
-    return false;
+  // Get a reference to each hook and put it in the hooks map.
+  HooksParamsToIdxMap::iterator iter_hooks = hooks_params_to_idx.begin();
+  for (; iter_hooks != hooks_params_to_idx.end(); ++iter_hooks) {
+    BlockGraph::Reference import_reference;
+    if (!import_module->GetSymbolReference(iter_hooks->second,
+                                           &import_reference)) {
+      LOG(ERROR) << "Unable to get import reference for Asan.";
+      return false;
+    }
+    HookMap& hook_map = *check_access_hook_map;
+    hook_map[iter_hooks->first] = import_reference;
   }
-  HookMap& hook_map = *check_access_hook_map;
-  hook_map[std::make_pair(access_mode, access_size)] = import_reference;
 
   return true;
 }
@@ -390,9 +408,6 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
 const char AsanTransform::kTransformName[] =
     "SyzyAsanTransform";
 
-const char AsanTransform::kCheckAccessName[] =
-    "asan_check_access";
-
 const char AsanTransform::kSyzyAsanDll[] = "asan_rtl.dll";
 
 AsanTransform::AsanTransform() : asan_dll_name_(kSyzyAsanDll) {
@@ -412,44 +427,29 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
     return false;
   }
 
+  AccessHookParamVector access_hooks_params_vec;
+
   // Add an import entry for the ASAN runtime.
   AddImportsTransform::ImportedModule import_module(asan_dll_name_.c_str());
 
   // Import the hooks for the read accesses.
   for (int access_size = 1; access_size <= 32; access_size *= 2) {
-    if (!AddAsanCheckAccessHook(access_size,
-                                AsanBasicBlockTransform::kReadAccess,
-                                &import_module,
-                                &check_access_hooks_ref_,
-                                block_graph, header_block)) {
-      return false;
-    }
+    access_hooks_params_vec.push_back(
+      std::make_pair(AsanBasicBlockTransform::kReadAccess, access_size));
+    access_hooks_params_vec.push_back(
+      std::make_pair(AsanBasicBlockTransform::kWriteAccess, access_size));
   }
 
-  if (!AddAsanCheckAccessHook(10,
-                              AsanBasicBlockTransform::kReadAccess,
-                              &import_module,
-                              &check_access_hooks_ref_,
-                              block_graph, header_block)) {
-    return false;
-  }
+  access_hooks_params_vec.push_back(
+      std::make_pair(AsanBasicBlockTransform::kReadAccess, 10));
+  access_hooks_params_vec.push_back(
+      std::make_pair(AsanBasicBlockTransform::kWriteAccess, 10));
 
-  // Import the hooks for the write accesses.
-  for (int access_size = 1; access_size <= 32; access_size *= 2) {
-    if (!AddAsanCheckAccessHook(access_size,
-                                AsanBasicBlockTransform::kWriteAccess,
-                                &import_module,
-                                &check_access_hooks_ref_,
-                                block_graph, header_block)) {
-      return false;
-    }
-  }
-
-  if (!AddAsanCheckAccessHook(10,
-                              AsanBasicBlockTransform::kWriteAccess,
-                              &import_module,
-                              &check_access_hooks_ref_,
-                              block_graph, header_block)) {
+  if (!AddAsanCheckAccessHooks(access_hooks_params_vec,
+                               &import_module,
+                               &check_access_hooks_ref_,
+                               block_graph,
+                               header_block)) {
     return false;
   }
   return true;

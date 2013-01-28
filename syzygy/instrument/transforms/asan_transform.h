@@ -103,9 +103,6 @@ class AsanTransform
   }
   // @}
 
-  // The names of the imports for the Asan hooks.
-  static const char kCheckAccessName[];
-
   // The name of the DLL that is imported by default.
   static const char kSyzyAsanDll[];
 
