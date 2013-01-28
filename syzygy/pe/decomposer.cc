@@ -237,31 +237,13 @@ SectionType GetSectionType(const IMAGE_SECTION_HEADER* header) {
   return kSectionUnknown;
 }
 
-size_t GuessAddressAlignment(RelativeAddress address) {
-  // Count the trailing zeros in the original address. We only care
-  // about alignment up to 16, so only have to check the first 4 bits.
-  // TODO(chrisha): This can be done quite efficiently using various bit
-  //     twiddling tricks, and there may very well be a library implementation
-  //     of this somewhere (typically named ctz for 'count training zeros').
-  size_t i = address.value();
-  if ((i & ((1 << 4) - 1)) == 0)
-    return (1 << 4);  // 16.
-
-  if ((i & ((1 << 3) - 1)) == 0)
-    return (1 << 3);  // 8.
-
-  if ((i & ((1 << 2) - 1)) == 0)
-    return (1 << 2);  // 4.
-
-  if ((i & ((1 << 1) - 1)) == 0)
-    return (1 << 1);  // 2.
-
-  return 1;
-}
-
-void GuessDataBlockAlignment(BlockGraph::Block* block) {
+void GuessDataBlockAlignment(BlockGraph::Block* block, uint32 max_alignment) {
   DCHECK(block != NULL);
-  block->set_alignment(GuessAddressAlignment(block->addr()));
+  uint32 alignment = block->addr().GetAlignment();
+  // Cap the alignment.
+  if (alignment > max_alignment)
+    alignment = max_alignment;
+  block->set_alignment(alignment);
 }
 
 bool AreMatchedBlockAndLabelAttributes(
@@ -2064,7 +2046,8 @@ bool Decomposer::GuessDataBlockAlignments() {
     BlockGraph::AddressSpace::RangeMapIter it = it_pair.first;
     for (; it != it_pair.second; ++it) {
       BlockGraph::Block* block = it->second;
-      GuessDataBlockAlignment(block);
+      GuessDataBlockAlignment(block,
+          image_file_.nt_headers()->OptionalHeader.SectionAlignment);
     }
   }
 
