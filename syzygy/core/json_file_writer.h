@@ -20,6 +20,7 @@
 
 #include <vector>
 #include "base/basictypes.h"
+#include "base/string_piece.h"
 
 // Forward declaration.
 namespace base {
@@ -50,14 +51,14 @@ class JSONFileWriter {
   // output if pretty printing is enabled. It is an error to output a comment
   // after a dictionary key has been written, but before the corresponding
   // value.
-  bool OutputComment(const char* comment);
-  bool OutputComment(const wchar_t* comment);
+  bool OutputComment(const base::StringPiece& comment);
+  bool OutputComment(const base::StringPiece16& comment);
 
   // For outputting a trailing comment. Only a single trailing comment may be
   // written for any given line. This may only be called after having written
   // a value.
-  bool OutputTrailingComment(const char* comment);
-  bool OutputTrailingComment(const wchar_t* comment);
+  bool OutputTrailingComment(const base::StringPiece& comment);
+  bool OutputTrailingComment(const base::StringPiece16& comment);
 
   // For outputting lists.
   bool OpenList();
@@ -66,8 +67,8 @@ class JSONFileWriter {
   // For outputting dictionaries.
   bool OpenDict();
   bool CloseDict();
-  bool OutputKey(const char* key);
-  bool OutputKey(const wchar_t* key);
+  bool OutputKey(const base::StringPiece& key);
+  bool OutputKey(const base::StringPiece16& key);
 
   // Closes off the JSON stream, terminating any open data structures.
   // Returns true on success, false on failure.
@@ -77,8 +78,8 @@ class JSONFileWriter {
   bool OutputBoolean(bool value);
   bool OutputInteger(int value);
   bool OutputDouble(double value);
-  bool OutputString(const char* value);
-  bool OutputString(const wchar_t* value);
+  bool OutputString(const base::StringPiece& value);
+  bool OutputString(const base::StringPiece16& value);
   bool OutputNull();
 
   // For compatibility with base::Value and base::JSONWriter.
@@ -119,7 +120,7 @@ class JSONFileWriter {
   bool PrintBoolean(bool value);
   bool PrintInteger(int value);
   bool PrintDouble(double value);
-  bool PrintString(const char* value);
+  bool PrintString(const base::StringPiece& value);
   bool PrintNull(int value_unused);
   bool PrintValue(const base::Value* value);
 

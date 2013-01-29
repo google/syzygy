@@ -54,7 +54,7 @@ struct JSONFileWriter::Helper {
     if (!json_file_writer->AlignForValueOrKey())
       return false;
 
-    std::string formatted_key = base::GetDoubleQuotedJson(key);
+    std::string formatted_key = base::GetDoubleQuotedJson(key.as_string());
     if (!json_file_writer->Printf("%s:", formatted_key.c_str()))
       return false;
 
@@ -99,9 +99,7 @@ JSONFileWriter::~JSONFileWriter() {
   Flush();
 }
 
-bool JSONFileWriter::OutputComment(const char* comment) {
-  DCHECK(comment != NULL);
-
+bool JSONFileWriter::OutputComment(const base::StringPiece& comment) {
   // If we are in the middle of writing a dictionary key/value pair
   // (have the key, not the value), then we can't write a comment.
   if (RequireKeyValue())
@@ -121,22 +119,19 @@ bool JSONFileWriter::OutputComment(const char* comment) {
   }
 
   // Store the comment for output before the next value.
-  comments_.push_back(std::string(comment));
+  comments_.push_back(comment.as_string());
 
   return true;
 }
 
-bool JSONFileWriter::OutputComment(const wchar_t* comment) {
-  DCHECK(comment != NULL);
+bool JSONFileWriter::OutputComment(const base::StringPiece16& comment) {
   std::string utf8;
-  if (!WideToUTF8(comment, wcslen(comment), &utf8))
+  if (!WideToUTF8(comment.data(), comment.length(), &utf8))
     return false;
-  return OutputComment(utf8.c_str());
+  return OutputComment(utf8);
 }
 
-bool JSONFileWriter::OutputTrailingComment(const char* comment) {
-  DCHECK(comment != NULL);
-
+bool JSONFileWriter::OutputTrailingComment(const base::StringPiece& comment) {
   // A trailing comment can only go out after a value has been written.
   if (!stack_.empty()) {
     if (stack_.back().type_ == kDictKey)
@@ -162,7 +157,7 @@ bool JSONFileWriter::OutputTrailingComment(const char* comment) {
   // Save the comment for output when we're ready. We do this even when not
   // pretty-printing so that the state machine functions identically in either
   // case.
-  trailing_comment_ = comment;
+  trailing_comment_.assign(comment.begin(), comment.end());
 
   // Are we finished? Immediately write the comment, but leave
   // trailing_comment_ populated so that repeated calls will fail.
@@ -174,12 +169,11 @@ bool JSONFileWriter::OutputTrailingComment(const char* comment) {
   return true;
 }
 
-bool JSONFileWriter::OutputTrailingComment(const wchar_t* comment) {
-  DCHECK(comment != NULL);
+bool JSONFileWriter::OutputTrailingComment(const base::StringPiece16& comment) {
   std::string utf8;
-  if (!WideToUTF8(comment, wcslen(comment), &utf8))
+  if (!WideToUTF8(comment.data(), comment.length(), &utf8))
     return false;
-  return OutputTrailingComment(utf8.c_str());
+  return OutputTrailingComment(utf8);
 }
 
 bool JSONFileWriter::PrintBoolean(bool value) {
@@ -195,8 +189,8 @@ bool JSONFileWriter::PrintDouble(double value) {
   return PrintValue(&fundamental_value);
 }
 
-bool JSONFileWriter::PrintString(const char* value) {
-  return Printf("%s", base::GetDoubleQuotedJson(value).c_str());
+bool JSONFileWriter::PrintString(const base::StringPiece& value) {
+  return Printf("%s", base::GetDoubleQuotedJson(value.as_string()).c_str());
 }
 
 bool JSONFileWriter::PrintNull(int value_unused) {
@@ -266,11 +260,11 @@ bool JSONFileWriter::CloseDict() {
   return CloseStructure(kDict);
 }
 
-bool JSONFileWriter::OutputKey(const char* key) {
+bool JSONFileWriter::OutputKey(const base::StringPiece& key) {
   return Helper::OutputKey(key, this);
 }
 
-bool JSONFileWriter::OutputKey(const wchar_t* key) {
+bool JSONFileWriter::OutputKey(const base::StringPiece16& key) {
   return Helper::OutputKey(key, this);
 }
 
@@ -307,18 +301,16 @@ bool JSONFileWriter::OutputDouble(double value) {
       value, &JSONFileWriter::PrintDouble, this);
 }
 
-bool JSONFileWriter::OutputString(const char* value) {
-  DCHECK(value != NULL);
+bool JSONFileWriter::OutputString(const base::StringPiece& value) {
   return Helper::OutputValue(
       value, &JSONFileWriter::PrintString, this);
 }
 
-bool JSONFileWriter::OutputString(const wchar_t* value) {
-  DCHECK(value != NULL);
+bool JSONFileWriter::OutputString(const base::StringPiece16& value) {
   std::string utf8;
-  if (!WideToUTF8(value, wcslen(value), &utf8))
+  if (!WideToUTF8(value.data(), value.length(), &utf8))
     return false;
-  return OutputString(utf8.c_str());
+  return OutputString(utf8);
 }
 
 bool JSONFileWriter::OutputNull() {
