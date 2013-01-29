@@ -203,6 +203,7 @@
       'sources': [
         'test_dll.cc',
         'test_dll.def',
+        'test_dll.rc',
         'test_dll_label_test_func.asm',
       ],
       'dependencies': [
