@@ -204,7 +204,7 @@ bool CodeTally::GenerateJsonOutput(core::JSONFileWriter* writer) {
     FunctionInfoAddressSpace::const_iterator fun_it(funs.begin());
     for (; fun_it != funs.end(); ++fun_it) {
       const FunctionInfo& fun = fun_it->second;
-      if (!writer->OutputKey(fun.name.c_str()))
+      if (!writer->OutputKey(fun.name))
         return false;
 
       if (!writer->OpenDict())

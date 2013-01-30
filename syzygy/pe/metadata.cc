@@ -82,7 +82,7 @@ bool OutputSyzygyVersion(const common::SyzygyVersion& version,
   if (json_file->pretty_print()) {
     std::string comment("Toolchain version: ");
     comment.append(version.GetVersionString());
-    if (!json_file->OutputComment(comment.c_str()))
+    if (!json_file->OutputComment(comment))
       return false;
   }
 
@@ -95,7 +95,7 @@ bool OutputSyzygyVersion(const common::SyzygyVersion& version,
       json_file->OutputKey(kPatchKey) &&
       json_file->OutputInteger(version.patch()) &&
       json_file->OutputKey(kLastChangeKey) &&
-      json_file->OutputString(version.last_change().c_str()) &&
+      json_file->OutputString(version.last_change()) &&
       json_file->CloseDict();
 }
 
@@ -115,15 +115,15 @@ bool OutputPEFileSignature(const PEFile::Signature& signature,
 
   return json_file->OpenDict() &&
       json_file->OutputKey(kPathKey) &&
-      json_file->OutputString(signature.path.c_str()) &&
+      json_file->OutputString(signature.path) &&
       json_file->OutputKey(kBaseAddressKey) &&
       json_file->OutputInteger(signature.base_address.value()) &&
       json_file->OutputKey(kModuleSizeKey) &&
       json_file->OutputInteger(signature.module_size) &&
       json_file->OutputKey(kModuleTimeDateStampKey) &&
-      json_file->OutputString(time_stamp.c_str()) &&
+      json_file->OutputString(time_stamp) &&
       json_file->OutputKey(kModuleChecksumKey) &&
-      json_file->OutputString(checksum.c_str()) &&
+      json_file->OutputString(checksum) &&
       json_file->CloseDict();
 }
 
@@ -238,9 +238,9 @@ bool Metadata::SaveToJSON(core::JSONFileWriter* json_file) const {
 
   return json_file->OpenDict() &&
       json_file->OutputKey(kCommandLineKey) &&
-      json_file->OutputString(command_line_.c_str()) &&
+      json_file->OutputString(command_line_) &&
       json_file->OutputKey(kCreationTimeKey) &&
-      json_file->OutputString(TimeToString(creation_time_).c_str()) &&
+      json_file->OutputString(TimeToString(creation_time_)) &&
       json_file->OutputKey(kToolchainVersionKey) &&
       OutputSyzygyVersion(toolchain_version_, json_file) &&
       json_file->OutputKey(kModuleSignatureKey) &&

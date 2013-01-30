@@ -130,7 +130,7 @@ void OutputModule(const std::wstring& module_name,
 
   json->OpenDict();
   json->OutputKey("module_name");
-  json->OutputString(module_name.c_str());
+  json->OutputString(module_name);
   json->OutputKey("pages");
   json->OutputInteger(stats.pages);
   json->OutputKey("shareable_pages");
@@ -152,7 +152,7 @@ void OutputProcessInfo(const ProcessInfo& info,
 
   json->OpenDict();
   json->OutputKey("exe_file");
-  json->OutputString(info.exe_file.c_str());
+  json->OutputString(info.exe_file);
   json->OutputKey("pid");
   json->OutputInteger(info.pid);
   json->OutputKey("parent_pid");

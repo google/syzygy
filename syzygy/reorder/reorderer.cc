@@ -62,7 +62,7 @@ bool OutputTrailingBlockComment(const BlockGraph::Block* block,
       BlockGraph::BlockTypeToString(block->type()),
       block->name().c_str());
 
-  if (!json_file->OutputTrailingComment(comment.c_str()))
+  if (!json_file->OutputTrailingComment(comment))
     return false;
 
   return true;
@@ -141,7 +141,7 @@ bool OutputSectionSpec(const Reorderer::Order::SectionSpec& section_spec,
 
   // Output the section metadata.
   if (!json_file->OutputKey(kSectionNameKey) ||
-      !json_file->OutputString(section_spec.name.c_str()) ||
+      !json_file->OutputString(section_spec.name) ||
       !json_file->OutputKey(kSectionCharacteristicsKey) ||
       !json_file->OutputInteger(section_spec.characteristics)) {
     return false;
@@ -503,7 +503,7 @@ bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
 
   // Output the filecomment.
   if (!json_file->OutputKey(kCommentKey) ||
-      !json_file->OutputString(comment.c_str())) {
+      !json_file->OutputString(comment)) {
     return false;
   }
 
