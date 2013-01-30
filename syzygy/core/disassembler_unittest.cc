@@ -186,34 +186,6 @@ TEST_F(DisassemblerTest, EncounterFunctions) {
   EXPECT_THAT(functions_, testing::ContainerEq(expected));
 }
 
-TEST_F(DisassemblerTest, RunOverDataWhenNoTerminatePathGiven) {
-  Disassembler disasm(
-      PointerTo(&assembly_switch),
-      PointerTo(&assembly_switch_end) - PointerTo(&assembly_switch),
-      AddressOf(&assembly_switch), on_instruction_);
-
-  // Mark the entry of the case that calls a non-returning function
-  ASSERT_TRUE(disasm.Unvisited(AddressOf(&case_default)));
-
-  // We expect the disassembly to walk into the data section which starts
-  // immediately after "case_default".
-  EXPECT_CALL(*this, OnInstruction(_, _))
-      .Times(3)
-      .WillOnce(Return(Disassembler::kDirectiveContinue))
-      .WillOnce(Return(Disassembler::kDirectiveContinue))
-      .WillOnce(Return(Disassembler::kDirectiveTerminateWalk));
-
-  // We expect a terminated walk
-  ASSERT_EQ(Disassembler::kWalkTerminated, disasm.Walk());
-
-  // We expect there to be 3 visited instructions
-  ASSERT_EQ(3, disasm.visited().ranges().size());
-
-  // We expect the disassembly to have walked past the start of the data
-  ASSERT_TRUE(disasm.visited().ranges().rbegin()->first.Intersects(
-      AddressOf(&jump_table)));
-}
-
 TEST_F(DisassemblerTest, StopsAtTerminateNoReturnFunctionCall) {
   Disassembler disasm(
       PointerTo(&assembly_switch),
