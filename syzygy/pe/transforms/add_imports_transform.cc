@@ -222,7 +222,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   DCHECK_GT(iida_block->size(), 0U);
   size_t descriptor_count =
       (common::AlignUp(iida_block->size(), sizeof(IMAGE_IMPORT_DESCRIPTOR)) /
-       sizeof(IMAGE_IMPORT_DESCRIPTOR)) - 1;
+          sizeof(IMAGE_IMPORT_DESCRIPTOR)) - 1;
 
   for (size_t iida_index = 0; iida_index < descriptor_count; ++iida_index) {
     String dll_name;

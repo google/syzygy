@@ -155,6 +155,10 @@ namespace testing {
 
 const wchar_t PELibUnitTest::kDllName[] = L"test_dll.dll";
 const wchar_t PELibUnitTest::kDllPdbName[] = L"test_dll.pdb";
+const wchar_t PELibUnitTest::kAsanInstrumentedDllName[] =
+    L"asan_instrumented_test_dll.dll";
+const wchar_t PELibUnitTest::kAsanInstrumentedDllPdbName[] =
+    L"asan_instrumented_test_dll.pdb";
 const wchar_t PELibUnitTest::kRandomizedTestDllName[] =
     L"randomized_test_dll.dll";
 const wchar_t PELibUnitTest::kRandomizedTestDllPdbName[] =

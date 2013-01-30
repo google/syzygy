@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/memory/ref_counted.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
@@ -47,10 +48,18 @@ using block_graph::Value;
 using core::Register;
 using core::RegisterCode;
 using pe::transforms::AddImportsTransform;
+
+// A simple struct that can be used to let us access strings using TypedBlock.
+struct StringStruct {
+  const char string[1];
+};
+
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef std::vector<AsanBasicBlockTransform::AsanHookMapEntryKey>
     AccessHookParamVector;
+typedef TypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
+typedef TypedBlock<StringStruct> String;
 
 // Returns true iff opcode should be instrumented.
 bool ShouldInstrumentOpcode(uint16 opcode) {
@@ -267,16 +276,19 @@ std::string GetAsanCheckAccessFunctionName(uint8 access_size,
 // @param block_graph The block-graph to populate.
 // @param header_block The block containing the module's DOS header of this
 //     block-graph.
+// @param hook_stub The stub for the asan check access functions.
 // @returns True on success, false otherwise.
 bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
                              AddImportsTransform::ImportedModule* import_module,
                              HookMap* check_access_hook_map,
                              BlockGraph* block_graph,
-                             BlockGraph::Block* header_block) {
+                             BlockGraph::Block* header_block,
+                             BlockGraph::Block* hook_stub) {
   DCHECK(import_module != NULL);
   DCHECK(check_access_hook_map != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
+  DCHECK(hook_stub != NULL);
 
   // Add the hooks to the import module.
 
@@ -315,7 +327,121 @@ bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
     }
     HookMap& hook_map = *check_access_hook_map;
     hook_map[iter_hooks->first] = import_reference;
+
+    // In a Chrome sandboxed process the NtMapViewOfSection function is
+    // intercepted by the sandbox agent. This causes execution in the executable
+    // before imports have been resolved, as the ntdll patch invokes into the
+    // executable while resolving imports. As the Asan instrumentation directly
+    // refers to the IAT entries we need to temporarily stub these function
+    // until the Asan imports are resolved. To do this we need to make the IAT
+    // entries for those functions point to a temporarily block and we need to
+    // mark the image import descriptor for this DLL as bound.
+    import_reference.referenced()->SetReference(import_reference.offset(),
+        BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, hook_stub, 0, 0));
   }
+
+  return true;
+}
+
+// Create a stub for the asan_check_access functions. The stub consist of a
+// small block of code that restores the value of eax and returns to the caller.
+// @params block_graph The block-graph to populate with the stub.
+// @params stub_name The stub's name.
+// @returns A pointer to the stub's block in success, NULL otherwise.
+BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
+                                   const base::StringPiece stub_name) {
+  using block_graph::BasicBlockSubGraph;
+  using block_graph::BasicBlockAssembler;
+  using block_graph::BlockBuilder;
+
+  // Find or create the section we put our thunks in.
+  BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(".thunks",
+      pe::kCodeCharacteristics);
+
+  if (thunk_section == NULL) {
+    LOG(ERROR) << "Unable to find or create .thunks section.";
+    return NULL;
+  }
+
+  BasicBlockSubGraph bbsg;
+  BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
+      stub_name, BlockGraph::CODE_BLOCK, thunk_section->id(), 1, 0);
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(stub_name);
+  block_desc->basic_block_order.push_back(bb);
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+
+  // The thunk restores the original value of eax and cleans the stack on
+  // return.
+  assm.mov(core::eax, Operand(core::esp, Displacement(4)));
+  assm.ret(4);
+
+  // Condense into a block.
+  BlockBuilder block_builder(block_graph);
+  if (!block_builder.Merge(&bbsg)) {
+    LOG(ERROR) << "Failed to build thunk block.";
+    return NULL;
+  }
+
+  // Exactly one new block should have been created.
+  DCHECK_EQ(1u, block_builder.new_blocks().size());
+  BlockGraph::Block* thunk = block_builder.new_blocks().front();
+
+  return thunk;
+}
+
+// Temporarily binds the IAT of a given module by setting its timestamp to a
+// date in the past.
+// @param module_name The name of the module to bind.
+// @param iida_block The import entry descriptor array where to look for the
+//     module.
+// @returns true on success, false otherwise.
+bool BindIATForModule(const char* module_name, BlockGraph::Block* iida_block) {
+  DCHECK(module_name != NULL);
+  DCHECK(iida_block != NULL);
+
+  ImageImportDescriptor iida;
+  if (!iida.Init(0, iida_block)) {
+    LOG(ERROR) << "Unable to cast Image Import Descriptor.";
+    return false;
+  }
+
+  // The array is NULL terminated with a potentially incomplete descriptor so
+  // we can't use ElementCount - 1.
+  DCHECK_GT(iida_block->size(), 0U);
+  size_t descriptor_count =
+      (common::AlignUp(iida_block->size(), sizeof(IMAGE_IMPORT_DESCRIPTOR)) /
+          sizeof(IMAGE_IMPORT_DESCRIPTOR)) - 1;
+
+  // Iterates over the the image import descriptors to find the module.
+  size_t iida_index = 0;
+  for (; iida_index < descriptor_count; ++iida_index) {
+    String dll_name;
+    if (!iida.Dereference(iida[iida_index].Name, &dll_name)) {
+      LOG(ERROR) << "Unable to dereference DLL name.";
+      return false;
+    }
+
+    size_t max_len = dll_name.ElementCount();
+    // Break as soon as we've found the module.
+    if (base::strncasecmp(dll_name->string, module_name, max_len) == 0) {
+      break;
+    }
+  }
+
+  // Ensures that we've found the module.
+  if (iida_index == descriptor_count) {
+    LOG(ERROR) << "The image import descriptor for " << module_name << "hasn't "
+               << "been found.";
+    return false;
+  }
+
+  // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
+  // the timestamp of the image import descriptor to this value allows us to
+  // temporarily bind the library until the loader finishes loading this module.
+  // As the value is far in the past this means that the entries in the IAT for
+  // this module will all be replace by pointers into the actual library.
+  static const size_t kDateInThePast = 1;
+  iida[iida_index].TimeDateStamp = kDateInThePast;
 
   return true;
 }
@@ -405,8 +531,9 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
   return true;
 }
 
-const char AsanTransform::kTransformName[] =
-    "SyzyAsanTransform";
+const char AsanTransform::kTransformName[] = "SyzyAsanTransform";
+
+const char AsanTransform::kAsanHookStubName[] = "asan_hook_stub";
 
 const char AsanTransform::kSyzyAsanDll[] = "asan_rtl.dll";
 
@@ -427,29 +554,36 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
     return false;
   }
 
-  AccessHookParamVector access_hooks_params_vec;
+  // Create the hooks stub.
+  BlockGraph::Block* hook_stub = CreateHooksStub(block_graph,
+                                                 kAsanHookStubName);
+  if (hook_stub == NULL)
+    return false;
+
+  AccessHookParamVector access_hook_param_vec;
 
   // Add an import entry for the ASAN runtime.
   AddImportsTransform::ImportedModule import_module(asan_dll_name_.c_str());
 
   // Import the hooks for the read accesses.
   for (int access_size = 1; access_size <= 32; access_size *= 2) {
-    access_hooks_params_vec.push_back(
+    access_hook_param_vec.push_back(
       std::make_pair(AsanBasicBlockTransform::kReadAccess, access_size));
-    access_hooks_params_vec.push_back(
+    access_hook_param_vec.push_back(
       std::make_pair(AsanBasicBlockTransform::kWriteAccess, access_size));
   }
 
-  access_hooks_params_vec.push_back(
+  access_hook_param_vec.push_back(
       std::make_pair(AsanBasicBlockTransform::kReadAccess, 10));
-  access_hooks_params_vec.push_back(
+  access_hook_param_vec.push_back(
       std::make_pair(AsanBasicBlockTransform::kWriteAccess, 10));
 
-  if (!AddAsanCheckAccessHooks(access_hooks_params_vec,
+  if (!AddAsanCheckAccessHooks(access_hook_param_vec,
                                &import_module,
                                &check_access_hooks_ref_,
                                block_graph,
-                               header_block)) {
+                               header_block,
+                               hook_stub)) {
     return false;
   }
   return true;
@@ -551,6 +685,11 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   }
 
   RedirectReferences(dst_blocks, reference_redirect_map);
+
+  // We need to bind the IAT for our module to make sure the stub is used until
+  // the sandbox lets the loader finish patching the IAT entries.
+  BindIATForModule(kSyzyAsanDll,
+                   add_imports_transform.image_import_descriptor_block());
 
   return true;
 }

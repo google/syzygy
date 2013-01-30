@@ -21,6 +21,7 @@
 
 #include "base/scoped_native_library.h"
 #include "base/scoped_temp_dir.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
@@ -107,7 +108,6 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
   BasicCodeBlock basic_block_;
   block_graph::BasicBlockAssembler bb_asm_;
-
 };
 
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
@@ -208,37 +208,61 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
 }
 
 namespace {
+
 using base::win::PEImage;
 typedef std::set<std::string> StringSet;
+typedef std::set<PVOID> FunctionsIATAddressSet;
 
 bool EnumImports(const PEImage &image, LPCSTR module,
                  DWORD ordinal, LPCSTR name, DWORD hint,
                  PIMAGE_THUNK_DATA iat, PVOID cookie) {
+  DCHECK(module != NULL);
+  DCHECK(cookie != NULL);
+
   StringSet* modules = reinterpret_cast<StringSet*>(cookie);
 
-  if (strcmp("asan_rtl.dll", module) == 0)
+  if (strcmp("asan_rtl.dll", module) == 0) {
+    DCHECK(name != NULL);
     modules->insert(name);
+  }
 
   return true;
 }
 
-};
+bool GetAsanHooksIATEntries(const PEImage &image,
+                            LPCSTR module,
+                            DWORD ordinal,
+                            LPCSTR name,
+                            DWORD hint,
+                            PIMAGE_THUNK_DATA iat,
+                            PVOID cookie) {
+  DCHECK(module != NULL);
+  DCHECK(cookie != NULL);
+
+  FunctionsIATAddressSet* hooks_iat_entries =
+      reinterpret_cast<FunctionsIATAddressSet*>(cookie);
+
+  if (strcmp("asan_rtl.dll", module) != 0)
+    return true;
+
+  DCHECK(name != NULL);
+
+  // Ensures that the function is an asan_check_access hook.
+  if (StartsWithASCII(name, "asan_check_", true /* case sensitive */))
+    hooks_iat_entries->insert(reinterpret_cast<PVOID>(iat->u1.Function));
+
+  return true;
+}
+
+}  // namespace
 
 TEST_F(AsanTransformTest, ImportsAreRedirected) {
-  pe::PERelinker relinker;
-
-  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-
-  relinker.set_input_path(::testing::GetOutputRelativePath(kDllName));
-  relinker.set_output_path(temp_dir_.path().Append(kDllName));
-
-  relinker.AppendTransform(&asan_transform_);
-  ASSERT_TRUE(relinker.Init());
-  ASSERT_TRUE(relinker.Relink());
+  FilePath asan_instrumented_dll =
+      testing::GetExeTestDataRelativePath(kAsanInstrumentedDllName);
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
-      ::LoadLibraryEx(relinker.output_path().value().c_str(),
+      ::LoadLibraryEx(asan_instrumented_dll.value().c_str(),
                       NULL,
                       DONT_RESOLVE_DLL_REFERENCES);
   ASSERT_TRUE(lib != NULL);
@@ -283,6 +307,35 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_check_32_byte_write_access");
 
   EXPECT_EQ(expected, imports);
+}
+
+TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
+  FilePath asan_instrumented_dll =
+      testing::GetExeTestDataRelativePath(kAsanInstrumentedDllName);
+
+  // Load the transformed module without resolving its dependencies.
+  base::NativeLibrary lib =
+      ::LoadLibraryEx(asan_instrumented_dll.value().c_str(),
+                      NULL,
+                      DONT_RESOLVE_DLL_REFERENCES);
+  ASSERT_TRUE(lib != NULL);
+  // Make sure it's unloaded on failure.
+  base::ScopedNativeLibrary lib_keeper(lib);
+
+  PEImage image(lib);
+  ASSERT_TRUE(image.VerifyMagic());
+  FunctionsIATAddressSet hooks_iat_set;
+  ASSERT_TRUE(image.EnumAllImports(&GetAsanHooksIATEntries, &hooks_iat_set));
+
+  // As all the hooks refer to the same stub, we expect to have only one entry
+  // in the set.
+  ASSERT_EQ(hooks_iat_set.size(), 1U);
+
+  PVOID stub_address = *hooks_iat_set.begin();
+
+  // Ensures that the stub is in the thunks section.
+  PIMAGE_SECTION_HEADER stub_sec = image.GetImageSectionFromAddr(stub_address);
+  ASSERT_STREQ(".thunks", reinterpret_cast<const char*>(stub_sec->Name));
 }
 
 }  // namespace transforms

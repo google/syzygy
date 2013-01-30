@@ -180,6 +180,42 @@
       ],
     },
     {
+      'target_name': 'asan_instrumented_test_dll',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
+        'copy_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'asan_instrument_test_data_test_dll',
+          'inputs': [
+            '<(PRODUCT_DIR)/instrument.exe',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/asan_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/asan_instrumented_test_dll.pdb',
+          ],
+          'action': [
+            '"<(PRODUCT_DIR)/instrument.exe"',
+            '--mode=asan',
+            '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--output-image=<(PRODUCT_DIR)/test_data/'
+                'asan_instrumented_test_dll.dll',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/'
+                'asan_instrumented_test_dll.pdb',
+            '--overwrite',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'randomized_test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,

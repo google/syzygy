@@ -109,8 +109,10 @@ class AsanTransform
   // The transform name.
   static const char kTransformName[];
 
- protected:
+  // The hooks stub name.
+  static const char kAsanHookStubName[];
 
+ protected:
   // Name of the asan_rtl DLL we import. Defaults to "asan_rtl.dll".
   std::string asan_dll_name_;
 
