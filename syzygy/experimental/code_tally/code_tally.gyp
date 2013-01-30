@@ -19,11 +19,23 @@
       'type': 'executable',
       'sources': [
         'code_tally.cc',
+        'code_tally.h',
+        'code_tally_app.cc',
+        'code_tally_app.h',
+        'code_tally_main.cc',
+      ],
+      'working_directory': '$(ConfigurationDir)',
+      'action': [
+        '$(TargetPath)',
+        '$(OutputPath)test_dll.pdb',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
         '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
       ],
     },
   ]
