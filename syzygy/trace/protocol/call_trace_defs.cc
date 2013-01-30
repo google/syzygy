@@ -50,6 +50,9 @@ const int kDefaultEtwKernelFlags = EVENT_TRACE_FLAG_PROCESS |
 
 // Environment variable used for the RPC Instance ID suffix.
 const char kSyzygyRpcInstanceIdEnvVar[] = "SYZYGY_RPC_INSTANCE_ID";
+// Environment variable used to indicate that an RPC session is mandatory.
+const char kSyzygyRpcSessionMandatoryEnvVar[] =
+    "SYZYGY_RPC_SESSION_MANDATORY";
 
 namespace {
 

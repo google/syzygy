@@ -149,6 +149,27 @@ std::string GetInstanceIdForModule(const FilePath& module_path);
 // @returns the instance ID for the module in which this function is found.
 std::string GetInstanceIdForThisModule();
 
+// Given the path to a module, determines whether or not an RPC connection
+// is mandatory for it. This works by looking at the
+// SYZYGY_RPC_SESSION_MANDATORY environment variable. This consists of a
+// semi-colon separated list of paths and values, similar to
+// SYZYGY_RPC_INSTANCE_ID as described in GetInstanceIdForModule. Rather than
+// an ID, the value is an integer where 0 = False and non-zero = True.
+// If the path matching process returns a non-zero value then failure to create
+// an RPC session will cause the instrumented process to terminate with an
+// error.
+//
+// @param module_path the path to the module for which we wish to determine if
+//     and RPC session is mandatory.
+// @returns true if the session is mandatory, false otherwise.
+bool IsRpcSessionMandatory(const FilePath& module_path);
+
+// Encapsulates calls to GetModuleBaseAddress, GetModulePath and
+// IsRpcSessionMandatory.
+// @returns true if an RPC session is mandatory for the module in which this
+//     function is found.
+bool IsRpcSessionMandatoryForThisModule();
+
 }  // namespace trace::client
 }  // namespace trace
 

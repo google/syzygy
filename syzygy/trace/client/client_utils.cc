@@ -22,6 +22,7 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/pe_image.h"
@@ -34,6 +35,122 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace trace {
 namespace client {
+
+namespace {
+
+// Loads the environment variable @p env_var and splits it at semi-colons. Each
+// substring is treated as a comma-separated "path,value" pair, with the first
+// substring being allowed to be a "value" singleton interpreted as a default
+// value. Looks for the presence of @p module_path in the pairs, with more
+// exact matches taking higher priority (highest is exact path matching,
+// than basename matching and finally the default value).
+//
+// Returns true if a value has been found via the environment variable, false
+// if no environment variable exists or no match was found. If no match is
+// found @p value is left unmodified.
+template<typename ReturnType, typename ConversionFunctor>
+bool GetModuleValueFromEnvVar(const char* env_var_name,
+                              const FilePath& module_path,
+                              const ReturnType& default_value,
+                              const ConversionFunctor& convert,
+                              ReturnType* value) {
+  size_t best_score = 0;
+  ReturnType best_value = default_value;
+
+  // Get the environment variable. If it's empty, we can return early.
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::string env_var;
+  env->GetVar(env_var_name, &env_var);
+  if (env_var.empty())
+    return false;
+
+  // Get the absolute path and the basename of the module. We will use these
+  // for matching.
+  FilePath abs_module_path(module_path);
+  CHECK(file_util::AbsolutePath(&abs_module_path));
+  FilePath base_module_path = module_path.BaseName();
+
+  std::vector<std::string> pairs;
+  base::SplitString(env_var, ';', &pairs);
+
+  for (size_t i = 0; i < pairs.size(); ++i) {
+    if (pairs[i].empty())
+      continue;
+
+    std::vector<std::string> path_value;
+    base::SplitString(pairs[i], ',', &path_value);
+
+    size_t score = 0;
+
+    // Ignore malformed fields.
+    if (path_value.size() > 2)
+      continue;
+
+    // Ignore entries with improperly formatted values.
+    ReturnType value = default_value;
+    if (!convert(path_value.back(), &value))
+      continue;
+
+    if (path_value.size() == 1) {
+      // This is a default value specified without a path.
+      score = 1;
+    } else if (path_value.size() == 2) {
+      FilePath path(UTF8ToWide(path_value[0]));
+
+      // Ignore improperly formatted paths.
+      if (path.empty())
+        continue;
+
+      if (base_module_path == path) {
+        // The basename of the module matches the path.
+        score = 2;
+      } else if (abs_module_path == path) {
+        // The full path of the module matches.
+        score = 3;
+      } else {
+        // Due to mounting files in different locations we can often get
+        // differing but equivalent paths to the same file. Thus, we pull out
+        // the big guns and do a file-system level comparison to see if they
+        // do in fact refer to the same file.
+        core::FilePathCompareResult result = core::CompareFilePaths(
+            abs_module_path, path);
+        if (result == core::kEquivalentFilePaths)
+          score = 3;
+      }
+    }
+
+    if (score > best_score) {
+      best_score = score;
+      best_value = value;
+    }
+  }
+
+  if (best_score > 0) {
+    *value = best_value;
+    return true;
+  }
+
+  return false;
+}
+
+struct KeepAsString {
+  bool operator()(const std::string& s1, std::string* s2) const {
+    DCHECK(s2 != NULL);
+    *s2 = s1;
+    return true;
+  }
+};
+
+struct ToInt {
+  bool operator()(const std::string& s, int* i) const {
+    DCHECK(i != NULL);
+    if (!base::StringToInt(s, i))
+      return false;
+    return true;
+  }
+};
+
+}  // namespace
 
 int ReasonToEventType(DWORD reason) {
   switch (reason) {
@@ -188,65 +305,11 @@ bool GetModulePath(void* module_base, FilePath* module_path) {
 }
 
 std::string GetInstanceIdForModule(const FilePath& module_path) {
-  size_t best_score = 0;
-  std::string best_id;
-
-  // Get the environment variable. If it's empty, we can return early.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  std::string id_env_var;
-  env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &id_env_var);
-  if (id_env_var.empty())
-    return best_id;
-
-  // Get the absolute path and the basename of the module. We will use these
-  // for matching.
-  FilePath abs_module_path(module_path);
-  CHECK(file_util::AbsolutePath(&abs_module_path));
-  FilePath base_module_path = module_path.BaseName();
-
-  std::vector<std::string> ids;
-  base::SplitString(id_env_var, ';', &ids);
-
-  for (size_t i = 0; i < ids.size(); ++i) {
-    if (ids[i].empty())
-      continue;
-
-    std::vector<std::string> split_id;
-    base::SplitString(ids[i], ',', &split_id);
-
-    size_t score = 0;
-
-    if (split_id.size() == 1) {
-      // This is a catch-all instance ID without a path.
-      score = 1;
-    } else if (split_id.size() == 2) {
-      FilePath path(UTF8ToWide(split_id[0]));
-
-      if (base_module_path == path) {
-        // The basename of the module matches the path.
-        score = 2;
-      } else if (abs_module_path == path) {
-        // The full path of the module matches.
-        score = 3;
-      } else {
-        // Due to mounting files in different locations we can often get
-        // differing but equivalent paths to the same file. Thus, we pull out
-        // the big guns and do a file-system level comparison to see if they
-        // do in fact refer to the same file.
-        core::FilePathCompareResult result = core::CompareFilePaths(
-            abs_module_path, path);
-        if (result == core::kEquivalentFilePaths)
-          score = 3;
-      }
-    }
-
-    if (score > best_score) {
-      best_score = score;
-      best_id = split_id.back();
-    }
-  }
-
-  return best_id;
+  std::string id;
+  // We don't care if the search is successful or not.
+  GetModuleValueFromEnvVar(::kSyzygyRpcInstanceIdEnvVar, module_path,
+                           id, KeepAsString(), &id);
+  return id;
 }
 
 std::string GetInstanceIdForThisModule() {
@@ -256,6 +319,30 @@ std::string GetInstanceIdForThisModule() {
   std::string instance_id = GetInstanceIdForModule(module_path);
 
   return instance_id;
+}
+
+bool IsRpcSessionMandatory(const FilePath& module_path) {
+  int value = 0;
+  if (!GetModuleValueFromEnvVar(kSyzygyRpcSessionMandatoryEnvVar, module_path,
+                                value, ToInt(), &value)) {
+    return false;
+  }
+
+  if (value == 0)
+    return false;
+
+  // Anything non-zero is treated as 'true'.
+  return true;
+}
+
+bool IsRpcSessionMandatoryForThisModule() {
+  FilePath module_path;
+  CHECK(GetModulePath(&__ImageBase, &module_path));
+
+  if (IsRpcSessionMandatory(module_path))
+    return true;
+
+  return false;
 }
 
 }  // namespace trace::client

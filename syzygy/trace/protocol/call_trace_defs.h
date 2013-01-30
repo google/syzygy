@@ -58,6 +58,9 @@ void GetSyzygyCallTraceRpcMutexName(const base::StringPiece16& id,
 void GetSyzygyCallTraceRpcEventName(const base::StringPiece16& id,
                                     std::wstring* event_name);
 
+// Environment variable used to indicate that an RPC session is mandatory.
+extern const char kSyzygyRpcSessionMandatoryEnvVar[];
+
 // This must be bumped anytime the file format is changed.
 enum {
   TRACE_VERSION_HI = 1,

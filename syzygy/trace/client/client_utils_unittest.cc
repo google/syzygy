@@ -50,6 +50,28 @@ class GetInstanceIdForModuleTest : public testing::Test {
   scoped_ptr<base::Environment> env_;
 };
 
+class IsRpcSessionMandatoryTest : public testing::Test {
+ public:
+  IsRpcSessionMandatoryTest() : path_(L"C:\\path\\foo.exe") { }
+
+  virtual void SetUp() OVERRIDE {
+    testing::Test::SetUp();
+    env_.reset(base::Environment::Create());
+  }
+
+  void SetEnvVar(const base::StringPiece& string) {
+    ASSERT_TRUE(env_->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
+                             string.as_string()));
+  }
+
+  void UnsetEnvVar() {
+    ASSERT_TRUE(env_->UnSetVar(::kSyzygyRpcSessionMandatoryEnvVar));
+  }
+
+  FilePath path_;
+  scoped_ptr<base::Environment> env_;
+};
+
 }  // namespace
 
 TEST(GetModuleBaseAddressTest, WorksOnSelf) {
@@ -100,7 +122,7 @@ TEST_F(GetInstanceIdForModuleTest, ReturnsExactPathId) {
   EXPECT_EQ(std::string("3"), GetInstanceIdForModule(path_));
 }
 
-TEST(GetInstanceIdForThisModule, WorksAsExpected) {
+TEST(GetInstanceIdForThisModuleTest, WorksAsExpected) {
   FilePath self_path =
       ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
 
@@ -113,6 +135,56 @@ TEST(GetInstanceIdForThisModule, WorksAsExpected) {
                           ::WideToUTF8(env_var)));
 
   EXPECT_EQ(std::string("1"), GetInstanceIdForThisModule());
+}
+
+TEST_F(IsRpcSessionMandatoryTest, ReturnsFalseForNoEnvVar) {
+  ASSERT_NO_FATAL_FAILURE(UnsetEnvVar());
+  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+}
+
+TEST_F(IsRpcSessionMandatoryTest, ReturnsFalseForEmptyEnvVar) {
+  ASSERT_NO_FATAL_FAILURE(SetEnvVar(""));
+  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+}
+
+TEST_F(IsRpcSessionMandatoryTest, ReturnsFalseForNoMatch) {
+  ASSERT_NO_FATAL_FAILURE(SetEnvVar("bar.exe,1;baz.exe,1"));
+  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+}
+
+TEST_F(IsRpcSessionMandatoryTest, ReturnsGlobalValueWhenNoPathMatches) {
+  ASSERT_NO_FATAL_FAILURE(SetEnvVar("1 ; bar.exe,0"));
+  EXPECT_EQ(true, IsRpcSessionMandatory(path_));
+}
+
+TEST_F(IsRpcSessionMandatoryTest, ReturnsBaseNameValue) {
+  ASSERT_NO_FATAL_FAILURE(SetEnvVar("0; foo.exe , 1"));
+  EXPECT_EQ(true, IsRpcSessionMandatory(path_));
+}
+
+TEST_F(IsRpcSessionMandatoryTest, ReturnsExactPathValue) {
+  ASSERT_NO_FATAL_FAILURE(SetEnvVar("0;foo.exe,0;C:\\path\\foo.exe, 1 "));
+  EXPECT_EQ(true, IsRpcSessionMandatory(path_));
+}
+
+TEST_F(IsRpcSessionMandatoryTest, NonNumericIgnored) {
+  ASSERT_NO_FATAL_FAILURE(SetEnvVar("foo.exe,baz;C:\\path\\foo.exe,bar"));
+  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+}
+
+TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
+  FilePath self_path =
+      ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
+
+  std::wstring env_var(self_path.value());
+  env_var.append(L",1");
+
+  scoped_ptr<base::Environment> env;
+  env.reset(base::Environment::Create());
+  ASSERT_TRUE(env->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
+                          ::WideToUTF8(env_var)));
+
+  EXPECT_EQ(true, IsRpcSessionMandatoryForThisModule());
 }
 
 }  // namespace client
