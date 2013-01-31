@@ -23,6 +23,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
@@ -151,7 +152,7 @@ TEST_F(ThunkImportReferencesTransformTest, ExcludeModule) {
 
 TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
   // Check that we don't have a thunks section yet.
-  EXPECT_EQ(NULL, block_graph_.FindSection(".thunks"));
+  EXPECT_EQ(NULL, block_graph_.FindSection(common::kThunkSectionName));
 
   TestThunkImportReferencesTransform transform;
   // Exclude kernel32.dll.
@@ -162,7 +163,8 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
       &transform, &block_graph_, dos_header_block_));
 
   // Check that we now have a thunks section.
-  BlockGraph::Section* thunks_section = block_graph_.FindSection(".thunks");
+  BlockGraph::Section* thunks_section =
+      block_graph_.FindSection(common::kThunkSectionName);
   ASSERT_TRUE(thunks_section != NULL);
 
   BlockGraph::SectionId thunks_section_id = thunks_section->id();

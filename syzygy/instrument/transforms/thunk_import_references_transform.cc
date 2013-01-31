@@ -26,6 +26,7 @@
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/defs.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
@@ -151,7 +152,7 @@ bool ThunkImportReferencesTransform::InstrumentImportReferences(
     BlockGraph* block_graph,
     const ImportAddressLocationNameMap& import_locations) {
   // Find or create the section we put our thunks in.
-  thunk_section_ = block_graph->FindOrAddSection(".thunks",
+  thunk_section_ = block_graph->FindOrAddSection(common::kThunkSectionName,
                                                  pe::kCodeCharacteristics);
   if (thunk_section_ == NULL) {
     LOG(ERROR) << "Unable to find or create .thunks section.";

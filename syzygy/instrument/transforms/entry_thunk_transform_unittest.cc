@@ -21,6 +21,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/defs.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
@@ -171,7 +172,8 @@ class EntryThunkTransformTest : public testing::Test {
 
     *param_thunks = 0;
 
-    BlockGraph::Section* thunk_section = bg_.FindSection(".thunks");
+    BlockGraph::Section* thunk_section =
+        bg_.FindSection(common::kThunkSectionName);
     if (thunk_section == NULL)
       return;
 

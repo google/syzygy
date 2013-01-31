@@ -26,6 +26,7 @@
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
+#include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
@@ -335,7 +336,8 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
 
   // Ensures that the stub is in the thunks section.
   PIMAGE_SECTION_HEADER stub_sec = image.GetImageSectionFromAddr(stub_address);
-  ASSERT_STREQ(".thunks", reinterpret_cast<const char*>(stub_sec->Name));
+  ASSERT_STREQ(common::kThunkSectionName,
+               reinterpret_cast<const char*>(stub_sec->Name));
 }
 
 }  // namespace transforms

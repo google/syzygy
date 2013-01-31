@@ -22,6 +22,7 @@
 #include "base/memory/ref_counted.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"
+#include "syzygy/common/defs.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
@@ -355,8 +356,8 @@ BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
   using block_graph::BlockBuilder;
 
   // Find or create the section we put our thunks in.
-  BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(".thunks",
-      pe::kCodeCharacteristics);
+  BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
+      common::kThunkSectionName, pe::kCodeCharacteristics);
 
   if (thunk_section == NULL) {
     LOG(ERROR) << "Unable to find or create .thunks section.";

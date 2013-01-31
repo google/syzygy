@@ -27,6 +27,9 @@ extern const char kSyzygyMetadataSectionName[];
 // Stores the name that is associated with resource sections.
 extern const char kResourceSectionName[];
 
+// Stores the name that is associated with thunk sections.
+extern const char kThunkSectionName[];
+
 }  // namespace common
 
 #endif  // SYZYGY_COMMON_DEFS_H_

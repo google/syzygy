@@ -17,6 +17,7 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/block_builder.h"
+#include "syzygy/common/defs.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
@@ -182,7 +183,7 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   }
 
   // Find or create the section we put our thunks in.
-  thunk_section_ = block_graph->FindOrAddSection(".thunks",
+  thunk_section_ = block_graph->FindOrAddSection(common::kThunkSectionName,
                                                  pe::kCodeCharacteristics);
   DCHECK(thunk_section_ != NULL);
 
