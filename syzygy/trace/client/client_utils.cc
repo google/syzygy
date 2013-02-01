@@ -29,6 +29,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/core/file_util.h"
+#include "syzygy/trace/client/rpc_session.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -342,6 +343,60 @@ bool IsRpcSessionMandatoryForThisModule() {
   if (IsRpcSessionMandatory(module_path))
     return true;
 
+  return false;
+}
+
+bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
+  DCHECK(rpc_session != NULL);
+
+  std::string id = trace::client::GetInstanceIdForThisModule();
+  rpc_session->set_instance_id(UTF8ToWide(id));
+  if (rpc_session->CreateSession(segment))
+    return true;
+
+  // If the session is not mandatory then return and indicate that we failed
+  // to initialize properly.
+  if (!IsRpcSessionMandatoryForThisModule())
+    return false;
+
+  // If you're seeing this error message it's because the process was unable
+  // to initialize an RPC sesion, and the state of the
+  // SYZYGY_RPC_SESSION_MANDATORY environment variable indicated that it was
+  // required. Make sure the call-trace service is running with the appropriate
+  // instance ID!
+  LOG(ERROR) << "RPC session is mandatory, but unable to be created.";
+
+  // Dump some context regarding the decision to abort.
+  FilePath module_path;
+  if (GetModulePath(&__ImageBase, &module_path))
+    LOG(ERROR) << "Module path: " << module_path.value();
+
+  LOG(ERROR) << "RPC instance ID is \"" << id << "\".";
+
+  base::Environment* env = base::Environment::Create();
+  if (env) {
+    std::string var;
+    if (env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &var)) {
+      LOG(ERROR) << ::kSyzygyRpcInstanceIdEnvVar << " is \"" << var << "\".";
+    } else {
+      LOG(ERROR) << ::kSyzygyRpcInstanceIdEnvVar << " is not set.";
+    }
+
+    if (env->GetVar(::kSyzygyRpcSessionMandatoryEnvVar, &var)) {
+      LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is \"" << var
+                 << "\".";
+    } else {
+      LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is not set.";
+    }
+  }
+
+  // Kill this process with prejudice. We need to be heavy handed here because
+  // we are typically running under the loader lock, and most things won't
+  // actually convince it to stop the entire process.
+  ::TerminateProcess(::GetCurrentProcess(), 255);
+
+  // We need this to avoid getting complaints about control paths missing a
+  // return statement.
   return false;
 }
 

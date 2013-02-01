@@ -336,9 +336,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
       return;
 
     if (!session_.IsTracing()) {
-      std::string id = trace::client::GetInstanceIdForThisModule();
-      session_.set_instance_id(UTF8ToWide(id));
-      if (!session_.CreateSession(&data->segment))
+      if (!trace::client::InitializeRpcSession(&session_, &data->segment))
         return;
     }
   }

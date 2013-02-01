@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/trace/client/rpc_session.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -186,6 +187,36 @@ TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
 
   EXPECT_EQ(true, IsRpcSessionMandatoryForThisModule());
 }
+
+TEST(InitializeRpcSessionTest, FailureSessionNotMandatory) {
+  FilePath self_path =
+      ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
+
+  scoped_ptr<base::Environment> env;
+  env.reset(base::Environment::Create());
+
+  std::wstring env_var(self_path.value());
+  env_var.append(L",0");
+  ASSERT_TRUE(env->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
+                          ::WideToUTF8(env_var)));
+
+  env_var = self_path.value();
+  std::wstring id(L"dummy-id");
+  env_var.append(L",");
+  env_var.append(id);
+  ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar,
+                          ::WideToUTF8(env_var)));
+
+  RpcSession session;
+  TraceFileSegment segment;
+  EXPECT_FALSE(InitializeRpcSession(&session, &segment));
+
+  EXPECT_EQ(id, session.instance_id());
+}
+
+// TODO(chrisha): A more involved unittest where we launch a child process
+//     whose RPC connection is mandatory, but unable to be initialized. Make
+//     sure that it crashes as expected.
 
 }  // namespace client
 }  // namespace trace

@@ -38,8 +38,16 @@ class RpcSession {
     instance_id_.assign(instance_id.begin(), instance_id.end());
   }
 
-  // Wrapper and helper functions for the RPC and shared memory calls made
+  // @returns the instance ID for this session.
+  const std::wstring instance_id() const { return instance_id_; }
+
+  // @name Wrapper and helper functions for the RPC and shared memory calls made
   // by the call-trace client.
+  // @{
+
+  // @note Do not call this function directly unless you know exactly what
+  //     you're doing. For consistent semantics across agents please use
+  //     trace::client::InitializeRpcSession.
   bool CreateSession(TraceFileSegment* segment);
   bool AllocateBuffer(TraceFileSegment* segment);
   bool AllocateBuffer(size_t min_size, TraceFileSegment* segment);
@@ -47,6 +55,7 @@ class RpcSession {
   bool ReturnBuffer(TraceFileSegment* segment);
   bool CloseSession();
   void FreeSharedMemory();
+  // @}
 
   inline bool IsEnabled(unsigned long bit_mask) const {
     return (flags_ & bit_mask) != 0;

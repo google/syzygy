@@ -122,9 +122,7 @@ Coverage* Coverage::Instance() {
 }
 
 Coverage::Coverage() {
-  std::string id = trace::client::GetInstanceIdForThisModule();
-  session_.set_instance_id(UTF8ToWide(id));
-  session_.CreateSession(&segment_);
+  trace::client::InitializeRpcSession(&session_, &segment_);
 }
 
 Coverage::~Coverage() {

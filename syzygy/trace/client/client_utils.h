@@ -25,6 +25,9 @@
 namespace trace {
 namespace client {
 
+// Forward declaration.
+class RpcSession;
+
 // This structure captures everything that a thread needs to know about
 // its current call trace buffer, which corresponds to a call trace segment
 // on disk. It holds the buffer information given by the call trace service,
@@ -169,6 +172,17 @@ bool IsRpcSessionMandatory(const FilePath& module_path);
 // @returns true if an RPC session is mandatory for the module in which this
 //     function is found.
 bool IsRpcSessionMandatoryForThisModule();
+
+// Initializes an RPC session, automatically getting the instance ID and
+// determining if the session is mandatory. If the session is mandatory and it
+// is unable to be connected this will raise an exception and cause the process
+// to abort.
+// @param rpc_session the session to initialize.
+// @param segment will receive the first allocated segment upon successful
+//     initilization.
+// @returns true if everything went well, false if anything went wrong and the
+//     session is not mandatory.
+bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment);
 
 }  // namespace trace::client
 }  // namespace trace

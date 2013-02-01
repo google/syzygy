@@ -639,9 +639,7 @@ Profiler::ThreadState* Profiler::CreateFirstThreadStateAndSession() {
   Profiler::ThreadState* data = GetOrAllocateThreadStateImpl();
 
   // Create the session (and allocate the first segment).
-  std::string id = trace::client::GetInstanceIdForThisModule();
-  session_.set_instance_id(UTF8ToWide(id));
-  session_.CreateSession(data->segment());
+  trace::client::InitializeRpcSession(&session_, data->segment());
 
   return data;
 }

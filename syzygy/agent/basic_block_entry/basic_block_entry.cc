@@ -384,16 +384,12 @@ BasicBlockEntry* BasicBlockEntry::Instance() {
 }
 
 BasicBlockEntry::BasicBlockEntry() {
-  std::string id = trace::client::GetInstanceIdForThisModule();
-  session_.set_instance_id(UTF8ToWide(id));
-
   // Create a session. We immediately return the buffer that gets allocated
   // to us. The client will perform thread-local buffer management on an as-
   // needed basis.
   trace::client::TraceFileSegment dummy_segment;
-  if (session_.CreateSession(&dummy_segment)) {
+  if (trace::client::InitializeRpcSession(&session_, &dummy_segment))
     CHECK(session_.ReturnBuffer(&dummy_segment));
-  }
 }
 
 BasicBlockEntry::~BasicBlockEntry() {
