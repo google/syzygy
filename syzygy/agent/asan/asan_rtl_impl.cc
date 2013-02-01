@@ -122,7 +122,12 @@ BOOL WINAPI asan_HeapFree(HANDLE heap,
   if (!proxy)
     return FALSE;
 
-  return proxy->Free(flags, mem);
+  if (!proxy->Free(flags, mem)) {
+    asan_runtime->OnError();
+    return false;
+  }
+
+  return true;
 }
 
 SIZE_T WINAPI asan_HeapSize(HANDLE heap,
@@ -305,17 +310,10 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // calculate the top address of this structure.
   context.Esp = reinterpret_cast<DWORD>(asan_context) + sizeof(asan_context);
 
-  // Print the base of the Windbg help message.
-  ASANDbgMessage(L"An Asan error has been found, here are the details:");
-
   asan_runtime->ReportAsanErrorDetails(asan_context->location,
                                        context,
                                        access_mode,
                                        access_size);
-
-  // Switch to the caller's context and print its stack trace in Windbg.
-  ASANDbgMessage(L"Caller's context and stack trace:");
-  ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
 
   // Call the callback to handle this error.
   asan_runtime->OnError();

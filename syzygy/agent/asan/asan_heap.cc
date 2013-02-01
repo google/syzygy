@@ -16,6 +16,7 @@
 
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "base/sys_string_conversions.h"
 #include "base/debug/stack_trace.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
@@ -85,6 +86,12 @@ void ASANDbgMessage(const wchar_t* fmt, ...) {
 
   // Treat the message as a command to print it.
   ASANDbgCmd(message_wstring.c_str());
+}
+
+// Switch to the caller's context and print its stack trace in Windbg.
+void ASANDbgPrintContext(const CONTEXT& context) {
+  ASANDbgMessage(L"Caller's context (%p) and stack trace:", &context);
+  ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
 }
 
 HeapProxy::HeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
@@ -531,6 +538,8 @@ void HeapProxy::ReportUnknownError(const void* addr,
                       UNKNOWN_BAD_ACCESS,
                       access_mode,
                       access_size);
+
+  ASANDbgPrintContext(context);
 }
 
 void HeapProxy::ReportAsanError(const char* bug_descr,
@@ -568,6 +577,8 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
   }
 
   ReportAddressInformation(addr, header, bad_access_kind);
+
+  ASANDbgPrintContext(context);
 }
 
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
@@ -578,6 +589,10 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     size_t access_size) {
   DCHECK(bug_descr != NULL);
   DCHECK(addr != NULL);
+
+  // Print the base of the Windbg help message.
+  ASANDbgMessage(L"An Asan error has been found (%ls), here are the details:",
+                 base::SysUTF8ToWide(bug_descr).c_str());
 
   // TODO(sebmarchand): Print PC, BP and SP.
   std::string output(base::StringPrintf(
