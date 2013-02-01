@@ -108,6 +108,7 @@ bool LogModule(HMODULE module,
                           module_name, arraysize(module_name)) == 0) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
+    return false;
   }
   FilePath device_path(module_name);
   FilePath drive_path;
