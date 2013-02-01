@@ -141,18 +141,24 @@ namespace {
 const size_t kPtrSize = sizeof(core::RelativeAddress);
 
 // Looks up the given data directory and checks that it points to valid data.
-// If it doesn't, it will allocate a block with the given name and size.
-bool EnsureDataDirectoryExists(size_t directory_index,
-                               const char* block_name,
-                               size_t block_size,
-                               BlockGraph* block_graph,
-                               BlockGraph::Block* nt_headers_block) {
+// If it doesn't exist and find_only is false, it will allocate a block with
+// the given name and size.
+bool FindOrAddDataDirectory(bool find_only,
+                            size_t directory_index,
+                            const char* block_name,
+                            size_t block_size,
+                            BlockGraph* block_graph,
+                            BlockGraph::Block* nt_headers_block,
+                            bool* exists) {
   DCHECK(block_name != NULL);
   DCHECK_LT(directory_index,
             static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
   DCHECK_GT(block_size, 0u);
   DCHECK(block_graph != NULL);
   DCHECK(nt_headers_block != NULL);
+  DCHECK(exists != NULL);
+
+  *exists = false;
 
   NtHeaders nt_headers;
   if (!nt_headers.Init(0, nt_headers_block)) {
@@ -166,6 +172,10 @@ bool EnsureDataDirectoryExists(size_t directory_index,
   // No entry? Then make a zero initialized block that is stored in .rdata,
   // where all of these structures live.
   if (!nt_headers.HasReference(data_directory->VirtualAddress)) {
+    // We don't need to create the entry if we're exploring only.
+    if (find_only)
+      return true;
+
     BlockGraph::Section* section = block_graph->FindOrAddSection(
         kReadOnlyDataSectionName, kReadOnlyDataCharacteristics);
     DCHECK(section != NULL);
@@ -191,25 +201,30 @@ bool EnsureDataDirectoryExists(size_t directory_index,
     data_directory->Size = block_size;
   }
 
+  *exists = true;
   return true;
 }
 
 // Finds or creates an Image Import Descriptor block for the given library.
 // Returns true on success, false otherwise.
-bool FindOrAddImageImportDescriptor(const char* module_name,
+bool FindOrAddImageImportDescriptor(bool find_only,
+                                    const char* module_name,
                                     BlockGraph* block_graph,
                                     BlockGraph::Block* iida_block,
                                     BlockGraph::Block* iat_block,
                                     ImageImportDescriptor* iid,
-                                    bool* added) {
+                                    bool* added,
+                                    bool* exists) {
   DCHECK(module_name != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(iida_block != NULL);
   DCHECK(iat_block != NULL);
   DCHECK(iid != NULL);
   DCHECK(added != NULL);
+  DCHECK(exists != NULL);
 
   *added = false;
+  *exists = false;
 
   ImageImportDescriptor iida;
   if (!iida.Init(0, iida_block)) {
@@ -236,9 +251,15 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
       // This should never fail, but we sanity check it nonetheless.
       bool result = iid->Init(iida.OffsetOf(iida[iida_index]), iida.block());
       DCHECK(result);
+      *exists = true;
       return true;
     }
   }
+
+  // If we get here then the entry doesn't exist. If we've been asked to only
+  // search for it then we can return early.
+  if (find_only)
+    return true;
 
   // Create room for the new descriptor, which we'll tack on to the end of the
   // array, but before the NULL terminator. We use 'InsertData' so that all
@@ -327,6 +348,7 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
   }
 
   *added = true;
+  *exists = true;
 
   return true;
 }
@@ -336,7 +358,8 @@ bool FindOrAddImageImportDescriptor(const char* module_name,
 // returns a reference to the module's IAT entry. New entries are always added
 // to the end of the table so as not to invalidate any other unlinked references
 // (not part of the BlockGraph, so unable to be patched up) into the table.
-bool FindOrAddImportedSymbol(const char* symbol_name,
+bool FindOrAddImportedSymbol(bool find_only,
+                             const char* symbol_name,
                              const ImageImportDescriptor& iid,
                              BlockGraph* block_graph,
                              BlockGraph::Block* iat_block,
@@ -348,6 +371,7 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
   DCHECK(iat_index != NULL);
   DCHECK(added != NULL);
 
+  *iat_index = AddImportsTransform::ImportedModule::kInvalidIatIndex;
   *added = false;
 
   TypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
@@ -397,6 +421,11 @@ bool FindOrAddImportedSymbol(const char* symbol_name,
       return true;
     }
   }
+
+  // If we get here then the entry doesn't exist. If we've been asked to only
+  // search for it then we can return early.
+  if (find_only)
+    return true;
 
   // Figure out how large the data needs to be to hold the name of this exported
   // symbol.  The IMAGE_IMPORT_BY_NAME struct has a WORD ordinal and a variable
@@ -499,6 +528,17 @@ bool AddImportsTransform::TransformBlockGraph(
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 
+  // Before doing anything, let's determine if we're on a strictly exploratory
+  // mission. We don't want to add anything if all modules/symbols are
+  // 'find only'.
+  bool find_only = true;
+  for (size_t i = 0; i < imported_modules_.size(); ++i) {
+    if (imported_modules_[i]->mode_ != ImportedModule::kFindOnly) {
+      find_only = false;
+      break;
+    }
+  }
+
   modules_added_ = 0;
   symbols_added_ = 0;
 
@@ -513,14 +553,25 @@ bool AddImportsTransform::TransformBlockGraph(
   // Get the block containing the image import directory. In general it's not
   // safe to keep around a pointer into a TypedBlock, but we won't be resizing
   // or reallocating the data within nt_headers so this is safe.
-  if (!EnsureDataDirectoryExists(IMAGE_DIRECTORY_ENTRY_IMPORT,
-                                 "Image Import Descriptor Array",
-                                 sizeof(IMAGE_IMPORT_DESCRIPTOR),
-                                 block_graph,
-                                 nt_headers.block())) {
+  bool import_directory_exists = false;
+  if (!FindOrAddDataDirectory(find_only,
+                              IMAGE_DIRECTORY_ENTRY_IMPORT,
+                              "Image Import Descriptor Array",
+                              sizeof(IMAGE_IMPORT_DESCRIPTOR),
+                              block_graph,
+                              nt_headers.block(),
+                              &import_directory_exists)) {
     LOG(ERROR) << "Failed to create Image Import Descriptor Array.";
     return false;
   }
+
+  // If we're on a find only mission and no import data directory exists then
+  // there are *no* imports and we can quit early.
+  if (find_only && !import_directory_exists)
+    return true;
+
+  // Look up the import directory.
+  DCHECK(import_directory_exists);
   IMAGE_DATA_DIRECTORY* import_directory =
       nt_headers->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_IMPORT;
   DCHECK(nt_headers.HasReference(import_directory->VirtualAddress));
@@ -544,14 +595,25 @@ bool AddImportsTransform::TransformBlockGraph(
   image_import_descriptor_block_ = image_import_descriptor.block();
 
   // Similarly, get the block containing the IAT.
-  if (!EnsureDataDirectoryExists(IMAGE_DIRECTORY_ENTRY_IAT,
-                                 "Import Address Table",
-                                 kPtrSize,
-                                 block_graph,
-                                 nt_headers.block())) {
+  bool iat_directory_exists = false;
+  if (!FindOrAddDataDirectory(find_only,
+                              IMAGE_DIRECTORY_ENTRY_IAT,
+                              "Import Address Table",
+                              kPtrSize,
+                              block_graph,
+                              nt_headers.block(),
+                              &iat_directory_exists)) {
     LOG(ERROR) << "Failed to create Import Address Table.";
     return false;
   }
+
+  // If we're on a find only mission and no import data directory exists then
+  // there are *no* imports and we can quit early.
+  if (find_only && !iat_directory_exists)
+    return true;
+
+  // Look up the IAT directory.
+  DCHECK(iat_directory_exists);
   IMAGE_DATA_DIRECTORY* iat_directory =
       nt_headers->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_IAT;
   DCHECK(nt_headers.HasReference(iat_directory->VirtualAddress));
@@ -572,22 +634,34 @@ bool AddImportsTransform::TransformBlockGraph(
   // Handle each library individually.
   for (size_t i = 0; i < imported_modules_.size(); ++i) {
     ImportedModule* module = imported_modules_[i];
-    if (module->size() == 0)
-      continue;
 
     // First find or create an entry for this module in the Image Import
     // Descriptor Array.
     ImageImportDescriptor iid;
     bool module_added = false;
-    if (!FindOrAddImageImportDescriptor(module->name().c_str(),
-                                        block_graph,
-                                        image_import_descriptor_block_,
-                                        import_address_table_block_,
-                                        &iid,
-                                        &module_added)) {
+    bool module_exists = false;
+    if (!FindOrAddImageImportDescriptor(
+            module->mode_ == ImportedModule::kFindOnly,
+            module->name().c_str(),
+            block_graph,
+            image_import_descriptor_block_,
+            import_address_table_block_,
+            &iid,
+            &module_added,
+            &module_exists)) {
       LOG(ERROR) << "Failed to find or import module.";
       return false;
     }
+
+    // If we're fact finding only and the module does not exist then we don't
+    // need to look up its symbols.
+    if (module->mode_ == ImportedModule::kFindOnly && !module_exists) {
+      DCHECK(!module_added);
+      continue;
+    }
+
+    DCHECK(module_exists);
+    module->added_ = module_added;
     modules_added_ += module_added;
 
     // This should always succeed as iid was initialized earlier.
@@ -599,19 +673,21 @@ bool AddImportsTransform::TransformBlockGraph(
 
       // Now, for each symbol get the offset of the IAT entry. This will create
       // the entry (and all accompanying structures) if necessary.
-      size_t symbol_index = ImportedModule::kInvalidIndex;
+      size_t symbol_iat_index = ImportedModule::kInvalidIatIndex;
       bool symbol_added = false;
-      if (!FindOrAddImportedSymbol(symbol.name.c_str(),
+      if (!FindOrAddImportedSymbol(symbol.mode == ImportedModule::kFindOnly,
+                                   symbol.name.c_str(),
                                    iid,
                                    block_graph,
                                    import_address_table_block_,
-                                   &symbol_index,
+                                   &symbol_iat_index,
                                    &symbol_added)) {
         LOG(ERROR) << "Failed to find or import symbol.";
         return false;
       }
       symbols_added_ += symbol_added;
-      symbol.index = symbol_index;
+      symbol.iat_index = symbol_iat_index;
+      symbol.added = symbol_added;
     }
   }
 
@@ -622,12 +698,17 @@ bool AddImportsTransform::TransformBlockGraph(
   return true;
 }
 
-const size_t AddImportsTransform::ImportedModule::kInvalidIndex = -1;
+const size_t AddImportsTransform::ImportedModule::kInvalidIatIndex = -1;
 
 size_t AddImportsTransform::ImportedModule::AddSymbol(
-    const base::StringPiece& symbol_name) {
-  Symbol symbol = {symbol_name.as_string(), kInvalidIndex};
+    const base::StringPiece& symbol_name,
+    ImportedModule::TransformMode mode) {
+  Symbol symbol = {symbol_name.as_string(), kInvalidIatIndex, mode};
   symbols_.push_back(symbol);
+
+  if (mode != ImportedModule::kFindOnly)
+    mode_ = ImportedModule::kAlwaysImport;
+
   return symbols_.size() - 1;
 }
 
@@ -636,8 +717,9 @@ bool AddImportsTransform::ImportedModule::GetSymbolReference(
   DCHECK_LT(index, symbols_.size());
   DCHECK(abs_reference != NULL);
 
-  size_t symbol_index = symbols_[index].index;
-  if (import_descriptor_.block() == NULL || symbol_index == kInvalidIndex) {
+  size_t symbol_iat_index = symbols_[index].iat_index;
+  if (import_descriptor_.block() == NULL ||
+      symbol_iat_index == kInvalidIatIndex) {
     LOG(ERROR) << "Called GetAbsReference on an unitialized ImportedSymbol.";
     return false;
   }
@@ -649,12 +731,12 @@ bool AddImportsTransform::ImportedModule::GetSymbolReference(
     return false;
   }
 
-  if (symbol_index >= thunks.ElementCount()) {
+  if (symbol_iat_index >= thunks.ElementCount()) {
     LOG(ERROR) << "Invalid symbol_index for IAT.";
     return false;
   }
 
-  Offset offset = thunks.OffsetOf(thunks[symbol_index].u1.AddressOfData);
+  Offset offset = thunks.OffsetOf(thunks[symbol_iat_index].u1.AddressOfData);
   *abs_reference = BlockGraph::Reference(
       BlockGraph::ABSOLUTE_REF, kPtrSize, thunks.block(), offset, offset);
 

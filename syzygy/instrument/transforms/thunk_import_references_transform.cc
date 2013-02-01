@@ -82,8 +82,9 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
 
   // Start by finding or adding import entries for our instrumentation hook.
   AddImportsTransform::ImportedModule import_module(
-      instrument_dll_name_.c_str());
-  size_t hook_index = import_module.AddSymbol(kEntryHookName);
+      instrument_dll_name_);
+  size_t hook_index = import_module.AddSymbol(
+      kEntryHookName, AddImportsTransform::ImportedModule::kAlwaysImport);
 
   add_imports_transform_.AddModule(&import_module);
 

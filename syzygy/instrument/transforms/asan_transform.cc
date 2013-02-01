@@ -55,6 +55,7 @@ struct StringStruct {
   const char string[1];
 };
 
+typedef AddImportsTransform::ImportedModule ImportedModule;
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef std::vector<AsanBasicBlockTransform::AsanHookMapEntryKey>
@@ -280,7 +281,7 @@ std::string GetAsanCheckAccessFunctionName(uint8 access_size,
 // @param hook_stub The stub for the asan check access functions.
 // @returns True on success, false otherwise.
 bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
-                             AddImportsTransform::ImportedModule* import_module,
+                             ImportedModule* import_module,
                              HookMap* check_access_hook_map,
                              BlockGraph* block_graph,
                              BlockGraph::Block* header_block,
@@ -301,7 +302,8 @@ bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
   for (; iter_params != hook_param_vector.end(); ++iter_params) {
     size_t symbol_idx = import_module->AddSymbol(
         GetAsanCheckAccessFunctionName(iter_params->second,
-                                       iter_params->first));
+                                       iter_params->first),
+        ImportedModule::kAlwaysImport);
     hooks_params_to_idx[*iter_params] = symbol_idx;
   }
 
@@ -564,7 +566,7 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   AccessHookParamVector access_hook_param_vec;
 
   // Add an import entry for the ASAN runtime.
-  AddImportsTransform::ImportedModule import_module(asan_dll_name_.c_str());
+  ImportedModule import_module(asan_dll_name_);
 
   // Import the hooks for the read accesses.
   for (int access_size = 1; access_size <= 32; access_size *= 2) {
@@ -613,8 +615,8 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   // a set of "override" imports in the ASAN runtime.
 
   // Import entries for the ASAN runtime and kernel32.
-  AddImportsTransform::ImportedModule module_kernel32("kernel32.dll");
-  AddImportsTransform::ImportedModule module_asan(asan_dll_name_.c_str());
+  ImportedModule module_kernel32("kernel32.dll");
+  ImportedModule module_asan(asan_dll_name_);
 
   struct Kernel32ImportRedirect {
     const char* import_name;
@@ -649,9 +651,11 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   std::vector<std::pair<size_t, size_t>> override_indexes;
   for (size_t i = 0; i < arraysize(kKernel32Redirects); ++i) {
     size_t kernel32_index =
-        module_kernel32.AddSymbol(kKernel32Redirects[i].import_name);
+        module_kernel32.AddSymbol(kKernel32Redirects[i].import_name,
+                                  ImportedModule::kAlwaysImport);
     size_t asan_index =
-        module_asan.AddSymbol(kKernel32Redirects[i].redirect_name);
+        module_asan.AddSymbol(kKernel32Redirects[i].redirect_name,
+                              ImportedModule::kAlwaysImport);
 
     override_indexes.push_back(std::make_pair(kernel32_index, asan_index));
   }

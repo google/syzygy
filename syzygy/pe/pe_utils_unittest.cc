@@ -310,7 +310,8 @@ TEST_F(PEUtilsTest, HasImportEntry) {
   // Creates an imported module.
   AddImportsTransform::ImportedModule module("foo.dll");
   const char* kFooFunc = "foo_func";
-  size_t function_foo = module.AddSymbol(kFooFunc);
+  size_t function_foo = module.AddSymbol(
+      kFooFunc, AddImportsTransform::ImportedModule::kAlwaysImport);
   ASSERT_EQ(kFooFunc, module.GetSymbolName(function_foo));
 
   // Apply the transform to add this module import to the block-graph.

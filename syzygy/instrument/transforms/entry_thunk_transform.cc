@@ -35,6 +35,9 @@ using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Operand;
+using pe::transforms::AddImportsTransform;
+
+typedef AddImportsTransform::ImportedModule ImportedModule;
 
 // We add this suffix to the destination
 const char kThunkSuffix[] = "_thunk";
@@ -72,8 +75,6 @@ bool IsUnsafeReference(const BlockGraph::Block* referrer,
 }
 
 }  // namespace
-
-using pe::transforms::AddImportsTransform;
 
 const char EntryThunkTransform::kTransformName[] =
     "EntryThunkTransform";
@@ -128,8 +129,7 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   if (!GetEntryPoints(header_block))
     return false;
 
-  AddImportsTransform::ImportedModule import_module(
-      instrument_dll_name_.c_str());
+  ImportedModule import_module(instrument_dll_name_);
 
   // We import the minimal set of symbols necessary, depending on the types of
   // entry points we find in the module. We maintain a list of symbol indices/
@@ -142,14 +142,16 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   // itself) then we need the DllMain entry hook.
   if (dllmain_entrypoints_.size() > 0) {
     import_hooks.push_back(std::make_pair(
-        import_module.AddSymbol(kDllMainEntryHookName),
+        import_module.AddSymbol(kDllMainEntryHookName,
+                                ImportedModule::kAlwaysImport),
         &hook_dllmain_ref_));
   }
 
   // If this was an EXE then we need the EXE entry hook.
   if (exe_entry_point_.first != NULL) {
     import_hooks.push_back(std::make_pair(
-        import_module.AddSymbol(kExeEntryHookName),
+        import_module.AddSymbol(kExeEntryHookName,
+                                ImportedModule::kAlwaysImport),
         &hook_exe_entry_ref_));
   }
 
@@ -157,7 +159,8 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   // entry hook.
   if (!only_instrument_module_entry_) {
     import_hooks.push_back(std::make_pair(
-        import_module.AddSymbol(kEntryHookName),
+        import_module.AddSymbol(kEntryHookName,
+                                ImportedModule::kAlwaysImport),
         &hook_ref_));
   }
 

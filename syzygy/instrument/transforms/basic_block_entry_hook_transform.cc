@@ -37,7 +37,9 @@ using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
+using pe::transforms::AddImportsTransform;
 
+typedef AddImportsTransform::ImportedModule ImportedModule;
 typedef BasicBlockEntryHookTransform::RelativeAddressRange RelativeAddressRange;
 
 const char kDefaultModuleName[] = "basic_block_entry.dll";
@@ -67,11 +69,12 @@ bool SetupEntryHook(BlockGraph* block_graph,
   DCHECK(basic_block_enter != NULL);
 
   // Setup the import module.
-  pe::transforms::AddImportsTransform::ImportedModule module(module_name);
-  size_t bb_index = module.AddSymbol(kBasicBlockEnter);
+  ImportedModule module(module_name);
+  size_t bb_index = module.AddSymbol(kBasicBlockEnter,
+                                     ImportedModule::kAlwaysImport);
 
   // Setup the add-imports transform.
-  pe::transforms::AddImportsTransform add_imports;
+  AddImportsTransform add_imports;
   add_imports.AddModule(&module);
 
   // Add the imports to the block-graph.
