@@ -23,11 +23,14 @@
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
+#include "syzygy/core/file_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace pe {
+
+namespace {
 
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
@@ -45,6 +48,15 @@ struct FilePathLess {
 
 class DiaUtilTest : public testing::PELibUnitTest {
 };
+
+MATCHER_P(IsSameFile, value, "") {
+  FilePath path1(arg);
+  FilePath path2(value);
+  core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
+  return result == core::kEquivalentFilePaths;
+}
+
+}  // namespace
 
 TEST_F(DiaUtilTest, CreateDiaSource) {
   ScopedComPtr<IDiaDataSource> dia_source;
@@ -200,7 +212,7 @@ class DiaUtilVisitorTest : public DiaUtilTest {
     EXPECT_TRUE(IsSymTag(compiland, SymTagCompiland));
     ScopedBstr name;
     EXPECT_EQ(S_OK, compiland->get_name(name.Receive()));
-    if (compiland_path == com::ToString(name)) {
+    if (testing::Value(com::ToString(name), IsSameFile(compiland_path))) {
       *compiland_out = compiland;
       return false;
     }
@@ -267,7 +279,8 @@ TEST_F(DiaUtilVisitorTest, CompilandVisitorTest) {
 
   // One of the compiland_names should be the test_dll.obj file.
   FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
-  ASSERT_THAT(compiland_names, testing::Contains(test_dll_obj.value()));
+  ASSERT_THAT(compiland_names,
+              testing::Contains(IsSameFile(test_dll_obj.value())));
 }
 
 TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
