@@ -243,9 +243,12 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   block->free_stack =
       stack_cache_->SaveStackTrace(stack_id, frames, num_frames);
   DCHECK(ToAlloc(block) == mem);
-  if (!Shadow::IsAccessible(ToAlloc(block)))
-    return false;
 
+  // If the size of the allocation is zero then we shouldn't check the shadow
+  // memory as it'll only contain the red-zone for the head and tail of this
+  // block.
+  if (block->size != 0 && !Shadow::IsAccessible(ToAlloc(block)))
+    return false;
   QuarantineBlock(block);
   return true;
 }
