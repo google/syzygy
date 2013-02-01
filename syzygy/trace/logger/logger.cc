@@ -107,11 +107,17 @@ BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
                                       LPDWORD bytes_read) {
   DCHECK(buffer != NULL);
   DCHECK(bytes_read != NULL);
+  *bytes_read = 0;
   LPCVOID base_address = reinterpret_cast<LPCVOID>(base_address_64);
   if (::ReadProcessMemory(process, base_address, buffer, size, bytes_read))
     return TRUE;
 
+  // Maybe it was just a partial read, which isn't fatal.
   DWORD error = ::GetLastError();
+  if (error == ERROR_PARTIAL_COPY)
+    return TRUE;
+
+  // Nope, it was a real error.
   LOG(ERROR) << "Failed to read process memory: " << com::LogWe(error) << ".";
   return FALSE;
 }
