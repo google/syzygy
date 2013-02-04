@@ -315,9 +315,11 @@ class _CodeCoverageRunnerSyzygy(_CodeCoverageRunnerBase):
                 syzycover)
 
     # Set up the environment so that the coverage client will connect to
-    # the appropriate call trace client.
+    # the appropriate call trace client. Also make it so that it will crash if
+    # the RPC connection is unable to be made.
     os.environ['SYZYGY_RPC_INSTANCE_ID'] = '%s,%s' % (syzycover,
                                                       self._SYZYCOVER)
+    os.environ['SYZYGY_RPC_SESSION_MANDATORY'] = '%s,1' % (syzycover)
 
     # Start an instance of the call-trace service in the background.
     cmd = [os.path.join(self._build_dir, 'call_trace_service.exe'),
