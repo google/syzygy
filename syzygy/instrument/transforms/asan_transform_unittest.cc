@@ -213,16 +213,35 @@ namespace {
 using base::win::PEImage;
 typedef std::set<std::string> StringSet;
 typedef std::set<PVOID> FunctionsIATAddressSet;
+typedef std::vector<std::string> StringVector;
 
-bool EnumImports(const PEImage &image, LPCSTR module,
-                 DWORD ordinal, LPCSTR name, DWORD hint,
-                 PIMAGE_THUNK_DATA iat, PVOID cookie) {
+const char kAsanRtlDll[] = "asan_rtl.dll";
+
+bool EnumKernel32HeapImports(const PEImage &image, LPCSTR module,
+                             DWORD ordinal, LPCSTR name, DWORD hint,
+                             PIMAGE_THUNK_DATA iat, PVOID cookie) {
+  DCHECK(module != NULL);
+  DCHECK(cookie != NULL);
+
+  StringVector* modules = reinterpret_cast<StringVector*>(cookie);
+
+  if (_stricmp("kernel32.dll", module) == 0 && strncmp("Heap", name, 4) == 0) {
+    DCHECK(name != NULL);
+    modules->push_back(name);
+  }
+
+  return true;
+}
+
+bool EnumAsanImports(const PEImage &image, LPCSTR module,
+                     DWORD ordinal, LPCSTR name, DWORD hint,
+                     PIMAGE_THUNK_DATA iat, PVOID cookie) {
   DCHECK(module != NULL);
   DCHECK(cookie != NULL);
 
   StringSet* modules = reinterpret_cast<StringSet*>(cookie);
 
-  if (strcmp("asan_rtl.dll", module) == 0) {
+  if (strcmp(kAsanRtlDll, module) == 0) {
     DCHECK(name != NULL);
     modules->insert(name);
   }
@@ -243,7 +262,7 @@ bool GetAsanHooksIATEntries(const PEImage &image,
   FunctionsIATAddressSet* hooks_iat_entries =
       reinterpret_cast<FunctionsIATAddressSet*>(cookie);
 
-  if (strcmp("asan_rtl.dll", module) != 0)
+  if (strcmp(kAsanRtlDll, module) != 0)
     return true;
 
   DCHECK(name != NULL);
@@ -273,25 +292,20 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   PEImage image(lib);
   ASSERT_TRUE(image.VerifyMagic());
   StringSet imports;
-  ASSERT_TRUE(image.EnumAllImports(&EnumImports, &imports));
+  ASSERT_TRUE(image.EnumAllImports(&EnumAsanImports, &imports));
+
+  StringVector heap_imports;
+  ASSERT_TRUE(image.EnumAllImports(&EnumKernel32HeapImports, &heap_imports));
 
   // This isn't strictly speaking a full test, as we only check that the new
   // imports have been added. It's however more trouble than it's worth to
   // test this fully for now.
   StringSet expected;
-  expected.insert("asan_HeapCreate");
-  expected.insert("asan_HeapDestroy");
-  expected.insert("asan_HeapAlloc");
-  expected.insert("asan_HeapReAlloc");
-  expected.insert("asan_HeapFree");
-  expected.insert("asan_HeapSize");
-  expected.insert("asan_HeapValidate");
-  expected.insert("asan_HeapCompact");
-  expected.insert("asan_HeapLock");
-  expected.insert("asan_HeapUnlock");
-  expected.insert("asan_HeapWalk");
-  expected.insert("asan_HeapSetInformation");
-  expected.insert("asan_HeapQueryInformation");
+  for (size_t i = 0; i < heap_imports.size(); ++i) {
+    std::string asan_import = "asan_";
+    asan_import.append(heap_imports[i]);
+    expected.insert(asan_import);
+  }
   expected.insert("asan_check_1_byte_read_access");
   expected.insert("asan_check_2_byte_read_access");
   expected.insert("asan_check_4_byte_read_access");
@@ -325,11 +339,24 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
 
   PEImage image(lib);
   ASSERT_TRUE(image.VerifyMagic());
-  FunctionsIATAddressSet hooks_iat_set;
-  ASSERT_TRUE(image.EnumAllImports(&GetAsanHooksIATEntries, &hooks_iat_set));
+
+  // Iterate over the image import descriptors. We want to make sure the
+  // one for asan_rtl.dll is bound.
+  DWORD size = image.GetImageDirectoryEntrySize(IMAGE_DIRECTORY_ENTRY_IMPORT);
+  PIMAGE_IMPORT_DESCRIPTOR iid = image.GetFirstImportChunk();
+  ASSERT_TRUE(iid != NULL);
+  ASSERT_GE(size, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+  for (; iid->FirstThunk; ++iid) {
+    std::string module_name(reinterpret_cast<LPCSTR>(
+        image.RVAToAddr(iid->Name)));
+    if (module_name == kAsanRtlDll)
+      ASSERT_NE(0u, iid->TimeDateStamp);
+  }
 
   // As all the hooks refer to the same stub, we expect to have only one entry
   // in the set.
+  FunctionsIATAddressSet hooks_iat_set;
+  ASSERT_TRUE(image.EnumAllImports(&GetAsanHooksIATEntries, &hooks_iat_set));
   ASSERT_EQ(hooks_iat_set.size(), 1U);
 
   PVOID stub_address = *hooks_iat_set.begin();

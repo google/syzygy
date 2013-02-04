@@ -392,63 +392,6 @@ BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
   return thunk;
 }
 
-// Temporarily binds the IAT of a given module by setting its timestamp to a
-// date in the past.
-// @param module_name The name of the module to bind.
-// @param iida_block The import entry descriptor array where to look for the
-//     module.
-// @returns true on success, false otherwise.
-bool BindIATForModule(const char* module_name, BlockGraph::Block* iida_block) {
-  DCHECK(module_name != NULL);
-  DCHECK(iida_block != NULL);
-
-  ImageImportDescriptor iida;
-  if (!iida.Init(0, iida_block)) {
-    LOG(ERROR) << "Unable to cast Image Import Descriptor.";
-    return false;
-  }
-
-  // The array is NULL terminated with a potentially incomplete descriptor so
-  // we can't use ElementCount - 1.
-  DCHECK_GT(iida_block->size(), 0U);
-  size_t descriptor_count =
-      (common::AlignUp(iida_block->size(), sizeof(IMAGE_IMPORT_DESCRIPTOR)) /
-          sizeof(IMAGE_IMPORT_DESCRIPTOR)) - 1;
-
-  // Iterates over the the image import descriptors to find the module.
-  size_t iida_index = 0;
-  for (; iida_index < descriptor_count; ++iida_index) {
-    String dll_name;
-    if (!iida.Dereference(iida[iida_index].Name, &dll_name)) {
-      LOG(ERROR) << "Unable to dereference DLL name.";
-      return false;
-    }
-
-    size_t max_len = dll_name.ElementCount();
-    // Break as soon as we've found the module.
-    if (base::strncasecmp(dll_name->string, module_name, max_len) == 0) {
-      break;
-    }
-  }
-
-  // Ensures that we've found the module.
-  if (iida_index == descriptor_count) {
-    LOG(ERROR) << "The image import descriptor for " << module_name << "hasn't "
-               << "been found.";
-    return false;
-  }
-
-  // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
-  // the timestamp of the image import descriptor to this value allows us to
-  // temporarily bind the library until the loader finishes loading this module.
-  // As the value is far in the past this means that the entries in the IAT for
-  // this module will all be replace by pointers into the actual library.
-  static const size_t kDateInThePast = 1;
-  iida[iida_index].TimeDateStamp = kDateInThePast;
-
-  return true;
-}
-
 }  // namespace
 
 const char AsanBasicBlockTransform::kTransformName[] =
@@ -614,9 +557,7 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   // This function redirects a the heap-related kernel32 imports to point to
   // a set of "override" imports in the ASAN runtime.
 
-  // Import entries for the ASAN runtime and kernel32.
-  ImportedModule module_kernel32("kernel32.dll");
-  ImportedModule module_asan(asan_dll_name_);
+  static const size_t kInvalidIndex = -1;
 
   struct Kernel32ImportRedirect {
     const char* import_name;
@@ -638,31 +579,43 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
     { "HeapQueryInformation", "asan_HeapQueryInformation" },
   };
 
-  // Add imports for the overrides to the respective modules.
-  // HACK ALERT: This uses the AddImportsTransform to:
-  // 1. Find existing imports we want to redirect. This has the unfortunate
-  //    side effect of adding all of the imports we query for.
-  // 2. Create imports for the redirects, which will create imports for
-  //    all of the redirects, irrespective of whether we have anything to
-  //    redirect them to.
-  // TODO(siggi): Clean this up by factoring import discovery/probing out of the
-  //     AddImports transform, and perhaps write yet another transform to remove
-  //     unused imports.
+  // Initialize the module info for querying kernel32 imports.
   std::vector<std::pair<size_t, size_t>> override_indexes;
+  ImportedModule module_kernel32("kernel32.dll");
   for (size_t i = 0; i < arraysize(kKernel32Redirects); ++i) {
     size_t kernel32_index =
         module_kernel32.AddSymbol(kKernel32Redirects[i].import_name,
-                                  ImportedModule::kAlwaysImport);
-    size_t asan_index =
-        module_asan.AddSymbol(kKernel32Redirects[i].redirect_name,
-                              ImportedModule::kAlwaysImport);
-
-    override_indexes.push_back(std::make_pair(kernel32_index, asan_index));
+                                  ImportedModule::kFindOnly);
+    override_indexes.push_back(std::make_pair(kernel32_index, kInvalidIndex));
   }
 
+  // Query the kernel32 imports.
+  AddImportsTransform find_kernel_imports;
+  find_kernel_imports.AddModule(&module_kernel32);
+  if (!find_kernel_imports.TransformBlockGraph(block_graph, header_block)) {
+    LOG(ERROR) << "Unable to find kernel32 imports for redirection.";
+    return false;
+  }
+
+  // Add ASAN imports for those kernel32 functions we found. These will later
+  // be redirected.
+  ImportedModule module_asan(asan_dll_name_);
+  for (size_t i = 0; i < arraysize(kKernel32Redirects); ++i) {
+    size_t kernel32_index = override_indexes[i].first;
+    if (module_kernel32.SymbolIsImported(kernel32_index)) {
+      size_t asan_index = module_asan.AddSymbol(
+          kKernel32Redirects[i].redirect_name,
+          ImportedModule::kAlwaysImport);
+      DCHECK_EQ(kInvalidIndex, override_indexes[i].second);
+      override_indexes[i].second = asan_index;
+    }
+  }
+
+  // Another transform can safely be run without invalidating the results
+  // stored in module_kernel32, as additions to the IAT will strictly be
+  // performed at the end.
   AddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&module_asan);
-  add_imports_transform.AddModule(&module_kernel32);
   if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for import redirection.";
     return false;
@@ -674,10 +627,19 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   ReferenceMap reference_redirect_map;
 
   for (size_t i = 0; i < override_indexes.size(); ++i) {
+    // Symbols that aren't imported don't need to be redirected.
+    size_t kernel32_index = override_indexes[i].first;
+    size_t asan_index = override_indexes[i].second;
+    if (!module_kernel32.SymbolIsImported(kernel32_index)) {
+      DCHECK_EQ(kInvalidIndex, asan_index);
+      continue;
+    }
+
+    DCHECK_NE(kInvalidIndex, asan_index);
     BlockGraph::Reference src;
     BlockGraph::Reference dst;
-    if (!module_kernel32.GetSymbolReference(override_indexes[i].first, &src) ||
-        !module_asan.GetSymbolReference(override_indexes[i].second, &dst)) {
+    if (!module_kernel32.GetSymbolReference(kernel32_index, &src) ||
+        !module_asan.GetSymbolReference(asan_index, &dst)) {
        NOTREACHED() << "Unable to get references after a successful transform.";
       return false;
     }
@@ -691,10 +653,16 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
 
   RedirectReferences(dst_blocks, reference_redirect_map);
 
+  // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
+  // the timestamp of the image import descriptor to this value allows us to
+  // temporarily bind the library until the loader finishes loading this module.
+  // As the value is far in the past this means that the entries in the IAT for
+  // this module will all be replace by pointers into the actual library.
+  static const size_t kDateInThePast = 1;
+
   // We need to bind the IAT for our module to make sure the stub is used until
   // the sandbox lets the loader finish patching the IAT entries.
-  BindIATForModule(kSyzyAsanDll,
-                   add_imports_transform.image_import_descriptor_block());
+  module_asan.import_descriptor()->TimeDateStamp = kDateInThePast;
 
   return true;
 }
