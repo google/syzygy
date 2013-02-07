@@ -16,7 +16,8 @@
 // its corresponding BlockGraph.
 //
 // TODO(chrisha): When the new decomposer is ready, swap out the old for the
-//     new and rename this.
+//     new and rename this. The new decomposer does not use all of the block
+//     attributes, so some cleanup can be done there once we switch over!
 
 #ifndef SYZYGY_PE_NEW_DECOMPOSER_H_
 #define SYZYGY_PE_NEW_DECOMPOSER_H_
@@ -58,6 +59,8 @@ class NewDecomposer {
   // @returns true on success, false on failure.
   bool Decompose(ImageLayout* image_layout);
 
+  // @name Mutators.
+  // @{
   // Sets the PDB path to be used. If this is not called it will be inferred
   // using the information in the module, and searched for using the OS
   // search functionality.
@@ -65,11 +68,27 @@ class NewDecomposer {
   //     image.
   void set_pdb_path(const FilePath& pdb_path) { pdb_path_ = pdb_path; }
 
+  // Sets whether or not debug information is parsed. If true then the
+  // decomposed block-graph will be decorated with extensive debug information.
+  // If false then a functionally equivalent but undecorated decomposition
+  // will be created. Defaults to true.
+  // @param parse_debug_info co ntrols whether or not debug information will
+  //     be parsed.
+  void set_parse_debug_info(bool parse_debug_info) {
+    parse_debug_info_ = parse_debug_info;
+  }
+  // @}
+
+  // @name Accessors
+  // @{
   // Accessor to the PDB path. If Decompose has been called successfully this
   // will reflect the path of the PDB file that was used to perform the
   // decomposition.
   // @returns the PDB path.
   const FilePath& pdb_path() const { return pdb_path_; }
+  // @returns true if the decomposed block-graph will contain debug information.
+  bool parse_debug_info() const { return parse_debug_info_; }
+  // @}
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
@@ -110,7 +129,13 @@ class NewDecomposer {
   bool FinalizeIntermediateReferences(const IntermediateReferences& references);
   // Creates inter-block references from fixups.
   bool CreateReferencesFromFixups(IDiaSession* session);
-  // Processes symbols from the PDB, setting block names and labels.
+  // Disassembles code blocks and labels jump and case tables.
+  bool DisassembleCodeBlocksAndLabelData();
+  // Processes symbols from the PDB, setting block names and labels. This
+  // step is purely optional and only necessary to provide debug information.
+  // This adds names to blocks, adds code labels and their names, and adds
+  // more informative names to data labels. Only called if parse_debug_info_
+  // is true.
   bool ProcessSymbols(IDiaSymbol* root);
   // @}
 
@@ -191,6 +216,10 @@ class NewDecomposer {
   const PEFile& image_file_;
   // The path to corresponding PDB file.
   FilePath pdb_path_;
+  // Controls whether or not debug information is added to the decomposed
+  // image. If this is false then a completely functional but non-decorated
+  // decomposition will be created.
+  bool parse_debug_info_;
 
   // @name Temporaries that are only valid while inside DecomposeImpl.
   //     Prevents us from having to pass these around everywhere.

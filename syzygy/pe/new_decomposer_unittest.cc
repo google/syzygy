@@ -65,6 +65,24 @@ class NewDecomposerTest : public testing::PELibUnitTest {
 
 }  // namespace
 
+TEST_F(NewDecomposerTest, MutatorsAndAccessors) {
+  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath pdb_path(testing::GetExeRelativePath(kDllPdbName));
+
+  PEFile image_file;
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  NewDecomposer decomposer(image_file);
+  EXPECT_TRUE(decomposer.pdb_path().empty());
+  EXPECT_TRUE(decomposer.parse_debug_info());
+
+  decomposer.set_pdb_path(pdb_path);
+  EXPECT_EQ(pdb_path, decomposer.pdb_path());
+
+  decomposer.set_parse_debug_info(false);
+  EXPECT_FALSE(decomposer.parse_debug_info());
+}
+
 TEST_F(NewDecomposerTest, Decompose) {
   FilePath image_path(testing::GetExeRelativePath(kDllName));
   PEFile image_file;
