@@ -17,14 +17,13 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/block_builder.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
-
-namespace {
 
 using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
@@ -38,43 +37,6 @@ using block_graph::Operand;
 using pe::transforms::AddImportsTransform;
 
 typedef AddImportsTransform::ImportedModule ImportedModule;
-
-// We add this suffix to the destination
-const char kThunkSuffix[] = "_thunk";
-
-bool IsUnsafeReference(const BlockGraph::Block* referrer,
-                       const BlockGraph::Reference& ref) {
-  // Skip references with a non-zero offset if we're
-  // not instrumenting unsafe references.
-  if (ref.offset() != 0)
-    return true;
-
-  BlockGraph::BlockAttributes kUnsafeAttribs =
-      BlockGraph::HAS_INLINE_ASSEMBLY |
-      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER;
-
-  bool unsafe_referrer = false;
-  if (referrer->type() == BlockGraph::CODE_BLOCK &&
-      (referrer->attributes() & kUnsafeAttribs) != 0) {
-    unsafe_referrer = true;
-  }
-
-  DCHECK_EQ(BlockGraph::CODE_BLOCK, ref.referenced()->type());
-  bool unsafe_block = (ref.referenced()->attributes() & kUnsafeAttribs) != 0;
-
-  // If both the referrer and the referenced blocks are unsafe, we can't
-  // safely assume that this reference represents a call semantics,
-  // e.g. where a return address is at the top of stack at entry.
-  // Ideally we'd decide this on the basis of a full stack analysis, but
-  // beggers can't be choosers, plus for hand-coded assembly that's
-  // the halting problem :).
-  // For instrumentation that uses return address swizzling, instrumenting
-  // an unsafe reference leads to crashes, so better to back off and get
-  // slightly less coverage.
-  return unsafe_referrer && unsafe_block;
-}
-
-}  // namespace
 
 const char EntryThunkTransform::kTransformName[] =
     "EntryThunkTransform";
@@ -282,7 +244,7 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
     return true;
 
   if (!instrument_unsafe_references_ &&
-      IsUnsafeReference(referrer.first, ref)) {
+      block_graph::IsUnsafeReference(referrer.first, ref)) {
     LOG(INFO) << "Skipping reference between unsafe block pair '"
               << referrer.first->name() << "' and '"
               << block->name() << "'";
@@ -340,11 +302,11 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   if (destination.offset() == 0) {
     name = base::StringPrintf("%s%s",
                               destination.referenced()->name().c_str(),
-                              kThunkSuffix);
+                              common::kThunkSuffix);
   } else {
     name = base::StringPrintf("%s%s+%d",
                               destination.referenced()->name().c_str(),
-                              kThunkSuffix,
+                              common::kThunkSuffix,
                               destination.offset());
   }
 

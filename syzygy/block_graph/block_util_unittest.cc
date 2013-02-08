@@ -184,4 +184,43 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangePrependInstructionsSucceeds) {
   EXPECT_EQ(expected_range, source_range);
 }
 
+TEST_F(BlockUtilTest, IsUnsafeReference) {
+  // Some safe blocks.
+  BlockGraph::Block* s1 = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "s1");
+  BlockGraph::Block* s2 = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "s2");
+
+  // Some unsafe blocks.
+  BlockGraph::Block* u1 = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "u1");
+  u1->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
+  BlockGraph::Block* u2 = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "u2");
+  u2->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
+
+  // If neither or only one has an unsafe attribute then it's not unsafe.
+  EXPECT_FALSE(IsUnsafeReference(s1, BlockGraph::Reference(
+      BlockGraph::PC_RELATIVE_REF,
+      BlockGraph::Reference::kMaximumSize,
+      s2, 0, 0)));
+  EXPECT_FALSE(IsUnsafeReference(s1, BlockGraph::Reference(
+      BlockGraph::PC_RELATIVE_REF,
+      BlockGraph::Reference::kMaximumSize,
+      u1, 0, 0)));
+  EXPECT_FALSE(IsUnsafeReference(u2, BlockGraph::Reference(
+      BlockGraph::PC_RELATIVE_REF,
+      BlockGraph::Reference::kMaximumSize,
+      s2, 0, 0)));
+
+  // If the reference points to a non-zero offset then it's unsafe.
+  EXPECT_TRUE(IsUnsafeReference(s1, BlockGraph::Reference(
+      BlockGraph::PC_RELATIVE_REF,
+      BlockGraph::Reference::kMaximumSize,
+      s2, 4, 4)));
+
+  // If both the referring and referred blocks have unsafe attributes,
+  // the reference is unsafe.
+  EXPECT_TRUE(IsUnsafeReference(u1, BlockGraph::Reference(
+      BlockGraph::PC_RELATIVE_REF,
+      BlockGraph::Reference::kMaximumSize,
+      u2, 0, 0)));
+}
+
 }  // namespace block_graph

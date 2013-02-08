@@ -27,8 +27,11 @@ extern const char kSyzygyMetadataSectionName[];
 // Stores the name that is associated with resource sections.
 extern const char kResourceSectionName[];
 
-// Stores the name that is associated with thunk sections.
+// Stores the name that is commonly associated with thunk sections.
 extern const char kThunkSectionName[];
+
+// We add this suffix to the thunk blocks created by the toolchain.
+extern const char kThunkSuffix[];
 
 }  // namespace common
 

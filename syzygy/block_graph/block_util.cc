@@ -84,4 +84,36 @@ bool GetBasicBlockSourceRange(const BasicCodeBlock& bb,
   return true;
 }
 
+bool IsUnsafeReference(const BlockGraph::Block* referrer,
+                       const BlockGraph::Reference& ref) {
+  // Skip references with a non-zero offset if we're
+  // not instrumenting unsafe references.
+  if (ref.offset() != 0)
+    return true;
+
+  BlockGraph::BlockAttributes kUnsafeAttribs =
+      BlockGraph::HAS_INLINE_ASSEMBLY |
+      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER;
+
+  bool unsafe_referrer = false;
+  if (referrer->type() == BlockGraph::CODE_BLOCK &&
+      (referrer->attributes() & kUnsafeAttribs) != 0) {
+    unsafe_referrer = true;
+  }
+
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, ref.referenced()->type());
+  bool unsafe_block = (ref.referenced()->attributes() & kUnsafeAttribs) != 0;
+
+  // If both the referrer and the referenced blocks are unsafe, we can't
+  // safely assume that this reference represents a call semantics,
+  // e.g. where a return address is at the top of stack at entry.
+  // Ideally we'd decide this on the basis of a full stack analysis, but
+  // beggers can't be choosers, plus for hand-coded assembly that's
+  // the halting problem :).
+  // For instrumentation that uses return address swizzling, instrumenting
+  // an unsafe reference leads to crashes, so better to back off and get
+  // slightly less coverage.
+  return unsafe_referrer && unsafe_block;
+}
+
 }  // namespace block_graph
