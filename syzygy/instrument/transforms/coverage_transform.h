@@ -27,7 +27,7 @@
 
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/core/address_space.h"
-#include "syzygy/instrument/transforms/add_basic_block_frequency_data_transform.h"
+#include "syzygy/instrument/transforms/add_indexed_frequency_data_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 
 namespace instrument {
@@ -115,7 +115,7 @@ class CoverageInstrumentationTransform
   // @}
 
   // Adds the basic-block frequency data referenced by the coverage agent.
-  AddBasicBlockFrequencyDataTransform add_bb_freq_data_tx_;
+  AddIndexedFrequencyDataTransform add_bb_freq_data_tx_;
   // The entry hook transform used by the coverage agent.
   EntryThunkTransform entry_thunk_tx_;
 

@@ -25,7 +25,7 @@
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
-#include "syzygy/instrument/transforms/add_basic_block_frequency_data_transform.h"
+#include "syzygy/instrument/transforms/add_indexed_frequency_data_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -131,7 +131,7 @@ class BasicBlockEntryHookTransform
                          BlockGraph::Block** thunk);
 
   // Adds the basic-block frequency data referenced by the coverage agent.
-  AddBasicBlockFrequencyDataTransform add_frequency_data_;
+  AddIndexedFrequencyDataTransform add_frequency_data_;
 
   // Stores the RVAs in the original image for each instrumented basic block.
   RelativeAddressRangeVector bb_ranges_;

@@ -12,30 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implements the AddBasicBlockFrequencyDataTransform class.
+// Implements the AddIndexedFrequencyDataTransform class.
 
-#include "syzygy/instrument/transforms/add_basic_block_frequency_data_transform.h"
+#include "syzygy/instrument/transforms/add_indexed_frequency_data_transform.h"
 
 #include "syzygy/block_graph/typed_block.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
 namespace transforms {
 
-using common::BasicBlockFrequencyData;
+using common::IndexedFrequencyData;
 
-const char AddBasicBlockFrequencyDataTransform::kTransformName[] =
-    "AddBasicBlockFrequencyDataTransform";
+const char AddIndexedFrequencyDataTransform::kTransformName[] =
+    "AddFrequencyDataTransform";
 
-AddBasicBlockFrequencyDataTransform::AddBasicBlockFrequencyDataTransform(
-    uint32 agent_id)
+AddIndexedFrequencyDataTransform::AddIndexedFrequencyDataTransform(
+    uint32 agent_id, const base::StringPiece& freq_name, uint32 version)
         : agent_id_(agent_id),
+          freq_name_(freq_name.begin(), freq_name.end()),
+          version_(version),
           frequency_data_block_(NULL),
           frequency_data_buffer_block_(NULL) {
 }
 
-bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
+bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
   DCHECK(block_graph != NULL);
@@ -51,20 +53,20 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
     return false;
   }
 
-  // Add a block for the basic-block frequency data.
+  // Add a block for the frequency data.
   BlockGraph::Block* data_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            sizeof(BasicBlockFrequencyData),
-                            "Basic-Block Frequency Data");
+                            sizeof(IndexedFrequencyData),
+                            freq_name_);
   if (data_block == NULL) {
-    LOG(ERROR) << "Failed to add the basic-block frequency data block.";
+    LOG(ERROR) << "Failed to add the " << freq_name_ << " block.";
     return false;
   }
 
   // Add a block for the array of frequency data. We give this block an initial
   // size of 1 because drawing a reference to an empty block is not possible.
   BlockGraph::Block* buffer_block = block_graph->AddBlock(
-      BlockGraph::DATA_BLOCK, 1, "Basic-Block Frequency Data Buffer");
+      BlockGraph::DATA_BLOCK, 1, freq_name_ + " Buffer");
   if (buffer_block == NULL) {
     LOG(ERROR) << "Failed to allocate frequency data buffer block.";
     return false;
@@ -76,8 +78,8 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
 
   // Allocate the data that will be used to initialize the static instance.
   // The allocated bytes will be zero-initialized.
-  BasicBlockFrequencyData* frequency_data =
-      reinterpret_cast<BasicBlockFrequencyData*>(
+  IndexedFrequencyData* frequency_data =
+      reinterpret_cast<IndexedFrequencyData*>(
           data_block->AllocateData(data_block->size()));
   if (frequency_data == NULL) {
     LOG(ERROR) << "Failed to allocate frequency data.";
@@ -86,13 +88,13 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
 
   // Initialize the non-zero fields of the structure.
   frequency_data->agent_id = agent_id_;
-  frequency_data->version = common::kBasicBlockFrequencyDataVersion;
+  frequency_data->version = version_;
   frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
   // Setup the frequency_data pointer such that it points to the newly allocated
   // buffer.
   if (!data_block->SetReference(
-          offsetof(BasicBlockFrequencyData, frequency_data),
+          offsetof(IndexedFrequencyData, frequency_data),
           BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                 BlockGraph::Reference::kMaximumSize,
                                 buffer_block,
@@ -110,24 +112,24 @@ bool AddBasicBlockFrequencyDataTransform::TransformBlockGraph(
   return true;
 }
 
-bool AddBasicBlockFrequencyDataTransform::ConfigureFrequencyDataBuffer(
-    uint32 num_basic_blocks,
+bool AddIndexedFrequencyDataTransform::ConfigureFrequencyDataBuffer(
+    uint32 num_entries,
     uint8 frequency_size) {
-  DCHECK_NE(0U, num_basic_blocks);
+  DCHECK_NE(0U, num_entries);
   DCHECK(frequency_size == 1 || frequency_size == 2 || frequency_size == 4);
   DCHECK(frequency_data_block_ != NULL);
   DCHECK(frequency_data_buffer_block_ != NULL);
-  DCHECK_EQ(sizeof(BasicBlockFrequencyData),
+  DCHECK_EQ(sizeof(IndexedFrequencyData),
             frequency_data_block_->data_size());
 
   // Update the related fields in the data structure.
-  block_graph::TypedBlock<BasicBlockFrequencyData> frequency_data;
+  block_graph::TypedBlock<IndexedFrequencyData> frequency_data;
   CHECK(frequency_data.Init(0, frequency_data_block_));
-  frequency_data->num_entries = num_basic_blocks;
+  frequency_data->num_entries = num_entries;
   frequency_data->frequency_size = frequency_size;
 
   // Resize the buffer block.
-  size_t buffer_size = num_basic_blocks * frequency_size;
+  size_t buffer_size = num_entries * frequency_size;
   frequency_data_buffer_block_->set_size(buffer_size);
 
   // And we're done.

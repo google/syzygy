@@ -12,31 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares a block-graph transform to be used by the basic-block frequency
-// tracking instrumentation to add a static BasicBlockFrequencyData object to
-// the block graph.
+// Declares a block-graph transform to be used by the indexed frequency
+// tracking instrumentation to add a static IndexedFrequencyData object to the
+// block graph.
 
-#ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ADD_BASIC_BLOCK_FREQUENCY_DATA_TRANSFORM_H_
-#define SYZYGY_INSTRUMENT_TRANSFORMS_ADD_BASIC_BLOCK_FREQUENCY_DATA_TRANSFORM_H_
+#ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ADD_INDEXED_FREQUENCY_DATA_TRANSFORM_H_
+#define SYZYGY_INSTRUMENT_TRANSFORMS_ADD_INDEXED_FREQUENCY_DATA_TRANSFORM_H_
 
+#include "base/string_piece.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/core/address_space.h"
 
 namespace instrument {
 namespace transforms {
 
-class AddBasicBlockFrequencyDataTransform
+class AddIndexedFrequencyDataTransform
     : public block_graph::transforms::NamedBlockGraphTransformImpl<
-          AddBasicBlockFrequencyDataTransform> {
+          AddIndexedFrequencyDataTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
 
-  // Construct a transform which adds a static basic-block frequency data
-  // instance for use by @p agent_id.
-  explicit AddBasicBlockFrequencyDataTransform(uint32 agent_id);
+  // Construct a transform which adds a static frequency data instance.
+  // @param agent_id The agent that'll use those data.
+  // @param freq_name The name of the frequency data block.
+  // @param version The version of the data structure used to store the data.
+  AddIndexedFrequencyDataTransform(uint32 agent_id,
+                                   const base::StringPiece& freq_name,
+                                   uint32 version);
 
-  // Return the block which holds basic-block frequency data. This will only
-  // be non-NULL after a successful application of this transform.
+  // Return the block which holds the frequency data. This will only be non-NULL
+  // after a successful application of this transform.
   BlockGraph::Block* frequency_data_block() { return frequency_data_block_; }
 
   // Returns the block which holds the frequency data buffer. This will only
@@ -51,17 +56,17 @@ class AddBasicBlockFrequencyDataTransform
 
   // After applying the transform, this method can be used to allocate the
   // correct number of bytes for the default frequency data static buffer.
-  // @param num_basic_blocks The number of frequency counters to allocate.
+  // @param num_entries The number of frequency counters to allocate.
   // @param frequency_size The size (in bytes) of each frequency counter. This
   //     must be 1, 2 or 4.
-  bool ConfigureFrequencyDataBuffer(uint32 num_basic_blocks,
+  bool ConfigureFrequencyDataBuffer(uint32 num_entries,
                                     uint8 frequency_size);
 
   // The transform name.
   static const char kTransformName[];
 
  protected:
-  // The agent id to embed into the BasicBlockFrequencyData instance.
+  // The agent id to embed into the IndexFrequencyData instance.
   uint32 agent_id_;
 
   // The statically allocated frequency data block that is added by the
@@ -73,9 +78,15 @@ class AddBasicBlockFrequencyDataTransform
   // transform. This is allocated as a separate block because it is
   // uninitialized and may be written to the image for free.
   BlockGraph::Block* frequency_data_buffer_block_;
+
+  // Name of the frequency data block.
+  std::string freq_name_;
+
+  // Version of the data structure.
+  uint32 version_;
 };
 
 }  // transforms
 }  // instrument
 
-#endif  // SYZYGY_INSTRUMENT_TRANSFORMS_ADD_BASIC_BLOCK_FREQUENCY_DATA_TRANSFORM_H_
+#endif  // SYZYGY_INSTRUMENT_TRANSFORMS_ADD_INDEXED_FREQUENCY_DATA_TRANSFORM_H_
