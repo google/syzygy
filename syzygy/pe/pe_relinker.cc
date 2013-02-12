@@ -27,6 +27,7 @@
 #include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/image_source_map.h"
 #include "syzygy/pe/metadata.h"
+#include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
@@ -202,7 +203,9 @@ bool InitializePaths(const FilePath& input_path,
 }
 
 // Decomposes the module enclosed by the given PE file.
-bool Decompose(const PEFile& pe_file,
+bool Decompose(bool use_new_decomposer,
+               bool parse_debug_info,
+               const PEFile& pe_file,
                const FilePath& pdb_path,
                ImageLayout* image_layout,
                BlockGraph::Block** dos_header_block) {
@@ -215,11 +218,24 @@ bool Decompose(const PEFile& pe_file,
   ImageLayout orig_image_layout(block_graph);
 
   // Decompose the input image.
-  Decomposer decomposer(pe_file);
-  decomposer.set_pdb_path(pdb_path);
-  if (!decomposer.Decompose(&orig_image_layout)) {
-    LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
-    return false;
+  if (use_new_decomposer) {
+    LOG(INFO) << "Using new decomposer for decomposition.";
+    if (!parse_debug_info)
+      LOG(INFO) << "Not parsing debug information.";
+    NewDecomposer decomposer(pe_file);
+    decomposer.set_pdb_path(pdb_path);
+    decomposer.set_parse_debug_info(parse_debug_info);
+    if (!decomposer.Decompose(&orig_image_layout)) {
+      LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
+      return false;
+    }
+  } else {
+    Decomposer decomposer(pe_file);
+    decomposer.set_pdb_path(pdb_path);
+    if (!decomposer.Decompose(&orig_image_layout)) {
+      LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
+      return false;
+    }
   }
 
   // Make a copy of the image layout without padding. We don't want to carry
@@ -676,7 +692,8 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
 
 PERelinker::PERelinker()
     : add_metadata_(true), allow_overwrite_(false), augment_pdb_(true),
-      strip_strings_(false), padding_(0), inited_(false),
+      compress_pdb_(false), parse_debug_info_(true), strip_strings_(false),
+      use_new_decomposer_(false), padding_(0), inited_(false),
       input_image_layout_(&block_graph_), dos_header_block_(NULL),
       output_guid_(GUID_NULL) {
 }
@@ -738,8 +755,9 @@ bool PERelinker::Init() {
   }
 
   // Decompose the image.
-  if (!Decompose(input_pe_file_, input_pdb_path_, &input_image_layout_,
-                 &dos_header_block_)) {
+  if (!Decompose(use_new_decomposer_, parse_debug_info_,
+                 input_pe_file_, input_pdb_path_,
+                 &input_image_layout_, &dos_header_block_)) {
     return false;
   }
 

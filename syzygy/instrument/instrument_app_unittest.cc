@@ -46,13 +46,15 @@ class TestInstrumentApp : public InstrumentApp {
   using InstrumentApp::output_pdb_path_;
   using InstrumentApp::client_dll_;
   using InstrumentApp::allow_overwrite_;
+  using InstrumentApp::new_decomposer_;
   using InstrumentApp::no_augment_pdb_;
+  using InstrumentApp::no_parse_debug_info_;
+  using InstrumentApp::no_strip_strings_;
   using InstrumentApp::debug_friendly_;
   using InstrumentApp::instrument_unsafe_references_;
   using InstrumentApp::module_entry_only_;
   using InstrumentApp::thunk_imports_;
   using InstrumentApp::mode_;
-  using InstrumentApp::no_strip_strings_;
 
   pe::PERelinker& GetRelinker() OVERRIDE {
     return mock_relinker_;
@@ -167,7 +169,9 @@ TEST_F(InstrumentAppTest, ParseMinimalAsan) {
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
   EXPECT_TRUE(test_impl_.client_dll_.empty());
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
 }
@@ -179,7 +183,9 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -193,7 +199,9 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_TRUE(test_impl_.client_dll_.empty());
   EXPECT_TRUE(test_impl_.allow_overwrite_);
+  EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
@@ -211,7 +219,9 @@ TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
   EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllBasicBlockEntry),
             test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
 }
@@ -223,7 +233,9 @@ TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -237,7 +249,9 @@ TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
+  EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
@@ -255,7 +269,9 @@ TEST_F(InstrumentAppTest, ParseMinimalCallTrace) {
   EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
             test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
   EXPECT_FALSE(test_impl_.thunk_imports_);
@@ -271,7 +287,9 @@ TEST_F(InstrumentAppTest, ParseFullCallTrace) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -288,7 +306,9 @@ TEST_F(InstrumentAppTest, ParseFullCallTrace) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
+  EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
   EXPECT_TRUE(test_impl_.thunk_imports_);
@@ -309,7 +329,9 @@ TEST_F(InstrumentAppTest, ParseMinimalCoverage) {
   EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllCoverage),
             test_impl_.client_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
 }
@@ -321,7 +343,9 @@ TEST_F(InstrumentAppTest, ParseFullCoverage) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -335,7 +359,9 @@ TEST_F(InstrumentAppTest, ParseFullCoverage) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
+  EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
 }
@@ -354,7 +380,9 @@ TEST_F(InstrumentAppTest, ParseMinimalProfile) {
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
   EXPECT_FALSE(test_impl_.thunk_imports_);
@@ -369,7 +397,9 @@ TEST_F(InstrumentAppTest, ParseFullProfile) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -384,7 +414,9 @@ TEST_F(InstrumentAppTest, ParseFullProfile) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
+  EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
+  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
   EXPECT_TRUE(test_impl_.thunk_imports_);
@@ -403,7 +435,9 @@ TEST_F(InstrumentAppTest, DeprecatedParseNoModeSpecifyDlls) {
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
   EXPECT_FALSE(test_impl_.thunk_imports_);
@@ -425,7 +459,9 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientRpc) {
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
   EXPECT_FALSE(test_impl_.thunk_imports_);
@@ -447,7 +483,9 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientProfiler) {
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
   EXPECT_FALSE(test_impl_.thunk_imports_);
@@ -469,7 +507,9 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientOtherDll) {
             test_impl_.client_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
+  EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
   EXPECT_FALSE(test_impl_.thunk_imports_);

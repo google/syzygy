@@ -112,7 +112,9 @@ class PERelinker {
   bool allow_overwrite() const { return allow_overwrite_; }
   bool augment_pdb() const { return augment_pdb_; }
   bool compress_pdb() const { return compress_pdb_; }
+  bool parse_debug_info() const { return parse_debug_info_; }
   bool strip_strings() const { return strip_strings_; }
+  bool use_new_decomposer() const { return use_new_decomposer_; }
   size_t padding() const { return padding_; }
   // @}
 
@@ -142,8 +144,14 @@ class PERelinker {
   void set_compress_pdb(bool compress_pdb) {
     compress_pdb_ = compress_pdb;
   }
+  void set_parse_debug_info(bool parse_debug_info) {
+    parse_debug_info_ = parse_debug_info;
+  }
   void set_strip_strings(bool strip_strings) {
     strip_strings_ = strip_strings;
+  }
+  void set_use_new_decomposer(bool use_new_decomposer) {
+    use_new_decomposer_ = use_new_decomposer;
   }
   void set_padding(size_t padding) {
     padding_ = padding;
@@ -257,13 +265,19 @@ class PERelinker {
   // to false.
   bool allow_overwrite_;
   // If true, the PDB will be augmented with a serialized block-graph and
-  // image layout.
+  // image layout. Defaults to true.
   bool augment_pdb_;
   // If true, then the augmented PDB stream will be compressed as it is written.
+  // Defaults to false.
   bool compress_pdb_;
+  // If true, then the decomposition will parse full symbol information.
+  // Defaults to true.
+  bool parse_debug_info_;
   // If true, strings associated with a block-graph will not be serialized into
   // the PDB. Defaults to false.
   bool strip_strings_;
+  // If true we will use the new decomposer. Defaults to false.
+  bool use_new_decomposer_;
   // Indicates the amount of padding to be added between blocks. Zero is the
   // default value and indicates no padding will be added.
   size_t padding_;

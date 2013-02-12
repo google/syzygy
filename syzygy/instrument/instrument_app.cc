@@ -54,38 +54,42 @@ static const char kUsageFormatStr[] =
     "    --input-dll is aliased to --input-image.\n"
     "    --output-dll is aliased to --output-image.\n"
     "    --call-trace-client=RPC\n"
-    "                         Equivalent to --mode=calltrace.\n"
+    "                          Equivalent to --mode=calltrace.\n"
     "    --call-trace-client=PROFILER\n"
-    "                         Equivalent to --mode=profile.\n"
+    "                          Equivalent to --mode=profile.\n"
     "    --call-trace-client=<path>\n"
-    "                         Equivalent to --mode=calltrace --agent=<path>.\n"
+    "                          Equivalent to --mode=calltrace --agent=<path>.\n"
     "  General options (applicable in all modes):\n"
-    "    --agent=<path>       If specified indicates exactly which DLL should\n"
-    "                         be used in instrumenting the provided module.\n"
-    "                         If not specified a default agent library will\n"
-    "                         be used. This is ignored in ASAN mode.\n"
-    "    --debug-friendly     Generate more debugger friendly output by\n"
-    "                         making the thunks resolve to the original\n"
-    "                         function's name. This is at the cost of the\n"
-    "                         uniqueness of address->name resolution.\n"
-    "    --input-pdb=<path>   The PDB for the DLL to instrument. If not\n"
-    "                         explicitly provided will be searched for.\n"
-    "    --no-augment-pdb     Indicates that the relinker should not augment\n"
-    "                         the output PDB with additional metadata.\n"
-    "    --no-strip-strings   Indicates that the relinker should not strip\n"
-    "                         the strings when augmenting the PDB. They are\n"
-    "                         stripped by default to keep PDB sizes down.\n"
-    "    --output-pdb=<path>  The PDB for the instrumented DLL. If not\n"
-    "                         provided will attempt to generate one.\n"
-    "    --overwrite          Allow output files to be overwritten.\n"
+    "    --agent=<path>        If specified indicates exactly which DLL to\n"
+    "                          use when instrumenting the provided module.\n"
+    "                          If not specified a default agent library will\n"
+    "                          be used. This is ignored in ASAN mode.\n"
+    "    --debug-friendly      Generate more debugger friendly output by\n"
+    "                          making the thunks resolve to the original\n"
+    "                          function's name. This is at the cost of the\n"
+    "                          uniqueness of address->name resolution.\n"
+    "    --input-pdb=<path>    The PDB for the DLL to instrument. If not\n"
+    "                          explicitly provided will be searched for.\n"
+    "    --new-decomposer      Use the new decomposer.\n"
+    "    --no-augment-pdb      Indicates that the relinker should not augment\n"
+    "                          the output PDB with additional metadata.\n"
+    "    --no-parse-debug-info Do not parse debug information. Harder to\n"
+    "                          debug but much more memory and time efficient.\n"
+    "                          Only affects the new decomposer.\n"
+    "    --no-strip-strings    Indicates that the relinker should not strip\n"
+    "                          the strings when augmenting the PDB. They are\n"
+    "                          stripped by default to keep PDB sizes down.\n"
+    "    --output-pdb=<path>   The PDB for the instrumented DLL. If not\n"
+    "                          provided will attempt to generate one.\n"
+    "    --overwrite           Allow output files to be overwritten.\n"
     "  calltrace mode options:\n"
     "    --instrument-imports Also instrument calls to imports.\n"
-    "    --module-entry-only  If specified then the per-function entry hook\n"
-    "                         will not be used and only module entry points\n"
-    "                         will be hooked.\n"
-    "    --no-unsafe-refs     Perform no instrumentation of references\n"
-    "                         between code blocks that contain anything but\n"
-    "                         C/C++.\n"
+    "    --module-entry-only   If specified then the per-function entry hook\n"
+    "                          will not be used and only module entry points\n"
+    "                          will be hooked.\n"
+    "    --no-unsafe-refs      Perform no instrumentation of references\n"
+    "                          between code blocks that contain anything but\n"
+    "                          C/C++.\n"
     "  profile mode options:\n"
     "    --instrument-imports Also instrument calls to imports.\n"
     "\n";
@@ -211,7 +215,9 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   input_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-pdb"));
   output_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("output-pdb"));
   allow_overwrite_ = cmd_line->HasSwitch("overwrite");
+  new_decomposer_ = cmd_line->HasSwitch("new-decomposer");
   no_augment_pdb_ = cmd_line->HasSwitch("no-augment-pdb");
+  no_parse_debug_info_ = cmd_line->HasSwitch("no-parse-debug-info");
   no_strip_strings_ = cmd_line->HasSwitch("no-strip-strings");
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
   thunk_imports_ = cmd_line->HasSwitch("instrument-imports");
@@ -248,6 +254,8 @@ int InstrumentApp::Run() {
   relinker.set_output_pdb_path(output_pdb_path_);
   relinker.set_allow_overwrite(allow_overwrite_);
   relinker.set_augment_pdb(!no_augment_pdb_);
+  relinker.set_parse_debug_info(!no_parse_debug_info_);
+  relinker.set_use_new_decomposer(new_decomposer_);
   relinker.set_strip_strings(!no_strip_strings_);
 
   // Initialize the relinker. This does the decomposition, etc.

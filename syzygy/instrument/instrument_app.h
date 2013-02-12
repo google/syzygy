@@ -54,7 +54,9 @@ class InstrumentApp : public common::AppImplBase {
       : common::AppImplBase("Instrumenter"),
         mode_(kInstrumentInvalidMode),
         allow_overwrite_(false),
+        new_decomposer_(false),
         no_augment_pdb_(false),
+        no_parse_debug_info_(false),
         no_strip_strings_(false),
         debug_friendly_(false),
         instrument_unsafe_references_(true),
@@ -91,7 +93,9 @@ class InstrumentApp : public common::AppImplBase {
   FilePath output_pdb_path_;
   std::string client_dll_;
   bool allow_overwrite_;
+  bool new_decomposer_;
   bool no_augment_pdb_;
+  bool no_parse_debug_info_;
   bool no_strip_strings_;
   bool debug_friendly_;
   bool thunk_imports_;
