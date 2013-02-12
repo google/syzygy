@@ -20,41 +20,10 @@
 #ifndef SYZYGY_COMMON_APPLICATION_IMPL_H_
 #define SYZYGY_COMMON_APPLICATION_IMPL_H_
 
+#include "base/win/scoped_com_initializer.h"
 #include "syzygy/common/syzygy_version.h"
 
 namespace common {
-
-namespace internal {
-
-// A helper class to initialize and uninitialize COM within a context.
-// TODO(rogerm): Move to com_utils library, either in sawbuck or create a
-//     new one for syzygy.
-class ScopedComInitializer {
- public:
-  // Initialize COM in this context.
-  ScopedComInitializer() : hresult_(::CoInitialize(NULL)) {
-    if (!succeeded())
-      LOG(ERROR) << "CoInitialize() failed: " << com::LogHr(hresult()) << ".";
-  }
-
-  // Deinitialized COM if initialization was successful.
-  ~ScopedComInitializer() {
-     if (succeeded())
-       ::CoUninitialize();
-   }
-
-  // Get the status returned by the initialization.
-  HRESULT hresult() const { return hresult_; }
-
-  // True if the initialization succeeded.
-  bool succeeded() const { return SUCCEEDED(hresult()); }
-
- private:
-  // The status returned by the initialization.
-  const HRESULT hresult_;
-};
-
-}  // namespace common::internal
 
 template <typename Impl, AppLoggingFlag kInitLogging>
 Application<Impl, kInitLogging>::Application()
@@ -76,7 +45,7 @@ int Application<Impl, kInitLogging>::Run() {
             << " Version " << kSyzygyVersion.GetVersionString() << ".";
   LOG(INFO) << "Copyright (c) Google Inc. All rights reserved.";
 
-  internal::ScopedComInitializer com_initializer;
+  base::win::ScopedCOMInitializer com_initializer;
   if (!com_initializer.succeeded())
     return 1;
 
