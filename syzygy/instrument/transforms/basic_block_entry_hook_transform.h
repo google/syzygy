@@ -71,6 +71,8 @@ class BasicBlockEntryHookTransform
   }
 
  protected:
+  typedef std::map<BlockGraph::Offset, BlockGraph::Block*> ThunkBlockMap;
+
   friend NamedBlockGraphTransformImpl<BasicBlockEntryHookTransform>;
   friend IterativeTransformImpl<BasicBlockEntryHookTransform>;
   friend NamedBasicBlockSubGraphTransformImpl<BasicBlockEntryHookTransform>;
@@ -90,6 +92,43 @@ class BasicBlockEntryHookTransform
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
   // @}
+
+  // Add basic-block entry counting thunks for all entry points of a
+  // @p code_block which is not basic-block decomposable.
+  // @param block_graph The block graph in which to create the thunk.
+  // @param code_block The code block which cannot be basic-block decomposed.
+  // @returns true on success; false otherwise.
+  bool ThunkNonDecomposableCodeBlock(BlockGraph* block_graph,
+                                     BlockGraph::Block* code_block);
+
+  // Redirects the given referrer to a thunk, creating the thunk if necessary.
+  // @param referrer The details of the original referrer.
+  // @param block_graph The block graph in which to create the thunk.
+  // @param code_block The target block being thunked.
+  // @param thunk_block_map A map (by target offset) of the thunks already
+  //     created. We only create a single thunk per target offset, which is
+  //     reused across referrers to the same target offset.
+  // @returns true on success; false otherwise.
+  bool EnsureReferrerIsThunked(const BlockGraph::Block::Referrer& referrer,
+                               BlockGraph* block_graph,
+                               BlockGraph::Block* block,
+                               ThunkBlockMap* thunk_block_map);
+
+  // Add a basic-block entry counting thunk for an entry point at a given
+  // @p offset of a @p code_block which is unsuitable for basic-block
+  // decomposition.
+  // @param block_graph The block graph in which to create the thunk.
+  // @param thunk_block_map A catalog of thunk blocks created by this transform.
+  //     This will be updated if this function creates a new think.
+  // @param code_block The code block which cannot be basic-block decomposed.
+  // @param offset The offset of the entry point in @p code_block to thunk.
+  // @param thunk The newly created thunk will be returned here.
+  // @returns true on success; false otherwise.
+  bool FindOrCreateThunk(BlockGraph* block_graph,
+                         ThunkBlockMap* thunk_block_map,
+                         BlockGraph::Block* code_block,
+                         BlockGraph::Offset offset,
+                         BlockGraph::Block** thunk);
 
   // Adds the basic-block frequency data referenced by the coverage agent.
   AddBasicBlockFrequencyDataTransform add_frequency_data_;

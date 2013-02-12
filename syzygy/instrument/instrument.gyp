@@ -87,6 +87,12 @@
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/agent/asan/asan.gyp:asan_rtl',
+        '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
+            'basic_block_entry_client',
+        '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_client',
+        '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',

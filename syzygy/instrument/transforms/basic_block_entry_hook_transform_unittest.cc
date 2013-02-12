@@ -99,13 +99,36 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
   for (; block_iter != block_graph_.blocks().end(); ++block_iter) {
     const BlockGraph::Block& block = block_iter->second;
 
-    // Skip ineligible blocks.
+    // Skip non-code blocks.
     if (block.type() != BlockGraph::CODE_BLOCK)
       continue;
-    if (!pe::CodeBlockIsBasicBlockDecomposable(&block))
-      continue;
+
+    // We'll skip thunks, they're a mixed bag of things.
     if (block.section() == tx.thunk_section_->id())
       continue;
+
+    // Blocks which are not bb-decomposable should be thunked. While there may
+    // be some internal referrers, the only external referrers should be thunks.
+    if (!pe::CodeBlockIsBasicBlockDecomposable(&block)) {
+      size_t num_external_thunks = 0;
+      BlockGraph::Block::ReferrerSet::const_iterator ref_iter =
+          block.referrers().begin();
+      for (; ref_iter != block.referrers().end(); ++ref_iter) {
+        if (ref_iter->first != &block) {
+          ASSERT_EQ(tx.thunk_section_->id(), ref_iter->first->section());
+          ++num_external_thunks;
+        }
+      }
+
+      // Each of the thunks for a non-decomposable block will reuse the same
+      // id to source range map entry, so we increment total_basic_blocks once
+      // if num_external_thunks is non-zero. Note that we cannot assert that
+      // num_external_thunks > 0 because the block could be statically dead
+      // (in a debug build, for example).
+      if (num_external_thunks != 0U)
+        ++total_basic_blocks;
+      continue;
+    }
 
     // Note that we have attempted to validate a block.
     ++num_decomposed_blocks;

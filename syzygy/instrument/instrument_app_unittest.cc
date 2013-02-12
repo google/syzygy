@@ -14,6 +14,7 @@
 
 #include "syzygy/instrument/instrument_app.h"
 
+#include "base/environment.h"
 #include "base/stringprintf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -23,6 +24,7 @@
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace instrument {
 
@@ -96,12 +98,43 @@ class InstrumentAppTest : public testing::PELibUnitTest {
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
 
-    // Point the application at the test's command-line, IO streams and mock
-    // machinery.
-    test_app_.set_command_line(&cmd_line_);
-    test_app_.set_in(in());
-    test_app_.set_out(out());
-    test_app_.set_err(err());
+    ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&test_app_));
+  }
+
+  // Points the application at the fixture's command-line and IO streams.
+  template<typename TestAppType>
+  void ConfigureTestApp(TestAppType* test_app) {
+    test_app->set_command_line(&cmd_line_);
+    test_app->set_in(in());
+    test_app->set_out(out());
+    test_app->set_err(err());
+  }
+
+  // Runs an instrumentation pass in the given mode and validates that the
+  // resulting output DLL loads.
+  void EndToEndTest(const std::string& mode) {
+    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+    cmd_line_.AppendSwitchASCII("mode", mode);
+
+    // Create the instrumented DLL.
+    common::Application<instrument::InstrumentApp> app;
+    ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&app));
+    ASSERT_EQ(0, app.Run());
+
+    // Make it non-mandatory that there be a trace service running.
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    std::string env_var;
+    env->SetVar(
+        ::kSyzygyRpcSessionMandatoryEnvVar,
+        base::StringPrintf("%s,0;%s,0;%s,0;%s,0",
+                           InstrumentApp::kCallTraceClientDllBasicBlockEntry,
+                           InstrumentApp::kCallTraceClientDllCoverage,
+                           InstrumentApp::kCallTraceClientDllProfile,
+                           InstrumentApp::kCallTraceClientDllRpc));
+
+    // Validate that the test dll loads post instrumentation.
+    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
   }
 
   // Stashes the current log-level before each test instance and restores it
@@ -551,6 +584,26 @@ TEST_F(InstrumentAppTest, Instrument) {
       .WillOnce(Return(true));
 
   ASSERT_EQ(0, test_app_.Run());
+}
+
+TEST_F(InstrumentAppTest, AsanEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+}
+
+TEST_F(InstrumentAppTest, BbEntryEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
+}
+
+TEST_F(InstrumentAppTest, CallTraceEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("calltrace"));
+}
+
+TEST_F(InstrumentAppTest, CoverageEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("coverage"));
+}
+
+TEST_F(InstrumentAppTest, ProfileEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("profile"));
 }
 
 }  // namespace pe
