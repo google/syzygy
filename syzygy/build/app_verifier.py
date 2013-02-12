@@ -58,6 +58,16 @@ _EXCEPTIONS = {
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
   ],
+  'instrument_unittests.exe':[
+    # The ASAN runtime ends up freeing a heap while holding it's critical
+    # section.
+    ('Error', 'Locks', 513, '.*::PELibUnitTest::CheckTestDll'),
+    # This leak occurs due to a leaky global lock in ScopedHandle.
+    ('Error', 'Locks', 514, '.*::PELibUnitTest::CheckTestDll'),
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'Locks', 848, '.*::PELibUnitTest::CheckTestDll'),
+  ],
 }
 
 
