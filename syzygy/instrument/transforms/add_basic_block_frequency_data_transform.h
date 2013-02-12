@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Declares a block-graph transform to be used by the basic-block frequency
-// tracking instrumentation to add a static BasicBlockFrequencyData object
-// to the block graph.
+// tracking instrumentation to add a static BasicBlockFrequencyData object to
+// the block graph.
 
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ADD_BASIC_BLOCK_FREQUENCY_DATA_TRANSFORM_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_ADD_BASIC_BLOCK_FREQUENCY_DATA_TRANSFORM_H_
@@ -43,7 +43,7 @@ class AddBasicBlockFrequencyDataTransform
   // be non-NULL after a successful application of this transform.
   BlockGraph::Block* frequency_data_buffer_block() {
     return frequency_data_buffer_block_;
- }
+  }
 
   // BlockGraphTransformInterface Implementation.
   virtual bool TransformBlockGraph(BlockGraph* block_graph,

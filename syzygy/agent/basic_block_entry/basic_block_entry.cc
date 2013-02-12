@@ -399,7 +399,7 @@ void BasicBlockEntry::BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   DCHECK(entry_frame->module_data != NULL);
-  DCHECK_GT(entry_frame->module_data->num_basic_blocks,
+  DCHECK_GT(entry_frame->module_data->num_entries,
             entry_frame->basic_block_id);
 
   // TODO(rogerm): Consider extracting a fast path for state != NULL? Inline it
@@ -501,7 +501,7 @@ void BasicBlockEntry::OnThreadDetach(BasicBlockFrequencyData* module_data) {
 }
 
 BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
-   BasicBlockFrequencyData* module_data) {
+    BasicBlockFrequencyData* module_data) {
   DCHECK(module_data != NULL);
 
   // Create the thread-local state for this thread. By default, just point the
@@ -520,14 +520,14 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
     return state;
 
   // Nothing to allocate? We're done!
-  if (module_data->num_basic_blocks == 0) {
+  if (module_data->num_entries == 0) {
     LOG(WARNING) << "Module contains no instrumented basic blocks, not "
                  << "allocating basic-block trace data segment.";
     return state;
   }
 
   // Determine the size of the basic block frequency table.
-  size_t data_size = module_data->num_basic_blocks * sizeof(uint32);
+  size_t data_size = module_data->num_entries * sizeof(uint32);
 
   // Determine the size of the basic block frequency record.
   size_t record_size = sizeof(TraceBasicBlockFrequencyData) + data_size - 1;
@@ -561,7 +561,7 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;
   trace_data->module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
   trace_data->frequency_size = sizeof(uint32);
-  trace_data->num_basic_blocks = module_data->num_basic_blocks;
+  trace_data->num_basic_blocks = module_data->num_entries;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   state->set_frequency_data(trace_data->frequency_data);

@@ -123,7 +123,7 @@ bool AddBasicBlockFrequencyDataTransform::ConfigureFrequencyDataBuffer(
   // Update the related fields in the data structure.
   block_graph::TypedBlock<BasicBlockFrequencyData> frequency_data;
   CHECK(frequency_data.Init(0, frequency_data_block_));
-  frequency_data->num_basic_blocks = num_basic_blocks;
+  frequency_data->num_entries = num_basic_blocks;
   frequency_data->frequency_size = frequency_size;
 
   // Resize the buffer block.

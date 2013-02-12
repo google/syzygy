@@ -83,6 +83,7 @@
         'buffer_writer.h',
         'defs.cc',
         'defs.h',
+        'indexed_frequency_data.h',
         'logging.cc',
         'logging.h',
         'path_util.cc',

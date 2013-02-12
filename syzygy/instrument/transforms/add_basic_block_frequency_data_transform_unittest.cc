@@ -66,7 +66,7 @@ TEST_F(AddBasicBlockFrequencyDataTransformTest, Apply) {
   EXPECT_EQ(kAgentId, frequency_data->agent_id);
   EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
   EXPECT_EQ(TLS_OUT_OF_INDEXES, frequency_data->tls_index);
-  EXPECT_EQ(0U, frequency_data->num_basic_blocks);
+  EXPECT_EQ(0U, frequency_data->num_entries);
   EXPECT_EQ(0U, frequency_data->frequency_size);
   EXPECT_EQ(0U, frequency_data->initialization_attempted);
 
@@ -79,7 +79,7 @@ TEST_F(AddBasicBlockFrequencyDataTransformTest, Apply) {
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
 
-  EXPECT_EQ(kNumBasicBlocks, frequency_data->num_basic_blocks);
+  EXPECT_EQ(kNumBasicBlocks, frequency_data->num_entries);
   EXPECT_EQ(kFrequencySize, frequency_data->frequency_size);
   EXPECT_EQ(0, buffer_block->data_size());
   EXPECT_EQ((kNumBasicBlocks * kFrequencySize), buffer_block->size());

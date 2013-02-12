@@ -181,7 +181,7 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
     // basic-block range as the basic_block_id, and we pass a pointer to
     // the frequency data block as the module_data parameter. We then make
     // a memory indirect call to the bb_entry_hook.
-    Immediate basic_block_id(bb_ranges_.size(), core::kSize32Bit );
+    Immediate basic_block_id(bb_ranges_.size(), core::kSize32Bit);
     Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
     Operand bb_entry_hook(Displacement(bb_entry_hook_ref_.referenced(),
                                        bb_entry_hook_ref_.offset()));
@@ -248,7 +248,6 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
 
   return true;
 }
-
 
 }  // namespace transforms
 }  // namespace instrument

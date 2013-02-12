@@ -77,7 +77,7 @@ class BasicBlockEntryTest : public testing::Test {
     module_data_.version = ::common::kBasicBlockFrequencyDataVersion;
     module_data_.tls_index = TLS_OUT_OF_INDEXES;
     module_data_.initialization_attempted = 0U;
-    module_data_.num_basic_blocks = kNumBasicBlocks;
+    module_data_.num_entries = kNumBasicBlocks;
     module_data_.frequency_data = default_frequency_data_;
     ::memset(&default_frequency_data_, 0, sizeof(default_frequency_data_));
   }
@@ -254,7 +254,7 @@ TEST_F(BasicBlockEntryTest, NoServerNoCrash) {
   ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
   ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
   ASSERT_NE(0U, module_data_.initialization_attempted);
-  ASSERT_EQ(kNumBasicBlocks, module_data_.num_basic_blocks);
+  ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
   ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
 
   // Visiting an initial basic-block should not fail. It should initialize the
@@ -299,7 +299,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
   ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
   ASSERT_NE(0U, module_data_.initialization_attempted);
-  ASSERT_EQ(kNumBasicBlocks, module_data_.num_basic_blocks);
+  ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
   ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
 
   // Visiting an initial basic-block should not fail. It should initialize the
@@ -356,7 +356,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
   ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
   ASSERT_NE(0U, module_data_.initialization_attempted);
-  ASSERT_EQ(kNumBasicBlocks, module_data_.num_basic_blocks);
+  ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
   ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
 
   // Visiting an initial basic-block should not fail. It should initialize the

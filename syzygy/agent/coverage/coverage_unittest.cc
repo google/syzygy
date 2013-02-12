@@ -188,7 +188,7 @@ BOOL __declspec(naked) WINAPI CoverageClientTest::DllMainThunk(
 }
 
 void VisitBlock(size_t i) {
-  EXPECT_GT(coverage_data.num_basic_blocks, i);
+  EXPECT_GT(coverage_data.num_entries, i);
   static_cast<uint8*>(coverage_data.frequency_data)[i] = 1;
 }
 

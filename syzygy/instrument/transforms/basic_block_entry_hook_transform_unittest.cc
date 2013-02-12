@@ -80,14 +80,14 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
   ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
   EXPECT_EQ(kBasicBlockEntryAgentId, frequency_data->agent_id);
   EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
-  EXPECT_EQ(tx.bb_ranges().size(), frequency_data->num_basic_blocks);
+  EXPECT_EQ(tx.bb_ranges().size(), frequency_data->num_entries);
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
   EXPECT_EQ(sizeof(BasicBlockFrequencyData), tx.frequency_data_block()->size());
   EXPECT_EQ(sizeof(BasicBlockFrequencyData),
             tx.frequency_data_block()->data_size());
-  EXPECT_EQ(frequency_data->num_basic_blocks * frequency_data->frequency_size,
+  EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
             tx.frequency_data_buffer_block()->size());
 
   // Let's examine each eligible block to verify that its BB's have been

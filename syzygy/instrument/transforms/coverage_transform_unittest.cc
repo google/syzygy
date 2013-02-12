@@ -56,12 +56,12 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
   // The frequency data block should have the appropriate size.
   ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->size());
   ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());
-  EXPECT_EQ(coverage_data->num_basic_blocks,
+  EXPECT_EQ(coverage_data->num_entries,
             tx.frequency_data_buffer_block()->size());
 
   EXPECT_EQ(common::kBasicBlockCoverageAgentId, coverage_data->agent_id);
   EXPECT_EQ(common::kBasicBlockFrequencyDataVersion, coverage_data->version);
-  EXPECT_EQ(tx.bb_ranges().size(), coverage_data->num_basic_blocks);
+  EXPECT_EQ(tx.bb_ranges().size(), coverage_data->num_entries);
   EXPECT_TRUE(coverage_data.HasReferenceAt(
       coverage_data.OffsetOf(coverage_data->frequency_data)));
 }

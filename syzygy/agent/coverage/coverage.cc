@@ -202,7 +202,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
   }
 
   // Nothing to allocate? We're done!
-  if (coverage_data->num_basic_blocks == 0) {
+  if (coverage_data->num_entries == 0) {
     LOG(WARNING) << "Module contains no instrumented basic blocks, not "
                  << "allocating coverage data segment.";
     return true;
@@ -210,7 +210,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
 
   // Determine the size of the basic block frequency struct.
   size_t bb_freq_size = sizeof(TraceBasicBlockFrequencyData) +
-      coverage_data->num_basic_blocks - 1;
+      coverage_data->num_entries - 1;
 
   // Determine the size of the buffer we need. We need room for the basic block
   // frequency struct plus a single RecordPrefix header.
@@ -250,7 +250,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
   trace_coverage_data->module_time_date_stamp =
       nt_headers->FileHeader.TimeDateStamp;
   trace_coverage_data->frequency_size = 1;
-  trace_coverage_data->num_basic_blocks = coverage_data->num_basic_blocks;
+  trace_coverage_data->num_basic_blocks = coverage_data->num_entries;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   coverage_data->frequency_data =
