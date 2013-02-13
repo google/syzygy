@@ -320,7 +320,7 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
                                     HMODULE module,
                                     DWORD reason ) {
   // TODO(rogerm): Split this up so that we don't have to pass unused
-  //     module and reason paramters on every call. This is really
+  //     module and reason parameters on every call. This is really
   //     sub-optimal, so address it ASAP.
 
   // If we're not currently tracing then this is (one of) the first calls

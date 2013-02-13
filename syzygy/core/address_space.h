@@ -290,7 +290,7 @@ class AddressRange {
 //   [0, 10) maps to [1000, 1010), and
 //   [10, 30) maps to [1010, 1030).
 //
-// This is more succintly represented as (assuming linearity of the underlying
+// This is more succinctly represented as (assuming linearity of the underlying
 // relationship):
 //
 //   [0, 30) maps to [1000, 1030).
@@ -302,8 +302,8 @@ class AddressRange {
 //
 // should not be merged, as even though they are contiguous in both address
 // spaces, the source and destination ranges are not of the same size for the
-// second pair. Thus, we can't imply that that the relationship holds for the
-// pair [0, 30) and [1000, 1036).
+// second pair. Thus, we can't imply that the relationship holds for the pair
+// [0, 30) and [1000, 1036).
 template <typename SourceRangeType, typename DestinationRangeType>
 class AddressRangeMap {
  public:
@@ -397,7 +397,7 @@ class AddressRangeMap {
   // SourceRange are the same type this may be performed in-place.
   //
   // The inversion is deterministic. When conflicting destination ranges are
-  // found, earlier start addressess and shorter lengths have priority.
+  // found, earlier start addresses and shorter lengths have priority.
   //
   // @param inverted a pointer to the AddressRangeMap that will be populated
   //     with the inverted address range map.
@@ -1038,8 +1038,8 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
     SourceRange& src = range_pair.first;
     DestinationRange& dst = range_pair.second;
 
-    // This range pair starts before the end of the range we want to unmap? Then
-    // we've finished fixing ranges that simply need to be shifted.
+    // This range pair starts before the end of the range we want to unmap?
+    // Then we've finished fixing ranges that simply need to be shifted.
     if (src.start() < mapped.end())
       break;
 

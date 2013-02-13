@@ -42,9 +42,9 @@ class BlockGraphTransformInterface {
                                    BlockGraph::Block* header_block) = 0;
 };
 
-// This applies the provided BlockGraphTransform and checks that that invariant
-// has been satisfied; namely, that the header block has not been deleted from
-// the block graph.
+// This applies the provided BlockGraphTransform and checks that invariant has
+// been satisfied; namely, that the header block has not been deleted from the
+// block graph.
 //
 // @param transform the transform to apply.
 // @param block_graph the block graph to transform.
