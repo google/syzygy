@@ -40,7 +40,7 @@ using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
 using block_graph::Instruction;
-using common::BasicBlockFrequencyData;
+using common::IndexedFrequencyData;
 using common::kBasicBlockEntryAgentId;
 using common::kBasicBlockFrequencyDataVersion;
 
@@ -76,7 +76,7 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
   ASSERT_LT(0u, tx.bb_ranges().size());
 
   // Validate the basic-block frequency data structure.
-  block_graph::ConstTypedBlock<BasicBlockFrequencyData> frequency_data;
+  block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
   ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
   EXPECT_EQ(kBasicBlockEntryAgentId, frequency_data->agent_id);
   EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
@@ -84,8 +84,8 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
-  EXPECT_EQ(sizeof(BasicBlockFrequencyData), tx.frequency_data_block()->size());
-  EXPECT_EQ(sizeof(BasicBlockFrequencyData),
+  EXPECT_EQ(sizeof(IndexedFrequencyData), tx.frequency_data_block()->size());
+  EXPECT_EQ(sizeof(IndexedFrequencyData),
             tx.frequency_data_block()->data_size());
   EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
             tx.frequency_data_buffer_block()->size());

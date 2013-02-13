@@ -188,7 +188,8 @@ bool IsValidFrequencySize(size_t size) {
   return size == 1 || size == 2 || size == 4;
 }
 
-uint32 GetFrequency(const TraceBasicBlockFrequencyData* data, size_t bb_id) {
+// TODO(sebmarchand): Move this to indexed_frequency_util.
+uint32 GetFrequency(const TraceIndexedFrequencyData* data, size_t bb_id) {
   DCHECK(data != NULL);
   DCHECK(IsValidFrequencySize(data->frequency_size));
   DCHECK_LT(bb_id, data->num_basic_blocks);

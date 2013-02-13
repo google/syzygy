@@ -83,7 +83,7 @@ enum TraceEventType {
   TRACE_BATCH_ENTER,
   TRACE_BATCH_INVOCATION,
   TRACE_THREAD_NAME,
-  TRACE_BASIC_BLOCK_FREQUENCY,
+  TRACE_INDEXED_FREQUENCY,
 };
 
 // All traces are emitted at this trace level.
@@ -324,8 +324,8 @@ struct TraceThreadNameInfo {
   char thread_name[1];
 };
 
-struct TraceBasicBlockFrequencyData {
-  enum { kTypeId = TRACE_BASIC_BLOCK_FREQUENCY };
+struct TraceIndexedFrequencyData {
+  enum { kTypeId = TRACE_INDEXED_FREQUENCY };
 
   // This is used to tie the data to a particular module, which has already
   // been reported via a TraceModuleData struct.

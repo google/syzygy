@@ -193,13 +193,13 @@ class ParseEventHandler {
                             DWORD thread_id,
                             const base::StringPiece& thread_name) = 0;
 
-  // Issued for basic-block frequency counts. Depending on the mode of
+  // Issued for indexed frequency counts. Depending on the mode of
   // instrumentation these may be per thread, per process, or per module.
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) = 0;
+      const TraceIndexedFrequencyData* data) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -250,11 +250,11 @@ class ParseEventHandlerImpl : public ParseEventHandler {
                             DWORD process_id,
                             DWORD thread_id,
                             const base::StringPiece& thread_name) OVERRIDE;
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) OVERRIDE;
+      const TraceIndexedFrequencyData* data) OVERRIDE;
   // @}
 };
 

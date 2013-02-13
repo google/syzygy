@@ -26,7 +26,7 @@ namespace transforms {
 
 namespace {
 
-using common::BasicBlockFrequencyData;
+using common::IndexedFrequencyData;
 using common::kBasicBlockCoverageAgentId;
 using core::eax;
 using block_graph::ApplyBasicBlockSubGraphTransform;
@@ -44,7 +44,7 @@ typedef CoverageInstrumentationTransform::RelativeAddressRange
     RelativeAddressRange;
 
 const BlockGraph::Offset kFrequencyDataOffset =
-    offsetof(BasicBlockFrequencyData, frequency_data);
+    offsetof(IndexedFrequencyData, frequency_data);
 
 // Compares two relative address ranges to see if they overlap. Assumes they
 // are already sorted. This is used to validate basic-block ranges.
@@ -82,7 +82,7 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
 
   BlockGraph::Block* data_block = add_bb_freq_data_tx_.frequency_data_block();
   DCHECK(data_block != NULL);
-  DCHECK_EQ(sizeof(BasicBlockFrequencyData), data_block->data_size());
+  DCHECK_EQ(sizeof(IndexedFrequencyData), data_block->data_size());
 
   // Iterate over the basic blocks.
   BasicBlockSubGraph::BBCollection::iterator it =

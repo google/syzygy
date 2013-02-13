@@ -28,8 +28,6 @@
 
 namespace common {
 
-typedef IndexedFrequencyData BasicBlockFrequencyData;
-
 // The basic-block coverage agent ID.
 extern const uint32 kBasicBlockCoverageAgentId;
 

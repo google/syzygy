@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Add basic block frequency transform unittests.
+// Implements TestDllTransformTest functions.
 
 #include "syzygy/instrument/transforms/unittest_util.h"
 

@@ -114,11 +114,11 @@ bool CoverageGrinder::OutputData(FILE* file) {
   return true;
 }
 
-void CoverageGrinder::OnBasicBlockFrequency(
+void CoverageGrinder::OnIndexedFrequency(
     base::Time time,
     DWORD process_id,
     DWORD thread_id,
-    const TraceBasicBlockFrequencyData* data) {
+    const TraceIndexedFrequencyData* data) {
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 

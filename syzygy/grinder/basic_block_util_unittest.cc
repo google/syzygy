@@ -53,11 +53,11 @@ class TestGrinder : public GrinderInterface {
 
   // @name ParseEventHandler overrides.
   // @{
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) OVERRIDE {
+      const TraceIndexedFrequencyData* data) OVERRIDE {
     on_bb_freq_was_called_ = true;
     ASSERT_TRUE(data != NULL);
 
@@ -219,14 +219,14 @@ TEST(GrinderBasicBlockUtilTest, GetFrequency) {
   static const uint8 kData[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
                                  0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB };
 
-  // A buffer over which we'll overlay a TraceBasicBlockFrequencyData struct.
-  uint8 buffer[sizeof(TraceBasicBlockFrequencyData) + sizeof(kData) - 1] = {};
+  // A buffer over which we'll overlay a TraceIndexedFrequencyData struct.
+  uint8 buffer[sizeof(TraceIndexedFrequencyData) + sizeof(kData) - 1] = {};
   ::memset(buffer, 0, sizeof(buffer));
 
   // A TraceDataBlockFrequencyData structure with the frequency_data populated
   // with a copy of kData.
-  TraceBasicBlockFrequencyData* data =
-      reinterpret_cast<TraceBasicBlockFrequencyData*>(buffer);
+  TraceIndexedFrequencyData* data =
+      reinterpret_cast<TraceIndexedFrequencyData*>(buffer);
   ::memcpy(data->frequency_data, kData, sizeof(kData));
 
   // Validate 1-byte frequency data.

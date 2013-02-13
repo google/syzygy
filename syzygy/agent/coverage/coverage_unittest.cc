@@ -29,7 +29,7 @@ namespace coverage {
 
 namespace {
 
-using ::common::BasicBlockFrequencyData;
+using ::common::IndexedFrequencyData;
 using testing::_;
 using testing::StrictMockParseEventHandler;
 using trace::parser::Parser;
@@ -41,7 +41,7 @@ uint8 bb_seen_array[kBasicBlockCount] = {};
 
 // Force ourselves to have coverage data identical to that which would be
 // injected by the coverage instrumentation transform.
-BasicBlockFrequencyData coverage_data = {
+IndexedFrequencyData coverage_data = {
     ::common::kBasicBlockCoverageAgentId,
     ::common::kBasicBlockFrequencyDataVersion,
     TLS_OUT_OF_INDEXES,
@@ -247,7 +247,7 @@ TEST_F(CoverageClientTest, VisitOneBB) {
                                         process_id,
                                         thread_id,
                                         ModuleAtAddress(self)));;
-  EXPECT_CALL(handler_, OnBasicBlockFrequency(
+  EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,
       thread_id,

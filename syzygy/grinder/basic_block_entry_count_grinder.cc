@@ -63,11 +63,11 @@ bool BasicBlockEntryCountGrinder::OutputData(FILE* file) {
   return true;
 }
 
-void BasicBlockEntryCountGrinder::OnBasicBlockFrequency(
+void BasicBlockEntryCountGrinder::OnIndexedFrequency(
     base::Time time,
     DWORD process_id,
     DWORD thread_id,
-    const TraceBasicBlockFrequencyData* data) {
+    const TraceIndexedFrequencyData* data) {
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
@@ -115,7 +115,7 @@ void BasicBlockEntryCountGrinder::OnBasicBlockFrequency(
 
 void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
     const InstrumentedModuleInformation& instrumented_module,
-    const TraceBasicBlockFrequencyData* data) {
+    const TraceIndexedFrequencyData* data) {
   using basic_block_util::BasicBlockOffset;
   using basic_block_util::EntryCountType;
   using basic_block_util::EntryCountMap;

@@ -44,7 +44,7 @@ class Coverage {
   // syzygy/agent/coverage/coverage.cc for details.
   struct EntryHookFrame {
     void* func_addr;
-    common::BasicBlockFrequencyData* coverage_data;
+    common::IndexedFrequencyData* coverage_data;
   };
 
   // The thunks _indirect_penter_dllmain and _indirect_exe_entry are redirected
@@ -63,7 +63,7 @@ class Coverage {
 
   // Initializes the given coverage data element.
   bool InitializeCoverageData(void* module_base,
-                              ::common::BasicBlockFrequencyData* coverage_data);
+                              ::common::IndexedFrequencyData* coverage_data);
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;

@@ -46,7 +46,7 @@ namespace basic_block_entry {
 // @note: There's a single instance of this class.
 class BasicBlockEntry {
  public:
-  typedef ::common::BasicBlockFrequencyData BasicBlockFrequencyData;
+  typedef ::common::IndexedFrequencyData IndexedFrequencyData;
   typedef ::agent::common::ThreadStateManager ThreadStateManager;
 
   // This structure describes the contents of the stack above a call to
@@ -90,18 +90,18 @@ class BasicBlockEntry {
 
   // Handles EXE startup on ExeMainEntryHook and DLL_PROCESS_ATTACH messages
   // received by DllMainEntryHook().
-  void OnProcessAttach(BasicBlockFrequencyData* module_data);
+  void OnProcessAttach(IndexedFrequencyData* module_data);
 
   // Handles DLL_THREAD_DETACH and DLL_PROCESS_DETACH messages received by
   // DllMainEntryHook().
-  void OnThreadDetach(BasicBlockFrequencyData* module_data);
+  void OnThreadDetach(IndexedFrequencyData* module_data);
 
   // Registers the module containing @p addr with the call_trace_service.
   void RegisterModule(const void* addr);
 
   // Create the local thread state for the current thread. This should only
   // be called if the local thread state has not already been created.
-  ThreadState* CreateThreadState(BasicBlockFrequencyData* module_data);
+  ThreadState* CreateThreadState(IndexedFrequencyData* module_data);
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;

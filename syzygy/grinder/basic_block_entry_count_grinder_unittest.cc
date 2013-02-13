@@ -80,7 +80,6 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(parser_.OpenTraceFile(trace_file));
   }
 
-
   void RunGrinderTest(const wchar_t* trace_file,
                       ModuleEntryCountMap* module_entry_counts) {
     ASSERT_TRUE(trace_file != NULL);
@@ -152,19 +151,19 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 
   void GetFrequencyData(const ModuleInformation& module_info,
                         size_t frequency_size,
-                        scoped_ptr<TraceBasicBlockFrequencyData>* data) {
+                        scoped_ptr<TraceIndexedFrequencyData>* data) {
     ASSERT_TRUE(IsValidFrequencySize(frequency_size));
     ASSERT_TRUE(data != NULL);
 
     static const size_t kMaxDataSize = kNumBasicBlocks * sizeof(uint32);
     static const size_t kBufferSize =
-        sizeof(TraceBasicBlockFrequencyData) + kMaxDataSize - 1;
+        sizeof(TraceIndexedFrequencyData) + kMaxDataSize - 1;
 
     uint8* buffer = new uint8[kBufferSize];
     ASSERT_TRUE(buffer != NULL);
     ::memset(buffer, 0, kBufferSize);
 
-    data->reset(reinterpret_cast<TraceBasicBlockFrequencyData*>(buffer));
+    data->reset(reinterpret_cast<TraceIndexedFrequencyData*>(buffer));
     (*data)->module_base_addr =
         reinterpret_cast<ModuleAddr>(module_info.base_address);
     (*data)->module_base_size = module_info.module_size;
@@ -233,7 +232,7 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
   TestBasicBlockEntryCountGrinder grinder;
-  scoped_ptr<TraceBasicBlockFrequencyData> data;
+  scoped_ptr<TraceIndexedFrequencyData> data;
   // Validate 1-byte frequency data.
   ASSERT_NO_FATAL_FAILURE(
       GetFrequencyData(module_info.original_module, 1, &data));

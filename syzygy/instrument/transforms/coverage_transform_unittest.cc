@@ -30,7 +30,7 @@ namespace transforms {
 
 namespace {
 
-using common::BasicBlockFrequencyData;
+using common::IndexedFrequencyData;
 using block_graph::BlockGraph;
 
 class CoverageInstrumentationTransformTest
@@ -50,12 +50,12 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
 
   BlockGraph::Block* frequency_data_block = tx.frequency_data_block();
 
-  block_graph::ConstTypedBlock<BasicBlockFrequencyData> coverage_data;
+  block_graph::ConstTypedBlock<IndexedFrequencyData> coverage_data;
   ASSERT_TRUE(coverage_data.Init(0, frequency_data_block));
 
   // The frequency data block should have the appropriate size.
-  ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->size());
-  ASSERT_EQ(sizeof(BasicBlockFrequencyData), frequency_data_block->data_size());
+  ASSERT_EQ(sizeof(IndexedFrequencyData), frequency_data_block->size());
+  ASSERT_EQ(sizeof(IndexedFrequencyData), frequency_data_block->data_size());
   EXPECT_EQ(coverage_data->num_entries,
             tx.frequency_data_buffer_block()->size());
 

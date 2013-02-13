@@ -192,14 +192,14 @@ class ParseEngine {
   //     true.
   bool DispatchThreadNameEvent(EVENT_TRACE* event);
 
-  // Parses and dispatches basic block frequency events.
+  // Parses and dispatches indexed frequency events.
   //
   // @param event the event to dispatch.
-  // @param type Must be TRACE_BASIC_BLOCK_FREQUENCY.
+  // @param type Must be TRACE_INDEXED_FREQUENCY.
   //
   // @return true if the event was successfully dispatched, false otherwise.
   //     Does not explicitly set error occurred.
-  bool DispatchBasicBlockFrequencyEvent(EVENT_TRACE* event);
+  bool DispatchIndexedFrequencyEvent(EVENT_TRACE* event);
 
   // The name by which this parse engine is known.
   std::string name_;
@@ -216,7 +216,7 @@ class ParseEngine {
 
   // A flag denoting whether to abort on conflicting module information. In
   // ETW traces, we sometimes get conflicting module information if background
-  // processas are actively coming a going. In RPC traces, we should never get
+  // processes are actively coming a going. In RPC traces, we should never get
   // conflicting module information.
   bool fail_on_module_conflict_;
 

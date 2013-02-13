@@ -235,8 +235,8 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchThreadNameEvent(event);
       break;
 
-    case TRACE_BASIC_BLOCK_FREQUENCY:
-      success = DispatchBasicBlockFrequencyEvent(event);
+    case TRACE_INDEXED_FREQUENCY:
+      success = DispatchIndexedFrequencyEvent(event);
       break;
 
     default:
@@ -402,18 +402,18 @@ bool ParseEngine::DispatchThreadNameEvent(EVENT_TRACE* event) {
   return true;
 }
 
-bool ParseEngine::DispatchBasicBlockFrequencyEvent(EVENT_TRACE* event) {
+bool ParseEngine::DispatchIndexedFrequencyEvent(EVENT_TRACE* event) {
   DCHECK(event != NULL);
   DCHECK(event_handler_ != NULL);
   DCHECK(error_occurred_ == false);
 
-  if (event->MofLength < sizeof(TraceBasicBlockFrequencyData)) {
-    LOG(ERROR) << "Data too small for TraceBasicBlockFrequency struct.";
+  if (event->MofLength < sizeof(TraceIndexedFrequencyData)) {
+    LOG(ERROR) << "Data too small for TraceIndexedFrequency struct.";
     return false;
   }
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceBasicBlockFrequencyData* data = NULL;
+  const TraceIndexedFrequencyData* data = NULL;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty coverage data event.";
     return false;
@@ -422,10 +422,10 @@ bool ParseEngine::DispatchBasicBlockFrequencyEvent(EVENT_TRACE* event) {
 
   // Calculate the expected size of the entire payload, headers included.
   size_t expected_length = data->frequency_size * data->num_basic_blocks +
-      sizeof(TraceBasicBlockFrequencyData) - 1;
+      sizeof(TraceIndexedFrequencyData) - 1;
   if (event->MofLength < expected_length) {
     LOG(ERROR) << "Payload smaller than size implied by "
-               << "TraceBasicBlockFrequencyData header.";
+               << "TraceIndexedFrequencyData header.";
     return false;
   }
 
@@ -433,7 +433,7 @@ bool ParseEngine::DispatchBasicBlockFrequencyEvent(EVENT_TRACE* event) {
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   DWORD process_id = event->Header.ProcessId;
   DWORD thread_id = event->Header.ThreadId;
-  event_handler_->OnBasicBlockFrequency(time, process_id, thread_id, data);
+  event_handler_->OnIndexedFrequency(time, process_id, thread_id, data);
 
   return true;
 }

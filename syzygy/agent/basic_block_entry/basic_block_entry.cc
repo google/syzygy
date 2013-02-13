@@ -205,7 +205,7 @@ namespace basic_block_entry {
 
 namespace {
 
-using ::common::BasicBlockFrequencyData;
+using ::common::IndexedFrequencyData;
 using ::common::kBasicBlockEntryAgentId;
 using ::common::kBasicBlockFrequencyDataVersion;
 using agent::common::ScopedLastErrorKeeper;
@@ -248,14 +248,14 @@ HMODULE GetModuleForAddr(const void* addr) {
 // The BasicBlockEntryHook parameters.
 struct BasicBlockEntry::BasicBlockEntryFrame {
   const void* ret_addr;
-  BasicBlockFrequencyData* module_data;
+  IndexedFrequencyData* module_data;
   uint32 basic_block_id;
 };
 
 // The DllMainEntryHook parameters.
 struct BasicBlockEntry::DllMainEntryFrame {
   FuncAddr function;
-  BasicBlockFrequencyData* module_data;
+  IndexedFrequencyData* module_data;
   const void* ret_addr;
   HMODULE module;
   DWORD reason;
@@ -265,7 +265,7 @@ struct BasicBlockEntry::DllMainEntryFrame {
 // The ExeMainEntryHook parameters.
 struct BasicBlockEntry::ExeMainEntryFrame {
   FuncAddr function;
-  BasicBlockFrequencyData* module_data;
+  IndexedFrequencyData* module_data;
   const void* ret_addr;
 };
 
@@ -294,13 +294,13 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // @{
   uint32* frequency_data() { return frequency_data_; }
   TraceFileSegment* segment() { return &segment_; }
-  TraceBasicBlockFrequencyData* trace_data() { return trace_data_; }
+  TraceIndexedFrequencyData* trace_data() { return trace_data_; }
   // @}
 
   // @name Mutators.
   // @{
   void set_frequency_data(void* buffer);
-  void set_trace_data(TraceBasicBlockFrequencyData* trace_data);
+  void set_trace_data(TraceIndexedFrequencyData* trace_data);
   // @}
 
   // A helper to return a ThreadState pointer given a TLS index.
@@ -318,7 +318,7 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // entry frequency values. With tracing enabled, this is equivalent to:
   //     reinterpret_cast<uint32*>(this->trace_data->frequency_data)
   // If tracing is not enabled, this will be set to point to a static
-  // allocation of BasicBlockFrequencyData::frequency_data.
+  // allocation of IndexedFrequencyData::frequency_data.
   uint32* frequency_data_;
 
   // The basic-block entry agent this tread state belongs to.
@@ -329,7 +329,7 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
 
   // The basic-block frequency record we're populating. This will point into
   // the associated trace file segment's buffer.
-  TraceBasicBlockFrequencyData* trace_data_;
+  TraceIndexedFrequencyData* trace_data_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ThreadState);
@@ -355,7 +355,7 @@ void BasicBlockEntry::ThreadState::set_frequency_data(void* buffer) {
 }
 
 void BasicBlockEntry::ThreadState::set_trace_data(
-    TraceBasicBlockFrequencyData* trace_data) {
+    TraceIndexedFrequencyData* trace_data) {
   DCHECK(trace_data != NULL);
   trace_data_ = trace_data;
 }
@@ -460,7 +460,7 @@ void BasicBlockEntry::RegisterModule(const void* addr) {
   CHECK(session_.ReturnBuffer(&module_info_segment));
 }
 
-void BasicBlockEntry::OnProcessAttach(BasicBlockFrequencyData* module_data) {
+void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
 
   // Exit if the magic number does not match.
@@ -490,7 +490,7 @@ void BasicBlockEntry::OnProcessAttach(BasicBlockFrequencyData* module_data) {
     RegisterModule(module_data);
 }
 
-void BasicBlockEntry::OnThreadDetach(BasicBlockFrequencyData* module_data) {
+void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
   DCHECK_EQ(1U, module_data->initialization_attempted);
   DCHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
@@ -501,7 +501,7 @@ void BasicBlockEntry::OnThreadDetach(BasicBlockFrequencyData* module_data) {
 }
 
 BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
-    BasicBlockFrequencyData* module_data) {
+    IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
 
   // Create the thread-local state for this thread. By default, just point the
@@ -530,7 +530,7 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   size_t data_size = module_data->num_entries * sizeof(uint32);
 
   // Determine the size of the basic block frequency record.
-  size_t record_size = sizeof(TraceBasicBlockFrequencyData) + data_size - 1;
+  size_t record_size = sizeof(TraceIndexedFrequencyData) + data_size - 1;
 
   // Determine the size of the buffer we need. We need room for the basic block
   // frequency struct plus a single RecordPrefix header.
@@ -545,9 +545,9 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
 
   // Allocate the basic-block frequency data. We will leave this allocated and
   // let it get flushed during tear-down of the call-trace client.
-  TraceBasicBlockFrequencyData* trace_data =
-      reinterpret_cast<TraceBasicBlockFrequencyData*>(
-          state->segment()->AllocateTraceRecordImpl(TRACE_BASIC_BLOCK_FREQUENCY,
+  TraceIndexedFrequencyData* trace_data =
+      reinterpret_cast<TraceIndexedFrequencyData*>(
+          state->segment()->AllocateTraceRecordImpl(TRACE_INDEXED_FREQUENCY,
                                                     record_size));
   DCHECK(trace_data != NULL);
 

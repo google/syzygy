@@ -38,13 +38,13 @@ class CoverageGrinder : public GrinderInterface {
   virtual bool OutputData(FILE* file) OVERRIDE;
   // @}
 
-  // @name BasicBlockFrequencyGrinder implementation.
+  // @name IndexedFrequencyGrinder implementation.
   // @{
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) OVERRIDE;
+      const TraceIndexedFrequencyData* data) OVERRIDE;
   // @}
 
   enum OutputFormat {
@@ -56,7 +56,7 @@ class CoverageGrinder : public GrinderInterface {
 
  protected:
   // Stores per-module coverage data, populated during calls to
-  // OnBasicBlockFrequency.
+  // OnIndexedFrequency.
   basic_block_util::PdbInfoMap pdb_info_cache_;
 
   // Stores the final coverage data, populated by Grind. Contains an aggregate
@@ -68,7 +68,7 @@ class CoverageGrinder : public GrinderInterface {
   // information.
   Parser* parser_;
 
-  // Set to true if any call to OnBasicBlockFrequency fails. Processing will
+  // Set to true if any call to OnIndexedFrequency fails. Processing will
   // continue with a warning that results may be partial.
   bool event_handler_errored_;
 

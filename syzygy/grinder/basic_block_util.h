@@ -65,8 +65,7 @@ struct PdbInfo {
   LineInfo line_info;
 
   // Basic-block addresses for the module associated with a particular PDB.
-  // Used to transform basic-block frequency data to line visits via
-  // line_info.
+  // Used to transform basic-block frequency data to line visits via line_info.
   RelativeAddressRangeVector bb_ranges;
 };
 
@@ -108,7 +107,7 @@ bool IsValidFrequencySize(size_t size);
 
 // @returns the frequency value contained in @p data for the basic_block given
 //     by @p bb_id.
-uint32 GetFrequency(const TraceBasicBlockFrequencyData* data,  size_t bb_id);
+uint32 GetFrequency(const TraceIndexedFrequencyData* data,  size_t bb_id);
 
 }  // namespace basic_block_util
 }  // namespace grinder

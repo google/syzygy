@@ -261,14 +261,14 @@ class TraceFileDumper : public ParseEventHandler {
               process_id, thread_id, thread_name.as_string().c_str());
   }
 
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) OVERRIDE {
+      const TraceIndexedFrequencyData* data) OVERRIDE {
     DCHECK(data != NULL);
     ::fprintf(file_,
-              "OnBasicBlockFrequency: process-id=%d; thread-id=%d;\n"
+              "OnIndexedFrequency: process-id=%d; thread-id=%d;\n"
               "    module-base-addr=0x%08X; module-base-size=%d\n"
               "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
               "    frequency-size=%d; basic-block-count=%d\n",

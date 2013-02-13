@@ -202,11 +202,11 @@ void ParseEventHandlerImpl::OnThreadName(
     const base::StringPiece& thread_name) {
 }
 
-void ParseEventHandlerImpl::OnBasicBlockFrequency(
+void ParseEventHandlerImpl::OnIndexedFrequency(
     base::Time time,
     DWORD process_id,
     DWORD thread_id,
-    const TraceBasicBlockFrequencyData* data) {
+    const TraceIndexedFrequencyData* data) {
 }
 
 }  // namespace trace::parser

@@ -187,11 +187,11 @@ class TestParseEventHandler : public ParseEventHandlerImpl {
     ADD_FAILURE() << "Unexpected event.";
   }
 
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) {
+      const TraceIndexedFrequencyData* data) {
     ADD_FAILURE() << "Unexpected event.";
   }
 
@@ -500,7 +500,6 @@ TEST_F(ParseEngineRpcTest, NoServiceInstance) {
   ASSERT_FALSE(FindTraceFile(&trace_file_path));
   ASSERT_TRUE(trace_file_path.empty());
 }
-
 
 TEST_F(ParseEngineRpcTest, NoSessionCreated) {
   ASSERT_NO_FATAL_FAILURE(StartCallTraceService());

@@ -50,11 +50,11 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
 
   // @name ParseEventHandler overrides.
   // @{
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) OVERRIDE;
+      const TraceIndexedFrequencyData* data) OVERRIDE;
   // @}
 
   // @returns a map from ModuleInformation records to bb entry counts.
@@ -90,7 +90,7 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // @param data the basic-block entry counts being reported.
   void UpdateBasicBlockEntryCount(
       const InstrumentedModuleInformation& module_info,
-      const TraceBasicBlockFrequencyData* data);
+      const TraceIndexedFrequencyData* data);
 
   // Finds or creates a new entry for an encountered instrumented module.
   // @param module_info the module info for the instrumented module encountered.
@@ -113,7 +113,7 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // information.
   Parser* parser_;
 
-  // Set to true if any call to OnBasicBlockFrequency fails. Processing will
+  // Set to true if any call to OnIndexedFrequency fails. Processing will
   // continue with a warning that results may be partial.
   bool event_handler_errored_;
 

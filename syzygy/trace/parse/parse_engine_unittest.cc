@@ -51,7 +51,6 @@ class ParseEngineUnitTest
   ~ParseEngineUnitTest() {
   }
 
-
   bool IsRecognizedTraceFile(const FilePath& trace_file_path) OVERRIDE {
     return true;
   }
@@ -155,11 +154,11 @@ class ParseEngineUnitTest
     thread_detaches.push_back(*data);
   }
 
-  virtual void OnBasicBlockFrequency(
+  virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceBasicBlockFrequencyData* data) {
+      const TraceIndexedFrequencyData* data) {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -171,8 +170,8 @@ class ParseEngineUnitTest
   static const ModuleInformation kExeInfo;
   static const ModuleInformation kDllInfo;
   static const TraceModuleData kModuleData;
-  static const TraceBasicBlockFrequencyData kBasicBlockFrequencyData;
-  static const TraceBasicBlockFrequencyData kShortBasicBlockFrequencyData;
+  static const TraceIndexedFrequencyData kIndexedFrequencyData;
+  static const TraceIndexedFrequencyData kShortIndexedFrequencyData;
 
   FunctionSet function_entries;
   FunctionSet function_exits;
@@ -203,8 +202,7 @@ const TraceModuleData ParseEngineUnitTest::kModuleData = {
     L"module",
     L"executable" };
 
-const TraceBasicBlockFrequencyData
-ParseEngineUnitTest::kBasicBlockFrequencyData = {
+const TraceIndexedFrequencyData ParseEngineUnitTest::kIndexedFrequencyData = {
     reinterpret_cast<ModuleAddr>(0x11111111),
     0x22222222,
     0x33333333,
@@ -213,17 +211,17 @@ ParseEngineUnitTest::kBasicBlockFrequencyData = {
     1,
     0 };
 
-// This basic-block frequency struct does not contain enough data for its
-// implicitly encoded length.
-const TraceBasicBlockFrequencyData
-ParseEngineUnitTest::kShortBasicBlockFrequencyData = {
-    reinterpret_cast<ModuleAddr>(0x11111111),
-    0x22222222,
-    0x33333333,
-    0x44444444,
-    4,
-    10,
-    0 };
+// This indexed frequency struct does not contain enough data for its implicitly
+// encoded length.
+const TraceIndexedFrequencyData
+    ParseEngineUnitTest::kShortIndexedFrequencyData = {
+        reinterpret_cast<ModuleAddr>(0x11111111),
+        0x22222222,
+        0x33333333,
+        0x44444444,
+        4,
+        10,
+        0 };
 
 // A test function to show up in the trace events.
 void TestFunc1() {
@@ -538,46 +536,46 @@ TEST_F(ParseEngineUnitTest, ThreadDetach) {
   ASSERT_TRUE(error_occurred());
 }
 
-TEST_F(ParseEngineUnitTest, BasicBlockFrequencyTooSmallForHeader) {
+TEST_F(ParseEngineUnitTest, IndexedFrequencyTooSmallForHeader) {
   EVENT_TRACE event_record = {};
   event_record.Header.ProcessId = kProcessId;
   event_record.Header.ThreadId = kThreadId;
   event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_BASIC_BLOCK_FREQUENCY;
-  event_record.MofData = const_cast<TraceBasicBlockFrequencyData*>(
-      &kBasicBlockFrequencyData);
-  event_record.MofLength = sizeof(kBasicBlockFrequencyData) - 1;
+  event_record.Header.Class.Type = TRACE_INDEXED_FREQUENCY;
+  event_record.MofData = const_cast<TraceIndexedFrequencyData*>(
+      &kIndexedFrequencyData);
+  event_record.MofLength = sizeof(kIndexedFrequencyData) - 1;
 
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
   ASSERT_EQ(basic_block_frequencies, 0);
 }
 
-TEST_F(ParseEngineUnitTest, BasicBlockFrequencyTooSmallForContents) {
+TEST_F(ParseEngineUnitTest, IndexedFrequencyTooSmallForContents) {
   EVENT_TRACE event_record = {};
   event_record.Header.ProcessId = kProcessId;
   event_record.Header.ThreadId = kThreadId;
   event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_BASIC_BLOCK_FREQUENCY;
-  event_record.MofData = const_cast<TraceBasicBlockFrequencyData*>(
-      &kShortBasicBlockFrequencyData);
-  event_record.MofLength = sizeof(kShortBasicBlockFrequencyData);
+  event_record.Header.Class.Type = TRACE_INDEXED_FREQUENCY;
+  event_record.MofData = const_cast<TraceIndexedFrequencyData*>(
+      &kShortIndexedFrequencyData);
+  event_record.MofLength = sizeof(kShortIndexedFrequencyData);
 
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
   ASSERT_EQ(basic_block_frequencies, 0);
 }
 
-TEST_F(ParseEngineUnitTest, BasicBlockFrequency) {
+TEST_F(ParseEngineUnitTest, IndexedFrequency) {
   EVENT_TRACE event_record = {};
   event_record.Header.ProcessId = kProcessId;
   event_record.Header.ThreadId = kThreadId;
   event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_BASIC_BLOCK_FREQUENCY;
-  event_record.MofData = const_cast<TraceBasicBlockFrequencyData*>(
-      &kBasicBlockFrequencyData);
-  event_record.MofLength = sizeof(kBasicBlockFrequencyData);
-  expected_data = &kBasicBlockFrequencyData;
+  event_record.Header.Class.Type = TRACE_INDEXED_FREQUENCY;
+  event_record.MofData = const_cast<TraceIndexedFrequencyData*>(
+      &kIndexedFrequencyData);
+  event_record.MofLength = sizeof(kIndexedFrequencyData);
+  expected_data = &kIndexedFrequencyData;
 
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_FALSE(error_occurred());

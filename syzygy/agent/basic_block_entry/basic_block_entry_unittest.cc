@@ -34,7 +34,7 @@ namespace basic_block_entry {
 
 namespace {
 
-using ::common::BasicBlockFrequencyData;
+using ::common::IndexedFrequencyData;
 using testing::_;
 using testing::StrictMockParseEventHandler;
 using trace::parser::Parser;
@@ -191,7 +191,7 @@ class BasicBlockEntryTest : public testing::Test {
 
   // This will be a stand-in for the (usually statically allocated) trace
   // data which would have been referenced by the instrumentation.
-  static BasicBlockFrequencyData module_data_;
+  static IndexedFrequencyData module_data_;
 
   // This will be a stand-in for the (usually statically allocated) fall-back
   // frequency to which module_data_.frequency_data will point.
@@ -233,7 +233,7 @@ BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
   }
 }
 
-BasicBlockFrequencyData BasicBlockEntryTest::module_data_ = {};
+IndexedFrequencyData BasicBlockEntryTest::module_data_ = {};
 uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_dllmain_stub_ = NULL;
@@ -333,7 +333,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
                                         process_id,
                                         thread_id,
                                         ModuleAtAddress(self)));;
-  EXPECT_CALL(handler_, OnBasicBlockFrequency(
+  EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,
       thread_id,
@@ -387,7 +387,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
                                         process_id,
                                         thread_id,
                                         ModuleAtAddress(self)));;
-  EXPECT_CALL(handler_, OnBasicBlockFrequency(
+  EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,
       thread_id,

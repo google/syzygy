@@ -107,7 +107,7 @@ namespace coverage {
 namespace {
 
 using agent::common::ScopedLastErrorKeeper;
-using ::common::BasicBlockFrequencyData;
+using ::common::IndexedFrequencyData;
 using ::common::kBasicBlockCoverageAgentId;
 using ::common::kBasicBlockFrequencyDataVersion;
 
@@ -190,7 +190,7 @@ void WINAPI Coverage::EntryHook(EntryHookFrame* entry_frame) {
 }
 
 bool Coverage::InitializeCoverageData(void* module_base,
-                                      BasicBlockFrequencyData* coverage_data) {
+                                      IndexedFrequencyData* coverage_data) {
   DCHECK(coverage_data != NULL);
 
   // We can only handle this if it looks right.
@@ -209,7 +209,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
   }
 
   // Determine the size of the basic block frequency struct.
-  size_t bb_freq_size = sizeof(TraceBasicBlockFrequencyData) +
+  size_t bb_freq_size = sizeof(TraceIndexedFrequencyData) +
       coverage_data->num_entries - 1;
 
   // Determine the size of the buffer we need. We need room for the basic block
@@ -232,10 +232,10 @@ bool Coverage::InitializeCoverageData(void* module_base,
 
   // Allocate the basic-block frequency data. We will leave this allocated and
   // let it get flushed during tear-down of the call-trace client.
-  TraceBasicBlockFrequencyData* trace_coverage_data =
-      reinterpret_cast<TraceBasicBlockFrequencyData*>(
+  TraceIndexedFrequencyData* trace_coverage_data =
+      reinterpret_cast<TraceIndexedFrequencyData*>(
           coverage_segment.AllocateTraceRecordImpl(
-              TRACE_BASIC_BLOCK_FREQUENCY,
+              TRACE_INDEXED_FREQUENCY,
               bb_freq_size));
   DCHECK(trace_coverage_data != NULL);
 
