@@ -261,13 +261,8 @@ bool ParseEngine::DispatchEntryExitEvent(EVENT_TRACE* event,
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceEnterExitEventData* data = NULL;
 
-  if (!reader.Read(FIELD_OFFSET(TraceEnterExitEventData, traces), &data)) {
-    LOG(ERROR) << "Short event header.";
-    return false;
-  }
-
-  if (!reader.Consume(data->num_traces * sizeof(data->traces[0]))) {
-    LOG(ERROR) << "Short event tail.";
+  if (!reader.Read(sizeof(TraceEnterExitEventData), &data)) {
+    LOG(ERROR) << "Short entry exit event.";
     return false;
   }
 

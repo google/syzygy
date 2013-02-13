@@ -365,15 +365,8 @@ TEST_F(ParseEngineUnitTest, FunctionEntryEvents) {
   ASSERT_EQ(function_entries.size(), 2);
   ASSERT_EQ(function_entries.count(&TestFunc1), 2);
 
-  // Check for short event header.
-  event_record.MofLength = FIELD_OFFSET(TraceEnterEventData, function);
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
-  ASSERT_TRUE(error_occurred());
-
-  // Check for short event tail.
-  set_error_occurred(false);
-  event_data.num_traces = 20;
-  event_record.MofLength = FIELD_OFFSET(TraceEnterEventData, traces);
+  // Check for short event data.
+  event_record.MofLength = sizeof(TraceEnterEventData) - 1;
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
 }
@@ -398,15 +391,8 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
   ASSERT_EQ(function_exits.size(), 2);
   ASSERT_EQ(function_exits.count(&TestFunc2), 2);
 
-  // Check for short event header.
-  event_record.MofLength = FIELD_OFFSET(TraceEnterEventData, function);
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
-  ASSERT_TRUE(error_occurred());
-
-  // Check for short event tail.
-  set_error_occurred(false);
-  event_data.num_traces = 20;
-  event_record.MofLength = FIELD_OFFSET(TraceExitEventData, traces);
+  // Check for short event data.
+  event_record.MofLength = sizeof(TraceEnterEventData) - 1;
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
 }

@@ -235,23 +235,18 @@ struct TraceFileSegmentHeader {
 };
 
 // The structure traced on function entry or exit.
+// TODO(chrisha): Add the return address to this.
 template<int TypeId>
 struct TraceEnterExitEventDataTempl {
   enum { kTypeId = TypeId };
-  size_t depth;
   FuncAddr function;
-  union {
-    ArgumentWord args[4];
-    RetValueWord retval;
-  };
-  size_t num_traces;
-  RetAddr traces[kMaxTraceDepth];
 };
 
 typedef TraceEnterExitEventDataTempl<TRACE_ENTER_EVENT> TraceEnterEventData;
 typedef TraceEnterExitEventDataTempl<TRACE_EXIT_EVENT> TraceExitEventData;
 
-// For backward source compatibilty.
+// For backward source compatibility.
+// TODO(chrisha): Remove this. We should have separate event types.
 typedef TraceEnterEventData TraceEnterExitEventData;
 
 // The structure written for each loaded module when module event tracing is
