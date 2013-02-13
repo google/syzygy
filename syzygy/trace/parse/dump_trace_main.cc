@@ -196,10 +196,7 @@ class TraceFileDumper : public ParseEventHandler {
     indentation_ = "    ";
     for (size_t i = 0; i < data->num_calls; ++i) {
       new_data.function = data->calls[i].function;
-      OnFunctionEntry(base::Time::FromInternalValue(data->calls[i].tick_count),
-                      process_id,
-                      thread_id,
-                      &new_data);
+      OnFunctionEntry(time, process_id, thread_id, &new_data);
     }
     indentation_ = "";
   }

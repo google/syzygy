@@ -102,14 +102,7 @@ void Simulator::OnBatchFunctionEntry(base::Time time,
   TraceEnterExitEventData new_data = {};
   for (size_t i = 0; i < data->num_calls; ++i) {
     new_data.function = data->calls[i].function;
-
-    // Convert the tick count of this specific function to a base::Time
-    // and call OnFunctionEntry with that value.
-    LARGE_INTEGER big_timestamp = {};
-    big_timestamp.QuadPart = data->calls[i].tick_count;
-    base::Time start_time(base::Time::FromFileTime(
-        *reinterpret_cast<FILETIME*>(&big_timestamp)));
-    OnFunctionEntry(start_time, process_id, thread_id, &new_data);
+    OnFunctionEntry(time, process_id, thread_id, &new_data);
   }
 }
 

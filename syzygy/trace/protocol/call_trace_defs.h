@@ -275,11 +275,8 @@ struct TraceSystemInfo {
   TraceEnvironmentStrings environment_strings;
 };
 
+// TODO(chrisha): Get rid of this and use TraceEnterEventData instead.
 struct FuncCall {
-  union {
-    DWORD tick_count;
-    DWORD ticks_ago;
-  };
   FuncAddr function;
 };
 

@@ -354,12 +354,14 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
     LogEvent_ModuleEvent(data, module, reason);
   }
 
+  // TODO(chrisha): Add buffer flushing to permit some kind of guarantee on
+  //     the accuracy of the time for batch entry events. Do this before adding
+  //     this event to the buffer in order to guarantee precision.
+
   // Capture the basic call info and timestamp.
   FuncCall* call_info = data->AllocateFuncCall();
-  if (call_info != NULL) {
+  if (call_info != NULL)
     call_info->function = function;
-    call_info->tick_count = ::GetTickCount();
-  }
 }
 
 Client::ThreadLocalData* Client::GetThreadData() {

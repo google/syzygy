@@ -55,6 +55,7 @@ enum CallEntryType {
 
 struct Call {
   base::Time entry;
+  size_t relative_order;
   DWORD thread_id;
   FuncAddr address;
   CallEntryType type;
@@ -71,6 +72,11 @@ bool operator<(const Call& a, const Call& b) {
   if (a.entry < b.entry)
     return true;
   if (a.entry > b.entry)
+    return false;
+
+  if (a.relative_order < b.relative_order)
+    return true;
+  if (a.relative_order > b.relative_order)
     return false;
 
   if (a.thread_id < b.thread_id)
@@ -95,7 +101,7 @@ typedef std::list<ModuleEvent> ModuleEvents;
 
 class TestParseEventHandler : public ParseEventHandlerImpl {
  public:
-  TestParseEventHandler(): process_id_(::GetCurrentProcessId()) {
+  TestParseEventHandler(): process_id_(::GetCurrentProcessId()), event_id_(0) {
   }
 
   ~TestParseEventHandler() {
@@ -106,7 +112,7 @@ class TestParseEventHandler : public ParseEventHandlerImpl {
                                DWORD thread_id,
                                const TraceEnterExitEventData* data) {
     entered_addresses_.insert(data->function);
-    Call call = { time, thread_id, data->function, kCallEntry };
+    Call call = { time, event_id_++, thread_id, data->function, kCallEntry };
     raw_calls_.push_back(call);
     ordered_calls_.insert(call);
   }
@@ -116,7 +122,7 @@ class TestParseEventHandler : public ParseEventHandlerImpl {
                               DWORD thread_id,
                               const TraceEnterExitEventData* data) {
     exited_addresses_.insert(data->function);
-    Call call = { time, thread_id, data->function, kCallExit };
+    Call call = { time, event_id_++, thread_id, data->function, kCallExit };
     raw_calls_.push_back(call);
     ordered_calls_.insert(call);
   }
@@ -127,12 +133,8 @@ class TestParseEventHandler : public ParseEventHandlerImpl {
                                     const TraceBatchEnterData* data) {
     for (size_t i = 0; i < data->num_calls; ++i) {
       entered_addresses_.insert(data->calls[i].function);
-      uint64 timestamp = static_cast<uint64>(data->calls[i].tick_count);
-      Call call = {
-          base::Time::FromFileTime(bit_cast<FILETIME>(timestamp)),
-          thread_id,
-          data->calls[i].function,
-          kCallEntry };
+      Call call = { time, event_id_++, thread_id, data->calls[i].function,
+                    kCallEntry };
       raw_calls_.push_back(call);
       ordered_calls_.insert(call);
     }
@@ -220,6 +222,7 @@ class TestParseEventHandler : public ParseEventHandlerImpl {
 
  private:
   DWORD process_id_;
+  DWORD event_id_;  // Used to conserve relative ordering of calls.
   ModuleEvents module_events_;
   CalledAddresses entered_addresses_;
   CalledAddresses exited_addresses_;
@@ -717,7 +720,8 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
 
   std::vector<FuncAddr> expected_call_sequence;
   for (size_t i = 0; i < arraysize(threads); ++i) {
-    // Thread i calls IndirectDllMain makes i+1 calls to its indirect function.
+    // Thread i calls IndirectDllMain and makes i + 1 calls to its indirect
+    // function.
     threads[i].Start();
     runners[i]->Wait();
     expected_call_sequence.push_back(IndirectDllMain);
@@ -726,33 +730,27 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
         i + 1,
         (i & 1) == 0 ? IndirectFunctionA : IndirectFunctionB);
 
-    if (i == 1 || i == 3) {
-      // Threads i==1 and i==3 call IndirectDllMain here (on detach).
+    // Cleanly shutdown all threads except for 2 of them.
+    if (i != 0 && i != 5) {
       runners[i]->Exit();
       threads[i].Join();
       expected_call_sequence.push_back(IndirectDllMain);
     }
   }
 
-  // Threads 2 detaches here, calling IndirectDllMain.
-  runners[2]->Exit();
-  threads[2].Join();
-  expected_call_sequence.push_back(IndirectDllMain);
-
-  // Threads 4 detaches here, calling IndirectDllMain.
-  runners[4]->Exit();
-  threads[4].Join();
-  expected_call_sequence.push_back(IndirectDllMain);
+  // We can't say anything about the relative order of events across threads
+  // because of the batch nature of the events. Thus, we don't attempt to create
+  // staggered thread terminations.
 
   // Unloading the test dll commits all outstanding events already written
   // to the shared memory trace log buffers.
   UnloadCallTraceDll();
 
-  // Threads 0 does not detach.
+  // Threads 0 does not detach, so we don't see a closing IndirectDllMain call.
   runners[0]->Exit();
   threads[0].Join();
 
-  // Threads 5 does not detach.
+  // Threads 5 does not detach either.
   runners[5]->Exit();
   threads[5].Join();
 

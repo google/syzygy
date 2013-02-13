@@ -444,11 +444,9 @@ void Reorderer::OnFunctionEntry(base::Time time,
     return;
   }
 
-  // Get the actual time of the call. We ignore ticks_ago for now, as the
-  // low-resolution and rounding can cause inaccurate relative timings. We
-  // simply rely on the buffer ordering (via UniqueTime's internal counter)
-  // to maintain relative ordering. For future reference, ticks_ago are in
-  // milliseconds, according to MSDN.
+  // Get the time of the call. Since batched function calls come in with the
+  // same time stamp, we rely on their relative ordering and UniqueTime's
+  // incrementing ID to maintain relative order.
   UniqueTime entry_time(time);
 
   // If this is the first call of interest by a given process, send an
