@@ -66,7 +66,7 @@ _EXCEPTIONS = {
     ('Error', 'Locks', 514, '.*::PELibUnitTest::CheckTestDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
-    ('Error', 'Locks', 848, '.*::PELibUnitTest::CheckTestDll'),
+    ('Error', 'TLS', 848, '.*::PELibUnitTest::CheckTestDll'),
   ],
 }
 
