@@ -336,10 +336,9 @@ struct TraceIndexedFrequencyData {
 
   // The size of the frequency reports: 1, 2 or 4 bytes.
   uint32 frequency_size;
-  // The number of basic blocks being reported. It is up to the instrumentation
-  // to output any other metadata that is required to map an index to a basic
-  // block address. (Typically, the OMAP data is sufficient for this.)
-  uint32 num_basic_blocks;
+  // The number of entries being reported. It is up to the instrumentation to
+  // output any other metadata that is required to map an index to an address.
+  uint32 num_entries;
 
   // In fact, there are frequency_size * num_basic_blocks bytes that follow.
   uint8 frequency_data[1];

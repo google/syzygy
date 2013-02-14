@@ -71,7 +71,7 @@ void BasicBlockEntryCountGrinder::OnIndexedFrequency(
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
-  if (data->num_basic_blocks == 0) {
+  if (data->num_entries == 0) {
     LOG(INFO) << "Skipping empty basic block frequency data.";
     return;
   }
@@ -103,7 +103,7 @@ void BasicBlockEntryCountGrinder::OnIndexedFrequency(
     return;
   }
 
-  if (data->num_basic_blocks != instrumented_module->block_ranges.size()) {
+  if (data->num_entries != instrumented_module->block_ranges.size()) {
     LOG(ERROR) << "Unexpected data size for instrumented module "
                << module_info->image_file_name;
     event_handler_errored_ = true;
@@ -122,14 +122,14 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
   using basic_block_util::GetFrequency;
 
   DCHECK(data != NULL);
-  DCHECK_NE(0U, data->num_basic_blocks);
+  DCHECK_NE(0U, data->num_entries);
   EntryCountMap& bb_entries =
       entry_count_map_[instrumented_module.original_module];
 
   // Run over the BB frequency data and increment bb_entries for each basic
   // block using saturation arithmetic.
 
-  for (size_t bb_id = 0; bb_id < data->num_basic_blocks; ++bb_id) {
+  for (size_t bb_id = 0; bb_id < data->num_entries; ++bb_id) {
     EntryCountType amount = GetFrequency(data, bb_id);
     if (amount != 0) {
       BasicBlockOffset offs =

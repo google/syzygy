@@ -373,7 +373,7 @@ void BasicBlockEntry::ThreadState::Assign(DWORD tls_index) {
 
 inline void BasicBlockEntry::ThreadState::Increment(uint32 basic_block_id) {
   DCHECK(frequency_data_ != NULL);
-  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_basic_blocks);
+  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
   uint32& element = frequency_data_[basic_block_id];
   if (element != ~0U)
     ++element;
@@ -561,7 +561,7 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;
   trace_data->module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
   trace_data->frequency_size = sizeof(uint32);
-  trace_data->num_basic_blocks = module_data->num_entries;
+  trace_data->num_entries = module_data->num_entries;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   state->set_frequency_data(trace_data->frequency_data);

@@ -250,7 +250,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
   trace_coverage_data->module_time_date_stamp =
       nt_headers->FileHeader.TimeDateStamp;
   trace_coverage_data->frequency_size = 1;
-  trace_coverage_data->num_basic_blocks = coverage_data->num_entries;
+  trace_coverage_data->num_entries = coverage_data->num_entries;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   coverage_data->frequency_data =

@@ -279,7 +279,7 @@ class TraceFileDumper : public ParseEventHandler {
               data->module_checksum,
               data->module_time_date_stamp,
               data->frequency_size,
-              data->num_basic_blocks);
+              data->num_entries);
   }
 
  private:

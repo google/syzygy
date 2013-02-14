@@ -62,7 +62,7 @@ MATCHER_P3(FrequencyDataMatches, module, bb_count, bb_freqs, "") {
   if (arg->frequency_size != sizeof(uint32))
     return false;
 
-  if (arg->num_basic_blocks != bb_count)
+  if (arg->num_entries != bb_count)
     return false;
 
   return ::memcmp(bb_freqs, arg->frequency_data, bb_count) == 0;

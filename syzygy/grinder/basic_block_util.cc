@@ -192,7 +192,7 @@ bool IsValidFrequencySize(size_t size) {
 uint32 GetFrequency(const TraceIndexedFrequencyData* data, size_t bb_id) {
   DCHECK(data != NULL);
   DCHECK(IsValidFrequencySize(data->frequency_size));
-  DCHECK_LT(bb_id, data->num_basic_blocks);
+  DCHECK_LT(bb_id, data->num_entries);
 
   switch (data->frequency_size) {
     case 1:

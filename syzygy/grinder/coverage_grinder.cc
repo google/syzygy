@@ -122,7 +122,7 @@ void CoverageGrinder::OnIndexedFrequency(
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
-  if (data->num_basic_blocks == 0) {
+  if (data->num_entries == 0) {
     LOG(INFO) << "Skipping empty basic block frequency data.";
     return;
   }
@@ -159,7 +159,7 @@ void CoverageGrinder::OnIndexedFrequency(
   DCHECK(pdb_info != NULL);
 
   // Sanity check the contents.
-  if (data->num_basic_blocks != pdb_info->bb_ranges.size()) {
+  if (data->num_entries != pdb_info->bb_ranges.size()) {
     LOG(ERROR) << "Mismatch between trace data BB count and PDB BB count.";
     event_handler_errored_ = true;
     return;
@@ -167,7 +167,7 @@ void CoverageGrinder::OnIndexedFrequency(
 
   // Run over the BB frequency data and mark non-zero frequency BBs as having
   // been visited.
-  for (size_t bb_index = 0; bb_index < data->num_basic_blocks; ++bb_index) {
+  for (size_t bb_index = 0; bb_index < data->num_entries; ++bb_index) {
     uint32 bb_freq = GetFrequency(data, bb_index);
 
     if (bb_freq == 0)

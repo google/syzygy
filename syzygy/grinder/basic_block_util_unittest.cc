@@ -231,19 +231,19 @@ TEST(GrinderBasicBlockUtilTest, GetFrequency) {
 
   // Validate 1-byte frequency data.
   data->frequency_size = 1;
-  data->num_basic_blocks = sizeof(kData) / data->frequency_size;
+  data->num_entries = sizeof(kData) / data->frequency_size;
   EXPECT_EQ(0x44, GetFrequency(data, 0x4));
   EXPECT_EQ(0xAA, GetFrequency(data, 0xA));
 
   // Validate 2-byte frequency data.
   data->frequency_size = 2;
-  data->num_basic_blocks = sizeof(kData) / data->frequency_size;
+  data->num_entries = sizeof(kData) / data->frequency_size;
   EXPECT_EQ(0x5544, GetFrequency(data, 0x2));
   EXPECT_EQ(0x9988, GetFrequency(data, 0x4));
 
   // Validate 4-byte frequency data.
   data->frequency_size = 4;
-  data->num_basic_blocks = sizeof(kData) / data->frequency_size;
+  data->num_entries = sizeof(kData) / data->frequency_size;
   EXPECT_EQ(0x33221100, GetFrequency(data, 0x0));
   EXPECT_EQ(0xBBAA9988, GetFrequency(data, 0x2));
 }

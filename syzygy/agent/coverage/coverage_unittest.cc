@@ -61,7 +61,7 @@ MATCHER_P3(CoverageDataMatches, module, bb_count, bb_freqs, "") {
   if (arg->frequency_size != 1)
     return false;
 
-  if (arg->num_basic_blocks != bb_count)
+  if (arg->num_entries != bb_count)
     return false;
 
   return ::memcmp(bb_freqs, arg->frequency_data, bb_count) == 0;

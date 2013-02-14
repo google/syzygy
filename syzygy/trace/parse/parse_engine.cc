@@ -421,7 +421,7 @@ bool ParseEngine::DispatchIndexedFrequencyEvent(EVENT_TRACE* event) {
   DCHECK(data != NULL);
 
   // Calculate the expected size of the entire payload, headers included.
-  size_t expected_length = data->frequency_size * data->num_basic_blocks +
+  size_t expected_length = data->frequency_size * data->num_entries +
       sizeof(TraceIndexedFrequencyData) - 1;
   if (event->MofLength < expected_length) {
     LOG(ERROR) << "Payload smaller than size implied by "

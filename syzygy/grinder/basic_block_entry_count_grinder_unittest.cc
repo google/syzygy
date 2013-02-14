@@ -170,7 +170,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     (*data)->module_checksum = module_info.image_checksum;
     (*data)->module_time_date_stamp = module_info.time_date_stamp;
     (*data)->frequency_size = frequency_size;
-    (*data)->num_basic_blocks = kNumBasicBlocks;
+    (*data)->num_entries = kNumBasicBlocks;
 
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       uint8 value = i + 1;
