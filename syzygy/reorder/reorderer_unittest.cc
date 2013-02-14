@@ -239,7 +239,7 @@ bool TestParseEngine::ConsumeAllEvents() {
   size_t i = 0;
   for (; i < blocks.size() / 2; i += kBatchCallCount) {
     uint8 raw_data[sizeof(TraceBatchEnterData) +
-                   kBatchCallCount * sizeof(FuncCall)] = {};
+                   kBatchCallCount * sizeof(TraceEnterEventData)] = {};
     TraceBatchEnterData& event_data =
        *reinterpret_cast<TraceBatchEnterData*>(&raw_data);
     event_data.thread_id = kThreadId;

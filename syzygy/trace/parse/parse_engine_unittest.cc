@@ -396,7 +396,8 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
 }
 
 TEST_F(ParseEngineUnitTest, BatchFunctionEntry) {
-  uint8 raw_data[sizeof(TraceBatchEnterData) + 4 * sizeof(FuncCall)] = {};
+  uint8 raw_data[sizeof(TraceBatchEnterData) +
+                     4 * sizeof(TraceEnterEventData)] = {};
   TraceBatchEnterData& event_data =
      *reinterpret_cast<TraceBatchEnterData*>(&raw_data);
   event_data.thread_id = kThreadId;
@@ -431,7 +432,7 @@ TEST_F(ParseEngineUnitTest, BatchFunctionEntry) {
 
   // Check for short event tail (remove the empty record + one byte).
   set_error_occurred(false);
-  event_record.MofLength = sizeof(raw_data) - sizeof(FuncCall) - 1;
+  event_record.MofLength = sizeof(raw_data) - sizeof(TraceEnterEventData) - 1;
   ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
 }

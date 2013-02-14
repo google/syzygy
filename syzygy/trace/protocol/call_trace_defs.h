@@ -235,18 +235,15 @@ struct TraceFileSegmentHeader {
 };
 
 // The structure traced on function entry or exit.
-// TODO(chrisha): Add the return address to this.
 template<int TypeId>
 struct TraceEnterExitEventDataTempl {
   enum { kTypeId = TypeId };
+  RetAddr retaddr;
   FuncAddr function;
 };
 
 typedef TraceEnterExitEventDataTempl<TRACE_ENTER_EVENT> TraceEnterEventData;
 typedef TraceEnterExitEventDataTempl<TRACE_EXIT_EVENT> TraceExitEventData;
-
-// For backward source compatibility.
-// TODO(chrisha): Remove this. We should have separate event types.
 typedef TraceEnterEventData TraceEnterExitEventData;
 
 // The structure written for each loaded module when module event tracing is
@@ -275,11 +272,6 @@ struct TraceSystemInfo {
   TraceEnvironmentStrings environment_strings;
 };
 
-// TODO(chrisha): Get rid of this and use TraceEnterEventData instead.
-struct FuncCall {
-  FuncAddr function;
-};
-
 // The structure traced for batch entry traces.
 struct TraceBatchEnterData {
   enum { kTypeId = TRACE_BATCH_ENTER };
@@ -292,8 +284,8 @@ struct TraceBatchEnterData {
   // Number of function entries.
   size_t num_calls;
 
-  // Back-to-back function calls, one for each entry.
-  FuncCall calls[1];
+  // Back-to-back entry events.
+  TraceEnterEventData calls[1];
 };
 
 // This is the data recorded for each distinct caller/function

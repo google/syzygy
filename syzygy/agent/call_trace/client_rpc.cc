@@ -172,8 +172,8 @@ class Client::ThreadLocalData {
     return segment.header != NULL;
   }
 
-  // Allocates a new FuncCall.
-  FuncCall* AllocateFuncCall();
+  // Allocates a new enter event.
+  TraceEnterEventData* AllocateEnterEvent();
 
   // Flushes the current trace file segment.
   bool FlushSegment();
@@ -359,9 +359,11 @@ void Client::LogEvent_FunctionEntry(EntryFrame *entry_frame,
   //     this event to the buffer in order to guarantee precision.
 
   // Capture the basic call info and timestamp.
-  FuncCall* call_info = data->AllocateFuncCall();
-  if (call_info != NULL)
-    call_info->function = function;
+  TraceEnterEventData* enter = data->AllocateEnterEvent();
+  if (enter != NULL) {
+    enter->retaddr = entry_frame->retaddr;
+    enter->function = function;
+  }
 }
 
 Client::ThreadLocalData* Client::GetThreadData() {
@@ -399,10 +401,11 @@ void Client::FreeThreadData() {
 Client::ThreadLocalData::ThreadLocalData(Client* c) : client(c), batch(NULL) {
 }
 
-FuncCall* Client::ThreadLocalData::AllocateFuncCall() {
+TraceEnterEventData* Client::ThreadLocalData::AllocateEnterEvent() {
   // Do we have a batch record that we can grow?
-  if (batch != NULL && segment.CanAllocateRaw(sizeof(FuncCall))) {
-    FuncCall* call_info = reinterpret_cast<FuncCall*>(segment.write_ptr);
+  if (batch != NULL && segment.CanAllocateRaw(sizeof(TraceEnterEventData))) {
+    TraceEnterEventData* enter =
+        reinterpret_cast<TraceEnterEventData*>(segment.write_ptr);
     // The order of operations from here is pretty important. The issue is that
     // threads can be terminated at any point, and this happens as a matter of
     // fact at process exit, for any other threads than the one calling
@@ -414,21 +417,21 @@ FuncCall* Client::ThreadLocalData::AllocateFuncCall() {
     //   and lastly update the record itself.
 
     // Initialize the new record.
-    memset(call_info, 0, sizeof(*call_info));
+    memset(enter, 0, sizeof(*enter));
 
     // Update the file segment size.
-    segment.write_ptr += sizeof(FuncCall);
-    segment.header->segment_length += sizeof(FuncCall);
+    segment.write_ptr += sizeof(TraceEnterEventData);
+    segment.header->segment_length += sizeof(TraceEnterEventData);
 
     // Extend the record enclosure.
     RecordPrefix* prefix = trace::client::GetRecordPrefix(batch);
-    prefix->size += sizeof(FuncCall);
+    prefix->size += sizeof(TraceEnterEventData);
 
     // And lastly update the inner counter.
-    DCHECK(call_info == batch->calls + batch->num_calls);
+    DCHECK(enter == batch->calls + batch->num_calls);
     batch->num_calls += 1;
 
-    return call_info;
+    return enter;
   }
 
   // Do we need to scarf a new buffer?
