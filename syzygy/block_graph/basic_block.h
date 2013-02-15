@@ -16,6 +16,10 @@
 //
 // See http://en.wikipedia.org/wiki/Basic_block for a brief discussion of
 // basic blocks, their uses, and related terminology.
+//
+// TODO(rogerm): Unify the representation and idioms for attributes of
+//     block, basic-blocks, and labels. Blocks and labels are similar but
+//     not the same, and basic-blocks just has "is_padding" as a boolean.
 
 #ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
@@ -506,12 +510,9 @@ class Successor {
 // for example).
 class BasicBlock {
  public:
-  // TODO(rogerm): Remove BASIC_PADDING_BLOCK as a type and replace it with
-  //     basic-block attributes, one of which will be "is padding".
   enum BasicBlockType {
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
-    BASIC_PADDING_BLOCK,
 
     // This must be last.
     BASIC_BLOCK_TYPE_MAX
@@ -550,6 +551,7 @@ class BasicBlock {
   // @{
   BasicBlockType type() const { return type_; }
   const std::string& name() const { return name_; }
+  bool is_padding() const { return is_padding_; }
 
   size_t alignment() const { return alignment_; }
   void set_alignment(size_t alignment) {
@@ -569,6 +571,10 @@ class BasicBlock {
   // is a BASIC_DATA_BLOCK the contains data XOR a BASIC_CODE_BLOCK that
   // contains instructions and/or successors.
   virtual bool IsValid() const = 0;
+
+  // Mark this basic block as padding/unreachable. This transformation is uni-
+  // directional; the block should be considered immutable once this is called.
+  void MarkAsPadding();
 
  protected:
   // Initialize a basic block.
@@ -598,6 +604,9 @@ class BasicBlock {
   // The label associated with this basic block.
   BlockGraph::Label label_;
 
+  // Tracks whether or not this basic block is unreachable padding.
+  bool is_padding_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlock);
 };
@@ -611,11 +620,6 @@ class BasicCodeBlock : public BasicBlock {
   // Down-cast from basic block to basic code block.
   static BasicCodeBlock* Cast(BasicBlock* basic_block);
   static const BasicCodeBlock* Cast(const BasicBlock* basic_block);
-
-  // Mark this basic code block as padding/unreachable. This block should
-  // no longer be considered modifiable once this is called, and this is a
-  // one-way transformation.
-  void MarkAsPadding();
 
   // Accessors.
   // @{

@@ -108,18 +108,16 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
     entry_counts_[start_addr_.value() + kBasicBlockOffsets[5]] = bb5;
     entry_counts_[start_addr_.value() + kBasicBlockOffsets[6]] = bb6;
     entry_counts_[start_addr_.value() + kBasicBlockOffsets[7]] = bb7;
-    ASSERT_EQ(kNumBasicBlocks, entry_counts_.size());
+    ASSERT_EQ(kNumCodeBasicBlocks, entry_counts_.size());
   }
 
-  static const size_t kNumBasicBlocks =
-      kNumCodeBasicBlocks + kNumPaddingBasicBlocks;
-  static const size_t kBasicBlockOffsets[kNumBasicBlocks];
+  static const size_t kBasicBlockOffsets[kNumCodeBasicBlocks];
 
   EntryCountMap entry_counts_;
   scoped_ptr<TestBasicBlockOrderer> orderer_;
 };
 
-const size_t BasicBlockOrdererTest::kBasicBlockOffsets[kNumBasicBlocks] =
+const size_t BasicBlockOrdererTest::kBasicBlockOffsets[kNumCodeBasicBlocks] =
    { 0, 23, 24, 31, 36, 37, 42, 49 };
 
 class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {

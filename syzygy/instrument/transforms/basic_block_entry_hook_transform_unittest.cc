@@ -145,7 +145,7 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
         subgraph.basic_blocks().begin();
     for (; bb_iter != subgraph.basic_blocks().end(); ++bb_iter) {
       const BasicCodeBlock* bb = BasicCodeBlock::Cast(*bb_iter);
-      if (bb == NULL || bb->type() == BasicBlock::BASIC_PADDING_BLOCK)
+      if (bb == NULL || bb->is_padding())
         continue;
       ++num_basic_blocks;
       ASSERT_LE(3U, bb->instructions().size());

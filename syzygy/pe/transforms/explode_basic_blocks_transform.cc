@@ -40,11 +40,15 @@ void GetTypeAndAttributes(const Block* original_block,
   DCHECK(type != NULL);
   DCHECK(attributes != NULL);
 
-  *type = (basic_block.type() == BasicBlock::BASIC_DATA_BLOCK) ?
-      BlockGraph::DATA_BLOCK : BlockGraph::CODE_BLOCK;
+  if (basic_block.type() == BasicBlock::BASIC_DATA_BLOCK) {
+    *type = BlockGraph::DATA_BLOCK;
+  } else {
+    DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_block.type());
+    *type = BlockGraph::CODE_BLOCK;
+  }
 
   *attributes = original_block->attributes();
-  if (basic_block.type() == BasicBlock::BASIC_PADDING_BLOCK)
+  if (basic_block.is_padding())
     *attributes |= BlockGraph::PADDING_BLOCK;
 }
 

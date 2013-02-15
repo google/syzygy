@@ -175,7 +175,6 @@ void DecomposeImageToTextApp::DumpSubGraphToText(
         break;
 
       case BasicBlock::BASIC_DATA_BLOCK:
-      case BasicBlock::BASIC_PADDING_BLOCK:
         DumpDataBBToText(block, BasicDataBlock::Cast(bb));
         break;
 

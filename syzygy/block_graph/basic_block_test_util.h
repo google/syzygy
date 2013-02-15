@@ -69,13 +69,12 @@ class BasicBlockTest : public ::testing::Test {
   typedef BlockGraph::Section Section;
 
   // The number and type of basic blocks.
-  // TODO(rogerm): The padding block will go away once the decomposer switches
-  //     to doing a straight disassembly of the entire code region.
-  static const size_t kNumCodeBasicBlocks = 6;
+  static const size_t kNumCodeBasicBlocks = 8;
   static const size_t kNumDataBasicBlocks = 2;
-  static const size_t kNumPaddingBasicBlocks = 2;
+  static const size_t kNumCodePaddingBasicBlocks = 2;
+  static const size_t kNumDataPaddingBasicBlocks = 0;
   static const size_t kNumBasicBlocks =
-      kNumCodeBasicBlocks + kNumDataBasicBlocks + kNumPaddingBasicBlocks;
+      kNumCodeBasicBlocks + kNumDataBasicBlocks;
 
   BasicBlockTest();
 

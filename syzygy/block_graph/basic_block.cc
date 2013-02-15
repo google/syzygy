@@ -82,7 +82,6 @@ namespace {
 const char* kBasicBlockType[] = {
   "BASIC_CODE_BLOCK",
   "BASIC_DATA_BLOCK",
-  "BASIC_PADDING_BLOCK",
 };
 
 COMPILE_ASSERT(arraysize(kBasicBlockType) == BasicBlock::BASIC_BLOCK_TYPE_MAX,
@@ -621,7 +620,8 @@ BasicBlock::BasicBlock(const base::StringPiece& name,
     : name_(name.begin(), name.end()),
       alignment_(1),
       type_(type),
-      offset_(kNoOffset) {
+      offset_(kNoOffset),
+      is_padding_(false) {
 }
 
 BasicBlock::~BasicBlock() {
@@ -634,6 +634,10 @@ const char* BasicBlock::BasicBlockTypeToString(
   return kBasicBlockType[type];
 }
 
+void BasicBlock::MarkAsPadding() {
+  is_padding_ = true;
+}
+
 BasicCodeBlock::BasicCodeBlock(const base::StringPiece& name)
     : BasicBlock(name, BASIC_CODE_BLOCK) {
 }
@@ -641,25 +645,17 @@ BasicCodeBlock::BasicCodeBlock(const base::StringPiece& name)
 BasicCodeBlock* BasicCodeBlock::Cast(BasicBlock* basic_block) {
   if (basic_block == NULL)
     return NULL;
-  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK ||
-      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
     return static_cast<BasicCodeBlock*>(basic_block);
-  }
   return NULL;
 }
 
 const BasicCodeBlock* BasicCodeBlock::Cast(const BasicBlock* basic_block) {
   if (basic_block == NULL)
     return NULL;
-  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK ||
-      basic_block->type() == BasicBlock::BASIC_PADDING_BLOCK) {
+  if (basic_block->type() == BasicBlock::BASIC_CODE_BLOCK)
     return static_cast<const BasicCodeBlock*>(basic_block);
-  }
   return NULL;
-}
-
-void BasicCodeBlock::MarkAsPadding() {
-  type_ = BasicBlock::BASIC_PADDING_BLOCK;
 }
 
 bool BasicCodeBlock::IsValid() const {

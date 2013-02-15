@@ -55,10 +55,24 @@ typedef BlockGraph::Size Size;
 size_t CountBasicBlocks(const BasicBlockSubGraph& subgraph,
                         BasicBlock::BasicBlockType type) {
   size_t counter = 0;
-  BasicBlockSubGraph::BBCollection::const_iterator code_it =
+  BasicBlockSubGraph::BBCollection::const_iterator bb_it =
       subgraph.basic_blocks().begin();
-  for (; code_it != subgraph.basic_blocks().end(); ++code_it) {
-    if ((*code_it)->type() == type)
+  for (; bb_it != subgraph.basic_blocks().end(); ++bb_it) {
+    if ((*bb_it)->type() == type)
+      ++counter;
+  }
+
+  return counter;
+}
+
+// A helper to count padding basic blocks of a given type.
+size_t CountPaddingBasicBlocks(const BasicBlockSubGraph& subgraph,
+                               BasicBlock::BasicBlockType type) {
+  size_t counter = 0;
+  BasicBlockSubGraph::BBCollection::const_iterator bb_it =
+      subgraph.basic_blocks().begin();
+  for (; bb_it != subgraph.basic_blocks().end(); ++bb_it) {
+    if ((*bb_it)->type() == type && (*bb_it)->is_padding())
       ++counter;
   }
 
@@ -105,14 +119,15 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
 
   // Ensure we have the expected number and types of blocks.
-  ASSERT_EQ(kNumCodeBasicBlocks + kNumDataBasicBlocks + kNumPaddingBasicBlocks,
-            subgraph_.basic_blocks().size());
+  ASSERT_EQ(kNumBasicBlocks, subgraph_.basic_blocks().size());
   ASSERT_EQ(kNumCodeBasicBlocks,
             CountBasicBlocks(subgraph_, BasicBlock::BASIC_CODE_BLOCK));
   ASSERT_EQ(kNumDataBasicBlocks,
             CountBasicBlocks(subgraph_, BasicBlock::BASIC_DATA_BLOCK));
-  ASSERT_EQ(kNumPaddingBasicBlocks,
-            CountBasicBlocks(subgraph_, BasicBlock::BASIC_PADDING_BLOCK));
+  ASSERT_EQ(kNumCodePaddingBasicBlocks,
+            CountPaddingBasicBlocks(subgraph_, BasicBlock::BASIC_CODE_BLOCK));
+  ASSERT_EQ(kNumDataPaddingBasicBlocks,
+            CountPaddingBasicBlocks(subgraph_, BasicBlock::BASIC_DATA_BLOCK));
 
   // There should be no gaps and all of the blocks should be used.
   ASSERT_EQ(1U, subgraph_.block_descriptions().size());
@@ -130,6 +145,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 0 - assembly_func.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[0]));
+  ASSERT_FALSE(bbs_[0]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[0]->type());
   BasicCodeBlock* bb0 = BasicCodeBlock::Cast(bbs_[0]);
   ASSERT_TRUE(bb0 != NULL);
@@ -147,7 +163,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 1 - unreachable-label.
   ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bbs_[1]));
-  ASSERT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bbs_[1]->type());
+  ASSERT_TRUE(bbs_[1]->is_padding());
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[1]->type());
   BasicCodeBlock* bb1 = BasicCodeBlock::Cast(bbs_[1]);
   ASSERT_EQ(1u, bb1->instructions().size());
   ASSERT_EQ(1u, bb1->successors().size());;
@@ -157,6 +174,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 2 - case_0.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[2]));
+  ASSERT_FALSE(bbs_[2]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[2]->type());
   BasicCodeBlock* bb2 = BasicCodeBlock::Cast(bbs_[2]);
   ASSERT_TRUE(bb2 != NULL);
@@ -167,6 +185,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 3 - sub eax to jnz.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[3]));
+  ASSERT_FALSE(bbs_[3]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[3]->type());
   BasicCodeBlock* bb3 = BasicCodeBlock::Cast(bbs_[3]);
   ASSERT_TRUE(bb3 != NULL);
@@ -178,6 +197,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 4 - ret.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[4]));
+  ASSERT_FALSE(bbs_[4]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[4]->type());
   BasicCodeBlock* bb4 = BasicCodeBlock::Cast(bbs_[4]);
   ASSERT_TRUE(bb4 != NULL);
@@ -187,6 +207,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 5 - case_1.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[5]));
+  ASSERT_FALSE(bbs_[5]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[5]->type());
   BasicCodeBlock* bb5 = BasicCodeBlock::Cast(bbs_[5]);
   ASSERT_TRUE(bb5 != NULL);
@@ -200,6 +221,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 6 - case_default.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[6]));
+  ASSERT_FALSE(bbs_[6]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[6]->type());
   BasicCodeBlock* bb6 = BasicCodeBlock::Cast(bbs_[6]);
   ASSERT_TRUE(bb6 != NULL);
@@ -212,7 +234,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 7 - interrupt_label.
   ASSERT_FALSE(BasicBlockSubGraph::IsReachable(rm, bbs_[7]));
-  ASSERT_EQ(BasicBlock::BASIC_PADDING_BLOCK, bbs_[7]->type());
+  ASSERT_TRUE(bbs_[7]->is_padding());
+  ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[7]->type());
   BasicCodeBlock* bb7 = BasicCodeBlock::Cast(bbs_[7]);
   ASSERT_TRUE(bb7 != NULL);
   ASSERT_EQ(3u, bb7->instructions().size());
@@ -221,6 +244,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 8 - jump_table.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[8]));
+  ASSERT_FALSE(bbs_[8]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bbs_[8]->type());
   BasicDataBlock* bb8 = BasicDataBlock::Cast(bbs_[8]);
   ASSERT_TRUE(bb8 != NULL);
@@ -230,6 +254,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
   // Basic-block 9 - case_table.
   ASSERT_TRUE(BasicBlockSubGraph::IsReachable(rm, bbs_[9]));
+  ASSERT_FALSE(bbs_[9]->is_padding());
   ASSERT_EQ(BasicBlock::BASIC_DATA_BLOCK, bbs_[9]->type());
   BasicDataBlock* bb9 = BasicDataBlock::Cast(bbs_[9]);
   ASSERT_TRUE(bb9 != NULL);

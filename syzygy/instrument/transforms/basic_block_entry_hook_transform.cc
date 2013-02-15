@@ -178,7 +178,7 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
     BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
-    if (bb == NULL || bb->type() == BasicBlock::BASIC_PADDING_BLOCK)
+    if (bb == NULL || bb->is_padding())
       continue;
 
     // Find the source range associated with this basic-block.
