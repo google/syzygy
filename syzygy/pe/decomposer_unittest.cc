@@ -276,7 +276,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 
   // Validate that the DllMain block has the expected population of labels.
   ASSERT_FALSE(dll_main_block == NULL);
-  EXPECT_EQ(24, dll_main_block->labels().size());
+  EXPECT_EQ(31, dll_main_block->labels().size());
   // DllMain has a jump table so it should have pointer alignment.
   ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
@@ -293,10 +293,10 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     }
   }
 
-  EXPECT_EQ(13, label_attr_counts[BlockGraph::CODE_LABEL]);
-  EXPECT_EQ(8, label_attr_counts[BlockGraph::CALL_SITE_LABEL]);
-  EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL]);
-  EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
+  EXPECT_EQ(19, label_attr_counts[BlockGraph::CODE_LABEL]);
+  EXPECT_EQ(10, label_attr_counts[BlockGraph::CALL_SITE_LABEL]);
+  EXPECT_EQ(5, label_attr_counts[BlockGraph::DATA_LABEL]);
+  EXPECT_EQ(3, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
   EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
   EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL]);
 }

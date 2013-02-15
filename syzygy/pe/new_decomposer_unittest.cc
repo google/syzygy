@@ -341,7 +341,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
 
   // Validate that the DllMain block has the expected population of labels.
-  EXPECT_EQ(25, dll_main_block->labels().size());
+  EXPECT_EQ(32, dll_main_block->labels().size());
 
   std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
   {
@@ -356,10 +356,10 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
     }
   }
 
-  EXPECT_EQ(13, label_attr_counts[BlockGraph::CODE_LABEL]);
-  EXPECT_EQ(8, label_attr_counts[BlockGraph::CALL_SITE_LABEL]);
-  EXPECT_EQ(4, label_attr_counts[BlockGraph::DATA_LABEL]);
-  EXPECT_EQ(2, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
+  EXPECT_EQ(19, label_attr_counts[BlockGraph::CODE_LABEL]);
+  EXPECT_EQ(10, label_attr_counts[BlockGraph::CALL_SITE_LABEL]);
+  EXPECT_EQ(5, label_attr_counts[BlockGraph::DATA_LABEL]);
+  EXPECT_EQ(3, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
   EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
   EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL]);
   EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL]);

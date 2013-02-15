@@ -198,11 +198,35 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
 
   TestExport(sizeof(buffer), buffer);
 
+  // This code generates a simple jump table with no case table following it.
+
+  int n = rand();
+
+  switch (n % 3) {
+    case 0:
+      n += function1();
+      break;
+    case 1:
+      n += function2();
+      break;
+    case 2:
+      n += function3();
+      break;
+    case 3:
+      n -= function1();
+      break;
+    case 4:
+      n -= function2();
+      break;
+    case 5:
+      n -= function3();
+      break;
+  }
+
   // The following odd code and switch statement are to outsmart the
   // optimizer and coerce it to generate another case and jump table
   // pair. On decomposition, we expect to find and label the case
   // and jump tables individually.
-  int n = rand();
 
   // Access the TLS data so that some TLS FIXUPs are produced.
   n += tls_int;
