@@ -16,6 +16,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/string_util.h"
 #include "base/win/scoped_bstr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/pe/find.h"
@@ -474,6 +475,10 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
                               &function_name,
                               &file_name,
                               &line)) {
+
+      // Rewrite file path to use forward slashes instead of back slashes.
+      ::ReplaceChars(file_name, L"\\", L"/", &file_name);
+
       // Output the function information.
       ::fprintf(file, "fl=%ws\n", file_name.c_str());
       ::fprintf(file, "fn=%ws\n", function_name.c_str());
@@ -488,6 +493,10 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
                                   &function_name,
                                   &file_name,
                                   &line)) {
+
+          // Rewrite file path to use forward slashes instead of back slashes.
+          ::ReplaceChars(file_name, L"\\", L"/", &file_name);
+
           ::fprintf(file, "cfl=%ws\n", file_name.c_str());
           ::fprintf(file, "cfn=%ws\n", function_name.c_str());
           ::fprintf(file, "calls=%d %d\n", call->metrics.num_calls, line);
