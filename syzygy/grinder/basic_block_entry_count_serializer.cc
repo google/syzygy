@@ -75,7 +75,7 @@ bool OutputEntryCount(
   for (; it != entry_counts.end(); ++it) {
     if (!writer->OpenList() ||
         !writer->OutputInteger(it->first) ||
-        !writer->OutputInteger(it->second)||
+        !writer->OutputInteger(it->second) ||
         !writer->CloseList())
       return false;
   }
