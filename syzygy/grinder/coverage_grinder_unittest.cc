@@ -22,7 +22,7 @@ namespace grinder {
 
 namespace {
 
-static const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
+const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
 
 class TestCoverageGrinder : public CoverageGrinder {
  public:

@@ -60,9 +60,9 @@ ProfileGrinder::PartData::PartData() {
 }
 
 ProfileGrinder::ProfileGrinder()
-    : modules_(ModuleInformationKeyLess),
-      thread_parts_(true),
-      parser_(NULL) {
+    : parser_(NULL),
+      modules_(ModuleInformationKeyLess),
+      thread_parts_(true) {
 }
 
 ProfileGrinder::~ProfileGrinder() {

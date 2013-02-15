@@ -92,6 +92,9 @@ class ProfileGrinder : public GrinderInterface {
                             const base::StringPiece& thread_name) OVERRIDE;
   // @}
 
+ protected:
+  Parser* parser_;
+
  private:
   typedef sym_util::ModuleInformation ModuleInformation;
 
@@ -169,8 +172,6 @@ class ProfileGrinder : public GrinderInterface {
 
   // If true, data is aggregated and output per-thread.
   bool thread_parts_;
-
-  Parser* parser_;
 };
 
 // The data we store for each part.
