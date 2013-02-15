@@ -51,6 +51,13 @@
       '<(PRODUCT_DIR)/call_trace_client.dll',
       '<(PRODUCT_DIR)/coverage_client.dll',
       '<(PRODUCT_DIR)/profile_client.dll',
+
+      # Instrumentation Agent Symbols.
+      '<(PRODUCT_DIR)/asan_rtl.pdb',
+      '<(PRODUCT_DIR)/basic_block_entry_client.pdb',
+      '<(PRODUCT_DIR)/call_trace_client.pdb',
+      '<(PRODUCT_DIR)/coverage_client.pdb',
+      '<(PRODUCT_DIR)/profile_client.pdb',
     ],
 
     'experimental_binaries': [

@@ -84,6 +84,9 @@ zap_timestamp.exe
 Instrumentation Agents
 ----------------------
 
+The release package includes the following instrumentation agent libraries,
+and their debugging symbols (PDB files).
+
 asan_rtl.dll
   The runtime library associated with the address-sanitizer instrumentation
   mode. Useful for finding heap use errors (use after free, double free, etc).
