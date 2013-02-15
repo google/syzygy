@@ -208,6 +208,7 @@ const TraceIndexedFrequencyData ParseEngineUnitTest::kIndexedFrequencyData = {
     0x33333333,
     0x44444444,
     1,
+    TraceIndexedFrequencyData::BASIC_BLOCK,
     1,
     0 };
 
@@ -219,8 +220,9 @@ const TraceIndexedFrequencyData
         0x22222222,
         0x33333333,
         0x44444444,
-        4,
         10,
+        TraceIndexedFrequencyData::BASIC_BLOCK,
+        4,
         0 };
 
 // A test function to show up in the trace events.

@@ -71,6 +71,9 @@ void BasicBlockEntryCountGrinder::OnIndexedFrequency(
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
+  if (data->data_type != TraceIndexedFrequencyData::BASIC_BLOCK)
+    return;
+
   if (data->num_entries == 0) {
     LOG(INFO) << "Skipping empty basic block frequency data.";
     return;
@@ -123,6 +126,9 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
 
   DCHECK(data != NULL);
   DCHECK_NE(0U, data->num_entries);
+
+  DCHECK_EQ(TraceIndexedFrequencyData::BASIC_BLOCK, data->data_type);
+
   EntryCountMap& bb_entries =
       entry_count_map_[instrumented_module.original_module];
 

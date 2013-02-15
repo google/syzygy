@@ -122,6 +122,9 @@ void CoverageGrinder::OnIndexedFrequency(
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
+  if (data->data_type != TraceIndexedFrequencyData::BASIC_BLOCK)
+    return;
+
   if (data->num_entries == 0) {
     LOG(INFO) << "Skipping empty basic block frequency data.";
     return;

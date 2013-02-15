@@ -64,7 +64,7 @@ extern const char kSyzygyRpcSessionMandatoryEnvVar[];
 // This must be bumped anytime the file format is changed.
 enum {
   TRACE_VERSION_HI = 1,
-  TRACE_VERSION_LO = 2,
+  TRACE_VERSION_LO = 3,
 };
 
 enum TraceEventType {
@@ -319,6 +319,11 @@ struct TraceThreadNameInfo {
 struct TraceIndexedFrequencyData {
   enum { kTypeId = TRACE_INDEXED_FREQUENCY };
 
+  enum DataType {
+    BASIC_BLOCK = 0,
+    JUMP_TABLE = 1,
+  };
+
   // This is used to tie the data to a particular module, which has already
   // been reported via a TraceModuleData struct.
   ModuleAddr module_base_addr;
@@ -326,11 +331,15 @@ struct TraceIndexedFrequencyData {
   uint32 module_checksum;
   uint32 module_time_date_stamp;
 
-  // The size of the frequency reports: 1, 2 or 4 bytes.
-  uint32 frequency_size;
   // The number of entries being reported. It is up to the instrumentation to
   // output any other metadata that is required to map an index to an address.
   uint32 num_entries;
+
+  // The type of data contained in this frequency record.
+  uint8 data_type;
+
+  // The size of the frequency reports: 1, 2 or 4 bytes.
+  uint8 frequency_size;
 
   // In fact, there are frequency_size * num_basic_blocks bytes that follow.
   uint8 frequency_data[1];

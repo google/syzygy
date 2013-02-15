@@ -556,6 +556,7 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   CHECK(module != NULL);
   const base::win::PEImage image(module);
   const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
+  trace_data->data_type = TraceIndexedFrequencyData::BASIC_BLOCK;
   trace_data->module_base_addr = reinterpret_cast<ModuleAddr>(image.module());
   trace_data->module_base_size = nt_headers->OptionalHeader.SizeOfImage;
   trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;

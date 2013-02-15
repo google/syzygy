@@ -61,6 +61,8 @@ class TestGrinder : public GrinderInterface {
     on_bb_freq_was_called_ = true;
     ASSERT_TRUE(data != NULL);
 
+    ASSERT_EQ(TraceIndexedFrequencyData::BASIC_BLOCK, data->data_type);
+
     // Lookup the module information.
     const ModuleInformation* module_info = parser_->GetModuleInformation(
         process_id, AbsoluteAddress64(data->module_base_addr));

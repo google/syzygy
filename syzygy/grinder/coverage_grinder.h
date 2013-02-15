@@ -40,6 +40,9 @@ class CoverageGrinder : public GrinderInterface {
 
   // @name IndexedFrequencyGrinder implementation.
   // @{
+  // Override of the OnIndexedFrequency callback.
+  // NOTE: This only process TraceIndexedFrequencyData records of the
+  //    appropriate type (basic-block entry counts).
   virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,

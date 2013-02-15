@@ -241,6 +241,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
 
   // Initialize the coverage data struct.
   base::win::PEImage image(module_base);
+  trace_coverage_data->data_type = TraceIndexedFrequencyData::BASIC_BLOCK;
   const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
   trace_coverage_data->module_base_addr =
       reinterpret_cast<ModuleAddr>(image.module());

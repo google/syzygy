@@ -35,6 +35,22 @@ using trace::parser::Parser;
 using trace::parser::ParseEventHandler;
 using trace::parser::ModuleInformation;
 
+const char* GetIndexedDataTypeStr(uint8 data_type) {
+  const char* ret = NULL;
+  switch (data_type) {
+    case TraceIndexedFrequencyData::BASIC_BLOCK:
+      ret = "basic-block entry counts";
+      break;
+    case TraceIndexedFrequencyData::JUMP_TABLE:
+      ret = "jump-table case counts";
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+  return ret;
+}
+
 class TraceFileDumper : public ParseEventHandler {
  public:
   explicit TraceFileDumper(FILE* file)
@@ -271,7 +287,7 @@ class TraceFileDumper : public ParseEventHandler {
               "OnIndexedFrequency: process-id=%d; thread-id=%d;\n"
               "    module-base-addr=0x%08X; module-base-size=%d\n"
               "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
-              "    frequency-size=%d; basic-block-count=%d\n",
+              "    frequency-size=%d; data-type=%s; num-entries=%d\n",
               process_id,
               thread_id,
               data->module_base_addr,
@@ -279,6 +295,7 @@ class TraceFileDumper : public ParseEventHandler {
               data->module_checksum,
               data->module_time_date_stamp,
               data->frequency_size,
+              GetIndexedDataTypeStr(data->data_type),
               data->num_entries);
   }
 

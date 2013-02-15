@@ -50,6 +50,9 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
 
   // @name ParseEventHandler overrides.
   // @{
+  // Override of the OnIndexedFrequency callback.
+  // NOTE: This only process TraceIndexedFrequencyData records of the
+  //    appropriate type (basic-block entry counts).
   virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
@@ -87,7 +90,8 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   // of basic-block frequency data. It is implemented separately from the
   // main hook for unit-testing purposes.
   // @param module_info the module whose basic-block entries are being counted.
-  // @param data the basic-block entry counts being reported.
+  // @param data the basic-block entry counts being reported. The data type of
+  //     this record is expected to be a basic-blocks entry counts.
   void UpdateBasicBlockEntryCount(
       const InstrumentedModuleInformation& module_info,
       const TraceIndexedFrequencyData* data);
