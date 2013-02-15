@@ -120,10 +120,6 @@ class BasicBlockOptimizer::BasicBlockOrderer {
   bool GetBasicBlockEntryCount(const BasicCodeBlock* code_bb,
                                EntryCountType* entry_count) const;
 
-  // The the number ot times a code basic block was entered, given the
-  // offset of the code basic-block.
-  bool GetEntryCountByOffset(Offset offset, EntryCountType* entry_count) const;
-
   // Get the warmest not-yet-placed successor to the given code basic-block.
   // This may yield a NULL pointer, denoting either no successor, or no not-
   // yet-placed successor.

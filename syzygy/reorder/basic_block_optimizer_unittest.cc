@@ -50,7 +50,6 @@ const wchar_t kInstrumentedPdbName[] =
 class TestBasicBlockOrderer : public BasicBlockOptimizer::BasicBlockOrderer {
  public:
   using BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockEntryCount;
-  using BasicBlockOptimizer::BasicBlockOrderer::GetEntryCountByOffset;
   using BasicBlockOptimizer::BasicBlockOrderer::GetWarmestSuccessor;
   using BasicBlockOptimizer::BasicBlockOrderer::GetSortedJumpTargets;
   using BasicBlockOptimizer::BasicBlockOrderer::AddRecursiveDataReferences;
@@ -370,30 +369,22 @@ TEST_F(BasicBlockOptimizerTest, EmptyOrderingAllCold) {
   EXPECT_EQ(pe::kCodeCharacteristics, order.sections.back().characteristics);
 
   // Count the blocks left in the original sections. This should only include
-  // non-code and non-decomposable blocks, which we'll count separately.
-  // TODO(rogerm): When we thunk in a BB entry count update for non-decomposable
-  //     function blocks, update this to expect non-decomposable blocks to also
-  //     move to the cold sections.
+  // non-code blocks.
   size_t num_non_code_blocks = 0;
   size_t num_non_decomposable_blocks = 0;
   for (size_t i = 0; i < image_layout_.sections.size(); ++i) {
     for (size_t k = 0; k < order.sections[i].blocks.size(); ++k) {
       const BlockGraph::Block* block = order.sections[i].blocks[k].block;
       ASSERT_TRUE(block != NULL);
-      if (block->type() != BlockGraph::CODE_BLOCK) {
-        ++num_non_code_blocks;
-      } else {
-        ASSERT_FALSE(pe::CodeBlockIsBasicBlockDecomposable(block));
-        EXPECT_TRUE(order.sections[i].blocks[k].basic_block_offsets.empty());
-        ++num_non_decomposable_blocks;
-      }
+      ASSERT_NE(BlockGraph::CODE_BLOCK, block->type());
+      ++num_non_code_blocks;
     }
   }
 
   // Validate that we have the expected numbers of blocks.
   EXPECT_EQ(num_non_code_blocks_, num_non_code_blocks);
-  EXPECT_EQ(num_non_decomposable_blocks_, num_non_decomposable_blocks);
-  EXPECT_EQ(num_decomposable_blocks_, order.sections.back().blocks.size());
+  EXPECT_EQ(num_decomposable_blocks_ + num_non_decomposable_blocks_,
+            order.sections.back().blocks.size());
   for (size_t i = 0; i < order.sections.back().blocks.size(); ++i) {
     EXPECT_TRUE(order.sections.back().blocks[i].basic_block_offsets.empty());
   }

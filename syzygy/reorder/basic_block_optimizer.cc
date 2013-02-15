@@ -158,6 +158,21 @@ bool HasHigherEntryCount(const CountForBasicBlock& lhs,
   return lhs.first > rhs.first;
 }
 
+bool GetEntryCountByOffset(const EntryCountMap& entry_counts,
+                           const RelativeAddress& base_rva,
+                           Offset offset,
+                           EntryCountType* entry_count) {
+  DCHECK_LE(0, offset);
+  DCHECK(entry_count != NULL);
+
+  *entry_count = 0;
+  EntryCountMap::const_iterator it(
+      entry_counts.find(base_rva.value() + offset));
+  if (it != entry_counts.end())
+    *entry_count = it->second;
+  return true;
+}
+
 }  // namespace
 
 BasicBlockOptimizer::BasicBlockOrderer::BasicBlockOrderer(
@@ -176,7 +191,7 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBlockEntryCount(
     EntryCountType* entry_count) const {
   DCHECK(entry_count != NULL);
 
-  if (!GetEntryCountByOffset(0, entry_count))
+  if (!GetEntryCountByOffset(entry_counts_, addr_, 0, entry_count))
     return false;
 
   return true;
@@ -328,25 +343,10 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockEntryCount(
   DCHECK(code_bb != NULL);
   DCHECK(entry_count != NULL);
 
-  if (!GetEntryCountByOffset(code_bb->offset(), entry_count))
+  if (!GetEntryCountByOffset(
+          entry_counts_, addr_, code_bb->offset(), entry_count)) {
     return false;
-
-  return true;
-}
-
-bool BasicBlockOptimizer::BasicBlockOrderer::GetEntryCountByOffset(
-    Offset offset, EntryCountType* entry_count) const {
-  DCHECK_LE(0, offset);
-  DCHECK_GT(size_, static_cast<Size>(offset));
-  DCHECK(entry_count != NULL);
-
-  *entry_count = 0;
-
-  // Translate the offset to an RVA and look up the count.
-  EntryCountMap::const_iterator it(entry_counts_.find(addr_.value() + offset));
-
-  if (it != entry_counts_.end())
-    *entry_count = it->second;
+  }
 
   return true;
 }
@@ -604,7 +604,7 @@ bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
     Order::BlockSpecVector warm_block_specs;
     Order::BlockSpecVector cold_block_specs;
 
-    // Get the collection of warm and cold block spects for this section.
+    // Get the collection of warm and cold block spect for this section.
     if (!OptimizeSection(image_layout,
                          entry_counts,
                          explicit_blocks,
@@ -636,22 +636,11 @@ bool BasicBlockOptimizer::OptimizeBlock(
   DCHECK(warm_block_specs != NULL);
   DCHECK(cold_block_specs != NULL);
 
-  // Leave non-basic-block decomposable blocks where we find them (whether
-  // they're explicitly or implicitly placed).
-  // TODO(rogerm): Handle non-decomposable blocks as opaque basic-blocks
-  //     once we start to thunk their entry-points with a bb-entry-count
-  //     hook.
-  if (block->type() != BlockGraph::CODE_BLOCK  ||
-      !pe::CodeBlockIsBasicBlockDecomposable(block)) {
+  // Leave data blocks untouched.
+  if (block->type() != BlockGraph::CODE_BLOCK) {
     warm_block_specs->push_back(Order::BlockSpec(block));
     return true;
   }
-
-  // Decompose the block.
-  BasicBlockSubGraph subgraph;
-  BasicBlockDecomposer decomposer(block, &subgraph);
-  if (!decomposer.Decompose())
-    return false;
 
   // Find the start address of the block.
   RelativeAddress addr;
@@ -660,56 +649,69 @@ bool BasicBlockOptimizer::OptimizeBlock(
     return false;
   }
 
-  // Create the basic-block orderer.
-  BasicBlockOrderer orderer(subgraph, addr, block->size(), entry_counts);
-
-  // Determine the number of times the block has been entered.
+  // Determine the number of times the block has been entered. We use the
+  // start of the block (with a zero offset) to find it's entry count.
   EntryCountType entry_count = 0;
-  if (!orderer.GetBlockEntryCount(&entry_count)) {
+  if (!GetEntryCountByOffset(entry_counts, addr, 0, &entry_count)) {
     LOG(ERROR) << "Failed to find entry count for '" << block->name() << "'.";
     return false;
   }
 
+  // If the function was never invoked, we just move it as is to the cold set.
+  // We have no information on which to base a basic-block optimization.
   if (entry_count == 0) {
-    // This function was never invoked, we just move it as is because we have
-    // no information on which to base a basic-block optimization.
     cold_block_specs->push_back(Order::BlockSpec(block));
-  } else {
-    // The function was called at least once. We can attempt to basic-block
-    // optimize it.
-    Order::OffsetVector warm_basic_blocks;
-    Order::OffsetVector cold_basic_blocks;
-    if (!orderer.GetBasicBlockOrderings(&warm_basic_blocks,
-                                        &cold_basic_blocks)) {
-      return false;
-    }
+    return true;
+  }
 
-    // Note that we allow the ordering function to return an empty set of
-    // warm basic-blocks. This denotes that the block should be placed into
-    // the warm block specs without modification and also implies that there
-    // should be no cold basic-blocks.
-    //
-    // Therefore the following should be true:
-    //     * If there are cold basic-blocks returned then there are also
-    //       warm basic-blocks returned.
-    //     * Either both returned sets are empty or the sum of the warm and
-    //       cold basic-blocks equals the total number of basic-blocks in
-    //       subgraph;
-    DCHECK(cold_basic_blocks.empty() || !warm_basic_blocks.empty());
-    DCHECK((warm_basic_blocks.empty() && cold_basic_blocks.empty()) ||
-           (warm_basic_blocks.size() + cold_basic_blocks.size() ==
-                subgraph.basic_blocks().size()));
-
-    // We know the function was called at least once. Some part of it should
-    // be into warm_block_specs.
+  // Handle non-decomposable code blocks as large opaque basic-blocks. We've
+  // already established that the block is warm, so just place it as is.
+  if (!pe::CodeBlockIsBasicBlockDecomposable(block)) {
     warm_block_specs->push_back(Order::BlockSpec(block));
-    warm_block_specs->back().basic_block_offsets.swap(warm_basic_blocks);
+    return true;
+  }
 
-    // But, there may or may not be a cold part.
-    if (!cold_basic_blocks.empty()) {
-      cold_block_specs->push_back(Order::BlockSpec(block));
-      cold_block_specs->back().basic_block_offsets.swap(cold_basic_blocks);
-    }
+  // The function was called at least once and is basic-block decomposable.
+  // Let's decompose and optimize it.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer decomposer(block, &subgraph);
+  if (!decomposer.Decompose())
+    return false;
+
+  // Create the basic-block orderer.
+  BasicBlockOrderer orderer(subgraph, addr, block->size(), entry_counts);
+  Order::OffsetVector warm_basic_blocks;
+  Order::OffsetVector cold_basic_blocks;
+  if (!orderer.GetBasicBlockOrderings(&warm_basic_blocks,
+                                      &cold_basic_blocks)) {
+    return false;
+  }
+
+  // Note that we allow the ordering function to return an empty set of
+  // warm basic-blocks. This denotes that the block should be placed into
+  // the warm block specs without modification and also implies that there
+  // should be no cold basic-blocks.
+  //
+  // Therefore the following should be true:
+  //     * If there are cold basic-blocks returned then there are also
+  //       warm basic-blocks returned.
+  //     * Either both returned sets are empty or the sum of the warm and
+  //       cold basic-blocks equals the total number of basic-blocks in
+  //       subgraph.
+  DCHECK(cold_basic_blocks.empty() || !warm_basic_blocks.empty());
+  DCHECK((warm_basic_blocks.empty() && cold_basic_blocks.empty()) ||
+         (warm_basic_blocks.size() + cold_basic_blocks.size() ==
+              subgraph.basic_blocks().size()));
+
+  // We know the function was called at least once. Some part of it should
+  // be into warm_block_specs.
+  warm_block_specs->push_back(Order::BlockSpec(block));
+  warm_block_specs->back().basic_block_offsets.swap(warm_basic_blocks);
+
+  // But, there may or may not be a cold part.
+  if (!cold_basic_blocks.empty()) {
+    cold_block_specs->push_back(Order::BlockSpec(block));
+    cold_block_specs->back().basic_block_offsets.swap(cold_basic_blocks);
   }
 
   return true;
