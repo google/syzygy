@@ -277,8 +277,8 @@ bool GetAsanHooksIATEntries(const PEImage &image,
 }  // namespace
 
 TEST_F(AsanTransformTest, ImportsAreRedirected) {
-  FilePath asan_instrumented_dll =
-      testing::GetExeTestDataRelativePath(kAsanInstrumentedDllName);
+  FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
+      testing::kAsanInstrumentedTestDllName);
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
@@ -325,8 +325,8 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
 }
 
 TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
-  FilePath asan_instrumented_dll =
-      testing::GetExeTestDataRelativePath(kAsanInstrumentedDllName);
+  FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
+      testing::kAsanInstrumentedTestDllName);
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =

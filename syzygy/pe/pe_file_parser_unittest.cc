@@ -77,7 +77,8 @@ class PEFileParserTest: public testing::PELibUnitTest {
     on_import_thunk_ = base::Bind(&PEFileParserTest::OnImportThunk,
                                   base::Unretained(this));
 
-    ASSERT_TRUE(image_file_.Init(testing::GetExeRelativePath(kDllName)));
+    ASSERT_TRUE(image_file_.Init(testing::GetExeRelativePath(
+        testing::kTestDllName)));
   }
 
   virtual void TearDown() {
@@ -117,7 +118,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
     if (loaded_image_ == NULL) {
       std::string error;
       loaded_image_ = base::LoadNativeLibrary(
-          testing::GetExeRelativePath(kDllName), &error);
+          testing::GetExeRelativePath(testing::kTestDllName), &error);
     }
 
     EXPECT_TRUE(loaded_image_ != NULL);
@@ -237,8 +238,8 @@ TEST_F(PEFileParserTest, ParseExportDir) {
   EXPECT_TRUE(parser.ParseExportDir(dir) != NULL);
 
   std::string error;
-  loaded_image_ = base::LoadNativeLibrary(testing::GetExeRelativePath(kDllName),
-                                          &error);
+  loaded_image_ = base::LoadNativeLibrary(
+      testing::GetExeRelativePath(testing::kTestDllName), &error);
   ASSERT_TRUE(loaded_image_ != NULL);
 
   ASSERT_TRUE(ExportIsReferenced("function1"));

@@ -39,7 +39,6 @@ using basic_block_util::ModuleEntryCountMap;
 using basic_block_util::ModuleInformation;
 using testing::ContainerEq;
 
-const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
 const wchar_t kImageFileName[] = L"foo.dll";
 const uint32 kBaseAddress = 0xDEADBEEF;
 const uint32 kModuleSize = 0x1000;
@@ -91,7 +90,8 @@ TEST_F(BasicBlockEntryCountSerializerTest, LoadFromJsonFails) {
   FilePath does_not_exist(temp_dir_.path().AppendASCII("does_not_exist.json"));
   EXPECT_FALSE(serializer.LoadFromJson(does_not_exist, &entry_count_map));
 
-  FilePath some_path(testing::GetExeTestDataRelativePath(kCoverageTraceFile));
+  FilePath some_path(testing::GetExeTestDataRelativePath(
+      testing::kCoverageTraceFiles[0]));
   EXPECT_FALSE(serializer.LoadFromJson(some_path, &entry_count_map));
 }
 

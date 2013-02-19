@@ -40,7 +40,7 @@ class PEFileWriterTest: public testing::PELibUnitTest {
 TEST_F(PEFileWriterTest, LoadOriginalImage) {
   // This test baselines the other test(s) that operate on mutated, copied
   // versions of the DLLs.
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(image_path));
 }
 
@@ -48,11 +48,11 @@ TEST_F(PEFileWriterTest, RewriteAndLoadImage) {
   // Create a temporary file we can write the new image to.
   FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
-  FilePath temp_file = temp_dir.Append(kDllName);
+  FilePath temp_file = temp_dir.Append(testing::kTestDllName);
 
   // Decompose the original test image.
   PEFile image_file;
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   ASSERT_TRUE(image_file.Init(image_path));
 
   Decomposer decomposer(image_file);
@@ -82,8 +82,8 @@ TEST_F(PEFileWriterTest, UpdateFileChecksum) {
   EXPECT_FALSE(PEFileWriter::UpdateFileChecksum(executable));
 
   // Make a copy of our test DLL and check that we work on that.
-  FilePath input_path(testing::GetExeRelativePath(kDllName));
-  FilePath image_path(temp_dir.Append(kDllName));
+  FilePath input_path(testing::GetExeRelativePath(testing::kTestDllName));
+  FilePath image_path(temp_dir.Append(testing::kTestDllName));
   EXPECT_TRUE(file_util::CopyFile(input_path, image_path));
   EXPECT_TRUE(PEFileWriter::UpdateFileChecksum(image_path));
 }
@@ -104,7 +104,7 @@ TEST_F(PEFileWriterTest, FailsForInconsistentImage) {
   FilePath temp_file = temp_dir.Append(L"foo.dll");
 
   PEFile image_file;
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   ASSERT_TRUE(image_file.Init(image_path));
 
   Decomposer decomposer(image_file);

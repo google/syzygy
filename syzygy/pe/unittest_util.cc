@@ -31,9 +31,11 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/pe/pe_data.h"
 
-using pe::CvInfoPdb70;
+namespace testing {
 
 namespace {
+
+using pe::CvInfoPdb70;
 
 // This class wraps an HMODULE and ensures that ::FreeLibrary is called when it
 // goes out of scope.
@@ -151,22 +153,61 @@ void CheckLoadedTestDll(HMODULE module) {
 
 }  // namespace
 
-namespace testing {
+const wchar_t testing::kTestDllName[] = L"test_dll.dll";
+const wchar_t testing::kTestDllPdbName[] = L"test_dll.pdb";
 
-const wchar_t PELibUnitTest::kDllName[] = L"test_dll.dll";
-const wchar_t PELibUnitTest::kDllPdbName[] = L"test_dll.pdb";
-const wchar_t PELibUnitTest::kAsanInstrumentedDllName[] =
+const wchar_t kAsanInstrumentedTestDllName[] =
     L"asan_instrumented_test_dll.dll";
-const wchar_t PELibUnitTest::kAsanInstrumentedDllPdbName[] =
+const wchar_t kAsanInstrumentedTestDllPdbName[] =
     L"asan_instrumented_test_dll.pdb";
-const wchar_t PELibUnitTest::kRandomizedTestDllName[] =
+const wchar_t kBBEntryInstrumentedTestDllName[] =
+    L"basic_block_entry_instrumented_test_dll.dll";
+const wchar_t kBBEntryInstrumentedTestDllPdbName[] =
+    L"basic_block_entry_instrumented_test_dll.pdb";
+const wchar_t kCallTraceInstrumentedTestDllName[] =
+    L"call_trace_instrumented_test_dll.dll";
+const wchar_t kCallTraceInstrumentedTestDllPdbName[] =
+    L"call_trace_instrumented_test_dll.pdb";
+const wchar_t kCoverageInstrumentedTestDllName[] =
+    L"coverage_instrumented_test_dll.dll";
+const wchar_t kCoverageInstrumentedTestDllPdbName[] =
+    L"coverage_instrumented_test_dll.pdb";
+const wchar_t kProfileInstrumentedTestDllName[] =
+    L"profile_instrumented_test_dll.dll";
+const wchar_t kProfileInstrumentedTestDllPdbName[] =
+    L"profile_instrumented_test_dll.pdb";
+const wchar_t kRandomizedTestDllName[] =
     L"randomized_test_dll.dll";
-const wchar_t PELibUnitTest::kRandomizedTestDllPdbName[] =
+const wchar_t kRandomizedTestDllPdbName[] =
     L"randomized_test_dll.pdb";
-const wchar_t PELibUnitTest::kRpcInstrumentedDllName[] =
-    L"rpc_instrumented_test_dll.dll";
-const wchar_t PELibUnitTest::kRpcInstrumentedDllPdbName[] =
-    L"rpc_instrumented_test_dll.pdb";
+
+const wchar_t *kBBEntryTraceFiles[4] = {
+    L"basic_block_entry_traces\\trace-1.bin",
+    L"basic_block_entry_traces\\trace-2.bin",
+    L"basic_block_entry_traces\\trace-3.bin",
+    L"basic_block_entry_traces\\trace-4.bin",
+};
+
+const wchar_t *kCallTraceTraceFiles[4] = {
+    L"call_trace_traces\\trace-1.bin",
+    L"call_trace_traces\\trace-2.bin",
+    L"call_trace_traces\\trace-3.bin",
+    L"call_trace_traces\\trace-4.bin",
+};
+
+const wchar_t *kCoverageTraceFiles[4] = {
+    L"coverage_traces\\trace-1.bin",
+    L"coverage_traces\\trace-2.bin",
+    L"coverage_traces\\trace-3.bin",
+    L"coverage_traces\\trace-4.bin",
+};
+
+const wchar_t *kProfileTraceFiles[4] = {
+    L"profile_traces\\trace-1.bin",
+    L"profile_traces\\trace-2.bin",
+    L"profile_traces\\trace-3.bin",
+    L"profile_traces\\trace-4.bin",
+};
 
 void PELibUnitTest::CheckTestDll(const FilePath& path) {
   LOADED_IMAGE loaded_image = {};

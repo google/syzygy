@@ -30,10 +30,6 @@ using testing::GetExeTestDataRelativePath;
 using trace::parser::AbsoluteAddress64;
 using trace::parser::Parser;
 
-static const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
-static const wchar_t kBbInstrumentedPdbName[] =
-    L"basic_block_entry_instrumented_test_dll.pdb";
-
 class TestGrinder : public GrinderInterface {
  public:
   TestGrinder() : parser_(NULL), on_bb_freq_was_called_(false) {
@@ -179,14 +175,16 @@ TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
 TEST(GrinderBasicBlockUtilTest, LoadBasicBlockRanges) {
   RelativeAddressRangeVector bb_ranges;
 
-  FilePath wrong_file_type(GetExeTestDataRelativePath(kCoverageTraceFile));
+  FilePath wrong_file_type(GetExeTestDataRelativePath(
+      testing::kCoverageTraceFiles[0]));
   EXPECT_FALSE(LoadBasicBlockRanges(wrong_file_type, &bb_ranges));
 
   FilePath wrong_pdb(
-      GetExeTestDataRelativePath(testing::PELibUnitTest::kDllPdbName));
+      GetExeTestDataRelativePath(testing::kTestDllPdbName));
   EXPECT_FALSE(LoadBasicBlockRanges(wrong_pdb, &bb_ranges));
 
-  FilePath right_pdb(GetExeTestDataRelativePath(kBbInstrumentedPdbName));
+  FilePath right_pdb(GetExeTestDataRelativePath(
+      testing::kBBEntryInstrumentedTestDllPdbName));
   EXPECT_TRUE(LoadBasicBlockRanges(right_pdb, &bb_ranges));
 }
 
@@ -197,8 +195,8 @@ TEST(GrinderBasicBlockUtilTest, LoadPdbInfo) {
   ASSERT_TRUE(parser.Init(&grinder));
   ASSERT_NO_FATAL_FAILURE(grinder.SetParser(&parser));
   ASSERT_TRUE(grinder.ParseCommandLine(NULL));
-  ASSERT_TRUE(
-      parser.OpenTraceFile(GetExeTestDataRelativePath(kCoverageTraceFile)));
+  ASSERT_TRUE(parser.OpenTraceFile(GetExeTestDataRelativePath(
+      testing::kCoverageTraceFiles[0])));
   ASSERT_TRUE(parser.Consume());
   ASSERT_TRUE(grinder.on_bb_freq_was_called_);
   ASSERT_TRUE(grinder.Grind());

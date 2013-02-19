@@ -44,9 +44,6 @@ using testing::GetExeTestDataRelativePath;
 
 typedef Reorderer::Order Order;
 
-const wchar_t kInstrumentedPdbName[] =
-    L"basic_block_entry_instrumented_test_dll.pdb";
-
 class TestBasicBlockOrderer : public BasicBlockOptimizer::BasicBlockOrderer {
  public:
   using BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockEntryCount;
@@ -132,7 +129,8 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
   virtual void SetUp() OVERRIDE {
     ASSERT_NO_FATAL_FAILURE(Super::SetUp());
     ASSERT_NO_FATAL_FAILURE(InitBlockCounts());
-    FilePath pdb_path(GetExeTestDataRelativePath(kInstrumentedPdbName));
+    FilePath pdb_path(GetExeTestDataRelativePath(
+        testing::kBBEntryInstrumentedTestDllPdbName));
   }
 
   void InitBlockCounts() {

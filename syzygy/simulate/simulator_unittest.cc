@@ -49,10 +49,10 @@ class SimulatorTest : public testing::PELibUnitTest {
 
   void InitTraceFileList() {
     const FilePath trace_files_initializer[] = {
-        GetExeTestDataRelativePath(L"rpc_traces/trace-1.bin"),
-        GetExeTestDataRelativePath(L"rpc_traces/trace-2.bin"),
-        GetExeTestDataRelativePath(L"rpc_traces/trace-3.bin"),
-        GetExeTestDataRelativePath(L"rpc_traces/trace-4.bin")
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[0]),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[1]),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[2]),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[3]),
     };
 
     trace_files_ = TraceFileList(trace_files_initializer,
@@ -60,8 +60,9 @@ class SimulatorTest : public testing::PELibUnitTest {
   }
 
   void InitSimulator() {
-    module_path_ = GetExeTestDataRelativePath(kDllName);
-    instrumented_path_ = GetExeTestDataRelativePath(kRpcInstrumentedDllName);
+    module_path_ = GetExeTestDataRelativePath(testing::kTestDllName);
+    instrumented_path_ = GetExeTestDataRelativePath(
+        testing::kCallTraceInstrumentedTestDllName);
 
     simulator_.reset(new Simulator(module_path_,
                                    instrumented_path_,

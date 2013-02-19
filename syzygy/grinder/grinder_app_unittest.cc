@@ -110,8 +110,8 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_TRUE(impl_.output_file_.empty());
   cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendSwitchPath("output-file", FilePath(L"output.txt"));
-  cmd_line_.AppendArgPath(
-      testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
+  cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
+      testing::kProfileTraceFiles[0]));
 
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(L"output.txt", impl_.output_file_.value());
@@ -119,9 +119,8 @@ TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
 
 TEST_F(GrinderAppTest, BasicBlockEntryEndToEnd) {
   cmd_line_.AppendSwitchASCII("mode", "bbentry");
-  cmd_line_.AppendArgPath(
-      testing::GetExeTestDataRelativePath(
-          L"basic_block_entry_traces/trace-1.bin"));
+  cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
+      testing::kBBEntryTraceFiles[0]));
 
   FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
@@ -138,8 +137,8 @@ TEST_F(GrinderAppTest, BasicBlockEntryEndToEnd) {
 
 TEST_F(GrinderAppTest, ProfileEndToEnd) {
   cmd_line_.AppendSwitchASCII("mode", "profile");
-  cmd_line_.AppendArgPath(
-      testing::GetExeTestDataRelativePath(L"profile_traces/trace-1.bin"));
+  cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
+      testing::kProfileTraceFiles[0]));
 
   FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
@@ -156,8 +155,8 @@ TEST_F(GrinderAppTest, ProfileEndToEnd) {
 
 TEST_F(GrinderAppTest, CoverageEndToEnd) {
   cmd_line_.AppendSwitchASCII("mode", "coverage");
-  cmd_line_.AppendArgPath(
-      testing::GetExeTestDataRelativePath(L"coverage_traces/trace-1.bin"));
+  cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
+      testing::kCoverageTraceFiles[0]));
 
   FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));

@@ -64,7 +64,7 @@ class DecomposeImageToTextAppTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the input and output path values.
-    image_path_ = testing::GetExeTestDataRelativePath(kDllName);
+    image_path_ = testing::GetExeTestDataRelativePath(testing::kTestDllName);
 
     // Point the application at the test's command-line and IO streams.
     app_.set_command_line(&cmd_line_);

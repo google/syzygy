@@ -34,7 +34,7 @@
       ],
     },
     {
-      'target_name': 'rpc_instrumented_test_dll',
+      'target_name': 'call_trace_instrumented_test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
       'sources': [
@@ -45,15 +45,15 @@
       ],
       'actions': [
         {
-          'action_name': 'rpc_instrument_test_data_test_dll',
+          'action_name': 'call_trace_instrument_test_data_test_dll',
           'inputs': [
             '<(PRODUCT_DIR)/instrument.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
             '<(PRODUCT_DIR)/test_data/test_dll.pdb',
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
@@ -61,9 +61,9 @@
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
             '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
             '--output-image='
-                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+                '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
             '--output-pdb='
-                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
+                '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
             '--overwrite',
           ],
         },
@@ -254,7 +254,7 @@
     #     dll/pdb name, and output directory. Find a way to consolidate to
     #     a reusable rule or gypi.
     {
-      'target_name': 'rpc_traces',
+      'target_name': 'call_trace_traces',
       'type': 'none',
       'msvs_cygwin_shell': 0,
       'sources': [
@@ -263,30 +263,30 @@
       'dependencies': [
         '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
         '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
-        'rpc_instrumented_test_dll',
+        'call_trace_instrumented_test_dll',
       ],
       'actions': [
         {
-          'action_name': 'generate_rpc_traces',
+          'action_name': 'generate_call_trace_traces',
           'inputs': [
             '<(PRODUCT_DIR)/call_trace_client.dll',
             '<(PRODUCT_DIR)/call_trace_service.exe',
-            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
             '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-2.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-3.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-4.bin',
           ],
           'action': [
             '<(python_exe)',
             '<(src)/syzygy/test_data/generate_traces.py',
-            '--output-dir=<(PRODUCT_DIR)/test_data/rpc_traces',
+            '--output-dir=<(PRODUCT_DIR)/test_data/call_trace_traces',
             '--instrumented-image='
-                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+                '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
             '--verbose',
             # The build-dir arg must be last to work around a bug in the
             # interaction between GYP and VS2010.
@@ -344,8 +344,8 @@
       'type': 'none',
       'msvs_cygwin_shell': 0,
       'dependencies': [
-        'rpc_traces',
-        'rpc_instrumented_test_dll',
+        'call_trace_traces',
+        'call_trace_instrumented_test_dll',
         '<(src)/syzygy/reorder/reorder.gyp:reorder',
       ],
       'actions': [
@@ -353,12 +353,12 @@
           'action_name': 'generate_test_dll_order_file',
           'inputs': [
             '<(PRODUCT_DIR)/reorder.exe',
-            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.pdb',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-2.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-3.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-4.bin',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/test_dll_order.json',
@@ -366,12 +366,12 @@
           'action': [
             '<(PRODUCT_DIR)/reorder.exe',
             '--instrumented-image='
-                '<(PRODUCT_DIR)/test_data/rpc_instrumented_test_dll.dll',
+                '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
             '--output-file=<(PRODUCT_DIR)/test_data/test_dll_order.json',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-1.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-2.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-3.bin',
-            '<(PRODUCT_DIR)/test_data/rpc_traces/trace-4.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-1.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-2.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-3.bin',
+            '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-4.bin',
           ],
         }
       ],

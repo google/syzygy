@@ -42,7 +42,7 @@ bool SectionsAreEqual(const ImageLayout::SectionInfo& a,
 }  // namespace
 
 TEST_F(ImageLayoutTest, BuildCanonicalImageLayout) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -88,7 +88,7 @@ TEST_F(ImageLayoutTest, BuildCanonicalImageLayout) {
 }
 
 TEST_F(ImageLayoutTest, CopyImageLayoutWithoutPadding) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));

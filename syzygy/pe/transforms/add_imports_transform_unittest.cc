@@ -35,7 +35,7 @@ class AddImportsTransformTest : public testing::PELibUnitTest {
   }
 
   virtual void SetUp() {
-    FilePath image_path(testing::GetExeRelativePath(kDllName));
+    FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
 
     ASSERT_TRUE(pe_file_.Init(image_path));
 

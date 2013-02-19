@@ -39,18 +39,19 @@ TEST_F(FindTest, PeAndPdbAreMatchedMissingFiles) {
 
 TEST_F(FindTest, PeAndPdbAreMatchedMismatchedInputs) {
   EXPECT_FALSE(PeAndPdbAreMatched(
-      testing::GetOutputRelativePath(kDllName),
+      testing::GetOutputRelativePath(testing::kTestDllName),
       testing::GetOutputRelativePath(L"pe_unittests.pdb")));
 }
 
 TEST_F(FindTest, PeAndPdbAreMatched) {
   EXPECT_TRUE(PeAndPdbAreMatched(
-      testing::GetOutputRelativePath(kDllName),
-      testing::GetOutputRelativePath(kDllPdbName)));
+      testing::GetOutputRelativePath(testing::kTestDllName),
+      testing::GetOutputRelativePath(testing::kTestDllPdbName)));
 }
 
 TEST_F(FindTest, FindTestDll) {
-  const FilePath module_path(testing::GetOutputRelativePath(kDllName));
+  const FilePath module_path(testing::GetOutputRelativePath(
+      testing::kTestDllName));
 
   PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(module_path));
@@ -71,8 +72,10 @@ TEST_F(FindTest, FindTestDllPdb) {
   // that contains the instrumented binaries. The copied test_dll.dll still
   // refers to the original test_dll.pdb in the Debug or Release output
   // directory, so that's the one that will be found first.
-  const FilePath module_path(testing::GetOutputRelativePath(kDllName));
-  const FilePath pdb_path(testing::GetOutputRelativePath(kDllPdbName));
+  const FilePath module_path(testing::GetOutputRelativePath(
+      testing::kTestDllName));
+  const FilePath pdb_path(testing::GetOutputRelativePath(
+      testing::kTestDllPdbName));
 
   FilePath found_path;
   EXPECT_TRUE(FindPdbForModule(module_path, &found_path));

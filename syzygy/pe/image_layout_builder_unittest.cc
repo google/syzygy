@@ -55,10 +55,10 @@ class ImageLayoutBuilderTest : public testing::PELibUnitTest {
     // Create a temporary file we can write a new image to.
     FilePath temp_dir;
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
-    temp_file_ = temp_dir.Append(kDllName);
+    temp_file_ = temp_dir.Append(testing::kTestDllName);
 
     // Decompose the test DLL.
-    image_path_ = testing::GetExeRelativePath(kDllName);
+    image_path_ = testing::GetExeRelativePath(testing::kTestDllName);
     ASSERT_TRUE(image_file_.Init(image_path_));
 
     Decomposer decomposer(image_file_);

@@ -56,12 +56,12 @@ class PERelinkerTest : public testing::PELibUnitTest {
   void SetUp() {
     Super::SetUp();
 
-    input_dll_ = testing::GetExeRelativePath(kDllName);
-    input_pdb_ = testing::GetExeRelativePath(kDllPdbName);
+    input_dll_ = testing::GetExeRelativePath(testing::kTestDllName);
+    input_pdb_ = testing::GetExeRelativePath(testing::kTestDllPdbName);
 
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
-    temp_dll_ = temp_dir_.Append(kDllName);
-    temp_pdb_ = temp_dir_.Append(kDllPdbName);
+    temp_dll_ = temp_dir_.Append(testing::kTestDllName);
+    temp_pdb_ = temp_dir_.Append(testing::kTestDllPdbName);
   }
 
   FilePath input_dll_;

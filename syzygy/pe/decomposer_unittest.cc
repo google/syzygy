@@ -73,7 +73,7 @@ class DecomposerTest : public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(DecomposerTest, Decompose) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -204,7 +204,7 @@ TEST_F(DecomposerTest, Decompose) {
 }
 
 TEST_F(DecomposerTest, DecomposeFailsWithNonexistentPdb) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -218,7 +218,7 @@ TEST_F(DecomposerTest, DecomposeFailsWithNonexistentPdb) {
 }
 
 TEST_F(DecomposerTest, LabelsAndAttributes) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -328,11 +328,13 @@ class DecomposerAfterRelinkTest : public DecomposerTest {
   void Relink(bool compress_pdb) {
     // Initialize a relinker and generate a pdb that contains a block-graph
     // stream.
-    relinked_dll_ = temp_dir_.Append(kDllName);
-    relinked_pdb_ = temp_dir_.Append(kDllPdbName);
+    relinked_dll_ = temp_dir_.Append(testing::kTestDllName);
+    relinked_pdb_ = temp_dir_.Append(testing::kTestDllPdbName);
 
-    relinker_.set_input_path(testing::GetExeRelativePath(kDllName));
-    relinker_.set_input_pdb_path(testing::GetExeRelativePath(kDllPdbName));
+    relinker_.set_input_path(testing::GetExeRelativePath(
+        testing::kTestDllName));
+    relinker_.set_input_pdb_path(testing::GetExeRelativePath(
+        testing::kTestDllPdbName));
     relinker_.set_allow_overwrite(true);
     relinker_.set_augment_pdb(true);
     relinker_.set_compress_pdb(compress_pdb);

@@ -40,9 +40,6 @@ using basic_block_util::ModuleInformation;
 using common::kSyzygyVersion;
 using file_util::CreateAndOpenTemporaryFileInDir;
 
-const wchar_t kBasicBlockEntryTraceFile[] =
-    L"basic_block_entry_traces/trace-1.bin";
-const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
 const wchar_t kImageFileName[] = L"foo.dll";
 const uint32 kBaseAddress = 0xDEADBEEF;
 const uint32 kModuleSize = 0x1000;
@@ -211,7 +208,8 @@ TEST_F(BasicBlockEntryCountGrinderTest, SetParserSucceeds) {
 
   grinder.ParseCommandLine(&cmd_line_);
 
-  ASSERT_NO_FATAL_FAILURE(InitParser(&grinder, kBasicBlockEntryTraceFile));
+  ASSERT_NO_FATAL_FAILURE(InitParser(
+      &grinder, testing::kBBEntryTraceFiles[0]));
 
   grinder.SetParser(&parser_);
   EXPECT_EQ(&parser_, grinder.parser_);
@@ -222,7 +220,8 @@ TEST_F(BasicBlockEntryCountGrinderTest, GrindFailsOnNoEvents) {
 
   grinder.ParseCommandLine(&cmd_line_);
 
-  ASSERT_NO_FATAL_FAILURE(InitParser(&grinder, kBasicBlockEntryTraceFile));
+  ASSERT_NO_FATAL_FAILURE(InitParser(
+      &grinder, testing::kBBEntryTraceFiles[0]));
   grinder.SetParser(&parser_);
 
   EXPECT_FALSE(grinder.Grind());
@@ -275,13 +274,14 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
 TEST_F(BasicBlockEntryCountGrinderTest, GrindBasicBlockEntryDataSucceeds) {
   ModuleEntryCountMap entry_counts;
   ASSERT_NO_FATAL_FAILURE(
-      RunGrinderTest(kBasicBlockEntryTraceFile, &entry_counts));
+      RunGrinderTest(testing::kBBEntryTraceFiles[0], &entry_counts));
   // TODO(rogerm): Inspect value for bb-entry specific expected data.
 }
 
 TEST_F(BasicBlockEntryCountGrinderTest, GrindCoverageDataSucceeds) {
   ModuleEntryCountMap entry_counts;
-  ASSERT_NO_FATAL_FAILURE(RunGrinderTest(kCoverageTraceFile, &entry_counts));
+  ASSERT_NO_FATAL_FAILURE(
+      RunGrinderTest(testing::kCoverageTraceFiles[0], &entry_counts));
   // TODO(rogerm): Inspect value for coverage specific expected data.
 }
 

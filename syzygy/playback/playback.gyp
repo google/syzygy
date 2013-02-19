@@ -41,10 +41,11 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/test_data/test_data.gyp:'
+            'call_trace_instrumented_test_dll',
+        '<(src)/syzygy/test_data/test_data.gyp:call_trace_traces',
         '<(src)/syzygy/test_data/test_data.gyp:copy_test_dll',
         '<(src)/syzygy/test_data/test_data.gyp:randomized_test_dll',
-        '<(src)/syzygy/test_data/test_data.gyp:rpc_instrumented_test_dll',
-        '<(src)/syzygy/test_data/test_data.gyp:rpc_traces',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest'

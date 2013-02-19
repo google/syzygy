@@ -16,21 +16,13 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace grinder {
 
-namespace {
-
-const wchar_t kCoverageInstrumentedTestDll[] =
-    L"coverage_instrumented_test_dll.dll";
-const wchar_t kCoverageInstrumentedTestDllPdb[] =
-    L"coverage_instrumented_test_dll.pdb";
-
-}  // namespace
-
 TEST(GrinderUtilTest, GetBasicBlockAddresses) {
   FilePath pdb_path = testing::GetExeTestDataRelativePath(
-      kCoverageInstrumentedTestDllPdb);
+      testing::kCoverageInstrumentedTestDllPdbName);
 
   RelativeAddressVector bb_addresses;
   EXPECT_TRUE(GetBasicBlockAddresses(pdb_path, &bb_addresses));

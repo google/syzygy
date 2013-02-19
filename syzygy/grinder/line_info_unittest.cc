@@ -17,13 +17,11 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace grinder {
 
 namespace {
-
-const wchar_t kCoverageInstrumentedTestDllPdb[] =
-    L"coverage_instrumented_test_dll.pdb";
 
 class TestLineInfo : public LineInfo {
  public:
@@ -52,11 +50,11 @@ class LineInfoTest : public testing::Test {
     testing::Test::SetUp();
 
     pdb_path_ = testing::GetExeTestDataRelativePath(
-        kCoverageInstrumentedTestDllPdb);
+        testing::kCoverageInstrumentedTestDllPdbName);
 
 
     std::wstring static_pdb_path(L"syzygy/grinder/test_data/");
-    static_pdb_path.append(kCoverageInstrumentedTestDllPdb);
+    static_pdb_path.append(testing::kCoverageInstrumentedTestDllPdbName);
     static_pdb_path_ = testing::GetSrcRelativePath(static_pdb_path.c_str());
   }
 

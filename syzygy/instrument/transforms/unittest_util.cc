@@ -24,7 +24,8 @@ TestDllTransformTest::TestDllTransformTest() : dos_header_block_(NULL) {
 }
 
 void TestDllTransformTest::DecomposeTestDll() {
-  FilePath test_dll_path = ::testing::GetOutputRelativePath(kDllName);
+  FilePath test_dll_path = ::testing::GetOutputRelativePath(
+      testing::kTestDllName);
 
   ASSERT_TRUE(pe_file_.Init(test_dll_path));
 

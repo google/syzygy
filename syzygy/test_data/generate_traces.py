@@ -11,14 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Generates a few sample trace files for the rpc_instrumented_test_dll.dll
+"""Generates a few sample trace files for an instrumented version of test_dll
 in $(OutDir)/test_data. The trace files are output to:
 
-  $(OutDir)/test_data/rpc_traces/trace-%d.bin.
+  $(OutDir)/test_data/AGENT_NAME_HERE_traces/trace-%d.bin.
 
-This depends on call_trace_service.exe, call_trace_client.dll, and
-$(OutDir)/test_data/rpc_instrumented_test_dll.dll having already been
-built.
+This depends on call_trace_service.exe, the agent DLL, and the instrumumented
+test_dll having already been built.
 """
 import glob
 import logging

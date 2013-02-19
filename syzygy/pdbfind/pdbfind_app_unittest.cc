@@ -118,11 +118,12 @@ TEST_F(PdbFindAppTest, ModuleNotFound) {
 //     PDB or are missing CodeView records.
 
 TEST_F(PdbFindAppTest, Succeeds) {
-  FilePath test_dll = testing::GetExeRelativePath(kDllName);
+  FilePath test_dll = testing::GetExeRelativePath(testing::kTestDllName);
   cmd_line_.AppendArgPath(test_dll);
   ASSERT_EQ(0, app_.Run());
 
-  FilePath expected_pdb_path = testing::GetExeRelativePath(kDllPdbName);
+  FilePath expected_pdb_path = testing::GetExeRelativePath(
+      testing::kTestDllPdbName);
 
   // We have to tear down the streams to make sure their contents are flushed
   // to disk.

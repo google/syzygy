@@ -43,16 +43,16 @@ class PlaybackTest : public testing::PELibUnitTest {
 
   void SetUp() {
     module_path_ =
-        GetExeTestDataRelativePath(kDllName);
+        GetExeTestDataRelativePath(testing::kTestDllName);
 
     instrumented_path_ =
-        GetExeTestDataRelativePath(kRpcInstrumentedDllName);
+        GetExeTestDataRelativePath(testing::kCallTraceInstrumentedTestDllName);
 
     const FilePath kTraceFiles[] = {
-        GetExeTestDataRelativePath(L"rpc_traces/trace-1.bin"),
-        GetExeTestDataRelativePath(L"rpc_traces/trace-2.bin"),
-        GetExeTestDataRelativePath(L"rpc_traces/trace-3.bin"),
-        GetExeTestDataRelativePath(L"rpc_traces/trace-4.bin"),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[0]),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[1]),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[2]),
+        GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[3]),
     };
     trace_files_ = Playback::TraceFileList(kTraceFiles,
         kTraceFiles + arraysize(kTraceFiles));

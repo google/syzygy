@@ -33,12 +33,12 @@ class ExplodeBasicBlocksTransformTest : public testing::PELibUnitTest {
   ExplodeBasicBlocksTransformTest()
       : image_layout_(&block_graph_),
         dos_header_block_(NULL),
-        input_path_(testing::GetExeRelativePath(kDllName)) {
+        input_path_(testing::GetExeRelativePath(testing::kTestDllName)) {
   }
 
   virtual void SetUp() OVERRIDE {
     this->CreateTemporaryDir(&temp_dir_);
-    output_path_ = temp_dir_.Append(kDllName);
+    output_path_ = temp_dir_.Append(testing::kTestDllName);
   }
 
   void PerformRandomizationTest(ExplodeBasicBlocksTransform* transform) {

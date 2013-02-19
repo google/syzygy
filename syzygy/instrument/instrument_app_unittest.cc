@@ -91,9 +91,9 @@ class InstrumentAppTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_dll_path_ = testing::GetExeRelativePath(kDllName);
+    abs_input_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
     input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
-    abs_input_pdb_path_ = testing::GetExeRelativePath(kDllPdbName);
+    abs_input_pdb_path_ = testing::GetExeRelativePath(testing::kTestDllPdbName);
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());

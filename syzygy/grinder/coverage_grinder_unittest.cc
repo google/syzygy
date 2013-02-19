@@ -22,8 +22,6 @@ namespace grinder {
 
 namespace {
 
-const wchar_t kCoverageTraceFile[] = L"coverage_traces/trace-1.bin";
-
 class TestCoverageGrinder : public CoverageGrinder {
  public:
   using CoverageGrinder::parser_;
@@ -46,7 +44,7 @@ class CoverageGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(parser_.Init(handler));
 
     FilePath trace_file =
-        testing::GetExeTestDataRelativePath(kCoverageTraceFile);
+        testing::GetExeTestDataRelativePath(testing::kCoverageTraceFiles[0]);
 
     ASSERT_TRUE(parser_.OpenTraceFile(trace_file));
   }

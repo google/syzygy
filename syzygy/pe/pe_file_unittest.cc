@@ -40,7 +40,7 @@ public:
   virtual void SetUp() OVERRIDE {
     Super::SetUp();
 
-    FilePath test_dll = testing::GetExeRelativePath(kDllName);
+    FilePath test_dll = testing::GetExeRelativePath(testing::kTestDllName);
     std::string error;
     test_dll_ = base::LoadNativeLibrary(test_dll, &error);
 

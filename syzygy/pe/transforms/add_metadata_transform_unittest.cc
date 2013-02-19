@@ -32,7 +32,7 @@ namespace {
 class AddMetadataTransformTest : public testing::PELibUnitTest {
  public:
   AddMetadataTransformTest()
-      : module_path_(testing::GetExeRelativePath(kDllName)),
+      : module_path_(testing::GetExeRelativePath(testing::kTestDllName)),
         header_block_(NULL),
         metadata_block_(NULL) {
   }

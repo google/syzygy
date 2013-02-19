@@ -58,7 +58,7 @@ bool IsValidOmapVector(const std::vector<OMAP>& omap) {
 }  // namespace
 
 TEST_F(ImageSourceMapTest, FromUntransformedImageLayout) {
-  FilePath image_path(testing::GetExeRelativePath(kDllName));
+  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
