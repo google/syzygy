@@ -159,6 +159,8 @@ TEST_F(BasicBlockTest, InstructionConstructor) {
   // This also tests Instruction::FromBuffer via CreateRet and CreateCall.
   Instruction nop;
   EXPECT_TRUE(nop.IsNop());
+  EXPECT_EQ(1, nop.size());
+  EXPECT_EQ(0x90, nop.data()[0]);
 
   Instruction ret_instr(CreateRet());
 

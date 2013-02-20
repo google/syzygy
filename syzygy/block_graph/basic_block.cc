@@ -228,7 +228,7 @@ bool BasicBlockReferrer::IsValid() const {
 Instruction::Instruction() : offset_(BasicBlock::kNoOffset) {
   static const uint8 kNop[] = { 0x90 };
   CHECK(core::DecodeOneInstruction(kNop, sizeof(kNop), &representation_));
-  DCHECK_EQ(sizeof(kNop), representation_.size),
+  DCHECK_EQ(sizeof(kNop), representation_.size);
   ::memcpy(data_, kNop, representation_.size);
   ::memset(data_ + sizeof(kNop), 0, sizeof(data_) - sizeof(kNop));
 }
