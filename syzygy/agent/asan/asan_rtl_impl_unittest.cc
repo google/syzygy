@@ -63,6 +63,11 @@ TEST_F(AsanRtlImplTest, CreateDestroy) {
   ASSERT_TRUE(asan_HeapDestroy(heap));
 }
 
+TEST_F(AsanRtlImplTest, CreateFailed) {
+  HANDLE heap = asan_HeapCreate(0, 0x80000000, 0x8000);
+  ASSERT_TRUE(heap == NULL);
+}
+
 TEST_F(AsanRtlImplTest, Alloc) {
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     void* mem = asan_HeapAlloc(heap_, 0, size);

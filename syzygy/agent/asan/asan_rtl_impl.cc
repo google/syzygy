@@ -56,7 +56,7 @@ HANDLE WINAPI asan_HeapCreate(DWORD options,
   scoped_ptr<HeapProxy> proxy(new HeapProxy(asan_runtime->stack_cache(),
                                             asan_runtime->logger()));
   if (!proxy->Create(options, initial_size, maximum_size))
-    proxy.reset();
+    return NULL;
 
   asan_runtime->AddHeap(proxy.get());
 

@@ -132,11 +132,13 @@ bool HeapProxy::Create(DWORD options,
 
   SetQuarantineMaxSize(default_quarantine_max_size_);
 
-  heap_ = ::HeapCreate(options, initial_size, maximum_size);
-  if (heap_ != NULL)
-    return true;
+  HANDLE heap_new = ::HeapCreate(options, initial_size, maximum_size);
+  if (heap_new == NULL)
+    return false;
 
-  return false;
+  heap_ = heap_new;
+
+  return true;
 }
 
 bool HeapProxy::Destroy() {
