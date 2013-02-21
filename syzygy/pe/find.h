@@ -19,6 +19,7 @@
 #define SYZYGY_PE_FIND_H_
 
 #include "base/file_path.h"
+#include "base/string_piece.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
@@ -31,8 +32,10 @@ namespace pe {
 //     otherwise.
 bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path);
 
-// Looks for the module matching a given module signature. Uses the module
-// signature path as the starting point of the search.
+// Looks for the module matching a given module signature. If @p module_path is
+// not empty uses it as a starting point for the search using the following
+// search strategy. If that fails (or is not present) it uses the path in
+/// @p module_signature as a starting point using the following strategy.
 //
 // Given an example module path of "C:\foo\foo.dll", the search strategy
 // is as follows:
@@ -49,9 +52,11 @@ bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path);
 //     the absolute path to the discovered module.
 //
 // @returns false if any errors occur, true otherwise. If the module is found
-//     its path is returned in @p module_path.
+//     its path is returned in @p module_path. If the module is not found
+//     but there were no errors, this will return true and @p module_path will
+//     be empty.
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
-                           const wchar_t* search_paths,
+                           const base::StringPiece16& search_paths,
                            FilePath* module_path);
 
 // Same as 3-parameter FindModuleBySignature, but uses the PATH environment
@@ -59,9 +64,10 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            FilePath* module_path);
 
-// Searches for the PDB file corresponding to the given module. Uses the
-// path stored in the module's debug information as a starting point, and also
-// searches in the current working directory.
+// Searches for the PDB file corresponding to the given module. If not empty,
+// uses @p pdb_path as a starting point with the following strategy. If that
+// fails (or @p pdb_path is empty), uses the path stored in the module's debug
+// information as a starting point with the the following strategy.
 //
 // Given an example PDB starting path of "C:\foo\foo.pdb", the search strategy
 // is as follows:
@@ -79,9 +85,11 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
 //     be downloaded and stored locally.
 //
 // @returns false if any errors occur, true otherwise. If the PDB file is found
-//     its path is returned in @p pdb_path.
+//     its path is returned in @p pdb_path. If the PDB file is not found
+//     but there were no errors, this will return true and @p pdb_path will
+//     be empty.
 bool FindPdbForModule(const FilePath& module_path,
-                      const wchar_t* search_paths,
+                      const base::StringPiece16& search_paths,
                       FilePath* pdb_path);
 
 // Same 3-parameter FindPdbForModule, but uses the _NT_SYMBOL_PATH environment

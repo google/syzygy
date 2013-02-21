@@ -25,31 +25,31 @@ namespace pe {
 
 namespace {
 
-class FindTest: public testing::PELibUnitTest {
+class PeFindTest: public testing::PELibUnitTest {
   // Insert your customizations here.
 };
 
 }  // namespace
 
-TEST_F(FindTest, PeAndPdbAreMatchedMissingFiles) {
+TEST_F(PeFindTest, PeAndPdbAreMatchedMissingFiles) {
   EXPECT_FALSE(PeAndPdbAreMatched(
       FilePath(L"nonexistent_pe_file.dll"),
       FilePath(L"nonexistent_pdb_file.pdb")));
 }
 
-TEST_F(FindTest, PeAndPdbAreMatchedMismatchedInputs) {
+TEST_F(PeFindTest, PeAndPdbAreMatchedMismatchedInputs) {
   EXPECT_FALSE(PeAndPdbAreMatched(
       testing::GetOutputRelativePath(testing::kTestDllName),
       testing::GetOutputRelativePath(L"pe_unittests.pdb")));
 }
 
-TEST_F(FindTest, PeAndPdbAreMatched) {
+TEST_F(PeFindTest, PeAndPdbAreMatched) {
   EXPECT_TRUE(PeAndPdbAreMatched(
       testing::GetOutputRelativePath(testing::kTestDllName),
       testing::GetOutputRelativePath(testing::kTestDllPdbName)));
 }
 
-TEST_F(FindTest, FindTestDll) {
+TEST_F(PeFindTest, PeFindTestDllNoHint) {
   const FilePath module_path(testing::GetOutputRelativePath(
       testing::kTestDllName));
 
@@ -65,7 +65,27 @@ TEST_F(FindTest, FindTestDll) {
   EXPECT_SAME_FILE(module_path, found_path);
 }
 
-TEST_F(FindTest, FindTestDllPdb) {
+TEST_F(PeFindTest, PeFindTestDllWithHint) {
+  const FilePath orig_module_path(testing::GetOutputRelativePath(
+      testing::kTestDllName));
+  const FilePath test_data_module_path(testing::GetExeTestDataRelativePath(
+      testing::kTestDllName));
+
+  PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(orig_module_path));
+
+  PEFile::Signature module_signature;
+  pe_file.GetSignature(&module_signature);
+
+  // We expect the version of test_dll.dll in test_data to be found first
+  // because we provide an explicit hint guiding the search in that direction.
+  FilePath found_path = test_data_module_path;
+  EXPECT_TRUE(FindModuleBySignature(module_signature, &found_path));
+
+  EXPECT_SAME_FILE(test_data_module_path, found_path);
+}
+
+TEST_F(PeFindTest, PeFindTestDllPdbNoHint) {
   // We have to be careful to use the output relative path, rather than simply
   // the executable relative path. This is because in the coverage unittests
   // pe_unittests.exe and test_dll.dll are copied to a new output directory
@@ -78,6 +98,21 @@ TEST_F(FindTest, FindTestDllPdb) {
       testing::kTestDllPdbName));
 
   FilePath found_path;
+  EXPECT_TRUE(FindPdbForModule(module_path, &found_path));
+
+  EXPECT_SAME_FILE(pdb_path, found_path);
+}
+
+TEST_F(PeFindTest, PeFindTestDllPdbWithHint) {
+  const FilePath module_path(testing::GetOutputRelativePath(
+      testing::kTestDllName));
+  const FilePath pdb_path(testing::GetExeTestDataRelativePath(
+      testing::kTestDllPdbName));
+
+  // We provide an explicit hint to look in the test_data directory first. Even
+  // though this is not the path that will be found in the debug data directory
+  // it should be found first.
+  FilePath found_path = pdb_path;
   EXPECT_TRUE(FindPdbForModule(module_path, &found_path));
 
   EXPECT_SAME_FILE(pdb_path, found_path);

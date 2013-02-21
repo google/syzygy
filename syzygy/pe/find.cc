@@ -104,14 +104,13 @@ BOOL CALLBACK FindPeFileCallback(PCTSTR path, PVOID context) {
 }
 
 bool FindFile(const FilePath& file_path,
-              const wchar_t* search_paths,
+              const base::StringPiece16& search_paths,
               const void* id,
               uint32 data,
               uint32 flags,
               PFINDFILEINPATHCALLBACKW callback,
               void* callback_context,
               FilePath* found_file) {
-  DCHECK(search_paths != NULL);
   DCHECK(found_file != NULL);
 
   found_file->clear();
@@ -136,7 +135,7 @@ bool FindFile(const FilePath& file_path,
     paths.push_back(L';');
   }
   paths.append(L".;");
-  paths.append(search_paths);
+  paths.append(search_paths.begin(), search_paths.end());
 
   // Search for the file.
   wchar_t buffer[MAX_PATH];
@@ -187,22 +186,40 @@ bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path) {
 }
 
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
-                           const wchar_t* search_paths,
+                           const base::StringPiece16& search_paths,
                            FilePath* module_path) {
-  DCHECK(search_paths != NULL);
   DCHECK(module_path != NULL);
 
-  FilePath path(module_signature.path);
+  std::vector<FilePath> candidate_paths;
+  if (!module_path->empty())
+    candidate_paths.push_back(*module_path);
+  candidate_paths.push_back(FilePath(module_signature.path));
+
   const void* id =
       reinterpret_cast<void*>(module_signature.module_time_date_stamp);
-  return FindFile(path,
+
+  // Try a search based on each of the candidate paths.
+  for (size_t i = 0; i < candidate_paths.size(); ++i) {
+    const FilePath& path = candidate_paths[i];
+
+    if (!FindFile(path,
                   search_paths,
                   id,
                   module_signature.module_size,
                   SSRVOPT_DWORD,
                   FindPeFileCallback,
                   const_cast<PEFile::Signature*>(&module_signature),
-                  module_path);
+                  module_path)) {
+      return false;
+    }
+
+    // If the search was successful we can terminate early.
+    if (!module_path->empty())
+      return true;
+  }
+  DCHECK(module_path->empty());
+
+  return true;
 }
 
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
@@ -219,28 +236,45 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
 }
 
 bool FindPdbForModule(const FilePath& module_path,
-                      const wchar_t* search_paths,
+                      const base::StringPiece16& search_paths,
                       FilePath* pdb_path) {
-  DCHECK(search_paths != NULL);
   DCHECK(pdb_path != NULL);
+
+  std::vector<FilePath> candidate_paths;
+  if (!pdb_path->empty())
+    candidate_paths.push_back(*pdb_path);
 
   PdbInfo pdb_info;
   if (!pdb_info.Init(module_path))
     return false;
+  candidate_paths.push_back(pdb_info.pdb_file_name());
 
   // Prepend the module path to the symbol path.
   std::wstring search_path(module_path.DirName().value());
   search_path.append(L";");
-  search_path.append(search_paths);
+  search_path.append(search_paths.begin(), search_paths.end());
 
-  return FindFile(pdb_info.pdb_file_name(),
+  for (size_t i = 0; i < candidate_paths.size(); ++i) {
+    const FilePath& path = candidate_paths[i];
+
+    if (!FindFile(path,
                   search_path.c_str(),
                   &pdb_info.signature(),
                   pdb_info.pdb_age(),
                   SSRVOPT_GUIDPTR,
                   FindPdbFileCallback,
                   &pdb_info,
-                  pdb_path);
+                  pdb_path)) {
+      return false;
+    }
+
+    // If the search was successful we can terminate early.
+    if (!pdb_path->empty())
+      return true;
+  }
+  DCHECK(pdb_path->empty());
+
+  return true;
 }
 
 bool FindPdbForModule(const FilePath& module_path,
