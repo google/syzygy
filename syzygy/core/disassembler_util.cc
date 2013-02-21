@@ -15,6 +15,7 @@
 #include "syzygy/core/disassembler_util.h"
 
 #include "base/logging.h"
+#include "base/stringprintf.h"
 #include "mnemonics.h"  // NOLINT
 
 namespace core {
@@ -78,6 +79,32 @@ bool DecodeOneInstruction(
   DCHECK(instruction != NULL);
   if (!DecodeOneInstruction(0x10000000, buffer, length, instruction))
     return false;
+  return true;
+}
+
+bool InstructionToString(
+    const _DInst& instruction,
+    const uint8_t* data,
+    int code_length,
+    std::string* buffer) {
+  DCHECK(data != NULL);
+  DCHECK(buffer != NULL);
+
+  _CodeInfo code = {};
+  code.codeOffset = 0;
+  code.code = data;
+  code.codeLen = code_length;
+  code.dt = Decode32Bits;
+  _DecodedInst decoded = {};
+  _DInst dinst = instruction;
+
+  dinst.addr = 0;
+  distorm_format64(&code, &dinst, &decoded);
+
+  *buffer = base::StringPrintf("%-14s %s %s",
+                               decoded.instructionHex.p,
+                               decoded.mnemonic.p,
+                               decoded.operands.p);
   return true;
 }
 

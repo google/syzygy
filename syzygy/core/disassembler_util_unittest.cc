@@ -16,6 +16,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace core {
@@ -114,6 +115,16 @@ const uint8 kInt3[] = { 0xCC };
 TEST(DisassemblerUtilTest, DistormWrapperVxorpsPasses) {
   _DInst inst = {};
   EXPECT_TRUE(DecodeOneInstruction(kVxorps, sizeof(kVxorps), &inst));
+}
+
+TEST(DisassemblerUtilTest, InstructionToString) {
+  _DInst inst = {};
+  inst = DecodeBuffer(kNop1, sizeof(kNop1));
+
+  std::string Nop1Str;
+  EXPECT_TRUE(InstructionToString(inst, kNop1, sizeof(kNop1), &Nop1Str));
+  ASSERT_THAT(Nop1Str, testing::HasSubstr("90"));
+  ASSERT_THAT(Nop1Str, testing::HasSubstr("NOP"));
 }
 
 TEST(DisassemblerUtilTest, IsNop) {

@@ -320,6 +320,11 @@ class Instruction {
   // Returns the mnemonic name for this instruction.
   const char* GetName() const;
 
+  // Dump a text representation of this instruction.
+  // @param buf receives the text representation.
+  // @returns true if this instruction was successfully dumped, false otherwise.
+  bool ToString(std::string* buf) const;
+
   // Returns the maximum size required to serialize this instruction.
   Size GetMaxSize() const { return representation_.size; }
 

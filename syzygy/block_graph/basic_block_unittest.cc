@@ -626,6 +626,14 @@ TEST_F(InstructionTest, ConstructionFromData) {
   TestInstructionCopy(call);
 }
 
+TEST_F(InstructionTest, ToString) {
+  Instruction nop;
+  std::string buffer;
+  EXPECT_TRUE(nop.ToString(&buffer));
+  ASSERT_THAT(buffer, testing::HasSubstr("90"));
+  ASSERT_THAT(buffer, testing::HasSubstr("NOP"));
+}
+
 TEST_F(InstructionTest, CallsNonReturningFunction) {
   // Create a returning code block.
   BlockGraph::Block returning(0, BlockGraph::CODE_BLOCK, 1, "return");

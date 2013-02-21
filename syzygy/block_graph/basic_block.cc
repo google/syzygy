@@ -268,6 +268,12 @@ const char* Instruction::GetName() const {
   return reinterpret_cast<char*>(GET_MNEMONIC_NAME(representation_.opcode));
 }
 
+bool Instruction::ToString(std::string* buf) const {
+  DCHECK(buf != NULL);
+  return core::InstructionToString(
+      this->representation(), this->data(), this->size(), buf);
+}
+
 bool Instruction::CallsNonReturningFunction() const {
   // Is this a call instruction?
   if (META_GET_FC(representation_.meta) != FC_CALL)
