@@ -13,21 +13,10 @@
 // limitations under the License.
 #include <windows.h>
 
-#include "base/compiler_specific.h"
-#include "base/environment.h"
-#include "base/file_util.h"
-#include "base/logging.h"
-#include "base/rand_util.h"
-#include "base/scoped_temp_dir.h"
-#include "base/string_number_conversions.h"
-#include "base/utf_string_conversions.h"
-#include "base/debug/debugger.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/trace/logger/logger.h"
-#include "syzygy/trace/logger/logger_rpc_impl.h"
-#include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace agent {
 namespace asan {
@@ -72,27 +61,13 @@ ASAN_RTL_FUNCTIONS(DECLARE_ASAN_FUNCTION_PTR)
 
 #undef DECLARE_ASAN_FUNCTION_PTR
 
-class AsanRtlTest : public testing::Test {
+class AsanRtlTest : public testing::TestWithAsanLogger {
  public:
-  AsanRtlTest()
-      : asan_rtl_(NULL), heap_(NULL), log_service_instance_(&log_service_) {
+  AsanRtlTest() : asan_rtl_(NULL), heap_(NULL) {
   }
 
   void SetUp() OVERRIDE {
-    // Create and open the log file.
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    log_file_path_ = temp_dir_.path().Append(L"log.txt");
-    log_file_.reset(file_util::OpenFile(log_file_path_, "wb"));
-
-    // Configure the environment (to pass the instance id to the agent DLL).
-    std::string instance_id(base::UintToString(::GetCurrentProcessId()));
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
-
-    // Configure and start the log service.
-    log_service_.set_instance_id(UTF8ToWide(instance_id));
-    log_service_.set_destination(log_file_.get());
-    ASSERT_TRUE(log_service_.Start());
+    testing::TestWithAsanLogger::SetUp();
 
     // Load the ASAN runtime library.
     FilePath asan_rtl_path = testing::GetExeRelativePath(L"asan_rtl.dll");
@@ -124,13 +99,7 @@ class AsanRtlTest : public testing::Test {
       asan_rtl_ = NULL;
     }
 
-    log_service_.Stop();
-    log_service_.RunToCompletion();
-    log_file_.reset(NULL);
-
-    std::string contents;
-    file_util::ReadFileToString(log_file_path_, &contents);
-    ::fprintf(stderr, "%s", contents.c_str());
+    testing::TestWithAsanLogger::TearDown();
   }
 
  protected:
@@ -139,22 +108,6 @@ class AsanRtlTest : public testing::Test {
 
   // Scratch heap handle valid from SetUp to TearDown.
   HANDLE heap_;
-
-  // The log service instance.
-  trace::logger::Logger log_service_;
-
-  // Manages the binding between the RPC stub functions and a log service
-  // instance.
-  trace::logger::RpcLoggerInstanceManager log_service_instance_;
-
-  // The path to the log file where the the logger instance will write.
-  FilePath log_file_path_;
-
-  // The open file handle, if any to which the logger instance will write.
-  file_util::ScopedFILE log_file_;
-
-  // A temporary directory into which the log file will be written.
-  ScopedTempDir temp_dir_;
 
   // Declare the function pointers.
 #define DECLARE_FUNCTION_PTR_VARIABLE(ret, name, args)  \
@@ -261,7 +214,7 @@ void AssertMemoryErrorIsDetected(void* ptr) {
 
 }  // namespace
 
-TEST_F(AsanRtlTest, asan_check_good_access) {
+TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
@@ -281,7 +234,7 @@ TEST_F(AsanRtlTest, asan_check_good_access) {
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
-TEST_F(AsanRtlTest, asan_check_bad_access) {
+TEST_F(AsanRtlTest, AsanCheckBadAccess) {
   check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
@@ -295,6 +248,7 @@ TEST_F(AsanRtlTest, asan_check_bad_access) {
   AssertMemoryErrorIsDetected(mem - 1);
   AssertMemoryErrorIsDetected(mem + kAllocSize);
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  ASSERT_TRUE(LogContains("heap-buffer-underflow"));
 }
 
 } // namespace asan

@@ -14,14 +14,12 @@
 
 #include "syzygy/agent/asan/asan_heap.h"
 
-#include "base/compiler_specific.h"
-#include "base/logging.h"
 #include "base/rand_util.h"
 #include "base/sha1.h"
-#include "base/debug/debugger.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
 namespace asan {
@@ -73,19 +71,22 @@ class TestHeapProxy : public HeapProxy {
   }
 };
 
-class HeapTest : public testing::Test {
+class HeapTest : public testing::TestWithAsanLogger {
  public:
   HeapTest() : stack_cache_(&logger_), proxy_(&stack_cache_, &logger_) {
   }
 
   virtual void SetUp() OVERRIDE {
-    logger_.set_instance_id(L"bogus");
+    testing::TestWithAsanLogger::SetUp();
+
+    logger_.set_instance_id(instance_id());
     logger_.Init();
     ASSERT_TRUE(proxy_.Create(0, 0, 0));
   }
 
   virtual void TearDown() OVERRIDE {
     ASSERT_TRUE(proxy_.Destroy());
+    testing::TestWithAsanLogger::TearDown();
   }
 
   // Verifies that [alloc, alloc + size) is accessible, and that
@@ -194,6 +195,7 @@ TEST_F(HeapTest, DoubleFree) {
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_FALSE(proxy_.Free(0, mem));
+  ASSERT_TRUE(LogContains("double-free"));
 }
 
 TEST_F(HeapTest, AllocsAccessibility) {

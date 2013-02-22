@@ -54,6 +54,35 @@
       ],
     },
     {
+      # This is an indirect target that allows us to depend on the existence
+      # of asan_rtl.dll without causing it be imported by the target.
+      'target_name': 'asan_rtl_is_built',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        'asan_rtl',
+      ],
+      'actions': [
+        {
+          'action_name': 'touch_asan_rtl_is_built',
+          'inputs': [
+            '<(PRODUCT_DIR)/asan_rtl.dll',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/asan_rtl_is_built.txt',
+          ],
+          'action': [
+            '<(python_exe)',
+            '-c',
+            'import sys; open(sys.argv[1], \'wb\')',
+            '<(PRODUCT_DIR)/asan_rtl_is_built.txt',
+          ],
+        }
+      ],
+    },
+    {
       'target_name': 'asan_rtl_unittests',
       'type': 'executable',
       'sources': [
@@ -65,9 +94,14 @@
         'asan_rtl_unittests_main.cc',
         'asan_shadow_unittest.cc',
         'stack_capture_cache_unittest.cc',
+        'unittest_util.cc',
+        'unittest_util.h',
       ],
       'dependencies': [
-        'asan_rtl',
+        # We can't simply depend on the library itself, as that means it will
+        # be imported. We prefer to manually load it at runtime, hence the
+        # indirect dependency via a 'none' target.
+        'asan_rtl_is_built',
         'asan_rtl_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',

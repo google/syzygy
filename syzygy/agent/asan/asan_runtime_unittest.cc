@@ -21,6 +21,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
 namespace asan {
@@ -40,12 +41,13 @@ class TestAsanRuntime : public AsanRuntime {
   using AsanRuntime::set_flags;
 };
 
-class AsanRuntimeTest : public testing::Test {
+class AsanRuntimeTest : public testing::TestWithAsanLogger {
  public:
   AsanRuntimeTest() : current_command_line_(CommandLine::NO_PROGRAM) {
   }
 
   void SetUp() OVERRIDE {
+    testing::TestWithAsanLogger::SetUp();
     scoped_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_TRUE(env.get() != NULL);
     env->UnSetVar(TestAsanRuntime::kSyzyAsanEnvVar);

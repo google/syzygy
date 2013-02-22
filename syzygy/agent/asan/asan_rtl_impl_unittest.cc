@@ -16,28 +16,24 @@
 
 #include <windows.h>  // NOLINT
 
-#include "base/compiler_specific.h"
-#include "base/environment.h"
-#include "base/file_util.h"
-#include "base/logging.h"
 #include "base/rand_util.h"
-#include "base/scoped_temp_dir.h"
-#include "base/string_number_conversions.h"
-#include "base/utf_string_conversions.h"
-#include "base/debug/debugger.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/trace/logger/logger.h"
-#include "syzygy/trace/logger/logger_rpc_impl.h"
-#include "syzygy/trace/protocol/call_trace_defs.h"
 
-class AsanRtlImplTest : public testing::Test {
+namespace {
+
+class AsanRtlImplTest : public testing::TestWithAsanLogger {
  public:
   AsanRtlImplTest() : heap_(NULL) {
   }
 
   void SetUp() OVERRIDE {
+    testing::TestWithAsanLogger::SetUp();
+    asan_runtime_.SetUp(std::wstring());
+    agent::asan::SetUpRtl(&asan_runtime_);
     heap_ = asan_HeapCreate(0, 0, 0);
     ASSERT_TRUE(heap_ != NULL);
   }
@@ -47,15 +43,22 @@ class AsanRtlImplTest : public testing::Test {
       asan_HeapDestroy(heap_);
       heap_ = NULL;
     }
+    agent::asan::TearDownRtl();
+    asan_runtime_.TearDown();
+    testing::TestWithAsanLogger::TearDown();
   }
 
  protected:
+  agent::asan::AsanRuntime asan_runtime_;
+
   // Arbitrary constant for all size limit.
   static const size_t kMaxAllocSize = 134584;
 
   // Scratch heap handle valid from SetUp to TearDown.
   HANDLE heap_;
 };
+
+}  // namespace
 
 TEST_F(AsanRtlImplTest, CreateDestroy) {
   HANDLE heap = asan_HeapCreate(0, 0, 0);
