@@ -96,6 +96,20 @@ class AsanTransformTest : public testing::TestDllTransformTest {
     }
   }
 
+  bool AddInstructionFromBuffer(const uint8* data, size_t length) {
+    DCHECK(data != NULL);
+    DCHECK(length < core::AssemblerImpl::kMaxInstructionLength);
+
+    block_graph::Instruction temp;
+    if (!block_graph::Instruction::FromBuffer(data, length, &temp))
+      return false;
+
+    // Append this instruction to the basic block.
+    basic_block_.instructions().push_back(temp);
+
+    return true;
+  }
+
   // Some handy constants we'll use throughout the tests.
   // @{
   static const BasicBlock::Size kDataSize;
@@ -206,6 +220,45 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
   ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
+}
+
+TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
+  // DEC DWORD [EBP - 0x2830]
+  static const uint8 kDec1[6] = { 0xff, 0x8d, 0xd0, 0xd7, 0xff, 0xff };
+  // INC DWORD [EBP - 0x31c]
+  static const uint8 kInc1[6] = { 0xff, 0x85, 0xe4, 0xfc, 0xff, 0xff };
+  // INC DWORD [ESP + 0x1c]
+  static const uint8 kInc2[4] = { 0xff, 0x44, 0x24, 0x1c };
+  // NEG DWORD [EBP + 0x24]
+  static const uint8 kNeg1[3] = { 0xf7, 0x5d, 0x24 };
+  // FILD QWORD [EBP - 0x8]
+  static const uint8 kFild1[3] = { 0xdf, 0x6d, 0xf8 };
+  // FISTP QWORD [ESP + 0x28]
+  static const uint8 kFistp1[4] = { 0xdf, 0x7c, 0x24, 0x28 };
+  // MOV EDI, [EBP - 0x4]
+  static const uint8 kMov1[3] = { 0x8b, 0x7d, 0xfc };
+  // MOV EAX, [EBP - 0x104]
+  static const uint8 kMov2[6] = { 0x8b, 0x85, 0xfc, 0xfe, 0xff, 0xff };
+
+  EXPECT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kInc2, sizeof(kInc2)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kNeg1, sizeof(kNeg1)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kFild1, sizeof(kFild1)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kFistp1, sizeof(kFistp1)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kMov1, sizeof(kMov1)));
+  EXPECT_TRUE(AddInstructionFromBuffer(kMov2, sizeof(kMov2)));
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 basic_block_size = basic_block_.instructions().size();
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+
+  // Non-instrumentable instructions implies no change.
+  ASSERT_EQ(basic_block_.instructions().size(), basic_block_size);
 }
 
 namespace {

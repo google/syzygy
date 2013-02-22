@@ -440,8 +440,9 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (!ShouldInstrumentOpcode(repr.opcode))
       continue;
 
-    // No point in instrumenting ESP-relative accesses.
-    if (operand.base() == core::kRegisterEsp)
+    // No point in instrumenting stack-based accesses.
+    uint8_t segment = SEGMENT_GET(repr.segment);
+    if (segment == R_SS)
       continue;
 
     // We can't deal with repeated (string) instructions.
