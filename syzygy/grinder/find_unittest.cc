@@ -101,8 +101,12 @@ TEST_F(GrinderFindTest, FindOriginalPeFileWorksWithHint) {
 }
 
 TEST_F(GrinderFindTest, FindOriginalPeFileWorksWithoutHint) {
-  FilePath expected_path = testing::GetExeTestDataRelativePath(
-      testing::kTestDllName);
+  // Even though we are searching for the module relative to the unittest
+  // executable, we expect it to find the module relative to the original build
+  // directory. There are not the same paths in the case of our coverage bot,
+  // which copies things to another folder.
+  FilePath expected_path = testing::GetOutputRelativePath(L"test_data")
+      .Append(testing::kTestDllName);
 
   // In this case we don't provide an explicit hint so it should find the
   // original test_dll.dll in the test_data directory.
