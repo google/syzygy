@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.15.0
+[r1359] Elide ASAN hooks for (unhandled) stack addresses.
+[r1330] Thunk entry points to blocks which are not basic-block decomposable.
+[r1344] Add client DLL symbol information to the release.
+
 Version 0.2.14.0
 
 [r1285] Small fix to binaries script.
