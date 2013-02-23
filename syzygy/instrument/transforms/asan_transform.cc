@@ -440,10 +440,13 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (!ShouldInstrumentOpcode(repr.opcode))
       continue;
 
-    // No point in instrumenting stack-based accesses.
-    uint8_t segment = SEGMENT_GET(repr.segment);
-    if (segment == R_SS)
+    // We do not instrument stack-based accesses. These include accesses based
+    // on ESP or EBP (which isusually the stack frame base pointer (like ESP
+    // or a scalar non-pointer value). We have never seen EBP used as a poiner.
+    if (operand.base() == core::kRegisterEsp ||
+        operand.base() == core::kRegisterEbp) {
       continue;
+    }
 
     // We can't deal with repeated (string) instructions.
     if (FLAG_GET_PREFIX(repr.flags) & (FLAG_REPNZ | FLAG_REP))
