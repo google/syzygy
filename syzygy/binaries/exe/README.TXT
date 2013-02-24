@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2013/01/18
-Version:  0.2.14.0 (1287)
+Date:     2013/02/23
+Version:  0.2.15.0 (1360)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -44,6 +44,14 @@ grinder.exe
 instrument.exe
   Instruments a PE file with a given agent.
 
+logger.exe
+  A RPC logging service. For use with ASAN instrumented binaries, accepting
+  error logs across process boundaries. Works for sandboxed processes, like
+  Chrome.
+
+pdbfind.exe
+  A utility for locating the PDB file that is matched to a given PE file.
+
 relink.exe
   Relinks a PE file after applying specified transformations. Combined with
   output from grinder and reorder this is used to apply optimizations to a
@@ -67,8 +75,17 @@ wsdump.exe
   Dumps the working set associated with a running process. The output is in
   JSON format.
 
+zap_timestamp.exe
+  A utility for normalizing a PE/PDB file pair after a build. Used as a post-
+  build step this should allow for production of identical binary outputs
+  given identical inputs. Typical outputs vary in the timestamp, and various
+  unique IDs and checksums.
+
 Instrumentation Agents
 ----------------------
+
+The release package includes the following instrumentation agent libraries,
+and their debugging symbols (PDB files).
 
 asan_rtl.dll
   The runtime library associated with the address-sanitizer instrumentation
