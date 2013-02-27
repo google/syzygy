@@ -16,7 +16,7 @@ in $(OutDir)/test_data. The trace files are output to:
 
   $(OutDir)/test_data/AGENT_NAME_HERE_traces/trace-%d.bin.
 
-This depends on call_trace_service.exe, the agent DLL, and the instrumumented
+This depends on call_trace_service.exe, the agent DLL, and the instrumented
 test_dll having already been built.
 """
 import glob

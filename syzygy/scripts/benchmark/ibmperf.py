@@ -470,8 +470,7 @@ class HardwarePerformanceCounter(IbmPerfTool):
        "NONHALTED_CYCLES": {100: 100000, 200: 1000}}
 
     Raises:
-      ExecutionFailed: Upon failure of the the underlying command-line
-          utilities.
+      ExecutionFailed: Upon failure of the underlying command-line utilities.
       NotRunning: If Start has not been previously called.
       UnexpectedOutput: If the output of the underlying command-line utilities
           was not as expected.
@@ -544,8 +543,7 @@ class HardwarePerformanceCounter(IbmPerfTool):
     Query will fail. New metrics may be gathered with another call to Start.
 
     Raises:
-      ExecutionFailed: Upon failure of the the underlying command-line
-          utilities.
+      ExecutionFailed: Upon failure of the underlying command-line utilities.
       NotRunning: If Start has not been previously called.
     """
     if not self._running_metrics:

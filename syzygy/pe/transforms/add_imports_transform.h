@@ -34,9 +34,9 @@
 //   some_block->SetReference(some_offset, foo_bar_ref);
 //
 // NOTE: The references provided by GetSymbolReference are only valid
-//     immediately after they are constructed. If the the import directory
-//     entries are changed between creating the reference and adding it to a
-//     block, than it may have been invalidated.
+//     immediately after they are constructed. If the import directory entries
+//     are changed between creating the reference and adding it to a block,
+//     than it may have been invalidated.
 
 #ifndef SYZYGY_PE_TRANSFORMS_ADD_IMPORTS_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_ADD_IMPORTS_TRANSFORM_H_

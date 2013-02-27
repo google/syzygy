@@ -109,7 +109,7 @@ bool CreateEmptyFile(const FilePath& path) {
 
 TEST_F(ApplicationTest, AppImplBaseDefault) {
   // The command line for this process has already been set we can pass
-  // whatever we want to Main and it will end up using the the current
+  // whatever we want to Main and it will end up using the current
   // command line.
   const CommandLine* current_command_line = CommandLine::ForCurrentProcess();
   ASSERT_TRUE(current_command_line != NULL);

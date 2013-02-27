@@ -36,8 +36,8 @@ extern const DWORD kReadOnlyDataCharacteristics;
 extern const DWORD kReadWriteDataCharacteristics;
 extern const DWORD kRelocCharacteristics;
 
-// Validates @p dos_header_block for the the size, magic constants and
-// other properties of a valid DOS header.
+// Validates @p dos_header_block for the size, magic constants and other
+// properties of a valid DOS header.
 // @returns true iff @p dos_header_block has all the correct properties
 //     of a DOS header.
 bool IsValidDosHeaderBlock(

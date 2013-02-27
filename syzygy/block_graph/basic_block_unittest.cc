@@ -47,7 +47,7 @@ class BasicBlockTest: public testing::Test {
   // Convert @p opcode to a branch type.
   //
   // @returns FC_CND_BRANCH on conditional branch opcodes; FC_UNC_BRANCH on
-  //     unconditional branch opcodes; or FC_NONE if the opocode is not a
+  //     unconditional branch opcodes; or FC_NONE if the opcode is not a
   //     branch.
   static uint8 BranchToType(uint16 opcode) {
     switch (opcode) {

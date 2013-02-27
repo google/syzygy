@@ -45,7 +45,7 @@ class JSONFileWriter {
   bool Finished() const { return finished_; }
 
   // For outputting comments. A comment will appear on a line by itself, with
-  // the same identation as the next written value. Naturally, this means that
+  // the same indentation as the next written value. Naturally, this means that
   // a comment attached to a value should be written prior to that value being
   // output. Multiple comments may be written successively. Comments are only
   // output if pretty printing is enabled. It is an error to output a comment

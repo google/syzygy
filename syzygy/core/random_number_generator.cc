@@ -15,7 +15,7 @@
 #include "syzygy/core/random_number_generator.h"
 #include "base/logging.h"
 
-// This is a linear congruent pseuodo random generator.
+// This is a linear congruent pseudo random generator.
 // See: http://en.wikipedia.org/wiki/Linear_congruential_generator.
 
 namespace {

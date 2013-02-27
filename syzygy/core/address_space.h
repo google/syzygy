@@ -58,7 +58,7 @@ class AddressSpace {
   typedef typename RangeMap::value_type value_type;
   // @}
 
-  // Create an empy address space.
+  // Create an empty address space.
   AddressSpace();
 
   // Insert @p range mapping to @p item unless @p range intersects
@@ -499,7 +499,7 @@ bool AddressSpace<AddressType, SizeType, ItemType>::FindOrInsert(
     const Range& range,
     const ItemType& item,
     typename RangeMap::iterator* ret_it) {
-  // Is there already an existing block exactly mathing that range? If so,
+  // Is there already an existing block exactly matching that range? If so,
   // return it.
   RangeMap::iterator it = FindFirstIntersection(range);
   if (it != ranges_.end()) {

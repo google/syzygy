@@ -365,4 +365,4 @@ TEST_F(ReorderAppTest, LinearOrderEndToEnd) {
   ASSERT_EQ(0, test_app_.Run());
 }
 
-}  // namespace pe
+}  // namespace reorder

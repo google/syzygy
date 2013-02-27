@@ -650,7 +650,7 @@ class BlockGraph::Block {
   SourceRanges& source_ranges() { return source_ranges_; }
   const LabelMap& labels() const { return labels_; }
 
-  // Returns true if there are any other bocks holding a reference to this one.
+  // Returns true if there are any other blocks holding a reference to this one.
   bool HasExternalReferrers() const;
 
   // Set the reference at @p offset to @p ref.

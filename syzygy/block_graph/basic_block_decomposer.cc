@@ -560,7 +560,7 @@ bool BasicBlockDecomposer::Disassemble() {
     return false;
   }
 
-  // Wire up the the basic-block successors. These are not handled by
+  // Wire up the basic-block successors. These are not handled by
   // CopyReferences(), above.
   if (!ResolveSuccessors()) {
     LOG(ERROR) << "Failed to resolve basic-block successors.";

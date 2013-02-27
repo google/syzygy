@@ -121,7 +121,7 @@ class ApplicationTestBase : public testing::Test {
     return f->get();
   }
 
-  // List of temporary directorys created during this test invocation.
+  // List of temporary directories created during this test invocation.
   typedef std::vector<const FilePath> DirList;
   DirList temp_dirs_;
 

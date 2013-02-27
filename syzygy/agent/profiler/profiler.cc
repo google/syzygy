@@ -444,7 +444,7 @@ void Profiler::ThreadState::UpdateOverhead(uint64 entry_cycles) {
 InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
   // This is kind of self-evident for the moment, as an invocation info batch
   // contains at least one invocation info as currently declared.
-  // If this fails, please recondsider your implementation, or else revisit
+  // If this fails, please reconsider your implementation, or else revisit
   // the allocation code below.
   COMPILE_ASSERT(sizeof(TraceBatchInvocationInfo) >= sizeof(InvocationInfo),
                  invocation_info_batch_must_be_larger_than_invocation_info);

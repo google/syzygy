@@ -121,7 +121,7 @@ bool Session::Close() {
   // Otherwise the session is being asked to close for the first time.
   is_closing_ = true;
 
-  // We'll reserve space for the the worst case scenario buffer count.
+  // We'll reserve space for the worst case scenario buffer count.
   buffers.reserve(buffer_state_counts_[Buffer::kInUse] + 1);
 
   // Schedule any outstanding buffers for flushing.

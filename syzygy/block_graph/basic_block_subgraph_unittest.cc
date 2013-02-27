@@ -245,7 +245,7 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   EXPECT_FALSE(subgraph.HasValidSuccessors());
 
   // Add second conditional succession from bb2 to bb1, but not the inverse
-  // of the first condtition.
+  // of the first condition.
   bb2->successors().push_back(
       Successor(Successor::kConditionAboveOrEqual,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),

@@ -453,4 +453,4 @@ TEST_F(RelinkAppTest, RelinkBasicBlockOrder) {
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
 }
 
-}  // namespace pe
+}  // namespace relink

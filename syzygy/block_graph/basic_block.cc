@@ -59,7 +59,7 @@
 //
 //     Note that popfd is prepended onto the instruction sequences of both
 //     fall-through and original-branch-target. To represent this we
-//     should introduce pesudo instructions to represent each inversion,
+//     should introduce pseudo instructions to represent each inversion,
 //     which would allow the inversion to be reversible.
 
 #include "syzygy/block_graph/basic_block.h"
@@ -288,7 +288,7 @@ bool Instruction::CallsNonReturningFunction() const {
   DCHECK_EQ(1U, references_.size());
   const BasicBlockReference& ref = references_.begin()->second;
 
-  // This can happen if  the call is recursive to the currently decomposed
+  // This can happen if the call is recursive to the currently decomposed
   // function calling ourselves. In this case the reference will be to another
   // basic-block that is a part of the same parent block.
   if (ref.block() == NULL) {

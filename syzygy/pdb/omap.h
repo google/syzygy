@@ -40,7 +40,7 @@ bool OmapLess(const OMAP& omap1, const OMAP& omap2);
 // Determines if the given OMAP vector is valid. That is, for every i in
 // [1, omaps.size() - 1], OmapLess(omaps[i - 1], omaps[i]) is true.
 //
-// @params omaps the vector of OMAPs to validate.
+// @param omaps the vector of OMAPs to validate.
 // @returns true if omaps is valid, false otherwise.
 bool OmapVectorIsValid(const std::vector<OMAP>& omaps);
 

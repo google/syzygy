@@ -135,7 +135,7 @@ class BasicBlockSubGraph {
   // basic-blocks starting from the entry-point.
   void GetReachabilityMap(ReachabilityMap* rm) const;
 
-  // A helper function for querying a reachabilty map.
+  // A helper function for querying a reachability map.
   static bool IsReachable(const ReachabilityMap& rm, const BasicBlock* bb);
 
  protected:

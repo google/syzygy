@@ -130,10 +130,10 @@ class LoggerApp : public common::AppImplBase {
   static const wchar_t kStdErr[];
   // @}
 
-  // The command line paramters pertaining to the logger.
+  // The command line parameters pertaining to the logger.
   CommandLine logger_command_line_;
 
-  // The command-line paramters pertaining to the subprocess to exec.
+  // The command-line parameters pertaining to the subprocess to exec.
   scoped_ptr<CommandLine> app_command_line_;
 
   // Members to hold the logger's parsed command-line parameters

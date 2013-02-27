@@ -119,7 +119,7 @@ class TypedBlockImpl {
 
   // Determines if this typed block refers to a valid region of block data.
   //
-  // @returns true if derefencing will succeed, false otherwise.
+  // @returns true if dereferencing will succeed, false otherwise.
   bool IsValid() const {
     return IsValidElement(0);
   }
@@ -127,7 +127,7 @@ class TypedBlockImpl {
   // Determines if element @p elem of typed block refers to a valid
   // region of block data.
   //
-  // @returns true if derefencing @p elem will succeed, false otherwise.
+  // @returns true if dereferencing @p elem will succeed, false otherwise.
   bool IsValidElement(size_t elem) const {
     return InBlock(offset_ + sizeof(T) * elem, sizeof(T));
   }
@@ -269,7 +269,7 @@ class TypedBlockImpl {
   // @tparam TIn the type of the input @p value.
   // @param value a reference to the value to dereference. This must be within
   //     the object.
-  // @returns the offset of value within the the referenced block.
+  // @returns the offset of value within the referenced block.
   template <typename TIn>
   Offset OffsetOf(TIn& value) const {
     const uint8* value_address = reinterpret_cast<const uint8*>(&value);
@@ -330,7 +330,7 @@ class TypedBlockImpl {
   // Attempts to follow a reference of given @p size at the given @p offset
   // into the block. This only succeeds if their is a reference at the given
   // offset, it is direct, it matches the given size, is contained entirely
-  // within the the encapsulated block, and the referenced block is sufficiently
+  // within the encapsulated block, and the referenced block is sufficiently
   // large to represent an object of type T2.
   //
   // @tparam T2 the type encapsulated by @p typed_block.
@@ -368,7 +368,7 @@ class TypedBlockImpl {
   BlockPtr block_;
   size_t size_;
 #ifndef NDEBUG
-  // This is strictly unneccessary, but aids debugging a great deal. Note that
+  // This is strictly unnecessary, but aids debugging a great deal. Note that
   // this pointer is set when Init is called, and will be invalid if the
   // underlying block has reallocated its data.
   T* debug_object_;

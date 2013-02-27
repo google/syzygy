@@ -46,6 +46,6 @@ class BlockBuilder {
   DISALLOW_COPY_AND_ASSIGN(BlockBuilder);
 };
 
-}  // namespace pe
+}  // namespace block_graph
 
 #endif  // SYZYGY_BLOCK_GRAPH_BLOCK_BUILDER_H_

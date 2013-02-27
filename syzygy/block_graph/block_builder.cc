@@ -98,7 +98,7 @@ class MergeContext {
 
   // A clean-up function to remove the original block from which @p subgraph
   // is derived (if any) from the block graph. This must only be performed
-  // after having updated the block graph with the new blocks and transfered
+  // after having updated the block graph with the new blocks and transferred
   // all references to the new block(s).
   // @param subgraph The subgraph.
   void RemoveOriginalBlock(BasicBlockSubGraph* subgraph);
@@ -225,7 +225,7 @@ class MergeContext {
 
   // Computes and returns the required successor size for @p successor.
   // @param info The layout info for the basic block.
-  // @param start_offset Offeset from the start of @p info.basic_block to
+  // @param start_offset Offset from the start of @p info.basic_block to
   //     the first byte of the successor.
   // @param successor The successor to size.
   Size ComputeRequiredSuccessorSize(const BasicBlockLayoutInfo& info,
@@ -1047,4 +1047,4 @@ bool BlockBuilder::Merge(BasicBlockSubGraph* subgraph) {
   return true;
 }
 
-}  // namespace pe
+}  // namespace block_graph

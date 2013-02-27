@@ -482,7 +482,7 @@ class Successor {
 
   // Get the condition that represents the inversion of the given @p condition.
   //
-  // @p conditon the condition to invert.
+  // @p condition the condition to invert.
   // @returns kInvalidCondition if @p condition is not invertible.
   static Condition InvertCondition(Condition condition);
 

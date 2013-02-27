@@ -45,7 +45,7 @@ typedef uint32 RVA;
 // caller address, to a particular function.
 // Note that the same caller/function pair may occur multiple times in a trace
 // log, even for the same thread, as the profile instrumentation spills a trace
-// record to the log when the number of caller/function pairs it's seen exeeds
+// record to the log when the number of caller/function pairs it's seen exceeds
 // the size of the thread-local buffer used to aggregate the data.
 //
 // This class aggregates the data from a trace log, and builds a graph of

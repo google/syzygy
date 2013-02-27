@@ -35,7 +35,7 @@ typedef base::Callback<bool(BlockGraph* block_graph,
 // any number of blocks to the block-graph. It is constrained to be allowed
 // to delete only the current block being handled by the callback.
 //
-// The iteration will only visit those blocks that were prexisting in the
+// The iteration will only visit those blocks that were pre-existing in the
 // BlockGraph. That is, if the callback causes new blocks to be generated those
 // blocks will never be visited and passed to the callback.
 //

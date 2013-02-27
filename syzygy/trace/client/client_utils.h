@@ -179,7 +179,7 @@ bool IsRpcSessionMandatoryForThisModule();
 // to abort.
 // @param rpc_session the session to initialize.
 // @param segment will receive the first allocated segment upon successful
-//     initilization.
+//     initialization.
 // @returns true if everything went well, false if anything went wrong and the
 //     session is not mandatory.
 bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment);

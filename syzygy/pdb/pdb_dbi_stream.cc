@@ -259,7 +259,7 @@ bool DbiStream::ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
         !stream->Seek(file_blocks_table_start
             + (file_blocks_table_size + i)*sizeof(block_start)) ||
         !stream->Read(&block_length, 1)) {
-      LOG(ERROR) << "Unable to read the the file info substream.";
+      LOG(ERROR) << "Unable to read the file info substream.";
       return false;
     }
 
@@ -271,7 +271,7 @@ bool DbiStream::ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
     }
 
     if (!stream->Read(&file_info_.first.at(i), block_length)) {
-      LOG(ERROR) << "Unable to read the the file info substream.";
+      LOG(ERROR) << "Unable to read the file info substream.";
       return false;
     }
   }

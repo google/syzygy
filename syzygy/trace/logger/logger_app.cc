@@ -205,9 +205,9 @@ bool SignalEvent(HANDLE event_handle, Logger* /* logger */) {
 
 // A helper to split a command line into two command lines. The split will
 // occur after the first non-switch parameter. The logger command line will
-// be populated by the the switches and arguments up to and including the
-// fist non-switch parameter. All remaining arguments and switches will be
-// added the app command line. This function understands the "--" marker
+// be populated by the switches and arguments up to and including the first
+// non-switch parameter. All remaining arguments and switches will be added
+// to the app command line. This function understands the "--" marker
 // which is used to allow switches to appear after the first non-switch
 // argument (otherwise CommandLine will sort the entire command line before
 // we get a chance to inspect it.).

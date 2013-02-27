@@ -43,7 +43,7 @@ enum AddressType {
 //   and (presumably for convenience) by a file offset address.
 // This class is a lightweight wrapper for an integer, which can be freely
 // copied. The different address types are deliberately assignment
-// incompatible, which helps to avod confusion when handling different
+// incompatible, which helps to avoid confusion when handling different
 // types of addresses in implementation.
 template <AddressType type> class AddressImpl {
  public:

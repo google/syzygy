@@ -93,7 +93,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 
     json_path->clear();
 
-    // Consume the the trace file.
+    // Consume the trace file.
     TestBasicBlockEntryCountGrinder grinder;
     cmd_line_.AppendSwitch("pretty-print");
     grinder.ParseCommandLine(&cmd_line_);

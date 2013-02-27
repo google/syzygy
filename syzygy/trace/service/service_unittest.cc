@@ -727,7 +727,7 @@ TEST_F(CallTraceServiceTest, SendBuffer) {
   ASSERT_NO_FATAL_FAILURE(ReadTraceFile(&trace_file_contents));
 
   // Read and validate the trace file header. We expect to have written
-  // the the header (rounded up to a block) plus num_blocks of data,
+  // the header (rounded up to a block) plus num_blocks of data,
   // plus 1 block containing the process ended event.
   TraceFileHeader* header =
       reinterpret_cast<TraceFileHeader*>(&trace_file_contents[0]);

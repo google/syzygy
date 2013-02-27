@@ -348,8 +348,8 @@ bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
 
 // Create a stub for the asan_check_access functions. The stub consist of a
 // small block of code that restores the value of eax and returns to the caller.
-// @params block_graph The block-graph to populate with the stub.
-// @params stub_name The stub's name.
+// @param block_graph The block-graph to populate with the stub.
+// @param stub_name The stub's name.
 // @returns A pointer to the stub's block in success, NULL otherwise.
 BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
                                    const base::StringPiece stub_name) {

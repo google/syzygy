@@ -39,7 +39,7 @@ namespace simulate {
 // 8 is used.
 //
 // If the page size is not set, then it's deduced from the trace file data
-// or, if that's not possible, it's set to the detault value of 0x1000 (4 KB).
+// or, if that's not possible, it's set to the default value of 0x1000 (4 KB).
 class PageFaultSimulation : public SimulationEventHandler {
  public:
   typedef block_graph::BlockGraph::Block Block;

@@ -29,7 +29,7 @@
     },
     {
       # The XP version of this executable needs to build against the VSS SDK.
-      # We bring this about by prepending the the VSS SDKs to the include and
+      # We bring this about by prepending the VSS SDKs to the include and
       # library paths for this target.
       # Note, however that this needs the VSS SDK to be present in
       # <(src)\third_party\vsssdk72\files. If the VSS SDK is not present

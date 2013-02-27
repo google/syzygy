@@ -128,7 +128,7 @@ FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path);
 // directory as a base.
 //
 // @param abs_path the absolute path to convert.
-// @returns the relative path to abs_path, starting from the current workign
+// @returns the relative path to abs_path, starting from the current working
 //     directory. If there is no relative path, it returns the empty path.
 FilePath GetRelativePath(const FilePath& abs_path);
 

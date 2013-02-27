@@ -237,7 +237,7 @@ struct Reorderer::Order {
     // an existing section and the name does not match, then the section will
     // be renamed. If this is not explicitly set in the JSON file then the the
     // ID must be specified and this well be populated with the section name of
-    // the original section in the the original image layout.
+    // the original section in the original image layout.
     std::string name;
 
     // The characteristics this section should have in the final image. If id

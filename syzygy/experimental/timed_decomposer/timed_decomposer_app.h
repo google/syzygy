@@ -55,6 +55,6 @@ class TimedDecomposerApp : public common::AppImplBase {
   DISALLOW_COPY_AND_ASSIGN(TimedDecomposerApp);
 };
 
-}  // namespace pe
+}  // namespace experimental
 
 #endif  // SYZYGY_EXPERIMENTAL_TIMED_DECOMPSER_TIMED_DECOMPOSER_APP_H_

@@ -154,7 +154,7 @@ TEST_F(AsanRtlImplTest, SetQueryInformation) {
 
 TEST_F(AsanRtlImplTest, SetInformationWithNullHeapPtr) {
   // The documentation of HeapSetInformation specify that the heap handle is
-  // optionnal.
+  // optional.
   ASSERT_TRUE(
       asan_HeapSetInformation(NULL, HeapEnableTerminationOnCorruption,
                               NULL, 0));
