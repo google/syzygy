@@ -25,6 +25,8 @@ namespace agent {
 namespace asan {
 namespace {
 
+typedef StackCapture::StackId StackId;
+
 // Redzone size allocated at the start of every heap block.
 const size_t kRedZoneSize = 32U;
 
@@ -171,20 +173,16 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   memset(block, 0xCC, header_size);
   Shadow::Poison(block, kRedZoneSize);
 
-  // Capture the current stack. We call the CaptureStackBackTrace function
-  // directly (instead of via a wrapper) to preserve the greatest number of
-  // frames we can capture.
-  ULONG stack_id = 0;
-  void* frames[StackCapture::kMaxNumFrames];
-  size_t num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  // Capture the current stack. InitFromStack is inlined to preserve the
+  // greatest number of stack frames.
+  StackCapture stack;
+  stack.InitFromStack();
 
   // Initialize the block fields.
   block->magic_number = kBlockHeaderSignature;
   block->size = bytes;
   block->state = ALLOCATED;
-  block->alloc_stack =
-      stack_cache_->SaveStackTrace(stack_id, frames, num_frames);
+  block->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block->free_stack = NULL;
 
   uint8* block_alloc = ToAlloc(block);
@@ -217,6 +215,10 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   if (block == NULL)
     return true;
 
+  // Capture the current stack.
+  StackCapture stack;
+  stack.InitFromStack();
+
   if (block->state != ALLOCATED) {
     // We're not supposed to see another kind of block here, the FREED state
     // is only applied to block after invalidating their magic number and freed
@@ -226,24 +228,18 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     BadAccessKind bad_access_kind =
         GetBadAccessKind(static_cast<const uint8*>(mem), block);
     DCHECK_NE(UNKNOWN_BAD_ACCESS, bad_access_kind);
+
     CONTEXT context = {};
     ::RtlCaptureContext(&context);
+
     ReportAsanError("attempting double-free", static_cast<const uint8*>(mem),
-                    context, bad_access_kind, block, ASAN_UNKNOWN_ACCESS, 0);
+                    context, stack, bad_access_kind, block,
+                    ASAN_UNKNOWN_ACCESS, 0);
 
     return false;
   }
 
-  // Capture the current stack. We call the CaptureStackBackTrace function
-  // directly (instead of via a wrapper) to preserve the greatest number of
-  // frames we can capture.
-  ULONG stack_id = 0;
-  void* frames[StackCapture::kMaxNumFrames];
-  size_t num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
-
-  block->free_stack =
-      stack_cache_->SaveStackTrace(stack_id, frames, num_frames);
+  block->free_stack = stack_cache_->SaveStackTrace(stack);
   DCHECK(ToAlloc(block) == mem);
 
   // If the size of the allocation is zero then we shouldn't check the shadow
@@ -383,8 +379,12 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
   if (header->magic_number != kBlockHeaderSignature) {
     CONTEXT context = {};
     ::RtlCaptureContext(&context);
-    if (!OnBadAccess(mem, context, ASAN_UNKNOWN_ACCESS, 0)) {
-      ReportUnknownError(mem, context, ASAN_UNKNOWN_ACCESS, 0);
+
+    StackCapture stack;
+    stack.InitFromStack();
+
+    if (!OnBadAccess(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0)) {
+      ReportUnknownError(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0);
       Shadow::PrintShadowMemoryForAddress(alloc);
     }
     return NULL;
@@ -437,12 +437,17 @@ void HeapProxy::ReportAddressInformation(const void* addr,
       block_alloc,
       block_alloc + header->size));
   if (header->free_stack != NULL) {
-    logger_->WriteWithStackTrace("freed here:\n",
+    std::string message = base::StringPrintf(
+        "freed here (stack_id=0x%08X):\n", header->free_stack->stack_id());
+    logger_->WriteWithStackTrace(message,
                                  header->free_stack->frames(),
                                  header->free_stack->num_frames());
   }
   if (header->alloc_stack != NULL) {
-    logger_->WriteWithStackTrace("previously allocated here:\n",
+    std::string message = base::StringPrintf(
+        "previously allocated here (stack_id=0x%08X):\n",
+        header->alloc_stack->stack_id());
+    logger_->WriteWithStackTrace(message,
                                  header->alloc_stack->frames(),
                                  header->alloc_stack->num_frames());
   }
@@ -505,6 +510,7 @@ HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
 
 bool HeapProxy::OnBadAccess(const void* addr,
                             const CONTEXT& context,
+                            const StackCapture& stack,
                             AccessMode access_mode,
                             size_t access_size) {
   DCHECK(addr != NULL);
@@ -522,6 +528,7 @@ bool HeapProxy::OnBadAccess(const void* addr,
     ReportAsanError(bug_descr,
                     addr,
                     context,
+                    stack,
                     bad_access_kind,
                     header,
                     access_mode,
@@ -534,12 +541,14 @@ bool HeapProxy::OnBadAccess(const void* addr,
 
 void HeapProxy::ReportUnknownError(const void* addr,
                                    const CONTEXT& context,
+                                   const StackCapture& stack,
                                    AccessMode access_mode,
                                    size_t access_size) {
   DCHECK(addr != NULL);
   ReportAsanErrorBase("unknown-crash",
                       addr,
                       context,
+                      stack,
                       UNKNOWN_BAD_ACCESS,
                       access_mode,
                       access_size);
@@ -550,6 +559,7 @@ void HeapProxy::ReportUnknownError(const void* addr,
 void HeapProxy::ReportAsanError(const char* bug_descr,
                                 const void* addr,
                                 const CONTEXT& context,
+                                const StackCapture& stack,
                                 BadAccessKind bad_access_kind,
                                 BlockHeader* header,
                                 AccessMode access_mode,
@@ -561,6 +571,7 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
   ReportAsanErrorBase(bug_descr,
                       addr,
                       context,
+                      stack,
                       bad_access_kind,
                       access_mode,
                       access_size);
@@ -589,6 +600,7 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
 void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     const void* addr,
                                     const CONTEXT& context,
+                                    const StackCapture& stack,
                                     BadAccessKind bad_access_kind,
                                     AccessMode access_mode,
                                     size_t access_size) {
@@ -601,7 +613,8 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
 
   // TODO(sebmarchand): Print PC, BP and SP.
   std::string output(base::StringPrintf(
-      "SyzyASAN error: %s on address 0x%08X\n", bug_descr, addr));
+      "SyzyASAN error: %s on address 0x%08X (stack_id=0x%08X)\n",
+      bug_descr, addr, stack.stack_id()));
   if (access_mode != ASAN_UNKNOWN_ACCESS) {
     const char* access_mode_str = NULL;
     if (access_mode == ASAN_READ_ACCESS)

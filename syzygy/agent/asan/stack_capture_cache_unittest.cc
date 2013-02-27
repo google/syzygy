@@ -41,28 +41,42 @@ TEST(StackCaptureTest, InitFromBuffer) {
 
   // Validate the capture's initial state.
   EXPECT_FALSE(capture.IsValid());
+  EXPECT_EQ(0u, capture.stack_id());
   EXPECT_EQ(0, capture.num_frames());
   EXPECT_EQ(NULL, capture.frames());
 
   // Create some fake stack trace data.
-  ULONG stack_id = 0;
+  ULONG stack_id = 10;
   void* frames[StackCapture::kMaxNumFrames + 1] = { 0 };
   for (size_t i = 0; i < arraysize(frames); ++i) {
     frames[i] = reinterpret_cast<void*>(i);
   }
 
   // Initialize the stack capture without using all of the frames.
-  capture.InitFromBuffer(frames, 7);
+  capture.InitFromBuffer(stack_id, frames, 7);
   EXPECT_TRUE(capture.IsValid());
+  EXPECT_EQ(10u, capture.stack_id());
   EXPECT_EQ(7, capture.num_frames());
   EXPECT_TRUE(capture.frames() != NULL);
 
   // Attempt to initialize the stack capture using too many frames; the
   // resulting capture should truncate to kMaxNumFrames.
-  capture.InitFromBuffer(frames, arraysize(frames));
+  capture.InitFromBuffer(stack_id, frames, arraysize(frames));
   EXPECT_TRUE(capture.IsValid());
+  EXPECT_EQ(10u, capture.stack_id());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.num_frames());
   EXPECT_TRUE(capture.frames() != NULL);
+}
+
+TEST(StackCaptureTest, InitFromStack) {
+  StackCapture capture;
+  EXPECT_FALSE(capture.IsValid());
+  EXPECT_EQ(0u, capture.stack_id());
+  EXPECT_EQ(0, capture.num_frames());
+
+  capture.InitFromStack();
+  EXPECT_TRUE(capture.IsValid());
+  EXPECT_LT(0u, capture.num_frames());
 }
 
 TEST(StackCaptureCacheTest, SaveStackTrace) {

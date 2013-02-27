@@ -88,10 +88,12 @@ class AsanRuntime {
   // Report the details of an Asan error by walking the heap proxies list.
   // @param addr The red-zoned address causing a bad access.
   // @param context The context at which the access occurred.
+  // @param stack The stack capture at the point of error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
   void ReportAsanErrorDetails(const void* addr,
                               const CONTEXT& context,
+                              const StackCapture& stack,
                               HeapProxy::AccessMode access_mode,
                               size_t access_size);
  protected:

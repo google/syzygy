@@ -248,6 +248,7 @@ void AsanRuntime::RemoveHeap(HeapProxy* heap) {
 
 void AsanRuntime::ReportAsanErrorDetails(const void* addr,
                                          const CONTEXT& context,
+                                         const StackCapture& stack,
                                          HeapProxy::AccessMode access_mode,
                                          size_t access_size) {
   base::AutoLock lock(heap_proxy_dlist_lock_);
@@ -263,7 +264,7 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
     }
 
     proxy = HeapProxy::FromListEntry(item);
-    if (proxy->OnBadAccess(addr, context, access_mode, access_size)) {
+    if (proxy->OnBadAccess(addr, context, stack, access_mode, access_size)) {
       break;
     }
 
@@ -275,7 +276,8 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
   // the last heap proxy we saw to report an "unknown" error.
   if (item == NULL) {
     CHECK(proxy != NULL);
-    proxy->ReportUnknownError(addr, context, access_mode, access_size);
+    proxy->ReportUnknownError(addr, context, stack, access_mode,
+                              access_size);
   }
 }
 

@@ -34,11 +34,21 @@ class StackCapture {
   // to traverse must be less than 63, so set it to 62.
   static const size_t kMaxNumFrames = 62;
 
-  StackCapture() : num_frames_(0) {
+  // TODO(chrisha): Add the ability to runtime limit the number of stack frames
+  //     that can be stored in a StackCapture.
+
+  // This corresponds to the the type used by ::CaptureStackBackTrace's hash
+  // for a stack-trace.
+  typedef ULONG StackId;
+
+  StackCapture() : stack_id_(0), num_frames_(0) {
   }
 
   // @returns true if this stack trace capture contains valid frame pointers.
   bool IsValid() const { return num_frames_ != 0; }
+
+  // @returns the ID associated with this stack trace.
+  StackId stack_id() const { return stack_id_; }
 
   // @returns the number of valid frame pointers in this stack trace capture.
   uint8 num_frames() const { return num_frames_; }
@@ -47,15 +57,44 @@ class StackCapture {
   //     frames have been captured.
   const void* const* frames() const { return IsValid() ? frames_ : NULL; }
 
-  // Initializes a stack trace from an array of frame pointers and a count
-  // (such as returned by CaptureStackBackTrace).
+  // Sets the stack ID for a given trace.
+  // @param The stack ID to set.
+  void set_stack_id(StackId stack_id) { stack_id_ = stack_id; }
+
+  // Initializes a stack trace from an array of frame pointers, a count and
+  // a StackId (such as returned by ::CaptureStackBackTrace).
+  // @param stack_id The ID of the stack back trace.
   // @param frames an array of frame pointers.
   // @param num_frames the number of valid frame pointers in @frames. Note
   //     that at most kMaxNumFrames frame pointers will be copied to this
   //     stack trace capture.
-  void InitFromBuffer(const void* const* frames, size_t num_frames);
+  void InitFromBuffer(StackId stack_id,
+                      const void* const* frames,
+                      size_t num_frames);
+
+  // Initializes a stack trace using ::CaptureStackBackTrace. This is inlined so
+  // that it doesn't further pollute the stack trace, but rather makes it
+  // reflect the actual point of the call.
+  __forceinline void InitFromStack() {
+    num_frames_ = ::CaptureStackBackTrace(
+        0, kMaxNumFrames, frames_, &stack_id_);
+  }
+
+  // The hash comparison functor for use with MSDN's stdext::hash_set.
+  struct HashCompare {
+    static const size_t bucket_size = 4;
+    static const size_t min_buckets = 8;
+    // Calculates a hash value for the given stack_capture.
+    size_t operator()(const StackCapture* stack_capture) const;
+    // Value comparison operator.
+    bool operator()(const StackCapture* stack_capture1,
+                    const StackCapture* stack_capture2) const;
+  };
 
  protected:
+  // The unique ID of this hash. This is used for storing the hash in the map.
+  StackId stack_id_;
+
   // The number of valid frames in this stack trace capture.
   size_t num_frames_;
 
@@ -73,7 +112,7 @@ class StackCaptureCache {
   static const size_t kNumCapturesPerPage = 1024;
 
   // The type used to uniquely identify a stack.
-  typedef unsigned long StackId;
+  typedef StackCapture::StackId StackId;
 
   // A page of preallocated stack trace capture objects to be populated
   // and stored in the known stacks cache map.
@@ -130,17 +169,22 @@ class StackCaptureCache {
   // @param frames an array of stack frame pointers.
   // @param num_frames the number of valid elements in @p frames. Note that
   //     at most StackCapture::kMaxNumFrames will be saved.
+  // @param stack_capture The initialized stack capture to save.
+  // @returns a pointer to the saved stack capture.
   const StackCapture* SaveStackTrace(StackId stack_id,
                                      const void* const* frames,
                                      size_t num_frames);
+  const StackCapture* SaveStackTrace(const StackCapture& stack_capture);
 
   // Logs the current stack capture cache compression ratio. This method is
   // thread safe.
   void LogCompressionRatio() const;
 
  protected:
-  // The container type in which we store the cached stacks, by id.
-  typedef base::hash_map<StackId, const StackCapture*> StackMap;
+  // The container type in which we store the cached stacks. This enforces
+  // uniqueness based on their hash value, nothing more.
+  typedef base::hash_set<const StackCapture*,
+                         StackCapture::HashCompare> StackSet;
 
   // @returns The compression ratio achieved by the stack capture cache. This
   //     is the percentage of total allocation stack traces actually stored in
@@ -165,8 +209,8 @@ class StackCaptureCache {
   // A lock to protect the known stacks map from concurrent access.
   mutable base::Lock lock_;
 
-  // The map of known stacks, by id. Accessed under lock_.
-  StackMap known_stacks_;
+  // The set of known stacks. Accessed under lock_.
+  StackSet known_stacks_;
 
   // The current page from which new stack captures are allocated.
   // Accessed under lock_.

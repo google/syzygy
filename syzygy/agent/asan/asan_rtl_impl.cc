@@ -310,12 +310,18 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // calculate the top address of this structure.
   context.Esp = reinterpret_cast<DWORD>(asan_context) + sizeof(asan_context);
 
+  StackCapture stack;
+  stack.InitFromStack();
+
   asan_runtime->ReportAsanErrorDetails(asan_context->location,
                                        context,
+                                       stack,
                                        access_mode,
                                        access_size);
 
   // Call the callback to handle this error.
+  // TODO(chrisha): Plumb the stack ID through the OnError call so that it can
+  //     be used over there for stats as well if needed.
   asan_runtime->OnError();
 }
 

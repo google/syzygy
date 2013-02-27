@@ -28,12 +28,32 @@ namespace asan {
 size_t StackCaptureCache::compression_reporting_period_ =
     StackCaptureCache::kDefaultCompressionReportingPeriod;
 
-void StackCapture::InitFromBuffer(const void* const* frames,
+void StackCapture::InitFromBuffer(StackId stack_id,
+                                  const void* const* frames,
                                   size_t num_frames) {
   DCHECK(frames != NULL);
   DCHECK_LT(0U, num_frames);
+  stack_id_ = stack_id;
   num_frames_ = std::min(num_frames, kMaxNumFrames);
   ::memcpy(frames_, frames, num_frames_ * sizeof(void*));
+}
+
+size_t StackCapture::HashCompare::operator()(
+    const StackCapture* stack_capture) const {
+  DCHECK(stack_capture != NULL);
+  // We're assuming that the StackId and size_t have the same size, so let's
+  // make sure that's the case.
+  COMPILE_ASSERT(sizeof(StackId) == sizeof(size_t),
+                 stack_id_and_size_t_not_same_size);
+  return stack_capture->stack_id_;
+}
+
+bool StackCapture::HashCompare::operator()(
+    const StackCapture* stack_capture1,
+    const StackCapture* stack_capture2) const {
+  DCHECK(stack_capture1 != NULL);
+  DCHECK(stack_capture2 != NULL);
+  return stack_capture1->stack_id_ < stack_capture2->stack_id_;
 }
 
 StackCaptureCache::StackCaptureCache(AsanLogger* logger)
@@ -81,19 +101,21 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
         &current_page_->captures[current_page_->num_captures_used];
 
     // Attempt to insert it into the known stacks map.
-    std::pair<StackMap::const_iterator, bool> result = known_stacks_.insert(
-        std::make_pair(stack_id, unused_trace));
+    unused_trace->set_stack_id(stack_id);
+    std::pair<StackSet::const_iterator, bool> result = known_stacks_.insert(
+        unused_trace);
 
     // If the insertion was successful, then this capture has not already been
     // cached and we have to initialize the data.
     if (result.second) {
-      unused_trace->InitFromBuffer(frames, num_frames);
+      DCHECK_EQ(unused_trace, *result.first);
+      unused_trace->InitFromBuffer(stack_id, frames, num_frames);
       ++(current_page_->num_captures_used);
       ++cached_allocations_;
     }
 
     ++total_allocations_;
-    stack_trace = result.first->second;
+    stack_trace = *result.first;
 
     if (compression_reporting_period_ != 0 &&
         total_allocations_ % compression_reporting_period_ == 0) {
@@ -109,6 +131,13 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
 
   // Return the stack trace pointer that is now in the cache.
   return stack_trace;
+}
+
+const StackCapture* StackCaptureCache::SaveStackTrace(
+    const StackCapture& stack_capture) {
+  return SaveStackTrace(stack_capture.stack_id(),
+                        stack_capture.frames(),
+                        stack_capture.num_frames());
 }
 
 void StackCaptureCache::LogCompressionRatio() const {

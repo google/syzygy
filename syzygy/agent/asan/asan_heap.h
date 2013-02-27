@@ -91,11 +91,13 @@ class HeapProxy {
   // Report a bad access to the heap.
   // @param addr The red-zoned address causing a bad access.
   // @param context The context at which the access occurred.
+  // @param stack The stack capture at the point of error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
   // @returns true if the address belongs to a memory block, false otherwise.
   bool OnBadAccess(const void* addr,
                    const CONTEXT& context,
+                   const StackCapture& stack,
                    AccessMode access_mode,
                    size_t access_size);
 
@@ -103,10 +105,12 @@ class HeapProxy {
   // address.
   // @param addr The address causing an error.
   // @param context The context at which the access occurred.
+  // @param stack The stack capture at the point of error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
   void ReportUnknownError(const void* addr,
                           const CONTEXT& context,
+                          const StackCapture& stack,
                           AccessMode access_mode,
                           size_t access_size);
 
@@ -217,12 +221,14 @@ class HeapProxy {
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
   // @param context The context at which the access occurred.
+  // @param stack The stack capture at the point of error.
   // @param bad_access_kind The kind of error.
   // @param access_mode The mode of the access (read or write).
   // @param access_size The size of the access (in bytes).
   void ReportAsanErrorBase(const char* bug_descr,
                            const void* addr,
                            const CONTEXT& context,
+                           const StackCapture& stack,
                            BadAccessKind bad_access_kind,
                            AccessMode access_mode,
                            size_t access_size);
@@ -232,6 +238,7 @@ class HeapProxy {
   // @param bug_descr The description of the error.
   // @param addr The address causing an error.
   // @param context The context at which the access occurred.
+  // @param stack The stack capture at the point of error.
   // @param bad_access_kind The kind of error.
   // @param header The header of the block containing this address.
   // @param access_mode The kind of the access (read or write).
@@ -239,6 +246,7 @@ class HeapProxy {
   void ReportAsanError(const char* bug_descr,
                        const void* addr,
                        const CONTEXT& context,
+                       const StackCapture& stack,
                        BadAccessKind bad_access_kind,
                        BlockHeader* header,
                        AccessMode access_mode,
