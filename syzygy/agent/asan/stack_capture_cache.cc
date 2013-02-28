@@ -14,13 +14,10 @@
 
 #include "syzygy/agent/asan/stack_capture_cache.h"
 
-#include <windows.h>  // NOLINT
-#include <string.h>
-#include <algorithm>
-
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/stack_capture.h"
 
 namespace agent {
 namespace asan {
@@ -28,36 +25,37 @@ namespace asan {
 size_t StackCaptureCache::compression_reporting_period_ =
     StackCaptureCache::kDefaultCompressionReportingPeriod;
 
-void StackCapture::InitFromBuffer(StackId stack_id,
-                                  const void* const* frames,
-                                  size_t num_frames) {
-  DCHECK(frames != NULL);
-  DCHECK_LT(0U, num_frames);
-  stack_id_ = stack_id;
-  num_frames_ = std::min(num_frames, kMaxNumFrames);
-  ::memcpy(frames_, frames, num_frames_ * sizeof(void*));
+StackCaptureCache::CachePage::~CachePage() {
+  if (next_page_ != NULL)
+    delete next_page_;
 }
 
-size_t StackCapture::HashCompare::operator()(
-    const StackCapture* stack_capture) const {
+StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
+    size_t max_num_frames) {
+  size_t size = StackCapture::GetSize(max_num_frames);
+  if (bytes_used_ + size > kCachePageSize)
+    return NULL;
+
+  // Use placement new.
+  StackCapture* stack = new(data_ + bytes_used_) StackCapture(max_num_frames);
+  bytes_used_ += size;
+
+  return stack;
+}
+
+void StackCaptureCache::CachePage::ReleaseStackCapture(
+    StackCapture* stack_capture) {
   DCHECK(stack_capture != NULL);
-  // We're assuming that the StackId and size_t have the same size, so let's
-  // make sure that's the case.
-  COMPILE_ASSERT(sizeof(StackId) == sizeof(size_t),
-                 stack_id_and_size_t_not_same_size);
-  return stack_capture->stack_id_;
-}
 
-bool StackCapture::HashCompare::operator()(
-    const StackCapture* stack_capture1,
-    const StackCapture* stack_capture2) const {
-  DCHECK(stack_capture1 != NULL);
-  DCHECK(stack_capture2 != NULL);
-  return stack_capture1->stack_id_ < stack_capture2->stack_id_;
+  uint8* stack = reinterpret_cast<uint8*>(stack_capture);
+  size_t size = stack_capture->Size();
+  DCHECK_EQ(data_ + bytes_used_, stack + size);
+  bytes_used_ -= size;
 }
 
 StackCaptureCache::StackCaptureCache(AsanLogger* logger)
     : logger_(logger),
+      max_num_frames_(StackCapture::kMaxNumFrames),
       current_page_(new CachePage(NULL)),
       total_allocations_(0),
       cached_allocations_(0) {
@@ -65,14 +63,22 @@ StackCaptureCache::StackCaptureCache(AsanLogger* logger)
   DCHECK(logger_ != NULL);
 }
 
+StackCaptureCache::StackCaptureCache(AsanLogger* logger, size_t max_num_frames)
+    : logger_(logger),
+      max_num_frames_(0),
+      current_page_(new CachePage(NULL)),
+      total_allocations_(0),
+      cached_allocations_(0) {
+  CHECK(current_page_ != NULL);
+  DCHECK(logger_ != NULL);
+  DCHECK_LT(0u, max_num_frames);
+  max_num_frames_ = static_cast<uint8>(
+      std::min(max_num_frames, StackCapture::kMaxNumFrames));
+}
+
 StackCaptureCache::~StackCaptureCache() {
-  // Iterate through the list of linked pages, deleting the head of the list
-  // as we go.
-  while (current_page_ != NULL) {
-    CachePage* page_to_delete = current_page_;
-    current_page_ = current_page_->next_page;
-    delete page_to_delete;
-  }
+  if (current_page_ != NULL)
+    delete current_page_;
 }
 
 const StackCapture* StackCaptureCache::SaveStackTrace(
@@ -91,14 +97,14 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
 
     // If the current page has been entirely consumed, allocate a new page
     // that links to the current page.
-    if (current_page_->num_captures_used == kNumCapturesPerPage) {
+    StackCapture* unused_trace = current_page_->GetNextStackCapture(
+        max_num_frames_);
+    if (unused_trace == NULL) {
       current_page_ = new CachePage(current_page_);
       CHECK(current_page_ != NULL);
+      unused_trace = current_page_->GetNextStackCapture(max_num_frames_);
     }
-
-    // Find the next unused trace capture object.
-    StackCapture* unused_trace =
-        &current_page_->captures[current_page_->num_captures_used];
+    DCHECK(unused_trace != NULL);
 
     // Attempt to insert it into the known stacks map.
     unused_trace->set_stack_id(stack_id);
@@ -110,8 +116,11 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
     if (result.second) {
       DCHECK_EQ(unused_trace, *result.first);
       unused_trace->InitFromBuffer(stack_id, frames, num_frames);
-      ++(current_page_->num_captures_used);
       ++cached_allocations_;
+    } else {
+      // If we didn't need the stack capture then return it.
+      current_page_->ReleaseStackCapture(unused_trace);
+      unused_trace = NULL;
     }
 
     ++total_allocations_;

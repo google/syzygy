@@ -15,134 +15,49 @@
 #ifndef SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 #define SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 
-#include <stddef.h>
-
 #include "base/hash_tables.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/stack_capture.h"
 
 namespace agent {
 namespace asan {
 
 // Forward declaration.
 class AsanLogger;
-
-// A simple wrapper class to hold a stack trace capture.
-class StackCapture {
- public:
-  // From http://msdn.microsoft.com/en-us/library/bb204633.aspx,
-  // The maximum number of frames which CaptureStackBackTrace can be asked
-  // to traverse must be less than 63, so set it to 62.
-  static const size_t kMaxNumFrames = 62;
-
-  // TODO(chrisha): Add the ability to runtime limit the number of stack frames
-  //     that can be stored in a StackCapture.
-
-  // This corresponds to the the type used by ::CaptureStackBackTrace's hash
-  // for a stack-trace.
-  typedef ULONG StackId;
-
-  StackCapture() : stack_id_(0), num_frames_(0) {
-  }
-
-  // @returns true if this stack trace capture contains valid frame pointers.
-  bool IsValid() const { return num_frames_ != 0; }
-
-  // @returns the ID associated with this stack trace.
-  StackId stack_id() const { return stack_id_; }
-
-  // @returns the number of valid frame pointers in this stack trace capture.
-  uint8 num_frames() const { return num_frames_; }
-
-  // @returns a pointer to the captured stack frames, or NULL if no stack
-  //     frames have been captured.
-  const void* const* frames() const { return IsValid() ? frames_ : NULL; }
-
-  // Sets the stack ID for a given trace.
-  // @param The stack ID to set.
-  void set_stack_id(StackId stack_id) { stack_id_ = stack_id; }
-
-  // Initializes a stack trace from an array of frame pointers, a count and
-  // a StackId (such as returned by ::CaptureStackBackTrace).
-  // @param stack_id The ID of the stack back trace.
-  // @param frames an array of frame pointers.
-  // @param num_frames the number of valid frame pointers in @frames. Note
-  //     that at most kMaxNumFrames frame pointers will be copied to this
-  //     stack trace capture.
-  void InitFromBuffer(StackId stack_id,
-                      const void* const* frames,
-                      size_t num_frames);
-
-  // Initializes a stack trace using ::CaptureStackBackTrace. This is inlined so
-  // that it doesn't further pollute the stack trace, but rather makes it
-  // reflect the actual point of the call.
-  __forceinline void InitFromStack() {
-    num_frames_ = ::CaptureStackBackTrace(
-        0, kMaxNumFrames, frames_, &stack_id_);
-  }
-
-  // The hash comparison functor for use with MSDN's stdext::hash_set.
-  struct HashCompare {
-    static const size_t bucket_size = 4;
-    static const size_t min_buckets = 8;
-    // Calculates a hash value for the given stack_capture.
-    size_t operator()(const StackCapture* stack_capture) const;
-    // Value comparison operator.
-    bool operator()(const StackCapture* stack_capture1,
-                    const StackCapture* stack_capture2) const;
-  };
-
- protected:
-  // The unique ID of this hash. This is used for storing the hash in the map.
-  StackId stack_id_;
-
-  // The number of valid frames in this stack trace capture.
-  size_t num_frames_;
-
-  // The array or frame pointers comprising this stack trace capture.
-  void* frames_[kMaxNumFrames];
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(StackCapture);
-};
+class StackCapture;
 
 // A class which manages a thread-safe cache of unique stack traces, by ID.
 class StackCaptureCache {
  public:
-  // The number of unused stack trace objects to preallocate per page.
-  static const size_t kNumCapturesPerPage = 1024;
+  // The size of a page of stack captures, in bytes. This should be in the
+  // hundreds of KB or low MBs so that we have an efficient pooled allocator
+  // that can store hundreds to thousands of stack captures, yet whose
+  // incremental growth is not too large.
+  static const size_t kCachePageSize = 1024 * 1024;
 
   // The type used to uniquely identify a stack.
   typedef StackCapture::StackId StackId;
 
-  // A page of preallocated stack trace capture objects to be populated
-  // and stored in the known stacks cache map.
-  struct CachePage {
-    explicit CachePage(CachePage* link)
-        : next_page(link), num_captures_used(0) {
-    }
+  // Forward declaration.
+  class CachePage;
 
-    // The cache pages from a linked list, which allows for easy cleanup
-    // when the cache is destroyed.
-    struct CachePage* next_page;
-
-    // The number of captures consumed by the cache. This is also the index
-    // of the next capture to use when inserting into the cache. When this
-    // becomes equal to kNumCapturesPerPage, it is time to allocate a new
-    // page.
-    size_t num_captures_used;
-
-    // A page's worth of preallocated collection of capture objects.
-    StackCapture captures[kNumCapturesPerPage];
-
-   private:
-    DISALLOW_COPY_AND_ASSIGN(CachePage);
-  };
+  // TODO(chrisha): Plumb a command-line parameter through to control the
+  //     max depth of stack traces in the StackCaptureCache. This should get us
+  //     significant memory savings in the stack trace cache.
 
   // Initializes a new stack capture cache.
+  // @param logger The logger to use.
+  // @param max_num_frames The maximum number of frames to be used by the
+  //     StackCapture objects in this cache.
   explicit StackCaptureCache(AsanLogger* logger);
+  StackCaptureCache(AsanLogger* logger, size_t max_num_frames);
 
   // Destroys a stack capture cache.
   ~StackCaptureCache();
+
+  // @returns the current maximum number of frames supported by saved stack
+  //     traces.
+  size_t max_num_frames() const { return max_num_frames_; }
 
   // @returns the default compression reporting period value.
   static size_t GetDefaultCompressionReportingPeriod() {
@@ -206,8 +121,12 @@ class StackCaptureCache {
   // Logger instance to which to report the compression ratio.
   AsanLogger* const logger_;
 
-  // A lock to protect the known stacks map from concurrent access.
+  // A lock to protect the known stacks set from concurrent access.
   mutable base::Lock lock_;
+
+  // The max depth of the stack traces to allocate. This can change, but it
+  // doesn't really make sense to do so.
+  size_t max_num_frames_;
 
   // The set of known stacks. Accessed under lock_.
   StackSet known_stacks_;
@@ -224,6 +143,46 @@ class StackCaptureCache {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StackCaptureCache);
+};
+
+// A page of preallocated stack trace capture objects to be populated
+// and stored in the known stacks cache set.
+class StackCaptureCache::CachePage {
+ public:
+  explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {
+  }
+
+  ~CachePage();
+
+  // Allocates a stack capture from this cache page if possible.
+  // @param max_num_frames The maximum number of frames the object needs to be
+  //     able to store.
+  // @returns a new StackCapture, or NULL if the page is full.
+  StackCapture* GetNextStackCapture(size_t max_num_frames);
+
+  // Releases the most recently allocated stack capture back to the page.
+  // @param stack_capture The stack capture to return. This must be the most
+  //     recently allocated capture as returned by GetNextStackCapture.
+  void ReleaseStackCapture(StackCapture* stack_capture);
+
+  // @returns the number of bytes used in this page. This is mainly a hook
+  //     for unittesting.
+  size_t bytes_used() const { return bytes_used_; }
+
+ protected:
+  // The cache pages from a linked list, which allows for easy cleanup
+  // when the cache is destroyed.
+  CachePage* next_page_;
+
+  // The number of bytes used, also equal to the byte offset of the next
+  // StackCapture object to be allocated.
+  size_t bytes_used_;
+
+  // A page's worth of data, which will be allocated as StackCapture objects.
+  uint8 data_[kCachePageSize];
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(CachePage);
 };
 
 }  // namespace asan
