@@ -101,7 +101,8 @@ class AsanRuntime {
   struct AsanFlags {
     AsanFlags()
         : quarantine_size(0U),
-          reporting_period(0U) {
+          reporting_period(0U),
+          bottom_frames_to_skip(0U) {
     }
 
     // The default size of the quarantine of the HeapProxy, in bytes.
@@ -110,6 +111,9 @@ class AsanRuntime {
     // The number of allocations between reports of the stack trace cache
     // compression ratio.
     size_t reporting_period;
+
+    // The number of bottom frames to skip on a stack trace.
+    size_t bottom_frames_to_skip;
   };
 
   // The name of the environment variable containing the command-line.
@@ -117,6 +121,7 @@ class AsanRuntime {
 
   // @name Flag strings.
   // @{
+  static const char kBottomFramesToSkip[];
   static const char kQuarantineSize[];
   static const char kCompressionReportingPeriod[];
   static const wchar_t kSyzyAsanDll[];

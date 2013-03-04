@@ -19,6 +19,25 @@
 namespace agent {
 namespace asan {
 
+uint32 ComputeStackTraceHash(void** stack_trace, uint8 stack_depth) {
+  uint32 hash_value = 0;
+  for (uint8 i = 0; i < stack_depth; ++i) {
+    hash_value += reinterpret_cast<uint32>(stack_trace[i]);
+  }
+  return hash_value;
+}
+
+// The biggest gain observed on stack cache compression is when we skip the 5
+// bottom frames of the stack traces. To measure this gain we've run an
+// instrumented version of base_unittests and observed the cache compression.
+// With a value between 0 and 4 the compression ratio was around 28.9%, and with
+// a value of 5 it was 92.19%.
+// NOTE: This is mostly for Chrome's unittests, the side effect is that the
+//     bottom frames of the allocation and free stack traces of any instrumented
+//     image will be elided, but from what we've seen they're rarely precise and
+//     useful (they refer to the entry point of the image).
+size_t StackCapture::bottom_frames_to_skip_ = 5;
+
 size_t StackCapture::GetSize(size_t max_num_frames) {
   DCHECK_LT(0u, max_num_frames);
   max_num_frames = std::min(max_num_frames, kMaxNumFrames);

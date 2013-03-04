@@ -84,6 +84,8 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
 
 const char AsanRuntime::kSyzyAsanEnvVar[] = "ASAN_OPTIONS";
 
+const char AsanRuntime::kBottomFramesToSkip[] =
+    "bottom_frames_to_skip";
 const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const char AsanRuntime::kCompressionReportingPeriod[] =
     "compression_reporting_period";
@@ -201,6 +203,15 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
     return false;
   }
 
+  // Parse the bottom frames to skip flag.
+  flags_.bottom_frames_to_skip = StackCapture::bottom_frames_to_skip();
+  if (!UpdateSizetFromCommandLine(cmd_line, kBottomFramesToSkip,
+                                  &flags_.bottom_frames_to_skip)) {
+    LOG(ERROR) << "Unable to read " << kBottomFramesToSkip << " from the "
+               << "argument list.";
+    return false;
+  }
+
   return true;
 }
 
@@ -226,6 +237,7 @@ void AsanRuntime::PropagateFlagsValues() const {
   // TODO(sebmarchand): Look into edit-free ways to expose new flags to the
   //     different modules.
   HeapProxy::SetDefaultQuarantineMaxSize(flags_.quarantine_size);
+  StackCapture::SetBottomFramesToSkip(flags_.bottom_frames_to_skip);
   StackCaptureCache::SetCompressionReportingPeriod(flags_.reporting_period);
 }
 

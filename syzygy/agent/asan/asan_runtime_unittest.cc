@@ -34,6 +34,7 @@ using agent::asan::HeapProxy;
 class TestAsanRuntime : public AsanRuntime {
  public:
   using AsanRuntime::AsanFlags;
+  using AsanRuntime::kBottomFramesToSkip;
   using AsanRuntime::kCompressionReportingPeriod;
   using AsanRuntime::kQuarantineSize;
   using AsanRuntime::kSyzyAsanEnvVar;
@@ -134,6 +135,18 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
   EXPECT_EQ(new_period, StackCaptureCache::GetCompressionReportingPeriod());
 }
 
+TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
+  size_t frames_to_skip = StackCapture::bottom_frames_to_skip() + 1;
+  std::string new_frames_to_skip_str = base::UintToString(frames_to_skip);
+  current_command_line_.AppendSwitchASCII(
+      TestAsanRuntime::kBottomFramesToSkip, new_frames_to_skip_str);
+
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
+}
+
 TEST_F(AsanRuntimeTest, SetFlags) {
   TestAsanRuntime::AsanFlags flags;
   flags.quarantine_size = HeapProxy::GetDefaultQuarantineMaxSize() - 1;
@@ -141,12 +154,16 @@ TEST_F(AsanRuntimeTest, SetFlags) {
   flags.reporting_period =
       StackCaptureCache::GetDefaultCompressionReportingPeriod() - 1;
   ASSERT_LT(0U, flags.reporting_period);
+  flags.bottom_frames_to_skip =
+      StackCapture::bottom_frames_to_skip() - 1;
+  ASSERT_LT(0U, flags.bottom_frames_to_skip);
   asan_runtime_.set_flags(&flags);
   asan_runtime_.PropagateFlagsValues();
 
   ASSERT_EQ(flags.quarantine_size, HeapProxy::GetDefaultQuarantineMaxSize());
   ASSERT_EQ(flags.reporting_period,
             StackCaptureCache::GetCompressionReportingPeriod());
+  ASSERT_EQ(flags.bottom_frames_to_skip, StackCapture::bottom_frames_to_skip());
 }
 
 }  // namespace asan

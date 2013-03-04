@@ -25,6 +25,10 @@
 namespace agent {
 namespace asan {
 
+// Computes the hash of a given stack trace. The hash function is simply an add
+// of all the stack trace pointers.
+uint32 ComputeStackTraceHash(void** stack_trace, uint8 stack_depth);
+
 // A simple class for holding a stack trace capture.
 class StackCapture {
  public:
@@ -79,6 +83,18 @@ class StackCapture {
   // @param The stack ID to set.
   void set_stack_id(StackId stack_id) { stack_id_ = stack_id; }
 
+  // Set the number of bottom frames to skip per stack trace. This is needed to
+  // be able to improve the stack cache compression in Chrome's unittests where
+  // the bottom of the stack traces is different for each test case.
+  // @param bottom_frames_to_skip The number of bottom frames to skip.
+  static void SetBottomFramesToSkip(size_t bottom_frames_to_skip) {
+    CHECK_LT(bottom_frames_to_skip, kMaxNumFrames);
+    bottom_frames_to_skip_ = bottom_frames_to_skip;
+  }
+
+  // Get the number of bottom frames to skip per stack trace.
+  static size_t bottom_frames_to_skip() { return bottom_frames_to_skip_; }
+
   // Initializes a stack trace from an array of frame pointers, a count and
   // a StackId (such as returned by ::CaptureStackBackTrace).
   // @param stack_id The ID of the stack back trace.
@@ -95,7 +111,12 @@ class StackCapture {
   // reflect the actual point of the call.
   __forceinline void InitFromStack() {
     num_frames_ = ::CaptureStackBackTrace(
-        0, max_num_frames_, frames_, &stack_id_);
+        0, max_num_frames_, frames_, NULL);
+    if (num_frames_ > bottom_frames_to_skip_)
+      num_frames_ -= bottom_frames_to_skip_;
+    else
+      num_frames_ = 1;
+    stack_id_ = ComputeStackTraceHash(frames_, num_frames_);
   }
 
   // The hash comparison functor for use with MSDN's stdext::hash_set.
@@ -110,6 +131,9 @@ class StackCapture {
   };
 
  protected:
+  // The number of bottom frames to skip on the stack traces.
+  static size_t bottom_frames_to_skip_;
+
   // The unique ID of this hash. This is used for storing the hash in the set.
   StackId stack_id_;
 

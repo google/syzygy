@@ -69,6 +69,7 @@ TEST(StackCaptureTest, InitFromStack) {
 }
 
 TEST(StackCaptureTest, RestrictedFrameCount) {
+  StackCapture::SetBottomFramesToSkip(0);
   // Restrict this to a stack depth that is smaller than the stack depth of
   // this test.
   StackCapture capture(5);
