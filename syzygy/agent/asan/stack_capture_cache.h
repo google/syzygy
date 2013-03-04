@@ -59,6 +59,12 @@ class StackCaptureCache {
   //     traces.
   size_t max_num_frames() const { return max_num_frames_; }
 
+  // Sets the current maximum number of frames supported by saved stack traces.
+  // @param max_num_frames The maximum number of frames to set.
+  void set_max_num_frames(size_t max_num_frames) {
+    max_num_frames_ = max_num_frames;
+  }
+
   // @returns the default compression reporting period value.
   static size_t GetDefaultCompressionReportingPeriod() {
     return kDefaultCompressionReportingPeriod;
@@ -67,13 +73,13 @@ class StackCaptureCache {
   // Sets a new (global) compression reporting period value. Note that this
   // method is not thread safe. It is expected to be called once at startup,
   // or not at all.
-  static void SetCompressionReportingPeriod(size_t period) {
+  static void set_compression_reporting_period(size_t period) {
     compression_reporting_period_ = period;
   }
 
   // @returns the current (global) compression reporting period value. It is
   //     expected that this value is a constant after initialization.
-  static size_t GetCompressionReportingPeriod() {
+  static size_t compression_reporting_period() {
     return compression_reporting_period_;
   }
 

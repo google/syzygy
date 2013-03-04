@@ -89,6 +89,8 @@ const char AsanRuntime::kBottomFramesToSkip[] =
 const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const char AsanRuntime::kCompressionReportingPeriod[] =
     "compression_reporting_period";
+const char AsanRuntime::kMaxNumberOfFrames[] =
+    "max_num_frames";
 const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
 
 AsanRuntime::AsanRuntime() : logger_(NULL), stack_cache_(NULL) {
@@ -185,7 +187,7 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
   CommandLine cmd_line = CommandLine::FromString(str);
 
   // Parse the quarantine size flag.
-  flags_.quarantine_size = HeapProxy::GetDefaultQuarantineMaxSize();
+  flags_.quarantine_size = HeapProxy::default_quarantine_max_size();
   if (!UpdateSizetFromCommandLine(cmd_line, kQuarantineSize,
                                   &flags_.quarantine_size)) {
     LOG(ERROR) << "Unable to read " << kQuarantineSize << " from the argument "
@@ -208,6 +210,15 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
   if (!UpdateSizetFromCommandLine(cmd_line, kBottomFramesToSkip,
                                   &flags_.bottom_frames_to_skip)) {
     LOG(ERROR) << "Unable to read " << kBottomFramesToSkip << " from the "
+               << "argument list.";
+    return false;
+  }
+
+  // Parse the max number of frames flag.
+  flags_.max_num_frames = stack_cache_->max_num_frames();
+  if (!UpdateSizetFromCommandLine(cmd_line, kMaxNumberOfFrames,
+                                  &flags_.max_num_frames)) {
+    LOG(ERROR) << "Unable to read " << kMaxNumberOfFrames << " from the "
                << "argument list.";
     return false;
   }
@@ -236,9 +247,10 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateFlagsValues() const {
   // TODO(sebmarchand): Look into edit-free ways to expose new flags to the
   //     different modules.
-  HeapProxy::SetDefaultQuarantineMaxSize(flags_.quarantine_size);
-  StackCapture::SetBottomFramesToSkip(flags_.bottom_frames_to_skip);
-  StackCaptureCache::SetCompressionReportingPeriod(flags_.reporting_period);
+  HeapProxy::set_default_quarantine_max_size(flags_.quarantine_size);
+  StackCapture::set_bottom_frames_to_skip(flags_.bottom_frames_to_skip);
+  StackCaptureCache::set_compression_reporting_period(flags_.reporting_period);
+  stack_cache_->set_max_num_frames(flags_.max_num_frames);
 }
 
 void AsanRuntime::set_flags(const AsanFlags* flags) {

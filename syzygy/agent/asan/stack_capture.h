@@ -87,7 +87,7 @@ class StackCapture {
   // be able to improve the stack cache compression in Chrome's unittests where
   // the bottom of the stack traces is different for each test case.
   // @param bottom_frames_to_skip The number of bottom frames to skip.
-  static void SetBottomFramesToSkip(size_t bottom_frames_to_skip) {
+  static void set_bottom_frames_to_skip(size_t bottom_frames_to_skip) {
     CHECK_LT(bottom_frames_to_skip, kMaxNumFrames);
     bottom_frames_to_skip_ = bottom_frames_to_skip;
   }

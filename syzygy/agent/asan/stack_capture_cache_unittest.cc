@@ -171,5 +171,13 @@ TEST(StackCaptureCacheTest, GetCompressionRatio) {
   ASSERT_NEAR(0.40, cache.GetCompressionRatio(), 0.001);
 }
 
+TEST(StackCaptureCacheTest, MaxNumFrames) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+  size_t max_num_frames = cache.max_num_frames() + 1;
+  cache.set_max_num_frames(max_num_frames);
+  ASSERT_EQ(max_num_frames, cache.max_num_frames());
+}
+
 }  // namespace asan
 }  // namespace agent

@@ -132,7 +132,7 @@ bool HeapProxy::Create(DWORD options,
   COMPILE_ASSERT(sizeof(HeapProxy::BlockHeader) <= kRedZoneSize,
                  asan_block_header_too_big);
 
-  SetQuarantineMaxSize(default_quarantine_max_size_);
+  set_quarantine_max_size(default_quarantine_max_size_);
 
   HANDLE heap_new = ::HeapCreate(options, initial_size, maximum_size);
   if (heap_new == NULL)
@@ -147,7 +147,7 @@ bool HeapProxy::Destroy() {
   DCHECK(heap_ != NULL);
 
   // Flush the quarantine.
-  SetQuarantineMaxSize(0);
+  set_quarantine_max_size(0);
 
   if (::HeapDestroy(heap_)) {
     heap_ = NULL;
@@ -304,7 +304,7 @@ bool HeapProxy::QueryInformation(HEAP_INFORMATION_CLASS info_class,
                                 return_length) == TRUE;
 }
 
-void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
+void HeapProxy::set_quarantine_max_size(size_t quarantine_max_size) {
   base::AutoLock lock(lock_);
   quarantine_max_size_ = quarantine_max_size;
 

@@ -123,12 +123,12 @@ class HeapProxy {
   // Set the default max size of the quarantine of a heap proxy.
   // @param quarantine_max_size The maximum size of the quarantine list, in
   //     bytes.
-  static void SetDefaultQuarantineMaxSize(size_t quarantine_max_size) {
+  static void set_default_quarantine_max_size(size_t quarantine_max_size) {
     default_quarantine_max_size_ = quarantine_max_size;
   }
 
   // Get the default max size of the quarantine of a heap proxy.
-  static size_t GetDefaultQuarantineMaxSize() {
+  static size_t default_quarantine_max_size() {
     return default_quarantine_max_size_;
   }
 
@@ -137,10 +137,10 @@ class HeapProxy {
   // removed from the quarantine.
   // @param quarantine_max_size The maximum size of the quarantine list, in
   //     bytes.
-  void SetQuarantineMaxSize(size_t quarantine_max_size);
+  void set_quarantine_max_size(size_t quarantine_max_size);
 
   // Get the max size of the quarantine of a heap proxy.
-  size_t GetQuarantineMaxSize() {
+  size_t quarantine_max_size() {
     return quarantine_max_size_;
   }
 

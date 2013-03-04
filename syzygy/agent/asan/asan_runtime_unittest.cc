@@ -94,7 +94,7 @@ TEST_F(AsanRuntimeTest, SetDefaultQuarantineMaxSize) {
 
   // Double the max size of the quarantine.
   unsigned int quarantine_max_size =
-      HeapProxy::GetDefaultQuarantineMaxSize() * 2;
+      HeapProxy::default_quarantine_max_size() * 2;
   // Increments the quarantine max size if it was set to 0.
   if (quarantine_max_size == 0)
     quarantine_max_size++;
@@ -109,18 +109,18 @@ TEST_F(AsanRuntimeTest, SetDefaultQuarantineMaxSize) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   // Ensure that the quarantine max size has been modified.
-  EXPECT_EQ(quarantine_max_size, HeapProxy::GetDefaultQuarantineMaxSize());
+  EXPECT_EQ(quarantine_max_size, HeapProxy::default_quarantine_max_size());
 
   // Ensure that the heap proxies use the new quarantine max size.
   HeapProxy heap_proxy(asan_runtime_.stack_cache(), asan_runtime_.logger());
   ASSERT_TRUE(heap_proxy.Create(0, 0, 0));
-  EXPECT_EQ(quarantine_max_size, heap_proxy.GetQuarantineMaxSize());
+  EXPECT_EQ(quarantine_max_size, heap_proxy.quarantine_max_size());
   ASSERT_TRUE(heap_proxy.Destroy());
 }
 
 TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
   ASSERT_EQ(StackCaptureCache::GetDefaultCompressionReportingPeriod(),
-            StackCaptureCache::GetCompressionReportingPeriod());
+            StackCaptureCache::compression_reporting_period());
 
   size_t new_period =
       StackCaptureCache::GetDefaultCompressionReportingPeriod() + 1024;
@@ -132,7 +132,7 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   // Ensure that the compression reporting period has been modified.
-  EXPECT_EQ(new_period, StackCaptureCache::GetCompressionReportingPeriod());
+  EXPECT_EQ(new_period, StackCaptureCache::compression_reporting_period());
 }
 
 TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
@@ -148,8 +148,11 @@ TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
 }
 
 TEST_F(AsanRuntimeTest, SetFlags) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
   TestAsanRuntime::AsanFlags flags;
-  flags.quarantine_size = HeapProxy::GetDefaultQuarantineMaxSize() - 1;
+  flags.quarantine_size = HeapProxy::default_quarantine_max_size() - 1;
   ASSERT_LT(0U, flags.quarantine_size);
   flags.reporting_period =
       StackCaptureCache::GetDefaultCompressionReportingPeriod() - 1;
@@ -157,13 +160,18 @@ TEST_F(AsanRuntimeTest, SetFlags) {
   flags.bottom_frames_to_skip =
       StackCapture::bottom_frames_to_skip() - 1;
   ASSERT_LT(0U, flags.bottom_frames_to_skip);
+  flags.max_num_frames =
+      asan_runtime_.stack_cache()->max_num_frames() - 1;
+  ASSERT_LT(0U, flags.max_num_frames);
   asan_runtime_.set_flags(&flags);
   asan_runtime_.PropagateFlagsValues();
 
-  ASSERT_EQ(flags.quarantine_size, HeapProxy::GetDefaultQuarantineMaxSize());
+  ASSERT_EQ(flags.quarantine_size, HeapProxy::default_quarantine_max_size());
   ASSERT_EQ(flags.reporting_period,
-            StackCaptureCache::GetCompressionReportingPeriod());
+            StackCaptureCache::compression_reporting_period());
   ASSERT_EQ(flags.bottom_frames_to_skip, StackCapture::bottom_frames_to_skip());
+  ASSERT_EQ(flags.max_num_frames,
+            asan_runtime_.stack_cache()->max_num_frames());
 }
 
 }  // namespace asan
