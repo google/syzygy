@@ -20,6 +20,8 @@
       'sources': [
         'address.cc',
         'address.h',
+        'address_filter.h',
+        'address_filter_impl.h',
         'address_space.cc',
         'address_space.h',
         'address_space_internal.h',
@@ -66,6 +68,7 @@
       'includes': ['../build/masm.gypi'],
       'sources': [
         'address_unittest.cc',
+        'address_filter_unittest.cc',
         'address_space_unittest.cc',
         'core_unittests_main.cc',
         'assembler_unittest.cc',
