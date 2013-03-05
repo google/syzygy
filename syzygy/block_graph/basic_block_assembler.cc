@@ -162,6 +162,7 @@ void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
     const size_t *ref_locations, const void* const* refs, size_t num_refs) {
   Instruction instruction;
   CHECK(Instruction::FromBuffer(bytes, num_bytes, &instruction));
+  instruction.set_source_range(source_range_);
 
   Instructions::iterator it = list_->insert(where_, instruction);
 

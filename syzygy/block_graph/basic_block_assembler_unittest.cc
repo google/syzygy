@@ -22,6 +22,9 @@ namespace {
 
 class BasicBlockAssemblerTest : public testing::Test {
  public:
+  typedef BlockGraph::RelativeAddress RelativeAddress;
+  typedef BlockGraph::Block::SourceRange SourceRange;
+
   BasicBlockAssemblerTest();
 
   void SetUp() OVERRIDE {
@@ -384,4 +387,34 @@ TEST_F(BasicBlockAssemblerTest, ret) {
   asm_.ret(4);
   ASSERT_NO_REFS();
 }
+
+TEST_F(BasicBlockAssemblerTest, UndefinedSourceRange) {
+  ASSERT_EQ(asm_.source_range(), SourceRange());
+  asm_.call(Immediate(0xCAFEBABE));
+  ASSERT_EQ(instructions_.back().source_range(), SourceRange());
+}
+
+TEST_F(BasicBlockAssemblerTest, SetSourceRange) {
+  SourceRange range(RelativeAddress(10), 10);
+  asm_.set_source_range(range);
+  asm_.call(Immediate(0xCAFEBABE));
+  ASSERT_EQ(instructions_.back().source_range(), range);
+}
+
+TEST_F(BasicBlockAssemblerTest, SetMultipleSourceRange) {
+  SourceRange range1(RelativeAddress(10), 10);
+  SourceRange range2(RelativeAddress(20), 20);
+
+  asm_.set_source_range(range1);
+  asm_.call(Immediate(0xCAFEBABE));
+  ASSERT_EQ(instructions_.back().source_range(), range1);
+
+  asm_.set_source_range(range2);
+  asm_.pop(core::ebp);
+  ASSERT_EQ(instructions_.back().source_range(), range2);
+
+  asm_.ret(4);
+  ASSERT_EQ(instructions_.back().source_range(), range2);
+}
+
 }  // namespace basic_block

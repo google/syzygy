@@ -441,8 +441,8 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       continue;
 
     // We do not instrument stack-based accesses. These include accesses based
-    // on ESP or EBP (which isusually the stack frame base pointer (like ESP
-    // or a scalar non-pointer value). We have never seen EBP used as a poiner.
+    // on ESP or EBP (which is usually the stack frame base pointer (like ESP
+    // or a scalar non-pointer value). We have never seen EBP used as a pointer.
     if (operand.base() == core::kRegisterEsp ||
         operand.base() == core::kRegisterEbp) {
       continue;
@@ -452,8 +452,15 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (FLAG_GET_PREFIX(repr.flags) & (FLAG_REPNZ | FLAG_REP))
       continue;
 
+    // Create a BasicBlockAssembler to insert new instruction.
     BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
-    Instruction::Representation inst = iter_inst->representation();
+
+    // Configure the assembler to copy the SourceRange information of the
+    // current instrumented instruction into newly created instructions. This is
+    // a hack to allow valid stack walking and better error reporting, but
+    // breaks the 1:1 OMAP mapping and may confuse some debuggers.
+    bb_asm.set_source_range(instr.source_range());
+
     AsanHookMap::iterator hook;
     hook = check_access_hooks_->find(std::make_pair(access_mode, access_size));
     if (hook == check_access_hooks_->end()) {

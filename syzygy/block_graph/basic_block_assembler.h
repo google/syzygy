@@ -139,6 +139,7 @@ class Operand {
 
 class BasicBlockAssembler {
  public:
+  typedef BlockGraph::Block::SourceRange SourceRange;
   typedef BasicBlock::Instructions Instructions;
   typedef core::Register Register;
   typedef core::ConditionCode ConditionCode;
@@ -153,6 +154,17 @@ class BasicBlockAssembler {
   BasicBlockAssembler(uint32 location,
                       const Instructions::iterator& where,
                       Instructions *list);
+
+  // @returns The source range injected into created instructions.
+  SourceRange source_range() const { return serializer_.source_range(); }
+
+  // Set the SourceRange injected repeatedly into each instruction created via
+  // the assembler. This should be used with care because it causes the OMAP
+  // information to no longer be 1:1 mapping, and may confuse some debuggers.
+  // @param source_range The source range set to each created instructions.
+  void set_source_range(const SourceRange& source_range) {
+    serializer_.set_source_range(source_range);
+  }
 
   // @name Call instructions.
   // @{
@@ -218,9 +230,17 @@ class BasicBlockAssembler {
                                    const void* const* refs,
                                    size_t num_refs) OVERRIDE;
 
+    SourceRange source_range() const { return source_range_; }
+    void set_source_range(const SourceRange& source_range) {
+      source_range_ = source_range;
+    }
+
    private:
     Instructions::iterator where_;
     Instructions* list_;
+
+    // Source range set to instructions appended by this serializer.
+    SourceRange source_range_;
   };
 
   BasicBlockSerializer serializer_;
