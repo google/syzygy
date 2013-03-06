@@ -23,6 +23,14 @@ namespace asan {
 
 namespace {
 
+// The access check function invoked by the below.
+FARPROC check_access_fn = NULL;
+// A flag used in asan callback to ensure that a memory error has been detected.
+bool memory_error_detected = false;
+// A pointer to a context to ensure that we're able to restore the context when
+// an asan error is found.
+CONTEXT* context_before_hook = NULL;
+
 // Shorthand for discussing all the asan runtime functions.
 #define ASAN_RTL_FUNCTIONS(F)  \
     F(HANDLE, HeapCreate,  \
@@ -52,7 +60,7 @@ namespace {
       (HANDLE heap, HEAP_INFORMATION_CLASS info_class,  \
        PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
     F(void, SetCallBack,  \
-      (void (*callback)()))  \
+      (void (*callback)(CONTEXT* context)))  \
 
 #define DECLARE_ASAN_FUNCTION_PTR(ret, name, args) \
     typedef ret (WINAPI* name##FunctionPtr)args;
@@ -126,14 +134,36 @@ class AsanRtlTest : public testing::TestWithAsanLogger {
 
 #undef DEFINE_FUNCTION_PTR_VARIABLE
 
-} // namespace
+// Check if the sections of 2 context are equals.
+// @param c1 The first context to check.
+// @param c2 The second context to check.
+// @param flags The sections to compare.
+void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2, DWORD flags) {
+  if ((flags & CONTEXT_SEGMENTS) == CONTEXT_SEGMENTS) {
+    EXPECT_EQ(c1.SegGs, c2.SegGs);
+    EXPECT_EQ(c1.SegFs, c2.SegFs);
+    EXPECT_EQ(c1.SegEs, c2.SegEs);
+    EXPECT_EQ(c1.SegDs, c2.SegDs);
+  }
 
-namespace {
+  if ((flags & CONTEXT_INTEGER) == CONTEXT_INTEGER) {
+    EXPECT_EQ(c1.Edi, c2.Edi);
+    EXPECT_EQ(c1.Esi, c2.Esi);
+    EXPECT_EQ(c1.Ebx, c2.Ebx);
+    EXPECT_EQ(c1.Edx, c2.Edx);
+    EXPECT_EQ(c1.Ecx, c2.Ecx);
+    EXPECT_EQ(c1.Eax, c2.Eax);
+  }
 
-// The access check function invoked by the below.
-FARPROC check_access_fn = NULL;
-// A flag used in asan callback to ensure that a memory error has been detected.
-bool memory_error_detected = false;
+  if ((flags & CONTEXT_CONTROL) == CONTEXT_CONTROL) {
+    EXPECT_EQ(c1.Ebp, c2.Ebp);
+    EXPECT_EQ(c1.Eip, c2.Eip);
+    EXPECT_EQ(c1.SegCs, c2.SegCs);
+    EXPECT_EQ(c1.EFlags, c2.EFlags);
+    EXPECT_EQ(c1.Esp, c2.Esp);
+    EXPECT_EQ(c1.SegSs, c2.SegSs);
+  }
+}
 
 void __declspec(naked) CheckAccessAndCaptureContexts(CONTEXT* before,
                                                      CONTEXT* after,
@@ -162,18 +192,37 @@ void __declspec(naked) CheckAccessAndCaptureContexts(CONTEXT* before,
   }
 }
 
+// We need to disable this warning due to the label in the inline assembly who
+// is not compatible with the global optimization.
+#pragma warning(push)
+#pragma warning(disable: 4740)
 void __declspec(naked) CheckAccess(void* ptr) {
+  DCHECK(context_before_hook != NULL);
   __asm {
+    push dword ptr[context_before_hook]
+    call dword ptr[RtlCaptureContext]
+
+    // Fix the values of EBP, ESP and EIP in the context to make sure they are
+    // the same as what they'll be after the call to the hook.
+    mov eax, dword ptr[context_before_hook]
+    mov dword ptr[eax + CONTEXT.Ebp], ebp
+    mov dword ptr[eax + CONTEXT.Esp], esp
+    mov dword ptr[eax + CONTEXT.Eip], offset expected_eip
+
+    // Restore EAX, which is stomped by RtlCaptureContext.
+    mov eax, dword ptr[eax + CONTEXT.Eax]
+
     // Push eax as we're required to do by the custom calling convention.
     push eax
     // Ptr is the pointer to check.
     mov eax, dword ptr[esp + 0x8]
     // Call through.
     call dword ptr[check_access_fn + 0]
-
+expected_eip:
     ret
   }
 }
+#pragma warning(pop)
 
 void CheckAccessAndCompareContexts(void* ptr) {
   CONTEXT before = {};
@@ -181,29 +230,18 @@ void CheckAccessAndCompareContexts(void* ptr) {
 
   CheckAccessAndCaptureContexts(&before, &after, ptr);
 
-  EXPECT_EQ(before.SegGs, after.SegGs);
-  EXPECT_EQ(before.SegFs, after.SegFs);
-  EXPECT_EQ(before.SegEs, after.SegEs);
-  EXPECT_EQ(before.SegDs, after.SegDs);
-
-  EXPECT_EQ(before.Edi, after.Edi);
-  EXPECT_EQ(before.Esi, after.Esi);
-  EXPECT_EQ(before.Ebx, after.Ebx);
-  EXPECT_EQ(before.Edx, after.Edx);
-  EXPECT_EQ(before.Ecx, after.Ecx);
-  EXPECT_EQ(before.Eax, after.Eax);
-
-  EXPECT_EQ(before.Ebp, after.Ebp);
-  EXPECT_EQ(before.Eip, after.Eip);
-  EXPECT_EQ(before.SegCs, after.SegCs);
-  EXPECT_EQ(before.EFlags, after.EFlags);
-  EXPECT_EQ(before.Esp, after.Esp);
-  EXPECT_EQ(before.SegSs, after.SegSs);
+  ExpectEqualContexts(before, after, CONTEXT_FULL);
 }
 
-void AsanErrorCallback() {
+void AsanErrorCallback(CONTEXT* context) {
+  EXPECT_TRUE(context != NULL);
+  EXPECT_TRUE(context_before_hook != NULL);
+
   EXPECT_FALSE(memory_error_detected);
   memory_error_detected = true;
+  ExpectEqualContexts(*context_before_hook,
+                      *context,
+                      CONTEXT_INTEGER | CONTEXT_CONTROL);
 }
 
 void AssertMemoryErrorIsDetected(void* ptr) {
@@ -244,6 +282,8 @@ TEST_F(AsanRtlTest, AsanCheckBadAccess) {
       HeapAllocFunction(heap_, 0, kAllocSize));
   ASSERT_TRUE(mem != NULL);
 
+  CONTEXT context_before_error = {};
+  context_before_hook = &context_before_error;
   SetCallBackFunction(&AsanErrorCallback);
   AssertMemoryErrorIsDetected(mem - 1);
   AssertMemoryErrorIsDetected(mem + kAllocSize);

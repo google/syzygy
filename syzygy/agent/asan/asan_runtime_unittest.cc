@@ -65,7 +65,7 @@ bool callback_called = false;
 
 // A simple callback that change the value of a boolean to indicate that it has
 // been called.
-void TestCallback() {
+void TestCallback(CONTEXT* context) {
   callback_called = true;
 }
 
@@ -82,7 +82,9 @@ TEST_F(AsanRuntimeTest, OnError) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
   asan_runtime_.SetErrorCallBack(&TestCallback);
   callback_called = false;
-  asan_runtime_.OnError();
+  CONTEXT context;
+  RtlCaptureContext(&context);
+  asan_runtime_.OnError(&context);
   ASSERT_EQ(true, callback_called);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }

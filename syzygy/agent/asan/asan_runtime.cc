@@ -35,7 +35,8 @@ using agent::asan::HeapProxy;
 using agent::asan::StackCaptureCache;
 
 // The default error handler.
-void OnAsanError() {
+// @param context The context when the error has been reported.
+void OnAsanError(CONTEXT* context) {
   ::DebugBreak();
   ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
 }
@@ -131,13 +132,14 @@ void AsanRuntime::TearDown() {
   // not be empty here.
 }
 
-void AsanRuntime::OnError() {
+void AsanRuntime::OnError(CONTEXT* context) {
+  DCHECK(context != NULL);
   // Call the callback to handle this error.
   DCHECK_EQ(false, asan_error_callback_.is_null());
-  asan_error_callback_.Run();
+  asan_error_callback_.Run(context);
 }
 
-void AsanRuntime::SetErrorCallBack(void (*callback)()) {
+void AsanRuntime::SetErrorCallBack(void (*callback)(CONTEXT*)) {
   asan_error_callback_ = base::Bind(callback);
 }
 

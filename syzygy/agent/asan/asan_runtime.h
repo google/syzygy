@@ -41,7 +41,9 @@ class StackCaptureCache;
 //     AsanRuntime::GetAsanFlagsEnvVar(&asan_flags_str);
 //     asan_runtime->SetUp(asan_flags_str);  // Initialize the modules.
 //     ...
-//     asan_runtime->OnError();  // To report an error.
+//     CONTEXT context;
+//     ::RtlCaptureContext(&context);
+//     asan_runtime->OnError((&context);  // To report an error.
 //     asan_runtime->TearDown();  // Release the modules.
 //     delete asan_runtime;
 class AsanRuntime {
@@ -69,10 +71,11 @@ class AsanRuntime {
   void TearDown();
 
   // The error handler.
-  void OnError();
+  // @param context The context when the error has been reported.
+  void OnError(CONTEXT* context);
 
   // Set the callback called on error.
-  void SetErrorCallBack(void (*callback)());
+  void SetErrorCallBack(void (*callback)(CONTEXT*));
 
   // Try to read the Asan environment variable.
   // @param env_var_wstr The wstring where to store the environment variable.
@@ -147,7 +150,7 @@ class AsanRuntime {
 
  private:
   // The type of callback used by the OnError function.
-  typedef base::Callback<void()> AsanOnErrorCallBack;
+  typedef base::Callback<void(CONTEXT*)> AsanOnErrorCallBack;
 
   // Set up the logger.
   void SetUpLogger();

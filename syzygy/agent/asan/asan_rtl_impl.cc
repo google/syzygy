@@ -123,7 +123,9 @@ BOOL WINAPI asan_HeapFree(HANDLE heap,
     return FALSE;
 
   if (!proxy->Free(flags, mem)) {
-    asan_runtime->OnError();
+    CONTEXT context;
+    ::RtlCaptureContext(&context);
+    asan_runtime->OnError(&context);
     return false;
   }
 
@@ -245,7 +247,7 @@ BOOL WINAPI asan_HeapQueryInformation(
   return ret == true;
 }
 
-void WINAPI asan_SetCallBack(void (*callback)()) {
+void WINAPI asan_SetCallBack(void (*callback)(CONTEXT* context)) {
   DCHECK(asan_runtime != NULL);
   asan_runtime->SetErrorCallBack(callback);
 }
@@ -292,9 +294,13 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
 
   // Capture the current context.
   CONTEXT context = {};
+
+  // We need to call ::RtlCaptureContext if we want SegSS and SegCS to be
+  // properly set.
+  ::RtlCaptureContext(&context);
   context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
 
-  // Restore the original value of the flags.
+  // Restore the original value of the registers.
   context.Eip = asan_context->original_eip;
   context.Eax = asan_context->original_eax;
   context.Ecx = asan_context->original_ecx;
@@ -308,7 +314,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // Our AsanContext structure is in fact the whole stack frame for the asan
   // hook, to compute the value of esp before the call to the hook we can just
   // calculate the top address of this structure.
-  context.Esp = reinterpret_cast<DWORD>(asan_context) + sizeof(asan_context);
+  context.Esp = reinterpret_cast<DWORD>(asan_context) + sizeof(AsanContext);
 
   StackCapture stack;
   stack.InitFromStack();
@@ -322,7 +328,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // Call the callback to handle this error.
   // TODO(chrisha): Plumb the stack ID through the OnError call so that it can
   //     be used over there for stats as well if needed.
-  asan_runtime->OnError();
+  asan_runtime->OnError(&context);
 }
 
 }  // namespace asan
