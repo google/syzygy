@@ -45,9 +45,87 @@ Range MakeRange(size_t address, size_t size) {
 
 }  // namespace
 
-TEST(AddressFilterTest, Constructor) {
+TEST(AddressFilterTest, DefaultConstructor) {
+  TestAddressFilter f;
+  EXPECT_EQ(Range(), f.extent());
+  EXPECT_EQ(0u, f.size());
+
+  // Adding a range should be a noop.
+  f.Mark(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+}
+
+TEST(AddressFilterTest, RangeConstructor) {
   TestAddressFilter f(MakeRange(0, 100));
   EXPECT_EQ(0u, f.size());
+  EXPECT_EQ(MakeRange(0, 100), f.extent());
+}
+
+TEST(AddressFilterTest, CopyConstructor) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  EXPECT_EQ(MakeRange(0, 100), f.extent());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+
+  TestAddressFilter f2(f);
+  EXPECT_EQ(f.size(), f2.size());
+  EXPECT_EQ(f.extent(), f2.extent());
+  EXPECT_EQ(f.marked_ranges(), f2.marked_ranges());
+}
+
+TEST(AddressFilterTest, Assignment) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  EXPECT_EQ(MakeRange(0, 100), f.extent());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+
+  TestAddressFilter f2(MakeRange(0, 10));
+  EXPECT_EQ(0u, f2.size());
+
+  f2 = f;
+  EXPECT_EQ(f.size(), f2.size());
+  EXPECT_EQ(f.extent(), f2.extent());
+  EXPECT_EQ(f.marked_ranges(), f2.marked_ranges());
+}
+
+TEST(AddressFilterTest, Comparison) {
+  TestAddressFilter f(MakeRange(0, 100));
+
+  TestAddressFilter f2(MakeRange(0, 10));
+  EXPECT_FALSE(f == f2);
+  EXPECT_TRUE(f != f2);
+
+  f2 = f;
+  EXPECT_TRUE(f == f2);
+  EXPECT_FALSE(f != f2);
+
+  f.Mark(MakeRange(50, 10));
+  EXPECT_FALSE(f == f2);
+  EXPECT_TRUE(f != f2);
+
+  f2.Mark(MakeRange(50, 10));
+  EXPECT_TRUE(f == f2);
+  EXPECT_FALSE(f != f2);
+}
+
+TEST(AddressFilterTest, Clear) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+  f.Clear();
+  EXPECT_EQ(0u, f.size());
+}
+
+TEST(AddressFilterTest, Empty) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_TRUE(f.empty());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_FALSE(f.empty());
+  f.Mark(MakeRange(70, 10));
+  EXPECT_FALSE(f.empty());
 }
 
 TEST(AddressFilterTest, MarkOneRangeLeftOfExtent) {
@@ -269,6 +347,47 @@ TEST(AddressFilterTest, MarkSubsumingMultiple) {
 
   RangeSet expected;
   expected.insert(MakeRange(40, 50));
+  EXPECT_THAT(expected, ContainerEq(f.marked_ranges()));
+}
+
+TEST(AddressFilterTest, MarkExactlyAlignedAtBeginning) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+  f.Mark(MakeRange(0, 50));
+  EXPECT_EQ(1u, f.size());
+
+  RangeSet expected;
+  expected.insert(MakeRange(0, 60));
+  EXPECT_THAT(expected, ContainerEq(f.marked_ranges()));
+}
+
+TEST(AddressFilterTest, MarkExactlyAligned) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+  f.Mark(MakeRange(60, 10));
+  EXPECT_EQ(1u, f.size());
+
+  RangeSet expected;
+  expected.insert(MakeRange(50, 20));
+  EXPECT_THAT(expected, ContainerEq(f.marked_ranges()));
+}
+
+TEST(AddressFilterTest, MarkExactlyBetween) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+  f.Mark(MakeRange(70, 10));
+  EXPECT_EQ(2u, f.size());
+  f.Mark(MakeRange(60, 10));
+  EXPECT_EQ(1u, f.size());
+
+  RangeSet expected;
+  expected.insert(MakeRange(50, 30));
   EXPECT_THAT(expected, ContainerEq(f.marked_ranges()));
 }
 
@@ -586,6 +705,244 @@ TEST(AddressFilterTest, IsUnmarkedBetween) {
   EXPECT_EQ(2u, f.size());
 
   EXPECT_TRUE(f.IsUnmarked(MakeRange(62, 5)));
+}
+
+TEST(AddressFilterTest, Invert) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+  f.Mark(MakeRange(50, 10));
+  EXPECT_EQ(1u, f.size());
+  f.Mark(MakeRange(70, 10));
+  EXPECT_EQ(2u, f.size());
+
+  TestAddressFilter fi;
+  f.Invert(&fi);
+  EXPECT_EQ(f.extent(), fi.extent());
+  EXPECT_EQ(3u, fi.size());
+
+  RangeSet expected;
+  expected.insert(MakeRange(0, 50));
+  expected.insert(MakeRange(60, 10));
+  expected.insert(MakeRange(80, 20));
+  EXPECT_THAT(expected, ContainerEq(fi.marked_ranges()));
+
+  // Invert in place.
+  fi.Invert(&fi);
+  EXPECT_EQ(f, fi);
+}
+
+TEST(AddressFilterTest, InvertEmpty) {
+  TestAddressFilter f(MakeRange(0, 100));
+  EXPECT_EQ(0u, f.size());
+
+  f.Invert(&f);
+  EXPECT_EQ(1u, f.size());
+  EXPECT_EQ(f.extent(), *f.marked_ranges().begin());
+}
+
+TEST(AddressFilterTest, EmptyIntersect) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+
+  TestAddressFilter f2(MakeRange(0, 100));
+  EXPECT_EQ(0u, f2.size());
+
+  TestAddressFilter f3;
+  f1.Intersect(f2, &f3);
+  EXPECT_EQ(f1.extent(), f3.extent());
+  EXPECT_EQ(0u, f3.size());
+}
+
+TEST(AddressFilterTest, IntersectNonOverlappingExtents) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+
+  TestAddressFilter f2(MakeRange(200, 100));
+  EXPECT_EQ(0u, f2.size());
+
+  TestAddressFilter f3;
+  f1.Intersect(f2, &f3);
+  EXPECT_EQ(f1.extent(), f3.extent());
+  EXPECT_EQ(0u, f3.size());
+
+  f2.Intersect(f1, &f3);
+  EXPECT_EQ(f2.extent(), f3.extent());
+  EXPECT_EQ(0u, f3.size());
+}
+
+TEST(AddressFilterTest, IntersectIdentity) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2(f1);
+  EXPECT_EQ(f1, f2);
+
+  TestAddressFilter f3;
+  f1.Intersect(f2, &f3);
+  EXPECT_EQ(f1, f3);
+
+  f2.Intersect(f1, &f3);
+  EXPECT_EQ(f2, f3);
+}
+
+TEST(AddressFilterTest, IntersectInverseIsEmpty) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2;
+  f1.Invert(&f2);
+
+  TestAddressFilter f3;
+  f1.Intersect(f2, &f3);
+  EXPECT_TRUE(f3.empty());
+}
+
+TEST(AddressFilterTest, IntersectionIsSymmetric) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2(MakeRange(0, 100));
+  EXPECT_EQ(0u, f2.size());
+  f2.Mark(MakeRange(0, 10));
+  f2.Mark(MakeRange(25, 10));
+  f2.Mark(MakeRange(45, 10));
+  f2.Mark(MakeRange(85, 15));
+  EXPECT_EQ(4u, f2.size());
+
+  TestAddressFilter f3;
+  f1.Intersect(f2, &f3);
+
+  TestAddressFilter f4;
+  f2.Intersect(f1, &f4);
+
+  EXPECT_EQ(f3, f4);
+
+  RangeSet expected;
+  expected.insert(MakeRange(30, 5));
+  expected.insert(MakeRange(50, 5));
+  expected.insert(MakeRange(90, 10));
+  EXPECT_THAT(expected, ContainerEq(f3.marked_ranges()));
+}
+
+TEST(AddressFilterTest, UnionInverseIsFull) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2;
+  f1.Invert(&f2);
+
+  TestAddressFilter f3;
+  f1.Union(f2, &f3);
+  EXPECT_FALSE(f3.empty());
+  EXPECT_EQ(1u, f3.size());
+
+  RangeSet expected;
+  expected.insert(MakeRange(0, 100));
+  EXPECT_THAT(expected, ContainerEq(f3.marked_ranges()));
+}
+
+TEST(AddressFilterTest, UnionIsSymmetric) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2(MakeRange(0, 100));
+  EXPECT_EQ(0u, f2.size());
+  f2.Mark(MakeRange(0, 10));
+  f2.Mark(MakeRange(25, 10));
+  f2.Mark(MakeRange(45, 10));
+  f2.Mark(MakeRange(85, 15));
+  EXPECT_EQ(4u, f2.size());
+
+  TestAddressFilter f3;
+  f1.Union(f2, &f3);
+
+  TestAddressFilter f4;
+  f2.Union(f1, &f4);
+
+  EXPECT_EQ(f3, f4);
+
+  RangeSet expected;
+  expected.insert(MakeRange(0, 10));
+  expected.insert(MakeRange(25, 15));
+  expected.insert(MakeRange(45, 15));
+  expected.insert(MakeRange(85, 15));
+  EXPECT_THAT(expected, ContainerEq(f3.marked_ranges()));
+}
+
+TEST(AddressFilterTest, SelfDifferenceIsEmpty) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2(f1);
+  TestAddressFilter f3;
+  f1.Subtract(f2, &f3);
+  EXPECT_TRUE(f3.empty());
+
+  f1.Subtract(f1, &f1);
+  EXPECT_TRUE(f1.empty());
+}
+
+TEST(AddressFilterTest, Difference) {
+  TestAddressFilter f1(MakeRange(0, 100));
+  EXPECT_EQ(0u, f1.size());
+  f1.Mark(MakeRange(30, 10));
+  f1.Mark(MakeRange(50, 10));
+  f1.Mark(MakeRange(90, 10));
+  EXPECT_EQ(3u, f1.size());
+
+  TestAddressFilter f2(MakeRange(0, 100));
+  EXPECT_EQ(0u, f2.size());
+  f2.Mark(MakeRange(0, 10));
+  f2.Mark(MakeRange(25, 10));
+  f2.Mark(MakeRange(45, 10));
+  f2.Mark(MakeRange(85, 15));
+  EXPECT_EQ(4u, f2.size());
+
+  {
+    TestAddressFilter f3;
+    f1.Subtract(f2, &f3);
+
+    RangeSet expected;
+    expected.insert(MakeRange(35, 5));
+    expected.insert(MakeRange(55, 5));
+    EXPECT_THAT(expected, ContainerEq(f3.marked_ranges()));
+  }
+
+  {
+    TestAddressFilter f3;
+    f2.Subtract(f1, &f3);
+
+    RangeSet expected;
+    expected.insert(MakeRange(0, 10));
+    expected.insert(MakeRange(25, 5));
+    expected.insert(MakeRange(45, 5));
+    expected.insert(MakeRange(85, 5));
+    EXPECT_THAT(expected, ContainerEq(f3.marked_ranges()));
+  }
 }
 
 }  // namespace core

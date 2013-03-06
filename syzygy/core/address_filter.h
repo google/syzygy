@@ -32,10 +32,33 @@ class AddressFilter {
   typedef AddressRangeLessThan<AddressType, SizeType> RangeLessThan;
   typedef std::set<Range, RangeLessThan> RangeSet;
 
+  // Default constructor. This is only for compatibility with STL containers.
+  AddressFilter() { }
+
   // Constructor. Builds an empty address filter over the given address bounds.
   // @param extent The address-space over which this filter is defined.
   explicit AddressFilter(const Range& extent) : extent_(extent) {
   }
+
+  // Copy constructor. We explicitly want to support set operations on these, so
+  // expose the copy constructor facilitates this.
+  // @param rhs The AddressFilter to copy.
+  AddressFilter(const AddressFilter& rhs)
+      : extent_(rhs.extent_), marked_ranges_(rhs.marked_ranges_) {
+  }
+
+  // Assignment operator. We explicitly want to support arithmetic-like set
+  // operations so expose an assignment operator.
+  // @param rhs The AddressFilter to copy.
+  // @returns a reference to this AddressFilter.
+  AddressFilter& operator=(const AddressFilter& rhs) {
+    extent_ = rhs.extent_;
+    marked_ranges_ = rhs.marked_ranges_;
+    return *this;
+  }
+
+  // Clears this AddressFilter.
+  void Clear() { marked_ranges_.clear(); }
 
   // Marks the given address range.
   // @param range The range to mark.
@@ -59,8 +82,47 @@ class AddressFilter {
 
   // @name Accessors.
   // @{
+  const Range& extent() const { return extent_; }
   const RangeSet& marked_ranges() const { return marked_ranges_; }
   size_t size() const { return marked_ranges_.size(); }
+  bool empty() const { return marked_ranges_.empty(); }
+  // @}
+
+  // @name Comparison operators.
+  // @{
+  bool operator==(const AddressFilter& rhs) const {
+    return extent_ == rhs.extent_ && marked_ranges_ == rhs.marked_ranges_;
+  }
+  bool operator!=(const AddressFilter& rhs) const { return !operator==(rhs); }
+  // @}
+
+  // @name Set operations.
+  // @{
+  // Inverts this AddressFilter.
+  // @param filter The address filter to populate with the inverse. This may
+  //     be |this|, allowing the operation to be done in place.
+  void Invert(AddressFilter* filter) const;
+
+  // Calculates the intersection of this address filter and another.
+  // @param other The filter to intersect with.
+  // @param filter The filter to populate with the intersection. This may
+  //     be |this|, allowing the operation to be done in place.
+  // @note The returned filter will have the same extent as this filter.
+  void Intersect(const AddressFilter& other, AddressFilter* filter) const;
+
+  // Calculates the union of this address filter and another.
+  // @param other The filter with which to calculate the union.
+  // @param filter The filter to populate with the union. This may
+  //     be |this|, allowing the operation to be done in place.
+  // @note The returned filter will have the same extent as this filter.
+  void Union(const AddressFilter& other, AddressFilter* filter) const;
+
+  // Calculates the difference between this set and another.
+  // @param other The filter to be subtracted from this filter.
+  // @param filter The filter to populate with the difference. This may
+  //     be |this|, allowing the operation to be done in place.
+  // @note The returned filter will have the same extent as this filter.
+  void Subtract(const AddressFilter& other, AddressFilter* filter) const;
   // @}
 
  protected:
@@ -69,9 +131,6 @@ class AddressFilter {
 
   // The set of disjoint marked ranges.
   RangeSet marked_ranges_;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(AddressFilter);
 };
 
 }  // namespace core
