@@ -45,6 +45,9 @@ using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
+using block_graph::Instruction;
+using block_graph::RelativeAddressFilter;
+using core::RelativeAddress;
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef AsanBasicBlockTransform::AsanHookMapEntryKey HookMapEntryKey;
@@ -259,6 +262,60 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
 
   // Non-instrumentable instructions implies no change.
   ASSERT_EQ(basic_block_.instructions().size(), basic_block_size);
+}
+
+TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
+  // Add a read access to the memory.
+  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
+  // Add a write access to the memory.
+  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
+
+  // Add a source range to the first instruction.
+  block_graph::Instruction& i1 = *basic_block_.instructions().begin();
+  i1.set_source_range(Instruction::SourceRange(
+      RelativeAddress(1000), i1.size()));
+
+  // Create a filter that blocks out that source range.
+  RelativeAddressFilter filter(
+      RelativeAddressFilter::Range(RelativeAddress(0), 2000));
+  filter.Mark(RelativeAddressFilter::Range(RelativeAddress(995), 50));
+
+  // Pass the filter to the BB transform.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_filter(&filter);
+
+  // Instrument this basic block.
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+
+  // Ensure that the basic block is instrumented, but only the second
+  // instruction.
+
+  // We had 2 instructions initially. For the second one we add 3
+  // instructions, so we expect to have 1 + (1 + 3) = 5 instructions.
+  ASSERT_EQ(basic_block_.instructions().size(), 5);
+
+  // Walk through the instructions to ensure that the Asan hooks have been
+  // injected.
+  BasicBlock::Instructions::const_iterator iter_inst =
+      basic_block_.instructions().begin();
+
+  // Ensure the first instruction is not instrumented at all.
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
+
+  // Then we check if the second memory access is well instrumented as a 4 byte
+  // write access.
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
+  ASSERT_EQ(iter_inst->references().size(), 1);
+  HookMapEntryKey check_4_byte_write_key =
+      std::make_pair(AsanBasicBlockTransform::kWriteAccess, 4);
+  ASSERT_TRUE(iter_inst->references().begin()->second.block()
+      == hooks_check_access_[check_4_byte_write_key]);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
+  ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
+
+  ASSERT_TRUE(iter_inst == basic_block_.instructions().end());
 }
 
 namespace {

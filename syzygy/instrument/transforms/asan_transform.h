@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "base/string_piece.h"
+#include "syzygy/block_graph/filterable.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
@@ -33,7 +34,8 @@ namespace transforms {
 // This class implements the transformation applied to each basic block.
 class AsanBasicBlockTransform
     : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
-          AsanBasicBlockTransform> {
+          AsanBasicBlockTransform>,
+      public block_graph::Filterable {
  public:
   // Represent the different kind of access to the memory.
   enum MemoryAccessMode {
@@ -77,7 +79,8 @@ class AsanBasicBlockTransform
 };
 
 class AsanTransform
-    : public block_graph::transforms::IterativeTransformImpl<AsanTransform> {
+    : public block_graph::transforms::IterativeTransformImpl<AsanTransform>,
+      public block_graph::Filterable {
  public:
   typedef block_graph::BlockGraph BlockGraph;
 

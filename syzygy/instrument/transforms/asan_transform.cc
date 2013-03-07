@@ -452,6 +452,10 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (FLAG_GET_PREFIX(repr.flags) & (FLAG_REPNZ | FLAG_REP))
       continue;
 
+    // Finally, don't instrument any filtered instructions.
+    if (IsFiltered(*iter_inst))
+      continue;
+
     // Create a BasicBlockAssembler to insert new instruction.
     BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
 
@@ -556,7 +560,10 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
   if (!pe::CodeBlockIsBasicBlockDecomposable(block))
     return true;
 
+  // Use the filter that was passed to us for our child transform.
   AsanBasicBlockTransform transform(&check_access_hooks_ref_);
+  transform.set_filter(filter());
+
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
     return false;
 
