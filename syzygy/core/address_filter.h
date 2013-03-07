@@ -28,6 +28,8 @@ struct AddressRangeLessThan;
 template<typename AddressType, typename SizeType>
 class AddressFilter {
  public:
+  typedef AddressType Address;
+  typedef SizeType Size;
   typedef AddressRange<AddressType, SizeType> Range;
   typedef AddressRangeLessThan<AddressType, SizeType> RangeLessThan;
   typedef std::set<Range, RangeLessThan> RangeSet;
