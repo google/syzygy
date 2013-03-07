@@ -202,8 +202,8 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
                     const Operand& op,
                     BlockGraph::Reference* hook) {
   DCHECK(hook != NULL);
-  bb_asm->push(core::eax);
-  bb_asm->lea(core::eax, op);
+  bb_asm->push(core::edx);
+  bb_asm->lea(core::edx, op);
   bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
 }
 
@@ -346,11 +346,11 @@ bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
   return true;
 }
 
-// Create a stub for the asan_check_access functions. The stub consist of a
-// small block of code that restores the value of eax and returns to the caller.
+// Create a stub for the asan_check_access functions. The stub consists of a
+// small block of code that restores the value of edx and returns to the caller.
 // @param block_graph The block-graph to populate with the stub.
 // @param stub_name The stub's name.
-// @returns A pointer to the stub's block in success, NULL otherwise.
+// @returns A pointer to the stub's block on success, NULL otherwise.
 BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
                                    const base::StringPiece stub_name) {
   using block_graph::BasicBlockSubGraph;
@@ -373,9 +373,9 @@ BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
   block_desc->basic_block_order.push_back(bb);
   BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
 
-  // The thunk restores the original value of eax and cleans the stack on
+  // The thunk restores the original value of edx and cleans the stack on
   // return.
-  assm.mov(core::eax, Operand(core::esp, Displacement(4)));
+  assm.mov(core::edx, Operand(core::esp, Displacement(4)));
   assm.ret(4);
 
   // Condense into a block.

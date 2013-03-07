@@ -173,14 +173,14 @@ void __declspec(naked) CheckAccessAndCaptureContexts(CONTEXT* before,
     push dword ptr[esp + 0x4]
     call dword ptr[RtlCaptureContext]
 
-    // Restore EAX, which is stomped by RtlCaptureContext.
+    // Restore eax, which is stomped by RtlCaptureContext.
     mov eax, dword ptr[esp + 0x4]
     mov eax, dword ptr[eax + CONTEXT.Eax]
 
-    // Push eax as we're required to do by the custom calling convention.
-    push eax
+    // Push edx as we're required to do by the custom calling convention.
+    push edx
     // Ptr is the pointer to check.
-    mov eax, dword ptr[esp + 0x10]
+    mov edx, dword ptr[esp + 0x10]
     // Call through.
     call dword ptr[check_access_fn + 0]
 
@@ -202,20 +202,20 @@ void __declspec(naked) CheckAccess(void* ptr) {
     push dword ptr[context_before_hook]
     call dword ptr[RtlCaptureContext]
 
-    // Fix the values of EBP, ESP and EIP in the context to make sure they are
+    // Fix the values of ebp, esp and eip in the context to make sure they are
     // the same as what they'll be after the call to the hook.
     mov eax, dword ptr[context_before_hook]
     mov dword ptr[eax + CONTEXT.Ebp], ebp
     mov dword ptr[eax + CONTEXT.Esp], esp
     mov dword ptr[eax + CONTEXT.Eip], offset expected_eip
 
-    // Restore EAX, which is stomped by RtlCaptureContext.
+    // Restore eax, which is stomped by RtlCaptureContext.
     mov eax, dword ptr[eax + CONTEXT.Eax]
 
-    // Push eax as we're required to do by the custom calling convention.
-    push eax
+    // Push edx as we're required to do by the custom calling convention.
+    push edx
     // Ptr is the pointer to check.
-    mov eax, dword ptr[esp + 0x8]
+    mov edx, dword ptr[esp + 0x8]
     // Call through.
     call dword ptr[check_access_fn + 0]
 expected_eip:

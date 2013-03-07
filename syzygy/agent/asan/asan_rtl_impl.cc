@@ -271,14 +271,16 @@ struct AsanContext {
   DWORD original_ebp;
   DWORD do_not_use_esp;
   DWORD original_ebx;
-  DWORD original_edx;
+  DWORD do_not_use_edx;
   DWORD original_ecx;
   DWORD do_not_use_eax;
+  DWORD original_eflags;
   // This is the location of the bad access for this context.
   void* location;
-  DWORD original_eflags;
-  DWORD original_eip;
+  DWORD do_not_use_flags;
   DWORD original_eax;
+  DWORD original_eip;
+  DWORD original_edx;
 };
 #pragma pack(pop)
 
@@ -344,41 +346,66 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   extern "C" __declspec(naked)  \
       void asan_check_ ## access_size ## _byte_ ## access_mode_str ## () {  \
     __asm {  \
-      /* Save the flags and save eax for the slow case. */  \
-      __asm pushfd  \
+      /* Save eax as we'll use it to save the value of the flags. */  \
       __asm push eax  \
+      /* Save the low byte of the flags into ah. We use this instruction */  \
+      /* instead of pushfd/popfd because it's much faster. We also save */  \
+      /* the overflow flag into al. We can do this because our hooks are */  \
+      /* simple and don't touch the other flags. */  \
+      __asm lahf  \
+      __asm seto al  \
+      __asm push eax  \
+      /* Save edx for the slow path. */  \
+      __asm push edx  \
       /* Check for zero shadow - fast case. */  \
-      __asm shr eax, 3  \
-      __asm mov al, BYTE ptr[eax + agent::asan::Shadow::shadow_]  \
-      __asm test al, al  \
+      __asm shr edx, 3  \
+      __asm mov dl, BYTE ptr[edx + agent::asan::Shadow::shadow_]  \
+      __asm test dl, dl  \
       __asm jnz check_access_slow  \
-      /* Restore flags and original eax. */  \
-    __asm restore_eax_and_flags:  \
+      /* Restore original edx. */  \
       __asm add esp, 4  \
-      __asm mov eax, DWORD PTR[esp + 8]  \
-      __asm popfd  \
+      __asm mov edx, DWORD PTR[esp + 12]  \
+      /* Pop the value of the flags that we've saved earlier into eax. */  \
+      __asm pop eax  \
+      /* al is set to 1 if the overflow flag was set before the call to */  \
+      /* our hook, 0 otherwise. We add 0x7f to it so it'll restore the */  \
+      /* flag. */  \
+      __asm add al, 0x7f  \
+      /* Restore the low byte of the flags. */  \
+      __asm sahf  \
+      /* Restore original eax */  \
+      __asm pop eax  \
       __asm ret 4  \
     __asm check_access_slow:  \
       /* Uh-oh - non-zero shadow byte means we go to the slow case. */  \
-      /* Save ecx/edx, they're caller-save. */  \
-      __asm push edx  \
+      /* Save ecx, it's caller-save. */  \
       __asm push ecx  \
       /* Push the address to check. */  \
-      __asm push DWORD ptr[esp + 8]  \
+      __asm push DWORD ptr[esp + 4]  \
       __asm call agent::asan::Shadow::IsAccessible  \
-      /* We restore ecx and edx before testing the return value. */  \
-      __asm pop ecx  \
-      __asm pop edx  \
       __asm test al, al  \
+      __asm pop ecx  \
       /* We've found a bad access, report this failure. */  \
       __asm jz report_failure  \
-      /* Same code as in the restore_eax_and_flags label, we could jump */  \
-      /* there but it'll add an instruction. */  \
+      /* Same code as in the fast path, we could jump there but it'll add */  \
+      /* an instruction. */  \
       __asm add esp, 4  \
-      __asm mov eax, DWORD PTR[esp + 8]  \
-      __asm popfd  \
+      __asm mov edx, DWORD PTR[esp + 12]  \
+      __asm pop eax  \
+      __asm add al, 0x7f  \
+      __asm sahf  \
+      __asm pop eax  \
       __asm ret 4  \
     __asm report_failure:  \
+      /* As we give the user the ability to change the error handler, we */  \
+      /* need to save the flags with pushfd because now we can't guarantee */  \
+      /* that the direction flag won't be touched. */  \
+      /* We start by restoring the flags. */  \
+      __asm mov eax, DWORD PTR[esp + 4]  \
+      __asm add al, 0x7f  \
+      __asm sahf  \
+      /* Then we push them. */  \
+      __asm pushfd  \
       /* Push all the register to have the full asan context on the stack.*/  \
       __asm pushad  \
       /* Push a pointer to this context. */  \
@@ -390,7 +417,11 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       /* Call the error handler. */  \
       __asm call agent::asan::ReportBadMemoryAccess  \
       __asm popad  \
-      __asm jmp restore_eax_and_flags  \
+      __asm popfd  \
+      __asm add esp, 8  \
+      __asm mov edx, DWORD PTR[esp + 8]  \
+      __asm pop eax  \
+      __asm ret 4  \
     }  \
   }
 
