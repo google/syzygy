@@ -29,6 +29,7 @@
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/instrument/transforms/thunk_import_references_transform.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/image_filter.h"
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -70,6 +71,9 @@ static const char kUsageFormatStr[] =
     "                          uniqueness of address->name resolution.\n"
     "    --input-pdb=<path>    The PDB for the DLL to instrument. If not\n"
     "                          explicitly provided will be searched for.\n"
+    "    --filter=<path>       The path of the filter to be used in applying\n"
+    "                          the instrumentation. Ranges marked in the\n"
+    "                          filter will not be instrumented.\n"
     "    --new-decomposer      Use the new decomposer.\n"
     "    --no-augment-pdb      Indicates that the relinker should not augment\n"
     "                          the output PDB with additional metadata.\n"
@@ -162,6 +166,9 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     output_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath(
         "output-image"));
   }
+
+  // Parse the filter path, if one was provided.
+  filter_path_ = cmd_line->GetSwitchValuePath("filter");
 
   // Ensure that both input and output have been specified.
   if (input_dll_path_.empty() || output_dll_path_.empty())
@@ -258,6 +265,23 @@ int InstrumentApp::Run() {
   relinker.set_use_new_decomposer(new_decomposer_);
   relinker.set_strip_strings(!no_strip_strings_);
 
+  // Parse the filter if one was provided.
+  scoped_ptr<pe::ImageFilter> filter;
+  bool filter_used = false;
+  if (!filter_path_.empty()) {
+    filter.reset(new pe::ImageFilter());
+    if (!filter->LoadFromJSON(filter_path_)) {
+      LOG(ERROR) << "Failed to parse filter file: " << filter_path_.value();
+      return 1;
+    }
+
+    // Ensure it is for the input module.
+    if (!filter->IsForModule(input_dll_path_)) {
+      LOG(ERROR) << "Filter does not match the input module.";
+      return 1;
+    }
+  }
+
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {
     LOG(ERROR) << "Failed to initialize relinker.";
@@ -279,6 +303,13 @@ int InstrumentApp::Run() {
   // We are instrumenting in ASAN mode.
   if (mode_ == kInstrumentAsanMode) {
     asan_transform.reset(new instrument::transforms::AsanTransform);
+
+    // Set up the filter if one was provided.
+    if (filter.get()) {
+      asan_transform->set_filter(&filter->filter);
+      filter_used = true;
+    }
+
     relinker.AppendTransform(asan_transform.get());
   } else if (mode_ == kInstrumentBasicBlockEntryMode) {
     // If we're in basic-block-entry mode, we need to apply the basic block
@@ -334,6 +365,10 @@ int InstrumentApp::Run() {
       relinker.AppendTransform(import_thunk_tx.get());
     }
   }
+
+  // If a filter was provided but not used output a warning.
+  if (filter.get() && !filter_used)
+    LOG(WARNING) << "Not using provided filter.";
 
   // We let the PERelinker use the implicit OriginalOrderer.
   if (!relinker.Relink()) {

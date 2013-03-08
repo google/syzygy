@@ -91,6 +91,7 @@ class InstrumentApp : public common::AppImplBase {
   FilePath input_pdb_path_;
   FilePath output_dll_path_;
   FilePath output_pdb_path_;
+  FilePath filter_path_;
   std::string client_dll_;
   bool allow_overwrite_;
   bool new_decomposer_;
