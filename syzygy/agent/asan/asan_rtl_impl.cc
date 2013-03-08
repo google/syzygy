@@ -276,8 +276,8 @@ struct AsanContext {
   DWORD do_not_use_eax;
   DWORD original_eflags;
   // This is the location of the bad access for this context.
-  void* location;
   DWORD do_not_use_flags;
+  void* location;
   DWORD original_eax;
   DWORD original_eip;
   DWORD original_edx;
@@ -342,6 +342,12 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
 // @param access_mode_str The string representing the access mode (read_access
 //     or write_access).
 // @param access_mode_value The internal value representing this kind of access.
+// Generates the asan check access functions. The name of the generated method
+// will be asan_check_(@p access_size)_byte_(@p access_mode_str)().
+// @param access_size The size of the access (in byte).
+// @param access_mode_str The string representing the access mode (read_access
+//     or write_access).
+// @param access_mode_value The internal value representing this kind of access.
 #define ASAN_CHECK_FUNCTION(access_size, access_mode_str, access_mode_value)  \
   extern "C" __declspec(naked)  \
       void asan_check_ ## access_size ## _byte_ ## access_mode_str ## () {  \
@@ -354,7 +360,6 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       /* simple and don't touch the other flags. */  \
       __asm lahf  \
       __asm seto al  \
-      __asm push eax  \
       /* Save edx for the slow path. */  \
       __asm push edx  \
       /* Check for zero shadow - fast case. */  \
@@ -364,9 +369,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       __asm jnz check_access_slow  \
       /* Restore original edx. */  \
       __asm add esp, 4  \
-      __asm mov edx, DWORD PTR[esp + 12]  \
-      /* Pop the value of the flags that we've saved earlier into eax. */  \
-      __asm pop eax  \
+      __asm mov edx, DWORD PTR[esp + 8]  \
       /* al is set to 1 if the overflow flag was set before the call to */  \
       /* our hook, 0 otherwise. We add 0x7f to it so it'll restore the */  \
       /* flag. */  \
@@ -377,11 +380,13 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       __asm pop eax  \
       __asm ret 4  \
     __asm check_access_slow:  \
+      /* Save flags on stack (keep in eax in the fastpath) */  \
+      __asm push eax  \
       /* Uh-oh - non-zero shadow byte means we go to the slow case. */  \
-      /* Save ecx, it's caller-save. */  \
+      /* Save ecx, it's caller-save (eax, ecx and edx are caller-save). */  \
       __asm push ecx  \
       /* Push the address to check. */  \
-      __asm push DWORD ptr[esp + 4]  \
+      __asm push DWORD ptr[esp + 8]  \
       __asm call agent::asan::Shadow::IsAccessible  \
       __asm test al, al  \
       __asm pop ecx  \
@@ -389,11 +394,12 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       __asm jz report_failure  \
       /* Same code as in the fast path, we could jump there but it'll add */  \
       /* an instruction. */  \
-      __asm add esp, 4  \
-      __asm mov edx, DWORD PTR[esp + 12]  \
+     __asm epilogue:  \
       __asm pop eax  \
+      __asm add esp, 4  \
       __asm add al, 0x7f  \
       __asm sahf  \
+      __asm mov edx, DWORD PTR[esp + 8]  \
       __asm pop eax  \
       __asm ret 4  \
     __asm report_failure:  \
@@ -401,7 +407,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       /* need to save the flags with pushfd because now we can't guarantee */  \
       /* that the direction flag won't be touched. */  \
       /* We start by restoring the flags. */  \
-      __asm mov eax, DWORD PTR[esp + 4]  \
+      __asm mov eax, DWORD PTR[esp]  \
       __asm add al, 0x7f  \
       __asm sahf  \
       /* Then we push them. */  \
@@ -418,10 +424,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       __asm call agent::asan::ReportBadMemoryAccess  \
       __asm popad  \
       __asm popfd  \
-      __asm add esp, 8  \
-      __asm mov edx, DWORD PTR[esp + 8]  \
-      __asm pop eax  \
-      __asm ret 4  \
+      __asm jmp epilogue  \
     }  \
   }
 
