@@ -247,7 +247,7 @@ BOOL WINAPI asan_HeapQueryInformation(
   return ret == true;
 }
 
-void WINAPI asan_SetCallBack(void (*callback)(CONTEXT* context)) {
+void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*)) {
   DCHECK(asan_runtime != NULL);
   asan_runtime->SetErrorCallBack(callback);
 }
@@ -320,6 +320,10 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
 
   StackCapture stack;
   stack.InitFromStack();
+  // We need to compute a relative stack id so that for the same stack trace
+  // we'll get the same value every time even if the modules are loaded at a
+  // different base address.
+  stack.set_stack_id(stack.ComputeRelativeStackId());
 
   asan_runtime->ReportAsanErrorDetails(asan_context->location,
                                        context,
@@ -327,9 +331,11 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
                                        access_mode,
                                        access_size);
 
+  // TODO(sebmarchand): Use the stack id to check if we need to ignore this
+  //     error or if this has already been reported. We also may want to have a
+  //     flag to allow multiple reports of the same error.
+
   // Call the callback to handle this error.
-  // TODO(chrisha): Plumb the stack ID through the OnError call so that it can
-  //     be used over there for stats as well if needed.
   asan_runtime->OnError(&context);
 }
 

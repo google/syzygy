@@ -84,6 +84,8 @@ TEST_F(AsanRuntimeTest, OnError) {
   callback_called = false;
   CONTEXT context;
   RtlCaptureContext(&context);
+  StackCapture stack;
+  stack.InitFromStack();
   asan_runtime_.OnError(&context);
   ASSERT_EQ(true, callback_called);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());

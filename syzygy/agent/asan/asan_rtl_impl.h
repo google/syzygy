@@ -66,7 +66,7 @@ BOOL WINAPI asan_HeapQueryInformation(
     HANDLE heap, HEAP_INFORMATION_CLASS info_class,
     PVOID info, SIZE_T info_length, PSIZE_T return_length);
 
-void WINAPI asan_SetCallBack(void (*callback)(CONTEXT* context));
+void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*));
 
 }  // extern "C"
 

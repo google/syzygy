@@ -15,6 +15,10 @@
 #include "syzygy/agent/asan/stack_capture.h"
 
 #include "base/logging.h"
+#include "base/process_util.h"
+
+// http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace agent {
 namespace asan {
@@ -52,6 +56,24 @@ void StackCapture::InitFromBuffer(StackId stack_id,
   stack_id_ = stack_id;
   num_frames_ = std::min<uint8>(num_frames, max_num_frames_);
   ::memcpy(frames_, frames, num_frames_ * sizeof(void*));
+}
+
+StackCapture::StackId StackCapture::ComputeRelativeStackId() {
+  // We want to ignore the frames relative to our module to be able to get the
+  // same trace id even if we update our runtime.
+  HANDLE asan_handle = reinterpret_cast<HANDLE>(&__ImageBase);
+  DCHECK(asan_handle != NULL);
+
+  StackId stack_id = 0;
+  for (size_t i = 0; i < num_frames_; ++i) {
+    HMODULE module = base::GetModuleFromAddress(frames_[i]);
+    if (module == NULL || module == asan_handle)
+      continue;
+    stack_id += reinterpret_cast<size_t>(frames_[i]) -
+      reinterpret_cast<size_t>(module);
+  }
+
+  return stack_id;
 }
 
 size_t StackCapture::HashCompare::operator()(

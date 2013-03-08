@@ -36,6 +36,7 @@ using agent::asan::StackCaptureCache;
 
 // The default error handler.
 // @param context The context when the error has been reported.
+// @param stack_id The id of the crash stack trace.
 void OnAsanError(CONTEXT* context) {
   ::DebugBreak();
   ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);

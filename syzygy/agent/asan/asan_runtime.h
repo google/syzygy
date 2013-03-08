@@ -43,7 +43,10 @@ class StackCaptureCache;
 //     ...
 //     CONTEXT context;
 //     ::RtlCaptureContext(&context);
-//     asan_runtime->OnError((&context);  // To report an error.
+//     StackCapture stack;
+//     stack.InitFromStack();
+//     stack.set_stack_id(stack.ComputeRelativeStackId());
+//     asan_runtime->OnError((&context, stack.stack_id());
 //     asan_runtime->TearDown();  // Release the modules.
 //     delete asan_runtime;
 class AsanRuntime {
@@ -75,6 +78,8 @@ class AsanRuntime {
   void OnError(CONTEXT* context);
 
   // Set the callback called on error.
+  // TODO(sebmarchand): Move the signature of this callback to an header file
+  //     so it'll be easier to update it.
   void SetErrorCallBack(void (*callback)(CONTEXT*));
 
   // Try to read the Asan environment variable.
