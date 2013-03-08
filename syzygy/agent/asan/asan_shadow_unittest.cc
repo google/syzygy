@@ -45,7 +45,7 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
       EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
     }
 
-    Shadow::Poison(start_addr, size);
+    Shadow::Poison(start_addr, size, Shadow::kHeapNonAccessibleByteMask);
     for (size_t i = 0; i < size; ++i) {
       EXPECT_FALSE(Shadow::IsAccessible(start_addr + i));
     }

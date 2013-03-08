@@ -171,7 +171,7 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   size_t header_size = kRedZoneSize;
   size_t trailer_size = alloc_size - kRedZoneSize - bytes;
   memset(block, 0xCC, header_size);
-  Shadow::Poison(block, kRedZoneSize);
+  Shadow::Poison(block, kRedZoneSize, Shadow::kHeapLeftRedzone);
 
   // Capture the current stack. InitFromStack is inlined to preserve the
   // greatest number of stack frames.
@@ -189,7 +189,7 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   Shadow::Unpoison(block_alloc, bytes);
 
   memset(block_alloc + bytes, 0xCD, trailer_size);
-  Shadow::Poison(block_alloc + bytes, trailer_size);
+  Shadow::Poison(block_alloc + bytes, trailer_size, Shadow::kHeapRightRedzone);
 
   return block_alloc;
 }
@@ -353,8 +353,9 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   // Poison the released alloc.
   size_t alloc_size = GetAllocSize(free_block->size);
   // Trash the data in the block and poison it.
-  memset(ToAlloc(free_block), 0xCC, free_block->size);
-  Shadow::Poison(free_block, alloc_size);
+  uint8* mem = ToAlloc(free_block);
+  memset(mem, 0xCC, free_block->size);
+  Shadow::MarkAsFreed(mem, free_block->size);
   quarantine_size_ += alloc_size;
   // Mark the block as quarantined.
   free_block->state = QUARANTINED;

@@ -288,7 +288,10 @@ TEST_F(AsanRtlTest, AsanCheckBadAccess) {
   AssertMemoryErrorIsDetected(mem - 1);
   AssertMemoryErrorIsDetected(mem + kAllocSize);
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  AssertMemoryErrorIsDetected(mem);
   ASSERT_TRUE(LogContains("heap-buffer-underflow"));
+  ASSERT_TRUE(LogContains("heap-buffer-overflow"));
+  ASSERT_TRUE(LogContains("heap-use-after-free"));
 }
 
 } // namespace asan

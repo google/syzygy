@@ -26,13 +26,25 @@ namespace asan {
 // An all-static class that manages the ASAN shadow memory.
 class Shadow {
  public:
-  // Poisons @p size bytes starting at @p addr.
+  // The different markers we use to mark the shadow memory.
+  enum ShadowMarker {
+    kHeapAddressableByte = 0x00,
+    kHeapNonAccessibleByteMask = 0xf0,
+    kHeapLeftRedzone = 0xfa,
+    kHeapRightRedzone = 0xfb,
+    kHeapFreedByte = 0xfd,
+  };
+
+  // Poisons @p size bytes starting at @p addr with @p shadow_val value.
   // @pre addr + size mod 8 == 0.
-  static void Poison(const void* addr, size_t size);
+  static void Poison(const void* addr, size_t size, ShadowMarker shadow_val);
 
   // Un-poisons @p size bytes starting at @p addr.
   // @pre addr mod 8 == 0 && size mod 8 == 0.
   static void Unpoison(const void* addr, size_t size);
+
+  // Mark @p size bytes starting at @p addr as freed.
+  static void MarkAsFreed(const void* addr, size_t size);
 
   // Returns true iff the byte at @p addr is not poisoned.
   static bool __stdcall IsAccessible(const void* addr);
@@ -49,11 +61,14 @@ class Shadow {
   static void Reset();
 
  private:
-  // Appends a line of shadow byte text from for the bytes ranging from
-  // shadow_[index] to shadow_[index + 7], prefixed by @p prefix.
+  // Appends a line of shadow byte text for the bytes ranging from
+  // shadow_[index] to shadow_[index + 7], prefixed by @p prefix. If the index
+  // @p bug_index is present in this range then its value will be surrounded by
+  // brackets.
   static void AppendShadowByteText(const char *prefix,
                                    uintptr_t index,
-                                   std::string* output);
+                                   std::string* output,
+                                   size_t bug_index);
 
   // One shadow byte for every 8 bytes in a 4G address space.
   static const size_t kShadowSize = 1 << (32 - 3);
