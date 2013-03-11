@@ -49,6 +49,9 @@
       # Core tests.
       '<(src)/syzygy/core/core.gyp:core_unittests',
 
+      # GenFilter tests.
+      '<(src)/syzygy/genfilter/genfilter.gyp:genfilter_unittests',
+
       # Grinder tests.
       '<(src)/syzygy/grinder/grinder.gyp:grinder_unittests',
 

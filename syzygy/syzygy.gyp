@@ -33,6 +33,7 @@
         'common/common.gyp:*',
         'core/core.gyp:*',
         'experimental/experimental.gyp:*',
+        'genfilter/genfilter.gyp:*',
         'grinder/grinder.gyp:*',
         'instrument/instrument.gyp:*',
         'installer/installer.gyp:*',
