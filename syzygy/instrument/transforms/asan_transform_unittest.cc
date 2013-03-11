@@ -284,17 +284,17 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   // MOV EAX, [EBP - 0x104]
   static const uint8 kMov2[6] = { 0x8b, 0x85, 0xfc, 0xfe, 0xff, 0xff };
 
-  EXPECT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kInc2, sizeof(kInc2)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kNeg1, sizeof(kNeg1)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kFild1, sizeof(kFild1)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kFistp1, sizeof(kFistp1)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kMov1, sizeof(kMov1)));
-  EXPECT_TRUE(AddInstructionFromBuffer(kMov2, sizeof(kMov2)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kInc2, sizeof(kInc2)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kNeg1, sizeof(kNeg1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kFild1, sizeof(kFild1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kFistp1, sizeof(kFistp1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kMov1, sizeof(kMov1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kMov2, sizeof(kMov2)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_.instructions().size();
+  uint32 expected_basic_block_size = basic_block_.instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -302,7 +302,28 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
 
   // Non-instrumentable instructions implies no change.
-  ASSERT_EQ(basic_block_.instructions().size(), basic_block_size);
+  EXPECT_EQ(expected_basic_block_size, basic_block_.instructions().size());
+}
+
+TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
+  // add eax, fs:[eax]
+  static const uint8 kAdd1[3] = { 0x64, 0x03, 0x00 };
+  // inc gs:[eax]
+  static const uint8 kInc1[3] = { 0x65, 0xFE, 0x00 };
+
+  ASSERT_TRUE(AddInstructionFromBuffer(kAdd1, sizeof(kAdd1)));
+  ASSERT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 expected_basic_block_size = basic_block_.instructions().size();
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+
+  // Non-instrumentable instructions implies no change.
+  EXPECT_EQ(expected_basic_block_size, basic_block_.instructions().size());
 }
 
 TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {

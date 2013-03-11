@@ -546,6 +546,12 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       continue;
     }
 
+    // We do not instrument memory accesses through special segments.
+    // FS is used for thread local specifics and GS for CPU info.
+    uint8_t segment = SEGMENT_GET(repr.segment);
+    if (segment == R_FS || segment == R_GS)
+      continue;
+
     // Finally, don't instrument any filtered instructions.
     if (IsFiltered(*iter_inst))
       continue;
