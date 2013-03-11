@@ -370,7 +370,7 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
       __asm push edx  \
       /* Check for zero shadow - fast case. */  \
       __asm shr edx, 3  \
-      __asm mov dl, BYTE ptr[edx + agent::asan::Shadow::shadow_]  \
+      __asm movzx edx, BYTE ptr[edx + agent::asan::Shadow::shadow_]  \
       __asm test dl, dl  \
       __asm jnz check_access_slow  \
       /* Restore original edx. */  \
