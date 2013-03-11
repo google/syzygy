@@ -348,12 +348,6 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
 // @param access_mode_str The string representing the access mode (read_access
 //     or write_access).
 // @param access_mode_value The internal value representing this kind of access.
-// Generates the asan check access functions. The name of the generated method
-// will be asan_check_(@p access_size)_byte_(@p access_mode_str)().
-// @param access_size The size of the access (in byte).
-// @param access_mode_str The string representing the access mode (read_access
-//     or write_access).
-// @param access_mode_value The internal value representing this kind of access.
 #define ASAN_CHECK_FUNCTION(access_size, access_mode_str, access_mode_value)  \
   extern "C" __declspec(naked)  \
       void asan_check_ ## access_size ## _byte_ ## access_mode_str ## () {  \
@@ -455,3 +449,75 @@ ASAN_CHECK_FUNCTION(16, write_access, AsanWriteAccess)
 ASAN_CHECK_FUNCTION(32, write_access, AsanWriteAccess)
 
 #undef ASAN_CHECK_FUNCTION
+
+// Generates the asan check access functions for the string instruction 'cmps'.
+// The name of the generated method will be
+// asan_check_(@p prefix)(@p access_size)_byte_cmps_access().
+// @param prefix The prefix of the instruction (repz or nothing).
+// @param counter The number of times the instruction must be executed.
+//     It may be a register or a constant.
+// @param access_size The size of the access (in byte).
+// @param inst The instruction used to move esi/edi (note: direction flag).
+#define ASAN_CHECK_CMPS_FUNCTION(prefix, counter, access_size, inst)  \
+  extern "C" __declspec(naked)  \
+  void asan_check ## prefix ## access_size ## _byte_cmps_access() {  \
+    /* TODO(etienneb) : implement this function. */  \
+    __asm ret  \
+  }
+
+ASAN_CHECK_CMPS_FUNCTION(_repz_, ecx, 4, cmps)
+ASAN_CHECK_CMPS_FUNCTION(_repz_, ecx, 2, cmpsw)
+ASAN_CHECK_CMPS_FUNCTION(_repz_, ecx, 1, cmpsb)
+ASAN_CHECK_CMPS_FUNCTION(_, 1, 4, cmps)
+ASAN_CHECK_CMPS_FUNCTION(_, 1, 2, cmpsw)
+ASAN_CHECK_CMPS_FUNCTION(_, 1, 1, cmpsb)
+
+#undef ASAN_CHECK_CMPS_FUNCTION
+
+// Generates the asan check access functions for the string instruction 'movs'.
+// The name of the generated method will be
+// asan_check_(@p prefix)(@p access_size)_byte_movs_access().
+// @param prefix The prefix of the instruction (repz or nothing).
+// @param counter The number of times the instruction must be executed.
+//     It may be a register or a constant.
+// @param access_size The size of the access (in byte).
+// @param inst The instruction used to move esi/edi (note: direction flag).
+#define ASAN_CHECK_MOVS_FUNCTION(prefix, counter, access_size, inst)  \
+  extern "C" __declspec(naked)  \
+  void asan_check ## prefix ## access_size ## _byte_movs_access() {  \
+    /* TODO(etienneb) : implement this function. */  \
+    __asm ret  \
+  }
+
+ASAN_CHECK_MOVS_FUNCTION(_repz_, ecx, 4, cmps)
+ASAN_CHECK_MOVS_FUNCTION(_repz_, ecx, 2, cmpsw)
+ASAN_CHECK_MOVS_FUNCTION(_repz_, ecx, 1, cmpsb)
+ASAN_CHECK_MOVS_FUNCTION(_, 1, 4, cmps);
+ASAN_CHECK_MOVS_FUNCTION(_, 1, 2, cmpsw);
+ASAN_CHECK_MOVS_FUNCTION(_, 1, 1, cmpsb);
+
+#undef ASAN_CHECK_MOVS_FUNCTION
+
+// Generates the asan check access functions for the string instruction 'stos'.
+// The name of the generated method will be
+// asan_check_(@p prefix)(@p access_size)_byte_movs_access().
+// @param prefix The prefix of the instruction (repz or nothing).
+// @param counter The number of times the instruction must be executed.
+//     It may be a register or a constant.
+// @param access_size The size of the access (in byte).
+// @param inst The instruction used to move esi/edi (note: direction flag).
+#define ASAN_CHECK_STOS_FUNCTION(prefix, counter, access_size, inst)  \
+  extern "C" __declspec(naked)  \
+  void asan_check ## prefix ## access_size ## _byte_stos_access() {  \
+    /* TODO(etienneb) : implement this function. */  \
+    __asm ret  \
+  }
+
+ASAN_CHECK_STOS_FUNCTION(_repz_, ecx, 4, cmps)
+ASAN_CHECK_STOS_FUNCTION(_repz_, ecx, 2, cmpsw)
+ASAN_CHECK_STOS_FUNCTION(_repz_, ecx, 1, cmpsb)
+ASAN_CHECK_STOS_FUNCTION(_, 1, 4, cmps);
+ASAN_CHECK_STOS_FUNCTION(_, 1, 2, cmpsw);
+ASAN_CHECK_STOS_FUNCTION(_, 1, 1, cmpsb);
+
+#undef ASAN_CHECK_STOS_FUNCTION

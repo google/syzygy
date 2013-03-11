@@ -42,12 +42,24 @@ class AsanBasicBlockTransform
     kNoAccess,
     kReadAccess,
     kWriteAccess,
+    kInstrAccess,
+    kRepzAccess,
+    kRepnzAccess,
   };
+
+  // Contains memory access information.
+  struct MemoryAccessInfo {
+    MemoryAccessMode mode;
+    uint8_t size;
+    uint16_t opcode;
+  };
+
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
-  typedef std::pair<MemoryAccessMode, size_t> AsanHookMapEntryKey;
+  typedef MemoryAccessInfo AsanHookMapEntryKey;
   // Map of hooks to asan check access functions.
   typedef std::map<AsanHookMapEntryKey, BlockGraph::Reference> AsanHookMap;
+  typedef std::map<MemoryAccessMode, BlockGraph::Reference> AsanDefaultHookMap;
 
   // Constructor.
   // @param hooks_read_access a reference to the read access check import entry.
@@ -83,6 +95,8 @@ class AsanTransform
       public block_graph::Filterable {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef AsanBasicBlockTransform::MemoryAccessInfo MemoryAccessInfo;
+  typedef AsanBasicBlockTransform::MemoryAccessMode MemoryAccessMode;
 
   // Initialize a new AsanTransform instance.
   AsanTransform();
@@ -125,6 +139,9 @@ class AsanTransform
 
   DISALLOW_COPY_AND_ASSIGN(AsanTransform);
 };
+
+bool operator<(const AsanBasicBlockTransform::MemoryAccessInfo& left,
+               const AsanBasicBlockTransform::MemoryAccessInfo& right);
 
 }  // namespace transforms
 }  // namespace instrument

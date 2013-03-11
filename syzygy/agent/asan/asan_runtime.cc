@@ -45,8 +45,7 @@ void OnAsanError(CONTEXT* context) {
 // Try to update the value of a size_t variable from a command-line.
 // @param cmd_line The command line who might contain a given parameter.
 // @param param_name The parameter that we want to read.
-// @param cmd_line A pointer to the size_t variable where we want to store the
-//     value of the parameter if it's present.
+// @param value Will receive the value of the parameter if it's present.
 // @returns true on success, false otherwise.
 bool UpdateSizetFromCommandLine(const CommandLine& cmd_line,
                                 const std::string& param_name,

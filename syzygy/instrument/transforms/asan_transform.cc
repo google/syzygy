@@ -114,17 +114,38 @@ bool IsInstrumentable(const _Operand& op) {
   }
 }
 
+// Returns true if opcode @p opcode is a special instruction.
+// Memory checks for special instructions (string instructions, instructions
+// with prefix, etc) are handled by calling specialized functions rather than
+// the standard memory checks.
+bool IsSpecialInstruction(uint16_t opcode) {
+  switch (opcode) {
+    case I_CMPS:
+    case I_STOS:
+    case I_MOVS:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 // Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
 // corresponding Operand.
-AsanMemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
-                                        Operand* access,
-                                        size_t* access_size) {
+bool DecodeMemoryAccess(const Instruction& instr,
+    Operand* access,
+    AsanBasicBlockTransform::MemoryAccessInfo* info) {
   DCHECK(access != NULL);
+  DCHECK(info != NULL);
   const _DInst& repr = instr.representation();
 
   // Figure out which operand we're instrumenting.
   size_t mem_op_id = -1;
-  if (IsInstrumentable(repr.ops[0])) {
+  if (IsInstrumentable(repr.ops[0]) && IsInstrumentable(repr.ops[1])) {
+    // This happens with instructions like: MOVS [EDI], [ESI].
+    DCHECK(repr.ops[0].size == repr.ops[1].size);
+    mem_op_id = 0;
+  } else if (IsInstrumentable(repr.ops[0])) {
     // The first operand is instrumentable.
     mem_op_id = 0;
   } else if (IsInstrumentable(repr.ops[1])) {
@@ -132,10 +153,34 @@ AsanMemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
     mem_op_id = 1;
   } else {
     // Neither of the first two operands is instrumentable.
-    return AsanBasicBlockTransform::kNoAccess;
+    return false;
   }
 
-  *access_size = repr.ops[mem_op_id].size / 8;
+  // Determine the size of the access.
+  info->size = repr.ops[mem_op_id].size / 8;
+
+  // Determine the kind of access (read/write/instr/repz).
+  if (FLAG_GET_PREFIX(repr.flags) & FLAG_REPNZ)
+    info->mode = AsanBasicBlockTransform::kRepnzAccess;
+  else if (FLAG_GET_PREFIX(repr.flags) & FLAG_REP)
+    info->mode = AsanBasicBlockTransform::kRepzAccess;
+  else if (IsSpecialInstruction(instr.opcode()))
+    info->mode = AsanBasicBlockTransform::kInstrAccess;
+  else if ((repr.flags & FLAG_DST_WR) && mem_op_id == 0) {
+    // The first operand is written to.
+    info->mode = AsanBasicBlockTransform::kWriteAccess;
+  } else {
+    info->mode = AsanBasicBlockTransform::kReadAccess;
+  }
+
+  // Determine the opcode of this instruction (when needed)
+  if (info->mode == AsanBasicBlockTransform::kRepnzAccess ||
+      info->mode == AsanBasicBlockTransform::kRepzAccess ||
+      info->mode == AsanBasicBlockTransform::kInstrAccess) {
+    info->opcode = instr.opcode();
+  }
+
+  // Determine operand of the access.
   if (repr.ops[mem_op_id].type == O_SMEM) {
     // Simple memory dereference with optional displacement.
     Register base_reg(RegisterCode(repr.ops[mem_op_id].index - R_EAX));
@@ -188,23 +233,30 @@ AsanMemoryAccessMode DecodeMemoryAccess(const Instruction& instr,
     return AsanBasicBlockTransform::kNoAccess;
   }
 
-  if ((repr.flags & FLAG_DST_WR) && mem_op_id == 0) {
-    // The first operand is written to.
-    return AsanBasicBlockTransform::kWriteAccess;
-  } else {
-    return AsanBasicBlockTransform::kReadAccess;
-  }
+  return true;
 }
 
 // Use @p bb_asm to inject a hook to @p hook to instrument the access to the
 // address stored in the operand @p op.
 void InjectAsanHook(BasicBlockAssembler* bb_asm,
+                    const AsanBasicBlockTransform::MemoryAccessInfo& info,
                     const Operand& op,
                     BlockGraph::Reference* hook) {
   DCHECK(hook != NULL);
-  bb_asm->push(core::edx);
-  bb_asm->lea(core::edx, op);
-  bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
+
+  // Determine which kind of probe to inject.
+  if (info.mode == AsanBasicBlockTransform::kReadAccess ||
+      info.mode == AsanBasicBlockTransform::kWriteAccess) {
+    // The standard load/store probe assume the address is in EDX.
+    // It restore the original version of EDX and cleanup the stack.
+    bb_asm->push(core::edx);
+    bb_asm->lea(core::edx, op);
+    bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
+  } else {
+    // The special instruction probe take addresses directly in registers.
+    // The probe doesn't have any effects on stack, registers and flags.
+    bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
+  }
 }
 
 typedef std::pair<BlockGraph::Block*, BlockGraph::Offset> ReferenceDest;
@@ -253,44 +305,63 @@ void RedirectReferences(const BlockSet& dst_blocks,
   }
 }
 
-// Get the name of an asan check access function for an @p access_mode access of
-// @p access_size bytes.
-std::string GetAsanCheckAccessFunctionName(uint8 access_size,
-                                           AsanMemoryAccessMode access_mode) {
-  DCHECK_NE(access_size, 0);
-  DCHECK(access_mode != AsanBasicBlockTransform::kNoAccess);
+// Get the name of an asan check access function for an @p access_mode access.
+// @param info The memory access information, e.g. the size on a load/store,
+//     the instruction opcode and the kind of access.
+std::string GetAsanCheckAccessFunctionName(
+    AsanBasicBlockTransform::MemoryAccessInfo info) {
+  DCHECK(info.mode != AsanBasicBlockTransform::kNoAccess);
+  DCHECK(info.size != 0);
+  DCHECK(info.mode == AsanBasicBlockTransform::kReadAccess ||
+         info.mode == AsanBasicBlockTransform::kWriteAccess ||
+         info.opcode != 0);
+
+  const char* rep_str = NULL;
+  if (info.mode == AsanBasicBlockTransform::kRepzAccess)
+    rep_str = "_repz";
+  else if (info.mode == AsanBasicBlockTransform::kRepnzAccess)
+    rep_str = "_repnz";
+  else
+    rep_str = "";
 
   const char* access_mode_str = NULL;
-  if (access_mode == AsanBasicBlockTransform::kReadAccess)
+  if (info.mode == AsanBasicBlockTransform::kReadAccess)
     access_mode_str = "read";
-  else
+  else if (info.mode == AsanBasicBlockTransform::kWriteAccess)
     access_mode_str = "write";
+  else
+    access_mode_str = reinterpret_cast<char*>(GET_MNEMONIC_NAME(info.opcode));
 
-  return base::StringPrintf("asan_check_%d_byte_%s_access", access_size,
-                            access_mode_str);
+  std::string function_name =
+      base::StringPrintf("asan_check%s_%d_byte_%s_access",
+                          rep_str,
+                          info.size,
+                          access_mode_str);
+  StringToLowerASCII(&function_name);
+  return function_name.c_str();
 }
 
 // Add the imports for the asan check access hooks to the block-graph.
 // @param hooks_param_vector A vector of hook parameter values.
+// @param default_stub_map Stubs for the asan check access functions.
 // @param import_module The module for which the import should be added.
 // @param check_access_hook_map The map where the reference to the imports
 //     should be stored.
 // @param block_graph The block-graph to populate.
 // @param header_block The block containing the module's DOS header of this
 //     block-graph.
-// @param hook_stub The stub for the asan check access functions.
 // @returns True on success, false otherwise.
-bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
-                             ImportedModule* import_module,
-                             HookMap* check_access_hook_map,
-                             BlockGraph* block_graph,
-                             BlockGraph::Block* header_block,
-                             BlockGraph::Block* hook_stub) {
+bool AddAsanCheckAccessHooks(
+    const AccessHookParamVector& hook_param_vector,
+    const AsanBasicBlockTransform::AsanDefaultHookMap& default_stub_map,
+    ImportedModule* import_module,
+    HookMap* check_access_hook_map,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
   DCHECK(import_module != NULL);
   DCHECK(check_access_hook_map != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
-  DCHECK(hook_stub != NULL);
 
   // Add the hooks to the import module.
 
@@ -301,8 +372,7 @@ bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
   AccessHookParamVector::const_iterator iter_params = hook_param_vector.begin();
   for (; iter_params != hook_param_vector.end(); ++iter_params) {
     size_t symbol_idx = import_module->AddSymbol(
-        GetAsanCheckAccessFunctionName(iter_params->second,
-                                       iter_params->first),
+        GetAsanCheckAccessFunctionName(*iter_params),
         ImportedModule::kAlwaysImport);
     hooks_params_to_idx[*iter_params] = symbol_idx;
   }
@@ -339,23 +409,36 @@ bool AddAsanCheckAccessHooks(const AccessHookParamVector& hook_param_vector,
     // until the Asan imports are resolved. To do this we need to make the IAT
     // entries for those functions point to a temporarily block and we need to
     // mark the image import descriptor for this DLL as bound.
+    AsanBasicBlockTransform::AsanDefaultHookMap::const_iterator stub_reference =
+        default_stub_map.find(iter_hooks->first.mode);
+    if (stub_reference == default_stub_map.end()) {
+       LOG(ERROR) << "Could not find the default hook for "
+                  << GetAsanCheckAccessFunctionName(iter_hooks->first)
+                  << ".";
+      return false;
+    }
+
     import_reference.referenced()->SetReference(import_reference.offset(),
-        BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, hook_stub, 0, 0));
+                                                stub_reference->second);
   }
 
   return true;
 }
 
-// Create a stub for the asan_check_access functions. The stub consists of a
-// small block of code that restores the value of edx and returns to the caller.
+// Create a stub for the asan_check_access functions. For load/store, the stub
+// consists of a small block of code that restores the value of EDX and returns
+// to the caller. Otherwise, the stub do return.
 // @param block_graph The block-graph to populate with the stub.
 // @param stub_name The stub's name.
-// @returns A pointer to the stub's block on success, NULL otherwise.
-BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
-                                   const base::StringPiece stub_name) {
-  using block_graph::BasicBlockSubGraph;
-  using block_graph::BasicBlockAssembler;
-  using block_graph::BlockBuilder;
+// @param mode The kind of memory access.
+// @param A pointer to the stub's block on success, NULL otherwise.
+// @param reference Will receive the reference to the created hook.
+// @returns true on success, false otherwise.
+bool CreateHooksStub(BlockGraph* block_graph,
+                     const base::StringPiece stub_name,
+                     AsanBasicBlockTransform::MemoryAccessMode mode,
+                     BlockGraph::Reference* reference) {
+  DCHECK(reference != NULL);
 
   // Find or create the section we put our thunks in.
   BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
@@ -363,20 +446,29 @@ BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
 
   if (thunk_section == NULL) {
     LOG(ERROR) << "Unable to find or create .thunks section.";
-    return NULL;
+    return false;
   }
 
+  std::string stub_name_with_id = base::StringPrintf("%s%d", stub_name, mode);
+
+  // Create the thunk for standard "load/store" (received address in EDX).
   BasicBlockSubGraph bbsg;
   BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
-      stub_name, BlockGraph::CODE_BLOCK, thunk_section->id(), 1, 0);
-  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(stub_name);
+      stub_name_with_id, BlockGraph::CODE_BLOCK, thunk_section->id(), 1, 0);
+
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(stub_name_with_id);
   block_desc->basic_block_order.push_back(bb);
   BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
 
-  // The thunk restores the original value of edx and cleans the stack on
-  // return.
-  assm.mov(core::edx, Operand(core::esp, Displacement(4)));
-  assm.ret(4);
+  if (mode == AsanBasicBlockTransform::kReadAccess ||
+      mode == AsanBasicBlockTransform::kWriteAccess) {
+    // The thunk body restores the original value of EDX and cleans the stack on
+    // return.
+    assm.mov(core::edx, Operand(core::esp, Displacement(4)));
+    assm.ret(4);
+  } else {
+    assm.ret();
+  }
 
   // Condense into a block.
   BlockBuilder block_builder(block_graph);
@@ -389,7 +481,9 @@ BlockGraph::Block* CreateHooksStub(BlockGraph* block_graph,
   DCHECK_EQ(1u, block_builder.new_blocks().size());
   BlockGraph::Block* thunk = block_builder.new_blocks().front();
 
-  return thunk;
+  *reference = BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, thunk, 0, 0);
+
+  return true;
 }
 
 }  // namespace
@@ -407,16 +501,20 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
   // instrumentable memory access.
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
     Operand operand(core::eax);
-    size_t access_size = 0;
     const Instruction& instr = *iter_inst;
     const _DInst& repr = instr.representation();
 
-    MemoryAccessMode access_mode = DecodeMemoryAccess(instr,
-                                                      &operand,
-                                                      &access_size);
+    MemoryAccessInfo info;
+    info.mode = kNoAccess;
+    info.size = 0;
+    info.opcode = 0;
+
+    // Insert hook for a standard instruction.
+    if (!DecodeMemoryAccess(instr, &operand, &info))
+      continue;
 
     // Bail if this is not a memory access.
-    if (access_mode == kNoAccess)
+    if (info.mode == kNoAccess)
       continue;
 
     // A basic block reference means that can be either a computed jump,
@@ -448,10 +546,6 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       continue;
     }
 
-    // We can't deal with repeated (string) instructions.
-    if (FLAG_GET_PREFIX(repr.flags) & (FLAG_REPNZ | FLAG_REP))
-      continue;
-
     // Finally, don't instrument any filtered instructions.
     if (IsFiltered(*iter_inst))
       continue;
@@ -465,13 +559,13 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     // breaks the 1:1 OMAP mapping and may confuse some debuggers.
     bb_asm.set_source_range(instr.source_range());
 
-    AsanHookMap::iterator hook;
-    hook = check_access_hooks_->find(std::make_pair(access_mode, access_size));
+    // Insert hook for standard instructions.
+    AsanHookMap::iterator hook = check_access_hooks_->find(info);
     if (hook == check_access_hooks_->end()) {
-      LOG(ERROR) << "Invalid access size: " << access_size << " byte.";
+      LOG(ERROR) << "Invalid access : " << GetAsanCheckAccessFunctionName(info);
       return false;
     }
-    InjectAsanHook(&bb_asm, operand, &hook->second);
+    InjectAsanHook(&bb_asm, info, operand, &hook->second);
   }
   return true;
 }
@@ -515,36 +609,77 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
     return false;
   }
 
-  // Create the hooks stub.
-  BlockGraph::Block* hook_stub = CreateHooksStub(block_graph,
-                                                 kAsanHookStubName);
-  if (hook_stub == NULL)
-    return false;
-
   AccessHookParamVector access_hook_param_vec;
+  AsanBasicBlockTransform::AsanDefaultHookMap default_stub_map;
+
+  // Create the hook stub for read/write instructions.
+  BlockGraph::Reference read_write_hook;
+  if (!CreateHooksStub(block_graph, kAsanHookStubName,
+                       AsanBasicBlockTransform::kReadAccess,
+                      &read_write_hook)) {
+    return false;
+  }
+
+  // Create the hook stub for strings instructions.
+  BlockGraph::Reference instr_hook;
+  if (!CreateHooksStub(block_graph, kAsanHookStubName,
+                       AsanBasicBlockTransform::kInstrAccess,
+                      &instr_hook)) {
+    return false;
+  }
+
+  // Map each memory access kind to a appropriate stub.
+  default_stub_map[AsanBasicBlockTransform::kReadAccess] = read_write_hook;
+  default_stub_map[AsanBasicBlockTransform::kWriteAccess] = read_write_hook;
+  default_stub_map[AsanBasicBlockTransform::kInstrAccess] = instr_hook;
+  default_stub_map[AsanBasicBlockTransform::kRepzAccess] = instr_hook;
+  default_stub_map[AsanBasicBlockTransform::kRepnzAccess] = instr_hook;
 
   // Add an import entry for the ASAN runtime.
   ImportedModule import_module(asan_dll_name_);
 
-  // Import the hooks for the read accesses.
+  // Import the hooks for the read/write accesses.
   for (int access_size = 1; access_size <= 32; access_size *= 2) {
-    access_hook_param_vec.push_back(
-      std::make_pair(AsanBasicBlockTransform::kReadAccess, access_size));
-    access_hook_param_vec.push_back(
-      std::make_pair(AsanBasicBlockTransform::kWriteAccess, access_size));
+    MemoryAccessInfo read_info =
+        { AsanBasicBlockTransform::kReadAccess, access_size, 0 };
+    access_hook_param_vec.push_back(read_info);
+
+    MemoryAccessInfo write_info =
+        { AsanBasicBlockTransform::kWriteAccess, access_size, 0 };
+    access_hook_param_vec.push_back(write_info);
   }
 
-  access_hook_param_vec.push_back(
-      std::make_pair(AsanBasicBlockTransform::kReadAccess, 10));
-  access_hook_param_vec.push_back(
-      std::make_pair(AsanBasicBlockTransform::kWriteAccess, 10));
+  // Import the hooks for the read/write 10-bytes accesses.
+  MemoryAccessInfo read_info_10 =
+      { AsanBasicBlockTransform::kReadAccess, 10, 0 };
+  access_hook_param_vec.push_back(read_info_10);
+
+  MemoryAccessInfo write_info_10 =
+      { AsanBasicBlockTransform::kWriteAccess, 10, 0 };
+  access_hook_param_vec.push_back(write_info_10);
+
+  // Import the hooks for strings/prefix memory accesses.
+  const _InstructionType strings[] = { I_CMPS, I_MOVS, I_STOS };
+  int strings_length = sizeof(strings)/sizeof(_InstructionType);
+
+  for (int access_size = 1; access_size <= 4; access_size *= 2) {
+    for (int inst = 0; inst < strings_length; ++inst) {
+      MemoryAccessInfo repz_inst_info =
+          { AsanBasicBlockTransform::kRepzAccess, access_size, strings[inst] };
+      access_hook_param_vec.push_back(repz_inst_info);
+
+      MemoryAccessInfo inst_info =
+          { AsanBasicBlockTransform::kInstrAccess, access_size, strings[inst] };
+      access_hook_param_vec.push_back(inst_info);
+    }
+  }
 
   if (!AddAsanCheckAccessHooks(access_hook_param_vec,
+                               default_stub_map,
                                &import_module,
                                &check_access_hooks_ref_,
                                block_graph,
-                               header_block,
-                               hook_stub)) {
+                               header_block)) {
     return false;
   }
   return true;
@@ -683,6 +818,15 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   module_asan.import_descriptor()->TimeDateStamp = kDateInThePast;
 
   return true;
+}
+
+bool operator<(const AsanBasicBlockTransform::MemoryAccessInfo& left,
+               const AsanBasicBlockTransform::MemoryAccessInfo& right) {
+  if (left.mode != right.mode)
+    return left.mode < right.mode;
+  if (left.size != right.size)
+    return left.size < right.size;
+  return left.opcode < right.opcode;
 }
 
 }  // namespace transforms

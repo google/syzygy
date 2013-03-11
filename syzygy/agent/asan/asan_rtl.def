@@ -32,6 +32,30 @@ EXPORTS
   asan_check_16_byte_write_access
   asan_check_32_byte_write_access
 
+  asan_check_repz_1_byte_cmps_access
+  asan_check_repz_2_byte_cmps_access
+  asan_check_repz_4_byte_cmps_access
+
+  asan_check_repz_1_byte_movs_access
+  asan_check_repz_2_byte_movs_access
+  asan_check_repz_4_byte_movs_access
+
+  asan_check_repz_1_byte_stos_access
+  asan_check_repz_2_byte_stos_access
+  asan_check_repz_4_byte_stos_access
+
+  asan_check_1_byte_cmps_access
+  asan_check_2_byte_cmps_access
+  asan_check_4_byte_cmps_access
+
+  asan_check_1_byte_movs_access
+  asan_check_2_byte_movs_access
+  asan_check_4_byte_movs_access
+
+  asan_check_1_byte_stos_access
+  asan_check_2_byte_stos_access
+  asan_check_4_byte_stos_access
+
   ; Heap-replacement functions.
   asan_HeapCreate
   asan_HeapDestroy

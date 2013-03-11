@@ -70,32 +70,73 @@ class AsanTransformTest : public testing::TestDllTransformTest {
               &basic_block_.instructions()) {
   }
 
+  void AddHookRef(const std::string& hook_name,
+                  AsanBasicBlockTransform::MemoryAccessMode access_kind,
+                  int access_size,
+                  uint16_t opcode) {
+      HookMapEntryKey map_key = { access_kind, access_size, opcode };
+      hooks_check_access_[map_key] =
+          block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4, hook_name);
+      // Set up the references to the hooks needed by SyzyAsan.
+      hooks_check_access_ref_[map_key] =
+          BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
+                                hooks_check_access_[map_key], 0, 0);
+  }
+
   void InitHooksRefs() {
     // Initialize the read access hooks.
     for (int access_size = 1; access_size <= 8; access_size *= 2) {
-      std::string hook_name =
+      std::string name =
           base::StringPrintf("asan_check_%d_byte_read_access", access_size);
-      HookMapEntryKey map_key =
-          std::make_pair(AsanBasicBlockTransform::kReadAccess, access_size);
-      hooks_check_access_[map_key] =
-          block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4, hook_name);
-      // Set up the references to the hooks needed by SyzyAsan.
-      hooks_check_access_ref_[map_key] =
-          BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
-                                hooks_check_access_[map_key], 0, 0);
+      AddHookRef(name, AsanBasicBlockTransform::kReadAccess, access_size, 0 );
     }
     // Initialize the write access hooks.
     for (int access_size = 1; access_size <= 8; access_size *= 2) {
-      std::string hook_name =
+      std::string name =
           base::StringPrintf("asan_check_%d_byte_write_access", access_size);
-      HookMapEntryKey map_key =
-          std::make_pair(AsanBasicBlockTransform::kWriteAccess, access_size);
-      hooks_check_access_[map_key] =
-          block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4, hook_name);
-      // Set up the references to the hooks needed by SyzyAsan.
-      hooks_check_access_ref_[map_key] =
-          BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
-                                hooks_check_access_[map_key], 0, 0);
+      AddHookRef(name, AsanBasicBlockTransform::kWriteAccess, access_size, 0 );
+    }
+
+    const _InstructionType strings[] = { I_CMPS, I_MOVS, I_STOS };
+    int strings_length = arraysize(strings);
+
+    for (int access_size = 1; access_size <= 4; access_size *= 2) {
+      for (int inst = 0; inst < strings_length; ++inst) {
+        uint16_t opcode = strings[inst];
+        const char* opcode_str =
+            reinterpret_cast<const char*>(GET_MNEMONIC_NAME(opcode));
+        std::string name =
+            base::StringPrintf("asan_check_repz_%d_byte_%s_access",
+                               access_size, opcode_str);
+        StringToLowerASCII(&name);
+        AddHookRef(name, AsanBasicBlockTransform::kRepzAccess, access_size,
+                   opcode );
+      }
+    }
+
+    // Initialize special instruction hooks.
+    for (int access_size = 1; access_size <= 4; access_size *= 2) {
+      for (int inst = 0; inst < strings_length; ++inst) {
+        uint16_t opcode = strings[inst];
+        const char* opcode_str =
+            reinterpret_cast<const char*>(GET_MNEMONIC_NAME(opcode));
+
+        // Initialize the strings without prefix access hooks.
+        std::string name =
+            base::StringPrintf("asan_check_%d_byte_%s_access",
+                               access_size, opcode_str);
+        StringToLowerASCII(&name);
+        AddHookRef(name, AsanBasicBlockTransform::kInstrAccess, access_size,
+                   opcode );
+
+        // Initialize the strings with prefix access hooks.
+         std::string repz_name =
+            base::StringPrintf("asan_check_repz_%d_byte_%s_access",
+                               access_size, opcode_str);
+        StringToLowerASCII(&repz_name);
+        AddHookRef(repz_name, AsanBasicBlockTransform::kRepzAccess, access_size,
+                   opcode );
+      }
     }
   }
 
@@ -178,7 +219,7 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_read_key =
-      std::make_pair(AsanBasicBlockTransform::kReadAccess, 4);
+      { AsanBasicBlockTransform::kReadAccess, 4, 0 };
   ASSERT_TRUE(iter_inst->references().begin()->second.block()
       == hooks_check_access_[check_4_byte_read_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
@@ -190,7 +231,7 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_write_key =
-      std::make_pair(AsanBasicBlockTransform::kWriteAccess, 4);
+      { AsanBasicBlockTransform::kWriteAccess, 4, 0 };
   ASSERT_TRUE(iter_inst->references().begin()->second.block()
       == hooks_check_access_[check_4_byte_write_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
@@ -309,13 +350,95 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_write_key =
-      std::make_pair(AsanBasicBlockTransform::kWriteAccess, 4);
+      { AsanBasicBlockTransform::kWriteAccess, 4, 0 };
   ASSERT_TRUE(iter_inst->references().begin()->second.block()
       == hooks_check_access_[check_4_byte_write_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
   ASSERT_TRUE(iter_inst == basic_block_.instructions().end());
+}
+
+TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
+  static const uint8 movsd[1] = { 0xA5 };
+  static const uint8 movsw[2] = { 0x66, 0xA5 };
+  static const uint8 movsb[1] = { 0xA4 };
+
+  static const uint8 cmpsd[1] = { 0xA7 };
+  static const uint8 cmpsw[2] = { 0x66, 0xA7 };
+  static const uint8 cmpsb[1] = { 0xA6 };
+
+  static const uint8 stosd[1] = { 0xAB };
+  static const uint8 stosw[2] = { 0x66, 0xAB };
+  static const uint8 stosb[1] = { 0xAA };
+
+  EXPECT_TRUE(AddInstructionFromBuffer(movsd, sizeof(movsd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(movsw, sizeof(movsw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(movsb, sizeof(movsb)));
+  EXPECT_TRUE(AddInstructionFromBuffer(cmpsd, sizeof(cmpsd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(cmpsw, sizeof(cmpsw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(cmpsb, sizeof(cmpsb)));
+  EXPECT_TRUE(AddInstructionFromBuffer(stosd, sizeof(stosd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(stosw, sizeof(stosw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(stosb, sizeof(stosb)));
+
+  // Keep number of instrumentable instructions.
+  uint32 count_instructions = basic_block_.instructions().size();
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 basic_block_size = basic_block_.instructions().size();
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+
+  // Each instrumentable instructions implies 1 new instructions.
+  uint32 expected_basic_block_size = count_instructions + basic_block_size;
+
+  // Validate basic block size.
+  ASSERT_EQ(basic_block_.instructions().size(), expected_basic_block_size);
+}
+
+TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
+  static const uint8 movsd[2] = { 0xF3, 0xA5 };
+  static const uint8 movsw[3] = { 0xF3, 0x66, 0xA5 };
+  static const uint8 movsb[2] = { 0xF3, 0xA4 };
+
+  static const uint8 cmpsd[2] = { 0xF3, 0xA7 };
+  static const uint8 cmpsw[3] = { 0xF3, 0x66, 0xA7 };
+  static const uint8 cmpsb[2] = { 0xF3, 0xA6 };
+
+  static const uint8 stosd[2] = { 0xF3, 0xAB };
+  static const uint8 stosw[3] = { 0xF3, 0x66, 0xAB };
+  static const uint8 stosb[2] = { 0xF3, 0xAA };
+
+  EXPECT_TRUE(AddInstructionFromBuffer(movsd, sizeof(movsd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(movsw, sizeof(movsw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(movsb, sizeof(movsb)));
+  EXPECT_TRUE(AddInstructionFromBuffer(cmpsd, sizeof(cmpsd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(cmpsw, sizeof(cmpsw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(cmpsb, sizeof(cmpsb)));
+  EXPECT_TRUE(AddInstructionFromBuffer(stosd, sizeof(stosd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(stosw, sizeof(stosw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(stosb, sizeof(stosb)));
+
+  // Keep number of instrumentable instructions.
+  uint32 count_instructions = basic_block_.instructions().size();
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 basic_block_size = basic_block_.instructions().size();
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+
+ // Each instrumentable instructions implies 1 new instructions.
+  uint32 expected_basic_block_size = count_instructions + basic_block_size;
+
+  // Validate basic block size.
+  ASSERT_EQ(basic_block_.instructions().size(), expected_basic_block_size);
 }
 
 namespace {
@@ -431,6 +554,26 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_check_16_byte_write_access");
   expected.insert("asan_check_32_byte_write_access");
 
+  expected.insert("asan_check_repz_4_byte_cmps_access");
+  expected.insert("asan_check_repz_4_byte_movs_access");
+  expected.insert("asan_check_repz_4_byte_stos_access");
+  expected.insert("asan_check_repz_2_byte_cmps_access");
+  expected.insert("asan_check_repz_2_byte_movs_access");
+  expected.insert("asan_check_repz_2_byte_stos_access");
+  expected.insert("asan_check_repz_1_byte_cmps_access");
+  expected.insert("asan_check_repz_1_byte_movs_access");
+  expected.insert("asan_check_repz_1_byte_stos_access");
+
+  expected.insert("asan_check_4_byte_cmps_access");
+  expected.insert("asan_check_4_byte_movs_access");
+  expected.insert("asan_check_4_byte_stos_access");
+  expected.insert("asan_check_2_byte_cmps_access");
+  expected.insert("asan_check_2_byte_movs_access");
+  expected.insert("asan_check_2_byte_stos_access");
+  expected.insert("asan_check_1_byte_cmps_access");
+  expected.insert("asan_check_1_byte_movs_access");
+  expected.insert("asan_check_1_byte_stos_access");
+
   EXPECT_EQ(expected, imports);
 }
 
@@ -463,18 +606,21 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
       ASSERT_NE(0u, iid->TimeDateStamp);
   }
 
-  // As all the hooks refer to the same stub, we expect to have only one entry
-  // in the set.
+  // As all the hooks may refer to only two kinds of stubs, we expect to have
+  // exactly two entries in the set.
   FunctionsIATAddressSet hooks_iat_set;
   ASSERT_TRUE(image.EnumAllImports(&GetAsanHooksIATEntries, &hooks_iat_set));
-  ASSERT_EQ(hooks_iat_set.size(), 1U);
+  ASSERT_EQ(hooks_iat_set.size(), 2U);
 
-  PVOID stub_address = *hooks_iat_set.begin();
-
-  // Ensures that the stub is in the thunks section.
-  PIMAGE_SECTION_HEADER stub_sec = image.GetImageSectionFromAddr(stub_address);
-  ASSERT_STREQ(common::kThunkSectionName,
-               reinterpret_cast<const char*>(stub_sec->Name));
+  // Ensures that all stubs are in the thunks section.
+  FunctionsIATAddressSet::iterator hook = hooks_iat_set.begin();
+  for (; hook != hooks_iat_set.end(); ++hook) {
+    PVOID stub_address = *hook;
+    PIMAGE_SECTION_HEADER stub_sec =
+        image.GetImageSectionFromAddr(stub_address);
+    ASSERT_STREQ(common::kThunkSectionName,
+                 reinterpret_cast<const char*>(stub_sec->Name));
+  }
 }
 
 }  // namespace transforms
