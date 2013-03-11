@@ -109,12 +109,21 @@ extern "C" void __declspec(naked) _indirect_penter() {
     // Get the current cycle time ASAP.
     rdtsc
 
+    // Save the value of eax for later, we need the register to stash the flags.
     push ecx
-    pushfd
+    mov ecx, eax
+
+    // Save the low byte of the flags into AH.
+    lahf
+    // Save the overflow flag into AL.
+    seto al
+
+    // Stash the flags to stack.
+    push eax
 
     // Push the cycle time arg.
     push edx
-    push eax
+    push ecx
 
     // Retrieve the original function address, pushed by our caller.
     mov eax, DWORD PTR[esp + 0x18]
@@ -127,7 +136,14 @@ extern "C" void __declspec(naked) _indirect_penter() {
     call agent::profiler::Profiler::FunctionEntryHook
 
     // Restore volatile registers.
-    popfd
+    pop eax
+    // AL is set to 1 if the overflow flag was set before the call to
+    // our hook, 0 otherwise. We add 0x7f to it so it'll restore the
+    // flag.
+    add al, 0x7f
+    // Restore the low byte of the flags.
+    sahf
+
     pop ecx
     pop edx
     pop eax
@@ -146,14 +162,23 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     // Get the current cycle time ASAP.
     rdtsc
 
+    // Save the value of eax for later, we need the register to stash the flags.
     push ecx
-    pushfd
+    mov ecx, eax
+
+    // Save the low byte of the flags into AH.
+    lahf
+    // Save the overflow flag into AL.
+    seto al
+
+    // Stash the flags to stack.
+    push eax
 
     // Push the cycle time arg.
     push edx
-    push eax
+    push ecx
 
-    // Retrieve the address pushed by our caller.
+    // Retrieve the original function address, pushed by our caller.
     mov eax, DWORD PTR[esp + 0x18]
     push eax
 
@@ -164,7 +189,14 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     call agent::profiler::Profiler::DllMainEntryHook
 
     // Restore volatile registers.
-    popfd
+    pop eax
+    // AL is set to 1 if the overflow flag was set before the call to
+    // our hook, 0 otherwise. We add 0x7f to it so it'll restore the
+    // flag.
+    add al, 0x7f
+    // Restore the low byte of the flags.
+    sahf
+
     pop ecx
     pop edx
     pop eax

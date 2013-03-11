@@ -24,7 +24,7 @@
     },
     {
       'target_name': 'profile_client',
-      'type': 'shared_library',
+      'type': 'loadable_module',
       'sources': [
         'profiler.cc',
         'profiler.def',

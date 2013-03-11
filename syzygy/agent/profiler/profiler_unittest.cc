@@ -507,5 +507,27 @@ TEST_F(ProfilerTest, ReleasesBufferOnThreadExit) {
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 }
 
+TEST_F(ProfilerTest, EntryHookPerformance) {
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // We grab the lowest value of 10 invocations to minimize scheduling
+  // artifacts and such.
+  uint64 min_cycles = kuint64max;
+  for (size_t i = 0; i < 10; ++i) {
+    // Invoke on the entry hook a hundred thousand times, and measure the
+    // wall-clock time from start to finish.
+    uint64 start_cycles = __rdtsc();
+    for (size_t j = 0; j < 100000; ++j) {
+      InvokeFunctionAThunk();
+    }
+    uint64 end_cycles = __rdtsc();
+
+    if (min_cycles > (end_cycles - start_cycles))
+      min_cycles = end_cycles - start_cycles;
+  }
+
+  printf("100K entry hook invocations in [%lld] cycles.\n", min_cycles);
+}
+
 }  // namespace profiler
 }  // namespace agent
