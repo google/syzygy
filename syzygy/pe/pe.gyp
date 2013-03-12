@@ -151,6 +151,7 @@
       'dependencies': [
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',

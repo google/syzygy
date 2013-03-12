@@ -100,6 +100,18 @@
       'hard_dependency': 1,
     },
     {
+      'target_name': 'common_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
+    {
       'target_name': 'common_unittests',
       'type': 'executable',
       'sources': [
@@ -109,11 +121,11 @@
         'common_unittests_main.cc',
         'path_util_unittest.cc',
         'unittest_util_unittest.cc',
-        'unittest_util.h',
         'syzygy_version_unittest.cc',
       ],
       'dependencies': [
         'common_lib',
+        'common_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',

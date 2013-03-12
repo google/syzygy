@@ -56,19 +56,11 @@ class FilterCompilerTest : public testing::PELibUnitTest {
     mismatched_test_dll_pdb_ =
         testing::GetSrcRelativePath(L"pe\\test_data\\test_dll.pdb");
     filter_txt_ = temp_dir_.Append(L"filter.txt");
-
-    // Save the log level so that we can restore it in TearDown.
-    log_level_ = logging::GetMinLogLevel();
   }
 
   virtual void TearDown() OVERRIDE {
-    logging::SetMinLogLevel(log_level_);
     ASSERT_TRUE(file_util::Delete(temp_dir_, true));
     Super::TearDown();
-  }
-
-  void DisableLogging() {
-    logging::SetMinLogLevel(logging::LOG_FATAL);
   }
 
   void CreateFilterDescriptionFile(const base::StringPiece& line) {
@@ -95,9 +87,6 @@ class FilterCompilerTest : public testing::PELibUnitTest {
   FilePath dummy_pdb_;
   FilePath mismatched_test_dll_pdb_;
   FilePath filter_txt_;
-
-  // The logging level saved during SetUp. We restore this on TearDown.
-  int log_level_;
 };
 
 }  // namespace

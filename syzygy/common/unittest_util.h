@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares some unittest helper functions.
-//
-// There is no corresponding .cc file for this header; it can be freely
-// included in any unittest file without incurring additional dependencies
-// (other than base).
+// Declares a handful of common unittest helper functions.
 
 #ifndef SYZYGY_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_COMMON_UNITTEST_UTIL_H_
@@ -48,6 +44,8 @@ class ScopedLogLevelSaver {
 // An intermediate class to add helper streams to a unit-test fixture.
 class ApplicationTestBase : public testing::Test {
  public:
+  ApplicationTestBase() : log_level_(0), log_handler_(NULL) { }
+
   // @name IO Stream Accessors.
   // Call InitStreams() to route the IO streams to/from specific files;
   // otherwise, they will be routed to/from the NUL device on first use.
@@ -57,28 +55,14 @@ class ApplicationTestBase : public testing::Test {
   FILE* err() const { return GetOrInitFile(&err_, "w"); }
   // @}
 
-  // Initialize the IO Streams to send output to specific files.
+  // Initialize the IO Streams to send output to specific files. Also intercepts
+  // logging messages.
   void InitStreams(const FilePath& in_path,
                    const FilePath& out_path,
-                   const FilePath& err_path) {
-    ASSERT_FALSE(out_path.empty());
-    ASSERT_FALSE(err_path.empty());
-
-    in_.reset(file_util::OpenFile(in_path, "r"));
-    out_.reset(file_util::OpenFile(out_path, "w"));
-    err_.reset(file_util::OpenFile(err_path, "w"));
-
-    ASSERT_TRUE(in_.get() != NULL);
-    ASSERT_TRUE(out_.get() != NULL);
-    ASSERT_TRUE(err_.get() != NULL);
-  }
+                   const FilePath& err_path);
 
   // Manually tear down the various streams.
-  void TearDownStreams() {
-    ASSERT_NO_FATAL_FAILURE(TearDownStream(&in_));
-    ASSERT_NO_FATAL_FAILURE(TearDownStream(&out_));
-    ASSERT_NO_FATAL_FAILURE(TearDownStream(&err_));
-  }
+  void TearDownStreams();
 
   // Creates a temporary directory, which is cleaned up after the test runs.
   void CreateTemporaryDir(FilePath* temp_dir) {
@@ -86,40 +70,30 @@ class ApplicationTestBase : public testing::Test {
     temp_dirs_.push_back(*temp_dir);
   }
 
+  // Sets up before each test invocation.
+  virtual void SetUp() OVERRIDE;
+
   // Cleans up after each test invocation.
-  virtual void TearDown() OVERRIDE {
-    // These need to be shut down before we can delete the temporary
-    // directories.
-    EXPECT_NO_FATAL_FAILURE(TearDownStreams());
+  virtual void TearDown() OVERRIDE;
 
-    DirList::const_iterator iter;
-    for (iter = temp_dirs_.begin(); iter != temp_dirs_.end(); ++iter) {
-      EXPECT_TRUE(file_util::Delete(*iter, true));
-    }
-
-    Super::TearDown();
+  // Disables logging for the test in which this is called.
+  void DisableLogging() {
+    logging::SetMinLogLevel(logging::LOG_FATAL);
   }
 
  protected:
   typedef testing::Test Super;
 
-  void TearDownStream(file_util::ScopedFILE* stream) {
-    ASSERT_TRUE(stream != NULL);
-    if (stream->get() == NULL)
-      return;
-    ASSERT_EQ(0, ::fclose(stream->get()));
-    stream->reset();
-  }
+  // Used for logging interception, redirecting via err().
+  static bool HandleLogMessage(int severity, const char* file, int line,
+      size_t message_start, const std::string& str);
+
+  // Tears down the given stream.
+  static void TearDownStream(file_util::ScopedFILE* stream);
 
   // Helper to initialize a given stream to refer to the NUL device on first
   // use if it hasn't already been associated with a file.
-  static FILE* GetOrInitFile(file_util::ScopedFILE* f, const char* mode) {
-    DCHECK(f != NULL);
-    DCHECK(mode != NULL);
-    if (f->get() == NULL)
-      f->reset(file_util::OpenFile(FilePath(L"NUL"), mode));
-    return f->get();
-  }
+  static FILE* GetOrInitFile(file_util::ScopedFILE* f, const char* mode);
 
   // List of temporary directories created during this test invocation.
   typedef std::vector<const FilePath> DirList;
@@ -134,6 +108,17 @@ class ApplicationTestBase : public testing::Test {
   mutable file_util::ScopedFILE out_;
   mutable file_util::ScopedFILE err_;
   // @}
+
+  // The logging level saved during SetUp. We restore this on TearDown.
+  int log_level_;
+
+  // The log message handler that was intercepted.
+  logging::LogMessageHandlerFunction log_handler_;
+
+  // The instance of this test that is redirecting logging. This only works for
+  // a single instance at a time, but only one test is running at a time so
+  // this is not really an issue.
+  static ApplicationTestBase* self_;
 };
 
 }  // namespace testing
