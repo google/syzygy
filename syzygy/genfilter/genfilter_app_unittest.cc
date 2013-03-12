@@ -399,4 +399,43 @@ TEST_F(GenFilterAppTest, UnionFailsMismatchedFilters) {
   ASSERT_NE(0, impl_.Run());
 }
 
+TEST_F(GenFilterAppTest, CompileFailsInvalidInput) {
+  FilePath filter_txt = temp_dir_.Append(L"badfilter.txt");
+  {
+    file_util::ScopedFILE file(file_util::OpenFile(filter_txt, "wb"));
+    ::fprintf(file.get(), "This is a badly formatted filter file.");
+  }
+
+  cmd_line_.AppendSwitchASCII("action", "compile");
+  cmd_line_.AppendArgPath(filter_txt);
+  cmd_line_.AppendSwitchPath("output-file", output_file_);
+  cmd_line_.AppendSwitchPath("input-image", test_dll_);
+  cmd_line_.AppendSwitchPath("input-pdb", test_dll_pdb_);
+
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+  ASSERT_NE(0, impl_.Run());
+}
+
+TEST_F(GenFilterAppTest, CompileSucceeds) {
+  FilePath filter_txt = temp_dir_.Append(L"goodfilter.txt");
+  {
+    file_util::ScopedFILE file(file_util::OpenFile(filter_txt, "wb"));
+    ::fprintf(file.get(), "# A commend.\n");
+    ::fprintf(file.get(), "+function:DllMain\n");
+  }
+
+  cmd_line_.AppendSwitchASCII("action", "compile");
+  cmd_line_.AppendArgPath(filter_txt);
+  cmd_line_.AppendSwitchPath("output-file", output_file_);
+  cmd_line_.AppendSwitchPath("input-image", test_dll_);
+  cmd_line_.AppendSwitchPath("input-pdb", test_dll_pdb_);
+
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+  ASSERT_EQ(0, impl_.Run());
+
+  ASSERT_TRUE(file_util::PathExists(output_file_));
+  pe::ImageFilter f;
+  ASSERT_TRUE(f.LoadFromJSON(output_file_));
+}
+
 }  // namespace genfilter

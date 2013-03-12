@@ -164,6 +164,7 @@ bool FilterCompiler::ParseFilterDescriptionFile(const FilePath& path) {
     if (!kRuleRegex.FullMatch(line, &mod, &type, &desc)) {
       LOG(ERROR) << "Unable to parse rule at line " << line_number
                  << " of \"" << path.value() << "\".";
+      LOG(ERROR) << "  Content: " << line;
       return false;
     }
 
@@ -198,7 +199,8 @@ bool FilterCompiler::ParseFilterDescriptionFile(const FilePath& path) {
     ++rules_added;
   }
 
-  LOG(INFO) << "Added " << rules_added << " from \"" << path.value() << "\".";
+  LOG(INFO) << "Added " << rules_added << " rule(s) from \"" << path.value()
+            << "\".";
 
   return true;
 }
@@ -315,7 +317,7 @@ bool FilterCompiler::FillFilter(ImageFilter* filter) {
   }
 
   if (unmatched_rules)
-    LOG(WARNING) << "There were " << unmatched_rules << " unmatched rules.";
+    LOG(WARNING) << "There were " << unmatched_rules << " unmatched rule(s).";
 
   return true;
 }

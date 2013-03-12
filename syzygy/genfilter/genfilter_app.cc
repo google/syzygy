@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "syzygy/genfilter/filter_compiler.h"
 #include "syzygy/pe/image_filter.h"
 
 namespace genfilter {
@@ -84,6 +85,33 @@ void ApplyBinarySetAction(GenFilterApp::Action action,
     default:
       NOTREACHED() << "Not a binary set action.";
   }
+}
+
+bool OutputFilter(bool pretty_print,
+                  const FilePath& path,
+                  const ImageFilter& filter,
+                  FILE* default_file) {
+  // Open the output file. If none was specified we default to default_file.
+  std::wstring dest(L"stdout");
+  FILE* file = default_file;
+  file_util::ScopedFILE scoped_file;
+  if (!path.empty()) {
+    dest = base::StringPrintf(L"\"%s\"", path.value().c_str());
+    scoped_file.reset(file_util::OpenFile(path, "wb"));
+    file = scoped_file.get();
+    if (file == NULL) {
+      LOG(ERROR) << "Unable to open for writing: " << path.value();
+      return false;
+    }
+  }
+
+  LOG(INFO) << "Writing filter to " << dest << ".";
+  if (!filter.SaveToJSON(pretty_print, file)) {
+    LOG(ERROR) << "Failed to write filter to " << dest << ".";
+    return false;
+  }
+
+  return true;
 }
 
 }  // namespace
@@ -166,13 +194,6 @@ bool GenFilterApp::ParseCommandLine(const CommandLine* command_line) {
 }
 
 int GenFilterApp::Run() {
-  // TODO(chrisha): Handle the 'compile' action. In fact, without it, this
-  //     whole program is pretty useless.
-  if (action_ == kCompile) {
-    LOG(ERROR) << "The 'compile' action is not implemented.";
-    return 1;
-  }
-
   // Double check the output doesn't already exist early on, so we can prevent
   // doing work if it does.
   if (!output_file_.empty() &&
@@ -183,51 +204,13 @@ int GenFilterApp::Run() {
     return 1;
   }
 
-  // At this point we're handling set operations on JSON encoded filters. Load
-  // them and make sure they're for the same module.
-  std::vector<ImageFilter> filters(inputs_.size());
-  for (size_t i = 0; i < inputs_.size(); ++i) {
-    if (!filters[i].LoadFromJSON(inputs_[i])) {
-      LOG(ERROR) << "Failed to load filter \"" << inputs_[i].value() << "\".";
+  // Run the appropriate action.
+  if (action_ == kCompile) {
+    if (!RunCompileAction())
       return 1;
-    }
-
-    // If this is a second or subsequent filter ensure it's for the same module
-    // as the first one.
-    if (i > 0 && !filters[0].signature.IsConsistent(filters[i].signature)) {
-      LOG(ERROR) << "Filter \"" << inputs_[i].value() << "\" is not consistent "
-                 << "with filter \"" << inputs_[0].value() << "\".";
-      return 1;
-    }
-  }
-
-  // Handle the 'invert' action. This is a unary set operator.
-  if (action_ == kInvert) {
-    // Invert in place.
-    filters[0].filter.Invert(&filters[0].filter);
   } else {
-    // Otherwise we're a binary set operator. We do the work in place in the
-    // place of the first filter.
-    for (size_t i = 1; i < inputs_.size(); ++i)
-      ApplyBinarySetAction(action_, filters[0], filters[i], &filters[0]);
-  }
-
-  // Open the output file. If none was specified we default to stdout.
-  FILE* file = stdout;
-  file_util::ScopedFILE scoped_file;
-  if (!output_file_.empty()) {
-    scoped_file.reset(file_util::OpenFile(output_file_, "wb"));
-    file = scoped_file.get();
-    if (file == NULL) {
-      LOG(ERROR) << "Unable to open for writing: " << output_file_.value();
+    if (!RunSetAction())
       return 1;
-    }
-  }
-
-  // Output the result of the set operations (stored in filters[0]).
-  if (!filters[0].SaveToJSON(pretty_print_, file)) {
-    LOG(ERROR) << "Failed to write output file.";
-    return 1;
   }
 
   return 0;
@@ -243,6 +226,66 @@ void GenFilterApp::PrintUsage(const CommandLine* command_line,
   ::fprintf(out(),
             kUsageFormatStr,
             command_line->GetProgram().BaseName().value().c_str());
+}
+
+bool GenFilterApp::RunCompileAction() {
+  FilterCompiler filter_compiler;
+
+  if (!filter_compiler.Init(input_image_, input_pdb_))
+    return false;
+
+  for (size_t i = 0; i < inputs_.size(); ++i) {
+    LOG(INFO) << "Parsing filter description file \"" << inputs_[i].value()
+              << "\".";
+    if (!filter_compiler.ParseFilterDescriptionFile(inputs_[i]))
+      return false;
+  }
+
+  LOG(INFO) << "Compiling filter.";
+  ImageFilter filter;
+  if (!filter_compiler.Compile(&filter))
+    return false;
+
+  if (!OutputFilter(pretty_print_, output_file_, filter, out()))
+    return false;
+
+  return true;
+}
+
+bool GenFilterApp::RunSetAction() {
+  // At this point we're handling set operations on JSON encoded filters. Load
+  // them and make sure they're for the same module.
+  std::vector<ImageFilter> filters(inputs_.size());
+  for (size_t i = 0; i < inputs_.size(); ++i) {
+    if (!filters[i].LoadFromJSON(inputs_[i])) {
+      LOG(ERROR) << "Failed to load filter \"" << inputs_[i].value() << "\".";
+      return false;
+    }
+
+    // If this is a second or subsequent filter ensure it's for the same module
+    // as the first one.
+    if (i > 0 && !filters[0].signature.IsConsistent(filters[i].signature)) {
+      LOG(ERROR) << "Filter \"" << inputs_[i].value() << "\" is not consistent "
+                 << "with filter \"" << inputs_[0].value() << "\".";
+      return false;
+    }
+  }
+
+  // Handle the 'invert' action. This is a unary set operator.
+  if (action_ == kInvert) {
+    // Invert in place.
+    filters[0].filter.Invert(&filters[0].filter);
+  } else {
+    // Otherwise we're a binary set operator. We do the work in place in the
+    // place of the first filter.
+    for (size_t i = 1; i < inputs_.size(); ++i)
+      ApplyBinarySetAction(action_, filters[0], filters[i], &filters[0]);
+  }
+
+  if (!OutputFilter(pretty_print_, output_file_, filters[0], out()))
+    return false;
+
+  return true;
 }
 
 }  // namespace genfilter

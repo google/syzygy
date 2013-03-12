@@ -59,6 +59,12 @@ class GenFilterApp : public common::AppImplBase {
                   const base::StringPiece& message) const;
   // @}
 
+  // @name Main bodies of the various actions.
+  // @{
+  bool RunCompileAction();
+  bool RunSetAction();
+  // @}
+
   Action action_;
   FilePath input_image_;
   FilePath input_pdb_;
