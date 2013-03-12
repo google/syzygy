@@ -171,19 +171,42 @@ ReturnThunkFactoryImpl<ImplClass>::thunk_main_asm() {
     rdtsc
 
     push ecx
-    pushfd
+
+    // Save eax, we need the register to grab the flags.
+    mov ecx, eax
+
+    // Save the low byte of the flags into AH.
+    lahf
+    // Save the overflow flag into AL.
+    seto al
+
+    // Stash the flags to stack.
+    push eax
 
     // Push the cycle time arg for the ThunkMain function.
     push edx
-    push eax
+    push ecx
 
     // Get the thunk address and push it to the top of the stack.
     push DWORD PTR[esp + 0x18]
 
     call ThunkMain
 
+    // Save eax, we need it for later.
+    mov ecx, eax
+    pop eax
+
+    // AL is set to 1 if the overflow flag was set before the call to
+    // our hook, 0 otherwise. We add 0x7f to it so it'll restore the
+    // flag.
+    add al, 0x7f
+    // Restore the low byte of the flags.
+    sahf
+
+    // Restore eax.
+    mov eax, ecx
+
     // Restore volatile registers, except eax.
-    popfd
     pop ecx
     pop edx
 
