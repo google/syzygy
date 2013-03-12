@@ -18,6 +18,8 @@
       'target_name': 'genfilter_lib',
       'type': 'static_library',
       'sources': [
+        'filter_compiler.cc',
+        'filter_compiler.h',
         'genfilter_app.cc',
         'genfilter_app.h',
       ],
@@ -41,6 +43,7 @@
       'target_name': 'genfilter_unittests',
       'type': 'executable',
       'sources': [
+        'filter_compiler_unittest.cc',
         'genfilter_app_unittest.cc',
         'genfilter_unittests_main.cc',
       ],
