@@ -36,6 +36,11 @@ dump_trace.exe
   Explores trace files produced by call_trace_service by dumping them to a
   textual format.
 
+genfilter.exe
+  Used to produce filters that can in turn be fed to the instrumenter. This
+  allows for partial instrumentation of a binary. See FILTER-FORMAT.TXT for
+  details.
+
 grinder.exe
   Processes trace files and produces some summary output. The output of this
   tool is typically used as input to other tools for visualizing profile data

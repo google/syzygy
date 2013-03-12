@@ -32,6 +32,7 @@
       '<(PRODUCT_DIR)/decompose.exe',
       '<(PRODUCT_DIR)/decompose_image_to_text.exe',
       '<(PRODUCT_DIR)/dump_trace.exe',
+      '<(PRODUCT_DIR)/genfilter.exe',
       '<(PRODUCT_DIR)/grinder.exe',
       '<(PRODUCT_DIR)/instrument.exe',
       '<(PRODUCT_DIR)/logger.exe',

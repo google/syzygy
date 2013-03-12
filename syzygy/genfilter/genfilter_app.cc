@@ -96,7 +96,7 @@ bool OutputFilter(bool pretty_print,
   FILE* file = default_file;
   file_util::ScopedFILE scoped_file;
   if (!path.empty()) {
-    dest = base::StringPrintf(L"\"%s\"", path.value().c_str());
+    dest = base::StringPrintf(L"\"%ls\"", path.value().c_str());
     scoped_file.reset(file_util::OpenFile(path, "wb"));
     file = scoped_file.get();
     if (file == NULL) {
