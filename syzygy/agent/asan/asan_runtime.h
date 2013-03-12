@@ -17,6 +17,7 @@
 #ifndef SYZYGY_AGENT_ASAN_ASAN_RUNTIME_H_
 #define SYZYGY_AGENT_ASAN_ASAN_RUNTIME_H_
 
+#include <set>
 #include <string>
 
 #include "base/callback.h"
@@ -24,6 +25,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/common/dlist.h"
 
 namespace agent {
@@ -51,6 +53,8 @@ class StackCaptureCache;
 //     delete asan_runtime;
 class AsanRuntime {
  public:
+  typedef std::set<StackCapture::StackId> StackIdSet;
+
   AsanRuntime();
   ~AsanRuntime();
 
@@ -104,6 +108,16 @@ class AsanRuntime {
                               const StackCapture& stack,
                               HeapProxy::AccessMode access_mode,
                               size_t access_size);
+
+  // Returns true if we should ignore the given @p stack_id, false
+  // otherwise.
+  bool ShouldIgnoreError(size_t stack_id) const {
+    // TODO(sebmarchand): Keep a list of the stack ids that have already been
+    //     reported so we can avoid reporting the same error multiple times.
+    return flags_.ignored_stack_ids.find(stack_id) !=
+        flags_.ignored_stack_ids.end();
+  }
+
  protected:
   // A structure to track the values of the flags.
   struct AsanFlags {
@@ -126,6 +140,9 @@ class AsanRuntime {
 
     // The max number of frames for a stack trace.
     size_t max_num_frames;
+
+    // The stack ids we ignore.
+    StackIdSet ignored_stack_ids;
   };
 
   // The name of the environment variable containing the command-line.
@@ -137,6 +154,7 @@ class AsanRuntime {
   static const char kMaxNumberOfFrames[];
   static const char kQuarantineSize[];
   static const char kCompressionReportingPeriod[];
+  static const char kIgnoredStackIds[];
   static const wchar_t kSyzyAsanDll[];
   // @}
 

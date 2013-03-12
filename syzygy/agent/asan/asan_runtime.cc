@@ -19,6 +19,7 @@
 #include "base/environment.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
+#include "base/string_tokenizer.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/agent/asan/asan_logger.h"
@@ -50,12 +51,38 @@ void OnAsanError(CONTEXT* context) {
 bool UpdateSizetFromCommandLine(const CommandLine& cmd_line,
                                 const std::string& param_name,
                                 size_t* value) {
-  if (cmd_line.HasSwitch(param_name)) {
-    std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
-    size_t new_value = 0;
-    if (!base::StringToSizeT(value_str, &new_value))
+  DCHECK(value != NULL);
+  if (!cmd_line.HasSwitch(param_name))
+    return true;
+  std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
+  size_t new_value = 0;
+  if (!base::StringToSizeT(value_str, &new_value))
+    return false;
+  *value = new_value;
+
+  return true;
+}
+
+// Try to update the value of an array of ignored stack ids from a command-line.
+// We expect the values to be in hexadecimal format and separated by a
+// semi-colon.
+// @param cmd_line The command line to parse.
+// @param param_name The parameter that we want to read.
+// @param values Will receive the set of parsed values.
+// @returns true on success, false otherwise.
+bool ReadIgnoredStackIdsFromCommandLine(const CommandLine& cmd_line,
+                                        const std::string& param_name,
+                                        AsanRuntime::StackIdSet* values) {
+  DCHECK(values != NULL);
+  if (!cmd_line.HasSwitch(param_name))
+    return true;
+  std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
+  StringTokenizer string_tokenizer(value_str, ";");
+  while (string_tokenizer.GetNext()) {
+    int new_value = 0;
+    if (!base::HexStringToInt(string_tokenizer.token(), &new_value))
       return false;
-    *value = new_value;
+    values->insert(static_cast<StackCapture::StackId>(new_value));
   }
   return true;
 }
@@ -90,8 +117,8 @@ const char AsanRuntime::kBottomFramesToSkip[] =
 const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const char AsanRuntime::kCompressionReportingPeriod[] =
     "compression_reporting_period";
-const char AsanRuntime::kMaxNumberOfFrames[] =
-    "max_num_frames";
+const char AsanRuntime::kMaxNumberOfFrames[] = "max_num_frames";
+const char AsanRuntime::kIgnoredStackIds[] = "ignored_stack_ids";
 const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
 
 AsanRuntime::AsanRuntime() : logger_(NULL), stack_cache_(NULL) {
@@ -221,6 +248,14 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
   if (!UpdateSizetFromCommandLine(cmd_line, kMaxNumberOfFrames,
                                   &flags_.max_num_frames)) {
     LOG(ERROR) << "Unable to read " << kMaxNumberOfFrames << " from the "
+               << "argument list.";
+    return false;
+  }
+
+  // Parse the ignored stack ids.
+  if (!ReadIgnoredStackIdsFromCommandLine(cmd_line, kIgnoredStackIds,
+                                          &flags_.ignored_stack_ids)) {
+    LOG(ERROR) << "Unable to read " << kIgnoredStackIds << " from the "
                << "argument list.";
     return false;
   }

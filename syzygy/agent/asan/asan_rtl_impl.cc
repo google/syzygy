@@ -325,15 +325,15 @@ void __stdcall ReportBadMemoryAccess(HeapProxy::AccessMode access_mode,
   // different base address.
   stack.set_stack_id(stack.ComputeRelativeStackId());
 
+  // Check if we can ignore this error.
+  if (asan_runtime->ShouldIgnoreError(stack.stack_id()))
+    return;
+
   asan_runtime->ReportAsanErrorDetails(asan_context->location,
                                        context,
                                        stack,
                                        access_mode,
                                        access_size);
-
-  // TODO(sebmarchand): Use the stack id to check if we need to ignore this
-  //     error or if this has already been reported. We also may want to have a
-  //     flag to allow multiple reports of the same error.
 
   // Call the callback to handle this error.
   asan_runtime->OnError(&context);

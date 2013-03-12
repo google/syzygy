@@ -36,9 +36,11 @@ class TestAsanRuntime : public AsanRuntime {
   using AsanRuntime::AsanFlags;
   using AsanRuntime::kBottomFramesToSkip;
   using AsanRuntime::kCompressionReportingPeriod;
+  using AsanRuntime::kIgnoredStackIds;
   using AsanRuntime::kQuarantineSize;
   using AsanRuntime::kSyzyAsanEnvVar;
   using AsanRuntime::PropagateFlagsValues;
+  using AsanRuntime::flags;
   using AsanRuntime::set_flags;
 };
 
@@ -149,6 +151,24 @@ TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
+}
+
+TEST_F(AsanRuntimeTest, IgnoredStackIds) {
+  std::string ignored_stack_ids = "0x1;0X7E577E57;0xCAFEBABE;0xffffffff";
+  current_command_line_.AppendSwitchASCII(
+      TestAsanRuntime::kIgnoredStackIds, ignored_stack_ids);
+
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  EXPECT_TRUE(asan_runtime_.flags()->ignored_stack_ids.find(0x1) !=
+              asan_runtime_.flags()->ignored_stack_ids.end());
+  EXPECT_TRUE(asan_runtime_.flags()->ignored_stack_ids.find(0x7E577E57) !=
+              asan_runtime_.flags()->ignored_stack_ids.end());
+  EXPECT_TRUE(asan_runtime_.flags()->ignored_stack_ids.find(0xCAFEBABE) !=
+              asan_runtime_.flags()->ignored_stack_ids.end());
+  EXPECT_TRUE(asan_runtime_.flags()->ignored_stack_ids.find(0xFFFFFFFF) !=
+              asan_runtime_.flags()->ignored_stack_ids.end());
 }
 
 TEST_F(AsanRuntimeTest, SetFlags) {
