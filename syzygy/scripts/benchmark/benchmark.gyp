@@ -73,6 +73,7 @@
         '<(src)/syzygy/py/etw_db/etw_db.gyp:etw',
         '<(src)/syzygy/py/etw_db/etw_db.gyp:etw_db',
         '<(src)/syzygy/wsdump/wsdump.gyp:wsdump',
+        '<(src)/third_party/dromaeo/dromaeo.gyp:dromaeo_zip',
       ],
       'actions': [
         {

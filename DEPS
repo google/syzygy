@@ -66,8 +66,12 @@ deps = {
   "src/third_party/distorm/files":
     "http://distorm.googlecode.com/svn/trunk@229",
 
+  "src/third_party/dromaeo/files":
+    Var("chrome_base") + "/src/chrome/test/data/dromaeo@" +
+        Var("chrome_revision"),
+
   "src/third_party/python_26":
-     Var("chrome_base") + "/tools/third_party/python_26@" +
+    Var("chrome_base") + "/tools/third_party/python_26@" +
         Var("chrome_revision"),
 
   "src/third_party/psyco_win32":
@@ -75,7 +79,7 @@ deps = {
         Var("chrome_revision"),
 
   "src/third_party/googleappengine":
-      "http://googleappengine.googlecode.com/svn/trunk/python@241",
+    "http://googleappengine.googlecode.com/svn/trunk/python@241",
 
   "src/build":
     Var("chrome_base") + "/src/build@" + Var("chrome_revision"),
