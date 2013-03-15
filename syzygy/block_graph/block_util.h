@@ -18,6 +18,7 @@
 #define SYZYGY_BLOCK_GRAPH_BLOCK_UTIL_H_
 
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 
 namespace block_graph {
@@ -55,6 +56,13 @@ bool GetBasicBlockSourceRange(const BasicCodeBlock& bb,
 // instrumenting an unsafe reference generally leads to crashes.
 bool IsUnsafeReference(const BlockGraph::Block* referrer,
                        const BlockGraph::Reference& ref);
+
+// Returns true if there are any instructions manipulating the stack frame
+// pointer in an unexpected way. We expect the compiler to produce a standard
+// stack frame with two pointers (base EBP, top ESP). Any writes to EBP inside
+// this scope is reported as unexpected by this function.
+// @param subgraph The subgraph to inspect.
+bool HasUnexpectedStackFrameManipulation(BasicBlockSubGraph* subgraph);
 
 }  // namespace block_graph
 

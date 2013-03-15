@@ -223,4 +223,51 @@ TEST_F(BlockUtilTest, IsUnsafeReference) {
       u2, 0, 0)));
 }
 
+TEST_F(BlockUtilTest, CheckNoUnexpectedStackFrameManipulation) {
+  BasicBlockSubGraph bbsg;
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock("dummy");
+
+  // Prepend some instrumentation with a conventional calling convention.
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  assm.push(core::ebp);
+  assm.mov(core::ebp, core::esp);
+  assm.mov(core::eax, Operand(core::ebp,  Displacement(8)));
+  assm.pop(core::ebp);
+  assm.ret(0);
+
+  EXPECT_FALSE(HasUnexpectedStackFrameManipulation(&bbsg));
+}
+
+TEST_F(BlockUtilTest, CheckInvalidInstructionUnexpectedStackFrameManipulation) {
+  BasicBlockSubGraph bbsg;
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock("dummy");
+
+  // Prepend some instrumentation with a conventional calling convention.
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  assm.push(core::ebp);
+  assm.mov(core::ebp, core::esp);
+  // The instruction LEA is invalid stack frame manipulation.
+  assm.lea(core::ebp, Operand(core::ebp,  Displacement(8)));
+  assm.pop(core::ebp);
+  assm.ret(0);
+
+  EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&bbsg));
+}
+
+TEST_F(BlockUtilTest, CheckInvalidRegisterUnexpectedStackFrameManipulation) {
+  BasicBlockSubGraph bbsg;
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock("dummy");
+
+  // Prepend some instrumentation with a conventional calling convention.
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  assm.push(core::ebp);
+  // The instruction MOV use an invalid register EAX.
+  assm.mov(core::ebp, core::eax);
+  assm.lea(core::ebp, Operand(core::ebp,  Displacement(8)));
+  assm.pop(core::ebp);
+  assm.ret(0);
+
+  EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&bbsg));
+}
+
 }  // namespace block_graph

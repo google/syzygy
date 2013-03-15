@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <vector>
 
+#include "mnemonics.h" // NOLINT
+
 namespace block_graph {
 
 bool CodeBlockAttributesAreBasicBlockSafe(
@@ -114,6 +116,46 @@ bool IsUnsafeReference(const BlockGraph::Block* referrer,
   // an unsafe reference leads to crashes, so better to back off and get
   // slightly less coverage.
   return unsafe_referrer && unsafe_block;
+}
+
+bool HasUnexpectedStackFrameManipulation(
+    block_graph::BasicBlockSubGraph* subgraph) {
+  DCHECK(subgraph != NULL);
+
+  BasicBlockSubGraph::BBCollection::iterator it =
+      subgraph->basic_blocks().begin();
+
+  // Process each basic block to find an invalid stack manipulation.
+  for (; it != subgraph->basic_blocks().end(); ++it) {
+    BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+    if (bb == NULL)
+      continue;
+
+    // Process each instruction.
+    BasicBlock::Instructions::iterator iter_inst = bb->instructions().begin();
+    for (; iter_inst != bb->instructions().end(); ++iter_inst) {
+      const _DInst& repr = iter_inst->representation();
+
+      // Consider only instructions whose first operand is EBP (read/write).
+      if (repr.ops[0].type == O_REG && repr.ops[0].index == R_EBP) {
+
+        // PUSH/POP EBP is valid.
+        if (repr.opcode == I_POP || repr.opcode == I_PUSH)
+          continue;
+
+        // MOV EBP, ESP is valid.
+        if (repr.opcode == I_MOV &&
+            repr.ops[1].type == O_REG && repr.ops[1].index == R_ESP)
+          continue;
+
+        // We found a non conventional write to register EBP (stack pointer).
+        return true;
+      }
+    }
+  }
+
+  // There is no unconventional/unexpected stack frame manipulation.
+  return false;
 }
 
 }  // namespace block_graph
