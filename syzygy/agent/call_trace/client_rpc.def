@@ -19,4 +19,4 @@ EXPORTS
   ; Our profile hook functions, invoked through machine instrumentation.
   _indirect_penter
   _indirect_penter_dllmain
-  _indirect_penter_exe_entry = _indirect_penter_dllmain
+  _indirect_penter_exemain = _indirect_penter_dllmain

@@ -20,4 +20,4 @@ EXPORTS
   ; The instrumentation itself is directly applied to basic blocks, we simply
   ; require a startup hook to initialize the coverage results array.
   _indirect_penter_dllmain
-  _indirect_penter_exe_entry = _indirect_penter_dllmain
+  _indirect_penter_exemain = _indirect_penter_dllmain

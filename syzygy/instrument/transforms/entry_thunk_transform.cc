@@ -44,8 +44,8 @@ const char EntryThunkTransform::kTransformName[] =
 const char EntryThunkTransform::kEntryHookName[] = "_indirect_penter";
 const char EntryThunkTransform::kDllMainEntryHookName[] =
     "_indirect_penter_dllmain";
-const char EntryThunkTransform::kExeEntryHookName[] =
-    "_indirect_penter_exe_entry";
+const char EntryThunkTransform::kExeMainEntryHookName[] =
+    "_indirect_penter_exemain";
 const char EntryThunkTransform::kDefaultInstrumentDll[] =
     "call_trace_client.dll";
 
@@ -112,7 +112,7 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   // If this was an EXE then we need the EXE entry hook.
   if (exe_entry_point_.first != NULL) {
     import_hooks.push_back(std::make_pair(
-        import_module.AddSymbol(kExeEntryHookName,
+        import_module.AddSymbol(kExeMainEntryHookName,
                                 ImportedModule::kAlwaysImport),
         &hook_exe_entry_ref_));
   }

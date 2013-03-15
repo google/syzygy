@@ -130,7 +130,7 @@ class EntryThunkTransform
   // The name of the import for DllMain-like function entry hooks.
   static const char kDllMainEntryHookName[];
   // The name of the import for EXE entry point hook.
-  static const char kExeEntryHookName[];
+  static const char kExeMainEntryHookName[];
 
   // The name of the DLL imported default.
   static const char kDefaultInstrumentDll[];
