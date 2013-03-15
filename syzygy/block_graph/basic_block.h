@@ -111,26 +111,13 @@ class BasicBlockReference {
 
   // Retrieves the referenced block or NULL if this reference does not
   // refer to a block.
-  const Block* block() const {
-    return referred_type_ == REFERRED_TYPE_BLOCK ? referred_block_ : NULL;
-  }
-
-  // Retrieves the referenced block or NULL if this reference does not
-  // refer to a block.
-  Block* block() {
+  Block* block() const {
     return referred_type_ == REFERRED_TYPE_BLOCK ? referred_block_ : NULL;
   }
 
   // Retrieves the referenced basic-block or NULL if this reference does not
   // refer to a basic block.
-  const BasicBlock* basic_block() const {
-    return referred_type_ == REFERRED_TYPE_BASIC_BLOCK ?
-        referred_basic_block_ : NULL;
-  }
-
-  // Retrieves the referenced basic-block or NULL if this reference does not
-  // refer to a basic block.
-  BasicBlock* basic_block() {
+  BasicBlock* basic_block() const {
     return referred_type_ == REFERRED_TYPE_BASIC_BLOCK ?
         referred_basic_block_ : NULL;
   }

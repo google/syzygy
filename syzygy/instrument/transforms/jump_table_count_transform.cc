@@ -260,15 +260,7 @@ BlockGraph::Block* JumpTableCaseCountTransform::CreateOneThunk(
 
   assm.push(Immediate(jump_table_case_count_++, core::kSize32Bit));
   assm.call(jump_table_case_counter_hook);
-  // TODO(sebmarchand): Update the basic block assembler to allow a jump to a
-  //     PC relative address. Also check if it's faster to use an absolute
-  //     reference.
-  block_graph::BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
-                                       BlockGraph::Reference::kMaximumSize,
-                                       destination.referenced(),
-                                       destination.offset(),
-                                       destination.offset());
-  assm.jmp(Immediate(Displacement(0, core::kSize32Bit, ref)));
+  assm.jmp(Immediate(destination.referenced(), destination.offset()));
 
   // Condense into a block.
   BlockBuilder block_builder(block_graph);

@@ -342,20 +342,19 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
       reference_size = core::kSize32Bit;
 
     // Construct the reference we're going to deposit into the instruction
-    // list first. This will be a PC-relative reference of size 8 or 32,
-    // depending on whether the successor has been manifested long or short.
-    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
-                            reference_size == core::kSize8Bit ? 1 : 4,
-                            successor.reference);
+    // list first.
+    UntypedReference untyped_ref(successor.reference);
+
     // For debugging, we stomp the correct offset into the re-generated block
     // for block-internal references.
     BlockGraph::Reference resolved_ref = ResolveReference(successor.reference);
+
     // Default to the offset immediately following the successor, which
     // will translate to a zero pc-relative offset.
     Offset ref_offset = successor_start + successor.size;
     if (resolved_ref.referenced() == info.block)
       ref_offset = resolved_ref.offset();
-    Immediate dest(ref_offset, reference_size, ref);
+    Immediate dest(ref_offset, reference_size, untyped_ref);
 
     // Assemble the instruction.
     switch (successor.condition) {

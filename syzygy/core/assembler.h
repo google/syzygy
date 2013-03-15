@@ -132,7 +132,7 @@ enum ValueSize {
 
 // An instance of this class is an explicit value, which is either
 // an immediate or a displacement.
-class ValueImpl  {
+class ValueImpl {
  public:
   ValueImpl();
   ValueImpl(uint32 value, ValueSize size);
@@ -283,7 +283,7 @@ class AssemblerImpl {
   void push(const OperandImpl& src);
 
   void pop(Register dst);
-  void pop(const OperandImpl& src);
+  void pop(const OperandImpl& dst);
   // @}
 
   // @name Aliases

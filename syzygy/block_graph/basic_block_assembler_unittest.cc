@@ -125,8 +125,6 @@ void Test32BitValue(uint32 input_value, uint32 expected_value) {
       Value(input_value, core::kSize32Bit), expected_value, core::kSize32Bit);
 }
 
-}  // namespace
-
 typedef BasicBlockAssemblerTest ValueTest;
 
 void TestValueCopy(const Value& input) {
@@ -153,6 +151,98 @@ void TestValueCopy(const Value& input) {
   ASSERT_EQ(input.reference().basic_block(), copy2.reference().basic_block());
   ASSERT_EQ(input.reference().offset(), copy2.reference().offset());
   ASSERT_EQ(input.reference().base(), copy2.reference().base());
+}
+
+}  // namespace
+
+TEST(UntypedReferenceTest, DefaultConstructor) {
+  UntypedReference r;
+  EXPECT_EQ(NULL, r.basic_block());
+  EXPECT_EQ(NULL, r.block());
+  EXPECT_EQ(0, r.offset());
+  EXPECT_EQ(0, r.base());
+  EXPECT_FALSE(r.IsValid());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN, r.referred_type());
+}
+
+TEST(UntypedReferenceTest, BasicBlockReferenceToBasicBlockConstructor) {
+  BasicCodeBlock bcb("foo");
+  BasicBlock* bb = &bcb;
+  BasicBlockReference bbref(BlockGraph::ABSOLUTE_REF, 4, &bcb);
+  UntypedReference r(bbref);
+  EXPECT_EQ(bb, r.basic_block());
+  EXPECT_EQ(NULL, r.block());
+  EXPECT_EQ(0, r.offset());
+  EXPECT_EQ(0, r.base());
+  EXPECT_TRUE(r.IsValid());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, r.referred_type());
+}
+
+TEST(UntypedReferenceTest, BasicBlockReferenceToBlockConstructor) {
+  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 20, "foo");
+  BasicBlockReference bbref(BlockGraph::ABSOLUTE_REF, 4, &b, 4, 10);
+  UntypedReference r(bbref);
+  EXPECT_EQ(NULL, r.basic_block());
+  EXPECT_EQ(&b, r.block());
+  EXPECT_EQ(4, r.offset());
+  EXPECT_EQ(10, r.base());
+  EXPECT_TRUE(r.IsValid());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, r.referred_type());
+}
+
+TEST(UntypedReferenceTest, BasicBlockConstructor) {
+  BasicCodeBlock bcb("foo");
+  BasicBlock* bb = &bcb;
+  UntypedReference r(&bcb);
+  EXPECT_EQ(bb, r.basic_block());
+  EXPECT_EQ(NULL, r.block());
+  EXPECT_EQ(0, r.offset());
+  EXPECT_EQ(0, r.base());
+  EXPECT_TRUE(r.IsValid());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, r.referred_type());
+}
+
+TEST(UntypedReferenceTest, BlockConstructor) {
+  BlockGraph::Block b;
+  UntypedReference r(&b, 4, 10);
+  EXPECT_EQ(NULL, r.basic_block());
+  EXPECT_EQ(&b, r.block());
+  EXPECT_EQ(4, r.offset());
+  EXPECT_EQ(10, r.base());
+  EXPECT_TRUE(r.IsValid());
+  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, r.referred_type());
+}
+
+TEST(UntypedReferenceTest, CopyConstructor) {
+  BlockGraph::Block b;
+  UntypedReference r1(&b, 4, 10);
+
+  UntypedReference r2(r1);
+  EXPECT_EQ(r1.basic_block(), r2.basic_block());
+  EXPECT_EQ(r1.block(), r2.block());
+  EXPECT_EQ(r1.offset(), r2.offset());
+  EXPECT_EQ(r1.base(), r2.base());
+  EXPECT_EQ(r1.IsValid(), r2.IsValid());
+}
+
+TEST(UntypedReferenceTest, Comparison) {
+  BlockGraph::Block b;
+  UntypedReference r1(&b, 4, 10);
+
+  UntypedReference r2(&b, 0, 0);
+  EXPECT_FALSE(r1 == r2);
+
+  BasicCodeBlock bcb("foo");
+  BasicBlock* bb = &bcb;
+  UntypedReference r3(&bcb);
+  EXPECT_FALSE(r1 == r3);
+  EXPECT_FALSE(r2 == r3);
+
+  UntypedReference r4(r1);
+  EXPECT_TRUE(r1 == r4);
+
+  UntypedReference r5(r2);
+  EXPECT_TRUE(r2 == r5);
 }
 
 TEST_F(ValueTest, Construction) {
@@ -190,7 +280,7 @@ TEST_F(ValueTest, Construction) {
               value_block_ref.reference().referred_type());
     ASSERT_EQ(&test_block_, value_block_ref.reference().block());
     ASSERT_EQ(kOffs, value_block_ref.reference().offset());
-    ASSERT_EQ(0, value_block_ref.reference().base());
+    ASSERT_EQ(kOffs, value_block_ref.reference().base());
 
     TestValueCopy(value_block_ref);
   }
@@ -211,7 +301,7 @@ TEST_F(ValueTest, Construction) {
 
   {
     // Explicitly specified size and reference info.
-    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF, 1, &test_block_, 1, 2);
+    UntypedReference ref(&test_block_, 1, 2);
     Value value_expl_ref(0xBE, core::kSize8Bit, ref);
 
     ASSERT_EQ(0xBE, value_expl_ref.value());
@@ -292,9 +382,6 @@ TEST_F(OperandTest, Construction) {
 }
 
 TEST_F(BasicBlockAssemblerTest, call) {
-  asm_.call(Immediate(0xCAFEBABE));
-  ASSERT_NO_REFS();
-
   asm_.call(Immediate(&test_block_, 0));
   ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
 
@@ -303,9 +390,6 @@ TEST_F(BasicBlockAssemblerTest, call) {
 }
 
 TEST_F(BasicBlockAssemblerTest, jmp) {
-  asm_.jmp(Immediate(0xCAFEBABE));
-  ASSERT_NO_REFS();
-
   asm_.jmp(Immediate(&test_block_, 0));
   ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
 
@@ -390,14 +474,14 @@ TEST_F(BasicBlockAssemblerTest, ret) {
 
 TEST_F(BasicBlockAssemblerTest, UndefinedSourceRange) {
   ASSERT_EQ(asm_.source_range(), SourceRange());
-  asm_.call(Immediate(0xCAFEBABE));
+  asm_.call(Immediate(&test_block_, 0));
   ASSERT_EQ(instructions_.back().source_range(), SourceRange());
 }
 
 TEST_F(BasicBlockAssemblerTest, SetSourceRange) {
   SourceRange range(RelativeAddress(10), 10);
   asm_.set_source_range(range);
-  asm_.call(Immediate(0xCAFEBABE));
+  asm_.call(Immediate(&test_block_, 0));
   ASSERT_EQ(instructions_.back().source_range(), range);
 }
 
@@ -406,7 +490,7 @@ TEST_F(BasicBlockAssemblerTest, SetMultipleSourceRange) {
   SourceRange range2(RelativeAddress(20), 20);
 
   asm_.set_source_range(range1);
-  asm_.call(Immediate(0xCAFEBABE));
+  asm_.call(Immediate(&test_block_, 0));
   ASSERT_EQ(instructions_.back().source_range(), range1);
 
   asm_.set_source_range(range2);

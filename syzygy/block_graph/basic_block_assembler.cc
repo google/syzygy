@@ -18,7 +18,12 @@ namespace block_graph {
 
 namespace {
 
-core::ValueSize ValueSizeFromConstant(uint32 input_value) {
+typedef core::DisplacementImpl DisplacementImpl;
+typedef core::OperandImpl OperandImpl;
+typedef core::ValueImpl ValueImpl;
+typedef core::ValueSize ValueSize;
+
+ValueSize ValueSizeFromConstant(uint32 input_value) {
   // IA32 assembly may/will sign-extend 8-bit literals, so we attempt to encode
   // in 8 bits only those literals whose value will be unchanged by that
   // treatment.
@@ -30,11 +35,44 @@ core::ValueSize ValueSizeFromConstant(uint32 input_value) {
   return core::kSize32Bit;
 }
 
-core::ValueImpl CopyValue(const BasicBlockReference* ref,
-                          const core::ValueImpl& value) {
-  return core::ValueImpl(value.value(),
-                         value.size(),
-                         value.reference() ? ref : NULL);
+ValueImpl CopyValue(const UntypedReference* ref,
+                    const core::ValueImpl& value) {
+  return ValueImpl(value.value(),
+                   value.size(),
+                   value.reference() ? ref : NULL);
+}
+
+size_t ToBytes(core::ValueSize size) {
+  switch (size) {
+    case core::kSize8Bit: return 1;
+    case core::kSize32Bit: return 4;
+  }
+  NOTREACHED();
+  return 0;
+}
+
+// Completes a UntypedReference, converting it to a BasicBlockReference
+// using the provided type and size information.
+// @param ref_info The type and size information to use.
+// @param untyped_ref The untyped reference to be completed.
+// @returns the equivalent BasicBlockReference.
+BasicBlockReference CompleteUntypedReference(
+    BlockGraph::ReferenceType type,
+    size_t size,
+    const UntypedReference& untyped_ref) {
+  DCHECK(untyped_ref.IsValid());
+
+  if (untyped_ref.referred_type() ==
+          BasicBlockReference::REFERRED_TYPE_BLOCK) {
+    DCHECK(untyped_ref.block() != NULL);
+    return BasicBlockReference(type, size, untyped_ref.block(),
+                               untyped_ref.offset(), untyped_ref.base());
+  }
+
+  DCHECK_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
+            untyped_ref.referred_type());
+  DCHECK(untyped_ref.basic_block() != NULL);
+  return BasicBlockReference(type, size, untyped_ref.basic_block());
 }
 
 }  // namespace
@@ -45,29 +83,35 @@ Value::Value() {
 Value::Value(uint32 value) : value_(value, ValueSizeFromConstant(value)) {
 }
 
-Value::Value(uint32 value, core::ValueSize size) : value_(value, size) {
+Value::Value(uint32 value, ValueSize size) : value_(value, size) {
 }
 
 Value::Value(BasicBlock* bb)
-    : reference_(BlockGraph::ABSOLUTE_REF, sizeof(core::AbsoluteAddress), bb),
+    : reference_(bb),
       value_(0, core::kSize32Bit, &reference_) {
 }
 
-Value::Value(BlockGraph::Block* block, BlockGraph::Offset offset)
-    : reference_(BlockGraph::ABSOLUTE_REF, sizeof(core::AbsoluteAddress),
-                 block, offset, 0),
+Value::Value(Block* block, Offset offset)
+    : reference_(block, offset, offset),
       value_(0, core::kSize32Bit, &reference_) {
 }
 
-Value::Value(uint32 value, ValueSize size, const BasicBlockReference& ref)
+Value::Value(Block* block, Offset offset, Offset base)
+    : reference_(block, offset, base),
+      value_(0, core::kSize32Bit, &reference_) {
+}
+
+Value::Value(uint32 value, ValueSize size, const UntypedReference& ref)
     : reference_(ref), value_(value, size, &reference_) {
+  DCHECK(ref.IsValid());
 }
 
-Value::Value(const Value& o)
-    : reference_(o.reference()), value_(CopyValue(&reference_, o.value_)) {
+Value::Value(const Value& other)
+    : reference_(other.reference()),
+      value_(CopyValue(&reference_, other.value_)) {
 }
 
-Value::Value(const BasicBlockReference& ref, const core::ValueImpl& value)
+Value::Value(const UntypedReference& ref, const ValueImpl& value)
     : reference_(ref), value_(CopyValue(&reference_, value)) {
 }
 
@@ -153,13 +197,17 @@ const Operand& Operand::operator=(const Operand& other) {
 
 BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(
     const Instructions::iterator& where, Instructions* list)
-        : where_(where), list_(list) {
+        : where_(where), list_(list), num_ref_infos_(0) {
   DCHECK(list != NULL);
 }
 
 void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
     uint32 location, const uint8* bytes, size_t num_bytes,
     const size_t *ref_locations, const void* const* refs, size_t num_refs) {
+  // The number of reference infos we've been provided must match the number of
+  // references we have been given.
+  DCHECK_EQ(num_ref_infos_, num_refs);
+
   Instruction instruction;
   CHECK(Instruction::FromBuffer(bytes, num_bytes, &instruction));
   instruction.set_source_range(source_range_);
@@ -167,12 +215,26 @@ void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
   Instructions::iterator it = list_->insert(where_, instruction);
 
   for (size_t i = 0; i < num_refs; ++i) {
-    const BasicBlockReference* ref =
-        reinterpret_cast<const BasicBlockReference*>(refs[i]);
-    DCHECK(ref != NULL);
+    const UntypedReference* tref =
+        reinterpret_cast<const UntypedReference*>(refs[i]);
+    DCHECK(tref != NULL);
 
-    it->SetReference(ref_locations[i], *ref);
+    BasicBlockReference bbref = CompleteUntypedReference(
+        ref_infos_[i].type, ref_infos_[i].size, *tref);
+    DCHECK(bbref.IsValid());
+    it->SetReference(ref_locations[i], bbref);
   }
+
+  // Clear the reference info for the next instruction.
+  num_ref_infos_ = 0;
+}
+
+void BasicBlockAssembler::BasicBlockSerializer::PushReferenceInfo(
+    BlockGraph::ReferenceType type, core::ValueSize size) {
+  DCHECK_GT(2u, num_ref_infos_);
+  ref_infos_[num_ref_infos_].type = type;
+  ref_infos_[num_ref_infos_].size = ToBytes(size);
+  ++num_ref_infos_;
 }
 
 BasicBlockAssembler::BasicBlockAssembler(const Instructions::iterator& where,
@@ -187,26 +249,44 @@ BasicBlockAssembler::BasicBlockAssembler(uint32 location,
 }
 
 void BasicBlockAssembler::call(const Immediate& dst) {
+  // In the context of BasicBlockAssembler it only makes sense for calls with
+  // immediate paramaters to be backed by a 32-bit reference.
+  PushMandatoryReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  CheckReferenceSize(core::kSize32Bit, dst);
   asm_.call(dst.value_);
 }
 
 void BasicBlockAssembler::call(const Operand& dst) {
+  // If a call is backed by a reference it must be 32-bit.
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  CheckReferenceSize(core::kSize32Bit, dst);
   asm_.call(dst.operand_);
 }
 
 void BasicBlockAssembler::jmp(const Immediate& dst) {
+  // In the context of BasicBlockAssembler it only makes sense for jumps with
+  // immediate paramaters to be backed by a reference.
+  PushMandatoryReferenceInfo(BlockGraph::PC_RELATIVE_REF, dst);
   asm_.jmp(dst.value_);
 }
 
 void BasicBlockAssembler::jmp(const Operand& dst) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   asm_.jmp(dst.operand_);
 }
 
 void BasicBlockAssembler::j(ConditionCode code, const Immediate& dst) {
+  // In the context of BasicBlockAssembler it only makes sense for jumps with
+  // immediate paramaters to be backed by a reference.
+  PushMandatoryReferenceInfo(BlockGraph::PC_RELATIVE_REF, dst);
   asm_.j(code, dst.value_);
 }
 
 void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov_b(dst.operand_, src.value_);
 }
 
@@ -215,22 +295,34 @@ void BasicBlockAssembler::mov(Register dst, Register src) {
 }
 
 void BasicBlockAssembler::mov(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov(dst, src.operand_);
 }
 
 void BasicBlockAssembler::mov(const Operand& dst, Register src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  CheckReferenceSize(core::kSize32Bit, dst);
   asm_.mov(dst.operand_, src);
 }
 
 void BasicBlockAssembler::mov(Register dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov(dst, src.value_);
 }
 
 void BasicBlockAssembler::mov(const Operand& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov(dst.operand_, src.value_);
 }
 
 void BasicBlockAssembler::lea(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.lea(dst, src.operand_);
 }
 
@@ -239,19 +331,25 @@ void BasicBlockAssembler::push(Register src) {
 }
 
 void BasicBlockAssembler::push(const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.push(src.value_);
 }
 
 void BasicBlockAssembler::push(const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
   asm_.push(src.operand_);
 }
 
-void BasicBlockAssembler::pop(Register src) {
-  asm_.pop(src);
+void BasicBlockAssembler::pop(Register dst) {
+  asm_.pop(dst);
 }
 
-void BasicBlockAssembler::pop(const Operand& src) {
-  asm_.pop(src.operand_);
+void BasicBlockAssembler::pop(const Operand& dst) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  CheckReferenceSize(core::kSize32Bit, dst);
+  asm_.pop(dst.operand_);
 }
 
 void BasicBlockAssembler::ret() {
@@ -260,6 +358,37 @@ void BasicBlockAssembler::ret() {
 
 void BasicBlockAssembler::ret(uint16 n) {
   asm_.ret(n);
+}
+
+void BasicBlockAssembler::PushMandatoryReferenceInfo(
+    ReferenceType type, const Immediate& imm) {
+  DCHECK(imm.value_.reference() != NULL);
+  serializer_.PushReferenceInfo(type, imm.value_.size());
+}
+
+void BasicBlockAssembler::PushOptionalReferenceInfo(
+    ReferenceType type, const Immediate& imm) {
+  if (imm.value_.reference() == NULL)
+    return;
+  serializer_.PushReferenceInfo(type, imm.value_.size());
+}
+
+void BasicBlockAssembler::PushOptionalReferenceInfo(
+    ReferenceType type, const Operand& op) {
+  if (op.operand_.displacement().reference() == NULL)
+    return;
+  serializer_.PushReferenceInfo(type, op.operand_.displacement().size());
+}
+
+void BasicBlockAssembler::CheckReferenceSize(
+    core::ValueSize size, const Immediate& imm) const {
+  DCHECK(imm.value_.reference() == NULL || imm.value_.size() == size);
+}
+
+void BasicBlockAssembler::CheckReferenceSize(
+    core::ValueSize size, const Operand& op) const {
+  DCHECK(op.operand_.displacement().reference() == NULL ||
+         op.operand_.displacement().size() == size);
 }
 
 }  // namespace block_graph

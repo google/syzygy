@@ -38,7 +38,7 @@ enum Mod {
   Reg1 = 3,  // Register + word displacement.
 };
 
-// Returns true if @p operand is a displacment only - e.g.
+// Returns true if @p operand is a displacement only - e.g.
 // specifies neither a base, nor an index register.
 bool IsDisplacementOnly(const OperandImpl& operand) {
   return operand.displacement().size() != kSizeNone &&
@@ -607,4 +607,5 @@ void AssemblerImpl::Output(const InstructionBuffer& instr) {
 
   location_ += instr.len();
 }
+
 }  // namespace core

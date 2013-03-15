@@ -24,27 +24,148 @@ namespace block_graph {
 
 using core::ValueSize;
 
+// Forward declarations.
 class BasicBlockAssembler;
 class Operand;
 
+// Declares a BasicBlockReference-like class that has no type or size
+// information. The size information is stored in the Operand or Value housing
+// the untyped reference, and the type is inferred from the instruction being
+// assembled.
+class UntypedReference {
+ public:
+  typedef BlockGraph::Block Block;
+  typedef BlockGraph::Offset Offset;
+
+  // Default constructor.
+  UntypedReference()
+      : basic_block_(NULL), block_(NULL), offset_(0), base_(0) {
+  }
+
+  // Copy constructor.
+  // @param other The reference to be copied.
+  UntypedReference(const UntypedReference& other)
+      : basic_block_(other.basic_block_), block_(other.block_),
+        offset_(other.offset_), base_(other.base_) {
+  }
+
+  // Constructor from a basic block reference.
+  // @param bb_ref The basic block reference to be copied.
+  explicit UntypedReference(const BasicBlockReference& bb_ref)
+      : basic_block_(bb_ref.basic_block()), block_(bb_ref.block()),
+        offset_(bb_ref.offset()), base_(bb_ref.base()) {
+    DCHECK(block_ != NULL || basic_block_ != NULL);
+  }
+
+  // Constructs a reference to a basic block.
+  // @param basic_block The basic block to be referred to.
+  explicit UntypedReference(BasicBlock* basic_block)
+      : basic_block_(basic_block), block_(NULL), offset_(0), base_(0) {
+    DCHECK(basic_block != NULL);
+  }
+
+  // Constructs a reference to a block.
+  // @param block The block to be referred to.
+  // @param offset The offset from the start of the block actually being
+  //     pointed to.
+  // @param base The offset from the start of the block semantically being
+  //     referred to.
+  UntypedReference(Block* block, Offset offset, Offset base)
+      : basic_block_(NULL), block_(block), offset_(offset), base_(base) {
+    DCHECK(block != NULL);
+  }
+
+  // @name Accessors.
+  // @{
+  BasicBlock* basic_block() const { return basic_block_; }
+  Block* block() const { return block_; }
+  Offset offset() const { return offset_; }
+  Offset base() const { return base_; }
+  // @}
+
+  // @returns true if this reference is valid.
+  bool IsValid() const { return block_ != NULL || basic_block_ != NULL; }
+
+  // Returns the type of the object being referred to.
+  BasicBlockReference::ReferredType referred_type() const {
+    if (block_ != NULL)
+      return BasicBlockReference::REFERRED_TYPE_BLOCK;
+    if (basic_block_ != NULL)
+      return BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK;
+    return BasicBlockReference::REFERRED_TYPE_UNKNOWN;
+  }
+
+  // Comparison operator.
+  // @returns true if this reference is the same as the @p other.
+  bool operator==(const UntypedReference& other) const {
+    return basic_block_ == other.basic_block_ &&
+        block_ == other.block_ &&
+        offset_ == other.offset_ &&
+        base_ == other.base_;
+  }
+
+ private:
+  BasicBlock* basic_block_;
+  Block* block_;
+  Offset offset_;
+  Offset base_;
+};
+
 class Value {
  public:
+  typedef BlockGraph::Block Block;
+  typedef BlockGraph::Offset Offset;
+  typedef core::ValueImpl ValueImpl;
+  typedef core::ValueSize ValueSize;
+
   // Default construction.
   Value();
+
   // Constructs an 8- or 32-bit value, depending on the minimum number of bits
   // required to represent the Value. If the value can be encoded using 8-bits
   // to have the same representation under sign extension, then an 8-bit Value
   // will be created; otherwise, a 32-bit absolute Value will be created.
+  // @param value The value to be stored.
   explicit Value(uint32 value);
+
   // Constructs an absolute value having a specific bit width.
-  Value(uint32 value, core::ValueSize size);
-  // Constructs a 32 bit absolute value referring to the basic block @p bb.
+  // @param value The value to be stored.
+  // @param size The size of the value.
+  Value(uint32 value, ValueSize size);
+
+  // Constructs a 32-bit direct reference to the basic block @p bb.
+  // @param bb The basic block to be referred to.
+  // @note This is fine even for jmps (which may be encoded using 8-bit
+  //     references) as the BB layout algorithm will use the shortest jmp
+  //     possible.
   explicit Value(BasicBlock* bb);
-  // Constructs a 32 bit absolute value referring to @p block at @p offset.
-  Value(BlockGraph::Block* block, BlockGraph::Offset offset);
-  // Explicitly specified size and reference info.
-  Value(uint32 value, ValueSize size, const BasicBlockReference& ref);
-  // Copy construction.
+
+  // Constructs a 32-bit direct reference to @p block at the given @p offset.
+  // @param block The block to be referred to.
+  // @param offset The offset to be referred to, both semantically and
+  //     literally. The base and offset of the reference will be set to this.
+  // @note This is fine even for jmps (which may be encoded using 8-bit
+  //     references) as the BB layout algorithm will use the shortest jmp
+  //     possible.
+  Value(Block* block, Offset offset);
+
+  // Constructs a 32-bit reference to @p block at the given @p offset and
+  // @p base.
+  // @param block The block to be referred to.
+  // @param offset The offset to be literally referred to.
+  // @param base The offset to be semantically referred to. This must be
+  //     within the data of @p block.
+  Value(Block* block, Offset offset, Offset base);
+
+  // Full constructor.
+  // @param value The value to be stored.
+  // @param size The size of the value.
+  // @param ref The untyped reference backing this value. The reference must
+  //     be valid.
+  Value(uint32 value, ValueSize size, const UntypedReference& ref);
+
+  // Copy constructor.
+  // @param other The value to be copied.
   Value(const Value& other);
 
   // Destructor.
@@ -56,8 +177,8 @@ class Value {
   // @name Accessors.
   // @{
   uint32 value() const { return value_.value(); }
-  core::ValueSize size() const { return value_.size(); }
-  const BasicBlockReference &reference() const { return reference_; }
+  ValueSize size() const { return value_.size(); }
+  const UntypedReference& reference() const { return reference_; }
   // @}
 
   // Comparison operator.
@@ -65,13 +186,13 @@ class Value {
 
  private:
   // Private constructor for Operand.
-  Value(const BasicBlockReference& ref, const core::ValueImpl& value);
+  Value(const UntypedReference& ref, const core::ValueImpl& value);
 
   friend class BasicBlockAssembler;
   friend class Operand;
 
-  BasicBlockReference reference_;
-  core::ValueImpl value_;
+  UntypedReference reference_;
+  ValueImpl value_;
 };
 
 // Displacements and immediates behave near-identically, but are semantically
@@ -133,7 +254,7 @@ class Operand {
  private:
   friend class BasicBlockAssembler;
 
-  BasicBlockReference reference_;
+  UntypedReference reference_;
   core::OperandImpl operand_;
 };
 
@@ -206,8 +327,8 @@ class BasicBlockAssembler {
   void push(const Immediate& src);
   void push(const Operand& src);
 
-  void pop(Register src);
-  void pop(const Operand& src);
+  void pop(Register dst);
+  void pop(const Operand& dst);
   // @}
 
   // @name Ret instructions.
@@ -217,6 +338,8 @@ class BasicBlockAssembler {
   // @}
 
  private:
+  typedef BlockGraph::ReferenceType ReferenceType;
+
   class BasicBlockSerializer
       : public core::AssemblerImpl::InstructionSerializer {
    public:
@@ -235,13 +358,40 @@ class BasicBlockAssembler {
       source_range_ = source_range;
     }
 
+    // Pushes back a reference type to be associated with a untyped reference.
+    // @param type The type of the reference.
+    // @param size The size of the reference, as a ValueSize.
+    void PushReferenceInfo(ReferenceType type, core::ValueSize size);
+
    private:
+    struct ReferenceInfo {
+      BlockGraph::ReferenceType type;
+      size_t size;  // In bytes.
+    };
+
     Instructions::iterator where_;
     Instructions* list_;
 
     // Source range set to instructions appended by this serializer.
     SourceRange source_range_;
+
+    // The reference types and sizes associated with references in the
+    // instructions parameters. These are provided to the serializer out of
+    // band (not via Operand/Immediate/Value) by the implementations of the
+    // various instructions. They allow the corresponding UntypedReferences to
+    // be completed.
+    ReferenceInfo ref_infos_[2];
+    size_t num_ref_infos_;
   };
+
+  // @name Utility functions for pushing/validating reference info.
+  // @{
+  void PushMandatoryReferenceInfo(ReferenceType type, const Immediate& imm);
+  void PushOptionalReferenceInfo(ReferenceType type, const Immediate& imm);
+  void PushOptionalReferenceInfo(ReferenceType type, const Operand& op);
+  void CheckReferenceSize(core::ValueSize size, const Immediate& imm) const;
+  void CheckReferenceSize(core::ValueSize size, const Operand& op) const;
+  // @}
 
   BasicBlockSerializer serializer_;
   core::AssemblerImpl asm_;
