@@ -12,19 +12,78 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Jump-table case count instrumentation transform unit-tests.
+// Jump table case count instrumentation transform unit-tests.
 
 #include "syzygy/instrument/transforms/jump_table_count_transform.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
+#include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
+#include "syzygy/pe/block_util.h"
+
+#include "mnemonics.h"  // NOLINT
 
 namespace instrument {
 namespace transforms {
 
 namespace {
 
+using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
+using block_graph::BasicBlockDecomposer;
+using block_graph::BasicBlockSubGraph;
+using block_graph::BlockGraph;
+using block_graph::Instruction;
+using common::IndexedFrequencyData;
+
+class TestJumpTableCaseCountTransform : public JumpTableCaseCountTransform {
+ public:
+  using JumpTableCaseCountTransform::jump_table_case_counter_hook_ref_;
+  using JumpTableCaseCountTransform::thunk_section_;
+
+  BlockGraph::Block* frequency_data_block() {
+    return add_frequency_data_.frequency_data_block();
+  }
+
+  BlockGraph::Block* frequency_data_buffer_block() {
+    return add_frequency_data_.frequency_data_buffer_block();
+  }
+};
+
 typedef testing::TestDllTransformTest JumpTableCaseCountTransformTest;
+
+// Ensure that the @p block is a jump table case count thunk.
+void CheckBlockIsAThunk(BlockGraph::Block* block) {
+  ASSERT_TRUE(pe::CodeBlockIsBasicBlockDecomposable(block));
+
+  // Decompose the block to basic-blocks.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer bb_decomposer(block, &subgraph);
+  ASSERT_TRUE(bb_decomposer.Decompose());
+
+  ASSERT_EQ(1, subgraph.basic_blocks().size());
+  const BasicCodeBlock* bb = BasicCodeBlock::Cast(
+      *subgraph.basic_blocks().begin());
+  ASSERT_TRUE(bb != NULL);
+  ASSERT_FALSE(bb->is_padding());
+
+  ASSERT_EQ(2U, bb->instructions().size());
+  BasicBlock::Instructions::const_iterator inst_iter =
+      bb->instructions().begin();
+
+  // Instruction 1 should push the case id.
+  const Instruction& inst1 = *inst_iter;
+  EXPECT_EQ(I_PUSH, inst1.representation().opcode);
+
+  // Instruction 2 should call the jump table counter hook.
+  const Instruction& inst2 = *(++inst_iter);
+  EXPECT_EQ(I_CALL, inst2.representation().opcode);
+}
 
 }  // namespace
 
@@ -32,9 +91,81 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   // Apply the transform.
-  JumpTableCaseCountTransform tx;
+  TestJumpTableCaseCountTransform tx;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx, &block_graph_,
                                                     dos_header_block_));
+  ASSERT_TRUE(tx.frequency_data_block() != NULL);
+  ASSERT_TRUE(tx.thunk_section_ != NULL);
+  ASSERT_TRUE(tx.jump_table_case_counter_hook_ref_.IsValid());
+
+  // Validate the jump table frequency data structure.
+  block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
+  ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
+  EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
+  EXPECT_EQ(0x07AB1E0C, frequency_data->agent_id);
+  EXPECT_EQ(sizeof(IndexedFrequencyData), tx.frequency_data_block()->size());
+  EXPECT_EQ(sizeof(IndexedFrequencyData),
+            tx.frequency_data_block()->data_size());
+  EXPECT_TRUE(frequency_data.HasReferenceAt(
+      frequency_data.OffsetOf(frequency_data->frequency_data)));
+  BlockGraph::Reference frequency_data_reference;
+  ASSERT_TRUE(frequency_data.block()->GetReference(
+      frequency_data.OffsetOf(frequency_data->frequency_data),
+      &frequency_data_reference));
+  EXPECT_EQ(frequency_data_reference.referenced(),
+            tx.frequency_data_buffer_block());
+  EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
+            tx.frequency_data_buffer_block()->size());
+
+  // Let's examine each eligible block to verify that all the jump tables have
+  // been instrumented.
+  size_t jump_table_entries = 0;
+  BlockGraph::BlockMap::const_iterator block_iter =
+      block_graph_.blocks().begin();
+  for (; block_iter != block_graph_.blocks().end(); ++block_iter) {
+    const BlockGraph::Block& block = block_iter->second;
+
+    // Skip non-code blocks.
+    if (block.type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    // We don't want to check the thunk blocks.
+    if (block.section() == tx.thunk_section_->id())
+      continue;
+
+    // Iterates over the labels to find the jump tables.
+    BlockGraph::Block::LabelMap::const_iterator iter_label =
+        block.labels().begin();
+    for (; iter_label != block.labels().end(); ++iter_label) {
+      if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
+        continue;
+
+      BlockGraph::Offset current_offset = iter_label->first;
+      BlockGraph::Offset jump_table_end_offset = 0;
+
+      // Calculates the end offset of this jump table.
+      BlockGraph::Block::LabelMap::const_iterator next_label = iter_label;
+      next_label++;
+      if (next_label != block.labels().end())
+        jump_table_end_offset = next_label->first;
+      else
+        jump_table_end_offset = block.size();
+
+      ASSERT_TRUE(jump_table_end_offset != 0);
+      BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
+          block.references().find(current_offset);
+
+      // Iterate over the references and ensure that they are thunked.
+      while (current_offset < jump_table_end_offset) {
+        BlockGraph::Block* ref_block = iter_ref->second.referenced();
+        CheckBlockIsAThunk(ref_block);
+        current_offset += iter_ref->second.size();
+        iter_ref++;
+        jump_table_entries++;
+      }
+    }
+  }
+  DCHECK_EQ(frequency_data->num_entries, jump_table_entries);
 }
 
 }  // namespace transforms

@@ -13,6 +13,13 @@
 // limitations under the License.
 //
 // Implementation of the jump table count instrumentation transform.
+//
+// The purpose of this instrumentation is to count the number of times each jump
+// table entry is dereferenced. To do this we redirect each reference in the
+// jump tables to the following hook:
+//     push unique_id_for_this_case
+//     call jump_table_count.dll!_jump_table_case_counter
+//     jmp original_reference
 
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_JUMP_TABLE_COUNT_TRANSFORM_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_JUMP_TABLE_COUNT_TRANSFORM_H_
@@ -20,6 +27,7 @@
 #include <string>
 #include <vector>
 
+#include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/instrument/transforms/add_indexed_frequency_data_transform.h"
@@ -31,23 +39,22 @@ namespace transforms {
 // to measure the frequency of each case.
 class JumpTableCaseCountTransform
     : public block_graph::transforms::IterativeTransformImpl<
-          JumpTableCaseCountTransform>,
-      public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           JumpTableCaseCountTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
-  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef core::RelativeAddress RelativeAddress;
 
   // Initialize a new JumpTableCaseCountTransform instance using the default
   // module and function names.
   JumpTableCaseCountTransform();
 
  protected:
-  typedef std::map<BlockGraph::Offset, BlockGraph::Block*> ThunkBlockMap;
-
   friend NamedBlockGraphTransformImpl<JumpTableCaseCountTransform>;
   friend IterativeTransformImpl<JumpTableCaseCountTransform>;
-  friend NamedBasicBlockSubGraphTransformImpl<JumpTableCaseCountTransform>;
+
+  // A pair containing the address of a jump-table and its size.
+  typedef std::pair<RelativeAddress, size_t> JumpTableInfo;
+  typedef std::vector<JumpTableInfo> JumpTableVector;
 
   // @name IterativeTransformImpl implementation.
   // @{
@@ -58,15 +65,32 @@ class JumpTableCaseCountTransform
                                BlockGraph::Block* header_block);
   // @}
 
-  // @name BasicBlockSubGraphTransformInterface methods.
-  // @{
-  virtual bool TransformBasicBlockSubGraph(
-      BlockGraph* block_graph,
-      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
-  // @}
+  // Create a single thunk to destination.
+  // @param block_graph the block-graph being instrumented.
+  // @param destination the destination reference.
+  // @returns a pointer to the thunk on success, NULL otherwise.
+  BlockGraph::Block* CreateOneThunk(BlockGraph* block_graph,
+                                    const BlockGraph::Reference& destination);
+
+  // The section we put our thunks in.
+  BlockGraph::Section* thunk_section_;
+
+  // Adds the jump table frequency data referenced by the jump-table
+  // instrumentation.
+  AddIndexedFrequencyDataTransform add_frequency_data_;
+
+  // The entry hook to which jump table entry events are directed.
+  BlockGraph::Reference jump_table_case_counter_hook_ref_;
 
   // The instrumentation dll used by this transform.
   std::string instrument_dll_name_;
+
+  // The counter used to get an unique ID for each case in a jump table.
+  size_t jump_table_case_count_;
+
+  // The list of the different jump tables encountered, we store their address
+  // and their size.
+  JumpTableVector jump_table_infos_;
 
   // The name of this transform.
   static const char kTransformName[];
