@@ -12,34 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/mutators/add_bb_ranges_stream.h"
+#include "syzygy/instrument/mutators/add_indexed_data_ranges_stream.h"
 
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 
 namespace instrument {
 namespace mutators {
 
-const char AddBasicBlockRangesStreamPdbMutator::kMutatorName[] =
-    "AddBasicBlockRangesStreamPdbMutator";
+const char AddIndexedDataRangesStreamPdbMutator::kMutatorName[] =
+    "AddIndexedDataRangesStreamPdbMutator";
 
-bool AddBasicBlockRangesStreamPdbMutator::AddNamedStreams(
+bool AddIndexedDataRangesStreamPdbMutator::AddNamedStreams(
     const pdb::PdbFile& pdb_file) {
-  if (bb_ranges_.size() == 0) {
-    LOG(INFO) << "Basic-block addresses vector is empty. Not adding stream.";
+  if (indexed_data_ranges_.size() == 0) {
+    LOG(INFO) << "Indexed data addresses vector is empty. Not adding stream.";
     return true;
   }
 
   // Create the stream.
   scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream);
-  CHECK(stream->Init(reinterpret_cast<const uint8*>(&bb_ranges_.at(0)),
-                     bb_ranges_.size() * sizeof(bb_ranges_.at(0))));
+  CHECK(stream->Init(
+      reinterpret_cast<const uint8*>(&indexed_data_ranges_.at(0)),
+      indexed_data_ranges_.size() * sizeof(indexed_data_ranges_.at(0))));
 
   // Add the stream to the PDB.
-  if (!SetNamedStream(common::kBasicBlockRangesStreamName, stream.get())) {
+  if (!SetNamedStream(stream_name_.c_str(), stream.get())) {
     // This should not happen, as it indicates we are trying to doubly
     // instrument a given binary.
-    LOG(ERROR) << "Basic-block ranges stream already exists.";
+    LOG(ERROR) << "Indexed data ranges stream already exists.";
     return false;
   }
 

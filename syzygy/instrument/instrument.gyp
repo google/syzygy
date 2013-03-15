@@ -20,8 +20,8 @@
       'sources': [
         'instrument_app.cc',
         'instrument_app.h',
-        'mutators/add_bb_ranges_stream.cc',
-        'mutators/add_bb_ranges_stream.h',
+        'mutators/add_indexed_data_ranges_stream.cc',
+        'mutators/add_indexed_data_ranges_stream.h',
         'transforms/add_indexed_frequency_data_transform.cc',
         'transforms/add_indexed_frequency_data_transform.h',
         'transforms/asan_transform.cc',
@@ -74,7 +74,7 @@
       'sources': [
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
-        'mutators/add_bb_ranges_stream_unittest.cc',
+        'mutators/add_indexed_data_ranges_stream_unittest.cc',
         'transforms/add_indexed_frequency_data_transform_unittest.cc',
         'transforms/asan_transform_unittest.cc',
         'transforms/basic_block_entry_hook_transform_unittest.cc',
