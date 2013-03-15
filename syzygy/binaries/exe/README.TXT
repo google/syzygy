@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2013/02/23
-Version:  0.2.15.0 (1360)
+Date:     2013/03/13
+Version:  0.2.16.0 (1392)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -35,6 +35,11 @@ decompose_image_to_text.exe
 dump_trace.exe
   Explores trace files produced by call_trace_service by dumping them to a
   textual format.
+
+genfilter.exe
+  Used to produce filters that can in turn be fed to the instrumenter. This
+  allows for partial instrumentation of a binary. See FILTER-FORMAT.TXT for
+  details.
 
 grinder.exe
   Processes trace files and produces some summary output. The output of this

@@ -1,7 +1,18 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.16.0
+
+[r1390] New genfilter tool for creating image filters.
+[r1389] Runtime filtering of SyzyASAN bugs by stack-trace IDs.
+[r1385] Performance improvements to profiler instrumentation.
+[r1381] Many performance improvements for SyzyASAN.
+[r1374] Instrumentation time filtering enabled for SyzyASAN.
+[r1366] SyzyASAN stack-traces can have configurable max depth and bottom frame
+        trimming.
+
 Version 0.2.15.0
+
 [r1359] Elide ASAN hooks for (unhandled) stack addresses.
 [r1330] Thunk entry points to blocks which are not basic-block decomposable.
 [r1344] Add client DLL symbol information to the release.
