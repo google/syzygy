@@ -171,7 +171,9 @@ void StackCaptureCache::LogCompressionRatioImpl(double ratio) const {
   DCHECK_LE(0.0, ratio);
   DCHECK_GE(1.0, ratio);
   logger_->Write(base::StringPrintf(
-      "Allocation stack cache compression: %.2f%%.\n", (1.0 - ratio) * 100.0));
+      "PID=%d; Allocation stack cache compression: %.2f%%.\n",
+      ::GetCurrentProcessId(),
+      (1.0 - ratio) * 100.0));
 }
 
 }  // namespace asan
