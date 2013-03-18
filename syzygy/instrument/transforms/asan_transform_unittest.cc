@@ -200,7 +200,8 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Ensure that the basic block is instrumented.
 
@@ -262,7 +263,8 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
   ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
 }
 
@@ -299,10 +301,31 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Non-instrumentable instructions implies no change.
   EXPECT_EQ(expected_basic_block_size, basic_block_.instructions().size());
+}
+
+TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
+  // DEC DWORD [EBP - 0x2830]
+  static const uint8 kDec1[6] = { 0xff, 0x8d, 0xd0, 0xd7, 0xff, 0xff };
+
+  ASSERT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 previous_basic_block_size = basic_block_.instructions().size();
+
+  // Instrument this basic block considering invalid stack manipulation.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_, AsanBasicBlockTransform::kUnsafeStackAccess));
+
+  // This instruction should have been instrumented, and we must observe
+  // a increase in size.
+  EXPECT_LT(previous_basic_block_size, basic_block_.instructions().size());
 }
 
 TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
@@ -320,7 +343,9 @@ TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_,
+        AsanBasicBlockTransform::kSafeStackAccess));
 
   // Non-instrumentable instructions implies no change.
   EXPECT_EQ(expected_basic_block_size, basic_block_.instructions().size());
@@ -348,7 +373,8 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
   bb_transform.set_filter(&filter);
 
   // Instrument this basic block.
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Ensure that the basic block is instrumented, but only the second
   // instruction.
@@ -412,7 +438,8 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
@@ -453,7 +480,8 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(&basic_block_));
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
  // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;

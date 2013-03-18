@@ -47,6 +47,11 @@ class AsanBasicBlockTransform
     kRepnzAccess,
   };
 
+  enum StackAccessMode {
+    kUnsafeStackAccess,
+    kSafeStackAccess,
+  };
+
   // Contains memory access information.
   struct MemoryAccessInfo {
     MemoryAccessMode mode;
@@ -75,13 +80,20 @@ class AsanBasicBlockTransform
 
  protected:
   // @name BasicBlockSubGraphTransformInterface method.
-  virtual bool TransformBasicBlockSubGraph(BlockGraph* block_graph,
+  virtual bool TransformBasicBlockSubGraph(
+      BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
 
   // Instruments the memory accesses in a basic block.
   // @param basic_block The basic block to be instrumented.
+  // @param stack_mode Give some assumptions to the transformation on stack
+  //     frame manipulations inside @p basic_block. The transformation assume a
+  //     standard calling convention, unless specified by this parameter.
+  //     (note: Unsafe blocks may be produced with the compiler flag
+  //     frame-pointer-omission).
   // @returns true on success, false otherwise.
-  bool InstrumentBasicBlock(block_graph::BasicCodeBlock* basic_block);
+  bool InstrumentBasicBlock(block_graph::BasicCodeBlock* basic_block,
+                            StackAccessMode stack_mode);
 
  private:
   // The references to the Asan access check import entries.

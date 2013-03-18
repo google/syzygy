@@ -22,6 +22,7 @@
 #include "base/memory/ref_counted.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
@@ -492,7 +493,7 @@ const char AsanBasicBlockTransform::kTransformName[] =
     "SyzyAsanBasicBlockTransform";
 
 bool AsanBasicBlockTransform::InstrumentBasicBlock(
-    BasicCodeBlock* basic_block) {
+    BasicCodeBlock* basic_block, StackAccessMode stack_mode) {
   DCHECK(basic_block != NULL);
   BasicBlock::Instructions::iterator iter_inst =
       basic_block->instructions().begin();
@@ -538,11 +539,12 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (!ShouldInstrumentOpcode(repr.opcode))
       continue;
 
-    // We do not instrument stack-based accesses. These include accesses based
-    // on ESP or EBP (which is usually the stack frame base pointer (like ESP
-    // or a scalar non-pointer value). We have never seen EBP used as a pointer.
-    if (operand.base() == core::kRegisterEsp ||
-        operand.base() == core::kRegisterEbp) {
+    // If there are no unconventional manipulations of the stack frame, we can
+    // skip instrumenting stack-based memory access (based on ESP or EBP).
+    // Conventionally, accesses through ESP/EBP are always on stack.
+    if (stack_mode == kSafeStackAccess &&
+        (operand.base() == core::kRegisterEsp ||
+         operand.base() == core::kRegisterEbp)) {
       continue;
     }
 
@@ -581,12 +583,18 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
 
+  // Determines if this subgraph uses unconventional stack pointer
+  // manipulations.
+  StackAccessMode stack_mode = kUnsafeStackAccess;
+  if (!block_graph::HasUnexpectedStackFrameManipulation(subgraph))
+    stack_mode = kSafeStackAccess;
+
   // Iterates through each basic block and instruments it.
   BasicBlockSubGraph::BBCollection::iterator it =
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
     BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
-    if (bb != NULL && !InstrumentBasicBlock(bb))
+    if (bb != NULL && !InstrumentBasicBlock(bb, stack_mode))
       return false;
   }
   return true;
