@@ -53,11 +53,6 @@ const char kDefaultModuleName[] = "jump_table_count.dll";
 const char kJumpTableCaseCounter[] = "_jump_table_case_counter";
 const char kThunkSuffix[] = "_jump_table_thunk";
 
-// TODO(sebmarchand): Move these constants to a header file, merge with the
-//     basic-block constants.
-const uint32 kJumpTableCountAgentId = 0x07AB1E0C;
-const uint32 kJumpTableFrequencyDataVersion = 1;
-
 // Sets up the jump table counter hook import.
 // @param block_graph The block-graph to populate.
 // @param header_block The header block from block_graph.
@@ -102,9 +97,9 @@ const char JumpTableCaseCountTransform::kTransformName[] =
     "JumpTableCountTransform";
 
 JumpTableCaseCountTransform::JumpTableCaseCountTransform()
-    : add_frequency_data_(kJumpTableCountAgentId,
+    : add_frequency_data_(common::kJumpTableCountAgentId,
                           "Jump Table Frequency Data",
-                          kJumpTableFrequencyDataVersion),
+                          common::kJumpTableFrequencyDataVersion),
       instrument_dll_name_(kDefaultModuleName),
       jump_table_case_count_(0) {
 }
@@ -153,35 +148,19 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
     if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
       continue;
 
-    BlockGraph::Offset current_offset = iter_label->first;
-    BlockGraph::Offset jump_table_end_offset = 0;
-
-    // Calculates the end offset of this jump table.
-    // TODO(sebmarchand): Move this code to an utility function in the pe
-    //     namespace. A jump table is a run of contiguous 32-bit absolute
-    //     references terminating when there is no next reference, at the next
-    //     data label or the end of the block, whichever comes first.
-    BlockGraph::Block::LabelMap::const_iterator next_label = iter_label;
-    next_label++;
-    if (next_label != block->labels().end())
-      jump_table_end_offset = next_label->first;
-    else
-      jump_table_end_offset = block->size();
-
-    DCHECK(jump_table_end_offset != 0);
+    size_t table_size = 0;
+    if (!block_graph::GetJumpTableSize(block, iter_label, &table_size))
+      return false;
 
     BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
-        block->references().find(current_offset);
+        block->references().find(iter_label->first);
 
-    size_t table_size =
-        (jump_table_end_offset - current_offset) / iter_ref->second.size();
-    jump_table_infos_.push_back(std::make_pair(block->addr() + current_offset,
-                                               table_size));
+    jump_table_infos_.push_back(
+        std::make_pair(block->addr() + iter_label->first, table_size));
 
-    // Iterates over the references and thunk them.
-    while (current_offset < jump_table_end_offset) {
+    // Iterate over the references and thunk them.
+    for (size_t i = 0; i < table_size; ++i) {
       DCHECK(iter_ref != block->references().end());
-      DCHECK(iter_ref->first == current_offset);
 
       BlockGraph::Block* thunk_block = CreateOneThunk(block_graph,
                                                       iter_ref->second);
@@ -192,9 +171,7 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
       BlockGraph::Reference thunk_ref(BlockGraph::ABSOLUTE_REF,
                                       sizeof(core::AbsoluteAddress),
                                       thunk_block, 0, 0);
-      block->SetReference(current_offset, thunk_ref);
-
-      current_offset += iter_ref->second.size();
+      block->SetReference(iter_ref->first, thunk_ref);
       iter_ref++;
     }
   }

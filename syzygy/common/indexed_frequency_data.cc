@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 
 namespace common {
 
 const uint32 kBasicBlockCoverageAgentId = 0xC05E4A6E;
 const uint32 kBasicBlockEntryAgentId = 0xBBEABBEA;
+const uint32 kJumpTableCountAgentId = 0x07AB1E0C;
 
-// This should be incremented when incompatible changes are made to a
-// basic-block tracing client.
+// This should be incremented when incompatible changes are made to a tracing
+// client.
 const uint32 kBasicBlockFrequencyDataVersion = 1;
+const uint32 kJumpTableFrequencyDataVersion = 1;
 
 const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";
 

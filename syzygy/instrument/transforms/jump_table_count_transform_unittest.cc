@@ -21,6 +21,7 @@
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
@@ -102,7 +103,7 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
   ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
-  EXPECT_EQ(0x07AB1E0C, frequency_data->agent_id);
+  EXPECT_EQ(common::kJumpTableCountAgentId, frequency_data->agent_id);
   EXPECT_EQ(sizeof(IndexedFrequencyData), tx.frequency_data_block()->size());
   EXPECT_EQ(sizeof(IndexedFrequencyData),
             tx.frequency_data_block()->data_size());
@@ -140,29 +141,20 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
       if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
         continue;
 
-      BlockGraph::Offset current_offset = iter_label->first;
-      BlockGraph::Offset jump_table_end_offset = 0;
+      size_t table_size = 0;
+      ASSERT_TRUE(
+          block_graph::GetJumpTableSize(&block, iter_label, &table_size));
 
-      // Calculates the end offset of this jump table.
-      BlockGraph::Block::LabelMap::const_iterator next_label = iter_label;
-      next_label++;
-      if (next_label != block.labels().end())
-        jump_table_end_offset = next_label->first;
-      else
-        jump_table_end_offset = block.size();
-
-      ASSERT_TRUE(jump_table_end_offset != 0);
       BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
-          block.references().find(current_offset);
+          block.references().find(iter_label->first);
 
       // Iterate over the references and ensure that they are thunked.
-      while (current_offset < jump_table_end_offset) {
+      for (size_t i = 0; i < table_size; ++i) {
         BlockGraph::Block* ref_block = iter_ref->second.referenced();
         CheckBlockIsAThunk(ref_block);
-        current_offset += iter_ref->second.size();
         iter_ref++;
-        jump_table_entries++;
       }
+      jump_table_entries += table_size;
     }
   }
   DCHECK_EQ(frequency_data->num_entries, jump_table_entries);

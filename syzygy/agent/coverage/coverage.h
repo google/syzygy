@@ -28,7 +28,7 @@
 #include "base/lazy_instance.h"
 #include "base/win/pe_image.h"
 #include "syzygy/agent/common/entry_frame.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 // Instrumentation stubs to handle the loading of the library.

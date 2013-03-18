@@ -64,6 +64,17 @@ bool IsUnsafeReference(const BlockGraph::Block* referrer,
 // @param subgraph The subgraph to inspect.
 bool HasUnexpectedStackFrameManipulation(BasicBlockSubGraph* subgraph);
 
+// Calculates the number of entries in a given jump table. A jump table is a run
+// of contiguous 32-bit references terminating when there is no next reference,
+// at the next data label or the end of the block, whichever comes first.
+// @param block The block containing this jump table.
+// @param jump_table_label An iterator to the jump table label in this block.
+// @param table_size Will receive the size of the jump table.
+// @returns true on success, false otherwise.
+bool GetJumpTableSize(const block_graph::BlockGraph::Block* block,
+    block_graph::BlockGraph::Block::LabelMap::const_iterator jump_table_label,
+    size_t* table_size);
+
 }  // namespace block_graph
 
 #endif  // SYZYGY_BLOCK_GRAPH_BLOCK_UTIL_H_

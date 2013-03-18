@@ -16,8 +16,8 @@
 
 #include "base/file_util.h"
 #include "mnemonics.h"  // NOLINT
-#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_file.h"

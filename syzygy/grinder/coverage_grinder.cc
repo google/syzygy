@@ -16,7 +16,7 @@
 
 #include "base/file_path.h"
 #include "base/string_util.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/cache_grind_writer.h"
 #include "syzygy/grinder/lcov_writer.h"
 #include "syzygy/pdb/pdb_reader.h"

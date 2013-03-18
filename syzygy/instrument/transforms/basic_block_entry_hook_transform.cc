@@ -21,8 +21,8 @@
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
-#include "syzygy/common/basic_block_frequency_data.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
@@ -33,7 +33,6 @@ namespace transforms {
 
 namespace {
 
-using ::common::kBasicBlockEntryAgentId;
 using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
@@ -42,6 +41,7 @@ using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
+using common::kBasicBlockEntryAgentId;
 using pe::transforms::AddImportsTransform;
 
 typedef AddImportsTransform::ImportedModule ImportedModule;

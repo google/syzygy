@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <functional>
 
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/find.h"

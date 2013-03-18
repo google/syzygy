@@ -20,7 +20,7 @@
 #include "base/file_path.h"
 #include "base/stringprintf.h"
 #include "base/json/json_reader.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"

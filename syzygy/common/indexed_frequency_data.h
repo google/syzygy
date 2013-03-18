@@ -77,6 +77,25 @@ struct IndexedFrequencyData {
 
 #pragma pack(pop)
 
+// The basic-block coverage agent ID.
+extern const uint32 kBasicBlockCoverageAgentId;
+
+// The basic-block entry counting agent ID.
+extern const uint32 kBasicBlockEntryAgentId;
+
+// The jump table counting agent ID.
+extern const uint32 kJumpTableCountAgentId;
+
+// The basic-block trace agent version.
+extern const uint32 kBasicBlockFrequencyDataVersion;
+
+// The jump table trace agent version.
+extern const uint32 kJumpTableFrequencyDataVersion;
+
+// The name of the basic-block ranges stream added to the PDB by
+// any instrumentation employing basic-block trace data.
+extern const char kBasicBlockRangesStreamName[];
+
 }  // namespace common
 
 #endif  // SYZYGY_COMMON_INDEXED_FREQUENCY_DATA_H_

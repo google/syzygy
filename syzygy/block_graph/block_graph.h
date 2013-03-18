@@ -708,7 +708,7 @@ class BlockGraph::Block {
 
   // Returns true iff the block has a label at @p offset.
   // @param offset the offset of the label to search for.
-  bool HasLabel(Offset offset);
+  bool HasLabel(Offset offset) const;
 
   // Change all references to this block to refer to @p new_block instead,
   // while offsetting each reference by @p offset.

@@ -16,7 +16,7 @@
 
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_util.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"

@@ -20,7 +20,7 @@
 #include "base/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/unittest_util.h"
 

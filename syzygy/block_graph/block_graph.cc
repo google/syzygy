@@ -1122,7 +1122,7 @@ bool BlockGraph::Block::RemoveLabel(Offset offset) {
   return labels_.erase(offset) == 1;
 }
 
-bool BlockGraph::Block::HasLabel(Offset offset) {
+bool BlockGraph::Block::HasLabel(Offset offset) const {
   DCHECK(offset >= 0 && static_cast<size_t>(offset) <= size_);
 
   return labels_.find(offset) != labels_.end();

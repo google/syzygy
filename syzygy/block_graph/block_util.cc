@@ -138,7 +138,6 @@ bool HasUnexpectedStackFrameManipulation(
 
       // Consider only instructions whose first operand is EBP (read/write).
       if (repr.ops[0].type == O_REG && repr.ops[0].index == R_EBP) {
-
         // PUSH/POP EBP is valid.
         if (repr.opcode == I_POP || repr.opcode == I_PUSH)
           continue;
@@ -156,6 +155,64 @@ bool HasUnexpectedStackFrameManipulation(
 
   // There is no unconventional/unexpected stack frame manipulation.
   return false;
+}
+
+bool GetJumpTableSize(const BlockGraph::Block* block,
+    BlockGraph::Block::LabelMap::const_iterator jump_table_label,
+    size_t* table_size) {
+  DCHECK(block != NULL);
+  DCHECK(table_size != NULL);
+  DCHECK(block->HasLabel(jump_table_label->first) &&
+      block->labels().at(jump_table_label->first) == jump_table_label->second);
+
+  // Ensure that this label has the jump table attribute.
+  if (!jump_table_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL)) {
+    LOG(ERROR) << "This label doesn't have the jump table attribute.";
+    return false;
+  }
+
+  BlockGraph::Offset beginning_offset = jump_table_label->first;
+  BlockGraph::Offset end_offset = beginning_offset;
+
+  // The maximum end offset for this jump table is either the offset of the next
+  // label or the end of this block.
+  BlockGraph::Offset max_end_offset = 0;
+  BlockGraph::Block::LabelMap::const_iterator next_label = ++(jump_table_label);
+  if (next_label != block->labels().end())
+    max_end_offset = next_label->first;
+  else
+    max_end_offset = block->size();
+
+  DCHECK(max_end_offset != 0);
+
+  BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
+      block->references().find(beginning_offset);
+  DCHECK(iter_ref != block->references().end());
+  DCHECK(iter_ref->first == beginning_offset);
+  DCHECK(iter_ref->second.type() == BlockGraph::ABSOLUTE_REF ||
+         iter_ref->second.type() == BlockGraph::RELATIVE_REF);
+  DCHECK_EQ(BlockGraph::Reference::kMaximumSize, iter_ref->second.size());
+
+  BlockGraph::Size reference_size = iter_ref->second.size();
+
+  // Iterates over the references to calculate the size of this jump table, we
+  // stop once we reach the maximum end offset or as soon as we find a reference
+  // that is not contiguous to the previous one.
+  while (end_offset < max_end_offset) {
+    end_offset += reference_size;
+    ++iter_ref;
+    if (iter_ref == block->references().end() || iter_ref->first != end_offset)
+      break;
+    DCHECK_EQ(end_offset, iter_ref->first);
+    DCHECK(iter_ref->second.type() == BlockGraph::ABSOLUTE_REF ||
+           iter_ref->second.type() == BlockGraph::RELATIVE_REF);
+    DCHECK_EQ(BlockGraph::Reference::kMaximumSize, iter_ref->second.size());
+  }
+
+  *table_size = (end_offset - beginning_offset) /
+      BlockGraph::Reference::kMaximumSize;
+
+  return true;
 }
 
 }  // namespace block_graph

@@ -22,7 +22,7 @@
 
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/mutators/add_indexed_data_ranges_stream.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
 #include "syzygy/instrument/transforms/basic_block_entry_hook_transform.h"

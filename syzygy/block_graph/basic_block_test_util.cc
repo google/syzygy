@@ -47,7 +47,7 @@ const int32 kCase1Offset = POINTER_DIFF(case_1, assembly_func);
 const int32 kCaseDefaultOffset = POINTER_DIFF(case_default, assembly_func);
 const int32 kInterruptOffset = POINTER_DIFF(interrupt_label, assembly_func);
 const int32 kUnreachableOffset = POINTER_DIFF(unreachable_label,
-                                               assembly_func);
+                                              assembly_func);
 #undef POINTER_DIFF
 
 const BlockGraph::LabelAttributes kCaseTableAttributes =

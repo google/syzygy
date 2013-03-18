@@ -19,7 +19,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/block_graph/typed_block.h"
-#include "syzygy/common/basic_block_frequency_data.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"

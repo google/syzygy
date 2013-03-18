@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
+#include "syzygy/block_graph/basic_block_test_util.h"
 
 namespace block_graph {
 
@@ -268,6 +269,52 @@ TEST_F(BlockUtilTest, CheckInvalidRegisterUnexpectedStackFrameManipulation) {
   assm.ret(0);
 
   EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&bbsg));
+}
+
+namespace {
+
+// A utility class for using the test data built around the function in
+// basic_block_assembly_func.asm.
+class BlockUtilOnTestDataTest : public testing::BasicBlockTest {
+ public:
+  virtual void SetUp() OVERRIDE {
+    BasicBlockTest::SetUp();
+    ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
+  }
+};
+
+}  // namespace
+
+TEST_F(BlockUtilOnTestDataTest, GetJumpTableSize) {
+  block_graph::BlockGraph::BlockMap::const_iterator block_iter =
+      block_graph_.blocks().begin();
+
+  size_t table_size = 0;
+  bool table_found = false;
+
+  // Iterates over the blocks of the block_graph. We expect to find only one
+  // block containing one jump table.
+  for (; block_iter != block_graph_.blocks().end(); ++ block_iter) {
+    if (block_iter->second.type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    // Iterates over the labels of the block to find the jump tables.
+    BlockGraph::Block::LabelMap::const_iterator iter_label =
+        block_iter->second.labels().begin();
+    for (; iter_label != block_iter->second.labels().end();++iter_label) {
+      if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
+        continue;
+
+      // There's only one jump table in the test data.
+      EXPECT_FALSE(table_found);
+      table_found = true;
+
+      EXPECT_TRUE(block_graph::GetJumpTableSize(&block_iter->second,
+                                                iter_label,
+                                                &table_size));
+    }
+  }
+  EXPECT_EQ(3U, table_size);
 }
 
 }  // namespace block_graph
