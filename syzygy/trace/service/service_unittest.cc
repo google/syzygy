@@ -129,9 +129,7 @@ class CallTraceServiceTest : public testing::Test {
 
   // Cleans up after each test invocation.
   virtual void TearDown() OVERRIDE {
-    for (size_t i = 0; i < mappings_.size(); ++i)
-      ::UnmapViewOfFile(mappings_[i]);
-    mappings_.clear();
+    FreeMappings();
 
     if (client_rpc_binding_) {
       ASSERT_EQ(RPC_S_OK, RpcBindingFree(&client_rpc_binding_));
@@ -181,11 +179,17 @@ class CallTraceServiceTest : public testing::Test {
     }
     ASSERT_TRUE(base_ptr != NULL);
 
-    mappings_.push_back(base_ptr);
-
     segment->header = NULL; // A real client should write/init the header here.
+    segment->base_ptr = base_ptr;
     segment->write_ptr = base_ptr + segment->buffer_info.buffer_offset;
     segment->end_ptr = segment->write_ptr + segment->buffer_info.buffer_size;
+  }
+
+  void FreeMappings() {
+    BasePtrMap::iterator it = base_ptr_map_.begin();
+    for (; it != base_ptr_map_.end(); ++it)
+      ::UnmapViewOfFile(it->second);
+    base_ptr_map_.clear();
   }
 
   void CreateSession(SessionHandle* session_handle,
@@ -264,6 +268,9 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   void CloseSession(SessionHandle* session_handle) {
+    // Free all outstanding mappings associated with this session.
+    FreeMappings();
+
     RpcStatus status = InvokeRpc(CallTraceClient_CloseSession,
                                  session_handle);
 
@@ -352,10 +359,6 @@ class CallTraceServiceTest : public testing::Test {
   // trace service.
   typedef std::map<HANDLE, uint8*> BasePtrMap;
   BasePtrMap base_ptr_map_;
-
-  // A collection of memory mappings made by this test so that we may clean
-  // them up on tear down.
-  std::vector<void*> mappings_;
 };
 
 template<typename T1, typename T2>
