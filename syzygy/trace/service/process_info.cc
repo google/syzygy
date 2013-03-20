@@ -24,6 +24,7 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/common/align.h"
 
 // From advapi32.dll, but including ntsecapi.h causes conflicting declarations.
 extern "C" ULONG NTAPI LsaNtStatusToWinError(__in NTSTATUS status);
@@ -72,114 +73,72 @@ bool GetPBI(uint32 pid, HANDLE handle, PROCESS_BASIC_INFORMATION* pbi) {
   return true;
 }
 
-// Given a process and an address in its internal memory, returns the maximum
-// number of bytes owned by the process starting at that address. This is done
-// by looking up how many consecutive pages containing the given address are
-// allocated by the given process. Returns true on success (with the number of
-// bytes that can be safely read in @p size), false otherwise (@p size set to
-// zero).
-bool GetMaximumMemorySize(HANDLE process, void* remote_address, size_t* size) {
-  DCHECK(remote_address != NULL);
-  DCHECK(size != NULL);
-
-  *size = 0;
-
-  MEMORY_BASIC_INFORMATION mem_info = {};
-  if (VirtualQueryEx(process, remote_address, &mem_info,
-                     sizeof(mem_info)) == 0) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "VirtualQueryEx failed: " << com::LogWe(error) << ".";
-    return false;
-  }
-
-  // If the memory contains code or is not readable return an error.
-  if (mem_info.Protect == PAGE_NOACCESS || mem_info.Protect == PAGE_EXECUTE) {
-    LOG(ERROR) << "Address being dereferenced does not contain readable data.";
-    return false;
-  }
-
-  // Get the size that may be read after the provided address.
-  size_t region_offset = reinterpret_cast<const uint8*>(remote_address) -
-      reinterpret_cast<const uint8*>(mem_info.BaseAddress);
-  *size = mem_info.RegionSize - region_offset;
-
-  return true;
-}
-
 bool ReadEnvironmentString(HANDLE handle,
+                           size_t page_size,
                            const wchar_t* remote_env_string,
-                           size_t max_size,
                            std::vector<wchar_t>* environment) {
+  DCHECK_LT(0u, page_size);
+  DCHECK(common::IsPowerOfTwo(page_size));
+  DCHECK(remote_env_string != NULL);
   DCHECK(environment != NULL);
 
   environment->clear();
 
-  const uint8* remote_read_cursor =
+  std::vector<uint8> vector(page_size);
+  uint8* buffer = &vector.at(0);
+  const wchar_t* wbuffer = reinterpret_cast<const wchar_t*>(buffer);
+  const uint8* remote_cursor =
       reinterpret_cast<const uint8*>(remote_env_string);
-  std::vector<wchar_t> buffer;
-
-  size_t max_elems = max_size / sizeof(buffer[0]);
-
-  // We use a large buffer to minimize calls to ReadProcessMemory.
-  size_t buffer_elems = 128 * 1024;
-  if (buffer_elems < max_elems)
-    buffer_elems = max_elems;
-  buffer.resize(buffer_elems);
-  size_t elems_left = max_elems;
+  const uint8* next_page = reinterpret_cast<const uint8*>(
+      common::AlignUp(reinterpret_cast<size_t>(remote_cursor),
+                      page_size));
 
   size_t nulls_in_a_row = 0;
-  while (elems_left > 0) {
-    // Figure out how much data to read in this call.
-    size_t elems_to_read = buffer.size();
-    if (elems_to_read > elems_left)
-      elems_to_read = elems_left;
-    size_t bytes_to_read = elems_to_read * sizeof(buffer[0]);
+  while (true) {
+    DCHECK_GE(next_page, remote_cursor);
+    if (remote_cursor == next_page)
+      next_page += page_size;
 
-    // Read the next chunk of data.
+    // Determine the maximum amount of data to read. We read a page at a
+    // time so as to avoid going off the end of addressable memory, something
+    // that ReadProcessMemory really hates (it will return zero bytes read and
+    // ERROR_PARTIAL_COPY).
+    size_t bytes_to_read = next_page - remote_cursor;
+    DCHECK_EQ(0u, bytes_to_read % sizeof(wbuffer[0]));
+
     SIZE_T bytes_read = 0;
-    if (!::ReadProcessMemory(handle, remote_read_cursor, &buffer[0],
-                             bytes_to_read, &bytes_read)) {
+    if (!::ReadProcessMemory(handle, remote_cursor, buffer, bytes_to_read,
+                             &bytes_read)) {
       DWORD error = ::GetLastError();
-
-      // It's possible for us to get a failure with ERROR_PARTIAL_COPY if we're
-      // trying to read pages that are not currently mapped to memory or are
-      // dirty. Since we do get the number of bytes that were successfully read
-      // we can silently ignore this. We'll only bail if we're unable to
-      // advance the read cursor at all.
-      if (error != ERROR_PARTIAL_COPY) {
-        LOG(ERROR) << "Unable to read environment string: " << com::LogWe(error)
-                   << ".";
-        return false;
-      }
-    }
-    size_t elems_read = bytes_read / sizeof(buffer[0]);
-    bytes_read = elems_read * sizeof(buffer[0]);
-
-    // If we got a partial read of zero bytes, we're stuck.
-    if (elems_read == 0) {
-      LOG(ERROR) << "Unable to read environment string.";
+      LOG(ERROR) << "Failed to read environment string: " << com::LogWe(error)
+                 << ".";
       return false;
     }
+    DCHECK_LT(0u, bytes_read);
+    size_t elems_read = bytes_read / sizeof(wbuffer[0]);
+    size_t bytes_used = elems_read * sizeof(wbuffer[0]);
+    remote_cursor += bytes_used;
 
-    remote_read_cursor += bytes_read;
-
-    // Scan through the buffer looking for the terminating NULLs.
-    size_t i = 0;
-    for (; i < elems_to_read && nulls_in_a_row < 2; ++i) {
-      if (buffer[i] == 0)
-        ++nulls_in_a_row;
-      else
+    // Look for the terminating double NULL.
+    for (size_t i = 0; i < elems_read; ++i) {
+      if (wbuffer[i] == 0) {
+        if (++nulls_in_a_row == 2) {
+          // We found the terminating double NULL. Append the end of the
+          // string and we're done.
+          environment->insert(environment->end(), wbuffer, wbuffer + i + 1);
+          return true;
+        }
+      } else {
         nulls_in_a_row = 0;
+      }
     }
 
-    environment->insert(environment->end(), buffer.begin(), buffer.begin() + i);
-
-    if (nulls_in_a_row == 2)
-      return true;
+    // If we get here then the entire buffer we just read needs to be appended
+    // to the environment string.
+    environment->insert(environment->end(), wbuffer, wbuffer + elems_read);
   }
 
-  LOG(ERROR) << "The environment appears to be malformed.";
-
+  NOTREACHED();
   return false;
 }
 
@@ -189,6 +148,7 @@ bool ReadEnvironmentString(HANDLE handle,
 // line) we just get the exe path while we're there.
 bool GetProcessStrings(uint32 pid,
                        HANDLE handle,
+                       size_t page_size,
                        FilePath* exe_path,
                        std::wstring* cmd_line,
                        std::vector<wchar_t>* environment) {
@@ -213,8 +173,7 @@ bool GetProcessStrings(uint32 pid,
   // Get the address of the process paramters.
   const size_t kProcessParamOffset = FIELD_OFFSET(PEB, ProcessParameters);
   if (!::ReadProcessMemory(handle, peb_base_address + kProcessParamOffset,
-                           &user_proc_params, sizeof(user_proc_params),
-                           NULL)) {
+                           &user_proc_params, sizeof(user_proc_params), NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read process parameter pointer for PID=" << pid
                << " " << com::LogWe(error) << ".";
@@ -272,17 +231,11 @@ bool GetProcessStrings(uint32 pid,
     return false;
   }
 
-  // Get an upper bound on the size of the environment string. It doesn't have
-  // the size encoded within it directly, and this gives us an upper bound by
-  // determining how much data the remote process owns starting at the given
-  // location.
-  size_t max_size = 0;
-  if (!GetMaximumMemorySize(handle, remote_env_string, &max_size))
-    return false;
-
   // Finally, read the environment string.
-  if (!ReadEnvironmentString(handle, remote_env_string, max_size, environment))
+  if (!ReadEnvironmentString(handle, page_size, remote_env_string,
+                             environment)) {
     return false;
+  }
 
   return true;
 }
@@ -319,8 +272,8 @@ bool GetProcessNtHeaders(
   uint8* addr_to_read = base_addr;
   SIZE_T bytes_to_read = sizeof(IMAGE_DOS_HEADER);
   SIZE_T bytes_read = 0;
-  if (!::ReadProcessMemory(handle, addr_to_read, &dos_header,
-                           bytes_to_read, &bytes_read) ||
+  if (!::ReadProcessMemory(handle, addr_to_read, &dos_header, bytes_to_read,
+                           &bytes_read) ||
       bytes_read != bytes_to_read) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read DOS header for PID=" << pid
@@ -332,47 +285,14 @@ bool GetProcessNtHeaders(
   addr_to_read = base_addr + dos_header.e_lfanew;
   bytes_to_read = sizeof(IMAGE_NT_HEADERS);
   bytes_read = 0;
-  if (!::ReadProcessMemory(handle, addr_to_read, nt_headers,
-                           bytes_to_read, &bytes_read) ||
+  if (!::ReadProcessMemory(handle, addr_to_read, nt_headers, bytes_to_read,
+                           &bytes_read) ||
       bytes_read != bytes_to_read) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read NT headers for PID=" << pid
                << " " << com::LogWe(error) << ".";
     return false;
   }
-
-  return true;
-}
-
-// Gets the executable module information for the process given by pid/handle.
-bool GetMemoryRange(uint32 pid, HANDLE handle, uint32* base_addr,
-                    uint32* module_size) {
-  DCHECK(base_addr != NULL);
-  DCHECK(module_size != NULL);
-
-  HMODULE module = 0;
-  DWORD dummy = 0;
-
-  // The first module returned by the enumeration will be the executable. So
-  // we only need to ask for one HMODULE.
-  if (!::EnumProcessModules(handle, &module, sizeof(module), &dummy)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get module handle for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
-    return false;
-  }
-
-  // We now have enough information get the module info for the executable.
-  MODULEINFO info = {};
-  if (!::GetModuleInformation(handle, module, &info, sizeof(info))) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get module info for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
-    return false;
-  }
-
-  *base_addr = reinterpret_cast<uint32>(info.lpBaseOfDll);
-  *module_size = info.SizeOfImage;
 
   return true;
 }
@@ -409,12 +329,22 @@ void ProcessInfo::Reset() {
 }
 
 bool ProcessInfo::Initialize(uint32 pid) {
+  // TODO(chrisha): This whole mechanism is racy by its very nature, as it
+  //     reads memory from a remote process that is running, and which may be
+  //     changing the things being read. In practice this has not proved to be
+  //     a problem as we are typically running under the loader lock, but this
+  //     is not true when running instrumented EXEs. Long term it would be good
+  //     to make this run in the instrumented process and have it shuttle the
+  //     data across in the first buffer.
+
   // Open the process given by pid. We need a process handle that (1) remains
   // valid over time (2) lets us query for info about the process, and (3)
   // allows us to read the command line from the process memory.
   const DWORD kFlags =
       PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+
   process_handle.Set(::OpenProcess(kFlags, FALSE, pid));
+
   if (!process_handle.IsValid()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to open PID=" << pid << " " << com::LogWe(error)
@@ -425,8 +355,10 @@ bool ProcessInfo::Initialize(uint32 pid) {
 
   process_id = pid;
 
+  ::GetSystemInfo(&system_info);
+
   // Get the executable path, command line and environment string.
-  if (!GetProcessStrings(process_id, process_handle,
+  if (!GetProcessStrings(process_id, process_handle, system_info.dwPageSize,
                          &executable_path, &command_line, &environment)) {
     Reset();
     return false;
@@ -443,8 +375,6 @@ bool ProcessInfo::Initialize(uint32 pid) {
     return false;
   }
 
-  ::GetSystemInfo(&system_info);
-
   memory_status.dwLength = sizeof(memory_status);
   if (!::GlobalMemoryStatusEx(&memory_status)) {
     DWORD error = ::GetLastError();
@@ -454,20 +384,15 @@ bool ProcessInfo::Initialize(uint32 pid) {
     return false;
   }
 
-  // Get the base address and module size.
-  if (!GetMemoryRange(process_id, process_handle,
-                      &exe_base_address, &exe_image_size)) {
-    Reset();
-    return false;
-  }
-
-  // Get the headers for the running image and use these to populate the
-  // checksum and time-date stamp.
+  // Get the headers for the running image and use these to populate various
+  // fields.
   IMAGE_NT_HEADERS nt_headers;
   if (!GetProcessNtHeaders(process_id, process_handle, &nt_headers)) {
     Reset();
     return false;
   }
+  exe_base_address = nt_headers.OptionalHeader.ImageBase;
+  exe_image_size = nt_headers.OptionalHeader.SizeOfImage;
   exe_checksum = nt_headers.OptionalHeader.CheckSum;
   exe_time_date_stamp = nt_headers.FileHeader.TimeDateStamp;
 

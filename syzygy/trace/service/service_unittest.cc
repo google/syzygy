@@ -129,6 +129,10 @@ class CallTraceServiceTest : public testing::Test {
 
   // Cleans up after each test invocation.
   virtual void TearDown() OVERRIDE {
+    for (size_t i = 0; i < mappings_.size(); ++i)
+      ::UnmapViewOfFile(mappings_[i]);
+    mappings_.clear();
+
     if (client_rpc_binding_) {
       ASSERT_EQ(RPC_S_OK, RpcBindingFree(&client_rpc_binding_));
     }
@@ -176,6 +180,8 @@ class CallTraceServiceTest : public testing::Test {
                           segment->buffer_info.mapping_size));
     }
     ASSERT_TRUE(base_ptr != NULL);
+
+    mappings_.push_back(base_ptr);
 
     segment->header = NULL; // A real client should write/init the header here.
     segment->write_ptr = base_ptr + segment->buffer_info.buffer_offset;
@@ -346,6 +352,10 @@ class CallTraceServiceTest : public testing::Test {
   // trace service.
   typedef std::map<HANDLE, uint8*> BasePtrMap;
   BasePtrMap base_ptr_map_;
+
+  // A collection of memory mappings made by this test so that we may clean
+  // them up on tear down.
+  std::vector<void*> mappings_;
 };
 
 template<typename T1, typename T2>
