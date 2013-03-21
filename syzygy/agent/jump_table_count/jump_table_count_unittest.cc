@@ -24,7 +24,7 @@ namespace jump_table_count {
 
 namespace {
 
-const wchar_t kJumpTableCountClientDll[] = L"jump_table_count.dll";
+const wchar_t kJumpTableCountClientDll[] = L"jump_table_count_client.dll";
 
 // The test fixture for the jump table count agent.
 class JumpTableCountTest : public testing::Test {
