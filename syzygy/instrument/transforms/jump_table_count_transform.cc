@@ -16,6 +16,8 @@
 
 #include "syzygy/instrument/transforms/jump_table_count_transform.h"
 
+#include <limits>
+
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -47,8 +49,6 @@ using block_graph::Instruction;
 using block_graph::Operand;
 using pe::transforms::AddImportsTransform;
 
-typedef AddImportsTransform::ImportedModule ImportedModule;
-
 const char kDefaultModuleName[] = "jump_table_count_client.dll";
 const char kJumpTableCaseCounter[] = "_jump_table_case_counter";
 const char kThunkSuffix[] = "_jump_table_thunk";
@@ -66,10 +66,12 @@ bool SetupCounterHook(BlockGraph* block_graph,
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
   DCHECK(jump_table_case_counter != NULL);
+
   // Setup the import module.
-  ImportedModule module(module_name);
-  size_t index_case_counter = module.AddSymbol(kJumpTableCaseCounter,
-                                               ImportedModule::kAlwaysImport);
+  AddImportsTransform::ImportedModule module(module_name);
+  size_t index_case_counter = module.AddSymbol(
+      kJumpTableCaseCounter,
+      AddImportsTransform::ImportedModule::kAlwaysImport);
 
   // Setup the add-imports transform.
   AddImportsTransform add_imports;
@@ -119,8 +121,9 @@ bool JumpTableCaseCountTransform::PreBlockGraphIteration(
   }
 
   // Add the static jump table count frequency data.
-  if (!ApplyBlockGraphTransform(
-          &add_frequency_data_, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(&add_frequency_data_,
+                                block_graph,
+                                header_block)) {
     LOG(ERROR) << "Failed to insert jump table count frequency data.";
     return false;
   }
@@ -141,10 +144,11 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
-  // Iterates over the labels of the block to find the jump tables.
-  BlockGraph::Block::LabelMap::const_iterator iter_label =
-      block->labels().begin();
-  for (; iter_label != block->labels().end();++iter_label) {
+  // Iterate over the labels of the block to find the jump tables.
+  for (BlockGraph::Block::LabelMap::const_iterator iter_label(
+           block->labels().begin());
+      iter_label != block->labels().end();
+      ++iter_label) {
     if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
       continue;
 
@@ -152,11 +156,11 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
     if (!block_graph::GetJumpTableSize(block, iter_label, &table_size))
       return false;
 
-    BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
-        block->references().find(iter_label->first);
-
     jump_table_infos_.push_back(
         std::make_pair(block->addr() + iter_label->first, table_size));
+
+    BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
+        block->references().find(iter_label->first);
 
     // Iterate over the references and thunk them.
     for (size_t i = 0; i < table_size; ++i) {
@@ -164,15 +168,16 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
 
       BlockGraph::Block* thunk_block = CreateOneThunk(block_graph,
                                                       iter_ref->second);
-
-      if (thunk_block == NULL)
+      if (thunk_block == NULL) {
+        jump_table_infos_.pop_back();
         return false;
+      }
 
       BlockGraph::Reference thunk_ref(BlockGraph::ABSOLUTE_REF,
-                                      sizeof(core::AbsoluteAddress),
+                                      sizeof(iter_ref->second.size()),
                                       thunk_block, 0, 0);
       block->SetReference(iter_ref->first, thunk_ref);
-      iter_ref++;
+      ++iter_ref;
     }
   }
 
@@ -180,7 +185,8 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
 }
 
 bool JumpTableCaseCountTransform::PostBlockGraphIteration(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -218,10 +224,8 @@ bool JumpTableCaseCountTransform::PostBlockGraphIteration(
 BlockGraph::Block* JumpTableCaseCountTransform::CreateOneThunk(
     BlockGraph* block_graph,
     const BlockGraph::Reference& destination) {
-
   // Construct the name for the new thunk.
-  std::string thunk_name(destination.referenced()->name());
-  thunk_name.append(kThunkSuffix);
+  std::string thunk_name(destination.referenced()->name() + kThunkSuffix);
 
   Operand jump_table_case_counter_hook(
       Displacement(jump_table_case_counter_hook_ref_.referenced(),
@@ -233,8 +237,9 @@ BlockGraph::Block* JumpTableCaseCountTransform::CreateOneThunk(
       thunk_name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
   BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(thunk_name);
   block_desc->basic_block_order.push_back(bb);
-  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
 
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  DCHECK_LT(jump_table_case_count_, std::numeric_limits<size_t>::max());
   assm.push(Immediate(jump_table_case_count_++, core::kSize32Bit));
   assm.call(jump_table_case_counter_hook);
   assm.jmp(Immediate(destination.referenced(), destination.offset()));
@@ -248,9 +253,7 @@ BlockGraph::Block* JumpTableCaseCountTransform::CreateOneThunk(
 
   // Exactly one new block should have been created.
   DCHECK_EQ(1u, block_builder.new_blocks().size());
-  BlockGraph::Block* thunk = block_builder.new_blocks().front();
-
-  return thunk;
+  return block_builder.new_blocks().front();
 }
 
 }  // namespace transforms

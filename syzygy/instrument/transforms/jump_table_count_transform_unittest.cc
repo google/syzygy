@@ -44,21 +44,22 @@ using common::IndexedFrequencyData;
 
 class TestJumpTableCaseCountTransform : public JumpTableCaseCountTransform {
  public:
-  using JumpTableCaseCountTransform::jump_table_case_counter_hook_ref_;
-  using JumpTableCaseCountTransform::thunk_section_;
+  using JumpTableCaseCountTransform::add_frequency_data;
+  using JumpTableCaseCountTransform::jump_table_case_counter_hook_ref;
+  using JumpTableCaseCountTransform::thunk_section;
 
   BlockGraph::Block* frequency_data_block() {
-    return add_frequency_data_.frequency_data_block();
+    return add_frequency_data()->frequency_data_block();
   }
 
   BlockGraph::Block* frequency_data_buffer_block() {
-    return add_frequency_data_.frequency_data_buffer_block();
+    return add_frequency_data()->frequency_data_buffer_block();
   }
 };
 
 typedef testing::TestDllTransformTest JumpTableCaseCountTransformTest;
 
-// Ensure that the @p block is a jump table case count thunk.
+// Ensures that the @p block is a jump table case count thunk.
 void CheckBlockIsAThunk(BlockGraph::Block* block) {
   ASSERT_TRUE(pe::CodeBlockIsBasicBlockDecomposable(block));
 
@@ -78,12 +79,11 @@ void CheckBlockIsAThunk(BlockGraph::Block* block) {
       bb->instructions().begin();
 
   // Instruction 1 should push the case id.
-  const Instruction& inst1 = *inst_iter;
-  EXPECT_EQ(I_PUSH, inst1.representation().opcode);
+  EXPECT_EQ(I_PUSH, inst_iter->representation().opcode);
 
   // Instruction 2 should call the jump table counter hook.
-  const Instruction& inst2 = *(++inst_iter);
-  EXPECT_EQ(I_CALL, inst2.representation().opcode);
+  ++inst_iter;
+  EXPECT_EQ(I_CALL, inst_iter->representation().opcode);
 }
 
 }  // namespace
@@ -96,8 +96,9 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx, &block_graph_,
                                                     dos_header_block_));
   ASSERT_TRUE(tx.frequency_data_block() != NULL);
-  ASSERT_TRUE(tx.thunk_section_ != NULL);
-  ASSERT_TRUE(tx.jump_table_case_counter_hook_ref_.IsValid());
+  ASSERT_TRUE(tx.thunk_section() != NULL);
+  ASSERT_TRUE(tx.jump_table_case_counter_hook_ref() != NULL);
+  ASSERT_TRUE(tx.jump_table_case_counter_hook_ref()->IsValid());
 
   // Validate the jump table frequency data structure.
   block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
@@ -118,12 +119,13 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
             tx.frequency_data_buffer_block()->size());
 
-  // Let's examine each eligible block to verify that all the jump tables have
+  // Examine each eligible block to verify that all the jump tables have
   // been instrumented.
   size_t jump_table_entries = 0;
-  BlockGraph::BlockMap::const_iterator block_iter =
-      block_graph_.blocks().begin();
-  for (; block_iter != block_graph_.blocks().end(); ++block_iter) {
+  for (BlockGraph::BlockMap::const_iterator block_iter(
+           block_graph_.blocks().begin());
+      block_iter != block_graph_.blocks().end();
+      ++block_iter) {
     const BlockGraph::Block& block = block_iter->second;
 
     // Skip non-code blocks.
@@ -131,13 +133,14 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
       continue;
 
     // We don't want to check the thunk blocks.
-    if (block.section() == tx.thunk_section_->id())
+    if (block.section() == tx.thunk_section()->id())
       continue;
 
-    // Iterates over the labels to find the jump tables.
-    BlockGraph::Block::LabelMap::const_iterator iter_label =
-        block.labels().begin();
-    for (; iter_label != block.labels().end(); ++iter_label) {
+    // Iterate over the labels to find the jump tables.
+    for (BlockGraph::Block::LabelMap::const_iterator iter_label(
+             block.labels().begin());
+        iter_label != block.labels().end();
+        ++iter_label) {
       if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
         continue;
 
@@ -147,13 +150,15 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
 
       BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
           block.references().find(iter_label->first);
+      ASSERT_TRUE(iter_ref != block.references().end());
 
       // Iterate over the references and ensure that they are thunked.
       for (size_t i = 0; i < table_size; ++i) {
         BlockGraph::Block* ref_block = iter_ref->second.referenced();
         CheckBlockIsAThunk(ref_block);
-        iter_ref++;
+        ++iter_ref;
       }
+
       jump_table_entries += table_size;
     }
   }

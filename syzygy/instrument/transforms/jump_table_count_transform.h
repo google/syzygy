@@ -25,6 +25,7 @@
 #define SYZYGY_INSTRUMENT_TRANSFORMS_JUMP_TABLE_COUNT_TRANSFORM_H_
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "syzygy/block_graph/basic_block.h"
@@ -41,20 +42,35 @@ class JumpTableCaseCountTransform
     : public block_graph::transforms::IterativeTransformImpl<
           JumpTableCaseCountTransform> {
  public:
-  typedef block_graph::BlockGraph BlockGraph;
-  typedef core::RelativeAddress RelativeAddress;
-
   // Initialize a new JumpTableCaseCountTransform instance using the default
   // module and function names.
   JumpTableCaseCountTransform();
 
  protected:
+  typedef block_graph::BlockGraph BlockGraph;
+
+  // @name Accessors. For testing.
+  // @{
+  const BlockGraph::Section* thunk_section() const { return thunk_section_; }
+  AddIndexedFrequencyDataTransform* add_frequency_data() {
+    return &add_frequency_data_;
+  }
+  BlockGraph::Reference* jump_table_case_counter_hook_ref() {
+    return &jump_table_case_counter_hook_ref_;
+  }
+  // @}
+
+ private:
   friend NamedBlockGraphTransformImpl<JumpTableCaseCountTransform>;
   friend IterativeTransformImpl<JumpTableCaseCountTransform>;
 
+  typedef core::RelativeAddress RelativeAddress;
   // A pair containing the address of a jump-table and its size.
   typedef std::pair<RelativeAddress, size_t> JumpTableInfo;
   typedef std::vector<JumpTableInfo> JumpTableVector;
+
+  // The name of this transform.
+  static const char kTransformName[];
 
   // @name IterativeTransformImpl implementation.
   // @{
@@ -65,7 +81,7 @@ class JumpTableCaseCountTransform
                                BlockGraph::Block* header_block);
   // @}
 
-  // Create a single thunk to destination.
+  // Creates a single thunk to destination.
   // @param block_graph the block-graph being instrumented.
   // @param destination the destination reference.
   // @returns a pointer to the thunk on success, NULL otherwise.
@@ -85,17 +101,12 @@ class JumpTableCaseCountTransform
   // The instrumentation dll used by this transform.
   std::string instrument_dll_name_;
 
-  // The counter used to get an unique ID for each case in a jump table.
+  // The counter used to get a unique ID for each case in a jump table.
   size_t jump_table_case_count_;
 
-  // The list of the different jump tables encountered, we store their address
-  // and their size.
+  // The different jump tables encountered; we store their addresses and sizes.
   JumpTableVector jump_table_infos_;
 
-  // The name of this transform.
-  static const char kTransformName[];
-
- private:
   DISALLOW_COPY_AND_ASSIGN(JumpTableCaseCountTransform);
 };
 
