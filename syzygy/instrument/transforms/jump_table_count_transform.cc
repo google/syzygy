@@ -49,7 +49,7 @@ using pe::transforms::AddImportsTransform;
 
 typedef AddImportsTransform::ImportedModule ImportedModule;
 
-const char kDefaultModuleName[] = "jump_table_count.dll";
+const char kDefaultModuleName[] = "jump_table_count_client.dll";
 const char kJumpTableCaseCounter[] = "_jump_table_case_counter";
 const char kThunkSuffix[] = "_jump_table_thunk";
 

@@ -47,7 +47,7 @@ using pe::transforms::AddImportsTransform;
 typedef AddImportsTransform::ImportedModule ImportedModule;
 typedef BasicBlockEntryHookTransform::RelativeAddressRange RelativeAddressRange;
 
-const char kDefaultModuleName[] = "basic_block_entry.dll";
+const char kDefaultModuleName[] = "basic_block_entry_client.dll";
 const char kBasicBlockEnter[] = "_basic_block_enter";
 
 // Compares two relative address ranges to see if they overlap. Assumes they
