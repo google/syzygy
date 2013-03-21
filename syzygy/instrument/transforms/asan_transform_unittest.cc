@@ -241,6 +241,39 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE(iter_inst == basic_block_.instructions().end());
 }
 
+TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRange) {
+  // Add a read access to the memory.
+  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
+
+  // Add a source range to the instruction.
+  block_graph::Instruction& i1 = *basic_block_.instructions().begin();
+  Instruction::SourceRange source_range =
+      Instruction::SourceRange(RelativeAddress(1000), i1.size());
+  i1.set_source_range(source_range);
+
+  // Keep track of basic block size.
+  uint32 before_instructions_count = basic_block_.instructions().size();
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_debug_friendly(true);
+
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+
+  // Ensure this basic block is instrumented.
+  uint32 after_instructions_count = basic_block_.instructions().size();
+  ASSERT_LT(before_instructions_count, after_instructions_count);
+
+  // Walk through the instructions and validate the source range.
+  BasicBlock::Instructions::const_iterator iter_inst =
+      basic_block_.instructions().begin();
+
+  for ( ; iter_inst != basic_block_.instructions().end(); ++iter_inst)
+    EXPECT_EQ(source_range, iter_inst->source_range());
+}
+
 TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   uint32 instrumentable_instructions = 0;
 

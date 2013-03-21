@@ -606,7 +606,10 @@ const char AsanTransform::kAsanHookStubName[] = "asan_hook_stub";
 
 const char AsanTransform::kSyzyAsanDll[] = "asan_rtl.dll";
 
-AsanTransform::AsanTransform() : asan_dll_name_(kSyzyAsanDll) {
+AsanTransform::AsanTransform()
+    : asan_dll_name_(kSyzyAsanDll),
+      debug_friendly_(false),
+      check_access_hooks_ref_() {
 }
 
 bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
@@ -711,6 +714,7 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
 
   // Use the filter that was passed to us for our child transform.
   AsanBasicBlockTransform transform(&check_access_hooks_ref_);
+  transform.set_debug_friendly(debug_friendly());
   transform.set_filter(filter());
 
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))

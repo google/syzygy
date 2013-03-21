@@ -311,6 +311,11 @@ int InstrumentApp::Run() {
       filter_used = true;
     }
 
+    // Set overwrite source range flag in the ASAN transform. The ASAN
+    // transformation will overwrite the source range of created instructions to
+    // the source range of corresponding instrumented instructions.
+    asan_transform->set_debug_friendly(debug_friendly_);
+
     relinker.AppendTransform(asan_transform.get());
   } else if (mode_ == kInstrumentBasicBlockEntryMode) {
     // If we're in basic-block-entry mode, we need to apply the basic block

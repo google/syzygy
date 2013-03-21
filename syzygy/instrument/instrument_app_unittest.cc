@@ -666,4 +666,4 @@ TEST_F(InstrumentAppTest, SucceedsWithValidFilter) {
   ASSERT_EQ(0, test_app_.Run());
 }
 
-}  // namespace pe
+}  // namespace instrument

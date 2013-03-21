@@ -71,9 +71,20 @@ class AsanBasicBlockTransform
   // @param hooks_write_access a reference to the write access check import
   //     entry.
   explicit AsanBasicBlockTransform(AsanHookMap* check_access_hooks) :
-      check_access_hooks_(check_access_hooks) {
+      check_access_hooks_(check_access_hooks), debug_friendly_(false) {
     DCHECK(check_access_hooks != NULL);
   }
+
+  // @name Accessors.
+  // @{
+  bool debug_friendly() const {
+    return debug_friendly_;
+  }
+
+  void set_debug_friendly(bool flag) {
+    debug_friendly_ = flag;
+  }
+  // @}
 
   // The transform name.
   static const char kTransformName[];
@@ -98,6 +109,9 @@ class AsanBasicBlockTransform
  private:
   // The references to the Asan access check import entries.
   AsanHookMap* check_access_hooks_;
+
+  // Activate the overwriting of source range for created instructions.
+  bool debug_friendly_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
@@ -130,6 +144,14 @@ class AsanTransform
   const char* instrument_dll_name() const {
     return asan_dll_name_.c_str();
   }
+
+  bool debug_friendly() const {
+    return debug_friendly_;
+  }
+
+  void set_debug_friendly(bool flag) {
+    debug_friendly_ = flag;
+  }
   // @}
 
   // The name of the DLL that is imported by default.
@@ -144,6 +166,9 @@ class AsanTransform
  protected:
   // Name of the asan_rtl DLL we import. Defaults to "asan_rtl.dll".
   std::string asan_dll_name_;
+
+  // Activate the overwriting of source range for created instructions.
+  bool debug_friendly_;
 
   // References to the different asan check access import entries. Valid after
   // successful PreBlockGraphIteration.
