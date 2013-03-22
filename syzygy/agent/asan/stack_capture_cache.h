@@ -55,6 +55,9 @@ class StackCaptureCache {
   // Destroys a stack capture cache.
   ~StackCaptureCache();
 
+  // Static initialisation of StackCaptureCache context.
+  static void Init();
+
   // @returns the current maximum number of frames supported by saved stack
   //     traces.
   size_t max_num_frames() const { return max_num_frames_; }

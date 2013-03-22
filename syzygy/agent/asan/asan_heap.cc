@@ -55,8 +55,8 @@ class HeapLocker {
 
 }  // namespace
 
-// Arbitrarily keep 16 megabytes of quarantine per heap by default.
-size_t HeapProxy::default_quarantine_max_size_ = 16 * 1024 * 1024;
+// The default quarantine size for a new Heap.
+size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize_;
 
 void ASANDbgCmd(const wchar_t* fmt, ...) {
   // The string should start with "ASAN" to be interpreted by the debugger as a
@@ -113,6 +113,10 @@ HeapProxy::~HeapProxy() {
     Destroy();
 
   DCHECK(heap_ == NULL);
+}
+
+void HeapProxy::Init() {
+  default_quarantine_max_size_ = kDefaultQuarantineMaxSize_;
 }
 
 HANDLE HeapProxy::ToHandle(HeapProxy* proxy) {

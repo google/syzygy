@@ -81,6 +81,10 @@ StackCaptureCache::~StackCaptureCache() {
     delete current_page_;
 }
 
+void StackCaptureCache::Init() {
+   compression_reporting_period_ = kDefaultCompressionReportingPeriod;
+}
+
 const StackCapture* StackCaptureCache::SaveStackTrace(
     StackId stack_id, const void* const* frames, size_t num_frames) {
   DCHECK(frames != NULL);

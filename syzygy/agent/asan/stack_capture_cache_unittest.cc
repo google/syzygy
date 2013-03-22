@@ -38,9 +38,18 @@ class TestStackCaptureCache : public StackCaptureCache {
   }
 };
 
+class StackCaptureCacheTest : public testing::Test {
+ public:
+  void SetUp() OVERRIDE {
+    // Setup the "global" state.
+    StackCapture::Init();
+    StackCaptureCache::Init();
+  }
+};
+
 }  // namespace
 
-TEST(StackCaptureCacheTest, CachePageTest) {
+TEST_F(StackCaptureCacheTest, CachePageTest) {
   static const size_t kFrameCounts[] =
       { 5, 10, 30, StackCapture::kMaxNumFrames };
 
@@ -76,7 +85,7 @@ TEST(StackCaptureCacheTest, CachePageTest) {
   }
 }
 
-TEST(StackCaptureCacheTest, SaveStackTrace) {
+TEST_F(StackCaptureCacheTest, SaveStackTrace) {
   AsanLogger logger;
   TestStackCaptureCache cache(&logger);
   EXPECT_EQ(StackCapture::kMaxNumFrames, cache.max_num_frames());
@@ -110,7 +119,7 @@ TEST(StackCaptureCacheTest, SaveStackTrace) {
   EXPECT_EQ(sizeof(StackCapture), s1->Size());
 }
 
-TEST(StackCaptureCacheTest, RestrictedStackTraces) {
+TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   AsanLogger logger;
   TestStackCaptureCache cache(&logger, 20);
   EXPECT_EQ(20u, cache.max_num_frames());
@@ -144,7 +153,7 @@ TEST(StackCaptureCacheTest, RestrictedStackTraces) {
   EXPECT_GT(sizeof(StackCapture), s1->Size());
 }
 
-TEST(StackCaptureCacheTest, GetCompressionRatio) {
+TEST_F(StackCaptureCacheTest, GetCompressionRatio) {
   AsanLogger logger;
   TestStackCaptureCache cache(&logger);
 
@@ -171,7 +180,7 @@ TEST(StackCaptureCacheTest, GetCompressionRatio) {
   ASSERT_NEAR(0.40, cache.GetCompressionRatio(), 0.001);
 }
 
-TEST(StackCaptureCacheTest, MaxNumFrames) {
+TEST_F(StackCaptureCacheTest, MaxNumFrames) {
   AsanLogger logger;
   TestStackCaptureCache cache(&logger);
   size_t max_num_frames = cache.max_num_frames() + 1;

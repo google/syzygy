@@ -20,7 +20,19 @@
 namespace agent {
 namespace asan {
 
-TEST(StackCaptureTest, InitFromBuffer) {
+namespace {
+
+class StackCaptureTest : public testing::Test {
+ public:
+  void SetUp() OVERRIDE {
+    // Setup the "global" state.
+    StackCapture::Init();
+  }
+};
+
+} // namespace
+
+TEST_F(StackCaptureTest, InitFromBuffer) {
   StackCapture capture;
 
   // Validate the capture's initial state.
@@ -55,8 +67,9 @@ TEST(StackCaptureTest, InitFromBuffer) {
   EXPECT_TRUE(capture.frames() != NULL);
 }
 
-TEST(StackCaptureTest, InitFromStack) {
+TEST_F(StackCaptureTest, InitFromStack) {
   StackCapture capture;
+
   EXPECT_FALSE(capture.IsValid());
   EXPECT_EQ(0u, capture.stack_id());
   EXPECT_EQ(0, capture.num_frames());
@@ -68,7 +81,7 @@ TEST(StackCaptureTest, InitFromStack) {
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
 }
 
-TEST(StackCaptureTest, RestrictedFrameCount) {
+TEST_F(StackCaptureTest, RestrictedFrameCount) {
   StackCapture::set_bottom_frames_to_skip(0);
   // Restrict this to a stack depth that is smaller than the stack depth of
   // this test.

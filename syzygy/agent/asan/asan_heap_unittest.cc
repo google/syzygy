@@ -79,6 +79,8 @@ class HeapTest : public testing::TestWithAsanLogger {
   virtual void SetUp() OVERRIDE {
     testing::TestWithAsanLogger::SetUp();
 
+    HeapProxy::Init();
+
     logger_.set_instance_id(instance_id());
     logger_.Init();
     ASSERT_TRUE(proxy_.Create(0, 0, 0));

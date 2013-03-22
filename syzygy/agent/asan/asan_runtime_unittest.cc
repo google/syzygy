@@ -54,6 +54,11 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
     scoped_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_TRUE(env.get() != NULL);
     env->UnSetVar(TestAsanRuntime::kSyzyAsanEnvVar);
+
+    // Setup the "global" state.
+    HeapProxy::Init();
+    StackCapture::Init();
+    StackCaptureCache::Init();
   }
 
   // The test runtime instance.

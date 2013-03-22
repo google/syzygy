@@ -121,7 +121,9 @@ const char AsanRuntime::kMaxNumberOfFrames[] = "max_num_frames";
 const char AsanRuntime::kIgnoredStackIds[] = "ignored_stack_ids";
 const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
 
-AsanRuntime::AsanRuntime() : logger_(NULL), stack_cache_(NULL) {
+AsanRuntime::AsanRuntime()
+    : logger_(NULL), stack_cache_(NULL), asan_error_callback_(), flags_(),
+      heap_proxy_dlist_lock_(), heap_proxy_dlist_() {
 }
 
 AsanRuntime::~AsanRuntime() {
@@ -136,6 +138,9 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   InitializeListHead(&heap_proxy_dlist_);
 
   // Setup the "global" state.
+  HeapProxy::Init();
+  StackCapture::Init();
+  StackCaptureCache::Init();
   SetUpLogger();
   SetUpStackCache();
   if (!ParseFlagsFromString(flags_command_line)) {

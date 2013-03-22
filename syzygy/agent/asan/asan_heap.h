@@ -144,6 +144,9 @@ class HeapProxy {
     return quarantine_max_size_;
   }
 
+  // Static initialisation of HeapProxy context.
+  static void Init();
+
  protected:
   // Enumeration of the different kind of bad heap access that we can encounter.
   enum BadAccessKind {
@@ -251,6 +254,9 @@ class HeapProxy {
                        BlockHeader* header,
                        AccessMode access_mode,
                        size_t access_size);
+
+  // Arbitrarily keep 16 megabytes of quarantine per heap by default.
+  static const size_t kDefaultQuarantineMaxSize_ = 16 * 1024 * 1024;
 
   // Default max size of blocks in quarantine (in bytes).
   static size_t default_quarantine_max_size_;
