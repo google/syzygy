@@ -30,6 +30,8 @@ bool memory_error_detected = false;
 // A pointer to a context to ensure that we're able to restore the context when
 // an asan error is found.
 CONTEXT* context_before_hook = NULL;
+// A flag to override the direction flag on special instruction checker.
+bool direction_flag_forward = true;
 
 // Shorthand for discussing all the asan runtime functions.
 #define ASAN_RTL_FUNCTIONS(F)  \
@@ -71,7 +73,9 @@ ASAN_RTL_FUNCTIONS(DECLARE_ASAN_FUNCTION_PTR)
 
 class AsanRtlTest : public testing::TestWithAsanLogger {
  public:
-  AsanRtlTest() : asan_rtl_(NULL), heap_(NULL) {
+  AsanRtlTest() : asan_rtl_(NULL), heap_(NULL),
+    memory_src_(NULL), memory_dst_(NULL),
+    memory_length_(0), memory_size_(0) {
   }
 
   void SetUp() OVERRIDE {
@@ -111,11 +115,21 @@ class AsanRtlTest : public testing::TestWithAsanLogger {
   }
 
  protected:
+  void AllocMemoryBuffers(int32 length, int32 element_size);
+  void FreeMemoryBuffers();
+
+ protected:
   // The ASAN runtime module to test.
   HMODULE asan_rtl_;
 
   // Scratch heap handle valid from SetUp to TearDown.
   HANDLE heap_;
+
+  // Memory buffers used to test special instructions.
+  void* memory_src_;
+  void* memory_dst_;
+  int32 memory_length_;
+  int32 memory_size_;
 
   // Declare the function pointers.
 #define DECLARE_FUNCTION_PTR_VARIABLE(ret, name, args)  \
@@ -133,6 +147,31 @@ class AsanRtlTest : public testing::TestWithAsanLogger {
   ASAN_RTL_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
 
 #undef DEFINE_FUNCTION_PTR_VARIABLE
+
+#define RTL_CAPTURE_CONTEXT(context, expected_eip) {  \
+  /* Save caller save registers. */  \
+  __asm push eax  \
+  __asm push ecx  \
+  __asm push edx  \
+  /* Call Capture context. */  \
+  __asm push context  \
+  __asm call dword ptr[RtlCaptureContext]  \
+  /* Restore caller save registers. */  \
+  __asm pop edx  \
+  __asm pop ecx  \
+  __asm pop eax  \
+  /* Restore registers which are stomped by RtlCaptureContext. */  \
+  __asm push eax  \
+  __asm pushfd  \
+  __asm mov eax, context  \
+  __asm mov dword ptr[eax + CONTEXT.Ebp], ebp  \
+  __asm mov dword ptr[eax + CONTEXT.Esp], esp  \
+  /* NOTE: we need to add 8 bytes because EAX + EFLAGS are on the stack. */  \
+  __asm add dword ptr[eax + CONTEXT.Esp], 8  \
+  __asm mov dword ptr[eax + CONTEXT.Eip], offset expected_eip  \
+  __asm popfd  \
+  __asm pop eax  \
+}
 
 // Check if the sections of 2 context are equals.
 // @param c1 The first context to check.
@@ -165,79 +204,99 @@ void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2, DWORD flags) {
   }
 }
 
-void __declspec(naked) CheckAccessAndCaptureContexts(CONTEXT* before,
-                                                     CONTEXT* after,
-                                                     void* ptr) {
+void CheckAccessAndCaptureContexts(
+    CONTEXT* before, CONTEXT* after, void* location) {
   __asm {
-    // Capture the CPU context before calling the access check function.
-    push dword ptr[esp + 0x4]
-    call dword ptr[RtlCaptureContext]
+    pushad
+    pushfd
 
-    // Restore eax, which is stomped by RtlCaptureContext.
-    mov eax, dword ptr[esp + 0x4]
-    mov eax, dword ptr[eax + CONTEXT.Eax]
+    // Avoid undefined behavior by forcing values.
+    mov eax, 0x01234567
+    mov ebx, 0x70123456
+    mov ecx, 0x12345678
+    mov edx, 0x56701234
+    mov esi, 0xCCAACCAA
+    mov edi, 0xAACCAACC
 
-    // Push edx as we're required to do by the custom calling convention.
+    RTL_CAPTURE_CONTEXT(before, expected_eip)
+
+    // Push EDX as we're required to do by the custom calling convention.
     push edx
     // Ptr is the pointer to check.
-    mov edx, dword ptr[esp + 0x10]
-    // Call through.
-    call dword ptr[check_access_fn + 0]
-
-    // Capture the CPU context after calling the access check function.
-    push dword ptr[esp + 0x8]
-    call dword ptr[RtlCaptureContext]
-
-    ret
-  }
-}
-
-// We need to disable this warning due to the label in the inline assembly who
-// is not compatible with the global optimization.
-#pragma warning(push)
-#pragma warning(disable: 4740)
-void __declspec(naked) CheckAccess(void* ptr) {
-  DCHECK(context_before_hook != NULL);
-  __asm {
-    push dword ptr[context_before_hook]
-    call dword ptr[RtlCaptureContext]
-
-    // Fix the values of ebp, esp and eip in the context to make sure they are
-    // the same as what they'll be after the call to the hook.
-    mov eax, dword ptr[context_before_hook]
-    mov dword ptr[eax + CONTEXT.Ebp], ebp
-    mov dword ptr[eax + CONTEXT.Esp], esp
-    mov dword ptr[eax + CONTEXT.Eip], offset expected_eip
-
-    // Restore eax, which is stomped by RtlCaptureContext.
-    mov eax, dword ptr[eax + CONTEXT.Eax]
-
-    // Push edx as we're required to do by the custom calling convention.
-    push edx
-    // Ptr is the pointer to check.
-    mov edx, dword ptr[esp + 0x8]
+    mov edx, location
     // Call through.
     call dword ptr[check_access_fn + 0]
 expected_eip:
-    ret
+
+    RTL_CAPTURE_CONTEXT(after, expected_eip)
+
+    popfd
+    popad
   }
 }
-#pragma warning(pop)
 
 void CheckAccessAndCompareContexts(void* ptr) {
   CONTEXT before = {};
   CONTEXT after = {};
 
+  context_before_hook = &before;
   CheckAccessAndCaptureContexts(&before, &after, ptr);
 
   ExpectEqualContexts(before, after, CONTEXT_FULL);
 }
 
+void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
+                        void* dst, void* src, int len) {
+  __asm {
+    pushad
+    pushfd
+
+    // Override the direction flag.
+    cld
+    cmp direction_flag_forward, 0
+    jne skip_reverse_direction
+    std
+  skip_reverse_direction:
+
+    // Avoid undefined behavior by forcing values.
+    mov eax, 0x01234567
+    mov ebx, 0x70123456
+    mov edx, 0x56701234
+
+    // Setup registers used by the special instruction.
+    mov ecx, len
+    mov esi, src
+    mov edi, dst
+
+    RTL_CAPTURE_CONTEXT(before, expected_eip)
+
+    // Call through.
+    call dword ptr[check_access_fn + 0]
+expected_eip:
+
+    RTL_CAPTURE_CONTEXT(after, expected_eip)
+
+    popfd
+    popad
+  }
+}
+
+void CheckSpecialAccessAndCompareContexts(void* dst, void* src, int len) {
+  CONTEXT before = {};
+  CONTEXT after = {};
+
+  context_before_hook = &before;
+
+  CheckSpecialAccess(&before, &after, dst, src, len);
+
+  ExpectEqualContexts(before, after, CONTEXT_FULL);
+}
+
+
 void AsanErrorCallback(CONTEXT* context) {
   EXPECT_TRUE(context != NULL);
   EXPECT_TRUE(context_before_hook != NULL);
 
-  EXPECT_FALSE(memory_error_detected);
   memory_error_detected = true;
   ExpectEqualContexts(*context_before_hook,
                       *context,
@@ -246,8 +305,24 @@ void AsanErrorCallback(CONTEXT* context) {
 
 void AssertMemoryErrorIsDetected(void* ptr) {
   memory_error_detected = false;
-  CheckAccess(ptr);
+  CheckAccessAndCompareContexts(ptr);
   ASSERT_TRUE(memory_error_detected);
+}
+
+void ExpectSpecialMemoryErrorIsDetected(bool expected,
+    void* dst, void* src, int32 length) {
+  DCHECK(dst != NULL);
+  DCHECK(src != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  // Setup the callback to detect invalid accesses.
+  memory_error_detected = false;
+
+  // Perform memory accesses inside the range.
+  ASSERT_NO_FATAL_FAILURE(
+      CheckSpecialAccessAndCompareContexts(dst, src, length));
+
+  EXPECT_EQ(expected, memory_error_detected);
 }
 
 }  // namespace
@@ -292,6 +367,351 @@ TEST_F(AsanRtlTest, AsanCheckBadAccess) {
   ASSERT_TRUE(LogContains("heap-buffer-underflow"));
   ASSERT_TRUE(LogContains("heap-buffer-overflow"));
   ASSERT_TRUE(LogContains("heap-use-after-free"));
+}
+
+void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {
+  DCHECK(memory_src_ == NULL);
+  DCHECK(memory_dst_ == NULL);
+  DCHECK(memory_length_ == 0);
+  DCHECK(memory_size_ == 0);
+
+  // Keep track of memory size.
+  memory_length_ = length;
+  memory_size_ = length * element_size;
+
+  // Allocate memory space.
+  memory_src_ = HeapAllocFunction(heap_, 0, memory_size_);
+  ASSERT_TRUE(memory_src_ != NULL);
+  memory_dst_ = HeapAllocFunction(heap_, 0, memory_size_);
+  ASSERT_TRUE(memory_dst_ != NULL);
+
+  // Initialize memory.
+  memset(memory_src_, 0, memory_size_);
+  memset(memory_dst_, 0, memory_size_);
+}
+
+void AsanRtlTest::FreeMemoryBuffers() {
+  DCHECK(memory_src_ != NULL);
+  DCHECK(memory_dst_ != NULL);
+
+  ASSERT_TRUE(HeapFreeFunction(heap_, 0, memory_src_));
+  ASSERT_TRUE(HeapFreeFunction(heap_, 0, memory_dst_));
+
+  memory_length_ = 0;
+  memory_size_ = 0;
+  memory_src_ = NULL;
+  memory_dst_ = NULL;
+}
+
+TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
+  static const char* function_names[] = {
+      "asan_check_1_byte_movs_access",
+      "asan_check_1_byte_cmps_access",
+      "asan_check_1_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint8));
+  uint8* src = reinterpret_cast<uint8*>(memory_src_);
+  uint8* dst = reinterpret_cast<uint8*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    for (int32 i = 0; i < memory_length_; ++i)
+      ExpectSpecialMemoryErrorIsDetected(false, &dst[i], &src[i], 0xDEADDEAD);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanSingleSpecial2byteInstructionCheckGoodAccess) {
+  static const char* function_names[] = {
+      "asan_check_2_byte_movs_access",
+      "asan_check_2_byte_cmps_access",
+      "asan_check_2_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint16));
+  uint16* src = reinterpret_cast<uint16*>(memory_src_);
+  uint16* dst = reinterpret_cast<uint16*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    for (int32 i = 0; i < memory_length_; ++i)
+      ExpectSpecialMemoryErrorIsDetected(false, &dst[i], &src[i], 0xDEADDEAD);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanSingleSpecial4byteInstructionCheckGoodAccess) {
+  static const char* function_names[] = {
+      "asan_check_4_byte_movs_access",
+      "asan_check_4_byte_cmps_access",
+      "asan_check_4_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    for (int32 i = 0; i < memory_length_; ++i)
+      ExpectSpecialMemoryErrorIsDetected(false, &dst[i], &src[i], 0xDEADDEAD);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanSingleSpecialInstructionCheckBadAccess) {
+  static const char* function_names[] = {
+      "asan_check_1_byte_movs_access",
+      "asan_check_1_byte_cmps_access",
+      "asan_check_2_byte_movs_access",
+      "asan_check_2_byte_cmps_access",
+      "asan_check_4_byte_movs_access",
+      "asan_check_4_byte_cmps_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[0], &src[-1], 0xDEADDEAD);
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[0], 0xDEADDEAD);
+
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[0], &src[memory_length_],
+        0xDEADDEAD);
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[memory_length_], &src[0],
+        0xDEADDEAD);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanSingleStoInstructionCheckBadAccess) {
+  static const char* function_names[] = {
+      "asan_check_1_byte_stos_access",
+      "asan_check_2_byte_stos_access",
+      "asan_check_4_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[-1], 0xDEAD);
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[0], 0xDEAD);
+
+    ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[memory_length_],
+        0xDEADDEAD);
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[memory_length_], &src[0],
+        0xDEADDEAD);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
+  static const char* function_names[] = {
+      "asan_check_repz_4_byte_movs_access",
+      "asan_check_repz_4_byte_cmps_access",
+      "asan_check_repz_4_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[0], memory_length_);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
+  static const char* function_names[] = {
+      "asan_check_repz_4_byte_movs_access",
+      "asan_check_repz_4_byte_cmps_access",
+      "asan_check_repz_4_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[0], &src[0],
+        memory_length_ + 1);
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[-1],
+        memory_length_);
+    ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[0],
+        memory_length_);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
+  static const char* function_names[] = {
+      "asan_check_repz_4_byte_movs_access",
+      "asan_check_repz_4_byte_cmps_access",
+      "asan_check_repz_4_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Force direction flag to backward.
+  direction_flag_forward = false;
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    ExpectSpecialMemoryErrorIsDetected(false, &dst[memory_length_ - 1],
+        &src[memory_length_ - 1], memory_length_);
+  }
+
+  // Reset direction flag to forward.
+  direction_flag_forward = true;
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
+  static const char* function_names[] = {
+      "asan_check_repz_1_byte_movs_access",
+      "asan_check_repz_1_byte_cmps_access",
+      "asan_check_repz_1_byte_stos_access",
+      "asan_check_repz_2_byte_movs_access",
+      "asan_check_repz_2_byte_cmps_access",
+      "asan_check_repz_2_byte_stos_access",
+      "asan_check_repz_4_byte_movs_access",
+      "asan_check_repz_4_byte_cmps_access",
+      "asan_check_repz_4_byte_stos_access"
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    // A prefixed instruction with a count of zero do not have side effects.
+    ExpectSpecialMemoryErrorIsDetected(false, &dst[-1], &src[-1], 0);
+  }
+
+  FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
+  static const char* function_names[] = {
+      "asan_check_repz_1_byte_cmps_access",
+      "asan_check_repz_2_byte_cmps_access",
+      "asan_check_repz_4_byte_cmps_access",
+  };
+
+  // Setup the callback to detect invalid accesses.
+  SetCallBackFunction(&AsanErrorCallback);
+
+  // Allocate memory space.
+  AllocMemoryBuffers(13, sizeof(uint32));
+  uint32* src = reinterpret_cast<uint32*>(memory_src_);
+  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+
+  src[1] = 0x12345667;
+
+  // Validate memory accesses.
+  for (int32 function = 0; function < arraysize(function_names); ++function) {
+    check_access_fn =
+        ::GetProcAddress(asan_rtl_, function_names[function]);
+    ASSERT_TRUE(check_access_fn != NULL);
+
+    // Compare instruction stop their execution when values differ.
+    ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[0],
+        memory_length_ + 1);
+  }
+
+  FreeMemoryBuffers();
 }
 
 } // namespace asan

@@ -47,7 +47,7 @@ class Shadow {
   static void MarkAsFreed(const void* addr, size_t size);
 
   // Returns true iff the byte at @p addr is not poisoned.
-  static bool __stdcall IsAccessible(const void* addr);
+  static bool IsAccessible(const void* addr);
 
   // Print the contents of the shadow memory for @p addr.
   static void PrintShadowMemoryForAddress(const void* addr);

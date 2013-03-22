@@ -68,7 +68,7 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
     shadow_[index + size_shadow] = kHeapFreedByte;
 }
 
-bool __stdcall Shadow::IsAccessible(const void* addr) {
+bool Shadow::IsAccessible(const void* addr) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   uintptr_t start = index & 0x7;
 
