@@ -32,7 +32,35 @@ void DumpTypeInfoStream(FILE* out,
                         const TypeInfoRecordMap& type_info_record_map) {
   DCHECK(stream != NULL);
 
-  ::fprintf(out, "%d type info record in the stream:\n",
+  DumpIndentedText(out, 0,"Type Info Header:\n");
+  DumpIndentedText(out, 1, "version: 0x%08X\n", type_info_header.version);
+  DumpIndentedText(out, 1, "len: 0x%08X\n", type_info_header.len);
+  DumpIndentedText(out, 1, "type_min: 0x%08X\n", type_info_header.type_min);
+  DumpIndentedText(out, 1, "type_max: 0x%08X\n", type_info_header.type_max);
+  DumpIndentedText(out, 1, "type_info_data_size: 0x%08X\n",
+                   type_info_header.type_info_data_size);
+
+  const TypeInfoHashHeader& type_info_hash = type_info_header.type_info_hash;
+
+  DumpIndentedText(out, 0, "Type Info Header Hash:\n");
+  DumpIndentedText(out, 1, "stream_number: 0x%04X\n",
+                   type_info_hash.stream_number);
+  DumpIndentedText(out, 1, "padding: 0x%04X\n", type_info_hash.padding);
+  DumpIndentedText(out, 1, "hash_key: 0x%08X\n", type_info_hash.hash_key);
+  DumpIndentedText(out, 1, "cb_hash_buckets: 0x%08X\n",
+                   type_info_hash.cb_hash_buckets);
+
+  DumpIndentedText(out, 1, "offset_cb_hash_vals: 0x%08X, 0x%08x\n",
+            type_info_hash.offset_cb_hash_vals.offset,
+            type_info_hash.offset_cb_hash_vals.cb);
+  DumpIndentedText(out, 1, "offset_cb_type_info_offset: 0x%08X, 0x%08x\n",
+            type_info_hash.offset_cb_type_info_offset.offset,
+            type_info_hash.offset_cb_type_info_offset.cb);
+  DumpIndentedText(out, 1, "offset_cb_hash_adj: 0x%08X, 0x%08x\n",
+            type_info_hash.offset_cb_hash_adj.offset,
+            type_info_hash.offset_cb_hash_adj.cb);
+
+  DumpIndentedText(out, 0, "%d type info records in the stream:\n",
             type_info_record_map.size());
   TypeInfoRecordMap::const_iterator type_info_iter =
       type_info_record_map.begin();
@@ -45,8 +73,11 @@ void DumpTypeInfoStream(FILE* out,
                                  type_info_iter->second.start_position);
       return;
     }
-    DumpTabs(out, indent_level);
-    ::fprintf(out, "Type info 0x%04X:\n", type_info_iter->first);
+    // The location in the map is the start of the leaf, which points
+    // past the size/type pair.
+    DumpIndentedText(out, indent_level, "Type info 0x%04X (at 0x%04X):\n",
+        type_info_iter->first,
+        type_info_iter->second.start_position - sizeof(cci::SYMTYPE));
     bool success = DumpLeaf(type_info_record_map,
                             type_info_iter->second.type,
                             out,

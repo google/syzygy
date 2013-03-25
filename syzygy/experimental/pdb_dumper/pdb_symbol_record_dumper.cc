@@ -518,14 +518,12 @@ bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
 
 }  //  namespace
 
-void DumpSymbolRecord(FILE* out,
-                      PdbStream* stream,
-                      const SymbolRecordVector& sym_record_vector,
-                      uint8 indent_level) {
+void DumpSymbolRecords(FILE* out,
+                       PdbStream* stream,
+                       const SymbolRecordVector& sym_record_vector,
+                       uint8 indent_level) {
   DCHECK(stream != NULL);
 
-  DumpIndentedText(out, indent_level, "%d symbol records in the stream:\n",
-                   sym_record_vector.size());
   SymbolRecordVector::const_iterator symbol_iter =
     sym_record_vector.begin();
   // Dump each symbol contained in the vector.

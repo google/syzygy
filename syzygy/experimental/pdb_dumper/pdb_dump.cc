@@ -29,6 +29,7 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
+#include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_module_info_stream_dumper.h"
 #include "syzygy/experimental/pdb_dumper/pdb_symbol_record_dumper.h"
 #include "syzygy/experimental/pdb_dumper/pdb_type_info_stream_dumper.h"
@@ -151,7 +152,8 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
 
   // If we want to ensure that we have a suffix for each stream we can't just
   // compare the number of streams to the size of the suffixes map because
-  // the map contains suffixes for streams with constant ID who might not exist.
+  // the map contains suffixes for streams with constant ID who might not
+  // exist.
   size_t stream_without_suffixes = 0;
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
     pdb::PdbStream* stream = pdb_file.GetStream(i);
@@ -163,11 +165,16 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
     if (stream_suffixes.find(i) == stream_suffixes.end())
       stream_without_suffixes++;
     FilePath stream_path = output_dir_path.Append(
-        base::StringPrintf(L"%d%ls", i, stream_suffixes[i].c_str()));
+        base::StringPrintf(L"%d%ls.bin", i, stream_suffixes[i].c_str()));
 
     if (!WriteStreamToPath(stream, stream_path)) {
-      LOG(ERROR) << "Failed to write stream " << i << ".";
-      return false;
+      // Maybe the name was invalid, try again with non-suffixed stream id.
+      stream_path = output_dir_path.Append(base::StringPrintf(L"%d.bin", i));
+
+      if (!WriteStreamToPath(stream, stream_path)) {
+        LOG(ERROR) << "Failed to write stream " << i << ".";
+        return false;
+      }
     }
   }
 
@@ -187,7 +194,7 @@ const char kUsage[] =
     "  Optional Options:\n"
     "    --dump-symbol-records if provided the symbol record stream will be\n"
     "       dumped. This is a big stream so it could take a lot of time to\n"
-    "       process."
+    "       process.\n"
     "    --dump-type-info if provided the type info stream will be dumped.\n"
     "       This is a big stream so it could take a lot of time to process.\n"
     "    --dump-modules if provided the module streams will be dumped. Note\n"
@@ -210,7 +217,7 @@ bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   explode_streams_ = command_line->HasSwitch("explode-streams");
-  dump_symbol_record_ = command_line->HasSwitch("dump-symbol-record");
+  dump_symbol_record_ = command_line->HasSwitch("dump-symbol-records");
   dump_type_info_ = command_line->HasSwitch("dump-type-info");
   dump_modules_ = command_line->HasSwitch("dump-modules");
 
@@ -297,8 +304,10 @@ int PdbDumpApp::Run() {
         ReadSymbolRecord(sym_record_stream,
                          sym_record_stream->length(),
                          &symbol_vector)) {
+      DumpIndentedText(out(), 0, "%d symbol records in the stream:\n",
+                       symbol_vector.size());
       if (dump_symbol_record_)
-        DumpSymbolRecord(out(), sym_record_stream, symbol_vector, 1);
+        DumpSymbolRecords(out(), sym_record_stream, symbol_vector, 1);
     } else {
       LOG(ERROR) << "Unable to read the symbol record stream.";
       return 1;

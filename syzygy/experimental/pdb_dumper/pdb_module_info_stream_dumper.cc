@@ -226,7 +226,7 @@ void DumpModuleInfoStream(const DbiModuleInfo& module_info,
                    module_info.module_info_base().symbol_bytes - sizeof(type),
                    &symbols);
   DumpIndentedText(out, indent_level + 1, "Symbol records:\n");
-  DumpSymbolRecord(out, stream, symbols, indent_level + 2);
+  DumpSymbolRecords(out, stream, symbols, indent_level + 2);
   DumpIndentedText(out, indent_level + 1, "Lines:\n");
   DumpLines(name_table,
             out,

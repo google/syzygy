@@ -29,10 +29,10 @@ class PdbStream;
 
 // Dumps @p symbol_record_vector from @p stream to out with a specified level of
 // indentation.
-void DumpSymbolRecord(FILE* out,
-                      PdbStream* stream,
-                      const SymbolRecordVector& sym_record_vector,
-                      uint8 indent_level);
+void DumpSymbolRecords(FILE* out,
+                       PdbStream* stream,
+                       const SymbolRecordVector& sym_record_vector,
+                       uint8 indent_level);
 
 }  // namespace pdb
 
