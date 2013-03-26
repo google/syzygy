@@ -32,6 +32,8 @@ bool memory_error_detected = false;
 CONTEXT* context_before_hook = NULL;
 // A flag to override the direction flag on special instruction checker.
 bool direction_flag_forward = true;
+// An arbitrary size for the buffer we allocate in the different unittests.
+const size_t kAllocSize = 13;
 
 // Shorthand for discussing all the asan runtime functions.
 #define ASAN_RTL_FUNCTIONS(F)  \
@@ -292,7 +294,6 @@ void CheckSpecialAccessAndCompareContexts(void* dst, void* src, int len) {
   ExpectEqualContexts(before, after, CONTEXT_FULL);
 }
 
-
 void AsanErrorCallback(CONTEXT* context) {
   EXPECT_TRUE(context != NULL);
   EXPECT_TRUE(context_before_hook != NULL);
@@ -335,7 +336,6 @@ TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   // Run through access checking an allocation that's larger than our
   // block size (8), but not a multiple thereof to exercise all paths
   // in the access check function (save for the failure path).
-  const size_t kAllocSize = 13;
   uint8* mem = reinterpret_cast<uint8*>(
       HeapAllocFunction(heap_, 0, kAllocSize));
   ASSERT_TRUE(mem != NULL);
@@ -352,7 +352,6 @@ TEST_F(AsanRtlTest, AsanCheckBadAccess) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  const size_t kAllocSize = 13;
   uint8* mem = reinterpret_cast<uint8*>(
       HeapAllocFunction(heap_, 0, kAllocSize));
   ASSERT_TRUE(mem != NULL);
@@ -414,7 +413,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint8));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint8));
   uint8* src = reinterpret_cast<uint8*>(memory_src_);
   uint8* dst = reinterpret_cast<uint8*>(memory_dst_);
 
@@ -442,7 +441,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecial2byteInstructionCheckGoodAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint16));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint16));
   uint16* src = reinterpret_cast<uint16*>(memory_src_);
   uint16* dst = reinterpret_cast<uint16*>(memory_dst_);
 
@@ -470,7 +469,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecial4byteInstructionCheckGoodAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -501,7 +500,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecialInstructionCheckBadAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -534,7 +533,7 @@ TEST_F(AsanRtlTest, AsanSingleStoInstructionCheckBadAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -567,7 +566,7 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -594,7 +593,7 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -629,7 +628,7 @@ TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
   direction_flag_forward = false;
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -666,7 +665,7 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -694,7 +693,7 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
   SetCallBackFunction(&AsanErrorCallback);
 
   // Allocate memory space.
-  AllocMemoryBuffers(13, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 

@@ -401,7 +401,6 @@ void CheckStringsMemoryAccesses(
 }  // namespace asan
 }  // namespace agent
 
-
 // This is a trick for efficient saving/restoring part of the flags register.
 // see http://blog.freearrow.com/archives/396
 // Flags (bits 16-31) probably need a pipeline flush on update (POPFD). Thus,
@@ -428,7 +427,6 @@ void CheckStringsMemoryAccesses(
   /* Restore original EAX. */  \
   __asm pop eax
 
-
 // Generates the asan check access functions. The name of the generated method
 // will be asan_check_(@p access_size)_byte_(@p access_mode_str)().
 // @param access_size The size of the access (in byte).
@@ -445,13 +443,13 @@ void CheckStringsMemoryAccesses(
       __asm push edx  \
       /* Check for zero shadow - fast case. */  \
       __asm shr edx, 3  \
-      __asm movzx edx, BYTE ptr[edx + agent::asan::Shadow::shadow_]  \
+      __asm movzx edx, BYTE PTR [edx + agent::asan::Shadow::shadow_]  \
       __asm test dl, dl  \
       __asm jnz check_access_slow  \
       /* Remove memory location on top of stack */  \
       __asm add esp, 4  \
       /* Restore original EDX. */  \
-      __asm mov edx, DWORD PTR[esp + 8]  \
+      __asm mov edx, DWORD PTR [esp + 8]  \
       /* Restore the EFLAGS. */  \
       ASAN_RESTORE_EFLAGS  \
       __asm ret 4  \
@@ -467,7 +465,7 @@ void CheckStringsMemoryAccesses(
       __asm pushad  \
       /* Fix the original value of ESP in the ASAN registers context. */  \
       /* Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX). */  \
-      __asm add [esp + 12], 12  \
+      __asm add DWORD PTR [esp + 12], 12  \
       /* Push ARG4: the address of ASAN context on stack. */  \
       __asm push esp  \
       /* Push ARG3: the access size. */  \
@@ -532,7 +530,7 @@ ASAN_CHECK_FUNCTION(32, write_access, AsanWriteAccess)
       __asm pushad  \
       /* Fix the original value of ESP in the ASAN registers context. */  \
       /* Removing 8 bytes (e.g.EFLAGS / EIP was on stack). */  \
-      __asm add [esp + 12], 8  \
+      __asm add DWORD PTR [esp + 12], 8  \
       /* Setup increment in EBX (depends on direction flag in EFLAGS). */  \
       __asm mov ebx, access_size  \
       __asm pushfd  \
