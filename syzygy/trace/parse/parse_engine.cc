@@ -80,7 +80,7 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
     return true;
 
   // This happens in Windows XP ETW traces for some reason. They contain
-  // conflicing information, so we ignore them.
+  // conflicting information, so we ignore them.
   if (module_info.image_file_name.empty())
     return true;
 
@@ -326,7 +326,6 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
   DWORD process_id = event->Header.ProcessId;
   DWORD thread_id = data->thread_id;
   event_handler_->OnBatchFunctionEntry(time, process_id, thread_id, data);
-
   return true;
 }
 

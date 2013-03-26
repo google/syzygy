@@ -58,7 +58,7 @@ void CallTraceService::Start(const FilePath& trace_dir) {
   ASSERT_NE(base::kNullProcessHandle, service_process_);
 
   // We wait on both the "ready" handle and the process, as if the process
-  // fails for any reason, it'll exit and its handle will become signalled.
+  // fails for any reason, it'll exit and its handle will become signaled.
   HANDLE handles[] = { event.Get(), service_process_ };
   ASSERT_EQ(WAIT_OBJECT_0, ::WaitForMultipleObjects(arraysize(handles),
                                                     handles,

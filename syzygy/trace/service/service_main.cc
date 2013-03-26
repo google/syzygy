@@ -43,7 +43,7 @@ using ::trace::client::InvokeRpc;
 // Minimum buffer size to allow (1 MB).
 const int kMinBufferSize = 1024 * 1024;
 
-// Minumum number of buffers to allocate.
+// Minimum number of buffers to allocate.
 const int kMinBuffers = 16;
 
 // A static location to which the current instance id can be saved. We
@@ -88,7 +88,7 @@ const char kUsage[] =
     "  --enable-exits     Enable exit tracing (off by default).\n"
     "  --verbose          Increase the logging verbosity to also include\n"
     "                     debug-level information.\n"
-    "  --instance-id=ID   A unique identifier to use for the RPC endoint.\n"
+    "  --instance-id=ID   A unique identifier to use for the RPC endpoint.\n"
     "                     This allows multiple instances of the service to\n"
     "                     run concurrently. By default this is empty.\n"
     "\n";
@@ -226,7 +226,7 @@ bool SpawnService(const CommandLine* cmd_line) {
   }
   DCHECK_NE(base::kNullProcessHandle, service_process);
 
-  // Get the name of the event that will be signalled when the service is up
+  // Get the name of the event that will be signaled when the service is up
   // and running.
   std::wstring event_name;
   ::GetSyzygyCallTraceRpcEventName(instance_id, &event_name);
@@ -239,7 +239,7 @@ bool SpawnService(const CommandLine* cmd_line) {
   }
 
   // We wait on both the RPC event and the process, as if the process fails for
-  // any reason, it'll exit and its handle will become signalled.
+  // any reason, it'll exit and its handle will become signaled.
   HANDLE handles[] = { rpc_event.Get(), service_process };
   if (::WaitForMultipleObjects(arraysize(handles),
                                handles,

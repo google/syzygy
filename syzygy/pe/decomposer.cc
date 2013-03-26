@@ -2551,7 +2551,7 @@ CallbackDirective Decomposer::OnInstruction(const Disassembler& walker,
     return directive;
 
   // We're at the end of code in this block if we encountered data, or this is
-  // the last intruction to be processed.
+  // the last instruction to be processed.
   RelativeAddress block_end(current_block_->addr() + current_block_->size());
   bool end_of_code = (directive == Disassembler::kDirectiveTerminatePath) ||
       (after_instr_rel >= block_end);

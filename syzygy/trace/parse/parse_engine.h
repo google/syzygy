@@ -29,7 +29,7 @@ namespace parser {
 
 // This base class defines and implements the common event dispatching and
 // module tracking for all supported parse engines. It also declares the
-// abstact interface a parse engine exposes to its clients.
+// abstract interface a parse engine exposes to its clients.
 class ParseEngine {
  public:
   virtual ~ParseEngine();
@@ -89,7 +89,7 @@ class ParseEngine {
   // @param fail_on_module_conflict A flag denoting whether to abort on
   //     conflicting module information. In ETW traces, for example, we
   //     sometimes get conflicting module information if background
-  //     processas are actively coming a going. In RPC traces, we should
+  //     processes are actively coming and going. In RPC traces, we should
   //     never get conflicting module information.
   ParseEngine(const char* const name, bool fail_on_module_conflict);
 
@@ -210,7 +210,7 @@ class ParseEngine {
   // For each process, we store its point of view of the world.
   ProcessMap processes_;
 
-  // Flag indicating whether or not an error has occured in parsing the trace
+  // Flag indicating whether or not an error has occurred in parsing the trace
   // event stream.
   bool error_occurred_;
 

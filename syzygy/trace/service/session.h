@@ -168,7 +168,7 @@ class Session : public base::RefCountedThreadSafe<Session> {
   virtual bool AllocateBuffers(size_t num_buffers, size_t buffer_size);
 
   // Allocates a buffer for immediate use, not releasing it to the common buffer
-  // pool and signalling its availability.
+  // pool and signaling its availability.
   // @param minimum_size the minimum size of the buffer.
   // @param out_buffer will be set to point to the newly allocated buffer.
   // @pre Under lock_.

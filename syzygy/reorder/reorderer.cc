@@ -374,9 +374,8 @@ bool Reorderer::ReorderImpl(Order* order,
   DCHECK(order != NULL);
   DCHECK(order_generator_ != NULL);
 
-   if (!parser_.Init(this)) {
+  if (!parser_.Init(this)) {
     LOG(ERROR) << "Failed to initialize call trace parser.";
-
     return false;
   }
 

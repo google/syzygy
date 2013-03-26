@@ -87,7 +87,7 @@ bool FindEntryCountMap(const pe::PEFile::Signature& signature,
 
 // A helper function to populate @p bb_ranges from the PDB file given by
 // @p pdb_path.
-// @returns true on successs, false otherwise.
+// @returns true on success, false otherwise.
 bool LoadBasicBlockRanges(const FilePath& pdb_path,
                           RelativeAddressRangeVector* bb_ranges);
 

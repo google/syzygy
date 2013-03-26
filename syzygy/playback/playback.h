@@ -57,7 +57,7 @@ class Playback {
 
   ~Playback();
 
-  // Initalizes the playback class and decomposes the given image.
+  // Initializes the playback class and decomposes the given image.
   // This function is virtual to aid testing of classes that may own Playback.
   // @param pe_file The PE file to be initialized.
   // @param image The image that will receive the decomposed module.

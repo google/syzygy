@@ -43,7 +43,7 @@ using grinder::basic_block_util::RelativeAddressRangeVector;
 using grinder::BasicBlockEntryCountSerializer;
 
 static const char kUsageFormatStr[] =
-    "Usage: %s [options] [log files ...]\n"
+    "Usage: %ls [options] [log files ...]\n"
     "  Required Options:\n"
     "    --instrumented-image=<path> the path to the instrumented image file.\n"
     "    --output-file=<path> the output file.\n"
@@ -336,7 +336,7 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
     return false;
   }
 
-  // Optimize the ordering for at the basic-block level.
+  // Optimize the ordering at the basic-block level.
   BasicBlockOptimizer optimizer;
   if (!optimizer.Optimize(image_layout, *entry_counts, order)) {
     LOG(ERROR) << "Failed to optimize basic-block ordering.";

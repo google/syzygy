@@ -211,7 +211,7 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockOrderings(
   // Here's an outline for a potential improvement:
   //     1. Set the first bb aside.
   //     2. Find the bb with the largest entry_count, then expand out from
-  //        there by surrounding it with its largest predeccessor and
+  //        there by surrounding it with its largest predecessor and
   //        successor. Continuing expanding on both ends until there are no
   //        more successor/predecessor links to follow.
   //     3. If there are unplaced basic blocks, goto 2. This will create as
@@ -604,7 +604,7 @@ bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
     Order::BlockSpecVector warm_block_specs;
     Order::BlockSpecVector cold_block_specs;
 
-    // Get the collection of warm and cold block spect for this section.
+    // Get the collection of warm and cold block spec for this section.
     if (!OptimizeSection(image_layout,
                          entry_counts,
                          explicit_blocks,

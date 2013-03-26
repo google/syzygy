@@ -360,7 +360,7 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
     return false;
 
   // If you're seeing this error message it's because the process was unable
-  // to initialize an RPC sesion, and the state of the
+  // to initialize an RPC session, and the state of the
   // SYZYGY_RPC_SESSION_MANDATORY environment variable indicated that it was
   // required. Make sure the call-trace service is running with the appropriate
   // instance ID!

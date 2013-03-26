@@ -102,7 +102,7 @@ class Parser {
   const ModuleInformation* GetModuleInformation(uint32 process_id,
                                                 AbsoluteAddress64 addr) const;
 
-  // Cose all currently open trace files.
+  // Close all currently open trace files.
   bool Close();
 
  private:
