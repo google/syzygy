@@ -24,6 +24,7 @@
 #include "base/utf_string_conversions.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace agent {
@@ -187,9 +188,8 @@ void AsanRuntime::SetUpLogger() {
   CHECK(client.get() != NULL);
 
   // Initialize the client.
-  std::string instance_id;
-  if (env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id))
-    client->set_instance_id(UTF8ToWide(instance_id));
+  client->set_instance_id(
+      UTF8ToWide(trace::client::GetInstanceIdForThisModule()));
   client->Init();
 
   // Register the client singleton instance.

@@ -18,7 +18,9 @@
 
 #include "base/environment.h"
 #include "base/string_number_conversions.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace testing {
@@ -34,12 +36,16 @@ void TestWithAsanLogger::SetUp() {
   log_file_.reset(file_util::OpenFile(log_file_path_, "wb"));
 
   // Configure the environment (to pass the instance id to the agent DLL).
-  std::string instance_id = base::UintToString(::GetCurrentProcessId());
+  std::string instance_id;
   scoped_ptr<base::Environment> env(base::Environment::Create());
+  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id);
+  instance_id.append(base::StringPrintf(";%ls,%u",
+                                        agent::asan::AsanRuntime::SyzyAsanDll(),
+                                        ::GetCurrentProcessId()));
   env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
 
   // Configure and start the log service.
-  instance_id_ = UTF8ToWide(instance_id);
+  instance_id_ = base::UintToString16(::GetCurrentProcessId());
   log_service_.set_instance_id(instance_id_);
   log_service_.set_destination(log_file_.get());
   ASSERT_TRUE(log_service_.Start());

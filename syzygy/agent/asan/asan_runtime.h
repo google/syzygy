@@ -68,6 +68,9 @@ class AsanRuntime {
     DCHECK(stack_cache_.get() != NULL);
     return stack_cache_.get();
   }
+  static const wchar_t* SyzyAsanDll() {
+    return kSyzyAsanDll;
+  }
   // @}
 
   // Initialize asan runtime library.
