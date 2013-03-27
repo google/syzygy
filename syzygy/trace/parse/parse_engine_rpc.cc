@@ -23,6 +23,7 @@
 #include "syzygy/trace/parse/parse_utils.h"
 
 using common::AlignUp;
+using common::AlignUp64;
 
 namespace trace {
 namespace parser {
@@ -173,12 +174,12 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
                                    &system_info);
 
   // Consume the body of the trace file.
-  size_t next_segment = AlignUp(file_header->header_size,
-                                file_header->block_size);
+  uint64 next_segment = AlignUp64(file_header->header_size,
+                                  file_header->block_size);
   scoped_ptr_malloc<uint8> buffer;
   size_t buffer_size = 0;
   while (true) {
-    if (::fseek(trace_file.get(), next_segment, SEEK_SET) != 0) {
+    if (::_fseeki64(trace_file.get(), next_segment, SEEK_SET) != 0) {
       LOG(ERROR) << "Failed to seek segment boundary " << next_segment << ".";
       return false;
     }
@@ -233,7 +234,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
       return false;
     }
 
-    next_segment = AlignUp(
+    next_segment = AlignUp64(
         next_segment + sizeof(segment_prefix) + sizeof(segment_header) +
             segment_header.segment_length,
         file_header->block_size);

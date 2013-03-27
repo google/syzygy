@@ -17,6 +17,8 @@
 #ifndef SYZYGY_COMMON_ALIGN_H_
 #define SYZYGY_COMMON_ALIGN_H_
 
+#include "base/basictypes.h"
+
 namespace common {
 
 // @returns true iff @p value is a power of two.
@@ -39,6 +41,27 @@ size_t AlignDown(size_t value, size_t alignment);
 // @pre alignment != 0.
 // @returns true iff value is an even multiple of alignment.
 bool IsAligned(size_t value, size_t alignment);
+
+// @returns true iff @p value is a power of two.
+bool IsPowerOfTwo64(uint64 value);
+
+// @param value the value to round up.
+// @param alignment the alignment boundary to round @p value up to.
+// @pre alignment != 0.
+// @returns @p value rounded up to the nearest higher multiple of @p alignment.
+uint64 AlignUp64(uint64 value, uint64 alignment);
+
+// @param value the value to round up.
+// @param alignment the alignment boundary to round @p value up to.
+// @pre alignment != 0.
+// @returns @p value rounded down to the nearest lower multiple of @p alignment.
+uint64 AlignDown64(uint64 value, uint64 alignment);
+
+// @param value the value to test.
+// @param alignment the alignment boundary to test.
+// @pre alignment != 0.
+// @returns true iff value is an even multiple of alignment.
+bool IsAligned64(uint64 value, uint64 alignment);
 
 }  // namespace common
 

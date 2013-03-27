@@ -46,4 +46,32 @@ bool IsAligned(size_t value, size_t alignment) {
   return AlignDown(value, alignment) == value;
 }
 
+bool IsPowerOfTwo64(uint64 value) {
+  return value != 0 && (value & (value - 1)) == 0;
+}
+
+uint64 AlignUp64(uint64 value, uint64 alignment) {
+  DCHECK(alignment != 0);
+
+  if (IsPowerOfTwo64(alignment)) {
+    return (value + alignment - 1) & ~(alignment - 1);
+  } else {
+    return ((value + alignment - 1) / alignment) * alignment;
+  }
+}
+
+uint64 AlignDown64(uint64 value, uint64 alignment) {
+  DCHECK(alignment != 0);
+
+  if (IsPowerOfTwo64(alignment)) {
+    return value & ~(alignment - 1);
+  } else {
+    return (value / alignment) * alignment;
+  }
+}
+
+bool IsAligned64(uint64 value, uint64 alignment) {
+  return AlignDown64(value, alignment) == value;
+}
+
 }  // namespace common
