@@ -36,6 +36,7 @@ class TestAsanRuntime : public AsanRuntime {
   using AsanRuntime::AsanFlags;
   using AsanRuntime::kBottomFramesToSkip;
   using AsanRuntime::kCompressionReportingPeriod;
+  using AsanRuntime::kExitOnFailure;
   using AsanRuntime::kIgnoredStackIds;
   using AsanRuntime::kQuarantineSize;
   using AsanRuntime::kSyzyAsanEnvVar;
@@ -156,6 +157,33 @@ TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
+}
+
+TEST_F(AsanRuntimeTest, SetExitOnFailure) {
+  current_command_line_.AppendSwitch(TestAsanRuntime::kExitOnFailure);
+
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure_);
+}
+
+TEST_F(AsanRuntimeTest, ExitOnFailure) {
+  current_command_line_.AppendSwitch(TestAsanRuntime::kExitOnFailure);
+
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure_);
+  CONTEXT context = {};
+  RtlCaptureContext(&context);
+
+  // We need to delete the files and directory created by this unittest because
+  // the EXPECT_EXIT macro will clone the process and this new process will exit
+  // after the call to OnError, without calling the destructor of this class
+  // (who takes care of deleting the temporary files/directories).
+  DeleteTempFileAndDirectory();
+  EXPECT_EXIT(asan_runtime_.OnError(&context),
+              ::testing::ExitedWithCode(EXIT_FAILURE), "");
 }
 
 TEST_F(AsanRuntimeTest, IgnoredStackIds) {

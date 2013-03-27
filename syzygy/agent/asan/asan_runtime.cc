@@ -37,7 +37,6 @@ using agent::asan::StackCaptureCache;
 
 // The default error handler.
 // @param context The context when the error has been reported.
-// @param stack_id The id of the crash stack trace.
 void OnAsanError(CONTEXT* context) {
   ::DebugBreak();
   ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
@@ -110,15 +109,16 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
 
 }  // namespace
 
-const char AsanRuntime::kSyzyAsanEnvVar[] = "ASAN_OPTIONS";
+const char AsanRuntime::kSyzyAsanEnvVar[] = "SYZYGY_ASAN_OPTIONS";
 
 const char AsanRuntime::kBottomFramesToSkip[] =
     "bottom_frames_to_skip";
-const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const char AsanRuntime::kCompressionReportingPeriod[] =
     "compression_reporting_period";
-const char AsanRuntime::kMaxNumberOfFrames[] = "max_num_frames";
+const char AsanRuntime::kExitOnFailure[] = "exit_on_failure";
 const char AsanRuntime::kIgnoredStackIds[] = "ignored_stack_ids";
+const char AsanRuntime::kMaxNumberOfFrames[] = "max_num_frames";
+const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
 
 AsanRuntime::AsanRuntime()
@@ -166,6 +166,10 @@ void AsanRuntime::TearDown() {
 
 void AsanRuntime::OnError(CONTEXT* context) {
   DCHECK(context != NULL);
+
+  if (flags_.exit_on_failure_)
+    exit(EXIT_FAILURE);
+
   // Call the callback to handle this error.
   DCHECK_EQ(false, asan_error_callback_.is_null());
   asan_error_callback_.Run(context);
@@ -264,6 +268,9 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
                << "argument list.";
     return false;
   }
+
+  // Parse the exit on failure flag.
+  flags_.exit_on_failure_ = cmd_line.HasSwitch(kExitOnFailure);
 
   return true;
 }

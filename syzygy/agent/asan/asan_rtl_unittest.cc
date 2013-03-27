@@ -120,7 +120,6 @@ class AsanRtlTest : public testing::TestWithAsanLogger {
   void AllocMemoryBuffers(int32 length, int32 element_size);
   void FreeMemoryBuffers();
 
- protected:
   // The ASAN runtime module to test.
   HMODULE asan_rtl_;
 
@@ -220,7 +219,7 @@ void CheckAccessAndCaptureContexts(
     mov esi, 0xCCAACCAA
     mov edi, 0xAACCAACC
 
-    RTL_CAPTURE_CONTEXT(before, expected_eip)
+    RTL_CAPTURE_CONTEXT(before, check_access_expected_eip)
 
     // Push EDX as we're required to do by the custom calling convention.
     push edx
@@ -228,9 +227,9 @@ void CheckAccessAndCaptureContexts(
     mov edx, location
     // Call through.
     call dword ptr[check_access_fn + 0]
-expected_eip:
+check_access_expected_eip:
 
-    RTL_CAPTURE_CONTEXT(after, expected_eip)
+    RTL_CAPTURE_CONTEXT(after, check_access_expected_eip)
 
     popfd
     popad
@@ -258,7 +257,7 @@ void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
     cmp direction_flag_forward, 0
     jne skip_reverse_direction
     std
-  skip_reverse_direction:
+skip_reverse_direction:
 
     // Avoid undefined behavior by forcing values.
     mov eax, 0x01234567
@@ -270,13 +269,13 @@ void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
     mov esi, src
     mov edi, dst
 
-    RTL_CAPTURE_CONTEXT(before, expected_eip)
+    RTL_CAPTURE_CONTEXT(before, special_access_expected_eip)
 
     // Call through.
     call dword ptr[check_access_fn + 0]
-expected_eip:
+special_access_expected_eip:
 
-    RTL_CAPTURE_CONTEXT(after, expected_eip)
+    RTL_CAPTURE_CONTEXT(after, special_access_expected_eip)
 
     popfd
     popad
@@ -302,6 +301,10 @@ void AsanErrorCallback(CONTEXT* context) {
   ExpectEqualContexts(*context_before_hook,
                       *context,
                       CONTEXT_INTEGER | CONTEXT_CONTROL);
+}
+
+void AsanErrorCallbackWithoutComparingContext(CONTEXT* context) {
+  memory_error_detected = true;
 }
 
 void AssertMemoryErrorIsDetected(void* ptr) {
@@ -347,7 +350,7 @@ TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
-TEST_F(AsanRtlTest, AsanCheckBadAccess) {
+TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
   check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
@@ -356,16 +359,67 @@ TEST_F(AsanRtlTest, AsanCheckBadAccess) {
       HeapAllocFunction(heap_, 0, kAllocSize));
   ASSERT_TRUE(mem != NULL);
 
-  CONTEXT context_before_error = {};
-  context_before_hook = &context_before_error;
+  SetCallBackFunction(&AsanErrorCallback);
+  AssertMemoryErrorIsDetected(mem + kAllocSize);
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  EXPECT_TRUE(LogContains("previously allocated here"));
+  EXPECT_TRUE(LogContains("heap-buffer-overflow"));
+}
+
+TEST_F(AsanRtlTest, AsanCheckHeapBufferUnderflow) {
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  const size_t kAllocSize = 13;
+  uint8* mem = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem != NULL);
+
   SetCallBackFunction(&AsanErrorCallback);
   AssertMemoryErrorIsDetected(mem - 1);
-  AssertMemoryErrorIsDetected(mem + kAllocSize);
-  ASSERT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  EXPECT_TRUE(LogContains("previously allocated here"));
+  EXPECT_TRUE(LogContains("heap-buffer-underflow"));
+}
+
+TEST_F(AsanRtlTest, AsanCheckUseAfterFree) {
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  const size_t kAllocSize = 13;
+  uint8* mem = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem != NULL);
+
+  SetCallBackFunction(&AsanErrorCallback);
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
   AssertMemoryErrorIsDetected(mem);
-  ASSERT_TRUE(LogContains("heap-buffer-underflow"));
-  ASSERT_TRUE(LogContains("heap-buffer-overflow"));
-  ASSERT_TRUE(LogContains("heap-use-after-free"));
+  EXPECT_TRUE(LogContains("previously allocated here"));
+  EXPECT_TRUE(LogContains("freed here"));
+  EXPECT_TRUE(LogContains("use-after-free"));
+}
+
+TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  const size_t kAllocSize = 13;
+  uint8* mem = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem != NULL);
+
+  CONTEXT context_before_error = {};
+  context_before_hook = &context_before_error;
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  EXPECT_FALSE(HeapFreeFunction(heap_, 0, mem));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains("attempting double-free"));
+  EXPECT_TRUE(LogContains("previously allocated here"));
+  EXPECT_TRUE(LogContains("freed here"));
 }
 
 void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {

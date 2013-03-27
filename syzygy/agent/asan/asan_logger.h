@@ -38,6 +38,9 @@ class AsanLogger {
   // Initialize the logger.
   void Init();
 
+  // Stop the logger.
+  void Stop();
+
   // Write a @p message to the logger.
   void Write(const std::string& message);
 

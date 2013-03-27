@@ -16,6 +16,8 @@
 
 #include <string>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/environment.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
@@ -35,42 +37,55 @@ namespace asan {
 
 namespace {
 
+using testing::Return;
+
 class TestAsanLogger : public AsanLogger {
  public:
   using AsanLogger::instance_id_;
   using AsanLogger::rpc_binding_;
 };
 
+class AsanLoggerTest : public testing::Test {
+ public:
+  AsanLoggerTest() {
+    EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
+    temp_path_ = temp_dir_.path().Append(L"log.txt");
+
+    // Setup the instance id.
+    instance_id_ = base::StringPrintf(L"%d", ::GetCurrentProcessId());
+  }
+
+  MOCK_METHOD1(LoggerStoppedCallback, bool(trace::logger::Logger*));
+
+ protected:
+  ScopedTempDir temp_dir_;
+  FilePath temp_path_;
+  std::wstring instance_id_;
+  TestAsanLogger client_;
+};
+
 }  // namespace
 
-TEST(AsanLoggerTest, EndToEnd) {
-  // Setup the instance id.
-  std::wstring instance_id(base::StringPrintf(L"%d", ::GetCurrentProcessId()));
-
-  // The location to which we'll write log messages.
-  ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  FilePath temp_path(temp_dir.path().Append(L"log.txt"));
+TEST_F(AsanLoggerTest, EndToEnd) {
   const std::string kMessage("This is the test message\n");
 
   {
     // Setup a log file destination.
-    file_util::ScopedFILE destination(file_util::OpenFile(temp_path, "wb"));
+    file_util::ScopedFILE destination(file_util::OpenFile(temp_path_, "wb"));
 
     // Start up the logging service.
     trace::logger::Logger server;
     trace::logger::RpcLoggerInstanceManager instance_manager(&server);
-    server.set_instance_id(instance_id);
+    server.set_instance_id(instance_id_);
     server.set_destination(destination.get());
     ASSERT_TRUE(server.Start());
 
-    // Create and use the AsanLogger client.
-    TestAsanLogger client;
-    client.set_instance_id(instance_id);
-    client.Init();
-    ASSERT_EQ(instance_id, client.instance_id_);
-    ASSERT_TRUE(client.rpc_binding_.Get() != NULL);
-    client.Write(kMessage);
+    // Use the AsanLogger client.
+    client_.set_instance_id(instance_id_);
+    client_.Init();
+    ASSERT_EQ(instance_id_, client_.instance_id_);
+    ASSERT_TRUE(client_.rpc_binding_.Get() != NULL);
+    client_.Write(kMessage);
 
     // Shutdown the logging service.
     ASSERT_TRUE(server.Stop());
@@ -78,8 +93,34 @@ TEST(AsanLoggerTest, EndToEnd) {
   }
 
   std::string content;
-  ASSERT_TRUE(file_util::ReadFileToString(temp_path, &content));
+  ASSERT_TRUE(file_util::ReadFileToString(temp_path_, &content));
   ASSERT_THAT(content, testing::EndsWith(kMessage));
+}
+
+TEST_F(AsanLoggerTest, Stop) {
+  // Setup a log file destination.
+  file_util::ScopedFILE destination(file_util::OpenFile(temp_path_, "wb"));
+
+  // Start up the logging service.
+  trace::logger::Logger server;
+  trace::logger::RpcLoggerInstanceManager instance_manager(&server);
+  server.set_instance_id(instance_id_);
+  server.set_destination(destination.get());
+  ASSERT_TRUE(server.Start());
+
+  // Use the AsanLogger client.
+  client_.set_instance_id(instance_id_);
+  client_.Init();
+  ASSERT_EQ(instance_id_, client_.instance_id_);
+  ASSERT_TRUE(client_.rpc_binding_.Get() != NULL);
+
+  EXPECT_CALL(*this, LoggerStoppedCallback(&server)).Times(1).
+      WillOnce(Return(true));
+  server.set_logger_stopped_callback(
+      base::Bind(&AsanLoggerTest::LoggerStoppedCallback,
+                  base::Unretained(this)));
+  client_.Stop();
+  ASSERT_TRUE(server.RunToCompletion());
 }
 
 }  // namespace asan

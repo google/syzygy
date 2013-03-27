@@ -55,11 +55,17 @@ void TestWithAsanLogger::TearDown() {
 }
 
 bool TestWithAsanLogger::LogContains(const base::StringPiece& message) {
-  if (!log_contents_read_) {
+  if (!log_contents_read_ && log_file_.get() != NULL) {
     std::string contents;
     CHECK(file_util::ReadFileToString(log_file_path_, &log_contents_));
   }
   return log_contents_.find(message.as_string()) != std::string::npos;
+}
+
+void TestWithAsanLogger::DeleteTempFileAndDirectory() {
+  log_file_.reset();
+  if (temp_dir_.IsValid())
+    temp_dir_.Delete();
 }
 
 }  // namespace testing

@@ -93,6 +93,14 @@ void AsanLogger::Init() {
   }
 }
 
+void AsanLogger::Stop() {
+  if (rpc_binding_.Get() != NULL) {
+    trace::client::InvokeRpc(
+        &LoggerClient_Stop,
+        rpc_binding_.Get());
+  }
+}
+
 void AsanLogger::Write(const std::string& message) {
   // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {

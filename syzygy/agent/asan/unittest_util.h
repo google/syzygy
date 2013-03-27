@@ -46,6 +46,9 @@ class TestWithAsanLogger : public testing::Test {
 
   bool LogContains(const base::StringPiece& message);
 
+  // Delete the temporary file used for the logging and its directory.
+  void DeleteTempFileAndDirectory();
+
  private:
   // The log service instance.
   trace::logger::Logger log_service_;
