@@ -565,7 +565,8 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     // current instrumented instruction into newly created instructions. This is
     // a hack to allow valid stack walking and better error reporting, but
     // breaks the 1:1 OMAP mapping and may confuse some debuggers.
-    bb_asm.set_source_range(instr.source_range());
+    if (debug_friendly_)
+      bb_asm.set_source_range(instr.source_range());
 
     // Insert hook for standard instructions.
     AsanHookMap::iterator hook = check_access_hooks_->find(info);

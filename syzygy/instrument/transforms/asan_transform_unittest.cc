@@ -197,6 +197,12 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   // Add a write access to the memory.
   bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
 
+  // Add source ranges to the instruction.
+  block_graph::Instruction& i1 = *basic_block_.instructions().begin();
+  Instruction::SourceRange source_range =
+      Instruction::SourceRange(RelativeAddress(1000), i1.size());
+  i1.set_source_range(source_range);
+
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
@@ -214,10 +220,17 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   BasicBlock::Instructions::const_iterator iter_inst =
       basic_block_.instructions().begin();
 
+  Instruction::SourceRange empty_source_range;
+  ASSERT_TRUE(empty_source_range != source_range);
+
   // First we check if the first memory access is instrumented as a 4 byte read
-  // access.
+  // access. We also validate that the instrumentation has not had source range
+  // information added.
+  ASSERT_EQ(empty_source_range, iter_inst->source_range());
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
+  ASSERT_EQ(empty_source_range, iter_inst->source_range());
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
+  ASSERT_EQ(empty_source_range, iter_inst->source_range());
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_read_key =
       { AsanBasicBlockTransform::kReadAccess, 4, 0 };
