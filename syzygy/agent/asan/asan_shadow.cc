@@ -133,11 +133,5 @@ void Shadow::AppendShadowMemoryText(const void* addr,
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
 
-void Shadow::PrintShadowMemoryForAddress(const void* addr) {
-  std::string output;
-  AppendShadowMemoryText(addr, &output);
-  fprintf(stderr, "%s", output.c_str());
-}
-
 }  // namespace asan
 }  // namespace agent

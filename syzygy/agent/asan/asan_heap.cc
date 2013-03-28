@@ -390,7 +390,6 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
 
     if (!OnBadAccess(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0)) {
       ReportUnknownError(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0);
-      Shadow::PrintShadowMemoryForAddress(alloc);
     }
     return NULL;
   }

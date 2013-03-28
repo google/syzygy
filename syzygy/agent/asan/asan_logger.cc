@@ -52,25 +52,12 @@ void InitExecutionContext(const CONTEXT& rtl_context,
   exc_context->seg_ss = rtl_context.SegSs;
 }
 
-void LogToFile(FILE* dest,
-               const std::string& message,
-               const base::debug::StackTrace* trace) {
-  const char* format_str =  "%s%s";
-  if (!message.empty() && message.back() != '\n')
-    format_str = "%s\n%s";
-  ::fprintf(dest,
-            format_str,
-            message.c_str(),
-            trace == NULL ? "" : trace->ToString().c_str());
-}
-
 }  // namespace
 
 AsanLogger::AsanLogger() {
 }
 
 void AsanLogger::Init() {
-  base::RouteStdioToConsole();
   bool success = rpc_binding_.Open(
       kLoggerRpcProtocol,
       GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
@@ -108,8 +95,6 @@ void AsanLogger::Write(const std::string& message) {
         &LoggerClient_Write,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()));
-  } else {
-    LogToFile(stderr, message, NULL);
   }
 }
 
@@ -124,13 +109,6 @@ void AsanLogger::WriteWithContext(const std::string& message,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()),
         &exec_context);
-  } else {
-    // Otherwise, log to stderr.
-    EXCEPTION_RECORD dummy_exc_record = {};
-    CONTEXT context_copy = context;
-    EXCEPTION_POINTERS pointers = { &dummy_exc_record, &context_copy };
-    base::debug::StackTrace trace(&pointers);
-    LogToFile(stderr, message, &trace);
   }
 }
 
@@ -145,10 +123,6 @@ void AsanLogger::WriteWithStackTrace(const std::string& message,
         reinterpret_cast<const unsigned char*>(message.c_str()),
         reinterpret_cast<const DWORD*>(trace_data),
         trace_length);
-  } else {
-    // Otherwise, log to stderr.
-    base::debug::StackTrace trace(trace_data, trace_length);
-    LogToFile(stderr, message, &trace);
   }
 }
 

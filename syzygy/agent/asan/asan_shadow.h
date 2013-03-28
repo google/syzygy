@@ -49,9 +49,6 @@ class Shadow {
   // Returns true iff the byte at @p addr is not poisoned.
   static bool IsAccessible(const void* addr);
 
-  // Print the contents of the shadow memory for @p addr.
-  static void PrintShadowMemoryForAddress(const void* addr);
-
   // Appends a textual description of the shadow memory for @p addr to
   // @p output.
   static void AppendShadowMemoryText(const void* addr, std::string* output);
