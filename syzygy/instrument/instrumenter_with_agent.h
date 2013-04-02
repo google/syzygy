@@ -20,14 +20,24 @@
 #ifndef SYZYGY_INSTRUMENT_INSTRUMENTER_WITH_AGENT_H_
 #define SYZYGY_INSTRUMENT_INSTRUMENTER_WITH_AGENT_H_
 
+#include <string>
+
 #include "base/command_line.h"
 #include "syzygy/instrument/instrumenter.h"
+#include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
 
 class InstrumenterWithAgent : public InstrumenterInterface {
  public:
-  InstrumenterWithAgent() { }
+  InstrumenterWithAgent()
+      : allow_overwrite_(false),
+        new_decomposer_(false),
+        no_augment_pdb_(false),
+        no_parse_debug_info_(false),
+        no_strip_strings_(false) {
+  }
+
   ~InstrumenterWithAgent() { }
 
   // @name InstrumenterInterface implementation.
@@ -43,9 +53,33 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   }
   // @}
 
- private:
+ protected:
+  // Template method that does the actual instrumentation for a given agent.
+  // This function is meant to be called by the Instrument function.
+  // @note The implementation should log on failure.
+  virtual bool InstrumentImpl() = 0;
+
+  // @name Internal machinery, replaceable for testing purposes.
+  // @{
+  virtual pe::PERelinker* GetRelinker();
+  scoped_ptr<pe::PERelinker> relinker_;
+  // @}
+
   // The agent DLL used by this instrumentation.
   std::string agent_dll_;
+
+  // @name Command-line parameters.
+  // @{
+  FilePath input_dll_path_;
+  FilePath input_pdb_path_;
+  FilePath output_dll_path_;
+  FilePath output_pdb_path_;
+  bool allow_overwrite_;
+  bool new_decomposer_;
+  bool no_augment_pdb_;
+  bool no_parse_debug_info_;
+  bool no_strip_strings_;
+  // @}
 };
 
 }  // namespace instrument
