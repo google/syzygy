@@ -2097,6 +2097,14 @@ bool Decomposer::CreateCodeReferencesForBlock(BlockGraph::Block* block) {
   GetDisassemblyStartingPoints(block, abs_block_addr, reloc_set_,
                                &starting_points);
 
+  // If the block has no starting points, then it has no private symbols and
+  // is not BB safe. We mark the block as not safe for basic-block disassembly.
+  if (starting_points.empty() &&
+      (block->attributes() & BlockGraph::GAP_BLOCK) == 0) {
+    VLOG(1) << "Block \"" << block->name() << "\" has no private symbols.";
+    block->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
+  }
+
   // Determine whether or not we are being strict during disassembly.
   bool strict = block_graph::CodeBlockAttributesAreBasicBlockSafe(block);
   be_strict_with_current_block_ = strict;

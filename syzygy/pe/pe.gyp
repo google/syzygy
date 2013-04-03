@@ -201,6 +201,18 @@
       ],
     },
     {
+      'target_name': 'test_dll_no_private_symbols',
+      'type': 'static_library',
+      'sources': [
+        'test_dll_no_private_symbols.cc',
+      ],
+      'msvs_settings': {
+        'VCCLCompilerTool': {
+          'DebugInformationFormat': 0,  # No debug information.
+        },
+      },
+    },
+    {
       'target_name': 'test_dll',
       'type': 'loadable_module',
       'includes': ['../build/masm.gypi'],
@@ -212,6 +224,7 @@
       ],
       'dependencies': [
         'export_dll',
+        'test_dll_no_private_symbols',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

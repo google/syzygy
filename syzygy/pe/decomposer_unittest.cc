@@ -234,6 +234,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   const BlockGraph::Block* func_with_inl_asm_block = NULL;
   const BlockGraph::Block* strchr_block = NULL;
   const BlockGraph::Block* imp_load_block = NULL;
+  const BlockGraph::Block* no_private_symbols_block = NULL;
 
   {
     typedef std::map<std::string, const BlockGraph::Block**> TestBlockMap;
@@ -245,6 +246,8 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     test_blocks.insert(std::make_pair("found_bx", &strchr_block));
     test_blocks.insert(std::make_pair("__imp_load_CoInitialize",
                                       &imp_load_block));
+    test_blocks.insert(std::make_pair("TestFunctionWithNoPrivateSymbols",
+                                      &no_private_symbols_block));
 
     BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
     for (; it != block_graph.blocks().end(); ++it) {
@@ -258,6 +261,17 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
       *test_it->second = &block;
     }
   }
+
+  // The block with no private symbols should be marked as ERRORED_DISASSEMBLY,
+  // and only have a single public symbol label.
+  ASSERT_FALSE(no_private_symbols_block == NULL);
+  EXPECT_TRUE(no_private_symbols_block->attributes() &
+      BlockGraph::ERRORED_DISASSEMBLY);
+  EXPECT_EQ(1u, no_private_symbols_block->labels().size());
+  BlockGraph::Block::LabelMap::const_iterator label_it =
+      no_private_symbols_block->labels().begin();
+  EXPECT_EQ(0, label_it->first);
+  EXPECT_EQ(BlockGraph::PUBLIC_SYMBOL_LABEL, label_it->second.attributes());
 
   // The __imp_load__ block should be a thunk.
   ASSERT_FALSE(imp_load_block == NULL);

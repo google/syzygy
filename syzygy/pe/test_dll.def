@@ -29,3 +29,6 @@ EXPORTS
   BringInOle32DelayLib PRIVATE
   TestUnusedFuncs
   LabelTestFunc
+  ; This export is simply to make sure that the following function is included
+  ; in the library, and has a public symbol record.
+  TestFunctionWithNoPrivateSymbols

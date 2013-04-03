@@ -157,7 +157,8 @@ TEST_F(PEFileTest, ReadImage) {
                 name1 == "TestUnusedFuncs" ||
                 name1 == "TestExport" ||
                 name1 == "LabelTestFunc" ||
-                name1 == "BringInOle32DelayLib");
+                name1 == "BringInOle32DelayLib" ||
+                name1 == "TestFunctionWithNoPrivateSymbols");
 
     std::string name2;
     AbsoluteAddress abs_addr;
@@ -289,6 +290,7 @@ TEST_F(PEFileTest, DecodeExports) {
     { RelativeAddress(0), "TestExport", "", 3 },
     { RelativeAddress(0), "TestUnusedFuncs", "", 4 },
     { RelativeAddress(0), "LabelTestFunc", "", 5 },
+    { RelativeAddress(0), "TestFunctionWithNoPrivateSymbols", "", 6 },
     { RelativeAddress(0), "DllMain", "", 7 },
     { RelativeAddress(0), "function3", "", 9 },
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },
