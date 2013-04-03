@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_runtime.h"
@@ -249,7 +250,7 @@ BOOL WINAPI asan_HeapQueryInformation(
 
 void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*)) {
   DCHECK(asan_runtime != NULL);
-  asan_runtime->SetErrorCallBack(callback);
+  asan_runtime->SetErrorCallBack(base::Bind(callback));
 }
 
 }  // extern "C"

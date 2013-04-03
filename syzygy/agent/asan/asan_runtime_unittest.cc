@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/asan/asan_runtime.h"
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/string_number_conversions.h"
@@ -88,7 +89,7 @@ TEST_F(AsanRuntimeTest, SetUpAndTearDown) {
 TEST_F(AsanRuntimeTest, OnError) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  asan_runtime_.SetErrorCallBack(&TestCallback);
+  asan_runtime_.SetErrorCallBack(base::Bind(&TestCallback));
   callback_called = false;
   CONTEXT context;
   RtlCaptureContext(&context);

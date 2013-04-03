@@ -55,6 +55,9 @@ class AsanRuntime {
  public:
   typedef std::set<StackCapture::StackId> StackIdSet;
 
+  // The type of callback used by the OnError function.
+  typedef base::Callback<void(CONTEXT*)> AsanOnErrorCallBack;
+
   AsanRuntime();
   ~AsanRuntime();
 
@@ -87,7 +90,7 @@ class AsanRuntime {
   // Set the callback called on error.
   // TODO(sebmarchand): Move the signature of this callback to an header file
   //     so it'll be easier to update it.
-  void SetErrorCallBack(void (*callback)(CONTEXT*));
+  void SetErrorCallBack(const AsanOnErrorCallBack& callback);
 
   // Try to read the Asan environment variable.
   // @param env_var_wstr The wstring where to store the environment variable.
@@ -181,9 +184,6 @@ class AsanRuntime {
   void PropagateFlagsValues() const;
 
  private:
-  // The type of callback used by the OnError function.
-  typedef base::Callback<void(CONTEXT*)> AsanOnErrorCallBack;
-
   // Set up the logger.
   void SetUpLogger();
 

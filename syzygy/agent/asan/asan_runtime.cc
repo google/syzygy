@@ -22,6 +22,7 @@
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/strings/string_tokenizer.h"
+#include "base/win/wrapped_window_proc.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/trace/client/client_utils.h"
@@ -35,12 +36,67 @@ namespace {
 using agent::asan::AsanLogger;
 using agent::asan::HeapProxy;
 using agent::asan::StackCaptureCache;
+using base::win::WinProcExceptionFilter;
 
-// The default error handler.
+// Returns the breakpad crash reporting function if breakpad is enabled for
+// the current executable; NULL otherwise.
+//
+// If we're running in the context of a breakpad enabled binary we can
+// report errors directly via that breakpad entry-point. This allows us
+// to report the exact context of the error without including the asan_rtl
+// in crash context, depending on where and when we capture the context.
+WinProcExceptionFilter GetBreakpadReportingFunc() {
+  // The named entry-point exposed by breakpad to generate a crash.
+  static const char kCrashHandlerSymbol[] = "CrashForException";
+
+  // Lookup the crash handler symbol in the current executable.
+  WinProcExceptionFilter func_ptr =
+      reinterpret_cast<WinProcExceptionFilter>(
+          ::GetProcAddress(::GetModuleHandle(NULL), kCrashHandlerSymbol));
+
+  // If this is NULL then we didn't find one, and breakpad is not available.
+  return func_ptr;
+}
+
+// The default error handler. It is expected that this will be bound in a
+// callback in the ASAN runtime.
+// @param func_ptr A pointer to the breakpad error reporting function. This
+//     will be used to perform the error reporting.
 // @param context The context when the error has been reported.
-void OnAsanError(CONTEXT* context) {
+void BreakpadErrorHandler(WinProcExceptionFilter func_ptr, CONTEXT* context) {
+  DCHECK(func_ptr != NULL);
+  DCHECK(context != NULL);
+
+  // TODO(rogerm): Accept and capture the asan error information (error type,
+  //     alloc/free stacks, etc) and add it to the exception parameters.
+  EXCEPTION_RECORD exception = {};
+  exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+  exception.ExceptionAddress = reinterpret_cast<PVOID>(context->Eip);
+  exception.NumberParameters = 1;
+  exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(context);
+
+  EXCEPTION_POINTERS pointers = { &exception, context };
+  func_ptr(&pointers);
+  NOTREACHED();
+}
+
+// The default error handler. It is expected that this will be bound in a
+// callback in the ASAN runtime.
+// @param context The context when the error has been reported.
+void DefaultErrorHandler(CONTEXT* context) {
+  DCHECK(context != NULL);
+
+  // TODO(rogerm): Accept and capture the asan error information (error type,
+  //     alloc/free stacks, etc) and add it to the exception arguments.
+  ULONG_PTR arguments[] = {
+    reinterpret_cast<ULONG_PTR>(context)
+  };
+
   ::DebugBreak();
-  ::RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, NULL);
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED,
+                   0,
+                   ARRAYSIZE(arguments),
+                   &arguments[0]);
 }
 
 // Try to update the value of a size_t variable from a command-line.
@@ -151,8 +207,17 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Propagates the flags values to the different modules.
   PropagateFlagsValues();
 
-  // Use the default callback.
-  SetErrorCallBack(&OnAsanError);
+  // Register the error reporting callback to use if/when an ASAN error is
+  // detected. If we're able to resolve a breakpad error reporting function
+  // then use that; otherwise, fall back to the default error handler.
+  WinProcExceptionFilter func_ptr = GetBreakpadReportingFunc();
+  if (func_ptr != NULL) {
+    LOG(INFO) << "SyzyASAN: Using Breakpad for error reporting.";
+    SetErrorCallBack(base::Bind(&BreakpadErrorHandler, func_ptr));
+  } else {
+    LOG(INFO) << "SyzyASAN: Using default error reporting handler.";
+    SetErrorCallBack(base::Bind(&DefaultErrorHandler));
+  }
 }
 
 void AsanRuntime::TearDown() {
@@ -176,8 +241,8 @@ void AsanRuntime::OnError(CONTEXT* context) {
   asan_error_callback_.Run(context);
 }
 
-void AsanRuntime::SetErrorCallBack(void (*callback)(CONTEXT*)) {
-  asan_error_callback_ = base::Bind(callback);
+void AsanRuntime::SetErrorCallBack(const AsanOnErrorCallBack& callback) {
+  asan_error_callback_ = callback;
 }
 
 void AsanRuntime::SetUpLogger() {
