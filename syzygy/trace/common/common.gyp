@@ -25,5 +25,28 @@
         'unittest_util.h',
       ],
     },
+    {
+      'target_name': 'trace_common_lib',
+      'type': 'static_library',
+      'sources': [
+        'clock.cc',
+        'clock.h',
+      ],
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+      ],
+    },
+    {
+      'target_name': 'trace_common_unittests',
+      'type': 'executable',
+      'sources': [
+        'clock_unittest.cc',
+        'common_unittests_main.cc',
+      ],
+      'dependencies': [
+        'trace_common_lib',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
   ],
 }
